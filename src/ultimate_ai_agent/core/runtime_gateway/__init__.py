@@ -390,6 +390,9 @@ from ultimate_ai_agent.core.runtime_gateway.lsp_diagnostics import (
     build_runtime_lsp_diagnostics_read_model,
 )
 from ultimate_ai_agent.core.runtime_gateway.preview_rail import (
+    RUNTIME_PREVIEW_RAIL_AUTHORITY_MAPPING_REF,
+    RUNTIME_PREVIEW_RAIL_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_PREVIEW_RAIL_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_PREVIEW_RAIL_BLOCKED_AUTHORITY_REFS,
     RUNTIME_PREVIEW_RAIL_CLI_REF,
     RUNTIME_PREVIEW_RAIL_CONTRACT_REF,

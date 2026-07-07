@@ -16136,6 +16136,22 @@ export const mockControlCenterData: ControlCenterData = {
     route_ref: "GET /api/runtime/preview-rail",
     cli_ref: "uaa runtime inspect-preview-rail",
     control_center_ref: "control-center-route:runtime",
+    authority_state_route_ref: "GET /api/runtime/authority-state",
+    authority_state_cli_ref:
+      "repo-local-command:uaa-runtime-inspect-authority-state",
+    authority_state_mapping_ref:
+      "lane-ref:runtime-preview-rail-safe-ref-read-model",
+    authority_state_catalog_ref:
+      "authority-decision-catalog-ref:runtime-preview-rail-safe-ref-read-model",
+    authority_state_decision_ref:
+      "authority-policy-decision-ref:mock-runtime-preview-rail-safe-ref",
+    authority_state_decision_outcome: "allow",
+    authority_state_status: "implemented_authority_bound_read_model",
+    authority_state_operator_message: "Allowed by active authority lease.",
+    authority_state_reason_refs: [
+      "reason-ref:authority:active-lease-grants-domain-capability",
+    ],
+    unsupported_adapter_refs: [],
     safe_summary:
       "Runtime preview rail mock fallback shows safe refs and bounded preview plans only; browser automation, raw files, screenshot capture, and direct runtime payload rendering stay blocked.",
     slots: runtimePreviewRailSlots,

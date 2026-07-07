@@ -8036,6 +8036,14 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getAllByText("uaa runtime inspect-preview-rail").length,
     ).toBeGreaterThan(0);
+    expect(
+      screen.getByText("lane-ref:runtime-preview-rail-safe-ref-read-model"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "authority-policy-decision-ref:mock-runtime-preview-rail-safe-ref",
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText("Safe file ref preview")).toBeInTheDocument();
     expect(
       screen.getByText("Delegated runtime event preview"),

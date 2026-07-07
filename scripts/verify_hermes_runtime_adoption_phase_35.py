@@ -12,6 +12,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from ultimate_ai_agent.api.app import app  # noqa: E402
 from ultimate_ai_agent.api.manifest import build_api_manifest  # noqa: E402
 from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
+    RUNTIME_PREVIEW_RAIL_AUTHORITY_MAPPING_REF,
     RUNTIME_PREVIEW_RAIL_BLOCKED_AUTHORITY_REFS,
     build_runtime_preview_rail_read_model,
 )
@@ -33,6 +34,21 @@ def main() -> int:
         failures.append("preview rail route ref is stale")
     if read_model.cli_ref != "uaa runtime inspect-preview-rail":
         failures.append("preview rail CLI ref is stale")
+    if (
+        read_model.authority_state_mapping_ref
+        != RUNTIME_PREVIEW_RAIL_AUTHORITY_MAPPING_REF
+    ):
+        failures.append("preview rail authority mapping ref is stale")
+    if read_model.authority_state_decision_outcome != "allow":
+        failures.append("preview rail safe-ref read model should be allowed")
+    if read_model.authority_state_status != "implemented_authority_bound_read_model":
+        failures.append("preview rail authority status is not implemented read model")
+    if "reason-ref:authority:active-lease-grants-domain-capability" not in (
+        read_model.authority_state_reason_refs
+    ):
+        failures.append("preview rail authority decision lacks active-lease reason")
+    if read_model.unsupported_adapter_refs:
+        failures.append("preview rail safe-ref read model should not list adapters")
     if read_model.status != "safe_ref_preview_rail_posture":
         failures.append("preview rail posture is not safe-ref only")
     if read_model.slot_count != 6:
@@ -122,7 +138,9 @@ def main() -> int:
             "Full-Strength",
             "Repo-Safe",
             "Blocked / Needs Authority",
-            "Exact Promotion Path",
+            "AuthorityState",
+            "Exact Authority Path",
+            RUNTIME_PREVIEW_RAIL_AUTHORITY_MAPPING_REF,
             ROUTE,
             "inspect-preview-rail",
         ]:
@@ -160,6 +178,13 @@ def main() -> int:
             failures.append("preview rail CLI claims provider call")
         if read_model_payload["route_ref"] != f"GET {ROUTE}":
             failures.append("preview rail CLI returned stale route ref")
+        if (
+            read_model_payload["authority_state_mapping_ref"]
+            != RUNTIME_PREVIEW_RAIL_AUTHORITY_MAPPING_REF
+        ):
+            failures.append("preview rail CLI returned stale authority mapping")
+        if read_model_payload["authority_state_decision_outcome"] != "allow":
+            failures.append("preview rail CLI should show allowed safe-ref read model")
 
     if failures:
         for failure in failures:

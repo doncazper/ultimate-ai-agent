@@ -383,6 +383,20 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         decision_by_lane["lane-ref:staged-orchestration-read-model"].decision.outcome
         == "allow"
     )
+    preview_rail = mappings_by_lane[
+        "lane-ref:runtime-preview-rail-safe-ref-read-model"
+    ]
+    assert preview_rail.domain == "workspace"
+    assert preview_rail.capability == "read"
+    assert preview_rail.required_mode == "read_only"
+    assert preview_rail.status == "implemented_authority_bound_read_model"
+    assert "GET /api/runtime/preview-rail" in preview_rail.route_refs
+    assert (
+        decision_by_lane[
+            "lane-ref:runtime-preview-rail-safe-ref-read-model"
+        ].decision.outcome
+        == "allow"
+    )
     staged_runtime_command = mappings_by_lane[
         "lane-ref:staged-orchestration-approved-runtime-command"
     ]

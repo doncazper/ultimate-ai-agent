@@ -19,9 +19,14 @@ The current implementation is read/safe-ref only:
 - Python Agent Core owns `RuntimePreviewRailReadModel`.
 - API route: `GET /api/runtime/preview-rail`.
 - CLI inspection: `scripts/dev/uaa_runtime.py inspect-preview-rail`.
+- AuthorityState binding:
+  `lane-ref:runtime-preview-rail-safe-ref-read-model` evaluates as Read-only
+  `workspace/read` authority through `GET /api/runtime/authority-state` and
+  `repo-local-command:uaa-runtime-inspect-authority-state`.
 - Control Center renders preview slot refs, source classification refs,
   bounded preview refs, redaction policy refs, attach-plan refs, receipt-plan
-  refs, proof refs, promotion requirements, and blocked authority refs.
+  refs, proof refs, authority decision refs, blocked reason refs, promotion
+  requirements, and blocked authority refs.
 - Mock fallback is visibly non-authoritative and keeps browser automation, raw
   sensitive file display, direct runtime payload rendering, screenshot capture,
   file reads/writes, shell execution, provider calls, raw paths, raw file
@@ -45,10 +50,12 @@ These remain blocked:
 - raw file content persistence
 - raw runtime payload persistence
 
-## Exact Promotion Path
+## Exact Authority Path
 
-Promotion requires all of the following before any real preview rail lane can
-render live data:
+Safe-ref preview rail inspection is implemented as an authority-bound read
+model. Rendering live data or raw/screenshot/browser previews still requires
+all of the following before any real preview lane can run under an active
+AuthorityLease:
 
 - source classification
 - redaction contract
@@ -62,6 +69,12 @@ render live data:
 - focused tests and verifier coverage
 - route side-effect classification
 - visual tests for desktop and mobile presentation
+
+Unknown authority remains denied. The current allowed AuthorityState decision
+applies only to safe refs, bounded preview plans, receipt-plan refs, and proof
+refs. It does not allow file reads, raw file display, browser automation,
+screenshot capture, shell execution, provider calls, direct runtime payload
+rendering, or raw path/content persistence.
 
 ## Verification
 

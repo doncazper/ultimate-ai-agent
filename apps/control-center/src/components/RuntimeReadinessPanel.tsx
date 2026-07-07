@@ -1464,6 +1464,26 @@ export function RuntimeReadinessPanel({
             <dd>{previewRail.cli_ref}</dd>
           </div>
           <div>
+            <dt>AuthorityState</dt>
+            <dd>{previewRail.authority_state_route_ref}</dd>
+          </div>
+          <div>
+            <dt>Capability</dt>
+            <dd>{previewRail.authority_state_mapping_ref}</dd>
+          </div>
+          <div>
+            <dt>Decision</dt>
+            <dd>
+              <span>{previewRail.authority_state_decision_outcome}</span>
+              <br />
+              <span>{previewRail.authority_state_decision_ref}</span>
+            </dd>
+          </div>
+          <div>
+            <dt>Reason</dt>
+            <dd>{previewRail.authority_state_reason_refs[0] ?? "none"}</dd>
+          </div>
+          <div>
             <dt>Slots</dt>
             <dd>{previewRail.slot_count}</dd>
           </div>

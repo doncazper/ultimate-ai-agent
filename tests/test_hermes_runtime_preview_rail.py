@@ -7,6 +7,9 @@ from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.runtime_gateway import (
+    RUNTIME_PREVIEW_RAIL_AUTHORITY_MAPPING_REF,
+    RUNTIME_PREVIEW_RAIL_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_PREVIEW_RAIL_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_PREVIEW_RAIL_BLOCKED_AUTHORITY_REFS,
     RUNTIME_PREVIEW_RAIL_CONTRACT_REF,
     RuntimePreviewRailReadModel,
@@ -26,6 +29,30 @@ def test_preview_rail_is_safe_ref_read_model() -> None:
     assert read_model.status == "safe_ref_preview_rail_posture"
     assert read_model.route_ref == "GET /api/runtime/preview-rail"
     assert read_model.cli_ref == "uaa runtime inspect-preview-rail"
+    assert (
+        read_model.authority_state_route_ref
+        == RUNTIME_PREVIEW_RAIL_AUTHORITY_STATE_ROUTE_REF
+    )
+    assert (
+        read_model.authority_state_cli_ref
+        == RUNTIME_PREVIEW_RAIL_AUTHORITY_STATE_CLI_REF
+    )
+    assert (
+        read_model.authority_state_mapping_ref
+        == RUNTIME_PREVIEW_RAIL_AUTHORITY_MAPPING_REF
+    )
+    assert read_model.authority_state_catalog_ref.startswith(
+        "authority-decision-catalog-ref:"
+    )
+    assert read_model.authority_state_decision_ref.startswith(
+        "authority-policy-decision-ref:"
+    )
+    assert read_model.authority_state_decision_outcome == "allow"
+    assert read_model.authority_state_status == "implemented_authority_bound_read_model"
+    assert "reason-ref:authority:active-lease-grants-domain-capability" in (
+        read_model.authority_state_reason_refs
+    )
+    assert read_model.unsupported_adapter_refs == []
     assert read_model.slot_count == 6
     assert read_model.safe_ref_ready_count == 2
     assert read_model.bounded_preview_placeholder_count == 3
@@ -155,6 +182,15 @@ def test_preview_rail_api_returns_safe_read_model() -> None:
     assert body["operation"] == "api_runtime_preview_rail"
     data = body["data"]
     assert data["route_ref"] == "GET /api/runtime/preview-rail"
+    assert (
+        data["authority_state_mapping_ref"]
+        == RUNTIME_PREVIEW_RAIL_AUTHORITY_MAPPING_REF
+    )
+    assert data["authority_state_decision_outcome"] == "allow"
+    assert data["authority_state_status"] == "implemented_authority_bound_read_model"
+    assert "reason-ref:authority:active-lease-grants-domain-capability" in (
+        data["authority_state_reason_refs"]
+    )
     assert data["slot_count"] == 6
     assert data["browser_automation_enabled"] is False
     assert data["raw_sensitive_file_display_enabled"] is False
@@ -195,4 +231,13 @@ def test_preview_rail_cli_uses_same_read_model() -> None:
     assert payload["provider_call_performed"] is False
     assert read_model["route_ref"] == "GET /api/runtime/preview-rail"
     assert read_model["cli_ref"] == "uaa runtime inspect-preview-rail"
+    assert (
+        read_model["authority_state_mapping_ref"]
+        == RUNTIME_PREVIEW_RAIL_AUTHORITY_MAPPING_REF
+    )
+    assert read_model["authority_state_decision_outcome"] == "allow"
+    assert (
+        read_model["authority_state_status"]
+        == "implemented_authority_bound_read_model"
+    )
     assert read_model["slot_count"] == 6

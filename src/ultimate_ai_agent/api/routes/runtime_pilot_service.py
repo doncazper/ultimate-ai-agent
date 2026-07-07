@@ -557,7 +557,10 @@ def get_api_runtime_lsp_diagnostics() -> ResultEnvelope:
 
 @router.get("/preview-rail", response_model=ResultEnvelope)
 def get_api_runtime_preview_rail() -> ResultEnvelope:
-    read_model = build_runtime_preview_rail_read_model()
+    authority_state = _authority_store().build_state_read_model()
+    read_model = build_runtime_preview_rail_read_model(
+        authority_decision_catalog=authority_state.decision_catalog,
+    )
     return ResultEnvelope(
         success=True,
         operation="api_runtime_preview_rail",

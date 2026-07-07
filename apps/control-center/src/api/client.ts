@@ -5777,6 +5777,23 @@ function isSafeRuntimePreviewRail(
     value.status === "safe_ref_preview_rail_posture" &&
     value.route_ref === "GET /api/runtime/preview-rail" &&
     value.cli_ref === "uaa runtime inspect-preview-rail" &&
+    value.authority_state_route_ref === "GET /api/runtime/authority-state" &&
+    value.authority_state_cli_ref ===
+      "repo-local-command:uaa-runtime-inspect-authority-state" &&
+    value.authority_state_mapping_ref ===
+      "lane-ref:runtime-preview-rail-safe-ref-read-model" &&
+    isSafeTrustAuthorityRef(value.authority_state_catalog_ref) &&
+    isSafeTrustAuthorityRef(value.authority_state_decision_ref) &&
+    hasExactStringValue(
+      value.authority_state_decision_outcome,
+      TRUST_AUTHORITY_DECISION_OUTCOMES,
+    ) &&
+    typeof value.authority_state_status === "string" &&
+    typeof value.authority_state_operator_message === "string" &&
+    Array.isArray(value.authority_state_reason_refs) &&
+    value.authority_state_reason_refs.every(isSafeTrustAuthorityRef) &&
+    Array.isArray(value.unsupported_adapter_refs) &&
+    value.unsupported_adapter_refs.every(isSafeTrustAuthorityRef) &&
     value.slot_count === value.slots.length &&
     value.safe_ref_ready_count ===
       value.slots.filter((slot) => slot.slot_status === "safe_ref_ready").length &&

@@ -2982,6 +2982,24 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ),
         ),
         _mapping(
+            "lane-ref:runtime-preview-rail-safe-ref-read-model",
+            "Runtime preview rail safe-ref read model",
+            AuthorityDomain.workspace,
+            AuthorityCapability.read,
+            TrustMode.read_only,
+            "implemented_authority_bound_read_model",
+            ["GET /api/runtime/preview-rail"],
+            ["repo-local-command:uaa-runtime-inspect-preview-rail"],
+            (
+                "Preview rail inspection reads safe refs, source "
+                "classifications, bounded preview plans, receipt-plan refs, "
+                "and proof refs under Workspace read authority. It does not "
+                "read raw files, render raw runtime payloads, capture "
+                "screenshots, automate browsers, run shell commands, call "
+                "providers, or persist raw paths/content."
+            ),
+        ),
+        _mapping(
             "lane-ref:staged-orchestration-approved-runtime-command",
             "Staged orchestration approved runtime command step",
             AuthorityDomain.workspace,
