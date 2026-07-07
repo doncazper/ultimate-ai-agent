@@ -20,6 +20,9 @@ from ultimate_ai_agent.core.authority import (
     AuthorityLeaseStore,
     AuthorityMissionPlanRequest,
 )
+from ultimate_ai_agent.core.authority.approval_validation import (
+    validate_authority_lease_approval,
+)
 from ultimate_ai_agent.core.decision_router import prepare_turn
 from ultimate_ai_agent.core.control_center.runtime_parity_loop import (
     build_runtime_parity_loop_read_model,
@@ -770,6 +773,7 @@ def post_api_runtime_authority_lease(
         lease, receipt = _authority_store().issue_lease(
             request,
             idempotency_ref=idempotency_ref,
+            approval_validator=validate_authority_lease_approval,
         )
     except AuthorityLeaseConflictError:
         return ResultEnvelope(

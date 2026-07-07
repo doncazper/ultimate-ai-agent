@@ -11864,6 +11864,13 @@ export interface AuthorityLeaseReceipt {
   kill_switch_ref: string;
   receipt_sink_ref: string;
   safe_summary: string;
+  approval_required: boolean;
+  approval_validated: boolean;
+  approval_ref: string | null;
+  approval_scope_ref: string | null;
+  approval_request_ref: string | null;
+  approval_status: string;
+  approval_reason_codes: string[];
   execution_performed: boolean;
   redactions_applied: string[];
 }
@@ -11877,6 +11884,8 @@ export interface AuthorityLeaseIssueRequest {
   decision_reason_ref: string;
   duration_minutes?: number;
   safe_summary: string;
+  approval_ref?: string | null;
+  approval_grants?: Record<string, unknown>[];
 }
 
 export interface AuthorityLeaseRevokeRequest {

@@ -31,6 +31,9 @@ from ultimate_ai_agent.core.authority import (  # noqa: E402
     AuthorityLeaseStore,
     TrustMode,
 )
+from ultimate_ai_agent.core.authority.approval_validation import (  # noqa: E402
+    issue_authority_lease_with_test_approval,
+)
 from ultimate_ai_agent.core.storage import FounderLoopRepository  # noqa: E402
 
 
@@ -462,7 +465,8 @@ def _append_behavior_failures(
         os.environ[AUTHORITY_STATE_DIR_ENV] = str(authority_state_dir)
         os.environ[LOCAL_API_BEARER_ENV] = bearer
         try:
-            AuthorityLeaseStore(authority_state_dir).issue_lease(
+            issue_authority_lease_with_test_approval(
+                AuthorityLeaseStore(authority_state_dir),
                 AuthorityLeaseIssueRequest(
                     mode=TrustMode.ask_before_changes,
                     requested_domains={
@@ -478,6 +482,7 @@ def _append_behavior_failures(
                     ),
                 ),
                 idempotency_ref="idempotency-ref:governed-memory-spine-authority",
+                approval_ref="approval-ref:verifier:governed-memory-spine-authority",
             )
             repo = FounderLoopRepository.from_env()
             candidate_ref = _candidate_ref(context, auth_headers)

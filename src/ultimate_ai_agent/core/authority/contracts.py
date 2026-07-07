@@ -6,6 +6,7 @@ import os
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
+from collections.abc import Callable
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -648,6 +649,8 @@ class AuthorityLeaseIssueRequest(_AuthorityModel):
     decision_reason_ref: str = Field(..., min_length=1)
     duration_minutes: int = Field(default=60, ge=5, le=480)
     safe_summary: str = Field(..., min_length=1, max_length=520)
+    approval_ref: str | None = None
+    approval_grants: list[dict[str, Any]] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def validate_issue_request(self) -> "AuthorityLeaseIssueRequest":
@@ -655,11 +658,13 @@ class AuthorityLeaseIssueRequest(_AuthorityModel):
             (self.mission_ref, "authority_lease_mission_ref"),
             (self.operator_ref, "authority_lease_operator_ref"),
             (self.decision_reason_ref, "authority_lease_decision_reason_ref"),
+            (self.approval_ref, "authority_lease_approval_ref"),
         ]:
             if value is not None:
                 validate_task_ref(value, field_name)
         validate_safe_task_text(self.safe_summary, "authority_lease_issue_summary")
         validate_safe_task_payload(self.constraints, "authority_lease_issue_constraints")
+        validate_safe_task_payload(self.approval_grants, "authority_lease_approval_grants")
         if self.scope == AuthorityLeaseScope.mission.value and not self.mission_ref:
             raise ValueError("AUTHORITY_LEASE_MISSION_REF_REQUIRED")
         if (
@@ -675,6 +680,45 @@ class AuthorityLeaseIssueRequest(_AuthorityModel):
                     "authority_issue_capability",
                 )
         return self
+
+
+class AuthorityLeaseApprovalRequirement(_AuthorityModel):
+    schema_version: Literal["uaa-authority-lease-approval-requirement.v1"] = (
+        "uaa-authority-lease-approval-requirement.v1"
+    )
+    approval_required: bool
+    approval_scope_ref: str = Field(..., min_length=1)
+    approval_request_ref: str = Field(..., min_length=1)
+    run_ref: str = Field(..., min_length=1)
+    subject_ref: str = Field(..., min_length=1)
+    requested_action: Literal["issue_authority_lease"] = "issue_authority_lease"
+    resource_refs: list[str] = Field(default_factory=list)
+    operator_ref: str = Field(..., min_length=1)
+    risk_level: Literal["safe", "high"] = "high"
+    data_classification: Literal["system_internal"] = "system_internal"
+    purpose: str = Field(..., min_length=1, max_length=260)
+    safe_summary: str = Field(..., min_length=1, max_length=520)
+
+    @model_validator(mode="after")
+    def validate_requirement(self) -> "AuthorityLeaseApprovalRequirement":
+        for value, field_name in [
+            (self.approval_scope_ref, "authority_lease_approval_scope_ref"),
+            (self.approval_request_ref, "authority_lease_approval_request_ref"),
+            (self.run_ref, "authority_lease_approval_run_ref"),
+            (self.subject_ref, "authority_lease_approval_subject_ref"),
+            (self.operator_ref, "authority_lease_approval_operator_ref"),
+        ]:
+            validate_task_ref(value, field_name)
+        _validate_ref_list(self.resource_refs, "authority_lease_approval_resource_ref")
+        validate_safe_task_text(self.purpose, "authority_lease_approval_purpose")
+        validate_safe_task_text(self.safe_summary, "authority_lease_approval_summary")
+        return self
+
+
+AuthorityLeaseApprovalValidator = Callable[
+    [AuthorityLeaseIssueRequest, AuthorityLeaseApprovalRequirement],
+    Any,
+]
 
 
 class AuthorityLeaseRevokeRequest(_AuthorityModel):
@@ -719,6 +763,13 @@ class AuthorityLeaseReceipt(_AuthorityModel):
     kill_switch_ref: str
     receipt_sink_ref: str
     safe_summary: str = Field(..., min_length=1, max_length=520)
+    approval_required: bool = False
+    approval_validated: bool = False
+    approval_ref: str | None = None
+    approval_scope_ref: str | None = None
+    approval_request_ref: str | None = None
+    approval_status: str = "not_required"
+    approval_reason_codes: list[str] = Field(default_factory=list)
     execution_performed: bool = False
     raw_paths_included: bool = False
     raw_prompt_included: bool = False
@@ -741,14 +792,21 @@ class AuthorityLeaseReceipt(_AuthorityModel):
             (self.safe_disable_ref, "authority_lease_receipt_safe_disable_ref"),
             (self.kill_switch_ref, "authority_lease_receipt_kill_switch_ref"),
             (self.receipt_sink_ref, "authority_lease_receipt_sink_ref"),
+            (self.approval_ref, "authority_lease_receipt_approval_ref"),
+            (self.approval_scope_ref, "authority_lease_receipt_approval_scope_ref"),
+            (self.approval_request_ref, "authority_lease_receipt_approval_request_ref"),
         ]:
-            validate_task_ref(value, field_name)
+            if value is not None:
+                validate_task_ref(value, field_name)
         for refs, field_name in [
             (self.denied_domain_refs, "authority_lease_denied_domain_ref"),
             (self.unsupported_adapter_refs, "authority_lease_unsupported_adapter_ref"),
         ]:
             _validate_ref_list(refs, field_name)
         validate_safe_task_text(self.safe_summary, "authority_lease_receipt_summary")
+        validate_safe_task_text(self.approval_status, "authority_lease_approval_status")
+        for reason_code in self.approval_reason_codes:
+            validate_safe_task_text(reason_code, "authority_lease_approval_reason_code")
         for redaction in self.redactions_applied:
             validate_safe_task_text(redaction, "authority_lease_receipt_redaction")
         if (
@@ -1394,6 +1452,148 @@ def _filter_requested_domains(
     return granted, list(dict.fromkeys(denied_refs)), list(dict.fromkeys(unsupported_refs))
 
 
+def _authority_lease_requires_approval(
+    request: AuthorityLeaseIssueRequest,
+    granted_domains: dict[AuthorityDomain, list[AuthorityCapability]],
+) -> bool:
+    mode = TrustMode(request.mode)
+    if mode != TrustMode.read_only:
+        return True
+    for capabilities in granted_domains.values():
+        if any(
+            AuthorityCapability(capability) not in READ_PREPARE_CAPABILITIES
+            for capability in capabilities
+        ):
+            return True
+    return False
+
+
+def _authority_lease_approval_resource_refs(
+    request: AuthorityLeaseIssueRequest,
+    granted_domains: dict[AuthorityDomain, list[AuthorityCapability]],
+    *,
+    idempotency_ref: str,
+) -> list[str]:
+    resource_refs = [
+        idempotency_ref,
+        request.decision_reason_ref,
+        f"authority-mode-ref:{_enum_value(request.mode)}",
+        f"authority-scope-ref:{_enum_value(request.scope)}",
+    ]
+    if request.mission_ref:
+        resource_refs.append(request.mission_ref)
+    for domain, capabilities in sorted(
+        granted_domains.items(),
+        key=lambda item: _enum_value(item[0]),
+    ):
+        domain_value = _enum_value(domain)
+        resource_refs.append(f"authority-domain-ref:{domain_value}")
+        for capability in sorted(capabilities, key=_enum_value):
+            resource_refs.append(
+                f"authority-capability-ref:{domain_value}:{_enum_value(capability)}"
+            )
+    return list(dict.fromkeys(resource_refs))
+
+
+def build_authority_lease_approval_requirement(
+    request: AuthorityLeaseIssueRequest,
+    granted_domains: dict[AuthorityDomain, list[AuthorityCapability]],
+    *,
+    idempotency_ref: str,
+) -> AuthorityLeaseApprovalRequirement:
+    validate_task_ref(idempotency_ref, "authority_lease_approval_idempotency_ref")
+    resource_refs = _authority_lease_approval_resource_refs(
+        request,
+        granted_domains,
+        idempotency_ref=idempotency_ref,
+    )
+    approval_required = _authority_lease_requires_approval(request, granted_domains)
+    scope_payload = {
+        "idempotency_ref": idempotency_ref,
+        "mode": request.mode,
+        "scope": request.scope,
+        "mission_ref": request.mission_ref,
+        "operator_ref": request.operator_ref,
+        "resources": resource_refs,
+    }
+    approval_scope_ref = _stable_ref("approval-scope-ref:authority-lease", scope_payload)
+    approval_request_ref = _stable_ref(
+        "approval-request-ref:authority-lease",
+        {"approval_scope_ref": approval_scope_ref, "operation": "issue"},
+    )
+    subject_ref = _stable_ref(
+        "authority-lease-issue-ref",
+        {"approval_scope_ref": approval_scope_ref},
+    )
+    return AuthorityLeaseApprovalRequirement(
+        approval_required=approval_required,
+        approval_scope_ref=approval_scope_ref,
+        approval_request_ref=approval_request_ref,
+        run_ref=_stable_ref(
+            "run-ref:authority-lease",
+            {"approval_scope_ref": approval_scope_ref},
+        ),
+        subject_ref=subject_ref,
+        resource_refs=resource_refs,
+        operator_ref=request.operator_ref,
+        risk_level="high" if approval_required else "safe",
+        purpose=(
+            "Validate exact operator approval before issuing an AuthorityLease "
+            "for the filtered mode, domain, and capability scope."
+        ),
+        safe_summary=(
+            "AuthorityLease approval requirement for the filtered granted "
+            "mode/domain/capability scope."
+        ),
+    )
+
+
+def build_authority_lease_approval_requirement_for_request(
+    request: AuthorityLeaseIssueRequest,
+    *,
+    idempotency_ref: str,
+) -> AuthorityLeaseApprovalRequirement:
+    granted, _, _ = _filter_requested_domains(request)
+    return build_authority_lease_approval_requirement(
+        request,
+        granted,
+        idempotency_ref=idempotency_ref,
+    )
+
+
+def _approval_decision_status(decision: Any | None) -> str:
+    status = getattr(decision, "status", None)
+    return str(getattr(status, "value", status or "missing"))
+
+
+def _approval_decision_reason_codes(decision: Any | None) -> list[str]:
+    reason_codes = getattr(decision, "reason_codes", None)
+    if not reason_codes:
+        return []
+    return [str(code) for code in reason_codes]
+
+
+def _approval_decision_ref(
+    decision: Any | None,
+    request: AuthorityLeaseIssueRequest,
+) -> str | None:
+    ref = getattr(decision, "approval_ref", None) or request.approval_ref
+    return str(ref) if ref else None
+
+
+def _approval_decision_validated(
+    decision: Any | None,
+    requirement: AuthorityLeaseApprovalRequirement,
+) -> bool:
+    if not requirement.approval_required:
+        return True
+    return (
+        bool(getattr(decision, "allowed", False))
+        and _approval_decision_status(decision) == "approved"
+        and bool(getattr(decision, "matched_grant_ref", None))
+    )
+
+
 def _mission_requested_domains(
     request: AuthorityMissionPlanRequest,
 ) -> dict[AuthorityDomain, list[AuthorityCapability]]:
@@ -1622,6 +1822,7 @@ class AuthorityLeaseStore:
         request: AuthorityLeaseIssueRequest,
         *,
         idempotency_ref: str,
+        approval_validator: AuthorityLeaseApprovalValidator | None = None,
     ) -> tuple[AuthorityLease | None, AuthorityLeaseReceipt]:
         validate_task_ref(idempotency_ref, "authority_lease_idempotency_ref")
         existing = self._receipt_for_idempotency(idempotency_ref)
@@ -1631,6 +1832,11 @@ class AuthorityLeaseStore:
             lease = self._lease_by_ref(existing.lease_ref)
             return lease, existing.model_copy(update={"status": "replayed"})
         granted, denied_refs, unsupported_refs = _filter_requested_domains(request)
+        approval_requirement = build_authority_lease_approval_requirement(
+            request,
+            granted,
+            idempotency_ref=idempotency_ref,
+        )
         lease_ref = _stable_ref(
             "authority-lease-ref",
             {
@@ -1654,9 +1860,43 @@ class AuthorityLeaseStore:
                 granted_domains={},
                 denied_domain_refs=denied_refs or ["authority-domain-ref:none-granted"],
                 unsupported_adapter_refs=unsupported_refs,
+                approval_requirement=approval_requirement,
+                approval_decision=None,
                 safe_summary=(
                     "Authority lease request denied because no requested domain "
                     "capability is implemented for this trust mode."
+                ),
+            )
+            self._append_receipt(receipt)
+            return None, receipt
+        approval_decision = (
+            approval_validator(request, approval_requirement)
+            if approval_requirement.approval_required and approval_validator is not None
+            else None
+        )
+        if not _approval_decision_validated(approval_decision, approval_requirement):
+            reason_codes = _approval_decision_reason_codes(approval_decision)
+            if not reason_codes:
+                reason_codes = (
+                    ["APPROVAL_REF_MISSING"]
+                    if request.approval_ref is None
+                    else ["APPROVAL_VALIDATION_REQUIRED"]
+                )
+            receipt = self._receipt(
+                operation="issue",
+                status="denied",
+                lease_ref=lease_ref,
+                idempotency_ref=idempotency_ref,
+                request=request,
+                granted_domains={},
+                denied_domain_refs=denied_refs,
+                unsupported_adapter_refs=unsupported_refs,
+                approval_requirement=approval_requirement,
+                approval_decision=approval_decision,
+                approval_reason_codes=reason_codes,
+                safe_summary=(
+                    "Authority lease request denied because exact "
+                    "LocalApprovalAuthority validation is missing or invalid."
                 ),
             )
             self._append_receipt(receipt)
@@ -1673,6 +1913,12 @@ class AuthorityLeaseStore:
                 **request.constraints,
                 "decision_reason_ref": request.decision_reason_ref,
                 "idempotency_ref": idempotency_ref,
+                "approval_required": approval_requirement.approval_required,
+                "approval_validated": True,
+                "approval_ref": _approval_decision_ref(approval_decision, request),
+                "approval_scope_ref": approval_requirement.approval_scope_ref,
+                "approval_request_ref": approval_requirement.approval_request_ref,
+                "approval_status": _approval_decision_status(approval_decision),
                 "unsupported_adapters_execute": False,
             },
             unsupported_adapter_refs=unsupported_refs,
@@ -1697,6 +1943,8 @@ class AuthorityLeaseStore:
             granted_domains=granted,
             denied_domain_refs=denied_refs,
             unsupported_adapter_refs=unsupported_refs,
+            approval_requirement=approval_requirement,
+            approval_decision=approval_decision,
             safe_summary="Authority lease issued with safe refs, receipts, and kill-switch posture.",
         )
         self._append_receipt(receipt)
@@ -1801,7 +2049,24 @@ class AuthorityLeaseStore:
         denied_domain_refs: list[str],
         unsupported_adapter_refs: list[str],
         safe_summary: str,
+        approval_requirement: AuthorityLeaseApprovalRequirement | None = None,
+        approval_decision: Any | None = None,
+        approval_reason_codes: list[str] | None = None,
     ) -> AuthorityLeaseReceipt:
+        approval_required = bool(
+            approval_requirement and approval_requirement.approval_required
+        )
+        approval_validated = False
+        if approval_required and approval_requirement is not None:
+            approval_validated = _approval_decision_validated(
+                approval_decision,
+                approval_requirement,
+            )
+        reason_codes = (
+            approval_reason_codes
+            if approval_reason_codes is not None
+            else _approval_decision_reason_codes(approval_decision)
+        )
         return AuthorityLeaseReceipt(
             operation=operation,
             status=status,
@@ -1819,6 +2084,25 @@ class AuthorityLeaseStore:
             granted_domains=granted_domains,
             denied_domain_refs=denied_domain_refs,
             unsupported_adapter_refs=unsupported_adapter_refs,
+            approval_required=approval_required,
+            approval_validated=approval_validated,
+            approval_ref=_approval_decision_ref(approval_decision, request),
+            approval_scope_ref=(
+                approval_requirement.approval_scope_ref
+                if approval_requirement is not None
+                else None
+            ),
+            approval_request_ref=(
+                approval_requirement.approval_request_ref
+                if approval_requirement is not None
+                else None
+            ),
+            approval_status=(
+                _approval_decision_status(approval_decision)
+                if approval_requirement and approval_requirement.approval_required
+                else "not_required"
+            ),
+            approval_reason_codes=reason_codes,
             audit_ref=_stable_ref(
                 "audit-ref:authority-lease",
                 {"operation": operation, "idempotency_ref": idempotency_ref},

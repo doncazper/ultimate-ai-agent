@@ -15,6 +15,9 @@ from ultimate_ai_agent.core.authority import (
     AuthorityLeaseStore,
     TrustMode,
 )
+from ultimate_ai_agent.core.authority.approval_validation import (
+    issue_authority_lease_with_test_approval,
+)
 from ultimate_ai_agent.core.providers import (
     DeterministicTinyProviderInvocationAdapter,
     SECOND_TINY_LIVE_PROVIDER_ADAPTER_REF,
@@ -677,7 +680,8 @@ def test_tiny_provider_route_uses_persisted_authority_lease_before_approval(
 ) -> None:
     authority_dir = tmp_path / "authority"
     monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(authority_dir))
-    lease, receipt = AuthorityLeaseStore(authority_dir).issue_lease(
+    lease, receipt = issue_authority_lease_with_test_approval(
+        AuthorityLeaseStore(authority_dir),
         AuthorityLeaseIssueRequest(
             mode=TrustMode.full_machine_access_session,
             requested_domains={
@@ -687,6 +691,7 @@ def test_tiny_provider_route_uses_persisted_authority_lease_before_approval(
             safe_summary="Select provider execution authority for this session.",
         ),
         idempotency_ref="idempotency-ref:test-provider-route-authority",
+        approval_ref="approval-ref:test-authority:provider-route",
     )
     assert lease is not None
     assert receipt.status == "issued"

@@ -42,6 +42,9 @@ from ultimate_ai_agent.core.authority import (  # noqa: E402
     AuthorityLeaseStore,
     TrustMode,
 )
+from ultimate_ai_agent.core.authority.approval_validation import (  # noqa: E402
+    issue_authority_lease_with_test_approval,
+)
 from ultimate_ai_agent.core.storage import (  # noqa: E402
     EVIDENCE_TIMELINE_PRODUCTIZED_EVENT_TYPES,
     FounderLoopRepository,
@@ -422,8 +425,8 @@ def _exercise_founder_loop(
         },
     )
     _append_receipt_from_response(failures, decision, receipts, "Memory Review")
-    local_task_action = _approve_local_task_for_proof()
     _issue_workspace_write_lease_for_proof()
+    local_task_action = _approve_local_task_for_proof()
     local_task = context.client.post(
         "/control-center/actions/local-task-create-scorecard/local-task/commit",
         json=FounderLoopLocalTaskCommitRequest(
@@ -505,7 +508,8 @@ _fake_web_evidence_transport.real_world_transport_performed = True
 
 
 def _issue_workspace_write_lease_for_proof() -> None:
-    AuthorityLeaseStore().issue_lease(
+    issue_authority_lease_with_test_approval(
+        AuthorityLeaseStore(),
         AuthorityLeaseIssueRequest(
             mode=TrustMode.ask_before_changes,
             requested_domains={
@@ -517,6 +521,7 @@ def _issue_workspace_write_lease_for_proof() -> None:
             ),
         ),
         idempotency_ref="idempotency-ref:fcc-v1-007-local-task-authority",
+        approval_ref="approval-ref:verifier:fcc-v1-007-local-task-authority",
     )
 
 

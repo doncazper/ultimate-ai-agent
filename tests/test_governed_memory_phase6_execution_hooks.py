@@ -22,6 +22,9 @@ from ultimate_ai_agent.core.authority import (
     AuthorityLeaseStore,
     TrustMode,
 )
+from ultimate_ai_agent.core.authority.approval_validation import (
+    issue_authority_lease_with_test_approval,
+)
 from ultimate_ai_agent.core.memory import (
     MEMORY_CONTEXT_PACK_ACTION_AUTHORITY_CAPABILITY_REF,
     MEMORY_CONTEXT_PACK_ACTION_AUTHORITY_DOMAIN_REF,
@@ -666,7 +669,8 @@ def test_phase6_1_api_route_requires_memory_draft_authority(
     monkeypatch.setenv("UAA_FOUNDER_LOOP_STATE_DIR", str(tmp_path / "founder_loop"))
     authority_state_dir = tmp_path / "authority"
     monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(authority_state_dir))
-    AuthorityLeaseStore(authority_state_dir).issue_lease(
+    issue_authority_lease_with_test_approval(
+        AuthorityLeaseStore(authority_state_dir),
         AuthorityLeaseIssueRequest(
             mode=TrustMode.ask_before_changes,
             requested_domains={
@@ -676,6 +680,7 @@ def test_phase6_1_api_route_requires_memory_draft_authority(
             safe_summary="Workspace-only lease should not grant Memory draft.",
         ),
         idempotency_ref="idempotency-ref:phase6-1-workspace-only",
+        approval_ref="approval-ref:test-authority:phase6-workspace-only",
     )
     repo = FounderLoopRepository.from_env(
         active_authority_leases=[_memory_write_draft_lease()]

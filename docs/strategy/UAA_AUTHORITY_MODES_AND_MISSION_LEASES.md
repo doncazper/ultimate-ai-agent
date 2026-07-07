@@ -46,6 +46,11 @@ AuthorityLease issue/revoke routes are the mapped `system_settings/write`
 control plane for selecting or reducing trust mode and only record idempotent
 receipts, audit refs, redaction, rollback/safe-disable refs, and kill-switch
 visibility;
+authority-increasing issue requests are denied unless the filtered
+mode/domain/capability scope validates against an exact LocalApprovalAuthority
+grant; missing or invalid approval refs produce denied receipts with the
+expected `approval_scope_ref`, approval status, reason codes, and no active
+lease;
 mode defaults are mode-specific, so Approved Safe Local Work defaults to
 Workspace read/write/execute only, while Full Machine and Delegated Mission
 defaults request unsupported machine/browser/payment domains and fail closed
@@ -65,6 +70,10 @@ or mutating anything; issue-ready implemented local mission plans can then issue
 the exact backend-generated mission-scoped lease request through the existing
 lease receipt route; preview results show required modes, domain and capability
 refs, receipt/audit refs, and unsupported-adapter reasons;
+Control Center `/settings` and `scripts/dev/uaa_runtime.py
+select-authority-mode` show approval-required, approval-validated,
+approval-status, approval-scope, denial reason, receipt, audit,
+rollback/safe-disable, and kill-switch refs for AuthorityLease issue attempts;
 unsupported browser/app/payment/calendar/messages/Home Assistant adapters remain
 denied or draft-degraded instead of being presented as live execution. Read-only
 command status may run under `workspace/read`; execution-capable command lanes

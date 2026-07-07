@@ -17,6 +17,9 @@ from ultimate_ai_agent.core.authority import (
     AuthorityLeaseStore,
     TrustMode,
 )
+from ultimate_ai_agent.core.authority.approval_validation import (
+    issue_authority_lease_with_test_approval,
+)
 from ultimate_ai_agent.core.hygiene.policies import (
     ClassificationValue,
     DataClassification,
@@ -522,7 +525,8 @@ def test_provider_credential_validation_route_uses_persisted_authority_lease(
 ) -> None:
     authority_dir = tmp_path / "authority"
     monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(authority_dir))
-    lease, receipt = AuthorityLeaseStore(authority_dir).issue_lease(
+    lease, receipt = issue_authority_lease_with_test_approval(
+        AuthorityLeaseStore(authority_dir),
         AuthorityLeaseIssueRequest(
             mode=TrustMode.full_machine_access_session,
             requested_domains={
@@ -532,6 +536,7 @@ def test_provider_credential_validation_route_uses_persisted_authority_lease(
             safe_summary="Select provider validation authority for this session.",
         ),
         idempotency_ref="idempotency-ref:test-provider-validation-route-authority",
+        approval_ref="approval-ref:test-authority:provider-validation-route",
     )
     assert lease is not None
     assert receipt.status == "issued"

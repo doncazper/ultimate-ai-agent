@@ -9,7 +9,42 @@ from ultimate_ai_agent.core.authority import (
     AuthorityLeaseIssueRequest,
     AuthorityLeaseStore,
     TrustMode,
+    build_authority_lease_approval_requirement_for_request,
 )
+from ultimate_ai_agent.core.authority.approval_validation import (
+    build_authority_lease_test_grant,
+    validate_authority_lease_approval,
+)
+
+
+def _issue_test_authority_lease(
+    state_dir: Path,
+    request: AuthorityLeaseIssueRequest,
+    *,
+    idempotency_ref: str,
+) -> None:
+    requirement = build_authority_lease_approval_requirement_for_request(
+        request,
+        idempotency_ref=idempotency_ref,
+    )
+    if requirement.approval_required:
+        grant = build_authority_lease_test_grant(
+            requirement,
+            approval_ref=f"approval-ref:test-authority-lease:{idempotency_ref.rsplit(':', 1)[-1]}",
+        )
+        request = request.model_copy(
+            update={
+                "approval_ref": grant.approval_ref,
+                "approval_grants": [grant.model_dump(mode="json")],
+            }
+        )
+    lease, receipt = AuthorityLeaseStore(state_dir).issue_lease(
+        request,
+        idempotency_ref=idempotency_ref,
+        approval_validator=validate_authority_lease_approval,
+    )
+    assert receipt.status == "issued"
+    assert lease is not None
 
 
 def memory_write_authority_lease() -> AuthorityLease:
@@ -22,7 +57,8 @@ def memory_write_authority_lease() -> AuthorityLease:
 
 
 def issue_memory_write_authority_lease(state_dir: Path) -> None:
-    AuthorityLeaseStore(state_dir).issue_lease(
+    _issue_test_authority_lease(
+        state_dir,
         AuthorityLeaseIssueRequest(
             mode=TrustMode.ask_before_changes,
             requested_domains={AuthorityDomain.memory: [AuthorityCapability.write]},
@@ -46,7 +82,8 @@ def contacts_write_authority_lease() -> AuthorityLease:
 
 
 def issue_contacts_write_authority_lease(state_dir: Path) -> None:
-    AuthorityLeaseStore(state_dir).issue_lease(
+    _issue_test_authority_lease(
+        state_dir,
         AuthorityLeaseIssueRequest(
             mode=TrustMode.ask_before_changes,
             requested_domains={AuthorityDomain.contacts: [AuthorityCapability.write]},
@@ -88,7 +125,8 @@ def files_read_prepare_authority_lease() -> AuthorityLease:
 
 
 def issue_files_read_prepare_authority_lease(state_dir: Path) -> None:
-    AuthorityLeaseStore(state_dir).issue_lease(
+    _issue_test_authority_lease(
+        state_dir,
         AuthorityLeaseIssueRequest(
             mode=TrustMode.read_only,
             requested_domains={
@@ -108,7 +146,8 @@ def issue_files_read_prepare_authority_lease(state_dir: Path) -> None:
 
 
 def issue_files_write_authority_lease(state_dir: Path) -> None:
-    AuthorityLeaseStore(state_dir).issue_lease(
+    _issue_test_authority_lease(
+        state_dir,
         AuthorityLeaseIssueRequest(
             mode=TrustMode.ask_before_changes,
             requested_domains={AuthorityDomain.files: [AuthorityCapability.write]},
@@ -135,7 +174,8 @@ def workspace_write_authority_lease() -> AuthorityLease:
 
 
 def issue_workspace_write_authority_lease(state_dir: Path) -> None:
-    AuthorityLeaseStore(state_dir).issue_lease(
+    _issue_test_authority_lease(
+        state_dir,
         AuthorityLeaseIssueRequest(
             mode=TrustMode.ask_before_changes,
             requested_domains={AuthorityDomain.workspace: [AuthorityCapability.write]},
@@ -186,7 +226,8 @@ def workspace_execute_mission_authority_lease(mission_ref: str) -> AuthorityLeas
 
 
 def issue_workspace_execute_authority_lease(state_dir: Path) -> None:
-    AuthorityLeaseStore(state_dir).issue_lease(
+    _issue_test_authority_lease(
+        state_dir,
         AuthorityLeaseIssueRequest(
             mode=TrustMode.approved_safe_local_work_session,
             requested_domains={
@@ -223,7 +264,8 @@ def provider_model_execute_authority_lease() -> AuthorityLease:
 
 
 def issue_provider_model_execute_authority_lease(state_dir: Path) -> None:
-    AuthorityLeaseStore(state_dir).issue_lease(
+    _issue_test_authority_lease(
+        state_dir,
         AuthorityLeaseIssueRequest(
             mode=TrustMode.full_machine_access_session,
             requested_domains={

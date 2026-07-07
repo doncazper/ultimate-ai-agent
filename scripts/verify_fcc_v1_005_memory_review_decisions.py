@@ -32,6 +32,9 @@ from ultimate_ai_agent.core.authority import (  # noqa: E402
     AuthorityLeaseStore,
     TrustMode,
 )
+from ultimate_ai_agent.core.authority.approval_validation import (  # noqa: E402
+    issue_authority_lease_with_test_approval,
+)
 from ultimate_ai_agent.core.memory import (  # noqa: E402
     FCC_MEMORY_REVIEW_DECISION_CONTRACT_REF,
     MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF,
@@ -399,7 +402,8 @@ def _append_behavior_failures(
 
 
 def _issue_memory_write_lease(state_dir: Path) -> None:
-    AuthorityLeaseStore(state_dir).issue_lease(
+    issue_authority_lease_with_test_approval(
+        AuthorityLeaseStore(state_dir),
         AuthorityLeaseIssueRequest(
             mode=TrustMode.ask_before_changes,
             requested_domains={AuthorityDomain.memory: [AuthorityCapability.write]},
@@ -410,6 +414,7 @@ def _issue_memory_write_lease(state_dir: Path) -> None:
             ),
         ),
         idempotency_ref="idempotency-ref:fcc-v1-005-authority",
+        approval_ref="approval-ref:verifier:fcc-v1-005-authority",
     )
 
 

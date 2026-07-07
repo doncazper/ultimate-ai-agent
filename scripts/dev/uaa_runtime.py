@@ -27,6 +27,9 @@ from ultimate_ai_agent.core.authority import (  # noqa: E402
     AuthorityMissionPlanRequest,
     TrustMode,
 )
+from ultimate_ai_agent.core.authority.approval_validation import (  # noqa: E402
+    validate_authority_lease_approval,
+)
 from ultimate_ai_agent.core.control_center.runtime_parity_loop import (  # noqa: E402
     build_runtime_parity_loop_read_model,
 )
@@ -2025,6 +2028,10 @@ def _authority_mission_requirement(plan: Any) -> str:
 
 
 def _select_authority_mode(args: argparse.Namespace) -> int:
+    approval_grants = [
+        json.loads(value)
+        for value in (args.approval_grant_json or [])
+    ]
     request = AuthorityLeaseIssueRequest(
         mode=TrustMode(args.mode),
         scope=args.scope,
@@ -2033,10 +2040,13 @@ def _select_authority_mode(args: argparse.Namespace) -> int:
         decision_reason_ref=args.reason_ref,
         duration_minutes=args.duration_minutes,
         safe_summary=args.summary,
+        approval_ref=args.approval_ref,
+        approval_grants=approval_grants,
     )
     lease, receipt = AuthorityLeaseStore().issue_lease(
         request,
         idempotency_ref=args.idempotency_ref,
+        approval_validator=validate_authority_lease_approval,
     )
     payload = {
         "schema_version": "governed-runtime-cli:v1",
@@ -2057,6 +2067,10 @@ def _select_authority_mode(args: argparse.Namespace) -> int:
         print(f"Mode: {receipt.mode}")
         print(f"Lease: {receipt.lease_ref}")
         print(f"Receipt: {receipt.receipt_ref}")
+        print(f"Approval required: {receipt.approval_required}")
+        print(f"Approval validated: {receipt.approval_validated}")
+        print(f"Approval status: {receipt.approval_status}")
+        print(f"Approval scope: {receipt.approval_scope_ref or 'none'}")
         print(f"Granted domains: {len(receipt.granted_domains)}")
         print(f"Denied domains: {len(receipt.denied_domain_refs)}")
     return 0 if receipt.status in {"issued", "replayed"} else 1
@@ -3947,6 +3961,19 @@ def build_parser() -> argparse.ArgumentParser:
         "--mission-ref",
         default=None,
         help="Mission ref when requesting a mission-scoped lease.",
+    )
+    select_authority.add_argument(
+        "--approval-ref",
+        default=None,
+        help="Safe LocalApprovalAuthority approval ref for authority-increasing leases.",
+    )
+    select_authority.add_argument(
+        "--approval-grant-json",
+        action="append",
+        help=(
+            "Redacted ApprovalGrant JSON used only for exact local validation; "
+            "not persisted in authority receipts."
+        ),
     )
     select_authority.add_argument(
         "--summary",

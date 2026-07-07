@@ -1943,6 +1943,20 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
               >
                 <span>{authorityMutation.receipt.operation}</span>
                 <span>{authorityMutation.receipt.status}</span>
+                <span>
+                  approval{" "}
+                  {authorityMutation.receipt.approval_required
+                    ? "required"
+                    : "not required"}
+                </span>
+                <span>
+                  validated{" "}
+                  {authorityMutation.receipt.approval_validated ? "yes" : "no"}
+                </span>
+                <span>{authorityMutation.receipt.approval_status}</span>
+                {authorityMutation.receipt.approval_scope_ref ? (
+                  <span>{authorityMutation.receipt.approval_scope_ref}</span>
+                ) : null}
                 <span>{authorityMutation.receipt.receipt_ref}</span>
                 <span>{authorityMutation.receipt.lease_ref}</span>
                 {authorityMutation.receipt.unsupported_adapter_refs.map((ref) => (
@@ -2409,6 +2423,24 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
             </span>
             <strong>{receipt.mode.replaceAll("_", " ")}</strong>
             <p>{receipt.safe_summary}</p>
+            <dl className="metadata-list">
+              <div>
+                <dt>Approval</dt>
+                <dd>{receipt.approval_required ? "required" : "not required"}</dd>
+              </div>
+              <div>
+                <dt>Validated</dt>
+                <dd>{receipt.approval_validated ? "yes" : "no"}</dd>
+              </div>
+              <div>
+                <dt>Status</dt>
+                <dd>{receipt.approval_status.replaceAll("_", " ")}</dd>
+              </div>
+              <div>
+                <dt>Scope</dt>
+                <dd>{receipt.approval_scope_ref ?? "none"}</dd>
+              </div>
+            </dl>
             <div
               className="note-list"
               aria-label={`${receipt.receipt_ref} granted domains`}
@@ -2425,6 +2457,13 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
               <span>{receipt.rollback_ref}</span>
               <span>{receipt.kill_switch_ref}</span>
               <span>{receipt.receipt_sink_ref}</span>
+              {receipt.approval_ref ? <span>{receipt.approval_ref}</span> : null}
+              {receipt.approval_request_ref ? (
+                <span>{receipt.approval_request_ref}</span>
+              ) : null}
+              {receipt.approval_reason_codes.map((reasonCode) => (
+                <span key={reasonCode}>{reasonCode}</span>
+              ))}
             </div>
           </article>
         ))}

@@ -1202,7 +1202,7 @@
       "side_effect_class": "validation_only",
       "risk_class": "high",
       "release_status": "status_available_not_completion",
-      "approval_requirement": "No approval is required for read-only Settings status, authority decision preview, or authority mission planning. AuthorityLease issue and revoke routes require LocalApprovalAuthority validation, idempotency, receipts, audit refs, redaction, and rollback/safe-disable posture before any authority state changes.",
+      "approval_requirement": "No approval is required for read-only Settings status, authority decision preview, or authority mission planning. AuthorityLease issue routes require exact LocalApprovalAuthority validation for authority-increasing mode/domain/capability scopes, idempotency, receipts, audit refs, redaction, and rollback/safe-disable posture before authority state changes; missing or invalid approval returns a denied receipt with approval scope/status/reason refs. AuthorityLease revoke is a safe-disable path that can only reduce active authority and records idempotent receipts.",
       "evidence_audit_output": "Backend-owned settings maturity gate, feature-flag posture, kill-switch posture, active authority mode/domain/lease refs, decision-preview refs, mission-plan refs, lease receipt refs, blocked/degraded/partial authority posture labels, route safety, and blocked authority refs only.",
       "current_backend_routes": [
         {

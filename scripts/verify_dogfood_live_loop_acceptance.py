@@ -23,6 +23,9 @@ from ultimate_ai_agent.core.authority import (  # noqa: E402
     AuthorityLeaseStore,
     TrustMode,
 )
+from ultimate_ai_agent.core.authority.approval_validation import (  # noqa: E402
+    issue_authority_lease_with_test_approval,
+)
 from ultimate_ai_agent.core.control_center.dogfood_live_loop import (  # noqa: E402
     DOGFOOD_LIVE_LOOP_ACTION_REF,
     DOGFOOD_LIVE_LOOP_FIXTURE_REF,
@@ -55,7 +58,8 @@ def _workspace_write_lease() -> AuthorityLease:
 
 
 def _issue_workspace_write_lease(state_dir: Path) -> None:
-    AuthorityLeaseStore(state_dir).issue_lease(
+    issue_authority_lease_with_test_approval(
+        AuthorityLeaseStore(state_dir),
         AuthorityLeaseIssueRequest(
             mode=TrustMode.ask_before_changes,
             requested_domains={
@@ -67,6 +71,7 @@ def _issue_workspace_write_lease(state_dir: Path) -> None:
             ),
         ),
         idempotency_ref="idempotency-ref:verifier-dogfood-authority-lease",
+        approval_ref="approval-ref:verifier:dogfood-authority-lease",
     )
 
 

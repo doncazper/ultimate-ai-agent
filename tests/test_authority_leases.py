@@ -17,10 +17,15 @@ from ultimate_ai_agent.core.authority import (
     AuthorityLeaseStore,
     AuthorityMissionPlanRequest,
     TrustMode,
+    build_authority_lease_approval_requirement_for_request,
     build_authority_mission_plan,
     build_authority_state_read_model,
     build_default_authority_leases,
     evaluate_authority_request,
+)
+from ultimate_ai_agent.core.authority.approval_validation import (
+    build_authority_lease_test_grant,
+    validate_authority_lease_approval,
 )
 from ultimate_ai_agent.core.runtime_gateway import (
     RuntimeAuthority,
@@ -31,6 +36,60 @@ from ultimate_ai_agent.core.runtime_gateway.contracts import build_policy_decisi
 
 
 client = TestClient(app)
+
+
+def _approved_issue_request(
+    request: AuthorityLeaseIssueRequest,
+    *,
+    idempotency_ref: str,
+    approval_ref: str,
+) -> AuthorityLeaseIssueRequest:
+    requirement = build_authority_lease_approval_requirement_for_request(
+        request,
+        idempotency_ref=idempotency_ref,
+    )
+    if not requirement.approval_required:
+        return request
+    grant = build_authority_lease_test_grant(
+        requirement,
+        approval_ref=approval_ref,
+    )
+    return request.model_copy(
+        update={
+            "approval_ref": grant.approval_ref,
+            "approval_grants": [grant.model_dump(mode="json")],
+        }
+    )
+
+
+def _approved_issue_payload(
+    request: AuthorityLeaseIssueRequest,
+    *,
+    idempotency_ref: str,
+    approval_ref: str,
+) -> dict:
+    return _approved_issue_request(
+        request,
+        idempotency_ref=idempotency_ref,
+        approval_ref=approval_ref,
+    ).model_dump(mode="json")
+
+
+def _approval_grant_json_for_cli(
+    request: AuthorityLeaseIssueRequest,
+    *,
+    idempotency_ref: str,
+    approval_ref: str,
+) -> str:
+    requirement = build_authority_lease_approval_requirement_for_request(
+        request,
+        idempotency_ref=idempotency_ref,
+    )
+    grant = build_authority_lease_test_grant(
+        requirement,
+        approval_ref=approval_ref,
+    )
+    return grant.model_dump_json()
 
 
 def _workspace_execute_lease() -> AuthorityLease:
@@ -346,16 +405,37 @@ def test_authority_mode_defaults_are_mode_specific_and_fail_closed(
 ) -> None:
     store = AuthorityLeaseStore(tmp_path / "authority")
 
+    safe_local_request = AuthorityLeaseIssueRequest(
+        mode=TrustMode.approved_safe_local_work_session,
+        decision_reason_ref="reason-ref:test-safe-local-default",
+        safe_summary="Select default safe local authority.",
+    )
+    missing_approval_lease, missing_approval_receipt = store.issue_lease(
+        safe_local_request,
+        idempotency_ref="idempotency-ref:test-safe-local-missing-approval",
+        approval_validator=validate_authority_lease_approval,
+    )
+    assert missing_approval_lease is None
+    assert missing_approval_receipt.status == "denied"
+    assert missing_approval_receipt.approval_required is True
+    assert missing_approval_receipt.approval_validated is False
+    assert missing_approval_receipt.approval_scope_ref is not None
+    assert "APPROVAL_REF_MISSING" in missing_approval_receipt.approval_reason_codes
+
     safe_local_lease, safe_local_receipt = store.issue_lease(
-        AuthorityLeaseIssueRequest(
-            mode=TrustMode.approved_safe_local_work_session,
-            decision_reason_ref="reason-ref:test-safe-local-default",
-            safe_summary="Select default safe local authority.",
+        _approved_issue_request(
+            safe_local_request,
+            idempotency_ref="idempotency-ref:test-safe-local-default",
+            approval_ref="approval-ref:test-authority:safe-local-default",
         ),
         idempotency_ref="idempotency-ref:test-safe-local-default",
+        approval_validator=validate_authority_lease_approval,
     )
     assert safe_local_lease is not None
     assert safe_local_receipt.status == "issued"
+    assert safe_local_receipt.approval_required is True
+    assert safe_local_receipt.approval_validated is True
+    assert safe_local_receipt.approval_ref == "approval-ref:test-authority:safe-local-default"
     assert safe_local_receipt.granted_domains == {
         "workspace": ["read", "write", "execute"]
     }
@@ -380,21 +460,27 @@ def test_authority_mode_defaults_are_mode_specific_and_fail_closed(
     )
 
     provider_lease, provider_receipt = store.issue_lease(
-        AuthorityLeaseIssueRequest(
-            mode=TrustMode.full_machine_access_session,
-            requested_domains={
-                AuthorityDomain.provider_model_calls: [
-                    AuthorityCapability.read,
-                    AuthorityCapability.execute,
-                ]
-            },
-            decision_reason_ref="reason-ref:test-full-machine-provider-explicit",
-            safe_summary="Select explicit provider model call authority.",
+        _approved_issue_request(
+            AuthorityLeaseIssueRequest(
+                mode=TrustMode.full_machine_access_session,
+                requested_domains={
+                    AuthorityDomain.provider_model_calls: [
+                        AuthorityCapability.read,
+                        AuthorityCapability.execute,
+                    ]
+                },
+                decision_reason_ref="reason-ref:test-full-machine-provider-explicit",
+                safe_summary="Select explicit provider model call authority.",
+            ),
+            idempotency_ref="idempotency-ref:test-full-machine-provider-explicit",
+            approval_ref="approval-ref:test-authority:provider-explicit",
         ),
         idempotency_ref="idempotency-ref:test-full-machine-provider-explicit",
+        approval_validator=validate_authority_lease_approval,
     )
     assert provider_lease is not None
     assert provider_receipt.status == "issued"
+    assert provider_receipt.approval_validated is True
     assert provider_receipt.granted_domains == {
         "provider_model_calls": ["read", "execute"]
     }
@@ -542,19 +628,25 @@ def test_authority_api_preview_enforces_mission_lease_scope(
     monkeypatch,
 ) -> None:
     monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(tmp_path / "authority"))
+    issue_idempotency_ref = "idempotency-ref:authority-api-mission"
+    issue_request = AuthorityLeaseIssueRequest(
+        mode=TrustMode.approved_safe_local_work_session,
+        scope="mission",
+        mission_ref="mission-ref:test-api-workspace-maintenance",
+        requested_domains={
+            AuthorityDomain.workspace: [AuthorityCapability.execute],
+        },
+        decision_reason_ref="reason-ref:authority-api-mission",
+        safe_summary="Select mission workspace authority.",
+    )
     issue = client.post(
         "/api/runtime/authority-leases",
-        headers={"x-uaa-idempotency-key": "idempotency-ref:authority-api-mission"},
-        json={
-            "mode": "approved_safe_local_work_session",
-            "scope": "mission",
-            "mission_ref": "mission-ref:test-api-workspace-maintenance",
-            "requested_domains": {
-                "workspace": ["execute"],
-            },
-            "decision_reason_ref": "reason-ref:authority-api-mission",
-            "safe_summary": "Select mission workspace authority.",
-        },
+        headers={"x-uaa-idempotency-key": issue_idempotency_ref},
+        json=_approved_issue_payload(
+            issue_request,
+            idempotency_ref=issue_idempotency_ref,
+            approval_ref="approval-ref:test-authority:api-mission",
+        ),
     )
     assert issue.status_code == 200
     assert issue.json()["data"]["receipt"]["status"] == "issued"
@@ -724,15 +816,26 @@ def test_authority_decision_preview_api_and_cli_are_read_only(
         "authority-capability-ref:execute"
     ]
 
+    preview_issue_idempotency_ref = "idempotency-ref:authority-preview-issue"
+    preview_issue_request = AuthorityLeaseIssueRequest(
+        mode=TrustMode.approved_safe_local_work_session,
+        requested_domains={
+            AuthorityDomain.workspace: [
+                AuthorityCapability.read,
+                AuthorityCapability.execute,
+            ]
+        },
+        decision_reason_ref="reason-ref:authority-preview-issue",
+        safe_summary="Select workspace execute authority for preview testing.",
+    )
     issue = client.post(
         "/api/runtime/authority-leases",
-        headers={"x-uaa-idempotency-key": "idempotency-ref:authority-preview-issue"},
-        json={
-            "mode": "approved_safe_local_work_session",
-            "requested_domains": {"workspace": ["read", "execute"]},
-            "decision_reason_ref": "reason-ref:authority-preview-issue",
-            "safe_summary": "Select workspace execute authority for preview testing.",
-        },
+        headers={"x-uaa-idempotency-key": preview_issue_idempotency_ref},
+        json=_approved_issue_payload(
+            preview_issue_request,
+            idempotency_ref=preview_issue_idempotency_ref,
+            approval_ref="approval-ref:test-authority:preview-issue",
+        ),
     )
     assert issue.status_code == 200
     lease_ref = issue.json()["data"]["lease"]["lease_ref"]
@@ -897,9 +1000,15 @@ def test_authority_mission_plan_api_cli_and_core_are_read_only(
         ),
         build_default_authority_leases(),
     )
+    mission_issue_idempotency_ref = "idempotency-ref:test-core-workspace-mission-issue"
     lease, receipt = AuthorityLeaseStore(tmp_path / "authority").issue_lease(
-        issue_ready_plan.lease_issue_request,
-        idempotency_ref="idempotency-ref:test-core-workspace-mission-issue",
+        _approved_issue_request(
+            issue_ready_plan.lease_issue_request,
+            idempotency_ref=mission_issue_idempotency_ref,
+            approval_ref="approval-ref:test-authority:core-workspace-mission",
+        ),
+        idempotency_ref=mission_issue_idempotency_ref,
+        approval_validator=validate_authority_lease_approval,
     )
     assert issue_ready_plan.lease_issue_ready is True
     assert lease is not None
@@ -973,20 +1082,43 @@ def test_authority_lease_issue_revoke_api_and_cli_are_durable(
     assert missing_idempotency.status_code == 428
     assert missing_idempotency.json()["code"] == "API_IDEMPOTENCY_REQUIRED"
 
+    issue_idempotency_ref = "idempotency-ref:authority-api-issue"
+    issue_request = AuthorityLeaseIssueRequest(
+        mode=TrustMode.approved_safe_local_work_session,
+        requested_domains={
+            AuthorityDomain.workspace: [
+                AuthorityCapability.read,
+                AuthorityCapability.write,
+                AuthorityCapability.execute,
+            ],
+            AuthorityDomain.contacts: [AuthorityCapability.write],
+            AuthorityDomain.browser: [AuthorityCapability.click],
+            AuthorityDomain.provider_model_calls: [AuthorityCapability.execute],
+        },
+        decision_reason_ref="reason-ref:authority-api-issue",
+        safe_summary="Select local workspace authority for this session.",
+    )
+    missing_approval = client.post(
+        "/api/runtime/authority-leases",
+        headers={"x-uaa-idempotency-key": "idempotency-ref:authority-api-missing-approval"},
+        json=issue_request.model_dump(mode="json"),
+    )
+    assert missing_approval.status_code == 200
+    missing_receipt = missing_approval.json()["data"]["receipt"]
+    assert missing_approval.json()["success"] is False
+    assert missing_receipt["status"] == "denied"
+    assert missing_receipt["approval_required"] is True
+    assert missing_receipt["approval_validated"] is False
+    assert "APPROVAL_REF_MISSING" in missing_receipt["approval_reason_codes"]
+
     issue = client.post(
         "/api/runtime/authority-leases",
-        headers={"x-uaa-idempotency-key": "idempotency-ref:authority-api-issue"},
-        json={
-            "mode": "approved_safe_local_work_session",
-            "requested_domains": {
-                "workspace": ["read", "write", "execute"],
-                "contacts": ["write"],
-                "browser": ["click"],
-                "provider_model_calls": ["execute"],
-            },
-            "decision_reason_ref": "reason-ref:authority-api-issue",
-            "safe_summary": "Select local workspace authority for this session.",
-        },
+        headers={"x-uaa-idempotency-key": issue_idempotency_ref},
+        json=_approved_issue_payload(
+            issue_request,
+            idempotency_ref=issue_idempotency_ref,
+            approval_ref="approval-ref:test-authority:api-issue",
+        ),
     )
     assert issue.status_code == 200
     body = issue.json()
@@ -994,6 +1126,9 @@ def test_authority_lease_issue_revoke_api_and_cli_are_durable(
     receipt = body["data"]["receipt"]
     lease = body["data"]["lease"]
     assert receipt["status"] == "issued"
+    assert receipt["approval_required"] is True
+    assert receipt["approval_validated"] is True
+    assert receipt["approval_ref"] == "approval-ref:test-authority:api-issue"
     assert receipt["execution_performed"] is False
     assert receipt["granted_domains"]["workspace"] == ["read", "write", "execute"]
     assert "contacts" not in receipt["granted_domains"]
@@ -1019,7 +1154,9 @@ def test_authority_lease_issue_revoke_api_and_cli_are_durable(
     state_data = state.json()["data"]
     assert state_data["active_mode"] == "approved_safe_local_work_session"
     assert state_data["active_leases"][0]["lease_ref"] == lease["lease_ref"]
-    assert state_data["recent_receipts"][0]["receipt_ref"] == receipt["receipt_ref"]
+    assert receipt["receipt_ref"] in {
+        item["receipt_ref"] for item in state_data["recent_receipts"]
+    }
 
     cli_state = uaa_runtime.main(["inspect-authority-state"])
     assert cli_state == 0
@@ -1037,6 +1174,19 @@ def test_authority_lease_issue_revoke_api_and_cli_are_durable(
     assert "Unknown authority default: deny" in cli_state_text
     assert "Kill switch visible: True" in cli_state_text
 
+    cli_issue_request = AuthorityLeaseIssueRequest(
+        mode=TrustMode.ask_before_changes,
+        requested_domains={
+            AuthorityDomain.workspace: [
+                AuthorityCapability.read,
+                AuthorityCapability.write,
+            ]
+        },
+        decision_reason_ref="reason-ref:authority-cli-issue",
+        safe_summary="Select ask-before-changes workspace authority.",
+    )
+    cli_issue_idempotency_ref = "idempotency-ref:authority-cli-issue"
+    cli_approval_ref = "approval-ref:test-authority:cli-issue"
     cli_issue = uaa_runtime.main(
         [
             "select-authority-mode",
@@ -1047,9 +1197,17 @@ def test_authority_lease_issue_revoke_api_and_cli_are_durable(
             "--reason-ref",
             "reason-ref:authority-cli-issue",
             "--idempotency-ref",
-            "idempotency-ref:authority-cli-issue",
+            cli_issue_idempotency_ref,
             "--summary",
             "Select ask-before-changes workspace authority.",
+            "--approval-ref",
+            cli_approval_ref,
+            "--approval-grant-json",
+            _approval_grant_json_for_cli(
+                cli_issue_request,
+                idempotency_ref=cli_issue_idempotency_ref,
+                approval_ref=cli_approval_ref,
+            ),
             "--json",
         ]
     )
@@ -1057,6 +1215,7 @@ def test_authority_lease_issue_revoke_api_and_cli_are_durable(
     cli_payload = capsys.readouterr().out
     assert "uaa-runtime-select-authority-mode" in cli_payload
     assert "receipt-ref:authority-lease" in cli_payload
+    assert '"approval_validated": true' in cli_payload
 
     revoke = client.post(
         "/api/runtime/authority-leases/revoke",

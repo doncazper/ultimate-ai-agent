@@ -20,6 +20,9 @@ from ultimate_ai_agent.core.authority import (
     AuthorityLeaseStore,
     TrustMode,
 )
+from ultimate_ai_agent.core.authority.approval_validation import (
+    issue_authority_lease_with_test_approval,
+)
 from ultimate_ai_agent.core.control_center.action_decisions import (
     FounderLoopActionDecisionRequest,
 )
@@ -44,7 +47,8 @@ PRODUCT_LANGUAGE_RULES_PATH = ROOT / "docs/control_center/PRODUCT_LANGUAGE_RULES
 
 
 def _issue_workspace_write_lease(state_dir: Path) -> None:
-    AuthorityLeaseStore(state_dir).issue_lease(
+    issue_authority_lease_with_test_approval(
+        AuthorityLeaseStore(state_dir),
         AuthorityLeaseIssueRequest(
             mode=TrustMode.ask_before_changes,
             requested_domains={
@@ -56,6 +60,7 @@ def _issue_workspace_write_lease(state_dir: Path) -> None:
             ),
         ),
         idempotency_ref="idempotency-ref:api-local-task-authority-lease",
+        approval_ref="approval-ref:test-authority:api-local-task-authority-lease",
     )
 
 

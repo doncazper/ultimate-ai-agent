@@ -11504,6 +11504,13 @@ export const mockControlCenterData: ControlCenterData = {
           receipt_sink_ref: "receipt-sink-ref:authority-lease-action-receipts",
           safe_summary:
             "Mock AuthorityLease receipt proves the Settings cockpit can render lease selection receipts.",
+          approval_required: false,
+          approval_validated: false,
+          approval_ref: null,
+          approval_scope_ref: null,
+          approval_request_ref: null,
+          approval_status: "not_required",
+          approval_reason_codes: [],
           execution_performed: false,
           redactions_applied: ["safe_refs_only", "credentials_omitted"],
         },
