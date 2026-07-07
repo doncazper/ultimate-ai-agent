@@ -138,6 +138,36 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
     assert "scripts/dev/uaa_runtime.py select-authority-mode --approve" in (
         authority_control_plane.cli_refs
     )
+    mappings_by_lane = {
+        mapping.lane_ref: mapping for mapping in read_model.capability_mappings
+    }
+    decision_by_lane = {entry.lane_ref: entry for entry in read_model.decision_catalog}
+    trust_read_model_refs = (
+        "lane-ref:start-here-read",
+        "lane-ref:today-loop-read",
+        "lane-ref:proof-detail-read",
+        "lane-ref:operator-workspace-spine",
+        "lane-ref:action-inbox-work-queue",
+        "lane-ref:memory-review-read",
+        "lane-ref:evidence-timeline-read",
+        "lane-ref:model-slot-posture",
+    )
+    for lane_ref in trust_read_model_refs:
+        assert mappings_by_lane[lane_ref].status.startswith(
+            "implemented_control_center"
+        )
+        assert decision_by_lane[lane_ref].decision.outcome == "allow"
+    assert mappings_by_lane["lane-ref:local-draft-proposal"].capability == "draft"
+    assert (
+        decision_by_lane["lane-ref:local-draft-proposal"].decision.outcome
+        == "allow"
+    )
+    assert mappings_by_lane["lane-ref:connector-draft-only"].domain == "email"
+    assert mappings_by_lane["lane-ref:connector-draft-only"].capability == "draft"
+    assert (
+        decision_by_lane["lane-ref:connector-draft-only"].decision.outcome
+        == "allow"
+    )
     mapped_domains = {
         str(getattr(mapping.domain, "value", mapping.domain))
         for mapping in read_model.capability_mappings

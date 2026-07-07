@@ -1091,6 +1091,7 @@ def _trust_authority_lanes(
             ],
             verifier_refs=["scripts/verify_hermes_runtime_adoption_phase_08.py"],
             docs_refs=["docs/runtime/UAA_HERMES_RUNTIME_MODEL_SLOT_POSTURE.md"],
+            authority_capability_ref="authority-capability-ref:read",
             cli_inspection_refs=[
                 TRUST_AUTHORITY_MATRIX_CLI_REF,
                 "python scripts/inspect_model_provider_control_plane.py",
@@ -1582,11 +1583,18 @@ def _authority_state_decisions_by_lane_suffix() -> dict[
     AuthorityDecisionCatalogEntry,
 ]:
     authority_state = build_authority_state_read_model(active_leases=[])
-    return {
+    decisions = {
         entry.lane_ref.removeprefix("lane-ref:").replace("_", "-"): entry
         for entry in authority_state.decision_catalog
         if _is_visible_trust_authority_ref(entry.lane_ref)
     }
+    for trust_suffix, authority_state_suffix in (
+        _TRUST_AUTHORITY_STATE_DECISION_ALIAS_SUFFIXES.items()
+    ):
+        if authority_state_suffix not in decisions:
+            raise ValueError("Trust authority decision alias target is missing")
+        decisions[trust_suffix] = decisions[authority_state_suffix]
+    return decisions
 
 
 def _authority_capability_catalog_summary(
@@ -1865,6 +1873,15 @@ _VISIBLE_TRUST_AUTHORITY_REF_UNSAFE_FRAGMENTS = (
     "hostname",
     "serial",
 )
+
+_TRUST_AUTHORITY_STATE_DECISION_ALIAS_SUFFIXES = {
+    "work-board-durable-mutation": "work-board-reorder",
+    "local-task-commit": "action-inbox-local-task-commit",
+    "reviewed-memory-write": "memory-review-accept-correct",
+    "governed-command-execution": "runtime-action-inbox-approved-execute",
+    "provider-draft-summarize": "provider-tiny-exact-approved-invocation",
+    "provider-model-invocation": "provider-tiny-exact-approved-invocation",
+}
 
 
 def _is_visible_trust_authority_ref(value: str) -> bool:

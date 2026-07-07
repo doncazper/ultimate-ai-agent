@@ -41,8 +41,12 @@ surfaces are:
   projects each legacy Trust row into a governed AuthorityLease capability
   entry with mode, domain, capability, lease requirement, source row,
   safe-disable, rollback, blocked-authority, proof, verifier, API, and CLI refs.
-  When a Trust row maps to an AuthorityState capability mapping, the catalog
-  also exposes the AuthorityState catalog ref, mapping ref, policy decision ref,
+  Every Trust row is now tied to an AuthorityState decision: direct rows use the
+  same lane suffix, and broader compatibility rows such as Work Board durable
+  mutation, local task commit, reviewed memory write, governed command
+  execution, and provider invocation alias to the exact AuthorityState
+  capability that currently governs the work. The catalog exposes the
+  AuthorityState catalog ref, mapping ref, policy decision ref,
   `allow`/`ask`/`deny`/`degrade_to_draft` outcome, reason refs, status, operator
   message, and unsupported adapter refs.
   This is the compatibility bridge away from the old lane-promotion product

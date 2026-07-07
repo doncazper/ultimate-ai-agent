@@ -2633,6 +2633,155 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ),
         ),
         _mapping(
+            "lane-ref:start-here-read",
+            "Start Here local loop summary",
+            AuthorityDomain.workspace,
+            AuthorityCapability.read,
+            TrustMode.read_only,
+            "implemented_control_center_read_model",
+            ["GET /control-center/start-here/summary"],
+            ["python scripts/dev/uaa_founder_loop.py inspect-start-here"],
+            (
+                "Backend-owned Start Here inspection reads safe refs, readiness, "
+                "next safe action, and proof refs only; it does not execute work."
+            ),
+        ),
+        _mapping(
+            "lane-ref:today-loop-read",
+            "Today daily loop",
+            AuthorityDomain.workspace,
+            AuthorityCapability.read,
+            TrustMode.read_only,
+            "implemented_control_center_read_model",
+            ["GET /control-center/today/summary"],
+            ["python scripts/dev/uaa_founder_loop.py inspect"],
+            (
+                "Backend-owned Today inspection reads local action, memory, "
+                "evidence, proof, and run refs only; mutations need separate gates."
+            ),
+        ),
+        _mapping(
+            "lane-ref:proof-detail-read",
+            "Universal Proof Detail",
+            AuthorityDomain.workspace,
+            AuthorityCapability.read,
+            TrustMode.read_only,
+            "implemented_control_center_read_model",
+            [
+                "GET /control-center/proof/index",
+                "GET /control-center/proof/{proof_ref}",
+            ],
+            ["python scripts/dev/uaa_founder_loop.py inspect-proof"],
+            (
+                "Proof inspection reads safe proof, receipt, evidence, and "
+                "redaction refs only; proof surfaces do not grant action authority."
+            ),
+        ),
+        _mapping(
+            "lane-ref:operator-workspace-spine",
+            "Operator Workspace Spine",
+            AuthorityDomain.workspace,
+            AuthorityCapability.read,
+            TrustMode.read_only,
+            "implemented_control_center_read_model",
+            ["GET /control-center/today/summary#operator_workspace_spine"],
+            ["python scripts/inspect_operator_workspace_spine.py"],
+            (
+                "Workspace spine inspection reads safe workspace, Git, preview, "
+                "run-log, and handoff posture refs without starting or editing."
+            ),
+        ),
+        _mapping(
+            "lane-ref:action-inbox-work-queue",
+            "Action Inbox work queue",
+            AuthorityDomain.workspace,
+            AuthorityCapability.read,
+            TrustMode.read_only,
+            "implemented_control_center_read_model",
+            ["GET /control-center/actions/inbox"],
+            ["python scripts/dev/uaa_founder_loop.py inspect-action-work-queue"],
+            (
+                "Action Inbox queue inspection reads requested, blocked, and "
+                "receipt-recorded item refs only; execution requires exact lanes."
+            ),
+        ),
+        _mapping(
+            "lane-ref:memory-review-read",
+            "Memory Review and loop binding",
+            AuthorityDomain.memory,
+            AuthorityCapability.read,
+            TrustMode.read_only,
+            "implemented_control_center_read_model",
+            ["GET /control-center/memory/review"],
+            [
+                "python scripts/dev/uaa_founder_loop.py "
+                "inspect-evidence-memory-binding"
+            ],
+            (
+                "Memory Review inspection reads recall candidates and why-shown "
+                "safe refs only; memory remains recall, not truth or authority."
+            ),
+        ),
+        _mapping(
+            "lane-ref:evidence-timeline-read",
+            "Evidence Timeline",
+            AuthorityDomain.workspace,
+            AuthorityCapability.read,
+            TrustMode.read_only,
+            "implemented_control_center_read_model",
+            ["GET /control-center/evidence/timeline"],
+            ["python scripts/dev/uaa_founder_loop.py inspect"],
+            (
+                "Evidence Timeline inspection reads local safe-ref history linked "
+                "to actions, memory, runs, receipts, and proof; it cannot execute."
+            ),
+        ),
+        _mapping(
+            "lane-ref:local-draft-proposal",
+            "Local drafts and proposals",
+            AuthorityDomain.workspace,
+            AuthorityCapability.draft,
+            TrustMode.read_only,
+            "implemented_control_center_draft_proposal",
+            [
+                "GET /control-center/memory/context-packs",
+                "GET /control-center/memory/context-packs/{context_pack_ref}/preview",
+            ],
+            ["python scripts/dev/uaa_founder_loop.py memory-context-manifest"],
+            (
+                "Local draft/proposal inspection may prepare review artifacts "
+                "inside read-only workspace draft scope; applying or sending is separate."
+            ),
+        ),
+        _mapping(
+            "lane-ref:model-slot-posture",
+            "Main and auxiliary model slot posture",
+            AuthorityDomain.provider_model_calls,
+            AuthorityCapability.read,
+            TrustMode.read_only,
+            "implemented_control_center_model_slot_read_model",
+            ["GET /control-center/providers/runtime-control-plane"],
+            ["python scripts/inspect_model_provider_control_plane.py"],
+            (
+                "Model slot posture is read-only routing intent inspection; it "
+                "does not call models, switch providers, or trust model output."
+            ),
+        ),
+        _mapping(
+            "lane-ref:connector-draft-only",
+            "Connector draft-only proposals",
+            AuthorityDomain.email,
+            AuthorityCapability.draft,
+            TrustMode.read_only,
+            "implemented_control_center_connector_draft_only",
+            ["GET /control-center/sources/readiness#connector_draft_proposals"],
+            ["python scripts/inspect_connector_draft_proposals.py"],
+            (
+                "Connector draft-only proposals are local safe-ref review "
+                "artifacts; live account sync, sends, and writes remain separate."
+            ),
+        ),
+        _mapping(
             "lane-ref:shell-arbitrary-command-adapter",
             "Arbitrary shell command adapter",
             AuthorityDomain.shell,

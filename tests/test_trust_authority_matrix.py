@@ -142,6 +142,20 @@ def test_trust_authority_matrix_explains_available_approval_and_blocked(
         "trust-lane:background-autonomy-scoped",
         "trust-lane:production-authority-gate",
     )
+    authority_state_alias_refs = {
+        "trust-lane:work-board-durable-mutation": "lane-ref:work-board-reorder",
+        "trust-lane:local-task-commit": "lane-ref:action-inbox-local-task-commit",
+        "trust-lane:reviewed-memory-write": "lane-ref:memory-review-accept-correct",
+        "trust-lane:governed-command-execution": (
+            "lane-ref:runtime-action-inbox-approved-execute"
+        ),
+        "trust-lane:provider-draft-summarize": (
+            "lane-ref:provider-tiny-exact-approved-invocation"
+        ),
+        "trust-lane:provider-model-invocation": (
+            "lane-ref:provider-tiny-exact-approved-invocation"
+        ),
+    }
     for lane in parsed.lanes:
         entry = catalog_by_lane[lane.lane_ref]
         assert entry.authority_domain_ref == lane.authority_domain_ref
@@ -156,6 +170,19 @@ def test_trust_authority_matrix_explains_available_approval_and_blocked(
         assert entry.safe_refs_only is True
         assert entry.control_center_grants_authority is False
         assert entry.execution_claimed is False
+        assert entry.authority_state_mapping_ref is not None
+        assert entry.authority_state_catalog_ref is not None
+        assert entry.authority_state_decision_ref is not None
+        assert entry.authority_state_decision_outcome in {
+            "allow",
+            "ask",
+            "deny",
+            "degrade_to_draft",
+        }
+    for lane_ref, expected_mapping_ref in authority_state_alias_refs.items():
+        entry = catalog_by_lane[lane_ref]
+        assert entry.authority_state_mapping_ref == expected_mapping_ref
+        assert entry.authority_state_decision_outcome == "degrade_to_draft"
     for lane_ref in planned_unsupported_lane_refs:
         expected_mapping_ref = lane_ref.replace("trust-lane:", "lane-ref:")
         entry = catalog_by_lane[lane_ref]
@@ -272,6 +299,11 @@ def test_trust_authority_matrix_explains_available_approval_and_blocked(
     assert "blocked-state:trust:no-broad-provider-router" in (
         provider_lane.blocked_authority_refs
     )
+    model_slot_lane = lanes_by_ref["trust-lane:model-slot-posture"]
+    assert model_slot_lane.authority_domain_ref == (
+        "authority-domain-ref:provider_model_calls"
+    )
+    assert model_slot_lane.authority_capability_ref == "authority-capability-ref:read"
     browser_lane = lanes_by_ref["trust-lane:browser-low-risk-action"]
     assert browser_lane.authority_domain_ref == "authority-domain-ref:browser"
     assert browser_lane.authority_capability_ref == "authority-capability-ref:click"
