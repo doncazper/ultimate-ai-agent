@@ -208,7 +208,7 @@ def receipt_payload(**overrides: object) -> dict[str, object]:
         "incomplete_cost_requires_review": False,
         "further_provider_use_blocked": False,
         "safe_summary": (
-            "Tiny exact-approved provider lane recorded a redacted receipt "
+            "Scoped provider capability recorded a redacted receipt "
             "using a scoped adapter."
         ),
     }

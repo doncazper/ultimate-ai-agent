@@ -185,8 +185,9 @@ only when copy preserves the current truth:
   the matching Python Core contracts are implemented. Phase 04 permits one
   exact allowlisted argv-only read-only local status command with redacted
   receipts. Phase 05 permits focused pytest, repo-verifier, frontend-check,
-  and repo-doctor command execution only after an exact validated `operator-approved` Action
-  Inbox approval envelope; arbitrary commands remain blocked. Phase 06 may
+  and repo-doctor command execution only after active workspace/execute
+  AuthorityLease scope and an exact validated `operator-approved` Action Inbox
+  approval envelope; arbitrary commands remain blocked. Phase 06 may
   describe `uaa runtime command run ...`, `uaa actions approve|deny ...`,
   Control Center readiness/status cards, and runtime evidence timeline refs only as
   backend-owned inspection and exact-envelope decision surfaces. Phase 07 may
@@ -200,9 +201,9 @@ only when copy preserves the current truth:
 
 The Governed Product Pilot authority profile may be described as a local
 governed pilot profile only when copy also preserves the sealed/default profile
-as deny-by-default. The profile may name exact local RuntimeGateway capabilities,
-portable local hash evidence envelopes, durable run orchestration posture, and
-CLI/API/Core parity through
+as deny-by-default. The profile may name AuthorityLease-gated local
+RuntimeGateway capabilities, portable local hash evidence envelopes, durable
+run orchestration posture, and CLI/API/Core parity through
 `GET /api/runtime/governed-product-pilot-profile`,
 `scripts/dev/uaa_runtime.py authority-profile`, and the Python Core contract.
 It must not be described as production authority, public beta, public release,

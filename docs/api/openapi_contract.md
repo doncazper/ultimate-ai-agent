@@ -60,8 +60,8 @@ Contract rules:
 - `/api/runtime/*` is the governed runtime pilot contract surface. The
   Governed Product Pilot authority profile is exposed at
   `GET /api/runtime/governed-product-pilot-profile` as a protected read-only
-  Python Core read model for exact lane posture, portable evidence envelopes,
-  durable orchestration posture, and blocked authority refs.
+  Python Core read model for AuthorityLease-gated capability posture, portable
+  evidence envelopes, durable orchestration posture, and blocked authority refs.
   `GET /api/runtime/staged-orchestration` exposes a protected read-only
   Python Core staged orchestration plan/checkpoint/dependency read model and
   grants no scheduling, dispatch, background autonomy, model call, browser
@@ -288,7 +288,7 @@ Contract rules:
   injection, provider/model call, connector write, shell/subprocess execution,
   browser automation, or production authority.
   `GET /api/runtime/checkpoint-rollback` exposes the Hermes Runtime Adoption
-  Phase 18 backend-owned checkpoint/rollback posture. It returns exact lane
+  Phase 18 backend-owned checkpoint/rollback posture. It returns scoped
   checkpoint, receipt, rollback-plan, proof, verifier, and blocked authority
   refs only; rollback execution, broad filesystem snapshots, Git mutation, raw
   path/content persistence, and production authority remain blocked.
@@ -343,8 +343,9 @@ Contract rules:
   list/show`, `uaa runtime receipts show`, `uaa runtime safe-disable`, and
   `uaa actions approve|deny` are local inspection/exact-envelope decision
   surfaces over those records; approval refs remain identifiers, not authority.
-  It does not run arbitrary shell/subprocess commands, execute focused tests
-  outside the exact pytest lane, run repo verifier/frontend check work outside named exact lanes, invoke
+  It does not run arbitrary shell/subprocess commands, execute focused tests,
+  repo verifier, frontend check, or repo-doctor work outside the implemented
+  workspace/execute AuthorityLease-gated RuntimeGateway capabilities, invoke
   remote providers, read
   or persist raw prompts/responses/command output/local paths/env, automate
   browsers, write connectors, import plugins, dispatch remote work, grant
@@ -502,7 +503,7 @@ API boundary hardening:
   decomposition, action preview/proposal, Action Inbox decisions and the
   Action Inbox local task commit lane,
   Today-to-Action envelope promotion, Chat durable receipts/handoffs, Memory
-  Review decision receipts, the tiny exact-approved provider lane, and
+  Review decision receipts, the scoped provider capability route, and
   expensive validation, governed runtime pilot, or local-model paths. It
   does not add auth, distributed
   quota, dependencies, billing, or production authority.

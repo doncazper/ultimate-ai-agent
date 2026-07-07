@@ -528,7 +528,7 @@ def _trust_authority_lanes(
             approval_posture=(
                 "No approval required to inspect the read model; any Git, "
                 "workspace, command, preview, or coworker mutation requires a "
-                "separate exact authority lane."
+                "separate AuthorityLease-gated capability."
             ),
             operator_can_do_now=(
                 "Inspect workspace, Git, preview, run-log, and coworker "
@@ -536,9 +536,9 @@ def _trust_authority_lanes(
                 "starting anything."
             ),
             next_safe_action=(
-                "Use the CLI and Proof record to inspect posture; promote live "
-                "Git status, command receipts, preview control, or coworker "
-                "dispatch separately."
+                "Use the CLI and Proof record to inspect posture; add live Git "
+                "status, command receipts, preview control, or coworker dispatch "
+                "as separate AuthorityLease-gated capabilities."
             ),
             route_refs=[OPERATOR_WORKSPACE_SPINE_ROUTE_REF],
             proof_refs=[OPERATOR_WORKSPACE_SPINE_PROOF_REF],
@@ -579,10 +579,10 @@ def _trust_authority_lanes(
             lane_kind="reversible_local_mutation",
             authority_state="approval_required",
             current_posture=(
-                "Persisted Work Board reorder is promoted as an exact local "
-                "mutation lane requiring approval, idempotency, receipt, "
+                "Persisted Work Board reorder is an AuthorityLease-gated local "
+                "mutation capability requiring approval, idempotency, receipt, "
                 "safe-disable, and rollback posture before persistence; card "
-                "create/archive/assignment remain separate blocked lanes."
+                "create/archive/assignment remain separate unsupported capabilities."
             ),
             approval_posture=(
                 "Exact Work Board approval required for a selected reorder; "
@@ -899,7 +899,7 @@ def _trust_authority_lanes(
             current_posture="Backend-owned connector draft proposals are available as safe refs for operator review through Source Readiness; live connector runtime, sends, writes, account sync, and source ingestion remain blocked.",
             approval_posture="No approval is required to inspect draft proposal refs. Exact approval, idempotency, receipt, rollback, and safe-disable posture are still required before any future send/write.",
             operator_can_do_now="Inspect email-response and calendar-hold draft proposal refs from Inbox, Source Readiness, or the CLI.",
-            next_safe_action="Review connector draft proposals only as local safe-ref artifacts; graduate a separate test-send/write lane before any external effect.",
+            next_safe_action="Review connector draft proposals only as local safe-ref artifacts; add a separately scoped connector send/write AuthorityLease capability before any external effect.",
             route_refs=[CONNECTOR_DRAFT_PROPOSAL_ROUTE_REF],
             proof_refs=[CONNECTOR_DRAFT_PROPOSAL_PROOF_REF],
             verifier_refs=[
@@ -985,16 +985,16 @@ def _trust_authority_lanes(
             authority_state="blocked",
             current_posture=(
                 "Provider/model invocation remains blocked as a broad UAA runtime "
-                "authority. Existing local/tiny evidence is promotion proof only; "
+                "authority. Existing local evidence is lease-scope proof only; "
                 "Trust does not invoke providers or models."
             ),
             approval_posture=(
-                "Future promotion requires exact provider, model, access ref, "
-                "cost estimate, budget, idempotency, receipt, safe-disable, and "
-                "rollback binding."
+                "Future execution requires provider_model_calls/execute "
+                "AuthorityLease scope plus exact provider, model, access ref, cost "
+                "estimate, budget, idempotency, receipt, safe-disable, and rollback binding."
             ),
             operator_can_do_now=(
-                "Inspect local runtime and tiny-lane proof refs only; do not "
+                "Inspect local runtime and lease-scope proof refs only; do not "
                 "treat Trust as provider/model execution."
             ),
             next_safe_action="Inspect model/provider receipts; do not treat output as authority.",
@@ -1050,8 +1050,8 @@ def _trust_authority_lanes(
                 "CLI inspection lane exists."
             ),
             approval_posture="Future exact issue workspace, project, item, field, and write action approval required.",
-            operator_can_do_now="Inspect the promotion path only; no issue tracker write is available from UAA.",
-            next_safe_action="Implement a route/API/CLI/receipt lane before enabling issue sync.",
+            operator_can_do_now="Inspect the planned authority-scope path only; no issue tracker write is available from UAA.",
+            next_safe_action="Implement a route/API/CLI/receipt capability before enabling issue sync.",
             route_refs=["external-lane-ref:issue-tracker-sync-exact-approved"],
             proof_refs=["proof-ref:issue-tracker-sync:exact-approved"],
             verifier_refs=["scripts/verify_operational_maturity.py"],
@@ -1115,11 +1115,11 @@ def _trust_authority_lanes(
             current_posture=(
                 "Browser automation inside UAA remains blocked. Browser observe, "
                 "dry-run, clicks, forms, auth, downloads, uploads, raw DOM, "
-                "screenshots, and broad navigation require separate authority lanes."
+                "screenshots, and broad navigation require separate AuthorityLease capabilities."
             ),
-            approval_posture="Future exact scoped session, page, action, dry-run, promotion, approval, audit, replay, revocation, and kill switch refs required.",
+            approval_posture="Future exact scoped session, page, action, dry-run, policy, approval, audit, replay, revocation, and kill switch refs required.",
             operator_can_do_now="Inspect blocked browser posture only; no browser action executes inside UAA.",
-            next_safe_action="Promote browser observe/dry-run before any action lane.",
+            next_safe_action="Implement browser observe/dry-run AuthorityLease capability before any action capability.",
             route_refs=["browser-lane-ref:low-risk-click-exact-approved"],
             proof_refs=["proof-ref:browser-low-risk-click:exact-approved"],
             verifier_refs=["tests/test_m94_low_risk_browser_clicks.py"],

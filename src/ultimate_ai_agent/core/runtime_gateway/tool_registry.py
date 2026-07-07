@@ -429,8 +429,9 @@ def _build_entries() -> list[RuntimeToolRegistryEntry]:
             risk_class=ToolRiskClass.critical,
             approval_requirement=ToolApprovalRequirement.future_runtime_approval_required,
             safe_summary=(
-                "Command execution tools remain blocked until an exact argv-only "
-                "RuntimeGateway lane proves approval, redaction, and receipts."
+                "Command execution tools require an explicit AuthorityLease "
+                "domain/capability grant plus argv-only RuntimeGateway approval, "
+                "redaction, and receipts."
             ),
             blocked_authority_refs=[
                 "blocked-authority:runtime-tool-registry-high-authority",
@@ -454,8 +455,9 @@ def _build_entries() -> list[RuntimeToolRegistryEntry]:
             risk_class=ToolRiskClass.high,
             approval_requirement=ToolApprovalRequirement.future_runtime_approval_required,
             safe_summary=(
-                "Codex patch tools are proposal metadata only until exact patch "
-                "apply, checkpoint, and rollback lanes graduate."
+                "Codex patch tools are proposal metadata only until files/write "
+                "or workspace/write AuthorityLease scope, exact patch apply, "
+                "checkpoint, and rollback receipts exist."
             ),
             blocked_authority_refs=[
                 "blocked-authority:runtime-tool-registry-invocation",
@@ -526,8 +528,9 @@ def _build_entries() -> list[RuntimeToolRegistryEntry]:
             risk_class=ToolRiskClass.critical,
             approval_requirement=ToolApprovalRequirement.future_runtime_approval_required,
             safe_summary=(
-                "Browser observe/action tools remain blocked until a WebAccessGateway "
-                "lane proves transport, policy, redaction, and receipts."
+                "Browser observe/action tools remain blocked until WebAccessGateway "
+                "transport is mapped to browser AuthorityLease capabilities with "
+                "policy, redaction, and receipts."
             ),
             blocked_authority_refs=[
                 "blocked-authority:runtime-tool-registry-high-authority",
@@ -551,8 +554,9 @@ def _build_entries() -> list[RuntimeToolRegistryEntry]:
             risk_class=ToolRiskClass.critical,
             approval_requirement=ToolApprovalRequirement.future_runtime_approval_required,
             safe_summary=(
-                "Connector write tools remain blocked until exact draft, send/write, "
-                "approval, receipt, and rollback posture exists."
+                "Connector write tools remain blocked until the target connector "
+                "domain has AuthorityLease-gated draft, send/write, approval, "
+                "receipt, and rollback posture."
             ),
             blocked_authority_refs=[
                 "blocked-authority:runtime-tool-registry-high-authority",

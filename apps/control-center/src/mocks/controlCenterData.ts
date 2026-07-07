@@ -883,7 +883,7 @@ const runtimeHardlineCommandClassifications: RuntimeHardlineCommandClassificatio
       denied: false,
       denial_category: "allowed",
       safe_summary:
-        "Mock git status shape passes the hardline floor and still requires exact lane checks.",
+        "Mock git status shape passes the hardline floor and still requires exact capability checks.",
     }),
     runtimeHardlineCommandClassification("allowlisted-focused-pytest", {
       source_ref: "allowlisted-shape-ref:runtime-command-focused-pytest",
@@ -1111,7 +1111,7 @@ const runtimeDoctorDiagnosticsItems: RuntimeDoctorDiagnosticItem[] = [
     status: "ok",
     display_label: "Authority",
     safe_summary:
-      "Mock authority posture points to exact lanes without minting authority.",
+      "Mock authority posture points to scoped capabilities without minting authority.",
   }),
   runtimeDoctorDiagnosticItem("next-actions", {
     domain: "next_actions",
@@ -1456,7 +1456,7 @@ const runtimeBackgroundJobs: RuntimeBackgroundJobProposalReadModel[] = [
     status: "execution_blocked",
     schedule_policy: "blocked_scheduler",
     safe_summary:
-      "Mock connector delivery job remains blocked because external delivery and connector writes are not promoted.",
+      "Mock connector delivery job remains blocked because external delivery and connector writes are not implemented AuthorityLease capabilities.",
   }),
 ];
 
@@ -4916,7 +4916,7 @@ const providerSettingsDiagnosticItems: ProviderSettingsDiagnosticItem[] = [
   }),
   providerSettingsDiagnosticItem({
     diagnosticRef: "provider-settings-diagnostic:tiny-lane",
-    label: "Tiny exact-approved provider lane",
+    label: "Scoped provider capability",
     state: "disabled",
     stateLabel: "Disabled",
     providerRef: "provider-ref:openai-compatible:tiny-exact-approved",
@@ -4928,7 +4928,7 @@ const providerSettingsDiagnosticItems: ProviderSettingsDiagnosticItem[] = [
       "COST_GOVERNOR_DECISION_REQUIRED",
     ],
     safeSummary:
-      "Tiny exact-approved provider lane remains disabled by default and requires exact approval, CostGovernor posture, redacted receipts, and complete actual usage/cost refs.",
+      "Scoped provider capability remains disabled by default and requires exact approval, CostGovernor posture, redacted receipts, and complete actual usage/cost refs.",
     nextSafeAction:
       "Inspect exact scope and receipt requirements; default execution remains disabled.",
     blockedAuthorityRefs: [
@@ -7236,7 +7236,7 @@ const modelProviderControlPlane: ModelProviderControlPlaneReadModel = {
       "blocked-state:model-provider:production-authority",
     ],
     next_safe_action:
-      "Use the control-plane CLI/API/UI to inspect readiness and exact blockers; promote live calls or external research only through a later exact lane.",
+      "Use the control-plane CLI/API/UI to inspect readiness and exact blockers; add live calls or external research only through a later AuthorityLease-gated capability.",
     provider_sdk_call_enabled: false,
     remote_model_call_enabled: false,
     live_web_fetch_enabled: false,
@@ -8042,7 +8042,7 @@ const operatorWorkspaceSpineReadModel: OperatorWorkspaceSpineReadModel = {
   blocked_authority_summary:
     "File writes, Git mutation, shell execution, browser automation, dev-server control, provider/model calls, connector writes, background autonomy, raw path/log persistence, and production authority remain blocked.",
   next_safe_action:
-    "Inspect workspace, Git, preview, run-log, and coworker posture refs; promote one exact lane at a time.",
+    "Inspect workspace, Git, preview, run-log, and coworker posture refs; add one AuthorityLease-gated capability at a time.",
   safe_refs_only: true,
   read_only: true,
   control_center_presentation_only: true,
@@ -12288,7 +12288,7 @@ export const mockControlCenterData: ControlCenterData = {
           "LIVE_PROVIDER_NETWORK_ONLY_INSIDE_SCOPED_ADAPTER",
         ],
         safe_summary:
-          "Tiny exact-approved provider lane is contract-wired but disabled by default; provider execution requires exact approval, credential/provider/model/cost/budget refs, max approved USD, idempotency, expected receipts, redacted receipts, actual usage/cost refs, receipt completeness checks, and a separate scoped adapter enablement gate. Exact-approved fallback is a separate core/CLI lane with per-attempt receipts; Control Center/router fallback stays blocked. Incomplete actual paid cost requires review and blocks further use.",
+          "Scoped provider capability is contract-wired but disabled by default; provider execution requires provider_model_calls/execute AuthorityLease scope, exact approval, credential/provider/model/cost/budget refs, max approved USD, idempotency, expected receipts, redacted receipts, actual usage/cost refs, receipt completeness checks, and a separate scoped adapter enablement gate. Exact-approved fallback remains separate core/CLI capability work with per-attempt receipts; Control Center/router fallback stays blocked. Incomplete actual paid cost requires review and blocks further use.",
       },
       router_dry_run_readiness: {
         contract_ref: "provider-router-dry-run:proposal-only:v1",
@@ -13439,7 +13439,7 @@ export const mockControlCenterData: ControlCenterData = {
           receipt_ref: "receipt-ref:runtime-toolset:connector-write:not-executed",
           verifier_ref: "verifier-ref:hermes-runtime-adoption:phase-09",
           safe_summary:
-            "Connector write tools remain blocked until exact connector lanes exist.",
+            "Connector write tools remain blocked until connector domains have AuthorityLease-gated write capabilities.",
           runtime_supports_toolset: false,
           uaa_allows_execution: false,
           tool_invocation_enabled: false,
@@ -18799,7 +18799,7 @@ export const mockControlCenterData: ControlCenterData = {
           label: "Execution receipts",
           status: "not_present_in_current_timeline",
           safe_summary:
-            "Recorded receipts are grouped for accepted exact lanes and receipt-only decisions.",
+            "Recorded receipts are grouped for accepted scoped capabilities and receipt-only decisions.",
           event_refs: [],
           timeline_item_refs: [],
           receipt_refs: [],

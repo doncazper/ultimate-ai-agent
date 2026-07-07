@@ -95,24 +95,26 @@ Action Inbox decisions,
 Today-to-Action envelope promotion, Chat durable receipts/handoffs, Memory
 Review decision receipts, Memory context-pack internal Action proposal receipts,
 Memory feedback receipts, the exact-approved provider credential validation
-lane, the tiny exact-approved provider lane, governed runtime pilot mutation
-routes, and local model validation route groups.
+capability, the scoped provider capability route, governed runtime pilot
+mutation routes, and local model validation route groups.
 `/api/manifest` and the frozen route inventory expose
 `rate_limit_targeted`, `rate_limit_posture`, `rate_limit_policy_ref`, and
 `rate_limit_group`. This is not auth, distributed quota, billing, production
 authority, or a public beta claim.
 
 Governed Runtime Pilot Phase 07 keeps `/api/runtime/*` governed by contract and
-storage metadata while promoting configured local loopback model calls, one exact
-allowlisted read-only command status lane, and exact Action Inbox approved
-focused pytest, repo verifier, and frontend check command execution through `RuntimeGateway`, with CLI/Control
-Center/evidence timeline parity for status, capabilities, invocation, receipt,
+storage metadata while exposing configured local loopback model calls, one
+allowlisted read-only command status capability, and Action Inbox approved
+focused pytest, repo verifier, frontend check, and repo-doctor command execution
+through `RuntimeGateway` only when the required AuthorityLease scope validates,
+with CLI/Control Center/evidence timeline parity for status, capabilities,
+invocation, receipt,
 safe-disable, approval decision inspection, command root pinning, configured
 endpoint matching, receipt-detail execution truth, and approval preflight.
 `GET /api/runtime/governed-product-pilot-profile` exposes the Governed Product
 Pilot authority profile as a protected read-only Python Core read model for
-exact lane posture, portable evidence envelopes, durable orchestration posture,
-and blocked authority refs.
+AuthorityLease-gated capability posture, portable evidence envelopes, durable
+orchestration posture, and blocked authority refs.
 `GET /api/runtime/staged-orchestration` exposes a protected read-only Python
 Core staged orchestration plan/checkpoint/dependency read model and grants no
 scheduling, dispatch, background autonomy, model call, browser action,
@@ -372,10 +374,11 @@ raw delegated profile names, or expose workspace paths.
 Capability, invocation, policy, approval-ref, receipt, and safe-disable records
 store safe refs and redacted metadata only; model output is untrusted proposal
 text, and command output is redacted and bounded. Remote provider/model calls,
-arbitrary shell/subprocess execution outside named exact command lanes,
-arbitrary focused tests outside the exact pytest lane, repo verifier/frontend
-check execution outside named exact lanes, arbitrary adapter execution, browser
-automation, connector writes, plugin runtime import, remote execution, raw
+arbitrary shell/subprocess execution outside implemented AuthorityLease-gated
+command capabilities, arbitrary focused tests, repo verifier/frontend check, or
+repo-doctor execution outside implemented AuthorityLease-gated capabilities,
+arbitrary adapter execution, browser automation, connector writes, plugin
+runtime import, remote execution, raw
 prompt/response/command output/local path/env persistence, production authority,
 and public release claims remain blocked.
 

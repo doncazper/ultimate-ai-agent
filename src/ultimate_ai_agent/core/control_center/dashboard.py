@@ -964,7 +964,7 @@ def build_provider_settings_diagnostics(
             ),
             ProviderSettingsDiagnosticItem(
                 diagnostic_ref="provider-settings-diagnostic:tiny-lane",
-                label="Tiny exact-approved provider lane",
+                label="Scoped provider capability",
                 state="disabled",
                 state_label="Disabled",
                 provider_ref=tiny_invocation_readiness.provider_ref,

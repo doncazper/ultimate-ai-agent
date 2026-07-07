@@ -559,8 +559,9 @@ def _build_runtime_toolset_capability_posture() -> RuntimeToolsetCapabilityPostu
             side_effect_class=RuntimeToolsetSideEffectClass.high_authority,
             runtime_supports_toolset=True,
             safe_summary=(
-                "Command tools stay blocked until RuntimeGateway can enforce "
-                "argv-only allowlists, jailed cwd, timeout, redaction, and receipts."
+                "Command tools require workspace/execute AuthorityLease scope "
+                "and RuntimeGateway enforcement of argv-only allowlists, jailed "
+                "cwd, timeout, redaction, and receipts."
             ),
             blocked_authority_refs=[
                 "blocked-authority:runtime-high-authority-toolset",
@@ -601,8 +602,9 @@ def _build_runtime_toolset_capability_posture() -> RuntimeToolsetCapabilityPostu
             side_effect_class=RuntimeToolsetSideEffectClass.external_mutation,
             runtime_supports_toolset=False,
             safe_summary=(
-                "Connector write toolsets are blocked until exact connector "
-                "draft, approval, send/write, rollback, and receipt lanes exist."
+                "Connector write toolsets are blocked until connector domains "
+                "have AuthorityLease-gated draft, approval, send/write, "
+                "rollback, and receipt capabilities."
             ),
             blocked_authority_refs=[
                 "blocked-authority:runtime-connector-write",

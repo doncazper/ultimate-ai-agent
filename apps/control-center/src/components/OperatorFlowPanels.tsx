@@ -3208,7 +3208,7 @@ export function ProviderCredentialReadinessPanel({
           blockerCodes={readiness.invocation_readiness.blocker_codes}
         />
         <ReadinessGateCard
-          title="Tiny exact-approved provider lane"
+          title="Scoped provider capability"
           status={readiness.tiny_invocation_readiness.status}
           summary={readiness.tiny_invocation_readiness.safe_summary}
           details={[

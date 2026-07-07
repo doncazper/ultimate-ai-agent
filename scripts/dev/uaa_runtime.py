@@ -281,7 +281,7 @@ def _print_authority_profile(read_model: dict[str, Any]) -> None:
     print(
         f"Control Center mints authority: {read_model['control_center_mints_authority']}"
     )
-    print("Promoted exact authority:")
+    print("Implemented lease-gated authority refs:")
     for ref in read_model["promoted_authority_refs"]:
         print(f"- {ref}")
     print("Lanes:")
@@ -3369,7 +3369,10 @@ def _print_action_decision_preflight(payload: dict[str, Any]) -> None:
     print(f"Payload fingerprint: {payload['expected_payload_fingerprint_ref']}")
     print(f"Policy decision: {payload['expected_policy_decision_ref']}")
     print("Approval records a decision only; it does not execute the command.")
-    print("Execution still requires a later exact RuntimeGateway execute request.")
+    print(
+        "Execution still requires a RuntimeGateway execute request with active "
+        "AuthorityLease scope."
+    )
     print(
         "Blocked broad authority: " + ", ".join(payload["blocked_broad_authority_refs"])
     )
@@ -3660,7 +3663,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     command = subparsers.add_parser(
         "command",
-        help="Run exact governed RuntimeGateway command lanes.",
+        help="Run governed RuntimeGateway command capabilities.",
     )
     command_subparsers = command.add_subparsers(dest="runtime_command", required=True)
     command_run = command_subparsers.add_parser(
@@ -3989,7 +3992,8 @@ def build_parser() -> argparse.ArgumentParser:
             help=(
                 "Required for approve after reviewing the exact command "
                 "preflight. Approval records a decision only; execution still "
-                "requires a later exact RuntimeGateway execute request."
+                "requires a RuntimeGateway execute request with active "
+                "AuthorityLease scope."
             ),
         )
         decision_parser.add_argument(

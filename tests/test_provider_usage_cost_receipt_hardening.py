@@ -156,7 +156,7 @@ def stored_receipt_payload(
         "further_provider_use_blocked": False,
         "reason_codes": ["REDACTED_RECEIPT_RECORDED"],
         "safe_summary": (
-            "Tiny exact-approved provider lane recorded a redacted receipt using a scoped adapter."
+            "Scoped provider capability recorded a redacted receipt using a scoped adapter."
         ),
     }
     values.update(overrides)

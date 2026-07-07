@@ -492,8 +492,9 @@ class GovernedProductPilotAuthorityProfileReadModel(BaseModel):
     )
     generated_at: datetime = Field(default_factory=utc_now)
     safe_summary: str = (
-        "Governed Product Pilot profile keeps sealed default denial and promotes "
-        "only exact local RuntimeGateway, receipt, evidence, and durable run lanes."
+        "Governed Product Pilot profile keeps sealed default denial and exposes "
+        "only lease-scoped local RuntimeGateway capabilities, receipts, evidence, "
+        "and durable run posture."
     )
     redactions_applied: list[str] = Field(
         default_factory=lambda: list(GOVERNED_RUNTIME_REDACTIONS)
@@ -738,9 +739,9 @@ def _pilot_lanes() -> list[GovernedProductPilotLane]:
                 "with active lease scope and receipts."
             ),
             repo_safe_status=(
-                "Only exact allowlisted RuntimeGateway command lanes exist: read-only "
-                "git status and Action Inbox approved focused pytest, repo-verifier, "
-                "frontend-check, and repo-doctor."
+                "Only allowlisted RuntimeGateway command capabilities exist: read-only "
+                "git status plus Action Inbox approved focused pytest, repo-verifier, "
+                "frontend-check, and repo-doctor under active workspace/execute scope."
             ),
             promotion_path_ref="promotion-path-ref:runtime-command-authority-capabilities",
             execution_capable=True,

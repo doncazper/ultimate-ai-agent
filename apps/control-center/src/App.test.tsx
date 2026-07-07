@@ -12093,7 +12093,7 @@ describe("Web Control Center shell", () => {
       0,
     );
     expect(
-      screen.getAllByText(/Tiny exact-approved provider lane/i).length,
+      screen.getAllByText(/Scoped provider capability/i).length,
     ).toBeGreaterThan(0);
     expect(
       screen.getAllByText(/Disabled no execution/i).length,

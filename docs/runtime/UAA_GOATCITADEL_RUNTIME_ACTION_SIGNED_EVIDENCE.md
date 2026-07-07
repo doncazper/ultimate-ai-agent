@@ -1,6 +1,6 @@
 # UAA GoatCitadel Runtime Action Signed Evidence
 
-Status: implemented for the exact Action Inbox approved utility command lanes:
+Status: implemented for Action Inbox approved workspace/execute utility command capabilities:
 `focused_pytest`, `repo_verifier`, `frontend_check`, and `repo_doctor`.
 
 This phase borrows GoatCitadel's operator-visible execution spine without
@@ -17,7 +17,7 @@ remains blocked, and no unrestricted shell is added.
 
 ## What Is Implemented
 
-- Exact Action Inbox approved utility command lane evidence through
+- Action Inbox approved workspace/execute utility command capability evidence through
   `RuntimeGateway` for `focused_pytest`, `repo_verifier`, `frontend_check`, and
   `repo_doctor`; execution requires active `workspace/execute` AuthorityLease
   scope in addition to the exact Action Inbox approval envelope.
@@ -41,7 +41,7 @@ remains blocked, and no unrestricted shell is added.
 
 - Broad runtime authority remains blocked.
 - Default read-only authority can inspect read-only command posture only; it
-  cannot execute utility command lanes.
+  cannot execute utility command capabilities.
 - No unrestricted shell.
 - No arbitrary command text.
 - No browser automation.
@@ -59,9 +59,9 @@ provider payload, no raw local path, no environment dump, no credential
 material, and no raw logs. It stores safe refs, booleans, bounded status, hashes,
 and verifier refs only.
 
-## Promotion Path
+## Extension Path
 
-Future non-utility actions may add signed evidence only when each lane proves
-approval binding, idempotency, replay conflict detection, rollback or
-safe-disable posture, receipt refs, proof refs, redaction, CLI/API parity, route
-classification, and focused verifier coverage.
+Future non-utility actions may add signed evidence only when each
+AuthorityLease-gated capability proves approval binding, idempotency, replay
+conflict detection, rollback or safe-disable posture, receipt refs, proof refs,
+redaction, CLI/API parity, route classification, and focused verifier coverage.

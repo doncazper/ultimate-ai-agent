@@ -129,22 +129,26 @@ Current boundary summary:
   local model validation route groups. It does not add auth, distributed quota,
   dependencies, billing, or production authority.
 - Governed Runtime Pilot Phase 07 keeps `/api/runtime/*` contract, policy,
-  approval-binding, receipt, and safe-disable metadata routes while promoting
-  configured local loopback model calls, one exact allowlisted read-only command
-  status lane, and exact Action Inbox approved focused pytest, repo verifier, and frontend check command execution
-  through `RuntimeGateway`, then makes those records visible through
+  approval-binding, receipt, and safe-disable metadata routes while exposing
+  configured local loopback model calls, one allowlisted read-only command
+  status capability, and Action Inbox approved focused pytest, repo verifier,
+  frontend check, and repo-doctor command execution through `RuntimeGateway`
+  only when the required AuthorityLease scope validates, then makes those
+  records visible through
   `uaa runtime ...`, `uaa actions approve|deny ...`, and Control Center runtime
   readiness/evidence timeline cards. It also hardens command root pinning,
   configured endpoint matching, receipt-detail execution truth, and CLI approval
   preflight. They are backend-owned safe-ref/metadata receipts; arbitrary
-  shell/subprocess execution, focused tests outside the exact lane, repo verifier
-  frontend-check, and repo-doctor execution outside named exact lanes, arbitrary adapter execution, remote provider/model
+  shell/subprocess execution, focused tests, repo verifier, frontend-check, and
+  repo-doctor execution outside implemented AuthorityLease-gated capabilities,
+  arbitrary adapter execution, remote provider/model
   calls, browser automation, connector writes, plugin runtime import, remote
   execution, production authority, and public release claims remain blocked.
 - `GET /api/runtime/governed-product-pilot-profile` exposes a Python Core
-  Governed Product Pilot read model with sealed/default denial, exact lane
-  posture, portable evidence envelope refs, durable orchestration posture, and
-  blocked authority refs. It does not add a mutation lane.
+  Governed Product Pilot read model with sealed/default denial,
+  AuthorityLease-gated capability posture, portable evidence envelope refs,
+  durable orchestration posture, and blocked authority refs. It does not add a
+  mutation capability.
 - `GET /api/runtime/parity-loop` exposes the Phase 08 backend-owned runtime
   parity-loop inspection model across prepared turn, route binding, durable run,
   staged orchestration, provider evidence, Action Inbox approval, receipt,

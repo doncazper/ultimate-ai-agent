@@ -972,7 +972,7 @@ def route_classification_for_path(
     if normalized_method == "POST" and path == "/api/runtime/invocations":
         return (
             ApiRouteClassification.mutating_requires_authority,
-            "Governed runtime invocation metadata route is mutation-like authority posture only; it stores safe refs and policy decisions, and idempotency, approval posture, redaction, and execution-blocked receipts are required before later runtime promotion.",
+            "Governed runtime invocation metadata route is mutation-like authority posture only; it stores safe refs and policy decisions, and idempotency, approval posture, redaction, and execution-blocked receipts are required before later lease-scoped execution authority.",
         )
     if normalized_method == "POST" and path == "/api/runtime/command/run":
         return (
@@ -992,7 +992,7 @@ def route_classification_for_path(
     if normalized_method == "POST" and path == "/api/runtime/invocations/{id}/execute":
         return (
             ApiRouteClassification.mutating_requires_authority,
-            "Governed runtime execute route can run only the exact Action Inbox approved focused pytest, repo-verifier, frontend-check, and repo-doctor RuntimeGateway command lanes with top-level approval/envelope/payload/policy refs, idempotency, redacted receipts, and safe-disable posture; arbitrary shell, generic Makefile commands outside exact lanes, browser, connector, provider, plugin, remote, and production authority remain blocked.",
+            "Governed runtime execute route can run only Action Inbox approved focused pytest, repo-verifier, frontend-check, and repo-doctor RuntimeGateway command capabilities when active workspace/execute AuthorityLease scope, top-level approval/envelope/payload/policy refs, idempotency, redacted receipts, and safe-disable posture validate; arbitrary shell, generic Makefile commands outside those capabilities, browser, connector, provider, plugin, remote, and production authority remain blocked.",
         )
     if normalized_method == "POST" and path == "/api/runtime/safe-disable":
         return (
@@ -1052,7 +1052,7 @@ def route_classification_for_path(
     ):
         return (
             ApiRouteClassification.mutating_requires_authority,
-            "Tiny exact-approved provider lane; exact approval, CostGovernor decision, idempotency, redacted receipt refs, actual usage/cost refs, receipt completeness, two named disabled-by-default single-provider live adapter scopes, and safe-disable posture required while incomplete actual paid cost blocks further use until review and broad provider authority and fallback execution stay blocked",
+            "Scoped provider capability route; provider_model_calls/execute AuthorityLease scope, exact approval, CostGovernor decision, idempotency, redacted receipt refs, actual usage/cost refs, receipt completeness, two named disabled-by-default single-provider live adapter scopes, and safe-disable posture required while incomplete actual paid cost blocks further use until review and broad provider authority and fallback execution stay blocked",
         )
     if (
         normalized_method == "POST"

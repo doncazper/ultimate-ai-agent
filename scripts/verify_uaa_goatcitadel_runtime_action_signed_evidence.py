@@ -20,7 +20,7 @@ REQUIRED_FILES = [
 DOC_REQUIRED = [
     "UAA GoatCitadel Runtime Action Signed Evidence",
     "does not copy GoatCitadel code",
-    "exact Action Inbox approved utility command lanes",
+    "Action Inbox approved workspace/execute utility command capabilities",
     "focused_pytest",
     "repo_verifier",
     "frontend_check",

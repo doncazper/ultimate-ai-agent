@@ -95,7 +95,7 @@ TINY_PROVIDER_INVOCATION_SCOPE_REFS = (
     SECOND_TINY_LIVE_PROVIDER_ADAPTER_REF,
 )
 TINY_PROVIDER_RECEIPT_SUMMARY = (
-    "Tiny exact-approved provider lane recorded a redacted receipt using a scoped adapter."
+    "Scoped provider capability recorded a redacted receipt using a scoped adapter."
 )
 _TINY_PROVIDER_EXECUTION_GRANT_TOKEN = object()
 
@@ -362,13 +362,14 @@ class TinyProviderInvocationReadiness(_TinyProviderInvocationModel):
         ]
     )
     safe_summary: str = (
-        "Tiny exact-approved provider lane is contract-wired but disabled by default; "
-        "provider execution requires exact approval, credential/provider/model/cost/budget "
-        "refs, max approved USD, idempotency, expected receipts, redacted receipts, and "
-        "a separate scoped adapter enablement gate. Exact-approved fallback is a separate "
-        "core/CLI lane with per-attempt receipts; Control Center/router fallback stays "
-        "blocked. Even with live adapter contracts present, the default readiness posture "
-        "remains disabled-no-execution."
+        "Scoped provider capability is contract-wired but disabled by default; "
+        "provider execution requires provider_model_calls/execute AuthorityLease scope, "
+        "exact approval, credential/provider/model/cost/budget refs, max approved USD, "
+        "idempotency, expected receipts, redacted receipts, and a separate scoped adapter "
+        "enablement gate. Exact-approved fallback remains separate core/CLI capability "
+        "work with per-attempt receipts; Control Center/router fallback stays blocked. "
+        "Even with live adapter contracts present, the default readiness posture remains "
+        "disabled-no-execution."
     )
 
     @model_validator(mode="after")
@@ -2012,7 +2013,7 @@ def evaluate_tiny_provider_invocation(
         allowed=True,
         status=TinyProviderInvocationStatus.receipt_recorded,
         reason_codes=list(receipt.reason_codes),
-        safe_message="Tiny exact-approved provider lane produced a redacted receipt.",
+        safe_message="Scoped provider capability produced a redacted receipt.",
         authority_decision=authority_decision,
         cost_decision=actual_cost_decision,
         receipt=receipt,
