@@ -98,6 +98,7 @@ export const API_ENDPOINTS = {
   runtimeVoiceMediaPosture: "/api/runtime/voice-media-posture",
   runtimeMessagingGatewayPosture: "/api/runtime/messaging-gateway-posture",
   runtimeRemoteExecutionPosture: "/api/runtime/remote-execution-posture",
+  runtimePluginMetadataPosture: "/api/runtime/plugin-metadata-posture",
   runtimeAuthorityDecisionPreview: "/api/runtime/authority-decisions/preview",
   runtimeAuthorityMissionPlan: "/api/runtime/authority-missions/plan",
   runtimeAuthorityLeases: "/api/runtime/authority-leases",
@@ -273,6 +274,7 @@ export const READ_ENDPOINTS = [
   API_ENDPOINTS.runtimeVoiceMediaPosture,
   API_ENDPOINTS.runtimeMessagingGatewayPosture,
   API_ENDPOINTS.runtimeRemoteExecutionPosture,
+  API_ENDPOINTS.runtimePluginMetadataPosture,
 ] as const;
 
 export function isAllowedReadEndpoint(

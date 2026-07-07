@@ -1,7 +1,8 @@
 # UAA Hermes Runtime Plugin Metadata Posture
 
-Status: Phase 44 repo-safe Python Core read model.  
-CLI: `scripts/dev/uaa_runtime.py inspect-plugin-metadata-posture`  
+Status: Phase 44 repo-safe Python Core read model.
+Route: `GET /api/runtime/plugin-metadata-posture`
+CLI: `scripts/dev/uaa_runtime.py inspect-plugin-metadata-posture`
 Core: `src/ultimate_ai_agent/core/runtime_gateway/plugin_metadata_posture.py`
 
 ## Full-Strength
@@ -14,7 +15,9 @@ operator-visible Trust posture before any extension can run.
 
 ## Repo-Safe
 
-The current implementation is a metadata contract map only:
+The current implementation is a metadata contract map only, owned by Python
+Core and visible through the API route, CLI inspection, and Control Center
+display:
 
 - adapter metadata contract
 - hook metadata contract
@@ -25,10 +28,22 @@ The current implementation is a metadata contract map only:
 - skill bundle metadata contract
 
 Each surface exposes reviewed manifest, static scan, sandbox, activation grant,
-rollback, safe-disable, receipt, proof, blocked authority, promotion path, and
+rollback, safe-disable, receipt, proof, blocked authority, authority path, and
 next-safe-action refs. It does not import plugin code, execute hooks, install
 packages, execute marketplace content, enable tools, call providers, write to
-connectors, or execute shell commands.
+connectors, execute shell commands, persist raw manifests, or mint authority
+from Control Center.
+
+## AuthorityState
+
+Plugin metadata posture inspection is mapped to
+`lane-ref:runtime-plugin-metadata-posture-read-model` as `workspace/read` under
+Read-only mode. `GET /api/runtime/plugin-metadata-posture` and
+`scripts/dev/uaa_runtime.py inspect-plugin-metadata-posture --json` report the
+active AuthorityState mapping, decision ref, decision outcome, reason refs, and
+unsupported adapter refs. Known read-only inspection inside the default active
+lease is allowed; unknown plugin authority and unsupported plugin adapters are
+denied.
 
 ## Blocked / Needs Authority
 
@@ -45,9 +60,9 @@ The following remain blocked:
 - raw manifest persistence
 - Control Center authority minting
 
-## Exact Promotion Path
+## Exact Authority Path
 
-Promotion requires:
+Any future plugin execution capability requires:
 
 1. reviewed manifest contract
 2. static scan

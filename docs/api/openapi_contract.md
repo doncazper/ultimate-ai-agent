@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `245`.
+Current OpenAPI path count: `246`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -306,6 +306,16 @@ Contract rules:
   blocked authority refs only. Remote execution, host access, cloud sandboxes,
   remote command sessions, file sync, protected material access, remote process
   control, credential material persistence, Control Center authority minting,
+  production authority, and public release claims remain blocked.
+  `GET /api/runtime/plugin-metadata-posture` exposes the Hermes Runtime
+  Adoption Phase 44 backend-owned plugin metadata posture. It returns adapter,
+  hook, tool, memory provider, context engine, UI extension, and skill bundle
+  metadata contract refs, reviewed manifest refs, static scan refs, sandbox
+  refs, activation grant refs, rollback refs, safe-disable refs, receipt refs,
+  proof refs, authority refs, unsupported adapter refs, and blocked authority
+  refs only. Runtime imports, hook execution, package installation,
+  marketplace content execution, plugin code execution, connector writes,
+  provider calls, raw manifest persistence, Control Center authority minting,
   production authority, and public release claims remain blocked.
   `GET /api/runtime/context-references` exposes the Hermes Runtime Adoption
   Phase 16 backend-owned context-reference posture. It returns safe-ref grammar,

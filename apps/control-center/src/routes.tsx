@@ -551,6 +551,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
           voiceMediaPosture={data.runtimeVoiceMediaPosture}
           messagingGatewayPosture={data.runtimeMessagingGatewayPosture}
           remoteExecutionPosture={data.runtimeRemoteExecutionPosture}
+          pluginMetadataPosture={data.runtimePluginMetadataPosture}
         />
       );
     case "/operator-loop":

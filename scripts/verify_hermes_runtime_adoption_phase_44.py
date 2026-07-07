@@ -11,6 +11,8 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     RUNTIME_PLUGIN_METADATA_BLOCKED_AUTHORITY_REFS,
+    RUNTIME_PLUGIN_METADATA_POSTURE_AUTHORITY_MAPPING_REF,
+    RUNTIME_PLUGIN_METADATA_POSTURE_ROUTE_REF,
     build_runtime_plugin_metadata_posture_read_model,
 )
 
@@ -28,8 +30,23 @@ def main() -> int:
 
     if read_model.status != "metadata_contract_only":
         failures.append("plugin metadata status is not metadata-only")
+    if read_model.route_ref != RUNTIME_PLUGIN_METADATA_POSTURE_ROUTE_REF:
+        failures.append("plugin metadata route ref drifted")
     if read_model.cli_ref != "uaa runtime inspect-plugin-metadata-posture":
         failures.append("plugin metadata CLI ref drifted")
+    if (
+        read_model.authority_state_mapping_ref
+        != RUNTIME_PLUGIN_METADATA_POSTURE_AUTHORITY_MAPPING_REF
+    ):
+        failures.append("plugin metadata AuthorityState mapping drifted")
+    if read_model.authority_state_decision_outcome != "allow":
+        failures.append("plugin metadata posture inspection is not allowed")
+    if "reason-ref:authority:active-lease-grants-domain-capability" not in (
+        read_model.authority_state_reason_refs
+    ):
+        failures.append("plugin metadata active lease reason missing")
+    if not read_model.unsupported_adapter_refs:
+        failures.append("plugin metadata unsupported adapter refs missing")
     if read_model.surface_count != 7:
         failures.append("plugin metadata surface count drifted")
     if read_model.blocked_surface_count != read_model.surface_count:
@@ -84,11 +101,13 @@ def main() -> int:
         "Full-Strength",
         "Repo-Safe",
         "Blocked / Needs Authority",
-        "Exact Promotion Path",
+        "AuthorityState",
+        "Exact Authority Path",
         "plugin runtime import",
         "hook execution",
         "package installation",
         "marketplace content execution",
+        "GET /api/runtime/plugin-metadata-posture",
         "Planning text and metadata visibility do not grant",
     ]:
         if expected not in doc_text:
@@ -98,6 +117,8 @@ def main() -> int:
     for expected in [
         "inspect-plugin-metadata-posture",
         "runtime_plugin_metadata_posture",
+        "authority_state_mapping_ref",
+        "authority_state_decision_outcome",
         "runtime_import_performed",
         "hook_execution_performed",
         "package_install_performed",
@@ -132,6 +153,7 @@ def main() -> int:
         failures.append("plugin metadata CLI failed")
     else:
         payload = json.loads(cli_result.stdout)
+        read_model_payload = payload["runtime_plugin_metadata_posture"]
         for field in [
             "runtime_import_performed",
             "hook_execution_performed",
@@ -144,8 +166,15 @@ def main() -> int:
         ]:
             if payload[field] is not False:
                 failures.append(f"CLI claims {field}")
-        if payload["runtime_plugin_metadata_posture"]["surface_count"] != 7:
+        if read_model_payload["surface_count"] != 7:
             failures.append("CLI returned stale surface count")
+        if (
+            read_model_payload["authority_state_mapping_ref"]
+            != RUNTIME_PLUGIN_METADATA_POSTURE_AUTHORITY_MAPPING_REF
+        ):
+            failures.append("CLI returned stale AuthorityState mapping")
+        if read_model_payload["authority_state_decision_outcome"] != "allow":
+            failures.append("CLI returned stale AuthorityState decision")
 
     if failures:
         for failure in failures:

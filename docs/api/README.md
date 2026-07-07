@@ -2,8 +2,8 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `245`, generated from the FastAPI application and
-exposed through `/api/manifest`. `/api/manifest` currently reports `246` route
+Current OpenAPI path count: `246`, generated from the FastAPI application and
+exposed through `/api/manifest`. `/api/manifest` currently reports `247` route
 operations because governed runtime pilot routes intentionally have both `GET`
 and `POST` contracts on `/api/runtime/invocations`, and the Turn Contract
 Router preview plus AuthorityLease mission planning routes add no-effect
@@ -74,6 +74,12 @@ Hermes Runtime Adoption Phase 43 adds
 execution posture route with host access, cloud sandboxes, remote command
 sessions, file sync, protected material access, remote process control,
 credential material persistence, and Control Center authority minting blocked.
+Hermes Runtime Adoption Phase 44 adds
+`GET /api/runtime/plugin-metadata-posture` as a protected read-only plugin
+metadata posture route with runtime imports, hooks, package installation,
+marketplace content execution, plugin code execution, connector writes,
+provider calls, raw manifest persistence, and Control Center authority minting
+blocked.
 
 The API boundary is metadata-first, validation-first, approval-aware for
 local/dev policy checks, simulated/fallback-first for model runtime behavior,

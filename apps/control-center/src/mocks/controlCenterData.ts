@@ -48,6 +48,7 @@ import type {
   RuntimeManagedScopePolicyPinSource,
   RuntimeMcpServerCatalogEntry,
   RuntimeMcpToolSlice,
+  RuntimePluginMetadataSurface,
   RuntimeSubagentIsolationRole,
   RuntimeSubagentReviewArtifact,
   RuntimeLspDiagnosticEvidenceContract,
@@ -2790,6 +2791,108 @@ const runtimeRemoteExecutionBackends = [
     display_label: "Remote GPU",
     safe_summary:
       "Mock remote GPU posture keeps credential, cost, data-boundary, receipt, and safe-disable authority blocked.",
+  }),
+];
+
+const runtimePluginMetadataBlockedRefs = [
+  "blocked-authority:plugin-metadata-no-runtime-import",
+  "blocked-authority:plugin-metadata-no-hook-execution",
+  "blocked-authority:plugin-metadata-no-package-install",
+  "blocked-authority:plugin-metadata-no-marketplace-content-execution",
+  "blocked-authority:plugin-metadata-no-plugin-code-execution",
+  "blocked-authority:plugin-metadata-no-connector-write",
+  "blocked-authority:plugin-metadata-no-provider-call",
+  "blocked-authority:plugin-metadata-no-shell-execution",
+  "blocked-authority:plugin-metadata-no-raw-manifest-persistence",
+  "blocked-authority:plugin-metadata-no-control-center-authority-mint",
+];
+
+function runtimePluginMetadataSurface(
+  slug: string,
+  overrides: Pick<
+    RuntimePluginMetadataSurface,
+    "surface_kind" | "display_label" | "safe_summary"
+  >,
+): RuntimePluginMetadataSurface {
+  return {
+    surface_ref: `plugin-surface-ref:runtime:${slug}`,
+    surface_kind: overrides.surface_kind,
+    display_label: overrides.display_label,
+    status: "blocked_until_grant",
+    safe_summary: overrides.safe_summary,
+    reviewed_manifest_ref: `reviewed-manifest-ref:plugin:${slug}`,
+    static_scan_ref: `static-scan-ref:plugin:${slug}`,
+    sandbox_ref: `sandbox-ref:plugin:${slug}`,
+    activation_grant_ref: `activation-grant-ref:plugin:${slug}`,
+    rollback_ref: `rollback-ref:plugin:${slug}`,
+    safe_disable_ref: `safe-disable-ref:plugin:${slug}`,
+    receipt_plan_ref: `receipt-plan-ref:plugin:${slug}`,
+    proof_ref: `proof-ref:plugin-metadata:${slug}`,
+    blocked_authority_refs: runtimePluginMetadataBlockedRefs,
+    promotion_path_refs: [
+      `promotion-path-ref:plugin:${slug}:reviewed-manifest`,
+      `promotion-path-ref:plugin:${slug}:static-scan`,
+      `promotion-path-ref:plugin:${slug}:sandbox-grant`,
+      `promotion-path-ref:plugin:${slug}:rollback-receipt`,
+    ],
+    next_safe_action_refs: [
+      `next-safe-action-ref:plugin:${slug}:metadata-contract`,
+    ],
+    runtime_import_enabled: false,
+    hook_execution_enabled: false,
+    package_install_enabled: false,
+    marketplace_content_execution_enabled: false,
+    plugin_code_execution_enabled: false,
+    connector_write_enabled: false,
+    provider_call_enabled: false,
+    shell_execution_enabled: false,
+    raw_manifest_persisted: false,
+    control_center_mints_authority: false,
+  };
+}
+
+const runtimePluginMetadataSurfaces = [
+  runtimePluginMetadataSurface("adapter", {
+    surface_kind: "adapter",
+    display_label: "Adapters",
+    safe_summary:
+      "Mock adapter metadata is inspectable only; adapter import and execution stay blocked.",
+  }),
+  runtimePluginMetadataSurface("hook", {
+    surface_kind: "hook",
+    display_label: "Hooks",
+    safe_summary:
+      "Mock hook metadata is inspectable only; lifecycle hook execution stays blocked.",
+  }),
+  runtimePluginMetadataSurface("tool", {
+    surface_kind: "tool",
+    display_label: "Tools",
+    safe_summary:
+      "Mock tool metadata is inspectable only; tool execution and connector writes stay blocked.",
+  }),
+  runtimePluginMetadataSurface("memory-provider", {
+    surface_kind: "memory_provider",
+    display_label: "Memory providers",
+    safe_summary:
+      "Mock memory provider metadata is inspectable only; external memory provider runtime stays blocked.",
+  }),
+  runtimePluginMetadataSurface("context-engine", {
+    surface_kind: "context_engine",
+    display_label: "Context engines",
+    safe_summary:
+      "Mock context engine metadata is inspectable only; hidden context injection stays blocked.",
+  }),
+  runtimePluginMetadataSurface("ui-extension", {
+    surface_kind: "ui_extension",
+    display_label: "UI extensions",
+    safe_summary:
+      "Mock UI extension metadata is inspectable only; executable extension runtime stays blocked.",
+  }),
+  runtimePluginMetadataSurface("skill-bundle", {
+    surface_kind: "skill_bundle",
+    display_label: "Skill bundles",
+    safe_summary:
+      "Mock skill bundle metadata is inspectable only; skill runtime import and marketplace execution stay blocked.",
   }),
 ];
 
@@ -17098,6 +17201,88 @@ export const mockControlCenterData: ControlCenterData = {
       "credential_material_omitted",
       "remote_paths_omitted",
       "remote_logs_omitted",
+    ],
+  },
+  runtimePluginMetadataPosture: {
+    schema_version: "runtime_plugin_metadata_posture.v1",
+    contract_ref:
+      "contract-ref:hermes-runtime-adoption-plugin-metadata-posture:v1",
+    status: "metadata_contract_only",
+    snapshot_ref: "plugin-metadata-posture-snapshot-ref:runtime:phase-44",
+    snapshot_hash_ref: "snapshot-hash-ref:plugin-metadata-posture:mock",
+    route_ref: "GET /api/runtime/plugin-metadata-posture",
+    cli_ref: "uaa runtime inspect-plugin-metadata-posture",
+    doc_ref: "docs/runtime/UAA_HERMES_RUNTIME_PLUGIN_METADATA_POSTURE.md",
+    authority_state_route_ref: "GET /api/runtime/authority-state",
+    authority_state_cli_ref:
+      "repo-local-command:uaa-runtime-inspect-authority-state",
+    authority_state_mapping_ref:
+      "lane-ref:runtime-plugin-metadata-posture-read-model",
+    authority_state_catalog_ref:
+      "authority-decision-catalog-ref:runtime-plugin-metadata-posture-read-model",
+    authority_state_decision_ref:
+      "authority-policy-decision-ref:mock-runtime-plugin-metadata-posture",
+    authority_state_decision_outcome: "allow",
+    authority_state_status: "implemented_authority_bound_read_model",
+    authority_state_operator_message:
+      "Allowed by active authority lease for safe plugin metadata posture inspection only.",
+    authority_state_reason_refs: [
+      "reason-ref:authority:active-lease-grants-domain-capability",
+    ],
+    unsupported_adapter_refs: [
+      "adapter-ref:plugin-runtime-import:not-implemented",
+      "adapter-ref:plugin-hook-execution:not-implemented",
+      "adapter-ref:plugin-package-install:not-implemented",
+      "adapter-ref:plugin-marketplace-content:not-implemented",
+      "adapter-ref:plugin-code-execution:not-implemented",
+      "adapter-ref:plugin-connector-write:not-implemented",
+      "adapter-ref:plugin-provider-call:not-implemented",
+      "adapter-ref:plugin-command-execution:not-implemented",
+    ],
+    control_center_ref: "control-center-route:runtime",
+    safe_summary:
+      "Runtime plugin metadata mock fallback shows blocked metadata contracts only; runtime imports, hooks, installs, marketplace content, plugin code, connector writes, provider calls, command execution, and raw manifests stay blocked.",
+    surfaces: runtimePluginMetadataSurfaces,
+    surface_count: runtimePluginMetadataSurfaces.length,
+    blocked_surface_count: runtimePluginMetadataSurfaces.filter(
+      (surface) => surface.status === "blocked_until_grant",
+    ).length,
+    runtime_import_enabled: false,
+    hook_execution_enabled: false,
+    package_install_enabled: false,
+    marketplace_content_execution_enabled: false,
+    plugin_code_execution_enabled: false,
+    connector_write_enabled: false,
+    provider_call_enabled: false,
+    shell_execution_enabled: false,
+    raw_manifest_persisted: false,
+    control_center_mints_authority: false,
+    blocked_authority_refs: runtimePluginMetadataBlockedRefs,
+    promotion_path_refs: [
+      "promotion-path-ref:plugin-metadata:reviewed-manifest",
+      "promotion-path-ref:plugin-metadata:static-scan",
+      "promotion-path-ref:plugin-metadata:sandbox-grant",
+      "promotion-path-ref:plugin-metadata:rollback-safe-disable",
+      "promotion-path-ref:plugin-metadata:receipts-proof",
+    ],
+    proof_refs: [
+      "proof-ref:hermes-runtime-adoption:phase-44:plugin-metadata-posture",
+      "proof-ref:plugin-metadata:posture-only",
+      "proof-ref:plugin-metadata:runtime-authority-blocked",
+    ],
+    verifier_refs: [
+      "verifier-ref:hermes-runtime-adoption:phase-44:plugin-metadata-posture",
+    ],
+    next_safe_action_refs: [
+      "next-safe-action-ref:plugin-metadata:manifest-schema",
+      "next-safe-action-ref:plugin-metadata:activation-grant-contract",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "raw_manifests_omitted",
+      "package_payloads_omitted",
+      "external_code_omitted",
     ],
   },
   runtimeApprovalBridge: {

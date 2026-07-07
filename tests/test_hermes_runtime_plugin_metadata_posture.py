@@ -3,13 +3,20 @@ import subprocess
 import sys
 
 import pytest
+from fastapi.testclient import TestClient
 
+from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.runtime_gateway import (
     RUNTIME_PLUGIN_METADATA_BLOCKED_AUTHORITY_REFS,
+    RUNTIME_PLUGIN_METADATA_POSTURE_AUTHORITY_MAPPING_REF,
+    RUNTIME_PLUGIN_METADATA_POSTURE_ROUTE_REF,
     RuntimePluginMetadataPostureReadModel,
     RuntimePluginMetadataSurface,
     build_runtime_plugin_metadata_posture_read_model,
 )
+
+
+client = TestClient(app)
 
 
 def test_plugin_metadata_is_contract_only() -> None:
@@ -17,7 +24,25 @@ def test_plugin_metadata_is_contract_only() -> None:
 
     assert read_model.schema_version == "runtime_plugin_metadata_posture.v1"
     assert read_model.status == "metadata_contract_only"
+    assert read_model.route_ref == RUNTIME_PLUGIN_METADATA_POSTURE_ROUTE_REF
     assert read_model.cli_ref == "uaa runtime inspect-plugin-metadata-posture"
+    assert (
+        read_model.authority_state_mapping_ref
+        == RUNTIME_PLUGIN_METADATA_POSTURE_AUTHORITY_MAPPING_REF
+    )
+    assert read_model.authority_state_route_ref == "GET /api/runtime/authority-state"
+    assert (
+        read_model.authority_state_cli_ref
+        == "repo-local-command:uaa-runtime-inspect-authority-state"
+    )
+    assert read_model.authority_state_decision_outcome == "allow"
+    assert read_model.authority_state_status == "implemented_authority_bound_read_model"
+    assert "reason-ref:authority:active-lease-grants-domain-capability" in (
+        read_model.authority_state_reason_refs
+    )
+    assert "adapter-ref:plugin-runtime-import:not-implemented" in (
+        read_model.unsupported_adapter_refs
+    )
     assert read_model.surface_count == 7
     assert read_model.blocked_surface_count == 7
     assert read_model.runtime_import_enabled is False
@@ -33,6 +58,29 @@ def test_plugin_metadata_is_contract_only() -> None:
     assert set(RUNTIME_PLUGIN_METADATA_BLOCKED_AUTHORITY_REFS).issubset(
         set(read_model.blocked_authority_refs)
     )
+
+
+def test_plugin_metadata_route_returns_authority_bound_read_model() -> None:
+    response = client.get("/api/runtime/plugin-metadata-posture")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["operation"] == "api_runtime_plugin_metadata_posture"
+    data = body["data"]
+    assert data["schema_version"] == "runtime_plugin_metadata_posture.v1"
+    assert data["route_ref"] == "GET /api/runtime/plugin-metadata-posture"
+    assert (
+        data["authority_state_mapping_ref"]
+        == "lane-ref:runtime-plugin-metadata-posture-read-model"
+    )
+    assert data["authority_state_decision_outcome"] == "allow"
+    assert data["surface_count"] == 7
+    assert data["blocked_surface_count"] == 7
+    assert data["runtime_import_enabled"] is False
+    assert data["hook_execution_enabled"] is False
+    assert data["package_install_enabled"] is False
+    assert data["plugin_code_execution_enabled"] is False
 
 
 def test_plugin_metadata_surfaces_are_blocked() -> None:
@@ -150,5 +198,11 @@ def test_plugin_metadata_cli_uses_same_read_model() -> None:
     assert payload["hook_execution_performed"] is False
     assert payload["package_install_performed"] is False
     assert payload["plugin_code_execution_performed"] is False
+    assert read_model["route_ref"] == "GET /api/runtime/plugin-metadata-posture"
+    assert (
+        read_model["authority_state_mapping_ref"]
+        == "lane-ref:runtime-plugin-metadata-posture-read-model"
+    )
+    assert read_model["authority_state_decision_outcome"] == "allow"
     assert read_model["surface_count"] == 7
     assert read_model["blocked_surface_count"] == 7

@@ -6,6 +6,10 @@ from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.authority import (
+    AuthorityDecisionCatalogEntry,
+    build_authority_decision_catalog,
+)
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
@@ -18,6 +22,9 @@ from ultimate_ai_agent.core.runtime_gateway.delegation import (
 
 RUNTIME_PLUGIN_METADATA_POSTURE_CONTRACT_REF = (
     "contract-ref:hermes-runtime-adoption-plugin-metadata-posture:v1"
+)
+RUNTIME_PLUGIN_METADATA_POSTURE_ROUTE_REF = (
+    "GET /api/runtime/plugin-metadata-posture"
 )
 RUNTIME_PLUGIN_METADATA_POSTURE_CLI_REF = "uaa runtime inspect-plugin-metadata-posture"
 RUNTIME_PLUGIN_METADATA_POSTURE_DOC_REF = (
@@ -32,6 +39,16 @@ RUNTIME_PLUGIN_METADATA_POSTURE_PROOF_REF = (
 RUNTIME_PLUGIN_METADATA_POSTURE_VERIFIER_REF = (
     "verifier-ref:hermes-runtime-adoption:phase-44:plugin-metadata-posture"
 )
+RUNTIME_PLUGIN_METADATA_POSTURE_AUTHORITY_STATE_ROUTE_REF = (
+    "GET /api/runtime/authority-state"
+)
+RUNTIME_PLUGIN_METADATA_POSTURE_AUTHORITY_STATE_CLI_REF = (
+    "repo-local-command:uaa-runtime-inspect-authority-state"
+)
+RUNTIME_PLUGIN_METADATA_POSTURE_AUTHORITY_MAPPING_REF = (
+    "lane-ref:runtime-plugin-metadata-posture-read-model"
+)
+_AUTHORITY_DECISION_OUTCOMES = {"allow", "ask", "deny", "degrade_to_draft"}
 
 RUNTIME_PLUGIN_METADATA_BLOCKED_AUTHORITY_REFS: tuple[str, ...] = (
     "blocked-authority:plugin-metadata-no-runtime-import",
@@ -151,8 +168,23 @@ class RuntimePluginMetadataPostureReadModel(BaseModel):
     status: str = "metadata_contract_only"
     snapshot_ref: str = RUNTIME_PLUGIN_METADATA_POSTURE_SNAPSHOT_REF
     snapshot_hash_ref: str = "snapshot-hash-ref:plugin-metadata-posture:pending"
+    route_ref: str = RUNTIME_PLUGIN_METADATA_POSTURE_ROUTE_REF
     cli_ref: str = RUNTIME_PLUGIN_METADATA_POSTURE_CLI_REF
     doc_ref: str = RUNTIME_PLUGIN_METADATA_POSTURE_DOC_REF
+    authority_state_route_ref: str = (
+        RUNTIME_PLUGIN_METADATA_POSTURE_AUTHORITY_STATE_ROUTE_REF
+    )
+    authority_state_cli_ref: str = (
+        RUNTIME_PLUGIN_METADATA_POSTURE_AUTHORITY_STATE_CLI_REF
+    )
+    authority_state_mapping_ref: str
+    authority_state_catalog_ref: str
+    authority_state_decision_ref: str
+    authority_state_decision_outcome: str
+    authority_state_status: str
+    authority_state_operator_message: str
+    authority_state_reason_refs: list[str] = Field(default_factory=list)
+    unsupported_adapter_refs: list[str] = Field(default_factory=list)
     control_center_ref: str = RUNTIME_DELEGATION_CONTROL_CENTER_REF
     safe_summary: str = (
         "Plugin architecture surfaces are represented as metadata contracts only; "
@@ -194,18 +226,35 @@ class RuntimePluginMetadataPostureReadModel(BaseModel):
             (self.contract_ref, "contract_ref"),
             (self.snapshot_ref, "snapshot_ref"),
             (self.snapshot_hash_ref, "snapshot_hash_ref"),
+            (self.authority_state_mapping_ref, "authority_state_mapping_ref"),
+            (self.authority_state_catalog_ref, "authority_state_catalog_ref"),
+            (self.authority_state_decision_ref, "authority_state_decision_ref"),
             (self.control_center_ref, "control_center_ref"),
         ]:
             validate_execution_ref(value, field_name)
         for value, field_name in [
             (self.schema_version, "schema_version"),
             (self.status, "status"),
+            (self.route_ref, "route_ref"),
             (self.cli_ref, "cli_ref"),
             (self.doc_ref, "doc_ref"),
+            (self.authority_state_route_ref, "authority_state_route_ref"),
+            (self.authority_state_cli_ref, "authority_state_cli_ref"),
+            (
+                self.authority_state_decision_outcome,
+                "authority_state_decision_outcome",
+            ),
+            (self.authority_state_status, "authority_state_status"),
+            (
+                self.authority_state_operator_message,
+                "authority_state_operator_message",
+            ),
             (self.safe_summary, "safe_summary"),
         ]:
             validate_safe_execution_text(value, field_name)
         for field_name in (
+            "authority_state_reason_refs",
+            "unsupported_adapter_refs",
             "blocked_authority_refs",
             "promotion_path_refs",
             "proof_refs",
@@ -216,6 +265,13 @@ class RuntimePluginMetadataPostureReadModel(BaseModel):
                 validate_execution_ref(value, field_name)
         for value in self.redactions_applied:
             validate_safe_execution_text(value, "redactions_applied")
+        if (
+            self.authority_state_mapping_ref
+            != RUNTIME_PLUGIN_METADATA_POSTURE_AUTHORITY_MAPPING_REF
+        ):
+            raise ValueError("RUNTIME_PLUGIN_METADATA_AUTHORITY_MAPPING_MISMATCH")
+        if self.authority_state_decision_outcome not in _AUTHORITY_DECISION_OUTCOMES:
+            raise ValueError("RUNTIME_PLUGIN_METADATA_AUTHORITY_DECISION_INVALID")
         denied_flags = {
             "runtime_import_enabled": self.runtime_import_enabled,
             "hook_execution_enabled": self.hook_execution_enabled,
@@ -253,6 +309,10 @@ class RuntimePluginMetadataPostureReadModel(BaseModel):
         return self
 
 
+def _authority_value(value: object) -> str:
+    return str(getattr(value, "value", value))
+
+
 def _surface(
     surface_kind: RuntimePluginSurfaceKind,
     display_label: str,
@@ -286,9 +346,12 @@ def _surface(
     )
 
 
-def build_runtime_plugin_metadata_posture_read_model() -> (
+def build_runtime_plugin_metadata_posture_read_model(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None = None,
+) -> (
     RuntimePluginMetadataPostureReadModel
 ):
+    authority_entry = _authority_entry(authority_decision_catalog)
     surfaces = [
         _surface(
             RuntimePluginSurfaceKind.adapter,
@@ -327,6 +390,17 @@ def build_runtime_plugin_metadata_posture_read_model() -> (
         ),
     ]
     payload = {
+        "route_ref": RUNTIME_PLUGIN_METADATA_POSTURE_ROUTE_REF,
+        "authority_state_mapping_ref": authority_entry.lane_ref,
+        "authority_state_catalog_ref": authority_entry.catalog_ref,
+        "authority_state_decision_ref": authority_entry.decision.decision_ref,
+        "authority_state_decision_outcome": _authority_value(
+            authority_entry.decision.outcome
+        ),
+        "authority_state_status": authority_entry.status,
+        "authority_state_operator_message": authority_entry.decision.operator_message,
+        "authority_state_reason_refs": list(authority_entry.decision.reason_refs),
+        "unsupported_adapter_refs": list(authority_entry.unsupported_adapter_refs),
         "surfaces": surfaces,
         "surface_count": len(surfaces),
         "blocked_surface_count": len(surfaces),
@@ -347,8 +421,13 @@ def build_runtime_plugin_metadata_posture_read_model() -> (
     }
     snapshot_material = {
         "contract_ref": RUNTIME_PLUGIN_METADATA_POSTURE_CONTRACT_REF,
+        "route_ref": payload["route_ref"],
         "cli_ref": RUNTIME_PLUGIN_METADATA_POSTURE_CLI_REF,
         "surface_refs": [surface.surface_ref for surface in surfaces],
+        "authority_state_decision_ref": authority_entry.decision.decision_ref,
+        "authority_state_decision_outcome": _authority_value(
+            authority_entry.decision.outcome
+        ),
         "blocked_authority_refs": payload["blocked_authority_refs"],
     }
     payload["snapshot_hash_ref"] = (
@@ -358,3 +437,13 @@ def build_runtime_plugin_metadata_posture_read_model() -> (
         ).hexdigest()[:16]
     )
     return RuntimePluginMetadataPostureReadModel(**payload)
+
+
+def _authority_entry(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None,
+) -> AuthorityDecisionCatalogEntry:
+    catalog = authority_decision_catalog or build_authority_decision_catalog()
+    for entry in catalog:
+        if entry.lane_ref == RUNTIME_PLUGIN_METADATA_POSTURE_AUTHORITY_MAPPING_REF:
+            return entry
+    raise ValueError("RUNTIME_PLUGIN_METADATA_AUTHORITY_MAPPING_MISSING")

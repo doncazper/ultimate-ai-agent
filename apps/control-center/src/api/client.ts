@@ -60,6 +60,7 @@ import type {
   RuntimeInterruptRedirectReadModel,
   RuntimeLoggingProfileReadModel,
   RuntimeMessagingGatewayPostureReadModel,
+  RuntimePluginMetadataPostureReadModel,
   RuntimeRemoteExecutionPostureReadModel,
   RuntimeResultClassificationReadModel,
   RuntimeVoiceMediaPostureReadModel,
@@ -480,6 +481,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       API_ENDPOINTS.runtimeRemoteExecutionPosture,
     ),
   ] as const);
+  const runtimePluginMetadataPostureSettledPromise = Promise.allSettled([
+    read<RuntimePluginMetadataPostureReadModel>(
+      API_ENDPOINTS.runtimePluginMetadataPosture,
+    ),
+  ] as const);
   const results = await Promise.allSettled([
     read<ControlCenterManifest>(API_ENDPOINTS.controlCenterManifest),
     read<ControlCenterDashboardSnapshot>(
@@ -635,6 +641,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     await runtimeMessagingGatewayPostureSettledPromise;
   const runtimeRemoteExecutionPostureResult =
     await runtimeRemoteExecutionPostureSettledPromise;
+  const runtimePluginMetadataPostureResult =
+    await runtimePluginMetadataPostureSettledPromise;
 
   const manifest = fulfilledValue(results[0]);
   const dashboard = fulfilledValue(results[1]);
@@ -713,6 +721,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   );
   const runtimeRemoteExecutionPosture = fulfilledValue(
     runtimeRemoteExecutionPostureResult[0],
+  );
+  const runtimePluginMetadataPosture = fulfilledValue(
+    runtimePluginMetadataPostureResult[0],
   );
   const setupAssistantSource = fulfilledValue(results[7]);
   const setupAssistant = normalizeMacOSSetupAssistant(
@@ -911,6 +922,10 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     isSafeRuntimeRemoteExecutionPosture(runtimeRemoteExecutionPosture)
       ? runtimeRemoteExecutionPosture
       : undefined;
+  const safeRuntimePluginMetadataPosture =
+    isSafeRuntimePluginMetadataPosture(runtimePluginMetadataPosture)
+      ? runtimePluginMetadataPosture
+      : undefined;
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderStartHere = normalizeFounderStartHere(founderStartHere);
   const normalizedProofIndex = normalizeProofIndex(proofIndex);
@@ -1107,6 +1122,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     safeRuntimeMessagingGatewayPosture === undefined;
   const runtimeRemoteExecutionPostureFallbackUsed =
     safeRuntimeRemoteExecutionPosture === undefined;
+  const runtimePluginMetadataPostureFallbackUsed =
+    safeRuntimePluginMetadataPosture === undefined;
 
   const routeStates = buildRouteReadStates([
     routeReadStateInput({
@@ -1275,6 +1292,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         "GET /api/runtime/voice-media-posture",
         "GET /api/runtime/messaging-gateway-posture",
         "GET /api/runtime/remote-execution-posture",
+        "GET /api/runtime/plugin-metadata-posture",
       ],
       endpointReturned:
         runtimeReadiness !== undefined &&
@@ -1309,7 +1327,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeResultClassification !== undefined &&
         runtimeVoiceMediaPosture !== undefined &&
         runtimeMessagingGatewayPosture !== undefined &&
-        runtimeRemoteExecutionPosture !== undefined,
+        runtimeRemoteExecutionPosture !== undefined &&
+        runtimePluginMetadataPosture !== undefined,
       warningRefs: [
         ...(runtimeDelegationAdapterFallbackUsed
           ? ["RUNTIME_DELEGATION_ADAPTER_MOCK_FALLBACK"]
@@ -1404,6 +1423,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         ...(runtimeRemoteExecutionPostureFallbackUsed
           ? ["RUNTIME_REMOTE_EXECUTION_POSTURE_MOCK_FALLBACK"]
           : []),
+        ...(runtimePluginMetadataPostureFallbackUsed
+          ? ["RUNTIME_PLUGIN_METADATA_POSTURE_MOCK_FALLBACK"]
+          : []),
       ],
       usedFallback:
         runtimeReadiness === undefined ||
@@ -1438,7 +1460,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeResultClassificationFallbackUsed ||
         runtimeVoiceMediaPostureFallbackUsed ||
         runtimeMessagingGatewayPostureFallbackUsed ||
-        runtimeRemoteExecutionPostureFallbackUsed,
+        runtimeRemoteExecutionPostureFallbackUsed ||
+        runtimePluginMetadataPostureFallbackUsed,
     }),
     routeReadStateInput({
       route: "/briefing",
@@ -1557,6 +1580,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeVoiceMediaPosture === undefined ||
     runtimeMessagingGatewayPosture === undefined ||
     runtimeRemoteExecutionPosture === undefined ||
+    runtimePluginMetadataPosture === undefined ||
     codingSession === undefined ||
     codingContext === undefined ||
     codingPatchProposal === undefined ||
@@ -1609,8 +1633,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     (runtimeResultClassificationResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeVoiceMediaPostureResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeMessagingGatewayPostureResult[0].status === "fulfilled" ? 1 : 0) +
-    (runtimeRemoteExecutionPostureResult[0].status === "fulfilled" ? 1 : 0);
-  const expectedReadCount = results.length + 32;
+    (runtimeRemoteExecutionPostureResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimePluginMetadataPostureResult[0].status === "fulfilled" ? 1 : 0);
+  const expectedReadCount = results.length + 33;
   const dashboardWithEndpointSummaries: ControlCenterDashboardSnapshot = {
     ...normalizedDashboard.value,
     approval_summary:
@@ -1752,6 +1777,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeRemoteExecutionPosture:
       safeRuntimeRemoteExecutionPosture ??
       mockControlCenterData.runtimeRemoteExecutionPosture,
+    runtimePluginMetadataPosture:
+      safeRuntimePluginMetadataPosture ??
+      mockControlCenterData.runtimePluginMetadataPosture,
     m15Review: mockControlCenterData.m15Review,
     runAttachedApprovalQueue:
       approvalQueue ?? mockControlCenterData.runAttachedApprovalQueue,
@@ -1858,6 +1886,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     !runtimeVoiceMediaPostureFallbackUsed &&
     !runtimeMessagingGatewayPostureFallbackUsed &&
     !runtimeRemoteExecutionPostureFallbackUsed &&
+    !runtimePluginMetadataPostureFallbackUsed &&
     !modelProviderControlPlaneFallbackUsed &&
     !providerCredentialReadinessFallbackUsed &&
     !runObservabilityEndpointFallbackUsed &&
@@ -1913,6 +1942,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeVoiceMediaPostureFallbackUsed ||
     runtimeMessagingGatewayPostureFallbackUsed ||
     runtimeRemoteExecutionPostureFallbackUsed ||
+    runtimePluginMetadataPostureFallbackUsed ||
     modelProviderControlPlaneFallbackUsed ||
     providerCredentialReadinessFallbackUsed ||
     approvalQueueEndpointFallbackUsed ||
@@ -2025,6 +2055,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   } else if (runtimeRemoteExecutionPostureFallbackUsed) {
     degradedSafeMessage =
       "Runtime remote execution posture was unavailable or unsafe; non-authoritative mock fallback kept remote execution, host access, cloud sandboxes, file sync, protected material, and process control blocked.";
+  } else if (runtimePluginMetadataPostureFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime plugin metadata posture was unavailable or unsafe; non-authoritative mock fallback kept runtime imports, hooks, installs, marketplace content, plugin code, connector writes, provider calls, command execution, and raw manifests blocked.";
   } else if (
     founderLoopFieldFallbackUsed ||
     normalizedFounderStartHere.usedFallback ||
@@ -6622,6 +6655,90 @@ function isSafeRuntimeRemoteExecutionPosture(
         backend.remote_process_control_enabled === false &&
         backend.credential_material_persisted === false &&
         backend.control_center_mints_authority === false,
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimePluginMetadataPosture(
+  value: RuntimePluginMetadataPostureReadModel | undefined,
+): value is RuntimePluginMetadataPostureReadModel {
+  if (value === undefined || !Array.isArray(value.surfaces)) {
+    return false;
+  }
+  const allowedSurfaceKinds = new Set([
+    "adapter",
+    "hook",
+    "tool",
+    "memory_provider",
+    "context_engine",
+    "ui_extension",
+    "skill_bundle",
+  ]);
+  const deniedTopLevelFlags: Array<
+    keyof RuntimePluginMetadataPostureReadModel
+  > = [
+    "runtime_import_enabled",
+    "hook_execution_enabled",
+    "package_install_enabled",
+    "marketplace_content_execution_enabled",
+    "plugin_code_execution_enabled",
+    "connector_write_enabled",
+    "provider_call_enabled",
+    "shell_execution_enabled",
+    "raw_manifest_persisted",
+    "control_center_mints_authority",
+  ];
+  return (
+    value.schema_version === "runtime_plugin_metadata_posture.v1" &&
+    value.status === "metadata_contract_only" &&
+    value.route_ref === "GET /api/runtime/plugin-metadata-posture" &&
+    value.cli_ref === "uaa runtime inspect-plugin-metadata-posture" &&
+    value.authority_state_route_ref === "GET /api/runtime/authority-state" &&
+    value.authority_state_cli_ref ===
+      "repo-local-command:uaa-runtime-inspect-authority-state" &&
+    value.authority_state_mapping_ref ===
+      "lane-ref:runtime-plugin-metadata-posture-read-model" &&
+    isSafeTrustAuthorityRef(value.authority_state_catalog_ref) &&
+    isSafeTrustAuthorityRef(value.authority_state_decision_ref) &&
+    hasExactStringValue(
+      value.authority_state_decision_outcome,
+      TRUST_AUTHORITY_DECISION_OUTCOMES,
+    ) &&
+    typeof value.authority_state_status === "string" &&
+    typeof value.authority_state_operator_message === "string" &&
+    Array.isArray(value.authority_state_reason_refs) &&
+    value.authority_state_reason_refs.every(isSafeTrustAuthorityRef) &&
+    Array.isArray(value.unsupported_adapter_refs) &&
+    value.unsupported_adapter_refs.every(isSafeTrustAuthorityRef) &&
+    value.surface_count === 7 &&
+    value.surface_count === value.surfaces.length &&
+    value.blocked_surface_count === value.surfaces.length &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:plugin-metadata-no-runtime-import",
+    ) &&
+    isNonEmptyStringArray(value.promotion_path_refs) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.surfaces.every(
+      (surface) =>
+        allowedSurfaceKinds.has(surface.surface_kind) &&
+        surface.status === "blocked_until_grant" &&
+        isNonEmptyStringArray(surface.blocked_authority_refs) &&
+        isNonEmptyStringArray(surface.promotion_path_refs) &&
+        isNonEmptyStringArray(surface.next_safe_action_refs) &&
+        surface.runtime_import_enabled === false &&
+        surface.hook_execution_enabled === false &&
+        surface.package_install_enabled === false &&
+        surface.marketplace_content_execution_enabled === false &&
+        surface.plugin_code_execution_enabled === false &&
+        surface.connector_write_enabled === false &&
+        surface.provider_call_enabled === false &&
+        surface.shell_execution_enabled === false &&
+        surface.raw_manifest_persisted === false &&
+        surface.control_center_mints_authority === false,
     ) &&
     deniedTopLevelFlags.every((flag) => value[flag] === false)
   );

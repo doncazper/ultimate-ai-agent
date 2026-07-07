@@ -16082,6 +16082,12 @@ describe("Web Control Center shell", () => {
     expect(
       isAllowedReadEndpoint(API_ENDPOINTS.runtimeRemoteExecutionPosture),
     ).toBe(true);
+    expect(API_ENDPOINTS.runtimePluginMetadataPosture).toBe(
+      "/api/runtime/plugin-metadata-posture",
+    );
+    expect(
+      isAllowedReadEndpoint(API_ENDPOINTS.runtimePluginMetadataPosture),
+    ).toBe(true);
     expect(isPreviewEndpoint(API_ENDPOINTS.actionPreview)).toBe(true);
     expect(isPreviewEndpoint(API_ENDPOINTS.turnRouterPreview)).toBe(true);
     expect(isAllowedReadEndpoint(API_ENDPOINTS.controlCenterDashboard)).toBe(
@@ -17284,6 +17290,8 @@ function envelopeForReadEndpoint(url: string) {
       mockControlCenterData.runtimeMessagingGatewayPosture,
     [API_ENDPOINTS.runtimeRemoteExecutionPosture]:
       mockControlCenterData.runtimeRemoteExecutionPosture,
+    [API_ENDPOINTS.runtimePluginMetadataPosture]:
+      mockControlCenterData.runtimePluginMetadataPosture,
     [API_ENDPOINTS.setupAssistantSummary]: mockApiData.setupAssistantSummary,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,
     [API_ENDPOINTS.modelProviderControlPlane]:

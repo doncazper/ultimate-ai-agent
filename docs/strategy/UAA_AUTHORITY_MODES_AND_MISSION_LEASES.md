@@ -63,7 +63,8 @@ surfaces are:
 - Runtime worktree-per-agent, staged orchestration, background job inspection,
   subagent isolation, LSP diagnostics, preview rail, slash command registry,
   result classification, logging profile, interrupt redirect, voice/media
-  posture, messaging gateway posture, and remote execution posture consume that
+  posture, messaging gateway posture, remote execution posture, and plugin
+  metadata posture consume that
   same AuthorityState catalog instead of carrying
   standalone blocker language:
   worktree implementer/reviewer/verifier lanes expose mapped decision refs and
@@ -95,6 +96,11 @@ surfaces are:
   posture exposes the Read-only `workspace/read` lane inspection decision while
   microphone, camera, upload, transcription, generation, provider-call, external
   delivery, media material persistence, and Control Center authority minting
+  remain blocked. Messaging gateway, remote execution, and plugin metadata
+  posture expose Read-only `workspace/read` inspection decisions while connector
+  runtime, sends, remote host access, cloud sandboxes, plugin runtime import,
+  hooks, package installation, marketplace content execution, connector writes,
+  provider calls, raw material persistence, and Control Center authority minting
   remain blocked.
   These API/CLI surfaces remain safe-ref inspection only unless exact active
   leases, implemented adapters, and existing runtime gates pass.

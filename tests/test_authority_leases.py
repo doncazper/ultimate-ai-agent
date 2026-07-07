@@ -501,6 +501,31 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         ].decision.unsupported_adapter
         is False
     )
+    plugin_metadata_posture = mappings_by_lane[
+        "lane-ref:runtime-plugin-metadata-posture-read-model"
+    ]
+    assert plugin_metadata_posture.domain == "workspace"
+    assert plugin_metadata_posture.capability == "read"
+    assert plugin_metadata_posture.required_mode == "read_only"
+    assert (
+        plugin_metadata_posture.status == "implemented_authority_bound_read_model"
+    )
+    assert "GET /api/runtime/plugin-metadata-posture" in (
+        plugin_metadata_posture.route_refs
+    )
+    assert plugin_metadata_posture.unsupported_adapter_blocks_capability is False
+    assert (
+        decision_by_lane[
+            "lane-ref:runtime-plugin-metadata-posture-read-model"
+        ].decision.outcome
+        == "allow"
+    )
+    assert (
+        decision_by_lane[
+            "lane-ref:runtime-plugin-metadata-posture-read-model"
+        ].decision.unsupported_adapter
+        is False
+    )
     staged_runtime_command = mappings_by_lane[
         "lane-ref:staged-orchestration-approved-runtime-command"
     ]

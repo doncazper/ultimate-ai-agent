@@ -3153,6 +3153,34 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ],
         ),
         _mapping(
+            "lane-ref:runtime-plugin-metadata-posture-read-model",
+            "Runtime plugin metadata posture read model",
+            AuthorityDomain.workspace,
+            AuthorityCapability.read,
+            TrustMode.read_only,
+            "implemented_authority_bound_read_model",
+            ["GET /api/runtime/plugin-metadata-posture"],
+            ["repo-local-command:uaa-runtime-inspect-plugin-metadata-posture"],
+            (
+                "Plugin metadata posture inspection reads surface labels, "
+                "reviewed manifest, static scan, sandbox, activation grant, "
+                "rollback, safe-disable, receipt, proof, and blocked refs. "
+                "It does not enable runtime imports, hooks, installs, "
+                "marketplace content, plugin code, connector writes, provider "
+                "calls, command execution, or raw manifest persistence."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:plugin-runtime-import:not-implemented",
+                "adapter-ref:plugin-hook-execution:not-implemented",
+                "adapter-ref:plugin-package-install:not-implemented",
+                "adapter-ref:plugin-marketplace-content:not-implemented",
+                "adapter-ref:plugin-code-execution:not-implemented",
+                "adapter-ref:plugin-connector-write:not-implemented",
+                "adapter-ref:plugin-provider-call:not-implemented",
+                "adapter-ref:plugin-command-execution:not-implemented",
+            ],
+        ),
+        _mapping(
             "lane-ref:staged-orchestration-approved-runtime-command",
             "Staged orchestration approved runtime command step",
             AuthorityDomain.workspace,

@@ -754,6 +754,7 @@ def test_control_center_openapi_routes_and_operation_ids_are_safe() -> None:
     assert "/api/runtime/voice-media-posture" in paths
     assert "/api/runtime/messaging-gateway-posture" in paths
     assert "/api/runtime/remote-execution-posture" in paths
+    assert "/api/runtime/plugin-metadata-posture" in paths
     assert "/api/runtime/authority-decisions/preview" in paths
     assert "/api/runtime/authority-missions/plan" in paths
     assert "/api/runtime/authority-state" in paths

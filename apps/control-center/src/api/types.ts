@@ -11891,6 +11891,90 @@ export interface RuntimeRemoteExecutionPostureReadModel {
   redactions_applied: string[];
 }
 
+export type RuntimePluginSurfaceKind =
+  | "adapter"
+  | "hook"
+  | "tool"
+  | "memory_provider"
+  | "context_engine"
+  | "ui_extension"
+  | "skill_bundle";
+
+export type RuntimePluginSurfaceStatus =
+  | "metadata_contract_only"
+  | "blocked_until_grant";
+
+export interface RuntimePluginMetadataSurface {
+  surface_ref: string;
+  surface_kind: RuntimePluginSurfaceKind;
+  display_label: string;
+  status: RuntimePluginSurfaceStatus;
+  safe_summary: string;
+  reviewed_manifest_ref: string;
+  static_scan_ref: string;
+  sandbox_ref: string;
+  activation_grant_ref: string;
+  rollback_ref: string;
+  safe_disable_ref: string;
+  receipt_plan_ref: string;
+  proof_ref: string;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  next_safe_action_refs: string[];
+  runtime_import_enabled: boolean;
+  hook_execution_enabled: boolean;
+  package_install_enabled: boolean;
+  marketplace_content_execution_enabled: boolean;
+  plugin_code_execution_enabled: boolean;
+  connector_write_enabled: boolean;
+  provider_call_enabled: boolean;
+  shell_execution_enabled: boolean;
+  raw_manifest_persisted: boolean;
+  control_center_mints_authority: boolean;
+}
+
+export interface RuntimePluginMetadataPostureReadModel {
+  schema_version: "runtime_plugin_metadata_posture.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  doc_ref: string;
+  authority_state_route_ref: string;
+  authority_state_cli_ref: string;
+  authority_state_mapping_ref: string;
+  authority_state_catalog_ref: string;
+  authority_state_decision_ref: string;
+  authority_state_decision_outcome: AuthorityDecisionOutcome;
+  authority_state_status: string;
+  authority_state_operator_message: string;
+  authority_state_reason_refs: string[];
+  unsupported_adapter_refs: string[];
+  control_center_ref: string;
+  safe_summary: string;
+  surfaces: RuntimePluginMetadataSurface[];
+  surface_count: number;
+  blocked_surface_count: number;
+  runtime_import_enabled: boolean;
+  hook_execution_enabled: boolean;
+  package_install_enabled: boolean;
+  marketplace_content_execution_enabled: boolean;
+  plugin_code_execution_enabled: boolean;
+  connector_write_enabled: boolean;
+  provider_call_enabled: boolean;
+  shell_execution_enabled: boolean;
+  raw_manifest_persisted: boolean;
+  control_center_mints_authority: boolean;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
 export interface RuntimeCapabilityDiscoveryReadModel {
   schema_version: "runtime_capability_discovery.v1";
   contract_ref: string;
@@ -13453,6 +13537,7 @@ export interface ControlCenterData {
   runtimeVoiceMediaPosture: RuntimeVoiceMediaPostureReadModel;
   runtimeMessagingGatewayPosture: RuntimeMessagingGatewayPostureReadModel;
   runtimeRemoteExecutionPosture: RuntimeRemoteExecutionPostureReadModel;
+  runtimePluginMetadataPosture: RuntimePluginMetadataPostureReadModel;
   m15Review: M15ReviewData;
   runAttachedApprovalQueue: RunAttachedApprovalQueue;
   m16Trace: M16TraceData;
