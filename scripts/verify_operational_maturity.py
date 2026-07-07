@@ -81,9 +81,7 @@ LADDER_LABELS = {
     7: "routine_operational_loop",
 }
 AUTHORITY_TIER_DOC_REF = "docs/control_center/USABLE_AUTHORITY_GRADUATION_PLAN.md"
-AUTHORITY_TIER_DOCTRINE = (
-    "Earned authority, low friction by default, strict only where consequences justify it."
-)
+AUTHORITY_TIER_DOCTRINE = "Earned authority, low friction by default, strict only where consequences justify it."
 EXPECTED_USABLE_AUTHORITY_TIERS = {
     0: "tier_0_ui_ephemeral_state",
     1: "tier_1_local_read_preview",
@@ -167,7 +165,9 @@ LOCAL_TASK_REPEATABILITY_REQUIRED_VERIFIER_REFS = {
     "scripts/verify_operational_maturity.py::_append_cli_probe_failures",
     "scripts/verify_operational_maturity.py::_append_local_task_repeatability_gate_failures",
 }
-LOCAL_TASK_AUTHORITY_CAPABILITY_ID = "authority-capability:action-inbox:local-task-create"
+LOCAL_TASK_AUTHORITY_CAPABILITY_ID = (
+    "authority-capability:action-inbox:local-task-create"
+)
 LOCAL_TASK_AUTHORITY_DOMAIN_REF = "authority-domain-ref:workspace"
 LOCAL_TASK_AUTHORITY_CAPABILITY_REF = "authority-capability-ref:write"
 LOCAL_TASK_AUTHORITY_MODE_REF = "authority-mode-ref:ask-before-changes"
@@ -188,7 +188,9 @@ MEMORY_REVIEWED_RECALL_WRITE_AUTHORITY_CAPABILITY_ID = (
 )
 MEMORY_REVIEWED_RECALL_WRITE_AUTHORITY_DOMAIN_REF = "authority-domain-ref:memory"
 MEMORY_REVIEWED_RECALL_WRITE_AUTHORITY_CAPABILITY_REF = "authority-capability-ref:write"
-MEMORY_REVIEWED_RECALL_WRITE_AUTHORITY_MODE_REF = "authority-mode-ref:ask-before-changes"
+MEMORY_REVIEWED_RECALL_WRITE_AUTHORITY_MODE_REF = (
+    "authority-mode-ref:ask-before-changes"
+)
 MEMORY_REVIEWED_RECALL_WRITE_AUTHORITY_LEASE_REQUIREMENT_REF = (
     "authority-lease-requirement-ref:memory-review:memory:write"
 )
@@ -320,11 +322,11 @@ AUTHORITY_CANDIDATE_STATUSES = {
     "not_ready",
     "proposal_only_ready",
     "contract_ready",
-    "micro_lane_candidate",
+    "authority_capability_candidate",
     "implemented",
     "blocked_by_policy",
 }
-MICRO_LANE_REQUIRED_PREREQUISITE_FIELDS = [
+AUTHORITY_CAPABILITY_REQUIRED_PREREQUISITE_FIELDS = [
     "backend_core_owner_ref",
     "route_side_effect_ref",
     "exact_scope_ref",
@@ -334,7 +336,7 @@ MICRO_LANE_REQUIRED_PREREQUISITE_FIELDS = [
     "rollback_safe_disable_plan_ref",
     "redaction_plan_ref",
 ]
-MICRO_LANE_REQUIRED_PREREQUISITE_LIST_FIELDS = [
+AUTHORITY_CAPABILITY_REQUIRED_PREREQUISITE_LIST_FIELDS = [
     "cli_api_core_parity_refs",
     "focused_test_refs",
     "verifier_refs",
@@ -516,6 +518,7 @@ def _append_authority_scorecard_schema_failures(
         "schema_version",
         "status",
         "baseline",
+        "authority_model",
         "conveyor_doc_ref",
         "verifier_ref",
         "operational_maturity_manifest_ref",
@@ -523,7 +526,7 @@ def _append_authority_scorecard_schema_failures(
         "proposal_foundation",
         "authority_candidates",
         "follow_on_candidate_ranking",
-        "first_micro_lane_decision",
+        "first_authority_capability_decision",
     ]:
         if field not in required:
             failures.append(f"authority scorecard schema missing field {field}")
@@ -562,8 +565,8 @@ def _append_authority_scorecard_schema_failures(
         .get("required", [])
     )
     for field in (
-        MICRO_LANE_REQUIRED_PREREQUISITE_FIELDS
-        + MICRO_LANE_REQUIRED_PREREQUISITE_LIST_FIELDS
+        AUTHORITY_CAPABILITY_REQUIRED_PREREQUISITE_FIELDS
+        + AUTHORITY_CAPABILITY_REQUIRED_PREREQUISITE_LIST_FIELDS
     ):
         if field not in prerequisite_required:
             failures.append(
@@ -640,9 +643,7 @@ def _append_authority_tier_model_failures(
             failures.append(f"authority tier model missing tier {tier_number}")
             continue
         if tier.get("tier_id") != expected_tier_id:
-            failures.append(
-                f"authority tier {tier_number} expected {expected_tier_id}"
-            )
+            failures.append(f"authority tier {tier_number} expected {expected_tier_id}")
         for field in [
             "label",
             "durable_truth_owner",
@@ -655,16 +656,16 @@ def _append_authority_tier_model_failures(
                     f"authority tier {expected_tier_id} missing field {field}"
                 )
         if tier.get("tier_id") in LOW_FRICTION_TIER_IDS:
-            if "no approval" not in _compact_string(str(tier.get("approval_posture", ""))):
+            if "no approval" not in _compact_string(
+                str(tier.get("approval_posture", ""))
+            ):
                 failures.append(
                     f"authority tier {expected_tier_id} must stay low-friction/no-approval for initiation"
                 )
             blocked_claims = set(tier.get("blocked_claims", []))
             missing = TIER_LOW_FRICTION_FORBIDDEN_CLAIMS - blocked_claims
             for claim in sorted(missing):
-                failures.append(
-                    f"authority tier {expected_tier_id} must block {claim}"
-                )
+                failures.append(f"authority tier {expected_tier_id} must block {claim}")
 
     guardrails = model.get("guardrails")
     if not isinstance(guardrails, dict):
@@ -700,7 +701,7 @@ def _append_authority_scorecard_failures(
 ) -> None:
     if (
         scorecard.get("schema_version")
-        != "uaa-control-center-authority-candidate-scorecard.v1"
+        != "uaa-control-center-authority-candidate-scorecard.v2"
     ):
         failures.append("authority scorecard schema_version drifted")
     if scorecard.get("status") != "active authority candidate scorecard":
@@ -720,17 +721,17 @@ def _append_authority_scorecard_failures(
 
     for snippet in [
         "does not grant authority by itself",
-        "authority graduation program",
-        "fixed first implementation lane",
+        "authority capability conveyor",
+        "fixed first implementation capability",
         "read_only_real_world_web_fetch through webaccessgateway",
         "not a follow-on authority candidate",
         "at most one candidate may be selected",
-        "first follow-on authority candidate is selected",
+        "first follow-on authority capability is selected",
         "reviewed_memory_recall_write",
         "local_task_create",
     ]:
         if snippet not in conveyor_text:
-            failures.append(f"authority graduation program doc missing '{snippet}'")
+            failures.append(f"authority capability conveyor doc missing '{snippet}'")
 
     _append_first_implementation_lane_failures(
         failures,
@@ -775,11 +776,11 @@ def _append_authority_scorecard_failures(
     selected = [
         candidate
         for candidate in candidates
-        if candidate.get("selected_for_micro_lane") is True
+        if candidate.get("selected_for_authority_capability") is True
     ]
     if len(selected) > 1:
         failures.append(
-            "authority scorecard must select at most one micro-lane candidate"
+            "authority scorecard must select at most one authority capability candidate"
         )
     for candidate in candidates:
         _append_authority_candidate_failures(
@@ -800,9 +801,9 @@ def _append_authority_scorecard_failures(
         scorecard.get("follow_on_candidate_ranking"),
         candidates,
     )
-    _append_first_micro_lane_decision_failures(
+    _append_first_authority_capability_decision_failures(
         failures,
-        scorecard.get("first_micro_lane_decision"),
+        scorecard.get("first_authority_capability_decision"),
         selected,
         scorecard.get("follow_on_candidate_ranking"),
     )
@@ -855,9 +856,7 @@ def _append_first_implementation_lane_failures(
     verification_refs = set(lane.get("verification_refs", []))
     for ref in sorted(FIRST_IMPLEMENTATION_REQUIRED_VERIFICATION_REFS):
         if ref not in verification_refs:
-            failures.append(
-                f"first implementation lane missing verification ref {ref}"
-            )
+            failures.append(f"first implementation lane missing verification ref {ref}")
     _append_source_ref_failure(
         failures,
         root,
@@ -896,7 +895,9 @@ def _append_authority_foundation_failures(
     ]:
         if not foundation.get(field):
             failures.append(f"{foundation_id} authority foundation requires {field}")
-    if foundation_id != FIRST_IMPLEMENTATION_LANE_ID and not foundation.get("route_refs"):
+    if foundation_id != FIRST_IMPLEMENTATION_LANE_ID and not foundation.get(
+        "route_refs"
+    ):
         failures.append(f"{foundation_id} authority foundation requires route_refs")
     if foundation.get("status") == "partial" and not foundation.get(
         "missing_contracts"
@@ -936,12 +937,12 @@ def _append_authority_candidate_failures(
         failures.append(
             f"{candidate_id} has invalid authority candidate status {status}"
         )
-    if (
-        candidate.get("selected_for_micro_lane") is True
-        and status not in {"micro_lane_candidate", "implemented"}
-    ):
+    if candidate.get("selected_for_authority_capability") is True and status not in {
+        "authority_capability_candidate",
+        "implemented",
+    }:
         failures.append(
-            f"{candidate_id} selected micro-lane must be micro_lane_candidate or implemented"
+            f"{candidate_id} selected authority capability must be authority_capability_candidate or implemented"
         )
     if not candidate.get("safe_summary"):
         failures.append(f"{candidate_id} authority candidate requires safe_summary")
@@ -1001,12 +1002,14 @@ def _append_authority_candidate_failures(
             failures.append(
                 f"{candidate_id} blocked_by_policy requires missing_prerequisites"
             )
-    if status not in {"micro_lane_candidate", "implemented"}:
+    if status not in {"authority_capability_candidate", "implemented"}:
         return
-    for field in MICRO_LANE_REQUIRED_PREREQUISITE_FIELDS:
+    for field in AUTHORITY_CAPABILITY_REQUIRED_PREREQUISITE_FIELDS:
         ref = prerequisite_refs.get(field)
         if not ref:
-            failures.append(f"{candidate_id} micro-lane candidate requires {field}")
+            failures.append(
+                f"{candidate_id} authority capability candidate requires {field}"
+            )
             continue
         _append_authority_ref_failure(
             failures,
@@ -1015,10 +1018,12 @@ def _append_authority_candidate_failures(
             str(ref),
             f"{candidate_id}.prerequisite_refs.{field}",
         )
-    for field in MICRO_LANE_REQUIRED_PREREQUISITE_LIST_FIELDS:
+    for field in AUTHORITY_CAPABILITY_REQUIRED_PREREQUISITE_LIST_FIELDS:
         refs = prerequisite_refs.get(field)
         if not refs:
-            failures.append(f"{candidate_id} micro-lane candidate requires {field}")
+            failures.append(
+                f"{candidate_id} authority capability candidate requires {field}"
+            )
             continue
         for ref in refs:
             _append_authority_ref_failure(
@@ -1038,7 +1043,7 @@ def _append_context_injection_contract_ready_failures(
 ) -> None:
     if candidate.get("status") != "contract_ready":
         failures.append("context_injection must stay contract_ready")
-    if candidate.get("selected_for_micro_lane") is not False:
+    if candidate.get("selected_for_authority_capability") is not False:
         failures.append("context_injection must remain unselected")
     prerequisite_refs = candidate.get("prerequisite_refs")
     if not isinstance(prerequisite_refs, dict):
@@ -1071,12 +1076,10 @@ def _append_context_injection_contract_ready_failures(
             failures.append(
                 f"context_injection runtime route must not exist: {route_ref}"
             )
-    for field in MICRO_LANE_REQUIRED_PREREQUISITE_FIELDS:
+    for field in AUTHORITY_CAPABILITY_REQUIRED_PREREQUISITE_FIELDS:
         ref = prerequisite_refs.get(field)
         if not ref:
-            failures.append(
-                f"context_injection contract_ready requires {field}"
-            )
+            failures.append(f"context_injection contract_ready requires {field}")
             continue
         _append_authority_ref_failure(
             failures,
@@ -1129,16 +1132,15 @@ def _append_follow_on_candidate_ranking_failures(
         return
     if ranking.get("status") not in {
         "ranked_no_authority_granted",
-        "ranked_with_selected_micro_lane",
+        "ranked_with_selected_authority_capability",
     }:
         failures.append(
-            "follow-on candidate ranking must be ranked_no_authority_granted or ranked_with_selected_micro_lane"
+            "follow-on candidate ranking must be ranked_no_authority_granted or ranked_with_selected_authority_capability"
         )
     if ranking.get("fixed_first_lane_ref") != FIRST_IMPLEMENTATION_LANE_ID:
         failures.append("follow-on ranking must reference the fixed first lane")
     ranked_ids = tuple(
-        str(candidate_id)
-        for candidate_id in ranking.get("ranked_candidate_ids", [])
+        str(candidate_id) for candidate_id in ranking.get("ranked_candidate_ids", [])
     )
     if ranked_ids != EXPECTED_FOLLOW_ON_CANDIDATE_RANKING:
         failures.append(
@@ -1149,14 +1151,14 @@ def _append_follow_on_candidate_ranking_failures(
     if len(ranked_ids) != len(set(ranked_ids)):
         failures.append("follow-on ranking contains duplicate candidates")
     implemented_selected = any(
-        candidate.get("selected_for_micro_lane") is True
+        candidate.get("selected_for_authority_capability") is True
         and candidate.get("status") == "implemented"
         for candidate in candidates
     )
     if implemented_selected:
         if ranking.get("no_authority_granted") is not False:
             failures.append(
-                "follow-on ranking with implemented selected lane must set no_authority_granted false"
+                "follow-on ranking with implemented selected authority capability must set no_authority_granted false"
             )
     elif ranking.get("no_authority_granted") is not True:
         failures.append("follow-on ranking must not grant authority")
@@ -1164,8 +1166,7 @@ def _append_follow_on_candidate_ranking_failures(
         failures.append("follow-on ranking safest candidate must match rank 1")
 
     candidate_by_id = {
-        str(candidate.get("candidate_id")): candidate
-        for candidate in candidates
+        str(candidate.get("candidate_id")): candidate for candidate in candidates
     }
     safest_candidate = candidate_by_id.get(str(ranking.get("safest_candidate_id")))
     if safest_candidate is None:
@@ -1182,14 +1183,16 @@ def _append_follow_on_candidate_ranking_failures(
             failures.append(f"follow-on ranking requires {field}")
 
 
-def _append_first_micro_lane_decision_failures(
+def _append_first_authority_capability_decision_failures(
     failures: list[str],
     decision: Any,
     selected: list[dict[str, Any]],
     ranking: Any,
 ) -> None:
     if not isinstance(decision, dict):
-        failures.append("authority scorecard requires first_micro_lane_decision")
+        failures.append(
+            "authority scorecard requires first_authority_capability_decision"
+        )
         return
     if not selected:
         if decision.get("status") != "no_go":
@@ -1369,8 +1372,7 @@ def _append_memory_context_pack_manifest_failures(
         if blocked not in blocked_authorities:
             failures.append(f"memory context-injection contract must block {blocked}")
     lanes = {
-        str(lane.get("lane_id")): lane
-        for lane in module.get("graduated_lanes", [])
+        str(lane.get("lane_id")): lane for lane in module.get("graduated_lanes", [])
     }
     if "context_injection" in lanes or "context_pack_preview_materialization" in lanes:
         failures.append("memory must not graduate context_injection in prerequisite PR")
@@ -1601,7 +1603,9 @@ def _append_authority_capability_failures(
                 f"{module_id}:{capability_id} authority capability missing legacy lane binding"
             )
         if int(capability.get("rank", -1)) < 5:
-            failures.append(f"{module_id}:{capability_id} authority capability must be rank 5+")
+            failures.append(
+                f"{module_id}:{capability_id} authority capability must be rank 5+"
+            )
         for field in [
             "active_lease_required",
             "exact_approval_required",
@@ -1706,7 +1710,9 @@ def _append_first_lane_failures(
                     f"local_task_create authority capability {field} drifted"
                 )
         for expected_ref in [LOCAL_TASK_ROLLBACK_REF, LOCAL_TASK_SAFE_DISABLE_REF]:
-            if expected_ref not in set(capability.get("rollback_or_safe_disable_refs", [])):
+            if expected_ref not in set(
+                capability.get("rollback_or_safe_disable_refs", [])
+            ):
                 failures.append(
                     f"local_task_create authority capability missing {expected_ref}"
                 )
@@ -2170,7 +2176,10 @@ def _append_mock_fallback_fixture_failures(failures: list[str], root: Path) -> N
         source_readiness_fixture = fixture[source_start:]
         source_end_candidates = [
             index
-            for marker in ["\nconst crmLiteFollowups", "\nexport const mockControlCenterData"]
+            for marker in [
+                "\nconst crmLiteFollowups",
+                "\nexport const mockControlCenterData",
+            ]
             if (index := source_readiness_fixture.find(marker, 1)) > 0
         ]
         if source_end_candidates:
@@ -2191,10 +2200,17 @@ def _append_mock_fallback_fixture_failures(failures: list[str], root: Path) -> N
         if proposal_end <= proposal_start:
             proposal_end_candidates = [
                 index
-                for marker in ["\nexport const mockControlCenterData", "\nconst crmLiteFollowups"]
+                for marker in [
+                    "\nexport const mockControlCenterData",
+                    "\nconst crmLiteFollowups",
+                ]
                 if (index := fixture.find(marker, proposal_start + 1)) > proposal_start
             ]
-            proposal_end = min(proposal_end_candidates) if proposal_end_candidates else len(fixture)
+            proposal_end = (
+                min(proposal_end_candidates)
+                if proposal_end_candidates
+                else len(fixture)
+            )
         proposal_fixture = fixture[proposal_start:proposal_end]
         if "backend_owned: true" in proposal_fixture:
             failures.append(
@@ -2488,7 +2504,9 @@ def _append_read_only_status_probe_failures(failures: list[str]) -> None:
         if source_readiness.get("source") != "python_core_source_readiness_read_model":
             failures.append("read-only probe: source readiness source drifted")
         if source_readiness.get("backend_owned") is not True:
-            failures.append("read-only probe: source readiness route data is not backend-owned")
+            failures.append(
+                "read-only probe: source readiness route data is not backend-owned"
+            )
         if source_readiness.get("route_ref") != "/control-center/sources/readiness":
             failures.append("read-only probe: source readiness route_ref drifted")
         for field in [
@@ -2514,7 +2532,9 @@ def _append_read_only_status_probe_failures(failures: list[str]) -> None:
                 )
         source_proposals = source_readiness.get("source_readiness_proposal_candidates")
         if not isinstance(source_proposals, list) or len(source_proposals) < 3:
-            failures.append("read-only probe: source readiness proposal candidates missing")
+            failures.append(
+                "read-only probe: source readiness proposal candidates missing"
+            )
             source_proposals = []
         expected_proposal_titles = {
             "Define email read-only metadata contract",
@@ -2532,10 +2552,17 @@ def _append_read_only_status_probe_failures(failures: list[str]) -> None:
             if not isinstance(proposal, dict):
                 continue
             if proposal.get("source") != "python_core_source_readiness_read_model":
-                failures.append("read-only probe: source readiness proposal source drifted")
+                failures.append(
+                    "read-only probe: source readiness proposal source drifted"
+                )
             if proposal.get("backend_owned") is not True:
-                failures.append("read-only probe: source readiness proposal is not backend-owned")
-            if proposal.get("proposal_classification") != "proposal_only_no_execution_path":
+                failures.append(
+                    "read-only probe: source readiness proposal is not backend-owned"
+                )
+            if (
+                proposal.get("proposal_classification")
+                != "proposal_only_no_execution_path"
+            ):
                 failures.append(
                     "read-only probe: source readiness proposal classification drifted"
                 )
@@ -2555,7 +2582,10 @@ def _append_read_only_status_probe_failures(failures: list[str]) -> None:
         source_posture = today.get("source_readiness_posture", {})
         if source_posture.get("backend_owned") is not True:
             failures.append("read-only probe: source readiness is not backend-owned")
-        if today.get("source_readiness_route_ref") != "/control-center/sources/readiness":
+        if (
+            today.get("source_readiness_route_ref")
+            != "/control-center/sources/readiness"
+        ):
             failures.append("read-only probe: Today source readiness route ref missing")
         if source_readiness.get("source_readiness_posture") != source_posture:
             failures.append(

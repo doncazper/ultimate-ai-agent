@@ -105,7 +105,9 @@ def test_operational_maturity_manifest_declares_canonical_ladder() -> None:
         LOCAL_TASK_SAFE_DISABLE_REF,
     }
     assert "rollback_execution" in local_task_lane["blocked_authorities"]
-    assert local_task_lane["repeatability_gate_ref"] == LOCAL_TASK_REPEATABILITY_GATE_REF
+    assert (
+        local_task_lane["repeatability_gate_ref"] == LOCAL_TASK_REPEATABILITY_GATE_REF
+    )
     assert LOCAL_TASK_REPEATABILITY_REQUIRED_FOCUSED_TEST_REFS.issubset(
         set(local_task_lane["focused_test_refs"])
     )
@@ -118,7 +120,9 @@ def test_operational_maturity_manifest_declares_canonical_ladder() -> None:
     local_task_capability = modules["action_inbox"]["authority_capabilities"][0]
     assert local_task_capability["capability_id"] == LOCAL_TASK_AUTHORITY_CAPABILITY_ID
     assert local_task_capability["legacy_lane_id"] == "local_task_create"
-    assert local_task_capability["authority_domain_ref"] == LOCAL_TASK_AUTHORITY_DOMAIN_REF
+    assert (
+        local_task_capability["authority_domain_ref"] == LOCAL_TASK_AUTHORITY_DOMAIN_REF
+    )
     assert (
         local_task_capability["authority_capability_ref"]
         == LOCAL_TASK_AUTHORITY_CAPABILITY_REF
@@ -175,11 +179,13 @@ def test_operational_maturity_manifest_declares_usable_authority_tiers() -> None
     tiers = {tier["tier"]: tier for tier in model["tiers"]}
 
     assert set(tiers) == set(EXPECTED_USABLE_AUTHORITY_TIERS)
-    assert {
-        tier["tier_id"] for tier in model["tiers"]
-    } == set(EXPECTED_USABLE_AUTHORITY_TIERS.values())
+    assert {tier["tier_id"] for tier in model["tiers"]} == set(
+        EXPECTED_USABLE_AUTHORITY_TIERS.values()
+    )
     assert model["guardrails"].keys() >= TIER_MODEL_REQUIRED_GUARDRAILS
-    assert all(model["guardrails"][key] is True for key in TIER_MODEL_REQUIRED_GUARDRAILS)
+    assert all(
+        model["guardrails"][key] is True for key in TIER_MODEL_REQUIRED_GUARDRAILS
+    )
     for tier in model["tiers"]:
         if tier["tier_id"] in LOW_FRICTION_TIER_IDS:
             assert "No approval" in tier["approval_posture"]
@@ -287,10 +293,10 @@ def test_operational_maturity_verifier_requires_local_task_repeatability_gate() 
         for failure in failures
     )
     assert any(
-            "local_task_create repeatability gate missing frontend test apps/control-center/src/App.test.tsx::commits only the eligible Action Inbox local-task create lane through the typed route"
-            in failure
-            for failure in failures
-        )
+        "local_task_create repeatability gate missing frontend test apps/control-center/src/App.test.tsx::commits only the eligible Action Inbox local-task create lane through the typed route"
+        in failure
+        for failure in failures
+    )
     assert any(
         "local_task_create repeatability gate missing verifier ref scripts/verify_operational_maturity.py::_append_local_task_repeatability_gate_failures"
         in failure
@@ -351,9 +357,7 @@ def test_operational_maturity_verifier_requires_memory_context_pack_refs() -> No
         if route not in {MEMORY_CONTEXT_PACK_ROUTE, MEMORY_CONTEXT_PACK_PREVIEW_ROUTE}
     ]
     memory["test_refs"] = [
-        ref
-        for ref in memory["test_refs"]
-        if ref not in MEMORY_CONTEXT_PACK_TEST_REFS
+        ref for ref in memory["test_refs"] if ref not in MEMORY_CONTEXT_PACK_TEST_REFS
     ]
     memory["verifier_refs"] = [
         ref
@@ -375,8 +379,7 @@ def test_operational_maturity_verifier_requires_memory_context_pack_refs() -> No
         for failure in failures
     )
     assert any(
-        "memory context-pack readiness missing test" in failure
-        for failure in failures
+        "memory context-pack readiness missing test" in failure for failure in failures
     )
     assert any(
         "memory context-pack readiness missing verifier" in failure
@@ -384,7 +387,9 @@ def test_operational_maturity_verifier_requires_memory_context_pack_refs() -> No
     )
 
 
-def test_operational_maturity_verifier_rejects_patch_apply_claim_without_gates() -> None:
+def test_operational_maturity_verifier_rejects_patch_apply_claim_without_gates() -> (
+    None
+):
     manifest = _manifest_copy()
     modules = {module["module_id"]: module for module in manifest["modules"]}
     patch = modules[PATCH_WORKBENCH_MODULE_ID]
@@ -393,7 +398,9 @@ def test_operational_maturity_verifier_rejects_patch_apply_claim_without_gates()
     patch["honest_status"] = "execution_ready_contract"
     patch["missing_contracts"] = []
     patch["backend_routes"] = [
-        route for route in patch["backend_routes"] if route != PATCH_WORKBENCH_APPLY_ROUTE
+        route
+        for route in patch["backend_routes"]
+        if route != PATCH_WORKBENCH_APPLY_ROUTE
     ]
     patch["cli_or_script_refs"] = []
     patch["receipt_refs"] = []
@@ -420,7 +427,9 @@ def test_operational_maturity_verifier_requires_patch_rank2_apply_blockers() -> 
     failures: list[str] = []
     _append_patch_workbench_manifest_failures(failures, patch)
 
-    assert any("must keep apply_blocked honest_status" in failure for failure in failures)
+    assert any(
+        "must keep apply_blocked honest_status" in failure for failure in failures
+    )
     for contract_ref in PATCH_WORKBENCH_REQUIRED_MISSING_CONTRACTS:
         assert any(contract_ref in failure for failure in failures)
     assert any("must block code_apply_execution" in failure for failure in failures)
@@ -454,7 +463,7 @@ def test_authority_candidate_scorecard_declares_memory_write_graduation() -> Non
 
     assert (
         scorecard["schema_version"]
-        == "uaa-control-center-authority-candidate-scorecard.v1"
+        == "uaa-control-center-authority-candidate-scorecard.v2"
     )
     assert scorecard["status"] == "active authority candidate scorecard"
     assert {
@@ -478,9 +487,11 @@ def test_authority_candidate_scorecard_declares_memory_write_graduation() -> Non
         candidate["candidate_id"] for candidate in scorecard["authority_candidates"]
     } == EXPECTED_AUTHORITY_CANDIDATES
     ranking = scorecard["follow_on_candidate_ranking"]
-    assert ranking["status"] == "ranked_with_selected_micro_lane"
+    assert ranking["status"] == "ranked_with_selected_authority_capability"
     assert ranking["fixed_first_lane_ref"] == FIRST_IMPLEMENTATION_LANE_ID
-    assert tuple(ranking["ranked_candidate_ids"]) == EXPECTED_FOLLOW_ON_CANDIDATE_RANKING
+    assert (
+        tuple(ranking["ranked_candidate_ids"]) == EXPECTED_FOLLOW_ON_CANDIDATE_RANKING
+    )
     assert ranking["safest_candidate_id"] == EXPECTED_FOLLOW_ON_CANDIDATE_RANKING[0]
     assert ranking["safest_candidate_status"] == "implemented"
     assert ranking["no_authority_granted"] is False
@@ -488,7 +499,7 @@ def test_authority_candidate_scorecard_declares_memory_write_graduation() -> Non
     selected = [
         candidate
         for candidate in scorecard["authority_candidates"]
-        if candidate["selected_for_micro_lane"] is True
+        if candidate["selected_for_authority_capability"] is True
     ]
     assert [candidate["candidate_id"] for candidate in selected] == ["memory_write"]
     assert selected[0]["status"] == "implemented"
@@ -496,16 +507,16 @@ def test_authority_candidate_scorecard_declares_memory_write_graduation() -> Non
         "scripts/dev/uaa_founder_loop.py"
         in selected[0]["prerequisite_refs"]["cli_api_core_parity_refs"]
     )
-    assert scorecard["first_micro_lane_decision"]["status"] == "selected"
+    assert scorecard["first_authority_capability_decision"]["status"] == "selected"
     assert (
-        scorecard["first_micro_lane_decision"]["selected_candidate_id"]
+        scorecard["first_authority_capability_decision"]["selected_candidate_id"]
         == "memory_write"
     )
     assert (
-        scorecard["first_micro_lane_decision"]["decision_ref"]
-        == "decision-ref:fcc-auth-ramp-002:memory-write-reviewed-recall-lane"
+        scorecard["first_authority_capability_decision"]["decision_ref"]
+        == "decision-ref:fcc-auth-ramp-002:memory-write-reviewed-recall-capability"
     )
-    assert scorecard["first_micro_lane_decision"]["no_go_reason"] is None
+    assert scorecard["first_authority_capability_decision"]["no_go_reason"] is None
     assert "local_task_create" not in {
         candidate["candidate_id"] for candidate in scorecard["authority_candidates"]
     }
@@ -523,31 +534,29 @@ def test_authority_scorecard_declares_context_injection_contract_ready_only() ->
     )
 
     assert context["status"] == "contract_ready"
-    assert context["selected_for_micro_lane"] is False
+    assert context["selected_for_authority_capability"] is False
     refs = context["prerequisite_refs"]
     assert refs["backend_core_owner_ref"] == CONTEXT_INJECTION_CONTRACT_DOC_REF
     assert refs["route_side_effect_ref"] == MEMORY_CONTEXT_MANIFEST_ROUTE
     assert refs["exact_scope_ref"].startswith(CONTEXT_INJECTION_CONTRACT_DOC_REF)
     assert CONTEXT_INJECTION_CLI_REF in refs["cli_api_core_parity_refs"]
-    assert CONTEXT_INJECTION_REQUIRED_TEST_REFS.issubset(
-        set(refs["focused_test_refs"])
-    )
-    assert CONTEXT_INJECTION_REQUIRED_VERIFIER_REFS.issubset(
-        set(refs["verifier_refs"])
-    )
+    assert CONTEXT_INJECTION_REQUIRED_TEST_REFS.issubset(set(refs["focused_test_refs"]))
+    assert CONTEXT_INJECTION_REQUIRED_VERIFIER_REFS.issubset(set(refs["verifier_refs"]))
     assert CONTEXT_INJECTION_REQUIRED_BLOCKED_AUTHORITIES.issubset(
         set(context["blocked_authorities"])
     )
 
 
-def test_authority_scorecard_rejects_context_injection_selection_or_missing_contract_refs() -> None:
+def test_authority_scorecard_rejects_context_injection_selection_or_missing_contract_refs() -> (
+    None
+):
     scorecard = _scorecard_copy()
     context = next(
         candidate
         for candidate in scorecard["authority_candidates"]
         if candidate["candidate_id"] == CONTEXT_INJECTION_CANDIDATE_ID
     )
-    context["selected_for_micro_lane"] = True
+    context["selected_for_authority_capability"] = True
     context["prerequisite_refs"]["exact_scope_ref"] = None
     context["prerequisite_refs"]["cli_api_core_parity_refs"] = []
     context["blocked_authorities"] = [
@@ -558,7 +567,9 @@ def test_authority_scorecard_rejects_context_injection_selection_or_missing_cont
 
     failures = verify(scorecard_override=scorecard)
 
-    assert any("context_injection must remain unselected" in failure for failure in failures)
+    assert any(
+        "context_injection must remain unselected" in failure for failure in failures
+    )
     assert any(
         "context_injection contract_ready requires exact_scope_ref" in failure
         for failure in failures
@@ -643,8 +654,7 @@ def test_authority_scorecard_rejects_first_lane_in_follow_on_ranking() -> None:
     failures = verify(scorecard_override=scorecard)
 
     assert any(
-        "follow-on candidate ranking order drifted" in failure
-        for failure in failures
+        "follow-on candidate ranking order drifted" in failure for failure in failures
     )
     assert any(
         "follow-on ranking must not include the fixed first lane" in failure
@@ -660,15 +670,15 @@ def test_authority_scorecard_rejects_ranking_authority_claim() -> None:
         if candidate["candidate_id"] == "memory_write"
     )
     memory["status"] = "proposal_only_ready"
-    memory["selected_for_micro_lane"] = False
+    memory["selected_for_authority_capability"] = False
     scorecard["follow_on_candidate_ranking"]["status"] = "ranked_no_authority_granted"
     scorecard["follow_on_candidate_ranking"]["safest_candidate_status"] = (
         "proposal_only_ready"
     )
     scorecard["follow_on_candidate_ranking"]["no_authority_granted"] = False
-    scorecard["first_micro_lane_decision"]["status"] = "no_go"
-    scorecard["first_micro_lane_decision"]["selected_candidate_id"] = None
-    scorecard["first_micro_lane_decision"]["no_go_reason"] = (
+    scorecard["first_authority_capability_decision"]["status"] = "no_go"
+    scorecard["first_authority_capability_decision"]["selected_candidate_id"] = None
+    scorecard["first_authority_capability_decision"]["no_go_reason"] = (
         "memory_write remains proposal_only_ready until exact scope, "
         "LocalApprovalAuthority, rollback/safe-disable, CLI parity, and tests exist."
     )
@@ -676,12 +686,13 @@ def test_authority_scorecard_rejects_ranking_authority_claim() -> None:
     failures = verify(scorecard_override=scorecard)
 
     assert any(
-        "follow-on ranking must not grant authority" in failure
-        for failure in failures
+        "follow-on ranking must not grant authority" in failure for failure in failures
     )
 
 
-def test_authority_scorecard_rejects_duplicate_or_missing_follow_on_ranking_ids() -> None:
+def test_authority_scorecard_rejects_duplicate_or_missing_follow_on_ranking_ids() -> (
+    None
+):
     scorecard = _scorecard_copy()
     ranked_ids = scorecard["follow_on_candidate_ranking"]["ranked_candidate_ids"]
     ranked_ids[-1] = ranked_ids[0]
@@ -689,8 +700,7 @@ def test_authority_scorecard_rejects_duplicate_or_missing_follow_on_ranking_ids(
     failures = verify(scorecard_override=scorecard)
 
     assert any(
-        "follow-on candidate ranking order drifted" in failure
-        for failure in failures
+        "follow-on candidate ranking order drifted" in failure for failure in failures
     )
     assert any(
         "follow-on ranking contains duplicate candidates" in failure
@@ -715,7 +725,7 @@ def test_authority_scorecard_rejects_mismatched_safest_candidate() -> None:
 def test_authority_scorecard_rejects_mismatched_safest_candidate_status() -> None:
     scorecard = _scorecard_copy()
     scorecard["follow_on_candidate_ranking"]["safest_candidate_status"] = (
-        "micro_lane_candidate"
+        "authority_capability_candidate"
     )
 
     failures = verify(scorecard_override=scorecard)
@@ -751,68 +761,67 @@ def test_authority_scorecard_rejects_first_lane_missing_blockers() -> None:
         for failure in failures
     )
     assert any(
-        "first implementation lane next_safe_action must point to Prompt 02"
-        in failure
+        "first implementation lane next_safe_action must point to Prompt 02" in failure
         for failure in failures
     )
 
 
-def test_authority_scorecard_rejects_selected_candidate_without_micro_lane_status() -> (
+def test_authority_scorecard_rejects_selected_candidate_without_capability_status() -> (
     None
 ):
     scorecard = _scorecard_copy()
     candidate = scorecard["authority_candidates"][0]
-    candidate["selected_for_micro_lane"] = True
+    candidate["selected_for_authority_capability"] = True
     candidate["status"] = "contract_ready"
-    scorecard["first_micro_lane_decision"]["status"] = "selected"
-    scorecard["first_micro_lane_decision"]["selected_candidate_id"] = candidate[
-        "candidate_id"
-    ]
-    scorecard["first_micro_lane_decision"]["no_go_reason"] = None
+    scorecard["first_authority_capability_decision"]["status"] = "selected"
+    scorecard["first_authority_capability_decision"]["selected_candidate_id"] = (
+        candidate["candidate_id"]
+    )
+    scorecard["first_authority_capability_decision"]["no_go_reason"] = None
 
     failures = verify(scorecard_override=scorecard)
 
     assert any(
-        f"{candidate['candidate_id']} selected micro-lane must be micro_lane_candidate or implemented"
+        f"{candidate['candidate_id']} selected authority capability must be authority_capability_candidate or implemented"
         in failure
         for failure in failures
     )
 
 
-def test_authority_scorecard_rejects_micro_lane_candidate_missing_required_refs() -> (
+def test_authority_scorecard_rejects_capability_candidate_missing_required_refs() -> (
     None
 ):
     scorecard = _scorecard_copy()
     for item in scorecard["authority_candidates"]:
-        item["selected_for_micro_lane"] = False
+        item["selected_for_authority_capability"] = False
         if item["candidate_id"] == "memory_write":
             item["status"] = "contract_ready"
     candidate = scorecard["authority_candidates"][1]
-    candidate["status"] = "micro_lane_candidate"
-    candidate["selected_for_micro_lane"] = True
+    candidate["status"] = "authority_capability_candidate"
+    candidate["selected_for_authority_capability"] = True
     candidate["prerequisite_refs"]["exact_scope_ref"] = None
     candidate["prerequisite_refs"]["rollback_safe_disable_plan_ref"] = None
     candidate["prerequisite_refs"]["cli_api_core_parity_refs"] = []
-    scorecard["first_micro_lane_decision"]["status"] = "selected"
-    scorecard["first_micro_lane_decision"]["selected_candidate_id"] = candidate[
-        "candidate_id"
-    ]
-    scorecard["first_micro_lane_decision"]["no_go_reason"] = None
+    scorecard["first_authority_capability_decision"]["status"] = "selected"
+    scorecard["first_authority_capability_decision"]["selected_candidate_id"] = (
+        candidate["candidate_id"]
+    )
+    scorecard["first_authority_capability_decision"]["no_go_reason"] = None
 
     failures = verify(scorecard_override=scorecard)
 
     assert any(
-        f"{candidate['candidate_id']} micro-lane candidate requires exact_scope_ref"
+        f"{candidate['candidate_id']} authority capability candidate requires exact_scope_ref"
         in failure
         for failure in failures
     )
     assert any(
-        f"{candidate['candidate_id']} micro-lane candidate requires rollback_safe_disable_plan_ref"
+        f"{candidate['candidate_id']} authority capability candidate requires rollback_safe_disable_plan_ref"
         in failure
         for failure in failures
     )
     assert any(
-        f"{candidate['candidate_id']} micro-lane candidate requires cli_api_core_parity_refs"
+        f"{candidate['candidate_id']} authority capability candidate requires cli_api_core_parity_refs"
         in failure
         for failure in failures
     )
@@ -821,18 +830,19 @@ def test_authority_scorecard_rejects_micro_lane_candidate_missing_required_refs(
 def test_authority_scorecard_rejects_multiple_selected_candidates() -> None:
     scorecard = _scorecard_copy()
     for candidate in scorecard["authority_candidates"][:2]:
-        candidate["status"] = "micro_lane_candidate"
-        candidate["selected_for_micro_lane"] = True
-    scorecard["first_micro_lane_decision"]["status"] = "selected"
-    scorecard["first_micro_lane_decision"]["selected_candidate_id"] = scorecard[
-        "authority_candidates"
-    ][0]["candidate_id"]
-    scorecard["first_micro_lane_decision"]["no_go_reason"] = None
+        candidate["status"] = "authority_capability_candidate"
+        candidate["selected_for_authority_capability"] = True
+    scorecard["first_authority_capability_decision"]["status"] = "selected"
+    scorecard["first_authority_capability_decision"]["selected_candidate_id"] = (
+        scorecard["authority_candidates"][0]["candidate_id"]
+    )
+    scorecard["first_authority_capability_decision"]["no_go_reason"] = None
 
     failures = verify(scorecard_override=scorecard)
 
     assert any(
-        "authority scorecard must select at most one micro-lane candidate" in failure
+        "authority scorecard must select at most one authority capability candidate"
+        in failure
         for failure in failures
     )
 
@@ -840,11 +850,11 @@ def test_authority_scorecard_rejects_multiple_selected_candidates() -> None:
 def test_authority_scorecard_requires_documented_no_go_when_none_selected() -> None:
     scorecard = _scorecard_copy()
     for candidate in scorecard["authority_candidates"]:
-        candidate["selected_for_micro_lane"] = False
-    scorecard["first_micro_lane_decision"]["status"] = "selected"
-    scorecard["first_micro_lane_decision"]["selected_candidate_id"] = None
-    scorecard["first_micro_lane_decision"]["no_go_reason"] = None
-    scorecard["first_micro_lane_decision"]["smallest_next_safe_action"] = ""
+        candidate["selected_for_authority_capability"] = False
+    scorecard["first_authority_capability_decision"]["status"] = "selected"
+    scorecard["first_authority_capability_decision"]["selected_candidate_id"] = None
+    scorecard["first_authority_capability_decision"]["no_go_reason"] = None
+    scorecard["first_authority_capability_decision"]["smallest_next_safe_action"] = ""
 
     failures = verify(scorecard_override=scorecard)
 
@@ -866,13 +876,13 @@ def test_authority_scorecard_requires_documented_no_go_when_none_selected() -> N
 def test_authority_scorecard_no_go_must_explain_top_ranked_candidate_blocker() -> None:
     scorecard = _scorecard_copy()
     for candidate in scorecard["authority_candidates"]:
-        candidate["selected_for_micro_lane"] = False
-    scorecard["first_micro_lane_decision"]["status"] = "no_go"
-    scorecard["first_micro_lane_decision"]["selected_candidate_id"] = None
-    scorecard["first_micro_lane_decision"]["no_go_reason"] = (
+        candidate["selected_for_authority_capability"] = False
+    scorecard["first_authority_capability_decision"]["status"] = "no_go"
+    scorecard["first_authority_capability_decision"]["selected_candidate_id"] = None
+    scorecard["first_authority_capability_decision"]["no_go_reason"] = (
         "No candidate is ready."
     )
-    scorecard["first_micro_lane_decision"]["smallest_next_safe_action"] = (
+    scorecard["first_authority_capability_decision"]["smallest_next_safe_action"] = (
         "Keep planning."
     )
 

@@ -8,6 +8,7 @@
     "schema_version",
     "status",
     "baseline",
+    "authority_model",
     "conveyor_doc_ref",
     "verifier_ref",
     "operational_maturity_manifest_ref",
@@ -15,16 +16,38 @@
     "proposal_foundation",
     "authority_candidates",
     "follow_on_candidate_ranking",
-    "first_micro_lane_decision"
+    "first_authority_capability_decision"
   ],
   "properties": {
     "schema_version": {
-      "const": "uaa-control-center-authority-candidate-scorecard.v1"
+      "const": "uaa-control-center-authority-candidate-scorecard.v2"
     },
     "status": {
       "const": "active authority candidate scorecard"
     },
     "baseline": { "type": "string" },
+    "authority_model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "canon_ref",
+        "api_ref",
+        "settings_ref",
+        "cli_ref",
+        "safe_summary"
+      ],
+      "properties": {
+        "status": { "const": "migrating_to_authority_lease_v1" },
+        "canon_ref": {
+          "const": "docs/strategy/UAA_AUTHORITY_MODES_AND_MISSION_LEASES.md"
+        },
+        "api_ref": { "type": "string" },
+        "settings_ref": { "type": "string" },
+        "cli_ref": { "type": "string" },
+        "safe_summary": { "type": "string" }
+      }
+    },
     "conveyor_doc_ref": {
       "const": "docs/control_center/AUTHORITY_RAMP_CONVEYOR.md"
     },
@@ -46,7 +69,7 @@
     "follow_on_candidate_ranking": {
       "$ref": "#/$defs/follow_on_candidate_ranking"
     },
-    "first_micro_lane_decision": {
+    "first_authority_capability_decision": {
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -151,7 +174,7 @@
         "candidate_id",
         "candidate_class",
         "status",
-        "selected_for_micro_lane",
+        "selected_for_authority_capability",
         "safe_summary",
         "score",
         "prerequisite_refs",
@@ -167,12 +190,12 @@
             "not_ready",
             "proposal_only_ready",
             "contract_ready",
-            "micro_lane_candidate",
+            "authority_capability_candidate",
             "implemented",
             "blocked_by_policy"
           ]
         },
-        "selected_for_micro_lane": { "type": "boolean" },
+        "selected_for_authority_capability": { "type": "boolean" },
         "safe_summary": { "type": "string" },
         "score": {
           "type": "object",
@@ -279,7 +302,10 @@
       ],
       "properties": {
         "status": {
-          "enum": ["ranked_no_authority_granted", "ranked_with_selected_micro_lane"]
+          "enum": [
+            "ranked_no_authority_granted",
+            "ranked_with_selected_authority_capability"
+          ]
         },
         "fixed_first_lane_ref": { "const": "read_only_real_world_web_fetch" },
         "ranking_method": { "type": "string" },
@@ -293,7 +319,7 @@
             "not_ready",
             "proposal_only_ready",
             "contract_ready",
-            "micro_lane_candidate",
+            "authority_capability_candidate",
             "implemented",
             "blocked_by_policy"
           ]

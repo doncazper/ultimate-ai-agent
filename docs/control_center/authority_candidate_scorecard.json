@@ -1,5 +1,5 @@
 {
-  "schema_version": "uaa-control-center-authority-candidate-scorecard.v1",
+  "schema_version": "uaa-control-center-authority-candidate-scorecard.v2",
   "status": "active authority candidate scorecard",
   "baseline": "v0.104.0 / 0.104.0",
   "authority_model": {
@@ -8,7 +8,7 @@
     "api_ref": "GET /api/runtime/authority-state",
     "settings_ref": "GET /control-center/settings/status#authority_lease_state",
     "cli_ref": "scripts/dev/uaa_runtime.py inspect-authority-state --json",
-    "safe_summary": "Authority candidates are no longer the user-facing authority model. Existing lanes are mapped into AuthorityLease domains and capabilities; unknown authority denies by default, and unsupported adapters remain planned or blocked until implemented and tested."
+    "safe_summary": "Authority candidates are no longer the user-facing authority model. Existing legacy lanes are mapped into AuthorityLease domains and capabilities; unknown authority denies by default, and unsupported adapters remain planned or blocked until implemented and tested."
   },
   "conveyor_doc_ref": "docs/control_center/AUTHORITY_RAMP_CONVEYOR.md",
   "verifier_ref": "scripts/verify_operational_maturity.py",
@@ -18,7 +18,7 @@
     "prompt_ref": "docs/prompts/fcc_authority_ramp/02_read_only_proposal_foundation.prompt.md",
     "foundation_ref": "read_only_real_world_web_fetch",
     "status": "implemented",
-    "safe_summary": "The exact read_only_real_world_web_fetch lane is implemented as active Browser/read AuthorityLease-gated allowlisted HTTPS GET through WebAccessGateway with bounded redacted preview, safe refs, CLI inspection, and the scoped Control Center Web Evidence product-slice route.",
+    "safe_summary": "The exact read_only_real_world_web_fetch capability is implemented as active Browser/read AuthorityLease-gated allowlisted HTTPS GET through WebAccessGateway with bounded redacted preview, safe refs, CLI inspection, and the scoped Control Center Web Evidence product-slice route.",
     "allowed_scope": [
       "https_get_only",
       "explicit_public_allowlist",
@@ -58,7 +58,7 @@
     "route_refs": [
       "POST /control-center/web-evidence/attach"
     ],
-    "next_safe_action": "Keep the implemented lane exact-scoped; any browser, provider, connector, memory, action, or production authority must go through follow-on candidate ranking."
+    "next_safe_action": "Keep the implemented capability exact-scoped; any browser, provider, connector, memory, action, or production authority must go through follow-on candidate ranking."
   },
   "proposal_foundation": [
     {
@@ -99,7 +99,7 @@
         "production_authority"
       ],
       "missing_contracts": [],
-      "next_safe_action": "Keep this lane exact-scoped and route all follow-on authority through the candidate scorecard."
+      "next_safe_action": "Keep this capability exact-scoped and route all follow-on authority through the candidate scorecard."
     },
     {
       "foundation_id": "read_only_connector_metadata",
@@ -134,7 +134,7 @@
         "account_binding_contract",
         "test_account_source_proof"
       ],
-      "next_safe_action": "Keep contract refs visible through Source Readiness; implement live metadata fetch only through a later exact lane with account posture, test-account proof, redaction, idempotency, and no send/write authority."
+      "next_safe_action": "Keep contract refs visible through Source Readiness; implement live metadata fetch only through a later AuthorityLease-gated capability with account posture, test-account proof, redaction, idempotency, and no send/write authority."
     },
     {
       "foundation_id": "memory_to_loop_proposal_ux",
@@ -165,7 +165,7 @@
         "approved_local_action_handoff_execution_contract",
         "context_injection_policy"
       ],
-      "next_safe_action": "Keep memory-derived proposals scannable and route them through Action Inbox review before any later exact micro-lane."
+      "next_safe_action": "Keep memory-derived proposals scannable and route them through Action Inbox review before any later AuthorityLease-gated capability."
     },
     {
       "foundation_id": "context_pack_proposal_display",
@@ -194,10 +194,10 @@
         "production_authority"
       ],
       "missing_contracts": [
-        "context_injection_runtime_micro_lane",
+        "context_injection_runtime_authority_capability",
         "context_injection_receipt_evidence_runtime_proof"
       ],
-      "next_safe_action": "Dogfood the read-only context-pack preview route and CLI; runtime context injection remains blocked until a separate exact lane."
+      "next_safe_action": "Dogfood the read-only context-pack preview route and CLI; runtime context injection remains blocked until a separate AuthorityLease-gated capability."
     }
   ],
   "authority_candidates": [
@@ -205,7 +205,7 @@
       "candidate_id": "connector_write",
       "candidate_class": "connector_writes",
       "status": "not_ready",
-      "selected_for_micro_lane": false,
+      "selected_for_authority_capability": false,
       "safe_summary": "Connector writes are blocked until draft-only workflows, read-only source metadata, account posture, exact scope, undo, and receipt evidence are complete.",
       "score": {
         "user_value": 5,
@@ -254,14 +254,14 @@
         "undo_safe_disable_contract_missing",
         "receipt_evidence_contract_missing"
       ],
-      "smallest_next_safe_action": "Implement read-only connector metadata and draft-only proposal UI before any write lane."
+      "smallest_next_safe_action": "Implement read-only connector metadata and draft-only proposal UI before any write capability."
     },
     {
       "candidate_id": "memory_write",
       "candidate_class": "memory_writes",
       "status": "implemented",
-      "selected_for_micro_lane": true,
-      "safe_summary": "Narrow reviewed recall-write authority is implemented only for Memory Review accept/correct decisions through backend-owned exact approval, idempotency, receipts, safe-disable posture, CLI parity, and verifier proof.",
+      "selected_for_authority_capability": true,
+      "safe_summary": "Narrow reviewed recall-write authority is implemented only for Memory Review accept/correct decisions through backend-owned AuthorityLease evaluation, exact approval, idempotency, receipts, safe-disable posture, CLI parity, and verifier proof.",
       "score": {
         "user_value": 5,
         "authority_risk": 4,
@@ -310,13 +310,13 @@
         "production_authority"
       ],
       "missing_prerequisites": [],
-      "smallest_next_safe_action": "Keep the narrow reviewed recall-write lane dogfooded and do not expand into automatic memory, context injection, delete/export, connector write, or production authority without a new exact lane."
+      "smallest_next_safe_action": "Keep the narrow reviewed recall-write capability dogfooded and do not expand into automatic memory, context injection, delete/export, connector write, or production authority without a new AuthorityLease-gated capability."
     },
     {
       "candidate_id": "shell_subprocess_local_maintenance",
       "candidate_class": "shell_subprocess_local_maintenance",
       "status": "not_ready",
-      "selected_for_micro_lane": false,
+      "selected_for_authority_capability": false,
       "safe_summary": "Shell/subprocess work is blocked except for future exact allowlisted local maintenance contracts.",
       "score": {
         "user_value": 4,
@@ -362,13 +362,13 @@
         "receipt_redaction_missing",
         "rollback_safe_disable_missing"
       ],
-      "smallest_next_safe_action": "Draft a validation-only local maintenance classifier before any allowlisted command lane."
+      "smallest_next_safe_action": "Draft a validation-only local maintenance classifier before any allowlisted command capability."
     },
     {
       "candidate_id": "browser_automation",
       "candidate_class": "browser_automation",
       "status": "not_ready",
-      "selected_for_micro_lane": false,
+      "selected_for_authority_capability": false,
       "safe_summary": "Browser automation remains blocked until a specific local workflow earns observe-only, dry-run, approval, receipt, and rollback gates.",
       "score": {
         "user_value": 3,
@@ -421,7 +421,7 @@
       "candidate_id": "provider_model_authority",
       "candidate_class": "provider_model_authority",
       "status": "blocked_by_policy",
-      "selected_for_micro_lane": false,
+      "selected_for_authority_capability": false,
       "safe_summary": "Model or provider output must not become production authority. It can propose candidates for Python core and policy review only.",
       "score": {
         "user_value": 2,
@@ -470,8 +470,8 @@
       "candidate_id": "context_injection",
       "candidate_class": "context_injection",
       "status": "contract_ready",
-      "selected_for_micro_lane": false,
-      "safe_summary": "Context injection has a prerequisite contract and a governed read-only context-pack preview lane; runtime prompt/model injection remains blocked until a separate exact micro-lane is proven.",
+      "selected_for_authority_capability": false,
+      "safe_summary": "Context injection has a prerequisite contract and a governed read-only context-pack preview capability; runtime prompt/model injection remains blocked until a separate AuthorityLease-gated capability is proven.",
       "score": {
         "user_value": 4,
         "authority_risk": 5,
@@ -537,16 +537,16 @@
         "production_authority"
       ],
       "missing_prerequisites": [
-        "runtime_injection_micro_lane_missing",
+        "runtime_injection_authority_capability_missing",
         "live_model_destination_authority_missing"
       ],
-      "smallest_next_safe_action": "Review the governed context-pack preview lane in dogfood; do not inject context into a prompt, provider, connector, browser, shell, or runtime consumer."
+      "smallest_next_safe_action": "Review the governed context-pack preview capability in dogfood; do not inject context into a prompt, provider, connector, browser, shell, or runtime consumer."
     }
   ],
   "follow_on_candidate_ranking": {
-    "status": "ranked_with_selected_micro_lane",
+    "status": "ranked_with_selected_authority_capability",
     "fixed_first_lane_ref": "read_only_real_world_web_fetch",
-    "ranking_method": "Rank the fixed follow-on candidate set by local-first value, existing maturity, exact-scope clarity, approval/receipt feasibility, reversibility, redaction complexity, blast radius, and external dependency risk. The fixed first WebAccessGateway lane is represented as Browser/read AuthorityLease-gated web evidence; no ranked future candidate receives authority without its own lease-bound implementation.",
+    "ranking_method": "Rank the fixed follow-on candidate set by local-first value, existing maturity, exact-scope clarity, approval/receipt feasibility, reversibility, redaction complexity, blast radius, and external dependency risk. The fixed first WebAccessGateway capability is represented as Browser/read AuthorityLease-gated web evidence; no ranked future candidate receives authority without its own lease-bound implementation.",
     "ranked_candidate_ids": [
       "memory_write",
       "context_injection",
@@ -557,15 +557,15 @@
     ],
     "safest_candidate_id": "memory_write",
     "safest_candidate_status": "implemented",
-    "safe_summary": "The safest follow-on candidate is memory_write, now implemented only as a narrow reviewed recall-write lane for Memory Review accept/correct decisions; every broader memory authority remains blocked.",
+    "safe_summary": "The safest follow-on candidate is memory_write, now implemented only as a narrow reviewed recall-write capability for Memory Review accept/correct decisions; every broader memory authority remains blocked.",
     "no_authority_granted": false,
-    "selection_blocked_reason": "memory_write is selected only for exact reviewed recall-write authority; context_injection is contract-ready but unselected and still blocks runtime injection, while shell_subprocess_local_maintenance, connector_write, browser_automation, and provider_model_authority remain blocked pending their own exact scopes, LocalApprovalAuthority binding, rollback/safe-disable, CLI parity, and tests.",
-    "next_safe_action": "Dogfood the reviewed recall-write lane and prepare the context-pack materialization/preview lane without reusing memory_write authority."
+    "selection_blocked_reason": "memory_write is selected only for exact reviewed recall-write authority under active memory/write AuthorityLease scope; context_injection is contract-ready but unselected and still blocks runtime injection, while shell_subprocess_local_maintenance, connector_write, browser_automation, and provider_model_authority remain blocked pending their own AuthorityLease scope, LocalApprovalAuthority binding, rollback/safe-disable, CLI parity, and tests.",
+    "next_safe_action": "Dogfood the reviewed recall-write capability and prepare the context-pack materialization/preview capability without reusing memory_write authority."
   },
-  "first_micro_lane_decision": {
+  "first_authority_capability_decision": {
     "status": "selected",
     "selected_candidate_id": "memory_write",
-    "decision_ref": "decision-ref:fcc-auth-ramp-002:memory-write-reviewed-recall-lane",
+    "decision_ref": "decision-ref:fcc-auth-ramp-002:memory-write-reviewed-recall-capability",
     "no_go_reason": null,
     "smallest_next_safe_action": "Keep memory_write scoped to reviewed recall-only accept/correct decisions and rank the next candidate separately."
   }
