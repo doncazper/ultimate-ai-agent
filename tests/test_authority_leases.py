@@ -673,6 +673,21 @@ def test_authority_lease_kill_switch_blocks_new_lease_issue_api_cli_and_state(
         preview.decision.reason_refs
     )
 
+    direct_decision = evaluate_authority_request(
+        AuthorityActionRequest(
+            action_ref="authority-action-ref:test-direct-kill-switch-evaluation",
+            domain=AuthorityDomain.workspace,
+            capability=AuthorityCapability.read,
+            safe_summary=(
+                "Evaluate direct workspace read while kill switch is engaged."
+            ),
+        ),
+        build_default_authority_leases(),
+    )
+    assert direct_decision.outcome == "deny"
+    assert direct_decision.lease_ref is None
+    assert "reason-ref:authority:kill-switch-engaged" in direct_decision.reason_refs
+
     api_issue = client.post(
         "/api/runtime/authority-leases/approve-and-issue",
         headers={"x-uaa-idempotency-key": "idempotency-ref:test-api-kill-switch"},

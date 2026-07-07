@@ -54,7 +54,9 @@ surfaces are:
   switch. New lease issue attempts are denied with a redacted receipt and
   `reason-ref:authority:lease-kill-switch-engaged`; state, Settings, CLI, and
   decision previews report `kill_switch_engaged` without executing adapters or
-  mutating external systems.
+  mutating external systems. The core `evaluate_authority_request` path also
+  applies this local kill-switch overlay, so direct route/service evaluators fail
+  closed even if they do not pass an explicit request flag.
 - Control Center `/settings` authority mode controls for implemented local
   domain subsets, revoke receipts, decision previews for concrete
   mode/domain/capability requests, and mission-plan previews for delegated

@@ -1019,7 +1019,7 @@ def evaluate_authority_request(
         if _lease_scope_matches_action(lease, request)
     ]
     reason_refs: list[str] = []
-    if request.kill_switch_engaged:
+    if request.kill_switch_engaged or authority_lease_kill_switch_engaged():
         reason_refs.append("reason-ref:authority:kill-switch-engaged")
         return _decision(
             request,
