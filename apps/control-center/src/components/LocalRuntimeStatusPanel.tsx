@@ -2,7 +2,7 @@ import type { M18RuntimeData, RuntimeCapabilityMatrix, RuntimeReadinessReport } 
 import { OperatorSurfaceStates } from "./OperatorSurfaceStates";
 
 const LOCAL_RUNTIME_BOUNDARY_COPY =
-  "Local runtime status is backend-owned. Exact approved utility command execution requires Workspace execute authority and RuntimeGateway receipts; this UI does not start runtimes or grant arbitrary command, browser, connector, plugin, remote, public beta, or production authority.";
+  "Local runtime status is backend-owned. Exact approved utility command execution is visible through RuntimeGateway receipts when an active AuthorityLease grants Workspace execute authority; this UI does not start runtimes or grant arbitrary command, browser, connector, plugin, remote, public beta, or production authority.";
 const MANUAL_SMOKE_BOUNDARY_COPY =
   "Manual smoke reports are safe summaries. Manual smoke execution remains CLI-only, fixed-prompt-only, approval-gated, and non-authoritative.";
 

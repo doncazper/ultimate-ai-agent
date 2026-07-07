@@ -1202,8 +1202,8 @@
       "side_effect_class": "validation_only",
       "risk_class": "high",
       "release_status": "status_available_not_completion",
-      "approval_requirement": "No approval is required for read-only Settings status. Exact approval is required before any setting can enable runtime authority, persistence, lifecycle behavior, provider configuration, kill-switch execution, revocation execution, installer behavior, or mutation.",
-      "evidence_audit_output": "Backend-owned settings maturity gate, feature-flag posture, kill-switch posture, blocked/degraded/partial authority posture labels, route safety, and blocked authority refs only.",
+      "approval_requirement": "No approval is required for read-only Settings status, authority decision preview, or authority mission planning. AuthorityLease issue and revoke routes require LocalApprovalAuthority validation, idempotency, receipts, audit refs, redaction, and rollback/safe-disable posture before any authority state changes.",
+      "evidence_audit_output": "Backend-owned settings maturity gate, feature-flag posture, kill-switch posture, active authority mode/domain/lease refs, decision-preview refs, mission-plan refs, lease receipt refs, blocked/degraded/partial authority posture labels, route safety, and blocked authority refs only.",
       "current_backend_routes": [
         {
           "method": "GET",
@@ -1239,6 +1239,34 @@
           "operation_id": "post_control_center_providers_router_dry_run",
           "side_effect_class": "validation_only",
           "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "POST",
+          "path": "/api/runtime/authority-decisions/preview",
+          "operation_id": "post_api_runtime_authority_decisions_preview",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "POST",
+          "path": "/api/runtime/authority-missions/plan",
+          "operation_id": "post_api_runtime_authority_missions_plan",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "POST",
+          "path": "/api/runtime/authority-leases",
+          "operation_id": "post_api_runtime_authority_leases",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "POST",
+          "path": "/api/runtime/authority-leases/revoke",
+          "operation_id": "post_api_runtime_authority_leases_revoke",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
         }
       ],
       "missing_backend_routes": [
@@ -1246,7 +1274,6 @@
         "reviewed-local-runtime-settings",
         "provider-configuration",
         "kill-switch-execution",
-        "revocation-execution",
         "runtime-lifecycle-mutation"
       ]
     },
@@ -2761,8 +2788,8 @@
       "side_effect_class": "validation_only",
       "risk_class": "high",
       "release_status": "status_available_not_completion",
-      "approval_requirement": "A scoped settings milestone is required before any setting can mutate state or enable authority.",
-      "evidence_audit_output": "Backend-owned settings status refs for maturity gate, feature-flag posture, kill-switch posture, route safety, and blocked authority only.",
+      "approval_requirement": "A scoped settings milestone is required before any setting can mutate state or enable authority. AuthorityLease issue and revoke controls require LocalApprovalAuthority validation, idempotency, receipts, audit refs, redaction, and rollback/safe-disable posture; previews and mission planning are inspection-only.",
+      "evidence_audit_output": "Backend-owned settings status refs for maturity gate, feature-flag posture, kill-switch posture, active mode/domain/lease refs, decision-preview refs, mission-plan refs, lease receipt refs, route safety, and blocked authority only.",
       "backend_routes": [
         {
           "method": "GET",
@@ -2784,6 +2811,34 @@
           "operation_id": "get_control_center_providers_setup_guide",
           "side_effect_class": "validation_only",
           "route_classification": "local_readonly"
+        },
+        {
+          "method": "POST",
+          "path": "/api/runtime/authority-decisions/preview",
+          "operation_id": "post_api_runtime_authority_decisions_preview",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "POST",
+          "path": "/api/runtime/authority-missions/plan",
+          "operation_id": "post_api_runtime_authority_missions_plan",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "POST",
+          "path": "/api/runtime/authority-leases",
+          "operation_id": "post_api_runtime_authority_leases",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "POST",
+          "path": "/api/runtime/authority-leases/revoke",
+          "operation_id": "post_api_runtime_authority_leases_revoke",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
         }
       ],
       "missing_backend_routes": [

@@ -183,6 +183,10 @@ FORBIDDEN_ENDPOINTS = [
     "/credentials/collect",
     "/secrets/access/evaluate",
 ]
+FORBIDDEN_ENDPOINT_BOUNDARY = re.compile(
+    r"(?:/(?=$|[\"'`\s?#),;}])|(?=$|[\"'`\s?#),;}]))"
+)
+MAX_SCOPED_FRONTEND_POST_HELPERS = 19
 
 DANGEROUS_BUTTON_LABELS = [
     "Approve",
@@ -734,7 +738,7 @@ def verify(root: Path = ROOT) -> list[str]:
         text = path.read_text(encoding="utf-8")
         lowered = text.lower()
         for endpoint in FORBIDDEN_ENDPOINTS:
-            if endpoint in text:
+            if _contains_forbidden_endpoint(text, endpoint):
                 failures.append(f"forbidden frontend endpoint in {rel}: {endpoint}")
         for fragment in BROWSER_API_FRAGMENTS:
             if fragment in lowered:
@@ -942,7 +946,7 @@ def verify(root: Path = ROOT) -> list[str]:
     if client.exists():
         text = client.read_text(encoding="utf-8")
         post_count = text.count('method: "POST"')
-        if post_count not in {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14}:
+        if not 1 <= post_count <= MAX_SCOPED_FRONTEND_POST_HELPERS:
             failures.append("frontend client must declare only scoped POST calls")
         if "API_ENDPOINTS.actionPreview" not in text:
             failures.append("frontend client must post through API_ENDPOINTS.actionPreview")
@@ -1157,6 +1161,18 @@ def verify(root: Path = ROOT) -> list[str]:
             failures.append(f"forbidden URL credentials in {vite_config.relative_to(root)}: {match.group(0)}")
 
     return failures
+
+
+def _contains_forbidden_endpoint(text: str, endpoint: str) -> bool:
+    start = 0
+    while True:
+        index = text.find(endpoint, start)
+        if index < 0:
+            return False
+        suffix = text[index + len(endpoint) :]
+        if FORBIDDEN_ENDPOINT_BOUNDARY.match(suffix):
+            return True
+        start = index + len(endpoint)
 
 
 def _frontend_nav_routes(app_root: Path) -> set[str]:

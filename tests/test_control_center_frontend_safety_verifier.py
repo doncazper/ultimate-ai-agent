@@ -109,6 +109,19 @@ def test_control_center_frontend_verifier_blocks_raw_ship_doc_claim(tmp_path: Pa
     assert any(str(EXPECTED_OPENAPI_PATH_COUNT) in failure for failure in failures)
 
 
+def test_control_center_frontend_verifier_allows_safe_file_write_proposal_route() -> None:
+    verifier = load_verifier()
+
+    assert not verifier._contains_forbidden_endpoint(
+        'route_ref: "POST /files/write/propose"',
+        "/files/write",
+    )
+    assert verifier._contains_forbidden_endpoint(
+        'route_ref: "POST /files/write"',
+        "/files/write",
+    )
+
+
 def test_control_center_frontend_verifier_requires_route_state_grammar() -> None:
     verifier = load_verifier()
 
