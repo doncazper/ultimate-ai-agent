@@ -924,6 +924,25 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         ].decision.outcome
         == "allow"
     )
+    prompt_stability = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if mapping.lane_ref == "lane-ref:runtime-prompt-stability-tiers-read-model"
+    )
+    assert prompt_stability.domain == "workspace"
+    assert prompt_stability.capability == "read"
+    assert prompt_stability.required_mode == "read_only"
+    assert prompt_stability.status == "implemented_authority_bound_read_model"
+    assert "GET /api/runtime/prompt-stability-tiers" in prompt_stability.route_refs
+    assert "adapter-ref:prompt-stability-model-call:not-implemented" in (
+        prompt_stability.unsupported_adapter_refs
+    )
+    assert (
+        catalog_by_lane[
+            "lane-ref:runtime-prompt-stability-tiers-read-model"
+        ].decision.outcome
+        == "allow"
+    )
     browser_action = next(
         mapping
         for mapping in read_model.capability_mappings

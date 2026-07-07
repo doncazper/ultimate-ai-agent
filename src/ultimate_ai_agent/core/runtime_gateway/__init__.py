@@ -251,6 +251,9 @@ from ultimate_ai_agent.core.runtime_gateway.usage_cost_analytics import (
     build_runtime_usage_cost_analytics_read_model_from_authority_catalog,
 )
 from ultimate_ai_agent.core.runtime_gateway.prompt_stability_tiers import (
+    RUNTIME_PROMPT_STABILITY_AUTHORITY_MAPPING_REF,
+    RUNTIME_PROMPT_STABILITY_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_PROMPT_STABILITY_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_PROMPT_STABILITY_BLOCKED_AUTHORITY_REFS,
     RUNTIME_PROMPT_STABILITY_CLI_REF,
     RUNTIME_PROMPT_STABILITY_CONTRACT_REF,
@@ -262,6 +265,7 @@ from ultimate_ai_agent.core.runtime_gateway.prompt_stability_tiers import (
     RuntimePromptStabilityTierKind,
     RuntimePromptStabilityTiersReadModel,
     build_runtime_prompt_stability_tiers_read_model,
+    build_runtime_prompt_stability_tiers_read_model_from_authority_catalog,
 )
 from ultimate_ai_agent.core.runtime_gateway.context_budget_pressure import (
     RUNTIME_CONTEXT_BUDGET_PRESSURE_BLOCKED_AUTHORITY_REFS,
@@ -928,6 +932,9 @@ __all__ = [
     "RuntimeUsageAccountingStatus",
     "RuntimeUsageCostAnalyticsReadModel",
     "RuntimeUsageCostRecord",
+    "RUNTIME_PROMPT_STABILITY_AUTHORITY_MAPPING_REF",
+    "RUNTIME_PROMPT_STABILITY_AUTHORITY_STATE_CLI_REF",
+    "RUNTIME_PROMPT_STABILITY_AUTHORITY_STATE_ROUTE_REF",
     "RUNTIME_PROMPT_STABILITY_BLOCKED_AUTHORITY_REFS",
     "RUNTIME_PROMPT_STABILITY_CLI_REF",
     "RUNTIME_PROMPT_STABILITY_CONTRACT_REF",
@@ -1116,6 +1123,7 @@ __all__ = [
     "build_runtime_usage_cost_analytics_read_model",
     "build_runtime_usage_cost_analytics_read_model_from_authority_catalog",
     "build_runtime_prompt_stability_tiers_read_model",
+    "build_runtime_prompt_stability_tiers_read_model_from_authority_catalog",
     "build_runtime_context_budget_pressure_read_model",
     "build_runtime_hardline_command_blocklist_read_model",
     "build_runtime_managed_scope_policy_read_model",

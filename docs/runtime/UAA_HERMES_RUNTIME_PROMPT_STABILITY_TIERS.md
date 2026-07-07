@@ -1,6 +1,6 @@
 # UAA Hermes Runtime Prompt Stability Tiers
 
-Status: Hermes Runtime Adoption Phase 23 repo-safe read model
+Status: Hermes Runtime Adoption Phase 23 AuthorityState-bound repo-safe read model
 
 Phase 23 adds Python Core ownership for prompt/input stability posture:
 
@@ -11,10 +11,13 @@ Phase 23 adds Python Core ownership for prompt/input stability posture:
 - Control Center Runtime readiness display
 - `scripts/verify_hermes_runtime_adoption_phase_23.py`
 
-This is prompt/input contract posture only. It does not store raw prompts,
-materialize prompt bodies, inject hidden context, call models, call provider
-SDKs, write prompt caches, treat model output as authority, or grant production
-authority.
+The read model is mapped as
+`lane-ref:runtime-prompt-stability-tiers-read-model` under Read-only
+`workspace/read` and is evaluated from the active AuthorityLease decision
+catalog. This is prompt/input contract posture only. It does not store raw
+prompts, materialize prompt bodies, inject hidden context, call models, call
+provider SDKs, write prompt caches, treat model output as authority, or grant
+production authority.
 
 ## Full-Strength Version
 
@@ -36,6 +39,8 @@ The current implementation exposes a backend-owned read model containing:
 - cache policy refs
 - safe source refs only
 - proof, evidence, verifier, and next-safe-action refs
+- AuthorityState route, CLI, mapping, catalog, decision, status, reason, and
+  unsupported-adapter refs
 - explicit blocked authority refs
 - redactions for prompt, response, provider payload, prompt material, and
   operator-turn text content

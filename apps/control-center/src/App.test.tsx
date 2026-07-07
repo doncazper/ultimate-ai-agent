@@ -7865,6 +7865,14 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getAllByText("uaa runtime inspect-prompt-stability-tiers").length,
     ).toBeGreaterThan(0);
+    expect(
+      screen.getByText("lane-ref:runtime-prompt-stability-tiers-read-model"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "adapter-ref:prompt-stability-model-call:not-implemented",
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText("Stable identity and policy")).toBeInTheDocument();
     expect(
       screen.getByText(

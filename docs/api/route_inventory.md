@@ -227,12 +227,14 @@ Billing actions, provider calls, provider SDK calls, live pricing fetches,
 operator export, raw prompt/response/provider material persistence,
 model-output authority, and production authority remain blocked.
 `GET /api/runtime/prompt-stability-tiers` exposes a protected read-only Python
-Core Hermes Runtime Adoption Phase 23 prompt stability tier posture. It returns
-prompt tier refs, manifest refs, redacted hash refs, cache policy refs, safe
-source refs, proof refs, verifier refs, next-safe-action refs, and blocked
-authority refs only. Raw prompt/response persistence, hidden prompt/context
-injection, model calls, provider SDK calls, cache writes, model-output
-authority, and production authority remain blocked.
+Core Hermes Runtime Adoption Phase 23 prompt stability tier posture bound to
+`lane-ref:runtime-prompt-stability-tiers-read-model` through AuthorityState. It
+returns prompt tier refs, manifest refs, redacted hash refs, cache policy refs,
+safe source refs, AuthorityState mapping/decision refs, unsupported adapter
+refs, proof refs, verifier refs, next-safe-action refs, and blocked authority
+refs only. Raw prompt/response persistence, hidden prompt/context injection,
+model calls, provider SDK calls, cache writes, model-output authority, and
+production authority remain blocked.
 `GET /api/runtime/context-budget-pressure` exposes a protected read-only Python
 Core Hermes Runtime Adoption Phase 24 context budget pressure posture. It
 returns context budget segment refs, pressure levels, warning refs, review-only

@@ -4804,6 +4804,28 @@ function isSafeRuntimePromptStabilityTiers(
     value.status === "read_only_prompt_contract_posture" &&
     value.route_ref === "GET /api/runtime/prompt-stability-tiers" &&
     value.cli_ref === "uaa runtime inspect-prompt-stability-tiers" &&
+    value.authority_state_route_ref === "GET /api/runtime/authority-state" &&
+    value.authority_state_cli_ref ===
+      "repo-local-command:uaa-runtime-inspect-authority-state" &&
+    value.authority_state_mapping_ref ===
+      "lane-ref:runtime-prompt-stability-tiers-read-model" &&
+    isSafeTrustAuthorityRef(value.authority_state_catalog_ref) &&
+    isSafeTrustAuthorityRef(value.authority_state_decision_ref) &&
+    hasExactStringValue(
+      value.authority_state_decision_outcome,
+      TRUST_AUTHORITY_DECISION_OUTCOMES,
+    ) &&
+    typeof value.authority_state_status === "string" &&
+    value.authority_state_status.length > 0 &&
+    typeof value.authority_state_operator_message === "string" &&
+    value.authority_state_operator_message.length > 0 &&
+    isNonEmptyStringArray(value.authority_state_reason_refs) &&
+    value.authority_state_reason_refs.every(isSafeTrustAuthorityRef) &&
+    isNonEmptyStringArray(value.unsupported_adapter_refs) &&
+    value.unsupported_adapter_refs.includes(
+      "adapter-ref:prompt-stability-model-call:not-implemented",
+    ) &&
+    value.unsupported_adapter_refs.every(isSafeTrustAuthorityRef) &&
     value.tier_count === value.tiers.length &&
     value.stable_cache_candidate_count ===
       value.tiers.filter(

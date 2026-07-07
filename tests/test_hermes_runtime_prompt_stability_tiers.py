@@ -9,6 +9,9 @@ from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.runtime_gateway import (
+    RUNTIME_PROMPT_STABILITY_AUTHORITY_MAPPING_REF,
+    RUNTIME_PROMPT_STABILITY_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_PROMPT_STABILITY_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_PROMPT_STABILITY_BLOCKED_AUTHORITY_REFS,
     RUNTIME_PROMPT_STABILITY_CONTRACT_REF,
     RuntimePromptStabilityTier,
@@ -28,6 +31,27 @@ def test_prompt_stability_tiers_are_read_only_prompt_contract_posture() -> None:
     assert read_model.status == "read_only_prompt_contract_posture"
     assert read_model.route_ref == "GET /api/runtime/prompt-stability-tiers"
     assert read_model.cli_ref == "uaa runtime inspect-prompt-stability-tiers"
+    assert (
+        read_model.authority_state_route_ref
+        == RUNTIME_PROMPT_STABILITY_AUTHORITY_STATE_ROUTE_REF
+    )
+    assert (
+        read_model.authority_state_cli_ref
+        == RUNTIME_PROMPT_STABILITY_AUTHORITY_STATE_CLI_REF
+    )
+    assert (
+        read_model.authority_state_mapping_ref
+        == RUNTIME_PROMPT_STABILITY_AUTHORITY_MAPPING_REF
+    )
+    assert read_model.authority_state_decision_outcome == "allow"
+    assert read_model.authority_state_decision_ref.startswith(
+        "authority-policy-decision-ref:"
+    )
+    assert read_model.authority_state_reason_refs
+    assert (
+        "adapter-ref:prompt-stability-model-call:not-implemented"
+        in read_model.unsupported_adapter_refs
+    )
     assert read_model.tier_count == 5
     assert read_model.stable_cache_candidate_count == 1
     assert read_model.semi_stable_ref_set_count == 2
@@ -101,6 +125,17 @@ def test_prompt_stability_read_model_denies_authority_flags(field: str) -> None:
         RuntimePromptStabilityTiersReadModel(**payload)
 
 
+def test_prompt_stability_rejects_authority_mapping_drift() -> None:
+    payload = build_runtime_prompt_stability_tiers_read_model().model_dump(mode="json")
+    payload["authority_state_mapping_ref"] = "lane-ref:wrong-prompt-stability"
+
+    with pytest.raises(
+        ValueError,
+        match="RUNTIME_PROMPT_STABILITY_AUTHORITY_MAPPING_MISMATCH",
+    ):
+        RuntimePromptStabilityTiersReadModel(**payload)
+
+
 @pytest.mark.parametrize(
     "field",
     [
@@ -140,6 +175,10 @@ def test_prompt_stability_api_returns_read_only_posture() -> None:
     assert body["operation"] == "api_runtime_prompt_stability_tiers"
     data = body["data"]
     assert data["route_ref"] == "GET /api/runtime/prompt-stability-tiers"
+    assert data["authority_state_mapping_ref"] == (
+        RUNTIME_PROMPT_STABILITY_AUTHORITY_MAPPING_REF
+    )
+    assert data["authority_state_decision_outcome"] == "allow"
     assert data["raw_prompt_persistence_enabled"] is False
     assert data["hidden_prompt_injection_enabled"] is False
     assert data["model_output_authority_enabled"] is False
@@ -166,11 +205,21 @@ def test_prompt_stability_cli_uses_same_read_model() -> None:
 
     payload = json.loads(result.stdout)
     read_model = payload["runtime_prompt_stability_tiers"]
+    authority_state = payload["authority_state"]
     assert payload["safe_refs_only"] is True
+    assert (
+        authority_state["mapping_ref"]
+        == RUNTIME_PROMPT_STABILITY_AUTHORITY_MAPPING_REF
+    )
+    assert authority_state["decision_outcome"] == "allow"
     assert payload["hidden_prompt_injection_performed"] is False
     assert payload["context_injection_performed"] is False
     assert payload["model_call_performed"] is False
     assert payload["cache_write_performed"] is False
     assert read_model["route_ref"] == "GET /api/runtime/prompt-stability-tiers"
     assert read_model["cli_ref"] == "uaa runtime inspect-prompt-stability-tiers"
+    assert (
+        read_model["authority_state_cli_ref"]
+        == RUNTIME_PROMPT_STABILITY_AUTHORITY_STATE_CLI_REF
+    )
     assert read_model["tier_count"] == 5

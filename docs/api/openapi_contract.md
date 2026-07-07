@@ -160,9 +160,11 @@ Contract rules:
   calls, live pricing fetches, operator export, raw prompt/response/provider
   material persistence, model-output authority, or production authority.
   `GET /api/runtime/prompt-stability-tiers` exposes the Hermes Runtime
-  Adoption Phase 23 backend-owned prompt stability tier posture. It returns
-  prompt tier refs, manifest refs, redacted hash refs, cache policy refs, safe
-  source refs, proof refs, verifier refs, next-safe-action refs, and blocked
+  Adoption Phase 23 backend-owned prompt stability tier posture bound to
+  `lane-ref:runtime-prompt-stability-tiers-read-model` through AuthorityState.
+  It returns prompt tier refs, manifest refs, redacted hash refs, cache policy
+  refs, safe source refs, AuthorityState mapping/decision refs, unsupported
+  adapter refs, proof refs, verifier refs, next-safe-action refs, and blocked
   authority refs only. It does not persist raw prompts or responses, inject
   hidden prompt/context material, call models or provider SDKs, write caches,
   treat model output as authority, or grant production authority.

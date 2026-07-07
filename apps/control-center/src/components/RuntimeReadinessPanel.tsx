@@ -2977,6 +2977,21 @@ export function RuntimeReadinessPanel({
             <dd>{promptStabilityTiers.cli_ref}</dd>
           </div>
           <div>
+            <dt>Authority</dt>
+            <dd>
+              {promptStabilityTiers.authority_state_decision_outcome} /{" "}
+              {promptStabilityTiers.authority_state_status}
+            </dd>
+          </div>
+          <div>
+            <dt>Capability mapping</dt>
+            <dd>{promptStabilityTiers.authority_state_mapping_ref}</dd>
+          </div>
+          <div>
+            <dt>Decision ref</dt>
+            <dd>{promptStabilityTiers.authority_state_decision_ref}</dd>
+          </div>
+          <div>
             <dt>Tiers</dt>
             <dd>{promptStabilityTiers.tier_count}</dd>
           </div>
@@ -3058,6 +3073,30 @@ export function RuntimeReadinessPanel({
               <ul className="compact-list">
                 {promptStabilityTiers.blocked_authority_refs
                   .slice(0, 4)
+                  .map((ref) => (
+                    <li key={ref}>{ref}</li>
+                  ))}
+              </ul>
+            </dd>
+          </div>
+          <div>
+            <dt>Unsupported adapters</dt>
+            <dd>
+              <ul className="compact-list">
+                {promptStabilityTiers.unsupported_adapter_refs
+                  .slice(0, 5)
+                  .map((ref) => (
+                    <li key={ref}>{ref}</li>
+                  ))}
+              </ul>
+            </dd>
+          </div>
+          <div>
+            <dt>Authority reason</dt>
+            <dd>
+              <ul className="compact-list">
+                {promptStabilityTiers.authority_state_reason_refs
+                  .slice(0, 3)
                   .map((ref) => (
                     <li key={ref}>{ref}</li>
                   ))}

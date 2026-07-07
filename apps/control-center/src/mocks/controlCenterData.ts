@@ -15935,6 +15935,33 @@ export const mockControlCenterData: ControlCenterData = {
     snapshot_hash_ref: "snapshot-hash-ref:runtime-prompt-stability:mock",
     route_ref: "GET /api/runtime/prompt-stability-tiers",
     cli_ref: "uaa runtime inspect-prompt-stability-tiers",
+    authority_state_route_ref: "GET /api/runtime/authority-state",
+    authority_state_cli_ref:
+      "repo-local-command:uaa-runtime-inspect-authority-state",
+    authority_state_mapping_ref:
+      "lane-ref:runtime-prompt-stability-tiers-read-model",
+    authority_state_catalog_ref:
+      "authority-decision-catalog-ref:runtime-prompt-stability-tiers-read-model",
+    authority_state_decision_ref:
+      "authority-policy-decision-ref:runtime-prompt-stability-tiers-read-model:allow",
+    authority_state_decision_outcome: "allow",
+    authority_state_status: "implemented_authority_bound_read_model",
+    authority_state_operator_message:
+      "Runtime prompt stability tiers are allowed only as Workspace read under active AuthorityLease scope.",
+    authority_state_reason_refs: [
+      "authority-reason-ref:prompt-stability:workspace-read-lease",
+    ],
+    unsupported_adapter_refs: [
+      "adapter-ref:prompt-stability-hidden-injection:not-implemented",
+      "adapter-ref:prompt-stability-context-injection:not-implemented",
+      "adapter-ref:prompt-stability-model-call:not-implemented",
+      "adapter-ref:prompt-stability-provider-sdk-call:not-implemented",
+      "adapter-ref:prompt-stability-cache-write:not-implemented",
+      "adapter-ref:prompt-stability-turn-material-persistence:not-implemented",
+      "adapter-ref:prompt-stability-provider-material-persistence:not-implemented",
+      "adapter-ref:prompt-stability-output-authority:not-implemented",
+      "adapter-ref:prompt-stability-production-authority:not-implemented",
+    ],
     control_center_ref: "control-center-route:runtime",
     safe_summary:
       "Runtime prompt stability mock fallback separates prompt tiers as safe refs only; raw prompt material remains omitted.",

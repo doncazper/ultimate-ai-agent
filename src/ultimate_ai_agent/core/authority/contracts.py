@@ -3130,6 +3130,34 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ],
         ),
         _mapping(
+            "lane-ref:runtime-prompt-stability-tiers-read-model",
+            "Runtime prompt stability tiers read model",
+            AuthorityDomain.workspace,
+            AuthorityCapability.read,
+            TrustMode.read_only,
+            "implemented_authority_bound_read_model",
+            ["GET /api/runtime/prompt-stability-tiers"],
+            ["repo-local-command:uaa-runtime-inspect-prompt-stability-tiers"],
+            (
+                "Prompt stability tier inspection reads manifest, hash, cache "
+                "policy, proof, blocker, and next safe action refs under "
+                "Workspace read authority. Hidden injection, context injection, "
+                "model/provider calls, cache writes, material persistence, "
+                "output authority, and production authority remain blocked."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:prompt-stability-hidden-injection:not-implemented",
+                "adapter-ref:prompt-stability-context-injection:not-implemented",
+                "adapter-ref:prompt-stability-model-call:not-implemented",
+                "adapter-ref:prompt-stability-provider-sdk-call:not-implemented",
+                "adapter-ref:prompt-stability-cache-write:not-implemented",
+                "adapter-ref:prompt-stability-turn-material-persistence:not-implemented",
+                "adapter-ref:prompt-stability-provider-material-persistence:not-implemented",
+                "adapter-ref:prompt-stability-output-authority:not-implemented",
+                "adapter-ref:prompt-stability-production-authority:not-implemented",
+            ],
+        ),
+        _mapping(
             "lane-ref:runtime-command-git-status",
             "Git status",
             AuthorityDomain.workspace,

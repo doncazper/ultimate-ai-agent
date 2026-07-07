@@ -147,6 +147,10 @@ surfaces are:
   accounting inspection decision while provider calls, provider SDK calls,
   billing actions, live price fetches, operator export, turn/provider material
   persistence, output authority, and production authority remain blocked.
+  Runtime prompt stability tiers expose the Read-only `workspace/read` prompt
+  contract inspection decision while hidden/context injection, model/provider
+  calls, cache writes, turn/provider material persistence, output authority,
+  and production authority remain blocked.
   These API/CLI surfaces remain safe-ref inspection only unless exact active
   leases, implemented adapters, and existing runtime gates pass.
 - `GET /api/runtime/authority-state#decision_summary` and

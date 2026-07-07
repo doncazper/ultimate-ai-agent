@@ -10,6 +10,9 @@ from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.runtime_gateway import (
+    RUNTIME_PROMPT_STABILITY_AUTHORITY_MAPPING_REF,
+    RUNTIME_PROMPT_STABILITY_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_PROMPT_STABILITY_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_PROMPT_STABILITY_BLOCKED_AUTHORITY_REFS,
     build_runtime_prompt_stability_tiers_read_model,
 )
@@ -28,6 +31,30 @@ def _assert_read_model(payload: dict[str, object]) -> None:
         _fail("route ref drifted")
     if payload.get("cli_ref") != "uaa runtime inspect-prompt-stability-tiers":
         _fail("CLI ref drifted")
+    if (
+        payload.get("authority_state_route_ref")
+        != RUNTIME_PROMPT_STABILITY_AUTHORITY_STATE_ROUTE_REF
+    ):
+        _fail("authority state route ref drifted")
+    if (
+        payload.get("authority_state_cli_ref")
+        != RUNTIME_PROMPT_STABILITY_AUTHORITY_STATE_CLI_REF
+    ):
+        _fail("authority state CLI ref drifted")
+    if (
+        payload.get("authority_state_mapping_ref")
+        != RUNTIME_PROMPT_STABILITY_AUTHORITY_MAPPING_REF
+    ):
+        _fail("authority mapping ref drifted")
+    if payload.get("authority_state_decision_outcome") != "allow":
+        _fail("prompt stability must be allowed only as Workspace read")
+    if not str(payload.get("authority_state_decision_ref") or "").startswith(
+        "authority-policy-decision-ref:"
+    ):
+        _fail("authority decision ref missing")
+    unsupported = set(payload.get("unsupported_adapter_refs") or [])
+    if "adapter-ref:prompt-stability-model-call:not-implemented" not in unsupported:
+        _fail("missing prompt stability unsupported adapter ref")
     for required in (
         "safe_prompt_manifest_required",
         "prompt_hashes_required",
@@ -117,6 +144,14 @@ def verify_cli() -> None:
     )
     payload = json.loads(result.stdout)
     _assert_read_model(payload.get("runtime_prompt_stability_tiers") or {})
+    authority_state = payload.get("authority_state") or {}
+    if (
+        authority_state.get("mapping_ref")
+        != RUNTIME_PROMPT_STABILITY_AUTHORITY_MAPPING_REF
+    ):
+        _fail("CLI authority mapping drifted")
+    if authority_state.get("decision_outcome") != "allow":
+        _fail("CLI authority decision drifted")
     if payload.get("hidden_prompt_injection_performed") is not False:
         _fail("CLI claimed hidden prompt injection")
     if payload.get("context_injection_performed") is not False:
