@@ -69,8 +69,16 @@ def main() -> int:
             failures.append(f"{source_name} catalog preview count drifted")
         if model.get("exact_local_mutation_count") != 1:
             failures.append(f"{source_name} catalog exact local lane count drifted")
+        if model.get("exact_local_authority_capability_count") != 1:
+            failures.append(
+                f"{source_name} catalog exact local capability count drifted"
+            )
         if model.get("exact_runtime_lane_count") != 4:
             failures.append(f"{source_name} catalog exact runtime lane count drifted")
+        if model.get("exact_runtime_authority_capability_count") != 4:
+            failures.append(
+                f"{source_name} catalog exact runtime capability count drifted"
+            )
         if model.get("blocked_count") != 4:
             failures.append(f"{source_name} catalog blocked count drifted")
         entries = model.get("entries") or []

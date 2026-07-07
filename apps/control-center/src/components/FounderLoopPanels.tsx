@@ -1409,8 +1409,9 @@ function ActionToolCodeLaneCatalogPanel({
     );
   }
 
-  const exactLaneCount =
-    readModel.exact_local_mutation_count + readModel.exact_runtime_lane_count;
+  const exactAuthorityCapabilityCount =
+    readModel.exact_local_authority_capability_count +
+    readModel.exact_runtime_authority_capability_count;
   const blockedAuthorityEnabled =
     readModel.generic_tool_execution_enabled ||
     readModel.unrestricted_shell_execution_enabled ||
@@ -1430,9 +1431,9 @@ function ActionToolCodeLaneCatalogPanel({
       </div>
       <p>{readModel.operator_summary}</p>
       <div className="operator-loop-summary-grid">
-        <Metric label="lanes" value={readModel.entry_count} />
+        <Metric label="capabilities" value={readModel.entry_count} />
         <Metric label="preview" value={readModel.preview_only_count} />
-        <Metric label="exact" value={exactLaneCount} />
+        <Metric label="exact" value={exactAuthorityCapabilityCount} />
         <Metric label="proposals" value={readModel.proposal_only_count} />
         <Metric label="blocked" value={readModel.blocked_count} />
       </div>

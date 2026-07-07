@@ -31,7 +31,7 @@ state.
 | Lane | Profile status | What is promoted | Boundary |
 |---|---|---|---|
 | Live local agent runtime | Implemented | Configured loopback/local RuntimeGateway calls with non-authoritative output, redacted receipts, and safe refs. | No remote provider/model calls, tools, memory writes, file writes, connector writes, browser automation, or production authority. |
-| Mature action execution | Implemented | Named RuntimeGateway micro-lanes: one read-only local status command under `workspace/read` and exact Action Inbox approved focused pytest, repo-verifier, frontend-check, and repo-doctor command execution under active `workspace/execute` AuthorityLease scope. | No generic tool execution, arbitrary shell/subprocess, networked commands, installs, background execution, or approval refs as authority. |
+| Mature action execution | Implemented | Named RuntimeGateway authority capabilities: one read-only local status command under `workspace/read` and exact Action Inbox approved focused pytest, repo-verifier, frontend-check, and repo-doctor command execution under active `workspace/execute` AuthorityLease scope. | No generic tool execution, arbitrary shell/subprocess, networked commands, installs, background execution, or approval refs as authority. |
 | Portable evidence envelopes | Profile-ready | Local hash-signed receipt envelopes with safe refs, hash refs, timestamp, policy decision, approval ref, action id, side-effect class, and verifier version. | No public notarization claim, persisted signing key material, raw payloads, raw logs, raw local paths, provider payloads, or sensitive material. |
 | Durable orchestration | Implemented | Local run records, checkpoints, progress refs, approval-wait states, retry/recovery posture, cancellation/blocked states, receipt refs, evidence refs, and redacted errors. | No broad background autonomy, scheduler authority, remote execution, provider/tool dispatch, or production authority. |
 
@@ -91,10 +91,11 @@ Use these prompts only after the current profile is green:
   boundary. Preserve sealed default, add key provenance refs, rotation/revocation
   refs, offline verifier parity, tamper/redaction tests, and no public
   notarization or production claim."
-- Additional action micro-lane: "Add one named RuntimeGateway action micro-lane
-  with argv-only scope, cwd jail if command-like, timeout, env scrub, exact
-  LocalApprovalAuthority binding, idempotency, receipt, rollback/safe-disable,
-  redaction, CLI/API/Core parity, and route classification."
+- Additional action authority capability: "Add one named RuntimeGateway action
+  capability with argv-only scope, cwd jail if command-like, timeout, env scrub,
+  exact LocalApprovalAuthority binding, idempotency, receipt,
+  rollback/safe-disable, redaction, CLI/API/Core parity, and route
+  classification."
 - Durable run controls: "Promote one durable orchestration control, such as
   cancel or resume, as an exact lane over existing run refs with approval
   binding where effectful, idempotency, receipt refs, replay posture, redacted

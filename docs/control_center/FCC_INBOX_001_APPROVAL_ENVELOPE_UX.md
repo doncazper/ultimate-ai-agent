@@ -9,8 +9,8 @@ Related surface: `/inbox` source-readiness and communication triage posture
 
 FCC-INBOX-001 makes Action Inbox items easier to review before any decision by
 using one backend-owned grammar for approval envelopes and receipt visibility.
-It is a product-readability lane over existing Founder Loop storage/API
-contracts, not a new action-execution lane.
+It is a product-readability layer over existing Founder Loop storage/API
+contracts, not a new action-execution authority capability.
 
 The implemented path is `/actions`. The `/inbox` route remains the
 source-readiness and communication triage posture surface; the application
@@ -30,7 +30,7 @@ backend truth for reviewable Action envelopes is `GET /control-center/actions/in
   `POST /control-center/actions/{action_id}/reject`,
   `POST /control-center/actions/{action_id}/defer`, and
   `GET /control-center/actions/{action_id}/receipt`.
-- The exact local micro-lane remains separately bounded:
+- The exact local AuthorityLease capability remains separately bounded:
   `POST /control-center/actions/{action_id}/local-task/commit`.
 - Frontend types:
   `apps/control-center/src/api/types.ts::FounderLoopActionApprovalEnvelope`
@@ -92,9 +92,10 @@ promotion.
 
 Action Inbox remains rank 3 overall in
 `docs/control_center/operational_maturity_manifest.json`. The existing
-`local_task_create` lane remains the only rank 5 local micro-lane, and it is
-still exact-scope, approval-bound, idempotent, receipt-backed, evidence-backed,
-and safe-disable/rollback-posture guarded.
+`local_task_create` authority capability remains the only rank 5 Action Inbox
+local write authority capability, and it still requires active
+`workspace/write` AuthorityLease scope, exact approval, idempotency, receipts,
+evidence, audit/redaction posture, and safe-disable/rollback-posture guards.
 
 ## Verification Commands
 

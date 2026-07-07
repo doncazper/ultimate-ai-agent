@@ -417,7 +417,7 @@ idempotency, revocation/safe-disable, and redacted-receipt scoped for one
 provider credential check only. Missing active lease must show an
 authority-required blocker before approval or adapter execution. It does not
 authorize invocation, model calls, provider SDKs, fallback, billing, raw
-credential display, or provider payload persistence. The exact tiny lane route
+credential display, or provider payload persistence. The exact provider capability route
 `POST /control-center/providers/exact-approved-lanes/tiny` is disabled by
 default; the API route blocks without exact approval, and the Python core
 evaluator reaches approved-no-execution only when exact approval and cost gates

@@ -242,7 +242,9 @@ class ActionToolCodeLaneCatalogReadModel(BaseModel):
     entry_count: int = Field(..., ge=0)
     preview_only_count: int = Field(..., ge=0)
     exact_local_mutation_count: int = Field(..., ge=0)
+    exact_local_authority_capability_count: int = Field(..., ge=0)
     exact_runtime_lane_count: int = Field(..., ge=0)
+    exact_runtime_authority_capability_count: int = Field(..., ge=0)
     proposal_only_count: int = Field(..., ge=0)
     blocked_count: int = Field(..., ge=0)
     entries: list[ActionToolCodeLaneEntry] = Field(default_factory=list)
@@ -292,10 +294,18 @@ class ActionToolCodeLaneCatalogReadModel(BaseModel):
             1 for entry in self.entries if entry.exact_local_mutation_available
         ):
             raise ValueError("ACTION_TOOL_CODE_LOCAL_MUTATION_COUNT_DRIFT")
+        if self.exact_local_authority_capability_count != sum(
+            1 for entry in self.entries if entry.exact_local_mutation_available
+        ):
+            raise ValueError("ACTION_TOOL_CODE_LOCAL_CAPABILITY_COUNT_DRIFT")
         if self.exact_runtime_lane_count != sum(
             1 for entry in self.entries if entry.exact_runtime_lane_available
         ):
             raise ValueError("ACTION_TOOL_CODE_RUNTIME_COUNT_DRIFT")
+        if self.exact_runtime_authority_capability_count != sum(
+            1 for entry in self.entries if entry.exact_runtime_lane_available
+        ):
+            raise ValueError("ACTION_TOOL_CODE_RUNTIME_CAPABILITY_COUNT_DRIFT")
         if self.proposal_only_count != sum(1 for entry in self.entries if entry.proposal_only):
             raise ValueError("ACTION_TOOL_CODE_PROPOSAL_COUNT_DRIFT")
         if self.blocked_count != sum(
@@ -356,7 +366,13 @@ def build_action_tool_code_lane_catalog_read_model(
         exact_local_mutation_count=sum(
             1 for entry in entries if entry.exact_local_mutation_available
         ),
+        exact_local_authority_capability_count=sum(
+            1 for entry in entries if entry.exact_local_mutation_available
+        ),
         exact_runtime_lane_count=sum(
+            1 for entry in entries if entry.exact_runtime_lane_available
+        ),
+        exact_runtime_authority_capability_count=sum(
             1 for entry in entries if entry.exact_runtime_lane_available
         ),
         proposal_only_count=sum(1 for entry in entries if entry.proposal_only),
@@ -367,7 +383,7 @@ def build_action_tool_code_lane_catalog_read_model(
         unblock_prompts=prompts,
         blocked_authority_refs=blocked_refs,
         operator_summary=(
-            f"{len(entries)} action, tool, runtime, and code lanes are inspectable; "
+            f"{len(entries)} action, tool, runtime, and code capabilities are inspectable; "
             "implemented local and approval-bound capabilities may produce receipts "
             "only inside active AuthorityLease scope, while generic tool execution "
             "remains denied."

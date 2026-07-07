@@ -11447,7 +11447,9 @@ function isSafeActionToolCodeCatalogReadModel(value: unknown): boolean {
       "entry_count",
       "preview_only_count",
       "exact_local_mutation_count",
+      "exact_local_authority_capability_count",
       "exact_runtime_lane_count",
+      "exact_runtime_authority_capability_count",
       "proposal_only_count",
       "blocked_count",
     ]) ||
@@ -11473,7 +11475,19 @@ function isSafeActionToolCodeCatalogReadModel(value: unknown): boolean {
           isPlainRecord(entry) &&
           entry.exact_local_mutation_available === true,
       ).length &&
+    value.exact_local_authority_capability_count ===
+      entries.filter(
+        (entry) =>
+          isPlainRecord(entry) &&
+          entry.exact_local_mutation_available === true,
+      ).length &&
     value.exact_runtime_lane_count ===
+      entries.filter(
+        (entry) =>
+          isPlainRecord(entry) &&
+          entry.exact_runtime_lane_available === true,
+      ).length &&
+    value.exact_runtime_authority_capability_count ===
       entries.filter(
         (entry) =>
           isPlainRecord(entry) &&

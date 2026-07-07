@@ -1,4 +1,4 @@
-# UAA GoatCitadel Catch-Up Action Tool Code Lanes
+# UAA GoatCitadel Catch-Up Action Tool Code Capabilities
 
 Status: Phase 04 implemented as backend-owned catalog/read-model hardening only.
 
@@ -6,13 +6,14 @@ Status: Phase 04 implemented as backend-owned catalog/read-model hardening only.
 
 UAA should make action, tool, runtime, and code-workflow capability posture
 legible in one operator surface: what can be inspected, what can propose work,
-what exact lanes can produce receipts, what needs approval, what can roll back
-or safe-disable, and what remains blocked. Future callable tools, code apply,
-test command, Git, and preview lanes must stay exact-scoped and receipt-backed.
+what exact AuthorityLease capabilities can produce receipts, what needs
+approval, what can roll back or safe-disable, and what remains blocked. Future
+callable tools, code apply, test command, Git, and preview capabilities must
+stay exact-scoped and receipt-backed.
 
 ## Repo-Safe Version
 
-Phase 04 adds Python Core Action/Tool/Code Lane Catalog contract
+Phase 04 adds Python Core Action/Tool/Code capability catalog contract
 `contract-ref:goatcitadel-catchup-action-tool-code-catalog:v1`:
 
 - Core builder:
@@ -23,15 +24,17 @@ Phase 04 adds Python Core Action/Tool/Code Lane Catalog contract
   `scripts/dev/uaa_founder_loop.py inspect-action-tool-code-catalog`
 - Control Center:
   Action Inbox renders a read-only catalog panel with preview-only tools, exact
-  local/task and runtime micro-lanes, blocked Coding lanes, receipt refs,
+  local task and runtime authority capabilities, blocked Coding capabilities, receipt refs,
   evidence/proof refs, blocked authority refs, and unblock prompt refs.
 
 The catalog separates inspectable metadata from callable execution. It shows
 Tool Broker v2 entries as preview-only, Action Inbox `local_task_create` as an
-exact local mutation lane, RuntimeGateway focused pytest, repo-verifier,
-frontend-check, and repo-doctor as exact approval-required lanes, Coding patch proposal as
+exact local mutation authority capability, RuntimeGateway focused pytest,
+repo-verifier, frontend-check, and repo-doctor as exact approval-required
+runtime capabilities, Coding patch proposal as
 proposal-only, and Coding patch apply, allowlisted test command, Git review,
-and live preview as blocked until later exact authority graduation.
+and live preview as blocked until later exact AuthorityLease capability
+implementation.
 
 All fields are backend-owned safe refs and bounded summaries. The read model
 does not persist raw prompt content, raw response content, provider payloads,

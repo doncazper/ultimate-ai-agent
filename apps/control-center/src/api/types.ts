@@ -3099,7 +3099,9 @@ export interface ActionToolCodeLaneCatalogReadModel {
   entry_count: number;
   preview_only_count: number;
   exact_local_mutation_count: number;
+  exact_local_authority_capability_count: number;
   exact_runtime_lane_count: number;
+  exact_runtime_authority_capability_count: number;
   proposal_only_count: number;
   blocked_count: number;
   entries: ActionToolCodeLaneEntry[];

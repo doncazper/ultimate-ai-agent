@@ -52,7 +52,9 @@ def test_action_tool_code_catalog_preserves_exact_lanes_and_blocks_broad_authori
     assert catalog["entry_count"] == 14
     assert catalog["preview_only_count"] == 4
     assert catalog["exact_local_mutation_count"] == 1
+    assert catalog["exact_local_authority_capability_count"] == 1
     assert catalog["exact_runtime_lane_count"] == 4
+    assert catalog["exact_runtime_authority_capability_count"] == 4
     assert catalog["proposal_only_count"] == 5
     assert catalog["blocked_count"] == 4
     assert all(catalog[flag] is False for flag in BROAD_AUTHORITY_FLAGS)
@@ -118,7 +120,9 @@ def test_actions_inbox_persists_backend_owned_action_tool_code_catalog(
     assert catalog["backend_owned"] is True
     assert catalog["entry_count"] == len(catalog["entries"])
     assert catalog["exact_local_mutation_count"] == 1
+    assert catalog["exact_local_authority_capability_count"] == 1
     assert catalog["exact_runtime_lane_count"] == 4
+    assert catalog["exact_runtime_authority_capability_count"] == 4
     assert catalog["generic_tool_execution_enabled"] is False
 
 
