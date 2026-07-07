@@ -12,6 +12,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from ultimate_ai_agent.api.app import app  # noqa: E402
 from ultimate_ai_agent.api.manifest import build_api_manifest  # noqa: E402
 from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
+    RUNTIME_INTERRUPT_REDIRECT_AUTHORITY_MAPPING_REF,
     RUNTIME_INTERRUPT_REDIRECT_BLOCKED_AUTHORITY_REFS,
     build_runtime_interrupt_redirect_read_model,
 )
@@ -35,6 +36,22 @@ def main() -> int:
         failures.append("interrupt redirect CLI ref is stale")
     if read_model.status != "run_control_proposal_only":
         failures.append("interrupt redirect posture is not proposal-only")
+    if (
+        read_model.authority_state_mapping_ref
+        != RUNTIME_INTERRUPT_REDIRECT_AUTHORITY_MAPPING_REF
+    ):
+        failures.append("interrupt redirect AuthorityState mapping is stale")
+    if read_model.authority_state_decision_outcome != "allow":
+        failures.append("interrupt redirect AuthorityState decision must allow read")
+    if read_model.authority_state_status != "implemented_authority_bound_read_model":
+        failures.append("interrupt redirect AuthorityState status drifted")
+    if (
+        "reason-ref:authority:active-lease-grants-domain-capability"
+        not in read_model.authority_state_reason_refs
+    ):
+        failures.append("interrupt redirect AuthorityState reason is missing")
+    if read_model.unsupported_adapter_refs:
+        failures.append("interrupt redirect should not expose unsupported adapters")
     if read_model.proposal_count != 5:
         failures.append("interrupt redirect lacks expected actions")
     if read_model.read_only_proposal_count != 2:
@@ -117,7 +134,9 @@ def main() -> int:
             "Full-Strength",
             "Repo-Safe",
             "Blocked / Needs Authority",
-            "Exact Promotion Path",
+            "AuthorityState",
+            "Exact Authority Path",
+            RUNTIME_INTERRUPT_REDIRECT_AUTHORITY_MAPPING_REF,
             ROUTE,
             "inspect-interrupt-redirect",
         ]:
@@ -155,6 +174,13 @@ def main() -> int:
                 failures.append(f"interrupt redirect CLI claims {flag}")
         if read_model_payload["route_ref"] != f"GET {ROUTE}":
             failures.append("interrupt redirect CLI returned stale route ref")
+        if (
+            read_model_payload["authority_state_mapping_ref"]
+            != RUNTIME_INTERRUPT_REDIRECT_AUTHORITY_MAPPING_REF
+        ):
+            failures.append("interrupt redirect CLI returned stale AuthorityState mapping")
+        if read_model_payload["authority_state_decision_outcome"] != "allow":
+            failures.append("interrupt redirect CLI returned unsafe AuthorityState decision")
 
     if failures:
         for failure in failures:

@@ -3054,6 +3054,24 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ),
         ),
         _mapping(
+            "lane-ref:runtime-interrupt-redirect-proposals",
+            "Runtime interrupt redirect proposals",
+            AuthorityDomain.workspace,
+            AuthorityCapability.read,
+            TrustMode.read_only,
+            "implemented_authority_bound_read_model",
+            ["GET /api/runtime/interrupt-redirect"],
+            ["repo-local-command:uaa-runtime-inspect-interrupt-redirect"],
+            (
+                "Interrupt redirect inspection reads run-control proposal "
+                "metadata, approval scopes, idempotency refs, receipt plans, "
+                "recovery/proof refs, and blocked refs under Workspace read "
+                "authority. It does not post live stops, kill processes, mutate "
+                "runtime state, run shell/provider/browser work, write "
+                "connectors, or persist runtime/log material."
+            ),
+        ),
+        _mapping(
             "lane-ref:staged-orchestration-approved-runtime-command",
             "Staged orchestration approved runtime command step",
             AuthorityDomain.workspace,

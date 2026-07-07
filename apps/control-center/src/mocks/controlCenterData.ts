@@ -16310,6 +16310,22 @@ export const mockControlCenterData: ControlCenterData = {
     snapshot_hash_ref: "snapshot-hash-ref:interrupt-redirect:mock",
     route_ref: "GET /api/runtime/interrupt-redirect",
     cli_ref: "uaa runtime inspect-interrupt-redirect",
+    authority_state_route_ref: "GET /api/runtime/authority-state",
+    authority_state_cli_ref:
+      "repo-local-command:uaa-runtime-inspect-authority-state",
+    authority_state_mapping_ref:
+      "lane-ref:runtime-interrupt-redirect-proposals",
+    authority_state_catalog_ref:
+      "authority-decision-catalog-ref:runtime-interrupt-redirect-proposals",
+    authority_state_decision_ref:
+      "authority-policy-decision-ref:mock-runtime-interrupt-redirect",
+    authority_state_decision_outcome: "allow",
+    authority_state_status: "implemented_authority_bound_read_model",
+    authority_state_operator_message: "Allowed by active authority lease.",
+    authority_state_reason_refs: [
+      "reason-ref:authority:active-lease-grants-domain-capability",
+    ],
+    unsupported_adapter_refs: [],
     control_center_ref: "control-center-route:runtime",
     safe_summary:
       "Runtime interrupt and redirect mock fallback shows proposal-only run-control posture; live stop, process kill, and runtime mutation stay blocked.",

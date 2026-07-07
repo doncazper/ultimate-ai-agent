@@ -1730,6 +1730,22 @@ export function RuntimeReadinessPanel({
             <dd>{interruptRedirect.cli_ref}</dd>
           </div>
           <div>
+            <dt>Authority</dt>
+            <dd>{interruptRedirect.authority_state_route_ref}</dd>
+          </div>
+          <div>
+            <dt>Capability mapping</dt>
+            <dd>{interruptRedirect.authority_state_mapping_ref}</dd>
+          </div>
+          <div>
+            <dt>Decision</dt>
+            <dd>{interruptRedirect.authority_state_decision_outcome}</dd>
+          </div>
+          <div>
+            <dt>Decision ref</dt>
+            <dd>{interruptRedirect.authority_state_decision_ref}</dd>
+          </div>
+          <div>
             <dt>Actions</dt>
             <dd>{interruptRedirect.proposal_count}</dd>
           </div>
@@ -1817,6 +1833,12 @@ export function RuntimeReadinessPanel({
         <h4>Blocked authority</h4>
         <ul className="compact-list">
           {interruptRedirect.blocked_authority_refs.slice(0, 6).map((ref) => (
+            <li key={ref}>{ref}</li>
+          ))}
+        </ul>
+        <h4>Authority reason</h4>
+        <ul className="compact-list">
+          {interruptRedirect.authority_state_reason_refs.map((ref) => (
             <li key={ref}>{ref}</li>
           ))}
         </ul>

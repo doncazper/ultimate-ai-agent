@@ -425,6 +425,9 @@ from ultimate_ai_agent.core.runtime_gateway.slash_command_registry import (
     build_runtime_slash_command_registry_read_model,
 )
 from ultimate_ai_agent.core.runtime_gateway.interrupt_redirect import (
+    RUNTIME_INTERRUPT_REDIRECT_AUTHORITY_MAPPING_REF,
+    RUNTIME_INTERRUPT_REDIRECT_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_INTERRUPT_REDIRECT_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_INTERRUPT_REDIRECT_BLOCKED_AUTHORITY_REFS,
     RUNTIME_INTERRUPT_REDIRECT_CLI_REF,
     RUNTIME_INTERRUPT_REDIRECT_CONTRACT_REF,

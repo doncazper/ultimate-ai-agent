@@ -7,6 +7,9 @@ from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.runtime_gateway import (
+    RUNTIME_INTERRUPT_REDIRECT_AUTHORITY_MAPPING_REF,
+    RUNTIME_INTERRUPT_REDIRECT_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_INTERRUPT_REDIRECT_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_INTERRUPT_REDIRECT_BLOCKED_AUTHORITY_REFS,
     RUNTIME_INTERRUPT_REDIRECT_CONTRACT_REF,
     RuntimeInterruptRedirectReadModel,
@@ -26,6 +29,32 @@ def test_interrupt_redirect_is_proposal_only_read_model() -> None:
     assert read_model.status == "run_control_proposal_only"
     assert read_model.route_ref == "GET /api/runtime/interrupt-redirect"
     assert read_model.cli_ref == "uaa runtime inspect-interrupt-redirect"
+    assert (
+        read_model.authority_state_route_ref
+        == RUNTIME_INTERRUPT_REDIRECT_AUTHORITY_STATE_ROUTE_REF
+    )
+    assert (
+        read_model.authority_state_cli_ref
+        == RUNTIME_INTERRUPT_REDIRECT_AUTHORITY_STATE_CLI_REF
+    )
+    assert (
+        read_model.authority_state_mapping_ref
+        == RUNTIME_INTERRUPT_REDIRECT_AUTHORITY_MAPPING_REF
+    )
+    assert read_model.authority_state_catalog_ref.startswith(
+        "authority-decision-catalog-ref:"
+    )
+    assert read_model.authority_state_decision_ref.startswith(
+        "authority-policy-decision-ref:"
+    )
+    assert read_model.authority_state_decision_outcome == "allow"
+    assert read_model.authority_state_status == (
+        "implemented_authority_bound_read_model"
+    )
+    assert "reason-ref:authority:active-lease-grants-domain-capability" in (
+        read_model.authority_state_reason_refs
+    )
+    assert read_model.unsupported_adapter_refs == []
     assert read_model.proposal_count == 5
     assert read_model.read_only_proposal_count == 2
     assert read_model.approval_required_future_lane_count == 2
@@ -155,6 +184,17 @@ def test_interrupt_redirect_api_returns_safe_read_model() -> None:
     assert body["operation"] == "api_runtime_interrupt_redirect"
     data = body["data"]
     assert data["route_ref"] == "GET /api/runtime/interrupt-redirect"
+    assert (
+        data["authority_state_mapping_ref"]
+        == RUNTIME_INTERRUPT_REDIRECT_AUTHORITY_MAPPING_REF
+    )
+    assert data["authority_state_decision_outcome"] == "allow"
+    assert data["authority_state_status"] == (
+        "implemented_authority_bound_read_model"
+    )
+    assert "reason-ref:authority:active-lease-grants-domain-capability" in (
+        data["authority_state_reason_refs"]
+    )
     assert data["proposal_count"] == 5
     assert data["live_stop_post_enabled"] is False
     assert data["process_kill_enabled"] is False
@@ -197,4 +237,13 @@ def test_interrupt_redirect_cli_uses_same_read_model() -> None:
     assert payload["connector_write_performed"] is False
     assert read_model["route_ref"] == "GET /api/runtime/interrupt-redirect"
     assert read_model["cli_ref"] == "uaa runtime inspect-interrupt-redirect"
+    assert (
+        read_model["authority_state_mapping_ref"]
+        == RUNTIME_INTERRUPT_REDIRECT_AUTHORITY_MAPPING_REF
+    )
+    assert read_model["authority_state_decision_outcome"] == "allow"
+    assert (
+        read_model["authority_state_status"]
+        == "implemented_authority_bound_read_model"
+    )
     assert read_model["proposal_count"] == 5

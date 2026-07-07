@@ -1,8 +1,11 @@
 # UAA Hermes Runtime Interrupt / Redirect Posture
 
-Status: Phase 37 repo-safe read model.  
-Route: `GET /api/runtime/interrupt-redirect`  
+Status: Phase 37 repo-safe read model.
+Route: `GET /api/runtime/interrupt-redirect`
 CLI: `scripts/dev/uaa_runtime.py inspect-interrupt-redirect`
+AuthorityState: `lane-ref:runtime-interrupt-redirect-proposals` evaluates as
+Read-only `workspace/read` through `GET /api/runtime/authority-state` and
+`scripts/dev/uaa_runtime.py inspect-authority-state`.
 
 ## Full-Strength
 
@@ -22,6 +25,7 @@ The current implementation is a backend-owned proposal/read model only:
   approval scope, and idempotency refs
 - Control Center display of proposal/blocked posture
 - strict frontend fallback validation
+- AuthorityState decision refs for run-control proposal inspection
 
 This lane does not send stop requests, kill processes, mutate runtime state,
 persist raw runtime payloads, or execute any runtime control action.
@@ -43,10 +47,17 @@ The following remain blocked:
 - raw runtime payload persistence
 - raw log persistence
 
-## Exact Promotion Path
+## Exact Authority Path
 
-Promotion requires all of the following before any live stop, redirect, or
-recovery action can execute:
+The current allowed AuthorityState decision applies only to reading run-control
+proposal metadata, approval scopes, idempotency refs, receipt plans, recovery
+refs, proof refs, and blocked-authority refs. It does not post live stops, kill
+processes, mutate runtime state, run shell commands, call providers, automate
+browsers, write connectors, persist runtime/log material, or mint authority from
+the Control Center.
+
+Future promotion requires all of the following before any live stop, redirect,
+or recovery action can execute:
 
 1. run ownership contract binding UAA durable run refs to delegated runtime refs
 2. exact stop scope and redirect scope

@@ -6,6 +6,10 @@ from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.authority import (
+    AuthorityDecisionCatalogEntry,
+    build_authority_decision_catalog,
+)
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
@@ -30,6 +34,16 @@ RUNTIME_INTERRUPT_REDIRECT_PROOF_REF = (
 RUNTIME_INTERRUPT_REDIRECT_VERIFIER_REF = (
     "verifier-ref:hermes-runtime-adoption:phase-37:interrupt-redirect"
 )
+RUNTIME_INTERRUPT_REDIRECT_AUTHORITY_STATE_ROUTE_REF = (
+    "GET /api/runtime/authority-state"
+)
+RUNTIME_INTERRUPT_REDIRECT_AUTHORITY_STATE_CLI_REF = (
+    "repo-local-command:uaa-runtime-inspect-authority-state"
+)
+RUNTIME_INTERRUPT_REDIRECT_AUTHORITY_MAPPING_REF = (
+    "lane-ref:runtime-interrupt-redirect-proposals"
+)
+_AUTHORITY_DECISION_OUTCOMES = {"allow", "ask", "deny", "degrade_to_draft"}
 
 RUNTIME_INTERRUPT_REDIRECT_BLOCKED_AUTHORITY_REFS: tuple[str, ...] = (
     "blocked-authority:interrupt-redirect-no-live-stop-post",
@@ -159,6 +173,18 @@ class RuntimeInterruptRedirectReadModel(BaseModel):
     snapshot_hash_ref: str = "snapshot-hash-ref:interrupt-redirect:pending"
     route_ref: str = RUNTIME_INTERRUPT_REDIRECT_ROUTE_REF
     cli_ref: str = RUNTIME_INTERRUPT_REDIRECT_CLI_REF
+    authority_state_route_ref: str = (
+        RUNTIME_INTERRUPT_REDIRECT_AUTHORITY_STATE_ROUTE_REF
+    )
+    authority_state_cli_ref: str = RUNTIME_INTERRUPT_REDIRECT_AUTHORITY_STATE_CLI_REF
+    authority_state_mapping_ref: str
+    authority_state_catalog_ref: str
+    authority_state_decision_ref: str
+    authority_state_decision_outcome: str
+    authority_state_status: str
+    authority_state_operator_message: str
+    authority_state_reason_refs: list[str] = Field(default_factory=list)
+    unsupported_adapter_refs: list[str] = Field(default_factory=list)
     control_center_ref: str = RUNTIME_DELEGATION_CONTROL_CENTER_REF
     safe_summary: str = (
         "Interrupt, pause, stop, redirect, revise, and recovery controls are "
@@ -210,6 +236,9 @@ class RuntimeInterruptRedirectReadModel(BaseModel):
             (self.contract_ref, "contract_ref"),
             (self.snapshot_ref, "snapshot_ref"),
             (self.snapshot_hash_ref, "snapshot_hash_ref"),
+            (self.authority_state_mapping_ref, "authority_state_mapping_ref"),
+            (self.authority_state_catalog_ref, "authority_state_catalog_ref"),
+            (self.authority_state_decision_ref, "authority_state_decision_ref"),
             (self.control_center_ref, "control_center_ref"),
         ]:
             validate_execution_ref(value, field_name)
@@ -218,10 +247,23 @@ class RuntimeInterruptRedirectReadModel(BaseModel):
             (self.status, "status"),
             (self.route_ref, "route_ref"),
             (self.cli_ref, "cli_ref"),
+            (self.authority_state_route_ref, "authority_state_route_ref"),
+            (self.authority_state_cli_ref, "authority_state_cli_ref"),
+            (
+                self.authority_state_decision_outcome,
+                "authority_state_decision_outcome",
+            ),
+            (self.authority_state_status, "authority_state_status"),
+            (
+                self.authority_state_operator_message,
+                "authority_state_operator_message",
+            ),
             (self.safe_summary, "safe_summary"),
         ]:
             validate_safe_execution_text(value, field_name)
         for field_name in (
+            "authority_state_reason_refs",
+            "unsupported_adapter_refs",
             "blocked_authority_refs",
             "promotion_path_refs",
             "proof_refs",
@@ -230,6 +272,13 @@ class RuntimeInterruptRedirectReadModel(BaseModel):
         ):
             for value in getattr(self, field_name):
                 validate_execution_ref(value, field_name)
+        if (
+            self.authority_state_mapping_ref
+            != RUNTIME_INTERRUPT_REDIRECT_AUTHORITY_MAPPING_REF
+        ):
+            raise ValueError("RUNTIME_INTERRUPT_REDIRECT_AUTHORITY_MAPPING_STALE")
+        if self.authority_state_decision_outcome not in _AUTHORITY_DECISION_OUTCOMES:
+            raise ValueError("RUNTIME_INTERRUPT_REDIRECT_AUTHORITY_OUTCOME_UNKNOWN")
         for value in self.redactions_applied:
             validate_safe_execution_text(value, "redactions_applied")
         denied_flags = {
@@ -258,6 +307,10 @@ class RuntimeInterruptRedirectReadModel(BaseModel):
         if self.proposal_count != len(self.proposals):
             raise ValueError("RUNTIME_INTERRUPT_REDIRECT_PROPOSAL_COUNT_MISMATCH")
         return self
+
+
+def _authority_value(value: object) -> str:
+    return str(getattr(value, "value", value))
 
 
 def _proposal(
@@ -292,7 +345,10 @@ def _proposal(
     )
 
 
-def build_runtime_interrupt_redirect_read_model() -> RuntimeInterruptRedirectReadModel:
+def build_runtime_interrupt_redirect_read_model(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None = None,
+) -> RuntimeInterruptRedirectReadModel:
+    authority_entry = _authority_entry(authority_decision_catalog)
     proposals = [
         _proposal(
             action_kind=RuntimeRunControlActionKind.pause,
@@ -350,6 +406,16 @@ def build_runtime_interrupt_redirect_read_model() -> RuntimeInterruptRedirectRea
         "snapshot_ref": RUNTIME_INTERRUPT_REDIRECT_SNAPSHOT_REF,
         "route_ref": RUNTIME_INTERRUPT_REDIRECT_ROUTE_REF,
         "cli_ref": RUNTIME_INTERRUPT_REDIRECT_CLI_REF,
+        "authority_state_mapping_ref": authority_entry.lane_ref,
+        "authority_state_catalog_ref": authority_entry.catalog_ref,
+        "authority_state_decision_ref": authority_entry.decision.decision_ref,
+        "authority_state_decision_outcome": _authority_value(
+            authority_entry.decision.outcome
+        ),
+        "authority_state_status": authority_entry.status,
+        "authority_state_operator_message": authority_entry.decision.operator_message,
+        "authority_state_reason_refs": list(authority_entry.decision.reason_refs),
+        "unsupported_adapter_refs": list(authority_entry.unsupported_adapter_refs),
         "proposals": proposals,
         "proposal_count": len(proposals),
         "read_only_proposal_count": sum(
@@ -386,6 +452,10 @@ def build_runtime_interrupt_redirect_read_model() -> RuntimeInterruptRedirectRea
         "contract_ref": payload["contract_ref"],
         "route_ref": payload["route_ref"],
         "proposal_refs": [proposal.action_ref for proposal in proposals],
+        "authority_state_decision_ref": authority_entry.decision.decision_ref,
+        "authority_state_decision_outcome": _authority_value(
+            authority_entry.decision.outcome
+        ),
         "blocked_authority_refs": payload["blocked_authority_refs"],
     }
     payload["snapshot_hash_ref"] = (
@@ -395,3 +465,13 @@ def build_runtime_interrupt_redirect_read_model() -> RuntimeInterruptRedirectRea
         ).hexdigest()[:16]
     )
     return RuntimeInterruptRedirectReadModel(**payload)
+
+
+def _authority_entry(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None,
+) -> AuthorityDecisionCatalogEntry:
+    catalog = authority_decision_catalog or build_authority_decision_catalog()
+    for entry in catalog:
+        if entry.lane_ref == RUNTIME_INTERRUPT_REDIRECT_AUTHORITY_MAPPING_REF:
+            return entry
+    raise ValueError("RUNTIME_INTERRUPT_REDIRECT_AUTHORITY_MAPPING_MISSING")

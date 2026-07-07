@@ -8086,6 +8086,14 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText("Stop current work")).toBeInTheDocument();
     expect(screen.getByText("Redirect work")).toBeInTheDocument();
     expect(
+      screen.getByText("lane-ref:runtime-interrupt-redirect-proposals"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "authority-policy-decision-ref:mock-runtime-interrupt-redirect",
+      ),
+    ).toBeInTheDocument();
+    expect(
       screen.getByText(
         "blocked-authority:interrupt-redirect-no-live-stop-post",
       ),

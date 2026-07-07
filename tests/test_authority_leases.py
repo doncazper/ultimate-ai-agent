@@ -441,6 +441,20 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         ].decision.outcome
         == "allow"
     )
+    interrupt_redirect = mappings_by_lane[
+        "lane-ref:runtime-interrupt-redirect-proposals"
+    ]
+    assert interrupt_redirect.domain == "workspace"
+    assert interrupt_redirect.capability == "read"
+    assert interrupt_redirect.required_mode == "read_only"
+    assert interrupt_redirect.status == "implemented_authority_bound_read_model"
+    assert "GET /api/runtime/interrupt-redirect" in interrupt_redirect.route_refs
+    assert (
+        decision_by_lane[
+            "lane-ref:runtime-interrupt-redirect-proposals"
+        ].decision.outcome
+        == "allow"
+    )
     staged_runtime_command = mappings_by_lane[
         "lane-ref:staged-orchestration-approved-runtime-command"
     ]

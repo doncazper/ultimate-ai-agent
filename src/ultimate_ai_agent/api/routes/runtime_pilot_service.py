@@ -593,7 +593,10 @@ def get_api_runtime_slash_command_registry() -> ResultEnvelope:
 
 @router.get("/interrupt-redirect", response_model=ResultEnvelope)
 def get_api_runtime_interrupt_redirect() -> ResultEnvelope:
-    read_model = build_runtime_interrupt_redirect_read_model()
+    authority_state = _authority_store().build_state_read_model()
+    read_model = build_runtime_interrupt_redirect_read_model(
+        authority_decision_catalog=authority_state.decision_catalog,
+    )
     return ResultEnvelope(
         success=True,
         operation="api_runtime_interrupt_redirect",
