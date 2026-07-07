@@ -108,9 +108,10 @@ connector metadata, memory-to-loop proposals, and context-pack proposal display
 as the near-term foundation, then ranks future connector write, memory write,
 shell/subprocess local maintenance, browser automation, provider/model
 authority, and context-injection candidates. No new authority candidate is
-selected; the scorecard's first micro-lane decision is no-go until one exact
-candidate has scope, approval, idempotency, receipt/evidence, rollback or
-safe-disable, redaction, CLI/API/core parity, and focused tests.
+selected; the scorecard's first AuthorityLease capability decision is no-go
+until one candidate has explicit domain/capability scope, approval binding,
+idempotency, receipt/evidence, rollback or safe-disable, redaction,
+CLI/API/core parity, and focused tests.
 
 1. Today product spine contract: every module feeds Today, Actions, Evidence,
    and Memory. Avoid standalone "module complete" definitions. Loop visibility
@@ -234,8 +235,9 @@ or become the destination for wiring every workflow.
 Long-term delegated life-OS behavior is tracked separately in
 `docs/strategy/DELEGATED_LIFE_OS_NORTH_STAR.md`. It is product direction only:
 purchases, bookings, subscriptions, account work, stored credential/payment
-handles, and standing rules remain future scoped until exact lanes graduate
-through authority and operational-maturity gates.
+handles, and standing rules remain future scoped until AuthorityLease domains,
+capabilities, adapters, and operational-maturity gates are implemented and
+tested.
 
 ## Planning-Only Permission Language
 
