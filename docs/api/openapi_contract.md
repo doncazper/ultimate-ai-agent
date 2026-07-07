@@ -142,9 +142,11 @@ Contract rules:
   write connectors, run shell/subprocess commands, automate browsers, or grant
   production authority.
   `GET /api/runtime/virtual-provider-moa` exposes the Hermes Runtime Adoption
-  Phase 20 backend-owned virtual provider Mixture-of-Agents posture. It returns
-  preset, agent-slot, route-decision trace, cost-estimate, approval-mode,
-  output-envelope, comparison-proof, safe-disable, verifier, and blocked
+  Phase 20 backend-owned virtual provider Mixture-of-Agents posture bound to
+  `lane-ref:runtime-virtual-provider-moa-read-model` through AuthorityState. It
+  returns preset, agent-slot, route-decision trace, cost-estimate,
+  approval-mode, output-envelope, comparison-proof, safe-disable, verifier,
+  AuthorityState mapping/decision refs, unsupported adapter refs, and blocked
   authority refs only. It does not perform live model fan-out, call provider
   SDKs, dispatch external runtimes, use hidden advisor prompts, treat agent
   output as authority, write connectors, run shell/subprocess commands,

@@ -15783,6 +15783,30 @@ export const mockControlCenterData: ControlCenterData = {
     route_ref: "GET /api/runtime/virtual-provider-moa",
     cli_ref: "uaa runtime inspect-virtual-provider-moa",
     control_center_ref: "control-center-route:runtime",
+    authority_state_route_ref: "GET /api/runtime/authority-state",
+    authority_state_cli_ref:
+      "repo-local-command:uaa-runtime-inspect-authority-state",
+    authority_state_mapping_ref:
+      "lane-ref:runtime-virtual-provider-moa-read-model",
+    authority_state_catalog_ref:
+      "authority-decision-catalog-ref:runtime-virtual-provider-moa-read-model:mock",
+    authority_state_decision_ref:
+      "authority-decision-ref:runtime-virtual-provider-moa-read-model:allow",
+    authority_state_decision_outcome: "allow",
+    authority_state_status: "implemented_authority_bound_read_model",
+    authority_state_operator_message:
+      "Read-only virtual provider MoA posture is available; live provider fan-out remains blocked.",
+    authority_state_reason_refs: [
+      "authority-reason-ref:runtime-virtual-provider-moa-read-model:mock",
+    ],
+    unsupported_adapter_refs: [
+      "adapter-ref:virtual-provider-moa-live-fanout:not-implemented",
+      "adapter-ref:virtual-provider-moa-provider-sdk:not-implemented",
+      "adapter-ref:virtual-provider-moa-external-dispatch:not-implemented",
+      "adapter-ref:virtual-provider-moa-hidden-prompts:not-implemented",
+      "adapter-ref:virtual-provider-moa-output-authority:not-implemented",
+      "adapter-ref:virtual-provider-moa-production-authority:not-implemented",
+    ],
     safe_summary:
       "Runtime virtual provider mock fallback shows multi-agent preset metadata only; model fan-out remains blocked.",
     presets: runtimeVirtualProviderMoaPresets,

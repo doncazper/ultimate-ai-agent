@@ -4594,6 +4594,27 @@ function isSafeRuntimeVirtualProviderMoa(
     value.status === "read_only_virtual_provider_preset_posture" &&
     value.route_ref === "GET /api/runtime/virtual-provider-moa" &&
     value.cli_ref === "uaa runtime inspect-virtual-provider-moa" &&
+    value.authority_state_route_ref === "GET /api/runtime/authority-state" &&
+    value.authority_state_cli_ref ===
+      "repo-local-command:uaa-runtime-inspect-authority-state" &&
+    value.authority_state_mapping_ref ===
+      "lane-ref:runtime-virtual-provider-moa-read-model" &&
+    isSafeTrustAuthorityRef(value.authority_state_catalog_ref) &&
+    isSafeTrustAuthorityRef(value.authority_state_decision_ref) &&
+    TRUST_AUTHORITY_DECISION_OUTCOMES.includes(
+      value.authority_state_decision_outcome,
+    ) &&
+    typeof value.authority_state_status === "string" &&
+    value.authority_state_status.length > 0 &&
+    typeof value.authority_state_operator_message === "string" &&
+    value.authority_state_operator_message.length > 0 &&
+    isNonEmptyStringArray(value.authority_state_reason_refs) &&
+    value.authority_state_reason_refs.every(isSafeTrustAuthorityRef) &&
+    isNonEmptyStringArray(value.unsupported_adapter_refs) &&
+    value.unsupported_adapter_refs.includes(
+      "adapter-ref:virtual-provider-moa-live-fanout:not-implemented",
+    ) &&
+    value.unsupported_adapter_refs.every(isSafeTrustAuthorityRef) &&
     value.preset_count === presetCount &&
     value.agent_slot_count === agentSlotCount &&
     value.ready_preset_count === readyPresetCount &&

@@ -2768,6 +2768,34 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ),
         ),
         _mapping(
+            "lane-ref:runtime-virtual-provider-moa-read-model",
+            "Runtime virtual provider MoA read model",
+            AuthorityDomain.provider_model_calls,
+            AuthorityCapability.read,
+            TrustMode.read_only,
+            "implemented_authority_bound_read_model",
+            ["GET /api/runtime/virtual-provider-moa"],
+            ["repo-local-command:uaa-runtime-inspect-virtual-provider-moa"],
+            (
+                "Virtual provider MoA inspection reads slot, routing, cost, "
+                "output-envelope, comparison-proof, and blocked authority refs "
+                "under provider_model_calls/read. Live fan-out, provider SDK, "
+                "dispatch, hidden prompts, output authority, connector writes, "
+                "shell, browser automation, and production remain blocked."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:virtual-provider-moa-live-fanout:not-implemented",
+                "adapter-ref:virtual-provider-moa-provider-sdk:not-implemented",
+                "adapter-ref:virtual-provider-moa-external-dispatch:not-implemented",
+                "adapter-ref:virtual-provider-moa-hidden-prompts:not-implemented",
+                "adapter-ref:virtual-provider-moa-output-authority:not-implemented",
+                "adapter-ref:virtual-provider-moa-connector-write:not-implemented",
+                "adapter-ref:virtual-provider-moa-shell-execution:not-implemented",
+                "adapter-ref:virtual-provider-moa-browser-automation:not-implemented",
+                "adapter-ref:virtual-provider-moa-production-authority:not-implemented",
+            ],
+        ),
+        _mapping(
             "lane-ref:connector-draft-only",
             "Connector draft-only proposals",
             AuthorityDomain.email,

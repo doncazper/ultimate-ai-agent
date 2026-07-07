@@ -9,6 +9,9 @@ from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.runtime_gateway import (
+    RUNTIME_VIRTUAL_PROVIDER_MOA_AUTHORITY_MAPPING_REF,
+    RUNTIME_VIRTUAL_PROVIDER_MOA_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_VIRTUAL_PROVIDER_MOA_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_VIRTUAL_PROVIDER_MOA_BLOCKED_AUTHORITY_REFS,
     RUNTIME_VIRTUAL_PROVIDER_MOA_CONTRACT_REF,
     RuntimeVirtualProviderMoaReadModel,
@@ -27,6 +30,27 @@ def test_virtual_provider_moa_is_read_only_preset_posture() -> None:
     assert read_model.status == "read_only_virtual_provider_preset_posture"
     assert read_model.route_ref == "GET /api/runtime/virtual-provider-moa"
     assert read_model.cli_ref == "uaa runtime inspect-virtual-provider-moa"
+    assert (
+        read_model.authority_state_route_ref
+        == RUNTIME_VIRTUAL_PROVIDER_MOA_AUTHORITY_STATE_ROUTE_REF
+    )
+    assert (
+        read_model.authority_state_cli_ref
+        == RUNTIME_VIRTUAL_PROVIDER_MOA_AUTHORITY_STATE_CLI_REF
+    )
+    assert (
+        read_model.authority_state_mapping_ref
+        == RUNTIME_VIRTUAL_PROVIDER_MOA_AUTHORITY_MAPPING_REF
+    )
+    assert read_model.authority_state_decision_outcome == "allow"
+    assert read_model.authority_state_decision_ref.startswith(
+        "authority-policy-decision-ref:"
+    )
+    assert read_model.authority_state_reason_refs
+    assert (
+        "adapter-ref:virtual-provider-moa-live-fanout:not-implemented"
+        in read_model.unsupported_adapter_refs
+    )
     assert read_model.preset_count == 3
     assert read_model.agent_slot_count == 7
     assert read_model.ready_preset_count == 1
@@ -103,6 +127,17 @@ def test_virtual_provider_moa_read_model_denies_authority_flags(field: str) -> N
         RuntimeVirtualProviderMoaReadModel(**payload)
 
 
+def test_virtual_provider_moa_read_model_rejects_authority_mapping_drift() -> None:
+    payload = build_runtime_virtual_provider_moa_read_model().model_dump(mode="json")
+    payload["authority_state_mapping_ref"] = "lane-ref:wrong-virtual-provider-moa"
+
+    with pytest.raises(
+        ValueError,
+        match="RUNTIME_VIRTUAL_PROVIDER_MOA_AUTHORITY_MAPPING_MISMATCH",
+    ):
+        RuntimeVirtualProviderMoaReadModel(**payload)
+
+
 def test_virtual_provider_moa_api_returns_read_only_posture() -> None:
     response = client.get("/api/runtime/virtual-provider-moa")
 
@@ -112,6 +147,11 @@ def test_virtual_provider_moa_api_returns_read_only_posture() -> None:
     assert body["operation"] == "api_runtime_virtual_provider_moa"
     data = body["data"]
     assert data["route_ref"] == "GET /api/runtime/virtual-provider-moa"
+    assert (
+        data["authority_state_mapping_ref"]
+        == RUNTIME_VIRTUAL_PROVIDER_MOA_AUTHORITY_MAPPING_REF
+    )
+    assert data["authority_state_decision_outcome"] == "allow"
     assert data["live_model_fanout_enabled"] is False
     assert data["provider_sdk_enabled"] is False
     assert data["preset_count"] == 3
@@ -137,10 +177,20 @@ def test_virtual_provider_moa_cli_uses_same_read_model() -> None:
 
     payload = json.loads(result.stdout)
     read_model = payload["runtime_virtual_provider_moa"]
+    authority_state = payload["authority_state"]
     assert payload["safe_refs_only"] is True
+    assert (
+        authority_state["mapping_ref"]
+        == RUNTIME_VIRTUAL_PROVIDER_MOA_AUTHORITY_MAPPING_REF
+    )
+    assert authority_state["decision_outcome"] == "allow"
     assert payload["live_model_fanout_performed"] is False
     assert payload["provider_sdk_call_performed"] is False
     assert payload["external_runtime_dispatch_performed"] is False
     assert read_model["route_ref"] == "GET /api/runtime/virtual-provider-moa"
     assert read_model["cli_ref"] == "uaa runtime inspect-virtual-provider-moa"
+    assert (
+        read_model["authority_state_cli_ref"]
+        == RUNTIME_VIRTUAL_PROVIDER_MOA_AUTHORITY_STATE_CLI_REF
+    )
     assert read_model["preset_count"] == 3

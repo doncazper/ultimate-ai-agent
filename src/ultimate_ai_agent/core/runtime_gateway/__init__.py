@@ -220,6 +220,9 @@ from ultimate_ai_agent.core.runtime_gateway.session_lineage import (
     build_runtime_session_lineage_read_model,
 )
 from ultimate_ai_agent.core.runtime_gateway.virtual_provider_moa import (
+    RUNTIME_VIRTUAL_PROVIDER_MOA_AUTHORITY_MAPPING_REF,
+    RUNTIME_VIRTUAL_PROVIDER_MOA_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_VIRTUAL_PROVIDER_MOA_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_VIRTUAL_PROVIDER_MOA_BLOCKED_AUTHORITY_REFS,
     RUNTIME_VIRTUAL_PROVIDER_MOA_CLI_REF,
     RUNTIME_VIRTUAL_PROVIDER_MOA_CONTRACT_REF,
@@ -232,6 +235,7 @@ from ultimate_ai_agent.core.runtime_gateway.virtual_provider_moa import (
     RuntimeVirtualProviderPreset,
     RuntimeVirtualProviderPresetStatus,
     build_runtime_virtual_provider_moa_read_model,
+    build_runtime_virtual_provider_moa_read_model_from_authority_catalog,
 )
 from ultimate_ai_agent.core.runtime_gateway.usage_cost_analytics import (
     RUNTIME_USAGE_COST_ANALYTICS_AUTHORITY_MAPPING_REF,
@@ -916,6 +920,9 @@ __all__ = [
     "RuntimeSessionForkPosture",
     "RuntimeSessionLineageNode",
     "RuntimeSessionLineageReadModel",
+    "RUNTIME_VIRTUAL_PROVIDER_MOA_AUTHORITY_MAPPING_REF",
+    "RUNTIME_VIRTUAL_PROVIDER_MOA_AUTHORITY_STATE_CLI_REF",
+    "RUNTIME_VIRTUAL_PROVIDER_MOA_AUTHORITY_STATE_ROUTE_REF",
     "RUNTIME_VIRTUAL_PROVIDER_MOA_BLOCKED_AUTHORITY_REFS",
     "RUNTIME_VIRTUAL_PROVIDER_MOA_CLI_REF",
     "RUNTIME_VIRTUAL_PROVIDER_MOA_CONTRACT_REF",
@@ -1134,6 +1141,7 @@ __all__ = [
     "build_runtime_session_search_read_model",
     "build_runtime_session_lineage_read_model",
     "build_runtime_virtual_provider_moa_read_model",
+    "build_runtime_virtual_provider_moa_read_model_from_authority_catalog",
     "build_runtime_usage_cost_analytics_read_model",
     "build_runtime_usage_cost_analytics_read_model_from_authority_catalog",
     "build_runtime_prompt_stability_tiers_read_model",

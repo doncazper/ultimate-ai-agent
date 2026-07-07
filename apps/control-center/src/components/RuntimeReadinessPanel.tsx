@@ -3470,6 +3470,21 @@ export function RuntimeReadinessPanel({
             <dd>{virtualProviderMoa.cli_ref}</dd>
           </div>
           <div>
+            <dt>Authority</dt>
+            <dd>
+              {virtualProviderMoa.authority_state_decision_outcome} /{" "}
+              {virtualProviderMoa.authority_state_status}
+            </dd>
+          </div>
+          <div>
+            <dt>Capability mapping</dt>
+            <dd>{virtualProviderMoa.authority_state_mapping_ref}</dd>
+          </div>
+          <div>
+            <dt>Decision ref</dt>
+            <dd>{virtualProviderMoa.authority_state_decision_ref}</dd>
+          </div>
+          <div>
             <dt>Presets</dt>
             <dd>{virtualProviderMoa.preset_count}</dd>
           </div>
@@ -3544,6 +3559,30 @@ export function RuntimeReadinessPanel({
               <ul className="compact-list">
                 {virtualProviderMoa.blocked_authority_refs
                   .slice(0, 4)
+                  .map((ref) => (
+                    <li key={ref}>{ref}</li>
+                  ))}
+              </ul>
+            </dd>
+          </div>
+          <div>
+            <dt>Unsupported adapters</dt>
+            <dd>
+              <ul className="compact-list">
+                {virtualProviderMoa.unsupported_adapter_refs
+                  .slice(0, 5)
+                  .map((ref) => (
+                    <li key={ref}>{ref}</li>
+                  ))}
+              </ul>
+            </dd>
+          </div>
+          <div>
+            <dt>Authority reason</dt>
+            <dd>
+              <ul className="compact-list">
+                {virtualProviderMoa.authority_state_reason_refs
+                  .slice(0, 3)
                   .map((ref) => (
                     <li key={ref}>{ref}</li>
                   ))}

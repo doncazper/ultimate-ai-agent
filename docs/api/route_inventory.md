@@ -210,8 +210,10 @@ shell/subprocess execution, browser automation, and production authority remain
 blocked.
 `GET /api/runtime/virtual-provider-moa` exposes a protected read-only Python
 Core Hermes Runtime Adoption Phase 20 virtual provider Mixture-of-Agents
-posture. It returns preset, agent-slot, route-decision trace, cost-estimate,
-approval-mode, output-envelope, comparison-proof, safe-disable, verifier, and
+posture bound to `lane-ref:runtime-virtual-provider-moa-read-model` through
+AuthorityState. It returns preset, agent-slot, route-decision trace,
+cost-estimate, approval-mode, output-envelope, comparison-proof, safe-disable,
+verifier, AuthorityState mapping/decision refs, unsupported adapter refs, and
 blocked authority refs only. Live model fan-out, provider SDK calls, external
 runtime dispatch, hidden advisor prompts, model-output authority, connector
 writes, shell/subprocess execution, browser automation, and production

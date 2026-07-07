@@ -7827,6 +7827,19 @@ describe("Web Control Center shell", () => {
       screen.getAllByText("uaa runtime inspect-virtual-provider-moa").length,
     ).toBeGreaterThan(0);
     expect(
+      screen.getByText("lane-ref:runtime-virtual-provider-moa-read-model"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "authority-decision-ref:runtime-virtual-provider-moa-read-model:allow",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText(
+        "adapter-ref:virtual-provider-moa-live-fanout:not-implemented",
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
       screen.getByText("Codex implementer plus Claude reviewer"),
     ).toBeInTheDocument();
     expect(screen.getByText(/Claude reviewer: claude_reviewer/i)).toBeInTheDocument();

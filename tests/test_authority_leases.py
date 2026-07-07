@@ -981,6 +981,25 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         ].decision.outcome
         == "allow"
     )
+    virtual_provider_moa = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if mapping.lane_ref == "lane-ref:runtime-virtual-provider-moa-read-model"
+    )
+    assert virtual_provider_moa.domain == "provider_model_calls"
+    assert virtual_provider_moa.capability == "read"
+    assert virtual_provider_moa.required_mode == "read_only"
+    assert virtual_provider_moa.status == "implemented_authority_bound_read_model"
+    assert "GET /api/runtime/virtual-provider-moa" in virtual_provider_moa.route_refs
+    assert "adapter-ref:virtual-provider-moa-live-fanout:not-implemented" in (
+        virtual_provider_moa.unsupported_adapter_refs
+    )
+    assert (
+        catalog_by_lane[
+            "lane-ref:runtime-virtual-provider-moa-read-model"
+        ].decision.outcome
+        == "allow"
+    )
     browser_action = next(
         mapping
         for mapping in read_model.capability_mappings

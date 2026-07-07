@@ -1,6 +1,6 @@
 # UAA Hermes Runtime Virtual Provider MoA
 
-Status: Hermes Runtime Adoption Phase 20 repo-safe read model
+Status: Hermes Runtime Adoption Phase 20 AuthorityState-bound repo-safe read model
 
 ## Full-Strength Version
 
@@ -24,11 +24,16 @@ Phase 20 adds Python Core virtual-provider Mixture-of-Agents posture:
 - route-decision trace refs, cost-estimate refs, approval-mode refs,
   safe-disable refs, proof refs, verifier refs, blocked authority refs, and
   next-safe-action refs
+- AuthorityState route/CLI/mapping/catalog/decision/reason refs and unsupported
+  adapter refs for the governed read-only provider-model posture
 
-This is readiness and metadata posture only. It does not perform live model
-fan-out, call provider SDKs, dispatch external runtimes, use hidden advisor
-prompts, treat agent output as authority, write connectors, run shell or
-browser work, or claim production authority.
+The read model is mapped as
+`lane-ref:runtime-virtual-provider-moa-read-model` under Read-only
+`provider_model_calls/read` and is evaluated from the active AuthorityLease
+decision catalog. This is readiness and metadata posture only. It does not
+perform live model fan-out, call provider SDKs, dispatch external runtimes, use
+hidden advisor prompts, treat agent output as authority, write connectors, run
+shell or browser work, or claim production authority.
 
 ## Blocked / Needs Authority
 

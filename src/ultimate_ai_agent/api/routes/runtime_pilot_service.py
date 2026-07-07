@@ -78,7 +78,7 @@ from ultimate_ai_agent.core.runtime_gateway import (
     build_runtime_streaming_progress_read_model_from_authority_catalog,
     build_runtime_tool_registry_availability_read_model_from_authority_catalog,
     build_runtime_usage_cost_analytics_read_model_from_authority_catalog,
-    build_runtime_virtual_provider_moa_read_model,
+    build_runtime_virtual_provider_moa_read_model_from_authority_catalog,
     build_runtime_action_signed_evidence,
     build_runtime_checkpoint_rollback_read_model,
     build_runtime_context_references_read_model,
@@ -352,12 +352,15 @@ def get_api_runtime_tool_registry() -> ResultEnvelope:
 
 @router.get("/virtual-provider-moa", response_model=ResultEnvelope)
 def get_api_runtime_virtual_provider_moa() -> ResultEnvelope:
-    read_model = build_runtime_virtual_provider_moa_read_model()
+    authority_state = _authority_store().build_state_read_model()
+    read_model = build_runtime_virtual_provider_moa_read_model_from_authority_catalog(
+        authority_decision_catalog=authority_state.decision_catalog,
+    )
     return ResultEnvelope(
         success=True,
         operation="api_runtime_virtual_provider_moa",
         service="GovernedRuntimeAPI",
-        trace_id=read_model.snapshot_ref,
+        trace_id=read_model.snapshot_hash_ref,
         data=read_model.model_dump(mode="json"),
         evidence=[
             {"evidence_ref": "evidence-ref:runtime-virtual-provider-moa:phase-20"}

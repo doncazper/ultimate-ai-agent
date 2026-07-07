@@ -143,6 +143,11 @@ surfaces are:
   diagnostic inspection decision while installs, service starts, credential
   writes, runtime config mutation, raw log/path persistence, provider payload
   persistence, and Control Center authority minting remain blocked.
+  Runtime virtual provider MoA exposes the Read-only
+  `provider_model_calls/read` provider-slot and routing-posture inspection
+  decision while live fan-out, provider SDK calls, external dispatch, hidden
+  prompts, model-output authority, connector writes, shell execution, browser
+  automation, and production authority remain blocked.
   Runtime usage/cost analytics exposes the Read-only `workspace/read` redacted
   accounting inspection decision while provider calls, provider SDK calls,
   billing actions, live price fetches, operator export, turn/provider material
