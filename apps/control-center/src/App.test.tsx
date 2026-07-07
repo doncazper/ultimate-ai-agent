@@ -11233,6 +11233,9 @@ describe("Web Control Center shell", () => {
     expect(previewResult).toHaveTextContent(
       "Requires Approved safe local work with Workspace execute domain scope.",
     );
+    expect(previewResult).toHaveTextContent(
+      "Requires approved safe local work session + workspace domain + execute capability.",
+    );
     expect(previewResult).toHaveTextContent("approved safe local work session");
     expect(previewResult).toHaveTextContent("not performed");
     expect(previewResult).toHaveTextContent(
@@ -11261,6 +11264,9 @@ describe("Web Control Center shell", () => {
     expect(missionPlanResult).toHaveTextContent("Draft only");
     expect(missionPlanResult).toHaveTextContent(
       "delegated mission autonomous window",
+    );
+    expect(missionPlanResult).toHaveTextContent(
+      "Requires delegated mission autonomous window + browser, shopping payments domain scope + click, purchase under budget capability scope.",
     );
     expect(missionPlanResult).toHaveTextContent(
       "mission-ref:control-center-ticket-purchase-preview",
@@ -11298,6 +11304,9 @@ describe("Web Control Center shell", () => {
       name: /Authority mission plan issue ready/i,
     });
     expect(workspaceMissionPlanResult).toHaveTextContent("Issue ready");
+    expect(workspaceMissionPlanResult).toHaveTextContent(
+      "Issue-ready for approved safe local work session + files, workspace domain scope + execute, prepare, read capability scope.",
+    );
     expect(workspaceMissionPlanResult).toHaveTextContent(
       "mission-ref:control-center-workspace-maintenance-preview",
     );

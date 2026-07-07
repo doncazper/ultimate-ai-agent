@@ -28,6 +28,7 @@ import type {
   AuthorityLeaseMutationResult,
   AuthorityMissionPlan,
   AuthorityMissionPlanRequest,
+  AuthorityPolicyDecision,
   AuthorityTrustMode,
   LocalModelsInspectionStatus,
   ModelProviderControlPlaneReadModel,
@@ -2013,6 +2014,9 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
                   {authorityPreview.decision.domain.replaceAll("_", " ")} /{" "}
                   {authorityPreview.decision.capability.replaceAll("_", " ")}
                 </strong>
+                <small>
+                  {authorityDecisionRequirementLabel(authorityPreview.decision)}
+                </small>
                 <p>{authorityPreview.decision.operator_message}</p>
                 <dl className="metadata-list">
                   <div>
@@ -2142,6 +2146,9 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
                 <strong>
                   {authorityMissionPlan.requested_mode.replaceAll("_", " ")}
                 </strong>
+                <small>
+                  {authorityMissionRequirementLabel(authorityMissionPlan)}
+                </small>
                 <p>{authorityMissionPlan.operator_summary}</p>
                 <dl className="metadata-list">
                   <div>
@@ -2372,6 +2379,7 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
               {decision.domain.replaceAll("_", " ")} /{" "}
               {decision.capability.replaceAll("_", " ")}
             </strong>
+            <small>{authorityDecisionRequirementLabel(decision)}</small>
             <p>{decision.operator_message}</p>
             <div className="note-list" aria-label={`${decision.action_ref} refs`}>
               <span>{decision.action_ref}</span>
@@ -2558,6 +2566,40 @@ function settingsPostureClass(stateLabel: string) {
 
 function authorityDomainLabels(lease: AuthorityLease) {
   return authorityDomainRecordLabels(lease.domains);
+}
+
+function authorityDecisionRequirementLabel(decision: AuthorityPolicyDecision) {
+  const mode = decision.required_mode?.replaceAll("_", " ") ?? "active lease";
+  const domain =
+    authorityRefListLabel(decision.required_domain_refs, "authority-domain-ref") ||
+    decision.domain.replaceAll("_", " ");
+  const capability =
+    authorityRefListLabel(
+      decision.required_capability_refs,
+      "authority-capability-ref",
+    ) || decision.capability.replaceAll("_", " ");
+  return `Requires ${mode} + ${domain} domain + ${capability} capability.`;
+}
+
+function authorityMissionRequirementLabel(plan: AuthorityMissionPlan) {
+  const mode = plan.requested_mode.replaceAll("_", " ");
+  const domains =
+    authorityRefListLabel(plan.required_domain_refs, "authority-domain-ref") ||
+    authorityDomainRecordLabels(plan.requested_domains).join("; ");
+  const capabilities =
+    authorityRefListLabel(
+      plan.required_capability_refs,
+      "authority-capability-ref",
+    ) || "declared capability";
+  const prefix = plan.lease_issue_ready ? "Issue-ready for" : "Requires";
+  return `${prefix} ${mode} + ${domains} domain scope + ${capabilities} capability scope.`;
+}
+
+function authorityRefListLabel(refs: string[], prefix: string) {
+  return refs
+    .map((ref) => ref.replace(`${prefix}:`, "").replaceAll("_", " "))
+    .filter(Boolean)
+    .join(", ");
 }
 
 function authorityDomainRecordLabels(domains: Record<string, string[]>) {
