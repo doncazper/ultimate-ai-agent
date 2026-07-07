@@ -45,7 +45,8 @@ surfaces are:
   concept: operators inspect governed capabilities, not broad allow flags.
 - `GET /api/runtime/authority-state#capability_mappings` has at least one
   explicit mapping row for every target AuthorityLease domain; unsupported
-  adapters remain `planned` or blocked rows and do not become executable.
+  adapters remain `planned_unsupported_adapter` rows that evaluate to deny and
+  do not become executable.
 - `GET /api/runtime/authority-state#decision_catalog` evaluates every
   capability mapping against the active AuthorityLease set and reports the
   current `allow`, `ask`, `deny`, or `degrade_to_draft` policy outcome with
@@ -61,8 +62,8 @@ surfaces are:
   default requested domains, grantable local domain subsets, default grants,
   approval requirements, mission-scope requirements, blocked reason refs, and
   unsupported adapter refs. This catalog replaces lane-graduation copy with
-  explicit mode/domain/lease posture; blocked high-authority defaults remain
-  blocked until exact adapters and tests exist.
+  explicit mode/domain/lease posture; planned unsupported high-authority
+  capabilities remain denied until exact adapters and tests exist.
 - `UAA_AUTHORITY_LEASE_KILL_SWITCH=1` engages the local AuthorityLease kill
   switch. New lease issue attempts are denied with a redacted receipt and
   `reason-ref:authority:lease-kill-switch-engaged`; state, Settings, CLI, and
@@ -252,6 +253,12 @@ implemented and tested. Existing local loopback model requests may carry
 `mission_ref` for policy evaluation, but that does not grant remote provider
 SDK calls, web fetching, tools/functions, streaming, or provider payload
 persistence.
+The remaining legacy high-authority Trust rows are now represented as known
+planned AuthorityState capabilities rather than opaque blocked lanes: issue
+tracker sync, connector write/send, browser low-risk action, scoped background
+work, and production deploy all have explicit mode/domain/capability mappings,
+unsupported adapter refs, and `deny` decisions until their adapters, receipts,
+rollback/safe-disable posture, and focused tests exist.
 Hermes interface-mode chat is now mapped into the same runtime authority model:
 `POST /api/runtime/hermes/chat` may run the exact guarded Hermes CLI chat argv
 only after active `workspace/execute` AuthorityLease scope is present. Missing

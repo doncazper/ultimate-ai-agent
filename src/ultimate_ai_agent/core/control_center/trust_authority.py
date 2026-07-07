@@ -1265,15 +1265,16 @@ def _trust_authority_lanes(
             label="Issue tracker sync",
             tier=4,
             lane_kind="external_mutation",
-            authority_state="blocked",
+            authority_state="planned",
             current_posture=(
-                "Issue tracker sync remains blocked until an exact external "
-                "mutation route, adapter, receipt, safe-disable, rollback, and "
-                "CLI inspection lane exists."
+                "Issue tracker sync is a known planned apps/write capability "
+                "under AuthorityLease evaluation, but project binding, item "
+                "write, receipt replay, and compensating update adapters are "
+                "not implemented."
             ),
             approval_posture="Future exact issue workspace, project, item, field, and write action approval required.",
-            operator_can_do_now="Inspect the planned authority-scope path only; no issue tracker write is available from UAA.",
-            next_safe_action="Implement a route/API/CLI/receipt capability before enabling issue sync.",
+            operator_can_do_now="Inspect the planned authority-scope path and unsupported adapter refs; no issue tracker write is available from UAA.",
+            next_safe_action="Implement the exact adapter, receipt replay, and compensating update capability before enabling issue sync.",
             route_refs=["external-lane-ref:issue-tracker-sync-exact-approved"],
             proof_refs=["proof-ref:issue-tracker-sync:exact-approved"],
             verifier_refs=["scripts/verify_operational_maturity.py"],
@@ -1285,6 +1286,7 @@ def _trust_authority_lanes(
             blocked_authority_refs=[
                 "blocked-state:issue-tracker-sync:no-bulk-write",
                 "blocked-state:issue-tracker-sync:no-unapproved-project-access",
+                "blocked-state:issue-tracker-sync:adapter-unsupported",
             ],
             requires_exact_approval=True,
             requires_safe_disable=True,
@@ -1295,14 +1297,15 @@ def _trust_authority_lanes(
             label="Connector writes",
             tier=4,
             lane_kind="external_mutation",
-            authority_state="blocked",
+            authority_state="planned",
             current_posture=(
-                "Connector writes remain blocked in UAA runtime. Connector draft "
-                "proposals are available as local review artifacts only."
+                "Connector writes are known planned email/send capabilities under "
+                "AuthorityLease evaluation, but live account binding, outbound send, "
+                "retry, replay, and compensating-action adapters are not implemented."
             ),
             approval_posture="Future exact connector, dry-run, write target, safe result, audit, replay, revocation, and approval refs required.",
-            operator_can_do_now="Use connector draft proposals only; no connector send/write executes.",
-            next_safe_action="Implement a live adapter scope with receipts before enabling connector writes.",
+            operator_can_do_now="Use connector draft proposals and inspect unsupported adapter refs only; no connector send/write executes.",
+            next_safe_action="Implement exact send/write adapters with receipts, replay, and revocation before enabling connector writes.",
             route_refs=[CONNECTOR_DRAFT_PROPOSAL_ROUTE_REF],
             proof_refs=["proof-ref:connector-write:low-risk-exact"],
             verifier_refs=[
@@ -1323,6 +1326,7 @@ def _trust_authority_lanes(
             blocked_authority_refs=[
                 "blocked-state:connector-write:no-bulk-send",
                 "blocked-state:connector-write:no-sensitive-material",
+                "blocked-state:connector-write:adapter-unsupported",
             ],
             requires_exact_approval=True,
             requires_safe_disable=True,
@@ -1333,15 +1337,16 @@ def _trust_authority_lanes(
             label="Browser automation inside UAA",
             tier=4,
             lane_kind="external_mutation",
-            authority_state="blocked",
+            authority_state="planned",
             current_posture=(
-                "Browser automation inside UAA remains blocked. Browser observe, "
-                "dry-run, clicks, forms, auth, downloads, uploads, raw DOM, "
-                "screenshots, and broad navigation require separate AuthorityLease capabilities."
+                "Browser low-risk action is a known planned browser/click "
+                "capability under AuthorityLease evaluation, but browser sessions, "
+                "page binding, dry-run replay, clicks, forms, downloads, uploads, "
+                "and auth state are not implemented."
             ),
             approval_posture="Future exact scoped session, page, action, dry-run, policy, approval, audit, replay, revocation, and kill switch refs required.",
-            operator_can_do_now="Inspect blocked browser posture only; no browser action executes inside UAA.",
-            next_safe_action="Implement browser observe/dry-run AuthorityLease capability before any action capability.",
+            operator_can_do_now="Inspect planned browser action posture and unsupported adapter refs only; no browser action executes inside UAA.",
+            next_safe_action="Implement browser observe and dry-run replay capability before any click/form capability.",
             route_refs=["browser-lane-ref:low-risk-click-exact-approved"],
             proof_refs=["proof-ref:browser-low-risk-click:exact-approved"],
             verifier_refs=["tests/test_m94_low_risk_browser_clicks.py"],
@@ -1353,6 +1358,7 @@ def _trust_authority_lanes(
             blocked_authority_refs=[
                 "blocked-state:browser:no-authenticated-actions",
                 "blocked-state:browser:no-form-submit-download-upload",
+                "blocked-state:browser:adapter-unsupported",
             ],
             requires_exact_approval=True,
             requires_safe_disable=True,
@@ -1363,15 +1369,16 @@ def _trust_authority_lanes(
             label="Background autonomy",
             tier=5,
             lane_kind="background_standing_authority",
-            authority_state="blocked",
+            authority_state="planned",
             current_posture=(
-                "Background autonomy remains blocked until scoped work-session "
-                "runtime, supervisor, checkpoint, queue inspection, revocation, "
-                "kill switch, budgets, receipts, and replay are implemented."
+                "Scoped background autonomy is a known planned delegated "
+                "apps/execute capability under AuthorityLease evaluation, but "
+                "worker runtime, queue supervisor, checkpoints, cancellation, "
+                "budgets, receipts, and replay adapters are not implemented."
             ),
             approval_posture="Future exact workflow, schedule/session, budget, queue, supervisor, checkpoint, revocation, and kill-switch approval required.",
-            operator_can_do_now="Inspect blocked background posture only; no background worker or standing session starts.",
-            next_safe_action="Keep standing recurring workflows disabled until exact runtime evidence exists.",
+            operator_can_do_now="Inspect planned background posture and unsupported adapter refs only; no worker or standing session starts.",
+            next_safe_action="Implement supervised worker, checkpoint, cancel, budget, and replay receipts before enabling background autonomy.",
             route_refs=["autonomy-lane-ref:scoped-background-work-session"],
             proof_refs=["proof-ref:background-autonomy:scoped-work-session"],
             verifier_refs=[
@@ -1389,6 +1396,7 @@ def _trust_authority_lanes(
             blocked_authority_refs=[
                 "blocked-state:background-autonomy:no-unbounded-standing-authority",
                 "blocked-state:background-autonomy:no-uninspected-queue",
+                "blocked-state:background-autonomy:adapter-unsupported",
             ],
             requires_exact_approval=True,
             requires_safe_disable=True,
@@ -1399,15 +1407,16 @@ def _trust_authority_lanes(
             label="Production authority",
             tier=5,
             lane_kind="background_standing_authority",
-            authority_state="blocked",
+            authority_state="planned",
             current_posture=(
-                "Production authority remains blocked. Readiness-review docs do "
-                "not grant deployment, release, merge, tag, public beta, or "
-                "production action authority."
+                "Production authority is a known planned cloud_production/deploy "
+                "capability under AuthorityLease evaluation, but go-live, release, "
+                "remote execution, environment mutation, and rollback execution "
+                "adapters are not implemented."
             ),
             approval_posture="Future exact production environment, deployment mode, authority tier, release evidence, rollback, audit, and operator approval required.",
-            operator_can_do_now="Inspect readiness blockers only; no production action is available.",
-            next_safe_action="Complete production red-team and rollback evidence before proposing a production gate.",
+            operator_can_do_now="Inspect production readiness blockers and unsupported adapter refs only; no production action is available.",
+            next_safe_action="Implement production gate, release evidence, and rollback execution proof before enabling production authority.",
             route_refs=["production-lane-ref:authority-readiness-review"],
             proof_refs=["proof-ref:production-authority-readiness-review"],
             verifier_refs=[
@@ -1422,6 +1431,7 @@ def _trust_authority_lanes(
             blocked_authority_refs=[
                 "blocked-state:production-authority:no-silent-go-live",
                 "blocked-state:production-authority:no-unreviewed-release",
+                "blocked-state:production-authority:adapter-unsupported",
             ],
             requires_exact_approval=True,
             requires_safe_disable=True,

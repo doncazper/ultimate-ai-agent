@@ -1753,7 +1753,7 @@ def _authority_mode_catalog_summary(
         )
     return (
         f"{mode_label} default scope is blocked because {len(unsupported_refs)} "
-        "unsupported adapter ref(s) remain planned or blocked."
+        "unsupported adapter ref(s) remain planned unsupported or denied."
     )
 
 
@@ -2668,6 +2668,25 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ],
         ),
         _mapping(
+            "lane-ref:issue-tracker-sync",
+            "Issue tracker exact sync adapter",
+            AuthorityDomain.apps,
+            AuthorityCapability.write,
+            TrustMode.full_machine_access_session,
+            "planned_unsupported_adapter",
+            ["external-lane-ref:issue-tracker-sync-exact-approved"],
+            ["scripts/dev/uaa_runtime.py inspect-authority-state"],
+            (
+                "Issue tracker sync is a known Apps/write authority capability, "
+                "but no project binding, item write adapter, receipt replay, or "
+                "compensating update adapter is implemented."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:issue-tracker-sync:not-implemented",
+                "adapter-ref:issue-tracker-compensating-update:not-implemented",
+            ],
+        ),
+        _mapping(
             "lane-ref:runtime-command-git-status",
             "Git status",
             AuthorityDomain.workspace,
@@ -2999,6 +3018,25 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ],
         ),
         _mapping(
+            "lane-ref:connector-write-low-risk",
+            "Connector low-risk send/write adapter",
+            AuthorityDomain.email,
+            AuthorityCapability.send,
+            TrustMode.full_machine_access_session,
+            "planned_unsupported_adapter",
+            ["connector-lane-ref:low-risk-send-write-exact-approved"],
+            ["scripts/dev/uaa_runtime.py inspect-authority-state"],
+            (
+                "Connector send/write is a known Email/send authority capability, "
+                "but live account binding, outbound send, retry, replay, and "
+                "compensating-action adapters are not implemented."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:email-live-send:not-implemented",
+                "adapter-ref:connector-write-replay:not-implemented",
+            ],
+        ),
+        _mapping(
             "lane-ref:messages-live-send-adapter",
             "Messages send adapter",
             AuthorityDomain.messages,
@@ -3049,6 +3087,25 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ),
             unsupported_adapter_refs=[
                 "adapter-ref:browser-execution:not-implemented",
+            ],
+        ),
+        _mapping(
+            "lane-ref:browser-low-risk-action",
+            "Browser low-risk action adapter",
+            AuthorityDomain.browser,
+            AuthorityCapability.click,
+            TrustMode.full_machine_access_session,
+            "planned_unsupported_adapter",
+            ["browser-lane-ref:low-risk-click-exact-approved"],
+            ["scripts/dev/uaa_runtime.py inspect-authority-state"],
+            (
+                "Low-risk browser click authority is a known Browser/click "
+                "capability, but browser sessions, page binding, dry-run replay, "
+                "clicks, forms, downloads, uploads, and auth state are unsupported."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:browser-low-risk-click:not-implemented",
+                "adapter-ref:browser-session-binding:not-implemented",
             ],
         ),
         _mapping(
@@ -3135,6 +3192,26 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ],
         ),
         _mapping(
+            "lane-ref:background-autonomy-scoped",
+            "Scoped background work session",
+            AuthorityDomain.apps,
+            AuthorityCapability.execute,
+            TrustMode.delegated_mission_autonomous_window,
+            "planned_unsupported_adapter",
+            ["autonomy-lane-ref:scoped-background-work-session"],
+            ["scripts/dev/uaa_runtime.py inspect-authority-state"],
+            (
+                "Scoped background autonomy is a known delegated Apps/execute "
+                "capability, but worker runtime, queue supervisor, checkpoints, "
+                "heartbeats, cancellation, replay, and budget enforcement adapters "
+                "are not implemented."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:background-worker-runtime:not-implemented",
+                "adapter-ref:background-supervisor:not-implemented",
+            ],
+        ),
+        _mapping(
             "lane-ref:cloud-production-deploy-adapter",
             "Cloud production deploy adapter",
             AuthorityDomain.cloud_production,
@@ -3150,6 +3227,26 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ),
             unsupported_adapter_refs=[
                 "adapter-ref:cloud-production-deploy:not-implemented",
+            ],
+        ),
+        _mapping(
+            "lane-ref:production-authority-gate",
+            "Production authority gate",
+            AuthorityDomain.cloud_production,
+            AuthorityCapability.deploy,
+            TrustMode.delegated_mission_autonomous_window,
+            "planned_unsupported_adapter",
+            ["production-lane-ref:authority-readiness-review"],
+            ["scripts/dev/uaa_runtime.py inspect-authority-state"],
+            (
+                "Production deployment is a known Cloud production/deploy "
+                "authority capability, but go-live, release, remote execution, "
+                "environment mutation, and rollback execution adapters remain "
+                "unsupported."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:production-go-live:not-implemented",
+                "adapter-ref:production-rollback-execution:not-implemented",
             ],
         ),
     ]
@@ -3215,8 +3312,8 @@ def build_authority_state_read_model(
         else (
             "Authority is now modeled as trust modes, explicit domains, and "
             "session or mission leases. Unknown authority denies by default; "
-            "unsupported adapters are shown as planned or blocked instead of "
-            "pretending execution exists."
+            "unsupported adapters are shown as planned unsupported or denied "
+            "instead of pretending execution exists."
         )
     )
     return AuthorityStateReadModel(
@@ -3309,7 +3406,7 @@ def build_authority_decision_summary(
             f"Authority catalog covers {len(decision_catalog)} capabilities under "
             f"{active_lease_count} active lease(s): {allowed} allowed, {asked} ask, "
             f"{degraded} degrade to draft, {denied} denied. Unsupported adapters "
-            "remain blocked until implemented and tested."
+            "remain denied until implemented and tested."
         ),
     )
 

@@ -243,6 +243,23 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
     assert apps_adapter.domain == "apps"
     assert apps_adapter.capability == "execute"
     assert apps_adapter.status == "planned_unsupported_adapter"
+    issue_tracker_sync = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if mapping.lane_ref == "lane-ref:issue-tracker-sync"
+    )
+    assert issue_tracker_sync.domain == "apps"
+    assert issue_tracker_sync.capability == "write"
+    assert issue_tracker_sync.required_mode == "full_machine_access_session"
+    assert issue_tracker_sync.status == "planned_unsupported_adapter"
+    assert (
+        catalog_by_lane["lane-ref:issue-tracker-sync"].decision.outcome
+        == "deny"
+    )
+    assert (
+        catalog_by_lane["lane-ref:issue-tracker-sync"].decision.unsupported_adapter
+        is True
+    )
     task_decomposition_execute = next(
         mapping
         for mapping in read_model.capability_mappings
@@ -367,6 +384,19 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         catalog_by_lane["lane-ref:source-readiness-email-calendar"].decision.outcome
         == "allow"
     )
+    connector_write = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if mapping.lane_ref == "lane-ref:connector-write-low-risk"
+    )
+    assert connector_write.domain == "email"
+    assert connector_write.capability == "send"
+    assert connector_write.required_mode == "full_machine_access_session"
+    assert connector_write.status == "planned_unsupported_adapter"
+    assert (
+        catalog_by_lane["lane-ref:connector-write-low-risk"].decision.outcome
+        == "deny"
+    )
     provider_invocation = next(
         mapping
         for mapping in read_model.capability_mappings
@@ -444,6 +474,19 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
     assert browser_action.domain == "browser"
     assert browser_action.capability == "click"
     assert browser_action.status == "planned_unsupported_adapter"
+    browser_low_risk_action = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if mapping.lane_ref == "lane-ref:browser-low-risk-action"
+    )
+    assert browser_low_risk_action.domain == "browser"
+    assert browser_low_risk_action.capability == "click"
+    assert browser_low_risk_action.required_mode == "full_machine_access_session"
+    assert browser_low_risk_action.status == "planned_unsupported_adapter"
+    assert (
+        catalog_by_lane["lane-ref:browser-low-risk-action"].decision.outcome
+        == "deny"
+    )
     context_pack_action = next(
         mapping
         for mapping in read_model.capability_mappings
@@ -491,6 +534,22 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
     assert home_assistant_control.domain == "home_assistant"
     assert home_assistant_control.capability == "write"
     assert home_assistant_control.status == "planned_unsupported_adapter"
+    background_autonomy = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if mapping.lane_ref == "lane-ref:background-autonomy-scoped"
+    )
+    assert background_autonomy.domain == "apps"
+    assert background_autonomy.capability == "execute"
+    assert (
+        background_autonomy.required_mode
+        == "delegated_mission_autonomous_window"
+    )
+    assert background_autonomy.status == "planned_unsupported_adapter"
+    assert (
+        catalog_by_lane["lane-ref:background-autonomy-scoped"].decision.outcome
+        == "deny"
+    )
     cloud_production_deploy = next(
         mapping
         for mapping in read_model.capability_mappings
@@ -499,6 +558,22 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
     assert cloud_production_deploy.domain == "cloud_production"
     assert cloud_production_deploy.capability == "deploy"
     assert cloud_production_deploy.status == "planned_unsupported_adapter"
+    production_authority = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if mapping.lane_ref == "lane-ref:production-authority-gate"
+    )
+    assert production_authority.domain == "cloud_production"
+    assert production_authority.capability == "deploy"
+    assert (
+        production_authority.required_mode
+        == "delegated_mission_autonomous_window"
+    )
+    assert production_authority.status == "planned_unsupported_adapter"
+    assert (
+        catalog_by_lane["lane-ref:production-authority-gate"].decision.outcome
+        == "deny"
+    )
     assert {decision.outcome for decision in read_model.sample_decisions} >= {
         "allow",
         "deny",

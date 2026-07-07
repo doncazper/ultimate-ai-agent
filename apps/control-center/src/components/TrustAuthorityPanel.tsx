@@ -280,7 +280,7 @@ function DomainCoveragePanel({ rows }: { rows: TrustAuthorityDomainCoverage[] })
           <p>
             Domain capabilities are governed by the Python Core AuthorityState
             map. Known authority still requires an active lease; unsupported
-            adapters stay planned or blocked.
+            adapters stay planned unsupported or blocked.
           </p>
         </div>
         <span className="status-pill compact">{rows.length} domains</span>

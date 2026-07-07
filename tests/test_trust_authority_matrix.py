@@ -77,14 +77,15 @@ def test_trust_authority_matrix_explains_available_approval_and_blocked(
     assert "trust-lane:provider-model-invocation" in (
         parsed.approval_required_lane_refs
     )
-    for blocked_lane_ref in (
+    for planned_lane_ref in (
         "trust-lane:issue-tracker-sync",
         "trust-lane:connector-write-low-risk",
         "trust-lane:browser-low-risk-action",
         "trust-lane:background-autonomy-scoped",
         "trust-lane:production-authority-gate",
     ):
-        assert blocked_lane_ref in parsed.blocked_lane_refs
+        assert planned_lane_ref in parsed.planned_lane_refs
+    assert parsed.blocked_lane_refs == []
     assert "trust-lane:local-draft-proposal" in parsed.available_now_lane_refs
     assert "trust-lane:web-evidence-product-slice" in parsed.available_now_lane_refs
     assert "trust-lane:model-slot-posture" in parsed.available_now_lane_refs
@@ -101,7 +102,7 @@ def test_trust_authority_matrix_explains_available_approval_and_blocked(
         lane.authority_state != "available_now" for lane in parsed.lanes if lane.tier >= 4
     )
     assert all(
-        lane.authority_state in {"approval_required", "blocked"}
+        lane.authority_state in {"approval_required", "planned", "blocked"}
         for lane in parsed.lanes
         if lane.tier >= 4
     )
@@ -249,6 +250,26 @@ def test_trust_authority_matrix_explains_available_approval_and_blocked(
     browser_lane = lanes_by_ref["trust-lane:browser-low-risk-action"]
     assert browser_lane.authority_domain_ref == "authority-domain-ref:browser"
     assert browser_lane.authority_capability_ref == "authority-capability-ref:click"
+    assert browser_lane.authority_state == "planned"
+    assert browser_lane.operator_posture == "planned"
+    issue_sync_lane = lanes_by_ref["trust-lane:issue-tracker-sync"]
+    assert issue_sync_lane.authority_state == "planned"
+    assert issue_sync_lane.authority_domain_ref == "authority-domain-ref:apps"
+    connector_write_lane = lanes_by_ref["trust-lane:connector-write-low-risk"]
+    assert connector_write_lane.authority_state == "planned"
+    assert connector_write_lane.authority_capability_ref == (
+        "authority-capability-ref:send"
+    )
+    background_lane = lanes_by_ref["trust-lane:background-autonomy-scoped"]
+    assert background_lane.authority_state == "planned"
+    assert background_lane.required_authority_mode == (
+        "delegated_mission_autonomous_window"
+    )
+    production_lane = lanes_by_ref["trust-lane:production-authority-gate"]
+    assert production_lane.authority_state == "planned"
+    assert production_lane.authority_domain_ref == (
+        "authority-domain-ref:cloud_production"
+    )
     _assert_no_runtime_authority(matrix)
 
 
