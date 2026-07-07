@@ -675,6 +675,22 @@ def test_authority_lease_kill_switch_blocks_new_lease_issue_api_cli_and_state(
         "reason-ref:authority:kill-switch-engaged" in entry.decision.reason_refs
         for entry in state_model.decision_catalog
     )
+    assert state_model.decision_summary.total_capabilities == len(
+        state_model.decision_catalog
+    )
+    assert state_model.decision_summary.outcome_counts == {
+        "allow": 0,
+        "ask": 0,
+        "deny": len(state_model.decision_catalog),
+        "degrade_to_draft": 0,
+    }
+    assert state_model.decision_summary.denied_capability_refs
+    assert state_model.decision_summary.allowed_capability_refs == []
+    assert state_model.decision_summary.ask_capability_refs == []
+    assert state_model.decision_summary.degraded_capability_refs == []
+    assert "reason-ref:authority:kill-switch-engaged" in (
+        state_model.decision_summary.blocked_reason_refs
+    )
 
     preview = store.preview_decision(
         AuthorityActionRequest(
@@ -730,11 +746,22 @@ def test_authority_lease_kill_switch_blocks_new_lease_issue_api_cli_and_state(
 
     api_state = client.get("/api/runtime/authority-state")
     assert api_state.status_code == 200
-    assert api_state.json()["data"]["kill_switch_engaged"] is True
+    api_state_data = api_state.json()["data"]
+    assert api_state_data["kill_switch_engaged"] is True
+    assert api_state_data["decision_summary"]["outcome_counts"]["deny"] == len(
+        api_state_data["decision_catalog"]
+    )
+    assert "reason-ref:authority:kill-switch-engaged" in (
+        api_state_data["decision_summary"]["blocked_reason_refs"]
+    )
 
     cli_state = uaa_runtime.main(["inspect-authority-state"])
     assert cli_state == 0
-    assert "Kill switch engaged: True" in capsys.readouterr().out
+    cli_text = capsys.readouterr().out
+    assert "Kill switch engaged: True" in cli_text
+    assert "allow=0" in cli_text
+    assert f"deny={len(state_model.decision_catalog)}" in cli_text
+    assert "reason-ref:authority:kill-switch-engaged" in cli_text
 
     cli_issue = uaa_runtime.main(
         [
