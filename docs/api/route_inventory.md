@@ -431,10 +431,14 @@ events, or persist raw runtime/tool/generated/log/prompt/response payloads.
 Runtime Adoption Phase 06 profile isolation posture for UAA-owned profile refs
 that stay separate from delegated runtime profile refs, safe display labels,
 role, configured status, authority posture, workspace and memory scope refs,
-toolset posture, profile health, blocked reasons, and proof refs. It does not
-create profiles, delete profiles, write runtime config, copy sensitive
-material, change runtime defaults, allow cross-profile authority bleed, expose
-raw delegated profile names, or expose workspace paths.
+toolset posture, profile health, blocked reasons, proof refs, AuthorityState
+route/CLI/mapping/catalog/decision/reason refs, unsupported adapter refs, and a
+decision-bound snapshot hash for
+`lane-ref:runtime-profile-isolation-read-model`. It does not create profiles,
+delete profiles, write runtime config, copy sensitive material, change runtime
+defaults, live-activate delegated profiles, execute tools, call providers, write
+memory, allow cross-profile authority bleed, expose raw delegated profile names,
+or expose workspace paths.
 Capability, invocation, policy, approval-ref, receipt, and safe-disable records
 store safe refs and redacted metadata only; model output is untrusted proposal
 text, and command output is redacted and bounded. Remote provider/model calls,

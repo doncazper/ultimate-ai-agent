@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.authority import (
+    AuthorityDecisionCatalogEntry,
+    build_authority_decision_catalog,
+)
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
@@ -23,6 +29,19 @@ RUNTIME_PROFILE_ISOLATION_CONTRACT_REF = (
 RUNTIME_PROFILE_ISOLATION_ROUTE_REF = "GET /api/runtime/profiles"
 RUNTIME_PROFILE_ISOLATION_CLI_REF = "uaa runtime inspect-profiles"
 RUNTIME_PROFILE_ISOLATION_PROOF_REF = "proof-ref:runtime-profile-isolation:phase-06"
+RUNTIME_PROFILE_ISOLATION_SNAPSHOT_REF = (
+    "runtime-profile-isolation-snapshot-ref:uaa:metadata-only"
+)
+RUNTIME_PROFILE_ISOLATION_AUTHORITY_STATE_ROUTE_REF = (
+    "GET /api/runtime/authority-state"
+)
+RUNTIME_PROFILE_ISOLATION_AUTHORITY_STATE_CLI_REF = (
+    "repo-local-command:uaa-runtime-inspect-authority-state"
+)
+RUNTIME_PROFILE_ISOLATION_AUTHORITY_MAPPING_REF = (
+    "lane-ref:runtime-profile-isolation-read-model"
+)
+_AUTHORITY_DECISION_OUTCOMES = {"allow", "ask", "deny", "degrade_to_draft"}
 
 
 class RuntimeProfileRole(str, Enum):
@@ -135,8 +154,20 @@ class RuntimeProfileIsolationRecord(BaseModel):
 class RuntimeProfileIsolationReadModel(BaseModel):
     schema_version: str = "runtime_profile_isolation.v1"
     contract_ref: str = RUNTIME_PROFILE_ISOLATION_CONTRACT_REF
+    snapshot_ref: str = RUNTIME_PROFILE_ISOLATION_SNAPSHOT_REF
+    snapshot_hash_ref: str
     route_ref: str = RUNTIME_PROFILE_ISOLATION_ROUTE_REF
     cli_ref: str = RUNTIME_PROFILE_ISOLATION_CLI_REF
+    authority_state_route_ref: str
+    authority_state_cli_ref: str
+    authority_state_mapping_ref: str
+    authority_state_catalog_ref: str
+    authority_state_decision_ref: str
+    authority_state_decision_outcome: str
+    authority_state_status: str
+    authority_state_operator_message: str
+    authority_state_reason_refs: list[str] = Field(default_factory=list)
+    unsupported_adapter_refs: list[str] = Field(default_factory=list)
     control_center_ref: str = RUNTIME_DELEGATION_CONTROL_CENTER_REF
     status: str = "profile_metadata_read_model_only"
     default_uaa_profile_ref: str = "runtime-profile-ref:uaa:sealed-default"
@@ -179,25 +210,47 @@ class RuntimeProfileIsolationReadModel(BaseModel):
     def validate_read_model(self) -> "RuntimeProfileIsolationReadModel":
         for value, field_name in [
             (self.contract_ref, "contract_ref"),
+            (self.snapshot_ref, "snapshot_ref"),
+            (self.snapshot_hash_ref, "snapshot_hash_ref"),
             (self.control_center_ref, "control_center_ref"),
             (self.default_uaa_profile_ref, "default_uaa_profile_ref"),
+            (self.authority_state_mapping_ref, "authority_state_mapping_ref"),
+            (self.authority_state_catalog_ref, "authority_state_catalog_ref"),
+            (self.authority_state_decision_ref, "authority_state_decision_ref"),
         ]:
             validate_execution_ref(value, field_name)
         for value, field_name in [
             (self.schema_version, "schema_version"),
             (self.route_ref, "route_ref"),
             (self.cli_ref, "cli_ref"),
+            (self.authority_state_route_ref, "authority_state_route_ref"),
+            (self.authority_state_cli_ref, "authority_state_cli_ref"),
+            (
+                self.authority_state_decision_outcome,
+                "authority_state_decision_outcome",
+            ),
+            (self.authority_state_status, "authority_state_status"),
+            (
+                self.authority_state_operator_message,
+                "authority_state_operator_message",
+            ),
             (self.status, "status"),
             (self.safe_summary, "safe_summary"),
         ]:
             validate_safe_execution_text(value, field_name)
         for field_name in (
+            "authority_state_reason_refs",
+            "unsupported_adapter_refs",
             "blocked_authority_refs",
             "proof_refs",
             "next_safe_action_refs",
         ):
             for ref in getattr(self, field_name):
                 validate_execution_ref(ref, field_name)
+        if self.authority_state_mapping_ref != RUNTIME_PROFILE_ISOLATION_AUTHORITY_MAPPING_REF:
+            raise ValueError("RUNTIME_PROFILE_ISOLATION_AUTHORITY_MAPPING_MISMATCH")
+        if self.authority_state_decision_outcome not in _AUTHORITY_DECISION_OUTCOMES:
+            raise ValueError("RUNTIME_PROFILE_ISOLATION_AUTHORITY_DECISION_INVALID")
         if self.profile_count != len(self.profiles):
             raise ValueError("RUNTIME_PROFILE_ISOLATION_PROFILE_COUNT_DRIFT")
         if self.configured_profile_count != len(
@@ -293,6 +346,16 @@ def _profile_record(
 
 
 def build_runtime_profile_isolation_read_model() -> RuntimeProfileIsolationReadModel:
+    authority_entry = _authority_entry(authority_decision_catalog=None)
+    return build_runtime_profile_isolation_read_model_from_authority_catalog(
+        authority_decision_catalog=[authority_entry]
+    )
+
+
+def build_runtime_profile_isolation_read_model_from_authority_catalog(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None = None,
+) -> RuntimeProfileIsolationReadModel:
+    authority_entry = _authority_entry(authority_decision_catalog)
     profiles = [
         _profile_record(
             RuntimeProfileRole.coding,
@@ -344,6 +407,19 @@ def build_runtime_profile_isolation_read_model() -> RuntimeProfileIsolationReadM
         "blocked-authority:runtime-profile-cross-profile-authority",
     ]
     return RuntimeProfileIsolationReadModel(
+        snapshot_hash_ref=_snapshot_hash_ref(profiles, authority_entry),
+        authority_state_route_ref=RUNTIME_PROFILE_ISOLATION_AUTHORITY_STATE_ROUTE_REF,
+        authority_state_cli_ref=RUNTIME_PROFILE_ISOLATION_AUTHORITY_STATE_CLI_REF,
+        authority_state_mapping_ref=authority_entry.lane_ref,
+        authority_state_catalog_ref=authority_entry.catalog_ref,
+        authority_state_decision_ref=authority_entry.decision.decision_ref,
+        authority_state_decision_outcome=_authority_value(
+            authority_entry.decision.outcome
+        ),
+        authority_state_status=authority_entry.status,
+        authority_state_operator_message=authority_entry.decision.operator_message,
+        authority_state_reason_refs=list(authority_entry.decision.reason_refs),
+        unsupported_adapter_refs=list(authority_entry.unsupported_adapter_refs),
         profiles=profiles,
         profile_count=len(profiles),
         configured_profile_count=len(
@@ -374,3 +450,34 @@ def build_runtime_profile_isolation_read_model() -> RuntimeProfileIsolationReadM
             "next-safe-action-ref:runtime-profile-isolation:add-cli-audit-receipts",
         ],
     )
+
+
+def _snapshot_hash_ref(
+    profiles: list[RuntimeProfileIsolationRecord],
+    authority_entry: AuthorityDecisionCatalogEntry,
+) -> str:
+    payload = {
+        "contract_ref": RUNTIME_PROFILE_ISOLATION_CONTRACT_REF,
+        "snapshot_ref": RUNTIME_PROFILE_ISOLATION_SNAPSHOT_REF,
+        "authority_state_decision_ref": authority_entry.decision.decision_ref,
+        "authority_state_decision_outcome": _authority_value(
+            authority_entry.decision.outcome
+        ),
+        "profiles": [profile.model_dump(mode="json") for profile in profiles],
+    }
+    digest = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+    return f"snapshot-hash-ref:runtime-profile-isolation:{digest[:16]}"
+
+
+def _authority_entry(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None,
+) -> AuthorityDecisionCatalogEntry:
+    catalog = authority_decision_catalog or build_authority_decision_catalog()
+    for entry in catalog:
+        if entry.lane_ref == RUNTIME_PROFILE_ISOLATION_AUTHORITY_MAPPING_REF:
+            return entry
+    raise ValueError("RUNTIME_PROFILE_ISOLATION_AUTHORITY_MAPPING_MISSING")
+
+
+def _authority_value(value: object) -> str:
+    return str(getattr(value, "value", value))

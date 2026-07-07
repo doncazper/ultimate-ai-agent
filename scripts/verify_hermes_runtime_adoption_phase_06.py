@@ -12,6 +12,9 @@ os.environ.setdefault("UAA_API_LOCAL_AUTH_DISABLED_FOR_DEV_ONLY", "1")
 
 from ultimate_ai_agent.api.app import app  # noqa: E402
 from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
+    RUNTIME_PROFILE_ISOLATION_AUTHORITY_MAPPING_REF,
+    RUNTIME_PROFILE_ISOLATION_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_PROFILE_ISOLATION_AUTHORITY_STATE_ROUTE_REF,
     build_runtime_profile_isolation_read_model,
 )
 
@@ -29,6 +32,33 @@ def _assert_profiles_payload(payload: dict[str, object]) -> None:
         _fail("runtime profiles route ref drifted")
     if payload.get("cli_ref") != "uaa runtime inspect-profiles":
         _fail("runtime profiles CLI ref drifted")
+    if (
+        payload.get("authority_state_route_ref")
+        != RUNTIME_PROFILE_ISOLATION_AUTHORITY_STATE_ROUTE_REF
+    ):
+        _fail("runtime profiles AuthorityState route ref drifted")
+    if (
+        payload.get("authority_state_cli_ref")
+        != RUNTIME_PROFILE_ISOLATION_AUTHORITY_STATE_CLI_REF
+    ):
+        _fail("runtime profiles AuthorityState CLI ref drifted")
+    if (
+        payload.get("authority_state_mapping_ref")
+        != RUNTIME_PROFILE_ISOLATION_AUTHORITY_MAPPING_REF
+    ):
+        _fail("runtime profiles AuthorityState mapping ref drifted")
+    if payload.get("authority_state_decision_outcome") != "allow":
+        _fail("runtime profiles read model must be allowed under read-only authority")
+    if not str(payload.get("authority_state_decision_ref", "")).startswith(
+        "authority-policy-decision-ref:"
+    ):
+        _fail("runtime profiles decision ref is invalid")
+    unsupported_adapters = payload.get("unsupported_adapter_refs")
+    if not isinstance(unsupported_adapters, list) or (
+        "adapter-ref:runtime-profile-provider-call:not-implemented"
+        not in unsupported_adapters
+    ):
+        _fail("runtime profiles unsupported provider adapter ref is missing")
     if payload.get("uaa_profile_refs_separate_from_delegated_runtime_refs") is not True:
         _fail("UAA profile refs must stay separate from delegated runtime refs")
     if payload.get("safe_refs_only") is not True:
@@ -130,6 +160,13 @@ def main() -> None:
         text=True,
     )
     cli_payload = json.loads(result.stdout)
+    authority_state = cli_payload.get("authority_state", {})
+    if not isinstance(authority_state, dict):
+        _fail("CLI authority state summary is missing")
+    if authority_state.get("mapping_ref") != RUNTIME_PROFILE_ISOLATION_AUTHORITY_MAPPING_REF:
+        _fail("CLI authority state mapping ref drifted")
+    if authority_state.get("decision_outcome") != "allow":
+        _fail("CLI authority state decision outcome drifted")
     for flag in [
         "execution_performed",
         "profile_creation_performed",

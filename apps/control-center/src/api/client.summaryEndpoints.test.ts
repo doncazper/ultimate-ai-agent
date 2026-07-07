@@ -402,6 +402,13 @@ describe("loadControlCenterData summary endpoint wiring", () => {
     expect(data.runtimeProfiles.runtime_config_write_enabled).toBe(false);
     expect(data.runtimeProfiles.sensitive_material_copy_enabled).toBe(false);
     expect(data.runtimeProfiles.cross_profile_authority_bleed_allowed).toBe(false);
+    expect(data.runtimeProfiles.authority_state_mapping_ref).toBe(
+      "lane-ref:runtime-profile-isolation-read-model",
+    );
+    expect(data.runtimeProfiles.authority_state_decision_outcome).toBe("allow");
+    expect(data.runtimeProfiles.unsupported_adapter_refs).toContain(
+      "adapter-ref:runtime-profile-provider-call:not-implemented",
+    );
     expect(data.routeStates["/runtime"].state).toBe("mock_fallback");
     expect(data.routeStates["/runtime"].backendRouteRefs).toContain(
       "GET /api/runtime/profiles",

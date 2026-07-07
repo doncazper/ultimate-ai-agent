@@ -8215,6 +8215,19 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText("Runtime profiles")).toBeInTheDocument();
     expect(screen.getByText("GET /api/runtime/profiles")).toBeInTheDocument();
     expect(screen.getByText("uaa runtime inspect-profiles")).toBeInTheDocument();
+    expect(
+      screen.getByText("lane-ref:runtime-profile-isolation-read-model"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "authority-decision-ref:runtime-profile-isolation-read-model:allow",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "adapter-ref:runtime-profile-provider-call:not-implemented",
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText("Isolated profile metadata")).toBeInTheDocument();
     expect(screen.getByText("Approval bridge")).toBeInTheDocument();
     expect(

@@ -158,10 +158,14 @@ from ultimate_ai_agent.core.runtime_gateway.streaming_progress import (
     build_runtime_streaming_progress_read_model_from_authority_catalog,
 )
 from ultimate_ai_agent.core.runtime_gateway.profile_isolation import (
+    RUNTIME_PROFILE_ISOLATION_AUTHORITY_MAPPING_REF,
+    RUNTIME_PROFILE_ISOLATION_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_PROFILE_ISOLATION_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_PROFILE_ISOLATION_CLI_REF,
     RUNTIME_PROFILE_ISOLATION_CONTRACT_REF,
     RUNTIME_PROFILE_ISOLATION_PROOF_REF,
     RUNTIME_PROFILE_ISOLATION_ROUTE_REF,
+    RUNTIME_PROFILE_ISOLATION_SNAPSHOT_REF,
     RuntimeProfileAuthorityPosture,
     RuntimeProfileConfiguredStatus,
     RuntimeProfileHealth,
@@ -169,6 +173,7 @@ from ultimate_ai_agent.core.runtime_gateway.profile_isolation import (
     RuntimeProfileIsolationRecord,
     RuntimeProfileRole,
     build_runtime_profile_isolation_read_model,
+    build_runtime_profile_isolation_read_model_from_authority_catalog,
 )
 from ultimate_ai_agent.core.runtime_gateway.tool_registry import (
     RUNTIME_TOOL_REGISTRY_AUTHORITY_MAPPING_REF,
@@ -819,6 +824,10 @@ __all__ = [
     "RuntimeStreamingProgressEventPreview",
     "RuntimeStreamingProgressReadModel",
     "RuntimeStreamingProgressStreamState",
+    "RUNTIME_PROFILE_ISOLATION_AUTHORITY_MAPPING_REF",
+    "RUNTIME_PROFILE_ISOLATION_AUTHORITY_STATE_CLI_REF",
+    "RUNTIME_PROFILE_ISOLATION_AUTHORITY_STATE_ROUTE_REF",
+    "RUNTIME_PROFILE_ISOLATION_SNAPSHOT_REF",
     "RuntimeCommandAllowlistEntry",
     "RuntimeCommandExecutionRequest",
     "RuntimeCommandGatewayResult",
@@ -1063,6 +1072,7 @@ __all__ = [
     "build_runtime_streaming_progress_read_model",
     "build_runtime_streaming_progress_read_model_from_authority_catalog",
     "build_runtime_profile_isolation_read_model",
+    "build_runtime_profile_isolation_read_model_from_authority_catalog",
     "build_runtime_tool_registry_availability_read_model",
     "build_runtime_tool_registry_availability_read_model_from_authority_catalog",
     "build_runtime_session_search_read_model",

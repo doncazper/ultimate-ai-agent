@@ -810,6 +810,25 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         ].decision.outcome
         == "allow"
     )
+    profile_isolation = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if mapping.lane_ref == "lane-ref:runtime-profile-isolation-read-model"
+    )
+    assert profile_isolation.domain == "workspace"
+    assert profile_isolation.capability == "read"
+    assert profile_isolation.required_mode == "read_only"
+    assert profile_isolation.status == "implemented_authority_bound_read_model"
+    assert "GET /api/runtime/profiles" in profile_isolation.route_refs
+    assert "adapter-ref:runtime-profile-provider-call:not-implemented" in (
+        profile_isolation.unsupported_adapter_refs
+    )
+    assert (
+        catalog_by_lane[
+            "lane-ref:runtime-profile-isolation-read-model"
+        ].decision.outcome
+        == "allow"
+    )
     browser_action = next(
         mapping
         for mapping in read_model.capability_mappings

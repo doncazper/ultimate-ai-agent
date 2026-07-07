@@ -2965,6 +2965,35 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ],
         ),
         _mapping(
+            "lane-ref:runtime-profile-isolation-read-model",
+            "Runtime profile isolation read model",
+            AuthorityDomain.workspace,
+            AuthorityCapability.read,
+            TrustMode.read_only,
+            "implemented_authority_bound_read_model",
+            ["GET /api/runtime/profiles"],
+            ["repo-local-command:uaa-runtime-inspect-profiles"],
+            (
+                "Runtime profile inspection reads isolated UAA and delegated "
+                "profile refs, scope refs, proof refs, blockers, and next safe "
+                "actions under Workspace read authority. Profile mutation, "
+                "live activation, tool execution, provider calls, memory "
+                "writes, sensitive copy, and cross profile authority remain "
+                "blocked."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:runtime-profile-create-delete:not-implemented",
+                "adapter-ref:runtime-profile-config-write:not-implemented",
+                "adapter-ref:runtime-profile-sensitive-copy:not-implemented",
+                "adapter-ref:runtime-profile-default-change:not-implemented",
+                "adapter-ref:runtime-profile-live-activation:not-implemented",
+                "adapter-ref:runtime-profile-tool-execution:not-implemented",
+                "adapter-ref:runtime-profile-provider-call:not-implemented",
+                "adapter-ref:runtime-profile-memory-write:not-implemented",
+                "adapter-ref:runtime-profile-cross-authority:not-implemented",
+            ],
+        ),
+        _mapping(
             "lane-ref:runtime-command-git-status",
             "Git status",
             AuthorityDomain.workspace,

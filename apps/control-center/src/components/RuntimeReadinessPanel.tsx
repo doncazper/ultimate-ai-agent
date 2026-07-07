@@ -3672,6 +3672,21 @@ export function RuntimeReadinessPanel({
             <dd>{profiles.cli_ref}</dd>
           </div>
           <div>
+            <dt>Authority</dt>
+            <dd>
+              {profiles.authority_state_decision_outcome} /{" "}
+              {profiles.authority_state_status}
+            </dd>
+          </div>
+          <div>
+            <dt>Capability mapping</dt>
+            <dd>{profiles.authority_state_mapping_ref}</dd>
+          </div>
+          <div>
+            <dt>Decision ref</dt>
+            <dd>{profiles.authority_state_decision_ref}</dd>
+          </div>
+          <div>
             <dt>Profiles</dt>
             <dd>{profiles.profile_count}</dd>
           </div>
@@ -3722,6 +3737,12 @@ export function RuntimeReadinessPanel({
         <h4>Isolation blockers</h4>
         <ul className="compact-list">
           {profiles.blocked_authority_refs.slice(0, 5).map((ref) => (
+            <li key={ref}>{ref}</li>
+          ))}
+        </ul>
+        <h4>Unsupported adapters</h4>
+        <ul className="compact-list">
+          {profiles.unsupported_adapter_refs.slice(0, 8).map((ref) => (
             <li key={ref}>{ref}</li>
           ))}
         </ul>

@@ -371,11 +371,15 @@ Contract rules:
   backend-owned runtime profile isolation posture for UAA-owned profile refs
   that are separate from delegated runtime profile refs, safe display labels,
   role, configured status, authority posture, workspace and memory scope refs,
-  toolset posture, profile health, blocked reasons, and proof refs. It is
-  read-model only and does not create profiles, delete profiles, write runtime
-  config, copy sensitive material, change runtime defaults, allow cross-profile
-  authority bleed, expose raw delegated profile names, or expose workspace
-  paths.
+  toolset posture, profile health, blocked reasons, proof refs, AuthorityState
+  route/CLI/mapping/catalog/decision/reason refs, unsupported adapter refs, and
+  a decision-bound snapshot hash for
+  `lane-ref:runtime-profile-isolation-read-model` under Read-only
+  `workspace/read`. It is read-model only and does not create profiles, delete
+  profiles, write runtime config, copy sensitive material, change runtime
+  defaults, live-activate delegated profiles, execute tools, call providers,
+  write memory, allow cross-profile authority bleed, expose raw delegated
+  profile names, or expose workspace paths.
   Phase 07
   preserves configured local loopback model calls and the exact read-only status
   command while adding exact Action Inbox approved focused pytest, repo verifier, and frontend check command execution

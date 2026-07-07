@@ -129,6 +129,11 @@ surfaces are:
   reconnect/resume, event ingestion, direct runtime subscription, raw
   runtime/tool/token/log/prompt/response persistence, and fake liveness remain
   blocked.
+  Runtime profile isolation exposes the Read-only `workspace/read` profile
+  metadata inspection decision while profile create/delete, runtime config
+  writes, default changes, live activation, tool execution, provider calls,
+  memory writes, sensitive material copy, cross-profile authority, raw delegated
+  profile names, and workspace path exposure remain blocked.
   These API/CLI surfaces remain safe-ref inspection only unless exact active
   leases, implemented adapters, and existing runtime gates pass.
 - `GET /api/runtime/authority-state#decision_summary` and

@@ -1,13 +1,14 @@
 # UAA Hermes Runtime Profile Isolation
 
-Status: Phase 06 repo-safe read model.
+Status: Phase 06 AuthorityState-bound repo-safe read model.
 
 UAA now exposes a backend-owned runtime profile isolation posture for optional
 Hermes delegation and future delegated runtimes. This is not a runtime profile
 manager. It models UAA-owned profile refs separately from delegated runtime
 profile refs, with safe display labels, role, configured status, authority
 posture, workspace scope ref, memory scope ref, toolset posture, health, proof
-refs, and blocked reasons.
+refs, blocked reasons, AuthorityState mapping refs, policy decision refs,
+reason refs, unsupported adapter refs, and a decision-bound snapshot hash.
 
 Implemented:
 
@@ -18,8 +19,11 @@ Implemented:
 - Workspace scope refs, memory scope refs, and toolset posture summaries.
 - `GET /api/runtime/profiles`.
 - `scripts/dev/uaa_runtime.py inspect-profiles`.
+- Authority mapping `lane-ref:runtime-profile-isolation-read-model` as
+  Read-only `workspace/read`.
 - Control Center `/runtime` display of route, CLI, profile counts, health,
-  authority posture, and profile isolation blockers.
+  authority posture, AuthorityState decision, profile isolation blockers, and
+  unsupported adapters.
 
 Blocked:
 

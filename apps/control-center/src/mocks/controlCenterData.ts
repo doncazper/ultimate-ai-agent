@@ -15413,8 +15413,36 @@ export const mockControlCenterData: ControlCenterData = {
   runtimeProfiles: {
     schema_version: "runtime_profile_isolation.v1",
     contract_ref: "contract-ref:runtime-profile-isolation:v1",
+    snapshot_ref: "runtime-profile-isolation-snapshot-ref:uaa:metadata-only",
+    snapshot_hash_ref: "snapshot-hash-ref:runtime-profile-isolation:mock",
     route_ref: "GET /api/runtime/profiles",
     cli_ref: "uaa runtime inspect-profiles",
+    authority_state_route_ref: "GET /api/runtime/authority-state",
+    authority_state_cli_ref:
+      "repo-local-command:uaa-runtime-inspect-authority-state",
+    authority_state_mapping_ref: "lane-ref:runtime-profile-isolation-read-model",
+    authority_state_catalog_ref:
+      "authority-catalog-ref:runtime-profile-isolation-read-model",
+    authority_state_decision_ref:
+      "authority-decision-ref:runtime-profile-isolation-read-model:allow",
+    authority_state_decision_outcome: "allow",
+    authority_state_status: "implemented_authority_bound_read_model",
+    authority_state_operator_message:
+      "Read-only mode allows profile isolation inspection; profile mutation, live activation, provider calls, tool execution, and memory writes remain unavailable.",
+    authority_state_reason_refs: [
+      "reason-ref:authority:active-lease-grants-domain-capability",
+    ],
+    unsupported_adapter_refs: [
+      "adapter-ref:runtime-profile-create-delete:not-implemented",
+      "adapter-ref:runtime-profile-config-write:not-implemented",
+      "adapter-ref:runtime-profile-sensitive-copy:not-implemented",
+      "adapter-ref:runtime-profile-default-change:not-implemented",
+      "adapter-ref:runtime-profile-live-activation:not-implemented",
+      "adapter-ref:runtime-profile-tool-execution:not-implemented",
+      "adapter-ref:runtime-profile-provider-call:not-implemented",
+      "adapter-ref:runtime-profile-memory-write:not-implemented",
+      "adapter-ref:runtime-profile-cross-authority:not-implemented",
+    ],
     control_center_ref: "control-center-route:runtime",
     status: "profile_metadata_read_model_only",
     default_uaa_profile_ref: "runtime-profile-ref:uaa:sealed-default",
