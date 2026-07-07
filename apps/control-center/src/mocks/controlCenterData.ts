@@ -15606,6 +15606,31 @@ export const mockControlCenterData: ControlCenterData = {
     cli_ref: "uaa runtime inspect-tool-registry",
     control_center_ref: "control-center-route:runtime",
     capability_discovery_route_ref: "GET /api/runtime/capability-discovery",
+    authority_state_route_ref: "GET /api/runtime/authority-state",
+    authority_state_cli_ref:
+      "repo-local-command:uaa-runtime-inspect-authority-state",
+    authority_state_mapping_ref: "lane-ref:runtime-tool-registry-read-model",
+    authority_state_catalog_ref:
+      "authority-catalog-ref:runtime-tool-registry-read-model",
+    authority_state_decision_ref:
+      "authority-decision-ref:runtime-tool-registry-read-model:allow",
+    authority_state_decision_outcome: "allow",
+    authority_state_status: "implemented_authority_bound_read_model",
+    authority_state_operator_message:
+      "Read-only mode allows runtime tool registry inspection; tool invocation and high-authority tool adapters remain unavailable.",
+    authority_state_reason_refs: [
+      "reason-ref:authority:active-lease-grants-domain-capability",
+    ],
+    unsupported_adapter_refs: [
+      "adapter-ref:runtime-tool-invocation:not-implemented",
+      "adapter-ref:runtime-tool-execution:not-implemented",
+      "adapter-ref:runtime-tool-remote-discovery:not-implemented",
+      "adapter-ref:runtime-tool-web-fetch:not-implemented",
+      "adapter-ref:runtime-tool-provider-call:not-implemented",
+      "adapter-ref:runtime-tool-plugin-import:not-implemented",
+      "adapter-ref:runtime-tool-connector-write:not-implemented",
+      "adapter-ref:runtime-tool-raw-payload:not-implemented",
+    ],
     safe_summary:
       "Runtime tool registry mock fallback is static metadata; tool invocation remains blocked.",
     entries: runtimeToolRegistryEntries,

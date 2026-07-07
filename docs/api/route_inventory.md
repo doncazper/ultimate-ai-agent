@@ -188,7 +188,8 @@ mutation, raw tool payload persistence, and production authority disabled.
 Hermes Runtime Adoption Phase 10 tool registry availability posture for
 UAA-native preview tools and delegated Hermes/Codex/Claude/MCP/future runtime
 tool references. It records availability, configured status, authority class,
-side-effect class, risk, blocker refs, proof refs, and next safe actions while
+side-effect class, risk, blocker refs, proof refs, next safe actions,
+AuthorityState mapping/decision refs, and unsupported adapter refs while
 keeping tool invocation, remote discovery, live web fetch, provider/model call,
 plugin import, connector write activation, raw tool payload persistence, and
 production authority disabled.

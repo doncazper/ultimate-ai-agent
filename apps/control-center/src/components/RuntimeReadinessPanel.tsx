@@ -3331,6 +3331,22 @@ export function RuntimeReadinessPanel({
             <dd>{toolRegistry.cli_ref}</dd>
           </div>
           <div>
+            <dt>Authority</dt>
+            <dd>{toolRegistry.authority_state_route_ref}</dd>
+          </div>
+          <div>
+            <dt>Capability mapping</dt>
+            <dd>{toolRegistry.authority_state_mapping_ref}</dd>
+          </div>
+          <div>
+            <dt>Decision</dt>
+            <dd>{toolRegistry.authority_state_decision_outcome}</dd>
+          </div>
+          <div>
+            <dt>Decision ref</dt>
+            <dd>{toolRegistry.authority_state_decision_ref}</dd>
+          </div>
+          <div>
             <dt>Tools</dt>
             <dd>{toolRegistry.tool_count}</dd>
           </div>
@@ -3345,6 +3361,28 @@ export function RuntimeReadinessPanel({
           <div>
             <dt>Remote discovery</dt>
             <dd>{toolRegistry.remote_discovery_enabled ? "enabled" : "blocked"}</dd>
+          </div>
+        </dl>
+        <dl className="detail-grid">
+          <div>
+            <dt>Unsupported adapters</dt>
+            <dd>
+              <ul className="compact-list">
+                {toolRegistry.unsupported_adapter_refs.slice(0, 4).map((ref) => (
+                  <li key={ref}>{ref}</li>
+                ))}
+              </ul>
+            </dd>
+          </div>
+          <div>
+            <dt>Authority reason</dt>
+            <dd>
+              <ul className="compact-list">
+                {toolRegistry.authority_state_reason_refs.map((ref) => (
+                  <li key={ref}>{ref}</li>
+                ))}
+              </ul>
+            </dd>
           </div>
         </dl>
         <div className="table-wrap">

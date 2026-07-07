@@ -7790,8 +7790,9 @@ describe("Web Control Center shell", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("adapter-ref:runtime-tool-invocation:not-implemented"),
-    ).toBeInTheDocument();
+      screen.getAllByText("adapter-ref:runtime-tool-invocation:not-implemented")
+        .length,
+    ).toBeGreaterThan(0);
     expect(screen.getByText("Toolset posture")).toBeInTheDocument();
     expect(screen.getByText("Runtime support vs UAA allowance")).toBeInTheDocument();
     expect(screen.getByText("Coding workspace tools")).toBeInTheDocument();
@@ -7805,6 +7806,18 @@ describe("Web Control Center shell", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Tool registry")).toBeInTheDocument();
     expect(screen.getByText("Availability and authority")).toBeInTheDocument();
+    expect(
+      screen.getByText("lane-ref:runtime-tool-registry-read-model"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "authority-decision-ref:runtime-tool-registry-read-model:allow",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("adapter-ref:runtime-tool-invocation:not-implemented")
+        .length,
+    ).toBeGreaterThan(0);
     expect(screen.getByText("Virtual provider")).toBeInTheDocument();
     expect(screen.getByText("Multi-agent preset posture")).toBeInTheDocument();
     expect(

@@ -1,15 +1,16 @@
 # UAA Hermes Runtime Tool Registry Availability
 
-Status: Phase 10 repo-safe read model.
+Status: Phase 10 repo-safe read model, AuthorityState-bound.
 
 UAA now exposes a backend-owned runtime tool registry availability posture. It
 lists UAA-native preview tools and delegated runtime tool references with
 availability, configured status, authority class, side-effect class, risk, safe
 summary, blocker refs, proof refs, and next safe actions.
 
-This is registry visibility, not tool invocation. UAA does not discover remote
-tools live, import plugins, activate connector writes, call models/providers,
-execute delegated runtime tools, or persist raw tool payloads.
+This is Read-only `workspace/read` inspection through
+`lane-ref:runtime-tool-registry-read-model`, not tool invocation. UAA does not
+discover remote tools live, import plugins, activate connector writes, call
+models/providers, execute delegated runtime tools, or persist raw tool payloads.
 
 Implemented:
 
@@ -34,7 +35,18 @@ Implemented:
 - CLI/API/UI parity through `GET /api/runtime/tool-registry`,
   `scripts/dev/uaa_runtime.py inspect-tool-registry`, and Control Center
   `/runtime`.
+- AuthorityState route, CLI, mapping, decision outcome, reason refs, and
+  unsupported adapter refs from `GET /api/runtime/authority-state`.
 - Verifier coverage in `scripts/verify_hermes_runtime_adoption_phase_10.py`.
+
+AuthorityState:
+
+- AuthorityState route: `GET /api/runtime/authority-state`
+- AuthorityState CLI: `repo-local-command:uaa-runtime-inspect-authority-state`
+- mapping ref: `lane-ref:runtime-tool-registry-read-model`
+- domain/capability: `workspace/read`
+- required mode: `read_only`
+- status: `implemented_authority_bound_read_model`
 
 Blocked:
 
@@ -50,7 +62,7 @@ Blocked:
 - Production operations authority.
 - Raw tool payload persistence.
 
-Promotion path:
+Exact authority path:
 
 1. Pick one exact tool lane and side-effect class.
 2. Define per-tool approval scope, idempotency key, and stale-approval denial.

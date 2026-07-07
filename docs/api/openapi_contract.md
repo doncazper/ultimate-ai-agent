@@ -121,8 +121,9 @@ Contract rules:
   10 backend-owned runtime tool registry availability posture. It lists
   UAA-native preview tools and delegated Hermes/Codex/Claude/MCP/future runtime
   tool references with availability, configured status, authority class,
-  side-effect class, risk, blocker refs, proof refs, and next safe actions. It
-  is read-only metadata only and does not invoke tools, perform remote
+  side-effect class, risk, blocker refs, proof refs, next safe actions,
+  AuthorityState mapping/decision refs, and unsupported adapter refs. It is
+  Read-only `workspace/read` inspection only and does not invoke tools, perform remote
   discovery, fetch the web, call providers/models, import plugins, activate
   connector writes, persist raw tool payloads, or grant production authority.
   `GET /api/runtime/session-search` exposes the Hermes Runtime Adoption Phase

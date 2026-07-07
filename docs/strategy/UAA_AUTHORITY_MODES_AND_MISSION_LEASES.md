@@ -111,6 +111,10 @@ surfaces are:
   toolset configuration mutation, Hermes toolset enablement, browser
   automation, connector writes, provider calls, plugin runtime import, raw
   runtime/tool payload persistence, and production authority remain blocked.
+  Tool registry availability exposes the Read-only `workspace/read` registry
+  decision while tool invocation, execution, remote discovery, live web fetch,
+  provider calls, plugin import, connector write activation, raw tool payload
+  persistence, and production authority remain blocked.
   These API/CLI surfaces remain safe-ref inspection only unless exact active
   leases, implemented adapters, and existing runtime gates pass.
 - `GET /api/runtime/authority-state#decision_summary` and

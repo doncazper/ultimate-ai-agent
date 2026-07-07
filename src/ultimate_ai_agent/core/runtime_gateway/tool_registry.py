@@ -6,6 +6,10 @@ from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.authority import (
+    AuthorityDecisionCatalogEntry,
+    build_authority_decision_catalog,
+)
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
@@ -40,6 +44,14 @@ RUNTIME_TOOL_REGISTRY_SNAPSHOT_REF = (
 RUNTIME_TOOL_REGISTRY_PROOF_REF = (
     "proof-ref:hermes-runtime-adoption:phase-10:tool-registry"
 )
+RUNTIME_TOOL_REGISTRY_AUTHORITY_STATE_ROUTE_REF = "GET /api/runtime/authority-state"
+RUNTIME_TOOL_REGISTRY_AUTHORITY_STATE_CLI_REF = (
+    "repo-local-command:uaa-runtime-inspect-authority-state"
+)
+RUNTIME_TOOL_REGISTRY_AUTHORITY_MAPPING_REF = (
+    "lane-ref:runtime-tool-registry-read-model"
+)
+_AUTHORITY_DECISION_OUTCOMES = {"allow", "ask", "deny", "degrade_to_draft"}
 
 
 class RuntimeToolAvailabilityStatus(str, Enum):
@@ -179,6 +191,16 @@ class RuntimeToolRegistryAvailabilityReadModel(BaseModel):
     cli_ref: str = RUNTIME_TOOL_REGISTRY_CLI_REF
     control_center_ref: str = RUNTIME_DELEGATION_CONTROL_CENTER_REF
     capability_discovery_route_ref: str = RUNTIME_CAPABILITY_DISCOVERY_ROUTE_REF
+    authority_state_route_ref: str
+    authority_state_cli_ref: str
+    authority_state_mapping_ref: str
+    authority_state_catalog_ref: str
+    authority_state_decision_ref: str
+    authority_state_decision_outcome: str
+    authority_state_status: str
+    authority_state_operator_message: str
+    authority_state_reason_refs: list[str] = Field(default_factory=list)
+    unsupported_adapter_refs: list[str] = Field(default_factory=list)
     safe_summary: str = (
         "Runtime tool registry availability is static metadata; tool invocation, "
         "remote discovery, imports, connector activation, and runtime writes remain blocked."
@@ -221,9 +243,14 @@ class RuntimeToolRegistryAvailabilityReadModel(BaseModel):
             (self.snapshot_ref, "snapshot_ref"),
             (self.snapshot_hash_ref, "snapshot_hash_ref"),
             (self.control_center_ref, "control_center_ref"),
+            (self.authority_state_mapping_ref, "authority_state_mapping_ref"),
+            (self.authority_state_catalog_ref, "authority_state_catalog_ref"),
+            (self.authority_state_decision_ref, "authority_state_decision_ref"),
         ]:
             validate_execution_ref(value, field_name)
         for field_name in (
+            "authority_state_reason_refs",
+            "unsupported_adapter_refs",
             "blocked_authority_refs",
             "proof_refs",
             "verifier_refs",
@@ -237,6 +264,17 @@ class RuntimeToolRegistryAvailabilityReadModel(BaseModel):
             (self.route_ref, "route_ref"),
             (self.cli_ref, "cli_ref"),
             (self.capability_discovery_route_ref, "capability_discovery_route_ref"),
+            (self.authority_state_route_ref, "authority_state_route_ref"),
+            (self.authority_state_cli_ref, "authority_state_cli_ref"),
+            (
+                self.authority_state_decision_outcome,
+                "authority_state_decision_outcome",
+            ),
+            (self.authority_state_status, "authority_state_status"),
+            (
+                self.authority_state_operator_message,
+                "authority_state_operator_message",
+            ),
             (self.safe_summary, "safe_summary"),
         ]:
             validate_safe_execution_text(str(value), field_name)
@@ -281,6 +319,10 @@ class RuntimeToolRegistryAvailabilityReadModel(BaseModel):
             raise ValueError("RUNTIME_TOOL_REGISTRY_PREVIEW_COUNT_MISMATCH")
         if self.invocation_enabled_count != 0:
             raise ValueError("RUNTIME_TOOL_REGISTRY_INVOCATION_COUNT_DENIED")
+        if self.authority_state_mapping_ref != RUNTIME_TOOL_REGISTRY_AUTHORITY_MAPPING_REF:
+            raise ValueError("RUNTIME_TOOL_REGISTRY_AUTHORITY_MAPPING_MISMATCH")
+        if self.authority_state_decision_outcome not in _AUTHORITY_DECISION_OUTCOMES:
+            raise ValueError("RUNTIME_TOOL_REGISTRY_AUTHORITY_DECISION_INVALID")
         denied_flags = {
             "tool_invocation_enabled": self.tool_invocation_enabled,
             "remote_discovery_enabled": self.remote_discovery_enabled,
@@ -595,10 +637,17 @@ def _build_entries() -> list[RuntimeToolRegistryEntry]:
     return [*native_entries, *reference_entries]
 
 
-def _snapshot_hash_ref(entries: list[RuntimeToolRegistryEntry]) -> str:
+def _snapshot_hash_ref(
+    entries: list[RuntimeToolRegistryEntry],
+    authority_entry: AuthorityDecisionCatalogEntry,
+) -> str:
     payload = {
         "contract_ref": RUNTIME_TOOL_REGISTRY_CONTRACT_REF,
         "snapshot_ref": RUNTIME_TOOL_REGISTRY_SNAPSHOT_REF,
+        "authority_state_decision_ref": authority_entry.decision.decision_ref,
+        "authority_state_decision_outcome": _authority_value(
+            authority_entry.decision.outcome
+        ),
         "entries": [entry.model_dump(mode="json") for entry in entries],
     }
     digest = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
@@ -608,10 +657,32 @@ def _snapshot_hash_ref(entries: list[RuntimeToolRegistryEntry]) -> str:
 def build_runtime_tool_registry_availability_read_model() -> (
     RuntimeToolRegistryAvailabilityReadModel
 ):
+    authority_entry = _authority_entry(authority_decision_catalog=None)
+    return build_runtime_tool_registry_availability_read_model_from_authority_catalog(
+        authority_decision_catalog=[authority_entry]
+    )
+
+
+def build_runtime_tool_registry_availability_read_model_from_authority_catalog(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None = None,
+) -> RuntimeToolRegistryAvailabilityReadModel:
+    authority_entry = _authority_entry(authority_decision_catalog)
     entries = _build_entries()
     return RuntimeToolRegistryAvailabilityReadModel(
-        snapshot_hash_ref=_snapshot_hash_ref(entries),
+        snapshot_hash_ref=_snapshot_hash_ref(entries, authority_entry),
         entries=entries,
+        authority_state_route_ref=RUNTIME_TOOL_REGISTRY_AUTHORITY_STATE_ROUTE_REF,
+        authority_state_cli_ref=RUNTIME_TOOL_REGISTRY_AUTHORITY_STATE_CLI_REF,
+        authority_state_mapping_ref=authority_entry.lane_ref,
+        authority_state_catalog_ref=authority_entry.catalog_ref,
+        authority_state_decision_ref=authority_entry.decision.decision_ref,
+        authority_state_decision_outcome=_authority_value(
+            authority_entry.decision.outcome
+        ),
+        authority_state_status=authority_entry.status,
+        authority_state_operator_message=authority_entry.decision.operator_message,
+        authority_state_reason_refs=list(authority_entry.decision.reason_refs),
+        unsupported_adapter_refs=list(authority_entry.unsupported_adapter_refs),
         tool_count=len(entries),
         uaa_native_count=sum(
             1 for entry in entries if entry.origin == RuntimeToolOrigin.uaa_native.value
@@ -676,3 +747,17 @@ def build_runtime_tool_registry_availability_read_model() -> (
             "next-safe-action-ref:runtime-tool-registry:add-safe-disable-and-rollback",
         ],
     )
+
+
+def _authority_entry(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None,
+) -> AuthorityDecisionCatalogEntry:
+    catalog = authority_decision_catalog or build_authority_decision_catalog()
+    for entry in catalog:
+        if entry.lane_ref == RUNTIME_TOOL_REGISTRY_AUTHORITY_MAPPING_REF:
+            return entry
+    raise ValueError("RUNTIME_TOOL_REGISTRY_AUTHORITY_MAPPING_MISSING")
+
+
+def _authority_value(value: object) -> str:
+    return str(getattr(value, "value", value))

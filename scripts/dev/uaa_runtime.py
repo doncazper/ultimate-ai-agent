@@ -85,7 +85,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_runtime_session_search_read_model,
     build_runtime_session_lineage_read_model,
     build_runtime_streaming_progress_read_model,
-    build_runtime_tool_registry_availability_read_model,
+    build_runtime_tool_registry_availability_read_model_from_authority_catalog,
     build_runtime_usage_cost_analytics_read_model,
     build_runtime_virtual_provider_moa_read_model,
     build_runtime_action_signed_evidence,
@@ -508,6 +508,13 @@ def _print_tool_registry(read_model: dict[str, Any]) -> None:
     print(f"Snapshot hash: {read_model['snapshot_hash_ref']}")
     print(f"Route: {read_model['route_ref']}")
     print(f"CLI: {read_model['cli_ref']}")
+    print(f"Authority state: {read_model['authority_state_route_ref']}")
+    print(f"Authority mapping: {read_model['authority_state_mapping_ref']}")
+    print(
+        "Authority decision: "
+        f"{read_model['authority_state_decision_outcome']} "
+        f"({read_model['authority_state_decision_ref']})"
+    )
     print(f"Tools: {read_model['tool_count']}")
     print(f"UAA-native tools: {read_model['uaa_native_count']}")
     print(f"Delegated references: {read_model['delegated_reference_count']}")
@@ -2606,9 +2613,10 @@ def _inspect_capability_discovery(args: argparse.Namespace) -> int:
 
 
 def _inspect_tool_registry(args: argparse.Namespace) -> int:
-    read_model = build_runtime_tool_registry_availability_read_model().model_dump(
-        mode="json"
-    )
+    authority_state = AuthorityLeaseStore().build_state_read_model()
+    read_model = build_runtime_tool_registry_availability_read_model_from_authority_catalog(
+        authority_decision_catalog=authority_state.decision_catalog,
+    ).model_dump(mode="json")
     payload = {
         "schema_version": "governed-runtime-cli:v1",
         "command_ref": "repo-local-command:uaa-runtime-inspect-tool-registry",

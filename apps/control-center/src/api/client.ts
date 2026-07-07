@@ -4494,6 +4494,31 @@ function isSafeRuntimeToolRegistry(
   return (
     value.schema_version === "runtime_tool_registry_availability.v1" &&
     value.status === "read_only_tool_registry_availability" &&
+    value.route_ref === "GET /api/runtime/tool-registry" &&
+    value.cli_ref === "uaa runtime inspect-tool-registry" &&
+    value.capability_discovery_route_ref ===
+      "GET /api/runtime/capability-discovery" &&
+    value.authority_state_route_ref === "GET /api/runtime/authority-state" &&
+    value.authority_state_cli_ref ===
+      "repo-local-command:uaa-runtime-inspect-authority-state" &&
+    value.authority_state_mapping_ref ===
+      "lane-ref:runtime-tool-registry-read-model" &&
+    isSafeTrustAuthorityRef(value.authority_state_catalog_ref) &&
+    isSafeTrustAuthorityRef(value.authority_state_decision_ref) &&
+    TRUST_AUTHORITY_DECISION_OUTCOMES.includes(
+      value.authority_state_decision_outcome,
+    ) &&
+    typeof value.authority_state_status === "string" &&
+    value.authority_state_status.length > 0 &&
+    typeof value.authority_state_operator_message === "string" &&
+    value.authority_state_operator_message.length > 0 &&
+    isNonEmptyStringArray(value.authority_state_reason_refs) &&
+    value.authority_state_reason_refs.every(isSafeTrustAuthorityRef) &&
+    isNonEmptyStringArray(value.unsupported_adapter_refs) &&
+    value.unsupported_adapter_refs.includes(
+      "adapter-ref:runtime-tool-invocation:not-implemented",
+    ) &&
+    value.unsupported_adapter_refs.every(isSafeTrustAuthorityRef) &&
     value.tool_count === entryCount &&
     value.uaa_native_count === uaaNativeCount &&
     value.delegated_reference_count === delegatedReferenceCount &&

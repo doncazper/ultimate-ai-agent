@@ -156,6 +156,9 @@ from ultimate_ai_agent.core.runtime_gateway.profile_isolation import (
     build_runtime_profile_isolation_read_model,
 )
 from ultimate_ai_agent.core.runtime_gateway.tool_registry import (
+    RUNTIME_TOOL_REGISTRY_AUTHORITY_MAPPING_REF,
+    RUNTIME_TOOL_REGISTRY_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_TOOL_REGISTRY_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_TOOL_REGISTRY_CLI_REF,
     RUNTIME_TOOL_REGISTRY_CONTRACT_REF,
     RUNTIME_TOOL_REGISTRY_PROOF_REF,
@@ -168,6 +171,7 @@ from ultimate_ai_agent.core.runtime_gateway.tool_registry import (
     RuntimeToolRegistryAvailabilityReadModel,
     RuntimeToolRegistryEntry,
     build_runtime_tool_registry_availability_read_model,
+    build_runtime_tool_registry_availability_read_model_from_authority_catalog,
 )
 from ultimate_ai_agent.core.runtime_gateway.session_search import (
     RUNTIME_SESSION_SEARCH_BLOCKED_AUTHORITY_REFS,
@@ -702,6 +706,9 @@ __all__ = [
     "RUNTIME_PROFILE_ISOLATION_CONTRACT_REF",
     "RUNTIME_PROFILE_ISOLATION_PROOF_REF",
     "RUNTIME_PROFILE_ISOLATION_ROUTE_REF",
+    "RUNTIME_TOOL_REGISTRY_AUTHORITY_MAPPING_REF",
+    "RUNTIME_TOOL_REGISTRY_AUTHORITY_STATE_CLI_REF",
+    "RUNTIME_TOOL_REGISTRY_AUTHORITY_STATE_ROUTE_REF",
     "RUNTIME_TOOL_REGISTRY_CLI_REF",
     "RUNTIME_TOOL_REGISTRY_CONTRACT_REF",
     "RUNTIME_TOOL_REGISTRY_PROOF_REF",
@@ -1028,6 +1035,7 @@ __all__ = [
     "build_runtime_streaming_progress_read_model",
     "build_runtime_profile_isolation_read_model",
     "build_runtime_tool_registry_availability_read_model",
+    "build_runtime_tool_registry_availability_read_model_from_authority_catalog",
     "build_runtime_session_search_read_model",
     "build_runtime_session_lineage_read_model",
     "build_runtime_virtual_provider_moa_read_model",

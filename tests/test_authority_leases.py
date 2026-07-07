@@ -738,6 +738,23 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         ].decision.outcome
         == "allow"
     )
+    tool_registry = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if mapping.lane_ref == "lane-ref:runtime-tool-registry-read-model"
+    )
+    assert tool_registry.domain == "workspace"
+    assert tool_registry.capability == "read"
+    assert tool_registry.required_mode == "read_only"
+    assert tool_registry.status == "implemented_authority_bound_read_model"
+    assert "GET /api/runtime/tool-registry" in tool_registry.route_refs
+    assert "adapter-ref:runtime-tool-invocation:not-implemented" in (
+        tool_registry.unsupported_adapter_refs
+    )
+    assert (
+        catalog_by_lane["lane-ref:runtime-tool-registry-read-model"].decision.outcome
+        == "allow"
+    )
     browser_action = next(
         mapping
         for mapping in read_model.capability_mappings

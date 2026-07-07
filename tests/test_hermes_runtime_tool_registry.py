@@ -7,6 +7,10 @@ from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.runtime_gateway import (
+    RUNTIME_TOOL_REGISTRY_AUTHORITY_MAPPING_REF,
+    RUNTIME_TOOL_REGISTRY_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_TOOL_REGISTRY_AUTHORITY_STATE_ROUTE_REF,
+    RUNTIME_TOOL_REGISTRY_ROUTE_REF,
     RuntimeToolRegistryAvailabilityReadModel,
     build_runtime_tool_registry_availability_read_model,
 )
@@ -20,8 +24,28 @@ def test_runtime_tool_registry_is_read_only_availability() -> None:
 
     assert read_model.schema_version == "runtime_tool_registry_availability.v1"
     assert read_model.status == "read_only_tool_registry_availability"
-    assert read_model.route_ref == "GET /api/runtime/tool-registry"
+    assert read_model.route_ref == RUNTIME_TOOL_REGISTRY_ROUTE_REF
     assert read_model.cli_ref == "uaa runtime inspect-tool-registry"
+    assert (
+        read_model.authority_state_route_ref
+        == RUNTIME_TOOL_REGISTRY_AUTHORITY_STATE_ROUTE_REF
+    )
+    assert (
+        read_model.authority_state_cli_ref
+        == RUNTIME_TOOL_REGISTRY_AUTHORITY_STATE_CLI_REF
+    )
+    assert (
+        read_model.authority_state_mapping_ref
+        == RUNTIME_TOOL_REGISTRY_AUTHORITY_MAPPING_REF
+    )
+    assert read_model.authority_state_decision_outcome == "allow"
+    assert read_model.authority_state_status == "implemented_authority_bound_read_model"
+    assert "reason-ref:authority:active-lease-grants-domain-capability" in (
+        read_model.authority_state_reason_refs
+    )
+    assert "adapter-ref:runtime-tool-invocation:not-implemented" in (
+        read_model.unsupported_adapter_refs
+    )
     assert read_model.tool_count == 12
     assert read_model.uaa_native_count == 4
     assert read_model.delegated_reference_count == 8
@@ -98,6 +122,12 @@ def test_api_runtime_tool_registry_route_returns_safe_refs() -> None:
     assert body["success"] is True
     data = body["data"]
     assert data["schema_version"] == "runtime_tool_registry_availability.v1"
+    assert data["route_ref"] == RUNTIME_TOOL_REGISTRY_ROUTE_REF
+    assert (
+        data["authority_state_mapping_ref"]
+        == RUNTIME_TOOL_REGISTRY_AUTHORITY_MAPPING_REF
+    )
+    assert data["authority_state_decision_outcome"] == "allow"
     assert data["tool_count"] == 12
     assert data["invocation_enabled_count"] == 0
     assert data["tool_invocation_enabled"] is False
@@ -127,4 +157,9 @@ def test_cli_runtime_tool_registry_uses_same_read_model() -> None:
     assert payload["remote_discovery_performed"] is False
     assert read_model["route_ref"] == "GET /api/runtime/tool-registry"
     assert read_model["cli_ref"] == "uaa runtime inspect-tool-registry"
+    assert (
+        read_model["authority_state_mapping_ref"]
+        == RUNTIME_TOOL_REGISTRY_AUTHORITY_MAPPING_REF
+    )
+    assert read_model["authority_state_decision_outcome"] == "allow"
     assert read_model["invocation_enabled_count"] == 0

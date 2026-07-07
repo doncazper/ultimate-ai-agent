@@ -17,6 +17,10 @@ os.environ.setdefault("UAA_API_LOCAL_AUTH_DISABLED_FOR_DEV_ONLY", "1")
 
 from ultimate_ai_agent.api.app import app  # noqa: E402
 from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
+    RUNTIME_TOOL_REGISTRY_AUTHORITY_MAPPING_REF,
+    RUNTIME_TOOL_REGISTRY_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_TOOL_REGISTRY_AUTHORITY_STATE_ROUTE_REF,
+    RUNTIME_TOOL_REGISTRY_ROUTE_REF,
     build_runtime_tool_registry_availability_read_model,
 )
 
@@ -52,6 +56,35 @@ def _assert_registry(payload: dict[str, Any]) -> None:
         _fail("tool registry schema drifted")
     if payload.get("status") != "read_only_tool_registry_availability":
         _fail("tool registry must stay read-only")
+    if payload.get("route_ref") != RUNTIME_TOOL_REGISTRY_ROUTE_REF:
+        _fail("tool registry route ref drifted")
+    if (
+        payload.get("authority_state_route_ref")
+        != RUNTIME_TOOL_REGISTRY_AUTHORITY_STATE_ROUTE_REF
+    ):
+        _fail("tool registry AuthorityState route ref drifted")
+    if (
+        payload.get("authority_state_cli_ref")
+        != RUNTIME_TOOL_REGISTRY_AUTHORITY_STATE_CLI_REF
+    ):
+        _fail("tool registry AuthorityState CLI ref drifted")
+    if (
+        payload.get("authority_state_mapping_ref")
+        != RUNTIME_TOOL_REGISTRY_AUTHORITY_MAPPING_REF
+    ):
+        _fail("tool registry AuthorityState mapping drifted")
+    if payload.get("authority_state_decision_outcome") != "allow":
+        _fail("tool registry AuthorityState decision must allow read")
+    if payload.get("authority_state_status") != "implemented_authority_bound_read_model":
+        _fail("tool registry AuthorityState status drifted")
+    if "reason-ref:authority:active-lease-grants-domain-capability" not in (
+        payload.get("authority_state_reason_refs") or []
+    ):
+        _fail("tool registry AuthorityState reason missing")
+    if "adapter-ref:runtime-tool-invocation:not-implemented" not in (
+        payload.get("unsupported_adapter_refs") or []
+    ):
+        _fail("tool registry unsupported adapter refs missing")
     entries = payload.get("entries")
     if not isinstance(entries, list) or len(entries) != 12:
         _fail("tool registry must expose twelve entries")

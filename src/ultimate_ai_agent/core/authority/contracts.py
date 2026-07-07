@@ -2863,6 +2863,34 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ],
         ),
         _mapping(
+            "lane-ref:runtime-tool-registry-read-model",
+            "Runtime tool registry read model",
+            AuthorityDomain.workspace,
+            AuthorityCapability.read,
+            TrustMode.read_only,
+            "implemented_authority_bound_read_model",
+            ["GET /api/runtime/tool-registry"],
+            ["repo-local-command:uaa-runtime-inspect-tool-registry"],
+            (
+                "Runtime tool registry inspection reads static UAA-native and "
+                "delegated-reference tool metadata, blocker refs, proof refs, "
+                "and next-safe-action refs under Workspace read authority. It "
+                "does not enable invocation, execution, remote discovery, web "
+                "fetch, provider calls, plugin import, connector writes, raw "
+                "tool payload persistence, or production authority."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:runtime-tool-invocation:not-implemented",
+                "adapter-ref:runtime-tool-execution:not-implemented",
+                "adapter-ref:runtime-tool-remote-discovery:not-implemented",
+                "adapter-ref:runtime-tool-web-fetch:not-implemented",
+                "adapter-ref:runtime-tool-provider-call:not-implemented",
+                "adapter-ref:runtime-tool-plugin-import:not-implemented",
+                "adapter-ref:runtime-tool-connector-write:not-implemented",
+                "adapter-ref:runtime-tool-raw-payload:not-implemented",
+            ],
+        ),
+        _mapping(
             "lane-ref:runtime-command-git-status",
             "Git status",
             AuthorityDomain.workspace,
