@@ -2003,6 +2003,7 @@ def _inspect_authority_state(args: argparse.Namespace) -> int:
             )
         print(f"Unknown authority default: {read_model['unknown_authority_default']}")
         print(f"Kill switch visible: {read_model['kill_switch_visible']}")
+        print(f"Kill switch engaged: {read_model['kill_switch_engaged']}")
     return 0
 
 

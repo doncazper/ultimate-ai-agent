@@ -50,6 +50,11 @@ surfaces are:
   current `allow`, `ask`, `deny`, or `degrade_to_draft` policy outcome with
   safe refs, route/CLI refs, audit refs, receipt refs when applicable, and
   no execution.
+- `UAA_AUTHORITY_LEASE_KILL_SWITCH=1` engages the local AuthorityLease kill
+  switch. New lease issue attempts are denied with a redacted receipt and
+  `reason-ref:authority:lease-kill-switch-engaged`; state, Settings, CLI, and
+  decision previews report `kill_switch_engaged` without executing adapters or
+  mutating external systems.
 - Control Center `/settings` authority mode controls for implemented local
   domain subsets, revoke receipts, decision previews for concrete
   mode/domain/capability requests, and mission-plan previews for delegated

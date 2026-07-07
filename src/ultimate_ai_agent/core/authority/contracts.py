@@ -29,6 +29,7 @@ AUTHORITY_STATE_CLI_REF = "repo-local-command:uaa-runtime-inspect-authority-stat
 AUTHORITY_MISSION_PLAN_ROUTE_REF = "POST /api/runtime/authority-missions/plan"
 AUTHORITY_MISSION_PLAN_CLI_REF = "repo-local-command:uaa-runtime-plan-authority-mission"
 AUTHORITY_STATE_DIR_ENV = "UAA_AUTHORITY_STATE_DIR"
+AUTHORITY_LEASE_KILL_SWITCH_ENV = "UAA_AUTHORITY_LEASE_KILL_SWITCH"
 AUTHORITY_LEASES_FILE = "authority_leases.json"
 AUTHORITY_LEASE_RECEIPTS_FILE = "authority_lease_receipts.jsonl"
 AUTHORITY_STATE_REDACTIONS = (
@@ -842,6 +843,7 @@ class AuthorityLeaseReceipt(_AuthorityModel):
     )
     denied_domain_refs: list[str] = Field(default_factory=list)
     unsupported_adapter_refs: list[str] = Field(default_factory=list)
+    blocked_reason_refs: list[str] = Field(default_factory=list)
     audit_ref: str
     rollback_ref: str
     safe_disable_ref: str
@@ -886,6 +888,7 @@ class AuthorityLeaseReceipt(_AuthorityModel):
         for refs, field_name in [
             (self.denied_domain_refs, "authority_lease_denied_domain_ref"),
             (self.unsupported_adapter_refs, "authority_lease_unsupported_adapter_ref"),
+            (self.blocked_reason_refs, "authority_lease_blocked_reason_ref"),
         ]:
             _validate_ref_list(refs, field_name)
         validate_safe_task_text(self.safe_summary, "authority_lease_receipt_summary")
@@ -933,6 +936,7 @@ class AuthorityStateReadModel(_AuthorityModel):
     recent_receipts: list[AuthorityLeaseReceipt] = Field(default_factory=list)
     sample_decisions: list[AuthorityPolicyDecision] = Field(default_factory=list)
     kill_switch_visible: bool = True
+    kill_switch_engaged: bool = False
     receipts_required: bool = True
     audit_required: bool = True
     redaction_required: bool = True
@@ -1189,9 +1193,12 @@ def build_authority_decision_preview(
     leases: list[AuthorityLease],
     *,
     now: datetime | None = None,
+    kill_switch_engaged: bool = False,
 ) -> AuthorityDecisionPreview:
     effective_leases = leases or build_default_authority_leases()
     active_leases = [lease for lease in effective_leases if lease.is_active(now=now)]
+    if kill_switch_engaged and not request.kill_switch_engaged:
+        request = request.model_copy(update={"kill_switch_engaged": True})
     decision = evaluate_authority_request(request, effective_leases, now=now)
     preview_ref = _stable_ref(
         "authority-decision-preview-ref",
@@ -1293,6 +1300,11 @@ def authority_state_dir() -> Path:
     if value:
         return Path(value).expanduser()
     return Path(".uaa") / "authority"
+
+
+def authority_lease_kill_switch_engaged() -> bool:
+    value = os.environ.get(AUTHORITY_LEASE_KILL_SWITCH_ENV, "").strip().lower()
+    return value in {"1", "true", "yes", "on", "enabled", "engaged"}
 
 
 def _default_requested_domains(
@@ -1710,9 +1722,16 @@ def _mission_requested_domains(
 def _mission_action_requests(
     request: AuthorityMissionPlanRequest,
     requested_domains: dict[AuthorityDomain, list[AuthorityCapability]],
+    *,
+    kill_switch_engaged: bool = False,
 ) -> list[AuthorityActionRequest]:
     if request.action_requests:
-        return request.action_requests
+        if not kill_switch_engaged:
+            return request.action_requests
+        return [
+            action.model_copy(update={"kill_switch_engaged": True})
+            for action in request.action_requests
+        ]
     allowed = _allowed_domain_capabilities(TrustMode(request.requested_mode))
     actions: list[AuthorityActionRequest] = []
     for domain, capabilities in requested_domains.items():
@@ -1739,6 +1758,7 @@ def _mission_action_requests(
                     requested_mode=TrustMode(request.requested_mode),
                     draft_fallback_available=request.draft_fallback_available,
                     unsupported_adapter=unsupported,
+                    kill_switch_engaged=kill_switch_engaged,
                 )
             )
     return actions
@@ -1749,6 +1769,7 @@ def build_authority_mission_plan(
     leases: list[AuthorityLease],
     *,
     now: datetime | None = None,
+    kill_switch_engaged: bool = False,
 ) -> AuthorityMissionPlan:
     requested_domains = _mission_requested_domains(request)
     issue_request = AuthorityLeaseIssueRequest(
@@ -1776,8 +1797,13 @@ def build_authority_mission_plan(
             action,
             active_leases or build_default_authority_leases(),
             now=now,
+            kill_switch_engaged=kill_switch_engaged,
         )
-        for action in _mission_action_requests(request, requested_domains)
+        for action in _mission_action_requests(
+            request,
+            requested_domains,
+            kill_switch_engaged=kill_switch_engaged,
+        )
     ]
     required_domain_refs = sorted(
         {
@@ -1805,7 +1831,12 @@ def build_authority_mission_plan(
             }
         }
     )
-    issue_ready = bool(granted) and not denied_refs and not unsupported_refs
+    issue_ready = (
+        bool(granted)
+        and not denied_refs
+        and not unsupported_refs
+        and not kill_switch_engaged
+    )
     plan_ref = _stable_ref(
         "authority-mission-plan-ref",
         {
@@ -1817,7 +1848,16 @@ def build_authority_mission_plan(
             },
         },
     )
-    if issue_ready:
+    if kill_switch_engaged:
+        operator_summary = (
+            "Mission lease plan is draft-only because the authority lease kill "
+            "switch is engaged."
+        )
+        next_safe_action = (
+            "Keep the mission as a draft until the operator disables the "
+            "authority lease kill switch through the configured local control."
+        )
+    elif issue_ready:
         operator_summary = (
             "Mission lease plan is issue-ready for currently implemented "
             "domain capabilities; action previews still require the lease to be issued."
@@ -1857,7 +1897,18 @@ def build_authority_mission_plan(
         lease_issue_ready=issue_ready,
         required_domain_refs=required_domain_refs,
         required_capability_refs=required_capability_refs,
-        blocked_reason_refs=blocked_reason_refs,
+        blocked_reason_refs=(
+            list(
+                dict.fromkeys(
+                    [
+                        *blocked_reason_refs,
+                        "reason-ref:authority:lease-kill-switch-engaged",
+                    ]
+                )
+            )
+            if kill_switch_engaged
+            else blocked_reason_refs
+        ),
         operator_summary=operator_summary,
         next_safe_action=next_safe_action,
     )
@@ -1890,6 +1941,7 @@ class AuthorityLeaseStore:
         return build_authority_state_read_model(
             active_leases=active or build_default_authority_leases(),
             recent_receipts=self.list_receipts(limit=8),
+            kill_switch_engaged=authority_lease_kill_switch_engaged(),
         )
 
     def preview_decision(
@@ -1900,6 +1952,7 @@ class AuthorityLeaseStore:
         return build_authority_decision_preview(
             request,
             active or build_default_authority_leases(),
+            kill_switch_engaged=authority_lease_kill_switch_engaged(),
         )
 
     def plan_mission(
@@ -1910,6 +1963,7 @@ class AuthorityLeaseStore:
         return build_authority_mission_plan(
             request,
             active or build_default_authority_leases(),
+            kill_switch_engaged=authority_lease_kill_switch_engaged(),
         )
 
     def issue_lease(
@@ -1945,6 +1999,34 @@ class AuthorityLeaseStore:
                 },
             },
         )
+        approval_decision = (
+            approval_validator(request, approval_requirement)
+            if approval_requirement.approval_required and approval_validator is not None
+            else None
+        )
+        if authority_lease_kill_switch_engaged():
+            receipt = self._receipt(
+                operation="issue",
+                status="denied",
+                lease_ref=lease_ref,
+                idempotency_ref=idempotency_ref,
+                request=request,
+                granted_domains={},
+                denied_domain_refs=denied_refs,
+                unsupported_adapter_refs=unsupported_refs,
+                approval_requirement=approval_requirement,
+                approval_decision=approval_decision,
+                approval_reason_codes=["AUTHORITY_LEASE_KILL_SWITCH_ENGAGED"],
+                blocked_reason_refs=[
+                    "reason-ref:authority:lease-kill-switch-engaged",
+                ],
+                safe_summary=(
+                    "Authority lease request denied because the authority "
+                    "lease kill switch is engaged."
+                ),
+            )
+            self._append_receipt(receipt)
+            return None, receipt
         if not granted:
             receipt = self._receipt(
                 operation="issue",
@@ -1964,11 +2046,6 @@ class AuthorityLeaseStore:
             )
             self._append_receipt(receipt)
             return None, receipt
-        approval_decision = (
-            approval_validator(request, approval_requirement)
-            if approval_requirement.approval_required and approval_validator is not None
-            else None
-        )
         if not _approval_decision_validated(approval_decision, approval_requirement):
             reason_codes = _approval_decision_reason_codes(approval_decision)
             if not reason_codes:
@@ -2151,6 +2228,7 @@ class AuthorityLeaseStore:
         approval_requirement: AuthorityLeaseApprovalRequirement | None = None,
         approval_decision: Any | None = None,
         approval_reason_codes: list[str] | None = None,
+        blocked_reason_refs: list[str] | None = None,
         lease_issued_at: datetime | None = None,
         lease_expires_at: datetime | None = None,
     ) -> AuthorityLeaseReceipt:
@@ -2187,6 +2265,7 @@ class AuthorityLeaseStore:
             granted_domains=granted_domains,
             denied_domain_refs=denied_domain_refs,
             unsupported_adapter_refs=unsupported_adapter_refs,
+            blocked_reason_refs=blocked_reason_refs or [],
             approval_required=approval_required,
             approval_validated=approval_validated,
             approval_ref=_approval_decision_ref(approval_decision, request),
@@ -2806,6 +2885,7 @@ def build_authority_state_read_model(
     *,
     active_leases: list[AuthorityLease] | None = None,
     recent_receipts: list[AuthorityLeaseReceipt] | None = None,
+    kill_switch_engaged: bool = False,
 ) -> AuthorityStateReadModel:
     leases = active_leases or build_default_authority_leases()
     capability_mappings = build_existing_lane_authority_mappings()
@@ -2817,6 +2897,7 @@ def build_authority_state_read_model(
                 capability=AuthorityCapability.read,
                 safe_summary="Inspect workspace state under the default read-only lease.",
                 route_ref="GET /api/runtime/authority-state",
+                kill_switch_engaged=kill_switch_engaged,
             ),
             leases,
         ),
@@ -2829,6 +2910,7 @@ def build_authority_state_read_model(
                 route_ref="POST /api/runtime/command/run",
                 draft_fallback_available=True,
                 requested_mode=TrustMode.approved_safe_local_work_session,
+                kill_switch_engaged=kill_switch_engaged,
             ),
             leases,
         ),
@@ -2842,37 +2924,51 @@ def build_authority_state_read_model(
                 draft_fallback_available=False,
                 unsupported_adapter=True,
                 requested_mode=TrustMode.delegated_mission_autonomous_window,
+                kill_switch_engaged=kill_switch_engaged,
             ),
             leases,
         ),
     ]
-    return AuthorityStateReadModel(
-        active_mode=TrustMode(leases[-1].mode) if leases else TrustMode.read_only,
-        operator_summary=(
+    operator_summary = (
+        "Authority lease kill switch is engaged; new lease issue attempts and "
+        "authority decisions deny until the local operator clears it."
+        if kill_switch_engaged
+        else (
             "Authority is now modeled as trust modes, explicit domains, and "
             "session or mission leases. Unknown authority denies by default; "
             "unsupported adapters are shown as planned or blocked instead of "
             "pretending execution exists."
-        ),
+        )
+    )
+    return AuthorityStateReadModel(
+        active_mode=TrustMode(leases[-1].mode) if leases else TrustMode.read_only,
+        operator_summary=operator_summary,
         active_leases=leases,
         capability_mappings=capability_mappings,
         decision_catalog=build_authority_decision_catalog(
             capability_mappings,
             leases,
+            kill_switch_engaged=kill_switch_engaged,
         ),
         recent_receipts=recent_receipts or [],
         sample_decisions=samples,
+        kill_switch_engaged=kill_switch_engaged,
     )
 
 
 def build_authority_decision_catalog(
     capability_mappings: list[AuthorityCapabilityMapping] | None = None,
     leases: list[AuthorityLease] | None = None,
+    kill_switch_engaged: bool = False,
 ) -> list[AuthorityDecisionCatalogEntry]:
     mappings = capability_mappings or build_existing_lane_authority_mappings()
     effective_leases = leases or build_default_authority_leases()
     return [
-        _authority_decision_catalog_entry(mapping, effective_leases)
+        _authority_decision_catalog_entry(
+            mapping,
+            effective_leases,
+            kill_switch_engaged=kill_switch_engaged,
+        )
         for mapping in mappings
     ]
 
@@ -2880,6 +2976,8 @@ def build_authority_decision_catalog(
 def _authority_decision_catalog_entry(
     mapping: AuthorityCapabilityMapping,
     leases: list[AuthorityLease],
+    *,
+    kill_switch_engaged: bool = False,
 ) -> AuthorityDecisionCatalogEntry:
     unsupported_adapter = bool(mapping.unsupported_adapter_refs) or mapping.status.startswith(
         "planned_unsupported"
@@ -2898,6 +2996,7 @@ def _authority_decision_catalog_entry(
             requested_mode=TrustMode(mapping.required_mode),
             draft_fallback_available=_mapping_supports_draft_fallback(mapping),
             unsupported_adapter=unsupported_adapter,
+            kill_switch_engaged=kill_switch_engaged,
             rollback_ref=f"rollback-ref:authority-decision-catalog:{_safe_mapping_suffix(mapping.lane_ref)}",
             safe_disable_ref=f"safe-disable-ref:authority-decision-catalog:{_safe_mapping_suffix(mapping.lane_ref)}",
         ),

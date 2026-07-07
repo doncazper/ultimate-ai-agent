@@ -1288,6 +1288,7 @@
         "reviewed-local-runtime-settings",
         "provider-configuration",
         "kill-switch-execution",
+        "revocation-execution",
         "runtime-lifecycle-mutation"
       ]
     },
@@ -2871,7 +2872,9 @@
       ],
       "missing_backend_routes": [
         "loopback-auth-status",
-        "reviewed-local-runtime-settings"
+        "reviewed-local-runtime-settings",
+        "kill-switch-execution",
+        "revocation-execution"
       ]
     },
     {

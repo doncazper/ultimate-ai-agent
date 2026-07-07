@@ -11943,6 +11943,7 @@ export interface AuthorityLeaseReceipt {
   approval_request_ref: string | null;
   approval_status: string;
   approval_reason_codes: string[];
+  blocked_reason_refs: string[];
   execution_performed: boolean;
   redactions_applied: string[];
 }
@@ -12050,6 +12051,7 @@ export interface AuthorityStateReadModel {
   recent_receipts: AuthorityLeaseReceipt[];
   sample_decisions: AuthorityPolicyDecision[];
   kill_switch_visible: boolean;
+  kill_switch_engaged: boolean;
   receipts_required: boolean;
   audit_required: boolean;
   redaction_required: boolean;

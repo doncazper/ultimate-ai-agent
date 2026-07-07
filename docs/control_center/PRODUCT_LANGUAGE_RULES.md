@@ -86,6 +86,12 @@ local AuthorityLease subsets; authority-increasing requests must include an
 exact LocalApprovalAuthority grant or the backend records a denied receipt with
 approval status, approval scope, and reason refs. CLI `--approve` captures that
 exact local operator approval without requiring hand-built grant JSON.
+When `authority_lease_state.kill_switch_engaged` is true, copy must say new
+AuthorityLease issue attempts are denied by the local kill switch and must show
+`reason-ref:authority:lease-kill-switch-engaged` from receipts or decision
+previews. Do not describe the kill switch as executing external revocation,
+closing apps, stopping browser sessions, canceling payments, or mutating
+connectors unless a later tested adapter implements that exact action.
 `/settings` may revoke active leases through safe-disable posture and may preview
 concrete mode/domain/capability decisions or delegated mission plans through
 validation-only preview routes. For an issue-ready mission plan, `/settings` may

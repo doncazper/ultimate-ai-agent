@@ -2336,7 +2336,13 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
                 </div>
                 <div>
                   <dt>Kill switch</dt>
-                  <dd>{lease.kill_switch_required ? "visible" : "missing"}</dd>
+                  <dd>
+                    {authorityLeaseState.kill_switch_engaged
+                      ? "engaged"
+                      : lease.kill_switch_required
+                        ? "visible"
+                        : "missing"}
+                  </dd>
                 </div>
               </dl>
               <div
@@ -2365,6 +2371,11 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
                 <span>{lease.rollback_ref}</span>
                 <span>{lease.safe_disable_ref}</span>
                 <span>{lease.kill_switch_ref}</span>
+                <span>
+                  {authorityLeaseState.kill_switch_engaged
+                    ? "reason-ref:authority:lease-kill-switch-engaged"
+                    : "reason-ref:authority:lease-kill-switch-clear"}
+                </span>
                 {lease.unsupported_adapter_refs.map((ref) => (
                   <span key={ref}>{ref}</span>
                 ))}
@@ -2504,6 +2515,9 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
               ) : null}
               {receipt.approval_reason_codes.map((reasonCode) => (
                 <span key={reasonCode}>{reasonCode}</span>
+              ))}
+              {receipt.blocked_reason_refs.map((reasonRef) => (
+                <span key={reasonRef}>{reasonRef}</span>
               ))}
             </div>
           </article>

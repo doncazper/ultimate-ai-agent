@@ -7,6 +7,7 @@ from scripts.dev import uaa_runtime
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.authority import (
+    AUTHORITY_LEASE_KILL_SWITCH_ENV,
     AUTHORITY_STATE_DIR_ENV,
     AuthorityActionRequest,
     AuthorityCapability,
@@ -21,6 +22,7 @@ from ultimate_ai_agent.core.authority import (
     build_authority_mission_plan,
     build_authority_state_read_model,
     build_default_authority_leases,
+    authority_lease_kill_switch_engaged,
     evaluate_authority_request,
 )
 from ultimate_ai_agent.core.authority.approval_validation import (
@@ -98,6 +100,7 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
     assert read_model.active_mode == "read_only"
     assert read_model.unknown_authority_default == "deny"
     assert read_model.kill_switch_visible is True
+    assert read_model.kill_switch_engaged is False
     assert read_model.receipts_required is True
     assert read_model.audit_required is True
     assert read_model.redaction_required is True
@@ -600,6 +603,131 @@ def test_authority_mode_defaults_are_mode_specific_and_fail_closed(
     )
 
 
+def test_authority_lease_kill_switch_blocks_new_lease_issue_api_cli_and_state(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(tmp_path / "authority"))
+    monkeypatch.setenv(AUTHORITY_LEASE_KILL_SWITCH_ENV, "1")
+    assert authority_lease_kill_switch_engaged() is True
+
+    store = AuthorityLeaseStore(tmp_path / "authority")
+    issue_request = AuthorityLeaseIssueRequest(
+        mode=TrustMode.approved_safe_local_work_session,
+        requested_domains={
+            AuthorityDomain.workspace: [
+                AuthorityCapability.read,
+                AuthorityCapability.write,
+                AuthorityCapability.execute,
+            ]
+        },
+        decision_reason_ref="reason-ref:test-authority-kill-switch",
+        safe_summary="Attempt local workspace authority while kill switch is engaged.",
+    )
+    idempotency_ref = "idempotency-ref:test-authority-kill-switch"
+    lease, receipt = store.issue_lease(
+        _approved_issue_request(
+            issue_request,
+            idempotency_ref=idempotency_ref,
+            approval_ref="approval-ref:test-authority:kill-switch",
+        ),
+        idempotency_ref=idempotency_ref,
+        approval_validator=validate_authority_lease_approval,
+    )
+
+    assert lease is None
+    assert receipt.status == "denied"
+    assert receipt.approval_required is True
+    assert receipt.approval_validated is True
+    assert "AUTHORITY_LEASE_KILL_SWITCH_ENGAGED" in receipt.approval_reason_codes
+    assert "reason-ref:authority:lease-kill-switch-engaged" in (
+        receipt.blocked_reason_refs
+    )
+    assert receipt.granted_domains == {}
+    assert receipt.execution_performed is False
+    assert store.list_leases(active_only=True) == []
+
+    state_model = store.build_state_read_model()
+    assert state_model.kill_switch_visible is True
+    assert state_model.kill_switch_engaged is True
+    assert "kill switch is engaged" in state_model.operator_summary
+    assert {
+        decision.outcome for decision in state_model.sample_decisions
+    } == {"deny"}
+    assert all(
+        "reason-ref:authority:kill-switch-engaged" in entry.decision.reason_refs
+        for entry in state_model.decision_catalog
+    )
+
+    preview = store.preview_decision(
+        AuthorityActionRequest(
+            action_ref="authority-action-ref:test-kill-switch-preview",
+            domain=AuthorityDomain.workspace,
+            capability=AuthorityCapability.read,
+            safe_summary="Preview workspace read while kill switch is engaged.",
+        )
+    )
+    assert preview.decision.outcome == "deny"
+    assert "reason-ref:authority:kill-switch-engaged" in (
+        preview.decision.reason_refs
+    )
+
+    api_issue = client.post(
+        "/api/runtime/authority-leases/approve-and-issue",
+        headers={"x-uaa-idempotency-key": "idempotency-ref:test-api-kill-switch"},
+        json={
+            "lease_issue_request": issue_request.model_dump(mode="json"),
+            "approved_by_actor_ref": "operator-ref:test-control-center",
+            "approval_safe_summary": (
+                "Operator approved the exact local workspace authority lease."
+            ),
+        },
+    )
+    assert api_issue.status_code == 200
+    api_body = api_issue.json()
+    assert api_body["success"] is False
+    api_receipt = api_body["data"]["receipt"]
+    assert api_receipt["status"] == "denied"
+    assert api_receipt["blocked_reason_refs"] == [
+        "reason-ref:authority:lease-kill-switch-engaged"
+    ]
+    assert "AUTHORITY_LEASE_KILL_SWITCH_ENGAGED" in (
+        api_receipt["approval_reason_codes"]
+    )
+    assert api_body["data"]["lease"] is None
+
+    api_state = client.get("/api/runtime/authority-state")
+    assert api_state.status_code == 200
+    assert api_state.json()["data"]["kill_switch_engaged"] is True
+
+    cli_state = uaa_runtime.main(["inspect-authority-state"])
+    assert cli_state == 0
+    assert "Kill switch engaged: True" in capsys.readouterr().out
+
+    cli_issue = uaa_runtime.main(
+        [
+            "select-authority-mode",
+            "--mode",
+            "approved_safe_local_work_session",
+            "--domain",
+            "workspace:read,write,execute",
+            "--reason-ref",
+            "reason-ref:test-cli-kill-switch",
+            "--idempotency-ref",
+            "idempotency-ref:test-cli-kill-switch",
+            "--summary",
+            "Attempt local workspace authority while kill switch is engaged.",
+            "--approve",
+            "--json",
+        ]
+    )
+    assert cli_issue == 1
+    cli_payload = capsys.readouterr().out
+    assert '"status": "denied"' in cli_payload
+    assert "AUTHORITY_LEASE_KILL_SWITCH_ENGAGED" in cli_payload
+
+
 def test_delegated_mission_mode_requires_mission_scope() -> None:
     with pytest.raises(
         ValueError,
@@ -872,6 +1000,7 @@ def test_authority_state_api_cli_and_settings_surface(
     authority_state = settings_body["data"]["authority_lease_state"]
     assert authority_state["api_ref"] == "GET /api/runtime/authority-state"
     assert authority_state["kill_switch_visible"] is True
+    assert authority_state["kill_switch_engaged"] is False
     assert authority_state["unsupported_adapters_claimed_execution"] is False
     assert "issued_at" in authority_state["active_leases"][0]
     assert "expires_at" in authority_state["active_leases"][0]
@@ -1307,6 +1436,7 @@ def test_authority_lease_issue_revoke_api_and_cli_are_durable(
     assert "Sample decisions:" in cli_state_text
     assert "Unknown authority default: deny" in cli_state_text
     assert "Kill switch visible: True" in cli_state_text
+    assert "Kill switch engaged: False" in cli_state_text
 
     cli_issue_idempotency_ref = "idempotency-ref:authority-cli-issue"
     cli_issue = uaa_runtime.main(

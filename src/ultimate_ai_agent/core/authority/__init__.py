@@ -1,5 +1,6 @@
 from ultimate_ai_agent.core.authority.contracts import (
     AUTHORITY_LEASE_SCHEMA_VERSION,
+    AUTHORITY_LEASE_KILL_SWITCH_ENV,
     AUTHORITY_STATE_CONTRACT_REF,
     AUTHORITY_STATE_REDACTIONS,
     AUTHORITY_STATE_DIR_ENV,
@@ -25,6 +26,7 @@ from ultimate_ai_agent.core.authority.contracts import (
     AuthorityPolicyDecision,
     AuthorityStateReadModel,
     TrustMode,
+    authority_lease_kill_switch_engaged,
     authority_state_dir,
     build_authority_lease_approval_requirement_for_request,
     build_authority_decision_catalog,
@@ -38,6 +40,7 @@ from ultimate_ai_agent.core.authority.contracts import (
 
 __all__ = [
     "AUTHORITY_LEASE_SCHEMA_VERSION",
+    "AUTHORITY_LEASE_KILL_SWITCH_ENV",
     "AUTHORITY_STATE_CONTRACT_REF",
     "AUTHORITY_STATE_REDACTIONS",
     "AUTHORITY_STATE_DIR_ENV",
@@ -63,6 +66,7 @@ __all__ = [
     "AuthorityPolicyDecision",
     "AuthorityStateReadModel",
     "TrustMode",
+    "authority_lease_kill_switch_engaged",
     "authority_state_dir",
     "build_authority_lease_approval_requirement_for_request",
     "build_authority_decision_catalog",
