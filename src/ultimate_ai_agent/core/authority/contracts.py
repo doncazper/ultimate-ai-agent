@@ -1901,6 +1901,68 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             "Requires Approved safe local work with workspace/execute plus RuntimeGateway allowlist and receipts.",
         ),
         _mapping(
+            "lane-ref:runtime-invocation-record",
+            "Runtime invocation record",
+            AuthorityDomain.workspace,
+            AuthorityCapability.draft,
+            TrustMode.read_only,
+            "implemented_no_execution_record_only",
+            ["POST /api/runtime/invocations"],
+            ["repo-local-command:governed-runtime-invocations-list"],
+            (
+                "Records a redacted RuntimeGateway invocation proposal only; "
+                "adapter execution, approval, command execution, model calls, "
+                "browser automation, connector writes, and production authority "
+                "remain denied unless a later exact lane is approved."
+            ),
+        ),
+        _mapping(
+            "lane-ref:runtime-action-inbox-approval-binding",
+            "Runtime approval binding",
+            AuthorityDomain.workspace,
+            AuthorityCapability.execute,
+            TrustMode.approved_safe_local_work_session,
+            "implemented_exact_approval_binding_lease_evaluated",
+            ["POST /api/runtime/invocations/{id}/approve"],
+            ["repo-local-command:governed-runtime-action-approve-preflight"],
+            (
+                "Binds exact Action Inbox approval refs to one RuntimeGateway "
+                "command envelope and evaluates workspace/execute lease scope; "
+                "approval refs are identifiers only and do not execute work."
+            ),
+        ),
+        _mapping(
+            "lane-ref:runtime-action-inbox-approved-execute",
+            "Runtime approved execution",
+            AuthorityDomain.workspace,
+            AuthorityCapability.execute,
+            TrustMode.approved_safe_local_work_session,
+            "implemented_exact_lease_rechecked_execution",
+            ["POST /api/runtime/invocations/{id}/execute"],
+            [],
+            (
+                "Executes only exact approved RuntimeGateway command envelopes "
+                "after idempotency, approval refs, active workspace/execute "
+                "AuthorityLease recheck, safe-disable, redacted receipts, and "
+                "allowlist gates pass."
+            ),
+        ),
+        _mapping(
+            "lane-ref:runtime-safe-disable",
+            "Runtime safe-disable",
+            AuthorityDomain.workspace,
+            AuthorityCapability.write,
+            TrustMode.read_only,
+            "implemented_safety_control_no_execution",
+            ["POST /api/runtime/safe-disable"],
+            ["repo-local-command:governed-runtime-safe-disable"],
+            (
+                "Records local safe-disable posture as a safety control that can "
+                "only reduce runtime authority; it cannot enable execution, mint "
+                "approval, call models, run commands, or grant production authority."
+            ),
+        ),
+        _mapping(
             "lane-ref:hermes-interface-chat-exact-cli",
             "Hermes exact CLI chat",
             AuthorityDomain.workspace,

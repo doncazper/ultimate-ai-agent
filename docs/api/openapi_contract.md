@@ -335,6 +335,10 @@ Contract rules:
   Action Inbox approved command execution refreshes the current active
   AuthorityLease decision before process start, so stale approval refs or
   expired/revoked workspace execute leases cannot preserve execution authority.
+  Runtime invocation lifecycle routes are authority-mapped: create is
+  workspace draft/record-only, approve and execute are workspace execute with
+  exact approval and active lease gates, and safe-disable is a local safety
+  control that can only reduce runtime authority.
   `uaa runtime status`, `uaa runtime capabilities`, `uaa runtime invocations
   list/show`, `uaa runtime receipts show`, `uaa runtime safe-disable`, and
   `uaa actions approve|deny` are local inspection/exact-envelope decision

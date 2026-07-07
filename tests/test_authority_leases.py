@@ -91,6 +91,44 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
     assert hermes_chat.capability == "execute"
     assert hermes_chat.required_mode == "approved_safe_local_work_session"
     assert hermes_chat.status == "implemented_exact_lease_required_external_runtime"
+    runtime_invocation_record = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if "POST /api/runtime/invocations" in mapping.route_refs
+    )
+    assert runtime_invocation_record.domain == "workspace"
+    assert runtime_invocation_record.capability == "draft"
+    assert runtime_invocation_record.required_mode == "read_only"
+    runtime_approval_binding = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if "POST /api/runtime/invocations/{id}/approve" in mapping.route_refs
+    )
+    assert runtime_approval_binding.domain == "workspace"
+    assert runtime_approval_binding.capability == "execute"
+    assert (
+        runtime_approval_binding.required_mode
+        == "approved_safe_local_work_session"
+    )
+    runtime_approved_execute = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if "POST /api/runtime/invocations/{id}/execute" in mapping.route_refs
+    )
+    assert runtime_approved_execute.domain == "workspace"
+    assert runtime_approved_execute.capability == "execute"
+    assert (
+        runtime_approved_execute.status
+        == "implemented_exact_lease_rechecked_execution"
+    )
+    runtime_safe_disable = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if "POST /api/runtime/safe-disable" in mapping.route_refs
+    )
+    assert runtime_safe_disable.domain == "workspace"
+    assert runtime_safe_disable.capability == "write"
+    assert runtime_safe_disable.status == "implemented_safety_control_no_execution"
     work_board_card_create = next(
         mapping
         for mapping in read_model.capability_mappings

@@ -107,6 +107,12 @@ command that was approved under a workspace execute lease degrades back to a
 blocked draft receipt if that lease is no longer active at execution time; old
 approval refs and stale policy decision refs cannot keep execution authority
 alive.
+The RuntimeGateway invocation lifecycle is also mapped into authority domains:
+`POST /api/runtime/invocations` is a workspace draft record-only route,
+`POST /api/runtime/invocations/{id}/approve` and
+`POST /api/runtime/invocations/{id}/execute` are workspace execute routes with
+exact approval/lease gates, and `POST /api/runtime/safe-disable` is a local
+safety-control write that can only reduce runtime authority.
 The governed runtime local-model call route now also uses the mode/domain
 foundation: `POST /api/runtime/local-model/call` requires active
 `provider_model_calls/execute` AuthorityLease scope with Full machine access

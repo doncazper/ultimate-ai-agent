@@ -30,6 +30,11 @@ selection receipt routes.
 Hermes CLI chat requires active `workspace/execute` scope before Hermes
 discovery or subprocess execution, and records authority decision refs on the
 redacted receipt.
+Runtime invocation lifecycle routes are mapped into AuthorityLease domains:
+invocation creation is workspace draft/record-only, approval binding and
+approved execution are workspace execute with exact approval and lease gates,
+and runtime safe-disable is a local safety control that can only reduce
+authority.
 `POST /api/runtime/local-model/call` is AuthorityLease-gated as
 `provider_model_calls/execute`: configured loopback local-model transport
 requires Full machine access scope before execution, records metadata-only

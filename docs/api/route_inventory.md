@@ -168,6 +168,11 @@ Runtime command execution routes refresh active AuthorityLease scope before
 process start. If a previously approved Action Inbox command no longer has an
 active `workspace/execute` lease, execution records a blocked receipt instead
 of relying on stale approval or policy refs.
+Runtime invocation lifecycle routes are authority-mapped for cockpit
+inspection: invocation creation is workspace draft/record-only, approval
+binding and approved execution are workspace execute with exact approval and
+lease gates, and safe-disable is a local safety control that only reduces
+runtime authority.
 `GET /api/runtime/capability-discovery` exposes a protected read-only Python
 Core Hermes Runtime Adoption Phase 02 capability discovery posture for models,
 runs, events, approvals, sessions, skills, toolsets, jobs, and blocked actions.
