@@ -61,8 +61,8 @@ surfaces are:
   safe refs, route/CLI refs, audit refs, receipt refs when applicable, and
   no execution.
 - Runtime worktree-per-agent, staged orchestration, background job inspection,
-  subagent isolation, LSP diagnostics, and preview rail consume that same
-  AuthorityState catalog instead of carrying standalone blocker language:
+  subagent isolation, LSP diagnostics, preview rail, and slash command registry
+  consume that same AuthorityState catalog instead of carrying standalone blocker language:
   worktree implementer/reviewer/verifier lanes expose mapped decision refs and
   outcomes, staged orchestration exposes the read-model `workspace/prepare`
   decision plus the stronger approved-runtime-command `workspace/execute`
@@ -75,9 +75,12 @@ surfaces are:
   language-server/file-read/diagnostic-extraction adapter refs. Preview rail
   exposes the Read-only `workspace/read` safe-ref preview decision while raw
   file display, screenshot capture, browser automation, shell execution,
-  provider calls, and runtime payload rendering remain blocked. These API/CLI
-  surfaces remain safe-ref inspection only unless exact active leases,
-  implemented adapters, and existing runtime gates pass.
+  provider calls, and runtime payload rendering remain blocked. Slash command
+  registry exposes the Read-only `workspace/read` metadata decision while chat
+  trigger execution, runtime invocation, state mutation, shell/provider/browser
+  work, connector writes, and raw prompt/response persistence remain blocked.
+  These API/CLI surfaces remain safe-ref inspection only unless exact active
+  leases, implemented adapters, and existing runtime gates pass.
 - `GET /api/runtime/authority-state#decision_summary` and
   `scripts/dev/uaa_runtime.py inspect-authority-state --summary` provide the
   compact operator/API parity view over the same decision catalog: capability

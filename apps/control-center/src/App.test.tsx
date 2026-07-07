@@ -8059,6 +8059,14 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getAllByText("uaa runtime inspect-slash-command-registry").length,
     ).toBeGreaterThan(0);
+    expect(
+      screen.getByText("lane-ref:runtime-slash-command-registry-metadata"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "authority-policy-decision-ref:mock-runtime-slash-command-registry",
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText("/explain Explain repo")).toBeInTheDocument();
     expect(screen.getByText("/apply-patch Apply patch")).toBeInTheDocument();
     expect(

@@ -16225,6 +16225,22 @@ export const mockControlCenterData: ControlCenterData = {
     route_ref: "GET /api/runtime/slash-command-registry",
     cli_ref: "uaa runtime inspect-slash-command-registry",
     control_center_ref: "control-center-route:runtime",
+    authority_state_route_ref: "GET /api/runtime/authority-state",
+    authority_state_cli_ref:
+      "repo-local-command:uaa-runtime-inspect-authority-state",
+    authority_state_mapping_ref:
+      "lane-ref:runtime-slash-command-registry-metadata",
+    authority_state_catalog_ref:
+      "authority-decision-catalog-ref:runtime-slash-command-registry-metadata",
+    authority_state_decision_ref:
+      "authority-policy-decision-ref:mock-runtime-slash-command-registry",
+    authority_state_decision_outcome: "allow",
+    authority_state_status: "implemented_authority_bound_read_model",
+    authority_state_operator_message: "Allowed by active authority lease.",
+    authority_state_reason_refs: [
+      "reason-ref:authority:active-lease-grants-domain-capability",
+    ],
+    unsupported_adapter_refs: [],
     safe_summary:
       "Runtime slash command registry mock fallback shows command metadata and authority labels only; command execution and runtime invocation stay blocked.",
     commands: runtimeSlashCommandRegistryEntries,

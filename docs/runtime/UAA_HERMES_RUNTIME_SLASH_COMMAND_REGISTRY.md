@@ -21,9 +21,14 @@ The current implementation is metadata-only:
 - Python Agent Core owns `RuntimeSlashCommandRegistryReadModel`.
 - API route: `GET /api/runtime/slash-command-registry`.
 - CLI inspection: `scripts/dev/uaa_runtime.py inspect-slash-command-registry`.
+- AuthorityState binding:
+  `lane-ref:runtime-slash-command-registry-metadata` evaluates as Read-only
+  `workspace/read` authority through `GET /api/runtime/authority-state` and
+  `repo-local-command:uaa-runtime-inspect-authority-state`.
 - Control Center renders command refs, trigger labels, side-effect classes,
   approval policy refs, idempotency policy refs, receipt plan refs, proof refs,
-  promotion path refs, next safe action refs, and blocked authority refs.
+  authority decision refs, blocked reason refs, next safe action refs, and
+  blocked authority refs.
 - Mock fallback is visibly non-authoritative and keeps command execution,
   runtime invocation, state mutation, shell execution, provider calls, browser
   automation, connector writes, Control Center authority minting, raw prompt
@@ -48,9 +53,11 @@ These remain blocked:
 - public release claims
 - broad autonomy
 
-## Exact Promotion Path
+## Exact Authority Path
 
-Promotion requires all of the following before any command can execute:
+Metadata inspection is implemented as an authority-bound read model. Any command
+execution path requires all of the following before a slash command can execute
+under an active AuthorityLease:
 
 - command contract
 - side-effect class
@@ -63,6 +70,13 @@ Promotion requires all of the following before any command can execute:
 - CLI/API/Core parity
 - frontend truth labels
 - focused tests and verifier coverage
+
+Unknown authority remains denied. The current allowed AuthorityState decision
+applies only to command metadata, side-effect labels, approval/idempotency
+policy refs, receipt-plan refs, and proof refs. It does not allow chat trigger
+execution, runtime invocation, state mutation, shell execution, provider calls,
+browser automation, connector writes, raw prompt/response persistence,
+production authority, or broad autonomy.
 
 ## Verification
 

@@ -2963,9 +2963,10 @@ def _inspect_preview_rail(args: argparse.Namespace) -> int:
 
 
 def _inspect_slash_command_registry(args: argparse.Namespace) -> int:
-    read_model = build_runtime_slash_command_registry_read_model().model_dump(
-        mode="json"
-    )
+    authority_state = AuthorityLeaseStore().build_state_read_model()
+    read_model = build_runtime_slash_command_registry_read_model(
+        authority_decision_catalog=authority_state.decision_catalog,
+    ).model_dump(mode="json")
     payload = {
         "schema_version": "governed-runtime-cli:v1",
         "command_ref": "repo-local-command:uaa-runtime-inspect-slash-command-registry",

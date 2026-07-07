@@ -3000,6 +3000,24 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ),
         ),
         _mapping(
+            "lane-ref:runtime-slash-command-registry-metadata",
+            "Runtime slash command registry metadata",
+            AuthorityDomain.workspace,
+            AuthorityCapability.read,
+            TrustMode.read_only,
+            "implemented_authority_bound_read_model",
+            ["GET /api/runtime/slash-command-registry"],
+            ["repo-local-command:uaa-runtime-inspect-slash-command-registry"],
+            (
+                "Slash command registry inspection reads command metadata, "
+                "side-effect classes, approval/idempotency policies, receipt "
+                "plans, and proof refs under Workspace read authority. It does "
+                "not enable chat triggers, runtime invocations, state mutation, "
+                "shell execution, provider calls, browser automation, connector "
+                "writes, or prompt/response material persistence."
+            ),
+        ),
+        _mapping(
             "lane-ref:staged-orchestration-approved-runtime-command",
             "Staged orchestration approved runtime command step",
             AuthorityDomain.workspace,

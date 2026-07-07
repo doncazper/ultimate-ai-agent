@@ -7,6 +7,9 @@ from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.runtime_gateway import (
+    RUNTIME_SLASH_COMMAND_REGISTRY_AUTHORITY_MAPPING_REF,
+    RUNTIME_SLASH_COMMAND_REGISTRY_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_SLASH_COMMAND_REGISTRY_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_SLASH_COMMAND_REGISTRY_BLOCKED_AUTHORITY_REFS,
     RUNTIME_SLASH_COMMAND_REGISTRY_CONTRACT_REF,
     RuntimeSlashCommandRegistryEntry,
@@ -26,6 +29,32 @@ def test_slash_command_registry_is_metadata_only_read_model() -> None:
     assert read_model.status == "metadata_registry_all_commands_disabled"
     assert read_model.route_ref == "GET /api/runtime/slash-command-registry"
     assert read_model.cli_ref == "uaa runtime inspect-slash-command-registry"
+    assert (
+        read_model.authority_state_route_ref
+        == RUNTIME_SLASH_COMMAND_REGISTRY_AUTHORITY_STATE_ROUTE_REF
+    )
+    assert (
+        read_model.authority_state_cli_ref
+        == RUNTIME_SLASH_COMMAND_REGISTRY_AUTHORITY_STATE_CLI_REF
+    )
+    assert (
+        read_model.authority_state_mapping_ref
+        == RUNTIME_SLASH_COMMAND_REGISTRY_AUTHORITY_MAPPING_REF
+    )
+    assert read_model.authority_state_catalog_ref.startswith(
+        "authority-decision-catalog-ref:"
+    )
+    assert read_model.authority_state_decision_ref.startswith(
+        "authority-policy-decision-ref:"
+    )
+    assert read_model.authority_state_decision_outcome == "allow"
+    assert read_model.authority_state_status == (
+        "implemented_authority_bound_read_model"
+    )
+    assert "reason-ref:authority:active-lease-grants-domain-capability" in (
+        read_model.authority_state_reason_refs
+    )
+    assert read_model.unsupported_adapter_refs == []
     assert read_model.command_count == 6
     assert read_model.metadata_ready_count == 3
     assert read_model.disabled_count == 2
@@ -153,6 +182,17 @@ def test_slash_command_registry_api_returns_safe_read_model() -> None:
     assert body["operation"] == "api_runtime_slash_command_registry"
     data = body["data"]
     assert data["route_ref"] == "GET /api/runtime/slash-command-registry"
+    assert (
+        data["authority_state_mapping_ref"]
+        == RUNTIME_SLASH_COMMAND_REGISTRY_AUTHORITY_MAPPING_REF
+    )
+    assert data["authority_state_decision_outcome"] == "allow"
+    assert data["authority_state_status"] == (
+        "implemented_authority_bound_read_model"
+    )
+    assert "reason-ref:authority:active-lease-grants-domain-capability" in (
+        data["authority_state_reason_refs"]
+    )
     assert data["command_count"] == 6
     assert data["chat_trigger_enabled"] is False
     assert data["runtime_invocation_enabled"] is False
@@ -194,4 +234,13 @@ def test_slash_command_registry_cli_uses_same_read_model() -> None:
     assert payload["connector_write_performed"] is False
     assert read_model["route_ref"] == "GET /api/runtime/slash-command-registry"
     assert read_model["cli_ref"] == "uaa runtime inspect-slash-command-registry"
+    assert (
+        read_model["authority_state_mapping_ref"]
+        == RUNTIME_SLASH_COMMAND_REGISTRY_AUTHORITY_MAPPING_REF
+    )
+    assert read_model["authority_state_decision_outcome"] == "allow"
+    assert (
+        read_model["authority_state_status"]
+        == "implemented_authority_bound_read_model"
+    )
     assert read_model["command_count"] == 6

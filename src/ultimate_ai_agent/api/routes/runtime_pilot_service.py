@@ -574,7 +574,10 @@ def get_api_runtime_preview_rail() -> ResultEnvelope:
 
 @router.get("/slash-command-registry", response_model=ResultEnvelope)
 def get_api_runtime_slash_command_registry() -> ResultEnvelope:
-    read_model = build_runtime_slash_command_registry_read_model()
+    authority_state = _authority_store().build_state_read_model()
+    read_model = build_runtime_slash_command_registry_read_model(
+        authority_decision_catalog=authority_state.decision_catalog,
+    )
     return ResultEnvelope(
         success=True,
         operation="api_runtime_slash_command_registry",

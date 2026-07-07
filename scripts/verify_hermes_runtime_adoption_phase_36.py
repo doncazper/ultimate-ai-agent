@@ -12,6 +12,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from ultimate_ai_agent.api.app import app  # noqa: E402
 from ultimate_ai_agent.api.manifest import build_api_manifest  # noqa: E402
 from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
+    RUNTIME_SLASH_COMMAND_REGISTRY_AUTHORITY_MAPPING_REF,
     RUNTIME_SLASH_COMMAND_REGISTRY_BLOCKED_AUTHORITY_REFS,
     build_runtime_slash_command_registry_read_model,
 )
@@ -33,6 +34,21 @@ def main() -> int:
         failures.append("slash command registry route ref is stale")
     if read_model.cli_ref != "uaa runtime inspect-slash-command-registry":
         failures.append("slash command registry CLI ref is stale")
+    if (
+        read_model.authority_state_mapping_ref
+        != RUNTIME_SLASH_COMMAND_REGISTRY_AUTHORITY_MAPPING_REF
+    ):
+        failures.append("slash command registry authority mapping ref is stale")
+    if read_model.authority_state_decision_outcome != "allow":
+        failures.append("slash command registry metadata read should be allowed")
+    if read_model.authority_state_status != "implemented_authority_bound_read_model":
+        failures.append("slash command registry authority status is not implemented")
+    if "reason-ref:authority:active-lease-grants-domain-capability" not in (
+        read_model.authority_state_reason_refs
+    ):
+        failures.append("slash command registry lacks active-lease reason")
+    if read_model.unsupported_adapter_refs:
+        failures.append("slash command registry metadata should not list adapters")
     if read_model.status != "metadata_registry_all_commands_disabled":
         failures.append("slash command registry posture is not metadata-only")
     if read_model.command_count != 6:
@@ -113,7 +129,9 @@ def main() -> int:
             "Full-Strength",
             "Repo-Safe",
             "Blocked / Needs Authority",
-            "Exact Promotion Path",
+            "AuthorityState",
+            "Exact Authority Path",
+            RUNTIME_SLASH_COMMAND_REGISTRY_AUTHORITY_MAPPING_REF,
             ROUTE,
             "inspect-slash-command-registry",
         ]:
@@ -150,6 +168,13 @@ def main() -> int:
                 failures.append(f"slash command CLI claims {flag}")
         if read_model_payload["route_ref"] != f"GET {ROUTE}":
             failures.append("slash command CLI returned stale route ref")
+        if (
+            read_model_payload["authority_state_mapping_ref"]
+            != RUNTIME_SLASH_COMMAND_REGISTRY_AUTHORITY_MAPPING_REF
+        ):
+            failures.append("slash command CLI returned stale authority mapping")
+        if read_model_payload["authority_state_decision_outcome"] != "allow":
+            failures.append("slash command CLI should show allowed metadata read")
 
     if failures:
         for failure in failures:

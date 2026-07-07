@@ -397,6 +397,22 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         ].decision.outcome
         == "allow"
     )
+    slash_command_registry = mappings_by_lane[
+        "lane-ref:runtime-slash-command-registry-metadata"
+    ]
+    assert slash_command_registry.domain == "workspace"
+    assert slash_command_registry.capability == "read"
+    assert slash_command_registry.required_mode == "read_only"
+    assert slash_command_registry.status == "implemented_authority_bound_read_model"
+    assert "GET /api/runtime/slash-command-registry" in (
+        slash_command_registry.route_refs
+    )
+    assert (
+        decision_by_lane[
+            "lane-ref:runtime-slash-command-registry-metadata"
+        ].decision.outcome
+        == "allow"
+    )
     staged_runtime_command = mappings_by_lane[
         "lane-ref:staged-orchestration-approved-runtime-command"
     ]

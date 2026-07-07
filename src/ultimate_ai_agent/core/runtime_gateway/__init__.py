@@ -407,6 +407,9 @@ from ultimate_ai_agent.core.runtime_gateway.preview_rail import (
     build_runtime_preview_rail_read_model,
 )
 from ultimate_ai_agent.core.runtime_gateway.slash_command_registry import (
+    RUNTIME_SLASH_COMMAND_REGISTRY_AUTHORITY_MAPPING_REF,
+    RUNTIME_SLASH_COMMAND_REGISTRY_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_SLASH_COMMAND_REGISTRY_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_SLASH_COMMAND_REGISTRY_BLOCKED_AUTHORITY_REFS,
     RUNTIME_SLASH_COMMAND_REGISTRY_CLI_REF,
     RUNTIME_SLASH_COMMAND_REGISTRY_CONTRACT_REF,
