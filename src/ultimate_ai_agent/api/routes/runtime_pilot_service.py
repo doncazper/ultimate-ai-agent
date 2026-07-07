@@ -485,7 +485,10 @@ def get_api_runtime_mcp_catalog_filtering() -> ResultEnvelope:
 
 @router.get("/background-jobs", response_model=ResultEnvelope)
 def get_api_runtime_background_jobs() -> ResultEnvelope:
-    read_model = build_runtime_background_jobs_read_model()
+    authority_state = _authority_store().build_state_read_model()
+    read_model = build_runtime_background_jobs_read_model(
+        authority_decision_catalog=authority_state.decision_catalog,
+    )
     return ResultEnvelope(
         success=True,
         operation="api_runtime_background_jobs",

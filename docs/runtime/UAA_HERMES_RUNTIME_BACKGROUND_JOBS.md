@@ -19,9 +19,12 @@ The current implementation is read/proposal only:
 - Python Agent Core owns `RuntimeBackgroundJobsReadModel`.
 - API route: `GET /api/runtime/background-jobs`.
 - CLI inspection: `scripts/dev/uaa_runtime.py inspect-background-jobs`.
+- API, CLI, and Control Center bind the read model to AuthorityState capability
+  `lane-ref:background-autonomy-scoped`. The current decision is deny because
+  delegated background worker and supervisor adapters are unsupported.
 - Control Center renders durable job refs, schedule policy, approval scope,
-  idempotency, receipt plan, failure handling, proof refs, and blocked authority
-  refs.
+  idempotency, receipt plan, failure handling, proof refs, AuthorityState
+  decision refs, unsupported adapter refs, and blocked authority refs.
 - Mock fallback is visibly non-authoritative and keeps the same blocked
   execution posture.
 - No job is scheduled, paused, resumed, run, retried, delivered, or executed.
@@ -41,12 +44,14 @@ These remain blocked:
 - Control Center minting authority
 - raw job payload persistence
 
-## Exact Promotion Path
+## Exact Authority Path
 
-Promotion requires all of the following before any real background job lane can
-run:
+Any future executable background job capability requires all of the following
+before a worker, scheduler, retry loop, delivery, or run-now action can run:
 
 - exact job type
+- explicit AuthorityLease mode/domain/capability mapping
+- delegated mission scope when autonomy is requested
 - schedule policy
 - approval binding
 - idempotency
@@ -58,7 +63,9 @@ run:
 - focused tests and verifier coverage
 - route side-effect classification
 - Control Center labels that distinguish proposal, paused, approval-required,
-  blocked, and executable states
+  blocked, denied, draft-degraded, and executable states
+- implemented adapters; unsupported adapters remain denied instead of being
+  flipped on by a broad flag
 
 ## Verification
 
@@ -71,7 +78,8 @@ PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py
 npm run test --prefix apps/control-center -- --run src/App.test.tsx src/routes.test.ts src/api/client.summaryEndpoints.test.ts
 ```
 
-The verifier fails if the route is missing, classification drifts, CLI parity is
-lost, or any pause, resume, run-now, scheduler, worker, autonomous retry,
-external delivery, provider call, shell execution, connector write, raw payload
-persistence, or Control Center authority flag is enabled.
+The verifier fails if the route is missing, classification drifts, AuthorityState
+binding is missing, CLI parity is lost, or any pause, resume, run-now, scheduler,
+worker, autonomous retry, external delivery, provider call, shell execution,
+connector write, raw payload persistence, or Control Center authority flag is
+enabled.

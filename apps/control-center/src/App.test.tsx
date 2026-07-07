@@ -7930,6 +7930,20 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getAllByText("uaa runtime inspect-background-jobs").length,
     ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("GET /api/runtime/authority-state").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByText("lane-ref:background-autonomy-scoped"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "authority-policy-decision-ref:mock-background-autonomy-scoped",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("reason-ref:authority:adapter-unsupported").length,
+    ).toBeGreaterThan(0);
     expect(screen.getByText("Runtime doctor check")).toBeInTheDocument();
     expect(screen.getByText("Connector delivery follow-up")).toBeInTheDocument();
     expect(

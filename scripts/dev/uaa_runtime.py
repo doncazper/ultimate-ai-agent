@@ -2815,7 +2815,10 @@ def _inspect_mcp_catalog_filtering(args: argparse.Namespace) -> int:
 
 
 def _inspect_background_jobs(args: argparse.Namespace) -> int:
-    read_model = build_runtime_background_jobs_read_model().model_dump(mode="json")
+    authority_state = AuthorityLeaseStore().build_state_read_model()
+    read_model = build_runtime_background_jobs_read_model(
+        authority_decision_catalog=authority_state.decision_catalog,
+    ).model_dump(mode="json")
     payload = {
         "schema_version": "governed-runtime-cli:v1",
         "command_ref": "repo-local-command:uaa-runtime-inspect-background-jobs",

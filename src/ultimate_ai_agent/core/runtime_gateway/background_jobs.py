@@ -6,6 +6,10 @@ from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.authority import (
+    AuthorityDecisionCatalogEntry,
+    build_authority_decision_catalog,
+)
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
@@ -28,6 +32,12 @@ RUNTIME_BACKGROUND_JOBS_PROOF_REF = (
 RUNTIME_BACKGROUND_JOBS_VERIFIER_REF = (
     "verifier-ref:hermes-runtime-adoption:phase-31:background-jobs"
 )
+RUNTIME_BACKGROUND_JOBS_AUTHORITY_STATE_ROUTE_REF = "GET /api/runtime/authority-state"
+RUNTIME_BACKGROUND_JOBS_AUTHORITY_STATE_CLI_REF = (
+    "repo-local-command:uaa-runtime-inspect-authority-state"
+)
+RUNTIME_BACKGROUND_JOBS_AUTHORITY_MAPPING_REF = "lane-ref:background-autonomy-scoped"
+_AUTHORITY_DECISION_OUTCOMES = {"allow", "ask", "deny", "degrade_to_draft"}
 
 RUNTIME_BACKGROUND_JOBS_BLOCKED_AUTHORITY_REFS: tuple[str, ...] = (
     "blocked-authority:background-jobs-no-autonomous-background-execution",
@@ -155,6 +165,16 @@ class RuntimeBackgroundJobsReadModel(BaseModel):
     route_ref: str = RUNTIME_BACKGROUND_JOBS_ROUTE_REF
     cli_ref: str = RUNTIME_BACKGROUND_JOBS_CLI_REF
     control_center_ref: str = RUNTIME_DELEGATION_CONTROL_CENTER_REF
+    authority_state_route_ref: str = RUNTIME_BACKGROUND_JOBS_AUTHORITY_STATE_ROUTE_REF
+    authority_state_cli_ref: str = RUNTIME_BACKGROUND_JOBS_AUTHORITY_STATE_CLI_REF
+    authority_state_mapping_ref: str
+    authority_state_catalog_ref: str
+    authority_state_decision_ref: str
+    authority_state_decision_outcome: str
+    authority_state_status: str
+    authority_state_operator_message: str
+    authority_state_reason_refs: list[str] = Field(default_factory=list)
+    unsupported_adapter_refs: list[str] = Field(default_factory=list)
     safe_summary: str = (
         "Background job posture exposes durable job proposals and blocked "
         "scheduler labels only; no worker or autonomous execution is enabled."
@@ -209,6 +229,9 @@ class RuntimeBackgroundJobsReadModel(BaseModel):
             (self.snapshot_ref, "snapshot_ref"),
             (self.snapshot_hash_ref, "snapshot_hash_ref"),
             (self.control_center_ref, "control_center_ref"),
+            (self.authority_state_mapping_ref, "authority_state_mapping_ref"),
+            (self.authority_state_catalog_ref, "authority_state_catalog_ref"),
+            (self.authority_state_decision_ref, "authority_state_decision_ref"),
         ]:
             validate_execution_ref(value, field_name)
         for value, field_name in [
@@ -216,6 +239,17 @@ class RuntimeBackgroundJobsReadModel(BaseModel):
             (self.status, "status"),
             (self.route_ref, "route_ref"),
             (self.cli_ref, "cli_ref"),
+            (self.authority_state_route_ref, "authority_state_route_ref"),
+            (self.authority_state_cli_ref, "authority_state_cli_ref"),
+            (
+                self.authority_state_decision_outcome,
+                "authority_state_decision_outcome",
+            ),
+            (self.authority_state_status, "authority_state_status"),
+            (
+                self.authority_state_operator_message,
+                "authority_state_operator_message",
+            ),
             (self.safe_summary, "safe_summary"),
         ]:
             validate_safe_execution_text(value, field_name)
@@ -225,6 +259,8 @@ class RuntimeBackgroundJobsReadModel(BaseModel):
             "proof_refs",
             "verifier_refs",
             "next_safe_action_refs",
+            "authority_state_reason_refs",
+            "unsupported_adapter_refs",
             "redactions_applied",
         ):
             for value in getattr(self, field_name):
@@ -232,6 +268,13 @@ class RuntimeBackgroundJobsReadModel(BaseModel):
                     validate_safe_execution_text(value, field_name)
                 else:
                     validate_execution_ref(value, field_name)
+        if (
+            self.authority_state_mapping_ref
+            != RUNTIME_BACKGROUND_JOBS_AUTHORITY_MAPPING_REF
+        ):
+            raise ValueError("RUNTIME_BACKGROUND_JOBS_AUTHORITY_MAPPING_UNKNOWN")
+        if self.authority_state_decision_outcome not in _AUTHORITY_DECISION_OUTCOMES:
+            raise ValueError("RUNTIME_BACKGROUND_JOBS_AUTHORITY_OUTCOME_UNKNOWN")
         if self.job_count != len(self.jobs):
             raise ValueError("RUNTIME_BACKGROUND_JOB_COUNT_DRIFT")
         status_counts = {
@@ -312,6 +355,10 @@ def _snapshot_hash_ref(payload: dict[str, object]) -> str:
     return f"snapshot-hash-ref:runtime-background-jobs:{digest}"
 
 
+def _authority_value(value: object) -> str:
+    return str(getattr(value, "value", value))
+
+
 def _job(
     slug: str,
     *,
@@ -340,7 +387,10 @@ def _job(
     )
 
 
-def build_runtime_background_jobs_read_model() -> RuntimeBackgroundJobsReadModel:
+def build_runtime_background_jobs_read_model(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None = None,
+) -> RuntimeBackgroundJobsReadModel:
+    authority_entry = _authority_entry(authority_decision_catalog)
     jobs = [
         _job(
             "runtime-doctor-check",
@@ -390,9 +440,23 @@ def build_runtime_background_jobs_read_model() -> RuntimeBackgroundJobsReadModel
     payload_for_hash: dict[str, object] = {
         "jobs": [job.model_dump(mode="json") for job in jobs],
         "blocked": list(RUNTIME_BACKGROUND_JOBS_BLOCKED_AUTHORITY_REFS),
+        "authority_state_decision_ref": authority_entry.decision.decision_ref,
+        "authority_state_decision_outcome": _authority_value(
+            authority_entry.decision.outcome
+        ),
     }
     return RuntimeBackgroundJobsReadModel(
         snapshot_hash_ref=_snapshot_hash_ref(payload_for_hash),
+        authority_state_mapping_ref=authority_entry.lane_ref,
+        authority_state_catalog_ref=authority_entry.catalog_ref,
+        authority_state_decision_ref=authority_entry.decision.decision_ref,
+        authority_state_decision_outcome=_authority_value(
+            authority_entry.decision.outcome
+        ),
+        authority_state_status=authority_entry.status,
+        authority_state_operator_message=authority_entry.decision.operator_message,
+        authority_state_reason_refs=list(authority_entry.decision.reason_refs),
+        unsupported_adapter_refs=list(authority_entry.unsupported_adapter_refs),
         jobs=jobs,
         job_count=len(jobs),
         proposal_count=sum(
@@ -443,3 +507,13 @@ def build_runtime_background_jobs_read_model() -> RuntimeBackgroundJobsReadModel
             "next-safe-action-ref:background-jobs:keep-workers-blocked",
         ],
     )
+
+
+def _authority_entry(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None,
+) -> AuthorityDecisionCatalogEntry:
+    catalog = authority_decision_catalog or build_authority_decision_catalog()
+    entries = {entry.lane_ref: entry for entry in catalog}
+    if RUNTIME_BACKGROUND_JOBS_AUTHORITY_MAPPING_REF not in entries:
+        raise ValueError("RUNTIME_BACKGROUND_JOBS_AUTHORITY_CATALOG_MISSING")
+    return entries[RUNTIME_BACKGROUND_JOBS_AUTHORITY_MAPPING_REF]

@@ -12,6 +12,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from ultimate_ai_agent.api.app import app  # noqa: E402
 from ultimate_ai_agent.api.manifest import build_api_manifest  # noqa: E402
 from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
+    RUNTIME_BACKGROUND_JOBS_AUTHORITY_MAPPING_REF,
     RUNTIME_BACKGROUND_JOBS_BLOCKED_AUTHORITY_REFS,
     build_runtime_background_jobs_read_model,
 )
@@ -35,6 +36,22 @@ def main() -> int:
         failures.append("background jobs CLI ref is stale")
     if read_model.status != "durable_job_proposal_posture":
         failures.append("background jobs posture is not durable proposal state")
+    if (
+        read_model.authority_state_mapping_ref
+        != RUNTIME_BACKGROUND_JOBS_AUTHORITY_MAPPING_REF
+    ):
+        failures.append("background jobs AuthorityState mapping is stale")
+    if read_model.authority_state_decision_outcome != "deny":
+        failures.append("background jobs AuthorityState decision must deny by default")
+    if (
+        "reason-ref:authority:adapter-unsupported"
+        not in read_model.authority_state_reason_refs
+    ):
+        failures.append("background jobs AuthorityState reason must name unsupported adapter")
+    if "adapter-ref:background-worker-runtime:not-implemented" not in (
+        read_model.unsupported_adapter_refs
+    ):
+        failures.append("background jobs must expose unsupported worker adapter ref")
     if read_model.job_count != 4:
         failures.append("background jobs lacks expected job proposals")
     if read_model.reviewable_job_count < 3:
@@ -116,9 +133,10 @@ def main() -> int:
             "Full-Strength",
             "Repo-Safe",
             "Blocked / Needs Authority",
-            "Exact Promotion Path",
+            "Exact Authority Path",
             ROUTE,
             "inspect-background-jobs",
+            "lane-ref:background-autonomy-scoped",
         ]:
             if expected not in doc_text:
                 failures.append(f"doc missing {expected}")
@@ -150,6 +168,13 @@ def main() -> int:
             failures.append("background jobs CLI claims connector write")
         if read_model_payload["route_ref"] != f"GET {ROUTE}":
             failures.append("background jobs CLI returned stale route ref")
+        if (
+            read_model_payload["authority_state_mapping_ref"]
+            != RUNTIME_BACKGROUND_JOBS_AUTHORITY_MAPPING_REF
+        ):
+            failures.append("background jobs CLI returned stale AuthorityState mapping")
+        if read_model_payload["authority_state_decision_outcome"] != "deny":
+            failures.append("background jobs CLI returned unsafe AuthorityState outcome")
 
     if failures:
         for failure in failures:

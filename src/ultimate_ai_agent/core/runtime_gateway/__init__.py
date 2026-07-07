@@ -321,6 +321,9 @@ from ultimate_ai_agent.core.runtime_gateway.mcp_catalog_filtering import (
     build_runtime_mcp_catalog_filtering_read_model,
 )
 from ultimate_ai_agent.core.runtime_gateway.background_jobs import (
+    RUNTIME_BACKGROUND_JOBS_AUTHORITY_MAPPING_REF,
+    RUNTIME_BACKGROUND_JOBS_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_BACKGROUND_JOBS_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_BACKGROUND_JOBS_BLOCKED_AUTHORITY_REFS,
     RUNTIME_BACKGROUND_JOBS_CLI_REF,
     RUNTIME_BACKGROUND_JOBS_CONTRACT_REF,
@@ -1022,6 +1025,9 @@ __all__ = [
     "validate_sensitive_context_candidate_allowed",
     "command_allowlist_catalog",
     "hardline_block_reason_for_argv",
+    "RUNTIME_BACKGROUND_JOBS_AUTHORITY_MAPPING_REF",
+    "RUNTIME_BACKGROUND_JOBS_AUTHORITY_STATE_CLI_REF",
+    "RUNTIME_BACKGROUND_JOBS_AUTHORITY_STATE_ROUTE_REF",
     "RUNTIME_BACKGROUND_JOBS_BLOCKED_AUTHORITY_REFS",
     "RUNTIME_BACKGROUND_JOBS_CLI_REF",
     "RUNTIME_BACKGROUND_JOBS_CONTRACT_REF",

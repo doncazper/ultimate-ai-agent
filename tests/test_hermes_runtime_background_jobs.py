@@ -7,6 +7,9 @@ from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.runtime_gateway import (
+    RUNTIME_BACKGROUND_JOBS_AUTHORITY_MAPPING_REF,
+    RUNTIME_BACKGROUND_JOBS_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_BACKGROUND_JOBS_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_BACKGROUND_JOBS_BLOCKED_AUTHORITY_REFS,
     RUNTIME_BACKGROUND_JOBS_CONTRACT_REF,
     RuntimeBackgroundJobProposalReadModel,
@@ -26,6 +29,29 @@ def test_background_jobs_are_durable_proposals_only() -> None:
     assert read_model.status == "durable_job_proposal_posture"
     assert read_model.route_ref == "GET /api/runtime/background-jobs"
     assert read_model.cli_ref == "uaa runtime inspect-background-jobs"
+    assert (
+        read_model.authority_state_route_ref
+        == RUNTIME_BACKGROUND_JOBS_AUTHORITY_STATE_ROUTE_REF
+    )
+    assert (
+        read_model.authority_state_cli_ref
+        == RUNTIME_BACKGROUND_JOBS_AUTHORITY_STATE_CLI_REF
+    )
+    assert (
+        read_model.authority_state_mapping_ref
+        == RUNTIME_BACKGROUND_JOBS_AUTHORITY_MAPPING_REF
+    )
+    assert read_model.authority_state_decision_ref.startswith(
+        "authority-policy-decision-ref:"
+    )
+    assert read_model.authority_state_decision_outcome == "deny"
+    assert read_model.authority_state_status == "planned_unsupported_adapter"
+    assert read_model.authority_state_reason_refs == [
+        "reason-ref:authority:adapter-unsupported"
+    ]
+    assert "adapter-ref:background-worker-runtime:not-implemented" in (
+        read_model.unsupported_adapter_refs
+    )
     assert read_model.job_count == 4
     assert read_model.proposal_count == 1
     assert read_model.paused_count == 1
@@ -153,6 +179,15 @@ def test_background_jobs_api_returns_safe_read_model() -> None:
     assert body["operation"] == "api_runtime_background_jobs"
     data = body["data"]
     assert data["route_ref"] == "GET /api/runtime/background-jobs"
+    assert data["authority_state_route_ref"] == "GET /api/runtime/authority-state"
+    assert (
+        data["authority_state_mapping_ref"]
+        == RUNTIME_BACKGROUND_JOBS_AUTHORITY_MAPPING_REF
+    )
+    assert data["authority_state_decision_outcome"] == "deny"
+    assert "adapter-ref:background-worker-runtime:not-implemented" in (
+        data["unsupported_adapter_refs"]
+    )
     assert data["job_count"] == 4
     assert data["scheduler_enabled"] is False
     assert data["background_worker_enabled"] is False
@@ -194,4 +229,12 @@ def test_background_jobs_cli_uses_same_read_model() -> None:
     assert payload["connector_write_performed"] is False
     assert read_model["route_ref"] == "GET /api/runtime/background-jobs"
     assert read_model["cli_ref"] == "uaa runtime inspect-background-jobs"
+    assert (
+        read_model["authority_state_mapping_ref"]
+        == RUNTIME_BACKGROUND_JOBS_AUTHORITY_MAPPING_REF
+    )
+    assert read_model["authority_state_decision_outcome"] == "deny"
+    assert read_model["authority_state_reason_refs"] == [
+        "reason-ref:authority:adapter-unsupported"
+    ]
     assert read_model["job_count"] == 4

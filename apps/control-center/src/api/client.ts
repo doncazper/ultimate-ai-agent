@@ -5193,6 +5193,26 @@ function isSafeRuntimeBackgroundJobs(
     value.status === "durable_job_proposal_posture" &&
     value.route_ref === "GET /api/runtime/background-jobs" &&
     value.cli_ref === "uaa runtime inspect-background-jobs" &&
+    value.authority_state_route_ref === "GET /api/runtime/authority-state" &&
+    value.authority_state_cli_ref ===
+      "repo-local-command:uaa-runtime-inspect-authority-state" &&
+    value.authority_state_mapping_ref ===
+      "lane-ref:background-autonomy-scoped" &&
+    isSafeTrustAuthorityRef(value.authority_state_catalog_ref) &&
+    isSafeTrustAuthorityRef(value.authority_state_decision_ref) &&
+    hasExactStringValue(
+      value.authority_state_decision_outcome,
+      TRUST_AUTHORITY_DECISION_OUTCOMES,
+    ) &&
+    typeof value.authority_state_status === "string" &&
+    typeof value.authority_state_operator_message === "string" &&
+    Array.isArray(value.authority_state_reason_refs) &&
+    value.authority_state_reason_refs.every(isSafeTrustAuthorityRef) &&
+    Array.isArray(value.unsupported_adapter_refs) &&
+    value.unsupported_adapter_refs.includes(
+      "adapter-ref:background-worker-runtime:not-implemented",
+    ) &&
+    value.unsupported_adapter_refs.every(isSafeTrustAuthorityRef) &&
     value.job_count === value.jobs.length &&
     value.proposal_count ===
       value.jobs.filter((job) => job.status === "proposal").length &&

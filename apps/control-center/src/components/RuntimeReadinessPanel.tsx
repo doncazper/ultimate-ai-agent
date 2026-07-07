@@ -944,6 +944,26 @@ export function RuntimeReadinessPanel({
             <dd>{backgroundJobs.cli_ref}</dd>
           </div>
           <div>
+            <dt>AuthorityState</dt>
+            <dd>{backgroundJobs.authority_state_route_ref}</dd>
+          </div>
+          <div>
+            <dt>Capability</dt>
+            <dd>{backgroundJobs.authority_state_mapping_ref}</dd>
+          </div>
+          <div>
+            <dt>Decision</dt>
+            <dd>
+              <span>{backgroundJobs.authority_state_decision_outcome}</span>
+              <br />
+              <span>{backgroundJobs.authority_state_decision_ref}</span>
+            </dd>
+          </div>
+          <div>
+            <dt>Reason</dt>
+            <dd>{backgroundJobs.authority_state_reason_refs[0] ?? "none"}</dd>
+          </div>
+          <div>
             <dt>Jobs</dt>
             <dd>{backgroundJobs.job_count}</dd>
           </div>

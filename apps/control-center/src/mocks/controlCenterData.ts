@@ -15776,6 +15776,23 @@ export const mockControlCenterData: ControlCenterData = {
     route_ref: "GET /api/runtime/background-jobs",
     cli_ref: "uaa runtime inspect-background-jobs",
     control_center_ref: "control-center-route:runtime",
+    authority_state_route_ref: "GET /api/runtime/authority-state",
+    authority_state_cli_ref:
+      "repo-local-command:uaa-runtime-inspect-authority-state",
+    authority_state_mapping_ref: "lane-ref:background-autonomy-scoped",
+    authority_state_catalog_ref:
+      "authority-decision-catalog-ref:background-autonomy-scoped",
+    authority_state_decision_ref:
+      "authority-policy-decision-ref:mock-background-autonomy-scoped",
+    authority_state_decision_outcome: "deny",
+    authority_state_status: "planned_unsupported_adapter",
+    authority_state_operator_message:
+      "Denied because the requested adapter is not implemented.",
+    authority_state_reason_refs: ["reason-ref:authority:adapter-unsupported"],
+    unsupported_adapter_refs: [
+      "adapter-ref:background-worker-runtime:not-implemented",
+      "adapter-ref:background-supervisor:not-implemented",
+    ],
     safe_summary:
       "Runtime background jobs mock fallback shows durable proposals and blocked scheduler labels only.",
     jobs: runtimeBackgroundJobs,
