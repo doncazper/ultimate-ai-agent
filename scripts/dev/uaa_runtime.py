@@ -2240,6 +2240,7 @@ def _preview_authority_decision(args: argparse.Namespace) -> int:
         print(f"Outcome: {decision.outcome}")
         print(f"Domain: {decision.domain}")
         print(f"Capability: {decision.capability}")
+        print(f"Capability ref: {decision.capability_ref or 'none'}")
         print(f"Requirement: {_authority_decision_requirement(decision)}")
         print(f"Lease: {decision.lease_ref or 'none'}")
         print(f"Decision: {decision.decision_ref}")

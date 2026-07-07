@@ -1018,6 +1018,8 @@ def test_authority_decision_preview_api_and_cli_are_read_only(
             "browser",
             "--capability",
             "click",
+            "--capability-ref",
+            "authority-capability-ref:test-preview-cli-text-browser-click",
             "--summary",
             "Preview browser click authority without running browser automation.",
             "--requested-mode",
@@ -1029,6 +1031,10 @@ def test_authority_decision_preview_api_and_cli_are_read_only(
     assert cli_text_exit == 0
     cli_text = capsys.readouterr().out
     assert "Authority decision preview" in cli_text
+    assert (
+        "Capability ref: authority-capability-ref:test-preview-cli-text-browser-click"
+        in cli_text
+    )
     assert (
         "Requirement: Requires full machine access session + browser domain + "
         "click capability."
