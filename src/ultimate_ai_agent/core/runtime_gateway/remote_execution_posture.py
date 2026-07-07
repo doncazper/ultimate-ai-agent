@@ -6,6 +6,10 @@ from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.authority import (
+    AuthorityDecisionCatalogEntry,
+    build_authority_decision_catalog,
+)
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
@@ -18,6 +22,9 @@ from ultimate_ai_agent.core.runtime_gateway.delegation import (
 
 RUNTIME_REMOTE_EXECUTION_POSTURE_CONTRACT_REF = (
     "contract-ref:hermes-runtime-adoption-remote-execution-posture:v1"
+)
+RUNTIME_REMOTE_EXECUTION_POSTURE_ROUTE_REF = (
+    "GET /api/runtime/remote-execution-posture"
 )
 RUNTIME_REMOTE_EXECUTION_POSTURE_CLI_REF = (
     "uaa runtime inspect-remote-execution-posture"
@@ -34,6 +41,16 @@ RUNTIME_REMOTE_EXECUTION_POSTURE_PROOF_REF = (
 RUNTIME_REMOTE_EXECUTION_POSTURE_VERIFIER_REF = (
     "verifier-ref:hermes-runtime-adoption:phase-43:remote-execution-posture"
 )
+RUNTIME_REMOTE_EXECUTION_POSTURE_AUTHORITY_STATE_ROUTE_REF = (
+    "GET /api/runtime/authority-state"
+)
+RUNTIME_REMOTE_EXECUTION_POSTURE_AUTHORITY_STATE_CLI_REF = (
+    "repo-local-command:uaa-runtime-inspect-authority-state"
+)
+RUNTIME_REMOTE_EXECUTION_POSTURE_AUTHORITY_MAPPING_REF = (
+    "lane-ref:runtime-remote-execution-posture-read-model"
+)
+_AUTHORITY_DECISION_OUTCOMES = {"allow", "ask", "deny", "degrade_to_draft"}
 
 RUNTIME_REMOTE_EXECUTION_BLOCKED_AUTHORITY_REFS: tuple[str, ...] = (
     "blocked-authority:remote-execution-no-secure-host",
@@ -146,8 +163,23 @@ class RuntimeRemoteExecutionPostureReadModel(BaseModel):
     status: str = "capability_map_only"
     snapshot_ref: str = RUNTIME_REMOTE_EXECUTION_POSTURE_SNAPSHOT_REF
     snapshot_hash_ref: str = "snapshot-hash-ref:remote-execution-posture:pending"
+    route_ref: str = RUNTIME_REMOTE_EXECUTION_POSTURE_ROUTE_REF
     cli_ref: str = RUNTIME_REMOTE_EXECUTION_POSTURE_CLI_REF
     doc_ref: str = RUNTIME_REMOTE_EXECUTION_POSTURE_DOC_REF
+    authority_state_route_ref: str = (
+        RUNTIME_REMOTE_EXECUTION_POSTURE_AUTHORITY_STATE_ROUTE_REF
+    )
+    authority_state_cli_ref: str = (
+        RUNTIME_REMOTE_EXECUTION_POSTURE_AUTHORITY_STATE_CLI_REF
+    )
+    authority_state_mapping_ref: str
+    authority_state_catalog_ref: str
+    authority_state_decision_ref: str
+    authority_state_decision_outcome: str
+    authority_state_status: str
+    authority_state_operator_message: str
+    authority_state_reason_refs: list[str] = Field(default_factory=list)
+    unsupported_adapter_refs: list[str] = Field(default_factory=list)
     control_center_ref: str = RUNTIME_DELEGATION_CONTROL_CENTER_REF
     safe_summary: str = (
         "Execution backends are represented as capability-map posture only; "
@@ -188,18 +220,35 @@ class RuntimeRemoteExecutionPostureReadModel(BaseModel):
             (self.contract_ref, "contract_ref"),
             (self.snapshot_ref, "snapshot_ref"),
             (self.snapshot_hash_ref, "snapshot_hash_ref"),
+            (self.authority_state_mapping_ref, "authority_state_mapping_ref"),
+            (self.authority_state_catalog_ref, "authority_state_catalog_ref"),
+            (self.authority_state_decision_ref, "authority_state_decision_ref"),
             (self.control_center_ref, "control_center_ref"),
         ]:
             validate_execution_ref(value, field_name)
         for value, field_name in [
             (self.schema_version, "schema_version"),
             (self.status, "status"),
+            (self.route_ref, "route_ref"),
             (self.cli_ref, "cli_ref"),
             (self.doc_ref, "doc_ref"),
+            (self.authority_state_route_ref, "authority_state_route_ref"),
+            (self.authority_state_cli_ref, "authority_state_cli_ref"),
+            (
+                self.authority_state_decision_outcome,
+                "authority_state_decision_outcome",
+            ),
+            (self.authority_state_status, "authority_state_status"),
+            (
+                self.authority_state_operator_message,
+                "authority_state_operator_message",
+            ),
             (self.safe_summary, "safe_summary"),
         ]:
             validate_safe_execution_text(value, field_name)
         for field_name in (
+            "authority_state_reason_refs",
+            "unsupported_adapter_refs",
             "blocked_authority_refs",
             "promotion_path_refs",
             "proof_refs",
@@ -210,6 +259,13 @@ class RuntimeRemoteExecutionPostureReadModel(BaseModel):
                 validate_execution_ref(value, field_name)
         for value in self.redactions_applied:
             validate_safe_execution_text(value, "redactions_applied")
+        if (
+            self.authority_state_mapping_ref
+            != RUNTIME_REMOTE_EXECUTION_POSTURE_AUTHORITY_MAPPING_REF
+        ):
+            raise ValueError("RUNTIME_REMOTE_EXECUTION_AUTHORITY_MAPPING_MISMATCH")
+        if self.authority_state_decision_outcome not in _AUTHORITY_DECISION_OUTCOMES:
+            raise ValueError("RUNTIME_REMOTE_EXECUTION_AUTHORITY_DECISION_INVALID")
         denied_flags = {
             "remote_execution_enabled": self.remote_execution_enabled,
             "ssh_enabled": self.ssh_enabled,
@@ -242,6 +298,10 @@ class RuntimeRemoteExecutionPostureReadModel(BaseModel):
         ):
             raise ValueError("RUNTIME_REMOTE_EXECUTION_BLOCKED_COUNT_MISMATCH")
         return self
+
+
+def _authority_value(value: object) -> str:
+    return str(getattr(value, "value", value))
 
 
 def _backend(
@@ -277,9 +337,12 @@ def _backend(
     )
 
 
-def build_runtime_remote_execution_posture_read_model() -> (
+def build_runtime_remote_execution_posture_read_model(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None = None,
+) -> (
     RuntimeRemoteExecutionPostureReadModel
 ):
+    authority_entry = _authority_entry(authority_decision_catalog)
     backends = [
         _backend(
             RuntimeExecutionBackendKind.local_workspace,
@@ -320,6 +383,17 @@ def build_runtime_remote_execution_posture_read_model() -> (
         ),
     ]
     payload = {
+        "route_ref": RUNTIME_REMOTE_EXECUTION_POSTURE_ROUTE_REF,
+        "authority_state_mapping_ref": authority_entry.lane_ref,
+        "authority_state_catalog_ref": authority_entry.catalog_ref,
+        "authority_state_decision_ref": authority_entry.decision.decision_ref,
+        "authority_state_decision_outcome": _authority_value(
+            authority_entry.decision.outcome
+        ),
+        "authority_state_status": authority_entry.status,
+        "authority_state_operator_message": authority_entry.decision.operator_message,
+        "authority_state_reason_refs": list(authority_entry.decision.reason_refs),
+        "unsupported_adapter_refs": list(authority_entry.unsupported_adapter_refs),
         "backends": backends,
         "backend_count": len(backends),
         "blocked_backend_count": len(backends),
@@ -341,8 +415,13 @@ def build_runtime_remote_execution_posture_read_model() -> (
     }
     snapshot_material = {
         "contract_ref": RUNTIME_REMOTE_EXECUTION_POSTURE_CONTRACT_REF,
+        "route_ref": payload["route_ref"],
         "cli_ref": RUNTIME_REMOTE_EXECUTION_POSTURE_CLI_REF,
         "backend_refs": [backend.backend_ref for backend in backends],
+        "authority_state_decision_ref": authority_entry.decision.decision_ref,
+        "authority_state_decision_outcome": _authority_value(
+            authority_entry.decision.outcome
+        ),
         "blocked_authority_refs": payload["blocked_authority_refs"],
     }
     payload["snapshot_hash_ref"] = (
@@ -352,3 +431,13 @@ def build_runtime_remote_execution_posture_read_model() -> (
         ).hexdigest()[:16]
     )
     return RuntimeRemoteExecutionPostureReadModel(**payload)
+
+
+def _authority_entry(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None,
+) -> AuthorityDecisionCatalogEntry:
+    catalog = authority_decision_catalog or build_authority_decision_catalog()
+    for entry in catalog:
+        if entry.lane_ref == RUNTIME_REMOTE_EXECUTION_POSTURE_AUTHORITY_MAPPING_REF:
+            return entry
+    raise ValueError("RUNTIME_REMOTE_EXECUTION_AUTHORITY_MAPPING_MISSING")

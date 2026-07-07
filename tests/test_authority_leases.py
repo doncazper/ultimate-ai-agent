@@ -476,6 +476,31 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         ].decision.unsupported_adapter
         is False
     )
+    remote_execution_posture = mappings_by_lane[
+        "lane-ref:runtime-remote-execution-posture-read-model"
+    ]
+    assert remote_execution_posture.domain == "workspace"
+    assert remote_execution_posture.capability == "read"
+    assert remote_execution_posture.required_mode == "read_only"
+    assert (
+        remote_execution_posture.status == "implemented_authority_bound_read_model"
+    )
+    assert "GET /api/runtime/remote-execution-posture" in (
+        remote_execution_posture.route_refs
+    )
+    assert remote_execution_posture.unsupported_adapter_blocks_capability is False
+    assert (
+        decision_by_lane[
+            "lane-ref:runtime-remote-execution-posture-read-model"
+        ].decision.outcome
+        == "allow"
+    )
+    assert (
+        decision_by_lane[
+            "lane-ref:runtime-remote-execution-posture-read-model"
+        ].decision.unsupported_adapter
+        is False
+    )
     staged_runtime_command = mappings_by_lane[
         "lane-ref:staged-orchestration-approved-runtime-command"
     ]

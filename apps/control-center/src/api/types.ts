@@ -11810,6 +11810,87 @@ export interface RuntimeMessagingGatewayPostureReadModel {
   redactions_applied: string[];
 }
 
+export type RuntimeExecutionBackendKind =
+  | "local_workspace"
+  | "local_container"
+  | "secure_host"
+  | "cloud_sandbox"
+  | "serverless_worker"
+  | "remote_gpu";
+
+export type RuntimeExecutionBackendStatus =
+  | "capability_map_only"
+  | "blocked_until_authority";
+
+export interface RuntimeExecutionBackendCapability {
+  backend_ref: string;
+  backend_kind: RuntimeExecutionBackendKind;
+  display_label: string;
+  status: RuntimeExecutionBackendStatus;
+  safe_summary: string;
+  workspace_boundary_ref: string;
+  credential_policy_ref: string;
+  network_policy_ref: string;
+  receipt_plan_ref: string;
+  budget_ref: string;
+  rollback_ref: string;
+  kill_switch_ref: string;
+  proof_ref: string;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  next_safe_action_refs: string[];
+  remote_execution_enabled: boolean;
+  ssh_enabled: boolean;
+  cloud_sandbox_enabled: boolean;
+  remote_shell_enabled: boolean;
+  file_sync_enabled: boolean;
+  remote_secret_access_enabled: boolean;
+  remote_process_control_enabled: boolean;
+  credential_material_persisted: boolean;
+  control_center_mints_authority: boolean;
+}
+
+export interface RuntimeRemoteExecutionPostureReadModel {
+  schema_version: "runtime_remote_execution_posture.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  doc_ref: string;
+  authority_state_route_ref: string;
+  authority_state_cli_ref: string;
+  authority_state_mapping_ref: string;
+  authority_state_catalog_ref: string;
+  authority_state_decision_ref: string;
+  authority_state_decision_outcome: AuthorityDecisionOutcome;
+  authority_state_status: string;
+  authority_state_operator_message: string;
+  authority_state_reason_refs: string[];
+  unsupported_adapter_refs: string[];
+  control_center_ref: string;
+  safe_summary: string;
+  backends: RuntimeExecutionBackendCapability[];
+  backend_count: number;
+  blocked_backend_count: number;
+  remote_execution_enabled: boolean;
+  ssh_enabled: boolean;
+  cloud_sandbox_enabled: boolean;
+  remote_shell_enabled: boolean;
+  file_sync_enabled: boolean;
+  remote_secret_access_enabled: boolean;
+  remote_process_control_enabled: boolean;
+  credential_material_persisted: boolean;
+  control_center_mints_authority: boolean;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
 export interface RuntimeCapabilityDiscoveryReadModel {
   schema_version: "runtime_capability_discovery.v1";
   contract_ref: string;
@@ -13371,6 +13452,7 @@ export interface ControlCenterData {
   runtimeResultClassification: RuntimeResultClassificationReadModel;
   runtimeVoiceMediaPosture: RuntimeVoiceMediaPostureReadModel;
   runtimeMessagingGatewayPosture: RuntimeMessagingGatewayPostureReadModel;
+  runtimeRemoteExecutionPosture: RuntimeRemoteExecutionPostureReadModel;
   m15Review: M15ReviewData;
   runAttachedApprovalQueue: RunAttachedApprovalQueue;
   m16Trace: M16TraceData;

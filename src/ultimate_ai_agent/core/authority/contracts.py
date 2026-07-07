@@ -3125,6 +3125,34 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ],
         ),
         _mapping(
+            "lane-ref:runtime-remote-execution-posture-read-model",
+            "Runtime remote execution posture read model",
+            AuthorityDomain.workspace,
+            AuthorityCapability.read,
+            TrustMode.read_only,
+            "implemented_authority_bound_read_model",
+            ["GET /api/runtime/remote-execution-posture"],
+            ["repo-local-command:uaa-runtime-inspect-remote-execution-posture"],
+            (
+                "Remote execution posture inspection reads backend labels, "
+                "workspace boundary, credential policy, network policy, "
+                "receipt, budget, rollback, kill-switch, proof, and blocked "
+                "refs under Workspace read authority. It does not enable "
+                "remote execution, host access, cloud sandboxes, file sync, "
+                "protected material access, process control, or credential "
+                "persistence."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:remote-execution-local-container:not-implemented",
+                "adapter-ref:remote-execution-ssh:not-implemented",
+                "adapter-ref:remote-execution-secure-host:not-implemented",
+                "adapter-ref:remote-execution-cloud-sandbox:not-implemented",
+                "adapter-ref:remote-execution-serverless-worker:not-implemented",
+                "adapter-ref:remote-execution-remote-gpu:not-implemented",
+                "adapter-ref:remote-execution-file-sync:not-implemented",
+            ],
+        ),
+        _mapping(
             "lane-ref:staged-orchestration-approved-runtime-command",
             "Staged orchestration approved runtime command step",
             AuthorityDomain.workspace,

@@ -25,6 +25,7 @@ import type {
   RuntimePromptStabilityTiersReadModel,
   RuntimePreviewRailReadModel,
   RuntimeReadinessReport,
+  RuntimeRemoteExecutionPostureReadModel,
   RuntimeResultClassificationReadModel,
   RuntimeSlashCommandRegistryReadModel,
   RuntimeUsageCostAnalyticsReadModel,
@@ -68,6 +69,7 @@ export function RuntimeReadinessPanel({
   resultClassification,
   voiceMediaPosture,
   messagingGatewayPosture,
+  remoteExecutionPosture,
 }: {
   report: RuntimeReadinessReport;
   matrix: RuntimeCapabilityMatrix;
@@ -101,6 +103,7 @@ export function RuntimeReadinessPanel({
   resultClassification: RuntimeResultClassificationReadModel;
   voiceMediaPosture: RuntimeVoiceMediaPostureReadModel;
   messagingGatewayPosture: RuntimeMessagingGatewayPostureReadModel;
+  remoteExecutionPosture: RuntimeRemoteExecutionPostureReadModel;
 }) {
   const booleans = [
     ["Production readiness claim", report.production_ready],
@@ -586,6 +589,131 @@ export function RuntimeReadinessPanel({
         <h4>Blocked authority</h4>
         <ul className="compact-list">
           {stagedOrchestration.plan.blocked_authority_refs.slice(0, 6).map((ref) => (
+            <li key={ref}>{ref}</li>
+          ))}
+        </ul>
+      </article>
+      <article className="info-card">
+        <div className="panel-heading compact-heading">
+          <div>
+            <p className="eyebrow">Remote execution</p>
+            <h3>Posture inspection</h3>
+          </div>
+          <span className="status-pill compact">
+            {remoteExecutionPosture.status}
+          </span>
+        </div>
+        <p>{remoteExecutionPosture.safe_summary}</p>
+        <dl className="detail-grid">
+          <div>
+            <dt>Route</dt>
+            <dd>{remoteExecutionPosture.route_ref}</dd>
+          </div>
+          <div>
+            <dt>CLI</dt>
+            <dd>{remoteExecutionPosture.cli_ref}</dd>
+          </div>
+          <div>
+            <dt>Authority</dt>
+            <dd>{remoteExecutionPosture.authority_state_route_ref}</dd>
+          </div>
+          <div>
+            <dt>Capability mapping</dt>
+            <dd>{remoteExecutionPosture.authority_state_mapping_ref}</dd>
+          </div>
+          <div>
+            <dt>Decision</dt>
+            <dd>{remoteExecutionPosture.authority_state_decision_outcome}</dd>
+          </div>
+          <div>
+            <dt>Decision ref</dt>
+            <dd>{remoteExecutionPosture.authority_state_decision_ref}</dd>
+          </div>
+          <div>
+            <dt>Backends</dt>
+            <dd>{remoteExecutionPosture.backend_count}</dd>
+          </div>
+          <div>
+            <dt>Blocked backends</dt>
+            <dd>{remoteExecutionPosture.blocked_backend_count}</dd>
+          </div>
+          <div>
+            <dt>Remote execution</dt>
+            <dd>
+              {remoteExecutionPosture.remote_execution_enabled
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Host/cloud access</dt>
+            <dd>
+              {remoteExecutionPosture.ssh_enabled ||
+              remoteExecutionPosture.cloud_sandbox_enabled
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>File sync</dt>
+            <dd>
+              {remoteExecutionPosture.file_sync_enabled ? "enabled" : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Credential material</dt>
+            <dd>
+              {remoteExecutionPosture.credential_material_persisted
+                ? "stored"
+                : "omitted"}
+            </dd>
+          </div>
+        </dl>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Backend</th>
+                <th>Status</th>
+                <th>Boundary</th>
+                <th>Network</th>
+                <th>Receipt</th>
+                <th>Kill switch</th>
+              </tr>
+            </thead>
+            <tbody>
+              {remoteExecutionPosture.backends.map((backend) => (
+                <tr key={backend.backend_ref}>
+                  <td>{backend.display_label}</td>
+                  <td>{backend.status}</td>
+                  <td>{backend.workspace_boundary_ref}</td>
+                  <td>{backend.network_policy_ref}</td>
+                  <td>{backend.receipt_plan_ref}</td>
+                  <td>{backend.kill_switch_ref}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <h4>Unsupported adapters</h4>
+        <ul className="compact-list">
+          {remoteExecutionPosture.unsupported_adapter_refs
+            .slice(0, 6)
+            .map((ref) => (
+              <li key={ref}>{ref}</li>
+            ))}
+        </ul>
+        <h4>Blocked authority</h4>
+        <ul className="compact-list">
+          {remoteExecutionPosture.blocked_authority_refs
+            .slice(0, 6)
+            .map((ref) => (
+              <li key={ref}>{ref}</li>
+            ))}
+        </ul>
+        <h4>Authority reason</h4>
+        <ul className="compact-list">
+          {remoteExecutionPosture.authority_state_reason_refs.map((ref) => (
             <li key={ref}>{ref}</li>
           ))}
         </ul>

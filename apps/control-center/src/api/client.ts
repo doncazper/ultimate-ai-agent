@@ -60,6 +60,7 @@ import type {
   RuntimeInterruptRedirectReadModel,
   RuntimeLoggingProfileReadModel,
   RuntimeMessagingGatewayPostureReadModel,
+  RuntimeRemoteExecutionPostureReadModel,
   RuntimeResultClassificationReadModel,
   RuntimeVoiceMediaPostureReadModel,
   RuntimeSessionContinuityReadModel,
@@ -474,6 +475,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       API_ENDPOINTS.runtimeMessagingGatewayPosture,
     ),
   ] as const);
+  const runtimeRemoteExecutionPostureSettledPromise = Promise.allSettled([
+    read<RuntimeRemoteExecutionPostureReadModel>(
+      API_ENDPOINTS.runtimeRemoteExecutionPosture,
+    ),
+  ] as const);
   const results = await Promise.allSettled([
     read<ControlCenterManifest>(API_ENDPOINTS.controlCenterManifest),
     read<ControlCenterDashboardSnapshot>(
@@ -627,6 +633,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     await runtimeVoiceMediaPostureSettledPromise;
   const runtimeMessagingGatewayPostureResult =
     await runtimeMessagingGatewayPostureSettledPromise;
+  const runtimeRemoteExecutionPostureResult =
+    await runtimeRemoteExecutionPostureSettledPromise;
 
   const manifest = fulfilledValue(results[0]);
   const dashboard = fulfilledValue(results[1]);
@@ -702,6 +710,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   );
   const runtimeMessagingGatewayPosture = fulfilledValue(
     runtimeMessagingGatewayPostureResult[0],
+  );
+  const runtimeRemoteExecutionPosture = fulfilledValue(
+    runtimeRemoteExecutionPostureResult[0],
   );
   const setupAssistantSource = fulfilledValue(results[7]);
   const setupAssistant = normalizeMacOSSetupAssistant(
@@ -895,6 +906,10 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const safeRuntimeMessagingGatewayPosture =
     isSafeRuntimeMessagingGatewayPosture(runtimeMessagingGatewayPosture)
       ? runtimeMessagingGatewayPosture
+      : undefined;
+  const safeRuntimeRemoteExecutionPosture =
+    isSafeRuntimeRemoteExecutionPosture(runtimeRemoteExecutionPosture)
+      ? runtimeRemoteExecutionPosture
       : undefined;
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderStartHere = normalizeFounderStartHere(founderStartHere);
@@ -1090,6 +1105,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     safeRuntimeVoiceMediaPosture === undefined;
   const runtimeMessagingGatewayPostureFallbackUsed =
     safeRuntimeMessagingGatewayPosture === undefined;
+  const runtimeRemoteExecutionPostureFallbackUsed =
+    safeRuntimeRemoteExecutionPosture === undefined;
 
   const routeStates = buildRouteReadStates([
     routeReadStateInput({
@@ -1257,6 +1274,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         "GET /api/runtime/result-classification",
         "GET /api/runtime/voice-media-posture",
         "GET /api/runtime/messaging-gateway-posture",
+        "GET /api/runtime/remote-execution-posture",
       ],
       endpointReturned:
         runtimeReadiness !== undefined &&
@@ -1290,7 +1308,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeLoggingProfile !== undefined &&
         runtimeResultClassification !== undefined &&
         runtimeVoiceMediaPosture !== undefined &&
-        runtimeMessagingGatewayPosture !== undefined,
+        runtimeMessagingGatewayPosture !== undefined &&
+        runtimeRemoteExecutionPosture !== undefined,
       warningRefs: [
         ...(runtimeDelegationAdapterFallbackUsed
           ? ["RUNTIME_DELEGATION_ADAPTER_MOCK_FALLBACK"]
@@ -1382,6 +1401,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         ...(runtimeMessagingGatewayPostureFallbackUsed
           ? ["RUNTIME_MESSAGING_GATEWAY_POSTURE_MOCK_FALLBACK"]
           : []),
+        ...(runtimeRemoteExecutionPostureFallbackUsed
+          ? ["RUNTIME_REMOTE_EXECUTION_POSTURE_MOCK_FALLBACK"]
+          : []),
       ],
       usedFallback:
         runtimeReadiness === undefined ||
@@ -1415,7 +1437,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeLoggingProfileFallbackUsed ||
         runtimeResultClassificationFallbackUsed ||
         runtimeVoiceMediaPostureFallbackUsed ||
-        runtimeMessagingGatewayPostureFallbackUsed,
+        runtimeMessagingGatewayPostureFallbackUsed ||
+        runtimeRemoteExecutionPostureFallbackUsed,
     }),
     routeReadStateInput({
       route: "/briefing",
@@ -1533,6 +1556,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeResultClassification === undefined ||
     runtimeVoiceMediaPosture === undefined ||
     runtimeMessagingGatewayPosture === undefined ||
+    runtimeRemoteExecutionPosture === undefined ||
     codingSession === undefined ||
     codingContext === undefined ||
     codingPatchProposal === undefined ||
@@ -1584,8 +1608,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     (runtimeLoggingProfileResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeResultClassificationResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeVoiceMediaPostureResult[0].status === "fulfilled" ? 1 : 0) +
-    (runtimeMessagingGatewayPostureResult[0].status === "fulfilled" ? 1 : 0);
-  const expectedReadCount = results.length + 31;
+    (runtimeMessagingGatewayPostureResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeRemoteExecutionPostureResult[0].status === "fulfilled" ? 1 : 0);
+  const expectedReadCount = results.length + 32;
   const dashboardWithEndpointSummaries: ControlCenterDashboardSnapshot = {
     ...normalizedDashboard.value,
     approval_summary:
@@ -1724,6 +1749,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeMessagingGatewayPosture:
       safeRuntimeMessagingGatewayPosture ??
       mockControlCenterData.runtimeMessagingGatewayPosture,
+    runtimeRemoteExecutionPosture:
+      safeRuntimeRemoteExecutionPosture ??
+      mockControlCenterData.runtimeRemoteExecutionPosture,
     m15Review: mockControlCenterData.m15Review,
     runAttachedApprovalQueue:
       approvalQueue ?? mockControlCenterData.runAttachedApprovalQueue,
@@ -1829,6 +1857,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     !runtimeResultClassificationFallbackUsed &&
     !runtimeVoiceMediaPostureFallbackUsed &&
     !runtimeMessagingGatewayPostureFallbackUsed &&
+    !runtimeRemoteExecutionPostureFallbackUsed &&
     !modelProviderControlPlaneFallbackUsed &&
     !providerCredentialReadinessFallbackUsed &&
     !runObservabilityEndpointFallbackUsed &&
@@ -1883,6 +1912,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeResultClassificationFallbackUsed ||
     runtimeVoiceMediaPostureFallbackUsed ||
     runtimeMessagingGatewayPostureFallbackUsed ||
+    runtimeRemoteExecutionPostureFallbackUsed ||
     modelProviderControlPlaneFallbackUsed ||
     providerCredentialReadinessFallbackUsed ||
     approvalQueueEndpointFallbackUsed ||
@@ -1992,6 +2022,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   } else if (runtimeMessagingGatewayPostureFallbackUsed) {
     degradedSafeMessage =
       "Runtime messaging gateway posture was unavailable or unsafe; non-authoritative mock fallback kept connector runtime, reads, sends, OAuth, webhooks, sync, and writes blocked.";
+  } else if (runtimeRemoteExecutionPostureFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime remote execution posture was unavailable or unsafe; non-authoritative mock fallback kept remote execution, host access, cloud sandboxes, file sync, protected material, and process control blocked.";
   } else if (
     founderLoopFieldFallbackUsed ||
     normalizedFounderStartHere.usedFallback ||
@@ -6508,6 +6541,87 @@ function isSafeRuntimeMessagingGatewayPosture(
         platform.external_write_enabled === false &&
         platform.raw_message_persisted === false &&
         platform.control_center_mints_authority === false,
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeRemoteExecutionPosture(
+  value: RuntimeRemoteExecutionPostureReadModel | undefined,
+): value is RuntimeRemoteExecutionPostureReadModel {
+  if (value === undefined || !Array.isArray(value.backends)) {
+    return false;
+  }
+  const allowedBackendKinds = new Set([
+    "local_workspace",
+    "local_container",
+    "secure_host",
+    "cloud_sandbox",
+    "serverless_worker",
+    "remote_gpu",
+  ]);
+  const deniedTopLevelFlags: Array<
+    keyof RuntimeRemoteExecutionPostureReadModel
+  > = [
+    "remote_execution_enabled",
+    "ssh_enabled",
+    "cloud_sandbox_enabled",
+    "remote_shell_enabled",
+    "file_sync_enabled",
+    "remote_secret_access_enabled",
+    "remote_process_control_enabled",
+    "credential_material_persisted",
+    "control_center_mints_authority",
+  ];
+  return (
+    value.schema_version === "runtime_remote_execution_posture.v1" &&
+    value.status === "capability_map_only" &&
+    value.route_ref === "GET /api/runtime/remote-execution-posture" &&
+    value.cli_ref === "uaa runtime inspect-remote-execution-posture" &&
+    value.authority_state_route_ref === "GET /api/runtime/authority-state" &&
+    value.authority_state_cli_ref ===
+      "repo-local-command:uaa-runtime-inspect-authority-state" &&
+    value.authority_state_mapping_ref ===
+      "lane-ref:runtime-remote-execution-posture-read-model" &&
+    isSafeTrustAuthorityRef(value.authority_state_catalog_ref) &&
+    isSafeTrustAuthorityRef(value.authority_state_decision_ref) &&
+    hasExactStringValue(
+      value.authority_state_decision_outcome,
+      TRUST_AUTHORITY_DECISION_OUTCOMES,
+    ) &&
+    typeof value.authority_state_status === "string" &&
+    typeof value.authority_state_operator_message === "string" &&
+    Array.isArray(value.authority_state_reason_refs) &&
+    value.authority_state_reason_refs.every(isSafeTrustAuthorityRef) &&
+    Array.isArray(value.unsupported_adapter_refs) &&
+    value.unsupported_adapter_refs.every(isSafeTrustAuthorityRef) &&
+    value.backend_count === 6 &&
+    value.backend_count === value.backends.length &&
+    value.blocked_backend_count === value.backends.length &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:remote-execution-no-secure-host",
+    ) &&
+    isNonEmptyStringArray(value.promotion_path_refs) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.backends.every(
+      (backend) =>
+        allowedBackendKinds.has(backend.backend_kind) &&
+        backend.status === "blocked_until_authority" &&
+        isNonEmptyStringArray(backend.blocked_authority_refs) &&
+        isNonEmptyStringArray(backend.promotion_path_refs) &&
+        isNonEmptyStringArray(backend.next_safe_action_refs) &&
+        backend.remote_execution_enabled === false &&
+        backend.ssh_enabled === false &&
+        backend.cloud_sandbox_enabled === false &&
+        backend.remote_shell_enabled === false &&
+        backend.file_sync_enabled === false &&
+        backend.remote_secret_access_enabled === false &&
+        backend.remote_process_control_enabled === false &&
+        backend.credential_material_persisted === false &&
+        backend.control_center_mints_authority === false,
     ) &&
     deniedTopLevelFlags.every((flag) => value[flag] === false)
   );

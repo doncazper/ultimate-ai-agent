@@ -871,6 +871,8 @@ function baseRouteData(): Record<string, unknown> {
       mockControlCenterData.runtimeVoiceMediaPosture,
     [API_ENDPOINTS.runtimeMessagingGatewayPosture]:
       mockControlCenterData.runtimeMessagingGatewayPosture,
+    [API_ENDPOINTS.runtimeRemoteExecutionPosture]:
+      mockControlCenterData.runtimeRemoteExecutionPosture,
     [API_ENDPOINTS.setupAssistantSummary]:
       mockControlCenterData.macosSetupAssistant,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,

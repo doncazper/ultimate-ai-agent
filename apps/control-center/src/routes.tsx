@@ -550,6 +550,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
           resultClassification={data.runtimeResultClassification}
           voiceMediaPosture={data.runtimeVoiceMediaPosture}
           messagingGatewayPosture={data.runtimeMessagingGatewayPosture}
+          remoteExecutionPosture={data.runtimeRemoteExecutionPosture}
         />
       );
     case "/operator-loop":

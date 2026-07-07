@@ -42,6 +42,7 @@ import type {
   RuntimeContextBudgetProposal,
   RuntimeContextBudgetSegment,
   RuntimeDoctorDiagnosticItem,
+  RuntimeExecutionBackendCapability,
   RuntimeHardlineCommandClassification,
   RuntimeManagedScopePolicyDriftWarning,
   RuntimeManagedScopePolicyPinSource,
@@ -72,7 +73,7 @@ import type {
 
 type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
 
-export const MOCK_OPENAPI_ROUTE_COUNT = 244;
+export const MOCK_OPENAPI_ROUTE_COUNT = 245;
 export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 90;
 
 function runtimeToolRegistryEntry(
@@ -2696,6 +2697,99 @@ const runtimeMessagingGatewayPlatforms = [
     display_label: "Generic webhook",
     safe_summary:
       "Mock generic webhook posture keeps inbound exposure and external writes blocked.",
+  }),
+];
+
+const runtimeRemoteExecutionBlockedRefs = [
+  "blocked-authority:remote-execution-no-secure-host",
+  "blocked-authority:remote-execution-no-cloud-sandbox",
+  "blocked-authority:remote-execution-no-remote-shell",
+  "blocked-authority:remote-execution-no-file-sync",
+  "blocked-authority:remote-execution-no-protected-material",
+  "blocked-authority:remote-execution-no-remote-process-control",
+  "blocked-authority:remote-execution-no-credential-persistence",
+  "blocked-authority:remote-execution-no-control-center-authority-mint",
+];
+
+function runtimeRemoteExecutionBackend(
+  slug: string,
+  overrides: Pick<
+    RuntimeExecutionBackendCapability,
+    "backend_kind" | "display_label" | "safe_summary"
+  >,
+): RuntimeExecutionBackendCapability {
+  return {
+    backend_ref: `execution-backend-ref:runtime:${slug}`,
+    backend_kind: overrides.backend_kind,
+    display_label: overrides.display_label,
+    status: "blocked_until_authority",
+    safe_summary: overrides.safe_summary,
+    workspace_boundary_ref: `workspace-boundary-ref:execution-backend:${slug}`,
+    credential_policy_ref: `credential-policy-ref:execution-backend:${slug}`,
+    network_policy_ref: `network-policy-ref:execution-backend:${slug}`,
+    receipt_plan_ref: `receipt-plan-ref:execution-backend:${slug}`,
+    budget_ref: `budget-ref:execution-backend:${slug}`,
+    rollback_ref: `rollback-ref:execution-backend:${slug}`,
+    kill_switch_ref: `kill-switch-ref:execution-backend:${slug}`,
+    proof_ref: `proof-ref:remote-execution:${slug}`,
+    blocked_authority_refs: runtimeRemoteExecutionBlockedRefs,
+    promotion_path_refs: [
+      `promotion-path-ref:remote-execution:${slug}:policy`,
+      `promotion-path-ref:remote-execution:${slug}:credential-ref`,
+      `promotion-path-ref:remote-execution:${slug}:receipt-budget`,
+      `promotion-path-ref:remote-execution:${slug}:kill-switch`,
+    ],
+    next_safe_action_refs: [
+      `next-safe-action-ref:remote-execution:${slug}:backend-contract`,
+    ],
+    remote_execution_enabled: false,
+    ssh_enabled: false,
+    cloud_sandbox_enabled: false,
+    remote_shell_enabled: false,
+    file_sync_enabled: false,
+    remote_secret_access_enabled: false,
+    remote_process_control_enabled: false,
+    credential_material_persisted: false,
+    control_center_mints_authority: false,
+  };
+}
+
+const runtimeRemoteExecutionBackends = [
+  runtimeRemoteExecutionBackend("local-workspace", {
+    backend_kind: "local_workspace",
+    display_label: "Local workspace",
+    safe_summary:
+      "Mock local workspace backend posture grants no generic execution authority.",
+  }),
+  runtimeRemoteExecutionBackend("local-container", {
+    backend_kind: "local_container",
+    display_label: "Local container",
+    safe_summary:
+      "Mock local container backend posture keeps container execution blocked until boundaries, receipts, budgets, and kill switches are proven.",
+  }),
+  runtimeRemoteExecutionBackend("secure-host", {
+    backend_kind: "secure_host",
+    display_label: "Secure host",
+    safe_summary:
+      "Mock secure host posture keeps host access, credentials, network policy, receipts, and kill switches blocked.",
+  }),
+  runtimeRemoteExecutionBackend("cloud-sandbox", {
+    backend_kind: "cloud_sandbox",
+    display_label: "Cloud sandbox",
+    safe_summary:
+      "Mock cloud sandbox posture keeps sandbox creation, credentials, cost, receipt, and rollback authority blocked.",
+  }),
+  runtimeRemoteExecutionBackend("serverless-worker", {
+    backend_kind: "serverless_worker",
+    display_label: "Serverless worker",
+    safe_summary:
+      "Mock serverless worker posture keeps remote deployment, budget, receipt, and revoke authority blocked.",
+  }),
+  runtimeRemoteExecutionBackend("remote-gpu", {
+    backend_kind: "remote_gpu",
+    display_label: "Remote GPU",
+    safe_summary:
+      "Mock remote GPU posture keeps credential, cost, data-boundary, receipt, and safe-disable authority blocked.",
   }),
 ];
 
@@ -16923,6 +17017,87 @@ export const mockControlCenterData: ControlCenterData = {
       "raw_messages_omitted",
       "account_material_omitted",
       "connector_payloads_omitted",
+    ],
+  },
+  runtimeRemoteExecutionPosture: {
+    schema_version: "runtime_remote_execution_posture.v1",
+    contract_ref:
+      "contract-ref:hermes-runtime-adoption-remote-execution-posture:v1",
+    status: "capability_map_only",
+    snapshot_ref: "remote-execution-posture-snapshot-ref:runtime:phase-43",
+    snapshot_hash_ref: "snapshot-hash-ref:remote-execution-posture:mock",
+    route_ref: "GET /api/runtime/remote-execution-posture",
+    cli_ref: "uaa runtime inspect-remote-execution-posture",
+    doc_ref: "docs/runtime/UAA_HERMES_RUNTIME_REMOTE_EXECUTION_POSTURE.md",
+    authority_state_route_ref: "GET /api/runtime/authority-state",
+    authority_state_cli_ref:
+      "repo-local-command:uaa-runtime-inspect-authority-state",
+    authority_state_mapping_ref:
+      "lane-ref:runtime-remote-execution-posture-read-model",
+    authority_state_catalog_ref:
+      "authority-decision-catalog-ref:runtime-remote-execution-posture-read-model",
+    authority_state_decision_ref:
+      "authority-policy-decision-ref:mock-runtime-remote-execution-posture",
+    authority_state_decision_outcome: "allow",
+    authority_state_status: "implemented_authority_bound_read_model",
+    authority_state_operator_message:
+      "Allowed by active authority lease for safe remote execution posture inspection only.",
+    authority_state_reason_refs: [
+      "reason-ref:authority:active-lease-grants-domain-capability",
+    ],
+    unsupported_adapter_refs: [
+      "adapter-ref:remote-execution-local-container:not-implemented",
+      "adapter-ref:remote-execution-ssh:not-implemented",
+      "adapter-ref:remote-execution-secure-host:not-implemented",
+      "adapter-ref:remote-execution-cloud-sandbox:not-implemented",
+      "adapter-ref:remote-execution-serverless-worker:not-implemented",
+      "adapter-ref:remote-execution-remote-gpu:not-implemented",
+      "adapter-ref:remote-execution-file-sync:not-implemented",
+    ],
+    control_center_ref: "control-center-route:runtime",
+    safe_summary:
+      "Runtime remote execution mock fallback shows blocked backend labels only; remote execution, host access, cloud sandboxes, file sync, protected material, and process control stay blocked.",
+    backends: runtimeRemoteExecutionBackends,
+    backend_count: runtimeRemoteExecutionBackends.length,
+    blocked_backend_count: runtimeRemoteExecutionBackends.filter(
+      (backend) => backend.status === "blocked_until_authority",
+    ).length,
+    remote_execution_enabled: false,
+    ssh_enabled: false,
+    cloud_sandbox_enabled: false,
+    remote_shell_enabled: false,
+    file_sync_enabled: false,
+    remote_secret_access_enabled: false,
+    remote_process_control_enabled: false,
+    credential_material_persisted: false,
+    control_center_mints_authority: false,
+    blocked_authority_refs: runtimeRemoteExecutionBlockedRefs,
+    promotion_path_refs: [
+      "promotion-path-ref:remote-execution:remote-policy",
+      "promotion-path-ref:remote-execution:credential-refs",
+      "promotion-path-ref:remote-execution:workspace-boundary",
+      "promotion-path-ref:remote-execution:network-policy",
+      "promotion-path-ref:remote-execution:receipt-budget",
+      "promotion-path-ref:remote-execution:rollback-kill-switch",
+    ],
+    proof_refs: [
+      "proof-ref:hermes-runtime-adoption:phase-43:remote-execution-posture",
+      "proof-ref:remote-execution:posture-only",
+      "proof-ref:remote-execution:backend-authority-blocked",
+    ],
+    verifier_refs: [
+      "verifier-ref:hermes-runtime-adoption:phase-43:remote-execution-posture",
+    ],
+    next_safe_action_refs: [
+      "next-safe-action-ref:remote-execution:backend-contract",
+      "next-safe-action-ref:remote-execution:credential-boundary",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "credential_material_omitted",
+      "remote_paths_omitted",
+      "remote_logs_omitted",
     ],
   },
   runtimeApprovalBridge: {

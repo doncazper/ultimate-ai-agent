@@ -1296,8 +1296,16 @@ def _print_remote_execution_posture(read_model: dict[str, Any]) -> None:
     print(f"Status: {read_model['status']}")
     print(f"Snapshot: {read_model['snapshot_ref']}")
     print(f"Snapshot hash: {read_model['snapshot_hash_ref']}")
+    print(f"Route: {read_model['route_ref']}")
     print(f"Doc: {read_model['doc_ref']}")
     print(f"CLI: {read_model['cli_ref']}")
+    print(f"Authority state: {read_model['authority_state_route_ref']}")
+    print(f"Authority mapping: {read_model['authority_state_mapping_ref']}")
+    print(
+        "Authority decision: "
+        f"{read_model['authority_state_decision_outcome']} "
+        f"({read_model['authority_state_decision_ref']})"
+    )
     print(
         "Backends: "
         f"total={read_model['backend_count']} "
@@ -3161,8 +3169,11 @@ def _inspect_messaging_gateway_posture(args: argparse.Namespace) -> int:
 
 
 def _inspect_remote_execution_posture(args: argparse.Namespace) -> int:
-    read_model = build_runtime_remote_execution_posture_read_model().model_dump(
-        mode="json"
+    authority_state = AuthorityLeaseStore().build_state_read_model()
+    read_model = build_runtime_remote_execution_posture_read_model(
+        authority_decision_catalog=authority_state.decision_catalog,
+    ).model_dump(
+        mode="json",
     )
     payload = {
         "schema_version": "governed-runtime-cli:v1",

@@ -11,6 +11,8 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     RUNTIME_REMOTE_EXECUTION_BLOCKED_AUTHORITY_REFS,
+    RUNTIME_REMOTE_EXECUTION_POSTURE_AUTHORITY_MAPPING_REF,
+    RUNTIME_REMOTE_EXECUTION_POSTURE_ROUTE_REF,
     build_runtime_remote_execution_posture_read_model,
 )
 
@@ -28,8 +30,23 @@ def main() -> int:
 
     if read_model.status != "capability_map_only":
         failures.append("remote execution status is not capability-map-only")
+    if read_model.route_ref != RUNTIME_REMOTE_EXECUTION_POSTURE_ROUTE_REF:
+        failures.append("remote execution route ref drifted")
     if read_model.cli_ref != "uaa runtime inspect-remote-execution-posture":
         failures.append("remote execution CLI ref drifted")
+    if (
+        read_model.authority_state_mapping_ref
+        != RUNTIME_REMOTE_EXECUTION_POSTURE_AUTHORITY_MAPPING_REF
+    ):
+        failures.append("remote execution AuthorityState mapping drifted")
+    if read_model.authority_state_decision_outcome != "allow":
+        failures.append("remote execution posture inspection is not allowed")
+    if "reason-ref:authority:active-lease-grants-domain-capability" not in (
+        read_model.authority_state_reason_refs
+    ):
+        failures.append("remote execution active lease reason missing")
+    if not read_model.unsupported_adapter_refs:
+        failures.append("remote execution unsupported adapter refs missing")
     if read_model.backend_count != 6:
         failures.append("remote execution backend count drifted")
     if read_model.blocked_backend_count != read_model.backend_count:
@@ -82,12 +99,14 @@ def main() -> int:
         "Full-Strength",
         "Repo-Safe",
         "Blocked / Needs Authority",
-        "Exact Promotion Path",
+        "AuthorityState",
+        "Exact Authority Path",
         "SSH",
         "cloud sandboxes",
         "remote shells",
         "file sync",
         "remote secrets",
+        "GET /api/runtime/remote-execution-posture",
         "Planning text and capability-map visibility do not grant",
     ]:
         if expected not in doc_text:
@@ -97,6 +116,8 @@ def main() -> int:
     for expected in [
         "inspect-remote-execution-posture",
         "runtime_remote_execution_posture",
+        "authority_state_mapping_ref",
+        "authority_state_decision_outcome",
         "remote_execution_performed",
         "ssh_performed",
         "remote_shell_performed",
@@ -131,6 +152,7 @@ def main() -> int:
         failures.append("remote execution CLI failed")
     else:
         payload = json.loads(cli_result.stdout)
+        read_model_payload = payload["runtime_remote_execution_posture"]
         for field in [
             "remote_execution_performed",
             "ssh_performed",
@@ -142,8 +164,15 @@ def main() -> int:
         ]:
             if payload[field] is not False:
                 failures.append(f"CLI claims {field}")
-        if payload["runtime_remote_execution_posture"]["backend_count"] != 6:
+        if read_model_payload["backend_count"] != 6:
             failures.append("CLI returned stale backend count")
+        if (
+            read_model_payload["authority_state_mapping_ref"]
+            != RUNTIME_REMOTE_EXECUTION_POSTURE_AUTHORITY_MAPPING_REF
+        ):
+            failures.append("CLI returned stale AuthorityState mapping")
+        if read_model_payload["authority_state_decision_outcome"] != "allow":
+            failures.append("CLI returned stale AuthorityState decision")
 
     if failures:
         for failure in failures:

@@ -3,13 +3,20 @@ import subprocess
 import sys
 
 import pytest
+from fastapi.testclient import TestClient
 
+from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.runtime_gateway import (
+    RUNTIME_REMOTE_EXECUTION_POSTURE_AUTHORITY_MAPPING_REF,
     RUNTIME_REMOTE_EXECUTION_BLOCKED_AUTHORITY_REFS,
+    RUNTIME_REMOTE_EXECUTION_POSTURE_ROUTE_REF,
     RuntimeExecutionBackendCapability,
     RuntimeRemoteExecutionPostureReadModel,
     build_runtime_remote_execution_posture_read_model,
 )
+
+
+client = TestClient(app)
 
 
 def test_remote_execution_is_capability_map_only() -> None:
@@ -17,7 +24,25 @@ def test_remote_execution_is_capability_map_only() -> None:
 
     assert read_model.schema_version == "runtime_remote_execution_posture.v1"
     assert read_model.status == "capability_map_only"
+    assert read_model.route_ref == RUNTIME_REMOTE_EXECUTION_POSTURE_ROUTE_REF
     assert read_model.cli_ref == "uaa runtime inspect-remote-execution-posture"
+    assert (
+        read_model.authority_state_mapping_ref
+        == RUNTIME_REMOTE_EXECUTION_POSTURE_AUTHORITY_MAPPING_REF
+    )
+    assert read_model.authority_state_route_ref == "GET /api/runtime/authority-state"
+    assert (
+        read_model.authority_state_cli_ref
+        == "repo-local-command:uaa-runtime-inspect-authority-state"
+    )
+    assert read_model.authority_state_decision_outcome == "allow"
+    assert read_model.authority_state_status == "implemented_authority_bound_read_model"
+    assert "reason-ref:authority:active-lease-grants-domain-capability" in (
+        read_model.authority_state_reason_refs
+    )
+    assert "adapter-ref:remote-execution-ssh:not-implemented" in (
+        read_model.unsupported_adapter_refs
+    )
     assert read_model.backend_count == 6
     assert read_model.blocked_backend_count == 6
     assert read_model.remote_execution_enabled is False
@@ -32,6 +57,29 @@ def test_remote_execution_is_capability_map_only() -> None:
     assert set(RUNTIME_REMOTE_EXECUTION_BLOCKED_AUTHORITY_REFS).issubset(
         set(read_model.blocked_authority_refs)
     )
+
+
+def test_remote_execution_route_returns_authority_bound_read_model() -> None:
+    response = client.get("/api/runtime/remote-execution-posture")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["operation"] == "api_runtime_remote_execution_posture"
+    data = body["data"]
+    assert data["schema_version"] == "runtime_remote_execution_posture.v1"
+    assert data["route_ref"] == "GET /api/runtime/remote-execution-posture"
+    assert (
+        data["authority_state_mapping_ref"]
+        == "lane-ref:runtime-remote-execution-posture-read-model"
+    )
+    assert data["authority_state_decision_outcome"] == "allow"
+    assert data["backend_count"] == 6
+    assert data["blocked_backend_count"] == 6
+    assert data["remote_execution_enabled"] is False
+    assert data["ssh_enabled"] is False
+    assert data["cloud_sandbox_enabled"] is False
+    assert data["file_sync_enabled"] is False
 
 
 def test_remote_execution_backend_map_is_blocked() -> None:
@@ -145,5 +193,11 @@ def test_remote_execution_cli_uses_same_read_model() -> None:
     assert payload["ssh_performed"] is False
     assert payload["remote_shell_performed"] is False
     assert payload["file_sync_performed"] is False
+    assert read_model["route_ref"] == "GET /api/runtime/remote-execution-posture"
+    assert (
+        read_model["authority_state_mapping_ref"]
+        == "lane-ref:runtime-remote-execution-posture-read-model"
+    )
+    assert read_model["authority_state_decision_outcome"] == "allow"
     assert read_model["backend_count"] == 6
     assert read_model["blocked_backend_count"] == 6

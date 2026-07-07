@@ -63,8 +63,8 @@ surfaces are:
 - Runtime worktree-per-agent, staged orchestration, background job inspection,
   subagent isolation, LSP diagnostics, preview rail, slash command registry,
   result classification, logging profile, interrupt redirect, voice/media
-  posture, and messaging gateway posture consume that same AuthorityState
-  catalog instead of carrying
+  posture, messaging gateway posture, and remote execution posture consume that
+  same AuthorityState catalog instead of carrying
   standalone blocker language:
   worktree implementer/reviewer/verifier lanes expose mapped decision refs and
   outcomes, staged orchestration exposes the read-model `workspace/prepare`
