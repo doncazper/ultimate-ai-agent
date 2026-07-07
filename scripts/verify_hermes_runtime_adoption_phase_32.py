@@ -162,6 +162,16 @@ def main() -> int:
     else:
         payload = json.loads(cli_result.stdout)
         read_model_payload = payload["runtime_subagent_isolation"]
+        authority_state = payload.get("authority_state")
+        if not isinstance(authority_state, dict):
+            failures.append("subagent isolation CLI missing authority state")
+        elif (
+            authority_state.get("mapping_ref")
+            != RUNTIME_SUBAGENT_ISOLATION_AUTHORITY_MAPPING_REF
+        ):
+            failures.append("subagent isolation CLI authority mapping drifted")
+        elif authority_state.get("decision_outcome") != "deny":
+            failures.append("subagent isolation CLI authority decision drifted")
         if payload["live_dispatch_performed"] is not False:
             failures.append("subagent isolation CLI claims live dispatch")
         if payload["background_fanout_performed"] is not False:

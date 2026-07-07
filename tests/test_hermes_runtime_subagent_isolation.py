@@ -200,6 +200,7 @@ def test_subagent_isolation_api_returns_safe_read_model() -> None:
     assert body["success"] is True
     assert body["operation"] == "api_runtime_subagent_isolation"
     data = body["data"]
+    assert body["trace_id"] == data["snapshot_hash_ref"]
     assert data["route_ref"] == "GET /api/runtime/subagent-isolation"
     assert (
         data["authority_state_mapping_ref"]
@@ -250,6 +251,16 @@ def test_subagent_isolation_cli_uses_same_read_model() -> None:
     assert payload["provider_call_performed"] is False
     assert payload["shell_execution_performed"] is False
     assert payload["connector_write_performed"] is False
+    assert payload["authority_state"]["mapping_ref"] == (
+        RUNTIME_SUBAGENT_ISOLATION_AUTHORITY_MAPPING_REF
+    )
+    assert payload["authority_state"]["decision_outcome"] == "deny"
+    assert payload["authority_state"]["reason_refs"] == [
+        "reason-ref:authority:adapter-unsupported"
+    ]
+    assert "adapter-ref:subagent-live-dispatch:not-implemented" in (
+        payload["authority_state"]["unsupported_adapter_refs"]
+    )
     assert read_model["route_ref"] == "GET /api/runtime/subagent-isolation"
     assert read_model["cli_ref"] == "uaa runtime inspect-subagent-isolation"
     assert (

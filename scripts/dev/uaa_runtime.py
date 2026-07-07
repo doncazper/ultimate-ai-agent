@@ -65,7 +65,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_runtime_hardline_command_blocklist_read_model_from_authority_catalog,
     build_runtime_managed_scope_policy_read_model_from_authority_catalog,
     build_runtime_mcp_catalog_filtering_read_model_from_authority_catalog,
-    build_runtime_subagent_isolation_read_model,
+    build_runtime_subagent_isolation_read_model_from_authority_catalog,
     build_runtime_worktree_per_agent_read_model,
     build_runtime_lsp_diagnostics_read_model,
     build_runtime_preview_rail_read_model,
@@ -3140,13 +3140,25 @@ def _inspect_background_jobs(args: argparse.Namespace) -> int:
 
 def _inspect_subagent_isolation(args: argparse.Namespace) -> int:
     authority_state = AuthorityLeaseStore().build_state_read_model()
-    read_model = build_runtime_subagent_isolation_read_model(
+    read_model = build_runtime_subagent_isolation_read_model_from_authority_catalog(
         authority_decision_catalog=authority_state.decision_catalog,
     ).model_dump(mode="json")
     payload = {
         "schema_version": "governed-runtime-cli:v1",
         "command_ref": "repo-local-command:uaa-runtime-inspect-subagent-isolation",
         "runtime_subagent_isolation": read_model,
+        "authority_state": {
+            "route_ref": authority_state.api_ref,
+            "cli_ref": authority_state.cli_ref,
+            "active_mode": authority_state.active_mode,
+            "kill_switch_visible": authority_state.kill_switch_visible,
+            "decision_catalog_ref": read_model["authority_state_catalog_ref"],
+            "decision_ref": read_model["authority_state_decision_ref"],
+            "decision_outcome": read_model["authority_state_decision_outcome"],
+            "mapping_ref": read_model["authority_state_mapping_ref"],
+            "reason_refs": read_model["authority_state_reason_refs"],
+            "unsupported_adapter_refs": read_model["unsupported_adapter_refs"],
+        },
         "safe_refs_only": True,
         "readiness_only": True,
         "raw_agent_outputs_omitted": True,

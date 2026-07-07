@@ -420,6 +420,16 @@ def _artifact(
 def build_runtime_subagent_isolation_read_model(
     authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None = None,
 ) -> RuntimeSubagentIsolationReadModel:
+    return build_runtime_subagent_isolation_read_model_from_authority_catalog(
+        authority_decision_catalog=authority_decision_catalog
+        or build_authority_decision_catalog(),
+    )
+
+
+def build_runtime_subagent_isolation_read_model_from_authority_catalog(
+    *,
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry],
+) -> RuntimeSubagentIsolationReadModel:
     authority_entry = _authority_entry(authority_decision_catalog)
     roles = [
         _role(

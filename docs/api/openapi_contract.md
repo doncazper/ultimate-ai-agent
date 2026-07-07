@@ -249,10 +249,14 @@ Contract rules:
   `GET /api/runtime/subagent-isolation` exposes the Hermes Runtime Adoption
   Phase 32 backend-owned subagent isolation posture. It returns role refs,
   scope envelopes, context/tool/memory grant refs, budget refs, kill-switch
-  refs, review artifacts, proof refs, verifier refs, and blocked authority refs
-  only. Live dispatch, background fan-out, cross-agent memory transfer, tool
-  sharing, autonomous delegation, raw transcript persistence, and raw agent
-  output persistence remain blocked.
+  refs, review artifacts, proof refs, verifier refs, AuthorityState
+  route/CLI/mapping/catalog/decision/reason refs, unsupported adapter refs, and
+  blocked authority refs only. The
+  `lane-ref:runtime-subagent-isolation-live-dispatch` decision is denied because
+  live dispatch/tool-sharing/memory-transfer adapters are unsupported. Live
+  dispatch, background fan-out, cross-agent memory transfer, tool sharing,
+  autonomous delegation, raw transcript persistence, and raw agent output
+  persistence remain blocked.
   `GET /api/runtime/worktree-per-agent` exposes the Hermes Runtime Adoption
   Phase 33 backend-owned worktree-per-agent posture. It returns lane refs,
   workspace scope refs, branch proposal refs, worktree refs, checkpoint plans,

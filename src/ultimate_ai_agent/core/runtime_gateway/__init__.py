@@ -429,6 +429,7 @@ from ultimate_ai_agent.core.runtime_gateway.subagent_isolation import (
     RuntimeSubagentReviewArtifact,
     RuntimeSubagentRoleKind,
     build_runtime_subagent_isolation_read_model,
+    build_runtime_subagent_isolation_read_model_from_authority_catalog,
 )
 from ultimate_ai_agent.core.runtime_gateway.worktree_per_agent import (
     RUNTIME_WORKTREE_PER_AGENT_BLOCKED_AUTHORITY_REFS,
@@ -1192,6 +1193,7 @@ __all__ = [
     "build_runtime_background_jobs_read_model",
     "build_runtime_background_jobs_read_model_from_authority_catalog",
     "build_runtime_subagent_isolation_read_model",
+    "build_runtime_subagent_isolation_read_model_from_authority_catalog",
     "build_runtime_worktree_per_agent_read_model",
     "build_runtime_lsp_diagnostics_read_model",
     "build_runtime_preview_rail_read_model",

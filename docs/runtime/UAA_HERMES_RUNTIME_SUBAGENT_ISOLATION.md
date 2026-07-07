@@ -22,7 +22,9 @@ The current implementation is metadata/readiness only:
 - AuthorityState binding:
   `lane-ref:runtime-subagent-isolation-live-dispatch` evaluates as delegated
   `apps/execute` authority through `GET /api/runtime/authority-state` and
-  `repo-local-command:uaa-runtime-inspect-authority-state`.
+  `repo-local-command:uaa-runtime-inspect-authority-state`, while
+  `scripts/dev/uaa_runtime.py inspect-subagent-isolation` returns the same
+  mapping, decision, reason, and unsupported adapter refs.
 - Control Center renders role refs, scope envelopes, context pack grants, tool
   grants, memory grants, budgets, kill switches, receipt plans, proof refs,
   review artifacts, blocked authority refs, authority decision refs, blocked
