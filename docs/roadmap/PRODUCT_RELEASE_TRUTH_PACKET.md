@@ -338,9 +338,9 @@ no production readiness, and no production authority.
 FCC-ACTION-001 current truth: Approval-Bound Local Authority Capability is
 implemented only for the existing `local_task_create` AuthorityLease-gated
 local capability, recorded in
-`docs/control_center/FCC_ACTION_001_APPROVAL_BOUND_LOCAL_MICRO_LANES.md` and
+`docs/control_center/FCC_ACTION_001_APPROVAL_BOUND_LOCAL_AUTHORITY_CAPABILITY.md` and
 verified by
-`scripts/verify_fcc_action_001_approval_bound_local_micro_lanes.py`. Action
+`scripts/verify_fcc_action_001_approval_bound_local_authority_capability.py`. Action
 Inbox remains rank 3 overall, while `local_task_create` is the only rank 5
 Action Inbox local write authority capability. It requires active
 `workspace/write` AuthorityLease scope, exact approval, idempotency, durable

@@ -755,7 +755,7 @@
         "docs/tools/FILE_TOOL_CAPABILITY_MATRIX.md"
       ],
       "operator_surface_refs": [
-        "docs/control_center/FCC_ACTION_001_APPROVAL_BOUND_LOCAL_MICRO_LANES.md",
+        "docs/control_center/FCC_ACTION_001_APPROVAL_BOUND_LOCAL_AUTHORITY_CAPABILITY.md",
         "docs/control_center/FCC_V1_002_ACTION_INBOX_STATE_MACHINE.md"
       ],
       "risk_notes": [

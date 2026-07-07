@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-import scripts.verify_fcc_action_001_approval_bound_local_micro_lanes as verifier
+import scripts.verify_fcc_action_001_approval_bound_local_authority_capability as verifier
 from ultimate_ai_agent.core.control_center.local_tasks import (
     FOUNDER_LOOP_LOCAL_TASK_BLOCKED_REFS,
     FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF,
@@ -23,7 +23,10 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_fcc_action_001_verifier_passes_current_repo() -> None:
-    assert verifier.validate_fcc_action_001_approval_bound_local_micro_lanes() == []
+    assert (
+        verifier.validate_fcc_action_001_approval_bound_local_authority_capability()
+        == []
+    )
 
 
 def test_local_task_create_is_only_rank5_action_authority_capability() -> None:

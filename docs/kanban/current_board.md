@@ -1289,7 +1289,7 @@ production authority.
 
 FCC-ACTION-001 Approval-Bound Local Authority Capability
 Gate met:
-`docs/control_center/FCC_ACTION_001_APPROVAL_BOUND_LOCAL_MICRO_LANES.md`
+`docs/control_center/FCC_ACTION_001_APPROVAL_BOUND_LOCAL_AUTHORITY_CAPABILITY.md`
 records the current approval-bound local authority capability truth. Action
 Inbox remains rank 3 overall, and `local_task_create` is the only current rank
 5 Action Inbox local write authority capability. The capability commits one

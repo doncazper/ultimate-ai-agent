@@ -10,7 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 TASK_REF = "FCC-ACTION-001"
-DOC = ROOT / "docs/control_center/FCC_ACTION_001_APPROVAL_BOUND_LOCAL_MICRO_LANES.md"
+DOC = ROOT / "docs/control_center/FCC_ACTION_001_APPROVAL_BOUND_LOCAL_AUTHORITY_CAPABILITY.md"
 MATURITY_MANIFEST = ROOT / "docs/control_center/operational_maturity_manifest.json"
 CURRENT_BOARD = ROOT / "docs/kanban/current_board.md"
 FCC_BOARD = ROOT / "docs/kanban/founder_command_center_board.md"
@@ -22,11 +22,11 @@ LOCAL_TASKS = ROOT / "src/ultimate_ai_agent/core/control_center/local_tasks.py"
 STORAGE = ROOT / "src/ultimate_ai_agent/core/storage/founder_loop.py"
 API_ROUTE = ROOT / "src/ultimate_ai_agent/api/founder_loop.py"
 CLI = ROOT / "scripts/dev/uaa_founder_loop.py"
-FOCUSED_TEST = ROOT / "tests/test_fcc_action_001_approval_bound_local_micro_lanes.py"
+FOCUSED_TEST = ROOT / "tests/test_fcc_action_001_approval_bound_local_authority_capability.py"
 
-DOC_REF = "docs/control_center/FCC_ACTION_001_APPROVAL_BOUND_LOCAL_MICRO_LANES.md"
-VERIFIER_REF = "scripts/verify_fcc_action_001_approval_bound_local_micro_lanes.py"
-TEST_REF = "tests/test_fcc_action_001_approval_bound_local_micro_lanes.py"
+DOC_REF = "docs/control_center/FCC_ACTION_001_APPROVAL_BOUND_LOCAL_AUTHORITY_CAPABILITY.md"
+VERIFIER_REF = "scripts/verify_fcc_action_001_approval_bound_local_authority_capability.py"
+TEST_REF = "tests/test_fcc_action_001_approval_bound_local_authority_capability.py"
 LOCAL_TASK_KIND = "local_task_create"
 LOCAL_TASK_AUTHORITY_CAPABILITY_ID = (
     "authority-capability:action-inbox:local-task-create"
@@ -259,7 +259,7 @@ def _validate_active_docs(root: Path, failures: list[str]) -> None:
             _require_fragments(_rel(path), text, fragments, failures)
 
 
-def validate_fcc_action_001_approval_bound_local_micro_lanes(
+def validate_fcc_action_001_approval_bound_local_authority_capability(
     root: Path = ROOT,
 ) -> list[str]:
     failures: list[str] = []
@@ -277,7 +277,7 @@ def main(argv: list[str] | None = None) -> int:
         )
     )
     parser.parse_args(argv)
-    failures = validate_fcc_action_001_approval_bound_local_micro_lanes()
+    failures = validate_fcc_action_001_approval_bound_local_authority_capability()
     if failures:
         print(f"{TASK_REF} verification failed:")
         for failure in failures:

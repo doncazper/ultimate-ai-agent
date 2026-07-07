@@ -12,11 +12,11 @@ UAA already has one exact rank 5 local execution lane:
 - lane_id: `local_task_create`
 - route: `POST /control-center/actions/{action_id}/local-task/commit`
 - CLI: `scripts/dev/uaa_founder_loop.py commit-local-task`
-- doc: `docs/control_center/FCC_ACTION_001_APPROVAL_BOUND_LOCAL_MICRO_LANES.md`
+- doc: `docs/control_center/FCC_ACTION_001_APPROVAL_BOUND_LOCAL_AUTHORITY_CAPABILITY.md`
 - verifier:
-  `scripts/verify_fcc_action_001_approval_bound_local_micro_lanes.py`
+  `scripts/verify_fcc_action_001_approval_bound_local_authority_capability.py`
 - tests:
-  - `tests/test_fcc_action_001_approval_bound_local_micro_lanes.py`
+  - `tests/test_fcc_action_001_approval_bound_local_authority_capability.py`
   - `tests/test_founder_loop_storage_actions.py`
   - `tests/test_fcc_v1_002_action_inbox_state_machine.py`
 

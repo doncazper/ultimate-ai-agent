@@ -57,8 +57,8 @@ idempotency, redaction, safe-disable, CLI/API/core parity, and verifier gates.
 ## Verification
 
 ```bash
-PYTHONPATH=src .venv/bin/python -m pytest tests/test_fcc_action_001_approval_bound_local_micro_lanes.py -q
-.venv/bin/python scripts/verify_fcc_action_001_approval_bound_local_micro_lanes.py
+PYTHONPATH=src .venv/bin/python -m pytest tests/test_fcc_action_001_approval_bound_local_authority_capability.py -q
+.venv/bin/python scripts/verify_fcc_action_001_approval_bound_local_authority_capability.py
 .venv/bin/python scripts/verify_operational_maturity.py
 PYTHONPATH=src .venv/bin/python -m pytest tests/test_operational_maturity_manifest.py tests/test_founder_loop_storage_actions.py tests/test_control_center_api_routes.py tests/test_fcc_v1_003_founder_loop_vertical_slice.py -q
 PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py

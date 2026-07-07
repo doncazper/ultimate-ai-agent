@@ -197,7 +197,7 @@
         "evidence-ref:founder-loop:local-task-commit",
         "docs/control_center/FCC_INBOX_001_APPROVAL_ENVELOPE_UX.md",
         "docs/control_center/FCC_HEALTH_001_SELF_HEALING_RECOMMENDATIONS_TO_INBOX.md",
-        "docs/control_center/FCC_ACTION_001_APPROVAL_BOUND_LOCAL_MICRO_LANES.md",
+        "docs/control_center/FCC_ACTION_001_APPROVAL_BOUND_LOCAL_AUTHORITY_CAPABILITY.md",
         "self_heal_recommendation"
       ],
       "test_refs": [
@@ -206,14 +206,14 @@
         "apps/control-center/src/App.test.tsx",
         "tests/test_fcc_inbox_001_approval_envelope_ux.py",
         "tests/test_fcc_health_001_self_healing_recommendations_to_inbox.py",
-        "tests/test_fcc_action_001_approval_bound_local_micro_lanes.py"
+        "tests/test_fcc_action_001_approval_bound_local_authority_capability.py"
       ],
       "verifier_refs": [
         "scripts/verify_fcc_v1_002_action_inbox_state_machine.py",
         "scripts/verify_operational_maturity.py",
         "scripts/verify_fcc_inbox_001_approval_envelope_ux.py",
         "scripts/verify_fcc_health_001_self_healing_recommendations_to_inbox.py",
-        "scripts/verify_fcc_action_001_approval_bound_local_micro_lanes.py"
+        "scripts/verify_fcc_action_001_approval_bound_local_authority_capability.py"
       ],
       "route_metadata_refs": [
         "src/ultimate_ai_agent/api/manifest.py",

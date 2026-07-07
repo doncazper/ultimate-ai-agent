@@ -522,7 +522,7 @@ require separate mode/domain/lease gates.
 
 **Current Slice:** Implemented for the existing `local_task_create` authority
 capability and recorded in
-`docs/control_center/FCC_ACTION_001_APPROVAL_BOUND_LOCAL_MICRO_LANES.md`.
+`docs/control_center/FCC_ACTION_001_APPROVAL_BOUND_LOCAL_AUTHORITY_CAPABILITY.md`.
 Action Inbox remains rank 3 overall; `local_task_create` is the only current
 rank 5 local write authority capability. The capability has active
 `workspace/write` AuthorityLease scope, exact approval, receipt, evidence,

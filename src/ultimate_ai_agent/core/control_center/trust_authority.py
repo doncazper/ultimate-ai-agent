@@ -847,7 +847,7 @@ def _trust_authority_lanes(
             ],
             proof_refs=[primary_loop_proof_ref],
             verifier_refs=[
-                "tests/test_fcc_action_001_approval_bound_local_micro_lanes.py",
+                "tests/test_fcc_action_001_approval_bound_local_authority_capability.py",
                 "tests/test_action_inbox_work_queue.py",
             ],
             docs_refs=["docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"],

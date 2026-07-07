@@ -30,7 +30,7 @@ Implementation scope:
 1. Re-read:
    - `AGENTS.md`
    - `docs/control_center/authority_graduation_blockers/action_execution_additional_exact_kind_2026_07_03.md`
-   - `docs/control_center/FCC_ACTION_001_APPROVAL_BOUND_LOCAL_MICRO_LANES.md`
+   - `docs/control_center/FCC_ACTION_001_APPROVAL_BOUND_LOCAL_AUTHORITY_CAPABILITY.md`
    - `docs/control_center/operational_maturity_manifest.json`
    - `docs/control_center/OPERATOR_SHELL_GAP_MAP.md`
 2. Select exactly one new local, low-risk Action kind that does not depend on
@@ -60,7 +60,7 @@ Implementation scope:
 Tests/verifiers:
 - focused Action Inbox/state-machine pytest
 - focused frontend tests if UI changed
-- `.venv/bin/python scripts/verify_fcc_action_001_approval_bound_local_micro_lanes.py`
+- `.venv/bin/python scripts/verify_fcc_action_001_approval_bound_local_authority_capability.py`
 - `.venv/bin/python scripts/verify_operational_maturity.py`
 - `.venv/bin/python scripts/verify_documentation_integrity.py`
 - `PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py` if routes change
