@@ -46,7 +46,7 @@ approved lanes, public beta, public release,
 production authority, or broad autonomy.
 
 The `context_injection` prerequisite contract is contract-ready for future gate
-review only. It is not selected as a micro-lane, adds no runtime
+review only. It is not selected as an authority capability, adds no runtime
 prompt/context injection route or Control Center control, and keeps runtime
 prompt/context injection blocked.
 
@@ -115,11 +115,12 @@ implementation lane is `read_only_real_world_web_fetch` through
 `WebAccessGateway`; connector writes, memory writes, shell/subprocess local
 maintenance, browser automation, provider/model authority, and context
 injection are ranked there only as follow-on candidates and are not selected
-for a new micro-lane. The current follow-on micro-lane decision is no-go;
-Action Inbox `local_task_create` remains the only rank 5 local execution lane.
-That rank 5 lane depends on explicit safe-disable/rollback posture refs and
-backend denial when the lane is disabled; it is not a rank 6 rollback execution
-or broader action-execution promotion.
+for a new authority capability. The current follow-on authority capability
+decision is no-go; Action Inbox `local_task_create` remains the only rank 5
+local write authority capability. That rank 5 capability depends on explicit
+safe-disable/rollback posture refs and backend denial when the capability is
+disabled; it is not a rank 6 rollback execution or broader action-execution
+promotion.
 
 Long-term "life OS" delegation, including purchases, bookings, subscriptions,
 account work, and credential/payment-handle use, is parked in
@@ -149,7 +150,7 @@ or grant production/public beta authority.
 | 7 | `FCC-REVIEW-001` Evidence Narrative And Weekly CEO Review | Evidence reads like history and Weekly Review summarizes decisions, memory changes, CRM movement, drafts, blockers, and next-week priorities. | Weekly summaries distinguish completed, deferred, rejected, blocked, stale, planned, and missing-source states. |
 | 8 | `FCC-HEALTH-001` Self-Healing Recommendations To Inbox | Verifier, docs-currentness, UI friction, blocked-state, and source-readiness issues become reviewable recommendations. | Recommendations can become tasks or patch proposals only after review; nothing auto-codes or auto-applies. |
 | 9 | `FCC-DOGFOOD-001` Fourteen-Day Private Dogfood Harness | Daily-use metrics, friction notes, useful/irrelevant briefing signals, Action Inbox decisions, and memory decisions are captured as safe refs. | Accepted/revised private findings exist before beta-readiness or execution claims change. |
-| 10 | `FCC-ACTION-001` Approval-bound Local Micro-lanes | Add the first exact-scope local actions, starting with `FCC-ACTION-001a` local task creation. Later local follow-up completion or opportunity update lanes must rank separately. | Each lane has approval, receipt, evidence, idempotency, rollback/safe-disable posture, blocked external authority, and an operational maturity manifest rank change. |
+| 10 | `FCC-ACTION-001` Approval-bound Local Authority Capability | Add the first exact-scope local action capability, starting with `FCC-ACTION-001a` local task creation. Later local follow-up completion or opportunity update capabilities must define separate AuthorityLease scope. | Each capability has approval, receipt, evidence, idempotency, rollback/safe-disable posture, blocked external authority, and an operational maturity manifest authority capability record. |
 | 11 | `FCC-POLISH-001` Native And Apple-grade UX Layer | Launcher, setup, notifications, blocked states, visual hierarchy, and product copy make the proven loop feel calm and professional. | Normal daily use no longer requires Terminal, but technical route/authority details remain inspectable. |
 
 ### Expanded Phase Cards
@@ -503,7 +504,7 @@ usefulness signals and concrete friction recommendations.
 readiness, distribution authority, connector authority, or expanded runtime
 authority.
 
-#### Phase 10 - `FCC-ACTION-001` Approval-bound Local Micro-lanes
+#### Phase 10 - `FCC-ACTION-001` Approval-bound Local Authority Capability
 
 **Intent:** Add small local execution abilities only after the daily loop has
 proved useful.
@@ -514,20 +515,22 @@ exact scope, source refs, approval, receipt, evidence, idempotency, and
 rollback/safe-disable posture.
 
 **Deliverables:** `local_task_create` as the first exact-scope local action
-lane, plus decision receipts, Evidence Timeline events, safe retry behavior,
-and visible blocked external authority. Additional lanes require separate
-gates.
+authority capability, plus decision receipts, Evidence Timeline events, safe
+retry behavior, and visible blocked external authority. Additional capabilities
+require separate mode/domain/lease gates.
 
-**Current Slice:** Implemented for the existing `local_task_create` lane and
-recorded in
+**Current Slice:** Implemented for the existing `local_task_create` authority
+capability and recorded in
 `docs/control_center/FCC_ACTION_001_APPROVAL_BOUND_LOCAL_MICRO_LANES.md`.
 Action Inbox remains rank 3 overall; `local_task_create` is the only current
-rank 5 local execution lane. The lane has exact approval, receipt, evidence,
+rank 5 local write authority capability. The capability has active
+`workspace/write` AuthorityLease scope, exact approval, receipt, evidence,
 idempotency, safe-disable posture, CLI/API/core parity, and `FCC-ACTION-002`
-repeatability refs. No additional micro-lane is implemented by this pass.
+repeatability refs. No additional authority capability is implemented by this
+pass.
 
-**Done Gate:** Each implemented micro-lane can be approved, recorded, inspected,
-and safely reasoned about without granting broader authority.
+**Done Gate:** Each implemented authority capability can be approved, recorded,
+inspected, and safely reasoned about without granting broader authority.
 
 **Authority Boundary:** No email send, external calendar write, external CRM or
 task write, background sync, broad shell execution, reusable autonomy, or

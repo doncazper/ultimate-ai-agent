@@ -26,7 +26,7 @@ def test_fcc_action_001_verifier_passes_current_repo() -> None:
     assert verifier.validate_fcc_action_001_approval_bound_local_micro_lanes() == []
 
 
-def test_local_task_create_is_only_rank5_graduated_lane() -> None:
+def test_local_task_create_is_only_rank5_action_authority_capability() -> None:
     manifest = json.loads(
         (ROOT / "docs/control_center/operational_maturity_manifest.json").read_text(
             encoding="utf-8"
@@ -37,26 +37,35 @@ def test_local_task_create_is_only_rank5_graduated_lane() -> None:
         for module in manifest["modules"]
         if module["module_id"] == "action_inbox"
     )
-    rank5_lanes = [
-        lane
-        for lane in action_module["graduated_lanes"]
-        if lane["rank"] == 5
+    rank5_capabilities = [
+        capability
+        for capability in action_module["authority_capabilities"]
+        if capability["rank"] == 5
     ]
 
-    assert [lane["lane_id"] for lane in rank5_lanes] == [
-        FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND
+    assert [capability["capability_id"] for capability in rank5_capabilities] == [
+        "authority-capability:action-inbox:local-task-create"
     ]
-    lane = rank5_lanes[0]
-    assert lane["real_local_mutation"] is True
-    assert lane["durable_receipt"] is True
-    assert lane["evidence_timeline_event"] is True
-    assert lane["repeatability_gate_ref"] == "FCC-ACTION-002"
-    assert lane["cli_parity_ref"] == "scripts/dev/uaa_founder_loop.py commit-local-task"
-    assert "rollback_execution" in lane["blocked_authorities"]
-    assert FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_REF in lane[
+    capability = rank5_capabilities[0]
+    assert capability["legacy_lane_id"] == FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND
+    assert capability["authority_domain_ref"] == "authority-domain-ref:workspace"
+    assert capability["authority_capability_ref"] == "authority-capability-ref:write"
+    assert capability["required_mode_ref"] == "authority-mode-ref:ask-before-changes"
+    assert capability["active_lease_required"] is True
+    assert capability["exact_approval_required"] is True
+    assert capability["idempotency_required"] is True
+    assert capability["receipts_required"] is True
+    assert capability["audit_required"] is True
+    assert capability["redaction_required"] is True
+    assert capability["repeatability_gate_ref"] == "FCC-ACTION-002"
+    assert (
+        capability["cli_parity_ref"]
+        == "scripts/dev/uaa_founder_loop.py commit-local-task"
+    )
+    assert FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_REF in capability[
         "rollback_or_safe_disable_refs"
     ]
-    assert FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_REF in lane[
+    assert FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_REF in capability[
         "rollback_or_safe_disable_refs"
     ]
 

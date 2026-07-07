@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate FCC-ACTION-001 approval-bound local micro-lane truth."""
+"""Validate FCC-ACTION-001 approval-bound local authority capability truth."""
 from __future__ import annotations
 
 import argparse
@@ -28,6 +28,15 @@ DOC_REF = "docs/control_center/FCC_ACTION_001_APPROVAL_BOUND_LOCAL_MICRO_LANES.m
 VERIFIER_REF = "scripts/verify_fcc_action_001_approval_bound_local_micro_lanes.py"
 TEST_REF = "tests/test_fcc_action_001_approval_bound_local_micro_lanes.py"
 LOCAL_TASK_KIND = "local_task_create"
+LOCAL_TASK_AUTHORITY_CAPABILITY_ID = (
+    "authority-capability:action-inbox:local-task-create"
+)
+LOCAL_TASK_AUTHORITY_DOMAIN_REF = "authority-domain-ref:workspace"
+LOCAL_TASK_AUTHORITY_CAPABILITY_REF = "authority-capability-ref:write"
+LOCAL_TASK_AUTHORITY_MODE_REF = "authority-mode-ref:ask-before-changes"
+LOCAL_TASK_AUTHORITY_LEASE_REQUIREMENT_REF = (
+    "authority-lease-requirement-ref:local-task-commit:workspace:write"
+)
 LOCAL_TASK_ROUTE = "POST /control-center/actions/{action_id}/local-task/commit"
 LOCAL_TASK_CLI = "scripts/dev/uaa_founder_loop.py commit-local-task"
 
@@ -67,10 +76,11 @@ def _validate_doc(root: Path, failures: list[str]) -> None:
         _rel(DOC),
         text,
         [
-            "Status: Implemented for the existing `local_task_create` local micro-lane",
+            "Status: Implemented for the existing `local_task_create` AuthorityLease-gated local capability",
             LOCAL_TASK_ROUTE,
             LOCAL_TASK_CLI,
-            "only current rank 5 local execution lane",
+            "only current rank 5 Action Inbox local write authority capability",
+            "AuthorityLease",
             "FCC-ACTION-002",
             "rollback_execution` blocked",
             "Action Inbox module: rank 3 overall",
@@ -102,47 +112,67 @@ def _validate_manifest(root: Path, failures: list[str]) -> None:
     if not action_module:
         failures.append("operational maturity manifest missing action_inbox module")
         return
-    lanes = action_module.get("graduated_lanes", [])
-    rank5_lanes = [lane for lane in lanes if lane.get("rank") == 5]
-    if [lane.get("lane_id") for lane in rank5_lanes] != [LOCAL_TASK_KIND]:
-        failures.append("local_task_create must be the only rank 5 graduated lane")
-    lane = rank5_lanes[0] if rank5_lanes else {}
+    capabilities = action_module.get("authority_capabilities", [])
+    rank5_capabilities = [
+        capability for capability in capabilities if capability.get("rank") == 5
+    ]
+    if [capability.get("capability_id") for capability in rank5_capabilities] != [
+        LOCAL_TASK_AUTHORITY_CAPABILITY_ID
+    ]:
+        failures.append(
+            "local_task_create must be the only rank 5 Action Inbox authority capability"
+        )
+    capability = rank5_capabilities[0] if rank5_capabilities else {}
     expected_fragments = [
         ("rank", 5),
-        ("real_local_mutation", True),
-        ("durable_receipt", True),
-        ("evidence_timeline_event", True),
-        ("rollback_or_safe_disable_required", True),
+        ("capability_id", LOCAL_TASK_AUTHORITY_CAPABILITY_ID),
+        ("legacy_lane_id", LOCAL_TASK_KIND),
+        ("authority_domain_ref", LOCAL_TASK_AUTHORITY_DOMAIN_REF),
+        ("authority_capability_ref", LOCAL_TASK_AUTHORITY_CAPABILITY_REF),
+        ("required_mode_ref", LOCAL_TASK_AUTHORITY_MODE_REF),
+        ("authority_lease_requirement_ref", LOCAL_TASK_AUTHORITY_LEASE_REQUIREMENT_REF),
+        ("active_lease_required", True),
+        ("exact_approval_required", True),
+        ("idempotency_required", True),
+        ("receipts_required", True),
+        ("audit_required", True),
+        ("redaction_required", True),
         ("repeatability_gate_ref", "FCC-ACTION-002"),
         ("cli_parity_ref", LOCAL_TASK_CLI),
     ]
     for key, expected in expected_fragments:
-        if lane.get(key) != expected:
-            failures.append(f"local_task_create lane {key} drifted from {expected!r}")
+        if capability.get(key) != expected:
+            failures.append(
+                "local_task_create authority capability "
+                f"{key} drifted from {expected!r}"
+            )
     required_lists = {
         "backend_routes": [LOCAL_TASK_ROUTE],
-        "receipt_refs": ["receipt:founder-loop-local-task:*"],
-        "evidence_refs": ["evidence-event-type:local_task_created"],
         "rollback_or_safe_disable_refs": [
             "rollback-not-applicable:local-task-safe-disable",
             "safe-disable:founder-loop:local-task-create-scorecard",
         ],
-        "blocked_authorities": [
-            "connector_write",
-            "shell_subprocess_execution",
-            "model_provider_authority",
-            "memory_write",
-            "context_injection",
-            "external_side_effect",
-            "rollback_execution",
-            "production_authority",
+        "focused_test_refs": [
+            "tests/test_founder_loop_storage_actions.py::test_action_inbox_local_task_commit_requires_exact_approval_and_records_evidence",
+            "tests/test_founder_loop_storage_actions.py::test_action_inbox_local_task_commit_denies_when_safe_disabled",
+            "tests/test_control_center_api_routes.py::test_control_center_action_local_task_commit_requires_exact_approval_and_receipts",
         ],
     }
     for key, expected_values in required_lists.items():
-        actual = set(lane.get(key, []))
+        actual = set(capability.get(key, []))
         for expected in expected_values:
             if expected not in actual:
-                failures.append(f"local_task_create lane missing {expected} in {key}")
+                failures.append(
+                    "local_task_create authority capability missing "
+                    f"{expected} in {key}"
+                )
+    lanes = action_module.get("graduated_lanes", [])
+    legacy_lane = next(
+        (lane for lane in lanes if lane.get("lane_id") == LOCAL_TASK_KIND),
+        None,
+    )
+    if legacy_lane is not None and legacy_lane.get("rank") != 5:
+        failures.append("local_task_create legacy lane rank drifted from 5")
 
 
 def _validate_code_and_tests(root: Path, failures: list[str]) -> None:
@@ -179,7 +209,7 @@ def _validate_code_and_tests(root: Path, failures: list[str]) -> None:
             "Commit an approved local_task_create Action Inbox item",
         ],
         FOCUSED_TEST: [
-            "test_local_task_create_is_only_rank5_graduated_lane",
+            "test_local_task_create_is_only_rank5_action_authority_capability",
             "test_local_task_commit_receipt_denies_broader_authority",
             "test_fcc_action_001_verifier_passes_current_repo",
         ],
@@ -193,13 +223,13 @@ def _validate_code_and_tests(root: Path, failures: list[str]) -> None:
 def _validate_active_docs(root: Path, failures: list[str]) -> None:
     required_by_doc = {
         CURRENT_BOARD: [
-            "FCC-ACTION-001 Approval-Bound Local Micro-Lanes",
+            "FCC-ACTION-001 Approval-Bound Local Authority Capability",
             DOC_REF,
             "FCC-POLISH-001 Native And Apple-Grade UX Layer",
         ],
         FCC_BOARD: [
             "FCC-ACTION-001",
-            "Approval-bound Local Micro-lanes",
+            "Approval-bound Local Authority Capability",
             DOC_REF,
             "local_task_create",
         ],
@@ -207,14 +237,14 @@ def _validate_active_docs(root: Path, failures: list[str]) -> None:
             "FCC-ACTION-001",
             DOC_REF,
             "local_task_create",
-            "only rank 5 local execution lane",
+            "only rank 5 Action Inbox local write authority capability",
             "no generic action execution",
             "no connector writes",
             "no shell/subprocess execution",
             "no production authority",
         ],
         GAP_MAP: [
-            "Action Inbox `local_task_create` lane remains the only rank 5 local execution",
+            "Action Inbox `local_task_create` remains the only rank 5 local write authority capability",
             "FCC-ACTION-002",
         ],
         DOCS_README: [DOC_REF],
@@ -239,7 +269,9 @@ def validate_fcc_action_001_approval_bound_local_micro_lanes(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Validate FCC-ACTION-001 approval-bound local micro-lanes."
+        description=(
+            "Validate FCC-ACTION-001 approval-bound local authority capability."
+        )
     )
     parser.parse_args(argv)
     failures = validate_fcc_action_001_approval_bound_local_micro_lanes()

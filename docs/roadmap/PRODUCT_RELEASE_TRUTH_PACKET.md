@@ -335,15 +335,18 @@ capture, no provider/model calls, no connector writes, no memory writes, no
 action execution, no backend routes, no public beta, no public distribution,
 no production readiness, and no production authority.
 
-FCC-ACTION-001 current truth: Approval-Bound Local Micro-Lanes is implemented
-only for the existing `local_task_create` lane, recorded in
+FCC-ACTION-001 current truth: Approval-Bound Local Authority Capability is
+implemented only for the existing `local_task_create` AuthorityLease-gated
+local capability, recorded in
 `docs/control_center/FCC_ACTION_001_APPROVAL_BOUND_LOCAL_MICRO_LANES.md` and
 verified by
 `scripts/verify_fcc_action_001_approval_bound_local_micro_lanes.py`. Action
 Inbox remains rank 3 overall, while `local_task_create` is the only rank 5
-local execution lane. It requires exact approval, idempotency, durable local
-task receipts, `local_task_created` Evidence Timeline events, safe-disable
-posture, CLI/API/core parity, and `FCC-ACTION-002` repeatability proof. This
+Action Inbox local write authority capability. It requires active
+`workspace/write` AuthorityLease scope, exact approval, idempotency, durable
+local task receipts, `local_task_created` Evidence Timeline events,
+safe-disable posture, CLI/API/core parity, and `FCC-ACTION-002` repeatability
+proof. This
 adds no generic action execution, no connector writes, no shell/subprocess
 execution, no browser automation, no provider/model authority, no memory
 writes, no context injection, no external side effects, no rollback execution,

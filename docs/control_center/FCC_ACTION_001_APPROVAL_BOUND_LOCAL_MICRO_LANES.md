@@ -1,24 +1,25 @@
-# FCC-ACTION-001 Approval-Bound Local Micro-Lanes
+# FCC-ACTION-001 Approval-Bound Local Authority Capability
 
-Status: Implemented for the existing `local_task_create` local micro-lane;
-blocked for any additional execution lane until a separate exact scoped gate is
-accepted.
+Status: Implemented for the existing `local_task_create` AuthorityLease-gated
+local capability; blocked for any additional Action Inbox execution capability
+until a separate exact scoped mode/domain/lease gate is accepted.
 Baseline: v0.104.0 / 0.104.0.
 Primary surface: `/actions`.
 
 ## Current Truth
 
-`local_task_create` is the only current rank 5 local execution lane in the
-Action Inbox operational maturity manifest. It can commit one approved
-Action Inbox item into local task state through:
+`local_task_create` is the only current rank 5 Action Inbox local write
+authority capability in the operational maturity manifest. It requires active
+`workspace/write` AuthorityLease scope plus exact approval before it can commit
+one approved Action Inbox item into local task state through:
 
 ```text
 POST /control-center/actions/{action_id}/local-task/commit
 scripts/dev/uaa_founder_loop.py commit-local-task
 ```
 
-The lane is exact-scoped, approval-bound, idempotent, receipt-backed,
-evidence-backed, and safe-disable aware. It records
+The capability is exact-scoped, approval-bound, idempotent, receipt-backed,
+evidence-backed, redaction-bound, audit-bound, and safe-disable aware. It records
 `receipt:founder-loop-local-task:*` receipts and
 `evidence-event-type:local_task_created` history. It keeps
 `rollback_execution` blocked; rollback posture is represented by
@@ -35,22 +36,23 @@ backend-owned read model before treating a local task as committed.
 The current rank stays honest:
 
 - Action Inbox module: rank 3 overall.
-- `local_task_create` graduated lane: rank 5 local execution with receipt and
-  evidence.
-- All other action lanes: proposal, decision receipt, or blocked posture only.
+- `local_task_create` authority capability: rank 5 local write authority with
+  active `workspace/write` lease, exact approval, receipt, and evidence.
+- All other Action Inbox capabilities: proposal, decision receipt, or blocked
+  posture only.
 
 ## Safety Boundary
 
-This lane adds no generic action execution, no connector writes, no
+This capability adds no generic action execution, no connector writes, no
 shell/subprocess execution, no browser automation, no provider/model authority,
 no memory writes, no context injection, no external side effects, no rollback
 execution, no public beta, no public distribution, no production-readiness
 claim, and no production authority.
 
 Future local follow-up completion, opportunity update, connector write, memory
-write, shell, or rollback lanes must rank separately and pass their own exact
-approval, receipt, evidence, idempotency, redaction, safe-disable, CLI/API/core
-parity, and verifier gates.
+write, shell, or rollback capabilities must define their own authority domain,
+capability, required mode, lease scope, exact approval, receipt, evidence,
+idempotency, redaction, safe-disable, CLI/API/core parity, and verifier gates.
 
 ## Verification
 

@@ -165,8 +165,8 @@ automation, provider/model authority, or context-injection lane is selected
 until the candidate has exact scope, approval, idempotency, receipt/evidence,
 rollback or safe-disable, redaction, CLI/API/core parity, and focused test
 refs. The current scorecard decision is no-go for new authority; the existing
-Action Inbox `local_task_create` lane remains the only rank 5 local execution
-lane.
+Action Inbox `local_task_create` remains the only rank 5 local write authority
+capability.
 
 Evidence sources for this map:
 

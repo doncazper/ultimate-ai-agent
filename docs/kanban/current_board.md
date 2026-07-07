@@ -142,7 +142,7 @@ or production authority. Verification:
 `scripts/verify_beta_13_frontend_loading_visual_proof.py`;
 `scripts/verify_control_center_visual_regression.py`.
 The `context_injection` prerequisite contract is contract-ready for future
-gate review only. It is not selected as a micro-lane, adds no runtime
+gate review only. It is not selected as an authority capability, adds no runtime
 prompt/context injection route or Control Center control, and keeps runtime
 prompt/context injection blocked.
 CRM + Communications Spine M0 is now a contract-only product-line foundation in
@@ -1287,13 +1287,13 @@ provider/model calls, connector writes, memory writes, action execution,
 backend routes, public beta, public distribution, production readiness, or
 production authority.
 
-FCC-ACTION-001 Approval-Bound Local Micro-Lanes
+FCC-ACTION-001 Approval-Bound Local Authority Capability
 Gate met:
 `docs/control_center/FCC_ACTION_001_APPROVAL_BOUND_LOCAL_MICRO_LANES.md`
-records the current approval-bound local micro-lane truth. Action Inbox remains
-rank 3 overall, and `local_task_create` is the only current rank 5 local
-execution lane. The lane commits one exact-approved Action Inbox item into
-local task state through `POST
+records the current approval-bound local authority capability truth. Action
+Inbox remains rank 3 overall, and `local_task_create` is the only current rank
+5 Action Inbox local write authority capability. The capability commits one
+exact-approved Action Inbox item into local task state through `POST
 /control-center/actions/{action_id}/local-task/commit` and
 `scripts/dev/uaa_founder_loop.py commit-local-task`, with idempotency,
 durable receipt refs, `local_task_created` Evidence Timeline events,
