@@ -1192,22 +1192,33 @@ def _trust_authority_lanes(
             label="Exact approved provider/model invocation",
             tier=4,
             lane_kind="external_mutation",
-            authority_state="blocked",
+            authority_state="approval_required",
             current_posture=(
-                "Provider/model invocation remains blocked as a broad UAA runtime "
-                "authority. Existing local evidence is lease-scope proof only; "
-                "Trust does not invoke providers or models."
+                "Exact provider/model invocation is a governed "
+                "provider_model_calls/execute capability with AuthorityLease, "
+                "PolicyEngine, CostGovernor, exact LocalApprovalAuthority, "
+                "idempotency, safe-disable, and redacted receipt gates. Broad "
+                "provider routing, default UI invocation, provider SDK enablement, "
+                "billing authority, payload persistence, and output authority "
+                "remain blocked."
             ),
             approval_posture=(
-                "Future execution requires provider_model_calls/execute "
-                "AuthorityLease scope plus exact provider, model, access ref, cost "
-                "estimate, budget, idempotency, receipt, safe-disable, and rollback binding."
+                "Each attempt requires active provider_model_calls/execute "
+                "AuthorityLease scope plus exact provider, model, access "
+                "ref, cost estimate, budget, idempotency, receipt, safe-disable, "
+                "and rollback binding. Default remote-provider adapters remain "
+                "disabled unless separately implemented and tested."
             ),
             operator_can_do_now=(
-                "Inspect local runtime and lease-scope proof refs only; do not "
-                "treat Trust as provider/model execution."
+                "Use only exact lease-gated local loopback, access validation, "
+                "or tiny-provider receipt paths when their own approval and adapter "
+                "gates validate; Trust itself does not invoke providers or models."
             ),
-            next_safe_action="Inspect model/provider receipts; do not treat output as authority.",
+            next_safe_action=(
+                "Select provider_model_calls/execute authority only for an exact "
+                "capability, inspect the receipt, and keep model output as draft "
+                "evidence rather than truth or action authority."
+            ),
             route_refs=[
                 "POST /api/runtime/local-model/call",
                 "provider-lane-ref:tiny-exact-approved-provider-invocation",
@@ -1243,6 +1254,7 @@ def _trust_authority_lanes(
             blocked_authority_refs=[
                 "blocked-state:trust:no-provider-output-authority",
                 "blocked-state:trust:no-broad-provider-router",
+                "blocked-state:trust:no-default-provider-sdk-enable",
             ],
             requires_exact_approval=True,
             requires_safe_disable=True,

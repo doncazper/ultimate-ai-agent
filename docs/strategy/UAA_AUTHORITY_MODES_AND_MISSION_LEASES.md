@@ -224,6 +224,10 @@ core/CLI test paths must inject the explicit provider execution lease before
 exact approval is meaningful. This does not grant broad provider routing,
 autonomous/background model calls, billing authority, provider SDK authority, or
 payload persistence, and the default adapter remains disabled/no-execution.
+The Trust Authority matrix therefore reports only the known exact
+`provider_model_calls/execute` provider/model lane as `approval_required`; broad
+provider routing, unknown provider adapters, and default remote-provider use
+remain blocked.
 The exact-approved provider credential validation lane follows the same
 mode/domain foundation for a narrower non-invoking scope: it requires active
 `provider_model_calls/execute` AuthorityLease scope before PolicyEngine,

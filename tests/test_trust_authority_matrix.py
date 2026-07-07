@@ -74,8 +74,10 @@ def test_trust_authority_matrix_explains_available_approval_and_blocked(
     assert "trust-lane:governed-command-execution" in (
         parsed.approval_required_lane_refs
     )
+    assert "trust-lane:provider-model-invocation" in (
+        parsed.approval_required_lane_refs
+    )
     for blocked_lane_ref in (
-        "trust-lane:provider-model-invocation",
         "trust-lane:issue-tracker-sync",
         "trust-lane:connector-write-low-risk",
         "trust-lane:browser-low-risk-action",
@@ -98,7 +100,11 @@ def test_trust_authority_matrix_explains_available_approval_and_blocked(
     assert all(
         lane.authority_state != "available_now" for lane in parsed.lanes if lane.tier >= 4
     )
-    assert all(lane.authority_state == "blocked" for lane in parsed.lanes if lane.tier >= 4)
+    assert all(
+        lane.authority_state in {"approval_required", "blocked"}
+        for lane in parsed.lanes
+        if lane.tier >= 4
+    )
     assert all(lane.cli_inspection_refs for lane in parsed.lanes)
     assert all(lane.safe_disable_refs for lane in parsed.lanes)
     assert all(lane.rollback_refs for lane in parsed.lanes)
@@ -234,6 +240,12 @@ def test_trust_authority_matrix_explains_available_approval_and_blocked(
     )
     assert provider_lane.authority_capability_ref == "authority-capability-ref:execute"
     assert provider_lane.required_authority_mode == "full_machine_access_session"
+    assert provider_lane.authority_state == "approval_required"
+    assert provider_lane.operator_posture == "approval_required"
+    assert provider_lane.requires_exact_approval is True
+    assert "blocked-state:trust:no-broad-provider-router" in (
+        provider_lane.blocked_authority_refs
+    )
     browser_lane = lanes_by_ref["trust-lane:browser-low-risk-action"]
     assert browser_lane.authority_domain_ref == "authority-domain-ref:browser"
     assert browser_lane.authority_capability_ref == "authority-capability-ref:click"
