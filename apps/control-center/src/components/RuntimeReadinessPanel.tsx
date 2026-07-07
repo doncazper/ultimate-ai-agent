@@ -2893,6 +2893,21 @@ export function RuntimeReadinessPanel({
             <dd>{hardlineCommandBlocklist.cli_ref}</dd>
           </div>
           <div>
+            <dt>Authority</dt>
+            <dd>
+              {hardlineCommandBlocklist.authority_state_decision_outcome} /{" "}
+              {hardlineCommandBlocklist.authority_state_status}
+            </dd>
+          </div>
+          <div>
+            <dt>Capability mapping</dt>
+            <dd>{hardlineCommandBlocklist.authority_state_mapping_ref}</dd>
+          </div>
+          <div>
+            <dt>Decision ref</dt>
+            <dd>{hardlineCommandBlocklist.authority_state_decision_ref}</dd>
+          </div>
+          <div>
             <dt>Classifications</dt>
             <dd>{hardlineCommandBlocklist.classification_count}</dd>
           </div>
@@ -2948,6 +2963,30 @@ export function RuntimeReadinessPanel({
               <ul className="compact-list">
                 {hardlineCommandBlocklist.blocked_authority_refs
                   .slice(0, 4)
+                  .map((ref) => (
+                    <li key={ref}>{ref}</li>
+                  ))}
+              </ul>
+            </dd>
+          </div>
+          <div>
+            <dt>Unsupported adapters</dt>
+            <dd>
+              <ul className="compact-list">
+                {hardlineCommandBlocklist.unsupported_adapter_refs
+                  .slice(0, 5)
+                  .map((ref) => (
+                    <li key={ref}>{ref}</li>
+                  ))}
+              </ul>
+            </dd>
+          </div>
+          <div>
+            <dt>Authority reason</dt>
+            <dd>
+              <ul className="compact-list">
+                {hardlineCommandBlocklist.authority_state_reason_refs
+                  .slice(0, 3)
                   .map((ref) => (
                     <li key={ref}>{ref}</li>
                   ))}

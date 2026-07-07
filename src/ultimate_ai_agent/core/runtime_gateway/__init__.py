@@ -286,6 +286,9 @@ from ultimate_ai_agent.core.runtime_gateway.context_budget_pressure import (
     build_runtime_context_budget_pressure_read_model_from_authority_catalog,
 )
 from ultimate_ai_agent.core.runtime_gateway.hardline_command_blocklist import (
+    RUNTIME_HARDLINE_COMMAND_BLOCKLIST_AUTHORITY_MAPPING_REF,
+    RUNTIME_HARDLINE_COMMAND_BLOCKLIST_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_HARDLINE_COMMAND_BLOCKLIST_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_HARDLINE_COMMAND_BLOCKLIST_BLOCKED_AUTHORITY_REFS,
     RUNTIME_HARDLINE_COMMAND_BLOCKLIST_CLI_REF,
     RUNTIME_HARDLINE_COMMAND_BLOCKLIST_CONTRACT_REF,
@@ -299,6 +302,7 @@ from ultimate_ai_agent.core.runtime_gateway.hardline_command_blocklist import (
     RuntimeHardlineCommandClassificationStatus,
     RuntimeHardlineCommandDenialCategory,
     build_runtime_hardline_command_blocklist_read_model,
+    build_runtime_hardline_command_blocklist_read_model_from_authority_catalog,
     classify_hardline_command_argv,
     hardline_block_reason_for_argv,
 )
@@ -954,6 +958,9 @@ __all__ = [
     "RUNTIME_CONTEXT_BUDGET_PRESSURE_PROOF_REF",
     "RUNTIME_CONTEXT_BUDGET_PRESSURE_ROUTE_REF",
     "RUNTIME_CONTEXT_BUDGET_PRESSURE_SNAPSHOT_REF",
+    "RUNTIME_HARDLINE_COMMAND_BLOCKLIST_AUTHORITY_MAPPING_REF",
+    "RUNTIME_HARDLINE_COMMAND_BLOCKLIST_AUTHORITY_STATE_CLI_REF",
+    "RUNTIME_HARDLINE_COMMAND_BLOCKLIST_AUTHORITY_STATE_ROUTE_REF",
     "RUNTIME_HARDLINE_COMMAND_BLOCKLIST_BLOCKED_AUTHORITY_REFS",
     "RUNTIME_HARDLINE_COMMAND_BLOCKLIST_CLI_REF",
     "RUNTIME_HARDLINE_COMMAND_BLOCKLIST_CONTRACT_REF",
@@ -1134,6 +1141,7 @@ __all__ = [
     "build_runtime_context_budget_pressure_read_model",
     "build_runtime_context_budget_pressure_read_model_from_authority_catalog",
     "build_runtime_hardline_command_blocklist_read_model",
+    "build_runtime_hardline_command_blocklist_read_model_from_authority_catalog",
     "build_runtime_managed_scope_policy_read_model",
     "build_runtime_managed_scope_policy_read_model_from_authority_catalog",
     "build_runtime_doctor_diagnostics_read_model",

@@ -12,6 +12,9 @@ sys.path.insert(0, str(ROOT / "src"))
 from ultimate_ai_agent.api.app import app  # noqa: E402
 from ultimate_ai_agent.api.manifest import build_api_manifest  # noqa: E402
 from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
+    RUNTIME_HARDLINE_COMMAND_BLOCKLIST_AUTHORITY_MAPPING_REF,
+    RUNTIME_HARDLINE_COMMAND_BLOCKLIST_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_HARDLINE_COMMAND_BLOCKLIST_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_HARDLINE_COMMAND_BLOCKLIST_BLOCKED_AUTHORITY_REFS,
     RUNTIME_HARDLINE_COMMAND_BLOCKLIST_DENY_CODE,
     build_runtime_hardline_command_blocklist_read_model,
@@ -33,6 +36,27 @@ def main() -> int:
         failures.append("hardline command blocklist route ref is stale")
     if read_model.cli_ref != "uaa runtime inspect-hardline-command-blocklist":
         failures.append("hardline command blocklist CLI ref is stale")
+    if (
+        read_model.authority_state_route_ref
+        != RUNTIME_HARDLINE_COMMAND_BLOCKLIST_AUTHORITY_STATE_ROUTE_REF
+    ):
+        failures.append("hardline command authority route ref is stale")
+    if (
+        read_model.authority_state_cli_ref
+        != RUNTIME_HARDLINE_COMMAND_BLOCKLIST_AUTHORITY_STATE_CLI_REF
+    ):
+        failures.append("hardline command authority CLI ref is stale")
+    if (
+        read_model.authority_state_mapping_ref
+        != RUNTIME_HARDLINE_COMMAND_BLOCKLIST_AUTHORITY_MAPPING_REF
+    ):
+        failures.append("hardline command authority mapping ref is stale")
+    if read_model.authority_state_decision_outcome != "allow":
+        failures.append("hardline command read model must be Workspace read only")
+    if "adapter-ref:runtime-hardline-floor-override:not-implemented" not in (
+        read_model.unsupported_adapter_refs
+    ):
+        failures.append("hardline command unsupported adapter refs missing")
     if not read_model.non_overridable_floor or read_model.override_bypass_permitted:
         failures.append("hardline command floor is not non-overridable")
     if read_model.command_execution_performed:
@@ -80,6 +104,7 @@ def main() -> int:
     for expected in [
         "inspect-hardline-command-blocklist",
         "runtime_hardline_command_blocklist",
+        "authority_state",
         "raw_command_text_omitted",
         "runner_invocation_performed",
     ]:
@@ -121,6 +146,13 @@ def main() -> int:
         payload = json.loads(cli_result.stdout)
         if payload["runtime_hardline_command_blocklist"]["route_ref"] != f"GET {ROUTE}":
             failures.append("hardline command CLI returned stale route ref")
+        if (
+            payload["authority_state"]["mapping_ref"]
+            != RUNTIME_HARDLINE_COMMAND_BLOCKLIST_AUTHORITY_MAPPING_REF
+        ):
+            failures.append("hardline command CLI authority mapping drifted")
+        if payload["authority_state"]["decision_outcome"] != "allow":
+            failures.append("hardline command CLI authority decision drifted")
         if payload["runner_invocation_performed"] is not False:
             failures.append("hardline command CLI claims runner invocation")
 

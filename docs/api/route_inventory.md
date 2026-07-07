@@ -248,11 +248,13 @@ response/provider material persistence, and production authority remain
 blocked.
 `GET /api/runtime/hardline-command-blocklist` exposes a protected read-only
 Python Core Hermes Runtime Adoption Phase 25 hardline command blocklist
-posture. It returns command-shape classification refs, denied category refs,
-allowed shape counts, hardline rule refs, proof refs, verifier refs,
-next-safe-action refs, and blocked authority refs only. Command execution, raw
-command strings, raw command text/output persistence, hardline floor override,
-and production authority remain blocked.
+posture bound to `lane-ref:runtime-hardline-command-blocklist-read-model`
+through AuthorityState for inspection only. It returns command-shape
+classification refs, denied category refs, allowed shape counts, hardline rule
+refs, AuthorityState mapping/decision refs, unsupported adapter refs, proof
+refs, verifier refs, next-safe-action refs, and blocked authority refs only.
+Command execution, raw command strings, raw command text/output persistence,
+hardline floor override, and production authority remain blocked.
 `GET /api/runtime/managed-scope-policy` exposes a protected read-only Python
 Core Hermes Runtime Adoption Phase 27 managed scope policy posture. It returns
 pinned local policy source refs, source kinds, precedence, checksum refs, drift

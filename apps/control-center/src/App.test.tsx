@@ -7909,6 +7909,14 @@ describe("Web Control Center shell", () => {
         .length,
     ).toBeGreaterThan(0);
     expect(
+      screen.getByText("lane-ref:runtime-hardline-command-blocklist-read-model"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "adapter-ref:runtime-hardline-floor-override:not-implemented",
+      ),
+    ).toBeInTheDocument();
+    expect(
       screen.getByText("hardline-command-candidate-ref:shell-metachar"),
     ).toBeInTheDocument();
     expect(

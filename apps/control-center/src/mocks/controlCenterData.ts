@@ -16132,6 +16132,35 @@ export const mockControlCenterData: ControlCenterData = {
     snapshot_hash_ref: "snapshot-hash-ref:runtime-hardline-command-blocklist:mock",
     route_ref: "GET /api/runtime/hardline-command-blocklist",
     cli_ref: "uaa runtime inspect-hardline-command-blocklist",
+    authority_state_route_ref: "GET /api/runtime/authority-state",
+    authority_state_cli_ref:
+      "repo-local-command:uaa-runtime-inspect-authority-state",
+    authority_state_mapping_ref:
+      "lane-ref:runtime-hardline-command-blocklist-read-model",
+    authority_state_catalog_ref:
+      "authority-decision-catalog-ref:runtime-hardline-command-blocklist-read-model",
+    authority_state_decision_ref:
+      "authority-policy-decision-ref:runtime-hardline-command-blocklist-read-model:allow",
+    authority_state_decision_outcome: "allow",
+    authority_state_status: "implemented_authority_bound_read_model",
+    authority_state_operator_message:
+      "Runtime hardline command blocklist inspection is allowed only as Workspace read; the floor remains non-overridable.",
+    authority_state_reason_refs: [
+      "authority-reason-ref:hardline-command-blocklist:workspace-read-lease",
+    ],
+    unsupported_adapter_refs: [
+      "adapter-ref:runtime-hardline-floor-override:not-implemented",
+      "adapter-ref:runtime-command-string-bypass:not-implemented",
+      "adapter-ref:runtime-shell-metachar-bypass:not-implemented",
+      "adapter-ref:runtime-destructive-command-bypass:not-implemented",
+      "adapter-ref:runtime-network-command-bypass:not-implemented",
+      "adapter-ref:runtime-git-mutation-bypass:not-implemented",
+      "adapter-ref:runtime-package-install-bypass:not-implemented",
+      "adapter-ref:runtime-privilege-escalation-bypass:not-implemented",
+      "adapter-ref:runtime-command-material-persistence:not-implemented",
+      "adapter-ref:runtime-command-output-material-persistence:not-implemented",
+      "adapter-ref:runtime-production-command-authority:not-implemented",
+    ],
     proof_ref:
       "proof-ref:hermes-runtime-adoption:phase-25:hardline-command-blocklist",
     verifier_ref:

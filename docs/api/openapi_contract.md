@@ -180,12 +180,14 @@ Contract rules:
   context/prompt/response/provider material persistence, or production
   authority.
   `GET /api/runtime/hardline-command-blocklist` exposes the Hermes Runtime
-  Adoption Phase 25 backend-owned hardline command blocklist posture. It
-  returns command-shape classification refs, denied category refs, allowed
-  shape counts, hardline rule refs, proof refs, verifier refs,
-  next-safe-action refs, and blocked authority refs only. It does not run
-  commands, accept raw command strings, persist raw command text or output,
-  permit floor override, or grant production authority.
+  Adoption Phase 25 backend-owned hardline command blocklist posture bound to
+  `lane-ref:runtime-hardline-command-blocklist-read-model` through
+  AuthorityState for inspection only. It returns command-shape classification
+  refs, denied category refs, allowed shape counts, hardline rule refs,
+  AuthorityState mapping/decision refs, unsupported adapter refs, proof refs,
+  verifier refs, next-safe-action refs, and blocked authority refs only. It
+  does not run commands, accept raw command strings, persist raw command text
+  or output, permit floor override, or grant production authority.
   `GET /api/runtime/managed-scope-policy` exposes the Hermes Runtime Adoption
   Phase 27 backend-owned managed scope policy posture. It returns pinned local
   policy source refs, precedence, checksum refs, drift warning refs, rollback

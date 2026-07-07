@@ -1,6 +1,6 @@
 # UAA Hermes Runtime Hardline Command Blocklist
 
-Status: Hermes Runtime Adoption Phase 25, repo-safe read-only posture.
+Status: Hermes Runtime Adoption Phase 25, AuthorityState-bound repo-safe read-only posture.
 
 ## Full-strength
 
@@ -20,9 +20,14 @@ through:
 - Control Center Runtime readiness posture
 
 The read model stores safe refs, category labels, counts, proof refs, verifier
-refs, and blocked authority refs only. It does not persist raw command text,
-raw command output, local paths, environment material, or runner output. It
-does not add a new command execution lane.
+refs, AuthorityState route/CLI/mapping/catalog/decision/reason refs,
+unsupported adapter refs, and blocked authority refs only. The read model is
+mapped as `lane-ref:runtime-hardline-command-blocklist-read-model` under
+Read-only `workspace/read` and is evaluated from the active AuthorityLease
+decision catalog. It does not persist raw command text, raw command output,
+local paths, environment material, or runner output. It does not add a new
+command execution lane, and AuthorityLease evaluation cannot override the
+hardline floor.
 
 ## Blocked / Needs Authority
 

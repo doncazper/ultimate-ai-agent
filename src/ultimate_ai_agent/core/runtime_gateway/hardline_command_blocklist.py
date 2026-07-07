@@ -9,6 +9,10 @@ from typing import Sequence
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.authority import (
+    AuthorityDecisionCatalogEntry,
+    build_authority_decision_catalog,
+)
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
@@ -31,6 +35,16 @@ RUNTIME_HARDLINE_COMMAND_BLOCKLIST_VERIFIER_REF = (
     "verifier-ref:hermes-runtime-adoption:phase-25:hardline-command-blocklist"
 )
 RUNTIME_HARDLINE_COMMAND_BLOCKLIST_DENY_CODE = "RUNTIME_COMMAND_HARDLINE_BLOCKLIST_DENIED"
+RUNTIME_HARDLINE_COMMAND_BLOCKLIST_AUTHORITY_STATE_ROUTE_REF = (
+    "GET /api/runtime/authority-state"
+)
+RUNTIME_HARDLINE_COMMAND_BLOCKLIST_AUTHORITY_STATE_CLI_REF = (
+    "repo-local-command:uaa-runtime-inspect-authority-state"
+)
+RUNTIME_HARDLINE_COMMAND_BLOCKLIST_AUTHORITY_MAPPING_REF = (
+    "lane-ref:runtime-hardline-command-blocklist-read-model"
+)
+_AUTHORITY_DECISION_OUTCOMES = {"allow", "ask", "deny", "degrade_to_draft"}
 
 RUNTIME_HARDLINE_COMMAND_BLOCKLIST_BLOCKED_AUTHORITY_REFS: tuple[str, ...] = (
     "blocked-authority:runtime-hardline-command-floor-override",
@@ -194,6 +208,16 @@ class RuntimeHardlineCommandBlocklistReadModel(BaseModel):
     snapshot_hash_ref: str = "snapshot-hash-ref:runtime-hardline-command-blocklist:pending"
     route_ref: str = RUNTIME_HARDLINE_COMMAND_BLOCKLIST_ROUTE_REF
     cli_ref: str = RUNTIME_HARDLINE_COMMAND_BLOCKLIST_CLI_REF
+    authority_state_route_ref: str
+    authority_state_cli_ref: str
+    authority_state_mapping_ref: str
+    authority_state_catalog_ref: str
+    authority_state_decision_ref: str
+    authority_state_decision_outcome: str
+    authority_state_status: str
+    authority_state_operator_message: str
+    authority_state_reason_refs: list[str] = Field(default_factory=list)
+    unsupported_adapter_refs: list[str] = Field(default_factory=list)
     proof_ref: str = RUNTIME_HARDLINE_COMMAND_BLOCKLIST_PROOF_REF
     verifier_ref: str = RUNTIME_HARDLINE_COMMAND_BLOCKLIST_VERIFIER_REF
     status: str = "read_only_hardline_command_blocklist_floor"
@@ -238,21 +262,44 @@ class RuntimeHardlineCommandBlocklistReadModel(BaseModel):
             (self.route_classification_ref, "route_classification_ref"),
             (self.foundation_gate_ref, "foundation_gate_ref"),
             (self.safe_disable_ref, "safe_disable_ref"),
+            (self.authority_state_mapping_ref, "authority_state_mapping_ref"),
+            (self.authority_state_catalog_ref, "authority_state_catalog_ref"),
+            (self.authority_state_decision_ref, "authority_state_decision_ref"),
         ]:
             validate_execution_ref(value, field_name)
         for value, field_name in [
             (self.route_ref, "route_ref"),
             (self.cli_ref, "cli_ref"),
+            (self.authority_state_route_ref, "authority_state_route_ref"),
+            (self.authority_state_cli_ref, "authority_state_cli_ref"),
+            (
+                self.authority_state_decision_outcome,
+                "authority_state_decision_outcome",
+            ),
+            (self.authority_state_status, "authority_state_status"),
+            (
+                self.authority_state_operator_message,
+                "authority_state_operator_message",
+            ),
         ]:
             validate_safe_execution_text(value, field_name)
         validate_safe_execution_text(self.safe_summary, "safe_summary")
         for ref in [
+            *self.authority_state_reason_refs,
+            *self.unsupported_adapter_refs,
             *self.hardline_rule_refs,
             *self.blocked_authority_refs,
             *self.promotion_path_refs,
             *self.next_safe_action_refs,
         ]:
             validate_execution_ref(ref, "runtime_hardline_command_blocklist_ref")
+        if (
+            self.authority_state_mapping_ref
+            != RUNTIME_HARDLINE_COMMAND_BLOCKLIST_AUTHORITY_MAPPING_REF
+        ):
+            raise ValueError("RUNTIME_HARDLINE_COMMAND_AUTHORITY_MAPPING_MISMATCH")
+        if self.authority_state_decision_outcome not in _AUTHORITY_DECISION_OUTCOMES:
+            raise ValueError("RUNTIME_HARDLINE_COMMAND_AUTHORITY_DECISION_INVALID")
         if not self.non_overridable_floor:
             raise ValueError("RUNTIME_HARDLINE_COMMAND_FLOOR_MUST_BE_NON_OVERRIDABLE")
         if self.override_bypass_permitted:
@@ -322,7 +369,19 @@ def hardline_block_reason_for_argv(argv: Sequence[str]) -> str | None:
     return f"{RUNTIME_HARDLINE_COMMAND_BLOCKLIST_DENY_CODE}:{classification.denial_category}"
 
 
-def build_runtime_hardline_command_blocklist_read_model() -> RuntimeHardlineCommandBlocklistReadModel:
+def build_runtime_hardline_command_blocklist_read_model() -> (
+    RuntimeHardlineCommandBlocklistReadModel
+):
+    return build_runtime_hardline_command_blocklist_read_model_from_authority_catalog(
+        authority_decision_catalog=build_authority_decision_catalog()
+    )
+
+
+def build_runtime_hardline_command_blocklist_read_model_from_authority_catalog(
+    *,
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry],
+) -> RuntimeHardlineCommandBlocklistReadModel:
+    authority_entry = _authority_entry(authority_decision_catalog)
     classifications = [
         classify_hardline_command_argv(
             (
@@ -353,6 +412,41 @@ def build_runtime_hardline_command_blocklist_read_model() -> RuntimeHardlineComm
     ]
     denied_count = sum(1 for item in classifications if item.denied)
     return RuntimeHardlineCommandBlocklistReadModel(
+        snapshot_hash_ref=_snapshot_hash_ref(
+            {
+                "classifications": [
+                    {
+                        "candidate_ref": classification.candidate_ref,
+                        "status": classification.status,
+                        "denial_category": classification.denial_category,
+                        "denied": classification.denied,
+                    }
+                    for classification in classifications
+                ],
+                "authority_state_decision_ref": (
+                    authority_entry.decision.decision_ref
+                ),
+                "authority_state_decision_outcome": _authority_value(
+                    authority_entry.decision.outcome
+                ),
+            }
+        ),
+        authority_state_route_ref=(
+            RUNTIME_HARDLINE_COMMAND_BLOCKLIST_AUTHORITY_STATE_ROUTE_REF
+        ),
+        authority_state_cli_ref=(
+            RUNTIME_HARDLINE_COMMAND_BLOCKLIST_AUTHORITY_STATE_CLI_REF
+        ),
+        authority_state_mapping_ref=authority_entry.lane_ref,
+        authority_state_catalog_ref=authority_entry.catalog_ref,
+        authority_state_decision_ref=authority_entry.decision.decision_ref,
+        authority_state_decision_outcome=_authority_value(
+            authority_entry.decision.outcome
+        ),
+        authority_state_status=authority_entry.status,
+        authority_state_operator_message=authority_entry.decision.operator_message,
+        authority_state_reason_refs=list(authority_entry.decision.reason_refs),
+        unsupported_adapter_refs=list(authority_entry.unsupported_adapter_refs),
         classification_count=len(classifications),
         denied_classification_count=denied_count,
         allowed_classification_count=len(classifications) - denied_count,
@@ -387,6 +481,26 @@ def build_runtime_hardline_command_blocklist_read_model() -> RuntimeHardlineComm
             "blocks catastrophic categories before runner use, and grants no new command lane."
         ),
     )
+
+
+def _authority_entry(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry],
+) -> AuthorityDecisionCatalogEntry:
+    for entry in authority_decision_catalog:
+        if entry.lane_ref == RUNTIME_HARDLINE_COMMAND_BLOCKLIST_AUTHORITY_MAPPING_REF:
+            return entry
+    raise ValueError("RUNTIME_HARDLINE_COMMAND_AUTHORITY_MAPPING_NOT_FOUND")
+
+
+def _authority_value(value: object) -> str:
+    return str(getattr(value, "value", value))
+
+
+def _snapshot_hash_ref(payload: object) -> str:
+    digest = hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()[:24]
+    return f"snapshot-hash-ref:runtime-hardline-command-blocklist:{digest}"
 
 
 def _blocked_corpus_classifications() -> list[RuntimeHardlineCommandClassification]:

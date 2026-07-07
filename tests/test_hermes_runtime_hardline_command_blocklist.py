@@ -13,6 +13,9 @@ from fastapi.testclient import TestClient
 import ultimate_ai_agent.core.runtime_gateway.command as command_module
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.runtime_gateway import (
+    RUNTIME_HARDLINE_COMMAND_BLOCKLIST_AUTHORITY_MAPPING_REF,
+    RUNTIME_HARDLINE_COMMAND_BLOCKLIST_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_HARDLINE_COMMAND_BLOCKLIST_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_HARDLINE_COMMAND_BLOCKLIST_BLOCKED_AUTHORITY_REFS,
     RUNTIME_HARDLINE_COMMAND_BLOCKLIST_CONTRACT_REF,
     RUNTIME_HARDLINE_COMMAND_BLOCKLIST_DENY_CODE,
@@ -55,6 +58,27 @@ def test_hardline_command_blocklist_is_read_only_posture() -> None:
     assert read_model.status == "read_only_hardline_command_blocklist_floor"
     assert read_model.route_ref == "GET /api/runtime/hardline-command-blocklist"
     assert read_model.cli_ref == "uaa runtime inspect-hardline-command-blocklist"
+    assert (
+        read_model.authority_state_route_ref
+        == RUNTIME_HARDLINE_COMMAND_BLOCKLIST_AUTHORITY_STATE_ROUTE_REF
+    )
+    assert (
+        read_model.authority_state_cli_ref
+        == RUNTIME_HARDLINE_COMMAND_BLOCKLIST_AUTHORITY_STATE_CLI_REF
+    )
+    assert (
+        read_model.authority_state_mapping_ref
+        == RUNTIME_HARDLINE_COMMAND_BLOCKLIST_AUTHORITY_MAPPING_REF
+    )
+    assert read_model.authority_state_decision_outcome == "allow"
+    assert read_model.authority_state_decision_ref.startswith(
+        "authority-policy-decision-ref:"
+    )
+    assert read_model.authority_state_reason_refs
+    assert (
+        "adapter-ref:runtime-hardline-floor-override:not-implemented"
+        in read_model.unsupported_adapter_refs
+    )
     assert read_model.non_overridable_floor is True
     assert read_model.override_bypass_permitted is False
     assert read_model.command_execution_performed is False
@@ -153,6 +177,19 @@ def test_hardline_read_model_denies_weakened_floor_or_execution(field: str) -> N
     payload[field] = False if field == "non_overridable_floor" else True
 
     with pytest.raises(ValueError):
+        RuntimeHardlineCommandBlocklistReadModel(**payload)
+
+
+def test_hardline_read_model_rejects_authority_mapping_drift() -> None:
+    payload = build_runtime_hardline_command_blocklist_read_model().model_dump(
+        mode="json"
+    )
+    payload["authority_state_mapping_ref"] = "lane-ref:wrong-hardline-floor"
+
+    with pytest.raises(
+        ValueError,
+        match="RUNTIME_HARDLINE_COMMAND_AUTHORITY_MAPPING_MISMATCH",
+    ):
         RuntimeHardlineCommandBlocklistReadModel(**payload)
 
 
@@ -297,6 +334,10 @@ def test_hardline_command_blocklist_api_returns_read_only_posture() -> None:
     assert body["operation"] == "api_runtime_hardline_command_blocklist"
     data = body["data"]
     assert data["route_ref"] == "GET /api/runtime/hardline-command-blocklist"
+    assert data["authority_state_mapping_ref"] == (
+        RUNTIME_HARDLINE_COMMAND_BLOCKLIST_AUTHORITY_MAPPING_REF
+    )
+    assert data["authority_state_decision_outcome"] == "allow"
     assert data["non_overridable_floor"] is True
     assert data["override_bypass_permitted"] is False
     assert data["command_execution_performed"] is False
@@ -321,13 +362,23 @@ def test_hardline_command_blocklist_cli_uses_same_read_model() -> None:
 
     payload = json.loads(result.stdout)
     read_model = payload["runtime_hardline_command_blocklist"]
+    authority_state = payload["authority_state"]
     assert payload["safe_refs_only"] is True
+    assert (
+        authority_state["mapping_ref"]
+        == RUNTIME_HARDLINE_COMMAND_BLOCKLIST_AUTHORITY_MAPPING_REF
+    )
+    assert authority_state["decision_outcome"] == "allow"
     assert payload["raw_command_text_omitted"] is True
     assert payload["raw_command_output_omitted"] is True
     assert payload["command_execution_performed"] is False
     assert payload["runner_invocation_performed"] is False
     assert read_model["route_ref"] == "GET /api/runtime/hardline-command-blocklist"
     assert read_model["cli_ref"] == "uaa runtime inspect-hardline-command-blocklist"
+    assert (
+        read_model["authority_state_cli_ref"]
+        == RUNTIME_HARDLINE_COMMAND_BLOCKLIST_AUTHORITY_STATE_CLI_REF
+    )
     assert read_model["override_bypass_permitted"] is False
 
 

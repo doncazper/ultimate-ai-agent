@@ -3186,6 +3186,36 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ],
         ),
         _mapping(
+            "lane-ref:runtime-hardline-command-blocklist-read-model",
+            "Runtime hardline command blocklist read model",
+            AuthorityDomain.workspace,
+            AuthorityCapability.read,
+            TrustMode.read_only,
+            "implemented_authority_bound_read_model",
+            ["GET /api/runtime/hardline-command-blocklist"],
+            ["repo-local-command:uaa-runtime-inspect-hardline-command-blocklist"],
+            (
+                "Hardline command blocklist inspection reads command-shape "
+                "classification, rule, blocker, proof, and next safe action "
+                "refs under Workspace read authority. Floor override, command "
+                "string bypass, command execution, command material persistence, "
+                "and production authority remain blocked."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:runtime-hardline-floor-override:not-implemented",
+                "adapter-ref:runtime-command-string-bypass:not-implemented",
+                "adapter-ref:runtime-shell-metachar-bypass:not-implemented",
+                "adapter-ref:runtime-destructive-command-bypass:not-implemented",
+                "adapter-ref:runtime-network-command-bypass:not-implemented",
+                "adapter-ref:runtime-git-mutation-bypass:not-implemented",
+                "adapter-ref:runtime-package-install-bypass:not-implemented",
+                "adapter-ref:runtime-privilege-escalation-bypass:not-implemented",
+                "adapter-ref:runtime-command-material-persistence:not-implemented",
+                "adapter-ref:runtime-command-output-material-persistence:not-implemented",
+                "adapter-ref:runtime-production-command-authority:not-implemented",
+            ],
+        ),
+        _mapping(
             "lane-ref:runtime-command-git-status",
             "Git status",
             AuthorityDomain.workspace,
