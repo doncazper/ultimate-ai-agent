@@ -93,7 +93,7 @@
         "tier_2_commit_send_apply_requires_later_authority",
         "tier_3_reversible_local_mutation_must_show_undo_or_safe_disable",
         "tier_4_external_mutation_requires_exact_approval_receipt_idempotency",
-        "tier_5_background_standing_authority_requires_separate_graduation",
+        "tier_5_background_standing_authority_requires_mode_domain_lease",
         "control_center_no_durable_truth",
         "draft_available_does_not_mean_send_available",
         "preview_available_does_not_mean_runtime_execution"
@@ -109,7 +109,7 @@
         "tier_4_external_mutation_requires_exact_approval_receipt_idempotency": {
           "const": true
         },
-        "tier_5_background_standing_authority_requires_separate_graduation": {
+        "tier_5_background_standing_authority_requires_mode_domain_lease": {
           "const": true
         },
         "control_center_no_durable_truth": { "const": true },
@@ -182,6 +182,60 @@
           "type": "array",
           "items": { "type": "string" }
         }
+      }
+    },
+    "authority_capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capability_id",
+        "legacy_lane_id",
+        "rank",
+        "honest_status",
+        "authority_domain_ref",
+        "authority_capability_ref",
+        "required_mode_ref",
+        "authority_lease_requirement_ref",
+        "lease_scope",
+        "active_lease_required",
+        "exact_approval_required",
+        "idempotency_required",
+        "receipts_required",
+        "audit_required",
+        "redaction_required",
+        "rollback_or_safe_disable_refs",
+        "backend_routes",
+        "cli_parity_ref",
+        "focused_test_refs",
+        "operator_copy"
+      ],
+      "properties": {
+        "capability_id": { "type": "string", "minLength": 1 },
+        "legacy_lane_id": { "type": "string", "minLength": 1 },
+        "rank": { "$ref": "#/$defs/rank" },
+        "honest_status": { "type": "string", "minLength": 1 },
+        "authority_domain_ref": { "type": "string", "minLength": 1 },
+        "authority_capability_ref": { "type": "string", "minLength": 1 },
+        "required_mode_ref": { "type": "string", "minLength": 1 },
+        "authority_lease_requirement_ref": { "type": "string", "minLength": 1 },
+        "lease_scope": {
+          "type": "string",
+          "enum": ["session", "mission"]
+        },
+        "active_lease_required": { "type": "boolean" },
+        "exact_approval_required": { "type": "boolean" },
+        "idempotency_required": { "type": "boolean" },
+        "receipts_required": { "type": "boolean" },
+        "audit_required": { "type": "boolean" },
+        "redaction_required": { "type": "boolean" },
+        "rollback_or_safe_disable_refs": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "backend_routes": { "type": "array", "items": { "type": "string" } },
+        "cli_parity_ref": { "type": ["string", "null"] },
+        "focused_test_refs": { "type": "array", "items": { "type": "string" } },
+        "operator_copy": { "type": "string", "minLength": 1 }
       }
     },
     "ui_status_binding": {
@@ -283,6 +337,10 @@
         "graduated_lanes": {
           "type": "array",
           "items": { "$ref": "#/$defs/lane" }
+        },
+        "authority_capabilities": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/authority_capability" }
         },
         "ui_status_binding": { "$ref": "#/$defs/ui_status_binding" }
       }

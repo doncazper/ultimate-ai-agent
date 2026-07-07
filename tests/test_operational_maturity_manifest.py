@@ -25,6 +25,11 @@ from scripts.verify_operational_maturity import (
     EXPECTED_USABLE_AUTHORITY_TIERS,
     LADDER_LABELS,
     LOW_FRICTION_TIER_IDS,
+    LOCAL_TASK_AUTHORITY_CAPABILITY_ID,
+    LOCAL_TASK_AUTHORITY_CAPABILITY_REF,
+    LOCAL_TASK_AUTHORITY_DOMAIN_REF,
+    LOCAL_TASK_AUTHORITY_LEASE_REQUIREMENT_REF,
+    LOCAL_TASK_AUTHORITY_MODE_REF,
     LOCAL_MODEL_CLI_REF,
     LOCAL_TASK_REPEATABILITY_GATE_REF,
     LOCAL_TASK_REPEATABILITY_REQUIRED_FOCUSED_TEST_REFS,
@@ -38,6 +43,11 @@ from scripts.verify_operational_maturity import (
     MEMORY_CONTEXT_MANIFEST_ROUTE,
     MEMORY_CONTEXT_PACK_TEST_REFS,
     MEMORY_CONTEXT_PACK_VERIFIER_REFS,
+    MEMORY_REVIEWED_RECALL_WRITE_AUTHORITY_CAPABILITY_ID,
+    MEMORY_REVIEWED_RECALL_WRITE_AUTHORITY_CAPABILITY_REF,
+    MEMORY_REVIEWED_RECALL_WRITE_AUTHORITY_DOMAIN_REF,
+    MEMORY_REVIEWED_RECALL_WRITE_AUTHORITY_LEASE_REQUIREMENT_REF,
+    MEMORY_REVIEWED_RECALL_WRITE_AUTHORITY_MODE_REF,
     PATCH_WORKBENCH_APPLY_ROUTE,
     PATCH_WORKBENCH_MODULE_ID,
     PATCH_WORKBENCH_REQUIRED_MISSING_CONTRACTS,
@@ -70,6 +80,7 @@ def test_operational_maturity_manifest_declares_canonical_ladder() -> None:
     assert schema["$defs"]["rank"]["minimum"] == 0
     assert schema["$defs"]["rank"]["maximum"] == 7
     assert "authority_tier_model" in schema["$defs"]
+    assert "authority_capability" in schema["$defs"]
     assert set(LADDER_LABELS.values()) == {
         "docs_only",
         "read_only_status",
@@ -104,10 +115,49 @@ def test_operational_maturity_manifest_declares_canonical_ladder() -> None:
     assert LOCAL_TASK_REPEATABILITY_REQUIRED_VERIFIER_REFS.issubset(
         set(local_task_lane["verifier_repeatability_refs"])
     )
+    local_task_capability = modules["action_inbox"]["authority_capabilities"][0]
+    assert local_task_capability["capability_id"] == LOCAL_TASK_AUTHORITY_CAPABILITY_ID
+    assert local_task_capability["legacy_lane_id"] == "local_task_create"
+    assert local_task_capability["authority_domain_ref"] == LOCAL_TASK_AUTHORITY_DOMAIN_REF
+    assert (
+        local_task_capability["authority_capability_ref"]
+        == LOCAL_TASK_AUTHORITY_CAPABILITY_REF
+    )
+    assert local_task_capability["required_mode_ref"] == LOCAL_TASK_AUTHORITY_MODE_REF
+    assert (
+        local_task_capability["authority_lease_requirement_ref"]
+        == LOCAL_TASK_AUTHORITY_LEASE_REQUIREMENT_REF
+    )
+    assert local_task_capability["active_lease_required"] is True
+    assert "AuthorityLease" in local_task_capability["operator_copy"]
     assert MEMORY_CONTEXT_PACK_ROUTE in modules["memory"]["backend_routes"]
     assert MEMORY_CONTEXT_PACK_PREVIEW_ROUTE in modules["memory"]["backend_routes"]
     assert MEMORY_CONTEXT_MANIFEST_ROUTE in modules["memory"]["backend_routes"]
     assert CONTEXT_INJECTION_CLI_REF in modules["memory"]["cli_or_script_refs"]
+    memory_capability = modules["memory"]["authority_capabilities"][0]
+    assert (
+        memory_capability["capability_id"]
+        == MEMORY_REVIEWED_RECALL_WRITE_AUTHORITY_CAPABILITY_ID
+    )
+    assert memory_capability["legacy_lane_id"] == "reviewed_memory_recall_write"
+    assert (
+        memory_capability["authority_domain_ref"]
+        == MEMORY_REVIEWED_RECALL_WRITE_AUTHORITY_DOMAIN_REF
+    )
+    assert (
+        memory_capability["authority_capability_ref"]
+        == MEMORY_REVIEWED_RECALL_WRITE_AUTHORITY_CAPABILITY_REF
+    )
+    assert (
+        memory_capability["required_mode_ref"]
+        == MEMORY_REVIEWED_RECALL_WRITE_AUTHORITY_MODE_REF
+    )
+    assert (
+        memory_capability["authority_lease_requirement_ref"]
+        == MEMORY_REVIEWED_RECALL_WRITE_AUTHORITY_LEASE_REQUIREMENT_REF
+    )
+    assert memory_capability["active_lease_required"] is True
+    assert "AuthorityLease" in memory_capability["operator_copy"]
     assert CONTEXT_PACK_PREVIEW_CLI_REF in modules["memory"]["cli_or_script_refs"]
     assert CONTEXT_INJECTION_REQUIRED_BLOCKED_AUTHORITIES.issubset(
         set(modules["memory"]["blocked_authorities"])
@@ -191,6 +241,27 @@ def test_operational_maturity_verifier_requires_local_task_posture_refs() -> Non
     )
     assert any(
         f"local_task_create lane missing {LOCAL_TASK_SAFE_DISABLE_REF}" in failure
+        for failure in failures
+    )
+
+
+def test_operational_maturity_verifier_requires_authority_capability_mapping() -> None:
+    manifest = _manifest_copy()
+    modules = {module["module_id"]: module for module in manifest["modules"]}
+    modules["action_inbox"]["authority_capabilities"] = []
+    modules["memory"]["authority_capabilities"][0]["authority_domain_ref"] = (
+        "authority-domain-ref:workspace"
+    )
+
+    failures = verify(manifest_override=manifest)
+
+    assert any(
+        "action_inbox implemented lanes must map to authority_capabilities" in failure
+        for failure in failures
+    )
+    assert any(
+        "memory reviewed recall-write authority capability authority_domain_ref drifted"
+        in failure
         for failure in failures
     )
 

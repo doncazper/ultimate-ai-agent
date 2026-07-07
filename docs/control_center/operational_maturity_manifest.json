@@ -154,7 +154,7 @@
       "tier_2_commit_send_apply_requires_later_authority": true,
       "tier_3_reversible_local_mutation_must_show_undo_or_safe_disable": true,
       "tier_4_external_mutation_requires_exact_approval_receipt_idempotency": true,
-      "tier_5_background_standing_authority_requires_separate_graduation": true,
+      "tier_5_background_standing_authority_requires_mode_domain_lease": true,
       "control_center_no_durable_truth": true,
       "draft_available_does_not_mean_send_available": true,
       "preview_available_does_not_mean_runtime_execution": true
@@ -285,6 +285,39 @@
             "scripts/verify_operational_maturity.py::_append_cli_probe_failures",
             "scripts/verify_operational_maturity.py::_append_local_task_repeatability_gate_failures"
           ]
+        }
+      ],
+      "authority_capabilities": [
+        {
+          "capability_id": "authority-capability:action-inbox:local-task-create",
+          "legacy_lane_id": "local_task_create",
+          "rank": 5,
+          "honest_status": "implemented_authority_lease_gated_local_execution",
+          "authority_domain_ref": "authority-domain-ref:workspace",
+          "authority_capability_ref": "authority-capability-ref:write",
+          "required_mode_ref": "authority-mode-ref:ask-before-changes",
+          "authority_lease_requirement_ref": "authority-lease-requirement-ref:local-task-commit:workspace:write",
+          "lease_scope": "session",
+          "active_lease_required": true,
+          "exact_approval_required": true,
+          "idempotency_required": true,
+          "receipts_required": true,
+          "audit_required": true,
+          "redaction_required": true,
+          "rollback_or_safe_disable_refs": [
+            "rollback-not-applicable:local-task-safe-disable",
+            "safe-disable:founder-loop:local-task-create-scorecard"
+          ],
+          "backend_routes": [
+            "POST /control-center/actions/{action_id}/local-task/commit"
+          ],
+          "cli_parity_ref": "scripts/dev/uaa_founder_loop.py commit-local-task",
+          "focused_test_refs": [
+            "tests/test_founder_loop_storage_actions.py::test_action_inbox_local_task_commit_requires_exact_approval_and_records_evidence",
+            "tests/test_founder_loop_storage_actions.py::test_action_inbox_local_task_commit_denies_when_safe_disabled",
+            "tests/test_control_center_api_routes.py::test_control_center_action_local_task_commit_requires_exact_approval_and_receipts"
+          ],
+          "operator_copy": "Requires Ask before changes or stronger mode with Workspace write AuthorityLease scope plus exact approval, idempotency, receipts, audit, redaction, and safe-disable refs."
         }
       ]
     },
@@ -441,6 +474,40 @@
             "tests/test_fcc_v1_005_memory_review_decisions.py::test_memory_review_accept_correct_denied_when_write_lane_safe_disabled",
             "tests/test_fcc_v1_005_memory_review_decisions.py::test_memory_review_cli_records_and_inspects_reviewed_recall_write"
           ]
+        }
+      ],
+      "authority_capabilities": [
+        {
+          "capability_id": "authority-capability:memory:reviewed-recall-write",
+          "legacy_lane_id": "reviewed_memory_recall_write",
+          "rank": 5,
+          "honest_status": "implemented_authority_lease_gated_local_memory_write",
+          "authority_domain_ref": "authority-domain-ref:memory",
+          "authority_capability_ref": "authority-capability-ref:write",
+          "required_mode_ref": "authority-mode-ref:ask-before-changes",
+          "authority_lease_requirement_ref": "authority-lease-requirement-ref:memory-review:memory:write",
+          "lease_scope": "session",
+          "active_lease_required": true,
+          "exact_approval_required": true,
+          "idempotency_required": true,
+          "receipts_required": true,
+          "audit_required": true,
+          "redaction_required": true,
+          "rollback_or_safe_disable_refs": [
+            "rollback-ref:memory-review:suppress-reviewed-recall-record",
+            "safe-disable-ref:memory-review:accept-correct-reviewed-recall-write"
+          ],
+          "backend_routes": [
+            "POST /control-center/memory/review/{candidate_ref}/accept",
+            "POST /control-center/memory/review/{candidate_ref}/correct"
+          ],
+          "cli_parity_ref": "scripts/dev/uaa_founder_loop.py record-memory-decision",
+          "focused_test_refs": [
+            "tests/test_fcc_v1_005_memory_review_decisions.py::test_memory_review_decisions_persist_append_first_replay_and_conflict",
+            "tests/test_fcc_v1_005_memory_review_decisions.py::test_memory_review_accept_correct_denied_when_write_lane_safe_disabled",
+            "tests/test_fcc_v1_005_memory_review_decisions.py::test_memory_review_cli_records_and_inspects_reviewed_recall_write"
+          ],
+          "operator_copy": "Requires Ask before changes or stronger mode with Memory write AuthorityLease scope plus exact approval, idempotency, receipts, audit, redaction, and safe-disable refs."
         }
       ]
     },

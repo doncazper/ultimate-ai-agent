@@ -14,6 +14,12 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from ultimate_ai_agent.api.app import app  # noqa: E402
 from ultimate_ai_agent.api.manifest import build_api_manifest  # noqa: E402
+from ultimate_ai_agent.core.authority import (  # noqa: E402
+    AuthorityCapability,
+    AuthorityDomain,
+    AuthorityLease,
+    TrustMode,
+)
 from ultimate_ai_agent.core.control_center.action_decisions import (  # noqa: E402
     FounderLoopActionDecisionRequest,
 )
@@ -108,7 +114,7 @@ TIER_MODEL_REQUIRED_GUARDRAILS = {
     "tier_2_commit_send_apply_requires_later_authority",
     "tier_3_reversible_local_mutation_must_show_undo_or_safe_disable",
     "tier_4_external_mutation_requires_exact_approval_receipt_idempotency",
-    "tier_5_background_standing_authority_requires_separate_graduation",
+    "tier_5_background_standing_authority_requires_mode_domain_lease",
     "control_center_no_durable_truth",
     "draft_available_does_not_mean_send_available",
     "preview_available_does_not_mean_runtime_execution",
@@ -161,6 +167,13 @@ LOCAL_TASK_REPEATABILITY_REQUIRED_VERIFIER_REFS = {
     "scripts/verify_operational_maturity.py::_append_cli_probe_failures",
     "scripts/verify_operational_maturity.py::_append_local_task_repeatability_gate_failures",
 }
+LOCAL_TASK_AUTHORITY_CAPABILITY_ID = "authority-capability:action-inbox:local-task-create"
+LOCAL_TASK_AUTHORITY_DOMAIN_REF = "authority-domain-ref:workspace"
+LOCAL_TASK_AUTHORITY_CAPABILITY_REF = "authority-capability-ref:write"
+LOCAL_TASK_AUTHORITY_MODE_REF = "authority-mode-ref:ask-before-changes"
+LOCAL_TASK_AUTHORITY_LEASE_REQUIREMENT_REF = (
+    "authority-lease-requirement-ref:local-task-commit:workspace:write"
+)
 MEMORY_REVIEWED_RECALL_WRITE_LANE_ID = "reviewed_memory_recall_write"
 MEMORY_REVIEWED_RECALL_WRITE_ROUTES = {
     "POST /control-center/memory/review/{candidate_ref}/accept",
@@ -170,6 +183,15 @@ MEMORY_REVIEWED_RECALL_WRITE_POSTURE_REFS = {
     "rollback-ref:memory-review:suppress-reviewed-recall-record",
     "safe-disable-ref:memory-review:accept-correct-reviewed-recall-write",
 }
+MEMORY_REVIEWED_RECALL_WRITE_AUTHORITY_CAPABILITY_ID = (
+    "authority-capability:memory:reviewed-recall-write"
+)
+MEMORY_REVIEWED_RECALL_WRITE_AUTHORITY_DOMAIN_REF = "authority-domain-ref:memory"
+MEMORY_REVIEWED_RECALL_WRITE_AUTHORITY_CAPABILITY_REF = "authority-capability-ref:write"
+MEMORY_REVIEWED_RECALL_WRITE_AUTHORITY_MODE_REF = "authority-mode-ref:ask-before-changes"
+MEMORY_REVIEWED_RECALL_WRITE_AUTHORITY_LEASE_REQUIREMENT_REF = (
+    "authority-lease-requirement-ref:memory-review:memory:write"
+)
 MEMORY_REVIEWED_RECALL_WRITE_CLI_REF = (
     "scripts/dev/uaa_founder_loop.py record-memory-decision"
 )
@@ -1297,6 +1319,12 @@ def _append_module_failures(
                     failures.append(f"{module_id} rank 5+ requires cli_or_script_refs")
         for lane in module.get("graduated_lanes", []):
             _append_lane_failures(failures, module_id, lane, routes_by_ref)
+        _append_authority_capability_failures(
+            failures,
+            module_id,
+            module,
+            routes_by_ref,
+        )
         if module_id == "memory":
             _append_memory_context_pack_manifest_failures(failures, module)
         if module_id == PATCH_WORKBENCH_MODULE_ID:
@@ -1369,6 +1397,35 @@ def _append_memory_context_pack_manifest_failures(
         if test_ref not in lane_tests:
             failures.append(
                 f"memory reviewed recall-write lane missing focused test {test_ref}"
+            )
+    capabilities = {
+        str(capability.get("legacy_lane_id")): capability
+        for capability in module.get("authority_capabilities", [])
+    }
+    capability = capabilities.get(MEMORY_REVIEWED_RECALL_WRITE_LANE_ID)
+    if capability is None:
+        failures.append("memory reviewed recall-write authority capability missing")
+        return
+    expected_capability_fields = {
+        "capability_id": MEMORY_REVIEWED_RECALL_WRITE_AUTHORITY_CAPABILITY_ID,
+        "authority_domain_ref": MEMORY_REVIEWED_RECALL_WRITE_AUTHORITY_DOMAIN_REF,
+        "authority_capability_ref": MEMORY_REVIEWED_RECALL_WRITE_AUTHORITY_CAPABILITY_REF,
+        "required_mode_ref": MEMORY_REVIEWED_RECALL_WRITE_AUTHORITY_MODE_REF,
+        "authority_lease_requirement_ref": (
+            MEMORY_REVIEWED_RECALL_WRITE_AUTHORITY_LEASE_REQUIREMENT_REF
+        ),
+        "lease_scope": "session",
+    }
+    for field, expected in expected_capability_fields.items():
+        if capability.get(field) != expected:
+            failures.append(
+                f"memory reviewed recall-write authority capability {field} drifted"
+            )
+    for posture_ref in MEMORY_REVIEWED_RECALL_WRITE_POSTURE_REFS:
+        if posture_ref not in set(capability.get("rollback_or_safe_disable_refs", [])):
+            failures.append(
+                "memory reviewed recall-write authority capability missing "
+                f"posture ref {posture_ref}"
             )
 
 
@@ -1519,6 +1576,74 @@ def _append_lane_failures(
             failures.append(f"{module_id}:{lane_id} route must require idempotency")
 
 
+def _append_authority_capability_failures(
+    failures: list[str],
+    module_id: str,
+    module: dict[str, Any],
+    routes_by_ref: dict[str, dict[str, Any]],
+) -> None:
+    legacy_lane_ids = {
+        str(lane.get("lane_id")) for lane in module.get("graduated_lanes", [])
+    }
+    capabilities = {
+        str(capability.get("capability_id")): capability
+        for capability in module.get("authority_capabilities", [])
+    }
+    if legacy_lane_ids and not capabilities:
+        failures.append(
+            f"{module_id} implemented lanes must map to authority_capabilities"
+        )
+        return
+    for capability_id, capability in capabilities.items():
+        legacy_lane_id = str(capability.get("legacy_lane_id"))
+        if legacy_lane_id not in legacy_lane_ids:
+            failures.append(
+                f"{module_id}:{capability_id} authority capability missing legacy lane binding"
+            )
+        if int(capability.get("rank", -1)) < 5:
+            failures.append(f"{module_id}:{capability_id} authority capability must be rank 5+")
+        for field in [
+            "active_lease_required",
+            "exact_approval_required",
+            "idempotency_required",
+            "receipts_required",
+            "audit_required",
+            "redaction_required",
+        ]:
+            if capability.get(field) is not True:
+                failures.append(
+                    f"{module_id}:{capability_id} authority capability requires {field}"
+                )
+        if capability.get("lease_scope") not in {"session", "mission"}:
+            failures.append(
+                f"{module_id}:{capability_id} authority capability lease_scope drifted"
+            )
+        if "AuthorityLease" not in str(capability.get("operator_copy", "")):
+            failures.append(
+                f"{module_id}:{capability_id} authority capability operator copy must name AuthorityLease"
+            )
+        posture_refs = set(capability.get("rollback_or_safe_disable_refs", []))
+        if not posture_refs:
+            failures.append(
+                f"{module_id}:{capability_id} authority capability requires posture refs"
+            )
+        for route_ref in capability.get("backend_routes", []):
+            route = routes_by_ref.get(route_ref)
+            if route is None:
+                failures.append(
+                    f"{module_id}:{capability_id} authority capability references missing route {route_ref}"
+                )
+                continue
+            if route.get("route_classification") != "mutating_requires_authority":
+                failures.append(
+                    f"{module_id}:{capability_id} authority capability route must be authority gated"
+                )
+            if route.get("idempotency_required") is not True:
+                failures.append(
+                    f"{module_id}:{capability_id} authority capability route must require idempotency"
+                )
+
+
 def _append_first_lane_failures(
     failures: list[str],
     manifest: dict[str, Any],
@@ -1559,6 +1684,32 @@ def _append_first_lane_failures(
         failures.append("local_task_create lane must require rollback or safe-disable")
     if "rollback_execution" not in set(lane.get("blocked_authorities", [])):
         failures.append("local_task_create lane must keep rollback_execution blocked")
+    capabilities = {
+        str(capability.get("legacy_lane_id")): capability
+        for capability in action_inbox.get("authority_capabilities", [])
+    }
+    capability = capabilities.get(LOCAL_TASK_LANE_ID)
+    if capability is None:
+        failures.append("local_task_create authority capability mapping missing")
+    else:
+        expected_capability_fields = {
+            "capability_id": LOCAL_TASK_AUTHORITY_CAPABILITY_ID,
+            "authority_domain_ref": LOCAL_TASK_AUTHORITY_DOMAIN_REF,
+            "authority_capability_ref": LOCAL_TASK_AUTHORITY_CAPABILITY_REF,
+            "required_mode_ref": LOCAL_TASK_AUTHORITY_MODE_REF,
+            "authority_lease_requirement_ref": LOCAL_TASK_AUTHORITY_LEASE_REQUIREMENT_REF,
+            "lease_scope": "session",
+        }
+        for field, expected in expected_capability_fields.items():
+            if capability.get(field) != expected:
+                failures.append(
+                    f"local_task_create authority capability {field} drifted"
+                )
+        for expected_ref in [LOCAL_TASK_ROLLBACK_REF, LOCAL_TASK_SAFE_DISABLE_REF]:
+            if expected_ref not in set(capability.get("rollback_or_safe_disable_refs", [])):
+                failures.append(
+                    f"local_task_create authority capability missing {expected_ref}"
+                )
     _append_local_task_repeatability_gate_failures(failures, lane, root)
     route = routes_by_ref.get(LOCAL_TASK_ROUTE)
     if route is None:
@@ -2072,10 +2223,15 @@ def _append_behavior_probe_failures(failures: list[str], root: Path) -> None:
         except FounderLoopStorageError:
             pass
 
+        repo = FounderLoopRepository(
+            state_dir,
+            active_authority_leases=[_probe_workspace_write_lease()],
+        )
+        action = _probe_local_task_action(repo)
         action = _approve_probe_local_task_action(repo, action)
         if action.get("local_task_commit_eligible") is not True:
             failures.append(
-                "behavior probe: approved local task is not commit eligible"
+                "behavior probe: approved local task with workspace/write lease is not commit eligible"
             )
             return
         if not action.get("local_task_commit_approval_ref"):
@@ -2176,7 +2332,10 @@ def _append_behavior_probe_failures(failures: list[str], root: Path) -> None:
                 failures.append(
                     f"behavior probe: receipt leaks forbidden content {forbidden}"
                 )
-        disabled_repo = FounderLoopRepository(Path(tmp) / "disabled_founder_loop")
+        disabled_repo = FounderLoopRepository(
+            Path(tmp) / "disabled_founder_loop",
+            active_authority_leases=[_probe_workspace_write_lease()],
+        )
         disabled_action = _approve_probe_local_task_action(
             disabled_repo,
             _probe_local_task_action(disabled_repo),
@@ -2504,6 +2663,18 @@ def _probe_local_task_action(repo: FounderLoopRepository) -> dict[str, Any]:
         item
         for item in repo.list_action_inbox()
         if item["item_ref"] == "founder-action:local-task-create-scorecard"
+    )
+
+
+def _probe_workspace_write_lease() -> AuthorityLease:
+    return AuthorityLease(
+        lease_ref="authority-lease-ref:operational-maturity-workspace-write",
+        mode=TrustMode.ask_before_changes,
+        domains={AuthorityDomain.workspace: [AuthorityCapability.write]},
+        safe_summary=(
+            "Operational maturity probe lease grants Workspace write for exact "
+            "approved local task commit receipts."
+        ),
     )
 
 
