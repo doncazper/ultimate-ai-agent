@@ -196,10 +196,13 @@ production authority disabled.
 `GET /api/runtime/session-search` exposes a protected read-only Python Core
 Hermes Runtime Adoption Phase 12 session/run search posture. It returns safe
 refs, bounded summaries, proof refs, attachable context refs, and memory
-separation posture only. Raw transcript persistence, raw prompt/response
-exposure, semantic provider calls, embedding/vector indexing, hidden context
-injection, memory writes, action execution, and production authority remain
-blocked.
+separation posture only, now bound to AuthorityState as
+`lane-ref:runtime-session-search-read-model` under Read-only `workspace/read`
+with route/CLI/mapping/catalog/decision/reason refs and unsupported adapter
+refs. Raw transcript persistence, raw prompt/response exposure, semantic
+provider calls, embedding/vector indexing, hidden context injection, memory
+writes, action execution, live fetch, connector writes, background indexing,
+and production authority remain blocked.
 `GET /api/runtime/session-lineage` exposes a protected read-only Python Core
 Hermes Runtime Adoption Phase 19 session lineage and fork posture bound to
 `lane-ref:runtime-session-lineage-read-model` through AuthorityState. It

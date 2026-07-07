@@ -17,6 +17,9 @@ os.environ.setdefault("UAA_API_LOCAL_AUTH_DISABLED_FOR_DEV_ONLY", "1")
 
 from ultimate_ai_agent.api.app import app  # noqa: E402
 from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
+    RUNTIME_SESSION_SEARCH_AUTHORITY_MAPPING_REF,
+    RUNTIME_SESSION_SEARCH_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_SESSION_SEARCH_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_SESSION_SEARCH_CONTRACT_REF,
     build_runtime_session_search_read_model,
 )
@@ -62,6 +65,31 @@ def _assert_session_search(payload: dict[str, Any]) -> None:
         _fail("session search route ref drifted")
     if payload.get("cli_ref") != "uaa runtime inspect-session-search":
         _fail("session search CLI ref drifted")
+    if (
+        payload.get("authority_state_route_ref")
+        != RUNTIME_SESSION_SEARCH_AUTHORITY_STATE_ROUTE_REF
+    ):
+        _fail("session search authority state route ref drifted")
+    if (
+        payload.get("authority_state_cli_ref")
+        != RUNTIME_SESSION_SEARCH_AUTHORITY_STATE_CLI_REF
+    ):
+        _fail("session search authority state CLI ref drifted")
+    if (
+        payload.get("authority_state_mapping_ref")
+        != RUNTIME_SESSION_SEARCH_AUTHORITY_MAPPING_REF
+    ):
+        _fail("session search authority mapping drifted")
+    if payload.get("authority_state_decision_outcome") != "allow":
+        _fail("session search authority decision must be allowed by read lease")
+    if "reason-ref:authority:active-lease-grants-domain-capability" not in (
+        payload.get("authority_state_reason_refs") or []
+    ):
+        _fail("session search authority reason refs missing active lease reason")
+    if "adapter-ref:session-search-memory-write:not-implemented" not in (
+        payload.get("unsupported_adapter_refs") or []
+    ):
+        _fail("session search unsupported adapter refs missing memory write")
     if payload.get("query_mode") != "safe_ref_match_only":
         _fail("session search must remain safe-ref-match only")
     results = payload.get("results")
@@ -154,6 +182,13 @@ def main() -> None:
         _fail("CLI claimed memory write")
     if cli_payload.get("context_injection_performed") is not False:
         _fail("CLI claimed context injection")
+    authority_state = cli_payload.get("authority_state")
+    if not isinstance(authority_state, dict):
+        _fail("CLI did not return session search authority state")
+    if authority_state.get("mapping_ref") != RUNTIME_SESSION_SEARCH_AUTHORITY_MAPPING_REF:
+        _fail("CLI authority mapping drifted")
+    if authority_state.get("decision_outcome") != "allow":
+        _fail("CLI authority decision drifted")
     _assert_session_search(read_model_payload)
     print("Hermes Runtime Adoption Phase 12 session search verification passed.")
 

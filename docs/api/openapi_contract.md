@@ -129,10 +129,13 @@ Contract rules:
   `GET /api/runtime/session-search` exposes the Hermes Runtime Adoption Phase
   12 backend-owned session/run search posture. It returns safe refs and bounded
   summaries only, stays separate from durable memory, requires operator-selected
-  attach refs before any future context use, and grants no raw transcript
-  persistence, prompt/response exposure, semantic provider call, embedding or
-  vector index, hidden context injection, memory write, action execution, or
-  production authority.
+  attach refs before any future context use, and now carries AuthorityState
+  route/CLI/mapping/catalog/decision/reason refs as
+  `lane-ref:runtime-session-search-read-model` under Read-only
+  `workspace/read`. It grants no raw transcript persistence, prompt/response
+  exposure, semantic provider call, embedding or vector index, hidden context
+  injection, memory write, action execution, live fetch, connector write,
+  background indexing, or production authority.
   `GET /api/runtime/session-lineage` exposes the Hermes Runtime Adoption Phase
   19 backend-owned session lineage and fork posture bound to
   `lane-ref:runtime-session-lineage-read-model` through AuthorityState. It

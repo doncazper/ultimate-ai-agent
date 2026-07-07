@@ -9,6 +9,9 @@ from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.runtime_gateway import (
+    RUNTIME_SESSION_SEARCH_AUTHORITY_MAPPING_REF,
+    RUNTIME_SESSION_SEARCH_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_SESSION_SEARCH_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_SESSION_SEARCH_CONTRACT_REF,
     RuntimeSessionSearchReadModel,
     build_runtime_session_search_read_model,
@@ -26,6 +29,28 @@ def test_runtime_session_search_is_safe_ref_only_and_memory_separate() -> None:
     assert read_model.status == "read_only_safe_ref_session_run_search"
     assert read_model.route_ref == "GET /api/runtime/session-search"
     assert read_model.cli_ref == "uaa runtime inspect-session-search"
+    assert (
+        read_model.authority_state_route_ref
+        == RUNTIME_SESSION_SEARCH_AUTHORITY_STATE_ROUTE_REF
+    )
+    assert (
+        read_model.authority_state_cli_ref
+        == RUNTIME_SESSION_SEARCH_AUTHORITY_STATE_CLI_REF
+    )
+    assert (
+        read_model.authority_state_mapping_ref
+        == RUNTIME_SESSION_SEARCH_AUTHORITY_MAPPING_REF
+    )
+    assert read_model.authority_state_decision_outcome == "allow"
+    assert read_model.authority_state_decision_ref.startswith(
+        "authority-policy-decision-ref:"
+    )
+    assert "reason-ref:authority:active-lease-grants-domain-capability" in (
+        read_model.authority_state_reason_refs
+    )
+    assert "adapter-ref:session-search-memory-write:not-implemented" in (
+        read_model.unsupported_adapter_refs
+    )
     assert read_model.query_mode == "safe_ref_match_only"
     assert read_model.result_count == 5
     assert read_model.session_ref_count == 5
@@ -90,6 +115,12 @@ def test_runtime_session_search_rejects_authority_claims() -> None:
         RuntimeSessionSearchReadModel(**base)
 
     base = build_runtime_session_search_read_model().model_dump()
+    base["authority_state_mapping_ref"] = "lane-ref:runtime-session-search-drift"
+
+    with pytest.raises(ValueError, match="AUTHORITY_MAPPING_MISMATCH"):
+        RuntimeSessionSearchReadModel(**base)
+
+    base = build_runtime_session_search_read_model().model_dump()
     base["results"][0]["context_injection_authorized"] = True
 
     with pytest.raises(ValueError, match="AUTHORITY_DENIED"):
@@ -105,6 +136,10 @@ def test_api_runtime_session_search_route_returns_safe_refs() -> None:
     data = body["data"]
     assert data["schema_version"] == "runtime_session_search.v1"
     assert data["result_count"] == 5
+    assert data["authority_state_mapping_ref"] == (
+        RUNTIME_SESSION_SEARCH_AUTHORITY_MAPPING_REF
+    )
+    assert data["authority_state_decision_outcome"] == "allow"
     assert data["memory_write_authorized"] is False
     assert data["hidden_context_injection_authorized"] is False
     assert data["raw_transcript_persistence_enabled"] is False
@@ -146,8 +181,15 @@ def test_cli_runtime_session_search_uses_same_read_model() -> None:
     assert payload["context_injection_performed"] is False
     assert payload["semantic_provider_call_performed"] is False
     assert payload["raw_transcript_omitted"] is True
+    assert payload["authority_state"]["mapping_ref"] == (
+        RUNTIME_SESSION_SEARCH_AUTHORITY_MAPPING_REF
+    )
+    assert payload["authority_state"]["decision_outcome"] == "allow"
     assert read_model["route_ref"] == "GET /api/runtime/session-search"
     assert read_model["cli_ref"] == "uaa runtime inspect-session-search"
+    assert read_model["authority_state_cli_ref"] == (
+        RUNTIME_SESSION_SEARCH_AUTHORITY_STATE_CLI_REF
+    )
     assert read_model["result_count"] == 5
 
     filtered = subprocess.run(

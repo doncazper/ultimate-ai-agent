@@ -82,7 +82,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_runtime_prompt_stability_tiers_read_model_from_authority_catalog,
     build_runtime_run_events_read_model_from_authority_catalog,
     build_runtime_session_continuity_read_model_from_authority_catalog,
-    build_runtime_session_search_read_model,
+    build_runtime_session_search_read_model_from_authority_catalog,
     build_runtime_session_lineage_read_model_from_authority_catalog,
     build_runtime_streaming_progress_read_model_from_authority_catalog,
     build_runtime_tool_registry_availability_read_model_from_authority_catalog,
@@ -1513,6 +1513,13 @@ def _print_session_search(read_model: dict[str, Any]) -> None:
     print(f"Snapshot hash: {read_model['snapshot_hash_ref']}")
     print(f"Route: {read_model['route_ref']}")
     print(f"CLI: {read_model['cli_ref']}")
+    print(f"Authority state: {read_model['authority_state_route_ref']}")
+    print(f"Authority mapping: {read_model['authority_state_mapping_ref']}")
+    print(
+        "Authority decision: "
+        f"{read_model['authority_state_decision_outcome']} "
+        f"({read_model['authority_state_decision_ref']})"
+    )
     print(f"Query ref: {read_model['query_ref']}")
     print(f"Sensitive context guard: {read_model['sensitive_context_guard_ref']}")
     print(
@@ -3511,7 +3518,9 @@ def _inspect_skill_marketplace_posture(args: argparse.Namespace) -> int:
 
 def _inspect_session_search(args: argparse.Namespace) -> int:
     try:
-        read_model = build_runtime_session_search_read_model(
+        authority_state = AuthorityLeaseStore().build_state_read_model()
+        read_model = build_runtime_session_search_read_model_from_authority_catalog(
+            authority_decision_catalog=authority_state.decision_catalog,
             query_ref=args.query_ref,
             limit=args.limit,
         ).model_dump(mode="json")
@@ -3521,7 +3530,12 @@ def _inspect_session_search(args: argparse.Namespace) -> int:
             "command_ref": "repo-local-command:uaa-runtime-inspect-session-search",
             "status": "blocked",
             "error_ref": "RUNTIME_SESSION_SEARCH_REF_DENIED",
-            "reason_ref": str(exc) or "invalid_query_ref",
+            "reason_ref": "reason-ref:runtime-session-search-ref-denied",
+            "exception_ref": (
+                str(exc)
+                if str(exc).startswith("RUNTIME_SESSION_SEARCH_")
+                else "validation-ref:runtime-session-search-ref-denied"
+            ),
             "safe_refs_only": True,
             "raw_content_omitted": True,
             "raw_paths_omitted": True,
@@ -3535,6 +3549,18 @@ def _inspect_session_search(args: argparse.Namespace) -> int:
         "schema_version": "governed-runtime-cli:v1",
         "command_ref": "repo-local-command:uaa-runtime-inspect-session-search",
         "runtime_session_search": read_model,
+        "authority_state": {
+            "route_ref": authority_state.api_ref,
+            "cli_ref": authority_state.cli_ref,
+            "active_mode": authority_state.active_mode,
+            "kill_switch_visible": authority_state.kill_switch_visible,
+            "decision_catalog_ref": read_model["authority_state_catalog_ref"],
+            "decision_ref": read_model["authority_state_decision_ref"],
+            "decision_outcome": read_model["authority_state_decision_outcome"],
+            "mapping_ref": read_model["authority_state_mapping_ref"],
+            "reason_refs": read_model["authority_state_reason_refs"],
+            "unsupported_adapter_refs": read_model["unsupported_adapter_refs"],
+        },
         "safe_refs_only": True,
         "raw_content_omitted": True,
         "raw_paths_omitted": True,

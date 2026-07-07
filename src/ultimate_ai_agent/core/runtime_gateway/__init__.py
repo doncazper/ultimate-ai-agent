@@ -194,6 +194,9 @@ from ultimate_ai_agent.core.runtime_gateway.tool_registry import (
     build_runtime_tool_registry_availability_read_model_from_authority_catalog,
 )
 from ultimate_ai_agent.core.runtime_gateway.session_search import (
+    RUNTIME_SESSION_SEARCH_AUTHORITY_MAPPING_REF,
+    RUNTIME_SESSION_SEARCH_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_SESSION_SEARCH_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_SESSION_SEARCH_BLOCKED_AUTHORITY_REFS,
     RUNTIME_SESSION_SEARCH_CLI_REF,
     RUNTIME_SESSION_SEARCH_CONTRACT_REF,
@@ -204,6 +207,7 @@ from ultimate_ai_agent.core.runtime_gateway.session_search import (
     RuntimeSessionSearchResult,
     RuntimeSessionSearchResultKind,
     build_runtime_session_search_read_model,
+    build_runtime_session_search_read_model_from_authority_catalog,
 )
 from ultimate_ai_agent.core.runtime_gateway.session_lineage import (
     RUNTIME_SESSION_LINEAGE_AUTHORITY_MAPPING_REF,
@@ -921,6 +925,9 @@ __all__ = [
     "RuntimeToolOrigin",
     "RuntimeToolRegistryAvailabilityReadModel",
     "RuntimeToolRegistryEntry",
+    "RUNTIME_SESSION_SEARCH_AUTHORITY_MAPPING_REF",
+    "RUNTIME_SESSION_SEARCH_AUTHORITY_STATE_CLI_REF",
+    "RUNTIME_SESSION_SEARCH_AUTHORITY_STATE_ROUTE_REF",
     "RuntimeSessionSearchReadModel",
     "RuntimeSessionSearchResult",
     "RuntimeSessionSearchResultKind",
@@ -1160,6 +1167,7 @@ __all__ = [
     "build_runtime_tool_registry_availability_read_model",
     "build_runtime_tool_registry_availability_read_model_from_authority_catalog",
     "build_runtime_session_search_read_model",
+    "build_runtime_session_search_read_model_from_authority_catalog",
     "build_runtime_session_lineage_read_model",
     "build_runtime_session_lineage_read_model_from_authority_catalog",
     "build_runtime_virtual_provider_moa_read_model",

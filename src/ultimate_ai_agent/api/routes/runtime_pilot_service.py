@@ -73,7 +73,7 @@ from ultimate_ai_agent.core.runtime_gateway import (
     build_runtime_prompt_stability_tiers_read_model_from_authority_catalog,
     build_runtime_run_events_read_model_from_authority_catalog,
     build_runtime_session_continuity_read_model_from_authority_catalog,
-    build_runtime_session_search_read_model,
+    build_runtime_session_search_read_model_from_authority_catalog,
     build_runtime_session_lineage_read_model_from_authority_catalog,
     build_runtime_streaming_progress_read_model_from_authority_catalog,
     build_runtime_tool_registry_availability_read_model_from_authority_catalog,
@@ -771,7 +771,9 @@ def get_api_runtime_session_search(
     limit: int = Query(default=20, ge=1, le=25),
 ) -> ResultEnvelope:
     try:
-        read_model = build_runtime_session_search_read_model(
+        authority_state = _authority_store().build_state_read_model()
+        read_model = build_runtime_session_search_read_model_from_authority_catalog(
+            authority_decision_catalog=authority_state.decision_catalog,
             query_ref=query_ref,
             limit=limit,
         )
@@ -789,7 +791,14 @@ def get_api_runtime_session_search(
                 retryable=False,
                 details_redacted=True,
                 source="GovernedRuntimeAPI",
-                metadata={"reason_ref": str(exc) or "invalid_query_ref"},
+                metadata={
+                    "reason_ref": "reason-ref:runtime-session-search-ref-denied",
+                    "exception_ref": (
+                        str(exc)
+                        if str(exc).startswith("RUNTIME_SESSION_SEARCH_")
+                        else "validation-ref:runtime-session-search-ref-denied"
+                    ),
+                },
             ),
             redactions_applied=list(GOVERNED_RUNTIME_REDACTIONS),
         )
@@ -797,7 +806,7 @@ def get_api_runtime_session_search(
         success=True,
         operation="api_runtime_session_search",
         service="GovernedRuntimeAPI",
-        trace_id=read_model.snapshot_ref,
+        trace_id=read_model.snapshot_hash_ref,
         data=read_model.model_dump(mode="json"),
         evidence=[{"evidence_ref": "evidence-ref:runtime-session-search:phase-12"}],
         redactions_applied=read_model.redactions_applied,

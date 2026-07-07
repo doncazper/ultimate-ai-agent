@@ -17,14 +17,24 @@ session/run search posture:
 - `GET /api/runtime/session-search`
 - `scripts/dev/uaa_runtime.py inspect-session-search`
 - `RuntimeSessionSearchReadModel`
+- AuthorityState mapping `lane-ref:runtime-session-search-read-model`
+  under Read-only `workspace/read`
 - safe result refs, session refs, run refs, proof refs, evidence refs, receipt
   refs, and attachable context refs
 - bounded summaries and why-matched refs only
 - explicit memory-separation posture
+- AuthorityState route/CLI/mapping/catalog/decision/reason refs and
+  unsupported adapter refs
 
 This is inspection metadata. It performs no raw transcript persistence, no raw
 prompt or response exposure, no semantic provider call, no embedding/vector
 indexing, no hidden context injection, no memory write, and no action execution.
+
+The API and CLI evaluate the read model against the active AuthorityLease
+decision catalog. Unknown authority remains denied, but this read-only
+workspace inspection is allowed by the default Read-only lease and includes the
+decision refs operators can inspect through `GET /api/runtime/authority-state`
+or `scripts/dev/uaa_runtime.py inspect-authority-state`.
 
 ## Blocked / Needs Authority
 

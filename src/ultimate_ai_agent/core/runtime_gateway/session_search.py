@@ -7,6 +7,10 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.authority import (
+    AuthorityDecisionCatalogEntry,
+    build_authority_decision_catalog,
+)
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
@@ -34,6 +38,14 @@ RUNTIME_SESSION_SEARCH_SNAPSHOT_REF = "session-search-snapshot-ref:runtime:safe-
 RUNTIME_SESSION_SEARCH_PROOF_REF = (
     "proof-ref:hermes-runtime-adoption:phase-12:session-search"
 )
+RUNTIME_SESSION_SEARCH_AUTHORITY_STATE_ROUTE_REF = "GET /api/runtime/authority-state"
+RUNTIME_SESSION_SEARCH_AUTHORITY_STATE_CLI_REF = (
+    "repo-local-command:uaa-runtime-inspect-authority-state"
+)
+RUNTIME_SESSION_SEARCH_AUTHORITY_MAPPING_REF = (
+    "lane-ref:runtime-session-search-read-model"
+)
+_AUTHORITY_DECISION_OUTCOMES = {"allow", "ask", "deny", "degrade_to_draft"}
 
 RUNTIME_SESSION_SEARCH_BLOCKED_AUTHORITY_REFS = [
     "blocked-authority:session-search-no-raw-transcript-persistence",
@@ -171,6 +183,16 @@ class RuntimeSessionSearchReadModel(BaseModel):
     route_ref: str = RUNTIME_SESSION_SEARCH_ROUTE_REF
     cli_ref: str = RUNTIME_SESSION_SEARCH_CLI_REF
     control_center_ref: str = RUNTIME_DELEGATION_CONTROL_CENTER_REF
+    authority_state_route_ref: str
+    authority_state_cli_ref: str
+    authority_state_mapping_ref: str
+    authority_state_catalog_ref: str
+    authority_state_decision_ref: str
+    authority_state_decision_outcome: str
+    authority_state_status: str
+    authority_state_operator_message: str
+    authority_state_reason_refs: list[str] = Field(default_factory=list)
+    unsupported_adapter_refs: list[str] = Field(default_factory=list)
     query_ref: str = "query-ref:runtime-session-search:all-safe-refs"
     query_mode: str = "safe_ref_match_only"
     safe_summary: str = (
@@ -224,6 +246,9 @@ class RuntimeSessionSearchReadModel(BaseModel):
             (self.snapshot_ref, "snapshot_ref"),
             (self.snapshot_hash_ref, "snapshot_hash_ref"),
             (self.control_center_ref, "control_center_ref"),
+            (self.authority_state_mapping_ref, "authority_state_mapping_ref"),
+            (self.authority_state_catalog_ref, "authority_state_catalog_ref"),
+            (self.authority_state_decision_ref, "authority_state_decision_ref"),
             (self.query_ref, "query_ref"),
             (self.sensitive_context_guard_ref, "sensitive_context_guard_ref"),
             (
@@ -233,6 +258,8 @@ class RuntimeSessionSearchReadModel(BaseModel):
         ]:
             validate_execution_ref(value, field_name)
         for field_name in (
+            "authority_state_reason_refs",
+            "unsupported_adapter_refs",
             "blocked_authority_refs",
             "proof_refs",
             "verifier_refs",
@@ -246,6 +273,17 @@ class RuntimeSessionSearchReadModel(BaseModel):
             (self.status, "status"),
             (self.route_ref, "route_ref"),
             (self.cli_ref, "cli_ref"),
+            (self.authority_state_route_ref, "authority_state_route_ref"),
+            (self.authority_state_cli_ref, "authority_state_cli_ref"),
+            (
+                self.authority_state_decision_outcome,
+                "authority_state_decision_outcome",
+            ),
+            (self.authority_state_status, "authority_state_status"),
+            (
+                self.authority_state_operator_message,
+                "authority_state_operator_message",
+            ),
             (self.query_mode, "query_mode"),
             (self.safe_summary, "safe_summary"),
         ]:
@@ -264,6 +302,13 @@ class RuntimeSessionSearchReadModel(BaseModel):
             {result.attachable_context_ref for result in self.results}
         ):
             raise ValueError("RUNTIME_SESSION_SEARCH_CONTEXT_COUNT_MISMATCH")
+        if (
+            self.authority_state_mapping_ref
+            != RUNTIME_SESSION_SEARCH_AUTHORITY_MAPPING_REF
+        ):
+            raise ValueError("RUNTIME_SESSION_SEARCH_AUTHORITY_MAPPING_MISMATCH")
+        if self.authority_state_decision_outcome not in _AUTHORITY_DECISION_OUTCOMES:
+            raise ValueError("RUNTIME_SESSION_SEARCH_AUTHORITY_DECISION_INVALID")
         denied_flags = {
             "raw_transcript_persistence_enabled": (
                 self.raw_transcript_persistence_enabled
@@ -480,6 +525,20 @@ def build_runtime_session_search_read_model(
     query_ref: str | None = None,
     limit: int = 20,
 ) -> RuntimeSessionSearchReadModel:
+    return build_runtime_session_search_read_model_from_authority_catalog(
+        authority_decision_catalog=build_authority_decision_catalog(),
+        query_ref=query_ref,
+        limit=limit,
+    )
+
+
+def build_runtime_session_search_read_model_from_authority_catalog(
+    *,
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry],
+    query_ref: str | None = None,
+    limit: int = 20,
+) -> RuntimeSessionSearchReadModel:
+    authority_entry = _authority_entry(authority_decision_catalog)
     resolved_query_ref = query_ref or "query-ref:runtime-session-search:all-safe-refs"
     validate_execution_ref(resolved_query_ref, "query_ref")
     validate_sensitive_context_candidate_allowed(
@@ -501,6 +560,18 @@ def build_runtime_session_search_read_model(
     ]
     return RuntimeSessionSearchReadModel(
         snapshot_hash_ref=_hash_payload(payload_for_hash),
+        authority_state_route_ref=RUNTIME_SESSION_SEARCH_AUTHORITY_STATE_ROUTE_REF,
+        authority_state_cli_ref=RUNTIME_SESSION_SEARCH_AUTHORITY_STATE_CLI_REF,
+        authority_state_mapping_ref=authority_entry.lane_ref,
+        authority_state_catalog_ref=authority_entry.catalog_ref,
+        authority_state_decision_ref=authority_entry.decision.decision_ref,
+        authority_state_decision_outcome=_authority_value(
+            authority_entry.decision.outcome
+        ),
+        authority_state_status=authority_entry.status,
+        authority_state_operator_message=authority_entry.decision.operator_message,
+        authority_state_reason_refs=list(authority_entry.decision.reason_refs),
+        unsupported_adapter_refs=list(authority_entry.unsupported_adapter_refs),
         query_ref=resolved_query_ref,
         results=results,
         result_count=len(results),
@@ -529,3 +600,16 @@ def build_runtime_session_search_read_model(
             "next-safe-action-ref:session-search:attach-selected-context-explicitly",
         ],
     )
+
+
+def _authority_entry(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry],
+) -> AuthorityDecisionCatalogEntry:
+    for entry in authority_decision_catalog:
+        if entry.lane_ref == RUNTIME_SESSION_SEARCH_AUTHORITY_MAPPING_REF:
+            return entry
+    raise ValueError("RUNTIME_SESSION_SEARCH_AUTHORITY_MAPPING_NOT_FOUND")
+
+
+def _authority_value(value: object) -> str:
+    return str(getattr(value, "value", value))

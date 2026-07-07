@@ -3332,6 +3332,37 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ],
         ),
         _mapping(
+            "lane-ref:runtime-session-search-read-model",
+            "Runtime session search read model",
+            AuthorityDomain.workspace,
+            AuthorityCapability.read,
+            TrustMode.read_only,
+            "implemented_authority_bound_read_model",
+            ["GET /api/runtime/session-search"],
+            ["repo-local-command:uaa-runtime-inspect-session-search"],
+            (
+                "Session search inspection reads safe refs, summaries, "
+                "why-matched refs, attachable context refs, memory-separation "
+                "posture, proof, and blocked authority refs under Workspace "
+                "read authority. Transcript material, semantic indexing, "
+                "context injection, memory writes, action execution, live "
+                "fetch, connector writes, and production remain blocked."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:session-search-transcript-material:not-implemented",
+                "adapter-ref:session-search-prompt-response-material:not-implemented",
+                "adapter-ref:session-search-semantic-provider-call:not-implemented",
+                "adapter-ref:session-search-embedding-vector-index:not-implemented",
+                "adapter-ref:session-search-context-injection:not-implemented",
+                "adapter-ref:session-search-memory-write:not-implemented",
+                "adapter-ref:session-search-action-execution:not-implemented",
+                "adapter-ref:session-search-live-web-fetch:not-implemented",
+                "adapter-ref:session-search-connector-write:not-implemented",
+                "adapter-ref:session-search-background-indexing:not-implemented",
+                "adapter-ref:session-search-production-authority:not-implemented",
+            ],
+        ),
+        _mapping(
             "lane-ref:runtime-command-git-status",
             "Git status",
             AuthorityDomain.workspace,

@@ -148,6 +148,10 @@ surfaces are:
   decision while live fan-out, provider SDK calls, external dispatch, hidden
   prompts, model-output authority, connector writes, shell execution, browser
   automation, and production authority remain blocked.
+  Runtime session search exposes the Read-only `workspace/read` safe-ref search
+  inspection decision while transcript material persistence, semantic indexing,
+  context injection, memory writes, action execution, live fetch, connector
+  writes, background indexing, and production authority remain blocked.
   Runtime usage/cost analytics exposes the Read-only `workspace/read` redacted
   accounting inspection decision while provider calls, provider SDK calls,
   billing actions, live price fetches, operator export, turn/provider material

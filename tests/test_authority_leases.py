@@ -1057,6 +1057,25 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         ].decision.outcome
         == "allow"
     )
+    session_search = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if mapping.lane_ref == "lane-ref:runtime-session-search-read-model"
+    )
+    assert session_search.domain == "workspace"
+    assert session_search.capability == "read"
+    assert session_search.required_mode == "read_only"
+    assert session_search.status == "implemented_authority_bound_read_model"
+    assert "GET /api/runtime/session-search" in session_search.route_refs
+    assert "adapter-ref:session-search-memory-write:not-implemented" in (
+        session_search.unsupported_adapter_refs
+    )
+    assert (
+        catalog_by_lane[
+            "lane-ref:runtime-session-search-read-model"
+        ].decision.outcome
+        == "allow"
+    )
     browser_action = next(
         mapping
         for mapping in read_model.capability_mappings
