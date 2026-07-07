@@ -344,7 +344,8 @@ class RuntimeCapabilityDiscoveryReadModel(BaseModel):
     credential_material_persisted: bool = False
     safe_summary: str = (
         "Runtime capability discovery is a static backend-owned readiness "
-        "snapshot; UAA authority remains blocked unless exact lanes graduate."
+        "snapshot; runtime metadata cannot grant UAA authority without an active "
+        "AuthorityLease domain/capability scope plus exact approval and receipts."
     )
     redactions_applied: list[str] = Field(
         default_factory=lambda: (

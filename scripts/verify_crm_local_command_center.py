@@ -134,7 +134,9 @@ def _assert_read_model() -> None:
             _fail(f"blocked authority ref missing: {ref}")
     connector = crm.connector_read_lanes
     if connector.readiness_status != "blocked_missing_exact_authority":
-        _fail("CRM connector read readiness must stay blocked until graduated")
+        _fail(
+            "CRM connector read readiness must stay blocked without implemented AuthorityLease scope"
+        )
     if connector.disabled_by_default is not True:
         _fail("CRM connector read lane must be disabled by default")
     if connector.cli_inspection_ref not in crm.cli_refs:

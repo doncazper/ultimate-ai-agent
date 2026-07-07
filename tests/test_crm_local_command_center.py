@@ -50,6 +50,13 @@ def test_crm_local_command_center_read_model_preserves_authority_boundaries() ->
     assert crm.connector_read_lanes.provider_model_call_enabled is False
     assert crm.connector_read_lanes.cli_inspection_ref in crm.cli_refs
     assert len(crm.connector_read_lanes.missing_prerequisite_refs) >= 5
+    calendar_lane = next(
+        lane
+        for lane in crm.connector_read_lanes.lanes
+        if lane["lane_ref"] == "lane-ref:crm-connector:calendar-metadata-read"
+    )
+    assert "calendar/read AuthorityLease scope" in calendar_lane["safe_summary"]
+    assert "authority is graduated" not in calendar_lane["safe_summary"]
     assert payload["raw_contact_details_included"] is False
     assert payload["raw_message_bodies_included"] is False
     assert payload["raw_paths_included"] is False

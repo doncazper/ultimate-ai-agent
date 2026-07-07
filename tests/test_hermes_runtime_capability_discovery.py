@@ -42,6 +42,8 @@ def test_runtime_capability_discovery_is_static_readiness_only() -> None:
     assert read_model.toolset_posture.toolset_config_mutation_enabled is False
     assert read_model.toolset_posture.hermes_toolset_enablement_enabled is False
     assert read_model.toolset_posture.raw_tool_payload_persisted is False
+    assert "AuthorityLease domain/capability scope" in read_model.safe_summary
+    assert "exact lanes graduate" not in read_model.safe_summary
     assert "proof-ref:hermes-runtime-adoption:phase-09:toolsets" in (
         read_model.toolset_posture.proof_refs
     )

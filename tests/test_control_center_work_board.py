@@ -109,6 +109,13 @@ def test_work_board_read_model_is_backend_owned_safe_refs_only() -> None:
     assert "work-board-card:work-board-kanban-shell" in {
         card.card_ref for card in board.cards
     }
+    external_agent_dispatch = next(
+        card
+        for card in board.cards
+        if card.card_ref == "work-board-card:external-agent-dispatch"
+    )
+    assert "AuthorityLease scopes" in external_agent_dispatch.safe_summary
+    assert "authority graduates" not in external_agent_dispatch.safe_summary
     assert "/Users/" not in json.dumps(payload)
     assert "credential" not in json.dumps(payload).lower()
 

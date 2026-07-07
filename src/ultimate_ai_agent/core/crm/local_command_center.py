@@ -1699,7 +1699,7 @@ def _state_to_read_model_payload(
                 {
                     "lane_ref": "lane-ref:crm-connector:calendar-metadata-read",
                     "status": "blocked",
-                    "safe_summary": "Calendar metadata read is blocked until the same exact connector read authority is graduated.",
+                    "safe_summary": "Calendar metadata read requires an implemented calendar/read AuthorityLease scope, source policy, approval binding, audit schema, and redacted receipt.",
                 },
                 {
                     "lane_ref": "lane-ref:crm-connector:contacts-metadata-read",

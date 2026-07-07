@@ -2107,7 +2107,7 @@ def _base_work_board() -> tuple[list[WorkBoardColumnReadModel], list[WorkBoardCa
             "work-board-card:external-agent-dispatch",
             "External agent dispatch",
             "work-board-column:blocked",
-            "Full-strength multi-agent orchestration remains blocked until provider and local-agent authority graduates.",
+            "Full-strength multi-agent orchestration requires implemented provider and local-agent AuthorityLease scopes, exact approval, receipts, and safe-disable posture.",
             "medium",
             "blocked",
             "Blocked",
