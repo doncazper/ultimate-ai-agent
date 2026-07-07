@@ -886,6 +886,25 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         ].decision.outcome
         == "allow"
     )
+    mcp_catalog = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if mapping.lane_ref == "lane-ref:runtime-mcp-catalog-filtering-read-model"
+    )
+    assert mcp_catalog.domain == "workspace"
+    assert mcp_catalog.capability == "read"
+    assert mcp_catalog.required_mode == "read_only"
+    assert mcp_catalog.status == "implemented_authority_bound_read_model"
+    assert "GET /api/runtime/mcp-catalog-filtering" in mcp_catalog.route_refs
+    assert "adapter-ref:mcp-catalog-tool-invocation:not-implemented" in (
+        mcp_catalog.unsupported_adapter_refs
+    )
+    assert (
+        catalog_by_lane[
+            "lane-ref:runtime-mcp-catalog-filtering-read-model"
+        ].decision.outcome
+        == "allow"
+    )
     browser_action = next(
         mapping
         for mapping in read_model.capability_mappings

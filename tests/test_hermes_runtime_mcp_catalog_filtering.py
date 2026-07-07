@@ -7,6 +7,9 @@ from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.runtime_gateway import (
+    RUNTIME_MCP_CATALOG_FILTERING_AUTHORITY_MAPPING_REF,
+    RUNTIME_MCP_CATALOG_FILTERING_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_MCP_CATALOG_FILTERING_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_MCP_CATALOG_FILTERING_BLOCKED_AUTHORITY_REFS,
     RUNTIME_MCP_CATALOG_FILTERING_CONTRACT_REF,
     RuntimeMcpCatalogFilteringReadModel,
@@ -27,6 +30,27 @@ def test_mcp_catalog_filtering_is_metadata_only_posture() -> None:
     assert read_model.status == "metadata_catalog_filtering_posture"
     assert read_model.route_ref == "GET /api/runtime/mcp-catalog-filtering"
     assert read_model.cli_ref == "uaa runtime inspect-mcp-catalog-filtering"
+    assert (
+        read_model.authority_state_route_ref
+        == RUNTIME_MCP_CATALOG_FILTERING_AUTHORITY_STATE_ROUTE_REF
+    )
+    assert (
+        read_model.authority_state_cli_ref
+        == RUNTIME_MCP_CATALOG_FILTERING_AUTHORITY_STATE_CLI_REF
+    )
+    assert (
+        read_model.authority_state_mapping_ref
+        == RUNTIME_MCP_CATALOG_FILTERING_AUTHORITY_MAPPING_REF
+    )
+    assert read_model.authority_state_decision_outcome == "allow"
+    assert read_model.authority_state_decision_ref.startswith(
+        "authority-policy-decision-ref:"
+    )
+    assert read_model.authority_state_reason_refs
+    assert (
+        "adapter-ref:mcp-catalog-tool-invocation:not-implemented"
+        in read_model.unsupported_adapter_refs
+    )
     assert read_model.server_count == 3
     assert read_model.reviewed_metadata_count == 1
     assert read_model.review_required_count == 1
@@ -101,6 +125,17 @@ def test_mcp_catalog_filtering_read_model_denies_authority_flags(field: str) -> 
         RuntimeMcpCatalogFilteringReadModel(**payload)
 
 
+def test_mcp_catalog_filtering_rejects_authority_mapping_drift() -> None:
+    payload = build_runtime_mcp_catalog_filtering_read_model().model_dump(mode="json")
+    payload["authority_state_mapping_ref"] = "lane-ref:wrong-mcp-catalog"
+
+    with pytest.raises(
+        ValueError,
+        match="RUNTIME_MCP_CATALOG_AUTHORITY_MAPPING_MISMATCH",
+    ):
+        RuntimeMcpCatalogFilteringReadModel(**payload)
+
+
 @pytest.mark.parametrize(
     "field",
     [
@@ -155,6 +190,10 @@ def test_mcp_catalog_filtering_api_returns_safe_read_model() -> None:
     assert body["operation"] == "api_runtime_mcp_catalog_filtering"
     data = body["data"]
     assert data["route_ref"] == "GET /api/runtime/mcp-catalog-filtering"
+    assert data["authority_state_mapping_ref"] == (
+        RUNTIME_MCP_CATALOG_FILTERING_AUTHORITY_MAPPING_REF
+    )
+    assert data["authority_state_decision_outcome"] == "allow"
     assert data["server_count"] == 3
     assert data["tool_slice_count"] == 6
     assert data["install_enabled"] is False
@@ -184,7 +223,13 @@ def test_mcp_catalog_filtering_cli_uses_same_read_model() -> None:
 
     payload = json.loads(result.stdout)
     read_model = payload["runtime_mcp_catalog_filtering"]
+    authority_state = payload["authority_state"]
     assert payload["safe_refs_only"] is True
+    assert (
+        authority_state["mapping_ref"]
+        == RUNTIME_MCP_CATALOG_FILTERING_AUTHORITY_MAPPING_REF
+    )
+    assert authority_state["decision_outcome"] == "allow"
     assert payload["metadata_only"] is True
     assert payload["install_performed"] is False
     assert payload["subprocess_runtime_performed"] is False
@@ -193,5 +238,9 @@ def test_mcp_catalog_filtering_cli_uses_same_read_model() -> None:
     assert payload["connector_write_performed"] is False
     assert read_model["route_ref"] == "GET /api/runtime/mcp-catalog-filtering"
     assert read_model["cli_ref"] == "uaa runtime inspect-mcp-catalog-filtering"
+    assert (
+        read_model["authority_state_cli_ref"]
+        == RUNTIME_MCP_CATALOG_FILTERING_AUTHORITY_STATE_CLI_REF
+    )
     assert read_model["server_count"] == 3
     assert read_model["tool_slice_count"] == 6

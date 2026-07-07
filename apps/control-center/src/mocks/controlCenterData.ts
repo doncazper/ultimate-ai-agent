@@ -16399,6 +16399,31 @@ export const mockControlCenterData: ControlCenterData = {
     snapshot_hash_ref: "snapshot-hash-ref:runtime-mcp-catalog:mock",
     route_ref: "GET /api/runtime/mcp-catalog-filtering",
     cli_ref: "uaa runtime inspect-mcp-catalog-filtering",
+    authority_state_route_ref: "GET /api/runtime/authority-state",
+    authority_state_cli_ref:
+      "repo-local-command:uaa-runtime-inspect-authority-state",
+    authority_state_mapping_ref:
+      "lane-ref:runtime-mcp-catalog-filtering-read-model",
+    authority_state_catalog_ref:
+      "authority-catalog-ref:runtime-mcp-catalog-filtering-read-model",
+    authority_state_decision_ref:
+      "authority-decision-ref:runtime-mcp-catalog-filtering-read-model:allow",
+    authority_state_decision_outcome: "allow",
+    authority_state_status: "implemented_authority_bound_read_model",
+    authority_state_operator_message:
+      "Read-only mode allows MCP catalog metadata inspection; server install, subprocess runtime, OAuth, tool invocation, connector writes, manifest persistence, and authority minting remain unavailable.",
+    authority_state_reason_refs: [
+      "reason-ref:authority:active-lease-grants-domain-capability",
+    ],
+    unsupported_adapter_refs: [
+      "adapter-ref:mcp-catalog-server-install:not-implemented",
+      "adapter-ref:mcp-catalog-subprocess-runtime:not-implemented",
+      "adapter-ref:mcp-catalog-oauth-login:not-implemented",
+      "adapter-ref:mcp-catalog-tool-invocation:not-implemented",
+      "adapter-ref:mcp-catalog-connector-write:not-implemented",
+      "adapter-ref:mcp-catalog-manifest-persistence:not-implemented",
+      "adapter-ref:mcp-catalog-authority-mint:not-implemented",
+    ],
     control_center_ref: "control-center-route:runtime",
     safe_summary:
       "Runtime MCP catalog mock fallback exposes metadata filters and blocked activation states only.",

@@ -5358,6 +5358,27 @@ function isSafeRuntimeMcpCatalogFiltering(
     value.status === "metadata_catalog_filtering_posture" &&
     value.route_ref === "GET /api/runtime/mcp-catalog-filtering" &&
     value.cli_ref === "uaa runtime inspect-mcp-catalog-filtering" &&
+    value.authority_state_route_ref === "GET /api/runtime/authority-state" &&
+    value.authority_state_cli_ref ===
+      "repo-local-command:uaa-runtime-inspect-authority-state" &&
+    value.authority_state_mapping_ref ===
+      "lane-ref:runtime-mcp-catalog-filtering-read-model" &&
+    isSafeTrustAuthorityRef(value.authority_state_catalog_ref) &&
+    isSafeTrustAuthorityRef(value.authority_state_decision_ref) &&
+    TRUST_AUTHORITY_DECISION_OUTCOMES.includes(
+      value.authority_state_decision_outcome,
+    ) &&
+    typeof value.authority_state_status === "string" &&
+    value.authority_state_status.length > 0 &&
+    typeof value.authority_state_operator_message === "string" &&
+    value.authority_state_operator_message.length > 0 &&
+    isNonEmptyStringArray(value.authority_state_reason_refs) &&
+    value.authority_state_reason_refs.every(isSafeTrustAuthorityRef) &&
+    isNonEmptyStringArray(value.unsupported_adapter_refs) &&
+    value.unsupported_adapter_refs.every(isSafeTrustAuthorityRef) &&
+    value.unsupported_adapter_refs.includes(
+      "adapter-ref:mcp-catalog-tool-invocation:not-implemented",
+    ) &&
     value.server_count === value.servers.length &&
     value.reviewed_metadata_count ===
       value.servers.filter(

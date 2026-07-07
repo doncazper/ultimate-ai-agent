@@ -6,6 +6,10 @@ from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.authority import (
+    AuthorityDecisionCatalogEntry,
+    build_authority_decision_catalog,
+)
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
@@ -30,6 +34,16 @@ RUNTIME_MCP_CATALOG_FILTERING_PROOF_REF = (
 RUNTIME_MCP_CATALOG_FILTERING_VERIFIER_REF = (
     "verifier-ref:hermes-runtime-adoption:phase-30:mcp-catalog-filtering"
 )
+RUNTIME_MCP_CATALOG_FILTERING_AUTHORITY_STATE_ROUTE_REF = (
+    "GET /api/runtime/authority-state"
+)
+RUNTIME_MCP_CATALOG_FILTERING_AUTHORITY_STATE_CLI_REF = (
+    "repo-local-command:uaa-runtime-inspect-authority-state"
+)
+RUNTIME_MCP_CATALOG_FILTERING_AUTHORITY_MAPPING_REF = (
+    "lane-ref:runtime-mcp-catalog-filtering-read-model"
+)
+_AUTHORITY_DECISION_OUTCOMES = {"allow", "ask", "deny", "degrade_to_draft"}
 
 RUNTIME_MCP_CATALOG_FILTERING_BLOCKED_AUTHORITY_REFS: tuple[str, ...] = (
     "blocked-authority:mcp-catalog-no-server-install",
@@ -194,6 +208,16 @@ class RuntimeMcpCatalogFilteringReadModel(BaseModel):
     snapshot_hash_ref: str = "snapshot-hash-ref:runtime-mcp-catalog:pending"
     route_ref: str = RUNTIME_MCP_CATALOG_FILTERING_ROUTE_REF
     cli_ref: str = RUNTIME_MCP_CATALOG_FILTERING_CLI_REF
+    authority_state_route_ref: str
+    authority_state_cli_ref: str
+    authority_state_mapping_ref: str
+    authority_state_catalog_ref: str
+    authority_state_decision_ref: str
+    authority_state_decision_outcome: str
+    authority_state_status: str
+    authority_state_operator_message: str
+    authority_state_reason_refs: list[str] = Field(default_factory=list)
+    unsupported_adapter_refs: list[str] = Field(default_factory=list)
     control_center_ref: str = RUNTIME_DELEGATION_CONTROL_CENTER_REF
     safe_summary: str = (
         "MCP catalog filtering exposes reviewed server metadata and blocked "
@@ -242,6 +266,9 @@ class RuntimeMcpCatalogFilteringReadModel(BaseModel):
             (self.snapshot_ref, "snapshot_ref"),
             (self.snapshot_hash_ref, "snapshot_hash_ref"),
             (self.control_center_ref, "control_center_ref"),
+            (self.authority_state_mapping_ref, "authority_state_mapping_ref"),
+            (self.authority_state_catalog_ref, "authority_state_catalog_ref"),
+            (self.authority_state_decision_ref, "authority_state_decision_ref"),
         ]:
             validate_execution_ref(value, field_name)
         for value, field_name in [
@@ -249,10 +276,23 @@ class RuntimeMcpCatalogFilteringReadModel(BaseModel):
             (self.status, "status"),
             (self.route_ref, "route_ref"),
             (self.cli_ref, "cli_ref"),
+            (self.authority_state_route_ref, "authority_state_route_ref"),
+            (self.authority_state_cli_ref, "authority_state_cli_ref"),
+            (
+                self.authority_state_decision_outcome,
+                "authority_state_decision_outcome",
+            ),
+            (self.authority_state_status, "authority_state_status"),
+            (
+                self.authority_state_operator_message,
+                "authority_state_operator_message",
+            ),
             (self.safe_summary, "safe_summary"),
         ]:
             validate_safe_execution_text(value, field_name)
         for field_name in (
+            "authority_state_reason_refs",
+            "unsupported_adapter_refs",
             "blocked_authority_refs",
             "promotion_path_refs",
             "proof_refs",
@@ -265,6 +305,13 @@ class RuntimeMcpCatalogFilteringReadModel(BaseModel):
                     validate_safe_execution_text(value, field_name)
                 else:
                     validate_execution_ref(value, field_name)
+        if (
+            self.authority_state_mapping_ref
+            != RUNTIME_MCP_CATALOG_FILTERING_AUTHORITY_MAPPING_REF
+        ):
+            raise ValueError("RUNTIME_MCP_CATALOG_AUTHORITY_MAPPING_MISMATCH")
+        if self.authority_state_decision_outcome not in _AUTHORITY_DECISION_OUTCOMES:
+            raise ValueError("RUNTIME_MCP_CATALOG_AUTHORITY_DECISION_INVALID")
         if self.server_count != len(self.servers):
             raise ValueError("RUNTIME_MCP_SERVER_COUNT_DRIFT")
         server_states = {
@@ -392,6 +439,16 @@ def _server(
 
 
 def build_runtime_mcp_catalog_filtering_read_model() -> RuntimeMcpCatalogFilteringReadModel:
+    return build_runtime_mcp_catalog_filtering_read_model_from_authority_catalog(
+        authority_decision_catalog=build_authority_decision_catalog()
+    )
+
+
+def build_runtime_mcp_catalog_filtering_read_model_from_authority_catalog(
+    *,
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry],
+) -> RuntimeMcpCatalogFilteringReadModel:
+    authority_entry = _authority_entry(authority_decision_catalog)
     servers = [
         _server(
             "filesystem-metadata",
@@ -472,10 +529,26 @@ def build_runtime_mcp_catalog_filtering_read_model() -> RuntimeMcpCatalogFilteri
     payload_for_hash: dict[str, object] = {
         "servers": [server.model_dump(mode="json") for server in servers],
         "blocked": list(RUNTIME_MCP_CATALOG_FILTERING_BLOCKED_AUTHORITY_REFS),
+        "authority_state_decision_ref": authority_entry.decision.decision_ref,
+        "authority_state_decision_outcome": _authority_value(
+            authority_entry.decision.outcome
+        ),
     }
     tool_slice_count = sum(server.tool_count for server in servers)
     return RuntimeMcpCatalogFilteringReadModel(
         snapshot_hash_ref=_snapshot_hash_ref(payload_for_hash),
+        authority_state_route_ref=RUNTIME_MCP_CATALOG_FILTERING_AUTHORITY_STATE_ROUTE_REF,
+        authority_state_cli_ref=RUNTIME_MCP_CATALOG_FILTERING_AUTHORITY_STATE_CLI_REF,
+        authority_state_mapping_ref=authority_entry.lane_ref,
+        authority_state_catalog_ref=authority_entry.catalog_ref,
+        authority_state_decision_ref=authority_entry.decision.decision_ref,
+        authority_state_decision_outcome=_authority_value(
+            authority_entry.decision.outcome
+        ),
+        authority_state_status=authority_entry.status,
+        authority_state_operator_message=authority_entry.decision.operator_message,
+        authority_state_reason_refs=list(authority_entry.decision.reason_refs),
+        unsupported_adapter_refs=list(authority_entry.unsupported_adapter_refs),
         servers=servers,
         server_count=len(servers),
         reviewed_metadata_count=sum(
@@ -526,3 +599,16 @@ def build_runtime_mcp_catalog_filtering_read_model() -> RuntimeMcpCatalogFilteri
             "next-safe-action-ref:mcp-catalog:bind-receipts",
         ],
     )
+
+
+def _authority_entry(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry],
+) -> AuthorityDecisionCatalogEntry:
+    for entry in authority_decision_catalog:
+        if entry.lane_ref == RUNTIME_MCP_CATALOG_FILTERING_AUTHORITY_MAPPING_REF:
+            return entry
+    raise ValueError("RUNTIME_MCP_CATALOG_AUTHORITY_MAPPING_NOT_FOUND")
+
+
+def _authority_value(value: object) -> str:
+    return str(getattr(value, "value", value))

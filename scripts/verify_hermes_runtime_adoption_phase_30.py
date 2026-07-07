@@ -12,6 +12,9 @@ sys.path.insert(0, str(ROOT / "src"))
 from ultimate_ai_agent.api.app import app  # noqa: E402
 from ultimate_ai_agent.api.manifest import build_api_manifest  # noqa: E402
 from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
+    RUNTIME_MCP_CATALOG_FILTERING_AUTHORITY_MAPPING_REF,
+    RUNTIME_MCP_CATALOG_FILTERING_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_MCP_CATALOG_FILTERING_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_MCP_CATALOG_FILTERING_BLOCKED_AUTHORITY_REFS,
     build_runtime_mcp_catalog_filtering_read_model,
 )
@@ -35,6 +38,28 @@ def main() -> int:
         failures.append("MCP catalog CLI ref is stale")
     if read_model.status != "metadata_catalog_filtering_posture":
         failures.append("MCP catalog posture is not metadata filtering")
+    if (
+        read_model.authority_state_route_ref
+        != RUNTIME_MCP_CATALOG_FILTERING_AUTHORITY_STATE_ROUTE_REF
+    ):
+        failures.append("MCP catalog AuthorityState route ref drifted")
+    if (
+        read_model.authority_state_cli_ref
+        != RUNTIME_MCP_CATALOG_FILTERING_AUTHORITY_STATE_CLI_REF
+    ):
+        failures.append("MCP catalog AuthorityState CLI ref drifted")
+    if (
+        read_model.authority_state_mapping_ref
+        != RUNTIME_MCP_CATALOG_FILTERING_AUTHORITY_MAPPING_REF
+    ):
+        failures.append("MCP catalog AuthorityState mapping ref drifted")
+    if read_model.authority_state_decision_outcome != "allow":
+        failures.append("MCP catalog read model must allow read-only inspection")
+    if (
+        "adapter-ref:mcp-catalog-tool-invocation:not-implemented"
+        not in read_model.unsupported_adapter_refs
+    ):
+        failures.append("MCP catalog unsupported tool-invocation adapter missing")
     if read_model.server_count != 3 or read_model.tool_slice_count != 6:
         failures.append("MCP catalog lacks expected metadata fixtures")
     if read_model.filtered_blocked_tool_count < 4:
@@ -95,6 +120,7 @@ def main() -> int:
         "install_performed",
         "tool_invocation_performed",
         "connector_write_performed",
+        "authority_state",
     ]:
         if expected not in cli_text:
             failures.append(f"CLI missing {expected}")
@@ -133,6 +159,14 @@ def main() -> int:
     else:
         payload = json.loads(cli_result.stdout)
         read_model_payload = payload["runtime_mcp_catalog_filtering"]
+        authority_state = payload.get("authority_state", {})
+        if (
+            authority_state.get("mapping_ref")
+            != RUNTIME_MCP_CATALOG_FILTERING_AUTHORITY_MAPPING_REF
+        ):
+            failures.append("MCP catalog CLI AuthorityState mapping drifted")
+        if authority_state.get("decision_outcome") != "allow":
+            failures.append("MCP catalog CLI AuthorityState outcome drifted")
         if payload["install_performed"] is not False:
             failures.append("MCP catalog CLI claims install")
         if payload["subprocess_runtime_performed"] is not False:

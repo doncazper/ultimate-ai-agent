@@ -212,11 +212,15 @@ Contract rules:
   sync, connector writes, remote sessions, raw transcript or provider payload
   persistence, or Control Center authority minting.
   `GET /api/runtime/mcp-catalog-filtering` exposes the Hermes Runtime Adoption
-  Phase 30 backend-owned MCP catalog filtering posture. It returns metadata
-  catalog refs, tool filter contracts, blocked activation states, proof refs,
-  verifier refs, and blocked authority refs only. Installing MCP servers,
-  running subprocess MCPs, OAuth login, tool invocation, connector writes, raw
-  manifest persistence, and Control Center authority minting remain blocked.
+  Phase 30 backend-owned, AuthorityState-bound MCP catalog filtering posture. It
+  returns metadata catalog refs, tool filter contracts, blocked activation
+  states, proof refs, verifier refs, blocked authority refs,
+  AuthorityState route/CLI/mapping/catalog/decision/reason refs, unsupported
+  adapter refs, and a decision-bound snapshot hash for
+  `lane-ref:runtime-mcp-catalog-filtering-read-model` under Read-only
+  `workspace/read`. Installing MCP servers, running subprocess MCPs, OAuth
+  login, tool invocation, connector writes, raw manifest persistence, and
+  Control Center authority minting remain blocked.
   `GET /api/runtime/background-jobs` exposes the Hermes Runtime Adoption Phase
   31 backend-owned background job posture. It returns durable job proposal refs,
   schedule policies, approval scope refs, idempotency refs, safe-disable refs,

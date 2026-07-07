@@ -1,8 +1,8 @@
 # UAA Hermes Runtime MCP Catalog Filtering
 
-Phase 30 adds a backend-owned MCP catalog filtering posture for the Hermes
-Runtime Adoption program. It is a UAA-native metadata catalog and filter
-contract, not an MCP server installer or tool runner.
+Phase 30 adds a backend-owned, AuthorityState-bound MCP catalog filtering
+posture for the Hermes Runtime Adoption program. It is a UAA-native metadata
+catalog and filter contract, not an MCP server installer or tool runner.
 
 ## Full-Strength
 
@@ -18,8 +18,13 @@ The current implementation is metadata-only:
 - Python Agent Core owns `RuntimeMcpCatalogFilteringReadModel`.
 - API route: `GET /api/runtime/mcp-catalog-filtering`.
 - CLI inspection: `scripts/dev/uaa_runtime.py inspect-mcp-catalog-filtering`.
+- AuthorityState route/CLI/mapping/catalog/decision/reason refs for
+  `lane-ref:runtime-mcp-catalog-filtering-read-model`.
+- unsupported adapter refs for server install, subprocess runtime, OAuth login,
+  tool invocation, connector write, manifest persistence, and authority minting.
 - Control Center renders server metadata, tool filter states, blocked
-  activation states, route refs, CLI refs, and proof refs.
+  activation states, route refs, CLI refs, proof refs, and the evaluated
+  AuthorityState decision refs.
 - Mock fallback is labeled non-authoritative and preserves the same blocked
   authority posture.
 - No MCP server is installed, launched, contacted, or invoked.

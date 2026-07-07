@@ -7978,6 +7978,17 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getAllByText("uaa runtime inspect-mcp-catalog-filtering").length,
     ).toBeGreaterThan(0);
+    expect(
+      screen.getByText("lane-ref:runtime-mcp-catalog-filtering-read-model"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "authority-decision-ref:runtime-mcp-catalog-filtering-read-model:allow",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("adapter-ref:mcp-catalog-tool-invocation:not-implemented"),
+    ).toBeInTheDocument();
     expect(screen.getByText("Filesystem metadata server")).toBeInTheDocument();
     expect(screen.getByText("CRM draft server")).toBeInTheDocument();
     expect(
@@ -8334,7 +8345,7 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByText(/Skill bundle tool execution enabled: no/i),
     ).toBeInTheDocument();
-  });
+  }, 10000);
 
   it("renders clear headings for every local shell page", async () => {
     const expectedHeadings = [

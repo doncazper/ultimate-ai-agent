@@ -278,9 +278,12 @@ account sync, connector writes, remote sessions, raw transcript/provider payload
 persistence, Control Center authority minting, and production authority remain
 blocked.
 `GET /api/runtime/mcp-catalog-filtering` exposes a protected read-only Python
-Core Hermes Runtime Adoption Phase 30 MCP catalog filtering posture. It returns
-metadata catalog refs, tool filter contracts, blocked activation states, proof
-refs, verifier refs, and blocked authority refs only. MCP install, subprocess
+Core Hermes Runtime Adoption Phase 30 AuthorityState-bound MCP catalog filtering
+posture. It returns metadata catalog refs, tool filter contracts, blocked
+activation states, proof refs, verifier refs, blocked authority refs,
+AuthorityState route/CLI/mapping/catalog/decision/reason refs, unsupported
+adapter refs, and a decision-bound snapshot hash for
+`lane-ref:runtime-mcp-catalog-filtering-read-model`. MCP install, subprocess
 runtime, OAuth login, tool invocation, connector writes, raw manifest
 persistence, and Control Center authority minting remain blocked.
 `GET /api/runtime/background-jobs` exposes a protected read-only Python Core

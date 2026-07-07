@@ -3075,6 +3075,32 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ],
         ),
         _mapping(
+            "lane-ref:runtime-mcp-catalog-filtering-read-model",
+            "Runtime MCP catalog filtering read model",
+            AuthorityDomain.workspace,
+            AuthorityCapability.read,
+            TrustMode.read_only,
+            "implemented_authority_bound_read_model",
+            ["GET /api/runtime/mcp-catalog-filtering"],
+            ["repo-local-command:uaa-runtime-inspect-mcp-catalog-filtering"],
+            (
+                "MCP catalog filtering reads reviewed server metadata, tool "
+                "filter states, proof refs, blockers, and next safe actions "
+                "under Workspace read authority. Server install, subprocess "
+                "runtime, OAuth login, tool invocation, connector writes, raw "
+                "manifest persistence, and authority minting remain blocked."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:mcp-catalog-server-install:not-implemented",
+                "adapter-ref:mcp-catalog-subprocess-runtime:not-implemented",
+                "adapter-ref:mcp-catalog-oauth-login:not-implemented",
+                "adapter-ref:mcp-catalog-tool-invocation:not-implemented",
+                "adapter-ref:mcp-catalog-connector-write:not-implemented",
+                "adapter-ref:mcp-catalog-manifest-persistence:not-implemented",
+                "adapter-ref:mcp-catalog-authority-mint:not-implemented",
+            ],
+        ),
+        _mapping(
             "lane-ref:runtime-command-git-status",
             "Git status",
             AuthorityDomain.workspace,

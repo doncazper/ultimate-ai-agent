@@ -64,7 +64,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_runtime_background_jobs_read_model,
     build_runtime_hardline_command_blocklist_read_model,
     build_runtime_managed_scope_policy_read_model_from_authority_catalog,
-    build_runtime_mcp_catalog_filtering_read_model,
+    build_runtime_mcp_catalog_filtering_read_model_from_authority_catalog,
     build_runtime_subagent_isolation_read_model,
     build_runtime_worktree_per_agent_read_model,
     build_runtime_lsp_diagnostics_read_model,
@@ -835,6 +835,13 @@ def _print_mcp_catalog_filtering(read_model: dict[str, Any]) -> None:
     print(f"Snapshot hash: {read_model['snapshot_hash_ref']}")
     print(f"Route: {read_model['route_ref']}")
     print(f"CLI: {read_model['cli_ref']}")
+    print(
+        "Authority: "
+        f"{read_model['authority_state_decision_outcome']} "
+        f"({read_model['authority_state_status']})"
+    )
+    print(f"Authority mapping: {read_model['authority_state_mapping_ref']}")
+    print(f"Authority decision: {read_model['authority_state_decision_ref']}")
     print(
         "Servers: "
         f"total={read_model['server_count']} "
@@ -2940,13 +2947,22 @@ def _inspect_session_continuity(args: argparse.Namespace) -> int:
 
 
 def _inspect_mcp_catalog_filtering(args: argparse.Namespace) -> int:
-    read_model = build_runtime_mcp_catalog_filtering_read_model().model_dump(
-        mode="json"
-    )
+    authority_state = AuthorityLeaseStore().build_state_read_model()
+    read_model = build_runtime_mcp_catalog_filtering_read_model_from_authority_catalog(
+        authority_decision_catalog=authority_state.decision_catalog,
+    ).model_dump(mode="json")
     payload = {
         "schema_version": "governed-runtime-cli:v1",
         "command_ref": "repo-local-command:uaa-runtime-inspect-mcp-catalog-filtering",
         "runtime_mcp_catalog_filtering": read_model,
+        "authority_state": {
+            "route_ref": read_model["authority_state_route_ref"],
+            "cli_ref": read_model["authority_state_cli_ref"],
+            "mapping_ref": read_model["authority_state_mapping_ref"],
+            "catalog_ref": read_model["authority_state_catalog_ref"],
+            "decision_ref": read_model["authority_state_decision_ref"],
+            "decision_outcome": read_model["authority_state_decision_outcome"],
+        },
         "safe_refs_only": True,
         "metadata_only": True,
         "raw_mcp_manifests_omitted": True,

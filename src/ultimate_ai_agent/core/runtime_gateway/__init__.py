@@ -346,6 +346,9 @@ from ultimate_ai_agent.core.runtime_gateway.session_continuity import (
     build_runtime_session_continuity_read_model_from_authority_catalog,
 )
 from ultimate_ai_agent.core.runtime_gateway.mcp_catalog_filtering import (
+    RUNTIME_MCP_CATALOG_FILTERING_AUTHORITY_MAPPING_REF,
+    RUNTIME_MCP_CATALOG_FILTERING_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_MCP_CATALOG_FILTERING_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_MCP_CATALOG_FILTERING_BLOCKED_AUTHORITY_REFS,
     RUNTIME_MCP_CATALOG_FILTERING_CLI_REF,
     RUNTIME_MCP_CATALOG_FILTERING_CONTRACT_REF,
@@ -359,6 +362,7 @@ from ultimate_ai_agent.core.runtime_gateway.mcp_catalog_filtering import (
     RuntimeMcpToolFilterState,
     RuntimeMcpToolSlice,
     build_runtime_mcp_catalog_filtering_read_model,
+    build_runtime_mcp_catalog_filtering_read_model_from_authority_catalog,
 )
 from ultimate_ai_agent.core.runtime_gateway.background_jobs import (
     RUNTIME_BACKGROUND_JOBS_AUTHORITY_MAPPING_REF,
@@ -974,6 +978,9 @@ __all__ = [
     "RUNTIME_MCP_CATALOG_FILTERING_ROUTE_REF",
     "RUNTIME_MCP_CATALOG_FILTERING_SNAPSHOT_REF",
     "RUNTIME_MCP_CATALOG_FILTERING_VERIFIER_REF",
+    "RUNTIME_MCP_CATALOG_FILTERING_AUTHORITY_MAPPING_REF",
+    "RUNTIME_MCP_CATALOG_FILTERING_AUTHORITY_STATE_CLI_REF",
+    "RUNTIME_MCP_CATALOG_FILTERING_AUTHORITY_STATE_ROUTE_REF",
     "RUNTIME_SUBAGENT_ISOLATION_BLOCKED_AUTHORITY_REFS",
     "RUNTIME_SUBAGENT_ISOLATION_CLI_REF",
     "RUNTIME_SUBAGENT_ISOLATION_CONTRACT_REF",
@@ -1110,6 +1117,7 @@ __all__ = [
     "build_runtime_session_continuity_read_model",
     "build_runtime_session_continuity_read_model_from_authority_catalog",
     "build_runtime_mcp_catalog_filtering_read_model",
+    "build_runtime_mcp_catalog_filtering_read_model_from_authority_catalog",
     "build_runtime_background_jobs_read_model",
     "build_runtime_subagent_isolation_read_model",
     "build_runtime_worktree_per_agent_read_model",
