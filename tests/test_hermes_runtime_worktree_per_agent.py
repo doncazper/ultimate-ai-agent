@@ -30,6 +30,21 @@ def test_worktree_per_agent_is_read_only_posture() -> None:
     assert read_model.proposal_count == 1
     assert read_model.review_ready_count == 1
     assert read_model.mutation_blocked_count == 1
+    assert read_model.authority_state_route_ref == "GET /api/runtime/authority-state"
+    assert (
+        read_model.authority_state_cli_ref
+        == "repo-local-command:uaa-runtime-inspect-authority-state"
+    )
+    assert read_model.authority_state_decision_count == 3
+    assert read_model.authority_state_allowed_count == 3
+    assert read_model.authority_state_degraded_count == 0
+    assert read_model.authority_state_denied_count == 0
+    assert set(read_model.authority_state_mapping_refs) == {
+        "lane-ref:runtime-worktree-implementer-proposal",
+        "lane-ref:runtime-worktree-reviewer-compare",
+        "lane-ref:runtime-worktree-verifier-proof",
+    }
+    assert len(read_model.authority_state_decision_refs) == 3
     assert read_model.workspace_grants_visible is True
     assert read_model.branch_name_policy_visible is True
     assert read_model.checkpoint_plan_visible is True
@@ -69,6 +84,24 @@ def test_worktree_lanes_show_branch_checkpoint_and_rollback_refs() -> None:
         assert lane.checkpoint_plan_ref.startswith("checkpoint-plan-ref:")
         assert lane.git_receipt_plan_ref.startswith("git-receipt-plan-ref:")
         assert lane.rollback_plan_ref.startswith("rollback-plan-ref:")
+        assert lane.authority_state_route_ref == "GET /api/runtime/authority-state"
+        assert (
+            lane.authority_state_cli_ref
+            == "repo-local-command:uaa-runtime-inspect-authority-state"
+        )
+        assert lane.authority_state_mapping_ref.startswith("lane-ref:runtime-worktree")
+        assert lane.authority_state_catalog_ref.startswith(
+            "authority-decision-catalog-ref:"
+        )
+        assert lane.authority_state_decision_ref.startswith(
+            "authority-policy-decision-ref:"
+        )
+        assert lane.authority_state_decision_outcome == "allow"
+        assert lane.authority_state_status == "implemented_authority_bound_read_model"
+        assert "reason-ref:authority:active-lease-grants-domain-capability" in (
+            lane.authority_state_reason_refs
+        )
+        assert lane.unsupported_adapter_refs == []
         assert lane.git_worktree_create_enabled is False
         assert lane.git_worktree_delete_enabled is False
         assert lane.branch_mutation_enabled is False
@@ -145,6 +178,9 @@ def test_worktree_per_agent_api_returns_safe_read_model() -> None:
     data = body["data"]
     assert data["route_ref"] == "GET /api/runtime/worktree-per-agent"
     assert data["lane_count"] == 3
+    assert data["authority_state_route_ref"] == "GET /api/runtime/authority-state"
+    assert data["authority_state_decision_count"] == 3
+    assert data["authority_state_allowed_count"] == 3
     assert data["git_worktree_create_enabled"] is False
     assert data["branch_mutation_enabled"] is False
     assert data["file_write_enabled"] is False
@@ -184,3 +220,9 @@ def test_worktree_per_agent_cli_uses_same_read_model() -> None:
     assert read_model["route_ref"] == "GET /api/runtime/worktree-per-agent"
     assert read_model["cli_ref"] == "uaa runtime inspect-worktree-per-agent"
     assert read_model["lane_count"] == 3
+    assert read_model["authority_state_decision_count"] == 3
+    assert read_model["authority_state_allowed_count"] == 3
+    assert all(
+        lane["authority_state_decision_outcome"] == "allow"
+        for lane in read_model["lanes"]
+    )

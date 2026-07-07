@@ -7,6 +7,10 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.authority import (
+    AuthorityDecisionCatalogEntry,
+    build_authority_decision_catalog,
+)
 from ultimate_ai_agent.core.execution.enums import ExecutionStepMode
 from ultimate_ai_agent.core.execution.validation import (
     hidden_side_effect_reasons,
@@ -49,6 +53,16 @@ STAGED_ORCHESTRATION_APPROVED_RUNTIME_COMMAND_CAPABILITY_INTENTS = (
     "frontend_check",
     "repo_doctor",
 )
+STAGED_ORCHESTRATION_AUTHORITY_STATE_ROUTE_REF = "GET /api/runtime/authority-state"
+STAGED_ORCHESTRATION_AUTHORITY_STATE_CLI_REF = (
+    "repo-local-command:uaa-runtime-inspect-authority-state"
+)
+STAGED_ORCHESTRATION_READ_MODEL_AUTHORITY_MAPPING_REF = (
+    "lane-ref:staged-orchestration-read-model"
+)
+STAGED_ORCHESTRATION_RUNTIME_COMMAND_AUTHORITY_MAPPING_REF = (
+    "lane-ref:staged-orchestration-approved-runtime-command"
+)
 STAGED_ORCHESTRATION_REDACTIONS = (
     "raw_prompt_omitted",
     "raw_response_omitted",
@@ -65,6 +79,7 @@ _UNSAFE_TEXT_FRAGMENTS = (
     "local path",
     "credential",
 )
+_AUTHORITY_DECISION_OUTCOMES = {"allow", "ask", "deny", "degrade_to_draft"}
 
 
 class StagedOrchestrationStatus(str, Enum):
@@ -127,6 +142,10 @@ def _validate_ref(value: str, field_name: str) -> None:
 
 def _runtime_value(value: Any) -> Any:
     return getattr(value, "value", value)
+
+
+def _authority_value(value: Any) -> str:
+    return str(getattr(value, "value", value))
 
 
 class StagedOrchestrationCallbackRef(_StagedOrchestrationModel):
@@ -534,6 +553,23 @@ class StagedOrchestrationReadModel(_StagedOrchestrationModel):
     latest_checkpoint_ref: str | None = None
     cli_ref: str = STAGED_ORCHESTRATION_CLI_REF
     api_ref: str = STAGED_ORCHESTRATION_API_REF
+    authority_state_route_ref: str = STAGED_ORCHESTRATION_AUTHORITY_STATE_ROUTE_REF
+    authority_state_cli_ref: str = STAGED_ORCHESTRATION_AUTHORITY_STATE_CLI_REF
+    authority_state_mapping_ref: str
+    authority_state_catalog_ref: str
+    authority_state_decision_ref: str
+    authority_state_decision_outcome: str
+    authority_state_status: str
+    authority_state_operator_message: str
+    authority_state_reason_refs: list[str] = Field(default_factory=list)
+    runtime_command_authority_state_mapping_ref: str
+    runtime_command_authority_state_catalog_ref: str
+    runtime_command_authority_state_decision_ref: str
+    runtime_command_authority_state_decision_outcome: str
+    runtime_command_authority_state_status: str
+    runtime_command_authority_state_operator_message: str
+    runtime_command_authority_state_reason_refs: list[str] = Field(default_factory=list)
+    unsupported_adapter_refs: list[str] = Field(default_factory=list)
     redactions_applied: list[str] = Field(
         default_factory=lambda: list(STAGED_ORCHESTRATION_REDACTIONS)
     )
@@ -548,6 +584,69 @@ class StagedOrchestrationReadModel(_StagedOrchestrationModel):
     def validate_read_model(self) -> "StagedOrchestrationReadModel":
         if self.latest_checkpoint_ref:
             _validate_ref(self.latest_checkpoint_ref, "latest_checkpoint_ref")
+        for value, field_name in [
+            (self.authority_state_mapping_ref, "authority_state_mapping_ref"),
+            (self.authority_state_catalog_ref, "authority_state_catalog_ref"),
+            (self.authority_state_decision_ref, "authority_state_decision_ref"),
+            (
+                self.runtime_command_authority_state_mapping_ref,
+                "runtime_command_authority_state_mapping_ref",
+            ),
+            (
+                self.runtime_command_authority_state_catalog_ref,
+                "runtime_command_authority_state_catalog_ref",
+            ),
+            (
+                self.runtime_command_authority_state_decision_ref,
+                "runtime_command_authority_state_decision_ref",
+            ),
+        ]:
+            _validate_ref(value, field_name)
+        for field_name in (
+            "authority_state_reason_refs",
+            "runtime_command_authority_state_reason_refs",
+            "unsupported_adapter_refs",
+        ):
+            _validate_refs(getattr(self, field_name), field_name)
+        for value, field_name in [
+            (self.authority_state_route_ref, "authority_state_route_ref"),
+            (self.authority_state_cli_ref, "authority_state_cli_ref"),
+            (
+                self.authority_state_decision_outcome,
+                "authority_state_decision_outcome",
+            ),
+            (self.authority_state_status, "authority_state_status"),
+            (
+                self.authority_state_operator_message,
+                "authority_state_operator_message",
+            ),
+            (
+                self.runtime_command_authority_state_decision_outcome,
+                "runtime_command_authority_state_decision_outcome",
+            ),
+            (
+                self.runtime_command_authority_state_status,
+                "runtime_command_authority_state_status",
+            ),
+            (
+                self.runtime_command_authority_state_operator_message,
+                "runtime_command_authority_state_operator_message",
+            ),
+        ]:
+            _validate_safe_text(value, field_name)
+        if (
+            self.authority_state_mapping_ref
+            != STAGED_ORCHESTRATION_READ_MODEL_AUTHORITY_MAPPING_REF
+            or self.runtime_command_authority_state_mapping_ref
+            != STAGED_ORCHESTRATION_RUNTIME_COMMAND_AUTHORITY_MAPPING_REF
+        ):
+            raise ValueError("STAGED_ORCHESTRATION_AUTHORITY_MAPPING_REQUIRED")
+        if (
+            self.authority_state_decision_outcome not in _AUTHORITY_DECISION_OUTCOMES
+            or self.runtime_command_authority_state_decision_outcome
+            not in _AUTHORITY_DECISION_OUTCOMES
+        ):
+            raise ValueError("STAGED_ORCHESTRATION_AUTHORITY_OUTCOME_UNKNOWN")
         for redaction in self.redactions_applied:
             _validate_safe_text(redaction, "staged_orchestration_redaction")
         if (
@@ -700,8 +799,17 @@ def replay_staged_orchestration_checkpoint(
 
 def build_staged_orchestration_read_model(
     plan: StagedOrchestrationPlan,
+    *,
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None = None,
 ) -> StagedOrchestrationReadModel:
     validation = validate_staged_orchestration_plan(plan)
+    authority_entries = _authority_entries_by_lane(authority_decision_catalog)
+    read_model_authority = authority_entries[
+        STAGED_ORCHESTRATION_READ_MODEL_AUTHORITY_MAPPING_REF
+    ]
+    runtime_command_authority = authority_entries[
+        STAGED_ORCHESTRATION_RUNTIME_COMMAND_AUTHORITY_MAPPING_REF
+    ]
     return StagedOrchestrationReadModel(
         plan=plan,
         validation=validation,
@@ -709,6 +817,38 @@ def build_staged_orchestration_read_model(
         latest_checkpoint_ref=plan.checkpoints[-1].checkpoint_ref
         if plan.checkpoints
         else None,
+        authority_state_mapping_ref=read_model_authority.lane_ref,
+        authority_state_catalog_ref=read_model_authority.catalog_ref,
+        authority_state_decision_ref=read_model_authority.decision.decision_ref,
+        authority_state_decision_outcome=_authority_value(
+            read_model_authority.decision.outcome
+        ),
+        authority_state_status=read_model_authority.status,
+        authority_state_operator_message=(
+            read_model_authority.decision.operator_message
+        ),
+        authority_state_reason_refs=list(read_model_authority.decision.reason_refs),
+        runtime_command_authority_state_mapping_ref=runtime_command_authority.lane_ref,
+        runtime_command_authority_state_catalog_ref=runtime_command_authority.catalog_ref,
+        runtime_command_authority_state_decision_ref=(
+            runtime_command_authority.decision.decision_ref
+        ),
+        runtime_command_authority_state_decision_outcome=_authority_value(
+            runtime_command_authority.decision.outcome
+        ),
+        runtime_command_authority_state_status=runtime_command_authority.status,
+        runtime_command_authority_state_operator_message=(
+            runtime_command_authority.decision.operator_message
+        ),
+        runtime_command_authority_state_reason_refs=list(
+            runtime_command_authority.decision.reason_refs
+        ),
+        unsupported_adapter_refs=sorted(
+            {
+                *read_model_authority.unsupported_adapter_refs,
+                *runtime_command_authority.unsupported_adapter_refs,
+            }
+        ),
         approved_runtime_command_execution_enabled=(
             plan.approved_runtime_command_execution_enabled
         ),
@@ -992,8 +1132,30 @@ def build_sample_staged_orchestration_plan() -> StagedOrchestrationPlan:
     )
 
 
-def build_sample_staged_orchestration_read_model() -> StagedOrchestrationReadModel:
-    return build_staged_orchestration_read_model(build_sample_staged_orchestration_plan())
+def build_sample_staged_orchestration_read_model(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None = None,
+) -> StagedOrchestrationReadModel:
+    return build_staged_orchestration_read_model(
+        build_sample_staged_orchestration_plan(),
+        authority_decision_catalog=authority_decision_catalog,
+    )
+
+
+def _authority_entries_by_lane(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None,
+) -> dict[str, AuthorityDecisionCatalogEntry]:
+    catalog = authority_decision_catalog or build_authority_decision_catalog()
+    entries = {entry.lane_ref: entry for entry in catalog}
+    required = (
+        STAGED_ORCHESTRATION_READ_MODEL_AUTHORITY_MAPPING_REF,
+        STAGED_ORCHESTRATION_RUNTIME_COMMAND_AUTHORITY_MAPPING_REF,
+    )
+    missing = [mapping_ref for mapping_ref in required if mapping_ref not in entries]
+    if missing:
+        raise ValueError(
+            "STAGED_ORCHESTRATION_AUTHORITY_CATALOG_MISSING: " + ",".join(missing)
+        )
+    return entries
 
 
 def _progress_summary(plan: StagedOrchestrationPlan) -> StagedOrchestrationProgressSummary:

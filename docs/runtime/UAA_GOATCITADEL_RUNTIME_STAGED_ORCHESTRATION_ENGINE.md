@@ -25,6 +25,10 @@ Python Agent Core owns `StagedOrchestrationReadModel` and related contracts for:
 - approved runtime command binding/result refs for the AuthorityLease-gated
   utility command capabilities: `focused_pytest`, `repo_verifier`,
   `frontend_check`, and `repo_doctor`
+- AuthorityState decision refs for the staged read-model lane
+  (`lane-ref:staged-orchestration-read-model`) and the exact approved runtime
+  command step lane
+  (`lane-ref:staged-orchestration-approved-runtime-command`)
 
 The staged progress statuses are:
 
@@ -63,6 +67,13 @@ The API inspection path is:
 ```text
 GET /api/runtime/staged-orchestration
 ```
+
+The API and CLI read models evaluate those AuthorityState lanes against the
+active AuthorityLease catalog. The read model is allowed under read-only
+`workspace/prepare` posture; approved runtime command steps still require an
+active `approved_safe_local_work_session` `workspace/execute` lease plus the
+exact RuntimeGateway approval, idempotency, allowlist, safe-disable, rollback,
+redaction, and receipt chain before execution can occur.
 
 ## Approved Runtime Command Step
 

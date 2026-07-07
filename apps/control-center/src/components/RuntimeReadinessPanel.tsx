@@ -1073,6 +1073,18 @@ export function RuntimeReadinessPanel({
             <dd>{worktreePerAgent.mutation_blocked_count}</dd>
           </div>
           <div>
+            <dt>Authority state</dt>
+            <dd>{worktreePerAgent.authority_state_route_ref}</dd>
+          </div>
+          <div>
+            <dt>Authority decisions</dt>
+            <dd>
+              {worktreePerAgent.authority_state_allowed_count} allow /{" "}
+              {worktreePerAgent.authority_state_degraded_count} draft /{" "}
+              {worktreePerAgent.authority_state_denied_count} deny
+            </dd>
+          </div>
+          <div>
             <dt>Worktree create</dt>
             <dd>
               {worktreePerAgent.git_worktree_create_enabled
@@ -1103,6 +1115,7 @@ export function RuntimeReadinessPanel({
               <tr>
                 <th>Lane</th>
                 <th>Status</th>
+                <th>Authority</th>
                 <th>Branch</th>
                 <th>Rollback</th>
               </tr>
@@ -1112,6 +1125,11 @@ export function RuntimeReadinessPanel({
                 <tr key={lane.lane_ref}>
                   <td>{lane.display_label}</td>
                   <td>{lane.lane_status}</td>
+                  <td>
+                    {lane.authority_state_decision_outcome}
+                    <br />
+                    {lane.authority_state_decision_ref}
+                  </td>
                   <td>{lane.branch_proposal_ref}</td>
                   <td>{lane.rollback_plan_ref}</td>
                 </tr>

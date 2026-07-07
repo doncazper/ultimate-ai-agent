@@ -219,6 +219,38 @@ def test_sample_staged_orchestration_read_model_is_safe_and_waiting() -> None:
     assert read_model.progress.waiting_count == 1
     assert read_model.progress.degraded_count == 1
     assert read_model.progress.skipped_count == 1
+    assert read_model.authority_state_route_ref == "GET /api/runtime/authority-state"
+    assert (
+        read_model.authority_state_cli_ref
+        == "repo-local-command:uaa-runtime-inspect-authority-state"
+    )
+    assert (
+        read_model.authority_state_mapping_ref
+        == "lane-ref:staged-orchestration-read-model"
+    )
+    assert read_model.authority_state_decision_ref.startswith(
+        "authority-policy-decision-ref:"
+    )
+    assert read_model.authority_state_decision_outcome == "allow"
+    assert (
+        read_model.authority_state_status
+        == "implemented_authority_bound_read_model"
+    )
+    assert (
+        read_model.runtime_command_authority_state_mapping_ref
+        == "lane-ref:staged-orchestration-approved-runtime-command"
+    )
+    assert read_model.runtime_command_authority_state_decision_ref.startswith(
+        "authority-policy-decision-ref:"
+    )
+    assert read_model.runtime_command_authority_state_decision_outcome in {
+        "degrade_to_draft",
+        "allow",
+    }
+    assert (
+        read_model.runtime_command_authority_state_status
+        == "implemented_exact_lease_required_runtime_command_step"
+    )
     assert read_model.execution_performed is False
     assert read_model.raw_payloads_persisted is False
     assert read_model.control_center_can_mint_authority is False
@@ -429,6 +461,7 @@ def test_runtime_cli_inspects_staged_orchestration_safe_json(capsys) -> None:
     assert "staged_orchestration" in payload
     assert "raw_content_omitted" in payload
     assert "background_autonomy_enabled" in payload
+    assert "runtime_command_authority_state_decision_ref" in payload
 
 
 def test_runtime_api_exposes_staged_orchestration_read_model() -> None:
@@ -440,6 +473,13 @@ def test_runtime_api_exposes_staged_orchestration_read_model() -> None:
     data = body["data"]
     assert data["backend_owned"] is True
     assert data["api_ref"] == "GET /api/runtime/staged-orchestration"
+    assert data["authority_state_mapping_ref"] == (
+        "lane-ref:staged-orchestration-read-model"
+    )
+    assert data["authority_state_decision_outcome"] == "allow"
+    assert data["runtime_command_authority_state_mapping_ref"] == (
+        "lane-ref:staged-orchestration-approved-runtime-command"
+    )
     assert data["execution_performed"] is False
     assert data["plan"]["background_autonomy_enabled"] is False
     assert data["validation"]["status"] == "accepted"

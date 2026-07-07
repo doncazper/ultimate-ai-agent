@@ -1585,6 +1585,16 @@ const runtimeWorktreePerAgentBlockedRefs = [
   "blocked-authority:worktree-per-agent-no-raw-path-persistence",
 ];
 
+const runtimeWorktreeAuthorityMappingRefs: Record<string, string> = {
+  implementer: "lane-ref:runtime-worktree-implementer-proposal",
+  reviewer: "lane-ref:runtime-worktree-reviewer-compare",
+  verifier: "lane-ref:runtime-worktree-verifier-proof",
+};
+
+function runtimeWorktreeAuthoritySuffix(slug: string): string {
+  return runtimeWorktreeAuthorityMappingRefs[slug].split(":")[1];
+}
+
 function runtimeWorktreePerAgentLane(
   slug: string,
   overrides: Pick<
@@ -1611,6 +1621,21 @@ function runtimeWorktreePerAgentLane(
     next_safe_action_refs: [
       `next-safe-action-ref:worktree-agent:${slug}:review`,
     ],
+    authority_state_route_ref: "GET /api/runtime/authority-state",
+    authority_state_cli_ref:
+      "repo-local-command:uaa-runtime-inspect-authority-state",
+    authority_state_mapping_ref: runtimeWorktreeAuthorityMappingRefs[slug],
+    authority_state_catalog_ref: `authority-decision-catalog-ref:${runtimeWorktreeAuthoritySuffix(
+      slug,
+    )}`,
+    authority_state_decision_ref: `authority-policy-decision-ref:mock-runtime-worktree-${slug}`,
+    authority_state_decision_outcome: "allow",
+    authority_state_status: "implemented_authority_bound_read_model",
+    authority_state_operator_message: "Allowed by active authority lease.",
+    authority_state_reason_refs: [
+      "reason-ref:authority:active-lease-grants-domain-capability",
+    ],
+    unsupported_adapter_refs: [],
     git_worktree_create_enabled: false,
     git_worktree_delete_enabled: false,
     branch_mutation_enabled: false,
@@ -1649,6 +1674,12 @@ const runtimeWorktreePerAgentLanes: RuntimeWorktreePerAgentLane[] = [
       "Mock verifier lane records checkpoint and rollback plans without running Git.",
   }),
 ];
+const runtimeWorktreeAuthorityDecisionRefs = runtimeWorktreePerAgentLanes.map(
+  (lane) => lane.authority_state_decision_ref,
+);
+const runtimeWorktreeAuthorityMappingRefList = runtimeWorktreePerAgentLanes.map(
+  (lane) => lane.authority_state_mapping_ref,
+);
 
 const runtimeLspDiagnosticsBlockedRefs = [
   "blocked-authority:lsp-diagnostics-no-language-server-launch",
@@ -15643,6 +15674,21 @@ export const mockControlCenterData: ControlCenterData = {
     mutation_blocked_count: runtimeWorktreePerAgentLanes.filter(
       (lane) => lane.lane_status === "mutation_blocked",
     ).length,
+    authority_state_route_ref: "GET /api/runtime/authority-state",
+    authority_state_cli_ref:
+      "repo-local-command:uaa-runtime-inspect-authority-state",
+    authority_state_decision_count: runtimeWorktreePerAgentLanes.length,
+    authority_state_allowed_count: runtimeWorktreePerAgentLanes.filter(
+      (lane) => lane.authority_state_decision_outcome === "allow",
+    ).length,
+    authority_state_degraded_count: runtimeWorktreePerAgentLanes.filter(
+      (lane) => lane.authority_state_decision_outcome === "degrade_to_draft",
+    ).length,
+    authority_state_denied_count: runtimeWorktreePerAgentLanes.filter(
+      (lane) => lane.authority_state_decision_outcome === "deny",
+    ).length,
+    authority_state_mapping_refs: runtimeWorktreeAuthorityMappingRefList,
+    authority_state_decision_refs: runtimeWorktreeAuthorityDecisionRefs,
     workspace_grants_visible: true,
     branch_name_policy_visible: true,
     checkpoint_plan_visible: true,

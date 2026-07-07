@@ -928,12 +928,20 @@ def _print_worktree_per_agent(read_model: dict[str, Any]) -> None:
     print(f"Snapshot hash: {read_model['snapshot_hash_ref']}")
     print(f"Route: {read_model['route_ref']}")
     print(f"CLI: {read_model['cli_ref']}")
+    print(f"Authority: {read_model['authority_state_route_ref']}")
     print(
         "Lanes: "
         f"total={read_model['lane_count']} "
         f"proposal={read_model['proposal_count']} "
         f"review_ready={read_model['review_ready_count']} "
         f"mutation_blocked={read_model['mutation_blocked_count']}"
+    )
+    print(
+        "Authority decisions: "
+        f"total={read_model['authority_state_decision_count']} "
+        f"allow={read_model['authority_state_allowed_count']} "
+        f"degrade={read_model['authority_state_degraded_count']} "
+        f"deny={read_model['authority_state_denied_count']}"
     )
     print(
         "Blocked controls: "
@@ -948,8 +956,10 @@ def _print_worktree_per_agent(read_model: dict[str, Any]) -> None:
     for lane in read_model["lanes"]:
         print(
             f"- {lane['display_label']}: "
-            f"status={lane['lane_status']} isolation={lane['isolation_mode']}"
+            f"status={lane['lane_status']} isolation={lane['isolation_mode']} "
+            f"authority={lane['authority_state_decision_outcome']}"
         )
+        print(f"  authority_decision={lane['authority_state_decision_ref']}")
         print(f"  branch={lane['branch_proposal_ref']}")
         print(f"  worktree={lane['worktree_ref']}")
         print(f"  checkpoint={lane['checkpoint_plan_ref']}")
@@ -2861,7 +2871,10 @@ def _inspect_subagent_isolation(args: argparse.Namespace) -> int:
 
 
 def _inspect_worktree_per_agent(args: argparse.Namespace) -> int:
-    read_model = build_runtime_worktree_per_agent_read_model().model_dump(mode="json")
+    authority_state = AuthorityLeaseStore().build_state_read_model()
+    read_model = build_runtime_worktree_per_agent_read_model(
+        authority_decision_catalog=authority_state.decision_catalog,
+    ).model_dump(mode="json")
     payload = {
         "schema_version": "governed-runtime-cli:v1",
         "command_ref": "repo-local-command:uaa-runtime-inspect-worktree-per-agent",
@@ -3874,7 +3887,10 @@ def _inspect_turn_run_approval_chain(args: argparse.Namespace) -> int:
 
 
 def _inspect_staged_orchestration(args: argparse.Namespace) -> int:
-    read_model = build_sample_staged_orchestration_read_model()
+    authority_state = AuthorityLeaseStore().build_state_read_model()
+    read_model = build_sample_staged_orchestration_read_model(
+        authority_decision_catalog=authority_state.decision_catalog,
+    )
     payload = {
         "schema_version": "governed-runtime-cli:v1",
         "command_ref": "repo-local-command:uaa-runtime-inspect-staged-orchestration",
@@ -3896,6 +3912,16 @@ def _inspect_staged_orchestration(args: argparse.Namespace) -> int:
         print(f"Stages: {read_model.progress.total_stage_count}")
         print(f"Steps: {read_model.progress.total_step_count}")
         print(f"Validation: {read_model.validation.status}")
+        print(
+            "Authority: "
+            f"read={read_model.authority_state_decision_outcome} "
+            f"runtime_command={read_model.runtime_command_authority_state_decision_outcome}"
+        )
+        print(f"Read decision: {read_model.authority_state_decision_ref}")
+        print(
+            "Runtime command decision: "
+            f"{read_model.runtime_command_authority_state_decision_ref}"
+        )
         print("No background autonomy, hidden model calls, or execution performed.")
     return 0
 

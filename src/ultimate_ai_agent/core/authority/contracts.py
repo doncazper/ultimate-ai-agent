@@ -2917,6 +2917,91 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ),
         ),
         _mapping(
+            "lane-ref:runtime-worktree-implementer-proposal",
+            "Runtime worktree implementer proposal",
+            AuthorityDomain.workspace,
+            AuthorityCapability.draft,
+            TrustMode.read_only,
+            "implemented_authority_bound_read_model",
+            ["GET /api/runtime/worktree-per-agent"],
+            ["repo-local-command:uaa-runtime-inspect-worktree-per-agent"],
+            (
+                "Implementer worktree lane is a read-only Workspace draft "
+                "proposal for branch/worktree shape. It does not create "
+                "worktrees, mutate branches, write files, commit, push, run "
+                "shell commands, call providers, or persist path values."
+            ),
+        ),
+        _mapping(
+            "lane-ref:runtime-worktree-reviewer-compare",
+            "Runtime worktree reviewer compare",
+            AuthorityDomain.workspace,
+            AuthorityCapability.read,
+            TrustMode.read_only,
+            "implemented_authority_bound_read_model",
+            ["GET /api/runtime/worktree-per-agent"],
+            ["repo-local-command:uaa-runtime-inspect-worktree-per-agent"],
+            (
+                "Reviewer worktree lane reads safe comparison refs only under "
+                "Workspace read authority. Git worktree create/delete, file "
+                "mutation, commit, push, shell execution, and path-value "
+                "persistence remain blocked."
+            ),
+        ),
+        _mapping(
+            "lane-ref:runtime-worktree-verifier-proof",
+            "Runtime worktree verifier proof",
+            AuthorityDomain.workspace,
+            AuthorityCapability.prepare,
+            TrustMode.read_only,
+            "implemented_authority_bound_read_model",
+            ["GET /api/runtime/worktree-per-agent"],
+            ["repo-local-command:uaa-runtime-inspect-worktree-per-agent"],
+            (
+                "Verifier worktree lane prepares checkpoint, Git receipt, and "
+                "rollback plan refs under Workspace prepare authority. It does "
+                "not run Git, shell commands, provider calls, file writes, "
+                "commits, pushes, or rollback execution."
+            ),
+        ),
+        _mapping(
+            "lane-ref:staged-orchestration-read-model",
+            "Staged orchestration read model",
+            AuthorityDomain.workspace,
+            AuthorityCapability.prepare,
+            TrustMode.read_only,
+            "implemented_authority_bound_read_model",
+            ["GET /api/runtime/staged-orchestration"],
+            ["repo-local-command:uaa-runtime-inspect-staged-orchestration"],
+            (
+                "Staged orchestration inspection prepares safe plan, dependency, "
+                "checkpoint, receipt-plan, and degraded-handoff refs under "
+                "Workspace prepare authority. The read model cannot execute, "
+                "mint approvals, call models, run shell commands, automate "
+                "browsers, write connectors, or grant production authority."
+            ),
+        ),
+        _mapping(
+            "lane-ref:staged-orchestration-approved-runtime-command",
+            "Staged orchestration approved runtime command step",
+            AuthorityDomain.workspace,
+            AuthorityCapability.execute,
+            TrustMode.approved_safe_local_work_session,
+            "implemented_exact_lease_required_runtime_command_step",
+            [
+                "GET /api/runtime/staged-orchestration#approved-runtime-command-step",
+                "POST /api/runtime/invocations/{id}/execute",
+            ],
+            ["repo-local-command:uaa-runtime-inspect-staged-orchestration"],
+            (
+                "A staged approved-runtime-command step requires active "
+                "Workspace execute AuthorityLease scope plus exact RuntimeGateway "
+                "invocation, Action Inbox approval, idempotency, allowlist, "
+                "safe-disable, rollback, redaction, and receipt refs before one "
+                "supported utility command may run."
+            ),
+        ),
+        _mapping(
             "lane-ref:runtime-safe-disable",
             "Runtime safe-disable",
             AuthorityDomain.workspace,

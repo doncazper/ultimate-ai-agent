@@ -515,7 +515,10 @@ def get_api_runtime_subagent_isolation() -> ResultEnvelope:
 
 @router.get("/worktree-per-agent", response_model=ResultEnvelope)
 def get_api_runtime_worktree_per_agent() -> ResultEnvelope:
-    read_model = build_runtime_worktree_per_agent_read_model()
+    authority_state = _authority_store().build_state_read_model()
+    read_model = build_runtime_worktree_per_agent_read_model(
+        authority_decision_catalog=authority_state.decision_catalog,
+    )
     return ResultEnvelope(
         success=True,
         operation="api_runtime_worktree_per_agent",
@@ -983,7 +986,10 @@ def get_api_runtime_profiles() -> ResultEnvelope:
 
 @router.get("/staged-orchestration", response_model=ResultEnvelope)
 def get_api_runtime_staged_orchestration() -> ResultEnvelope:
-    read_model = build_sample_staged_orchestration_read_model()
+    authority_state = _authority_store().build_state_read_model()
+    read_model = build_sample_staged_orchestration_read_model(
+        authority_decision_catalog=authority_state.decision_catalog,
+    )
     return ResultEnvelope(
         success=True,
         operation="api_runtime_staged_orchestration",

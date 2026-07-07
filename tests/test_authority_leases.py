@@ -341,6 +341,67 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         runtime_approved_execute.status
         == "implemented_exact_lease_rechecked_execution"
     )
+    worktree_implementer = mappings_by_lane[
+        "lane-ref:runtime-worktree-implementer-proposal"
+    ]
+    assert worktree_implementer.domain == "workspace"
+    assert worktree_implementer.capability == "draft"
+    assert worktree_implementer.required_mode == "read_only"
+    assert (
+        decision_by_lane[
+            "lane-ref:runtime-worktree-implementer-proposal"
+        ].decision.outcome
+        == "allow"
+    )
+    worktree_reviewer = mappings_by_lane[
+        "lane-ref:runtime-worktree-reviewer-compare"
+    ]
+    assert worktree_reviewer.domain == "workspace"
+    assert worktree_reviewer.capability == "read"
+    assert (
+        decision_by_lane[
+            "lane-ref:runtime-worktree-reviewer-compare"
+        ].decision.outcome
+        == "allow"
+    )
+    worktree_verifier = mappings_by_lane[
+        "lane-ref:runtime-worktree-verifier-proof"
+    ]
+    assert worktree_verifier.domain == "workspace"
+    assert worktree_verifier.capability == "prepare"
+    assert (
+        decision_by_lane[
+            "lane-ref:runtime-worktree-verifier-proof"
+        ].decision.outcome
+        == "allow"
+    )
+    staged_read_model = mappings_by_lane["lane-ref:staged-orchestration-read-model"]
+    assert staged_read_model.domain == "workspace"
+    assert staged_read_model.capability == "prepare"
+    assert staged_read_model.required_mode == "read_only"
+    assert (
+        decision_by_lane["lane-ref:staged-orchestration-read-model"].decision.outcome
+        == "allow"
+    )
+    staged_runtime_command = mappings_by_lane[
+        "lane-ref:staged-orchestration-approved-runtime-command"
+    ]
+    assert staged_runtime_command.domain == "workspace"
+    assert staged_runtime_command.capability == "execute"
+    assert (
+        staged_runtime_command.required_mode
+        == "approved_safe_local_work_session"
+    )
+    assert (
+        staged_runtime_command.status
+        == "implemented_exact_lease_required_runtime_command_step"
+    )
+    assert (
+        decision_by_lane[
+            "lane-ref:staged-orchestration-approved-runtime-command"
+        ].decision.outcome
+        == "degrade_to_draft"
+    )
     runtime_safe_disable = next(
         mapping
         for mapping in read_model.capability_mappings

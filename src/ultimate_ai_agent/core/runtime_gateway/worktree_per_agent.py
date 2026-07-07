@@ -6,6 +6,10 @@ from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.authority import (
+    AuthorityDecisionCatalogEntry,
+    build_authority_decision_catalog,
+)
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
@@ -43,6 +47,18 @@ RUNTIME_WORKTREE_PER_AGENT_BLOCKED_AUTHORITY_REFS: tuple[str, ...] = (
     "blocked-authority:worktree-per-agent-no-control-center-authority-mint",
     "blocked-authority:worktree-per-agent-no-raw-path-persistence",
 )
+RUNTIME_WORKTREE_PER_AGENT_AUTHORITY_STATE_ROUTE_REF = (
+    "GET /api/runtime/authority-state"
+)
+RUNTIME_WORKTREE_PER_AGENT_AUTHORITY_STATE_CLI_REF = (
+    "repo-local-command:uaa-runtime-inspect-authority-state"
+)
+RUNTIME_WORKTREE_PER_AGENT_LANE_AUTHORITY_MAPPING_REFS: dict[str, str] = {
+    "implementer": "lane-ref:runtime-worktree-implementer-proposal",
+    "reviewer": "lane-ref:runtime-worktree-reviewer-compare",
+    "verifier": "lane-ref:runtime-worktree-verifier-proof",
+}
+_AUTHORITY_DECISION_OUTCOMES = {"allow", "ask", "deny", "degrade_to_draft"}
 
 
 class RuntimeWorktreeAgentRole(str, Enum):
@@ -80,6 +96,16 @@ class RuntimeWorktreePerAgentLane(BaseModel):
     proof_refs: list[str] = Field(default_factory=list)
     blocked_authority_refs: list[str] = Field(default_factory=list)
     next_safe_action_refs: list[str] = Field(default_factory=list)
+    authority_state_route_ref: str = RUNTIME_WORKTREE_PER_AGENT_AUTHORITY_STATE_ROUTE_REF
+    authority_state_cli_ref: str = RUNTIME_WORKTREE_PER_AGENT_AUTHORITY_STATE_CLI_REF
+    authority_state_mapping_ref: str
+    authority_state_catalog_ref: str
+    authority_state_decision_ref: str
+    authority_state_decision_outcome: str
+    authority_state_status: str
+    authority_state_operator_message: str
+    authority_state_reason_refs: list[str] = Field(default_factory=list)
+    unsupported_adapter_refs: list[str] = Field(default_factory=list)
     git_worktree_create_enabled: bool = False
     git_worktree_delete_enabled: bool = False
     branch_mutation_enabled: bool = False
@@ -103,12 +129,17 @@ class RuntimeWorktreePerAgentLane(BaseModel):
             (self.checkpoint_plan_ref, "checkpoint_plan_ref"),
             (self.git_receipt_plan_ref, "git_receipt_plan_ref"),
             (self.rollback_plan_ref, "rollback_plan_ref"),
+            (self.authority_state_mapping_ref, "authority_state_mapping_ref"),
+            (self.authority_state_catalog_ref, "authority_state_catalog_ref"),
+            (self.authority_state_decision_ref, "authority_state_decision_ref"),
         ]:
             validate_execution_ref(value, field_name)
         for field_name in (
             "proof_refs",
             "blocked_authority_refs",
             "next_safe_action_refs",
+            "authority_state_reason_refs",
+            "unsupported_adapter_refs",
         ):
             for value in getattr(self, field_name):
                 validate_execution_ref(value, field_name)
@@ -118,8 +149,25 @@ class RuntimeWorktreePerAgentLane(BaseModel):
             (str(self.lane_status), "lane_status"),
             (str(self.isolation_mode), "isolation_mode"),
             (self.safe_summary, "safe_summary"),
+            (self.authority_state_route_ref, "authority_state_route_ref"),
+            (self.authority_state_cli_ref, "authority_state_cli_ref"),
+            (
+                self.authority_state_decision_outcome,
+                "authority_state_decision_outcome",
+            ),
+            (self.authority_state_status, "authority_state_status"),
+            (
+                self.authority_state_operator_message,
+                "authority_state_operator_message",
+            ),
         ]:
             validate_safe_execution_text(value, field_name)
+        if self.authority_state_mapping_ref not in set(
+            RUNTIME_WORKTREE_PER_AGENT_LANE_AUTHORITY_MAPPING_REFS.values()
+        ):
+            raise ValueError("RUNTIME_WORKTREE_PER_AGENT_AUTHORITY_MAPPING_UNKNOWN")
+        if self.authority_state_decision_outcome not in _AUTHORITY_DECISION_OUTCOMES:
+            raise ValueError("RUNTIME_WORKTREE_PER_AGENT_AUTHORITY_OUTCOME_UNKNOWN")
         denied_flags = {
             "git_worktree_create_enabled": self.git_worktree_create_enabled,
             "git_worktree_delete_enabled": self.git_worktree_delete_enabled,
@@ -151,6 +199,8 @@ class RuntimeWorktreePerAgentReadModel(BaseModel):
     route_ref: str = RUNTIME_WORKTREE_PER_AGENT_ROUTE_REF
     cli_ref: str = RUNTIME_WORKTREE_PER_AGENT_CLI_REF
     control_center_ref: str = RUNTIME_DELEGATION_CONTROL_CENTER_REF
+    authority_state_route_ref: str = RUNTIME_WORKTREE_PER_AGENT_AUTHORITY_STATE_ROUTE_REF
+    authority_state_cli_ref: str = RUNTIME_WORKTREE_PER_AGENT_AUTHORITY_STATE_CLI_REF
     safe_summary: str = (
         "Worktree-per-agent posture exposes branch and worktree lane proposals "
         "only; Git and file mutation stay blocked."
@@ -160,6 +210,12 @@ class RuntimeWorktreePerAgentReadModel(BaseModel):
     proposal_count: int = 0
     review_ready_count: int = 0
     mutation_blocked_count: int = 0
+    authority_state_decision_count: int = 0
+    authority_state_allowed_count: int = 0
+    authority_state_degraded_count: int = 0
+    authority_state_denied_count: int = 0
+    authority_state_mapping_refs: list[str] = Field(default_factory=list)
+    authority_state_decision_refs: list[str] = Field(default_factory=list)
     workspace_grants_visible: bool = True
     branch_name_policy_visible: bool = True
     checkpoint_plan_visible: bool = True
@@ -206,6 +262,8 @@ class RuntimeWorktreePerAgentReadModel(BaseModel):
             (self.status, "status"),
             (self.route_ref, "route_ref"),
             (self.cli_ref, "cli_ref"),
+            (self.authority_state_route_ref, "authority_state_route_ref"),
+            (self.authority_state_cli_ref, "authority_state_cli_ref"),
             (self.safe_summary, "safe_summary"),
         ]:
             validate_safe_execution_text(value, field_name)
@@ -215,6 +273,8 @@ class RuntimeWorktreePerAgentReadModel(BaseModel):
             "proof_refs",
             "verifier_refs",
             "next_safe_action_refs",
+            "authority_state_mapping_refs",
+            "authority_state_decision_refs",
             "redactions_applied",
         ):
             for value in getattr(self, field_name):
@@ -224,6 +284,27 @@ class RuntimeWorktreePerAgentReadModel(BaseModel):
                     validate_execution_ref(value, field_name)
         if self.lane_count != len(self.lanes):
             raise ValueError("RUNTIME_WORKTREE_PER_AGENT_LANE_COUNT_DRIFT")
+        lane_mapping_refs = [lane.authority_state_mapping_ref for lane in self.lanes]
+        lane_decision_refs = [lane.authority_state_decision_ref for lane in self.lanes]
+        if sorted(self.authority_state_mapping_refs) != sorted(lane_mapping_refs):
+            raise ValueError("RUNTIME_WORKTREE_PER_AGENT_AUTHORITY_MAPPING_DRIFT")
+        if sorted(self.authority_state_decision_refs) != sorted(lane_decision_refs):
+            raise ValueError("RUNTIME_WORKTREE_PER_AGENT_AUTHORITY_DECISION_DRIFT")
+        if self.authority_state_decision_count != len(lane_decision_refs):
+            raise ValueError("RUNTIME_WORKTREE_PER_AGENT_AUTHORITY_COUNT_DRIFT")
+        outcome_counts = {
+            "allow": self.authority_state_allowed_count,
+            "degrade_to_draft": self.authority_state_degraded_count,
+            "deny": self.authority_state_denied_count,
+        }
+        for outcome, expected in outcome_counts.items():
+            actual = sum(
+                1
+                for lane in self.lanes
+                if lane.authority_state_decision_outcome == outcome
+            )
+            if actual != expected:
+                raise ValueError("RUNTIME_WORKTREE_PER_AGENT_AUTHORITY_OUTCOME_DRIFT")
         status_counts = {
             RuntimeWorktreeLaneStatus.proposal.value: self.proposal_count,
             RuntimeWorktreeLaneStatus.review_ready.value: self.review_ready_count,
@@ -282,6 +363,10 @@ def _snapshot_hash_ref(payload: dict[str, object]) -> str:
     return f"snapshot-hash-ref:runtime-worktree-per-agent:{digest}"
 
 
+def _authority_value(value: object) -> str:
+    return str(getattr(value, "value", value))
+
+
 def _lane(
     slug: str,
     *,
@@ -290,6 +375,7 @@ def _lane(
     lane_status: RuntimeWorktreeLaneStatus,
     isolation_mode: RuntimeWorktreeIsolationMode,
     safe_summary: str,
+    authority_entry: AuthorityDecisionCatalogEntry,
 ) -> RuntimeWorktreePerAgentLane:
     return RuntimeWorktreePerAgentLane(
         lane_ref=f"worktree-agent-lane-ref:{slug}",
@@ -308,12 +394,31 @@ def _lane(
         proof_refs=[RUNTIME_WORKTREE_PER_AGENT_PROOF_REF],
         blocked_authority_refs=list(RUNTIME_WORKTREE_PER_AGENT_BLOCKED_AUTHORITY_REFS),
         next_safe_action_refs=[f"next-safe-action-ref:worktree-agent:{slug}:review"],
+        authority_state_mapping_ref=authority_entry.lane_ref,
+        authority_state_catalog_ref=authority_entry.catalog_ref,
+        authority_state_decision_ref=authority_entry.decision.decision_ref,
+        authority_state_decision_outcome=_authority_value(
+            authority_entry.decision.outcome
+        ),
+        authority_state_status=authority_entry.status,
+        authority_state_operator_message=authority_entry.decision.operator_message,
+        authority_state_reason_refs=list(authority_entry.decision.reason_refs),
+        unsupported_adapter_refs=list(authority_entry.unsupported_adapter_refs),
     )
 
 
-def build_runtime_worktree_per_agent_read_model() -> (
-    RuntimeWorktreePerAgentReadModel
-):
+def build_runtime_worktree_per_agent_read_model(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None = None,
+) -> RuntimeWorktreePerAgentReadModel:
+    return build_runtime_worktree_per_agent_read_model_from_authority_catalog(
+        authority_decision_catalog=authority_decision_catalog,
+    )
+
+
+def build_runtime_worktree_per_agent_read_model_from_authority_catalog(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None = None,
+) -> RuntimeWorktreePerAgentReadModel:
+    authority_entries = _authority_entries_by_lane(authority_decision_catalog)
     lanes = [
         _lane(
             "implementer",
@@ -325,6 +430,9 @@ def build_runtime_worktree_per_agent_read_model() -> (
                 "Implementer lane proposes a branch/worktree shape; no branch "
                 "or file mutation is enabled."
             ),
+            authority_entry=authority_entries[
+                RUNTIME_WORKTREE_PER_AGENT_LANE_AUTHORITY_MAPPING_REFS["implementer"]
+            ],
         ),
         _lane(
             "reviewer",
@@ -336,6 +444,9 @@ def build_runtime_worktree_per_agent_read_model() -> (
                 "Reviewer lane can compare safe refs only; Git worktree create "
                 "and delete remain blocked."
             ),
+            authority_entry=authority_entries[
+                RUNTIME_WORKTREE_PER_AGENT_LANE_AUTHORITY_MAPPING_REFS["reviewer"]
+            ],
         ),
         _lane(
             "verifier",
@@ -347,6 +458,9 @@ def build_runtime_worktree_per_agent_read_model() -> (
                 "Verifier lane records checkpoint, Git receipt, and rollback "
                 "plans without running Git or shell commands."
             ),
+            authority_entry=authority_entries[
+                RUNTIME_WORKTREE_PER_AGENT_LANE_AUTHORITY_MAPPING_REFS["verifier"]
+            ],
         ),
     ]
     payload_for_hash: dict[str, object] = {
@@ -368,6 +482,24 @@ def build_runtime_worktree_per_agent_read_model() -> (
             for lane in lanes
             if lane.lane_status == RuntimeWorktreeLaneStatus.mutation_blocked.value
         ),
+        authority_state_decision_count=len(lanes),
+        authority_state_allowed_count=sum(
+            1 for lane in lanes if lane.authority_state_decision_outcome == "allow"
+        ),
+        authority_state_degraded_count=sum(
+            1
+            for lane in lanes
+            if lane.authority_state_decision_outcome == "degrade_to_draft"
+        ),
+        authority_state_denied_count=sum(
+            1 for lane in lanes if lane.authority_state_decision_outcome == "deny"
+        ),
+        authority_state_mapping_refs=[
+            lane.authority_state_mapping_ref for lane in lanes
+        ],
+        authority_state_decision_refs=[
+            lane.authority_state_decision_ref for lane in lanes
+        ],
         blocked_authority_refs=list(RUNTIME_WORKTREE_PER_AGENT_BLOCKED_AUTHORITY_REFS),
         promotion_path_refs=[
             "promotion-path-ref:worktree-per-agent:exact-workspace-grant",
@@ -389,3 +521,21 @@ def build_runtime_worktree_per_agent_read_model() -> (
             "next-safe-action-ref:worktree-per-agent:keep-git-mutation-blocked",
         ],
     )
+
+
+def _authority_entries_by_lane(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None,
+) -> dict[str, AuthorityDecisionCatalogEntry]:
+    catalog = authority_decision_catalog or build_authority_decision_catalog()
+    entries = {entry.lane_ref: entry for entry in catalog}
+    missing = [
+        mapping_ref
+        for mapping_ref in RUNTIME_WORKTREE_PER_AGENT_LANE_AUTHORITY_MAPPING_REFS.values()
+        if mapping_ref not in entries
+    ]
+    if missing:
+        raise ValueError(
+            "RUNTIME_WORKTREE_PER_AGENT_AUTHORITY_CATALOG_MISSING: "
+            + ",".join(missing)
+        )
+    return entries

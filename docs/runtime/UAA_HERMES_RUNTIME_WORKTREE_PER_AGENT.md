@@ -18,9 +18,15 @@ The current implementation is read/proposal only:
 - Python Agent Core owns `RuntimeWorktreePerAgentReadModel`.
 - API route: `GET /api/runtime/worktree-per-agent`.
 - CLI inspection: `scripts/dev/uaa_runtime.py inspect-worktree-per-agent`.
+- Each lane is now bound to an AuthorityState capability mapping and evaluated
+  against the active AuthorityLease set:
+  `lane-ref:runtime-worktree-implementer-proposal`,
+  `lane-ref:runtime-worktree-reviewer-compare`, and
+  `lane-ref:runtime-worktree-verifier-proof`.
 - Control Center renders lane refs, workspace scope refs, branch proposal refs,
   branch name refs, worktree refs, checkpoint plans, Git receipt plans,
-  rollback plans, proof refs, and blocked authority refs.
+  rollback plans, proof refs, AuthorityState decision refs/outcomes, and
+  blocked authority refs.
 - Mock fallback is visibly non-authoritative and keeps the same blocked Git and
   file mutation posture.
 - No branch, worktree, file, commit, push, shell, provider, or raw-path action

@@ -5345,6 +5345,27 @@ function isSafeRuntimeWorktreePerAgent(
     value.mutation_blocked_count ===
       value.lanes.filter((lane) => lane.lane_status === "mutation_blocked")
         .length &&
+    value.authority_state_route_ref === "GET /api/runtime/authority-state" &&
+    value.authority_state_cli_ref ===
+      "repo-local-command:uaa-runtime-inspect-authority-state" &&
+    value.authority_state_decision_count === value.lanes.length &&
+    value.authority_state_allowed_count ===
+      value.lanes.filter(
+        (lane) => lane.authority_state_decision_outcome === "allow",
+      ).length &&
+    value.authority_state_degraded_count ===
+      value.lanes.filter(
+        (lane) =>
+          lane.authority_state_decision_outcome === "degrade_to_draft",
+      ).length &&
+    value.authority_state_denied_count ===
+      value.lanes.filter(
+        (lane) => lane.authority_state_decision_outcome === "deny",
+      ).length &&
+    isNonEmptyStringArray(value.authority_state_mapping_refs) &&
+    value.authority_state_mapping_refs.every(isSafeTrustAuthorityRef) &&
+    isNonEmptyStringArray(value.authority_state_decision_refs) &&
+    value.authority_state_decision_refs.every(isSafeTrustAuthorityRef) &&
     value.workspace_grants_visible === true &&
     value.branch_name_policy_visible === true &&
     value.checkpoint_plan_visible === true &&
@@ -5367,6 +5388,28 @@ function isSafeRuntimeWorktreePerAgent(
         isNonEmptyStringArray(lane.proof_refs) &&
         isNonEmptyStringArray(lane.blocked_authority_refs) &&
         isNonEmptyStringArray(lane.next_safe_action_refs) &&
+        lane.authority_state_route_ref === "GET /api/runtime/authority-state" &&
+        lane.authority_state_cli_ref ===
+          "repo-local-command:uaa-runtime-inspect-authority-state" &&
+        isSafeTrustAuthorityRef(lane.authority_state_mapping_ref) &&
+        value.authority_state_mapping_refs.includes(
+          lane.authority_state_mapping_ref,
+        ) &&
+        isSafeTrustAuthorityRef(lane.authority_state_catalog_ref) &&
+        isSafeTrustAuthorityRef(lane.authority_state_decision_ref) &&
+        value.authority_state_decision_refs.includes(
+          lane.authority_state_decision_ref,
+        ) &&
+        hasExactStringValue(
+          lane.authority_state_decision_outcome,
+          TRUST_AUTHORITY_DECISION_OUTCOMES,
+        ) &&
+        typeof lane.authority_state_status === "string" &&
+        typeof lane.authority_state_operator_message === "string" &&
+        Array.isArray(lane.authority_state_reason_refs) &&
+        lane.authority_state_reason_refs.every(isSafeTrustAuthorityRef) &&
+        Array.isArray(lane.unsupported_adapter_refs) &&
+        lane.unsupported_adapter_refs.every(isSafeTrustAuthorityRef) &&
         lane.git_worktree_create_enabled === false &&
         lane.git_worktree_delete_enabled === false &&
         lane.branch_mutation_enabled === false &&
