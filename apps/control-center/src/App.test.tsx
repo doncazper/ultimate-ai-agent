@@ -6595,6 +6595,11 @@ describe("Web Control Center shell", () => {
     );
     expect(catalog).toHaveTextContent("RuntimeGateway frontend check command");
     expect(catalog).toHaveTextContent("Coding approved patch apply");
+    expect(catalog).toHaveTextContent("Compatibility source");
+    expect(catalog).toHaveTextContent("Exact local capability");
+    expect(catalog).toHaveTextContent("Exact runtime capability");
+    expect(catalog).not.toHaveTextContent("Exact local lane");
+    expect(catalog).not.toHaveTextContent("Exact runtime lane");
     expect(catalog).toHaveTextContent("Generic tool execution");
     expect(catalog).toHaveTextContent("blocked");
     expect(catalog).toHaveTextContent(

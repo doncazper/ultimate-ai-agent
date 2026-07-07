@@ -1523,7 +1523,7 @@ function ActionToolCodeLaneCatalogPanel({
       <p className="muted">{readModel.next_safe_action}</p>
       <div className="review-grid">
         {readModel.entries.map((entry) => (
-          <ActionToolCodeLaneEntryCard entry={entry} key={entry.lane_ref} />
+          <ActionToolCodeCapabilityEntryCard entry={entry} key={entry.lane_ref} />
         ))}
       </div>
       <div className="review-grid">
@@ -1553,7 +1553,7 @@ function ActionToolCodeLaneCatalogPanel({
   );
 }
 
-function ActionToolCodeLaneEntryCard({
+function ActionToolCodeCapabilityEntryCard({
   entry,
 }: {
   entry: ActionToolCodeLaneEntry;
@@ -1577,7 +1577,7 @@ function ActionToolCodeLaneEntryCard({
       </div>
       <p>{entry.eligibility_reason}</p>
       <dl className="detail-list">
-        <DetailTerm label="Lane" value={entry.lane_ref} />
+        <DetailTerm label="Compatibility source" value={entry.lane_ref} />
         <DetailTerm label="Capability" value={entry.capability_ref} />
         <DetailTerm label="Surface" value={entry.surface} />
         <DetailTerm label="Kind" value={entry.capability_kind} />
@@ -1594,11 +1594,11 @@ function ActionToolCodeLaneEntryCard({
           value={entry.proposal_only ? "yes" : "no"}
         />
         <DetailTerm
-          label="Exact local lane"
+          label="Exact local capability"
           value={entry.exact_local_mutation_available ? "available" : "blocked"}
         />
         <DetailTerm
-          label="Exact runtime lane"
+          label="Exact runtime capability"
           value={entry.exact_runtime_lane_available ? "available" : "blocked"}
         />
         <DetailTerm
