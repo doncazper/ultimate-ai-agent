@@ -1,8 +1,11 @@
 # UAA Hermes Runtime Logging Profile Posture
 
-Status: Phase 38 repo-safe read model.  
-Route: `GET /api/runtime/logging-profile`  
+Status: Phase 38 repo-safe read model.
+Route: `GET /api/runtime/logging-profile`
 CLI: `scripts/dev/uaa_runtime.py inspect-logging-profile`
+AuthorityState: `lane-ref:runtime-logging-profile-posture` evaluates as
+Read-only `workspace/read` through `GET /api/runtime/authority-state` and
+`scripts/dev/uaa_runtime.py inspect-authority-state`.
 
 ## Full-Strength
 
@@ -22,6 +25,7 @@ The current implementation is backend-owned inspection only:
   proof, blocked authority, and promotion refs
 - CLI/API/Core parity
 - Control Center display of the current quiet-default posture
+- AuthorityState decision refs for logging posture inspection
 
 No logging flag is toggled. No raw logs are persisted.
 
@@ -39,9 +43,15 @@ The following remain blocked:
 - background log streaming
 - Control Center authority minting
 
-## Exact Promotion Path
+## Exact Authority Path
 
-Promotion to a real verbose/details toggle requires:
+The current allowed AuthorityState decision applies only to reading the active
+logging profile, retention/TTL posture, redaction verifier refs, proof refs,
+safe-disable refs, and blocked-authority refs. It does not enable verbose
+logging, persist prompt/response/log/provider/path material, export telemetry,
+start background log streams, or mint authority from the Control Center.
+
+Future promotion to a real verbose/details toggle requires:
 
 1. exact flag scope
 2. operator approval binding

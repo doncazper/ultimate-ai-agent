@@ -3036,6 +3036,24 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ),
         ),
         _mapping(
+            "lane-ref:runtime-logging-profile-posture",
+            "Runtime logging profile posture",
+            AuthorityDomain.workspace,
+            AuthorityCapability.read,
+            TrustMode.read_only,
+            "implemented_authority_bound_read_model",
+            ["GET /api/runtime/logging-profile"],
+            ["repo-local-command:uaa-runtime-inspect-logging-profile"],
+            (
+                "Logging profile inspection reads active profile, retention, "
+                "TTL, redaction verifier, proof, safe-disable, and blocked refs "
+                "under Workspace read authority. It does not enable verbose "
+                "logging, prompt/response/log/provider/path material persistence, "
+                "remote telemetry export, background log streams, or Control "
+                "Center authority minting."
+            ),
+        ),
+        _mapping(
             "lane-ref:staged-orchestration-approved-runtime-command",
             "Staged orchestration approved runtime command step",
             AuthorityDomain.workspace,

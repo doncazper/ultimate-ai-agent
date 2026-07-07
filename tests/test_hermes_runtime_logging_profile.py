@@ -7,6 +7,9 @@ from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.runtime_gateway import (
+    RUNTIME_LOGGING_PROFILE_AUTHORITY_MAPPING_REF,
+    RUNTIME_LOGGING_PROFILE_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_LOGGING_PROFILE_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_LOGGING_PROFILE_BLOCKED_AUTHORITY_REFS,
     RUNTIME_LOGGING_PROFILE_CONTRACT_REF,
     RuntimeLoggingProfileReadModel,
@@ -26,6 +29,32 @@ def test_logging_profile_is_quiet_default_read_model() -> None:
     assert read_model.status == "quiet_default_redacted_troubleshooting_available"
     assert read_model.route_ref == "GET /api/runtime/logging-profile"
     assert read_model.cli_ref == "uaa runtime inspect-logging-profile"
+    assert (
+        read_model.authority_state_route_ref
+        == RUNTIME_LOGGING_PROFILE_AUTHORITY_STATE_ROUTE_REF
+    )
+    assert (
+        read_model.authority_state_cli_ref
+        == RUNTIME_LOGGING_PROFILE_AUTHORITY_STATE_CLI_REF
+    )
+    assert (
+        read_model.authority_state_mapping_ref
+        == RUNTIME_LOGGING_PROFILE_AUTHORITY_MAPPING_REF
+    )
+    assert read_model.authority_state_catalog_ref.startswith(
+        "authority-decision-catalog-ref:"
+    )
+    assert read_model.authority_state_decision_ref.startswith(
+        "authority-policy-decision-ref:"
+    )
+    assert read_model.authority_state_decision_outcome == "allow"
+    assert read_model.authority_state_status == (
+        "implemented_authority_bound_read_model"
+    )
+    assert "reason-ref:authority:active-lease-grants-domain-capability" in (
+        read_model.authority_state_reason_refs
+    )
+    assert read_model.unsupported_adapter_refs == []
     assert read_model.active_profile_ref == "logging-profile-ref:runtime:quiet-normal"
     assert read_model.profile_count == 3
     assert read_model.quiet_default_count == 1
@@ -147,6 +176,15 @@ def test_logging_profile_api_returns_safe_read_model() -> None:
     assert body["operation"] == "api_runtime_logging_profile"
     data = body["data"]
     assert data["route_ref"] == "GET /api/runtime/logging-profile"
+    assert (
+        data["authority_state_mapping_ref"]
+        == RUNTIME_LOGGING_PROFILE_AUTHORITY_MAPPING_REF
+    )
+    assert data["authority_state_decision_outcome"] == "allow"
+    assert data["authority_state_status"] == "implemented_authority_bound_read_model"
+    assert "reason-ref:authority:active-lease-grants-domain-capability" in (
+        data["authority_state_reason_refs"]
+    )
     assert data["profile_count"] == 3
     assert data["verbose_logging_enabled"] is False
     assert data["raw_logs_persisted"] is False
@@ -180,4 +218,13 @@ def test_logging_profile_cli_uses_same_read_model() -> None:
     assert payload["background_log_stream_started"] is False
     assert read_model["route_ref"] == "GET /api/runtime/logging-profile"
     assert read_model["cli_ref"] == "uaa runtime inspect-logging-profile"
+    assert (
+        read_model["authority_state_mapping_ref"]
+        == RUNTIME_LOGGING_PROFILE_AUTHORITY_MAPPING_REF
+    )
+    assert read_model["authority_state_decision_outcome"] == "allow"
+    assert (
+        read_model["authority_state_status"]
+        == "implemented_authority_bound_read_model"
+    )
     assert read_model["profile_count"] == 3

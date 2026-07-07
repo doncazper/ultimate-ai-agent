@@ -6,6 +6,10 @@ from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.authority import (
+    AuthorityDecisionCatalogEntry,
+    build_authority_decision_catalog,
+)
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
@@ -28,6 +32,14 @@ RUNTIME_LOGGING_PROFILE_PROOF_REF = (
 RUNTIME_LOGGING_PROFILE_VERIFIER_REF = (
     "verifier-ref:hermes-runtime-adoption:phase-38:logging-profile"
 )
+RUNTIME_LOGGING_PROFILE_AUTHORITY_STATE_ROUTE_REF = "GET /api/runtime/authority-state"
+RUNTIME_LOGGING_PROFILE_AUTHORITY_STATE_CLI_REF = (
+    "repo-local-command:uaa-runtime-inspect-authority-state"
+)
+RUNTIME_LOGGING_PROFILE_AUTHORITY_MAPPING_REF = (
+    "lane-ref:runtime-logging-profile-posture"
+)
+_AUTHORITY_DECISION_OUTCOMES = {"allow", "ask", "deny", "degrade_to_draft"}
 
 RUNTIME_LOGGING_PROFILE_BLOCKED_AUTHORITY_REFS: tuple[str, ...] = (
     "blocked-authority:logging-profile-no-raw-log-persistence",
@@ -150,6 +162,16 @@ class RuntimeLoggingProfileReadModel(BaseModel):
     snapshot_hash_ref: str = "snapshot-hash-ref:logging-profile:pending"
     route_ref: str = RUNTIME_LOGGING_PROFILE_ROUTE_REF
     cli_ref: str = RUNTIME_LOGGING_PROFILE_CLI_REF
+    authority_state_route_ref: str = RUNTIME_LOGGING_PROFILE_AUTHORITY_STATE_ROUTE_REF
+    authority_state_cli_ref: str = RUNTIME_LOGGING_PROFILE_AUTHORITY_STATE_CLI_REF
+    authority_state_mapping_ref: str
+    authority_state_catalog_ref: str
+    authority_state_decision_ref: str
+    authority_state_decision_outcome: str
+    authority_state_status: str
+    authority_state_operator_message: str
+    authority_state_reason_refs: list[str] = Field(default_factory=list)
+    unsupported_adapter_refs: list[str] = Field(default_factory=list)
     control_center_ref: str = RUNTIME_DELEGATION_CONTROL_CENTER_REF
     active_profile_ref: str = "logging-profile-ref:runtime:quiet-normal"
     safe_summary: str = (
@@ -203,6 +225,9 @@ class RuntimeLoggingProfileReadModel(BaseModel):
             (self.contract_ref, "contract_ref"),
             (self.snapshot_ref, "snapshot_ref"),
             (self.snapshot_hash_ref, "snapshot_hash_ref"),
+            (self.authority_state_mapping_ref, "authority_state_mapping_ref"),
+            (self.authority_state_catalog_ref, "authority_state_catalog_ref"),
+            (self.authority_state_decision_ref, "authority_state_decision_ref"),
             (self.control_center_ref, "control_center_ref"),
             (self.active_profile_ref, "active_profile_ref"),
         ]:
@@ -212,10 +237,23 @@ class RuntimeLoggingProfileReadModel(BaseModel):
             (self.status, "status"),
             (self.route_ref, "route_ref"),
             (self.cli_ref, "cli_ref"),
+            (self.authority_state_route_ref, "authority_state_route_ref"),
+            (self.authority_state_cli_ref, "authority_state_cli_ref"),
+            (
+                self.authority_state_decision_outcome,
+                "authority_state_decision_outcome",
+            ),
+            (self.authority_state_status, "authority_state_status"),
+            (
+                self.authority_state_operator_message,
+                "authority_state_operator_message",
+            ),
             (self.safe_summary, "safe_summary"),
         ]:
             validate_safe_execution_text(value, field_name)
         for field_name in (
+            "authority_state_reason_refs",
+            "unsupported_adapter_refs",
             "blocked_authority_refs",
             "promotion_path_refs",
             "proof_refs",
@@ -224,6 +262,10 @@ class RuntimeLoggingProfileReadModel(BaseModel):
         ):
             for value in getattr(self, field_name):
                 validate_execution_ref(value, field_name)
+        if self.authority_state_mapping_ref != RUNTIME_LOGGING_PROFILE_AUTHORITY_MAPPING_REF:
+            raise ValueError("RUNTIME_LOGGING_PROFILE_AUTHORITY_MAPPING_STALE")
+        if self.authority_state_decision_outcome not in _AUTHORITY_DECISION_OUTCOMES:
+            raise ValueError("RUNTIME_LOGGING_PROFILE_AUTHORITY_OUTCOME_UNKNOWN")
         for value in self.redactions_applied:
             validate_safe_execution_text(value, "redactions_applied")
         denied_flags = {
@@ -251,6 +293,10 @@ class RuntimeLoggingProfileReadModel(BaseModel):
         if self.profile_count != len(self.profiles):
             raise ValueError("RUNTIME_LOGGING_PROFILE_COUNT_MISMATCH")
         return self
+
+
+def _authority_value(value: object) -> str:
+    return str(getattr(value, "value", value))
 
 
 def _profile(
@@ -288,7 +334,10 @@ def _profile(
     )
 
 
-def build_runtime_logging_profile_read_model() -> RuntimeLoggingProfileReadModel:
+def build_runtime_logging_profile_read_model(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None = None,
+) -> RuntimeLoggingProfileReadModel:
+    authority_entry = _authority_entry(authority_decision_catalog)
     profiles = [
         _profile(
             slug="quiet-normal",
@@ -329,6 +378,16 @@ def build_runtime_logging_profile_read_model() -> RuntimeLoggingProfileReadModel
         "snapshot_ref": RUNTIME_LOGGING_PROFILE_SNAPSHOT_REF,
         "route_ref": RUNTIME_LOGGING_PROFILE_ROUTE_REF,
         "cli_ref": RUNTIME_LOGGING_PROFILE_CLI_REF,
+        "authority_state_mapping_ref": authority_entry.lane_ref,
+        "authority_state_catalog_ref": authority_entry.catalog_ref,
+        "authority_state_decision_ref": authority_entry.decision.decision_ref,
+        "authority_state_decision_outcome": _authority_value(
+            authority_entry.decision.outcome
+        ),
+        "authority_state_status": authority_entry.status,
+        "authority_state_operator_message": authority_entry.decision.operator_message,
+        "authority_state_reason_refs": list(authority_entry.decision.reason_refs),
+        "unsupported_adapter_refs": list(authority_entry.unsupported_adapter_refs),
         "profiles": profiles,
         "profile_count": len(profiles),
         "quiet_default_count": sum(
@@ -364,6 +423,10 @@ def build_runtime_logging_profile_read_model() -> RuntimeLoggingProfileReadModel
         "contract_ref": payload["contract_ref"],
         "route_ref": payload["route_ref"],
         "profile_refs": [profile.profile_ref for profile in profiles],
+        "authority_state_decision_ref": authority_entry.decision.decision_ref,
+        "authority_state_decision_outcome": _authority_value(
+            authority_entry.decision.outcome
+        ),
         "blocked_authority_refs": payload["blocked_authority_refs"],
     }
     payload["snapshot_hash_ref"] = (
@@ -373,3 +436,13 @@ def build_runtime_logging_profile_read_model() -> RuntimeLoggingProfileReadModel
         ).hexdigest()[:16]
     )
     return RuntimeLoggingProfileReadModel(**payload)
+
+
+def _authority_entry(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None,
+) -> AuthorityDecisionCatalogEntry:
+    catalog = authority_decision_catalog or build_authority_decision_catalog()
+    for entry in catalog:
+        if entry.lane_ref == RUNTIME_LOGGING_PROFILE_AUTHORITY_MAPPING_REF:
+            return entry
+    raise ValueError("RUNTIME_LOGGING_PROFILE_AUTHORITY_MAPPING_MISSING")

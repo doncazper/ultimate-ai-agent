@@ -429,6 +429,18 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         ].decision.outcome
         == "allow"
     )
+    logging_profile = mappings_by_lane["lane-ref:runtime-logging-profile-posture"]
+    assert logging_profile.domain == "workspace"
+    assert logging_profile.capability == "read"
+    assert logging_profile.required_mode == "read_only"
+    assert logging_profile.status == "implemented_authority_bound_read_model"
+    assert "GET /api/runtime/logging-profile" in logging_profile.route_refs
+    assert (
+        decision_by_lane[
+            "lane-ref:runtime-logging-profile-posture"
+        ].decision.outcome
+        == "allow"
+    )
     staged_runtime_command = mappings_by_lane[
         "lane-ref:staged-orchestration-approved-runtime-command"
     ]

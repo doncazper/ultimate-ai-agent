@@ -8101,6 +8101,12 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText("Quiet normal")).toBeInTheDocument();
     expect(screen.getByText("Redacted troubleshooting")).toBeInTheDocument();
     expect(
+      screen.getByText("lane-ref:runtime-logging-profile-posture"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("authority-policy-decision-ref:mock-runtime-logging-profile"),
+    ).toBeInTheDocument();
+    expect(
       screen.getByText(
         "blocked-authority:logging-profile-no-raw-log-persistence",
       ),

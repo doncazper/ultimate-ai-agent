@@ -440,6 +440,9 @@ from ultimate_ai_agent.core.runtime_gateway.interrupt_redirect import (
     build_runtime_interrupt_redirect_read_model,
 )
 from ultimate_ai_agent.core.runtime_gateway.logging_profile import (
+    RUNTIME_LOGGING_PROFILE_AUTHORITY_MAPPING_REF,
+    RUNTIME_LOGGING_PROFILE_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_LOGGING_PROFILE_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_LOGGING_PROFILE_BLOCKED_AUTHORITY_REFS,
     RUNTIME_LOGGING_PROFILE_CLI_REF,
     RUNTIME_LOGGING_PROFILE_CONTRACT_REF,

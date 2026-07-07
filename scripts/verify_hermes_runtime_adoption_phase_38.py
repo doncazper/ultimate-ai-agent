@@ -12,6 +12,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from ultimate_ai_agent.api.app import app  # noqa: E402
 from ultimate_ai_agent.api.manifest import build_api_manifest  # noqa: E402
 from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
+    RUNTIME_LOGGING_PROFILE_AUTHORITY_MAPPING_REF,
     RUNTIME_LOGGING_PROFILE_BLOCKED_AUTHORITY_REFS,
     build_runtime_logging_profile_read_model,
 )
@@ -35,6 +36,22 @@ def main() -> int:
         failures.append("logging profile CLI ref is stale")
     if read_model.status != "quiet_default_redacted_troubleshooting_available":
         failures.append("logging profile posture is not quiet default")
+    if (
+        read_model.authority_state_mapping_ref
+        != RUNTIME_LOGGING_PROFILE_AUTHORITY_MAPPING_REF
+    ):
+        failures.append("logging profile AuthorityState mapping is stale")
+    if read_model.authority_state_decision_outcome != "allow":
+        failures.append("logging profile AuthorityState decision must allow read")
+    if read_model.authority_state_status != "implemented_authority_bound_read_model":
+        failures.append("logging profile AuthorityState status drifted")
+    if (
+        "reason-ref:authority:active-lease-grants-domain-capability"
+        not in read_model.authority_state_reason_refs
+    ):
+        failures.append("logging profile AuthorityState reason is missing")
+    if read_model.unsupported_adapter_refs:
+        failures.append("logging profile should not expose unsupported adapters")
     if read_model.profile_count != 3:
         failures.append("logging profile lacks expected profiles")
     if read_model.quiet_default_count != 1:
@@ -118,7 +135,9 @@ def main() -> int:
             "Full-Strength",
             "Repo-Safe",
             "Blocked / Needs Authority",
-            "Exact Promotion Path",
+            "AuthorityState",
+            "Exact Authority Path",
+            RUNTIME_LOGGING_PROFILE_AUTHORITY_MAPPING_REF,
             ROUTE,
             "inspect-logging-profile",
         ]:
@@ -146,6 +165,13 @@ def main() -> int:
                 failures.append(f"logging profile CLI claims {flag}")
         if read_model_payload["route_ref"] != f"GET {ROUTE}":
             failures.append("logging profile CLI returned stale route ref")
+        if (
+            read_model_payload["authority_state_mapping_ref"]
+            != RUNTIME_LOGGING_PROFILE_AUTHORITY_MAPPING_REF
+        ):
+            failures.append("logging profile CLI returned stale AuthorityState mapping")
+        if read_model_payload["authority_state_decision_outcome"] != "allow":
+            failures.append("logging profile CLI returned unsafe AuthorityState decision")
 
     if failures:
         for failure in failures:
