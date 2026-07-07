@@ -6,6 +6,10 @@ from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.authority import (
+    AuthorityDecisionCatalogEntry,
+    build_authority_decision_catalog,
+)
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
@@ -27,6 +31,16 @@ RUNTIME_CONTEXT_BUDGET_PRESSURE_SNAPSHOT_REF = (
 RUNTIME_CONTEXT_BUDGET_PRESSURE_PROOF_REF = (
     "proof-ref:hermes-runtime-adoption:phase-24:context-budget-pressure"
 )
+RUNTIME_CONTEXT_BUDGET_PRESSURE_AUTHORITY_STATE_ROUTE_REF = (
+    "GET /api/runtime/authority-state"
+)
+RUNTIME_CONTEXT_BUDGET_PRESSURE_AUTHORITY_STATE_CLI_REF = (
+    "repo-local-command:uaa-runtime-inspect-authority-state"
+)
+RUNTIME_CONTEXT_BUDGET_PRESSURE_AUTHORITY_MAPPING_REF = (
+    "lane-ref:runtime-context-budget-pressure-read-model"
+)
+_AUTHORITY_DECISION_OUTCOMES = {"allow", "ask", "deny", "degrade_to_draft"}
 
 RUNTIME_CONTEXT_BUDGET_PRESSURE_BLOCKED_AUTHORITY_REFS = [
     "blocked-authority:context-budget-no-hidden-compression",
@@ -252,6 +266,16 @@ class RuntimeContextBudgetPressureReadModel(BaseModel):
     snapshot_hash_ref: str = "snapshot-hash-ref:runtime-context-budget:pending"
     route_ref: str = RUNTIME_CONTEXT_BUDGET_PRESSURE_ROUTE_REF
     cli_ref: str = RUNTIME_CONTEXT_BUDGET_PRESSURE_CLI_REF
+    authority_state_route_ref: str
+    authority_state_cli_ref: str
+    authority_state_mapping_ref: str
+    authority_state_catalog_ref: str
+    authority_state_decision_ref: str
+    authority_state_decision_outcome: str
+    authority_state_status: str
+    authority_state_operator_message: str
+    authority_state_reason_refs: list[str] = Field(default_factory=list)
+    unsupported_adapter_refs: list[str] = Field(default_factory=list)
     control_center_ref: str = RUNTIME_DELEGATION_CONTROL_CENTER_REF
     safe_summary: str = (
         "Context budget pressure exposes safe budget estimates, warning refs, and "
@@ -314,9 +338,14 @@ class RuntimeContextBudgetPressureReadModel(BaseModel):
             (self.snapshot_ref, "snapshot_ref"),
             (self.snapshot_hash_ref, "snapshot_hash_ref"),
             (self.control_center_ref, "control_center_ref"),
+            (self.authority_state_mapping_ref, "authority_state_mapping_ref"),
+            (self.authority_state_catalog_ref, "authority_state_catalog_ref"),
+            (self.authority_state_decision_ref, "authority_state_decision_ref"),
         ]:
             validate_execution_ref(value, field_name)
         for field_name in (
+            "authority_state_reason_refs",
+            "unsupported_adapter_refs",
             "blocked_authority_refs",
             "proof_refs",
             "verifier_refs",
@@ -329,11 +358,29 @@ class RuntimeContextBudgetPressureReadModel(BaseModel):
             (self.status, "status"),
             (self.route_ref, "route_ref"),
             (self.cli_ref, "cli_ref"),
+            (self.authority_state_route_ref, "authority_state_route_ref"),
+            (self.authority_state_cli_ref, "authority_state_cli_ref"),
+            (
+                self.authority_state_decision_outcome,
+                "authority_state_decision_outcome",
+            ),
+            (self.authority_state_status, "authority_state_status"),
+            (
+                self.authority_state_operator_message,
+                "authority_state_operator_message",
+            ),
             (self.safe_summary, "safe_summary"),
             (str(self.pressure_level), "pressure_level"),
             (self.blocked_hidden_compression_label, "blocked_hidden_compression_label"),
         ]:
             validate_safe_execution_text(value, field_name)
+        if (
+            self.authority_state_mapping_ref
+            != RUNTIME_CONTEXT_BUDGET_PRESSURE_AUTHORITY_MAPPING_REF
+        ):
+            raise ValueError("RUNTIME_CONTEXT_BUDGET_AUTHORITY_MAPPING_MISMATCH")
+        if self.authority_state_decision_outcome not in _AUTHORITY_DECISION_OUTCOMES:
+            raise ValueError("RUNTIME_CONTEXT_BUDGET_AUTHORITY_DECISION_INVALID")
         if self.token_budget_remaining != (
             self.token_budget_limit - self.estimated_token_count
         ):
@@ -598,11 +645,37 @@ def _default_segments() -> list[RuntimeContextBudgetSegment]:
 def build_runtime_context_budget_pressure_read_model() -> (
     RuntimeContextBudgetPressureReadModel
 ):
+    return build_runtime_context_budget_pressure_read_model_from_authority_catalog(
+        authority_decision_catalog=build_authority_decision_catalog()
+    )
+
+
+def build_runtime_context_budget_pressure_read_model_from_authority_catalog(
+    *,
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry],
+) -> RuntimeContextBudgetPressureReadModel:
+    authority_entry = _authority_entry(authority_decision_catalog)
     segments = _default_segments()
     proposals = _default_proposals()
     token_budget_limit = 16000
     estimated_token_count = sum(segment.token_estimate for segment in segments)
     model = RuntimeContextBudgetPressureReadModel(
+        authority_state_route_ref=(
+            RUNTIME_CONTEXT_BUDGET_PRESSURE_AUTHORITY_STATE_ROUTE_REF
+        ),
+        authority_state_cli_ref=(
+            RUNTIME_CONTEXT_BUDGET_PRESSURE_AUTHORITY_STATE_CLI_REF
+        ),
+        authority_state_mapping_ref=authority_entry.lane_ref,
+        authority_state_catalog_ref=authority_entry.catalog_ref,
+        authority_state_decision_ref=authority_entry.decision.decision_ref,
+        authority_state_decision_outcome=_authority_value(
+            authority_entry.decision.outcome
+        ),
+        authority_state_status=authority_entry.status,
+        authority_state_operator_message=authority_entry.decision.operator_message,
+        authority_state_reason_refs=list(authority_entry.decision.reason_refs),
+        unsupported_adapter_refs=list(authority_entry.unsupported_adapter_refs),
         pressure_level=RuntimeContextBudgetPressureLevel.warning,
         token_budget_limit=token_budget_limit,
         estimated_token_count=estimated_token_count,
@@ -672,6 +745,12 @@ def build_runtime_context_budget_pressure_read_model() -> (
                     "token_estimate": segment.token_estimate,
                     "token_budget_limit": segment.token_budget_limit,
                     "proposal_refs": segment.proposal_refs,
+                    "authority_state_decision_ref": (
+                        authority_entry.decision.decision_ref
+                    ),
+                    "authority_state_decision_outcome": _authority_value(
+                        authority_entry.decision.outcome
+                    ),
                 }
                 for segment in segments
             ],
@@ -687,3 +766,16 @@ def build_runtime_context_budget_pressure_read_model() -> (
         }
     )
     return RuntimeContextBudgetPressureReadModel(**model.model_dump(mode="json"))
+
+
+def _authority_entry(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry],
+) -> AuthorityDecisionCatalogEntry:
+    for entry in authority_decision_catalog:
+        if entry.lane_ref == RUNTIME_CONTEXT_BUDGET_PRESSURE_AUTHORITY_MAPPING_REF:
+            return entry
+    raise ValueError("RUNTIME_CONTEXT_BUDGET_AUTHORITY_MAPPING_NOT_FOUND")
+
+
+def _authority_value(value: object) -> str:
+    return str(getattr(value, "value", value))

@@ -169,13 +169,15 @@ Contract rules:
   hidden prompt/context material, call models or provider SDKs, write caches,
   treat model output as authority, or grant production authority.
   `GET /api/runtime/context-budget-pressure` exposes the Hermes Runtime
-  Adoption Phase 24 backend-owned context budget pressure posture. It returns
-  context budget segment refs, pressure levels, warning refs, review-only
-  trimming and summary proposal refs, source refs, retrieval log refs, proof
+  Adoption Phase 24 backend-owned context budget pressure posture bound to
+  `lane-ref:runtime-context-budget-pressure-read-model` through AuthorityState.
+  It returns context budget segment refs, pressure levels, warning refs,
+  review-only trimming and summary proposal refs, source refs, retrieval log
+  refs, AuthorityState mapping/decision refs, unsupported adapter refs, proof
   refs, verifier refs, next-safe-action refs, and blocked authority refs only.
   It does not perform hidden compression, automatic context mutation, model
   summarization calls, context injection, provider SDK calls, cache writes, raw
-  context/prompt/response/provider-payload persistence, or production
+  context/prompt/response/provider material persistence, or production
   authority.
   `GET /api/runtime/hardline-command-blocklist` exposes the Hermes Runtime
   Adoption Phase 25 backend-owned hardline command blocklist posture. It

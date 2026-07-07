@@ -268,6 +268,9 @@ from ultimate_ai_agent.core.runtime_gateway.prompt_stability_tiers import (
     build_runtime_prompt_stability_tiers_read_model_from_authority_catalog,
 )
 from ultimate_ai_agent.core.runtime_gateway.context_budget_pressure import (
+    RUNTIME_CONTEXT_BUDGET_PRESSURE_AUTHORITY_MAPPING_REF,
+    RUNTIME_CONTEXT_BUDGET_PRESSURE_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_CONTEXT_BUDGET_PRESSURE_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_CONTEXT_BUDGET_PRESSURE_BLOCKED_AUTHORITY_REFS,
     RUNTIME_CONTEXT_BUDGET_PRESSURE_CLI_REF,
     RUNTIME_CONTEXT_BUDGET_PRESSURE_CONTRACT_REF,
@@ -280,6 +283,7 @@ from ultimate_ai_agent.core.runtime_gateway.context_budget_pressure import (
     RuntimeContextBudgetProposalKind,
     RuntimeContextBudgetSegment,
     build_runtime_context_budget_pressure_read_model,
+    build_runtime_context_budget_pressure_read_model_from_authority_catalog,
 )
 from ultimate_ai_agent.core.runtime_gateway.hardline_command_blocklist import (
     RUNTIME_HARDLINE_COMMAND_BLOCKLIST_BLOCKED_AUTHORITY_REFS,
@@ -941,6 +945,9 @@ __all__ = [
     "RUNTIME_PROMPT_STABILITY_PROOF_REF",
     "RUNTIME_PROMPT_STABILITY_ROUTE_REF",
     "RUNTIME_PROMPT_STABILITY_SNAPSHOT_REF",
+    "RUNTIME_CONTEXT_BUDGET_PRESSURE_AUTHORITY_MAPPING_REF",
+    "RUNTIME_CONTEXT_BUDGET_PRESSURE_AUTHORITY_STATE_CLI_REF",
+    "RUNTIME_CONTEXT_BUDGET_PRESSURE_AUTHORITY_STATE_ROUTE_REF",
     "RUNTIME_CONTEXT_BUDGET_PRESSURE_BLOCKED_AUTHORITY_REFS",
     "RUNTIME_CONTEXT_BUDGET_PRESSURE_CLI_REF",
     "RUNTIME_CONTEXT_BUDGET_PRESSURE_CONTRACT_REF",
@@ -1125,6 +1132,7 @@ __all__ = [
     "build_runtime_prompt_stability_tiers_read_model",
     "build_runtime_prompt_stability_tiers_read_model_from_authority_catalog",
     "build_runtime_context_budget_pressure_read_model",
+    "build_runtime_context_budget_pressure_read_model_from_authority_catalog",
     "build_runtime_hardline_command_blocklist_read_model",
     "build_runtime_managed_scope_policy_read_model",
     "build_runtime_managed_scope_policy_read_model_from_authority_catalog",

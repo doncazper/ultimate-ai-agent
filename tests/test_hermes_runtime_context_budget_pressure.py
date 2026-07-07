@@ -9,6 +9,9 @@ from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.runtime_gateway import (
+    RUNTIME_CONTEXT_BUDGET_PRESSURE_AUTHORITY_MAPPING_REF,
+    RUNTIME_CONTEXT_BUDGET_PRESSURE_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_CONTEXT_BUDGET_PRESSURE_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_CONTEXT_BUDGET_PRESSURE_BLOCKED_AUTHORITY_REFS,
     RUNTIME_CONTEXT_BUDGET_PRESSURE_CONTRACT_REF,
     RuntimeContextBudgetPressureReadModel,
@@ -29,6 +32,27 @@ def test_context_budget_pressure_is_read_only_posture() -> None:
     assert read_model.status == "read_only_context_budget_pressure_posture"
     assert read_model.route_ref == "GET /api/runtime/context-budget-pressure"
     assert read_model.cli_ref == "uaa runtime inspect-context-budget-pressure"
+    assert (
+        read_model.authority_state_route_ref
+        == RUNTIME_CONTEXT_BUDGET_PRESSURE_AUTHORITY_STATE_ROUTE_REF
+    )
+    assert (
+        read_model.authority_state_cli_ref
+        == RUNTIME_CONTEXT_BUDGET_PRESSURE_AUTHORITY_STATE_CLI_REF
+    )
+    assert (
+        read_model.authority_state_mapping_ref
+        == RUNTIME_CONTEXT_BUDGET_PRESSURE_AUTHORITY_MAPPING_REF
+    )
+    assert read_model.authority_state_decision_outcome == "allow"
+    assert read_model.authority_state_decision_ref.startswith(
+        "authority-policy-decision-ref:"
+    )
+    assert read_model.authority_state_reason_refs
+    assert (
+        "adapter-ref:context-budget-model-summarization:not-implemented"
+        in read_model.unsupported_adapter_refs
+    )
     assert read_model.pressure_level == "warning"
     assert read_model.segment_count == 4
     assert read_model.proposal_count == 3
@@ -117,6 +141,17 @@ def test_context_budget_read_model_denies_authority_flags(field: str) -> None:
         RuntimeContextBudgetPressureReadModel(**payload)
 
 
+def test_context_budget_rejects_authority_mapping_drift() -> None:
+    payload = build_runtime_context_budget_pressure_read_model().model_dump(mode="json")
+    payload["authority_state_mapping_ref"] = "lane-ref:wrong-context-budget"
+
+    with pytest.raises(
+        ValueError,
+        match="RUNTIME_CONTEXT_BUDGET_AUTHORITY_MAPPING_MISMATCH",
+    ):
+        RuntimeContextBudgetPressureReadModel(**payload)
+
+
 @pytest.mark.parametrize(
     "field",
     [
@@ -191,6 +226,10 @@ def test_context_budget_api_returns_read_only_posture() -> None:
     assert body["operation"] == "api_runtime_context_budget_pressure"
     data = body["data"]
     assert data["route_ref"] == "GET /api/runtime/context-budget-pressure"
+    assert data["authority_state_mapping_ref"] == (
+        RUNTIME_CONTEXT_BUDGET_PRESSURE_AUTHORITY_MAPPING_REF
+    )
+    assert data["authority_state_decision_outcome"] == "allow"
     assert data["pressure_level"] == "warning"
     assert data["hidden_compression_enabled"] is False
     assert data["automatic_context_mutation_enabled"] is False
@@ -218,7 +257,13 @@ def test_context_budget_cli_uses_same_read_model() -> None:
 
     payload = json.loads(result.stdout)
     read_model = payload["runtime_context_budget_pressure"]
+    authority_state = payload["authority_state"]
     assert payload["safe_refs_only"] is True
+    assert (
+        authority_state["mapping_ref"]
+        == RUNTIME_CONTEXT_BUDGET_PRESSURE_AUTHORITY_MAPPING_REF
+    )
+    assert authority_state["decision_outcome"] == "allow"
     assert payload["hidden_compression_performed"] is False
     assert payload["automatic_context_mutation_performed"] is False
     assert payload["model_summarization_call_performed"] is False
@@ -226,4 +271,8 @@ def test_context_budget_cli_uses_same_read_model() -> None:
     assert payload["cache_write_performed"] is False
     assert read_model["route_ref"] == "GET /api/runtime/context-budget-pressure"
     assert read_model["cli_ref"] == "uaa runtime inspect-context-budget-pressure"
+    assert (
+        read_model["authority_state_cli_ref"]
+        == RUNTIME_CONTEXT_BUDGET_PRESSURE_AUTHORITY_STATE_CLI_REF
+    )
     assert read_model["segment_count"] == 4

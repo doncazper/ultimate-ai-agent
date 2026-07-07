@@ -4914,6 +4914,28 @@ function isSafeRuntimeContextBudgetPressure(
     value.status === "read_only_context_budget_pressure_posture" &&
     value.route_ref === "GET /api/runtime/context-budget-pressure" &&
     value.cli_ref === "uaa runtime inspect-context-budget-pressure" &&
+    value.authority_state_route_ref === "GET /api/runtime/authority-state" &&
+    value.authority_state_cli_ref ===
+      "repo-local-command:uaa-runtime-inspect-authority-state" &&
+    value.authority_state_mapping_ref ===
+      "lane-ref:runtime-context-budget-pressure-read-model" &&
+    isSafeTrustAuthorityRef(value.authority_state_catalog_ref) &&
+    isSafeTrustAuthorityRef(value.authority_state_decision_ref) &&
+    hasExactStringValue(
+      value.authority_state_decision_outcome,
+      TRUST_AUTHORITY_DECISION_OUTCOMES,
+    ) &&
+    typeof value.authority_state_status === "string" &&
+    value.authority_state_status.length > 0 &&
+    typeof value.authority_state_operator_message === "string" &&
+    value.authority_state_operator_message.length > 0 &&
+    isNonEmptyStringArray(value.authority_state_reason_refs) &&
+    value.authority_state_reason_refs.every(isSafeTrustAuthorityRef) &&
+    isNonEmptyStringArray(value.unsupported_adapter_refs) &&
+    value.unsupported_adapter_refs.includes(
+      "adapter-ref:context-budget-model-summarization:not-implemented",
+    ) &&
+    value.unsupported_adapter_refs.every(isSafeTrustAuthorityRef) &&
     allowedPressureLevels.has(value.pressure_level) &&
     value.segment_count === value.segments.length &&
     value.proposal_count === value.proposals.length &&

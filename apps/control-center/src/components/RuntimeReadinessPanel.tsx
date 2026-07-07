@@ -3126,6 +3126,21 @@ export function RuntimeReadinessPanel({
             <dd>{contextBudgetPressure.cli_ref}</dd>
           </div>
           <div>
+            <dt>Authority</dt>
+            <dd>
+              {contextBudgetPressure.authority_state_decision_outcome} /{" "}
+              {contextBudgetPressure.authority_state_status}
+            </dd>
+          </div>
+          <div>
+            <dt>Capability mapping</dt>
+            <dd>{contextBudgetPressure.authority_state_mapping_ref}</dd>
+          </div>
+          <div>
+            <dt>Decision ref</dt>
+            <dd>{contextBudgetPressure.authority_state_decision_ref}</dd>
+          </div>
+          <div>
             <dt>Budget units</dt>
             <dd>
               {contextBudgetPressure.estimated_token_count} /{" "}
@@ -3216,6 +3231,30 @@ export function RuntimeReadinessPanel({
               <ul className="compact-list">
                 {contextBudgetPressure.blocked_authority_refs
                   .slice(0, 4)
+                  .map((ref) => (
+                    <li key={ref}>{ref}</li>
+                  ))}
+              </ul>
+            </dd>
+          </div>
+          <div>
+            <dt>Unsupported adapters</dt>
+            <dd>
+              <ul className="compact-list">
+                {contextBudgetPressure.unsupported_adapter_refs
+                  .slice(0, 5)
+                  .map((ref) => (
+                    <li key={ref}>{ref}</li>
+                  ))}
+              </ul>
+            </dd>
+          </div>
+          <div>
+            <dt>Authority reason</dt>
+            <dd>
+              <ul className="compact-list">
+                {contextBudgetPressure.authority_state_reason_refs
+                  .slice(0, 3)
                   .map((ref) => (
                     <li key={ref}>{ref}</li>
                   ))}

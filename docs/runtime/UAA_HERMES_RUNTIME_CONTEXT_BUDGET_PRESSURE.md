@@ -1,6 +1,6 @@
 # UAA Hermes Runtime Context Budget Pressure
 
-Status: Hermes Runtime Adoption Phase 24 repo-safe read model
+Status: Hermes Runtime Adoption Phase 24 AuthorityState-bound repo-safe read model
 
 Phase 24 adds Python Core ownership for context budget pressure posture:
 
@@ -12,11 +12,14 @@ Phase 24 adds Python Core ownership for context budget pressure posture:
 - Control Center Runtime readiness display
 - `scripts/verify_hermes_runtime_adoption_phase_24.py`
 
-This is context budget posture only. It exposes safe budget estimates, warning
-refs, and review-only trimming or summary proposals. It does not perform hidden
-compression, automatic context mutation, model summarization calls, context
-injection, provider SDK calls, cache writes, raw context persistence, or
-production authority.
+The read model is mapped as
+`lane-ref:runtime-context-budget-pressure-read-model` under Read-only
+`workspace/read` and is evaluated from the active AuthorityLease decision
+catalog. This is context budget posture only. It exposes safe budget estimates,
+warning refs, and review-only trimming or summary proposals. It does not
+perform hidden compression, automatic context mutation, model summarization
+calls, context injection, provider SDK calls, cache writes, raw context
+persistence, or production authority.
 
 ## Full-Strength Version
 
@@ -37,6 +40,8 @@ The current implementation exposes a backend-owned read model containing:
 - review-only trimming, summary, and operator-choice proposal refs
 - source refs and retrieval log refs
 - proof, evidence, verifier, and next-safe-action refs
+- AuthorityState route, CLI, mapping, catalog, decision, status, reason, and
+  unsupported-adapter refs
 - explicit blocked authority refs
 - redactions for raw context, prompt, response, provider payload, and summary
   material

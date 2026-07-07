@@ -3158,6 +3158,34 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ],
         ),
         _mapping(
+            "lane-ref:runtime-context-budget-pressure-read-model",
+            "Runtime context budget pressure read model",
+            AuthorityDomain.workspace,
+            AuthorityCapability.read,
+            TrustMode.read_only,
+            "implemented_authority_bound_read_model",
+            ["GET /api/runtime/context-budget-pressure"],
+            ["repo-local-command:uaa-runtime-inspect-context-budget-pressure"],
+            (
+                "Context budget pressure inspection reads budget, warning, "
+                "proposal, proof, blocker, and next safe action refs under "
+                "Workspace read authority. Hidden compression, context mutation, "
+                "model/provider calls, cache writes, material persistence, and "
+                "production authority remain blocked."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:context-budget-hidden-compression:not-implemented",
+                "adapter-ref:context-budget-automatic-mutation:not-implemented",
+                "adapter-ref:context-budget-model-summarization:not-implemented",
+                "adapter-ref:context-budget-turn-material-persistence:not-implemented",
+                "adapter-ref:context-budget-provider-material-persistence:not-implemented",
+                "adapter-ref:context-budget-context-injection:not-implemented",
+                "adapter-ref:context-budget-provider-sdk-call:not-implemented",
+                "adapter-ref:context-budget-cache-write:not-implemented",
+                "adapter-ref:context-budget-production-authority:not-implemented",
+            ],
+        ),
+        _mapping(
             "lane-ref:runtime-command-git-status",
             "Git status",
             AuthorityDomain.workspace,

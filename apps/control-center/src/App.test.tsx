@@ -7887,6 +7887,14 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getAllByText("uaa runtime inspect-context-budget-pressure").length,
     ).toBeGreaterThan(0);
+    expect(
+      screen.getByText("lane-ref:runtime-context-budget-pressure-read-model"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "adapter-ref:context-budget-model-summarization:not-implemented",
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText("Trim low-signal context refs")).toBeInTheDocument();
     expect(
       screen.getByText("blocked-authority:context-budget-no-hidden-compression"),

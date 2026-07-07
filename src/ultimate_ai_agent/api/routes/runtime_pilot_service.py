@@ -49,7 +49,7 @@ from ultimate_ai_agent.core.runtime_gateway import (
     build_runtime_interface_mode_read_model,
     build_runtime_approval_bridge_read_model_from_authority_catalog,
     build_runtime_capability_discovery_read_model_from_authority_catalog,
-    build_runtime_context_budget_pressure_read_model,
+    build_runtime_context_budget_pressure_read_model_from_authority_catalog,
     build_runtime_delegation_adapter_read_model,
     build_runtime_doctor_diagnostics_read_model_from_authority_catalog,
     build_runtime_background_jobs_read_model,
@@ -404,12 +404,15 @@ def get_api_runtime_prompt_stability_tiers() -> ResultEnvelope:
 
 @router.get("/context-budget-pressure", response_model=ResultEnvelope)
 def get_api_runtime_context_budget_pressure() -> ResultEnvelope:
-    read_model = build_runtime_context_budget_pressure_read_model()
+    authority_state = _authority_store().build_state_read_model()
+    read_model = build_runtime_context_budget_pressure_read_model_from_authority_catalog(
+        authority_decision_catalog=authority_state.decision_catalog,
+    )
     return ResultEnvelope(
         success=True,
         operation="api_runtime_context_budget_pressure",
         service="GovernedRuntimeAPI",
-        trace_id=read_model.snapshot_ref,
+        trace_id=read_model.snapshot_hash_ref,
         data=read_model.model_dump(mode="json"),
         evidence=[{"evidence_ref": "evidence-ref:runtime-context-budget:phase-24"}],
         redactions_applied=read_model.redactions_applied,

@@ -236,14 +236,16 @@ refs only. Raw prompt/response persistence, hidden prompt/context injection,
 model calls, provider SDK calls, cache writes, model-output authority, and
 production authority remain blocked.
 `GET /api/runtime/context-budget-pressure` exposes a protected read-only Python
-Core Hermes Runtime Adoption Phase 24 context budget pressure posture. It
-returns context budget segment refs, pressure levels, warning refs, review-only
-trimming and summary proposal refs, source refs, retrieval log refs, proof refs,
-verifier refs, next-safe-action refs, and blocked authority refs only. Hidden
-compression, automatic context mutation, model summarization calls, context
-injection, provider SDK calls, cache writes, raw
-context/prompt/response/provider-payload persistence, and production authority
-remain blocked.
+Core Hermes Runtime Adoption Phase 24 context budget pressure posture bound to
+`lane-ref:runtime-context-budget-pressure-read-model` through AuthorityState.
+It returns context budget segment refs, pressure levels, warning refs,
+review-only trimming and summary proposal refs, source refs, retrieval log
+refs, AuthorityState mapping/decision refs, unsupported adapter refs, proof
+refs, verifier refs, next-safe-action refs, and blocked authority refs only.
+Hidden compression, automatic context mutation, model summarization calls,
+context injection, provider SDK calls, cache writes, raw context/prompt/
+response/provider material persistence, and production authority remain
+blocked.
 `GET /api/runtime/hardline-command-blocklist` exposes a protected read-only
 Python Core Hermes Runtime Adoption Phase 25 hardline command blocklist
 posture. It returns command-shape classification refs, denied category refs,

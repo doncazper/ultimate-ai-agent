@@ -16021,6 +16021,33 @@ export const mockControlCenterData: ControlCenterData = {
     snapshot_hash_ref: "snapshot-hash-ref:runtime-context-budget:mock",
     route_ref: "GET /api/runtime/context-budget-pressure",
     cli_ref: "uaa runtime inspect-context-budget-pressure",
+    authority_state_route_ref: "GET /api/runtime/authority-state",
+    authority_state_cli_ref:
+      "repo-local-command:uaa-runtime-inspect-authority-state",
+    authority_state_mapping_ref:
+      "lane-ref:runtime-context-budget-pressure-read-model",
+    authority_state_catalog_ref:
+      "authority-decision-catalog-ref:runtime-context-budget-pressure-read-model",
+    authority_state_decision_ref:
+      "authority-policy-decision-ref:runtime-context-budget-pressure-read-model:allow",
+    authority_state_decision_outcome: "allow",
+    authority_state_status: "implemented_authority_bound_read_model",
+    authority_state_operator_message:
+      "Runtime context budget pressure is allowed only as Workspace read under active AuthorityLease scope.",
+    authority_state_reason_refs: [
+      "authority-reason-ref:context-budget:workspace-read-lease",
+    ],
+    unsupported_adapter_refs: [
+      "adapter-ref:context-budget-hidden-compression:not-implemented",
+      "adapter-ref:context-budget-automatic-mutation:not-implemented",
+      "adapter-ref:context-budget-model-summarization:not-implemented",
+      "adapter-ref:context-budget-turn-material-persistence:not-implemented",
+      "adapter-ref:context-budget-provider-material-persistence:not-implemented",
+      "adapter-ref:context-budget-context-injection:not-implemented",
+      "adapter-ref:context-budget-provider-sdk-call:not-implemented",
+      "adapter-ref:context-budget-cache-write:not-implemented",
+      "adapter-ref:context-budget-production-authority:not-implemented",
+    ],
     control_center_ref: "control-center-route:runtime",
     safe_summary:
       "Runtime context budget mock fallback shows safe budget pressure refs only; hidden compression remains blocked.",

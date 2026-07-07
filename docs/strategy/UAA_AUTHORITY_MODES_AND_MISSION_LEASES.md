@@ -151,6 +151,10 @@ surfaces are:
   contract inspection decision while hidden/context injection, model/provider
   calls, cache writes, turn/provider material persistence, output authority,
   and production authority remain blocked.
+  Runtime context budget pressure exposes the Read-only `workspace/read`
+  budget/proposal inspection decision while hidden compression, automatic
+  context mutation, model/provider calls, cache writes, turn/provider material
+  persistence, and production authority remain blocked.
   These API/CLI surfaces remain safe-ref inspection only unless exact active
   leases, implemented adapters, and existing runtime gates pass.
 - `GET /api/runtime/authority-state#decision_summary` and
