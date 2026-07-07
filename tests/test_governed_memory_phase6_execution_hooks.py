@@ -13,7 +13,18 @@ from scripts.verify_governed_cognitive_memory_spine_v1 import (
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.api.rate_limits import route_rate_limit_group
+from ultimate_ai_agent.core.authority import (
+    AUTHORITY_STATE_DIR_ENV,
+    AuthorityCapability,
+    AuthorityDomain,
+    AuthorityLease,
+    AuthorityLeaseIssueRequest,
+    AuthorityLeaseStore,
+    TrustMode,
+)
 from ultimate_ai_agent.core.memory import (
+    MEMORY_CONTEXT_PACK_ACTION_AUTHORITY_CAPABILITY_REF,
+    MEMORY_CONTEXT_PACK_ACTION_AUTHORITY_DOMAIN_REF,
     ContextPackProposal,
     MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_CONTRACT_REF,
     MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_ROUTE_REF,
@@ -30,6 +41,7 @@ from ultimate_ai_agent.core.memory import (
     memory_context_pack_action_scope_ref,
 )
 from ultimate_ai_agent.core.storage import (
+    FounderLoopAuthorityError,
     FounderLoopRepository,
     FounderLoopStorageDuplicateError,
     FounderLoopStorageError,
@@ -99,8 +111,29 @@ def _decision_request() -> MemoryReviewDecisionRequest:
     )
 
 
+def _memory_write_draft_lease() -> AuthorityLease:
+    return AuthorityLease(
+        lease_ref="authority-lease-ref:phase6-1-memory-write-draft",
+        mode=TrustMode.ask_before_changes,
+        domains={
+            AuthorityDomain.memory: [
+                AuthorityCapability.write,
+                AuthorityCapability.draft,
+            ]
+        },
+        safe_summary=(
+            "Test lease grants Memory write for reviewed recall setup and "
+            "Memory draft for context-pack Action proposal creation."
+        ),
+    )
+
+
 def _repo_with_context_pack(tmp_path: Path) -> tuple[FounderLoopRepository, dict[str, object]]:
-    repo = FounderLoopRepository(tmp_path / "founder_loop", seed_defaults=True)
+    repo = FounderLoopRepository(
+        tmp_path / "founder_loop",
+        seed_defaults=True,
+        active_authority_leases=[_memory_write_draft_lease()],
+    )
     candidate_ref = str(
         repo.list_memory_review_queue(limit=1)[0]["business_memory_candidate_ref"]
     )
@@ -228,6 +261,11 @@ def test_phase6_1_receipt_rejects_execution_authority_flags() -> None:
         "audit_ref": "audit:memory-context-pack-action:phase6-1-safe",
         "idempotency_key_ref": "idempotency-ref:phase6-1-safe",
         "payload_fingerprint_ref": "payload-fingerprint:memory-context-pack-action:safe",
+        "authority_decision_ref": "authority-policy-decision-ref:phase6-1-safe",
+        "authority_decision_outcome": "allow",
+        "authority_lease_ref": "authority-lease-ref:phase6-1-safe",
+        "authority_audit_ref": "audit-ref:authority-policy:phase6-1-safe",
+        "authority_policy_receipt_ref": "receipt-ref:authority-policy:phase6-1-safe",
         "evidence_timeline_event_ref": "evidence-timeline:memory-context-pack-action/safe",
         "rollback_ref": "rollback-ref:memory-context-pack-action:safe",
         "safe_disable_ref": "safe-disable-ref:memory-context-pack-action:safe",
@@ -277,7 +315,14 @@ def test_phase6_1_storage_creates_internal_action_proposal_only(
     assert receipt["provider_model_call_performed"] is False
     assert receipt["context_injection_performed"] is False
     assert receipt["memory_write_performed"] is False
+    assert receipt["authority_decision_outcome"] == "allow"
+    assert receipt["authority_domain_ref"] == MEMORY_CONTEXT_PACK_ACTION_AUTHORITY_DOMAIN_REF
+    assert (
+        receipt["authority_capability_ref"]
+        == MEMORY_CONTEXT_PACK_ACTION_AUTHORITY_CAPABILITY_REF
+    )
     assert context_pack_ref in receipt["evidence_refs"]
+    assert receipt["authority_decision_ref"] in receipt["evidence_refs"]
 
     action = next(
         item
@@ -339,6 +384,7 @@ def test_phase6_1_storage_can_capture_backend_owned_proposal_approval(
     assert receipt["context_injection_performed"] is False
     assert receipt["connector_write_performed"] is False
     assert receipt["memory_write_performed"] is False
+    assert receipt["authority_decision_outcome"] == "allow"
 
     action = next(
         item
@@ -413,6 +459,42 @@ def test_phase6_1_storage_requires_exact_scope_approval_replay_and_conflict(
         )
 
 
+def test_phase6_1_storage_requires_memory_draft_authority_before_mutation(
+    tmp_path: Path,
+) -> None:
+    repo, context_pack = _repo_with_context_pack(tmp_path)
+    context_pack_ref = str(context_pack["context_pack_ref"])
+    item_ref = memory_context_pack_action_item_ref(context_pack_ref)
+
+    with pytest.raises(FounderLoopAuthorityError) as exc_info:
+        repo.record_memory_context_pack_action_proposal(
+            context_pack_ref=context_pack_ref,
+            request=MemoryContextPackActionProposalRequest(
+                metadata_refs=["metadata-ref:phase6-1-authority-denied"]
+            ),
+            idempotency_key_ref="idempotency-ref:phase6-1-authority-denied",
+            active_authority_leases=[],
+        )
+
+    assert exc_info.value.code == (
+        "FOUNDER_LOOP_MEMORY_CONTEXT_PACK_ACTION_AUTHORITY_DENIED"
+    )
+    assert (
+        exc_info.value.required_refs["required_domain_ref"]
+        == MEMORY_CONTEXT_PACK_ACTION_AUTHORITY_DOMAIN_REF
+    )
+    assert all(
+        item["item_ref"] != item_ref
+        for item in repo.list_action_inbox(limit=200)
+    )
+    assert (
+        repo.list_memory_context_pack_action_proposal_receipts(
+            context_pack_ref=context_pack_ref,
+        )
+        == []
+    )
+
+
 def test_phase6_1_action_proposal_rolls_back_projection_on_receipt_failure(
     tmp_path: Path,
 ) -> None:
@@ -470,7 +552,10 @@ def test_phase6_1_api_route_requires_idempotency_and_exact_approval(
     tmp_path: Path,
 ) -> None:
     monkeypatch.setenv("UAA_FOUNDER_LOOP_STATE_DIR", str(tmp_path / "founder_loop"))
-    repo = FounderLoopRepository.from_env()
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(tmp_path / "authority"))
+    repo = FounderLoopRepository.from_env(
+        active_authority_leases=[_memory_write_draft_lease()]
+    )
     candidate_ref = str(
         repo.list_memory_review_queue(limit=1)[0]["business_memory_candidate_ref"]
     )
@@ -504,6 +589,7 @@ def test_phase6_1_api_route_requires_idempotency_and_exact_approval(
     assert response.status_code == 200
     data = response.json()["data"]
     assert data["context_pack_ref"] == context_pack_ref
+    assert data["authority_decision_outcome"] == "allow"
     assert data["action_executed"] is False
 
     replay = client.post(
@@ -531,7 +617,10 @@ def test_phase6_1_api_can_capture_backend_owned_proposal_approval(
     tmp_path: Path,
 ) -> None:
     monkeypatch.setenv("UAA_FOUNDER_LOOP_STATE_DIR", str(tmp_path / "founder_loop"))
-    repo = FounderLoopRepository.from_env()
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(tmp_path / "authority"))
+    repo = FounderLoopRepository.from_env(
+        active_authority_leases=[_memory_write_draft_lease()]
+    )
     candidate_ref = str(
         repo.list_memory_review_queue(limit=1)[0]["business_memory_candidate_ref"]
     )
@@ -567,6 +656,65 @@ def test_phase6_1_api_can_capture_backend_owned_proposal_approval(
     assert data["context_injection_performed"] is False
     assert data["provider_model_call_performed"] is False
     assert data["memory_write_performed"] is False
+    assert data["authority_decision_outcome"] == "allow"
+
+
+def test_phase6_1_api_route_requires_memory_draft_authority(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setenv("UAA_FOUNDER_LOOP_STATE_DIR", str(tmp_path / "founder_loop"))
+    authority_state_dir = tmp_path / "authority"
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(authority_state_dir))
+    AuthorityLeaseStore(authority_state_dir).issue_lease(
+        AuthorityLeaseIssueRequest(
+            mode=TrustMode.ask_before_changes,
+            requested_domains={
+                AuthorityDomain.workspace: [AuthorityCapability.write]
+            },
+            decision_reason_ref="reason-ref:phase6-1-workspace-only",
+            safe_summary="Workspace-only lease should not grant Memory draft.",
+        ),
+        idempotency_ref="idempotency-ref:phase6-1-workspace-only",
+    )
+    repo = FounderLoopRepository.from_env(
+        active_authority_leases=[_memory_write_draft_lease()]
+    )
+    candidate_ref = str(
+        repo.list_memory_review_queue(limit=1)[0]["business_memory_candidate_ref"]
+    )
+    repo.record_memory_review_decision(
+        candidate_ref=candidate_ref,
+        decision="accept",
+        request=_decision_request(),
+        idempotency_key_ref="idempotency-ref:phase6-1-api-authority-accept",
+    )
+    context_pack_ref = str(
+        repo.memory_context_pack_proposals()["proposals"][0]["context_pack_ref"]
+    )
+    client = TestClient(app)
+
+    response = client.post(
+        f"/control-center/memory/context-packs/{context_pack_ref}/action-proposal",
+        json={
+            "decision_reason_ref": "decision-reason-ref:phase6-1-api-authority",
+            "metadata_refs": ["metadata-ref:phase6-1-api-authority"],
+        },
+        headers={
+            "x-uaa-idempotency-key": "idempotency-ref:phase6-1-api-authority"
+        },
+    )
+
+    assert response.status_code == 403
+    detail = response.json()["detail"]
+    assert detail["code"] == "FOUNDER_LOOP_MEMORY_CONTEXT_PACK_ACTION_AUTHORITY_DENIED"
+    assert (
+        detail["required_refs"]["required_capability_ref"]
+        == MEMORY_CONTEXT_PACK_ACTION_AUTHORITY_CAPABILITY_REF
+    )
+    assert repo.list_memory_context_pack_action_proposal_receipts(
+        context_pack_ref=context_pack_ref,
+    ) == []
 
 
 def test_phase6_1_route_manifest_and_rate_limit_truth() -> None:

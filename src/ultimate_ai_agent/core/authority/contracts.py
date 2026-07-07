@@ -1880,6 +1880,25 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             "Requires Memory domain write authority; Ask before changes returns ask until an operator confirms.",
         ),
         _mapping(
+            "lane-ref:memory-context-pack-action-proposal",
+            "Memory context-pack internal Action proposal",
+            AuthorityDomain.memory,
+            AuthorityCapability.draft,
+            TrustMode.read_only,
+            "implemented_exact_lease_required_proposal_only",
+            [
+                "POST /control-center/memory/context-packs/{context_pack_ref}/action-proposal"
+            ],
+            ["scripts/dev/uaa_founder_loop.py memory-context-pack-action-proposal"],
+            (
+                "Requires Memory draft AuthorityLease scope before reviewed "
+                "context-pack refs can create an internal Action proposal receipt; "
+                "action execution, runtime context injection, memory write, "
+                "connector writes, browser automation, provider/model calls, "
+                "and production authority remain denied."
+            ),
+        ),
+        _mapping(
             "lane-ref:crm-local-mutation",
             "CRM local mutation",
             AuthorityDomain.contacts,

@@ -62,11 +62,13 @@ from ultimate_ai_agent.core.memory import (  # noqa: E402
     MEMORY_FEEDBACK_QUALITY_BLOCKED_STATE_REFS,
     MEMORY_MANUAL_INTAKE_BLOCKED_STATE_REFS,
     ManualMemoryCandidateRequest,
+    MemoryContextPackActionProposalRequest,
     MemoryFeedbackRequest,
     MemoryReviewDecisionRequest,
 )
 from ultimate_ai_agent.core.storage import (  # noqa: E402
     FOUNDER_LOOP_STATE_DIR_ENV,
+    FounderLoopAuthorityError,
     FounderLoopRepository,
     FounderLoopStorageDuplicateError,
     FounderLoopStorageError,
@@ -1448,6 +1450,74 @@ def _inspect_memory_context_pack_preview(args: argparse.Namespace) -> int:
     return 0
 
 
+def _record_memory_context_pack_action_proposal(args: argparse.Namespace) -> int:
+    repo = _repository(args)
+    command_ref = "repo-local-command:founder-loop-memory-context-pack-action-proposal"
+    request = MemoryContextPackActionProposalRequest(
+        exact_approval_scope_ref=args.exact_approval_scope_ref,
+        approval_ref=args.approval_ref,
+        decision_reason_ref=args.decision_reason_ref,
+        risk_class=args.risk_class,
+        priority=args.priority,
+        metadata_refs=args.metadata_ref or [],
+    )
+    try:
+        receipt = repo.record_memory_context_pack_action_proposal(
+            context_pack_ref=args.context_pack_ref,
+            request=request,
+            idempotency_key_ref=args.idempotency_ref,
+        )
+    except FounderLoopAuthorityError as exc:
+        _print_json(
+            _blocked_cli_payload(
+                command_ref=command_ref,
+                error_ref=exc.code,
+                reason_refs=exc.reason_refs,
+                required_refs=exc.required_refs,
+            )
+        )
+        return 1
+    except FounderLoopStorageDuplicateError:
+        _print_json(
+            _blocked_cli_payload(
+                command_ref=command_ref,
+                error_ref=(
+                    "FOUNDER_LOOP_MEMORY_CONTEXT_PACK_ACTION_IDEMPOTENCY_CONFLICT"
+                ),
+            )
+        )
+        return 1
+    except FounderLoopStorageError as exc:
+        _print_json(
+            _blocked_cli_payload(
+                command_ref=command_ref,
+                error_ref=str(exc)
+                or "FOUNDER_LOOP_MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_BLOCKED",
+            )
+        )
+        return 1
+    except (ValueError, ValidationError):
+        _print_json(
+            _blocked_cli_payload(
+                command_ref=command_ref,
+                error_ref="FOUNDER_LOOP_MEMORY_CONTEXT_PACK_ACTION_UNSAFE_INPUT",
+            )
+        )
+        return 1
+    output = {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": command_ref,
+        "memory_context_pack_action_proposal_receipt": receipt,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "action_execution_enabled": False,
+        "context_injection_authorized": False,
+    }
+    _print_json(output)
+    return 0
+
+
 def _inspect_memory_learning_posture(args: argparse.Namespace) -> int:
     repo = _repository(args)
     try:
@@ -2092,6 +2162,47 @@ def build_parser() -> argparse.ArgumentParser:
     memory_context_pack_preview_parser.add_argument("--context-pack-ref", required=True)
     memory_context_pack_preview_parser.set_defaults(
         func=_inspect_memory_context_pack_preview
+    )
+
+    memory_context_pack_action_parser = subparsers.add_parser(
+        "memory-context-pack-action-proposal",
+        help=(
+            "Record one AuthorityLease-gated internal Action proposal from a "
+            "reviewed context pack without execution."
+        ),
+    )
+    memory_context_pack_action_parser.add_argument("--context-pack-ref", required=True)
+    memory_context_pack_action_parser.add_argument(
+        "--idempotency-ref",
+        required=True,
+        help="Safe idempotency ref for the proposal receipt.",
+    )
+    memory_context_pack_action_parser.add_argument(
+        "--exact-approval-scope-ref",
+        default=None,
+    )
+    memory_context_pack_action_parser.add_argument("--approval-ref", default=None)
+    memory_context_pack_action_parser.add_argument(
+        "--decision-reason-ref",
+        default="decision-reason-ref:phase6.1-context-pack-action-proposal",
+    )
+    memory_context_pack_action_parser.add_argument(
+        "--risk-class",
+        choices=["low", "medium", "high", "critical"],
+        default="low",
+    )
+    memory_context_pack_action_parser.add_argument(
+        "--priority",
+        choices=["low", "medium", "high"],
+        default="medium",
+    )
+    memory_context_pack_action_parser.add_argument(
+        "--metadata-ref",
+        action="append",
+        default=[],
+    )
+    memory_context_pack_action_parser.set_defaults(
+        func=_record_memory_context_pack_action_proposal
     )
 
     memory_learning_posture_parser = subparsers.add_parser(

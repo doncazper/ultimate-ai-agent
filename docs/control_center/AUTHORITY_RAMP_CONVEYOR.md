@@ -53,7 +53,7 @@ The near-term foundation stays read-only or proposal-only:
 | Read-only real-world web fetch through `WebAccessGateway` | Implemented as an explicit M72 tool-runtime transport, CLI inspector, and the scoped Control Center Web Evidence product-slice route `POST /control-center/web-evidence/attach`. | Requires active Browser/read AuthorityLease scope, HTTPS GET only, explicit public allowlist, bounded redacted preview, safe refs, authority decision refs, gateway audit/request refs, and local proof/evidence attachment refs. No raw body/header persistence, browser automation, provider SDK call, connector read/write, credentials/cookies, downloads/uploads, POST/PUT/PATCH/DELETE to the remote source, memory write, context injection, action execution, generic browsing, or production authority. |
 | Read-only connector metadata | Partial source-readiness posture appears in Today, Morning Briefing, and Action Inbox. | No account auth, polling, raw source reads, send/archive/delete/label/move, calendar write, connector runtime, or connector write. |
 | Memory-to-loop proposals | Implemented as reviewed recall refs, memory-derived Action proposal refs, and Weekly Review carry-forward refs. | Memory is recall, not truth or authority. No automatic memory write, context injection, action execution, CRM sync, connector write, or provider/model authority. |
-| Context-pack proposal display | Implemented as read-only `/control-center/memory/context-packs` inspection plus Control Center Memory display. The prerequisite contract for future context-pack preview/materialization is documented, with CLI inspection through `memory-context-manifest`. | Context packs are proposal refs only. No hidden prompt writing, runtime context injection, provider/model call, connector sync, memory write, or production authority. |
+| Context-pack proposal display | Implemented as read-only `/control-center/memory/context-packs` inspection plus Control Center Memory display. Phase 6.1 internal Action proposal creation is implemented only as active `memory/draft` AuthorityLease-gated, exact-approved, idempotent proposal receipt creation, with CLI parity through `memory-context-pack-action-proposal`. | Context packs are proposal refs only. Internal Action proposals do not execute actions. No hidden prompt writing, runtime context injection, provider/model call, connector sync, memory write, or production authority. |
 
 ## Authority Candidates
 
@@ -83,12 +83,13 @@ Broader automatic memory writes, delete/export execution, context injection,
 connector writes, and source-truth authority remain blocked.
 
 `context_injection` is now `contract_ready` only for a future governed
-context-pack preview/materialization lane. It has exact scope, source/destination
-ref, approval, idempotency, receipt/evidence, rollback/safe-disable, redaction,
-CLI, test, and verifier refs, but it is not selected as a micro-lane. Runtime
-prompt/model context injection, automatic memory inclusion, connector-derived
-context, browser/web-derived context, shell/file-derived context, raw payload
-persistence, and production authority remain blocked.
+context-pack preview/materialization lane. Phase 6.1 may create an internal
+Action proposal receipt from reviewed context-pack refs only after active
+`memory/draft` AuthorityLease scope, exact approval, and idempotency validation;
+it is not runtime context injection. Runtime prompt/model context injection,
+automatic memory inclusion, connector-derived context, browser/web-derived
+context, shell/file-derived context, raw payload persistence, and production
+authority remain blocked.
 
 The scorecard may mark a class as `not_ready`, `proposal_only_ready`,
 `contract_ready`, `micro_lane_candidate`, `implemented`, or

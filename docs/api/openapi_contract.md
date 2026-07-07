@@ -395,7 +395,8 @@ Contract rules:
   projections, and identity/session/preference/commitment representation
   proposals plus proposal-only context-pack envelopes from reviewed source
   lanes with source, evidence, and receipt refs. Phase 6.1 may create an
-  internal Action proposal receipt from an exact-approved context-pack ref only.
+  internal Action proposal receipt from an active `memory/draft`
+  AuthorityLease-gated, exact-approved context-pack ref only.
   `local_task_create` commits local task state only after exact local approval,
   idempotency, durable receipt, and Evidence Timeline event posture. They do
   not grant generic action execution,

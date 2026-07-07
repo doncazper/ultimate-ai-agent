@@ -348,6 +348,12 @@ from ultimate_ai_agent.core.memory.feature_mine import (
     validate_query_mode,
 )
 from ultimate_ai_agent.core.memory.execution_hooks import (
+    MEMORY_CONTEXT_PACK_ACTION_AUTHORITY_ACTION_REF,
+    MEMORY_CONTEXT_PACK_ACTION_AUTHORITY_CAPABILITY_REF,
+    MEMORY_CONTEXT_PACK_ACTION_AUTHORITY_DOMAIN_REF,
+    MEMORY_CONTEXT_PACK_ACTION_AUTHORITY_LANE_REF,
+    MEMORY_CONTEXT_PACK_ACTION_AUTHORITY_REQUIRED_BLOCKED_REF,
+    MEMORY_CONTEXT_PACK_ACTION_AUTHORITY_REQUIRED_MODE_REF,
     MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_CONTRACT_REF,
     MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_REQUESTED_ACTION,
     MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_ROUTE_REF,
@@ -11398,6 +11404,7 @@ class FounderLoopRepository:
         context_pack_ref: str,
         request: MemoryContextPackActionProposalRequest,
         idempotency_key_ref: str,
+        active_authority_leases: list[AuthorityLease] | None = None,
     ) -> dict[str, Any]:
         _validate_safe_ref(context_pack_ref, "context_pack_ref")
         _validate_safe_ref(idempotency_key_ref, "idempotency_key_ref")
@@ -11413,6 +11420,13 @@ class FounderLoopRepository:
                 "FOUNDER_LOOP_MEMORY_CONTEXT_PACK_ACTION_SCOPE_MISMATCH"
             )
         context_pack_proposal_ref = str(context_pack["proposal_ref"])
+        authority_decision = self._memory_context_pack_action_authority_decision(
+            context_pack_ref=context_pack_ref,
+            context_pack_proposal_ref=context_pack_proposal_ref,
+            expected_scope_ref=expected_scope_ref,
+            idempotency_key_ref=idempotency_key_ref,
+            active_authority_leases=active_authority_leases,
+        )
         request = self._request_with_backend_owned_memory_context_pack_action_approval_if_needed(
             context_pack_ref=context_pack_ref,
             context_pack_proposal_ref=context_pack_proposal_ref,
@@ -11499,6 +11513,18 @@ class FounderLoopRepository:
                     *source_evidence_refs,
                     *supporting_receipt_refs,
                     *request.metadata_refs,
+                    authority_decision.decision_ref,
+                    authority_decision.audit_record_ref,
+                    *(
+                        [authority_decision.receipt_ref]
+                        if authority_decision.receipt_ref
+                        else []
+                    ),
+                    *(
+                        [authority_decision.lease_ref]
+                        if authority_decision.lease_ref
+                        else []
+                    ),
                 ]
             )
         )
@@ -11518,6 +11544,11 @@ class FounderLoopRepository:
             audit_ref=audit_ref,
             idempotency_key_ref=idempotency_key_ref,
             payload_fingerprint_ref=payload_fingerprint_ref,
+            authority_decision_ref=authority_decision.decision_ref,
+            authority_decision_outcome=authority_decision.outcome,
+            authority_lease_ref=authority_decision.lease_ref,
+            authority_audit_ref=authority_decision.audit_record_ref,
+            authority_policy_receipt_ref=authority_decision.receipt_ref,
             evidence_timeline_event_ref=evidence_event_ref,
             source_memory_record_refs=source_memory_record_refs,
             l1_preview_refs=l1_preview_refs,
@@ -11615,6 +11646,18 @@ class FounderLoopRepository:
             ),
             "approval_ref": request.approval_ref,
             "expected_receipt_ref": receipt_ref,
+            "authority_decision_ref": authority_decision.decision_ref,
+            "authority_decision_outcome": authority_decision.outcome,
+            "authority_lease_ref": authority_decision.lease_ref,
+            "authority_domain_ref": MEMORY_CONTEXT_PACK_ACTION_AUTHORITY_DOMAIN_REF,
+            "authority_capability_ref": (
+                MEMORY_CONTEXT_PACK_ACTION_AUTHORITY_CAPABILITY_REF
+            ),
+            "authority_required_mode_ref": (
+                MEMORY_CONTEXT_PACK_ACTION_AUTHORITY_REQUIRED_MODE_REF
+            ),
+            "authority_audit_ref": authority_decision.audit_record_ref,
+            "authority_policy_receipt_ref": authority_decision.receipt_ref,
             "rollback_ref": rollback_ref,
             "safe_disable_ref": safe_disable_ref,
             "blocked_state_refs": list(MEMORY_EXECUTION_HOOK_BLOCKED_STATE_REFS),
@@ -13163,6 +13206,80 @@ class FounderLoopRepository:
                     "required_mode_ref": MEMORY_REVIEW_AUTHORITY_REQUIRED_MODE_REF,
                     "required_domain_ref": MEMORY_REVIEW_AUTHORITY_DOMAIN_REF,
                     "required_capability_ref": MEMORY_REVIEW_AUTHORITY_CAPABILITY_REF,
+                    "safe_disable_ref": authority_decision.safe_disable_ref,
+                    "rollback_ref": authority_decision.rollback_ref,
+                },
+            )
+        return authority_decision
+
+    def _memory_context_pack_action_authority_decision(
+        self,
+        *,
+        context_pack_ref: str,
+        context_pack_proposal_ref: str,
+        expected_scope_ref: str,
+        idempotency_key_ref: str,
+        active_authority_leases: list[AuthorityLease] | None,
+    ):
+        leases = (
+            active_authority_leases
+            if active_authority_leases is not None
+            else self._active_authority_leases
+            if self._active_authority_leases is not None
+            else active_founder_loop_authority_leases()
+        )
+        authority_decision = evaluate_authority_request(
+            AuthorityActionRequest(
+                action_ref=(
+                    f"{MEMORY_CONTEXT_PACK_ACTION_AUTHORITY_ACTION_REF}:"
+                    f"{_safe_suffix(context_pack_ref)}"
+                ),
+                domain=AuthorityDomain.memory,
+                capability=AuthorityCapability.draft,
+                safe_summary=(
+                    "Evaluate Memory draft authority before creating an "
+                    "internal Action proposal from reviewed context-pack refs."
+                ),
+                resource_refs=[
+                    context_pack_ref,
+                    context_pack_proposal_ref,
+                    expected_scope_ref,
+                    MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_CONTRACT_REF,
+                    idempotency_key_ref,
+                ],
+                route_ref=MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_ROUTE_REF,
+                lane_ref=MEMORY_CONTEXT_PACK_ACTION_AUTHORITY_LANE_REF,
+                requested_mode=TrustMode.read_only,
+                draft_fallback_available=False,
+                rollback_ref=(
+                    "rollback-ref:memory-context-pack-action:"
+                    f"{_short_ref_suffix(context_pack_ref)}"
+                ),
+                safe_disable_ref=(
+                    "safe-disable-ref:memory-context-pack-action:"
+                    f"{_short_ref_suffix(context_pack_ref)}"
+                ),
+            ),
+            leases,
+        )
+        if authority_decision.outcome != AuthorityDecisionOutcome.allow.value:
+            raise FounderLoopAuthorityError(
+                [
+                    *authority_decision.reason_refs,
+                    MEMORY_CONTEXT_PACK_ACTION_AUTHORITY_REQUIRED_BLOCKED_REF,
+                ],
+                code="FOUNDER_LOOP_MEMORY_CONTEXT_PACK_ACTION_AUTHORITY_DENIED",
+                required_refs={
+                    "authority_decision_ref": authority_decision.decision_ref,
+                    "required_mode_ref": (
+                        MEMORY_CONTEXT_PACK_ACTION_AUTHORITY_REQUIRED_MODE_REF
+                    ),
+                    "required_domain_ref": (
+                        MEMORY_CONTEXT_PACK_ACTION_AUTHORITY_DOMAIN_REF
+                    ),
+                    "required_capability_ref": (
+                        MEMORY_CONTEXT_PACK_ACTION_AUTHORITY_CAPABILITY_REF
+                    ),
                     "safe_disable_ref": authority_decision.safe_disable_ref,
                     "rollback_ref": authority_decision.rollback_ref,
                 },

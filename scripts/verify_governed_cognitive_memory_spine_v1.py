@@ -23,6 +23,14 @@ from scripts.verification.repo import (  # noqa: E402
     print_failures_or_success,
 )
 from ultimate_ai_agent.api.local_auth import LOCAL_API_BEARER_ENV  # noqa: E402
+from ultimate_ai_agent.core.authority import (  # noqa: E402
+    AUTHORITY_STATE_DIR_ENV,
+    AuthorityCapability,
+    AuthorityDomain,
+    AuthorityLeaseIssueRequest,
+    AuthorityLeaseStore,
+    TrustMode,
+)
 from ultimate_ai_agent.core.storage import FounderLoopRepository  # noqa: E402
 
 
@@ -182,6 +190,8 @@ def _append_doc_failures(failures: list[str]) -> None:
                 "GET /control-center/memory/l3-index",
                 "GET /control-center/memory/context-packs",
                 "POST /control-center/memory/context-packs/{context_pack_ref}/action-proposal",
+                "memory/draft",
+                "authority decision refs",
                 "reviewed_recall_record_ref",
                 "Current Phase 5",
                 "implemented as a read-only",
@@ -211,6 +221,7 @@ def _append_doc_failures(failures: list[str]) -> None:
                 "Phase 6 remains future blocked",
                 "Phase 6.1",
                 "internal Action proposal",
+                "memory/draft",
                 "MemoryExecutionHookContract",
                 "contract/proof lane only",
                 "provider/model calls",
@@ -441,13 +452,33 @@ def _append_behavior_failures(
     context: ApiVerifierContext,
 ) -> None:
     old_state_dir = os.environ.get("UAA_FOUNDER_LOOP_STATE_DIR")
+    old_authority_state_dir = os.environ.get(AUTHORITY_STATE_DIR_ENV)
     old_bearer = os.environ.get(LOCAL_API_BEARER_ENV)
     bearer = "governed-memory-spine-local-bearer"
     auth_headers = {"Authorization": f"Bearer {bearer}"}
     with tempfile.TemporaryDirectory() as temp_dir:
         os.environ["UAA_FOUNDER_LOOP_STATE_DIR"] = str(Path(temp_dir) / "founder_loop")
+        authority_state_dir = Path(temp_dir) / "authority"
+        os.environ[AUTHORITY_STATE_DIR_ENV] = str(authority_state_dir)
         os.environ[LOCAL_API_BEARER_ENV] = bearer
         try:
+            AuthorityLeaseStore(authority_state_dir).issue_lease(
+                AuthorityLeaseIssueRequest(
+                    mode=TrustMode.ask_before_changes,
+                    requested_domains={
+                        AuthorityDomain.memory: [
+                            AuthorityCapability.write,
+                            AuthorityCapability.draft,
+                        ]
+                    },
+                    decision_reason_ref="reason-ref:governed-memory-spine-authority",
+                    safe_summary=(
+                        "Verifier grants Memory write for reviewed recall setup "
+                        "and Memory draft for context-pack Action proposal proof."
+                    ),
+                ),
+                idempotency_ref="idempotency-ref:governed-memory-spine-authority",
+            )
             repo = FounderLoopRepository.from_env()
             candidate_ref = _candidate_ref(context, auth_headers)
             accept = _post_decision(context, candidate_ref, "accept", auth_headers)
@@ -607,6 +638,54 @@ def _append_behavior_failures(
                         CONTEXT_PACK_PROPOSAL_DENIED_FLAGS,
                         "context pack proposal",
                     )
+                proposals = context_pack_data.get("proposals", [])
+                if proposals:
+                    action_response = context.client.post(
+                        (
+                            "/control-center/memory/context-packs/"
+                            f"{proposals[0]['context_pack_ref']}/action-proposal"
+                        ),
+                        json={
+                            "decision_reason_ref": (
+                                "decision-reason-ref:governed-memory-phase6-1"
+                            ),
+                            "metadata_refs": [
+                                "metadata-ref:governed-memory-phase6-1"
+                            ],
+                        },
+                        headers={
+                            **auth_headers,
+                            "x-uaa-idempotency-key": (
+                                "idempotency-ref:governed-memory-phase6-1"
+                            ),
+                        },
+                    )
+                    if action_response.status_code != 200:
+                        failures.append(
+                            "governed memory context-pack Action proposal route failed"
+                        )
+                    else:
+                        action_data = action_response.json().get("data", {})
+                        if action_data.get("authority_decision_outcome") != "allow":
+                            failures.append(
+                                "governed memory context-pack Action proposal missing allowed authority decision"
+                            )
+                        if not action_data.get("authority_lease_ref"):
+                            failures.append(
+                                "governed memory context-pack Action proposal missing authority lease ref"
+                            )
+                        for flag in [
+                            "action_executed",
+                            "context_injection_performed",
+                            "provider_model_call_performed",
+                            "connector_write_performed",
+                            "memory_write_performed",
+                        ]:
+                            if action_data.get(flag) is not False:
+                                failures.append(
+                                    "governed memory context-pack Action proposal "
+                                    f"enabled denied flag {flag}"
+                                )
             reject = _post_decision(context, candidate_ref, "reject", auth_headers)
             if reject.get("reviewed_recall_record_ref"):
                 failures.append("governed memory reject must not create recall record ref")
@@ -623,6 +702,10 @@ def _append_behavior_failures(
                 os.environ.pop("UAA_FOUNDER_LOOP_STATE_DIR", None)
             else:
                 os.environ["UAA_FOUNDER_LOOP_STATE_DIR"] = old_state_dir
+            if old_authority_state_dir is None:
+                os.environ.pop(AUTHORITY_STATE_DIR_ENV, None)
+            else:
+                os.environ[AUTHORITY_STATE_DIR_ENV] = old_authority_state_dir
             if old_bearer is None:
                 os.environ.pop(LOCAL_API_BEARER_ENV, None)
             else:

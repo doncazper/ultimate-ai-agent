@@ -245,16 +245,17 @@ slice:
 - `POST /control-center/memory/context-packs/{context_pack_ref}/action-proposal`
 
 A reviewed context-pack proposal may create a backend-owned internal Action
-proposal/envelope receipt after exact approval scope and idempotency are
-validated. This scope is internal Action proposal creation only. It does not
-execute the action.
+proposal/envelope receipt after active `memory/draft` AuthorityLease scope,
+exact approval scope, and idempotency are validated. This scope is internal
+Action proposal creation only. It does not execute the action.
 
-Phase 6.1 requires exact approval scope, idempotency, append-first durable
-receipts, rollback or safe-disable posture, and Evidence Timeline proof before
-the internal proposal is recorded. The broad Phase 6 execution-hook contract
-remains blocked for external side effects, connector writes, CRM/account sync,
-shell/browser behavior, provider/model calls, hidden context injection, and
-production authority.
+Phase 6.1 requires authority decision refs, authority lease refs, exact
+approval scope, idempotency, append-first durable receipts, rollback or
+safe-disable posture, and Evidence Timeline proof before the internal proposal
+is recorded. The broad Phase 6 execution-hook contract remains blocked for
+external side effects, connector writes, CRM/account sync, shell/browser
+behavior, provider/model calls, hidden context injection, and production
+authority.
 
 ## Current Phase 6.2
 

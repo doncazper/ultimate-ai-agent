@@ -1026,7 +1026,7 @@ def route_classification_for_path(
     ):
         return (
             ApiRouteClassification.mutating_requires_authority,
-            "Memory context-pack internal Action proposal authority route; exact approval, idempotency, receipt, rollback, and evidence posture required while execution stays blocked",
+            "Memory context-pack internal Action proposal authority route; memory/draft AuthorityLease, exact approval, idempotency, authority decision refs, receipt, rollback, and evidence posture required while execution and context injection stay blocked",
         )
     if normalized_method == "POST" and path in CONTROL_CENTER_WORK_BOARD_REORDER_PATHS:
         return (

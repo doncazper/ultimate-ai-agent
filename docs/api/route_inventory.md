@@ -371,8 +371,8 @@ Duplicate replay behavior remains a route-owner contract; FCC-V1-002 implements
 it for Action Inbox decision routes, FCC-ACTION-001a implements it for the
 exact local task commit lane, FCC-V1-004 implements it for Chat receipt/handoff
 routes, and FCC-V1-005 implements it for Memory Review decision receipt routes.
-Governed Cognitive Memory Spine Phase 6.1 implements it for the internal Action
-proposal hook only.
+Governed Cognitive Memory Spine Phase 6.1 implements it for the active
+`memory/draft` AuthorityLease-gated internal Action proposal hook only.
 
 ## Current route groups
 

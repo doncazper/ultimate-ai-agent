@@ -32,10 +32,11 @@ authority.
 Governed Cognitive Memory Spine Phase 6.1 is implemented as the first narrow
 slice. `POST /control-center/memory/context-packs/{context_pack_ref}/action-proposal`
 creates a backend-owned internal Action proposal/envelope receipt from a
-reviewed context-pack proposal after exact approval scope and idempotency are
-validated. It does not execute actions, write connectors, sync CRM/accounts,
-call providers/models, run shell/browser behavior, inject context, or grant
-public beta/production authority.
+reviewed context-pack proposal after active `memory/draft` AuthorityLease
+scope, exact approval scope, and idempotency are validated. The receipt records
+authority decision/lease refs. It does not execute actions, write connectors,
+sync CRM/accounts, call providers/models, run shell/browser behavior, inject
+context, or grant public beta/production authority.
 
 This milestone list is planning and task-shaping only. It does not add backend
 routes, Control Center controls, runtime model calls, connector runtime,

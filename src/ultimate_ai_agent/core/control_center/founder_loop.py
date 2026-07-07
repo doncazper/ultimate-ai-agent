@@ -339,11 +339,13 @@ class FounderLoopControlCenterService:
         context_pack_ref: str,
         request: MemoryContextPackActionProposalRequest,
         idempotency_key_ref: str,
+        active_authority_leases: list[AuthorityLease] | None = None,
     ) -> dict[str, Any]:
         return self.repository.record_memory_context_pack_action_proposal(
             context_pack_ref=context_pack_ref,
             request=request,
             idempotency_key_ref=idempotency_key_ref,
+            active_authority_leases=active_authority_leases,
         )
 
     def promote_today_item_to_action_envelope(

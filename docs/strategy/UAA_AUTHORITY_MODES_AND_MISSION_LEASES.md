@@ -73,7 +73,12 @@ Founder Loop task state is written. Memory Review accept/correct reviewed
 recall writes require exact approval plus active `memory/write` authority before
 the recall-only `LocalMemoryStore` record is written; reject, defer, merge,
 supersede, and forget-request remain receipt/posture decisions without memory
-write authority. CRM local mutations require exact approval plus active
+write authority. Memory context-pack internal Action proposal creation now
+requires active `memory/draft` AuthorityLease scope plus exact approval and
+idempotency before a local proposal/envelope receipt is recorded; it does not
+execute the action, inject context, write memory, call providers/models, write
+connectors, or grant production authority. CRM local mutations require exact
+approval plus active
 `contacts/write` authority before local CRM state is changed; connector reads,
 connector writes, sends, calendar writes, account sync, and external CRM writes
 remain unsupported unless later adapters are implemented and tested.

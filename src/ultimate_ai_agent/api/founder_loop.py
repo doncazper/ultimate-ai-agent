@@ -810,6 +810,20 @@ def post_control_center_memory_context_pack_action_proposal(
                 ),
             },
         ) from exc
+    except FounderLoopAuthorityError as exc:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": exc.code,
+                "safe_message": (
+                    "Memory context-pack Action proposal creation requires an "
+                    "active AuthorityLease granting Memory draft. The proposal "
+                    "does not execute actions or inject context."
+                ),
+                "reason_refs": exc.reason_refs,
+                "required_refs": exc.required_refs,
+            },
+        ) from exc
     except FounderLoopStorageError as exc:
         code = str(exc) or "FOUNDER_LOOP_MEMORY_CONTEXT_PACK_ACTION_ERROR"
         status_code = (
@@ -860,6 +874,7 @@ def post_control_center_memory_context_pack_action_proposal(
             "no_action_execution",
             "no_context_injection",
             "no_external_side_effects",
+            "authority_decision_refs_only",
         ],
     )
 

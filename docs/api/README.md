@@ -182,8 +182,9 @@ Current boundary summary:
   sync, action execution, public beta, or production authority.
 - Governed Cognitive Memory Spine Phase 6.1 adds
   `POST /control-center/memory/context-packs/{context_pack_ref}/action-proposal`
-  as an exact-approved internal Action proposal receipt hook. It does not
-  execute actions, inject prompt context, call providers, write connectors,
+  as an active `memory/draft` AuthorityLease-gated, exact-approved internal
+  Action proposal receipt hook. It records authority decision refs and does
+  not execute actions, inject prompt context, call providers, write connectors,
   sync CRM/accounts, or grant broad Phase 6 execution authority.
 - Governed Cognitive Memory Spine Phase 4 adds
   `GET /control-center/memory/l3-index` as read-only deterministic

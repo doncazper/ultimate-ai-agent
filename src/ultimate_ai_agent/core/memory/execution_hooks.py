@@ -61,6 +61,18 @@ MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_STATUS = "implemented_internal_action_propos
 MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_REQUESTED_ACTION = (
     "create_memory_context_pack_internal_action_proposal"
 )
+MEMORY_CONTEXT_PACK_ACTION_AUTHORITY_ACTION_REF = (
+    "authority-action-ref:memory-context-pack-action-proposal"
+)
+MEMORY_CONTEXT_PACK_ACTION_AUTHORITY_LANE_REF = (
+    "lane-ref:memory-context-pack-action-proposal"
+)
+MEMORY_CONTEXT_PACK_ACTION_AUTHORITY_DOMAIN_REF = "authority-domain-ref:memory"
+MEMORY_CONTEXT_PACK_ACTION_AUTHORITY_CAPABILITY_REF = "authority-capability-ref:draft"
+MEMORY_CONTEXT_PACK_ACTION_AUTHORITY_REQUIRED_MODE_REF = "authority-mode-ref:read-only"
+MEMORY_CONTEXT_PACK_ACTION_AUTHORITY_REQUIRED_BLOCKED_REF = (
+    "blocked-state:memory-context-pack-action:memory-draft-authority-required"
+)
 
 MemoryExecutionHookStatus = Literal[
     "blocked",
@@ -381,6 +393,16 @@ class MemoryContextPackActionProposalReceipt(_MemoryExecutionHookAuthorityPostur
     audit_ref: str = Field(..., min_length=1)
     idempotency_key_ref: str = Field(..., min_length=1)
     payload_fingerprint_ref: str = Field(..., min_length=1)
+    authority_decision_ref: str = Field(..., min_length=1)
+    authority_decision_outcome: str = Field(..., min_length=1)
+    authority_lease_ref: str | None = Field(default=None, max_length=180)
+    authority_domain_ref: str = MEMORY_CONTEXT_PACK_ACTION_AUTHORITY_DOMAIN_REF
+    authority_capability_ref: str = MEMORY_CONTEXT_PACK_ACTION_AUTHORITY_CAPABILITY_REF
+    authority_required_mode_ref: str = (
+        MEMORY_CONTEXT_PACK_ACTION_AUTHORITY_REQUIRED_MODE_REF
+    )
+    authority_audit_ref: str = Field(..., min_length=1)
+    authority_policy_receipt_ref: str | None = Field(default=None, max_length=180)
     evidence_timeline_event_ref: str = Field(..., min_length=1)
     source_memory_record_refs: list[str] = Field(default_factory=list)
     l1_preview_refs: list[str] = Field(default_factory=list)
@@ -427,11 +449,20 @@ class MemoryContextPackActionProposalReceipt(_MemoryExecutionHookAuthorityPostur
             "audit_ref",
             "idempotency_key_ref",
             "payload_fingerprint_ref",
+            "authority_decision_ref",
+            "authority_lease_ref",
+            "authority_domain_ref",
+            "authority_capability_ref",
+            "authority_required_mode_ref",
+            "authority_audit_ref",
+            "authority_policy_receipt_ref",
             "evidence_timeline_event_ref",
             "rollback_ref",
             "safe_disable_ref",
         ]:
-            _validate_safe_ref(str(getattr(self, field_name)), field_name)
+            value = getattr(self, field_name)
+            if value is not None:
+                _validate_safe_ref(str(value), field_name)
         for field_name in [
             "approval_reason_refs",
             "source_memory_record_refs",
@@ -447,6 +478,14 @@ class MemoryContextPackActionProposalReceipt(_MemoryExecutionHookAuthorityPostur
                 _validate_safe_ref(ref, field_name)
         for field_name in ["route_ref", "status", "approval_status", "safe_summary"]:
             _validate_safe_text(str(getattr(self, field_name)), field_name)
+        _validate_safe_text(
+            self.authority_decision_outcome,
+            "authority_decision_outcome",
+        )
+        if self.authority_decision_outcome != "allow":
+            raise ValueError("Phase 6.1 receipt requires allowed memory draft authority")
+        if not self.authority_lease_ref:
+            raise ValueError("Phase 6.1 receipt requires authority lease ref")
         if not self.action_proposal_created:
             raise ValueError("Phase 6.1 receipt must record internal proposal creation")
         denied_flags = {

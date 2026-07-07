@@ -164,6 +164,21 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         web_evidence.status
         == "implemented_authority_lease_required_gateway_https_get"
     )
+    context_pack_action = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if (
+            "POST /control-center/memory/context-packs/{context_pack_ref}/action-proposal"
+            in mapping.route_refs
+        )
+    )
+    assert context_pack_action.domain == "memory"
+    assert context_pack_action.capability == "draft"
+    assert context_pack_action.required_mode == "read_only"
+    assert (
+        context_pack_action.status
+        == "implemented_exact_lease_required_proposal_only"
+    )
     assert {decision.outcome for decision in read_model.sample_decisions} >= {
         "allow",
         "deny",

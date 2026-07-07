@@ -271,7 +271,8 @@ or safe-disable posture, and Evidence Timeline proof.
 Phase 6.1 is the implemented first narrow slice. It exposes
 `POST /control-center/memory/context-packs/{context_pack_ref}/action-proposal`
 to create an internal Action proposal/envelope receipt from a reviewed
-context-pack proposal after exact approval scope and idempotency are validated.
+context-pack proposal after active `memory/draft` AuthorityLease scope, exact
+approval scope, and idempotency are validated.
 Phase 6.1 does not execute actions, write connectors, sync CRM/accounts, call
 providers/models, run shell/browser behavior, inject prompt context, or grant
 production authority.
