@@ -285,16 +285,16 @@ class FoundationGateLegacyChecksPart033Mixin:
                 "*.yml",
                 "*.yaml",
             ):
-                candidate_files.extend(root.rglob(pattern))
+                candidate_files.extend(self._context.rglob(root, pattern))
             for path in sorted(candidate_files):
-                if not path.is_file():
+                if not self._context.is_file(path):
                     continue
-                rel = path.relative_to(self.root).as_posix()
+                rel = self._context.relative_path(path)
                 if ".test." in rel:
                     continue
                 if _is_static_safety_scan_allowed_file(rel, allowed_files):
                     continue
-                text = path.read_text(encoding="utf-8")
+                text = self._context.read_text(path, encoding="utf-8")
                 for fragment in forbidden_source_fragments:
                     if fragment in text:
                         failures.append(
@@ -752,16 +752,16 @@ class FoundationGateLegacyChecksPart033Mixin:
                 "*.yml",
                 "*.yaml",
             ):
-                candidate_files.extend(root.rglob(pattern))
+                candidate_files.extend(self._context.rglob(root, pattern))
             for path in sorted(candidate_files):
-                if not path.is_file():
+                if not self._context.is_file(path):
                     continue
-                rel = path.relative_to(self.root).as_posix()
+                rel = self._context.relative_path(path)
                 if ".test." in rel:
                     continue
                 if _is_static_safety_scan_allowed_file(rel, allowed_files):
                     continue
-                text = path.read_text(encoding="utf-8")
+                text = self._context.read_text(path, encoding="utf-8")
                 for fragment in forbidden_source_fragments:
                     if fragment in text:
                         failures.append(
@@ -1309,16 +1309,16 @@ class FoundationGateLegacyChecksPart033Mixin:
                 "*.yml",
                 "*.yaml",
             ):
-                candidate_files.extend(root.rglob(pattern))
+                candidate_files.extend(self._context.rglob(root, pattern))
             for path in sorted(candidate_files):
-                if not path.is_file():
+                if not self._context.is_file(path):
                     continue
-                rel = path.relative_to(self.root).as_posix()
+                rel = self._context.relative_path(path)
                 if ".test." in rel:
                     continue
                 if _is_static_safety_scan_allowed_file(rel, allowed_files):
                     continue
-                text = path.read_text(encoding="utf-8")
+                text = self._context.read_text(path, encoding="utf-8")
                 for fragment in forbidden_source_fragments:
                     if fragment in text:
                         failures.append(

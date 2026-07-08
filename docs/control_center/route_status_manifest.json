@@ -1071,6 +1071,13 @@
         },
         {
           "method": "GET",
+          "path": "/api/runtime/staged-orchestration",
+          "operation_id": "get_api_runtime_staged_orchestration",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
           "path": "/api/runtime/lsp-diagnostics",
           "operation_id": "get_api_runtime_lsp_diagnostics",
           "side_effect_class": "local_dev_workspace_only",

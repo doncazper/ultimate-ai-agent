@@ -161,19 +161,19 @@ class FoundationGateLegacyChecksPart011Mixin:
         for forbidden_path in [
             ios_root / "Package.swift",
             *ios_root.glob("*.xcodeproj"),
-            *ios_root.rglob("*.entitlements"),
-            *ios_root.rglob("Info.plist"),
-            *ios_root.rglob("ExportOptions.plist"),
-            *ios_root.rglob("*.mobileprovision"),
+            *self._context.rglob(ios_root, "*.entitlements"),
+            *self._context.rglob(ios_root, "Info.plist"),
+            *self._context.rglob(ios_root, "ExportOptions.plist"),
+            *self._context.rglob(ios_root, "*.mobileprovision"),
         ]:
             if forbidden_path.exists():
                 failures.append(
                     f"M46 forbidden native workflow file present: {forbidden_path.relative_to(self.root)}"
                 )
-        swift_files = sorted(swift_root.rglob("*.swift"))
+        swift_files = sorted(self._context.rglob(swift_root, "*.swift"))
         if not swift_files:
             failures.append("M46 Swift source files missing")
-        swift_text = "\n".join(path.read_text(encoding="utf-8") for path in swift_files)
+        swift_text = "\n".join(self._context.read_text(path, encoding="utf-8") for path in swift_files)
         for fragment in M46_FORBIDDEN_SWIFT_FRAGMENTS:
             if fragment in swift_text:
                 failures.append(f"M46 forbidden Swift API fragment present: {fragment}")
@@ -192,7 +192,7 @@ class FoundationGateLegacyChecksPart011Mixin:
         return self._result(
             criterion,
             failures,
-            [path.relative_to(self.root).as_posix() for path in swift_files],
+            [self._context.relative_path(path) for path in swift_files],
         )
 
     def check_m46_mobile_route_boundary(
@@ -324,14 +324,14 @@ class FoundationGateLegacyChecksPart011Mixin:
         forbidden_paths = [
             ios_root / "Package.swift",
             *ios_root.glob("*.xcodeproj"),
-            *ios_root.rglob("*.xcworkspace"),
-            *ios_root.rglob("*.entitlements"),
-            *ios_root.rglob("Info.plist"),
-            *ios_root.rglob("ExportOptions.plist"),
-            *ios_root.rglob("*.mobileprovision"),
-            *ios_root.rglob("*.p8"),
-            *ios_root.rglob("*.cer"),
-            *ios_root.rglob("*.p12"),
+            *self._context.rglob(ios_root, "*.xcworkspace"),
+            *self._context.rglob(ios_root, "*.entitlements"),
+            *self._context.rglob(ios_root, "Info.plist"),
+            *self._context.rglob(ios_root, "ExportOptions.plist"),
+            *self._context.rglob(ios_root, "*.mobileprovision"),
+            *self._context.rglob(ios_root, "*.p8"),
+            *self._context.rglob(ios_root, "*.cer"),
+            *self._context.rglob(ios_root, "*.p12"),
         ]
         if (self.root / ".github").exists():
             forbidden_paths.extend((self.root / ".github").rglob("*testflight*"))
@@ -350,8 +350,8 @@ class FoundationGateLegacyChecksPart011Mixin:
                     f"M47 forbidden build/upload directory present: {forbidden_dir.relative_to(self.root)}"
                 )
         swift_root = ios_root / "Sources" / "UltimateAIAgentCCC"
-        swift_files = sorted(swift_root.rglob("*.swift")) if swift_root.exists() else []
-        swift_text = "\n".join(path.read_text(encoding="utf-8") for path in swift_files)
+        swift_files = sorted(self._context.rglob(swift_root, "*.swift")) if swift_root.exists() else []
+        swift_text = "\n".join(self._context.read_text(path, encoding="utf-8") for path in swift_files)
         for fragment in M47_FORBIDDEN_SWIFT_FRAGMENTS:
             if fragment in swift_text:
                 failures.append(
@@ -397,14 +397,14 @@ class FoundationGateLegacyChecksPart011Mixin:
                 "*.yml",
                 "*.yaml",
             ):
-                candidate_files.extend(root.rglob(pattern))
+                candidate_files.extend(self._context.rglob(root, pattern))
             for path in sorted(candidate_files):
-                if not path.is_file():
+                if not self._context.is_file(path):
                     continue
-                rel = path.relative_to(self.root).as_posix()
+                rel = self._context.relative_path(path)
                 if _is_static_safety_scan_allowed_file(rel, ()):
                     continue
-                text = path.read_text(encoding="utf-8")
+                text = self._context.read_text(path, encoding="utf-8")
                 for fragment in forbidden_source_fragments:
                     if fragment in text:
                         failures.append(
@@ -413,7 +413,7 @@ class FoundationGateLegacyChecksPart011Mixin:
         return self._result(
             criterion,
             failures,
-            [path.relative_to(self.root).as_posix() for path in swift_files],
+            [self._context.relative_path(path) for path in swift_files],
         )
 
     def check_m47_mobile_route_boundary(
@@ -548,16 +548,16 @@ class FoundationGateLegacyChecksPart011Mixin:
         forbidden_paths = [
             ios_root / "Package.swift",
             *ios_root.glob("*.xcodeproj"),
-            *ios_root.rglob("*.xcworkspace"),
-            *ios_root.rglob("*.entitlements"),
-            *ios_root.rglob("Info.plist"),
-            *ios_root.rglob("ExportOptions.plist"),
-            *ios_root.rglob("*.xcarchive"),
-            *ios_root.rglob("*.ipa"),
-            *ios_root.rglob("*.mobileprovision"),
-            *ios_root.rglob("*.p8"),
-            *ios_root.rglob("*.cer"),
-            *ios_root.rglob("*.p12"),
+            *self._context.rglob(ios_root, "*.xcworkspace"),
+            *self._context.rglob(ios_root, "*.entitlements"),
+            *self._context.rglob(ios_root, "Info.plist"),
+            *self._context.rglob(ios_root, "ExportOptions.plist"),
+            *self._context.rglob(ios_root, "*.xcarchive"),
+            *self._context.rglob(ios_root, "*.ipa"),
+            *self._context.rglob(ios_root, "*.mobileprovision"),
+            *self._context.rglob(ios_root, "*.p8"),
+            *self._context.rglob(ios_root, "*.cer"),
+            *self._context.rglob(ios_root, "*.p12"),
         ]
         if (self.root / ".github").exists():
             forbidden_paths.extend((self.root / ".github").rglob("*testflight*"))
@@ -580,8 +580,8 @@ class FoundationGateLegacyChecksPart011Mixin:
                     f"M48 forbidden build/upload directory present: {forbidden_dir.relative_to(self.root)}"
                 )
         swift_root = ios_root / "Sources" / "UltimateAIAgentCCC"
-        swift_files = sorted(swift_root.rglob("*.swift")) if swift_root.exists() else []
-        swift_text = "\n".join(path.read_text(encoding="utf-8") for path in swift_files)
+        swift_files = sorted(self._context.rglob(swift_root, "*.swift")) if swift_root.exists() else []
+        swift_text = "\n".join(self._context.read_text(path, encoding="utf-8") for path in swift_files)
         for fragment in M48_FORBIDDEN_SWIFT_FRAGMENTS:
             if fragment in swift_text:
                 failures.append(
@@ -631,11 +631,11 @@ class FoundationGateLegacyChecksPart011Mixin:
                 "*.yml",
                 "*.yaml",
             ):
-                candidate_files.extend(root.rglob(pattern))
+                candidate_files.extend(self._context.rglob(root, pattern))
             for path in sorted(candidate_files):
-                if not path.is_file():
+                if not self._context.is_file(path):
                     continue
-                rel = path.relative_to(self.root).as_posix()
+                rel = self._context.relative_path(path)
                 if _is_static_safety_scan_allowed_file(
                     rel,
                     {
@@ -644,7 +644,7 @@ class FoundationGateLegacyChecksPart011Mixin:
                     },
                 ):
                     continue
-                text = path.read_text(encoding="utf-8")
+                text = self._context.read_text(path, encoding="utf-8")
                 for fragment in forbidden_source_fragments:
                     if fragment in text:
                         failures.append(
@@ -653,7 +653,7 @@ class FoundationGateLegacyChecksPart011Mixin:
         return self._result(
             criterion,
             failures,
-            [path.relative_to(self.root).as_posix() for path in swift_files],
+            [self._context.relative_path(path) for path in swift_files],
         )
 
     def check_m48_mobile_route_boundary(
@@ -859,8 +859,8 @@ class FoundationGateLegacyChecksPart011Mixin:
         failures: List[str] = []
         ios_root = self.root / "apps" / "ccc-ios"
         swift_root = ios_root / "Sources" / "UltimateAIAgentCCC"
-        swift_files = sorted(swift_root.rglob("*.swift")) if swift_root.exists() else []
-        swift_text = "\n".join(path.read_text(encoding="utf-8") for path in swift_files)
+        swift_files = sorted(self._context.rglob(swift_root, "*.swift")) if swift_root.exists() else []
+        swift_text = "\n".join(self._context.read_text(path, encoding="utf-8") for path in swift_files)
         for fragment in M49_FORBIDDEN_SWIFT_FRAGMENTS:
             if fragment in swift_text:
                 failures.append(
@@ -912,14 +912,14 @@ class FoundationGateLegacyChecksPart011Mixin:
                 "*.yml",
                 "*.yaml",
             ):
-                candidate_files.extend(root.rglob(pattern))
+                candidate_files.extend(self._context.rglob(root, pattern))
             for path in sorted(candidate_files):
-                if not path.is_file():
+                if not self._context.is_file(path):
                     continue
-                rel = path.relative_to(self.root).as_posix()
+                rel = self._context.relative_path(path)
                 if _is_static_safety_scan_allowed_file(rel, allowed_files):
                     continue
-                text = path.read_text(encoding="utf-8")
+                text = self._context.read_text(path, encoding="utf-8")
                 for fragment in forbidden_source_fragments:
                     if fragment in text:
                         failures.append(
@@ -928,7 +928,7 @@ class FoundationGateLegacyChecksPart011Mixin:
         return self._result(
             criterion,
             failures,
-            [path.relative_to(self.root).as_posix() for path in swift_files],
+            [self._context.relative_path(path) for path in swift_files],
         )
 
     def check_m49_mobile_route_boundary(
@@ -1207,8 +1207,8 @@ class FoundationGateLegacyChecksPart011Mixin:
         failures: List[str] = []
         ios_root = self.root / "apps" / "ccc-ios"
         swift_root = ios_root / "Sources" / "UltimateAIAgentCCC"
-        swift_files = sorted(swift_root.rglob("*.swift")) if swift_root.exists() else []
-        swift_text = "\n".join(path.read_text(encoding="utf-8") for path in swift_files)
+        swift_files = sorted(self._context.rglob(swift_root, "*.swift")) if swift_root.exists() else []
+        swift_text = "\n".join(self._context.read_text(path, encoding="utf-8") for path in swift_files)
         for fragment in M50_FORBIDDEN_SWIFT_FRAGMENTS:
             if fragment in swift_text:
                 failures.append(
@@ -1264,14 +1264,14 @@ class FoundationGateLegacyChecksPart011Mixin:
                 "*.yml",
                 "*.yaml",
             ):
-                candidate_files.extend(root.rglob(pattern))
+                candidate_files.extend(self._context.rglob(root, pattern))
             for path in sorted(candidate_files):
-                if not path.is_file():
+                if not self._context.is_file(path):
                     continue
-                rel = path.relative_to(self.root).as_posix()
+                rel = self._context.relative_path(path)
                 if _is_static_safety_scan_allowed_file(rel, allowed_files):
                     continue
-                text = path.read_text(encoding="utf-8")
+                text = self._context.read_text(path, encoding="utf-8")
                 for fragment in forbidden_source_fragments:
                     if fragment in text:
                         failures.append(
@@ -1280,7 +1280,7 @@ class FoundationGateLegacyChecksPart011Mixin:
         return self._result(
             criterion,
             failures,
-            [path.relative_to(self.root).as_posix() for path in swift_files],
+            [self._context.relative_path(path) for path in swift_files],
         )
 
     def check_m50_mobile_audit_route_boundary(

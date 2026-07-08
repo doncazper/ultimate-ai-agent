@@ -153,10 +153,10 @@ class FoundationGateLegacyChecksPart002Mixin:
             "sub" + "process",
         ]
         failures = []
-        for path in sorted(approval_root.rglob("*.py")):
-            rel_path = str(path.relative_to(self.root))
+        for path in sorted(self._context.rglob(approval_root, "*.py")):
+            rel_path = self._context.relative_path(path)
             for line_no, line in enumerate(
-                path.read_text(encoding="utf-8").splitlines(), start=1
+                self._context.read_text(path, encoding="utf-8").splitlines(), start=1
             ):
                 stripped = line.strip()
                 if any(fragment in stripped for fragment in forbidden):
@@ -436,10 +436,10 @@ class FoundationGateLegacyChecksPart002Mixin:
             "sub" + "process",
         ]
         failures = []
-        for path in sorted(runtime_root.rglob("*.py")):
-            rel_path = str(path.relative_to(self.root))
+        for path in sorted(self._context.rglob(runtime_root, "*.py")):
+            rel_path = self._context.relative_path(path)
             for line_no, line in enumerate(
-                path.read_text(encoding="utf-8").splitlines(), start=1
+                self._context.read_text(path, encoding="utf-8").splitlines(), start=1
             ):
                 stripped = line.strip()
                 if any(fragment in stripped for fragment in forbidden):
@@ -582,7 +582,7 @@ class FoundationGateLegacyChecksPart002Mixin:
         for path in paths:
             if not path.exists():
                 continue
-            rel_path = str(path.relative_to(self.root))
+            rel_path = self._context.relative_path(path)
             source = self._read(path)
             if (
                 "urllib.request" in source or "from urllib import request" in source
@@ -905,7 +905,7 @@ class FoundationGateLegacyChecksPart002Mixin:
             "launch_subagent(",
         ]
         failures = []
-        for path in root.rglob("*.py"):
+        for path in self._context.rglob(root, "*.py"):
             source = self._read(path)
             for line in source.splitlines():
                 stripped = line.strip()
@@ -1260,7 +1260,7 @@ class FoundationGateLegacyChecksPart002Mixin:
         )
         for doc_root in docs_to_scan:
             tracked += "\n" + "\n".join(
-                self._read(path) for path in doc_root.rglob("*.md")
+                self._read(path) for path in self._context.rglob(doc_root, "*.md")
             )
         private_ip = re.compile(
             r"\b(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3})\b"

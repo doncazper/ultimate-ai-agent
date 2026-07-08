@@ -283,7 +283,7 @@ class FoundationGateLegacyChecksPart043Mixin:
                     ),
                     max_artifact_bytes=1024,
                 )
-                cached_names = sorted(path.name for path in cache_root.rglob("*.gguf"))
+                cached_names = sorted(path.name for path in self._context.rglob(cache_root, "*.gguf"))
             if cached_names != [
                 "mmproj-qwopus.gguf",
                 "qwopus-00001-of-00002.gguf",
@@ -621,16 +621,16 @@ class FoundationGateLegacyChecksPart043Mixin:
                 "*.yml",
                 "*.yaml",
             ):
-                candidate_files.extend(root.rglob(pattern))
+                candidate_files.extend(self._context.rglob(root, pattern))
             for path in sorted(candidate_files):
-                if not path.is_file():
+                if not self._context.is_file(path):
                     continue
-                rel = path.relative_to(self.root).as_posix()
+                rel = self._context.relative_path(path)
                 if ".test." in rel or _is_static_safety_scan_allowed_file(
                     rel, allowed_files
                 ):
                     continue
-                text = path.read_text(encoding="utf-8")
+                text = self._context.read_text(path, encoding="utf-8")
                 for fragment in forbidden_source_fragments:
                     if fragment in text:
                         failures.append(
@@ -954,16 +954,16 @@ class FoundationGateLegacyChecksPart043Mixin:
                 "*.yml",
                 "*.yaml",
             ):
-                candidate_files.extend(root.rglob(pattern))
+                candidate_files.extend(self._context.rglob(root, pattern))
             for path in sorted(candidate_files):
-                if not path.is_file():
+                if not self._context.is_file(path):
                     continue
-                rel = path.relative_to(self.root).as_posix()
+                rel = self._context.relative_path(path)
                 if ".test." in rel or _is_static_safety_scan_allowed_file(
                     rel, allowed_files
                 ):
                     continue
-                text = path.read_text(encoding="utf-8")
+                text = self._context.read_text(path, encoding="utf-8")
                 for fragment in forbidden_source_fragments:
                     if fragment in text:
                         failures.append(
@@ -1063,6 +1063,10 @@ class FoundationGateLegacyChecksPart043Mixin:
                 sanitize_validation_errors,
             )
             from ultimate_ai_agent.api.local_auth import LOCAL_API_BEARER_ENV
+            from ultimate_ai_agent.core.authority import AUTHORITY_STATE_DIR_ENV
+            from ultimate_ai_agent.core.gate.probe_authority import (
+                issue_file_preview_probe_authority_lease,
+            )
             from ultimate_ai_agent.core.kernel import (
                 KernelTaskStatus,
                 MinimumKernelRunner,
@@ -1145,13 +1149,21 @@ class FoundationGateLegacyChecksPart043Mixin:
 
                 with tempfile.TemporaryDirectory(
                     prefix="uaa-gate-v0292-preview-"
-                ) as preview_dir:
+                ) as preview_dir, tempfile.TemporaryDirectory(
+                    prefix="uaa-gate-v0292-authority-"
+                ) as authority_dir:
                     preview_root = Path(preview_dir)
                     preview_file = preview_root / "note.txt"
                     preview_file.write_text("hello", encoding="utf-8")
                     old_safe_root = os.environ.get("UAA_FILE_API_SAFE_ROOT")
+                    old_authority_state_dir = os.environ.get(AUTHORITY_STATE_DIR_ENV)
                     os.environ["UAA_FILE_API_SAFE_ROOT"] = str(preview_root)
+                    os.environ[AUTHORITY_STATE_DIR_ENV] = authority_dir
                     try:
+                        if not issue_file_preview_probe_authority_lease(
+                            Path(authority_dir)
+                        ):
+                            failures.append("file preview authority lease probe failed")
                         preview_response = post_preview_file_read(
                             FileReadPreviewAPIRequest(
                                 safe_root_ref="local_dev_workspace",
@@ -1225,6 +1237,12 @@ class FoundationGateLegacyChecksPart043Mixin:
                             os.environ.pop("UAA_FILE_API_SAFE_ROOT", None)
                         else:
                             os.environ["UAA_FILE_API_SAFE_ROOT"] = old_safe_root
+                        if old_authority_state_dir is None:
+                            os.environ.pop(AUTHORITY_STATE_DIR_ENV, None)
+                        else:
+                            os.environ[
+                                AUTHORITY_STATE_DIR_ENV
+                            ] = old_authority_state_dir
             finally:
                 if old_bearer is None:
                     os.environ.pop(LOCAL_API_BEARER_ENV, None)

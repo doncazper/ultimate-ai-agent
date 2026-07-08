@@ -124,7 +124,9 @@
         "src/ultimate_ai_agent/core/gate/criteria.py",
         "src/ultimate_ai_agent/core/storage/founder_loop.py",
         "src/ultimate_ai_agent/core/authority/contracts.py",
-        "scripts/dev/uaa_runtime.py"
+        "src/ultimate_ai_agent/core/authority/lane_registry.py",
+        "scripts/dev/uaa_runtime.py",
+        "scripts/dev/uaa_runtime_parser.py"
       ],
       "allowlist": {
         "src/ultimate_ai_agent/core/gate/criteria.py": {
@@ -132,16 +134,24 @@
           "reason": "Foundation Gate criterion facade after family split. Future criteria metadata must stay in family-scoped modules instead of growing this facade."
         },
         "src/ultimate_ai_agent/core/storage/founder_loop.py": {
-          "max_lines": 18036,
-          "reason": "Frozen Founder Loop storage/read-model hotspot. Future Today summary and evidence timeline work must move into focused read-model modules instead of growing this file."
+          "max_lines": 18014,
+          "reason": "Frozen Founder Loop storage/read-model hotspot after duplicate helper cleanup. Future Today summary and evidence timeline work must move into focused read-model modules instead of growing this file."
         },
         "src/ultimate_ai_agent/core/authority/contracts.py": {
-          "max_lines": 4549,
-          "reason": "Frozen authority contract mapping hotspot. Future authority lane mappings should move to data-driven registry modules instead of growing build_existing_lane_authority_mappings."
+          "max_lines": 2900,
+          "reason": "Authority contract facade after lane registry extraction. Future authority policy/store changes must not regrow the mapping table here."
+        },
+        "src/ultimate_ai_agent/core/authority/lane_registry.py": {
+          "max_lines": 1694,
+          "reason": "Frozen authority lane registry extraction. Future lane additions should split into grouped registry modules instead of growing this table."
         },
         "scripts/dev/uaa_runtime.py": {
-          "max_lines": 5332,
-          "reason": "Frozen developer runtime CLI hotspot. Future CLI commands should move to command modules instead of growing build_parser."
+          "max_lines": 4450,
+          "reason": "Developer runtime CLI shell after parser extraction. Future command behavior should move behind focused command modules instead of regrowing this file."
+        },
+        "scripts/dev/uaa_runtime_parser.py": {
+          "max_lines": 950,
+          "reason": "Extracted developer runtime parser module. Future parser growth should split into command-family registration modules."
         }
       }
     }

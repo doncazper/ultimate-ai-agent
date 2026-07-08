@@ -24,7 +24,7 @@ class FoundationGateLegacyChecksPart004Mixin:
             "pushmanager",
         ]
         failures = []
-        for path in [*app_root.rglob("*.ts"), *app_root.rglob("*.tsx")]:
+        for path in [*self._context.rglob(app_root, "*.ts"), *self._context.rglob(app_root, "*.tsx")]:
             if ".test." in path.name or "test" in path.parts:
                 continue
             lowered = self._read(path).lower()
@@ -56,9 +56,7 @@ class FoundationGateLegacyChecksPart004Mixin:
             return self._result(
                 criterion, failures, [str(script.relative_to(self.root))]
             )
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        failures.extend(module.verify(self.root))
+        failures.extend(_control_center_frontend_verifier_failures(self))
         return self._result(
             criterion,
             failures,
@@ -482,9 +480,7 @@ class FoundationGateLegacyChecksPart004Mixin:
             if spec is None or spec.loader is None:
                 failures.append("could not load frontend safety verifier")
             else:
-                module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(module)
-                failures.extend(module.verify(self.root))
+                failures.extend(_control_center_frontend_verifier_failures(self))
 
         return self._result(criterion, failures, required_files)
 
@@ -624,9 +620,7 @@ class FoundationGateLegacyChecksPart004Mixin:
             if spec is None or spec.loader is None:
                 failures.append("could not load frontend safety verifier")
             else:
-                module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(module)
-                failures.extend(module.verify(self.root))
+                failures.extend(_control_center_frontend_verifier_failures(self))
 
         return self._result(criterion, failures, required_files)
 
@@ -793,9 +787,7 @@ class FoundationGateLegacyChecksPart004Mixin:
             if spec is None or spec.loader is None:
                 failures.append("could not load frontend safety verifier")
             else:
-                module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(module)
-                failures.extend(module.verify(self.root))
+                failures.extend(_control_center_frontend_verifier_failures(self))
 
         return self._result(criterion, failures, required_files)
 
@@ -963,9 +955,7 @@ class FoundationGateLegacyChecksPart004Mixin:
             if spec is None or spec.loader is None:
                 failures.append("could not load frontend safety verifier")
             else:
-                module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(module)
-                failures.extend(module.verify(self.root))
+                failures.extend(_control_center_frontend_verifier_failures(self))
 
         return self._result(criterion, failures, required_files)
 
@@ -1142,8 +1132,6 @@ class FoundationGateLegacyChecksPart004Mixin:
             if spec is None or spec.loader is None:
                 failures.append("could not load frontend safety verifier")
             else:
-                module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(module)
-                failures.extend(module.verify(self.root))
+                failures.extend(_control_center_frontend_verifier_failures(self))
 
         return self._result(criterion, failures, required_files)

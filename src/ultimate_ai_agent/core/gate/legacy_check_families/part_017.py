@@ -238,14 +238,14 @@ class FoundationGateLegacyChecksPart017Mixin:
                 "*.yml",
                 "*.yaml",
             ):
-                candidate_files.extend(root.rglob(pattern))
+                candidate_files.extend(self._context.rglob(root, pattern))
             for path in sorted(candidate_files):
-                if not path.is_file():
+                if not self._context.is_file(path):
                     continue
-                rel = path.relative_to(self.root).as_posix()
+                rel = self._context.relative_path(path)
                 if _is_static_safety_scan_allowed_file(rel, allowed_files):
                     continue
-                text = path.read_text(encoding="utf-8")
+                text = self._context.read_text(path, encoding="utf-8")
                 for fragment in forbidden_source_fragments:
                     if fragment in text:
                         failures.append(
@@ -605,6 +605,20 @@ class FoundationGateLegacyChecksPart017Mixin:
             "src/ultimate_ai_agent/core/web_access/read_only_http_fetch_transport.py": {
                 "socket.",
             },
+            "src/ultimate_ai_agent/core/authority/contracts.py": {"websocket"},
+            "src/ultimate_ai_agent/core/authority/lane_registry.py": {"websocket"},
+            "src/ultimate_ai_agent/core/runtime_gateway/streaming_progress.py": {
+                "websocket",
+            },
+            "apps/control-center/src/api/client.summaryEndpoints.test.ts": {
+                "websocket",
+            },
+            "apps/control-center/src/api/client.ts": {"websocket"},
+            "apps/control-center/src/api/types.ts": {"websocket"},
+            "apps/control-center/src/components/RuntimeReadinessPanel.tsx": {
+                "websocket",
+            },
+            "apps/control-center/src/mocks/controlCenterData.ts": {"websocket"},
         }
         source_roots = [
             self.root / "src" / "ultimate_ai_agent",
@@ -625,14 +639,14 @@ class FoundationGateLegacyChecksPart017Mixin:
                 "*.yml",
                 "*.yaml",
             ):
-                candidate_files.extend(root.rglob(pattern))
+                candidate_files.extend(self._context.rglob(root, pattern))
             for path in sorted(candidate_files):
-                if not path.is_file():
+                if not self._context.is_file(path):
                     continue
-                rel = path.relative_to(self.root).as_posix()
+                rel = self._context.relative_path(path)
                 if _is_static_safety_scan_allowed_file(rel, allowed_files):
                     continue
-                text = path.read_text(encoding="utf-8")
+                text = self._context.read_text(path, encoding="utf-8")
                 for fragment in forbidden_source_fragments:
                     if (
                         fragment in text
@@ -945,6 +959,20 @@ class FoundationGateLegacyChecksPart017Mixin:
             "src/ultimate_ai_agent/core/decision_router/turn_contracts.py": {
                 "tool_execution_allowed=True",
             },
+            "src/ultimate_ai_agent/core/authority/contracts.py": {"websocket"},
+            "src/ultimate_ai_agent/core/authority/lane_registry.py": {"websocket"},
+            "src/ultimate_ai_agent/core/runtime_gateway/streaming_progress.py": {
+                "websocket",
+            },
+            "apps/control-center/src/api/client.summaryEndpoints.test.ts": {
+                "websocket",
+            },
+            "apps/control-center/src/api/client.ts": {"websocket"},
+            "apps/control-center/src/api/types.ts": {"websocket"},
+            "apps/control-center/src/components/RuntimeReadinessPanel.tsx": {
+                "websocket",
+            },
+            "apps/control-center/src/mocks/controlCenterData.ts": {"websocket"},
         }
         source_roots = [
             self.root / "src" / "ultimate_ai_agent",
@@ -965,14 +993,14 @@ class FoundationGateLegacyChecksPart017Mixin:
                 "*.yml",
                 "*.yaml",
             ):
-                candidate_files.extend(root.rglob(pattern))
+                candidate_files.extend(self._context.rglob(root, pattern))
             for path in sorted(candidate_files):
-                if not path.is_file():
+                if not self._context.is_file(path):
                     continue
-                rel = path.relative_to(self.root).as_posix()
+                rel = self._context.relative_path(path)
                 if _is_static_safety_scan_allowed_file(rel, allowed_files):
                     continue
-                text = path.read_text(encoding="utf-8")
+                text = self._context.read_text(path, encoding="utf-8")
                 for fragment in forbidden_source_fragments:
                     if (
                         fragment in text
@@ -1329,14 +1357,14 @@ class FoundationGateLegacyChecksPart017Mixin:
                 "*.yml",
                 "*.yaml",
             ):
-                candidate_files.extend(root.rglob(pattern))
+                candidate_files.extend(self._context.rglob(root, pattern))
             for path in sorted(candidate_files):
-                if not path.is_file():
+                if not self._context.is_file(path):
                     continue
-                rel = path.relative_to(self.root).as_posix()
+                rel = self._context.relative_path(path)
                 if _is_static_safety_scan_allowed_file(rel, allowed_files):
                     continue
-                text = path.read_text(encoding="utf-8")
+                text = self._context.read_text(path, encoding="utf-8")
                 for fragment in forbidden_source_fragments:
                     if fragment in text:
                         failures.append(

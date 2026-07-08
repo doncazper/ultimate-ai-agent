@@ -1,4 +1,5 @@
 # ruff: noqa: E402,F401,F403,F405
+import importlib.util
 from pathlib import Path
 import json
 import os
@@ -109,7 +110,7 @@ def _version_doc_marks_milestone_implemented(text: str, milestone: str) -> bool:
 # Route-boundary evaluators are imported here to preserve the historical public facade.
 from ultimate_ai_agent.core.gate.evaluator_modules.route_boundaries import *  # noqa: F401,F403
 
-EXPECTED_M13_CONTROL_CENTER_ROUTE_COUNT = 78
+EXPECTED_M13_CONTROL_CENTER_ROUTE_COUNT = 90
 
 STATIC_SAFETY_EVALUATOR_DATA_FILES = frozenset(
     {
@@ -157,6 +158,14 @@ def _is_static_safety_scan_allowed_file(rel: str, allowed_files: Iterable[str]) 
         or rel.startswith(STATIC_SAFETY_EVALUATOR_DATA_PREFIXES)
         or rel in GOVERNED_RUNTIME_COMMAND_ADAPTER_STATIC_SCAN_ALLOWED_FILES
     )
+
+
+def _context_rglob(context: GateEvaluationContext | None, root: Path, pattern: str) -> Iterable[Path]:
+    return context.rglob(root, pattern) if context else root.rglob(pattern)
+
+
+def _context_read_text(context: GateEvaluationContext | None, path: Path) -> str:
+    return context.read_text(path, encoding="utf-8") if context else path.read_text(encoding="utf-8")
 
 
 M36_SAFE_REF_PREFIXES = {
@@ -269,18 +278,18 @@ def m34_active_currentness_failures(active_docs: Dict[str, str]) -> List[str]:
     return failures
 
 
-def m22_local_runtime_forbidden_fragment_failures(root: Path) -> List[str]:
+def m22_local_runtime_forbidden_fragment_failures(root: Path, context: GateEvaluationContext | None = None) -> List[str]:
     failures: List[str] = []
     runtime_root = root / "src" / "ultimate_ai_agent" / "core" / "model_runtime"
     if not runtime_root.exists():
         return failures
-    for path in runtime_root.rglob("*.py"):
+    for path in _context_rglob(context, runtime_root, "*.py"):
         rel = path.relative_to(root).as_posix()
         if any(part in M22_LOCAL_RUNTIME_SCAN_EXCLUDED_DIRS for part in path.parts):
             continue
         if rel in M22_LOCAL_RUNTIME_ALLOWED_SOURCE_FILES:
             continue
-        text = path.read_text(encoding="utf-8").lower()
+        text = _context_read_text(context, path).lower()
         for fragment in M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS:
             if fragment in text:
                 failures.append(
@@ -289,7 +298,7 @@ def m22_local_runtime_forbidden_fragment_failures(root: Path) -> List[str]:
     return failures
 
 
-def m152_local_model_management_forbidden_fragment_failures(root: Path) -> List[str]:
+def m152_local_model_management_forbidden_fragment_failures(root: Path, context: GateEvaluationContext | None = None) -> List[str]:
     failures: List[str] = []
     for rel_root in M152_STATIC_SCAN_ROOTS:
         scan_root = root / rel_root
@@ -307,14 +316,14 @@ def m152_local_model_management_forbidden_fragment_failures(root: Path) -> List[
             "*.yaml",
             "*.json",
         ):
-            candidate_files.extend(scan_root.rglob(pattern))
+            candidate_files.extend(_context_rglob(context, scan_root, pattern))
         for path in sorted(candidate_files):
             if not path.is_file():
                 continue
             rel = path.relative_to(root).as_posix()
             if _is_static_safety_scan_allowed_file(rel, M152_STATIC_SCAN_ALLOWED_FILES):
                 continue
-            text = path.read_text(encoding="utf-8")
+            text = _context_read_text(context, path)
             for fragment in M152_FORBIDDEN_SOURCE_FRAGMENTS:
                 if fragment in text:
                     failures.append(
@@ -324,7 +333,7 @@ def m152_local_model_management_forbidden_fragment_failures(root: Path) -> List[
         path = root / rel
         if not path.exists():
             continue
-        text = path.read_text(encoding="utf-8").lower()
+        text = _context_read_text(context, path).lower()
         for fragment in M152_FORBIDDEN_DEPENDENCY_FRAGMENTS:
             if fragment in text:
                 failures.append(
@@ -367,7 +376,7 @@ def m21_forbidden_openwebui_config_path_matches(root: Path) -> List[str]:
     return sorted(matches)
 
 
-def m21_forbidden_openwebui_runtime_fragment_failures(root: Path) -> List[str]:
+def m21_forbidden_openwebui_runtime_fragment_failures(root: Path, context: GateEvaluationContext | None = None) -> List[str]:
     failures: List[str] = []
     implementation_roots = [root / "src", root / "apps", root / "scripts"]
     for implementation_root in implementation_roots:
@@ -375,13 +384,10 @@ def m21_forbidden_openwebui_runtime_fragment_failures(root: Path) -> List[str]:
             continue
         candidate_files: list[Path] = []
         if implementation_root.name in {"src", "scripts"}:
-            candidate_files.extend(implementation_root.rglob("*.py"))
+            candidate_files.extend(_context_rglob(context, implementation_root, "*.py"))
         else:
-            candidate_files.extend(implementation_root.rglob("*.ts"))
-            candidate_files.extend(implementation_root.rglob("*.tsx"))
-            candidate_files.extend(implementation_root.rglob("*.js"))
-            candidate_files.extend(implementation_root.rglob("*.jsx"))
-            candidate_files.extend(implementation_root.rglob("*.json"))
+            for pattern in ("*.ts", "*.tsx", "*.js", "*.jsx", "*.json"):
+                candidate_files.extend(_context_rglob(context, implementation_root, pattern))
         for path in candidate_files:
             rel = path.relative_to(root).as_posix()
             if not path.is_file() or any(
@@ -392,7 +398,7 @@ def m21_forbidden_openwebui_runtime_fragment_failures(root: Path) -> List[str]:
                 rel, M21_OPENWEBUI_ALLOWED_FRAGMENT_SCAN_FILES
             ):
                 continue
-            text = path.read_text(encoding="utf-8").lower()
+            text = _context_read_text(context, path).lower()
             allowed_fragments = M21_OPENWEBUI_ALLOWED_FRAGMENT_SCAN_EXCEPTIONS.get(
                 rel,
                 frozenset(),
@@ -408,6 +414,29 @@ def m21_forbidden_openwebui_runtime_fragment_failures(root: Path) -> List[str]:
                         f"M21 forbidden OpenWebUI runtime/config fragment in {rel}: {fragment}"
                     )
     return failures
+
+
+def _control_center_frontend_verifier_failures(evaluator: Any) -> List[str]:
+    script = evaluator.root / "scripts/verify_control_center_frontend.py"
+    if not script.exists():
+        return ["scripts/verify_control_center_frontend.py missing"]
+
+    def run_verifier() -> List[str]:
+        spec = importlib.util.spec_from_file_location(
+            "verify_control_center_frontend", script
+        )
+        if spec is None or spec.loader is None:
+            return ["could not load frontend safety verifier"]
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return list(module.verify(evaluator.root))
+
+    return list(
+        evaluator._context.cached_value(
+            "control_center_frontend_verifier_failures",
+            run_verifier,
+        )
+    )
 
 
 

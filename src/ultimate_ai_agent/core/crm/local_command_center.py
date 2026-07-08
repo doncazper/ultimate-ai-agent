@@ -1584,7 +1584,7 @@ def _default_state_payload(
             "proof_refs": ["proof-ref:crm-local:beta:project"],
         },
     ]
-    pipelines = [_build_pipeline(opportunities)]
+    pipelines = [_build_deal_stage_summary(opportunities)]
     smart_lists = _build_smart_lists(relationships, follow_ups, opportunities)
     return {
         "storage_state": storage_state,
@@ -1778,7 +1778,7 @@ def _follow_up(
     }
 
 
-def _build_pipeline(opportunities: list[dict[str, Any]]) -> dict[str, Any]:
+def _build_deal_stage_summary(opportunities: list[dict[str, Any]]) -> dict[str, Any]:
     stage_labels = {
         "stage-ref:crm-local:operator:new": "New",
         "stage-ref:crm-local:operator:qualified": "Qualified",
@@ -1920,7 +1920,7 @@ def _update_follow_up_status(
 
 def _rebuild_pipelines(state: dict[str, Any]) -> list[dict[str, Any]]:
     opportunities = [dict(item) for item in state.get("opportunities", [])]
-    return [_build_pipeline(opportunities)] if opportunities else []
+    return [_build_deal_stage_summary(opportunities)] if opportunities else []
 
 
 def _validate_local_mutation_approval(

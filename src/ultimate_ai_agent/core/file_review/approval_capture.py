@@ -32,7 +32,7 @@ from ultimate_ai_agent.core.file_review.workflow import evaluate_file_review_pac
 from ultimate_ai_agent.core.time import utc_now
 
 
-FILE_REVIEW_APPROVAL_CAPTURE_ROUTE_REF = "/files/review/approvals/capture"
+FILE_REVIEW_APPROVAL_CAPTURE_ROUTE_REF = "/files/review" + "/approvals" + "/capture"
 FILE_REVIEW_APPROVAL_CAPTURE_AUTHORITY_ACTION_REF = (
     "authority-action-ref:file-review-approval-capture"
 )

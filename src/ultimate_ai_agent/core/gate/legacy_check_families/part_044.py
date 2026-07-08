@@ -431,13 +431,13 @@ class FoundationGateLegacyChecksPart044Mixin:
             return []
         files = []
         for path in sorted(self._context.rglob(self.src_root, "*.py")):
-            rel_path = str(path.relative_to(self.root))
+            rel_path = self._context.relative_path(path)
             if "__pycache__" not in rel_path:
                 files.append(rel_path)
         return files
 
     def _read(self, path: Path) -> str:
-        if not path.exists() or not path.is_file():
+        if not path.exists() or not self._context.is_file(path):
             return ""
         return self._context.read_text(path, encoding="utf-8")
 

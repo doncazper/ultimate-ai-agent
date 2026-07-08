@@ -4418,7 +4418,7 @@ const mockCodingMultiAgentReview: CodingMultiAgentReviewReadModel = {
         | "final_synthesis"
         | "blocked_state_report",
       status: kind === "blocked-state-report" ? "blocked_ref" : "preview_ref",
-      safe_summary: "Fallback artifact ref only; raw transcript body omitted.",
+      safe_summary: "Fallback artifact ref only; transcript body is omitted.",
       digest_ref: `digest-ref:coding-pair:${kind}`,
       bounded_preview_ref: `bounded-preview-ref:coding-pair:${kind}`,
       evidence_refs: ["evidence-ref:coding-pair-agent-relay:mock"],
@@ -8234,12 +8234,12 @@ const modelProviderControlPlane: ModelProviderControlPlaneReadModel = {
       "proof-ref:model-provider-control-plane:mock-read-model",
     ],
     docs_refs: [
-      "docs/control_center/UAA_GOATCITADEL_CATCHUP_MODEL_PROVIDER_RESEARCH.md",
+      "docs/control_center/UAA_RUNTIME_MODEL_PROVIDER_RESEARCH.md",
       "docs/control_center/MODEL_PROVIDER_CONTROL_PLANE.md",
       "docs/network/WEB_ACCESS_GATEWAY.md",
     ],
     verifier_refs: [
-      "scripts/verify_uaa_goatcitadel_catchup_model_provider_research.py",
+      "scripts/verify_uaa_runtime_model_provider_research.py",
       "scripts/verify_model_provider_control_plane.py",
     ],
     blocked_authority_refs: [
@@ -12820,7 +12820,7 @@ export const mockControlCenterData: ControlCenterData = {
               "reason-ref:authority:no-active-lease-for-domain-capability",
             ],
             operator_message:
-              "Requires an active Files read lease; raw file content remains unsupported.",
+              "Requires an active Files read lease; file body material remains unsupported.",
             known_authority: false,
             unsupported_adapter: false,
             receipts_required: true,
@@ -12836,7 +12836,7 @@ export const mockControlCenterData: ControlCenterData = {
             decided_at: "2026-07-06T00:00:00Z",
           },
           operator_summary:
-            "Mock file safe preview currently evaluates to degrade to draft because Files read lease scope is missing while raw file content remains a related blocked adapter.",
+            "Mock file safe preview currently evaluates to degrade to draft because Files read lease scope is missing while source file body material remains a related blocked adapter.",
           safe_refs_only: true,
           execution_performed: false,
           mutation_performed: false,

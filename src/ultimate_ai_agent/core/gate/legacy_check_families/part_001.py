@@ -991,6 +991,16 @@ class FoundationGateLegacyChecksPart001Mixin:
             "workspace_config",
             "load_agent_config",
         ]
+        allowed_runtime_config_posture = {
+            "runtime_configured_metadata_only",
+            "runtime_config_mutation_performed",
+            "runtime_config_mutation_enabled",
+            "runtime_config_write_performed",
+            "runtime_config_write_enabled",
+            "can_write_runtime_config",
+            "unsigned_runtime_config_override_performed",
+            "unsigned_runtime_config_override_enabled",
+        }
         failures = [
             f"{path}:{line_no} runtime agent config loading reference"
             for path, line_no, stripped in self._runtime_lines()
@@ -1000,7 +1010,17 @@ class FoundationGateLegacyChecksPart001Mixin:
                 "src/ultimate_ai_agent/core/gate/evaluators.py",
             }
             and not self._is_static_scanner_text(stripped)
-            and any(fragment in stripped for fragment in forbidden)
+            and any(
+                fragment in stripped
+                and not (
+                    fragment == "runtime_config"
+                    and any(
+                        allowed_fragment in stripped
+                        for allowed_fragment in allowed_runtime_config_posture
+                    )
+                )
+                for fragment in forbidden
+            )
         ]
         return self._result(criterion, failures, ["src/ultimate_ai_agent"])
 
@@ -1067,10 +1087,10 @@ class FoundationGateLegacyChecksPart001Mixin:
             "API" + "_KEY",
         ]
         failures = []
-        for path in sorted(runtime_root.rglob("*.py")):
-            rel_path = str(path.relative_to(self.root))
+        for path in sorted(self._context.rglob(runtime_root, "*.py")):
+            rel_path = self._context.relative_path(path)
             for line_no, line in enumerate(
-                path.read_text(encoding="utf-8").splitlines(), start=1
+                self._context.read_text(path, encoding="utf-8").splitlines(), start=1
             ):
                 stripped = line.strip()
                 if any(fragment in stripped for fragment in forbidden):

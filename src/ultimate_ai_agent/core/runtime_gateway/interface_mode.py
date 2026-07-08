@@ -4,7 +4,6 @@ import hashlib
 import json
 import os
 import shutil
-import subprocess
 import time
 from dataclasses import dataclass
 from enum import Enum
@@ -538,7 +537,7 @@ class HermesCliAdapter:
         runner: HermesProcessRunner | None = None,
         cwd: Path | None = None,
     ) -> None:
-        self._runner = runner or _run_hermes_subprocess
+        self._runner = runner or _blocked_hermes_runner
         self._cwd = cwd or Path.cwd()
 
     def discover_cli(self) -> tuple[Path | None, str, str]:
@@ -1064,7 +1063,7 @@ def _minimal_env() -> dict[str, str]:
     return env
 
 
-def _run_hermes_subprocess(
+def _blocked_hermes_runner(
     *,
     argv: tuple[str, ...],
     cwd: Path,
@@ -1072,49 +1071,14 @@ def _run_hermes_subprocess(
     timeout_seconds: float,
     output_byte_limit: int,
 ) -> HermesProcessResult:
-    start = time.monotonic()
-    try:
-        completed = subprocess.run(
-            list(argv),
-            cwd=str(cwd),
-            env=env,
-            shell=False,
-            capture_output=True,
-            timeout=timeout_seconds,
-            check=False,
-        )
-        duration_ms = int((time.monotonic() - start) * 1000)
-        output = (completed.stdout or b"") + (completed.stderr or b"")
-        bounded = output[: max(output_byte_limit + 1, 1)]
-        return HermesProcessResult(
-            exit_code=completed.returncode,
-            timed_out=False,
-            duration_ms=duration_ms,
-            output_bytes=bounded,
-            error_category=(
-                None if completed.returncode == 0 else "HERMES_CLI_NONZERO_EXIT"
-            ),
-        )
-    except subprocess.TimeoutExpired as exc:
-        duration_ms = int((time.monotonic() - start) * 1000)
-        stdout = exc.stdout if isinstance(exc.stdout, bytes) else b""
-        stderr = exc.stderr if isinstance(exc.stderr, bytes) else b""
-        return HermesProcessResult(
-            exit_code=None,
-            timed_out=True,
-            duration_ms=duration_ms,
-            output_bytes=(stdout + stderr)[: max(output_byte_limit + 1, 1)],
-            error_category="HERMES_CLI_TIMEOUT",
-        )
-    except OSError:
-        duration_ms = int((time.monotonic() - start) * 1000)
-        return HermesProcessResult(
-            exit_code=None,
-            timed_out=False,
-            duration_ms=duration_ms,
-            output_bytes=b"",
-            error_category="HERMES_CLI_UNAVAILABLE",
-        )
+    del argv, cwd, env, timeout_seconds, output_byte_limit
+    return HermesProcessResult(
+        exit_code=None,
+        timed_out=False,
+        duration_ms=0,
+        output_bytes=b"",
+        error_category="HERMES_CLI_EXECUTION_BLOCKED_BY_DEFAULT",
+    )
 
 
 def _no_hermes_runner(

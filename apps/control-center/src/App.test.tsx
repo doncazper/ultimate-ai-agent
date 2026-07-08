@@ -7,7 +7,7 @@ import {
   within,
   waitFor,
 } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import {
   API_ENDPOINTS,
@@ -48,6 +48,14 @@ import {
   mockControlCenterData,
 } from "./mocks/controlCenterData";
 import { primaryNavItems, supportingNavItems } from "./routes";
+
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+  resetControlCenterReadLimiterForTests();
+  window.history.pushState({}, "", "/");
+});
 
 function mockFetchWithFallback() {
   vi.stubGlobal(

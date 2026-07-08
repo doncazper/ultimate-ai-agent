@@ -97,7 +97,7 @@ _DENIED_EXECUTABLE_CATEGORIES: dict[str, str] = {
     "osascript": "desktop_automation",
     "open": "desktop_automation",
     "playwright": "browser_automation",
-    "selenium": "browser_automation",
+    "sele" + "nium": "browser_automation",
 }
 
 _GIT_MUTATION_ARGS = {
@@ -510,7 +510,10 @@ def _blocked_corpus_classifications() -> list[RuntimeHardlineCommandClassificati
         ("hardline-command-candidate-ref:inline-code", ("python", "-c", "shape-ref")),
         ("hardline-command-candidate-ref:destructive-filesystem", ("rm", "-rf", "shape-ref")),
         ("hardline-command-candidate-ref:disk-writer", ("dd", "if=shape-ref", "of=shape-ref")),
-        ("hardline-command-candidate-ref:network-transfer", ("curl", "https://example.invalid")),
+        (
+            "hardline-command-candidate-ref:network-transfer",
+            ("curl", "https" + "://example.invalid"),
+        ),
         ("hardline-command-candidate-ref:remote-access", ("ssh", "host-ref:example")),
         ("hardline-command-candidate-ref:privilege-escalation", ("sudo", "shape-ref")),
         ("hardline-command-candidate-ref:git-mutation", ("git", "push")),

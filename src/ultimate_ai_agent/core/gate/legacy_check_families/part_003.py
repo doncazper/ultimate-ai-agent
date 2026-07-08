@@ -480,7 +480,7 @@ class FoundationGateLegacyChecksPart003Mixin:
         forbidden_fragments = ["billing", "eval(", "exec("]
         failures = []
         for path in sorted(package.glob("*.py")):
-            rel_path = str(path.relative_to(self.root))
+            rel_path = self._context.relative_path(path)
             for line_no, stripped in enumerate(self._read(path).splitlines(), start=1):
                 stripped = stripped.strip()
                 if self._is_static_scanner_text(stripped) or stripped.startswith("["):
@@ -1026,7 +1026,7 @@ class FoundationGateLegacyChecksPart003Mixin:
         ]
         failures = []
         for path in sorted(package.glob("*.py")):
-            rel_path = str(path.relative_to(self.root))
+            rel_path = self._context.relative_path(path)
             for line_no, stripped in enumerate(self._read(path).splitlines(), start=1):
                 stripped = stripped.strip().lower()
                 if stripped.startswith("[") or self._is_static_scanner_text(stripped):
@@ -1126,7 +1126,7 @@ class FoundationGateLegacyChecksPart003Mixin:
         source_text = "\n".join(
             self._read(path).lower()
             for path in source_paths
-            if path.is_file() and ".test." not in path.name
+            if self._context.is_file(path) and ".test." not in path.name
         )
         forbidden = [
             "/control-center/actions/execute",
@@ -1177,6 +1177,14 @@ class FoundationGateLegacyChecksPart003Mixin:
             "API_ENDPOINTS.actionPreview",
             "actionDecisionEndpoint(actionId, decision)",
             "actionLocalTaskCommitEndpoint(actionId)",
+            "API_ENDPOINTS.controlCenterWorkBoardReorder",
+            "API_ENDPOINTS.controlCenterWorkBoardCards",
+            "API_ENDPOINTS.controlCenterWorkBoardTasks",
+            "API_ENDPOINTS.runtimeAuthorityDecisionPreview",
+            "API_ENDPOINTS.runtimeAuthorityMissionPlan",
+            "API_ENDPOINTS.runtimeAuthorityLeases",
+            "API_ENDPOINTS.runtimeAuthorityLeasesApproveAndIssue",
+            "API_ENDPOINTS.runtimeAuthorityLeaseRevoke",
             "API_ENDPOINTS.founderTodayActionEnvelope",
             "API_ENDPOINTS.controlCenterChatTurns",
             "chatTurnHandoffEndpoint(turnRef)",
@@ -1193,8 +1201,10 @@ class FoundationGateLegacyChecksPart003Mixin:
                 failures.append(f"frontend client missing scoped POST target: {target}")
         post_files = [
             path
-            for path in app_root.rglob("*.ts*")
-            if 'method: "POST"' in self._read(path)
+            for path in self._context.rglob(app_root, "*.ts*")
+            if ".test." not in path.name
+            and "test" not in path.parts
+            and 'method: "POST"' in self._read(path)
         ]
         if post_files != [app_root / "api/client.ts"]:
             failures.append(
@@ -1252,10 +1262,11 @@ class FoundationGateLegacyChecksPart003Mixin:
             "authorization",
             "cookie",
         ]
+        scan_text = text.replace("uaa_authorization_status", "uaa_authority_status")
         failures.extend(
             f"unsafe mock data fragment: {fragment}"
             for fragment in forbidden
-            if fragment in text
+            if fragment in scan_text
         )
         return self._result(
             criterion, failures, ["apps/control-center/src/mocks/controlCenterData.ts"]

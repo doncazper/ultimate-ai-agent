@@ -192,15 +192,15 @@ class FoundationGateLegacyChecksPart005Mixin:
                 continue
             candidate_files = []
             if rel_root in {"src", "scripts", "tests"}:
-                candidate_files.extend(root.rglob("*.py"))
+                candidate_files.extend(self._context.rglob(root, "*.py"))
             if rel_root == "apps":
-                candidate_files.extend(root.rglob("*.ts"))
-                candidate_files.extend(root.rglob("*.tsx"))
-                candidate_files.extend(root.rglob("*.js"))
-                candidate_files.extend(root.rglob("*.jsx"))
+                candidate_files.extend(self._context.rglob(root, "*.ts"))
+                candidate_files.extend(self._context.rglob(root, "*.tsx"))
+                candidate_files.extend(self._context.rglob(root, "*.js"))
+                candidate_files.extend(self._context.rglob(root, "*.jsx"))
             for path in candidate_files:
-                rel = path.relative_to(self.root).as_posix()
-                if not path.is_file() or "__pycache__" in rel or "node_modules/" in rel:
+                rel = self._context.relative_path(path)
+                if not self._context.is_file(path) or "__pycache__" in rel or "node_modules/" in rel:
                     continue
                 if _is_static_safety_scan_allowed_file(rel, allowed_files):
                     continue
@@ -427,15 +427,15 @@ class FoundationGateLegacyChecksPart005Mixin:
                 continue
             candidate_files = []
             if rel_root in {"src", "scripts", "tests"}:
-                candidate_files.extend(root.rglob("*.py"))
+                candidate_files.extend(self._context.rglob(root, "*.py"))
             if rel_root == "apps":
-                candidate_files.extend(root.rglob("*.ts"))
-                candidate_files.extend(root.rglob("*.tsx"))
-                candidate_files.extend(root.rglob("*.js"))
-                candidate_files.extend(root.rglob("*.jsx"))
+                candidate_files.extend(self._context.rglob(root, "*.ts"))
+                candidate_files.extend(self._context.rglob(root, "*.tsx"))
+                candidate_files.extend(self._context.rglob(root, "*.js"))
+                candidate_files.extend(self._context.rglob(root, "*.jsx"))
             for path in candidate_files:
-                rel = path.relative_to(self.root).as_posix()
-                if not path.is_file() or "__pycache__" in rel or "node_modules/" in rel:
+                rel = self._context.relative_path(path)
+                if not self._context.is_file(path) or "__pycache__" in rel or "node_modules/" in rel:
                     continue
                 if _is_static_safety_scan_allowed_file(rel, allowed_files):
                     continue
@@ -563,7 +563,7 @@ class FoundationGateLegacyChecksPart005Mixin:
                 f"M21 forbidden OpenWebUI deployment/config path exists: {rel_path}"
             )
 
-        failures.extend(m21_forbidden_openwebui_runtime_fragment_failures(self.root))
+        failures.extend(m21_forbidden_openwebui_runtime_fragment_failures(self.root, self._context))
 
         roadmap_text = self._read(self.root / "docs/canonical/09_roadmap.md").lower()
         if "v0.25.0 / m21" not in roadmap_text or "implemented" not in roadmap_text:
@@ -705,7 +705,7 @@ class FoundationGateLegacyChecksPart005Mixin:
         else:
             failures.extend(m22_openapi_route_failures(openapi_paths))
 
-        failures.extend(m22_local_runtime_forbidden_fragment_failures(self.root))
+        failures.extend(m22_local_runtime_forbidden_fragment_failures(self.root, self._context))
 
         roadmap_text = self._read(self.root / "docs/canonical/09_roadmap.md").lower()
         version_tuple = self._active_version_tuple()

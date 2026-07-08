@@ -1093,17 +1093,17 @@ class FoundationGateLegacyChecksPart010Mixin:
         for forbidden_path in [
             ios_root / "Package.swift",
             *ios_root.glob("*.xcodeproj"),
-            *ios_root.rglob("*.entitlements"),
-            *ios_root.rglob("Info.plist"),
+            *self._context.rglob(ios_root, "*.entitlements"),
+            *self._context.rglob(ios_root, "Info.plist"),
         ]:
             if forbidden_path.exists():
                 failures.append(
                     f"M44 forbidden native workflow file present: {forbidden_path.relative_to(self.root)}"
                 )
-        swift_files = sorted(swift_root.rglob("*.swift"))
+        swift_files = sorted(self._context.rglob(swift_root, "*.swift"))
         if not swift_files:
             failures.append("M44 Swift source files missing")
-        swift_text = "\n".join(path.read_text(encoding="utf-8") for path in swift_files)
+        swift_text = "\n".join(self._context.read_text(path, encoding="utf-8") for path in swift_files)
         for fragment in M44_FORBIDDEN_SWIFT_FRAGMENTS:
             if fragment in swift_text:
                 failures.append(f"M44 forbidden Swift API fragment present: {fragment}")
@@ -1114,7 +1114,7 @@ class FoundationGateLegacyChecksPart010Mixin:
         return self._result(
             criterion,
             failures,
-            [path.relative_to(self.root).as_posix() for path in swift_files],
+            [self._context.relative_path(path) for path in swift_files],
         )
 
     def check_m44_mobile_route_boundary(
@@ -1317,18 +1317,18 @@ class FoundationGateLegacyChecksPart010Mixin:
         for forbidden_path in [
             ios_root / "Package.swift",
             *ios_root.glob("*.xcodeproj"),
-            *ios_root.rglob("*.entitlements"),
-            *ios_root.rglob("Info.plist"),
-            *ios_root.rglob("ExportOptions.plist"),
+            *self._context.rglob(ios_root, "*.entitlements"),
+            *self._context.rglob(ios_root, "Info.plist"),
+            *self._context.rglob(ios_root, "ExportOptions.plist"),
         ]:
             if forbidden_path.exists():
                 failures.append(
                     f"M45 forbidden native workflow file present: {forbidden_path.relative_to(self.root)}"
                 )
-        swift_files = sorted(swift_root.rglob("*.swift"))
+        swift_files = sorted(self._context.rglob(swift_root, "*.swift"))
         if not swift_files:
             failures.append("M45 Swift source files missing")
-        swift_text = "\n".join(path.read_text(encoding="utf-8") for path in swift_files)
+        swift_text = "\n".join(self._context.read_text(path, encoding="utf-8") for path in swift_files)
         for fragment in M45_FORBIDDEN_SWIFT_FRAGMENTS:
             if fragment in swift_text:
                 failures.append(f"M45 forbidden Swift API fragment present: {fragment}")
@@ -1344,5 +1344,5 @@ class FoundationGateLegacyChecksPart010Mixin:
         return self._result(
             criterion,
             failures,
-            [path.relative_to(self.root).as_posix() for path in swift_files],
+            [self._context.relative_path(path) for path in swift_files],
         )

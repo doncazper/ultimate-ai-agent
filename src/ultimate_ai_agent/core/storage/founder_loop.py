@@ -3747,10 +3747,6 @@ def _source_readiness_email_metadata_contract(record: Any) -> dict[str, Any]:
     }
 
 
-def _enum_value(value: Any) -> str:
-    return str(getattr(value, "value", value))
-
-
 def _source_readiness_proposal_candidates(
     *,
     source_readiness_items: list[dict[str, Any]],
@@ -12901,24 +12897,6 @@ class FounderLoopRepository:
                 "FOUNDER_LOOP_MEMORY_CONTEXT_PACK_ACTION_RECEIPT_NOT_FOUND"
             )
         return dict(json.loads(str(rows[0]["receipt_json"])))
-
-    def _memory_feedback_replay(
-        self,
-        idempotency_key_ref: str,
-    ) -> dict[str, Any] | None:
-        rows = self._fetch_all(
-            """
-            SELECT key_ref, memory_record_ref, feedback_ref,
-                   payload_fingerprint_ref, receipt_ref, receipt_json, created_at
-            FROM memory_feedback_replays
-            WHERE key_ref = ?
-            LIMIT 1
-            """,
-            (idempotency_key_ref,),
-        )
-        if not rows:
-            return None
-        return dict(rows[0])
 
     def _memory_feedback_receipt_by_ref(
         self,
