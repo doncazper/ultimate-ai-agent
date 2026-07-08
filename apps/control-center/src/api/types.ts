@@ -7890,6 +7890,80 @@ export interface DurableOrchestrationPostureRow {
   production_authority_added: boolean;
 }
 
+export interface ActionToolLanePostureRow {
+  capability_id: string;
+  capability_ref: string;
+  lane_ref: string;
+  label: string;
+  capability_kind: string;
+  status: string;
+  surface: string;
+  side_effect_class: string;
+  required_approval_scope: string;
+  eligibility_reason: string;
+  blocked_reason: string;
+  receipt_requirement: string;
+  rollback_or_safe_disable_posture: string;
+  route_refs: string[];
+  cli_refs: string[];
+  receipt_refs: string[];
+  evidence_refs: string[];
+  proof_refs: string[];
+  blocked_authority_refs: string[];
+  operator_visible: boolean;
+  inspectable_now: boolean;
+  proposal_only: boolean;
+  exact_local_mutation_available: boolean;
+  exact_runtime_lane_available: boolean;
+  safe_refs_only: boolean;
+  raw_content_included: boolean;
+  generic_tool_execution_enabled: boolean;
+  unrestricted_shell_execution_enabled: boolean;
+  browser_automation_enabled: boolean;
+  connector_write_enabled: boolean;
+  plugin_runtime_import_enabled: boolean;
+  remote_execution_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  background_autonomy_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface ActionToolLanePosture {
+  schema_version: string;
+  contract_ref: string;
+  catalog_contract_ref: string;
+  catalog_ref: string;
+  status: string;
+  source: string;
+  route_ref: string;
+  cli_ref: string;
+  backend_owned: boolean;
+  local_read_model_only: boolean;
+  safe_refs_only: boolean;
+  raw_content_included: boolean;
+  entry_count: number;
+  preview_only_count: number;
+  exact_local_mutation_count: number;
+  exact_runtime_lane_count: number;
+  proposal_only_count: number;
+  blocked_count: number;
+  category_ids: string[];
+  category_count: number;
+  rows: ActionToolLanePostureRow[];
+  generic_tool_execution_enabled: boolean;
+  unrestricted_shell_execution_enabled: boolean;
+  browser_automation_enabled: boolean;
+  connector_write_enabled: boolean;
+  plugin_runtime_import_enabled: boolean;
+  remote_execution_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  background_autonomy_enabled: boolean;
+  production_authority_enabled: boolean;
+  safe_summary: string;
+  blocked_authority_refs: string[];
+  redactions_applied: string[];
+}
+
 export interface DurableOrchestrationPosture {
   schema_version: string;
   contract_ref: string;
@@ -8000,6 +8074,7 @@ export interface HighMaturityAgentSpineReadiness {
   overall_projection_0_100: number;
   coverage_status: string;
   rows: HighMaturityAgentSpineRow[];
+  action_tool_lane_posture: ActionToolLanePosture;
   durable_orchestration_posture: DurableOrchestrationPosture;
   external_information_handling: ExternalInformationHandlingPosture;
   system_eval_coverage: SystemAgentEvalCoverage;

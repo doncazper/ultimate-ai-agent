@@ -12,6 +12,8 @@ sys.path.insert(0, str(ROOT / "src"))
 from ultimate_ai_agent.api.app import app  # noqa: E402
 from ultimate_ai_agent.api.manifest import build_api_manifest  # noqa: E402
 from ultimate_ai_agent.core.control_center.agent_loop import (  # noqa: E402
+    ACTION_TOOL_LANE_POSTURE_CATEGORY_IDS,
+    ACTION_TOOL_LANE_POSTURE_CONTRACT_REF,
     AGENT_LOOP_THREAD_BLOCKED_AUTHORITY_REFS,
     AGENT_LOOP_THREAD_CONTRACT_REF,
     AGENT_LOOP_THREAD_ROUTE_REF,
@@ -114,6 +116,114 @@ def main() -> int:
                             "High-Maturity Agent Spine row missing "
                             f"{required_list}: {row.get('weakness_id')}"
                         )
+            action_tool = high_maturity.get("action_tool_lane_posture")
+            if not isinstance(action_tool, dict):
+                failures.append(
+                    "High-Maturity Agent Spine action/tool lane posture missing"
+                )
+            else:
+                if action_tool.get("contract_ref") != (
+                    ACTION_TOOL_LANE_POSTURE_CONTRACT_REF
+                ):
+                    failures.append("action/tool lane posture contract drifted")
+                if set(action_tool.get("category_ids") or []) != set(
+                    ACTION_TOOL_LANE_POSTURE_CATEGORY_IDS
+                ):
+                    failures.append("action/tool lane posture categories drifted")
+                if action_tool.get("entry_count") != len(
+                    action_tool.get("rows") or []
+                ):
+                    failures.append("action/tool lane posture entry count drifted")
+                expected_counts = {
+                    "preview_only_count": 4,
+                    "exact_local_mutation_count": 1,
+                    "exact_runtime_lane_count": 5,
+                    "proposal_only_count": 5,
+                    "blocked_count": 3,
+                }
+                for field, expected in expected_counts.items():
+                    if action_tool.get(field) != expected:
+                        failures.append(
+                            f"action/tool lane posture {field} drifted"
+                        )
+                for field in [
+                    "backend_owned",
+                    "local_read_model_only",
+                    "safe_refs_only",
+                ]:
+                    if action_tool.get(field) is not True:
+                        failures.append(
+                            f"action/tool lane posture {field} must be true"
+                        )
+                for field in [
+                    "raw_content_included",
+                    "generic_tool_execution_enabled",
+                    "unrestricted_shell_execution_enabled",
+                    "browser_automation_enabled",
+                    "connector_write_enabled",
+                    "plugin_runtime_import_enabled",
+                    "remote_execution_enabled",
+                    "provider_model_call_enabled",
+                    "background_autonomy_enabled",
+                    "production_authority_enabled",
+                ]:
+                    if action_tool.get(field) is not False:
+                        failures.append(
+                            f"action/tool lane posture {field} must be false"
+                        )
+                action_tool_rows = action_tool.get("rows")
+                if not isinstance(action_tool_rows, list):
+                    failures.append("action/tool lane posture rows missing")
+                else:
+                    if (
+                        sum(
+                            1
+                            for row in action_tool_rows
+                            if isinstance(row, dict)
+                            and row.get("exact_runtime_lane_available") is True
+                        )
+                        != 5
+                    ):
+                        failures.append("action/tool exact runtime lane count drifted")
+                    if (
+                        sum(
+                            1
+                            for row in action_tool_rows
+                            if isinstance(row, dict)
+                            and row.get("exact_local_mutation_available") is True
+                        )
+                        != 1
+                    ):
+                        failures.append("action/tool exact local lane count drifted")
+                    for row in action_tool_rows:
+                        if not isinstance(row, dict):
+                            failures.append(
+                                "action/tool lane posture row is not an object"
+                            )
+                            continue
+                        for field in ["safe_refs_only", "operator_visible", "inspectable_now"]:
+                            if row.get(field) is not True:
+                                failures.append(
+                                    "action/tool lane posture row required true "
+                                    f"field drifted: {row.get('capability_id')} {field}"
+                                )
+                        for field in [
+                            "raw_content_included",
+                            "generic_tool_execution_enabled",
+                            "unrestricted_shell_execution_enabled",
+                            "browser_automation_enabled",
+                            "connector_write_enabled",
+                            "plugin_runtime_import_enabled",
+                            "remote_execution_enabled",
+                            "provider_model_call_enabled",
+                            "background_autonomy_enabled",
+                            "production_authority_enabled",
+                        ]:
+                            if row.get(field) is not False:
+                                failures.append(
+                                    "action/tool lane posture broadened authority: "
+                                    f"{row.get('capability_id')} {field}"
+                                )
             durable = high_maturity.get("durable_orchestration_posture")
             if not isinstance(durable, dict):
                 failures.append(

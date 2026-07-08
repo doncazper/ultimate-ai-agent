@@ -43,6 +43,12 @@ backend-owned High-Maturity Agent Spine coverage map for W1-W13:
   the Agent Loop Thread panel renders the W1-W13 rows, score projection,
   evidence refs, test refs, gaps, and next safe action without raw JSON as the
   primary operator workflow.
+- Action/tool lane posture:
+  `high_maturity_spine_readiness.action_tool_lane_posture` projects the
+  Python-owned action/tool/code catalog into preview-only tools, exact local
+  mutation, exact approval-bound RuntimeGateway utility lanes, proposal-only
+  code workflows, and blocked broad capabilities with receipt, evidence, proof,
+  route, CLI, and blocked-authority refs.
 - Durable orchestration posture:
   `high_maturity_spine_readiness.durable_orchestration_posture` maps
   append-first durable run records, canonical lifecycle states, run

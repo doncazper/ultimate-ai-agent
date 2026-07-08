@@ -9,6 +9,8 @@ from fastapi.testclient import TestClient
 from scripts.dev import uaa_founder_loop
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.control_center.agent_loop import (
+    ACTION_TOOL_LANE_POSTURE_CATEGORY_IDS,
+    ACTION_TOOL_LANE_POSTURE_CONTRACT_REF,
     AGENT_LOOP_COCKPIT_PARITY_CONTRACT_REF,
     AGENT_LOOP_THREAD_CONTRACT_REF,
     AGENT_LOOP_THREAD_ROUTE_REF,
@@ -179,6 +181,67 @@ def _assert_safe_agent_loop_thread(thread: dict[str, object]) -> None:
     assert rows_by_id["W6"]["status"] == "implemented"
     assert rows_by_id["W6"]["maturity"] == "strong"
     assert rows_by_id["W6"]["score_0_10"] == 8
+    assert rows_by_id["W5"]["status"] == "implemented"
+    assert rows_by_id["W5"]["maturity"] == "strong"
+    assert rows_by_id["W5"]["score_0_10"] == 8
+    assert ACTION_TOOL_LANE_POSTURE_CONTRACT_REF in rows_by_id["W5"][
+        "evidence_refs"
+    ]
+    action_tool = high_maturity["action_tool_lane_posture"]
+    assert action_tool["contract_ref"] == ACTION_TOOL_LANE_POSTURE_CONTRACT_REF
+    assert action_tool["catalog_contract_ref"] == (
+        "contract-ref:runtime-action-tool-code-catalog:v1"
+    )
+    assert action_tool["backend_owned"] is True
+    assert action_tool["local_read_model_only"] is True
+    assert action_tool["safe_refs_only"] is True
+    assert action_tool["raw_content_included"] is False
+    assert action_tool["entry_count"] == len(action_tool["rows"])
+    assert action_tool["preview_only_count"] == 4
+    assert action_tool["exact_local_mutation_count"] == 1
+    assert action_tool["exact_runtime_lane_count"] == 5
+    assert action_tool["proposal_only_count"] == 5
+    assert action_tool["blocked_count"] == 3
+    assert set(action_tool["category_ids"]) == set(
+        ACTION_TOOL_LANE_POSTURE_CATEGORY_IDS
+    )
+    for flag in [
+        "generic_tool_execution_enabled",
+        "unrestricted_shell_execution_enabled",
+        "browser_automation_enabled",
+        "connector_write_enabled",
+        "plugin_runtime_import_enabled",
+        "remote_execution_enabled",
+        "provider_model_call_enabled",
+        "background_autonomy_enabled",
+        "production_authority_enabled",
+    ]:
+        assert action_tool[flag] is False
+    exact_runtime = [
+        row for row in action_tool["rows"] if row["exact_runtime_lane_available"]
+    ]
+    assert len(exact_runtime) == 5
+    exact_local = [
+        row for row in action_tool["rows"] if row["exact_local_mutation_available"]
+    ]
+    assert len(exact_local) == 1
+    for lane_row in action_tool["rows"]:
+        assert lane_row["safe_refs_only"] is True
+        assert lane_row["raw_content_included"] is False
+        assert lane_row["operator_visible"] is True
+        assert lane_row["inspectable_now"] is True
+        for flag in [
+            "generic_tool_execution_enabled",
+            "unrestricted_shell_execution_enabled",
+            "browser_automation_enabled",
+            "connector_write_enabled",
+            "plugin_runtime_import_enabled",
+            "remote_execution_enabled",
+            "provider_model_call_enabled",
+            "background_autonomy_enabled",
+            "production_authority_enabled",
+        ]:
+            assert lane_row[flag] is False
     assert "contract-ref:coding-patch-proposal-signed-evidence:v1" in (
         rows_by_id["W6"]["evidence_refs"]
     )

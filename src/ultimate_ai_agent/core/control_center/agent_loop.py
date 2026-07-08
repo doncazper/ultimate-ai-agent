@@ -2,6 +2,14 @@ from __future__ import annotations
 
 from typing import Any
 
+from ultimate_ai_agent.core.control_center.action_tool_code_catalog import (
+    ACTION_TOOL_CODE_CATALOG_CONTRACT_REF,
+    ACTION_TOOL_CODE_CATALOG_CLI_REF,
+    ACTION_TOOL_CODE_CATALOG_REF,
+    ACTION_TOOL_CODE_CATALOG_ROUTE_REF,
+    ACTION_TOOL_CODE_CATALOG_SOURCE,
+    build_action_tool_code_lane_catalog_read_model,
+)
 from ultimate_ai_agent.core.control_center.web_evidence_product_slice import (
     WEB_EVIDENCE_PRODUCT_SLICE_BLOCKED_AUTHORITY_REFS,
     WEB_EVIDENCE_PRODUCT_SLICE_CLI_REF,
@@ -48,6 +56,9 @@ AGENT_LOOP_COCKPIT_PARITY_CLI_REF = (
 HIGH_MATURITY_SPINE_CONTRACT_REF = (
     "contract-ref:high-maturity-agent-spine-coverage:v1"
 )
+ACTION_TOOL_LANE_POSTURE_CONTRACT_REF = (
+    "contract-ref:action-tool-lane-posture:v1"
+)
 DURABLE_ORCHESTRATION_POSTURE_CONTRACT_REF = (
     "contract-ref:durable-orchestration-posture:v1"
 )
@@ -88,6 +99,13 @@ HIGH_MATURITY_COMPONENT_IDS = (
     "W12",
     "W13",
 )
+ACTION_TOOL_LANE_POSTURE_CATEGORY_IDS = (
+    "tool_preview",
+    "local_authority_capability",
+    "runtime_authority_capability",
+    "code_workflow",
+    "blocked_missing_exact_authority",
+)
 DURABLE_ORCHESTRATION_POSTURE_CATEGORY_IDS = (
     "append_first_run_records",
     "canonical_lifecycle_states",
@@ -118,6 +136,74 @@ EXTERNAL_INFORMATION_POSTURE_CATEGORY_IDS = (
     "provider_search_scrape",
     "external_content_authority_isolation",
 )
+
+
+def build_action_tool_lane_posture() -> dict[str, Any]:
+    """Return exact action/tool lane posture from the Python-owned catalog."""
+
+    catalog = build_action_tool_code_lane_catalog_read_model().model_dump(
+        mode="json"
+    )
+    entries = [
+        _action_tool_lane_row(entry)
+        for entry in catalog.get("entries", [])
+        if isinstance(entry, dict)
+    ]
+    status_categories = _dedupe(
+        [
+            row["capability_kind"]
+            if row["status"] != "blocked_missing_exact_authority"
+            else row["status"]
+            for row in entries
+        ]
+    )
+    return {
+        "schema_version": "action_tool_lane_posture.v1",
+        "contract_ref": ACTION_TOOL_LANE_POSTURE_CONTRACT_REF,
+        "catalog_contract_ref": ACTION_TOOL_CODE_CATALOG_CONTRACT_REF,
+        "catalog_ref": ACTION_TOOL_CODE_CATALOG_REF,
+        "status": "implemented_catalog_backed_exact_lane_posture",
+        "source": ACTION_TOOL_CODE_CATALOG_SOURCE,
+        "route_ref": ACTION_TOOL_CODE_CATALOG_ROUTE_REF,
+        "cli_ref": ACTION_TOOL_CODE_CATALOG_CLI_REF,
+        "backend_owned": True,
+        "local_read_model_only": True,
+        "safe_refs_only": True,
+        "raw_content_included": False,
+        "entry_count": catalog["entry_count"],
+        "preview_only_count": catalog["preview_only_count"],
+        "exact_local_mutation_count": catalog["exact_local_mutation_count"],
+        "exact_runtime_lane_count": catalog["exact_runtime_lane_count"],
+        "proposal_only_count": catalog["proposal_only_count"],
+        "blocked_count": catalog["blocked_count"],
+        "category_ids": status_categories,
+        "category_count": len(status_categories),
+        "rows": entries,
+        "generic_tool_execution_enabled": False,
+        "unrestricted_shell_execution_enabled": False,
+        "browser_automation_enabled": False,
+        "connector_write_enabled": False,
+        "plugin_runtime_import_enabled": False,
+        "remote_execution_enabled": False,
+        "provider_model_call_enabled": False,
+        "background_autonomy_enabled": False,
+        "production_authority_enabled": False,
+        "safe_summary": (
+            "Action/tool lane posture is catalog-backed: preview-only tools, "
+            "one exact local mutation lane, exact RuntimeGateway utility lanes, "
+            "proposal-only code workflow lanes, and blocked broad capabilities "
+            "are separated with receipts, evidence refs, and operator-visible "
+            "blocked reasons."
+        ),
+        "blocked_authority_refs": catalog["blocked_authority_refs"],
+        "redactions_applied": [
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_tool_payloads_omitted",
+            "raw_command_output_omitted",
+            "raw_local_paths_omitted",
+        ],
+    }
 
 
 def build_durable_orchestration_posture() -> dict[str, Any]:
@@ -1064,15 +1150,17 @@ def build_high_maturity_agent_spine_readiness() -> dict[str, Any]:
         _high_maturity_row(
             weakness_id="W5",
             component="Exact action and tool lanes",
-            status="partial",
-            maturity="usable",
-            score=7,
+            status="implemented",
+            maturity="strong",
+            score=8,
             safe_summary=(
-                "Action, tool, and code lane catalogs separate inspectable, "
-                "proposal-only, approval-required, implemented, and blocked "
-                "capabilities with side-effect and receipt posture."
+                "Action/tool lane posture is catalog-backed and separates "
+                "preview-only tools, exact local mutation, exact approval-bound "
+                "RuntimeGateway utility lanes, proposal-only code workflows, "
+                "and blocked broad capabilities with receipt/evidence posture."
             ),
             evidence_refs=[
+                ACTION_TOOL_LANE_POSTURE_CONTRACT_REF,
                 "contract-ref:runtime-action-tool-code-catalog:v1",
                 "GET /control-center/actions/inbox",
                 "GET /api/runtime/authority-state#authority_lane_catalog",
@@ -1340,6 +1428,7 @@ def build_high_maturity_agent_spine_readiness() -> dict[str, Any]:
             "all_w1_w13_have_code_docs_tests_or_governed_blocked_posture"
         ),
         "rows": rows,
+        "action_tool_lane_posture": build_action_tool_lane_posture(),
         "durable_orchestration_posture": build_durable_orchestration_posture(),
         "external_information_handling": (
             build_external_information_handling_posture()
@@ -1843,6 +1932,56 @@ def _durable_orchestration_row(
         "connector_writes_added": False,
         "unrestricted_shell_added": False,
         "production_authority_added": False,
+    }
+
+
+def _action_tool_lane_row(entry: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "capability_id": _safe_text(str(entry["capability_id"])),
+        "capability_ref": _safe_text(str(entry["capability_ref"])),
+        "lane_ref": _safe_text(str(entry["lane_ref"])),
+        "label": _safe_text(str(entry["label"])),
+        "capability_kind": _safe_text(str(entry["capability_kind"])),
+        "status": _safe_text(str(entry["status"])),
+        "surface": _safe_text(str(entry["surface"])),
+        "side_effect_class": _safe_text(str(entry["side_effect_class"])),
+        "required_approval_scope": _safe_text(
+            str(entry["required_approval_scope"])
+        ),
+        "eligibility_reason": _safe_text(str(entry["eligibility_reason"])),
+        "blocked_reason": _safe_text(str(entry["blocked_reason"])),
+        "receipt_requirement": _safe_text(str(entry["receipt_requirement"])),
+        "rollback_or_safe_disable_posture": _safe_text(
+            str(entry["rollback_or_safe_disable_posture"])
+        ),
+        "route_refs": _dedupe(list(entry.get("route_refs") or [])),
+        "cli_refs": _dedupe(list(entry.get("cli_refs") or [])),
+        "receipt_refs": _dedupe(list(entry.get("receipt_refs") or [])),
+        "evidence_refs": _dedupe(list(entry.get("evidence_refs") or [])),
+        "proof_refs": _dedupe(list(entry.get("proof_refs") or [])),
+        "blocked_authority_refs": _dedupe(
+            list(entry.get("blocked_authority_refs") or [])
+        ),
+        "operator_visible": entry["operator_visible"] is True,
+        "inspectable_now": entry["inspectable_now"] is True,
+        "proposal_only": entry["proposal_only"] is True,
+        "exact_local_mutation_available": (
+            entry["exact_local_mutation_available"] is True
+        ),
+        "exact_runtime_lane_available": (
+            entry["exact_runtime_lane_available"] is True
+        ),
+        "safe_refs_only": True,
+        "raw_content_included": False,
+        "generic_tool_execution_enabled": False,
+        "unrestricted_shell_execution_enabled": False,
+        "browser_automation_enabled": False,
+        "connector_write_enabled": False,
+        "plugin_runtime_import_enabled": False,
+        "remote_execution_enabled": False,
+        "provider_model_call_enabled": False,
+        "background_autonomy_enabled": False,
+        "production_authority_enabled": False,
     }
 
 

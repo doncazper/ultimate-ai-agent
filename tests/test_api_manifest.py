@@ -184,6 +184,10 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned() -> None:
         in manifest["capabilities_declared"]
     )
     assert (
+        "control_center_action_tool_lane_posture_read_model"
+        in manifest["capabilities_declared"]
+    )
+    assert (
         "control_center_durable_orchestration_posture_read_model"
         in manifest["capabilities_declared"]
     )

@@ -4351,6 +4351,63 @@ function AgentLoopThreadPanel({
         </ul>
         <div
           className="detail-panel compact"
+          aria-label="Action and tool lane posture"
+        >
+          <strong>Action and Tool Lane Posture</strong>
+          <dl className="detail-list compact">
+            <DetailTerm
+              label="Contract"
+              value={
+                readModel.high_maturity_spine_readiness.action_tool_lane_posture
+                  .contract_ref
+              }
+            />
+            <DetailTerm
+              label="Exact runtime lanes"
+              value={`${readModel.high_maturity_spine_readiness.action_tool_lane_posture.exact_runtime_lane_count}`}
+            />
+            <DetailTerm
+              label="Exact local lanes"
+              value={`${readModel.high_maturity_spine_readiness.action_tool_lane_posture.exact_local_mutation_count}`}
+            />
+            <DetailTerm
+              label="Generic tools"
+              value={
+                readModel.high_maturity_spine_readiness.action_tool_lane_posture
+                  .generic_tool_execution_enabled
+                  ? "enabled"
+                  : "blocked"
+              }
+            />
+          </dl>
+          <p className="safe-copy">
+            {
+              readModel.high_maturity_spine_readiness.action_tool_lane_posture
+                .safe_summary
+            }
+          </p>
+          <ul className="ref-list decision-matrix-list">
+            {readModel.high_maturity_spine_readiness.action_tool_lane_posture.rows
+              .slice(0, 4)
+              .map((row) => (
+                <li key={row.capability_id}>
+                  <strong>{row.label}</strong> <span>{row.status}</span>
+                  <p className="muted">{row.blocked_reason}</p>
+                  <RefListWithFallback
+                    emptyLabel="Lane refs: none"
+                    refs={[
+                      row.lane_ref,
+                      ...row.route_refs.slice(0, 1),
+                      ...row.receipt_refs.slice(0, 1),
+                      ...row.blocked_authority_refs.slice(0, 1),
+                    ]}
+                  />
+                </li>
+              ))}
+          </ul>
+        </div>
+        <div
+          className="detail-panel compact"
           aria-label="Durable orchestration posture"
         >
           <strong>Durable Orchestration Posture</strong>
