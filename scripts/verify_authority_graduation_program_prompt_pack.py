@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate and emit the UAA runtime capability foundation prompt pack."""
+"""Validate and emit the Authority Graduation Program prompt pack."""
 
 from __future__ import annotations
 
@@ -13,61 +13,37 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PACK_DIR = ROOT / "docs" / "prompts" / "uaa_runtime_capability_foundation"
+PACK_DIR = ROOT / "docs" / "prompts" / "authority_graduation_program"
 MANIFEST_PATH = PACK_DIR / "prompt_bundle_manifest.json"
 README_PATH = PACK_DIR / "README.md"
 WRAPPER_PROMPT = (
-    "docs/prompts/uaa_runtime_capability_foundation/"
-    "00_execute_uaa_runtime_capability_foundation_end_to_end.prompt.md"
+    "docs/prompts/authority_graduation_program/"
+    "00_execute_all_review_fix_merge.prompt.md"
 )
 PROMPT_REF_PATTERN = re.compile(
-    r"^docs/prompts/uaa_runtime_capability_foundation/"
-    r"(0[0-9]_[a-z0-9_]+\.prompt\.md)$"
+    r"^docs/prompts/authority_graduation_program/"
+    r"((?:[0-1][0-9]|99)_[a-z0-9_]+\.prompt\.md)$"
 )
 HASH_PREFIX = "sha256:"
 EXPECTED_VERSION = "1.1.0"
+EXPECTED_PROMPT_COUNT = 17
 ABSOLUTE_LOCAL_PATH_PATTERN = re.compile(r"/Users/[^)\s`]+")
 FORBIDDEN_RUNTIME_PHRASES = (
-    "grants runtime authority",
     "unrestricted shell execution is allowed",
     "browser automation is allowed",
     "connector writes are allowed",
     "production authority is granted",
+    "plugin execution is enabled",
+    "callable extension activation is enabled",
 )
-REQUIRED_COMPONENTS = (
-    "reasoning and task understanding",
-    "planning and orchestration",
-    "learning and adaptation",
-    "memory and context management",
-    "communication and interaction quality",
-    "action and tool calling",
-    "autonomy and authority management",
-    "code and implementation assistance",
-    "research, web, and external information handling",
-    "model and provider management",
-    "evidence, audit, and observability",
-    "safety, security, and failure handling",
-    "UX as an AI cockpit",
-    "CLI/API parity",
-    "extensibility and ecosystem",
-    "productized agent loop",
-)
-REQUIRED_WEAKNESSES = tuple(f"W{index}" for index in range(1, 20))
-REQUIRED_MILESTONES = tuple(f"M{index}" for index in range(1, 7))
-REQUIRED_EXTERNAL_REFERENCE_PATTERNS = (
-    "GoatCitadel",
-    "durable orchestration",
-    "signed evidence receipts",
-    "operator cockpit UX",
-    "exact action/tool lanes",
-    "Code Mode discipline",
-    "model/provider observability",
-    "governed memory retrieval",
-    "extension catalog clarity",
-)
-REQUIRED_BLOCKED_AUTHORITY_PHRASES = (
-    "Broad browser action, connector writes, production authority, unrestricted",
-    "shell, runtime model calls, and plugin execution stay blocked",
+REQUIRED_PHRASES = (
+    "No broad authority unlock",
+    "Do not use broad approve-all or standing authority",
+    "exact scope, redaction, approval, idempotency, rollback/safe-disable",
+    "15_extension_plugin_callable_lane.prompt.md",
+    "No plugin runtime import or callable extension activation",
+    "Callable activation remains blocked",
+    "Do not generate a broad\nplugin-execution prompt",
 )
 
 
@@ -120,33 +96,26 @@ def _validate_text_safety(path: Path, text: str) -> None:
     lowered = text.lower()
     for phrase in FORBIDDEN_RUNTIME_PHRASES:
         if phrase in lowered:
-            raise VerificationError(f"{repo_relative} contains forbidden authority phrase: {phrase}")
+            raise VerificationError(
+                f"{repo_relative} contains forbidden authority phrase: {phrase}"
+            )
 
 
-def _validate_required_fragments(label: str, corpus: str, fragments: tuple[str, ...]) -> None:
-    missing = [fragment for fragment in fragments if fragment not in corpus]
-    if missing:
-        raise VerificationError(f"missing {label}: {', '.join(missing)}")
+def _validate_prompt_order(refs: list[str]) -> None:
+    if refs[0] != WRAPPER_PROMPT:
+        raise VerificationError("first prompt ref must be the end-to-end wrapper prompt")
+    if len(refs) != EXPECTED_PROMPT_COUNT:
+        raise VerificationError(f"expected {EXPECTED_PROMPT_COUNT} prompt refs, found {len(refs)}")
+    if len(set(refs)) != len(refs):
+        raise VerificationError("prompt refs must be unique")
 
-
-def _validate_high_maturity_coverage(texts: list[str]) -> None:
-    corpus = "\n".join(texts)
-    lowered = corpus.lower()
-    _validate_required_fragments("AI-agent component coverage", lowered, tuple(
-        component.lower() for component in REQUIRED_COMPONENTS
-    ))
-    _validate_required_fragments("W1-W19 weakness coverage", corpus, REQUIRED_WEAKNESSES)
-    _validate_required_fragments("M1-M6 authority milestone coverage", corpus, REQUIRED_MILESTONES)
-    _validate_required_fragments(
-        "external reference pattern coverage",
-        corpus,
-        REQUIRED_EXTERNAL_REFERENCE_PATTERNS,
-    )
-    _validate_required_fragments(
-        "blocked-authority coverage",
-        corpus,
-        REQUIRED_BLOCKED_AUTHORITY_PHRASES,
-    )
+    for index, ref in enumerate(refs[:-1]):
+        expected_prefix = f"{index:02d}_"
+        filename = Path(ref).name
+        if not filename.startswith(expected_prefix):
+            raise VerificationError(f"prompt {ref} must start with {expected_prefix}")
+    if not Path(refs[-1]).name.startswith("99_"):
+        raise VerificationError("final prompt ref must be the blocker report prompt")
 
 
 def verify_manifest(allow_placeholder_hash: bool = False) -> dict[str, Any]:
@@ -154,7 +123,7 @@ def verify_manifest(allow_placeholder_hash: bool = False) -> dict[str, Any]:
         raise VerificationError(f"missing README: {README_PATH.relative_to(ROOT)}")
 
     manifest = _load_manifest()
-    if manifest.get("bundle_id") != "uaa-runtime-capability-foundation-001":
+    if manifest.get("bundle_id") != "authority-graduation-program-001":
         raise VerificationError("unexpected bundle_id")
     if manifest.get("version") != EXPECTED_VERSION:
         raise VerificationError("unexpected version")
@@ -162,22 +131,12 @@ def verify_manifest(allow_placeholder_hash: bool = False) -> dict[str, Any]:
         raise VerificationError("stable_within_run must be true")
 
     refs = _prompt_refs(manifest)
-    if refs[0] != WRAPPER_PROMPT:
-        raise VerificationError("first prompt ref must be the end-to-end wrapper prompt")
-    if len(refs) != 10:
-        raise VerificationError(f"expected 10 prompt refs, found {len(refs)}")
-    if len(set(refs)) != len(refs):
-        raise VerificationError("prompt refs must be unique")
+    _validate_prompt_order(refs)
 
-    texts = [README_PATH.read_text(encoding="utf-8")]
-    for index, ref in enumerate(refs):
+    combined_text_parts = [README_PATH.read_text(encoding="utf-8")]
+    for ref in refs:
         if not PROMPT_REF_PATTERN.match(ref):
             raise VerificationError(f"prompt ref has unexpected format: {ref}")
-        if index > 0:
-            expected_prefix = f"0{index}_"
-            filename = Path(ref).name
-            if not filename.startswith(expected_prefix):
-                raise VerificationError(f"prompt {ref} must start with {expected_prefix}")
         path = _repo_path(ref)
         if not path.is_file():
             raise VerificationError(f"missing prompt file: {ref}")
@@ -185,10 +144,13 @@ def verify_manifest(allow_placeholder_hash: bool = False) -> dict[str, Any]:
         if not text.startswith("# "):
             raise VerificationError(f"prompt file must start with a markdown h1: {ref}")
         _validate_text_safety(path, text)
-        texts.append(text)
+        combined_text_parts.append(text)
 
-    _validate_text_safety(README_PATH, texts[0])
-    _validate_high_maturity_coverage(texts)
+    _validate_text_safety(README_PATH, combined_text_parts[0])
+    combined_text = "\n".join(combined_text_parts)
+    for phrase in REQUIRED_PHRASES:
+        if phrase not in combined_text:
+            raise VerificationError(f"prompt pack is missing required phrase: {phrase}")
 
     actual_hash = compute_bundle_hash(refs)
     manifest_hash = manifest.get("bundle_hash")
@@ -208,7 +170,7 @@ def emit_combined_prompt(refs: list[str], output: Path) -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
     manifest = _load_manifest()
     header = [
-        "# UAA Runtime Capability Foundation Prompt Pack Combined Run",
+        "# Authority Graduation Program Prompt Pack Combined Run",
         "",
         f"Bundle id: `{manifest['bundle_id']}`",
         f"Bundle version: `{manifest['version']}`",
@@ -260,9 +222,6 @@ def main(argv: list[str] | None = None) -> int:
                         "version": manifest["version"],
                         "prompt_count": len(refs),
                         "bundle_hash": manifest["computed_bundle_hash"],
-                        "component_count": len(REQUIRED_COMPONENTS),
-                        "weakness_count": len(REQUIRED_WEAKNESSES),
-                        "authority_milestone_count": len(REQUIRED_MILESTONES),
                         "combined_output": str(args.emit_combined) if args.emit_combined else None,
                     },
                     indent=2,
@@ -271,7 +230,7 @@ def main(argv: list[str] | None = None) -> int:
             )
         if not (args.list or args.print_hash or args.json):
             print(
-                "UAA runtime capability foundation prompt pack verified: "
+                "Authority Graduation Program prompt pack verified: "
                 f"{len(refs)} prompts, {manifest['computed_bundle_hash']}"
             )
             if args.emit_combined:

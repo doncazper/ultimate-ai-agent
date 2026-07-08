@@ -5,10 +5,10 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PACK_DIR = ROOT / "docs" / "prompts" / "uaa_runtime_capability_foundation"
+PACK_DIR = ROOT / "docs" / "prompts" / "authority_graduation_program"
 MANIFEST = PACK_DIR / "prompt_bundle_manifest.json"
-VERIFY = ROOT / "scripts" / "verify_uaa_runtime_capability_foundation_prompt_pack.py"
-WRAPPER = ROOT / "scripts" / "dev" / "run_uaa_runtime_capability_foundation_prompt_pack.sh"
+VERIFY = ROOT / "scripts" / "verify_authority_graduation_program_prompt_pack.py"
+WRAPPER = ROOT / "scripts" / "dev" / "run_authority_graduation_program.sh"
 
 
 def test_manifest_refs_are_ordered_and_present() -> None:
@@ -16,15 +16,16 @@ def test_manifest_refs_are_ordered_and_present() -> None:
 
     assert manifest["version"] == "1.1.0"
     refs = manifest["developer_prompt_refs"]
-    assert len(refs) == 10
-    assert refs[0].endswith("00_execute_uaa_runtime_capability_foundation_end_to_end.prompt.md")
+    assert len(refs) == 17
+    assert refs[0].endswith("00_execute_all_review_fix_merge.prompt.md")
+    assert refs[15].endswith("15_extension_plugin_callable_lane.prompt.md")
+    assert refs[-1].endswith("99_blocker_report_and_unblock_prompts.prompt.md")
     assert len(set(refs)) == len(refs)
 
-    for index, ref in enumerate(refs):
+    for index, ref in enumerate(refs[:-1]):
         assert not ref.startswith("/")
         assert ".." not in Path(ref).parts
-        if index > 0:
-            assert Path(ref).name.startswith(f"0{index}_")
+        assert Path(ref).name.startswith(f"{index:02d}_")
         assert (ROOT / ref).is_file()
 
 
@@ -36,12 +37,9 @@ def test_verifier_accepts_pack() -> None:
         text=True,
     )
     data = json.loads(result.stdout)
-    assert data["bundle_id"] == "uaa-runtime-capability-foundation-001"
+    assert data["bundle_id"] == "authority-graduation-program-001"
     assert data["version"] == "1.1.0"
-    assert data["prompt_count"] == 10
-    assert data["component_count"] == 16
-    assert data["weakness_count"] == 19
-    assert data["authority_milestone_count"] == 6
+    assert data["prompt_count"] == 17
     assert data["bundle_hash"].startswith("sha256:")
 
 
@@ -56,7 +54,7 @@ def test_wrapper_dry_run_emits_combined_prompt(tmp_path: Path) -> None:
 
     assert "Dry run complete" in result.stdout
     text = output.read_text(encoding="utf-8")
-    assert "UAA Runtime Capability Foundation Prompt Pack Combined Run" in text
-    assert "00_execute_uaa_runtime_capability_foundation_end_to_end.prompt.md" in text
-    assert "W19 extension/plugin callable graduation" in text
-    assert "M6 Extension/Plugin Callable Promotion" in text
+    assert "Authority Graduation Program Prompt Pack Combined Run" in text
+    assert "00_execute_all_review_fix_merge.prompt.md" in text
+    assert "15_extension_plugin_callable_lane.prompt.md" in text
+    assert "Callable activation remains blocked" in text

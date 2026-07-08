@@ -3,34 +3,104 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PROMPT="$ROOT/docs/prompts/authority_graduation_program/00_execute_all_review_fix_merge.prompt.md"
+VERIFY="$ROOT/scripts/verify_authority_graduation_program_prompt_pack.py"
+OUTPUT="${UAA_AUTH_GRAD_OUTPUT:-/tmp/uaa-authority-graduation-prompt-pack.md}"
 CODEX_BIN="${CODEX_BIN:-codex}"
 SANDBOX="${CODEX_AUTH_GRAD_SANDBOX:-workspace-write}"
+DRY_RUN=0
+LIST_ONLY=0
 MODEL_ARG=()
 
 if [[ -n "${CODEX_AUTH_GRAD_MODEL:-}" ]]; then
   MODEL_ARG=(--model "$CODEX_AUTH_GRAD_MODEL")
 fi
 
+if [[ -x "$ROOT/.venv/bin/python" ]]; then
+  PYTHON="${PYTHON:-$ROOT/.venv/bin/python}"
+else
+  PYTHON="${PYTHON:-python3}"
+fi
+
+usage() {
+  cat <<'USAGE'
+Usage:
+  bash scripts/dev/run_authority_graduation_program.sh [options]
+
+Options:
+  --dry-run          Verify the pack and emit a combined prompt without Codex.
+  --list             List ordered prompt files and exit.
+  --output PATH      Combined prompt output path for review/dry-run.
+  --help             Show this help.
+
+Environment:
+  CODEX_BIN                 Codex CLI binary. Default: codex
+  CODEX_AUTH_GRAD_MODEL     Optional Codex model argument.
+  CODEX_AUTH_GRAD_SANDBOX   Codex sandbox. Default: workspace-write
+  UAA_AUTH_GRAD_OUTPUT      Combined prompt output path.
+USAGE
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dry-run)
+      DRY_RUN=1
+      shift
+      ;;
+    --list)
+      LIST_ONLY=1
+      shift
+      ;;
+    --output)
+      if [[ $# -lt 2 ]]; then
+        echo "--output requires a path" >&2
+        exit 2
+      fi
+      OUTPUT="$2"
+      shift 2
+      ;;
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+done
+
 if [[ ! -f "$PROMPT" ]]; then
   echo "Missing prompt: $PROMPT" >&2
   exit 1
 fi
 
+if [[ "$LIST_ONLY" -eq 1 ]]; then
+  "$PYTHON" "$VERIFY" --list
+  exit 0
+fi
+
+"$PYTHON" "$VERIFY" --emit-combined "$OUTPUT"
+
+echo "Authority Graduation Program prompt pack:"
+echo "  repo: $ROOT"
+echo "  prompt: $PROMPT"
+echo "  combined prompt: $OUTPUT"
+echo "  sandbox: $SANDBOX"
+echo
+
+if [[ "$DRY_RUN" -eq 1 ]]; then
+  echo "Dry run complete. The prompt pack was validated and emitted without invoking Codex."
+  exit 0
+fi
+
 if ! command -v "$CODEX_BIN" >/dev/null 2>&1; then
   echo "Codex CLI not found. Install Codex or set CODEX_BIN=/path/to/codex." >&2
-  echo "Prompt to run manually: $PROMPT" >&2
+  echo "Validated prompt to run manually: $PROMPT" >&2
+  echo "Combined prompt for review: $OUTPUT" >&2
   exit 127
 fi
 
-echo "Running legacy authority capability prompt pack from:"
-echo "  $ROOT"
-echo
-echo "Prompt:"
-echo "  $PROMPT"
-echo
-echo "Sandbox:"
-echo "  $SANDBOX"
-echo
 echo "This run may create branches, PRs, commits, merges, and pushes if the prompt"
 echo "gates pass. Stop now if that is not intended."
 echo

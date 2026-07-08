@@ -31,6 +31,18 @@ The wrapper sends `00_execute_all_review_fix_merge.prompt.md` to Codex. The
 orchestrator prompt instructs Codex to run each lane as a focused branch/PR,
 review and harden the PR, merge only when green, then continue.
 
+Dry-run and emit the combined prompt without invoking Codex:
+
+```bash
+bash scripts/dev/run_authority_graduation_program.sh --dry-run --output /tmp/uaa-authority-graduation.md
+```
+
+List the ordered prompt files:
+
+```bash
+bash scripts/dev/run_authority_graduation_program.sh --list
+```
+
 The orchestrator is overlap-aware. Before implementing a lane, it searches for
 related work from earlier prompt packs, PRs, manifests, verifiers, docs, and
 boards. If something is already partially implemented, it must harden or verify
@@ -57,7 +69,8 @@ allowed by the current run.
 13. `12_credential_oauth_account_lane.prompt.md`
 14. `13_packaging_distribution_lane.prompt.md`
 15. `14_production_authority_lane.prompt.md`
-16. `99_blocker_report_and_unblock_prompts.prompt.md`
+16. `15_extension_plugin_callable_lane.prompt.md`
+17. `99_blocker_report_and_unblock_prompts.prompt.md`
 
 ## Non-Negotiable Shape
 
@@ -67,4 +80,6 @@ allowed by the current run.
 - No raw payload persistence.
 - No public beta, public release, production-readiness, or production authority
   claims unless the production lane is explicitly approved.
+- No plugin runtime import or callable extension activation unless an exact
+  extension/plugin callable lane proves the capability.
 - Each blocker must produce a next unblock prompt, not vague TODO copy.

@@ -1,8 +1,8 @@
 {
   "$schema": "../../schemas/prompt_bundle_manifest.schema.json",
   "bundle_id": "authority-graduation-program-001",
-  "version": "1.0.0",
-  "purpose": "Stored prompts for opening UAA authority lanes through contract, read-only/dry-run, manual foreground action, scoped repeatable action, limited automation, and broader capability gates.",
+  "version": "1.1.0",
+  "purpose": "Stored prompts for opening UAA authority lanes through contract, read-only/dry-run, manual foreground action, scoped repeatable action, limited automation, extension callable promotion gates, and broader capability gates.",
   "developer_prompt_refs": [
     "docs/prompts/authority_graduation_program/00_execute_all_review_fix_merge.prompt.md",
     "docs/prompts/authority_graduation_program/01_web_evidence_lane.prompt.md",
@@ -19,9 +19,10 @@
     "docs/prompts/authority_graduation_program/12_credential_oauth_account_lane.prompt.md",
     "docs/prompts/authority_graduation_program/13_packaging_distribution_lane.prompt.md",
     "docs/prompts/authority_graduation_program/14_production_authority_lane.prompt.md",
+    "docs/prompts/authority_graduation_program/15_extension_plugin_callable_lane.prompt.md",
     "docs/prompts/authority_graduation_program/99_blocker_report_and_unblock_prompts.prompt.md"
   ],
-  "bundle_hash": "sha256:ea2661a7fd6ba7feaad076e89e3e23bbd7e0d5cade256eec9d522b99cc47bee3",
+  "bundle_hash": "sha256:11fdc74e7b9404fe16b114b7d39dd692a680b5dffb7d9b19f29aab0898e82768",
   "stable_within_run": true,
   "created_at": "2026-07-03"
 }

@@ -3,9 +3,10 @@
 Role: Principal AI agent systems architect, product strategist, security
 reviewer, implementation lead, and adversarial hardening reviewer for UAA.
 
-Goal: bring UAA materially closer to external comparison runtime's agent-platform maturity
-while preserving UAA's stronger authority posture. Execute the stored prompt
-sequence as a gated catch-up program, not as a broad rewrite.
+Goal: bring UAA materially closer to high-maturity agent/operator platform
+quality, using the UAA vs GoatCitadel comparison as an evidence-backed coverage
+target while preserving UAA's stronger authority posture. Execute the stored
+prompt sequence as a gated catch-up program, not as a broad rewrite.
 
 ## Read First
 
@@ -17,6 +18,8 @@ Read these files completely before implementation:
 - `SECURITY.md`
 - `docs/prompts/uaa_runtime_capability_foundation/README.md`
 - every prompt in `docs/prompts/uaa_runtime_capability_foundation/`
+- `docs/prompts/authority_graduation_program/README.md`
+- `docs/prompts/authority_graduation_program/prompt_bundle_manifest.json`
 - current product and authority references:
   - `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md`
   - `docs/control_center/PRODUCT_LANGUAGE_RULES.md`
@@ -27,8 +30,9 @@ Read these files completely before implementation:
   - `docs/api/openapi_contract.md`
   - `docs/api/route_inventory.md`
 
-If the sibling external comparison runtime repo is available, inspect it read-only for
-reference patterns only. Do not copy code. Useful reference areas include:
+If the sibling GoatCitadel or other external comparison runtime repo is
+available, inspect it read-only for reference patterns only. Do not copy code.
+Useful reference areas include:
 
 - `external-runtime-ref:readme`
 - `external-runtime-ref:benchmark-readme`
@@ -70,6 +74,72 @@ reference patterns only. Do not copy code. Useful reference areas include:
   primary operator workflow.
 - If a capability is blocked, state the blocker and produce a future exact-lane
   prompt instead of pretending readiness.
+
+## High-Maturity Coverage Contract
+
+This program must cover the 16 AI-agent system components:
+
+1. reasoning and task understanding
+2. planning and orchestration
+3. learning and adaptation
+4. memory and context management
+5. communication and interaction quality
+6. action and tool calling
+7. autonomy and authority management
+8. code and implementation assistance
+9. research, web, and external information handling
+10. model and provider management
+11. evidence, audit, and observability
+12. safety, security, and failure handling
+13. UX as an AI cockpit
+14. CLI/API parity
+15. extensibility and ecosystem
+16. productized agent loop
+
+The implementation coverage map is W1-W19:
+
+- W1 proposal-heavy product loop
+- W2 durable planning/orchestration gaps
+- W3 memory retrieval/lifecycle utility gaps
+- W4 partial operator cockpit UX
+- W5 limited exact action/tool execution
+- W6 weak Code Mode/code-assistance workflow
+- W7 web/research evidence utility gaps
+- W8 model/provider management partiality
+- W9 missing signed portable receipts
+- W10 extensibility/catalog maturity gaps
+- W11 incomplete end-to-end Founder Loop
+- W12 missing system-level agent evals
+- W13 release/product-truth alignment gaps
+- W14 browser action authority graduation
+- W15 connector write authority graduation
+- W16 managed shell/runtime command graduation
+- W17 runtime model call graduation
+- W18 production authority graduation
+- W19 extension/plugin callable graduation
+
+Borrow these GoatCitadel strengths only as UAA-native patterns: durable
+orchestration, signed evidence receipts, operator cockpit UX, exact action/tool
+lanes, Code Mode discipline, model/provider observability, governed memory
+retrieval, and extension catalog clarity.
+
+High-authority milestones are delegated to
+`docs/prompts/authority_graduation_program/`:
+
+- M1 Browser Authority maps to `01_web_evidence_lane.prompt.md` and
+  `02_browser_lane.prompt.md`.
+- M2 Connector Writes maps to `04_connector_read_lane.prompt.md`,
+  `05_connector_write_send_lane.prompt.md`, and
+  `12_credential_oauth_account_lane.prompt.md`.
+- M3 Managed Shell maps to `06_local_shell_subprocess_lane.prompt.md`.
+- M4 Runtime Model Calls maps to `03_provider_model_invocation_lane.prompt.md`.
+- M5 Production Authority maps to `14_production_authority_lane.prompt.md`.
+- M6 Extension/Plugin Callable Promotion maps to
+  `15_extension_plugin_callable_lane.prompt.md`.
+
+Broad browser action, connector writes, production authority, unrestricted
+shell, runtime model calls, and plugin execution stay blocked unless a later
+exact authority lane proves and grants the specific scoped capability.
 
 ## Prompt Sequence
 

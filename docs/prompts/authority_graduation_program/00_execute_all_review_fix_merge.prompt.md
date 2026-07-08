@@ -19,6 +19,7 @@ Read first:
   - `docs/prompts/fcc_action_inbox_loop/`
   - `docs/prompts/fcc_memory_module_sequence/`
   - `docs/prompts/fcc_planned_sequence/`
+  - `docs/prompts/uaa_runtime_capability_foundation/`
   - `docs/prompts/uaa_next_capability_product_prompts.md`
   - `docs/control_center/AUTHORITY_RAMP_CONVEYOR.md`
   - `docs/control_center/OPERATIONALIZATION_LADDER.md`
@@ -41,7 +42,8 @@ Prompt sequence:
 12. `12_credential_oauth_account_lane.prompt.md`
 13. `13_packaging_distribution_lane.prompt.md`
 14. `14_production_authority_lane.prompt.md`
-15. `99_blocker_report_and_unblock_prompts.prompt.md`
+15. `15_extension_plugin_callable_lane.prompt.md`
+16. `99_blocker_report_and_unblock_prompts.prompt.md`
 
 Per-lane loop:
 
@@ -124,6 +126,8 @@ Global hard stops:
 - Do not merge a red PR.
 - Do not use broad approve-all or standing authority.
 - Do not promote multiple new write/autonomy lanes in one PR.
+- Do not promote plugin runtime import or callable extension activation from a
+  catalog review alone.
 - Do not hide blockers in docs. Produce unblock prompts.
 
 Final report:
