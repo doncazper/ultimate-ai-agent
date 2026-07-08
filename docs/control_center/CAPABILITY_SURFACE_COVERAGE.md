@@ -10,6 +10,19 @@ is:
 docs/control_center/capability_surface_manifest.json
 ```
 
+Generated/source-owned route truth is maintained as a companion overlay:
+
+```text
+docs/control_center/capability_surface_generated_overlay.json
+```
+
+Generate or check it with:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/generate_control_center_capability_surface.py --check
+PYTHONPATH=src .venv/bin/python scripts/generate_control_center_capability_surface.py --write
+```
+
 It answers a different question from the route manifests:
 
 ```text
@@ -41,6 +54,13 @@ Each row records:
 - `status`
 - `missing_reason`
 - `tests_evidence_refs`
+
+The human manifest owns product judgment fields such as labels, grouping,
+owners, authority posture, status, missing reasons, and evidence refs. The
+generated overlay owns source-derived facts: live API operation IDs,
+side-effect classes, route classifications, approval posture, release-surface
+route labels/statuses, and route-status visible action posture. This keeps
+source drift machine-checkable without silently rewriting human annotations.
 
 ## Status Values
 
@@ -74,14 +94,34 @@ operation ids.
 Required focused checks:
 
 ```bash
+PYTHONPATH=src .venv/bin/python scripts/generate_control_center_capability_surface.py --check
 PYTHONPATH=src .venv/bin/python scripts/verify_control_center_capability_surface.py
 PYTHONPATH=src .venv/bin/python -m pytest tests/test_control_center_capability_surface_manifest.py
 ```
+
+The capability-surface verifier also runs from the broader static verifier
+stack through `scripts/verification/run_all_legacy.py`, adjacent to the Control
+Center release-surface scan.
+
+## Control Center View Posture
+
+A dedicated Control Center capability-surface UI route is intentionally not
+added in this pass. The source truth is now available through the human
+manifest, generated overlay, verifier, and broader verifier stack, but adding a
+visible route would require coordinated changes to the frontend route registry,
+release-surface manifest, route-status manifest, typed client, mock data, and
+frontend tests. Several of those frontend files already carry unrelated
+uncommitted work in the current tree, so this pass stops at verifier-backed
+Python/source truth instead of staging a mixed UI commit. The next safe UI lane
+should add a bounded read-only route backed by the generated overlay and render
+operator-readable capability rows, not raw JSON.
 
 ## Rollback
 
 Rollback is to remove this document, remove
 `docs/control_center/capability_surface_manifest.json`, remove
+`docs/control_center/capability_surface_generated_overlay.json`, remove
 `docs/schemas/control_center_capability_surface.schema.json`, remove the
-focused verifier/test files, and remove documentation cross-links. No runtime
-state, route, authority, migration, or persistent user data is changed.
+generator, focused verifier/test files, and remove documentation cross-links.
+No runtime state, route, authority, migration, or persistent user data is
+changed.

@@ -68,6 +68,19 @@ reason, impact, and safe evidence refs.
 | desktop-packaging | `command:desktop-packaging.proof`, `command:desktop-packaging.contract` | Launch smoke is skippable only when local Docker or Playwright prerequisites are unavailable and the proof remains non-distribution evidence; blocked by launch smoke failure, API health failure, Control Center load failure, manifest mismatch, screenshot failure, shutdown failure, raw logs, raw paths, unsafe evidence refs, or distribution claims. |
 | performance | `command:performance.benchmark`, `command:performance.latency-gate`, `command:foundation-gate.report-only` | Optional frontend timing prerequisites may be skipped only when visible with reason code; blocked by required latency failures, missing reports, or authority bypass/caching. |
 
+The static verifier stack also runs the Control Center capability-surface
+governance check adjacent to the release-surface scan:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/generate_control_center_capability_surface.py --check
+PYTHONPATH=src .venv/bin/python scripts/verify_control_center_capability_surface.py
+```
+
+This is a product-truth and coverage check only. It does not add backend
+routes, Control Center controls, shell/subprocess authority, provider/model
+calls, connector writes, browser automation, public release claims, production
+readiness, or production authority.
+
 ## Release-Candidate Usage
 
 For a local release candidate, run:

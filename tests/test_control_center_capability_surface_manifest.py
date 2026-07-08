@@ -9,7 +9,11 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts/verify_control_center_capability_surface.py"
+GENERATOR_SCRIPT = ROOT / "scripts/generate_control_center_capability_surface.py"
 MANIFEST_PATH = ROOT / "docs/control_center/capability_surface_manifest.json"
+GENERATED_OVERLAY_PATH = (
+    ROOT / "docs/control_center/capability_surface_generated_overlay.json"
+)
 ROUTE_STATUS_MANIFEST_PATH = ROOT / "docs/control_center/route_status_manifest.json"
 RELEASE_SURFACE_MANIFEST_PATH = ROOT / "docs/control_center/release_surface_manifest.json"
 
@@ -26,8 +30,24 @@ def load_verifier() -> Any:
     return module
 
 
+def load_generator() -> Any:
+    spec = importlib.util.spec_from_file_location(
+        "generate_control_center_capability_surface",
+        GENERATOR_SCRIPT,
+    )
+    assert spec is not None
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
 def load_manifest() -> dict[str, Any]:
     return json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+
+
+def load_generated_overlay() -> dict[str, Any]:
+    return json.loads(GENERATED_OVERLAY_PATH.read_text(encoding="utf-8"))
 
 
 def load_route_status_manifest() -> dict[str, Any]:
@@ -42,6 +62,38 @@ def test_control_center_capability_surface_verifier_passes_current_repo() -> Non
     verifier = load_verifier()
 
     assert verifier.verify(ROOT) == []
+
+
+def test_capability_surface_generated_overlay_is_current() -> None:
+    generator = load_generator()
+    overlay = load_generated_overlay()
+
+    assert generator.check_generated_overlay(ROOT) == []
+    assert overlay["schema_version"] == (
+        "uaa-control-center-capability-surface-generated-overlay.v1"
+    )
+    assert overlay["runtime_authority_added"] is False
+    assert overlay["public_beta_claim_enabled"] is False
+    assert overlay["production_readiness_claim_enabled"] is False
+    assert overlay["source_truth_counts"]["missing_release_routes"] == []
+    assert overlay["source_truth_counts"]["missing_visible_actions"] == []
+    assert overlay["source_truth_counts"]["covered_release_route_count"] == 39
+    assert overlay["source_truth_counts"]["covered_visible_action_count"] == 42
+    today = next(
+        item
+        for item in overlay["capabilities"]
+        if item["capability_id"] == "today_daily_loop_summary"
+    )
+    assert today["source_truth_status"] == "current"
+    assert today["api_routes"][0] == {
+        "method": "GET",
+        "path": "/control-center/today/summary",
+        "operation_id": "get_control_center_today_summary",
+        "side_effect_class": "local_dev_workspace_only",
+        "route_classification": "local_sensitive",
+        "approval_posture": "not_required_for_route_classification",
+        "source_truth_status": "current",
+    }
 
 
 def test_capability_surface_manifest_covers_current_visible_routes_and_actions() -> None:

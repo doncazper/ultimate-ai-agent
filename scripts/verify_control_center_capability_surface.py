@@ -15,6 +15,10 @@ from scripts.verification.repo import (  # noqa: E402
     append_forbidden_claims,
     print_failures_or_success,
 )
+from scripts.generate_control_center_capability_surface import (  # noqa: E402
+    GENERATED_OVERLAY_PATH,
+    check_generated_overlay,
+)
 from ultimate_ai_agent.api.app import app  # noqa: E402
 from ultimate_ai_agent.api.manifest import build_api_manifest  # noqa: E402
 
@@ -134,7 +138,12 @@ def verify(
         live_backend_routes,
     )
     if check_files:
-        append_forbidden_claims(failures, [MANIFEST_PATH, DOC_PATH], FORBIDDEN_CLAIMS)
+        failures.extend(check_generated_overlay(root))
+        append_forbidden_claims(
+            failures,
+            [MANIFEST_PATH, GENERATED_OVERLAY_PATH, DOC_PATH],
+            FORBIDDEN_CLAIMS,
+        )
     return failures
 
 
@@ -143,6 +152,7 @@ def _append_required_file_failures(failures: list[str], root: Path) -> None:
         MANIFEST_PATH,
         DOC_PATH,
         SCHEMA_PATH,
+        GENERATED_OVERLAY_PATH,
         ROUTE_STATUS_MANIFEST_PATH,
         RELEASE_SURFACE_MANIFEST_PATH,
         UI_WIRING_REPORT_PATH,

@@ -143,8 +143,13 @@ Capability surface verification additionally checks that every visible route
 and visible action id belongs to at least one operator-facing capability row:
 
 ```bash
+PYTHONPATH=src .venv/bin/python scripts/generate_control_center_capability_surface.py --check
 PYTHONPATH=src .venv/bin/python scripts/verify_control_center_capability_surface.py
 ```
+
+The generated capability overlay keeps route-status visible action posture and
+release-surface route posture source-owned while the human capability manifest
+retains labels, owners, authority posture, status, and missing reasons.
 
 ## Rollback
 

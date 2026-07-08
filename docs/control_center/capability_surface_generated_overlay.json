@@ -1,0 +1,2053 @@
+{
+  "schema_version": "uaa-control-center-capability-surface-generated-overlay.v1",
+  "status": "generated_source_truth_overlay_no_runtime_authority",
+  "generated_by": "scripts/generate_control_center_capability_surface.py",
+  "human_manifest_ref": "docs/control_center/capability_surface_manifest.json",
+  "api_manifest_ref": "/api/manifest",
+  "route_status_manifest_ref": "docs/control_center/route_status_manifest.json",
+  "release_surface_manifest_ref": "docs/control_center/release_surface_manifest.json",
+  "runtime_authority_added": false,
+  "public_beta_claim_enabled": false,
+  "production_readiness_claim_enabled": false,
+  "source_truth_counts": {
+    "api_manifest_route_count": 248,
+    "release_surface_route_count": 39,
+    "visible_action_count": 42,
+    "human_capability_count": 27,
+    "covered_release_route_count": 39,
+    "covered_visible_action_count": 42,
+    "missing_release_routes": [],
+    "missing_visible_actions": []
+  },
+  "capabilities": [
+    {
+      "capability_id": "start_here_read_model",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/start-here/summary",
+          "operation_id": "get_control_center_start_here_summary",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        }
+      ],
+      "ui_routes": [
+        {
+          "path": "/start",
+          "label": "Start Here",
+          "group": "Founder Loop",
+          "ui_status": "backend-owned start loop",
+          "release_status": "partial",
+          "owner": "founder-loop",
+          "backend_route_count": 1,
+          "blocked_capability_count": 6,
+          "visual_proof_status": "checked_in_baseline",
+          "source_truth_status": "current"
+        }
+      ],
+      "control_action_ids": [
+        {
+          "action_id": "navigate-start-here",
+          "source": "route_status_manifest",
+          "frontend_route": "/start",
+          "ui_surface": "Start Here",
+          "release_status": "partial_backend_not_product_ready",
+          "side_effect_class": "local_dev_workspace_only",
+          "risk_class": "medium",
+          "backend_route_count": 1,
+          "missing_backend_route_count": 1,
+          "source_truth_status": "current"
+        }
+      ],
+      "source_truth_status": "current"
+    },
+    {
+      "capability_id": "today_daily_loop_summary",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/today/summary",
+          "operation_id": "get_control_center_today_summary",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        }
+      ],
+      "ui_routes": [
+        {
+          "path": "/today",
+          "label": "Today",
+          "group": "Founder Loop",
+          "ui_status": "storage-backed",
+          "release_status": "partial",
+          "owner": "founder-loop",
+          "backend_route_count": 2,
+          "blocked_capability_count": 6,
+          "visual_proof_status": "checked_in_baseline",
+          "source_truth_status": "current"
+        }
+      ],
+      "control_action_ids": [
+        {
+          "action_id": "navigate-today",
+          "source": "route_status_manifest",
+          "frontend_route": "/today",
+          "ui_surface": "Today",
+          "release_status": "partial_backend_not_product_ready",
+          "side_effect_class": "local_dev_workspace_only",
+          "risk_class": "medium",
+          "backend_route_count": 2,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "current"
+        }
+      ],
+      "source_truth_status": "current"
+    },
+    {
+      "capability_id": "today_to_action_envelope",
+      "api_routes": [
+        {
+          "method": "POST",
+          "path": "/control-center/today/action-envelope",
+          "operation_id": "post_control_center_today_action_envelope",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority",
+          "approval_posture": "required_before_mutation_authority",
+          "source_truth_status": "current"
+        }
+      ],
+      "ui_routes": [
+        {
+          "path": "/today",
+          "label": "Today",
+          "group": "Founder Loop",
+          "ui_status": "storage-backed",
+          "release_status": "partial",
+          "owner": "founder-loop",
+          "backend_route_count": 2,
+          "blocked_capability_count": 6,
+          "visual_proof_status": "checked_in_baseline",
+          "source_truth_status": "current"
+        },
+        {
+          "path": "/actions",
+          "label": "Action Inbox",
+          "group": "Founder Loop",
+          "ui_status": "storage-backed",
+          "release_status": "ship",
+          "owner": "founder-loop",
+          "backend_route_count": 9,
+          "blocked_capability_count": 0,
+          "visual_proof_status": "checked_in_baseline",
+          "source_truth_status": "current"
+        }
+      ],
+      "control_action_ids": [
+        {
+          "action_id": "ui-control:today.create-action-envelope",
+          "source": "human_capability_ui_control_ref",
+          "frontend_route": "manual_ui_control",
+          "ui_surface": "manual_ui_control",
+          "release_status": "manual_ui_control_ref",
+          "side_effect_class": "manual_ui_control_ref",
+          "risk_class": "manual_ui_control_ref",
+          "backend_route_count": 0,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "human_owned"
+        },
+        {
+          "action_id": "navigate-actions-inbox",
+          "source": "route_status_manifest",
+          "frontend_route": "/actions",
+          "ui_surface": "Action Inbox",
+          "release_status": "founder_loop_v1_proofed",
+          "side_effect_class": "local_dev_workspace_only",
+          "risk_class": "medium",
+          "backend_route_count": 8,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "current"
+        }
+      ],
+      "source_truth_status": "current"
+    },
+    {
+      "capability_id": "source_readiness_contracts",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/sources/readiness",
+          "operation_id": "get_control_center_sources_readiness",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_readonly",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        }
+      ],
+      "ui_routes": [
+        {
+          "path": "/inbox",
+          "label": "Source Inbox",
+          "group": "Founder Loop",
+          "ui_status": "supporting source readiness",
+          "release_status": "partial",
+          "owner": "founder-loop",
+          "backend_route_count": 1,
+          "blocked_capability_count": 8,
+          "visual_proof_status": "checked_in_baseline",
+          "source_truth_status": "current"
+        }
+      ],
+      "control_action_ids": [
+        {
+          "action_id": "navigate-inbox",
+          "source": "route_status_manifest",
+          "frontend_route": "/inbox",
+          "ui_surface": "Inbox",
+          "release_status": "partial_backend_not_product_ready",
+          "side_effect_class": "local_dev_workspace_only",
+          "risk_class": "medium",
+          "backend_route_count": 1,
+          "missing_backend_route_count": 3,
+          "source_truth_status": "current"
+        }
+      ],
+      "source_truth_status": "current"
+    },
+    {
+      "capability_id": "plans_to_actions_bridge",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/today/summary",
+          "operation_id": "get_control_center_today_summary",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        }
+      ],
+      "ui_routes": [
+        {
+          "path": "/plans",
+          "label": "Plans",
+          "group": "Founder Loop",
+          "ui_status": "partial",
+          "release_status": "partial",
+          "owner": "task-decomposition",
+          "backend_route_count": 1,
+          "blocked_capability_count": 8,
+          "visual_proof_status": "checked_in_baseline",
+          "source_truth_status": "current"
+        }
+      ],
+      "control_action_ids": [
+        {
+          "action_id": "navigate-plans",
+          "source": "route_status_manifest",
+          "frontend_route": "/plans",
+          "ui_surface": "Plans",
+          "release_status": "partial_backend_not_product_ready",
+          "side_effect_class": "local_dev_workspace_only",
+          "risk_class": "high",
+          "backend_route_count": 1,
+          "missing_backend_route_count": 3,
+          "source_truth_status": "current"
+        }
+      ],
+      "source_truth_status": "current"
+    },
+    {
+      "capability_id": "work_board_local_board",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/work-board",
+          "operation_id": "get_control_center_work_board",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/work-board/reorder",
+          "operation_id": "post_control_center_work_board_reorder",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority",
+          "approval_posture": "required_before_mutation_authority",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/work-board/cards",
+          "operation_id": "post_control_center_work_board_cards",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority",
+          "approval_posture": "required_before_mutation_authority",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/work-board/tasks",
+          "operation_id": "post_control_center_work_board_tasks",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority",
+          "approval_posture": "required_before_mutation_authority",
+          "source_truth_status": "current"
+        }
+      ],
+      "ui_routes": [
+        {
+          "path": "/work-board",
+          "label": "Work Board",
+          "group": "Founder Loop",
+          "ui_status": "backend-owned kanban",
+          "release_status": "partial",
+          "owner": "founder-loop",
+          "backend_route_count": 4,
+          "blocked_capability_count": 12,
+          "visual_proof_status": "blocked_no_baseline",
+          "source_truth_status": "current"
+        }
+      ],
+      "control_action_ids": [
+        {
+          "action_id": "navigate-work-board",
+          "source": "route_status_manifest",
+          "frontend_route": "/work-board",
+          "ui_surface": "Work Board",
+          "release_status": "partial_backend_not_product_ready",
+          "side_effect_class": "local_dev_workspace_only",
+          "risk_class": "medium",
+          "backend_route_count": 4,
+          "missing_backend_route_count": 2,
+          "source_truth_status": "current"
+        },
+        {
+          "action_id": "ui-control:work-board.reorder",
+          "source": "human_capability_ui_control_ref",
+          "frontend_route": "manual_ui_control",
+          "ui_surface": "manual_ui_control",
+          "release_status": "manual_ui_control_ref",
+          "side_effect_class": "manual_ui_control_ref",
+          "risk_class": "manual_ui_control_ref",
+          "backend_route_count": 0,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "human_owned"
+        },
+        {
+          "action_id": "ui-control:work-board.create-card",
+          "source": "human_capability_ui_control_ref",
+          "frontend_route": "manual_ui_control",
+          "ui_surface": "manual_ui_control",
+          "release_status": "manual_ui_control_ref",
+          "side_effect_class": "manual_ui_control_ref",
+          "risk_class": "manual_ui_control_ref",
+          "backend_route_count": 0,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "human_owned"
+        },
+        {
+          "action_id": "ui-control:work-board.create-task",
+          "source": "human_capability_ui_control_ref",
+          "frontend_route": "manual_ui_control",
+          "ui_surface": "manual_ui_control",
+          "release_status": "manual_ui_control_ref",
+          "side_effect_class": "manual_ui_control_ref",
+          "risk_class": "manual_ui_control_ref",
+          "backend_route_count": 0,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "human_owned"
+        }
+      ],
+      "source_truth_status": "current"
+    },
+    {
+      "capability_id": "action_inbox_decision_lanes",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/actions/inbox",
+          "operation_id": "get_control_center_actions_inbox",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/actions/{action_id}/approve",
+          "operation_id": "post_control_center_actions_action_id_approve",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority",
+          "approval_posture": "required_before_mutation_authority",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/actions/{action_id}/edit",
+          "operation_id": "post_control_center_actions_action_id_edit",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority",
+          "approval_posture": "required_before_mutation_authority",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/actions/{action_id}/reject",
+          "operation_id": "post_control_center_actions_action_id_reject",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority",
+          "approval_posture": "required_before_mutation_authority",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/actions/{action_id}/defer",
+          "operation_id": "post_control_center_actions_action_id_defer",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority",
+          "approval_posture": "required_before_mutation_authority",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/actions/{action_id}/receipt",
+          "operation_id": "get_control_center_actions_action_id_receipt",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        }
+      ],
+      "ui_routes": [
+        {
+          "path": "/actions",
+          "label": "Action Inbox",
+          "group": "Founder Loop",
+          "ui_status": "storage-backed",
+          "release_status": "ship",
+          "owner": "founder-loop",
+          "backend_route_count": 9,
+          "blocked_capability_count": 0,
+          "visual_proof_status": "checked_in_baseline",
+          "source_truth_status": "current"
+        }
+      ],
+      "control_action_ids": [
+        {
+          "action_id": "navigate-actions-inbox",
+          "source": "route_status_manifest",
+          "frontend_route": "/actions",
+          "ui_surface": "Action Inbox",
+          "release_status": "founder_loop_v1_proofed",
+          "side_effect_class": "local_dev_workspace_only",
+          "risk_class": "medium",
+          "backend_route_count": 8,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "current"
+        },
+        {
+          "action_id": "ui-control:actions.approve",
+          "source": "human_capability_ui_control_ref",
+          "frontend_route": "manual_ui_control",
+          "ui_surface": "manual_ui_control",
+          "release_status": "manual_ui_control_ref",
+          "side_effect_class": "manual_ui_control_ref",
+          "risk_class": "manual_ui_control_ref",
+          "backend_route_count": 0,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "human_owned"
+        },
+        {
+          "action_id": "ui-control:actions.edit",
+          "source": "human_capability_ui_control_ref",
+          "frontend_route": "manual_ui_control",
+          "ui_surface": "manual_ui_control",
+          "release_status": "manual_ui_control_ref",
+          "side_effect_class": "manual_ui_control_ref",
+          "risk_class": "manual_ui_control_ref",
+          "backend_route_count": 0,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "human_owned"
+        },
+        {
+          "action_id": "ui-control:actions.reject",
+          "source": "human_capability_ui_control_ref",
+          "frontend_route": "manual_ui_control",
+          "ui_surface": "manual_ui_control",
+          "release_status": "manual_ui_control_ref",
+          "side_effect_class": "manual_ui_control_ref",
+          "risk_class": "manual_ui_control_ref",
+          "backend_route_count": 0,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "human_owned"
+        },
+        {
+          "action_id": "ui-control:actions.defer",
+          "source": "human_capability_ui_control_ref",
+          "frontend_route": "manual_ui_control",
+          "ui_surface": "manual_ui_control",
+          "release_status": "manual_ui_control_ref",
+          "side_effect_class": "manual_ui_control_ref",
+          "risk_class": "manual_ui_control_ref",
+          "backend_route_count": 0,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "human_owned"
+        }
+      ],
+      "source_truth_status": "current"
+    },
+    {
+      "capability_id": "approval_queue_summary",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/approvals/summary",
+          "operation_id": "get_control_center_approvals_summary",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/approvals/queue",
+          "operation_id": "get_control_center_approvals_queue",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        }
+      ],
+      "ui_routes": [
+        {
+          "path": "/approvals",
+          "label": "Approvals",
+          "group": "Review",
+          "ui_status": "summary",
+          "release_status": "partial",
+          "owner": "approval-authority",
+          "backend_route_count": 2,
+          "blocked_capability_count": 6,
+          "visual_proof_status": "blocked_no_baseline",
+          "source_truth_status": "current"
+        }
+      ],
+      "control_action_ids": [
+        {
+          "action_id": "navigate-approvals",
+          "source": "route_status_manifest",
+          "frontend_route": "/approvals",
+          "ui_surface": "Approvals",
+          "release_status": "partial_backend_not_product_ready",
+          "side_effect_class": "validation_only",
+          "risk_class": "medium",
+          "backend_route_count": 2,
+          "missing_backend_route_count": 1,
+          "source_truth_status": "current"
+        }
+      ],
+      "source_truth_status": "current"
+    },
+    {
+      "capability_id": "morning_briefing_summary",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/morning-briefing/summary",
+          "operation_id": "get_control_center_morning_briefing_summary",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        }
+      ],
+      "ui_routes": [
+        {
+          "path": "/briefing",
+          "label": "Briefing",
+          "group": "Founder Loop",
+          "ui_status": "storage-backed",
+          "release_status": "partial",
+          "owner": "founder-loop",
+          "backend_route_count": 1,
+          "blocked_capability_count": 8,
+          "visual_proof_status": "blocked_no_baseline",
+          "source_truth_status": "current"
+        }
+      ],
+      "control_action_ids": [
+        {
+          "action_id": "navigate-morning-briefing",
+          "source": "route_status_manifest",
+          "frontend_route": "/briefing",
+          "ui_surface": "Morning Briefing",
+          "release_status": "partial_backend_not_product_ready",
+          "side_effect_class": "local_dev_workspace_only",
+          "risk_class": "medium",
+          "backend_route_count": 1,
+          "missing_backend_route_count": 3,
+          "source_truth_status": "current"
+        }
+      ],
+      "source_truth_status": "current"
+    },
+    {
+      "capability_id": "memory_review_decisions",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/memory/review",
+          "operation_id": "get_control_center_memory_review",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/memory/workbench",
+          "operation_id": "get_control_center_memory_workbench",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/memory/context-packs",
+          "operation_id": "get_control_center_memory_context_packs",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/memory/review/{candidate_ref}/accept",
+          "operation_id": "post_control_center_memory_review_candidate_ref_accept",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority",
+          "approval_posture": "required_before_mutation_authority",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/memory/review/{candidate_ref}/correct",
+          "operation_id": "post_control_center_memory_review_candidate_ref_correct",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority",
+          "approval_posture": "required_before_mutation_authority",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/memory/review/{candidate_ref}/reject",
+          "operation_id": "post_control_center_memory_review_candidate_ref_reject",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority",
+          "approval_posture": "required_before_mutation_authority",
+          "source_truth_status": "current"
+        }
+      ],
+      "ui_routes": [
+        {
+          "path": "/memory",
+          "label": "Memory",
+          "group": "Founder Loop",
+          "ui_status": "memory diagnostics and context manifest",
+          "release_status": "ship",
+          "owner": "founder-loop",
+          "backend_route_count": 27,
+          "blocked_capability_count": 0,
+          "visual_proof_status": "checked_in_baseline",
+          "source_truth_status": "current"
+        }
+      ],
+      "control_action_ids": [
+        {
+          "action_id": "navigate-memory",
+          "source": "route_status_manifest",
+          "frontend_route": "/memory",
+          "ui_surface": "Memory Review",
+          "release_status": "founder_loop_v1_proofed",
+          "side_effect_class": "local_dev_workspace_only",
+          "risk_class": "medium",
+          "backend_route_count": 26,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "current"
+        },
+        {
+          "action_id": "ui-control:memory.accept",
+          "source": "human_capability_ui_control_ref",
+          "frontend_route": "manual_ui_control",
+          "ui_surface": "manual_ui_control",
+          "release_status": "manual_ui_control_ref",
+          "side_effect_class": "manual_ui_control_ref",
+          "risk_class": "manual_ui_control_ref",
+          "backend_route_count": 0,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "human_owned"
+        },
+        {
+          "action_id": "ui-control:memory.correct",
+          "source": "human_capability_ui_control_ref",
+          "frontend_route": "manual_ui_control",
+          "ui_surface": "manual_ui_control",
+          "release_status": "manual_ui_control_ref",
+          "side_effect_class": "manual_ui_control_ref",
+          "risk_class": "manual_ui_control_ref",
+          "backend_route_count": 0,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "human_owned"
+        },
+        {
+          "action_id": "ui-control:memory.reject",
+          "source": "human_capability_ui_control_ref",
+          "frontend_route": "manual_ui_control",
+          "ui_surface": "manual_ui_control",
+          "release_status": "manual_ui_control_ref",
+          "side_effect_class": "manual_ui_control_ref",
+          "risk_class": "manual_ui_control_ref",
+          "backend_route_count": 0,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "human_owned"
+        }
+      ],
+      "source_truth_status": "current"
+    },
+    {
+      "capability_id": "evidence_timeline",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/evidence/timeline",
+          "operation_id": "get_control_center_evidence_timeline",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/runs/observability",
+          "operation_id": "get_control_center_runs_observability",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        }
+      ],
+      "ui_routes": [
+        {
+          "path": "/evidence",
+          "label": "Evidence",
+          "group": "Founder Loop",
+          "ui_status": "timeline",
+          "release_status": "ship",
+          "owner": "evidence-and-audit",
+          "backend_route_count": 6,
+          "blocked_capability_count": 0,
+          "visual_proof_status": "checked_in_baseline",
+          "source_truth_status": "current"
+        }
+      ],
+      "control_action_ids": [
+        {
+          "action_id": "navigate-evidence",
+          "source": "route_status_manifest",
+          "frontend_route": "/evidence",
+          "ui_surface": "Evidence",
+          "release_status": "founder_loop_v1_proofed",
+          "side_effect_class": "mixed_validation_local_workspace_and_governed_network_read_only",
+          "risk_class": "medium",
+          "backend_route_count": 6,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "current"
+        }
+      ],
+      "source_truth_status": "current"
+    },
+    {
+      "capability_id": "settings_authority_posture",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/settings/status",
+          "operation_id": "get_control_center_settings_status",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/authority-state",
+          "operation_id": "get_api_runtime_authority_state",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "POST",
+          "path": "/api/runtime/authority-decisions/preview",
+          "operation_id": "post_api_runtime_authority_decisions_preview",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "POST",
+          "path": "/api/runtime/authority-missions/plan",
+          "operation_id": "post_api_runtime_authority_missions_plan",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        }
+      ],
+      "ui_routes": [
+        {
+          "path": "/settings",
+          "label": "Settings",
+          "group": "Founder Loop",
+          "ui_status": "status-backed",
+          "release_status": "partial",
+          "owner": "operator-settings",
+          "backend_route_count": 9,
+          "blocked_capability_count": 23,
+          "visual_proof_status": "checked_in_baseline",
+          "source_truth_status": "current"
+        },
+        {
+          "path": "/trust",
+          "label": "Trust",
+          "group": "Founder Loop",
+          "ui_status": "authority map",
+          "release_status": "partial",
+          "owner": "founder-loop",
+          "backend_route_count": 1,
+          "blocked_capability_count": 8,
+          "visual_proof_status": "checked_in_baseline",
+          "source_truth_status": "current"
+        }
+      ],
+      "control_action_ids": [
+        {
+          "action_id": "navigate-settings",
+          "source": "route_status_manifest",
+          "frontend_route": "/settings",
+          "ui_surface": "Settings",
+          "release_status": "status_available_not_completion",
+          "side_effect_class": "validation_only",
+          "risk_class": "high",
+          "backend_route_count": 9,
+          "missing_backend_route_count": 4,
+          "source_truth_status": "current"
+        },
+        {
+          "action_id": "navigate-trust",
+          "source": "route_status_manifest",
+          "frontend_route": "/trust",
+          "ui_surface": "Trust",
+          "release_status": "partial_backend_not_product_ready",
+          "side_effect_class": "local_dev_workspace_only",
+          "risk_class": "medium",
+          "backend_route_count": 1,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "current"
+        }
+      ],
+      "source_truth_status": "current"
+    },
+    {
+      "capability_id": "proof_detail_inspection",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/proof/index",
+          "operation_id": "get_control_center_proof_index",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/proof/{proof_ref}",
+          "operation_id": "get_control_center_proof_proof_ref",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        }
+      ],
+      "ui_routes": [
+        {
+          "path": "/proof",
+          "label": "Proof",
+          "group": "Founder Loop",
+          "ui_status": "backend-owned proof detail",
+          "release_status": "partial",
+          "owner": "founder-loop",
+          "backend_route_count": 3,
+          "blocked_capability_count": 5,
+          "visual_proof_status": "checked_in_baseline",
+          "source_truth_status": "current"
+        }
+      ],
+      "control_action_ids": [
+        {
+          "action_id": "navigate-proof",
+          "source": "route_status_manifest",
+          "frontend_route": "/proof",
+          "ui_surface": "Proof",
+          "release_status": "partial_backend_not_product_ready",
+          "side_effect_class": "mixed_local_dev_workspace_and_governed_network_read_only",
+          "risk_class": "medium",
+          "backend_route_count": 3,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "current"
+        }
+      ],
+      "source_truth_status": "current"
+    },
+    {
+      "capability_id": "setup_assistant_summary",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/setup-assistant/summary",
+          "operation_id": "get_control_center_setup_assistant_summary",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/agent-loop/thread",
+          "operation_id": "get_control_center_agent_loop_thread",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        }
+      ],
+      "ui_routes": [
+        {
+          "path": "/setup",
+          "label": "Setup",
+          "group": "Review",
+          "ui_status": "dry-run",
+          "release_status": "partial",
+          "owner": "macos-setup-assistant",
+          "backend_route_count": 4,
+          "blocked_capability_count": 7,
+          "visual_proof_status": "checked_in_baseline",
+          "source_truth_status": "current"
+        }
+      ],
+      "control_action_ids": [
+        {
+          "action_id": "navigate-setup-assistant",
+          "source": "route_status_manifest",
+          "frontend_route": "/setup",
+          "ui_surface": "Setup Assistant",
+          "release_status": "partial_backend_not_product_ready",
+          "side_effect_class": "validation_only",
+          "risk_class": "medium",
+          "backend_route_count": 4,
+          "missing_backend_route_count": 1,
+          "source_truth_status": "current"
+        }
+      ],
+      "source_truth_status": "current"
+    },
+    {
+      "capability_id": "local_models_status",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/v1/models",
+          "operation_id": "get_v1_models",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/local-models/status",
+          "operation_id": "get_control_center_local_models_status",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/providers/setup-guide",
+          "operation_id": "get_control_center_providers_setup_guide",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        }
+      ],
+      "ui_routes": [
+        {
+          "path": "/models",
+          "label": "Models",
+          "group": "Review",
+          "ui_status": "partial",
+          "release_status": "partial",
+          "owner": "local-model-management",
+          "backend_route_count": 5,
+          "blocked_capability_count": 10,
+          "visual_proof_status": "blocked_no_baseline",
+          "source_truth_status": "current"
+        }
+      ],
+      "control_action_ids": [
+        {
+          "action_id": "navigate-models",
+          "source": "route_status_manifest",
+          "frontend_route": "/models",
+          "ui_surface": "Models",
+          "release_status": "partial_backend_not_product_ready",
+          "side_effect_class": "mixed_validation_and_local_dev_workspace_only",
+          "risk_class": "high",
+          "backend_route_count": 4,
+          "missing_backend_route_count": 2,
+          "source_truth_status": "current"
+        }
+      ],
+      "source_truth_status": "current"
+    },
+    {
+      "capability_id": "chat_local_operator_handoff",
+      "api_routes": [
+        {
+          "method": "POST",
+          "path": "/v1/chat/completions",
+          "operation_id": "post_v1_chat_completions",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority",
+          "approval_posture": "required_before_mutation_authority",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/turn-router/preview",
+          "operation_id": "post_control_center_turn_router_preview",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        }
+      ],
+      "ui_routes": [
+        {
+          "path": "/chat",
+          "label": "Chat",
+          "group": "Review",
+          "ui_status": "local gated",
+          "release_status": "ship",
+          "owner": "mixed",
+          "backend_route_count": 6,
+          "blocked_capability_count": 0,
+          "visual_proof_status": "blocked_no_baseline",
+          "source_truth_status": "current"
+        }
+      ],
+      "control_action_ids": [
+        {
+          "action_id": "navigate-chat-shell",
+          "source": "route_status_manifest",
+          "frontend_route": "/chat",
+          "ui_surface": "Chat Local Operator",
+          "release_status": "founder_loop_v1_proofed",
+          "side_effect_class": "local_ui_state_only",
+          "risk_class": "high",
+          "backend_route_count": 6,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "current"
+        },
+        {
+          "action_id": "preview-turn-router-diagnostics",
+          "source": "route_status_manifest",
+          "frontend_route": "/chat",
+          "ui_surface": "Chat Local Operator",
+          "release_status": "preview_available_not_execution",
+          "side_effect_class": "validation_only",
+          "risk_class": "medium",
+          "backend_route_count": 1,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "current"
+        },
+        {
+          "action_id": "ui-control:chat.create-turn",
+          "source": "human_capability_ui_control_ref",
+          "frontend_route": "manual_ui_control",
+          "ui_surface": "manual_ui_control",
+          "release_status": "manual_ui_control_ref",
+          "side_effect_class": "manual_ui_control_ref",
+          "risk_class": "manual_ui_control_ref",
+          "backend_route_count": 0,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "human_owned"
+        },
+        {
+          "action_id": "ui-control:chat.handoff-to-loop",
+          "source": "human_capability_ui_control_ref",
+          "frontend_route": "manual_ui_control",
+          "ui_surface": "manual_ui_control",
+          "release_status": "manual_ui_control_ref",
+          "side_effect_class": "manual_ui_control_ref",
+          "risk_class": "manual_ui_control_ref",
+          "backend_route_count": 0,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "human_owned"
+        }
+      ],
+      "source_truth_status": "current"
+    },
+    {
+      "capability_id": "crm_local_command_center",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/crm/summary",
+          "operation_id": "get_control_center_crm_summary",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_readonly",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/crm/local-mutations",
+          "operation_id": "post_control_center_crm_local_mutations",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority",
+          "approval_posture": "required_before_mutation_authority",
+          "source_truth_status": "current"
+        }
+      ],
+      "ui_routes": [
+        {
+          "path": "/crm",
+          "label": "CRM",
+          "group": "Founder Loop",
+          "ui_status": "backend-owned local",
+          "release_status": "partial",
+          "owner": "crm-local-command-center-m2",
+          "backend_route_count": 7,
+          "blocked_capability_count": 21,
+          "visual_proof_status": "blocked_no_baseline",
+          "source_truth_status": "current"
+        }
+      ],
+      "control_action_ids": [
+        {
+          "action_id": "navigate-crm",
+          "source": "route_status_manifest",
+          "frontend_route": "/crm",
+          "ui_surface": "CRM",
+          "release_status": "partial_backend_not_product_ready",
+          "side_effect_class": "local_dev_workspace_only",
+          "risk_class": "medium",
+          "backend_route_count": 7,
+          "missing_backend_route_count": 5,
+          "source_truth_status": "current"
+        },
+        {
+          "action_id": "ui-control:crm.local-mutation",
+          "source": "human_capability_ui_control_ref",
+          "frontend_route": "manual_ui_control",
+          "ui_surface": "manual_ui_control",
+          "release_status": "manual_ui_control_ref",
+          "side_effect_class": "manual_ui_control_ref",
+          "risk_class": "manual_ui_control_ref",
+          "backend_route_count": 0,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "human_owned"
+        }
+      ],
+      "source_truth_status": "current"
+    },
+    {
+      "capability_id": "action_preview_preflight",
+      "api_routes": [
+        {
+          "method": "POST",
+          "path": "/control-center/actions/preview",
+          "operation_id": "post_control_center_actions_preview",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        }
+      ],
+      "ui_routes": [
+        {
+          "path": "/action-preview",
+          "label": "Action Preview",
+          "group": "Review",
+          "ui_status": "preview-only",
+          "release_status": "experimental",
+          "owner": "control-center",
+          "backend_route_count": 1,
+          "blocked_capability_count": 5,
+          "visual_proof_status": "experimental_no_baseline",
+          "source_truth_status": "current"
+        }
+      ],
+      "control_action_ids": [
+        {
+          "action_id": "submit-action-preview",
+          "source": "route_status_manifest",
+          "frontend_route": "/action-preview",
+          "ui_surface": "Runtime",
+          "release_status": "preview_available_not_execution",
+          "side_effect_class": "validation_only",
+          "risk_class": "medium",
+          "backend_route_count": 1,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "current"
+        }
+      ],
+      "source_truth_status": "current"
+    },
+    {
+      "capability_id": "runtime_readiness_and_manual_smoke",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/runtime/readiness",
+          "operation_id": "get_runtime_readiness",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "GET",
+          "path": "/runtime/capability-matrix",
+          "operation_id": "get_runtime_capability_matrix",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "POST",
+          "path": "/runtime/smoke-reports/validate",
+          "operation_id": "post_runtime_smoke_reports_validate",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        }
+      ],
+      "ui_routes": [
+        {
+          "path": "/runtime",
+          "label": "Runtime",
+          "group": "Runtime",
+          "ui_status": "summary",
+          "release_status": "partial",
+          "owner": "runtime-readiness",
+          "backend_route_count": 10,
+          "blocked_capability_count": 7,
+          "visual_proof_status": "blocked_no_baseline",
+          "source_truth_status": "current"
+        },
+        {
+          "path": "/runtime/local",
+          "label": "Local Runtime",
+          "group": "Runtime",
+          "ui_status": "manual",
+          "release_status": "partial",
+          "owner": "runtime-readiness",
+          "backend_route_count": 2,
+          "blocked_capability_count": 6,
+          "visual_proof_status": "blocked_no_baseline",
+          "source_truth_status": "current"
+        },
+        {
+          "path": "/runtime/manual-smoke",
+          "label": "Manual Smoke",
+          "group": "Runtime",
+          "ui_status": "validation",
+          "release_status": "partial",
+          "owner": "runtime-readiness",
+          "backend_route_count": 1,
+          "blocked_capability_count": 6,
+          "visual_proof_status": "blocked_no_baseline",
+          "source_truth_status": "current"
+        }
+      ],
+      "control_action_ids": [
+        {
+          "action_id": "navigate-runtime",
+          "source": "route_status_manifest",
+          "frontend_route": "/runtime",
+          "ui_surface": "Runtime",
+          "release_status": "partial_backend_not_product_ready",
+          "side_effect_class": "validation_only",
+          "risk_class": "medium",
+          "backend_route_count": 2,
+          "missing_backend_route_count": 2,
+          "source_truth_status": "current"
+        },
+        {
+          "action_id": "navigate-local-runtime",
+          "source": "route_status_manifest",
+          "frontend_route": "/runtime/local",
+          "ui_surface": "Runtime",
+          "release_status": "partial_backend_not_product_ready",
+          "side_effect_class": "validation_only",
+          "risk_class": "medium",
+          "backend_route_count": 2,
+          "missing_backend_route_count": 1,
+          "source_truth_status": "current"
+        },
+        {
+          "action_id": "navigate-manual-smoke",
+          "source": "route_status_manifest",
+          "frontend_route": "/runtime/manual-smoke",
+          "ui_surface": "Runtime",
+          "release_status": "partial_backend_not_product_ready",
+          "side_effect_class": "validation_only",
+          "risk_class": "medium",
+          "backend_route_count": 1,
+          "missing_backend_route_count": 1,
+          "source_truth_status": "current"
+        }
+      ],
+      "source_truth_status": "current"
+    },
+    {
+      "capability_id": "api_route_inventory",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/api/manifest",
+          "operation_id": "get_api_manifest",
+          "side_effect_class": "none",
+          "route_classification": "public_metadata",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/routes",
+          "operation_id": "get_control_center_routes",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        }
+      ],
+      "ui_routes": [
+        {
+          "path": "/api-routes",
+          "label": "API Routes",
+          "group": "System",
+          "ui_status": "contract",
+          "release_status": "partial",
+          "owner": "api-boundary",
+          "backend_route_count": 2,
+          "blocked_capability_count": 5,
+          "visual_proof_status": "blocked_no_baseline",
+          "source_truth_status": "current"
+        }
+      ],
+      "control_action_ids": [
+        {
+          "action_id": "navigate-api-routes",
+          "source": "route_status_manifest",
+          "frontend_route": "/api-routes",
+          "ui_surface": "Runtime",
+          "release_status": "status_available_not_completion",
+          "side_effect_class": "mixed_none_and_validation_only",
+          "risk_class": "low",
+          "backend_route_count": 2,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "current"
+        }
+      ],
+      "source_truth_status": "current"
+    },
+    {
+      "capability_id": "coding_cockpit_readiness",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/coding/context",
+          "operation_id": "get_control_center_coding_context",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/coding/patch-apply-readiness",
+          "operation_id": "get_control_center_coding_patch_apply_readiness",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/coding/test-command-readiness",
+          "operation_id": "get_control_center_coding_test_command_readiness",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/coding/git-review",
+          "operation_id": "get_control_center_coding_git_review",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/coding/session",
+          "operation_id": "get_control_center_coding_session",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/coding/patch-proposal",
+          "operation_id": "get_control_center_coding_patch_proposal",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/coding/live-preview",
+          "operation_id": "get_control_center_coding_live_preview",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/coding/multi-agent-review",
+          "operation_id": "get_control_center_coding_multi_agent_review",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        }
+      ],
+      "ui_routes": [
+        {
+          "path": "/coding",
+          "label": "Coding",
+          "group": "Review",
+          "ui_status": "read-only cockpit",
+          "release_status": "partial",
+          "owner": "control-center",
+          "backend_route_count": 8,
+          "blocked_capability_count": 15,
+          "visual_proof_status": "blocked_no_baseline",
+          "source_truth_status": "current"
+        }
+      ],
+      "control_action_ids": [
+        {
+          "action_id": "navigate-coding-cockpit",
+          "source": "route_status_manifest",
+          "frontend_route": "/coding",
+          "ui_surface": "Coding Cockpit",
+          "release_status": "partial_backend_not_product_ready",
+          "side_effect_class": "local_dev_workspace_only",
+          "risk_class": "medium",
+          "backend_route_count": 8,
+          "missing_backend_route_count": 10,
+          "source_truth_status": "current"
+        }
+      ],
+      "source_truth_status": "current"
+    },
+    {
+      "capability_id": "file_review_and_context_proposals",
+      "api_routes": [
+        {
+          "method": "POST",
+          "path": "/files/refs/validate",
+          "operation_id": "post_files_refs_validate",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "POST",
+          "path": "/files/read/preview",
+          "operation_id": "post_files_read_preview",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "POST",
+          "path": "/files/review/approvals/capture",
+          "operation_id": "post_files_review_approvals_capture",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority",
+          "approval_posture": "required_before_mutation_authority",
+          "source_truth_status": "current"
+        }
+      ],
+      "ui_routes": [
+        {
+          "path": "/files",
+          "label": "Files",
+          "group": "Review",
+          "ui_status": "safe refs",
+          "release_status": "partial",
+          "owner": "local-file-workbench",
+          "backend_route_count": 2,
+          "blocked_capability_count": 7,
+          "visual_proof_status": "blocked_no_baseline",
+          "source_truth_status": "current"
+        },
+        {
+          "path": "/files/review",
+          "label": "File Review",
+          "group": "Review",
+          "ui_status": "review-only",
+          "release_status": "experimental",
+          "owner": "local-file-workbench",
+          "backend_route_count": 1,
+          "blocked_capability_count": 8,
+          "visual_proof_status": "experimental_no_baseline",
+          "source_truth_status": "current"
+        },
+        {
+          "path": "/context/proposals",
+          "label": "Context Proposals",
+          "group": "Review",
+          "ui_status": "review-only",
+          "release_status": "experimental",
+          "owner": "context-governance",
+          "backend_route_count": 0,
+          "blocked_capability_count": 7,
+          "visual_proof_status": "experimental_no_baseline",
+          "source_truth_status": "current"
+        }
+      ],
+      "control_action_ids": [
+        {
+          "action_id": "navigate-files",
+          "source": "route_status_manifest",
+          "frontend_route": "/files",
+          "ui_surface": "Files",
+          "release_status": "partial_backend_not_product_ready",
+          "side_effect_class": "local_dev_workspace_only",
+          "risk_class": "high",
+          "backend_route_count": 2,
+          "missing_backend_route_count": 2,
+          "source_truth_status": "current"
+        },
+        {
+          "action_id": "navigate-file-review",
+          "source": "route_status_manifest",
+          "frontend_route": "/files/review",
+          "ui_surface": "Files",
+          "release_status": "local_ui_state_only_not_evidence",
+          "side_effect_class": "local_ui_state_only",
+          "risk_class": "high",
+          "backend_route_count": 1,
+          "missing_backend_route_count": 2,
+          "source_truth_status": "current"
+        },
+        {
+          "action_id": "toggle-review-only-file-decision",
+          "source": "route_status_manifest",
+          "frontend_route": "/files/review",
+          "ui_surface": "Files",
+          "release_status": "local_ui_state_only_not_evidence",
+          "side_effect_class": "local_ui_state_only",
+          "risk_class": "medium",
+          "backend_route_count": 0,
+          "missing_backend_route_count": 1,
+          "source_truth_status": "current"
+        },
+        {
+          "action_id": "navigate-context-proposals",
+          "source": "route_status_manifest",
+          "frontend_route": "/context/proposals",
+          "ui_surface": "Evidence",
+          "release_status": "mock_only_not_product_ready",
+          "side_effect_class": "local_ui_state_only",
+          "risk_class": "high",
+          "backend_route_count": 0,
+          "missing_backend_route_count": 2,
+          "source_truth_status": "current"
+        }
+      ],
+      "source_truth_status": "current"
+    },
+    {
+      "capability_id": "receipt_event_ledger_preview",
+      "api_routes": [
+        {
+          "method": "POST",
+          "path": "/receipts/preview",
+          "operation_id": "post_receipts_preview",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "POST",
+          "path": "/events/validate",
+          "operation_id": "post_events_validate",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        }
+      ],
+      "ui_routes": [
+        {
+          "path": "/receipts",
+          "label": "Receipts",
+          "group": "Evidence",
+          "ui_status": "summary",
+          "release_status": "partial",
+          "owner": "evidence-and-audit",
+          "backend_route_count": 1,
+          "blocked_capability_count": 6,
+          "visual_proof_status": "blocked_no_baseline",
+          "source_truth_status": "current"
+        },
+        {
+          "path": "/events",
+          "label": "Events",
+          "group": "Evidence",
+          "ui_status": "summary",
+          "release_status": "partial",
+          "owner": "event-ledger",
+          "backend_route_count": 1,
+          "blocked_capability_count": 6,
+          "visual_proof_status": "blocked_no_baseline",
+          "source_truth_status": "current"
+        },
+        {
+          "path": "/events/timeline",
+          "label": "Timeline",
+          "group": "Evidence",
+          "ui_status": "mock",
+          "release_status": "experimental",
+          "owner": "mixed",
+          "backend_route_count": 0,
+          "blocked_capability_count": 8,
+          "visual_proof_status": "experimental_no_baseline",
+          "source_truth_status": "current"
+        }
+      ],
+      "control_action_ids": [
+        {
+          "action_id": "navigate-receipts",
+          "source": "route_status_manifest",
+          "frontend_route": "/receipts",
+          "ui_surface": "Evidence",
+          "release_status": "partial_backend_not_product_ready",
+          "side_effect_class": "validation_only",
+          "risk_class": "medium",
+          "backend_route_count": 1,
+          "missing_backend_route_count": 1,
+          "source_truth_status": "current"
+        },
+        {
+          "action_id": "navigate-events",
+          "source": "route_status_manifest",
+          "frontend_route": "/events",
+          "ui_surface": "Evidence",
+          "release_status": "partial_backend_not_product_ready",
+          "side_effect_class": "validation_only",
+          "risk_class": "medium",
+          "backend_route_count": 1,
+          "missing_backend_route_count": 1,
+          "source_truth_status": "current"
+        },
+        {
+          "action_id": "navigate-event-timeline",
+          "source": "route_status_manifest",
+          "frontend_route": "/events/timeline",
+          "ui_surface": "Evidence",
+          "release_status": "mock_only_not_product_ready",
+          "side_effect_class": "local_ui_state_only",
+          "risk_class": "medium",
+          "backend_route_count": 0,
+          "missing_backend_route_count": 2,
+          "source_truth_status": "current"
+        },
+        {
+          "action_id": "select-local-detail-card",
+          "source": "route_status_manifest",
+          "frontend_route": "/events/timeline",
+          "ui_surface": "Evidence",
+          "release_status": "local_ui_state_only_not_evidence",
+          "side_effect_class": "local_ui_state_only",
+          "risk_class": "low",
+          "backend_route_count": 0,
+          "missing_backend_route_count": 1,
+          "source_truth_status": "current"
+        }
+      ],
+      "source_truth_status": "current"
+    },
+    {
+      "capability_id": "private_trial_packet",
+      "api_routes": [],
+      "ui_routes": [
+        {
+          "path": "/private-trial",
+          "label": "Trial Packet",
+          "group": "Founder Loop",
+          "ui_status": "087.2a-2c packet",
+          "release_status": "experimental",
+          "owner": "founder-loop",
+          "backend_route_count": 0,
+          "blocked_capability_count": 8,
+          "visual_proof_status": "experimental_no_baseline",
+          "source_truth_status": "current"
+        }
+      ],
+      "control_action_ids": [
+        {
+          "action_id": "navigate-private-trial-packet",
+          "source": "route_status_manifest",
+          "frontend_route": "/private-trial",
+          "ui_surface": "Private Trial Packet Ledger And Manual Review Scaffold",
+          "release_status": "local_ui_state_only_not_evidence",
+          "side_effect_class": "local_ui_state_only",
+          "risk_class": "medium",
+          "backend_route_count": 0,
+          "missing_backend_route_count": 3,
+          "source_truth_status": "current"
+        }
+      ],
+      "source_truth_status": "current"
+    },
+    {
+      "capability_id": "foundation_gate_and_storage_status",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/foundation-gate/summary",
+          "operation_id": "get_control_center_foundation_gate_summary",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/storage/status",
+          "operation_id": "get_control_center_storage_status",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        }
+      ],
+      "ui_routes": [
+        {
+          "path": "/foundation-gate",
+          "label": "Foundation Gate",
+          "group": "Evidence",
+          "ui_status": "summary",
+          "release_status": "partial",
+          "owner": "foundation-gate",
+          "backend_route_count": 1,
+          "blocked_capability_count": 5,
+          "visual_proof_status": "blocked_no_baseline",
+          "source_truth_status": "current"
+        },
+        {
+          "path": "/storage",
+          "label": "Storage",
+          "group": "Runtime",
+          "ui_status": "local state",
+          "release_status": "partial",
+          "owner": "founder-loop",
+          "backend_route_count": 1,
+          "blocked_capability_count": 6,
+          "visual_proof_status": "blocked_no_baseline",
+          "source_truth_status": "current"
+        }
+      ],
+      "control_action_ids": [
+        {
+          "action_id": "navigate-foundation-gate",
+          "source": "route_status_manifest",
+          "frontend_route": "/foundation-gate",
+          "ui_surface": "Evidence",
+          "release_status": "status_available_not_completion",
+          "side_effect_class": "validation_only",
+          "risk_class": "low",
+          "backend_route_count": 1,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "current"
+        },
+        {
+          "action_id": "navigate-storage-status",
+          "source": "route_status_manifest",
+          "frontend_route": "/storage",
+          "ui_surface": "Today",
+          "release_status": "partial_backend_not_product_ready",
+          "side_effect_class": "local_dev_workspace_only",
+          "risk_class": "medium",
+          "backend_route_count": 1,
+          "missing_backend_route_count": 1,
+          "source_truth_status": "current"
+        }
+      ],
+      "source_truth_status": "current"
+    },
+    {
+      "capability_id": "overview_dashboard_operator_loop",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/dashboard",
+          "operation_id": "get_control_center_dashboard",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/manifest",
+          "operation_id": "get_control_center_manifest",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/status",
+          "operation_id": "get_control_center_status",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        }
+      ],
+      "ui_routes": [
+        {
+          "path": "/",
+          "label": "Overview",
+          "group": "System",
+          "ui_status": "read-only",
+          "release_status": "partial",
+          "owner": "control-center",
+          "backend_route_count": 3,
+          "blocked_capability_count": 5,
+          "visual_proof_status": "checked_in_baseline",
+          "source_truth_status": "current"
+        },
+        {
+          "path": "/dashboard",
+          "label": "Dashboard",
+          "group": "System",
+          "ui_status": "read-only",
+          "release_status": "partial",
+          "owner": "control-center",
+          "backend_route_count": 1,
+          "blocked_capability_count": 5,
+          "visual_proof_status": "blocked_no_baseline",
+          "source_truth_status": "current"
+        },
+        {
+          "path": "/operator-loop",
+          "label": "Operator Loop",
+          "group": "Review",
+          "ui_status": "readable proof",
+          "release_status": "partial",
+          "owner": "control-center",
+          "backend_route_count": 6,
+          "blocked_capability_count": 5,
+          "visual_proof_status": "blocked_no_baseline",
+          "source_truth_status": "current"
+        },
+        {
+          "path": "/differentiators",
+          "label": "Differentiators",
+          "group": "System",
+          "ui_status": "operator proof",
+          "release_status": "partial",
+          "owner": "control-center",
+          "backend_route_count": 4,
+          "blocked_capability_count": 5,
+          "visual_proof_status": "blocked_no_baseline",
+          "source_truth_status": "current"
+        }
+      ],
+      "control_action_ids": [
+        {
+          "action_id": "navigate-overview",
+          "source": "route_status_manifest",
+          "frontend_route": "/",
+          "ui_surface": "Runtime",
+          "release_status": "status_available_not_completion",
+          "side_effect_class": "mixed_none_and_validation_only",
+          "risk_class": "low",
+          "backend_route_count": 3,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "current"
+        },
+        {
+          "action_id": "navigate-dashboard",
+          "source": "route_status_manifest",
+          "frontend_route": "/dashboard",
+          "ui_surface": "Runtime",
+          "release_status": "status_available_not_completion",
+          "side_effect_class": "validation_only",
+          "risk_class": "low",
+          "backend_route_count": 1,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "current"
+        },
+        {
+          "action_id": "navigate-operator-loop",
+          "source": "route_status_manifest",
+          "frontend_route": "/operator-loop",
+          "ui_surface": "Runtime",
+          "release_status": "status_available_not_completion",
+          "side_effect_class": "validation_only",
+          "risk_class": "medium",
+          "backend_route_count": 3,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "current"
+        },
+        {
+          "action_id": "navigate-differentiators",
+          "source": "route_status_manifest",
+          "frontend_route": "/differentiators",
+          "ui_surface": "System",
+          "release_status": "status_available_not_completion",
+          "side_effect_class": "local_ui_state_only",
+          "risk_class": "medium",
+          "backend_route_count": 4,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "current"
+        }
+      ],
+      "source_truth_status": "current"
+    },
+    {
+      "capability_id": "future_domain_governance_surfaces",
+      "api_routes": [],
+      "ui_routes": [
+        {
+          "path": "/remote-workers",
+          "label": "Remote Workers",
+          "group": "Runtime",
+          "ui_status": "dry-run",
+          "release_status": "experimental",
+          "owner": "remote-worker-governance",
+          "backend_route_count": 1,
+          "blocked_capability_count": 6,
+          "visual_proof_status": "experimental_no_baseline",
+          "source_truth_status": "current"
+        },
+        {
+          "path": "/mobile-planning",
+          "label": "Mobile Planning",
+          "group": "Runtime",
+          "ui_status": "planned",
+          "release_status": "experimental",
+          "owner": "mobile-governance",
+          "backend_route_count": 0,
+          "blocked_capability_count": 6,
+          "visual_proof_status": "experimental_no_baseline",
+          "source_truth_status": "current"
+        },
+        {
+          "path": "/plugin-governance",
+          "label": "Plugin Governance",
+          "group": "Runtime",
+          "ui_status": "planned",
+          "release_status": "experimental",
+          "owner": "plugin-governance",
+          "backend_route_count": 0,
+          "blocked_capability_count": 6,
+          "visual_proof_status": "experimental_no_baseline",
+          "source_truth_status": "current"
+        }
+      ],
+      "control_action_ids": [
+        {
+          "action_id": "navigate-remote-workers",
+          "source": "route_status_manifest",
+          "frontend_route": "/remote-workers",
+          "ui_surface": "Runtime",
+          "release_status": "mock_only_not_product_ready",
+          "side_effect_class": "validation_only",
+          "risk_class": "high",
+          "backend_route_count": 1,
+          "missing_backend_route_count": 1,
+          "source_truth_status": "current"
+        },
+        {
+          "action_id": "navigate-mobile-planning",
+          "source": "route_status_manifest",
+          "frontend_route": "/mobile-planning",
+          "ui_surface": "Settings",
+          "release_status": "mock_only_not_product_ready",
+          "side_effect_class": "local_ui_state_only",
+          "risk_class": "high",
+          "backend_route_count": 0,
+          "missing_backend_route_count": 1,
+          "source_truth_status": "current"
+        },
+        {
+          "action_id": "navigate-plugin-governance",
+          "source": "route_status_manifest",
+          "frontend_route": "/plugin-governance",
+          "ui_surface": "Settings",
+          "release_status": "mock_only_not_product_ready",
+          "side_effect_class": "local_ui_state_only",
+          "risk_class": "high",
+          "backend_route_count": 0,
+          "missing_backend_route_count": 1,
+          "source_truth_status": "current"
+        }
+      ],
+      "source_truth_status": "current"
+    }
+  ]
+}

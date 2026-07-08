@@ -119,6 +119,7 @@ SCAN_SEQUENCE = [
     ("control center frontend safety verifier", "verify_control_center_frontend_script"),
     ("control center browser smoke readiness verifier", "verify_control_center_browser_smoke_readiness_script"),
     ("FCC-V1-000 release surface manifest scan", "verify_control_center_release_surface"),
+    ("Control Center capability surface manifest scan", "verify_control_center_capability_surface"),
     ("FCC-V1-001 API perimeter for real mutations scan", "verify_fcc_v1_001_api_perimeter"),
     ("FCC-V1-002 Action Inbox state machine scan", "verify_fcc_v1_002_action_inbox_state_machine"),
     ("FCC-V1-003 Founder Loop vertical slice scan", "verify_fcc_v1_003_founder_loop_vertical_slice"),
@@ -1068,6 +1069,9 @@ def verify_control_center_browser_smoke_readiness_script() -> None:
 def verify_control_center_release_surface() -> None:
     print("\n[Verifier] Running FCC-V1-000 release surface manifest scan...")
     run_cmd([sys.executable, "scripts/verify_control_center_release_surface.py"])
+def verify_control_center_capability_surface() -> None:
+    print("\n[Verifier] Running Control Center capability surface manifest scan...")
+    run_cmd([sys.executable, "scripts/verify_control_center_capability_surface.py"])
 def verify_background_autonomous_provider_plan() -> None: run_cmd([sys.executable, "scripts/verify_background_autonomous_provider_plan.py"])
 def verify_provider_billing_authority_boundary() -> None: run_cmd([sys.executable, "scripts/verify_provider_billing_authority_boundary.py"])
 def verify_fcc_v1_001_api_perimeter() -> None:
