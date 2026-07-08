@@ -2377,6 +2377,7 @@ WEB_EVIDENCE_PRODUCT_SLICE_ROUTES = frozenset(
 EXTENSION_DISABLED_INSTALL_RECORD_ROUTES = frozenset(
     {
         "/extensions/disabled-install-records",
+        "/extensions/disabled-install-records/rollback",
     }
 )
 TURN_CONTRACT_ROUTER_DIAGNOSTIC_ROUTES = frozenset({"/control-center/turn-router/preview"})

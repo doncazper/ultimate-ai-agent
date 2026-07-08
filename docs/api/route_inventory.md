@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `249`.
+Current OpenAPI path count: `250`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -45,7 +45,7 @@ Current route classification summary:
 | `public_metadata` | 3 |
 | `local_readonly` | 27 |
 | `local_sensitive` | 171 |
-| `mutating_requires_authority` | 49 |
+| `mutating_requires_authority` | 50 |
 
 Allowed current side-effect classes are:
 
@@ -97,6 +97,9 @@ Review decision receipts, Memory context-pack internal Action proposal receipts,
 Memory feedback receipts, the exact-approved provider credential validation
 capability, the scoped provider capability route, governed runtime pilot
 mutation routes, and local model validation route groups.
+The extension disabled-install record and rollback routes are targeted as one
+exact local metadata receipt group; rollback deletes only the local disabled
+record and writes a redacted delete receipt.
 `/api/manifest` and the frozen route inventory expose
 `rate_limit_targeted`, `rate_limit_posture`, `rate_limit_policy_ref`, and
 `rate_limit_group`. This is not auth, distributed quota, billing, production

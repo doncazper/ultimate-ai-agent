@@ -21,12 +21,17 @@ from ultimate_ai_agent.core.authority.approval_validation import (
 from ultimate_ai_agent.core.extension_catalog import (
     ExtensionInstallDisabledCandidateRecord,
     ExtensionInstallDisabledPostureReadModel,
+    ExtensionInstallDisabledRecordDeleteReceipt,
+    ExtensionInstallDisabledRecordDeleteRequest,
     ExtensionInstallDisabledRecordReceipt,
     ExtensionInstallDisabledRecordStore,
     build_default_extension_install_disabled_posture,
     build_default_inspectable_extension_catalog,
     build_extension_install_disabled_approval_request,
+    build_extension_install_disabled_delete_approval_request,
+    build_extension_install_disabled_record_delete_receipt,
     build_extension_install_disabled_record_receipt,
+    delete_extension_install_disabled_record,
     validate_inspectable_extension_catalog,
 )
 
@@ -344,6 +349,164 @@ def test_extension_install_disabled_record_store_is_idempotent(tmp_path: Path) -
         store.record_receipt(changed_payload)
 
 
+def test_extension_install_disabled_record_delete_receipt_denies_without_authority() -> None:
+    with pytest.raises(
+        ValueError,
+        match="EXTENSION_INSTALL_DISABLED_DELETE_AUTHORITY_REQUIRED",
+    ):
+        build_extension_install_disabled_record_delete_receipt()
+
+
+def test_extension_install_disabled_record_store_delete_is_idempotent(
+    tmp_path: Path,
+) -> None:
+    approval_authority = LocalApprovalAuthority()
+    approval_request = approval_authority.create_request(
+        build_extension_install_disabled_approval_request()
+    )
+    grant = approval_authority.grant(
+        approval_request.approval_request_id,
+        approved_by_actor_id="actor:operator",
+        approval_ref="approval-ref:extension-install-disabled:delete-store-record",
+    )
+    delete_approval_authority = LocalApprovalAuthority()
+    delete_approval_request = delete_approval_authority.create_request(
+        build_extension_install_disabled_delete_approval_request()
+    )
+    delete_grant = delete_approval_authority.grant(
+        delete_approval_request.approval_request_id,
+        approved_by_actor_id="actor:operator",
+        approval_ref="approval-ref:extension-install-disabled-delete:store-test",
+    )
+    lease = AuthorityLease(
+        lease_ref="authority-lease-ref:extension-install-disabled:delete-store-test",
+        mode=TrustMode.approved_safe_local_work_session,
+        domains={AuthorityDomain.workspace: [AuthorityCapability.write]},
+        safe_summary="Allow disabled extension install ref record/delete for store test.",
+    )
+    receipt = build_extension_install_disabled_record_receipt(
+        leases=[lease],
+        approval_authority=approval_authority,
+        approval_ref=grant.approval_ref,
+        idempotency_key_ref="idempotency-ref:extension-install-disabled:delete-store-record",
+    )
+    delete_receipt = build_extension_install_disabled_record_delete_receipt(
+        leases=[lease],
+        approval_authority=delete_approval_authority,
+        approval_ref=delete_grant.approval_ref,
+        idempotency_key_ref=(
+            "idempotency-ref:extension-install-disabled-delete:store-test"
+        ),
+    )
+
+    store = ExtensionInstallDisabledRecordStore(tmp_path)
+    persisted_record = store.record_receipt(receipt)
+    persisted_delete = store.delete_record(delete_receipt)
+    replayed_delete = store.delete_record(delete_receipt)
+    records = list((tmp_path / "extension_install_disabled_records").glob("*.json"))
+    delete_receipts = list(
+        (tmp_path / "extension_install_disabled_deletions").glob("*.json")
+    )
+
+    assert persisted_record.record_storage_mode == "local_disabled_record_store"
+    assert records == []
+    assert len(delete_receipts) == 1
+    assert replayed_delete == persisted_delete
+    assert persisted_delete.status == "disabled_install_record_delete_receipt_recorded"
+    assert persisted_delete.deletion_status == "record_deleted"
+    assert persisted_delete.durable_delete_receipt_persistence is True
+    assert persisted_delete.disabled_install_record_deleted is True
+    assert persisted_delete.approval_ref == delete_grant.approval_ref
+    assert persisted_delete.authority_decision_outcome == "allow"
+    assert persisted_delete.plugin_install_enabled is False
+    assert persisted_delete.runtime_import_enabled is False
+    assert persisted_delete.plugin_execution_enabled is False
+    assert persisted_delete.side_effects_performed == [
+        "side-effect:extension-install-disabled:local-record-delete",
+        "side-effect:extension-install-disabled:local-delete-receipt-write",
+    ]
+
+    changed_delete_payload = ExtensionInstallDisabledRecordDeleteReceipt.model_validate(
+        delete_receipt.model_dump(mode="json")
+        | {"approval_ref": "approval-ref:extension-install-disabled-delete:changed"}
+    )
+    with pytest.raises(
+        ValueError,
+        match="EXTENSION_INSTALL_DISABLED_DELETE_IDEMPOTENCY_PAYLOAD_MISMATCH",
+    ):
+        store.delete_record(changed_delete_payload)
+
+
+def test_extension_install_disabled_record_delete_receipt_denies_runtime_flags() -> None:
+    delete_approval_authority = LocalApprovalAuthority()
+    delete_approval_request = delete_approval_authority.create_request(
+        build_extension_install_disabled_delete_approval_request()
+    )
+    delete_grant = delete_approval_authority.grant(
+        delete_approval_request.approval_request_id,
+        approved_by_actor_id="actor:operator",
+        approval_ref="approval-ref:extension-install-disabled-delete:flag-test",
+    )
+    lease = AuthorityLease(
+        lease_ref="authority-lease-ref:extension-install-disabled-delete:flag-test",
+        mode=TrustMode.approved_safe_local_work_session,
+        domains={AuthorityDomain.workspace: [AuthorityCapability.write]},
+        safe_summary="Allow disabled extension install ref delete flag test.",
+    )
+    receipt = build_extension_install_disabled_record_delete_receipt(
+        leases=[lease],
+        approval_authority=delete_approval_authority,
+        approval_ref=delete_grant.approval_ref,
+    )
+
+    with pytest.raises(ValueError, match="Input should be False"):
+        ExtensionInstallDisabledRecordDeleteReceipt.model_validate(
+            receipt.model_copy(update={"runtime_import_enabled": True}).model_dump()
+        )
+
+
+def test_delete_extension_install_disabled_record_requires_exact_delete_approval(
+    tmp_path: Path,
+) -> None:
+    record_approval_authority = LocalApprovalAuthority()
+    record_approval_request = record_approval_authority.create_request(
+        build_extension_install_disabled_approval_request()
+    )
+    record_grant = record_approval_authority.grant(
+        record_approval_request.approval_request_id,
+        approved_by_actor_id="actor:operator",
+        approval_ref="approval-ref:extension-install-disabled:delete-fn-record",
+    )
+    lease = AuthorityLease(
+        lease_ref="authority-lease-ref:extension-install-disabled:delete-fn",
+        mode=TrustMode.approved_safe_local_work_session,
+        domains={AuthorityDomain.workspace: [AuthorityCapability.write]},
+        safe_summary="Allow disabled extension install ref function test.",
+    )
+    store = ExtensionInstallDisabledRecordStore(tmp_path)
+    store.record_receipt(
+        build_extension_install_disabled_record_receipt(
+            leases=[lease],
+            approval_authority=record_approval_authority,
+            approval_ref=record_grant.approval_ref,
+        )
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="EXTENSION_INSTALL_DISABLED_DELETE_AUTHORITY_REQUIRED",
+    ):
+        delete_extension_install_disabled_record(
+            ExtensionInstallDisabledRecordDeleteRequest(
+                approval_ref=record_grant.approval_ref,
+                approval_grants=[record_grant.model_dump(mode="json")],
+            ),
+            leases=[lease],
+            idempotency_key_ref="idempotency-ref:extension-install-disabled-delete:wrong-grant",
+            storage_root=tmp_path,
+        )
+
+
 def test_extension_install_disabled_record_receipt_denies_runtime_flags() -> None:
     approval_authority = LocalApprovalAuthority()
     approval_request = approval_authority.create_request(
@@ -420,6 +583,16 @@ def test_extension_install_disabled_record_api_requires_idempotency() -> None:
     response = client.post(
         "/extensions/disabled-install-records",
         json={"approval_ref": "approval-ref:extension-install-disabled:missing-header"},
+    )
+
+    assert response.status_code == 428
+    assert response.json()["code"] == "API_IDEMPOTENCY_REQUIRED"
+
+
+def test_extension_install_disabled_record_rollback_api_requires_idempotency() -> None:
+    response = client.post(
+        "/extensions/disabled-install-records/rollback",
+        json={"approval_ref": "approval-ref:extension-install-disabled-delete:missing-header"},
     )
 
     assert response.status_code == 428
@@ -507,6 +680,147 @@ def test_extension_install_disabled_record_api_requires_lease_and_exact_approval
     assert "raw" not in receipt["safe_summary"].lower()
 
 
+def test_extension_install_disabled_record_rollback_api_requires_lease_and_exact_approval(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    authority_state_dir = tmp_path / "authority"
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(authority_state_dir))
+
+    denied = client.post(
+        "/extensions/disabled-install-records/rollback",
+        json={
+            "approval_ref": (
+                "approval-ref:extension-install-disabled-delete:missing-lease"
+            )
+        },
+        headers={
+            "x-uaa-idempotency-key": (
+                "idempotency-ref:extension-install-disabled-delete:missing-lease"
+            )
+        },
+    )
+    assert denied.status_code == 403
+    assert denied.json()["detail"]["code"] == (
+        "EXTENSION_INSTALL_DISABLED_DELETE_AUTHORITY_REQUIRED"
+    )
+
+    _issue_extension_workspace_write_lease(authority_state_dir)
+    record_approval_authority = LocalApprovalAuthority()
+    record_approval_request = record_approval_authority.create_request(
+        build_extension_install_disabled_approval_request()
+    )
+    record_grant = record_approval_authority.grant(
+        record_approval_request.approval_request_id,
+        approved_by_actor_id="actor:operator",
+        approval_ref="approval-ref:extension-install-disabled:rollback-api-record",
+    )
+    record_response = client.post(
+        "/extensions/disabled-install-records",
+        json={
+            "approval_ref": record_grant.approval_ref,
+            "approval_grants": [record_grant.model_dump(mode="json")],
+        },
+        headers={
+            "x-uaa-idempotency-key": (
+                "idempotency-ref:extension-install-disabled:rollback-api-record"
+            )
+        },
+    )
+    assert record_response.status_code == 200
+    record_path = (
+        authority_state_dir
+        / "extension_install_disabled_records"
+        / "uaa-plugin-skill-boundary.disabled-install.json"
+    )
+    assert record_path.exists()
+
+    wrong_grant_denied = client.post(
+        "/extensions/disabled-install-records/rollback",
+        json={
+            "approval_ref": record_grant.approval_ref,
+            "approval_grants": [record_grant.model_dump(mode="json")],
+        },
+        headers={
+            "x-uaa-idempotency-key": (
+                "idempotency-ref:extension-install-disabled-delete:wrong-grant-api"
+            )
+        },
+    )
+    assert wrong_grant_denied.status_code == 403
+    assert wrong_grant_denied.json()["detail"]["code"] == (
+        "EXTENSION_INSTALL_DISABLED_DELETE_AUTHORITY_REQUIRED"
+    )
+    assert record_path.exists()
+
+    delete_approval_authority = LocalApprovalAuthority()
+    delete_approval_request = delete_approval_authority.create_request(
+        build_extension_install_disabled_delete_approval_request()
+    )
+    delete_grant = delete_approval_authority.grant(
+        delete_approval_request.approval_request_id,
+        approved_by_actor_id="actor:operator",
+        approval_ref="approval-ref:extension-install-disabled-delete:rollback-api",
+    )
+
+    response = client.post(
+        "/extensions/disabled-install-records/rollback",
+        json={
+            "approval_ref": delete_grant.approval_ref,
+            "approval_grants": [delete_grant.model_dump(mode="json")],
+        },
+        headers={
+            "x-uaa-idempotency-key": (
+                "idempotency-ref:extension-install-disabled-delete:rollback-api"
+            )
+        },
+    )
+    replay = client.post(
+        "/extensions/disabled-install-records/rollback",
+        json={
+            "approval_ref": delete_grant.approval_ref,
+            "approval_grants": [delete_grant.model_dump(mode="json")],
+        },
+        headers={
+            "x-uaa-idempotency-key": (
+                "idempotency-ref:extension-install-disabled-delete:rollback-api"
+            )
+        },
+    )
+
+    assert response.status_code == 200
+    assert replay.status_code == 200
+    assert not record_path.exists()
+    assert list((authority_state_dir / "extension_install_disabled_deletions").glob("*.json"))
+    body = response.json()
+    assert body["success"] is True
+    assert body["operation"] == "extension_install_disabled_record_rollback"
+    assert body["service"] == "ExtensionCatalogAPI"
+    assert body["redactions_applied"] == [
+        "safe_refs_only",
+        "raw_package_content_omitted",
+        "raw_manifest_content_omitted",
+        "local_paths_omitted",
+    ]
+    receipt = body["data"]
+    replay_receipt = replay.json()["data"]
+    assert replay_receipt == receipt
+    assert receipt["status"] == "disabled_install_record_delete_receipt_recorded"
+    assert receipt["deletion_status"] == "record_deleted"
+    assert receipt["record_storage_mode"] == "local_disabled_record_store"
+    assert receipt["durable_delete_receipt_persistence"] is True
+    assert receipt["approval_ref"] == delete_grant.approval_ref
+    assert receipt["authority_decision_outcome"] == "allow"
+    assert receipt["plugin_install_enabled"] is False
+    assert receipt["runtime_import_enabled"] is False
+    assert receipt["plugin_execution_enabled"] is False
+    assert receipt["side_effects_performed"] == [
+        "side-effect:extension-install-disabled:local-record-delete",
+        "side-effect:extension-install-disabled:local-delete-receipt-write",
+    ]
+    assert "raw" not in receipt["safe_summary"].lower()
+
+
 def test_extension_catalog_openapi_route_is_get_only_and_not_runtime_catalog() -> None:
     paths = app.openapi()["paths"]
 
@@ -519,6 +833,11 @@ def test_extension_catalog_openapi_route_is_get_only_and_not_runtime_catalog() -
     assert (
         paths["/extensions/disabled-install-records"]["post"]["operationId"]
         == "post_extensions_disabled_install_records"
+    )
+    assert "/extensions/disabled-install-records/rollback" in paths
+    assert (
+        paths["/extensions/disabled-install-records/rollback"]["post"]["operationId"]
+        == "post_extensions_disabled_install_records_rollback"
     )
     for forbidden in [
         "/extensions/catalog/execute",

@@ -27,10 +27,10 @@ Current route classification summary:
 | `public_metadata` | 3 |
 | `local_readonly` | 27 |
 | `local_sensitive` | 171 |
-| `mutating_requires_authority` | 49 |
+| `mutating_requires_authority` | 50 |
 
-The current OpenAPI path count is `249` and `/api/manifest` currently reports
-`250` route operations after later scoped FCC-V1-003 through
+The current OpenAPI path count is `250` and `/api/manifest` currently reports
+`251` route operations after later scoped FCC-V1-003 through
 FCC-V1-006 Founder Loop route work, FCC-MEM-001 Memory Workbench/search/manual
 intake and lifecycle routes, the governed memory L1/L2/L3 index routes, Phase
 5 context-pack proposals, the Phase 6.1 internal Action proposal hook, the
@@ -76,7 +76,10 @@ The extension disabled-install record route is an exact metadata receipt lane
 that requires active `workspace/write` AuthorityLease scope, exact
 LocalApprovalAuthority validation, idempotency, and redacted local receipt
 persistence without package install, runtime import, plugin execution, or
-callable activation.
+callable activation. The sibling rollback route deletes only that local
+disabled-record metadata file when present and writes a redacted delete receipt
+after a separate exact rollback approval; it still grants no install, runtime
+import, execution, or callable activation.
 Governed runtime pilot Phase 08 includes backend-owned parity-loop inspection
 over prepared-turn, route-binding, durable-run, staged orchestration,
 role-provider, Action Inbox, receipt, signed-evidence, and blocked-state refs.

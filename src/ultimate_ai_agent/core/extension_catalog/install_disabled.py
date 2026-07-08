@@ -73,6 +73,30 @@ EXTENSION_INSTALL_DISABLED_RECEIPT_REF = (
 EXTENSION_INSTALL_DISABLED_STORAGE_EFFECT_REF = (
     "side-effect:extension-install-disabled:local-record-write"
 )
+EXTENSION_INSTALL_DISABLED_DELETE_ACTION_REF = (
+    "authority-action-ref:extension-install-disabled-delete:uaa-plugin-skill-boundary"
+)
+EXTENSION_INSTALL_DISABLED_DELETE_REQUEST_REF = (
+    "approval-request-ref:extension-install-disabled-delete:uaa-plugin-skill-boundary"
+)
+EXTENSION_INSTALL_DISABLED_DELETE_RUN_REF = (
+    "run-ref:extension-install-disabled-delete:uaa-plugin-skill-boundary"
+)
+EXTENSION_INSTALL_DISABLED_DELETE_IDEMPOTENCY_REF = (
+    "idempotency-ref:extension-install-disabled-delete:uaa-plugin-skill-boundary:v1"
+)
+EXTENSION_INSTALL_DISABLED_DELETE_RECEIPT_REF = (
+    "receipt-ref:extension-install-disabled-delete:uaa-plugin-skill-boundary:v1"
+)
+EXTENSION_INSTALL_DISABLED_DELETE_EFFECT_REF = (
+    "side-effect:extension-install-disabled:local-record-delete"
+)
+EXTENSION_INSTALL_DISABLED_DELETE_NOOP_EFFECT_REF = (
+    "side-effect:extension-install-disabled:local-record-already-absent"
+)
+EXTENSION_INSTALL_DISABLED_DELETE_RECEIPT_EFFECT_REF = (
+    "side-effect:extension-install-disabled:local-delete-receipt-write"
+)
 
 
 class _ExtensionInstallDisabledModel(BaseModel):
@@ -335,6 +359,120 @@ class ExtensionInstallDisabledRecordIssueRequest(_ExtensionInstallDisabledModel)
         return self
 
 
+class ExtensionInstallDisabledRecordDeleteReceipt(_ExtensionInstallDisabledModel):
+    schema_version: Literal["uaa_extension_install_disabled_record_delete_receipt.v1"] = (
+        "uaa_extension_install_disabled_record_delete_receipt.v1"
+    )
+    receipt_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    record_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    idempotency_key_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    candidate_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    catalog_entry_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    package_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    manifest_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    version_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    status: Literal["disabled_install_record_delete_receipt_recorded"] = (
+        "disabled_install_record_delete_receipt_recorded"
+    )
+    deletion_status: Literal["record_deleted", "record_already_absent"]
+    record_storage_mode: Literal["local_disabled_record_store"] = (
+        "local_disabled_record_store"
+    )
+    durable_delete_receipt_persistence: Literal[True] = True
+    record_path_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    delete_receipt_path_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    authority_lane_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    authority_decision_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    authority_lease_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    authority_decision_outcome: AuthorityDecisionOutcome
+    approval_request_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    approval_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    exact_approval_required: Literal[True] = True
+    local_approval_validated: Literal[True] = True
+    approval_validation_status: Literal["approved"] = "approved"
+    approval_ref_authority: Literal[False] = False
+    audit_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    safe_disable_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    rollback_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    kill_switch_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    redactions_applied: list[str] = Field(
+        default_factory=lambda: [
+            "raw_manifest_content_omitted",
+            "raw_package_content_omitted",
+            "local_paths_omitted",
+        ]
+    )
+    disabled_install_record_deleted: bool
+    plugin_install_enabled: Literal[False] = False
+    plugin_enablement_enabled: Literal[False] = False
+    plugin_execution_enabled: Literal[False] = False
+    runtime_import_enabled: Literal[False] = False
+    connector_writes_enabled: Literal[False] = False
+    shell_execution_enabled: Literal[False] = False
+    network_access_enabled: Literal[False] = False
+    browser_automation_enabled: Literal[False] = False
+    provider_model_call_enabled: Literal[False] = False
+    remote_execution_enabled: Literal[False] = False
+    raw_manifest_content_stored: Literal[False] = False
+    raw_package_content_stored: Literal[False] = False
+    production_authority_granted: Literal[False] = False
+    side_effects_performed: list[str] = Field(default_factory=list)
+    safe_summary: str = Field(..., min_length=1, max_length=520)
+
+    @model_validator(mode="after")
+    def validate_delete_receipt(self) -> "ExtensionInstallDisabledRecordDeleteReceipt":
+        _validate_safe_ref_list(
+            [
+                *self.audit_refs,
+                *self.evidence_refs,
+                *self.side_effects_performed,
+            ],
+            "extension_install_disabled_record_delete_receipt_ref",
+        )
+        if self.authority_decision_outcome != AuthorityDecisionOutcome.allow.value:
+            raise ValueError("EXTENSION_INSTALL_DISABLED_DELETE_REQUIRES_ALLOW")
+        expected_effect = (
+            EXTENSION_INSTALL_DISABLED_DELETE_EFFECT_REF
+            if self.deletion_status == "record_deleted"
+            else EXTENSION_INSTALL_DISABLED_DELETE_NOOP_EFFECT_REF
+        )
+        if self.side_effects_performed != [
+            expected_effect,
+            EXTENSION_INSTALL_DISABLED_DELETE_RECEIPT_EFFECT_REF,
+        ]:
+            raise ValueError("EXTENSION_INSTALL_DISABLED_DELETE_EFFECT_REQUIRED")
+        if self.disabled_install_record_deleted != (
+            self.deletion_status == "record_deleted"
+        ):
+            raise ValueError("EXTENSION_INSTALL_DISABLED_DELETE_STATUS_DRIFT")
+        _deny_runtime_authority_flags(self)
+        return self
+
+
+class ExtensionInstallDisabledRecordDeleteRequest(_ExtensionInstallDisabledModel):
+    schema_version: Literal["uaa_extension_install_disabled_record_delete_request.v1"] = (
+        "uaa_extension_install_disabled_record_delete_request.v1"
+    )
+    approval_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    approval_grants: list[dict[str, Any]] = Field(default_factory=list)
+    delete_from_local_disabled_record_store: Literal[True] = True
+    plugin_install_enabled: Literal[False] = False
+    plugin_enablement_enabled: Literal[False] = False
+    plugin_execution_enabled: Literal[False] = False
+    runtime_import_enabled: Literal[False] = False
+    provider_model_call_enabled: Literal[False] = False
+    browser_automation_enabled: Literal[False] = False
+    connector_writes_enabled: Literal[False] = False
+    shell_execution_enabled: Literal[False] = False
+    production_authority_granted: Literal[False] = False
+
+    @model_validator(mode="after")
+    def validate_delete_request(self) -> "ExtensionInstallDisabledRecordDeleteRequest":
+        _deny_runtime_authority_flags(self)
+        return self
+
+
 class ExtensionInstallDisabledRecordStore:
     """Tiny exact-scoped local store for disabled install record receipts."""
 
@@ -378,6 +516,64 @@ class ExtensionInstallDisabledRecordStore:
         temp_path.replace(path)
         return persisted
 
+    def delete_record(
+        self,
+        receipt: ExtensionInstallDisabledRecordDeleteReceipt,
+    ) -> ExtensionInstallDisabledRecordDeleteReceipt:
+        self.records_dir.mkdir(parents=True, exist_ok=True)
+        delete_receipts_dir = self.storage_root / "extension_install_disabled_deletions"
+        delete_receipts_dir.mkdir(parents=True, exist_ok=True)
+        delete_receipt_path = (
+            delete_receipts_dir
+            / f"{sha256(receipt.idempotency_key_ref.encode('utf-8')).hexdigest()}.json"
+        )
+        if delete_receipt_path.exists():
+            existing = ExtensionInstallDisabledRecordDeleteReceipt.model_validate_json(
+                delete_receipt_path.read_text(encoding="utf-8")
+            )
+            if existing.idempotency_key_ref != receipt.idempotency_key_ref:
+                raise ValueError(
+                    "EXTENSION_INSTALL_DISABLED_DELETE_IDEMPOTENCY_MISMATCH"
+                )
+            if _delete_receipt_replay_identity(existing) != _delete_receipt_replay_identity(
+                receipt
+            ):
+                raise ValueError(
+                    "EXTENSION_INSTALL_DISABLED_DELETE_IDEMPOTENCY_PAYLOAD_MISMATCH"
+                )
+            return existing
+
+        record_path = self.records_dir / "uaa-plugin-skill-boundary.disabled-install.json"
+        record_existed = record_path.exists()
+        delete_effect = (
+            EXTENSION_INSTALL_DISABLED_DELETE_EFFECT_REF
+            if record_existed
+            else EXTENSION_INSTALL_DISABLED_DELETE_NOOP_EFFECT_REF
+        )
+        persisted = validate_extension_install_disabled_record_delete_receipt(
+            receipt.model_dump(mode="json")
+            | {
+                "deletion_status": (
+                    "record_deleted" if record_existed else "record_already_absent"
+                ),
+                "disabled_install_record_deleted": record_existed,
+                "side_effects_performed": [
+                    delete_effect,
+                    EXTENSION_INSTALL_DISABLED_DELETE_RECEIPT_EFFECT_REF,
+                ],
+            }
+        )
+        temp_path = delete_receipt_path.with_suffix(".json.tmp")
+        temp_path.write_text(
+            json.dumps(persisted.model_dump(mode="json"), indent=2, sort_keys=True)
+            + "\n",
+            encoding="utf-8",
+        )
+        if record_existed:
+            record_path.unlink()
+        temp_path.replace(delete_receipt_path)
+        return persisted
+
 
 def build_extension_install_disabled_approval_request() -> ApprovalRequest:
     return ApprovalRequest(
@@ -410,6 +606,41 @@ def build_extension_install_disabled_approval_request() -> ApprovalRequest:
         ],
         event_ref="event-ref:extension-install-disabled:approval-request",
         trace_id="trace-ref:extension-install-disabled:uaa-plugin-skill-boundary",
+        expires_at=utc_now() + timedelta(hours=1),
+    )
+
+
+def build_extension_install_disabled_delete_approval_request() -> ApprovalRequest:
+    return ApprovalRequest(
+        approval_request_id=EXTENSION_INSTALL_DISABLED_DELETE_REQUEST_REF,
+        run_id=EXTENSION_INSTALL_DISABLED_DELETE_RUN_REF,
+        subject_type=ApprovalSubjectType.external_action,
+        subject_id="extension-install-disabled-delete:uaa-plugin-skill-boundary",
+        actor_context=ActorContext(
+            actor_type=ActorType.human_user,
+            actor_id=EXTENSION_INSTALL_DISABLED_ACTOR_REF,
+            actor_display_name="Extension Install Reviewer",
+            authority_source=AuthoritySource.explicit_user_request,
+        ),
+        requested_action="delete_disabled_extension_install_ref",
+        purpose=(
+            "Approve rollback/delete of the local disabled extension install "
+            "metadata record without importing, enabling, or executing plugin code."
+        ),
+        risk_level=ApprovalRiskLevel.medium,
+        data_classification=DataClassification(
+            classification=ClassificationValue.project_private,
+            source="extension_install_disabled_record_rollback",
+            reason="Repo-owned extension disabled-record rollback metadata.",
+            requires_redaction=True,
+        ),
+        resource_refs=[
+            "extension-package:uaa-plugin-skill-boundary",
+            "plugin-skill-manifest:uaa-plugin-skill-boundary",
+            "version:uaa-p1-024",
+        ],
+        event_ref="event-ref:extension-install-disabled-delete:approval-request",
+        trace_id="trace-ref:extension-install-disabled-delete:uaa-plugin-skill-boundary",
         expires_at=utc_now() + timedelta(hours=1),
     )
 
@@ -637,12 +868,134 @@ def issue_extension_install_disabled_record(
     ).record_receipt(receipt)
 
 
+def build_extension_install_disabled_record_delete_receipt(
+    *,
+    leases: list[AuthorityLease] | None = None,
+    approval_authority: LocalApprovalAuthority | None = None,
+    approval_ref: str | None = None,
+    idempotency_key_ref: str = EXTENSION_INSTALL_DISABLED_DELETE_IDEMPOTENCY_REF,
+) -> ExtensionInstallDisabledRecordDeleteReceipt:
+    authority_decision = evaluate_authority_request(
+        AuthorityActionRequest(
+            action_ref=EXTENSION_INSTALL_DISABLED_DELETE_ACTION_REF,
+            domain=AuthorityDomain.workspace,
+            capability=AuthorityCapability.write,
+            safe_summary=(
+                "Rollback/delete a local disabled extension install metadata record "
+                "without importing, enabling, or executing plugin code."
+            ),
+            capability_ref="authority-capability-ref:extension-install-disabled-delete",
+            lane_ref="authority-lane-ref:extension-install-disabled",
+            requested_mode=TrustMode.approved_safe_local_work_session,
+            resource_refs=[
+                "extension-package:uaa-plugin-skill-boundary",
+                "plugin-skill-manifest:uaa-plugin-skill-boundary",
+            ],
+            rollback_ref="rollback-ref:extension-install-disabled:delete-record",
+            safe_disable_ref="safe-disable-ref:extension-install-disabled",
+        ),
+        leases or [],
+    )
+    approval_decision = _validate_local_approval(
+        approval_authority=approval_authority,
+        approval_ref=approval_ref,
+        approval_request_builder=build_extension_install_disabled_delete_approval_request,
+    )
+    if (
+        authority_decision.outcome != AuthorityDecisionOutcome.allow.value
+        or authority_decision.lease_ref is None
+        or approval_decision is None
+        or not approval_decision.allowed
+        or approval_ref is None
+    ):
+        raise ValueError("EXTENSION_INSTALL_DISABLED_DELETE_AUTHORITY_REQUIRED")
+    return validate_extension_install_disabled_record_delete_receipt(
+        ExtensionInstallDisabledRecordDeleteReceipt(
+            receipt_ref=EXTENSION_INSTALL_DISABLED_DELETE_RECEIPT_REF,
+            record_ref=EXTENSION_INSTALL_DISABLED_RECORD_REF,
+            idempotency_key_ref=idempotency_key_ref,
+            candidate_ref="extension-install-disabled-candidate:uaa-plugin-skill-boundary",
+            catalog_entry_ref="inspectable-catalog-entry:uaa-plugin-skill-boundary",
+            package_ref="extension-package:uaa-plugin-skill-boundary",
+            manifest_ref="plugin-skill-manifest:uaa-plugin-skill-boundary",
+            version_ref="version:uaa-p1-024",
+            deletion_status="record_already_absent",
+            record_path_ref=(
+                "storage-ref:extension-install-disabled-record:"
+                "uaa-plugin-skill-boundary"
+            ),
+            delete_receipt_path_ref=(
+                "storage-ref:extension-install-disabled-delete-receipt:"
+                "uaa-plugin-skill-boundary"
+            ),
+            authority_lane_ref="authority-lane-ref:extension-install-disabled",
+            authority_decision_ref=authority_decision.decision_ref,
+            authority_lease_ref=authority_decision.lease_ref,
+            authority_decision_outcome=authority_decision.outcome,
+            approval_request_ref=EXTENSION_INSTALL_DISABLED_DELETE_REQUEST_REF,
+            approval_ref=approval_ref,
+            audit_refs=[
+                authority_decision.audit_record_ref,
+                "audit:extension-install-disabled:delete-receipt",
+            ],
+            evidence_refs=[
+                "rollback-ref:extension-install-disabled:delete-record",
+                authority_decision.decision_ref,
+            ],
+            safe_disable_ref="safe-disable-ref:extension-install-disabled",
+            rollback_ref="rollback-ref:extension-install-disabled:delete-record",
+            kill_switch_ref="kill-switch-ref:authority-lease-local",
+            disabled_install_record_deleted=False,
+            side_effects_performed=[
+                EXTENSION_INSTALL_DISABLED_DELETE_NOOP_EFFECT_REF,
+                EXTENSION_INSTALL_DISABLED_DELETE_RECEIPT_EFFECT_REF,
+            ],
+            safe_summary=(
+                "Disabled extension install record rollback/delete receipt issued "
+                "after active workspace/write AuthorityLease scope and exact local "
+                "approval; plugin install, import, activation, and execution remain "
+                "disabled."
+            ),
+        )
+    )
+
+
+def delete_extension_install_disabled_record(
+    request: ExtensionInstallDisabledRecordDeleteRequest,
+    *,
+    leases: list[AuthorityLease] | None = None,
+    idempotency_key_ref: str = EXTENSION_INSTALL_DISABLED_DELETE_IDEMPOTENCY_REF,
+    storage_root: Path | None = None,
+) -> ExtensionInstallDisabledRecordDeleteReceipt:
+    approval_authority = _approval_authority_from_grants(
+        request.approval_grants,
+        approval_request_builder=build_extension_install_disabled_delete_approval_request,
+    )
+    receipt = build_extension_install_disabled_record_delete_receipt(
+        leases=leases,
+        approval_authority=approval_authority,
+        approval_ref=request.approval_ref,
+        idempotency_key_ref=idempotency_key_ref,
+    )
+    return ExtensionInstallDisabledRecordStore(
+        storage_root or authority_state_dir()
+    ).delete_record(receipt)
+
+
 def validate_extension_install_disabled_record_receipt(
     receipt: ExtensionInstallDisabledRecordReceipt | dict[str, object],
 ) -> ExtensionInstallDisabledRecordReceipt:
     if isinstance(receipt, ExtensionInstallDisabledRecordReceipt):
         return receipt
     return ExtensionInstallDisabledRecordReceipt.model_validate(receipt)
+
+
+def validate_extension_install_disabled_record_delete_receipt(
+    receipt: ExtensionInstallDisabledRecordDeleteReceipt | dict[str, object],
+) -> ExtensionInstallDisabledRecordDeleteReceipt:
+    if isinstance(receipt, ExtensionInstallDisabledRecordDeleteReceipt):
+        return receipt
+    return ExtensionInstallDisabledRecordDeleteReceipt.model_validate(receipt)
 
 
 def validate_extension_install_disabled_posture(
@@ -655,21 +1008,40 @@ def _validate_local_approval(
     *,
     approval_authority: LocalApprovalAuthority | None,
     approval_ref: str | None,
+    approval_request_builder=build_extension_install_disabled_approval_request,
 ) -> ApprovalValidationDecision | None:
     if approval_authority is None or approval_ref is None:
         return None
-    request = build_extension_install_disabled_approval_request()
+    request = approval_request_builder()
     return approval_authority.validate_for_request(request, approval_ref)
 
 
 def _approval_authority_from_grants(
     approval_grants: list[dict[str, Any]],
+    *,
+    approval_request_builder=build_extension_install_disabled_approval_request,
 ) -> LocalApprovalAuthority:
     authority = LocalApprovalAuthority()
-    authority.create_request(build_extension_install_disabled_approval_request())
+    authority.create_request(approval_request_builder())
     for grant_payload in approval_grants:
         authority.load_grant_for_validation(ApprovalGrant(**grant_payload))
     return authority
+
+
+def _delete_receipt_replay_identity(
+    receipt: ExtensionInstallDisabledRecordDeleteReceipt,
+) -> dict[str, object]:
+    payload = receipt.model_dump(mode="json")
+    return {
+        key: value
+        for key, value in payload.items()
+        if key
+        not in {
+            "deletion_status",
+            "disabled_install_record_deleted",
+            "side_effects_performed",
+        }
+    }
 
 
 def _build_repo_owned_plugin_install_review_decision() -> PluginInstallReviewDecision:
@@ -776,6 +1148,8 @@ def _deny_runtime_authority_flags(
         | ExtensionInstallDisabledPostureReadModel
         | ExtensionInstallDisabledRecordReceipt
         | ExtensionInstallDisabledRecordIssueRequest
+        | ExtensionInstallDisabledRecordDeleteReceipt
+        | ExtensionInstallDisabledRecordDeleteRequest
     ),
 ) -> None:
     for field_name in (

@@ -2,14 +2,14 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `249`.
+Current OpenAPI path count: `250`.
 
 This inventory is generated from the FastAPI application and `/api/manifest`. It is the route ownership and side-effect classification map for the current local-first API boundary.
 
 ## Current Route Boundary
 
-- Manifest route operations: `250`
-- OpenAPI paths: `249`
+- Manifest route operations: `251`
+- OpenAPI paths: `250`
 - Production runtime authority: blocked
 - Public release authority: blocked
 
@@ -25,7 +25,7 @@ This inventory is generated from the FastAPI application and `/api/manifest`. It
 | `contracts` | 2 | `contracts` | `contracts_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `control-center` | 90 | `control-center` | `control_center_service` | local status or future auth per route | `governed_network_read_only`:2, `local_dev_workspace_only`:71, `validation_only`:17 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `cost-governor` | 3 | `cost-governor` | `cost_service` | future auth required | `validation_only`:3 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
-| `extension-catalog` | 2 | `extension-catalog` | `extension_catalog_service` | future auth required | `local_dev_workspace_only`:1, `validation_only`:1 | medium | stable/generated from path; unique | status_available_not_completion |
+| `extension-catalog` | 3 | `extension-catalog` | `extension_catalog_service` | future auth required | `local_dev_workspace_only`:2, `validation_only`:1 | medium | stable/generated from path; unique | status_available_not_completion |
 | `files` | 6 | `workspace-files` | `workspace_files_service` | future auth required and local safe refs | `local_dev_workspace_only`:6 | high | stable/generated from path; unique | partial_backend_not_product_ready |
 | `foundation-gate` | 2 | `foundation-gate` | `verification_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | status_available_not_completion |
 | `governed-runtime` | 58 | `governed-runtime` | `runtime_pilot_service` | future auth required and exact approval before broader execution | `local_dev_workspace_only`:55, `validation_only`:3 | high | stable/generated from path; unique | partial_backend_not_product_ready |
@@ -218,6 +218,7 @@ This inventory is generated from the FastAPI application and `/api/manifest`. It
 | POST | `/events/validate` | `post_events_validate` | `validation_only` | yes | future | yes |
 | GET | `/extensions/catalog` | `get_extensions_catalog` | `validation_only` | yes | future | yes |
 | POST | `/extensions/disabled-install-records` | `post_extensions_disabled_install_records` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/extensions/disabled-install-records/rollback` | `post_extensions_disabled_install_records_rollback` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/files/diff/preview` | `post_files_diff_preview` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/files/read/preview` | `post_files_read_preview` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/files/refs/validate` | `post_files_refs_validate` | `local_dev_workspace_only` | no | future | yes |

@@ -2,8 +2,8 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `249`, generated from the FastAPI application and
-exposed through `/api/manifest`. `/api/manifest` currently reports `250` route
+Current OpenAPI path count: `250`, generated from the FastAPI application and
+exposed through `/api/manifest`. `/api/manifest` currently reports `251` route
 operations because governed runtime pilot routes intentionally have both `GET`
 and `POST` contracts on `/api/runtime/invocations`, and the Turn Contract
 Router preview plus AuthorityLease mission planning routes add no-effect
@@ -44,6 +44,13 @@ requires Full machine access scope before execution, records metadata-only
 receipts, treats model output as untrusted proposal text, and still denies
 remote provider SDK calls, tools/functions, streaming, connector writes,
 browser automation, billing, and production authority.
+`POST /extensions/disabled-install-records/rollback` is the exact rollback
+metadata lane for the local disabled extension install record. It requires
+active `workspace/write` AuthorityLease scope, exact rollback
+LocalApprovalAuthority validation, idempotency, and a redacted delete receipt;
+plugin install, runtime import, plugin execution, marketplace fetch,
+connector writes, shell/browser execution, provider/model calls, and production
+authority remain blocked.
 Hermes Runtime Adoption Phase 35 adds `GET /api/runtime/preview-rail` as a
 protected read-only preview-rail posture route with safe refs and bounded
 preview plans only.

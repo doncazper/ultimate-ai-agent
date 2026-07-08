@@ -22,6 +22,8 @@ from ultimate_ai_agent.core.authority import (
 from ultimate_ai_agent.core.extension_catalog import (
     build_default_inspectable_extension_catalog,
     build_extension_install_disabled_approval_request,
+    build_extension_install_disabled_delete_approval_request,
+    build_extension_install_disabled_record_delete_receipt,
     build_extension_install_disabled_record_receipt,
 )
 
@@ -176,6 +178,20 @@ def _verify_authorized_install_disabled_record_receipt() -> None:
         approval_authority=approval_authority,
         approval_ref=grant.approval_ref,
     ).model_dump(mode="json")
+    delete_approval_authority = LocalApprovalAuthority()
+    delete_request = delete_approval_authority.create_request(
+        build_extension_install_disabled_delete_approval_request()
+    )
+    delete_grant = delete_approval_authority.grant(
+        delete_request.approval_request_id,
+        approved_by_actor_id="actor:operator",
+        approval_ref="approval-ref:extension-install-disabled-delete:verifier",
+    )
+    delete_receipt = build_extension_install_disabled_record_delete_receipt(
+        leases=[lease],
+        approval_authority=delete_approval_authority,
+        approval_ref=delete_grant.approval_ref,
+    ).model_dump(mode="json")
 
     _require(
         receipt["status"] == "disabled_install_record_receipt_recorded",
@@ -193,6 +209,22 @@ def _verify_authorized_install_disabled_record_receipt() -> None:
         receipt["durable_store_persistence"] is False,
         "verifier receipt wrote durable store",
     )
+    _require(
+        delete_receipt["status"] == "disabled_install_record_delete_receipt_recorded",
+        "authorized install-disabled delete receipt was not recorded",
+    )
+    _require(
+        delete_receipt["authority_decision_outcome"] == "allow",
+        "delete receipt not allowed",
+    )
+    _require(
+        delete_receipt["deletion_status"] == "record_already_absent",
+        "delete receipt unexpectedly observed durable state",
+    )
+    _require(
+        delete_receipt["approval_ref"] == delete_grant.approval_ref,
+        "delete approval ref missing",
+    )
     for field in (
         "plugin_install_enabled",
         "plugin_enablement_enabled",
@@ -206,6 +238,7 @@ def _verify_authorized_install_disabled_record_receipt() -> None:
         "production_authority_granted",
     ):
         _require(receipt[field] is False, f"receipt enables {field}")
+        _require(delete_receipt[field] is False, f"delete receipt enables {field}")
 
 
 def _verify_api_route(payload: dict[str, object]) -> None:
@@ -231,6 +264,15 @@ def _verify_api_route(payload: dict[str, object]) -> None:
         paths["/extensions/disabled-install-records"]["post"]["operationId"]
         == "post_extensions_disabled_install_records",
         "disabled-install record route operation drifted",
+    )
+    _require(
+        "/extensions/disabled-install-records/rollback" in paths,
+        "disabled-install rollback route missing",
+    )
+    _require(
+        paths["/extensions/disabled-install-records/rollback"]["post"]["operationId"]
+        == "post_extensions_disabled_install_records_rollback",
+        "disabled-install rollback route operation drifted",
     )
 
 
@@ -300,6 +342,10 @@ def _verify_cli(payload: dict[str, object]) -> None:
     _require(
         "record-install-disabled-receipt" in help_result.stdout,
         "CLI disabled-install receipt command missing",
+    )
+    _require(
+        "rollback-install-disabled-receipt" in help_result.stdout,
+        "CLI disabled-install rollback command missing",
     )
 
 

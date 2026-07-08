@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `249`.
+Current OpenAPI path count: `250`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -57,6 +57,14 @@ Contract rules:
   persist raw request text, call providers/models, execute tools/actions,
   retrieve memory bodies, inject context, run shell/browser work, write
   connectors, or wire chat runtime behavior.
+- `POST /extensions/disabled-install-records` and
+  `POST /extensions/disabled-install-records/rollback` are exact local metadata
+  receipt lanes for reviewed disabled extension install posture. Both require
+  active `workspace/write` AuthorityLease scope, exact LocalApprovalAuthority
+  approval for the specific action, idempotency, redacted receipts, and
+  rollback/safe-disable posture. They do not install packages, import runtime
+  code, enable plugins, execute plugins, fetch marketplaces, write connectors,
+  run shell/browser work, call providers/models, or grant production authority.
 - `/api/runtime/*` is the governed runtime pilot contract surface. The
   Governed Product Pilot authority profile is exposed at
   `GET /api/runtime/governed-product-pilot-profile` as a protected read-only

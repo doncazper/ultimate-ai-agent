@@ -700,6 +700,7 @@ CONTROL_CENTER_WEB_EVIDENCE_PRODUCT_SLICE_PATHS = {
 }
 EXTENSION_INSTALL_DISABLED_RECORD_PATHS = {
     "/extensions/disabled-install-records",
+    "/extensions/disabled-install-records/rollback",
 }
 GOVERNED_RUNTIME_READONLY_PATHS = {
     "/api/runtime/authority-decisions/preview",
