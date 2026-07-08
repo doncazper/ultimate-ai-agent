@@ -445,6 +445,35 @@ def _inspect_high_maturity_spine(args: argparse.Namespace) -> int:
     return 0
 
 
+def _inspect_product_cockpit_posture(args: argparse.Namespace) -> int:
+    repo = _repository(args)
+    today_summary = repo.today_summary(limit=args.limit)
+    thread = build_agent_loop_thread_read_model(
+        today_summary=today_summary,
+        actions_inbox=repo.actions_inbox(limit=args.limit),
+        evidence_timeline=repo.evidence_timeline(limit=args.limit),
+        memory_review=repo.memory_review(limit=args.limit),
+        proof_index=build_control_center_proof_index(today_summary=today_summary),
+        trust_authority_matrix=build_trust_authority_matrix_read_model(
+            today_summary=today_summary
+        ),
+    )
+    high_maturity = thread.get("high_maturity_spine_readiness") or {}
+    output = {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": "repo-local-command:founder-loop-product-cockpit-posture",
+        "agent_loop_thread_ref": thread.get("thread_ref"),
+        "founder_loop_product_cockpit_posture": high_maturity.get(
+            "founder_loop_product_cockpit_posture"
+        ),
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+    }
+    _print_json(output)
+    return 0
+
+
 def _inspect_trust_authority(args: argparse.Namespace) -> int:
     repo = _repository(args)
     matrix = build_trust_authority_matrix_read_model(
@@ -1967,6 +1996,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     high_maturity_spine_parser.add_argument("--limit", type=int, default=50)
     high_maturity_spine_parser.set_defaults(func=_inspect_high_maturity_spine)
+
+    product_cockpit_posture_parser = subparsers.add_parser(
+        "inspect-product-cockpit-posture",
+        help=(
+            "Print the backend-owned Founder Loop product cockpit posture with "
+            "route, CLI, UI, evidence, test, and blocked-authority refs."
+        ),
+    )
+    product_cockpit_posture_parser.add_argument("--limit", type=int, default=50)
+    product_cockpit_posture_parser.set_defaults(
+        func=_inspect_product_cockpit_posture
+    )
 
     trust_authority_parser = subparsers.add_parser(
         "inspect-trust-authority",

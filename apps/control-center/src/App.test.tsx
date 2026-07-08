@@ -1317,21 +1317,56 @@ function backendOwnedHighMaturitySpineReadiness(
     status: "implemented_backend_owned_read_model_no_new_authority",
     source: "python_core_agent_loop_thread_read_model",
     backend_owned: true,
-    implemented_count: 5,
+    implemented_count: 13,
     usable_or_better_count: 13,
-    average_score_0_10: 7.3,
-    overall_projection_0_100: 73,
+    average_score_0_10: 8,
+    overall_projection_0_100: 80,
     coverage_status:
       "all_w1_w13_have_code_docs_tests_or_governed_blocked_posture",
     rows: base.rows.map((row, index) => ({
       ...row,
       component: components[index] ?? row.component,
-      status: index % 3 === 0 ? "implemented" : "partial",
-      maturity: "usable",
-      score_0_10: index % 3 === 0 ? 8 : 7,
+      status: "implemented",
+      maturity: "strong",
+      score_0_10: 8,
       safe_summary:
         "Backend-owned High-Maturity Agent Spine coverage row backed by safe refs.",
+      evidence_refs: [
+        ...(row.evidence_refs ?? []),
+        ...(index === 0 || index === 3 || index === 10
+          ? ["contract-ref:founder-loop-product-cockpit-posture:v1"]
+          : []),
+      ],
     })),
+    founder_loop_product_cockpit_posture: {
+      ...base.founder_loop_product_cockpit_posture,
+      status: "implemented_backend_owned_read_model_no_new_authority",
+      source: "python_core_agent_loop_thread_read_model",
+      backend_owned: true,
+      implemented_surface_count:
+        base.founder_loop_product_cockpit_posture.category_count,
+      operator_can_decide_from_cockpit: true,
+      safe_summary:
+        "Backend-owned Founder Loop product cockpit posture ties product surfaces into one readable operator loop.",
+      rows: base.founder_loop_product_cockpit_posture.rows.map((row) => ({
+        ...row,
+        label:
+          row.category_id === "agent_loop_thread"
+            ? "Agent Loop Thread"
+            : row.category_id === "operator_decision_matrix"
+              ? "Operator Decision Matrix"
+              : row.category_id === "action_inbox"
+                ? "Action Inbox"
+                : row.category_id === "memory_review"
+                  ? "Memory Review"
+                  : row.label,
+        status: "implemented",
+        safe_summary:
+          "Backend-owned product cockpit surface backed by route, CLI, UI, evidence, and test refs.",
+        operator_decision_support:
+          "Operator can inspect this surface before choosing a safe next action.",
+      })),
+    },
     ...overrides,
   };
 }
@@ -2438,6 +2473,16 @@ describe("Web Control Center shell", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByText(/W1: Product loop/i)).toBeInTheDocument();
+    expect(screen.getByText("Founder Loop Product Cockpit")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("contract-ref:founder-loop-product-cockpit-posture:v1")
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(
+        "scripts/dev/uaa_founder_loop.py inspect-product-cockpit-posture",
+      ).length,
+    ).toBeGreaterThan(0);
     expect(screen.getByText("Action and Tool Lane Posture")).toBeInTheDocument();
     expect(
       screen.getByText("contract-ref:action-tool-lane-posture:v1"),

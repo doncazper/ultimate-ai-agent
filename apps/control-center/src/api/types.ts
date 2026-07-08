@@ -8125,6 +8125,77 @@ export interface SystemAgentEvalCoverage {
   redactions_applied: string[];
 }
 
+export interface FounderLoopProductCockpitPostureRow {
+  category_id: string;
+  label: string;
+  status: string;
+  safe_summary: string;
+  surface_refs: string[];
+  route_refs: string[];
+  cli_refs: string[];
+  ui_refs: string[];
+  evidence_refs: string[];
+  test_refs: string[];
+  blocked_authority_refs: string[];
+  operator_decision_support: string;
+  backend_truth_required: boolean;
+  operator_visible: boolean;
+  safe_refs_only: boolean;
+  raw_content_included: boolean;
+  control_center_presentation_only: boolean;
+  read_model_executes_work: boolean;
+  control_center_mints_authority: boolean;
+  mutation_controls_enabled: boolean;
+  hidden_context_injection_enabled: boolean;
+  runtime_model_calls_added: boolean;
+  provider_sdk_calls_added: boolean;
+  live_web_fetching_added: boolean;
+  browser_automation_added: boolean;
+  connector_writes_added: boolean;
+  unrestricted_shell_added: boolean;
+  plugin_runtime_import_added: boolean;
+  production_authority_added: boolean;
+}
+
+export interface FounderLoopProductCockpitPosture {
+  schema_version: string;
+  contract_ref: string;
+  status: string;
+  source: string;
+  route_ref: string;
+  cli_ref: string;
+  backend_owned: boolean;
+  local_read_model_only: boolean;
+  safe_refs_only: boolean;
+  raw_content_included: boolean;
+  category_count: number;
+  implemented_surface_count: number;
+  route_count: number;
+  cli_count: number;
+  ui_surface_count: number;
+  rows: FounderLoopProductCockpitPostureRow[];
+  route_refs: string[];
+  cli_refs: string[];
+  ui_refs: string[];
+  operator_can_decide_from_cockpit: boolean;
+  control_center_presentation_only: boolean;
+  read_model_executes_work: boolean;
+  control_center_mints_authority: boolean;
+  mutation_controls_enabled: boolean;
+  hidden_context_injection_enabled: boolean;
+  runtime_model_calls_added: boolean;
+  provider_sdk_calls_added: boolean;
+  live_web_fetching_added: boolean;
+  browser_automation_added: boolean;
+  connector_writes_added: boolean;
+  unrestricted_shell_added: boolean;
+  plugin_runtime_import_added: boolean;
+  production_authority_added: boolean;
+  safe_summary: string;
+  blocked_authority_refs: string[];
+  redactions_applied: string[];
+}
+
 export interface HighMaturityAgentSpineReadiness {
   schema_version: string;
   contract_ref: string;
@@ -8143,6 +8214,7 @@ export interface HighMaturityAgentSpineReadiness {
   overall_projection_0_100: number;
   coverage_status: string;
   rows: HighMaturityAgentSpineRow[];
+  founder_loop_product_cockpit_posture: FounderLoopProductCockpitPosture;
   action_tool_lane_posture: ActionToolLanePosture;
   durable_orchestration_posture: DurableOrchestrationPosture;
   external_information_handling: ExternalInformationHandlingPosture;

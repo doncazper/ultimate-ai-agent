@@ -43,6 +43,15 @@ backend-owned High-Maturity Agent Spine coverage map for W1-W13:
   the Agent Loop Thread panel renders the W1-W13 rows, score projection,
   evidence refs, test refs, gaps, and next safe action without raw JSON as the
   primary operator workflow.
+- Founder Loop product cockpit posture:
+  `contract-ref:founder-loop-product-cockpit-posture:v1`
+  `high_maturity_spine_readiness.founder_loop_product_cockpit_posture` maps
+  Start Here, Today, Plans, Action Inbox, Proof, Evidence, Memory, Trust,
+  Coding, Work Board, Runtime, Providers, Web Evidence, and the High-Maturity
+  Spine into one operator-readable loop with route refs, CLI refs, UI refs,
+  evidence refs, test refs, blocked-authority refs, and no-new-authority
+  invariants. The direct CLI inspection path is
+  `scripts/dev/uaa_founder_loop.py inspect-product-cockpit-posture`.
 - Action/tool lane posture:
   `high_maturity_spine_readiness.action_tool_lane_posture` projects the
   Python-owned action/tool/code catalog into preview-only tools, exact local

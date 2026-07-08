@@ -21,6 +21,8 @@ from ultimate_ai_agent.core.control_center.agent_loop import (  # noqa: E402
     DURABLE_ORCHESTRATION_POSTURE_CONTRACT_REF,
     EXTERNAL_INFORMATION_HANDLING_CONTRACT_REF,
     EXTERNAL_INFORMATION_POSTURE_CATEGORY_IDS,
+    FOUNDER_LOOP_PRODUCT_COCKPIT_CATEGORY_IDS,
+    FOUNDER_LOOP_PRODUCT_COCKPIT_POSTURE_CONTRACT_REF,
     HIGH_MATURITY_COMPONENT_IDS,
     HIGH_MATURITY_SPINE_CONTRACT_REF,
     MODEL_PROVIDER_POSTURE_CATEGORY_IDS,
@@ -118,6 +120,155 @@ def main() -> int:
                             "High-Maturity Agent Spine row missing "
                             f"{required_list}: {row.get('weakness_id')}"
                         )
+            rows_by_id = {
+                row.get("weakness_id"): row
+                for row in rows
+                if isinstance(row, dict)
+            }
+            for weakness_id in ["W1", "W4", "W11"]:
+                row = rows_by_id.get(weakness_id)
+                if not isinstance(row, dict):
+                    failures.append(
+                        f"High-Maturity Agent Spine missing {weakness_id}"
+                    )
+                    continue
+                if row.get("status") != "implemented":
+                    failures.append(
+                        f"High-Maturity Agent Spine {weakness_id} not implemented"
+                    )
+                if row.get("maturity") != "strong":
+                    failures.append(
+                        f"High-Maturity Agent Spine {weakness_id} not strong"
+                    )
+                if row.get("score_0_10") != 8:
+                    failures.append(
+                        f"High-Maturity Agent Spine {weakness_id} score drifted"
+                    )
+                if FOUNDER_LOOP_PRODUCT_COCKPIT_POSTURE_CONTRACT_REF not in (
+                    row.get("evidence_refs") or []
+                ):
+                    failures.append(
+                        "Founder Loop product cockpit posture missing from "
+                        f"{weakness_id} evidence refs"
+                    )
+            product_cockpit = high_maturity.get(
+                "founder_loop_product_cockpit_posture"
+            )
+            if not isinstance(product_cockpit, dict):
+                failures.append(
+                    "High-Maturity Agent Spine product cockpit posture missing"
+                )
+            else:
+                if product_cockpit.get("contract_ref") != (
+                    FOUNDER_LOOP_PRODUCT_COCKPIT_POSTURE_CONTRACT_REF
+                ):
+                    failures.append("product cockpit posture contract ref drifted")
+                if product_cockpit.get("category_count") != len(
+                    FOUNDER_LOOP_PRODUCT_COCKPIT_CATEGORY_IDS
+                ):
+                    failures.append("product cockpit posture category count drifted")
+                if product_cockpit.get("implemented_surface_count") != len(
+                    FOUNDER_LOOP_PRODUCT_COCKPIT_CATEGORY_IDS
+                ):
+                    failures.append(
+                        "product cockpit posture implemented surface count drifted"
+                    )
+                if not str(product_cockpit.get("cli_ref", "")).endswith(
+                    "inspect-product-cockpit-posture"
+                ):
+                    failures.append("product cockpit posture CLI ref missing")
+                for field in [
+                    "backend_owned",
+                    "local_read_model_only",
+                    "safe_refs_only",
+                    "operator_can_decide_from_cockpit",
+                    "control_center_presentation_only",
+                ]:
+                    if product_cockpit.get(field) is not True:
+                        failures.append(
+                            f"product cockpit posture {field} must be true"
+                        )
+                for field in [
+                    "raw_content_included",
+                    "read_model_executes_work",
+                    "control_center_mints_authority",
+                    "mutation_controls_enabled",
+                    "hidden_context_injection_enabled",
+                    "runtime_model_calls_added",
+                    "provider_sdk_calls_added",
+                    "live_web_fetching_added",
+                    "browser_automation_added",
+                    "connector_writes_added",
+                    "unrestricted_shell_added",
+                    "plugin_runtime_import_added",
+                    "production_authority_added",
+                ]:
+                    if product_cockpit.get(field) is not False:
+                        failures.append(
+                            f"product cockpit posture {field} must be false"
+                        )
+                product_rows = product_cockpit.get("rows")
+                if not isinstance(product_rows, list):
+                    failures.append("product cockpit posture rows missing")
+                else:
+                    product_ids = [
+                        row.get("category_id")
+                        for row in product_rows
+                        if isinstance(row, dict)
+                    ]
+                    if product_ids != list(FOUNDER_LOOP_PRODUCT_COCKPIT_CATEGORY_IDS):
+                        failures.append("product cockpit posture categories drifted")
+                    for row in product_rows:
+                        if not isinstance(row, dict):
+                            failures.append(
+                                "product cockpit posture row is not an object"
+                            )
+                            continue
+                        for field in [
+                            "backend_truth_required",
+                            "operator_visible",
+                            "safe_refs_only",
+                            "control_center_presentation_only",
+                        ]:
+                            if row.get(field) is not True:
+                                failures.append(
+                                    "product cockpit posture row must be true: "
+                                    f"{row.get('category_id')} {field}"
+                                )
+                        for field in [
+                            "raw_content_included",
+                            "read_model_executes_work",
+                            "control_center_mints_authority",
+                            "mutation_controls_enabled",
+                            "hidden_context_injection_enabled",
+                            "runtime_model_calls_added",
+                            "provider_sdk_calls_added",
+                            "live_web_fetching_added",
+                            "browser_automation_added",
+                            "connector_writes_added",
+                            "unrestricted_shell_added",
+                            "plugin_runtime_import_added",
+                            "production_authority_added",
+                        ]:
+                            if row.get(field) is not False:
+                                failures.append(
+                                    "product cockpit posture broadened authority: "
+                                    f"{row.get('category_id')} {field}"
+                                )
+                        for required_list in [
+                            "surface_refs",
+                            "route_refs",
+                            "cli_refs",
+                            "ui_refs",
+                            "evidence_refs",
+                            "test_refs",
+                            "blocked_authority_refs",
+                        ]:
+                            if not row.get(required_list):
+                                failures.append(
+                                    "product cockpit posture row missing "
+                                    f"{required_list}: {row.get('category_id')}"
+                                )
             action_tool = high_maturity.get("action_tool_lane_posture")
             if not isinstance(action_tool, dict):
                 failures.append(
@@ -679,6 +830,11 @@ def main() -> int:
         not in manifest.capabilities_declared
     ):
         failures.append("Agent Loop manifest capability missing")
+    if (
+        "control_center_founder_loop_product_cockpit_posture_read_model"
+        not in manifest.capabilities_declared
+    ):
+        failures.append("Founder Loop product cockpit manifest capability missing")
 
     docs = [
         ROOT / "docs/control_center/UAA_RUNTIME_AGENT_LOOP_SPINE.md",
@@ -695,6 +851,7 @@ def main() -> int:
                 "AuthorityLease-gated capabilities",
                 "High-Maturity Agent Spine",
                 "W1-W13",
+                FOUNDER_LOOP_PRODUCT_COCKPIT_POSTURE_CONTRACT_REF,
             ]:
                 if fragment not in compact_text:
                     failures.append(

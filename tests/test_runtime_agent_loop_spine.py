@@ -18,6 +18,8 @@ from ultimate_ai_agent.core.control_center.agent_loop import (
     DURABLE_ORCHESTRATION_POSTURE_CONTRACT_REF,
     EXTERNAL_INFORMATION_HANDLING_CONTRACT_REF,
     EXTERNAL_INFORMATION_POSTURE_CATEGORY_IDS,
+    FOUNDER_LOOP_PRODUCT_COCKPIT_CATEGORY_IDS,
+    FOUNDER_LOOP_PRODUCT_COCKPIT_POSTURE_CONTRACT_REF,
     HIGH_MATURITY_COMPONENT_IDS,
     HIGH_MATURITY_SPINE_CONTRACT_REF,
     MODEL_PROVIDER_POSTURE_CATEGORY_IDS,
@@ -118,6 +120,76 @@ def _assert_safe_agent_loop_thread(thread: dict[str, object]) -> None:
     rows = high_maturity["rows"]
     assert [row["weakness_id"] for row in rows] == list(HIGH_MATURITY_COMPONENT_IDS)
     rows_by_id = {row["weakness_id"]: row for row in rows}
+    for weakness_id in ["W1", "W4", "W11"]:
+        assert rows_by_id[weakness_id]["status"] == "implemented"
+        assert rows_by_id[weakness_id]["maturity"] == "strong"
+        assert rows_by_id[weakness_id]["score_0_10"] == 8
+        assert FOUNDER_LOOP_PRODUCT_COCKPIT_POSTURE_CONTRACT_REF in (
+            rows_by_id[weakness_id]["evidence_refs"]
+        )
+    product_cockpit = high_maturity["founder_loop_product_cockpit_posture"]
+    assert product_cockpit["contract_ref"] == (
+        FOUNDER_LOOP_PRODUCT_COCKPIT_POSTURE_CONTRACT_REF
+    )
+    assert product_cockpit["backend_owned"] is True
+    assert product_cockpit["local_read_model_only"] is True
+    assert product_cockpit["safe_refs_only"] is True
+    assert product_cockpit["raw_content_included"] is False
+    assert product_cockpit["route_ref"] == AGENT_LOOP_THREAD_ROUTE_REF
+    assert product_cockpit["cli_ref"].endswith("inspect-product-cockpit-posture")
+    assert product_cockpit["category_count"] == len(
+        FOUNDER_LOOP_PRODUCT_COCKPIT_CATEGORY_IDS
+    )
+    assert product_cockpit["implemented_surface_count"] == len(
+        FOUNDER_LOOP_PRODUCT_COCKPIT_CATEGORY_IDS
+    )
+    assert [row["category_id"] for row in product_cockpit["rows"]] == list(
+        FOUNDER_LOOP_PRODUCT_COCKPIT_CATEGORY_IDS
+    )
+    assert product_cockpit["operator_can_decide_from_cockpit"] is True
+    for denied_flag in [
+        "read_model_executes_work",
+        "control_center_mints_authority",
+        "mutation_controls_enabled",
+        "hidden_context_injection_enabled",
+        "runtime_model_calls_added",
+        "provider_sdk_calls_added",
+        "live_web_fetching_added",
+        "browser_automation_added",
+        "connector_writes_added",
+        "unrestricted_shell_added",
+        "plugin_runtime_import_added",
+        "production_authority_added",
+    ]:
+        assert product_cockpit[denied_flag] is False
+    for product_row in product_cockpit["rows"]:
+        assert product_row["backend_truth_required"] is True
+        assert product_row["operator_visible"] is True
+        assert product_row["safe_refs_only"] is True
+        assert product_row["raw_content_included"] is False
+        assert product_row["control_center_presentation_only"] is True
+        assert product_row["surface_refs"]
+        assert product_row["route_refs"]
+        assert product_row["cli_refs"]
+        assert product_row["ui_refs"]
+        assert product_row["evidence_refs"]
+        assert product_row["test_refs"]
+        assert product_row["blocked_authority_refs"]
+        for denied_flag in [
+            "read_model_executes_work",
+            "control_center_mints_authority",
+            "mutation_controls_enabled",
+            "hidden_context_injection_enabled",
+            "runtime_model_calls_added",
+            "provider_sdk_calls_added",
+            "live_web_fetching_added",
+            "browser_automation_added",
+            "connector_writes_added",
+            "unrestricted_shell_added",
+            "plugin_runtime_import_added",
+            "production_authority_added",
+        ]:
+            assert product_row[denied_flag] is False
     assert rows_by_id["W2"]["status"] == "implemented"
     assert rows_by_id["W2"]["maturity"] == "strong"
     assert rows_by_id["W2"]["score_0_10"] == 8
@@ -550,3 +622,38 @@ def test_high_maturity_spine_cli_inspects_same_w1_w13_readiness(
         HIGH_MATURITY_COMPONENT_IDS
     )
     assert readiness["blocked_authority_refs"]
+
+
+def test_product_cockpit_posture_cli_inspects_same_read_model(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    state_dir = tmp_path / "founder-loop"
+
+    exit_code = uaa_founder_loop.main(
+        [
+            "--state-dir",
+            str(state_dir),
+            "inspect-product-cockpit-posture",
+            "--limit",
+            "8",
+        ]
+    )
+
+    assert exit_code == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["command_ref"] == (
+        "repo-local-command:founder-loop-product-cockpit-posture"
+    )
+    assert output["safe_refs_only"] is True
+    assert output["raw_content_omitted"] is True
+    assert output["raw_paths_omitted"] is True
+    posture = output["founder_loop_product_cockpit_posture"]
+    assert posture["contract_ref"] == (
+        FOUNDER_LOOP_PRODUCT_COCKPIT_POSTURE_CONTRACT_REF
+    )
+    assert posture["route_ref"] == AGENT_LOOP_THREAD_ROUTE_REF
+    assert posture["cli_ref"].endswith("inspect-product-cockpit-posture")
+    assert [row["category_id"] for row in posture["rows"]] == list(
+        FOUNDER_LOOP_PRODUCT_COCKPIT_CATEGORY_IDS
+    )
+    assert posture["control_center_mints_authority"] is False

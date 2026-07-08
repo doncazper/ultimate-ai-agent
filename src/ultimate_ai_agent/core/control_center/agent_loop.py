@@ -80,6 +80,12 @@ SYSTEM_AGENT_EVAL_COVERAGE_CONTRACT_REF = (
 EXTERNAL_INFORMATION_HANDLING_CONTRACT_REF = (
     "contract-ref:external-information-handling-posture:v1"
 )
+FOUNDER_LOOP_PRODUCT_COCKPIT_POSTURE_CONTRACT_REF = (
+    "contract-ref:founder-loop-product-cockpit-posture:v1"
+)
+FOUNDER_LOOP_PRODUCT_COCKPIT_CLI_REF = (
+    "scripts/dev/uaa_founder_loop.py inspect-product-cockpit-posture"
+)
 HIGH_MATURITY_SPINE_CLI_REF = (
     "scripts/dev/uaa_founder_loop.py inspect-high-maturity-spine"
 )
@@ -158,6 +164,444 @@ EXTERNAL_INFORMATION_POSTURE_CATEGORY_IDS = (
     "provider_search_scrape",
     "external_content_authority_isolation",
 )
+FOUNDER_LOOP_PRODUCT_COCKPIT_CATEGORY_IDS = (
+    "agent_loop_thread",
+    "operator_decision_matrix",
+    "start_here_today",
+    "plans_and_proposals",
+    "action_inbox",
+    "proof_and_evidence",
+    "memory_review",
+    "trust_authority",
+    "coding_and_work_board",
+    "runtime_and_providers",
+    "web_external_information",
+    "high_maturity_spine",
+)
+
+
+def build_founder_loop_product_cockpit_posture() -> dict[str, Any]:
+    """Return the product-loop cockpit posture over existing safe UAA surfaces."""
+
+    rows = [
+        _founder_loop_product_cockpit_row(
+            category_id="agent_loop_thread",
+            label="Agent Loop Thread",
+            status="implemented",
+            safe_summary=(
+                "Binds request, intent, facts, assumptions, plan, proposed "
+                "actions, approvals, evidence, memory review, and next safe "
+                "operator decision from Python Core read models."
+            ),
+            surface_refs=["surface-ref:control-center:agent-loop-thread"],
+            route_refs=[AGENT_LOOP_THREAD_ROUTE_REF],
+            cli_refs=[AGENT_LOOP_THREAD_CLI_REF],
+            ui_refs=["ui-ref:today:agent-loop-thread-panel"],
+            evidence_refs=[
+                AGENT_LOOP_THREAD_CONTRACT_REF,
+                "evidence-ref:control-center:agent-loop-thread",
+            ],
+            test_refs=["tests/test_runtime_agent_loop_spine.py"],
+            operator_decision_support=(
+                "Shows one safe thread without executing actions or minting "
+                "approval authority."
+            ),
+        ),
+        _founder_loop_product_cockpit_row(
+            category_id="operator_decision_matrix",
+            label="Operator Decision Matrix",
+            status="implemented",
+            safe_summary=(
+                "Turns Today, Actions, Plans, Evidence, Memory, Trust, "
+                "Runtime, Coding, and Work Board state into readable operator "
+                "questions, safe actions, blocked reasons, route refs, and CLI "
+                "inspection refs."
+            ),
+            surface_refs=["surface-ref:control-center:operator-decision-matrix"],
+            route_refs=[AGENT_LOOP_THREAD_ROUTE_REF],
+            cli_refs=[AGENT_LOOP_COCKPIT_PARITY_CLI_REF],
+            ui_refs=["ui-ref:today:operator-decision-matrix"],
+            evidence_refs=[
+                AGENT_LOOP_COCKPIT_PARITY_CONTRACT_REF,
+                "evidence-ref:control-center:agent-loop-thread",
+            ],
+            test_refs=["tests/test_runtime_agent_loop_spine.py"],
+            operator_decision_support=(
+                "Operator can inspect what is known, what is blocked, and "
+                "which backend surface owns the next decision."
+            ),
+        ),
+        _founder_loop_product_cockpit_row(
+            category_id="start_here_today",
+            label="Start Here and Today",
+            status="implemented",
+            safe_summary=(
+                "Start Here and Today summarize priorities, blockers, current "
+                "loop refs, and next safe action from backend-owned state."
+            ),
+            surface_refs=[
+                "surface-ref:control-center:start-here",
+                "surface-ref:control-center:today",
+            ],
+            route_refs=[
+                "GET /control-center/start-here/summary",
+                "GET /control-center/today/summary",
+            ],
+            cli_refs=[
+                "scripts/dev/uaa_founder_loop.py inspect-start-here",
+                "scripts/dev/uaa_founder_loop.py inspect",
+            ],
+            ui_refs=["ui-ref:start-here", "ui-ref:today"],
+            evidence_refs=[
+                "contract-ref:today-product-spine:v1",
+                "evidence-ref:founder-loop:today-summary",
+            ],
+            test_refs=[
+                "tests/test_operator_loop_p1_011.py",
+                "tests/test_founder_loop_v1_product_proof.py",
+            ],
+            operator_decision_support=(
+                "Operator sees priority and blocker refs before selecting an "
+                "action."
+            ),
+        ),
+        _founder_loop_product_cockpit_row(
+            category_id="plans_and_proposals",
+            label="Plans and Proposals",
+            status="implemented",
+            safe_summary=(
+                "Plan rows are proposal-first, dependency-visible, and tied to "
+                "safe evidence refs; plans do not execute work."
+            ),
+            surface_refs=["surface-ref:control-center:plans"],
+            route_refs=["GET /control-center/today/summary"],
+            cli_refs=["scripts/dev/uaa_founder_loop.py inspect"],
+            ui_refs=["ui-ref:today:plans"],
+            evidence_refs=[
+                AGENT_LOOP_THREAD_CONTRACT_REF,
+                "plan-revision-ref:agent-loop:current",
+            ],
+            test_refs=["tests/test_runtime_agent_loop_spine.py"],
+            operator_decision_support=(
+                "Operator can review steps and blocked refs without treating "
+                "the plan as authority."
+            ),
+            blocked_authority_refs=["blocked-state:agent-loop:no-plan-execution"],
+        ),
+        _founder_loop_product_cockpit_row(
+            category_id="action_inbox",
+            label="Action Inbox",
+            status="implemented",
+            safe_summary=(
+                "Action Inbox exposes exact approval envelopes, local task "
+                "posture, lane refs, blocked reasons, and receipt refs."
+            ),
+            surface_refs=["surface-ref:control-center:action-inbox"],
+            route_refs=["GET /control-center/actions/inbox"],
+            cli_refs=[
+                "scripts/dev/uaa_founder_loop.py inspect-action-work-queue",
+                "scripts/dev/uaa_founder_loop.py inspect-action-tool-code-catalog",
+            ],
+            ui_refs=["ui-ref:action-inbox"],
+            evidence_refs=[
+                ACTION_TOOL_LANE_POSTURE_CONTRACT_REF,
+                ACTION_TOOL_CODE_CATALOG_CONTRACT_REF,
+            ],
+            test_refs=[
+                "tests/test_runtime_action_tool_code_lanes.py",
+                "tests/test_founder_loop_actions.py",
+            ],
+            operator_decision_support=(
+                "Operator sees scope, approval posture, side effects, and "
+                "blocked reasons before exact mutation lanes."
+            ),
+        ),
+        _founder_loop_product_cockpit_row(
+            category_id="proof_and_evidence",
+            label="Proof and Evidence",
+            status="implemented",
+            safe_summary=(
+                "Proof Index and Evidence Timeline keep action, receipt, "
+                "artifact, rollback, and audit refs inspectable without raw "
+                "payloads."
+            ),
+            surface_refs=[
+                "surface-ref:control-center:proof-index",
+                "surface-ref:control-center:evidence-timeline",
+            ],
+            route_refs=[
+                "GET /control-center/proof/index",
+                "GET /control-center/evidence/timeline",
+            ],
+            cli_refs=[
+                "scripts/dev/uaa_founder_loop.py inspect-proof",
+                "scripts/dev/uaa_founder_loop.py inspect-evidence-audit-spine",
+            ],
+            ui_refs=["ui-ref:proof", "ui-ref:evidence"],
+            evidence_refs=[
+                "contract-ref:runtime-evidence-audit-spine:v1",
+                "evidence-ref:control-center:agent-loop-thread",
+            ],
+            test_refs=[
+                "tests/test_runtime_evidence_audit.py",
+                "tests/test_claim_evidence_contracts.py",
+            ],
+            operator_decision_support=(
+                "Operator can inspect proof and receipt refs before trusting a "
+                "summary or proposed action."
+            ),
+        ),
+        _founder_loop_product_cockpit_row(
+            category_id="memory_review",
+            label="Memory Review",
+            status="implemented",
+            safe_summary=(
+                "Memory remains recall-only: review candidates, ranked "
+                "retrieval, citations, quality states, and context-pack "
+                "previews stay inspectable without hidden injection."
+            ),
+            surface_refs=["surface-ref:control-center:memory"],
+            route_refs=[
+                "GET /control-center/memory/review",
+                "GET /control-center/memory/workbench",
+                "GET /control-center/memory/search",
+            ],
+            cli_refs=[
+                "scripts/dev/uaa_founder_loop.py memory-learning-posture",
+                "scripts/dev/uaa_founder_loop.py inspect-evidence-memory-binding",
+            ],
+            ui_refs=["ui-ref:memory-review"],
+            evidence_refs=[
+                "contract-ref:runtime-memory-learning-posture:v1",
+                "GET /control-center/memory/workbench",
+            ],
+            test_refs=[
+                "tests/test_runtime_memory_learning.py",
+                "tests/test_memory_retrieval.py",
+            ],
+            operator_decision_support=(
+                "Operator can accept, correct, reject, defer, or inspect "
+                "memory candidates as recall, not authority."
+            ),
+            blocked_authority_refs=[
+                "blocked-state:agent-loop:no-memory-write-authority",
+                "blocked-state:agent-loop:no-hidden-context-injection",
+            ],
+        ),
+        _founder_loop_product_cockpit_row(
+            category_id="trust_authority",
+            label="Trust and Authority",
+            status="implemented",
+            safe_summary=(
+                "Trust Authority shows lane posture, approval boundaries, "
+                "blocked domains, and exact AuthorityLease-gated capability "
+                "requirements."
+            ),
+            surface_refs=["surface-ref:control-center:trust-authority"],
+            route_refs=[
+                "GET /control-center/trust-authority/matrix",
+                "GET /api/runtime/authority-state",
+            ],
+            cli_refs=[
+                "scripts/dev/uaa_founder_loop.py inspect-trust-authority",
+                "scripts/dev/uaa_runtime.py inspect-authority-state",
+            ],
+            ui_refs=["ui-ref:trust-authority"],
+            evidence_refs=[
+                "GET /api/runtime/authority-state#authority_lane_catalog",
+                "contract-ref:authority-lease:v1",
+            ],
+            test_refs=[
+                "tests/test_authority_leases.py",
+                "tests/test_tool_runtime_authority_boundaries.py",
+            ],
+            operator_decision_support=(
+                "Operator can see which exact lane is review-only, approval "
+                "required, allowed, denied, or blocked."
+            ),
+        ),
+        _founder_loop_product_cockpit_row(
+            category_id="coding_and_work_board",
+            label="Coding and Work Board",
+            status="implemented",
+            safe_summary=(
+                "Coding Cockpit and Work Board expose context, proposal, patch, "
+                "validation, proof, and card refs while broad shell, Git, "
+                "browser, and production authority remain blocked."
+            ),
+            surface_refs=[
+                "surface-ref:control-center:coding",
+                "surface-ref:control-center:work-board",
+            ],
+            route_refs=[
+                "GET /control-center/coding/session",
+                "GET /control-center/work-board",
+            ],
+            cli_refs=[
+                "scripts/dev/uaa_coding.py inspect-session",
+                "scripts/dev/uaa_founder_loop.py inspect-work-thread",
+            ],
+            ui_refs=["ui-ref:coding-cockpit", "ui-ref:work-board"],
+            evidence_refs=[
+                "contract-ref:coding-patch-proposal-signed-evidence:v1",
+                "evidence-ref:operator-workspace-spine:read-model",
+            ],
+            test_refs=[
+                "tests/test_coding_cockpit_read_model.py",
+                "tests/test_work_board_read_model.py",
+            ],
+            operator_decision_support=(
+                "Operator can inspect code and board posture before exact "
+                "approval-bound local changes."
+            ),
+        ),
+        _founder_loop_product_cockpit_row(
+            category_id="runtime_and_providers",
+            label="Runtime and Providers",
+            status="implemented",
+            safe_summary=(
+                "Runtime and provider panels show readiness, model slot, cost, "
+                "trace, and blocked invocation posture while model output "
+                "remains non-authoritative."
+            ),
+            surface_refs=[
+                "surface-ref:control-center:runtime",
+                "surface-ref:control-center:providers",
+            ],
+            route_refs=[
+                "GET /control-center/runtime-readiness/summary",
+                "GET /control-center/providers/runtime-control-plane",
+            ],
+            cli_refs=[
+                "scripts/dev/uaa_runtime.py inspect-capabilities",
+                "scripts/inspect_model_provider_control_plane.py",
+            ],
+            ui_refs=["ui-ref:runtime", "ui-ref:providers"],
+            evidence_refs=[
+                MODEL_PROVIDER_POSTURE_CONTRACT_REF,
+                "contract-ref:model-provider-control-plane:v1",
+            ],
+            test_refs=[
+                "tests/test_model_provider_control_plane.py",
+                "tests/test_model_runtime_no_real_calls.py",
+            ],
+            operator_decision_support=(
+                "Operator can inspect readiness metadata without invoking a "
+                "provider or treating model output as authority."
+            ),
+            blocked_authority_refs=[
+                "blocked-state:agent-loop:no-runtime-model-calls",
+                "blocked-state:agent-loop:no-provider-sdk-calls",
+            ],
+        ),
+        _founder_loop_product_cockpit_row(
+            category_id="web_external_information",
+            label="Web and External Information",
+            status="implemented",
+            safe_summary=(
+                "External information posture distinguishes trusted local "
+                "evidence, allowlisted gateway preview, untrusted content "
+                "quarantine, and blocked browser/provider action surfaces."
+            ),
+            surface_refs=["surface-ref:control-center:web-evidence"],
+            route_refs=["GET /control-center/web-evidence/attachments"],
+            cli_refs=["scripts/dev/uaa_founder_loop.py inspect-web-evidence"],
+            ui_refs=["ui-ref:web-evidence"],
+            evidence_refs=[
+                EXTERNAL_INFORMATION_HANDLING_CONTRACT_REF,
+                WEB_EVIDENCE_PRODUCT_SLICE_CONTRACT_REF,
+            ],
+            test_refs=[
+                "tests/test_governed_web_evidence.py",
+                "tests/test_web_evidence_product_slice.py",
+            ],
+            operator_decision_support=(
+                "Operator can inspect external source refs without granting "
+                "browser action or external-content authority."
+            ),
+            blocked_authority_refs=[
+                "blocked-state:agent-loop:no-live-web-fetching",
+                "blocked-state:agent-loop:no-browser-automation",
+            ],
+        ),
+        _founder_loop_product_cockpit_row(
+            category_id="high_maturity_spine",
+            label="High-Maturity Agent Spine",
+            status="implemented",
+            safe_summary=(
+                "The W1-W13 readiness map gives one inspectable score "
+                "projection over implementation evidence, tests, docs, and "
+                "governed blocked posture."
+            ),
+            surface_refs=["surface-ref:control-center:high-maturity-agent-spine"],
+            route_refs=[AGENT_LOOP_THREAD_ROUTE_REF],
+            cli_refs=[HIGH_MATURITY_SPINE_CLI_REF],
+            ui_refs=["ui-ref:today:high-maturity-agent-spine"],
+            evidence_refs=[HIGH_MATURITY_SPINE_CONTRACT_REF],
+            test_refs=["tests/test_runtime_agent_loop_spine.py"],
+            operator_decision_support=(
+                "Operator can see which agent-system components are useful "
+                "today and which remain blocked by authority."
+            ),
+        ),
+    ]
+    route_refs = _dedupe(ref for row in rows for ref in row["route_refs"])
+    cli_refs = _dedupe(ref for row in rows for ref in row["cli_refs"])
+    ui_refs = _dedupe(ref for row in rows for ref in row["ui_refs"])
+    return {
+        "schema_version": "founder_loop_product_cockpit_posture.v1",
+        "contract_ref": FOUNDER_LOOP_PRODUCT_COCKPIT_POSTURE_CONTRACT_REF,
+        "status": "implemented_backend_owned_read_model_no_new_authority",
+        "source": AGENT_LOOP_THREAD_SOURCE,
+        "route_ref": AGENT_LOOP_THREAD_ROUTE_REF,
+        "cli_ref": FOUNDER_LOOP_PRODUCT_COCKPIT_CLI_REF,
+        "backend_owned": True,
+        "local_read_model_only": True,
+        "safe_refs_only": True,
+        "raw_content_included": False,
+        "category_count": len(rows),
+        "implemented_surface_count": sum(
+            1 for row in rows if row["status"] == "implemented"
+        ),
+        "route_count": len(route_refs),
+        "cli_count": len(cli_refs),
+        "ui_surface_count": len(ui_refs),
+        "rows": rows,
+        "route_refs": route_refs,
+        "cli_refs": cli_refs,
+        "ui_refs": ui_refs,
+        "operator_can_decide_from_cockpit": True,
+        "control_center_presentation_only": True,
+        "read_model_executes_work": False,
+        "control_center_mints_authority": False,
+        "mutation_controls_enabled": False,
+        "hidden_context_injection_enabled": False,
+        "runtime_model_calls_added": False,
+        "provider_sdk_calls_added": False,
+        "live_web_fetching_added": False,
+        "browser_automation_added": False,
+        "connector_writes_added": False,
+        "unrestricted_shell_added": False,
+        "plugin_runtime_import_added": False,
+        "production_authority_added": False,
+        "safe_summary": (
+            "Founder Loop cockpit posture ties the existing Start Here, Today, "
+            "Plans, Actions, Proof, Evidence, Memory, Trust, Coding, Runtime, "
+            "Work Board, Web Evidence, and High-Maturity Spine surfaces into "
+            "one readable operator loop without new runtime authority."
+        ),
+        "blocked_authority_refs": list(AGENT_LOOP_THREAD_BLOCKED_AUTHORITY_REFS),
+        "redactions_applied": [
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_content_omitted",
+            "raw_prompt_omitted",
+            "raw_response_omitted",
+            "raw_provider_payload_omitted",
+            "raw_local_paths_omitted",
+            "read_only_control_center_projection",
+        ],
+    }
 
 
 def build_action_tool_lane_posture() -> dict[str, Any]:
@@ -1290,15 +1734,17 @@ def build_high_maturity_agent_spine_readiness() -> dict[str, Any]:
         _high_maturity_row(
             weakness_id="W1",
             component="Product loop",
-            status="partial",
-            maturity="usable",
-            score=7,
+            status="implemented",
+            maturity="strong",
+            score=8,
             safe_summary=(
-                "Founder Loop surfaces now bind request, intent, plan, "
-                "actions, evidence, memory, trust, and next decision through "
-                "backend-owned read models."
+                "Founder Loop product cockpit posture now binds request, "
+                "intent, plan, actions, proof, evidence, memory, trust, code, "
+                "runtime, external information posture, and next decision "
+                "through one backend-owned read model."
             ),
             evidence_refs=[
+                FOUNDER_LOOP_PRODUCT_COCKPIT_POSTURE_CONTRACT_REF,
                 AGENT_LOOP_THREAD_ROUTE_REF,
                 "GET /control-center/today/summary",
                 "GET /control-center/actions/inbox",
@@ -1309,8 +1755,8 @@ def build_high_maturity_agent_spine_readiness() -> dict[str, Any]:
                 "tests/test_operator_loop_p1_011.py",
             ],
             gap=(
-                "Still proposal-first; more exact execution lanes need "
-                "AuthorityLease, approval, receipt, and rollback proof."
+                "Live mutation remains proposal-first unless an exact "
+                "AuthorityLease, approval, receipt, and rollback posture exists."
             ),
             recommendation=(
                 "Keep extending the existing Agent Loop Thread instead of "
@@ -1379,15 +1825,16 @@ def build_high_maturity_agent_spine_readiness() -> dict[str, Any]:
         _high_maturity_row(
             weakness_id="W4",
             component="Operator cockpit UX",
-            status="partial",
-            maturity="usable",
-            score=7,
+            status="implemented",
+            maturity="strong",
+            score=8,
             safe_summary=(
-                "The Control Center shows Today, Action Inbox, Proof, "
-                "Evidence, Memory, Trust, Coding, Runtime, and route state "
-                "using backend truth labels and safe operator copy."
+                "The Control Center renders a readable Founder Loop product "
+                "cockpit over backend-owned route, CLI, UI, evidence, test, "
+                "blocked-reason, and receipt posture instead of raw JSON."
             ),
             evidence_refs=[
+                FOUNDER_LOOP_PRODUCT_COCKPIT_POSTURE_CONTRACT_REF,
                 "apps/control-center/src/components/FounderLoopPanels.tsx",
                 "apps/control-center/src/components/TrustAuthorityPanel.tsx",
                 "GET /control-center/agent-loop/thread",
@@ -1396,7 +1843,10 @@ def build_high_maturity_agent_spine_readiness() -> dict[str, Any]:
                 "scripts/verify_control_center_frontend.py",
                 "tests/test_control_center_release_surface_manifest.py",
             ],
-            gap="Some routes are still partial or fallback-shaped.",
+            gap=(
+                "Fallback mock data remains explicitly non-authoritative; "
+                "operator-critical mutations still require exact backend lanes."
+            ),
             recommendation=(
                 "Continue moving operator-critical panels onto Python/API "
                 "truth with no raw JSON as the primary workflow."
@@ -1579,15 +2029,17 @@ def build_high_maturity_agent_spine_readiness() -> dict[str, Any]:
         _high_maturity_row(
             weakness_id="W11",
             component="End-to-end Founder Loop",
-            status="partial",
-            maturity="usable",
-            score=7,
+            status="implemented",
+            maturity="strong",
+            score=8,
             safe_summary=(
                 "Start Here, Today, Plans, Actions, Proof, Evidence, Memory, "
-                "Trust, Work Board, and Agent Loop Thread share backend refs "
-                "for an inspectable founder/operator loop."
+                "Trust, Coding, Work Board, Runtime, Web Evidence, and Agent "
+                "Loop Thread share backend refs for a minimally useful, "
+                "inspectable founder/operator loop."
             ),
             evidence_refs=[
+                FOUNDER_LOOP_PRODUCT_COCKPIT_POSTURE_CONTRACT_REF,
                 "GET /control-center/start-here/summary",
                 "GET /control-center/agent-loop/thread",
                 "docs/control_center/FOUNDER_LOOP_V1_PRODUCT_PROOF_PASS.md",
@@ -1597,7 +2049,10 @@ def build_high_maturity_agent_spine_readiness() -> dict[str, Any]:
                 "tests/test_founder_loop_v1_proof_lane.py",
                 "tests/test_founder_loop_runs_integration.py",
             ],
-            gap="More live useful lanes need exact authority before mutation.",
+            gap=(
+                "More live useful lanes still need exact authority before "
+                "mutation; unsupported adapters remain blocked."
+            ),
             recommendation=(
                 "Tie every new action into the same proof/evidence/memory "
                 "loop instead of one-off controls."
@@ -1692,6 +2147,9 @@ def build_high_maturity_agent_spine_readiness() -> dict[str, Any]:
             "all_w1_w13_have_code_docs_tests_or_governed_blocked_posture"
         ),
         "rows": rows,
+        "founder_loop_product_cockpit_posture": (
+            build_founder_loop_product_cockpit_posture()
+        ),
         "action_tool_lane_posture": build_action_tool_lane_posture(),
         "durable_orchestration_posture": build_durable_orchestration_posture(),
         "external_information_handling": (
@@ -2055,6 +2513,59 @@ def _high_maturity_row(
         "recommendation": _safe_text(recommendation),
         "safe_refs_only": True,
         "authority_broadened": False,
+        "runtime_model_calls_added": False,
+        "provider_sdk_calls_added": False,
+        "live_web_fetching_added": False,
+        "browser_automation_added": False,
+        "connector_writes_added": False,
+        "unrestricted_shell_added": False,
+        "plugin_runtime_import_added": False,
+        "production_authority_added": False,
+    }
+
+
+def _founder_loop_product_cockpit_row(
+    *,
+    category_id: str,
+    label: str,
+    status: str,
+    safe_summary: str,
+    surface_refs: list[str],
+    route_refs: list[str],
+    cli_refs: list[str],
+    ui_refs: list[str],
+    evidence_refs: list[str],
+    test_refs: list[str],
+    operator_decision_support: str,
+    blocked_authority_refs: list[str] | None = None,
+) -> dict[str, Any]:
+    return {
+        "category_id": _safe_text(category_id),
+        "label": _safe_text(label),
+        "status": _safe_text(status),
+        "safe_summary": _safe_text(safe_summary),
+        "surface_refs": _dedupe(surface_refs),
+        "route_refs": _dedupe(route_refs),
+        "cli_refs": _dedupe(cli_refs),
+        "ui_refs": _dedupe(ui_refs),
+        "evidence_refs": _dedupe(evidence_refs),
+        "test_refs": _dedupe(test_refs),
+        "blocked_authority_refs": _dedupe(
+            [
+                *(blocked_authority_refs or []),
+                *AGENT_LOOP_THREAD_BLOCKED_AUTHORITY_REFS,
+            ]
+        ),
+        "operator_decision_support": _safe_text(operator_decision_support),
+        "backend_truth_required": True,
+        "operator_visible": True,
+        "safe_refs_only": True,
+        "raw_content_included": False,
+        "control_center_presentation_only": True,
+        "read_model_executes_work": False,
+        "control_center_mints_authority": False,
+        "mutation_controls_enabled": False,
+        "hidden_context_injection_enabled": False,
         "runtime_model_calls_added": False,
         "provider_sdk_calls_added": False,
         "live_web_fetching_added": False,

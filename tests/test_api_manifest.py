@@ -188,6 +188,10 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned() -> None:
         in manifest["capabilities_declared"]
     )
     assert (
+        "control_center_founder_loop_product_cockpit_posture_read_model"
+        in manifest["capabilities_declared"]
+    )
+    assert (
         "control_center_durable_orchestration_posture_read_model"
         in manifest["capabilities_declared"]
     )

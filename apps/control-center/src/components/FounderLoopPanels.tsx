@@ -4216,6 +4216,11 @@ function AgentLoopThreadPanel({
   const bindings = readModel.surface_bindings.slice(0, 8);
   const decisionRows = readModel.operator_decision_matrix.rows.slice(0, 8);
   const highMaturityRows = readModel.high_maturity_spine_readiness.rows.slice(0, 13);
+  const productCockpitRows =
+    readModel.high_maturity_spine_readiness.founder_loop_product_cockpit_posture.rows.slice(
+      0,
+      4,
+    );
   const truthLabel =
     readModel.backend_owned && readModel.source !== "mock_fallback_non_authoritative"
       ? "backend-owned"
@@ -4349,6 +4354,64 @@ function AgentLoopThreadPanel({
             </li>
           ))}
         </ul>
+        <div
+          className="detail-panel compact"
+          aria-label="Founder Loop product cockpit posture"
+        >
+          <strong>Founder Loop Product Cockpit</strong>
+          <dl className="detail-list compact">
+            <DetailTerm
+              label="Contract"
+              value={
+                readModel.high_maturity_spine_readiness
+                  .founder_loop_product_cockpit_posture.contract_ref
+              }
+            />
+            <DetailTerm
+              label="Surfaces"
+              value={`${readModel.high_maturity_spine_readiness.founder_loop_product_cockpit_posture.implemented_surface_count}/${readModel.high_maturity_spine_readiness.founder_loop_product_cockpit_posture.category_count}`}
+            />
+            <DetailTerm
+              label="CLI"
+              value={
+                readModel.high_maturity_spine_readiness
+                  .founder_loop_product_cockpit_posture.cli_ref
+              }
+            />
+            <DetailTerm
+              label="Mutation"
+              value={
+                readModel.high_maturity_spine_readiness
+                  .founder_loop_product_cockpit_posture.mutation_controls_enabled
+                  ? "enabled"
+                  : "blocked"
+              }
+            />
+          </dl>
+          <p className="safe-copy">
+            {
+              readModel.high_maturity_spine_readiness
+                .founder_loop_product_cockpit_posture.safe_summary
+            }
+          </p>
+          <ul className="ref-list decision-matrix-list">
+            {productCockpitRows.map((row) => (
+              <li key={row.category_id}>
+                <strong>{row.label}</strong> <span>{row.status}</span>
+                <p className="muted">{row.operator_decision_support}</p>
+                <RefListWithFallback
+                  emptyLabel="Product cockpit refs: none"
+                  refs={[
+                    ...row.route_refs.slice(0, 1),
+                    ...row.cli_refs.slice(0, 1),
+                    ...row.evidence_refs.slice(0, 1),
+                    ...row.blocked_authority_refs.slice(0, 1),
+                  ]}
+                />
+              </li>
+            ))}
+          </ul>
+        </div>
         <div
           className="detail-panel compact"
           aria-label="Action and tool lane posture"
