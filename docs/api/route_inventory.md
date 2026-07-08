@@ -623,8 +623,9 @@ These routes return the repo-safe Coding Cockpit shell seed and read-only
 context-pack preview as backend-owned read models for `/coding`. They expose
 safe workspace, context, task, diff, terminal preview, Git preview, test output,
 live preview, proof, context comparison, patch proposal, blocked apply
-readiness, blocked test-command readiness, budget, redaction, authority
-posture, blocked Git review, blocked live-preview, agent slot, plan, review,
+readiness, approval-required RuntimeGateway validation command readiness,
+budget, redaction, authority posture, blocked Git review, blocked live-preview,
+agent slot, plan, review,
 diff-comparison, disagreement, handoff, blocker, and promotion refs only. They
 do not write files, apply patches, read or persist raw file content, run
 shell/subprocess commands, execute commands, mutate Git state, start or inspect

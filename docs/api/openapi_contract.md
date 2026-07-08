@@ -572,10 +572,11 @@ Contract rules:
   `GET /control-center/coding/patch-apply-readiness` exposes the blocked
   Prompt 04 apply-readiness model with safe prerequisite, receipt, rollback,
   blocker, promotion-path, proof, and unblock-prompt refs only.
-  `GET /control-center/coding/test-command-readiness` exposes the blocked
-  Prompt 05 allowlisted test-command readiness model with suggested command,
-  allowlist, expected receipt, proof, blocker, promotion-path, and
-  unblock-prompt refs only.
+  `GET /control-center/coding/test-command-readiness` exposes the
+  approval-required Prompt 05 RuntimeGateway validation lane readiness model
+  with command refs, runtime lane refs, allowlist refs, expected receipt refs,
+  runtime execution route refs, runtime CLI refs, proof, blocker, and
+  promotion-path refs only. The Coding route does not execute commands.
   `GET /control-center/coding/git-review` exposes the blocked Prompt 06 Git
   review model with status, diff, changed-file, commit proposal,
   pull-request proposal, expected receipt, proof, blocker, promotion-path, and

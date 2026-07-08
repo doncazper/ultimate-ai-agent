@@ -52,7 +52,7 @@ Repo-safe current version:
 - The shell shows workspace/context, task timeline, diff preview, proof preview,
   agent thread, terminal preview, Git preview, test output preview, live preview,
   authority mode selector, read-only context-pack preview, proposal-only patch
-  refs, blocked apply-readiness refs, blocked test-command readiness refs, and
+  refs, blocked apply-readiness refs, approval-required validation command refs, and
   blocked Git review, live-preview, and multi-agent review refs, and blocked
   authority refs.
 - Mock fallback is visibly non-authoritative and grants no workflow truth.
@@ -73,8 +73,9 @@ Exact AuthorityLease capability path:
   inspection parity from safe refs only.
 - Prompt 03 adds patch proposal artifacts without apply.
 - Prompt 04 adds patch apply readiness and blocker refs without apply.
-- Prompt 05 adds allowlisted test-command readiness and blocker refs without
-  command execution.
+- Prompt 05 now exposes approval-required RuntimeGateway validation command
+  lane refs for focused pytest, repo verifier, frontend check, and repo doctor.
+  The Coding Cockpit route itself still does not execute commands.
 - Prompt 06 adds Git review refs and blocker refs without live Git reads or Git
   mutation.
 - Prompt 07 adds live-preview refs and blocker refs without dev-server control
@@ -83,11 +84,11 @@ Exact AuthorityLease capability path:
   disagreement, and handoff refs without provider/model calls, provider SDK
   calls, local agent execution, background dispatch, context injection, or raw
   prompt/response persistence.
-- Later approved lanes add exact patch apply, allowlisted test commands, Git
-  review, live preview execution, provider review, local-agent verification,
-  and multi-agent execution only after scoped approval binding, receipts,
-  rollback/safe-disable posture, redaction, CLI parity, and focused verifiers
-  are present.
+- Later approved lanes add exact patch apply, expanded allowlisted test
+  commands, Git review, live preview execution, provider review, local-agent
+  verification, and multi-agent execution only after scoped approval binding,
+  receipts, rollback/safe-disable posture, redaction, CLI parity, and focused
+  verifiers are present.
 
 ## Coding Cockpit Prompt 04 Apply Readiness
 
@@ -133,46 +134,51 @@ Exact promotion path:
   receipt storage, redaction, Proof Detail binding, CLI parity, frontend tests,
   and verifiers are accepted.
 
-## Coding Cockpit Prompt 05 Test Command Readiness
+## Coding Cockpit Prompt 05 Validation Command Readiness
 
-Prompt 05 keeps the full allowlisted test command goal visible while blocking
-shell/subprocess execution until the missing command contracts are implemented.
+Prompt 05 keeps the full allowlisted test command goal visible while mapping
+the already implemented RuntimeGateway fixed-command validation lanes into the
+Coding Cockpit. The Coding route is inspection only; command execution remains
+behind RuntimeGateway, AuthorityLease scope, exact Action Inbox approval,
+idempotency, redaction, receipts, and safe-disable posture.
 
 Full-strength version:
 
-- UAA runs focused allowlisted test, lint, typecheck, and repo verifier commands
-  with command preview, bounded redacted output summaries, exit codes, receipts,
-  and Proof Detail links.
+- UAA runs focused allowlisted validation commands with bounded redacted output
+  summaries, exit codes, receipts, and Proof Detail links.
 - Arbitrary shell, installs, network commands, destructive commands, background
   processes, and broad terminal access remain outside this lane.
 
 Repo-safe current version:
 
 - `GET /control-center/coding/test-command-readiness` exposes a backend-owned
-  read-only readiness model.
+  read-only readiness model that points at the exact RuntimeGateway validation
+  intents.
 - `scripts/dev/uaa_coding.py inspect-test-command-readiness` provides CLI
   inspection parity.
-- `/coding` shows focused pytest, frontend test, lint/typecheck, and repo
-  verifier command refs plus allowlist refs and expected receipt refs.
+- `/coding` shows focused pytest, repo verifier, frontend check, and repo
+  doctor command refs plus runtime lane refs, allowlist refs, expected receipt
+  refs, runtime execution route refs, and runtime CLI refs.
 - The route stores safe refs and bounded summaries only. It does not store raw
-  commands, raw output, exit codes, or command receipts.
+  commands, raw output, exit codes, or command receipts, and it does not run
+  commands directly.
 
 Blocked / needs authority:
 
-- Command preview, exact allowlist enforcement, timeout policy, output
-  redaction, exit-code capture, test receipt creation, Proof Detail binding,
-  and shell/subprocess execution remain blocked.
-- Prompt 05 does not run commands, install dependencies, access the network,
-  spawn background processes, mutate files, mutate Git, call providers/models,
-  automate browsers, write connectors, or grant production authority.
+- Arbitrary shell, installs, network commands, destructive commands,
+  background processes, broad terminal access, Git mutation, file mutation,
+  provider/model calls, browser automation, connector writes, and production
+  authority remain blocked.
+- Prompt 05 does not run commands itself; accepted validation execution still
+  has to go through `POST /api/runtime/invocations/{id}/execute` with an exact
+  RuntimeGateway command intent and approval envelope.
 
 Exact promotion path:
 
-- Run
-  `docs/prompts/authority_graduation_program/generated_unblock_prompts/unblock_coding_allowlisted_test_command.prompt.md`.
-- Keep the blocker report current at
-  `docs/control_center/authority_graduation_blockers/coding_allowlisted_test_command_2026_07_04.md`.
-- Promote only after exact command allowlist, LocalApprovalAuthority binding
+- The original blocker report is superseded by the RuntimeGateway-backed
+  validation lane now surfaced from Python Core.
+- Promote expanded command kinds only after exact command allowlist,
+  LocalApprovalAuthority binding
   where required, timeout, output redaction, exit-code capture, receipt storage,
   Proof Detail binding, CLI parity, frontend tests, and verifiers are accepted.
 

@@ -822,16 +822,23 @@ export interface CodingSuggestedTestCommandReadModel {
   label: string;
   command_kind:
     | "focused_pytest"
-    | "frontend_test"
-    | "lint_typecheck"
-    | "repo_verifier";
-  status: "suggested_blocked";
+    | "repo_verifier"
+    | "frontend_check"
+    | "repo_doctor";
+  status: "approval_required_runtime_lane" | "suggested_blocked";
   safe_command_summary: string;
   allowlist_ref: string;
+  runtime_lane_ref: string;
+  runtime_command_intent: string;
+  execution_route_ref: string;
+  execution_cli_ref: string;
+  approval_scope_ref: string;
   expected_receipt_ref: string;
   proof_refs: string[];
   evidence_refs: string[];
   blocked_authority_refs: string[];
+  approval_required: boolean;
+  exact_runtime_lane_available: boolean;
   raw_command_included: boolean;
   raw_output_included: boolean;
   command_execution_enabled: boolean;
@@ -850,7 +857,9 @@ export interface CodingTestCommandReadinessReadModel {
   cli_inspection_refs: string[];
   docs_refs: string[];
   unblock_prompt_refs: string[];
-  status: "blocked_missing_allowlisted_command_authority";
+  status:
+    | "approval_required_runtime_lane_available"
+    | "blocked_missing_allowlisted_command_authority";
   title: string;
   full_strength_goal: string;
   repo_safe_current_state: string;
@@ -862,12 +871,20 @@ export interface CodingTestCommandReadinessReadModel {
   evidence_refs: string[];
   blocked_authority_refs: string[];
   promotion_path_refs: string[];
+  runtime_gateway_execution_route_refs: string[];
+  runtime_gateway_cli_refs: string[];
+  approval_scope_ref: string;
+  authority_domain_ref: string;
+  authority_capability_ref: string;
   redactions_applied: string[];
   next_safe_action: string;
   backend_owned: boolean;
   read_only: boolean;
   readiness_only: boolean;
   safe_refs_only: boolean;
+  approval_required: boolean;
+  exact_runtime_lane_available: boolean;
+  runtime_gateway_receipts_available: boolean;
   raw_command_included: boolean;
   raw_output_included: boolean;
   command_output_summary_included: boolean;

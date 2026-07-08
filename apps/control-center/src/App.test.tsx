@@ -1857,6 +1857,47 @@ function actionToolCodeLaneCatalogFixture(
       ...flags,
     },
     {
+      capability_id: "coding.allowlisted_test_command",
+      capability_ref: "capability-ref:coding:allowlisted-test-command",
+      lane_ref: "lane-ref:coding:allowlisted-test-command",
+      label: "Coding allowlisted validation command",
+      capability_kind: "code_workflow",
+      surface: "Coding",
+      status: "implemented_exact_approval_required",
+      side_effect_class: "local_dev_workspace_only",
+      required_approval_scope:
+        "approval-scope-ref:governed-runtime-exact-envelope",
+      eligibility_reason:
+        "Coding validation refs map to RuntimeGateway exact approval lanes.",
+      blocked_reason:
+        "Coding Cockpit does not execute commands directly; arbitrary shell remains blocked.",
+      receipt_requirement:
+        "Requires RuntimeGateway approval, idempotency, redacted output, and command receipt refs.",
+      rollback_or_safe_disable_posture: "Runtime safe-disable is backend-owned.",
+      route_refs: [
+        "GET /control-center/coding/test-command-readiness",
+        "POST /api/runtime/invocations/{id}/execute",
+      ],
+      cli_refs: [
+        "scripts/dev/uaa_coding.py inspect-test-command-readiness",
+        "scripts/dev/uaa_runtime.py receipts",
+      ],
+      receipt_refs: ["receipt-plan:runtime-action-inbox:focused-pytest"],
+      evidence_refs: ["evidence-ref:coding-test-command-readiness"],
+      proof_refs: ["proof-ref:coding-test-command-readiness"],
+      blocked_authority_refs: [
+        "blocked-state:coding-no-arbitrary-shell",
+        "blocked-state:coding-no-network-command",
+      ],
+      unblock_prompt_refs: [],
+      operator_visible: true,
+      inspectable_now: true,
+      proposal_only: false,
+      exact_local_mutation_available: false,
+      exact_runtime_lane_available: true,
+      ...flags,
+    },
+    {
       capability_id: "coding.approved_patch_apply",
       capability_ref: "capability-ref:coding:approved-patch-apply",
       lane_ref: "lane-ref:coding:approved-patch-apply",
@@ -1902,8 +1943,8 @@ function actionToolCodeLaneCatalogFixture(
     preview_only_count: 1,
     exact_local_mutation_count: 1,
     exact_local_authority_capability_count: 1,
-    exact_runtime_lane_count: 3,
-    exact_runtime_authority_capability_count: 3,
+    exact_runtime_lane_count: 4,
+    exact_runtime_authority_capability_count: 4,
     proposal_only_count: 1,
     blocked_count: 1,
     entries,
@@ -2512,7 +2553,7 @@ describe("Web Control Center shell", () => {
       ).toBeInTheDocument();
       expect(
         within(cockpit).getByText(
-          "Test command readiness is backend-owned, read-only, and blocked until exact shell authority exists.",
+          "Test command readiness is backend-owned and maps validation refs to approval-required RuntimeGateway lanes; this panel does not execute commands.",
         ),
       ).toBeInTheDocument();
       expect(within(cockpit).getByText("Focused backend pytest")).toBeInTheDocument();

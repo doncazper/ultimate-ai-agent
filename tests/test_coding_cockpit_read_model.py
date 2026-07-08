@@ -403,7 +403,7 @@ def test_coding_patch_apply_readiness_rejects_apply_authority() -> None:
         CodingPatchApplyReadinessReadModel(**payload)
 
 
-def test_coding_test_command_readiness_is_backend_owned_and_blocked() -> None:
+def test_coding_test_command_readiness_is_backend_owned_and_approval_required() -> None:
     readiness = build_coding_test_command_readiness()
     payload = readiness.model_dump(mode="json")
 
@@ -417,6 +417,20 @@ def test_coding_test_command_readiness_is_backend_owned_and_blocked() -> None:
     assert readiness.read_only is True
     assert readiness.readiness_only is True
     assert readiness.safe_refs_only is True
+    assert readiness.status == "approval_required_runtime_lane_available"
+    assert readiness.approval_required is True
+    assert readiness.exact_runtime_lane_available is True
+    assert readiness.runtime_gateway_receipts_available is True
+    assert readiness.runtime_gateway_execution_route_refs == [
+        "POST /api/runtime/invocations/{id}/execute"
+    ]
+    assert "scripts/dev/uaa_runtime.py receipts" in readiness.runtime_gateway_cli_refs
+    assert (
+        readiness.approval_scope_ref
+        == "approval-scope-ref:governed-runtime-exact-envelope"
+    )
+    assert readiness.authority_domain_ref == "authority-domain:workspace"
+    assert readiness.authority_capability_ref == "authority-capability:execute"
     assert readiness.raw_command_included is False
     assert readiness.raw_output_included is False
     assert readiness.command_output_summary_included is False
@@ -437,16 +451,22 @@ def test_coding_test_command_readiness_is_backend_owned_and_blocked() -> None:
     assert readiness.production_authority_enabled is False
     assert {item.command_kind for item in readiness.suggested_commands} == {
         "focused_pytest",
-        "frontend_test",
-        "lint_typecheck",
         "repo_verifier",
+        "frontend_check",
+        "repo_doctor",
     }
+    assert all(
+        item.status == "approval_required_runtime_lane"
+        and item.approval_required is True
+        and item.exact_runtime_lane_available is True
+        and item.execution_route_ref == "POST /api/runtime/invocations/{id}/execute"
+        and item.runtime_lane_ref.startswith("lane-ref:runtime-gateway:")
+        for item in readiness.suggested_commands
+    )
     assert set(readiness.expected_receipt_refs) == {
         item.expected_receipt_ref for item in readiness.suggested_commands
     }
-    assert readiness.unblock_prompt_refs == [
-        "prompt-ref:unblock-coding-allowlisted-test-command"
-    ]
+    assert readiness.unblock_prompt_refs == []
     assert "/Users/" not in json.dumps(payload)
     assert "credential" not in json.dumps(payload).lower()
     assert "secret" not in json.dumps(payload).lower()
@@ -471,6 +491,21 @@ def test_coding_test_command_readiness_rejects_execution_authority() -> None:
     payload = build_coding_test_command_readiness().model_dump(mode="json")
     payload["suggested_commands"][0]["command_execution_enabled"] = True
     with pytest.raises(ValidationError, match="command_execution_enabled"):
+        CodingTestCommandReadinessReadModel(**payload)
+
+    for flag_name in [
+        "approval_required",
+        "exact_runtime_lane_available",
+        "runtime_gateway_receipts_available",
+    ]:
+        payload = build_coding_test_command_readiness().model_dump(mode="json")
+        payload[flag_name] = False
+        with pytest.raises(ValidationError, match=flag_name):
+            CodingTestCommandReadinessReadModel(**payload)
+
+    payload = build_coding_test_command_readiness().model_dump(mode="json")
+    payload["suggested_commands"][0]["exact_runtime_lane_available"] = False
+    with pytest.raises(ValidationError, match="runtime lane required"):
         CodingTestCommandReadinessReadModel(**payload)
 
 

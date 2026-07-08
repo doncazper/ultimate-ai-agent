@@ -29,7 +29,7 @@ CODING_COCKPIT_PATCH_APPLY_ROUTE_REF = (
     "route-ref:control-center-coding-patch-apply-readiness"
 )
 CODING_COCKPIT_TEST_COMMAND_READINESS_REF = (
-    "test-command-readiness:coding-allowlisted-tests-blocked-v1"
+    "test-command-readiness:coding-runtime-validation-lanes-v1"
 )
 CODING_COCKPIT_TEST_COMMAND_ROUTE_REF = (
     "route-ref:control-center-coding-test-command-readiness"
@@ -95,12 +95,15 @@ PatchChangeKind = Literal["modify", "add", "delete_blocked", "generated_blocked"
 PatchProposalStatus = Literal["proposal_artifact_preview"]
 PatchApplyReadinessStatus = Literal["blocked_missing_exact_apply_contract"]
 PatchApplyPrerequisiteStatus = Literal["present", "missing", "blocked"]
-TestCommandReadinessStatus = Literal["blocked_missing_allowlisted_command_authority"]
+TestCommandReadinessStatus = Literal[
+    "approval_required_runtime_lane_available",
+    "blocked_missing_allowlisted_command_authority",
+]
 TestCommandKind = Literal[
     "focused_pytest",
-    "frontend_test",
-    "lint_typecheck",
     "repo_verifier",
+    "frontend_check",
+    "repo_doctor",
 ]
 GitReviewStatus = Literal["blocked_missing_git_review_authority"]
 GitReviewItemKind = Literal[
@@ -994,13 +997,20 @@ class CodingSuggestedTestCommandReadModel(BaseModel):
     command_ref: str = Field(..., min_length=1)
     label: str = Field(..., min_length=1, max_length=120)
     command_kind: TestCommandKind
-    status: Literal["suggested_blocked"]
+    status: Literal["approval_required_runtime_lane", "suggested_blocked"]
     safe_command_summary: str = Field(..., min_length=1, max_length=420)
     allowlist_ref: str = Field(..., min_length=1)
+    runtime_lane_ref: str = Field(..., min_length=1)
+    runtime_command_intent: str = Field(..., min_length=1, max_length=80)
+    execution_route_ref: str = "POST /api/runtime/invocations/{id}/execute"
+    execution_cli_ref: str = "scripts/dev/uaa_runtime.py receipts"
+    approval_scope_ref: str = "approval-scope-ref:governed-runtime-exact-envelope"
     expected_receipt_ref: str = Field(..., min_length=1)
     proof_refs: list[str] = Field(default_factory=list)
     evidence_refs: list[str] = Field(default_factory=list)
     blocked_authority_refs: list[str] = Field(default_factory=list)
+    approval_required: bool = True
+    exact_runtime_lane_available: bool = True
     raw_command_included: bool = False
     raw_output_included: bool = False
     command_execution_enabled: bool = False
@@ -1012,6 +1022,7 @@ class CodingSuggestedTestCommandReadModel(BaseModel):
         for ref in [
             self.command_ref,
             self.allowlist_ref,
+            self.runtime_lane_ref,
             self.expected_receipt_ref,
             *self.proof_refs,
             *self.evidence_refs,
@@ -1023,10 +1034,17 @@ class CodingSuggestedTestCommandReadModel(BaseModel):
             self.command_kind,
             self.status,
             self.safe_command_summary,
+            self.runtime_command_intent,
+            self.execution_route_ref,
+            self.execution_cli_ref,
+            self.approval_scope_ref,
         ]:
             validate_safe_task_text(value, "coding_suggested_test_command_text")
         if not self.blocked_authority_refs:
             raise ValueError("suggested test command needs blocker refs")
+        if self.status == "approval_required_runtime_lane":
+            if not self.approval_required or not self.exact_runtime_lane_available:
+                raise ValueError("coding suggested command runtime lane required")
         required_false_flags = {
             "raw_command_included": self.raw_command_included,
             "raw_output_included": self.raw_output_included,
@@ -1062,15 +1080,13 @@ class CodingTestCommandReadinessReadModel(BaseModel):
     docs_refs: list[str] = Field(
         default_factory=lambda: [
             "docs-ref:governed-code-workbench",
-            "docs-ref:coding-allowlisted-test-command-blocker",
+            "docs-ref:coding-validation-runtime-lane",
             "docs-ref:operator-shell-gap-map",
         ]
     )
-    unblock_prompt_refs: list[str] = Field(
-        default_factory=lambda: ["prompt-ref:unblock-coding-allowlisted-test-command"]
-    )
+    unblock_prompt_refs: list[str] = Field(default_factory=list)
     status: TestCommandReadinessStatus = (
-        "blocked_missing_allowlisted_command_authority"
+        "approval_required_runtime_lane_available"
     )
     title: str = Field(..., min_length=1, max_length=120)
     full_strength_goal: str = Field(..., min_length=1, max_length=520)
@@ -1085,12 +1101,27 @@ class CodingTestCommandReadinessReadModel(BaseModel):
     evidence_refs: list[str] = Field(default_factory=list)
     blocked_authority_refs: list[str] = Field(default_factory=list)
     promotion_path_refs: list[str] = Field(default_factory=list)
+    runtime_gateway_execution_route_refs: list[str] = Field(
+        default_factory=lambda: ["POST /api/runtime/invocations/{id}/execute"]
+    )
+    runtime_gateway_cli_refs: list[str] = Field(
+        default_factory=lambda: [
+            "scripts/dev/uaa_runtime.py inspect-action-inbox-bridge",
+            "scripts/dev/uaa_runtime.py receipts",
+        ]
+    )
+    approval_scope_ref: str = "approval-scope-ref:governed-runtime-exact-envelope"
+    authority_domain_ref: str = "authority-domain:workspace"
+    authority_capability_ref: str = "authority-capability:execute"
     redactions_applied: list[str] = Field(default_factory=list)
     next_safe_action: str = Field(..., min_length=1, max_length=420)
     backend_owned: bool = True
     read_only: bool = True
     readiness_only: bool = True
     safe_refs_only: bool = True
+    approval_required: bool = True
+    exact_runtime_lane_available: bool = True
+    runtime_gateway_receipts_available: bool = True
     raw_command_included: bool = False
     raw_output_included: bool = False
     command_output_summary_included: bool = False
@@ -1127,6 +1158,8 @@ class CodingTestCommandReadinessReadModel(BaseModel):
             *self.evidence_refs,
             *self.blocked_authority_refs,
             *self.promotion_path_refs,
+            self.authority_domain_ref,
+            self.authority_capability_ref,
             *self.redactions_applied,
             *self.docs_refs,
             *self.unblock_prompt_refs,
@@ -1142,8 +1175,11 @@ class CodingTestCommandReadinessReadModel(BaseModel):
                 self.full_strength_goal,
                 self.repo_safe_current_state,
                 self.safe_summary,
+                self.approval_scope_ref,
                 self.next_safe_action,
             ]
+            + self.runtime_gateway_execution_route_refs
+            + self.runtime_gateway_cli_refs
         ):
             validate_safe_task_text(value, "coding_test_command_readiness_text")
         if not self.suggested_commands:
@@ -1166,6 +1202,21 @@ class CodingTestCommandReadinessReadModel(BaseModel):
         disabled = [name for name, value in required_true_flags.items() if not value]
         if disabled:
             raise ValueError(f"coding test command readiness disabled {disabled[0]}")
+        if self.status == "approval_required_runtime_lane_available":
+            required_lane_flags = {
+                "approval_required": self.approval_required,
+                "exact_runtime_lane_available": self.exact_runtime_lane_available,
+                "runtime_gateway_receipts_available": (
+                    self.runtime_gateway_receipts_available
+                ),
+            }
+            disabled_lane_flags = [
+                name for name, value in required_lane_flags.items() if not value
+            ]
+            if disabled_lane_flags:
+                raise ValueError(
+                    f"coding test command runtime lane disabled {disabled_lane_flags[0]}"
+                )
         required_false_flags = {
             "raw_command_included": self.raw_command_included,
             "raw_output_included": self.raw_output_included,
@@ -2128,19 +2179,20 @@ def build_coding_project_model_read_model() -> CodingProjectModelReadModel:
             capability_ref="coding-project-capability:test-lane",
             label="Test lane",
             capability_kind="tests",
-            state="blocked",
+            state="read_only",
             safe_summary=(
-                "Test posture shows suggested test refs only; command execution "
-                "and output receipts are unavailable."
+                "Test posture shows approval-required RuntimeGateway validation "
+                "refs; execution still requires a separate Action Inbox approval "
+                "and RuntimeGateway receipt."
             ),
             source_refs=[CODING_COCKPIT_TEST_COMMAND_READINESS_REF],
             evidence_refs=evidence_refs,
             proof_refs=proof_refs,
             blocked_authority_refs=[
-                "blocked-state:coding-no-shell-subprocess",
-                "blocked-state:coding-no-command-execution",
+                "blocked-state:coding-no-arbitrary-shell",
+                "blocked-state:coding-no-network-command",
             ],
-            promotion_path_refs=["promotion-path:coding-allowlisted-test-command"],
+            promotion_path_refs=["promotion-path:coding-validation-runtime-lane"],
         ),
         CodingProjectCapabilityReadModel(
             capability_ref="coding-project-capability:preview-lane",
@@ -2176,7 +2228,7 @@ def build_coding_project_model_read_model() -> CodingProjectModelReadModel:
                 "blocked-state:coding-no-shell-subprocess",
                 "blocked-state:coding-no-command-execution",
             ],
-            promotion_path_refs=["promotion-path:coding-allowlisted-test-command"],
+            promotion_path_refs=["promotion-path:coding-terminal-controls-blocked"],
         ),
         CodingProjectCapabilityReadModel(
             capability_ref="coding-project-capability:git-lane",
@@ -2239,7 +2291,7 @@ def build_coding_project_model_read_model() -> CodingProjectModelReadModel:
             "promotion-path:coding-context-pack-preview",
             "promotion-path:coding-patch-proposal-lane",
             "promotion-path:coding-approved-apply-lane",
-            "promotion-path:coding-allowlisted-test-command",
+            "promotion-path:coding-validation-runtime-lane",
             "promotion-path:coding-git-review-lane",
             "promotion-path:coding-live-preview-status",
             "promotion-path:coding-multi-agent-review",
@@ -2770,7 +2822,7 @@ def build_coding_cockpit_session_seed() -> CodingCockpitSessionReadModel:
             "promotion-path:coding-context-pack-preview",
             "promotion-path:coding-patch-proposal-lane",
             "promotion-path:coding-approved-apply-lane",
-            "promotion-path:coding-allowlisted-test-command",
+            "promotion-path:coding-validation-runtime-lane",
             "promotion-path:coding-git-review-lane",
             "promotion-path:coding-live-preview-status",
             "promotion-path:coding-multi-agent-review",
@@ -3205,72 +3257,77 @@ def build_coding_test_command_readiness() -> CodingTestCommandReadinessReadModel
     evidence_refs = ["evidence-ref:coding-test-command-readiness"]
     proof_refs = ["proof-ref:coding-test-command-readiness"]
     blocked_refs = [
-        "blocked-state:coding-no-shell-subprocess",
-        "blocked-state:coding-no-command-execution",
         "blocked-state:coding-no-arbitrary-shell",
         "blocked-state:coding-no-install-command",
         "blocked-state:coding-no-network-command",
         "blocked-state:coding-no-destructive-command",
         "blocked-state:coding-no-background-process",
-        "blocked-state:coding-no-test-receipt",
     ]
     suggested_commands = [
         CodingSuggestedTestCommandReadModel(
             command_ref="command-ref:coding-focused-pytest",
             label="Focused backend pytest",
             command_kind="focused_pytest",
-            status="suggested_blocked",
+            status="approval_required_runtime_lane",
             safe_command_summary=(
-                "Would run a backend pytest target chosen by safe test refs after "
-                "exact allowlisted command authority exists."
+                "Maps to the RuntimeGateway focused pytest intent with fixed argv, "
+                "exact approval, idempotency, timeout, and redacted receipt refs."
             ),
-            allowlist_ref="allowlist-ref:coding-focused-pytest",
-            expected_receipt_ref="test-receipt-ref:coding-focused-pytest-required",
-            proof_refs=proof_refs,
-            evidence_refs=evidence_refs,
-            blocked_authority_refs=blocked_refs,
-        ),
-        CodingSuggestedTestCommandReadModel(
-            command_ref="command-ref:coding-frontend-test",
-            label="Frontend test",
-            command_kind="frontend_test",
-            status="suggested_blocked",
-            safe_command_summary=(
-                "Would run the existing frontend test target after command scope, "
-                "redaction, timeout, and receipt contracts are approved."
-            ),
-            allowlist_ref="allowlist-ref:coding-frontend-test",
-            expected_receipt_ref="test-receipt-ref:coding-frontend-test-required",
-            proof_refs=proof_refs,
-            evidence_refs=evidence_refs,
-            blocked_authority_refs=blocked_refs,
-        ),
-        CodingSuggestedTestCommandReadModel(
-            command_ref="command-ref:coding-lint-typecheck",
-            label="Lint and typecheck",
-            command_kind="lint_typecheck",
-            status="suggested_blocked",
-            safe_command_summary=(
-                "Would run existing lint or typecheck targets with bounded output "
-                "only after allowlisted command authority exists."
-            ),
-            allowlist_ref="allowlist-ref:coding-lint-typecheck",
-            expected_receipt_ref="test-receipt-ref:coding-lint-typecheck-required",
+            allowlist_ref="runtime-command-shape-ref:focused-pytest",
+            runtime_lane_ref="lane-ref:runtime-gateway:focused-pytest-action-inbox",
+            runtime_command_intent="focused_pytest",
+            expected_receipt_ref="receipt-plan:runtime-action-inbox:focused-pytest",
             proof_refs=proof_refs,
             evidence_refs=evidence_refs,
             blocked_authority_refs=blocked_refs,
         ),
         CodingSuggestedTestCommandReadModel(
             command_ref="command-ref:coding-repo-verifier",
-            label="Repo verifier",
+            label="Repo documentation verifier",
             command_kind="repo_verifier",
-            status="suggested_blocked",
+            status="approval_required_runtime_lane",
             safe_command_summary=(
-                "Would run an existing repo-local verifier by safe verifier ref "
-                "after exact command approval and output redaction exist."
+                "Maps to the RuntimeGateway repo verifier intent with fixed verifier "
+                "argv, exact approval, idempotency, and redacted receipt refs."
             ),
-            allowlist_ref="allowlist-ref:coding-repo-verifier",
-            expected_receipt_ref="test-receipt-ref:coding-repo-verifier-required",
+            allowlist_ref="runtime-command-shape-ref:repo-verifier",
+            runtime_lane_ref="lane-ref:runtime-gateway:repo-verifier-action-inbox",
+            runtime_command_intent="repo_verifier",
+            expected_receipt_ref="receipt-plan:runtime-action-inbox:repo-verifier",
+            proof_refs=proof_refs,
+            evidence_refs=evidence_refs,
+            blocked_authority_refs=blocked_refs,
+        ),
+        CodingSuggestedTestCommandReadModel(
+            command_ref="command-ref:coding-frontend-check",
+            label="Frontend check",
+            command_kind="frontend_check",
+            status="approval_required_runtime_lane",
+            safe_command_summary=(
+                "Maps to the RuntimeGateway frontend check intent with fixed command "
+                "wrapper, exact approval, idempotency, and redacted receipt refs."
+            ),
+            allowlist_ref="runtime-command-shape-ref:frontend-check",
+            runtime_lane_ref="lane-ref:runtime-gateway:frontend-check-action-inbox",
+            runtime_command_intent="frontend_check",
+            expected_receipt_ref="receipt-plan:runtime-action-inbox:frontend-check",
+            proof_refs=proof_refs,
+            evidence_refs=evidence_refs,
+            blocked_authority_refs=blocked_refs,
+        ),
+        CodingSuggestedTestCommandReadModel(
+            command_ref="command-ref:coding-repo-doctor",
+            label="Repo doctor",
+            command_kind="repo_doctor",
+            status="approval_required_runtime_lane",
+            safe_command_summary=(
+                "Maps to the RuntimeGateway repo doctor intent with fixed command "
+                "wrapper, exact approval, idempotency, and redacted receipt refs."
+            ),
+            allowlist_ref="runtime-command-shape-ref:repo-doctor",
+            runtime_lane_ref="lane-ref:runtime-gateway:repo-doctor-action-inbox",
+            runtime_command_intent="repo_doctor",
+            expected_receipt_ref="receipt-plan:runtime-action-inbox:repo-doctor",
             proof_refs=proof_refs,
             evidence_refs=evidence_refs,
             blocked_authority_refs=blocked_refs,
@@ -3279,17 +3336,19 @@ def build_coding_test_command_readiness() -> CodingTestCommandReadinessReadModel
     return CodingTestCommandReadinessReadModel(
         title="Allowlisted test command readiness",
         full_strength_goal=(
-            "Run focused allowlisted test, lint, typecheck, and verifier commands "
-            "with redacted output summaries, exit codes, receipts, and Proof links."
+            "Run focused allowlisted validation commands through RuntimeGateway "
+            "with exact approval, fixed argv, redacted output summaries, exit "
+            "codes, receipts, and Proof links."
         ),
         repo_safe_current_state=(
-            "Prompt 05 records suggested command refs, allowlist refs, and expected "
-            "receipt refs only. No command string is stored and no command is run."
+            "The Coding Cockpit exposes the existing approval-required RuntimeGateway "
+            "validation lanes for inspection. This route still runs no command and "
+            "stores no raw command or output."
         ),
         safe_summary=(
-            "Allowlisted test command execution remains blocked until exact shell "
-            "authority, command preview, timeout, redaction, exit-code, receipt, "
-            "proof, and CLI contracts exist."
+            "Exact validation commands are available only through RuntimeGateway "
+            "Action Inbox approval envelopes; arbitrary shell, installs, network "
+            "commands, destructive commands, and background processes remain blocked."
         ),
         allowlist_refs=[item.allowlist_ref for item in suggested_commands],
         suggested_commands=suggested_commands,
@@ -3299,11 +3358,11 @@ def build_coding_test_command_readiness() -> CodingTestCommandReadinessReadModel
         proof_refs=proof_refs,
         evidence_refs=evidence_refs,
         blocked_authority_refs=blocked_refs,
+        unblock_prompt_refs=[],
         promotion_path_refs=[
-            "promotion-path:coding-allowlisted-test-command-contract",
-            "promotion-path:coding-allowlisted-test-command-route",
-            "promotion-path:coding-allowlisted-test-command-cli",
-            "promotion-path:coding-allowlisted-test-command-verifier",
+            "promotion-path:coding-validation-runtime-lane-action-inbox",
+            "promotion-path:coding-validation-runtime-lane-receipts",
+            "promotion-path:coding-validation-runtime-lane-proof-detail",
         ],
         redactions_applied=[
             "redaction-ref:safe-refs-only",
@@ -3312,8 +3371,8 @@ def build_coding_test_command_readiness() -> CodingTestCommandReadinessReadModel
             "redaction-ref:bounded-summary-required",
         ],
         next_safe_action=(
-            "Run the unblock prompt only after exact allowlisted command, output "
-            "redaction, receipt, proof, timeout, and CLI parity contracts are in scope."
+            "Use the RuntimeGateway Action Inbox execution path for exact approved "
+            "validation commands; keep Coding Cockpit as an inspection surface."
         ),
     )
 

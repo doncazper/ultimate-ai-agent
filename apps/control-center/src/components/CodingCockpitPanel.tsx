@@ -422,9 +422,14 @@ function TestCommandReadinessPreview({
       </div>
       <p className="safe-copy">
         {authoritative
-          ? "Test command readiness is backend-owned, read-only, and blocked until exact shell authority exists."
+          ? "Test command readiness is backend-owned and maps validation refs to approval-required RuntimeGateway lanes; this panel does not execute commands."
           : "Test command readiness is non-authoritative fallback data only."}
       </p>
+      <RefStack
+        refs={readiness.runtime_gateway_execution_route_refs}
+        title="Runtime execution route"
+      />
+      <RefStack refs={readiness.runtime_gateway_cli_refs} title="Runtime CLI refs" />
       <div className="coding-item-stack">
         {readiness.suggested_commands.slice(0, 3).map((item) => (
           <article className="coding-item-row" key={item.command_ref}>

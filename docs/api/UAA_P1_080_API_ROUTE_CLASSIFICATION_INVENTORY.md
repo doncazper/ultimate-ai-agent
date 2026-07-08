@@ -45,9 +45,10 @@ preview inspection route, plus the read-only Trust authority matrix route, plus
 the exact Tier 1 allowlisted WebAccessGateway web evidence attachment route,
 plus the repo-safe Coding Cockpit session read-model seed route, read-only
 context-pack preview route, proposal-only patch proposal route, and blocked
-patch apply readiness route, blocked test-command readiness route, blocked Git
-review route, blocked live-preview readiness route, and blocked multi-agent
-review readiness route, plus the backend-owned Work Board Kanban read-model
+patch apply readiness route, approval-required RuntimeGateway validation
+command readiness route, blocked Git review route, blocked live-preview
+readiness route, and blocked multi-agent review readiness route, plus the
+backend-owned Work Board Kanban read-model
 route, exact approved persisted reorder route, and exact approved local
 card-create route, plus the protected authority-state lease inspection route
 and AuthorityLease issue, approve-and-issue, and revoke receipt routes, plus the governed runtime

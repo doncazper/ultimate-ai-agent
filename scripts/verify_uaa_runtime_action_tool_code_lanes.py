@@ -81,13 +81,13 @@ def main() -> int:
             failures.append(
                 f"{source_name} catalog exact local capability count drifted"
             )
-        if model.get("exact_runtime_lane_count") != 4:
+        if model.get("exact_runtime_lane_count") != 5:
             failures.append(f"{source_name} catalog exact runtime lane count drifted")
-        if model.get("exact_runtime_authority_capability_count") != 4:
+        if model.get("exact_runtime_authority_capability_count") != 5:
             failures.append(
                 f"{source_name} catalog exact runtime capability count drifted"
             )
-        if model.get("blocked_count") != 4:
+        if model.get("blocked_count") != 3:
             failures.append(f"{source_name} catalog blocked count drifted")
         entries = model.get("entries") or []
         local_task = _entry_by_id(model, "local_task_create")
@@ -107,6 +107,21 @@ def main() -> int:
                     f"{source_name} catalog {capability_id} must be a runtime "
                     "authority capability"
                 )
+        coding_tests = _entry_by_id(model, "coding.allowlisted_test_command")
+        if coding_tests.get("status") != "implemented_exact_approval_required":
+            failures.append(
+                f"{source_name} catalog coding test command must be approval-required"
+            )
+        if coding_tests.get("exact_runtime_lane_available") is not True:
+            failures.append(
+                f"{source_name} catalog coding test command needs exact runtime lane"
+            )
+        if "POST /api/runtime/invocations/{id}/execute" not in (
+            coding_tests.get("route_refs") or []
+        ):
+            failures.append(
+                f"{source_name} catalog coding test command missing runtime execute route"
+            )
         for entry in entries:
             if not isinstance(entry, dict):
                 failures.append(f"{source_name} catalog contains non-dict entry")

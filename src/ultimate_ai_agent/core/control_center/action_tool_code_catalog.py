@@ -613,22 +613,46 @@ def _code_workflow_entries() -> list[ActionToolCodeLaneEntry]:
             label="Coding allowlisted test command",
             capability_kind="code_workflow",
             surface="Coding",
-            status="blocked_missing_exact_authority",
+            status="implemented_exact_approval_required",
             side_effect_class="local_dev_workspace_only",
-            required_approval_scope="approval-scope:coding-allowlisted-test-command-exact",
+            required_approval_scope=test_command.approval_scope_ref,
             eligibility_reason=test_command.repo_safe_current_state,
-            blocked_reason=test_command.safe_summary,
-            receipt_requirement=(
-                "Requires argv allowlist, bounded output, exit code, and test receipt."
+            blocked_reason=(
+                "Coding Cockpit does not execute commands directly; execution stays "
+                "behind RuntimeGateway Action Inbox approval, fixed argv, idempotency, "
+                "timeout, output redaction, and receipt validation. Arbitrary shell "
+                "and unsafe command classes remain blocked."
             ),
-            rollback_or_safe_disable_posture="Requires command safe-disable and timeout posture.",
-            route_refs=list(test_command.backend_route_refs),
-            cli_refs=list(test_command.cli_inspection_refs),
+            receipt_requirement=(
+                "Requires RuntimeGateway policy decision, exact Action Inbox approval, "
+                "idempotency ref, bounded redacted output, exit code, and command receipt."
+            ),
+            rollback_or_safe_disable_posture=(
+                f"Runtime safe-disable ref {GOVERNED_RUNTIME_SAFE_DISABLE_REF}; "
+                "validation receipts are inspection artifacts and do not imply file rollback."
+            ),
+            route_refs=list(
+                dict.fromkeys(
+                    [
+                        *test_command.backend_route_refs,
+                        *test_command.runtime_gateway_execution_route_refs,
+                    ]
+                )
+            ),
+            cli_refs=list(
+                dict.fromkeys(
+                    [
+                        *test_command.cli_inspection_refs,
+                        *test_command.runtime_gateway_cli_refs,
+                    ]
+                )
+            ),
             receipt_refs=list(test_command.expected_receipt_refs),
             evidence_refs=list(test_command.evidence_refs),
             proof_refs=list(test_command.proof_refs),
             blocked_authority_refs=list(test_command.blocked_authority_refs),
             unblock_prompt_refs=list(test_command.unblock_prompt_refs),
+            exact_runtime_lane_available=True,
         ),
         ActionToolCodeLaneEntry(
             capability_id="coding.git_review",
@@ -702,23 +726,6 @@ def _unblock_prompts() -> list[ActionToolCodeUnblockPrompt]:
                 "receipt refs, rollback refs, CLI/API/Core parity, route "
                 "classification, and focused tests. Do not add broad file writes "
                 "or shell execution."
-            ),
-        ),
-        ActionToolCodeUnblockPrompt(
-            prompt_ref="prompt-ref:unblock-coding-allowlisted-test-command",
-            title="Unblock exact allowlisted Coding test command",
-            target_capability_ref="capability-ref:coding:allowlisted-test-command",
-            blocked_authority_refs=[
-                "blocked-authority:action-tool-code:no-unrestricted-shell",
-                "blocked-state:coding-no-shell-subprocess",
-            ],
-            copy_ready_prompt=(
-                "Promote only allowlisted Coding test commands. Require argv-only "
-                "commands, cwd jail, timeout, env scrub, bounded redacted output, "
-                "idempotency, exact approval binding, test receipts, CLI/API/Core "
-                "parity, route classification, and focused verifier coverage. "
-                "Keep arbitrary shell, installs, network commands, and background "
-                "processes blocked."
             ),
         ),
         ActionToolCodeUnblockPrompt(

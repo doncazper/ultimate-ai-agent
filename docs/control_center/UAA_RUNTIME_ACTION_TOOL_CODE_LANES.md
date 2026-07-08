@@ -8,8 +8,8 @@ UAA should make action, tool, runtime, and code-workflow capability posture
 legible in one operator surface: what can be inspected, what can propose work,
 what exact AuthorityLease capabilities can produce receipts, what needs
 approval, what can roll back or safe-disable, and what remains blocked. Future
-callable tools, code apply, test command, Git, and preview capabilities must
-stay exact-scoped and receipt-backed.
+callable tools, code apply, Git, preview, and expanded command capabilities
+must stay exact-scoped and receipt-backed.
 
 ## Repo-Safe Version
 
@@ -24,17 +24,18 @@ Phase 04 adds Python Core Action/Tool/Code capability catalog contract
   `scripts/dev/uaa_founder_loop.py inspect-action-tool-code-catalog`
 - Control Center:
   Action Inbox renders a read-only catalog panel with preview-only tools, exact
-  local task and runtime authority capabilities, blocked Coding capabilities, receipt refs,
+  local task and runtime authority capabilities, the approval-required Coding
+  validation command lane, remaining blocked Coding capabilities, receipt refs,
   evidence/proof refs, blocked authority refs, and unblock prompt refs.
 
 The catalog separates inspectable metadata from callable execution. It shows
 Tool Broker v2 entries as preview-only, Action Inbox `local_task_create` as an
 exact local mutation authority capability, RuntimeGateway focused pytest,
 repo-verifier, frontend-check, and repo-doctor as exact approval-required
-runtime capabilities, Coding patch proposal as
-proposal-only, and Coding patch apply, allowlisted test command, Git review,
-and live preview as blocked until later exact AuthorityLease capability
-implementation.
+runtime capabilities, Coding patch proposal as proposal-only, Coding
+allowlisted validation commands as an approval-required RuntimeGateway-backed
+lane, and Coding patch apply, Git review, and live preview as blocked until
+later exact AuthorityLease capability implementation.
 
 All fields are backend-owned safe refs and bounded summaries. The read model
 does not persist raw prompt content, raw response content, provider payloads,
@@ -68,9 +69,11 @@ Patch apply needs checkpoint creation, selected file/hunk apply, exact patch
 body validation, sensitive-diff guards, applied patch receipt refs, and rollback
 refs before it can mutate files.
 
-Allowlisted test commands need argv-only allowlists, cwd jail, timeout, env
-scrub, bounded redacted output, receipt refs, and safe-disable posture before
-any command can run.
+The Coding validation command lane now points at the existing RuntimeGateway
+focused pytest, repo-verifier, frontend-check, and repo-doctor intents. Any
+future command expansion still needs argv-only allowlists, cwd jail, timeout,
+env scrub, bounded redacted output, receipt refs, safe-disable posture, and
+focused tests before it can run.
 
 Callable tool catalog work needs separate inspectable and callable catalogs,
 policy decisions, approval envelopes, idempotency, side-effect classes, receipt

@@ -53,10 +53,10 @@ def test_action_tool_code_catalog_preserves_exact_lanes_and_blocks_broad_authori
     assert catalog["preview_only_count"] == 4
     assert catalog["exact_local_mutation_count"] == 1
     assert catalog["exact_local_authority_capability_count"] == 1
-    assert catalog["exact_runtime_lane_count"] == 4
-    assert catalog["exact_runtime_authority_capability_count"] == 4
+    assert catalog["exact_runtime_lane_count"] == 5
+    assert catalog["exact_runtime_authority_capability_count"] == 5
     assert catalog["proposal_only_count"] == 5
-    assert catalog["blocked_count"] == 4
+    assert catalog["blocked_count"] == 3
     assert all(catalog[flag] is False for flag in BROAD_AUTHORITY_FLAGS)
 
     local_task = _entry_by_id(catalog, "local_task_create")
@@ -86,6 +86,19 @@ def test_action_tool_code_catalog_preserves_exact_lanes_and_blocks_broad_authori
     assert patch_apply["exact_local_mutation_available"] is False
     assert patch_apply["blocked_authority_refs"]
 
+    coding_tests = _entry_by_id(catalog, "coding.allowlisted_test_command")
+    assert coding_tests["status"] == "implemented_exact_approval_required"
+    assert coding_tests["capability_kind"] == "code_workflow"
+    assert coding_tests["exact_runtime_lane_available"] is True
+    assert "GET /control-center/coding/test-command-readiness" in (
+        coding_tests["route_refs"]
+    )
+    assert "POST /api/runtime/invocations/{id}/execute" in (
+        coding_tests["route_refs"]
+    )
+    assert "scripts/dev/uaa_runtime.py receipts" in coding_tests["cli_refs"]
+    assert coding_tests["receipt_refs"]
+
     for entry in catalog["entries"]:
         assert isinstance(entry, dict)
         assert entry["operator_visible"] is True
@@ -94,7 +107,7 @@ def test_action_tool_code_catalog_preserves_exact_lanes_and_blocks_broad_authori
 
     prompt_refs = {prompt["prompt_ref"] for prompt in catalog["unblock_prompts"]}
     assert "prompt-ref:unblock-coding-approved-patch-apply" in prompt_refs
-    assert "prompt-ref:unblock-coding-allowlisted-test-command" in prompt_refs
+    assert "prompt-ref:unblock-coding-allowlisted-test-command" not in prompt_refs
     assert "prompt-ref:unblock-callable-tool-catalog" in prompt_refs
 
     serialized = json.dumps(catalog, sort_keys=True).lower()
@@ -125,8 +138,8 @@ def test_actions_inbox_persists_backend_owned_action_tool_code_catalog(
     assert catalog["entry_count"] == len(catalog["entries"])
     assert catalog["exact_local_mutation_count"] == 1
     assert catalog["exact_local_authority_capability_count"] == 1
-    assert catalog["exact_runtime_lane_count"] == 4
-    assert catalog["exact_runtime_authority_capability_count"] == 4
+    assert catalog["exact_runtime_lane_count"] == 5
+    assert catalog["exact_runtime_authority_capability_count"] == 5
     assert catalog["generic_tool_execution_enabled"] is False
 
 
