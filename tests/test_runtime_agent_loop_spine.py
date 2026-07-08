@@ -12,6 +12,8 @@ from ultimate_ai_agent.core.control_center.agent_loop import (
     AGENT_LOOP_COCKPIT_PARITY_CONTRACT_REF,
     AGENT_LOOP_THREAD_CONTRACT_REF,
     AGENT_LOOP_THREAD_ROUTE_REF,
+    EXTERNAL_INFORMATION_HANDLING_CONTRACT_REF,
+    EXTERNAL_INFORMATION_POSTURE_CATEGORY_IDS,
     HIGH_MATURITY_COMPONENT_IDS,
     HIGH_MATURITY_SPINE_CONTRACT_REF,
     SYSTEM_AGENT_EVAL_CATEGORY_IDS,
@@ -123,6 +125,57 @@ def _assert_safe_agent_loop_thread(thread: dict[str, object]) -> None:
         rows_by_id["W9"]["evidence_refs"]
     )
     assert "tests/test_coding_cockpit_read_model.py" in rows_by_id["W9"]["test_refs"]
+    assert rows_by_id["W7"]["score_0_10"] == 7
+    assert EXTERNAL_INFORMATION_HANDLING_CONTRACT_REF in rows_by_id["W7"][
+        "evidence_refs"
+    ]
+    external_info = high_maturity["external_information_handling"]
+    assert external_info["contract_ref"] == EXTERNAL_INFORMATION_HANDLING_CONTRACT_REF
+    assert external_info["backend_owned"] is True
+    assert external_info["local_read_model_only"] is True
+    assert external_info["safe_refs_only"] is True
+    assert external_info["raw_content_included"] is False
+    assert external_info["category_count"] == len(
+        EXTERNAL_INFORMATION_POSTURE_CATEGORY_IDS
+    )
+    assert external_info["implemented_or_blocked_count"] == len(
+        EXTERNAL_INFORMATION_POSTURE_CATEGORY_IDS
+    )
+    assert external_info["existing_exact_network_lane_count"] == 1
+    assert external_info["new_live_web_fetching_added"] is False
+    assert external_info["browser_observe_enabled"] is False
+    assert external_info["browser_action_execution_enabled"] is False
+    assert external_info["provider_search_enabled"] is False
+    assert external_info["provider_sdk_calls_added"] is False
+    assert external_info["connector_writes_added"] is False
+    assert external_info["memory_writes_added"] is False
+    assert external_info["context_injection_added"] is False
+    assert external_info["production_authority_added"] is False
+    external_rows = external_info["rows"]
+    assert [row["category_id"] for row in external_rows] == list(
+        EXTERNAL_INFORMATION_POSTURE_CATEGORY_IDS
+    )
+    exact_rows = [
+        row for row in external_rows if row["existing_exact_network_lane"] is True
+    ]
+    assert [row["category_id"] for row in exact_rows] == [
+        "allowlisted_gateway_preview"
+    ]
+    for external_row in external_rows:
+        assert external_row["safe_refs_only"] is True
+        assert external_row["raw_content_included"] is False
+        assert external_row["untrusted_content_can_instruct_agent"] is False
+        assert external_row["external_content_can_grant_authority"] is False
+        assert external_row["new_live_web_fetching_added"] is False
+        assert external_row["browser_action_execution_enabled"] is False
+        assert external_row["provider_sdk_calls_added"] is False
+        assert external_row["connector_writes_added"] is False
+        assert external_row["memory_writes_added"] is False
+        assert external_row["context_injection_added"] is False
+        assert external_row["production_authority_added"] is False
+        assert external_row["evidence_refs"]
+        assert external_row["test_refs"]
+        assert external_row["blocked_authority_refs"]
     assert rows_by_id["W12"]["score_0_10"] == 7
     assert SYSTEM_AGENT_EVAL_COVERAGE_CONTRACT_REF in rows_by_id["W12"][
         "evidence_refs"

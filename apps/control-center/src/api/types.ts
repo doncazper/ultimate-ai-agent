@@ -7825,6 +7825,66 @@ export interface SystemAgentEvalCoverageRow {
   production_authority_added: boolean;
 }
 
+export interface ExternalInformationHandlingRow {
+  category_id: string;
+  label: string;
+  status: string;
+  network_posture: string;
+  authority_posture: string;
+  safe_summary: string;
+  route_refs: string[];
+  cli_refs: string[];
+  evidence_refs: string[];
+  test_refs: string[];
+  blocked_authority_refs: string[];
+  authority_required: boolean;
+  policy_decision_required: boolean;
+  receipt_required: boolean;
+  existing_exact_network_lane: boolean;
+  safe_refs_only: boolean;
+  raw_content_included: boolean;
+  untrusted_content_can_instruct_agent: boolean;
+  external_content_can_grant_authority: boolean;
+  new_live_web_fetching_added: boolean;
+  browser_observe_enabled: boolean;
+  browser_action_execution_enabled: boolean;
+  provider_search_enabled: boolean;
+  provider_sdk_calls_added: boolean;
+  connector_writes_added: boolean;
+  memory_writes_added: boolean;
+  context_injection_added: boolean;
+  production_authority_added: boolean;
+}
+
+export interface ExternalInformationHandlingPosture {
+  schema_version: string;
+  contract_ref: string;
+  status: string;
+  source: string;
+  route_ref: string;
+  cli_ref: string;
+  backend_owned: boolean;
+  local_read_model_only: boolean;
+  safe_refs_only: boolean;
+  raw_content_included: boolean;
+  category_count: number;
+  implemented_or_blocked_count: number;
+  existing_exact_network_lane_count: number;
+  rows: ExternalInformationHandlingRow[];
+  new_live_web_fetching_added: boolean;
+  browser_observe_enabled: boolean;
+  browser_action_execution_enabled: boolean;
+  provider_search_enabled: boolean;
+  provider_sdk_calls_added: boolean;
+  connector_writes_added: boolean;
+  memory_writes_added: boolean;
+  context_injection_added: boolean;
+  production_authority_added: boolean;
+  safe_summary: string;
+  blocked_authority_refs: string[];
+  redactions_applied: string[];
+}
+
 export interface SystemAgentEvalCoverage {
   schema_version: string;
   contract_ref: string;
@@ -7872,6 +7932,7 @@ export interface HighMaturityAgentSpineReadiness {
   overall_projection_0_100: number;
   coverage_status: string;
   rows: HighMaturityAgentSpineRow[];
+  external_information_handling: ExternalInformationHandlingPosture;
   system_eval_coverage: SystemAgentEvalCoverage;
   blocked_authority_refs: string[];
   next_safe_action: string;

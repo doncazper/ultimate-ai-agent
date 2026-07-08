@@ -2438,6 +2438,14 @@ describe("Web Control Center shell", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByText(/W1: Product loop/i)).toBeInTheDocument();
+    expect(screen.getByText("External Information Handling")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "contract-ref:external-information-handling-posture:v1",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Exact network lanes/)).toBeInTheDocument();
+    expect(screen.getByText(/Provider search/)).toBeInTheDocument();
     expect(screen.getByText("System-Level Eval Coverage")).toBeInTheDocument();
     expect(
       screen.getByText("contract-ref:system-agent-eval-coverage:v1"),

@@ -2,6 +2,20 @@ from __future__ import annotations
 
 from typing import Any
 
+from ultimate_ai_agent.core.control_center.web_evidence_product_slice import (
+    WEB_EVIDENCE_PRODUCT_SLICE_BLOCKED_AUTHORITY_REFS,
+    WEB_EVIDENCE_PRODUCT_SLICE_CLI_REF,
+    WEB_EVIDENCE_PRODUCT_SLICE_CONTRACT_REF,
+    WEB_EVIDENCE_PRODUCT_SLICE_PROOF_REF,
+    WEB_EVIDENCE_PRODUCT_SLICE_ROUTE_REF,
+    WEB_EVIDENCE_PRODUCT_SLICE_SAFE_DISABLE_REF,
+)
+from ultimate_ai_agent.core.network.governed_web_evidence import (
+    GOVERNED_WEB_EVIDENCE_DOCS,
+    GOVERNED_WEB_EVIDENCE_REQUEST_PATH,
+    GOVERNED_WEB_EVIDENCE_STATUS_PATH,
+)
+
 
 AGENT_LOOP_THREAD_CONTRACT_REF = (
     "contract-ref:runtime-agent-loop-thread:v1"
@@ -19,6 +33,9 @@ HIGH_MATURITY_SPINE_CONTRACT_REF = (
 )
 SYSTEM_AGENT_EVAL_COVERAGE_CONTRACT_REF = (
     "contract-ref:system-agent-eval-coverage:v1"
+)
+EXTERNAL_INFORMATION_HANDLING_CONTRACT_REF = (
+    "contract-ref:external-information-handling-posture:v1"
 )
 HIGH_MATURITY_SPINE_CLI_REF = (
     "scripts/dev/uaa_founder_loop.py inspect-high-maturity-spine"
@@ -60,6 +77,308 @@ SYSTEM_AGENT_EVAL_CATEGORY_IDS = (
     "blocked_state_explanation",
     "evidence_completeness",
 )
+EXTERNAL_INFORMATION_POSTURE_CATEGORY_IDS = (
+    "trusted_local_evidence",
+    "operator_supplied_external_metadata",
+    "allowlisted_gateway_preview",
+    "untrusted_content_quarantine",
+    "browser_observe",
+    "browser_action",
+    "provider_search_scrape",
+    "external_content_authority_isolation",
+)
+
+
+def build_external_information_handling_posture() -> dict[str, Any]:
+    """Return web/external information posture without adding new fetch authority."""
+
+    rows = [
+        _external_information_row(
+            category_id="trusted_local_evidence",
+            label="Trusted local evidence",
+            status="implemented_local_read_model",
+            network_posture="local_evidence_only",
+            authority_posture="no_external_authority_required",
+            safe_summary=(
+                "Evidence Timeline and Proof records are local receipt/proof "
+                "refs; they do not expose raw external content as truth."
+            ),
+            route_refs=[
+                "GET /control-center/evidence/timeline",
+                "GET /control-center/proof",
+            ],
+            cli_refs=[
+                "scripts/dev/uaa_founder_loop.py inspect-proof",
+            ],
+            evidence_refs=[
+                "contract-ref:runtime-evidence-audit-spine:v1",
+                "proof-ref:web-evidence:product-slice",
+            ],
+            test_refs=[
+                "tests/test_runtime_evidence_audit.py",
+                "tests/test_claim_evidence_contracts.py",
+            ],
+            blocked_authority_refs=[
+                "blocked-state:external-info:no-raw-content-as-truth",
+            ],
+        ),
+        _external_information_row(
+            category_id="operator_supplied_external_metadata",
+            label="Operator-supplied external metadata",
+            status="implemented_review_only",
+            network_posture="metadata_only_no_fetch",
+            authority_posture="operator_review_required",
+            safe_summary=(
+                "External intake records accept bounded quotes, safe refs, "
+                "freshness posture, and receipts without storing raw pages."
+            ),
+            route_refs=[
+                "GET /control-center/web-evidence/attachments",
+            ],
+            cli_refs=[
+                "scripts/dev/uaa_founder_loop.py inspect-web-evidence",
+            ],
+            evidence_refs=[
+                "contract-ref:governed-web-evidence-intake:v1",
+                *GOVERNED_WEB_EVIDENCE_DOCS[:2],
+            ],
+            test_refs=[
+                "tests/test_governed_web_evidence.py",
+            ],
+            blocked_authority_refs=[
+                "blocked-state:web-evidence:no-raw-body-persistence",
+                "blocked-state:web-evidence:no-context-injection",
+            ],
+        ),
+        _external_information_row(
+            category_id="allowlisted_gateway_preview",
+            label="AuthorityLease-gated gateway preview",
+            status="implemented_exact_lane",
+            network_posture="existing_authority_lease_gated_https_get",
+            authority_posture="requires_browser_read_authority_lease",
+            safe_summary=(
+                "The exact Web Evidence product slice can attach one "
+                "configured-host HTTPS GET preview through WebAccessGateway "
+                "with bounded redaction, audit refs, proof refs, and receipts."
+            ),
+            route_refs=[
+                WEB_EVIDENCE_PRODUCT_SLICE_ROUTE_REF,
+                f"POST {GOVERNED_WEB_EVIDENCE_REQUEST_PATH}",
+                f"GET {GOVERNED_WEB_EVIDENCE_STATUS_PATH}",
+            ],
+            cli_refs=[
+                WEB_EVIDENCE_PRODUCT_SLICE_CLI_REF,
+                "scripts/dev/uaa_founder_loop.py inspect-web-evidence",
+            ],
+            evidence_refs=[
+                WEB_EVIDENCE_PRODUCT_SLICE_CONTRACT_REF,
+                WEB_EVIDENCE_PRODUCT_SLICE_PROOF_REF,
+                WEB_EVIDENCE_PRODUCT_SLICE_SAFE_DISABLE_REF,
+            ],
+            test_refs=[
+                "tests/test_web_evidence_product_slice.py",
+                "tests/test_governed_web_evidence.py",
+                "scripts/verify_beta_08_web_evidence_product_slice.py",
+            ],
+            blocked_authority_refs=list(
+                WEB_EVIDENCE_PRODUCT_SLICE_BLOCKED_AUTHORITY_REFS
+            ),
+            authority_required=True,
+            policy_decision_required=True,
+            receipt_required=True,
+            existing_exact_network_lane=True,
+        ),
+        _external_information_row(
+            category_id="untrusted_content_quarantine",
+            label="Untrusted content quarantine",
+            status="implemented_policy_invariant",
+            network_posture="content_untrusted_safe_refs_only",
+            authority_posture="content_cannot_grant_authority",
+            safe_summary=(
+                "Fetched or attached web content is marked untrusted, redacted, "
+                "safe-ref-only on durable surfaces, and cannot become policy."
+            ),
+            route_refs=[
+                WEB_EVIDENCE_PRODUCT_SLICE_ROUTE_REF,
+                "GET /control-center/evidence/timeline",
+            ],
+            cli_refs=[
+                "scripts/dev/uaa_founder_loop.py inspect-web-evidence",
+            ],
+            evidence_refs=[
+                "src/ultimate_ai_agent/core/network/governed_web_evidence.py",
+                "src/ultimate_ai_agent/core/control_center/web_evidence_product_slice.py",
+            ],
+            test_refs=[
+                "tests/test_governed_web_evidence.py",
+                "tests/test_web_evidence_product_slice.py",
+            ],
+            blocked_authority_refs=[
+                "blocked-state:web-evidence:no-context-injection",
+                "blocked-state:web-evidence:no-memory-write",
+                "blocked-state:web-evidence:no-provider-model-call",
+            ],
+        ),
+        _external_information_row(
+            category_id="browser_observe",
+            label="Browser observe",
+            status="planned_blocked_until_exact_lane",
+            network_posture="future_controlled_observe_only",
+            authority_posture="not_callable_from_agent_loop",
+            safe_summary=(
+                "Browser observe remains future/controlled and must route "
+                "through WebAccessGateway with safe summaries and no cookies, "
+                "clicks, forms, downloads, or raw DOM retention."
+            ),
+            route_refs=[],
+            cli_refs=[],
+            evidence_refs=[
+                "docs/network/WEB_ACCESS_PROVIDER_AUTHORITY_SEQUENCE.md",
+                "docs/network/WEB_ACCESS_GATEWAY.md",
+            ],
+            test_refs=[
+                "scripts/verify_browser_gateway_ladder.py",
+            ],
+            blocked_authority_refs=[
+                "blocked-state:web-evidence:no-browser-actions",
+                "blocked-state:agent-loop:no-browser-automation",
+            ],
+        ),
+        _external_information_row(
+            category_id="browser_action",
+            label="Browser action",
+            status="blocked",
+            network_posture="execution_blocked",
+            authority_posture="no_click_form_auth_download_authority",
+            safe_summary=(
+                "Browser clicks, forms, auth/session state, downloads/uploads, "
+                "and POST-style mutations remain blocked; future dry-run plans "
+                "must not execute actions."
+            ),
+            route_refs=[],
+            cli_refs=[],
+            evidence_refs=[
+                "docs/control_center/PRODUCT_LANGUAGE_RULES.md",
+                "docs/network/WEB_ACCESS_PROVIDER_AUTHORITY_SEQUENCE.md",
+            ],
+            test_refs=[
+                "scripts/verify_browser_gateway_ladder.py",
+                "tests/test_tool_runtime_authority_boundaries.py",
+            ],
+            blocked_authority_refs=[
+                "blocked-state:web-evidence:no-browser-actions",
+                "blocked-state:web-evidence:no-auth-session-state",
+                "blocked-state:web-evidence:no-downloads-or-uploads",
+                "blocked-state:web-evidence:no-post-put-patch-delete",
+            ],
+        ),
+        _external_information_row(
+            category_id="provider_search_scrape",
+            label="Provider search/scrape adapters",
+            status="planned_disabled_adapter_shell",
+            network_posture="provider_runtime_blocked",
+            authority_posture="catalog_visibility_is_not_callable_authority",
+            safe_summary=(
+                "Firecrawl, Browserbase, search, and scrape providers remain "
+                "future/disabled adapter shells unless an exact WebAccessGateway "
+                "lane grants read-only authority with audit and receipts."
+            ),
+            route_refs=[],
+            cli_refs=[],
+            evidence_refs=[
+                "docs/network/WEB_ACCESS_PROVIDER_AUTHORITY_SEQUENCE.md",
+                "docs/control_center/UAA_RUNTIME_MODEL_PROVIDER_RESEARCH.md",
+            ],
+            test_refs=[
+                "tests/test_model_runtime_no_real_calls.py",
+                "tests/test_tool_runtime_authority_boundaries.py",
+            ],
+            blocked_authority_refs=[
+                "blocked-state:agent-loop:no-provider-sdk-calls",
+                "blocked-state:web-evidence:no-provider-model-call",
+                "blocked-state:web-evidence:no-connector-write",
+            ],
+        ),
+        _external_information_row(
+            category_id="external_content_authority_isolation",
+            label="External content authority isolation",
+            status="implemented_invariant",
+            network_posture="external_data_never_authority",
+            authority_posture="approvals_authorize_content_does_not",
+            safe_summary=(
+                "External data can support citations and evidence refs, but "
+                "approvals and AuthorityLeases remain the only authority source."
+            ),
+            route_refs=[
+                "GET /api/runtime/authority-state",
+                AGENT_LOOP_THREAD_ROUTE_REF,
+            ],
+            cli_refs=[
+                HIGH_MATURITY_SPINE_CLI_REF,
+            ],
+            evidence_refs=[
+                "contract-ref:authority-lease:v1",
+                EXTERNAL_INFORMATION_HANDLING_CONTRACT_REF,
+            ],
+            test_refs=[
+                "tests/test_authority_leases.py",
+                "tests/test_runtime_agent_loop_spine.py",
+            ],
+            blocked_authority_refs=[
+                "blocked-state:external-info:no-authority-from-content",
+                "blocked-state:agent-loop:no-production-authority",
+            ],
+        ),
+    ]
+    return {
+        "schema_version": "external_information_handling_posture.v1",
+        "contract_ref": EXTERNAL_INFORMATION_HANDLING_CONTRACT_REF,
+        "status": "implemented_read_only_posture_map_existing_lanes_only",
+        "source": AGENT_LOOP_THREAD_SOURCE,
+        "route_ref": AGENT_LOOP_THREAD_ROUTE_REF,
+        "cli_ref": HIGH_MATURITY_SPINE_CLI_REF,
+        "backend_owned": True,
+        "local_read_model_only": True,
+        "safe_refs_only": True,
+        "raw_content_included": False,
+        "category_count": len(rows),
+        "implemented_or_blocked_count": len(rows),
+        "existing_exact_network_lane_count": sum(
+            1 for row in rows if row["existing_exact_network_lane"] is True
+        ),
+        "rows": rows,
+        "new_live_web_fetching_added": False,
+        "browser_observe_enabled": False,
+        "browser_action_execution_enabled": False,
+        "provider_search_enabled": False,
+        "provider_sdk_calls_added": False,
+        "connector_writes_added": False,
+        "memory_writes_added": False,
+        "context_injection_added": False,
+        "production_authority_added": False,
+        "safe_summary": (
+            "External information handling is explicit: local evidence is "
+            "receipt/proof backed, one existing WebAccessGateway HTTPS GET lane "
+            "is AuthorityLease-gated, and browser/provider/action expansion "
+            "remains planned or blocked."
+        ),
+        "blocked_authority_refs": _dedupe(
+            [
+                *WEB_EVIDENCE_PRODUCT_SLICE_BLOCKED_AUTHORITY_REFS,
+                "blocked-state:external-info:no-authority-from-content",
+                "blocked-state:agent-loop:no-provider-sdk-calls",
+                "blocked-state:agent-loop:no-browser-automation",
+            ]
+        ),
+        "redactions_applied": [
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_web_content_omitted",
+            "raw_url_omitted",
+            "raw_headers_omitted",
+            "raw_body_omitted",
+        ],
+    }
 
 
 def build_system_agent_eval_coverage() -> dict[str, Any]:
@@ -433,13 +752,15 @@ def build_high_maturity_agent_spine_readiness() -> dict[str, Any]:
             component="Web and external evidence",
             status="partial",
             maturity="usable",
-            score=6,
+            score=7,
             safe_summary=(
-                "Web/external information is gateway-governed, preview-only, "
-                "untrusted, source-ref based, and separated from browser or "
-                "connector action authority."
+                "Web/external information is mapped into an explicit handling "
+                "posture: local evidence refs, one existing AuthorityLease-gated "
+                "WebAccessGateway preview lane, untrusted-content quarantine, "
+                "and blocked browser/provider/action expansion."
             ),
             evidence_refs=[
+                EXTERNAL_INFORMATION_HANDLING_CONTRACT_REF,
                 "GET /control-center/web-evidence/attachments",
                 "docs/network/WEB_ACCESS_PROVIDER_AUTHORITY_SEQUENCE.md",
                 "src/ultimate_ai_agent/core/network/governed_web_evidence.py",
@@ -649,6 +970,9 @@ def build_high_maturity_agent_spine_readiness() -> dict[str, Any]:
             "all_w1_w13_have_code_docs_tests_or_governed_blocked_posture"
         ),
         "rows": rows,
+        "external_information_handling": (
+            build_external_information_handling_posture()
+        ),
         "system_eval_coverage": build_system_agent_eval_coverage(),
         "blocked_authority_refs": list(AGENT_LOOP_THREAD_BLOCKED_AUTHORITY_REFS),
         "next_safe_action": (
@@ -1042,6 +1366,56 @@ def _system_eval_row(
         "tool_execution_added": False,
         "shell_execution_added": False,
         "browser_automation_added": False,
+        "connector_writes_added": False,
+        "memory_writes_added": False,
+        "context_injection_added": False,
+        "production_authority_added": False,
+    }
+
+
+def _external_information_row(
+    *,
+    category_id: str,
+    label: str,
+    status: str,
+    network_posture: str,
+    authority_posture: str,
+    safe_summary: str,
+    route_refs: list[str],
+    cli_refs: list[str],
+    evidence_refs: list[str],
+    test_refs: list[str],
+    blocked_authority_refs: list[str],
+    authority_required: bool = False,
+    policy_decision_required: bool = True,
+    receipt_required: bool = False,
+    existing_exact_network_lane: bool = False,
+) -> dict[str, Any]:
+    return {
+        "category_id": _safe_text(category_id),
+        "label": _safe_text(label),
+        "status": _safe_text(status),
+        "network_posture": _safe_text(network_posture),
+        "authority_posture": _safe_text(authority_posture),
+        "safe_summary": _safe_text(safe_summary),
+        "route_refs": _dedupe(route_refs),
+        "cli_refs": _dedupe(cli_refs),
+        "evidence_refs": _dedupe(evidence_refs),
+        "test_refs": _dedupe(test_refs),
+        "blocked_authority_refs": _dedupe(blocked_authority_refs),
+        "authority_required": authority_required,
+        "policy_decision_required": policy_decision_required,
+        "receipt_required": receipt_required,
+        "existing_exact_network_lane": existing_exact_network_lane,
+        "safe_refs_only": True,
+        "raw_content_included": False,
+        "untrusted_content_can_instruct_agent": False,
+        "external_content_can_grant_authority": False,
+        "new_live_web_fetching_added": False,
+        "browser_observe_enabled": False,
+        "browser_action_execution_enabled": False,
+        "provider_search_enabled": False,
+        "provider_sdk_calls_added": False,
         "connector_writes_added": False,
         "memory_writes_added": False,
         "context_injection_added": False,

@@ -4351,6 +4351,67 @@ function AgentLoopThreadPanel({
         </ul>
         <div
           className="detail-panel compact"
+          aria-label="External information handling"
+        >
+          <strong>External Information Handling</strong>
+          <dl className="detail-list compact">
+            <DetailTerm
+              label="Contract"
+              value={
+                readModel.high_maturity_spine_readiness
+                  .external_information_handling.contract_ref
+              }
+            />
+            <DetailTerm
+              label="Exact network lanes"
+              value={`${readModel.high_maturity_spine_readiness.external_information_handling.existing_exact_network_lane_count}`}
+            />
+            <DetailTerm
+              label="Browser actions"
+              value={
+                readModel.high_maturity_spine_readiness
+                  .external_information_handling.browser_action_execution_enabled
+                  ? "enabled"
+                  : "blocked"
+              }
+            />
+            <DetailTerm
+              label="Provider search"
+              value={
+                readModel.high_maturity_spine_readiness
+                  .external_information_handling.provider_search_enabled
+                  ? "enabled"
+                  : "blocked"
+              }
+            />
+          </dl>
+          <p className="safe-copy">
+            {
+              readModel.high_maturity_spine_readiness.external_information_handling
+                .safe_summary
+            }
+          </p>
+          <ul className="ref-list decision-matrix-list">
+            {readModel.high_maturity_spine_readiness.external_information_handling.rows
+              .slice(0, 4)
+              .map((row) => (
+                <li key={row.category_id}>
+                  <strong>{row.label}</strong> <span>{row.status}</span>
+                  <p className="muted">{row.safe_summary}</p>
+                  <RefListWithFallback
+                    emptyLabel="External info refs: none"
+                    refs={[
+                      ...row.route_refs.slice(0, 1),
+                      ...row.evidence_refs.slice(0, 2),
+                      ...row.blocked_authority_refs.slice(0, 1),
+                    ]}
+                  />
+                </li>
+              ))}
+          </ul>
+        </div>
+        <div
+          className="detail-panel compact"
           aria-label="System-level eval coverage"
         >
           <strong>System-Level Eval Coverage</strong>

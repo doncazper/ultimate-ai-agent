@@ -15,6 +15,8 @@ from ultimate_ai_agent.core.control_center.agent_loop import (  # noqa: E402
     AGENT_LOOP_THREAD_BLOCKED_AUTHORITY_REFS,
     AGENT_LOOP_THREAD_CONTRACT_REF,
     AGENT_LOOP_THREAD_ROUTE_REF,
+    EXTERNAL_INFORMATION_HANDLING_CONTRACT_REF,
+    EXTERNAL_INFORMATION_POSTURE_CATEGORY_IDS,
     HIGH_MATURITY_COMPONENT_IDS,
     HIGH_MATURITY_SPINE_CONTRACT_REF,
     SYSTEM_AGENT_EVAL_CATEGORY_IDS,
@@ -110,6 +112,120 @@ def main() -> int:
                             "High-Maturity Agent Spine row missing "
                             f"{required_list}: {row.get('weakness_id')}"
                         )
+            external_info = high_maturity.get("external_information_handling")
+            if not isinstance(external_info, dict):
+                failures.append(
+                    "High-Maturity Agent Spine external information posture missing"
+                )
+            else:
+                if external_info.get("contract_ref") != (
+                    EXTERNAL_INFORMATION_HANDLING_CONTRACT_REF
+                ):
+                    failures.append("external information contract ref drifted")
+                if external_info.get("category_count") != len(
+                    EXTERNAL_INFORMATION_POSTURE_CATEGORY_IDS
+                ):
+                    failures.append(
+                        "external information posture category count drifted"
+                    )
+                if external_info.get("implemented_or_blocked_count") != len(
+                    EXTERNAL_INFORMATION_POSTURE_CATEGORY_IDS
+                ):
+                    failures.append(
+                        "external information posture implementation count drifted"
+                    )
+                if external_info.get("existing_exact_network_lane_count") != 1:
+                    failures.append(
+                        "external information posture exact network lane count drifted"
+                    )
+                for field in [
+                    "backend_owned",
+                    "local_read_model_only",
+                    "safe_refs_only",
+                ]:
+                    if external_info.get(field) is not True:
+                        failures.append(
+                            f"external information posture {field} must be true"
+                        )
+                for field in [
+                    "raw_content_included",
+                    "new_live_web_fetching_added",
+                    "browser_observe_enabled",
+                    "browser_action_execution_enabled",
+                    "provider_search_enabled",
+                    "provider_sdk_calls_added",
+                    "connector_writes_added",
+                    "memory_writes_added",
+                    "context_injection_added",
+                    "production_authority_added",
+                ]:
+                    if external_info.get(field) is not False:
+                        failures.append(
+                            f"external information posture {field} must be false"
+                        )
+                external_rows = external_info.get("rows")
+                if not isinstance(external_rows, list):
+                    failures.append("external information posture rows missing")
+                else:
+                    external_ids = [
+                        row.get("category_id")
+                        for row in external_rows
+                        if isinstance(row, dict)
+                    ]
+                    if external_ids != list(EXTERNAL_INFORMATION_POSTURE_CATEGORY_IDS):
+                        failures.append(
+                            "external information posture category ids drifted"
+                        )
+                    exact_rows = [
+                        row
+                        for row in external_rows
+                        if isinstance(row, dict)
+                        and row.get("existing_exact_network_lane") is True
+                    ]
+                    if [row.get("category_id") for row in exact_rows] != [
+                        "allowlisted_gateway_preview"
+                    ]:
+                        failures.append(
+                            "external information exact network lane identity drifted"
+                        )
+                    for row in external_rows:
+                        if not isinstance(row, dict):
+                            failures.append(
+                                "external information posture row is not an object"
+                            )
+                            continue
+                        if row.get("safe_refs_only") is not True:
+                            failures.append(
+                                "external information row must be safe-ref-only: "
+                                f"{row.get('category_id')}"
+                            )
+                        for field in [
+                            "raw_content_included",
+                            "untrusted_content_can_instruct_agent",
+                            "external_content_can_grant_authority",
+                            "new_live_web_fetching_added",
+                            "browser_action_execution_enabled",
+                            "provider_sdk_calls_added",
+                            "connector_writes_added",
+                            "memory_writes_added",
+                            "context_injection_added",
+                            "production_authority_added",
+                        ]:
+                            if row.get(field) is not False:
+                                failures.append(
+                                    "external information posture broadened "
+                                    f"authority: {row.get('category_id')} {field}"
+                                )
+                        for required_list in [
+                            "evidence_refs",
+                            "test_refs",
+                            "blocked_authority_refs",
+                        ]:
+                            if not row.get(required_list):
+                                failures.append(
+                                    "external information row missing "
+                                    f"{required_list}: {row.get('category_id')}"
+                                )
             system_eval = high_maturity.get("system_eval_coverage")
             if not isinstance(system_eval, dict):
                 failures.append("High-Maturity Agent Spine system eval coverage missing")

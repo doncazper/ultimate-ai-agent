@@ -93,6 +93,7 @@ CAPABILITIES_DECLARED = [
     "control_center_today_summary",
     "control_center_agent_loop_thread_read_model",
     "control_center_system_agent_eval_coverage_read_model",
+    "control_center_external_information_handling_read_model",
     "control_center_action_inbox_summary",
     "control_center_today_to_action_envelope_promotion",
     "control_center_action_decision_state_machine",

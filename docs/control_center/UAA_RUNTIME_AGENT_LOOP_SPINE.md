@@ -43,6 +43,13 @@ backend-owned High-Maturity Agent Spine coverage map for W1-W13:
   the Agent Loop Thread panel renders the W1-W13 rows, score projection,
   evidence refs, test refs, gaps, and next safe action without raw JSON as the
   primary operator workflow.
+- External information handling:
+  `high_maturity_spine_readiness.external_information_handling` maps trusted
+  local evidence, operator-supplied external metadata, the existing
+  Browser/read AuthorityLease-gated WebAccessGateway HTTPS GET preview lane,
+  untrusted-content quarantine, browser observe, browser action, provider
+  search/scrape adapter posture, and external-content authority isolation to
+  safe refs, blocked refs, tests, and no-new-authority invariants.
 - System eval coverage:
   `high_maturity_spine_readiness.system_eval_coverage` maps route choice,
   ambiguity handling, task decomposition, approval-needed detection, memory
