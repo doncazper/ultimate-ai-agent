@@ -19,6 +19,9 @@ Phase 03 hardens the existing Run Observability contract:
 
 - Core:
   `src/ultimate_ai_agent/core/execution/run_observability.py`
+- Agent Loop posture:
+  `GET /control-center/agent-loop/thread#high_maturity_spine_readiness.durable_orchestration_posture`
+  / `contract-ref:durable-orchestration-posture:v1`
 - API:
   `GET /control-center/runs/observability`
 - CLI:

@@ -2438,6 +2438,12 @@ describe("Web Control Center shell", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByText(/W1: Product loop/i)).toBeInTheDocument();
+    expect(screen.getByText("Durable Orchestration Posture")).toBeInTheDocument();
+    expect(
+      screen.getByText("contract-ref:durable-orchestration-posture:v1"),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Exact runtime lanes/)).toBeInTheDocument();
+    expect(screen.getByText(/Retry execution/)).toBeInTheDocument();
     expect(screen.getByText("External Information Handling")).toBeInTheDocument();
     expect(
       screen.getByText(

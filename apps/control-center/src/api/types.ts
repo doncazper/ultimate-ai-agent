@@ -7856,6 +7856,74 @@ export interface ExternalInformationHandlingRow {
   production_authority_added: boolean;
 }
 
+export interface DurableOrchestrationPostureRow {
+  category_id: string;
+  label: string;
+  status: string;
+  orchestration_posture: string;
+  authority_posture: string;
+  safe_summary: string;
+  route_refs: string[];
+  cli_refs: string[];
+  evidence_refs: string[];
+  test_refs: string[];
+  blocked_authority_refs: string[];
+  approval_required: boolean;
+  receipt_required: boolean;
+  existing_exact_runtime_lane: boolean;
+  safe_refs_only: boolean;
+  raw_content_included: boolean;
+  raw_payloads_persisted: boolean;
+  read_model_executes_work: boolean;
+  control_center_mints_authority: boolean;
+  new_execution_authority_added: boolean;
+  retry_execution_enabled: boolean;
+  recovery_execution_enabled: boolean;
+  cancel_execution_enabled: boolean;
+  dead_letter_execution_enabled: boolean;
+  background_worker_enabled: boolean;
+  scheduler_enabled: boolean;
+  autonomous_execution_enabled: boolean;
+  provider_model_calls_added: boolean;
+  connector_writes_added: boolean;
+  unrestricted_shell_added: boolean;
+  production_authority_added: boolean;
+}
+
+export interface DurableOrchestrationPosture {
+  schema_version: string;
+  contract_ref: string;
+  status: string;
+  source: string;
+  route_ref: string;
+  cli_ref: string;
+  backend_owned: boolean;
+  local_read_model_only: boolean;
+  safe_refs_only: boolean;
+  raw_content_included: boolean;
+  category_count: number;
+  implemented_or_blocked_count: number;
+  canonical_lifecycle_state_count: number;
+  canonical_event_type_count: number;
+  existing_exact_runtime_lane_count: number;
+  rows: DurableOrchestrationPostureRow[];
+  new_execution_authority_added: boolean;
+  retry_execution_enabled: boolean;
+  recovery_execution_enabled: boolean;
+  cancel_execution_enabled: boolean;
+  dead_letter_execution_enabled: boolean;
+  background_worker_enabled: boolean;
+  scheduler_enabled: boolean;
+  autonomous_execution_enabled: boolean;
+  provider_model_calls_added: boolean;
+  connector_writes_added: boolean;
+  unrestricted_shell_added: boolean;
+  production_authority_added: boolean;
+  safe_summary: string;
+  blocked_authority_refs: string[];
+  redactions_applied: string[];
+}
+
 export interface ExternalInformationHandlingPosture {
   schema_version: string;
   contract_ref: string;
@@ -7932,6 +8000,7 @@ export interface HighMaturityAgentSpineReadiness {
   overall_projection_0_100: number;
   coverage_status: string;
   rows: HighMaturityAgentSpineRow[];
+  durable_orchestration_posture: DurableOrchestrationPosture;
   external_information_handling: ExternalInformationHandlingPosture;
   system_eval_coverage: SystemAgentEvalCoverage;
   blocked_authority_refs: string[];

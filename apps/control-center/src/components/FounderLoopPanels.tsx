@@ -4351,6 +4351,67 @@ function AgentLoopThreadPanel({
         </ul>
         <div
           className="detail-panel compact"
+          aria-label="Durable orchestration posture"
+        >
+          <strong>Durable Orchestration Posture</strong>
+          <dl className="detail-list compact">
+            <DetailTerm
+              label="Contract"
+              value={
+                readModel.high_maturity_spine_readiness
+                  .durable_orchestration_posture.contract_ref
+              }
+            />
+            <DetailTerm
+              label="Exact runtime lanes"
+              value={`${readModel.high_maturity_spine_readiness.durable_orchestration_posture.existing_exact_runtime_lane_count}`}
+            />
+            <DetailTerm
+              label="Retry execution"
+              value={
+                readModel.high_maturity_spine_readiness
+                  .durable_orchestration_posture.retry_execution_enabled
+                  ? "enabled"
+                  : "blocked"
+              }
+            />
+            <DetailTerm
+              label="Scheduler"
+              value={
+                readModel.high_maturity_spine_readiness
+                  .durable_orchestration_posture.scheduler_enabled
+                  ? "enabled"
+                  : "blocked"
+              }
+            />
+          </dl>
+          <p className="safe-copy">
+            {
+              readModel.high_maturity_spine_readiness.durable_orchestration_posture
+                .safe_summary
+            }
+          </p>
+          <ul className="ref-list decision-matrix-list">
+            {readModel.high_maturity_spine_readiness.durable_orchestration_posture.rows
+              .slice(0, 4)
+              .map((row) => (
+                <li key={row.category_id}>
+                  <strong>{row.label}</strong> <span>{row.status}</span>
+                  <p className="muted">{row.safe_summary}</p>
+                  <RefListWithFallback
+                    emptyLabel="Orchestration refs: none"
+                    refs={[
+                      ...row.route_refs.slice(0, 1),
+                      ...row.evidence_refs.slice(0, 2),
+                      ...row.blocked_authority_refs.slice(0, 1),
+                    ]}
+                  />
+                </li>
+              ))}
+          </ul>
+        </div>
+        <div
+          className="detail-panel compact"
           aria-label="External information handling"
         >
           <strong>External Information Handling</strong>

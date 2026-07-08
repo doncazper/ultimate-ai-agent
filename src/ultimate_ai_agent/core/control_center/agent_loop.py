@@ -15,6 +15,23 @@ from ultimate_ai_agent.core.network.governed_web_evidence import (
     GOVERNED_WEB_EVIDENCE_REQUEST_PATH,
     GOVERNED_WEB_EVIDENCE_STATUS_PATH,
 )
+from ultimate_ai_agent.core.execution import (
+    CANONICAL_RUN_EVENT_TYPES,
+    CANONICAL_RUN_LIFECYCLE_STATES,
+)
+from ultimate_ai_agent.core.execution.staged_orchestration import (
+    STAGED_ORCHESTRATION_API_REF,
+    STAGED_ORCHESTRATION_APPROVED_RUNTIME_COMMAND_AUTHORITY_CAPABILITY_REF,
+    STAGED_ORCHESTRATION_APPROVED_RUNTIME_COMMAND_AUTHORITY_DOMAIN_REF,
+    STAGED_ORCHESTRATION_APPROVED_RUNTIME_COMMAND_AUTHORITY_MODE_REF,
+    STAGED_ORCHESTRATION_AUTHORITY_STATE_CLI_REF,
+    STAGED_ORCHESTRATION_AUTHORITY_STATE_ROUTE_REF,
+    STAGED_ORCHESTRATION_BLOCKED_AUTHORITY_REFS,
+    STAGED_ORCHESTRATION_CLI_REF,
+    STAGED_ORCHESTRATION_CONTRACT_REF,
+    STAGED_ORCHESTRATION_READ_MODEL_AUTHORITY_MAPPING_REF,
+    STAGED_ORCHESTRATION_RUNTIME_COMMAND_AUTHORITY_MAPPING_REF,
+)
 
 
 AGENT_LOOP_THREAD_CONTRACT_REF = (
@@ -30,6 +47,9 @@ AGENT_LOOP_COCKPIT_PARITY_CLI_REF = (
 )
 HIGH_MATURITY_SPINE_CONTRACT_REF = (
     "contract-ref:high-maturity-agent-spine-coverage:v1"
+)
+DURABLE_ORCHESTRATION_POSTURE_CONTRACT_REF = (
+    "contract-ref:durable-orchestration-posture:v1"
 )
 SYSTEM_AGENT_EVAL_COVERAGE_CONTRACT_REF = (
     "contract-ref:system-agent-eval-coverage:v1"
@@ -68,6 +88,17 @@ HIGH_MATURITY_COMPONENT_IDS = (
     "W12",
     "W13",
 )
+DURABLE_ORCHESTRATION_POSTURE_CATEGORY_IDS = (
+    "append_first_run_records",
+    "canonical_lifecycle_states",
+    "operator_run_observability",
+    "approval_wait_state",
+    "retry_recovery_diagnostics",
+    "cancellation_dead_letter_state",
+    "staged_plan_checkpoints",
+    "approved_runtime_command_step",
+    "autonomous_worker_scheduler",
+)
 SYSTEM_AGENT_EVAL_CATEGORY_IDS = (
     "route_choice",
     "ambiguity_handling",
@@ -87,6 +118,339 @@ EXTERNAL_INFORMATION_POSTURE_CATEGORY_IDS = (
     "provider_search_scrape",
     "external_content_authority_isolation",
 )
+
+
+def build_durable_orchestration_posture() -> dict[str, Any]:
+    """Return durable orchestration posture without adding run-control execution."""
+
+    rows = [
+        _durable_orchestration_row(
+            category_id="append_first_run_records",
+            label="Append-first run records",
+            status="implemented_append_first_storage",
+            orchestration_posture="durable_state_event_log",
+            authority_posture="state_projection_only",
+            safe_summary=(
+                "Durable run records and receipt summaries are append-first, "
+                "idempotent, hash-checked on load, and safe-ref-only."
+            ),
+            route_refs=[
+                "GET /control-center/runs/observability",
+            ],
+            cli_refs=[
+                "python -m ultimate_ai_agent.core.task_decomposition.cli inspect-run-observability",
+            ],
+            evidence_refs=[
+                "src/ultimate_ai_agent/core/execution/durable_runs.py",
+                "src/ultimate_ai_agent/core/execution/read_models.py",
+            ],
+            test_refs=[
+                "tests/test_durable_run_lifecycle_read_model.py",
+            ],
+            blocked_authority_refs=[
+                "blocked-state:durable-orchestration:no-state-mutation-from-read-model",
+            ],
+        ),
+        _durable_orchestration_row(
+            category_id="canonical_lifecycle_states",
+            label="Canonical lifecycle states",
+            status="implemented_lifecycle_projection",
+            orchestration_posture="canonical_state_event_projection",
+            authority_posture="transitions_require_core_contracts",
+            safe_summary=(
+                "Lifecycle state and event names are canonicalized for operator "
+                "inspection across created, queued, running, blocked, failed, "
+                "canceled, and succeeded posture."
+            ),
+            route_refs=[
+                "GET /control-center/runs/observability",
+            ],
+            cli_refs=[
+                "python -m ultimate_ai_agent.core.task_decomposition.cli inspect-run-observability",
+            ],
+            evidence_refs=[
+                "contract-ref:durable-run-lifecycle-read-model:v1",
+            ],
+            test_refs=[
+                "tests/test_durable_run_lifecycle_read_model.py",
+            ],
+            blocked_authority_refs=[
+                "blocked-state:durable-orchestration:transitions-not-ui-authority",
+            ],
+        ),
+        _durable_orchestration_row(
+            category_id="operator_run_observability",
+            label="Operator run observability",
+            status="implemented_read_model",
+            orchestration_posture="phase_step_checkpoint_visibility",
+            authority_posture="operator_inspection_only",
+            safe_summary=(
+                "Run Observability exposes current phase, current step, "
+                "checkpoint summaries, redacted error summaries, evidence refs, "
+                "and blocked authority flags."
+            ),
+            route_refs=[
+                "GET /control-center/runs/observability",
+            ],
+            cli_refs=[
+                "python -m ultimate_ai_agent.core.task_decomposition.cli inspect-run-observability",
+            ],
+            evidence_refs=[
+                "docs/control_center/UAA_RUNTIME_DURABLE_ORCHESTRATION.md",
+            ],
+            test_refs=[
+                "scripts/verify_uaa_runtime_durable_orchestration.py",
+            ],
+            blocked_authority_refs=[
+                "blocked-state:durable-orchestration:no-ui-mutation-controls",
+                "blocked-state:durable-orchestration:no-production-authority",
+            ],
+        ),
+        _durable_orchestration_row(
+            category_id="approval_wait_state",
+            label="Approval wait state",
+            status="implemented_identifier_only",
+            orchestration_posture="approval_refs_visible",
+            authority_posture="approval_refs_do_not_grant_authority",
+            safe_summary=(
+                "Approval wait state shows approval refs, but those refs remain "
+                "identifiers until exact LocalApprovalAuthority and "
+                "AuthorityLease scope are validated."
+            ),
+            route_refs=[
+                "GET /control-center/runs/observability",
+                STAGED_ORCHESTRATION_AUTHORITY_STATE_ROUTE_REF,
+            ],
+            cli_refs=[
+                STAGED_ORCHESTRATION_AUTHORITY_STATE_CLI_REF,
+            ],
+            evidence_refs=[
+                "contract-ref:turn-run-approval-chain:v1",
+                "contract-ref:authority-lease:v1",
+            ],
+            test_refs=[
+                "scripts/verify_uaa_runtime_durable_orchestration.py",
+                "tests/test_turn_run_approval_chain.py",
+                "tests/test_authority_leases.py",
+            ],
+            blocked_authority_refs=[
+                "blocked-state:durable-orchestration:approval-ref-not-authority",
+            ],
+            approval_required=True,
+        ),
+        _durable_orchestration_row(
+            category_id="retry_recovery_diagnostics",
+            label="Retry and recovery diagnostics",
+            status="implemented_blocked_execution_posture",
+            orchestration_posture="diagnostics_visible_execution_blocked",
+            authority_posture="retry_recovery_execution_blocked",
+            safe_summary=(
+                "Retry and recovery state is inspectable, including refs and "
+                "redacted diagnostics, but retry/recovery execution remains "
+                "blocked."
+            ),
+            route_refs=[
+                "GET /control-center/runs/observability",
+            ],
+            cli_refs=[
+                "python -m ultimate_ai_agent.core.task_decomposition.cli inspect-run-observability",
+            ],
+            evidence_refs=[
+                "docs/control_center/UAA_RUNTIME_DURABLE_ORCHESTRATION.md",
+            ],
+            test_refs=[
+                "scripts/verify_uaa_runtime_durable_orchestration.py",
+                "tests/test_durable_run_lifecycle_read_model.py",
+            ],
+            blocked_authority_refs=[
+                "blocked-state:durable-orchestration:no-retry-execution",
+                "blocked-state:durable-orchestration:no-recovery-execution",
+            ],
+        ),
+        _durable_orchestration_row(
+            category_id="cancellation_dead_letter_state",
+            label="Cancellation and dead-letter state",
+            status="implemented_blocked_execution_posture",
+            orchestration_posture="cancel_dead_letter_visible_execution_blocked",
+            authority_posture="cancel_dead_letter_execution_blocked",
+            safe_summary=(
+                "Cancellation and dead-letter state is visible with refs and "
+                "safe summaries; cancel/dead-letter execution controls remain "
+                "blocked."
+            ),
+            route_refs=[
+                "GET /control-center/runs/observability",
+            ],
+            cli_refs=[
+                "python -m ultimate_ai_agent.core.task_decomposition.cli inspect-run-observability",
+            ],
+            evidence_refs=[
+                "docs/control_center/UAA_RUNTIME_DURABLE_ORCHESTRATION.md",
+            ],
+            test_refs=[
+                "scripts/verify_uaa_runtime_durable_orchestration.py",
+                "tests/test_durable_run_lifecycle_read_model.py",
+            ],
+            blocked_authority_refs=[
+                "blocked-state:durable-orchestration:no-cancel-execution",
+                "blocked-state:durable-orchestration:no-dead-letter-execution",
+            ],
+        ),
+        _durable_orchestration_row(
+            category_id="staged_plan_checkpoints",
+            label="Staged plan checkpoints",
+            status="implemented_read_model",
+            orchestration_posture="stage_step_dependency_checkpoint_model",
+            authority_posture="checkpoint_replay_no_effect",
+            safe_summary=(
+                "Staged orchestration exposes stages, steps, dependencies, "
+                "checkpoints, degraded handoffs, idempotent replay, and blocked "
+                "authority refs as a backend-owned read model."
+            ),
+            route_refs=[
+                STAGED_ORCHESTRATION_API_REF,
+            ],
+            cli_refs=[
+                STAGED_ORCHESTRATION_CLI_REF,
+            ],
+            evidence_refs=[
+                STAGED_ORCHESTRATION_CONTRACT_REF,
+                STAGED_ORCHESTRATION_READ_MODEL_AUTHORITY_MAPPING_REF,
+            ],
+            test_refs=[
+                "tests/test_staged_orchestration_engine.py",
+                "scripts/verify_uaa_runtime_staged_orchestration.py",
+            ],
+            blocked_authority_refs=list(STAGED_ORCHESTRATION_BLOCKED_AUTHORITY_REFS),
+            receipt_required=True,
+        ),
+        _durable_orchestration_row(
+            category_id="approved_runtime_command_step",
+            label="Approved runtime command step",
+            status="implemented_exact_lane",
+            orchestration_posture="exact_runtime_command_step",
+            authority_posture="requires_workspace_execute_lease_and_action_approval",
+            safe_summary=(
+                "One staged step class may call the existing RuntimeGateway "
+                "approved utility command lane only with active workspace "
+                "execute authority, Action Inbox approval, idempotency, "
+                "safe-disable, rollback, and receipt refs."
+            ),
+            route_refs=[
+                STAGED_ORCHESTRATION_API_REF,
+                STAGED_ORCHESTRATION_AUTHORITY_STATE_ROUTE_REF,
+            ],
+            cli_refs=[
+                STAGED_ORCHESTRATION_CLI_REF,
+                STAGED_ORCHESTRATION_AUTHORITY_STATE_CLI_REF,
+            ],
+            evidence_refs=[
+                STAGED_ORCHESTRATION_CONTRACT_REF,
+                STAGED_ORCHESTRATION_RUNTIME_COMMAND_AUTHORITY_MAPPING_REF,
+                STAGED_ORCHESTRATION_APPROVED_RUNTIME_COMMAND_AUTHORITY_MODE_REF,
+                STAGED_ORCHESTRATION_APPROVED_RUNTIME_COMMAND_AUTHORITY_DOMAIN_REF,
+                STAGED_ORCHESTRATION_APPROVED_RUNTIME_COMMAND_AUTHORITY_CAPABILITY_REF,
+            ],
+            test_refs=[
+                "tests/test_staged_orchestration_engine.py",
+                "tests/test_runtime_action_tool_code_lanes.py",
+            ],
+            blocked_authority_refs=[
+                "blocked-state:staged-orchestration:no-unrestricted-command-execution",
+                "blocked-state:staged-orchestration:no-autonomous-worker",
+                "blocked-state:staged-orchestration:no-production-authority",
+            ],
+            approval_required=True,
+            receipt_required=True,
+            existing_exact_runtime_lane=True,
+        ),
+        _durable_orchestration_row(
+            category_id="autonomous_worker_scheduler",
+            label="Autonomous worker and scheduler",
+            status="blocked",
+            orchestration_posture="no_background_worker_or_scheduler",
+            authority_posture="delegated_runtime_window_not_granted",
+            safe_summary=(
+                "Background workers, schedulers, autonomous retry loops, live "
+                "streaming runtime, and delegated production authority remain "
+                "blocked until a separate exact milestone grants them."
+            ),
+            route_refs=[],
+            cli_refs=[],
+            evidence_refs=[
+                "docs/control_center/UAA_RUNTIME_DURABLE_ORCHESTRATION.md",
+                "docs/runtime/UAA_RUNTIME_STAGED_ORCHESTRATION_ENGINE.md",
+            ],
+            test_refs=[
+                "scripts/verify_uaa_runtime_durable_orchestration.py",
+                "tests/test_staged_orchestration_engine.py",
+            ],
+            blocked_authority_refs=[
+                "blocked-state:durable-orchestration:no-background-worker",
+                "blocked-state:durable-orchestration:no-scheduler",
+                "blocked-state:durable-orchestration:no-autonomous-execution",
+                "blocked-state:durable-orchestration:no-production-authority",
+            ],
+        ),
+    ]
+    return {
+        "schema_version": "durable_orchestration_posture.v1",
+        "contract_ref": DURABLE_ORCHESTRATION_POSTURE_CONTRACT_REF,
+        "status": "implemented_read_model_with_exact_runtime_command_lane",
+        "source": AGENT_LOOP_THREAD_SOURCE,
+        "route_ref": AGENT_LOOP_THREAD_ROUTE_REF,
+        "cli_ref": HIGH_MATURITY_SPINE_CLI_REF,
+        "backend_owned": True,
+        "local_read_model_only": True,
+        "safe_refs_only": True,
+        "raw_content_included": False,
+        "category_count": len(rows),
+        "implemented_or_blocked_count": len(rows),
+        "canonical_lifecycle_state_count": len(CANONICAL_RUN_LIFECYCLE_STATES),
+        "canonical_event_type_count": len(CANONICAL_RUN_EVENT_TYPES),
+        "existing_exact_runtime_lane_count": sum(
+            1 for row in rows if row["existing_exact_runtime_lane"] is True
+        ),
+        "rows": rows,
+        "new_execution_authority_added": False,
+        "retry_execution_enabled": False,
+        "recovery_execution_enabled": False,
+        "cancel_execution_enabled": False,
+        "dead_letter_execution_enabled": False,
+        "background_worker_enabled": False,
+        "scheduler_enabled": False,
+        "autonomous_execution_enabled": False,
+        "provider_model_calls_added": False,
+        "connector_writes_added": False,
+        "unrestricted_shell_added": False,
+        "production_authority_added": False,
+        "safe_summary": (
+            "Durable orchestration now has an explicit posture map over "
+            "append-first runs, lifecycle states, observability, approval waits, "
+            "retry/recovery diagnostics, cancellation/dead-letter visibility, "
+            "staged checkpoints, one existing exact approved-runtime-command "
+            "lane, and blocked autonomous workers."
+        ),
+        "blocked_authority_refs": _dedupe(
+            [
+                *STAGED_ORCHESTRATION_BLOCKED_AUTHORITY_REFS,
+                "blocked-state:durable-orchestration:no-retry-execution",
+                "blocked-state:durable-orchestration:no-recovery-execution",
+                "blocked-state:durable-orchestration:no-cancel-execution",
+                "blocked-state:durable-orchestration:no-background-worker",
+                "blocked-state:durable-orchestration:no-scheduler",
+                "blocked-state:durable-orchestration:no-autonomous-execution",
+            ]
+        ),
+        "redactions_applied": [
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_payloads_omitted",
+            "raw_logs_omitted",
+            "raw_errors_omitted",
+            "raw_local_paths_omitted",
+        ],
+    }
 
 
 def build_external_information_handling_posture() -> dict[str, Any]:
@@ -615,15 +979,18 @@ def build_high_maturity_agent_spine_readiness() -> dict[str, Any]:
         _high_maturity_row(
             weakness_id="W2",
             component="Durable planning and orchestration",
-            status="partial",
-            maturity="usable",
-            score=7,
+            status="implemented",
+            maturity="strong",
+            score=8,
             safe_summary=(
-                "Durable run observability and staged orchestration expose "
-                "steps, approval waits, retry posture, recovery posture, and "
-                "blocked states as read-only operator evidence."
+                "Durable run observability, staged orchestration, lifecycle "
+                "state, approval waits, retry/recovery diagnostics, "
+                "cancellation/dead-letter posture, checkpoints, and one exact "
+                "approved-runtime-command step are mapped into a backend-owned "
+                "posture spine."
             ),
             evidence_refs=[
+                DURABLE_ORCHESTRATION_POSTURE_CONTRACT_REF,
                 "GET /control-center/runs/observability",
                 "docs/control_center/UAA_RUNTIME_DURABLE_ORCHESTRATION.md",
                 "docs/runtime/UAA_RUNTIME_STAGED_ORCHESTRATION_ENGINE.md",
@@ -632,7 +999,10 @@ def build_high_maturity_agent_spine_readiness() -> dict[str, Any]:
                 "tests/test_durable_run_lifecycle_read_model.py",
                 "tests/test_staged_orchestration_engine.py",
             ],
-            gap="Recovery/cancel/retry execution remains blocked.",
+            gap=(
+                "Generic autonomous recovery, cancel/resume, retry execution, "
+                "workers, and schedulers remain blocked."
+            ),
             recommendation=(
                 "Promote only exact orchestration transitions with approval "
                 "and idempotency receipts."
@@ -970,6 +1340,7 @@ def build_high_maturity_agent_spine_readiness() -> dict[str, Any]:
             "all_w1_w13_have_code_docs_tests_or_governed_blocked_posture"
         ),
         "rows": rows,
+        "durable_orchestration_posture": build_durable_orchestration_posture(),
         "external_information_handling": (
             build_external_information_handling_posture()
         ),
@@ -1419,6 +1790,58 @@ def _external_information_row(
         "connector_writes_added": False,
         "memory_writes_added": False,
         "context_injection_added": False,
+        "production_authority_added": False,
+    }
+
+
+def _durable_orchestration_row(
+    *,
+    category_id: str,
+    label: str,
+    status: str,
+    orchestration_posture: str,
+    authority_posture: str,
+    safe_summary: str,
+    route_refs: list[str],
+    cli_refs: list[str],
+    evidence_refs: list[str],
+    test_refs: list[str],
+    blocked_authority_refs: list[str],
+    approval_required: bool = False,
+    receipt_required: bool = False,
+    existing_exact_runtime_lane: bool = False,
+) -> dict[str, Any]:
+    return {
+        "category_id": _safe_text(category_id),
+        "label": _safe_text(label),
+        "status": _safe_text(status),
+        "orchestration_posture": _safe_text(orchestration_posture),
+        "authority_posture": _safe_text(authority_posture),
+        "safe_summary": _safe_text(safe_summary),
+        "route_refs": _dedupe(route_refs),
+        "cli_refs": _dedupe(cli_refs),
+        "evidence_refs": _dedupe(evidence_refs),
+        "test_refs": _dedupe(test_refs),
+        "blocked_authority_refs": _dedupe(blocked_authority_refs),
+        "approval_required": approval_required,
+        "receipt_required": receipt_required,
+        "existing_exact_runtime_lane": existing_exact_runtime_lane,
+        "safe_refs_only": True,
+        "raw_content_included": False,
+        "raw_payloads_persisted": False,
+        "read_model_executes_work": False,
+        "control_center_mints_authority": False,
+        "new_execution_authority_added": False,
+        "retry_execution_enabled": False,
+        "recovery_execution_enabled": False,
+        "cancel_execution_enabled": False,
+        "dead_letter_execution_enabled": False,
+        "background_worker_enabled": False,
+        "scheduler_enabled": False,
+        "autonomous_execution_enabled": False,
+        "provider_model_calls_added": False,
+        "connector_writes_added": False,
+        "unrestricted_shell_added": False,
         "production_authority_added": False,
     }
 

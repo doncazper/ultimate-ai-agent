@@ -43,6 +43,13 @@ backend-owned High-Maturity Agent Spine coverage map for W1-W13:
   the Agent Loop Thread panel renders the W1-W13 rows, score projection,
   evidence refs, test refs, gaps, and next safe action without raw JSON as the
   primary operator workflow.
+- Durable orchestration posture:
+  `high_maturity_spine_readiness.durable_orchestration_posture` maps
+  append-first durable run records, canonical lifecycle states, run
+  observability, approval waits, retry/recovery diagnostics,
+  cancellation/dead-letter state, staged checkpoints, one exact approved
+  runtime-command step, and blocked autonomous workers/schedulers to safe refs,
+  tests, receipts, and no-new-authority invariants.
 - External information handling:
   `high_maturity_spine_readiness.external_information_handling` maps trusted
   local evidence, operator-supplied external metadata, the existing

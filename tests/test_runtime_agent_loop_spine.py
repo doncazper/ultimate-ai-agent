@@ -12,6 +12,8 @@ from ultimate_ai_agent.core.control_center.agent_loop import (
     AGENT_LOOP_COCKPIT_PARITY_CONTRACT_REF,
     AGENT_LOOP_THREAD_CONTRACT_REF,
     AGENT_LOOP_THREAD_ROUTE_REF,
+    DURABLE_ORCHESTRATION_POSTURE_CATEGORY_IDS,
+    DURABLE_ORCHESTRATION_POSTURE_CONTRACT_REF,
     EXTERNAL_INFORMATION_HANDLING_CONTRACT_REF,
     EXTERNAL_INFORMATION_POSTURE_CATEGORY_IDS,
     HIGH_MATURITY_COMPONENT_IDS,
@@ -112,6 +114,68 @@ def _assert_safe_agent_loop_thread(thread: dict[str, object]) -> None:
     rows = high_maturity["rows"]
     assert [row["weakness_id"] for row in rows] == list(HIGH_MATURITY_COMPONENT_IDS)
     rows_by_id = {row["weakness_id"]: row for row in rows}
+    assert rows_by_id["W2"]["status"] == "implemented"
+    assert rows_by_id["W2"]["maturity"] == "strong"
+    assert rows_by_id["W2"]["score_0_10"] == 8
+    assert DURABLE_ORCHESTRATION_POSTURE_CONTRACT_REF in rows_by_id["W2"][
+        "evidence_refs"
+    ]
+    durable = high_maturity["durable_orchestration_posture"]
+    assert durable["contract_ref"] == DURABLE_ORCHESTRATION_POSTURE_CONTRACT_REF
+    assert durable["backend_owned"] is True
+    assert durable["local_read_model_only"] is True
+    assert durable["safe_refs_only"] is True
+    assert durable["raw_content_included"] is False
+    assert durable["category_count"] == len(DURABLE_ORCHESTRATION_POSTURE_CATEGORY_IDS)
+    assert durable["implemented_or_blocked_count"] == len(
+        DURABLE_ORCHESTRATION_POSTURE_CATEGORY_IDS
+    )
+    assert durable["canonical_lifecycle_state_count"] > 0
+    assert durable["canonical_event_type_count"] > 0
+    assert durable["existing_exact_runtime_lane_count"] == 1
+    assert durable["new_execution_authority_added"] is False
+    assert durable["retry_execution_enabled"] is False
+    assert durable["recovery_execution_enabled"] is False
+    assert durable["cancel_execution_enabled"] is False
+    assert durable["dead_letter_execution_enabled"] is False
+    assert durable["background_worker_enabled"] is False
+    assert durable["scheduler_enabled"] is False
+    assert durable["autonomous_execution_enabled"] is False
+    assert durable["provider_model_calls_added"] is False
+    assert durable["connector_writes_added"] is False
+    assert durable["unrestricted_shell_added"] is False
+    assert durable["production_authority_added"] is False
+    durable_rows = durable["rows"]
+    assert [row["category_id"] for row in durable_rows] == list(
+        DURABLE_ORCHESTRATION_POSTURE_CATEGORY_IDS
+    )
+    exact_runtime_rows = [
+        row for row in durable_rows if row["existing_exact_runtime_lane"] is True
+    ]
+    assert [row["category_id"] for row in exact_runtime_rows] == [
+        "approved_runtime_command_step"
+    ]
+    for durable_row in durable_rows:
+        assert durable_row["safe_refs_only"] is True
+        assert durable_row["raw_content_included"] is False
+        assert durable_row["raw_payloads_persisted"] is False
+        assert durable_row["read_model_executes_work"] is False
+        assert durable_row["control_center_mints_authority"] is False
+        assert durable_row["new_execution_authority_added"] is False
+        assert durable_row["retry_execution_enabled"] is False
+        assert durable_row["recovery_execution_enabled"] is False
+        assert durable_row["cancel_execution_enabled"] is False
+        assert durable_row["dead_letter_execution_enabled"] is False
+        assert durable_row["background_worker_enabled"] is False
+        assert durable_row["scheduler_enabled"] is False
+        assert durable_row["autonomous_execution_enabled"] is False
+        assert durable_row["provider_model_calls_added"] is False
+        assert durable_row["connector_writes_added"] is False
+        assert durable_row["unrestricted_shell_added"] is False
+        assert durable_row["production_authority_added"] is False
+        assert durable_row["evidence_refs"]
+        assert durable_row["test_refs"]
+        assert durable_row["blocked_authority_refs"]
     assert rows_by_id["W6"]["status"] == "implemented"
     assert rows_by_id["W6"]["maturity"] == "strong"
     assert rows_by_id["W6"]["score_0_10"] == 8

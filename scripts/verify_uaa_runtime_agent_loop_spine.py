@@ -15,6 +15,8 @@ from ultimate_ai_agent.core.control_center.agent_loop import (  # noqa: E402
     AGENT_LOOP_THREAD_BLOCKED_AUTHORITY_REFS,
     AGENT_LOOP_THREAD_CONTRACT_REF,
     AGENT_LOOP_THREAD_ROUTE_REF,
+    DURABLE_ORCHESTRATION_POSTURE_CATEGORY_IDS,
+    DURABLE_ORCHESTRATION_POSTURE_CONTRACT_REF,
     EXTERNAL_INFORMATION_HANDLING_CONTRACT_REF,
     EXTERNAL_INFORMATION_POSTURE_CATEGORY_IDS,
     HIGH_MATURITY_COMPONENT_IDS,
@@ -112,6 +114,119 @@ def main() -> int:
                             "High-Maturity Agent Spine row missing "
                             f"{required_list}: {row.get('weakness_id')}"
                         )
+            durable = high_maturity.get("durable_orchestration_posture")
+            if not isinstance(durable, dict):
+                failures.append(
+                    "High-Maturity Agent Spine durable orchestration posture missing"
+                )
+            else:
+                if durable.get("contract_ref") != (
+                    DURABLE_ORCHESTRATION_POSTURE_CONTRACT_REF
+                ):
+                    failures.append("durable orchestration posture contract drifted")
+                if durable.get("category_count") != len(
+                    DURABLE_ORCHESTRATION_POSTURE_CATEGORY_IDS
+                ):
+                    failures.append("durable orchestration category count drifted")
+                if durable.get("implemented_or_blocked_count") != len(
+                    DURABLE_ORCHESTRATION_POSTURE_CATEGORY_IDS
+                ):
+                    failures.append("durable orchestration implementation count drifted")
+                if durable.get("existing_exact_runtime_lane_count") != 1:
+                    failures.append("durable orchestration exact lane count drifted")
+                for field in [
+                    "backend_owned",
+                    "local_read_model_only",
+                    "safe_refs_only",
+                ]:
+                    if durable.get(field) is not True:
+                        failures.append(
+                            f"durable orchestration posture {field} must be true"
+                        )
+                for field in [
+                    "raw_content_included",
+                    "new_execution_authority_added",
+                    "retry_execution_enabled",
+                    "recovery_execution_enabled",
+                    "cancel_execution_enabled",
+                    "dead_letter_execution_enabled",
+                    "background_worker_enabled",
+                    "scheduler_enabled",
+                    "autonomous_execution_enabled",
+                    "provider_model_calls_added",
+                    "connector_writes_added",
+                    "unrestricted_shell_added",
+                    "production_authority_added",
+                ]:
+                    if durable.get(field) is not False:
+                        failures.append(
+                            f"durable orchestration posture {field} must be false"
+                        )
+                durable_rows = durable.get("rows")
+                if not isinstance(durable_rows, list):
+                    failures.append("durable orchestration posture rows missing")
+                else:
+                    durable_ids = [
+                        row.get("category_id")
+                        for row in durable_rows
+                        if isinstance(row, dict)
+                    ]
+                    if durable_ids != list(DURABLE_ORCHESTRATION_POSTURE_CATEGORY_IDS):
+                        failures.append("durable orchestration category ids drifted")
+                    exact_rows = [
+                        row
+                        for row in durable_rows
+                        if isinstance(row, dict)
+                        and row.get("existing_exact_runtime_lane") is True
+                    ]
+                    if [row.get("category_id") for row in exact_rows] != [
+                        "approved_runtime_command_step"
+                    ]:
+                        failures.append("durable orchestration exact lane drifted")
+                    for row in durable_rows:
+                        if not isinstance(row, dict):
+                            failures.append(
+                                "durable orchestration posture row is not an object"
+                            )
+                            continue
+                        if row.get("safe_refs_only") is not True:
+                            failures.append(
+                                "durable orchestration row must be safe-ref-only: "
+                                f"{row.get('category_id')}"
+                            )
+                        for field in [
+                            "raw_content_included",
+                            "raw_payloads_persisted",
+                            "read_model_executes_work",
+                            "control_center_mints_authority",
+                            "new_execution_authority_added",
+                            "retry_execution_enabled",
+                            "recovery_execution_enabled",
+                            "cancel_execution_enabled",
+                            "dead_letter_execution_enabled",
+                            "background_worker_enabled",
+                            "scheduler_enabled",
+                            "autonomous_execution_enabled",
+                            "provider_model_calls_added",
+                            "connector_writes_added",
+                            "unrestricted_shell_added",
+                            "production_authority_added",
+                        ]:
+                            if row.get(field) is not False:
+                                failures.append(
+                                    "durable orchestration posture broadened "
+                                    f"authority: {row.get('category_id')} {field}"
+                                )
+                        for required_list in [
+                            "evidence_refs",
+                            "test_refs",
+                            "blocked_authority_refs",
+                        ]:
+                            if not row.get(required_list):
+                                failures.append(
+                                    "durable orchestration row missing "
+                                    f"{required_list}: {row.get('category_id')}"
+                                )
             external_info = high_maturity.get("external_information_handling")
             if not isinstance(external_info, dict):
                 failures.append(
