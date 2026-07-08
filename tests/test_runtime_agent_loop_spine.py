@@ -317,7 +317,9 @@ def _assert_safe_agent_loop_thread(thread: dict[str, object]) -> None:
         rows_by_id["W9"]["evidence_refs"]
     )
     assert "tests/test_coding_cockpit_read_model.py" in rows_by_id["W9"]["test_refs"]
-    assert rows_by_id["W7"]["score_0_10"] == 7
+    assert rows_by_id["W7"]["status"] == "implemented"
+    assert rows_by_id["W7"]["maturity"] == "strong"
+    assert rows_by_id["W7"]["score_0_10"] == 8
     assert EXTERNAL_INFORMATION_HANDLING_CONTRACT_REF in rows_by_id["W7"][
         "evidence_refs"
     ]

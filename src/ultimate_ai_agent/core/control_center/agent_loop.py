@@ -1463,9 +1463,9 @@ def build_high_maturity_agent_spine_readiness() -> dict[str, Any]:
         _high_maturity_row(
             weakness_id="W7",
             component="Web and external evidence",
-            status="partial",
-            maturity="usable",
-            score=7,
+            status="implemented",
+            maturity="strong",
+            score=8,
             safe_summary=(
                 "Web/external information is mapped into an explicit handling "
                 "posture: local evidence refs, one existing AuthorityLease-gated "
@@ -1482,7 +1482,10 @@ def build_high_maturity_agent_spine_readiness() -> dict[str, Any]:
                 "tests/test_governed_web_evidence.py",
                 "tests/test_web_evidence_product_slice.py",
             ],
-            gap="Live broad fetching and browser actions remain blocked.",
+            gap=(
+                "Unrestricted browsing, browser actions, provider search/scrape "
+                "runtime, and broad external-data authority remain blocked."
+            ),
             recommendation=(
                 "Keep WebAccessGateway as the only boundary; add read-only "
                 "fetch lanes only with allowlists and audit records."
