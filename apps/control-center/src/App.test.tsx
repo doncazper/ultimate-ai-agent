@@ -1278,6 +1278,73 @@ function backendOwnedWorkBoardFixture(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function backendOwnedHighMaturitySpineReadiness(
+  overrides: Record<string, unknown> = {},
+) {
+  const base =
+    mockControlCenterData.founderAgentLoopThread.high_maturity_spine_readiness;
+  const components = [
+    "Product loop",
+    "Durable planning and orchestration",
+    "Memory retrieval and lifecycle",
+    "Operator cockpit UX",
+    "Exact action and tool lanes",
+    "Code Mode discipline",
+    "Web and external evidence",
+    "Model and provider management",
+    "Signed evidence receipts",
+    "Extensibility and catalog maturity",
+    "End-to-end Founder Loop",
+    "System-level agent evals",
+    "Release and product truth alignment",
+  ];
+  return {
+    ...base,
+    status: "implemented_backend_owned_read_model_no_new_authority",
+    source: "python_core_agent_loop_thread_read_model",
+    backend_owned: true,
+    implemented_count: 5,
+    usable_or_better_count: 13,
+    average_score_0_10: 7.3,
+    overall_projection_0_100: 73,
+    coverage_status:
+      "all_w1_w13_have_code_docs_tests_or_governed_blocked_posture",
+    rows: base.rows.map((row, index) => ({
+      ...row,
+      component: components[index] ?? row.component,
+      status: index % 3 === 0 ? "implemented" : "partial",
+      maturity: "usable",
+      score_0_10: index % 3 === 0 ? 8 : 7,
+      safe_summary:
+        "Backend-owned High-Maturity Agent Spine coverage row backed by safe refs.",
+    })),
+    ...overrides,
+  };
+}
+
+function backendOwnedFounderAgentLoopThread(
+  overrides: Record<string, unknown> = {},
+) {
+  return {
+    ...mockControlCenterData.founderAgentLoopThread,
+    thread_ref: "agent-loop-thread:app-test:current",
+    status: "implemented_backend_owned_read_model_no_new_authority",
+    capability_status: "partial",
+    source: "python_core_agent_loop_thread_read_model",
+    backend_owned: true,
+    high_maturity_spine_readiness: backendOwnedHighMaturitySpineReadiness(),
+    operator_decision_matrix: {
+      ...mockControlCenterData.founderAgentLoopThread.operator_decision_matrix,
+      status: "implemented_backend_owned_read_model_no_new_authority",
+      capability_status: "implemented",
+      source: "python_core_agent_loop_thread_read_model",
+      backend_owned: true,
+      operator_can_decide_from_cockpit: true,
+    },
+    ...overrides,
+  };
+}
+
 function scrubCodingFallbackText(value: unknown): unknown {
   if (typeof value === "string") {
     return value
@@ -2261,36 +2328,26 @@ describe("Web Control Center shell", () => {
   });
 
   it("renders the cockpit decision matrix from backend-owned agent loop refs", async () => {
-    const agentLoop = {
-      ...mockControlCenterData.founderAgentLoopThread,
+    const baseAgentLoop = backendOwnedFounderAgentLoopThread({
       thread_ref: "agent-loop-thread:app-test:cockpit-parity",
-      status: "implemented_backend_owned_read_model_no_new_authority",
-      capability_status: "partial",
-      source: "python_core_agent_loop_thread_read_model",
-      backend_owned: true,
+    });
+    const agentLoop = {
+      ...baseAgentLoop,
       operator_decision_matrix: {
-        ...mockControlCenterData.founderAgentLoopThread.operator_decision_matrix,
-        status: "implemented_backend_owned_read_model_no_new_authority",
-        capability_status: "implemented",
-        source: "python_core_agent_loop_thread_read_model",
-        backend_owned: true,
-        operator_can_decide_from_cockpit: true,
-        rows:
-          mockControlCenterData.founderAgentLoopThread.operator_decision_matrix.rows.map(
-            (row) => ({
-              ...row,
-              capability_status:
-                row.surface === "Today" ? "implemented" : "partial",
-              safe_action:
-                row.surface === "Action Inbox"
-                  ? "Open Action Inbox and inspect the approval envelope before mutation."
-                  : row.safe_action,
-              backend_truth_required: true,
-              mutation_enabled: false,
-              no_go_reason:
-                "Requires exact approval, receipt, and backend-owned state before mutation.",
-            }),
-          ),
+        ...baseAgentLoop.operator_decision_matrix,
+        rows: baseAgentLoop.operator_decision_matrix.rows.map((row) => ({
+          ...row,
+          capability_status:
+            row.surface === "Today" ? "implemented" : "partial",
+          safe_action:
+            row.surface === "Action Inbox"
+              ? "Open Action Inbox and inspect the approval envelope before mutation."
+              : row.safe_action,
+          backend_truth_required: true,
+          mutation_enabled: false,
+          no_go_reason:
+            "Requires exact approval, receipt, and backend-owned state before mutation.",
+        })),
       },
     };
     stubReadEndpointOverrides({
@@ -2317,6 +2374,15 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByText(/inspect the approval envelope before mutation/i),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "High-Maturity Agent Spine" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "scripts/dev/uaa_founder_loop.py inspect-high-maturity-spine",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/W1: Product loop/i)).toBeInTheDocument();
     expect(screen.getAllByText("blocked").length).toBeGreaterThan(0);
   });
 
@@ -17375,22 +17441,9 @@ function dogfoodLiveLoopEndpointData() {
   );
   return {
     [API_ENDPOINTS.founderTodaySummary]: today,
-    [API_ENDPOINTS.founderAgentLoopThread]: {
-      ...mockControlCenterData.founderAgentLoopThread,
+    [API_ENDPOINTS.founderAgentLoopThread]: backendOwnedFounderAgentLoopThread({
       thread_ref: "agent-loop-thread:app-test:dogfood",
-      status: "implemented_backend_owned_read_model_no_new_authority",
-      capability_status: "partial",
-      source: "python_core_agent_loop_thread_read_model",
-      backend_owned: true,
-      operator_decision_matrix: {
-        ...mockControlCenterData.founderAgentLoopThread.operator_decision_matrix,
-        status: "implemented_backend_owned_read_model_no_new_authority",
-        capability_status: "implemented",
-        source: "python_core_agent_loop_thread_read_model",
-        backend_owned: true,
-        operator_can_decide_from_cockpit: true,
-      },
-    },
+    }),
     [API_ENDPOINTS.founderStartHereSummary]: startHere,
     [API_ENDPOINTS.founderActionsInbox]: actionsInbox,
     [API_ENDPOINTS.controlCenterProofIndex]: dogfoodProofIndex(),
@@ -17529,22 +17582,7 @@ function envelopeForReadEndpoint(url: string) {
     [API_ENDPOINTS.controlCenterLocalModelsStatus]:
       mockControlCenterData.localModelsStatus,
     [API_ENDPOINTS.founderTodaySummary]: mockControlCenterData.founderToday,
-    [API_ENDPOINTS.founderAgentLoopThread]: {
-      ...mockControlCenterData.founderAgentLoopThread,
-      thread_ref: "agent-loop-thread:app-test:current",
-      status: "implemented_backend_owned_read_model_no_new_authority",
-      capability_status: "partial",
-      source: "python_core_agent_loop_thread_read_model",
-      backend_owned: true,
-      operator_decision_matrix: {
-        ...mockControlCenterData.founderAgentLoopThread.operator_decision_matrix,
-        status: "implemented_backend_owned_read_model_no_new_authority",
-        capability_status: "implemented",
-        source: "python_core_agent_loop_thread_read_model",
-        backend_owned: true,
-        operator_can_decide_from_cockpit: true,
-      },
-    },
+    [API_ENDPOINTS.founderAgentLoopThread]: backendOwnedFounderAgentLoopThread(),
     [API_ENDPOINTS.founderStartHereSummary]: {
       ...mockControlCenterData.founderStartHere,
       source: "python_core_control_center_start_here_read_model",

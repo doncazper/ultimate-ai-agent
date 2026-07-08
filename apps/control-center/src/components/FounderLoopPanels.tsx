@@ -4215,6 +4215,7 @@ function AgentLoopThreadPanel({
   const actions = readModel.proposed_actions.slice(0, 6);
   const bindings = readModel.surface_bindings.slice(0, 8);
   const decisionRows = readModel.operator_decision_matrix.rows.slice(0, 8);
+  const highMaturityRows = readModel.high_maturity_spine_readiness.rows.slice(0, 13);
   const truthLabel =
     readModel.backend_owned && readModel.source !== "mock_fallback_non_authoritative"
       ? "backend-owned"
@@ -4298,6 +4299,58 @@ function AgentLoopThreadPanel({
         <p className="safe-copy">
           Next safe decision:{" "}
           {readModel.operator_decision_matrix.next_safe_operator_decision}
+        </p>
+      </article>
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>High-Maturity Agent Spine</h3>
+          <span>
+            {readModel.high_maturity_spine_readiness.overall_projection_0_100}/100
+          </span>
+        </div>
+        <p className="muted">
+          W1-W13 coverage is derived from Python/API/CLI/docs/test evidence and
+          stays read-only. It is a product truth map, not runtime authority.
+        </p>
+        <dl className="detail-list">
+          <DetailTerm
+            label="Contract"
+            value={readModel.high_maturity_spine_readiness.contract_ref}
+          />
+          <DetailTerm
+            label="CLI"
+            value={readModel.high_maturity_spine_readiness.cli_ref}
+          />
+          <DetailTerm
+            label="Coverage"
+            value={readModel.high_maturity_spine_readiness.coverage_status}
+          />
+          <DetailTerm
+            label="Usable or better"
+            value={`${readModel.high_maturity_spine_readiness.usable_or_better_count}/${readModel.high_maturity_spine_readiness.weakness_count}`}
+          />
+        </dl>
+        <ul className="ref-list decision-matrix-list">
+          {highMaturityRows.map((row) => (
+            <li key={row.weakness_id}>
+              <strong>
+                {row.weakness_id}: {row.component}
+              </strong>{" "}
+              <span>
+                {row.status} / {row.maturity} / {row.score_0_10}/10
+              </span>
+              <p className="muted">{row.safe_summary}</p>
+              <p className="safe-copy">Gap: {row.gap}</p>
+              <p className="safe-copy">Next: {row.recommendation}</p>
+              <RefListWithFallback
+                emptyLabel="Spine evidence refs: none"
+                refs={[...row.evidence_refs.slice(0, 3), ...row.test_refs.slice(0, 2)]}
+              />
+            </li>
+          ))}
+        </ul>
+        <p className="safe-copy">
+          {readModel.high_maturity_spine_readiness.next_safe_action}
         </p>
       </article>
       <div className="panel-grid">

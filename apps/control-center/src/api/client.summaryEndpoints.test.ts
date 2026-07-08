@@ -926,6 +926,27 @@ function baseRouteData(): Record<string, unknown> {
       capability_status: "partial",
       source: "python_core_agent_loop_thread_read_model",
       backend_owned: true,
+      high_maturity_spine_readiness: {
+        ...mockControlCenterData.founderAgentLoopThread.high_maturity_spine_readiness,
+        status: "implemented_backend_owned_read_model_no_new_authority",
+        source: "python_core_agent_loop_thread_read_model",
+        backend_owned: true,
+        implemented_count: 5,
+        usable_or_better_count: 13,
+        average_score_0_10: 7.3,
+        overall_projection_0_100: 73,
+        coverage_status:
+          "all_w1_w13_have_code_docs_tests_or_governed_blocked_posture",
+        rows:
+          mockControlCenterData.founderAgentLoopThread.high_maturity_spine_readiness.rows.map(
+            (row, index) => ({
+              ...row,
+              status: index % 3 === 0 ? "implemented" : "partial",
+              maturity: "usable",
+              score_0_10: index % 3 === 0 ? 8 : 7,
+            }),
+          ),
+      },
       operator_decision_matrix: {
         ...mockControlCenterData.founderAgentLoopThread.operator_decision_matrix,
         status: "implemented_backend_owned_read_model_no_new_authority",

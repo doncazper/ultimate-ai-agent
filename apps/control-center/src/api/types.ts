@@ -7720,6 +7720,52 @@ export interface FounderLoopAgentLoopProposedAction {
   next_safe_action: string;
 }
 
+export interface HighMaturityAgentSpineRow {
+  weakness_id: string;
+  component: string;
+  status: string;
+  maturity: string;
+  score_0_10: number;
+  safe_summary: string;
+  evidence_refs: string[];
+  test_refs: string[];
+  gap: string;
+  recommendation: string;
+  safe_refs_only: boolean;
+  authority_broadened: boolean;
+  runtime_model_calls_added: boolean;
+  provider_sdk_calls_added: boolean;
+  live_web_fetching_added: boolean;
+  browser_automation_added: boolean;
+  connector_writes_added: boolean;
+  unrestricted_shell_added: boolean;
+  plugin_runtime_import_added: boolean;
+  production_authority_added: boolean;
+}
+
+export interface HighMaturityAgentSpineReadiness {
+  schema_version: string;
+  contract_ref: string;
+  status: string;
+  source: string;
+  backend_owned: boolean;
+  local_read_model_only: boolean;
+  safe_refs_only: boolean;
+  raw_content_included: boolean;
+  route_ref: string;
+  cli_ref: string;
+  weakness_count: number;
+  implemented_count: number;
+  usable_or_better_count: number;
+  average_score_0_10: number;
+  overall_projection_0_100: number;
+  coverage_status: string;
+  rows: HighMaturityAgentSpineRow[];
+  blocked_authority_refs: string[];
+  next_safe_action: string;
+  redactions_applied: string[];
+}
+
 export interface FounderLoopAgentLoopThread {
   schema_version: string;
   contract_ref: string;
@@ -7785,6 +7831,7 @@ export interface FounderLoopAgentLoopThread {
     context_injection_authorized: boolean;
     next_safe_action: string;
   };
+  high_maturity_spine_readiness: HighMaturityAgentSpineReadiness;
   operator_decision_matrix: FounderLoopOperatorDecisionMatrix;
   surface_bindings: Array<{
     surface: string;

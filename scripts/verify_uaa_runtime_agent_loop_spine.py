@@ -15,6 +15,8 @@ from ultimate_ai_agent.core.control_center.agent_loop import (  # noqa: E402
     AGENT_LOOP_THREAD_BLOCKED_AUTHORITY_REFS,
     AGENT_LOOP_THREAD_CONTRACT_REF,
     AGENT_LOOP_THREAD_ROUTE_REF,
+    HIGH_MATURITY_COMPONENT_IDS,
+    HIGH_MATURITY_SPINE_CONTRACT_REF,
     build_agent_loop_thread_read_model,
 )
 from ultimate_ai_agent.core.storage import FounderLoopRepository  # noqa: E402
@@ -47,6 +49,65 @@ def main() -> int:
             failures.append(f"Agent Loop {field} must be true")
     if thread.get("raw_content_included") is not False:
         failures.append("Agent Loop must not include raw content")
+
+    high_maturity = thread.get("high_maturity_spine_readiness")
+    if not isinstance(high_maturity, dict):
+        failures.append("High-Maturity Agent Spine readiness map missing")
+    else:
+        if high_maturity.get("contract_ref") != HIGH_MATURITY_SPINE_CONTRACT_REF:
+            failures.append("High-Maturity Agent Spine contract ref drifted")
+        if high_maturity.get("route_ref") != AGENT_LOOP_THREAD_ROUTE_REF:
+            failures.append("High-Maturity Agent Spine route ref drifted")
+        if not str(high_maturity.get("cli_ref", "")).endswith(
+            "inspect-high-maturity-spine"
+        ):
+            failures.append("High-Maturity Agent Spine CLI ref missing")
+        for field in [
+            "backend_owned",
+            "local_read_model_only",
+            "safe_refs_only",
+        ]:
+            if high_maturity.get(field) is not True:
+                failures.append(f"High-Maturity Agent Spine {field} must be true")
+        if high_maturity.get("raw_content_included") is not False:
+            failures.append("High-Maturity Agent Spine must not include raw content")
+        rows = high_maturity.get("rows")
+        if not isinstance(rows, list):
+            failures.append("High-Maturity Agent Spine rows missing")
+        else:
+            weakness_ids = [row.get("weakness_id") for row in rows if isinstance(row, dict)]
+            if weakness_ids != list(HIGH_MATURITY_COMPONENT_IDS):
+                failures.append("High-Maturity Agent Spine W1-W13 coverage drifted")
+            for row in rows:
+                if not isinstance(row, dict):
+                    failures.append("High-Maturity Agent Spine row is not an object")
+                    continue
+                if row.get("safe_refs_only") is not True:
+                    failures.append(
+                        f"High-Maturity Agent Spine row not safe-ref-only: {row.get('weakness_id')}"
+                    )
+                for forbidden_flag in [
+                    "authority_broadened",
+                    "runtime_model_calls_added",
+                    "provider_sdk_calls_added",
+                    "live_web_fetching_added",
+                    "browser_automation_added",
+                    "connector_writes_added",
+                    "unrestricted_shell_added",
+                    "plugin_runtime_import_added",
+                    "production_authority_added",
+                ]:
+                    if row.get(forbidden_flag) is not False:
+                        failures.append(
+                            "High-Maturity Agent Spine broadened authority: "
+                            f"{row.get('weakness_id')} {forbidden_flag}"
+                        )
+                for required_list in ["evidence_refs", "test_refs"]:
+                    if not row.get(required_list):
+                        failures.append(
+                            "High-Maturity Agent Spine row missing "
+                            f"{required_list}: {row.get('weakness_id')}"
+                        )
 
     authority = thread.get("authority_posture")
     if not isinstance(authority, dict):
@@ -105,6 +166,8 @@ def main() -> int:
             for fragment in [
                 "exact AuthorityLease scope",
                 "AuthorityLease-gated capabilities",
+                "High-Maturity Agent Spine",
+                "W1-W13",
             ]:
                 if fragment not in compact_text:
                     failures.append(

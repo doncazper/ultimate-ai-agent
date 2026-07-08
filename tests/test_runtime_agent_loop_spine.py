@@ -12,6 +12,8 @@ from ultimate_ai_agent.core.control_center.agent_loop import (
     AGENT_LOOP_COCKPIT_PARITY_CONTRACT_REF,
     AGENT_LOOP_THREAD_CONTRACT_REF,
     AGENT_LOOP_THREAD_ROUTE_REF,
+    HIGH_MATURITY_COMPONENT_IDS,
+    HIGH_MATURITY_SPINE_CONTRACT_REF,
     build_agent_loop_thread_read_model,
 )
 from ultimate_ai_agent.core.storage import FounderLoopRepository
@@ -90,6 +92,36 @@ def _assert_safe_agent_loop_thread(thread: dict[str, object]) -> None:
         assert row["cli_ref"].startswith("scripts/dev/")
         assert row["primary_ref"]
     assert thread["blocked_authority_refs"]
+    high_maturity = thread["high_maturity_spine_readiness"]
+    assert isinstance(high_maturity, dict)
+    assert high_maturity["schema_version"] == "high_maturity_agent_spine_coverage.v1"
+    assert high_maturity["contract_ref"] == HIGH_MATURITY_SPINE_CONTRACT_REF
+    assert high_maturity["backend_owned"] is True
+    assert high_maturity["local_read_model_only"] is True
+    assert high_maturity["safe_refs_only"] is True
+    assert high_maturity["raw_content_included"] is False
+    assert high_maturity["route_ref"] == AGENT_LOOP_THREAD_ROUTE_REF
+    assert high_maturity["cli_ref"].endswith("inspect-high-maturity-spine")
+    assert high_maturity["weakness_count"] == len(HIGH_MATURITY_COMPONENT_IDS)
+    assert high_maturity["usable_or_better_count"] == len(HIGH_MATURITY_COMPONENT_IDS)
+    assert high_maturity["overall_projection_0_100"] >= 70
+    rows = high_maturity["rows"]
+    assert [row["weakness_id"] for row in rows] == list(HIGH_MATURITY_COMPONENT_IDS)
+    for row in rows:
+        assert row["safe_refs_only"] is True
+        assert row["authority_broadened"] is False
+        assert row["runtime_model_calls_added"] is False
+        assert row["provider_sdk_calls_added"] is False
+        assert row["live_web_fetching_added"] is False
+        assert row["browser_automation_added"] is False
+        assert row["connector_writes_added"] is False
+        assert row["unrestricted_shell_added"] is False
+        assert row["plugin_runtime_import_added"] is False
+        assert row["production_authority_added"] is False
+        assert row["evidence_refs"]
+        assert row["test_refs"]
+        assert row["gap"]
+        assert row["recommendation"]
     serialized = json.dumps(thread).lower()
     for unsafe_fragment in [
         "api_key",
@@ -192,3 +224,36 @@ def test_cockpit_parity_cli_inspects_same_operator_matrix(
     assert matrix["operator_can_decide_from_cockpit"] is True
     assert matrix["ui_mints_authority"] is False
     assert matrix["mutation_controls_enabled"] is False
+
+
+def test_high_maturity_spine_cli_inspects_same_w1_w13_readiness(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    state_dir = tmp_path / "founder-loop"
+
+    exit_code = uaa_founder_loop.main(
+        [
+            "--state-dir",
+            str(state_dir),
+            "inspect-high-maturity-spine",
+            "--limit",
+            "8",
+        ]
+    )
+
+    assert exit_code == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["command_ref"] == (
+        "repo-local-command:founder-loop-high-maturity-spine"
+    )
+    assert output["safe_refs_only"] is True
+    assert output["raw_content_omitted"] is True
+    assert output["raw_paths_omitted"] is True
+    readiness = output["high_maturity_spine_readiness"]
+    assert readiness["contract_ref"] == HIGH_MATURITY_SPINE_CONTRACT_REF
+    assert readiness["route_ref"] == AGENT_LOOP_THREAD_ROUTE_REF
+    assert readiness["cli_ref"].endswith("inspect-high-maturity-spine")
+    assert [row["weakness_id"] for row in readiness["rows"]] == list(
+        HIGH_MATURITY_COMPONENT_IDS
+    )
+    assert readiness["blocked_authority_refs"]

@@ -7723,6 +7723,32 @@ function isSafeFounderAgentLoopThread(
     Array.isArray(value.proposed_actions) &&
     Array.isArray(value.evidence?.evidence_refs) &&
     Array.isArray(value.memory_review?.candidate_refs) &&
+    value.high_maturity_spine_readiness?.backend_owned === true &&
+    value.high_maturity_spine_readiness?.local_read_model_only === true &&
+    value.high_maturity_spine_readiness?.safe_refs_only === true &&
+    value.high_maturity_spine_readiness?.raw_content_included === false &&
+    value.high_maturity_spine_readiness?.contract_ref ===
+      "contract-ref:high-maturity-agent-spine-coverage:v1" &&
+    Array.isArray(value.high_maturity_spine_readiness?.rows) &&
+    value.high_maturity_spine_readiness.rows.length === 13 &&
+    value.high_maturity_spine_readiness.rows.every(
+      (row) =>
+        typeof row.weakness_id === "string" &&
+        row.safe_refs_only === true &&
+        row.authority_broadened === false &&
+        row.runtime_model_calls_added === false &&
+        row.provider_sdk_calls_added === false &&
+        row.live_web_fetching_added === false &&
+        row.browser_automation_added === false &&
+        row.connector_writes_added === false &&
+        row.unrestricted_shell_added === false &&
+        row.plugin_runtime_import_added === false &&
+        row.production_authority_added === false &&
+        Array.isArray(row.evidence_refs) &&
+        row.evidence_refs.length > 0 &&
+        Array.isArray(row.test_refs) &&
+        row.test_refs.length > 0,
+    ) &&
     value.operator_decision_matrix?.backend_owned === true &&
     value.operator_decision_matrix?.control_center_presentation_only === true &&
     value.operator_decision_matrix?.safe_refs_only === true &&

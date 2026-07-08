@@ -28,6 +28,44 @@ Proof, Memory Review, and Trust. It uses bounded summaries and safe refs only.
 It does not persist raw request content, raw response content, provider payloads,
 logs, local paths, credentials, account material, or private content.
 
+## High-Maturity Agent Spine
+
+The same API payload now includes `high_maturity_spine_readiness`, a
+backend-owned High-Maturity Agent Spine coverage map for W1-W13:
+
+- Contract:
+  `contract-ref:high-maturity-agent-spine-coverage:v1`
+- Route:
+  `GET /control-center/agent-loop/thread#high_maturity_spine_readiness`
+- CLI:
+  `scripts/dev/uaa_founder_loop.py inspect-high-maturity-spine`
+- Control Center:
+  the Agent Loop Thread panel renders the W1-W13 rows, score projection,
+  evidence refs, test refs, gaps, and next safe action without raw JSON as the
+  primary operator workflow.
+
+This is a deterministic read model over existing UAA code, API, CLI, docs,
+tests, and verifier posture. It is not a benchmark of raw model intelligence.
+It does not execute tools, run provider/model calls, fetch web data, browse,
+write memory, inject context, import plugins, dispatch connectors, run shell
+commands, or grant production authority.
+
+The coverage rows are intentionally product-operational:
+
+- W1 product loop
+- W2 durable planning and orchestration
+- W3 memory retrieval and lifecycle
+- W4 operator cockpit UX
+- W5 exact action/tool lanes
+- W6 Code Mode discipline
+- W7 web and external evidence
+- W8 model/provider management
+- W9 signed evidence receipts
+- W10 extensibility/catalog maturity
+- W11 end-to-end Founder Loop
+- W12 system-level agent evals
+- W13 release/product truth alignment
+
 ## Blocked / Needs Authority
 
 These remain blocked:

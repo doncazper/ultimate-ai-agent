@@ -1,8 +1,11 @@
 # UAA Runtime Capability Scoreboard
 
-Status: Phase 09 final catch-up scoreboard. This document is documentation and verifier
-coverage only; it is not runtime authority, does not grant execution authority,
-and does not change Control Center behavior.
+Status: Phase 10 High-Maturity Agent Spine coverage. This document remains
+documentation and verifier coverage only; runtime product truth is now also
+projected through the backend-owned
+`GET /control-center/agent-loop/thread#high_maturity_spine_readiness` read
+model and `scripts/dev/uaa_founder_loop.py inspect-high-maturity-spine`.
+It is not runtime authority and does not grant execution authority.
 
 Baseline: UAA v0.104.0 / package 0.104.0. external comparison runtime is used as a read-only reference comparator for product and architecture patterns. This report is not copied from external runtime references, does not import external runtime packages, and does not adopt external comparison runtime authority assumptions.
 
@@ -10,7 +13,7 @@ Baseline: UAA v0.104.0 / package 0.104.0. external comparison runtime is used as
 
 | System | Repo Snapshot | Runtime Shape | Main Operator Surfaces | Current Truth Posture |
 |---|---|---|---|---|
-| UAA | Branch `codex/governed-product-pilot-profile`, commit `377cbc28`, active baseline v0.104.0/package 0.104.0. Worktree also contains unrelated governed-product-pilot, debug logging, and prompt-pack edits that are not part of this scorecard. | Python Agent Core, FastAPI API boundary, React/TypeScript Control Center shell, repo-local CLI/verifier scripts. | Start Here, Today, Action Inbox, Proof, Evidence, Memory, Trust, Settings, Runtime, local model status, CRM, Coding Cockpit, Work Board. | Strong governance, redaction, OpenAPI/manifest checks, proof/evidence refs, and CLI/API parity. Product loop is useful but still partial across several cockpit lanes. |
+| UAA | Active baseline v0.104.0/package 0.104.0 on current mainline source truth. | Python Agent Core, FastAPI API boundary, React/TypeScript Control Center shell, repo-local CLI/verifier scripts. | Start Here, Today, Action Inbox, Proof, Evidence, Memory, Trust, Settings, Runtime, local model status, CRM, Coding Cockpit, Work Board, Agent Loop Thread, and High-Maturity Agent Spine coverage. | Strong governance, redaction, OpenAPI/manifest checks, proof/evidence refs, CLI/API parity, and a backend-owned W1-W13 high-maturity coverage projection. Product loop is useful but still partial for exact execution lanes. |
 | external comparison runtime | Branch `codex/mac-desktop-e2e-hardening`, commit `89c03cc5`, README release line `0.1.0-rc.1`; sibling worktree has an unrelated local report. | TypeScript monorepo, Fastify gateway runtime, Mission Control Next shell, shared contract packages. | Work surface with Chat/Cowork/Code, Projects, Library/Capabilities, Ops/Runtime, Settings/Providers. | Broader product cockpit and runtime-operation story, including durable run claims, signed evidence, capability catalogs, model/provider surfaces, and code mode. Treat docs/contracts as evidence, not proof of UAA readiness. |
 
 ## Source Files Inspected
@@ -30,6 +33,7 @@ UAA evidence inspected:
 - `src/ultimate_ai_agent/api/app.py`
 - `src/ultimate_ai_agent/api/routes/runtime_pilot_service.py`
 - `src/ultimate_ai_agent/core/control_center/action_tool_code_catalog.py`
+- `src/ultimate_ai_agent/core/control_center/agent_loop.py`
 - `src/ultimate_ai_agent/core/memory/workbench.py`
 - `src/ultimate_ai_agent/core/runtime_gateway/__init__.py`
 - `tests/test_api_manifest.py`
@@ -442,3 +446,27 @@ a safe catch-up map and merge-gated follow-up prompts for Phases 02-09. It does
 not change APIs, UI routes, runtime behavior, authority profiles, provider
 execution, connector behavior, web fetching, browser automation, memory writes,
 or shell execution.
+
+## Phase 10 Evidence
+
+Phase 10 adds a backend-owned High-Maturity Agent Spine projection to the
+existing Agent Loop Thread instead of creating a new authority surface.
+
+- Core:
+  `src/ultimate_ai_agent/core/control_center/agent_loop.py`
+- API:
+  `GET /control-center/agent-loop/thread#high_maturity_spine_readiness`
+- CLI:
+  `scripts/dev/uaa_founder_loop.py inspect-high-maturity-spine`
+- Control Center:
+  the Agent Loop Thread panel renders W1-W13 component rows, score projection,
+  evidence refs, test refs, gaps, recommendations, and blocked authority refs.
+- Tests/verifier:
+  `tests/test_runtime_agent_loop_spine.py` and
+  `scripts/verify_uaa_runtime_agent_loop_spine.py`
+
+The projection is deterministic and read-only. It adds no runtime model calls,
+provider SDK calls, live web fetching, browser automation, connector writes,
+unrestricted shell/subprocess execution, plugin runtime import, memory-write
+authority, hidden context injection, background autonomy, public release claim,
+or production authority.

@@ -14,6 +14,12 @@ AGENT_LOOP_COCKPIT_PARITY_CONTRACT_REF = (
 AGENT_LOOP_COCKPIT_PARITY_CLI_REF = (
     "scripts/dev/uaa_founder_loop.py inspect-cockpit-parity"
 )
+HIGH_MATURITY_SPINE_CONTRACT_REF = (
+    "contract-ref:high-maturity-agent-spine-coverage:v1"
+)
+HIGH_MATURITY_SPINE_CLI_REF = (
+    "scripts/dev/uaa_founder_loop.py inspect-high-maturity-spine"
+)
 AGENT_LOOP_THREAD_SOURCE = "python_core_agent_loop_thread_read_model"
 AGENT_LOOP_THREAD_BLOCKED_AUTHORITY_REFS = (
     "blocked-state:agent-loop:no-runtime-model-calls",
@@ -27,6 +33,421 @@ AGENT_LOOP_THREAD_BLOCKED_AUTHORITY_REFS = (
     "blocked-state:agent-loop:no-production-authority",
     "blocked-state:agent-loop:no-raw-payload-persistence",
 )
+HIGH_MATURITY_COMPONENT_IDS = (
+    "W1",
+    "W2",
+    "W3",
+    "W4",
+    "W5",
+    "W6",
+    "W7",
+    "W8",
+    "W9",
+    "W10",
+    "W11",
+    "W12",
+    "W13",
+)
+
+
+def build_high_maturity_agent_spine_readiness() -> dict[str, Any]:
+    """Return deterministic W1-W13 coverage over existing safe UAA surfaces."""
+
+    rows = [
+        _high_maturity_row(
+            weakness_id="W1",
+            component="Product loop",
+            status="partial",
+            maturity="usable",
+            score=7,
+            safe_summary=(
+                "Founder Loop surfaces now bind request, intent, plan, "
+                "actions, evidence, memory, trust, and next decision through "
+                "backend-owned read models."
+            ),
+            evidence_refs=[
+                AGENT_LOOP_THREAD_ROUTE_REF,
+                "GET /control-center/today/summary",
+                "GET /control-center/actions/inbox",
+                "GET /control-center/evidence/timeline",
+            ],
+            test_refs=[
+                "tests/test_runtime_agent_loop_spine.py",
+                "tests/test_operator_loop_p1_011.py",
+            ],
+            gap=(
+                "Still proposal-first; more exact execution lanes need "
+                "AuthorityLease, approval, receipt, and rollback proof."
+            ),
+            recommendation=(
+                "Keep extending the existing Agent Loop Thread instead of "
+                "creating parallel cockpit state."
+            ),
+        ),
+        _high_maturity_row(
+            weakness_id="W2",
+            component="Durable planning and orchestration",
+            status="partial",
+            maturity="usable",
+            score=7,
+            safe_summary=(
+                "Durable run observability and staged orchestration expose "
+                "steps, approval waits, retry posture, recovery posture, and "
+                "blocked states as read-only operator evidence."
+            ),
+            evidence_refs=[
+                "GET /control-center/runs/observability",
+                "docs/control_center/UAA_RUNTIME_DURABLE_ORCHESTRATION.md",
+                "docs/runtime/UAA_RUNTIME_STAGED_ORCHESTRATION_ENGINE.md",
+            ],
+            test_refs=[
+                "tests/test_durable_run_lifecycle_read_model.py",
+                "tests/test_staged_orchestration_engine.py",
+            ],
+            gap="Recovery/cancel/retry execution remains blocked.",
+            recommendation=(
+                "Promote only exact orchestration transitions with approval "
+                "and idempotency receipts."
+            ),
+        ),
+        _high_maturity_row(
+            weakness_id="W3",
+            component="Memory retrieval and lifecycle",
+            status="implemented",
+            maturity="strong",
+            score=8,
+            safe_summary=(
+                "Memory has recall-only retrieval, review decisions, quality "
+                "states, provenance, context-pack previews, and no hidden "
+                "context injection."
+            ),
+            evidence_refs=[
+                "GET /control-center/memory/workbench",
+                "GET /control-center/memory/review",
+                "contract-ref:runtime-memory-learning-posture:v1",
+            ],
+            test_refs=[
+                "tests/test_memory_retrieval.py",
+                "tests/test_runtime_memory_learning.py",
+                "tests/test_context_pack_no_injection.py",
+            ],
+            gap="Automatic writes, delete/export, and injection stay blocked.",
+            recommendation=(
+                "Keep memory as recall and reviewable proposals; graduate "
+                "write/delete/export only as exact lanes."
+            ),
+        ),
+        _high_maturity_row(
+            weakness_id="W4",
+            component="Operator cockpit UX",
+            status="partial",
+            maturity="usable",
+            score=7,
+            safe_summary=(
+                "The Control Center shows Today, Action Inbox, Proof, "
+                "Evidence, Memory, Trust, Coding, Runtime, and route state "
+                "using backend truth labels and safe operator copy."
+            ),
+            evidence_refs=[
+                "apps/control-center/src/components/FounderLoopPanels.tsx",
+                "apps/control-center/src/components/TrustAuthorityPanel.tsx",
+                "GET /control-center/agent-loop/thread",
+            ],
+            test_refs=[
+                "scripts/verify_control_center_frontend.py",
+                "tests/test_control_center_release_surface_manifest.py",
+            ],
+            gap="Some routes are still partial or fallback-shaped.",
+            recommendation=(
+                "Continue moving operator-critical panels onto Python/API "
+                "truth with no raw JSON as the primary workflow."
+            ),
+        ),
+        _high_maturity_row(
+            weakness_id="W5",
+            component="Exact action and tool lanes",
+            status="partial",
+            maturity="usable",
+            score=7,
+            safe_summary=(
+                "Action, tool, and code lane catalogs separate inspectable, "
+                "proposal-only, approval-required, implemented, and blocked "
+                "capabilities with side-effect and receipt posture."
+            ),
+            evidence_refs=[
+                "contract-ref:runtime-action-tool-code-catalog:v1",
+                "GET /control-center/actions/inbox",
+                "GET /api/runtime/authority-state#authority_lane_catalog",
+            ],
+            test_refs=[
+                "tests/test_runtime_action_tool_code_lanes.py",
+                "tests/test_tool_runtime_authority_boundaries.py",
+                "tests/test_authority_leases.py",
+            ],
+            gap="Generic tool execution and broad shell remain blocked.",
+            recommendation=(
+                "Graduate narrow fixed-argv or proposal lanes one at a time "
+                "behind AuthorityLease and LocalApprovalAuthority validation."
+            ),
+        ),
+        _high_maturity_row(
+            weakness_id="W6",
+            component="Code Mode discipline",
+            status="partial",
+            maturity="usable",
+            score=7,
+            safe_summary=(
+                "Coding cockpit and code workbench expose proposal, patch, "
+                "apply-readiness, validation, rollback, and blocked-authority "
+                "posture without broad coding autonomy."
+            ),
+            evidence_refs=[
+                "GET /control-center/coding/session",
+                "docs/control_center/UAA_P1_075_GOVERNED_CODE_WORKBENCH.md",
+                "apps/control-center/src/components/CodingCockpitPanel.tsx",
+            ],
+            test_refs=[
+                "tests/test_coding_cockpit_read_model.py",
+                "tests/test_uaa_p1_075_governed_code_workbench.py",
+            ],
+            gap="Exact patch apply and broad test execution remain limited.",
+            recommendation=(
+                "Keep code changes proposal-first; bind exact apply to patch "
+                "hash, approval scope, rollback artifact, and receipt refs."
+            ),
+        ),
+        _high_maturity_row(
+            weakness_id="W7",
+            component="Web and external evidence",
+            status="partial",
+            maturity="usable",
+            score=6,
+            safe_summary=(
+                "Web/external information is gateway-governed, preview-only, "
+                "untrusted, source-ref based, and separated from browser or "
+                "connector action authority."
+            ),
+            evidence_refs=[
+                "GET /control-center/web-evidence/attachments",
+                "docs/network/WEB_ACCESS_PROVIDER_AUTHORITY_SEQUENCE.md",
+                "src/ultimate_ai_agent/core/network/governed_web_evidence.py",
+            ],
+            test_refs=[
+                "tests/test_governed_web_evidence.py",
+                "tests/test_web_evidence_product_slice.py",
+            ],
+            gap="Live broad fetching and browser actions remain blocked.",
+            recommendation=(
+                "Keep WebAccessGateway as the only boundary; add read-only "
+                "fetch lanes only with allowlists and audit records."
+            ),
+        ),
+        _high_maturity_row(
+            weakness_id="W8",
+            component="Model and provider management",
+            status="partial",
+            maturity="usable",
+            score=7,
+            safe_summary=(
+                "Provider/model surfaces expose catalogs, readiness, cost, "
+                "role evidence, routing traces, and blocked reasons while "
+                "model output remains non-authoritative."
+            ),
+            evidence_refs=[
+                "GET /control-center/providers/runtime-control-plane",
+                "docs/runtime/UAA_RUNTIME_ROLE_PROVIDER_EVIDENCE.md",
+                "docs/control_center/MODEL_PROVIDER_CONTROL_PLANE.md",
+            ],
+            test_refs=[
+                "tests/test_model_provider_control_plane.py",
+                "tests/test_role_provider_evidence.py",
+                "tests/test_model_runtime_no_real_calls.py",
+            ],
+            gap="No new runtime provider/model calls are granted.",
+            recommendation=(
+                "Improve metadata and readiness traces without provider SDK "
+                "calls unless an exact accepted lane already permits them."
+            ),
+        ),
+        _high_maturity_row(
+            weakness_id="W9",
+            component="Signed evidence receipts",
+            status="implemented",
+            maturity="strong",
+            score=8,
+            safe_summary=(
+                "Runtime action signed evidence and evidence audit spines use "
+                "safe refs, hashes, lineage, verification posture, and receipt "
+                "refs instead of raw payloads."
+            ),
+            evidence_refs=[
+                "docs/runtime/UAA_RUNTIME_ACTION_SIGNED_EVIDENCE.md",
+                "contract-ref:runtime-evidence-audit-spine:v1",
+                "scripts/dev/uaa_runtime.py verify-evidence-envelope",
+            ],
+            test_refs=[
+                "tests/test_runtime_action_signed_evidence.py",
+                "tests/test_runtime_evidence_audit.py",
+            ],
+            gap="Portable production signing/compliance claims stay blocked.",
+            recommendation=(
+                "Keep signed evidence local and verifier-backed; add portable "
+                "export only after key material and redaction posture are proven."
+            ),
+        ),
+        _high_maturity_row(
+            weakness_id="W10",
+            component="Extensibility and catalog maturity",
+            status="implemented",
+            maturity="strong",
+            score=8,
+            safe_summary=(
+                "Extension catalog review, disabled-install receipts, grant "
+                "records, trust statuses, and rollback/delete receipts keep "
+                "review separate from callable runtime import."
+            ),
+            evidence_refs=[
+                "GET /extensions/catalog",
+                "POST /extensions/disabled-install-records/rollback",
+                "docs/control_center/UAA_RUNTIME_EXTENSIBILITY_FINAL.md",
+            ],
+            test_refs=[
+                "tests/test_inspectable_extension_catalog.py",
+                "tests/test_runtime_extensibility_final.py",
+            ],
+            gap="Plugin runtime import and connector writes remain blocked.",
+            recommendation=(
+                "Keep imports disabled by default; require provenance, hash, "
+                "approval, receipt, and revoke posture before callable use."
+            ),
+        ),
+        _high_maturity_row(
+            weakness_id="W11",
+            component="End-to-end Founder Loop",
+            status="partial",
+            maturity="usable",
+            score=7,
+            safe_summary=(
+                "Start Here, Today, Plans, Actions, Proof, Evidence, Memory, "
+                "Trust, Work Board, and Agent Loop Thread share backend refs "
+                "for an inspectable founder/operator loop."
+            ),
+            evidence_refs=[
+                "GET /control-center/start-here/summary",
+                "GET /control-center/agent-loop/thread",
+                "docs/control_center/FOUNDER_LOOP_V1_PRODUCT_PROOF_PASS.md",
+            ],
+            test_refs=[
+                "tests/test_founder_loop_v1_product_proof.py",
+                "tests/test_founder_loop_v1_proof_lane.py",
+                "tests/test_founder_loop_runs_integration.py",
+            ],
+            gap="More live useful lanes need exact authority before mutation.",
+            recommendation=(
+                "Tie every new action into the same proof/evidence/memory "
+                "loop instead of one-off controls."
+            ),
+        ),
+        _high_maturity_row(
+            weakness_id="W12",
+            component="System-level agent evals",
+            status="partial",
+            maturity="usable",
+            score=6,
+            safe_summary=(
+                "Route choice, turn contracts, task decomposition, approval "
+                "detection, memory citation, blocked explanation, and evidence "
+                "completeness have focused tests and verifiers."
+            ),
+            evidence_refs=[
+                "tests/test_turn_contract_router_quality.py",
+                "tests/test_task_decomposition_capability_registry.py",
+                "tests/test_claim_evidence_contracts.py",
+            ],
+            test_refs=[
+                "tests/test_turn_contract_router_classifier.py",
+                "tests/test_uaa_p1_089_top_level_decision_router_contract.py",
+            ],
+            gap="No broad benchmark suite should be claimed as model intelligence.",
+            recommendation=(
+                "Keep evals system-level and fixture-backed; do not score raw "
+                "LLM intelligence without model-evaluation evidence."
+            ),
+        ),
+        _high_maturity_row(
+            weakness_id="W13",
+            component="Release and product truth alignment",
+            status="implemented",
+            maturity="strong",
+            score=8,
+            safe_summary=(
+                "OpenAPI, API manifest, route inventory, release truth, docs "
+                "integrity, capability surface generation, and Foundation Gate "
+                "keep product claims aligned with implemented posture."
+            ),
+            evidence_refs=[
+                "GET /api/manifest",
+                "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md",
+                "docs/control_center/capability_surface_manifest.json",
+            ],
+            test_refs=[
+                "tests/test_api_manifest.py",
+                "tests/test_control_center_api_routes.py",
+                "scripts/run_foundation_gate.py --command-mode report-only",
+            ],
+            gap="Large prompt-driven work still needs scoped commits and gates.",
+            recommendation=(
+                "Keep stale comparison reports out of product truth and use "
+                "generated overlays where source truth exists."
+            ),
+        ),
+    ]
+    implemented = sum(1 for row in rows if row["status"] == "implemented")
+    usable_or_better = sum(
+        1
+        for row in rows
+        if row["maturity"] in {"usable", "strong", "mature"}
+    )
+    average_score = round(
+        sum(float(row["score_0_10"]) for row in rows) / len(rows),
+        1,
+    )
+    return {
+        "schema_version": "high_maturity_agent_spine_coverage.v1",
+        "contract_ref": HIGH_MATURITY_SPINE_CONTRACT_REF,
+        "status": "implemented_backend_owned_read_model_no_new_authority",
+        "source": AGENT_LOOP_THREAD_SOURCE,
+        "backend_owned": True,
+        "local_read_model_only": True,
+        "safe_refs_only": True,
+        "raw_content_included": False,
+        "route_ref": AGENT_LOOP_THREAD_ROUTE_REF,
+        "cli_ref": HIGH_MATURITY_SPINE_CLI_REF,
+        "weakness_count": len(rows),
+        "implemented_count": implemented,
+        "usable_or_better_count": usable_or_better,
+        "average_score_0_10": average_score,
+        "overall_projection_0_100": int(round(average_score * 10)),
+        "coverage_status": (
+            "all_w1_w13_have_code_docs_tests_or_governed_blocked_posture"
+        ),
+        "rows": rows,
+        "blocked_authority_refs": list(AGENT_LOOP_THREAD_BLOCKED_AUTHORITY_REFS),
+        "next_safe_action": (
+            "Use this spine coverage as inspection truth; graduate future "
+            "runtime capability only through exact AuthorityLease-gated lanes."
+        ),
+        "redactions_applied": [
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_content_omitted",
+            "raw_prompt_omitted",
+            "raw_response_omitted",
+            "raw_provider_payload_omitted",
+            "raw_local_paths_omitted",
+            "read_only_control_center_projection",
+        ],
+    }
 
 
 def build_agent_loop_thread_read_model(
@@ -301,6 +722,7 @@ def build_agent_loop_thread_read_model(
                 fallback="Review memory candidates without hidden context injection.",
             ),
         },
+        "high_maturity_spine_readiness": build_high_maturity_agent_spine_readiness(),
         "operator_decision_matrix": operator_decision_matrix,
         "surface_bindings": [
             {"surface": "Chat", "route_ref": "GET /control-center/chat/turns"},
@@ -337,6 +759,43 @@ def build_agent_loop_thread_read_model(
             "raw_local_paths_omitted",
             "read_only_control_center_projection",
         ],
+    }
+
+
+def _high_maturity_row(
+    *,
+    weakness_id: str,
+    component: str,
+    status: str,
+    maturity: str,
+    score: int,
+    safe_summary: str,
+    evidence_refs: list[str],
+    test_refs: list[str],
+    gap: str,
+    recommendation: str,
+) -> dict[str, Any]:
+    return {
+        "weakness_id": _safe_text(weakness_id),
+        "component": _safe_text(component),
+        "status": _safe_text(status),
+        "maturity": _safe_text(maturity),
+        "score_0_10": score,
+        "safe_summary": _safe_text(safe_summary),
+        "evidence_refs": _dedupe(evidence_refs),
+        "test_refs": _dedupe(test_refs),
+        "gap": _safe_text(gap),
+        "recommendation": _safe_text(recommendation),
+        "safe_refs_only": True,
+        "authority_broadened": False,
+        "runtime_model_calls_added": False,
+        "provider_sdk_calls_added": False,
+        "live_web_fetching_added": False,
+        "browser_automation_added": False,
+        "connector_writes_added": False,
+        "unrestricted_shell_added": False,
+        "plugin_runtime_import_added": False,
+        "production_authority_added": False,
     }
 
 
