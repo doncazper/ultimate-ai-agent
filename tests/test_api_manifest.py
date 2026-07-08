@@ -151,6 +151,10 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned() -> None:
         "inspectable_extension_catalog_read_only" in manifest["capabilities_declared"]
     )
     assert (
+        "extension_install_disabled_posture_read_only"
+        in manifest["capabilities_declared"]
+    )
+    assert (
         "extension_activation_grant_records_exact_scope"
         in manifest["capabilities_declared"]
     )
@@ -887,6 +891,13 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
     assert "extension_catalog_runtime_import" in manifest["capabilities_blocked"]
     assert "extension_catalog_plugin_execution" in manifest["capabilities_blocked"]
     assert "extension_catalog_connector_writes" in manifest["capabilities_blocked"]
+    assert "extension_install_disabled_package_install" in manifest["capabilities_blocked"]
+    assert "extension_install_disabled_runtime_import" in manifest["capabilities_blocked"]
+    assert "extension_install_disabled_execution" in manifest["capabilities_blocked"]
+    assert (
+        "extension_install_disabled_marketplace_fetch"
+        in manifest["capabilities_blocked"]
+    )
     assert "extension_activation_runtime_import" in manifest["capabilities_blocked"]
     assert "extension_activation_execution" in manifest["capabilities_blocked"]
     assert "extension_activation_callable_catalog" in manifest["capabilities_blocked"]

@@ -33,6 +33,7 @@
     "progressive_disclosure_refs",
     "skill_write_approval_gate",
     "skill_bundle_proposal_posture",
+    "install_disabled_posture",
     "docs_refs",
     "schema_refs",
     "developer_guidance_refs",
@@ -139,6 +140,9 @@
     "skill_bundle_proposal_posture": {
       "$ref": "#/$defs/skill_bundle_proposal_posture"
     },
+    "install_disabled_posture": {
+      "$ref": "#/$defs/extension_install_disabled_posture"
+    },
     "docs_refs": {
       "type": "array",
       "items": {
@@ -175,6 +179,425 @@
     "safe_ref": {
       "type": "string",
       "pattern": "^[a-z][a-z0-9_-]*:[a-z0-9][a-z0-9_.:-]*$"
+    },
+    "extension_install_disabled_posture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "posture_ref",
+        "status",
+        "candidate_count",
+        "candidates",
+        "required_authority_ref",
+        "required_approval_ref",
+        "verifier_refs",
+        "docs_refs",
+        "next_safe_action_refs",
+        "blocked_authority_refs",
+        "safe_refs_only",
+        "read_only",
+        "install_disabled_posture_enabled",
+        "plugin_install_enabled",
+        "plugin_enablement_enabled",
+        "plugin_execution_enabled",
+        "runtime_import_enabled",
+        "connector_writes_enabled",
+        "shell_execution_enabled",
+        "network_access_enabled",
+        "browser_automation_enabled",
+        "provider_model_call_enabled",
+        "remote_execution_enabled",
+        "raw_manifest_content_stored",
+        "raw_package_content_stored",
+        "production_authority_granted",
+        "side_effects_performed",
+        "safe_summary"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "uaa_extension_install_disabled_posture.v1"
+        },
+        "posture_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "status": {
+          "enum": [
+            "blocked_pending_authority_and_approval",
+            "review_ready_disabled_not_persisted"
+          ]
+        },
+        "candidate_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "candidates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/extension_install_disabled_candidate"
+          }
+        },
+        "required_authority_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "required_approval_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "verifier_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "docs_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "next_safe_action_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "blocked_authority_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "safe_refs_only": {
+          "const": true
+        },
+        "read_only": {
+          "const": true
+        },
+        "install_disabled_posture_enabled": {
+          "const": true
+        },
+        "plugin_install_enabled": {
+          "const": false
+        },
+        "plugin_enablement_enabled": {
+          "const": false
+        },
+        "plugin_execution_enabled": {
+          "const": false
+        },
+        "runtime_import_enabled": {
+          "const": false
+        },
+        "connector_writes_enabled": {
+          "const": false
+        },
+        "shell_execution_enabled": {
+          "const": false
+        },
+        "network_access_enabled": {
+          "const": false
+        },
+        "browser_automation_enabled": {
+          "const": false
+        },
+        "provider_model_call_enabled": {
+          "const": false
+        },
+        "remote_execution_enabled": {
+          "const": false
+        },
+        "raw_manifest_content_stored": {
+          "const": false
+        },
+        "raw_package_content_stored": {
+          "const": false
+        },
+        "production_authority_granted": {
+          "const": false
+        },
+        "side_effects_performed": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "safe_summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 640
+        }
+      }
+    },
+    "extension_install_disabled_candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "candidate_ref",
+        "catalog_entry_ref",
+        "package_ref",
+        "manifest_ref",
+        "version_ref",
+        "source_package_ref",
+        "provenance_ref",
+        "static_review_ref",
+        "sandbox_test_plan_ref",
+        "tool_broker_mapping_ref",
+        "event_ledger_plan_ref",
+        "version_pin_ref",
+        "revocation_plan_ref",
+        "safe_disable_ref",
+        "rollback_ref",
+        "authority_lane_ref",
+        "authority_decision_ref",
+        "authority_decision_outcome",
+        "authority_decision_reason_refs",
+        "required_mode",
+        "required_domain",
+        "required_capability",
+        "manifest_security_decision_ref",
+        "install_review_decision_ref",
+        "receipt_plan_ref",
+        "audit_refs",
+        "receipt_refs",
+        "file_hashes",
+        "blocked_capability_refs",
+        "approval_request_ref",
+        "approval_ref",
+        "exact_approval_required",
+        "local_approval_validated",
+        "approval_validation_status",
+        "approval_ref_authority",
+        "disabled_install_record_ready",
+        "disabled_install_record_persisted",
+        "plugin_install_enabled",
+        "plugin_enablement_enabled",
+        "plugin_execution_enabled",
+        "runtime_import_enabled",
+        "connector_writes_enabled",
+        "shell_execution_enabled",
+        "network_access_enabled",
+        "browser_automation_enabled",
+        "provider_model_call_enabled",
+        "remote_execution_enabled",
+        "raw_manifest_content_stored",
+        "raw_package_content_stored",
+        "production_authority_granted",
+        "side_effects_performed",
+        "safe_summary"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "uaa_extension_install_disabled_candidate.v1"
+        },
+        "candidate_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "catalog_entry_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "package_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "manifest_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "version_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "source_package_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "provenance_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "static_review_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "sandbox_test_plan_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "tool_broker_mapping_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "event_ledger_plan_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "version_pin_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "revocation_plan_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "safe_disable_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "rollback_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "authority_lane_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "authority_decision_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "authority_decision_outcome": {
+          "enum": ["allow", "ask", "deny", "degrade_to_draft"]
+        },
+        "authority_decision_reason_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "required_mode": {
+          "const": "approved_safe_local_work_session"
+        },
+        "required_domain": {
+          "const": "workspace"
+        },
+        "required_capability": {
+          "const": "write"
+        },
+        "manifest_security_decision_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "install_review_decision_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "receipt_plan_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "audit_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "receipt_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "file_hashes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/extension_install_disabled_file_hash"
+          }
+        },
+        "blocked_capability_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "approval_request_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "approval_ref": {
+          "anyOf": [
+            {"$ref": "#/$defs/safe_ref"},
+            {"type": "null"}
+          ]
+        },
+        "exact_approval_required": {
+          "const": true
+        },
+        "local_approval_validated": {
+          "type": "boolean"
+        },
+        "approval_validation_status": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "approval_ref_authority": {
+          "const": false
+        },
+        "disabled_install_record_ready": {
+          "type": "boolean"
+        },
+        "disabled_install_record_persisted": {
+          "const": false
+        },
+        "plugin_install_enabled": {
+          "const": false
+        },
+        "plugin_enablement_enabled": {
+          "const": false
+        },
+        "plugin_execution_enabled": {
+          "const": false
+        },
+        "runtime_import_enabled": {
+          "const": false
+        },
+        "connector_writes_enabled": {
+          "const": false
+        },
+        "shell_execution_enabled": {
+          "const": false
+        },
+        "network_access_enabled": {
+          "const": false
+        },
+        "browser_automation_enabled": {
+          "const": false
+        },
+        "provider_model_call_enabled": {
+          "const": false
+        },
+        "remote_execution_enabled": {
+          "const": false
+        },
+        "raw_manifest_content_stored": {
+          "const": false
+        },
+        "raw_package_content_stored": {
+          "const": false
+        },
+        "production_authority_granted": {
+          "const": false
+        },
+        "side_effects_performed": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "safe_summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 520
+        }
+      }
+    },
+    "extension_install_disabled_file_hash": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file_ref",
+        "hash_algorithm",
+        "hash_value",
+        "hash_status"
+      ],
+      "properties": {
+        "file_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "hash_algorithm": {
+          "const": "sha256"
+        },
+        "hash_value": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^sha256:[a-f0-9]{64}$"
+            },
+            {"type": "null"}
+          ]
+        },
+        "hash_status": {
+          "enum": ["reviewed", "missing"]
+        }
+      }
     },
     "catalog_entry": {
       "type": "object",

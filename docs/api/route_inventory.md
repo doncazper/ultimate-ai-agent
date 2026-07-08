@@ -566,9 +566,12 @@ background monitoring, or process control.
 
 This route returns read-only inspectable extension catalog metadata with safe
 refs, visibility status, trust posture, callable posture, blocked reasons,
-review evidence refs, and safe adoption posture. It is separate from any
-callable catalog and does not install, import, enable, activate, revoke,
-execute, fetch, or mutate extensions.
+review evidence refs, safe adoption posture, and install-disabled posture. The
+install-disabled posture is still inspection-only: it may show AuthorityLease
+decision refs, exact approval requirement, hash refs, receipt plan refs,
+rollback refs, safe-disable refs, and blocked capability refs, but it does not
+persist package installs, import, enable, activate, revoke, execute, fetch, or
+mutate extensions.
 
 ### Mattermost agent rooms
 

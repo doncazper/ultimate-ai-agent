@@ -12,8 +12,17 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
+from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
+from ultimate_ai_agent.core.authority import (
+    AuthorityCapability,
+    AuthorityDomain,
+    AuthorityLease,
+    TrustMode,
+)
 from ultimate_ai_agent.core.extension_catalog import (
     build_default_inspectable_extension_catalog,
+    build_extension_install_disabled_approval_request,
+    build_extension_install_disabled_record_receipt,
 )
 
 
@@ -94,6 +103,38 @@ def _verify_catalog_contract(payload: dict[str, object]) -> None:
         in payload["final_hardening_refs"],
         "catalog missing Phase 09 verifier ref",
     )
+    install_posture = payload["install_disabled_posture"]
+    _require(
+        install_posture["status"] == "blocked_pending_authority_and_approval",
+        "install-disabled posture drifted",
+    )
+    for field in (
+        "plugin_install_enabled",
+        "plugin_enablement_enabled",
+        "plugin_execution_enabled",
+        "runtime_import_enabled",
+        "connector_writes_enabled",
+        "shell_execution_enabled",
+        "network_access_enabled",
+        "browser_automation_enabled",
+        "provider_model_call_enabled",
+        "production_authority_granted",
+    ):
+        _require(install_posture[field] is False, f"install posture enables {field}")
+    candidates = install_posture["candidates"]
+    _require(
+        isinstance(candidates, list) and len(candidates) == 1,
+        "install-disabled candidate missing",
+    )
+    candidate = candidates[0]
+    _require(candidate["exact_approval_required"] is True, "exact approval not required")
+    _require(candidate["approval_ref_authority"] is False, "approval ref claims authority")
+    _require(
+        candidate["disabled_install_record_persisted"] is False,
+        "disabled install record was persisted",
+    )
+    _require(candidate["file_hashes"], "install-disabled hash refs missing")
+    _verify_authorized_install_disabled_record_receipt()
 
     entries = payload["entries"]
     _require(isinstance(entries, list) and len(entries) >= 2, "catalog entries missing")
@@ -112,6 +153,59 @@ def _verify_catalog_contract(payload: dict[str, object]) -> None:
             entry["callable_posture"] != "callable", "entry claims callable posture"
         )
         _require(entry["review_evidence_refs"], "entry missing review evidence refs")
+
+
+def _verify_authorized_install_disabled_record_receipt() -> None:
+    approval_authority = LocalApprovalAuthority()
+    request = approval_authority.create_request(
+        build_extension_install_disabled_approval_request()
+    )
+    grant = approval_authority.grant(
+        request.approval_request_id,
+        approved_by_actor_id="actor:operator",
+        approval_ref="approval-ref:extension-install-disabled:verifier",
+    )
+    lease = AuthorityLease(
+        lease_ref="authority-lease-ref:extension-install-disabled:verifier",
+        mode=TrustMode.approved_safe_local_work_session,
+        domains={AuthorityDomain.workspace: [AuthorityCapability.write]},
+        safe_summary="Allow verifier to inspect disabled extension install receipt.",
+    )
+    receipt = build_extension_install_disabled_record_receipt(
+        leases=[lease],
+        approval_authority=approval_authority,
+        approval_ref=grant.approval_ref,
+    ).model_dump(mode="json")
+
+    _require(
+        receipt["status"] == "disabled_install_record_receipt_recorded",
+        "authorized install-disabled receipt was not recorded",
+    )
+    _require(receipt["authority_decision_outcome"] == "allow", "receipt not allowed")
+    _require(receipt["authority_lease_ref"] == lease.lease_ref, "lease ref missing")
+    _require(receipt["approval_ref"] == grant.approval_ref, "approval ref missing")
+    _require(receipt["approval_ref_authority"] is False, "approval ref is authority")
+    _require(
+        receipt["record_storage_mode"] == "receipt_only",
+        "verifier receipt unexpectedly persisted",
+    )
+    _require(
+        receipt["durable_store_persistence"] is False,
+        "verifier receipt wrote durable store",
+    )
+    for field in (
+        "plugin_install_enabled",
+        "plugin_enablement_enabled",
+        "plugin_execution_enabled",
+        "runtime_import_enabled",
+        "connector_writes_enabled",
+        "shell_execution_enabled",
+        "network_access_enabled",
+        "browser_automation_enabled",
+        "provider_model_call_enabled",
+        "production_authority_granted",
+    ):
+        _require(receipt[field] is False, f"receipt enables {field}")
 
 
 def _verify_api_route(payload: dict[str, object]) -> None:
@@ -153,6 +247,32 @@ def _verify_cli(payload: dict[str, object]) -> None:
     _require(
         cli_payload["callable_catalog_enabled"] is False,
         "CLI claims callable catalog authority",
+    )
+    _require(
+        cli_payload["install_disabled_posture"]["plugin_install_enabled"] is False,
+        "CLI claims plugin install authority",
+    )
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/dev/uaa_extensions.py",
+            "inspect-install-disabled-posture",
+        ],
+        cwd=ROOT,
+        env=env,
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+    posture_payload = json.loads(result.stdout)
+    _require(
+        posture_payload["posture_ref"] == "extension-install-disabled-posture:uaa:v1",
+        "CLI install-disabled posture drifted",
+    )
+    _require(
+        posture_payload["plugin_install_enabled"] is False,
+        "CLI install-disabled posture enables plugin install",
     )
 
 

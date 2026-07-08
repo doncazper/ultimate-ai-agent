@@ -30,6 +30,13 @@ def test_phase09_extension_catalog_has_operator_posture_without_callability() ->
         "verifier:runtime-extensibility-final"
         in payload["final_hardening_refs"]
     )
+    install_posture = payload["install_disabled_posture"]
+    assert install_posture["status"] == "blocked_pending_authority_and_approval"
+    assert install_posture["plugin_install_enabled"] is False
+    assert install_posture["runtime_import_enabled"] is False
+    assert install_posture["plugin_execution_enabled"] is False
+    assert install_posture["candidates"][0]["exact_approval_required"] is True
+    assert install_posture["candidates"][0]["approval_ref_authority"] is False
 
     for entry in payload["entries"]:
         assert entry["visibility_status"] in {
@@ -79,4 +86,31 @@ def test_uaa_extensions_cli_inspects_same_safe_catalog() -> None:
     assert payload["callable_catalog_enabled"] is False
     assert payload["runtime_import_enabled"] is False
     assert payload["execution_enabled"] is False
+    assert payload["install_disabled_posture"]["plugin_install_enabled"] is False
+    assert payload["install_disabled_posture"]["candidate_count"] == 1
     assert payload["entries"]
+
+
+def test_uaa_extensions_cli_inspects_install_disabled_posture() -> None:
+    env = os.environ.copy()
+    env["PYTHONPATH"] = "src"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/dev/uaa_extensions.py",
+            "inspect-install-disabled-posture",
+        ],
+        env=env,
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+
+    payload = json.loads(result.stdout)
+    assert payload["posture_ref"] == "extension-install-disabled-posture:uaa:v1"
+    assert payload["plugin_install_enabled"] is False
+    assert payload["runtime_import_enabled"] is False
+    assert payload["plugin_execution_enabled"] is False
+    assert payload["candidates"][0]["disabled_install_record_persisted"] is False

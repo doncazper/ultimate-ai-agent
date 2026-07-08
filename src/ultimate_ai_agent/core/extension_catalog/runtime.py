@@ -35,6 +35,9 @@ from ultimate_ai_agent.core.extension_catalog.contracts import (
     validate_skill_write_approval_gate,
     validate_inspectable_extension_catalog,
 )
+from ultimate_ai_agent.core.extension_catalog.install_disabled import (
+    build_default_extension_install_disabled_posture,
+)
 
 
 INSPECTABLE_EXTENSION_CATALOG_DOCS = [
@@ -51,6 +54,7 @@ INSPECTABLE_EXTENSION_CATALOG_SCHEMAS = [
     "schema:plugin-skill-trust-manifest",
     "schema:inspectable-extension-catalog",
     "schema:extension-activation-grant",
+    "schema:extension-install-disabled-posture",
 ]
 
 EXTENSION_CATALOG_BLOCKED_CAPABILITIES = [
@@ -62,6 +66,7 @@ EXTENSION_CATALOG_BLOCKED_CAPABILITIES = [
     "arbitrary_plugin_execution",
     "skill_runtime_import",
     "external_marketplace_fetch",
+    "plugin_package_install",
     "direct_skill_write",
     "automatic_skill_enablement",
     "skill_bundle_activation",
@@ -260,10 +265,14 @@ def build_default_inspectable_extension_catalog() -> InspectableExtensionCatalog
         ],
         skill_write_approval_gate=build_default_skill_write_approval_gate(),
         skill_bundle_proposal_posture=build_default_skill_bundle_proposal_posture(),
+        install_disabled_posture=build_default_extension_install_disabled_posture(),
         safe_summary=(
             "Read-only extension catalog metadata; packages remain non-callable "
-            "and runtime import stays disabled. Skill entries disclose compact "
-            "metadata first and never auto-load full instructions."
+            "and runtime import stays disabled. Disabled install posture exposes "
+            "approval, AuthorityLease, hash, receipt, rollback, and safe-disable "
+            "refs without installing, importing, enabling, or executing code. "
+            "Skill entries disclose compact metadata first and never auto-load "
+            "full instructions."
         ),
         entries=[
             InspectableExtensionCatalogEntry(

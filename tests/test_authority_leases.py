@@ -1312,7 +1312,7 @@ def test_authority_lane_catalog_v1_normalizes_required_lanes_without_execution()
         catalog["cli_ref"]
         == "repo-local-command:uaa-runtime-inspect-authority-lane-catalog"
     )
-    assert catalog["entry_count"] == 9
+    assert catalog["entry_count"] == 10
     assert catalog["missing_required_lane_ids"] == []
     assert set(catalog["required_lane_ids"]) == {
         "local.verify.focused_pytest",
@@ -1326,7 +1326,7 @@ def test_authority_lane_catalog_v1_normalizes_required_lanes_without_execution()
         "extension.catalog.review",
     }
     assert catalog["status_counts"] == {
-        "approval_required": 5,
+        "approval_required": 6,
         "blocked": 1,
         "implemented": 2,
         "proposal_only": 1,
@@ -1402,6 +1402,35 @@ def test_authority_lane_catalog_v1_normalizes_required_lanes_without_execution()
     assert extension_review["allowed_inputs_schema"]["callable_import"] is False
     assert "runtime import" in extension_review["denied_capabilities"]
 
+    extension_install_disabled = _authority_lane_by_id(
+        catalog, "extension.install_disabled"
+    )
+    assert extension_install_disabled["status"] == "approval_required"
+    assert extension_install_disabled["authority_domain"] == "workspace"
+    assert extension_install_disabled["authority_capability"] == "write"
+    assert (
+        extension_install_disabled["required_mode"]
+        == "approved_safe_local_work_session"
+    )
+    assert extension_install_disabled["idempotency_required"] is True
+    assert (
+        extension_install_disabled["approval_scope"]
+        == "approval-scope:extension-install-disabled-exact-package-version"
+    )
+    assert (
+        extension_install_disabled["api_operation_ref"]
+        == "GET /extensions/catalog#install_disabled_posture"
+    )
+    assert (
+        extension_install_disabled["cli_inspection_ref"]
+        == "scripts/dev/uaa_extensions.py inspect-install-disabled-posture"
+    )
+    assert "runtime import" in extension_install_disabled["denied_capabilities"]
+    assert "plugin execution" in extension_install_disabled["denied_capabilities"]
+    assert "reason-ref:extension-install-disabled:local-approval-required" in (
+        extension_install_disabled["blocked_reason_refs"]
+    )
+
     serialized = json.dumps(catalog, sort_keys=True).lower()
     for forbidden in (
         "/users/",
@@ -1418,13 +1447,16 @@ def test_authority_state_embeds_authority_lane_catalog_v1() -> None:
     catalog = read_model.model_dump(mode="json")["authority_lane_catalog"]
 
     assert catalog["contract_ref"] == AUTHORITY_LANE_CATALOG_CONTRACT_REF
-    assert catalog["entry_count"] == 9
+    assert catalog["entry_count"] == 10
     assert _authority_lane_by_id(catalog, "code.apply_exact_patch")["status"] == (
         "blocked"
     )
     assert _authority_lane_by_id(catalog, "model.provider.readiness")[
         "status"
     ] == "implemented"
+    assert _authority_lane_by_id(catalog, "extension.install_disabled")[
+        "status"
+    ] == "approval_required"
 
 
 def test_authority_evaluator_denies_unknown_and_degrades_when_draft_available() -> None:
@@ -2449,10 +2481,13 @@ def test_authority_state_api_cli_and_settings_surface(
     )
     authority_lane_catalog = runtime_body["data"]["authority_lane_catalog"]
     assert authority_lane_catalog["contract_ref"] == AUTHORITY_LANE_CATALOG_CONTRACT_REF
-    assert authority_lane_catalog["entry_count"] == 9
+    assert authority_lane_catalog["entry_count"] == 10
     assert _authority_lane_by_id(authority_lane_catalog, "code.apply_exact_patch")[
         "status"
     ] == "blocked"
+    assert _authority_lane_by_id(
+        authority_lane_catalog, "extension.install_disabled"
+    )["status"] == "approval_required"
     assert runtime_body["data"]["decision_summary"]["total_capabilities"] == len(
         runtime_body["data"]["decision_catalog"]
     )
@@ -2542,7 +2577,7 @@ def test_authority_state_api_cli_and_settings_surface(
     assert authority_state["decision_summary"]["total_capabilities"] == len(
         authority_state["decision_catalog"]
     )
-    assert authority_state["authority_lane_catalog"]["entry_count"] == 9
+    assert authority_state["authority_lane_catalog"]["entry_count"] == 10
     assert len(authority_state["domain_readiness"]) == len(
         authority_state["target_domains"]
     )
@@ -2589,7 +2624,7 @@ def test_authority_state_api_cli_and_settings_surface(
     )
     lane_catalog = lane_catalog_payload["authority_lane_catalog_read_model"]
     assert lane_catalog["contract_ref"] == AUTHORITY_LANE_CATALOG_CONTRACT_REF
-    assert lane_catalog["entry_count"] == 9
+    assert lane_catalog["entry_count"] == 10
     assert lane_catalog_payload["safe_refs_only"] is True
     assert lane_catalog_payload["execution_performed"] is False
 

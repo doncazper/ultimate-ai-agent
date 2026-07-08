@@ -3,6 +3,11 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from ultimate_ai_agent.core.extension_catalog.install_disabled import (
+    ExtensionInstallDisabledPostureReadModel,
+    validate_extension_install_disabled_posture,
+)
+
 
 SAFE_REF_PATTERN = r"^[a-z][a-z0-9_-]*:[a-z0-9][a-z0-9_.:-]*$"
 SHA256_PATTERN = r"^sha256:[a-f0-9]{64}$"
@@ -354,6 +359,7 @@ class InspectableExtensionCatalog(_ExtensionCatalogModel):
     progressive_disclosure_refs: list[str] = Field(default_factory=list)
     skill_write_approval_gate: SkillWriteApprovalGateReadModel
     skill_bundle_proposal_posture: SkillBundleProposalPostureReadModel
+    install_disabled_posture: ExtensionInstallDisabledPostureReadModel
     docs_refs: list[str] = Field(default_factory=list)
     schema_refs: list[str] = Field(default_factory=list)
     developer_guidance_refs: list[str] = Field(default_factory=list)
@@ -529,6 +535,7 @@ def validate_inspectable_extension_catalog(
     )
     validate_skill_write_approval_gate(catalog.skill_write_approval_gate)
     validate_skill_bundle_proposal_posture(catalog.skill_bundle_proposal_posture)
+    validate_extension_install_disabled_posture(catalog.install_disabled_posture)
     for entry in catalog.entries:
         _validate_safe_ref_list(
             [entry.compact_skill_index_ref, entry.metadata_summary_ref],

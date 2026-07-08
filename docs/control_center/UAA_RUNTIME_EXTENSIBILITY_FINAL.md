@@ -20,13 +20,21 @@ backend-owned inspectable extension catalog:
 - blocked reason
 - review evidence refs
 - safe adoption posture
+- install-disabled posture with AuthorityLease decision refs, exact approval
+  requirement, hash refs, receipt plan refs, rollback refs, safe-disable refs,
+  and blocked capability refs
+- exact disabled-install record receipts plus an idempotent caller-supplied
+  local disabled-record store, available only after active `workspace/write`
+  AuthorityLease scope and exact LocalApprovalAuthority validation
 
 Canonical core/API/CLI refs:
 
 - `src/ultimate_ai_agent/core/extension_catalog/contracts.py`
+- `src/ultimate_ai_agent/core/extension_catalog/install_disabled.py`
 - `src/ultimate_ai_agent/core/extension_catalog/runtime.py`
 - `GET /extensions/catalog`
 - `scripts/dev/uaa_extensions.py inspect-catalog`
+- `scripts/dev/uaa_extensions.py inspect-install-disabled-posture`
 - `scripts/verify_uaa_runtime_extensibility_final.py`
 - `tests/test_runtime_extensibility_final.py`
 
@@ -47,13 +55,17 @@ Current posture:
 |---|---|---|---|
 | Plugin/skill boundary metadata | implemented | package refs, reviewed hash refs, review refs, blocker refs, adoption posture | none |
 | Unknown extension candidate | blocked | unknown provenance, missing review, blocked grant refs, blocked reason | none |
+| Disabled install posture | implemented | exact approval requirement, workspace/write AuthorityLease decision refs, reviewed hash refs, receipt plan refs, rollback and safe-disable refs | default catalog remains read-only; disabled-install record receipt/local store path is available only when lease and exact LocalApprovalAuthority approval validate |
 | Activation grant records | partial | exact-scope grant and revocation record shapes | record-only; no runtime import |
 | MCP/A2A compatibility | planned | watchlist and future questions | none |
 | Static package review | planned | future package review posture | none |
 | Callable catalog | blocked | blocked reason refs only | none |
 
 Plugin runtime import remains blocked. Connector writes remain blocked.
-Production authority remains blocked. Broad autonomy remains blocked.
+Production authority remains blocked. Broad autonomy remains blocked. Plugin
+package install persistence and callable activation also remain blocked. The
+disabled-record store is metadata-only and must not be treated as package
+install, enablement, runtime import, execution, or production authority.
 
 ## Future Activation Grant Contract
 
@@ -118,6 +130,7 @@ verifier coverage.
 Still blocked:
 
 - plugin runtime import
+- plugin package install persistence
 - skill runtime import
 - callable catalog execution
 - connector writes

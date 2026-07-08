@@ -488,9 +488,12 @@ Contract rules:
   bearer-gated, and constrained to the accepted local model lane.
 - `GET /extensions/catalog` must remain a read-only inspectable metadata route
   only. It may expose safe refs, visibility status, trust posture, callable
-  posture, blocked reasons, review evidence refs, and safe adoption posture,
-  but it is not a callable catalog and does not enable plugin runtime import or
-  extension execution.
+  posture, blocked reasons, review evidence refs, safe adoption posture, and
+  install-disabled posture. The install-disabled posture may expose
+  AuthorityLease decision refs, exact approval requirement, hash refs, receipt
+  plan refs, rollback refs, safe-disable refs, and blocked capability refs, but
+  it must not persist package installs, import runtime code, enable plugins, or
+  execute extensions.
 - `/observability/session-events` and `/observability/client-errors` must remain
   local, bounded, redacted-summary routes only; they must not expose raw JSONL
   records, request or response bodies, prompts, provider payloads, terminal

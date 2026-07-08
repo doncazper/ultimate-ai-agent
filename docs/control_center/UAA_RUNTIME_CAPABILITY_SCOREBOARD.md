@@ -42,6 +42,7 @@ UAA evidence inspected:
 - `scripts/verify_uaa_runtime_extensibility_final.py`
 - `scripts/dev/uaa_extensions.py`
 - `src/ultimate_ai_agent/core/extension_catalog/contracts.py`
+- `src/ultimate_ai_agent/core/extension_catalog/install_disabled.py`
 - `src/ultimate_ai_agent/core/extension_catalog/runtime.py`
 - `docs/control_center/UAA_RUNTIME_EXTENSIBILITY_FINAL.md`
 - `scripts/verify_uaa_runtime_action_tool_code_lanes.py`
@@ -93,7 +94,7 @@ model intelligence. Code and tests are weighted above roadmap claims.
 | Safety, security, and failure handling | 9 | implemented | 8 | implemented | UAA | UAA strongly blocks raw payload persistence, broad runtime authority, provider SDK calls, browser automation, shell execution, connector writes, and production claims. external comparison runtime has broad governance but more active runtime surface area. | Keep strict deny-by-default while introducing exact lanes only with rollback/safe-disable and receipts. |
 | UX as an AI cockpit | 6 | partial | 9 | implemented | external comparison runtime | UAA has many backend-owned surfaces but still feels modular. external comparison runtime presents one Work cockpit with Library/Ops/Settings and visual proof. | Productize UAA's Today/Actions/Chat/Proof/Evidence/Memory/Coding/Work Board into one flow. |
 | CLI/API parity | 8 | implemented | 7 | partial | UAA | UAA treats CLI and OpenAPI as first-class truth, with `/api/manifest` and verifier-backed route metadata. external comparison runtime has gateway APIs and contracts but less evidence here from inspected files. | Keep parity as UAA's differentiator while adding cockpit read models. |
-| Extensibility and ecosystem | 7 | partial | 8 | implemented | external comparison runtime | UAA has inspectable extension catalog, trust manifests, activation/revocation records, Phase 09 operator posture fields, CLI inspection, blocked reasons, safe adoption posture, and runtime import blocked. external comparison runtime has capability packs, add-on policy, skill import trust, and MCP/tool scoping claims. | Add static package review and one exact callable capability lane only after scoped authority exists. |
+| Extensibility and ecosystem | 7 | partial | 8 | implemented | external comparison runtime | UAA has inspectable extension catalog, trust manifests, activation/revocation records, Phase 09 operator posture fields, disabled-install posture with AuthorityLease/approval/receipt/hash refs, CLI inspection, blocked reasons, safe adoption posture, and runtime import blocked. external comparison runtime has capability packs, add-on policy, skill import trust, and MCP/tool scoping claims. | Persist a disabled local install record only after exact AuthorityLease + LocalApprovalAuthority + idempotency proof; add one exact callable capability lane only after scoped authority exists. |
 | Productized agent loop | 6 | partial | 9 | implemented | external comparison runtime | UAA has a governed Founder Loop across Start, Today, Actions, Proof, Evidence, Memory, and Trust, but many lanes remain partial. external comparison runtime presents a broader input-to-plan-to-action-to-evidence-to-memory loop. | Make the UAA agent loop legible end to end with backend-owned run state and proof details. |
 
 ## Age-Adjusted Interpretation
@@ -130,7 +131,7 @@ tests, and CLI/API/core parity.
 | 5 | Signed portable evidence and same-run lineage detail. | implemented read-model | Evidence/proof core | Evidence audit receipt spine, grouped timeline/read-model, receipt envelopes, missing receipt refs, artifact hash refs, verifier refs, CLI inspection. | External telemetry/export and production compliance claims blocked. | `tests/test_runtime_evidence_audit.py`, `scripts/verify_uaa_runtime_evidence_audit.py`, redaction and missing receipt tests. | Phase 06 implemented: Evidence/Audit |
 | 6 | Model/provider/research metadata parity. | implemented read-model | RuntimeGateway/local model core | Provider readiness/catalog metadata, route-decision trace read models, model-output truth posture, and WebAccessGateway external-information posture. | Runtime model calls, provider SDK calls, browser automation, and live web fetching by the control plane blocked. | `tests/test_runtime_model_provider_research.py`, `scripts/verify_uaa_runtime_model_provider_research.py`, runtime metadata tests and authority guard verifier. | Phase 07 implemented: Model/Provider/Research |
 | 7 | Cockpit UX parity for Today/Actions/Chat/Proof/Evidence/Memory/Runtime/Coding/Work Board. | implemented read-model/UI parity | Control Center presentation over Python truth | `GET /control-center/agent-loop/thread`, `scripts/dev/uaa_founder_loop.py inspect-cockpit-parity`, and Today UI expose the same backend-owned operator decision matrix. | Browser automation inside UAA blocked; mutation controls stay exact-lane only. | `tests/test_runtime_agent_loop_spine.py`, `apps/control-center/src/App.test.tsx`, `scripts/verify_uaa_runtime_cockpit_cli_api.py`, frontend checks. | Phase 08 implemented: Cockpit/CLI/API |
-| 8 | Extension ecosystem clarity. | implemented read-model/CLI hardening | Extension catalog core | Inspectable catalog, grant records, trust statuses, callable posture, required grant refs, blocked reasons, review evidence refs, safe adoption posture, and CLI inspection. | Connector writes, callable catalog, plugin runtime import, remote execution, public release claims, production authority, and broad autonomy blocked. | `tests/test_runtime_extensibility_final.py`, `tests/test_inspectable_extension_catalog.py`, `scripts/verify_uaa_runtime_extensibility_final.py`, documentation/product truth/verifier gates. | Phase 09 implemented: Extensibility Final |
+| 8 | Extension ecosystem clarity. | implemented read-model/CLI hardening | Extension catalog core | Inspectable catalog, grant records, trust statuses, callable posture, required grant refs, blocked reasons, review evidence refs, safe adoption posture, disabled-install posture, and CLI inspection. | Connector writes, callable catalog, plugin package install persistence, plugin runtime import, remote execution, public release claims, production authority, and broad autonomy blocked. | `tests/test_runtime_extensibility_final.py`, `tests/test_inspectable_extension_catalog.py`, `scripts/verify_uaa_runtime_extensibility_final.py`, documentation/product truth/verifier gates. | Phase 09 implemented: Extensibility Final plus install-disabled posture |
 
 ## External Runtime Patterns Borrowed As UAA-Native Designs
 
@@ -335,16 +336,21 @@ Phase 09 is implemented as a repo-safe extensibility ecosystem final hardening
 slice. It adds
 `docs/control_center/UAA_RUNTIME_EXTENSIBILITY_FINAL.md`, explicit
 operator posture fields on the existing
-`uaa_inspectable_extension_catalog.v1` read model, CLI command
-`scripts/dev/uaa_extensions.py inspect-catalog`, and focused tests/verifier
+`uaa_inspectable_extension_catalog.v1` read model, CLI commands
+`scripts/dev/uaa_extensions.py inspect-catalog` and
+`scripts/dev/uaa_extensions.py inspect-install-disabled-posture`, and focused tests/verifier
 coverage in `tests/test_runtime_extensibility_final.py` and
 `scripts/verify_uaa_runtime_extensibility_final.py`.
 
 The existing `GET /extensions/catalog` route remains read-only and now gives
 operators visibility status, trust posture, callable posture, required grant
-refs, blocked reason, review evidence refs, and safe adoption posture. The
-route and CLI use safe refs and redacted summaries only. Visibility is
-separate from callability: callable catalog behavior, plugin runtime import,
+refs, blocked reason, review evidence refs, safe adoption posture, and
+install-disabled posture. The install-disabled posture includes AuthorityLease
+decision refs, exact LocalApprovalAuthority requirement, hash refs, receipt
+plan refs, rollback refs, safe-disable refs, and blocked capability refs
+without persisting an install record. The route and CLI use safe refs and
+redacted summaries only. Visibility is separate from callability: callable
+catalog behavior, plugin package install persistence, plugin runtime import,
 skill runtime import, connector writes, live web fetching, browser automation,
 arbitrary shell/subprocess execution, provider/model calls, remote execution,
 public release claims, production authority, and broad autonomy remain blocked.

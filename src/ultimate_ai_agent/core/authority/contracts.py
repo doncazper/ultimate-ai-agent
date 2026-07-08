@@ -3631,6 +3631,58 @@ def build_authority_lane_catalog_read_model(
             active_leases=leases,
             kill_switch_engaged=kill_switch_engaged,
         ),
+        _authority_lane_entry(
+            lane_id="extension.install_disabled",
+            label="Extension install-disabled record",
+            status="approval_required",
+            authority_domain=AuthorityDomain.workspace,
+            authority_capability=AuthorityCapability.write,
+            required_mode=TrustMode.approved_safe_local_work_session,
+            side_effect_class="local_disabled_record_proposal",
+            risk="medium",
+            allowed_inputs_schema={
+                "package_refs": "repo_owned_or_reviewed_extension_refs_only",
+                "approval_ref": "exact_local_approval_required",
+                "authority_lease": "workspace_write_required",
+                "callable_import": False,
+                "execution": False,
+            },
+            denied_capabilities=[
+                "plugin package install",
+                "plugin enablement",
+                "runtime import",
+                "plugin execution",
+                "marketplace fetch",
+                "connector writes",
+                "shell execution",
+                "provider model calls",
+                "browser automation",
+                "production authority",
+            ],
+            approval_scope="approval-scope:extension-install-disabled-exact-package-version",
+            idempotency_required=True,
+            rollback_posture=(
+                "Only disabled install-record refs may be proposed; any future "
+                "record must be removable by its rollback ref and safe-disable ref."
+            ),
+            receipt_kind="extension_install_disabled_receipt_plan_ref",
+            cli_inspection_ref=(
+                "scripts/dev/uaa_extensions.py inspect-install-disabled-posture"
+            ),
+            api_operation_ref="GET /extensions/catalog#install_disabled_posture",
+            control_center_surface_ref="control-center-surface:extensions",
+            source_refs=[
+                "extension-install-disabled-posture:uaa:v1",
+                "doc:plugin-install-review",
+                "doc:authority-graduation-board",
+            ],
+            blocked_reason_refs=[
+                "reason-ref:extension-install-disabled:local-approval-required",
+                "reason-ref:extension-install-disabled:authority-lease-required",
+            ],
+            active_leases=leases,
+            kill_switch_engaged=kill_switch_engaged,
+        ),
     ]
     lane_ids = [entry.lane_id for entry in entries]
     missing = [lane_id for lane_id in REQUIRED_AUTHORITY_LANE_IDS if lane_id not in lane_ids]

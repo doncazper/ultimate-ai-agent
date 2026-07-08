@@ -5,8 +5,22 @@ import pytest
 from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
+from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
+from ultimate_ai_agent.core.authority import (
+    AuthorityCapability,
+    AuthorityDomain,
+    AuthorityLease,
+    TrustMode,
+)
 from ultimate_ai_agent.core.extension_catalog import (
+    ExtensionInstallDisabledCandidateRecord,
+    ExtensionInstallDisabledPostureReadModel,
+    ExtensionInstallDisabledRecordReceipt,
+    ExtensionInstallDisabledRecordStore,
+    build_default_extension_install_disabled_posture,
     build_default_inspectable_extension_catalog,
+    build_extension_install_disabled_approval_request,
+    build_extension_install_disabled_record_receipt,
     validate_inspectable_extension_catalog,
 )
 
@@ -61,6 +75,32 @@ def test_default_inspectable_extension_catalog_is_read_only_and_non_callable() -
         payload["skill_bundle_proposal_posture"]["bundle_activation_enabled"] is False
     )
     assert payload["skill_bundle_proposal_posture"]["tool_execution_enabled"] is False
+    install_posture = payload["install_disabled_posture"]
+    assert install_posture["schema_version"] == "uaa_extension_install_disabled_posture.v1"
+    assert install_posture["status"] == "blocked_pending_authority_and_approval"
+    assert install_posture["install_disabled_posture_enabled"] is True
+    assert install_posture["plugin_install_enabled"] is False
+    assert install_posture["plugin_enablement_enabled"] is False
+    assert install_posture["plugin_execution_enabled"] is False
+    assert install_posture["runtime_import_enabled"] is False
+    assert install_posture["side_effects_performed"] == []
+    assert install_posture["candidate_count"] == 1
+    install_candidate = install_posture["candidates"][0]
+    assert install_candidate["authority_decision_outcome"] == "deny"
+    assert install_candidate["exact_approval_required"] is True
+    assert install_candidate["local_approval_validated"] is False
+    assert install_candidate["approval_ref_authority"] is False
+    assert install_candidate["disabled_install_record_ready"] is False
+    assert install_candidate["disabled_install_record_persisted"] is False
+    assert install_candidate["file_hashes"]
+    assert all(
+        item["hash_value"].startswith("sha256:")
+        for item in install_candidate["file_hashes"]
+        if item["hash_status"] == "reviewed"
+    )
+    assert "blocked-authority:extension-install-disabled:no-runtime-import" in (
+        install_candidate["blocked_capability_refs"]
+    )
     assert "doc:runtime-extensibility-final" in payload["docs_refs"]
     assert "doc:hermes-runtime-progressive-skill-disclosure" in payload["docs_refs"]
     assert "doc:hermes-runtime-skill-bundle-proposals" in payload["docs_refs"]
@@ -160,6 +200,171 @@ def test_inspectable_extension_catalog_validation_denies_runtime_authority(
         validate_inspectable_extension_catalog(catalog)
 
 
+def test_extension_install_disabled_posture_requires_lease_and_exact_local_approval() -> None:
+    approval_authority = LocalApprovalAuthority()
+    approval_request = approval_authority.create_request(
+        build_extension_install_disabled_approval_request()
+    )
+    grant = approval_authority.grant(
+        approval_request.approval_request_id,
+        approved_by_actor_id="actor:operator",
+        approval_ref="approval-ref:extension-install-disabled:test",
+    )
+    lease = AuthorityLease(
+        lease_ref="authority-lease-ref:extension-install-disabled:test",
+        mode=TrustMode.approved_safe_local_work_session,
+        domains={AuthorityDomain.workspace: [AuthorityCapability.write]},
+        safe_summary="Allow recording a disabled extension install ref for test.",
+    )
+
+    posture = build_default_extension_install_disabled_posture(
+        leases=[lease],
+        approval_authority=approval_authority,
+        approval_ref=grant.approval_ref,
+    )
+    payload = posture.model_dump(mode="json")
+    candidate = payload["candidates"][0]
+
+    assert payload["status"] == "review_ready_disabled_not_persisted"
+    assert candidate["authority_decision_outcome"] == "allow"
+    assert candidate["approval_ref"] == grant.approval_ref
+    assert candidate["local_approval_validated"] is True
+    assert candidate["approval_validation_status"] == "approved"
+    assert candidate["disabled_install_record_ready"] is True
+    assert candidate["disabled_install_record_persisted"] is False
+    assert candidate["plugin_install_enabled"] is False
+    assert candidate["runtime_import_enabled"] is False
+    assert candidate["plugin_execution_enabled"] is False
+
+    receipt = build_extension_install_disabled_record_receipt(
+        leases=[lease],
+        approval_authority=approval_authority,
+        approval_ref=grant.approval_ref,
+    )
+    receipt_payload = receipt.model_dump(mode="json")
+
+    assert receipt_payload["schema_version"] == (
+        "uaa_extension_install_disabled_record_receipt.v1"
+    )
+    assert receipt_payload["status"] == "disabled_install_record_receipt_recorded"
+    assert receipt_payload["record_storage_mode"] == "receipt_only"
+    assert receipt_payload["durable_store_persistence"] is False
+    assert receipt_payload["authority_lease_ref"] == lease.lease_ref
+    assert receipt_payload["authority_decision_outcome"] == "allow"
+    assert receipt_payload["approval_ref"] == grant.approval_ref
+    assert receipt_payload["local_approval_validated"] is True
+    assert receipt_payload["approval_ref_authority"] is False
+    assert receipt_payload["disabled_install_record_receipt_recorded"] is True
+    assert receipt_payload["plugin_install_enabled"] is False
+    assert receipt_payload["runtime_import_enabled"] is False
+    assert receipt_payload["plugin_execution_enabled"] is False
+    assert receipt_payload["side_effects_performed"] == []
+
+
+def test_extension_install_disabled_record_receipt_denies_without_authority() -> None:
+    with pytest.raises(
+        ValueError,
+        match="EXTENSION_INSTALL_DISABLED_RECORD_AUTHORITY_REQUIRED",
+    ):
+        build_extension_install_disabled_record_receipt()
+
+
+def test_extension_install_disabled_record_store_is_idempotent(tmp_path: Path) -> None:
+    approval_authority = LocalApprovalAuthority()
+    approval_request = approval_authority.create_request(
+        build_extension_install_disabled_approval_request()
+    )
+    grant = approval_authority.grant(
+        approval_request.approval_request_id,
+        approved_by_actor_id="actor:operator",
+        approval_ref="approval-ref:extension-install-disabled:store-test",
+    )
+    lease = AuthorityLease(
+        lease_ref="authority-lease-ref:extension-install-disabled:store-test",
+        mode=TrustMode.approved_safe_local_work_session,
+        domains={AuthorityDomain.workspace: [AuthorityCapability.write]},
+        safe_summary="Allow recording a disabled extension install ref for store test.",
+    )
+    receipt = build_extension_install_disabled_record_receipt(
+        leases=[lease],
+        approval_authority=approval_authority,
+        approval_ref=grant.approval_ref,
+    )
+
+    store = ExtensionInstallDisabledRecordStore(tmp_path)
+    persisted = store.record_receipt(receipt)
+    replayed = store.record_receipt(receipt)
+    records = list((tmp_path / "extension_install_disabled_records").glob("*.json"))
+
+    assert persisted.receipt_ref == receipt.receipt_ref
+    assert replayed.receipt_ref == persisted.receipt_ref
+    assert persisted.durable_store_persistence is True
+    assert persisted.record_storage_mode == "local_disabled_record_store"
+    assert persisted.record_path_ref == (
+        "storage-ref:extension-install-disabled-record:uaa-plugin-skill-boundary"
+    )
+    assert persisted.side_effects_performed == [
+        "side-effect:extension-install-disabled:local-record-write"
+    ]
+    assert persisted.plugin_install_enabled is False
+    assert persisted.runtime_import_enabled is False
+    assert persisted.plugin_execution_enabled is False
+    assert len(records) == 1
+
+    changed_payload = ExtensionInstallDisabledRecordReceipt.model_validate(
+        receipt.model_dump(mode="json")
+        | {"approval_ref": "approval-ref:extension-install-disabled:changed-payload"}
+    )
+    with pytest.raises(
+        ValueError,
+        match="EXTENSION_INSTALL_DISABLED_IDEMPOTENCY_PAYLOAD_MISMATCH",
+    ):
+        store.record_receipt(changed_payload)
+
+
+def test_extension_install_disabled_record_receipt_denies_runtime_flags() -> None:
+    approval_authority = LocalApprovalAuthority()
+    approval_request = approval_authority.create_request(
+        build_extension_install_disabled_approval_request()
+    )
+    grant = approval_authority.grant(
+        approval_request.approval_request_id,
+        approved_by_actor_id="actor:operator",
+        approval_ref="approval-ref:extension-install-disabled:flag-test",
+    )
+    lease = AuthorityLease(
+        lease_ref="authority-lease-ref:extension-install-disabled:flag-test",
+        mode=TrustMode.approved_safe_local_work_session,
+        domains={AuthorityDomain.workspace: [AuthorityCapability.write]},
+        safe_summary="Allow recording a disabled extension install ref for flag test.",
+    )
+    receipt = build_extension_install_disabled_record_receipt(
+        leases=[lease],
+        approval_authority=approval_authority,
+        approval_ref=grant.approval_ref,
+    )
+
+    with pytest.raises(ValueError, match="Input should be False"):
+        ExtensionInstallDisabledRecordReceipt.model_validate(
+            receipt.model_copy(update={"runtime_import_enabled": True}).model_dump()
+        )
+
+
+def test_extension_install_disabled_posture_denies_unsafe_mutation_flags() -> None:
+    posture = build_default_extension_install_disabled_posture()
+
+    with pytest.raises(ValueError, match="Input should be False"):
+        ExtensionInstallDisabledPostureReadModel.model_validate(
+            posture.model_copy(update={"plugin_install_enabled": True}).model_dump()
+        )
+
+    candidate = posture.candidates[0]
+    with pytest.raises(ValueError, match="EXTENSION_INSTALL_DISABLED_READY_REQUIRES_AUTHORITY"):
+        ExtensionInstallDisabledCandidateRecord.model_validate(
+            candidate.model_copy(update={"disabled_install_record_ready": True}).model_dump()
+        )
+
+
 def test_extension_catalog_route_returns_safe_read_only_metadata() -> None:
     response = client.get("/extensions/catalog")
 
@@ -177,6 +382,11 @@ def test_extension_catalog_route_returns_safe_read_only_metadata() -> None:
     assert catalog["callable_catalog_enabled"] is False
     assert catalog["runtime_import_enabled"] is False
     assert catalog["execution_enabled"] is False
+    assert catalog["install_disabled_posture"]["plugin_install_enabled"] is False
+    assert (
+        catalog["install_disabled_posture"]["candidates"][0]["authority_decision_outcome"]
+        == "deny"
+    )
     catalog_text = json.dumps(catalog).lower()
     assert "/users/" not in catalog_text
     assert "docs/" not in catalog_text
@@ -248,6 +458,7 @@ def test_inspectable_extension_catalog_schema_pins_disabled_runtime_fields() -> 
         assert field in entry["properties"]
     assert "skill_write_approval_gate" in schema["required"]
     assert "skill_bundle_proposal_posture" in schema["required"]
+    assert "install_disabled_posture" in schema["required"]
     gate = schema["$defs"]["skill_write_approval_gate"]
     assert gate["properties"]["status"]["const"] == "staged_review_only"
     assert gate["properties"]["file_write_enabled"]["const"] is False
@@ -256,3 +467,12 @@ def test_inspectable_extension_catalog_schema_pins_disabled_runtime_fields() -> 
     assert posture["properties"]["status"]["const"] == "proposal_only"
     assert posture["properties"]["bundle_activation_enabled"]["const"] is False
     assert posture["properties"]["tool_execution_enabled"]["const"] is False
+    install_posture = schema["$defs"]["extension_install_disabled_posture"]
+    assert install_posture["properties"]["install_disabled_posture_enabled"]["const"] is True
+    assert install_posture["properties"]["plugin_install_enabled"]["const"] is False
+    assert install_posture["properties"]["runtime_import_enabled"]["const"] is False
+    install_candidate = schema["$defs"]["extension_install_disabled_candidate"]
+    assert install_candidate["properties"]["exact_approval_required"]["const"] is True
+    assert install_candidate["properties"]["approval_ref_authority"]["const"] is False
+    assert install_candidate["properties"]["disabled_install_record_persisted"]["const"] is False
+    assert install_candidate["properties"]["plugin_execution_enabled"]["const"] is False
