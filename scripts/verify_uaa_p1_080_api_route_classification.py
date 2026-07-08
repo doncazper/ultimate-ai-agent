@@ -35,9 +35,9 @@ ALLOWED_CLASSIFICATIONS = {
     "mutating_requires_authority",
 }
 EXPECTED_SIDE_EFFECT_MIX = {
-    "validation_only": 76,
+    "validation_only": 77,
     "none": 4,
-    "local_dev_workspace_only": 165,
+    "local_dev_workspace_only": 166,
     "governed_network_read_only": 3,
 }
 EXPECTED_PUBLIC_METADATA_PATHS = {

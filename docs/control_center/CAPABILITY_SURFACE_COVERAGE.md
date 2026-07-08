@@ -30,11 +30,12 @@ Given an operator-facing capability, where is it exposed in Python core/API,
 CLI or repo-local script inspection, Control Center UI, and visible controls?
 ```
 
-This is not a new roadmap, product claim, or authority grant. It does not add
-backend routes, frontend controls, provider/model calls, web fetching, browser
-automation, connector writes, shell/subprocess execution, memory writes,
-context injection, public distribution, public beta, production readiness, or
-production authority.
+This is not a new roadmap, product claim, or authority grant. It adds one
+read-only backend route and one read-only Control Center view for bounded
+capability coverage, but it does not add action execution, approval grants,
+provider/model calls, web fetching, browser automation, connector writes,
+shell/subprocess execution, memory writes, context injection, public
+distribution, public beta, production readiness, or production authority.
 
 ## Scope
 
@@ -105,16 +106,20 @@ Center release-surface scan.
 
 ## Control Center View Posture
 
-A dedicated Control Center capability-surface UI route is intentionally not
-added in this pass. The source truth is now available through the human
-manifest, generated overlay, verifier, and broader verifier stack, but adding a
-visible route would require coordinated changes to the frontend route registry,
-release-surface manifest, route-status manifest, typed client, mock data, and
-frontend tests. Several of those frontend files already carry unrelated
-uncommitted work in the current tree, so this pass stops at verifier-backed
-Python/source truth instead of staging a mixed UI commit. The next safe UI lane
-should add a bounded read-only route backed by the generated overlay and render
-operator-readable capability rows, not raw JSON.
+`GET /control-center/capabilities/surface` exposes a bounded Python/API-owned
+read model over the human capability manifest, generated source-truth overlay,
+and live API manifest metadata. `scripts/dev/uaa_capability_surface.py inspect`
+prints the same safe read model for CLI parity.
+
+The `/capabilities` Control Center route renders operator-readable counts,
+status groups, source-truth posture, route refs, CLI refs, missing reasons, and
+blocked authority refs. It is not a raw JSON dump and does not expose action
+execution, approval grants, provider/model calls, connector writes, browser
+automation, shell/subprocess execution, memory writes, context injection,
+public beta, production readiness, or production authority.
+
+Visual proof remains blocked until a later scoped visual-regression lane
+captures redacted desktop/mobile baselines for `/capabilities`.
 
 ## Rollback
 
@@ -122,6 +127,8 @@ Rollback is to remove this document, remove
 `docs/control_center/capability_surface_manifest.json`, remove
 `docs/control_center/capability_surface_generated_overlay.json`, remove
 `docs/schemas/control_center_capability_surface.schema.json`, remove the
-generator, focused verifier/test files, and remove documentation cross-links.
-No runtime state, route, authority, migration, or persistent user data is
-changed.
+generator, focused verifier/test files, remove
+`GET /control-center/capabilities/surface`, remove
+`scripts/dev/uaa_capability_surface.py`, remove the `/capabilities` route, and
+remove documentation cross-links. No runtime state, authority, migration, or
+persistent user data is changed.

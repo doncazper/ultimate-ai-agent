@@ -7,6 +7,7 @@ import type { RouteStateDescriptor } from "./components/DataState";
 import { ActionPreviewForm } from "./components/ActionPreviewForm";
 import { ApprovalQueuePanel } from "./components/ApprovalQueuePanel";
 import { ApiRouteInventoryPanel } from "./components/ApiRouteInventoryPanel";
+import { CapabilitySurfacePanel } from "./components/CapabilitySurfacePanel";
 import { CodingCockpitPanel } from "./components/CodingCockpitPanel";
 import { ContextProposalSurfacePanel } from "./components/ContextProposalSurfacePanel";
 import { CrmM1FixtureShellPanel } from "./components/CrmM1FixtureShellPanel";
@@ -122,6 +123,7 @@ export const navItems: NavItem[] = [
   { path: "/events/timeline", label: "Timeline", group: "Evidence", status: "mock", releaseStatus: "experimental", role: "supporting" },
   { path: "/", label: "Overview", group: "System", status: "read-only", releaseStatus: "partial", role: "supporting" },
   { path: "/dashboard", label: "Dashboard", group: "System", status: "read-only", releaseStatus: "partial", role: "supporting" },
+  { path: "/capabilities", label: "Capabilities", group: "System", status: "capability surface", releaseStatus: "partial", role: "supporting" },
   { path: "/api-routes", label: "API Routes", group: "System", status: "contract", releaseStatus: "partial", role: "supporting" },
   { path: "/differentiators", label: "Differentiators", group: "System", status: "operator proof", releaseStatus: "partial", role: "supporting" },
 ];
@@ -563,6 +565,8 @@ export function renderRoute(path: string, data: ControlCenterData) {
       return (
         <FoundationGatePanel summary={data.dashboard.foundation_gate_summary} />
       );
+    case "/capabilities":
+      return <CapabilitySurfacePanel surface={data.capabilitySurface} />;
     case "/api-routes":
       return <ApiRouteInventoryPanel routes={data.routes} />;
     case "/differentiators":

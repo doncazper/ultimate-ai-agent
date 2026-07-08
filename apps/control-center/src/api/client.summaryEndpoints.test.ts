@@ -843,6 +843,8 @@ function baseRouteData(): Record<string, unknown> {
     [API_ENDPOINTS.controlCenterDashboard]: mockControlCenterData.dashboard,
     [API_ENDPOINTS.controlCenterStatus]: mockControlCenterData.status,
     [API_ENDPOINTS.controlCenterRoutes]: mockControlCenterData.routes,
+    [API_ENDPOINTS.controlCenterCapabilitySurface]:
+      mockControlCenterData.capabilitySurface,
     [API_ENDPOINTS.runtimeReadiness]: mockControlCenterData.runtimeReadiness,
     [API_ENDPOINTS.runtimeCapabilityMatrix]:
       mockControlCenterData.capabilityMatrix,

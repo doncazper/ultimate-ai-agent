@@ -9453,6 +9453,89 @@ export interface ApiRouteInventory {
   routes: ApiRouteSummary[];
 }
 
+export interface CapabilitySurfaceApiRouteProjection {
+  method: string;
+  path: string;
+  operation_id: string;
+  route_ref: string;
+  side_effect_class: string;
+  route_classification: string;
+  approval_posture: string;
+  source_truth_status: string;
+}
+
+export interface CapabilitySurfaceUiRouteProjection {
+  path: string;
+  label: string;
+  release_status: string;
+  ui_status: string;
+  source_truth_status: string;
+}
+
+export interface CapabilitySurfaceActionProjection {
+  action_id: string;
+  source: string;
+  release_status: string;
+  side_effect_class: string;
+  risk_class: string;
+  source_truth_status: string;
+}
+
+export interface CapabilitySurfaceRow {
+  capability_id: string;
+  label: string;
+  status: string;
+  authority_posture: string;
+  missing_reason: string;
+  python_core_owner: string;
+  source_truth_status: string;
+  api_routes: CapabilitySurfaceApiRouteProjection[];
+  ui_routes: CapabilitySurfaceUiRouteProjection[];
+  control_action_ids: CapabilitySurfaceActionProjection[];
+  cli_paths: string[];
+  tests_evidence_refs: string[];
+}
+
+export interface CapabilitySurfaceSummary {
+  capability_count: number;
+  api_route_count: number;
+  ui_route_count: number;
+  visible_action_count: number;
+  covered_release_route_count: number;
+  covered_visible_action_count: number;
+  missing_release_routes: string[];
+  missing_visible_actions: string[];
+  status_counts: Record<string, number>;
+  authority_posture_counts: Record<string, number>;
+  source_truth_status_counts: Record<string, number>;
+}
+
+export interface ControlCenterCapabilitySurfaceReadModel {
+  schema_version: "control-center-capability-surface-read-model.v1";
+  read_model_ref: string;
+  source: "python_core_control_center_capability_surface_read_model";
+  backend_owned: boolean;
+  read_only: boolean;
+  safe_refs_only: boolean;
+  raw_manifest_dump_included: boolean;
+  runtime_authority_added: boolean;
+  public_beta_claim_enabled: boolean;
+  production_readiness_claim_enabled: boolean;
+  route_ref: string;
+  cli_ref: string;
+  manifest_ref: string;
+  generated_overlay_ref: string;
+  doc_ref: string;
+  route_status_manifest_ref: string;
+  release_surface_manifest_ref: string;
+  api_manifest_ref: string;
+  safe_summary: string;
+  summary: CapabilitySurfaceSummary;
+  rows: CapabilitySurfaceRow[];
+  blocked_authority_refs: string[];
+  redactions_applied: string[];
+}
+
 export interface RuntimeReadinessReport {
   report_id: string;
   baseline_version: string;
@@ -13849,6 +13932,7 @@ export interface ControlCenterData {
   dashboard: ControlCenterDashboardSnapshot;
   status: ControlCenterStatus;
   routes: ApiRouteInventory;
+  capabilitySurface: ControlCenterCapabilitySurfaceReadModel;
   runtimeReadiness: RuntimeReadinessReport;
   capabilityMatrix: RuntimeCapabilityMatrix;
   runtimeDelegationAdapter: RuntimeDelegationAdapterReadModel;

@@ -3,8 +3,18 @@ from __future__ import annotations
 import copy
 import importlib.util
 import json
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any
+
+from fastapi.testclient import TestClient
+
+from ultimate_ai_agent.api.app import app
+from ultimate_ai_agent.api.manifest import build_api_manifest
+from ultimate_ai_agent.core.control_center.capability_surface import (
+    build_control_center_capability_surface_read_model,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -77,8 +87,8 @@ def test_capability_surface_generated_overlay_is_current() -> None:
     assert overlay["production_readiness_claim_enabled"] is False
     assert overlay["source_truth_counts"]["missing_release_routes"] == []
     assert overlay["source_truth_counts"]["missing_visible_actions"] == []
-    assert overlay["source_truth_counts"]["covered_release_route_count"] == 39
-    assert overlay["source_truth_counts"]["covered_visible_action_count"] == 42
+    assert overlay["source_truth_counts"]["covered_release_route_count"] == 40
+    assert overlay["source_truth_counts"]["covered_visible_action_count"] == 43
     today = next(
         item
         for item in overlay["capabilities"]
@@ -94,6 +104,79 @@ def test_capability_surface_generated_overlay_is_current() -> None:
         "approval_posture": "not_required_for_route_classification",
         "source_truth_status": "current",
     }
+
+
+def test_capability_surface_read_model_is_safe_bounded_and_source_backed() -> None:
+    api_manifest = build_api_manifest(app)
+    read_model = build_control_center_capability_surface_read_model(
+        root=ROOT,
+        live_api_routes=api_manifest.routes,
+    )
+    payload = read_model.model_dump(mode="json")
+
+    assert payload["schema_version"] == "control-center-capability-surface-read-model.v1"
+    assert payload["backend_owned"] is True
+    assert payload["read_only"] is True
+    assert payload["safe_refs_only"] is True
+    assert payload["raw_manifest_dump_included"] is False
+    assert payload["runtime_authority_added"] is False
+    assert payload["public_beta_claim_enabled"] is False
+    assert payload["production_readiness_claim_enabled"] is False
+    assert payload["summary"]["capability_count"] == 28
+    assert payload["summary"]["missing_release_routes"] == []
+    assert payload["summary"]["missing_visible_actions"] == []
+    capability_surface = next(
+        row
+        for row in payload["rows"]
+        if row["capability_id"] == "control_center_capability_surface"
+    )
+    assert capability_surface["status"] == "ui_api_cli_wired"
+    assert capability_surface["missing_reason"] == "none"
+    assert capability_surface["api_routes"][0]["route_ref"] == (
+        "GET /control-center/capabilities/surface"
+    )
+    assert capability_surface["api_routes"][0]["source_truth_status"] == "current"
+    assert capability_surface["ui_routes"][0]["path"] == "/capabilities"
+    assert capability_surface["cli_paths"] == ["scripts/dev/uaa_capability_surface.py"]
+    serialized = json.dumps(payload)
+    assert "raw_manifest_dump" in serialized
+    assert "raw prompt" not in serialized.lower()
+    assert "provider payload" not in serialized.lower()
+
+
+def test_capability_surface_api_route_and_cli_expose_same_safe_model() -> None:
+    client = TestClient(app)
+    response = client.get("/control-center/capabilities/surface")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["operation"] == "control_center_capability_surface"
+    assert body["redactions_applied"] == [
+        "safe_refs_only",
+        "bounded_capability_rows_only",
+        "raw_manifest_dump_omitted",
+        "raw_route_payloads_omitted",
+        "raw_logs_prompts_paths_and_provider_payloads_omitted",
+    ]
+    assert body["data"]["route_ref"] == "GET /control-center/capabilities/surface"
+    assert body["data"]["summary"]["covered_release_route_count"] == 40
+
+    cli = subprocess.run(
+        [
+            sys.executable,
+            "scripts/dev/uaa_capability_surface.py",
+            "inspect",
+        ],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    cli_payload = json.loads(cli.stdout)
+    assert cli_payload["read_model_ref"] == body["data"]["read_model_ref"]
+    assert cli_payload["summary"]["covered_visible_action_count"] == 43
+    assert cli_payload["runtime_authority_added"] is False
 
 
 def test_capability_surface_manifest_covers_current_visible_routes_and_actions() -> None:
@@ -129,11 +212,12 @@ def test_capability_surface_manifest_covers_current_visible_routes_and_actions()
         for action in route_status["visible_actions"]
     }
 
-    assert len(visible_routes) == 39
+    assert len(visible_routes) == 40
     assert visible_routes == covered_routes
     assert visible_actions <= covered_actions
     assert {
         "action_inbox_decision_lanes",
+        "control_center_capability_surface",
         "memory_review_decisions",
         "runtime_readiness_and_manual_smoke",
         "api_route_inventory",

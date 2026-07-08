@@ -17,6 +17,7 @@ import type {
   ControlCenterData,
   ControlCenterLocalModelsStatus,
   ControlCenterManifest,
+  ControlCenterCapabilitySurfaceReadModel,
   ControlCenterProofIndex,
   ControlCenterRouteReadState,
   ControlCenterRouteReadStateKind,
@@ -345,6 +346,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const workBoardSettledPromise = Promise.allSettled([
     read<WorkBoardReadModel>(API_ENDPOINTS.controlCenterWorkBoard),
   ] as const);
+  const capabilitySurfaceSettledPromise = Promise.allSettled([
+    read<ControlCenterCapabilitySurfaceReadModel>(
+      API_ENDPOINTS.controlCenterCapabilitySurface,
+    ),
+  ] as const);
   const agentLoopSettledPromise = Promise.allSettled([
     read<FounderLoopAgentLoopThread>(API_ENDPOINTS.founderAgentLoopThread),
   ] as const);
@@ -594,6 +600,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     ),
   ] as const);
   const workBoardResult = await workBoardSettledPromise;
+  const capabilitySurfaceResult = await capabilitySurfaceSettledPromise;
   const agentLoopResult = await agentLoopSettledPromise;
   const runtimeCapabilityDiscoveryResult =
     await runtimeCapabilityDiscoverySettledPromise;
@@ -778,6 +785,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const codingLivePreview = fulfilledValue(results[41]);
   const codingMultiAgentReview = fulfilledValue(results[42]);
   const workBoard = fulfilledValue(workBoardResult[0]);
+  const capabilitySurface = fulfilledValue(capabilitySurfaceResult[0]);
   const founderAgentLoopThread = fulfilledValue(agentLoopResult[0]);
   const safeCodingMultiAgentReview = isSafeCodingMultiAgentReview(
     codingMultiAgentReview,
@@ -1059,6 +1067,17 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     workBoard.drag_drop_posture?.approval_required !== true;
   const workBoardEndpointFallbackWarningRefs = [
     ...(workBoardFallbackUsed ? ["WORK_BOARD_MOCK_FALLBACK"] : []),
+  ];
+  const safeCapabilitySurface = isSafeControlCenterCapabilitySurface(
+    capabilitySurface,
+  )
+    ? capabilitySurface
+    : undefined;
+  const capabilitySurfaceFallbackUsed = safeCapabilitySurface === undefined;
+  const capabilitySurfaceEndpointFallbackWarningRefs = [
+    ...(capabilitySurfaceFallbackUsed
+      ? ["CAPABILITY_SURFACE_MOCK_FALLBACK"]
+      : []),
   ];
   const safeFounderAgentLoopThread = isSafeFounderAgentLoopThread(
     founderAgentLoopThread,
@@ -1508,6 +1527,14 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       usedFallback: founderStorageStatus === undefined,
     }),
     routeReadStateInput({
+      route: "/capabilities",
+      surfaceLabel: "Capabilities",
+      backendRouteRef: "GET /control-center/capabilities/surface",
+      endpointReturned: capabilitySurface !== undefined,
+      warningRefs: capabilitySurfaceEndpointFallbackWarningRefs,
+      usedFallback: capabilitySurfaceFallbackUsed,
+    }),
+    routeReadStateInput({
       route: "/crm",
       surfaceLabel: "CRM",
       backendRouteRef: "GET /control-center/crm/summary",
@@ -1627,6 +1654,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const fulfilledCount =
     coreFulfilledCount +
     (workBoardResult[0].status === "fulfilled" ? 1 : 0) +
+    (capabilitySurfaceResult[0].status === "fulfilled" ? 1 : 0) +
     (agentLoopResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeInterfaceModeResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeHermesContextPackResult[0].status === "fulfilled" ? 1 : 0) +
@@ -1660,7 +1688,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     (runtimeRemoteExecutionPostureResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimePluginMetadataPostureResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeSkillMarketplacePostureResult[0].status === "fulfilled" ? 1 : 0);
-  const expectedReadCount = results.length + 34;
+  const expectedReadCount = results.length + 35;
   const dashboardWithEndpointSummaries: ControlCenterDashboardSnapshot = {
     ...normalizedDashboard.value,
     approval_summary:
@@ -1713,6 +1741,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     dashboard: dashboardWithEndpointSummaries,
     status: status ?? mockControlCenterData.status,
     routes: routes ?? mockControlCenterData.routes,
+    capabilitySurface:
+      safeCapabilitySurface ?? mockControlCenterData.capabilitySurface,
     runtimeReadiness:
       runtimeReadiness ?? mockControlCenterData.runtimeReadiness,
     capabilityMatrix:
@@ -1883,6 +1913,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     !normalizedTrustAuthorityMatrix.usedFallback &&
     !codingSessionFallbackUsed &&
     !workBoardFallbackUsed &&
+    !capabilitySurfaceFallbackUsed &&
     !agentLoopThreadFallbackUsed &&
     !runtimeDelegationAdapterFallbackUsed &&
     !runtimeInterfaceModeFallbackUsed &&
@@ -1939,6 +1970,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     normalizedTrustAuthorityMatrix.usedFallback ||
     codingSessionFallbackUsed ||
     workBoardFallbackUsed ||
+    capabilitySurfaceFallbackUsed ||
     agentLoopThreadFallbackUsed ||
     runtimeDelegationAdapterFallbackUsed ||
     runtimeInterfaceModeFallbackUsed ||
@@ -1989,6 +2021,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   } else if (workBoardFallbackUsed) {
     degradedSafeMessage =
       "The Work Board backend read model was unavailable or unsafe; non-authoritative mock fallback kept board mutation blocked.";
+  } else if (capabilitySurfaceFallbackUsed) {
+    degradedSafeMessage =
+      "The capability-surface read model was unavailable or unsafe; non-authoritative mock fallback kept capability coverage partial.";
   } else if (modelProviderControlPlaneFallbackUsed) {
     degradedSafeMessage =
       "Model/provider control-plane posture was unavailable or unsafe; non-authoritative mock fallback kept broad provider authority blocked.";
@@ -7762,6 +7797,47 @@ function isNonEmptyStringArray(value: unknown): value is string[] {
     Array.isArray(value) &&
     value.length > 0 &&
     value.every((item) => typeof item === "string" && item.length > 0)
+  );
+}
+
+function isSafeControlCenterCapabilitySurface(
+  value: unknown,
+): value is ControlCenterCapabilitySurfaceReadModel {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  return (
+    value.schema_version ===
+      "control-center-capability-surface-read-model.v1" &&
+    value.source === "python_core_control_center_capability_surface_read_model" &&
+    value.backend_owned === true &&
+    value.read_only === true &&
+    value.safe_refs_only === true &&
+    value.raw_manifest_dump_included === false &&
+    value.runtime_authority_added === false &&
+    value.public_beta_claim_enabled === false &&
+    value.production_readiness_claim_enabled === false &&
+    value.route_ref === "GET /control-center/capabilities/surface" &&
+    typeof value.cli_ref === "string" &&
+    isPlainRecord(value.summary) &&
+    Array.isArray(value.rows) &&
+    value.rows.length > 0 &&
+    value.rows.every(
+      (row) =>
+        isPlainRecord(row) &&
+        typeof row.capability_id === "string" &&
+        typeof row.label === "string" &&
+        typeof row.status === "string" &&
+        typeof row.authority_posture === "string" &&
+        typeof row.missing_reason === "string" &&
+        Array.isArray(row.api_routes) &&
+        Array.isArray(row.ui_routes) &&
+        Array.isArray(row.control_action_ids) &&
+        Array.isArray(row.cli_paths) &&
+        Array.isArray(row.tests_evidence_refs),
+    ) &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    isNonEmptyStringArray(value.redactions_applied)
   );
 }
 

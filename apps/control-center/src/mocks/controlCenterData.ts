@@ -76,7 +76,7 @@ import type {
 type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
 
 export const MOCK_OPENAPI_ROUTE_COUNT = 245;
-export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 90;
+export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 91;
 
 function runtimeToolRegistryEntry(
   slug: string,
@@ -12149,6 +12149,7 @@ export const mockControlCenterData: ControlCenterData = {
     "/briefing": mockRouteState("Briefing", "/briefing", "GET /control-center/morning-briefing/summary"),
     "/setup": mockRouteState("Setup", "/setup", "GET /control-center/setup-assistant/summary"),
     "/storage": mockRouteState("Storage", "/storage", "GET /control-center/storage/status"),
+    "/capabilities": mockRouteState("Capabilities", "/capabilities", "GET /control-center/capabilities/surface"),
     "/crm": mockRouteState("CRM", "/crm", "GET /control-center/crm/summary"),
   },
   settingsStatus: {
@@ -14649,6 +14650,103 @@ export const mockControlCenterData: ControlCenterData = {
           "tests/test_macos_setup_assistant.py",
         ],
       },
+    ],
+  },
+  capabilitySurface: {
+    schema_version: "control-center-capability-surface-read-model.v1",
+    read_model_ref: "read-model-ref:control-center-capability-surface:mock",
+    source: "python_core_control_center_capability_surface_read_model",
+    backend_owned: true,
+    read_only: true,
+    safe_refs_only: true,
+    raw_manifest_dump_included: false,
+    runtime_authority_added: false,
+    public_beta_claim_enabled: false,
+    production_readiness_claim_enabled: false,
+    route_ref: "GET /control-center/capabilities/surface",
+    cli_ref: "scripts/dev/uaa_capability_surface.py inspect",
+    manifest_ref: "docs/control_center/capability_surface_manifest.json",
+    generated_overlay_ref:
+      "docs/control_center/capability_surface_generated_overlay.json",
+    doc_ref: "docs/control_center/CAPABILITY_SURFACE_COVERAGE.md",
+    route_status_manifest_ref: "docs/control_center/route_status_manifest.json",
+    release_surface_manifest_ref:
+      "docs/control_center/release_surface_manifest.json",
+    api_manifest_ref: "/api/manifest",
+    safe_summary:
+      "Mock fallback capability surface shows shape only; connect to the local backend for current source-truth coverage.",
+    summary: {
+      capability_count: 1,
+      api_route_count: 1,
+      ui_route_count: 1,
+      visible_action_count: 1,
+      covered_release_route_count: 1,
+      covered_visible_action_count: 1,
+      missing_release_routes: [],
+      missing_visible_actions: [],
+      status_counts: { mock_or_static_only: 1 },
+      authority_posture_counts: {
+        "mock fallback; no authority from visibility": 1,
+      },
+      source_truth_status_counts: { human_owned: 1 },
+    },
+    rows: [
+      {
+        capability_id: "control_center_capability_surface_mock",
+        label: "Capability surface fallback",
+        status: "mock_or_static_only",
+        authority_posture: "mock fallback; no authority from visibility",
+        missing_reason:
+          "local backend capability-surface read model was unavailable",
+        python_core_owner:
+          "src/ultimate_ai_agent/core/control_center/capability_surface.py",
+        source_truth_status: "human_owned",
+        api_routes: [
+          {
+            method: "GET",
+            path: "/control-center/capabilities/surface",
+            operation_id: "get_control_center_capabilities_surface",
+            route_ref: "GET /control-center/capabilities/surface",
+            side_effect_class: "validation_only",
+            route_classification: "local_readonly",
+            approval_posture: "not_required_for_route_classification",
+            source_truth_status: "human_owned",
+          },
+        ],
+        ui_routes: [
+          {
+            path: "/capabilities",
+            label: "Capabilities",
+            release_status: "partial",
+            ui_status: "capability surface",
+            source_truth_status: "human_owned",
+          },
+        ],
+        control_action_ids: [
+          {
+            action_id: "navigate-capability-surface",
+            source: "route_status_manifest",
+            release_status: "partial_backend_not_product_ready",
+            side_effect_class: "validation_only",
+            risk_class: "low",
+            source_truth_status: "human_owned",
+          },
+        ],
+        cli_paths: ["scripts/dev/uaa_capability_surface.py"],
+        tests_evidence_refs: [
+          "tests/test_control_center_capability_surface_manifest.py",
+        ],
+      },
+    ],
+    blocked_authority_refs: [
+      "blocked-state:capability-surface-no-runtime-authority",
+      "blocked-state:capability-surface-no-provider-model-calls",
+      "blocked-state:capability-surface-no-production-authority",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_capability_rows_only",
+      "raw_manifest_dump_omitted",
     ],
   },
   runtimeReadiness: {
