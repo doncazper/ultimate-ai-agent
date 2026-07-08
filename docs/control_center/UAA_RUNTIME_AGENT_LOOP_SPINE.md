@@ -74,6 +74,7 @@ backend-owned High-Maturity Agent Spine coverage map for W1-W13:
   ambiguity handling, task decomposition, approval-needed detection, memory
   citation selection, blocked-state explanation, and evidence completeness to
   existing fixture-backed tests, evidence refs, and no-authority invariants.
+  This is strong system-level coverage, not a raw model intelligence benchmark.
 
 This is a deterministic read model over existing UAA code, API, CLI, docs,
 tests, and verifier posture. It is not a benchmark of raw model intelligence.

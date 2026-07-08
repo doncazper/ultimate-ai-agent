@@ -368,7 +368,9 @@ def _assert_safe_agent_loop_thread(thread: dict[str, object]) -> None:
         assert external_row["evidence_refs"]
         assert external_row["test_refs"]
         assert external_row["blocked_authority_refs"]
-    assert rows_by_id["W12"]["score_0_10"] == 7
+    assert rows_by_id["W12"]["status"] == "implemented"
+    assert rows_by_id["W12"]["maturity"] == "strong"
+    assert rows_by_id["W12"]["score_0_10"] == 8
     assert SYSTEM_AGENT_EVAL_COVERAGE_CONTRACT_REF in rows_by_id["W12"][
         "evidence_refs"
     ]

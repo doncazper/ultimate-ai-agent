@@ -1603,9 +1603,9 @@ def build_high_maturity_agent_spine_readiness() -> dict[str, Any]:
         _high_maturity_row(
             weakness_id="W12",
             component="System-level agent evals",
-            status="partial",
-            maturity="usable",
-            score=7,
+            status="implemented",
+            maturity="strong",
+            score=8,
             safe_summary=(
                 "Route choice, ambiguity handling, task decomposition, "
                 "approval-needed detection, memory citation selection, blocked "
@@ -1622,7 +1622,10 @@ def build_high_maturity_agent_spine_readiness() -> dict[str, Any]:
                 "tests/test_turn_contract_router_classifier.py",
                 "tests/test_uaa_p1_089_top_level_decision_router_contract.py",
             ],
-            gap="No broad benchmark suite should be claimed as model intelligence.",
+            gap=(
+                "No broad benchmark suite or raw model-intelligence score "
+                "should be claimed without separate model-evaluation evidence."
+            ),
             recommendation=(
                 "Keep evals system-level and fixture-backed; do not score raw "
                 "LLM intelligence without model-evaluation evidence."
