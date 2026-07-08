@@ -41,6 +41,7 @@ Repo-safe current version:
 - CLI inspection: `scripts/dev/uaa_coding.py inspect-session`,
   `scripts/dev/uaa_coding.py inspect-context`,
   `scripts/dev/uaa_coding.py inspect-patch-proposal`,
+  `scripts/dev/uaa_coding.py verify-patch-proposal-evidence`,
   `scripts/dev/uaa_coding.py inspect-patch-apply-readiness`,
   `scripts/dev/uaa_coding.py inspect-test-command-readiness`,
   `scripts/dev/uaa_coding.py inspect-git-review`,
@@ -71,7 +72,11 @@ Exact AuthorityLease capability path:
 
 - Prompt 02 implements backend-owned context-pack preview contracts and
   inspection parity from safe refs only.
-- Prompt 03 adds patch proposal artifacts without apply.
+- Prompt 03 adds patch proposal artifacts without apply. Prompt 03 hardening
+  now binds each backend-owned patch proposal preview to a deterministic
+  safe-ref-only signed evidence envelope with canonical JSON hash refs,
+  verifier refs, redaction posture, blocked authority refs, and CLI
+  verification parity.
 - Prompt 04 adds patch apply readiness and blocker refs without apply.
 - Prompt 05 now exposes approval-required RuntimeGateway validation command
   lane refs for focused pytest, repo verifier, frontend check, and repo doctor.
@@ -133,6 +138,29 @@ Exact promotion path:
   LocalApprovalAuthority validation, checkpoint and rollback contracts, safe
   receipt storage, redaction, Proof Detail binding, CLI parity, frontend tests,
   and verifiers are accepted.
+
+## Coding Patch Proposal Signed Evidence
+
+Status: implemented for the proposal-only patch preview. This is not patch
+application authority.
+
+The backend-owned `GET /control-center/coding/patch-proposal` read model now
+includes `signed_evidence` and `signed_evidence_verification_status`. The
+envelope is deterministic and stores only safe refs: proposal ref, session ref,
+context-pack ref, route ref, file refs, hunk refs, proof refs, evidence refs,
+blocked authority refs, redaction refs, canonical JSON ref, local hash-signature
+scheme ref, proposal hash ref, and signed envelope ref.
+
+CLI parity:
+
+- `scripts/dev/uaa_coding.py inspect-patch-proposal`
+- `scripts/dev/uaa_coding.py verify-patch-proposal-evidence`
+
+The verifier detects drift in hashed fields and fails if redaction posture or
+denied-authority flags change. The envelope explicitly keeps
+`patch_apply_performed`, `file_mutation_performed`, shell/subprocess, Git
+mutation, provider/model call, browser automation, connector write, and
+production authority flags false.
 
 ## Coding Cockpit Prompt 05 Validation Command Readiness
 

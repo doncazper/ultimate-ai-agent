@@ -22,6 +22,7 @@ from ultimate_ai_agent.core.code import (  # noqa: E402
     build_coding_project_model_read_model,
     build_coding_test_command_readiness,
     build_coding_workspace_context_preview,
+    verify_coding_patch_proposal_signed_evidence,
 )
 
 
@@ -59,6 +60,23 @@ def inspect_project_model(args: argparse.Namespace) -> int:
 def inspect_patch_proposal(args: argparse.Namespace) -> int:
     proposal = build_coding_patch_proposal_preview()
     payload = proposal.model_dump(mode="json")
+    _dump_payload(args, payload)
+    return 0
+
+
+def verify_patch_proposal_evidence(args: argparse.Namespace) -> int:
+    proposal = build_coding_patch_proposal_preview()
+    verification = verify_coding_patch_proposal_signed_evidence(
+        proposal.signed_evidence
+    )
+    payload = {
+        "command_ref": "repo-local-command:coding-patch-proposal-evidence-verify",
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "patch_apply_performed": False,
+        "signed_evidence_ref": proposal.signed_evidence.signed_envelope_ref,
+        "verification": verification.model_dump(mode="json"),
+    }
     _dump_payload(args, payload)
     return 0
 
@@ -218,6 +236,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Pretty-print the safe JSON read model.",
     )
     patch_proposal.set_defaults(func=inspect_patch_proposal)
+    patch_proposal_evidence = subparsers.add_parser(
+        "verify-patch-proposal-evidence",
+        help="Verify the deterministic signed evidence for the patch proposal preview.",
+    )
+    patch_proposal_evidence.add_argument(
+        "--pretty",
+        action="store_true",
+        help="Pretty-print the safe JSON verification result.",
+    )
+    patch_proposal_evidence.set_defaults(func=verify_patch_proposal_evidence)
     patch_apply = subparsers.add_parser(
         "inspect-patch-apply-readiness",
         help="Print the blocked Coding Cockpit patch apply readiness model.",

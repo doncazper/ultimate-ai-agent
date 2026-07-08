@@ -193,6 +193,10 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned() -> None:
         in manifest["capabilities_declared"]
     )
     assert (
+        "control_center_coding_patch_proposal_signed_evidence"
+        in manifest["capabilities_declared"]
+    )
+    assert (
         "control_center_memory_safe_query_hashed_read_model"
         in manifest["capabilities_declared"]
     )

@@ -26,6 +26,9 @@ from ultimate_ai_agent.core.code import (
     CODING_COCKPIT_PATCH_APPLY_READINESS_REF,
     CODING_COCKPIT_PATCH_BACKEND_ROUTE_REF,
     CODING_COCKPIT_PATCH_PROPOSAL_REF,
+    CODING_PATCH_PROPOSAL_EVIDENCE_CONTRACT_REF,
+    CODING_PATCH_PROPOSAL_EVIDENCE_SIGNATURE_SCHEME_REF,
+    CODING_PATCH_PROPOSAL_EVIDENCE_VERIFIER_REF,
     CODING_COCKPIT_PROJECT_MODEL_REF,
     CODING_COCKPIT_REQUIRED_BLOCKED_REFS,
     CODING_COCKPIT_SESSION_REF,
@@ -49,6 +52,7 @@ from ultimate_ai_agent.core.code import (
     build_coding_project_model_read_model,
     build_coding_test_command_readiness,
     build_coding_workspace_context_preview,
+    verify_coding_patch_proposal_signed_evidence,
 )
 
 
@@ -325,7 +329,49 @@ def test_coding_patch_proposal_preview_is_backend_owned_safe_refs_only() -> None
     assert proposal.file_changes
     assert proposal.diff_preview_refs
     assert proposal.diff_summary_lines
+    assert proposal.signed_evidence.contract_ref == (
+        CODING_PATCH_PROPOSAL_EVIDENCE_CONTRACT_REF
+    )
+    assert proposal.signed_evidence.verifier_ref == (
+        CODING_PATCH_PROPOSAL_EVIDENCE_VERIFIER_REF
+    )
+    assert proposal.signed_evidence.signature_scheme_ref == (
+        CODING_PATCH_PROPOSAL_EVIDENCE_SIGNATURE_SCHEME_REF
+    )
+    assert proposal.signed_evidence.patch_proposal_ref == proposal.patch_proposal_ref
+    assert proposal.signed_evidence.proposed_file_refs == proposal.proposed_file_refs
+    assert proposal.signed_evidence.diff_preview_refs == proposal.diff_preview_refs
+    assert proposal.signed_evidence.patch_apply_performed is False
+    assert proposal.signed_evidence.file_mutation_performed is False
+    assert proposal.signed_evidence.raw_content_persisted is False
+    assert proposal.signed_evidence.signed_envelope_ref.startswith(
+        "coding-patch-proposal-signed-envelope-ref:sha256:"
+    )
+    assert proposal.signed_evidence_verification_status == "passed"
+    verification = verify_coding_patch_proposal_signed_evidence(
+        proposal.signed_evidence
+    )
+    assert verification.verification_status == "passed"
+    assert verification.tamper_detected is False
     assert "/Users/" not in json.dumps(payload)
+
+
+def test_coding_patch_proposal_signed_evidence_detects_tamper() -> None:
+    proposal = build_coding_patch_proposal_preview()
+    payload = proposal.signed_evidence.model_dump(mode="json")
+    payload["proposed_file_refs"] = [
+        *payload["proposed_file_refs"],
+        "file-ref:tampered-extra",
+    ]
+
+    verification = verify_coding_patch_proposal_signed_evidence(payload)
+
+    assert verification.verification_status == "failed"
+    assert verification.tamper_detected is True
+    assert (
+        "failure-reason-ref:coding-patch-proposal-evidence:proposal-hash-invalid"
+        in verification.failure_reason_refs
+    )
 
 
 def test_coding_patch_proposal_rejects_apply_and_raw_content() -> None:
@@ -342,6 +388,11 @@ def test_coding_patch_proposal_rejects_apply_and_raw_content() -> None:
     payload = build_coding_patch_proposal_preview().model_dump(mode="json")
     payload["file_write_enabled"] = True
     with pytest.raises(ValidationError, match="file_write_enabled"):
+        CodingPatchProposalReadModel(**payload)
+
+    payload = build_coding_patch_proposal_preview().model_dump(mode="json")
+    payload["signed_evidence"]["patch_apply_performed"] = True
+    with pytest.raises(ValidationError, match="patch_apply_performed"):
         CodingPatchProposalReadModel(**payload)
 
 
@@ -859,6 +910,12 @@ def test_control_center_coding_patch_proposal_route_returns_safe_read_model() ->
     assert data["repo_file_read_performed"] is False
     assert data["patch_apply_enabled"] is False
     assert data["file_write_enabled"] is False
+    assert data["signed_evidence"]["contract_ref"] == (
+        CODING_PATCH_PROPOSAL_EVIDENCE_CONTRACT_REF
+    )
+    assert data["signed_evidence"]["patch_apply_performed"] is False
+    assert data["signed_evidence"]["file_mutation_performed"] is False
+    assert data["signed_evidence_verification_status"] == "passed"
 
 
 def test_control_center_coding_patch_apply_readiness_route_returns_safe_read_model() -> None:
@@ -1108,6 +1165,9 @@ def test_coding_cockpit_route_and_capabilities_are_manifested_as_local_read_mode
     assert "control_center_coding_patch_proposal_read_model" in (
         manifest.capabilities_declared
     )
+    assert "control_center_coding_patch_proposal_signed_evidence" in (
+        manifest.capabilities_declared
+    )
     assert "control_center_coding_patch_apply_readiness_read_model" in (
         manifest.capabilities_declared
     )
@@ -1220,6 +1280,39 @@ def test_coding_patch_proposal_cli_inspection_prints_same_safe_proposal() -> Non
     assert data["proposal_only"] is True
     assert data["safe_refs_only"] is True
     assert data["patch_apply_enabled"] is False
+    assert data["signed_evidence"]["contract_ref"] == (
+        CODING_PATCH_PROPOSAL_EVIDENCE_CONTRACT_REF
+    )
+    assert data["signed_evidence_verification_status"] == "passed"
+    assert "/Users/" not in result.stdout
+    assert "credential" not in result.stdout.lower()
+
+
+def test_coding_patch_proposal_evidence_cli_verifies_safe_envelope() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts/dev/uaa_coding.py"),
+            "verify-patch-proposal-evidence",
+        ],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    data = json.loads(result.stdout)
+
+    assert data["command_ref"] == (
+        "repo-local-command:coding-patch-proposal-evidence-verify"
+    )
+    assert data["safe_refs_only"] is True
+    assert data["raw_content_omitted"] is True
+    assert data["patch_apply_performed"] is False
+    assert data["signed_evidence_ref"].startswith(
+        "coding-patch-proposal-signed-envelope-ref:sha256:"
+    )
+    assert data["verification"]["verification_status"] == "passed"
+    assert data["verification"]["tamper_detected"] is False
     assert "/Users/" not in result.stdout
     assert "credential" not in result.stdout.lower()
 

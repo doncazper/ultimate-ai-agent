@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from typing import Literal, get_args
+import hashlib
+import json
+from typing import Any, Literal, Mapping, get_args
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -76,6 +78,21 @@ CODING_COCKPIT_REQUIRED_BLOCKED_REFS = [
     "blocked-state:coding-no-background-autonomy",
     "blocked-state:coding-no-production-authority",
 ]
+CODING_PATCH_PROPOSAL_EVIDENCE_CONTRACT_REF = (
+    "contract-ref:coding-patch-proposal-signed-evidence:v1"
+)
+CODING_PATCH_PROPOSAL_EVIDENCE_VERIFIER_REF = (
+    "verifier-ref:coding-patch-proposal-signed-evidence"
+)
+CODING_PATCH_PROPOSAL_EVIDENCE_VERIFIER_VERSION_REF = (
+    "verifier-version-ref:coding-patch-proposal-signed-evidence-v1"
+)
+CODING_PATCH_PROPOSAL_EVIDENCE_SIGNATURE_SCHEME_REF = (
+    "signature-scheme-ref:local-sha256-envelope-v1"
+)
+CODING_PATCH_PROPOSAL_EVIDENCE_CANONICAL_JSON_REF = (
+    "canonical-json-ref:coding-patch-proposal-signed-evidence-v1"
+)
 
 
 AuthorityModeState = Literal["current", "planned", "blocked", "hard_gate"]
@@ -153,6 +170,106 @@ CodingProjectCapabilityState = Literal[
     "blocked",
     "planned",
 ]
+CodingPatchProposalEvidenceVerificationStatus = Literal["passed", "failed"]
+
+
+_CODING_PATCH_PROPOSAL_EVIDENCE_HASH_FIELDS = (
+    "schema_version",
+    "contract_ref",
+    "envelope_ref",
+    "patch_proposal_ref",
+    "session_ref",
+    "context_pack_ref",
+    "route_ref",
+    "side_effect_class",
+    "proposed_file_refs",
+    "diff_preview_refs",
+    "proof_refs",
+    "evidence_refs",
+    "blocked_authority_refs",
+    "redactions_applied",
+    "canonical_json_ref",
+    "verifier_ref",
+    "verifier_version_ref",
+    "signature_scheme_ref",
+    "issued_at_ref",
+    "safe_refs_only",
+    "proposal_only",
+    "read_only",
+    "raw_paths_persisted",
+    "raw_content_persisted",
+    "diff_body_persisted",
+    "file_mutation_performed",
+    "patch_apply_performed",
+    "shell_subprocess_performed",
+    "git_mutation_performed",
+    "provider_model_call_performed",
+    "browser_automation_performed",
+    "connector_write_performed",
+    "production_authority_performed",
+)
+_CODING_PATCH_PROPOSAL_EVIDENCE_REQUIRED_FIELDS = (
+    *_CODING_PATCH_PROPOSAL_EVIDENCE_HASH_FIELDS,
+    "proposal_hash_ref",
+    "signed_envelope_ref",
+)
+
+
+def _coding_patch_proposal_canonical_json(payload: Mapping[str, Any]) -> str:
+    return json.dumps(
+        dict(payload),
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+    )
+
+
+def _coding_patch_proposal_hash_ref(prefix: str, payload: Mapping[str, Any]) -> str:
+    digest = hashlib.sha256(
+        _coding_patch_proposal_canonical_json(payload).encode("utf-8")
+    ).hexdigest()[:24]
+    return f"{prefix}:sha256:{digest}"
+
+
+def _coding_patch_proposal_evidence_hash_payload(
+    payload: Mapping[str, Any],
+) -> dict[str, Any]:
+    return {
+        field: payload[field]
+        for field in _CODING_PATCH_PROPOSAL_EVIDENCE_HASH_FIELDS
+    }
+
+
+def _coding_patch_proposal_evidence_hash_ref(
+    payload: Mapping[str, Any],
+) -> str:
+    return _coding_patch_proposal_hash_ref(
+        "coding-patch-proposal-evidence-hash-ref",
+        _coding_patch_proposal_evidence_hash_payload(payload),
+    )
+
+
+def _coding_patch_proposal_signed_envelope_ref(
+    *,
+    proposal_hash_ref: str,
+    verifier_version_ref: str,
+    signature_scheme_ref: str,
+) -> str:
+    return _coding_patch_proposal_hash_ref(
+        "coding-patch-proposal-signed-envelope-ref",
+        {
+            "proposal_hash_ref": proposal_hash_ref,
+            "signature_scheme_ref": signature_scheme_ref,
+            "verifier_version_ref": verifier_version_ref,
+        },
+    )
+
+
+def _coding_patch_proposal_missing_field_ref(field_name: str) -> str:
+    return (
+        "missing-field-ref:coding-patch-proposal-evidence:"
+        f"{field_name.replace('_', '-')}"
+    )
 
 
 class CodingCockpitAuthorityMode(BaseModel):
@@ -702,6 +819,176 @@ class CodingPatchProposalFileReadModel(BaseModel):
         return self
 
 
+class CodingPatchProposalSignedEvidenceEnvelope(BaseModel):
+    schema_version: Literal["uaa-coding-patch-proposal-signed-evidence.v1"] = (
+        "uaa-coding-patch-proposal-signed-evidence.v1"
+    )
+    contract_ref: str = CODING_PATCH_PROPOSAL_EVIDENCE_CONTRACT_REF
+    envelope_ref: str = Field(..., min_length=1)
+    patch_proposal_ref: str = Field(..., min_length=1)
+    session_ref: str = Field(..., min_length=1)
+    context_pack_ref: str = Field(..., min_length=1)
+    route_ref: str = Field(..., min_length=1)
+    side_effect_class: Literal["validation_only"] = "validation_only"
+    proposed_file_refs: list[str] = Field(default_factory=list)
+    diff_preview_refs: list[str] = Field(default_factory=list)
+    proof_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    blocked_authority_refs: list[str] = Field(default_factory=list)
+    redactions_applied: list[str] = Field(default_factory=list)
+    canonical_json_ref: str = CODING_PATCH_PROPOSAL_EVIDENCE_CANONICAL_JSON_REF
+    verifier_ref: str = CODING_PATCH_PROPOSAL_EVIDENCE_VERIFIER_REF
+    verifier_version_ref: str = CODING_PATCH_PROPOSAL_EVIDENCE_VERIFIER_VERSION_REF
+    signature_scheme_ref: str = CODING_PATCH_PROPOSAL_EVIDENCE_SIGNATURE_SCHEME_REF
+    issued_at_ref: str = "issued-at-ref:coding-patch-proposal-deterministic-v1"
+    proposal_hash_ref: str = Field(..., min_length=1)
+    signed_envelope_ref: str = Field(..., min_length=1)
+    safe_refs_only: bool = True
+    proposal_only: bool = True
+    read_only: bool = True
+    raw_paths_persisted: bool = False
+    raw_content_persisted: bool = False
+    diff_body_persisted: bool = False
+    file_mutation_performed: bool = False
+    patch_apply_performed: bool = False
+    shell_subprocess_performed: bool = False
+    git_mutation_performed: bool = False
+    provider_model_call_performed: bool = False
+    browser_automation_performed: bool = False
+    connector_write_performed: bool = False
+    production_authority_performed: bool = False
+    verifier_only_local_hash_signature: bool = True
+    public_notarization_enabled: bool = False
+    signing_key_material_persisted: bool = False
+    safe_summary: str = (
+        "Coding patch proposal signed evidence stores safe refs, stable hashes, "
+        "redaction posture, blocked authority refs, and proposal-only status."
+    )
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_envelope(self) -> "CodingPatchProposalSignedEvidenceEnvelope":
+        for ref in [
+            self.contract_ref,
+            self.envelope_ref,
+            self.patch_proposal_ref,
+            self.session_ref,
+            self.context_pack_ref,
+            self.route_ref,
+            self.canonical_json_ref,
+            self.verifier_ref,
+            self.verifier_version_ref,
+            self.signature_scheme_ref,
+            self.issued_at_ref,
+            self.proposal_hash_ref,
+            self.signed_envelope_ref,
+            *self.proposed_file_refs,
+            *self.diff_preview_refs,
+            *self.proof_refs,
+            *self.evidence_refs,
+            *self.blocked_authority_refs,
+            *self.redactions_applied,
+        ]:
+            validate_task_ref(ref, "coding_patch_proposal_evidence_ref")
+        for value in [
+            self.schema_version,
+            self.side_effect_class,
+            self.safe_summary,
+        ]:
+            validate_safe_task_text(value, "coding_patch_proposal_evidence_text")
+        required_true_flags = {
+            "safe_refs_only": self.safe_refs_only,
+            "proposal_only": self.proposal_only,
+            "read_only": self.read_only,
+            "verifier_only_local_hash_signature": (
+                self.verifier_only_local_hash_signature
+            ),
+        }
+        disabled = [name for name, value in required_true_flags.items() if not value]
+        if disabled:
+            raise ValueError(f"coding patch proposal evidence disabled {disabled[0]}")
+        denied_flags = {
+            "raw_paths_persisted": self.raw_paths_persisted,
+            "raw_content_persisted": self.raw_content_persisted,
+            "diff_body_persisted": self.diff_body_persisted,
+            "file_mutation_performed": self.file_mutation_performed,
+            "patch_apply_performed": self.patch_apply_performed,
+            "shell_subprocess_performed": self.shell_subprocess_performed,
+            "git_mutation_performed": self.git_mutation_performed,
+            "provider_model_call_performed": self.provider_model_call_performed,
+            "browser_automation_performed": self.browser_automation_performed,
+            "connector_write_performed": self.connector_write_performed,
+            "production_authority_performed": self.production_authority_performed,
+            "public_notarization_enabled": self.public_notarization_enabled,
+            "signing_key_material_persisted": self.signing_key_material_persisted,
+        }
+        enabled = [name for name, value in denied_flags.items() if value]
+        if enabled:
+            raise ValueError(f"coding patch proposal evidence enabled {enabled[0]}")
+        if not self.proposal_hash_ref.startswith(
+            "coding-patch-proposal-evidence-hash-ref:sha256:"
+        ):
+            raise ValueError("coding patch proposal evidence hash ref required")
+        if not self.signed_envelope_ref.startswith(
+            "coding-patch-proposal-signed-envelope-ref:sha256:"
+        ):
+            raise ValueError("coding patch proposal signed envelope ref required")
+        validate_safe_task_payload(
+            self.model_dump(mode="json"),
+            "coding_patch_proposal_signed_evidence",
+        )
+        return self
+
+
+class CodingPatchProposalSignedEvidenceVerificationResult(BaseModel):
+    schema_version: Literal["uaa-coding-patch-proposal-evidence-verification.v1"] = (
+        "uaa-coding-patch-proposal-evidence-verification.v1"
+    )
+    verifier_ref: str = CODING_PATCH_PROPOSAL_EVIDENCE_VERIFIER_REF
+    verifier_version_ref: str = CODING_PATCH_PROPOSAL_EVIDENCE_VERIFIER_VERSION_REF
+    envelope_ref: str = "coding-patch-proposal-evidence-envelope-ref:missing"
+    verification_status: CodingPatchProposalEvidenceVerificationStatus
+    offline_verification_performed: bool = True
+    required_fields_present: bool
+    proposal_hash_valid: bool
+    signed_envelope_ref_valid: bool
+    redaction_status_valid: bool
+    denied_authority_status_valid: bool
+    tamper_detected: bool
+    safe_refs_only: bool
+    missing_field_refs: list[str] = Field(default_factory=list)
+    failure_reason_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    safe_summary: str = (
+        "Coding patch proposal signed evidence was verified offline using "
+        "safe refs only."
+    )
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_result(self) -> "CodingPatchProposalSignedEvidenceVerificationResult":
+        for ref in [
+            self.verifier_ref,
+            self.verifier_version_ref,
+            self.envelope_ref,
+            *self.missing_field_refs,
+            *self.failure_reason_refs,
+            *self.evidence_refs,
+        ]:
+            validate_task_ref(ref, "coding_patch_proposal_evidence_verification_ref")
+        validate_safe_task_text(
+            self.verification_status,
+            "coding_patch_proposal_evidence_verification_status",
+        )
+        validate_safe_task_text(
+            self.safe_summary,
+            "coding_patch_proposal_evidence_verification_summary",
+        )
+        return self
+
+
 class CodingPatchProposalReadModel(BaseModel):
     schema_version: Literal["uaa-coding-patch-proposal.v1"] = (
         "uaa-coding-patch-proposal.v1"
@@ -736,6 +1023,8 @@ class CodingPatchProposalReadModel(BaseModel):
     evidence_refs: list[str] = Field(default_factory=list)
     blocked_authority_refs: list[str] = Field(default_factory=list)
     redactions_applied: list[str] = Field(default_factory=list)
+    signed_evidence: CodingPatchProposalSignedEvidenceEnvelope
+    signed_evidence_verification_status: Literal["passed"] = "passed"
     next_safe_action: str = Field(..., min_length=1, max_length=420)
     backend_owned: bool = True
     read_only: bool = True
@@ -782,6 +1071,23 @@ class CodingPatchProposalReadModel(BaseModel):
         file_ref_set = {change.file_ref for change in self.file_changes}
         if set(self.proposed_file_refs) != file_ref_set:
             raise ValueError("proposed file refs must match patch file changes")
+        if self.signed_evidence.patch_proposal_ref != self.patch_proposal_ref:
+            raise ValueError("coding patch proposal evidence proposal ref drift")
+        if self.signed_evidence.session_ref != self.session_ref:
+            raise ValueError("coding patch proposal evidence session ref drift")
+        if self.signed_evidence.context_pack_ref != self.context_pack_ref:
+            raise ValueError("coding patch proposal evidence context ref drift")
+        if self.signed_evidence.route_ref != self.route_ref:
+            raise ValueError("coding patch proposal evidence route ref drift")
+        if set(self.signed_evidence.proposed_file_refs) != set(self.proposed_file_refs):
+            raise ValueError("coding patch proposal evidence file refs drift")
+        if set(self.signed_evidence.diff_preview_refs) != set(self.diff_preview_refs):
+            raise ValueError("coding patch proposal evidence hunk refs drift")
+        verification = verify_coding_patch_proposal_signed_evidence(
+            self.signed_evidence
+        )
+        if verification.verification_status != self.signed_evidence_verification_status:
+            raise ValueError("coding patch proposal evidence verification drift")
         hunk_ref_set = {
             hunk_ref for change in self.file_changes for hunk_ref in change.hunk_refs
         }
@@ -842,6 +1148,197 @@ class CodingPatchApplyPrerequisiteReadModel(BaseModel):
         if self.status in {"missing", "blocked"} and not self.blocked_authority_refs:
             raise ValueError("missing or blocked apply prerequisite needs blocker refs")
         return self
+
+
+def build_coding_patch_proposal_signed_evidence(
+    proposal_payload: Mapping[str, Any],
+) -> CodingPatchProposalSignedEvidenceEnvelope:
+    patch_proposal_ref = str(
+        proposal_payload.get("patch_proposal_ref", CODING_COCKPIT_PATCH_PROPOSAL_REF)
+    )
+    session_ref = str(
+        proposal_payload.get("session_ref", CODING_COCKPIT_SESSION_REF)
+    )
+    context_pack_ref = str(
+        proposal_payload.get("context_pack_ref", CODING_COCKPIT_CONTEXT_PACK_REF)
+    )
+    route_ref = str(proposal_payload.get("route_ref", CODING_COCKPIT_PATCH_ROUTE_REF))
+    base: dict[str, Any] = {
+        "schema_version": "uaa-coding-patch-proposal-signed-evidence.v1",
+        "contract_ref": CODING_PATCH_PROPOSAL_EVIDENCE_CONTRACT_REF,
+        "envelope_ref": _coding_patch_proposal_hash_ref(
+            "coding-patch-proposal-evidence-envelope-ref",
+            {
+                "patch_proposal_ref": patch_proposal_ref,
+                "session_ref": session_ref,
+                "context_pack_ref": context_pack_ref,
+            },
+        ),
+        "patch_proposal_ref": patch_proposal_ref,
+        "session_ref": session_ref,
+        "context_pack_ref": context_pack_ref,
+        "route_ref": route_ref,
+        "side_effect_class": "validation_only",
+        "proposed_file_refs": list(proposal_payload.get("proposed_file_refs") or []),
+        "diff_preview_refs": list(proposal_payload.get("diff_preview_refs") or []),
+        "proof_refs": list(proposal_payload.get("proof_refs") or []),
+        "evidence_refs": list(
+            dict.fromkeys(
+                [
+                    *(proposal_payload.get("evidence_refs") or []),
+                    "evidence-ref:coding-patch-proposal-signed-evidence",
+                ]
+            )
+        ),
+        "blocked_authority_refs": list(
+            proposal_payload.get("blocked_authority_refs") or []
+        ),
+        "redactions_applied": list(proposal_payload.get("redactions_applied") or []),
+        "canonical_json_ref": CODING_PATCH_PROPOSAL_EVIDENCE_CANONICAL_JSON_REF,
+        "verifier_ref": CODING_PATCH_PROPOSAL_EVIDENCE_VERIFIER_REF,
+        "verifier_version_ref": CODING_PATCH_PROPOSAL_EVIDENCE_VERIFIER_VERSION_REF,
+        "signature_scheme_ref": CODING_PATCH_PROPOSAL_EVIDENCE_SIGNATURE_SCHEME_REF,
+        "issued_at_ref": "issued-at-ref:coding-patch-proposal-deterministic-v1",
+        "safe_refs_only": True,
+        "proposal_only": True,
+        "read_only": True,
+        "raw_paths_persisted": False,
+        "raw_content_persisted": False,
+        "diff_body_persisted": False,
+        "file_mutation_performed": False,
+        "patch_apply_performed": False,
+        "shell_subprocess_performed": False,
+        "git_mutation_performed": False,
+        "provider_model_call_performed": False,
+        "browser_automation_performed": False,
+        "connector_write_performed": False,
+        "production_authority_performed": False,
+    }
+    proposal_hash_ref = _coding_patch_proposal_evidence_hash_ref(base)
+    return CodingPatchProposalSignedEvidenceEnvelope(
+        **base,
+        proposal_hash_ref=proposal_hash_ref,
+        signed_envelope_ref=_coding_patch_proposal_signed_envelope_ref(
+            proposal_hash_ref=proposal_hash_ref,
+            verifier_version_ref=CODING_PATCH_PROPOSAL_EVIDENCE_VERIFIER_VERSION_REF,
+            signature_scheme_ref=CODING_PATCH_PROPOSAL_EVIDENCE_SIGNATURE_SCHEME_REF,
+        ),
+    )
+
+
+def verify_coding_patch_proposal_signed_evidence(
+    envelope: (
+        Mapping[str, Any]
+        | CodingPatchProposalSignedEvidenceEnvelope
+    ),
+) -> CodingPatchProposalSignedEvidenceVerificationResult:
+    payload = (
+        envelope.model_dump(mode="json")
+        if isinstance(envelope, CodingPatchProposalSignedEvidenceEnvelope)
+        else dict(envelope)
+    )
+    missing_fields = [
+        field
+        for field in _CODING_PATCH_PROPOSAL_EVIDENCE_REQUIRED_FIELDS
+        if field not in payload
+    ]
+    required_fields_present = not missing_fields
+    envelope_ref = str(
+        payload.get(
+            "envelope_ref",
+            "coding-patch-proposal-evidence-envelope-ref:missing",
+        )
+    )
+    redaction_status_valid = bool(payload.get("safe_refs_only") is True) and not any(
+        bool(
+            payload.get(field)
+        )
+        for field in (
+            "raw_paths_persisted",
+            "raw_content_persisted",
+            "diff_body_persisted",
+        )
+    )
+    denied_authority_status_valid = not any(
+        bool(payload.get(field))
+        for field in (
+            "file_mutation_performed",
+            "patch_apply_performed",
+            "shell_subprocess_performed",
+            "git_mutation_performed",
+            "provider_model_call_performed",
+            "browser_automation_performed",
+            "connector_write_performed",
+            "production_authority_performed",
+        )
+    )
+    proposal_hash_valid = False
+    signed_envelope_ref_valid = False
+    failure_reason_refs: list[str] = []
+    if required_fields_present:
+        expected_hash_ref = _coding_patch_proposal_evidence_hash_ref(payload)
+        proposal_hash_valid = payload.get("proposal_hash_ref") == expected_hash_ref
+        expected_signed_ref = _coding_patch_proposal_signed_envelope_ref(
+            proposal_hash_ref=str(payload.get("proposal_hash_ref")),
+            verifier_version_ref=str(payload.get("verifier_version_ref")),
+            signature_scheme_ref=str(payload.get("signature_scheme_ref")),
+        )
+        signed_envelope_ref_valid = (
+            payload.get("signed_envelope_ref") == expected_signed_ref
+        )
+    else:
+        failure_reason_refs.append(
+            "failure-reason-ref:coding-patch-proposal-evidence:required-fields-missing"
+        )
+    if not proposal_hash_valid:
+        failure_reason_refs.append(
+            "failure-reason-ref:coding-patch-proposal-evidence:proposal-hash-invalid"
+        )
+    if not signed_envelope_ref_valid:
+        failure_reason_refs.append(
+            "failure-reason-ref:coding-patch-proposal-evidence:signed-envelope-invalid"
+        )
+    if not redaction_status_valid:
+        failure_reason_refs.append(
+            "failure-reason-ref:coding-patch-proposal-evidence:redaction-status-invalid"
+        )
+    if not denied_authority_status_valid:
+        failure_reason_refs.append(
+            "failure-reason-ref:coding-patch-proposal-evidence:denied-authority-invalid"
+        )
+    safe_refs_only = bool(payload.get("safe_refs_only") is True)
+    verification_status: CodingPatchProposalEvidenceVerificationStatus = (
+        "passed"
+        if all(
+            [
+                required_fields_present,
+                proposal_hash_valid,
+                signed_envelope_ref_valid,
+                redaction_status_valid,
+                denied_authority_status_valid,
+                safe_refs_only,
+            ]
+        )
+        else "failed"
+    )
+    evidence_refs = payload.get("evidence_refs")
+    return CodingPatchProposalSignedEvidenceVerificationResult(
+        envelope_ref=envelope_ref,
+        verification_status=verification_status,
+        required_fields_present=required_fields_present,
+        proposal_hash_valid=proposal_hash_valid,
+        signed_envelope_ref_valid=signed_envelope_ref_valid,
+        redaction_status_valid=redaction_status_valid,
+        denied_authority_status_valid=denied_authority_status_valid,
+        tamper_detected=not proposal_hash_valid or not signed_envelope_ref_valid,
+        safe_refs_only=safe_refs_only,
+        missing_field_refs=[
+            _coding_patch_proposal_missing_field_ref(field)
+            for field in missing_fields
+        ],
+        failure_reason_refs=list(dict.fromkeys(failure_reason_refs)),
+        evidence_refs=list(evidence_refs) if isinstance(evidence_refs, list) else [],
+    )
 
 
 class CodingPatchApplyReadinessReadModel(BaseModel):
@@ -3091,43 +3588,47 @@ def build_coding_patch_proposal_preview() -> CodingPatchProposalReadModel:
             blocked_authority_refs=["blocked-state:coding-no-generated-output"],
         ),
     ]
-    return CodingPatchProposalReadModel(
-        title="Coding patch proposal preview",
-        safe_summary=(
+    proposal_payload: dict[str, Any] = {
+        "title": "Coding patch proposal preview",
+        "safe_summary": (
             "Backend-owned proposal artifact over safe file refs and hunk refs; "
             "it is not an apply request and does not contain raw diff content."
         ),
-        proposed_file_refs=[
+        "proposed_file_refs": [
             "file-ref:coding-core-contract",
             "file-ref:coding-control-center-panel",
             "file-ref:coding-generated-output",
         ],
-        file_changes=file_changes,
-        diff_preview_refs=[
+        "file_changes": file_changes,
+        "diff_preview_refs": [
             "patch-hunk:coding-core-contract-models",
             "patch-hunk:coding-core-contract-builder",
             "patch-hunk:coding-ui-patch-summary",
             "patch-hunk:coding-ui-disabled-apply",
         ],
-        diff_summary_lines=[
+        "diff_summary_lines": [
             "Safe hunk refs describe contract and UI preview changes only.",
             "Generated output is blocked from the proposal lane.",
             "Apply remains blocked until an exact approved apply contract exists.",
         ],
-        proof_refs=proof_refs,
-        evidence_refs=evidence_refs,
-        blocked_authority_refs=blocked,
-        redactions_applied=[
+        "proof_refs": proof_refs,
+        "evidence_refs": evidence_refs,
+        "blocked_authority_refs": blocked,
+        "redactions_applied": [
             "redaction-ref:safe-refs-only",
             "redaction-ref:raw-paths-omitted",
             "redaction-ref:raw-content-omitted",
             "redaction-ref:diff-body-omitted",
         ],
-        next_safe_action=(
+        "next_safe_action": (
             "Review safe patch refs and keep apply blocked until the approved "
             "patch apply lane is scoped."
         ),
+    }
+    proposal_payload["signed_evidence"] = (
+        build_coding_patch_proposal_signed_evidence(proposal_payload)
     )
+    return CodingPatchProposalReadModel(**proposal_payload)
 
 
 def build_coding_patch_apply_readiness() -> CodingPatchApplyReadinessReadModel:

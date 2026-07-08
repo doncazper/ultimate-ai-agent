@@ -717,6 +717,48 @@ export interface CodingPatchProposalFileReadModel {
   raw_content_included: boolean;
 }
 
+export interface CodingPatchProposalSignedEvidenceEnvelope {
+  schema_version: "uaa-coding-patch-proposal-signed-evidence.v1";
+  contract_ref: string;
+  envelope_ref: string;
+  patch_proposal_ref: string;
+  session_ref: string;
+  context_pack_ref: string;
+  route_ref: string;
+  side_effect_class: "validation_only";
+  proposed_file_refs: string[];
+  diff_preview_refs: string[];
+  proof_refs: string[];
+  evidence_refs: string[];
+  blocked_authority_refs: string[];
+  redactions_applied: string[];
+  canonical_json_ref: string;
+  verifier_ref: string;
+  verifier_version_ref: string;
+  signature_scheme_ref: string;
+  issued_at_ref: string;
+  proposal_hash_ref: string;
+  signed_envelope_ref: string;
+  safe_refs_only: boolean;
+  proposal_only: boolean;
+  read_only: boolean;
+  raw_paths_persisted: boolean;
+  raw_content_persisted: boolean;
+  diff_body_persisted: boolean;
+  file_mutation_performed: boolean;
+  patch_apply_performed: boolean;
+  shell_subprocess_performed: boolean;
+  git_mutation_performed: boolean;
+  provider_model_call_performed: boolean;
+  browser_automation_performed: boolean;
+  connector_write_performed: boolean;
+  production_authority_performed: boolean;
+  verifier_only_local_hash_signature: boolean;
+  public_notarization_enabled: boolean;
+  signing_key_material_persisted: boolean;
+  safe_summary: string;
+}
+
 export interface CodingPatchProposalReadModel {
   schema_version: "uaa-coding-patch-proposal.v1";
   patch_proposal_ref: string;
@@ -738,6 +780,8 @@ export interface CodingPatchProposalReadModel {
   evidence_refs: string[];
   blocked_authority_refs: string[];
   redactions_applied: string[];
+  signed_evidence: CodingPatchProposalSignedEvidenceEnvelope;
+  signed_evidence_verification_status: "passed";
   next_safe_action: string;
   backend_owned: boolean;
   read_only: boolean;

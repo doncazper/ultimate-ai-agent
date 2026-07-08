@@ -32,10 +32,11 @@ The catalog separates inspectable metadata from callable execution. It shows
 Tool Broker v2 entries as preview-only, Action Inbox `local_task_create` as an
 exact local mutation authority capability, RuntimeGateway focused pytest,
 repo-verifier, frontend-check, and repo-doctor as exact approval-required
-runtime capabilities, Coding patch proposal as proposal-only, Coding
-allowlisted validation commands as an approval-required RuntimeGateway-backed
-lane, and Coding patch apply, Git review, and live preview as blocked until
-later exact AuthorityLease capability implementation.
+runtime capabilities, Coding patch proposal as proposal-only with deterministic
+signed safe-ref evidence, Coding allowlisted validation commands as an
+approval-required RuntimeGateway-backed lane, and Coding patch apply, Git
+review, and live preview as blocked until later exact AuthorityLease capability
+implementation.
 
 All fields are backend-owned safe refs and bounded summaries. The read model
 does not persist raw prompt content, raw response content, provider payloads,
@@ -68,6 +69,13 @@ truth labels.
 Patch apply needs checkpoint creation, selected file/hunk apply, exact patch
 body validation, sensitive-diff guards, applied patch receipt refs, and rollback
 refs before it can mutate files.
+
+Coding patch proposal evidence is available through
+`GET /control-center/coding/patch-proposal` and
+`scripts/dev/uaa_coding.py verify-patch-proposal-evidence`. The signed envelope
+is local hash based, safe-ref-only, verifier-backed, and explicitly records that
+patch apply, file mutation, shell/subprocess, Git mutation, provider/model call,
+browser automation, connector write, and production authority did not occur.
 
 The Coding validation command lane now points at the existing RuntimeGateway
 focused pytest, repo-verifier, frontend-check, and repo-doctor intents. Any

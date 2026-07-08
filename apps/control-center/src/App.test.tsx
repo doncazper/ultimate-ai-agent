@@ -944,11 +944,25 @@ function backendOwnedCodingPatchProposalFixture(
   const proposal = scrubCodingFallbackText(
     JSON.parse(JSON.stringify(mockControlCenterData.codingPatchProposal)),
   ) as typeof mockControlCenterData.codingPatchProposal;
+  const signedEvidence = proposal.signed_evidence;
   return {
     ...proposal,
     patch_proposal_ref: "patch-proposal:coding-app-test",
     session_ref: "coding-session:app-test-backend",
     context_pack_ref: "context-pack:coding-app-test",
+    signed_evidence: {
+      ...signedEvidence,
+      envelope_ref: "coding-patch-proposal-evidence-envelope-ref:app-test",
+      patch_proposal_ref: "patch-proposal:coding-app-test",
+      session_ref: "coding-session:app-test-backend",
+      context_pack_ref: "context-pack:coding-app-test",
+      proposal_hash_ref: "coding-patch-proposal-evidence-hash-ref:app-test",
+      signed_envelope_ref:
+        "coding-patch-proposal-signed-envelope-ref:app-test",
+      safe_summary:
+        "Backend-owned patch proposal evidence is verified from safe refs.",
+    },
+    signed_evidence_verification_status: "passed",
     backend_owned: true,
     read_only: true,
     proposal_only: true,
@@ -2540,6 +2554,11 @@ describe("Web Control Center shell", () => {
       expect(
         within(cockpit).getByText(
           "Patch proposal is backend-owned, proposal-only, and safe-ref only.",
+        ),
+      ).toBeInTheDocument();
+      expect(
+        within(cockpit).getByText(
+          "Backend-owned patch proposal evidence is verified from safe refs.",
         ),
       ).toBeInTheDocument();
       expect(within(cockpit).getByText("Mock proposal file")).toBeInTheDocument();

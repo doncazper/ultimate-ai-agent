@@ -339,6 +339,20 @@ function PatchProposalPreview({
           ? "Patch proposal is backend-owned, proposal-only, and safe-ref only."
           : "Patch proposal is non-authoritative fallback data only."}
       </p>
+      <div
+        className="coding-context-comparison"
+        aria-label="Coding patch proposal signed evidence"
+      >
+        <DetailTile
+          label="Signed evidence"
+          value={proposal.signed_evidence.signed_envelope_ref}
+        />
+        <DetailTile
+          label="Verification"
+          value={proposal.signed_evidence_verification_status}
+        />
+        <p className="safe-copy">{proposal.signed_evidence.safe_summary}</p>
+      </div>
       <div className="coding-item-stack">
         {proposal.file_changes.map((item) => (
           <article className="coding-item-row" key={item.change_ref}>

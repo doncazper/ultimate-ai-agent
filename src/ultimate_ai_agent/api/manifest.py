@@ -85,6 +85,7 @@ CAPABILITIES_DECLARED = [
     "control_center_coding_context_pack_preview_read_model",
     "control_center_coding_patch_apply_readiness_read_model",
     "control_center_coding_patch_proposal_read_model",
+    "control_center_coding_patch_proposal_signed_evidence",
     "control_center_coding_test_command_readiness_read_model",
     "control_center_coding_git_review_read_model",
     "control_center_coding_live_preview_read_model",
