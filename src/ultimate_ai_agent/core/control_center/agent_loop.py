@@ -193,16 +193,19 @@ def build_high_maturity_agent_spine_readiness() -> dict[str, Any]:
         _high_maturity_row(
             weakness_id="W6",
             component="Code Mode discipline",
-            status="partial",
-            maturity="usable",
-            score=7,
+            status="implemented",
+            maturity="strong",
+            score=8,
             safe_summary=(
                 "Coding cockpit and code workbench expose proposal, patch, "
-                "apply-readiness, validation, rollback, and blocked-authority "
-                "posture without broad coding autonomy."
+                "signed proposal evidence, apply-readiness, validation, "
+                "rollback, and blocked-authority posture without broad coding "
+                "autonomy."
             ),
             evidence_refs=[
                 "GET /control-center/coding/session",
+                "contract-ref:coding-patch-proposal-signed-evidence:v1",
+                "scripts/dev/uaa_coding.py verify-patch-proposal-evidence",
                 "docs/control_center/UAA_P1_075_GOVERNED_CODE_WORKBENCH.md",
                 "apps/control-center/src/components/CodingCockpitPanel.tsx",
             ],
@@ -276,17 +279,20 @@ def build_high_maturity_agent_spine_readiness() -> dict[str, Any]:
             maturity="strong",
             score=8,
             safe_summary=(
-                "Runtime action signed evidence and evidence audit spines use "
-                "safe refs, hashes, lineage, verification posture, and receipt "
-                "refs instead of raw payloads."
+                "Runtime action signed evidence, Coding patch proposal signed "
+                "evidence, and evidence audit spines use safe refs, hashes, "
+                "lineage, verification posture, and receipt refs instead of raw "
+                "payloads."
             ),
             evidence_refs=[
                 "docs/runtime/UAA_RUNTIME_ACTION_SIGNED_EVIDENCE.md",
+                "contract-ref:coding-patch-proposal-signed-evidence:v1",
                 "contract-ref:runtime-evidence-audit-spine:v1",
                 "scripts/dev/uaa_runtime.py verify-evidence-envelope",
             ],
             test_refs=[
                 "tests/test_runtime_action_signed_evidence.py",
+                "tests/test_coding_cockpit_read_model.py",
                 "tests/test_runtime_evidence_audit.py",
             ],
             gap="Portable production signing/compliance claims stay blocked.",

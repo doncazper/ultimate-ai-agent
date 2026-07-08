@@ -461,6 +461,10 @@ existing Agent Loop Thread instead of creating a new authority surface.
 - Control Center:
   the Agent Loop Thread panel renders W1-W13 component rows, score projection,
   evidence refs, test refs, gaps, recommendations, and blocked authority refs.
+- Code/evidence truth:
+  W6 now counts Coding proposal evidence as implemented only for deterministic
+  safe-ref signed envelopes; exact patch apply remains blocked. W9 includes
+  both Runtime action signed evidence and Coding patch proposal signed evidence.
 - Tests/verifier:
   `tests/test_runtime_agent_loop_spine.py` and
   `scripts/verify_uaa_runtime_agent_loop_spine.py`

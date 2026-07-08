@@ -107,6 +107,20 @@ def _assert_safe_agent_loop_thread(thread: dict[str, object]) -> None:
     assert high_maturity["overall_projection_0_100"] >= 70
     rows = high_maturity["rows"]
     assert [row["weakness_id"] for row in rows] == list(HIGH_MATURITY_COMPONENT_IDS)
+    rows_by_id = {row["weakness_id"]: row for row in rows}
+    assert rows_by_id["W6"]["status"] == "implemented"
+    assert rows_by_id["W6"]["maturity"] == "strong"
+    assert rows_by_id["W6"]["score_0_10"] == 8
+    assert "contract-ref:coding-patch-proposal-signed-evidence:v1" in (
+        rows_by_id["W6"]["evidence_refs"]
+    )
+    assert "scripts/dev/uaa_coding.py verify-patch-proposal-evidence" in (
+        rows_by_id["W6"]["evidence_refs"]
+    )
+    assert "contract-ref:coding-patch-proposal-signed-evidence:v1" in (
+        rows_by_id["W9"]["evidence_refs"]
+    )
+    assert "tests/test_coding_cockpit_read_model.py" in rows_by_id["W9"]["test_refs"]
     for row in rows:
         assert row["safe_refs_only"] is True
         assert row["authority_broadened"] is False
