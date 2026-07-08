@@ -64,6 +64,9 @@ def _runtime_action_inbox_refs(record: dict[str, object]) -> dict[str, str]:
     assert isinstance(request, dict)
     policy = record["policy_decision"]
     assert isinstance(policy, dict)
+    action_ref = request["action_ref"]
+    assert isinstance(action_ref, str)
+    command_intent = action_ref.removeprefix("action-ref:runtime-command-")
     exact_scope_ref = _test_hash_ref(
         "runtime-approval-scope-ref",
         {
@@ -80,7 +83,7 @@ def _runtime_action_inbox_refs(record: dict[str, object]) -> dict[str, str]:
             "requested_authority": request["requested_authority"],
             "requested_profile": request["requested_profile"],
             "adapter_id": "governed-command-runtime-adapter",
-            "command_intent": "focused_pytest",
+            "command_intent": command_intent,
             "decision": "approve",
             "exact_scope_ref": exact_scope_ref,
             "payload_fingerprint_ref": record["payload_fingerprint_ref"],
@@ -99,6 +102,7 @@ def _runtime_action_inbox_refs(record: dict[str, object]) -> dict[str, str]:
     return {
         "approval_ref": approval_ref,
         "action_envelope_ref": action_envelope_ref,
+        "command_intent": command_intent,
         "exact_scope_ref": exact_scope_ref,
     }
 
@@ -742,7 +746,7 @@ def test_governed_runtime_action_inbox_execute_receipt_detail_reports_execution(
             "expected_payload_fingerprint_ref": record["payload_fingerprint_ref"],
             "expected_policy_decision_ref": record["policy_decision"]["policy_decision_ref"],
             "adapter_id": "governed-command-runtime-adapter",
-            "command_intent": "focused_pytest",
+            "command_intent": refs["command_intent"],
             "risk_class": "medium",
             "safe_summary": "Action Inbox approved exact focused pytest runtime lane.",
         },
@@ -850,7 +854,7 @@ def test_governed_runtime_action_inbox_execute_rejects_changed_scope(
             "expected_payload_fingerprint_ref": record["payload_fingerprint_ref"],
             "expected_policy_decision_ref": record["policy_decision"]["policy_decision_ref"],
             "adapter_id": "governed-command-runtime-adapter",
-            "command_intent": "focused_pytest",
+            "command_intent": refs["command_intent"],
             "risk_class": "medium",
             "safe_summary": "Action Inbox approved exact focused pytest runtime lane.",
         },
@@ -954,7 +958,7 @@ def test_governed_runtime_action_inbox_computed_approval_ref_is_identifier_only(
             "expected_payload_fingerprint_ref": record["payload_fingerprint_ref"],
             "expected_policy_decision_ref": record["policy_decision"]["policy_decision_ref"],
             "adapter_id": "governed-command-runtime-adapter",
-            "command_intent": "focused_pytest",
+            "command_intent": refs["command_intent"],
             "risk_class": "medium",
             "safe_summary": "Computed approval refs are identifiers only.",
         },
