@@ -2,8 +2,8 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `247`, generated from the FastAPI application and
-exposed through `/api/manifest`. `/api/manifest` currently reports `248` route
+Current OpenAPI path count: `248`, generated from the FastAPI application and
+exposed through `/api/manifest`. `/api/manifest` currently reports `249` route
 operations because governed runtime pilot routes intentionally have both `GET`
 and `POST` contracts on `/api/runtime/invocations`, and the Turn Contract
 Router preview plus AuthorityLease mission planning routes add no-effect
@@ -21,8 +21,9 @@ checkpoint-rollback routes,
 Governed Product
 Pilot authority profile, and
 runtime parity loop add protected read-only `/api/runtime/*` inspection routes.
-AuthorityLease V1 adds `GET /api/runtime/authority-state` as a protected
-read-only authority mode/domain/lease inspection route with safe refs only,
+AuthorityLease V1 adds `GET /api/runtime/authority-state` and
+`GET /api/runtime/authority-domain-readiness` as protected read-only authority
+mode/domain/lease inspection routes with safe refs only,
 plus `POST /api/runtime/authority-leases` and
 `POST /api/runtime/authority-leases/approve-and-issue` as exact
 approval-bound local lease selection receipt routes, and

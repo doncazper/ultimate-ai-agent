@@ -204,6 +204,7 @@ def _append_doc_failures(failures: list[str]) -> None:
                 FOUNDER_LOOP_VERTICAL_SLICE_CONTRACT_REF,
                 "Today item -> Action envelope -> exact approval/edit/reject/defer receipt -> Evidence Timeline",
                 "`workspace/draft` AuthorityLease",
+                "`workspace/write` AuthorityLease",
                 "authority decision refs",
                 "does not execute the approved action",
                 "scripts/dev/uaa_founder_loop.py",
@@ -230,6 +231,7 @@ def _append_behavior_failures(
         try:
             item_ref = _exercise_promotion_api(failures, context, auth_headers)
             _exercise_cli(failures, root, state_dir)
+            _issue_action_decision_authority_lease(failures, context, auth_headers)
             _exercise_decisions(failures, context, state_dir, item_ref, auth_headers)
             _append_timeline_failures(failures, context, item_ref, auth_headers)
         finally:
@@ -367,6 +369,55 @@ def _exercise_decisions(
         if receipt.get("status") != expected_status:
             failures.append(f"Action {decision} receipt status drifted")
         _append_no_authority_flag_failures(failures, receipt, f"{decision} receipt")
+
+
+def _issue_action_decision_authority_lease(
+    failures: list[str],
+    context: ApiVerifierContext,
+    auth_headers: dict[str, str],
+) -> None:
+    response = context.client.post(
+        "/api/runtime/authority-leases/approve-and-issue",
+        json={
+            "lease_issue_request": {
+                "mode": "approved_safe_local_work_session",
+                "scope": "session",
+                "operator_ref": "operator-ref:fcc-v1-003-verifier",
+                "requested_domains": {"workspace": ["read", "write"]},
+                "constraints": {"workspace_ref": "workspace-ref:fcc-v1-003"},
+                "decision_reason_ref": "reason-ref:fcc-v1-003-workspace-write",
+                "duration_minutes": 60,
+                "safe_summary": (
+                    "Grant workspace read/write for FCC-V1-003 receipt "
+                    "verification only."
+                ),
+            },
+            "approved_by_actor_ref": "operator-ref:fcc-v1-003-verifier",
+            "approval_safe_summary": (
+                "Operator approved exact workspace read/write lease for "
+                "verifier receipt exercise."
+            ),
+        },
+        headers={
+            **auth_headers,
+            "x-uaa-idempotency-key": "idempotency-ref:fcc-v1-003-authority-lease",
+        },
+    )
+    if response.status_code != 200:
+        failures.append("FCC-V1-003 authority lease issue route failed")
+        return
+    body = response.json()
+    receipt = body.get("data", {}).get("receipt", {})
+    lease = body.get("data", {}).get("lease")
+    if body.get("success") is not True or lease is None:
+        failures.append("FCC-V1-003 authority lease was not issued")
+        return
+    if receipt.get("status") != "issued":
+        failures.append("FCC-V1-003 authority lease receipt status drifted")
+    if receipt.get("granted_domains", {}).get("workspace") != ["read", "write"]:
+        failures.append("FCC-V1-003 authority lease workspace scope drifted")
+    if receipt.get("execution_performed") is not False:
+        failures.append("FCC-V1-003 authority lease must not execute work")
 
 
 def _approval_body(state_dir: str, item_ref: str) -> dict[str, Any]:

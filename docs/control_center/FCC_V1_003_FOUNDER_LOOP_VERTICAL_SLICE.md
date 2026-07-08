@@ -29,7 +29,8 @@ authority.
 - Same idempotency key plus same payload returns the prior promotion receipt.
 - Same idempotency key plus conflicting payload is rejected.
 - Action approve/edit/reject/defer decisions continue through the FCC-V1-002
-  backend state machine and produce durable receipts.
+  backend state machine and produce durable receipts only inside active
+  `workspace/write` AuthorityLease scope.
 - Approve validates an exact `LocalApprovalAuthority` grant before the receipt
   can become `approved`.
 - Edit, reject, and defer produce receipts without execution.
@@ -68,10 +69,11 @@ All receipts preserve denied authority flags. Approval refs remain identifiers
 until exact `LocalApprovalAuthority` validation succeeds, and even an approved
 decision remains decision-state only. Today-to-Action promotion requires active
 `workspace/draft` AuthorityLease scope before local review-only state is
-written. Execution, connector writes,
-shell/subprocess work, provider/model calls, memory writes, context injection,
-rollback execution, public distribution, and production authority remain
-blocked.
+written. Action decision receipts require active `workspace/write`
+AuthorityLease scope before local decision state is recorded. Execution,
+connector writes, shell/subprocess work, provider/model calls, memory writes,
+context injection, rollback execution, public distribution, and production
+authority remain blocked.
 
 ## Remaining Work
 

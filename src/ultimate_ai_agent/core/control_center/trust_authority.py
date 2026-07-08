@@ -1266,7 +1266,7 @@ def _trust_authority_lanes(
                 "PolicyEngine, CostGovernor, exact LocalApprovalAuthority, "
                 "idempotency, safe-disable, and redacted receipt gates. Broad "
                 "provider routing, default UI invocation, provider SDK enablement, "
-                "billing authority, payload persistence, and output authority "
+                "paid spend authority, payload persistence, and output authority "
                 "remain blocked."
             ),
             approval_posture=(
