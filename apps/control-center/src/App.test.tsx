@@ -2458,6 +2458,12 @@ describe("Web Control Center shell", () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/Exact network lanes/)).toBeInTheDocument();
     expect(screen.getByText(/Provider search/)).toBeInTheDocument();
+    expect(screen.getByText("Model and Provider Posture")).toBeInTheDocument();
+    expect(
+      screen.getByText("contract-ref:model-provider-management-posture:v1"),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Tiny provider lane/)).toBeInTheDocument();
+    expect(screen.getByText(/Provider SDK/)).toBeInTheDocument();
     expect(screen.getByText("System-Level Eval Coverage")).toBeInTheDocument();
     expect(
       screen.getByText("contract-ref:system-agent-eval-coverage:v1"),

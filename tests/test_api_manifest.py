@@ -199,6 +199,10 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned() -> None:
         "control_center_external_information_handling_read_model"
         in manifest["capabilities_declared"]
     )
+    assert (
+        "control_center_model_provider_management_posture_read_model"
+        in manifest["capabilities_declared"]
+    )
     assert "control_center_action_inbox_summary" in manifest["capabilities_declared"]
     assert (
         "control_center_morning_briefing_summary" in manifest["capabilities_declared"]

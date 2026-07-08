@@ -23,6 +23,8 @@ from ultimate_ai_agent.core.control_center.agent_loop import (  # noqa: E402
     EXTERNAL_INFORMATION_POSTURE_CATEGORY_IDS,
     HIGH_MATURITY_COMPONENT_IDS,
     HIGH_MATURITY_SPINE_CONTRACT_REF,
+    MODEL_PROVIDER_POSTURE_CATEGORY_IDS,
+    MODEL_PROVIDER_POSTURE_CONTRACT_REF,
     SYSTEM_AGENT_EVAL_CATEGORY_IDS,
     SYSTEM_AGENT_EVAL_COVERAGE_CONTRACT_REF,
     build_agent_loop_thread_read_model,
@@ -451,6 +453,103 @@ def main() -> int:
                                     "external information row missing "
                                     f"{required_list}: {row.get('category_id')}"
                                 )
+            model_provider = high_maturity.get("model_provider_management")
+            if not isinstance(model_provider, dict):
+                failures.append(
+                    "High-Maturity Agent Spine model/provider posture missing"
+                )
+            else:
+                if model_provider.get("contract_ref") != (
+                    MODEL_PROVIDER_POSTURE_CONTRACT_REF
+                ):
+                    failures.append("model/provider posture contract drifted")
+                if model_provider.get("category_count") != len(
+                    MODEL_PROVIDER_POSTURE_CATEGORY_IDS
+                ):
+                    failures.append("model/provider category count drifted")
+                provider_rows = model_provider.get("rows")
+                if not isinstance(provider_rows, list):
+                    failures.append("model/provider posture rows missing")
+                else:
+                    provider_ids = [
+                        row.get("category_id")
+                        for row in provider_rows
+                        if isinstance(row, dict)
+                    ]
+                    if provider_ids != list(MODEL_PROVIDER_POSTURE_CATEGORY_IDS):
+                        failures.append("model/provider category ids drifted")
+                    for row in provider_rows:
+                        if not isinstance(row, dict):
+                            failures.append("model/provider row is not an object")
+                            continue
+                        for required_list in [
+                            "evidence_refs",
+                            "test_refs",
+                            "blocked_authority_refs",
+                        ]:
+                            if not row.get(required_list):
+                                failures.append(
+                                    "model/provider row missing "
+                                    f"{required_list}: {row.get('category_id')}"
+                                )
+                        for field in [
+                            "safe_refs_only",
+                        ]:
+                            if row.get(field) is not True:
+                                failures.append(
+                                    "model/provider row required true field "
+                                    f"drifted: {row.get('category_id')} {field}"
+                                )
+                        for field in [
+                            "raw_content_included",
+                            "provider_sdk_call_enabled",
+                            "remote_model_call_enabled",
+                            "live_provider_network_call_enabled_by_default",
+                            "provider_router_execution_enabled",
+                            "model_router_execution_enabled",
+                            "model_output_authority_enabled",
+                            "memory_write_from_model_output_enabled",
+                            "runtime_selection_mutation_enabled",
+                            "local_runtime_process_started",
+                            "local_runtime_model_call_performed",
+                            "provider_payload_persisted",
+                            "production_authority_added",
+                        ]:
+                            if row.get(field) is not False:
+                                failures.append(
+                                    "model/provider posture broadened authority: "
+                                    f"{row.get('category_id')} {field}"
+                                )
+                for field in [
+                    "backend_owned",
+                    "local_read_model_only",
+                    "safe_refs_only",
+                    "exact_tiny_provider_lane_available",
+                    "exact_credential_validation_lane_available",
+                ]:
+                    if model_provider.get(field) is not True:
+                        failures.append(
+                            f"model/provider posture {field} must be true"
+                        )
+                for field in [
+                    "raw_content_included",
+                    "provider_sdk_call_enabled",
+                    "remote_model_call_enabled",
+                    "live_provider_network_call_enabled_by_default",
+                    "provider_router_execution_enabled",
+                    "model_router_execution_enabled",
+                    "model_output_authority_enabled",
+                    "memory_write_from_model_output_enabled",
+                    "runtime_selection_mutation_enabled",
+                    "local_runtime_process_started",
+                    "local_runtime_model_call_performed",
+                    "provider_payload_persisted",
+                    "production_authority_added",
+                ]:
+                    if model_provider.get(field) is not False:
+                        failures.append(
+                            f"model/provider posture {field} must be false"
+                        )
             system_eval = high_maturity.get("system_eval_coverage")
             if not isinstance(system_eval, dict):
                 failures.append("High-Maturity Agent Spine system eval coverage missing")

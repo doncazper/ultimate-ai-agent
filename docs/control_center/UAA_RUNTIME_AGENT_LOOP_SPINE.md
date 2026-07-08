@@ -63,6 +63,12 @@ backend-owned High-Maturity Agent Spine coverage map for W1-W13:
   untrusted-content quarantine, browser observe, browser action, provider
   search/scrape adapter posture, and external-content authority isolation to
   safe refs, blocked refs, tests, and no-new-authority invariants.
+- Model/provider management:
+  `high_maturity_spine_readiness.model_provider_management` maps the read-only
+  provider control plane, delegated runtime model catalog, model slots,
+  role/provider evidence, provider research posture, cost hooks, router traces,
+  and local runtime lifecycle posture without provider SDK calls, runtime model
+  calls, model-output authority, or raw provider payload persistence.
 - System eval coverage:
   `high_maturity_spine_readiness.system_eval_coverage` maps route choice,
   ambiguity handling, task decomposition, approval-needed detection, memory

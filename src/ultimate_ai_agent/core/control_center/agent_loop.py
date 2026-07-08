@@ -23,6 +23,15 @@ from ultimate_ai_agent.core.network.governed_web_evidence import (
     GOVERNED_WEB_EVIDENCE_REQUEST_PATH,
     GOVERNED_WEB_EVIDENCE_STATUS_PATH,
 )
+from ultimate_ai_agent.core.providers.control_plane import (
+    DELEGATED_RUNTIME_MODEL_CATALOG_CONTRACT_REF,
+    MODEL_PROVIDER_CONTROL_PLANE_CLI_REF,
+    MODEL_PROVIDER_CONTROL_PLANE_CONTRACT_REF,
+    MODEL_PROVIDER_CONTROL_PLANE_ROUTE_REF,
+    MODEL_PROVIDER_RESEARCH_POSTURE_CONTRACT_REF,
+    MODEL_SLOT_POSTURE_CONTRACT_REF,
+    build_model_provider_control_plane_read_model,
+)
 from ultimate_ai_agent.core.execution import (
     CANONICAL_RUN_EVENT_TYPES,
     CANONICAL_RUN_LIFECYCLE_STATES,
@@ -61,6 +70,9 @@ ACTION_TOOL_LANE_POSTURE_CONTRACT_REF = (
 )
 DURABLE_ORCHESTRATION_POSTURE_CONTRACT_REF = (
     "contract-ref:durable-orchestration-posture:v1"
+)
+MODEL_PROVIDER_POSTURE_CONTRACT_REF = (
+    "contract-ref:model-provider-management-posture:v1"
 )
 SYSTEM_AGENT_EVAL_COVERAGE_CONTRACT_REF = (
     "contract-ref:system-agent-eval-coverage:v1"
@@ -116,6 +128,16 @@ DURABLE_ORCHESTRATION_POSTURE_CATEGORY_IDS = (
     "staged_plan_checkpoints",
     "approved_runtime_command_step",
     "autonomous_worker_scheduler",
+)
+MODEL_PROVIDER_POSTURE_CATEGORY_IDS = (
+    "provider_control_plane",
+    "delegated_runtime_catalog",
+    "model_slot_posture",
+    "role_provider_evidence",
+    "provider_research_posture",
+    "cost_governor_hooks",
+    "router_trace_evidence",
+    "local_runtime_lifecycle",
 )
 SYSTEM_AGENT_EVAL_CATEGORY_IDS = (
     "route_choice",
@@ -831,6 +853,239 @@ def build_external_information_handling_posture() -> dict[str, Any]:
     }
 
 
+def build_model_provider_management_posture() -> dict[str, Any]:
+    """Return model/provider management posture without provider invocation."""
+
+    read_model = build_model_provider_control_plane_read_model()
+    payload = read_model.model_dump(mode="json")
+    delegated = payload["delegated_runtime_model_catalog"]
+    model_slots = payload["model_slot_posture"]
+    role_evidence = payload["role_provider_evidence"]
+    research = payload["model_provider_research_posture"]
+    cost_hooks = payload["cost_hooks"]
+    local_lifecycle = payload["local_llama_cpp_lifecycle"]
+    rows = [
+        _model_provider_posture_row(
+            category_id="provider_control_plane",
+            label="Provider control plane",
+            status=payload["status"],
+            safe_summary=(
+                "Provider control-plane state is backend-owned, read-only, "
+                "safe-ref-only, and exposes exact lane posture without broad "
+                "provider runtime authority."
+            ),
+            route_refs=[MODEL_PROVIDER_CONTROL_PLANE_ROUTE_REF],
+            cli_refs=[MODEL_PROVIDER_CONTROL_PLANE_CLI_REF],
+            evidence_refs=[MODEL_PROVIDER_CONTROL_PLANE_CONTRACT_REF],
+            test_refs=["tests/test_model_provider_control_plane.py"],
+            blocked_authority_refs=[
+                "blocked-state:model-provider:broad-provider-runtime",
+            ],
+            exact_lane_available=payload["authority"][
+                "exact_tiny_provider_lane_available"
+            ],
+            exact_lane_requires_approval=payload["authority"][
+                "exact_tiny_provider_lane_requires_approval"
+            ],
+        ),
+        _model_provider_posture_row(
+            category_id="delegated_runtime_catalog",
+            label="Delegated runtime model catalog",
+            status=delegated["status"],
+            safe_summary=(
+                "Runtime-reported model availability is visible as metadata, "
+                "but UAA invocation authority remains false for every listed "
+                "model."
+            ),
+            route_refs=[delegated["runtime_profiles_route_ref"]],
+            cli_refs=[MODEL_PROVIDER_CONTROL_PLANE_CLI_REF],
+            evidence_refs=[DELEGATED_RUNTIME_MODEL_CATALOG_CONTRACT_REF],
+            test_refs=["tests/test_model_provider_control_plane.py"],
+            blocked_authority_refs=[
+                "blocked-state:model-provider:runtime-availability-is-not-invocation",
+            ],
+            record_count=delegated["model_count"],
+        ),
+        _model_provider_posture_row(
+            category_id="model_slot_posture",
+            label="Model slot posture",
+            status=model_slots["status"],
+            safe_summary=(
+                "Main and auxiliary model slots are declared as intent and "
+                "routing evidence only; hidden routing and auxiliary live calls "
+                "are disabled."
+            ),
+            route_refs=[MODEL_PROVIDER_CONTROL_PLANE_ROUTE_REF],
+            cli_refs=[MODEL_PROVIDER_CONTROL_PLANE_CLI_REF],
+            evidence_refs=[MODEL_SLOT_POSTURE_CONTRACT_REF],
+            test_refs=["tests/test_model_provider_control_plane.py"],
+            blocked_authority_refs=[
+                "blocked-state:model-provider:hidden-routing",
+                "blocked-state:model-provider:auxiliary-live-calls",
+            ],
+            record_count=model_slots["slot_count"],
+        ),
+        _model_provider_posture_row(
+            category_id="role_provider_evidence",
+            label="Role/provider evidence",
+            status=role_evidence["status"],
+            safe_summary=(
+                "Role-based provider evidence ranks local advisory candidates "
+                "and blocks remote candidates without invoking models."
+            ),
+            route_refs=[MODEL_PROVIDER_CONTROL_PLANE_ROUTE_REF],
+            cli_refs=["scripts/dev/uaa_runtime.py inspect-role-provider-evidence --json"],
+            evidence_refs=[role_evidence["contract_ref"]],
+            test_refs=[
+                "tests/test_role_provider_evidence.py",
+                "tests/test_model_provider_control_plane.py",
+            ],
+            blocked_authority_refs=[
+                "blocked-state:model-provider:remote-provider-selection",
+            ],
+            record_count=role_evidence["role_count"],
+        ),
+        _model_provider_posture_row(
+            category_id="provider_research_posture",
+            label="Provider research posture",
+            status=research["status"],
+            safe_summary=(
+                "Provider research metadata is read-only, WebAccessGateway "
+                "aware, and keeps provider output non-authoritative."
+            ),
+            route_refs=[MODEL_PROVIDER_CONTROL_PLANE_ROUTE_REF],
+            cli_refs=[MODEL_PROVIDER_CONTROL_PLANE_CLI_REF],
+            evidence_refs=[MODEL_PROVIDER_RESEARCH_POSTURE_CONTRACT_REF],
+            test_refs=[
+                "tests/test_model_provider_control_plane.py",
+                "tests/test_model_runtime_no_real_calls.py",
+            ],
+            blocked_authority_refs=[
+                "blocked-state:model-provider:model-output-as-authority",
+                "blocked-state:model-provider:provider-sdk-call",
+            ],
+            record_count=research["provider_count"],
+        ),
+        _model_provider_posture_row(
+            category_id="cost_governor_hooks",
+            label="Cost governor hooks",
+            status=cost_hooks["status"],
+            safe_summary=(
+                "Cost metadata and unknown paid-cost blockers are visible "
+                "before provider use; spend authority is not granted."
+            ),
+            route_refs=[MODEL_PROVIDER_CONTROL_PLANE_ROUTE_REF],
+            cli_refs=[MODEL_PROVIDER_CONTROL_PLANE_CLI_REF],
+            evidence_refs=["contract-ref:provider-cost-governor-hooks:v1"],
+            test_refs=["tests/test_model_provider_control_plane.py"],
+            blocked_authority_refs=[
+                "blocked-state:model-provider:unknown-paid-cost",
+                "blocked-state:model-provider:billing-authority",
+            ],
+            cost_governor_required=cost_hooks["unknown_paid_cost_blocks"],
+        ),
+        _model_provider_posture_row(
+            category_id="router_trace_evidence",
+            label="Router trace evidence",
+            status=payload["router_traces"][0]["status"],
+            safe_summary=(
+                "Router traces explain requested versus effective model "
+                "posture without executing provider or model calls."
+            ),
+            route_refs=[MODEL_PROVIDER_CONTROL_PLANE_ROUTE_REF],
+            cli_refs=[MODEL_PROVIDER_CONTROL_PLANE_CLI_REF],
+            evidence_refs=["contract-ref:model-router-trace-evidence:v1"],
+            test_refs=["tests/test_model_provider_control_plane.py"],
+            blocked_authority_refs=[
+                "blocked-state:model-provider:router-execution",
+            ],
+            record_count=len(payload["router_traces"]),
+        ),
+        _model_provider_posture_row(
+            category_id="local_runtime_lifecycle",
+            label="Local runtime lifecycle",
+            status=local_lifecycle["status"],
+            safe_summary=(
+                "Local llama.cpp lifecycle posture is visible, but this "
+                "control-plane read model does not start processes or call "
+                "models."
+            ),
+            route_refs=[MODEL_PROVIDER_CONTROL_PLANE_ROUTE_REF],
+            cli_refs=[MODEL_PROVIDER_CONTROL_PLANE_CLI_REF],
+            evidence_refs=["contract-ref:local-llama-cpp-lifecycle-posture:v1"],
+            test_refs=["tests/test_model_provider_control_plane.py"],
+            blocked_authority_refs=[
+                "blocked-state:model-provider:lifecycle-start-stop",
+            ],
+        ),
+    ]
+    return {
+        "schema_version": "model_provider_management_posture.v1",
+        "contract_ref": MODEL_PROVIDER_POSTURE_CONTRACT_REF,
+        "control_plane_contract_ref": MODEL_PROVIDER_CONTROL_PLANE_CONTRACT_REF,
+        "status": "implemented_read_only_model_provider_posture",
+        "source": AGENT_LOOP_THREAD_SOURCE,
+        "route_ref": MODEL_PROVIDER_CONTROL_PLANE_ROUTE_REF,
+        "cli_ref": MODEL_PROVIDER_CONTROL_PLANE_CLI_REF,
+        "backend_owned": True,
+        "local_read_model_only": True,
+        "safe_refs_only": True,
+        "raw_content_included": False,
+        "category_count": len(rows),
+        "rows": rows,
+        "provider_adapter_count": len(payload["provider_adapters"]),
+        "delegated_runtime_model_count": delegated["model_count"],
+        "model_slot_count": model_slots["slot_count"],
+        "role_count": role_evidence["role_count"],
+        "research_provider_count": research["provider_count"],
+        "router_trace_count": len(payload["router_traces"]),
+        "exact_tiny_provider_lane_available": payload["authority"][
+            "exact_tiny_provider_lane_available"
+        ],
+        "exact_credential_validation_lane_available": payload["authority"][
+            "exact_credential_validation_lane_available"
+        ],
+        "provider_sdk_call_enabled": False,
+        "remote_model_call_enabled": False,
+        "live_provider_network_call_enabled_by_default": False,
+        "provider_router_execution_enabled": False,
+        "model_router_execution_enabled": False,
+        "model_output_authority_enabled": False,
+        "memory_write_from_model_output_enabled": False,
+        "runtime_selection_mutation_enabled": False,
+        "local_runtime_process_started": False,
+        "local_runtime_model_call_performed": False,
+        "provider_payload_persisted": False,
+        "production_authority_added": False,
+        "safe_summary": (
+            "Model/provider management is operator-observable through a "
+            "backend-owned control plane: catalogs, delegated runtime metadata, "
+            "model slots, role evidence, provider research, cost hooks, router "
+            "traces, and local lifecycle posture remain read-only and "
+            "non-authoritative."
+        ),
+        "blocked_authority_refs": _dedupe(
+            [
+                "blocked-state:model-provider:broad-provider-runtime",
+                "blocked-state:model-provider:provider-sdk-call",
+                "blocked-state:model-provider:remote-model-call",
+                "blocked-state:model-provider:model-output-as-authority",
+                "blocked-state:model-provider:runtime-selection-mutation",
+                "blocked-state:model-provider:lifecycle-start-stop",
+                "blocked-state:model-provider:production-authority",
+            ]
+        ),
+        "redactions_applied": [
+            "safe_refs_only",
+            "raw_prompt_omitted",
+            "raw_response_omitted",
+            "raw_provider_payload_omitted",
+            "raw_credentials_omitted",
+            "raw_local_paths_omitted",
+        ],
+    }
+
+
 def build_system_agent_eval_coverage() -> dict[str, Any]:
     """Return system-level eval coverage without scoring model intelligence."""
 
@@ -1236,15 +1491,18 @@ def build_high_maturity_agent_spine_readiness() -> dict[str, Any]:
         _high_maturity_row(
             weakness_id="W8",
             component="Model and provider management",
-            status="partial",
-            maturity="usable",
-            score=7,
+            status="implemented",
+            maturity="strong",
+            score=8,
             safe_summary=(
-                "Provider/model surfaces expose catalogs, readiness, cost, "
-                "role evidence, routing traces, and blocked reasons while "
-                "model output remains non-authoritative."
+                "Model/provider management is projected through a read-only "
+                "control-plane posture covering provider adapters, delegated "
+                "runtime metadata, model slots, role evidence, provider "
+                "research, cost hooks, router traces, and local lifecycle "
+                "posture while model output remains non-authoritative."
             ),
             evidence_refs=[
+                MODEL_PROVIDER_POSTURE_CONTRACT_REF,
                 "GET /control-center/providers/runtime-control-plane",
                 "docs/runtime/UAA_RUNTIME_ROLE_PROVIDER_EVIDENCE.md",
                 "docs/control_center/MODEL_PROVIDER_CONTROL_PLANE.md",
@@ -1433,6 +1691,7 @@ def build_high_maturity_agent_spine_readiness() -> dict[str, Any]:
         "external_information_handling": (
             build_external_information_handling_posture()
         ),
+        "model_provider_management": build_model_provider_management_posture(),
         "system_eval_coverage": build_system_agent_eval_coverage(),
         "blocked_authority_refs": list(AGENT_LOOP_THREAD_BLOCKED_AUTHORITY_REFS),
         "next_safe_action": (
@@ -1982,6 +2241,53 @@ def _action_tool_lane_row(entry: dict[str, Any]) -> dict[str, Any]:
         "provider_model_call_enabled": False,
         "background_autonomy_enabled": False,
         "production_authority_enabled": False,
+    }
+
+
+def _model_provider_posture_row(
+    *,
+    category_id: str,
+    label: str,
+    status: str,
+    safe_summary: str,
+    route_refs: list[str],
+    cli_refs: list[str],
+    evidence_refs: list[str],
+    test_refs: list[str],
+    blocked_authority_refs: list[str],
+    record_count: int = 0,
+    exact_lane_available: bool = False,
+    exact_lane_requires_approval: bool = False,
+    cost_governor_required: bool = False,
+) -> dict[str, Any]:
+    return {
+        "category_id": _safe_text(category_id),
+        "label": _safe_text(label),
+        "status": _safe_text(status),
+        "safe_summary": _safe_text(safe_summary),
+        "route_refs": _dedupe(route_refs),
+        "cli_refs": _dedupe(cli_refs),
+        "evidence_refs": _dedupe(evidence_refs),
+        "test_refs": _dedupe(test_refs),
+        "blocked_authority_refs": _dedupe(blocked_authority_refs),
+        "record_count": record_count,
+        "exact_lane_available": exact_lane_available,
+        "exact_lane_requires_approval": exact_lane_requires_approval,
+        "cost_governor_required": cost_governor_required,
+        "safe_refs_only": True,
+        "raw_content_included": False,
+        "provider_sdk_call_enabled": False,
+        "remote_model_call_enabled": False,
+        "live_provider_network_call_enabled_by_default": False,
+        "provider_router_execution_enabled": False,
+        "model_router_execution_enabled": False,
+        "model_output_authority_enabled": False,
+        "memory_write_from_model_output_enabled": False,
+        "runtime_selection_mutation_enabled": False,
+        "local_runtime_process_started": False,
+        "local_runtime_model_call_performed": False,
+        "provider_payload_persisted": False,
+        "production_authority_added": False,
     }
 
 

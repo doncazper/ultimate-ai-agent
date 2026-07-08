@@ -4530,6 +4530,67 @@ function AgentLoopThreadPanel({
         </div>
         <div
           className="detail-panel compact"
+          aria-label="Model and provider posture"
+        >
+          <strong>Model and Provider Posture</strong>
+          <dl className="detail-list compact">
+            <DetailTerm
+              label="Contract"
+              value={
+                readModel.high_maturity_spine_readiness.model_provider_management
+                  .contract_ref
+              }
+            />
+            <DetailTerm
+              label="Model slots"
+              value={`${readModel.high_maturity_spine_readiness.model_provider_management.model_slot_count}`}
+            />
+            <DetailTerm
+              label="Tiny provider lane"
+              value={
+                readModel.high_maturity_spine_readiness.model_provider_management
+                  .exact_tiny_provider_lane_available
+                  ? "available"
+                  : "blocked"
+              }
+            />
+            <DetailTerm
+              label="Provider SDK"
+              value={
+                readModel.high_maturity_spine_readiness.model_provider_management
+                  .provider_sdk_call_enabled
+                  ? "enabled"
+                  : "blocked"
+              }
+            />
+          </dl>
+          <p className="safe-copy">
+            {
+              readModel.high_maturity_spine_readiness.model_provider_management
+                .safe_summary
+            }
+          </p>
+          <ul className="ref-list decision-matrix-list">
+            {readModel.high_maturity_spine_readiness.model_provider_management.rows
+              .slice(0, 4)
+              .map((row) => (
+                <li key={row.category_id}>
+                  <strong>{row.label}</strong> <span>{row.status}</span>
+                  <p className="muted">{row.safe_summary}</p>
+                  <RefListWithFallback
+                    emptyLabel="Model/provider refs: none"
+                    refs={[
+                      ...row.route_refs.slice(0, 1),
+                      ...row.evidence_refs.slice(0, 2),
+                      ...row.blocked_authority_refs.slice(0, 1),
+                    ]}
+                  />
+                </li>
+              ))}
+          </ul>
+        </div>
+        <div
+          className="detail-panel compact"
           aria-label="System-level eval coverage"
         >
           <strong>System-Level Eval Coverage</strong>

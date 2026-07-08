@@ -7825,6 +7825,75 @@ export interface SystemAgentEvalCoverageRow {
   production_authority_added: boolean;
 }
 
+export interface ModelProviderManagementPostureRow {
+  category_id: string;
+  label: string;
+  status: string;
+  safe_summary: string;
+  route_refs: string[];
+  cli_refs: string[];
+  evidence_refs: string[];
+  test_refs: string[];
+  blocked_authority_refs: string[];
+  record_count: number;
+  exact_lane_available: boolean;
+  exact_lane_requires_approval: boolean;
+  cost_governor_required: boolean;
+  safe_refs_only: boolean;
+  raw_content_included: boolean;
+  provider_sdk_call_enabled: boolean;
+  remote_model_call_enabled: boolean;
+  live_provider_network_call_enabled_by_default: boolean;
+  provider_router_execution_enabled: boolean;
+  model_router_execution_enabled: boolean;
+  model_output_authority_enabled: boolean;
+  memory_write_from_model_output_enabled: boolean;
+  runtime_selection_mutation_enabled: boolean;
+  local_runtime_process_started: boolean;
+  local_runtime_model_call_performed: boolean;
+  provider_payload_persisted: boolean;
+  production_authority_added: boolean;
+}
+
+export interface ModelProviderManagementPosture {
+  schema_version: string;
+  contract_ref: string;
+  control_plane_contract_ref: string;
+  status: string;
+  source: string;
+  route_ref: string;
+  cli_ref: string;
+  backend_owned: boolean;
+  local_read_model_only: boolean;
+  safe_refs_only: boolean;
+  raw_content_included: boolean;
+  category_count: number;
+  rows: ModelProviderManagementPostureRow[];
+  provider_adapter_count: number;
+  delegated_runtime_model_count: number;
+  model_slot_count: number;
+  role_count: number;
+  research_provider_count: number;
+  router_trace_count: number;
+  exact_tiny_provider_lane_available: boolean;
+  exact_credential_validation_lane_available: boolean;
+  provider_sdk_call_enabled: boolean;
+  remote_model_call_enabled: boolean;
+  live_provider_network_call_enabled_by_default: boolean;
+  provider_router_execution_enabled: boolean;
+  model_router_execution_enabled: boolean;
+  model_output_authority_enabled: boolean;
+  memory_write_from_model_output_enabled: boolean;
+  runtime_selection_mutation_enabled: boolean;
+  local_runtime_process_started: boolean;
+  local_runtime_model_call_performed: boolean;
+  provider_payload_persisted: boolean;
+  production_authority_added: boolean;
+  safe_summary: string;
+  blocked_authority_refs: string[];
+  redactions_applied: string[];
+}
+
 export interface ExternalInformationHandlingRow {
   category_id: string;
   label: string;
@@ -8077,6 +8146,7 @@ export interface HighMaturityAgentSpineReadiness {
   action_tool_lane_posture: ActionToolLanePosture;
   durable_orchestration_posture: DurableOrchestrationPosture;
   external_information_handling: ExternalInformationHandlingPosture;
+  model_provider_management: ModelProviderManagementPosture;
   system_eval_coverage: SystemAgentEvalCoverage;
   blocked_authority_refs: string[];
   next_safe_action: string;

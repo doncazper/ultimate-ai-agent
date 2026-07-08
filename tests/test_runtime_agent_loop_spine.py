@@ -20,6 +20,8 @@ from ultimate_ai_agent.core.control_center.agent_loop import (
     EXTERNAL_INFORMATION_POSTURE_CATEGORY_IDS,
     HIGH_MATURITY_COMPONENT_IDS,
     HIGH_MATURITY_SPINE_CONTRACT_REF,
+    MODEL_PROVIDER_POSTURE_CATEGORY_IDS,
+    MODEL_PROVIDER_POSTURE_CONTRACT_REF,
     SYSTEM_AGENT_EVAL_CATEGORY_IDS,
     SYSTEM_AGENT_EVAL_COVERAGE_CONTRACT_REF,
     build_agent_loop_thread_read_model,
@@ -242,6 +244,69 @@ def _assert_safe_agent_loop_thread(thread: dict[str, object]) -> None:
             "production_authority_enabled",
         ]:
             assert lane_row[flag] is False
+    assert rows_by_id["W8"]["status"] == "implemented"
+    assert rows_by_id["W8"]["maturity"] == "strong"
+    assert rows_by_id["W8"]["score_0_10"] == 8
+    assert MODEL_PROVIDER_POSTURE_CONTRACT_REF in rows_by_id["W8"][
+        "evidence_refs"
+    ]
+    model_provider = high_maturity["model_provider_management"]
+    assert model_provider["contract_ref"] == MODEL_PROVIDER_POSTURE_CONTRACT_REF
+    assert model_provider["control_plane_contract_ref"] == (
+        "contract-ref:model-provider-control-plane:v1"
+    )
+    assert model_provider["backend_owned"] is True
+    assert model_provider["local_read_model_only"] is True
+    assert model_provider["safe_refs_only"] is True
+    assert model_provider["raw_content_included"] is False
+    assert model_provider["category_count"] == len(MODEL_PROVIDER_POSTURE_CATEGORY_IDS)
+    assert [row["category_id"] for row in model_provider["rows"]] == list(
+        MODEL_PROVIDER_POSTURE_CATEGORY_IDS
+    )
+    assert model_provider["provider_adapter_count"] >= 2
+    assert model_provider["delegated_runtime_model_count"] >= 1
+    assert model_provider["model_slot_count"] == 8
+    assert model_provider["role_count"] == 7
+    assert model_provider["research_provider_count"] >= 1
+    assert model_provider["router_trace_count"] >= 1
+    assert model_provider["exact_tiny_provider_lane_available"] is True
+    assert model_provider["exact_credential_validation_lane_available"] is True
+    for flag in [
+        "provider_sdk_call_enabled",
+        "remote_model_call_enabled",
+        "live_provider_network_call_enabled_by_default",
+        "provider_router_execution_enabled",
+        "model_router_execution_enabled",
+        "model_output_authority_enabled",
+        "memory_write_from_model_output_enabled",
+        "runtime_selection_mutation_enabled",
+        "local_runtime_process_started",
+        "local_runtime_model_call_performed",
+        "provider_payload_persisted",
+        "production_authority_added",
+    ]:
+        assert model_provider[flag] is False
+    for provider_row in model_provider["rows"]:
+        assert provider_row["safe_refs_only"] is True
+        assert provider_row["raw_content_included"] is False
+        assert provider_row["evidence_refs"]
+        assert provider_row["test_refs"]
+        assert provider_row["blocked_authority_refs"]
+        for flag in [
+            "provider_sdk_call_enabled",
+            "remote_model_call_enabled",
+            "live_provider_network_call_enabled_by_default",
+            "provider_router_execution_enabled",
+            "model_router_execution_enabled",
+            "model_output_authority_enabled",
+            "memory_write_from_model_output_enabled",
+            "runtime_selection_mutation_enabled",
+            "local_runtime_process_started",
+            "local_runtime_model_call_performed",
+            "provider_payload_persisted",
+            "production_authority_added",
+        ]:
+            assert provider_row[flag] is False
     assert "contract-ref:coding-patch-proposal-signed-evidence:v1" in (
         rows_by_id["W6"]["evidence_refs"]
     )
