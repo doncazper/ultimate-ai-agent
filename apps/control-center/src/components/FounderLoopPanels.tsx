@@ -4349,6 +4349,58 @@ function AgentLoopThreadPanel({
             </li>
           ))}
         </ul>
+        <div
+          className="detail-panel compact"
+          aria-label="System-level eval coverage"
+        >
+          <strong>System-Level Eval Coverage</strong>
+          <dl className="detail-list compact">
+            <DetailTerm
+              label="Contract"
+              value={
+                readModel.high_maturity_spine_readiness.system_eval_coverage
+                  .contract_ref
+              }
+            />
+            <DetailTerm
+              label="Coverage"
+              value={`${readModel.high_maturity_spine_readiness.system_eval_coverage.implemented_count}/${readModel.high_maturity_spine_readiness.system_eval_coverage.category_count}`}
+            />
+            <DetailTerm
+              label="Model scoring"
+              value={
+                readModel.high_maturity_spine_readiness.system_eval_coverage
+                  .model_intelligence_scored
+                  ? "enabled"
+                  : "not scored"
+              }
+            />
+          </dl>
+          <p className="safe-copy">
+            {
+              readModel.high_maturity_spine_readiness.system_eval_coverage
+                .safe_summary
+            }
+          </p>
+          <ul className="ref-list decision-matrix-list">
+            {readModel.high_maturity_spine_readiness.system_eval_coverage.rows
+              .slice(0, 4)
+              .map((row) => (
+                <li key={row.category_id}>
+                  <strong>{row.label}</strong> <span>{row.status}</span>
+                  <p className="muted">{row.safe_summary}</p>
+                  <RefListWithFallback
+                    emptyLabel="Eval refs: none"
+                    refs={[
+                      ...row.evidence_refs.slice(0, 2),
+                      ...row.test_refs.slice(0, 1),
+                      ...row.invariant_refs.slice(0, 1),
+                    ]}
+                  />
+                </li>
+              ))}
+          </ul>
+        </div>
         <p className="safe-copy">
           {readModel.high_maturity_spine_readiness.next_safe_action}
         </p>

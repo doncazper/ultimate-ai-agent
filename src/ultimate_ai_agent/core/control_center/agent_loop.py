@@ -17,6 +17,9 @@ AGENT_LOOP_COCKPIT_PARITY_CLI_REF = (
 HIGH_MATURITY_SPINE_CONTRACT_REF = (
     "contract-ref:high-maturity-agent-spine-coverage:v1"
 )
+SYSTEM_AGENT_EVAL_COVERAGE_CONTRACT_REF = (
+    "contract-ref:system-agent-eval-coverage:v1"
+)
 HIGH_MATURITY_SPINE_CLI_REF = (
     "scripts/dev/uaa_founder_loop.py inspect-high-maturity-spine"
 )
@@ -48,6 +51,212 @@ HIGH_MATURITY_COMPONENT_IDS = (
     "W12",
     "W13",
 )
+SYSTEM_AGENT_EVAL_CATEGORY_IDS = (
+    "route_choice",
+    "ambiguity_handling",
+    "task_decomposition",
+    "approval_needed_detection",
+    "memory_citation_selection",
+    "blocked_state_explanation",
+    "evidence_completeness",
+)
+
+
+def build_system_agent_eval_coverage() -> dict[str, Any]:
+    """Return system-level eval coverage without scoring model intelligence."""
+
+    rows = [
+        _system_eval_row(
+            category_id="route_choice",
+            label="Route choice",
+            status="implemented_fixture_eval",
+            safe_summary=(
+                "Turn router and top-level decision router fixtures check "
+                "deterministic route/contract selection without provider calls."
+            ),
+            evidence_refs=[
+                "contract-ref:turn-contract-router:v1",
+                "contract-ref:top-level-decision-router:v1",
+            ],
+            test_refs=[
+                "tests/test_turn_contract_router_quality.py",
+                "tests/test_uaa_p1_089_top_level_decision_router_contract.py",
+            ],
+            invariant_refs=[
+                "invariant:no-runtime-model-call",
+                "invariant:no-router-authority-grant",
+            ],
+        ),
+        _system_eval_row(
+            category_id="ambiguity_handling",
+            label="Ambiguity handling",
+            status="implemented_fixture_eval",
+            safe_summary=(
+                "User intent and task decomposition fixtures expose ambiguity "
+                "posture, clarification needs, assumptions, and missing refs."
+            ),
+            evidence_refs=[
+                "docs/control_center/UAA_P1_079_USER_INTENT_UNDERSTANDING.md",
+                "docs/control_center/UAA_P1_090_TASK_DECOMPOSITION_PROPOSAL_ENGINE.md",
+            ],
+            test_refs=[
+                "tests/test_uaa_p1_079_user_intent_understanding.py",
+                "tests/test_uaa_p1_090_task_decomposition_proposal_engine.py",
+            ],
+            invariant_refs=[
+                "invariant:ambiguous-scope-asks-or-degrades",
+                "invariant:no-hidden-context-injection",
+            ],
+        ),
+        _system_eval_row(
+            category_id="task_decomposition",
+            label="Task decomposition",
+            status="implemented_fixture_eval",
+            safe_summary=(
+                "Task decomposition fixtures check steps, dependencies, risk, "
+                "approval gates, missing evidence, and proposal-only posture."
+            ),
+            evidence_refs=[
+                "GET /control-center/task-decomposition/propose",
+                "docs/control_center/UAA_P1_090_TASK_DECOMPOSITION_PROPOSAL_ENGINE.md",
+            ],
+            test_refs=[
+                "tests/test_task_decomposition_capability_registry.py",
+                "tests/test_uaa_p1_090_task_decomposition_proposal_engine.py",
+            ],
+            invariant_refs=[
+                "invariant:decomposition-is-proposal-only",
+                "invariant:approval-gates-visible",
+            ],
+        ),
+        _system_eval_row(
+            category_id="approval_needed_detection",
+            label="Approval-needed detection",
+            status="implemented_fixture_eval",
+            safe_summary=(
+                "Approval fixtures check exact approval scopes, authority "
+                "boundaries, denied execution, and approval-before-mutation."
+            ),
+            evidence_refs=[
+                "contract-ref:authority-lease:v1",
+                "contract-ref:turn-run-approval-chain:v1",
+            ],
+            test_refs=[
+                "tests/test_authority_leases.py",
+                "tests/test_turn_run_approval_chain.py",
+                "tests/test_approval_requests.py",
+            ],
+            invariant_refs=[
+                "invariant:unknown-authority-denied",
+                "invariant:approval-ref-is-not-authority",
+            ],
+        ),
+        _system_eval_row(
+            category_id="memory_citation_selection",
+            label="Memory citation selection",
+            status="implemented_fixture_eval",
+            safe_summary=(
+                "Memory retrieval fixtures check recall-only ranking, reviewed "
+                "refs, citations, provenance, staleness, and no truth authority."
+            ),
+            evidence_refs=[
+                "GET /control-center/memory/ranked-retrieval",
+                "GET /control-center/memory/retrieval-diagnostics",
+            ],
+            test_refs=[
+                "tests/test_memory_retrieval.py",
+                "tests/test_fcc_mem_022_ranked_retrieval_recall_tuning.py",
+            ],
+            invariant_refs=[
+                "invariant:memory-is-recall-not-truth",
+                "invariant:no-memory-write-from-retrieval",
+            ],
+        ),
+        _system_eval_row(
+            category_id="blocked_state_explanation",
+            label="Blocked-state explanation",
+            status="implemented_fixture_eval",
+            safe_summary=(
+                "Runtime, authority, and Control Center fixtures check readable "
+                "blocked reasons, denied authority refs, and next safe actions."
+            ),
+            evidence_refs=[
+                "GET /api/runtime/authority-state",
+                "GET /control-center/agent-loop/thread",
+            ],
+            test_refs=[
+                "tests/test_authority_leases.py",
+                "tests/test_runtime_agent_loop_spine.py",
+                "tests/test_control_center_api_routes.py",
+            ],
+            invariant_refs=[
+                "invariant:blockers-are-operator-readable",
+                "invariant:denied-state-does-not-throw-raw-errors",
+            ],
+        ),
+        _system_eval_row(
+            category_id="evidence_completeness",
+            label="Evidence completeness",
+            status="implemented_fixture_eval",
+            safe_summary=(
+                "Evidence fixtures check receipt refs, proof refs, safe "
+                "summaries, verification posture, and raw-payload exclusion."
+            ),
+            evidence_refs=[
+                "contract-ref:governed-runtime-action-signed-evidence:v1",
+                "contract-ref:coding-patch-proposal-signed-evidence:v1",
+                "contract-ref:runtime-evidence-audit-spine:v1",
+            ],
+            test_refs=[
+                "tests/test_claim_evidence_contracts.py",
+                "tests/test_runtime_action_signed_evidence.py",
+                "tests/test_coding_cockpit_read_model.py",
+            ],
+            invariant_refs=[
+                "invariant:evidence-uses-safe-refs",
+                "invariant:raw-payloads-not-durable",
+            ],
+        ),
+    ]
+    return {
+        "schema_version": "system_agent_eval_coverage.v1",
+        "contract_ref": SYSTEM_AGENT_EVAL_COVERAGE_CONTRACT_REF,
+        "status": "implemented_backend_owned_fixture_eval_map",
+        "source": AGENT_LOOP_THREAD_SOURCE,
+        "route_ref": AGENT_LOOP_THREAD_ROUTE_REF,
+        "cli_ref": HIGH_MATURITY_SPINE_CLI_REF,
+        "backend_owned": True,
+        "local_read_model_only": True,
+        "safe_refs_only": True,
+        "raw_content_included": False,
+        "category_count": len(rows),
+        "implemented_count": sum(
+            1 for row in rows if row["status"] == "implemented_fixture_eval"
+        ),
+        "rows": rows,
+        "model_intelligence_scored": False,
+        "runtime_model_calls_added": False,
+        "provider_sdk_calls_added": False,
+        "tool_execution_added": False,
+        "shell_execution_added": False,
+        "browser_automation_added": False,
+        "connector_writes_added": False,
+        "memory_writes_added": False,
+        "context_injection_added": False,
+        "production_authority_added": False,
+        "safe_summary": (
+            "System eval coverage is fixture-backed and contract-level; it does "
+            "not evaluate raw LLM intelligence or add runtime authority."
+        ),
+        "blocked_authority_refs": list(AGENT_LOOP_THREAD_BLOCKED_AUTHORITY_REFS),
+        "redactions_applied": [
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_eval_inputs_omitted",
+            "raw_model_outputs_omitted",
+            "raw_provider_payloads_omitted",
+        ],
+    }
 
 
 def build_high_maturity_agent_spine_readiness() -> dict[str, Any]:
@@ -359,13 +568,15 @@ def build_high_maturity_agent_spine_readiness() -> dict[str, Any]:
             component="System-level agent evals",
             status="partial",
             maturity="usable",
-            score=6,
+            score=7,
             safe_summary=(
-                "Route choice, turn contracts, task decomposition, approval "
-                "detection, memory citation, blocked explanation, and evidence "
-                "completeness have focused tests and verifiers."
+                "Route choice, ambiguity handling, task decomposition, "
+                "approval-needed detection, memory citation selection, blocked "
+                "explanation, and evidence completeness are mapped into a "
+                "backend-owned fixture eval coverage spine."
             ),
             evidence_refs=[
+                SYSTEM_AGENT_EVAL_COVERAGE_CONTRACT_REF,
                 "tests/test_turn_contract_router_quality.py",
                 "tests/test_task_decomposition_capability_registry.py",
                 "tests/test_claim_evidence_contracts.py",
@@ -438,6 +649,7 @@ def build_high_maturity_agent_spine_readiness() -> dict[str, Any]:
             "all_w1_w13_have_code_docs_tests_or_governed_blocked_posture"
         ),
         "rows": rows,
+        "system_eval_coverage": build_system_agent_eval_coverage(),
         "blocked_authority_refs": list(AGENT_LOOP_THREAD_BLOCKED_AUTHORITY_REFS),
         "next_safe_action": (
             "Use this spine coverage as inspection truth; graduate future "
@@ -801,6 +1013,38 @@ def _high_maturity_row(
         "connector_writes_added": False,
         "unrestricted_shell_added": False,
         "plugin_runtime_import_added": False,
+        "production_authority_added": False,
+    }
+
+
+def _system_eval_row(
+    *,
+    category_id: str,
+    label: str,
+    status: str,
+    safe_summary: str,
+    evidence_refs: list[str],
+    test_refs: list[str],
+    invariant_refs: list[str],
+) -> dict[str, Any]:
+    return {
+        "category_id": _safe_text(category_id),
+        "label": _safe_text(label),
+        "status": _safe_text(status),
+        "safe_summary": _safe_text(safe_summary),
+        "evidence_refs": _dedupe(evidence_refs),
+        "test_refs": _dedupe(test_refs),
+        "invariant_refs": _dedupe(invariant_refs),
+        "safe_refs_only": True,
+        "model_intelligence_scored": False,
+        "runtime_model_calls_added": False,
+        "provider_sdk_calls_added": False,
+        "tool_execution_added": False,
+        "shell_execution_added": False,
+        "browser_automation_added": False,
+        "connector_writes_added": False,
+        "memory_writes_added": False,
+        "context_injection_added": False,
         "production_authority_added": False,
     }
 

@@ -14,6 +14,8 @@ from ultimate_ai_agent.core.control_center.agent_loop import (
     AGENT_LOOP_THREAD_ROUTE_REF,
     HIGH_MATURITY_COMPONENT_IDS,
     HIGH_MATURITY_SPINE_CONTRACT_REF,
+    SYSTEM_AGENT_EVAL_CATEGORY_IDS,
+    SYSTEM_AGENT_EVAL_COVERAGE_CONTRACT_REF,
     build_agent_loop_thread_read_model,
 )
 from ultimate_ai_agent.core.storage import FounderLoopRepository
@@ -121,6 +123,34 @@ def _assert_safe_agent_loop_thread(thread: dict[str, object]) -> None:
         rows_by_id["W9"]["evidence_refs"]
     )
     assert "tests/test_coding_cockpit_read_model.py" in rows_by_id["W9"]["test_refs"]
+    assert rows_by_id["W12"]["score_0_10"] == 7
+    assert SYSTEM_AGENT_EVAL_COVERAGE_CONTRACT_REF in rows_by_id["W12"][
+        "evidence_refs"
+    ]
+    eval_coverage = high_maturity["system_eval_coverage"]
+    assert eval_coverage["contract_ref"] == SYSTEM_AGENT_EVAL_COVERAGE_CONTRACT_REF
+    assert eval_coverage["backend_owned"] is True
+    assert eval_coverage["local_read_model_only"] is True
+    assert eval_coverage["safe_refs_only"] is True
+    assert eval_coverage["raw_content_included"] is False
+    assert eval_coverage["category_count"] == len(SYSTEM_AGENT_EVAL_CATEGORY_IDS)
+    assert eval_coverage["implemented_count"] == len(SYSTEM_AGENT_EVAL_CATEGORY_IDS)
+    assert eval_coverage["model_intelligence_scored"] is False
+    assert eval_coverage["runtime_model_calls_added"] is False
+    assert eval_coverage["provider_sdk_calls_added"] is False
+    assert eval_coverage["tool_execution_added"] is False
+    eval_rows = eval_coverage["rows"]
+    assert [row["category_id"] for row in eval_rows] == list(
+        SYSTEM_AGENT_EVAL_CATEGORY_IDS
+    )
+    for eval_row in eval_rows:
+        assert eval_row["safe_refs_only"] is True
+        assert eval_row["model_intelligence_scored"] is False
+        assert eval_row["runtime_model_calls_added"] is False
+        assert eval_row["provider_sdk_calls_added"] is False
+        assert eval_row["evidence_refs"]
+        assert eval_row["test_refs"]
+        assert eval_row["invariant_refs"]
     for row in rows:
         assert row["safe_refs_only"] is True
         assert row["authority_broadened"] is False

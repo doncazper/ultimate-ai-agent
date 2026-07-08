@@ -17,6 +17,8 @@ from ultimate_ai_agent.core.control_center.agent_loop import (  # noqa: E402
     AGENT_LOOP_THREAD_ROUTE_REF,
     HIGH_MATURITY_COMPONENT_IDS,
     HIGH_MATURITY_SPINE_CONTRACT_REF,
+    SYSTEM_AGENT_EVAL_CATEGORY_IDS,
+    SYSTEM_AGENT_EVAL_COVERAGE_CONTRACT_REF,
     build_agent_loop_thread_read_model,
 )
 from ultimate_ai_agent.core.storage import FounderLoopRepository  # noqa: E402
@@ -108,6 +110,91 @@ def main() -> int:
                             "High-Maturity Agent Spine row missing "
                             f"{required_list}: {row.get('weakness_id')}"
                         )
+            system_eval = high_maturity.get("system_eval_coverage")
+            if not isinstance(system_eval, dict):
+                failures.append("High-Maturity Agent Spine system eval coverage missing")
+            else:
+                if system_eval.get("contract_ref") != (
+                    SYSTEM_AGENT_EVAL_COVERAGE_CONTRACT_REF
+                ):
+                    failures.append("system eval coverage contract ref drifted")
+                if system_eval.get("category_count") != len(
+                    SYSTEM_AGENT_EVAL_CATEGORY_IDS
+                ):
+                    failures.append("system eval coverage category count drifted")
+                if system_eval.get("implemented_count") != len(
+                    SYSTEM_AGENT_EVAL_CATEGORY_IDS
+                ):
+                    failures.append("system eval coverage implemented count drifted")
+                for field in [
+                    "backend_owned",
+                    "local_read_model_only",
+                    "safe_refs_only",
+                ]:
+                    if system_eval.get(field) is not True:
+                        failures.append(f"system eval coverage {field} must be true")
+                for field in [
+                    "raw_content_included",
+                    "model_intelligence_scored",
+                    "runtime_model_calls_added",
+                    "provider_sdk_calls_added",
+                    "tool_execution_added",
+                    "shell_execution_added",
+                    "browser_automation_added",
+                    "connector_writes_added",
+                    "memory_writes_added",
+                    "context_injection_added",
+                    "production_authority_added",
+                ]:
+                    if system_eval.get(field) is not False:
+                        failures.append(f"system eval coverage {field} must be false")
+                eval_rows = system_eval.get("rows")
+                if not isinstance(eval_rows, list):
+                    failures.append("system eval coverage rows missing")
+                else:
+                    eval_ids = [
+                        row.get("category_id")
+                        for row in eval_rows
+                        if isinstance(row, dict)
+                    ]
+                    if eval_ids != list(SYSTEM_AGENT_EVAL_CATEGORY_IDS):
+                        failures.append("system eval coverage category ids drifted")
+                    for row in eval_rows:
+                        if not isinstance(row, dict):
+                            failures.append("system eval coverage row is not an object")
+                            continue
+                        if row.get("safe_refs_only") is not True:
+                            failures.append(
+                                "system eval coverage row must be safe-ref-only: "
+                                f"{row.get('category_id')}"
+                            )
+                        for field in [
+                            "model_intelligence_scored",
+                            "runtime_model_calls_added",
+                            "provider_sdk_calls_added",
+                            "tool_execution_added",
+                            "shell_execution_added",
+                            "browser_automation_added",
+                            "connector_writes_added",
+                            "memory_writes_added",
+                            "context_injection_added",
+                            "production_authority_added",
+                        ]:
+                            if row.get(field) is not False:
+                                failures.append(
+                                    "system eval coverage broadened authority: "
+                                    f"{row.get('category_id')} {field}"
+                                )
+                        for required_list in [
+                            "evidence_refs",
+                            "test_refs",
+                            "invariant_refs",
+                        ]:
+                            if not row.get(required_list):
+                                failures.append(
+                                    "system eval coverage row missing "
+                                    f"{required_list}: {row.get('category_id')}"
+                                )
 
     authority = thread.get("authority_posture")
     if not isinstance(authority, dict):

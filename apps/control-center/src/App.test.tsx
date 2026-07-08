@@ -2438,6 +2438,11 @@ describe("Web Control Center shell", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByText(/W1: Product loop/i)).toBeInTheDocument();
+    expect(screen.getByText("System-Level Eval Coverage")).toBeInTheDocument();
+    expect(
+      screen.getByText("contract-ref:system-agent-eval-coverage:v1"),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Model scoring/)).toBeInTheDocument();
     expect(screen.getAllByText("blocked").length).toBeGreaterThan(0);
   });
 

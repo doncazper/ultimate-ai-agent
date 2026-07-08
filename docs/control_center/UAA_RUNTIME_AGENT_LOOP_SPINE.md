@@ -43,6 +43,11 @@ backend-owned High-Maturity Agent Spine coverage map for W1-W13:
   the Agent Loop Thread panel renders the W1-W13 rows, score projection,
   evidence refs, test refs, gaps, and next safe action without raw JSON as the
   primary operator workflow.
+- System eval coverage:
+  `high_maturity_spine_readiness.system_eval_coverage` maps route choice,
+  ambiguity handling, task decomposition, approval-needed detection, memory
+  citation selection, blocked-state explanation, and evidence completeness to
+  existing fixture-backed tests, evidence refs, and no-authority invariants.
 
 This is a deterministic read model over existing UAA code, API, CLI, docs,
 tests, and verifier posture. It is not a benchmark of raw model intelligence.

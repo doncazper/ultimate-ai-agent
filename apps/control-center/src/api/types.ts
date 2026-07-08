@@ -7804,6 +7804,56 @@ export interface HighMaturityAgentSpineRow {
   production_authority_added: boolean;
 }
 
+export interface SystemAgentEvalCoverageRow {
+  category_id: string;
+  label: string;
+  status: string;
+  safe_summary: string;
+  evidence_refs: string[];
+  test_refs: string[];
+  invariant_refs: string[];
+  safe_refs_only: boolean;
+  model_intelligence_scored: boolean;
+  runtime_model_calls_added: boolean;
+  provider_sdk_calls_added: boolean;
+  tool_execution_added: boolean;
+  shell_execution_added: boolean;
+  browser_automation_added: boolean;
+  connector_writes_added: boolean;
+  memory_writes_added: boolean;
+  context_injection_added: boolean;
+  production_authority_added: boolean;
+}
+
+export interface SystemAgentEvalCoverage {
+  schema_version: string;
+  contract_ref: string;
+  status: string;
+  source: string;
+  route_ref: string;
+  cli_ref: string;
+  backend_owned: boolean;
+  local_read_model_only: boolean;
+  safe_refs_only: boolean;
+  raw_content_included: boolean;
+  category_count: number;
+  implemented_count: number;
+  rows: SystemAgentEvalCoverageRow[];
+  model_intelligence_scored: boolean;
+  runtime_model_calls_added: boolean;
+  provider_sdk_calls_added: boolean;
+  tool_execution_added: boolean;
+  shell_execution_added: boolean;
+  browser_automation_added: boolean;
+  connector_writes_added: boolean;
+  memory_writes_added: boolean;
+  context_injection_added: boolean;
+  production_authority_added: boolean;
+  safe_summary: string;
+  blocked_authority_refs: string[];
+  redactions_applied: string[];
+}
+
 export interface HighMaturityAgentSpineReadiness {
   schema_version: string;
   contract_ref: string;
@@ -7822,6 +7872,7 @@ export interface HighMaturityAgentSpineReadiness {
   overall_projection_0_100: number;
   coverage_status: string;
   rows: HighMaturityAgentSpineRow[];
+  system_eval_coverage: SystemAgentEvalCoverage;
   blocked_authority_refs: string[];
   next_safe_action: string;
   redactions_applied: string[];
