@@ -9,7 +9,9 @@ from scripts.dev import uaa_runtime
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.authority import (
+    AUTHORITY_DOMAIN_READINESS_CONTRACT_REF,
     AUTHORITY_LEASE_KILL_SWITCH_ENV,
+    AUTHORITY_LANE_CATALOG_CONTRACT_REF,
     AUTHORITY_STATE_DIR_ENV,
     AuthorityActionRequest,
     AuthorityCapability,
@@ -21,6 +23,7 @@ from ultimate_ai_agent.core.authority import (
     AuthorityMissionPlanRequest,
     TrustMode,
     build_authority_lease_approval_requirement_for_request,
+    build_authority_lane_catalog_read_model,
     build_authority_mission_plan,
     build_authority_state_read_model,
     build_default_authority_leases,
@@ -92,6 +95,13 @@ def _workspace_execute_lease() -> AuthorityLease:
         constraints={"workspace_ref": "workspace-ref:test"},
         safe_summary="Test lease grants workspace read and execute for this session.",
     )
+
+
+def _authority_lane_by_id(catalog: dict, lane_id: str) -> dict:
+    for entry in catalog["entries"]:
+        if entry["lane_id"] == lane_id:
+            return entry
+    raise AssertionError(f"missing authority lane {lane_id}")
 
 
 def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None:
@@ -192,19 +202,87 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
     assert mode_catalog["read_only"].status == "issue_ready_no_approval_required"
     assert mode_catalog["read_only"].issue_ready is True
     assert mode_catalog["read_only"].approval_required is False
+    assert mode_catalog["read_only"].default_requested_domains["files"] == [
+        "prepare",
+        "read",
+    ]
+    assert mode_catalog["read_only"].default_requested_domains["browser"] == ["read"]
+    assert mode_catalog["read_only"].default_requested_domains[
+        "provider_model_calls"
+    ] == ["observe", "read"]
+    assert mode_catalog["read_only"].granted_default_domains["files"] == [
+        "prepare",
+        "read",
+    ]
+    assert mode_catalog["read_only"].denied_default_domain_refs == []
+    assert mode_catalog["read_only"].unsupported_adapter_refs == []
+    assert mode_catalog["ask_before_changes"].status == "issue_ready_approval_required"
+    assert mode_catalog["ask_before_changes"].issue_ready is True
+    assert mode_catalog["ask_before_changes"].approval_required is True
+    assert mode_catalog["ask_before_changes"].default_requested_domains["contacts"] == [
+        "read",
+        "write",
+    ]
+    assert mode_catalog["ask_before_changes"].default_requested_domains["browser"] == [
+        "read"
+    ]
+    assert mode_catalog["ask_before_changes"].default_requested_domains[
+        "provider_model_calls"
+    ] == ["observe", "read"]
+    assert mode_catalog["ask_before_changes"].denied_default_domain_refs == []
+    assert mode_catalog["ask_before_changes"].unsupported_adapter_refs == []
     assert mode_catalog["full_local_workspace_session"].issue_ready is True
     assert mode_catalog["full_local_workspace_session"].approval_required is True
-    assert mode_catalog["full_machine_access_session"].issue_ready is False
-    assert (
-        mode_catalog["full_machine_access_session"].status
-        == "blocked_default_scope_unsupported"
+    assert mode_catalog["full_local_workspace_session"].default_requested_domains[
+        "contacts"
+    ] == ["mutate", "read", "write"]
+    assert mode_catalog["full_local_workspace_session"].default_requested_domains[
+        "browser"
+    ] == ["read"]
+    assert mode_catalog["full_local_workspace_session"].default_requested_domains[
+        "provider_model_calls"
+    ] == ["observe", "read"]
+    assert mode_catalog["full_local_workspace_session"].granted_default_domains[
+        "contacts"
+    ] == ["mutate", "read", "write"]
+    assert mode_catalog["full_local_workspace_session"].denied_default_domain_refs == []
+    assert mode_catalog["full_local_workspace_session"].unsupported_adapter_refs == []
+    assert mode_catalog["full_machine_access_session"].status == (
+        "issue_ready_approval_required"
     )
-    assert mode_catalog["full_machine_access_session"].unsupported_adapter_refs
-    assert mode_catalog["delegated_mission_autonomous_window"].issue_ready is False
+    assert mode_catalog["full_machine_access_session"].issue_ready is True
+    assert mode_catalog["full_machine_access_session"].approval_required is True
+    assert mode_catalog["full_machine_access_session"].default_requested_domains[
+        "provider_model_calls"
+    ] == ["execute", "read"]
+    assert mode_catalog["full_machine_access_session"].default_requested_domains[
+        "browser"
+    ] == ["read"]
+    assert mode_catalog["full_machine_access_session"].granted_default_domains[
+        "provider_model_calls"
+    ] == ["execute", "read"]
+    assert mode_catalog["full_machine_access_session"].denied_default_domain_refs == []
+    assert mode_catalog["full_machine_access_session"].unsupported_adapter_refs == []
+    assert mode_catalog["delegated_mission_autonomous_window"].status == (
+        "issue_ready_approval_required"
+    )
+    assert mode_catalog["delegated_mission_autonomous_window"].issue_ready is True
+    assert mode_catalog["delegated_mission_autonomous_window"].approval_required is True
     assert (
         mode_catalog["delegated_mission_autonomous_window"].requires_mission_ref is True
     )
-    assert "reason-ref:authority:adapter-unsupported" in (
+    assert mode_catalog["delegated_mission_autonomous_window"].default_requested_domains[
+        "provider_model_calls"
+    ] == ["execute", "read"]
+    assert mode_catalog["delegated_mission_autonomous_window"].default_requested_domains[
+        "browser"
+    ] == ["read"]
+    assert mode_catalog["delegated_mission_autonomous_window"].granted_default_domains[
+        "provider_model_calls"
+    ] == ["execute", "read"]
+    assert mode_catalog["delegated_mission_autonomous_window"].denied_default_domain_refs == []
+    assert mode_catalog["delegated_mission_autonomous_window"].unsupported_adapter_refs == []
+    assert "reason-ref:authority:mission-scope-required" in (
         mode_catalog["delegated_mission_autonomous_window"].blocked_reason_refs
     )
     assert all(entry.safe_refs_only for entry in read_model.mode_catalog)
@@ -1224,6 +1302,131 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
     }
 
 
+def test_authority_lane_catalog_v1_normalizes_required_lanes_without_execution() -> None:
+    catalog = build_authority_lane_catalog_read_model().model_dump(mode="json")
+
+    assert catalog["schema_version"] == "uaa-authority-lane-catalog.v1"
+    assert catalog["contract_ref"] == AUTHORITY_LANE_CATALOG_CONTRACT_REF
+    assert catalog["api_ref"] == "GET /api/runtime/authority-state#authority_lane_catalog"
+    assert (
+        catalog["cli_ref"]
+        == "repo-local-command:uaa-runtime-inspect-authority-lane-catalog"
+    )
+    assert catalog["entry_count"] == 9
+    assert catalog["missing_required_lane_ids"] == []
+    assert set(catalog["required_lane_ids"]) == {
+        "local.verify.focused_pytest",
+        "local.verify.repo_verifier",
+        "local.verify.frontend_check",
+        "code.patch_proposal",
+        "code.apply_exact_patch",
+        "web.evidence.fetch_readonly",
+        "memory.review.decision",
+        "model.provider.readiness",
+        "extension.catalog.review",
+    }
+    assert catalog["status_counts"] == {
+        "approval_required": 5,
+        "blocked": 1,
+        "implemented": 2,
+        "proposal_only": 1,
+    }
+    assert catalog["safe_refs_only"] is True
+    assert catalog["execution_performed"] is False
+    assert catalog["mutation_performed"] is False
+    assert catalog["control_center_grants_authority"] is False
+    assert catalog["unknown_authority_default"] == "deny"
+    assert catalog["receipts_required"] is True
+    assert catalog["audit_required"] is True
+    assert catalog["redaction_required"] is True
+    assert catalog["rollback_or_safe_disable_required"] is True
+
+    focused_pytest = _authority_lane_by_id(catalog, "local.verify.focused_pytest")
+    assert focused_pytest["status"] == "approval_required"
+    assert focused_pytest["authority_domain"] == "shell"
+    assert focused_pytest["authority_capability"] == "execute"
+    assert focused_pytest["required_mode"] == "approved_safe_local_work_session"
+    assert focused_pytest["idempotency_required"] is True
+    assert focused_pytest["allowed_inputs_schema"]["shell_expansion"] is False
+    assert "shell expansion" in focused_pytest["denied_capabilities"]
+    assert focused_pytest["receipt_kind"] == "runtime_command_receipt"
+    assert (
+        focused_pytest["api_operation_ref"]
+        == "POST /api/runtime/invocations/{id}/execute"
+    )
+
+    patch_proposal = _authority_lane_by_id(catalog, "code.patch_proposal")
+    assert patch_proposal["status"] == "proposal_only"
+    assert patch_proposal["authority_domain"] == "workspace"
+    assert patch_proposal["authority_capability"] == "draft"
+    assert patch_proposal["idempotency_required"] is False
+    assert patch_proposal["allowed_inputs_schema"]["file_mutation"] is False
+    assert "patch apply" in patch_proposal["denied_capabilities"]
+
+    patch_apply = _authority_lane_by_id(catalog, "code.apply_exact_patch")
+    assert patch_apply["status"] == "blocked"
+    assert patch_apply["authority_domain"] == "files"
+    assert patch_apply["authority_capability"] == "write"
+    assert patch_apply["required_mode"] == "full_local_workspace_session"
+    assert patch_apply["idempotency_required"] is True
+    assert patch_apply["blocked_reason_refs"]
+    assert "unhashed patch payloads" in patch_apply["denied_capabilities"]
+    assert (
+        patch_apply["api_operation_ref"]
+        == "GET /control-center/coding/patch-apply-readiness"
+    )
+
+    web_evidence = _authority_lane_by_id(catalog, "web.evidence.fetch_readonly")
+    assert web_evidence["status"] == "approval_required"
+    assert web_evidence["authority_domain"] == "browser"
+    assert web_evidence["authority_capability"] == "read"
+    assert web_evidence["side_effect_class"] == "governed_network_read_only"
+    assert web_evidence["allowed_inputs_schema"]["browser_action"] is False
+    assert "browser actions" in web_evidence["denied_capabilities"]
+
+    memory_decision = _authority_lane_by_id(catalog, "memory.review.decision")
+    assert memory_decision["status"] == "approval_required"
+    assert memory_decision["authority_domain"] == "memory"
+    assert memory_decision["receipt_kind"] == "memory_review_decision_receipt"
+    assert "memory as truth" in memory_decision["denied_capabilities"]
+
+    provider_readiness = _authority_lane_by_id(catalog, "model.provider.readiness")
+    assert provider_readiness["status"] == "implemented"
+    assert provider_readiness["authority_domain"] == "provider_model_calls"
+    assert provider_readiness["allowed_inputs_schema"]["model_call"] is False
+    assert "provider SDK calls" in provider_readiness["denied_capabilities"]
+
+    extension_review = _authority_lane_by_id(catalog, "extension.catalog.review")
+    assert extension_review["status"] == "implemented"
+    assert extension_review["api_operation_ref"] == "GET /extensions/catalog"
+    assert extension_review["allowed_inputs_schema"]["callable_import"] is False
+    assert "runtime import" in extension_review["denied_capabilities"]
+
+    serialized = json.dumps(catalog, sort_keys=True).lower()
+    for forbidden in (
+        "/users/",
+        "raw prompt",
+        "raw response",
+        "provider payload",
+        "credential material",
+    ):
+        assert forbidden not in serialized
+
+
+def test_authority_state_embeds_authority_lane_catalog_v1() -> None:
+    read_model = build_authority_state_read_model()
+    catalog = read_model.model_dump(mode="json")["authority_lane_catalog"]
+
+    assert catalog["contract_ref"] == AUTHORITY_LANE_CATALOG_CONTRACT_REF
+    assert catalog["entry_count"] == 9
+    assert _authority_lane_by_id(catalog, "code.apply_exact_patch")["status"] == (
+        "blocked"
+    )
+    assert _authority_lane_by_id(catalog, "model.provider.readiness")[
+        "status"
+    ] == "implemented"
+
+
 def test_authority_evaluator_denies_unknown_and_degrades_when_draft_available() -> None:
     leases = build_default_authority_leases()
 
@@ -1281,10 +1484,79 @@ def test_authority_evaluator_treats_stronger_local_grants_as_draft_capable() -> 
     assert decision.lease_ref == lease.lease_ref
 
 
+def test_authority_evaluator_keeps_browser_action_grants_bounded() -> None:
+    lease = AuthorityLease(
+        lease_ref="authority-lease-ref:test-browser-click",
+        mode=TrustMode.full_machine_access_session,
+        domains={AuthorityDomain.browser: [AuthorityCapability.click]},
+        safe_summary="Browser click authority implies only lower-risk browser read posture.",
+    )
+
+    read_decision = evaluate_authority_request(
+        AuthorityActionRequest(
+            action_ref="authority-action-ref:test-browser-click-read",
+            domain=AuthorityDomain.browser,
+            capability=AuthorityCapability.read,
+            safe_summary="Inspect browser posture under a future click lease.",
+            requested_mode=TrustMode.read_only,
+        ),
+        [lease],
+    )
+    form_fill_decision = evaluate_authority_request(
+        AuthorityActionRequest(
+            action_ref="authority-action-ref:test-browser-click-form-fill",
+            domain=AuthorityDomain.browser,
+            capability=AuthorityCapability.form_fill,
+            safe_summary="Try to fill a browser form under click-only authority.",
+            requested_mode=TrustMode.full_machine_access_session,
+            draft_fallback_available=True,
+        ),
+        [lease],
+    )
+
+    assert read_decision.outcome == AuthorityDecisionOutcome.allow.value
+    assert read_decision.lease_ref == lease.lease_ref
+    assert form_fill_decision.outcome == AuthorityDecisionOutcome.degrade_to_draft.value
+    assert form_fill_decision.lease_ref is None
+    assert "reason-ref:authority:no-active-lease-for-domain-capability" in (
+        form_fill_decision.reason_refs
+    )
+
+
 def test_authority_mode_defaults_are_mode_specific_and_fail_closed(
     tmp_path,
 ) -> None:
     store = AuthorityLeaseStore(tmp_path / "authority")
+
+    read_only_lease, read_only_receipt = store.issue_lease(
+        AuthorityLeaseIssueRequest(
+            mode=TrustMode.read_only,
+            decision_reason_ref="reason-ref:test-read-only-default",
+            safe_summary="Select default read-only authority.",
+        ),
+        idempotency_ref="idempotency-ref:test-read-only-default",
+        approval_validator=validate_authority_lease_approval,
+    )
+    assert read_only_lease is not None
+    assert read_only_receipt.status == "issued"
+    assert read_only_receipt.approval_required is False
+    assert read_only_receipt.approval_validated is False
+    assert read_only_receipt.approval_status == "not_required"
+    assert read_only_receipt.approval_ref is None
+    assert read_only_receipt.requested_domains["files"] == ["read", "prepare"]
+    assert read_only_receipt.requested_domains["browser"] == ["read"]
+    assert read_only_receipt.requested_domains["provider_model_calls"] == [
+        "observe",
+        "read",
+    ]
+    assert read_only_receipt.granted_domains["files"] == ["read", "prepare"]
+    assert read_only_receipt.granted_domains["browser"] == ["read"]
+    assert read_only_receipt.granted_domains["provider_model_calls"] == [
+        "observe",
+        "read",
+    ]
+    assert read_only_receipt.denied_domain_refs == []
+    assert read_only_receipt.unsupported_adapter_refs == []
 
     safe_local_request = AuthorityLeaseIssueRequest(
         mode=TrustMode.approved_safe_local_work_session,
@@ -1325,22 +1597,262 @@ def test_authority_mode_defaults_are_mode_specific_and_fail_closed(
     }
     assert safe_local_receipt.denied_domain_refs == []
 
+    ask_request = AuthorityLeaseIssueRequest(
+        mode=TrustMode.ask_before_changes,
+        decision_reason_ref="reason-ref:test-ask-before-changes-default",
+        safe_summary="Select default ask-before-changes authority.",
+    )
+    ask_lease, ask_receipt = store.issue_lease(
+        _approved_issue_request(
+            ask_request,
+            idempotency_ref="idempotency-ref:test-ask-before-changes-default",
+            approval_ref="approval-ref:test-authority:ask-before-changes-default",
+        ),
+        idempotency_ref="idempotency-ref:test-ask-before-changes-default",
+        approval_validator=validate_authority_lease_approval,
+    )
+    assert ask_lease is not None
+    assert ask_receipt.status == "issued"
+    assert ask_receipt.approval_required is True
+    assert ask_receipt.approval_validated is True
+    assert ask_receipt.requested_domains["contacts"] == ["read", "write"]
+    assert ask_receipt.requested_domains["browser"] == ["read"]
+    assert ask_receipt.requested_domains["provider_model_calls"] == [
+        "observe",
+        "read",
+    ]
+    assert ask_receipt.granted_domains["contacts"] == ["read", "write"]
+    assert ask_receipt.granted_domains["browser"] == ["read"]
+    assert ask_receipt.granted_domains["provider_model_calls"] == [
+        "observe",
+        "read",
+    ]
+    assert ask_receipt.denied_domain_refs == []
+    assert ask_receipt.unsupported_adapter_refs == []
+    contacts_write_decision = evaluate_authority_request(
+        AuthorityActionRequest(
+            action_ref="authority-action-ref:test-ask-default-contacts-write",
+            domain=AuthorityDomain.contacts,
+            capability=AuthorityCapability.write,
+            safe_summary="Write a local CRM contact under ask-before-changes mode.",
+            requested_mode=TrustMode.ask_before_changes,
+        ),
+        [ask_lease],
+    )
+    browser_read_decision = evaluate_authority_request(
+        AuthorityActionRequest(
+            action_ref="authority-action-ref:test-ask-default-browser-read",
+            domain=AuthorityDomain.browser,
+            capability=AuthorityCapability.read,
+            safe_summary="Read browser evidence posture under ask-before-changes mode.",
+            requested_mode=TrustMode.read_only,
+        ),
+        [ask_lease],
+    )
+    email_send_decision = evaluate_authority_request(
+        AuthorityActionRequest(
+            action_ref="authority-action-ref:test-ask-default-email-send",
+            domain=AuthorityDomain.email,
+            capability=AuthorityCapability.send,
+            safe_summary="Try to send email under ask-before-changes default scope.",
+            requested_mode=TrustMode.full_machine_access_session,
+            draft_fallback_available=True,
+        ),
+        [ask_lease],
+    )
+    assert contacts_write_decision.outcome == AuthorityDecisionOutcome.ask.value
+    assert contacts_write_decision.lease_ref == ask_lease.lease_ref
+    assert browser_read_decision.outcome == AuthorityDecisionOutcome.allow.value
+    assert browser_read_decision.lease_ref == ask_lease.lease_ref
+    assert email_send_decision.outcome == AuthorityDecisionOutcome.degrade_to_draft.value
+    assert email_send_decision.lease_ref is None
+
+    full_local_request = AuthorityLeaseIssueRequest(
+        mode=TrustMode.full_local_workspace_session,
+        decision_reason_ref="reason-ref:test-full-local-default",
+        safe_summary="Select default full local workspace authority.",
+    )
+    full_local_lease, full_local_receipt = store.issue_lease(
+        _approved_issue_request(
+            full_local_request,
+            idempotency_ref="idempotency-ref:test-full-local-default",
+            approval_ref="approval-ref:test-authority:full-local-default",
+        ),
+        idempotency_ref="idempotency-ref:test-full-local-default",
+        approval_validator=validate_authority_lease_approval,
+    )
+    assert full_local_lease is not None
+    assert full_local_receipt.status == "issued"
+    assert full_local_receipt.approval_required is True
+    assert full_local_receipt.approval_validated is True
+    assert full_local_receipt.requested_domains["contacts"] == [
+        "read",
+        "write",
+        "mutate",
+    ]
+    assert full_local_receipt.requested_domains["browser"] == ["read"]
+    assert full_local_receipt.requested_domains["provider_model_calls"] == [
+        "observe",
+        "read",
+    ]
+    assert full_local_receipt.granted_domains["contacts"] == [
+        "read",
+        "write",
+        "mutate",
+    ]
+    assert full_local_receipt.granted_domains["browser"] == ["read"]
+    assert full_local_receipt.granted_domains["provider_model_calls"] == [
+        "observe",
+        "read",
+    ]
+    assert full_local_receipt.denied_domain_refs == []
+    assert full_local_receipt.unsupported_adapter_refs == []
+    full_local_contacts_write = evaluate_authority_request(
+        AuthorityActionRequest(
+            action_ref="authority-action-ref:test-full-local-contacts-write",
+            domain=AuthorityDomain.contacts,
+            capability=AuthorityCapability.write,
+            safe_summary="Write local CRM state under full local workspace mode.",
+            requested_mode=TrustMode.full_local_workspace_session,
+        ),
+        [full_local_lease],
+    )
+    full_local_email_draft = evaluate_authority_request(
+        AuthorityActionRequest(
+            action_ref="authority-action-ref:test-full-local-email-draft",
+            domain=AuthorityDomain.email,
+            capability=AuthorityCapability.draft,
+            safe_summary="Prepare a local email draft under full local workspace mode.",
+            requested_mode=TrustMode.read_only,
+        ),
+        [full_local_lease],
+    )
+    full_local_provider_execute = evaluate_authority_request(
+        AuthorityActionRequest(
+            action_ref="authority-action-ref:test-full-local-provider-execute",
+            domain=AuthorityDomain.provider_model_calls,
+            capability=AuthorityCapability.execute,
+            safe_summary="Try provider execution under full local workspace mode.",
+            requested_mode=TrustMode.full_machine_access_session,
+            draft_fallback_available=True,
+        ),
+        [full_local_lease],
+    )
+    assert full_local_contacts_write.outcome == AuthorityDecisionOutcome.allow.value
+    assert full_local_contacts_write.lease_ref == full_local_lease.lease_ref
+    assert full_local_email_draft.outcome == AuthorityDecisionOutcome.allow.value
+    assert full_local_email_draft.lease_ref == full_local_lease.lease_ref
+    assert (
+        full_local_provider_execute.outcome
+        == AuthorityDecisionOutcome.degrade_to_draft.value
+    )
+    assert full_local_provider_execute.lease_ref is None
+
+    full_machine_request = AuthorityLeaseIssueRequest(
+        mode=TrustMode.full_machine_access_session,
+        decision_reason_ref="reason-ref:test-full-machine-default",
+        safe_summary="Select default full machine authority.",
+    )
+    missing_full_machine_lease, missing_full_machine_receipt = store.issue_lease(
+        full_machine_request,
+        idempotency_ref="idempotency-ref:test-full-machine-missing-approval",
+        approval_validator=validate_authority_lease_approval,
+    )
+    assert missing_full_machine_lease is None
+    assert missing_full_machine_receipt.status == "denied"
+    assert missing_full_machine_receipt.approval_required is True
+    assert missing_full_machine_receipt.approval_validated is False
+    assert "APPROVAL_REF_MISSING" in (
+        missing_full_machine_receipt.approval_reason_codes
+    )
+
     full_machine_lease, full_machine_receipt = store.issue_lease(
-        AuthorityLeaseIssueRequest(
-            mode=TrustMode.full_machine_access_session,
-            decision_reason_ref="reason-ref:test-full-machine-default",
-            safe_summary="Select default full machine authority.",
+        _approved_issue_request(
+            full_machine_request,
+            idempotency_ref="idempotency-ref:test-full-machine-default",
+            approval_ref="approval-ref:test-authority:full-machine-default",
         ),
         idempotency_ref="idempotency-ref:test-full-machine-default",
+        approval_validator=validate_authority_lease_approval,
     )
-    assert full_machine_lease is None
-    assert full_machine_receipt.status == "denied"
-    assert full_machine_receipt.granted_domains == {}
-    assert "authority-domain-ref:browser" in full_machine_receipt.denied_domain_refs
-    assert "authority-domain-ref:shell" in full_machine_receipt.denied_domain_refs
+    assert full_machine_lease is not None
+    assert full_machine_receipt.status == "issued"
+    assert full_machine_receipt.approval_required is True
+    assert full_machine_receipt.approval_validated is True
+    assert full_machine_receipt.requested_domains["provider_model_calls"] == [
+        "read",
+        "execute",
+    ]
+    assert full_machine_receipt.requested_domains["browser"] == ["read"]
+    assert full_machine_receipt.granted_domains["provider_model_calls"] == [
+        "read",
+        "execute",
+    ]
+    assert full_machine_receipt.granted_domains["browser"] == ["read"]
+    assert full_machine_receipt.denied_domain_refs == []
+    assert full_machine_receipt.unsupported_adapter_refs == []
+    full_machine_provider_execute = evaluate_authority_request(
+        AuthorityActionRequest(
+            action_ref="authority-action-ref:test-full-machine-provider-execute",
+            domain=AuthorityDomain.provider_model_calls,
+            capability=AuthorityCapability.execute,
+            safe_summary=(
+                "Evaluate provider execute authority under full machine mode."
+            ),
+            requested_mode=TrustMode.full_machine_access_session,
+        ),
+        [full_machine_lease],
+    )
+    full_machine_shell_execute = evaluate_authority_request(
+        AuthorityActionRequest(
+            action_ref="authority-action-ref:test-full-machine-shell-execute",
+            domain=AuthorityDomain.shell,
+            capability=AuthorityCapability.execute,
+            safe_summary=(
+                "Try arbitrary shell execution under full machine default scope."
+            ),
+            requested_mode=TrustMode.full_machine_access_session,
+            draft_fallback_available=True,
+        ),
+        [full_machine_lease],
+    )
+    assert (
+        full_machine_provider_execute.outcome == AuthorityDecisionOutcome.allow.value
+    )
+    assert full_machine_provider_execute.lease_ref == full_machine_lease.lease_ref
+    assert (
+        full_machine_shell_execute.outcome
+        == AuthorityDecisionOutcome.degrade_to_draft.value
+    )
+    assert full_machine_shell_execute.lease_ref is None
+    assert "reason-ref:authority:no-active-lease-for-domain-capability" in (
+        full_machine_shell_execute.reason_refs
+    )
+
+    explicit_shell_lease, explicit_shell_receipt = store.issue_lease(
+        AuthorityLeaseIssueRequest(
+            mode=TrustMode.full_machine_access_session,
+            requested_domains={
+                AuthorityDomain.shell: [AuthorityCapability.execute],
+                AuthorityDomain.browser: [AuthorityCapability.click],
+                AuthorityDomain.system_settings: [AuthorityCapability.mutate],
+            },
+            decision_reason_ref="reason-ref:test-full-machine-default",
+            safe_summary="Try explicit unsupported full machine adapters.",
+        ),
+        idempotency_ref="idempotency-ref:test-full-machine-unsupported-explicit",
+    )
+    assert explicit_shell_lease is None
+    assert explicit_shell_receipt.status == "denied"
+    assert explicit_shell_receipt.granted_domains == {}
+    assert "authority-domain-ref:browser" in explicit_shell_receipt.denied_domain_refs
+    assert "authority-domain-ref:shell" in explicit_shell_receipt.denied_domain_refs
+    assert "authority-domain-ref:system_settings" in (
+        explicit_shell_receipt.denied_domain_refs
+    )
     assert any(
         ref.startswith("adapter-ref:browser:")
-        for ref in full_machine_receipt.unsupported_adapter_refs
+        for ref in explicit_shell_receipt.unsupported_adapter_refs
     )
 
     provider_lease, provider_receipt = store.issue_lease(
@@ -1370,26 +1882,116 @@ def test_authority_mode_defaults_are_mode_specific_and_fail_closed(
     }
     assert provider_receipt.denied_domain_refs == []
 
+    delegated_request = AuthorityLeaseIssueRequest(
+        mode=TrustMode.delegated_mission_autonomous_window,
+        scope="mission",
+        mission_ref="mission-ref:test-delegated-default",
+        decision_reason_ref="reason-ref:test-delegated-default",
+        safe_summary="Select default delegated mission authority.",
+    )
+    missing_delegated_lease, missing_delegated_receipt = store.issue_lease(
+        delegated_request,
+        idempotency_ref="idempotency-ref:test-delegated-missing-approval",
+        approval_validator=validate_authority_lease_approval,
+    )
+    assert missing_delegated_lease is None
+    assert missing_delegated_receipt.status == "denied"
+    assert missing_delegated_receipt.approval_required is True
+    assert missing_delegated_receipt.approval_validated is False
+    assert "APPROVAL_REF_MISSING" in missing_delegated_receipt.approval_reason_codes
+
     delegated_lease, delegated_receipt = store.issue_lease(
+        _approved_issue_request(
+            delegated_request,
+            idempotency_ref="idempotency-ref:test-delegated-default",
+            approval_ref="approval-ref:test-authority:delegated-default",
+        ),
+        idempotency_ref="idempotency-ref:test-delegated-default",
+        approval_validator=validate_authority_lease_approval,
+    )
+    assert delegated_lease is not None
+    assert delegated_receipt.status == "issued"
+    assert delegated_receipt.scope == "mission"
+    assert delegated_receipt.approval_required is True
+    assert delegated_receipt.approval_validated is True
+    assert delegated_receipt.requested_domains["provider_model_calls"] == [
+        "read",
+        "execute",
+    ]
+    assert delegated_receipt.requested_domains["browser"] == ["read"]
+    assert delegated_receipt.granted_domains["provider_model_calls"] == [
+        "read",
+        "execute",
+    ]
+    assert delegated_receipt.granted_domains["browser"] == ["read"]
+    assert delegated_receipt.denied_domain_refs == []
+    assert delegated_receipt.unsupported_adapter_refs == []
+    delegated_mission_provider_execute = evaluate_authority_request(
+        AuthorityActionRequest(
+            action_ref="authority-action-ref:test-delegated-provider-execute",
+            domain=AuthorityDomain.provider_model_calls,
+            capability=AuthorityCapability.execute,
+            safe_summary="Execute provider call inside the delegated mission scope.",
+            resource_refs=["mission-ref:test-delegated-default"],
+            requested_mode=TrustMode.delegated_mission_autonomous_window,
+        ),
+        [delegated_lease],
+    )
+    delegated_unrelated_provider_execute = evaluate_authority_request(
+        AuthorityActionRequest(
+            action_ref="authority-action-ref:test-delegated-provider-unrelated",
+            domain=AuthorityDomain.provider_model_calls,
+            capability=AuthorityCapability.execute,
+            safe_summary="Try provider call outside the delegated mission scope.",
+            requested_mode=TrustMode.delegated_mission_autonomous_window,
+            draft_fallback_available=True,
+        ),
+        [delegated_lease],
+    )
+    assert (
+        delegated_mission_provider_execute.outcome
+        == AuthorityDecisionOutcome.allow.value
+    )
+    assert delegated_mission_provider_execute.lease_ref == delegated_lease.lease_ref
+    assert (
+        delegated_unrelated_provider_execute.outcome
+        == AuthorityDecisionOutcome.degrade_to_draft.value
+    )
+    assert "reason-ref:authority:mission-scope-mismatch" in (
+        delegated_unrelated_provider_execute.reason_refs
+    )
+
+    unsupported_delegated_lease, unsupported_delegated_receipt = store.issue_lease(
         AuthorityLeaseIssueRequest(
             mode=TrustMode.delegated_mission_autonomous_window,
             scope="mission",
-            mission_ref="mission-ref:test-delegated-default",
-            decision_reason_ref="reason-ref:test-delegated-default",
-            safe_summary="Select default delegated mission authority.",
+            mission_ref="mission-ref:test-delegated-ticket",
+            requested_domains={
+                AuthorityDomain.browser: [
+                    AuthorityCapability.click,
+                    AuthorityCapability.form_fill,
+                ],
+                AuthorityDomain.shopping_payments: [
+                    AuthorityCapability.purchase_under_budget
+                ],
+            },
+            decision_reason_ref="reason-ref:test-delegated-ticket",
+            safe_summary="Try unsupported delegated ticket authority.",
         ),
-        idempotency_ref="idempotency-ref:test-delegated-default",
+        idempotency_ref="idempotency-ref:test-delegated-ticket",
     )
-    assert delegated_lease is None
-    assert delegated_receipt.status == "denied"
-    assert delegated_receipt.granted_domains == {}
-    assert "authority-domain-ref:browser" in delegated_receipt.denied_domain_refs
+    assert unsupported_delegated_lease is None
+    assert unsupported_delegated_receipt.status == "denied"
+    assert unsupported_delegated_receipt.granted_domains == {}
+    assert "authority-domain-ref:browser" in (
+        unsupported_delegated_receipt.denied_domain_refs
+    )
     assert "authority-domain-ref:shopping_payments" in (
-        delegated_receipt.denied_domain_refs
+        unsupported_delegated_receipt.denied_domain_refs
     )
     assert any(
         ref.startswith("adapter-ref:shopping_payments:")
-        for ref in delegated_receipt.unsupported_adapter_refs
+        for ref in unsupported_delegated_receipt.unsupported_adapter_refs
     )
 
 
@@ -1817,6 +2419,7 @@ def test_authority_state_api_cli_and_settings_surface(
     monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(tmp_path / "authority"))
 
     runtime_response = client.get("/api/runtime/authority-state")
+    domain_readiness_response = client.get("/api/runtime/authority-domain-readiness")
     settings_response = client.get("/control-center/settings/status")
     exit_code = uaa_runtime.main(["inspect-authority-state", "--json"])
 
@@ -1835,14 +2438,75 @@ def test_authority_state_api_cli_and_settings_surface(
     }
     assert runtime_modes["read_only"]["issue_ready"] is True
     assert runtime_modes["read_only"]["approval_required"] is False
-    assert runtime_modes["full_machine_access_session"]["issue_ready"] is False
-    assert runtime_modes["full_machine_access_session"]["unsupported_adapter_refs"]
+    assert runtime_modes["full_machine_access_session"]["issue_ready"] is True
+    assert runtime_modes["full_machine_access_session"]["approval_required"] is True
+    assert runtime_modes["full_machine_access_session"]["default_requested_domains"][
+        "provider_model_calls"
+    ] == ["execute", "read"]
+    assert runtime_modes["full_machine_access_session"]["unsupported_adapter_refs"] == []
     assert len(runtime_body["data"]["decision_catalog"]) == len(
         runtime_body["data"]["capability_mappings"]
     )
+    authority_lane_catalog = runtime_body["data"]["authority_lane_catalog"]
+    assert authority_lane_catalog["contract_ref"] == AUTHORITY_LANE_CATALOG_CONTRACT_REF
+    assert authority_lane_catalog["entry_count"] == 9
+    assert _authority_lane_by_id(authority_lane_catalog, "code.apply_exact_patch")[
+        "status"
+    ] == "blocked"
     assert runtime_body["data"]["decision_summary"]["total_capabilities"] == len(
         runtime_body["data"]["decision_catalog"]
     )
+    domain_readiness = {
+        entry["domain"]: entry for entry in runtime_body["data"]["domain_readiness"]
+    }
+    assert set(domain_readiness) == set(runtime_body["data"]["target_domains"])
+    assert domain_readiness["workspace"]["status"] == "active_allow"
+    assert (
+        "authority-lease-ref:default-read-only-session"
+        in domain_readiness["workspace"]["active_lease_refs"]
+    )
+    assert domain_readiness["shell"]["status"] == "blocked_unsupported"
+    assert "adapter-ref:shell-arbitrary-command:not-implemented" in (
+        domain_readiness["shell"]["unsupported_adapter_refs"]
+    )
+    assert domain_readiness["cloud_production"]["status"] in {
+        "known_denied",
+        "blocked_unsupported",
+    }
+    assert all(
+        entry["execution_performed"] is False
+        and entry["mutation_performed"] is False
+        and entry["control_center_grants_authority"] is False
+        for entry in domain_readiness.values()
+    )
+
+    assert domain_readiness_response.status_code == 200
+    domain_readiness_body = domain_readiness_response.json()
+    assert domain_readiness_body["success"] is True
+    domain_readiness_data = domain_readiness_body["data"]
+    assert (
+        domain_readiness_data["contract_ref"]
+        == AUTHORITY_DOMAIN_READINESS_CONTRACT_REF
+    )
+    assert (
+        domain_readiness_data["api_ref"]
+        == "GET /api/runtime/authority-domain-readiness"
+    )
+    assert domain_readiness_data["source_authority_state_api_ref"] == (
+        "GET /api/runtime/authority-state"
+    )
+    assert domain_readiness_data["cli_ref"] == (
+        "repo-local-command:uaa-runtime-inspect-authority-domain-readiness"
+    )
+    assert domain_readiness_data["domain_count"] == len(
+        runtime_body["data"]["target_domains"]
+    )
+    assert domain_readiness_data["entries"] == runtime_body["data"]["domain_readiness"]
+    assert domain_readiness_data["safe_refs_only"] is True
+    assert domain_readiness_data["execution_performed"] is False
+    assert domain_readiness_data["mutation_performed"] is False
+    assert domain_readiness_data["control_center_grants_authority"] is False
+    assert domain_readiness_data["unknown_authority_default"] == "deny"
     assert (
         runtime_body["data"]["decision_summary"]["outcome_counts"]["degrade_to_draft"]
         > 0
@@ -1878,11 +2542,17 @@ def test_authority_state_api_cli_and_settings_surface(
     assert authority_state["decision_summary"]["total_capabilities"] == len(
         authority_state["decision_catalog"]
     )
+    assert authority_state["authority_lane_catalog"]["entry_count"] == 9
+    assert len(authority_state["domain_readiness"]) == len(
+        authority_state["target_domains"]
+    )
 
     assert exit_code == 0
     cli_payload = capsys.readouterr().out
     assert "authority_state_read_model" in cli_payload
+    assert "authority_lane_catalog" in cli_payload
     assert "mode_catalog" in cli_payload
+    assert "domain_readiness" in cli_payload
     assert "decision_summary" in cli_payload
     assert "decision_catalog" in cli_payload
     assert "raw_paths_omitted" in cli_payload
@@ -1893,14 +2563,75 @@ def test_authority_state_api_cli_and_settings_surface(
     assert "issued=" in cli_text
     assert "expires=" in cli_text
     assert "Mode readiness:" in cli_text
+    assert "Domain readiness:" in cli_text
+    assert "- workspace status=active_allow" in cli_text
+    assert "- shell status=blocked_unsupported" in cli_text
     assert "full_machine_access_session" in cli_text
-    assert "blocked_default_scope_unsupported" in cli_text
+    assert "issue_ready_approval_required" in cli_text
+    assert "provider_model_calls: execute, read" in cli_text
+    assert "delegated_mission_autonomous_window" in cli_text
+    assert "planned_unsupported_adapter" in cli_text
+    assert "adapter-ref:shell-arbitrary-command:not-implemented" in cli_text
     assert "Decision catalog:" in cli_text
     assert "Decision summary:" in cli_text
     assert "Outcome counts:" in cli_text
     assert "Blocked reasons:" in cli_text
     assert "authority-capability-ref:runtime-command-focused-pytest" in cli_text
     assert "source: lane-ref:runtime-command-focused-pytest" in cli_text
+
+    lane_catalog_exit_code = uaa_runtime.main(
+        ["inspect-authority-lane-catalog", "--json"]
+    )
+    assert lane_catalog_exit_code == 0
+    lane_catalog_payload = json.loads(capsys.readouterr().out)
+    assert lane_catalog_payload["command_ref"] == (
+        "repo-local-command:uaa-runtime-inspect-authority-lane-catalog"
+    )
+    lane_catalog = lane_catalog_payload["authority_lane_catalog_read_model"]
+    assert lane_catalog["contract_ref"] == AUTHORITY_LANE_CATALOG_CONTRACT_REF
+    assert lane_catalog["entry_count"] == 9
+    assert lane_catalog_payload["safe_refs_only"] is True
+    assert lane_catalog_payload["execution_performed"] is False
+
+    lane_catalog_text_exit_code = uaa_runtime.main(
+        ["inspect-authority-lane-catalog"]
+    )
+    assert lane_catalog_text_exit_code == 0
+    lane_catalog_text = capsys.readouterr().out
+    assert "Authority Lane Catalog V1" in lane_catalog_text
+    assert "local.verify.focused_pytest" in lane_catalog_text
+    assert "code.apply_exact_patch status=blocked" in lane_catalog_text
+
+    domain_readiness_exit_code = uaa_runtime.main(
+        ["inspect-authority-domain-readiness", "--json"]
+    )
+    assert domain_readiness_exit_code == 0
+    domain_readiness_payload = json.loads(capsys.readouterr().out)
+    assert domain_readiness_payload["command_ref"] == (
+        "repo-local-command:uaa-runtime-inspect-authority-domain-readiness"
+    )
+    domain_readiness_read_model = domain_readiness_payload[
+        "authority_domain_readiness_read_model"
+    ]
+    assert (
+        domain_readiness_read_model["contract_ref"]
+        == AUTHORITY_DOMAIN_READINESS_CONTRACT_REF
+    )
+    assert domain_readiness_read_model["domain_count"] == len(
+        runtime_body["data"]["target_domains"]
+    )
+    assert domain_readiness_payload["safe_refs_only"] is True
+    assert domain_readiness_payload["execution_performed"] is False
+
+    domain_readiness_text_exit_code = uaa_runtime.main(
+        ["inspect-authority-domain-readiness"]
+    )
+    assert domain_readiness_text_exit_code == 0
+    domain_readiness_text = capsys.readouterr().out
+    assert "Authority domain readiness" in domain_readiness_text
+    assert "GET /api/runtime/authority-domain-readiness" in domain_readiness_text
+    assert "- workspace status=active_allow" in domain_readiness_text
+    assert "- shell status=blocked_unsupported" in domain_readiness_text
 
     summary_exit_code = uaa_runtime.main(["inspect-authority-state", "--summary"])
     assert summary_exit_code == 0
@@ -2103,6 +2834,56 @@ def test_authority_mission_plan_api_cli_and_core_are_read_only(
     }
     assert "reason-ref:authority:adapter-unsupported" in draft_plan.blocked_reason_refs
 
+    delegated_default_plan = build_authority_mission_plan(
+        AuthorityMissionPlanRequest(
+            mission_ref="mission-ref:test-delegated-default-plan",
+            safe_goal_summary=(
+                "Preview a delegated mission using implemented default authority."
+            ),
+            requested_mode=TrustMode.delegated_mission_autonomous_window,
+            decision_reason_ref="reason-ref:test-delegated-default-plan",
+        ),
+        build_default_authority_leases(),
+    )
+    assert delegated_default_plan.execution_performed is False
+    assert delegated_default_plan.mutation_performed is False
+    assert delegated_default_plan.lease_issue_ready is True
+    assert delegated_default_plan.lease_issue_request.scope == "mission"
+    assert delegated_default_plan.lease_issue_request.mission_ref == (
+        "mission-ref:test-delegated-default-plan"
+    )
+    assert delegated_default_plan.granted_domains["provider_model_calls"] == [
+        "read",
+        "execute",
+    ]
+    assert delegated_default_plan.granted_domains["browser"] == ["read"]
+    assert delegated_default_plan.denied_domain_refs == []
+    assert delegated_default_plan.unsupported_adapter_refs == []
+    assert "authority-domain-ref:provider_model_calls" in (
+        delegated_default_plan.required_domain_refs
+    )
+    assert "authority-capability-ref:execute" in (
+        delegated_default_plan.required_capability_refs
+    )
+    delegated_issue_idempotency_ref = "idempotency-ref:test-delegated-default-plan"
+    delegated_lease, delegated_receipt = AuthorityLeaseStore(
+        tmp_path / "authority-delegated"
+    ).issue_lease(
+        _approved_issue_request(
+            delegated_default_plan.lease_issue_request,
+            idempotency_ref=delegated_issue_idempotency_ref,
+            approval_ref="approval-ref:test-authority:delegated-default-plan",
+        ),
+        idempotency_ref=delegated_issue_idempotency_ref,
+        approval_validator=validate_authority_lease_approval,
+    )
+    assert delegated_lease is not None
+    assert delegated_lease.scope == "mission"
+    assert delegated_lease.mission_ref == "mission-ref:test-delegated-default-plan"
+    assert delegated_lease.domains["provider_model_calls"] == ["read", "execute"]
+    assert delegated_receipt.status == "issued"
+    assert delegated_receipt.unsupported_adapter_refs == []
+
     response = client.post(
         "/api/runtime/authority-missions/plan",
         json={
@@ -2129,6 +2910,31 @@ def test_authority_mission_plan_api_cli_and_core_are_read_only(
     assert plan["unsupported_adapter_refs"] == []
     assert plan["route_ref"] == "POST /api/runtime/authority-missions/plan"
     assert plan["cli_ref"] == "repo-local-command:uaa-runtime-plan-authority-mission"
+
+    delegated_default_response = client.post(
+        "/api/runtime/authority-missions/plan",
+        json={
+            "mission_ref": "mission-ref:test-api-delegated-default",
+            "safe_goal_summary": (
+                "Preview delegated mission defaults through the API."
+            ),
+            "requested_mode": "delegated_mission_autonomous_window",
+            "decision_reason_ref": "reason-ref:test-api-delegated-default",
+            "duration_minutes": 120,
+        },
+    )
+    assert delegated_default_response.status_code == 200
+    delegated_default_body = delegated_default_response.json()["data"]
+    assert delegated_default_body["lease_issue_ready"] is True
+    assert delegated_default_body["lease_issue_request"]["scope"] == "mission"
+    assert delegated_default_body["lease_issue_request"]["mission_ref"] == (
+        "mission-ref:test-api-delegated-default"
+    )
+    assert delegated_default_body["granted_domains"]["provider_model_calls"] == [
+        "read",
+        "execute",
+    ]
+    assert delegated_default_body["unsupported_adapter_refs"] == []
 
     issue_ready_plan = build_authority_mission_plan(
         AuthorityMissionPlanRequest(
@@ -2164,6 +2970,26 @@ def test_authority_mission_plan_api_cli_and_core_are_read_only(
     assert receipt.scope == "mission"
     assert receipt.execution_performed is False
     assert receipt.unsupported_adapter_refs == []
+
+    default_cli_exit = uaa_runtime.main(
+        [
+            "plan-authority-mission",
+            "--mission-ref",
+            "mission-ref:test-cli-delegated-default",
+            "--summary",
+            "Preview delegated mission defaults from the CLI.",
+            "--json",
+        ]
+    )
+    assert default_cli_exit == 0
+    default_cli_payload = json.loads(capsys.readouterr().out)
+    default_cli_plan = default_cli_payload["authority_mission_plan"]
+    assert default_cli_plan["lease_issue_ready"] is True
+    assert default_cli_plan["granted_domains"]["provider_model_calls"] == [
+        "read",
+        "execute",
+    ]
+    assert default_cli_plan["unsupported_adapter_refs"] == []
 
     cli_exit = uaa_runtime.main(
         [
@@ -2379,6 +3205,75 @@ def test_authority_lease_issue_revoke_api_and_cli_are_durable(
         "workspace": ["read", "write", "execute"]
     }
     assert default_cli_payload["approval_captured"] is True
+
+    full_local_cli_issue = uaa_runtime.main(
+        [
+            "select-authority-mode",
+            "--mode",
+            "full_local_workspace_session",
+            "--reason-ref",
+            "reason-ref:authority-cli-full-local-default",
+            "--idempotency-ref",
+            "idempotency-ref:authority-cli-full-local-default",
+            "--summary",
+            "Select full local workspace with backend default domains.",
+            "--approve",
+            "--approved-by-actor-ref",
+            "operator-ref:test-cli-full-local-approver",
+            "--json",
+        ]
+    )
+    assert full_local_cli_issue == 0
+    full_local_cli_payload = json.loads(capsys.readouterr().out)
+    assert full_local_cli_payload["receipt"]["requested_domains"]["contacts"] == [
+        "read",
+        "write",
+        "mutate",
+    ]
+    assert full_local_cli_payload["receipt"]["requested_domains"]["browser"] == ["read"]
+    assert full_local_cli_payload["receipt"]["requested_domains"][
+        "provider_model_calls"
+    ] == ["observe", "read"]
+    assert full_local_cli_payload["receipt"]["granted_domains"]["contacts"] == [
+        "read",
+        "write",
+        "mutate",
+    ]
+    assert full_local_cli_payload["receipt"]["denied_domain_refs"] == []
+    assert full_local_cli_payload["receipt"]["unsupported_adapter_refs"] == []
+    assert full_local_cli_payload["approval_captured"] is True
+
+    full_machine_cli_issue = uaa_runtime.main(
+        [
+            "select-authority-mode",
+            "--mode",
+            "full_machine_access_session",
+            "--reason-ref",
+            "reason-ref:authority-cli-full-machine-default",
+            "--idempotency-ref",
+            "idempotency-ref:authority-cli-full-machine-default",
+            "--summary",
+            "Select full machine access with implemented exact-gated defaults.",
+            "--approve",
+            "--approved-by-actor-ref",
+            "operator-ref:test-cli-full-machine-approver",
+            "--json",
+        ]
+    )
+    assert full_machine_cli_issue == 0
+    full_machine_cli_payload = json.loads(capsys.readouterr().out)
+    assert full_machine_cli_payload["receipt"]["requested_domains"][
+        "provider_model_calls"
+    ] == ["read", "execute"]
+    assert full_machine_cli_payload["receipt"]["requested_domains"]["browser"] == [
+        "read"
+    ]
+    assert full_machine_cli_payload["receipt"]["granted_domains"][
+        "provider_model_calls"
+    ] == ["read", "execute"]
+    assert full_machine_cli_payload["receipt"]["denied_domain_refs"] == []
+    assert full_machine_cli_payload["receipt"]["unsupported_adapter_refs"] == []
+    assert full_machine_cli_payload["approval_captured"] is True
 
     conflicting_cli_issue = uaa_runtime.main(
         [

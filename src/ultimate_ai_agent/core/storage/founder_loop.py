@@ -484,10 +484,10 @@ EVIDENCE_TIMELINE_NARRATIVE_READ_MODEL_SOURCE = (
     "python_core_evidence_timeline_narrative_read_model"
 )
 EVIDENCE_AUDIT_RECEIPT_SPINE_CONTRACT_REF = (
-    "contract-ref:goatcitadel-catchup-evidence-audit-spine:v1"
+    "contract-ref:runtime-evidence-audit-spine:v1"
 )
 EVIDENCE_AUDIT_RECEIPT_SPINE_SOURCE = (
-    "python_core_goatcitadel_catchup_evidence_audit_spine"
+    "python_core_runtime_evidence_audit_spine"
 )
 EVIDENCE_TIMELINE_PRODUCTIZATION_ROUTE_REFS = ("GET /control-center/evidence/timeline",)
 EVIDENCE_TIMELINE_PRODUCTIZED_EVENT_TYPES = (
@@ -1997,7 +1997,7 @@ class FounderLoopEvidenceAuditGroup(BaseModel):
 
 
 class FounderLoopEvidenceAuditReceiptSpine(BaseModel):
-    schema_version: str = "goatcitadel-catchup-evidence-audit-spine.v1"
+    schema_version: str = "runtime-evidence-audit-spine.v1"
     contract_ref: str = EVIDENCE_AUDIT_RECEIPT_SPINE_CONTRACT_REF
     source: str = EVIDENCE_AUDIT_RECEIPT_SPINE_SOURCE
     status: str = "implemented_backend_owned_evidence_audit_receipt_spine"
@@ -2060,7 +2060,7 @@ class FounderLoopEvidenceAuditReceiptSpine(BaseModel):
 
     @model_validator(mode="after")
     def validate_safe_spine(self) -> "FounderLoopEvidenceAuditReceiptSpine":
-        if self.schema_version != "goatcitadel-catchup-evidence-audit-spine.v1":
+        if self.schema_version != "runtime-evidence-audit-spine.v1":
             raise ValueError("evidence audit spine schema drift")
         if self.contract_ref != EVIDENCE_AUDIT_RECEIPT_SPINE_CONTRACT_REF:
             raise ValueError("evidence audit spine contract drift")
@@ -8150,7 +8150,7 @@ class FounderLoopRepository:
                 "timestamp-ref",
                 str(event.get("created_at") or "recorded"),
             ),
-            verifier_version_ref="verifier-ref:goatcitadel-catchup-evidence-audit:v1",
+            verifier_version_ref="verifier-ref:runtime-evidence-audit:v1",
             safe_summary=str(event["safe_summary"]),
             route_refs=_unique_sorted_refs(
                 [

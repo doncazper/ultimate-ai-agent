@@ -23,6 +23,8 @@ The current implementation is read/safe-ref only:
   `lane-ref:runtime-preview-rail-safe-ref-read-model` evaluates as Read-only
   `workspace/read` authority through `GET /api/runtime/authority-state` and
   `repo-local-command:uaa-runtime-inspect-authority-state`.
+- `scripts/dev/uaa_runtime.py inspect-preview-rail` returns the same mapping,
+  decision, reason, and unsupported-adapter refs as the Python Core read model.
 - Control Center renders preview slot refs, source classification refs,
   bounded preview refs, redaction policy refs, attach-plan refs, receipt-plan
   refs, proof refs, authority decision refs, blocked reason refs, promotion

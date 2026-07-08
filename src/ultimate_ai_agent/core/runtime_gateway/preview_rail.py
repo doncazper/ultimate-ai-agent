@@ -369,6 +369,16 @@ def _slot(
 def build_runtime_preview_rail_read_model(
     authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None = None,
 ) -> RuntimePreviewRailReadModel:
+    return build_runtime_preview_rail_read_model_from_authority_catalog(
+        authority_decision_catalog=authority_decision_catalog
+        or build_authority_decision_catalog(),
+    )
+
+
+def build_runtime_preview_rail_read_model_from_authority_catalog(
+    *,
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry],
+) -> RuntimePreviewRailReadModel:
     authority_entry = _authority_entry(authority_decision_catalog)
     slots = [
         _slot(

@@ -300,6 +300,7 @@ def _release_latency_environment(safe_root: Path, temp_root: Path) -> Iterator[N
         "UAA_OPENWEBUI_TEST_GATEWAY_ENABLED": "1",
         "UAA_OPENWEBUI_TEST_GATEWAY_KEY": RELEASE_LATENCY_LOCAL_GATEWAY_KEY,
         "UAA_FILE_API_SAFE_ROOT": str(safe_root),
+        "UAA_AUTHORITY_STATE_DIR": str(temp_root / "authority"),
     }
     removals = [
         "UAA_API_LOCAL_AUTH_DISABLED_FOR_DEV_ONLY",
@@ -311,6 +312,7 @@ def _release_latency_environment(safe_root: Path, temp_root: Path) -> Iterator[N
             os.environ.pop(key, None)
         os.environ.update(updates)
         _install_task_decomposition_test_service(temp_root)
+        _issue_release_latency_file_preview_authority(temp_root / "authority")
         yield
     finally:
         _restore_task_decomposition_service()
@@ -352,6 +354,58 @@ def _restore_task_decomposition_service() -> None:
 
     api_app._task_decomposition_service = _PREVIOUS_TASK_DECOMPOSITION_SERVICE
     _PREVIOUS_TASK_DECOMPOSITION_SERVICE = None
+
+
+def _issue_release_latency_file_preview_authority(state_dir: Path) -> None:
+    _ensure_repo_on_path()
+    from ultimate_ai_agent.core.authority import (
+        AuthorityCapability,
+        AuthorityDomain,
+        AuthorityLeaseIssueRequest,
+        AuthorityLeaseStore,
+        TrustMode,
+        build_authority_lease_approval_requirement_for_request,
+    )
+    from ultimate_ai_agent.core.authority.approval_validation import (
+        build_authority_lease_test_grant,
+        validate_authority_lease_approval,
+    )
+
+    request = AuthorityLeaseIssueRequest(
+        mode=TrustMode.read_only,
+        requested_domains={
+            AuthorityDomain.files: [
+                AuthorityCapability.read,
+                AuthorityCapability.prepare,
+            ]
+        },
+        decision_reason_ref="decision-reason-ref:release-latency-file-preview",
+        safe_summary=(
+            "Release latency benchmark lease grants Files read and prepare for "
+            "bounded file preview measurement."
+        ),
+    )
+    idempotency_ref = "idempotency-ref:release-latency-file-preview"
+    requirement = build_authority_lease_approval_requirement_for_request(
+        request,
+        idempotency_ref=idempotency_ref,
+    )
+    if requirement.approval_required:
+        grant = build_authority_lease_test_grant(
+            requirement,
+            approval_ref="approval-ref:release-latency-file-preview",
+        )
+        request = request.model_copy(
+            update={
+                "approval_ref": grant.approval_ref,
+                "approval_grants": [grant.model_dump(mode="json")],
+            }
+        )
+    AuthorityLeaseStore(state_dir).issue_lease(
+        request,
+        idempotency_ref=idempotency_ref,
+        approval_validator=validate_authority_lease_approval,
+    )
 
 
 def _measure_release_paths(*, repeat: int, warmup: int) -> list[dict[str, object]]:

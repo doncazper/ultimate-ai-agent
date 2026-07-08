@@ -51,6 +51,7 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned() -> None:
     assert "governed_product_pilot_authority_profile" in manifest[
         "capabilities_declared"
     ]
+    assert "authority_lane_catalog_v1" in manifest["capabilities_declared"]
     assert "authority_state_decision_catalog" in manifest["capabilities_declared"]
     assert "authority_state_mode_catalog" in manifest["capabilities_declared"]
     assert "governed_product_pilot_portable_evidence_envelope" in manifest[
@@ -609,6 +610,21 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
     ]["classification_reason"]
     assert "mode readiness catalog" in routes_by_path[
         "/api/runtime/authority-state"
+    ]["classification_reason"]
+    assert (
+        routes_by_path["/api/runtime/authority-domain-readiness"][
+            "route_classification"
+        ]
+        == "local_sensitive"
+    )
+    assert (
+        routes_by_path["/api/runtime/authority-domain-readiness"][
+            "approval_posture"
+        ]
+        == "not_required_for_route_classification"
+    )
+    assert "one backend-derived readiness row" in routes_by_path[
+        "/api/runtime/authority-domain-readiness"
     ]["classification_reason"]
     assert (
         routes_by_path["/api/runtime/authority-decisions/preview"][

@@ -6747,6 +6747,9 @@ const trustAuthorityMatrix: TrustAuthorityMatrix = {
         "safe-disable-ref:trust:mock-local-read-preview:read-model-only",
       ],
       rollback_refs: ["rollback-ref:trust:mock-local-read-preview:no-mutation"],
+      authority_readiness_refs: [
+        "authority-readiness-ref:trust:mock-local-read-preview:backend-route-required",
+      ],
       promotion_path_refs: [
         "promotion-path-ref:trust:mock-local-read-preview:backend-route-required",
       ],
@@ -6793,6 +6796,9 @@ const trustAuthorityMatrix: TrustAuthorityMatrix = {
       ],
       rollback_refs: [
         "rollback-ref:trust:mock-external-mutation:future-lane-required",
+      ],
+      authority_readiness_refs: [
+        "authority-readiness-ref:trust:mock-external-mutation:exact-scope-required",
       ],
       promotion_path_refs: [
         "promotion-path-ref:trust:mock-external-mutation:exact-scope-required",
@@ -6916,6 +6922,9 @@ const trustAuthorityMatrix: TrustAuthorityMatrix = {
         "safe-disable-ref:trust:mock-local-read-preview:read-model-only",
       ],
       rollback_refs: ["rollback-ref:trust:mock-local-read-preview:no-mutation"],
+      authority_readiness_refs: [
+        "authority-readiness-ref:trust:mock-local-read-preview:backend-route-required",
+      ],
       promotion_path_refs: [
         "promotion-path-ref:trust:mock-local-read-preview:backend-route-required",
       ],
@@ -6964,6 +6973,9 @@ const trustAuthorityMatrix: TrustAuthorityMatrix = {
       rollback_refs: [
         "rollback-ref:trust:mock-external-mutation:future-lane-required",
       ],
+      authority_readiness_refs: [
+        "authority-readiness-ref:trust:mock-external-mutation:exact-scope-required",
+      ],
       promotion_path_refs: [
         "promotion-path-ref:trust:mock-external-mutation:exact-scope-required",
       ],
@@ -7006,6 +7018,10 @@ const trustAuthorityMatrix: TrustAuthorityMatrix = {
   rollback_refs: [
     "rollback-ref:trust:mock-local-read-preview:no-mutation",
     "rollback-ref:trust:mock-external-mutation:future-lane-required",
+  ],
+  authority_readiness_refs: [
+    "authority-readiness-ref:trust:mock-local-read-preview:backend-route-required",
+    "authority-readiness-ref:trust:mock-external-mutation:exact-scope-required",
   ],
   promotion_path_refs: [
     "promotion-path-ref:trust:mock-local-read-preview:backend-route-required",
@@ -8114,8 +8130,8 @@ const modelProviderControlPlane: ModelProviderControlPlaneReadModel = {
   model_provider_research_posture: {
     schema_version: "model_provider_research_posture.v1",
     contract_ref:
-      "contract-ref:goatcitadel-catchup-model-provider-research-posture:mock-fallback",
-    source: "python_core_goatcitadel_catchup_model_provider_research_posture",
+      "contract-ref:runtime-model-provider-research-posture:mock-fallback",
+    source: "python_core_runtime_model_provider_research_posture",
     status: "metadata_read_model_wired",
     route_ref: "GET /control-center/providers/runtime-control-plane",
     cli_ref: "scripts/inspect_model_provider_control_plane.py",
@@ -8230,7 +8246,7 @@ const modelProviderControlPlane: ModelProviderControlPlaneReadModel = {
         "External information remains WebAccessGateway governed and deny-by-default. Fetched content is untrusted evidence, never instructions or authority.",
     },
     proof_refs: [
-      "proof-ref:goatcitadel-catchup:model-provider-research-posture",
+      "proof-ref:runtime-capability-foundation:model-provider-research-posture",
       "proof-ref:model-provider-control-plane:mock-read-model",
     ],
     docs_refs: [
@@ -12742,6 +12758,384 @@ export const mockControlCenterData: ControlCenterData = {
         execution_performed: false,
         mutation_performed: false,
         control_center_grants_authority: false,
+      },
+      domain_readiness: [
+        {
+          schema_version: "uaa-authority-domain-readiness.v1",
+          domain: "workspace",
+          status: "active_allow",
+          mapped_capability_count: 1,
+          mapped_capability_refs: [
+            "authority-capability-ref:mock-workspace-read",
+          ],
+          active_lease_refs: ["authority-lease-ref:mock-read-only-session"],
+          default_requested_modes: [
+            "read_only",
+            "ask_before_changes",
+            "approved_safe_local_work_session",
+            "full_local_workspace_session",
+          ],
+          issue_ready_modes: [
+            "read_only",
+            "ask_before_changes",
+            "approved_safe_local_work_session",
+            "full_local_workspace_session",
+          ],
+          grantable_capabilities: [
+            "observe",
+            "read",
+            "draft",
+            "prepare",
+            "write",
+            "execute",
+          ],
+          decision_outcome_counts: {
+            allow: 1,
+            ask: 0,
+            deny: 0,
+            degrade_to_draft: 0,
+          },
+          mapped_status_counts: {
+            implemented_mock_fallback: 1,
+          },
+          unsupported_adapter_refs: [],
+          blocked_reason_refs: [],
+          operator_summary:
+            "Mock workspace authority is active for read-only layout proof only.",
+          safe_refs_only: true,
+          execution_performed: false,
+          mutation_performed: false,
+          control_center_grants_authority: false,
+        },
+        {
+          schema_version: "uaa-authority-domain-readiness.v1",
+          domain: "files",
+          status: "draft_only",
+          mapped_capability_count: 1,
+          mapped_capability_refs: [
+            "authority-capability-ref:mock-file-preview",
+          ],
+          active_lease_refs: [],
+          default_requested_modes: [
+            "ask_before_changes",
+            "full_local_workspace_session",
+          ],
+          issue_ready_modes: [
+            "ask_before_changes",
+            "full_local_workspace_session",
+          ],
+          grantable_capabilities: ["read", "write", "mutate"],
+          decision_outcome_counts: {
+            allow: 0,
+            ask: 0,
+            deny: 0,
+            degrade_to_draft: 1,
+          },
+          mapped_status_counts: {
+            implemented_exact_lease_required_metadata_only: 1,
+          },
+          unsupported_adapter_refs: [
+            "adapter-ref:file-raw-content:not-implemented",
+          ],
+          blocked_reason_refs: [
+            "reason-ref:authority:no-active-lease-for-domain-capability",
+          ],
+          operator_summary:
+            "Mock files authority degrades to draft until an active Files lease is present.",
+          safe_refs_only: true,
+          execution_performed: false,
+          mutation_performed: false,
+          control_center_grants_authority: false,
+        },
+        {
+          schema_version: "uaa-authority-domain-readiness.v1",
+          domain: "shell",
+          status: "blocked_unsupported",
+          mapped_capability_count: 1,
+          mapped_capability_refs: [
+            "authority-capability-ref:mock-shell-execute",
+          ],
+          active_lease_refs: [],
+          default_requested_modes: ["full_machine_access_session"],
+          issue_ready_modes: [],
+          grantable_capabilities: [],
+          decision_outcome_counts: {
+            allow: 0,
+            ask: 0,
+            deny: 1,
+            degrade_to_draft: 0,
+          },
+          mapped_status_counts: {
+            planned_unsupported_adapter: 1,
+          },
+          unsupported_adapter_refs: [
+            "adapter-ref:shell-arbitrary-command:not-implemented",
+          ],
+          blocked_reason_refs: ["reason-ref:authority:adapter-unsupported"],
+          operator_summary:
+            "Mock shell authority is known but blocked because arbitrary shell execution is unsupported.",
+          safe_refs_only: true,
+          execution_performed: false,
+          mutation_performed: false,
+          control_center_grants_authority: false,
+        },
+        {
+          schema_version: "uaa-authority-domain-readiness.v1",
+          domain: "browser",
+          status: "blocked_unsupported",
+          mapped_capability_count: 1,
+          mapped_capability_refs: [
+            "authority-capability-ref:mock-browser-click",
+          ],
+          active_lease_refs: [],
+          default_requested_modes: [
+            "full_machine_access_session",
+            "delegated_mission_autonomous_window",
+          ],
+          issue_ready_modes: [],
+          grantable_capabilities: [],
+          decision_outcome_counts: {
+            allow: 0,
+            ask: 0,
+            deny: 1,
+            degrade_to_draft: 0,
+          },
+          mapped_status_counts: {
+            planned_unsupported_adapter: 1,
+          },
+          unsupported_adapter_refs: [
+            "adapter-ref:browser-execution:not-implemented",
+          ],
+          blocked_reason_refs: ["reason-ref:authority:adapter-unsupported"],
+          operator_summary:
+            "Mock browser action authority is blocked; browser execution is not implemented.",
+          safe_refs_only: true,
+          execution_performed: false,
+          mutation_performed: false,
+          control_center_grants_authority: false,
+        },
+        ...([
+          "apps",
+          "system_settings",
+          "calendar",
+          "messages",
+          "email",
+          "contacts",
+          "home_assistant",
+          "shopping_payments",
+          "provider_model_calls",
+          "memory",
+          "cloud_production",
+        ] as const).map((domain) => ({
+          schema_version: "uaa-authority-domain-readiness.v1" as const,
+          domain,
+          status: "unmapped_target_domain" as const,
+          mapped_capability_count: 0,
+          mapped_capability_refs: [],
+          active_lease_refs: [],
+          default_requested_modes: [],
+          issue_ready_modes: [],
+          grantable_capabilities: [],
+          decision_outcome_counts: {
+            allow: 0,
+            ask: 0,
+            deny: 0,
+            degrade_to_draft: 0,
+          },
+          mapped_status_counts: {},
+          unsupported_adapter_refs: [],
+          blocked_reason_refs: ["reason-ref:authority:target-domain-unmapped"],
+          operator_summary: `Mock ${domain.replaceAll(
+            "_",
+            " ",
+          )} authority is unmapped in fallback data; backend AuthorityState is required.`,
+          safe_refs_only: true as const,
+          execution_performed: false as const,
+          mutation_performed: false as const,
+          control_center_grants_authority: false as const,
+        })),
+      ],
+      authority_lane_catalog: {
+        schema_version: "uaa-authority-lane-catalog.v1",
+        contract_ref: "contract-ref:authority-lane-catalog:v1",
+        catalog_ref: "authority-lane-catalog-ref:uaa:v1",
+        status: "implemented_read_only_authority_lane_catalog",
+        api_ref: "GET /api/runtime/authority-state#authority_lane_catalog",
+        cli_ref: "repo-local-command:uaa-runtime-inspect-authority-lane-catalog",
+        operator_summary:
+          "Mock Authority Lane Catalog shows representative governed lane contracts for layout only; backend authority-state supplies the complete catalog.",
+        entry_count: 3,
+        status_counts: {
+          approval_required: 1,
+          blocked: 1,
+          implemented: 1,
+        },
+        required_lane_ids: [
+          "local.verify.focused_pytest",
+          "local.verify.repo_verifier",
+          "local.verify.frontend_check",
+          "code.patch_proposal",
+          "code.apply_exact_patch",
+          "web.evidence.fetch_readonly",
+          "memory.review.decision",
+          "model.provider.readiness",
+          "extension.catalog.review",
+        ],
+        missing_required_lane_ids: [],
+        entries: [
+          {
+            lane_id: "local.verify.focused_pytest",
+            lane_ref: "authority-lane-ref:local-verify-focused_pytest",
+            label: "Focused pytest verifier",
+            status: "approval_required",
+            authority_domain: "shell",
+            authority_capability: "execute",
+            required_mode: "approved_safe_local_work_session",
+            side_effect_class: "local_dev_workspace_only",
+            risk: "medium",
+            allowed_inputs_schema: {
+              argv: "fixed_pytest_wrapper",
+              selector_refs: "bounded_repo_local_test_selectors",
+              shell_expansion: false,
+            },
+            denied_capabilities: [
+              "arbitrary command strings",
+              "shell expansion",
+              "network commands",
+            ],
+            approval_scope: "approval-scope:runtime-focused-pytest-exact",
+            idempotency_required: true,
+            rollback_posture:
+              "No mutation rollback; RuntimeGateway safe-disable blocks execution and receipts keep redacted output refs only.",
+            receipt_kind: "runtime_command_receipt",
+            cli_inspection_ref:
+              "scripts/dev/uaa_runtime.py inspect-action-inbox-bridge",
+            api_operation_ref: "POST /api/runtime/invocations/{id}/execute",
+            control_center_surface_ref: "control-center-surface:actions-inbox",
+            source_refs: [
+              "lane-ref:runtime-gateway:focused-pytest-action-inbox",
+            ],
+            blocked_reason_refs: [],
+            unsupported_adapter_refs: [],
+            active_decision_outcome: "degrade_to_draft",
+            active_decision_ref:
+              "authority-policy-decision-ref:mock-lane-focused-pytest",
+            active_decision_reason_refs: [
+              "reason-ref:authority:no-active-lease-for-domain-capability",
+            ],
+            known_authority: true,
+            safe_refs_only: true,
+            execution_performed: false,
+            mutation_performed: false,
+            control_center_grants_authority: false,
+            raw_content_included: false,
+          },
+          {
+            lane_id: "code.apply_exact_patch",
+            lane_ref: "authority-lane-ref:code-apply-exact-patch",
+            label: "Code exact patch apply",
+            status: "blocked",
+            authority_domain: "files",
+            authority_capability: "write",
+            required_mode: "full_local_workspace_session",
+            side_effect_class: "local_dev_workspace_only",
+            risk: "high",
+            allowed_inputs_schema: {
+              patch_ref: "precomputed_patch_hash_ref",
+              file_refs: "approved_repo_file_refs_only",
+              shell_execution: false,
+            },
+            denied_capabilities: [
+              "unhashed patch payloads",
+              "unapproved file targets",
+              "shell execution",
+            ],
+            approval_scope: "approval-scope:coding-approved-patch-apply-exact",
+            idempotency_required: true,
+            rollback_posture:
+              "Blocked until checkpoint and rollback artifact refs are implemented and tested for exact patch apply.",
+            receipt_kind: "patch_apply_receipt_required",
+            cli_inspection_ref:
+              "scripts/dev/uaa_coding.py inspect-patch-apply-readiness",
+            api_operation_ref: "GET /control-center/coding/patch-apply-readiness",
+            control_center_surface_ref: "control-center-surface:code-workbench",
+            source_refs: ["capability-ref:coding:approved-patch-apply"],
+            blocked_reason_refs: [
+              "blocked-state:coding-no-file-write",
+              "blocked-authority:action-tool-code:no-generic-tool-execution",
+            ],
+            unsupported_adapter_refs: [],
+            active_decision_outcome: "deny",
+            active_decision_ref:
+              "authority-policy-decision-ref:mock-lane-code-apply",
+            active_decision_reason_refs: [
+              "reason-ref:authority:no-active-lease-for-domain-capability",
+            ],
+            known_authority: true,
+            safe_refs_only: true,
+            execution_performed: false,
+            mutation_performed: false,
+            control_center_grants_authority: false,
+            raw_content_included: false,
+          },
+          {
+            lane_id: "model.provider.readiness",
+            lane_ref: "authority-lane-ref:model-provider-readiness",
+            label: "Model provider readiness",
+            status: "implemented",
+            authority_domain: "provider_model_calls",
+            authority_capability: "read",
+            required_mode: "read_only",
+            side_effect_class: "validation_only",
+            risk: "low",
+            allowed_inputs_schema: {
+              provider_refs: "configured_provider_status_refs_only",
+              model_call: false,
+            },
+            denied_capabilities: [
+              "provider SDK calls",
+              "runtime model calls",
+              "model output as authority",
+            ],
+            approval_scope: "approval-scope:not-required-for-readiness",
+            idempotency_required: false,
+            rollback_posture:
+              "Read-only status has no mutation rollback; provider execution remains separately gated.",
+            receipt_kind: "readiness_status_evidence_ref",
+            cli_inspection_ref: "scripts/inspect_model_provider_control_plane.py",
+            api_operation_ref:
+              "GET /control-center/providers/runtime-control-plane",
+            control_center_surface_ref: "control-center-surface:models-runtime",
+            source_refs: ["lane-ref:model-slot-posture"],
+            blocked_reason_refs: [],
+            unsupported_adapter_refs: [],
+            active_decision_outcome: "allow",
+            active_decision_ref:
+              "authority-policy-decision-ref:mock-lane-provider-readiness",
+            active_decision_reason_refs: [],
+            known_authority: true,
+            safe_refs_only: true,
+            execution_performed: false,
+            mutation_performed: false,
+            control_center_grants_authority: false,
+            raw_content_included: false,
+          },
+        ],
+        blocked_reason_refs: [
+          "blocked-state:coding-no-file-write",
+          "blocked-authority:action-tool-code:no-generic-tool-execution",
+        ],
+        unsupported_adapter_refs: [],
+        safe_refs_only: true,
+        execution_performed: false,
+        mutation_performed: false,
+        control_center_grants_authority: false,
+        unknown_authority_default: "deny",
+        receipts_required: true,
+        audit_required: true,
+        redaction_required: true,
+        rollback_or_safe_disable_required: true,
+        redactions_applied: ["safe_refs_only", "bounded_summaries_only"],
       },
       decision_catalog: [
         {
@@ -18881,8 +19275,8 @@ export const mockControlCenterData: ControlCenterData = {
   codingMultiAgentReview: mockCodingMultiAgentReview,
   workBoard: mockWorkBoard,
   founderAgentLoopThread: {
-    schema_version: "goatcitadel_catchup_agent_loop_thread.v1",
-    contract_ref: "contract-ref:goatcitadel-catchup-agent-loop-thread:v1",
+    schema_version: "runtime_agent_loop_thread.v1",
+    contract_ref: "contract-ref:runtime-agent-loop-thread:v1",
     thread_ref: "agent-loop-thread:mock-fallback:current",
     status: "mock_fallback_non_authoritative",
     capability_status: "mock-only",
@@ -18982,9 +19376,9 @@ export const mockControlCenterData: ControlCenterData = {
         "Wait for backend-owned Memory Review refs before memory decisions.",
     },
     operator_decision_matrix: {
-      schema_version: "goatcitadel_catchup_cockpit_cli_api_parity.v1",
+      schema_version: "runtime_cockpit_cli_api_parity.v1",
       contract_ref:
-        "contract-ref:goatcitadel-catchup-cockpit-cli-api-parity:v1",
+        "contract-ref:runtime-cockpit-cli-api-parity:v1",
       status: "mock_fallback_non_authoritative",
       capability_status: "mock-only",
       source: "mock_fallback_non_authoritative",
@@ -21031,11 +21425,11 @@ export const mockControlCenterData: ControlCenterData = {
       },
     ],
     evidence_audit_receipt_spine_contract_ref:
-      "contract-ref:goatcitadel-catchup-evidence-audit-spine:v1",
+      "contract-ref:runtime-evidence-audit-spine:v1",
     evidence_audit_receipt_spine: {
-      schema_version: "goatcitadel-catchup-evidence-audit-spine.v1",
-      contract_ref: "contract-ref:goatcitadel-catchup-evidence-audit-spine:v1",
-      source: "python_core_goatcitadel_catchup_evidence_audit_spine",
+      schema_version: "runtime-evidence-audit-spine.v1",
+      contract_ref: "contract-ref:runtime-evidence-audit-spine:v1",
+      source: "python_core_runtime_evidence_audit_spine",
       status: "implemented_backend_owned_evidence_audit_receipt_spine",
       backend_owned: true,
       control_center_presentation_only: true,
@@ -21295,7 +21689,7 @@ export const mockControlCenterData: ControlCenterData = {
             "artifact-hash-ref:evidence-audit-envelope:sha256-mock000000000001",
           timestamp_ref: "timestamp-ref:recorded",
           verifier_version_ref:
-            "verifier-ref:goatcitadel-catchup-evidence-audit:v1",
+            "verifier-ref:runtime-evidence-audit:v1",
           redaction_status: "redacted_summary_only",
           safe_summary:
             "Mock evidence index event for a reviewable Today-to-Action envelope; no action execution or approval grant capture occurs.",

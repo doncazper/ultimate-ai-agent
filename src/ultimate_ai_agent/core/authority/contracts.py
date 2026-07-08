@@ -23,11 +23,23 @@ from ultimate_ai_agent.core.time import utc_now
 
 AUTHORITY_LEASE_SCHEMA_VERSION = "uaa-authority-lease.v1"
 AUTHORITY_STATE_SCHEMA_VERSION = "uaa-authority-state.v1"
+AUTHORITY_LANE_CATALOG_SCHEMA_VERSION = "uaa-authority-lane-catalog.v1"
+AUTHORITY_DOMAIN_READINESS_SCHEMA_VERSION = "uaa-authority-domain-readiness-index.v1"
 AUTHORITY_MISSION_PLAN_SCHEMA_VERSION = "uaa-authority-mission-plan.v1"
 AUTHORITY_STATE_CONTRACT_REF = "contract-ref:authority-modes-mission-leases:v1"
+AUTHORITY_LANE_CATALOG_CONTRACT_REF = "contract-ref:authority-lane-catalog:v1"
+AUTHORITY_DOMAIN_READINESS_CONTRACT_REF = (
+    "contract-ref:authority-domain-readiness:v1"
+)
 AUTHORITY_STATE_API_REF = "GET /api/runtime/authority-state"
 AUTHORITY_STATE_SETTINGS_ROUTE_REF = "GET /control-center/settings/status#authority_lease_state"
 AUTHORITY_STATE_CLI_REF = "repo-local-command:uaa-runtime-inspect-authority-state"
+AUTHORITY_LANE_CATALOG_API_REF = "GET /api/runtime/authority-state#authority_lane_catalog"
+AUTHORITY_LANE_CATALOG_CLI_REF = "repo-local-command:uaa-runtime-inspect-authority-lane-catalog"
+AUTHORITY_DOMAIN_READINESS_API_REF = "GET /api/runtime/authority-domain-readiness"
+AUTHORITY_DOMAIN_READINESS_CLI_REF = (
+    "repo-local-command:uaa-runtime-inspect-authority-domain-readiness"
+)
 AUTHORITY_MISSION_PLAN_ROUTE_REF = "POST /api/runtime/authority-missions/plan"
 AUTHORITY_MISSION_PLAN_CLI_REF = "repo-local-command:uaa-runtime-plan-authority-mission"
 AUTHORITY_STATE_DIR_ENV = "UAA_AUTHORITY_STATE_DIR"
@@ -265,6 +277,30 @@ _CAPABILITY_IMPLICATIONS: dict[AuthorityCapability, set[AuthorityCapability]] = 
         AuthorityCapability.draft,
         AuthorityCapability.prepare,
         AuthorityCapability.execute,
+    },
+    AuthorityCapability.click: {
+        AuthorityCapability.observe,
+        AuthorityCapability.read,
+        AuthorityCapability.click,
+    },
+    AuthorityCapability.form_fill: {
+        AuthorityCapability.observe,
+        AuthorityCapability.read,
+        AuthorityCapability.draft,
+        AuthorityCapability.prepare,
+        AuthorityCapability.form_fill,
+    },
+    AuthorityCapability.upload: {
+        AuthorityCapability.observe,
+        AuthorityCapability.read,
+        AuthorityCapability.prepare,
+        AuthorityCapability.upload,
+    },
+    AuthorityCapability.download: {
+        AuthorityCapability.observe,
+        AuthorityCapability.read,
+        AuthorityCapability.prepare,
+        AuthorityCapability.download,
     },
     AuthorityCapability.commit: {
         AuthorityCapability.observe,
@@ -553,8 +589,9 @@ class AuthorityMissionPlanRequest(_AuthorityModel):
         validate_safe_task_text(self.safe_goal_summary, "authority_mission_goal_summary")
         validate_safe_task_text(_enum_value(self.requested_mode), "authority_mission_mode")
         validate_safe_task_payload(self.constraints, "authority_mission_constraints")
-        if not self.requested_domains and not self.action_requests:
-            raise ValueError("AUTHORITY_MISSION_PLAN_REQUIRES_DOMAIN_OR_ACTION")
+        # Empty mission domain requests intentionally mean: preview this mode's
+        # current implemented default mission scope. The planner still performs
+        # no execution and unsupported explicit domains fail closed below.
         for domain, capabilities in self.requested_domains.items():
             validate_safe_task_text(_enum_value(domain), "authority_mission_domain")
             if not capabilities:
@@ -702,6 +739,183 @@ class AuthorityCapabilityMapping(_AuthorityModel):
         return self
 
 
+AuthorityLaneStatus = Literal[
+    "implemented",
+    "partial",
+    "proposal_only",
+    "approval_required",
+    "planned",
+    "blocked",
+]
+
+
+class AuthorityLaneCatalogEntry(_AuthorityModel):
+    lane_id: str = Field(..., min_length=1, max_length=120)
+    lane_ref: str = Field(..., min_length=1)
+    label: str = Field(..., min_length=1, max_length=160)
+    status: AuthorityLaneStatus
+    authority_domain: AuthorityDomain
+    authority_capability: AuthorityCapability
+    required_mode: TrustMode
+    side_effect_class: str = Field(..., min_length=1, max_length=120)
+    risk: Literal["low", "medium", "high", "blocked"]
+    allowed_inputs_schema: dict[str, Any] = Field(default_factory=dict)
+    denied_capabilities: list[str] = Field(default_factory=list)
+    approval_scope: str = Field(..., min_length=1, max_length=180)
+    idempotency_required: bool
+    rollback_posture: str = Field(..., min_length=1, max_length=360)
+    receipt_kind: str = Field(..., min_length=1, max_length=120)
+    cli_inspection_ref: str = Field(..., min_length=1, max_length=180)
+    api_operation_ref: str = Field(..., min_length=1, max_length=180)
+    control_center_surface_ref: str = Field(..., min_length=1, max_length=180)
+    source_refs: list[str] = Field(default_factory=list)
+    blocked_reason_refs: list[str] = Field(default_factory=list)
+    unsupported_adapter_refs: list[str] = Field(default_factory=list)
+    active_decision_outcome: AuthorityDecisionOutcome
+    active_decision_ref: str = Field(..., min_length=1)
+    active_decision_reason_refs: list[str] = Field(default_factory=list)
+    known_authority: bool = True
+    safe_refs_only: bool = True
+    execution_performed: bool = False
+    mutation_performed: bool = False
+    control_center_grants_authority: bool = False
+    raw_content_included: bool = False
+
+    @model_validator(mode="after")
+    def validate_lane_catalog_entry(self) -> "AuthorityLaneCatalogEntry":
+        for value, field_name in [
+            (self.lane_ref, "authority_lane_catalog_ref"),
+            (self.active_decision_ref, "authority_lane_catalog_decision_ref"),
+        ]:
+            validate_task_ref(value, field_name)
+        for refs, field_name in [
+            (self.source_refs, "authority_lane_catalog_source_ref"),
+            (self.blocked_reason_refs, "authority_lane_catalog_blocked_ref"),
+            (
+                self.unsupported_adapter_refs,
+                "authority_lane_catalog_unsupported_adapter_ref",
+            ),
+            (
+                self.active_decision_reason_refs,
+                "authority_lane_catalog_decision_reason_ref",
+            ),
+        ]:
+            _validate_ref_list(refs, field_name)
+        for value in [
+            self.lane_id,
+            self.label,
+            self.status,
+            self.authority_domain,
+            self.authority_capability,
+            self.required_mode,
+            self.side_effect_class,
+            self.risk,
+            self.approval_scope,
+            self.rollback_posture,
+            self.receipt_kind,
+            self.cli_inspection_ref,
+            self.api_operation_ref,
+            self.control_center_surface_ref,
+            self.active_decision_outcome,
+            *self.denied_capabilities,
+        ]:
+            validate_safe_task_text(_enum_value(value), "authority_lane_catalog_text")
+        validate_safe_task_payload(
+            self.allowed_inputs_schema,
+            "authority_lane_catalog_allowed_inputs_schema",
+        )
+        if self.status in {"approval_required", "blocked"} and not self.idempotency_required:
+            raise ValueError("AUTHORITY_LANE_IDEMPOTENCY_REQUIRED_FOR_GOVERNED_LANE")
+        if self.status == "blocked" and not (
+            self.blocked_reason_refs or self.unsupported_adapter_refs
+        ):
+            raise ValueError("AUTHORITY_LANE_BLOCKED_REASON_REQUIRED")
+        if (
+            not self.known_authority
+            or not self.safe_refs_only
+            or self.execution_performed
+            or self.mutation_performed
+            or self.control_center_grants_authority
+            or self.raw_content_included
+        ):
+            raise ValueError("AUTHORITY_LANE_CATALOG_MUST_NOT_EXECUTE_OR_MINT_AUTHORITY")
+        return self
+
+
+class AuthorityLaneCatalogReadModel(_AuthorityModel):
+    schema_version: Literal["uaa-authority-lane-catalog.v1"] = (
+        AUTHORITY_LANE_CATALOG_SCHEMA_VERSION
+    )
+    contract_ref: str = AUTHORITY_LANE_CATALOG_CONTRACT_REF
+    catalog_ref: str = "authority-lane-catalog-ref:uaa:v1"
+    status: Literal["implemented_read_only_authority_lane_catalog"] = (
+        "implemented_read_only_authority_lane_catalog"
+    )
+    api_ref: str = AUTHORITY_LANE_CATALOG_API_REF
+    cli_ref: str = AUTHORITY_LANE_CATALOG_CLI_REF
+    operator_summary: str = Field(..., min_length=1, max_length=720)
+    entry_count: int = Field(..., ge=0)
+    status_counts: dict[str, int] = Field(default_factory=dict)
+    required_lane_ids: list[str] = Field(default_factory=list)
+    missing_required_lane_ids: list[str] = Field(default_factory=list)
+    entries: list[AuthorityLaneCatalogEntry] = Field(default_factory=list)
+    blocked_reason_refs: list[str] = Field(default_factory=list)
+    unsupported_adapter_refs: list[str] = Field(default_factory=list)
+    safe_refs_only: bool = True
+    execution_performed: bool = False
+    mutation_performed: bool = False
+    control_center_grants_authority: bool = False
+    unknown_authority_default: AuthorityDecisionOutcome = AuthorityDecisionOutcome.deny
+    receipts_required: bool = True
+    audit_required: bool = True
+    redaction_required: bool = True
+    rollback_or_safe_disable_required: bool = True
+    redactions_applied: list[str] = Field(
+        default_factory=lambda: list(AUTHORITY_STATE_REDACTIONS)
+    )
+
+    @model_validator(mode="after")
+    def validate_lane_catalog(self) -> "AuthorityLaneCatalogReadModel":
+        validate_task_ref(self.contract_ref, "authority_lane_catalog_contract_ref")
+        validate_task_ref(self.catalog_ref, "authority_lane_catalog_ref")
+        for value in [self.status, self.api_ref, self.cli_ref, self.operator_summary]:
+            validate_safe_task_text(str(value), "authority_lane_catalog_text")
+        for counts_key, count in self.status_counts.items():
+            validate_safe_task_text(counts_key, "authority_lane_catalog_status")
+            if count < 0:
+                raise ValueError("AUTHORITY_LANE_STATUS_COUNT_INVALID")
+        for refs, field_name in [
+            (self.blocked_reason_refs, "authority_lane_catalog_blocked_ref"),
+            (
+                self.unsupported_adapter_refs,
+                "authority_lane_catalog_unsupported_adapter_ref",
+            ),
+        ]:
+            _validate_ref_list(refs, field_name)
+        for lane_id in [*self.required_lane_ids, *self.missing_required_lane_ids]:
+            validate_safe_task_text(lane_id, "authority_lane_catalog_required_lane_id")
+        if self.entry_count != len(self.entries):
+            raise ValueError("AUTHORITY_LANE_ENTRY_COUNT_DRIFT")
+        actual_counts = Counter(entry.status for entry in self.entries)
+        if self.status_counts != dict(sorted(actual_counts.items())):
+            raise ValueError("AUTHORITY_LANE_STATUS_COUNTS_DRIFT")
+        if self.missing_required_lane_ids:
+            raise ValueError("AUTHORITY_LANE_REQUIRED_IDS_MISSING")
+        if (
+            not self.safe_refs_only
+            or self.execution_performed
+            or self.mutation_performed
+            or self.control_center_grants_authority
+            or self.unknown_authority_default != AuthorityDecisionOutcome.deny.value
+            or not self.receipts_required
+            or not self.audit_required
+            or not self.redaction_required
+            or not self.rollback_or_safe_disable_required
+        ):
+            raise ValueError("AUTHORITY_LANE_CATALOG_GOVERNANCE_REQUIRED")
+        return self
+
+
 class AuthorityLeaseIssueRequest(_AuthorityModel):
     mode: TrustMode
     scope: AuthorityLeaseScope = AuthorityLeaseScope.session
@@ -831,6 +1045,193 @@ class AuthorityDecisionSummary(_AuthorityModel):
             or self.control_center_grants_authority
         ):
             raise ValueError("AUTHORITY_DECISION_SUMMARY_MUST_NOT_EXECUTE")
+        return self
+
+
+AuthorityDomainReadinessStatus = Literal[
+    "active_allow",
+    "requires_confirmation",
+    "draft_only",
+    "known_denied",
+    "blocked_unsupported",
+    "unmapped_target_domain",
+]
+
+
+class AuthorityDomainReadinessEntry(_AuthorityModel):
+    schema_version: Literal["uaa-authority-domain-readiness.v1"] = (
+        "uaa-authority-domain-readiness.v1"
+    )
+    domain: AuthorityDomain
+    status: AuthorityDomainReadinessStatus
+    mapped_capability_count: int = Field(default=0, ge=0)
+    mapped_capability_refs: list[str] = Field(default_factory=list)
+    active_lease_refs: list[str] = Field(default_factory=list)
+    default_requested_modes: list[TrustMode] = Field(default_factory=list)
+    issue_ready_modes: list[TrustMode] = Field(default_factory=list)
+    grantable_capabilities: list[AuthorityCapability] = Field(default_factory=list)
+    decision_outcome_counts: dict[str, int] = Field(default_factory=dict)
+    mapped_status_counts: dict[str, int] = Field(default_factory=dict)
+    unsupported_adapter_refs: list[str] = Field(default_factory=list)
+    blocked_reason_refs: list[str] = Field(default_factory=list)
+    operator_summary: str = Field(..., min_length=1, max_length=520)
+    safe_refs_only: bool = True
+    execution_performed: bool = False
+    mutation_performed: bool = False
+    control_center_grants_authority: bool = False
+
+    @model_validator(mode="after")
+    def validate_domain_readiness(self) -> "AuthorityDomainReadinessEntry":
+        validate_safe_task_text(_enum_value(self.domain), "authority_domain_readiness")
+        validate_safe_task_text(self.status, "authority_domain_readiness_status")
+        for counts, field_name in [
+            (
+                self.decision_outcome_counts,
+                "authority_domain_readiness_outcome",
+            ),
+            (self.mapped_status_counts, "authority_domain_readiness_mapping_status"),
+        ]:
+            for key, value in counts.items():
+                validate_safe_task_text(key, field_name)
+                if value < 0:
+                    raise ValueError("AUTHORITY_DOMAIN_READINESS_COUNT_INVALID")
+        for refs, field_name in [
+            (
+                self.mapped_capability_refs,
+                "authority_domain_readiness_capability_ref",
+            ),
+            (self.active_lease_refs, "authority_domain_readiness_lease_ref"),
+            (
+                self.unsupported_adapter_refs,
+                "authority_domain_readiness_unsupported_ref",
+            ),
+            (self.blocked_reason_refs, "authority_domain_readiness_blocked_ref"),
+        ]:
+            _validate_ref_list(refs, field_name)
+        for value in [
+            *self.default_requested_modes,
+            *self.issue_ready_modes,
+            *self.grantable_capabilities,
+        ]:
+            validate_safe_task_text(
+                _enum_value(value),
+                "authority_domain_readiness_text",
+            )
+        validate_safe_task_text(
+            self.operator_summary,
+            "authority_domain_readiness_summary",
+        )
+        if self.mapped_capability_count != len(self.mapped_capability_refs):
+            raise ValueError("AUTHORITY_DOMAIN_READINESS_CAPABILITY_COUNT_DRIFT")
+        if (
+            self.status == "unmapped_target_domain"
+            and self.mapped_capability_refs
+        ):
+            raise ValueError("AUTHORITY_DOMAIN_READINESS_UNMAPPED_HAS_CAPABILITIES")
+        if self.status != "unmapped_target_domain" and not self.mapped_capability_refs:
+            raise ValueError("AUTHORITY_DOMAIN_READINESS_STATUS_WITHOUT_MAPPING")
+        if (
+            not self.safe_refs_only
+            or self.execution_performed
+            or self.mutation_performed
+            or self.control_center_grants_authority
+        ):
+            raise ValueError("AUTHORITY_DOMAIN_READINESS_MUST_NOT_EXECUTE")
+        return self
+
+
+class AuthorityDomainReadinessReadModel(_AuthorityModel):
+    schema_version: Literal["uaa-authority-domain-readiness-index.v1"] = (
+        AUTHORITY_DOMAIN_READINESS_SCHEMA_VERSION
+    )
+    contract_ref: str = AUTHORITY_DOMAIN_READINESS_CONTRACT_REF
+    api_ref: str = AUTHORITY_DOMAIN_READINESS_API_REF
+    source_authority_state_api_ref: str = AUTHORITY_STATE_API_REF
+    settings_route_ref: str = AUTHORITY_STATE_SETTINGS_ROUTE_REF
+    cli_ref: str = AUTHORITY_DOMAIN_READINESS_CLI_REF
+    operator_summary: str = Field(..., min_length=1, max_length=720)
+    target_domains: list[AuthorityDomain] = Field(default_factory=lambda: list(AuthorityDomain))
+    policy_outcomes: list[AuthorityDecisionOutcome] = Field(
+        default_factory=lambda: list(AuthorityDecisionOutcome)
+    )
+    domain_count: int = Field(..., ge=0)
+    status_counts: dict[str, int] = Field(default_factory=dict)
+    decision_outcome_counts: dict[str, int] = Field(default_factory=dict)
+    entries: list[AuthorityDomainReadinessEntry] = Field(default_factory=list)
+    blocked_reason_refs: list[str] = Field(default_factory=list)
+    unsupported_adapter_refs: list[str] = Field(default_factory=list)
+    safe_refs_only: bool = True
+    execution_performed: bool = False
+    mutation_performed: bool = False
+    control_center_grants_authority: bool = False
+    unknown_authority_default: AuthorityDecisionOutcome = AuthorityDecisionOutcome.deny
+    receipts_required: bool = True
+    audit_required: bool = True
+    redaction_required: bool = True
+    redactions_applied: list[str] = Field(
+        default_factory=lambda: list(AUTHORITY_STATE_REDACTIONS)
+    )
+
+    @model_validator(mode="after")
+    def validate_domain_readiness_model(self) -> "AuthorityDomainReadinessReadModel":
+        validate_task_ref(self.contract_ref, "authority_domain_readiness_contract_ref")
+        for value in [
+            self.api_ref,
+            self.source_authority_state_api_ref,
+            self.settings_route_ref,
+            self.cli_ref,
+            self.operator_summary,
+        ]:
+            validate_safe_task_text(value, "authority_domain_readiness_model_text")
+        for counts, field_name in [
+            (self.status_counts, "authority_domain_readiness_model_status"),
+            (
+                self.decision_outcome_counts,
+                "authority_domain_readiness_model_outcome",
+            ),
+        ]:
+            for key, count in counts.items():
+                validate_safe_task_text(key, field_name)
+                if count < 0:
+                    raise ValueError("AUTHORITY_DOMAIN_READINESS_MODEL_COUNT_INVALID")
+        for refs, field_name in [
+            (
+                self.blocked_reason_refs,
+                "authority_domain_readiness_model_blocked_ref",
+            ),
+            (
+                self.unsupported_adapter_refs,
+                "authority_domain_readiness_model_unsupported_ref",
+            ),
+        ]:
+            _validate_ref_list(refs, field_name)
+        for redaction in self.redactions_applied:
+            validate_safe_task_text(
+                redaction,
+                "authority_domain_readiness_model_redaction",
+            )
+        if self.domain_count != len(self.entries):
+            raise ValueError("AUTHORITY_DOMAIN_READINESS_MODEL_COUNT_DRIFT")
+        entry_domains = [_enum_value(entry.domain) for entry in self.entries]
+        if len(entry_domains) != len(set(entry_domains)):
+            raise ValueError("AUTHORITY_DOMAIN_READINESS_MODEL_DUPLICATE_DOMAIN")
+        if set(entry_domains) != {_enum_value(domain) for domain in self.target_domains}:
+            raise ValueError("AUTHORITY_DOMAIN_READINESS_MODEL_TARGET_DOMAIN_DRIFT")
+        actual_status_counts = Counter(entry.status for entry in self.entries)
+        if self.status_counts != dict(sorted(actual_status_counts.items())):
+            raise ValueError("AUTHORITY_DOMAIN_READINESS_MODEL_STATUS_COUNT_DRIFT")
+        if self.unknown_authority_default != AuthorityDecisionOutcome.deny.value:
+            raise ValueError("AUTHORITY_DOMAIN_READINESS_UNKNOWN_MUST_DENY")
+        if (
+            not self.safe_refs_only
+            or self.execution_performed
+            or self.mutation_performed
+            or self.control_center_grants_authority
+            or not self.receipts_required
+            or not self.audit_required
+            or not self.redaction_required
+        ):
+            raise ValueError("AUTHORITY_DOMAIN_READINESS_MODEL_MUST_NOT_EXECUTE")
         return self
 
 
@@ -1069,6 +1470,8 @@ class AuthorityStateReadModel(_AuthorityModel):
     active_leases: list[AuthorityLease] = Field(default_factory=list)
     capability_mappings: list[AuthorityCapabilityMapping] = Field(default_factory=list)
     decision_summary: AuthorityDecisionSummary
+    domain_readiness: list[AuthorityDomainReadinessEntry] = Field(default_factory=list)
+    authority_lane_catalog: AuthorityLaneCatalogReadModel
     decision_catalog: list[AuthorityDecisionCatalogEntry] = Field(default_factory=list)
     recent_receipts: list[AuthorityLeaseReceipt] = Field(default_factory=list)
     sample_decisions: list[AuthorityPolicyDecision] = Field(default_factory=list)
@@ -1102,6 +1505,13 @@ class AuthorityStateReadModel(_AuthorityModel):
             raise ValueError("AUTHORITY_STATE_GOVERNANCE_REQUIRED")
         if self.unknown_authority_default != AuthorityDecisionOutcome.deny.value:
             raise ValueError("AUTHORITY_UNKNOWN_MUST_DENY")
+        readiness_domains = [_enum_value(entry.domain) for entry in self.domain_readiness]
+        if len(readiness_domains) != len(set(readiness_domains)):
+            raise ValueError("AUTHORITY_DOMAIN_READINESS_DUPLICATE_DOMAIN")
+        if set(readiness_domains) != {
+            _enum_value(domain) for domain in self.target_domains
+        }:
+            raise ValueError("AUTHORITY_DOMAIN_READINESS_TARGET_DOMAIN_DRIFT")
         return self
 
 
@@ -1455,12 +1865,28 @@ def _default_requested_domains(
                 AuthorityCapability.draft,
                 AuthorityCapability.prepare,
             ],
+            AuthorityDomain.files: [
+                AuthorityCapability.read,
+                AuthorityCapability.prepare,
+            ],
             AuthorityDomain.memory: [
                 AuthorityCapability.observe,
                 AuthorityCapability.read,
                 AuthorityCapability.draft,
             ],
+            AuthorityDomain.email: [
+                AuthorityCapability.observe,
+                AuthorityCapability.draft,
+            ],
+            AuthorityDomain.calendar: [
+                AuthorityCapability.observe,
+                AuthorityCapability.draft,
+            ],
             AuthorityDomain.browser: [
+                AuthorityCapability.read,
+            ],
+            AuthorityDomain.provider_model_calls: [
+                AuthorityCapability.observe,
                 AuthorityCapability.read,
             ],
         }
@@ -1478,6 +1904,25 @@ def _default_requested_domains(
             AuthorityDomain.memory: [
                 AuthorityCapability.read,
                 AuthorityCapability.write,
+            ],
+            AuthorityDomain.contacts: [
+                AuthorityCapability.read,
+                AuthorityCapability.write,
+            ],
+            AuthorityDomain.email: [
+                AuthorityCapability.observe,
+                AuthorityCapability.draft,
+            ],
+            AuthorityDomain.calendar: [
+                AuthorityCapability.observe,
+                AuthorityCapability.draft,
+            ],
+            AuthorityDomain.browser: [
+                AuthorityCapability.read,
+            ],
+            AuthorityDomain.provider_model_calls: [
+                AuthorityCapability.observe,
+                AuthorityCapability.read,
             ],
         }
     if mode == TrustMode.approved_safe_local_work_session:
@@ -1506,34 +1951,102 @@ def _default_requested_domains(
                 AuthorityCapability.write,
                 AuthorityCapability.mutate,
             ],
+            AuthorityDomain.contacts: [
+                AuthorityCapability.read,
+                AuthorityCapability.write,
+                AuthorityCapability.mutate,
+            ],
+            AuthorityDomain.email: [
+                AuthorityCapability.observe,
+                AuthorityCapability.draft,
+            ],
+            AuthorityDomain.calendar: [
+                AuthorityCapability.observe,
+                AuthorityCapability.draft,
+            ],
+            AuthorityDomain.browser: [
+                AuthorityCapability.read,
+            ],
+            AuthorityDomain.provider_model_calls: [
+                AuthorityCapability.observe,
+                AuthorityCapability.read,
+            ],
         }
     if mode == TrustMode.full_machine_access_session:
         return {
-            AuthorityDomain.shell: [AuthorityCapability.execute],
-            AuthorityDomain.apps: [
+            AuthorityDomain.workspace: [
+                AuthorityCapability.read,
+                AuthorityCapability.write,
+                AuthorityCapability.execute,
+                AuthorityCapability.commit,
+            ],
+            AuthorityDomain.files: [
+                AuthorityCapability.read,
+                AuthorityCapability.write,
+                AuthorityCapability.mutate,
+            ],
+            AuthorityDomain.memory: [
+                AuthorityCapability.read,
+                AuthorityCapability.write,
+                AuthorityCapability.mutate,
+            ],
+            AuthorityDomain.contacts: [
+                AuthorityCapability.read,
+                AuthorityCapability.write,
+                AuthorityCapability.mutate,
+            ],
+            AuthorityDomain.email: [
                 AuthorityCapability.observe,
-                AuthorityCapability.click,
+                AuthorityCapability.draft,
+            ],
+            AuthorityDomain.calendar: [
+                AuthorityCapability.observe,
+                AuthorityCapability.draft,
             ],
             AuthorityDomain.browser: [
-                AuthorityCapability.observe,
-                AuthorityCapability.click,
-                AuthorityCapability.form_fill,
-                AuthorityCapability.upload,
-                AuthorityCapability.download,
-            ],
-            AuthorityDomain.system_settings: [
                 AuthorityCapability.read,
-                AuthorityCapability.mutate,
+            ],
+            AuthorityDomain.provider_model_calls: [
+                AuthorityCapability.read,
+                AuthorityCapability.execute,
             ],
         }
     return {
-        AuthorityDomain.browser: [
-            AuthorityCapability.observe,
-            AuthorityCapability.click,
-            AuthorityCapability.form_fill,
+        AuthorityDomain.workspace: [
+            AuthorityCapability.read,
+            AuthorityCapability.write,
+            AuthorityCapability.execute,
+            AuthorityCapability.commit,
         ],
-        AuthorityDomain.shopping_payments: [
-            AuthorityCapability.purchase_under_budget,
+        AuthorityDomain.files: [
+            AuthorityCapability.read,
+            AuthorityCapability.write,
+            AuthorityCapability.mutate,
+        ],
+        AuthorityDomain.memory: [
+            AuthorityCapability.read,
+            AuthorityCapability.write,
+            AuthorityCapability.mutate,
+        ],
+        AuthorityDomain.contacts: [
+            AuthorityCapability.read,
+            AuthorityCapability.write,
+            AuthorityCapability.mutate,
+        ],
+        AuthorityDomain.email: [
+            AuthorityCapability.observe,
+            AuthorityCapability.draft,
+        ],
+        AuthorityDomain.calendar: [
+            AuthorityCapability.observe,
+            AuthorityCapability.draft,
+        ],
+        AuthorityDomain.browser: [
+            AuthorityCapability.read,
+        ],
+        AuthorityDomain.provider_model_calls: [
+            AuthorityCapability.read,
+            AuthorityCapability.execute,
         ],
     }
 
@@ -1618,6 +2131,9 @@ def _allowed_domain_capabilities(
                 AuthorityCapability.observe,
                 AuthorityCapability.draft,
             },
+            AuthorityDomain.browser: {
+                AuthorityCapability.read,
+            },
             AuthorityDomain.provider_model_calls: {
                 AuthorityCapability.observe,
                 AuthorityCapability.read,
@@ -1634,16 +2150,43 @@ def _allowed_domain_capabilities(
     if mode == TrustMode.full_local_workspace_session:
         return {
             **_local_implemented_authority_capabilities(),
+            AuthorityDomain.email: {
+                AuthorityCapability.observe,
+                AuthorityCapability.draft,
+            },
+            AuthorityDomain.calendar: {
+                AuthorityCapability.observe,
+                AuthorityCapability.draft,
+            },
             AuthorityDomain.provider_model_calls: {
                 AuthorityCapability.observe,
                 AuthorityCapability.read,
             },
         }
-    if mode in {
-        TrustMode.full_machine_access_session,
-        TrustMode.delegated_mission_autonomous_window,
-    }:
-        return _local_implemented_authority_capabilities()
+    if mode == TrustMode.full_machine_access_session:
+        return {
+            **_local_implemented_authority_capabilities(),
+            AuthorityDomain.email: {
+                AuthorityCapability.observe,
+                AuthorityCapability.draft,
+            },
+            AuthorityDomain.calendar: {
+                AuthorityCapability.observe,
+                AuthorityCapability.draft,
+            },
+        }
+    if mode == TrustMode.delegated_mission_autonomous_window:
+        return {
+            **_local_implemented_authority_capabilities(),
+            AuthorityDomain.email: {
+                AuthorityCapability.observe,
+                AuthorityCapability.draft,
+            },
+            AuthorityDomain.calendar: {
+                AuthorityCapability.observe,
+                AuthorityCapability.draft,
+            },
+        }
     return _local_implemented_authority_capabilities()
 
 
@@ -1991,6 +2534,8 @@ def _mission_requested_domains(
         current = domains.setdefault(domain, [])
         if capability not in current:
             current.append(capability)
+    if not domains:
+        return _default_requested_domains(TrustMode(request.requested_mode))
     return domains
 
 
@@ -2219,6 +2764,23 @@ class AuthorityLeaseStore:
             active_leases=active or build_default_authority_leases(),
             recent_receipts=self.list_receipts(limit=8),
             kill_switch_engaged=authority_lease_kill_switch_engaged(),
+        )
+
+    def build_domain_readiness_read_model(self) -> AuthorityDomainReadinessReadModel:
+        active = self.list_leases(active_only=True) or build_default_authority_leases()
+        kill_switch_engaged = authority_lease_kill_switch_engaged()
+        capability_mappings = build_existing_lane_authority_mappings()
+        decision_catalog = build_authority_decision_catalog(
+            capability_mappings,
+            active,
+            kill_switch_engaged=kill_switch_engaged,
+        )
+        return build_authority_domain_readiness_read_model(
+            decision_catalog,
+            active_leases=active,
+            mode_catalog=build_authority_mode_catalog(
+                kill_switch_engaged=kill_switch_engaged,
+            ),
         )
 
     def preview_decision(
@@ -2641,6 +3203,14 @@ def build_authority_state_read_model(
         leases,
         kill_switch_engaged=kill_switch_engaged,
     )
+    mode_catalog = build_authority_mode_catalog(
+        kill_switch_engaged=kill_switch_engaged,
+    )
+    domain_readiness_model = build_authority_domain_readiness_read_model(
+        decision_catalog,
+        active_leases=leases,
+        mode_catalog=mode_catalog,
+    )
     samples = [
         evaluate_authority_request(
             AuthorityActionRequest(
@@ -2695,19 +3265,468 @@ def build_authority_state_read_model(
     return AuthorityStateReadModel(
         active_mode=TrustMode(leases[-1].mode) if leases else TrustMode.read_only,
         operator_summary=operator_summary,
-        mode_catalog=build_authority_mode_catalog(
-            kill_switch_engaged=kill_switch_engaged,
-        ),
+        mode_catalog=mode_catalog,
         active_leases=leases,
         capability_mappings=capability_mappings,
         decision_summary=build_authority_decision_summary(
             decision_catalog,
             active_lease_count=len(leases),
         ),
+        domain_readiness=domain_readiness_model.entries,
+        authority_lane_catalog=build_authority_lane_catalog_read_model(
+            active_leases=leases,
+            kill_switch_engaged=kill_switch_engaged,
+        ),
         decision_catalog=decision_catalog,
         recent_receipts=recent_receipts or [],
         sample_decisions=samples,
         kill_switch_engaged=kill_switch_engaged,
+    )
+
+
+REQUIRED_AUTHORITY_LANE_IDS = (
+    "local.verify.focused_pytest",
+    "local.verify.repo_verifier",
+    "local.verify.frontend_check",
+    "code.patch_proposal",
+    "code.apply_exact_patch",
+    "web.evidence.fetch_readonly",
+    "memory.review.decision",
+    "model.provider.readiness",
+    "extension.catalog.review",
+)
+
+
+def build_authority_lane_catalog_read_model(
+    *,
+    active_leases: list[AuthorityLease] | None = None,
+    kill_switch_engaged: bool = False,
+) -> AuthorityLaneCatalogReadModel:
+    leases = active_leases or build_default_authority_leases()
+    entries = [
+        _authority_lane_entry(
+            lane_id="local.verify.focused_pytest",
+            label="Focused pytest verifier",
+            status="approval_required",
+            authority_domain=AuthorityDomain.shell,
+            authority_capability=AuthorityCapability.execute,
+            required_mode=TrustMode.approved_safe_local_work_session,
+            side_effect_class="local_dev_workspace_only",
+            risk="medium",
+            allowed_inputs_schema={
+                "argv": "fixed_pytest_wrapper",
+                "selector_refs": "bounded_repo_local_test_selectors",
+                "cwd": "repo_root_only",
+                "shell_expansion": False,
+            },
+            denied_capabilities=[
+                "arbitrary command strings",
+                "shell expansion",
+                "network commands",
+                "background processes",
+                "raw command output persistence",
+            ],
+            approval_scope="approval-scope:runtime-focused-pytest-exact",
+            idempotency_required=True,
+            rollback_posture="No mutation rollback; safe-disable cancels the RuntimeGateway lane and receipts keep redacted output refs only.",
+            receipt_kind="runtime_command_receipt",
+            cli_inspection_ref="scripts/dev/uaa_runtime.py inspect-action-inbox-bridge",
+            api_operation_ref="POST /api/runtime/invocations/{id}/execute",
+            control_center_surface_ref="control-center-surface:actions-inbox",
+            source_refs=[
+                "lane-ref:runtime-gateway:focused-pytest-action-inbox",
+                "capability-ref:runtime-gateway:focused-pytest-action-inbox",
+            ],
+            active_leases=leases,
+            kill_switch_engaged=kill_switch_engaged,
+        ),
+        _authority_lane_entry(
+            lane_id="local.verify.repo_verifier",
+            label="Repo verifier command",
+            status="approval_required",
+            authority_domain=AuthorityDomain.shell,
+            authority_capability=AuthorityCapability.execute,
+            required_mode=TrustMode.approved_safe_local_work_session,
+            side_effect_class="local_dev_workspace_only",
+            risk="medium",
+            allowed_inputs_schema={
+                "argv": "fixed_verifier_script_id",
+                "script_refs": "allowlisted_repo_verifier_refs",
+                "cwd": "repo_root_only",
+                "shell_expansion": False,
+            },
+            denied_capabilities=[
+                "arbitrary verifier paths",
+                "shell expansion",
+                "network commands",
+                "background processes",
+                "raw command output persistence",
+            ],
+            approval_scope="approval-scope:runtime-repo-verifier-exact",
+            idempotency_required=True,
+            rollback_posture="No mutation rollback; safe-disable cancels the RuntimeGateway lane and receipts keep redacted verifier refs only.",
+            receipt_kind="runtime_command_receipt",
+            cli_inspection_ref="scripts/dev/uaa_runtime.py inspect-action-inbox-bridge",
+            api_operation_ref="POST /api/runtime/invocations/{id}/execute",
+            control_center_surface_ref="control-center-surface:actions-inbox",
+            source_refs=[
+                "lane-ref:runtime-gateway:repo-verifier-action-inbox",
+                "capability-ref:runtime-gateway:repo-verifier-action-inbox",
+            ],
+            active_leases=leases,
+            kill_switch_engaged=kill_switch_engaged,
+        ),
+        _authority_lane_entry(
+            lane_id="local.verify.frontend_check",
+            label="Frontend check command",
+            status="approval_required",
+            authority_domain=AuthorityDomain.shell,
+            authority_capability=AuthorityCapability.execute,
+            required_mode=TrustMode.approved_safe_local_work_session,
+            side_effect_class="local_dev_workspace_only",
+            risk="medium",
+            allowed_inputs_schema={
+                "argv": "fixed_frontend_check_wrapper",
+                "workspace": "control_center_app_only",
+                "cwd": "repo_root_only",
+                "shell_expansion": False,
+            },
+            denied_capabilities=[
+                "arbitrary package scripts",
+                "shell expansion",
+                "network commands",
+                "background processes",
+                "raw command output persistence",
+            ],
+            approval_scope="approval-scope:runtime-frontend-check-exact",
+            idempotency_required=True,
+            rollback_posture="No mutation rollback; safe-disable cancels the RuntimeGateway lane and receipts keep redacted check refs only.",
+            receipt_kind="runtime_command_receipt",
+            cli_inspection_ref="scripts/dev/uaa_runtime.py inspect-action-inbox-bridge",
+            api_operation_ref="POST /api/runtime/invocations/{id}/execute",
+            control_center_surface_ref="control-center-surface:actions-inbox",
+            source_refs=[
+                "lane-ref:runtime-gateway:frontend-check-action-inbox",
+                "capability-ref:runtime-gateway:frontend-check-action-inbox",
+            ],
+            active_leases=leases,
+            kill_switch_engaged=kill_switch_engaged,
+        ),
+        _authority_lane_entry(
+            lane_id="code.patch_proposal",
+            label="Code patch proposal artifact",
+            status="proposal_only",
+            authority_domain=AuthorityDomain.workspace,
+            authority_capability=AuthorityCapability.draft,
+            required_mode=TrustMode.read_only,
+            side_effect_class="validation_only",
+            risk="low",
+            allowed_inputs_schema={
+                "source_refs": "safe_file_and_context_refs_only",
+                "artifact_refs": "diff_summary_and_hash_refs_only",
+                "file_mutation": False,
+            },
+            denied_capabilities=[
+                "file writes",
+                "patch apply",
+                "shell execution",
+                "provider model calls",
+                "hidden context injection",
+            ],
+            approval_scope="approval-scope:not-required-for-preview",
+            idempotency_required=False,
+            rollback_posture="No mutation is performed; rollback posture is planned before any apply lane can graduate.",
+            receipt_kind="proposal_receipt_plan",
+            cli_inspection_ref="scripts/dev/uaa_coding.py inspect-patch-proposal",
+            api_operation_ref="GET /control-center/coding/patch-proposal",
+            control_center_surface_ref="control-center-surface:code-workbench",
+            source_refs=[
+                "capability-ref:coding:patch-proposal-preview",
+                "lane-ref:coding:patch-proposal-preview",
+            ],
+            active_leases=leases,
+            kill_switch_engaged=kill_switch_engaged,
+        ),
+        _authority_lane_entry(
+            lane_id="code.apply_exact_patch",
+            label="Code exact patch apply",
+            status="blocked",
+            authority_domain=AuthorityDomain.files,
+            authority_capability=AuthorityCapability.write,
+            required_mode=TrustMode.full_local_workspace_session,
+            side_effect_class="local_dev_workspace_only",
+            risk="high",
+            allowed_inputs_schema={
+                "patch_ref": "precomputed_patch_hash_ref",
+                "file_refs": "approved_repo_file_refs_only",
+                "rollback_ref": "required_before_apply",
+                "shell_execution": False,
+            },
+            denied_capabilities=[
+                "unhashed patch payloads",
+                "unapproved file targets",
+                "shell execution",
+                "git mutation",
+                "provider model calls",
+            ],
+            approval_scope="approval-scope:coding-approved-patch-apply-exact",
+            idempotency_required=True,
+            rollback_posture="Blocked until checkpoint and rollback artifact refs are implemented and tested for exact patch apply.",
+            receipt_kind="patch_apply_receipt_required",
+            cli_inspection_ref="scripts/dev/uaa_coding.py inspect-patch-apply-readiness",
+            api_operation_ref="GET /control-center/coding/patch-apply-readiness",
+            control_center_surface_ref="control-center-surface:code-workbench",
+            source_refs=[
+                "capability-ref:coding:approved-patch-apply",
+                "lane-ref:coding:approved-patch-apply",
+            ],
+            blocked_reason_refs=[
+                "blocked-state:coding-no-file-write",
+                "blocked-authority:action-tool-code:no-generic-tool-execution",
+            ],
+            active_leases=leases,
+            kill_switch_engaged=kill_switch_engaged,
+        ),
+        _authority_lane_entry(
+            lane_id="web.evidence.fetch_readonly",
+            label="Web evidence read-only preview",
+            status="approval_required",
+            authority_domain=AuthorityDomain.browser,
+            authority_capability=AuthorityCapability.read,
+            required_mode=TrustMode.ask_before_changes,
+            side_effect_class="governed_network_read_only",
+            risk="medium",
+            allowed_inputs_schema={
+                "url_ref": "allowlisted_https_get_ref",
+                "request_ref": "idempotent_web_evidence_request_ref",
+                "content": "untrusted_bounded_preview",
+                "browser_action": False,
+            },
+            denied_capabilities=[
+                "unrestricted browsing",
+                "browser actions",
+                "auth session state",
+                "downloads or uploads",
+                "POST PUT PATCH DELETE",
+                "context injection",
+                "memory writes",
+            ],
+            approval_scope="approval-scope:web-evidence-browser-read-exact",
+            idempotency_required=True,
+            rollback_posture="Safe-disable blocks the web evidence product slice; local attachment receipts can be suppressed without trusting fetched content.",
+            receipt_kind="web_evidence_preview_receipt",
+            cli_inspection_ref="scripts/dev/uaa_founder_loop.py inspect-web-evidence",
+            api_operation_ref="POST /control-center/web-evidence/attach",
+            control_center_surface_ref="control-center-surface:evidence",
+            source_refs=[
+                "lane-ref:web-evidence-product-slice",
+                "contract-ref:web-evidence-product-slice:v1",
+            ],
+            active_leases=leases,
+            kill_switch_engaged=kill_switch_engaged,
+        ),
+        _authority_lane_entry(
+            lane_id="memory.review.decision",
+            label="Memory Review decision receipt",
+            status="approval_required",
+            authority_domain=AuthorityDomain.memory,
+            authority_capability=AuthorityCapability.write,
+            required_mode=TrustMode.approved_safe_local_work_session,
+            side_effect_class="local_dev_workspace_only",
+            risk="medium",
+            allowed_inputs_schema={
+                "decision": "accept_correct_reject_defer_merge_supersede_forget_request",
+                "candidate_ref": "memory_review_candidate_ref",
+                "corrected_summary_ref": "safe_ref_required_for_correct",
+                "raw_memory_content": False,
+            },
+            denied_capabilities=[
+                "memory as truth",
+                "automatic memory write",
+                "hidden context injection",
+                "raw memory content persistence",
+                "silent delete",
+            ],
+            approval_scope="approval-scope:memory-review-decision-exact",
+            idempotency_required=True,
+            rollback_posture="Decision receipts preserve review lifecycle refs; write/delete rollback stays blocked outside exact accept/correct reviewed recall scope.",
+            receipt_kind="memory_review_decision_receipt",
+            cli_inspection_ref="scripts/dev/uaa_founder_loop.py memory-review-decision",
+            api_operation_ref="POST /control-center/memory/review/{candidate_ref}/{decision}",
+            control_center_surface_ref="control-center-surface:memory-review",
+            source_refs=[
+                "contract-ref:memory-review-decision:v1",
+                "safe-disable-posture-ref:memory-review:accept-correct-write-disabled",
+            ],
+            active_leases=leases,
+            kill_switch_engaged=kill_switch_engaged,
+        ),
+        _authority_lane_entry(
+            lane_id="model.provider.readiness",
+            label="Model provider readiness",
+            status="implemented",
+            authority_domain=AuthorityDomain.provider_model_calls,
+            authority_capability=AuthorityCapability.read,
+            required_mode=TrustMode.read_only,
+            side_effect_class="validation_only",
+            risk="low",
+            allowed_inputs_schema={
+                "provider_refs": "configured_provider_status_refs_only",
+                "runtime_measurements": "stored_or_static_measurement_refs_only",
+                "model_call": False,
+            },
+            denied_capabilities=[
+                "provider SDK calls",
+                "runtime model calls",
+                "provider transport payload persistence",
+                "model output as authority",
+                "billing authority",
+            ],
+            approval_scope="approval-scope:not-required-for-readiness",
+            idempotency_required=False,
+            rollback_posture="Read-only status has no mutation rollback; provider execution remains separately gated.",
+            receipt_kind="readiness_status_evidence_ref",
+            cli_inspection_ref="scripts/inspect_model_provider_control_plane.py",
+            api_operation_ref="GET /control-center/providers/runtime-control-plane",
+            control_center_surface_ref="control-center-surface:models-runtime",
+            source_refs=[
+                "lane-ref:model-slot-posture",
+                "contract-ref:model-provider-control-plane:v1",
+            ],
+            active_leases=leases,
+            kill_switch_engaged=kill_switch_engaged,
+        ),
+        _authority_lane_entry(
+            lane_id="extension.catalog.review",
+            label="Extension catalog review",
+            status="implemented",
+            authority_domain=AuthorityDomain.workspace,
+            authority_capability=AuthorityCapability.read,
+            required_mode=TrustMode.read_only,
+            side_effect_class="validation_only",
+            risk="low",
+            allowed_inputs_schema={
+                "package_refs": "inspectable_extension_metadata_refs_only",
+                "hash_refs": "reviewed_or_missing_hash_refs",
+                "callable_import": False,
+            },
+            denied_capabilities=[
+                "runtime import",
+                "plugin execution",
+                "connector writes",
+                "automatic skill enablement",
+                "unrestricted network access",
+            ],
+            approval_scope="approval-scope:not-required-for-readonly-review",
+            idempotency_required=False,
+            rollback_posture="Review-only metadata performs no activation; revoked or disabled extension posture remains deny-by-default.",
+            receipt_kind="extension_catalog_review_evidence_ref",
+            cli_inspection_ref="scripts/dev/uaa_extensions.py inspect-catalog",
+            api_operation_ref="GET /extensions/catalog",
+            control_center_surface_ref="control-center-surface:extensions",
+            source_refs=[
+                "inspectable-catalog:uaa-extension-catalog-v1",
+                "doc:inspectable-extension-catalog",
+            ],
+            active_leases=leases,
+            kill_switch_engaged=kill_switch_engaged,
+        ),
+    ]
+    lane_ids = [entry.lane_id for entry in entries]
+    missing = [lane_id for lane_id in REQUIRED_AUTHORITY_LANE_IDS if lane_id not in lane_ids]
+    blocked_refs = sorted({ref for entry in entries for ref in entry.blocked_reason_refs})
+    unsupported_refs = sorted(
+        {ref for entry in entries for ref in entry.unsupported_adapter_refs}
+    )
+    status_counts = Counter(entry.status for entry in entries)
+    return AuthorityLaneCatalogReadModel(
+        operator_summary=(
+            "Authority Lane Catalog V1 normalizes exact governed lanes for local "
+            "verification, code proposals, web evidence, memory review, provider "
+            "readiness, and extension review. Unknown authority still denies; "
+            "blocked lanes are visible contracts, not executable authority."
+        ),
+        entry_count=len(entries),
+        status_counts=dict(sorted(status_counts.items())),
+        required_lane_ids=list(REQUIRED_AUTHORITY_LANE_IDS),
+        missing_required_lane_ids=missing,
+        entries=entries,
+        blocked_reason_refs=blocked_refs,
+        unsupported_adapter_refs=unsupported_refs,
+    )
+
+
+def _authority_lane_entry(
+    *,
+    lane_id: str,
+    label: str,
+    status: AuthorityLaneStatus,
+    authority_domain: AuthorityDomain,
+    authority_capability: AuthorityCapability,
+    required_mode: TrustMode,
+    side_effect_class: str,
+    risk: Literal["low", "medium", "high", "blocked"],
+    allowed_inputs_schema: dict[str, Any],
+    denied_capabilities: list[str],
+    approval_scope: str,
+    idempotency_required: bool,
+    rollback_posture: str,
+    receipt_kind: str,
+    cli_inspection_ref: str,
+    api_operation_ref: str,
+    control_center_surface_ref: str,
+    source_refs: list[str],
+    active_leases: list[AuthorityLease],
+    kill_switch_engaged: bool,
+    blocked_reason_refs: list[str] | None = None,
+    unsupported_adapter_refs: list[str] | None = None,
+) -> AuthorityLaneCatalogEntry:
+    lane_ref = f"authority-lane-ref:{lane_id.replace('.', '-')}"
+    source_blocked_refs = blocked_reason_refs or []
+    source_unsupported_refs = unsupported_adapter_refs or []
+    decision = evaluate_authority_request(
+        AuthorityActionRequest(
+            action_ref=f"authority-action-ref:lane-catalog:{lane_id.replace('.', '-')}",
+            domain=authority_domain,
+            capability=authority_capability,
+            safe_summary=f"Evaluate Authority Lane Catalog posture for {label}.",
+            route_ref=api_operation_ref,
+            capability_ref=f"authority-capability-ref:{lane_id.replace('.', '-')}",
+            lane_ref=lane_ref,
+            requested_mode=required_mode,
+            draft_fallback_available=status in {"implemented", "partial", "proposal_only"},
+            unsupported_adapter=bool(source_unsupported_refs),
+            kill_switch_engaged=kill_switch_engaged,
+            rollback_ref=f"rollback-ref:authority-lane-catalog:{lane_id.replace('.', '-')}",
+            safe_disable_ref=f"safe-disable-ref:authority-lane-catalog:{lane_id.replace('.', '-')}",
+        ),
+        active_leases,
+    )
+    return AuthorityLaneCatalogEntry(
+        lane_id=lane_id,
+        lane_ref=lane_ref,
+        label=label,
+        status=status,
+        authority_domain=authority_domain,
+        authority_capability=authority_capability,
+        required_mode=required_mode,
+        side_effect_class=side_effect_class,
+        risk=risk,
+        allowed_inputs_schema=allowed_inputs_schema,
+        denied_capabilities=denied_capabilities,
+        approval_scope=approval_scope,
+        idempotency_required=idempotency_required,
+        rollback_posture=rollback_posture,
+        receipt_kind=receipt_kind,
+        cli_inspection_ref=cli_inspection_ref,
+        api_operation_ref=api_operation_ref,
+        control_center_surface_ref=control_center_surface_ref,
+        source_refs=source_refs,
+        blocked_reason_refs=list(dict.fromkeys(source_blocked_refs)),
+        unsupported_adapter_refs=list(dict.fromkeys(source_unsupported_refs)),
+        active_decision_outcome=decision.outcome,
+        active_decision_ref=decision.decision_ref,
+        active_decision_reason_refs=list(decision.reason_refs),
     )
 
 
@@ -2784,6 +3803,212 @@ def build_authority_decision_summary(
             f"{degraded} degrade to draft, {denied} denied. Unsupported adapters "
             "remain denied until implemented and tested."
         ),
+    )
+
+
+def build_authority_domain_readiness(
+    decision_catalog: list[AuthorityDecisionCatalogEntry],
+    *,
+    active_leases: list[AuthorityLease],
+    mode_catalog: list[AuthorityModeCatalogEntry],
+) -> list[AuthorityDomainReadinessEntry]:
+    rows: list[AuthorityDomainReadinessEntry] = []
+    active_lease_refs_by_domain: dict[str, list[str]] = {}
+    for lease in active_leases:
+        if not lease.is_active():
+            continue
+        for domain in lease.domains:
+            active_lease_refs_by_domain.setdefault(_enum_value(domain), []).append(
+                lease.lease_ref
+            )
+
+    for domain in AuthorityDomain:
+        domain_value = domain.value
+        domain_entries = [
+            entry
+            for entry in decision_catalog
+            if _enum_value(entry.decision.domain) == domain_value
+        ]
+        outcome_counter = Counter(
+            _enum_value(entry.decision.outcome) for entry in domain_entries
+        )
+        status_counter = Counter(entry.status for entry in domain_entries)
+        mapped_refs = [entry.authority_capability_ref for entry in domain_entries]
+        unsupported_refs = sorted(
+            {
+                ref
+                for entry in domain_entries
+                for ref in entry.unsupported_adapter_refs
+            }
+        )
+        blocked_refs = sorted(
+            {
+                ref
+                for entry in domain_entries
+                if _enum_value(entry.decision.outcome)
+                != AuthorityDecisionOutcome.allow.value
+                for ref in entry.decision.reason_refs
+            }
+        )
+        if not domain_entries:
+            blocked_refs = ["reason-ref:authority:target-domain-unmapped"]
+
+        default_requested_modes = [
+            TrustMode(entry.mode)
+            for entry in mode_catalog
+            if _domain_in_capability_map(domain, entry.default_requested_domains)
+        ]
+        issue_ready_modes = [
+            TrustMode(entry.mode)
+            for entry in mode_catalog
+            if entry.issue_ready
+            and _domain_in_capability_map(domain, entry.grantable_domains)
+        ]
+        grantable_capability_values = {
+            _enum_value(capability)
+            for entry in mode_catalog
+            for capability in _domain_capabilities(domain, entry.grantable_domains)
+        }
+        grantable_capabilities = [
+            capability
+            for capability in AuthorityCapability
+            if capability.value in grantable_capability_values
+        ]
+        status = _authority_domain_readiness_status(
+            domain_entries=domain_entries,
+            outcome_counter=outcome_counter,
+            unsupported_adapter_refs=unsupported_refs,
+        )
+        rows.append(
+            AuthorityDomainReadinessEntry(
+                domain=domain,
+                status=status,
+                mapped_capability_count=len(mapped_refs),
+                mapped_capability_refs=mapped_refs,
+                active_lease_refs=list(
+                    dict.fromkeys(active_lease_refs_by_domain.get(domain_value, []))
+                ),
+                default_requested_modes=list(dict.fromkeys(default_requested_modes)),
+                issue_ready_modes=list(dict.fromkeys(issue_ready_modes)),
+                grantable_capabilities=grantable_capabilities,
+                decision_outcome_counts={
+                    outcome.value: outcome_counter.get(outcome.value, 0)
+                    for outcome in AuthorityDecisionOutcome
+                },
+                mapped_status_counts=dict(sorted(status_counter.items())),
+                unsupported_adapter_refs=unsupported_refs,
+                blocked_reason_refs=blocked_refs,
+                operator_summary=_authority_domain_readiness_summary(
+                    domain=domain,
+                    status=status,
+                    mapped_count=len(mapped_refs),
+                    active_lease_count=len(
+                        active_lease_refs_by_domain.get(domain_value, [])
+                    ),
+                    unsupported_count=len(unsupported_refs),
+                    issue_ready_mode_count=len(issue_ready_modes),
+                ),
+            )
+        )
+    return rows
+
+
+def build_authority_domain_readiness_read_model(
+    decision_catalog: list[AuthorityDecisionCatalogEntry],
+    *,
+    active_leases: list[AuthorityLease],
+    mode_catalog: list[AuthorityModeCatalogEntry],
+) -> AuthorityDomainReadinessReadModel:
+    entries = build_authority_domain_readiness(
+        decision_catalog,
+        active_leases=active_leases,
+        mode_catalog=mode_catalog,
+    )
+    status_counts = Counter(entry.status for entry in entries)
+    outcome_counts: Counter[str] = Counter()
+    blocked_reason_refs: list[str] = []
+    unsupported_adapter_refs: list[str] = []
+    for entry in entries:
+        outcome_counts.update(entry.decision_outcome_counts)
+        blocked_reason_refs.extend(entry.blocked_reason_refs)
+        unsupported_adapter_refs.extend(entry.unsupported_adapter_refs)
+    allowed = outcome_counts.get(AuthorityDecisionOutcome.allow.value, 0)
+    asked = outcome_counts.get(AuthorityDecisionOutcome.ask.value, 0)
+    degraded = outcome_counts.get(
+        AuthorityDecisionOutcome.degrade_to_draft.value,
+        0,
+    )
+    denied = outcome_counts.get(AuthorityDecisionOutcome.deny.value, 0)
+    return AuthorityDomainReadinessReadModel(
+        operator_summary=(
+            f"Authority domain readiness covers {len(entries)} target domains "
+            f"from active AuthorityLease state: {allowed} allowed capability "
+            f"decision(s), {asked} ask decision(s), {degraded} draft-only "
+            f"decision(s), and {denied} denied decision(s). Unsupported "
+            "adapters remain visible and non-executable."
+        ),
+        domain_count=len(entries),
+        status_counts=dict(sorted(status_counts.items())),
+        decision_outcome_counts={
+            outcome.value: outcome_counts.get(outcome.value, 0)
+            for outcome in AuthorityDecisionOutcome
+        },
+        entries=entries,
+        blocked_reason_refs=sorted(set(blocked_reason_refs)),
+        unsupported_adapter_refs=sorted(set(unsupported_adapter_refs)),
+    )
+
+
+def _domain_in_capability_map(
+    domain: AuthorityDomain,
+    capability_map: dict[AuthorityDomain, list[AuthorityCapability]],
+) -> bool:
+    return domain.value in {_enum_value(key) for key in capability_map}
+
+
+def _domain_capabilities(
+    domain: AuthorityDomain,
+    capability_map: dict[AuthorityDomain, list[AuthorityCapability]],
+) -> list[AuthorityCapability]:
+    for key, capabilities in capability_map.items():
+        if _enum_value(key) == domain.value:
+            return capabilities
+    return []
+
+
+def _authority_domain_readiness_status(
+    *,
+    domain_entries: list[AuthorityDecisionCatalogEntry],
+    outcome_counter: Counter[str],
+    unsupported_adapter_refs: list[str],
+) -> AuthorityDomainReadinessStatus:
+    if not domain_entries:
+        return "unmapped_target_domain"
+    if outcome_counter.get(AuthorityDecisionOutcome.allow.value, 0) > 0:
+        return "active_allow"
+    if outcome_counter.get(AuthorityDecisionOutcome.ask.value, 0) > 0:
+        return "requires_confirmation"
+    if outcome_counter.get(AuthorityDecisionOutcome.degrade_to_draft.value, 0) > 0:
+        return "draft_only"
+    if unsupported_adapter_refs:
+        return "blocked_unsupported"
+    return "known_denied"
+
+
+def _authority_domain_readiness_summary(
+    *,
+    domain: AuthorityDomain,
+    status: AuthorityDomainReadinessStatus,
+    mapped_count: int,
+    active_lease_count: int,
+    unsupported_count: int,
+    issue_ready_mode_count: int,
+) -> str:
+    return (
+        f"{domain.value} authority is {status} with {mapped_count} mapped "
+        f"capability ref(s), {active_lease_count} active lease ref(s), "
+        f"{issue_ready_mode_count} issue-ready mode(s), and "
+        f"{unsupported_count} unsupported adapter ref(s)."
     )
 
 

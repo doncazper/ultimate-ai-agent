@@ -174,6 +174,7 @@ class TrustAuthorityLane(BaseModel):
     cli_inspection_refs: list[str] = Field(default_factory=list)
     safe_disable_refs: list[str] = Field(default_factory=list)
     rollback_refs: list[str] = Field(default_factory=list)
+    authority_readiness_refs: list[str] = Field(default_factory=list)
     promotion_path_refs: list[str] = Field(default_factory=list)
     blocked_authority_refs: list[str] = Field(default_factory=list)
     requires_exact_approval: bool = False
@@ -220,6 +221,7 @@ class TrustAuthorityLane(BaseModel):
                 raise ValueError("Trust authority CLI inspection ref is not registered")
         _validate_ref_list(self.safe_disable_refs, "safe_disable_refs")
         _validate_ref_list(self.rollback_refs, "rollback_refs")
+        _validate_ref_list(self.authority_readiness_refs, "authority_readiness_refs")
         _validate_ref_list(self.promotion_path_refs, "promotion_path_refs")
         _validate_ref_list(self.blocked_authority_refs, "blocked_authority_refs")
         if (
@@ -237,8 +239,12 @@ class TrustAuthorityLane(BaseModel):
             raise ValueError("Trust authority lanes require CLI inspection refs")
         if self.tier >= 3 and (not self.safe_disable_refs or not self.rollback_refs):
             raise ValueError("Mutation authority lanes require rollback posture refs")
+        if not self.authority_readiness_refs:
+            raise ValueError("Trust authority lanes require authority readiness refs")
         if self.authority_state in {"planned", "blocked"} and not self.promotion_path_refs:
-            raise ValueError("Blocked/planned lanes require promotion path refs")
+            raise ValueError(
+                "Blocked/planned lanes require compatibility promotion path refs"
+            )
         if self.tier >= 4 and self.authority_state == "available_now":
             raise ValueError("Tier 4 and Tier 5 authority requires exact approval")
         if self.tier >= 4 and self.authority_state == "approval_required":
@@ -471,6 +477,7 @@ class TrustAuthorityMatrixReadModel(BaseModel):
     cli_inspection_refs: list[str] = Field(default_factory=list)
     safe_disable_refs: list[str] = Field(default_factory=list)
     rollback_refs: list[str] = Field(default_factory=list)
+    authority_readiness_refs: list[str] = Field(default_factory=list)
     promotion_path_refs: list[str] = Field(default_factory=list)
     blocked_authority_refs: list[str] = Field(default_factory=list)
     next_safe_action: str = Field(..., min_length=1, max_length=500)
@@ -513,6 +520,7 @@ class TrustAuthorityMatrixReadModel(BaseModel):
         _validate_text_list(self.cli_inspection_refs, "cli_inspection_refs")
         _validate_ref_list(self.safe_disable_refs, "safe_disable_refs")
         _validate_ref_list(self.rollback_refs, "rollback_refs")
+        _validate_ref_list(self.authority_readiness_refs, "authority_readiness_refs")
         _validate_ref_list(self.promotion_path_refs, "promotion_path_refs")
         _validate_ref_list(self.blocked_authority_refs, "blocked_authority_refs")
         _validate_ref_list(self.available_now_lane_refs, "available_now_lane_refs")
@@ -593,10 +601,16 @@ class TrustAuthorityMatrixReadModel(BaseModel):
             [ref for lane in self.lanes for ref in lane.rollback_refs]
         ):
             raise ValueError("Trust authority rollback refs drift")
+        if self.authority_readiness_refs != _merge_unique(
+            [ref for lane in self.lanes for ref in lane.authority_readiness_refs]
+        ):
+            raise ValueError("Trust authority readiness refs drift")
         if self.promotion_path_refs != _merge_unique(
             [ref for lane in self.lanes for ref in lane.promotion_path_refs]
         ):
-            raise ValueError("Trust authority promotion path refs drift")
+            raise ValueError(
+                "Trust authority compatibility promotion path refs drift"
+            )
         if self.blocked_authority_refs != _merge_unique(
             [ref for lane in self.lanes for ref in lane.blocked_authority_refs]
         ):
@@ -672,6 +686,9 @@ def build_trust_authority_matrix_read_model(
         ),
         rollback_refs=_merge_unique(
             [ref for lane in lanes for ref in lane.rollback_refs]
+        ),
+        authority_readiness_refs=_merge_unique(
+            [ref for lane in lanes for ref in lane.authority_readiness_refs]
         ),
         promotion_path_refs=_merge_unique(
             [ref for lane in lanes for ref in lane.promotion_path_refs]
@@ -1642,6 +1659,7 @@ def _lane(
     cli_inspection_refs: list[str] | None = None,
     safe_disable_refs: list[str] | None = None,
     rollback_refs: list[str] | None = None,
+    authority_readiness_refs: list[str] | None = None,
     promotion_path_refs: list[str] | None = None,
     blocked_authority_refs: list[str] | None = None,
     requires_exact_approval: bool = False,
@@ -1656,6 +1674,12 @@ def _lane(
     )
     domain_ref = authority_domain_ref or default_domain_ref
     capability_ref = authority_capability_ref or default_capability_ref
+    legacy_promotion_path_refs = promotion_path_refs or [
+        f"promotion-path-ref:trust:{lane_suffix}:exact-scope-required"
+    ]
+    readiness_refs = authority_readiness_refs or _authority_readiness_refs(
+        legacy_promotion_path_refs
+    )
     return TrustAuthorityLane(
         lane_ref=lane_ref,
         label=label,
@@ -1689,13 +1713,31 @@ def _lane(
         safe_disable_refs=safe_disable_refs
         or [f"safe-disable-ref:trust:{lane_suffix}:read-model-only"],
         rollback_refs=rollback_refs or [f"rollback-ref:trust:{lane_suffix}:no-mutation"],
-        promotion_path_refs=promotion_path_refs
-        or [f"promotion-path-ref:trust:{lane_suffix}:exact-scope-required"],
+        authority_readiness_refs=readiness_refs,
+        promotion_path_refs=legacy_promotion_path_refs,
         blocked_authority_refs=blocked_authority_refs or [],
         requires_exact_approval=requires_exact_approval,
         requires_safe_disable=requires_safe_disable,
         requires_rollback_posture=requires_rollback_posture,
     )
+
+
+def _authority_readiness_refs(compatibility_refs: list[str]) -> list[str]:
+    refs: list[str] = []
+    for ref in compatibility_refs:
+        if ref.startswith("promotion-path-ref:"):
+            refs.append(
+                "authority-readiness-ref:"
+                f"{ref.removeprefix('promotion-path-ref:')}"
+            )
+        elif ref.startswith("promotion-path:"):
+            refs.append(
+                "authority-readiness-ref:"
+                f"{ref.removeprefix('promotion-path:')}"
+            )
+        else:
+            refs.append(f"authority-readiness-ref:compatibility:{ref}")
+    return _merge_unique(refs)
 
 
 def _tier_summaries(lanes: list[TrustAuthorityLane]) -> list[TrustAuthorityTierSummary]:

@@ -437,7 +437,7 @@ Tasks:
   off to Plans or Actions without treating model output as authority, truth,
   memory, or execution permission. OpenWebUI remains a secondary local/dev
   shell, not the source of product state.
-- `UAA-P1-075` Done: Governed Code workbench v1: Code is narrower than Goat
+- `UAA-P1-075` Done: Governed Code workbench v1: Code is narrower than broad external runtimes
   but better governed through repo-local proposal scope, safe diff summary refs,
   validation plan/result refs, exact approval requirement refs, expected apply
   and rollback receipt refs, and Evidence Timeline binding. Apply execution,

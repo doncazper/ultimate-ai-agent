@@ -4227,7 +4227,7 @@ function AgentLoopThreadPanel({
     >
       <div className="section-heading compact">
         <div>
-          <p className="eyebrow">GoatCitadel Catch-Up 02 / 08</p>
+          <p className="eyebrow">Runtime Capability Foundation 02 / 08</p>
           <h3>Agent Loop Thread</h3>
         </div>
         <span className="status-pill compact">{truthLabel}</span>
@@ -4641,12 +4641,12 @@ function OperatorWorkspaceSpinePanel({
         </article>
         <article className="status-card">
           <div className="status-card-header">
-            <h3>Promotion Path</h3>
-            <span>one lane at a time</span>
+            <h3>Authority Readiness</h3>
+            <span>mode/domain/lease</span>
           </div>
           <p>{readModel.next_safe_action}</p>
           <RefListWithFallback
-            emptyLabel="Promotion refs: none"
+            emptyLabel="Authority readiness refs: none"
             refs={readModel.promotion_path_refs}
           />
           <RefListWithFallback
@@ -5591,7 +5591,7 @@ function EvidenceMemoryLoopBindingPanel({
         refs={readModel.blocked_authority_refs}
       />
       <RefListWithFallback
-        emptyLabel="Promotion path refs: none"
+        emptyLabel="Authority readiness refs: none"
         refs={readModel.promotion_path_refs}
       />
       <p className="muted">{readModel.next_safe_action}</p>

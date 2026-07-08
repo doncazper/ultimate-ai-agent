@@ -25,6 +25,8 @@ import type {
   AuthorityActionRequest,
   AuthorityDecisionCatalogEntry,
   AuthorityDecisionPreview,
+  AuthorityDomainReadinessEntry,
+  AuthorityLaneCatalogEntry,
   AuthorityLease,
   AuthorityLeaseMutationResult,
   AuthorityModeCatalogEntry,
@@ -1980,6 +1982,52 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
           </div>
           <div
             className="operator-action-panel"
+            aria-label="Authority domain readiness"
+          >
+            <ul className="compact-list">
+              {authorityLeaseState.domain_readiness.map((entry) => (
+                <li key={entry.domain}>
+                  <strong>{entry.domain.replaceAll("_", " ")}</strong>
+                  <small>{authorityDomainReadinessLabel(entry)}</small>
+                  <small>{entry.operator_summary}</small>
+                  <small>
+                    Issue-ready modes:{" "}
+                    {entry.issue_ready_modes
+                      .map((mode) => mode.replaceAll("_", " "))
+                      .join(", ") || "none"}
+                  </small>
+                  <small>
+                    Grantable capabilities:{" "}
+                    {entry.grantable_capabilities
+                      .map((capability) => capability.replaceAll("_", " "))
+                      .join(", ") || "none"}
+                  </small>
+                </li>
+              ))}
+            </ul>
+            <div
+              className="note-list"
+              aria-label="Authority domain blocked reasons"
+            >
+              {authorityLeaseState.domain_readiness.flatMap((entry) =>
+                [
+                  ...entry.blocked_reason_refs,
+                  ...entry.unsupported_adapter_refs,
+                ].map((ref) => (
+                  <span key={`${entry.domain}-${ref}`}>{ref}</span>
+                )),
+              )}
+              {authorityLeaseState.domain_readiness.every(
+                (entry) =>
+                  entry.blocked_reason_refs.length === 0 &&
+                  entry.unsupported_adapter_refs.length === 0,
+              ) ? (
+                <span>no blocked domain reasons</span>
+              ) : null}
+            </div>
+          </div>
+          <div
+            className="operator-action-panel"
             aria-label="Authority mode controls"
           >
             <div className="action-button-row">
@@ -2488,6 +2536,34 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
 
       <div
         className="operator-boundary-list"
+        aria-label="Authority Lane Catalog V1"
+      >
+        <article className="surface-state-card partial" role="status">
+          <span className="surface-state-kind">
+            {authorityLeaseState.authority_lane_catalog.status.replaceAll("_", " ")}
+          </span>
+          <strong>Authority Lane Catalog V1</strong>
+          <small>
+            {authorityLeaseState.authority_lane_catalog.entry_count} governed lanes
+          </small>
+          <p>{authorityLeaseState.authority_lane_catalog.operator_summary}</p>
+          <div className="note-list" aria-label="Authority Lane Catalog refs">
+            <span>{authorityLeaseState.authority_lane_catalog.contract_ref}</span>
+            <span>{authorityLeaseState.authority_lane_catalog.api_ref}</span>
+            <span>{authorityLeaseState.authority_lane_catalog.cli_ref}</span>
+            <span>
+              unknown authority:{" "}
+              {authorityLeaseState.authority_lane_catalog.unknown_authority_default}
+            </span>
+          </div>
+        </article>
+        {authorityLeaseState.authority_lane_catalog.entries.map((entry) => (
+          <AuthorityLaneCatalogCard entry={entry} key={entry.lane_ref} />
+        ))}
+      </div>
+
+      <div
+        className="operator-boundary-list"
         aria-label="Authority decision catalog"
       >
         {authorityLeaseState.decision_catalog.map((entry) => (
@@ -2727,6 +2803,74 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
   );
 }
 
+function AuthorityLaneCatalogCard({
+  entry,
+}: {
+  entry: AuthorityLaneCatalogEntry;
+}) {
+  return (
+    <article
+      className={`surface-state-card ${authorityLanePostureClass(entry.status)}`}
+      aria-label={`Authority lane ${entry.lane_id} ${entry.status}`}
+      role="status"
+    >
+      <span className="surface-state-kind">
+        {entry.status.replaceAll("_", " ")}
+      </span>
+      <strong>{entry.lane_id}</strong>
+      <small>
+        {entry.authority_domain.replaceAll("_", " ")} /{" "}
+        {entry.authority_capability.replaceAll("_", " ")}
+      </small>
+      <p>{entry.label}</p>
+      <dl className="metadata-list">
+        <div>
+          <dt>Mode</dt>
+          <dd>{entry.required_mode.replaceAll("_", " ")}</dd>
+        </div>
+        <div>
+          <dt>Side effect</dt>
+          <dd>{entry.side_effect_class.replaceAll("_", " ")}</dd>
+        </div>
+        <div>
+          <dt>Risk</dt>
+          <dd>{entry.risk}</dd>
+        </div>
+        <div>
+          <dt>Approval</dt>
+          <dd>{entry.approval_scope}</dd>
+        </div>
+        <div>
+          <dt>Idempotency</dt>
+          <dd>{entry.idempotency_required ? "required" : "not required"}</dd>
+        </div>
+        <div>
+          <dt>Receipt</dt>
+          <dd>{entry.receipt_kind.replaceAll("_", " ")}</dd>
+        </div>
+      </dl>
+      <p>{entry.rollback_posture}</p>
+      <div className="note-list" aria-label={`${entry.lane_ref} refs`}>
+        <span>{entry.lane_ref}</span>
+        <span>{entry.api_operation_ref}</span>
+        <span>{entry.cli_inspection_ref}</span>
+        <span>{entry.control_center_surface_ref}</span>
+        <span>{entry.active_decision_outcome}</span>
+        <span>{entry.active_decision_ref}</span>
+        {entry.denied_capabilities.slice(0, 5).map((capability) => (
+          <span key={capability}>{capability}</span>
+        ))}
+        {entry.blocked_reason_refs.map((ref) => (
+          <span key={ref}>{ref}</span>
+        ))}
+        {entry.unsupported_adapter_refs.map((ref) => (
+          <span key={ref}>{ref}</span>
+        ))}
+      </div>
+    </article>
+  );
+}
+
 function AuthorityDecisionCatalogCard({
   entry,
 }: {
@@ -2801,6 +2945,16 @@ function AuthorityDecisionCatalogCard({
   );
 }
 
+function authorityLanePostureClass(status: AuthorityLaneCatalogEntry["status"]) {
+  if (status === "implemented" || status === "proposal_only") {
+    return "partial";
+  }
+  if (status === "approval_required" || status === "partial") {
+    return "denied";
+  }
+  return "blocked";
+}
+
 function settingsPostureClass(stateLabel: string) {
   if (stateLabel === "Blocked") {
     return "blocked";
@@ -2851,6 +3005,29 @@ function authorityModeReadinessLabel(entry: AuthorityModeCatalogEntry) {
     ? "mission scope required"
     : `${entry.scope} scope`;
   return `${status}; ${approval}; ${readiness}; ${scope}.`;
+}
+
+function authorityDomainReadinessLabel(entry: AuthorityDomainReadinessEntry) {
+  const status = entry.status.replaceAll("_", " ");
+  const activeLeases =
+    entry.active_lease_refs.length === 1
+      ? "1 active lease"
+      : `${entry.active_lease_refs.length} active leases`;
+  const mapped =
+    entry.mapped_capability_count === 1
+      ? "1 mapped capability"
+      : `${entry.mapped_capability_count} mapped capabilities`;
+  const unsupported =
+    entry.unsupported_adapter_refs.length === 1
+      ? "1 unsupported adapter"
+      : `${entry.unsupported_adapter_refs.length} unsupported adapters`;
+  const outcomes = Object.entries(entry.decision_outcome_counts)
+    .filter(([, count]) => count > 0)
+    .map(([outcome, count]) => `${outcome.replaceAll("_", " ")} ${count}`)
+    .join(", ");
+  return `${status}; ${mapped}; ${activeLeases}; ${unsupported}; ${
+    outcomes || "no decisions"
+  }.`;
 }
 
 function authorityMissionRequirementLabel(plan: AuthorityMissionPlan) {

@@ -126,8 +126,19 @@ def _assert_matrix(matrix: dict[str, Any], failures: list[str], label: str) -> N
             failures.append(f"{label} lane missing safe-disable refs: {lane.lane_ref}")
         if not lane.rollback_refs:
             failures.append(f"{label} lane missing rollback refs: {lane.lane_ref}")
+        if not lane.authority_readiness_refs:
+            failures.append(
+                f"{label} lane missing authority readiness refs: {lane.lane_ref}"
+            )
+        for readiness_ref in lane.authority_readiness_refs:
+            if readiness_ref.startswith("promotion-path"):
+                failures.append(
+                    f"{label} readiness ref uses compatibility prefix: {readiness_ref}"
+                )
         if not lane.promotion_path_refs:
-            failures.append(f"{label} lane missing promotion refs: {lane.lane_ref}")
+            failures.append(
+                f"{label} lane missing compatibility promotion refs: {lane.lane_ref}"
+            )
         if lane.rollback_execution_enabled:
             failures.append(f"{label} lane enables rollback execution: {lane.lane_ref}")
         if lane.tier == 2 and lane.operator_posture != "review_only":
@@ -191,6 +202,9 @@ def _assert_matrix(matrix: dict[str, Any], failures: list[str], label: str) -> N
         "cli_inspection_refs": [ref for lane in lanes for ref in lane.cli_inspection_refs],
         "safe_disable_refs": [ref for lane in lanes for ref in lane.safe_disable_refs],
         "rollback_refs": [ref for lane in lanes for ref in lane.rollback_refs],
+        "authority_readiness_refs": [
+            ref for lane in lanes for ref in lane.authority_readiness_refs
+        ],
         "promotion_path_refs": [ref for lane in lanes for ref in lane.promotion_path_refs],
         "blocked_authority_refs": [ref for lane in lanes for ref in lane.blocked_authority_refs],
     }
@@ -294,6 +308,7 @@ def _runtime_failures() -> list[str]:
             "cli_inspection_refs",
             "safe_disable_refs",
             "rollback_refs",
+            "authority_readiness_refs",
             "promotion_path_refs",
             "blocked_authority_refs",
         ]:
@@ -360,6 +375,7 @@ def _static_failures() -> list[str]:
             "operator_posture",
             "safe_disable_refs",
             "rollback_refs",
+            "authority_readiness_refs",
             "promotion_path_refs",
             "rollback_execution_enabled",
             "Tier 4 and Tier 5 authority requires exact approval",
@@ -373,6 +389,7 @@ def _static_failures() -> list[str]:
             "TRUST_AUTHORITY_LANE_KINDS",
             "isExpectedTrustOperatorPosture",
             "hasTrustAuthorityMatrixRefParity",
+            "authority_readiness_refs",
             "rollback_execution_enabled === false",
         ],
         failures,
@@ -390,7 +407,7 @@ def _static_failures() -> list[str]:
         [
             "Posture",
             "Safe-disable and rollback",
-            "Capability path",
+            "Authority readiness",
             "CLI and verifiers",
             "Mock Fallback Compatibility Refs",
         ],
@@ -399,7 +416,8 @@ def _static_failures() -> list[str]:
     _require(
         FRONTEND_TEST,
         [
-            "renders Trust safe-disable, rollback, capability path, and CLI refs from backend",
+            "renders Trust safe-disable, rollback, authority readiness, and CLI refs from backend",
+            "Authority readiness",
             "keeps Trust backend-owned when an unrelated endpoint degrades",
             "fails closed for unsafe Trust authority matrix payloads",
             "TRUST_AUTHORITY_MATRIX_MOCK_FALLBACK",
@@ -414,7 +432,7 @@ def _static_failures() -> list[str]:
                 "scripts/verify_beta_07_trust_authority_map.py",
                 "safe-disable",
                 "rollback",
-                "promotion",
+                "authority readiness",
                 "No broad runtime authority",
             ],
             failures,

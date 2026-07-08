@@ -142,6 +142,32 @@ def _authority_payload(read_model: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _authority_lane_catalog_payload(read_model: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-authority-lane-catalog",
+        "authority_lane_catalog_read_model": read_model,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "raw_command_output_omitted": True,
+        "execution_performed": False,
+    }
+
+
+def _authority_domain_readiness_payload(read_model: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-authority-domain-readiness",
+        "authority_domain_readiness_read_model": read_model,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "raw_command_output_omitted": True,
+        "execution_performed": False,
+    }
+
+
 def _parity_loop_payload(read_model: dict[str, Any]) -> dict[str, Any]:
     return {
         "schema_version": "governed-runtime-cli:v1",
@@ -237,7 +263,7 @@ def _print_bridge_summary(read_model: dict[str, Any]) -> None:
 
 
 def _print_parity_loop(read_model: dict[str, Any]) -> None:
-    print("UAA GoatCitadel runtime parity loop")
+    print("UAA Runtime parity loop")
     print(f"Status: {read_model['status']}")
     print(f"Parity: {read_model['parity_status']}")
     print(f"Contract: {read_model['contract_ref']}")
@@ -2182,6 +2208,34 @@ def _inspect_authority_state(args: argparse.Namespace) -> int:
                 "  blocked reasons: "
                 f"{_authority_ref_summary(mode_entry['blocked_reason_refs'])}"
             )
+        print(f"Domain readiness: {len(read_model['domain_readiness'])}")
+        for entry in read_model["domain_readiness"]:
+            print(
+                f"- {entry['domain']} status={entry['status']} "
+                f"mapped={entry['mapped_capability_count']} "
+                f"active_leases={len(entry['active_lease_refs'])}"
+            )
+            print(f"  summary: {entry['operator_summary']}")
+            print(
+                "  outcomes: "
+                f"{_authority_counts_summary(entry['decision_outcome_counts'], read_model['policy_outcomes'])}"
+            )
+            print(
+                "  issue-ready modes: "
+                f"{', '.join(entry['issue_ready_modes']) or 'none'}"
+            )
+            print(
+                "  grantable capabilities: "
+                f"{', '.join(entry['grantable_capabilities']) or 'none'}"
+            )
+            print(
+                "  unsupported adapters: "
+                f"{_authority_ref_summary(entry['unsupported_adapter_refs'])}"
+            )
+            print(
+                "  blocked reasons: "
+                f"{_authority_ref_summary(entry['blocked_reason_refs'])}"
+            )
         print(f"Active leases: {len(read_model['active_leases'])}")
         for lease in read_model["active_leases"]:
             print(
@@ -2268,6 +2322,112 @@ def _inspect_authority_state(args: argparse.Namespace) -> int:
         print(f"Unknown authority default: {read_model['unknown_authority_default']}")
         print(f"Kill switch visible: {read_model['kill_switch_visible']}")
         print(f"Kill switch engaged: {read_model['kill_switch_engaged']}")
+    return 0
+
+
+def _inspect_authority_lane_catalog(args: argparse.Namespace) -> int:
+    read_model = (
+        AuthorityLeaseStore()
+        .build_state_read_model()
+        .authority_lane_catalog.model_dump(mode="json")
+    )
+    if args.json:
+        _print_json(_authority_lane_catalog_payload(read_model))
+        return 0
+    print("Authority Lane Catalog V1")
+    print(f"Contract: {read_model['contract_ref']}")
+    print(f"API: {read_model['api_ref']}")
+    print(f"Summary: {read_model['operator_summary']}")
+    print(f"Entries: {read_model['entry_count']}")
+    print(f"Status counts: {_authority_counts_summary(read_model['status_counts'])}")
+    print(
+        "Blocked reasons: "
+        f"{_authority_ref_summary(read_model['blocked_reason_refs'])}"
+    )
+    print(
+        "Unsupported adapters: "
+        f"{_authority_ref_summary(read_model['unsupported_adapter_refs'])}"
+    )
+    for entry in read_model["entries"]:
+        print(
+            f"- {entry['lane_id']} status={entry['status']} "
+            f"domain={entry['authority_domain']}/{entry['authority_capability']} "
+            f"mode={entry['required_mode']} risk={entry['risk']}"
+        )
+        print(f"  approval: {entry['approval_scope']}")
+        print(f"  idempotency-required: {entry['idempotency_required']}")
+        print(f"  receipt: {entry['receipt_kind']}")
+        print(f"  rollback: {entry['rollback_posture']}")
+        print(f"  api: {entry['api_operation_ref']}")
+        print(f"  cli: {entry['cli_inspection_ref']}")
+        print(
+            "  active decision: "
+            f"{entry['active_decision_outcome']} {entry['active_decision_ref']}"
+        )
+        print(
+            "  blocked: "
+            f"{_authority_ref_summary(entry['blocked_reason_refs'])}"
+        )
+    return 0
+
+
+def _inspect_authority_domain_readiness(args: argparse.Namespace) -> int:
+    read_model = (
+        AuthorityLeaseStore()
+        .build_domain_readiness_read_model()
+        .model_dump(mode="json")
+    )
+    if args.json:
+        _print_json(_authority_domain_readiness_payload(read_model))
+        return 0
+    print("Authority domain readiness")
+    print(f"Contract: {read_model['contract_ref']}")
+    print(f"API: {read_model['api_ref']}")
+    print(f"Source: {read_model['source_authority_state_api_ref']}")
+    print(f"CLI: {read_model['cli_ref']}")
+    print(f"Summary: {read_model['operator_summary']}")
+    print(f"Domains: {read_model['domain_count']}")
+    print(f"Status counts: {_authority_counts_summary(read_model['status_counts'])}")
+    print(
+        "Outcome counts: "
+        f"{_authority_counts_summary(read_model['decision_outcome_counts'], read_model['policy_outcomes'])}"
+    )
+    print(
+        "Blocked reasons: "
+        f"{_authority_ref_summary(read_model['blocked_reason_refs'])}"
+    )
+    print(
+        "Unsupported adapters: "
+        f"{_authority_ref_summary(read_model['unsupported_adapter_refs'])}"
+    )
+    for entry in read_model["entries"]:
+        print(
+            f"- {entry['domain']} status={entry['status']} "
+            f"mapped={entry['mapped_capability_count']} "
+            f"active_leases={len(entry['active_lease_refs'])}"
+        )
+        print(f"  summary: {entry['operator_summary']}")
+        print(
+            "  outcomes: "
+            f"{_authority_counts_summary(entry['decision_outcome_counts'], read_model['policy_outcomes'])}"
+        )
+        print(
+            "  issue-ready modes: "
+            f"{', '.join(entry['issue_ready_modes']) or 'none'}"
+        )
+        print(
+            "  grantable capabilities: "
+            f"{', '.join(entry['grantable_capabilities']) or 'none'}"
+        )
+        print(
+            "  unsupported adapters: "
+            f"{_authority_ref_summary(entry['unsupported_adapter_refs'])}"
+        )
+        print(
+            "  blocked reasons: "
+            f"{_authority_ref_summary(entry['blocked_reason_refs'])}"
+        )
+    print(f"Unknown authority default: {read_model['unknown_authority_default']}")
     return 0
 
 
@@ -4410,7 +4570,9 @@ def _inspect_staged_orchestration(args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     from scripts.dev.uaa_runtime_parser import build_parser as _build_parser
 
-    return _build_parser(globals())
+    runtime_symbols = globals()
+    runtime_symbols["RuntimeCommandIntent"] = RuntimeCommandIntent
+    return _build_parser(runtime_symbols)
 
 
 def main(argv: list[str] | None = None) -> int:

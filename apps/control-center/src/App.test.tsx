@@ -1821,7 +1821,7 @@ function actionToolCodeLaneCatalogFixture(
   ];
   return {
     schema_version: "uaa-action-tool-code-lane-catalog.v1",
-    contract_ref: "contract-ref:goatcitadel-catchup-action-tool-code-catalog:v1",
+    contract_ref: "contract-ref:runtime-action-tool-code-catalog:v1",
     source: "python_core_action_tool_code_lane_catalog_read_model",
     catalog_ref: "action-tool-code-catalog:founder-loop:v1",
     route_ref: "GET /control-center/actions/inbox",
@@ -2305,7 +2305,7 @@ describe("Web Control Center shell", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "contract-ref:goatcitadel-catchup-cockpit-cli-api-parity:v1",
+        "contract-ref:runtime-cockpit-cli-api-parity:v1",
       ),
     ).toBeInTheDocument();
     expect(
@@ -4003,7 +4003,7 @@ describe("Web Control Center shell", () => {
     }
   });
 
-  it("renders Trust safe-disable, rollback, capability path, and CLI refs from backend", async () => {
+  it("renders Trust safe-disable, rollback, authority readiness, and CLI refs from backend", async () => {
     stubReadEndpointOverrides({
       [API_ENDPOINTS.trustAuthorityMatrix]: betaTrustAuthorityMatrix(),
     });
@@ -4046,11 +4046,11 @@ describe("Web Control Center shell", () => {
           "rollback-ref:provider-draft-summarize:discard-local-draft",
         ).length,
       ).toBeGreaterThan(0);
-      expect(screen.getAllByText("Capability path").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("Authority readiness").length).toBeGreaterThan(0);
       expect(screen.queryByText("Promotion path")).not.toBeInTheDocument();
       expect(
         screen.getAllByText(
-          "promotion-path-ref:trust:provider-draft-summarize:live-provider-separate-contract",
+          "authority-readiness-ref:trust:provider-draft-summarize:live-provider-separate-contract",
         ).length,
       ).toBeGreaterThan(0);
       expect(screen.getAllByText("AuthorityLease requirement").length).toBeGreaterThan(
@@ -6582,7 +6582,7 @@ describe("Web Control Center shell", () => {
     const inbox = {
       ...mockControlCenterData.founderActionsInbox,
       action_tool_code_lane_catalog_contract_ref:
-        "contract-ref:goatcitadel-catchup-action-tool-code-catalog:v1",
+        "contract-ref:runtime-action-tool-code-catalog:v1",
       action_tool_code_lane_catalog_read_model: actionToolCodeLaneCatalogFixture(),
     };
     const fetchMock = vi.fn(async (url: string) => {
@@ -6611,7 +6611,7 @@ describe("Web Control Center shell", () => {
     const catalog = screen.getByLabelText("Action tool code catalog");
     expect(catalog).toHaveTextContent("backend-owned");
     expect(catalog).toHaveTextContent(
-      "contract-ref:goatcitadel-catchup-action-tool-code-catalog:v1",
+      "contract-ref:runtime-action-tool-code-catalog:v1",
     );
     expect(catalog).toHaveTextContent("Action Inbox local task create");
     expect(catalog).toHaveTextContent("RuntimeGateway focused pytest command");
@@ -6644,7 +6644,7 @@ describe("Web Control Center shell", () => {
     const inbox = {
       ...mockControlCenterData.founderActionsInbox,
       action_tool_code_lane_catalog_contract_ref:
-        "contract-ref:goatcitadel-catchup-action-tool-code-catalog:v1",
+        "contract-ref:runtime-action-tool-code-catalog:v1",
       action_tool_code_lane_catalog_read_model: actionToolCodeLaneCatalogFixture({
         generic_tool_execution_enabled: true,
       }),
@@ -11662,12 +11662,40 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByLabelText("Authority mode blocked reasons"),
     ).toHaveTextContent("reason-ref:authority:adapter-unsupported");
+    const domainReadiness = screen.getByLabelText("Authority domain readiness");
+    expect(domainReadiness).toBeInTheDocument();
+    expect(domainReadiness).toHaveTextContent("workspace");
+    expect(domainReadiness).toHaveTextContent("active allow");
+    expect(domainReadiness).toHaveTextContent("1 active lease");
+    expect(domainReadiness).toHaveTextContent("files");
+    expect(domainReadiness).toHaveTextContent("draft only");
+    expect(domainReadiness).toHaveTextContent("shell");
+    expect(domainReadiness).toHaveTextContent("blocked unsupported");
+    expect(domainReadiness).toHaveTextContent("browser");
+    expect(domainReadiness).toHaveTextContent(
+      "adapter-ref:shell-arbitrary-command:not-implemented",
+    );
+    expect(domainReadiness).toHaveTextContent(
+      "reason-ref:authority:target-domain-unmapped",
+    );
+    expect(
+      screen.getByLabelText("Authority domain blocked reasons"),
+    ).toHaveTextContent("adapter-ref:browser-execution:not-implemented");
     expect(
       screen.getByLabelText("Authority decision blocked reasons"),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Authority lease decisions")).toBeInTheDocument();
     expect(
       screen.getByLabelText("Authority decision catalog"),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Authority Lane Catalog V1")).toBeInTheDocument();
+    expect(
+      screen.getByRole("status", {
+        name: /Authority lane code.apply_exact_patch blocked/i,
+      }),
+    ).toHaveTextContent("GET /control-center/coding/patch-apply-readiness");
+    expect(
+      screen.getByText("GET /api/runtime/authority-state#authority_lane_catalog"),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("status", {
@@ -12136,7 +12164,7 @@ describe("Web Control Center shell", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "contract-ref:goatcitadel-catchup-model-provider-research-posture:mock-fallback",
+        "contract-ref:runtime-model-provider-research-posture:mock-fallback",
       ),
     ).toBeInTheDocument();
     expect(
@@ -13635,7 +13663,7 @@ describe("Web Control Center shell", () => {
     ).toBeGreaterThan(0);
     expect(
       screen.getAllByText(
-        "contract-ref:goatcitadel-catchup-evidence-audit-spine:v1",
+        "contract-ref:runtime-evidence-audit-spine:v1",
       ).length,
     ).toBeGreaterThan(0);
     expect(
@@ -15060,7 +15088,7 @@ describe("Web Control Center shell", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.queryByText(
-        "contract-ref:goatcitadel-catchup-memory-learning-posture:v1",
+        "contract-ref:runtime-memory-learning-posture:v1",
       ),
     ).not.toBeInTheDocument();
     expect(
@@ -15082,9 +15110,9 @@ describe("Web Control Center shell", () => {
   it("renders backend-owned memory learning posture without granting authority", async () => {
     cleanup();
     const learningPosture = {
-      schema_version: "goatcitadel-catchup-memory-learning-posture.v1",
+      schema_version: "runtime-memory-learning-posture.v1",
       contract_ref:
-        "contract-ref:goatcitadel-catchup-memory-learning-posture:v1",
+        "contract-ref:runtime-memory-learning-posture:v1",
       route_ref: "GET /control-center/memory/workbench",
       status: "implemented_backend_owned_learning_posture_read_model",
       source: "python_core_memory_workbench_learning_posture",
@@ -15215,7 +15243,7 @@ describe("Web Control Center shell", () => {
     ).toBeInTheDocument();
     expect(
       within(panel).getByText(
-        "contract-ref:goatcitadel-catchup-memory-learning-posture:v1",
+        "contract-ref:runtime-memory-learning-posture:v1",
       ),
     ).toBeInTheDocument();
     expect(
@@ -16358,6 +16386,7 @@ type TrustFixtureLane = {
   cli_inspection_refs: string[];
   safe_disable_refs: string[];
   rollback_refs: string[];
+  authority_readiness_refs: string[];
   promotion_path_refs: string[];
   blocked_authority_refs: string[];
   requires_exact_approval: boolean;
@@ -16419,6 +16448,9 @@ function betaTrustAuthorityMatrix(overrides: Record<string, unknown> = {}) {
       rollback_refs: [
         "rollback-ref:provider-draft-summarize:discard-local-draft",
       ],
+      authority_readiness_refs: [
+        "authority-readiness-ref:trust:provider-draft-summarize:live-provider-separate-contract",
+      ],
       promotion_path_refs: [
         "promotion-path-ref:trust:provider-draft-summarize:live-provider-separate-contract",
       ],
@@ -16451,6 +16483,9 @@ function betaTrustAuthorityMatrix(overrides: Record<string, unknown> = {}) {
         "safe-disable-ref:connector-draft-only:disable-local-draft-surface",
       ],
       rollback_refs: ["rollback-ref:connector-draft-only:discard-local-draft"],
+      authority_readiness_refs: [
+        "authority-readiness-ref:trust:connector-draft-only:test-send-separate-contract",
+      ],
       promotion_path_refs: [
         "promotion-path-ref:trust:connector-draft-only:test-send-separate-contract",
       ],
@@ -16481,6 +16516,9 @@ function betaTrustAuthorityMatrix(overrides: Record<string, unknown> = {}) {
       ],
       safe_disable_refs: ["safe-disable:founder-loop:local-task-create-scorecard"],
       rollback_refs: ["rollback-not-applicable:local-task-safe-disable"],
+      authority_readiness_refs: [
+        "authority-readiness-ref:trust:local-task-commit:additional-local-lanes",
+      ],
       promotion_path_refs: [
         "promotion-path-ref:trust:local-task-commit:additional-local-lanes",
       ],
@@ -16510,6 +16548,9 @@ function betaTrustAuthorityMatrix(overrides: Record<string, unknown> = {}) {
       proof_refs: ["proof-ref:connector-write:low-risk-exact"],
       safe_disable_refs: ["safe-disable-ref:connector-write:low-risk"],
       rollback_refs: ["rollback-ref:connector-write:compensating-action-required"],
+      authority_readiness_refs: [
+        "authority-readiness-ref:connector-write:live-adapter-scope",
+      ],
       promotion_path_refs: ["promotion-path-ref:connector-write:live-adapter-scope"],
       blocked_authority_refs: [
         "blocked-state:connector-write:no-bulk-send",
@@ -16552,6 +16593,7 @@ function betaTrustAuthorityMatrix(overrides: Record<string, unknown> = {}) {
     cli_inspection_refs: trustLaneUnion(lanes, "cli_inspection_refs"),
     safe_disable_refs: trustLaneUnion(lanes, "safe_disable_refs"),
     rollback_refs: trustLaneUnion(lanes, "rollback_refs"),
+    authority_readiness_refs: trustLaneUnion(lanes, "authority_readiness_refs"),
     promotion_path_refs: trustLaneUnion(lanes, "promotion_path_refs"),
     blocked_authority_refs: trustLaneUnion(lanes, "blocked_authority_refs"),
     ...overrides,
@@ -16599,6 +16641,9 @@ function trustFixtureLane(
     ],
     safe_disable_refs: ["safe-disable-ref:trust:test:read-model-only"],
     rollback_refs: ["rollback-ref:trust:test:no-mutation"],
+    authority_readiness_refs: [
+      "authority-readiness-ref:trust:test:exact-scope-required",
+    ],
     promotion_path_refs: ["promotion-path-ref:trust:test:exact-scope-required"],
     blocked_authority_refs: [],
     requires_exact_approval: false,

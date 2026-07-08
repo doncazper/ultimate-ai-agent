@@ -21,7 +21,7 @@ from ultimate_ai_agent.core.memory.feature_mine import (
 MEMORY_WORKBENCH_CONTRACT_REF = "contract-ref:fcc-mem-001-memory-workbench:v1"
 MEMORY_LIFECYCLE_POSTURE_CONTRACT_REF = "contract-ref:memory-merge-supersede-posture:v1"
 MEMORY_LEARNING_POSTURE_CONTRACT_REF = (
-    "contract-ref:goatcitadel-catchup-memory-learning-posture:v1"
+    "contract-ref:runtime-memory-learning-posture:v1"
 )
 MEMORY_BOUNDED_POSTURE_CONTRACT_REF = (
     "contract-ref:hermes-runtime-adoption-bounded-memory-posture:v1"
@@ -851,7 +851,7 @@ def _memory_learning_posture(
     )
     search_status = _search_index_status(search_index_status)
     return {
-        "schema_version": "goatcitadel-catchup-memory-learning-posture.v1",
+        "schema_version": "runtime-memory-learning-posture.v1",
         "contract_ref": MEMORY_LEARNING_POSTURE_CONTRACT_REF,
         "route_ref": MEMORY_WORKBENCH_ROUTE_REF,
         "status": "implemented_backend_owned_learning_posture_read_model",

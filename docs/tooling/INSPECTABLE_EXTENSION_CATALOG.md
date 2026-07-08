@@ -170,8 +170,8 @@ UAA-P2-051 adds a strategy/watchlist-only MCP/A2A compatibility document in
 MCP/A2A runtime support, connector writes, plugin execution, broad tool
 invocation, or network authority.
 
-UAA GoatCitadel catch-up Phase 09 adds final ecosystem posture fields and CLI
-inspection in `docs/control_center/UAA_GOATCITADEL_CATCHUP_EXTENSIBILITY_FINAL.md`
+UAA runtime capability foundation Phase 09 adds final ecosystem posture fields and CLI
+inspection in `docs/control_center/UAA_RUNTIME_EXTENSIBILITY_FINAL.md`
 and `scripts/dev/uaa_extensions.py inspect-catalog`. This is still read-only
 catalog metadata; plugin runtime import remains blocked, connector writes
 remain blocked, and production authority remains blocked.

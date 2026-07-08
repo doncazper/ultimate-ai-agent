@@ -466,8 +466,8 @@ function CapabilityColumn({
               refs={authorityLeaseRequirementRefs(capability)}
             />
             <RefGroup
-              title="Capability path"
-              refs={capability.promotion_path_refs}
+              title="Authority readiness"
+              refs={capability.authority_readiness_refs}
             />
             {tone === "blocked" || capability.blocked_authority_refs.length > 0 ? (
               <RefGroup

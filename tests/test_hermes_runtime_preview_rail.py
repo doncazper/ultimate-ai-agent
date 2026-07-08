@@ -181,6 +181,7 @@ def test_preview_rail_api_returns_safe_read_model() -> None:
     assert body["success"] is True
     assert body["operation"] == "api_runtime_preview_rail"
     data = body["data"]
+    assert body["trace_id"] == data["snapshot_hash_ref"]
     assert data["route_ref"] == "GET /api/runtime/preview-rail"
     assert (
         data["authority_state_mapping_ref"]
@@ -229,6 +230,15 @@ def test_preview_rail_cli_uses_same_read_model() -> None:
     assert payload["file_write_performed"] is False
     assert payload["shell_execution_performed"] is False
     assert payload["provider_call_performed"] is False
+    assert payload["authority_state"]["mapping_ref"] == (
+        RUNTIME_PREVIEW_RAIL_AUTHORITY_MAPPING_REF
+    )
+    assert payload["authority_state"]["decision_outcome"] == "allow"
+    assert (
+        "reason-ref:authority:active-lease-grants-domain-capability"
+        in payload["authority_state"]["reason_refs"]
+    )
+    assert payload["authority_state"]["unsupported_adapter_refs"] == []
     assert read_model["route_ref"] == "GET /api/runtime/preview-rail"
     assert read_model["cli_ref"] == "uaa runtime inspect-preview-rail"
     assert (

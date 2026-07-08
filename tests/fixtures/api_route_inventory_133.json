@@ -2,16 +2,16 @@
   "idempotency_audit_policy_ref": "idempotency:p1-084:mutating-routes:v1",
   "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
   "route_approval_posture_summary": {
-    "not_required_for_route_classification": 200,
+    "not_required_for_route_classification": 201,
     "required_before_mutation_authority": 48
   },
   "route_auth_posture_summary": {
-    "protected_local_bearer_required": 245,
+    "protected_local_bearer_required": 246,
     "public_metadata_no_auth": 3
   },
   "route_classification_summary": {
     "local_readonly": 27,
-    "local_sensitive": 170,
+    "local_sensitive": 171,
     "mutating_requires_authority": 48,
     "public_metadata": 3
   },
@@ -21,13 +21,13 @@
     "local_sensitive",
     "mutating_requires_authority"
   ],
-  "route_count": 248,
+  "route_count": 249,
   "route_idempotency_posture_summary": {
-    "not_required_for_route_classification": 200,
+    "not_required_for_route_classification": 201,
     "required_before_mutation_authority": 48
   },
   "route_rate_limit_posture_summary": {
-    "not_targeted_for_route": 180,
+    "not_targeted_for_route": 181,
     "targeted_local_fixed_window": 68
   },
   "routes": [
@@ -107,6 +107,26 @@
       "route_classification": "local_sensitive",
       "side_effect_class": "validation_only",
       "summary": "Post api runtime authority decisions preview",
+      "tags": [
+        "governed-runtime"
+      ]
+    },
+    {
+      "approval_posture": "not_required_for_route_classification",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": null,
+      "idempotency_posture": "not_required_for_route_classification",
+      "idempotency_required": false,
+      "method": "GET",
+      "operation_id": "get_api_runtime_authority_domain_readiness",
+      "path": "/api/runtime/authority-domain-readiness",
+      "rate_limit_group": null,
+      "rate_limit_policy_ref": null,
+      "rate_limit_posture": "not_targeted_for_route",
+      "rate_limit_targeted": false,
+      "route_classification": "local_sensitive",
+      "side_effect_class": "local_dev_workspace_only",
+      "summary": "Get api runtime authority domain readiness",
       "tags": [
         "governed-runtime"
       ]

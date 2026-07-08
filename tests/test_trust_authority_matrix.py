@@ -109,6 +109,12 @@ def test_trust_authority_matrix_explains_available_approval_and_blocked(
     assert all(lane.cli_inspection_refs for lane in parsed.lanes)
     assert all(lane.safe_disable_refs for lane in parsed.lanes)
     assert all(lane.rollback_refs for lane in parsed.lanes)
+    assert all(lane.authority_readiness_refs for lane in parsed.lanes)
+    assert all(
+        not ref.startswith("promotion-path")
+        for lane in parsed.lanes
+        for ref in lane.authority_readiness_refs
+    )
     assert all(lane.promotion_path_refs for lane in parsed.lanes)
     assert all(
         lane.authority_domain_ref.startswith("authority-domain-ref:")
@@ -253,6 +259,13 @@ def test_trust_authority_matrix_explains_available_approval_and_blocked(
     assert set(parsed.rollback_refs) == {
         ref for lane in parsed.lanes for ref in lane.rollback_refs
     }
+    assert set(parsed.authority_readiness_refs) == {
+        ref for lane in parsed.lanes for ref in lane.authority_readiness_refs
+    }
+    assert all(
+        ref.startswith("authority-readiness-ref:")
+        for ref in parsed.authority_readiness_refs
+    )
     assert set(parsed.promotion_path_refs) == {
         ref for lane in parsed.lanes for ref in lane.promotion_path_refs
     }

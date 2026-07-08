@@ -116,6 +116,24 @@ def build_parser(runtime_symbols: Mapping[str, Any]) -> argparse.ArgumentParser:
     )
     authority_state.set_defaults(func=_inspect_authority_state)
 
+    authority_lane_catalog = subparsers.add_parser(
+        "inspect-authority-lane-catalog",
+        help="Inspect Authority Lane Catalog V1 without execution.",
+    )
+    authority_lane_catalog.add_argument(
+        "--json", action="store_true", help="Emit safe JSON."
+    )
+    authority_lane_catalog.set_defaults(func=_inspect_authority_lane_catalog)
+
+    authority_domain_readiness = subparsers.add_parser(
+        "inspect-authority-domain-readiness",
+        help="Inspect AuthorityLease domain readiness without execution.",
+    )
+    authority_domain_readiness.add_argument(
+        "--json", action="store_true", help="Emit safe JSON."
+    )
+    authority_domain_readiness.set_defaults(func=_inspect_authority_domain_readiness)
+
     authority_preview = subparsers.add_parser(
         "preview-authority-decision",
         help="Preview an AuthorityLease policy decision without execution.",
@@ -195,8 +213,10 @@ def build_parser(runtime_symbols: Mapping[str, Any]) -> argparse.ArgumentParser:
     mission_plan.add_argument(
         "--domain",
         action="append",
-        required=True,
-        help="Domain capabilities in domain:capability,capability form.",
+        help=(
+            "Domain capabilities in domain:capability,capability form. "
+            "Omit to preview the mode's implemented default mission scope."
+        ),
     )
     mission_plan.add_argument(
         "--reason-ref",

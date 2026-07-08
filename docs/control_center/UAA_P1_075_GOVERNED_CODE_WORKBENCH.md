@@ -4,7 +4,7 @@ Status: implemented as a contract, test, verifier, Today-spine, Evidence
 Timeline, Control Center metadata shape, and Prompt 01 `/coding` cockpit shell
 read model seed.
 
-This milestone makes Code narrower than Goat but better governed. It adds a
+This milestone makes Code narrower than broad external runtimes but better governed. It adds a
 repo-local Code proposal contract for safe diff summary refs, validation plan
 refs, validation result refs, exact approval requirement refs, expected apply
 receipt refs, expected rollback receipt refs, idempotency refs, and Evidence

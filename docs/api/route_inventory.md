@@ -115,6 +115,19 @@ endpoint matching, receipt-detail execution truth, and approval preflight.
 Pilot authority profile as a protected read-only Python Core read model for
 AuthorityLease-gated capability posture, portable evidence envelopes, durable
 orchestration posture, and blocked authority refs.
+`GET /api/runtime/authority-state#authority_lane_catalog` exposes Authority
+Lane Catalog V1 within the existing authority-state read model. It normalizes
+the first exact governed lanes across verifier commands, code proposal/apply
+readiness, WebAccessGateway evidence preview, Memory Review decisions,
+provider readiness, and extension catalog review with safe refs, approval
+scope, idempotency, receipt, rollback/safe-disable, and active policy decision
+posture. It is inspection-only and creates no new execution route.
+`GET /api/runtime/authority-domain-readiness` exposes a focused read-only
+AuthorityLease domain readiness model derived from the same authority-state
+decision catalog, active leases, and mode catalog. It gives one row per target
+domain with active lease refs, decision outcomes, issue-ready modes, blocked
+reason refs, and unsupported adapter refs; it performs no mutation, execution,
+adapter call, or authority grant.
 `GET /api/runtime/staged-orchestration` exposes a protected read-only Python
 Core staged orchestration plan/checkpoint/dependency read model and grants no
 scheduling, dispatch, background autonomy, model call, browser action,
@@ -346,7 +359,10 @@ diagnostic payload persistence remain blocked.
 Hermes Runtime Adoption Phase 35 right preview rail posture. It returns safe
 source refs, source-classification refs, bounded preview refs, redaction policy
 refs, attach-plan refs, receipt-plan refs, proof refs, verifier refs,
-promotion refs, and blocked authority refs only. Browser automation, screenshot
+promotion refs, AuthorityState route/CLI/mapping/catalog/decision/reason refs,
+unsupported adapter refs, and blocked authority refs only. The
+`lane-ref:runtime-preview-rail-safe-ref-read-model` decision is allowed for
+safe-ref `workspace/read` inspection only. Browser automation, screenshot
 capture, raw sensitive file display, direct runtime payload rendering, file
 reads/writes, shell execution, provider calls, Control Center authority
 minting, raw path persistence, raw file-content persistence, and raw runtime

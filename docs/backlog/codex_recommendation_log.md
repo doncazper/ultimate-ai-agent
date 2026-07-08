@@ -384,7 +384,7 @@ Next prompt state:
 Auto-advance into UAA-P1-075 Governed Code Workbench V1 after commit/push.
 Review the active roadmap, current board, Founder Command Center board, phase
 tasks, MVP spec, AGENTS.md, process/spec guidance, and the UAA-P1-068 through
-UAA-P1-074 contract evidence. Make Code narrower than Goat but better governed:
+UAA-P1-074 contract evidence. Make Code narrower than broad external runtimes but better governed:
 repo-local safe diff summary refs, validation proof refs, approval-bound apply
 posture, rollback receipt posture, and evidence. Do not add broad coding-agent
 autonomy, unrestricted shell, remote execution, provider authority, connector
@@ -721,7 +721,7 @@ Evidence: `docs/control_center/UAA_P1_068_TODAY_PRODUCT_SPINE_CONTRACT.md`,
 
 Date: 2026-06-21
 
-Thread: Product-roadmap refinement after the adversarial GoatCitadel feature
+Thread: Product-roadmap refinement after the adversarial external comparison runtime feature
 parity review and Founder Command Center fundamentals check.
 
 Recommendation: Complete UAA-P1-067 as the Today-Spine Founder Command Center
@@ -1261,7 +1261,7 @@ Evidence: `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`,
 
 Date: 2026-06-19
 
-Thread: UAA versus GoatCitadel catch-up/surpass recommendations.
+Thread: UAA versus runtime capability foundation/surpass recommendations.
 
 Recommendation: Layer the accepted recommendations into the Operator Runtime
 Excellence roadmap and current Kanban board: decide product posture, prioritize

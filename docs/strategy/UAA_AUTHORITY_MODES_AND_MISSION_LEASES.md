@@ -19,9 +19,11 @@ surfaces are:
 - `GET /api/runtime/authority-state`
 - `POST /api/runtime/authority-decisions/preview`
 - `POST /api/runtime/authority-missions/plan`
+- `GET /api/runtime/authority-domain-readiness`
 - `GET /control-center/settings/status#authority_lease_state`
 - `scripts/dev/uaa_runtime.py inspect-authority-state --json`
 - `scripts/dev/uaa_runtime.py inspect-authority-state --summary`
+- `scripts/dev/uaa_runtime.py inspect-authority-domain-readiness --json`
 - `scripts/dev/uaa_runtime.py preview-authority-decision --json`
 - `scripts/dev/uaa_runtime.py plan-authority-mission --json`
 - `POST /api/runtime/authority-leases`
@@ -60,6 +62,29 @@ surfaces are:
   current `allow`, `ask`, `deny`, or `degrade_to_draft` policy outcome with
   safe refs, route/CLI refs, audit refs, receipt refs when applicable, and
   no execution.
+- `GET /api/runtime/authority-state#domain_readiness` derives one read-only
+  row for every target AuthorityLease domain from the same decision catalog,
+  active leases, and mode catalog. It shows the current domain posture,
+  mapped capability refs, active lease refs, issue-ready modes, grantable
+  capabilities, unsupported adapter refs, and blocked reason refs. The
+  projection is inspection-only and exists to replace broad graduation language
+  with domain/capability readiness under AuthorityLease evaluation.
+- `GET /api/runtime/authority-domain-readiness` and
+  `scripts/dev/uaa_runtime.py inspect-authority-domain-readiness --json`
+  expose that same derived domain readiness projection as a focused API/CLI
+  parity surface, with no mutation, no execution, and no authority minting.
+- `GET /api/runtime/authority-state#authority_lane_catalog` exposes
+  Authority Lane Catalog V1 as a normalized operator contract over the first
+  exact governed lane set: focused pytest, repo verifier, frontend check,
+  patch proposal, exact patch apply readiness, web evidence read-only preview,
+  Memory Review decisions, model/provider readiness, and extension catalog
+  review. The catalog records lane ID, status, domain, side-effect class, risk,
+  allowed input schema, denied capabilities, approval scope, idempotency,
+  rollback/safe-disable posture, receipt kind, API/CLI/Control Center refs, and
+  active policy decision refs. `code.apply_exact_patch` remains `blocked` until
+  exact apply execution, rollback artifacts, receipts, and tests exist.
+  `scripts/dev/uaa_runtime.py inspect-authority-lane-catalog --json` is the
+  CLI parity surface.
 - Runtime session continuity, MCP catalog filtering, worktree-per-agent, staged
   orchestration, background job inspection, subagent isolation, LSP diagnostics,
   preview rail, slash command registry, result classification, logging profile,
@@ -197,6 +222,12 @@ surfaces are:
   unsupported adapter refs. This catalog replaces lane-graduation copy with
   explicit mode/domain/lease posture; planned unsupported high-authority
   capabilities remain denied until exact adapters and tests exist.
+- `GET /control-center/trust-authority/matrix#authority_readiness_refs`
+  is the operator-facing readiness surface for mode/domain/lease capability
+  work. Older `promotion_path_refs` remain as compatibility refs for existing
+  clients and fixtures, but product copy should prefer authority readiness,
+  required mode, domain, capability, lease requirement, blocked reason, receipt,
+  safe-disable, and rollback refs.
 - `UAA_AUTHORITY_LEASE_KILL_SWITCH=1` engages the local AuthorityLease kill
   switch. New lease issue attempts are denied with a redacted receipt and
   `reason-ref:authority:lease-kill-switch-engaged`; state, Settings, CLI, and
@@ -257,6 +288,43 @@ and lease-receipt issued/expires timestamps; Control Center `/settings` and CLI
 `select-authority-mode --approve` show approval-required, approval-validated,
 approval-status, approval-scope, denial reason, receipt, audit,
 rollback/safe-disable, and kill-switch refs for AuthorityLease issue attempts;
+operator-selected Read-only mode defaults now request the implemented safe
+inspection/proposal subset across Workspace, Files, Memory, Email/Calendar
+metadata, Browser read, and provider/model-call posture, while the anonymous
+fallback lease remains narrower and live file/web routes still require an
+active persisted lease plus their safe-root, configured-host, redaction,
+receipt, and audit gates;
+operator-selected Ask before changes mode now inherits the same safe inspection
+posture and adds implemented local Workspace, Files, Memory, and Contacts write
+scopes; write/execute decisions under that mode still return an explicit `ask`
+decision and unsupported external sends, browser actions, connector writes, and
+provider execution remain denied or draft-degraded unless their exact lease
+scope and adapter gates are implemented and tested;
+operator-selected Full Local Workspace mode now defaults to the implemented
+local Workspace, Files, Memory, Contacts, safe Browser read, and
+provider/model-call posture subset, plus local Email/Calendar draft posture; it
+does not grant provider execution, browser actions, connector sends/writes,
+machine apps, shell, payments, Home Assistant, or cloud production authority;
+operator-selected Full Machine Access mode now issues only the implemented
+exact-gated full-machine subset: local Workspace/Files/Memory/Contacts,
+safe Browser read, local Email/Calendar draft posture, and
+`provider_model_calls/execute` for routes that still enforce their own
+CostGovernor, LocalApprovalAuthority, idempotency, receipt, redaction,
+safe-disable, and rollback gates; shell, apps, browser actions, system
+settings, payments, Home Assistant, connector writes, and cloud production
+remain separate planned/unsupported adapter rows rather than blockers for the
+whole mode;
+Delegated Mission mode now has an issue-ready default mission scope for the
+same implemented local/provider subset, but it must be mission-scoped and every
+action must carry the matching mission ref; ticket-buying, payment, browser
+click/form-fill/upload/download, app automation, sends, Home Assistant, and
+cloud production missions remain explicit draft-only unsupported-adapter plans
+until their adapters are implemented with receipts, rollback/safe-disable, and
+tests;
+AuthorityLease capability implication is bounded: future browser `click`,
+`form_fill`, `upload`, and `download` grants imply lower-risk inspect/proposal
+posture only where safe, and one browser action class does not silently grant a
+different browser action class;
 unsupported browser/app/payment/calendar/messages/Home Assistant adapters remain
 denied or draft-degraded instead of being presented as live execution. Read-only
 command status may run under `workspace/read`; execution-capable command lanes

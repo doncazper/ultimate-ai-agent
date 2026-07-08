@@ -286,6 +286,7 @@ export interface TrustAuthorityLane {
   cli_inspection_refs: string[];
   safe_disable_refs: string[];
   rollback_refs: string[];
+  authority_readiness_refs: string[];
   promotion_path_refs: string[];
   blocked_authority_refs: string[];
   requires_exact_approval: boolean;
@@ -395,6 +396,7 @@ export interface TrustAuthorityMatrix {
   cli_inspection_refs: string[];
   safe_disable_refs: string[];
   rollback_refs: string[];
+  authority_readiness_refs: string[];
   promotion_path_refs: string[];
   blocked_authority_refs: string[];
   next_safe_action: string;
@@ -12675,6 +12677,74 @@ export type AuthorityDomain =
 
 export type AuthorityDecisionOutcome = "allow" | "ask" | "deny" | "degrade_to_draft";
 
+export type AuthorityLaneStatus =
+  | "implemented"
+  | "partial"
+  | "proposal_only"
+  | "approval_required"
+  | "planned"
+  | "blocked";
+
+export interface AuthorityLaneCatalogEntry {
+  lane_id: string;
+  lane_ref: string;
+  label: string;
+  status: AuthorityLaneStatus;
+  authority_domain: AuthorityDomain;
+  authority_capability: string;
+  required_mode: AuthorityTrustMode;
+  side_effect_class: string;
+  risk: "low" | "medium" | "high" | "blocked";
+  allowed_inputs_schema: Record<string, unknown>;
+  denied_capabilities: string[];
+  approval_scope: string;
+  idempotency_required: boolean;
+  rollback_posture: string;
+  receipt_kind: string;
+  cli_inspection_ref: string;
+  api_operation_ref: string;
+  control_center_surface_ref: string;
+  source_refs: string[];
+  blocked_reason_refs: string[];
+  unsupported_adapter_refs: string[];
+  active_decision_outcome: AuthorityDecisionOutcome;
+  active_decision_ref: string;
+  active_decision_reason_refs: string[];
+  known_authority: true;
+  safe_refs_only: true;
+  execution_performed: false;
+  mutation_performed: false;
+  control_center_grants_authority: false;
+  raw_content_included: false;
+}
+
+export interface AuthorityLaneCatalogReadModel {
+  schema_version: "uaa-authority-lane-catalog.v1";
+  contract_ref: string;
+  catalog_ref: string;
+  status: "implemented_read_only_authority_lane_catalog";
+  api_ref: string;
+  cli_ref: string;
+  operator_summary: string;
+  entry_count: number;
+  status_counts: Record<string, number>;
+  required_lane_ids: string[];
+  missing_required_lane_ids: string[];
+  entries: AuthorityLaneCatalogEntry[];
+  blocked_reason_refs: string[];
+  unsupported_adapter_refs: string[];
+  safe_refs_only: true;
+  execution_performed: false;
+  mutation_performed: false;
+  control_center_grants_authority: false;
+  unknown_authority_default: "deny";
+  receipts_required: boolean;
+  audit_required: boolean;
+  redaction_required: boolean;
+  rollback_or_safe_disable_required: boolean;
+  redactions_applied: string[];
+}
+
 export interface AuthorityLease {
   lease_ref: string;
   mode: AuthorityTrustMode;
@@ -12966,6 +13036,35 @@ export interface AuthorityDecisionSummary {
   control_center_grants_authority: false;
 }
 
+export type AuthorityDomainReadinessStatus =
+  | "active_allow"
+  | "requires_confirmation"
+  | "draft_only"
+  | "known_denied"
+  | "blocked_unsupported"
+  | "unmapped_target_domain";
+
+export interface AuthorityDomainReadinessEntry {
+  schema_version: "uaa-authority-domain-readiness.v1";
+  domain: AuthorityDomain;
+  status: AuthorityDomainReadinessStatus;
+  mapped_capability_count: number;
+  mapped_capability_refs: string[];
+  active_lease_refs: string[];
+  default_requested_modes: AuthorityTrustMode[];
+  issue_ready_modes: AuthorityTrustMode[];
+  grantable_capabilities: string[];
+  decision_outcome_counts: Record<string, number>;
+  mapped_status_counts: Record<string, number>;
+  unsupported_adapter_refs: string[];
+  blocked_reason_refs: string[];
+  operator_summary: string;
+  safe_refs_only: true;
+  execution_performed: false;
+  mutation_performed: false;
+  control_center_grants_authority: false;
+}
+
 export interface AuthorityModeCatalogEntry {
   schema_version: "uaa-authority-mode-catalog-entry.v1";
   mode: AuthorityTrustMode;
@@ -13002,6 +13101,8 @@ export interface AuthorityStateReadModel {
   active_leases: AuthorityLease[];
   capability_mappings: AuthorityCapabilityMapping[];
   decision_summary: AuthorityDecisionSummary;
+  domain_readiness: AuthorityDomainReadinessEntry[];
+  authority_lane_catalog: AuthorityLaneCatalogReadModel;
   decision_catalog: AuthorityDecisionCatalogEntry[];
   recent_receipts: AuthorityLeaseReceipt[];
   sample_decisions: AuthorityPolicyDecision[];

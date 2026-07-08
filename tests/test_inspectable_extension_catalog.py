@@ -61,15 +61,15 @@ def test_default_inspectable_extension_catalog_is_read_only_and_non_callable() -
         payload["skill_bundle_proposal_posture"]["bundle_activation_enabled"] is False
     )
     assert payload["skill_bundle_proposal_posture"]["tool_execution_enabled"] is False
-    assert "doc:goatcitadel-catchup-extensibility-final" in payload["docs_refs"]
+    assert "doc:runtime-extensibility-final" in payload["docs_refs"]
     assert "doc:hermes-runtime-progressive-skill-disclosure" in payload["docs_refs"]
     assert "doc:hermes-runtime-skill-bundle-proposals" in payload["docs_refs"]
     assert (
-        "doc:goatcitadel-catchup-extensibility-final"
+        "doc:runtime-extensibility-final"
         in payload["developer_guidance_refs"]
     )
     assert (
-        "verifier:goatcitadel-catchup-extensibility-final"
+        "verifier:runtime-extensibility-final"
         in payload["final_hardening_refs"]
     )
 

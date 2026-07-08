@@ -23,7 +23,7 @@ from ultimate_ai_agent.core.runtime_gateway.contracts import GOVERNED_RUNTIME_RE
 
 
 RUNTIME_PARITY_LOOP_CONTRACT_REF = (
-    "contract-ref:uaa-goatcitadel-runtime-parity-loop:v1"
+    "contract-ref:uaa-runtime-parity-loop:v1"
 )
 RUNTIME_PARITY_LOOP_SOURCE = "python_core_runtime_parity_loop_read_model"
 RUNTIME_PARITY_LOOP_CLI_REF = "uaa runtime inspect-parity-loop"
@@ -92,7 +92,7 @@ class RuntimeParityLoopStage(BaseModel):
 
 
 class RuntimeParityLoopReadModel(BaseModel):
-    schema_version: str = "uaa_goatcitadel_runtime_parity_loop.v1"
+    schema_version: str = "uaa_runtime_parity_loop.v1"
     contract_ref: str = RUNTIME_PARITY_LOOP_CONTRACT_REF
     source: str = RUNTIME_PARITY_LOOP_SOURCE
     backend_owned: bool = True
@@ -102,7 +102,7 @@ class RuntimeParityLoopReadModel(BaseModel):
     control_center_route_ref: str = RUNTIME_PARITY_LOOP_CONTROL_CENTER_ROUTE_REF
     cli_ref: str = RUNTIME_PARITY_LOOP_CLI_REF
     status: str = "implemented_backend_owned_runtime_parity_loop_inspection"
-    parity_status: str = "partial_goatcitadel_runtime_parity_without_broad_authority"
+    parity_status: str = "partial_runtime_parity_without_broad_authority"
     prepared_turn_ref: str = Field(..., min_length=1)
     route_decision_binding_ref: str = Field(..., min_length=1)
     durable_run_ref: str = Field(..., min_length=1)
@@ -151,7 +151,7 @@ class RuntimeParityLoopReadModel(BaseModel):
 
     @model_validator(mode="after")
     def validate_model(self) -> "RuntimeParityLoopReadModel":
-        if self.schema_version != "uaa_goatcitadel_runtime_parity_loop.v1":
+        if self.schema_version != "uaa_runtime_parity_loop.v1":
             raise ValueError("Runtime parity loop schema drift")
         if self.contract_ref != RUNTIME_PARITY_LOOP_CONTRACT_REF:
             raise ValueError("Runtime parity loop contract drift")

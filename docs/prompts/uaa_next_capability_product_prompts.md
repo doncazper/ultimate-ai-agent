@@ -694,5 +694,5 @@ Suggested verification:
 Definition of done:
 
 - UAA has a narrow, ownable work-thread experience that makes Chat, Plan,
-  Action, and Evidence feel connected without inheriting GoatCitadel's broad
+  Action, and Evidence feel connected without inheriting external comparison runtime's broad
   Chat/Cowork/Code sprawl.

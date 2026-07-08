@@ -41,7 +41,7 @@ INSPECTABLE_EXTENSION_CATALOG_DOCS = [
     "doc:plugin-skill-ecosystem-boundary",
     "doc:inspectable-extension-catalog",
     "doc:extension-activation-grants",
-    "doc:goatcitadel-catchup-extensibility-final",
+    "doc:runtime-extensibility-final",
     "doc:hermes-runtime-progressive-skill-disclosure",
     "doc:hermes-runtime-skill-write-approval-gate",
     "doc:hermes-runtime-skill-bundle-proposals",
@@ -242,12 +242,12 @@ def build_default_inspectable_extension_catalog() -> InspectableExtensionCatalog
         schema_refs=list(INSPECTABLE_EXTENSION_CATALOG_SCHEMAS),
         developer_guidance_refs=[
             "doc:plugin-skill-ecosystem-boundary",
-            "doc:goatcitadel-catchup-extensibility-final",
+            "doc:runtime-extensibility-final",
         ],
         final_hardening_refs=[
-            "verifier:goatcitadel-catchup-extensibility-final",
+            "verifier:runtime-extensibility-final",
             "verifier:hermes-runtime-adoption-phase-13",
-            "scoreboard:uaa-goatcitadel-catchup",
+            "scoreboard:uaa-runtime-capability-foundation",
         ],
         blocked_capabilities=list(EXTENSION_CATALOG_BLOCKED_CAPABILITIES),
         compact_skill_index_refs=[

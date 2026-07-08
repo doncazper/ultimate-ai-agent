@@ -484,6 +484,7 @@ from ultimate_ai_agent.core.runtime_gateway.preview_rail import (
     RuntimePreviewRailSlotKind,
     RuntimePreviewRailSlotStatus,
     build_runtime_preview_rail_read_model,
+    build_runtime_preview_rail_read_model_from_authority_catalog,
 )
 from ultimate_ai_agent.core.runtime_gateway.slash_command_registry import (
     RUNTIME_SLASH_COMMAND_REGISTRY_AUTHORITY_MAPPING_REF,
@@ -1207,6 +1208,7 @@ __all__ = [
     "build_runtime_lsp_diagnostics_read_model",
     "build_runtime_lsp_diagnostics_read_model_from_authority_catalog",
     "build_runtime_preview_rail_read_model",
+    "build_runtime_preview_rail_read_model_from_authority_catalog",
     "build_runtime_slash_command_registry_read_model",
     "build_runtime_interrupt_redirect_read_model",
     "build_runtime_logging_profile_read_model",

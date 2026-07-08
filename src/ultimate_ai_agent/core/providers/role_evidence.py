@@ -22,10 +22,10 @@ ROLE_BASED_MODEL_PROVIDER_EVIDENCE_CLI_REF = (
     "repo-local-command:uaa-runtime-inspect-role-provider-evidence"
 )
 ROLE_BASED_MODEL_PROVIDER_EVIDENCE_VERIFIER_REF = (
-    "scripts/verify_uaa_goatcitadel_runtime_role_provider_evidence.py"
+    "scripts/verify_uaa_runtime_role_provider_evidence.py"
 )
 ROLE_BASED_MODEL_PROVIDER_EVIDENCE_DOC_REF = (
-    "docs/runtime/UAA_GOATCITADEL_RUNTIME_ROLE_PROVIDER_EVIDENCE.md"
+    "docs/runtime/UAA_RUNTIME_ROLE_PROVIDER_EVIDENCE.md"
 )
 ROLE_BASED_MODEL_PROVIDER_EVIDENCE_POLICY_REF = (
     "policy-ref:role-based-model-provider-evidence:advisory-only:v1"

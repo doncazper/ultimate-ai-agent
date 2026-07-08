@@ -4,12 +4,12 @@ from typing import Any
 
 
 AGENT_LOOP_THREAD_CONTRACT_REF = (
-    "contract-ref:goatcitadel-catchup-agent-loop-thread:v1"
+    "contract-ref:runtime-agent-loop-thread:v1"
 )
 AGENT_LOOP_THREAD_ROUTE_REF = "GET /control-center/agent-loop/thread"
 AGENT_LOOP_THREAD_CLI_REF = "scripts/dev/uaa_founder_loop.py inspect-agent-loop"
 AGENT_LOOP_COCKPIT_PARITY_CONTRACT_REF = (
-    "contract-ref:goatcitadel-catchup-cockpit-cli-api-parity:v1"
+    "contract-ref:runtime-cockpit-cli-api-parity:v1"
 )
 AGENT_LOOP_COCKPIT_PARITY_CLI_REF = (
     "scripts/dev/uaa_founder_loop.py inspect-cockpit-parity"
@@ -176,9 +176,9 @@ def build_agent_loop_thread_read_model(
     )
 
     return {
-        "schema_version": "goatcitadel_catchup_agent_loop_thread.v1",
+        "schema_version": "runtime_agent_loop_thread.v1",
         "contract_ref": AGENT_LOOP_THREAD_CONTRACT_REF,
-        "thread_ref": "agent-loop-thread:goatcitadel-catchup:current",
+        "thread_ref": "agent-loop-thread:runtime-capability-foundation:current",
         "status": "implemented_backend_owned_read_model_no_new_authority",
         "capability_status": "partial",
         "source": AGENT_LOOP_THREAD_SOURCE,
@@ -498,7 +498,7 @@ def _build_operator_decision_matrix(
     ]
 
     return {
-        "schema_version": "goatcitadel_catchup_cockpit_cli_api_parity.v1",
+        "schema_version": "runtime_cockpit_cli_api_parity.v1",
         "contract_ref": AGENT_LOOP_COCKPIT_PARITY_CONTRACT_REF,
         "status": "implemented_backend_owned_read_model_no_new_authority",
         "capability_status": "implemented",

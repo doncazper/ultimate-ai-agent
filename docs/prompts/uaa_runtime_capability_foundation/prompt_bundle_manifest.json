@@ -1,0 +1,21 @@
+{
+  "$schema": "../../schemas/prompt_bundle_manifest.schema.json",
+  "bundle_id": "uaa-runtime-capability-foundation-001",
+  "version": "1.0.0",
+  "purpose": "Stored prompts for accelerating UAA toward external-comparison-runtime-level agent-platform maturity while preserving UAA's governed local-first authority model.",
+  "developer_prompt_refs": [
+    "docs/prompts/uaa_runtime_capability_foundation/00_execute_uaa_runtime_capability_foundation_end_to_end.prompt.md",
+    "docs/prompts/uaa_runtime_capability_foundation/01_reference_gap_truth_and_age_adjusted_scoreboard.prompt.md",
+    "docs/prompts/uaa_runtime_capability_foundation/02_productized_agent_loop_spine.prompt.md",
+    "docs/prompts/uaa_runtime_capability_foundation/03_durable_orchestration_progress_and_recovery.prompt.md",
+    "docs/prompts/uaa_runtime_capability_foundation/04_action_tool_code_lanes_and_approval_receipts.prompt.md",
+    "docs/prompts/uaa_runtime_capability_foundation/05_memory_learning_context_and_feedback.prompt.md",
+    "docs/prompts/uaa_runtime_capability_foundation/06_evidence_audit_receipts_and_observability.prompt.md",
+    "docs/prompts/uaa_runtime_capability_foundation/07_model_provider_research_and_external_info_posture.prompt.md",
+    "docs/prompts/uaa_runtime_capability_foundation/08_cockpit_cli_api_parity_and_operator_ux.prompt.md",
+    "docs/prompts/uaa_runtime_capability_foundation/09_extensibility_ecosystem_and_final_hardening.prompt.md"
+  ],
+  "bundle_hash": "sha256:ac96542d5882176f53b55d57b4fd46baee36997bf05b5757b4fe78dde3e00fba",
+  "stable_within_run": true,
+  "created_at": "2026-07-05"
+}

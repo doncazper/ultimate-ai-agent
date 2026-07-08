@@ -1149,7 +1149,7 @@ Acceptance criteria:
   Today, Actions, Evidence, and Memory.
 - The docs explain that Evidence must read as history, Plans must produce
   reviewable Action envelopes, Chat must be a real local operator surface, and
-  Code must be narrower than Goat but better governed.
+  Code must be narrower than broad external runtimes but better governed.
 - UAA-P1-066 remains a queued read-only local model support lane and does not
   displace the product spine.
 - The prompt conveyor is recorded so future Codex runs create, execute, review,
@@ -1393,7 +1393,7 @@ You are working only in doncazper/ultimate-ai-agent.
 
 Task: execute UAA-P1-075 Governed Code Workbench V1.
 
-Goal: make Code narrower than Goat but better governed through repo-local
+Goal: make Code narrower than broad external runtimes but better governed through repo-local
 proposal scope, safe diff summary refs, validation plan/result refs, exact
 approval requirement refs, expected apply and rollback receipt refs, and
 Evidence Timeline binding.

@@ -33,10 +33,10 @@ The read model unifies existing UAA contracts:
 - local model inventory and M164 llama.cpp gateway posture;
 - M163 llama.cpp lifecycle contract posture;
 - deterministic ModelRouter trace metadata.
-- UAA GoatCitadel Runtime Parity Phase 06 role-based provider/model evidence
+- UAA Runtime Parity Phase 06 role-based provider/model evidence
   for answerer, planner, reviewer, synthesizer, coder, extractor, and safety
   reviewer roles.
-- GoatCitadel catch-up Phase 07 model/provider/research posture for provider
+- runtime capability foundation Phase 07 model/provider/research posture for provider
   readiness rows, model-output truth handling, and WebAccessGateway-governed
   external-information status.
 - Hermes Runtime Adoption Phase 07 delegated runtime model availability
@@ -61,8 +61,8 @@ Verifier:
 
 ```bash
 .venv/bin/python scripts/verify_model_provider_control_plane.py
-.venv/bin/python scripts/verify_uaa_goatcitadel_catchup_model_provider_research.py
-.venv/bin/python scripts/verify_uaa_goatcitadel_runtime_role_provider_evidence.py
+.venv/bin/python scripts/verify_uaa_runtime_model_provider_research.py
+.venv/bin/python scripts/verify_uaa_runtime_role_provider_evidence.py
 .venv/bin/python scripts/verify_hermes_runtime_adoption_phase_07.py
 .venv/bin/python scripts/verify_hermes_runtime_adoption_phase_08.py
 ```

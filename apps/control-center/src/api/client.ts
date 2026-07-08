@@ -9857,6 +9857,7 @@ const TRUST_AUTHORITY_MATRIX_ARRAYS = [
   "cli_inspection_refs",
   "safe_disable_refs",
   "rollback_refs",
+  "authority_readiness_refs",
   "promotion_path_refs",
   "blocked_authority_refs",
 ] as const;
@@ -9869,6 +9870,7 @@ const TRUST_AUTHORITY_LANE_ARRAYS = [
   "cli_inspection_refs",
   "safe_disable_refs",
   "rollback_refs",
+  "authority_readiness_refs",
   "promotion_path_refs",
   "blocked_authority_refs",
 ] as const;
@@ -10013,6 +10015,7 @@ function isSafeTrustAuthorityLane(value: unknown): boolean {
     (value.tier < 3 ||
       (stringArray(value.safe_disable_refs).length > 0 &&
         stringArray(value.rollback_refs).length > 0)) &&
+    stringArray(value.authority_readiness_refs).length > 0 &&
     (!["planned", "blocked"].includes(value.authority_state) ||
       stringArray(value.promotion_path_refs).length > 0) &&
     !containsUnsafeTrustText(value.label) &&
@@ -10066,6 +10069,7 @@ function hasTrustAuthorityMatrixRefParity(
     "cli_inspection_refs",
     "safe_disable_refs",
     "rollback_refs",
+    "authority_readiness_refs",
     "promotion_path_refs",
     "blocked_authority_refs",
   ] as const;
@@ -13076,7 +13080,7 @@ function isSafeActionToolCodeCatalogReadModel(value: unknown): boolean {
   if (
     value.schema_version !== "uaa-action-tool-code-lane-catalog.v1" ||
     value.contract_ref !==
-      "contract-ref:goatcitadel-catchup-action-tool-code-catalog:v1" ||
+      "contract-ref:runtime-action-tool-code-catalog:v1" ||
     value.source !==
       "python_core_action_tool_code_lane_catalog_read_model" ||
     value.backend_owned !== true ||

@@ -89,13 +89,13 @@ MODEL_PROVIDER_CONTROL_PLANE_VERIFIER_REF = (
     "scripts/verify_model_provider_control_plane.py"
 )
 MODEL_PROVIDER_RESEARCH_POSTURE_CONTRACT_REF = (
-    "contract-ref:goatcitadel-catchup-model-provider-research-posture:v1"
+    "contract-ref:runtime-model-provider-research-posture:v1"
 )
 MODEL_PROVIDER_RESEARCH_POSTURE_SOURCE = (
-    "python_core_goatcitadel_catchup_model_provider_research_posture"
+    "python_core_runtime_model_provider_research_posture"
 )
 MODEL_PROVIDER_RESEARCH_POSTURE_VERIFIER_REF = (
-    "scripts/verify_uaa_goatcitadel_catchup_model_provider_research.py"
+    "scripts/verify_uaa_runtime_model_provider_research.py"
 )
 DELEGATED_RUNTIME_MODEL_CATALOG_CONTRACT_REF = (
     "contract-ref:hermes-runtime-model-provider-catalog:v1"
@@ -938,13 +938,13 @@ class ModelProviderResearchPosture(BaseModel):
     external_information: ExternalInformationResearchPosture
     proof_refs: list[str] = Field(
         default_factory=lambda: [
-            "proof-ref:goatcitadel-catchup:model-provider-research-posture",
+            "proof-ref:runtime-capability-foundation:model-provider-research-posture",
             "proof-ref:model-provider-control-plane:read-model",
         ]
     )
     docs_refs: list[str] = Field(
         default_factory=lambda: [
-            "docs/control_center/UAA_GOATCITADEL_CATCHUP_MODEL_PROVIDER_RESEARCH.md",
+            "docs/control_center/UAA_RUNTIME_MODEL_PROVIDER_RESEARCH.md",
             "docs/control_center/MODEL_PROVIDER_CONTROL_PLANE.md",
             "docs/network/WEB_ACCESS_GATEWAY.md",
         ]
@@ -1052,7 +1052,7 @@ class ModelProviderControlPlaneReadModel(BaseModel):
             "proof-ref:model-provider-control-plane:read-model",
             "proof-ref:model-provider-control-plane:router-traces",
             "proof-ref:model-provider-control-plane:cost-hooks",
-            "proof-ref:goatcitadel-catchup:model-provider-research-posture",
+            "proof-ref:runtime-capability-foundation:model-provider-research-posture",
             "proof-ref:hermes-runtime-adoption:phase-07:model-provider-catalog",
             "proof-ref:hermes-runtime-adoption:phase-08:model-slot-posture",
         ]
@@ -1072,7 +1072,7 @@ class ModelProviderControlPlaneReadModel(BaseModel):
             "docs/control_center/MODEL_PROVIDER_CONTROL_PLANE.md",
             "docs/runtime/UAA_HERMES_RUNTIME_MODEL_PROVIDER_CATALOG.md",
             "docs/runtime/UAA_HERMES_RUNTIME_MODEL_SLOT_POSTURE.md",
-            "docs/control_center/UAA_GOATCITADEL_CATCHUP_MODEL_PROVIDER_RESEARCH.md",
+            "docs/control_center/UAA_RUNTIME_MODEL_PROVIDER_RESEARCH.md",
             "docs/control_center/EXACT_APPROVED_PROVIDER_INVOCATION_PROMOTION_PLAN.md",
             "docs/model_management/UAA_P1_066_LOCAL_MODEL_CONTROL_CENTER_READ_ONLY_STATUS.md",
         ]
@@ -1589,7 +1589,7 @@ def _build_model_provider_research_posture(
             web_runtime_authority_contract_ref=web_runtime_contract.contract_ref,
         ),
         docs_refs=[
-            "docs/control_center/UAA_GOATCITADEL_CATCHUP_MODEL_PROVIDER_RESEARCH.md",
+            "docs/control_center/UAA_RUNTIME_MODEL_PROVIDER_RESEARCH.md",
             "docs/control_center/MODEL_PROVIDER_CONTROL_PLANE.md",
             "docs/network/WEB_ACCESS_GATEWAY.md",
             "docs/network/WEB_ACCESS_PROVIDER_AUTHORITY_SEQUENCE.md",

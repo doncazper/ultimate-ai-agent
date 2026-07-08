@@ -484,7 +484,7 @@ def test_governed_runtime_parity_loop_exposes_cockpit_cli_api_refs() -> None:
     body = response.json()
     assert body["success"] is True
     data = body["data"]
-    assert data["schema_version"] == "uaa_goatcitadel_runtime_parity_loop.v1"
+    assert data["schema_version"] == "uaa_runtime_parity_loop.v1"
     assert data["source"] == "python_core_runtime_parity_loop_read_model"
     assert data["backend_owned"] is True
     assert data["safe_refs_only"] is True

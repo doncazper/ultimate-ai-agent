@@ -74,6 +74,7 @@ CAPABILITIES_DECLARED = [
     "governed_runtime_staged_orchestration_read_model",
     "governed_runtime_prepared_turn_read_model",
     "governed_product_pilot_authority_profile",
+    "authority_lane_catalog_v1",
     "authority_state_decision_catalog",
     "authority_state_mode_catalog",
     "authority_decision_preview",
@@ -694,6 +695,7 @@ CONTROL_CENTER_WEB_EVIDENCE_PRODUCT_SLICE_PATHS = {
 }
 GOVERNED_RUNTIME_READONLY_PATHS = {
     "/api/runtime/authority-decisions/preview",
+    "/api/runtime/authority-domain-readiness",
     "/api/runtime/authority-missions/plan",
     "/api/runtime/authority-state",
     "/api/runtime/capabilities",
@@ -964,6 +966,11 @@ def route_classification_for_path(
         return (
             ApiRouteClassification.local_sensitive,
             "Authority state inspection route exposes active mode/domain/lease refs, mode readiness catalog, capability mappings, decision catalog outcomes, receipts, kill-switch posture, and blocked reasons without mutation or execution.",
+        )
+    if normalized_method == "GET" and path == "/api/runtime/authority-domain-readiness":
+        return (
+            ApiRouteClassification.local_sensitive,
+            "Authority domain readiness inspection route exposes one backend-derived readiness row for every target AuthorityLease domain with active lease refs, decision outcomes, blocked reasons, unsupported adapter refs, and issue-ready mode posture without mutation or execution.",
         )
     if normalized_method == "POST" and path == "/api/runtime/authority-decisions/preview":
         return (

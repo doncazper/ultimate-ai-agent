@@ -4,7 +4,7 @@ Repository: this repository.
 
 Goal: capture operator memory feedback as governed quality signals and make
 those signals visible as a quality issue queue. This closes the gap where
-GoatCitadel is ahead: useful/stale/missing/wrong/duplicate/conflict/
+The external comparison runtime is ahead: useful/stale/missing/wrong/duplicate/conflict/
 irrelevant/privacy-concern feedback must become ranking input and review
 pressure, never automatic memory writes.
 

@@ -164,6 +164,18 @@ def main() -> int:
     else:
         payload = json.loads(cli_result.stdout)
         read_model_payload = payload["runtime_preview_rail"]
+        authority_state = payload.get("authority_state")
+        if not isinstance(authority_state, dict):
+            failures.append("preview rail CLI missing authority state")
+        elif (
+            authority_state.get("mapping_ref")
+            != RUNTIME_PREVIEW_RAIL_AUTHORITY_MAPPING_REF
+        ):
+            failures.append("preview rail CLI authority mapping drifted")
+        elif authority_state.get("decision_outcome") != "allow":
+            failures.append("preview rail CLI authority decision drifted")
+        elif authority_state.get("unsupported_adapter_refs") != []:
+            failures.append("preview rail CLI should not list unsupported adapters")
         if payload["browser_automation_performed"] is not False:
             failures.append("preview rail CLI claims browser automation")
         if payload["screenshot_capture_performed"] is not False:

@@ -264,18 +264,20 @@ release, or production authority.
 Beta 07 Trust authority map hardens `/trust` from a blocker wall into an
 operator authority map. Full-strength Trust should eventually let the operator
 choose exact authority modes, inspect enabled lanes, pause or disable lanes,
-understand rollback posture, and see the precise promotion path for future
-provider, connector, shell, browser, and background authority. The repo-safe
-version remains backend-owned and read-only: it exposes enabled, review-only,
+understand rollback posture, and see authority readiness for future provider,
+connector, shell, browser, and background authority. The repo-safe version
+remains backend-owned and read-only: it exposes enabled, review-only,
 approval-required, planned, and blocked lanes with CLI inspection refs,
-safe-disable refs, rollback refs, promotion-path refs, proof refs, verifier
-refs, and fail-closed Control Center validation. Blocked/needs-authority lanes
+safe-disable refs, rollback refs, authority readiness refs, compatibility
+promotion-path refs, proof refs, verifier refs, and fail-closed Control Center
+validation. Blocked/needs-authority lanes
 remain visible for connector writes/sends, provider/model calls,
 shell/subprocess execution, browser automation, runtime context injection,
 standing authority, background autonomy, public release, and production
-authority. The exact promotion path is a later verifier-backed PR per lane with
-exact scope, approval binding, safe-disable, rollback, redaction, receipt/proof
-coverage, CLI parity, and route/product-language updates. Verification:
+authority. Each later authority-ready lane still requires a verifier-backed PR
+with exact scope, approval binding, safe-disable, rollback, redaction,
+receipt/proof coverage, CLI parity, and route/product-language updates.
+Verification:
 `scripts/verify_beta_07_trust_authority_map.py`. No broad runtime authority is
 added.
 

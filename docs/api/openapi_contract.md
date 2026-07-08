@@ -62,6 +62,17 @@ Contract rules:
   `GET /api/runtime/governed-product-pilot-profile` as a protected read-only
   Python Core read model for AuthorityLease-gated capability posture, portable
   evidence envelopes, durable orchestration posture, and blocked authority refs.
+  `GET /api/runtime/authority-state#authority_lane_catalog` exposes Authority
+  Lane Catalog V1 inside the existing authority-state response. It is a
+  read-only contract for exact governed lanes with lane IDs, domains,
+  side-effect classes, approval scopes, idempotency, rollback/safe-disable
+  posture, receipt kinds, API/CLI/Control Center refs, and active policy
+  decision refs. It does not add a new execution route or broaden runtime
+  authority.
+  `GET /api/runtime/authority-domain-readiness` exposes the derived
+  AuthorityLease domain readiness projection as a focused read-only route with
+  one row per target domain, active lease refs, issue-ready mode posture,
+  blocked reason refs, unsupported adapter refs, and no mutation or execution.
   `GET /api/runtime/staged-orchestration` exposes a protected read-only
   Python Core staged orchestration plan/checkpoint/dependency read model and
   grants no scheduling, dispatch, background autonomy, model call, browser
@@ -281,7 +292,10 @@ Contract rules:
   backend-owned right preview rail posture. It returns safe source refs,
   source-classification refs, bounded preview refs, redaction policy refs,
   attach-plan refs, receipt-plan refs, proof refs, verifier refs, promotion
-  refs, and blocked authority refs only. Browser automation, screenshot
+  refs, AuthorityState route/CLI/mapping/catalog/decision/reason refs,
+  unsupported adapter refs, and blocked authority refs only. The
+  `lane-ref:runtime-preview-rail-safe-ref-read-model` decision is allowed for
+  safe-ref `workspace/read` inspection only. Browser automation, screenshot
   capture, raw sensitive file display, direct runtime payload rendering, file
   reads/writes, shell execution, provider calls, Control Center authority
   minting, raw path persistence, raw file-content persistence, and raw runtime

@@ -194,10 +194,10 @@ authority by themselves. Use
 `docs/prompts/hermes_runtime_adoption/00_execute_all_45_review_fix_merge_harden.prompt.md`
 for the strict wrapper.
 
-## UAA GoatCitadel catch-up prompts
+## UAA runtime capability foundation prompts
 
-Stored execution prompts for the UAA GoatCitadel catch-up sequence live in
-`docs/prompts/uaa_goatcitadel_catchup/`. They sequence UAA-native work from
+Stored execution prompts for the UAA runtime capability foundation sequence live in
+`docs/prompts/uaa_runtime_capability_foundation/`. They sequence UAA-native work from
 age-adjusted gap truth through productized loop spine, durable orchestration,
 action/tool/code lanes, memory lifecycle, evidence receipts, provider posture,
 cockpit parity, extensibility, and final hardening. They are operator-run
@@ -206,14 +206,14 @@ provider SDK calls, live web fetching, browser automation, connector writes,
 unrestricted shell/subprocess execution, plugin runtime import, memory writes,
 context injection, remote execution, public release claims, production
 authority, or broad autonomy. Use
-`docs/prompts/uaa_goatcitadel_catchup/00_execute_uaa_goatcitadel_catchup_end_to_end.prompt.md`
-or `scripts/dev/run_uaa_goatcitadel_catchup_prompt_pack.sh` for the
+`docs/prompts/uaa_runtime_capability_foundation/00_execute_uaa_runtime_capability_foundation_end_to_end.prompt.md`
+or `scripts/dev/run_uaa_runtime_capability_foundation_prompt_pack.sh` for the
 end-to-end wrapper.
 
-## UAA GoatCitadel runtime parity prompts
+## UAA Runtime parity prompts
 
-Stored execution prompts for the focused UAA GoatCitadel runtime parity push
-live in `docs/prompts/uaa_goatcitadel_runtime_parity/`. They target the real
+Stored execution prompts for the focused UAA runtime parity push
+live in `docs/prompts/uaa_runtime_parity/`. They target the real
 operation loop specifically: live route-decision binding, Turn -> Durable Run
 -> Approval linkage, staged orchestration, chat-turn preparation, role-based
 model/provider evidence, mature exact action receipts, signed portable
@@ -222,8 +222,8 @@ runtime system prompts, and they do not grant runtime model calls, provider SDK
 calls, live web fetching, browser automation, connector writes, unrestricted
 shell/subprocess execution, plugin runtime import, remote execution, public
 release claims, production authority, or broad autonomy. Use
-`docs/prompts/uaa_goatcitadel_runtime_parity/00_execute_runtime_parity_end_to_end.prompt.md`
-or `scripts/dev/run_uaa_goatcitadel_runtime_parity_prompt_pack.sh` for the
+`docs/prompts/uaa_runtime_parity/00_execute_runtime_parity_end_to_end.prompt.md`
+or `scripts/dev/run_uaa_runtime_parity_prompt_pack.sh` for the
 end-to-end wrapper.
 
 ## Coding Pair Agent Relay Runner prompts

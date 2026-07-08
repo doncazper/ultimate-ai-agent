@@ -24,7 +24,7 @@ from ultimate_ai_agent.core.tools.v2 import build_default_tool_catalog
 
 
 ACTION_TOOL_CODE_CATALOG_CONTRACT_REF = (
-    "contract-ref:goatcitadel-catchup-action-tool-code-catalog:v1"
+    "contract-ref:runtime-action-tool-code-catalog:v1"
 )
 ACTION_TOOL_CODE_CATALOG_SOURCE = (
     "python_core_action_tool_code_lane_catalog_read_model"
