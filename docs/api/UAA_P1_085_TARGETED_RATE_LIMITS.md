@@ -23,6 +23,7 @@ The runtime gate applies to selected route groups:
 - `provider_exact_approved_lane`
 - `provider_router_dry_run`
 - `governed_runtime_pilot`
+- `extension_install_disabled_record`
 - `local_model_validation`
 
 When a targeted local fixed-window limit is reached, the API returns a redacted

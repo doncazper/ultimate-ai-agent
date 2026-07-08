@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `248`.
+Current OpenAPI path count: `249`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -494,6 +494,12 @@ Contract rules:
   plan refs, rollback refs, safe-disable refs, and blocked capability refs, but
   it must not persist package installs, import runtime code, enable plugins, or
   execute extensions.
+- `POST /extensions/disabled-install-records` may record one exact disabled
+  extension install metadata receipt only after active `workspace/write`
+  AuthorityLease scope, exact `LocalApprovalAuthority` validation, idempotency,
+  redacted receipt refs, and the local disabled-record store validate. It must
+  not persist package installs, import runtime code, enable plugins, activate
+  extensions, fetch marketplaces, execute extensions, or widen authority.
 - `/observability/session-events` and `/observability/client-errors` must remain
   local, bounded, redacted-summary routes only; they must not expose raw JSONL
   records, request or response bodies, prompts, provider payloads, terminal

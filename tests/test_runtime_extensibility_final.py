@@ -3,7 +3,19 @@ import os
 import subprocess
 import sys
 
+from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
+from ultimate_ai_agent.core.authority import (
+    AuthorityCapability,
+    AuthorityDomain,
+    AuthorityLeaseIssueRequest,
+    AuthorityLeaseStore,
+    TrustMode,
+)
+from ultimate_ai_agent.core.authority.approval_validation import (
+    issue_authority_lease_with_test_approval,
+)
 from ultimate_ai_agent.core.extension_catalog import (
+    build_extension_install_disabled_approval_request,
     build_default_inspectable_extension_catalog,
 )
 
@@ -114,3 +126,68 @@ def test_uaa_extensions_cli_inspects_install_disabled_posture() -> None:
     assert payload["runtime_import_enabled"] is False
     assert payload["plugin_execution_enabled"] is False
     assert payload["candidates"][0]["disabled_install_record_persisted"] is False
+
+
+def test_uaa_extensions_cli_records_install_disabled_receipt(tmp_path) -> None:
+    authority_state_dir = tmp_path / "authority"
+    issue_authority_lease_with_test_approval(
+        AuthorityLeaseStore(authority_state_dir),
+        AuthorityLeaseIssueRequest(
+            mode=TrustMode.approved_safe_local_work_session,
+            requested_domains={AuthorityDomain.workspace: [AuthorityCapability.write]},
+            decision_reason_ref="decision-reason-ref:extension-cli-record",
+            safe_summary="Allow exact disabled extension install metadata CLI receipt.",
+        ),
+        idempotency_ref="idempotency-ref:extension-cli-record-lease",
+        approval_ref="approval-ref:test-authority:extension-cli-record-lease",
+    )
+    approval_authority = LocalApprovalAuthority()
+    approval_request = approval_authority.create_request(
+        build_extension_install_disabled_approval_request()
+    )
+    grant = approval_authority.grant(
+        approval_request.approval_request_id,
+        approved_by_actor_id="actor:operator",
+        approval_ref="approval-ref:extension-install-disabled:cli",
+    )
+    grant_file = tmp_path / "extension-install-disabled-grant.json"
+    grant_file.write_text(
+        json.dumps(grant.model_dump(mode="json"), sort_keys=True),
+        encoding="utf-8",
+    )
+    env = os.environ.copy()
+    env["PYTHONPATH"] = "src"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/dev/uaa_extensions.py",
+            "record-install-disabled-receipt",
+            "--authority-state-dir",
+            str(authority_state_dir),
+            "--approval-ref",
+            grant.approval_ref,
+            "--approval-grant-file",
+            str(grant_file),
+            "--idempotency-ref",
+            "idempotency-ref:extension-install-disabled:cli",
+        ],
+        env=env,
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "disabled_install_record_receipt_recorded"
+    assert payload["record_storage_mode"] == "local_disabled_record_store"
+    assert payload["durable_store_persistence"] is True
+    assert payload["approval_ref"] == grant.approval_ref
+    assert payload["authority_decision_outcome"] == "allow"
+    assert payload["plugin_install_enabled"] is False
+    assert payload["runtime_import_enabled"] is False
+    assert payload["plugin_execution_enabled"] is False
+    assert payload["side_effects_performed"] == [
+        "side-effect:extension-install-disabled:local-record-write"
+    ]

@@ -698,6 +698,9 @@ CONTROL_CENTER_WORK_BOARD_TASK_CREATE_PATHS = {
 CONTROL_CENTER_WEB_EVIDENCE_PRODUCT_SLICE_PATHS = {
     "/control-center/web-evidence/attach",
 }
+EXTENSION_INSTALL_DISABLED_RECORD_PATHS = {
+    "/extensions/disabled-install-records",
+}
 GOVERNED_RUNTIME_READONLY_PATHS = {
     "/api/runtime/authority-decisions/preview",
     "/api/runtime/authority-domain-readiness",
@@ -929,6 +932,8 @@ def route_side_effect_class(path: str) -> ApiRouteSideEffectClass:
         return ApiRouteSideEffectClass.governed_network_read_only
     if path in CONTROL_CENTER_WEB_EVIDENCE_PRODUCT_SLICE_PATHS:
         return ApiRouteSideEffectClass.governed_network_read_only
+    if path in EXTENSION_INSTALL_DISABLED_RECORD_PATHS:
+        return ApiRouteSideEffectClass.local_dev_workspace_only
     if path in CONTROL_CENTER_PROVIDER_ROUTER_DRY_RUN_PATHS:
         return ApiRouteSideEffectClass.validation_only
     if path in CONTROL_CENTER_PROVIDER_TINY_EXACT_APPROVED_LANE_PATHS:
@@ -1108,6 +1113,14 @@ def route_classification_for_path(
         return (
             ApiRouteClassification.local_sensitive,
             "Tier 1 WebAccessGateway preview route; active browser/read AuthorityLease scope, allowlisted HTTPS GET only, bounded redacted preview returned, safe receipt refs stored locally, and browser action/session/download/upload/mutation/context/memory/provider/connector authority remains blocked",
+        )
+    if (
+        normalized_method == "POST"
+        and path in EXTENSION_INSTALL_DISABLED_RECORD_PATHS
+    ):
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "Extension install-disabled metadata record route; active workspace/write AuthorityLease scope, exact LocalApprovalAuthority grant payload, idempotency, redacted receipt refs, local disabled-record store, rollback/delete posture, and safe-disable posture required while plugin package install, enablement, runtime import, execution, marketplace fetch, connector writes, shell, browser, provider calls, and production authority remain blocked",
         )
     if (
         normalized_method == "POST"

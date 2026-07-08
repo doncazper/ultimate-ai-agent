@@ -51,7 +51,7 @@
       "const": "uaa-api-route-inventory.v4"
     },
     "route_count": {
-      "const": 242
+      "const": 250
     },
     "route_classification_vocabulary": {
       "type": "array",
@@ -109,7 +109,7 @@
         },
         "protected_local_bearer_required": {
           "type": "integer",
-          "const": 239
+          "const": 247
         }
       }
     },
@@ -123,11 +123,11 @@
       "properties": {
         "not_required_for_route_classification": {
           "type": "integer",
-          "const": 195
+          "const": 201
         },
         "required_before_mutation_authority": {
           "type": "integer",
-          "const": 47
+          "const": 49
         }
       }
     },
@@ -145,7 +145,7 @@
         },
         "required_before_mutation_authority": {
           "type": "integer",
-          "const": 47
+          "const": 49
         }
       }
     },
@@ -166,7 +166,7 @@
         },
         "targeted_local_fixed_window": {
           "type": "integer",
-          "const": 68
+          "const": 69
         }
       }
     },
@@ -199,8 +199,8 @@
     },
     "routes": {
       "type": "array",
-      "minItems": 242,
-      "maxItems": 242,
+      "minItems": 250,
+      "maxItems": 250,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -322,6 +322,7 @@
               "provider_exact_approved_lane",
               "provider_router_dry_run",
               "governed_runtime_pilot",
+              "extension_install_disabled_record",
               "today_to_action_envelope",
               "task_decomposition",
               "web_evidence_product_slice",

@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `248`.
+Current OpenAPI path count: `249`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -44,8 +44,8 @@ Current route classification summary:
 |---|---:|
 | `public_metadata` | 3 |
 | `local_readonly` | 27 |
-| `local_sensitive` | 170 |
-| `mutating_requires_authority` | 48 |
+| `local_sensitive` | 171 |
+| `mutating_requires_authority` | 49 |
 
 Allowed current side-effect classes are:
 
@@ -563,15 +563,17 @@ background monitoring, or process control.
 ### Extension catalog
 
 - `GET /extensions/catalog`
+- `POST /extensions/disabled-install-records`
 
-This route returns read-only inspectable extension catalog metadata with safe
-refs, visibility status, trust posture, callable posture, blocked reasons,
-review evidence refs, safe adoption posture, and install-disabled posture. The
-install-disabled posture is still inspection-only: it may show AuthorityLease
-decision refs, exact approval requirement, hash refs, receipt plan refs,
-rollback refs, safe-disable refs, and blocked capability refs, but it does not
-persist package installs, import, enable, activate, revoke, execute, fetch, or
-mutate extensions.
+`GET /extensions/catalog` returns read-only inspectable extension catalog
+metadata with safe refs, visibility status, trust posture, callable posture,
+blocked reasons, review evidence refs, safe adoption posture, and
+install-disabled posture. `POST /extensions/disabled-install-records` records
+only an exact disabled extension install metadata receipt after active
+`workspace/write` AuthorityLease scope, exact `LocalApprovalAuthority`
+validation, idempotency, redacted receipt refs, and the local disabled-record
+store validate. These routes do not persist package installs, import, enable,
+activate, revoke, execute, fetch, or mutate extensions.
 
 ### Mattermost agent rooms
 

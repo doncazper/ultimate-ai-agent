@@ -158,6 +158,7 @@ def verify(context: ApiVerifierContext | None = None) -> list[str]:
         ("POST", "/api/runtime/safe-disable"),
         ("POST", "/task-decomposition/run"),
         ("POST", "/v1/chat/completions"),
+        ("POST", "/extensions/disabled-install-records"),
     ]:
         route = routes_by_key[key]
         if route["rate_limit_posture"] != "targeted_local_fixed_window":

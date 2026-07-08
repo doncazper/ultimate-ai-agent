@@ -36,18 +36,19 @@
           "provider_exact_approved_lane",
           "provider_router_dry_run",
           "governed_runtime_pilot",
+          "extension_install_disabled_record",
           "today_to_action_envelope",
           "action_decision",
           "task_decomposition",
           "web_evidence_product_slice"
         ]
       },
-      "minItems": 15,
-      "maxItems": 15,
+      "minItems": 16,
+      "maxItems": 16,
       "uniqueItems": true
     },
     "targeted_route_count": {
-      "const": 68
+      "const": 69
     },
     "posture_field": {
       "const": "rate_limit_posture"

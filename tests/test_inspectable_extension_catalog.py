@@ -7,10 +7,16 @@ from fastapi.testclient import TestClient
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.authority import (
+    AUTHORITY_STATE_DIR_ENV,
     AuthorityCapability,
     AuthorityDomain,
     AuthorityLease,
+    AuthorityLeaseIssueRequest,
+    AuthorityLeaseStore,
     TrustMode,
+)
+from ultimate_ai_agent.core.authority.approval_validation import (
+    issue_authority_lease_with_test_approval,
 )
 from ultimate_ai_agent.core.extension_catalog import (
     ExtensionInstallDisabledCandidateRecord,
@@ -27,6 +33,22 @@ from ultimate_ai_agent.core.extension_catalog import (
 
 client = TestClient(app)
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _issue_extension_workspace_write_lease(state_dir: Path) -> None:
+    issue_authority_lease_with_test_approval(
+        AuthorityLeaseStore(state_dir),
+        AuthorityLeaseIssueRequest(
+            mode=TrustMode.approved_safe_local_work_session,
+            requested_domains={AuthorityDomain.workspace: [AuthorityCapability.write]},
+            decision_reason_ref="decision-reason-ref:extension-install-disabled-api",
+            safe_summary=(
+                "Allow exact disabled extension install metadata record receipt."
+            ),
+        ),
+        idempotency_ref="idempotency-ref:extension-install-disabled-api-lease",
+        approval_ref="approval-ref:test-authority:extension-install-disabled-api-lease",
+    )
 
 
 def test_default_inspectable_extension_catalog_is_read_only_and_non_callable() -> None:
@@ -394,6 +416,97 @@ def test_extension_catalog_route_returns_safe_read_only_metadata() -> None:
     assert "raw_provider_payload" not in catalog_text
 
 
+def test_extension_install_disabled_record_api_requires_idempotency() -> None:
+    response = client.post(
+        "/extensions/disabled-install-records",
+        json={"approval_ref": "approval-ref:extension-install-disabled:missing-header"},
+    )
+
+    assert response.status_code == 428
+    assert response.json()["code"] == "API_IDEMPOTENCY_REQUIRED"
+
+
+def test_extension_install_disabled_record_api_requires_lease_and_exact_approval(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(tmp_path / "authority"))
+
+    denied = client.post(
+        "/extensions/disabled-install-records",
+        json={"approval_ref": "approval-ref:extension-install-disabled:missing-lease"},
+        headers={
+            "x-uaa-idempotency-key": (
+                "idempotency-ref:extension-install-disabled:missing-lease"
+            )
+        },
+    )
+    assert denied.status_code == 403
+    assert denied.json()["detail"]["code"] == (
+        "EXTENSION_INSTALL_DISABLED_RECORD_AUTHORITY_REQUIRED"
+    )
+
+    _issue_extension_workspace_write_lease(tmp_path / "authority")
+    approval_authority = LocalApprovalAuthority()
+    approval_request = approval_authority.create_request(
+        build_extension_install_disabled_approval_request()
+    )
+    grant = approval_authority.grant(
+        approval_request.approval_request_id,
+        approved_by_actor_id="actor:operator",
+        approval_ref="approval-ref:extension-install-disabled:api",
+    )
+
+    response = client.post(
+        "/extensions/disabled-install-records",
+        json={
+            "approval_ref": grant.approval_ref,
+            "approval_grants": [grant.model_dump(mode="json")],
+        },
+        headers={
+            "x-uaa-idempotency-key": "idempotency-ref:extension-install-disabled:api"
+        },
+    )
+    replay = client.post(
+        "/extensions/disabled-install-records",
+        json={
+            "approval_ref": grant.approval_ref,
+            "approval_grants": [grant.model_dump(mode="json")],
+        },
+        headers={
+            "x-uaa-idempotency-key": "idempotency-ref:extension-install-disabled:api"
+        },
+    )
+
+    assert response.status_code == 200
+    assert replay.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["operation"] == "extension_install_disabled_record"
+    assert body["service"] == "ExtensionCatalogAPI"
+    assert body["redactions_applied"] == [
+        "safe_refs_only",
+        "raw_package_content_omitted",
+        "raw_manifest_content_omitted",
+        "local_paths_omitted",
+    ]
+    receipt = body["data"]
+    replay_receipt = replay.json()["data"]
+    assert replay_receipt["receipt_ref"] == receipt["receipt_ref"]
+    assert receipt["status"] == "disabled_install_record_receipt_recorded"
+    assert receipt["record_storage_mode"] == "local_disabled_record_store"
+    assert receipt["durable_store_persistence"] is True
+    assert receipt["approval_ref"] == grant.approval_ref
+    assert receipt["authority_decision_outcome"] == "allow"
+    assert receipt["plugin_install_enabled"] is False
+    assert receipt["runtime_import_enabled"] is False
+    assert receipt["plugin_execution_enabled"] is False
+    assert receipt["side_effects_performed"] == [
+        "side-effect:extension-install-disabled:local-record-write"
+    ]
+    assert "raw" not in receipt["safe_summary"].lower()
+
+
 def test_extension_catalog_openapi_route_is_get_only_and_not_runtime_catalog() -> None:
     paths = app.openapi()["paths"]
 
@@ -401,6 +514,11 @@ def test_extension_catalog_openapi_route_is_get_only_and_not_runtime_catalog() -
     assert sorted(paths["/extensions/catalog"].keys()) == ["get"]
     assert (
         paths["/extensions/catalog"]["get"]["operationId"] == "get_extensions_catalog"
+    )
+    assert "/extensions/disabled-install-records" in paths
+    assert (
+        paths["/extensions/disabled-install-records"]["post"]["operationId"]
+        == "post_extensions_disabled_install_records"
     )
     for forbidden in [
         "/extensions/catalog/execute",

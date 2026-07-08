@@ -4,11 +4,12 @@ import json
 from datetime import timedelta
 from hashlib import sha256
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ultimate_ai_agent.core.approvals import (
+    ApprovalGrant,
     ApprovalRequest,
     ApprovalRiskLevel,
     ApprovalSubjectType,
@@ -22,6 +23,7 @@ from ultimate_ai_agent.core.authority import (
     AuthorityDomain,
     AuthorityLease,
     TrustMode,
+    authority_state_dir,
     evaluate_authority_request,
 )
 from ultimate_ai_agent.core.hygiene.actor_context import (
@@ -310,6 +312,29 @@ class ExtensionInstallDisabledRecordReceipt(_ExtensionInstallDisabledModel):
         return self
 
 
+class ExtensionInstallDisabledRecordIssueRequest(_ExtensionInstallDisabledModel):
+    schema_version: Literal["uaa_extension_install_disabled_record_issue_request.v1"] = (
+        "uaa_extension_install_disabled_record_issue_request.v1"
+    )
+    approval_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    approval_grants: list[dict[str, Any]] = Field(default_factory=list)
+    persist_to_local_disabled_record_store: Literal[True] = True
+    plugin_install_enabled: Literal[False] = False
+    plugin_enablement_enabled: Literal[False] = False
+    plugin_execution_enabled: Literal[False] = False
+    runtime_import_enabled: Literal[False] = False
+    provider_model_call_enabled: Literal[False] = False
+    browser_automation_enabled: Literal[False] = False
+    connector_writes_enabled: Literal[False] = False
+    shell_execution_enabled: Literal[False] = False
+    production_authority_granted: Literal[False] = False
+
+    @model_validator(mode="after")
+    def validate_issue_request(self) -> "ExtensionInstallDisabledRecordIssueRequest":
+        _deny_runtime_authority_flags(self)
+        return self
+
+
 class ExtensionInstallDisabledRecordStore:
     """Tiny exact-scoped local store for disabled install record receipts."""
 
@@ -593,6 +618,25 @@ def build_extension_install_disabled_record_receipt(
     )
 
 
+def issue_extension_install_disabled_record(
+    request: ExtensionInstallDisabledRecordIssueRequest,
+    *,
+    leases: list[AuthorityLease] | None = None,
+    idempotency_key_ref: str = EXTENSION_INSTALL_DISABLED_IDEMPOTENCY_REF,
+    storage_root: Path | None = None,
+) -> ExtensionInstallDisabledRecordReceipt:
+    approval_authority = _approval_authority_from_grants(request.approval_grants)
+    receipt = build_extension_install_disabled_record_receipt(
+        leases=leases,
+        approval_authority=approval_authority,
+        approval_ref=request.approval_ref,
+        idempotency_key_ref=idempotency_key_ref,
+    )
+    return ExtensionInstallDisabledRecordStore(
+        storage_root or authority_state_dir()
+    ).record_receipt(receipt)
+
+
 def validate_extension_install_disabled_record_receipt(
     receipt: ExtensionInstallDisabledRecordReceipt | dict[str, object],
 ) -> ExtensionInstallDisabledRecordReceipt:
@@ -616,6 +660,16 @@ def _validate_local_approval(
         return None
     request = build_extension_install_disabled_approval_request()
     return approval_authority.validate_for_request(request, approval_ref)
+
+
+def _approval_authority_from_grants(
+    approval_grants: list[dict[str, Any]],
+) -> LocalApprovalAuthority:
+    authority = LocalApprovalAuthority()
+    authority.create_request(build_extension_install_disabled_approval_request())
+    for grant_payload in approval_grants:
+        authority.load_grant_for_validation(ApprovalGrant(**grant_payload))
+    return authority
 
 
 def _build_repo_owned_plugin_install_review_decision() -> PluginInstallReviewDecision:
@@ -721,6 +775,7 @@ def _deny_runtime_authority_flags(
         ExtensionInstallDisabledCandidateRecord
         | ExtensionInstallDisabledPostureReadModel
         | ExtensionInstallDisabledRecordReceipt
+        | ExtensionInstallDisabledRecordIssueRequest
     ),
 ) -> None:
     for field_name in (
@@ -738,7 +793,7 @@ def _deny_runtime_authority_flags(
         "raw_package_content_stored",
         "production_authority_granted",
     ):
-        if getattr(model, field_name):
+        if getattr(model, field_name, False):
             raise ValueError(f"EXTENSION_INSTALL_DISABLED_{field_name.upper()}_DENIED")
 
 

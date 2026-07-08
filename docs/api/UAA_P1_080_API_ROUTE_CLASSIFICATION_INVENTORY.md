@@ -26,11 +26,11 @@ Current route classification summary:
 |---|---:|
 | `public_metadata` | 3 |
 | `local_readonly` | 27 |
-| `local_sensitive` | 170 |
-| `mutating_requires_authority` | 48 |
+| `local_sensitive` | 171 |
+| `mutating_requires_authority` | 49 |
 
-The current OpenAPI path count is `247` and `/api/manifest` currently reports
-`248` route operations after later scoped FCC-V1-003 through
+The current OpenAPI path count is `249` and `/api/manifest` currently reports
+`250` route operations after later scoped FCC-V1-003 through
 FCC-V1-006 Founder Loop route work, FCC-MEM-001 Memory Workbench/search/manual
 intake and lifecycle routes, the governed memory L1/L2/L3 index routes, Phase
 5 context-pack proposals, the Phase 6.1 internal Action proposal hook, the
@@ -72,6 +72,11 @@ Hermes interface-mode chat is a
 mutating governed runtime route and now
 requires active `workspace/execute` AuthorityLease scope before exact guarded
 Hermes CLI discovery or subprocess execution.
+The extension disabled-install record route is an exact metadata receipt lane
+that requires active `workspace/write` AuthorityLease scope, exact
+LocalApprovalAuthority validation, idempotency, and redacted local receipt
+persistence without package install, runtime import, plugin execution, or
+callable activation.
 Governed runtime pilot Phase 08 includes backend-owned parity-loop inspection
 over prepared-turn, route-binding, durable-run, staged orchestration,
 role-provider, Action Inbox, receipt, signed-evidence, and blocked-state refs.

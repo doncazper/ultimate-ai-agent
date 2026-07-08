@@ -222,6 +222,16 @@ def _verify_api_route(payload: dict[str, object]) -> None:
     )
     for field in DENIED_TRUE_FLAGS:
         _require(body["data"][field] is False, f"route enables denied flag: {field}")
+    paths = app.openapi()["paths"]
+    _require(
+        "/extensions/disabled-install-records" in paths,
+        "disabled-install record route missing",
+    )
+    _require(
+        paths["/extensions/disabled-install-records"]["post"]["operationId"]
+        == "post_extensions_disabled_install_records",
+        "disabled-install record route operation drifted",
+    )
 
 
 def _verify_cli(payload: dict[str, object]) -> None:
@@ -273,6 +283,23 @@ def _verify_cli(payload: dict[str, object]) -> None:
     _require(
         posture_payload["plugin_install_enabled"] is False,
         "CLI install-disabled posture enables plugin install",
+    )
+    help_result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/dev/uaa_extensions.py",
+            "--help",
+        ],
+        cwd=ROOT,
+        env=env,
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+    _require(
+        "record-install-disabled-receipt" in help_result.stdout,
+        "CLI disabled-install receipt command missing",
     )
 
 

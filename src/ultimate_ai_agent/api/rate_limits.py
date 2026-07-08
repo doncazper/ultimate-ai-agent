@@ -29,6 +29,7 @@ TARGETED_RATE_LIMIT_GROUP_DEFAULTS: dict[str, dict[str, int]] = {
     "provider_credential_validation": {"max_requests": 12, "window_seconds": 60},
     "provider_router_dry_run": {"max_requests": 60, "window_seconds": 60},
     "web_evidence_product_slice": {"max_requests": 12, "window_seconds": 60},
+    "extension_install_disabled_record": {"max_requests": 12, "window_seconds": 60},
     "governed_runtime_pilot": {"max_requests": 30, "window_seconds": 60},
 }
 
@@ -111,6 +112,9 @@ PROVIDER_ROUTER_DRY_RUN_PATHS = {
 }
 WEB_EVIDENCE_PRODUCT_SLICE_PATHS = {
     "/control-center/web-evidence/attach",
+}
+EXTENSION_INSTALL_DISABLED_RECORD_PATHS = {
+    "/extensions/disabled-install-records",
 }
 GOVERNED_RUNTIME_MUTATING_PATHS = {
     "/api/runtime/authority-leases",
@@ -239,6 +243,8 @@ def route_rate_limit_group(method: str, path: str) -> str | None:
         return "provider_router_dry_run"
     if normalized_method == "POST" and path in WEB_EVIDENCE_PRODUCT_SLICE_PATHS:
         return "web_evidence_product_slice"
+    if normalized_method == "POST" and path in EXTENSION_INSTALL_DISABLED_RECORD_PATHS:
+        return "extension_install_disabled_record"
     if normalized_method == "POST" and (
         path in GOVERNED_RUNTIME_MUTATING_PATHS
         or (

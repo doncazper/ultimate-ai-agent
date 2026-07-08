@@ -33,8 +33,10 @@ Canonical core/API/CLI refs:
 - `src/ultimate_ai_agent/core/extension_catalog/install_disabled.py`
 - `src/ultimate_ai_agent/core/extension_catalog/runtime.py`
 - `GET /extensions/catalog`
+- `POST /extensions/disabled-install-records`
 - `scripts/dev/uaa_extensions.py inspect-catalog`
 - `scripts/dev/uaa_extensions.py inspect-install-disabled-posture`
+- `scripts/dev/uaa_extensions.py record-install-disabled-receipt`
 - `scripts/verify_uaa_runtime_extensibility_final.py`
 - `tests/test_runtime_extensibility_final.py`
 

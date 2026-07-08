@@ -2,8 +2,8 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `248`, generated from the FastAPI application and
-exposed through `/api/manifest`. `/api/manifest` currently reports `249` route
+Current OpenAPI path count: `249`, generated from the FastAPI application and
+exposed through `/api/manifest`. `/api/manifest` currently reports `250` route
 operations because governed runtime pilot routes intentionally have both `GET`
 and `POST` contracts on `/api/runtime/invocations`, and the Turn Contract
 Router preview plus AuthorityLease mission planning routes add no-effect
@@ -154,9 +154,10 @@ Current boundary summary:
   Chat durable receipt/handoff routes, Memory Review decision receipt routes,
   Memory context-pack internal Action proposal routes,
   the exact-approved provider credential validation lane, the tiny
-  exact-approved provider lane, governed runtime pilot mutation routes, and
-  local model validation route groups. It does not add auth, distributed quota,
-  dependencies, billing, or production authority.
+  exact-approved provider lane, governed runtime pilot mutation routes, the
+  extension install-disabled record receipt route, and local model validation
+  route groups. It does not add auth, distributed quota, dependencies,
+  billing, or production authority.
 - Governed Runtime Pilot Phase 07 keeps `/api/runtime/*` contract, policy,
   approval-binding, receipt, and safe-disable metadata routes while exposing
   configured local loopback model calls, one allowlisted read-only command
@@ -256,11 +257,15 @@ Current boundary summary:
   llama.cpp/OpenWebUI shell lane.
 - Task decomposition and file routes remain local-dev scoped and governed by
   approval, policy, redaction, idempotency, and rollback contracts.
-- `GET /extensions/catalog` exposes read-only inspectable extension metadata
-  only. It is separate from any callable catalog and does not enable runtime
-  import, plugin execution, connector writes, shell/subprocess behavior,
-  unrestricted network/browser automation, mobile control, or public
-  distribution.
+- `GET /extensions/catalog` exposes read-only inspectable extension metadata.
+  `POST /extensions/disabled-install-records` records only an exact disabled
+  extension install metadata receipt after active `workspace/write`
+  AuthorityLease scope, exact `LocalApprovalAuthority` validation, idempotency,
+  redacted receipt refs, and the local disabled-record store validate. These
+  routes are separate from any callable catalog and do not enable package
+  install persistence, runtime import, plugin execution, connector writes,
+  shell/subprocess behavior, unrestricted network/browser automation, mobile
+  control, or public distribution.
 - `GET /observability/session-events` and `POST /observability/client-errors`
   expose bounded redacted session summaries and client-error summaries only;
   they do not expose raw JSONL records, request or response bodies, prompts,

@@ -193,7 +193,11 @@ from ultimate_ai_agent.core.observability import (
     record_extreme_gateway_debug_log,
     record_session_event,
 )
-from ultimate_ai_agent.core.extension_catalog import build_default_inspectable_extension_catalog
+from ultimate_ai_agent.core.extension_catalog import (
+    ExtensionInstallDisabledRecordIssueRequest,
+    build_default_inspectable_extension_catalog,
+    issue_extension_install_disabled_record,
+)
 from ultimate_ai_agent.core.file_review import (
     FileReviewApprovalCaptureRequest,
     FileReviewApprovalStore,
@@ -872,6 +876,66 @@ def get_extensions_catalog() -> Any:
         trace_id=catalog.catalog_ref,
         data=catalog.model_dump(mode="json"),
         redactions_applied=["safe_refs_only", "raw_package_content_omitted"],
+    )
+
+
+@app.post("/extensions/disabled-install-records", response_model=ResultEnvelope)
+def post_extension_install_disabled_record(
+    request: ExtensionInstallDisabledRecordIssueRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias="x-uaa-idempotency-key",
+    ),
+) -> Any:
+    if not x_uaa_idempotency_key:
+        raise HTTPException(
+            status_code=428,
+            detail={
+                "code": "API_IDEMPOTENCY_REQUIRED",
+                "safe_message": (
+                    "This route requires x-uaa-idempotency-key before local "
+                    "metadata mutation authority can be evaluated."
+                ),
+            },
+        )
+    authority_store = AuthorityLeaseStore()
+    try:
+        receipt = issue_extension_install_disabled_record(
+            request,
+            leases=authority_store.list_leases(active_only=True),
+            idempotency_key_ref=x_uaa_idempotency_key,
+            storage_root=authority_store.state_dir,
+        )
+    except ValueError as exc:
+        message = str(exc)
+        status_code = (
+            409
+            if "IDEMPOTENCY" in message or "PAYLOAD_MISMATCH" in message
+            else 403
+        )
+        raise HTTPException(
+            status_code=status_code,
+            detail={
+                "code": message or "EXTENSION_INSTALL_DISABLED_RECORD_DENIED",
+                "safe_message": (
+                    "Extension install-disabled record was denied safely. "
+                    "An active workspace/write AuthorityLease, exact local "
+                    "approval grant, and stable idempotency ref are required."
+                ),
+            },
+        ) from exc
+    return ResultEnvelope(
+        success=True,
+        operation="extension_install_disabled_record",
+        service="ExtensionCatalogAPI",
+        trace_id=receipt.receipt_ref,
+        data=receipt.model_dump(mode="json"),
+        redactions_applied=[
+            "safe_refs_only",
+            "raw_package_content_omitted",
+            "raw_manifest_content_omitted",
+            "local_paths_omitted",
+        ],
     )
 
 def _require_openwebui_local_test_gateway(

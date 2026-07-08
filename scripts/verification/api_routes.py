@@ -9,23 +9,23 @@ from .repo import load_json
 
 ROUTE_FIXTURE_PATH = "tests/fixtures/api_route_inventory_133.json"
 ROUTE_FIXTURE_SCHEMA_VERSION = "uaa-api-route-inventory.v4"
-EXPECTED_ROUTE_COUNT = 249
-EXPECTED_OPENAPI_PATH_COUNT = 248
+EXPECTED_ROUTE_COUNT = 250
+EXPECTED_OPENAPI_PATH_COUNT = 249
 EXPECTED_AUTH_POSTURE_SUMMARY = {
     "public_metadata_no_auth": 3,
-    "protected_local_bearer_required": 246,
+    "protected_local_bearer_required": 247,
 }
 EXPECTED_APPROVAL_POSTURE_SUMMARY = {
     "not_required_for_route_classification": 201,
-    "required_before_mutation_authority": 48,
+    "required_before_mutation_authority": 49,
 }
 EXPECTED_IDEMPOTENCY_POSTURE_SUMMARY = {
     "not_required_for_route_classification": 201,
-    "required_before_mutation_authority": 48,
+    "required_before_mutation_authority": 49,
 }
 EXPECTED_RATE_LIMIT_POSTURE_SUMMARY = {
     "not_targeted_for_route": 181,
-    "targeted_local_fixed_window": 68,
+    "targeted_local_fixed_window": 69,
 }
 EXPECTED_MUTATING_ROUTE_COUNT = EXPECTED_APPROVAL_POSTURE_SUMMARY[
     "required_before_mutation_authority"
@@ -60,6 +60,7 @@ EXPECTED_MUTATING_ROUTES = {
     ("POST", "/control-center/work-board/cards"),
     ("POST", "/control-center/work-board/reorder"),
     ("POST", "/control-center/work-board/tasks"),
+    ("POST", "/extensions/disabled-install-records"),
     ("POST", "/files/review/approvals/capture"),
     ("POST", "/integrations/mattermost/events/message"),
     ("POST", "/integrations/mattermost/roles/bind"),
@@ -97,6 +98,7 @@ EXPECTED_RATE_LIMIT_GROUPS = {
     "provider_exact_approved_lane",
     "provider_router_dry_run",
     "governed_runtime_pilot",
+    "extension_install_disabled_record",
     "task_decomposition",
     "today_to_action_envelope",
     "web_evidence_product_slice",

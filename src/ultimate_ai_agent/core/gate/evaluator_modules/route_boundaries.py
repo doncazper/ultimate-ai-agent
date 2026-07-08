@@ -2374,6 +2374,11 @@ WEB_EVIDENCE_PRODUCT_SLICE_ROUTES = frozenset(
         "/control-center/web-evidence/attach",
     }
 )
+EXTENSION_DISABLED_INSTALL_RECORD_ROUTES = frozenset(
+    {
+        "/extensions/disabled-install-records",
+    }
+)
 TURN_CONTRACT_ROUTER_DIAGNOSTIC_ROUTES = frozenset({"/control-center/turn-router/preview"})
 PACKAGING_PROOF_ROUTE_BOUNDARY_ROUTES = frozenset()
 VISUAL_PROOF_ROUTE_BOUNDARY_ROUTES = frozenset()
@@ -2631,6 +2636,7 @@ POST_MILESTONE_SAFE_ROUTE_FAMILIES = {
     "turn_contract_router_diagnostic": TURN_CONTRACT_ROUTER_DIAGNOSTIC_ROUTES,
     "visual_proof": VISUAL_PROOF_ROUTE_BOUNDARY_ROUTES,
     "web_evidence_product_slice": WEB_EVIDENCE_PRODUCT_SLICE_ROUTES,
+    "extension_disabled_install_record": EXTENSION_DISABLED_INSTALL_RECORD_ROUTES,
     "v1_local_model_gateway": M151_LOCAL_OPENWEBUI_TEST_ROUTES,
 }
 

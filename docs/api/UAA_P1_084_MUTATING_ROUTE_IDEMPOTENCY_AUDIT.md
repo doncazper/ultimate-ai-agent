@@ -10,7 +10,7 @@ safe idempotency value. The policy ref is
 
 ## Contract
 
-The current mutating route set is the 47 routes classified as
+The current mutating route set is the 49 routes classified as
 `mutating_requires_authority` in `/api/manifest`.
 
 Requests to those routes without an idempotency header fail with a redacted
