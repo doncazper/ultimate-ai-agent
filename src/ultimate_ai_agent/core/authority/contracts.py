@@ -4,15 +4,22 @@ import hashlib
 import json
 import os
 from collections import Counter, deque
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from enum import Enum
 from functools import lru_cache
 from pathlib import Path
-from collections.abc import Callable
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, model_validator
 
+from ultimate_ai_agent.core.authority.authority_constants import (
+    AUTHORITY_BUDGET_RECEIPTS_FILE,
+    AUTHORITY_STATE_LOCK_KEY,
+    AUTHORITY_STATE_REDACTIONS,
+)
+from ultimate_ai_agent.core.authority.budget_contracts import AuthorityBudgetReadModel
+from ultimate_ai_agent.core.single_writer_lock import FileSingleWriterLockManager
 from ultimate_ai_agent.core.planning.validation import (
     validate_safe_task_payload,
     validate_safe_task_text,
@@ -47,16 +54,6 @@ AUTHORITY_STATE_DIR_ENV = "UAA_AUTHORITY_STATE_DIR"
 AUTHORITY_LEASE_KILL_SWITCH_ENV = "UAA_AUTHORITY_LEASE_KILL_SWITCH"
 AUTHORITY_LEASES_FILE = "authority_leases.json"
 AUTHORITY_LEASE_RECEIPTS_FILE = "authority_lease_receipts.jsonl"
-AUTHORITY_STATE_REDACTIONS = (
-    "safe_refs_only",
-    "bounded_summaries_only",
-    "raw_prompt_omitted",
-    "raw_response_omitted",
-    "raw_log_omitted",
-    "local_paths_omitted",
-    "provider_payload_omitted",
-    "credentials_omitted",
-)
 
 
 class TrustMode(str, Enum):
@@ -132,6 +129,8 @@ class AuthorityConstraintKind(str, Enum):
     app_refs = "app_refs"
     host_refs = "host_refs"
     delegation_depth = "delegation_depth"
+    operation_budget = "operation_budget"
+    cost_budget_microusd = "cost_budget_microusd"
 
 
 def _stable_ref(prefix: str, payload: Any) -> str:
@@ -163,6 +162,11 @@ _AUTHORITY_REF_CONSTRAINT_KINDS = {
     AuthorityConstraintKind.app_refs,
     AuthorityConstraintKind.host_refs,
 }
+_AUTHORITY_NUMERIC_CONSTRAINT_KINDS = {
+    AuthorityConstraintKind.delegation_depth,
+    AuthorityConstraintKind.operation_budget,
+    AuthorityConstraintKind.cost_budget_microusd,
+}
 
 
 class AuthorityConstraint(_AuthorityModel):
@@ -172,7 +176,7 @@ class AuthorityConstraint(_AuthorityModel):
     constraint_ref: str = Field(..., min_length=1)
     kind: AuthorityConstraintKind
     allowed_refs: list[str] = Field(default_factory=list)
-    maximum: int | None = Field(default=None, ge=0)
+    maximum: StrictInt | None = Field(default=None, ge=0)
     safe_summary: str = Field(..., min_length=1, max_length=260)
 
     @model_validator(mode="after")
@@ -186,7 +190,7 @@ class AuthorityConstraint(_AuthorityModel):
         if kind in _AUTHORITY_REF_CONSTRAINT_KINDS:
             if not self.allowed_refs or self.maximum is not None:
                 raise ValueError("AUTHORITY_CONSTRAINT_REF_ALLOWLIST_REQUIRED")
-        elif kind == AuthorityConstraintKind.delegation_depth:
+        elif kind in _AUTHORITY_NUMERIC_CONSTRAINT_KINDS:
             if self.maximum is None or self.allowed_refs:
                 raise ValueError("AUTHORITY_CONSTRAINT_MAXIMUM_REQUIRED")
         return self
@@ -195,7 +199,7 @@ class AuthorityConstraint(_AuthorityModel):
 class AuthorityConstraintClaim(_AuthorityModel):
     kind: AuthorityConstraintKind
     refs: list[str] = Field(default_factory=list)
-    value: int | None = Field(default=None, ge=0)
+    value: StrictInt | None = Field(default=None, ge=0)
 
     @model_validator(mode="after")
     def validate_claim(self) -> "AuthorityConstraintClaim":
@@ -208,7 +212,7 @@ class AuthorityConstraintClaim(_AuthorityModel):
                     raise ValueError("AUTHORITY_RESOURCE_CONSTRAINT_USES_ACTION_REFS")
             elif not self.refs or self.value is not None:
                 raise ValueError("AUTHORITY_CONSTRAINT_CLAIM_REFS_REQUIRED")
-        elif kind == AuthorityConstraintKind.delegation_depth:
+        elif kind in _AUTHORITY_NUMERIC_CONSTRAINT_KINDS:
             if self.value is None or self.refs:
                 raise ValueError("AUTHORITY_CONSTRAINT_CLAIM_VALUE_REQUIRED")
         return self
@@ -1559,6 +1563,9 @@ class AuthorityStateReadModel(_AuthorityModel):
     authority_lane_catalog: AuthorityLaneCatalogReadModel
     decision_catalog: list[AuthorityDecisionCatalogEntry] = Field(default_factory=list)
     recent_receipts: list[AuthorityLeaseReceipt] = Field(default_factory=list)
+    authority_budget: AuthorityBudgetReadModel = Field(
+        default_factory=AuthorityBudgetReadModel
+    )
     sample_decisions: list[AuthorityPolicyDecision] = Field(default_factory=list)
     kill_switch_visible: bool = True
     kill_switch_engaged: bool = False
@@ -1644,16 +1651,16 @@ def _lease_constraint_match(
                     f"reason-ref:authority:constraint-ref-outside-scope:{kind.value}"
                 )
                 continue
-        elif kind == AuthorityConstraintKind.delegation_depth:
+        elif kind in _AUTHORITY_NUMERIC_CONSTRAINT_KINDS:
             claim = claims.get(kind)
             if claim is None or claim.value is None:
                 reason_refs.append(
-                    "reason-ref:authority:constraint-claim-missing:delegation_depth"
+                    f"reason-ref:authority:constraint-claim-missing:{kind.value}"
                 )
                 continue
             if constraint.maximum is None or claim.value > constraint.maximum:
                 reason_refs.append(
-                    "reason-ref:authority:constraint-limit-exceeded:delegation_depth"
+                    f"reason-ref:authority:constraint-limit-exceeded:{kind.value}"
                 )
                 continue
         applied_refs.append(constraint.constraint_ref)
@@ -2023,6 +2030,11 @@ def authority_state_dir() -> Path:
     if value:
         return Path(value).expanduser()
     return Path(".uaa") / "authority"
+
+
+@lru_cache(maxsize=32)
+def authority_state_lock_manager(state_dir_ref: str) -> FileSingleWriterLockManager:
+    return FileSingleWriterLockManager(Path(state_dir_ref))
 
 
 def authority_lease_kill_switch_engaged() -> bool:
@@ -2930,14 +2942,29 @@ class AuthorityLeaseStore:
         self.state_dir = state_dir or authority_state_dir()
         self.leases_path = self.state_dir / AUTHORITY_LEASES_FILE
         self.receipts_path = self.state_dir / AUTHORITY_LEASE_RECEIPTS_FILE
+        self.lock_manager = authority_state_lock_manager(
+            str(self.state_dir.resolve())
+        )
 
     def list_leases(self, *, active_only: bool = False) -> list[AuthorityLease]:
+        if not self.leases_path.exists():
+            return []
+        with self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY):
+            return self._list_leases(active_only=active_only)
+
+    def _list_leases(self, *, active_only: bool = False) -> list[AuthorityLease]:
         leases = self._read_leases()
         if active_only:
             leases = [lease for lease in leases if lease.is_active()]
         return leases
 
     def list_receipts(self, *, limit: int = 20) -> list[AuthorityLeaseReceipt]:
+        if limit <= 0 or not self.receipts_path.exists():
+            return []
+        with self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY):
+            return self._list_receipts(limit=limit)
+
+    def _list_receipts(self, *, limit: int = 20) -> list[AuthorityLeaseReceipt]:
         if not self.receipts_path.exists():
             return []
         if limit <= 0:
@@ -2950,12 +2977,28 @@ class AuthorityLeaseStore:
         return [AuthorityLeaseReceipt(**json.loads(line)) for line in recent_lines]
 
     def build_state_read_model(self) -> AuthorityStateReadModel:
-        active = self.list_leases(active_only=True)
-        return build_authority_state_read_model(
-            active_leases=active or build_default_authority_leases(),
-            recent_receipts=self.list_receipts(limit=8),
-            kill_switch_engaged=authority_lease_kill_switch_engaged(),
-        )
+        budget_receipts_path = self.state_dir / AUTHORITY_BUDGET_RECEIPTS_FILE
+        if not any(
+            path.exists()
+            for path in [self.leases_path, self.receipts_path, budget_receipts_path]
+        ):
+            return build_authority_state_read_model(
+                kill_switch_engaged=authority_lease_kill_switch_engaged(),
+            )
+        with self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY):
+            active = self._list_leases(active_only=True)
+            from ultimate_ai_agent.core.authority.budgets import AuthorityBudgetStore
+
+            budget_read_model = AuthorityBudgetStore(
+                self.state_dir,
+                lease_store=self,
+            )._build_read_model(recent_limit=8)
+            return build_authority_state_read_model(
+                active_leases=active or build_default_authority_leases(),
+                recent_receipts=self._list_receipts(limit=8),
+                budget_read_model=budget_read_model,
+                kill_switch_engaged=authority_lease_kill_switch_engaged(),
+            )
 
     def build_domain_readiness_read_model(self) -> AuthorityDomainReadinessReadModel:
         active = self.list_leases(active_only=True) or build_default_authority_leases()
@@ -2997,6 +3040,20 @@ class AuthorityLeaseStore:
         )
 
     def issue_lease(
+        self,
+        request: AuthorityLeaseIssueRequest,
+        *,
+        idempotency_ref: str,
+        approval_validator: AuthorityLeaseApprovalValidator | None = None,
+    ) -> tuple[AuthorityLease | None, AuthorityLeaseReceipt]:
+        with self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY):
+            return self._issue_lease(
+                request,
+                idempotency_ref=idempotency_ref,
+                approval_validator=approval_validator,
+            )
+
+    def _issue_lease(
         self,
         request: AuthorityLeaseIssueRequest,
         *,
@@ -3166,6 +3223,18 @@ class AuthorityLeaseStore:
         return lease, receipt
 
     def revoke_lease(
+        self,
+        request: AuthorityLeaseRevokeRequest,
+        *,
+        idempotency_ref: str,
+    ) -> tuple[AuthorityLease | None, AuthorityLeaseReceipt]:
+        with self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY):
+            return self._revoke_lease(
+                request,
+                idempotency_ref=idempotency_ref,
+            )
+
+    def _revoke_lease(
         self,
         request: AuthorityLeaseRevokeRequest,
         *,
@@ -3360,15 +3429,24 @@ class AuthorityLeaseStore:
             "schema_version": "uaa-authority-lease-store.v1",
             "leases": [lease.model_dump(mode="json") for lease in leases],
         }
-        self.leases_path.write_text(
-            json.dumps(payload, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
+        temp_path = self.leases_path.with_suffix(".tmp")
+        with temp_path.open("w", encoding="utf-8") as handle:
+            handle.write(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temp_path, self.leases_path)
+        directory_fd = os.open(self.state_dir, os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
 
     def _append_receipt(self, receipt: AuthorityLeaseReceipt) -> None:
         self.state_dir.mkdir(parents=True, exist_ok=True)
         with self.receipts_path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(receipt.model_dump(mode="json"), sort_keys=True) + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
 
     def _receipt_for_idempotency(
         self,
@@ -3398,6 +3476,13 @@ class AuthorityLeaseStore:
     def _lease_by_ref(self, lease_ref: str) -> AuthorityLease | None:
         return next((lease for lease in self._read_leases() if lease.lease_ref == lease_ref), None)
 
+    def get_lease(self, lease_ref: str) -> AuthorityLease | None:
+        validate_task_ref(lease_ref, "authority_lease_ref")
+        if not self.leases_path.exists():
+            return None
+        with self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY):
+            return self._lease_by_ref(lease_ref)
+
 
 def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]:
     return [
@@ -3423,6 +3508,7 @@ def build_authority_state_read_model(
     *,
     active_leases: list[AuthorityLease] | None = None,
     recent_receipts: list[AuthorityLeaseReceipt] | None = None,
+    budget_read_model: AuthorityBudgetReadModel | None = None,
     kill_switch_engaged: bool = False,
 ) -> AuthorityStateReadModel:
     leases = active_leases or build_default_authority_leases()
@@ -3508,6 +3594,8 @@ def build_authority_state_read_model(
         ),
         decision_catalog=decision_catalog,
         recent_receipts=recent_receipts or [],
+        authority_budget=budget_read_model
+        or AuthorityBudgetReadModel(kill_switch_engaged=kill_switch_engaged),
         sample_decisions=samples,
         kill_switch_engaged=kill_switch_engaged,
     )
