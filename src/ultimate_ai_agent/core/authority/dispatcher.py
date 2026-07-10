@@ -332,29 +332,66 @@ class AuthorityDispatcher:
                 reservation=reservation,
             )
 
-        with self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY):
-            receipts = self._load_receipts()
-            replay = self._existing_result(receipts, request, fingerprint)
-            if replay is not None:
-                return replay
-            receipt = self._build_receipt(
-                request,
-                status=AuthorityDispatchStatus.prepared,
-                previous_entry_hash_ref=(
-                    receipts[-1].entry_hash_ref if receipts else None
-                ),
-                descriptor=adapter.descriptor,
-                authority_decision_ref=reservation.authority_decision_ref,
-                authority_policy_receipt_ref=reservation.authority_policy_receipt_ref,
-                approval_required=reservation.approval_required,
-                approval_ref=reservation.approval_ref,
-                approval_validation_ref=reservation.approval_validation_ref,
-                budget_reservation_ref=reservation.reservation_ref,
-                budget_reservation_receipt_ref=reservation.receipt_ref,
-                safe_summary="Governed dispatch prepared with exact authority and budget bindings.",
-            )
-            self._append(receipt)
-            return AuthorityDispatchResult(receipt=receipt)
+        reservation_claimed = False
+        try:
+            with self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY):
+                receipts = self._load_receipts()
+                try:
+                    replay = self._existing_result(receipts, request, fingerprint)
+                except AuthorityDispatchConflictError:
+                    reservation_claimed = any(
+                        receipt.budget_reservation_ref == reservation.reservation_ref
+                        for receipt in receipts
+                    )
+                    raise
+                if replay is not None:
+                    return replay
+                receipt = self._build_receipt(
+                    request,
+                    status=AuthorityDispatchStatus.prepared,
+                    previous_entry_hash_ref=(
+                        receipts[-1].entry_hash_ref if receipts else None
+                    ),
+                    descriptor=adapter.descriptor,
+                    authority_decision_ref=reservation.authority_decision_ref,
+                    authority_policy_receipt_ref=reservation.authority_policy_receipt_ref,
+                    approval_required=reservation.approval_required,
+                    approval_ref=reservation.approval_ref,
+                    approval_validation_ref=reservation.approval_validation_ref,
+                    budget_reservation_ref=reservation.reservation_ref,
+                    budget_reservation_receipt_ref=reservation.receipt_ref,
+                    safe_summary="Governed dispatch prepared with exact authority and budget bindings.",
+                )
+                self._append(receipt)
+                return AuthorityDispatchResult(receipt=receipt)
+        except AuthorityDispatchConflictError:
+            # A fresh reservation can lose a dispatch/idempotency race after the
+            # budget check. Release only receipts created by this call: a replayed
+            # reservation may already belong to the winning dispatch.
+            if (
+                reservation.status == AuthorityBudgetStatus.reserved.value
+                and not reservation_claimed
+            ):
+                release = self.budget_store.release(
+                    AuthorityBudgetReleaseRequest(
+                        reservation_ref=reservation.reservation_ref,
+                        idempotency_ref=_phase_idempotency_ref(
+                            request, "budget-reserve-race-release"
+                        ),
+                        reason_ref=(
+                            "reason-ref:authority-dispatch:reservation-lost-dispatch-race"
+                        ),
+                        safe_summary=(
+                            "Release fresh capacity after losing the durable dispatch claim."
+                        ),
+                    )
+                )
+                release_status = release.original_status or release.status
+                if release_status != AuthorityBudgetStatus.released.value:
+                    raise AuthorityDispatchCorruptionError(
+                        "AUTHORITY_DISPATCH_RACE_RESERVATION_RELEASE_FAILED"
+                    )
+            raise
 
     def execute(self, request: AuthorityDispatchRequest) -> AuthorityDispatchResult:
         fingerprint = _request_fingerprint(request)
@@ -398,12 +435,10 @@ class AuthorityDispatcher:
                 )
                 self._append(started)
             else:
-                pending = self._build_receipt(
-                    request,
+                pending = self._build_receipt_from_existing(
+                    latest,
                     status=AuthorityDispatchStatus.cancellation_pending,
                     previous_entry_hash_ref=receipts[-1].entry_hash_ref,
-                    descriptor=(adapter.descriptor if adapter is not None else None),
-                    previous=latest,
                     cancellation_idempotency_ref=_phase_idempotency_ref(
                         request, "prestart-policy-release"
                     ),
@@ -623,6 +658,7 @@ class AuthorityDispatcher:
             receipts = self._load_receipts()
         latest_by_dispatch: dict[str, AuthorityDispatchReceipt] = {}
         for receipt in receipts:
+            latest_by_dispatch.pop(receipt.dispatch_ref, None)
             latest_by_dispatch[receipt.dispatch_ref] = receipt
         latest = list(latest_by_dispatch.values())
         recent = latest[-recent_limit:] if recent_limit else []

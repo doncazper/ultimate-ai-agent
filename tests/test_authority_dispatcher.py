@@ -23,6 +23,7 @@ from ultimate_ai_agent.core.authority import (
     AuthorityDispatchAdapterDescriptor,
     AuthorityDispatchCancelRequest,
     AuthorityDispatchRequest,
+    AuthorityDispatchResult,
     AuthorityDispatchStatus,
     AuthorityDomain,
     AuthorityLeaseIssueRequest,
@@ -638,6 +639,257 @@ def test_concurrent_dispatch_replay_invokes_adapter_exactly_once(tmp_path: Path)
     )
     assert len(dispatcher.list_receipts()) == 3
     assert len(dispatcher.budget_store.list_receipts()) == 2
+
+
+def test_concurrent_conflict_releases_losing_fresh_reservation(tmp_path: Path) -> None:
+    state_dir = tmp_path / "authority"
+    root = tmp_path / "safe-root"
+    (root / "notes").mkdir(parents=True)
+    (root / "notes" / "report.md").write_text("bounded", encoding="utf-8")
+    lease_store, lease = _lease(
+        state_dir,
+        mode=TrustMode.full_local_workspace_session,
+        domain=AuthorityDomain.files,
+        capability=AuthorityCapability.read,
+    )
+    adapter = ToolRuntimeAuthorityDispatchAdapter(
+        _descriptor(filesystem=True),
+        safe_roots=[
+            FilesystemSafeRoot(
+                root_ref="safe-root:test-authority",
+                root_path=root,
+                safe_label="Test dispatch safe root",
+            )
+        ],
+    )
+    dispatcher = AuthorityDispatcher(
+        state_dir,
+        adapters=[adapter],
+        lease_store=lease_store,
+    )
+    first = _request(lease.lease_ref, suffix="race-conflict", filesystem=True)
+    second_payload = first.model_dump(mode="json")
+    second_payload["idempotency_ref"] = "idempotency-ref:test-dispatch:race-loser"
+    second_payload["tool_invocation_request"]["replay_key"] = second_payload[
+        "idempotency_ref"
+    ]
+    second = AuthorityDispatchRequest.model_validate(second_payload)
+    barrier = threading.Barrier(2)
+    reserve = dispatcher.budget_store.reserve
+
+    def synchronized_reserve(*args: Any, **kwargs: Any) -> Any:
+        receipt = reserve(*args, **kwargs)
+        barrier.wait(timeout=5)
+        return receipt
+
+    dispatcher.budget_store.reserve = synchronized_reserve  # type: ignore[method-assign]
+
+    def prepare(request: AuthorityDispatchRequest) -> AuthorityDispatchResult | None:
+        try:
+            return dispatcher.prepare(request)
+        except AuthorityDispatchConflictError:
+            return None
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(prepare, [first, second]))
+
+    assert sum(result is None for result in results) == 1
+    prepared = next(result for result in results if result is not None)
+    budget_receipts = dispatcher.budget_store.list_receipts()
+    active_reservation_refs = {
+        receipt.reservation_ref
+        for receipt in budget_receipts
+        if receipt.status == AuthorityBudgetStatus.reserved.value
+    } - {
+        receipt.reservation_ref
+        for receipt in budget_receipts
+        if receipt.status == AuthorityBudgetStatus.released.value
+    }
+
+    assert prepared.receipt.budget_reservation_ref in active_reservation_refs
+    assert len(active_reservation_refs) == 1
+    assert [receipt.status for receipt in budget_receipts].count(
+        AuthorityBudgetStatus.released.value
+    ) == 1
+
+
+def test_concurrent_budget_replay_does_not_release_winner_reservation(
+    tmp_path: Path,
+) -> None:
+    state_dir = tmp_path / "authority"
+    root = tmp_path / "safe-root"
+    (root / "notes").mkdir(parents=True)
+    (root / "notes" / "report.md").write_text("bounded", encoding="utf-8")
+    lease_store, lease = _lease(
+        state_dir,
+        mode=TrustMode.full_local_workspace_session,
+        domain=AuthorityDomain.files,
+        capability=AuthorityCapability.read,
+    )
+    dispatcher = AuthorityDispatcher(
+        state_dir,
+        adapters=[
+            ToolRuntimeAuthorityDispatchAdapter(
+                _descriptor(filesystem=True),
+                safe_roots=[
+                    FilesystemSafeRoot(
+                        root_ref="safe-root:test-authority",
+                        root_path=root,
+                        safe_label="Test dispatch safe root",
+                    )
+                ],
+            )
+        ],
+        lease_store=lease_store,
+    )
+    first = _request(lease.lease_ref, suffix="shared-reservation", filesystem=True)
+    second_payload = first.model_dump(mode="json")
+    second_payload["tool_invocation_request"]["metadata"]["relative_path"] = (
+        "notes/alternate.md"
+    )
+    second = AuthorityDispatchRequest.model_validate(second_payload)
+    fresh_reserved = threading.Event()
+    replay_claimed = threading.Event()
+    reservation_statuses: dict[int, str] = {}
+    statuses_lock = threading.Lock()
+    reserve = dispatcher.budget_store.reserve
+
+    def synchronized_reserve(*args: Any, **kwargs: Any) -> Any:
+        receipt = reserve(*args, **kwargs)
+        with statuses_lock:
+            reservation_statuses[threading.get_ident()] = receipt.status
+        if receipt.status == AuthorityBudgetStatus.reserved.value:
+            fresh_reserved.set()
+            assert replay_claimed.wait(timeout=5)
+        else:
+            assert receipt.status == AuthorityBudgetStatus.replayed.value
+            assert fresh_reserved.wait(timeout=5)
+        return receipt
+
+    dispatcher.budget_store.reserve = synchronized_reserve  # type: ignore[method-assign]
+
+    def prepare(request: AuthorityDispatchRequest) -> AuthorityDispatchResult | None:
+        try:
+            return dispatcher.prepare(request)
+        except AuthorityDispatchConflictError:
+            return None
+        finally:
+            with statuses_lock:
+                status = reservation_statuses.get(threading.get_ident())
+            if status == AuthorityBudgetStatus.replayed.value:
+                replay_claimed.set()
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(prepare, [first, second]))
+
+    prepared = next(result for result in results if result is not None)
+    budget_receipts = dispatcher.budget_store.list_receipts()
+
+    assert sum(result is None for result in results) == 1
+    assert [receipt.status for receipt in budget_receipts] == [
+        AuthorityBudgetStatus.reserved.value
+    ]
+    assert (
+        prepared.receipt.budget_reservation_ref
+        == budget_receipts[0].reservation_ref
+    )
+
+
+def test_missing_adapter_after_prepare_cancels_with_prepared_bindings(
+    tmp_path: Path,
+) -> None:
+    state_dir = tmp_path / "authority"
+    root = tmp_path / "safe-root"
+    (root / "notes").mkdir(parents=True)
+    (root / "notes" / "report.md").write_text("bounded", encoding="utf-8")
+    lease_store, lease = _lease(
+        state_dir,
+        mode=TrustMode.full_local_workspace_session,
+        domain=AuthorityDomain.files,
+        capability=AuthorityCapability.read,
+    )
+    dispatcher = AuthorityDispatcher(
+        state_dir,
+        adapters=[
+            ToolRuntimeAuthorityDispatchAdapter(
+                _descriptor(filesystem=True),
+                safe_roots=[
+                    FilesystemSafeRoot(
+                        root_ref="safe-root:test-authority",
+                        root_path=root,
+                        safe_label="Test dispatch safe root",
+                    )
+                ],
+            )
+        ],
+        lease_store=lease_store,
+    )
+    request = _request(lease.lease_ref, suffix="missing-adapter", filesystem=True)
+    prepared = dispatcher.prepare(request)
+    dispatcher.adapters.clear()
+
+    result = dispatcher.execute(request)
+    receipts = dispatcher.list_receipts()
+
+    assert result.receipt.status == AuthorityDispatchStatus.cancelled_before_start.value
+    assert [receipt.status for receipt in receipts] == [
+        AuthorityDispatchStatus.prepared.value,
+        AuthorityDispatchStatus.cancellation_pending.value,
+        AuthorityDispatchStatus.cancelled_before_start.value,
+    ]
+    assert all(
+        receipt.capability_ref == prepared.receipt.capability_ref
+        and receipt.rollback_ref == prepared.receipt.rollback_ref
+        and receipt.safe_disable_ref == prepared.receipt.safe_disable_ref
+        for receipt in receipts
+    )
+    assert [
+        receipt.status for receipt in dispatcher.budget_store.list_receipts()
+    ] == [
+        AuthorityBudgetStatus.reserved.value,
+        AuthorityBudgetStatus.released.value,
+    ]
+
+
+def test_recent_dispatches_follow_latest_ledger_position(tmp_path: Path) -> None:
+    state_dir = tmp_path / "authority"
+    root = tmp_path / "safe-root"
+    (root / "notes").mkdir(parents=True)
+    (root / "notes" / "report.md").write_text("bounded", encoding="utf-8")
+    lease_store, lease = _lease(
+        state_dir,
+        mode=TrustMode.full_local_workspace_session,
+        domain=AuthorityDomain.files,
+        capability=AuthorityCapability.read,
+    )
+    dispatcher = AuthorityDispatcher(
+        state_dir,
+        adapters=[
+            ToolRuntimeAuthorityDispatchAdapter(
+                _descriptor(filesystem=True),
+                safe_roots=[
+                    FilesystemSafeRoot(
+                        root_ref="safe-root:test-authority",
+                        root_path=root,
+                        safe_label="Test dispatch safe root",
+                    )
+                ],
+            )
+        ],
+        lease_store=lease_store,
+    )
+    first = _request(lease.lease_ref, suffix="recent-first", filesystem=True)
+    second = _request(lease.lease_ref, suffix="recent-second", filesystem=True)
+
+    dispatcher.prepare(first)
+    dispatcher.dispatch(second)
+    dispatcher.execute(first)
+
+    read_model = dispatcher.build_read_model(recent_limit=1)
+
+    assert [receipt.dispatch_ref for receipt in read_model.latest_receipts] == [
+        first.dispatch_ref
+    ]
 
 
 def test_mismatched_adapter_execution_ref_is_settled_as_failure(tmp_path: Path) -> None:
