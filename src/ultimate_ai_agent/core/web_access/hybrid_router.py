@@ -17,6 +17,7 @@ from .hybrid_contracts import (
     WebCreditSnapshotFreshness,
     WebProviderAttemptOutcome,
     WebProviderCapabilityState,
+    WebProviderCircuitState,
     WebProviderCreditSnapshot,
     WebProviderDeploymentKind,
     WebProviderOperation,
@@ -45,6 +46,7 @@ _TERMINAL_OUTCOMES = {
     WebProviderAttemptOutcome.unsupported_content_type,
     WebProviderAttemptOutcome.scope_exhausted,
     WebProviderAttemptOutcome.incomplete_credit_receipt,
+    WebProviderAttemptOutcome.unknown_failure,
 }
 
 
@@ -60,6 +62,7 @@ def simulate_hybrid_route(
     cloud_snapshot: WebProviderCreditSnapshot | None = None,
     in_flight_reserved_credits: int = 0,
     cloud_safety_reserve_credits: int = 1,
+    cloud_circuit_state: WebProviderCircuitState = WebProviderCircuitState.closed,
     now: datetime | None = None,
 ) -> WebProviderRoutingDecision:
     now = now or datetime.now(timezone.utc)
@@ -96,8 +99,14 @@ def simulate_hybrid_route(
         if policy == WebProviderRoutingPolicy.self_host_first_cloud_escalation:
             if first_attempt_outcome in _TERMINAL_OUTCOMES:
                 blockers.append("TERMINAL_FIRST_ATTEMPT_OUTCOME_NO_FALLBACK")
+            elif first_attempt_outcome == WebProviderAttemptOutcome.succeeded:
+                reasons.append("FIRST_ATTEMPT_SUCCEEDED_NO_FALLBACK")
             elif first_attempt_outcome in _FALLBACK_ELIGIBLE:
-                if _state_route_ready(cloud) and _cloud_credit_route_ready(
+                if cloud_circuit_state == WebProviderCircuitState.open:
+                    blockers.append("FIRECRAWL_CLOUD_CIRCUIT_OPEN")
+                elif cloud_circuit_state == WebProviderCircuitState.unknown:
+                    blockers.append("FIRECRAWL_CLOUD_CIRCUIT_UNKNOWN")
+                elif _state_route_ready(cloud) and _cloud_credit_route_ready(
                     cloud_snapshot,
                     in_flight_reserved_credits=in_flight_reserved_credits,
                     safety_reserve_credits=cloud_safety_reserve_credits,
@@ -169,6 +178,7 @@ def _cloud_credit_route_ready(
         snapshot is not None
         and snapshot.plan_kind == WebProviderPlanKind.free
         and snapshot.freshness == WebCreditSnapshotFreshness.current
+        and snapshot.max_concurrency is not None
         and snapshot.expires_at > now
         and snapshot.billing_period_start <= now < snapshot.billing_period_end
         and snapshot.remaining_credits

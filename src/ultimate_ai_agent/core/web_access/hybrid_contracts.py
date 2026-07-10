@@ -123,6 +123,7 @@ class WebProviderAttemptOutcome(str, Enum):
     unsupported_content_type = "unsupported_content_type"
     scope_exhausted = "scope_exhausted"
     incomplete_credit_receipt = "incomplete_credit_receipt"
+    unknown_failure = "unknown_failure"
 
 
 class WebProviderCircuitState(str, Enum):

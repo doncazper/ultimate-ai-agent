@@ -1,8 +1,8 @@
 # WebAccessGateway Boundary
 
-Status: active boundary plus exact WEB-HYBRID-003 SearXNG, WEB-HYBRID-004 self-hosted Firecrawl, and WEB-HYBRID-005 free-plan cloud markdown lanes
-Scope: contracts, policy, audit, source metadata, static guardrails, governed evidence wrapper, exact governed search, local extraction, authenticated credit reconciliation, and independently governed one-page cloud extraction
-Out of scope: hybrid fallback execution, paid usage, Keyless, crawl/map/search/schema extraction, browser execution, browser clicks, form filling, auth/cookies for target pages, downloads, uploads, and non-GET target methods
+Status: active boundary plus exact WEB-HYBRID-003 search, WEB-HYBRID-004/005 local and cloud extraction, and WEB-HYBRID-006 one-step hybrid routing
+Scope: governed search, local-first extraction, authenticated free-credit accounting, normalized one-fallback routing, receipt-only idempotent replay, and a manually reconciled cloud circuit breaker
+Out of scope: cloud-first routing, more than one fallback, paid usage, Keyless, crawl/map/search/schema extraction, browser execution, clicks/forms, target auth/cookies, downloads/uploads, and non-GET target methods
 
 ## Decision
 
@@ -52,7 +52,11 @@ remains GET; the fixed loopback adapter uses POST only as Firecrawl's provider
 transport. WEB-HYBRID-005 independently permits one authenticated Firecrawl
 Cloud standard scrape only after current free-plan credit truth, atomic
 reservation, exact budget decision, and post-call reconciliation are proven.
-It does not enable hybrid fallback. Paid usage, Keyless, Browserbase,
+WEB-HYBRID-006 permits only a local-first cloud fallback for a fixed eligible
+failure taxonomy. The cloud attempt receives a distinct exact approval, lease,
+budget reservation, idempotency ref, and receipt. Policy/authority/private-target,
+redirect, scope, unknown, or incomplete-cost outcomes remain terminal. Paid
+usage, Keyless, cloud-first routing, Browserbase,
 crawl/map/search/schema extraction, browser sessions/actions, target auth/cookies,
 downloads/uploads, and POST-style target mutations remain blocked.
 
@@ -121,7 +125,7 @@ Denied:
 - provider SDK imports/calls
 - provider credentials
 - all live search providers except the exact governed SearXNG lane
-- Firecrawl Cloud hybrid fallback, paid/unknown plans, Keyless,
+- cloud-first or multi-step fallback, paid/unknown plans, Keyless,
   crawl/map/search/schema extraction, and provider actions
 - Browserbase browser sessions
 ```
@@ -173,6 +177,14 @@ A successful result requires the before/after balance delta to prove the exact
 one-credit standard scrape. Provider-level zero-data retention is not claimed
 for the free plan; UAA uses `storeInCache=false` and retains no raw page or
 provider payload.
+
+Hybrid execution stores only safe receipt state for idempotent replay; transient
+markdown is never placed in the replay ledger. A replay cannot call either
+provider or create another credit reservation. The cloud circuit opens after a
+bounded set of normalized provider/quota/receipt failures and never closes from
+a timer or background probe. A user-triggered current free-plan reconciliation
+is required to close it. Safe-disable or lease revocation between the local and
+cloud attempts is re-evaluated and blocks the cloud transport.
 
 ## Untrusted content model
 

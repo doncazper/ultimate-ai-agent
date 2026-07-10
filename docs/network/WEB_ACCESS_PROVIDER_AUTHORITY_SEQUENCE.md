@@ -180,6 +180,11 @@ authenticated free-plan standard scrape, `proxy=basic`, no provider cache,
 one atomic reservation, exact request budget/approval/lease scope, and complete
 before/after usage proof. This does not authorize automatic fallback, paid or
 unknown plans, Keyless, enhanced/auto proxy escalation, or target-page auth.
+WEB-HYBRID-006 promotes one automatic choice only: self-host first, followed by
+at most one separately authorized cloud attempt for a fixed normalized
+availability/render failure. Policy, authority, private-target, redirect,
+scope, unknown, and incomplete-cost failures are terminal. Replay is
+receipt-only, and an opened cloud circuit requires manual credit reconciliation.
 Normalize into WebAccessResult and WebAccessAuditRecord.
 Mark content_untrusted=true.
 Keep Interact, sessions, clicks/forms, general credential surfaces, and writes blocked.

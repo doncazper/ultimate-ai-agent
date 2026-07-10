@@ -116,6 +116,17 @@ from .hybrid_ledger import (
     WebCreditLedgerConflictError,
     WebCreditLedgerTransitionError,
 )
+from .hybrid_execution import (
+    HybridMarkdownExecutionRequest,
+    HybridMarkdownExecutionResult,
+    InMemoryWebCloudCircuitBreaker,
+    InMemoryWebHybridExecutionLedger,
+    WebCloudCircuitSnapshot,
+    WebHybridExecutionConflictError,
+    classify_cloud_firecrawl_outcome,
+    classify_local_firecrawl_outcome,
+    execute_hybrid_firecrawl_markdown,
+)
 from .hybrid_router import simulate_hybrid_route
 from .policy import WebAccessPolicy
 from .runtime_authority import (
@@ -234,6 +245,15 @@ __all__ = [
     "WEB_HYBRID_COST_POLICY_REF",
     "WEB_HYBRID_SCHEMA_VERSION",
     "InMemoryWebCreditLedger",
+    "HybridMarkdownExecutionRequest",
+    "HybridMarkdownExecutionResult",
+    "InMemoryWebCloudCircuitBreaker",
+    "InMemoryWebHybridExecutionLedger",
+    "WebCloudCircuitSnapshot",
+    "WebHybridExecutionConflictError",
+    "classify_cloud_firecrawl_outcome",
+    "classify_local_firecrawl_outcome",
+    "execute_hybrid_firecrawl_markdown",
     "WebCreditLedgerConflictError",
     "WebCreditLedgerTransitionError",
     "WebCreditReceiptCompleteness",

@@ -22,7 +22,10 @@ gates. WEB-HYBRID-005 adds authenticated free-plan credit reconciliation,
 atomic local reservations, and one independently governed Firecrawl Cloud
 standard markdown attempt with exact approval, lease, budget, idempotency, and
 post-call usage proof. Hybrid provider fallback remains blocked until
-WEB-HYBRID-006.
+WEB-HYBRID-006. WEB-HYBRID-006 promotes only self-host-first markdown routing
+with one normalized eligible cloud fallback, receipt-only idempotent replay,
+request-time authority/budget re-evaluation, and a manual-reconciliation cloud
+circuit breaker. `cloud_budget_first` remains absent.
 
 Progress evidence is phase-committed. A completed contract or packaging phase
 does not grant later provider execution authority.
