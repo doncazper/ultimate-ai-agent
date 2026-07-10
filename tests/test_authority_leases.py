@@ -15,9 +15,13 @@ from ultimate_ai_agent.core.authority import (
     AUTHORITY_STATE_DIR_ENV,
     AuthorityActionRequest,
     AuthorityCapability,
+    AuthorityConstraint,
+    AuthorityConstraintClaim,
+    AuthorityConstraintKind,
     AuthorityDecisionOutcome,
     AuthorityDomain,
     AuthorityLease,
+    AuthorityLeaseConflictError,
     AuthorityLeaseIssueRequest,
     AuthorityLeaseStore,
     AuthorityMissionPlanRequest,
@@ -3439,3 +3443,324 @@ def test_authority_lease_approve_and_issue_api_captures_exact_backend_approval(
         },
     )
     assert inline_grant.status_code == 422
+
+
+def _exact_workspace_constraints(*, path_ref: str) -> list[AuthorityConstraint]:
+    return [
+        AuthorityConstraint(
+            constraint_ref="authority-constraint-ref:test-workspace-resource",
+            kind=AuthorityConstraintKind.resource_refs,
+            allowed_refs=["resource-ref:test-run"],
+            safe_summary="Limit the action to one exact run resource ref.",
+        ),
+        AuthorityConstraint(
+            constraint_ref="authority-constraint-ref:test-workspace-path",
+            kind=AuthorityConstraintKind.path_refs,
+            allowed_refs=[path_ref],
+            safe_summary="Limit the action to one approved workspace path ref.",
+        ),
+        AuthorityConstraint(
+            constraint_ref="authority-constraint-ref:test-workspace-app",
+            kind=AuthorityConstraintKind.app_refs,
+            allowed_refs=["app-ref:test-control-center"],
+            safe_summary="Limit the action to the local Control Center app ref.",
+        ),
+        AuthorityConstraint(
+            constraint_ref="authority-constraint-ref:test-workspace-host",
+            kind=AuthorityConstraintKind.host_refs,
+            allowed_refs=["host-ref:test-loopback"],
+            safe_summary="Limit the action to one loopback host ref.",
+        ),
+        AuthorityConstraint(
+            constraint_ref="authority-constraint-ref:test-delegation-depth",
+            kind=AuthorityConstraintKind.delegation_depth,
+            maximum=1,
+            safe_summary="Limit delegated execution to one child level.",
+        ),
+    ]
+
+
+def _exact_workspace_constraint_claims(
+    *,
+    path_ref: str = "path-ref:test-workspace-src",
+    include_host: bool = True,
+    delegation_depth: int = 1,
+) -> list[AuthorityConstraintClaim]:
+    claims = [
+        AuthorityConstraintClaim(
+            kind=AuthorityConstraintKind.path_refs,
+            refs=[path_ref],
+        ),
+        AuthorityConstraintClaim(
+            kind=AuthorityConstraintKind.app_refs,
+            refs=["app-ref:test-control-center"],
+        ),
+        AuthorityConstraintClaim(
+            kind=AuthorityConstraintKind.delegation_depth,
+            value=delegation_depth,
+        ),
+    ]
+    if include_host:
+        claims.append(
+            AuthorityConstraintClaim(
+                kind=AuthorityConstraintKind.host_refs,
+                refs=["host-ref:test-loopback"],
+            )
+        )
+    return claims
+
+
+def test_authority_lease_constraints_fail_closed_and_select_exact_matching_lease() -> None:
+    constrained = AuthorityLease(
+        lease_ref="authority-lease-ref:test-constrained-workspace",
+        mode=TrustMode.full_local_workspace_session,
+        domains={AuthorityDomain.workspace: [AuthorityCapability.execute]},
+        authority_constraints=_exact_workspace_constraints(
+            path_ref="path-ref:test-workspace-src"
+        ),
+        safe_summary="Grant exact constrained workspace execution for this session.",
+    )
+    other_path = constrained.model_copy(
+        update={
+            "lease_ref": "authority-lease-ref:test-constrained-other-path",
+            "authority_constraints": _exact_workspace_constraints(
+                path_ref="path-ref:test-workspace-docs"
+            ),
+        }
+    )
+    action = AuthorityActionRequest(
+        action_ref="authority-action-ref:test-constrained-workspace",
+        domain=AuthorityDomain.workspace,
+        capability=AuthorityCapability.execute,
+        resource_refs=["resource-ref:test-run"],
+        constraint_claims=_exact_workspace_constraint_claims(),
+        safe_summary="Execute one exact constrained workspace action.",
+    )
+
+    allowed = evaluate_authority_request(action, [other_path, constrained])
+    missing = evaluate_authority_request(
+        action.model_copy(
+            update={
+                "action_ref": "authority-action-ref:test-constraint-missing-host",
+                "constraint_claims": _exact_workspace_constraint_claims(
+                    include_host=False
+                ),
+            }
+        ),
+        [constrained],
+    )
+    wrong_path = evaluate_authority_request(
+        action.model_copy(
+            update={
+                "action_ref": "authority-action-ref:test-constraint-wrong-path",
+                "constraint_claims": _exact_workspace_constraint_claims(
+                    path_ref="path-ref:test-workspace-private"
+                ),
+            }
+        ),
+        [constrained],
+    )
+    excess_delegation = evaluate_authority_request(
+        action.model_copy(
+            update={
+                "action_ref": "authority-action-ref:test-constraint-depth",
+                "constraint_claims": _exact_workspace_constraint_claims(
+                    delegation_depth=2
+                ),
+            }
+        ),
+        [constrained],
+    )
+
+    assert allowed.outcome == AuthorityDecisionOutcome.allow.value
+    assert allowed.lease_ref == constrained.lease_ref
+    assert allowed.applied_constraint_refs == [
+        constraint.constraint_ref
+        for constraint in constrained.authority_constraints
+    ]
+    assert missing.outcome == AuthorityDecisionOutcome.deny.value
+    assert (
+        "reason-ref:authority:constraint-claim-missing:host_refs"
+        in missing.reason_refs
+    )
+    assert wrong_path.outcome == AuthorityDecisionOutcome.deny.value
+    assert (
+        "reason-ref:authority:constraint-ref-outside-scope:path_refs"
+        in wrong_path.reason_refs
+    )
+    assert excess_delegation.outcome == AuthorityDecisionOutcome.deny.value
+    assert (
+        "reason-ref:authority:constraint-limit-exceeded:delegation_depth"
+        in excess_delegation.reason_refs
+    )
+
+
+def test_authority_constraint_rejects_raw_path_and_duplicate_claim_kind() -> None:
+    with pytest.raises(ValueError):
+        AuthorityConstraint(
+            constraint_ref="authority-constraint-ref:test-raw-path-denied",
+            kind=AuthorityConstraintKind.path_refs,
+            allowed_refs=["/private/workspace/path"],
+            safe_summary="Raw paths are never valid authority constraints.",
+        )
+    with pytest.raises(ValueError, match="AUTHORITY_ACTION_DUPLICATE_CONSTRAINT"):
+        AuthorityActionRequest(
+            action_ref="authority-action-ref:test-duplicate-constraint-claim",
+            domain=AuthorityDomain.workspace,
+            capability=AuthorityCapability.execute,
+            constraint_claims=[
+                AuthorityConstraintClaim(
+                    kind=AuthorityConstraintKind.path_refs,
+                    refs=["path-ref:test-one"],
+                ),
+                AuthorityConstraintClaim(
+                    kind=AuthorityConstraintKind.path_refs,
+                    refs=["path-ref:test-two"],
+                ),
+            ],
+            safe_summary="Duplicate constraint kinds are denied.",
+        )
+
+
+def test_constraint_scope_binds_approval_lease_identity_and_idempotency(
+    tmp_path,
+) -> None:
+    idempotency_ref = "idempotency-ref:test-constrained-lease-issue"
+    base = AuthorityLeaseIssueRequest(
+        mode=TrustMode.full_local_workspace_session,
+        requested_domains={
+            AuthorityDomain.workspace: [AuthorityCapability.execute]
+        },
+        authority_constraints=_exact_workspace_constraints(
+            path_ref="path-ref:test-workspace-src"
+        ),
+        decision_reason_ref="reason-ref:test-constrained-lease-issue",
+        safe_summary="Issue one exact constrained workspace lease.",
+    )
+    changed = base.model_copy(
+        update={
+            "authority_constraints": _exact_workspace_constraints(
+                path_ref="path-ref:test-workspace-docs"
+            )
+        }
+    )
+    base_requirement = build_authority_lease_approval_requirement_for_request(
+        base,
+        idempotency_ref=idempotency_ref,
+    )
+    changed_requirement = build_authority_lease_approval_requirement_for_request(
+        changed,
+        idempotency_ref=idempotency_ref,
+    )
+    approved = _approved_issue_request(
+        base,
+        idempotency_ref=idempotency_ref,
+        approval_ref="approval-ref:test-constrained-lease-issue",
+    )
+    approved_changed = approved.model_copy(
+        update={"authority_constraints": changed.authority_constraints}
+    )
+    store = AuthorityLeaseStore(tmp_path / "authority")
+
+    lease, receipt = store.issue_lease(
+        approved,
+        idempotency_ref=idempotency_ref,
+        approval_validator=validate_authority_lease_approval,
+    )
+    replayed_lease, replayed_receipt = store.issue_lease(
+        approved,
+        idempotency_ref=idempotency_ref,
+        approval_validator=validate_authority_lease_approval,
+    )
+
+    assert base_requirement.approval_scope_ref != changed_requirement.approval_scope_ref
+    assert lease is not None
+    assert lease.authority_constraints == base.authority_constraints
+    assert receipt.request_fingerprint_ref is not None
+    assert replayed_lease == lease
+    assert replayed_receipt.status == "replayed"
+    for index in range(205):
+        store._append_receipt(
+            receipt.model_copy(
+                update={
+                    "receipt_ref": f"receipt-ref:test-filler:{index}",
+                    "idempotency_ref": f"idempotency-ref:test-filler:{index}",
+                    "request_fingerprint_ref": (
+                        f"request-fingerprint-ref:test-filler:{index}"
+                    ),
+                }
+            )
+        )
+    old_replayed_lease, old_replayed_receipt = store.issue_lease(
+        approved,
+        idempotency_ref=idempotency_ref,
+        approval_validator=validate_authority_lease_approval,
+    )
+    assert old_replayed_lease == lease
+    assert old_replayed_receipt.status == "replayed"
+    with pytest.raises(
+        AuthorityLeaseConflictError,
+        match="AUTHORITY_LEASE_IDEMPOTENCY_CONFLICT",
+    ):
+        store.issue_lease(
+            approved_changed,
+            idempotency_ref=idempotency_ref,
+            approval_validator=validate_authority_lease_approval,
+        )
+    store._append_receipt(
+        receipt.model_copy(
+            update={
+                "receipt_ref": "receipt-ref:test-conflicting-history",
+                "request_fingerprint_ref": (
+                    "request-fingerprint-ref:test-conflicting-history"
+                ),
+            }
+        )
+    )
+    with pytest.raises(
+        AuthorityLeaseConflictError,
+        match="AUTHORITY_LEASE_IDEMPOTENCY_HISTORY_CONFLICT",
+    ):
+        store.issue_lease(
+            approved,
+            idempotency_ref=idempotency_ref,
+            approval_validator=validate_authority_lease_approval,
+        )
+
+
+def test_denied_issue_idempotency_cannot_be_reused_with_later_approval(tmp_path) -> None:
+    idempotency_ref = "idempotency-ref:test-denied-then-approved-conflict"
+    request = AuthorityLeaseIssueRequest(
+        mode=TrustMode.full_local_workspace_session,
+        requested_domains={
+            AuthorityDomain.workspace: [AuthorityCapability.execute]
+        },
+        authority_constraints=_exact_workspace_constraints(
+            path_ref="path-ref:test-workspace-src"
+        ),
+        decision_reason_ref="reason-ref:test-denied-then-approved-conflict",
+        safe_summary="Issue one exact constrained workspace lease.",
+    )
+    store = AuthorityLeaseStore(tmp_path / "authority")
+    lease, denied_receipt = store.issue_lease(
+        request,
+        idempotency_ref=idempotency_ref,
+        approval_validator=validate_authority_lease_approval,
+    )
+    approved = _approved_issue_request(
+        request,
+        idempotency_ref=idempotency_ref,
+        approval_ref="approval-ref:test-denied-then-approved-conflict",
+    )
+
+    assert lease is None
+    assert denied_receipt.status == "denied"
+    with pytest.raises(
+        AuthorityLeaseConflictError,
+        match="AUTHORITY_LEASE_IDEMPOTENCY_CONFLICT",
+    ):
+        store.issue_lease(
+            approved,
+            idempotency_ref=idempotency_ref,
+            approval_validator=validate_authority_lease_approval,
+        )

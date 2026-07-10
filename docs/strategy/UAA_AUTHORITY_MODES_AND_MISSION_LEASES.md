@@ -469,6 +469,29 @@ remain non-executing; yolo/oneshot, arbitrary args, toolset passthrough, raw
 prompt/output persistence, direct memory writes, browser automation, connector
 writes, and production authority remain denied.
 
+### Typed Constraint Enforcement V1
+
+`AuthorityConstraint` is now a canonical Python Core contract rather than
+free-form lease metadata. AuthorityLease evaluation supports exact safe-ref
+allowlists for resources, paths, apps, and hosts plus a maximum delegation
+depth. If an active lease carries a typed constraint, an action that omits the
+matching claim, presents a ref outside the allowlist, or exceeds delegation
+depth is denied. The evaluator may select another active lease only when that
+lease independently satisfies every constraint.
+
+Typed constraints are bound into the LocalApprovalAuthority approval scope,
+the issued lease identity, and the policy decision's applied constraint refs.
+Lease issue and revoke receipts also record a semantic request fingerprint;
+reusing an idempotency ref with different mode/domain/capability/constraint,
+approval, duration, reason, or revoke scope is a conflict instead of a replay.
+Constraint refs remain safe-ref-only, so raw local paths are invalid.
+
+The older `constraints` dictionaries remain compatibility metadata while
+existing capabilities migrate. They do not become authority merely because a
+key is present. Operation/cost budget consumption, typed time windows,
+recipient/target binding, and renewal policy remain unimplemented and must not
+be claimed until durable counters and dispatcher integration exist.
+
 ## Core Problem
 
 UAA's current authority posture is too conservative for the intended product.
