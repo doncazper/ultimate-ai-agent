@@ -80,7 +80,7 @@ class AuthorityBudgetSettlementRequest(_AuthorityBudgetModel):
     actual_cost_microusd: int | None = Field(default=None, ge=0)
     actual_cost_ref: str | None = None
     execution_status: AuthorityBudgetExecutionStatus
-    evidence_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(..., min_length=1)
     safe_summary: str = Field(..., min_length=1, max_length=520)
 
     @model_validator(mode="after")

@@ -177,6 +177,8 @@ class AuthorityBudgetReceipt(_AuthorityBudgetContract):
         ):
             raise ValueError("AUTHORITY_BUDGET_RESERVE_BINDING_REQUIRED")
         if semantic_status == AuthorityBudgetStatus.denied.value:
+            if not self.reason_refs:
+                raise ValueError("AUTHORITY_BUDGET_DENIAL_REASON_REQUIRED")
             if (
                 any(
                     value is not None
@@ -212,6 +214,8 @@ class AuthorityBudgetReceipt(_AuthorityBudgetContract):
             ):
                 raise ValueError("AUTHORITY_BUDGET_RESERVATION_BINDING_INVALID")
         elif semantic_status == AuthorityBudgetStatus.released.value:
+            if not self.reason_refs:
+                raise ValueError("AUTHORITY_BUDGET_RELEASE_REASON_REQUIRED")
             if (
                 self.actual_operation_count is not None
                 or self.actual_cost_microusd is not None
@@ -223,6 +227,7 @@ class AuthorityBudgetReceipt(_AuthorityBudgetContract):
             self.actual_operation_count is None
             or self.actual_operation_count < 1
             or self.execution_status is None
+            or not self.evidence_refs
         ):
             raise ValueError("AUTHORITY_BUDGET_SETTLEMENT_ACTUALS_REQUIRED")
         elif (
@@ -236,6 +241,17 @@ class AuthorityBudgetReceipt(_AuthorityBudgetContract):
             and (self.actual_cost_microusd is None or self.actual_cost_ref is None)
         ):
             raise ValueError("AUTHORITY_BUDGET_SETTLEMENT_COST_STATUS_INVALID")
+        if (
+            semantic_status == AuthorityBudgetStatus.settled_overage.value
+            and "reason-ref:authority-budget:settlement-overage" not in self.reason_refs
+        ):
+            raise ValueError("AUTHORITY_BUDGET_OVERAGE_REASON_REQUIRED")
+        if (
+            semantic_status == AuthorityBudgetStatus.settled_cost_unresolved.value
+            and "reason-ref:authority-budget:actual-cost-unresolved"
+            not in self.reason_refs
+        ):
+            raise ValueError("AUTHORITY_BUDGET_UNRESOLVED_COST_REASON_REQUIRED")
         return self
 
 

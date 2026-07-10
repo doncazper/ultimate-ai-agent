@@ -310,6 +310,65 @@ def test_unresolved_actual_cost_blocks_future_reservations(tmp_path) -> None:
     assert read_model.execution_performed is False
 
 
+def test_operation_overage_is_recorded_and_blocks_future_capacity(tmp_path) -> None:
+    _, budget_store, lease = _stores(
+        tmp_path,
+        operation_limit=2,
+        cost_limit=1_000,
+    )
+    reservation = budget_store.reserve(
+        _reserve_request(
+            lease.lease_ref,
+            suffix="operation-overage",
+            operation_count=1,
+            cost_microusd=100,
+        )
+    )
+    overage = budget_store.settle(
+        AuthorityBudgetSettlementRequest(
+            reservation_ref=reservation.reservation_ref,
+            idempotency_ref="idempotency-ref:test-operation-overage",
+            actual_operation_count=3,
+            actual_cost_microusd=100,
+            actual_cost_ref="actual-cost-ref:test-operation-overage",
+            execution_status=AuthorityBudgetExecutionStatus.failed,
+            evidence_refs=["evidence-ref:test-operation-overage"],
+            safe_summary="Record an operation-count overage after execution.",
+        )
+    )
+    blocked = budget_store.reserve(
+        _reserve_request(
+            lease.lease_ref,
+            suffix="after-operation-overage",
+            cost_microusd=1,
+        )
+    )
+
+    assert overage.status == AuthorityBudgetStatus.settled_overage.value
+    assert "reason-ref:authority-budget:operation-reservation-overage" in (
+        overage.reason_refs
+    )
+    assert "reason-ref:authority-budget:settlement-overage" in overage.reason_refs
+    assert blocked.status == AuthorityBudgetStatus.denied.value
+    assert "reason-ref:authority-budget:operation-budget-exhausted" in (
+        blocked.reason_refs
+    )
+
+
+def test_settlement_contract_requires_evidence() -> None:
+    with pytest.raises(ValueError, match="evidence_refs"):
+        AuthorityBudgetSettlementRequest(
+            reservation_ref="authority-budget-reservation-ref:test-no-evidence",
+            idempotency_ref="idempotency-ref:test-settlement-no-evidence",
+            actual_operation_count=1,
+            actual_cost_microusd=1,
+            actual_cost_ref="actual-cost-ref:test-settlement-no-evidence",
+            execution_status=AuthorityBudgetExecutionStatus.succeeded,
+            evidence_refs=[],
+            safe_summary="Reject settlement without evidence refs.",
+        )
+
+
 def test_reservation_rechecks_kill_switch_and_revocation(
     tmp_path,
     monkeypatch,
