@@ -48,6 +48,8 @@ CAPABILITIES_DECLARED = [
     "runtime_readiness_status",
     "manual_smoke_report_validation",
     "control_center_read_only_dashboard",
+    "control_center_capability_availability_read_model",
+    "capability_availability_request_scoped_invocation_decisions",
     "control_center_setup_assistant_summary",
     "control_center_setup_approval_envelopes_dry_run",
     "control_center_founder_loop_storage_summaries",
@@ -251,6 +253,9 @@ CAPABILITIES_BLOCKED = [
     "targeted_rate_limits_as_production_authority",
     "plugin_enablement_routes",
     "control_center_execution",
+    "capability_availability_global_authorization",
+    "capability_availability_live_health_probes",
+    "capability_availability_as_execution_evidence",
     "control_center_run_observability_as_runtime_authority",
     "control_center_run_observability_cancel_resume_execution",
     "control_center_run_observability_live_streaming_runtime",
@@ -759,6 +764,7 @@ CONTROL_CENTER_VALIDATION_ONLY_PATHS = {
 }
 LOCAL_READONLY_PATHS = {
     "/control-center/dashboard",
+    "/control-center/capabilities/availability",
     "/control-center/capabilities/surface",
     "/control-center/foundation-gate/summary",
     "/control-center/local-models/status",
