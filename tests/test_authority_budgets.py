@@ -770,3 +770,28 @@ def test_budget_posture_projects_through_state_api_and_json_cli(
     cli_budget = cli_payload["authority_state_read_model"]["authority_budget"]
     assert cli_budget == api_budget
     assert cli_budget["execution_performed"] is False
+
+
+def test_fresh_authority_inspection_does_not_create_state_directory(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    state_dir = tmp_path / "absent-authority-state"
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(state_dir))
+    lease_store = AuthorityLeaseStore()
+    budget_store = AuthorityBudgetStore()
+
+    assert lease_store.list_leases() == []
+    assert lease_store.list_receipts() == []
+    assert budget_store.list_receipts() == []
+    state_model = lease_store.build_state_read_model()
+    budget_model = budget_store.build_read_model()
+
+    assert state_model.authority_budget.receipt_count == 0
+    assert budget_model.receipt_count == 0
+    assert not state_dir.exists()
+
+    api_response = TestClient(app).get("/api/runtime/authority-state")
+    assert api_response.status_code == 200
+    assert api_response.json()["data"]["authority_budget"]["receipt_count"] == 0
+    assert not state_dir.exists()

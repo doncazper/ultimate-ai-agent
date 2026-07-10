@@ -1,4 +1,5 @@
 AUTHORITY_STATE_LOCK_KEY = "authority-state"
+AUTHORITY_BUDGET_RECEIPTS_FILE = "authority_budget_receipts.jsonl"
 AUTHORITY_STATE_REDACTIONS = (
     "safe_refs_only",
     "bounded_summaries_only",

@@ -87,7 +87,8 @@ projected through:
   `authority_state_read_model.authority_budget`.
 
 These are inspection surfaces only. They do not reserve, settle, release,
-execute, approve, or mint authority.
+execute, approve, or mint authority. When no authority state files exist,
+inspection also does not create the authority directory or lock file.
 
 ## Verified Acceptance Cases
 

@@ -15,6 +15,9 @@ from pydantic import (
     model_validator,
 )
 
+from ultimate_ai_agent.core.authority.authority_constants import (
+    AUTHORITY_BUDGET_RECEIPTS_FILE,
+)
 from ultimate_ai_agent.core.authority.contracts import (
     AUTHORITY_STATE_LOCK_KEY,
     AuthorityActionRequest,
@@ -40,8 +43,6 @@ from ultimate_ai_agent.core.planning.validation import (
     validate_safe_task_text,
     validate_task_ref,
 )
-
-AUTHORITY_BUDGET_RECEIPTS_FILE = "authority_budget_receipts.jsonl"
 
 
 class AuthorityBudgetConflictError(RuntimeError):
@@ -181,6 +182,8 @@ class AuthorityBudgetStore:
         self.lock_manager = authority_state_lock_manager(str(self.state_dir.resolve()))
 
     def list_receipts(self) -> list[AuthorityBudgetReceipt]:
+        if not self.receipts_path.exists():
+            return []
         with self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY):
             return self._load_receipts()
 
@@ -526,6 +529,13 @@ class AuthorityBudgetStore:
     def build_read_model(self, *, recent_limit: int = 12) -> AuthorityBudgetReadModel:
         if recent_limit < 0:
             raise ValueError("AUTHORITY_BUDGET_RECENT_LIMIT_NONNEGATIVE_REQUIRED")
+        if (
+            not self.receipts_path.exists()
+            and not self.lease_store.leases_path.exists()
+        ):
+            return AuthorityBudgetReadModel(
+                kill_switch_engaged=authority_lease_kill_switch_engaged()
+            )
         with self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY):
             return self._build_read_model(recent_limit=recent_limit)
 

@@ -14,6 +14,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, model_validator
 
 from ultimate_ai_agent.core.authority.authority_constants import (
+    AUTHORITY_BUDGET_RECEIPTS_FILE,
     AUTHORITY_STATE_LOCK_KEY,
     AUTHORITY_STATE_REDACTIONS,
 )
@@ -2946,6 +2947,8 @@ class AuthorityLeaseStore:
         )
 
     def list_leases(self, *, active_only: bool = False) -> list[AuthorityLease]:
+        if not self.leases_path.exists():
+            return []
         with self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY):
             return self._list_leases(active_only=active_only)
 
@@ -2956,6 +2959,8 @@ class AuthorityLeaseStore:
         return leases
 
     def list_receipts(self, *, limit: int = 20) -> list[AuthorityLeaseReceipt]:
+        if limit <= 0 or not self.receipts_path.exists():
+            return []
         with self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY):
             return self._list_receipts(limit=limit)
 
@@ -2972,6 +2977,14 @@ class AuthorityLeaseStore:
         return [AuthorityLeaseReceipt(**json.loads(line)) for line in recent_lines]
 
     def build_state_read_model(self) -> AuthorityStateReadModel:
+        budget_receipts_path = self.state_dir / AUTHORITY_BUDGET_RECEIPTS_FILE
+        if not any(
+            path.exists()
+            for path in [self.leases_path, self.receipts_path, budget_receipts_path]
+        ):
+            return build_authority_state_read_model(
+                kill_switch_engaged=authority_lease_kill_switch_engaged(),
+            )
         with self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY):
             active = self._list_leases(active_only=True)
             from ultimate_ai_agent.core.authority.budgets import AuthorityBudgetStore
@@ -3465,6 +3478,8 @@ class AuthorityLeaseStore:
 
     def get_lease(self, lease_ref: str) -> AuthorityLease | None:
         validate_task_ref(lease_ref, "authority_lease_ref")
+        if not self.leases_path.exists():
+            return None
         with self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY):
             return self._lease_by_ref(lease_ref)
 
@@ -3579,7 +3594,8 @@ def build_authority_state_read_model(
         ),
         decision_catalog=decision_catalog,
         recent_receipts=recent_receipts or [],
-        authority_budget=budget_read_model or AuthorityBudgetReadModel(),
+        authority_budget=budget_read_model
+        or AuthorityBudgetReadModel(kill_switch_engaged=kill_switch_engaged),
         sample_decisions=samples,
         kill_switch_engaged=kill_switch_engaged,
     )
