@@ -190,6 +190,26 @@ def filesystem_safe_path_ref(root_ref: str, normalized_path: str) -> str:
     return f"filesystem-path:{root_label}/{normalized_path}"
 
 
+def filesystem_metadata_target_path(
+    root_path: Path,
+    normalized_path: str,
+) -> Path:
+    target_path = root_path / normalized_path
+    current = root_path
+    candidates = [current]
+    for part in PurePosixPath(normalized_path).parts:
+        current = current / part
+        candidates.append(current)
+    for candidate in candidates:
+        try:
+            mode = candidate.lstat().st_mode
+        except (FileNotFoundError, NotADirectoryError):
+            break
+        if stat.S_ISLNK(mode):
+            raise ValueError("SYMLINK_DENIED")
+    return target_path
+
+
 def _payload_flag(payload: Dict[str, object], *names: str) -> bool:
     return any(bool(payload.get(name, False)) for name in names)
 

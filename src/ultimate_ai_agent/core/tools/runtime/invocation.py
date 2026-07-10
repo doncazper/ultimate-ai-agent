@@ -14,6 +14,7 @@ from ultimate_ai_agent.core.tools.runtime.filesystem_metadata import (
     FilesystemSafeRoot,
     build_filesystem_metadata_output,
     build_missing_filesystem_metadata_output,
+    filesystem_metadata_target_path,
     filesystem_metadata_policy_reason_codes,
 )
 from ultimate_ai_agent.core.tools.runtime.file_preview import (
@@ -151,20 +152,25 @@ def evaluate_tool_invocation(
         assert fs_request is not None
         assert fs_root is not None
         assert fs_normalized_path is not None
-        target_path = fs_root.root_path / fs_normalized_path
         try:
+            target_path = filesystem_metadata_target_path(
+                fs_root.root_path,
+                fs_normalized_path,
+            )
             output = build_filesystem_metadata_output(
                 invocation_id=request.invocation_id,
                 root_ref=fs_request.root_ref,
                 normalized_path=fs_normalized_path,
                 target_path=target_path,
             )
-        except FileNotFoundError:
+        except (FileNotFoundError, NotADirectoryError):
             output = build_missing_filesystem_metadata_output(
                 invocation_id=request.invocation_id,
                 root_ref=fs_request.root_ref,
                 normalized_path=fs_normalized_path,
             )
+        except ValueError as exc:
+            return _denied_decision(request, [str(exc)])
         result = ToolInvocationResult(
             result_id=f"tool-runtime-result:{request.invocation_id.split(':', 1)[-1]}",
             invocation_id=request.invocation_id,

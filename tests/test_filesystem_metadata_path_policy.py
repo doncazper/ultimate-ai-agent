@@ -90,3 +90,21 @@ def test_arbitrary_root_path_in_metadata_is_denied(tmp_path: Path) -> None:
 
     assert decision.status == ToolInvocationStatus.denied
     assert "CALLER_SELECTED_ROOT_DENIED" in decision.reason_codes
+
+
+def test_intermediate_symlink_cannot_escape_safe_root(tmp_path: Path) -> None:
+    safe_root = _safe_root(tmp_path)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "report.md").write_text("outside", encoding="utf-8")
+    (safe_root.root_path / "notes").symlink_to(outside, target_is_directory=True)
+
+    decision = evaluate_tool_invocation(
+        _request("notes/report.md"),
+        safe_roots=[safe_root],
+    )
+
+    assert decision.status == ToolInvocationStatus.denied
+    assert decision.invocation_allowed is False
+    assert decision.execution_performed is False
+    assert "SYMLINK_DENIED" in decision.reason_codes
