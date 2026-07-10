@@ -1133,8 +1133,26 @@ def test_dispatch_recomputes_cost_governor_and_rejects_caller_binding_drift(
     assert dispatcher.budget_store.list_receipts() == []
 
 
-def test_nonfinite_cost_estimate_is_denied_without_conversion_failure(
+@pytest.mark.parametrize(
+    ("nonfinite_field", "reason_ref", "cost_governor_allowed"),
+    [
+        (
+            "estimate",
+            "reason-ref:authority-dispatch:cost-estimate-nonfinite",
+            False,
+        ),
+        (
+            "budget",
+            "reason-ref:authority-dispatch:cost-budget-nonfinite",
+            True,
+        ),
+    ],
+)
+def test_nonfinite_cost_inputs_are_denied_without_conversion_failure(
     tmp_path: Path,
+    nonfinite_field: str,
+    reason_ref: str,
+    cost_governor_allowed: bool,
 ) -> None:
     state_dir = tmp_path / "authority"
     root = tmp_path / "safe-root"
@@ -1162,24 +1180,33 @@ def test_nonfinite_cost_estimate_is_denied_without_conversion_failure(
         lease_store=lease_store,
     )
     request = _request(lease.lease_ref, suffix="nonfinite-cost", filesystem=True)
-    estimate = CostEstimate.model_validate(
-        {
-            **request.cost_estimate.model_dump(mode="json"),
-            "estimated_cost_usd": float("inf"),
-            "estimated_token_cost_usd": float("inf"),
-        }
-    )
+    estimate_payload = request.cost_estimate.model_dump(mode="json")
+    budget_payloads = [
+        budget.model_dump(mode="json") for budget in request.cost_budgets
+    ]
+    if nonfinite_field == "estimate":
+        estimate_payload.update(
+            {
+                "estimated_cost_usd": float("inf"),
+                "estimated_token_cost_usd": float("inf"),
+            }
+        )
+    else:
+        budget_payloads[0]["max_cost_usd"] = float("inf")
+    estimate = CostEstimate.model_validate(estimate_payload)
+    budgets = [CostBudget.model_validate(payload) for payload in budget_payloads]
     payload = request.model_dump(mode="json")
     payload.update(
         {
             "cost_estimate": estimate.model_dump(mode="json"),
+            "cost_budgets": [budget.model_dump(mode="json") for budget in budgets],
             "cost_estimate_ref": build_authority_dispatch_cost_estimate_ref(estimate),
             "cost_governor_decision_ref": (
                 build_authority_dispatch_cost_governor_decision_ref(
-                    estimate, request.cost_budgets
+                    estimate, budgets
                 )
             ),
-            "cost_governor_allowed": False,
+            "cost_governor_allowed": cost_governor_allowed,
         }
     )
     nonfinite = AuthorityDispatchRequest.model_validate(payload)
@@ -1187,10 +1214,7 @@ def test_nonfinite_cost_estimate_is_denied_without_conversion_failure(
     result = dispatcher.prepare(nonfinite)
 
     assert result.receipt.status == AuthorityDispatchStatus.denied.value
-    assert (
-        "reason-ref:authority-dispatch:cost-estimate-unknown"
-        in result.receipt.reason_refs
-    )
+    assert reason_ref in result.receipt.reason_refs
     assert dispatcher.budget_store.list_receipts() == []
 
 

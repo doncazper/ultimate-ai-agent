@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 from collections import defaultdict
 from decimal import Decimal, InvalidOperation
@@ -148,6 +149,16 @@ def _estimated_cost_microusd(estimate: CostEstimate) -> int | None:
     if value != value.to_integral_value():
         return None
     return int(value)
+
+
+def _contains_nonfinite_float(value: Any) -> bool:
+    if isinstance(value, float):
+        return not math.isfinite(value)
+    if isinstance(value, dict):
+        return any(_contains_nonfinite_float(item) for item in value.values())
+    if isinstance(value, (list, tuple)):
+        return any(_contains_nonfinite_float(item) for item in value)
+    return False
 
 
 def _phase_idempotency_ref(request: AuthorityDispatchRequest, phase: str) -> str:
@@ -772,6 +783,13 @@ class AuthorityDispatcher:
         self, request: AuthorityDispatchRequest
     ) -> list[str]:
         reasons: list[str] = []
+        if _contains_nonfinite_float(request.cost_estimate.model_dump(mode="python")):
+            reasons.append("reason-ref:authority-dispatch:cost-estimate-nonfinite")
+        if any(
+            _contains_nonfinite_float(budget.model_dump(mode="python"))
+            for budget in request.cost_budgets
+        ):
+            reasons.append("reason-ref:authority-dispatch:cost-budget-nonfinite")
         run_budgets = [
             budget for budget in request.cost_budgets if budget.scope == "run"
         ]
