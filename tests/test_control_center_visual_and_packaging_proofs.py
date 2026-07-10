@@ -18,6 +18,15 @@ def test_control_center_visual_regression_manifest_requires_state_scenarios() ->
     assert any("missing state scenario: state-success" in failure for failure in failures)
 
 
+def test_control_center_visual_regression_manifest_requires_linux_baselines() -> None:
+    manifest = visual.load_manifest()
+    manifest["baseline_policy"]["hosted_linux_baselines_required"] = False
+
+    failures = visual.validate_manifest(manifest)
+
+    assert "visual baselines must require hosted Linux baselines" in failures
+
+
 def test_local_runtime_packaging_proof_manifest_is_safe() -> None:
     failures = packaging.validate_manifest(packaging.load_manifest())
 

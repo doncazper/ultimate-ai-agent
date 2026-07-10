@@ -6,6 +6,7 @@
   "baseline_directory_ref": "visual-baselines:control-center:playwright-snapshots",
   "baseline_policy": {
     "checked_in_redacted_baselines_required": true,
+    "hosted_linux_baselines_required": true,
     "raw_private_screenshots_allowed": false,
     "absolute_paths_allowed": false,
     "local_user_paths_allowed": false,

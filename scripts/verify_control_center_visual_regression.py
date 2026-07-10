@@ -66,6 +66,8 @@ def validate_manifest(manifest: dict) -> list[str]:
     policy = manifest.get("baseline_policy", {})
     if policy.get("checked_in_redacted_baselines_required") is not True:
         failures.append("visual baselines must require checked-in redacted baselines")
+    if policy.get("hosted_linux_baselines_required") is not True:
+        failures.append("visual baselines must require hosted Linux baselines")
     for flag in [
         "raw_private_screenshots_allowed",
         "absolute_paths_allowed",
@@ -167,6 +169,11 @@ def _validate_baselines(surface: dict) -> list[str]:
         actual_hash = "sha256:" + hashlib.sha256(baseline_path.read_bytes()).hexdigest()
         if actual_hash != expected_hash:
             failures.append(f"{surface_name} {viewport} baseline hash does not match checked-in PNG")
+        linux_baseline_path = SNAPSHOT_ROOT / "linux" / viewport / f"{surface_id}.png"
+        if not linux_baseline_path.exists():
+            failures.append(
+                f"{surface_name} {viewport} hosted Linux baseline PNG is missing"
+            )
     return failures
 
 
