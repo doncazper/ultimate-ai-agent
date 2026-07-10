@@ -12,10 +12,11 @@ SMOKE_REPORTING_DOC = "docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md"
 FRONTEND_PACKAGE = "apps/control-center/package.json"
 FRONTEND_APP_TEST = "apps/control-center/src/App.test.tsx"
 CI_WORKFLOW = ".github/workflows/ci.yml"
-PINNED_VISUAL_PLAYWRIGHT_CONTAINER = (
-    "image: mcr.microsoft.com/playwright:v1.61.0-noble@sha256:"
-    "57b65fdc9ceabe0ef613124c7bbe2babcf9362c4d85e382fe3b03604e84b428a"
-)
+ALLOWED_CI_PLAYWRIGHT_LINES = {
+    "- name: install playwright chromium",
+    "run: npx playwright install chromium",
+    "run: npx playwright install --with-deps chromium",
+}
 
 REQUIRED_DOC_WORDING = [
     "status: active uaa-p1-032 browser smoke readiness",
@@ -232,9 +233,7 @@ def _ci_failures(root: Path) -> list[str]:
 def _ci_text_without_allowed_proof_lane_browser_setup(text: str) -> str:
     allowed_lines: list[str] = []
     for line in text.splitlines():
-        if line.strip() == PINNED_VISUAL_PLAYWRIGHT_CONTAINER:
-            continue
-        if "playwright" in line and ("visual" in line or "chromium" in line):
+        if line.strip() in ALLOWED_CI_PLAYWRIGHT_LINES:
             continue
         allowed_lines.append(line)
     return "\n".join(allowed_lines)

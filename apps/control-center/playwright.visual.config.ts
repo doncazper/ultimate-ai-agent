@@ -4,8 +4,6 @@ const visualPort = Number(process.env.CONTROL_CENTER_VISUAL_PORT ?? "5177");
 const visualBaseUrl = `http://127.0.0.1:${visualPort}`;
 const reuseExistingVisualServer =
   process.env.CONTROL_CENTER_VISUAL_REUSE_EXISTING_SERVER === "1";
-const visualSnapshotPlatformPrefix =
-  process.platform === "linux" ? "linux/" : "";
 
 export default defineConfig({
   testDir: "./tests/visual",
@@ -13,7 +11,7 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [["dot"], ["github"]] : [["list"]],
-  snapshotPathTemplate: `{testDir}/__snapshots__/${visualSnapshotPlatformPrefix}{projectName}/{arg}{ext}`,
+  snapshotPathTemplate: "{testDir}/__snapshots__/{projectName}/{arg}{ext}",
   use: {
     baseURL: visualBaseUrl,
     colorScheme: "light",

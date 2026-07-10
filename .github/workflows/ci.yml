@@ -598,17 +598,26 @@ jobs:
 
   release-lane-visual-regression:
     name: Release Lane / Control Center Visual Regression
-    runs-on: ubuntu-latest
-    container:
-      image: mcr.microsoft.com/playwright:v1.61.0-noble@sha256:57b65fdc9ceabe0ef613124c7bbe2babcf9362c4d85e382fe3b03604e84b428a
+    runs-on: macos-15
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/control-center/package-lock.json
+
       - name: Install Control Center dependencies
         working-directory: apps/control-center
         run: npm ci
+
+      - name: Install Playwright Chromium
+        working-directory: apps/control-center
+        run: npx playwright install chromium
 
       - name: Run visual regression release lane
         shell: bash
@@ -624,7 +633,8 @@ jobs:
             echo "- Lane id: visual-regression"
             echo "- Report mode: safe-summary-only"
             echo "- Raw command output: captured locally and not uploaded"
-            echo "- Prerequisite posture: pinned visual browser-test container; command failures report by command ref only"
+            echo "- Platform posture: macOS is the canonical Control Center visual baseline; Linux and Windows remain render placeholders"
+            echo "- Prerequisite posture: isolated visual browser-test runner; command failures report by command ref only"
             echo ""
           } >> "$GITHUB_STEP_SUMMARY"
 

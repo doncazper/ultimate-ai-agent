@@ -1,16 +1,38 @@
 {
   "schema_version": "uaa-control-center-visual-regression.v1",
-  "status": "active checked-in visual baseline",
+  "status": "active checked-in macOS visual baseline",
   "capture_command_ref": "command:frontend.visual-regression",
   "playwright_dependency_status": "control-center devDependency",
   "baseline_directory_ref": "visual-baselines:control-center:playwright-snapshots",
   "baseline_policy": {
     "checked_in_redacted_baselines_required": true,
-    "hosted_linux_baselines_required": true,
+    "canonical_platform": "macos",
+    "non_macos_baselines_allowed": false,
     "raw_private_screenshots_allowed": false,
     "absolute_paths_allowed": false,
     "local_user_paths_allowed": false,
     "secret_material_allowed": false
+  },
+  "platform_posture": {
+    "macos": {
+      "status": "implemented",
+      "render_ref": "visual-baselines:control-center:macos-canonical",
+      "compatibility_claimed": true
+    },
+    "linux": {
+      "status": "render_placeholder",
+      "render_ref": "visual-placeholder:control-center:linux",
+      "compatibility_claimed": false,
+      "activation_posture": "deferred_until_backend_production_ready",
+      "port_source": "then-current-macos-canonical"
+    },
+    "windows": {
+      "status": "render_placeholder",
+      "render_ref": "visual-placeholder:control-center:windows",
+      "compatibility_claimed": false,
+      "activation_posture": "deferred_until_backend_production_ready",
+      "port_source": "then-current-macos-canonical"
+    }
   },
   "required_viewports": [
     "viewport:desktop-1440x1000",
