@@ -105,13 +105,18 @@ GoatCitadel ahead in tool breadth, live orchestration, and operator UX:
 
 - one typed request binds lease, action, adapter, capability, run,
   idempotency, CostGovernor refs, operation/cost claims, and exact approval;
-- an append-first hash-chained dispatch ledger records prepare, adapter start,
-  terminal settlement, and pre-start cancellation phases;
-- lease, kill switch, exact approval revocation, budget activity, and adapter
-  identity are rechecked immediately before start;
+- append-first hash-chained budget and dispatch ledgers record prepare, durable
+  budget start, adapter start, terminal settlement, and pre-start cancellation
+  phases;
+- lease, kill switch, exact approval revocation, budget activity, fixed tool
+  authority domain, and redacted adapter/safe-root configuration identity are
+  rechecked immediately before start;
 - a started adapter is never replayed after a crash, while an interrupted
   cancellation claim is visible and retryable with the same cancellation refs;
 - concurrent identical dispatches invoke the adapter exactly once;
+- a started budget reservation cannot be released while its adapter is in
+  flight, and a crash before the dispatch-start receipt replays the exact start
+  claim;
 - the first useful routed adapter returns bounded filesystem metadata under an
   injected safe root without returning raw content or absolute paths.
 

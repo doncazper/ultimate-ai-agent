@@ -199,6 +199,7 @@ class AuthorityDispatchReceipt(_AuthorityDispatchModel):
     lease_ref: str
     action_ref: str
     adapter_ref: str
+    adapter_binding_ref: str | None
     capability_ref: str
     authority_decision_ref: str | None = None
     authority_policy_receipt_ref: str | None = None
@@ -208,6 +209,7 @@ class AuthorityDispatchReceipt(_AuthorityDispatchModel):
     approval_validation_ref: str | None = None
     budget_reservation_ref: str | None = None
     budget_reservation_receipt_ref: str | None = None
+    budget_start_receipt_ref: str | None = None
     budget_settlement_receipt_ref: str | None = None
     budget_release_receipt_ref: str | None = None
     cancellation_idempotency_ref: str | None = None
@@ -247,6 +249,7 @@ class AuthorityDispatchReceipt(_AuthorityDispatchModel):
             self.lease_ref,
             self.action_ref,
             self.adapter_ref,
+            self.adapter_binding_ref,
             self.capability_ref,
             self.authority_decision_ref,
             self.authority_policy_receipt_ref,
@@ -254,6 +257,7 @@ class AuthorityDispatchReceipt(_AuthorityDispatchModel):
             self.approval_validation_ref,
             self.budget_reservation_ref,
             self.budget_reservation_receipt_ref,
+            self.budget_start_receipt_ref,
             self.budget_settlement_receipt_ref,
             self.budget_release_receipt_ref,
             self.cancellation_idempotency_ref,
@@ -284,7 +288,11 @@ class AuthorityDispatchReceipt(_AuthorityDispatchModel):
         if self.status == AuthorityDispatchStatus.denied.value:
             if self.execution_started or self.adapter_execution_performed or not self.reason_refs:
                 raise ValueError("AUTHORITY_DISPATCH_DENIAL_POSTURE_INVALID")
-        elif not self.budget_reservation_ref or not self.budget_reservation_receipt_ref:
+        elif (
+            not self.adapter_binding_ref
+            or not self.budget_reservation_ref
+            or not self.budget_reservation_receipt_ref
+        ):
             raise ValueError("AUTHORITY_DISPATCH_BUDGET_RESERVATION_BINDING_REQUIRED")
         if self.status in {
             AuthorityDispatchStatus.prepared.value,
@@ -308,6 +316,7 @@ class AuthorityDispatchReceipt(_AuthorityDispatchModel):
             not self.execution_started
             or self.adapter_execution_performed
             or not self.execution_ref
+            or not self.budget_start_receipt_ref
         ):
             raise ValueError("AUTHORITY_DISPATCH_STARTED_POSTURE_INVALID")
         if self.status in {
@@ -317,6 +326,7 @@ class AuthorityDispatchReceipt(_AuthorityDispatchModel):
             not self.execution_started
             or not self.adapter_execution_performed
             or not self.execution_ref
+            or not self.budget_start_receipt_ref
             or not self.budget_settlement_receipt_ref
             or self.actual_operation_count is None
             or not self.evidence_refs

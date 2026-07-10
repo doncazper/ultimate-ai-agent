@@ -16,6 +16,7 @@ from ultimate_ai_agent.core.approvals.enums import (
 from ultimate_ai_agent.core.authority import (
     AuthorityActionRequest,
     AuthorityBudgetStatus,
+    AuthorityBudgetReleaseRequest,
     AuthorityCapability,
     AuthorityConstraint,
     AuthorityConstraintClaim,
@@ -324,6 +325,35 @@ def test_tool_runtime_dispatch_bridge_rejects_unscoped_tool() -> None:
         ToolRuntimeAuthorityDispatchAdapter(descriptor)
 
 
+def test_dispatcher_rejects_tool_relabelled_into_another_authority_domain(
+    tmp_path: Path,
+) -> None:
+    descriptor = _descriptor(filesystem=True).model_copy(
+        update={
+            "domain": AuthorityDomain.email,
+            "capability": AuthorityCapability.observe,
+        }
+    )
+
+    class RelabelledAdapter:
+        binding_ref = "adapter-binding-ref:test:relabelled"
+
+        def __init__(self) -> None:
+            self.descriptor = descriptor
+
+        def validate_request(self, request: AuthorityDispatchRequest) -> list[str]:
+            return []
+
+        def invoke(self, request: AuthorityDispatchRequest) -> Any:
+            raise AssertionError("cross-domain tool binding must never invoke")
+
+    with pytest.raises(
+        ValueError,
+        match="AUTHORITY_DISPATCH_TOOL_AUTHORITY_BINDING_INVALID",
+    ):
+        AuthorityDispatcher(tmp_path / "authority", adapters=[RelabelledAdapter()])
+
+
 def test_filesystem_metadata_dispatch_is_useful_durable_and_redacted(tmp_path: Path) -> None:
     state_dir = tmp_path / "authority"
     root = tmp_path / "safe-root"
@@ -371,6 +401,7 @@ def test_filesystem_metadata_dispatch_is_useful_durable_and_redacted(tmp_path: P
     budget_receipts = dispatcher.budget_store.list_receipts()
     assert [receipt.status for receipt in budget_receipts] == [
         AuthorityBudgetStatus.reserved.value,
+        AuthorityBudgetStatus.started.value,
         AuthorityBudgetStatus.settled.value,
     ]
     durable_text = dispatcher.receipts_path.read_text(encoding="utf-8")
@@ -569,6 +600,7 @@ def test_declared_failure_cost_cannot_exceed_reserved_estimate(tmp_path: Path) -
     class PermissiveAdapter:
         def __init__(self) -> None:
             self.descriptor = descriptor
+            self.binding_ref = "adapter-binding-ref:test:permissive"
             self.invocation_count = 0
 
         def validate_request(self, request: AuthorityDispatchRequest) -> list[str]:
@@ -738,7 +770,7 @@ def test_exact_approval_cannot_replay_action_under_new_dispatch_identity(
 
     assert first.receipt.status == AuthorityDispatchStatus.succeeded.value
     assert len(dispatcher.list_receipts()) == 3
-    assert len(dispatcher.budget_store.list_receipts()) == 2
+    assert len(dispatcher.budget_store.list_receipts()) == 3
 
 
 def test_out_of_scope_approval_denies_without_adapter_start(tmp_path: Path) -> None:
@@ -1010,6 +1042,7 @@ def test_concurrent_dispatch_replay_invokes_adapter_exactly_once(tmp_path: Path)
 
     class CountingAdapter:
         descriptor = delegate.descriptor
+        binding_ref = delegate.binding_ref
 
         def __init__(self) -> None:
             self.invocation_count = 0
@@ -1040,7 +1073,132 @@ def test_concurrent_dispatch_replay_invokes_adapter_exactly_once(tmp_path: Path)
         for result in results
     )
     assert len(dispatcher.list_receipts()) == 3
-    assert len(dispatcher.budget_store.list_receipts()) == 2
+    assert len(dispatcher.budget_store.list_receipts()) == 3
+
+
+def test_budget_release_cannot_race_durable_adapter_start(tmp_path: Path) -> None:
+    state_dir = tmp_path / "authority"
+    root = tmp_path / "safe-root"
+    (root / "notes").mkdir(parents=True)
+    (root / "notes" / "report.md").write_text("bounded", encoding="utf-8")
+    lease_store, lease = _lease(
+        state_dir,
+        mode=TrustMode.full_local_workspace_session,
+        domain=AuthorityDomain.files,
+        capability=AuthorityCapability.read,
+    )
+    delegate = ToolRuntimeAuthorityDispatchAdapter(
+        _descriptor(filesystem=True),
+        safe_roots=[
+            FilesystemSafeRoot(
+                root_ref=FILESYSTEM_ROOT_REF,
+                root_path=root,
+                safe_label="Test dispatch safe root",
+            )
+        ],
+    )
+    entered = threading.Event()
+    proceed = threading.Event()
+
+    class BlockingAdapter:
+        descriptor = delegate.descriptor
+        binding_ref = delegate.binding_ref
+
+        def validate_request(self, request: AuthorityDispatchRequest) -> list[str]:
+            return delegate.validate_request(request)
+
+        def invoke(self, request: AuthorityDispatchRequest) -> Any:
+            entered.set()
+            assert proceed.wait(timeout=5)
+            return delegate.invoke(request)
+
+    dispatcher = AuthorityDispatcher(
+        state_dir,
+        adapters=[BlockingAdapter()],
+        lease_store=lease_store,
+    )
+    request = _request(lease.lease_ref, suffix="release-after-start", filesystem=True)
+    prepared = dispatcher.prepare(request)
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(dispatcher.execute, request)
+        assert entered.wait(timeout=5)
+        release = dispatcher.budget_store.release(
+            AuthorityBudgetReleaseRequest(
+                reservation_ref=prepared.receipt.budget_reservation_ref or "",
+                idempotency_ref="idempotency-ref:test-release-after-start",
+                reason_ref="reason-ref:test-release-after-start",
+                safe_summary="Attempt release after durable adapter start.",
+            )
+        )
+        proceed.set()
+        result = future.result(timeout=5)
+
+    assert release.status == AuthorityBudgetStatus.denied.value
+    assert result.receipt.status == AuthorityDispatchStatus.succeeded.value
+    assert [
+        receipt.status for receipt in dispatcher.budget_store.list_receipts()
+    ] == [
+        AuthorityBudgetStatus.reserved.value,
+        AuthorityBudgetStatus.started.value,
+        AuthorityBudgetStatus.denied.value,
+        AuthorityBudgetStatus.settled.value,
+    ]
+
+
+def test_budget_start_claim_replays_after_crash_before_dispatch_start(
+    tmp_path: Path,
+) -> None:
+    state_dir = tmp_path / "authority"
+    root = tmp_path / "safe-root"
+    (root / "notes").mkdir(parents=True)
+    (root / "notes" / "report.md").write_text("bounded", encoding="utf-8")
+    lease_store, lease = _lease(
+        state_dir,
+        mode=TrustMode.full_local_workspace_session,
+        domain=AuthorityDomain.files,
+        capability=AuthorityCapability.read,
+    )
+    dispatcher = AuthorityDispatcher(
+        state_dir,
+        adapters=[
+            ToolRuntimeAuthorityDispatchAdapter(
+                _descriptor(filesystem=True),
+                safe_roots=[
+                    FilesystemSafeRoot(
+                        root_ref=FILESYSTEM_ROOT_REF,
+                        root_path=root,
+                        safe_label="Test dispatch safe root",
+                    )
+                ],
+            )
+        ],
+        lease_store=lease_store,
+    )
+    request = _request(lease.lease_ref, suffix="start-claim-crash", filesystem=True)
+    dispatcher.prepare(request)
+    append = dispatcher._append
+
+    def crash_before_dispatch_start(receipt: Any) -> None:
+        if receipt.status == AuthorityDispatchStatus.started.value:
+            raise RuntimeError("simulated crash after budget start claim")
+        append(receipt)
+
+    dispatcher._append = crash_before_dispatch_start  # type: ignore[method-assign]
+    with pytest.raises(RuntimeError, match="simulated crash after budget start claim"):
+        dispatcher.execute(request)
+    dispatcher._append = append  # type: ignore[method-assign]
+
+    result = dispatcher.execute(request)
+
+    assert result.receipt.status == AuthorityDispatchStatus.succeeded.value
+    assert [
+        receipt.status for receipt in dispatcher.budget_store.list_receipts()
+    ] == [
+        AuthorityBudgetStatus.reserved.value,
+        AuthorityBudgetStatus.started.value,
+        AuthorityBudgetStatus.settled.value,
+    ]
 
 
 def test_concurrent_conflict_releases_losing_fresh_reservation(tmp_path: Path) -> None:
@@ -1459,6 +1617,7 @@ def test_adapter_binding_drift_after_prepare_cancels_before_invocation(
         descriptor = delegate.descriptor.model_copy(
             update={"rollback_ref": "rollback-ref:drifted-after-prepare"}
         )
+        binding_ref = delegate.binding_ref
 
         def __init__(self) -> None:
             self.invocation_count = 0
@@ -1485,6 +1644,58 @@ def test_adapter_binding_drift_after_prepare_cancels_before_invocation(
     assert all(
         receipt.rollback_ref == prepared.receipt.rollback_ref for receipt in receipts
     )
+
+
+def test_safe_root_mapping_drift_after_prepare_cancels_before_invocation(
+    tmp_path: Path,
+) -> None:
+    state_dir = tmp_path / "authority"
+    first_root = tmp_path / "first-root"
+    second_root = tmp_path / "second-root"
+    for root, body in [(first_root, "first"), (second_root, "second-content")]:
+        (root / "notes").mkdir(parents=True)
+        (root / "notes" / "report.md").write_text(body, encoding="utf-8")
+    lease_store, lease = _lease(
+        state_dir,
+        mode=TrustMode.full_local_workspace_session,
+        domain=AuthorityDomain.files,
+        capability=AuthorityCapability.read,
+    )
+
+    def adapter(root: Path) -> ToolRuntimeAuthorityDispatchAdapter:
+        return ToolRuntimeAuthorityDispatchAdapter(
+            _descriptor(filesystem=True),
+            safe_roots=[
+                FilesystemSafeRoot(
+                    root_ref=FILESYSTEM_ROOT_REF,
+                    root_path=root,
+                    safe_label="Test dispatch safe root",
+                )
+            ],
+        )
+
+    dispatcher = AuthorityDispatcher(
+        state_dir,
+        adapters=[adapter(first_root)],
+        lease_store=lease_store,
+    )
+    request = _request(lease.lease_ref, suffix="safe-root-drift", filesystem=True)
+    prepared = dispatcher.prepare(request)
+    restarted = AuthorityDispatcher(
+        state_dir,
+        adapters=[adapter(second_root)],
+        lease_store=lease_store,
+    )
+
+    result = restarted.execute(request)
+
+    assert result.receipt.status == AuthorityDispatchStatus.cancelled_before_start.value
+    assert result.receipt.adapter_binding_ref == prepared.receipt.adapter_binding_ref
+    assert (
+        "reason-ref:authority-dispatch:prestart-adapter-binding-drift"
+        in result.receipt.reason_refs
+    )
+    assert result.adapter_result is None
 
 
 def test_recent_dispatches_follow_latest_ledger_position(tmp_path: Path) -> None:
@@ -1552,6 +1763,7 @@ def test_mismatched_adapter_execution_ref_is_settled_as_failure(tmp_path: Path) 
 
     class MismatchedExecutionRefAdapter:
         descriptor = delegate.descriptor
+        binding_ref = delegate.binding_ref
 
         def validate_request(self, request: AuthorityDispatchRequest) -> list[str]:
             return delegate.validate_request(request)

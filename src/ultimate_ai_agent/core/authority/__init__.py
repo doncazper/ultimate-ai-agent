@@ -68,6 +68,7 @@ from ultimate_ai_agent.core.authority.budgets import (
     AuthorityBudgetReleaseRequest,
     AuthorityBudgetReservationRequest,
     AuthorityBudgetSettlementRequest,
+    AuthorityBudgetStartRequest,
     AuthorityBudgetStatus,
     AuthorityBudgetStore,
 )
@@ -111,6 +112,7 @@ __all__ = [
     "AuthorityBudgetReleaseRequest",
     "AuthorityBudgetReservationRequest",
     "AuthorityBudgetSettlementRequest",
+    "AuthorityBudgetStartRequest",
     "AuthorityBudgetStatus",
     "AuthorityBudgetStore",
     "AuthorityConstraint",

@@ -14,8 +14,9 @@ AuthorityLease V1 now supports two typed, integer constraints:
 - `cost_budget_microusd`: maximum cumulative cost in integer micro-USD for one
   lease.
 
-`AuthorityBudgetStore` records reservations, settlements, releases, and denials
-in `authority_budget_receipts.jsonl` under `UAA_AUTHORITY_STATE_DIR`. The ledger
+`AuthorityBudgetStore` records reservations, durable start claims, settlements,
+releases, and denials in `authority_budget_receipts.jsonl` under
+`UAA_AUTHORITY_STATE_DIR`. The ledger
 is append-first, fsync-backed, hash-chained, safe-ref-only, and protected by the
 same single-writer lock used for AuthorityLease issue and revoke. Lease writes
 use an fsync-backed temporary file plus atomic replace. Concurrent store
@@ -58,8 +59,16 @@ still needs exact live usage and cost proof.
 
 ## Settlement And Release
 
-After execution starts, a reservation must be settled with actual operation
-count, actual cost plus its safe ref, execution status, and evidence refs. The
+Before the central dispatcher invokes an adapter, the budget ledger moves its
+dispatch-bound reservation from `reserved` to `started` with the exact dispatch
+fingerprint and execution ref. The transition is idempotent and is written
+under the shared authority-state lock before the dispatch-start receipt. A
+started reservation continues consuming its reserved capacity and cannot be
+released by a standalone caller.
+
+After execution starts, that reservation must be settled with the same
+execution ref, actual operation count, actual cost plus its safe ref, execution
+status, and evidence refs. The
 ledger always records actual overage. A settlement exceeding its reservation or
 lease ceiling becomes `settled_overage`; any unreviewed reservation overage
 freezes future capacity even when actual usage remains below the lease ceiling.
@@ -67,12 +76,13 @@ When actual cost is unknown, the settlement becomes
 `settled_cost_unresolved` and all later reservations for that lease fail closed
 until a future reviewed remediation contract exists.
 
-A reservation may be released only through a request whose typed contract says
-execution has not started. Release frees the reserved capacity and records the
-reason ref. `AuthorityDispatcher` now supplies durable pre-start, start, and
-pre-start cancellation receipts for its routed adapters. Direct budget-store
-callers and legacy execution paths do not gain adapter-start proof merely from
-this integration.
+A reservation may be released only while its durable state is still
+`reserved`; the caller's typed `execution_started=False` assertion is not
+sufficient once the ledger records `started`. Release frees unstarted capacity
+and records the reason ref. `AuthorityDispatcher` supplies durable pre-start,
+budget-start, dispatch-start, and pre-start cancellation receipts for its routed
+adapters. Direct budget-store callers and legacy execution paths do not gain
+adapter-start proof merely from this integration.
 
 ## Replay, Corruption, And Read Surfaces
 
@@ -111,6 +121,8 @@ Focused tests cover:
 
 - exact constraint evaluation and applied constraint refs;
 - reserve, replay, settle, overage, release, and cumulative exhaustion;
+- exact dispatch start, replay, execution-ref settlement binding, and release
+  denial after start;
 - unknown and unresolved cost fail-closed behavior;
 - claim and idempotency drift;
 - kill-switch and revocation rechecks;

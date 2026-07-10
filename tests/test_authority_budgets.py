@@ -18,6 +18,7 @@ from ultimate_ai_agent.core.authority import (
     AuthorityBudgetReservationRequest,
     AuthorityBudgetReceipt,
     AuthorityBudgetSettlementRequest,
+    AuthorityBudgetStartRequest,
     AuthorityBudgetStatus,
     AuthorityBudgetStore,
     AuthorityCapability,
@@ -117,6 +118,7 @@ def _reserve_request(
     operation_count: int = 1,
     cost_microusd: int | None = 400_000,
     action_cost_microusd: int | None = None,
+    dispatch_fingerprint_ref: str | None = None,
 ) -> AuthorityBudgetReservationRequest:
     claimed_cost = (
         cost_microusd if action_cost_microusd is None else action_cost_microusd
@@ -133,6 +135,7 @@ def _reserve_request(
         cost_estimate_ref=f"cost-estimate-ref:test-budget:{suffix}",
         cost_governor_decision_ref=(f"cost-governor-decision-ref:test-budget:{suffix}"),
         cost_governor_allowed=cost_microusd is not None,
+        dispatch_fingerprint_ref=dispatch_fingerprint_ref,
         idempotency_ref=f"idempotency-ref:test-budget-reserve:{suffix}",
         safe_summary="Reserve exact operation and cost capacity before execution.",
     )
@@ -193,6 +196,7 @@ def test_pre_approval_binding_budget_receipt_hash_remains_readable(tmp_path) -> 
         "approval_validation_ref",
         "approval_required",
         "dispatch_fingerprint_ref",
+        "execution_ref",
     ]:
         legacy_payload.pop(field_name)
     legacy_payload["request_fingerprint_ref"] = (
@@ -306,6 +310,76 @@ def test_release_frees_unexecuted_reservation_capacity(tmp_path) -> None:
     assert replacement.status == AuthorityBudgetStatus.reserved.value
     assert replacement.remaining_operation_count == 0
     assert replacement.remaining_cost_microusd == 0
+
+
+def test_dispatch_start_claim_blocks_release_and_binds_settlement(tmp_path) -> None:
+    _, budget_store, lease = _stores(tmp_path)
+    dispatch_fingerprint_ref = "request-fingerprint-ref:test-budget:start-claim"
+    execution_ref = "authority-dispatch-execution-ref:test-budget:start-claim"
+    reservation = budget_store.reserve(
+        _reserve_request(
+            lease.lease_ref,
+            suffix="start-claim",
+            dispatch_fingerprint_ref=dispatch_fingerprint_ref,
+        )
+    )
+    start_request = AuthorityBudgetStartRequest(
+        reservation_ref=reservation.reservation_ref,
+        idempotency_ref="idempotency-ref:test-budget-start:start-claim",
+        dispatch_fingerprint_ref=dispatch_fingerprint_ref,
+        execution_ref=execution_ref,
+        safe_summary="Bind this reservation to one durable adapter start.",
+    )
+
+    started = budget_store.start(start_request)
+    replay = budget_store.start(start_request)
+    release = budget_store.release(
+        AuthorityBudgetReleaseRequest(
+            reservation_ref=reservation.reservation_ref,
+            idempotency_ref="idempotency-ref:test-budget-release:after-start",
+            reason_ref="reason-ref:test-budget-release-after-start",
+            safe_summary="Attempt to release capacity after durable start.",
+        )
+    )
+    mismatched = budget_store.settle(
+        AuthorityBudgetSettlementRequest(
+            reservation_ref=reservation.reservation_ref,
+            idempotency_ref="idempotency-ref:test-budget-settle:mismatched-start",
+            execution_ref="authority-dispatch-execution-ref:test-budget:other",
+            actual_operation_count=1,
+            actual_cost_microusd=300_000,
+            actual_cost_ref="actual-cost-ref:test-budget:mismatched-start",
+            execution_status=AuthorityBudgetExecutionStatus.succeeded,
+            evidence_refs=["evidence-ref:test-budget:mismatched-start"],
+            safe_summary="Reject settlement from a different execution binding.",
+        )
+    )
+    settled = budget_store.settle(
+        AuthorityBudgetSettlementRequest(
+            reservation_ref=reservation.reservation_ref,
+            idempotency_ref="idempotency-ref:test-budget-settle:start-claim",
+            execution_ref=execution_ref,
+            actual_operation_count=1,
+            actual_cost_microusd=300_000,
+            actual_cost_ref="actual-cost-ref:test-budget:start-claim",
+            execution_status=AuthorityBudgetExecutionStatus.succeeded,
+            evidence_refs=["evidence-ref:test-budget:start-claim"],
+            safe_summary="Settle the exact execution bound at durable start.",
+        )
+    )
+
+    assert started.status == AuthorityBudgetStatus.started.value
+    assert started.execution_ref == execution_ref
+    assert replay.status == AuthorityBudgetStatus.replayed.value
+    assert replay.original_status == AuthorityBudgetStatus.started.value
+    assert release.status == AuthorityBudgetStatus.denied.value
+    assert mismatched.status == AuthorityBudgetStatus.denied.value
+    assert (
+        "reason-ref:authority-budget:execution-binding-mismatch"
+        in mismatched.reason_refs
+    )
+    assert settled.status == AuthorityBudgetStatus.settled.value
+    assert settled.execution_ref == execution_ref
 
 
 def test_unknown_cost_claim_drift_and_idempotency_drift_fail_closed(tmp_path) -> None:

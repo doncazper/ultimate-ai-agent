@@ -28,12 +28,14 @@ AUTHORITY_BUDGET_SCHEMA_VERSION = "uaa-authority-budget-ledger.v1"
 
 class AuthorityBudgetOperation(str, Enum):
     reserve = "reserve"
+    start = "start"
     settle = "settle"
     release = "release"
 
 
 class AuthorityBudgetStatus(str, Enum):
     reserved = "reserved"
+    started = "started"
     settled = "settled"
     settled_overage = "settled_overage"
     settled_cost_unresolved = "settled_cost_unresolved"
@@ -71,6 +73,7 @@ class AuthorityBudgetReceipt(_AuthorityBudgetContract):
     approval_validation_ref: str | None = None
     approval_required: StrictBool = False
     dispatch_fingerprint_ref: str | None = None
+    execution_ref: str | None = None
     cost_estimate_ref: str | None = None
     cost_governor_decision_ref: str | None = None
     cost_governor_allowed: StrictBool = False
@@ -124,6 +127,7 @@ class AuthorityBudgetReceipt(_AuthorityBudgetContract):
                 self.dispatch_fingerprint_ref,
                 "authority_budget_dispatch_fingerprint_ref",
             ),
+            (self.execution_ref, "authority_budget_execution_ref"),
             (self.cost_estimate_ref, "authority_budget_cost_estimate_ref"),
             (
                 self.cost_governor_decision_ref,
@@ -175,6 +179,10 @@ class AuthorityBudgetReceipt(_AuthorityBudgetContract):
                 AuthorityBudgetStatus.reserved.value,
                 AuthorityBudgetStatus.denied.value,
             },
+            AuthorityBudgetOperation.start.value: {
+                AuthorityBudgetStatus.started.value,
+                AuthorityBudgetStatus.denied.value,
+            },
             AuthorityBudgetOperation.settle.value: {
                 AuthorityBudgetStatus.settled.value,
                 AuthorityBudgetStatus.settled_overage.value,
@@ -204,6 +212,7 @@ class AuthorityBudgetReceipt(_AuthorityBudgetContract):
                     value is not None
                     for value in [
                         self.reserved_cost_microusd,
+                        self.execution_ref,
                         self.actual_operation_count,
                         self.actual_cost_microusd,
                         self.actual_cost_ref,
@@ -235,13 +244,25 @@ class AuthorityBudgetReceipt(_AuthorityBudgetContract):
                 or self.actual_cost_microusd is not None
                 or self.actual_cost_ref is not None
                 or self.execution_status is not None
+                or self.execution_ref is not None
             ):
                 raise ValueError("AUTHORITY_BUDGET_RESERVATION_BINDING_INVALID")
+        elif semantic_status == AuthorityBudgetStatus.started.value:
+            if (
+                not self.execution_ref
+                or not self.dispatch_fingerprint_ref
+                or self.actual_operation_count is not None
+                or self.actual_cost_microusd is not None
+                or self.actual_cost_ref is not None
+                or self.execution_status is not None
+            ):
+                raise ValueError("AUTHORITY_BUDGET_START_BINDING_INVALID")
         elif semantic_status == AuthorityBudgetStatus.released.value:
             if not self.reason_refs:
                 raise ValueError("AUTHORITY_BUDGET_RELEASE_REASON_REQUIRED")
             if (
-                self.actual_operation_count is not None
+                self.execution_ref is not None
+                or self.actual_operation_count is not None
                 or self.actual_cost_microusd is not None
                 or self.actual_cost_ref is not None
                 or self.execution_status is not None
