@@ -50,3 +50,22 @@ def test_control_center_browser_smoke_readiness_verifier_blocks_unsafe_ci_and_do
     assert any("smoke doc missing required safety wording" in failure for failure in failures)
     assert any("smoke reporting doc missing required safety wording" in failure for failure in failures)
     assert any("forbidden smoke doc fragment" in failure for failure in failures)
+
+
+def test_control_center_browser_smoke_readiness_allows_exact_visual_container(
+    tmp_path: Path,
+) -> None:
+    verifier = load_verifier()
+    workflow = tmp_path / ".github/workflows/ci.yml"
+    workflow.parent.mkdir(parents=True)
+    workflow.write_text(
+        "\n".join(
+            [
+                *verifier.REQUIRED_CI_FRAGMENTS,
+                verifier.PINNED_VISUAL_PLAYWRIGHT_CONTAINER,
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    assert verifier._ci_failures(tmp_path) == []
