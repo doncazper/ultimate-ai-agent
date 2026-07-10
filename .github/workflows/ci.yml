@@ -596,6 +596,8 @@ jobs:
   release-lane-visual-regression:
     name: Release Lane / Control Center Visual Regression
     runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.61.0-noble@sha256:57b65fdc9ceabe0ef613124c7bbe2babcf9362c4d85e382fe3b03604e84b428a
 
     steps:
       - name: Check out repository
@@ -625,10 +627,6 @@ jobs:
         working-directory: apps/control-center
         run: npm ci
 
-      - name: Install Playwright Chromium
-        working-directory: apps/control-center
-        run: npx playwright install --with-deps chromium
-
       - name: Run visual regression release lane
         shell: bash
         run: |
@@ -643,7 +641,7 @@ jobs:
             echo "- Lane id: visual-regression"
             echo "- Report mode: safe-summary-only"
             echo "- Raw command output: captured locally and not uploaded"
-            echo "- Prerequisite posture: browser prerequisites are installed by this job; command failures report by command ref only"
+            echo "- Prerequisite posture: pinned Playwright 1.61 Noble container; command failures report by command ref only"
             echo ""
           } >> "$GITHUB_STEP_SUMMARY"
 
