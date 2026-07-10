@@ -22,10 +22,13 @@ READ_ONLY_KINDS = {
     WebAccessRequestKind.READ_ONLY_FETCH,
     WebAccessRequestKind.BROWSER_OBSERVE,
     WebAccessRequestKind.BROWSER_ACTION_DRY_RUN,
+    WebAccessRequestKind.SEARCH,
+    WebAccessRequestKind.EXTRACT_MARKDOWN,
 }
 
 FUTURE_DENIED_KINDS = {
     WebAccessRequestKind.SEARCH,
+    WebAccessRequestKind.EXTRACT_MARKDOWN,
     WebAccessRequestKind.EXTRACT_SCHEMA,
     WebAccessRequestKind.BROWSER_CLICK,
     WebAccessRequestKind.FORM_FILL,
@@ -56,6 +59,8 @@ class WebAccessPolicy:
     allow_governed_web_evidence: bool = True
     allow_browser_observe: bool = False
     allow_browser_action_dry_run: bool = False
+    allow_searxng_search: bool = False
+    allow_firecrawl_markdown_extract: bool = False
     deny_private_networks: bool = True
 
     def evaluate(self, request: WebAccessRequest) -> WebAccessPolicyDecision:
@@ -73,6 +78,15 @@ class WebAccessPolicy:
         lane_kind_reason = _lane_kind_reason(request)
         if lane_kind_reason:
             return self._deny(WebAccessRiskClass.MEDIUM, lane_kind_reason)
+
+        if request.kind == WebAccessRequestKind.SEARCH and self.allow_searxng_search:
+            return self._evaluate_searxng_search(request)
+
+        if (
+            request.kind == WebAccessRequestKind.EXTRACT_MARKDOWN
+            and self.allow_firecrawl_markdown_extract
+        ):
+            return self._evaluate_firecrawl_markdown_extract(request)
 
         if request.kind in FUTURE_DENIED_KINDS:
             return self._deny(risk, f"request_kind_not_enabled:{request.kind.value}")
@@ -128,6 +142,126 @@ class WebAccessPolicy:
             reasons=("phase_1_read_only_get_allowed",),
             allowed_methods=("GET",),
             requires_approval=False,
+        )
+
+    def _evaluate_searxng_search(self, request: WebAccessRequest) -> WebAccessPolicyDecision:
+        if request.authority_mode != WebAccessAuthorityMode.READ_ONLY:
+            return self._deny(WebAccessRiskClass.MEDIUM, "searxng_read_only_mode_required")
+        if request.network_lane != WebAccessNetworkLane.AGENT_PUBLIC_WEB:
+            return self._deny(WebAccessRiskClass.MEDIUM, "searxng_public_web_lane_required")
+        if request.method != "GET":
+            return self._deny(self._method_risk(request.method), f"method_not_allowed:{request.method}")
+        if request.url is not None:
+            return self._deny(WebAccessRiskClass.MEDIUM, "searxng_caller_url_denied")
+        if not isinstance(request.query, str) or not request.query.strip():
+            return self._deny(WebAccessRiskClass.LOW, "searxng_query_required")
+        if len(request.query) > 240 or any(ord(char) < 32 for char in request.query):
+            return self._deny(WebAccessRiskClass.MEDIUM, "searxng_query_bounds_invalid")
+        if request.metadata.get("page") != 1:
+            return self._deny(WebAccessRiskClass.LOW, "searxng_page_one_required")
+        max_results = request.metadata.get("max_results")
+        if not isinstance(max_results, int) or isinstance(max_results, bool):
+            return self._deny(WebAccessRiskClass.LOW, "searxng_result_limit_required")
+        if not 1 <= max_results <= 10:
+            return self._deny(WebAccessRiskClass.MEDIUM, "searxng_result_limit_invalid")
+        if request.metadata.get("category") != "general":
+            return self._deny(WebAccessRiskClass.MEDIUM, "searxng_category_not_allowed")
+        if request.metadata.get("language") != "en":
+            return self._deny(WebAccessRiskClass.MEDIUM, "searxng_language_not_allowed")
+        if request.metadata.get("safe_search") not in {1, 2}:
+            return self._deny(WebAccessRiskClass.MEDIUM, "searxng_safe_search_required")
+        if _truthy_metadata(
+            request,
+            "uses_auth",
+            "cookies",
+            "request_body",
+            "download",
+            "upload",
+            "caller_endpoint",
+            "provider_override",
+        ):
+            return self._deny(WebAccessRiskClass.HIGH, "searxng_unsafe_option_denied")
+        return WebAccessPolicyDecision(
+            status=WebAccessPolicyStatus.ALLOWED,
+            risk_class=WebAccessRiskClass.LOW,
+            reasons=("searxng_bounded_read_only_search_allowed",),
+            allowed_methods=("GET",),
+            requires_approval=True,
+        )
+
+    def _evaluate_firecrawl_markdown_extract(
+        self,
+        request: WebAccessRequest,
+    ) -> WebAccessPolicyDecision:
+        if request.authority_mode != WebAccessAuthorityMode.READ_ONLY:
+            return self._deny(WebAccessRiskClass.MEDIUM, "firecrawl_read_only_mode_required")
+        if request.network_lane != WebAccessNetworkLane.AGENT_PUBLIC_WEB:
+            return self._deny(WebAccessRiskClass.MEDIUM, "firecrawl_public_web_lane_required")
+        if request.method != "GET":
+            return self._deny(self._method_risk(request.method), f"method_not_allowed:{request.method}")
+        if not request.url:
+            return self._deny(WebAccessRiskClass.LOW, "firecrawl_target_url_required")
+        parsed = urlparse(request.url)
+        try:
+            target_port = parsed.port
+        except ValueError:
+            return self._deny(WebAccessRiskClass.HIGH, "firecrawl_target_url_invalid")
+        if (
+            parsed.scheme != "https"
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.query
+            or parsed.fragment
+            or target_port not in {None, 443}
+        ):
+            return self._deny(WebAccessRiskClass.HIGH, "firecrawl_target_url_invalid")
+        host = parsed.hostname.lower().rstrip(".")
+        if self.deny_private_networks and _is_private_or_local_host(host):
+            return self._deny(WebAccessRiskClass.HIGH, "private_or_local_network_denied")
+        if not request.allowed_domains or not _host_matches_allowed_domains(
+            host,
+            request.allowed_domains,
+        ):
+            return self._deny(WebAccessRiskClass.MEDIUM, "host_not_in_allowed_domains")
+        if request.metadata.get("format") != "markdown":
+            return self._deny(WebAccessRiskClass.MEDIUM, "firecrawl_markdown_only")
+        if request.metadata.get("page_count") != 1:
+            return self._deny(WebAccessRiskClass.MEDIUM, "firecrawl_one_page_required")
+        if request.metadata.get("attempt_count") != 1:
+            return self._deny(WebAccessRiskClass.MEDIUM, "firecrawl_one_attempt_required")
+        max_chars = request.metadata.get("max_markdown_chars")
+        if not isinstance(max_chars, int) or isinstance(max_chars, bool):
+            return self._deny(WebAccessRiskClass.LOW, "firecrawl_markdown_limit_required")
+        if not 1_024 <= max_chars <= 200_000:
+            return self._deny(WebAccessRiskClass.MEDIUM, "firecrawl_markdown_limit_invalid")
+        target_source_ref = request.metadata.get("target_source_ref")
+        if not isinstance(target_source_ref, str) or not target_source_ref.startswith(
+            "web-source-ref:sha256:"
+        ):
+            return self._deny(WebAccessRiskClass.LOW, "firecrawl_target_source_ref_required")
+        if _truthy_metadata(
+            request,
+            "uses_auth",
+            "cookies",
+            "request_body",
+            "download",
+            "upload",
+            "actions",
+            "headers",
+            "screenshot",
+            "extract_schema",
+            "caller_endpoint",
+            "provider_override",
+            "skip_tls_verification",
+        ):
+            return self._deny(WebAccessRiskClass.HIGH, "firecrawl_unsafe_option_denied")
+        return WebAccessPolicyDecision(
+            status=WebAccessPolicyStatus.ALLOWED,
+            risk_class=WebAccessRiskClass.MEDIUM,
+            reasons=("firecrawl_bounded_read_only_markdown_allowed",),
+            allowed_methods=("GET",),
+            requires_approval=True,
         )
 
     def _evaluate_browser_observe(self, request: WebAccessRequest) -> WebAccessPolicyDecision:
@@ -246,6 +380,12 @@ def _lane_kind_reason(request: WebAccessRequest) -> str | None:
         },
         WebAccessRequestKind.BROWSER_ACTION_DRY_RUN: {
             WebAccessNetworkLane.BROWSER_ACTION_DRY_RUN,
+        },
+        WebAccessRequestKind.SEARCH: {
+            WebAccessNetworkLane.AGENT_PUBLIC_WEB,
+        },
+        WebAccessRequestKind.EXTRACT_MARKDOWN: {
+            WebAccessNetworkLane.AGENT_PUBLIC_WEB,
         },
     }
     allowed_lanes = allowed_by_kind.get(request.kind)

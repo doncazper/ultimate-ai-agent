@@ -216,6 +216,17 @@ class FoundationGateLegacyChecksPart001Mixin:
             provider_catalog_https_prefix + "api.openai.com/v1/responses",
             provider_catalog_https_prefix + "api.anthropic.com/v1/messages",
         )
+        allowed_web_hybrid_endpoint_lines = {
+            "src/ultimate_ai_agent/core/web_access/firecrawl_cloud.py": (
+                'FIRECRAWL_CLOUD_BASE_URL = "https://api.firecrawl.dev"'
+            ),
+            "src/ultimate_ai_agent/core/web_access/firecrawl_markdown.py": (
+                'FIRECRAWL_SELF_HOSTED_DEFAULT_ENDPOINT = "http://127.0.0.1:3002"'
+            ),
+            "src/ultimate_ai_agent/core/web_access/searxng_search.py": (
+                'SEARXNG_SEARCH_DEFAULT_ENDPOINT = "http://127.0.0.1:8888"'
+            ),
+        }
         for path, line_no, stripped in self._runtime_lines():
             if self._is_static_scanner_text(stripped):
                 continue
@@ -293,6 +304,8 @@ class FoundationGateLegacyChecksPart001Mixin:
                     for marker in tiny_provider_invocation_endpoint_markers
                 )
             ):
+                continue
+            if stripped == allowed_web_hybrid_endpoint_lines.get(path):
                 continue
             if any(pattern in stripped for pattern in forbidden_contains):
                 failures.append(f"{path}:{line_no} forbidden integration reference")

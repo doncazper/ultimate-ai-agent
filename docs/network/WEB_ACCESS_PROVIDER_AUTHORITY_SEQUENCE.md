@@ -4,6 +4,11 @@ Status: future sequencing reference, not active implementation authority
 Branch context: `web-access-gateway-boundary` / PR #39  
 Audience: Codex, maintainers, security review
 
+The end-to-end SearXNG discovery plus self-hosted/Firecrawl Cloud extraction
+child plan is `docs/network/SEARXNG_FIRECRAWL_HYBRID_IMPLEMENTATION_PLAN.md`.
+It remains planning-only and subordinate to this provider/authority sequence
+and the active `WEB-RUNTIME-AUTH-001` WIP lane.
+
 ## Primary recommendation
 
 Add providers earlier. Add dangerous authority much later.
@@ -160,11 +165,29 @@ Do not add clicks/forms.
 ### Later provider read-only — Firecrawl/search
 
 ```text
-Promote a specific provider adapter only after an accepted scoped milestone.
-Support only read-only search/scrape/extract outputs.
+WEB-HYBRID-003 promotes only SearXNG bounded JSON search after its accepted
+scoped activation. Every call requires exact policy, approval, lease,
+availability, audit, and redaction gates.
+WEB-HYBRID-004 separately promotes one self-hosted Firecrawl operation:
+one-page, one-attempt, markdown-only extraction for an exact allowlisted public
+HTTPS target. The target remains read-only GET semantics even though the fixed
+loopback provider transport uses POST. Full markdown is transient and untrusted;
+durable output contains safe refs, hashes, reason codes, and a bounded redacted
+preview. At this phase, Firecrawl Cloud, search, crawl, map, schema extraction,
+screenshots, Interact, sessions, and actions remain blocked.
+WEB-HYBRID-005 then promotes cloud extraction independently of routing: one
+authenticated free-plan standard scrape, `proxy=basic`, no provider cache,
+one atomic reservation, exact request budget/approval/lease scope, and complete
+before/after usage proof. This does not authorize automatic fallback, paid or
+unknown plans, Keyless, enhanced/auto proxy escalation, or target-page auth.
+WEB-HYBRID-006 promotes one automatic choice only: self-host first, followed by
+at most one separately authorized cloud attempt for a fixed normalized
+availability/render failure. Policy, authority, private-target, redirect,
+scope, unknown, and incomplete-cost failures are terminal. Replay is
+receipt-only, and an opened cloud circuit requires manual credit reconciliation.
 Normalize into WebAccessResult and WebAccessAuditRecord.
 Mark content_untrusted=true.
-Keep Interact, sessions, clicks/forms, credentials, and writes blocked.
+Keep Interact, sessions, clicks/forms, general credential surfaces, and writes blocked.
 ```
 
 ### Browser observe / Browserbase observe

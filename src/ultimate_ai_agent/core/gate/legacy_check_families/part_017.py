@@ -651,6 +651,9 @@ class FoundationGateLegacyChecksPart017Mixin:
                     if (
                         fragment in text
                         and fragment not in allowed_fragments_by_file.get(rel, set())
+                        and not _is_web_hybrid_promoted_static_fragment(
+                            rel, fragment, text
+                        )
                     ):
                         failures.append(
                             f"M71 forbidden network tool contract fragment in {rel}: {fragment}"
@@ -1005,6 +1008,9 @@ class FoundationGateLegacyChecksPart017Mixin:
                     if (
                         fragment in text
                         and fragment not in allowed_fragments_by_file.get(rel, set())
+                        and not _is_web_hybrid_promoted_static_fragment(
+                            rel, fragment, text
+                        )
                     ):
                         failures.append(
                             f"M72 forbidden HTTP fetch fragment in {rel}: {fragment}"

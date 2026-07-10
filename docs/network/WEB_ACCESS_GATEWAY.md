@@ -1,8 +1,8 @@
 # WebAccessGateway Boundary
 
-Status: active boundary slice / M72-M75 provider-shell posture
-Scope: contracts, policy, audit, source metadata, static guardrails, governed evidence wrapper, disabled provider adapter shells
-Out of scope: live provider calls, provider credentials, browser execution, browser clicks, form filling, auth, cookies, downloads, uploads, non-GET methods
+Status: active boundary plus exact WEB-HYBRID-003 search, WEB-HYBRID-004/005 local and cloud extraction, and WEB-HYBRID-006 one-step hybrid routing
+Scope: governed search, local-first extraction, authenticated free-credit accounting, normalized one-fallback routing, receipt-only idempotent replay, and a manually reconciled cloud circuit breaker
+Out of scope: cloud-first routing, more than one fallback, paid usage, Keyless, crawl/map/search/schema extraction, browser execution, clicks/forms, target auth/cookies, downloads/uploads, and non-GET target methods
 
 ## Decision
 
@@ -42,13 +42,23 @@ durable audit storage, side-effect ledger blockers, approval linkage, operator
 blocked/degraded/partial labels, provider diagnostics, metadata-only catalog
 visibility, and named verification lanes come before scoped execution.
 
-The core rule is: add provider shells earlier, add provider execution and
-dangerous authority much later. Firecrawl, Browserbase, and search provider
-shells may appear as disabled diagnostics behind the gateway, but provider
-SDK imports, credentials, network calls, scrape jobs, browser sessions, browser
-clicks, form filling, auth/cookies, downloads/uploads, and POST-style mutations
-must wait for mature autonomy, audit, approval, revocation, sandbox, and
-connector/write layers.
+The exact SearXNG lane is the first narrowly promoted provider execution path.
+It permits one bounded JSON GET only after current availability, PolicyEngine,
+exact LocalApprovalAuthority scope, and an exact resource-constrained
+AuthorityLease all pass immediately before execution. WEB-HYBRID-004 separately
+promotes one self-hosted Firecrawl markdown extraction for an exact allowlisted
+public HTTPS target under the same request-scoped gates. The target operation
+remains GET; the fixed loopback adapter uses POST only as Firecrawl's provider
+transport. WEB-HYBRID-005 independently permits one authenticated Firecrawl
+Cloud standard scrape only after current free-plan credit truth, atomic
+reservation, exact budget decision, and post-call reconciliation are proven.
+WEB-HYBRID-006 permits only a local-first cloud fallback for a fixed eligible
+failure taxonomy. The cloud attempt receives a distinct exact approval, lease,
+budget reservation, idempotency ref, and receipt. Policy/authority/private-target,
+redirect, scope, unknown, or incomplete-cost outcomes remain terminal. Paid
+usage, Keyless, cloud-first routing, Browserbase,
+crawl/map/search/schema extraction, browser sessions/actions, target auth/cookies,
+downloads/uploads, and POST-style target mutations remain blocked.
 
 ## Authority ladder
 
@@ -75,6 +85,16 @@ Allowed:
 - explicit injected read-only HTTPS GET transport for
   `read_only_real_world_web_fetch`, routed through `WebAccessGateway`
 - disabled provider adapter shells for Firecrawl, Browserbase, and search diagnostics
+- exact SearXNG `SEARCH` with page one, general category, English language,
+  safe-search, and at most ten normalized untrusted results
+- exact self-hosted Firecrawl `EXTRACT_MARKDOWN` for one approved public HTTPS
+  target, one attempt, one page, markdown only, with a bounded redacted preview
+- exact Firecrawl Cloud `EXTRACT_MARKDOWN` for the same bounded target shape,
+  using `proxy=basic`, `storeInCache=false`, one free-credit reservation, and
+  authoritative before/after credit reconciliation
+- a fixed configured loopback endpoint; requests cannot supply or override it
+- exact capability/provider/adapter/task/request lease resources plus exact
+  local approval validation before each transport call
 - normalized WebAccessAuditRecord for allowed and denied paths
 - SourceMetadata with content_untrusted=true
 - quarantined WebAccessEvidenceBundle for adapter payloads
@@ -104,8 +124,9 @@ Denied:
 - provider shells as runtime authority
 - provider SDK imports/calls
 - provider credentials
-- live search provider calls
-- Firecrawl scrape jobs
+- all live search providers except the exact governed SearXNG lane
+- cloud-first or multi-step fallback, paid/unknown plans, Keyless,
+  crawl/map/search/schema extraction, and provider actions
 - Browserbase browser sessions
 ```
 
@@ -130,6 +151,40 @@ Temporary exceptions are not permission to add more direct access. They should s
 Adapters must be invoked only after policy allows the request, normalize provider results into `WebAccessResult`, mark web content as untrusted, and avoid leaking provider objects or runtime authority to agent logic. Adapter payloads must be wrapped as quarantined `WebAccessEvidenceBundle` data, not exposed as tool, shell, browser, connector, memory, or policy instructions.
 
 Adapters must not execute browser actions, hide redirects/source metadata, treat fetched web content as instructions, or introduce provider dependencies in this boundary PR. Disabled provider adapter shells are diagnostic metadata only; catalog visibility is not callable runtime authority.
+
+The SearXNG adapter is an explicit later promotion rather than a diagnostic
+shell. Its raw query is transient, candidate URLs are normalized and reject
+local/private literal targets, raw provider responses are quarantined and
+discarded after normalization, and durable receipts contain safe refs/hashes
+only. Runtime readiness never grants authority, and invocation decisions are
+not cacheable.
+
+The self-hosted Firecrawl adapter is an independent exact promotion. It resolves
+the approved target to public addresses before the provider call, rejects any
+provider-reported final-URL change, and discards content on validation failure.
+Full markdown remains transient, untrusted evidence; receipts expose safe refs,
+hashes, reason codes, and a bounded redacted preview only. Crawl, map, search,
+schema extraction, screenshots, actions, and request-controlled provider options
+are not part of this lane.
+
+The cloud adapter is another independent exact promotion, not a fallback or
+standing spend authority. The ignored credential is resolved transiently from
+one exact local secret file; neither credential material nor its path is
+returned. The authenticated provider snapshot is authoritative for plan and
+balance truth, while UAA's atomic ledger coordinates in-flight reservations and
+the per-run ceiling. Unknown/stale/paid/incomplete states block before dispatch.
+A successful result requires the before/after balance delta to prove the exact
+one-credit standard scrape. Provider-level zero-data retention is not claimed
+for the free plan; UAA uses `storeInCache=false` and retains no raw page or
+provider payload.
+
+Hybrid execution stores only safe receipt state for idempotent replay; transient
+markdown is never placed in the replay ledger. A replay cannot call either
+provider or create another credit reservation. The cloud circuit opens after a
+bounded set of normalized provider/quota/receipt failures and never closes from
+a timer or background probe. A user-triggered current free-plan reconciliation
+is required to close it. Safe-disable or lease revocation between the local and
+cloud attempts is re-evaluated and blocks the cloud transport.
 
 ## Untrusted content model
 

@@ -30,11 +30,16 @@ from .contracts import (
     ResourceBudgetStatus,
     RuntimeReadinessDerivation,
     SafeDisableStatus,
+    WebHybridAvailabilityReadModel,
+    WebHybridCapabilityLanePosture,
     build_capability_availability_snapshot,
     derive_runtime_readiness,
     evaluate_capability_invocation,
 )
-from .read_model import build_capability_availability_read_model
+from .read_model import (
+    build_capability_availability_read_model,
+    build_web_hybrid_availability_read_model,
+)
 
 __all__ = [
     "CAPABILITY_AVAILABILITY_CLI_REF",
@@ -62,8 +67,11 @@ __all__ = [
     "ResourceBudgetStatus",
     "RuntimeReadinessDerivation",
     "SafeDisableStatus",
+    "WebHybridAvailabilityReadModel",
+    "WebHybridCapabilityLanePosture",
     "build_capability_availability_read_model",
     "build_capability_availability_snapshot",
+    "build_web_hybrid_availability_read_model",
     "derive_runtime_readiness",
     "evaluate_capability_invocation",
     "snapshot_from_capability_catalog_entry",

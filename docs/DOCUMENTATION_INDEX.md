@@ -119,7 +119,7 @@ blocked, planned, and future-scoped states distinct.
 | Computer Use / CUA contract lane | `docs/cua/COMPUTER_USE_CUA_CONTRACT.md`, `docs/cua/cua_release_surface_manifest.json` |
 | Security posture | `SECURITY.md`, `docs/security/SECURITY_TRIAGE_RUNBOOK.md` |
 | Release evidence | `docs/production/RELEASE_VERIFICATION_LANES.md`, `docs/production/RELEASE_EVIDENCE_PACKET.md` |
-| Governed web evidence and WebAccess runtime authority | `docs/truth/GOVERNED_WEB_EVIDENCE.md`, `docs/network/WEB_ACCESS_GATEWAY.md`, `docs/network/WEB_ACCESS_PROVIDER_AUTHORITY_SEQUENCE.md`, `docs/network/WEB_RUNTIME_AUTHORITY_HARDENING.md` |
+| Governed web evidence and WebAccess runtime authority | `docs/truth/GOVERNED_WEB_EVIDENCE.md`, `docs/network/WEB_ACCESS_GATEWAY.md`, `docs/network/WEB_ACCESS_PROVIDER_AUTHORITY_SEQUENCE.md`, `docs/network/SEARXNG_FIRECRAWL_HYBRID_IMPLEMENTATION_PLAN.md`, `docs/prompts/web_hybrid/00_execute_searxng_firecrawl_hybrid_end_to_end.prompt.md`, `docs/network/WEB_RUNTIME_AUTHORITY_HARDENING.md` |
 | Local model lane | `docs/production/M167_LIVE_MODEL_EVIDENCE_MATRIX.md`, `docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md`, `docs/production/M167_OPENWEBUI_LOCAL_INSTALLER.md`, `docs/production/M167_GITHUB_BOOTSTRAP_LOCAL_INSTALLER.md`, `docs/model_management/UAA_P1_062_LOCAL_MODEL_MANAGER_SCOPE.md`, `docs/model_management/UAA_P1_064_LOCAL_MODEL_INVENTORY_READ_ONLY.md`, `docs/model_management/UAA_P1_066_LOCAL_MODEL_CONTROL_CENTER_READ_ONLY_STATUS.md` |
 | Redacted observability | `docs/observability/SESSION_LOGGING_M167.md` |
 | Plugin/skill ecosystem | `docs/control_center/SKILL_WORKBENCH_DISCOVERY_AND_ADOPTION.md`, `docs/control_center/UAA_RUNTIME_EXTENSIBILITY_FINAL.md`, `docs/tooling/PLUGIN_SKILL_ECOSYSTEM_BOUNDARY.md`, `docs/tooling/INSPECTABLE_EXTENSION_CATALOG.md`, `docs/tooling/EXTENSION_ACTIVATION_GRANTS.md`, `docs/tooling/MCP_A2A_COMPATIBILITY_WATCHLIST.md` |
@@ -959,6 +959,7 @@ docs/network/WEB_ACCESS_GATEWAY_PR_BODY.md
 docs/network/WEB_ACCESS_GATEWAY_PR_SEQUENCE.md
 docs/network/WEB_ACCESS_GATEWAY_SECURITY_REVIEW_CHECKLIST.md
 docs/network/WEB_ACCESS_PROVIDER_AUTHORITY_SEQUENCE.md
+docs/network/SEARXNG_FIRECRAWL_HYBRID_IMPLEMENTATION_PLAN.md
 docs/network/WEB_RUNTIME_AUTHORITY_HARDENING.md
 docs/network/AUTHLESS_NETWORK_TOOL_EXPANSION.md
 docs/network/AUTHLESS_NETWORK_TOOL_EXPANSION_POLICY.md

@@ -134,16 +134,22 @@ REQUIRED_DOC_FRAGMENTS = (
 )
 REQUIRED_ROADMAP_FRAGMENTS = (
     "Web Runtime Authority Promotion Ladder",
-    "ultimate_ai_agent.core.web_access",
-    "historical/contract evidence, not blanket callable runtime authority",
-    "provider shells and diagnostics",
-    "paid/frontier provider use requires CostGovernor",
+    "WEB-HYBRID-001",
+    "WEB-HYBRID-008",
+    "WebAccessGateway",
+    "request-scoped",
+    "Unrestricted web fetching",
+    "paid use",
 )
 REQUIRED_BOARD_FRAGMENTS = (
     "Web Runtime Authority Promotion Ladder",
-    "P1 shaping lane",
+    "P1 implementation lane",
     "runtime authority WIP limit at one lane",
-    "no live web fetching, browser automation, provider SDK calls",
+    "WEB-HYBRID-001",
+    "WEB-HYBRID-008",
+    "Unrestricted web fetching",
+    "browser automation",
+    "paid use",
 )
 
 
@@ -166,6 +172,10 @@ def _append_file_failures(failures: list[str]) -> None:
 def _append_contract_failures(failures: list[str]) -> None:
     contract = build_web_runtime_authority_contract()
     dumped_contract = contract.model_dump(mode="python")
+    if contract.scope_posture != "broad_unrestricted_ladder_only":
+        failures.append("web runtime ladder is not scoped to broad authority")
+    if contract.exact_lanes_do_not_promote_broad_authority is not True:
+        failures.append("exact web lanes promote broad runtime authority")
     if tuple(dumped_contract["canonical_nouns"]) != WEB_RUNTIME_CANONICAL_NOUNS:
         failures.append("canonical web runtime nouns are incomplete")
     if {entry.model_dump(mode="python")["side_effect"] for entry in contract.side_effect_ledger} != set(

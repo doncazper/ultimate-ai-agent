@@ -335,7 +335,9 @@ class FoundationGateLegacyChecksPart024Mixin:
                     continue
                 text = self._context.read_text(path, encoding="utf-8")
                 for fragment in forbidden_source_fragments:
-                    if fragment in text:
+                    if fragment in text and not _is_web_hybrid_promoted_static_fragment(
+                        rel, fragment, text
+                    ):
                         failures.append(
                             f"M95 forbidden authless network fragment in {rel}: {fragment}"
                         )
@@ -1217,7 +1219,9 @@ class FoundationGateLegacyChecksPart024Mixin:
                     continue
                 text = self._context.read_text(path, encoding="utf-8")
                 for fragment in forbidden_source_fragments:
-                    if fragment in text:
+                    if fragment in text and not _is_web_hybrid_promoted_static_fragment(
+                        rel, fragment, text
+                    ):
                         failures.append(
                             f"M98 forbidden recurring automation fragment in {rel}: {fragment}"
                         )

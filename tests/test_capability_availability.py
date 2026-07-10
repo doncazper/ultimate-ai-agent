@@ -166,14 +166,18 @@ def test_unknown_compatibility_fails_closed() -> None:
 def test_unsupported_version_fails_closed() -> None:
     snapshot = _snapshot(compatibility_status=CompatibilityStatus.unsupported)
 
-    assert snapshot.runtime_readiness_status == DerivedRuntimeReadinessStatus.unavailable
+    assert (
+        snapshot.runtime_readiness_status == DerivedRuntimeReadinessStatus.unavailable
+    )
     assert "COMPATIBILITY_UNSUPPORTED" in snapshot.blocker_codes
 
 
 def test_not_configured_fails_closed() -> None:
     snapshot = _snapshot(configuration_status=ConfigurationStatus.not_configured)
 
-    assert snapshot.runtime_readiness_status == DerivedRuntimeReadinessStatus.unavailable
+    assert (
+        snapshot.runtime_readiness_status == DerivedRuntimeReadinessStatus.unavailable
+    )
     assert "NOT_CONFIGURED" in snapshot.blocker_codes
 
 
@@ -183,14 +187,18 @@ def test_stale_and_unhealthy_health_fail_closed(
 ) -> None:
     snapshot = _snapshot(health_status=health_status)
 
-    assert snapshot.runtime_readiness_status == DerivedRuntimeReadinessStatus.unavailable
+    assert (
+        snapshot.runtime_readiness_status == DerivedRuntimeReadinessStatus.unavailable
+    )
     assert any(code.startswith("HEALTH_") for code in snapshot.blocker_codes)
 
 
 def test_degraded_health_requires_exact_future_policy() -> None:
     snapshot = _snapshot(health_status=HealthStatus.degraded)
 
-    assert snapshot.runtime_readiness_status == DerivedRuntimeReadinessStatus.unavailable
+    assert (
+        snapshot.runtime_readiness_status == DerivedRuntimeReadinessStatus.unavailable
+    )
     assert "HEALTH_DEGRADED_NOT_PERMITTED" in snapshot.blocker_codes
 
 
@@ -269,9 +277,9 @@ def test_exact_local_approval_validation_can_satisfy_request_gate() -> None:
     )
     context = {"approval_ref": "approval-ref:test-capability"}
     approval_decision = approval_authority.validate_approval(manifest, task, context)
-    policy_decision = PolicyEngine(
-        approval_authority=approval_authority
-    ).can_execute(manifest, task, context)
+    policy_decision = PolicyEngine(approval_authority=approval_authority).can_execute(
+        manifest, task, context
+    )
 
     decision = evaluate_capability_invocation(
         request=_request(
@@ -433,7 +441,9 @@ def test_runtime_ready_snapshot_still_requires_separate_request_decision() -> No
         evaluated_at=FIXED_TIME,
     )
     assert decision.outcome == InvocationDecisionOutcome.allow
-    assert decision.expected_execution_receipt_ref == "receipt-ref:test-capability:future"
+    assert (
+        decision.expected_execution_receipt_ref == "receipt-ref:test-capability:future"
+    )
 
 
 def test_capability_and_provider_adapters_preserve_unknown_and_blocked_states() -> None:
@@ -460,7 +470,10 @@ def test_capability_and_provider_adapters_preserve_unknown_and_blocked_states() 
     assert capability_snapshot.compatibility_status == CompatibilityStatus.unknown
     assert capability_snapshot.configuration_status == ConfigurationStatus.unknown
     assert capability_snapshot.health_status == HealthStatus.unknown
-    assert capability_snapshot.runtime_readiness_status == DerivedRuntimeReadinessStatus.unknown
+    assert (
+        capability_snapshot.runtime_readiness_status
+        == DerivedRuntimeReadinessStatus.unknown
+    )
     assert provider_snapshot.authority_posture == AuthorityPosture.blocked
     assert provider_snapshot.resource_status == ResourceBudgetStatus.unknown
     assert "PROVIDER_INVOCATION_NOT_SCOPED" in provider_snapshot.blocker_codes
@@ -498,19 +511,28 @@ def test_backend_read_model_contains_representative_safe_states() -> None:
     assert payload["request_scoped_evaluation_required"] is True
     assert payload["availability_does_not_grant_execution"] is True
     assert payload["execution_evidence_posture"] == "separate_receipt_contract"
+    assert payload["web_hybrid"]["truth_owner"] == "python_core"
+    assert payload["web_hybrid"]["provider_network_call_performed"] is False
+    assert payload["web_hybrid"]["current_remaining_credits"] is None
     assert payload["snapshot_count"] == len(payload["snapshots"]) >= 6
-    assert by_ref["capability-ref:manual-local-loopback-smoke-validation"][
-        "runtime_readiness_status"
-    ] == "unavailable"
-    assert by_ref["capability-ref:simulated-model-runtime"][
-        "authority_posture"
-    ] == "blocked"
-    assert by_ref["capability-ref:governed-runtime-command"][
-        "safe_disable_status"
-    ] == "active"
-    assert by_ref["capability-ref:api-contract-metadata"][
-        "runtime_readiness_status"
-    ] == "ready"
+    assert (
+        by_ref["capability-ref:manual-local-loopback-smoke-validation"][
+            "runtime_readiness_status"
+        ]
+        == "unavailable"
+    )
+    assert (
+        by_ref["capability-ref:simulated-model-runtime"]["authority_posture"]
+        == "blocked"
+    )
+    assert (
+        by_ref["capability-ref:governed-runtime-command"]["safe_disable_status"]
+        == "active"
+    )
+    assert (
+        by_ref["capability-ref:api-contract-metadata"]["runtime_readiness_status"]
+        == "ready"
+    )
     assert all(item["reason_codes"] for item in payload["snapshots"])
     assert all(item["source_ref"] for item in payload["snapshots"])
     serialized = json.dumps(payload)
@@ -543,6 +565,7 @@ def test_cli_and_api_expose_same_backend_owned_truth(
     assert api_model["schema_version"] == cli_model["schema_version"]
     assert api_model["source_ref"] == cli_model["source_ref"]
     assert states(api_model) == states(cli_model)
+    assert api_model["web_hybrid"] == cli_model["web_hybrid"]
 
 
 def test_cli_primary_output_is_readable(capsys: pytest.CaptureFixture[str]) -> None:
@@ -567,9 +590,11 @@ def test_api_manifest_keeps_availability_route_read_only_and_static() -> None:
     assert route["operation_id"] == "get_control_center_capabilities_availability"
     assert route["route_classification"] == "local_readonly"
     assert route["side_effect_class"] == "validation_only"
-    assert "control_center_capability_availability_read_model" in manifest[
-        "capabilities_declared"
-    ]
-    assert "capability_availability_global_authorization" in manifest[
-        "capabilities_blocked"
-    ]
+    assert (
+        "control_center_capability_availability_read_model"
+        in manifest["capabilities_declared"]
+    )
+    assert (
+        "capability_availability_global_authorization"
+        in manifest["capabilities_blocked"]
+    )

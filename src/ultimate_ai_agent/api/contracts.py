@@ -69,12 +69,12 @@ class ApiRouteInventoryItem(BaseModel):
 class ApiWebAccessPosture(BaseModel):
     web_access_gateway_boundary: Literal["implemented"]
     boundary_module: Literal["ultimate_ai_agent.core.web_access"]
-    governed_web_access: Literal["boundary_only"]
+    governed_web_access: Literal["exact_request_scoped_lanes"]
     unrestricted_web_fetching: Literal["not_available"]
     browser_execution: Literal["not_available"]
     browser_observe_runtime: Literal["not_available"]
     browser_action_dry_run_runtime: Literal["not_available"]
-    providers: Literal["not_configured"]
+    providers: Literal["runtime_observation_required"]
     content_untrusted: bool
     grants_runtime_browsing_authority: bool
     allows_clicks_forms_auth_cookies_downloads_uploads: bool
