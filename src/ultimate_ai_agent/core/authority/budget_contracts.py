@@ -67,6 +67,9 @@ class AuthorityBudgetReceipt(_AuthorityBudgetContract):
     action_ref: str | None = None
     authority_decision_ref: str | None = None
     authority_policy_receipt_ref: str | None = None
+    approval_ref: str | None = None
+    approval_validation_ref: str | None = None
+    approval_required: StrictBool = False
     cost_estimate_ref: str | None = None
     cost_governor_decision_ref: str | None = None
     cost_governor_allowed: StrictBool = False
@@ -110,6 +113,11 @@ class AuthorityBudgetReceipt(_AuthorityBudgetContract):
             (
                 self.authority_policy_receipt_ref,
                 "authority_budget_policy_receipt_ref",
+            ),
+            (self.approval_ref, "authority_budget_approval_ref"),
+            (
+                self.approval_validation_ref,
+                "authority_budget_approval_validation_ref",
             ),
             (self.cost_estimate_ref, "authority_budget_cost_estimate_ref"),
             (
@@ -210,6 +218,10 @@ class AuthorityBudgetReceipt(_AuthorityBudgetContract):
             raise ValueError("AUTHORITY_BUDGET_ACTIVE_RECEIPT_BINDING_REQUIRED")
         elif self.reserved_operation_count < 1 or self.reserved_cost_microusd is None:
             raise ValueError("AUTHORITY_BUDGET_RESERVATION_VALUES_REQUIRED")
+        elif self.approval_required and (
+            not self.approval_ref or not self.approval_validation_ref
+        ):
+            raise ValueError("AUTHORITY_BUDGET_REQUIRED_APPROVAL_BINDING_MISSING")
         elif semantic_status == AuthorityBudgetStatus.reserved.value:
             if (
                 not self.authority_decision_ref

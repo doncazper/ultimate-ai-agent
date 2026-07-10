@@ -71,11 +71,23 @@ from ultimate_ai_agent.core.authority.budgets import (
     AuthorityBudgetStatus,
     AuthorityBudgetStore,
 )
+from ultimate_ai_agent.core.authority.dispatch_contracts import (
+    AUTHORITY_DISPATCH_SCHEMA_VERSION,
+    AuthorityDispatchAdapterDescriptor,
+    AuthorityDispatchAdapterResult,
+    AuthorityDispatchCancelRequest,
+    AuthorityDispatchReadModel,
+    AuthorityDispatchReceipt,
+    AuthorityDispatchRequest,
+    AuthorityDispatchResult,
+    AuthorityDispatchStatus,
+)
 
 __all__ = [
     "AUTHORITY_LEASE_SCHEMA_VERSION",
     "AUTHORITY_CONSTRAINT_SCHEMA_VERSION",
     "AUTHORITY_BUDGET_SCHEMA_VERSION",
+    "AUTHORITY_DISPATCH_SCHEMA_VERSION",
     "AUTHORITY_LANE_CATALOG_CONTRACT_REF",
     "AUTHORITY_LANE_CATALOG_SCHEMA_VERSION",
     "AUTHORITY_DOMAIN_READINESS_CONTRACT_REF",
@@ -108,6 +120,14 @@ __all__ = [
     "AuthorityDecisionOutcome",
     "AuthorityDecisionPreview",
     "AuthorityDecisionSummary",
+    "AuthorityDispatchAdapterDescriptor",
+    "AuthorityDispatchAdapterResult",
+    "AuthorityDispatchCancelRequest",
+    "AuthorityDispatchReadModel",
+    "AuthorityDispatchReceipt",
+    "AuthorityDispatchRequest",
+    "AuthorityDispatchResult",
+    "AuthorityDispatchStatus",
     "AuthorityDomainReadinessEntry",
     "AuthorityDomainReadinessReadModel",
     "AuthorityDomain",

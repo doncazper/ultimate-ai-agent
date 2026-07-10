@@ -35,6 +35,10 @@ from ultimate_ai_agent.core.authority import (
 from ultimate_ai_agent.core.authority.approval_validation import (
     issue_authority_lease_with_test_approval,
 )
+from ultimate_ai_agent.core.authority.budgets import (
+    _entry_hash_payload,
+    _legacy_reservation_request_fingerprint,
+)
 
 
 def _budget_constraints(
@@ -177,6 +181,35 @@ def test_budget_integer_contracts_reject_boolean_and_string_coercion() -> None:
     request_payload["cost_governor_allowed"] = "true"
     with pytest.raises(ValueError, match="bool_type"):
         AuthorityBudgetReservationRequest.model_validate(request_payload)
+
+
+def test_pre_approval_binding_budget_receipt_hash_remains_readable(tmp_path) -> None:
+    _, budget_store, lease = _stores(tmp_path)
+    request = _reserve_request(lease.lease_ref, suffix="legacy-hash")
+    receipt = budget_store.reserve(request)
+    legacy_payload = receipt.model_dump(mode="json")
+    for field_name in [
+        "approval_ref",
+        "approval_validation_ref",
+        "approval_required",
+    ]:
+        legacy_payload.pop(field_name)
+    legacy_payload["request_fingerprint_ref"] = (
+        _legacy_reservation_request_fingerprint(request)
+    )
+    legacy_payload["entry_hash_ref"] = _entry_hash_payload(legacy_payload)
+    budget_store.receipts_path.write_text(
+        json.dumps(legacy_payload, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    loaded = budget_store.list_receipts()
+    replay = budget_store.reserve(request)
+
+    assert len(loaded) == 1
+    assert loaded[0].approval_required is False
+    assert loaded[0].approval_ref is None
+    assert replay.status == AuthorityBudgetStatus.replayed.value
 
 
 def test_reserve_settle_and_cumulative_exhaustion_are_durable(tmp_path) -> None:

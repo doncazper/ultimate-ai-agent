@@ -32,8 +32,9 @@ Product Loop 012 now adds the Private product loop trial script as a
 local/private, safe-ref-only manual operator review artifact with
 `scripts/inspect_product_loop_trial_script.py` CLI parity and no authority
 promotion.
-AuthorityLease typed constraints and durable budget ledger V1 are implemented
-in Python Core for exact resource, path, app, host, delegation-depth,
+AuthorityLease typed constraints, durable budget ledger V1, and the initial
+governed dispatcher V1 are implemented in Python Core for exact resource, path,
+app, host, delegation-depth,
 cumulative operation, and cumulative integer micro-USD cost enforcement.
 Reservations, settlements, releases, and denials are protected by the same
 local single-writer lock as lease issue/revoke and recorded as fsync-backed,
@@ -41,12 +42,16 @@ hash-chained, full-history replay- and semantic-transition-checked safe-ref rece
 lease identity, kill switch, exact claims, overage, and unresolved actual cost
 fail closed; structured cost-estimate and CostGovernor-decision refs plus an
 explicit allowed posture are required; and the posture is visible in the
-AuthorityState API/JSON CLI read model. Central dispatcher validation of that
-CostGovernor binding, adapter-start binding, a mutation API, Control Center budget UX, time-window and
-recipient/target constraints, renewal, reviewed unresolved-cost remediation,
-multi-host storage, and broader adapter execution remain next; this slice
-executes nothing and grants no provider/model, external spend, or broad
-authority.
+AuthorityState API/JSON CLI read model. The dispatcher now binds exact policy,
+approval, reservation, pre-start receipt, adapter start, settlement/release,
+pre-start cancellation, recovery posture, and safe evidence for explicitly
+injected no-op and filesystem-metadata tool-runtime adapters. It does not yet
+provide mutation API/CLI/Control Center parity, durable mission-step use,
+after-start cancellation, settlement recovery, paid-provider actual usage and
+cost proof, time-window or recipient/target constraints, renewal, reviewed
+unresolved-cost remediation, multi-host storage, or universal legacy-lane
+migration. No provider/model, external spend, shell, browser, connector-write,
+public-release, production, or broad authority is added.
 Beta 04 Universal Proof and Run Detail spine now hardens the repo-safe proof
 surface by requiring each backend-owned Universal Proof record to carry a
 `control-center-proof-run-detail.v1` safe-ref snapshot with route, receipt,

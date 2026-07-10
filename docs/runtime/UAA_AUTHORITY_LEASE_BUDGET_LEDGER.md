@@ -1,7 +1,8 @@
 # AuthorityLease Durable Budget Ledger V1
 
-Status: implemented Python Core budget foundation; dispatcher and Control Center
-mutation integration remain missing
+Status: implemented Python Core budget foundation with initial governed
+dispatcher consumption; universal adapter and Control Center mutation
+integration remain missing
 
 Date: 2026-07-10
 
@@ -29,7 +30,9 @@ capacity is reserved or unavailable.
 A reservation must bind all of the following:
 
 - an active `AuthorityLease` ref;
-- a complete `AuthorityActionRequest` that independently evaluates to `allow`;
+- a complete `AuthorityActionRequest` that independently evaluates to `allow`,
+  or evaluates to `ask` and carries exact trusted LocalApprovalAuthority
+  validation;
 - exact operation and estimated-cost claims matching the action's typed
   constraint claims;
 - structured cost-estimate and CostGovernor decision refs;
@@ -44,9 +47,12 @@ policy denial, exhausted capacity, or stale lease binding produces a durable
 denial receipt and no reservation.
 
 CostGovernor refs are a required integration contract, not self-sufficient
-proof of a CostGovernor evaluation. The future central dispatcher must supply
-them from the same verified dispatch envelope before any executable adapter is
-bound to this store.
+proof of a CostGovernor evaluation. The initial central dispatcher supplies
+them from the same typed dispatch request and recomputes CostGovernor from a
+typed estimate plus an exact run-scoped budget set for explicitly registered
+safe tool adapters. Direct budget-store callers still need a trusted integration
+boundary, and paid provider execution still needs exact live usage and cost
+proof.
 
 ## Settlement And Release
 
@@ -61,8 +67,10 @@ until a future reviewed remediation contract exists.
 
 A reservation may be released only through a request whose typed contract says
 execution has not started. Release frees the reserved capacity and records the
-reason ref. This V1 store cannot independently prove adapter start state; that
-binding belongs in the central dispatcher and remains missing.
+reason ref. `AuthorityDispatcher` now supplies durable pre-start, start, and
+pre-start cancellation receipts for its routed adapters. Direct budget-store
+callers and legacy execution paths do not gain adapter-start proof merely from
+this integration.
 
 ## Replay, Corruption, And Read Surfaces
 
@@ -73,6 +81,11 @@ validated on every transaction. Duplicate idempotency or reservation history,
 invalid receipt semantics, impossible reservation transitions, follow-up
 binding drift, broken previous-hash linkage, or changed entry content fails
 closed as ledger corruption.
+
+Approval-binding fields added with dispatcher V1 preserve existing V1 ledger
+compatibility: hashes are verified against the exact persisted payload, and a
+pre-approval-field reservation fingerprint is accepted only when the current
+request carries no approval requirement or approval validation request.
 
 The typed `AuthorityBudgetReadModel` reports per-lease active and reservation-
 available and kill-switch posture, limits, allocated and remaining capacity,
@@ -118,10 +131,11 @@ Center budget controls, provider SDK calls, model calls, billing actions,
 external price lookup, browser automation, connector writes, broad shell
 execution, production authority, or standing autonomy.
 
-Before an executable capability can claim end-to-end durable budgeting, UAA
-still needs a central dispatcher that atomically binds policy decision,
-LocalApprovalAuthority validation where required, reservation, adapter start,
-settlement/release, cancellation, and one receipt envelope. Typed time windows,
+The initial dispatcher now binds policy decision, exact approval validation,
+reservation, adapter start, settlement/release, pre-start cancellation, and a
+hash-chained dispatch receipt for explicitly injected safe tool adapters. See
+`docs/runtime/UAA_AUTHORITY_DISPATCHER_V1.md`. Universal migration of legacy
+execution paths, durable mission-step consumption, after-start cancellation,
+settlement recovery, paid-provider actual usage proof, typed time windows,
 recipient/target constraints, renewal policy, reviewed unresolved-cost
-remediation, multi-host storage, and operator budget controls also remain
-missing.
+remediation, multi-host storage, and operator budget controls remain missing.

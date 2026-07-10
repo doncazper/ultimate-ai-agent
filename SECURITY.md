@@ -85,6 +85,10 @@ Maintainers treat these as non-negotiable:
 - PolicyEngine, LocalApprovalAuthority, route side-effect classification,
   OpenAPI checks, and Foundation Gate checks remain required boundaries.
 - Mutating paths must be idempotent, audited, rollback-aware, and tested.
+- AuthorityDispatcher adapters must be exact, explicitly injected, lease- and
+  approval-bound, budget-reserved before start, and settled with safe evidence.
+  A durable `started` dispatch must never be replayed automatically after an
+  interrupted or unknown outcome.
 - Durable evidence, reports, release docs, tests, and logs must not contain raw
   prompt content, raw response content, raw provider payload content, raw local
   path content, raw log content, usernames, hostnames, serials, environment

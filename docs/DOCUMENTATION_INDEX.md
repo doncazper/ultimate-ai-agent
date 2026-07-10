@@ -112,7 +112,7 @@ blocked, planned, and future-scoped states distinct.
 | CRM + Communications Spine M0 | `docs/strategy/CRM_COMMUNICATIONS_SPINE_M0.md`, `src/ultimate_ai_agent/core/crm/contracts.py`, `scripts/verify_crm_communications_spine_m0.py`, `tests/test_crm_communications_spine_contracts.py` |
 | CRM M1 Fixture-Only Vertical Shell | `docs/control_center/CRM_M1_FIXTURE_ONLY_VERTICAL_SHELL.md`, `src/ultimate_ai_agent/core/crm/fixtures.py`, `scripts/verify_crm_m1_fixture_only_vertical_shell.py`, `tests/test_crm_m1_fixture_only_vertical_shell.py` |
 | CRM Local Command Center M2 | `docs/control_center/CRM_LOCAL_COMMAND_CENTER_M2.md`, `docs/control_center/UAA_CRM_LOCAL_COMMAND_CENTER_PLAN.md`, `docs/control_center/UAA_CRM_FEATURE_MINE_FOLLOWUPBOSS_WISEAGENT.md`, `src/ultimate_ai_agent/core/crm/local_command_center.py`, `scripts/dev/uaa_crm.py`, `scripts/verify_crm_local_command_center.py`, `tests/test_crm_local_command_center.py`, `tests/test_crm_local_command_center_api_routes.py` |
-| Operational maturity and authority ramp | `docs/strategy/UAA_AUTHORITY_MODES_AND_MISSION_LEASES.md`, `docs/runtime/UAA_AUTHORITY_LEASE_BUDGET_LEDGER.md`, `docs/control_center/OPERATIONALIZATION_LADDER.md`, `docs/control_center/operational_maturity_manifest.json`, `docs/control_center/AUTHORITY_RAMP_CONVEYOR.md`, `docs/control_center/authority_candidate_scorecard.json` |
+| Operational maturity and AuthorityLease runtime | `docs/strategy/UAA_AUTHORITY_MODES_AND_MISSION_LEASES.md`, `docs/runtime/UAA_AUTHORITY_LEASE_BUDGET_LEDGER.md`, `docs/runtime/UAA_AUTHORITY_DISPATCHER_V1.md`, `docs/runtime/UAA_GOATCITADEL_PARITY_MATRIX.md`, `docs/control_center/OPERATIONALIZATION_LADDER.md`, `docs/control_center/operational_maturity_manifest.json`, `docs/control_center/AUTHORITY_RAMP_CONVEYOR.md`, `docs/control_center/authority_candidate_scorecard.json` |
 | Catch-up/surpass loop | `docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md`, `docs/backlog/codex_recommendation_log.md`, `docs/backlog/MORNING_RECONCILIATION_ARTIFACT.md` |
 | API boundary | `docs/api/README.md`, `docs/api/openapi_contract.md`, `docs/api/route_inventory.md`, `docs/api/FCC_V1_001_API_PERIMETER_FOR_REAL_MUTATIONS.md` |
 | Verification maintainability | `docs/verification/milestone_status_manifest.json`, `docs/verification/verification_maintainability_policy.json` |
@@ -1355,6 +1355,8 @@ docs/runtime/LOCAL_RUNTIME_ACTIVATION_NON_GOALS.md
 docs/runtime/LOCAL_RUNTIME_M22_TO_M23_BOUNDARY.md
 docs/runtime/UAA_RUNTIME_PARITY_SCORECARD.md
 docs/runtime/UAA_GOATCITADEL_PARITY_MATRIX.md
+docs/runtime/UAA_AUTHORITY_LEASE_BUDGET_LEDGER.md
+docs/runtime/UAA_AUTHORITY_DISPATCHER_V1.md
 docs/runtime/UAA_RUNTIME_ROUTE_DECISION_BINDING.md
 docs/runtime/UAA_RUNTIME_TURN_RUN_APPROVAL_CHAIN.md
 docs/runtime/UAA_RUNTIME_STAGED_ORCHESTRATION_ENGINE.md

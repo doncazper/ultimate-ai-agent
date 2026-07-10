@@ -134,6 +134,20 @@ It remains the path for governed tool runtime adapters. It must not become an
 arbitrary plugin, shell, browser, connector, or remote execution dispatcher
 without a future scoped milestone.
 
+### AuthorityDispatcher
+
+`AuthorityDispatcher` is the durable Python Core execution seam for exact
+adapters promoted under AuthorityLease. Its V1 implementation binds current
+lease policy, exact approval where required, operation/cost reservation,
+pre-start proof, adapter invocation, settlement/release, pre-start
+cancellation, recovery posture, and safe evidence refs.
+
+Only explicitly injected safe tool-runtime adapters are routed through it now.
+It is not a dynamic plugin registry and does not grant generic tool, shell,
+browser, provider, connector, background, or production authority. Legacy
+execution paths remain partial until separately migrated with CLI/API/UI parity
+and focused proof.
+
 ### PolicyEngine
 
 PolicyEngine remains the required policy boundary for authority decisions.
