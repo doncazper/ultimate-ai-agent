@@ -16,6 +16,7 @@ from ultimate_ai_agent.core.authority.authority_constants import (
 )
 from ultimate_ai_agent.core.authority.budget_contracts import (
     AuthorityBudgetExecutionStatus,
+    AuthorityBudgetOperation,
     AuthorityBudgetStatus,
 )
 from ultimate_ai_agent.core.authority.budgets import (
@@ -379,11 +380,20 @@ class AuthorityDispatcher:
 
     def prepare(self, request: AuthorityDispatchRequest) -> AuthorityDispatchResult:
         fingerprint = _request_fingerprint(request)
+        initial_conflict: AuthorityDispatchConflictError | None = None
+        receipts: list[AuthorityDispatchReceipt] = []
         with self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY):
             receipts = self._load_receipts()
-            replay = self._existing_result(receipts, request, fingerprint)
-            if replay is not None:
-                return replay
+            try:
+                replay = self._existing_result(receipts, request, fingerprint)
+            except AuthorityDispatchConflictError as exc:
+                initial_conflict = exc
+            else:
+                if replay is not None:
+                    return replay
+        if initial_conflict is not None:
+            self._release_unclaimed_reservation_for_conflict(request, receipts)
+            raise initial_conflict
 
         adapter = self.adapters.get(request.adapter_ref)
         reasons = self._cost_reason_refs(request)
@@ -805,7 +815,8 @@ class AuthorityDispatcher:
                 or descriptor.capability_ref != prepared.capability_ref
                 or descriptor.rollback_ref != prepared.rollback_ref
                 or descriptor.safe_disable_ref != prepared.safe_disable_ref
-                or descriptor.approval_required != prepared.approval_required
+                or descriptor.approval_required
+                != prepared.adapter_approval_required
             ):
                 reasons.append(
                     "reason-ref:authority-dispatch:prestart-adapter-binding-drift"
@@ -998,6 +1009,61 @@ class AuthorityDispatcher:
             self._append(cancelled)
             return AuthorityDispatchResult(receipt=cancelled)
 
+    def _release_unclaimed_reservation_for_conflict(
+        self,
+        request: AuthorityDispatchRequest,
+        dispatch_receipts: list[AuthorityDispatchReceipt],
+    ) -> None:
+        reserve_idempotency_ref = _phase_idempotency_ref(request, "budget-reserve")
+        fingerprint = _request_fingerprint(request)
+        budget_receipts = self.budget_store.list_receipts()
+        reservation = next(
+            (
+                receipt
+                for receipt in budget_receipts
+                if receipt.operation == AuthorityBudgetOperation.reserve.value
+                and receipt.idempotency_ref == reserve_idempotency_ref
+                and receipt.dispatch_fingerprint_ref == fingerprint
+            ),
+            None,
+        )
+        if reservation is None:
+            return
+        history = [
+            receipt
+            for receipt in budget_receipts
+            if receipt.reservation_ref == reservation.reservation_ref
+        ]
+        if (
+            not history
+            or history[-1].status != AuthorityBudgetStatus.reserved.value
+            or any(
+                receipt.budget_reservation_ref == reservation.reservation_ref
+                for receipt in dispatch_receipts
+            )
+        ):
+            return
+        release = self.budget_store.release(
+            AuthorityBudgetReleaseRequest(
+                reservation_ref=reservation.reservation_ref,
+                idempotency_ref=_phase_idempotency_ref(
+                    request, "budget-reserve-race-release"
+                ),
+                reason_ref=(
+                    "reason-ref:authority-dispatch:reservation-lost-dispatch-race"
+                ),
+                safe_summary=(
+                    "Release unclaimed capacity before returning a dispatch conflict."
+                ),
+            )
+        )
+        if (release.original_status or release.status) != (
+            AuthorityBudgetStatus.released.value
+        ):
+            raise AuthorityDispatchCorruptionError(
+                "AUTHORITY_DISPATCH_RACE_RESERVATION_RELEASE_FAILED"
+            )
+
     def _persist_initial_denial(
         self,
         request: AuthorityDispatchRequest,
@@ -1142,6 +1208,9 @@ class AuthorityDispatcher:
             "lease_ref": request.lease_ref,
             "action_ref": request.action_request.action_ref,
             "adapter_ref": request.adapter_ref,
+            "adapter_approval_required": (
+                descriptor.approval_required if descriptor is not None else False
+            ),
             "capability_ref": (
                 descriptor.capability_ref
                 if descriptor is not None
@@ -1170,6 +1239,7 @@ class AuthorityDispatcher:
                 "authority_decision_ref",
                 "authority_policy_receipt_ref",
                 "approval_required",
+                "adapter_approval_required",
                 "approval_ref",
                 "approval_validation_ref",
                 "budget_reservation_ref",
@@ -1311,6 +1381,7 @@ class AuthorityDispatcher:
             "authority_decision_ref",
             "authority_policy_receipt_ref",
             "approval_required",
+            "adapter_approval_required",
             "approval_ref",
             "approval_validation_ref",
             "budget_reservation_ref",

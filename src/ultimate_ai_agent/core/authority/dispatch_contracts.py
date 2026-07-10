@@ -203,6 +203,7 @@ class AuthorityDispatchReceipt(_AuthorityDispatchModel):
     authority_decision_ref: str | None = None
     authority_policy_receipt_ref: str | None = None
     approval_required: StrictBool = False
+    adapter_approval_required: StrictBool = False
     approval_ref: str | None = None
     approval_validation_ref: str | None = None
     budget_reservation_ref: str | None = None
@@ -278,6 +279,8 @@ class AuthorityDispatchReceipt(_AuthorityDispatchModel):
             AuthorityDispatchStatus.denied.value,
         } and (not self.approval_ref or not self.approval_validation_ref):
             raise ValueError("AUTHORITY_DISPATCH_REQUIRED_APPROVAL_BINDING_MISSING")
+        if self.adapter_approval_required and not self.approval_required:
+            raise ValueError("AUTHORITY_DISPATCH_ADAPTER_APPROVAL_POSTURE_INVALID")
         if self.status == AuthorityDispatchStatus.denied.value:
             if self.execution_started or self.adapter_execution_performed or not self.reason_refs:
                 raise ValueError("AUTHORITY_DISPATCH_DENIAL_POSTURE_INVALID")

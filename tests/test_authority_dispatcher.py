@@ -652,6 +652,44 @@ def test_ask_mode_requires_and_binds_exact_local_approval(tmp_path: Path) -> Non
     assert reservation.approval_validation_ref == result.receipt.approval_validation_ref
 
 
+def test_policy_required_approval_is_distinct_from_adapter_posture(
+    tmp_path: Path,
+) -> None:
+    state_dir = tmp_path / "authority"
+    lease_store, lease = _lease(
+        state_dir,
+        mode=TrustMode.ask_before_changes,
+        domain=AuthorityDomain.workspace,
+        capability=AuthorityCapability.execute,
+    )
+    approval_authority = LocalApprovalAuthority()
+    descriptor = _descriptor(filesystem=False).model_copy(
+        update={"approval_required": False}
+    )
+    dispatcher = AuthorityDispatcher(
+        state_dir,
+        adapters=[ToolRuntimeAuthorityDispatchAdapter(descriptor)],
+        lease_store=lease_store,
+        approval_authority=approval_authority,
+    )
+    pending = _request(
+        lease.lease_ref,
+        suffix="policy-only-approval",
+        filesystem=False,
+    )
+    validation_request = _approval(approval_authority, pending)
+    request = pending.model_copy(
+        update={"approval_validation_request": validation_request}
+    )
+
+    result = dispatcher.dispatch(request)
+
+    assert result.receipt.status == AuthorityDispatchStatus.succeeded.value
+    assert result.receipt.approval_required is True
+    assert result.receipt.adapter_approval_required is False
+    assert result.receipt.approval_ref == validation_request.approval_ref
+
+
 def test_exact_approval_cannot_replay_action_under_new_dispatch_identity(
     tmp_path: Path,
 ) -> None:
@@ -1141,6 +1179,91 @@ def test_crash_recovery_budget_replay_binds_full_dispatch_fingerprint(
     ].dispatch_fingerprint_ref
     assert len(budget_receipts) == 1
     assert len(dispatcher.list_receipts()) == 1
+
+
+def test_early_action_conflict_releases_sequential_crash_orphan(
+    tmp_path: Path,
+) -> None:
+    state_dir = tmp_path / "authority"
+    root = tmp_path / "safe-root"
+    (root / "notes").mkdir(parents=True)
+    (root / "notes" / "report.md").write_text("bounded", encoding="utf-8")
+    lease_store, lease = _lease(
+        state_dir,
+        mode=TrustMode.full_local_workspace_session,
+        domain=AuthorityDomain.files,
+        capability=AuthorityCapability.read,
+    )
+    dispatcher = AuthorityDispatcher(
+        state_dir,
+        adapters=[
+            ToolRuntimeAuthorityDispatchAdapter(
+                _descriptor(filesystem=True),
+                safe_roots=[
+                    FilesystemSafeRoot(
+                        root_ref=FILESYSTEM_ROOT_REF,
+                        root_path=root,
+                        safe_label="Test dispatch safe root",
+                    )
+                ],
+            )
+        ],
+        lease_store=lease_store,
+    )
+    orphaned = _request(
+        lease.lease_ref,
+        suffix="early-conflict-orphan",
+        filesystem=True,
+    )
+    append = dispatcher._append
+
+    def crash_before_prepared(receipt: Any) -> None:
+        raise RuntimeError("simulated sequential crash after reserve")
+
+    dispatcher._append = crash_before_prepared  # type: ignore[method-assign]
+    with pytest.raises(RuntimeError, match="simulated sequential crash"):
+        dispatcher.prepare(orphaned)
+    dispatcher._append = append  # type: ignore[method-assign]
+    winner_payload = orphaned.model_dump(mode="json")
+    winner_payload.update(
+        {
+            "dispatch_ref": "authority-dispatch-ref:test:early-conflict-winner",
+            "idempotency_ref": (
+                "idempotency-ref:test-dispatch:early-conflict-winner"
+            ),
+        }
+    )
+    winner_payload["tool_invocation_request"].update(
+        {
+            "invocation_id": winner_payload["dispatch_ref"],
+            "replay_key": winner_payload["idempotency_ref"],
+        }
+    )
+    winner = AuthorityDispatchRequest.model_validate(winner_payload)
+    prepared = dispatcher.prepare(winner)
+
+    with pytest.raises(
+        AuthorityDispatchConflictError,
+        match="AUTHORITY_DISPATCH_IDEMPOTENCY_CONFLICT",
+    ):
+        dispatcher.prepare(orphaned)
+
+    budget_receipts = dispatcher.budget_store.list_receipts()
+    released_refs = {
+        receipt.reservation_ref
+        for receipt in budget_receipts
+        if receipt.status == AuthorityBudgetStatus.released.value
+    }
+    reserved_refs = {
+        receipt.reservation_ref
+        for receipt in budget_receipts
+        if receipt.status == AuthorityBudgetStatus.reserved.value
+    }
+
+    assert prepared.receipt.status == AuthorityDispatchStatus.prepared.value
+    assert len(released_refs) == 1
+    assert prepared.receipt.budget_reservation_ref in reserved_refs - released_refs
+    assert len(reserved_refs - released_refs) == 1
 
 
 def test_unclaimed_replayed_reservation_is_released_after_conflict(
