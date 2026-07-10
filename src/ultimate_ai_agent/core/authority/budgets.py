@@ -526,6 +526,7 @@ class AuthorityBudgetStore:
     def _build_read_model(self, *, recent_limit: int) -> AuthorityBudgetReadModel:
         receipts = self._load_receipts()
         leases = self.lease_store._list_leases(active_only=False)
+        kill_switch_engaged = authority_lease_kill_switch_engaged()
         summaries: list[AuthorityBudgetLeaseSummary] = []
         for lease in leases:
             operation_limit = _constraint_maximum(
@@ -538,6 +539,11 @@ class AuthorityBudgetStore:
                 continue
             usage = self._usage_for_lease(receipts, lease.lease_ref)
             blocked_refs: list[str] = []
+            lease_active = lease.is_active()
+            if not lease_active:
+                blocked_refs.append("reason-ref:authority-budget:lease-inactive")
+            if kill_switch_engaged:
+                blocked_refs.append("reason-ref:authority-budget:kill-switch-engaged")
             if operation_limit is None:
                 blocked_refs.append(
                     "reason-ref:authority-budget:operation-budget-missing"
@@ -562,6 +568,11 @@ class AuthorityBudgetStore:
             summaries.append(
                 AuthorityBudgetLeaseSummary(
                     lease_ref=lease.lease_ref,
+                    lease_active=lease_active,
+                    kill_switch_engaged=kill_switch_engaged,
+                    reservation_available=(
+                        lease_active and not kill_switch_engaged and not exhausted
+                    ),
                     operation_limit=operation_limit,
                     cost_limit_microusd=cost_limit,
                     allocated_operation_count=usage["operations"],
@@ -587,6 +598,7 @@ class AuthorityBudgetStore:
             lease_summaries=summaries,
             recent_receipts=receipts[-max(0, recent_limit) :] if recent_limit else [],
             receipt_count=len(receipts),
+            kill_switch_engaged=kill_switch_engaged,
         )
 
     def _load_receipts(self) -> list[AuthorityBudgetReceipt]:

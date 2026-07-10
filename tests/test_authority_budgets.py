@@ -400,6 +400,7 @@ def test_reservation_rechecks_kill_switch_and_revocation(
     kill_denied = budget_store.reserve(
         _reserve_request(lease.lease_ref, suffix="kill-switch")
     )
+    kill_summary = budget_store.build_read_model().lease_summaries[0]
     monkeypatch.delenv(AUTHORITY_LEASE_KILL_SWITCH_ENV)
     revoked, revoke_receipt = lease_store.revoke_lease(
         AuthorityLeaseRevokeRequest(
@@ -415,12 +416,21 @@ def test_reservation_rechecks_kill_switch_and_revocation(
 
     assert kill_denied.status == AuthorityBudgetStatus.denied.value
     assert "reason-ref:authority-budget:kill-switch-engaged" in kill_denied.reason_refs
+    assert kill_summary.kill_switch_engaged is True
+    assert kill_summary.reservation_available is False
+    assert "reason-ref:authority-budget:kill-switch-engaged" in (
+        kill_summary.blocked_reason_refs
+    )
     assert revoked is not None
     assert revoke_receipt.status == "revoked"
     assert revoke_denied.status == AuthorityBudgetStatus.denied.value
     assert "reason-ref:authority-budget:lease-binding-mismatch" in (
         revoke_denied.reason_refs
     )
+    summary = budget_store.build_read_model().lease_summaries[0]
+    assert summary.lease_active is False
+    assert summary.reservation_available is False
+    assert "reason-ref:authority-budget:lease-inactive" in (summary.blocked_reason_refs)
 
 
 def test_concurrent_reservations_cannot_oversubscribe_budget(tmp_path) -> None:
@@ -637,6 +647,8 @@ def test_budget_posture_projects_through_state_api_and_json_cli(
 
     state_model = AuthorityLeaseStore().build_state_read_model()
     assert state_model.authority_budget.receipt_count == 1
+    assert state_model.authority_budget.lease_summaries[0].lease_active is True
+    assert state_model.authority_budget.lease_summaries[0].reservation_available is True
     assert state_model.authority_budget.recent_receipts[0].receipt_ref == (
         reservation.receipt_ref
     )

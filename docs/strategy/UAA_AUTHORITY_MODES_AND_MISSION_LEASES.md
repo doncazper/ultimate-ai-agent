@@ -219,7 +219,9 @@ surfaces are:
   `scripts/dev/uaa_runtime.py inspect-authority-state --json` expose the same
   typed, read-only AuthorityLease budget posture: per-lease operation and
   integer micro-USD limits, allocated and remaining capacity, unresolved-cost
-  state, exhaustion, recent safe-ref receipts, and receipt count. These
+  state, lease-active and reservation-available posture, exhaustion, recent
+  safe-ref receipts, and receipt count. Revoked or expired leases remain
+  visible but explicitly unavailable. These
   inspection projections do not reserve budget, execute adapters, or mint
   authority.
 - `GET /api/runtime/authority-state#mode_catalog` and Control Center

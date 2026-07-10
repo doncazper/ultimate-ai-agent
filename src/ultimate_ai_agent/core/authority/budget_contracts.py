@@ -264,6 +264,9 @@ class AuthorityBudgetReceipt(_AuthorityBudgetContract):
 
 class AuthorityBudgetLeaseSummary(_AuthorityBudgetContract):
     lease_ref: str
+    lease_active: StrictBool
+    kill_switch_engaged: StrictBool
+    reservation_available: StrictBool
     operation_limit: StrictInt | None = Field(default=None, ge=0)
     cost_limit_microusd: StrictInt | None = Field(default=None, ge=0)
     allocated_operation_count: StrictInt = Field(default=0, ge=0)
@@ -305,6 +308,20 @@ class AuthorityBudgetLeaseSummary(_AuthorityBudgetContract):
         )
         if self.exhausted != expected_exhausted:
             raise ValueError("AUTHORITY_BUDGET_EXHAUSTED_POSTURE_INVALID")
+        expected_available = (
+            self.lease_active and not self.kill_switch_engaged and not self.exhausted
+        )
+        if self.reservation_available != expected_available:
+            raise ValueError("AUTHORITY_BUDGET_AVAILABILITY_POSTURE_INVALID")
+        if not self.lease_active and (
+            "reason-ref:authority-budget:lease-inactive" not in self.blocked_reason_refs
+        ):
+            raise ValueError("AUTHORITY_BUDGET_INACTIVE_LEASE_REASON_REQUIRED")
+        if self.kill_switch_engaged and (
+            "reason-ref:authority-budget:kill-switch-engaged"
+            not in self.blocked_reason_refs
+        ):
+            raise ValueError("AUTHORITY_BUDGET_KILL_SWITCH_REASON_REQUIRED")
         if self.exhausted and (
             "reason-ref:authority-budget:budget-exhausted"
             not in self.blocked_reason_refs
@@ -321,6 +338,7 @@ class AuthorityBudgetReadModel(_AuthorityBudgetContract):
     lease_summaries: list[AuthorityBudgetLeaseSummary] = Field(default_factory=list)
     recent_receipts: list[AuthorityBudgetReceipt] = Field(default_factory=list)
     receipt_count: StrictInt = Field(default=0, ge=0)
+    kill_switch_engaged: StrictBool = False
     execution_performed: StrictBool = False
     mutation_available_from_read_model: StrictBool = False
     safe_summary: str = (
@@ -335,4 +353,9 @@ class AuthorityBudgetReadModel(_AuthorityBudgetContract):
             raise ValueError("AUTHORITY_BUDGET_READ_MODEL_MUST_NOT_MUTATE")
         if self.receipt_count < len(self.recent_receipts):
             raise ValueError("AUTHORITY_BUDGET_RECEIPT_COUNT_INVALID")
+        if any(
+            summary.kill_switch_engaged != self.kill_switch_engaged
+            for summary in self.lease_summaries
+        ):
+            raise ValueError("AUTHORITY_BUDGET_KILL_SWITCH_POSTURE_DRIFT")
         return self

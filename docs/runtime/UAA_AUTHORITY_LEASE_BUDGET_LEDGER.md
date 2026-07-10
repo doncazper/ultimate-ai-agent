@@ -73,9 +73,12 @@ invalid receipt semantics, impossible reservation transitions, follow-up
 binding drift, broken previous-hash linkage, or changed entry content fails
 closed as ledger corruption.
 
-The typed `AuthorityBudgetReadModel` reports per-lease limits, allocated and
-remaining capacity, active and settled counts, unresolved-cost state, exhausted
-state, recent receipts, and total receipt count. It is projected through:
+The typed `AuthorityBudgetReadModel` reports per-lease active and reservation-
+available and kill-switch posture, limits, allocated and remaining capacity, active and settled
+counts, unresolved-cost state, exhausted state, recent receipts, and total
+receipt count. Revoked and expired leases remain visible for audit but are
+explicitly unavailable with `reason-ref:authority-budget:lease-inactive`. It is
+projected through:
 
 - `GET /api/runtime/authority-state#authority_budget`;
 - `scripts/dev/uaa_runtime.py inspect-authority-state --json` at
