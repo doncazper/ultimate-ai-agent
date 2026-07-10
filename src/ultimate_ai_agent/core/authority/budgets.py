@@ -225,6 +225,20 @@ def _legacy_reservation_request_fingerprint(
     )
 
 
+def _legacy_settlement_request_fingerprint(
+    request: AuthorityBudgetSettlementRequest,
+) -> str | None:
+    if request.execution_ref is not None:
+        return None
+    return _stable_ref(
+        "request-fingerprint-ref:authority-budget",
+        {
+            "operation": AuthorityBudgetOperation.settle.value,
+            "request": request.model_dump(mode="json", exclude={"execution_ref"}),
+        },
+    )
+
+
 def _entry_hash(receipt: AuthorityBudgetReceipt) -> str:
     return _stable_ref(
         "entry-hash-ref:authority-budget",
@@ -555,6 +569,13 @@ class AuthorityBudgetStore:
                 AuthorityBudgetOperation.settle,
                 request.idempotency_ref,
                 fingerprint,
+                compatible_fingerprint_refs={
+                    compatible
+                    for compatible in [
+                        _legacy_settlement_request_fingerprint(request)
+                    ]
+                    if compatible is not None
+                },
             )
             if replay is not None:
                 return replay
@@ -570,6 +591,20 @@ class AuthorityBudgetStore:
                     idempotency_ref=request.idempotency_ref,
                     request_fingerprint_ref=fingerprint,
                     reason_ref="reason-ref:authority-budget:reservation-not-active",
+                )
+                self._append(receipt)
+                return receipt
+            if (
+                state["dispatch_fingerprint_ref"] is not None
+                and state["status"] != AuthorityBudgetStatus.started.value
+            ):
+                receipt = self._denied_followup_receipt(
+                    receipts,
+                    operation=AuthorityBudgetOperation.settle,
+                    reservation_ref=request.reservation_ref,
+                    idempotency_ref=request.idempotency_ref,
+                    request_fingerprint_ref=fingerprint,
+                    reason_ref="reason-ref:authority-budget:dispatch-start-required",
                 )
                 self._append(receipt)
                 return receipt
@@ -932,6 +967,14 @@ class AuthorityBudgetStore:
                 AuthorityBudgetStatus.reserved.value,
             },
         }
+        if (
+            receipt.operation == AuthorityBudgetOperation.settle.value
+            and state is not None
+            and state["dispatch_fingerprint_ref"] is not None
+        ):
+            allowed_previous_statuses[AuthorityBudgetOperation.settle.value] = {
+                AuthorityBudgetStatus.started.value,
+            }
         if state is None or state["status"] not in allowed_previous_statuses.get(
             receipt.operation, set()
         ):

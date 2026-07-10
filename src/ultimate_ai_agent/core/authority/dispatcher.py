@@ -309,12 +309,19 @@ class ToolRuntimeAuthorityDispatchAdapter:
         if len(root_refs) != len(set(root_refs)):
             raise ValueError("AUTHORITY_DISPATCH_DUPLICATE_SAFE_ROOT_REF")
         self.descriptor = descriptor
-        self.safe_roots = list(safe_roots)
+        self._safe_roots = tuple(root.model_copy(deep=True) for root in safe_roots)
         self.runtime_adapter = runtime_adapter or ToolRuntimeAdapter()
-        self.binding_ref = _stable_ref(
+
+    @property
+    def safe_roots(self) -> tuple[FilesystemSafeRoot, ...]:
+        return tuple(root.model_copy(deep=True) for root in self._safe_roots)
+
+    @property
+    def binding_ref(self) -> str:
+        return _stable_ref(
             "adapter-binding-ref:authority-dispatch",
             {
-                "descriptor": descriptor.model_dump(mode="json"),
+                "descriptor": self.descriptor.model_dump(mode="json"),
                 "safe_roots": sorted(
                     [
                         {
@@ -324,7 +331,7 @@ class ToolRuntimeAuthorityDispatchAdapter:
                                 str(root.root_path.resolve(strict=False)),
                             ),
                         }
-                        for root in self.safe_roots
+                        for root in self._safe_roots
                     ],
                     key=lambda item: item["root_ref"],
                 ),
@@ -344,7 +351,7 @@ class ToolRuntimeAuthorityDispatchAdapter:
         if self.descriptor.tool_ref == FILESYSTEM_METADATA_TOOL_REF:
             root_ref = tool_request.metadata.get("root_ref")
             if isinstance(root_ref, str) and root_ref not in {
-                root.root_ref for root in self.safe_roots
+                root.root_ref for root in self._safe_roots
             }:
                 reasons.append(
                     "reason-ref:authority-dispatch:filesystem-root-not-injected"
@@ -357,7 +364,7 @@ class ToolRuntimeAuthorityDispatchAdapter:
         decision = self.runtime_adapter.invoke(
             ToolInvocationRequest.model_validate(request.tool_invocation_request),
             replay_keys_seen=[],
-            safe_roots=self.safe_roots,
+            safe_roots=[root.model_copy(deep=True) for root in self._safe_roots],
         )
         evidence_refs = [decision.decision_id]
         output_refs: list[str] = []
@@ -1067,19 +1074,43 @@ class AuthorityDispatcher:
         *,
         reason_ref: str,
     ) -> AuthorityDispatchResult:
-        release = self.budget_store.release(
-            AuthorityBudgetReleaseRequest(
-                reservation_ref=pending.budget_reservation_ref or "",
-                idempotency_ref=_budget_release_idempotency_ref(pending),
-                reason_ref=reason_ref,
-                safe_summary="Release governed dispatch capacity before adapter start.",
-            )
+        reservation_ref = pending.budget_reservation_ref or ""
+        release = next(
+            (
+                receipt
+                for receipt in reversed(self.budget_store.list_receipts())
+                if receipt.reservation_ref == reservation_ref
+                and receipt.operation == AuthorityBudgetOperation.release.value
+                and receipt.status == AuthorityBudgetStatus.released.value
+            ),
+            None,
         )
+        if release is None:
+            release = self.budget_store.release(
+                AuthorityBudgetReleaseRequest(
+                    reservation_ref=reservation_ref,
+                    idempotency_ref=_budget_release_idempotency_ref(pending),
+                    reason_ref=reason_ref,
+                    safe_summary="Release governed dispatch capacity before adapter start.",
+                )
+            )
         release_status = release.original_status or release.status
         if release_status != AuthorityBudgetStatus.released.value:
-            return AuthorityDispatchResult(
-                receipt=pending, replayed=True, recovery_required=True
+            release = next(
+                (
+                    receipt
+                    for receipt in reversed(self.budget_store.list_receipts())
+                    if receipt.reservation_ref == reservation_ref
+                    and receipt.operation == AuthorityBudgetOperation.release.value
+                    and receipt.status == AuthorityBudgetStatus.released.value
+                ),
+                release,
             )
+            release_status = release.original_status or release.status
+            if release_status != AuthorityBudgetStatus.released.value:
+                return AuthorityDispatchResult(
+                    receipt=pending, replayed=True, recovery_required=True
+                )
         with self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY):
             receipts = self._load_receipts()
             latest = next(

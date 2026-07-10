@@ -68,7 +68,9 @@ released by a standalone caller.
 
 After execution starts, that reservation must be settled with the same
 execution ref, actual operation count, actual cost plus its safe ref, execution
-status, and evidence refs. The
+status, and evidence refs. A dispatch-bound reservation cannot settle directly
+from `reserved`; legacy direct callers without a dispatch fingerprint retain
+their V1 reserve-to-settle path. The
 ledger always records actual overage. A settlement exceeding its reservation or
 lease ceiling becomes `settled_overage`; any unreviewed reservation overage
 freezes future capacity even when actual usage remains below the lease ceiling.
@@ -98,6 +100,8 @@ Approval-binding fields added with dispatcher V1 preserve existing V1 ledger
 compatibility: hashes are verified against the exact persisted payload, and a
 pre-approval-field reservation fingerprint is accepted only when the current
 request carries no approval requirement or approval validation request.
+Settlement replay likewise accepts the pre-execution-ref request fingerprint
+only when the current settlement still has no execution ref.
 
 The typed `AuthorityBudgetReadModel` reports per-lease active and reservation-
 available and kill-switch posture, limits, allocated and remaining capacity,
@@ -123,6 +127,8 @@ Focused tests cover:
 - reserve, replay, settle, overage, release, and cumulative exhaustion;
 - exact dispatch start, replay, execution-ref settlement binding, and release
   denial after start;
+- compatibility replay for pre-execution-ref settlements and denial of
+  dispatch-bound settlement before start;
 - unknown and unresolved cost fail-closed behavior;
 - claim and idempotency drift;
 - kill-switch and revocation rechecks;

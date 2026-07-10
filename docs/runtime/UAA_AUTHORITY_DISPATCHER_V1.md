@@ -40,8 +40,9 @@ deterministic no-op and filesystem metadata. Filesystem execution requires the
 fixed `files/read` authority domain/capability pair; deterministic no-op is
 fixed to `workspace/execute`. A descriptor cannot relabel either tool into a
 different lease domain. The injected safe-root ref-to-path mapping is hashed
-into a safe adapter-binding ref, so a restart cannot redirect a prepared
-dispatch to a different physical root without pre-start cancellation.
+into a safe adapter-binding ref and deep-copied into an immutable invocation
+snapshot, so a reload or caller mutation cannot redirect a prepared dispatch
+to a different physical root.
 Filesystem execution also requires the
 normalized safe-root ref and safe-path ref to match the action's resource and
 path claims; lease constraints and approval scope therefore govern the same
@@ -77,6 +78,9 @@ receipt, the exact start claim replays and the unchanged request can finish the
 durable start sequence without double allocation. Once the budget-start claim
 exists, a standalone release request is denied and cannot race an in-flight
 adapter or erase its settlement capacity.
+If capacity was already released before `execute` observes the inactive
+reservation, the dispatcher reuses that durable release receipt and completes
+terminal pre-start cancellation instead of stranding `cancellation_pending`.
 The current V1 bridge does not claim after-start cancellation, automatic
 settlement recovery, heartbeat ownership, or mission retry authority.
 
@@ -142,8 +146,11 @@ is never treated as safe to replay.
 - concurrent replay with exactly one adapter invocation, losing-reservation
   release, orphaned-reservation recovery, and start-claim crash replay;
 - release denial after durable start while the adapter is in flight;
+- denial of dispatch-bound settlement before start and terminal reconciliation
+  of a reservation released before execution;
 - descriptor and safe-root mapping drift cancellation, fixed tool authority
-  domains, and an explicit no-op/filesystem-metadata tool bridge allowlist;
+  domains, immutable safe-root snapshots, and an explicit
+  no-op/filesystem-metadata tool bridge allowlist;
 - action/approval replay conflict, dispatch idempotency conflict, receipt hash
   tampering, and non-mutating fresh read inspection.
 

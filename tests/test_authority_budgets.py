@@ -39,6 +39,7 @@ from ultimate_ai_agent.core.authority.approval_validation import (
 from ultimate_ai_agent.core.authority.budgets import (
     _entry_hash_payload,
     _legacy_reservation_request_fingerprint,
+    _legacy_settlement_request_fingerprint,
 )
 
 
@@ -217,6 +218,43 @@ def test_pre_approval_binding_budget_receipt_hash_remains_readable(tmp_path) -> 
     assert replay.status == AuthorityBudgetStatus.replayed.value
 
 
+def test_pre_execution_binding_settlement_replay_remains_compatible(tmp_path) -> None:
+    _, budget_store, lease = _stores(tmp_path)
+    reservation = budget_store.reserve(
+        _reserve_request(lease.lease_ref, suffix="legacy-settlement")
+    )
+    request = AuthorityBudgetSettlementRequest(
+        reservation_ref=reservation.reservation_ref,
+        idempotency_ref="idempotency-ref:test-budget-settle:legacy",
+        actual_operation_count=1,
+        actual_cost_microusd=300_000,
+        actual_cost_ref="actual-cost-ref:test-budget-settle:legacy",
+        execution_status=AuthorityBudgetExecutionStatus.succeeded,
+        evidence_refs=["evidence-ref:test-budget-settle:legacy"],
+        safe_summary="Replay one settlement written before execution refs existed.",
+    )
+    budget_store.settle(request)
+    payloads = [
+        json.loads(line)
+        for line in budget_store.receipts_path.read_text(encoding="utf-8").splitlines()
+    ]
+    settlement_payload = payloads[-1]
+    settlement_payload.pop("execution_ref")
+    settlement_payload["request_fingerprint_ref"] = (
+        _legacy_settlement_request_fingerprint(request)
+    )
+    settlement_payload["entry_hash_ref"] = _entry_hash_payload(settlement_payload)
+    budget_store.receipts_path.write_text(
+        "".join(json.dumps(payload, sort_keys=True) + "\n" for payload in payloads),
+        encoding="utf-8",
+    )
+
+    replay = budget_store.settle(request)
+
+    assert replay.status == AuthorityBudgetStatus.replayed.value
+    assert replay.original_status == AuthorityBudgetStatus.settled.value
+
+
 def test_reserve_settle_and_cumulative_exhaustion_are_durable(tmp_path) -> None:
     _, budget_store, lease = _stores(tmp_path)
     first_request = _reserve_request(lease.lease_ref, suffix="first")
@@ -331,6 +369,18 @@ def test_dispatch_start_claim_blocks_release_and_binds_settlement(tmp_path) -> N
         safe_summary="Bind this reservation to one durable adapter start.",
     )
 
+    premature = budget_store.settle(
+        AuthorityBudgetSettlementRequest(
+            reservation_ref=reservation.reservation_ref,
+            idempotency_ref="idempotency-ref:test-budget-settle:before-start",
+            actual_operation_count=1,
+            actual_cost_microusd=300_000,
+            actual_cost_ref="actual-cost-ref:test-budget:before-start",
+            execution_status=AuthorityBudgetExecutionStatus.succeeded,
+            evidence_refs=["evidence-ref:test-budget:before-start"],
+            safe_summary="Deny dispatch-bound settlement before durable start.",
+        )
+    )
     started = budget_store.start(start_request)
     replay = budget_store.start(start_request)
     release = budget_store.release(
@@ -368,6 +418,10 @@ def test_dispatch_start_claim_blocks_release_and_binds_settlement(tmp_path) -> N
         )
     )
 
+    assert premature.status == AuthorityBudgetStatus.denied.value
+    assert "reason-ref:authority-budget:dispatch-start-required" in (
+        premature.reason_refs
+    )
     assert started.status == AuthorityBudgetStatus.started.value
     assert started.execution_ref == execution_ref
     assert replay.status == AuthorityBudgetStatus.replayed.value

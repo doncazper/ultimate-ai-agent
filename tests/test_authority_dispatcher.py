@@ -15,8 +15,10 @@ from ultimate_ai_agent.core.approvals.enums import (
 )
 from ultimate_ai_agent.core.authority import (
     AuthorityActionRequest,
+    AuthorityBudgetExecutionStatus,
     AuthorityBudgetStatus,
     AuthorityBudgetReleaseRequest,
+    AuthorityBudgetSettlementRequest,
     AuthorityCapability,
     AuthorityConstraint,
     AuthorityConstraintClaim,
@@ -1146,6 +1148,110 @@ def test_budget_release_cannot_race_durable_adapter_start(tmp_path: Path) -> Non
     ]
 
 
+def test_dispatch_bound_budget_cannot_settle_before_start(tmp_path: Path) -> None:
+    state_dir = tmp_path / "authority"
+    root = tmp_path / "safe-root"
+    (root / "notes").mkdir(parents=True)
+    (root / "notes" / "report.md").write_text("bounded", encoding="utf-8")
+    lease_store, lease = _lease(
+        state_dir,
+        mode=TrustMode.full_local_workspace_session,
+        domain=AuthorityDomain.files,
+        capability=AuthorityCapability.read,
+    )
+    dispatcher = AuthorityDispatcher(
+        state_dir,
+        adapters=[
+            ToolRuntimeAuthorityDispatchAdapter(
+                _descriptor(filesystem=True),
+                safe_roots=[
+                    FilesystemSafeRoot(
+                        root_ref=FILESYSTEM_ROOT_REF,
+                        root_path=root,
+                        safe_label="Test dispatch safe root",
+                    )
+                ],
+            )
+        ],
+        lease_store=lease_store,
+    )
+    request = _request(lease.lease_ref, suffix="settle-before-start", filesystem=True)
+    prepared = dispatcher.prepare(request)
+
+    premature = dispatcher.budget_store.settle(
+        AuthorityBudgetSettlementRequest(
+            reservation_ref=prepared.receipt.budget_reservation_ref or "",
+            idempotency_ref="idempotency-ref:test-settle-before-start",
+            actual_operation_count=1,
+            actual_cost_microusd=0,
+            actual_cost_ref="actual-cost-ref:test-settle-before-start",
+            execution_status=AuthorityBudgetExecutionStatus.succeeded,
+            evidence_refs=["evidence-ref:test-settle-before-start"],
+            safe_summary="Deny fabricated settlement before adapter start.",
+        )
+    )
+    result = dispatcher.execute(request)
+
+    assert premature.status == AuthorityBudgetStatus.denied.value
+    assert (
+        "reason-ref:authority-budget:dispatch-start-required"
+        in premature.reason_refs
+    )
+    assert result.receipt.status == AuthorityDispatchStatus.succeeded.value
+
+
+def test_existing_out_of_band_release_completes_terminal_cancellation(
+    tmp_path: Path,
+) -> None:
+    state_dir = tmp_path / "authority"
+    root = tmp_path / "safe-root"
+    root.mkdir()
+    lease_store, lease = _lease(
+        state_dir,
+        mode=TrustMode.full_local_workspace_session,
+        domain=AuthorityDomain.files,
+        capability=AuthorityCapability.read,
+    )
+    dispatcher = AuthorityDispatcher(
+        state_dir,
+        adapters=[
+            ToolRuntimeAuthorityDispatchAdapter(
+                _descriptor(filesystem=True),
+                safe_roots=[
+                    FilesystemSafeRoot(
+                        root_ref=FILESYSTEM_ROOT_REF,
+                        root_path=root,
+                        safe_label="Test dispatch safe root",
+                    )
+                ],
+            )
+        ],
+        lease_store=lease_store,
+    )
+    request = _request(lease.lease_ref, suffix="released-before-execute", filesystem=True)
+    prepared = dispatcher.prepare(request)
+    released = dispatcher.budget_store.release(
+        AuthorityBudgetReleaseRequest(
+            reservation_ref=prepared.receipt.budget_reservation_ref or "",
+            idempotency_ref="idempotency-ref:test-release-before-execute",
+            reason_ref="reason-ref:test-release-before-execute",
+            safe_summary="Release reserved capacity before dispatcher execution.",
+        )
+    )
+
+    result = dispatcher.execute(request)
+
+    assert released.status == AuthorityBudgetStatus.released.value
+    assert result.receipt.status == AuthorityDispatchStatus.cancelled_before_start.value
+    assert result.receipt.budget_release_receipt_ref == released.receipt_ref
+    assert result.adapter_result is None
+    assert [receipt.status for receipt in dispatcher.list_receipts()] == [
+        AuthorityDispatchStatus.prepared.value,
+        AuthorityDispatchStatus.cancellation_pending.value,
+        AuthorityDispatchStatus.cancelled_before_start.value,
+    ]
+
+
 def test_budget_start_claim_replays_after_crash_before_dispatch_start(
     tmp_path: Path,
 ) -> None:
@@ -1696,6 +1802,46 @@ def test_safe_root_mapping_drift_after_prepare_cancels_before_invocation(
         in result.receipt.reason_refs
     )
     assert result.adapter_result is None
+
+
+def test_safe_root_snapshot_cannot_be_mutated_after_prepare(tmp_path: Path) -> None:
+    state_dir = tmp_path / "authority"
+    first_root = tmp_path / "first-root"
+    second_root = tmp_path / "second-root"
+    for root, body in [(first_root, "first"), (second_root, "second-content")]:
+        (root / "notes").mkdir(parents=True)
+        (root / "notes" / "report.md").write_text(body, encoding="utf-8")
+    lease_store, lease = _lease(
+        state_dir,
+        mode=TrustMode.full_local_workspace_session,
+        domain=AuthorityDomain.files,
+        capability=AuthorityCapability.read,
+    )
+    safe_root = FilesystemSafeRoot(
+        root_ref=FILESYSTEM_ROOT_REF,
+        root_path=first_root,
+        safe_label="Test dispatch safe root",
+    )
+    adapter = ToolRuntimeAuthorityDispatchAdapter(
+        _descriptor(filesystem=True),
+        safe_roots=[safe_root],
+    )
+    dispatcher = AuthorityDispatcher(
+        state_dir,
+        adapters=[adapter],
+        lease_store=lease_store,
+    )
+    request = _request(lease.lease_ref, suffix="safe-root-snapshot", filesystem=True)
+    dispatcher.prepare(request)
+
+    safe_root.root_path = second_root
+    exposed_snapshot = adapter.safe_roots[0]
+    exposed_snapshot.root_path = second_root
+    result = dispatcher.execute(request)
+
+    assert result.receipt.status == AuthorityDispatchStatus.succeeded.value
+    assert result.adapter_result is not None
+    assert result.adapter_result.safe_output["size_bytes"] == len("first")
 
 
 def test_recent_dispatches_follow_latest_ledger_position(tmp_path: Path) -> None:
