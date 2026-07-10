@@ -62,6 +62,7 @@ from ultimate_ai_agent.core.tools.runtime import (
     FilesystemSafeRoot,
     ToolInvocationKind,
     ToolInvocationRequest,
+    filesystem_safe_path_ref,
 )
 
 
@@ -69,6 +70,10 @@ FILESYSTEM_ADAPTER_REF = "authority-adapter-ref:filesystem-metadata-v1"
 FILESYSTEM_CAPABILITY_REF = "authority-capability-ref:filesystem-metadata-v1"
 NOOP_ADAPTER_REF = "authority-adapter-ref:governed-noop-v1"
 NOOP_CAPABILITY_REF = "authority-capability-ref:governed-noop-v1"
+FILESYSTEM_ROOT_REF = "safe-root:test-authority"
+FILESYSTEM_PATH_REF = filesystem_safe_path_ref(
+    FILESYSTEM_ROOT_REF, "notes/report.md"
+)
 
 
 def _constraints(*, operation_limit: int = 4) -> list[AuthorityConstraint]:
@@ -94,6 +99,7 @@ def _lease(
     mode: TrustMode,
     domain: AuthorityDomain,
     capability: AuthorityCapability,
+    authority_constraints: list[AuthorityConstraint] | None = None,
 ) -> tuple[AuthorityLeaseStore, Any]:
     store = AuthorityLeaseStore(state_dir)
     lease, receipt = issue_authority_lease_with_test_approval(
@@ -101,7 +107,11 @@ def _lease(
         AuthorityLeaseIssueRequest(
             mode=mode,
             requested_domains={domain: [capability]},
-            authority_constraints=_constraints(),
+            authority_constraints=(
+                authority_constraints
+                if authority_constraints is not None
+                else _constraints()
+            ),
             decision_reason_ref="reason-ref:test-authority-dispatch-lease",
             safe_summary="Issue an exact governed dispatcher test lease.",
         ),
@@ -150,7 +160,10 @@ def _action(
         capability=(AuthorityCapability.read if filesystem else AuthorityCapability.execute),
         capability_ref=(FILESYSTEM_CAPABILITY_REF if filesystem else NOOP_CAPABILITY_REF),
         adapter_ref=(FILESYSTEM_ADAPTER_REF if filesystem else NOOP_ADAPTER_REF),
-        resource_refs=[f"resource-ref:test-dispatch:{suffix}"],
+        resource_refs=[
+            f"resource-ref:test-dispatch:{suffix}",
+            *([FILESYSTEM_ROOT_REF] if filesystem else []),
+        ],
         constraint_claims=[
             AuthorityConstraintClaim(
                 kind=AuthorityConstraintKind.operation_budget,
@@ -159,6 +172,16 @@ def _action(
             AuthorityConstraintClaim(
                 kind=AuthorityConstraintKind.cost_budget_microusd,
                 value=0,
+            ),
+            *(
+                [
+                    AuthorityConstraintClaim(
+                        kind=AuthorityConstraintKind.path_refs,
+                        refs=[FILESYSTEM_PATH_REF],
+                    )
+                ]
+                if filesystem
+                else []
             ),
         ],
         safe_summary="Perform one exact zero-cost governed dispatch action.",
@@ -202,7 +225,7 @@ def _request(
             safe_summary="Inspect bounded metadata under an injected safe root.",
             input_refs=[f"input-ref:test-dispatch:{suffix}"],
             metadata={
-                "root_ref": "safe-root:test-authority",
+                "root_ref": FILESYSTEM_ROOT_REF,
                 "relative_path": "notes/report.md",
             },
         )
@@ -352,6 +375,128 @@ def test_filesystem_metadata_dispatch_is_useful_durable_and_redacted(tmp_path: P
     read_model = dispatcher.build_read_model()
     assert read_model.receipt_count == 3
     assert read_model.recovery_required_dispatch_refs == []
+
+
+@pytest.mark.parametrize(
+    ("target_field", "target_value", "reason_ref"),
+    [
+        (
+            "root_ref",
+            "safe-root:test-other",
+            "reason-ref:authority-dispatch:filesystem-root-unbound",
+        ),
+        (
+            "relative_path",
+            "notes/other.md",
+            "reason-ref:authority-dispatch:filesystem-path-unbound",
+        ),
+    ],
+)
+def test_filesystem_target_must_match_action_and_lease_claims(
+    tmp_path: Path,
+    target_field: str,
+    target_value: str,
+    reason_ref: str,
+) -> None:
+    state_dir = tmp_path / "authority"
+    root = tmp_path / "safe-root"
+    other_root = tmp_path / "other-safe-root"
+    (root / "notes").mkdir(parents=True)
+    (other_root / "notes").mkdir(parents=True)
+    resource_ref = "resource-ref:test-dispatch:target-binding"
+    lease_store, lease = _lease(
+        state_dir,
+        mode=TrustMode.full_local_workspace_session,
+        domain=AuthorityDomain.files,
+        capability=AuthorityCapability.read,
+        authority_constraints=[
+            *_constraints(),
+            AuthorityConstraint(
+                constraint_ref="authority-constraint-ref:test-dispatch-resources",
+                kind=AuthorityConstraintKind.resource_refs,
+                allowed_refs=[resource_ref, FILESYSTEM_ROOT_REF],
+                safe_summary="Allow one exact filesystem root resource.",
+            ),
+            AuthorityConstraint(
+                constraint_ref="authority-constraint-ref:test-dispatch-paths",
+                kind=AuthorityConstraintKind.path_refs,
+                allowed_refs=[FILESYSTEM_PATH_REF],
+                safe_summary="Allow one exact normalized filesystem path.",
+            ),
+        ],
+    )
+    dispatcher = AuthorityDispatcher(
+        state_dir,
+        adapters=[
+            ToolRuntimeAuthorityDispatchAdapter(
+                _descriptor(filesystem=True),
+                safe_roots=[
+                    FilesystemSafeRoot(
+                        root_ref=FILESYSTEM_ROOT_REF,
+                        root_path=root,
+                        safe_label="Allowed dispatch safe root",
+                    ),
+                    FilesystemSafeRoot(
+                        root_ref="safe-root:test-other",
+                        root_path=other_root,
+                        safe_label="Other injected safe root",
+                    ),
+                ],
+            )
+        ],
+        lease_store=lease_store,
+    )
+    request = _request(lease.lease_ref, suffix="target-binding", filesystem=True)
+    payload = request.model_dump(mode="json")
+    payload["tool_invocation_request"]["metadata"][target_field] = target_value
+    drifted = AuthorityDispatchRequest.model_validate(payload)
+
+    result = dispatcher.prepare(drifted)
+
+    assert result.receipt.status == AuthorityDispatchStatus.denied.value
+    assert reason_ref in result.receipt.reason_refs
+    assert dispatcher.budget_store.list_receipts() == []
+
+
+def test_declared_failure_cost_cannot_exceed_reserved_estimate(tmp_path: Path) -> None:
+    state_dir = tmp_path / "authority"
+    root = tmp_path / "safe-root"
+    root.mkdir()
+    lease_store, lease = _lease(
+        state_dir,
+        mode=TrustMode.full_local_workspace_session,
+        domain=AuthorityDomain.files,
+        capability=AuthorityCapability.read,
+    )
+    descriptor = _descriptor(filesystem=True).model_copy(
+        update={"failure_cost_microusd": 1}
+    )
+    dispatcher = AuthorityDispatcher(
+        state_dir,
+        adapters=[
+            ToolRuntimeAuthorityDispatchAdapter(
+                descriptor,
+                safe_roots=[
+                    FilesystemSafeRoot(
+                        root_ref=FILESYSTEM_ROOT_REF,
+                        root_path=root,
+                        safe_label="Test dispatch safe root",
+                    )
+                ],
+            )
+        ],
+        lease_store=lease_store,
+    )
+    request = _request(lease.lease_ref, suffix="failure-cost", filesystem=True)
+
+    result = dispatcher.prepare(request)
+
+    assert result.receipt.status == AuthorityDispatchStatus.denied.value
+    assert (
+        "reason-ref:authority-dispatch:failure-cost-exceeds-reservation"
+        in result.receipt.reason_refs
+    )
+    assert dispatcher.budget_store.list_receipts() == []
 
 
 def test_ask_mode_requires_and_binds_exact_local_approval(tmp_path: Path) -> None:
@@ -834,7 +979,7 @@ def test_concurrent_conflict_releases_losing_fresh_reservation(tmp_path: Path) -
     ) == 1
 
 
-def test_concurrent_budget_replay_does_not_release_winner_reservation(
+def test_crash_recovery_budget_replay_binds_full_dispatch_fingerprint(
     tmp_path: Path,
 ) -> None:
     state_dir = tmp_path / "authority"
@@ -854,7 +999,7 @@ def test_concurrent_budget_replay_does_not_release_winner_reservation(
                 _descriptor(filesystem=True),
                 safe_roots=[
                     FilesystemSafeRoot(
-                        root_ref="safe-root:test-authority",
+                        root_ref=FILESYSTEM_ROOT_REF,
                         root_path=root,
                         safe_label="Test dispatch safe root",
                     )
@@ -863,57 +1008,41 @@ def test_concurrent_budget_replay_does_not_release_winner_reservation(
         ],
         lease_store=lease_store,
     )
-    first = _request(lease.lease_ref, suffix="shared-reservation", filesystem=True)
-    second_payload = first.model_dump(mode="json")
-    second_payload["tool_invocation_request"]["metadata"]["relative_path"] = (
-        "notes/alternate.md"
+    original = _request(
+        lease.lease_ref,
+        suffix="crash-fingerprint",
+        filesystem=True,
     )
-    second = AuthorityDispatchRequest.model_validate(second_payload)
-    fresh_reserved = threading.Event()
-    replay_claimed = threading.Event()
-    reservation_statuses: dict[int, str] = {}
-    statuses_lock = threading.Lock()
-    reserve = dispatcher.budget_store.reserve
+    append = dispatcher._append
 
-    def synchronized_reserve(*args: Any, **kwargs: Any) -> Any:
-        receipt = reserve(*args, **kwargs)
-        with statuses_lock:
-            reservation_statuses[threading.get_ident()] = receipt.status
-        if receipt.status == AuthorityBudgetStatus.reserved.value:
-            fresh_reserved.set()
-            assert replay_claimed.wait(timeout=5)
-        else:
-            assert receipt.status == AuthorityBudgetStatus.replayed.value
-            assert fresh_reserved.wait(timeout=5)
-        return receipt
+    def crash_before_prepared(receipt: Any) -> None:
+        raise RuntimeError("simulated crash before prepared receipt")
 
-    dispatcher.budget_store.reserve = synchronized_reserve  # type: ignore[method-assign]
+    dispatcher._append = crash_before_prepared  # type: ignore[method-assign]
+    with pytest.raises(RuntimeError, match="simulated crash"):
+        dispatcher.prepare(original)
+    dispatcher._append = append  # type: ignore[method-assign]
+    drifted_payload = original.model_dump(mode="json")
+    drifted_payload["tool_invocation_request"]["input_refs"] = [
+        "input-ref:test-dispatch:changed-after-crash"
+    ]
+    drifted = AuthorityDispatchRequest.model_validate(drifted_payload)
 
-    def prepare(request: AuthorityDispatchRequest) -> AuthorityDispatchResult | None:
-        try:
-            return dispatcher.prepare(request)
-        except AuthorityDispatchConflictError:
-            return None
-        finally:
-            with statuses_lock:
-                status = reservation_statuses.get(threading.get_ident())
-            if status == AuthorityBudgetStatus.replayed.value:
-                replay_claimed.set()
+    with pytest.raises(
+        AuthorityDispatchConflictError,
+        match="AUTHORITY_DISPATCH_BUDGET_BINDING_CONFLICT",
+    ):
+        dispatcher.prepare(drifted)
 
-    with ThreadPoolExecutor(max_workers=2) as pool:
-        results = list(pool.map(prepare, [first, second]))
-
-    prepared = next(result for result in results if result is not None)
+    recovered = dispatcher.prepare(original)
     budget_receipts = dispatcher.budget_store.list_receipts()
 
-    assert sum(result is None for result in results) == 1
-    assert [receipt.status for receipt in budget_receipts] == [
-        AuthorityBudgetStatus.reserved.value
-    ]
-    assert (
-        prepared.receipt.budget_reservation_ref
-        == budget_receipts[0].reservation_ref
-    )
+    assert recovered.receipt.status == AuthorityDispatchStatus.prepared.value
+    assert recovered.receipt.request_fingerprint_ref == budget_receipts[
+        0
+    ].dispatch_fingerprint_ref
+    assert len(budget_receipts) == 1
+    assert len(dispatcher.list_receipts()) == 1
 
 
 def test_unclaimed_replayed_reservation_is_released_after_conflict(

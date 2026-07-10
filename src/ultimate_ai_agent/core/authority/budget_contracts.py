@@ -70,6 +70,7 @@ class AuthorityBudgetReceipt(_AuthorityBudgetContract):
     approval_ref: str | None = None
     approval_validation_ref: str | None = None
     approval_required: StrictBool = False
+    dispatch_fingerprint_ref: str | None = None
     cost_estimate_ref: str | None = None
     cost_governor_decision_ref: str | None = None
     cost_governor_allowed: StrictBool = False
@@ -118,6 +119,10 @@ class AuthorityBudgetReceipt(_AuthorityBudgetContract):
             (
                 self.approval_validation_ref,
                 "authority_budget_approval_validation_ref",
+            ),
+            (
+                self.dispatch_fingerprint_ref,
+                "authority_budget_dispatch_fingerprint_ref",
             ),
             (self.cost_estimate_ref, "authority_budget_cost_estimate_ref"),
             (

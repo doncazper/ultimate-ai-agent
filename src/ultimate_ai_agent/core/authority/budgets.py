@@ -73,6 +73,7 @@ class AuthorityBudgetReservationRequest(_AuthorityBudgetModel):
     cost_governor_allowed: StrictBool
     approval_required: StrictBool = False
     approval_validation_request: ApprovalValidationRequest | None = None
+    dispatch_fingerprint_ref: str | None = None
     idempotency_ref: str = Field(..., min_length=1)
     safe_summary: str = Field(..., min_length=1, max_length=520)
 
@@ -85,6 +86,11 @@ class AuthorityBudgetReservationRequest(_AuthorityBudgetModel):
             "authority_budget_cost_governor_decision_ref",
         )
         validate_task_ref(self.idempotency_ref, "authority_budget_idempotency_ref")
+        if self.dispatch_fingerprint_ref is not None:
+            validate_task_ref(
+                self.dispatch_fingerprint_ref,
+                "authority_budget_dispatch_fingerprint_ref",
+            )
         if self.approval_required and self.approval_validation_request is None:
             raise ValueError("AUTHORITY_BUDGET_APPROVAL_VALIDATION_REQUEST_REQUIRED")
         if self.approval_validation_request is not None:
@@ -173,7 +179,11 @@ def _request_fingerprint(
 def _legacy_reservation_request_fingerprint(
     request: AuthorityBudgetReservationRequest,
 ) -> str | None:
-    if request.approval_required or request.approval_validation_request is not None:
+    if (
+        request.approval_required
+        or request.approval_validation_request is not None
+        or request.dispatch_fingerprint_ref is not None
+    ):
         return None
     return _stable_ref(
         "request-fingerprint-ref:authority-budget",
@@ -181,7 +191,11 @@ def _legacy_reservation_request_fingerprint(
             "operation": AuthorityBudgetOperation.reserve.value,
             "request": request.model_dump(
                 mode="json",
-                exclude={"approval_required", "approval_validation_request"},
+                exclude={
+                    "approval_required",
+                    "approval_validation_request",
+                    "dispatch_fingerprint_ref",
+                },
             ),
         },
     )
@@ -386,6 +400,7 @@ class AuthorityBudgetStore:
                 approval_ref=approval_ref,
                 approval_validation_ref=approval_validation_ref,
                 approval_required=approval_required,
+                dispatch_fingerprint_ref=request.dispatch_fingerprint_ref,
                 cost_estimate_ref=request.cost_estimate_ref,
                 cost_governor_decision_ref=request.cost_governor_decision_ref,
                 cost_governor_allowed=request.cost_governor_allowed,
@@ -509,6 +524,7 @@ class AuthorityBudgetStore:
                 approval_ref=state["approval_ref"],
                 approval_validation_ref=state["approval_validation_ref"],
                 approval_required=state["approval_required"],
+                dispatch_fingerprint_ref=state["dispatch_fingerprint_ref"],
                 cost_estimate_ref=state["cost_estimate_ref"],
                 cost_governor_decision_ref=state["cost_governor_decision_ref"],
                 cost_governor_allowed=state["cost_governor_allowed"],
@@ -594,6 +610,7 @@ class AuthorityBudgetStore:
                 approval_ref=state["approval_ref"],
                 approval_validation_ref=state["approval_validation_ref"],
                 approval_required=state["approval_required"],
+                dispatch_fingerprint_ref=state["dispatch_fingerprint_ref"],
                 cost_estimate_ref=state["cost_estimate_ref"],
                 cost_governor_decision_ref=state["cost_governor_decision_ref"],
                 cost_governor_allowed=state["cost_governor_allowed"],
@@ -772,6 +789,7 @@ class AuthorityBudgetStore:
                 "approval_ref": receipt.approval_ref,
                 "approval_validation_ref": receipt.approval_validation_ref,
                 "approval_required": receipt.approval_required,
+                "dispatch_fingerprint_ref": receipt.dispatch_fingerprint_ref,
                 "reserved_operation_count": receipt.reserved_operation_count,
                 "reserved_cost_microusd": receipt.reserved_cost_microusd,
             }
@@ -792,6 +810,7 @@ class AuthorityBudgetStore:
             "approval_ref",
             "approval_validation_ref",
             "approval_required",
+            "dispatch_fingerprint_ref",
             "reserved_operation_count",
             "reserved_cost_microusd",
         ]:
@@ -898,6 +917,7 @@ class AuthorityBudgetStore:
                     "approval_ref": receipt.approval_ref,
                     "approval_validation_ref": receipt.approval_validation_ref,
                     "approval_required": receipt.approval_required,
+                    "dispatch_fingerprint_ref": receipt.dispatch_fingerprint_ref,
                     "reserved_operations": receipt.reserved_operation_count,
                     "reserved_cost": receipt.reserved_cost_microusd,
                     "actual_operations": None,

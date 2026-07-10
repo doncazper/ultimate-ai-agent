@@ -185,7 +185,7 @@ def normalize_relative_metadata_path(relative_path: str) -> tuple[str | None, li
     return "/".join(parts), []
 
 
-def _safe_path_ref(root_ref: str, normalized_path: str) -> str:
+def filesystem_safe_path_ref(root_ref: str, normalized_path: str) -> str:
     root_label = "".join("_" if char == ":" else char for char in root_ref)
     return f"filesystem-path:{root_label}/{normalized_path}"
 
@@ -272,7 +272,7 @@ def build_filesystem_metadata_output(
         output_ref=f"filesystem-metadata-output:{suffix}",
         status=FilesystemMetadataStatus.metadata_returned,
         root_ref=root_ref,
-        safe_path_ref=_safe_path_ref(root_ref, normalized_path),
+        safe_path_ref=filesystem_safe_path_ref(root_ref, normalized_path),
         path_kind=path_kind,
         exists=True,
         size_bytes=size_bytes,
@@ -293,7 +293,7 @@ def build_missing_filesystem_metadata_output(
         safe_message="FILESYSTEM_METADATA_MISSING",
         status=FilesystemMetadataStatus.missing,
         root_ref=root_ref,
-        safe_path_ref=_safe_path_ref(root_ref, normalized_path),
+        safe_path_ref=filesystem_safe_path_ref(root_ref, normalized_path),
         path_kind="missing",
         exists=False,
     )

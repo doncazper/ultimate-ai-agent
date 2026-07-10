@@ -18,7 +18,8 @@ Date: 2026-07-10
   requires it;
 - a typed CostEstimate and run-scoped CostBudget set, locally recomputed
   CostGovernor decision, deterministic estimate/decision refs, and a typed
-  operation/cost reservation;
+  operation/cost reservation whose cost covers the adapter's declared failure
+  cost;
 - a durable adapter-start receipt written before invocation;
 - actual operation/cost settlement and safe evidence/output refs after
   invocation;
@@ -33,19 +34,22 @@ bounded summaries only. Adapter input is fingerprinted but is not copied into
 the receipt ledger.
 
 The current executable bridge is `ToolRuntimeAuthorityDispatchAdapter`, which
-accepts only an explicitly injected descriptor and the existing allowlisted
-safe tool runtime. Focused proof covers deterministic no-op and useful
-filesystem metadata inspection under an injected safe root. The metadata result
-returns bounded facts such as existence, kind, size, extension, and a safe path
-ref; it does not return file content, directory listings, an absolute path, or
-mutation authority.
+accepts only an explicitly injected descriptor and exactly two tool refs:
+deterministic no-op and filesystem metadata. Filesystem execution requires the
+normalized safe-root ref and safe-path ref to match the action's resource and
+path claims; lease constraints and approval scope therefore govern the same
+target selected by the invocation. The metadata result returns bounded facts
+such as existence, kind, size, extension, and a safe path ref; it does not
+return file content, directory listings, an absolute path, or mutation
+authority.
 
 ## Durable Lifecycle
 
 The lifecycle is explicit:
 
-1. `prepare` validates the registered adapter, re-evaluates the exact requested
-   lease, validates exact approval scope where required, and reserves budget.
+1. `prepare` validates the registered adapter and exact target, re-evaluates the
+   requested lease, validates exact approval scope where required, and reserves
+   budget with the full dispatch fingerprint.
 2. A `prepared` receipt durably binds the policy, approval, and reservation.
 3. `execute` rechecks lease, kill switch, adapter, budget, and approval
    revocation immediately before start.

@@ -19,12 +19,14 @@ from ultimate_ai_agent.core.authority.budget_contracts import (
     AuthorityBudgetStatus,
 )
 from ultimate_ai_agent.core.authority.budgets import (
+    AuthorityBudgetConflictError,
     AuthorityBudgetReleaseRequest,
     AuthorityBudgetReservationRequest,
     AuthorityBudgetSettlementRequest,
     AuthorityBudgetStore,
 )
 from ultimate_ai_agent.core.authority.contracts import (
+    AuthorityConstraintKind,
     AuthorityDecisionOutcome,
     AuthorityLeaseStore,
     authority_state_dir,
@@ -52,6 +54,8 @@ from ultimate_ai_agent.core.tools.runtime.contracts import ToolInvocationRequest
 from ultimate_ai_agent.core.tools.runtime.filesystem_metadata import (
     FILESYSTEM_METADATA_TOOL_REF,
     FilesystemSafeRoot,
+    filesystem_safe_path_ref,
+    normalize_relative_metadata_path,
 )
 from ultimate_ai_agent.core.tools.runtime.validation import NOOP_TOOL_REF
 
@@ -227,12 +231,61 @@ class ToolRuntimeAuthorityDispatchAdapter:
             reasons.append("reason-ref:authority-dispatch:operation-count-mismatch")
         if request.estimated_cost_microusd != self.descriptor.estimated_cost_microusd:
             reasons.append("reason-ref:authority-dispatch:estimated-cost-mismatch")
+        if self.descriptor.failure_cost_microusd is None:
+            reasons.append("reason-ref:authority-dispatch:failure-cost-unknown")
+        elif self.descriptor.failure_cost_microusd > (
+            request.estimated_cost_microusd or 0
+        ):
+            reasons.append(
+                "reason-ref:authority-dispatch:failure-cost-exceeds-reservation"
+            )
         if not request.cost_governor_allowed:
             reasons.append("reason-ref:authority-dispatch:cost-governor-denied")
         if self.descriptor.approval_required and (
             request.approval_validation_request is None
         ):
             reasons.append("reason-ref:authority-dispatch:approval-missing")
+        if self.descriptor.tool_ref == FILESYSTEM_METADATA_TOOL_REF:
+            root_ref = tool_request.metadata.get("root_ref")
+            relative_path = tool_request.metadata.get("relative_path")
+            if not isinstance(root_ref, str) or not isinstance(relative_path, str):
+                reasons.append(
+                    "reason-ref:authority-dispatch:filesystem-target-invalid"
+                )
+            else:
+                normalized_path, path_reasons = normalize_relative_metadata_path(
+                    relative_path
+                )
+                if path_reasons or normalized_path is None:
+                    reasons.append(
+                        "reason-ref:authority-dispatch:filesystem-target-invalid"
+                    )
+                else:
+                    expected_path_ref = filesystem_safe_path_ref(
+                        root_ref, normalized_path
+                    )
+                    if root_ref not in request.action_request.resource_refs:
+                        reasons.append(
+                            "reason-ref:authority-dispatch:filesystem-root-unbound"
+                        )
+                    path_claim = next(
+                        (
+                            claim
+                            for claim in request.action_request.constraint_claims
+                            if claim.kind == AuthorityConstraintKind.path_refs.value
+                        ),
+                        None,
+                    )
+                    if path_claim is None or set(path_claim.refs) != {
+                        expected_path_ref
+                    }:
+                        reasons.append(
+                            "reason-ref:authority-dispatch:filesystem-path-unbound"
+                        )
+                    if root_ref not in {root.root_ref for root in self.safe_roots}:
+                        reasons.append(
+                            "reason-ref:authority-dispatch:filesystem-root-not-injected"
+                        )
         return list(dict.fromkeys(reasons))
 
     def invoke(
@@ -334,26 +387,32 @@ class AuthorityDispatcher:
                 adapter=adapter,
             )
         assert adapter is not None
-        reservation = self.budget_store.reserve(
-            AuthorityBudgetReservationRequest(
-                lease_ref=request.lease_ref,
-                action_request=request.action_request,
-                operation_count=request.operation_count,
-                estimated_cost_microusd=request.estimated_cost_microusd,
-                cost_estimate_ref=request.cost_estimate_ref,
-                cost_governor_decision_ref=request.cost_governor_decision_ref,
-                cost_governor_allowed=request.cost_governor_allowed,
-                approval_required=adapter.descriptor.approval_required,
-                approval_validation_request=request.approval_validation_request,
-                idempotency_ref=_phase_idempotency_ref(request, "budget-reserve"),
-                safe_summary="Reserve exact governed dispatch capacity before adapter start.",
-            ),
-            approval_validator=(
-                self.approval_authority.validate
-                if self.approval_authority is not None
-                else None
-            ),
-        )
+        try:
+            reservation = self.budget_store.reserve(
+                AuthorityBudgetReservationRequest(
+                    lease_ref=request.lease_ref,
+                    action_request=request.action_request,
+                    operation_count=request.operation_count,
+                    estimated_cost_microusd=request.estimated_cost_microusd,
+                    cost_estimate_ref=request.cost_estimate_ref,
+                    cost_governor_decision_ref=request.cost_governor_decision_ref,
+                    cost_governor_allowed=request.cost_governor_allowed,
+                    approval_required=adapter.descriptor.approval_required,
+                    approval_validation_request=request.approval_validation_request,
+                    dispatch_fingerprint_ref=fingerprint,
+                    idempotency_ref=_phase_idempotency_ref(request, "budget-reserve"),
+                    safe_summary="Reserve exact governed dispatch capacity before adapter start.",
+                ),
+                approval_validator=(
+                    self.approval_authority.validate
+                    if self.approval_authority is not None
+                    else None
+                ),
+            )
+        except AuthorityBudgetConflictError as exc:
+            raise AuthorityDispatchConflictError(
+                "AUTHORITY_DISPATCH_BUDGET_BINDING_CONFLICT"
+            ) from exc
         status = reservation.original_status or reservation.status
         if status != AuthorityBudgetStatus.reserved.value:
             return self._persist_initial_denial(
@@ -365,6 +424,10 @@ class AuthorityDispatcher:
                 ),
                 adapter=adapter,
                 reservation=reservation,
+            )
+        if reservation.dispatch_fingerprint_ref != fingerprint:
+            raise AuthorityDispatchCorruptionError(
+                "AUTHORITY_DISPATCH_BUDGET_FINGERPRINT_MISMATCH"
             )
 
         reservation_claimed = False

@@ -27,6 +27,7 @@ from ultimate_ai_agent.core.tools.runtime.filesystem_metadata import (
     FilesystemMetadataStatus,
     FilesystemSafeRoot,
     build_filesystem_metadata_output,
+    filesystem_safe_path_ref,
     filesystem_metadata_policy_reason_codes,
     normalize_relative_metadata_path,
 )
@@ -124,6 +125,7 @@ __all__ = [
     "build_tool_runtime_manifest",
     "evaluate_tool_invocation",
     "filesystem_metadata_policy_reason_codes",
+    "filesystem_safe_path_ref",
     "http_fetch_policy_reason_codes",
     "invoke_noop_tool",
     "normalize_relative_metadata_path",

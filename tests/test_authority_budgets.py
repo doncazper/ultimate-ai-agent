@@ -192,6 +192,7 @@ def test_pre_approval_binding_budget_receipt_hash_remains_readable(tmp_path) -> 
         "approval_ref",
         "approval_validation_ref",
         "approval_required",
+        "dispatch_fingerprint_ref",
     ]:
         legacy_payload.pop(field_name)
     legacy_payload["request_fingerprint_ref"] = (

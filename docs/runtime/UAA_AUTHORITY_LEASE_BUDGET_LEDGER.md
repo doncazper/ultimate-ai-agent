@@ -36,6 +36,7 @@ A reservation must bind all of the following:
 - exact operation and estimated-cost claims matching the action's typed
   constraint claims;
 - structured cost-estimate and CostGovernor decision refs;
+- the full dispatch fingerprint when the central dispatcher is the caller;
 - an explicit CostGovernor allowed posture;
 - an idempotency ref and bounded safe summary.
 
@@ -50,9 +51,10 @@ CostGovernor refs are a required integration contract, not self-sufficient
 proof of a CostGovernor evaluation. The initial central dispatcher supplies
 them from the same typed dispatch request and recomputes CostGovernor from a
 typed estimate plus an exact run-scoped budget set for explicitly registered
-safe tool adapters. Direct budget-store callers still need a trusted integration
-boundary, and paid provider execution still needs exact live usage and cost
-proof.
+safe tool adapters. Its dispatch fingerprint binding prevents a reservation
+replay after a crash from authorizing changed adapter input. Direct budget-store
+callers still need a trusted integration boundary, and paid provider execution
+still needs exact live usage and cost proof.
 
 ## Settlement And Release
 
