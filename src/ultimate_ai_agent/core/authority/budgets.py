@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, model_validator
 
 from ultimate_ai_agent.core.authority.contracts import (
     AUTHORITY_STATE_LOCK_KEY,
@@ -52,8 +52,8 @@ class _AuthorityBudgetModel(BaseModel):
 class AuthorityBudgetReservationRequest(_AuthorityBudgetModel):
     lease_ref: str = Field(..., min_length=1)
     action_request: AuthorityActionRequest
-    operation_count: int = Field(default=1, ge=1)
-    estimated_cost_microusd: int | None = Field(default=None, ge=0)
+    operation_count: StrictInt = Field(default=1, ge=1)
+    estimated_cost_microusd: StrictInt | None = Field(default=None, ge=0)
     cost_estimate_ref: str = Field(..., min_length=1)
     cost_governor_decision_ref: str = Field(..., min_length=1)
     cost_governor_allowed: bool
@@ -76,8 +76,8 @@ class AuthorityBudgetReservationRequest(_AuthorityBudgetModel):
 class AuthorityBudgetSettlementRequest(_AuthorityBudgetModel):
     reservation_ref: str = Field(..., min_length=1)
     idempotency_ref: str = Field(..., min_length=1)
-    actual_operation_count: int = Field(default=1, ge=1)
-    actual_cost_microusd: int | None = Field(default=None, ge=0)
+    actual_operation_count: StrictInt = Field(default=1, ge=1)
+    actual_cost_microusd: StrictInt | None = Field(default=None, ge=0)
     actual_cost_ref: str | None = None
     execution_status: AuthorityBudgetExecutionStatus
     evidence_refs: list[str] = Field(..., min_length=1)

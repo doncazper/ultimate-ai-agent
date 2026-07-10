@@ -11,7 +11,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, model_validator
 
 from ultimate_ai_agent.core.authority.authority_constants import (
     AUTHORITY_STATE_LOCK_KEY,
@@ -175,7 +175,7 @@ class AuthorityConstraint(_AuthorityModel):
     constraint_ref: str = Field(..., min_length=1)
     kind: AuthorityConstraintKind
     allowed_refs: list[str] = Field(default_factory=list)
-    maximum: int | None = Field(default=None, ge=0)
+    maximum: StrictInt | None = Field(default=None, ge=0)
     safe_summary: str = Field(..., min_length=1, max_length=260)
 
     @model_validator(mode="after")
@@ -198,7 +198,7 @@ class AuthorityConstraint(_AuthorityModel):
 class AuthorityConstraintClaim(_AuthorityModel):
     kind: AuthorityConstraintKind
     refs: list[str] = Field(default_factory=list)
-    value: int | None = Field(default=None, ge=0)
+    value: StrictInt | None = Field(default=None, ge=0)
 
     @model_validator(mode="after")
     def validate_claim(self) -> "AuthorityConstraintClaim":

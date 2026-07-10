@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, model_validator
 
 from ultimate_ai_agent.core.authority.authority_constants import (
     AUTHORITY_STATE_REDACTIONS,
@@ -63,13 +63,13 @@ class AuthorityBudgetReceipt(_AuthorityBudgetContract):
     cost_estimate_ref: str | None = None
     cost_governor_decision_ref: str | None = None
     cost_governor_allowed: bool = False
-    reserved_operation_count: int = Field(default=0, ge=0)
-    reserved_cost_microusd: int | None = Field(default=None, ge=0)
-    actual_operation_count: int | None = Field(default=None, ge=0)
-    actual_cost_microusd: int | None = Field(default=None, ge=0)
+    reserved_operation_count: StrictInt = Field(default=0, ge=0)
+    reserved_cost_microusd: StrictInt | None = Field(default=None, ge=0)
+    actual_operation_count: StrictInt | None = Field(default=None, ge=0)
+    actual_cost_microusd: StrictInt | None = Field(default=None, ge=0)
     actual_cost_ref: str | None = None
-    remaining_operation_count: int | None = Field(default=None, ge=0)
-    remaining_cost_microusd: int | None = Field(default=None, ge=0)
+    remaining_operation_count: StrictInt | None = Field(default=None, ge=0)
+    remaining_cost_microusd: StrictInt | None = Field(default=None, ge=0)
     execution_status: AuthorityBudgetExecutionStatus | None = None
     evidence_refs: list[str] = Field(default_factory=list)
     reason_refs: list[str] = Field(default_factory=list)
@@ -257,14 +257,14 @@ class AuthorityBudgetReceipt(_AuthorityBudgetContract):
 
 class AuthorityBudgetLeaseSummary(_AuthorityBudgetContract):
     lease_ref: str
-    operation_limit: int | None = Field(default=None, ge=0)
-    cost_limit_microusd: int | None = Field(default=None, ge=0)
-    allocated_operation_count: int = Field(default=0, ge=0)
-    allocated_cost_microusd: int = Field(default=0, ge=0)
-    remaining_operation_count: int | None = Field(default=None, ge=0)
-    remaining_cost_microusd: int | None = Field(default=None, ge=0)
-    active_reservation_count: int = Field(default=0, ge=0)
-    settled_reservation_count: int = Field(default=0, ge=0)
+    operation_limit: StrictInt | None = Field(default=None, ge=0)
+    cost_limit_microusd: StrictInt | None = Field(default=None, ge=0)
+    allocated_operation_count: StrictInt = Field(default=0, ge=0)
+    allocated_cost_microusd: StrictInt = Field(default=0, ge=0)
+    remaining_operation_count: StrictInt | None = Field(default=None, ge=0)
+    remaining_cost_microusd: StrictInt | None = Field(default=None, ge=0)
+    active_reservation_count: StrictInt = Field(default=0, ge=0)
+    settled_reservation_count: StrictInt = Field(default=0, ge=0)
     unresolved_cost: bool = False
     exhausted: bool = False
     blocked_reason_refs: list[str] = Field(default_factory=list)
@@ -313,7 +313,7 @@ class AuthorityBudgetReadModel(_AuthorityBudgetContract):
     ledger_ref: str = "ledger-ref:authority-budget-receipts"
     lease_summaries: list[AuthorityBudgetLeaseSummary] = Field(default_factory=list)
     recent_receipts: list[AuthorityBudgetReceipt] = Field(default_factory=list)
-    receipt_count: int = Field(default=0, ge=0)
+    receipt_count: StrictInt = Field(default=0, ge=0)
     execution_performed: bool = False
     mutation_available_from_read_model: bool = False
     safe_summary: str = (

@@ -158,6 +158,23 @@ def test_budget_constraints_are_evaluated_before_durable_reservation(tmp_path) -
     )
 
 
+def test_budget_integer_contracts_reject_boolean_and_string_coercion() -> None:
+    with pytest.raises(ValueError, match="int_type"):
+        AuthorityConstraint(
+            constraint_ref="authority-constraint-ref:test-strict-budget",
+            kind=AuthorityConstraintKind.operation_budget,
+            maximum=True,
+            safe_summary="Reject a boolean budget maximum.",
+        )
+    request_payload = _reserve_request(
+        "authority-lease-ref:test-strict-budget",
+        suffix="strict-budget",
+    ).model_dump(mode="json")
+    request_payload["operation_count"] = "1"
+    with pytest.raises(ValueError, match="int_type"):
+        AuthorityBudgetReservationRequest.model_validate(request_payload)
+
+
 def test_reserve_settle_and_cumulative_exhaustion_are_durable(tmp_path) -> None:
     _, budget_store, lease = _stores(tmp_path)
     first_request = _reserve_request(lease.lease_ref, suffix="first")
