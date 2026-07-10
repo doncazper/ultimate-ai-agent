@@ -13,6 +13,7 @@ from ultimate_ai_agent.core.authority import (
     AuthorityBudgetConflictError,
     AuthorityBudgetCorruptionError,
     AuthorityBudgetExecutionStatus,
+    AuthorityBudgetOperation,
     AuthorityBudgetReleaseRequest,
     AuthorityBudgetReservationRequest,
     AuthorityBudgetReceipt,
@@ -499,6 +500,54 @@ def test_budget_hash_chain_tampering_is_detected(tmp_path) -> None:
     with pytest.raises(
         AuthorityBudgetCorruptionError,
         match="AUTHORITY_BUDGET_ENTRY_HASH_MISMATCH",
+    ):
+        budget_store.list_receipts()
+
+
+def test_correctly_hashed_impossible_reservation_transition_is_detected(
+    tmp_path,
+) -> None:
+    _, budget_store, lease = _stores(tmp_path)
+    reservation = budget_store.reserve(
+        _reserve_request(lease.lease_ref, suffix="impossible-transition")
+    )
+    budget_store.settle(
+        AuthorityBudgetSettlementRequest(
+            reservation_ref=reservation.reservation_ref,
+            idempotency_ref="idempotency-ref:test-impossible-transition-settle",
+            actual_operation_count=1,
+            actual_cost_microusd=100,
+            actual_cost_ref="actual-cost-ref:test-impossible-transition",
+            execution_status=AuthorityBudgetExecutionStatus.succeeded,
+            evidence_refs=["evidence-ref:test-impossible-transition"],
+            safe_summary="Settle before injecting an impossible release transition.",
+        )
+    )
+    receipts = budget_store.list_receipts()
+    impossible_release = budget_store._build_receipt(
+        operation=AuthorityBudgetOperation.release,
+        status=AuthorityBudgetStatus.released,
+        reservation_ref=reservation.reservation_ref,
+        idempotency_ref="idempotency-ref:test-impossible-transition-release",
+        request_fingerprint_ref=(
+            "request-fingerprint-ref:authority-budget:test-impossible-transition"
+        ),
+        previous_entry_hash_ref=receipts[-1].entry_hash_ref,
+        lease_ref=reservation.lease_ref,
+        action_ref=reservation.action_ref,
+        cost_estimate_ref=reservation.cost_estimate_ref,
+        cost_governor_decision_ref=reservation.cost_governor_decision_ref,
+        cost_governor_allowed=reservation.cost_governor_allowed,
+        reserved_operation_count=reservation.reserved_operation_count,
+        reserved_cost_microusd=reservation.reserved_cost_microusd,
+        reason_refs=["reason-ref:test-impossible-transition-release"],
+        safe_summary="Inject one correctly hashed but impossible release transition.",
+    )
+    budget_store._append(impossible_release)
+
+    with pytest.raises(
+        AuthorityBudgetCorruptionError,
+        match="AUTHORITY_BUDGET_INVALID_RESERVATION_TRANSITION",
     ):
         budget_store.list_receipts()
 

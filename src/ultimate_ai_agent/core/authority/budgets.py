@@ -586,6 +586,7 @@ class AuthorityBudgetStore:
         receipts: list[AuthorityBudgetReceipt] = []
         previous_hash: str | None = None
         idempotency_refs: set[str] = set()
+        reservation_states: dict[str, dict[str, Any]] = {}
         with self.receipts_path.open(encoding="utf-8") as handle:
             for line in handle:
                 if not line.strip():
@@ -612,10 +613,54 @@ class AuthorityBudgetStore:
                     raise AuthorityBudgetCorruptionError(
                         "AUTHORITY_BUDGET_DUPLICATE_IDEMPOTENCY_HISTORY"
                     )
+                self._validate_history_transition(receipt, reservation_states)
                 idempotency_refs.add(receipt.idempotency_ref)
                 receipts.append(receipt)
                 previous_hash = receipt.entry_hash_ref
         return receipts
+
+    def _validate_history_transition(
+        self,
+        receipt: AuthorityBudgetReceipt,
+        reservation_states: dict[str, dict[str, Any]],
+    ) -> None:
+        if receipt.operation == AuthorityBudgetOperation.reserve.value:
+            if receipt.reservation_ref in reservation_states:
+                raise AuthorityBudgetCorruptionError(
+                    "AUTHORITY_BUDGET_DUPLICATE_RESERVATION_HISTORY"
+                )
+            reservation_states[receipt.reservation_ref] = {
+                "status": receipt.status,
+                "lease_ref": receipt.lease_ref,
+                "action_ref": receipt.action_ref,
+                "cost_estimate_ref": receipt.cost_estimate_ref,
+                "cost_governor_decision_ref": receipt.cost_governor_decision_ref,
+                "cost_governor_allowed": receipt.cost_governor_allowed,
+                "reserved_operation_count": receipt.reserved_operation_count,
+                "reserved_cost_microusd": receipt.reserved_cost_microusd,
+            }
+            return
+        if receipt.status == AuthorityBudgetStatus.denied.value:
+            return
+        state = reservation_states.get(receipt.reservation_ref)
+        if state is None or state["status"] != AuthorityBudgetStatus.reserved.value:
+            raise AuthorityBudgetCorruptionError(
+                "AUTHORITY_BUDGET_INVALID_RESERVATION_TRANSITION"
+            )
+        for field_name in [
+            "lease_ref",
+            "action_ref",
+            "cost_estimate_ref",
+            "cost_governor_decision_ref",
+            "cost_governor_allowed",
+            "reserved_operation_count",
+            "reserved_cost_microusd",
+        ]:
+            if getattr(receipt, field_name) != state[field_name]:
+                raise AuthorityBudgetCorruptionError(
+                    "AUTHORITY_BUDGET_FOLLOWUP_BINDING_MISMATCH"
+                )
+        state["status"] = receipt.status
 
     def _append(self, receipt: AuthorityBudgetReceipt) -> None:
         self.state_dir.mkdir(parents=True, exist_ok=True)
