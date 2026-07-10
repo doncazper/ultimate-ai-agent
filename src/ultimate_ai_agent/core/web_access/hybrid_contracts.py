@@ -276,7 +276,7 @@ class WebProviderCreditSnapshot(_WebHybridModel):
     plan_kind: WebProviderPlanKind
     plan_credits: int = Field(..., ge=0)
     remaining_credits: int = Field(..., ge=0)
-    max_concurrency: int = Field(..., ge=1, le=16)
+    max_concurrency: int | None = Field(default=None, ge=1, le=16)
     billing_period_ref: str = Field(..., min_length=1)
     billing_period_start: datetime
     billing_period_end: datetime
@@ -300,8 +300,6 @@ class WebProviderCreditSnapshot(_WebHybridModel):
             ),
             "web_credit_snapshot_ref",
         )
-        if self.remaining_credits > self.plan_credits:
-            raise ValueError("WEB_CREDIT_REMAINING_EXCEEDS_PLAN")
         if not self.billing_period_start < self.billing_period_end:
             raise ValueError("WEB_CREDIT_BILLING_PERIOD_INVALID")
         if not self.fetched_at < self.expires_at:
@@ -325,6 +323,7 @@ class WebProviderCreditReservationRequest(_WebHybridModel):
     cost_policy_ref: str = WEB_HYBRID_COST_POLICY_REF
     estimated_credits: int = Field(..., ge=1, le=10)
     safety_reserve_credits: int = Field(default=1, ge=0, le=100)
+    run_credit_ceiling: int = Field(default=10, ge=1, le=100)
     attempt_number: int = Field(default=1, ge=1, le=2)
     fallback_parent_ref: str | None = None
 
@@ -342,6 +341,8 @@ class WebProviderCreditReservationRequest(_WebHybridModel):
         if self.fallback_parent_ref:
             refs.append(self.fallback_parent_ref)
         _validate_refs(refs, "web_credit_reservation_request_ref")
+        if self.estimated_credits > self.run_credit_ceiling:
+            raise ValueError("WEB_CREDIT_ESTIMATE_EXCEEDS_RUN_CEILING")
         return self
 
 

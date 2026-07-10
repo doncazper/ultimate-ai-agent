@@ -173,11 +173,16 @@ one-page, one-attempt, markdown-only extraction for an exact allowlisted public
 HTTPS target. The target remains read-only GET semantics even though the fixed
 loopback provider transport uses POST. Full markdown is transient and untrusted;
 durable output contains safe refs, hashes, reason codes, and a bounded redacted
-preview. Firecrawl Cloud, search, crawl, map, schema extraction, screenshots,
-Interact, sessions, and actions remain blocked until separately promoted.
+preview. At this phase, Firecrawl Cloud, search, crawl, map, schema extraction,
+screenshots, Interact, sessions, and actions remain blocked.
+WEB-HYBRID-005 then promotes cloud extraction independently of routing: one
+authenticated free-plan standard scrape, `proxy=basic`, no provider cache,
+one atomic reservation, exact request budget/approval/lease scope, and complete
+before/after usage proof. This does not authorize automatic fallback, paid or
+unknown plans, Keyless, enhanced/auto proxy escalation, or target-page auth.
 Normalize into WebAccessResult and WebAccessAuditRecord.
 Mark content_untrusted=true.
-Keep Interact, sessions, clicks/forms, credentials, and writes blocked.
+Keep Interact, sessions, clicks/forms, general credential surfaces, and writes blocked.
 ```
 
 ### Browser observe / Browserbase observe

@@ -150,6 +150,36 @@ def test_paid_or_unknown_plan_never_reserves_free_credits() -> None:
         assert "CLOUD_FREE_PLAN_NOT_PROVEN" in reservation.reason_codes
 
 
+def test_unknown_plan_concurrency_never_reserves_free_credits() -> None:
+    ledger = InMemoryWebCreditLedger()
+    ledger.reconcile(_snapshot().model_copy(update={"max_concurrency": None}))
+
+    reservation = ledger.reserve(_request(1), now=NOW)
+
+    assert reservation.status == WebCreditReservationStatus.denied
+    assert "CLOUD_PLAN_CONCURRENCY_UNKNOWN" in reservation.reason_codes
+
+
+def test_run_credit_ceiling_counts_prior_settlements() -> None:
+    ledger = InMemoryWebCreditLedger()
+    ledger.reconcile(_snapshot(concurrency=2))
+    first_request = _request(1).model_copy(update={"run_credit_ceiling": 1})
+    first = ledger.reserve(first_request, now=NOW)
+    ledger.settle(
+        first.reservation_ref,
+        actual_credits=1,
+        actual_usage_ref="actual-usage-ref:web-credit:first",
+    )
+
+    second = ledger.reserve(
+        _request(2).model_copy(update={"run_credit_ceiling": 1}),
+        now=NOW,
+    )
+
+    assert second.status == WebCreditReservationStatus.denied
+    assert "CLOUD_RUN_CREDIT_CEILING_EXHAUSTED" in second.reason_codes
+
+
 def test_snapshot_ref_reuse_with_different_semantics_fails_closed() -> None:
     ledger = InMemoryWebCreditLedger()
     ledger.reconcile(_snapshot(remaining=3))

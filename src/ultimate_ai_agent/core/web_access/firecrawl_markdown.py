@@ -294,6 +294,32 @@ class FirecrawlMarkdownExecutionResult(_FirecrawlModel):
         return self
 
 
+class FirecrawlMarkdownAttemptResult(_FirecrawlModel):
+    status: WebProviderTransportStatus
+    evidence: FirecrawlMarkdownEvidence | None = None
+    reason_codes: tuple[str, ...] = ()
+    network_call_performed: bool = False
+    gateway_audit_ref: str
+
+    @model_validator(mode="after")
+    def validate_attempt(self) -> "FirecrawlMarkdownAttemptResult":
+        validate_execution_ref(self.gateway_audit_ref, "firecrawl_gateway_audit_ref")
+        for code in self.reason_codes:
+            if not _SAFE_CODE.fullmatch(code):
+                raise ValueError("FIRECRAWL_ATTEMPT_CODE_UNSAFE")
+        if self.status in {
+            WebProviderTransportStatus.blocked,
+            WebProviderTransportStatus.simulated,
+        } and self.network_call_performed:
+            raise ValueError("FIRECRAWL_ATTEMPT_NETWORK_STATUS_MISMATCH")
+        if self.status not in {
+            WebProviderTransportStatus.succeeded,
+            WebProviderTransportStatus.simulated,
+        } and self.evidence is not None:
+            raise ValueError("FIRECRAWL_ATTEMPT_EVIDENCE_STATUS_MISMATCH")
+        return self
+
+
 class FirecrawlTransportError(RuntimeError):
     def __init__(self, code: str, *, network_call_performed: bool) -> None:
         if not _SAFE_CODE.fullmatch(code):
@@ -663,7 +689,7 @@ def execute_firecrawl_markdown(
     )
     authority_decision = (
         observed_authority_decision
-        if _decision_has_exact_resource_scope(
+        if authority_decision_has_exact_resource_scope(
             observed_authority_decision,
             authority_leases,
             exact_resource_refs,
@@ -717,13 +743,54 @@ def execute_firecrawl_markdown(
             blocker_codes=tuple(invocation_decision.blocker_codes),
         )
 
-    selected_transport = transport or build_loopback_firecrawl_transport(endpoint)
-    validator = target_validator or validate_resolved_public_target
+    attempt = execute_authorized_firecrawl_markdown_attempt(
+        request=request,
+        invocation_decision=invocation_decision,
+        capability_ref=FIRECRAWL_MARKDOWN_CAPABILITY_REF,
+        provider_ref=FIRECRAWL_SELF_HOSTED_PROVIDER_REF,
+        adapter_ref=FIRECRAWL_MARKDOWN_ADAPTER_REF,
+        transport=transport or build_loopback_firecrawl_transport(endpoint),
+        target_validator=target_validator or validate_resolved_public_target,
+    )
+    receipt = _transport_receipt(
+        request=request,
+        invocation_decision=invocation_decision,
+        status=attempt.status,
+        reason_codes=attempt.reason_codes,
+        network_call_performed=attempt.network_call_performed,
+        evidence=attempt.evidence,
+        created_at=now,
+    )
+    return _execution_result(
+        request=request,
+        invocation_decision=invocation_decision,
+        receipt=receipt,
+        evidence=attempt.evidence,
+        reason_codes=attempt.reason_codes,
+        blocker_codes=()
+        if attempt.status == WebProviderTransportStatus.succeeded
+        else attempt.reason_codes,
+    )
+
+
+def execute_authorized_firecrawl_markdown_attempt(
+    *,
+    request: FirecrawlMarkdownRequest,
+    invocation_decision: CapabilityInvocationDecision,
+    capability_ref: str,
+    provider_ref: str,
+    adapter_ref: str,
+    transport: FirecrawlTransport,
+    target_validator: TargetValidator,
+) -> FirecrawlMarkdownAttemptResult:
     adapter = _FirecrawlMarkdownAdapter(
         extract_request=request,
         invocation_decision=invocation_decision,
-        transport=selected_transport,
-        target_validator=validator,
+        capability_ref=capability_ref,
+        provider_ref=provider_ref,
+        adapter_ref=adapter_ref,
+        transport=transport,
+        target_validator=target_validator,
     )
     gateway = WebAccessGateway(
         policy=WebAccessPolicy(allow_firecrawl_markdown_extract=True),
@@ -763,24 +830,21 @@ def execute_firecrawl_markdown(
     )
     reason_codes = _safe_reason_codes(payload.get("reason_codes"))
     network_call_performed = payload.get("network_call_performed") is True
-    receipt = _transport_receipt(
-        request=request,
-        invocation_decision=invocation_decision,
+    return FirecrawlMarkdownAttemptResult(
         status=status,
+        evidence=evidence,
         reason_codes=reason_codes,
         network_call_performed=network_call_performed,
-        evidence=evidence,
-        created_at=now,
-    )
-    return _execution_result(
-        request=request,
-        invocation_decision=invocation_decision,
-        receipt=receipt,
-        evidence=evidence,
-        reason_codes=reason_codes,
-        blocker_codes=()
-        if status == WebProviderTransportStatus.succeeded
-        else reason_codes,
+        gateway_audit_ref=stable_web_hybrid_ref(
+            "web-access-audit-ref",
+            {
+                "request_ref": request.request_ref,
+                "invocation_decision_ref": invocation_decision.decision_ref,
+                "capability_ref": capability_ref,
+                "provider_ref": provider_ref,
+                "adapter_ref": adapter_ref,
+            },
+        ),
     )
 
 
@@ -792,11 +856,17 @@ class _FirecrawlMarkdownAdapter:
         *,
         extract_request: FirecrawlMarkdownRequest,
         invocation_decision: CapabilityInvocationDecision,
+        capability_ref: str,
+        provider_ref: str,
+        adapter_ref: str,
         transport: FirecrawlTransport,
         target_validator: TargetValidator,
     ) -> None:
         self._extract_request = extract_request
         self._invocation_decision = invocation_decision
+        self._capability_ref = capability_ref
+        self._provider_ref = provider_ref
+        self._adapter_ref = adapter_ref
         self._transport = transport
         self._target_validator = target_validator
         self._use_lock = threading.Lock()
@@ -820,10 +890,10 @@ class _FirecrawlMarkdownAdapter:
             and self._invocation_decision.request_ref
             == self._extract_request.request_ref
             and self._invocation_decision.capability_ref
-            == FIRECRAWL_MARKDOWN_CAPABILITY_REF
+            == self._capability_ref
             and self._invocation_decision.provider_ref
-            == FIRECRAWL_SELF_HOSTED_PROVIDER_REF
-            and self._invocation_decision.adapter_ref == FIRECRAWL_MARKDOWN_ADAPTER_REF
+            == self._provider_ref
+            and self._invocation_decision.adapter_ref == self._adapter_ref
             and self._invocation_decision.authority_decision_ref is not None
             and self._invocation_decision.approval_decision_ref is not None
         )
@@ -1080,7 +1150,7 @@ def _exact_authority_resource_refs(
     )
 
 
-def _decision_has_exact_resource_scope(
+def authority_decision_has_exact_resource_scope(
     decision: AuthorityPolicyDecision,
     leases: Sequence[AuthorityLease],
     exact_resource_refs: tuple[str, ...],
@@ -1213,13 +1283,16 @@ __all__ = [
     "FIRECRAWL_SELF_HOSTED_PROVIDER_REF",
     "FirecrawlConfiguredEndpoint",
     "FirecrawlMarkdownEvidence",
+    "FirecrawlMarkdownAttemptResult",
     "FirecrawlMarkdownExecutionResult",
     "FirecrawlMarkdownRequest",
     "FirecrawlPreviewRedactionStatus",
     "FirecrawlTransportError",
     "build_firecrawl_markdown_capability_manifest",
     "build_loopback_firecrawl_transport",
+    "authority_decision_has_exact_resource_scope",
     "execute_firecrawl_markdown",
+    "execute_authorized_firecrawl_markdown_attempt",
     "firecrawl_markdown_snapshot_from_state",
     "firecrawl_target_source_ref",
     "validate_resolved_public_target",

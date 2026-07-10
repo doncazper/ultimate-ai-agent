@@ -145,9 +145,29 @@ class InMemoryWebCreditLedger:
                 for item in self._reservations.values()
             ):
                 reasons.append("CLOUD_PRIOR_USAGE_RECEIPT_INCOMPLETE")
-            if snapshot is not None and len(active) >= snapshot.max_concurrency:
-                reasons.append("CLOUD_PLAN_CONCURRENCY_EXHAUSTED")
+            if snapshot is not None:
+                if snapshot.max_concurrency is None:
+                    reasons.append("CLOUD_PLAN_CONCURRENCY_UNKNOWN")
+                elif len(active) >= snapshot.max_concurrency:
+                    reasons.append("CLOUD_PLAN_CONCURRENCY_EXHAUSTED")
             in_flight_credits = sum(item.reserved_credits for item in active)
+            run_committed_credits = sum(
+                item.reserved_credits
+                for item in self._reservations.values()
+                if item.provider_ref == request.provider_ref
+                and item.billing_period_ref == request.billing_period_ref
+                and item.status
+                in {
+                    WebCreditReservationStatus.reserved,
+                    WebCreditReservationStatus.settled,
+                    WebCreditReservationStatus.incomplete,
+                }
+            )
+            if (
+                run_committed_credits + request.estimated_credits
+                > request.run_credit_ceiling
+            ):
+                reasons.append("CLOUD_RUN_CREDIT_CEILING_EXHAUSTED")
             spendable = (
                 snapshot.remaining_credits
                 - in_flight_credits

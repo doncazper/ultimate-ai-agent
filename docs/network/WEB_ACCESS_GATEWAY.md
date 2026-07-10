@@ -1,8 +1,8 @@
 # WebAccessGateway Boundary
 
-Status: active boundary plus exact WEB-HYBRID-003 SearXNG search and WEB-HYBRID-004 self-hosted Firecrawl markdown lanes
-Scope: contracts, policy, audit, source metadata, static guardrails, governed evidence wrapper, disabled provider shells, exact governed SearXNG search, and exact self-hosted one-page markdown extraction
-Out of scope: Firecrawl Cloud, provider credentials, crawl/map/search/schema extraction, browser execution, browser clicks, form filling, auth, cookies, downloads, uploads, and non-GET target methods
+Status: active boundary plus exact WEB-HYBRID-003 SearXNG, WEB-HYBRID-004 self-hosted Firecrawl, and WEB-HYBRID-005 free-plan cloud markdown lanes
+Scope: contracts, policy, audit, source metadata, static guardrails, governed evidence wrapper, exact governed search, local extraction, authenticated credit reconciliation, and independently governed one-page cloud extraction
+Out of scope: hybrid fallback execution, paid usage, Keyless, crawl/map/search/schema extraction, browser execution, browser clicks, form filling, auth/cookies for target pages, downloads, uploads, and non-GET target methods
 
 ## Decision
 
@@ -49,9 +49,12 @@ AuthorityLease all pass immediately before execution. WEB-HYBRID-004 separately
 promotes one self-hosted Firecrawl markdown extraction for an exact allowlisted
 public HTTPS target under the same request-scoped gates. The target operation
 remains GET; the fixed loopback adapter uses POST only as Firecrawl's provider
-transport. Firecrawl Cloud, Browserbase, crawl/map/search/schema extraction,
-provider credentials, browser sessions/actions, auth/cookies, downloads/uploads,
-and POST-style target mutations remain blocked.
+transport. WEB-HYBRID-005 independently permits one authenticated Firecrawl
+Cloud standard scrape only after current free-plan credit truth, atomic
+reservation, exact budget decision, and post-call reconciliation are proven.
+It does not enable hybrid fallback. Paid usage, Keyless, Browserbase,
+crawl/map/search/schema extraction, browser sessions/actions, target auth/cookies,
+downloads/uploads, and POST-style target mutations remain blocked.
 
 ## Authority ladder
 
@@ -82,6 +85,9 @@ Allowed:
   safe-search, and at most ten normalized untrusted results
 - exact self-hosted Firecrawl `EXTRACT_MARKDOWN` for one approved public HTTPS
   target, one attempt, one page, markdown only, with a bounded redacted preview
+- exact Firecrawl Cloud `EXTRACT_MARKDOWN` for the same bounded target shape,
+  using `proxy=basic`, `storeInCache=false`, one free-credit reservation, and
+  authoritative before/after credit reconciliation
 - a fixed configured loopback endpoint; requests cannot supply or override it
 - exact capability/provider/adapter/task/request lease resources plus exact
   local approval validation before each transport call
@@ -115,7 +121,8 @@ Denied:
 - provider SDK imports/calls
 - provider credentials
 - all live search providers except the exact governed SearXNG lane
-- Firecrawl Cloud, crawl/map/search/schema extraction, and provider actions
+- Firecrawl Cloud hybrid fallback, paid/unknown plans, Keyless,
+  crawl/map/search/schema extraction, and provider actions
 - Browserbase browser sessions
 ```
 
@@ -155,6 +162,17 @@ Full markdown remains transient, untrusted evidence; receipts expose safe refs,
 hashes, reason codes, and a bounded redacted preview only. Crawl, map, search,
 schema extraction, screenshots, actions, and request-controlled provider options
 are not part of this lane.
+
+The cloud adapter is another independent exact promotion, not a fallback or
+standing spend authority. The ignored credential is resolved transiently from
+one exact local secret file; neither credential material nor its path is
+returned. The authenticated provider snapshot is authoritative for plan and
+balance truth, while UAA's atomic ledger coordinates in-flight reservations and
+the per-run ceiling. Unknown/stale/paid/incomplete states block before dispatch.
+A successful result requires the before/after balance delta to prove the exact
+one-credit standard scrape. Provider-level zero-data retention is not claimed
+for the free plan; UAA uses `storeInCache=false` and retains no raw page or
+provider payload.
 
 ## Untrusted content model
 

@@ -18,8 +18,11 @@ current availability, PolicyEngine, exact local approval, and an exact
 resource-constrained AuthorityLease. WEB-HYBRID-004 adds one independent exact
 self-hosted Firecrawl lane for a single approved, allowlisted public HTTPS page,
 one attempt, and transient markdown-only evidence under the same request-scoped
-gates. Firecrawl Cloud credential use, credit reconciliation, and hybrid
-provider fallback execution remain blocked until their exact later phases.
+gates. WEB-HYBRID-005 adds authenticated free-plan credit reconciliation,
+atomic local reservations, and one independently governed Firecrawl Cloud
+standard markdown attempt with exact approval, lease, budget, idempotency, and
+post-call usage proof. Hybrid provider fallback remains blocked until
+WEB-HYBRID-006.
 
 Progress evidence is phase-committed. A completed contract or packaging phase
 does not grant later provider execution authority.
@@ -89,6 +92,14 @@ implementation PR:
 Provider pricing, endpoint support, credit costs, and self-host feature parity
 are external facts. Store a reviewed versioned capability/cost snapshot; do not
 silently fetch pricing or promote new endpoints at runtime.
+
+Reviewed 2026-07-10 against the official pricing and v2 API references: the
+free plan advertises 1,000 monthly plan credits and two concurrent requests;
+standard scrape costs one credit per page. The promoted cloud request fixes
+`proxy=basic` because `auto` may escalate to an enhanced five-credit attempt.
+It also fixes `storeInCache=false`. Provider zero-data-retention was observed
+as unavailable for the tested free-plan posture and is not claimed; UAA still
+keeps markdown transient and persists no raw page/provider payload.
 
 ## Goals
 
