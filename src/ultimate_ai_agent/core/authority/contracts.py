@@ -26,6 +26,7 @@ AUTHORITY_STATE_SCHEMA_VERSION = "uaa-authority-state.v1"
 AUTHORITY_LANE_CATALOG_SCHEMA_VERSION = "uaa-authority-lane-catalog.v1"
 AUTHORITY_DOMAIN_READINESS_SCHEMA_VERSION = "uaa-authority-domain-readiness-index.v1"
 AUTHORITY_MISSION_PLAN_SCHEMA_VERSION = "uaa-authority-mission-plan.v1"
+AUTHORITY_CONSTRAINT_SCHEMA_VERSION = "uaa-authority-constraint.v1"
 AUTHORITY_STATE_CONTRACT_REF = "contract-ref:authority-modes-mission-leases:v1"
 AUTHORITY_LANE_CATALOG_CONTRACT_REF = "contract-ref:authority-lane-catalog:v1"
 AUTHORITY_DOMAIN_READINESS_CONTRACT_REF = (
@@ -125,6 +126,14 @@ class AuthorityDecisionOutcome(str, Enum):
     degrade_to_draft = "degrade_to_draft"
 
 
+class AuthorityConstraintKind(str, Enum):
+    resource_refs = "resource_refs"
+    path_refs = "path_refs"
+    app_refs = "app_refs"
+    host_refs = "host_refs"
+    delegation_depth = "delegation_depth"
+
+
 def _stable_ref(prefix: str, payload: Any) -> str:
     encoded = json.dumps(
         payload,
@@ -148,6 +157,63 @@ class _AuthorityModel(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
 
+_AUTHORITY_REF_CONSTRAINT_KINDS = {
+    AuthorityConstraintKind.resource_refs,
+    AuthorityConstraintKind.path_refs,
+    AuthorityConstraintKind.app_refs,
+    AuthorityConstraintKind.host_refs,
+}
+
+
+class AuthorityConstraint(_AuthorityModel):
+    schema_version: Literal["uaa-authority-constraint.v1"] = (
+        AUTHORITY_CONSTRAINT_SCHEMA_VERSION
+    )
+    constraint_ref: str = Field(..., min_length=1)
+    kind: AuthorityConstraintKind
+    allowed_refs: list[str] = Field(default_factory=list)
+    maximum: int | None = Field(default=None, ge=0)
+    safe_summary: str = Field(..., min_length=1, max_length=260)
+
+    @model_validator(mode="after")
+    def validate_constraint(self) -> "AuthorityConstraint":
+        validate_task_ref(self.constraint_ref, "authority_constraint_ref")
+        validate_safe_task_text(self.schema_version, "authority_constraint_schema")
+        validate_safe_task_text(_enum_value(self.kind), "authority_constraint_kind")
+        validate_safe_task_text(self.safe_summary, "authority_constraint_summary")
+        _validate_ref_list(self.allowed_refs, "authority_constraint_allowed_ref")
+        kind = AuthorityConstraintKind(self.kind)
+        if kind in _AUTHORITY_REF_CONSTRAINT_KINDS:
+            if not self.allowed_refs or self.maximum is not None:
+                raise ValueError("AUTHORITY_CONSTRAINT_REF_ALLOWLIST_REQUIRED")
+        elif kind == AuthorityConstraintKind.delegation_depth:
+            if self.maximum is None or self.allowed_refs:
+                raise ValueError("AUTHORITY_CONSTRAINT_MAXIMUM_REQUIRED")
+        return self
+
+
+class AuthorityConstraintClaim(_AuthorityModel):
+    kind: AuthorityConstraintKind
+    refs: list[str] = Field(default_factory=list)
+    value: int | None = Field(default=None, ge=0)
+
+    @model_validator(mode="after")
+    def validate_claim(self) -> "AuthorityConstraintClaim":
+        validate_safe_task_text(_enum_value(self.kind), "authority_constraint_claim_kind")
+        _validate_ref_list(self.refs, "authority_constraint_claim_ref")
+        kind = AuthorityConstraintKind(self.kind)
+        if kind in _AUTHORITY_REF_CONSTRAINT_KINDS:
+            if kind == AuthorityConstraintKind.resource_refs:
+                if self.refs or self.value is not None:
+                    raise ValueError("AUTHORITY_RESOURCE_CONSTRAINT_USES_ACTION_REFS")
+            elif not self.refs or self.value is not None:
+                raise ValueError("AUTHORITY_CONSTRAINT_CLAIM_REFS_REQUIRED")
+        elif kind == AuthorityConstraintKind.delegation_depth:
+            if self.value is None or self.refs:
+                raise ValueError("AUTHORITY_CONSTRAINT_CLAIM_VALUE_REQUIRED")
+        return self
+
+
 class AuthorityLease(_AuthorityModel):
     schema_version: str = AUTHORITY_LEASE_SCHEMA_VERSION
     lease_ref: str = Field(..., min_length=1)
@@ -159,6 +225,7 @@ class AuthorityLease(_AuthorityModel):
     domains: dict[AuthorityDomain, list[AuthorityCapability]] = Field(
         default_factory=dict
     )
+    authority_constraints: list[AuthorityConstraint] = Field(default_factory=list)
     constraints: dict[str, Any] = Field(default_factory=dict)
     ask_if: list[str] = Field(default_factory=list)
     hard_deny: list[str] = Field(default_factory=list)
@@ -197,6 +264,9 @@ class AuthorityLease(_AuthorityModel):
             validate_safe_task_text(_enum_value(text), "authority_lease_text")
         _validate_ref_list(self.unsupported_adapter_refs, "unsupported_adapter_ref")
         validate_safe_task_payload(self.constraints, "authority_lease_constraints")
+        constraint_kinds = [constraint.kind for constraint in self.authority_constraints]
+        if len(constraint_kinds) != len(set(constraint_kinds)):
+            raise ValueError("AUTHORITY_LEASE_DUPLICATE_CONSTRAINT_KIND")
         if not self.domains:
             raise ValueError("AUTHORITY_LEASE_DOMAINS_REQUIRED")
         for domain, capabilities in self.domains.items():
@@ -354,6 +424,7 @@ class AuthorityActionRequest(_AuthorityModel):
     lane_ref: str | None = None
     adapter_ref: str | None = None
     requested_mode: TrustMode | None = None
+    constraint_claims: list[AuthorityConstraintClaim] = Field(default_factory=list)
     constraints: dict[str, Any] = Field(default_factory=dict)
     draft_fallback_available: bool = False
     unsupported_adapter: bool = False
@@ -385,6 +456,9 @@ class AuthorityActionRequest(_AuthorityModel):
         if self.requested_mode:
             validate_safe_task_text(_enum_value(self.requested_mode), "trust_mode")
         validate_safe_task_payload(self.constraints, "authority_action_constraints")
+        claim_kinds = [claim.kind for claim in self.constraint_claims]
+        if len(claim_kinds) != len(set(claim_kinds)):
+            raise ValueError("AUTHORITY_ACTION_DUPLICATE_CONSTRAINT_CLAIM_KIND")
         if not self.receipts_required or not self.audit_required or not self.redaction_required:
             raise ValueError("AUTHORITY_ACTION_GOVERNANCE_REQUIRED")
         return self
@@ -404,6 +478,7 @@ class AuthorityPolicyDecision(_AuthorityModel):
     required_domain_refs: list[str] = Field(default_factory=list)
     required_capability_refs: list[str] = Field(default_factory=list)
     reason_refs: list[str] = Field(default_factory=list)
+    applied_constraint_refs: list[str] = Field(default_factory=list)
     operator_message: str = Field(..., min_length=1, max_length=520)
     known_authority: bool = False
     unsupported_adapter: bool = False
@@ -439,6 +514,7 @@ class AuthorityPolicyDecision(_AuthorityModel):
             (self.required_domain_refs, "required_domain_ref"),
             (self.required_capability_refs, "required_capability_ref"),
             (self.reason_refs, "authority_reason_ref"),
+            (self.applied_constraint_refs, "authority_applied_constraint_ref"),
         ]:
             _validate_ref_list(ref_list, field_name)
         validate_safe_task_text(self.operator_message, "authority_operator_message")
@@ -924,6 +1000,7 @@ class AuthorityLeaseIssueRequest(_AuthorityModel):
     requested_domains: dict[AuthorityDomain, list[AuthorityCapability]] = Field(
         default_factory=dict
     )
+    authority_constraints: list[AuthorityConstraint] = Field(default_factory=list)
     constraints: dict[str, Any] = Field(default_factory=dict)
     decision_reason_ref: str = Field(..., min_length=1)
     duration_minutes: int = Field(default=60, ge=5, le=480)
@@ -944,6 +1021,9 @@ class AuthorityLeaseIssueRequest(_AuthorityModel):
         validate_safe_task_text(self.safe_summary, "authority_lease_issue_summary")
         validate_safe_task_payload(self.constraints, "authority_lease_issue_constraints")
         validate_safe_task_payload(self.approval_grants, "authority_lease_approval_grants")
+        constraint_kinds = [constraint.kind for constraint in self.authority_constraints]
+        if len(constraint_kinds) != len(set(constraint_kinds)):
+            raise ValueError("AUTHORITY_LEASE_DUPLICATE_CONSTRAINT_KIND")
         if self.scope == AuthorityLeaseScope.mission.value and not self.mission_ref:
             raise ValueError("AUTHORITY_LEASE_MISSION_REF_REQUIRED")
         if (
@@ -1366,6 +1446,7 @@ class AuthorityLeaseReceipt(_AuthorityModel):
     receipt_ref: str = Field(..., min_length=1)
     lease_ref: str = Field(..., min_length=1)
     idempotency_ref: str = Field(..., min_length=1)
+    request_fingerprint_ref: str | None = None
     decision_reason_ref: str = Field(..., min_length=1)
     mode: TrustMode
     scope: AuthorityLeaseScope
@@ -1409,6 +1490,10 @@ class AuthorityLeaseReceipt(_AuthorityModel):
             (self.receipt_ref, "authority_lease_receipt_ref"),
             (self.lease_ref, "authority_lease_receipt_lease_ref"),
             (self.idempotency_ref, "authority_lease_receipt_idempotency_ref"),
+            (
+                self.request_fingerprint_ref,
+                "authority_lease_receipt_request_fingerprint_ref",
+            ),
             (self.decision_reason_ref, "authority_lease_receipt_reason_ref"),
             (self.audit_ref, "authority_lease_receipt_audit_ref"),
             (self.rollback_ref, "authority_lease_receipt_rollback_ref"),
@@ -1527,6 +1612,54 @@ READ_PREPARE_CAPABILITIES = {
 }
 
 
+def _lease_constraint_match(
+    lease: AuthorityLease,
+    request: AuthorityActionRequest,
+) -> tuple[list[str], list[str]]:
+    claims = {
+        AuthorityConstraintKind(claim.kind): claim for claim in request.constraint_claims
+    }
+    reason_refs: list[str] = []
+    applied_refs: list[str] = []
+    for constraint in lease.authority_constraints:
+        kind = AuthorityConstraintKind(constraint.kind)
+        if kind == AuthorityConstraintKind.resource_refs:
+            actual_refs = request.resource_refs
+        else:
+            claim = claims.get(kind)
+            if claim is None:
+                reason_refs.append(
+                    f"reason-ref:authority:constraint-claim-missing:{kind.value}"
+                )
+                continue
+            actual_refs = claim.refs
+        if kind in _AUTHORITY_REF_CONSTRAINT_KINDS:
+            if not actual_refs:
+                reason_refs.append(
+                    f"reason-ref:authority:constraint-claim-missing:{kind.value}"
+                )
+                continue
+            if not set(actual_refs).issubset(set(constraint.allowed_refs)):
+                reason_refs.append(
+                    f"reason-ref:authority:constraint-ref-outside-scope:{kind.value}"
+                )
+                continue
+        elif kind == AuthorityConstraintKind.delegation_depth:
+            claim = claims.get(kind)
+            if claim is None or claim.value is None:
+                reason_refs.append(
+                    "reason-ref:authority:constraint-claim-missing:delegation_depth"
+                )
+                continue
+            if constraint.maximum is None or claim.value > constraint.maximum:
+                reason_refs.append(
+                    "reason-ref:authority:constraint-limit-exceeded:delegation_depth"
+                )
+                continue
+        applied_refs.append(constraint.constraint_ref)
+    return list(dict.fromkeys(reason_refs)), applied_refs
+
+
 def _lease_scope_matches_action(
     lease: AuthorityLease,
     request: AuthorityActionRequest,
@@ -1560,7 +1693,7 @@ def evaluate_authority_request(
         for lease in active_leases
         if lease.grants(AuthorityDomain(request.domain), AuthorityCapability(request.capability))
     ]
-    matching = [
+    matching_scope = [
         lease
         for lease in matching_domain_capability
         if _lease_scope_matches_action(lease, request)
@@ -1593,7 +1726,7 @@ def evaluate_authority_request(
             operator_message="Denied because the requested adapter is not implemented.",
             unsupported_adapter=True,
         )
-    if not matching:
+    if not matching_scope:
         reason_ref = (
             "reason-ref:authority:mission-scope-mismatch"
             if matching_domain_capability
@@ -1622,7 +1755,31 @@ def evaluate_authority_request(
                 else "Denied because no active lease grants this domain and capability."
             ),
         )
-    lease = matching[0]
+    constraint_results = [
+        (lease, *_lease_constraint_match(lease, request)) for lease in matching_scope
+    ]
+    matching = [item for item in constraint_results if not item[1]]
+    if not matching:
+        constraint_reason_refs = list(
+            dict.fromkeys(
+                reason
+                for _, mismatch_refs, _ in constraint_results
+                for reason in mismatch_refs
+            )
+        )
+        return _decision(
+            request,
+            AuthorityDecisionOutcome.deny,
+            reason_refs=[
+                "reason-ref:authority:lease-constraint-mismatch",
+                *constraint_reason_refs,
+            ],
+            operator_message=(
+                "Denied because the action does not satisfy the active lease constraints."
+            ),
+            known_authority=True,
+        )
+    lease, _, applied_constraint_refs = matching[0]
     mode = TrustMode(lease.mode)
     capability = AuthorityCapability(request.capability)
     if mode == TrustMode.ask_before_changes and capability not in READ_PREPARE_CAPABILITIES:
@@ -1634,6 +1791,7 @@ def evaluate_authority_request(
             reason_refs=reason_refs,
             operator_message="Ask before changes mode requires operator confirmation.",
             known_authority=True,
+            applied_constraint_refs=applied_constraint_refs,
         )
     if mode == TrustMode.read_only and capability not in READ_PREPARE_CAPABILITIES:
         reason_refs.append("reason-ref:authority:read-only-mode")
@@ -1645,6 +1803,7 @@ def evaluate_authority_request(
                 reason_refs=reason_refs,
                 operator_message="Read-only mode degraded the action to a draft proposal.",
                 known_authority=True,
+                applied_constraint_refs=applied_constraint_refs,
             )
         return _decision(
             request,
@@ -1653,6 +1812,7 @@ def evaluate_authority_request(
             reason_refs=reason_refs,
             operator_message="Requires a stronger trust mode for this capability.",
             known_authority=True,
+            applied_constraint_refs=applied_constraint_refs,
         )
     reason_refs.append("reason-ref:authority:active-lease-grants-domain-capability")
     return _decision(
@@ -1662,6 +1822,7 @@ def evaluate_authority_request(
         reason_refs=reason_refs,
         operator_message="Allowed by active authority lease.",
         known_authority=True,
+        applied_constraint_refs=applied_constraint_refs,
     )
 
 
@@ -1674,6 +1835,7 @@ def _decision(
     lease: AuthorityLease | None = None,
     known_authority: bool = False,
     unsupported_adapter: bool = False,
+    applied_constraint_refs: list[str] | None = None,
 ) -> AuthorityPolicyDecision:
     lease_ref = lease.lease_ref if lease else None
     matched_mode = TrustMode(lease.mode) if lease else None
@@ -1709,6 +1871,7 @@ def _decision(
             f"authority-capability-ref:{_enum_value(request.capability)}"
         ],
         reason_refs=list(dict.fromkeys(reason_refs)),
+        applied_constraint_refs=applied_constraint_refs or [],
         operator_message=operator_message,
         known_authority=known_authority,
         unsupported_adapter=unsupported_adapter,
@@ -1840,6 +2003,19 @@ def build_default_authority_leases() -> list[AuthorityLease]:
 
 class AuthorityLeaseConflictError(RuntimeError):
     """Raised when an idempotency ref is reused for a different lease operation."""
+
+
+def _authority_lease_operation_fingerprint_ref(
+    operation: Literal["issue", "revoke"],
+    request: AuthorityLeaseIssueRequest | AuthorityLeaseRevokeRequest,
+) -> str:
+    payload = request.model_dump(mode="json")
+    if operation == "issue":
+        payload.pop("approval_grants", None)
+    return _stable_ref(
+        "request-fingerprint-ref:authority-lease",
+        {"operation": operation, "request": payload},
+    )
 
 
 def authority_state_dir() -> Path:
@@ -2407,6 +2583,17 @@ def _authority_lease_approval_resource_refs(
     ]
     if request.mission_ref:
         resource_refs.append(request.mission_ref)
+    for constraint in request.authority_constraints:
+        resource_refs.extend(
+            [
+                constraint.constraint_ref,
+                *constraint.allowed_refs,
+                _stable_ref(
+                    "authority-constraint-binding-ref",
+                    constraint.model_dump(mode="json"),
+                ),
+            ]
+        )
     for domain, capabilities in sorted(
         granted_domains.items(),
         key=lambda item: _enum_value(item[0]),
@@ -2440,6 +2627,10 @@ def build_authority_lease_approval_requirement(
         "mission_ref": request.mission_ref,
         "operator_ref": request.operator_ref,
         "resources": resource_refs,
+        "authority_constraints": [
+            constraint.model_dump(mode="json")
+            for constraint in request.authority_constraints
+        ],
     }
     approval_scope_ref = _stable_ref("approval-scope-ref:authority-lease", scope_payload)
     approval_request_ref = _stable_ref(
@@ -2813,9 +3004,15 @@ class AuthorityLeaseStore:
         approval_validator: AuthorityLeaseApprovalValidator | None = None,
     ) -> tuple[AuthorityLease | None, AuthorityLeaseReceipt]:
         validate_task_ref(idempotency_ref, "authority_lease_idempotency_ref")
+        request_fingerprint_ref = _authority_lease_operation_fingerprint_ref(
+            "issue", request
+        )
         existing = self._receipt_for_idempotency(idempotency_ref)
         if existing is not None:
-            if existing.operation != "issue":
+            if (
+                existing.operation != "issue"
+                or existing.request_fingerprint_ref != request_fingerprint_ref
+            ):
                 raise AuthorityLeaseConflictError("AUTHORITY_LEASE_IDEMPOTENCY_CONFLICT")
             lease = self._lease_by_ref(existing.lease_ref)
             return lease, existing.model_copy(update={"status": "replayed"})
@@ -2836,6 +3033,10 @@ class AuthorityLeaseStore:
                     _enum_value(domain): [_enum_value(capability) for capability in caps]
                     for domain, caps in granted.items()
                 },
+                "authority_constraints": [
+                    constraint.model_dump(mode="json")
+                    for constraint in request.authority_constraints
+                ],
             },
         )
         approval_decision = (
@@ -2920,6 +3121,7 @@ class AuthorityLeaseStore:
             mission_ref=request.mission_ref,
             operator_ref=request.operator_ref,
             domains=granted,
+            authority_constraints=request.authority_constraints,
             constraints={
                 **request.constraints,
                 "decision_reason_ref": request.decision_reason_ref,
@@ -2970,9 +3172,15 @@ class AuthorityLeaseStore:
         idempotency_ref: str,
     ) -> tuple[AuthorityLease | None, AuthorityLeaseReceipt]:
         validate_task_ref(idempotency_ref, "authority_lease_idempotency_ref")
+        request_fingerprint_ref = _authority_lease_operation_fingerprint_ref(
+            "revoke", request
+        )
         existing = self._receipt_for_idempotency(idempotency_ref)
         if existing is not None:
-            if existing.operation != "revoke":
+            if (
+                existing.operation != "revoke"
+                or existing.request_fingerprint_ref != request_fingerprint_ref
+            ):
                 raise AuthorityLeaseConflictError("AUTHORITY_LEASE_IDEMPOTENCY_CONFLICT")
             return self._lease_by_ref(existing.lease_ref), existing.model_copy(
                 update={"status": "replayed"}
@@ -2989,6 +3197,7 @@ class AuthorityLeaseStore:
                 ),
                 lease_ref=request.lease_ref,
                 idempotency_ref=idempotency_ref,
+                request_fingerprint_ref=request_fingerprint_ref,
                 decision_reason_ref=request.decision_reason_ref,
                 mode=TrustMode.read_only,
                 scope=AuthorityLeaseScope.session,
@@ -3030,6 +3239,7 @@ class AuthorityLeaseStore:
             ),
             lease_ref=lease.lease_ref,
             idempotency_ref=idempotency_ref,
+            request_fingerprint_ref=request_fingerprint_ref,
             decision_reason_ref=request.decision_reason_ref,
             mode=TrustMode(lease.mode),
             scope=AuthorityLeaseScope(lease.scope),
@@ -3094,6 +3304,9 @@ class AuthorityLeaseStore:
             ),
             lease_ref=lease_ref,
             idempotency_ref=idempotency_ref,
+            request_fingerprint_ref=_authority_lease_operation_fingerprint_ref(
+                operation, request
+            ),
             decision_reason_ref=request.decision_reason_ref,
             mode=request.mode,
             scope=request.scope,
@@ -3161,10 +3374,26 @@ class AuthorityLeaseStore:
         self,
         idempotency_ref: str,
     ) -> AuthorityLeaseReceipt | None:
-        for receipt in reversed(self.list_receipts(limit=200)):
-            if receipt.idempotency_ref == idempotency_ref:
-                return receipt
-        return None
+        if not self.receipts_path.exists():
+            return None
+        matched: AuthorityLeaseReceipt | None = None
+        with self.receipts_path.open(encoding="utf-8") as handle:
+            for line in handle:
+                if not line.strip():
+                    continue
+                receipt = AuthorityLeaseReceipt(**json.loads(line))
+                if receipt.idempotency_ref == idempotency_ref:
+                    if matched is not None and (
+                        receipt.operation != matched.operation
+                        or receipt.lease_ref != matched.lease_ref
+                        or receipt.request_fingerprint_ref
+                        != matched.request_fingerprint_ref
+                    ):
+                        raise AuthorityLeaseConflictError(
+                            "AUTHORITY_LEASE_IDEMPOTENCY_HISTORY_CONFLICT"
+                        )
+                    matched = receipt
+        return matched
 
     def _lease_by_ref(self, lease_ref: str) -> AuthorityLease | None:
         return next((lease for lease in self._read_leases() if lease.lease_ref == lease_ref), None)

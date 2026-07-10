@@ -32,6 +32,14 @@ Product Loop 012 now adds the Private product loop trial script as a
 local/private, safe-ref-only manual operator review artifact with
 `scripts/inspect_product_loop_trial_script.py` CLI parity and no authority
 promotion.
+AuthorityLease typed constraints V1 is implemented in Python Core for exact
+resource, path, app, host, and delegation-depth enforcement. Constraint claims
+fail closed, approval scopes and lease identities bind the full typed
+constraint payload, policy decisions expose applied constraint refs, and lease
+issue/revoke idempotency rejects semantic request or approval drift. Durable
+operation/cost budgets, time-window and recipient/target constraints, renewal,
+dispatcher integration, and broader adapter execution remain the next
+authority-foundation work; this slice grants no new broad authority.
 Beta 04 Universal Proof and Run Detail spine now hardens the repo-safe proof
 surface by requiring each backend-owned Universal Proof record to carry a
 `control-center-proof-run-detail.v1` safe-ref snapshot with route, receipt,

@@ -1,5 +1,6 @@
 from ultimate_ai_agent.core.authority.contracts import (
     AUTHORITY_LEASE_SCHEMA_VERSION,
+    AUTHORITY_CONSTRAINT_SCHEMA_VERSION,
     AUTHORITY_LANE_CATALOG_CONTRACT_REF,
     AUTHORITY_LANE_CATALOG_SCHEMA_VERSION,
     AUTHORITY_DOMAIN_READINESS_CONTRACT_REF,
@@ -13,6 +14,9 @@ from ultimate_ai_agent.core.authority.contracts import (
     AuthorityLeaseApprovalRequirement,
     AuthorityCapability,
     AuthorityCapabilityMapping,
+    AuthorityConstraint,
+    AuthorityConstraintClaim,
+    AuthorityConstraintKind,
     AuthorityDecisionCatalogEntry,
     AuthorityDecisionOutcome,
     AuthorityDecisionPreview,
@@ -55,6 +59,7 @@ from ultimate_ai_agent.core.authority.contracts import (
 
 __all__ = [
     "AUTHORITY_LEASE_SCHEMA_VERSION",
+    "AUTHORITY_CONSTRAINT_SCHEMA_VERSION",
     "AUTHORITY_LANE_CATALOG_CONTRACT_REF",
     "AUTHORITY_LANE_CATALOG_SCHEMA_VERSION",
     "AUTHORITY_DOMAIN_READINESS_CONTRACT_REF",
@@ -68,6 +73,9 @@ __all__ = [
     "AuthorityLeaseApprovalRequirement",
     "AuthorityCapability",
     "AuthorityCapabilityMapping",
+    "AuthorityConstraint",
+    "AuthorityConstraintClaim",
+    "AuthorityConstraintKind",
     "AuthorityDecisionCatalogEntry",
     "AuthorityDecisionOutcome",
     "AuthorityDecisionPreview",
