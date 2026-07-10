@@ -276,6 +276,7 @@ class AuthorityBudgetLeaseSummary(_AuthorityBudgetContract):
     active_reservation_count: StrictInt = Field(default=0, ge=0)
     settled_reservation_count: StrictInt = Field(default=0, ge=0)
     unresolved_cost: StrictBool = False
+    unreviewed_overage: StrictBool = False
     exhausted: StrictBool = False
     blocked_reason_refs: list[str] = Field(default_factory=list)
 
@@ -305,6 +306,7 @@ class AuthorityBudgetLeaseSummary(_AuthorityBudgetContract):
             or self.allocated_operation_count >= self.operation_limit
             or self.allocated_cost_microusd >= self.cost_limit_microusd
             or self.unresolved_cost
+            or self.unreviewed_overage
         )
         if self.exhausted != expected_exhausted:
             raise ValueError("AUTHORITY_BUDGET_EXHAUSTED_POSTURE_INVALID")
@@ -322,6 +324,11 @@ class AuthorityBudgetLeaseSummary(_AuthorityBudgetContract):
             not in self.blocked_reason_refs
         ):
             raise ValueError("AUTHORITY_BUDGET_KILL_SWITCH_REASON_REQUIRED")
+        if self.unreviewed_overage and (
+            "reason-ref:authority-budget:settlement-overage-unreviewed"
+            not in self.blocked_reason_refs
+        ):
+            raise ValueError("AUTHORITY_BUDGET_UNREVIEWED_OVERAGE_REASON_REQUIRED")
         if self.exhausted and (
             "reason-ref:authority-budget:budget-exhausted"
             not in self.blocked_reason_refs

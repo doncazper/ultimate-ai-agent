@@ -257,6 +257,10 @@ class AuthorityBudgetStore:
             usage = self._usage_for_lease(receipts, request.lease_ref)
             if usage["unresolved_cost"]:
                 reason_refs.append("reason-ref:authority-budget:actual-cost-unresolved")
+            if usage["unreviewed_overage"]:
+                reason_refs.append(
+                    "reason-ref:authority-budget:settlement-overage-unreviewed"
+                )
             next_operations = usage["operations"] + request.operation_count
             next_cost = usage["cost"] + (request.estimated_cost_microusd or 0)
             if operation_limit is not None and next_operations > operation_limit:
@@ -554,6 +558,10 @@ class AuthorityBudgetStore:
                 blocked_refs.append(
                     "reason-ref:authority-budget:actual-cost-unresolved"
                 )
+            if usage["unreviewed_overage"]:
+                blocked_refs.append(
+                    "reason-ref:authority-budget:settlement-overage-unreviewed"
+                )
             exhausted = bool(
                 operation_limit is None
                 or cost_limit is None
@@ -562,6 +570,7 @@ class AuthorityBudgetStore:
                 or cost_limit is not None
                 and usage["cost"] >= cost_limit
                 or usage["unresolved_cost"]
+                or usage["unreviewed_overage"]
             )
             if exhausted:
                 blocked_refs.append("reason-ref:authority-budget:budget-exhausted")
@@ -590,6 +599,7 @@ class AuthorityBudgetStore:
                     active_reservation_count=usage["active_count"],
                     settled_reservation_count=usage["settled_count"],
                     unresolved_cost=usage["unresolved_cost"],
+                    unreviewed_overage=usage["unreviewed_overage"],
                     exhausted=exhausted,
                     blocked_reason_refs=list(dict.fromkeys(blocked_refs)),
                 )
@@ -792,6 +802,7 @@ class AuthorityBudgetStore:
         active_count = 0
         settled_count = 0
         unresolved_cost = False
+        unreviewed_overage = False
         for reservation_ref in reservation_refs:
             if reservation_ref == exclude_reservation_ref:
                 continue
@@ -814,12 +825,16 @@ class AuthorityBudgetStore:
                     state["status"]
                     == AuthorityBudgetStatus.settled_cost_unresolved.value
                 )
+                unreviewed_overage = unreviewed_overage or (
+                    state["status"] == AuthorityBudgetStatus.settled_overage.value
+                )
         return {
             "operations": operations,
             "cost": cost,
             "active_count": active_count,
             "settled_count": settled_count,
             "unresolved_cost": unresolved_cost,
+            "unreviewed_overage": unreviewed_overage,
         }
 
     def _denied_followup_receipt(

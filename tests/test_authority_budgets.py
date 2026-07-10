@@ -377,6 +377,52 @@ def test_operation_overage_is_recorded_and_blocks_future_capacity(tmp_path) -> N
     )
 
 
+def test_reservation_overage_below_lease_ceiling_still_fails_closed(
+    tmp_path,
+) -> None:
+    _, budget_store, lease = _stores(
+        tmp_path,
+        operation_limit=3,
+        cost_limit=1_000,
+    )
+    reservation = budget_store.reserve(
+        _reserve_request(
+            lease.lease_ref,
+            suffix="below-ceiling-overage",
+            cost_microusd=100,
+        )
+    )
+    overage = budget_store.settle(
+        AuthorityBudgetSettlementRequest(
+            reservation_ref=reservation.reservation_ref,
+            idempotency_ref="idempotency-ref:test-below-ceiling-overage",
+            actual_operation_count=1,
+            actual_cost_microusd=200,
+            actual_cost_ref="actual-cost-ref:test-below-ceiling-overage",
+            execution_status=AuthorityBudgetExecutionStatus.succeeded,
+            evidence_refs=["evidence-ref:test-below-ceiling-overage"],
+            safe_summary="Record reservation overage below the lease ceiling.",
+        )
+    )
+    blocked = budget_store.reserve(
+        _reserve_request(
+            lease.lease_ref,
+            suffix="after-below-ceiling-overage",
+            cost_microusd=1,
+        )
+    )
+    summary = budget_store.build_read_model().lease_summaries[0]
+
+    assert overage.status == AuthorityBudgetStatus.settled_overage.value
+    assert blocked.status == AuthorityBudgetStatus.denied.value
+    assert "reason-ref:authority-budget:settlement-overage-unreviewed" in (
+        blocked.reason_refs
+    )
+    assert summary.unreviewed_overage is True
+    assert summary.exhausted is True
+    assert summary.reservation_available is False
+
+
 def test_settlement_contract_requires_evidence() -> None:
     with pytest.raises(ValueError, match="evidence_refs"):
         AuthorityBudgetSettlementRequest(

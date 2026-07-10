@@ -53,7 +53,8 @@ bound to this store.
 After execution starts, a reservation must be settled with actual operation
 count, actual cost plus its safe ref, execution status, and evidence refs. The
 ledger always records actual overage. A settlement exceeding its reservation or
-lease ceiling becomes `settled_overage`; future capacity remains exhausted.
+lease ceiling becomes `settled_overage`; any unreviewed reservation overage
+freezes future capacity even when actual usage remains below the lease ceiling.
 When actual cost is unknown, the settlement becomes
 `settled_cost_unresolved` and all later reservations for that lease fail closed
 until a future reviewed remediation contract exists.
@@ -74,8 +75,9 @@ binding drift, broken previous-hash linkage, or changed entry content fails
 closed as ledger corruption.
 
 The typed `AuthorityBudgetReadModel` reports per-lease active and reservation-
-available and kill-switch posture, limits, allocated and remaining capacity, active and settled
-counts, unresolved-cost state, exhausted state, recent receipts, and total
+available and kill-switch posture, limits, allocated and remaining capacity,
+active and settled counts, unresolved-cost and unreviewed-overage state,
+exhausted state, recent receipts, and total
 receipt count. Revoked and expired leases remain visible for audit but are
 explicitly unavailable with `reason-ref:authority-budget:lease-inactive`. It is
 projected through:
