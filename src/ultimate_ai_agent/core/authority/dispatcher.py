@@ -436,12 +436,10 @@ class AuthorityDispatcher:
             adapter = self.adapters.get(request.adapter_ref)
             prestart_reasons = self._prestart_reason_refs(request, latest, adapter)
             if not prestart_reasons:
-                started = self._build_receipt(
-                    request,
+                started = self._build_receipt_from_existing(
+                    latest,
                     status=AuthorityDispatchStatus.started,
                     previous_entry_hash_ref=receipts[-1].entry_hash_ref,
-                    descriptor=adapter.descriptor,
-                    previous=latest,
                     execution_ref=_execution_ref(request),
                     execution_started=True,
                     safe_summary="Governed adapter start recorded before invocation.",
@@ -565,16 +563,14 @@ class AuthorityDispatcher:
             latest = history[-1]
             if latest.status != AuthorityDispatchStatus.started.value:
                 return AuthorityDispatchResult(receipt=latest, replayed=True)
-            terminal = self._build_receipt(
-                request,
+            terminal = self._build_receipt_from_existing(
+                latest,
                 status=(
                     AuthorityDispatchStatus.succeeded
                     if adapter_result.succeeded
                     else AuthorityDispatchStatus.failed
                 ),
                 previous_entry_hash_ref=receipts[-1].entry_hash_ref,
-                descriptor=adapter.descriptor,
-                previous=latest,
                 execution_ref=adapter_result.execution_ref,
                 execution_started=True,
                 adapter_execution_performed=True,
@@ -701,6 +697,17 @@ class AuthorityDispatcher:
             reasons.append("reason-ref:authority-dispatch:adapter-not-registered")
         else:
             reasons.extend(adapter.validate_request(request))
+            descriptor = adapter.descriptor
+            if (
+                descriptor.adapter_ref != prepared.adapter_ref
+                or descriptor.capability_ref != prepared.capability_ref
+                or descriptor.rollback_ref != prepared.rollback_ref
+                or descriptor.safe_disable_ref != prepared.safe_disable_ref
+                or descriptor.approval_required != prepared.approval_required
+            ):
+                reasons.append(
+                    "reason-ref:authority-dispatch:prestart-adapter-binding-drift"
+                )
         lease = next(
             (
                 item

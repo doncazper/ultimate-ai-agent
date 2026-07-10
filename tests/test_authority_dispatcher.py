@@ -851,6 +851,69 @@ def test_missing_adapter_after_prepare_cancels_with_prepared_bindings(
     ]
 
 
+def test_adapter_binding_drift_after_prepare_cancels_before_invocation(
+    tmp_path: Path,
+) -> None:
+    state_dir = tmp_path / "authority"
+    root = tmp_path / "safe-root"
+    (root / "notes").mkdir(parents=True)
+    (root / "notes" / "report.md").write_text("bounded", encoding="utf-8")
+    lease_store, lease = _lease(
+        state_dir,
+        mode=TrustMode.full_local_workspace_session,
+        domain=AuthorityDomain.files,
+        capability=AuthorityCapability.read,
+    )
+    delegate = ToolRuntimeAuthorityDispatchAdapter(
+        _descriptor(filesystem=True),
+        safe_roots=[
+            FilesystemSafeRoot(
+                root_ref="safe-root:test-authority",
+                root_path=root,
+                safe_label="Test dispatch safe root",
+            )
+        ],
+    )
+    dispatcher = AuthorityDispatcher(
+        state_dir,
+        adapters=[delegate],
+        lease_store=lease_store,
+    )
+    request = _request(lease.lease_ref, suffix="adapter-drift", filesystem=True)
+    prepared = dispatcher.prepare(request)
+
+    class DriftedAdapter:
+        descriptor = delegate.descriptor.model_copy(
+            update={"rollback_ref": "rollback-ref:drifted-after-prepare"}
+        )
+
+        def __init__(self) -> None:
+            self.invocation_count = 0
+
+        def validate_request(self, request: AuthorityDispatchRequest) -> list[str]:
+            return delegate.validate_request(request)
+
+        def invoke(self, request: AuthorityDispatchRequest) -> Any:
+            self.invocation_count += 1
+            return delegate.invoke(request)
+
+    drifted = DriftedAdapter()
+    dispatcher.adapters[request.adapter_ref] = drifted
+
+    result = dispatcher.execute(request)
+    receipts = dispatcher.list_receipts()
+
+    assert result.receipt.status == AuthorityDispatchStatus.cancelled_before_start.value
+    assert drifted.invocation_count == 0
+    assert (
+        "reason-ref:authority-dispatch:prestart-adapter-binding-drift"
+        in result.receipt.reason_refs
+    )
+    assert all(
+        receipt.rollback_ref == prepared.receipt.rollback_ref for receipt in receipts
+    )
+
+
 def test_recent_dispatches_follow_latest_ledger_position(tmp_path: Path) -> None:
     state_dir = tmp_path / "authority"
     root = tmp_path / "safe-root"
