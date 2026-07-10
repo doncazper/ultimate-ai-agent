@@ -285,6 +285,18 @@ def _approval(
     return approval_request.to_validation_request(grant.approval_ref)
 
 
+def test_tool_runtime_dispatch_bridge_rejects_unscoped_tool() -> None:
+    descriptor = _descriptor(filesystem=True).model_copy(
+        update={"tool_ref": "tool-ref:unscoped-runtime-tool"}
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="AUTHORITY_DISPATCH_TOOL_NOT_ALLOWLISTED",
+    ):
+        ToolRuntimeAuthorityDispatchAdapter(descriptor)
+
+
 def test_filesystem_metadata_dispatch_is_useful_durable_and_redacted(tmp_path: Path) -> None:
     state_dir = tmp_path / "authority"
     root = tmp_path / "safe-root"

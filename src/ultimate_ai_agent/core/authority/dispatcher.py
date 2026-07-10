@@ -49,7 +49,11 @@ from ultimate_ai_agent.core.costs.governor import CostGovernor
 from ultimate_ai_agent.core.time import utc_now
 from ultimate_ai_agent.core.tools.runtime.adapters import ToolRuntimeAdapter
 from ultimate_ai_agent.core.tools.runtime.contracts import ToolInvocationRequest
-from ultimate_ai_agent.core.tools.runtime.filesystem_metadata import FilesystemSafeRoot
+from ultimate_ai_agent.core.tools.runtime.filesystem_metadata import (
+    FILESYSTEM_METADATA_TOOL_REF,
+    FilesystemSafeRoot,
+)
+from ultimate_ai_agent.core.tools.runtime.validation import NOOP_TOOL_REF
 
 
 class AuthorityDispatchConflictError(RuntimeError):
@@ -181,6 +185,11 @@ class ToolRuntimeAuthorityDispatchAdapter:
         safe_roots: Sequence[FilesystemSafeRoot] = (),
         runtime_adapter: ToolRuntimeAdapter | None = None,
     ) -> None:
+        if descriptor.tool_ref not in {
+            NOOP_TOOL_REF,
+            FILESYSTEM_METADATA_TOOL_REF,
+        }:
+            raise ValueError("AUTHORITY_DISPATCH_TOOL_NOT_ALLOWLISTED")
         self.descriptor = descriptor
         self.safe_roots = list(safe_roots)
         self.runtime_adapter = runtime_adapter or ToolRuntimeAdapter()
