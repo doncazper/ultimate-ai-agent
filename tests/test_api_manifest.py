@@ -36,40 +36,65 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned() -> None:
     assert manifest["package_version"] == __version__
     assert manifest["active_baseline"] == active_baseline_label()
     assert manifest["no_runtime_integrations"] is True
-    assert "governed_runtime_loopback_local_model_call_pilot" in manifest[
-        "capabilities_declared"
-    ]
-    assert "governed_runtime_action_inbox_repo_verifier_command_bridge" in manifest[
-        "capabilities_declared"
-    ]
-    assert "governed_runtime_action_inbox_frontend_check_command_bridge" in manifest[
-        "capabilities_declared"
-    ]
-    assert "governed_runtime_action_inbox_repo_doctor_command_bridge" in manifest[
-        "capabilities_declared"
-    ]
-    assert "governed_product_pilot_authority_profile" in manifest[
-        "capabilities_declared"
-    ]
+    assert (
+        "governed_runtime_loopback_local_model_call_pilot"
+        in manifest["capabilities_declared"]
+    )
+    assert (
+        "governed_runtime_action_inbox_repo_verifier_command_bridge"
+        in manifest["capabilities_declared"]
+    )
+    assert (
+        "governed_runtime_action_inbox_frontend_check_command_bridge"
+        in manifest["capabilities_declared"]
+    )
+    assert (
+        "governed_runtime_action_inbox_repo_doctor_command_bridge"
+        in manifest["capabilities_declared"]
+    )
+    assert (
+        "governed_product_pilot_authority_profile" in manifest["capabilities_declared"]
+    )
     assert "authority_lane_catalog_v1" in manifest["capabilities_declared"]
     assert "authority_state_decision_catalog" in manifest["capabilities_declared"]
     assert "authority_state_mode_catalog" in manifest["capabilities_declared"]
-    assert "governed_product_pilot_portable_evidence_envelope" in manifest[
-        "capabilities_declared"
-    ]
-    assert "runtime_remote_or_unrestricted_model_calls" in manifest[
-        "capabilities_blocked"
-    ]
-    assert "governed_runtime_remote_or_provider_model_calls" in manifest[
-        "capabilities_blocked"
-    ]
-    assert "governed_product_pilot_production_authority" in manifest[
-        "capabilities_blocked"
-    ]
-    assert "governed_product_pilot_unrestricted_shell_subprocess" in manifest[
-        "capabilities_blocked"
-    ]
-    assert "web_fetching" in manifest["capabilities_blocked"]
+    assert "web_hybrid_searxng_readonly_search" in manifest["capabilities_declared"]
+    assert (
+        "web_hybrid_self_hosted_firecrawl_markdown" in manifest["capabilities_declared"]
+    )
+    assert (
+        "web_hybrid_free_plan_firecrawl_cloud_markdown"
+        in manifest["capabilities_declared"]
+    )
+    assert (
+        "web_hybrid_self_host_first_one_step_fallback"
+        in manifest["capabilities_declared"]
+    )
+    assert "web_hybrid_operator_read_model" in manifest["capabilities_declared"]
+    assert "web_hybrid_cloud_budget_first" in manifest["capabilities_blocked"]
+    assert "web_hybrid_paid_usage" in manifest["capabilities_blocked"]
+    assert "web_hybrid_keyless" in manifest["capabilities_blocked"]
+    assert "web_hybrid_multi_step_fallback" in manifest["capabilities_blocked"]
+    assert (
+        "governed_product_pilot_portable_evidence_envelope"
+        in manifest["capabilities_declared"]
+    )
+    assert (
+        "runtime_remote_or_unrestricted_model_calls" in manifest["capabilities_blocked"]
+    )
+    assert (
+        "governed_runtime_remote_or_provider_model_calls"
+        in manifest["capabilities_blocked"]
+    )
+    assert (
+        "governed_product_pilot_production_authority"
+        in manifest["capabilities_blocked"]
+    )
+    assert (
+        "governed_product_pilot_unrestricted_shell_subprocess"
+        in manifest["capabilities_blocked"]
+    )
+    assert "unrestricted_web_fetching" in manifest["capabilities_blocked"]
     assert "api_contract_metadata" in manifest["capabilities_declared"]
     assert "centralized_fastapi_security_headers" in manifest["capabilities_declared"]
     assert "explicit_loopback_cors_allowlist" in manifest["capabilities_declared"]
@@ -481,7 +506,7 @@ def test_api_manifest_web_access_posture_is_boundary_only() -> None:
         "allowed_methods": [],
         "mutation_methods": "not_available",
     }
-    assert "web_fetching" in manifest["capabilities_blocked"]
+    assert "unrestricted_web_fetching" in manifest["capabilities_blocked"]
     assert "browser_automation" in manifest["capabilities_blocked"]
     assert (
         "governed_web_evidence_unrestricted_browsing"
@@ -637,12 +662,14 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
         routes_by_path["/api/runtime/authority-state"]["approval_posture"]
         == "not_required_for_route_classification"
     )
-    assert "decision catalog outcomes" in routes_by_path[
-        "/api/runtime/authority-state"
-    ]["classification_reason"]
-    assert "mode readiness catalog" in routes_by_path[
-        "/api/runtime/authority-state"
-    ]["classification_reason"]
+    assert (
+        "decision catalog outcomes"
+        in routes_by_path["/api/runtime/authority-state"]["classification_reason"]
+    )
+    assert (
+        "mode readiness catalog"
+        in routes_by_path["/api/runtime/authority-state"]["classification_reason"]
+    )
     assert (
         routes_by_path["/api/runtime/authority-domain-readiness"][
             "route_classification"
@@ -650,14 +677,15 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
         == "local_sensitive"
     )
     assert (
-        routes_by_path["/api/runtime/authority-domain-readiness"][
-            "approval_posture"
-        ]
+        routes_by_path["/api/runtime/authority-domain-readiness"]["approval_posture"]
         == "not_required_for_route_classification"
     )
-    assert "one backend-derived readiness row" in routes_by_path[
-        "/api/runtime/authority-domain-readiness"
-    ]["classification_reason"]
+    assert (
+        "one backend-derived readiness row"
+        in routes_by_path["/api/runtime/authority-domain-readiness"][
+            "classification_reason"
+        ]
+    )
     assert (
         routes_by_path["/api/runtime/authority-decisions/preview"][
             "route_classification"
@@ -665,9 +693,7 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
         == "local_sensitive"
     )
     assert (
-        routes_by_path["/api/runtime/authority-decisions/preview"][
-            "side_effect_class"
-        ]
+        routes_by_path["/api/runtime/authority-decisions/preview"]["side_effect_class"]
         == "validation_only"
     )
     assert (
@@ -677,9 +703,7 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
         == "not_required_for_route_classification"
     )
     assert (
-        routes_by_path["/api/runtime/authority-missions/plan"][
-            "route_classification"
-        ]
+        routes_by_path["/api/runtime/authority-missions/plan"]["route_classification"]
         == "local_sensitive"
     )
     assert (
@@ -687,9 +711,7 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
         == "validation_only"
     )
     assert (
-        routes_by_path["/api/runtime/authority-missions/plan"][
-            "idempotency_posture"
-        ]
+        routes_by_path["/api/runtime/authority-missions/plan"]["idempotency_posture"]
         == "not_required_for_route_classification"
     )
     assert (
@@ -748,7 +770,9 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
     lifecycle_route = routes_by_path["/task-decomposition/runs/{run_id}/lifecycle"]
     assert lifecycle_route["side_effect_class"] == "local_dev_workspace_only"
     assert lifecycle_route["route_classification"] == "local_sensitive"
-    assert lifecycle_route["approval_posture"] == "not_required_for_route_classification"
+    assert (
+        lifecycle_route["approval_posture"] == "not_required_for_route_classification"
+    )
     assert lifecycle_route["idempotency_required"] is False
     assert lifecycle_route["rate_limit_group"] == "task_decomposition"
     assert routes_by_path["/files/tree/preview"]["idempotency_posture"] == (
@@ -763,15 +787,17 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
     assert routes_by_path["/control-center/actions/preview"]["rate_limit_group"] == (
         "action_preview_proposal"
     )
-    assert routes_by_path["/control-center/turn-router/preview"][
-        "side_effect_class"
-    ] == "validation_only"
-    assert routes_by_path["/control-center/turn-router/preview"][
-        "approval_posture"
-    ] == "not_required_for_route_classification"
-    assert routes_by_path["/control-center/turn-router/preview"]["rate_limit_group"] == (
-        "action_preview_proposal"
+    assert (
+        routes_by_path["/control-center/turn-router/preview"]["side_effect_class"]
+        == "validation_only"
     )
+    assert (
+        routes_by_path["/control-center/turn-router/preview"]["approval_posture"]
+        == "not_required_for_route_classification"
+    )
+    assert routes_by_path["/control-center/turn-router/preview"][
+        "rate_limit_group"
+    ] == ("action_preview_proposal")
     assert routes_by_path["/v1/chat/completions"]["rate_limit_group"] == "model_chat"
     assert (
         routes_by_path["/v1/chat/completions"]["side_effect_class"]
@@ -840,33 +866,24 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
     assert "/control-center/providers/draft-summarize" not in routes_by_path
     assert "/control-center/providers/draft-preview" not in routes_by_path
     assert (
-        routes_by_path["/control-center/web-evidence/attach"][
-            "route_classification"
-        ]
+        routes_by_path["/control-center/web-evidence/attach"]["route_classification"]
         == "local_sensitive"
     )
     assert (
-        routes_by_path["/control-center/web-evidence/attach"][
-            "side_effect_class"
-        ]
+        routes_by_path["/control-center/web-evidence/attach"]["side_effect_class"]
         == "governed_network_read_only"
     )
     assert (
-        routes_by_path["/control-center/web-evidence/attach"][
-            "idempotency_posture"
-        ]
+        routes_by_path["/control-center/web-evidence/attach"]["idempotency_posture"]
         == "not_required_for_route_classification"
     )
     assert (
-        routes_by_path["/control-center/web-evidence/attach"][
-            "idempotency_policy_ref"
-        ]
+        routes_by_path["/control-center/web-evidence/attach"]["idempotency_policy_ref"]
         == "idempotency:web-evidence-product-slice:request-ref-payload"
     )
-    assert "request_ref payload-idempotent" in (
-        routes_by_path["/control-center/web-evidence/attach"][
-            "idempotency_reason"
-        ]
+    assert (
+        "request_ref payload-idempotent"
+        in (routes_by_path["/control-center/web-evidence/attach"]["idempotency_reason"])
     )
     assert (
         routes_by_path["/control-center/web-evidence/attach"]["rate_limit_group"]
@@ -919,8 +936,12 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
     assert "extension_catalog_runtime_import" in manifest["capabilities_blocked"]
     assert "extension_catalog_plugin_execution" in manifest["capabilities_blocked"]
     assert "extension_catalog_connector_writes" in manifest["capabilities_blocked"]
-    assert "extension_install_disabled_package_install" in manifest["capabilities_blocked"]
-    assert "extension_install_disabled_runtime_import" in manifest["capabilities_blocked"]
+    assert (
+        "extension_install_disabled_package_install" in manifest["capabilities_blocked"]
+    )
+    assert (
+        "extension_install_disabled_runtime_import" in manifest["capabilities_blocked"]
+    )
     assert "extension_install_disabled_execution" in manifest["capabilities_blocked"]
     assert (
         "extension_install_disabled_marketplace_fetch"

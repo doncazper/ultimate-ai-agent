@@ -6,6 +6,11 @@ from typing import Any, Iterable
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.capability_availability import (
+    WebHybridAvailabilityReadModel,
+    build_web_hybrid_availability_read_model,
+)
+
 
 ROOT = Path(__file__).resolve().parents[4]
 CAPABILITY_SURFACE_MANIFEST_PATH = (
@@ -19,7 +24,9 @@ ROUTE_STATUS_MANIFEST_PATH = "docs/control_center/route_status_manifest.json"
 RELEASE_SURFACE_MANIFEST_PATH = "docs/control_center/release_surface_manifest.json"
 CAPABILITY_SURFACE_ROUTE_REF = "GET /control-center/capabilities/surface"
 CAPABILITY_SURFACE_CLI_REF = "scripts/dev/uaa_capability_surface.py inspect"
-CAPABILITY_SURFACE_READ_MODEL_REF = "read-model-ref:control-center-capability-surface:v1"
+CAPABILITY_SURFACE_READ_MODEL_REF = (
+    "read-model-ref:control-center-capability-surface:v1"
+)
 CAPABILITY_SURFACE_BLOCKED_AUTHORITY_REFS = [
     "blocked-state:capability-surface-no-runtime-authority",
     "blocked-state:capability-surface-no-provider-model-calls",
@@ -97,7 +104,9 @@ class CapabilitySurfaceRow(BaseModel):
         if self.status == "ui_api_cli_wired" and self.missing_reason != "none":
             raise ValueError("CAPABILITY_SURFACE_WIRED_ROW_MUST_HAVE_NO_MISSING_REASON")
         if self.status != "ui_api_cli_wired" and self.missing_reason == "none":
-            raise ValueError("CAPABILITY_SURFACE_GAPPED_ROW_MUST_EXPLAIN_MISSING_REASON")
+            raise ValueError(
+                "CAPABILITY_SURFACE_GAPPED_ROW_MUST_EXPLAIN_MISSING_REASON"
+            )
         return self
 
 
@@ -139,6 +148,7 @@ class ControlCenterCapabilitySurfaceReadModel(BaseModel):
     safe_summary: str
     summary: CapabilitySurfaceSummary
     rows: list[CapabilitySurfaceRow]
+    web_hybrid: WebHybridAvailabilityReadModel
     blocked_authority_refs: list[str] = Field(
         default_factory=lambda: list(CAPABILITY_SURFACE_BLOCKED_AUTHORITY_REFS)
     )
@@ -194,6 +204,7 @@ def build_control_center_capability_surface_read_model(
         ),
         summary=summary,
         rows=rows,
+        web_hybrid=build_web_hybrid_availability_read_model(),
     )
 
 
@@ -301,7 +312,9 @@ def _build_summary(
         covered_visible_action_count=int(
             source_truth_counts.get("covered_visible_action_count", 0)
         ),
-        missing_release_routes=list(source_truth_counts.get("missing_release_routes", [])),
+        missing_release_routes=list(
+            source_truth_counts.get("missing_release_routes", [])
+        ),
         missing_visible_actions=list(
             source_truth_counts.get("missing_visible_actions", [])
         ),

@@ -734,6 +734,120 @@ def evaluate_capability_invocation(
     )
 
 
+class WebHybridCapabilityLanePosture(_CapabilityAvailabilityModel):
+    lane_ref: str
+    display_label: str = Field(..., min_length=1, max_length=160)
+    implementation_status: Literal["implemented_exact_lane"] = "implemented_exact_lane"
+    runtime_availability: str = Field(..., min_length=1, max_length=120)
+    provider_ref: str
+    adapter_ref: str
+    side_effect_class: Literal["read_only_external"] = "read_only_external"
+    approval_posture: str = Field(..., min_length=1, max_length=120)
+    authority_posture: Literal["request_scoped_evaluation_required"] = (
+        "request_scoped_evaluation_required"
+    )
+    cost_posture: Literal["not_metered", "metered_free_plan_only"]
+    reason_codes: list[str] = Field(default_factory=list)
+    blocker_codes: list[str] = Field(default_factory=list)
+
+    @field_validator("lane_ref", "provider_ref", "adapter_ref")
+    @classmethod
+    def validate_lane_refs(cls, value: str) -> str:
+        validate_execution_ref(value, "web_hybrid_lane_ref")
+        return value
+
+    @field_validator("display_label", "runtime_availability", "approval_posture")
+    @classmethod
+    def validate_lane_text(cls, value: str) -> str:
+        _validate_safe_summary(value)
+        return value
+
+    @field_validator("reason_codes", "blocker_codes")
+    @classmethod
+    def validate_lane_codes(cls, values: list[str]) -> list[str]:
+        return _validated_codes(values)
+
+
+class WebHybridAvailabilityReadModel(_CapabilityAvailabilityModel):
+    schema_version: Literal["uaa-web-hybrid-availability.v1"] = (
+        "uaa-web-hybrid-availability.v1"
+    )
+    read_model_ref: str = "web-hybrid-read-model-ref:operator:v1"
+    truth_owner: Literal["python_core"] = "python_core"
+    status: Literal["implemented_runtime_observation_required"] = (
+        "implemented_runtime_observation_required"
+    )
+    cli_ref: str = "repo-local-command:inspect-web-hybrid-status"
+    lanes: list[WebHybridCapabilityLanePosture]
+    routing_policy: Literal["self_host_first_cloud_escalation"] = (
+        "self_host_first_cloud_escalation"
+    )
+    routing_attempt_ceiling: Literal[2] = 2
+    cloud_first_enabled: Literal[False] = False
+    paid_usage_enabled: Literal[False] = False
+    keyless_enabled: Literal[False] = False
+    provider_zero_data_retention_claimed: Literal[False] = False
+    current_credit_snapshot_status: Literal["not_observed_by_read_only_route"] = (
+        "not_observed_by_read_only_route"
+    )
+    current_remaining_credits: None = None
+    reviewed_free_plan_credits: Literal[1000] = 1000
+    reviewed_free_plan_concurrency: Literal[2] = 2
+    reviewed_standard_scrape_credits: Literal[1] = 1
+    cost_policy_ref: str = "cost-policy-ref:firecrawl-standard-scrape:v1"
+    credential_ref: str = "credential-ref:firecrawl-cloud:ignored-local-file"
+    circuit_state: Literal["unknown_until_runtime_inspection"] = (
+        "unknown_until_runtime_inspection"
+    )
+    circuit_ref: str = "web-provider-circuit-ref:firecrawl-cloud:v1"
+    request_scoped_evaluation_required: Literal[True] = True
+    local_approval_required: Literal[True] = True
+    exact_authority_lease_required: Literal[True] = True
+    budget_reservation_required_for_cloud: Literal[True] = True
+    external_content_untrusted: Literal[True] = True
+    instruction_authority_granted: Literal[False] = False
+    memory_write_allowed: Literal[False] = False
+    context_injection_allowed: Literal[False] = False
+    browser_actions_allowed: Literal[False] = False
+    raw_page_persisted: Literal[False] = False
+    raw_provider_payload_persisted: Literal[False] = False
+    credential_material_returned: Literal[False] = False
+    provider_network_call_performed: Literal[False] = False
+    proof_refs: list[str] = Field(default_factory=list)
+    blocker_codes: list[str] = Field(default_factory=list)
+    safe_summary: str = Field(..., min_length=1, max_length=700)
+
+    @field_validator(
+        "read_model_ref",
+        "cli_ref",
+        "cost_policy_ref",
+        "credential_ref",
+        "circuit_ref",
+    )
+    @classmethod
+    def validate_web_refs(cls, value: str) -> str:
+        validate_execution_ref(value, "web_hybrid_read_model_ref")
+        return value
+
+    @field_validator("proof_refs")
+    @classmethod
+    def validate_web_proof_refs(cls, values: list[str]) -> list[str]:
+        for value in values:
+            validate_execution_ref(value, "web_hybrid_proof_ref")
+        return list(dict.fromkeys(values))
+
+    @field_validator("blocker_codes")
+    @classmethod
+    def validate_web_blockers(cls, values: list[str]) -> list[str]:
+        return _validated_codes(values)
+
+    @field_validator("safe_summary")
+    @classmethod
+    def validate_web_summary(cls, value: str) -> str:
+        _validate_safe_summary(value)
+        return value
+
+
 class CapabilityAvailabilityReadModel(_CapabilityAvailabilityModel):
     schema_version: Literal["uaa-capability-availability-read-model.v1"] = (
         CAPABILITY_AVAILABILITY_READ_MODEL_SCHEMA_VERSION
@@ -764,6 +878,7 @@ class CapabilityAvailabilityReadModel(_CapabilityAvailabilityModel):
     )
     request_scoped_evaluation_required: Literal[True] = True
     availability_does_not_grant_execution: Literal[True] = True
+    web_hybrid: WebHybridAvailabilityReadModel
     snapshots: list[CapabilityAvailabilitySnapshot] = Field(default_factory=list)
     snapshot_count: int = Field(..., ge=0)
     readiness_counts: dict[str, int] = Field(default_factory=dict)

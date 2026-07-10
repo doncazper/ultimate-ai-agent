@@ -15,7 +15,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from ultimate_ai_agent.core.capability_availability import (
+from ultimate_ai_agent.core.capability_availability.contracts import (
     AuthorityPosture,
     CatalogStatus,
     CompatibilityStatus,

@@ -21,11 +21,14 @@ one attempt, and transient markdown-only evidence under the same request-scoped
 gates. WEB-HYBRID-005 adds authenticated free-plan credit reconciliation,
 atomic local reservations, and one independently governed Firecrawl Cloud
 standard markdown attempt with exact approval, lease, budget, idempotency, and
-post-call usage proof. Hybrid provider fallback remains blocked until
-WEB-HYBRID-006. WEB-HYBRID-006 promotes only self-host-first markdown routing
+post-call usage proof. WEB-HYBRID-006 promotes only self-host-first markdown routing
 with one normalized eligible cloud fallback, receipt-only idempotent replay,
 request-time authority/budget re-evaluation, and a manual-reconciliation cloud
-circuit breaker. `cloud_budget_first` remains absent.
+circuit breaker. WEB-HYBRID-007 exposes the same backend-owned, safe-ref-only
+posture through the existing capability-availability API, a readable CLI, and
+the Control Center; these read surfaces perform no runtime probe and grant no
+authority. `cloud_budget_first` remains absent. WEB-HYBRID-008 dogfood and
+promotion review remains the final phase.
 
 Progress evidence is phase-committed. A completed contract or packaging phase
 does not grant later provider execution authority.
@@ -933,6 +936,9 @@ Rollback:
 - set exact route mode to `self_host_only` or `sealed`; retain audit history
 
 ### WEB-HYBRID-007 — API, Manifest, CLI, and Control Center Read Model
+
+Status: implemented; deterministic and operator-surface verification recorded
+before WEB-HYBRID-008 promotion review.
 
 Scope:
 

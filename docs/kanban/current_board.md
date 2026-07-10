@@ -377,19 +377,20 @@ inventory/status support lane. It exposes backend-owned local model inventory
 and gateway posture through `GET /control-center/local-models/status` while
 leaving lifecycle, switching, activation, downloads, runtime adapters, and
 production-readiness claims blocked.
-Web Runtime Authority Promotion Ladder is now an explicit P1 shaping lane for
-the next web/provider authority sequence. Current authority still flows through
+Web Runtime Authority Promotion Ladder is now an explicit P1 implementation lane
+for the exact web/provider authority sequence. Current authority still flows through
 `ultimate_ai_agent.core.web_access`; older M72/M74/M75/M94/M95 and M121-M140
 docs remain historical/contract evidence, not blanket callable runtime
-authority. Keep the runtime authority WIP limit at one lane. This lane adds no
-live web fetching, browser automation, provider SDK calls, POST/click/form/
-download/upload, generic public-web mutation, or callable runtime authority.
-The planning-only child sequence for local SearXNG discovery, self-hosted
-Firecrawl extraction, authenticated free-credit cloud fallback, quota
-reservations, deterministic failover, Docker packaging, and later operator/MCP
-surfaces is documented in
-`docs/network/SEARXNG_FIRECRAWL_HYBRID_IMPLEMENTATION_PLAN.md`; it does not
-start a second WIP lane or grant provider runtime authority.
+authority. Keep the runtime authority WIP limit at one lane. WEB-HYBRID-001
+through WEB-HYBRID-007 now implement exact request-scoped SearXNG search,
+self-hosted and free-plan Firecrawl markdown extraction, one eligible
+self-host-first cloud fallback, pinned loopback packaging, and a backend-owned
+API/CLI/Control Center posture surface. Every attempt still requires current
+PolicyEngine, exact LocalApprovalAuthority, exact AuthorityLease, safe-disable,
+and (for cloud) budget/reservation decisions. Unrestricted web fetching,
+browser automation, paid use, Keyless, cloud-first routing, clicks/forms/auth,
+downloads/uploads, generic public-web mutation, and callable authority from the
+read model remain blocked. WEB-HYBRID-008 dogfood and promotion review is next.
 Provider shells and diagnostics are metadata-only until a later exact milestone
 adds WebAccessGateway routing, durable audit, side-effect ledger blockers,
 exact approval scope, blocked/degraded/partial operator labels, CostGovernor

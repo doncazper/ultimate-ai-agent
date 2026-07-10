@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from ultimate_ai_agent.core.capability_availability import (
+from ultimate_ai_agent.core.capability_availability.contracts import (
     DerivedRuntimeReadinessStatus,
     ResourceBudgetStatus,
 )

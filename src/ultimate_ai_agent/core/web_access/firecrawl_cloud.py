@@ -53,7 +53,7 @@ from ultimate_ai_agent.core.capabilities.models import (
     TaskEnvelope,
 )
 from ultimate_ai_agent.core.capabilities.policy import PolicyEngine
-from ultimate_ai_agent.core.capability_availability import (
+from ultimate_ai_agent.core.capability_availability.contracts import (
     CapabilityAvailabilitySnapshot,
     CapabilityInvocationDecision,
     CapabilityInvocationRequest,

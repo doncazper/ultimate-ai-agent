@@ -1,0 +1,44 @@
+from __future__ import annotations
+
+from ultimate_ai_agent.core.capability_availability import (
+    build_capability_availability_read_model,
+    build_web_hybrid_availability_read_model,
+)
+
+
+def test_web_hybrid_read_model_is_backend_owned_and_performs_no_live_probe() -> None:
+    read_model = build_web_hybrid_availability_read_model()
+
+    assert read_model.truth_owner == "python_core"
+    assert read_model.status == "implemented_runtime_observation_required"
+    assert len(read_model.lanes) == 3
+    assert read_model.routing_policy == "self_host_first_cloud_escalation"
+    assert read_model.routing_attempt_ceiling == 2
+    assert read_model.provider_network_call_performed is False
+    assert read_model.current_remaining_credits is None
+    assert read_model.circuit_state == "unknown_until_runtime_inspection"
+
+
+def test_web_hybrid_read_model_preserves_authority_and_product_boundaries() -> None:
+    read_model = build_web_hybrid_availability_read_model()
+
+    assert read_model.request_scoped_evaluation_required is True
+    assert read_model.local_approval_required is True
+    assert read_model.exact_authority_lease_required is True
+    assert read_model.budget_reservation_required_for_cloud is True
+    assert read_model.paid_usage_enabled is False
+    assert read_model.keyless_enabled is False
+    assert read_model.cloud_first_enabled is False
+    assert read_model.provider_zero_data_retention_claimed is False
+    assert read_model.external_content_untrusted is True
+    assert read_model.instruction_authority_granted is False
+    assert read_model.memory_write_allowed is False
+    assert read_model.context_injection_allowed is False
+    assert read_model.browser_actions_allowed is False
+
+
+def test_canonical_capability_availability_embeds_web_hybrid_truth() -> None:
+    full = build_capability_availability_read_model()
+
+    assert full.web_hybrid == build_web_hybrid_availability_read_model()
+    assert full.availability_does_not_grant_execution is True
