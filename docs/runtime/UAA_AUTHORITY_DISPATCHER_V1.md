@@ -85,18 +85,22 @@ itself.
 
 ## Replay, Concurrency, And Corruption
 
-The dispatcher rejects dispatch-ref, request-fingerprint, or idempotency drift.
+The dispatcher rejects dispatch-ref, action-ref, request-fingerprint, or
+idempotency drift. One action ref can bind to only one durable dispatch, so an
+approval cannot be replayed by cloning the action into a new dispatch envelope.
 Concurrent callers using the same exact request can produce only one adapter
 start. Every ledger read verifies hash linkage, entry hashes, allowed lifecycle
-transitions, immutable policy/approval/budget bindings, execution-ref continuity,
-and cancellation-ref continuity. Correctly rehashed semantic drift therefore
-still fails closed.
+transitions, immutable policy/approval/budget bindings, action-to-dispatch
+identity, execution-ref continuity, and cancellation-ref continuity. Correctly
+rehashed semantic drift therefore still fails closed.
 
 Budget reservation and dispatch receipts are separate fsync-backed ledgers.
 Crash safety comes from deterministic phase idempotency and recovery states,
 not from claiming a cross-file database transaction. A crash after reservation
 but before the prepared receipt is recoverable by replaying the same prepare
-request. A crash after adapter start is never treated as safe to replay.
+request; if a competing identity wins first, the unclaimed replayed reservation
+is released deterministically. A crash after adapter start is never treated as
+safe to replay.
 
 ## Verified Acceptance Cases
 
@@ -107,14 +111,18 @@ request. A crash after adapter start is never treated as safe to replay.
 - exact approval success, missing approval denial, out-of-scope denial, and
   revocation immediately before start, plus caller-time rejection;
 - local CostGovernor recomputation and caller posture/ref/amount binding;
+- non-finite estimate or budget denial without conversion failure;
 - mismatched adapter execution-ref rejection with a readable failed terminal
   receipt;
 - lease revocation between prepare and start;
 - pre-start cancellation, capacity release, cancellation idempotency conflict,
-  and cancellation-claim crash recovery;
-- concurrent replay with exactly one adapter invocation;
-- dispatch idempotency conflict, receipt hash tampering, and non-mutating fresh
-  read inspection.
+  collision-safe release keys, and cancellation-claim crash recovery;
+- concurrent replay with exactly one adapter invocation, losing-reservation
+  release, and orphaned-reservation recovery;
+- adapter binding drift cancellation and an explicit no-op/filesystem-metadata
+  tool bridge allowlist;
+- action/approval replay conflict, dispatch idempotency conflict, receipt hash
+  tampering, and non-mutating fresh read inspection.
 
 The focused dispatcher and budget suite is the acceptance source for this
 milestone. Broader repo checks remain required before merge.
