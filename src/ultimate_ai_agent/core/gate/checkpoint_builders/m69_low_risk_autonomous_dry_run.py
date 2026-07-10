@@ -5,10 +5,8 @@ from ultimate_ai_agent.core.autonomy import (
     LowRiskAutonomousDryRunRequest,
     LowRiskAutonomousDryRunStep,
     build_low_risk_autonomous_dry_run_record,
-    validate_low_risk_autonomous_dry_run_record,
 )
 from ultimate_ai_agent.core.gate.checkpoint_builders.m68_autonomy_risk_classifier import _decision as _risk_decision
-from ultimate_ai_agent.core.gate.checkpoint_builders.m68_autonomy_risk_classifier import _request as _risk_request
 
 
 def _step(**overrides: Any) -> Any:

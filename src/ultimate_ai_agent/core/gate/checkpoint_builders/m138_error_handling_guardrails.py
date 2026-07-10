@@ -1,19 +1,9 @@
 from __future__ import annotations
 from typing import Any
 from ultimate_ai_agent.core.autonomy import (
-    AutonomyAuthorityMode,
-    AutonomyRiskClass,
-    ErrorHandlingGuardrailDecision,
-    ErrorHandlingGuardrailPolicy,
     ErrorHandlingGuardrailRequest,
-    ErrorHandlingGuardrailStatus,
-    build_error_handling_guardrail_decision,
-    validate_error_handling_guardrail_decision,
-    validate_error_handling_guardrail_policy,
-    validate_error_handling_guardrail_request,
 )
 from ultimate_ai_agent.core.autonomy.error_handling_guardrails import (
-    ERROR_HANDLING_GUARDRAILS_DOCS,
     M138_MAX_ERROR_SIGNAL_REFS,
 )
 

@@ -110,6 +110,10 @@ SAFE_REF_PREFIXES = (
     "task:",
 )
 
+PERFORMANCE_REPORT_PATH = "reports/performance/latest_release_latency_baseline.json"
+PERFORMANCE_REPORT_REF = "report:performance:latest-release-latency-baseline"
+PERFORMANCE_REGRESSION_REPORT_REF = "report:performance:latest-regression"
+
 REQUIRED_EVIDENCE_PATHS = (
     "scripts/verify_all.py",
     "scripts/verify_documentation_integrity.py",
@@ -136,7 +140,7 @@ REQUIRED_SAFETY_EVIDENCE_PATHS = (
     "README.md",
     "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md",
     "docs/production/RELEASE_EVIDENCE_PACKET_TEMPLATE.json",
-    "reports/performance/latest_release_latency_baseline.json",
+    PERFORMANCE_REPORT_REF,
     "docs/control_center/route_status_manifest.json",
 )
 
@@ -379,7 +383,7 @@ def _score_safety_boundary_health(root: Path) -> dict[str, Any]:
     checks: list[tuple[str, bool]] = []
     route_manifest = _load_json(root, "docs/control_center/route_status_manifest.json")
     release_template = _load_json(root, "docs/production/RELEASE_EVIDENCE_PACKET_TEMPLATE.json")
-    perf_report = _load_json(root, "reports/performance/latest_release_latency_baseline.json")
+    perf_report = _load_json(root, PERFORMANCE_REPORT_PATH)
     product_truth = root / "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md"
 
     checks.append(
@@ -440,15 +444,14 @@ def _score_safety_boundary_health(root: Path) -> dict[str, Any]:
 
 
 def _score_performance_state(root: Path) -> dict[str, Any]:
-    evidence_ref = "reports/performance/latest_release_latency_baseline.json"
-    report = _load_json(root, evidence_ref)
+    report = _load_json(root, PERFORMANCE_REPORT_PATH)
     if report is None:
         return _category(
             category_id="performance_state",
             label="Performance state",
             score=0,
             safe_summary="Latest release latency report is missing or invalid.",
-            evidence_refs=[evidence_ref],
+            evidence_refs=[PERFORMANCE_REPORT_REF],
             metrics={"required_path_count": 0},
             blockers=["performance_report_missing_or_invalid"],
         )
@@ -477,8 +480,8 @@ def _score_performance_state(root: Path) -> dict[str, Any]:
         score=score,
         safe_summary="Required release-critical local latency paths scored from the latest performance report.",
         evidence_refs=[
-            evidence_ref,
-            "reports/performance/latest_performance_regression_report.json",
+            PERFORMANCE_REPORT_REF,
+            PERFORMANCE_REGRESSION_REPORT_REF,
             "scripts/benchmark_foundation_gate.py",
         ],
         metrics={

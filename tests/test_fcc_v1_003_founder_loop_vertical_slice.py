@@ -27,6 +27,7 @@ from ultimate_ai_agent.core.control_center.action_decisions import (
     today_item_to_action_item_ref,
 )
 from ultimate_ai_agent.core.storage import FounderLoopAuthorityError, FounderLoopRepository
+from tests.authority_helpers import issue_workspace_write_authority_lease
 
 
 client = TestClient(app)
@@ -153,8 +154,12 @@ def test_today_action_envelope_api_requires_workspace_draft_authority(
 def test_founder_loop_cli_commits_local_task_with_safe_refs(
     tmp_path: Path,
     capsys,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     state_dir = tmp_path / "founder_loop"
+    authority_state_dir = tmp_path / "authority"
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(authority_state_dir))
+    issue_workspace_write_authority_lease(authority_state_dir)
     _approve_local_task_seed_action(state_dir)
     repo = FounderLoopRepository(state_dir)
     action = next(
@@ -216,8 +221,12 @@ def test_founder_loop_cli_commits_local_task_with_safe_refs(
 def test_founder_loop_cli_records_approval_then_commits_local_task(
     tmp_path: Path,
     capsys,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     state_dir = tmp_path / "founder_loop"
+    authority_state_dir = tmp_path / "authority"
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(authority_state_dir))
+    issue_workspace_write_authority_lease(authority_state_dir)
     rc = uaa_founder_loop.main(
         [
             "--state-dir",

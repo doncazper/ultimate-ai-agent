@@ -10,6 +10,7 @@ from ultimate_ai_agent.core.control_center.health_recommendations import (
     FCC_HEALTH_RECOMMENDATION_ACTION_KIND,
 )
 from ultimate_ai_agent.core.storage import FounderLoopRepository
+from tests.authority_helpers import workspace_write_authority_lease
 
 
 def _memory_recommendation_item(repo: FounderLoopRepository) -> dict[str, object]:
@@ -61,7 +62,10 @@ def test_fcc_mem_021_projects_memory_quality_into_action_inbox(
 def test_fcc_mem_021_memory_proposal_decision_receipt_does_not_mutate_memory(
     tmp_path: Path,
 ) -> None:
-    repo = FounderLoopRepository(tmp_path / "founder-loop")
+    repo = FounderLoopRepository(
+        tmp_path / "founder-loop",
+        active_authority_leases=[workspace_write_authority_lease()],
+    )
     item = _memory_recommendation_item(repo)
     before = repo.storage_status()["counts"]
 

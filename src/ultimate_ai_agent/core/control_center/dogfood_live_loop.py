@@ -387,6 +387,7 @@ def build_dogfood_live_loop_acceptance_read_model(
     action_inbox = repo.actions_inbox(limit=bounded_limit)
     proof_index = build_control_center_proof_index(today_summary=today)
     trust = build_trust_authority_matrix_read_model(today_summary=today)
+    trust_runtime_blocked_lane_refs = _trust_runtime_blocked_lane_refs(trust)
     action = _find_action(today.get("actions") or action_inbox.get("items") or [])
     local_task_record = _local_task_proof_record(proof_index)
     proof_detail = build_control_center_proof_detail(
@@ -554,7 +555,7 @@ def build_dogfood_live_loop_acceptance_read_model(
         trust_approval_required_lane_refs=_refs(
             trust.get("approval_required_lane_refs")
         ),
-        trust_blocked_lane_refs=_refs(trust.get("blocked_lane_refs")),
+        trust_blocked_lane_refs=trust_runtime_blocked_lane_refs,
         blocked_authority_refs=_merge_refs(
             DOGFOOD_LIVE_LOOP_BLOCKED_AUTHORITY_REFS,
             trust.get("blocked_authority_refs"),
@@ -809,6 +810,17 @@ def _merge_refs(*values: Any) -> list[str]:
     for value in values:
         refs.extend(_refs(value))
     return list(dict.fromkeys(refs))
+
+
+def _trust_runtime_blocked_lane_refs(trust: dict[str, Any]) -> list[str]:
+    """Project lanes that are denied now, including planned unsupported lanes."""
+
+    denied_lane_refs = [
+        entry.get("source_lane_ref")
+        for entry in _list_of_dicts(trust.get("authority_capability_catalog"))
+        if entry.get("authority_state_decision_outcome") == "deny"
+    ]
+    return _merge_refs(trust.get("blocked_lane_refs"), denied_lane_refs)
 
 
 def _validate_ref_list(values: list[str], field_name: str) -> None:

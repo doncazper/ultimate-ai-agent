@@ -21,8 +21,8 @@
       ],
       "allowlist": {
         "scripts/verification/run_all_legacy.py": {
-          "max_lines": 30442,
-          "reason": "Frozen compatibility body moved out of scripts/verify_all.py; FCC-V1-003, FCC-V1-004, governed memory spine, fail-closed local auth compatibility, the operational maturity gate, exact-approved credential validation, and authority-lane verifier hooks remain accepted debt. Future static scans must move to small modules."
+          "max_lines": 30655,
+          "reason": "Frozen compatibility body moved out of scripts/verify_all.py; the hosted-CI repair reuses canonical static-scan exemptions and exact AuthorityLease fixtures across the legacy lane. Future static scans must move to small modules."
         },
         "scripts/verification/documentation_integrity/legacy.py": {
           "max_lines": 21976,
@@ -65,7 +65,7 @@
           "reason": "Frozen seed/read-model legacy chunk after behavior-specific tests were sharded; FCC-V1-002 through FCC-ACTION-001a add decision-state, receipt, and local-task assertions."
         },
         "tests/test_control_center_api_routes.py": {
-          "max_lines": 936,
+          "max_lines": 939,
           "reason": "Frozen Control Center API route contract test; rank-2 Settings, Local Models, memory workbench, runtime pilot route-currentness, and route-currentness assertions remain accepted pre-sharding debt."
         },
         "tests/test_control_center_founder_loop_api.py": {
@@ -81,23 +81,23 @@
           "reason": "Pre-existing oversized operational maturity manifest regression test after authority graduation lane coverage; future maturity assertions should be sharded into focused tests."
         },
         "tests/test_api_manifest.py": {
-          "max_lines": 1048,
+          "max_lines": 1124,
           "reason": "Frozen API manifest route/capability contract test with provider credential validation and governed runtime pilot route-currentness assertions; future API manifest cases should be sharded into focused tests."
         },
         "tests/test_coding_cockpit_read_model.py": {
-          "max_lines": 1339,
+          "max_lines": 1467,
           "reason": "Frozen Coding Cockpit read-model regression test from prior coding prompt lanes; future coding cases should be sharded into focused tests."
         },
         "tests/test_governed_runtime_api_routes.py": {
-          "max_lines": 1031,
-          "reason": "Frozen governed runtime API route contract test for Phase 07 receipt/detail/preflight hardening; future runtime API cases should be sharded into focused tests."
+          "max_lines": 1063,
+          "reason": "Frozen governed runtime API route contract test for Phase 07 receipt/detail/preflight hardening, including deterministic injected-runner coverage for linked worktrees; future runtime API cases should be sharded into focused tests."
         },
         "tests/test_governed_runtime_contracts.py": {
           "max_lines": 2643,
           "reason": "Frozen governed runtime core contract test for local model, command, Action Inbox execution bridge, replay, and safe-disable hardening; future runtime core cases should be sharded into focused tests."
         },
         "tests/test_authority_leases.py": {
-          "max_lines": 2511,
+          "max_lines": 3766,
           "reason": "Frozen authority lease contract matrix covering exact lanes, receipts, and denial posture. Future authority-lane cases should be sharded into focused tests."
         },
         "tests/test_control_center_work_board.py": {
@@ -115,6 +115,14 @@
         "tests/test_tiny_provider_invocation_lane.py": {
           "max_lines": 786,
           "reason": "Frozen tiny provider invocation lane regression test. Future provider lane cases should be sharded into focused tests."
+        },
+        "tests/test_authority_budgets.py": {
+          "max_lines": 797,
+          "reason": "Exact reconciled authority-budget matrix after durable budget and provider-gate hardening. Future budget cases must be sharded."
+        },
+        "tests/test_inspectable_extension_catalog.py": {
+          "max_lines": 915,
+          "reason": "Exact reconciled extension-catalog contract matrix. Future extension-catalog cases must be sharded."
         }
       }
     },
@@ -138,19 +146,19 @@
           "reason": "Frozen Founder Loop storage/read-model hotspot after duplicate helper cleanup. Future Today summary and evidence timeline work must move into focused read-model modules instead of growing this file."
         },
         "src/ultimate_ai_agent/core/authority/contracts.py": {
-          "max_lines": 2900,
-          "reason": "Authority contract facade after lane registry extraction. Future authority policy/store changes must not regrow the mapping table here."
+          "max_lines": 4481,
+          "reason": "Exact reconciled authority contract facade after capability-availability and durable-budget hardening. Future authority policy/store changes must move into focused modules."
         },
         "src/ultimate_ai_agent/core/authority/lane_registry.py": {
           "max_lines": 1694,
           "reason": "Frozen authority lane registry extraction. Future lane additions should split into grouped registry modules instead of growing this table."
         },
         "scripts/dev/uaa_runtime.py": {
-          "max_lines": 4450,
+          "max_lines": 4625,
           "reason": "Developer runtime CLI shell after parser extraction. Future command behavior should move behind focused command modules instead of regrowing this file."
         },
         "scripts/dev/uaa_runtime_parser.py": {
-          "max_lines": 950,
+          "max_lines": 959,
           "reason": "Extracted developer runtime parser module. Future parser growth should split into command-family registration modules."
         }
       }

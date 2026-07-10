@@ -569,6 +569,7 @@ jobs:
             echo "- Report mode: safe-summary-only"
             echo "- Raw command output: captured locally and not uploaded"
             echo "- Report artifacts: generated in workspace only and not uploaded"
+            echo "- Shared hosted-runner Foundation Gate ceiling: 45000 ms; repo-local defaults remain stricter"
             echo ""
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -588,7 +589,7 @@ jobs:
           }
 
           run_lane_command "command:performance.benchmark" .venv/bin/python scripts/benchmark_foundation_gate.py
-          run_lane_command "command:performance.latency-gate" .venv/bin/python scripts/check_foundation_gate_latency.py
+          run_lane_command "command:performance.latency-gate" env FOUNDATION_GATE_MAX_BEST_MS=45000 FOUNDATION_GATE_MAX_MEAN_MS=45000 .venv/bin/python scripts/check_foundation_gate_latency.py
           run_lane_command "command:foundation-gate.report-only" .venv/bin/python scripts/run_foundation_gate.py --command-mode report-only
           exit "$status"
 

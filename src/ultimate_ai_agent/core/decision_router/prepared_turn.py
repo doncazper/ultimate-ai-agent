@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -31,7 +30,6 @@ from ultimate_ai_agent.core.execution import (
     build_sample_staged_orchestration_read_model,
 )
 from ultimate_ai_agent.core.planning.validation import (
-    validate_safe_task_payload,
     validate_safe_task_text,
     validate_task_ref,
 )
