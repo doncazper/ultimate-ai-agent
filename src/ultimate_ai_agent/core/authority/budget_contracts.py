@@ -4,7 +4,14 @@ from datetime import datetime
 from enum import Enum
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictBool,
+    StrictInt,
+    model_validator,
+)
 
 from ultimate_ai_agent.core.authority.authority_constants import (
     AUTHORITY_STATE_REDACTIONS,
@@ -62,7 +69,7 @@ class AuthorityBudgetReceipt(_AuthorityBudgetContract):
     authority_policy_receipt_ref: str | None = None
     cost_estimate_ref: str | None = None
     cost_governor_decision_ref: str | None = None
-    cost_governor_allowed: bool = False
+    cost_governor_allowed: StrictBool = False
     reserved_operation_count: StrictInt = Field(default=0, ge=0)
     reserved_cost_microusd: StrictInt | None = Field(default=None, ge=0)
     actual_operation_count: StrictInt | None = Field(default=None, ge=0)
@@ -80,11 +87,11 @@ class AuthorityBudgetReceipt(_AuthorityBudgetContract):
     previous_entry_hash_ref: str | None = None
     entry_hash_ref: str = Field(..., min_length=1)
     safe_summary: str = Field(..., min_length=1, max_length=520)
-    execution_performed_by_budget_store: bool = False
-    raw_paths_included: bool = False
-    raw_prompt_included: bool = False
-    raw_response_included: bool = False
-    raw_provider_payload_included: bool = False
+    execution_performed_by_budget_store: StrictBool = False
+    raw_paths_included: StrictBool = False
+    raw_prompt_included: StrictBool = False
+    raw_response_included: StrictBool = False
+    raw_provider_payload_included: StrictBool = False
     redactions_applied: list[str] = Field(
         default_factory=lambda: list(AUTHORITY_STATE_REDACTIONS)
     )
@@ -265,8 +272,8 @@ class AuthorityBudgetLeaseSummary(_AuthorityBudgetContract):
     remaining_cost_microusd: StrictInt | None = Field(default=None, ge=0)
     active_reservation_count: StrictInt = Field(default=0, ge=0)
     settled_reservation_count: StrictInt = Field(default=0, ge=0)
-    unresolved_cost: bool = False
-    exhausted: bool = False
+    unresolved_cost: StrictBool = False
+    exhausted: StrictBool = False
     blocked_reason_refs: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
@@ -314,8 +321,8 @@ class AuthorityBudgetReadModel(_AuthorityBudgetContract):
     lease_summaries: list[AuthorityBudgetLeaseSummary] = Field(default_factory=list)
     recent_receipts: list[AuthorityBudgetReceipt] = Field(default_factory=list)
     receipt_count: StrictInt = Field(default=0, ge=0)
-    execution_performed: bool = False
-    mutation_available_from_read_model: bool = False
+    execution_performed: StrictBool = False
+    mutation_available_from_read_model: StrictBool = False
     safe_summary: str = (
         "Authority budget posture is derived from append-first safe-ref receipts."
     )

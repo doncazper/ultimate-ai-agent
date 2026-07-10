@@ -4,9 +4,16 @@ import hashlib
 import json
 import os
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictBool,
+    StrictInt,
+    model_validator,
+)
 
 from ultimate_ai_agent.core.authority.contracts import (
     AUTHORITY_STATE_LOCK_KEY,
@@ -56,7 +63,7 @@ class AuthorityBudgetReservationRequest(_AuthorityBudgetModel):
     estimated_cost_microusd: StrictInt | None = Field(default=None, ge=0)
     cost_estimate_ref: str = Field(..., min_length=1)
     cost_governor_decision_ref: str = Field(..., min_length=1)
-    cost_governor_allowed: bool
+    cost_governor_allowed: StrictBool
     idempotency_ref: str = Field(..., min_length=1)
     safe_summary: str = Field(..., min_length=1, max_length=520)
 
@@ -101,7 +108,7 @@ class AuthorityBudgetReleaseRequest(_AuthorityBudgetModel):
     reservation_ref: str = Field(..., min_length=1)
     idempotency_ref: str = Field(..., min_length=1)
     reason_ref: str = Field(..., min_length=1)
-    execution_started: Literal[False] = False
+    execution_started: StrictBool = False
     safe_summary: str = Field(..., min_length=1, max_length=520)
 
     @model_validator(mode="after")
@@ -110,6 +117,8 @@ class AuthorityBudgetReleaseRequest(_AuthorityBudgetModel):
         validate_task_ref(self.idempotency_ref, "authority_budget_idempotency_ref")
         validate_task_ref(self.reason_ref, "authority_budget_release_reason_ref")
         validate_safe_task_text(self.safe_summary, "authority_budget_summary")
+        if self.execution_started:
+            raise ValueError("AUTHORITY_BUDGET_RELEASE_EXECUTION_ALREADY_STARTED")
         return self
 
 

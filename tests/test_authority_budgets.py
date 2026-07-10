@@ -173,6 +173,10 @@ def test_budget_integer_contracts_reject_boolean_and_string_coercion() -> None:
     request_payload["operation_count"] = "1"
     with pytest.raises(ValueError, match="int_type"):
         AuthorityBudgetReservationRequest.model_validate(request_payload)
+    request_payload["operation_count"] = 1
+    request_payload["cost_governor_allowed"] = "true"
+    with pytest.raises(ValueError, match="bool_type"):
+        AuthorityBudgetReservationRequest.model_validate(request_payload)
 
 
 def test_reserve_settle_and_cumulative_exhaustion_are_durable(tmp_path) -> None:
@@ -570,7 +574,10 @@ def test_correctly_hashed_impossible_reservation_transition_is_detected(
 
 
 def test_release_contract_rejects_started_execution() -> None:
-    with pytest.raises(ValueError, match="execution_started"):
+    with pytest.raises(
+        ValueError,
+        match="AUTHORITY_BUDGET_RELEASE_EXECUTION_ALREADY_STARTED",
+    ):
         AuthorityBudgetReleaseRequest(
             reservation_ref="authority-budget-reservation-ref:test-started",
             idempotency_ref="idempotency-ref:test-budget-release:started",
