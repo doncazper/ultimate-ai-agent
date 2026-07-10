@@ -190,10 +190,13 @@ class AuthorityBudgetStore:
             if replay is not None:
                 return replay
             leases = self.lease_store._list_leases(active_only=True)
-            decision = evaluate_authority_request(request.action_request, leases)
             lease = next(
                 (item for item in leases if item.lease_ref == request.lease_ref),
                 None,
+            )
+            decision = evaluate_authority_request(
+                request.action_request,
+                [lease] if lease is not None else [],
             )
             reason_refs: list[str] = []
             if decision.outcome != AuthorityDecisionOutcome.allow.value:

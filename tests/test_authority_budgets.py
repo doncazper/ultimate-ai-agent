@@ -459,6 +459,33 @@ def test_concurrent_lease_issues_preserve_every_atomic_update(tmp_path) -> None:
     assert len(AuthorityLeaseStore(state_dir).list_receipts(limit=20)) == 8
 
 
+def test_reservation_evaluates_only_the_exact_requested_active_lease(tmp_path) -> None:
+    lease_store, budget_store, first_lease = _stores(tmp_path)
+    second_lease, receipt = issue_authority_lease_with_test_approval(
+        lease_store,
+        AuthorityLeaseIssueRequest(
+            mode=TrustMode.full_local_workspace_session,
+            requested_domains={
+                AuthorityDomain.workspace: [AuthorityCapability.execute]
+            },
+            authority_constraints=_budget_constraints(),
+            decision_reason_ref="reason-ref:test-second-budget-lease",
+            safe_summary="Issue a second exact budgeted workspace lease.",
+        ),
+        idempotency_ref="idempotency-ref:test-second-budget-lease",
+    )
+    assert second_lease is not None
+    assert receipt.status == "issued"
+    assert first_lease.lease_ref != second_lease.lease_ref
+
+    reservation = budget_store.reserve(
+        _reserve_request(second_lease.lease_ref, suffix="second-exact-lease")
+    )
+
+    assert reservation.status == AuthorityBudgetStatus.reserved.value
+    assert reservation.lease_ref == second_lease.lease_ref
+
+
 def test_budget_hash_chain_tampering_is_detected(tmp_path) -> None:
     _, budget_store, lease = _stores(tmp_path)
     budget_store.reserve(_reserve_request(lease.lease_ref, suffix="tamper"))
