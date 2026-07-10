@@ -25,12 +25,12 @@ Current route classification summary:
 | Classification | Count |
 |---|---:|
 | `public_metadata` | 3 |
-| `local_readonly` | 27 |
+| `local_readonly` | 28 |
 | `local_sensitive` | 171 |
 | `mutating_requires_authority` | 50 |
 
-The current OpenAPI path count is `250` and `/api/manifest` currently reports
-`251` route operations after later scoped FCC-V1-003 through
+The current OpenAPI path count is `251` and `/api/manifest` currently reports
+`252` route operations after later scoped FCC-V1-003 through
 FCC-V1-006 Founder Loop route work, FCC-MEM-001 Memory Workbench/search/manual
 intake and lifecycle routes, the governed memory L1/L2/L3 index routes, Phase
 5 context-pack proposals, the Phase 6.1 internal Action proposal hook, the
@@ -66,7 +66,9 @@ inspection routes, plus the Hermes Runtime Adoption Phase 04 approval bridge
 read-model route, plus the Hermes Runtime Adoption Phase 05 streaming progress
 read-model route, plus the Hermes Runtime Adoption Phase 06 profile isolation
 read-model route, plus the AuthorityLease decision preview and mission planning
-routes, plus Hermes Runtime Adoption Phase 41 voice/media posture, Phase 42
+routes, plus the protected authority domain readiness route, the Control Center
+capability-surface read model route, plus Hermes Runtime Adoption Phase 41
+voice/media posture, Phase 42
 messaging gateway posture, Phase 43 remote execution posture, Phase 44 plugin
 metadata posture, and Phase 45 skill marketplace posture inspection routes.
 Hermes interface-mode chat is a

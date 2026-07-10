@@ -27,6 +27,9 @@ What was wired in this pass:
   the embedded dashboard copies when the dedicated routes are available.
 - The `/approvals` surface now displays the backend-owned approval summary
   while keeping detailed approval queue cards as preview-only M15 review data.
+- The `/capabilities` surface now displays the backend-owned capability
+  surface read model from `GET /control-center/capabilities/surface` with CLI
+  parity through `scripts/dev/uaa_capability_surface.py inspect`.
 
 What was already wired and left intact:
 
@@ -129,6 +132,7 @@ Ambiguous routes/pages:
 | `/` Overview | Control Center shell | Overview dashboard | `GET /control-center/dashboard`; `GET /control-center/manifest`; `GET /control-center/status` | wired read-only | The app shell uses backend dashboard/status and manifest data. | Keep as the default shell route. |
 | `/dashboard` Dashboard | Control Center shell | Dashboard summary cards | `GET /control-center/dashboard` plus dedicated summary routes | wired read-only | Dedicated approval/runtime/foundation summaries are now preferred when available. | Add tests whenever new dashboard cards are added. |
 | `/api-routes` API Routes | Control Center shell | API route inventory table | `GET /control-center/routes`; release manifest also lists `GET /api/manifest` | partially wired | Control Center routes are typed and displayed; full API manifest is not typed in the frontend client. | Add a typed `ApiManifest` client model and render a bounded full-manifest summary. |
+| `/capabilities` Capabilities | Control Center shell | Capability coverage rows, status groups, source-truth posture, route/CLI refs, missing reasons, blocked authority refs | `GET /control-center/capabilities/surface`; CLI: `scripts/dev/uaa_capability_surface.py inspect`; source truth: `docs/control_center/capability_surface_manifest.json` and `docs/control_center/capability_surface_generated_overlay.json` | wired read-only | Python/API owns the bounded read model and the UI renders operator-readable rows rather than raw JSON; visual baseline proof remains blocked. | Add redacted desktop/mobile visual baselines and keep source-truth overlay checks in the verifier stack. |
 | `/differentiators` Differentiators | Control Center shell | Operator-proof comparison cards | Mixed: dashboard/routes/runtime plus M15/M16/M17/M18/M36 mock bundles | partially wired / demo-only | It aggregates real summaries and mock milestone bundles; it should not be treated as product truth. | Replace mock-fed cards with backend proof refs or mark each card's data source inline. |
 
 ## Unwired Items

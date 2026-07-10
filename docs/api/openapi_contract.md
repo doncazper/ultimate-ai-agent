@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `250`.
+Current OpenAPI path count: `251`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -508,6 +508,12 @@ Contract rules:
   redacted receipt refs, and the local disabled-record store validate. It must
   not persist package installs, import runtime code, enable plugins, activate
   extensions, fetch marketplaces, execute extensions, or widen authority.
+- `GET /control-center/capabilities/surface` must remain a read-only Control
+  Center capability coverage route only. It may expose bounded capability rows,
+  source-truth posture, route refs, CLI refs, missing reasons, and blocked
+  authority refs, but it must not expose raw manifest dumps or grant action,
+  provider/model, connector, browser, shell, memory, context, public release,
+  or production authority.
 - `/observability/session-events` and `/observability/client-errors` must remain
   local, bounded, redacted-summary routes only; they must not expose raw JSONL
   records, request or response bodies, prompts, provider payloads, terminal

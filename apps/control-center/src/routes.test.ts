@@ -3,7 +3,7 @@ import type {
   BackendConnectionSummary,
   ControlCenterRouteReadState,
 } from "./api/types";
-import { getRouteStateDescriptor } from "./routes";
+import { getRouteStateDescriptor, supportingNavItems } from "./routes";
 
 const onlineConnection: BackendConnectionSummary = {
   state: "online",
@@ -34,6 +34,19 @@ function readState(
 }
 
 describe("getRouteStateDescriptor", () => {
+  it("lists capability surface as a supporting System route", () => {
+    expect(supportingNavItems).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: "/capabilities",
+          label: "Capabilities",
+          group: "System",
+          releaseStatus: "partial",
+        }),
+      ]),
+    );
+  });
+
   it("maps an exact-proof route with backend-owned data to success", () => {
     const descriptor = getRouteStateDescriptor(
       "/actions",

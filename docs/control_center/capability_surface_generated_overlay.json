@@ -10,12 +10,12 @@
   "public_beta_claim_enabled": false,
   "production_readiness_claim_enabled": false,
   "source_truth_counts": {
-    "api_manifest_route_count": 251,
-    "release_surface_route_count": 39,
-    "visible_action_count": 42,
-    "human_capability_count": 27,
-    "covered_release_route_count": 39,
-    "covered_visible_action_count": 42,
+    "api_manifest_route_count": 252,
+    "release_surface_route_count": 40,
+    "visible_action_count": 43,
+    "human_capability_count": 28,
+    "covered_release_route_count": 40,
+    "covered_visible_action_count": 43,
     "missing_release_routes": [],
     "missing_visible_actions": []
   },
@@ -1962,6 +1962,49 @@
           "side_effect_class": "local_ui_state_only",
           "risk_class": "medium",
           "backend_route_count": 4,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "current"
+        }
+      ],
+      "source_truth_status": "current"
+    },
+    {
+      "capability_id": "control_center_capability_surface",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/capabilities/surface",
+          "operation_id": "get_control_center_capabilities_surface",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        }
+      ],
+      "ui_routes": [
+        {
+          "path": "/capabilities",
+          "label": "Capabilities",
+          "group": "System",
+          "ui_status": "capability surface",
+          "release_status": "partial",
+          "owner": "control-center",
+          "backend_route_count": 1,
+          "blocked_capability_count": 9,
+          "visual_proof_status": "blocked_no_baseline",
+          "source_truth_status": "current"
+        }
+      ],
+      "control_action_ids": [
+        {
+          "action_id": "navigate-capability-surface",
+          "source": "route_status_manifest",
+          "frontend_route": "/capabilities",
+          "ui_surface": "Capabilities",
+          "release_status": "partial_backend_not_product_ready",
+          "side_effect_class": "validation_only",
+          "risk_class": "low",
+          "backend_route_count": 1,
           "missing_backend_route_count": 0,
           "source_truth_status": "current"
         }

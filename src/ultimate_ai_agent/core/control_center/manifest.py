@@ -12,6 +12,7 @@ CONTROL_CENTER_ROUTES = [
     "/control-center/actions/preview",
     "/control-center/actions/inbox",
     "/control-center/approvals/summary",
+    "/control-center/capabilities/surface",
     "/control-center/dashboard",
     "/control-center/foundation-gate/summary",
     "/control-center/manifest",

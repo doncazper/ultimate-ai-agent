@@ -2946,6 +2946,67 @@
         "Route visibility does not grant file writes, shell or subprocess execution, Git mutation, connector writes, provider or model calls, browser execution, memory or context injection, broad runtime authority, background autonomy, hidden autonomy, or production authority.",
         "Live preview readiness exposes safe refs only; dev-server start/status detection, raw URL persistence, screenshot capture, console capture, browser preview, and browser automation remain blocked."
       ]
+    },
+    {
+      "path": "/capabilities",
+      "label": "Capabilities",
+      "group": "System",
+      "ui_status": "capability surface",
+      "status": "partial",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/capabilities/surface",
+          "operation_id": "get_control_center_capabilities_surface",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
+        }
+      ],
+      "side_effect_class": "validation_only",
+      "route_classification": "local_readonly",
+      "approval_required": false,
+      "proof_lanes": [
+        "scripts/generate_control_center_capability_surface.py --check",
+        "scripts/verify_control_center_capability_surface.py",
+        "tests/test_control_center_capability_surface_manifest.py",
+        "tests/test_control_center_api_routes.py"
+      ],
+      "blocked_capabilities": [
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority",
+        "broad_runtime_execution",
+        "connector_write",
+        "provider_model_call",
+        "browser_automation",
+        "memory_write",
+        "context_injection"
+      ],
+      "evidence_refs": [
+        "docs/control_center/capability_surface_manifest.json",
+        "docs/control_center/capability_surface_generated_overlay.json",
+        "src/ultimate_ai_agent/core/control_center/capability_surface.py",
+        "src/ultimate_ai_agent/api/control_center.py",
+        "scripts/dev/uaa_capability_surface.py",
+        "apps/control-center/src/routes.tsx"
+      ],
+      "owner": "control-center",
+      "backend_contract_rationale": "backend-route-refs-present",
+      "visual_proof_status": "blocked_no_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:capabilities:not-captured",
+      "visual_proof_rationale": "No checked-in visual baseline is recorded for this route; visual proof remains blocked or experimental until a scoped visual regression lane captures redacted desktop/mobile baselines.",
+      "promotion_criteria": [
+        "Keep the Python/API read model as the source of truth.",
+        "Keep capability rows bounded to safe refs and operator-readable status.",
+        "Add passing focused tests and verifier refs for source-truth drift.",
+        "Keep public beta, public release, production readiness, and production authority claims blocked."
+      ],
+      "product_language_caveats": [
+        "Capabilities is a read-only Control Center coverage view; it is not a public beta, public release, production readiness, or production authority claim.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Route visibility does not grant action execution, provider/model calls, connector writes/sends, browser automation, shell or subprocess execution, memory writes, context injection, background autonomy, broad runtime authority, or production authority.",
+        "The view renders bounded capability rows and counts rather than raw manifest JSON."
+      ]
     }
   ]
 }

@@ -2363,6 +2363,11 @@ CONTROL_CENTER_CODING_COCKPIT_ROUTES = frozenset(
         "/control-center/coding/test-command-readiness",
     }
 )
+CONTROL_CENTER_CAPABILITY_SURFACE_ROUTES = frozenset(
+    {
+        "/control-center/capabilities/surface",
+    }
+)
 CONTROL_CENTER_WORK_BOARD_ROUTES = frozenset({"/control-center/work-board"})
 RUN_ATTACHED_APPROVAL_QUEUE_ROUTES = frozenset(
     {
@@ -2622,6 +2627,7 @@ POST_MILESTONE_SAFE_ROUTE_FAMILIES = {
     "control_center_provider_credential_validation": CONTROL_CENTER_PROVIDER_CREDENTIAL_VALIDATION_ROUTES,
     "control_center_provider_router_dry_run": CONTROL_CENTER_PROVIDER_ROUTER_DRY_RUN_ROUTES,
     "control_center_coding_cockpit": CONTROL_CENTER_CODING_COCKPIT_ROUTES,
+    "control_center_capability_surface": CONTROL_CENTER_CAPABILITY_SURFACE_ROUTES,
     "control_center_work_board": CONTROL_CENTER_WORK_BOARD_ROUTES,
     "control_center_work_board_commands": CONTROL_CENTER_WORK_BOARD_COMMAND_ROUTES,
     "control_center_crm_command_center": CONTROL_CENTER_CRM_COMMAND_CENTER_ROUTES,

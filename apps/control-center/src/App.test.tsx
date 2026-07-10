@@ -17638,6 +17638,8 @@ function envelopeForReadEndpoint(url: string) {
       mockApiData.dashboard.foundation_gate_summary,
     [API_ENDPOINTS.controlCenterStatus]: mockApiData.status,
     [API_ENDPOINTS.controlCenterRoutes]: mockApiData.routes,
+    [API_ENDPOINTS.controlCenterCapabilitySurface]:
+      mockControlCenterData.capabilitySurface,
     [API_ENDPOINTS.runtimeReadiness]: {
       ...mockApiData.runtimeReadiness,
       baseline_version: "0.20.1",

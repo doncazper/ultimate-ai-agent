@@ -256,7 +256,7 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "/api/runtime/voice-media-posture",
         "/api/runtime/worktree-per-agent",
     }
-    assert len(paths & UAA_RUNTIME_CONTROL_PLANE_ROUTES) == 55
+    assert len(paths & UAA_RUNTIME_CONTROL_PLANE_ROUTES) == 56
     assert RUN_ATTACHED_APPROVAL_QUEUE_ROUTES == {
         "/control-center/approvals/queue",
     }
@@ -267,12 +267,14 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "control_center_provider_credential_validation",
         "control_center_provider_router_dry_run",
         "control_center_coding_cockpit",
+        "control_center_capability_surface",
         "control_center_crm_command_center",
         "control_center_runtime_cockpit",
         "control_center_work_board",
         "control_center_work_board_commands",
         "control_center_setup_assistant",
         "control_center_tiny_provider_lane",
+        "extension_disabled_install_record",
         "founder_loop",
         "governed_runtime_pilot_contracts",
         "mattermost",

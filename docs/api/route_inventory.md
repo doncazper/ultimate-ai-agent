@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `250`.
+Current OpenAPI path count: `251`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -43,7 +43,7 @@ Current route classification summary:
 | Classification | Count |
 |---|---:|
 | `public_metadata` | 3 |
-| `local_readonly` | 27 |
+| `local_readonly` | 28 |
 | `local_sensitive` | 171 |
 | `mutating_requires_authority` | 50 |
 
@@ -577,6 +577,19 @@ only an exact disabled extension install metadata receipt after active
 validation, idempotency, redacted receipt refs, and the local disabled-record
 store validate. These routes do not persist package installs, import, enable,
 activate, revoke, execute, fetch, or mutate extensions.
+
+### Control Center capability surface
+
+- `GET /control-center/capabilities/surface`
+
+This route returns a bounded read-only capability coverage read model derived
+from the human capability manifest, generated source-truth overlay, and live API
+manifest metadata. It exposes safe capability rows, source-truth posture, route
+refs, CLI refs, missing reasons, and blocked authority refs only. It does not
+return raw manifest dumps or grant action execution, approval authority,
+provider/model calls, connector writes, browser automation, shell/subprocess
+execution, memory writes, context injection, public release, or production
+authority.
 
 ### Mattermost agent rooms
 
