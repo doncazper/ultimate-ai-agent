@@ -165,8 +165,10 @@ Do not add clicks/forms.
 ### Later provider read-only — Firecrawl/search
 
 ```text
-Promote a specific provider adapter only after an accepted scoped milestone.
-Support only read-only search/scrape/extract outputs.
+WEB-HYBRID-003 promotes only SearXNG bounded JSON search after its accepted
+scoped activation. Every call requires exact policy, approval, lease,
+availability, audit, and redaction gates.
+Firecrawl search/scrape/extract remains blocked until later WEB-HYBRID phases.
 Normalize into WebAccessResult and WebAccessAuditRecord.
 Mark content_untrusted=true.
 Keep Interact, sessions, clicks/forms, credentials, and writes blocked.

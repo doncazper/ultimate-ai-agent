@@ -11,11 +11,13 @@ Scope: local SearXNG discovery, self-hosted Firecrawl extraction, bounded
 Firecrawl Cloud fallback, quota accounting, Docker packaging, UAA gateway
 integration, operator inspection, verification, rollout, and rollback
 
-Current implementation posture: WEB-HYBRID-001 provider-neutral capability,
-transport, credit, reservation, and routing-simulation contracts are
-implemented without network transports. SearXNG is not yet integrated; the
-Firecrawl adapter remains a disabled diagnostic shell; `search`,
-`extract_markdown`, and `extract_schema` remain policy-denied.
+Current implementation posture: WEB-HYBRID-001 provider-neutral contracts and
+WEB-HYBRID-002 pinned loopback packaging are implemented. WEB-HYBRID-003 adds
+one exact SearXNG read-only search lane through `WebAccessGateway`, gated on
+current availability, PolicyEngine, exact local approval, and an exact
+resource-constrained AuthorityLease. Firecrawl transport, cloud credential use,
+credit reconciliation, and provider fallback execution remain blocked until
+their exact later phases.
 
 Progress evidence is phase-committed. A completed contract or packaging phase
 does not grant later provider execution authority.

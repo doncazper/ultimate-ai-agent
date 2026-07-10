@@ -473,6 +473,8 @@ class CapabilityInvocationRequest(_CapabilityAvailabilityModel):
     task_ref: str | None = None
     approval_ref: str | None = None
     budget_decision_ref: str | None = None
+    authority_lease_required: bool = False
+    local_approval_required: bool = False
     idempotency_posture: IdempotencyPosture
     expected_execution_receipt_ref: str
 
@@ -510,6 +512,8 @@ class CapabilityInvocationDecision(_CapabilityAvailabilityModel):
     approval_decision_ref: str | None = None
     budget_decision_ref: str | None = None
     expected_execution_receipt_ref: str
+    authority_lease_required: bool = False
+    local_approval_required: bool = False
     cache_posture: Literal["not_cacheable"] = (
         InvocationDecisionCachePosture.not_cacheable.value
     )
@@ -557,6 +561,18 @@ class CapabilityInvocationDecision(_CapabilityAvailabilityModel):
     def validate_allow_posture(self) -> "CapabilityInvocationDecision":
         if self.outcome == InvocationDecisionOutcome.allow and self.blocker_codes:
             raise ValueError("CAPABILITY_INVOCATION_ALLOW_WITH_BLOCKERS_DENIED")
+        if (
+            self.outcome == InvocationDecisionOutcome.allow
+            and self.authority_lease_required
+            and self.authority_decision_ref is None
+        ):
+            raise ValueError("CAPABILITY_INVOCATION_ALLOW_REQUIRES_AUTHORITY_DECISION")
+        if (
+            self.outcome == InvocationDecisionOutcome.allow
+            and self.local_approval_required
+            and self.approval_decision_ref is None
+        ):
+            raise ValueError("CAPABILITY_INVOCATION_ALLOW_REQUIRES_APPROVAL_DECISION")
         return self
 
 
@@ -606,6 +622,7 @@ def evaluate_capability_invocation(
         snapshot.authority_posture == AuthorityPosture.approval_required
         or policy_decision.requires_approval
         or policy_decision.status == PolicyDecisionStatus.approval_required
+        or request.local_approval_required
     )
     if approval_required:
         if not request.approval_ref:
@@ -619,7 +636,10 @@ def evaluate_capability_invocation(
             requested_outcome = InvocationDecisionOutcome.approval_required
             reasons.append("EXACT_LOCAL_APPROVAL_VALIDATION_REQUIRED")
 
-    if snapshot.authority_posture == AuthorityPosture.lease_required:
+    if (
+        snapshot.authority_posture == AuthorityPosture.lease_required
+        or request.authority_lease_required
+    ):
         if not _exact_authority_lease_valid(
             authority_decision,
             capability_ref=request.capability_ref,
@@ -705,6 +725,8 @@ def evaluate_capability_invocation(
             else None
         ),
         expected_execution_receipt_ref=request.expected_execution_receipt_ref,
+        authority_lease_required=request.authority_lease_required,
+        local_approval_required=request.local_approval_required,
         evaluated_at=evaluated_at,
         reason_codes=reasons,
         blocker_codes=blockers,

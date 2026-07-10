@@ -1,8 +1,8 @@
 # WebAccessGateway Boundary
 
-Status: active boundary slice / M72-M75 provider-shell posture
-Scope: contracts, policy, audit, source metadata, static guardrails, governed evidence wrapper, disabled provider adapter shells
-Out of scope: live provider calls, provider credentials, browser execution, browser clicks, form filling, auth, cookies, downloads, uploads, non-GET methods
+Status: active boundary plus exact WEB-HYBRID-003 SearXNG read-only search lane
+Scope: contracts, policy, audit, source metadata, static guardrails, governed evidence wrapper, disabled provider shells, and one exact governed SearXNG search adapter
+Out of scope: Firecrawl calls, provider credentials, browser execution, browser clicks, form filling, auth, cookies, downloads, uploads, and non-GET target methods
 
 ## Decision
 
@@ -42,13 +42,13 @@ durable audit storage, side-effect ledger blockers, approval linkage, operator
 blocked/degraded/partial labels, provider diagnostics, metadata-only catalog
 visibility, and named verification lanes come before scoped execution.
 
-The core rule is: add provider shells earlier, add provider execution and
-dangerous authority much later. Firecrawl, Browserbase, and search provider
-shells may appear as disabled diagnostics behind the gateway, but provider
-SDK imports, credentials, network calls, scrape jobs, browser sessions, browser
-clicks, form filling, auth/cookies, downloads/uploads, and POST-style mutations
-must wait for mature autonomy, audit, approval, revocation, sandbox, and
-connector/write layers.
+The exact SearXNG lane is the first narrowly promoted provider execution path.
+It permits one bounded JSON GET only after current availability, PolicyEngine,
+exact LocalApprovalAuthority scope, and an exact resource-constrained
+AuthorityLease all pass immediately before execution. Firecrawl, Browserbase,
+provider credentials/SDKs, scrape jobs, browser sessions, browser clicks, form
+filling, auth/cookies, downloads/uploads, and POST-style target mutations remain
+blocked until their separately accepted lanes satisfy the same boundaries.
 
 ## Authority ladder
 
@@ -75,6 +75,11 @@ Allowed:
 - explicit injected read-only HTTPS GET transport for
   `read_only_real_world_web_fetch`, routed through `WebAccessGateway`
 - disabled provider adapter shells for Firecrawl, Browserbase, and search diagnostics
+- exact SearXNG `SEARCH` with page one, general category, English language,
+  safe-search, and at most ten normalized untrusted results
+- a fixed configured loopback endpoint; requests cannot supply or override it
+- exact capability/provider/adapter/task/request lease resources plus exact
+  local approval validation before each transport call
 - normalized WebAccessAuditRecord for allowed and denied paths
 - SourceMetadata with content_untrusted=true
 - quarantined WebAccessEvidenceBundle for adapter payloads
@@ -104,7 +109,7 @@ Denied:
 - provider shells as runtime authority
 - provider SDK imports/calls
 - provider credentials
-- live search provider calls
+- all live search providers except the exact governed SearXNG lane
 - Firecrawl scrape jobs
 - Browserbase browser sessions
 ```
@@ -130,6 +135,13 @@ Temporary exceptions are not permission to add more direct access. They should s
 Adapters must be invoked only after policy allows the request, normalize provider results into `WebAccessResult`, mark web content as untrusted, and avoid leaking provider objects or runtime authority to agent logic. Adapter payloads must be wrapped as quarantined `WebAccessEvidenceBundle` data, not exposed as tool, shell, browser, connector, memory, or policy instructions.
 
 Adapters must not execute browser actions, hide redirects/source metadata, treat fetched web content as instructions, or introduce provider dependencies in this boundary PR. Disabled provider adapter shells are diagnostic metadata only; catalog visibility is not callable runtime authority.
+
+The SearXNG adapter is an explicit later promotion rather than a diagnostic
+shell. Its raw query is transient, candidate URLs are normalized and reject
+local/private literal targets, raw provider responses are quarantined and
+discarded after normalization, and durable receipts contain safe refs/hashes
+only. Runtime readiness never grants authority, and invocation decisions are
+not cacheable.
 
 ## Untrusted content model
 
