@@ -1,8 +1,8 @@
 # WebAccessGateway Boundary
 
-Status: active boundary plus exact WEB-HYBRID-003 SearXNG read-only search lane
-Scope: contracts, policy, audit, source metadata, static guardrails, governed evidence wrapper, disabled provider shells, and one exact governed SearXNG search adapter
-Out of scope: Firecrawl calls, provider credentials, browser execution, browser clicks, form filling, auth, cookies, downloads, uploads, and non-GET target methods
+Status: active boundary plus exact WEB-HYBRID-003 SearXNG search and WEB-HYBRID-004 self-hosted Firecrawl markdown lanes
+Scope: contracts, policy, audit, source metadata, static guardrails, governed evidence wrapper, disabled provider shells, exact governed SearXNG search, and exact self-hosted one-page markdown extraction
+Out of scope: Firecrawl Cloud, provider credentials, crawl/map/search/schema extraction, browser execution, browser clicks, form filling, auth, cookies, downloads, uploads, and non-GET target methods
 
 ## Decision
 
@@ -45,10 +45,13 @@ visibility, and named verification lanes come before scoped execution.
 The exact SearXNG lane is the first narrowly promoted provider execution path.
 It permits one bounded JSON GET only after current availability, PolicyEngine,
 exact LocalApprovalAuthority scope, and an exact resource-constrained
-AuthorityLease all pass immediately before execution. Firecrawl, Browserbase,
-provider credentials/SDKs, scrape jobs, browser sessions, browser clicks, form
-filling, auth/cookies, downloads/uploads, and POST-style target mutations remain
-blocked until their separately accepted lanes satisfy the same boundaries.
+AuthorityLease all pass immediately before execution. WEB-HYBRID-004 separately
+promotes one self-hosted Firecrawl markdown extraction for an exact allowlisted
+public HTTPS target under the same request-scoped gates. The target operation
+remains GET; the fixed loopback adapter uses POST only as Firecrawl's provider
+transport. Firecrawl Cloud, Browserbase, crawl/map/search/schema extraction,
+provider credentials, browser sessions/actions, auth/cookies, downloads/uploads,
+and POST-style target mutations remain blocked.
 
 ## Authority ladder
 
@@ -77,6 +80,8 @@ Allowed:
 - disabled provider adapter shells for Firecrawl, Browserbase, and search diagnostics
 - exact SearXNG `SEARCH` with page one, general category, English language,
   safe-search, and at most ten normalized untrusted results
+- exact self-hosted Firecrawl `EXTRACT_MARKDOWN` for one approved public HTTPS
+  target, one attempt, one page, markdown only, with a bounded redacted preview
 - a fixed configured loopback endpoint; requests cannot supply or override it
 - exact capability/provider/adapter/task/request lease resources plus exact
   local approval validation before each transport call
@@ -110,7 +115,7 @@ Denied:
 - provider SDK imports/calls
 - provider credentials
 - all live search providers except the exact governed SearXNG lane
-- Firecrawl scrape jobs
+- Firecrawl Cloud, crawl/map/search/schema extraction, and provider actions
 - Browserbase browser sessions
 ```
 
@@ -142,6 +147,14 @@ local/private literal targets, raw provider responses are quarantined and
 discarded after normalization, and durable receipts contain safe refs/hashes
 only. Runtime readiness never grants authority, and invocation decisions are
 not cacheable.
+
+The self-hosted Firecrawl adapter is an independent exact promotion. It resolves
+the approved target to public addresses before the provider call, rejects any
+provider-reported final-URL change, and discards content on validation failure.
+Full markdown remains transient, untrusted evidence; receipts expose safe refs,
+hashes, reason codes, and a bounded redacted preview only. Crawl, map, search,
+schema extraction, screenshots, actions, and request-controlled provider options
+are not part of this lane.
 
 ## Untrusted content model
 

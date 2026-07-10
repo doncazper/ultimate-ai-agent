@@ -10,8 +10,10 @@ later accepted WEB-HYBRID phases.
 ## Safety boundary
 
 - Only SearXNG and Firecrawl API ports are published, both on `127.0.0.1`.
-- Valkey, Redis, RabbitMQ, PostgreSQL, and Playwright remain on internal Docker
-  networks. No queue administration UI is enabled.
+- Valkey, Redis, RabbitMQ, PostgreSQL, and Playwright publish no host ports.
+  Playwright has a dedicated outbound network for public-page rendering; its
+  API remains reachable only to the Firecrawl stack. No queue administration
+  UI is enabled.
 - Firecrawl receives its PostgreSQL and Bull/admin values from Compose secret
   files generated under ignored `.uaa/` local state.
 - SearXNG receives a generated secret through an ignored generated settings

@@ -15,9 +15,11 @@ Current implementation posture: WEB-HYBRID-001 provider-neutral contracts and
 WEB-HYBRID-002 pinned loopback packaging are implemented. WEB-HYBRID-003 adds
 one exact SearXNG read-only search lane through `WebAccessGateway`, gated on
 current availability, PolicyEngine, exact local approval, and an exact
-resource-constrained AuthorityLease. Firecrawl transport, cloud credential use,
-credit reconciliation, and provider fallback execution remain blocked until
-their exact later phases.
+resource-constrained AuthorityLease. WEB-HYBRID-004 adds one independent exact
+self-hosted Firecrawl lane for a single approved, allowlisted public HTTPS page,
+one attempt, and transient markdown-only evidence under the same request-scoped
+gates. Firecrawl Cloud credential use, credit reconciliation, and hybrid
+provider fallback execution remain blocked until their exact later phases.
 
 Progress evidence is phase-committed. A completed contract or packaging phase
 does not grant later provider execution authority.

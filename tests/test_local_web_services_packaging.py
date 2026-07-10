@@ -70,6 +70,8 @@ def test_compose_publishes_only_adapter_apis_on_loopback() -> None:
     )
     assert rendered["networks"]["firecrawl-backend"]["internal"] is True
     assert rendered["networks"]["search-backend"]["internal"] is True
+    assert rendered["services"]["firecrawl-playwright"].get("ports") is None
+    assert "provider-egress" in rendered["services"]["firecrawl-playwright"]["networks"]
     assert "firecrawl-postgres-data" in rendered["volumes"]
 
 

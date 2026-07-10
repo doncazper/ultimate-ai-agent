@@ -168,7 +168,13 @@ Do not add clicks/forms.
 WEB-HYBRID-003 promotes only SearXNG bounded JSON search after its accepted
 scoped activation. Every call requires exact policy, approval, lease,
 availability, audit, and redaction gates.
-Firecrawl search/scrape/extract remains blocked until later WEB-HYBRID phases.
+WEB-HYBRID-004 separately promotes one self-hosted Firecrawl operation:
+one-page, one-attempt, markdown-only extraction for an exact allowlisted public
+HTTPS target. The target remains read-only GET semantics even though the fixed
+loopback provider transport uses POST. Full markdown is transient and untrusted;
+durable output contains safe refs, hashes, reason codes, and a bounded redacted
+preview. Firecrawl Cloud, search, crawl, map, schema extraction, screenshots,
+Interact, sessions, and actions remain blocked until separately promoted.
 Normalize into WebAccessResult and WebAccessAuditRecord.
 Mark content_untrusted=true.
 Keep Interact, sessions, clicks/forms, credentials, and writes blocked.

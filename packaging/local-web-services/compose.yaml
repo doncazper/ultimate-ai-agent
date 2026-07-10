@@ -116,6 +116,7 @@ services:
       MAX_CONCURRENT_PAGES: "2"
     networks:
       - firecrawl-backend
+      - provider-egress
     healthcheck:
       test:
         - CMD
@@ -210,6 +211,8 @@ networks:
   firecrawl-backend:
     driver: bridge
     internal: true
+  provider-egress:
+    driver: bridge
 
 secrets:
   firecrawl_postgres_password:
