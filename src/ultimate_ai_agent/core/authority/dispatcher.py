@@ -192,6 +192,76 @@ def _budget_release_idempotency_ref(
     )
 
 
+def _filesystem_target_reason_refs(
+    request: AuthorityDispatchRequest,
+    tool_request: ToolInvocationRequest,
+) -> list[str]:
+    root_ref = tool_request.metadata.get("root_ref")
+    relative_path = tool_request.metadata.get("relative_path")
+    if not isinstance(root_ref, str) or not isinstance(relative_path, str):
+        return ["reason-ref:authority-dispatch:filesystem-target-invalid"]
+    normalized_path, path_reasons = normalize_relative_metadata_path(relative_path)
+    if path_reasons or normalized_path is None:
+        return ["reason-ref:authority-dispatch:filesystem-target-invalid"]
+    reasons: list[str] = []
+    expected_path_ref = filesystem_safe_path_ref(root_ref, normalized_path)
+    if root_ref not in request.action_request.resource_refs:
+        reasons.append("reason-ref:authority-dispatch:filesystem-root-unbound")
+    path_claim = next(
+        (
+            claim
+            for claim in request.action_request.constraint_claims
+            if claim.kind == AuthorityConstraintKind.path_refs.value
+        ),
+        None,
+    )
+    if (
+        expected_path_ref not in request.action_request.resource_refs
+        or path_claim is None
+        or set(path_claim.refs) != {expected_path_ref}
+    ):
+        reasons.append("reason-ref:authority-dispatch:filesystem-path-unbound")
+    return reasons
+
+
+def _adapter_descriptor_reason_refs(
+    request: AuthorityDispatchRequest,
+    descriptor: AuthorityDispatchAdapterDescriptor,
+) -> list[str]:
+    reasons: list[str] = []
+    try:
+        tool_request = ToolInvocationRequest.model_validate(
+            request.tool_invocation_request
+        )
+    except ValueError:
+        return ["reason-ref:authority-dispatch:tool-request-invalid"]
+    if descriptor.adapter_ref != request.adapter_ref:
+        reasons.append("reason-ref:authority-dispatch:adapter-ref-mismatch")
+    if tool_request.tool_ref != descriptor.tool_ref:
+        reasons.append("reason-ref:authority-dispatch:tool-ref-mismatch")
+    if request.action_request.domain != descriptor.domain:
+        reasons.append("reason-ref:authority-dispatch:domain-mismatch")
+    if request.action_request.capability != descriptor.capability:
+        reasons.append("reason-ref:authority-dispatch:capability-mismatch")
+    if request.action_request.capability_ref != descriptor.capability_ref:
+        reasons.append("reason-ref:authority-dispatch:capability-ref-mismatch")
+    if request.operation_count != descriptor.operation_count:
+        reasons.append("reason-ref:authority-dispatch:operation-count-mismatch")
+    if request.estimated_cost_microusd != descriptor.estimated_cost_microusd:
+        reasons.append("reason-ref:authority-dispatch:estimated-cost-mismatch")
+    if descriptor.failure_cost_microusd is None:
+        reasons.append("reason-ref:authority-dispatch:failure-cost-unknown")
+    elif descriptor.failure_cost_microusd > (request.estimated_cost_microusd or 0):
+        reasons.append(
+            "reason-ref:authority-dispatch:failure-cost-exceeds-reservation"
+        )
+    if descriptor.approval_required and request.approval_validation_request is None:
+        reasons.append("reason-ref:authority-dispatch:approval-missing")
+    if descriptor.tool_ref == FILESYSTEM_METADATA_TOOL_REF:
+        reasons.extend(_filesystem_target_reason_refs(request, tool_request))
+    return list(dict.fromkeys(reasons))
+
+
 class ToolRuntimeAuthorityDispatchAdapter:
     """Exact, injected bridge to the existing allowlisted safe tool runtime."""
 
@@ -219,73 +289,16 @@ class ToolRuntimeAuthorityDispatchAdapter:
             )
         except ValueError:
             return ["reason-ref:authority-dispatch:tool-request-invalid"]
-        if tool_request.tool_ref != self.descriptor.tool_ref:
-            reasons.append("reason-ref:authority-dispatch:tool-ref-mismatch")
-        if request.action_request.domain != self.descriptor.domain:
-            reasons.append("reason-ref:authority-dispatch:domain-mismatch")
-        if request.action_request.capability != self.descriptor.capability:
-            reasons.append("reason-ref:authority-dispatch:capability-mismatch")
-        if request.action_request.capability_ref != self.descriptor.capability_ref:
-            reasons.append("reason-ref:authority-dispatch:capability-ref-mismatch")
-        if request.operation_count != self.descriptor.operation_count:
-            reasons.append("reason-ref:authority-dispatch:operation-count-mismatch")
-        if request.estimated_cost_microusd != self.descriptor.estimated_cost_microusd:
-            reasons.append("reason-ref:authority-dispatch:estimated-cost-mismatch")
-        if self.descriptor.failure_cost_microusd is None:
-            reasons.append("reason-ref:authority-dispatch:failure-cost-unknown")
-        elif self.descriptor.failure_cost_microusd > (
-            request.estimated_cost_microusd or 0
-        ):
-            reasons.append(
-                "reason-ref:authority-dispatch:failure-cost-exceeds-reservation"
-            )
         if not request.cost_governor_allowed:
             reasons.append("reason-ref:authority-dispatch:cost-governor-denied")
-        if self.descriptor.approval_required and (
-            request.approval_validation_request is None
-        ):
-            reasons.append("reason-ref:authority-dispatch:approval-missing")
         if self.descriptor.tool_ref == FILESYSTEM_METADATA_TOOL_REF:
             root_ref = tool_request.metadata.get("root_ref")
-            relative_path = tool_request.metadata.get("relative_path")
-            if not isinstance(root_ref, str) or not isinstance(relative_path, str):
+            if isinstance(root_ref, str) and root_ref not in {
+                root.root_ref for root in self.safe_roots
+            }:
                 reasons.append(
-                    "reason-ref:authority-dispatch:filesystem-target-invalid"
+                    "reason-ref:authority-dispatch:filesystem-root-not-injected"
                 )
-            else:
-                normalized_path, path_reasons = normalize_relative_metadata_path(
-                    relative_path
-                )
-                if path_reasons or normalized_path is None:
-                    reasons.append(
-                        "reason-ref:authority-dispatch:filesystem-target-invalid"
-                    )
-                else:
-                    expected_path_ref = filesystem_safe_path_ref(
-                        root_ref, normalized_path
-                    )
-                    if root_ref not in request.action_request.resource_refs:
-                        reasons.append(
-                            "reason-ref:authority-dispatch:filesystem-root-unbound"
-                        )
-                    path_claim = next(
-                        (
-                            claim
-                            for claim in request.action_request.constraint_claims
-                            if claim.kind == AuthorityConstraintKind.path_refs.value
-                        ),
-                        None,
-                    )
-                    if path_claim is None or set(path_claim.refs) != {
-                        expected_path_ref
-                    }:
-                        reasons.append(
-                            "reason-ref:authority-dispatch:filesystem-path-unbound"
-                        )
-                    if root_ref not in {root.root_ref for root in self.safe_roots}:
-                        reasons.append(
-                            "reason-ref:authority-dispatch:filesystem-root-not-injected"
-                        )
         return list(dict.fromkeys(reasons))
 
     def invoke(
@@ -377,6 +390,9 @@ class AuthorityDispatcher:
         if adapter is None:
             reasons.append("reason-ref:authority-dispatch:adapter-not-registered")
         else:
+            reasons.extend(
+                _adapter_descriptor_reason_refs(request, adapter.descriptor)
+            )
             reasons.extend(adapter.validate_request(request))
         reasons = list(dict.fromkeys(reasons))
         if reasons:
@@ -779,6 +795,9 @@ class AuthorityDispatcher:
         if adapter is None:
             reasons.append("reason-ref:authority-dispatch:adapter-not-registered")
         else:
+            reasons.extend(
+                _adapter_descriptor_reason_refs(request, adapter.descriptor)
+            )
             reasons.extend(adapter.validate_request(request))
             descriptor = adapter.descriptor
             if (

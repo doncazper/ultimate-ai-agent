@@ -162,7 +162,11 @@ def _action(
         adapter_ref=(FILESYSTEM_ADAPTER_REF if filesystem else NOOP_ADAPTER_REF),
         resource_refs=[
             f"resource-ref:test-dispatch:{suffix}",
-            *([FILESYSTEM_ROOT_REF] if filesystem else []),
+            *(
+                [FILESYSTEM_ROOT_REF, FILESYSTEM_PATH_REF]
+                if filesystem
+                else []
+            ),
         ],
         constraint_claims=[
             AuthorityConstraintClaim(
@@ -414,7 +418,11 @@ def test_filesystem_target_must_match_action_and_lease_claims(
             AuthorityConstraint(
                 constraint_ref="authority-constraint-ref:test-dispatch-resources",
                 kind=AuthorityConstraintKind.resource_refs,
-                allowed_refs=[resource_ref, FILESYSTEM_ROOT_REF],
+                allowed_refs=[
+                    resource_ref,
+                    FILESYSTEM_ROOT_REF,
+                    FILESYSTEM_PATH_REF,
+                ],
                 safe_summary="Allow one exact filesystem root resource.",
             ),
             AuthorityConstraint(
@@ -458,18 +466,45 @@ def test_filesystem_target_must_match_action_and_lease_claims(
     assert dispatcher.budget_store.list_receipts() == []
 
 
-def test_declared_failure_cost_cannot_exceed_reserved_estimate(tmp_path: Path) -> None:
+def test_filesystem_path_resource_is_bound_to_exact_approval(tmp_path: Path) -> None:
     state_dir = tmp_path / "authority"
     root = tmp_path / "safe-root"
-    root.mkdir()
+    (root / "notes").mkdir(parents=True)
+    alternate_path_ref = filesystem_safe_path_ref(
+        FILESYSTEM_ROOT_REF, "notes/other.md"
+    )
+    resource_ref = "resource-ref:test-dispatch:approval-target"
     lease_store, lease = _lease(
         state_dir,
         mode=TrustMode.full_local_workspace_session,
         domain=AuthorityDomain.files,
         capability=AuthorityCapability.read,
+        authority_constraints=[
+            *_constraints(),
+            AuthorityConstraint(
+                constraint_ref=(
+                    "authority-constraint-ref:test-dispatch-approval-resources"
+                ),
+                kind=AuthorityConstraintKind.resource_refs,
+                allowed_refs=[
+                    resource_ref,
+                    FILESYSTEM_ROOT_REF,
+                    FILESYSTEM_PATH_REF,
+                    alternate_path_ref,
+                ],
+                safe_summary="Allow two exact filesystem targets for approval proof.",
+            ),
+            AuthorityConstraint(
+                constraint_ref="authority-constraint-ref:test-dispatch-approval-paths",
+                kind=AuthorityConstraintKind.path_refs,
+                allowed_refs=[FILESYSTEM_PATH_REF, alternate_path_ref],
+                safe_summary="Allow two exact normalized paths for approval proof.",
+            ),
+        ],
     )
+    approval_authority = LocalApprovalAuthority()
     descriptor = _descriptor(filesystem=True).model_copy(
-        update={"failure_cost_microusd": 1}
+        update={"approval_required": True}
     )
     dispatcher = AuthorityDispatcher(
         state_dir,
@@ -486,6 +521,68 @@ def test_declared_failure_cost_cannot_exceed_reserved_estimate(tmp_path: Path) -
             )
         ],
         lease_store=lease_store,
+        approval_authority=approval_authority,
+    )
+    pending = _request(lease.lease_ref, suffix="approval-target", filesystem=True)
+    validation_request = _approval(approval_authority, pending)
+    payload = pending.model_dump(mode="json")
+    payload["approval_validation_request"] = validation_request.model_dump(mode="json")
+    payload["action_request"]["resource_refs"] = [
+        alternate_path_ref if ref == FILESYSTEM_PATH_REF else ref
+        for ref in payload["action_request"]["resource_refs"]
+    ]
+    for claim in payload["action_request"]["constraint_claims"]:
+        if claim["kind"] == AuthorityConstraintKind.path_refs.value:
+            claim["refs"] = [alternate_path_ref]
+    payload["tool_invocation_request"]["metadata"]["relative_path"] = (
+        "notes/other.md"
+    )
+    drifted = AuthorityDispatchRequest.model_validate(payload)
+
+    result = dispatcher.prepare(drifted)
+    budget_receipts = dispatcher.budget_store.list_receipts()
+
+    assert result.receipt.status == AuthorityDispatchStatus.denied.value
+    assert (
+        "reason-ref:authority-budget:approval-resource-mismatch"
+        in result.receipt.reason_refs
+    )
+    assert [receipt.status for receipt in budget_receipts] == [
+        AuthorityBudgetStatus.denied.value
+    ]
+
+
+def test_declared_failure_cost_cannot_exceed_reserved_estimate(tmp_path: Path) -> None:
+    state_dir = tmp_path / "authority"
+    root = tmp_path / "safe-root"
+    root.mkdir()
+    lease_store, lease = _lease(
+        state_dir,
+        mode=TrustMode.full_local_workspace_session,
+        domain=AuthorityDomain.files,
+        capability=AuthorityCapability.read,
+    )
+    descriptor = _descriptor(filesystem=True).model_copy(
+        update={"failure_cost_microusd": 1}
+    )
+
+    class PermissiveAdapter:
+        def __init__(self) -> None:
+            self.descriptor = descriptor
+            self.invocation_count = 0
+
+        def validate_request(self, request: AuthorityDispatchRequest) -> list[str]:
+            return []
+
+        def invoke(self, request: AuthorityDispatchRequest) -> Any:
+            self.invocation_count += 1
+            raise AssertionError("failure-cost drift must deny before invocation")
+
+    adapter = PermissiveAdapter()
+    dispatcher = AuthorityDispatcher(
+        state_dir,
+        adapters=[adapter],
+        lease_store=lease_store,
     )
     request = _request(lease.lease_ref, suffix="failure-cost", filesystem=True)
 
@@ -496,6 +593,7 @@ def test_declared_failure_cost_cannot_exceed_reserved_estimate(tmp_path: Path) -
         "reason-ref:authority-dispatch:failure-cost-exceeds-reservation"
         in result.receipt.reason_refs
     )
+    assert adapter.invocation_count == 0
     assert dispatcher.budget_store.list_receipts() == []
 
 
