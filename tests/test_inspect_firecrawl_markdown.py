@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from scripts.inspect_firecrawl_markdown import inspect_markdown_payload, render_summary
+from scripts.inspect_firecrawl_markdown import inspect_markdown_payload, main, render_summary
 from tests.test_firecrawl_markdown import (
     NOW,
     _approval_authority,
@@ -41,3 +41,26 @@ def test_cli_and_core_share_safe_markdown_truth_without_raw_target_or_page() -> 
     assert request.target_url not in summary
     assert "transient untrusted evidence" in summary
     assert "{" not in summary
+
+
+def test_cli_validation_failure_emits_only_safe_code(capsys) -> None:  # type: ignore[no-untyped-def]
+    raw_target = "https://127.0.0.1/sensitive-target-marker"
+
+    assert (
+        main(
+            [
+                "--target-url",
+                raw_target,
+                "--allowed-domain",
+                "127.0.0.1",
+            ]
+        )
+        == 2
+    )
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err.strip() == (
+        "Firecrawl inspection blocked: FIRECRAWL_CLI_INPUT_DENIED"
+    )
+    assert raw_target not in captured.err

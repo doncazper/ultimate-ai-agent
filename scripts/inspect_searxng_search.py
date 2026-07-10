@@ -58,6 +58,7 @@ def inspect_search_payload(
     return {
         "schema_version": "uaa-searxng-search-cli.v1",
         "request_ref": result.request_ref,
+        "query_ref": result.query_ref,
         "status": result.status.value,
         "execution_succeeded": result.execution_succeeded,
         "invocation_outcome": result.invocation_decision.outcome.value,
@@ -131,21 +132,27 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--approval-ref")
     parser.add_argument("--json", action="store_true", help="Emit safe JSON instead.")
     args = parser.parse_args(argv)
-    now = datetime.now(timezone.utc)
-    request = SearxngSearchRequest(
-        request_ref=args.request_ref,
-        task_ref=args.task_ref,
-        approval_ref=args.approval_ref,
-        query=args.query,
-        expected_execution_receipt_ref="execution-receipt-ref:web-search:cli-inspection",
-    )
-    payload = inspect_search_payload(
-        request=request,
-        capability_state=_blocked_inspection_state(now),
-        approval_authority=LocalApprovalAuthority(),
-        authority_leases=[],
-        evaluated_at=now,
-    )
+    try:
+        now = datetime.now(timezone.utc)
+        request = SearxngSearchRequest(
+            request_ref=args.request_ref,
+            task_ref=args.task_ref,
+            approval_ref=args.approval_ref,
+            query=args.query,
+            expected_execution_receipt_ref=(
+                "execution-receipt-ref:web-search:cli-inspection"
+            ),
+        )
+        payload = inspect_search_payload(
+            request=request,
+            capability_state=_blocked_inspection_state(now),
+            approval_authority=LocalApprovalAuthority(),
+            authority_leases=[],
+            evaluated_at=now,
+        )
+    except Exception:  # noqa: BLE001 - CLI boundary must never emit traceback data.
+        print("SearXNG inspection blocked: SEARXNG_CLI_INPUT_DENIED", file=sys.stderr)
+        return 2
     if args.json:
         json.dump(payload, sys.stdout, indent=2, sort_keys=True)
         sys.stdout.write("\n")

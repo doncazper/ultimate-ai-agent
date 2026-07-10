@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run bounded liveness-only smoke checks against loopback adapter APIs."""
+"""Run bounded liveness and private-target denial checks."""
 
 from __future__ import annotations
 
@@ -47,13 +47,26 @@ def main() -> int:
                 ".catch(()=>process.exit(1))",
             ],
         )
+        private_target_denied = _run_liveness(
+            package,
+            "firecrawl-playwright",
+            [
+                "node",
+                "-e",
+                "fetch('http://127.0.0.1:3000/scrape',{method:'POST',"
+                "headers:{'content-type':'application/json'},"
+                "body:JSON.stringify({url:'http://169.254.169.254/latest/meta-data/'})})"
+                ".then(r=>r.json()).then(x=>{if(x.pageStatusCode!==403)process.exit(1)})"
+                ".catch(()=>process.exit(1))",
+            ],
+        )
     except (FileNotFoundError, subprocess.TimeoutExpired):
         print(
             "local web service smoke blocked: adapter_health_unavailable",
             file=sys.stderr,
         )
         return 1
-    if not searx_ok or not firecrawl_ok:
+    if not searx_ok or not firecrawl_ok or not private_target_denied:
         print(
             "local web service smoke blocked: liveness_check_failed",
             file=sys.stderr,
@@ -70,6 +83,10 @@ def main() -> int:
                     },
                     {
                         "evidence_ref": "local-web-service:firecrawl:liveness",
+                        "status": "passed",
+                    },
+                    {
+                        "evidence_ref": "local-web-service:firecrawl-playwright:private-target-denied",
                         "status": "passed",
                     },
                 ],

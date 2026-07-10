@@ -494,16 +494,16 @@ def test_api_manifest_web_access_posture_is_boundary_only() -> None:
     assert posture == {
         "web_access_gateway_boundary": "implemented",
         "boundary_module": "ultimate_ai_agent.core.web_access",
-        "governed_web_access": "boundary_only",
+        "governed_web_access": "exact_request_scoped_lanes",
         "unrestricted_web_fetching": "not_available",
         "browser_execution": "not_available",
         "browser_observe_runtime": "not_available",
         "browser_action_dry_run_runtime": "not_available",
-        "providers": "not_configured",
+        "providers": "runtime_observation_required",
         "content_untrusted": True,
         "grants_runtime_browsing_authority": False,
         "allows_clicks_forms_auth_cookies_downloads_uploads": False,
-        "allowed_methods": [],
+        "allowed_methods": ["GET"],
         "mutation_methods": "not_available",
     }
     assert "unrestricted_web_fetching" in manifest["capabilities_blocked"]
@@ -963,9 +963,9 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
     )
     assert "web_access_provider_sdk_imports" in manifest["capabilities_blocked"]
     assert "web_access_provider_credentials" in manifest["capabilities_blocked"]
-    assert "search_provider_live_calls" in manifest["capabilities_blocked"]
-    assert "firecrawl_provider_calls" in manifest["capabilities_blocked"]
-    assert "firecrawl_scrape_jobs" in manifest["capabilities_blocked"]
+    assert "unscoped_search_provider_live_calls" in manifest["capabilities_blocked"]
+    assert "unscoped_firecrawl_provider_calls" in manifest["capabilities_blocked"]
+    assert "unscoped_firecrawl_scrape_jobs" in manifest["capabilities_blocked"]
     assert "browserbase_provider_sessions" in manifest["capabilities_blocked"]
     assert "mattermost_raw_transcript_storage" in manifest["capabilities_blocked"]
     assert "mattermost_unapproved_connector_writes" in manifest["capabilities_blocked"]
@@ -1052,7 +1052,7 @@ def test_api_manifest_static_cache_is_copy_isolated() -> None:
     assert rebuilt.route_count == 1
     assert len(rebuilt.routes) == 1
     assert rebuilt.routes[0].path == "/health"
-    assert rebuilt.web_access_posture.allowed_methods == []
+    assert rebuilt.web_access_posture.allowed_methods == ["GET"]
 
 
 def test_api_manifest_static_cache_invalidates_when_route_risk_changes() -> None:

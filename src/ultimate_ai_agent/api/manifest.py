@@ -203,7 +203,7 @@ CAPABILITIES_DECLARED = [
 
 CAPABILITIES_BLOCKED = [
     "runtime_remote_or_unrestricted_model_calls",
-    "provider_api_calls",
+    "unscoped_provider_api_calls",
     "unrestricted_web_fetching",
     "web_hybrid_cloud_budget_first",
     "web_hybrid_paid_usage",
@@ -573,9 +573,9 @@ CAPABILITIES_BLOCKED = [
     "web_access_provider_shells_as_runtime_authority",
     "web_access_provider_sdk_imports",
     "web_access_provider_credentials",
-    "search_provider_live_calls",
-    "firecrawl_provider_calls",
-    "firecrawl_scrape_jobs",
+    "unscoped_search_provider_live_calls",
+    "unscoped_firecrawl_provider_calls",
+    "unscoped_firecrawl_scrape_jobs",
     "browserbase_provider_sessions",
     "mattermost_raw_transcript_storage",
     "mattermost_unapproved_connector_writes",
@@ -588,16 +588,16 @@ CAPABILITIES_BLOCKED = [
 WEB_ACCESS_POSTURE = {
     "web_access_gateway_boundary": "implemented",
     "boundary_module": "ultimate_ai_agent.core.web_access",
-    "governed_web_access": "boundary_only",
+    "governed_web_access": "exact_request_scoped_lanes",
     "unrestricted_web_fetching": "not_available",
     "browser_execution": "not_available",
     "browser_observe_runtime": "not_available",
     "browser_action_dry_run_runtime": "not_available",
-    "providers": "not_configured",
+    "providers": "runtime_observation_required",
     "content_untrusted": True,
     "grants_runtime_browsing_authority": False,
     "allows_clicks_forms_auth_cookies_downloads_uploads": False,
-    "allowed_methods": (),
+    "allowed_methods": ("GET",),
     "mutation_methods": "not_available",
 }
 

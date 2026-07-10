@@ -18,6 +18,7 @@ from ultimate_ai_agent.core.capability_availability import (
 from ultimate_ai_agent.core.web_access import (
     InMemoryWebCreditLedger,
     WebCreditLedgerConflictError,
+    WebCreditReservationInProgressError,
     WebCreditReceiptCompleteness,
     WebCreditReservationStatus,
     WebCreditSnapshotFreshness,
@@ -116,15 +117,34 @@ def test_atomic_reservation_respects_plan_concurrency() -> None:
     assert all(item.reserved_credits in {0, 1} for item in reservations)
 
 
-def test_idempotent_replay_never_creates_second_reservation() -> None:
+def test_uaa_serializes_cloud_usage_even_when_free_plan_allows_two() -> None:
+    ledger = InMemoryWebCreditLedger()
+    ledger.reconcile(_snapshot(concurrency=2))
+
+    first = ledger.reserve(_request(1), now=NOW)
+    second = ledger.reserve(_request(2), now=NOW)
+
+    assert first.status == WebCreditReservationStatus.reserved
+    assert second.status == WebCreditReservationStatus.denied
+    assert (
+        "CLOUD_UAA_USAGE_ATTRIBUTION_CONCURRENCY_EXHAUSTED"
+        in second.reason_codes
+    )
+
+
+def test_duplicate_in_flight_idempotency_never_shares_dispatch_reservation() -> None:
     ledger = InMemoryWebCreditLedger()
     ledger.reconcile(_snapshot())
     request = _request(1)
 
     first = ledger.reserve(request, now=NOW)
-    replay = ledger.reserve(request, now=NOW)
+    with pytest.raises(
+        WebCreditReservationInProgressError,
+        match="CLOUD_IDEMPOTENT_RESERVATION_IN_PROGRESS",
+    ):
+        ledger.reserve(request, now=NOW)
 
-    assert replay == first
+    assert first.status == WebCreditReservationStatus.reserved
     assert len(ledger.list_reservations()) == 1
 
 

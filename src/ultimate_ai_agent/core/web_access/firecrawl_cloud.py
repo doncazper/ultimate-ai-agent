@@ -95,7 +95,10 @@ from .hybrid_contracts import (
     WebProviderTransportStatus,
     stable_web_hybrid_ref,
 )
-from .hybrid_ledger import InMemoryWebCreditLedger
+from .hybrid_ledger import (
+    InMemoryWebCreditLedger,
+    WebCreditReservationInProgressError,
+)
 
 
 FIRECRAWL_CLOUD_PROVIDER_REF = "web-provider-ref:firecrawl-cloud"
@@ -569,21 +572,25 @@ def execute_firecrawl_cloud_markdown(
             preflight_reasons.append("FIRECRAWL_TARGET_VALIDATION_FAILED")
     if not preflight_reasons and credit_snapshot is not None:
         ledger.reconcile(credit_snapshot)
-        reservation = ledger.reserve(
-            WebProviderCreditReservationRequest(
-                request_ref=request.request_ref,
-                idempotency_ref=request.idempotency_ref,
-                provider_ref=FIRECRAWL_CLOUD_PROVIDER_REF,
-                snapshot_ref=credit_snapshot.snapshot_ref,
-                billing_period_ref=credit_snapshot.billing_period_ref,
-                routing_decision_ref=request.routing_decision_ref,
-                estimated_credits=FIRECRAWL_STANDARD_SCRAPE_CREDITS,
-                safety_reserve_credits=request.safety_reserve_credits,
-                run_credit_ceiling=request.run_credit_ceiling,
-            ),
-            now=now,
-        )
-        preflight_reasons.extend(reservation.reason_codes)
+        try:
+            reservation = ledger.reserve(
+                WebProviderCreditReservationRequest(
+                    request_ref=request.request_ref,
+                    idempotency_ref=request.idempotency_ref,
+                    provider_ref=FIRECRAWL_CLOUD_PROVIDER_REF,
+                    snapshot_ref=credit_snapshot.snapshot_ref,
+                    billing_period_ref=credit_snapshot.billing_period_ref,
+                    routing_decision_ref=request.routing_decision_ref,
+                    estimated_credits=FIRECRAWL_STANDARD_SCRAPE_CREDITS,
+                    safety_reserve_credits=request.safety_reserve_credits,
+                    run_credit_ceiling=request.run_credit_ceiling,
+                ),
+                now=now,
+            )
+        except WebCreditReservationInProgressError:
+            preflight_reasons.append("CLOUD_IDEMPOTENT_RESERVATION_IN_PROGRESS")
+        else:
+            preflight_reasons.extend(reservation.reason_codes)
 
     budget_decision = _budget_decision(request, reservation, preflight_reasons)
     invocation_request = CapabilityInvocationRequest(

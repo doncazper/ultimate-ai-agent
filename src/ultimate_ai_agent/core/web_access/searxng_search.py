@@ -79,6 +79,7 @@ from .hybrid_contracts import (
     WebProviderTransportMethod,
     WebProviderTransportReceipt,
     WebProviderTransportStatus,
+    stable_gateway_audit_ref,
     stable_web_hybrid_ref,
 )
 from .policy import WebAccessPolicy
@@ -211,6 +212,7 @@ class SearxngSearchEvidenceItem(_SearxngModel):
 class SearxngSearchExecutionResult(_SearxngModel):
     request_ref: str
     task_ref: str
+    query_ref: str
     invocation_decision: CapabilityInvocationDecision
     transport_receipt: WebProviderTransportReceipt
     gateway_audit_ref: str
@@ -229,7 +231,12 @@ class SearxngSearchExecutionResult(_SearxngModel):
 
     @model_validator(mode="after")
     def validate_result(self) -> "SearxngSearchExecutionResult":
-        for value in (self.request_ref, self.task_ref, self.gateway_audit_ref):
+        for value in (
+            self.request_ref,
+            self.task_ref,
+            self.query_ref,
+            self.gateway_audit_ref,
+        ):
             validate_execution_ref(value, "searxng_execution_ref")
         for code in (*self.reason_codes, *self.blocker_codes):
             if not _SAFE_CODE.fullmatch(code):
@@ -721,6 +728,7 @@ def execute_searxng_search(
         blocker_codes=()
         if status == WebProviderTransportStatus.succeeded
         else reason_codes,
+        gateway_audit_ref=stable_gateway_audit_ref(gateway_result.audit),
     )
 
 
@@ -906,6 +914,11 @@ def _source_ref(url: str) -> str:
     return f"web-source-ref:sha256:{hashlib.sha256(url.encode('utf-8')).hexdigest()}"
 
 
+def searxng_query_ref(query: str) -> str:
+    normalized = " ".join(query.split())
+    return f"web-query-ref:sha256:{hashlib.sha256(normalized.encode('utf-8')).hexdigest()}"
+
+
 def _exact_authority_resource_refs(
     request: SearxngSearchRequest,
 ) -> tuple[str, ...]:
@@ -915,6 +928,7 @@ def _exact_authority_resource_refs(
         SEARXNG_SEARCH_CAPABILITY_REF,
         SEARXNG_SEARCH_PROVIDER_REF,
         SEARXNG_SEARCH_ADAPTER_REF,
+        searxng_query_ref(request.query),
     )
 
 
@@ -1029,19 +1043,24 @@ def _execution_result(
     evidence: tuple[SearxngSearchEvidenceItem, ...],
     reason_codes: tuple[str, ...],
     blocker_codes: tuple[str, ...],
+    gateway_audit_ref: str | None = None,
 ) -> SearxngSearchExecutionResult:
     return SearxngSearchExecutionResult(
         request_ref=request.request_ref,
         task_ref=request.task_ref,
+        query_ref=searxng_query_ref(request.query),
         invocation_decision=invocation_decision,
         transport_receipt=receipt,
-        gateway_audit_ref=stable_web_hybrid_ref(
-            "web-access-audit-ref",
-            {
-                "request_ref": request.request_ref,
-                "invocation_decision_ref": invocation_decision.decision_ref,
-                "transport_receipt_ref": receipt.receipt_ref,
-            },
+        gateway_audit_ref=(
+            gateway_audit_ref
+            or stable_web_hybrid_ref(
+                "web-access-audit-correlation-ref",
+                {
+                    "request_ref": request.request_ref,
+                    "invocation_decision_ref": invocation_decision.decision_ref,
+                    "transport_receipt_ref": receipt.receipt_ref,
+                },
+            )
         ),
         status=receipt.status,
         evidence=evidence,
@@ -1066,5 +1085,6 @@ __all__ = [
     "build_loopback_searxng_transport",
     "build_searxng_search_capability_manifest",
     "execute_searxng_search",
+    "searxng_query_ref",
     "searxng_search_snapshot_from_state",
 ]

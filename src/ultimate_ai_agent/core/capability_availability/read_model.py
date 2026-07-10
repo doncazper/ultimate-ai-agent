@@ -251,36 +251,58 @@ def build_capability_availability_read_model(
 
 
 def build_web_hybrid_availability_read_model() -> WebHybridAvailabilityReadModel:
+    from ultimate_ai_agent.core.web_access.firecrawl_cloud import (
+        FIRECRAWL_CLOUD_ADAPTER_REF,
+        FIRECRAWL_CLOUD_CAPABILITY_REF,
+        FIRECRAWL_CLOUD_LANE_REF,
+        FIRECRAWL_CLOUD_PROVIDER_REF,
+    )
+    from ultimate_ai_agent.core.web_access.firecrawl_markdown import (
+        FIRECRAWL_MARKDOWN_ADAPTER_REF,
+        FIRECRAWL_MARKDOWN_CAPABILITY_REF,
+        FIRECRAWL_MARKDOWN_LANE_REF,
+        FIRECRAWL_SELF_HOSTED_PROVIDER_REF,
+    )
+    from ultimate_ai_agent.core.web_access.searxng_search import (
+        SEARXNG_SEARCH_ADAPTER_REF,
+        SEARXNG_SEARCH_CAPABILITY_REF,
+        SEARXNG_SEARCH_LANE_REF,
+        SEARXNG_SEARCH_PROVIDER_REF,
+    )
+
     return WebHybridAvailabilityReadModel(
         lanes=[
             WebHybridCapabilityLanePosture(
-                lane_ref="web-lane-ref:searxng-search-readonly:v1",
+                lane_ref=SEARXNG_SEARCH_LANE_REF,
+                capability_ref=SEARXNG_SEARCH_CAPABILITY_REF,
                 display_label="SearXNG read-only search",
                 runtime_availability="requires_current_loopback_observation",
-                provider_ref="web-provider-ref:searxng-self-hosted",
-                adapter_ref="web-adapter-ref:searxng-search:v1",
+                provider_ref=SEARXNG_SEARCH_PROVIDER_REF,
+                adapter_ref=SEARXNG_SEARCH_ADAPTER_REF,
                 approval_posture="exact_local_approval_and_lease_required",
                 cost_posture="not_metered",
                 reason_codes=["EXACT_READ_ONLY_SEARCH_IMPLEMENTED"],
                 blocker_codes=["CURRENT_RUNTIME_OBSERVATION_REQUIRED"],
             ),
             WebHybridCapabilityLanePosture(
-                lane_ref="web-lane-ref:firecrawl-markdown-self-hosted:v1",
+                lane_ref=FIRECRAWL_MARKDOWN_LANE_REF,
+                capability_ref=FIRECRAWL_MARKDOWN_CAPABILITY_REF,
                 display_label="Self-hosted one-page markdown",
                 runtime_availability="requires_current_loopback_observation",
-                provider_ref="web-provider-ref:firecrawl-self-hosted",
-                adapter_ref="web-adapter-ref:firecrawl-markdown:v1",
+                provider_ref=FIRECRAWL_SELF_HOSTED_PROVIDER_REF,
+                adapter_ref=FIRECRAWL_MARKDOWN_ADAPTER_REF,
                 approval_posture="exact_local_approval_and_lease_required",
                 cost_posture="not_metered",
                 reason_codes=["EXACT_LOCAL_MARKDOWN_IMPLEMENTED"],
                 blocker_codes=["CURRENT_RUNTIME_OBSERVATION_REQUIRED"],
             ),
             WebHybridCapabilityLanePosture(
-                lane_ref="web-lane-ref:firecrawl-cloud-markdown:v1",
+                lane_ref=FIRECRAWL_CLOUD_LANE_REF,
+                capability_ref=FIRECRAWL_CLOUD_CAPABILITY_REF,
                 display_label="Firecrawl Cloud free-plan one-page markdown",
                 runtime_availability="requires_credential_and_current_credit_snapshot",
-                provider_ref="web-provider-ref:firecrawl-cloud",
-                adapter_ref="web-adapter-ref:firecrawl-cloud-markdown:v1",
+                provider_ref=FIRECRAWL_CLOUD_PROVIDER_REF,
+                adapter_ref=FIRECRAWL_CLOUD_ADAPTER_REF,
                 approval_posture="exact_approval_lease_budget_and_reservation_required",
                 cost_posture="metered_free_plan_only",
                 reason_codes=["EXACT_FREE_PLAN_CLOUD_MARKDOWN_IMPLEMENTED"],

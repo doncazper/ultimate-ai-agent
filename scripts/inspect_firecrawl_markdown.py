@@ -146,25 +146,32 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--approval-ref")
     parser.add_argument("--json", action="store_true", help="Emit safe JSON instead.")
     args = parser.parse_args(argv)
-    now = datetime.now(timezone.utc)
-    request = FirecrawlMarkdownRequest(
-        request_ref=args.request_ref,
-        task_ref=args.task_ref,
-        approval_ref=args.approval_ref,
-        target_url=args.target_url,
-        target_source_ref=firecrawl_target_source_ref(args.target_url),
-        allowed_domains=(args.allowed_domain,),
-        expected_execution_receipt_ref=(
-            "execution-receipt-ref:web-extract:cli-inspection"
-        ),
-    )
-    payload = inspect_markdown_payload(
-        request=request,
-        capability_state=_blocked_inspection_state(now),
-        approval_authority=LocalApprovalAuthority(),
-        authority_leases=[],
-        evaluated_at=now,
-    )
+    try:
+        now = datetime.now(timezone.utc)
+        request = FirecrawlMarkdownRequest(
+            request_ref=args.request_ref,
+            task_ref=args.task_ref,
+            approval_ref=args.approval_ref,
+            target_url=args.target_url,
+            target_source_ref=firecrawl_target_source_ref(args.target_url),
+            allowed_domains=(args.allowed_domain,),
+            expected_execution_receipt_ref=(
+                "execution-receipt-ref:web-extract:cli-inspection"
+            ),
+        )
+        payload = inspect_markdown_payload(
+            request=request,
+            capability_state=_blocked_inspection_state(now),
+            approval_authority=LocalApprovalAuthority(),
+            authority_leases=[],
+            evaluated_at=now,
+        )
+    except Exception:  # noqa: BLE001 - CLI boundary must never emit traceback data.
+        print(
+            "Firecrawl inspection blocked: FIRECRAWL_CLI_INPUT_DENIED",
+            file=sys.stderr,
+        )
+        return 2
     if args.json:
         json.dump(payload, sys.stdout, indent=2, sort_keys=True)
         sys.stdout.write("\n")

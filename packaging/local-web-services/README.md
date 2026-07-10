@@ -20,6 +20,11 @@ later accepted WEB-HYBRID phases.
   file. JSON output is enabled; page count and upstream timeouts are bounded.
 - Proxy credentials, webhooks, cloud/model keys, persistent browser profiles,
   authenticated browsing, and interactive browser actions are absent.
+- The pinned Playwright service runs its internal SSRF proxy with
+  `ALLOW_LOCAL_WEBHOOKS=false`, revalidates navigation/subresource hosts, and
+  blocks private/link-local targets. The smoke gate proves the metadata-service
+  literal is denied; a formal adversarial DNS-rebinding/network-firewall proof
+  remains future hardening.
 - The cloud Firecrawl credential is neither mounted nor resolved by this stack.
 
 ## Setup and lifecycle
@@ -38,8 +43,9 @@ docker compose -f packaging/local-web-services/compose.yaml up -d --wait
 docker compose -f packaging/local-web-services/compose.yaml down
 ```
 
-The smoke command checks only bounded liveness responses. It does not search,
-scrape, spend cloud credits, retain provider responses, or grant authority.
+The smoke command checks bounded liveness plus the pinned Playwright service's
+private/link-local target denial. It does not search public sources, scrape a
+public page, spend cloud credits, retain provider responses, or grant authority.
 
 ## Backup, upgrade, and rollback
 

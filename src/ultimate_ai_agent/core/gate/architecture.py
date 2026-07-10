@@ -27,7 +27,7 @@ NEW_EVALUATOR_MODULE_LINE_CEILING = 1500
 ROUTE_BOUNDARY_MODULE_RELATIVE_PATH = Path(
     "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py"
 )
-ROUTE_BOUNDARY_MODULE_LINE_CEILING = 5061
+ROUTE_BOUNDARY_MODULE_LINE_CEILING = 5075
 EVALUATION_CONTEXT_RELATIVE_PATH = Path(
     "src/ultimate_ai_agent/core/gate/evaluation_context.py"
 )

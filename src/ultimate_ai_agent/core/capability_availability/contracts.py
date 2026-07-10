@@ -736,6 +736,7 @@ def evaluate_capability_invocation(
 
 class WebHybridCapabilityLanePosture(_CapabilityAvailabilityModel):
     lane_ref: str
+    capability_ref: str
     display_label: str = Field(..., min_length=1, max_length=160)
     implementation_status: Literal["implemented_exact_lane"] = "implemented_exact_lane"
     runtime_availability: str = Field(..., min_length=1, max_length=120)
@@ -750,7 +751,7 @@ class WebHybridCapabilityLanePosture(_CapabilityAvailabilityModel):
     reason_codes: list[str] = Field(default_factory=list)
     blocker_codes: list[str] = Field(default_factory=list)
 
-    @field_validator("lane_ref", "provider_ref", "adapter_ref")
+    @field_validator("lane_ref", "capability_ref", "provider_ref", "adapter_ref")
     @classmethod
     def validate_lane_refs(cls, value: str) -> str:
         validate_execution_ref(value, "web_hybrid_lane_ref")
@@ -793,6 +794,7 @@ class WebHybridAvailabilityReadModel(_CapabilityAvailabilityModel):
     current_remaining_credits: None = None
     reviewed_free_plan_credits: Literal[1000] = 1000
     reviewed_free_plan_concurrency: Literal[2] = 2
+    uaa_effective_cloud_concurrency: Literal[1] = 1
     reviewed_standard_scrape_credits: Literal[1] = 1
     cost_policy_ref: str = "cost-policy-ref:firecrawl-standard-scrape:v1"
     credential_ref: str = "credential-ref:firecrawl-cloud:ignored-local-file"

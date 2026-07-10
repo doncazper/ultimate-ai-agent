@@ -23,6 +23,7 @@ def render_summary(payload: Mapping[str, Any]) -> str:
         f"Routing: {payload['routing_policy']} (maximum {payload['routing_attempt_ceiling']} attempts)",
         f"Current credits: {payload['current_credit_snapshot_status']}",
         f"Cloud circuit: {payload['circuit_state']}",
+        f"UAA cloud concurrency: {payload['uaa_effective_cloud_concurrency']}",
         "",
         "Capability lanes",
     ]

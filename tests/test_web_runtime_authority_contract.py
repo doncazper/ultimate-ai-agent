@@ -39,6 +39,8 @@ def _audit_record(**overrides: object) -> WebRuntimeAuditRecordContract:
 def test_canonical_web_runtime_nouns_are_complete() -> None:
     contract = build_web_runtime_authority_contract()
 
+    assert contract.scope_posture == "broad_unrestricted_ladder_only"
+    assert contract.exact_lanes_do_not_promote_broad_authority is True
     assert WEB_RUNTIME_CANONICAL_NOUNS == (
         "web_request",
         "web_observation",

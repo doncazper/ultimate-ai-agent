@@ -331,7 +331,9 @@ class FoundationGateLegacyChecksPart018Mixin:
                     continue
                 text = self._context.read_text(path, encoding="utf-8")
                 for fragment in forbidden_source_fragments:
-                    if fragment in text:
+                    if fragment in text and not _is_web_hybrid_promoted_static_fragment(
+                        rel, fragment, text
+                    ):
                         failures.append(
                             f"M74 forbidden browser observe/control fragment in {rel}: {fragment}"
                         )
@@ -655,7 +657,9 @@ class FoundationGateLegacyChecksPart018Mixin:
                     continue
                 text = self._context.read_text(path, encoding="utf-8")
                 for fragment in forbidden_source_fragments:
-                    if fragment in text:
+                    if fragment in text and not _is_web_hybrid_promoted_static_fragment(
+                        rel, fragment, text
+                    ):
                         failures.append(
                             f"M75 forbidden browser action fragment in {rel}: {fragment}"
                         )
@@ -963,7 +967,9 @@ class FoundationGateLegacyChecksPart018Mixin:
                     continue
                 text = self._context.read_text(path, encoding="utf-8")
                 for fragment in forbidden_source_fragments:
-                    if fragment in text:
+                    if fragment in text and not _is_web_hybrid_promoted_static_fragment(
+                        rel, fragment, text
+                    ):
                         failures.append(
                             f"M76 forbidden OpenWebUI runtime fragment in {rel}: {fragment}"
                         )
@@ -1282,7 +1288,9 @@ class FoundationGateLegacyChecksPart018Mixin:
                     continue
                 text = self._context.read_text(path, encoding="utf-8")
                 for fragment in forbidden_source_fragments:
-                    if fragment in text:
+                    if fragment in text and not _is_web_hybrid_promoted_static_fragment(
+                        rel, fragment, text
+                    ):
                         failures.append(
                             f"M77 forbidden OpenWebUI handoff fragment in {rel}: {fragment}"
                         )

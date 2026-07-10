@@ -251,6 +251,9 @@ def test_approval_identifier_without_exact_grant_never_calls_transport() -> None
     assert result.status == WebProviderTransportStatus.blocked
     assert result.invocation_decision.outcome == InvocationDecisionOutcome.blocked
     assert result.transport_receipt.network_call_performed is False
+    assert result.gateway_audit_ref.startswith(
+        "web-access-audit-correlation-ref:sha256:"
+    )
 
 
 def test_broad_lease_never_calls_transport() -> None:
@@ -337,6 +340,7 @@ def test_exact_gates_return_transient_untrusted_markdown_and_safe_receipt() -> N
     assert result.evidence.markdown not in receipt_json
     assert result.transport_receipt.target_method == "GET"
     assert result.transport_receipt.provider_transport_method == "POST"
+    assert result.gateway_audit_ref.startswith("web-access-audit-ref:sha256:")
 
 
 def test_redirected_final_url_is_rejected_after_provider_attempt() -> None:

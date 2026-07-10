@@ -23,8 +23,15 @@ from .hybrid_contracts import (
 )
 
 
+WEB_HYBRID_EFFECTIVE_CLOUD_CONCURRENCY = 1
+
+
 class WebCreditLedgerConflictError(RuntimeError):
     """Raised when an idempotency ref is reused for different semantics."""
+
+
+class WebCreditReservationInProgressError(RuntimeError):
+    """Raised when another caller owns the active idempotent reservation."""
 
 
 class WebCreditLedgerTransitionError(RuntimeError):
@@ -106,7 +113,15 @@ class InMemoryWebCreditLedger:
                     raise WebCreditLedgerConflictError(
                         "WEB_CREDIT_IDEMPOTENCY_SEMANTIC_CONFLICT"
                     )
-                return self._reservations[existing_ref]
+                existing = self._reservations[existing_ref]
+                if (
+                    existing.status == WebCreditReservationStatus.reserved
+                    and existing.in_flight
+                ):
+                    raise WebCreditReservationInProgressError(
+                        "CLOUD_IDEMPOTENT_RESERVATION_IN_PROGRESS"
+                    )
+                return existing
 
             snapshot = self._snapshots.get(request.provider_ref)
             reasons: list[str] = []
@@ -148,8 +163,13 @@ class InMemoryWebCreditLedger:
             if snapshot is not None:
                 if snapshot.max_concurrency is None:
                     reasons.append("CLOUD_PLAN_CONCURRENCY_UNKNOWN")
-                elif len(active) >= snapshot.max_concurrency:
-                    reasons.append("CLOUD_PLAN_CONCURRENCY_EXHAUSTED")
+                elif len(active) >= min(
+                    snapshot.max_concurrency,
+                    WEB_HYBRID_EFFECTIVE_CLOUD_CONCURRENCY,
+                ):
+                    reasons.append(
+                        "CLOUD_UAA_USAGE_ATTRIBUTION_CONCURRENCY_EXHAUSTED"
+                    )
             in_flight_credits = sum(item.reserved_credits for item in active)
             run_committed_credits = sum(
                 item.reserved_credits
@@ -285,6 +305,8 @@ class InMemoryWebCreditLedger:
 
 __all__ = [
     "InMemoryWebCreditLedger",
+    "WEB_HYBRID_EFFECTIVE_CLOUD_CONCURRENCY",
     "WebCreditLedgerConflictError",
+    "WebCreditReservationInProgressError",
     "WebCreditLedgerTransitionError",
 ]

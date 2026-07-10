@@ -47,6 +47,7 @@ from ultimate_ai_agent.core.web_access import (
     WebProviderTransportStatus,
     build_web_provider_capability_state,
     execute_searxng_search,
+    searxng_query_ref,
 )
 
 
@@ -113,6 +114,7 @@ def _exact_resource_refs(request: SearxngSearchRequest) -> list[str]:
         SEARXNG_SEARCH_CAPABILITY_REF,
         SEARXNG_SEARCH_PROVIDER_REF,
         SEARXNG_SEARCH_ADAPTER_REF,
+        searxng_query_ref(request.query),
     ]
 
 
@@ -253,6 +255,9 @@ def test_approval_identifier_without_exact_grant_never_calls_transport() -> None
     assert result.status == WebProviderTransportStatus.blocked
     assert result.invocation_decision.outcome == InvocationDecisionOutcome.blocked
     assert result.transport_receipt.network_call_performed is False
+    assert result.gateway_audit_ref.startswith(
+        "web-access-audit-correlation-ref:sha256:"
+    )
 
 
 def test_broad_authority_lease_never_calls_transport() -> None:
@@ -274,6 +279,26 @@ def test_broad_authority_lease_never_calls_transport() -> None:
     )
     assert "EXACT_AUTHORITY_LEASE_SCOPE_REQUIRED" in result.reason_codes
     assert result.transport_receipt.network_call_performed is False
+
+
+def test_query_change_cannot_reuse_prior_exact_authority_scope() -> None:
+    original = _request()
+    changed = original.model_copy(update={"query": "different safe query"})
+    calls: list[SearxngSearchRequest] = []
+
+    result = execute_searxng_search(
+        changed,
+        capability_state=_state(),
+        approval_authority=_approval_authority(changed),
+        authority_leases=[_exact_lease(original)],
+        transport=_fixture_transport(calls),
+        evaluated_at=NOW,
+    )
+
+    assert searxng_query_ref(original.query) != searxng_query_ref(changed.query)
+    assert calls == []
+    assert result.invocation_decision.outcome == InvocationDecisionOutcome.lease_required
+    assert "EXACT_AUTHORITY_LEASE_SCOPE_REQUIRED" in result.reason_codes
 
 
 @pytest.mark.parametrize(
@@ -338,7 +363,9 @@ def test_exact_gates_route_through_gateway_and_normalize_untrusted_results() -> 
     assert all(item.instruction_use_allowed is False for item in result.evidence)
     assert result.transport_receipt.network_call_performed is False
     serialized = result.model_dump_json()
+    assert result.gateway_audit_ref.startswith("web-access-audit-ref:sha256:")
     assert request.query not in serialized
+    assert result.query_ref == searxng_query_ref(request.query)
     assert result.raw_provider_payload_stored is False
     assert '"results"' not in serialized
 

@@ -36,6 +36,8 @@ from ultimate_ai_agent.core.planning.validation import (
 from ultimate_ai_agent.core.secrets.redaction import contains_obvious_secret
 from ultimate_ai_agent.core.time import utc_now
 
+from .contracts import WebAccessAuditRecord
+
 
 WEB_HYBRID_SCHEMA_VERSION = "uaa-web-hybrid.v1"
 WEB_HYBRID_COST_POLICY_REF = "cost-policy-ref:firecrawl-standard-scrape:v1"
@@ -500,6 +502,34 @@ def stable_web_hybrid_ref(prefix: str, value: Any) -> str:
         default=str,
     ).encode("utf-8")
     return f"{prefix}:sha256:{hashlib.sha256(encoded).hexdigest()}"
+
+
+def stable_gateway_audit_ref(audit: WebAccessAuditRecord) -> str:
+    """Bind a safe ref to the actual gateway audit without retaining raw URLs."""
+
+    source_refs = tuple(
+        stable_web_hybrid_ref(
+            "web-audit-source-ref",
+            {"url": item.final_url or item.url or "unknown"},
+        )
+        for item in audit.source_metadata
+    )
+    return stable_web_hybrid_ref(
+        "web-access-audit-ref",
+        {
+            "request_id": audit.request_id,
+            "timestamp": audit.timestamp.isoformat(),
+            "request_kind": audit.request_kind.value,
+            "adapter_kind": audit.adapter_kind.value,
+            "network_lane": audit.network_lane.value,
+            "authority_mode": audit.authority_mode.value,
+            "risk_class": audit.risk_class.value,
+            "policy_status": audit.policy_status.value,
+            "policy_reasons": audit.policy_reasons,
+            "source_refs": source_refs,
+            "content_untrusted": audit.content_untrusted,
+        },
+    )
 
 
 def _validate_refs(values: Any, field_name: str) -> None:

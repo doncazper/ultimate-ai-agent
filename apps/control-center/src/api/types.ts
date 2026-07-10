@@ -10018,6 +10018,7 @@ export interface CapabilitySurfaceSummary {
 
 export interface WebHybridCapabilityLanePosture {
   lane_ref: string;
+  capability_ref: string;
   display_label: string;
   implementation_status: "implemented_exact_lane";
   runtime_availability: string;
@@ -10048,6 +10049,7 @@ export interface WebHybridAvailabilityReadModel {
   current_remaining_credits: null;
   reviewed_free_plan_credits: 1000;
   reviewed_free_plan_concurrency: 2;
+  uaa_effective_cloud_concurrency: 1;
   reviewed_standard_scrape_credits: 1;
   cost_policy_ref: string;
   credential_ref: string;

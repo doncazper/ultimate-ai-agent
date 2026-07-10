@@ -166,6 +166,10 @@ class WebHybridExecutionConflictError(RuntimeError):
     """An idempotency ref was reused with different safe request semantics."""
 
 
+class WebHybridExecutionInProgressError(RuntimeError):
+    """The same idempotent request already owns the dispatch claim."""
+
+
 @dataclass
 class InMemoryWebCloudCircuitBreaker:
     failure_threshold: int = 2
@@ -269,12 +273,17 @@ class InMemoryWebHybridExecutionLedger:
         with self._lock:
             prior = self._fingerprints.get(request.idempotency_ref)
             if prior is None:
+                self._fingerprints[request.idempotency_ref] = fingerprint
                 return None
             if prior != fingerprint:
                 raise WebHybridExecutionConflictError(
                     "WEB_HYBRID_IDEMPOTENCY_SEMANTIC_CONFLICT"
                 )
-            stored = self._results[request.idempotency_ref]
+            stored = self._results.get(request.idempotency_ref)
+            if stored is None:
+                raise WebHybridExecutionInProgressError(
+                    "WEB_HYBRID_IDEMPOTENT_REQUEST_IN_PROGRESS"
+                )
             return HybridMarkdownExecutionResult.model_validate(
                 {
                     **stored.model_dump(mode="python"),
@@ -587,6 +596,7 @@ __all__ = [
     "InMemoryWebHybridExecutionLedger",
     "WebCloudCircuitSnapshot",
     "WebHybridExecutionConflictError",
+    "WebHybridExecutionInProgressError",
     "classify_cloud_firecrawl_outcome",
     "classify_local_firecrawl_outcome",
     "execute_hybrid_firecrawl_markdown",

@@ -7,6 +7,7 @@ import argparse
 import json
 from datetime import datetime
 from pathlib import Path
+import sys
 from typing import Any, Mapping
 
 from ultimate_ai_agent.core.web_access import (
@@ -78,7 +79,7 @@ def _display(value: Any) -> str:
     return "unknown" if value is None else str(value)
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Inspect safe Firecrawl Cloud free-credit posture."
     )
@@ -89,9 +90,16 @@ def main() -> int:
         help="Exact ignored Firecrawl credential file.",
     )
     parser.add_argument("--json", action="store_true", help="Emit safe JSON.")
-    args = parser.parse_args()
-    credential = resolve_firecrawl_cloud_credential(args.secret_file)
-    payload = inspect_cloud_credit_payload(credential=credential)
+    args = parser.parse_args(argv)
+    try:
+        credential = resolve_firecrawl_cloud_credential(args.secret_file)
+        payload = inspect_cloud_credit_payload(credential=credential)
+    except Exception:  # noqa: BLE001 - CLI boundary must never emit traceback data.
+        print(
+            "Firecrawl Cloud credit inspection blocked: FIRECRAWL_CLOUD_INSPECTION_BLOCKED",
+            file=sys.stderr,
+        )
+        return 2
     if args.json:
         print(json.dumps(payload, sort_keys=True, separators=(",", ":")))
     else:

@@ -4,6 +4,20 @@ from ultimate_ai_agent.core.capability_availability import (
     build_capability_availability_read_model,
     build_web_hybrid_availability_read_model,
 )
+from ultimate_ai_agent.core.web_access import (
+    FIRECRAWL_CLOUD_ADAPTER_REF,
+    FIRECRAWL_CLOUD_CAPABILITY_REF,
+    FIRECRAWL_CLOUD_LANE_REF,
+    FIRECRAWL_CLOUD_PROVIDER_REF,
+    FIRECRAWL_MARKDOWN_ADAPTER_REF,
+    FIRECRAWL_MARKDOWN_CAPABILITY_REF,
+    FIRECRAWL_MARKDOWN_LANE_REF,
+    FIRECRAWL_SELF_HOSTED_PROVIDER_REF,
+    SEARXNG_SEARCH_ADAPTER_REF,
+    SEARXNG_SEARCH_CAPABILITY_REF,
+    SEARXNG_SEARCH_LANE_REF,
+    SEARXNG_SEARCH_PROVIDER_REF,
+)
 
 
 def test_web_hybrid_read_model_is_backend_owned_and_performs_no_live_probe() -> None:
@@ -17,6 +31,34 @@ def test_web_hybrid_read_model_is_backend_owned_and_performs_no_live_probe() -> 
     assert read_model.provider_network_call_performed is False
     assert read_model.current_remaining_credits is None
     assert read_model.circuit_state == "unknown_until_runtime_inspection"
+
+
+def test_web_hybrid_read_model_reuses_canonical_runtime_refs() -> None:
+    lanes = build_web_hybrid_availability_read_model().lanes
+
+    assert [
+        (lane.capability_ref, lane.lane_ref, lane.provider_ref, lane.adapter_ref)
+        for lane in lanes
+    ] == [
+        (
+            SEARXNG_SEARCH_CAPABILITY_REF,
+            SEARXNG_SEARCH_LANE_REF,
+            SEARXNG_SEARCH_PROVIDER_REF,
+            SEARXNG_SEARCH_ADAPTER_REF,
+        ),
+        (
+            FIRECRAWL_MARKDOWN_CAPABILITY_REF,
+            FIRECRAWL_MARKDOWN_LANE_REF,
+            FIRECRAWL_SELF_HOSTED_PROVIDER_REF,
+            FIRECRAWL_MARKDOWN_ADAPTER_REF,
+        ),
+        (
+            FIRECRAWL_CLOUD_CAPABILITY_REF,
+            FIRECRAWL_CLOUD_LANE_REF,
+            FIRECRAWL_CLOUD_PROVIDER_REF,
+            FIRECRAWL_CLOUD_ADAPTER_REF,
+        ),
+    ]
 
 
 def test_web_hybrid_read_model_preserves_authority_and_product_boundaries() -> None:

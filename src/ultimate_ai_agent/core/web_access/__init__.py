@@ -114,6 +114,7 @@ from .hybrid_contracts import (
 from .hybrid_ledger import (
     InMemoryWebCreditLedger,
     WebCreditLedgerConflictError,
+    WebCreditReservationInProgressError,
     WebCreditLedgerTransitionError,
 )
 from .hybrid_execution import (
@@ -170,6 +171,7 @@ from .searxng_search import (
     build_loopback_searxng_transport,
     build_searxng_search_capability_manifest,
     execute_searxng_search,
+    searxng_query_ref,
     searxng_search_snapshot_from_state,
 )
 
@@ -255,6 +257,7 @@ __all__ = [
     "classify_local_firecrawl_outcome",
     "execute_hybrid_firecrawl_markdown",
     "WebCreditLedgerConflictError",
+    "WebCreditReservationInProgressError",
     "WebCreditLedgerTransitionError",
     "WebCreditReceiptCompleteness",
     "WebCreditReservationStatus",
@@ -318,6 +321,7 @@ __all__ = [
     "build_loopback_searxng_transport",
     "build_searxng_search_capability_manifest",
     "execute_searxng_search",
+    "searxng_query_ref",
     "searxng_search_snapshot_from_state",
     "build_web_runtime_authority_contract",
     "build_browser_gateway_blocked_receipt",

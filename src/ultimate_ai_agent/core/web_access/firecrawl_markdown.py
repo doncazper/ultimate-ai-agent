@@ -82,6 +82,7 @@ from .hybrid_contracts import (
     WebProviderTransportMethod,
     WebProviderTransportReceipt,
     WebProviderTransportStatus,
+    stable_gateway_audit_ref,
     stable_web_hybrid_ref,
 )
 from .policy import WebAccessPolicy
@@ -770,6 +771,7 @@ def execute_firecrawl_markdown(
         blocker_codes=()
         if attempt.status == WebProviderTransportStatus.succeeded
         else attempt.reason_codes,
+        gateway_audit_ref=attempt.gateway_audit_ref,
     )
 
 
@@ -835,16 +837,7 @@ def execute_authorized_firecrawl_markdown_attempt(
         evidence=evidence,
         reason_codes=reason_codes,
         network_call_performed=network_call_performed,
-        gateway_audit_ref=stable_web_hybrid_ref(
-            "web-access-audit-ref",
-            {
-                "request_ref": request.request_ref,
-                "invocation_decision_ref": invocation_decision.decision_ref,
-                "capability_ref": capability_ref,
-                "provider_ref": provider_ref,
-                "adapter_ref": adapter_ref,
-            },
-        ),
+        gateway_audit_ref=stable_gateway_audit_ref(gateway_result.audit),
     )
 
 
@@ -1252,19 +1245,23 @@ def _execution_result(
     evidence: FirecrawlMarkdownEvidence | None,
     reason_codes: tuple[str, ...],
     blocker_codes: tuple[str, ...],
+    gateway_audit_ref: str | None = None,
 ) -> FirecrawlMarkdownExecutionResult:
     return FirecrawlMarkdownExecutionResult(
         request_ref=request.request_ref,
         task_ref=request.task_ref,
         invocation_decision=invocation_decision,
         transport_receipt=receipt,
-        gateway_audit_ref=stable_web_hybrid_ref(
-            "web-access-audit-ref",
-            {
-                "request_ref": request.request_ref,
-                "invocation_decision_ref": invocation_decision.decision_ref,
-                "transport_receipt_ref": receipt.receipt_ref,
-            },
+        gateway_audit_ref=(
+            gateway_audit_ref
+            or stable_web_hybrid_ref(
+                "web-access-audit-correlation-ref",
+                {
+                    "request_ref": request.request_ref,
+                    "invocation_decision_ref": invocation_decision.decision_ref,
+                    "transport_receipt_ref": receipt.receipt_ref,
+                },
+            )
         ),
         status=receipt.status,
         evidence=evidence,

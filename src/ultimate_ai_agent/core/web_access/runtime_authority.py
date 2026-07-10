@@ -1,7 +1,8 @@
-"""Contract-first Web Runtime Authority hardening lane.
+"""Contract-first broad/unrestricted Web Runtime Authority hardening lane.
 
-This module is intentionally declarative. It adds no live web fetching,
-browser automation, provider SDK calls, or callable runtime authority.
+This legacy ladder remains declarative and blocked for broad/unrestricted web,
+browser, and connector authority. Separately governed WEB-HYBRID exact lanes
+do not promote any broad ladder step.
 """
 
 from __future__ import annotations
@@ -396,6 +397,11 @@ class WebRuntimeCostGovernorPostureContract(_WebRuntimeAuthorityModel):
 
 class WebRuntimeAuthorityContract(_WebRuntimeAuthorityModel):
     contract_ref: str = "contract-ref:web-runtime-authority-hardening:v1"
+    scope_posture: Literal["broad_unrestricted_ladder_only"] = (
+        "broad_unrestricted_ladder_only"
+    )
+    exact_lane_exceptions_ref: str = "read-model-ref:web-hybrid:exact-lanes:v1"
+    exact_lanes_do_not_promote_broad_authority: Literal[True] = True
     canonical_nouns: tuple[WebRuntimeNoun, ...] = tuple(WebRuntimeNoun)
     durable_audit_storage: WebDurableAuditStorageContract = Field(
         default_factory=WebDurableAuditStorageContract

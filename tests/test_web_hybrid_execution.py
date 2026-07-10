@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from threading import Event, Thread
 from typing import Any
+
+import pytest
 
 from tests.test_firecrawl_cloud import (
     NOW,
@@ -42,6 +45,7 @@ from ultimate_ai_agent.core.web_access.hybrid_execution import (
     HybridMarkdownExecutionRequest,
     InMemoryWebCloudCircuitBreaker,
     InMemoryWebHybridExecutionLedger,
+    WebHybridExecutionInProgressError,
     execute_hybrid_firecrawl_markdown,
 )
 from ultimate_ai_agent.core.web_access.hybrid_ledger import InMemoryWebCreditLedger
@@ -282,6 +286,69 @@ def test_replay_returns_receipt_only_and_never_calls_either_provider_again() -> 
     assert replay.replayed is True
     assert replay.evidence is None
     assert "WEB_HYBRID_IDEMPOTENT_REPLAY" in replay.reason_codes
+
+
+def test_duplicate_in_flight_hybrid_request_never_dispatches_twice() -> None:
+    snapshot = _reconcile(remaining=10).snapshot
+    assert snapshot is not None
+    request = _hybrid_request(snapshot=snapshot)
+    execution_ledger = InMemoryWebHybridExecutionLedger()
+    local_calls: list[FirecrawlMarkdownRequest] = []
+    cloud_calls: list[FirecrawlCloudMarkdownRequest] = []
+    first_started = Event()
+    release_first = Event()
+    first_results: list[Any] = []
+
+    def blocked_local(
+        local_request: FirecrawlMarkdownRequest,
+    ) -> dict[str, Any]:
+        local_calls.append(local_request)
+        first_started.set()
+        assert release_first.wait(timeout=5)
+        return {
+            "success": True,
+            "data": {
+                "markdown": "",
+                "metadata": {
+                    "sourceURL": local_request.target_url,
+                    "url": local_request.target_url,
+                },
+            },
+        }
+
+    first_thread = Thread(
+        target=lambda: first_results.append(
+            _execute(
+                request,
+                snapshot=snapshot,
+                local_transport=blocked_local,
+                cloud_transport=_cloud_scrape(cloud_calls),
+                execution_ledger=execution_ledger,
+            )
+        )
+    )
+    first_thread.start()
+    assert first_started.wait(timeout=5)
+
+    try:
+        with pytest.raises(
+            WebHybridExecutionInProgressError,
+            match="WEB_HYBRID_IDEMPOTENT_REQUEST_IN_PROGRESS",
+        ):
+            _execute(
+                request,
+                snapshot=snapshot,
+                local_transport=_empty_local(local_calls),
+                cloud_transport=_cloud_scrape(cloud_calls),
+                execution_ledger=execution_ledger,
+            )
+    finally:
+        release_first.set()
+        first_thread.join(timeout=5)
+    assert not first_thread.is_alive()
+    assert len(first_results) == 1
+    assert len(local_calls) == 1
+    assert len(cloud_calls) == 1
 
 
 def test_revoked_cloud_lease_race_blocks_before_cloud_transport() -> None:

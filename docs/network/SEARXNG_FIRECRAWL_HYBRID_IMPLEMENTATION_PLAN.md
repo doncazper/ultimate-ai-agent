@@ -27,8 +27,10 @@ request-time authority/budget re-evaluation, and a manual-reconciliation cloud
 circuit breaker. WEB-HYBRID-007 exposes the same backend-owned, safe-ref-only
 posture through the existing capability-availability API, a readable CLI, and
 the Control Center; these read surfaces perform no runtime probe and grant no
-authority. `cloud_budget_first` remains absent. WEB-HYBRID-008 dogfood and
-promotion review remains the final phase.
+authority. WEB-HYBRID-008 completes bounded local/cloud dogfood, duplicate
+dispatch and query-scope hardening, serialized cloud usage attribution,
+private-target denial smoke proof, CLI traceback redaction, Foundation Gate,
+and promotion review. `cloud_budget_first` remains absent.
 
 Progress evidence is phase-committed. A completed contract or packaging phase
 does not grant later provider execution authority.
@@ -441,8 +443,11 @@ stable.
 - Persist a content hash, source refs, final URL/host metadata, bounded redacted
   preview, extraction status, provider/deployment ref, policy decision ref,
   and audit/receipt refs.
-- Do not persist full markdown, raw HTML, raw DOM, screenshots, or raw provider
-  payloads.
+- UAA-owned stores do not persist full markdown, raw HTML, raw DOM,
+  screenshots, or raw provider payloads. The pinned self-hosted provider uses
+  a persistent PostgreSQL volume; provider-internal page retention is not yet
+  proven absent and remains a deployment/cleanup risk rather than a UAA
+  zero-retention claim.
 - Do not inject the markdown into prompts, memory, tools, shell, browser,
   connector, filesystem, or policy channels.
 - If durable corpus/RAG storage is later needed, define a separate quarantined
@@ -461,6 +466,13 @@ has unknown credit cost. It must never auto-upgrade, recharge, or retry into a
 paid plan.
 
 ### Authoritative Credit Snapshot
+
+Credit reconciliation is one exact authenticated, read-only provider-account
+diagnostic against a fixed endpoint. It returns only normalized credit fields
+and a safe reconciliation receipt ref; it is not public-target web access,
+execution authority, budget authority, or a general provider API exception.
+Credential absence, unknown plan/cost, stale balance, and incomplete receipts
+fail closed.
 
 Use the authenticated Firecrawl credit-usage endpoint to normalize:
 
@@ -961,6 +973,26 @@ Rollback:
   audit state; no provider work depends on React state
 
 ### WEB-HYBRID-008 — Private Dogfood, Hardening, and Promotion Review
+
+Status: completed for the exact private/local scope. The accepted posture
+remains `self_host_first_cloud_escalation`; no crawl, map, screenshot, schema,
+MCP, browser-action, paid, Keyless, cloud-first, or background lane is
+justified by this evidence.
+
+Redacted verification evidence:
+
+| Evidence ref | Result | Safe observation |
+|---|---|---|
+| `proof-ref:web-hybrid:local-stack-lifecycle` | passed | Seven pinned services reached healthy state, survived restart, and stopped cleanly after review. |
+| `proof-ref:web-hybrid:live-local-search` | passed | One exact SearXNG request returned bounded untrusted source evidence. |
+| `proof-ref:web-hybrid:live-local-markdown` | passed | One exact self-hosted request returned transient bounded markdown; raw provider output was not stored by UAA. |
+| `proof-ref:web-hybrid:playwright-private-target-denied` | passed | The pinned Playwright SSRF boundary denied the link-local metadata target. Formal adversarial DNS-rebinding/firewall proof remains future hardening. |
+| `proof-ref:web-hybrid:live-cloud-one-credit` | passed | One exact standard scrape reconciled one free-plan credit with safe refs only; paid usage remained denied. |
+| `proof-ref:web-hybrid:foundation-gate` | passed | Report-only gate recorded 627 passed, zero failed/warning/blocked criteria. |
+
+Cloud execution is intentionally serialized to one UAA-owned in-flight
+reservation even though the reviewed free plan advertises concurrency two;
+shared account-balance deltas cannot safely attribute overlapping requests.
 
 Scope:
 
