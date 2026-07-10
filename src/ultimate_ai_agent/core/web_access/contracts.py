@@ -30,6 +30,7 @@ class WebAccessRequestKind(str, Enum):
     GOVERNED_WEB_EVIDENCE = "governed_web_evidence"
     READ_ONLY_FETCH = "read_only_fetch"
     SEARCH = "search"
+    EXTRACT_MARKDOWN = "extract_markdown"
     EXTRACT_SCHEMA = "extract_schema"
     BROWSER_OBSERVE = "browser_observe"
     BROWSER_ACTION_DRY_RUN = "browser_action_dry_run"

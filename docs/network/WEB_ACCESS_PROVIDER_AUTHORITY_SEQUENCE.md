@@ -4,6 +4,11 @@ Status: future sequencing reference, not active implementation authority
 Branch context: `web-access-gateway-boundary` / PR #39  
 Audience: Codex, maintainers, security review
 
+The end-to-end SearXNG discovery plus self-hosted/Firecrawl Cloud extraction
+child plan is `docs/network/SEARXNG_FIRECRAWL_HYBRID_IMPLEMENTATION_PLAN.md`.
+It remains planning-only and subordinate to this provider/authority sequence
+and the active `WEB-RUNTIME-AUTH-001` WIP lane.
+
 ## Primary recommendation
 
 Add providers earlier. Add dangerous authority much later.

@@ -26,6 +26,7 @@ READ_ONLY_KINDS = {
 
 FUTURE_DENIED_KINDS = {
     WebAccessRequestKind.SEARCH,
+    WebAccessRequestKind.EXTRACT_MARKDOWN,
     WebAccessRequestKind.EXTRACT_SCHEMA,
     WebAccessRequestKind.BROWSER_CLICK,
     WebAccessRequestKind.FORM_FILL,
