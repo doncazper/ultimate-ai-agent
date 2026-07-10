@@ -409,6 +409,57 @@ def test_ask_mode_requires_and_binds_exact_local_approval(tmp_path: Path) -> Non
     assert reservation.approval_validation_ref == result.receipt.approval_validation_ref
 
 
+def test_exact_approval_cannot_replay_action_under_new_dispatch_identity(
+    tmp_path: Path,
+) -> None:
+    state_dir = tmp_path / "authority"
+    lease_store, lease = _lease(
+        state_dir,
+        mode=TrustMode.ask_before_changes,
+        domain=AuthorityDomain.workspace,
+        capability=AuthorityCapability.execute,
+    )
+    approval_authority = LocalApprovalAuthority()
+    dispatcher = AuthorityDispatcher(
+        state_dir,
+        adapters=[ToolRuntimeAuthorityDispatchAdapter(_descriptor(filesystem=False))],
+        lease_store=lease_store,
+        approval_authority=approval_authority,
+    )
+    pending = _request(lease.lease_ref, suffix="approval-single-action", filesystem=False)
+    validation_request = _approval(approval_authority, pending)
+    approved = pending.model_copy(
+        update={"approval_validation_request": validation_request}
+    )
+    first = dispatcher.dispatch(approved)
+    replay_payload = approved.model_dump(mode="json")
+    replay_payload.update(
+        {
+            "dispatch_ref": "authority-dispatch-ref:test:approval-cloned-envelope",
+            "idempotency_ref": (
+                "idempotency-ref:test-dispatch:approval-cloned-envelope"
+            ),
+        }
+    )
+    replay_payload["tool_invocation_request"].update(
+        {
+            "invocation_id": replay_payload["dispatch_ref"],
+            "replay_key": replay_payload["idempotency_ref"],
+        }
+    )
+    replay = AuthorityDispatchRequest.model_validate(replay_payload)
+
+    with pytest.raises(
+        AuthorityDispatchConflictError,
+        match="AUTHORITY_DISPATCH_IDEMPOTENCY_CONFLICT",
+    ):
+        dispatcher.dispatch(replay)
+
+    assert first.receipt.status == AuthorityDispatchStatus.succeeded.value
+    assert len(dispatcher.list_receipts()) == 3
+    assert len(dispatcher.budget_store.list_receipts()) == 2
+
+
 def test_out_of_scope_approval_denies_without_adapter_start(tmp_path: Path) -> None:
     state_dir = tmp_path / "authority"
     lease_store, lease = _lease(

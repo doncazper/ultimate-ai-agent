@@ -982,7 +982,12 @@ class AuthorityDispatcher:
             for receipt in receipts
             if receipt.idempotency_ref == request.idempotency_ref
         ]
-        existing = by_dispatch or by_idempotency
+        by_action = [
+            receipt
+            for receipt in receipts
+            if receipt.action_ref == request.action_request.action_ref
+        ]
+        existing = by_dispatch or by_idempotency or by_action
         if not existing:
             return None
         if any(
@@ -1156,6 +1161,7 @@ class AuthorityDispatcher:
         previous_hash: str | None = None
         histories: dict[str, list[AuthorityDispatchReceipt]] = defaultdict(list)
         idempotency_dispatch: dict[str, str] = {}
+        action_dispatch: dict[str, str] = {}
         with self.receipts_path.open(encoding="utf-8") as handle:
             for line in handle:
                 if not line.strip():
@@ -1180,6 +1186,13 @@ class AuthorityDispatcher:
                 if bound_dispatch != receipt.dispatch_ref:
                     raise AuthorityDispatchCorruptionError(
                         "AUTHORITY_DISPATCH_IDEMPOTENCY_HISTORY_MISMATCH"
+                    )
+                bound_action_dispatch = action_dispatch.setdefault(
+                    receipt.action_ref, receipt.dispatch_ref
+                )
+                if bound_action_dispatch != receipt.dispatch_ref:
+                    raise AuthorityDispatchCorruptionError(
+                        "AUTHORITY_DISPATCH_ACTION_HISTORY_MISMATCH"
                     )
                 self._validate_history_transition(
                     receipt, histories[receipt.dispatch_ref]
