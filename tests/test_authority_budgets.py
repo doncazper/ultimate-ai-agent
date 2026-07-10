@@ -423,6 +423,25 @@ def test_reservation_overage_below_lease_ceiling_still_fails_closed(
     assert summary.reservation_available is False
 
 
+def test_zero_cost_reservation_cannot_bypass_exhausted_cost_ceiling(tmp_path) -> None:
+    _, budget_store, lease = _stores(
+        tmp_path,
+        operation_limit=2,
+        cost_limit=0,
+    )
+
+    denied = budget_store.reserve(
+        _reserve_request(
+            lease.lease_ref,
+            suffix="zero-cost-exhausted",
+            cost_microusd=0,
+        )
+    )
+
+    assert denied.status == AuthorityBudgetStatus.denied.value
+    assert "reason-ref:authority-budget:cost-budget-exhausted" in (denied.reason_refs)
+
+
 def test_settlement_contract_requires_evidence() -> None:
     with pytest.raises(ValueError, match="evidence_refs"):
         AuthorityBudgetSettlementRequest(
@@ -625,6 +644,47 @@ def test_correctly_hashed_impossible_reservation_transition_is_detected(
     with pytest.raises(
         AuthorityBudgetCorruptionError,
         match="AUTHORITY_BUDGET_INVALID_RESERVATION_TRANSITION",
+    ):
+        budget_store.list_receipts()
+
+
+def test_correctly_hashed_overage_misclassification_is_detected(tmp_path) -> None:
+    _, budget_store, lease = _stores(tmp_path)
+    reservation = budget_store.reserve(
+        _reserve_request(
+            lease.lease_ref,
+            suffix="misclassified-overage",
+            cost_microusd=100,
+        )
+    )
+    misclassified = budget_store._build_receipt(
+        operation=AuthorityBudgetOperation.settle,
+        status=AuthorityBudgetStatus.settled,
+        reservation_ref=reservation.reservation_ref,
+        idempotency_ref="idempotency-ref:test-misclassified-overage",
+        request_fingerprint_ref=(
+            "request-fingerprint-ref:authority-budget:test-misclassified-overage"
+        ),
+        previous_entry_hash_ref=reservation.entry_hash_ref,
+        lease_ref=reservation.lease_ref,
+        action_ref=reservation.action_ref,
+        cost_estimate_ref=reservation.cost_estimate_ref,
+        cost_governor_decision_ref=reservation.cost_governor_decision_ref,
+        cost_governor_allowed=reservation.cost_governor_allowed,
+        reserved_operation_count=reservation.reserved_operation_count,
+        reserved_cost_microusd=reservation.reserved_cost_microusd,
+        actual_operation_count=1,
+        actual_cost_microusd=200,
+        actual_cost_ref="actual-cost-ref:test-misclassified-overage",
+        execution_status=AuthorityBudgetExecutionStatus.succeeded,
+        evidence_refs=["evidence-ref:test-misclassified-overage"],
+        safe_summary="Inject one correctly hashed misclassified overage.",
+    )
+    budget_store._append(misclassified)
+
+    with pytest.raises(
+        AuthorityBudgetCorruptionError,
+        match="AUTHORITY_BUDGET_SETTLEMENT_STATUS_MISMATCH",
     ):
         budget_store.list_receipts()
 

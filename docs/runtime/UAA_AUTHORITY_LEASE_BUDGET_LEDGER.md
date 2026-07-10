@@ -103,6 +103,8 @@ Focused tests cover:
 - concurrent lease issue without lost updates;
 - receipt hash tamper detection;
 - correctly hashed impossible transition detection;
+- correctly hashed settlement-overage misclassification detection;
+- zero-cost reservation denial at an exhausted cost ceiling;
 - release rejection once execution is declared started;
 - Python state, API, and JSON CLI projection parity.
 

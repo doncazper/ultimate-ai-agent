@@ -267,7 +267,9 @@ class AuthorityBudgetStore:
                 reason_refs.append(
                     "reason-ref:authority-budget:operation-budget-exhausted"
                 )
-            if cost_limit is not None and next_cost > cost_limit:
+            if cost_limit is not None and (
+                usage["cost"] >= cost_limit or next_cost > cost_limit
+            ):
                 reason_refs.append("reason-ref:authority-budget:cost-budget-exhausted")
 
             status = (
@@ -690,6 +692,30 @@ class AuthorityBudgetStore:
             if getattr(receipt, field_name) != state[field_name]:
                 raise AuthorityBudgetCorruptionError(
                     "AUTHORITY_BUDGET_FOLLOWUP_BINDING_MISMATCH"
+                )
+        if receipt.operation == AuthorityBudgetOperation.settle.value:
+            operation_overage = (
+                receipt.actual_operation_count is not None
+                and receipt.actual_operation_count > state["reserved_operation_count"]
+            )
+            cost_overage = (
+                receipt.actual_cost_microusd is not None
+                and state["reserved_cost_microusd"] is not None
+                and receipt.actual_cost_microusd > state["reserved_cost_microusd"]
+            )
+            if (
+                operation_overage
+                and receipt.status
+                not in {
+                    AuthorityBudgetStatus.settled_overage.value,
+                    AuthorityBudgetStatus.settled_cost_unresolved.value,
+                }
+            ) or (
+                cost_overage
+                and receipt.status != AuthorityBudgetStatus.settled_overage.value
+            ):
+                raise AuthorityBudgetCorruptionError(
+                    "AUTHORITY_BUDGET_SETTLEMENT_STATUS_MISMATCH"
                 )
         state["status"] = receipt.status
 

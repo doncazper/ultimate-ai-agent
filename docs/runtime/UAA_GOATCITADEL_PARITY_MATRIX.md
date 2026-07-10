@@ -4,7 +4,8 @@ Status: active evidence-backed comparison; benchmark use is read-only
 
 Snapshot date: 2026-07-10
 
-UAA baseline: `383b1e284fdb621c0c8f315367f49158a9d1e7a4`
+UAA comparison scope: current repository state containing this matrix and its
+cited implementation evidence
 
 GoatCitadel benchmark snapshot: `91775e6905c8ca6c5083444f64eb3457b2d0aaa0`
 
