@@ -261,13 +261,16 @@ class AuthorityBudgetReceipt(_AuthorityBudgetContract):
             if not self.reason_refs:
                 raise ValueError("AUTHORITY_BUDGET_RELEASE_REASON_REQUIRED")
             if (
-                self.execution_ref is not None
-                or self.actual_operation_count is not None
+                self.actual_operation_count is not None
                 or self.actual_cost_microusd is not None
                 or self.actual_cost_ref is not None
                 or self.execution_status is not None
             ):
-                raise ValueError("AUTHORITY_BUDGET_RELEASE_MUST_PRECEDE_EXECUTION")
+                raise ValueError("AUTHORITY_BUDGET_RELEASE_ACTUAL_USAGE_FORBIDDEN")
+            if self.execution_ref is not None and not self.dispatch_fingerprint_ref:
+                raise ValueError(
+                    "AUTHORITY_BUDGET_STARTED_RELEASE_DISPATCH_BINDING_REQUIRED"
+                )
         elif (
             self.actual_operation_count is None
             or self.actual_operation_count < 1

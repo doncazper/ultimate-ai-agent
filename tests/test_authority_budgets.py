@@ -457,6 +457,58 @@ def test_dispatch_start_claim_blocks_release_and_binds_settlement(tmp_path) -> N
     assert settled.execution_ref == execution_ref
 
 
+def test_internal_orphaned_start_release_requires_exact_dispatch_binding(
+    tmp_path,
+) -> None:
+    _, budget_store, lease = _stores(tmp_path)
+    dispatch_fingerprint_ref = "request-fingerprint-ref:test-budget:orphan-release"
+    execution_ref = "authority-dispatch-execution-ref:test-budget:orphan-release"
+    reservation = budget_store.reserve(
+        _reserve_request(
+            lease.lease_ref,
+            suffix="orphan-start-release",
+            dispatch_fingerprint_ref=dispatch_fingerprint_ref,
+        )
+    )
+    budget_store._start_dispatch(
+        AuthorityBudgetStartRequest(
+            reservation_ref=reservation.reservation_ref,
+            idempotency_ref="idempotency-ref:test-budget-start:orphan-release",
+            dispatch_fingerprint_ref=dispatch_fingerprint_ref,
+            execution_ref=execution_ref,
+            safe_summary="Bind the orphan recovery test start claim.",
+        )
+    )
+    denied = budget_store._release_started_dispatch(
+        AuthorityBudgetReleaseRequest(
+            reservation_ref=reservation.reservation_ref,
+            idempotency_ref="idempotency-ref:test-budget-release:orphan-mismatch",
+            reason_ref="reason-ref:test-budget-orphan-release-mismatch",
+            safe_summary="Reject a mismatched orphan start rollback.",
+        ),
+        dispatch_fingerprint_ref=dispatch_fingerprint_ref,
+        execution_ref="authority-dispatch-execution-ref:test-budget:wrong-owner",
+    )
+    released = budget_store._release_started_dispatch(
+        AuthorityBudgetReleaseRequest(
+            reservation_ref=reservation.reservation_ref,
+            idempotency_ref="idempotency-ref:test-budget-release:orphan-exact",
+            reason_ref="reason-ref:test-budget-orphan-release-exact",
+            safe_summary="Release the exact orphaned dispatch start claim.",
+        ),
+        dispatch_fingerprint_ref=dispatch_fingerprint_ref,
+        execution_ref=execution_ref,
+    )
+
+    assert denied.status == AuthorityBudgetStatus.denied.value
+    assert released.status == AuthorityBudgetStatus.released.value
+    assert released.dispatch_fingerprint_ref == dispatch_fingerprint_ref
+    assert released.execution_ref == execution_ref
+    assert budget_store.build_read_model().lease_summaries[
+        0
+    ].allocated_operation_count == 0
+
+
 def test_unknown_cost_claim_drift_and_idempotency_drift_fail_closed(tmp_path) -> None:
     _, budget_store, lease = _stores(tmp_path)
     unknown = budget_store.reserve(

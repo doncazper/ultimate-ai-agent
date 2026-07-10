@@ -780,6 +780,8 @@ class AuthorityBudgetStore:
         request: AuthorityBudgetReleaseRequest,
         *,
         lock_held: bool,
+        started_dispatch_fingerprint_ref: str | None = None,
+        started_execution_ref: str | None = None,
     ) -> AuthorityBudgetReceipt:
         lock_context = (
             nullcontext()
@@ -800,7 +802,19 @@ class AuthorityBudgetStore:
             if replay is not None:
                 return replay
             state = self._reservation_state(receipts, request.reservation_ref)
-            if state is None or state["status"] != AuthorityBudgetStatus.reserved.value:
+            started_dispatch_rollback = bool(
+                state is not None
+                and state["status"] == AuthorityBudgetStatus.started.value
+                and started_dispatch_fingerprint_ref is not None
+                and started_execution_ref is not None
+                and state["dispatch_fingerprint_ref"]
+                == started_dispatch_fingerprint_ref
+                and state["execution_ref"] == started_execution_ref
+            )
+            if state is None or (
+                state["status"] != AuthorityBudgetStatus.reserved.value
+                and not started_dispatch_rollback
+            ):
                 receipt = self._denied_followup_receipt(
                     receipts,
                     operation=AuthorityBudgetOperation.release,
@@ -840,6 +854,9 @@ class AuthorityBudgetStore:
                 approval_validation_ref=state["approval_validation_ref"],
                 approval_required=state["approval_required"],
                 dispatch_fingerprint_ref=state["dispatch_fingerprint_ref"],
+                execution_ref=(
+                    state["execution_ref"] if started_dispatch_rollback else None
+                ),
                 cost_estimate_ref=state["cost_estimate_ref"],
                 cost_governor_decision_ref=state["cost_governor_decision_ref"],
                 cost_governor_allowed=state["cost_governor_allowed"],
@@ -856,7 +873,11 @@ class AuthorityBudgetStore:
                     else None
                 ),
                 reason_refs=[request.reason_ref],
-                safe_summary="Authority budget reservation released before execution.",
+                safe_summary=(
+                    "Authority budget start claim rolled back before adapter invocation."
+                    if started_dispatch_rollback
+                    else "Authority budget reservation released before execution."
+                ),
             )
             self._append(receipt)
             return receipt
@@ -866,6 +887,22 @@ class AuthorityBudgetStore:
         request: AuthorityBudgetReleaseRequest,
     ) -> AuthorityBudgetReceipt:
         return self._release(request, lock_held=True)
+
+    def _release_started_dispatch(
+        self,
+        request: AuthorityBudgetReleaseRequest,
+        *,
+        dispatch_fingerprint_ref: str,
+        execution_ref: str,
+    ) -> AuthorityBudgetReceipt:
+        """Roll back a dispatch start claim proven not to have reached invocation."""
+
+        return self._release(
+            request,
+            lock_held=False,
+            started_dispatch_fingerprint_ref=dispatch_fingerprint_ref,
+            started_execution_ref=execution_ref,
+        )
 
     def build_read_model(self, *, recent_limit: int = 12) -> AuthorityBudgetReadModel:
         if recent_limit < 0:
@@ -1045,6 +1082,13 @@ class AuthorityBudgetStore:
                 AuthorityBudgetStatus.reserved.value,
             },
         }
+        if (
+            receipt.operation == AuthorityBudgetOperation.release.value
+            and receipt.execution_ref is not None
+        ):
+            allowed_previous_statuses[AuthorityBudgetOperation.release.value] = {
+                AuthorityBudgetStatus.started.value,
+            }
         if (
             receipt.operation == AuthorityBudgetOperation.settle.value
             and state is not None

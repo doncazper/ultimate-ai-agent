@@ -83,10 +83,15 @@ When actual cost is unknown, the settlement becomes
 `settled_cost_unresolved` and all later reservations for that lease fail closed
 until a future reviewed remediation contract exists.
 
-A reservation may be released only while its durable state is still
+A public reservation release may succeed only while its durable state is still
 `reserved`; the caller's typed `execution_started=False` assertion is not
-sufficient once the ledger records `started`. Release frees unstarted capacity
-and records the reason ref. `AuthorityDispatcher` supplies durable pre-start,
+sufficient once the ledger records `started`. The dispatcher has one narrower
+internal recovery transition: it may roll back a `started` budget claim only
+when the dispatch ledger proves that its corresponding dispatch-start receipt
+was never written and therefore adapter invocation never began. That release
+must retain the exact dispatch fingerprint and execution ref; it frees the
+orphaned capacity and remains `cancelled_before_start`. It does not grant
+after-start cancellation. `AuthorityDispatcher` supplies durable pre-start,
 budget-start, dispatch-start, and pre-start cancellation receipts for its routed
 adapters. Direct budget-store callers and legacy execution paths do not gain
 adapter-start proof merely from this integration.
@@ -131,7 +136,8 @@ Focused tests cover:
 - exact constraint evaluation and applied constraint refs;
 - reserve, replay, settle, overage, release, and cumulative exhaustion;
 - exact dispatch start, replay, execution-ref settlement binding, and release
-  denial after start;
+  denial after start, plus internal rollback of an orphaned budget start when
+  the dispatch ledger proves invocation never began;
 - compatibility replay for pre-execution-ref settlements and denial of
   dispatch-bound settlement before start;
 - denial of competing public settlement after dispatch start;

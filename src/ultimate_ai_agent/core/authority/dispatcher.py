@@ -5,6 +5,7 @@ import json
 import math
 import os
 from collections import defaultdict
+from contextlib import nullcontext
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Protocol, Sequence
@@ -441,6 +442,11 @@ class AuthorityDispatcher:
             raise ValueError("AUTHORITY_DISPATCH_LEASE_STATE_DIR_MISMATCH")
         if self.budget_store.state_dir.resolve() != self.state_dir.resolve():
             raise ValueError("AUTHORITY_DISPATCH_BUDGET_STATE_DIR_MISMATCH")
+        if (
+            self.budget_store.lease_store.state_dir.resolve()
+            != self.lease_store.state_dir.resolve()
+        ):
+            raise ValueError("AUTHORITY_DISPATCH_BUDGET_LEASE_STORE_MISMATCH")
         self.approval_authority = approval_authority
         self.lock_manager = authority_state_lock_manager(str(self.state_dir.resolve()))
         for adapter in adapters:
@@ -625,7 +631,16 @@ class AuthorityDispatcher:
         fingerprint = _request_fingerprint(request)
         pending_cancellation: AuthorityDispatchReceipt | None = None
         pending_reason_ref: str | None = None
-        with self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY):
+        approval_lock = (
+            self.approval_authority.hold_validation_lock()
+            if self.approval_authority is not None
+            else nullcontext()
+        )
+        # Authority state is always acquired before approval state. Budget
+        # reservation follows the same order when it validates approval, which
+        # avoids an execute/prepare lock inversion while keeping validation and
+        # the durable start claim in one approval-revocation critical section.
+        with self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY), approval_lock:
             receipts = self._load_receipts()
             history = self._history_for_request(receipts, request, fingerprint)
             latest = history[-1]
@@ -924,7 +939,7 @@ class AuthorityDispatcher:
         prepared: AuthorityDispatchReceipt,
         adapter: AuthorityDispatchAdapter | None,
     ) -> list[str]:
-        reasons: list[str] = self._cost_reason_refs(request)
+        reasons: list[str] = []
         if adapter is None:
             reasons.append("reason-ref:authority-dispatch:adapter-not-registered")
         else:
@@ -1019,20 +1034,74 @@ class AuthorityDispatcher:
             budget_receipts,
             prepared.budget_reservation_ref or "",
         )
-        budget_active = bool(
+        reservation_receipt = next(
+            (
+                receipt
+                for receipt in budget_receipts
+                if receipt.reservation_ref == prepared.budget_reservation_ref
+                and receipt.operation == AuthorityBudgetOperation.reserve.value
+                and receipt.status == AuthorityBudgetStatus.reserved.value
+            ),
+            None,
+        )
+        fingerprint = _request_fingerprint(request)
+        expected_approval_ref = (
+            request.approval_validation_request.approval_ref
+            if request.approval_validation_request is not None
+            else None
+        )
+        budget_binding_valid = bool(
             budget_state
+            and reservation_receipt is not None
+            and reservation_receipt.receipt_ref
+            == prepared.budget_reservation_receipt_ref
+            and reservation_receipt.authority_decision_ref
+            == prepared.authority_decision_ref
+            and reservation_receipt.authority_policy_receipt_ref
+            == prepared.authority_policy_receipt_ref
+            and budget_state["lease_ref"] == request.lease_ref == prepared.lease_ref
+            and budget_state["action_ref"]
+            == request.action_request.action_ref
+            == prepared.action_ref
+            and budget_state["dispatch_fingerprint_ref"]
+            == fingerprint
+            == prepared.request_fingerprint_ref
+            and budget_state["approval_required"] == prepared.approval_required
+            and budget_state["approval_ref"]
+            == expected_approval_ref
+            == prepared.approval_ref
+            and budget_state["approval_validation_ref"]
+            == prepared.approval_validation_ref
+            and budget_state["cost_estimate_ref"] == request.cost_estimate_ref
+            and budget_state["cost_governor_decision_ref"]
+            == request.cost_governor_decision_ref
+            and budget_state["cost_governor_allowed"]
+            == request.cost_governor_allowed
+            and budget_state["reserved_operations"] == request.operation_count
+            and budget_state["reserved_cost"] == request.estimated_cost_microusd
+        )
+        budget_active = bool(
+            budget_binding_valid
             and (
-                budget_state["status"] == AuthorityBudgetStatus.reserved.value
+                (
+                    budget_state["status"] == AuthorityBudgetStatus.reserved.value
+                    and budget_state["execution_ref"] is None
+                )
                 or (
                     budget_state["status"] == AuthorityBudgetStatus.started.value
                     and budget_state["execution_ref"] == _execution_ref(request)
                     and budget_state["dispatch_fingerprint_ref"]
-                    == _request_fingerprint(request)
+                    == fingerprint
                 )
             )
         )
+        if not budget_binding_valid:
+            reasons.append(
+                "reason-ref:authority-dispatch:prestart-budget-binding-drift"
+            )
         if not budget_active:
             reasons.append("reason-ref:authority-dispatch:prestart-budget-inactive")
+        reasons.extend(self._cost_reason_refs(request))
         return list(dict.fromkeys(reasons))
 
     def _cost_reason_refs(
@@ -1163,14 +1232,30 @@ class AuthorityDispatcher:
             None,
         )
         if release is None:
-            release = self.budget_store.release(
-                AuthorityBudgetReleaseRequest(
-                    reservation_ref=reservation_ref,
-                    idempotency_ref=_budget_release_idempotency_ref(pending),
-                    reason_ref=reason_ref,
-                    safe_summary="Release governed dispatch capacity before adapter start.",
-                )
+            budget_receipts = self.budget_store.list_receipts()
+            budget_state = self.budget_store._reservation_state(
+                budget_receipts, reservation_ref
             )
+            release_request = AuthorityBudgetReleaseRequest(
+                reservation_ref=reservation_ref,
+                idempotency_ref=_budget_release_idempotency_ref(pending),
+                reason_ref=reason_ref,
+                safe_summary="Release governed dispatch capacity before adapter start.",
+            )
+            if (
+                budget_state is not None
+                and budget_state["status"] == AuthorityBudgetStatus.started.value
+                and budget_state["dispatch_fingerprint_ref"]
+                == pending.request_fingerprint_ref
+                and budget_state["execution_ref"] is not None
+            ):
+                release = self.budget_store._release_started_dispatch(
+                    release_request,
+                    dispatch_fingerprint_ref=pending.request_fingerprint_ref,
+                    execution_ref=budget_state["execution_ref"],
+                )
+            else:
+                release = self.budget_store.release(release_request)
         release_status = release.original_status or release.status
         if release_status != AuthorityBudgetStatus.released.value:
             release = next(

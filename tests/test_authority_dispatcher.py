@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
@@ -18,7 +20,9 @@ from ultimate_ai_agent.core.authority import (
     AuthorityBudgetExecutionStatus,
     AuthorityBudgetStatus,
     AuthorityBudgetReleaseRequest,
+    AuthorityBudgetReceipt,
     AuthorityBudgetSettlementRequest,
+    AuthorityBudgetStore,
     AuthorityCapability,
     AuthorityConstraint,
     AuthorityConstraintClaim,
@@ -43,6 +47,9 @@ from ultimate_ai_agent.core.authority.dispatcher import (
     _phase_idempotency_ref,
     build_authority_dispatch_cost_estimate_ref,
     build_authority_dispatch_cost_governor_decision_ref,
+)
+from ultimate_ai_agent.core.authority.budgets import (
+    _entry_hash_payload as _budget_entry_hash_payload,
 )
 from ultimate_ai_agent.core.costs import BudgetScope, CostBudget, CostEstimate
 from ultimate_ai_agent.core.authority.approval_validation import (
@@ -2543,3 +2550,303 @@ def test_correctly_rehashed_execution_binding_drift_fails_closed(
         match="AUTHORITY_DISPATCH_EXECUTION_BINDING_MISMATCH",
     ):
         dispatcher.list_receipts()
+
+
+def test_approval_revocation_is_serialized_with_durable_dispatch_start(
+    tmp_path: Path,
+) -> None:
+    state_dir = tmp_path / "authority"
+    lease_store, lease = _lease(
+        state_dir,
+        mode=TrustMode.ask_before_changes,
+        domain=AuthorityDomain.workspace,
+        capability=AuthorityCapability.execute,
+    )
+    approval_authority = LocalApprovalAuthority()
+    dispatcher = AuthorityDispatcher(
+        state_dir,
+        adapters=[ToolRuntimeAuthorityDispatchAdapter(_descriptor(filesystem=False))],
+        lease_store=lease_store,
+        approval_authority=approval_authority,
+    )
+    pending = _request(
+        lease.lease_ref,
+        suffix="approval-start-serialization",
+        filesystem=False,
+    )
+    validation_request = _approval(approval_authority, pending)
+    request = pending.model_copy(
+        update={"approval_validation_request": validation_request}
+    )
+    dispatcher.prepare(request)
+    validation_finished = threading.Event()
+    allow_start = threading.Event()
+    revoke_entered = threading.Event()
+    revoke_finished = threading.Event()
+    validate = approval_authority.validate
+    revoke = approval_authority.revoke
+
+    def paused_validation(validation: Any) -> Any:
+        decision = validate(validation)
+        validation_finished.set()
+        assert allow_start.wait(5)
+        return decision
+
+    def concurrent_revoke() -> Any:
+        revoke_entered.set()
+        revoked = revoke(
+            validation_request.approval_ref,
+            "Operator raced revocation with a durable start claim.",
+        )
+        revoke_finished.set()
+        return revoked
+
+    approval_authority.validate = paused_validation  # type: ignore[method-assign]
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        execution = pool.submit(dispatcher.execute, request)
+        assert validation_finished.wait(5)
+        revocation = pool.submit(concurrent_revoke)
+        assert revoke_entered.wait(5)
+        assert not revoke_finished.wait(0.1)
+        allow_start.set()
+        result = execution.result(timeout=5)
+        revoked = revocation.result(timeout=5)
+
+    assert result.receipt.status == AuthorityDispatchStatus.succeeded.value
+    assert revoked.status == "revoked"
+
+
+def test_dispatcher_rejects_budget_store_with_a_different_lease_source(
+    tmp_path: Path,
+) -> None:
+    state_dir = tmp_path / "authority"
+    lease_store = AuthorityLeaseStore(state_dir)
+    mismatched_budget_store = AuthorityBudgetStore(
+        state_dir,
+        lease_store=AuthorityLeaseStore(tmp_path / "other-authority"),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="AUTHORITY_DISPATCH_BUDGET_LEASE_STORE_MISMATCH",
+    ):
+        AuthorityDispatcher(
+            state_dir,
+            adapters=[],
+            lease_store=lease_store,
+            budget_store=mismatched_budget_store,
+        )
+
+
+def test_expired_cost_budget_after_slow_approval_cancels_before_start(
+    tmp_path: Path,
+) -> None:
+    state_dir = tmp_path / "authority"
+    lease_store, lease = _lease(
+        state_dir,
+        mode=TrustMode.ask_before_changes,
+        domain=AuthorityDomain.workspace,
+        capability=AuthorityCapability.execute,
+    )
+    approval_authority = LocalApprovalAuthority()
+    dispatcher = AuthorityDispatcher(
+        state_dir,
+        adapters=[ToolRuntimeAuthorityDispatchAdapter(_descriptor(filesystem=False))],
+        lease_store=lease_store,
+        approval_authority=approval_authority,
+    )
+    pending = _request(
+        lease.lease_ref,
+        suffix="cost-expiry-at-start",
+        filesystem=False,
+    )
+    expiring_budgets = [
+        budget.model_copy(update={"expires_at": utc_now() + timedelta(seconds=1)})
+        for budget in pending.cost_budgets
+    ]
+    pending = pending.model_copy(
+        update={
+            "cost_budgets": expiring_budgets,
+            "cost_governor_decision_ref": (
+                build_authority_dispatch_cost_governor_decision_ref(
+                    pending.cost_estimate, expiring_budgets
+                )
+            ),
+        }
+    )
+    validation_request = _approval(approval_authority, pending)
+    request = pending.model_copy(
+        update={"approval_validation_request": validation_request}
+    )
+    dispatcher.prepare(request)
+    validation_finished = threading.Event()
+    allow_start = threading.Event()
+    validate = approval_authority.validate
+
+    def paused_validation(validation: Any) -> Any:
+        decision = validate(validation)
+        validation_finished.set()
+        assert allow_start.wait(5)
+        return decision
+
+    approval_authority.validate = paused_validation  # type: ignore[method-assign]
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        execution = pool.submit(dispatcher.execute, request)
+        assert validation_finished.wait(5)
+        while utc_now() <= expiring_budgets[0].expires_at:
+            time.sleep(0.01)
+        allow_start.set()
+        result = execution.result(timeout=5)
+
+    assert result.receipt.status == AuthorityDispatchStatus.cancelled_before_start.value
+    assert result.receipt.execution_started is False
+    assert (
+        "reason-ref:authority-dispatch:cost-budget-expired"
+        in result.receipt.reason_refs
+    )
+    assert [
+        receipt.status for receipt in dispatcher.budget_store.list_receipts()
+    ] == [
+        AuthorityBudgetStatus.reserved.value,
+        AuthorityBudgetStatus.released.value,
+    ]
+
+
+def test_cross_ledger_reservation_binding_drift_cancels_fail_closed(
+    tmp_path: Path,
+) -> None:
+    state_dir = tmp_path / "authority"
+    root = tmp_path / "safe-root"
+    (root / "notes").mkdir(parents=True)
+    (root / "notes" / "report.md").write_text("bounded", encoding="utf-8")
+    lease_store, lease = _lease(
+        state_dir,
+        mode=TrustMode.full_local_workspace_session,
+        domain=AuthorityDomain.files,
+        capability=AuthorityCapability.read,
+    )
+    other_lease = lease.model_copy(
+        update={"lease_ref": "authority-lease-ref:test-cross-ledger-other"}
+    )
+    lease_store._write_leases([lease, other_lease])
+    dispatcher = AuthorityDispatcher(
+        state_dir,
+        adapters=[
+            ToolRuntimeAuthorityDispatchAdapter(
+                _descriptor(filesystem=True),
+                safe_roots=[
+                    FilesystemSafeRoot(
+                        root_ref=FILESYSTEM_ROOT_REF,
+                        root_path=root,
+                        safe_label="Test dispatch safe root",
+                    )
+                ],
+            )
+        ],
+        lease_store=lease_store,
+    )
+    request = _request(
+        lease.lease_ref,
+        suffix="cross-ledger-binding",
+        filesystem=True,
+    )
+    dispatcher.prepare(request)
+    payload = json.loads(dispatcher.budget_store.receipts_path.read_text())
+    payload["lease_ref"] = other_lease.lease_ref
+    payload["entry_hash_ref"] = _budget_entry_hash_payload(payload)
+    AuthorityBudgetReceipt.model_validate(payload)
+    dispatcher.budget_store.receipts_path.write_text(
+        json.dumps(payload, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    result = dispatcher.execute(request)
+
+    assert result.receipt.status == AuthorityDispatchStatus.cancelled_before_start.value
+    assert result.receipt.execution_started is False
+    assert (
+        "reason-ref:authority-dispatch:prestart-budget-binding-drift"
+        in result.receipt.reason_refs
+    )
+    assert [
+        receipt.status for receipt in dispatcher.budget_store.list_receipts()
+    ] == [
+        AuthorityBudgetStatus.reserved.value,
+        AuthorityBudgetStatus.released.value,
+    ]
+
+
+def test_orphaned_budget_start_is_rolled_back_when_dispatch_never_started(
+    tmp_path: Path,
+) -> None:
+    state_dir = tmp_path / "authority"
+    root = tmp_path / "safe-root"
+    (root / "notes").mkdir(parents=True)
+    (root / "notes" / "report.md").write_text("bounded", encoding="utf-8")
+    lease_store, lease = _lease(
+        state_dir,
+        mode=TrustMode.full_local_workspace_session,
+        domain=AuthorityDomain.files,
+        capability=AuthorityCapability.read,
+    )
+    adapter = ToolRuntimeAuthorityDispatchAdapter(
+        _descriptor(filesystem=True),
+        safe_roots=[
+            FilesystemSafeRoot(
+                root_ref=FILESYSTEM_ROOT_REF,
+                root_path=root,
+                safe_label="Test dispatch safe root",
+            )
+        ],
+    )
+    dispatcher = AuthorityDispatcher(
+        state_dir,
+        adapters=[adapter],
+        lease_store=lease_store,
+    )
+    request = _request(
+        lease.lease_ref,
+        suffix="orphaned-budget-start",
+        filesystem=True,
+    )
+    dispatcher.prepare(request)
+    append = dispatcher._append
+
+    def crash_before_dispatch_start(receipt: Any) -> None:
+        if receipt.status == AuthorityDispatchStatus.started.value:
+            raise RuntimeError("simulated crash before dispatch start receipt")
+        append(receipt)
+
+    dispatcher._append = crash_before_dispatch_start  # type: ignore[method-assign]
+    with pytest.raises(RuntimeError, match="simulated crash"):
+        dispatcher.execute(request)
+    dispatcher._append = append  # type: ignore[method-assign]
+    lease_store.revoke_lease(
+        AuthorityLeaseRevokeRequest(
+            lease_ref=lease.lease_ref,
+            decision_reason_ref="reason-ref:test-orphaned-budget-start-revoked",
+            safe_summary="Revoke authority after the orphaned budget start claim.",
+        ),
+        idempotency_ref="idempotency-ref:test-orphaned-budget-start-revoked",
+    )
+
+    result = dispatcher.execute(request)
+    budget_receipts = dispatcher.budget_store.list_receipts()
+    budget_summary = dispatcher.budget_store.build_read_model().lease_summaries[0]
+
+    assert result.receipt.status == AuthorityDispatchStatus.cancelled_before_start.value
+    assert result.receipt.execution_started is False
+    assert result.adapter_result is None
+    assert [receipt.status for receipt in budget_receipts] == [
+        AuthorityBudgetStatus.reserved.value,
+        AuthorityBudgetStatus.started.value,
+        AuthorityBudgetStatus.released.value,
+    ]
+    assert budget_receipts[-1].execution_ref == budget_receipts[-2].execution_ref
+    assert budget_summary.active_reservation_count == 0
+    assert budget_summary.allocated_operation_count == 0
+    assert [receipt.status for receipt in dispatcher.list_receipts()] == [
+        AuthorityDispatchStatus.prepared.value,
+        AuthorityDispatchStatus.cancellation_pending.value,
+        AuthorityDispatchStatus.cancelled_before_start.value,
+    ]

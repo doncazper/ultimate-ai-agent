@@ -1,6 +1,8 @@
 import uuid
+from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
-from typing import Any, List, Optional
+from threading import RLock
+from typing import Any, Iterator, List, Optional
 
 from ultimate_ai_agent.core.approvals.decisions import ApprovalValidationDecision, ApprovalValidationRequest
 from ultimate_ai_agent.core.approvals.enums import (
@@ -32,9 +34,18 @@ class LocalApprovalAuthority:
         self._requests: dict[str, ApprovalRequest] = {}
         self._grants: dict[str, ApprovalGrant] = {}
         self._authority_leases: dict[str, AuthorityLease] = {}
+        self._validation_lock = RLock()
+
+    @contextmanager
+    def hold_validation_lock(self) -> Iterator[None]:
+        """Serialize a validation decision with an external durable start claim."""
+
+        with self._validation_lock:
+            yield
 
     def create_request(self, request: ApprovalRequest) -> ApprovalRequest:
-        self._requests[request.approval_request_id] = request
+        with self._validation_lock:
+            self._requests[request.approval_request_id] = request
         return request
 
     def grant(
@@ -46,7 +57,8 @@ class LocalApprovalAuthority:
         approved_resource_refs: Optional[list[str]] = None,
         approval_ref: Optional[str] = None,
     ) -> ApprovalGrant:
-        request = self._requests[request_id]
+        with self._validation_lock:
+            request = self._requests[request_id]
         requested_actions = [request.requested_action]
         requested_refs = request.resource_refs
         actions = [action for action in (approved_actions or requested_actions) if action in requested_actions]
@@ -71,14 +83,16 @@ class LocalApprovalAuthority:
             trace_id=request.trace_id,
             metadata={"approval_mode": self.mode.value},
         )
-        self._grants[grant.approval_ref] = grant
+        with self._validation_lock:
+            self._grants[grant.approval_ref] = grant
         return grant
 
     def create_test_grant(self, request_id: str, approval_ref: str = "approval_test_local_dev") -> ApprovalGrant:
         return self.grant(request_id, approved_by_actor_id="local_test_fixture", approval_ref=approval_ref)
 
     def deny(self, request_id: str, denied_by_actor_id: str, reason: str) -> ApprovalValidationDecision:
-        request = self._requests[request_id]
+        with self._validation_lock:
+            request = self._requests[request_id]
         return ApprovalValidationDecision(
             approval_ref=None,
             allowed=False,
@@ -89,21 +103,28 @@ class LocalApprovalAuthority:
         )
 
     def revoke(self, approval_ref: str, reason: str) -> ApprovalGrant:
-        grant = self._grants[approval_ref]
-        revoked = grant.model_copy(
-            update={
-                "status": ApprovalStatus.revoked,
-                "revoked_at": utc_now(),
-                "metadata": {**grant.metadata, "revocation_reason": reason},
-            }
-        )
-        self._grants[approval_ref] = revoked
-        return revoked
+        with self._validation_lock:
+            grant = self._grants[approval_ref]
+            revoked = grant.model_copy(
+                update={
+                    "status": ApprovalStatus.revoked,
+                    "revoked_at": utc_now(),
+                    "metadata": {**grant.metadata, "revocation_reason": reason},
+                }
+            )
+            self._grants[approval_ref] = revoked
+            return revoked
 
     def validate_for_request(self, request: ApprovalRequest, approval_ref: str) -> ApprovalValidationDecision:
         return self.validate(request.to_validation_request(approval_ref))
 
     def validate(self, validation_request: ApprovalValidationRequest) -> ApprovalValidationDecision:
+        with self._validation_lock:
+            return self._validate_locked(validation_request)
+
+    def _validate_locked(
+        self, validation_request: ApprovalValidationRequest
+    ) -> ApprovalValidationDecision:
         ref = validation_request.approval_ref
         grant = self._grants.get(ref)
         if grant is None:
@@ -121,13 +142,16 @@ class LocalApprovalAuthority:
         return self._decision(validation_request, ApprovalDecisionStatus.approved, ["APPROVAL_VALIDATED"], "Approval grant validated for the requested scope.", grant, allowed=True)
 
     def get_grant(self, approval_ref: str) -> Optional[ApprovalGrant]:
-        return self._grants.get(approval_ref)
+        with self._validation_lock:
+            return self._grants.get(approval_ref)
 
     def load_grant_for_validation(self, grant: ApprovalGrant) -> None:
-        self._grants[grant.approval_ref] = grant
+        with self._validation_lock:
+            self._grants[grant.approval_ref] = grant
 
     def list_grants(self, run_id: str | None = None) -> List[ApprovalGrant]:
-        grants = list(self._grants.values())
+        with self._validation_lock:
+            grants = list(self._grants.values())
         if run_id is not None:
             grants = [grant for grant in grants if grant.run_id == run_id]
         return grants

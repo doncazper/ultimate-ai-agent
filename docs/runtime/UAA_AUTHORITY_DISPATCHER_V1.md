@@ -61,8 +61,11 @@ The lifecycle is explicit:
    complete safe-tool runtime policy, requested lease, and exact approval scope
    where required, then reserves budget with the full dispatch fingerprint.
 2. A `prepared` receipt durably binds the policy, approval, and reservation.
-3. `execute` rechecks lease, kill switch, adapter, budget, and approval
-   revocation immediately before start.
+3. `execute` rechecks lease, kill switch, adapter, the complete immutable
+   reservation-to-dispatch binding, cost-budget expiry, and approval revocation
+   immediately before start. Approval validation and the durable start claim
+   share a revocation critical section, with the authority-state lock acquired
+   first to preserve one lock order across prepare and execute.
 4. The budget ledger first records a replay-safe `started` transition bound to
    the dispatch fingerprint and execution ref; the dispatch ledger then fsyncs
    its `started` receipt before the adapter is invoked.
@@ -77,9 +80,14 @@ same idempotency key. A process interruption after a cancellation claim is also
 visible and retryable with the exact cancellation idempotency and reason refs.
 If the process stops after the budget-start claim but before the dispatch-start
 receipt, the exact start claim replays and the unchanged request can finish the
-durable start sequence without double allocation. Once the budget-start claim
-exists, a standalone release request is denied and cannot race an in-flight
-adapter or erase its settlement capacity.
+durable start sequence without double allocation. If current authority or cost
+posture instead becomes invalid while the dispatch ledger still proves that no
+dispatch-start receipt or adapter invocation occurred, the dispatcher may use
+an internal, exact fingerprint/execution-bound rollback transition to release
+that orphaned start claim and finish `cancelled_before_start`. This is not
+after-start cancellation. Once the budget-start claim exists, a standalone
+release request remains denied and cannot race an in-flight adapter or erase
+its settlement capacity.
 If capacity was already released before `execute` observes the inactive
 reservation, the dispatcher reuses that durable release receipt and completes
 terminal pre-start cancellation instead of stranding `cancellation_pending`.
@@ -105,15 +113,19 @@ whether approval was effectively required. Dispatch receipts separately retain
 the adapter's intrinsic approval posture, so a policy-required approval is not
 mistaken for adapter configuration drift. These bindings follow the reservation
 through start, settlement, or release. Approval revocation between prepare and
-start cancels the dispatch without invoking the adapter. Caller booleans and
-approval refs alone do not authorize work. Caller-selected approval-validation
-time is rejected so expiry is evaluated against the trusted local clock.
+start cancels the dispatch without invoking the adapter. Concurrent revocation
+cannot complete between a successful validation decision and the fsynced start
+claim: whichever acquires the approval-state critical section first defines the
+ordered outcome. Caller booleans and approval refs alone do not authorize work.
+Caller-selected approval-validation time is rejected so expiry is evaluated
+against the trusted local clock.
 
 The dispatcher also recomputes `CostGovernor` from the typed estimate and
 budgets. It rejects caller posture, estimate-ref, decision-ref, integer
 micro-USD amount, run-scope, or expiry drift before reservation. A caller-
 supplied CostGovernor boolean or ref therefore cannot authorize dispatch by
-itself.
+itself. Expiry is checked again after approval and all other pre-start work, at
+the durable start boundary.
 
 ## Replay, Concurrency, And Corruption
 
@@ -133,8 +145,13 @@ not from claiming a cross-file database transaction. A crash after reservation
 but before the prepared receipt is recoverable by replaying the same prepare
 request; if a competing identity wins first, the unclaimed replayed reservation
 is released deterministically. A crash after the budget-start claim but before
-the dispatch-start receipt replays that same claim. A crash after adapter start
-is never treated as safe to replay.
+the dispatch-start receipt replays that same claim when all bindings and
+authority remain valid, or performs the exact internal orphan rollback above
+when they do not. Before either outcome, the dispatcher compares lease, action,
+approval, cost, reservation values, fingerprint, execution, and initial receipt
+identity across both ledgers; correctly rehashed semantic drift cancels rather
+than authorizing execution. A crash after adapter start is never treated as safe
+to replay.
 
 ## Verified Acceptance Cases
 
@@ -143,7 +160,8 @@ is never treated as safe to replay.
 - a useful filesystem metadata dispatch with no raw content or absolute path in
   durable evidence;
 - exact approval success, missing approval denial, out-of-scope denial, and
-  revocation immediately before start, plus caller-time rejection;
+  revocation immediately before start, concurrent revocation/start
+  serialization, plus caller-time rejection;
 - local CostGovernor recomputation and caller posture/ref/amount binding;
 - non-finite estimate or budget denial without conversion failure;
 - mismatched adapter execution-ref rejection with a readable failed terminal
@@ -152,7 +170,8 @@ is never treated as safe to replay.
 - pre-start cancellation, capacity release, cancellation idempotency conflict,
   collision-safe release keys, and cancellation-claim crash recovery;
 - concurrent replay with exactly one adapter invocation, losing-reservation
-  release, orphaned-reservation recovery, and start-claim crash replay;
+  release, orphaned-reservation recovery, start-claim crash replay, and exact
+  rollback when a budget start is orphaned before dispatch start;
 - release denial after durable start while the adapter is in flight;
 - denial of dispatch-bound settlement before start and terminal reconciliation
   of a reservation released before execution;
@@ -164,7 +183,8 @@ is never treated as safe to replay.
   domains, immutable safe-root snapshots, and an explicit
   no-op/filesystem-metadata tool bridge allowlist;
 - action/approval replay conflict, dispatch idempotency conflict, receipt hash
-  tampering, and non-mutating fresh read inspection.
+  tampering, cross-ledger semantic drift, mismatched injected lease sources,
+  start-boundary cost expiry, and non-mutating fresh read inspection.
 
 The focused dispatcher and budget suite is the acceptance source for this
 milestone. Broader repo checks remain required before merge.
