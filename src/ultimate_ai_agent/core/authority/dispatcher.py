@@ -459,7 +459,7 @@ class AuthorityDispatcher:
                 if replay is not None:
                     return replay
         if initial_conflict is not None:
-            self._release_unclaimed_reservation_for_conflict(request, receipts)
+            self._release_unclaimed_reservation(request)
             raise initial_conflict
 
         adapter = self.adapters.get(request.adapter_ref)
@@ -473,6 +473,7 @@ class AuthorityDispatcher:
             reasons.extend(adapter.validate_request(request))
         reasons = list(dict.fromkeys(reasons))
         if reasons:
+            self._release_unclaimed_reservation(request)
             return self._persist_initial_denial(
                 request,
                 fingerprint=fingerprint,
@@ -729,7 +730,7 @@ class AuthorityDispatcher:
                 ),
             )
 
-        settlement = self.budget_store.settle(
+        settlement = self.budget_store._settle_dispatch(
             AuthorityBudgetSettlementRequest(
                 reservation_ref=started.budget_reservation_ref or "",
                 idempotency_ref=_phase_idempotency_ref(request, "budget-settle"),
@@ -1135,54 +1136,55 @@ class AuthorityDispatcher:
             self._append(cancelled)
             return AuthorityDispatchResult(receipt=cancelled)
 
-    def _release_unclaimed_reservation_for_conflict(
+    def _release_unclaimed_reservation(
         self,
         request: AuthorityDispatchRequest,
-        dispatch_receipts: list[AuthorityDispatchReceipt],
     ) -> None:
         reserve_idempotency_ref = _phase_idempotency_ref(request, "budget-reserve")
         fingerprint = _request_fingerprint(request)
-        budget_receipts = self.budget_store.list_receipts()
-        reservation = next(
-            (
-                receipt
-                for receipt in budget_receipts
-                if receipt.operation == AuthorityBudgetOperation.reserve.value
-                and receipt.idempotency_ref == reserve_idempotency_ref
-                and receipt.dispatch_fingerprint_ref == fingerprint
-            ),
-            None,
-        )
-        if reservation is None:
-            return
-        history = [
-            receipt
-            for receipt in budget_receipts
-            if receipt.reservation_ref == reservation.reservation_ref
-        ]
-        if (
-            not history
-            or history[-1].status != AuthorityBudgetStatus.reserved.value
-            or any(
-                receipt.budget_reservation_ref == reservation.reservation_ref
-                for receipt in dispatch_receipts
+        with self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY):
+            dispatch_receipts = self._load_receipts()
+            budget_receipts = self.budget_store._load_receipts()
+            reservation = next(
+                (
+                    receipt
+                    for receipt in budget_receipts
+                    if receipt.operation == AuthorityBudgetOperation.reserve.value
+                    and receipt.idempotency_ref == reserve_idempotency_ref
+                    and receipt.dispatch_fingerprint_ref == fingerprint
+                ),
+                None,
             )
-        ):
-            return
-        release = self.budget_store.release(
-            AuthorityBudgetReleaseRequest(
-                reservation_ref=reservation.reservation_ref,
-                idempotency_ref=_phase_idempotency_ref(
-                    request, "budget-reserve-race-release"
-                ),
-                reason_ref=(
-                    "reason-ref:authority-dispatch:reservation-lost-dispatch-race"
-                ),
-                safe_summary=(
-                    "Release unclaimed capacity before returning a dispatch conflict."
-                ),
+            if reservation is None:
+                return
+            reservation_state = self.budget_store._reservation_state(
+                budget_receipts,
+                reservation.reservation_ref,
             )
-        )
+            if (
+                reservation_state is None
+                or reservation_state["status"]
+                != AuthorityBudgetStatus.reserved.value
+                or any(
+                    receipt.budget_reservation_ref == reservation.reservation_ref
+                    for receipt in dispatch_receipts
+                )
+            ):
+                return
+            release = self.budget_store._release_locked(
+                AuthorityBudgetReleaseRequest(
+                    reservation_ref=reservation.reservation_ref,
+                    idempotency_ref=_phase_idempotency_ref(
+                        request, "budget-reserve-race-release"
+                    ),
+                    reason_ref=(
+                        "reason-ref:authority-dispatch:reservation-lost-dispatch-race"
+                    ),
+                    safe_summary=(
+                        "Release unclaimed capacity before returning a dispatch conflict."
+                    ),
+                )
+            )
         if (release.original_status or release.status) != (
             AuthorityBudgetStatus.released.value
         ):

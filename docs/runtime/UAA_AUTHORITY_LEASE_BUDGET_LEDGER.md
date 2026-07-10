@@ -69,8 +69,12 @@ released by a standalone caller.
 After execution starts, that reservation must be settled with the same
 execution ref, actual operation count, actual cost plus its safe ref, execution
 status, and evidence refs. A dispatch-bound reservation cannot settle directly
-from `reserved`; legacy direct callers without a dispatch fingerprint retain
-their V1 reserve-to-settle path. The
+from `reserved`, and its `started` settlement transition is internal to the
+owning dispatcher rather than available through the public budget-store method;
+legacy direct callers without a dispatch fingerprint retain their V1
+reserve-to-settle path. Denied public attempts use a separate durable
+idempotency namespace, so they cannot consume or poison the owning dispatcher's
+settlement phase key. The
 ledger always records actual overage. A settlement exceeding its reservation or
 lease ceiling becomes `settled_overage`; any unreviewed reservation overage
 freezes future capacity even when actual usage remains below the lease ceiling.
@@ -129,6 +133,7 @@ Focused tests cover:
   denial after start;
 - compatibility replay for pre-execution-ref settlements and denial of
   dispatch-bound settlement before start;
+- denial of competing public settlement after dispatch start;
 - unknown and unresolved cost fail-closed behavior;
 - claim and idempotency drift;
 - kill-switch and revocation rechecks;

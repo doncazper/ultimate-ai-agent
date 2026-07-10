@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 from collections.abc import Callable
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Any
 
@@ -561,8 +562,66 @@ class AuthorityBudgetStore:
         self,
         request: AuthorityBudgetSettlementRequest,
     ) -> AuthorityBudgetReceipt:
+        return self._settle(request, dispatcher_owned=False)
+
+    def _settle_dispatch(
+        self,
+        request: AuthorityBudgetSettlementRequest,
+    ) -> AuthorityBudgetReceipt:
+        return self._settle(request, dispatcher_owned=True)
+
+    def _settle(
+        self,
+        request: AuthorityBudgetSettlementRequest,
+        *,
+        dispatcher_owned: bool,
+    ) -> AuthorityBudgetReceipt:
         with self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY):
             receipts = self._load_receipts()
+            state = self._reservation_state(receipts, request.reservation_ref)
+            if (
+                state is not None
+                and state["dispatch_fingerprint_ref"] is not None
+                and state["status"]
+                in {
+                    AuthorityBudgetStatus.reserved.value,
+                    AuthorityBudgetStatus.started.value,
+                }
+                and not dispatcher_owned
+            ):
+                denial_idempotency_ref = _stable_ref(
+                    "idempotency-ref:authority-budget-public-settle-denial",
+                    {
+                        "reservation_ref": request.reservation_ref,
+                        "caller_idempotency_ref": request.idempotency_ref,
+                    },
+                )
+                denial_fingerprint = _stable_ref(
+                    "request-fingerprint-ref:authority-budget-public-settle-denial",
+                    request.model_dump(mode="json"),
+                )
+                replay = self._replay_or_conflict(
+                    receipts,
+                    AuthorityBudgetOperation.settle,
+                    denial_idempotency_ref,
+                    denial_fingerprint,
+                )
+                if replay is not None:
+                    return replay
+                receipt = self._denied_followup_receipt(
+                    receipts,
+                    operation=AuthorityBudgetOperation.settle,
+                    reservation_ref=request.reservation_ref,
+                    idempotency_ref=denial_idempotency_ref,
+                    request_fingerprint_ref=denial_fingerprint,
+                    reason_ref=(
+                        "reason-ref:authority-budget:dispatch-start-required"
+                        if state["status"] == AuthorityBudgetStatus.reserved.value
+                        else "reason-ref:authority-budget:dispatch-owner-required"
+                    ),
+                )
+                self._append(receipt)
+                return receipt
             fingerprint = _request_fingerprint(AuthorityBudgetOperation.settle, request)
             replay = self._replay_or_conflict(
                 receipts,
@@ -714,7 +773,20 @@ class AuthorityBudgetStore:
         self,
         request: AuthorityBudgetReleaseRequest,
     ) -> AuthorityBudgetReceipt:
-        with self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY):
+        return self._release(request, lock_held=False)
+
+    def _release(
+        self,
+        request: AuthorityBudgetReleaseRequest,
+        *,
+        lock_held: bool,
+    ) -> AuthorityBudgetReceipt:
+        lock_context = (
+            nullcontext()
+            if lock_held
+            else self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY)
+        )
+        with lock_context:
             receipts = self._load_receipts()
             fingerprint = _request_fingerprint(
                 AuthorityBudgetOperation.release, request
@@ -788,6 +860,12 @@ class AuthorityBudgetStore:
             )
             self._append(receipt)
             return receipt
+
+    def _release_locked(
+        self,
+        request: AuthorityBudgetReleaseRequest,
+    ) -> AuthorityBudgetReceipt:
+        return self._release(request, lock_held=True)
 
     def build_read_model(self, *, recent_limit: int = 12) -> AuthorityBudgetReadModel:
         if recent_limit < 0:

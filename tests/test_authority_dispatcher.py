@@ -40,6 +40,7 @@ from ultimate_ai_agent.core.authority.dispatcher import (
     AuthorityDispatcher,
     ToolRuntimeAuthorityDispatchAdapter,
     _entry_hash as _dispatch_entry_hash,
+    _phase_idempotency_ref,
     build_authority_dispatch_cost_estimate_ref,
     build_authority_dispatch_cost_governor_decision_ref,
 )
@@ -1125,6 +1126,20 @@ def test_budget_release_cannot_race_durable_adapter_start(tmp_path: Path) -> Non
     with ThreadPoolExecutor(max_workers=1) as pool:
         future = pool.submit(dispatcher.execute, request)
         assert entered.wait(timeout=5)
+        started = dispatcher.list_receipts()[-1]
+        competing_settlement = dispatcher.budget_store.settle(
+            AuthorityBudgetSettlementRequest(
+                reservation_ref=prepared.receipt.budget_reservation_ref or "",
+                idempotency_ref=_phase_idempotency_ref(request, "budget-settle"),
+                execution_ref=started.execution_ref,
+                actual_operation_count=1,
+                actual_cost_microusd=0,
+                actual_cost_ref="actual-cost-ref:test-competing-settlement",
+                execution_status=AuthorityBudgetExecutionStatus.succeeded,
+                evidence_refs=["evidence-ref:test-competing-settlement"],
+                safe_summary="Reject settlement outside the owning dispatcher.",
+            )
+        )
         release = dispatcher.budget_store.release(
             AuthorityBudgetReleaseRequest(
                 reservation_ref=prepared.receipt.budget_reservation_ref or "",
@@ -1136,6 +1151,13 @@ def test_budget_release_cannot_race_durable_adapter_start(tmp_path: Path) -> Non
         proceed.set()
         result = future.result(timeout=5)
 
+    assert competing_settlement.status == AuthorityBudgetStatus.denied.value
+    assert competing_settlement.idempotency_ref != _phase_idempotency_ref(
+        request, "budget-settle"
+    )
+    assert "reason-ref:authority-budget:dispatch-owner-required" in (
+        competing_settlement.reason_refs
+    )
     assert release.status == AuthorityBudgetStatus.denied.value
     assert result.receipt.status == AuthorityDispatchStatus.succeeded.value
     assert [
@@ -1143,6 +1165,7 @@ def test_budget_release_cannot_race_durable_adapter_start(tmp_path: Path) -> Non
     ] == [
         AuthorityBudgetStatus.reserved.value,
         AuthorityBudgetStatus.started.value,
+        AuthorityBudgetStatus.denied.value,
         AuthorityBudgetStatus.denied.value,
         AuthorityBudgetStatus.settled.value,
     ]
@@ -1443,6 +1466,73 @@ def test_crash_recovery_budget_replay_binds_full_dispatch_fingerprint(
     ].dispatch_fingerprint_ref
     assert len(budget_receipts) == 1
     assert len(dispatcher.list_receipts()) == 1
+
+
+def test_early_denial_releases_crash_orphan_before_terminal_receipt(
+    tmp_path: Path,
+) -> None:
+    state_dir = tmp_path / "authority"
+    root = tmp_path / "safe-root"
+    (root / "notes").mkdir(parents=True)
+    (root / "notes" / "report.md").write_text("bounded", encoding="utf-8")
+    lease_store, lease = _lease(
+        state_dir,
+        mode=TrustMode.full_local_workspace_session,
+        domain=AuthorityDomain.files,
+        capability=AuthorityCapability.read,
+    )
+    dispatcher = AuthorityDispatcher(
+        state_dir,
+        adapters=[
+            ToolRuntimeAuthorityDispatchAdapter(
+                _descriptor(filesystem=True),
+                safe_roots=[
+                    FilesystemSafeRoot(
+                        root_ref=FILESYSTEM_ROOT_REF,
+                        root_path=root,
+                        safe_label="Test dispatch safe root",
+                    )
+                ],
+            )
+        ],
+        lease_store=lease_store,
+    )
+    request = _request(lease.lease_ref, suffix="orphan-before-denial", filesystem=True)
+    append = dispatcher._append
+
+    def crash_before_prepared(receipt: Any) -> None:
+        raise RuntimeError("simulated crash before prepared denial recovery")
+
+    dispatcher._append = crash_before_prepared  # type: ignore[method-assign]
+    with pytest.raises(RuntimeError, match="simulated crash"):
+        dispatcher.prepare(request)
+    dispatcher._append = append  # type: ignore[method-assign]
+    reservation = dispatcher.budget_store.list_receipts()[0]
+    premature = dispatcher.budget_store.settle(
+        AuthorityBudgetSettlementRequest(
+            reservation_ref=reservation.reservation_ref,
+            idempotency_ref=_phase_idempotency_ref(request, "budget-settle"),
+            actual_operation_count=1,
+            actual_cost_microusd=0,
+            actual_cost_ref="actual-cost-ref:test-orphan-before-denial",
+            execution_status=AuthorityBudgetExecutionStatus.succeeded,
+            evidence_refs=["evidence-ref:test-orphan-before-denial"],
+            safe_summary="Deny settlement while the crash orphan remains unclaimed.",
+        )
+    )
+    dispatcher.adapters.clear()
+
+    denied = dispatcher.prepare(request)
+
+    assert denied.receipt.status == AuthorityDispatchStatus.denied.value
+    assert premature.status == AuthorityBudgetStatus.denied.value
+    assert [
+        receipt.status for receipt in dispatcher.budget_store.list_receipts()
+    ] == [
+        AuthorityBudgetStatus.reserved.value,
+        AuthorityBudgetStatus.denied.value,
+        AuthorityBudgetStatus.released.value,
+    ]
 
 
 def test_early_action_conflict_releases_sequential_crash_orphan(

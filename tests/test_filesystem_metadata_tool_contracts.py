@@ -17,6 +17,7 @@ from ultimate_ai_agent.core.tools.runtime import (
     ToolRuntimeAdapter,
     build_tool_runtime_manifest,
     evaluate_tool_invocation,
+    filesystem_safe_path_ref,
 )
 
 
@@ -84,7 +85,9 @@ def test_safe_file_metadata_invocation_returns_metadata_only(tmp_path: Path) -> 
     assert decision.result.output.path_kind == "file"
     assert decision.result.output.exists is True
     assert decision.result.output.size_bytes == len("do not read this body")
-    assert decision.result.output.safe_path_ref == "filesystem-path:safe-root_test/notes/report.md"
+    assert decision.result.output.safe_path_ref == filesystem_safe_path_ref(
+        "safe-root:test", "notes/report.md"
+    )
     assert decision.result.output.root_ref == "safe-root:test"
     assert decision.result.output.raw_content_returned is False
     assert decision.result.output.text_preview_returned is False

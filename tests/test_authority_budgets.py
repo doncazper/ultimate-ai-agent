@@ -391,7 +391,20 @@ def test_dispatch_start_claim_blocks_release_and_binds_settlement(tmp_path) -> N
             safe_summary="Attempt to release capacity after durable start.",
         )
     )
-    mismatched = budget_store.settle(
+    competing = budget_store.settle(
+        AuthorityBudgetSettlementRequest(
+            reservation_ref=reservation.reservation_ref,
+            idempotency_ref="idempotency-ref:test-budget-settle:start-claim",
+            execution_ref=execution_ref,
+            actual_operation_count=1,
+            actual_cost_microusd=1,
+            actual_cost_ref="actual-cost-ref:test-budget:competing-owner",
+            execution_status=AuthorityBudgetExecutionStatus.succeeded,
+            evidence_refs=["evidence-ref:test-budget:competing-owner"],
+            safe_summary="Reject settlement outside the owning dispatcher.",
+        )
+    )
+    mismatched = budget_store._settle_dispatch(
         AuthorityBudgetSettlementRequest(
             reservation_ref=reservation.reservation_ref,
             idempotency_ref="idempotency-ref:test-budget-settle:mismatched-start",
@@ -404,7 +417,7 @@ def test_dispatch_start_claim_blocks_release_and_binds_settlement(tmp_path) -> N
             safe_summary="Reject settlement from a different execution binding.",
         )
     )
-    settled = budget_store.settle(
+    settled = budget_store._settle_dispatch(
         AuthorityBudgetSettlementRequest(
             reservation_ref=reservation.reservation_ref,
             idempotency_ref="idempotency-ref:test-budget-settle:start-claim",
@@ -427,6 +440,13 @@ def test_dispatch_start_claim_blocks_release_and_binds_settlement(tmp_path) -> N
     assert replay.status == AuthorityBudgetStatus.replayed.value
     assert replay.original_status == AuthorityBudgetStatus.started.value
     assert release.status == AuthorityBudgetStatus.denied.value
+    assert competing.status == AuthorityBudgetStatus.denied.value
+    assert competing.idempotency_ref != (
+        "idempotency-ref:test-budget-settle:start-claim"
+    )
+    assert "reason-ref:authority-budget:dispatch-owner-required" in (
+        competing.reason_refs
+    )
     assert mismatched.status == AuthorityBudgetStatus.denied.value
     assert (
         "reason-ref:authority-budget:execution-binding-mismatch"

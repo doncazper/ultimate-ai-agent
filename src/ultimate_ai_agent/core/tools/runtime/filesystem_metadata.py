@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from enum import Enum
+import hashlib
 import stat
+from enum import Enum
 from pathlib import Path, PurePosixPath
 from typing import Any, Dict, List, Optional
 from urllib.parse import unquote
@@ -186,8 +187,8 @@ def normalize_relative_metadata_path(relative_path: str) -> tuple[str | None, li
 
 
 def filesystem_safe_path_ref(root_ref: str, normalized_path: str) -> str:
-    root_label = "".join("_" if char == ":" else char for char in root_ref)
-    return f"filesystem-path:{root_label}/{normalized_path}"
+    root_digest = hashlib.sha256(root_ref.encode("utf-8")).hexdigest()
+    return f"filesystem-path:root-sha256-{root_digest}/{normalized_path}"
 
 
 def filesystem_metadata_target_path(

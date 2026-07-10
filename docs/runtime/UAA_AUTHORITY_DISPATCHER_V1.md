@@ -46,7 +46,9 @@ to a different physical root.
 Filesystem execution also requires the
 normalized safe-root ref and safe-path ref to match the action's resource and
 path claims; lease constraints and approval scope therefore govern the same
-target selected by the invocation. The metadata result returns bounded facts
+target selected by the invocation. Safe-path refs hash the complete root ref,
+so distinct valid root refs cannot collide after normalization. The metadata
+result returns bounded facts
 such as existence, kind, size, extension, and a safe path ref; it does not
 return file content, directory listings, an absolute path, or mutation
 authority.
@@ -81,6 +83,9 @@ adapter or erase its settlement capacity.
 If capacity was already released before `execute` observes the inactive
 reservation, the dispatcher reuses that durable release receipt and completes
 terminal pre-start cancellation instead of stranding `cancellation_pending`.
+If a crash leaves capacity reserved without a prepared receipt and a retry is
+denied during fresh adapter or cost validation, the dispatcher atomically
+releases that exact unclaimed reservation before persisting the denial.
 The current V1 bridge does not claim after-start cancellation, automatic
 settlement recovery, heartbeat ownership, or mission retry authority.
 
@@ -148,6 +153,8 @@ is never treated as safe to replay.
 - release denial after durable start while the adapter is in flight;
 - denial of dispatch-bound settlement before start and terminal reconciliation
   of a reservation released before execution;
+- dispatcher-owned settlement while competing public settlement is denied, and
+  release of crash-orphaned capacity before an early terminal denial;
 - descriptor and safe-root mapping drift cancellation, fixed tool authority
   domains, immutable safe-root snapshots, and an explicit
   no-op/filesystem-metadata tool bridge allowlist;

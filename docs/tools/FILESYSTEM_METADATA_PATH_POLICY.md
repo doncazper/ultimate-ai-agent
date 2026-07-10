@@ -32,6 +32,8 @@ Denied by policy:
 
 The evaluator revalidates metadata requests at the runtime boundary, including
 model_copy-mutated fields. Constructor validation alone is not authority.
+Safe path refs include a SHA-256 digest of the complete safe-root ref, avoiding
+identity collisions between distinct structured root refs.
 
 No path denial message should echo raw secrets, raw local absolute paths, or
 unsafe caller-provided content.

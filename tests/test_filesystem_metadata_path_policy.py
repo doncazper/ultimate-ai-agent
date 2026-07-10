@@ -10,6 +10,7 @@ from ultimate_ai_agent.core.tools.runtime import (
     ToolInvocationRequest,
     ToolInvocationStatus,
     evaluate_tool_invocation,
+    filesystem_safe_path_ref,
 )
 
 
@@ -90,6 +91,13 @@ def test_arbitrary_root_path_in_metadata_is_denied(tmp_path: Path) -> None:
 
     assert decision.status == ToolInvocationStatus.denied
     assert "CALLER_SELECTED_ROOT_DENIED" in decision.reason_codes
+
+
+def test_safe_path_refs_do_not_collide_across_distinct_root_refs() -> None:
+    first = filesystem_safe_path_ref("safe-root:a:b", "notes/report.md")
+    second = filesystem_safe_path_ref("safe-root_a:b", "notes/report.md")
+
+    assert first != second
 
 
 def test_intermediate_symlink_cannot_escape_safe_root(tmp_path: Path) -> None:
