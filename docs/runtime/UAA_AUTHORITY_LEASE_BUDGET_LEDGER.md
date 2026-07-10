@@ -68,9 +68,10 @@ binding belongs in the central dispatcher and remains missing.
 Every operation fingerprints its full request. Repeating the same idempotency
 ref and fingerprint returns a non-persisted `replayed` view; changing operation
 or request content raises an idempotency conflict. Full ledger history is
-validated on every transaction. Duplicate idempotency history, invalid receipt
-semantics, broken previous-hash linkage, or changed entry content fails closed
-as ledger corruption.
+validated on every transaction. Duplicate idempotency or reservation history,
+invalid receipt semantics, impossible reservation transitions, follow-up
+binding drift, broken previous-hash linkage, or changed entry content fails
+closed as ledger corruption.
 
 The typed `AuthorityBudgetReadModel` reports per-lease limits, allocated and
 remaining capacity, active and settled counts, unresolved-cost state, exhausted
@@ -96,6 +97,7 @@ Focused tests cover:
   oversubscription;
 - concurrent lease issue without lost updates;
 - receipt hash tamper detection;
+- correctly hashed impossible transition detection;
 - release rejection once execution is declared started;
 - Python state, API, and JSON CLI projection parity.
 

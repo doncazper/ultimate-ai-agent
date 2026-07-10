@@ -78,7 +78,8 @@ dispatcher or live mission step:
   refs, while unknown actual cost blocks future reservations;
 - release is explicitly pre-execution and frees unused capacity;
 - append-first receipts are fsync-backed, hash-chained, full-history
-  idempotency checked, and projected through AuthorityState API/JSON CLI;
+  idempotency and semantic-transition checked, and projected through
+  AuthorityState API/JSON CLI;
 - concurrency tests prove no local oversubscription or lost concurrent lease
   issue across separate store instances.
 

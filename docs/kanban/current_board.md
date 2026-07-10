@@ -37,7 +37,7 @@ in Python Core for exact resource, path, app, host, delegation-depth,
 cumulative operation, and cumulative integer micro-USD cost enforcement.
 Reservations, settlements, releases, and denials are protected by the same
 local single-writer lock as lease issue/revoke and recorded as fsync-backed,
-hash-chained, full-history replay-checked safe-ref receipts. Current policy,
+hash-chained, full-history replay- and semantic-transition-checked safe-ref receipts. Current policy,
 lease identity, kill switch, exact claims, overage, and unresolved actual cost
 fail closed; structured cost-estimate and CostGovernor-decision refs plus an
 explicit allowed posture are required; and the posture is visible in the

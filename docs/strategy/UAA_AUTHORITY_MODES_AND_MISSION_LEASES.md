@@ -505,8 +505,8 @@ shared authority-state single-writer lock, and require structured cost-estimate
 and CostGovernor decision refs plus an explicit allowed posture.
 Settlement records actual usage and blocks future reservations on overage or
 unresolved actual cost; release is typed as pre-execution only. Append-first
-receipts are fsync-backed, hash-chained, full-history replay checked, redacted,
-and included in the AuthorityState read model. See
+receipts are fsync-backed, hash-chained, full-history replay and semantic
+transition checked, redacted, and included in the AuthorityState read model. See
 `docs/runtime/UAA_AUTHORITY_LEASE_BUDGET_LEDGER.md`.
 
 This counter boundary is not yet wired to every executable adapter. A central
