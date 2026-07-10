@@ -115,6 +115,7 @@ def test_control_center_api_routes_are_read_only_preview_only() -> None:
         "/control-center/dashboard",
         "/control-center/status",
         "/control-center/routes",
+        "/control-center/capabilities/availability",
         "/control-center/capabilities/surface",
         "/control-center/approvals/summary",
         "/control-center/approvals/queue",

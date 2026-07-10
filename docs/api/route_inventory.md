@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `251`.
+Current OpenAPI path count: `252`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -580,12 +580,22 @@ activate, revoke, execute, fetch, or mutate extensions.
 
 ### Control Center capability surface
 
+- `GET /control-center/capabilities/availability`
 - `GET /control-center/capabilities/surface`
 
-This route returns a bounded read-only capability coverage read model derived
-from the human capability manifest, generated source-truth overlay, and live API
-manifest metadata. It exposes safe capability rows, source-truth posture, route
-refs, CLI refs, missing reasons, and blocked authority refs only. It does not
+`GET /control-center/capabilities/availability` returns the backend-owned
+capability availability truth model with separate declaration, observed
+runtime readiness, request-scoped authority posture, and execution-receipt
+contract refs. Unknown and stale observations fail closed. Runtime-ready means
+eligible for an immediate exact request decision, not globally authorized or
+callable. The route uses injected deterministic observations only and performs
+no live health probe, provider call, network access, mutation, or execution.
+
+The capability-surface route returns a bounded read-only capability coverage
+read model derived from the human capability manifest, generated source-truth
+overlay, and live API manifest metadata. It exposes safe capability rows,
+source-truth posture, route refs, CLI refs, missing reasons, and blocked
+authority refs only. It does not
 return raw manifest dumps or grant action execution, approval authority,
 provider/model calls, connector writes, browser automation, shell/subprocess
 execution, memory writes, context injection, public release, or production
