@@ -510,6 +510,64 @@ def test_prestart_cancellation_releases_capacity_without_execution(tmp_path: Pat
         )
 
 
+def test_budget_release_idempotency_is_namespaced_per_dispatch(tmp_path: Path) -> None:
+    state_dir = tmp_path / "authority"
+    root = tmp_path / "safe-root"
+    root.mkdir()
+    lease_store, lease = _lease(
+        state_dir,
+        mode=TrustMode.full_local_workspace_session,
+        domain=AuthorityDomain.files,
+        capability=AuthorityCapability.read,
+    )
+    dispatcher = AuthorityDispatcher(
+        state_dir,
+        adapters=[
+            ToolRuntimeAuthorityDispatchAdapter(
+                _descriptor(filesystem=True),
+                safe_roots=[
+                    FilesystemSafeRoot(
+                        root_ref="safe-root:test-authority",
+                        root_path=root,
+                        safe_label="Test dispatch safe root",
+                    )
+                ],
+            )
+        ],
+        lease_store=lease_store,
+    )
+    first = _request(lease.lease_ref, suffix="cancel-shared-first", filesystem=True)
+    second = _request(lease.lease_ref, suffix="cancel-shared-second", filesystem=True)
+    dispatcher.prepare(first)
+    dispatcher.prepare(second)
+    shared_idempotency_ref = "idempotency-ref:test-dispatch:shared-cancellation"
+    shared_reason_ref = "reason-ref:test-dispatch:shared-cancellation"
+
+    results = [
+        dispatcher.cancel(
+            AuthorityDispatchCancelRequest(
+                dispatch_ref=request.dispatch_ref,
+                idempotency_ref=shared_idempotency_ref,
+                reason_ref=shared_reason_ref,
+                safe_summary="Cancel one exact prepared dispatch with a shared caller key.",
+            )
+        )
+        for request in [first, second]
+    ]
+    release_receipts = [
+        receipt
+        for receipt in dispatcher.budget_store.list_receipts()
+        if receipt.status == AuthorityBudgetStatus.released.value
+    ]
+
+    assert all(
+        result.receipt.status == AuthorityDispatchStatus.cancelled_before_start.value
+        for result in results
+    )
+    assert len(release_receipts) == 2
+    assert len({receipt.idempotency_ref for receipt in release_receipts}) == 2
+
+
 def test_revocation_between_prepare_and_start_cancels_fail_closed(tmp_path: Path) -> None:
     state_dir = tmp_path / "authority"
     root = tmp_path / "safe-root"
@@ -805,6 +863,108 @@ def test_concurrent_budget_replay_does_not_release_winner_reservation(
         prepared.receipt.budget_reservation_ref
         == budget_receipts[0].reservation_ref
     )
+
+
+def test_unclaimed_replayed_reservation_is_released_after_conflict(
+    tmp_path: Path,
+) -> None:
+    state_dir = tmp_path / "authority"
+    root = tmp_path / "safe-root"
+    (root / "notes").mkdir(parents=True)
+    (root / "notes" / "report.md").write_text("bounded", encoding="utf-8")
+    lease_store, lease = _lease(
+        state_dir,
+        mode=TrustMode.full_local_workspace_session,
+        domain=AuthorityDomain.files,
+        capability=AuthorityCapability.read,
+    )
+    dispatcher = AuthorityDispatcher(
+        state_dir,
+        adapters=[
+            ToolRuntimeAuthorityDispatchAdapter(
+                _descriptor(filesystem=True),
+                safe_roots=[
+                    FilesystemSafeRoot(
+                        root_ref="safe-root:test-authority",
+                        root_path=root,
+                        safe_label="Test dispatch safe root",
+                    )
+                ],
+            )
+        ],
+        lease_store=lease_store,
+    )
+    orphaned = _request(lease.lease_ref, suffix="orphaned-race", filesystem=True)
+    append = dispatcher._append
+
+    def crash_before_prepared(receipt: Any) -> None:
+        raise RuntimeError("simulated crash after budget reserve")
+
+    dispatcher._append = crash_before_prepared  # type: ignore[method-assign]
+    with pytest.raises(RuntimeError, match="simulated crash"):
+        dispatcher.prepare(orphaned)
+    dispatcher._append = append  # type: ignore[method-assign]
+
+    conflicting_payload = orphaned.model_dump(mode="json")
+    conflicting_payload["idempotency_ref"] = (
+        "idempotency-ref:test-dispatch:orphaned-race-winner"
+    )
+    conflicting_payload["tool_invocation_request"]["replay_key"] = (
+        conflicting_payload["idempotency_ref"]
+    )
+    conflicting = AuthorityDispatchRequest.model_validate(conflicting_payload)
+    replayed_waiting = threading.Event()
+    winner_claimed = threading.Event()
+    reservation_statuses: dict[int, str] = {}
+    statuses_lock = threading.Lock()
+    reserve = dispatcher.budget_store.reserve
+
+    def synchronized_reserve(*args: Any, **kwargs: Any) -> Any:
+        receipt = reserve(*args, **kwargs)
+        with statuses_lock:
+            reservation_statuses[threading.get_ident()] = receipt.status
+        if receipt.status == AuthorityBudgetStatus.replayed.value:
+            replayed_waiting.set()
+            assert winner_claimed.wait(timeout=5)
+        else:
+            assert receipt.status == AuthorityBudgetStatus.reserved.value
+            assert replayed_waiting.wait(timeout=5)
+        return receipt
+
+    dispatcher.budget_store.reserve = synchronized_reserve  # type: ignore[method-assign]
+
+    def prepare(request: AuthorityDispatchRequest) -> AuthorityDispatchResult | None:
+        try:
+            return dispatcher.prepare(request)
+        except AuthorityDispatchConflictError:
+            return None
+        finally:
+            with statuses_lock:
+                status = reservation_statuses.get(threading.get_ident())
+            if status == AuthorityBudgetStatus.reserved.value:
+                winner_claimed.set()
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(prepare, [orphaned, conflicting]))
+
+    prepared = next(result for result in results if result is not None)
+    budget_receipts = dispatcher.budget_store.list_receipts()
+    released_refs = {
+        receipt.reservation_ref
+        for receipt in budget_receipts
+        if receipt.status == AuthorityBudgetStatus.released.value
+    }
+    reserved_refs = {
+        receipt.reservation_ref
+        for receipt in budget_receipts
+        if receipt.status == AuthorityBudgetStatus.reserved.value
+    }
+
+    assert sum(result is None for result in results) == 1
+    assert prepared.receipt.idempotency_ref == conflicting.idempotency_ref
+    assert len(released_refs) == 1
+    assert prepared.receipt.budget_reservation_ref in reserved_refs - released_refs
+    assert len(reserved_refs - released_refs) == 1
 
 
 def test_missing_adapter_after_prepare_cancels_with_prepared_bindings(

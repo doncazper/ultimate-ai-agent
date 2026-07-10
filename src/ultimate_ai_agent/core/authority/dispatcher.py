@@ -175,6 +175,19 @@ def _phase_idempotency_ref(request: AuthorityDispatchRequest, phase: str) -> str
     )
 
 
+def _budget_release_idempotency_ref(
+    pending: AuthorityDispatchReceipt,
+) -> str:
+    return _stable_ref(
+        "idempotency-ref:authority-dispatch-budget-release",
+        {
+            "dispatch_ref": pending.dispatch_ref,
+            "reservation_ref": pending.budget_reservation_ref,
+            "cancellation_idempotency_ref": pending.cancellation_idempotency_ref,
+        },
+    )
+
+
 class ToolRuntimeAuthorityDispatchAdapter:
     """Exact, injected bridge to the existing allowlisted safe tool runtime."""
 
@@ -387,11 +400,13 @@ class AuthorityDispatcher:
                 self._append(receipt)
                 return AuthorityDispatchResult(receipt=receipt)
         except AuthorityDispatchConflictError:
-            # A fresh reservation can lose a dispatch/idempotency race after the
-            # budget check. Release only receipts created by this call: a replayed
-            # reservation may already belong to the winning dispatch.
+            # A reserved receipt can lose a dispatch/idempotency race after the
+            # budget check. Release it only when no durable dispatch claimed it;
+            # this also reclaims a replayed reservation orphaned by an earlier
+            # crash between reserve and prepared.
             if (
-                reservation.status == AuthorityBudgetStatus.reserved.value
+                (reservation.original_status or reservation.status)
+                == AuthorityBudgetStatus.reserved.value
                 and not reservation_claimed
             ):
                 release = self.budget_store.release(
@@ -474,9 +489,6 @@ class AuthorityDispatcher:
             return self._complete_prestart_cancellation(
                 pending_cancellation,
                 reason_ref=pending_reason_ref,
-                release_idempotency_ref=_phase_idempotency_ref(
-                    request, "prestart-policy-release"
-                ),
             )
 
         assert adapter is not None
@@ -658,7 +670,6 @@ class AuthorityDispatcher:
         return self._complete_prestart_cancellation(
             pending,
             reason_ref=request.reason_ref,
-            release_idempotency_ref=request.idempotency_ref,
         )
 
     def list_receipts(self) -> list[AuthorityDispatchReceipt]:
@@ -867,12 +878,11 @@ class AuthorityDispatcher:
         pending: AuthorityDispatchReceipt,
         *,
         reason_ref: str,
-        release_idempotency_ref: str,
     ) -> AuthorityDispatchResult:
         release = self.budget_store.release(
             AuthorityBudgetReleaseRequest(
                 reservation_ref=pending.budget_reservation_ref or "",
-                idempotency_ref=release_idempotency_ref,
+                idempotency_ref=_budget_release_idempotency_ref(pending),
                 reason_ref=reason_ref,
                 safe_summary="Release governed dispatch capacity before adapter start.",
             )
