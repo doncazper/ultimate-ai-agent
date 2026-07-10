@@ -1,7 +1,7 @@
 # UAA Authority Modes And Mission Leases
 
 Status: active authority foundation canon for AuthorityLease V1
-Date: 2026-07-06
+Date: 2026-07-10
 Purpose: preserve the product/architecture direction for moving UAA from
 permanent blocked-lane posture to governed, operator-selected autonomy.
 
@@ -215,6 +215,13 @@ surfaces are:
   compact operator/API parity view over the same decision catalog: capability
   totals, outcome counts, status/domain coverage, blocked reason refs,
   unsupported adapter refs, and no execution or mutation.
+- `GET /api/runtime/authority-state#authority_budget` and
+  `scripts/dev/uaa_runtime.py inspect-authority-state --json` expose the same
+  typed, read-only AuthorityLease budget posture: per-lease operation and
+  integer micro-USD limits, allocated and remaining capacity, unresolved-cost
+  state, exhaustion, recent safe-ref receipts, and receipt count. These
+  inspection projections do not reserve budget, execute adapters, or mint
+  authority.
 - `GET /api/runtime/authority-state#mode_catalog` and Control Center
   `/settings` show backend-evaluated readiness for each target trust mode:
   default requested domains, grantable local domain subsets, default grants,
@@ -474,10 +481,11 @@ writes, and production authority remain denied.
 `AuthorityConstraint` is now a canonical Python Core contract rather than
 free-form lease metadata. AuthorityLease evaluation supports exact safe-ref
 allowlists for resources, paths, apps, and hosts plus a maximum delegation
-depth. If an active lease carries a typed constraint, an action that omits the
-matching claim, presents a ref outside the allowlist, or exceeds delegation
-depth is denied. The evaluator may select another active lease only when that
-lease independently satisfies every constraint.
+depth, cumulative operation budget, and cumulative integer micro-USD cost
+budget. If an active lease carries a typed constraint, an action that omits the
+matching claim, presents a ref outside the allowlist, or exceeds a per-action
+numeric maximum is denied. The evaluator may select another active lease only
+when that lease independently satisfies every constraint.
 
 Typed constraints are bound into the LocalApprovalAuthority approval scope,
 the issued lease identity, and the policy decision's applied constraint refs.
@@ -488,9 +496,25 @@ Constraint refs remain safe-ref-only, so raw local paths are invalid.
 
 The older `constraints` dictionaries remain compatibility metadata while
 existing capabilities migrate. They do not become authority merely because a
-key is present. Operation/cost budget consumption, typed time windows,
-recipient/target binding, and renewal policy remain unimplemented and must not
-be claimed until durable counters and dispatcher integration exist.
+key is present.
+
+`AuthorityBudgetStore` now supplies the durable cumulative counter boundary for
+operation and cost budgets. Reservations revalidate the active lease, policy
+outcome, kill switch, exact typed claims, and remaining capacity under the
+shared authority-state single-writer lock, and require structured cost-estimate
+and CostGovernor decision refs plus an explicit allowed posture.
+Settlement records actual usage and blocks future reservations on overage or
+unresolved actual cost; release is typed as pre-execution only. Append-first
+receipts are fsync-backed, hash-chained, full-history replay checked, redacted,
+and included in the AuthorityState read model. See
+`docs/runtime/UAA_AUTHORITY_LEASE_BUDGET_LEDGER.md`.
+
+This counter boundary is not yet wired to every executable adapter. A central
+dispatcher must still bind policy, exact approval where required, reservation,
+adapter start, settlement/release, cancellation, and evidence before a runtime
+lane can claim end-to-end budget governance. Typed time windows,
+recipient/target binding, renewal, reviewed unresolved-cost remediation, and
+Control Center budget operations remain unimplemented.
 
 ## Core Problem
 

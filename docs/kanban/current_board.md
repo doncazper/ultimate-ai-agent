@@ -32,14 +32,21 @@ Product Loop 012 now adds the Private product loop trial script as a
 local/private, safe-ref-only manual operator review artifact with
 `scripts/inspect_product_loop_trial_script.py` CLI parity and no authority
 promotion.
-AuthorityLease typed constraints V1 is implemented in Python Core for exact
-resource, path, app, host, and delegation-depth enforcement. Constraint claims
-fail closed, approval scopes and lease identities bind the full typed
-constraint payload, policy decisions expose applied constraint refs, and lease
-issue/revoke idempotency rejects semantic request or approval drift. Durable
-operation/cost budgets, time-window and recipient/target constraints, renewal,
-dispatcher integration, and broader adapter execution remain the next
-authority-foundation work; this slice grants no new broad authority.
+AuthorityLease typed constraints and durable budget ledger V1 are implemented
+in Python Core for exact resource, path, app, host, delegation-depth,
+cumulative operation, and cumulative integer micro-USD cost enforcement.
+Reservations, settlements, releases, and denials are protected by the same
+local single-writer lock as lease issue/revoke and recorded as fsync-backed,
+hash-chained, full-history replay-checked safe-ref receipts. Current policy,
+lease identity, kill switch, exact claims, overage, and unresolved actual cost
+fail closed; structured cost-estimate and CostGovernor-decision refs plus an
+explicit allowed posture are required; and the posture is visible in the
+AuthorityState API/JSON CLI read model. Central dispatcher validation of that
+CostGovernor binding, adapter-start binding, a mutation API, Control Center budget UX, time-window and
+recipient/target constraints, renewal, reviewed unresolved-cost remediation,
+multi-host storage, and broader adapter execution remain next; this slice
+executes nothing and grants no provider/model, external spend, or broad
+authority.
 Beta 04 Universal Proof and Run Detail spine now hardens the repo-safe proof
 surface by requiring each backend-owned Universal Proof record to carry a
 `control-center-proof-run-detail.v1` safe-ref snapshot with route, receipt,
