@@ -143,6 +143,8 @@ def _estimated_cost_microusd(estimate: CostEstimate) -> int | None:
         value = Decimal(str(estimate.estimated_cost_usd)) * Decimal(1_000_000)
     except InvalidOperation:
         return None
+    if not value.is_finite():
+        return None
     if value != value.to_integral_value():
         return None
     return int(value)

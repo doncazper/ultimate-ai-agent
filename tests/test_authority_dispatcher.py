@@ -1133,6 +1133,67 @@ def test_dispatch_recomputes_cost_governor_and_rejects_caller_binding_drift(
     assert dispatcher.budget_store.list_receipts() == []
 
 
+def test_nonfinite_cost_estimate_is_denied_without_conversion_failure(
+    tmp_path: Path,
+) -> None:
+    state_dir = tmp_path / "authority"
+    root = tmp_path / "safe-root"
+    root.mkdir()
+    lease_store, lease = _lease(
+        state_dir,
+        mode=TrustMode.full_local_workspace_session,
+        domain=AuthorityDomain.files,
+        capability=AuthorityCapability.read,
+    )
+    dispatcher = AuthorityDispatcher(
+        state_dir,
+        adapters=[
+            ToolRuntimeAuthorityDispatchAdapter(
+                _descriptor(filesystem=True),
+                safe_roots=[
+                    FilesystemSafeRoot(
+                        root_ref="safe-root:test-authority",
+                        root_path=root,
+                        safe_label="Test dispatch safe root",
+                    )
+                ],
+            )
+        ],
+        lease_store=lease_store,
+    )
+    request = _request(lease.lease_ref, suffix="nonfinite-cost", filesystem=True)
+    estimate = CostEstimate.model_validate(
+        {
+            **request.cost_estimate.model_dump(mode="json"),
+            "estimated_cost_usd": float("inf"),
+            "estimated_token_cost_usd": float("inf"),
+        }
+    )
+    payload = request.model_dump(mode="json")
+    payload.update(
+        {
+            "cost_estimate": estimate.model_dump(mode="json"),
+            "cost_estimate_ref": build_authority_dispatch_cost_estimate_ref(estimate),
+            "cost_governor_decision_ref": (
+                build_authority_dispatch_cost_governor_decision_ref(
+                    estimate, request.cost_budgets
+                )
+            ),
+            "cost_governor_allowed": False,
+        }
+    )
+    nonfinite = AuthorityDispatchRequest.model_validate(payload)
+
+    result = dispatcher.prepare(nonfinite)
+
+    assert result.receipt.status == AuthorityDispatchStatus.denied.value
+    assert (
+        "reason-ref:authority-dispatch:cost-estimate-unknown"
+        in result.receipt.reason_refs
+    )
+    assert dispatcher.budget_store.list_receipts() == []
+
+
 def test_correctly_rehashed_execution_binding_drift_fails_closed(
     tmp_path: Path,
 ) -> None:
