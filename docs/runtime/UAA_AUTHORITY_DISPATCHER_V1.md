@@ -58,8 +58,8 @@ authority.
 The lifecycle is explicit:
 
 1. `prepare` validates the registered adapter and exact target, re-evaluates the
-   requested lease, validates exact approval scope where required, and reserves
-   budget with the full dispatch fingerprint.
+   complete safe-tool runtime policy, requested lease, and exact approval scope
+   where required, then reserves budget with the full dispatch fingerprint.
 2. A `prepared` receipt durably binds the policy, approval, and reservation.
 3. `execute` rechecks lease, kill switch, adapter, budget, and approval
    revocation immediately before start.
@@ -86,6 +86,9 @@ terminal pre-start cancellation instead of stranding `cancellation_pending`.
 If a crash leaves capacity reserved without a prepared receipt and a retry is
 denied during fresh adapter or cost validation, the dispatcher atomically
 releases that exact unclaimed reservation before persisting the denial.
+An unchanged replayed reservation also rechecks current lease, kill switch,
+approval, adapter, tool-policy, and budget posture before it can reconstruct a
+prepared receipt; revoked authority releases the orphan and remains denied.
 The current V1 bridge does not claim after-start cancellation, automatic
 settlement recovery, heartbeat ownership, or mission retry authority.
 
@@ -155,6 +158,8 @@ is never treated as safe to replay.
   of a reservation released before execution;
 - dispatcher-owned settlement while competing public settlement is denied, and
   release of crash-orphaned capacity before an early terminal denial;
+- safe-tool runtime policy denial before reservation/start and fresh authority
+  revalidation before an orphaned reservation can recover to `prepared`;
 - descriptor and safe-root mapping drift cancellation, fixed tool authority
   domains, immutable safe-root snapshots, and an explicit
   no-op/filesystem-metadata tool bridge allowlist;

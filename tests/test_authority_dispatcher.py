@@ -415,6 +415,54 @@ def test_filesystem_metadata_dispatch_is_useful_durable_and_redacted(tmp_path: P
     assert read_model.recovery_required_dispatch_refs == []
 
 
+def test_tool_runtime_policy_denial_happens_before_reservation_or_start(
+    tmp_path: Path,
+) -> None:
+    state_dir = tmp_path / "authority"
+    root = tmp_path / "safe-root"
+    root.mkdir()
+    lease_store, lease = _lease(
+        state_dir,
+        mode=TrustMode.full_local_workspace_session,
+        domain=AuthorityDomain.files,
+        capability=AuthorityCapability.read,
+    )
+    dispatcher = AuthorityDispatcher(
+        state_dir,
+        adapters=[
+            ToolRuntimeAuthorityDispatchAdapter(
+                _descriptor(filesystem=True),
+                safe_roots=[
+                    FilesystemSafeRoot(
+                        root_ref=FILESYSTEM_ROOT_REF,
+                        root_path=root,
+                        safe_label="Test dispatch safe root",
+                    )
+                ],
+            )
+        ],
+        lease_store=lease_store,
+    )
+    request = _request(
+        lease.lease_ref,
+        suffix="runtime-preflight-denial",
+        filesystem=True,
+    )
+    payload = request.model_dump(mode="json")
+    payload["tool_invocation_request"]["metadata"]["include_raw_content"] = True
+
+    result = dispatcher.dispatch(AuthorityDispatchRequest.model_validate(payload))
+
+    assert result.receipt.status == AuthorityDispatchStatus.denied.value
+    assert result.receipt.execution_started is False
+    assert result.receipt.adapter_execution_performed is False
+    assert (
+        "reason-ref:authority-dispatch:tool-runtime-preflight-denied"
+        in result.receipt.reason_refs
+    )
+    assert dispatcher.budget_store.list_receipts() == []
+
+
 @pytest.mark.parametrize(
     ("target_field", "target_value", "reason_ref"),
     [
@@ -1466,6 +1514,144 @@ def test_crash_recovery_budget_replay_binds_full_dispatch_fingerprint(
     ].dispatch_fingerprint_ref
     assert len(budget_receipts) == 1
     assert len(dispatcher.list_receipts()) == 1
+
+
+def test_crash_orphan_revalidates_revoked_lease_before_recovery(
+    tmp_path: Path,
+) -> None:
+    state_dir = tmp_path / "authority"
+    root = tmp_path / "safe-root"
+    root.mkdir()
+    lease_store, lease = _lease(
+        state_dir,
+        mode=TrustMode.full_local_workspace_session,
+        domain=AuthorityDomain.files,
+        capability=AuthorityCapability.read,
+    )
+    dispatcher = AuthorityDispatcher(
+        state_dir,
+        adapters=[
+            ToolRuntimeAuthorityDispatchAdapter(
+                _descriptor(filesystem=True),
+                safe_roots=[
+                    FilesystemSafeRoot(
+                        root_ref=FILESYSTEM_ROOT_REF,
+                        root_path=root,
+                        safe_label="Test dispatch safe root",
+                    )
+                ],
+            )
+        ],
+        lease_store=lease_store,
+    )
+    request = _request(
+        lease.lease_ref,
+        suffix="orphan-revoked-before-recovery",
+        filesystem=True,
+    )
+    append = dispatcher._append
+
+    def crash_before_prepared(receipt: Any) -> None:
+        raise RuntimeError("simulated crash after orphan reservation")
+
+    dispatcher._append = crash_before_prepared  # type: ignore[method-assign]
+    with pytest.raises(RuntimeError, match="simulated crash"):
+        dispatcher.prepare(request)
+    dispatcher._append = append  # type: ignore[method-assign]
+    lease_store.revoke_lease(
+        AuthorityLeaseRevokeRequest(
+            lease_ref=lease.lease_ref,
+            decision_reason_ref=(
+                "reason-ref:test-dispatch-orphan-revoked-before-recovery"
+            ),
+            safe_summary="Revoke the lease before orphan reservation recovery.",
+        ),
+        idempotency_ref=(
+            "idempotency-ref:test-dispatch-orphan-revoked-before-recovery"
+        ),
+    )
+
+    denied = dispatcher.prepare(request)
+
+    assert denied.receipt.status == AuthorityDispatchStatus.denied.value
+    assert denied.receipt.execution_started is False
+    assert (
+        "reason-ref:authority-dispatch:reservation-recovery-invalid"
+        in denied.receipt.reason_refs
+    )
+    assert (
+        "reason-ref:authority-dispatch:prestart-authority-invalid"
+        in denied.receipt.reason_refs
+    )
+    assert [
+        receipt.status for receipt in dispatcher.budget_store.list_receipts()
+    ] == [
+        AuthorityBudgetStatus.reserved.value,
+        AuthorityBudgetStatus.released.value,
+    ]
+    assert [receipt.status for receipt in dispatcher.list_receipts()] == [
+        AuthorityDispatchStatus.denied.value
+    ]
+
+
+def test_crash_orphan_revalidates_revoked_approval_before_recovery(
+    tmp_path: Path,
+) -> None:
+    state_dir = tmp_path / "authority"
+    lease_store, lease = _lease(
+        state_dir,
+        mode=TrustMode.ask_before_changes,
+        domain=AuthorityDomain.workspace,
+        capability=AuthorityCapability.execute,
+    )
+    approval_authority = LocalApprovalAuthority()
+    dispatcher = AuthorityDispatcher(
+        state_dir,
+        adapters=[ToolRuntimeAuthorityDispatchAdapter(_descriptor(filesystem=False))],
+        lease_store=lease_store,
+        approval_authority=approval_authority,
+    )
+    pending = _request(
+        lease.lease_ref,
+        suffix="orphan-approval-revoked-before-recovery",
+        filesystem=False,
+    )
+    validation_request = _approval(approval_authority, pending)
+    request = pending.model_copy(
+        update={"approval_validation_request": validation_request}
+    )
+    append = dispatcher._append
+
+    def crash_before_prepared(receipt: Any) -> None:
+        raise RuntimeError("simulated crash after approved orphan reservation")
+
+    dispatcher._append = crash_before_prepared  # type: ignore[method-assign]
+    with pytest.raises(RuntimeError, match="simulated crash"):
+        dispatcher.prepare(request)
+    dispatcher._append = append  # type: ignore[method-assign]
+    approval_authority.revoke(
+        validation_request.approval_ref,
+        "Operator revoked approval before orphan reservation recovery.",
+    )
+
+    denied = dispatcher.prepare(request)
+
+    assert denied.receipt.status == AuthorityDispatchStatus.denied.value
+    assert denied.receipt.execution_started is False
+    assert (
+        "reason-ref:authority-dispatch:reservation-recovery-invalid"
+        in denied.receipt.reason_refs
+    )
+    assert (
+        "reason-ref:authority-dispatch:prestart-approval-invalid"
+        in denied.receipt.reason_refs
+    )
+    assert [
+        receipt.status for receipt in dispatcher.budget_store.list_receipts()
+    ] == [
+        AuthorityBudgetStatus.reserved.value,
+        AuthorityBudgetStatus.released.value,
+    ]
 
 
 def test_early_denial_releases_crash_orphan_before_terminal_receipt(

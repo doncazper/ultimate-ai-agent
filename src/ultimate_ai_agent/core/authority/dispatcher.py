@@ -61,6 +61,10 @@ from ultimate_ai_agent.core.tools.runtime.filesystem_metadata import (
     filesystem_safe_path_ref,
     normalize_relative_metadata_path,
 )
+from ultimate_ai_agent.core.tools.runtime.policy import (
+    validate_runtime_policy,
+    validate_tool_invocation_request,
+)
 from ultimate_ai_agent.core.tools.runtime.validation import NOOP_TOOL_REF
 
 
@@ -346,6 +350,17 @@ class ToolRuntimeAuthorityDispatchAdapter:
             )
         except ValueError:
             return ["reason-ref:authority-dispatch:tool-request-invalid"]
+        runtime_reasons = [
+            *validate_runtime_policy(self.runtime_adapter.manifest.policy),
+            *validate_tool_invocation_request(
+                tool_request,
+                safe_roots=[root.model_copy(deep=True) for root in self._safe_roots],
+            ),
+        ]
+        if runtime_reasons:
+            reasons.append(
+                "reason-ref:authority-dispatch:tool-runtime-preflight-denied"
+            )
         if not request.cost_governor_allowed:
             reasons.append("reason-ref:authority-dispatch:cost-governor-denied")
         if self.descriptor.tool_ref == FILESYSTEM_METADATA_TOOL_REF:
@@ -523,6 +538,24 @@ class AuthorityDispatcher:
             raise AuthorityDispatchCorruptionError(
                 "AUTHORITY_DISPATCH_BUDGET_FINGERPRINT_MISMATCH"
             )
+        if reservation.status == AuthorityBudgetStatus.replayed.value:
+            recovery_reasons = self._replayed_reservation_reason_refs(
+                request,
+                reservation,
+                adapter,
+            )
+            if recovery_reasons:
+                self._release_unclaimed_reservation(request)
+                return self._persist_initial_denial(
+                    request,
+                    fingerprint=fingerprint,
+                    reasons=[
+                        "reason-ref:authority-dispatch:reservation-recovery-invalid",
+                        *recovery_reasons,
+                    ],
+                    adapter=adapter,
+                    reservation=reservation,
+                )
 
         reservation_claimed = False
         try:
@@ -1068,6 +1101,49 @@ class AuthorityDispatcher:
         if not decision.allowed:
             reasons.append("reason-ref:authority-dispatch:cost-governor-denied")
         return list(dict.fromkeys(reasons))
+
+    def _replayed_reservation_reason_refs(
+        self,
+        request: AuthorityDispatchRequest,
+        reservation: Any,
+        adapter: AuthorityDispatchAdapter,
+    ) -> list[str]:
+        with self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY):
+            receipts = self._load_receipts()
+            try:
+                replay = self._existing_result(
+                    receipts,
+                    request,
+                    _request_fingerprint(request),
+                )
+            except AuthorityDispatchConflictError:
+                return [
+                    "reason-ref:authority-dispatch:reservation-recovery-conflict"
+                ]
+            if replay is not None:
+                return []
+            candidate = self._build_receipt(
+                request,
+                status=AuthorityDispatchStatus.prepared,
+                previous_entry_hash_ref=(
+                    receipts[-1].entry_hash_ref if receipts else None
+                ),
+                descriptor=adapter.descriptor,
+                adapter_binding_ref=adapter.binding_ref,
+                authority_decision_ref=reservation.authority_decision_ref,
+                authority_policy_receipt_ref=(
+                    reservation.authority_policy_receipt_ref
+                ),
+                approval_required=reservation.approval_required,
+                approval_ref=reservation.approval_ref,
+                approval_validation_ref=reservation.approval_validation_ref,
+                budget_reservation_ref=reservation.reservation_ref,
+                budget_reservation_receipt_ref=reservation.receipt_ref,
+                safe_summary=(
+                    "Revalidate an orphaned reservation before durable recovery."
+                ),
+            )
+            return self._prestart_reason_refs(request, candidate, adapter)
 
     def _complete_prestart_cancellation(
         self,
