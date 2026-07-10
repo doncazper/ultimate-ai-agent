@@ -368,6 +368,7 @@ def test_dispatch_start_claim_blocks_release_and_binds_settlement(tmp_path) -> N
         execution_ref=execution_ref,
         safe_summary="Bind this reservation to one durable adapter start.",
     )
+    assert not hasattr(budget_store, "start")
 
     premature = budget_store.settle(
         AuthorityBudgetSettlementRequest(
@@ -381,8 +382,8 @@ def test_dispatch_start_claim_blocks_release_and_binds_settlement(tmp_path) -> N
             safe_summary="Deny dispatch-bound settlement before durable start.",
         )
     )
-    started = budget_store.start(start_request)
-    replay = budget_store.start(start_request)
+    started = budget_store._start_dispatch(start_request)
+    replay = budget_store._start_dispatch(start_request)
     release = budget_store.release(
         AuthorityBudgetReleaseRequest(
             reservation_ref=reservation.reservation_ref,

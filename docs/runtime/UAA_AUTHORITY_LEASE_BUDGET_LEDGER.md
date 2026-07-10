@@ -62,9 +62,10 @@ still needs exact live usage and cost proof.
 Before the central dispatcher invokes an adapter, the budget ledger moves its
 dispatch-bound reservation from `reserved` to `started` with the exact dispatch
 fingerprint and execution ref. The transition is idempotent and is written
-under the shared authority-state lock before the dispatch-start receipt. A
-started reservation continues consuming its reserved capacity and cannot be
-released by a standalone caller.
+under the shared authority-state lock before the dispatch-start receipt. The
+start transition is internal to the owning dispatcher rather than exposed as a
+public budget-store method. A started reservation continues consuming its
+reserved capacity and cannot be released by a standalone caller.
 
 After execution starts, that reservation must be settled with the same
 execution ref, actual operation count, actual cost plus its safe ref, execution

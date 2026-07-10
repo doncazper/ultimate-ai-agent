@@ -475,7 +475,7 @@ class AuthorityBudgetStore:
             self._append(receipt)
             return receipt
 
-    def start(
+    def _start_dispatch(
         self,
         request: AuthorityBudgetStartRequest,
     ) -> AuthorityBudgetReceipt:
