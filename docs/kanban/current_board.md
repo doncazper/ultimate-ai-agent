@@ -49,10 +49,10 @@ injected no-op and filesystem-metadata tool-runtime adapters. A fenced,
 append-first safe-ref mission-step ledger and synchronous MissionRunner now
 route one exact filesystem-metadata step through that dispatcher without
 minting authority or automatically retrying. The fenced claim atomically binds
-the dispatch ref and full request fingerprint, and one synchronous pre-execute
-renewal is not a background heartbeat loop. It does not yet provide mutation
-API/CLI or Control Center parity, background scheduling or execution,
-a periodic/background heartbeat loop, approval waits, retry budgets,
+the dispatch ref and full request fingerprint. The later local mission-worker
+slice adds disabled-by-default macOS scheduling plus periodic fenced job and
+step heartbeats; generic background autonomy remains blocked. It does not yet
+provide mutation API/CLI or Control Center parity, approval waits, retry budgets,
 after-start cancellation, settlement recovery, paid-provider actual usage and
 cost proof, time-window or
 recipient/target constraints, renewal, reviewed unresolved-cost remediation,
@@ -69,9 +69,16 @@ execution, binds every dispatch fingerprint and deadline, requires exact
 mission-scoped leases and action scope, re-evaluates authority per step, and
 records dependency-blocked descendants plus durable halted evidence for other
 unscheduled work under fail-fast semantics. Accepted-plan membership is
-required at step creation and claim. Background workers, parallelism, retries,
-approval waits, mission cancellation, and external execution controls remain
-blocked.
+required at step creation and claim. One disabled-by-default macOS local worker
+now adds a bounded safe-ref queue, fenced claims, periodic job and step
+heartbeats, one-step slices, graceful inter-step shutdown, kill-switch checks,
+boot classification, and exact request-resolver replay without persisting
+request payloads. The dispatcher consumes the worker/step fence inside its
+locked durable-start boundary, and durable starts are never reinvoked. The
+protected worker-state API and human-first CLI share one redacted backend read
+model. Parallelism, remote/public daemons, retries, approval waits, dead
+letters, cancellation, mission-wide settlement recovery, Control Center
+execution controls, and Linux/Windows runtime ports remain blocked.
 Beta 04 Universal Proof and Run Detail spine now hardens the repo-safe proof
 surface by requiring each backend-owned Universal Proof record to carry a
 `control-center-proof-run-detail.v1` safe-ref snapshot with route, receipt,

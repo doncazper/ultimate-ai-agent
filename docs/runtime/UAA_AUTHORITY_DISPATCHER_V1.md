@@ -1,9 +1,9 @@
 # AuthorityLease Governed Dispatcher V1
 
 Status: implemented Python Core dispatcher, exact filesystem-metadata
-MissionRunner, bounded synchronous dependency orchestration, and redacted
-API/CLI step inspection; mutation controls and Control Center integration remain
-missing
+MissionRunner, bounded synchronous dependency orchestration, disabled-by-default
+local mission worker, and redacted API/CLI inspection; mutation controls and
+Control Center integration remain missing
 
 Date: 2026-07-10
 
@@ -34,6 +34,13 @@ hash-chained, full-history transition checked, and protected by the shared
 authority-state single-writer lock. Durable receipts contain safe refs and
 bounded summaries only. Adapter input is fingerprinted but is not copied into
 the receipt ledger.
+
+Queued local mission dispatches add a mandatory execution fence consumed inside
+the same locked pre-start boundary. The fence validates the current queue claim,
+mission-step claim, worker identity, monotonic generations, expiry, and complete
+request fingerprint, then persists only an `execution_fence_ref`. A queued
+dispatch without a current exact fence fails closed. Periodic job and step
+heartbeats do not grant or cache authority.
 
 The current executable bridge is `ToolRuntimeAuthorityDispatchAdapter`, which
 accepts only an explicitly injected descriptor and exactly two tool refs:
@@ -193,8 +200,8 @@ bound to the triggering terminal evidence. Identical replay skips proven
 successes; active competing claims return an in-progress posture; there is no
 wait loop. Plan-bound definitions cannot be created or claimed unless the
 accepted plan proves exact step, definition, dispatch, request-fingerprint, and
-dependency membership. This is not a background
-scheduler and adds no periodic heartbeat, parallel fan-out, approval wait,
+dependency membership. This synchronous path is not itself a background
+scheduler and adds no parallel fan-out, approval wait,
 automatic retry, mission cancellation, dynamic output-to-input binding, API or
 CLI execution command, or Control Center mutation.
 
@@ -308,15 +315,13 @@ this milestone. Broader repo checks remain required before merge.
 This milestone adds no API mutation route, Control Center execution control,
 generic dynamic registry, runtime import, unrestricted shell/subprocess call,
 provider/model call, browser action, connector write, network expansion,
-background worker, public distribution, production authority, or standing
-autonomy.
+public distribution, production authority, or standing autonomy.
 
 The dispatcher is not yet the universal route for legacy executable lanes.
-Durable missions still need a background scheduler, a periodic/background
-heartbeat and lease-renewal loop, approval waits, retry budgets, after-start
-cancellation, settlement recovery, dead-letter handling, boot reconciliation,
-mission completion receipts, mutation API/CLI and Control Center parity, and
-broader exact adapters. The runner's one
-pre-execute renewal is not an in-flight heartbeat loop. Each future
+Durable missions still need approval waits, retry budgets, after-start
+cancellation, settlement recovery, dead-letter handling, mission completion
+receipts, mutation API/CLI and Control Center parity, and broader exact
+adapters. The local worker supplies bounded job and step heartbeats but does
+not cache authority; every resumed start re-enters the dispatcher. Each future
 adapter must be promoted as an exact descriptor and tested lane; V1 does not
 grant a broad capability class.

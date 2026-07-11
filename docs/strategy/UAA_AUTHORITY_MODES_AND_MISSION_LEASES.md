@@ -25,6 +25,8 @@ surfaces are:
 - `scripts/dev/uaa_runtime.py inspect-authority-state --summary`
 - `GET /api/runtime/authority-state?mission_step_ref=...`
 - `scripts/dev/uaa_runtime.py inspect-authority-mission-step STEP_REF`
+- `GET /api/runtime/authority-missions/worker-state`
+- `scripts/dev/uaa_runtime.py inspect-authority-mission-worker`
 - `scripts/dev/uaa_runtime.py inspect-authority-domain-readiness --json`
 - `scripts/dev/uaa_runtime.py preview-authority-decision --json`
 - `scripts/dev/uaa_runtime.py plan-authority-mission --json`
@@ -246,6 +248,12 @@ surfaces are:
   mutating external systems. The core `evaluate_authority_request` path also
   applies this local kill-switch overlay, so direct route/service evaluators fail
   closed even if they do not pass an explicit request flag.
+- `UAA_LOCAL_MISSION_WORKER_ENABLED=1` may activate the bounded macOS-only
+  local worker. It is disabled by default, persists only safe refs and request
+  fingerprints, requires exact request material after restart, and never treats
+  configuration, claims, heartbeats, or recovery state as authority. Each
+  one-step slice and dispatcher start re-evaluate the exact mission lease and
+  existing gates. Linux and Windows remain render placeholders.
 - Control Center `/settings` authority mode controls for implemented local
   domain subsets, revoke receipts, decision previews for concrete
   mode/domain/capability requests, and mission-plan previews for delegated
@@ -547,12 +555,13 @@ durably fail-fast halted rather than left apparently resumable. An accepted
 plan receipt must prove exact membership before any plan-bound definition can
 be created or claimed. The internal runner requires the accepted plan's exact
 execution context, and the locked claim rejects any new start after another
-plan member reaches terminal non-success. No API/CLI/UI execution, background
-worker, parallel fan-out, automatic retry, approval wait, or mission-level
-cancellation is added.
+plan member reaches terminal non-success. The subsequent macOS-only local
+mission worker adds disabled-by-default bounded scheduling around these exact
+one-step slices; no API/CLI/UI execution control, parallel fan-out, automatic
+retry, approval wait, or mission-level cancellation is added.
 
-Legacy executable-lane migration, background scheduling and execution,
-a periodic/background heartbeat loop, approval waits, retry budgets,
+Legacy executable-lane migration, remote/public background scheduling,
+parallel execution, approval waits, retry budgets,
 after-start cancellation, settlement recovery, paid-provider actual usage
 proof, typed time windows,
 recipient/target binding, renewal, reviewed unresolved-cost remediation, and

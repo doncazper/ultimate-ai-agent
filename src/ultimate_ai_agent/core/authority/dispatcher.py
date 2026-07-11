@@ -10,7 +10,7 @@ from contextlib import nullcontext
 from decimal import Decimal, InvalidOperation
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Protocol, Sequence
+from typing import Any, Callable, Protocol, Sequence
 
 from ultimate_ai_agent.core.approvals.authority import LocalApprovalAuthority
 from ultimate_ai_agent.core.authority.authority_constants import (
@@ -44,6 +44,7 @@ from ultimate_ai_agent.core.authority.dispatch_contracts import (
     AuthorityDispatchAdapterDescriptor,
     AuthorityDispatchAdapterResult,
     AuthorityDispatchCancelRequest,
+    AuthorityDispatchExecutionFence,
     AuthorityDispatchReadModel,
     AuthorityDispatchReceipt,
     AuthorityDispatchRequest,
@@ -94,6 +95,16 @@ class AuthorityDispatchAdapter(Protocol):
     ) -> AuthorityDispatchAdapterResult: ...
 
 
+class AuthorityDispatchExecutionFenceValidator(Protocol):
+    def validate_prestart_fence(
+        self,
+        request: AuthorityDispatchRequest,
+        execution_fence: AuthorityDispatchExecutionFence | None,
+        *,
+        current_time: Callable[[], datetime],
+    ) -> tuple[list[str], str | None, datetime]: ...
+
+
 def _canonical_json(value: Any) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
 
@@ -127,6 +138,8 @@ def _entry_hash(receipt: AuthorityDispatchReceipt) -> str:
         payload.pop("start_deadline", None)
     if receipt.start_validated_at is None:
         payload.pop("start_validated_at", None)
+    if receipt.execution_fence_ref is None:
+        payload.pop("execution_fence_ref", None)
     return _stable_ref(
         "entry-hash-ref:authority-dispatch",
         payload,
@@ -462,6 +475,8 @@ class AuthorityDispatcher:
         lease_store: AuthorityLeaseStore | None = None,
         budget_store: AuthorityBudgetStore | None = None,
         approval_authority: LocalApprovalAuthority | None = None,
+        execution_fence_validator: AuthorityDispatchExecutionFenceValidator
+        | None = None,
     ) -> None:
         self.state_dir = state_dir or authority_state_dir()
         self.receipts_path = self.state_dir / AUTHORITY_DISPATCH_RECEIPTS_FILE
@@ -479,6 +494,7 @@ class AuthorityDispatcher:
         ):
             raise ValueError("AUTHORITY_DISPATCH_BUDGET_LEASE_STORE_MISMATCH")
         self.approval_authority = approval_authority
+        self.execution_fence_validator = execution_fence_validator
         self.lock_manager = authority_state_lock_manager(str(self.state_dir.resolve()))
         for adapter in adapters:
             if _tool_authority_binding_reason_refs(adapter.descriptor):
@@ -664,7 +680,12 @@ class AuthorityDispatcher:
                     )
             raise
 
-    def execute(self, request: AuthorityDispatchRequest) -> AuthorityDispatchResult:
+    def execute(
+        self,
+        request: AuthorityDispatchRequest,
+        *,
+        execution_fence: AuthorityDispatchExecutionFence | None = None,
+    ) -> AuthorityDispatchResult:
         fingerprint = _request_fingerprint(request)
         pending_cancellation: AuthorityDispatchReceipt | None = None
         pending_reason_ref: str | None = None
@@ -702,8 +723,23 @@ class AuthorityDispatcher:
                 )
             adapter = self.adapters.get(request.adapter_ref)
             prestart_reasons = self._prestart_reason_refs(request, latest, adapter)
-            if not prestart_reasons:
+            execution_fence_ref = None
+            if execution_fence is not None and self.execution_fence_validator is None:
+                prestart_reasons.append(
+                    "reason-ref:authority-dispatch:worker-fence-validator-unavailable"
+                )
+            if not prestart_reasons and self.execution_fence_validator is not None:
+                fence_reasons, execution_fence_ref, start_validated_at = (
+                    self.execution_fence_validator.validate_prestart_fence(
+                        request,
+                        execution_fence,
+                        current_time=utc_now,
+                    )
+                )
+                prestart_reasons.extend(fence_reasons)
+            elif not prestart_reasons:
                 start_validated_at = utc_now()
+            if not prestart_reasons:
                 prestart_reasons = self._time_bound_prestart_reason_refs(
                     request,
                     latest,
@@ -735,6 +771,7 @@ class AuthorityDispatcher:
                     previous_entry_hash_ref=receipts[-1].entry_hash_ref,
                     budget_start_receipt_ref=budget_start.receipt_ref,
                     execution_ref=execution_ref,
+                    execution_fence_ref=execution_fence_ref,
                     execution_started=True,
                     start_validated_at=start_validated_at,
                     safe_summary="Governed adapter start recorded before invocation.",
@@ -1705,6 +1742,7 @@ class AuthorityDispatcher:
                 "cancellation_idempotency_ref",
                 "cancellation_reason_ref",
                 "execution_ref",
+                "execution_fence_ref",
                 "execution_started",
                 "adapter_invocation_performed",
                 "actual_operation_count",
@@ -1912,6 +1950,7 @@ class AuthorityDispatcher:
             receipt.execution_ref != previous.execution_ref
             or receipt.budget_start_receipt_ref != previous.budget_start_receipt_ref
             or receipt.start_validated_at != previous.start_validated_at
+            or receipt.execution_fence_ref != previous.execution_fence_ref
         ):
             raise AuthorityDispatchCorruptionError(
                 "AUTHORITY_DISPATCH_EXECUTION_BINDING_MISMATCH"
