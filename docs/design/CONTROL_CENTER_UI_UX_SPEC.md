@@ -179,6 +179,12 @@ shell component, not forty unrelated chat boxes.
 - The composer expands into a consistent right-side UAA sidecar containing the
   conversation, included context, proposed next steps, and related evidence.
 - The dedicated Chat route remains the full conversation/history workspace.
+- The composer rail keeps one compact persistent posture control visible:
+  `Local only · External actions blocked · Private`. Selecting it opens a
+  `Privacy & authority` popover with `No connector writes`, `No provider
+  authority`, `Safe refs only`, `Data stays on this Mac`, and `Proposals require
+  approval`. The popover consolidates these facts without repeating the top
+  authority strip.
 
 In Settings, the composer is search-first. It returns matching settings,
 explains current posture, navigates to the exact row, and can draft a supported
@@ -228,6 +234,22 @@ Used by Start Here, Today, Overview, Dashboard, Briefing, and Operator Loop.
 - priorities and cross-surface decisions before low-level readiness;
 - bottom receipts/evidence/heartbeat band when useful;
 - no repeated dashboard card grid below the first viewport.
+
+Today uses a single-canonical-home rule so cross-surface awareness does not
+become repetition:
+
+- Morning Briefing synthesizes what changed and what kind of day this is; it
+  does not repeat module counts or queue rows.
+- Needs your attention owns concrete approvals, blockers, conflicts, missing
+  evidence, and overdue items.
+- Today priorities owns planned work in intended execution order.
+- Business pulse owns non-actionable trends and health such as pipeline
+  movement, board throughput, upcoming commitments, and evidence freshness.
+- Recent receipts owns completed/recorded history.
+- Why this matters may repeat the selected item's title only to add detail,
+  provenance, authority scope, and the next safe step.
+- Other regions may show a count or deep link to the canonical home, but must
+  not repeat the same full row, description, and status.
 
 ### B. Queue, detail, inspector
 
