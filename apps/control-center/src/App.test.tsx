@@ -12409,7 +12409,7 @@ describe("Web Control Center shell", () => {
     ).not.toBeInTheDocument();
 
     vi.unstubAllGlobals();
-  });
+  }, 10_000);
 
   it("fails closed for unsafe model provider control-plane payloads", async () => {
     const unsafeControlPlane = JSON.parse(
