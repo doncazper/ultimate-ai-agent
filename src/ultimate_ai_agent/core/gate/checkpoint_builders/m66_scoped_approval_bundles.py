@@ -14,7 +14,6 @@ from ultimate_ai_agent.core.autonomy import (
     build_autonomy_audit_replay_view,
     build_autonomy_policy_decision,
     build_scoped_approval_bundle,
-    validate_scoped_approval_bundle,
 )
 
 

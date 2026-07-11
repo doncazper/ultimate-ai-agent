@@ -18,6 +18,18 @@ def test_control_center_visual_regression_manifest_requires_state_scenarios() ->
     assert any("missing state scenario: state-success" in failure for failure in failures)
 
 
+def test_control_center_visual_regression_manifest_keeps_non_macos_ports_as_placeholders() -> None:
+    manifest = visual.load_manifest()
+    manifest["platform_posture"]["linux"]["status"] = "implemented"
+
+    failures = visual.validate_manifest(manifest)
+
+    assert (
+        "visual platform posture must implement macOS and keep Linux/Windows as deferred render placeholders"
+        in failures
+    )
+
+
 def test_local_runtime_packaging_proof_manifest_is_safe() -> None:
     failures = packaging.validate_manifest(packaging.load_manifest())
 

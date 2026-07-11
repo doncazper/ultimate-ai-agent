@@ -232,7 +232,7 @@ def _append_static_failures(failures: list[str]) -> None:
             "Full Strength Goal",
             "Repo-Safe Scope",
             "Blocked Authority",
-            "Promotion Path",
+            "Exact promotion path",
         ],
         FRONTEND_VERIFIER: [
             "/control-center/git/commit",

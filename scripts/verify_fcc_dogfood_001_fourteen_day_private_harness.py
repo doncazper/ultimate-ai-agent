@@ -167,7 +167,7 @@ def _validate_active_docs(root: Path, failures: list[str]) -> None:
         CURRENT_BOARD: [
             "FCC-DOGFOOD-001 Fourteen-Day Private Operator Harness",
             DOC_REF,
-            "FCC-ACTION-001 Approval-Bound Local Micro-Lanes",
+            "FCC-ACTION-001 Approval-Bound Local Authority Capability",
         ],
         FCC_BOARD: [
             "FCC-DOGFOOD-001",

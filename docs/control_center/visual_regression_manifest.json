@@ -1,15 +1,38 @@
 {
   "schema_version": "uaa-control-center-visual-regression.v1",
-  "status": "active checked-in visual baseline",
+  "status": "active checked-in macOS visual baseline",
   "capture_command_ref": "command:frontend.visual-regression",
   "playwright_dependency_status": "control-center devDependency",
   "baseline_directory_ref": "visual-baselines:control-center:playwright-snapshots",
   "baseline_policy": {
     "checked_in_redacted_baselines_required": true,
+    "canonical_platform": "macos",
+    "non_macos_baselines_allowed": false,
     "raw_private_screenshots_allowed": false,
     "absolute_paths_allowed": false,
     "local_user_paths_allowed": false,
     "secret_material_allowed": false
+  },
+  "platform_posture": {
+    "macos": {
+      "status": "implemented",
+      "render_ref": "visual-baselines:control-center:macos-canonical",
+      "compatibility_claimed": true
+    },
+    "linux": {
+      "status": "render_placeholder",
+      "render_ref": "visual-placeholder:control-center:linux",
+      "compatibility_claimed": false,
+      "activation_posture": "deferred_until_backend_production_ready",
+      "port_source": "then-current-macos-canonical"
+    },
+    "windows": {
+      "status": "render_placeholder",
+      "render_ref": "visual-placeholder:control-center:windows",
+      "compatibility_claimed": false,
+      "activation_posture": "deferred_until_backend_production_ready",
+      "port_source": "then-current-macos-canonical"
+    }
   },
   "required_viewports": [
     "viewport:desktop-1440x1000",
@@ -26,8 +49,8 @@
         "mobile": "visual-baseline-file:mobile:overview"
       },
       "baseline_hashes": {
-        "desktop": "sha256:f462af315bd8854d6f3fa727d62c41248954dbfc39052a9240cd0e9689211811",
-        "mobile": "sha256:5d657e8bb01fc34a2dd2c464c77b5fee1ff5ea91a6983cbbe130090d41a8f530"
+        "desktop": "sha256:c957ed769ef4fcf3bbce04b3d68021645e0cd86d169957c2e2f92fe1d41de286",
+        "mobile": "sha256:da5e8751d0aee11a750e7f407c2b10d2535a784e8a9938e422cddd6aa62e436c"
       },
       "raw_private_screenshot_included": false
     },
@@ -41,8 +64,8 @@
         "mobile": "visual-baseline-file:mobile:start"
       },
       "baseline_hashes": {
-        "desktop": "sha256:43cbe31f08e44ea0711836f90797a85ca209f49469a11f9b8e46c8511110d48b",
-        "mobile": "sha256:d7f79b069d3c0c9481f6e4089d1afe39bab78216ee7b66cd94f9108048338e58"
+        "desktop": "sha256:0f3143ec9ebe530c38d84aaea09f7d72dc4aa928bb7e4d055f661198e658614f",
+        "mobile": "sha256:d2839c1dbdcdcd9585a40ea7923263f8a20962f82489466a9b0a222e7b855720"
       },
       "raw_private_screenshot_included": false
     },
@@ -56,8 +79,8 @@
         "mobile": "visual-baseline-file:mobile:today"
       },
       "baseline_hashes": {
-        "desktop": "sha256:75971bd5005d284e5bd689464ec95383e91e0b089645ad7dea52f43f0f7a006f",
-        "mobile": "sha256:01c3483b8ad739d27c78047c1a9147bc5ad0a2eab22bfee794bfc293743c1f1a"
+        "desktop": "sha256:1b8e0e73a016c8c7933a78c64051381cb0c7acb7807843dd9e8ea2b569f7fb7a",
+        "mobile": "sha256:0e99bde293eb7e0717833713cd37fa532947c711e6019ebebe4ac4c6daa6251d"
       },
       "raw_private_screenshot_included": false
     },
@@ -71,8 +94,8 @@
         "mobile": "visual-baseline-file:mobile:inbox"
       },
       "baseline_hashes": {
-        "desktop": "sha256:df3b0fc4e73a514c257e03e0b91cb6b04002eef7a283d54ac95d38a5f9f588c5",
-        "mobile": "sha256:5146255e3feb7981990699a50ac29bf5706582139a75b69bd7daef1550774275"
+        "desktop": "sha256:8b0e22c55436c49c6434e7ebfdc251ac4da0f5011389930939cdcb94a1c69fe2",
+        "mobile": "sha256:928176ce313aeb83696a24d1216688a54df66372cc5888c1047dbc1fd3de3222"
       },
       "raw_private_screenshot_included": false
     },
@@ -86,8 +109,8 @@
         "mobile": "visual-baseline-file:mobile:actions"
       },
       "baseline_hashes": {
-        "desktop": "sha256:4e0b7d501e2c629ce90379f618b77d1742daa2eb8c5867ee9ddd0654c4794182",
-        "mobile": "sha256:73c9c3263287235b371907ce517412c819967879a94a79a65fef3857fec1a187"
+        "desktop": "sha256:7fbc451a258339748567ec9aae07ebd5854c1cc1de0d2675385fc4a1e1c1990e",
+        "mobile": "sha256:ac4b2b9ed31fbcb1d388a1d72a5d6ecd41c69b994c2912f13384214a5ac8b1ee"
       },
       "raw_private_screenshot_included": false
     },
@@ -101,8 +124,8 @@
         "mobile": "visual-baseline-file:mobile:plans"
       },
       "baseline_hashes": {
-        "desktop": "sha256:a32eea6f91b636e9569ff48635d7e9f8db3b2dd8464b919e07f2546db3f75eca",
-        "mobile": "sha256:585098e0f2ec504f6a11c68ced5889bffe09deb12242be694646545cc5d198a7"
+        "desktop": "sha256:feed3f55112c77e56ae5e3cbe5d5783bb1708f0993c92ff13c2a1aa189044273",
+        "mobile": "sha256:a1524adb66f250dcd5905cdc19a5df44c5be06ea96ccc3debb9f93960fc5acea"
       },
       "raw_private_screenshot_included": false
     },
@@ -116,8 +139,8 @@
         "mobile": "visual-baseline-file:mobile:proof"
       },
       "baseline_hashes": {
-        "desktop": "sha256:709c9a9e26dfa1543d346ea46987f972ba206a9cfda927bedb99f30dc53c1c49",
-        "mobile": "sha256:6498af85ddf2c8a3650369149ce07324447c0c0696bc9303f5b5e2679a90b28c"
+        "desktop": "sha256:fd2268086cf8d3ff3de4af043fd36fd721df5f1f45080f5cea81eae5888487d2",
+        "mobile": "sha256:e967d9362cb62d58a0b1c518ff04b093411511b04d63048008d58e97cea4e372"
       },
       "raw_private_screenshot_included": false
     },
@@ -131,8 +154,8 @@
         "mobile": "visual-baseline-file:mobile:trust"
       },
       "baseline_hashes": {
-        "desktop": "sha256:1986af0512e9966778e6f3f04ee4f9b404a29790029ce77ec0e901db8d1edc96",
-        "mobile": "sha256:7018162842bef2dab2d4f31ba21c91d8233aa087d39333a073798bc5a4fbcf06"
+        "desktop": "sha256:cdf511ca74d7696278779cd2875f7041c8486a1db547d2744a7e076e9ee40efd",
+        "mobile": "sha256:db9970283bd87c708a663f4f9d645a79585d05e11304ce7206e7080592a9afde"
       },
       "raw_private_screenshot_included": false
     },
@@ -146,8 +169,8 @@
         "mobile": "visual-baseline-file:mobile:memory"
       },
       "baseline_hashes": {
-        "desktop": "sha256:597a83c5c8de86c34de15085b24ecbddefc6a8f53108a678a8d10e5251bbf5e6",
-        "mobile": "sha256:8c053c2b8a0a4c22181ae1ae67f643579a3a7f785f2b85f0f3cc7b4e6d438daa"
+        "desktop": "sha256:571725063ec81811c9dcf88af34bf23c7ed61d2e41e20a4038f3e0f581a3b799",
+        "mobile": "sha256:9daf2d237816319e6db0734fa820d9ca10fb6c14de7631d536994490b10516fd"
       },
       "raw_private_screenshot_included": false
     },
@@ -161,8 +184,8 @@
         "mobile": "visual-baseline-file:mobile:evidence"
       },
       "baseline_hashes": {
-        "desktop": "sha256:e21f6dc8d04a3d2aa3d1f50f52d104697c5492335bf51631728786d6ec48ce42",
-        "mobile": "sha256:e58b1bda200270db8916d34279d9f64ebaf5f6476d34c4bd1e581a0e934b8a57"
+        "desktop": "sha256:58028398f5f9f86868ab32d3dac34e0798e0486b151cec581e7bfabca17ad749",
+        "mobile": "sha256:52055e44b9064a9c7993010ac8d9ea25755759ffe1d465156230665b68ef5f25"
       },
       "raw_private_screenshot_included": false
     },
@@ -176,8 +199,8 @@
         "mobile": "visual-baseline-file:mobile:settings"
       },
       "baseline_hashes": {
-        "desktop": "sha256:31c05d88fabd522f4e27ae2b7cfc208ceee9630c711655a5bb2f5e52c29f1b10",
-        "mobile": "sha256:4aeac5be3e0e85312d08b16338dc1cb72d7e9b132ba0a532884544cfe7d9faec"
+        "desktop": "sha256:7acfe7d221101ecc08af336cd85cee92532a6490f923e3a6dfb76e13aaba4bf3",
+        "mobile": "sha256:e83dd48d505f01fa1f51f15e27f2c075c2a2e85c2baac48c16acc24bbec387c5"
       },
       "raw_private_screenshot_included": false
     },
@@ -191,8 +214,8 @@
         "mobile": "visual-baseline-file:mobile:setup"
       },
       "baseline_hashes": {
-        "desktop": "sha256:740fae48197934c56d3037d2d3280a7c1bff58930e09c1cd20d2becced7412d7",
-        "mobile": "sha256:19a8d8103b01972f1991a3fb6bcc35392a8c10219acfdf257e4ee6ab5d376a60"
+        "desktop": "sha256:c4130a499fc89682693160877b1681bd7771707a8b3016584a4c87cadeca2fa3",
+        "mobile": "sha256:c3fca7bdb85d3f43df92f3d0c5edabd3ac654c008318387fe97872b1a44a9475"
       },
       "raw_private_screenshot_included": false
     }

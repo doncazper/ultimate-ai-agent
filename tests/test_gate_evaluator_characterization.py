@@ -343,6 +343,9 @@ def test_static_safety_evaluator_data_exemption_is_scoped() -> None:
         "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py"
     )
     legacy_support_file = "src/ultimate_ai_agent/core/gate/legacy_support.py"
+    web_hybrid_policy_file = (
+        "src/ultimate_ai_agent/core/gate/web_hybrid_static_policy.py"
+    )
     legacy_check_family_files = {
         f"src/ultimate_ai_agent/core/gate/legacy_check_families/part_{part_number:03d}.py"
         for part_number in range(1, 45)
@@ -367,6 +370,7 @@ def test_static_safety_evaluator_data_exemption_is_scoped() -> None:
             legacy_checks_file,
             route_boundary_data_file,
             legacy_support_file,
+            web_hybrid_policy_file,
         }
         | legacy_check_family_files
         | criteria_family_files

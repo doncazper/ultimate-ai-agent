@@ -2,15 +2,8 @@ from __future__ import annotations
 from typing import Any
 from ultimate_ai_agent.core.autonomy import (
     M131_MAX_WORK_SESSION_SECONDS,
-    AutonomyAuthorityMode,
     AutonomyRiskClass,
-    Mode4ScopedWorkSessionPolicy,
     Mode4ScopedWorkSessionRequest,
-    Mode4ScopedWorkSessionStatus,
-    build_mode4_scoped_work_session_decision,
-    validate_mode4_scoped_work_session_decision,
-    validate_mode4_scoped_work_session_policy,
-    validate_mode4_scoped_work_session_request,
 )
 
 

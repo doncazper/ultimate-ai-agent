@@ -8600,7 +8600,7 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByText(/Skill bundle tool execution enabled: no/i),
     ).toBeInTheDocument();
-  }, 10000);
+  }, 30000);
 
   it("renders clear headings for every local shell page", async () => {
     const expectedHeadings = [

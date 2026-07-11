@@ -1,9 +1,5 @@
-from .adapters import (
-    snapshot_from_capability_catalog_entry,
-    snapshot_from_capability_manifest,
-    snapshot_from_extension_catalog_entry,
-    snapshot_from_provider_manifest,
-)
+from importlib import import_module
+
 from .contracts import (
     CAPABILITY_AVAILABILITY_CLI_REF,
     CAPABILITY_AVAILABILITY_READ_MODEL_SCHEMA_VERSION,
@@ -36,10 +32,26 @@ from .contracts import (
     derive_runtime_readiness,
     evaluate_capability_invocation,
 )
-from .read_model import (
-    build_capability_availability_read_model,
-    build_web_hybrid_availability_read_model,
-)
+
+_LAZY_EXPORT_MODULES = {
+    "build_capability_availability_read_model": ".read_model",
+    "build_web_hybrid_availability_read_model": ".read_model",
+    "snapshot_from_capability_catalog_entry": ".adapters",
+    "snapshot_from_capability_manifest": ".adapters",
+    "snapshot_from_extension_catalog_entry": ".adapters",
+    "snapshot_from_provider_manifest": ".adapters",
+}
+
+
+def __getattr__(name: str):
+    """Load provider-backed adapters only when their public export is requested."""
+
+    module_name = _LAZY_EXPORT_MODULES.get(name)
+    if module_name is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    value = getattr(import_module(module_name, __name__), name)
+    globals()[name] = value
+    return value
 
 __all__ = [
     "CAPABILITY_AVAILABILITY_CLI_REF",

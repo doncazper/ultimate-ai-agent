@@ -2,14 +2,8 @@ from __future__ import annotations
 from typing import Any
 from ultimate_ai_agent.core.gate.checkpoint_builders.m89_emergency_stop_process_kill_safety import _request as _m89_request
 from ultimate_ai_agent.core.sandbox import (
-    ShellSubprocessHardeningFreezePolicy,
     ShellSubprocessHardeningFreezeRequest,
-    ShellSubprocessHardeningFreezeStatus,
     build_emergency_stop_process_kill_safety,
-    build_shell_subprocess_hardening_freeze,
-    validate_shell_subprocess_hardening_freeze_decision,
-    validate_shell_subprocess_hardening_freeze_policy,
-    validate_shell_subprocess_hardening_freeze_request,
 )
 
 

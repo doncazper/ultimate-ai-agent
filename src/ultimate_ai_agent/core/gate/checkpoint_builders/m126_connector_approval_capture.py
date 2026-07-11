@@ -1,7 +1,7 @@
 from __future__ import annotations
+
 from typing import Any
 from datetime import timedelta
-from functools import lru_cache
 from importlib import import_module
 from ultimate_ai_agent.core.mobile_companion import (
     build_mobile_approval_renewal_ux_report,
@@ -28,7 +28,7 @@ def _connectors() -> Any:
     try:
         return import_module("ultimate_ai_agent.core.connectors")
     except ModuleNotFoundError as exc:
-        pytest.fail(f"M126 connectors package missing: {exc}")
+        raise RuntimeError("M126 connectors package missing") from exc
 
 
 def _m120_source_record() -> Any:

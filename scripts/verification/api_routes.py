@@ -166,8 +166,21 @@ def append_route_fixture_mismatches(
     fixture = route_fixture()
     if fixture.get("schema_version") != ROUTE_FIXTURE_SCHEMA_VERSION:
         failures.append(f"{label} schema_version is stale")
-    if fixture.get("routes") != projected_routes(manifest):
+    projected = projected_routes(manifest)
+    if fixture.get("routes") != projected:
         failures.append(f"{label} does not match live manifest")
+        fixture_routes = fixture.get("routes", [])
+        if isinstance(fixture_routes, list):
+            fixture_keys = {
+                route_key(route)
+                for route in fixture_routes
+                if isinstance(route, dict) and "method" in route and "path" in route
+            }
+            projected_keys = {route_key(route) for route in projected}
+            for method, path in sorted(fixture_keys - projected_keys):
+                failures.append(f"{label} live manifest missing {method} {path}")
+            for method, path in sorted(projected_keys - fixture_keys):
+                failures.append(f"{label} live manifest added {method} {path}")
     for key in [
         "route_classification_vocabulary",
         "route_classification_summary",

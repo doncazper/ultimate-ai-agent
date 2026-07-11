@@ -66,19 +66,15 @@ def test_combined_api_verifier_lane_executes_all_specs(monkeypatch) -> None:
     assert calls == [spec.milestone_id for spec in api_lane.API_VERIFIER_SPECS]
 
 
-def test_verify_all_uses_cached_api_verifier_lane(monkeypatch) -> None:
-    calls: list[str] = []
+def test_verify_all_uses_one_isolated_api_verifier_lane(monkeypatch) -> None:
+    calls: list[tuple[list[str], dict[str, str]]] = []
 
     monkeypatch.setattr(run_all_legacy, "_P1_API_VERIFIER_LANE_RAN", False)
+    monkeypatch.setenv("PYTHONPATH", "inherited-source-ref")
     monkeypatch.setattr(
         run_all_legacy,
         "run_cmd",
-        lambda command, **_kwargs: pytest.fail(f"unexpected process launch: {command}"),
-    )
-    monkeypatch.setattr(
-        api_lane,
-        "run_api_verifier_lane",
-        lambda: calls.append("lane") or 0,
+        lambda command, *, env, **_kwargs: calls.append((command, env)),
     )
 
     run_all_legacy.verify_uaa_p1_080_api_route_classification()
@@ -89,4 +85,10 @@ def test_verify_all_uses_cached_api_verifier_lane(monkeypatch) -> None:
     run_all_legacy.verify_uaa_p1_085_targeted_rate_limits()
     run_all_legacy.verify_uaa_p1_086_api_boundary_enforcement_tests()
 
-    assert calls == ["lane"]
+    assert len(calls) == 1
+    command, env = calls[0]
+    assert command == [run_all_legacy.sys.executable, "scripts/verification/api_lane.py"]
+    assert env["PYTHONPATH"].split(run_all_legacy.os.pathsep)[0] == str(
+        run_all_legacy.ROOT / "src"
+    )
+    assert env["PYTHONPATH"].split(run_all_legacy.os.pathsep)[1] == "inherited-source-ref"

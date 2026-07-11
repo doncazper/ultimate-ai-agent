@@ -36,6 +36,27 @@ REQUIRED_STATE_SCENARIOS = {
     "state-partial",
     "state-success",
 }
+EXPECTED_PLATFORM_POSTURE = {
+    "macos": {
+        "status": "implemented",
+        "render_ref": "visual-baselines:control-center:macos-canonical",
+        "compatibility_claimed": True,
+    },
+    "linux": {
+        "status": "render_placeholder",
+        "render_ref": "visual-placeholder:control-center:linux",
+        "compatibility_claimed": False,
+        "activation_posture": "deferred_until_backend_production_ready",
+        "port_source": "then-current-macos-canonical",
+    },
+    "windows": {
+        "status": "render_placeholder",
+        "render_ref": "visual-placeholder:control-center:windows",
+        "compatibility_claimed": False,
+        "activation_posture": "deferred_until_backend_production_ready",
+        "port_source": "then-current-macos-canonical",
+    },
+}
 FORBIDDEN_FRAGMENTS = (
     "/Users/",
     "\\Users\\",
@@ -59,13 +80,17 @@ def validate_manifest(manifest: dict) -> list[str]:
     failures.extend(_validate_tooling())
     if manifest.get("schema_version") != "uaa-control-center-visual-regression.v1":
         failures.append("visual regression manifest schema version is not current")
-    if "pending" in str(manifest.get("status", "")).lower():
-        failures.append("visual regression manifest status must not be pending")
+    if manifest.get("status") != "active checked-in macOS visual baseline":
+        failures.append("visual regression manifest status must identify the active macOS baseline")
     if manifest.get("playwright_dependency_status") != "control-center devDependency":
         failures.append("visual regression manifest must record Playwright as a Control Center devDependency")
     policy = manifest.get("baseline_policy", {})
     if policy.get("checked_in_redacted_baselines_required") is not True:
         failures.append("visual baselines must require checked-in redacted baselines")
+    if policy.get("canonical_platform") != "macos":
+        failures.append("visual baselines must declare macOS as the canonical platform")
+    if policy.get("non_macos_baselines_allowed") is not False:
+        failures.append("visual baselines must keep non-macOS baselines disabled")
     for flag in [
         "raw_private_screenshots_allowed",
         "absolute_paths_allowed",
@@ -74,6 +99,10 @@ def validate_manifest(manifest: dict) -> list[str]:
     ]:
         if policy.get(flag) is not False:
             failures.append(f"visual baseline policy must deny {flag}")
+    if manifest.get("platform_posture") != EXPECTED_PLATFORM_POSTURE:
+        failures.append(
+            "visual platform posture must implement macOS and keep Linux/Windows as deferred render placeholders"
+        )
     surfaces = manifest.get("surfaces", [])
     surface_names = {str(surface.get("surface")) for surface in surfaces if isinstance(surface, dict)}
     for surface in sorted(REQUIRED_SURFACES - surface_names):
