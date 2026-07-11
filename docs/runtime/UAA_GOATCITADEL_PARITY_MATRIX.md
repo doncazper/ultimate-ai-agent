@@ -26,9 +26,9 @@ Status meanings:
 
 | Area | Status | UAA implementation evidence | GoatCitadel implementation evidence | Concrete gap to tie or lead |
 |---|---|---|---|---|
-| Durable orchestration | GoatCitadel ahead | `src/ultimate_ai_agent/core/execution/durable_runs.py`, `run_storage.py`, and `staged_orchestration.py` provide append-first state, replay checks, dependencies, checkpoints, and exact RuntimeGateway command steps. `core/authority/dispatcher.py` adds durable governed dispatch, and one synchronous exact filesystem-metadata MissionRunner step consumes it through a fenced, hash-chained ledger with an immutable dispatch ref/request fingerprint, one pre-execute renewal, terminal replay, and redacted exact API/CLI inspection. | `apps/gateway/src/services/durable-run-service.ts` implements leases, heartbeats, retry budgets, boot recovery, resume, cancel, dead-letter recovery, and workflow execution; `orchestration-lifecycle-service.ts` binds live phases and child-run recovery. | Add multi-step scheduling, a periodic/background heartbeat loop, approval waits, retry budgets, after-start cancellation, settlement/dead-letter recovery, boot reconciliation, mutation controls, and Control Center parity. |
+| Durable orchestration | GoatCitadel ahead | `src/ultimate_ai_agent/core/execution/durable_runs.py`, `run_storage.py`, and `staged_orchestration.py` provide append-first state, replay checks, dependencies, checkpoints, and exact RuntimeGateway command steps. `core/authority/dispatcher.py`, `durable_mission_plans.py`, `durable_mission_steps.py`, `mission_runner.py`, and `mission_orchestrator.py` now provide immutable full-plan/request bindings plus bounded synchronous topological execution of exact filesystem-metadata steps with mission-scoped lease preflight, per-step authority evaluation, atomic start deadlines, terminal replay, fail-fast dependency evidence, and redacted exact step inspection. | `apps/gateway/src/services/durable-run-service.ts` implements leases, heartbeats, retry budgets, boot recovery, resume, cancel, dead-letter recovery, and workflow execution; `orchestration-lifecycle-service.ts` binds live phases and child-run recovery. | Add background scheduling, a periodic heartbeat/lease-renewal loop, approval waits, retry budgets, after-start cancellation, mission completion receipts, settlement/dead-letter recovery, boot reconciliation, mutation controls, broader adapters, and Control Center parity. |
 | Tool execution | GoatCitadel ahead | `core/authority/dispatcher.py` is a central typed dispatch boundary over explicitly injected safe tool-runtime adapters. Focused proof executes useful filesystem metadata and deterministic no-op with lease, exact approval where required, budget, start, settlement, cancellation, evidence, replay, and concurrency binding. There is no API/CLI mutation surface or universal tool catalog migration yet. | `apps/gateway/src/routes/tools-invoke.ts` and the tool invocation services provide a central callable tool route with policy and browser-action verification; orchestration invokes tools during live runs. | Add CLI/API/Control Center parity, route an implemented catalog through the dispatcher, and promote additional useful capabilities individually under AuthorityLease without broad dynamic dispatch. |
-| Evidence receipts | Mixed | UAA has redacted runtime receipts, action signed evidence, portable local evidence envelopes, append-first receipt hashes, replay validation, and full-history hash-chained AuthorityLease budget, dispatch, and mission-step ledgers. The exact MissionRunner step cross-ledger validates terminal dispatch receipt/hash refs into safe mission-step lineage without persisting raw input, paths, content, or output. | `apps/gateway/src/services/evidence-receipt-service.ts` signs canonical manifests with Ed25519 and verifies them offline; receipts include run lineage, approvals, artifacts, and side effects. | Extend lineage across scheduled multi-step missions, then add offline cryptographic verification without persisting raw execution content. |
+| Evidence receipts | Mixed | UAA has redacted runtime receipts, action signed evidence, portable local evidence envelopes, append-first receipt hashes, replay validation, and full-history hash-chained AuthorityLease budget, dispatch, mission-plan, and mission-step ledgers. Bounded synchronous missions bind every step definition and dispatch request to one immutable plan and cross-ledger terminal evidence without persisting raw input, paths, content, or output. | `apps/gateway/src/services/evidence-receipt-service.ts` signs canonical manifests with Ed25519 and verifies them offline; receipts include run lineage, approvals, artifacts, and side effects. | Add a durable mission-completion receipt and offline cryptographic verification without persisting raw execution content. |
 | Memory | GoatCitadel ahead | UAA has reviewed memory decisions, lifecycle receipts, provenance, quality grouping, explicit context-pack previews, and no-hidden-injection rules. | `apps/gateway/src/services/memory-lifecycle-service.ts` implements broad lifecycle, recall, feedback, dedupe, quality, maintenance, structured scope, and write-gate behavior used by the runtime. | Bind reviewed UAA memory to live mission context under explicit leases while preserving recall-not-truth and operator review boundaries. |
 | Provider observability | GoatCitadel ahead | UAA exposes provider readiness, exact approved tiny invocation lanes, CostGovernor posture, runtime measurements, local loopback receipts, and durable AuthorityLease operation/cost counters. The counters are not yet dispatcher-bound to provider execution; broad provider calls remain blocked. | GoatCitadel has a multi-provider runtime, per-step model selection, usage accounting, stream handling, and `llm-runtime-truth-service.ts` measurement/readiness truth. | Bind one fully configured provider lane to the durable budget ledger with authenticated CostGovernor decision, actual usage/cost settlement, runtime observability, failure receipts, and mission-step integration; external credentials may block live proof. |
 | Operator cockpit UX | GoatCitadel ahead | Control Center exposes Founder Loop, Trust, Proof, Evidence, runtime readiness, capability posture, and AuthorityLease mode/lease state. | Mission Control ships Work, Projects, Library, Ops, and Settings with live Run Detail, approvals, providers, memory, tools, skills, runtime health, and spend surfaces. | Build the Authority cockpit and live Mission progress/approval/recovery workflow without raw JSON as the primary operator surface. |
@@ -162,3 +162,33 @@ engine, API/CLI/UI mutation surface, approval-wait loop, retry budget,
 after-start cancellation path, settlement recovery worker, or dead-letter
 system. No provider/model, shell, browser, connector-write, production, or
 generic plugin authority was added.
+
+### AuthorityLease bounded synchronous mission orchestration V1
+
+This milestone closes the bounded synchronous dependency gap only:
+
+- one immutable safe-ref plan binds ordered membership, dependencies, exact
+  definitions, complete dispatch request fingerprints, deadlines, mission, and
+  run before execution;
+- accepted-plan membership is enforced at step creation and claim, while every
+  step still routes exclusively through MissionOrchestrator, MissionRunner, and
+  AuthorityDispatcher; a locked plan-wide fail-fast guard closes crash and
+  direct-runner windows;
+- stable topological execution re-evaluates current authority for each attempted
+  step, terminal replay does not duplicate adapter starts, and fail-fast records
+  durable dependency-blocked or halted evidence for all unscheduled work;
+- a trusted start-admission timestamp binds deadline, lease, approval, and cost
+  expiry checks inside the locked pre-start boundary;
+- legacy V1 mission-step and dispatch ledger hashes remain readable.
+
+Evidence:
+
+- `src/ultimate_ai_agent/core/execution/durable_mission_plans.py`
+- `src/ultimate_ai_agent/core/execution/mission_orchestrator.py`
+- `tests/test_authority_mission_orchestrator.py`
+- `tests/test_authority_mission_orchestrator_hardening.py`
+
+GoatCitadel remains ahead. UAA still lacks a default-on local background worker,
+periodic heartbeats, boot reconciliation, approval waits, retry/dead-letter
+semantics, mission cancellation, mission-completion receipts, and operator
+execution controls.

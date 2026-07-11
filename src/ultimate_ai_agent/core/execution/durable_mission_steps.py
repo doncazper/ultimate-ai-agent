@@ -26,6 +26,7 @@ from ultimate_ai_agent.core.time import utc_now
 MISSION_STEP_SCHEMA_VERSION = "uaa-mission-step.v1"
 MISSION_STEP_LEDGER_FILE = "mission_step_receipts.jsonl"
 MISSION_STEP_LOCK_KEY = "authority-mission-steps"
+MISSION_PLAN_MATERIALIZATION_LOCK_KEY = "authority-mission-plan-materialization"
 MISSION_STEP_LEDGER_MAX_BYTES = 8 * 1024 * 1024
 MISSION_STEP_LEDGER_MAX_RECEIPTS = 10_000
 
@@ -49,6 +50,8 @@ class MissionStepStatus(str, Enum):
     failed = "failed"
     cancelled = "cancelled"
     recovery_required = "recovery_required"
+    dependency_blocked = "dependency_blocked"
+    fail_fast_halted = "fail_fast_halted"
 
 
 TERMINAL_MISSION_STEP_STATUSES = {
@@ -56,6 +59,8 @@ TERMINAL_MISSION_STEP_STATUSES = {
     MissionStepStatus.failed.value,
     MissionStepStatus.cancelled.value,
     MissionStepStatus.recovery_required.value,
+    MissionStepStatus.dependency_blocked.value,
+    MissionStepStatus.fail_fast_halted.value,
 }
 
 
@@ -80,6 +85,9 @@ class MissionStepDefinition(_MissionStepModel):
     adapter_ref: str
     lease_ref: str
     dependency_step_refs: list[str] = Field(default_factory=list)
+    orchestration_plan_ref: str | None = None
+    planned_dispatch_ref: str | None = None
+    planned_dispatch_request_fingerprint_ref: str | None = None
     max_attempts: Literal[1] = 1
     deadline: datetime
     safe_summary: str = Field(..., min_length=1, max_length=320)
@@ -96,10 +104,29 @@ class MissionStepDefinition(_MissionStepModel):
             *[(ref, "dependency_step_ref") for ref in self.dependency_step_refs],
         ]:
             validate_task_ref(value, name)
+        for value, name in [
+            (self.orchestration_plan_ref, "mission_step_orchestration_plan_ref"),
+            (self.planned_dispatch_ref, "mission_step_planned_dispatch_ref"),
+            (
+                self.planned_dispatch_request_fingerprint_ref,
+                "mission_step_planned_dispatch_request_fingerprint_ref",
+            ),
+        ]:
+            if value is not None:
+                validate_task_ref(value, name)
         if self.step_ref in self.dependency_step_refs:
             raise ValueError("MISSION_STEP_SELF_DEPENDENCY_DENIED")
         if len(self.dependency_step_refs) != len(set(self.dependency_step_refs)):
             raise ValueError("MISSION_STEP_DUPLICATE_DEPENDENCY_DENIED")
+        planned_values = (
+            self.orchestration_plan_ref,
+            self.planned_dispatch_ref,
+            self.planned_dispatch_request_fingerprint_ref,
+        )
+        if any(value is not None for value in planned_values) and not all(
+            value is not None for value in planned_values
+        ):
+            raise ValueError("MISSION_STEP_PLANNED_DISPATCH_BINDING_INCOMPLETE")
         if self.deadline.tzinfo is None:
             raise ValueError("MISSION_STEP_DEADLINE_TIMEZONE_REQUIRED")
         validate_safe_task_text(self.safe_summary, "mission_step_safe_summary")
@@ -107,7 +134,16 @@ class MissionStepDefinition(_MissionStepModel):
 
     @property
     def fingerprint_ref(self) -> str:
-        return _safe_ref("mission-step-fingerprint-ref", self.model_dump(mode="json"))
+        return _safe_ref("mission-step-fingerprint-ref", _definition_payload(self))
+
+
+def _definition_payload(definition: MissionStepDefinition) -> dict[str, Any]:
+    payload = definition.model_dump(mode="json")
+    if definition.orchestration_plan_ref is None:
+        payload.pop("orchestration_plan_ref", None)
+        payload.pop("planned_dispatch_ref", None)
+        payload.pop("planned_dispatch_request_fingerprint_ref", None)
+    return payload
 
 
 class MissionStepReceipt(_MissionStepModel):
@@ -128,6 +164,8 @@ class MissionStepReceipt(_MissionStepModel):
     dispatch_request_fingerprint_ref: str | None = None
     dispatch_receipt_ref: str | None = None
     dispatch_entry_hash_ref: str | None = None
+    blocked_dependency_step_ref: str | None = None
+    halted_by_step_ref: str | None = None
     reason_refs: list[str] = Field(default_factory=list)
     evidence_refs: list[str] = Field(default_factory=list)
     checked_at: datetime = Field(default_factory=utc_now)
@@ -149,6 +187,11 @@ class MissionStepReceipt(_MissionStepModel):
             ),
             (self.dispatch_receipt_ref, "mission_step_dispatch_receipt_ref"),
             (self.dispatch_entry_hash_ref, "mission_step_dispatch_entry_hash_ref"),
+            (
+                self.blocked_dependency_step_ref,
+                "mission_step_blocked_dependency_ref",
+            ),
+            (self.halted_by_step_ref, "mission_step_halted_by_step_ref"),
             *[(ref, "mission_step_reason_ref") for ref in self.reason_refs],
             *[(ref, "mission_step_evidence_ref") for ref in self.evidence_refs],
         ]:
@@ -160,6 +203,12 @@ class MissionStepReceipt(_MissionStepModel):
             raise ValueError("MISSION_STEP_CLAIM_POSTURE_INVALID")
         if self.status in TERMINAL_MISSION_STEP_STATUSES and not self.reason_refs:
             raise ValueError("MISSION_STEP_TERMINAL_REASON_REQUIRED")
+        dependency_blocked = self.status == MissionStepStatus.dependency_blocked.value
+        if dependency_blocked != (self.blocked_dependency_step_ref is not None):
+            raise ValueError("MISSION_STEP_DEPENDENCY_BLOCK_BINDING_INVALID")
+        fail_fast_halted = self.status == MissionStepStatus.fail_fast_halted.value
+        if fail_fast_halted != (self.halted_by_step_ref is not None):
+            raise ValueError("MISSION_STEP_FAIL_FAST_HALT_BINDING_INVALID")
         if self.definition_fingerprint_ref != self.definition.fingerprint_ref:
             raise ValueError("MISSION_STEP_DEFINITION_FINGERPRINT_INVALID")
         return self
@@ -177,11 +226,33 @@ class MissionStepReadModel(_MissionStepModel):
     dispatch_request_fingerprint_ref: str | None
     dispatch_receipt_ref: str | None
     dispatch_entry_hash_ref: str | None
+    blocked_dependency_step_ref: str | None = None
+    halted_by_step_ref: str | None = None
     reason_refs: list[str]
     evidence_refs: list[str]
     receipt_ref: str
     execution_authority_granted: Literal[False] = False
     autonomous_retry_enabled: Literal[False] = False
+
+
+class MissionStepOrchestrationContext(_MissionStepModel):
+    plan_ref: str
+    plan_fingerprint_ref: str
+    plan_receipt_ref: str
+    ordered_step_refs: list[str] = Field(..., min_length=1, max_length=16)
+
+    @model_validator(mode="after")
+    def validate_context(self) -> "MissionStepOrchestrationContext":
+        for value, name in [
+            (self.plan_ref, "mission_step_plan_ref"),
+            (self.plan_fingerprint_ref, "mission_step_plan_fingerprint_ref"),
+            (self.plan_receipt_ref, "mission_step_plan_receipt_ref"),
+            *[(ref, "mission_step_plan_member_ref") for ref in self.ordered_step_refs],
+        ]:
+            validate_task_ref(value, name)
+        if len(self.ordered_step_refs) != len(set(self.ordered_step_refs)):
+            raise ValueError("MISSION_STEP_PLAN_CONTEXT_DUPLICATE_STEP")
+        return self
 
 
 class _MissionStepInspectionSource(_MissionStepModel):
@@ -209,13 +280,22 @@ class _MissionStepInspectionSource(_MissionStepModel):
 
 
 def _entry_hash(receipt: MissionStepReceipt) -> str:
+    payload = receipt.model_dump(mode="json", exclude={"entry_hash_ref"})
+    payload["definition"] = _definition_payload(receipt.definition)
+    if receipt.blocked_dependency_step_ref is None:
+        payload.pop("blocked_dependency_step_ref", None)
+    if receipt.halted_by_step_ref is None:
+        payload.pop("halted_by_step_ref", None)
     return _safe_ref(
         "mission-step-entry-hash-ref",
-        receipt.model_dump(mode="json", exclude={"entry_hash_ref"}),
+        payload,
     )
 
 
 DispatchReceiptResolver = Callable[[str], AuthorityDispatchReceipt | None]
+PlanBindingResolver = Callable[
+    [MissionStepDefinition], MissionStepOrchestrationContext | None
+]
 
 
 class MissionStepStore:
@@ -230,6 +310,7 @@ class MissionStepStore:
         self.lock_manager = authority_state_lock_manager(str(state_dir.resolve()))
         self._clock = clock
         self._dispatch_receipt_resolver: DispatchReceiptResolver | None = None
+        self._plan_binding_resolver: PlanBindingResolver | None = None
 
     def current_time(self) -> datetime:
         current = self._clock()
@@ -245,24 +326,104 @@ class MissionStepStore:
             raise ValueError("MISSION_STEP_DISPATCH_RESOLVER_ALREADY_BOUND")
         self._dispatch_receipt_resolver = resolver
 
+    def _bind_plan_binding_resolver(self, resolver: PlanBindingResolver) -> None:
+        if self._plan_binding_resolver is not None:
+            raise ValueError("MISSION_STEP_PLAN_RESOLVER_ALREADY_BOUND")
+        self._plan_binding_resolver = resolver
+
     def create(self, definition: MissionStepDefinition) -> MissionStepReceipt:
+        with self.lock_manager.acquire(MISSION_PLAN_MATERIALIZATION_LOCK_KEY):
+            self._require_plan_binding(definition)
+            with self.lock_manager.acquire(MISSION_STEP_LOCK_KEY):
+                receipts = self._load()
+                return self._create_from_loaded(receipts, definition)
+
+    def _preflight_definitions_under_orchestration_lock(
+        self,
+        definitions: list[MissionStepDefinition],
+    ) -> None:
+        """Validate a complete batch while the caller holds authority state."""
+
         with self.lock_manager.acquire(MISSION_STEP_LOCK_KEY):
             receipts = self._load()
-            existing = self._latest(receipts, definition.step_ref)
-            if existing is not None:
-                if existing.definition_fingerprint_ref != definition.fingerprint_ref:
+            for definition in definitions:
+                existing = self._latest(receipts, definition.step_ref)
+                if (
+                    existing is not None
+                    and existing.definition_fingerprint_ref
+                    != definition.fingerprint_ref
+                ):
                     raise MissionStepConflictError("MISSION_STEP_DEFINITION_CONFLICT")
-                return existing
-            receipt = self._build(
-                receipts,
-                definition=definition,
-                status=MissionStepStatus.pending,
-                generation=0,
-                checked_at=self.current_time(),
-                safe_summary="Mission step is pending a fenced owner claim.",
+
+    def _materialize_definitions_under_orchestration_lock(
+        self,
+        definitions: list[MissionStepDefinition],
+    ) -> list[MissionStepReceipt]:
+        """Create an accepted plan's definitions as one conflict-checked batch."""
+
+        for definition in definitions:
+            self._require_plan_binding(definition)
+        with self.lock_manager.acquire(MISSION_STEP_LOCK_KEY):
+            receipts = self._load()
+            for definition in definitions:
+                existing = self._latest(receipts, definition.step_ref)
+                if (
+                    existing is not None
+                    and existing.definition_fingerprint_ref
+                    != definition.fingerprint_ref
+                ):
+                    raise MissionStepConflictError("MISSION_STEP_DEFINITION_CONFLICT")
+            created: list[MissionStepReceipt] = []
+            for definition in definitions:
+                receipt = self._create_from_loaded(receipts, definition)
+                created.append(receipt)
+                if receipt.sequence == len(receipts) + 1:
+                    receipts.append(receipt)
+            return created
+
+    def _create_from_loaded(
+        self,
+        receipts: list[MissionStepReceipt],
+        definition: MissionStepDefinition,
+    ) -> MissionStepReceipt:
+        existing = self._latest(receipts, definition.step_ref)
+        if existing is not None:
+            if existing.definition_fingerprint_ref != definition.fingerprint_ref:
+                raise MissionStepConflictError("MISSION_STEP_DEFINITION_CONFLICT")
+            return existing
+        receipt = self._build(
+            receipts,
+            definition=definition,
+            status=MissionStepStatus.pending,
+            generation=0,
+            checked_at=self.current_time(),
+            safe_summary="Mission step is pending a fenced owner claim.",
+        )
+        self._append(receipt)
+        return receipt
+
+    def _require_plan_binding(
+        self,
+        definition: MissionStepDefinition,
+    ) -> MissionStepOrchestrationContext | None:
+        if self._plan_binding_resolver is None:
+            if definition.orchestration_plan_ref is not None:
+                raise MissionStepConflictError(
+                    "MISSION_STEP_ACCEPTED_PLAN_BINDING_REQUIRED"
+                )
+            return None
+        resolved = self._plan_binding_resolver(definition)
+        if definition.orchestration_plan_ref is None:
+            if resolved is not None:
+                raise MissionStepConflictError(
+                    "MISSION_STEP_REF_RESERVED_BY_ACCEPTED_PLAN"
+                )
+            return None
+        if resolved is None:
+            raise MissionStepConflictError(
+                "MISSION_STEP_ACCEPTED_PLAN_BINDING_REQUIRED"
             )
-            self._append(receipt)
-            return receipt
+        return resolved
 
     def claim(
         self,
@@ -272,6 +433,7 @@ class MissionStepStore:
         ttl_seconds: int,
         dispatch_ref: str | None = None,
         dispatch_request_fingerprint_ref: str | None = None,
+        orchestration_context: MissionStepOrchestrationContext | None = None,
     ) -> MissionStepReceipt:
         validate_task_ref(owner_ref, "mission_step_owner_ref")
         if (dispatch_ref is None) != (dispatch_request_fingerprint_ref is None):
@@ -287,6 +449,32 @@ class MissionStepStore:
         with self.lock_manager.acquire(MISSION_STEP_LOCK_KEY):
             receipts = self._load()
             latest = self._require_latest(receipts, step_ref)
+            resolved_context = self._require_plan_binding(latest.definition)
+            if latest.definition.orchestration_plan_ref is not None:
+                if (
+                    orchestration_context is None
+                    or resolved_context is None
+                    or orchestration_context != resolved_context
+                ):
+                    raise MissionStepConflictError(
+                        "MISSION_STEP_ORCHESTRATION_CONTEXT_REQUIRED"
+                    )
+                for plan_step_ref in resolved_context.ordered_step_refs:
+                    plan_step = self._require_latest(receipts, plan_step_ref)
+                    if (
+                        plan_step.definition.orchestration_plan_ref
+                        != latest.definition.orchestration_plan_ref
+                    ):
+                        raise MissionStepConflictError(
+                            "MISSION_STEP_PLAN_MEMBERSHIP_INVALID"
+                        )
+                    self._require_plan_binding(plan_step.definition)
+                    if (
+                        plan_step.definition.step_ref != latest.definition.step_ref
+                        and plan_step.status in TERMINAL_MISSION_STEP_STATUSES
+                        and plan_step.status != MissionStepStatus.succeeded.value
+                    ):
+                        raise MissionStepConflictError("MISSION_STEP_FAIL_FAST_ACTIVE")
             if latest.status in TERMINAL_MISSION_STEP_STATUSES:
                 return latest
             if latest.definition.deadline <= current:
@@ -357,6 +545,14 @@ class MissionStepStore:
                 raise MissionStepConflictError(
                     "MISSION_STEP_DISPATCH_FINGERPRINT_CONFLICT"
                 )
+            if latest.definition.planned_dispatch_ref is not None and (
+                dispatch_ref != latest.definition.planned_dispatch_ref
+                or dispatch_request_fingerprint_ref
+                != latest.definition.planned_dispatch_request_fingerprint_ref
+            ):
+                raise MissionStepConflictError(
+                    "MISSION_STEP_PLANNED_DISPATCH_FINGERPRINT_CONFLICT"
+                )
             if (
                 latest.status == MissionStepStatus.claimed.value
                 and latest.claim_expires_at is not None
@@ -370,8 +566,11 @@ class MissionStepStore:
                     or dep.status != MissionStepStatus.succeeded.value
                     or dep.definition.mission_ref != latest.definition.mission_ref
                     or dep.definition.run_ref != latest.definition.run_ref
+                    or dep.definition.orchestration_plan_ref
+                    != latest.definition.orchestration_plan_ref
                 ):
                     raise MissionStepConflictError("MISSION_STEP_DEPENDENCY_NOT_READY")
+                self._require_plan_binding(dep.definition)
             generation = latest.generation + 1
             claim_ref = _safe_ref(
                 "mission-step-claim-ref",
@@ -518,6 +717,40 @@ class MissionStepStore:
                     latest,
                     dispatch_receipt,
                 )
+            elif latest.dispatch_ref is not None:
+                if dispatch_receipt is None:
+                    if not (
+                        status == MissionStepStatus.recovery_required
+                        and reason_refs
+                        == ["reason-ref:mission-step:dispatch-reconciliation-failed"]
+                    ):
+                        raise MissionStepConflictError(
+                            "MISSION_STEP_TERMINAL_DISPATCH_EVIDENCE_REQUIRED"
+                        )
+                else:
+                    dispatch_receipt = self._validate_durable_dispatch(
+                        latest,
+                        dispatch_receipt,
+                    )
+                    expected_statuses = {
+                        MissionStepStatus.failed: {
+                            AuthorityDispatchStatus.failed.value,
+                            AuthorityDispatchStatus.denied.value,
+                            AuthorityDispatchStatus.cancelled_before_start.value,
+                        },
+                        MissionStepStatus.cancelled: {
+                            AuthorityDispatchStatus.cancelled_before_start.value,
+                        },
+                        MissionStepStatus.recovery_required: {
+                            AuthorityDispatchStatus.started.value,
+                            AuthorityDispatchStatus.cancellation_pending.value,
+                        },
+                    }[status]
+                    if dispatch_receipt.status not in expected_statuses:
+                        raise MissionStepConflictError(
+                            "MISSION_STEP_TERMINAL_DISPATCH_STATUS_INVALID"
+                        )
+            if dispatch_receipt is not None:
                 dispatch_receipt_ref = dispatch_receipt.receipt_ref
                 dispatch_entry_hash_ref = dispatch_receipt.entry_hash_ref
             receipt = self._build_from(
@@ -615,10 +848,135 @@ class MissionStepStore:
             self._append(receipt)
             return receipt
 
+    def block_from_terminal_dependency(
+        self,
+        step_ref: str,
+        *,
+        dependency_step_ref: str,
+    ) -> MissionStepReceipt:
+        validate_task_ref(step_ref, "mission_step_ref")
+        validate_task_ref(dependency_step_ref, "mission_step_dependency_ref")
+        with self.lock_manager.acquire(MISSION_STEP_LOCK_KEY):
+            receipts = self._load()
+            latest = self._require_latest(receipts, step_ref)
+            if latest.status in TERMINAL_MISSION_STEP_STATUSES:
+                return latest
+            if latest.status != MissionStepStatus.pending.value:
+                raise MissionStepConflictError(
+                    "MISSION_STEP_DEPENDENCY_BLOCK_REQUIRES_PENDING"
+                )
+            if dependency_step_ref not in latest.definition.dependency_step_refs:
+                raise MissionStepConflictError("MISSION_STEP_DEPENDENCY_NOT_DECLARED")
+            dependency = self._require_latest(receipts, dependency_step_ref)
+            if (
+                dependency.definition.mission_ref != latest.definition.mission_ref
+                or dependency.definition.run_ref != latest.definition.run_ref
+                or latest.definition.orchestration_plan_ref is None
+                or dependency.definition.orchestration_plan_ref
+                != latest.definition.orchestration_plan_ref
+            ):
+                raise MissionStepConflictError("MISSION_STEP_DEPENDENCY_SCOPE_MISMATCH")
+            self._require_plan_binding(latest.definition)
+            self._require_plan_binding(dependency.definition)
+            if (
+                dependency.status not in TERMINAL_MISSION_STEP_STATUSES
+                or dependency.status == MissionStepStatus.succeeded.value
+            ):
+                raise MissionStepConflictError(
+                    "MISSION_STEP_DEPENDENCY_TERMINAL_FAILURE_REQUIRED"
+                )
+            receipt = self._build_from(
+                receipts,
+                latest,
+                status=MissionStepStatus.dependency_blocked,
+                generation=latest.generation,
+                blocked_dependency_step_ref=dependency_step_ref,
+                reason_refs=["reason-ref:mission-step:dependency-terminal"],
+                evidence_refs=[dependency.receipt_ref, dependency.entry_hash_ref],
+                checked_at=self.current_time(),
+                safe_summary=(
+                    "Mission step is blocked by a durable terminal dependency."
+                ),
+            )
+            self._append(receipt)
+            return receipt
+
+    def halt_from_fail_fast_terminal(
+        self,
+        step_ref: str,
+        *,
+        terminal_step_ref: str,
+    ) -> MissionStepReceipt:
+        """Durably close unscheduled work after fail-fast has activated."""
+
+        validate_task_ref(step_ref, "mission_step_ref")
+        validate_task_ref(terminal_step_ref, "mission_step_terminal_ref")
+        with self.lock_manager.acquire(MISSION_STEP_LOCK_KEY):
+            receipts = self._load()
+            latest = self._require_latest(receipts, step_ref)
+            if latest.status in TERMINAL_MISSION_STEP_STATUSES:
+                return latest
+            if latest.status != MissionStepStatus.pending.value:
+                raise MissionStepConflictError(
+                    "MISSION_STEP_FAIL_FAST_HALT_REQUIRES_PENDING"
+                )
+            terminal = self._require_latest(receipts, terminal_step_ref)
+            if (
+                terminal.definition.mission_ref != latest.definition.mission_ref
+                or terminal.definition.run_ref != latest.definition.run_ref
+                or latest.definition.orchestration_plan_ref is None
+                or terminal.definition.orchestration_plan_ref
+                != latest.definition.orchestration_plan_ref
+            ):
+                raise MissionStepConflictError("MISSION_STEP_FAIL_FAST_SCOPE_MISMATCH")
+            self._require_plan_binding(latest.definition)
+            self._require_plan_binding(terminal.definition)
+            if (
+                terminal.status not in TERMINAL_MISSION_STEP_STATUSES
+                or terminal.status == MissionStepStatus.succeeded.value
+            ):
+                raise MissionStepConflictError(
+                    "MISSION_STEP_FAIL_FAST_TERMINAL_FAILURE_REQUIRED"
+                )
+            receipt = self._build_from(
+                receipts,
+                latest,
+                status=MissionStepStatus.fail_fast_halted,
+                generation=latest.generation,
+                halted_by_step_ref=terminal_step_ref,
+                reason_refs=["reason-ref:mission-step:fail-fast-halted"],
+                evidence_refs=[terminal.receipt_ref, terminal.entry_hash_ref],
+                checked_at=self.current_time(),
+                safe_summary="Mission step was not scheduled after durable fail-fast activation.",
+            )
+            self._append(receipt)
+            return receipt
+
     def read(self, step_ref: str) -> MissionStepReadModel:
         validate_task_ref(step_ref, "mission_step_ref")
         with self.lock_manager.acquire(MISSION_STEP_LOCK_KEY):
             latest = self._require_latest(self._load(), step_ref)
+        return self._read_model_from_receipt(latest)
+
+    def snapshot(
+        self,
+        step_refs: list[str],
+    ) -> tuple[list[MissionStepReadModel], dict[str, MissionStepReceipt]]:
+        for step_ref in step_refs:
+            validate_task_ref(step_ref, "mission_step_ref")
+        with self.lock_manager.acquire(MISSION_STEP_LOCK_KEY):
+            receipts = self._load()
+            latest = {
+                step_ref: self._require_latest(receipts, step_ref)
+                for step_ref in step_refs
+            }
+        return (
+            [self._read_model_from_receipt(latest[step_ref]) for step_ref in step_refs],
+            latest,
+        )
+
+    @staticmethod
+    def _read_model_from_receipt(latest: MissionStepReceipt) -> MissionStepReadModel:
         return MissionStepReadModel(
             step_ref=latest.definition.step_ref,
             status=latest.status,
@@ -631,6 +989,8 @@ class MissionStepStore:
             dispatch_request_fingerprint_ref=(latest.dispatch_request_fingerprint_ref),
             dispatch_receipt_ref=latest.dispatch_receipt_ref,
             dispatch_entry_hash_ref=latest.dispatch_entry_hash_ref,
+            blocked_dependency_step_ref=latest.blocked_dependency_step_ref,
+            halted_by_step_ref=latest.halted_by_step_ref,
             reason_refs=latest.reason_refs,
             evidence_refs=latest.evidence_refs,
             receipt_ref=latest.receipt_ref,
@@ -742,6 +1102,15 @@ class MissionStepStore:
             or durable.capability_ref != latest.definition.capability_ref
         ):
             raise MissionStepConflictError("MISSION_STEP_DISPATCH_BINDING_INVALID")
+        if latest.definition.orchestration_plan_ref is not None and (
+            latest.dispatch_ref != latest.definition.planned_dispatch_ref
+            or latest.dispatch_request_fingerprint_ref
+            != latest.definition.planned_dispatch_request_fingerprint_ref
+            or durable.start_deadline != latest.definition.deadline
+        ):
+            raise MissionStepConflictError(
+                "MISSION_STEP_ORCHESTRATION_DISPATCH_BINDING_INVALID"
+            )
         return durable
 
     @staticmethod
@@ -868,12 +1237,64 @@ class MissionStepStore:
         return self._build(receipts, definition=latest.definition, **updates)
 
     def _append(self, receipt: MissionStepReceipt) -> None:
+        if receipt.sequence > MISSION_STEP_LEDGER_MAX_RECEIPTS:
+            raise MissionStepCorruptionError(
+                "MISSION_STEP_LEDGER_RECEIPT_LIMIT_EXCEEDED"
+            )
         self.receipts_path.parent.mkdir(parents=True, exist_ok=True)
-        new_file = not self.receipts_path.exists()
-        with self.receipts_path.open("a", encoding="utf-8") as stream:
-            stream.write(receipt.model_dump_json() + "\n")
-            stream.flush()
-            os.fsync(stream.fileno())
+        encoded = (receipt.model_dump_json() + "\n").encode("utf-8")
+        flags = (
+            os.O_RDWR
+            | os.O_APPEND
+            | os.O_CREAT
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_NONBLOCK", 0)
+        )
+        try:
+            descriptor = os.open(self.receipts_path, flags, 0o600)
+        except OSError as exc:
+            raise MissionStepCorruptionError(
+                "MISSION_STEP_LEDGER_WRITE_FAILED"
+            ) from exc
+        try:
+            metadata = os.fstat(descriptor)
+            if (
+                not stat.S_ISREG(metadata.st_mode)
+                or metadata.st_size + len(encoded) > MISSION_STEP_LEDGER_MAX_BYTES
+            ):
+                raise MissionStepCorruptionError(
+                    "MISSION_STEP_LEDGER_SIZE_OR_TYPE_INVALID"
+                )
+            existing_payload = os.pread(descriptor, metadata.st_size, 0)
+            existing = self._decode(existing_payload)
+            expected_previous = existing[-1].entry_hash_ref if existing else None
+            if (
+                receipt.sequence != len(existing) + 1
+                or receipt.previous_entry_hash_ref != expected_previous
+                or receipt.entry_hash_ref != _entry_hash(receipt)
+            ):
+                raise MissionStepCorruptionError(
+                    "MISSION_STEP_LEDGER_APPEND_BINDING_INVALID"
+                )
+            self._validate_history_receipt(
+                receipt,
+                self._latest(existing, receipt.definition.step_ref),
+            )
+            view = memoryview(encoded)
+            while view:
+                written = os.write(descriptor, view)
+                if written <= 0:
+                    raise OSError("mission step append failed")
+                view = view[written:]
+            os.fsync(descriptor)
+            new_file = metadata.st_size == 0
+        except OSError as exc:
+            raise MissionStepCorruptionError(
+                "MISSION_STEP_LEDGER_WRITE_FAILED"
+            ) from exc
+        finally:
+            os.close(descriptor)
         if new_file:
             directory_fd = os.open(self.receipts_path.parent, os.O_RDONLY)
             try:
@@ -910,6 +1331,9 @@ class MissionStepStore:
             os.close(descriptor)
         if len(payload) > MISSION_STEP_LEDGER_MAX_BYTES:
             raise MissionStepCorruptionError("MISSION_STEP_LEDGER_SIZE_LIMIT_EXCEEDED")
+        return self._decode(payload)
+
+    def _decode(self, payload: bytes) -> list[MissionStepReceipt]:
         try:
             lines = payload.decode("utf-8").splitlines()
         except UnicodeDecodeError as exc:
@@ -934,6 +1358,13 @@ class MissionStepStore:
                 raise MissionStepCorruptionError("MISSION_STEP_HASH_CHAIN_INVALID")
             prior = latest_by_step.get(receipt.definition.step_ref)
             self._validate_history_receipt(receipt, prior)
+            if receipt.status == MissionStepStatus.dependency_blocked.value:
+                self._validate_persisted_dependency_block(
+                    receipt,
+                    latest_by_step,
+                )
+            if receipt.status == MissionStepStatus.fail_fast_halted.value:
+                self._validate_persisted_fail_fast_halt(receipt, latest_by_step)
             latest_by_step[receipt.definition.step_ref] = receipt
             previous = receipt.entry_hash_ref
         return receipts
@@ -992,7 +1423,12 @@ class MissionStepStore:
                 receipt.status == MissionStepStatus.claimed.value
                 and receipt.generation == prior.generation + 1
             ) or (
-                receipt.status == MissionStepStatus.failed.value
+                receipt.status
+                in {
+                    MissionStepStatus.failed.value,
+                    MissionStepStatus.dependency_blocked.value,
+                    MissionStepStatus.fail_fast_halted.value,
+                }
                 and receipt.generation == prior.generation
             )
             if not allowed:
@@ -1005,6 +1441,68 @@ class MissionStepStore:
             self._validate_persisted_dispatch(receipt)
         if receipt.status == MissionStepStatus.succeeded.value:
             self._validate_persisted_success(receipt)
+
+    def _validate_persisted_dependency_block(
+        self,
+        receipt: MissionStepReceipt,
+        latest_by_step: dict[str, MissionStepReceipt],
+    ) -> None:
+        dependency_ref = receipt.blocked_dependency_step_ref
+        dependency = latest_by_step.get(dependency_ref or "")
+        if (
+            dependency_ref not in receipt.definition.dependency_step_refs
+            or dependency is None
+            or dependency.definition.mission_ref != receipt.definition.mission_ref
+            or dependency.definition.run_ref != receipt.definition.run_ref
+            or receipt.definition.orchestration_plan_ref is None
+            or dependency.definition.orchestration_plan_ref
+            != receipt.definition.orchestration_plan_ref
+            or dependency.status not in TERMINAL_MISSION_STEP_STATUSES
+            or dependency.status == MissionStepStatus.succeeded.value
+            or "reason-ref:mission-step:dependency-terminal" not in receipt.reason_refs
+            or dependency.receipt_ref not in receipt.evidence_refs
+            or dependency.entry_hash_ref not in receipt.evidence_refs
+        ):
+            raise MissionStepCorruptionError(
+                "MISSION_STEP_DEPENDENCY_BLOCK_EVIDENCE_INVALID"
+            )
+        try:
+            self._require_plan_binding(receipt.definition)
+            self._require_plan_binding(dependency.definition)
+        except MissionStepConflictError as exc:
+            raise MissionStepCorruptionError(
+                "MISSION_STEP_DEPENDENCY_BLOCK_PLAN_BINDING_INVALID"
+            ) from exc
+
+    def _validate_persisted_fail_fast_halt(
+        self,
+        receipt: MissionStepReceipt,
+        latest_by_step: dict[str, MissionStepReceipt],
+    ) -> None:
+        terminal = latest_by_step.get(receipt.halted_by_step_ref or "")
+        if (
+            terminal is None
+            or terminal.definition.mission_ref != receipt.definition.mission_ref
+            or terminal.definition.run_ref != receipt.definition.run_ref
+            or receipt.definition.orchestration_plan_ref is None
+            or terminal.definition.orchestration_plan_ref
+            != receipt.definition.orchestration_plan_ref
+            or terminal.status not in TERMINAL_MISSION_STEP_STATUSES
+            or terminal.status == MissionStepStatus.succeeded.value
+            or "reason-ref:mission-step:fail-fast-halted" not in receipt.reason_refs
+            or terminal.receipt_ref not in receipt.evidence_refs
+            or terminal.entry_hash_ref not in receipt.evidence_refs
+        ):
+            raise MissionStepCorruptionError(
+                "MISSION_STEP_FAIL_FAST_HALT_EVIDENCE_INVALID"
+            )
+        try:
+            self._require_plan_binding(receipt.definition)
+            self._require_plan_binding(terminal.definition)
+        except MissionStepConflictError as exc:
+            raise MissionStepCorruptionError(
+                "MISSION_STEP_FAIL_FAST_HALT_PLAN_BINDING_INVALID"
+            ) from exc
 
     def _validate_claimed_transition(
         self,
@@ -1074,6 +1572,27 @@ class MissionStepStore:
             self._validate_durable_dispatch(receipt, durable)
             if receipt.status == MissionStepStatus.succeeded.value:
                 self._validate_succeeded_dispatch(receipt, durable)
+            expected_statuses = {
+                MissionStepStatus.failed.value: {
+                    AuthorityDispatchStatus.failed.value,
+                    AuthorityDispatchStatus.denied.value,
+                    AuthorityDispatchStatus.cancelled_before_start.value,
+                },
+                MissionStepStatus.cancelled.value: {
+                    AuthorityDispatchStatus.cancelled_before_start.value,
+                },
+                MissionStepStatus.recovery_required.value: {
+                    AuthorityDispatchStatus.started.value,
+                    AuthorityDispatchStatus.cancellation_pending.value,
+                },
+            }.get(receipt.status)
+            if (
+                expected_statuses is not None
+                and durable.status not in expected_statuses
+            ):
+                raise MissionStepConflictError(
+                    "MISSION_STEP_TERMINAL_DISPATCH_STATUS_INVALID"
+                )
         except MissionStepConflictError as exc:
             raise MissionStepCorruptionError(
                 "MISSION_STEP_SUCCEEDED_DISPATCH_BINDING_INVALID"

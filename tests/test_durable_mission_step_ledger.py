@@ -9,6 +9,7 @@ from ultimate_ai_agent.core.execution.durable_mission_steps import (
     MissionStepConflictError,
     MissionStepCorruptionError,
     MissionStepDefinition,
+    MissionStepOrchestrationContext,
     MissionStepStatus,
     MissionStepStore,
     _entry_hash,
@@ -29,6 +30,15 @@ def _definition(
         dependency_step_refs=dependencies or [],
         deadline=utc_now() + timedelta(minutes=5),
         safe_summary="Run one exact governed metadata mission step.",
+    )
+
+
+def _plan_context(definition: MissionStepDefinition) -> MissionStepOrchestrationContext:
+    return MissionStepOrchestrationContext(
+        plan_ref=definition.orchestration_plan_ref or "mission-plan-ref:test:missing",
+        plan_fingerprint_ref="mission-plan-fingerprint-ref:test:unit",
+        plan_receipt_ref="durable-mission-plan-receipt-ref:test:unit",
+        ordered_step_refs=[definition.step_ref],
     )
 
 
@@ -356,3 +366,204 @@ def test_unsafe_refs_and_naive_deadlines_are_rejected() -> None:
                 "deadline": utc_now().replace(tzinfo=None),
             }
         )
+
+
+def test_planned_dispatch_binding_rejects_claim_drift(tmp_path: Path) -> None:
+    store = MissionStepStore(tmp_path)
+    definition = MissionStepDefinition.model_validate(
+        {
+            **_definition("planned-binding").model_dump(mode="python"),
+            "orchestration_plan_ref": "mission-plan-ref:test:planned-binding",
+            "planned_dispatch_ref": "authority-dispatch-ref:test:planned-binding",
+            "planned_dispatch_request_fingerprint_ref": (
+                "request-fingerprint-ref:test:planned-binding"
+            ),
+        }
+    )
+    context = _plan_context(definition)
+    store._bind_plan_binding_resolver(  # noqa: SLF001
+        lambda candidate: context if candidate == definition else None
+    )
+    store.create(definition)
+
+    with pytest.raises(
+        MissionStepConflictError,
+        match="MISSION_STEP_PLANNED_DISPATCH_FINGERPRINT_CONFLICT",
+    ):
+        store.claim(
+            definition.step_ref,
+            owner_ref="mission-owner-ref:test:planned-binding",
+            ttl_seconds=30,
+            dispatch_ref=definition.planned_dispatch_ref,
+            dispatch_request_fingerprint_ref=(
+                "request-fingerprint-ref:test:planned-binding-drift"
+            ),
+            orchestration_context=context,
+        )
+
+
+def test_planned_step_cannot_assert_terminal_dispatch_truth_without_receipt(
+    tmp_path: Path,
+) -> None:
+    store = MissionStepStore(tmp_path)
+    definition = MissionStepDefinition.model_validate(
+        {
+            **_definition("planned-terminal-proof").model_dump(mode="python"),
+            "orchestration_plan_ref": "mission-plan-ref:test:planned-terminal-proof",
+            "planned_dispatch_ref": "authority-dispatch-ref:test:planned-terminal-proof",
+            "planned_dispatch_request_fingerprint_ref": (
+                "request-fingerprint-ref:test:planned-terminal-proof"
+            ),
+        }
+    )
+    context = _plan_context(definition)
+    store._bind_plan_binding_resolver(  # noqa: SLF001
+        lambda candidate: context if candidate == definition else None
+    )
+    store.create(definition)
+    claimed = store.claim(
+        definition.step_ref,
+        owner_ref="mission-owner-ref:test:planned-terminal-proof",
+        ttl_seconds=30,
+        dispatch_ref=definition.planned_dispatch_ref,
+        dispatch_request_fingerprint_ref=(
+            definition.planned_dispatch_request_fingerprint_ref
+        ),
+        orchestration_context=context,
+    )
+
+    with pytest.raises(
+        MissionStepConflictError,
+        match="MISSION_STEP_TERMINAL_DISPATCH_EVIDENCE_REQUIRED",
+    ):
+        store.complete(
+            definition.step_ref,
+            owner_ref=claimed.owner_ref or "",
+            claim_ref=claimed.claim_ref or "",
+            generation=claimed.generation,
+            status=MissionStepStatus.failed,
+            reason_refs=["reason-ref:mission-step:dispatch-failed"],
+        )
+
+
+def test_fail_fast_halt_rejects_terminal_evidence_from_another_plan(
+    tmp_path: Path,
+) -> None:
+    store = MissionStepStore(tmp_path)
+    target = MissionStepDefinition.model_validate(
+        {
+            **_definition("halt-target").model_dump(mode="python"),
+            "orchestration_plan_ref": "mission-plan-ref:test:halt-target",
+            "planned_dispatch_ref": "authority-dispatch-ref:test:halt-target",
+            "planned_dispatch_request_fingerprint_ref": (
+                "request-fingerprint-ref:test:halt-target"
+            ),
+        }
+    )
+    context = _plan_context(target)
+    store._bind_plan_binding_resolver(  # noqa: SLF001
+        lambda candidate: context if candidate == target else None
+    )
+    store.create(target)
+    foreign = _definition("halt-foreign").model_copy(
+        update={"mission_ref": target.mission_ref, "run_ref": target.run_ref}
+    )
+    foreign_pending = store.create(foreign)
+    foreign_claim = store.claim(
+        foreign_pending.definition.step_ref,
+        owner_ref="mission-owner-ref:test:halt-foreign",
+        ttl_seconds=30,
+    )
+    store.complete(
+        foreign.step_ref,
+        owner_ref=foreign_claim.owner_ref or "",
+        claim_ref=foreign_claim.claim_ref or "",
+        generation=foreign_claim.generation,
+        status=MissionStepStatus.failed,
+        reason_refs=["reason-ref:mission-step:test-foreign-failed"],
+    )
+
+    with pytest.raises(
+        MissionStepConflictError,
+        match="MISSION_STEP_FAIL_FAST_SCOPE_MISMATCH",
+    ):
+        store.halt_from_fail_fast_terminal(
+            target.step_ref,
+            terminal_step_ref=foreign.step_ref,
+        )
+
+
+def test_dependency_block_is_durable_and_forged_evidence_fails_closed(
+    tmp_path: Path,
+) -> None:
+    store = MissionStepStore(tmp_path)
+    plan_ref = "mission-plan-ref:test:dependency-block"
+    dependency_definition = MissionStepDefinition.model_validate(
+        {
+            **_definition("dependency-block-parent").model_dump(mode="python"),
+            "orchestration_plan_ref": plan_ref,
+            "planned_dispatch_ref": "authority-dispatch-ref:test:dependency-block-parent",
+            "planned_dispatch_request_fingerprint_ref": (
+                "request-fingerprint-ref:test:dependency-block-parent"
+            ),
+            "deadline": utc_now() - timedelta(seconds=1),
+        }
+    )
+    child_definition = MissionStepDefinition.model_validate(
+        {
+            **_definition("dependency-block-child").model_dump(mode="python"),
+            "mission_ref": dependency_definition.mission_ref,
+            "run_ref": dependency_definition.run_ref,
+            "dependency_step_refs": [dependency_definition.step_ref],
+            "orchestration_plan_ref": plan_ref,
+            "planned_dispatch_ref": "authority-dispatch-ref:test:dependency-block-child",
+            "planned_dispatch_request_fingerprint_ref": (
+                "request-fingerprint-ref:test:dependency-block-child"
+            ),
+        }
+    )
+    context = MissionStepOrchestrationContext(
+        plan_ref=plan_ref,
+        plan_fingerprint_ref="mission-plan-fingerprint-ref:test:dependency-block",
+        plan_receipt_ref="durable-mission-plan-receipt-ref:test:dependency-block",
+        ordered_step_refs=[dependency_definition.step_ref, child_definition.step_ref],
+    )
+    store._bind_plan_binding_resolver(  # noqa: SLF001
+        lambda candidate: (
+            context
+            if candidate == dependency_definition or candidate == child_definition
+            else None
+        )
+    )
+    dependency = store.create(dependency_definition)
+    child = store.create(child_definition)
+    store.expire_deadline(dependency.definition.step_ref)
+    blocked = store.block_from_terminal_dependency(
+        child.definition.step_ref,
+        dependency_step_ref=dependency.definition.step_ref,
+    )
+    assert blocked.status == MissionStepStatus.dependency_blocked.value
+    assert blocked.blocked_dependency_step_ref == dependency.definition.step_ref
+
+    receipts = store.receipts()
+    tampered = blocked.model_copy(
+        update={
+            "evidence_refs": [receipts[-2].receipt_ref],
+            "entry_hash_ref": "mission-step-entry-hash-ref:pending",
+        }
+    )
+    tampered = tampered.model_copy(update={"entry_hash_ref": _entry_hash(tampered)})
+    store.receipts_path.write_text(
+        "\n".join(
+            json.dumps(item.model_dump(mode="json"), sort_keys=True)
+            for item in [*receipts[:-1], tampered]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        MissionStepCorruptionError,
+        match="MISSION_STEP_DEPENDENCY_BLOCK_EVIDENCE_INVALID",
+    ):
+        store.receipts()
