@@ -1,8 +1,8 @@
 # AuthorityLease Governed Dispatcher V1
 
-Status: implemented Python Core dispatcher for explicitly injected safe tool
-adapters; durable mission, API, CLI mutation, and Control Center integration
-remain partial or missing
+Status: implemented Python Core dispatcher plus one synchronous, exact
+filesystem-metadata MissionRunner step; multi-step missions, API, CLI mutation,
+and Control Center integration remain partial or missing
 
 Date: 2026-07-10
 
@@ -97,8 +97,47 @@ releases that exact unclaimed reservation before persisting the denial.
 An unchanged replayed reservation also rechecks current lease, kill switch,
 approval, adapter, tool-policy, and budget posture before it can reconstruct a
 prepared receipt; revoked authority releases the orphan and remains denied.
-The current V1 bridge does not claim after-start cancellation, automatic
-settlement recovery, heartbeat ownership, or mission retry authority.
+The dispatcher itself does not own mission-step heartbeats and the current V1
+bridge does not claim after-start cancellation, automatic settlement recovery,
+or mission retry authority.
+
+## Synchronous Mission Step V1
+
+`MissionStepStore` adds an append-first, fsync-backed, hash-chained ledger for
+safe-ref mission-step definitions and receipts. Definitions bind mission, run,
+step, capability, adapter, lease, dependency, deadline, and bounded-summary
+posture. Claims use a bounded TTL and monotonically increasing generation;
+stale owners are fenced, and one immutable dispatch ref plus full authority-
+dispatch request fingerprint survives owner reclaim. Claim and deadline
+decisions use the store-owned trusted clock; callers cannot supply operation-
+level timestamps.
+
+`AuthorityMissionRunner.run_once` consumes that ledger for one synchronous
+filesystem-metadata step only. It requires the injected filesystem-metadata
+adapter, exact `files/read` authority, one operation, zero estimated cost,
+deterministic action/dispatch/idempotency refs derived from the step ref, and
+an injected safe-root ref. The runner records intent before calling
+`AuthorityDispatcher.prepare` and `execute`; the dispatcher still performs all
+current lease, policy, approval, budget, kill-switch, adapter, and target
+checks immediately before execution. The runner never mints or caches
+authority. It performs one bounded synchronous claim renewal after prepare,
+then rechecks the deadline before execute. Expiry cancels through the
+dispatcher, releases pre-start budget, and records cancellation evidence
+without adapter start. A durable terminal dispatch can be reconciled after
+claim expiry without a second adapter start.
+
+A mission step may become `succeeded` only when its terminal receipt equals the
+latest durable dispatcher receipt and matches the persisted request
+fingerprint, run, lease, adapter, and capability bindings with start,
+invocation, and budget-settlement proof. The mission ledger binds the dispatch
+receipt and entry-hash refs; caller-asserted success or evidence refs alone are
+rejected.
+
+The mission-step ledger stores safe refs and bounded summaries, not tool input,
+file content, relative or absolute paths, provider payloads, or raw output.
+This slice is not a scheduler: it has no background worker, periodic/background
+heartbeat loop, approval wait, automatic retry, after-start cancellation, or
+multi-step execution loop.
 
 ## Approval And Budget Binding
 
@@ -192,9 +231,18 @@ The focused `tests/test_authority_dispatcher*.py` modules cover:
 - action/approval replay conflict, dispatch idempotency conflict, receipt hash
   tampering, cross-ledger semantic drift, mismatched injected lease sources,
   start-boundary cost expiry, and non-mutating fresh read inspection.
+- mission-step claim races, stale-owner fencing, immutable dispatch request
+  fingerprints, dependency denial, trusted-clock expiry before claim and after
+  prepare with pre-start cancellation/budget release, forged-success rejection,
+  cross-ledger terminal binding, hash and semantic tamper rejection, exact
+  filesystem-metadata execution, revoked-lease denial, terminal replay after a
+  simulated runner crash, and denial of binding drift or the no-op adapter;
+- mission-step ledger redaction proof that excludes raw safe-root paths,
+  relative paths, and file contents.
 
-The focused dispatcher and budget suite is the acceptance source for this
-milestone. Broader repo checks remain required before merge.
+The focused dispatcher, budget, durable mission-step, and mission-runner suites
+are the acceptance source for this milestone. Broader repo checks remain
+required before merge.
 
 ## Explicit Non-Goals And Remaining Gaps
 
@@ -205,8 +253,11 @@ background worker, public distribution, production authority, or standing
 autonomy.
 
 The dispatcher is not yet the universal route for legacy executable lanes.
-Durable missions still need step ownership, dependency scheduling, approval
-waits, heartbeat/lease renewal, retry budgets, after-start cancellation,
-settlement recovery, dead-letter handling, CLI/API/Control Center parity, and
-one end-to-end delegated mission proof. Each future adapter must be promoted as
-an exact descriptor and tested lane; V1 does not grant a broad capability class.
+Durable missions still need dependency scheduling, a periodic/background
+heartbeat and lease-renewal loop, approval waits, retry budgets, after-start
+cancellation, settlement recovery, dead-letter handling, boot reconciliation,
+CLI/API/Control Center
+parity, and one end-to-end delegated multi-step mission proof. The runner's one
+pre-execute renewal is not an in-flight heartbeat loop. Each future
+adapter must be promoted as an exact descriptor and tested lane; V1 does not
+grant a broad capability class.
