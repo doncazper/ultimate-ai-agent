@@ -71,6 +71,7 @@ class MissionControlRequest(_MissionControlModel):
     lease_ref: str
     idempotency_ref: str
     reason_ref: str
+    dead_letter_step_ref: str | None = None
     dead_letter_receipt_ref: str | None = None
     dead_letter_entry_hash_ref: str | None = None
     safe_summary: str = Field(..., min_length=1, max_length=320)
@@ -89,6 +90,7 @@ class MissionControlRequest(_MissionControlModel):
             (self.lease_ref, "mission_control_lease_ref"),
             (self.idempotency_ref, "mission_control_idempotency_ref"),
             (self.reason_ref, "mission_control_reason_ref"),
+            (self.dead_letter_step_ref, "mission_control_dead_letter_step_ref"),
             (self.dead_letter_receipt_ref, "mission_control_dead_letter_receipt_ref"),
             (
                 self.dead_letter_entry_hash_ref,
@@ -99,6 +101,7 @@ class MissionControlRequest(_MissionControlModel):
                 validate_task_ref(value, field_name)
         validate_safe_task_text(self.safe_summary, "mission_control_safe_summary")
         dead_letter_refs = (
+            self.dead_letter_step_ref,
             self.dead_letter_receipt_ref,
             self.dead_letter_entry_hash_ref,
         )
@@ -285,6 +288,7 @@ class MissionControlStore:
             same_plan_event = (
                 existing.plan_ref == request.plan_ref
                 and existing.event == request.event
+                and existing.dead_letter_step_ref == request.dead_letter_step_ref
             )
             if same_idempotency or same_control or same_plan_event:
                 if existing.fingerprint_ref != request.fingerprint_ref:

@@ -35,6 +35,7 @@ def _request(
     updates = {}
     if event == MissionControlEvent.dead_letter_recovery_requested:
         updates = {
+            "dead_letter_step_ref": f"mission-step-ref:{suffix}",
             "dead_letter_receipt_ref": f"mission-step-receipt-ref:{suffix}",
             "dead_letter_entry_hash_ref": f"mission-step-entry-hash-ref:{suffix}",
         }
@@ -274,7 +275,7 @@ def test_cancellation_requires_the_exact_active_mission_lease(
 
     with pytest.raises(
         (ValueError, MissionWorkerConflictError),
-        match="ACTIVE_MISSION_LEASE_REQUIRED",
+        match="EXACT_PLAN_LEASE_REQUIRED",
     ):
         worker.control_store.append(cancellation)
 
@@ -421,7 +422,7 @@ def test_late_cancellation_cannot_rewrite_a_terminal_worker_result(
         worker_ref="mission-worker-ref:test:cancel-after-terminal:first",
     )
     with pytest.raises(
-        MissionWorkerConflictError,
+        (ValueError, MissionWorkerConflictError),
         match="MISSION_CONTROL_MISSION_ALREADY_TERMINAL",
     ):
         control_store.append(_cancellation_for_orchestration(request))

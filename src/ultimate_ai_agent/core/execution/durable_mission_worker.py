@@ -100,6 +100,7 @@ class MissionWorkerJobStatus(str, Enum):
     pending = "pending"
     claimed = "claimed"
     approval_wait = "approval_wait"
+    retry_pending = "retry_pending"
     succeeded = "succeeded"
     failed = "failed"
     recovery_required = "recovery_required"
@@ -110,6 +111,7 @@ class MissionWorkerRecoveryStatus(str, Enum):
     pending = "pending"
     actively_claimed = "actively_claimed"
     approval_wait = "approval_wait"
+    retry_pending = "retry_pending"
     stale_claim = "stale_claim"
     prepared_dispatch = "prepared_dispatch"
     started_unknown_terminal = "started_unknown_terminal"
@@ -228,7 +230,7 @@ class MissionWorkerJobBinding(_WorkerModel):
     run_ref: str
     ordered_step_refs: list[str] = Field(..., min_length=1, max_length=16)
     dispatch_request_fingerprint_refs: list[str] = Field(
-        ..., min_length=1, max_length=16
+        ..., min_length=1, max_length=48
     )
     deadline: datetime
 
@@ -249,8 +251,16 @@ class MissionWorkerJobBinding(_WorkerModel):
             validate_task_ref(value, name)
         if len(self.ordered_step_refs) != len(set(self.ordered_step_refs)):
             raise ValueError("MISSION_WORKER_DUPLICATE_STEP_DENIED")
-        if len(self.ordered_step_refs) != len(self.dispatch_request_fingerprint_refs):
+        if not (
+            len(self.ordered_step_refs)
+            <= len(self.dispatch_request_fingerprint_refs)
+            <= len(self.ordered_step_refs) * 3
+        ):
             raise ValueError("MISSION_WORKER_DISPATCH_BINDING_INCOMPLETE")
+        if len(self.dispatch_request_fingerprint_refs) != len(
+            set(self.dispatch_request_fingerprint_refs)
+        ):
+            raise ValueError("MISSION_WORKER_DUPLICATE_DISPATCH_BINDING")
         if self.deadline.tzinfo is None:
             raise ValueError("MISSION_WORKER_DEADLINE_TIMEZONE_REQUIRED")
         return self
@@ -274,7 +284,15 @@ def mission_worker_job_binding(
         run_ref=plan.run_ref,
         ordered_step_refs=plan.topological_step_refs,
         dispatch_request_fingerprint_refs=[
-            binding.dispatch_request_fingerprint_ref for binding in plan.ordered_steps
+            fingerprint
+            for binding in plan.ordered_steps
+            for fingerprint in [
+                binding.dispatch_request_fingerprint_ref,
+                *[
+                    attempt.dispatch_request_fingerprint_ref
+                    for attempt in binding.retry_attempts
+                ],
+            ]
         ],
         deadline=max(step.definition.deadline for step in request.steps),
     )
@@ -301,6 +319,7 @@ class MissionWorkerReceipt(_WorkerModel):
     worker_ref: str | None = None
     claim_ref: str | None = None
     claim_expires_at: datetime | None = None
+    retry_not_before: datetime | None = None
     reason_refs: list[str] = Field(default_factory=list, max_length=32)
     evidence_refs: list[str] = Field(default_factory=list, max_length=64)
     checked_at: datetime = Field(default_factory=utc_now)
@@ -326,6 +345,11 @@ class MissionWorkerReceipt(_WorkerModel):
             self.worker_ref and self.claim_ref and self.claim_expires_at
         ):
             raise ValueError("MISSION_WORKER_CLAIM_POSTURE_INVALID")
+        retry_pending = self.status == MissionWorkerJobStatus.retry_pending.value
+        if retry_pending != (self.retry_not_before is not None):
+            raise ValueError("MISSION_WORKER_RETRY_POSTURE_INVALID")
+        if self.retry_not_before is not None and self.retry_not_before.tzinfo is None:
+            raise ValueError("MISSION_WORKER_RETRY_TIMEZONE_REQUIRED")
         if self.checked_at.tzinfo is None:
             raise ValueError("MISSION_WORKER_TIMESTAMP_TIMEZONE_REQUIRED")
         if claimed:
@@ -354,9 +378,12 @@ class MissionWorkerReceipt(_WorkerModel):
 
 
 def _entry_hash(receipt: MissionWorkerReceipt) -> str:
+    payload = receipt.model_dump(mode="json", exclude={"entry_hash_ref"})
+    if receipt.retry_not_before is None:
+        payload.pop("retry_not_before", None)
     return _safe_ref(
         "mission-worker-entry-hash-ref",
-        receipt.model_dump(mode="json", exclude={"entry_hash_ref"}),
+        payload,
     )
 
 
@@ -430,6 +457,7 @@ class MissionWorkerStore:
                 MissionWorkerJobStatus.pending.value,
                 MissionWorkerJobStatus.claimed.value,
                 MissionWorkerJobStatus.approval_wait.value,
+                MissionWorkerJobStatus.retry_pending.value,
             }
         }
         if len(active) >= queue_capacity:
@@ -526,6 +554,16 @@ class MissionWorkerStore:
                 )
                 self._append(receipt)
                 return receipt
+            if (
+                latest.status == MissionWorkerJobStatus.retry_pending.value
+                and (
+                    latest.retry_not_before is None
+                    or latest.retry_not_before > current
+                )
+            ):
+                raise MissionWorkerConflictError(
+                    "MISSION_WORKER_RETRY_BACKOFF_ACTIVE"
+                )
             if (
                 latest.status == MissionWorkerJobStatus.claimed.value
                 and latest.claim_expires_at is not None
@@ -703,6 +741,51 @@ class MissionWorkerStore:
                 checked_at=current,
                 safe_summary=(
                     "Mission work released its claim while waiting for approval."
+                ),
+            )
+            self._append(receipt)
+            return receipt
+
+    def defer_for_retry(
+        self,
+        job_ref: str,
+        *,
+        worker_ref: str,
+        claim_ref: str,
+        generation: int,
+        retry_not_before: datetime,
+        reason_refs: list[str],
+        evidence_refs: list[str],
+    ) -> MissionWorkerReceipt:
+        _validate_opaque_worker_ref(worker_ref)
+        if retry_not_before.tzinfo is None:
+            raise ValueError("MISSION_WORKER_RETRY_TIMEZONE_REQUIRED")
+        with (
+            self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY),
+            self.lock_manager.acquire(MISSION_WORKER_LOCK_KEY),
+        ):
+            current = self.current_time()
+            receipts = self._load()
+            latest = self._require_owned(
+                receipts, job_ref, worker_ref, claim_ref, generation, current
+            )
+            effective_retry_not_before = max(retry_not_before, current)
+            if effective_retry_not_before >= latest.binding.deadline:
+                raise MissionWorkerConflictError(
+                    "MISSION_WORKER_RETRY_WINDOW_INVALID"
+                )
+            receipt = self._build_from(
+                receipts,
+                latest,
+                event=MissionWorkerEvent.deferred,
+                status=MissionWorkerJobStatus.retry_pending,
+                generation=generation,
+                retry_not_before=effective_retry_not_before,
+                reason_refs=list(dict.fromkeys(reason_refs)),
+                evidence_refs=list(dict.fromkeys(evidence_refs)),
+                checked_at=current,
+                safe_summary=(
+                    "Mission work released its claim for bounded retry backoff."
                 ),
             )
             self._append(receipt)
@@ -1030,6 +1113,7 @@ class MissionWorkerStore:
                 and (
                     prior.status == MissionWorkerJobStatus.pending.value
                     or prior.status == MissionWorkerJobStatus.approval_wait.value
+                    or prior.status == MissionWorkerJobStatus.retry_pending.value
                     or (
                         prior.status == MissionWorkerJobStatus.claimed.value
                         and prior.claim_expires_at is not None
@@ -1052,11 +1136,22 @@ class MissionWorkerStore:
         elif current.event == MissionWorkerEvent.deferred.value:
             valid = (
                 prior.status == MissionWorkerJobStatus.claimed.value
-                and current.status == MissionWorkerJobStatus.approval_wait.value
+                and current.status
+                in {
+                    MissionWorkerJobStatus.approval_wait.value,
+                    MissionWorkerJobStatus.retry_pending.value,
+                }
                 and current.generation == prior.generation
                 and prior.claim_expires_at is not None
                 and prior.claim_expires_at > current.checked_at
                 and bool(current.reason_refs)
+                and (
+                    current.status != MissionWorkerJobStatus.retry_pending.value
+                    or (
+                        current.retry_not_before is not None
+                        and current.retry_not_before >= current.checked_at
+                    )
+                )
             )
         elif current.event == MissionWorkerEvent.completed.value:
             valid = (
@@ -1213,6 +1308,7 @@ def build_mission_worker_read_model(
             MissionWorkerJobStatus.pending.value,
             MissionWorkerJobStatus.claimed.value,
             MissionWorkerJobStatus.approval_wait.value,
+            MissionWorkerJobStatus.retry_pending.value,
         }
     ]
     terminal_jobs = [item for item in all_latest_jobs if item not in active_jobs]
@@ -1313,6 +1409,7 @@ def build_mission_worker_read_model(
                 MissionWorkerJobStatus.pending.value,
                 MissionWorkerJobStatus.claimed.value,
                 MissionWorkerJobStatus.approval_wait.value,
+                MissionWorkerJobStatus.retry_pending.value,
             }
             for job in jobs
         ),
@@ -1378,9 +1475,12 @@ def _step_recovery(
         status = MissionWorkerRecoveryStatus.recovery_required
     elif step.status == MissionStepStatus.approval_wait.value:
         status = MissionWorkerRecoveryStatus.approval_wait
+    elif step.status == MissionStepStatus.retry_pending.value:
+        status = MissionWorkerRecoveryStatus.retry_pending
     elif step.status in {
         MissionStepStatus.failed.value,
         MissionStepStatus.fail_fast_halted.value,
+        MissionStepStatus.dead_lettered.value,
     }:
         status = MissionWorkerRecoveryStatus.failed
     elif step.status == MissionStepStatus.cancelled.value:
@@ -1444,6 +1544,8 @@ def _job_recovery(
         return MissionWorkerRecoveryStatus.recovery_required
     if latest.status == MissionWorkerJobStatus.approval_wait.value:
         return MissionWorkerRecoveryStatus.approval_wait
+    if latest.status == MissionWorkerJobStatus.retry_pending.value:
+        return MissionWorkerRecoveryStatus.retry_pending
     if latest.status == MissionWorkerJobStatus.failed.value:
         return MissionWorkerRecoveryStatus.failed
     if latest.status == MissionWorkerJobStatus.cancelled.value:
@@ -1517,6 +1619,7 @@ class LocalMissionWorker:
         self,
         request: MissionControlRequest,
     ) -> None:
+        self.orchestrator._validate_control_request_locked(request)  # noqa: SLF001
         matching_plans = [
             receipt
             for receipt in self.orchestrator.plan_store.list_receipts()
@@ -1615,6 +1718,11 @@ class LocalMissionWorker:
                 MissionWorkerJobStatus.approval_wait.value,
             }
             or (
+                item.status == MissionWorkerJobStatus.retry_pending.value
+                and item.retry_not_before is not None
+                and item.retry_not_before <= now
+            )
+            or (
                 item.status == MissionWorkerJobStatus.claimed.value
                 and item.claim_expires_at is not None
                 and item.claim_expires_at <= now
@@ -1698,6 +1806,12 @@ class LocalMissionWorker:
                 for step in waiting_steps
             ):
                 return None
+        if (
+            enqueued.status == MissionWorkerJobStatus.retry_pending.value
+            and enqueued.retry_not_before is not None
+            and enqueued.retry_not_before > self.store.current_time()
+        ):
+            return None
         claim = self.store.claim(
             binding.job_ref,
             worker_ref=durable_worker_ref,
@@ -1803,6 +1917,27 @@ class LocalMissionWorker:
                 worker_ref=durable_worker_ref,
                 claim_ref=claim.claim_ref or "",
                 generation=claim.generation,
+                reason_refs=result.reason_refs,
+                evidence_refs=result.evidence_refs,
+            )
+            return result
+        if result.status == "waiting_for_retry":
+            retry_times = [
+                step.retry_not_before
+                for step in result.steps
+                if step.status == MissionStepStatus.retry_pending.value
+                and step.retry_not_before is not None
+            ]
+            if len(retry_times) != 1:
+                raise MissionWorkerConflictError(
+                    "MISSION_WORKER_RETRY_TIME_BINDING_INVALID"
+                )
+            self.store.defer_for_retry(
+                binding.job_ref,
+                worker_ref=durable_worker_ref,
+                claim_ref=claim.claim_ref or "",
+                generation=claim.generation,
+                retry_not_before=retry_times[0],
                 reason_refs=result.reason_refs,
                 evidence_refs=result.evidence_refs,
             )

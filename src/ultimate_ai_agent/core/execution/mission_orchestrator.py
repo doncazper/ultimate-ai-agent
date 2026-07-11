@@ -7,6 +7,7 @@ from typing import Callable, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ultimate_ai_agent.core.authority.contracts import (
+    AuthorityConstraintKind,
     AuthorityDecisionOutcome,
     AuthorityLeaseScope,
     evaluate_authority_request,
@@ -26,6 +27,7 @@ from ultimate_ai_agent.core.execution.durable_mission_plans import (
     DURABLE_MISSION_PLAN_MAX_STEPS,
     DurableMissionPlan,
     DurableMissionPlanReceipt,
+    DurableMissionPlanRetryAttemptBinding,
     DurableMissionPlanStepBinding,
     DurableMissionPlanStore,
 )
@@ -38,6 +40,7 @@ from ultimate_ai_agent.core.execution.durable_mission_steps import (
     MISSION_PLAN_MATERIALIZATION_LOCK_KEY,
     MissionStepConflictError,
     MissionStepDefinition,
+    MissionStepPlannedRetryAttempt,
     MissionStepReadModel,
     MissionStepStatus,
     MissionStepStore,
@@ -61,11 +64,24 @@ AUTHORITY_MISSION_ORCHESTRATION_SCHEMA_VERSION = (
 )
 
 
+def _retry_semantic_payload(request: AuthorityDispatchRequest) -> dict:
+    payload = request.model_dump(mode="json")
+    payload["dispatch_ref"] = "authority-dispatch-ref:attempt"
+    payload["idempotency_ref"] = "idempotency-ref:attempt"
+    payload["action_request"]["action_ref"] = "authority-action-ref:attempt"
+    payload["tool_invocation_request"]["invocation_id"] = (
+        "authority-dispatch-ref:attempt"
+    )
+    payload["tool_invocation_request"]["replay_key"] = "idempotency-ref:attempt"
+    return payload
+
+
 class AuthorityMissionOrchestrationStatus(str, Enum):
     succeeded = "succeeded"
     failed = "failed"
     recovery_required = "recovery_required"
     waiting_for_approval = "waiting_for_approval"
+    waiting_for_retry = "waiting_for_retry"
     in_progress = "in_progress"
 
 
@@ -76,6 +92,10 @@ class _MissionOrchestrationModel(BaseModel):
 class AuthorityMissionOrchestrationStepInput(_MissionOrchestrationModel):
     definition: MissionStepDefinition
     request: AuthorityDispatchRequest
+    retry_requests: list[AuthorityDispatchRequest] = Field(
+        default_factory=list,
+        max_length=2,
+    )
 
 
 class AuthorityMissionOrchestrationRequest(_MissionOrchestrationModel):
@@ -93,7 +113,7 @@ class AuthorityMissionOrchestrationRequest(_MissionOrchestrationModel):
     safe_summary: str = Field(..., min_length=1, max_length=320)
     fail_fast: Literal[True] = True
     background_execution_requested: Literal[False] = False
-    automatic_retry_requested: Literal[False] = False
+    automatic_retry_requested: bool = False
     parallel_execution_requested: Literal[False] = False
 
     @model_validator(mode="after")
@@ -130,6 +150,30 @@ class AuthorityMissionOrchestrationRequest(_MissionOrchestrationModel):
                 or request.start_deadline != definition.deadline
             ):
                 raise ValueError("AUTHORITY_MISSION_ORCHESTRATION_STEP_BINDING_INVALID")
+            if len(step.retry_requests) != definition.max_attempts - 1:
+                raise ValueError(
+                    "AUTHORITY_MISSION_ORCHESTRATION_RETRY_COUNT_INVALID"
+                )
+            for attempt_no, retry_request in enumerate(
+                step.retry_requests,
+                start=2,
+            ):
+                if (
+                    retry_request.dispatch_ref
+                    != mission_step_dispatch_ref(definition.step_ref, attempt_no)
+                    or retry_request.idempotency_ref
+                    != mission_step_idempotency_ref(
+                        definition.step_ref, attempt_no
+                    )
+                    or retry_request.action_request.action_ref
+                    != mission_step_action_ref(definition.step_ref, attempt_no)
+                    or retry_request.approval_validation_request is not None
+                    or _retry_semantic_payload(retry_request)
+                    != _retry_semantic_payload(request)
+                ):
+                    raise ValueError(
+                        "AUTHORITY_MISSION_ORCHESTRATION_RETRY_BINDING_INVALID"
+                    )
             if self.mission_ref not in request.action_request.resource_refs:
                 raise ValueError(
                     "AUTHORITY_MISSION_ORCHESTRATION_ACTION_MISSION_SCOPE_REQUIRED"
@@ -158,6 +202,13 @@ class AuthorityMissionOrchestrationRequest(_MissionOrchestrationModel):
                     "AUTHORITY_MISSION_ORCHESTRATION_PREBOUND_STEP_CONFLICT"
                 )
         self.build_durable_plan()
+        retry_enabled = any(
+            step.definition.max_attempts > 1 for step in self.steps
+        )
+        if self.automatic_retry_requested != retry_enabled:
+            raise ValueError(
+                "AUTHORITY_MISSION_ORCHESTRATION_RETRY_POSTURE_INVALID"
+            )
         return self
 
     def bound_definition(
@@ -171,6 +222,19 @@ class AuthorityMissionOrchestrationRequest(_MissionOrchestrationModel):
                 "planned_dispatch_request_fingerprint_ref": (
                     authority_dispatch_request_fingerprint(step.request)
                 ),
+                "planned_retry_attempts": [
+                    MissionStepPlannedRetryAttempt(
+                        attempt_no=attempt_no,
+                        dispatch_ref=retry_request.dispatch_ref,
+                        dispatch_request_fingerprint_ref=(
+                            authority_dispatch_request_fingerprint(retry_request)
+                        ),
+                    )
+                    for attempt_no, retry_request in enumerate(
+                        step.retry_requests,
+                        start=2,
+                    )
+                ],
             }
         )
 
@@ -190,6 +254,21 @@ class AuthorityMissionOrchestrationRequest(_MissionOrchestrationModel):
                         authority_dispatch_request_fingerprint(step.request)
                     ),
                     dependency_step_refs=list(step.definition.dependency_step_refs),
+                    retry_attempts=[
+                        DurableMissionPlanRetryAttemptBinding(
+                            attempt_no=attempt_no,
+                            dispatch_ref=retry_request.dispatch_ref,
+                            dispatch_request_fingerprint_ref=(
+                                authority_dispatch_request_fingerprint(
+                                    retry_request
+                                )
+                            ),
+                        )
+                        for attempt_no, retry_request in enumerate(
+                            step.retry_requests,
+                            start=2,
+                        )
+                    ],
                 )
                 for step in self.steps
             ],
@@ -214,6 +293,8 @@ class AuthorityMissionOrchestrationResult(_MissionOrchestrationModel):
     replayed_step_count: int = Field(..., ge=0)
     dependency_blocked_step_count: int = Field(..., ge=0)
     approval_wait_step_count: int = Field(default=0, ge=0)
+    retry_pending_step_count: int = Field(default=0, ge=0)
+    dead_letter_step_count: int = Field(default=0, ge=0)
     reason_refs: list[str] = Field(default_factory=list)
     evidence_refs: list[str] = Field(default_factory=list)
     operator_summary: str = Field(..., min_length=1, max_length=520)
@@ -222,7 +303,7 @@ class AuthorityMissionOrchestrationResult(_MissionOrchestrationModel):
     direct_adapter_invocation_performed: Literal[False] = False
     background_execution_performed: Literal[False] = False
     parallel_execution_performed: Literal[False] = False
-    automatic_retry_performed: Literal[False] = False
+    automatic_retry_performed: bool = False
     mission_cancellation_claimed: bool = False
     raw_request_payload_persisted: Literal[False] = False
     raw_output_persisted: Literal[False] = False
@@ -315,6 +396,10 @@ class SynchronousAuthorityMissionOrchestrator:
                     plan_store=self.plan_store,
                 )
             )
+        elif type(existing_fence) is not MissionCancellationExecutionFenceValidator:
+            raise ValueError(
+                "AUTHORITY_MISSION_CANCELLATION_FENCE_ALREADY_BOUND"
+            )
 
     def _validate_control_request_locked(
         self,
@@ -334,6 +419,27 @@ class SynchronousAuthorityMissionOrchestrator:
             or plan_receipt.plan.run_ref != request.run_ref
         ):
             raise ValueError("MISSION_CONTROL_ACCEPTED_PLAN_BINDING_INVALID")
+        step_receipts = self.step_store._load()  # noqa: SLF001
+        latest_steps = {
+            step_ref: next(
+                (
+                    receipt
+                    for receipt in reversed(step_receipts)
+                    if receipt.definition.step_ref == step_ref
+                ),
+                None,
+            )
+            for step_ref in plan_receipt.plan.topological_step_refs
+        }
+        if any(receipt is None for receipt in latest_steps.values()):
+            raise ValueError("MISSION_CONTROL_PLAN_STEP_BINDING_REQUIRED")
+        plan_lease_refs = {
+            receipt.definition.lease_ref
+            for receipt in latest_steps.values()
+            if receipt is not None
+        }
+        if plan_lease_refs != {request.lease_ref}:
+            raise ValueError("MISSION_CONTROL_EXACT_PLAN_LEASE_REQUIRED")
         leases = [
             lease
             for lease in self.runner.dispatcher.lease_store._list_leases(  # noqa: SLF001
@@ -351,11 +457,37 @@ class SynchronousAuthorityMissionOrchestrator:
             request.event
             == MissionControlEvent.dead_letter_recovery_requested.value
             and (
+                request.dead_letter_step_ref is None
+                or
                 request.dead_letter_receipt_ref is None
                 or request.dead_letter_entry_hash_ref is None
             )
         ):
             raise ValueError("MISSION_CONTROL_DEAD_LETTER_BINDING_REQUIRED")
+        if (
+            request.event
+            == MissionControlEvent.dead_letter_recovery_requested.value
+        ):
+            dead_letter = latest_steps.get(request.dead_letter_step_ref or "")
+            if (
+                dead_letter is None
+                or dead_letter.status != MissionStepStatus.dead_lettered.value
+                or dead_letter.receipt_ref != request.dead_letter_receipt_ref
+                or dead_letter.entry_hash_ref
+                != request.dead_letter_entry_hash_ref
+            ):
+                raise ValueError(
+                    "MISSION_CONTROL_DURABLE_DEAD_LETTER_REQUIRED"
+                )
+        if (
+            request.event == MissionControlEvent.cancellation_requested.value
+            and all(
+                receipt is not None
+                and receipt.status in TERMINAL_MISSION_STEP_STATUSES
+                for receipt in latest_steps.values()
+            )
+        ):
+            raise ValueError("MISSION_CONTROL_MISSION_ALREADY_TERMINAL")
 
     def run(
         self,
@@ -405,11 +537,20 @@ class SynchronousAuthorityMissionOrchestrator:
                 self._apply_fail_fast(plan, terminal_failure.step_ref)
                 break
             step = steps_by_ref[step_ref]
+            if current.status == MissionStepStatus.retry_pending.value:
+                if (
+                    current.retry_not_before is None
+                    or current.retry_not_before > self.step_store.current_time()
+                ):
+                    break
+                dispatch_request = step.retry_requests[current.attempt_no - 1]
+            else:
+                dispatch_request = step.request
             if step.definition.deadline <= self.step_store.current_time():
                 expired = self.step_store.expire_deadline(step_ref)
                 self._apply_fail_fast(plan, expired.definition.step_ref)
                 break
-            approval = self.runner.evaluate_approval_posture(step.request)
+            approval = self.runner.evaluate_approval_posture(dispatch_request)
             if approval.posture == MissionStepApprovalPosture.wait.value:
                 waiting = self.step_store.record_approval_wait(
                     step_ref,
@@ -465,7 +606,7 @@ class SynchronousAuthorityMissionOrchestrator:
             try:
                 result = self.runner._run_orchestrated_once(  # noqa: SLF001
                     bound_definitions[step_ref],
-                    step.request,
+                    dispatch_request,
                     owner_ref=owner_ref,
                     claim_ttl_seconds=claim_ttl_seconds,
                     orchestration_context=orchestration_context,
@@ -480,6 +621,8 @@ class SynchronousAuthorityMissionOrchestrator:
                 replayed += 1
             else:
                 evaluated += 1
+            if result.step.status == MissionStepStatus.retry_pending.value:
+                break
             if result.step.status != MissionStepStatus.succeeded.value:
                 self._apply_fail_fast(plan, result.step.step_ref)
                 break
@@ -560,26 +703,47 @@ class SynchronousAuthorityMissionOrchestrator:
                 raise ValueError(
                     "AUTHORITY_MISSION_ORCHESTRATION_MISSION_LEASE_REQUIRED"
                 )
-            decision = evaluate_authority_request(
-                step.request.action_request,
-                [lease],
-            )
-            policy_eligible = (
-                decision.outcome == AuthorityDecisionOutcome.allow.value
-                or (
-                    decision.outcome == AuthorityDecisionOutcome.ask.value
-                    and step.request.approval_validation_request is not None
+            if definition.max_attempts > 1:
+                retry_constraint = next(
+                    (
+                        constraint
+                        for constraint in lease.authority_constraints
+                        if constraint.kind
+                        == AuthorityConstraintKind.retry_attempts.value
+                    ),
+                    None,
                 )
-            )
-            if not policy_eligible or decision.lease_ref != lease.lease_ref:
-                raise ValueError(
-                    "AUTHORITY_MISSION_ORCHESTRATION_POLICY_PREFLIGHT_DENIED"
+                if (
+                    retry_constraint is None
+                    or retry_constraint.maximum is None
+                    or retry_constraint.maximum < definition.max_attempts
+                ):
+                    raise ValueError(
+                        "AUTHORITY_MISSION_ORCHESTRATION_RETRY_LEASE_REQUIRED"
+                    )
+            for dispatch_request in [step.request, *step.retry_requests]:
+                decision = evaluate_authority_request(
+                    dispatch_request.action_request,
+                    [lease],
                 )
-            self.runner.validate_step(definition, step.request)
-            if self.runner.dispatcher.structural_preflight_reason_refs(step.request):
-                raise ValueError(
-                    "AUTHORITY_MISSION_ORCHESTRATION_STRUCTURAL_PREFLIGHT_DENIED"
+                policy_eligible = (
+                    decision.outcome == AuthorityDecisionOutcome.allow.value
+                    or (
+                        decision.outcome == AuthorityDecisionOutcome.ask.value
+                        and dispatch_request.approval_validation_request is not None
+                    )
                 )
+                if not policy_eligible or decision.lease_ref != lease.lease_ref:
+                    raise ValueError(
+                        "AUTHORITY_MISSION_ORCHESTRATION_POLICY_PREFLIGHT_DENIED"
+                    )
+                self.runner.validate_step(definition, dispatch_request)
+                if self.runner.dispatcher.structural_preflight_reason_refs(
+                    dispatch_request
+                ):
+                    raise ValueError(
+                        "AUTHORITY_MISSION_ORCHESTRATION_STRUCTURAL_PREFLIGHT_DENIED"
+                    )
 
     def _apply_fail_fast(
         self,
@@ -648,6 +812,11 @@ class SynchronousAuthorityMissionOrchestrator:
             reason_refs = [
                 "reason-ref:authority-mission-orchestration:approval-wait"
             ]
+        elif MissionStepStatus.retry_pending.value in statuses:
+            status = AuthorityMissionOrchestrationStatus.waiting_for_retry
+            reason_refs = [
+                "reason-ref:authority-mission-orchestration:retry-pending"
+            ]
         elif any(
             item
             in {
@@ -655,6 +824,7 @@ class SynchronousAuthorityMissionOrchestrator:
                 MissionStepStatus.cancelled.value,
                 MissionStepStatus.dependency_blocked.value,
                 MissionStepStatus.fail_fast_halted.value,
+                MissionStepStatus.dead_lettered.value,
             }
             for item in statuses
         ):
@@ -691,6 +861,19 @@ class SynchronousAuthorityMissionOrchestrator:
             ),
         ]
         dispatch_receipts = self.runner.dispatcher.list_receipts()
+        plan_dispatch_refs = {
+            binding.dispatch_ref for binding in plan.ordered_steps
+        }
+        cancellation_after_start = cancellation is not None and any(
+            receipt.dispatch_ref in plan_dispatch_refs and receipt.execution_started
+            for receipt in dispatch_receipts
+        )
+        if cancellation_after_start:
+            status = AuthorityMissionOrchestrationStatus.recovery_required
+            reason_refs = [
+                "reason-ref:authority-mission-orchestration:"
+                "cancellation-after-start-unsupported"
+            ]
         return AuthorityMissionOrchestrationResult(
             plan_ref=request.plan_ref,
             plan_fingerprint_ref=plan.fingerprint_ref,
@@ -727,10 +910,19 @@ class SynchronousAuthorityMissionOrchestrator:
                 step.status == MissionStepStatus.approval_wait.value
                 for step in steps
             ),
+            retry_pending_step_count=sum(
+                step.status == MissionStepStatus.retry_pending.value
+                for step in steps
+            ),
+            dead_letter_step_count=sum(
+                step.status == MissionStepStatus.dead_lettered.value
+                for step in steps
+            ),
             reason_refs=reason_refs,
             evidence_refs=evidence_refs,
             operator_summary=self._operator_summary(status),
             mission_cancellation_claimed=cancellation is not None,
+            automatic_retry_performed=any(step.attempt_no > 1 for step in steps),
         )
 
     @staticmethod
@@ -751,6 +943,10 @@ class SynchronousAuthorityMissionOrchestrator:
             AuthorityMissionOrchestrationStatus.waiting_for_approval.value: (
                 "Mission orchestration is waiting without a worker claim; an exact "
                 "approval must be freshly validated before dispatch preparation."
+            ),
+            AuthorityMissionOrchestrationStatus.waiting_for_retry.value: (
+                "Mission orchestration is waiting for a bounded retry window; "
+                "fresh request-scoped authority will be evaluated before start."
             ),
             AuthorityMissionOrchestrationStatus.in_progress.value: (
                 "Mission orchestration remains in progress under an existing fenced claim."

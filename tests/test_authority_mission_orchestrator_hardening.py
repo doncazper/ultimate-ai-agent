@@ -484,8 +484,13 @@ def test_legacy_mission_step_payload_remains_readable_and_replayable(tmp_path) -
     legacy_definition.pop("orchestration_plan_ref")
     legacy_definition.pop("planned_dispatch_ref")
     legacy_definition.pop("planned_dispatch_request_fingerprint_ref")
+    legacy_definition.pop("retryable_failure_categories")
+    legacy_definition.pop("retry_backoff_seconds")
+    legacy_definition.pop("planned_retry_attempts")
     payload.pop("blocked_dependency_step_ref")
     payload.pop("halted_by_step_ref")
+    payload.pop("retry_not_before")
+    payload.pop("failure_category")
     payload["definition_fingerprint_ref"] = _short_ref(
         "mission-step-fingerprint-ref",
         legacy_definition,
@@ -530,6 +535,7 @@ def test_legacy_dispatch_payload_remains_readable_and_replayable(tmp_path) -> No
     payload.pop("start_deadline")
     payload.pop("start_validated_at")
     payload.pop("execution_fence_ref")
+    payload.pop("failure_category")
     entry_payload = {
         key: value for key, value in payload.items() if key != "entry_hash_ref"
     }

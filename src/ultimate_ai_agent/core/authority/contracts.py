@@ -131,6 +131,7 @@ class AuthorityConstraintKind(str, Enum):
     delegation_depth = "delegation_depth"
     operation_budget = "operation_budget"
     cost_budget_microusd = "cost_budget_microusd"
+    retry_attempts = "retry_attempts"
 
 
 def _stable_ref(prefix: str, payload: Any) -> str:
@@ -166,6 +167,7 @@ _AUTHORITY_NUMERIC_CONSTRAINT_KINDS = {
     AuthorityConstraintKind.delegation_depth,
     AuthorityConstraintKind.operation_budget,
     AuthorityConstraintKind.cost_budget_microusd,
+    AuthorityConstraintKind.retry_attempts,
 }
 
 
