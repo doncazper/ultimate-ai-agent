@@ -400,9 +400,7 @@ def test_filesystem_metadata_dispatch_is_useful_durable_and_redacted(tmp_path: P
     assert result.adapter_result.safe_output["exists"] is True
     assert result.adapter_result.safe_output["path_kind"] == "file"
     assert result.adapter_result.safe_output["size_bytes"] == len(raw_body)
-    assert result.adapter_result.safe_output["safe_path_ref"].endswith(
-        "/notes/report.md"
-    )
+    assert result.adapter_result.safe_output["safe_path_ref"] == FILESYSTEM_PATH_REF
     assert replay.replayed is True
     assert replay.receipt.receipt_ref == result.receipt.receipt_ref
     assert len(dispatcher.list_receipts()) == 3

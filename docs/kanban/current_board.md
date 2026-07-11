@@ -55,9 +55,9 @@ step heartbeats; generic background autonomy remains blocked. Exact registered
 approval waits, prebound typed retries for explicitly idempotent adapters,
 immutable dead letters, append-first cancellation, and shared cancellation /
 dead-letter recovery-intent API/CLI contracts are now implemented. Safe
-after-start adapter cancellation, durable approval rehydration, mission-wide
-budgets, Control Center mutation controls, settlement recovery, paid-provider actual usage and
-cost proof, time-window or
+after-start adapter cancellation, durable approval rehydration, parallel
+mission-wide time/concurrency accounting, Control Center mutation controls,
+paid-provider actual usage and cost proof, time-window or
 recipient/target constraints, renewal, reviewed unresolved-cost remediation,
 multi-host storage, and universal legacy-lane migration remain unimplemented.
 Approval decisions are durable operator intent only and never execution
@@ -65,6 +65,23 @@ authority; every resumed worker start must freshly validate the exact request
 scope. No provider/model,
 external spend, shell, browser, connector-write, public-release, production, or
 broad authority is added.
+Runtime Capability Foundation Phase 02 now implements one exact low-risk core
+workflow: a reviewed safe operator request becomes deterministic intent truth,
+an immutable plan revision, an exact approval proposal, one mission-scoped
+lease, a filesystem-metadata dispatch, settled terminal evidence, an
+source-ledger-checked, content-free hash-chain completion manifest, and a
+review-required recall-only
+memory candidate. The whole plan must use one lease, preventing operation/cost
+budget fragmentation across same-mission leases. The existing locked budget
+ledger remains the single operation/cost source; lease TTL plus exact start
+deadlines and synchronous concurrency-one posture are recorded in completion
+truth. A crash after exact budget settlement but before terminal dispatch append
+is reconciled without a second adapter invocation or charge. Read-only CLI/API
+and macOS Control Center inspection expose the same content-free completion
+truth. Broader execution routes, parallel missions, automatic memory writes,
+content reads, arbitrary paths, shell, browser, connector, provider, and
+production authority remain blocked. Public prepare/execute API, CLI, and UI
+controls are not added; only backend-owned completion inspection is exposed.
 One exact mission step is now inspectable through the existing protected
 AuthorityState route and a human-readable CLI command. The shared projection
 hashes dynamic refs, validates durable safe-ref ledgers, distinguishes expired

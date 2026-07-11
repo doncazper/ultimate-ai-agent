@@ -20,16 +20,16 @@
   ],
   "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
   "route_approval_posture_summary": {
-    "not_required_for_route_classification": 204,
+    "not_required_for_route_classification": 205,
     "required_before_mutation_authority": 53
   },
   "route_auth_posture_summary": {
-    "protected_local_bearer_required": 254,
+    "protected_local_bearer_required": 255,
     "public_metadata_no_auth": 3
   },
   "route_classification_summary": {
     "local_readonly": 29,
-    "local_sensitive": 172,
+    "local_sensitive": 173,
     "mutating_requires_authority": 53,
     "public_metadata": 3
   },
@@ -39,13 +39,13 @@
     "local_sensitive",
     "mutating_requires_authority"
   ],
-  "route_count": 257,
+  "route_count": 258,
   "route_idempotency_posture_summary": {
-    "not_required_for_route_classification": 204,
+    "not_required_for_route_classification": 205,
     "required_before_mutation_authority": 53
   },
   "route_rate_limit_posture_summary": {
-    "not_targeted_for_route": 184,
+    "not_targeted_for_route": 185,
     "targeted_local_fixed_window": 73
   },
   "routes": [
@@ -245,6 +245,26 @@
       "route_classification": "mutating_requires_authority",
       "side_effect_class": "local_dev_workspace_only",
       "summary": "Post api runtime authority missions cancel",
+      "tags": [
+        "governed-runtime"
+      ]
+    },
+    {
+      "approval_posture": "not_required_for_route_classification",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": null,
+      "idempotency_posture": "not_required_for_route_classification",
+      "idempotency_required": false,
+      "method": "GET",
+      "operation_id": "get_api_runtime_authority_missions_completions",
+      "path": "/api/runtime/authority-missions/completions",
+      "rate_limit_group": null,
+      "rate_limit_policy_ref": null,
+      "rate_limit_posture": "not_targeted_for_route",
+      "rate_limit_targeted": false,
+      "route_classification": "local_sensitive",
+      "side_effect_class": "local_dev_workspace_only",
+      "summary": "Get api runtime authority missions completions",
       "tags": [
         "governed-runtime"
       ]

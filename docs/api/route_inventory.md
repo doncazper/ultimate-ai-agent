@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `256`.
+Current OpenAPI path count: `257`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -13,6 +13,11 @@ Historical release notes may preserve older route counts for audit history.
 disabled-by-default local AuthorityLease mission worker; approval, idempotency,
 and targeted rate limiting are not required because it cannot enqueue,
 execute, reconcile, or mutate.
+
+`GET /api/runtime/authority-missions/completions` is `local_sensitive` and
+read-only. It reports offline-hash-verified, content-free completion manifests
+with settled budget and terminal evidence refs. It performs no execution,
+approval, lease, memory write, context injection, or authority mutation.
 
 Each route declares:
 

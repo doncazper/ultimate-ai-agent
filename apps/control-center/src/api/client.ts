@@ -13,6 +13,7 @@ import type {
   AuthorityMissionWorkerJob,
   AuthorityMissionWorkerReadModel,
   AuthorityMissionWorkerStepRecovery,
+  AuthorityMissionCompletionReadModel,
   BackendConnectionSummary,
   CodingCockpitSessionReadModel,
   CodingWorkspaceContextReadModel,
@@ -3049,6 +3050,18 @@ export async function fetchAuthorityMissionWorkerState(): Promise<AuthorityMissi
   if (!isSafeAuthorityMissionWorkerReadModel(value)) {
     throw new Error(
       "Authority mission worker inspection returned unsafe or incompatible data.",
+    );
+  }
+  return value;
+}
+
+export async function fetchAuthorityMissionCompletions(): Promise<AuthorityMissionCompletionReadModel> {
+  const value = await readEnvelope<unknown>(
+    API_ENDPOINTS.runtimeAuthorityMissionCompletions,
+  );
+  if (!isSafeAuthorityMissionCompletionReadModel(value)) {
+    throw new Error(
+      "Authority mission completion inspection returned unsafe or incompatible data.",
     );
   }
   return value;
@@ -13996,6 +14009,228 @@ function isSafeAuthorityMissionWorkerReadModel(
     value.raw_logs_included === false &&
     value.raw_provider_payloads_included === false &&
     isAuthorityMissionStringArray(value.redactions_applied)
+  );
+}
+
+function isSafeAuthorityMissionCompletionReadModel(
+  value: unknown,
+): value is AuthorityMissionCompletionReadModel {
+  if (!isPlainRecord(value) || !Array.isArray(value.latest_manifests)) {
+    return false;
+  }
+  return (
+    value.schema_version === "uaa-mission-completion-read-model.v1" &&
+    isSafeAuthorityMissionRef(value.ledger_ref) &&
+    Number.isInteger(value.completion_count) &&
+    Number(value.completion_count) >= 0 &&
+    value.latest_manifests.length <= 12 &&
+    value.latest_manifests.every((manifest) => {
+      if (
+        !isPlainRecord(manifest) ||
+        !Array.isArray(manifest.step_bindings) ||
+        !Array.isArray(manifest.dispatch_bindings) ||
+        !Array.isArray(manifest.budget_bindings) ||
+        !Array.isArray(manifest.approval_refs) ||
+        !Array.isArray(manifest.approval_validation_refs) ||
+        !Array.isArray(manifest.control_receipt_refs) ||
+        !Array.isArray(manifest.cancellation_receipt_refs) ||
+        !Array.isArray(manifest.dead_letter_receipt_refs) ||
+        !Array.isArray(manifest.redactions_applied) ||
+        !Array.isArray(manifest.evidence_refs)
+      ) {
+        return false;
+      }
+      const stepBindings = manifest.step_bindings;
+      const dispatchBindings = manifest.dispatch_bindings;
+      const budgetBindings = manifest.budget_bindings;
+      const boundApprovalRefs = dispatchBindings.flatMap((dispatch) =>
+        isPlainRecord(dispatch) && typeof dispatch.approval_ref === "string"
+          ? [dispatch.approval_ref]
+          : [],
+      );
+      const boundApprovalValidationRefs = dispatchBindings.flatMap((dispatch) =>
+        isPlainRecord(dispatch) &&
+        typeof dispatch.approval_validation_ref === "string"
+          ? [dispatch.approval_validation_ref]
+          : [],
+      );
+      return (
+        manifest.schema_version === "uaa-mission-completion.v1" &&
+        [
+          manifest.completion_ref,
+          manifest.plan_ref,
+          manifest.plan_fingerprint_ref,
+          manifest.plan_receipt_ref,
+          manifest.plan_entry_hash_ref,
+          manifest.mission_ref,
+          manifest.run_ref,
+          manifest.lease_ref,
+          manifest.lease_mission_ref,
+          manifest.control_snapshot_ref,
+          manifest.memory_candidate_ref,
+          manifest.entry_hash_ref,
+        ].every(isSafeAuthorityMissionRef) &&
+        (manifest.previous_entry_hash_ref === null ||
+          isSafeAuthorityMissionRef(manifest.previous_entry_hash_ref)) &&
+        typeof manifest.lease_issued_at === "string" &&
+        typeof manifest.lease_expires_at === "string" &&
+        typeof manifest.mission_deadline === "string" &&
+        typeof manifest.created_at === "string" &&
+        manifest.lease_scope === "mission" &&
+        manifest.lease_mission_ref === manifest.mission_ref &&
+        manifest.status === "succeeded" &&
+        manifest.concurrency_limit === 1 &&
+        manifest.parallel_execution_performed === false &&
+        stepBindings.length >= 1 &&
+        stepBindings.length <= 16 &&
+        dispatchBindings.length === stepBindings.length &&
+        budgetBindings.length === stepBindings.length &&
+        stepBindings.every(
+          (step) =>
+            isPlainRecord(step) &&
+            [
+              step.step_ref,
+              step.definition_fingerprint_ref,
+              step.dispatch_ref,
+              step.dispatch_request_fingerprint_ref,
+              step.step_receipt_ref,
+              step.step_entry_hash_ref,
+              step.dispatch_receipt_ref,
+              step.dispatch_entry_hash_ref,
+            ].every(isSafeAuthorityMissionRef) &&
+            isAuthorityMissionStringArray(step.evidence_refs),
+        ) &&
+        dispatchBindings.every(
+          (dispatch, index) => {
+            if (!isPlainRecord(dispatch)) {
+              return false;
+            }
+            const step = stepBindings[index];
+            return (
+              [
+                dispatch.dispatch_ref,
+                dispatch.receipt_ref,
+                dispatch.entry_hash_ref,
+                dispatch.request_fingerprint_ref,
+                dispatch.lease_ref,
+                dispatch.action_ref,
+                dispatch.adapter_ref,
+                dispatch.capability_ref,
+                dispatch.authority_decision_ref,
+                dispatch.authority_policy_receipt_ref,
+                dispatch.budget_reservation_ref,
+                dispatch.budget_reservation_receipt_ref,
+                dispatch.budget_start_receipt_ref,
+                dispatch.budget_settlement_receipt_ref,
+                dispatch.execution_ref,
+                dispatch.actual_cost_ref,
+              ].every(isSafeAuthorityMissionRef) &&
+              typeof dispatch.approval_required === "boolean" &&
+              (!dispatch.approval_required ||
+                (isSafeAuthorityMissionRef(dispatch.approval_ref) &&
+                  isSafeAuthorityMissionRef(
+                    dispatch.approval_validation_ref,
+                  ))) &&
+              (dispatch.approval_ref === null ||
+                isSafeAuthorityMissionRef(dispatch.approval_ref)) &&
+              (dispatch.approval_validation_ref === null ||
+                isSafeAuthorityMissionRef(dispatch.approval_validation_ref)) &&
+              Number.isInteger(dispatch.actual_operation_count) &&
+              Number(dispatch.actual_operation_count) >= 1 &&
+              Number.isInteger(dispatch.actual_cost_microusd) &&
+              Number(dispatch.actual_cost_microusd) >= 0 &&
+              isAuthorityMissionStringArray(dispatch.evidence_refs) &&
+              isPlainRecord(step) &&
+              step.dispatch_ref === dispatch.dispatch_ref &&
+              step.dispatch_receipt_ref === dispatch.receipt_ref &&
+              step.dispatch_entry_hash_ref === dispatch.entry_hash_ref &&
+              step.dispatch_request_fingerprint_ref ===
+                dispatch.request_fingerprint_ref
+            );
+          },
+        ) &&
+        budgetBindings.every(
+          (budget, index) => {
+            const dispatch = dispatchBindings[index];
+            return (
+            isPlainRecord(budget) &&
+            [
+              budget.reservation_ref,
+              budget.reserve_receipt_ref,
+              budget.reserve_entry_hash_ref,
+              budget.start_receipt_ref,
+              budget.start_entry_hash_ref,
+              budget.settlement_receipt_ref,
+              budget.settlement_entry_hash_ref,
+              budget.lease_ref,
+              budget.action_ref,
+              budget.execution_ref,
+              budget.actual_cost_ref,
+            ].every(isSafeAuthorityMissionRef) &&
+            budget.settlement_status === "settled" &&
+            budget.unresolved_cost === false &&
+            Number.isInteger(budget.reserved_operation_count) &&
+            Number(budget.reserved_operation_count) >= 1 &&
+            Number.isInteger(budget.reserved_cost_microusd) &&
+            Number(budget.reserved_cost_microusd) >= 0 &&
+            Number.isInteger(budget.actual_operation_count) &&
+            Number(budget.actual_operation_count) >= 1 &&
+            Number.isInteger(budget.actual_cost_microusd) &&
+            Number(budget.actual_cost_microusd) >= 0 &&
+            isPlainRecord(dispatch) &&
+            dispatch.budget_reservation_ref === budget.reservation_ref &&
+            dispatch.budget_reservation_receipt_ref ===
+              budget.reserve_receipt_ref &&
+            dispatch.budget_start_receipt_ref === budget.start_receipt_ref &&
+            dispatch.budget_settlement_receipt_ref ===
+              budget.settlement_receipt_ref &&
+            dispatch.lease_ref === budget.lease_ref &&
+            dispatch.action_ref === budget.action_ref &&
+            dispatch.execution_ref === budget.execution_ref &&
+            dispatch.actual_operation_count === budget.actual_operation_count &&
+            dispatch.actual_cost_microusd === budget.actual_cost_microusd &&
+            dispatch.actual_cost_ref === budget.actual_cost_ref &&
+            dispatch.lease_ref === manifest.lease_ref &&
+            budget.lease_ref === manifest.lease_ref
+            );
+          },
+        ) &&
+        isAuthorityMissionStringArray(manifest.approval_refs) &&
+        isAuthorityMissionStringArray(manifest.approval_validation_refs) &&
+        manifest.approval_refs.length === boundApprovalRefs.length &&
+        manifest.approval_refs.every(
+          (ref, index) => ref === boundApprovalRefs[index],
+        ) &&
+        manifest.approval_validation_refs.length ===
+          boundApprovalValidationRefs.length &&
+        manifest.approval_validation_refs.every(
+          (ref, index) => ref === boundApprovalValidationRefs[index],
+        ) &&
+        isAuthorityMissionStringArray(manifest.control_receipt_refs) &&
+        isAuthorityMissionStringArray(manifest.cancellation_receipt_refs) &&
+        isAuthorityMissionStringArray(manifest.dead_letter_receipt_refs) &&
+        isAuthorityMissionStringArray(manifest.redactions_applied) &&
+        isAuthorityMissionStringArray(manifest.evidence_refs) &&
+        manifest.memory_candidate_posture === "review_required_recall_only" &&
+        manifest.memory_truth_authority === false &&
+        manifest.context_injection_authorized === false &&
+        manifest.execution_evidence_grants_authority === false &&
+        manifest.signature_present === false &&
+        manifest.integrity_posture === "content_free_hash_chain" &&
+        manifest.raw_paths_included === false &&
+        manifest.raw_prompt_included === false &&
+        manifest.raw_response_included === false &&
+        manifest.raw_provider_payload_included === false
+      );
+    }) &&
+    value.latest_manifests.length <= Number(value.completion_count) &&
+    isSafeAuthorityMissionText(value.operator_summary) &&
+    value.request_scoped_authority_still_required === true &&
+    value.execution_available_from_read_model === false &&
+    value.approval_or_lease_minted === false &&
+    value.raw_content_included === false &&
+    value.raw_paths_included === false &&
+    value.source_ledgers_verified === false
   );
 }
 
