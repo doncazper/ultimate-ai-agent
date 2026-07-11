@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 
 import pytest
 from fastapi.testclient import TestClient
@@ -231,7 +232,7 @@ def test_provider_router_dry_run_route_blocks_idempotency_mismatch() -> None:
 def test_provider_router_dry_run_cli_inspection_outputs_safe_schema() -> None:
     result = subprocess.run(
         [
-            ".venv/bin/python",
+            sys.executable,
             "scripts/inspect_provider_router_dry_run.py",
             "--router-run-ref",
             "provider-router-run-ref:dry-run:test-cli",

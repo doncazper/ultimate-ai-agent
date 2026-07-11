@@ -407,18 +407,20 @@ PYTHONPATH=src .venv/bin/python -m pytest tests/test_api_manifest.py
 `make -j$(VERIFY_DEV_FAST_JOBS)` fanout, then serializes Foundation Gate in
 `report-only --no-write-latest` mode. It records the existing static verifier
 timings through `VERIFY_TIMINGS_JSON` and keeps pytest on the normal non-xdist
-runner. It does not grant release readiness or replace populated release
-evidence packets; PR final proof should still include full `make verify` until
-parallel equivalence is accepted.
+runner. Hosted CI separately proves pytest equivalence through eight isolated
+deterministic file shards and one stable aggregate `pytest` check. This does not
+grant release readiness or replace populated release evidence packets; full
+local `make verify` remains serial.
 
 Use `make test-sharded` or `make verify-dev-sharded` for opt-in local/dev
-pytest sharding. The shard runner discovers `tests/test_*.py`, stores logs and
+pytest sharding. The shard runner discovers `tests/**/test_*.py`, stores logs and
 isolated pytest temp dirs under ignored `/tmp` paths by default, and writes
 file-level timing data to `PYTEST_SHARD_TIMINGS_JSON`. Complete timing data is
 used for greedy timing-aware balancing; missing or partial timing data falls
 back to deterministic file-count sharding. This lane does not change
-`make verify`, does not add dependencies such as pytest-xdist, and is not the
-release gate.
+`make verify` or add dependencies such as pytest-xdist. Hosted CI promotes the
+same default-safe partitioning as required pytest evidence only when every one
+of its eight isolated shards passes.
 
 `make verify-dev-sharded` uses `scripts/verification/run_dev_fast_gate.py` to
 keep local output readable: phase output is captured to ignored `/tmp` logs,

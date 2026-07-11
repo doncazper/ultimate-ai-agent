@@ -240,8 +240,9 @@ a bounded `make -j$(VERIFY_DEV_FAST_JOBS)` fanout, then generates a serialized
 report-only Foundation Gate summary with `--no-write-latest`. It records static
 verification timings through `VERIFY_TIMINGS_JSON`, uses the normal non-xdist
 pytest suite, and is local verification evidence, not a release-readiness claim
-by itself. PR final proof should still include full `make verify` until parallel
-equivalence is accepted.
+by itself. Hosted CI now proves pytest equivalence through eight isolated
+deterministic file shards plus one stable aggregate `pytest` check. Local
+`make verify` remains the conservative serial all-in proof.
 
 `make test-sharded` is an opt-in local/dev pytest file sharding lane. It uses
 `scripts/verification/run_pytest_shards.py` with `PYTEST_SHARDS`, stores
@@ -255,8 +256,9 @@ sharded pytest, static verification, and gate architecture run in bounded local
 fanout, then Foundation Gate runs serialized in report-only mode with
 `--no-write-latest`. The runner captures per-phase logs under ignored `/tmp`
 paths, writes a timing summary, prints concise pass/fail phase summaries, and
-prints detailed log tails when a phase fails. This is local pre-review feedback
-only; full `make verify` remains the conservative release-grade proof.
+prints detailed log tails when a phase fails. This remains local pre-review
+feedback. Hosted CI requires every shard through the aggregate `pytest` check;
+full local `make verify` remains serial.
 
 The sharded lane parallelizes the same default-safe contract test posture. It
 does not opt into live GGUF search or acquisition, local model root
