@@ -914,31 +914,7 @@ def build_parser(runtime_symbols: Mapping[str, Any]) -> argparse.ArgumentParser:
     )
     approval_bridge.set_defaults(func=_inspect_approval_bridge)
 
-    streaming_progress = subparsers.add_parser(
-        "inspect-streaming-progress",
-        help="Inspect redacted runtime streaming progress previews without live transport.",
-    )
-    streaming_progress.add_argument(
-        "--json",
-        action="store_true",
-        help="Emit the safe-ref runtime streaming progress read model as JSON.",
-    )
-    streaming_progress.add_argument(
-        "--replay-sse",
-        action="store_true",
-        help="Replay deterministic redacted progress previews as local read-only SSE lines.",
-    )
-    streaming_progress.add_argument(
-        "--run-ref",
-        help="Existing runtime or UAA durable run ref required for --replay-sse.",
-    )
-    streaming_progress.add_argument(
-        "--after-sequence",
-        type=int,
-        default=-1,
-        help="Resume read-only SSE replay after this event sequence.",
-    )
-    streaming_progress.set_defaults(func=_inspect_streaming_progress)
+    _streaming_progress_cli.register_parser(subparsers)
 
     profiles = subparsers.add_parser(
         "inspect-profiles",

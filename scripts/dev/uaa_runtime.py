@@ -15,6 +15,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 from scripts.dev import uaa_runtime_mission_step_inspection as _mission_step_cli  # noqa: E402, F401
 from scripts.dev import uaa_runtime_mission_worker_inspection as _mission_worker_cli  # noqa: E402, F401
+from scripts.dev import uaa_runtime_streaming_progress as _streaming_progress_cli  # noqa: E402, F401
 from ultimate_ai_agent.core.control_center.runtime_action_bridge import (  # noqa: E402
     build_runtime_action_inbox_bridge_read_model,
 )
@@ -88,14 +89,12 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_runtime_session_continuity_read_model_from_authority_catalog,
     build_runtime_session_search_read_model_from_authority_catalog,
     build_runtime_session_lineage_read_model_from_authority_catalog,
-    build_runtime_streaming_progress_read_model_from_authority_catalog,
     build_runtime_tool_registry_availability_read_model_from_authority_catalog,
     build_runtime_usage_cost_analytics_read_model_from_authority_catalog,
     build_runtime_virtual_provider_moa_read_model_from_authority_catalog,
     build_runtime_action_signed_evidence,
     build_runtime_checkpoint_rollback_read_model_from_authority_catalog,
     build_runtime_context_references_read_model_from_authority_catalog,
-    iter_runtime_streaming_progress_sse_lines,
     verify_portable_evidence_envelope,
     verify_runtime_action_signed_evidence,
 )
@@ -1792,36 +1791,6 @@ def _print_approval_bridge(read_model: dict[str, Any]) -> None:
     print("Decision previews:")
     for preview in read_model["decision_previews"]:
         print(f"- {preview['decision_kind']} sent={preview['runtime_resolution_sent']}")
-    print("Blocked:")
-    for ref in read_model["blocked_authority_refs"]:
-        print(f"- {ref}")
-
-
-def _print_streaming_progress(read_model: dict[str, Any]) -> None:
-    print("Runtime streaming progress")
-    print(f"Status: {read_model['status']}")
-    print(f"Snapshot: {read_model['snapshot_ref']}")
-    print(f"Snapshot hash: {read_model['snapshot_hash_ref']}")
-    print(f"Stream state: {read_model['stream_state']}")
-    print(f"Route: {read_model['route_ref']}")
-    print(f"CLI: {read_model['cli_ref']}")
-    print(f"Authority state: {read_model['authority_state_route_ref']}")
-    print(f"Authority mapping: {read_model['authority_state_mapping_ref']}")
-    print(
-        "Authority decision: "
-        f"{read_model['authority_state_decision_outcome']} "
-        f"({read_model['authority_state_decision_ref']})"
-    )
-    print(f"Events: {read_model['event_count']}")
-    print(f"Live subscription: {read_model['live_subscription_enabled']}")
-    print(f"SSE transport: {read_model['sse_transport_enabled']}")
-    print(f"WebSocket transport: {read_model['websocket_transport_enabled']}")
-    print(f"Stale stream: {read_model['stale_stream']}")
-    print("Event previews:")
-    for event in read_model["event_previews"]:
-        print(f"- #{event['sequence']} {event['event_kind']} {event['event_ref']}")
-        print(f"  proof={event['proof_ref']}")
-        print(f"  hash={event['event_hash_ref']}")
     print("Blocked:")
     for ref in read_model["blocked_authority_refs"]:
         print(f"- {ref}")
@@ -4041,71 +4010,6 @@ def _inspect_approval_bridge(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_approval_bridge(read_model)
-    return 0
-
-
-def _inspect_streaming_progress(args: argparse.Namespace) -> int:
-    authority_state = AuthorityLeaseStore().build_state_read_model()
-    read_model_obj = build_runtime_streaming_progress_read_model_from_authority_catalog(
-        authority_decision_catalog=authority_state.decision_catalog,
-    )
-    read_model = read_model_obj.model_dump(mode="json")
-    if args.replay_sse:
-        if not args.run_ref:
-            print("ERROR: --run-ref is required with --replay-sse", file=sys.stderr)
-            return 2
-        try:
-            for line in iter_runtime_streaming_progress_sse_lines(
-                read_model_obj,
-                run_ref=args.run_ref,
-                after_sequence=args.after_sequence,
-            ):
-                print(line, end="")
-        except ValueError:
-            print(
-                "ERROR: read-only SSE replay is limited to deterministic redacted preview refs",
-                file=sys.stderr,
-            )
-            return 2
-        return 0
-    payload = {
-        "schema_version": "governed-runtime-cli:v1",
-        "command_ref": "repo-local-command:uaa-runtime-inspect-streaming-progress",
-        "runtime_streaming_progress": read_model,
-        "authority_state": {
-            "route_ref": read_model["authority_state_route_ref"],
-            "cli_ref": read_model["authority_state_cli_ref"],
-            "mapping_ref": read_model["authority_state_mapping_ref"],
-            "catalog_ref": read_model["authority_state_catalog_ref"],
-            "decision_ref": read_model["authority_state_decision_ref"],
-            "decision_outcome": read_model["authority_state_decision_outcome"],
-        },
-        "safe_refs_only": True,
-        "raw_content_omitted": True,
-        "raw_paths_omitted": True,
-        "raw_provider_payload_omitted": True,
-        "raw_runtime_payload_omitted": True,
-        "raw_tool_payload_omitted": True,
-        "raw_logs_omitted": True,
-        "raw_runtime_payload_persisted": False,
-        "raw_tool_payload_persisted": False,
-        "raw_generated_content_persisted": False,
-        "raw_log_persisted": False,
-        "raw_prompt_persisted": False,
-        "raw_response_persisted": False,
-        "execution_performed": False,
-        "live_subscription_performed": False,
-        "readonly_sse_replay_available": read_model["readonly_sse_replay_enabled"],
-        "readonly_sse_replay_source_posture": read_model[
-            "readonly_sse_replay_source_posture"
-        ],
-        "sse_subscription_performed": False,
-        "websocket_subscription_performed": False,
-    }
-    if args.json:
-        _print_json(payload)
-    else:
-        _print_streaming_progress(read_model)
     return 0
 
 
