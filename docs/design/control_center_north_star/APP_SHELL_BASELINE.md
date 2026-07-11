@@ -30,8 +30,11 @@ controls, or inspectors.
 
 ## Canonical Left Rail
 
-The rail is owned by `apps/control-center/src/routes.tsx` and should preserve
-the route order below unless a later dated baseline intentionally changes it.
+The rail is owned by `apps/control-center/src/routes.tsx`. The route order below
+is the product default and deterministic `All surfaces` order. Under the
+approved `CC-UIUX-2026-07-11` specification, operators may customize which
+surfaces are pinned and their pinned order without changing route availability,
+capability state, authority, or the resettable default order.
 
 ### Primary Founder Loop
 
@@ -115,6 +118,20 @@ System:
   item order and route reachability are preserved.
 - The rail may expose overflow through a stable "More" or command-palette
   affordance only when the hidden list remains deterministic.
+- `Customize sidebar` may pin, unpin, reorder, collapse, change density, cancel,
+  or restore defaults. Use visibility/pinning language, never capability
+  enable/disable language.
+- Hidden surfaces remain reachable from `All surfaces`, the UAA composer,
+  command search, and direct navigation.
+- Global safety posture, blockers, and approval controls are not customizable
+  navigation items and cannot be hidden through rail preferences.
+
+## Persistent UAA Composer
+
+The standard shell includes the shared UAA composer defined by
+`../CONTROL_CENTER_UI_UX_SPEC.md`. It occupies the bottom application rail,
+uses safe route/selection context only, and expands into a consistent sidecar.
+It does not replace the dedicated Chat workspace or grant mutation authority.
 
 ## Standard Desktop Layout
 

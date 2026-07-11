@@ -39,6 +39,9 @@ These boards prevent every route from inventing its own shell or common state.
 | `OVERLAY-01` | Command palette | default results, filtered results, disabled result reason, empty results |
 | `OVERLAY-02` | Dialogs and notices | confirmation, cancellation, error, success, drawer, tooltip |
 | `A11Y-01` | Keyboard/focus | focus order, focused controls, selected rows, board keyboard move |
+| `ASSIST-01` | Persistent UAA composer | collapsed, focused, context attached/removed, search, ask, proposal handoff |
+| `ASSIST-02` | UAA sidecar | answer, cross-surface context, navigation result, proposal preview, blocked request |
+| `NAV-01` | Sidebar customization | pin/unpin, reorder, collapsed groups, density, cancel, reset defaults |
 
 ## Route Render Queue
 
@@ -47,21 +50,25 @@ route-specific mobile render is required in addition to the shared mobile
 shell. The variations column names only route-specific variants; generic
 states come from the shared boards above.
 
+Unless a blocking confirmation dialog temporarily owns focus, every default
+route render shows the shared UAA composer. At least one route-specific render
+for each workspace template shows the expanded sidecar.
+
 | Group | Route | Surface | Template | Route-specific variations | Mobile |
 |---|---|---|---|---|---|
 | Founder Loop | `/start` | Start Here | Daily command deck | first run; partial setup; ready return visit | yes |
-| Founder Loop | `/today` | Today | Daily command deck | normal day; no decisions; high-risk blocked item; degraded sources | yes |
+| Founder Loop | `/today` | Today | Daily command deck | cross-surface attention queue; CRM follow-up selected; Work Board blocker selected; no decisions; high-risk blocked item; degraded sources; UAA sidecar asking about board/CRM | yes |
 | Founder Loop | `/inbox` | Source Inbox | Queue/detail/inspector | ready sources; missing source; connector draft-only; all sources blocked | yes |
 | Founder Loop | `/plans` | Plans | Board/planning | plan selected; no plan; proposal dirty; action-envelope handoff | yes |
-| Founder Loop | `/work-board` | Work Board | Board/planning | backend order; unsaved preview; persist confirmation; receipt saved; blocked external lane | yes |
+| Founder Loop | `/work-board` | Work Board | Board/planning | backend order; unsaved preview; persist confirmation; receipt saved; blocked external lane; UAA board question/task proposal | yes |
 | Founder Loop | `/actions` | Action Inbox | Queue/detail/inspector | ready for decision; edited envelope; reject/defer; approved receipt; ineligible/blocked | yes |
 | Founder Loop | `/proof` | Proof | Queue/detail/inspector | proof selected; no selection; stale proof; rollback/safe-disable ready | yes |
 | Founder Loop | `/trust` | Trust | Matrix/settings | no lease; active exact lease; denied scope; revoke confirmation; safe-disable | yes |
 | Founder Loop | `/memory` | Memory | Queue/detail/inspector | candidate; correction dirty; conflict/stale; accepted receipt; empty review queue | yes |
 | Founder Loop | `/evidence` | Evidence | Ledger/inventory | narrative timeline; event selected; stale/blocked event; empty; degraded proof refs | yes |
-| Founder Loop | `/settings` | Settings | Matrix/settings | read-only posture; mode dirty; confirm; saved receipt; unsupported adapter | yes |
+| Founder Loop | `/settings` | Settings | Matrix/settings | search-first UAA results; read-only posture; mode dirty; confirm; saved receipt; unsupported adapter/blocked request | yes |
 | Founder Loop support | `/briefing` | Briefing | Daily command deck | assembled; missing evidence; no source refs; proposed actions ready | yes |
-| Founder Loop support | `/crm` | CRM | Board/planning | relationship selected; follow-up queue; pipeline; smart lists/reports; local mutation confirm/receipt; connector-read blocked | yes |
+| Founder Loop support | `/crm` | CRM | Board/planning | relationship selected; follow-up queue; pipeline; smart lists/reports; local mutation confirm/receipt; connector-read blocked; UAA relationship/follow-up question | yes |
 | Founder Loop support | `/private-trial` | Trial Packet | Setup/readiness | overview; selected acceptance item; blocked item; completed private review | no |
 | Review | `/operator-loop` | Operator Loop | Daily command deck | normal partial loop; blocked act stage; fully proofed local loop | no |
 | Review | `/setup` | Setup | Setup/readiness | first run; partial prerequisites; ready; blocker detail; safe command copy | yes |

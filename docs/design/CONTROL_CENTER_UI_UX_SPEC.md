@@ -73,6 +73,9 @@ that spine. They must not become unrelated diagnostic islands.
    operator-relevant truth.
 8. **No visual fiction.** Demo or generated data is labeled. A render may show
    representative safe data, but implementation must use actual backend state.
+9. **One integrated assistant.** A persistent, context-aware UAA composer lets
+   the operator ask about, find, navigate, explain, or propose work from almost
+   every surface without turning the screen into a separate chat product.
 
 ## Canonical Application Shell
 
@@ -100,7 +103,7 @@ explicit long-form report.
 
 ### Canonical global rail
 
-Always-visible Founder Loop order:
+Default Founder Loop order:
 
 1. Start Here
 2. Today
@@ -115,8 +118,23 @@ Always-visible Founder Loop order:
 11. Settings
 
 Supporting surfaces live in stable collapsed groups or the command palette.
-Their membership and order are deterministic. Route-local tabs never enter the
-global rail. One item, and only one item, has `aria-current="page"`.
+Their complete membership and default order are deterministic. Route-local
+tabs never enter the global rail. One item, and only one item, has
+`aria-current="page"`.
+
+The operator may enter `Customize sidebar` to pin/unpin surfaces, reorder
+pinned surfaces, collapse groups, choose compact or comfortable density, and
+restore defaults. This changes presentation only:
+
+- `Hide from sidebar` never disables a route or capability;
+- every hidden surface remains reachable through `All surfaces`, the UAA
+  composer, command search, and direct navigation;
+- capability availability, authority, and sidebar visibility use separate
+  language and state;
+- approval controls, blockers, global safety posture, and required warnings
+  cannot be hidden by layout preferences;
+- the customization preview can be cancelled or reset;
+- layout preference may remain presentation-owned local state.
 
 ### Top status strip
 
@@ -132,6 +150,40 @@ The strip shows only operator-relevant global posture:
 Each group has an icon, a short label, and a short value. A global degraded or
 mock state uses one bounded banner immediately below the strip, not repeated
 warnings inside every route panel.
+
+### Persistent UAA composer and sidecar
+
+Almost every route includes one application-level UAA composer. It is a shared
+shell component, not forty unrelated chat boxes.
+
+- Standard placement: a 48-56 px composer integrated into the bottom
+  application rail; it may expand upward without moving the route header.
+- Invocation: click the composer or use `Command-K`, which unifies route search,
+  settings search, navigation, questions, and proposals.
+- Default prompt: `Ask UAA about this screen, find something, or propose a next
+  step...`.
+- Route-aware prompts may be more specific, such as `Ask about this board...`
+  or `Search settings or ask UAA...`.
+- Current-context indicator shows route, selected item count, and safe context
+  refs. Context is removable before submit.
+- Context may contain backend-owned safe refs, current route, selected record
+  refs, filter state, and explicit bounded summaries. It may not scrape raw DOM
+  text, attach raw screen pixels, or silently include raw prompts, responses,
+  file contents, paths, logs, contact details, credentials, or provider data.
+- Answers, navigation, and filters may occur directly when they are read-only
+  presentation behavior.
+- Requests to change state become a clearly labeled proposal, preview, or exact
+  action envelope. They do not bypass policy, LocalApprovalAuthority,
+  AuthorityLease, idempotency, receipts, safe-disable, rollback, CLI/API parity,
+  or route side-effect classification.
+- The composer expands into a consistent right-side UAA sidecar containing the
+  conversation, included context, proposed next steps, and related evidence.
+- The dedicated Chat route remains the full conversation/history workspace.
+
+In Settings, the composer is search-first. It returns matching settings,
+explains current posture, navigates to the exact row, and can draft a supported
+change. Unsupported or non-mutable settings return a truthful blocked or
+planned result rather than a fake control.
 
 ### Product naming
 
@@ -165,9 +217,15 @@ templates only when the mapped north-star render does so.
 
 Used by Start Here, Today, Overview, Dashboard, Briefing, and Operator Loop.
 
-- compact summary/next-step rail;
-- 2-3 balanced work regions;
-- priorities and decisions before low-level readiness;
+- compact Morning Briefing and priority rail;
+- one unified `Needs your attention` queue containing approvals, CRM follow-ups,
+  Work Board blockers/movement, missing sources, memory conflicts, and stale or
+  missing evidence;
+- a selected-signal inspector showing why it matters, linked plan/work item,
+  relevant safe evidence, authority scope, and next safe step;
+- a compact business pulse for CRM, Work Board, upcoming commitments, and
+  evidence movement;
+- priorities and cross-surface decisions before low-level readiness;
 - bottom receipts/evidence/heartbeat band when useful;
 - no repeated dashboard card grid below the first viewport.
 
@@ -226,6 +284,9 @@ Used by Chat and related handoff views.
 - actual route/model used appears after a response;
 - plan, action, memory, and evidence handoffs are explicit proposal tabs in an
   inspector, never hidden side effects.
+- route-local UAA sidecars use this same conversation and handoff anatomy so a
+  question started on Today can inspect a Work Board or CRM safe ref and remain
+  coherent when opened in the full Chat route.
 
 ### G. Setup and readiness
 
@@ -348,6 +409,10 @@ is validated. Receipts describe past work and do not authorize future work.
   state.
 - Every unavailable control has an adjacent reason and a separate remediation
   path when one exists.
+- `Customize sidebar` changes navigation presentation. It never uses `Enable`,
+  `Disable`, or authority terminology.
+- The UAA composer distinguishes `Search`, `Go to`, `Ask`, `Filter`, `Draft`,
+  and `Propose` intent before any operator-relevant mutation path is offered.
 
 ## Required Interaction States
 
@@ -491,4 +556,3 @@ Changing this spec, an approved render, or a pixel-matched surface requires:
 - updated render or accepted no-render rationale;
 - updated visual baseline and focused tests;
 - no silent drift between spec, render, and implementation.
-
