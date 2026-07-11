@@ -10,7 +10,7 @@ from contextlib import nullcontext
 from decimal import Decimal, InvalidOperation
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Protocol, Sequence
+from typing import Any, Callable, Protocol, Sequence
 
 from ultimate_ai_agent.core.approvals.authority import LocalApprovalAuthority
 from ultimate_ai_agent.core.authority.authority_constants import (
@@ -101,8 +101,8 @@ class AuthorityDispatchExecutionFenceValidator(Protocol):
         request: AuthorityDispatchRequest,
         execution_fence: AuthorityDispatchExecutionFence | None,
         *,
-        current_time: datetime,
-    ) -> tuple[list[str], str | None]: ...
+        current_time: Callable[[], datetime],
+    ) -> tuple[list[str], str | None, datetime]: ...
 
 
 def _canonical_json(value: Any) -> str:
@@ -728,16 +728,17 @@ class AuthorityDispatcher:
                 prestart_reasons.append(
                     "reason-ref:authority-dispatch:worker-fence-validator-unavailable"
                 )
-            start_validated_at = utc_now()
             if not prestart_reasons and self.execution_fence_validator is not None:
-                fence_reasons, execution_fence_ref = (
+                fence_reasons, execution_fence_ref, start_validated_at = (
                     self.execution_fence_validator.validate_prestart_fence(
                         request,
                         execution_fence,
-                        current_time=start_validated_at,
+                        current_time=utc_now,
                     )
                 )
                 prestart_reasons.extend(fence_reasons)
+            elif not prestart_reasons:
+                start_validated_at = utc_now()
             if not prestart_reasons:
                 prestart_reasons = self._time_bound_prestart_reason_refs(
                     request,

@@ -24,6 +24,7 @@ from ultimate_ai_agent.core.authority.dispatcher import (
     authority_dispatch_request_fingerprint,
 )
 from ultimate_ai_agent.core.execution.durable_mission_worker import (
+    MISSION_WORKER_ENABLED_ENV,
     MISSION_WORKER_LOCK_KEY,
     LocalMissionWorker,
     LocalMissionWorkerConfiguration,
@@ -33,6 +34,8 @@ from ultimate_ai_agent.core.execution.durable_mission_worker import (
     MissionWorkerJobStatus,
     MissionWorkerPlatform,
     MissionWorkerStore,
+    build_mission_worker_read_model,
+    local_mission_worker_configuration_from_environment,
     mission_worker_identity_ref,
     mission_worker_job_binding,
 )
@@ -339,6 +342,100 @@ def test_truncated_worker_ledger_fails_closed(tmp_path) -> None:
 
     with pytest.raises(MissionWorkerCorruptionError, match="LEDGER_TRUNCATED"):
         store.receipts()
+
+
+def test_queue_capacity_denial_precedes_plan_and_step_materialization(tmp_path) -> None:
+    first_orchestrator, _, _, _, first_request, _ = _orchestration_fixture(
+        tmp_path / "first",
+        suffix="worker-pressure-first",
+        dependency_graph=[[]],
+        shared_state=True,
+    )
+    _, _, _, _, second_request, _ = _orchestration_fixture(
+        tmp_path / "second",
+        suffix="worker-pressure-second",
+        dependency_graph=[[]],
+        shared_state=True,
+    )
+    store = MissionWorkerStore(first_orchestrator.step_store.state_dir)
+    worker = LocalMissionWorker(
+        orchestrator=first_orchestrator,
+        store=store,
+        configuration=_config().model_copy(update={"queue_capacity": 1}),
+    )
+    worker.enqueue(first_request)
+    plan_receipts_before = first_orchestrator.plan_store.list_receipts()
+
+    with pytest.raises(MissionWorkerConflictError, match="QUEUE_CAPACITY_EXCEEDED"):
+        worker.enqueue(second_request)
+
+    assert first_orchestrator.plan_store.list_receipts() == plan_receipts_before
+    with pytest.raises(KeyError, match="MISSION_STEP_UNKNOWN"):
+        first_orchestrator.step_store.read(second_request.steps[0].definition.step_ref)
+    assert [item.binding.job_ref for item in store.latest()] == [
+        mission_worker_job_binding(first_request).job_ref
+    ]
+
+
+def test_stale_claim_can_settle_as_deadline_expired(tmp_path) -> None:
+    current = [utc_now()]
+    orchestrator, _, _, _, request, _ = _orchestration_fixture(
+        tmp_path,
+        suffix="worker-stale-deadline",
+        dependency_graph=[[]],
+        shared_state=True,
+    )
+    store = MissionWorkerStore(
+        orchestrator.step_store.state_dir,
+        clock=lambda: current[0],
+    )
+    binding = mission_worker_job_binding(request)
+    store.enqueue(binding, queue_capacity=1)
+    store.claim(
+        binding.job_ref,
+        worker_ref=mission_worker_identity_ref(
+            "mission-worker-ref:test:stale-deadline"
+        ),
+        ttl_seconds=5,
+    )
+    current[0] = binding.deadline
+
+    settled = store.claim(
+        binding.job_ref,
+        worker_ref=mission_worker_identity_ref(
+            "mission-worker-ref:test:stale-deadline-successor"
+        ),
+        ttl_seconds=5,
+    )
+
+    assert settled.status == MissionWorkerJobStatus.failed.value
+    assert settled.reason_refs == ["reason-ref:mission-worker:deadline-expired"]
+    assert store.receipts()[-1] == settled
+
+
+def test_non_macos_enable_request_remains_inspectable_placeholder(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setenv(MISSION_WORKER_ENABLED_ENV, "1")
+    with patch("platform.system", return_value="Linux"):
+        configuration = local_mission_worker_configuration_from_environment()
+    orchestrator, _, _, _, _, _ = _orchestration_fixture(
+        tmp_path,
+        suffix="worker-linux-placeholder-env",
+        dependency_graph=[[]],
+        shared_state=True,
+    )
+
+    model = build_mission_worker_read_model(
+        store=MissionWorkerStore(orchestrator.step_store.state_dir),
+        orchestrator=orchestrator,
+        configuration=configuration,
+    )
+
+    assert model.configuration_enabled is False
+    assert model.observed_platform == "linux_placeholder"
+    assert model.platform_execution_supported is False
+    assert model.linux_surface_posture == "render_placeholder"
 
 
 def test_correctly_rehashed_terminal_fence_removal_fails_closed(tmp_path) -> None:

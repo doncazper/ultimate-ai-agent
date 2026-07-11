@@ -260,30 +260,6 @@ def test_graceful_shutdown_releases_claim_between_steps(tmp_path, monkeypatch) -
     ).status == ("pending")
 
 
-def test_queue_capacity_does_not_evict_existing_work(tmp_path) -> None:
-    first_orchestrator, _, _, _, first_request, _ = _orchestration_fixture(
-        tmp_path / "first",
-        suffix="worker-pressure-first",
-        dependency_graph=[[]],
-        shared_state=True,
-    )
-    _, _, _, _, second_request, _ = _orchestration_fixture(
-        tmp_path / "second",
-        suffix="worker-pressure-second",
-        dependency_graph=[[]],
-        shared_state=True,
-    )
-    store = MissionWorkerStore(first_orchestrator.step_store.state_dir)
-    first = mission_worker_job_binding(first_request)
-    second = mission_worker_job_binding(second_request)
-    store.enqueue(first, queue_capacity=1)
-
-    with pytest.raises(MissionWorkerConflictError, match="QUEUE_CAPACITY_EXCEEDED"):
-        store.enqueue(second, queue_capacity=1)
-
-    assert [item.binding.job_ref for item in store.latest()] == [first.job_ref]
-
-
 def test_job_claim_deadline_preserves_later_step_deadlines(tmp_path) -> None:
     _, _, _, _, request, _ = _orchestration_fixture(
         tmp_path,

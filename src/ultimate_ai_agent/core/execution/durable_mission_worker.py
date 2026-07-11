@@ -120,14 +120,22 @@ def current_mission_worker_platform() -> MissionWorkerPlatform:
 def local_mission_worker_configuration_from_environment() -> (
     LocalMissionWorkerConfiguration
 ):
-    enabled = os.environ.get(MISSION_WORKER_ENABLED_ENV, "").strip().lower() in {
+    enabled_requested = os.environ.get(
+        MISSION_WORKER_ENABLED_ENV, ""
+    ).strip().lower() in {
         "1",
         "true",
         "yes",
         "on",
         "enabled",
     }
-    return LocalMissionWorkerConfiguration(enabled=enabled)
+    observed_platform = current_mission_worker_platform()
+    return LocalMissionWorkerConfiguration(
+        enabled=(
+            enabled_requested and observed_platform == MissionWorkerPlatform.macos
+        ),
+        observed_platform=observed_platform,
+    )
 
 
 def _canonical(value: Any) -> str:
@@ -363,38 +371,58 @@ class MissionWorkerStore:
     ) -> MissionWorkerReceipt:
         if not 1 <= queue_capacity <= MISSION_WORKER_QUEUE_MAX_ITEMS:
             raise ValueError("MISSION_WORKER_QUEUE_CAPACITY_INVALID")
-        with self.lock_manager.acquire(MISSION_WORKER_LOCK_KEY):
+        with (
+            self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY),
+            self.lock_manager.acquire(MISSION_WORKER_LOCK_KEY),
+        ):
             receipts = self._load()
-            latest = self._latest(receipts, binding.job_ref)
-            if latest is not None:
-                if latest.binding != binding:
-                    raise MissionWorkerConflictError(
-                        "MISSION_WORKER_JOB_BINDING_CONFLICT"
-                    )
-                return latest
-            active = {
-                item.binding.job_ref
-                for item in self._latest_by_job(receipts).values()
-                if item.status
-                in {
-                    MissionWorkerJobStatus.pending.value,
-                    MissionWorkerJobStatus.claimed.value,
-                }
-            }
-            if len(active) >= queue_capacity:
-                raise MissionWorkerConflictError(
-                    "MISSION_WORKER_QUEUE_CAPACITY_EXCEEDED"
-                )
-            receipt = self._build(
+            existing = self._preflight_enqueue_loaded(
                 receipts,
-                event=MissionWorkerEvent.enqueued,
-                status=MissionWorkerJobStatus.pending,
-                binding=binding,
-                checked_at=self.current_time(),
-                safe_summary="Mission work was durably queued without request payloads.",
+                binding,
+                queue_capacity=queue_capacity,
             )
-            self._append(receipt)
-            return receipt
+            return existing or self._append_enqueue_loaded(receipts, binding)
+
+    def _preflight_enqueue_loaded(
+        self,
+        receipts: list[MissionWorkerReceipt],
+        binding: MissionWorkerJobBinding,
+        *,
+        queue_capacity: int,
+    ) -> MissionWorkerReceipt | None:
+        latest = self._latest(receipts, binding.job_ref)
+        if latest is not None:
+            if latest.binding != binding:
+                raise MissionWorkerConflictError("MISSION_WORKER_JOB_BINDING_CONFLICT")
+            return latest
+        active = {
+            item.binding.job_ref
+            for item in self._latest_by_job(receipts).values()
+            if item.status
+            in {
+                MissionWorkerJobStatus.pending.value,
+                MissionWorkerJobStatus.claimed.value,
+            }
+        }
+        if len(active) >= queue_capacity:
+            raise MissionWorkerConflictError("MISSION_WORKER_QUEUE_CAPACITY_EXCEEDED")
+        return None
+
+    def _append_enqueue_loaded(
+        self,
+        receipts: list[MissionWorkerReceipt],
+        binding: MissionWorkerJobBinding,
+    ) -> MissionWorkerReceipt:
+        receipt = self._build(
+            receipts,
+            event=MissionWorkerEvent.enqueued,
+            status=MissionWorkerJobStatus.pending,
+            binding=binding,
+            checked_at=self.current_time(),
+            safe_summary="Mission work was durably queued without request payloads.",
+        )
+        self._append(receipt)
+        return receipt
 
     def claim(
         self,
@@ -907,6 +935,12 @@ class MissionWorkerStore:
                         prior.claim_expires_at is not None
                         and prior.claim_expires_at > current.checked_at
                     )
+                    or (
+                        current.status == MissionWorkerJobStatus.failed.value
+                        and current.reason_refs
+                        == ["reason-ref:mission-worker:deadline-expired"]
+                        and current.checked_at >= current.binding.deadline
+                    )
                 )
             )
         elif current.event == MissionWorkerEvent.shutdown.value:
@@ -1315,11 +1349,24 @@ class LocalMissionWorker:
         validated = AuthorityMissionOrchestrationRequest.model_validate(
             request.model_dump(mode="python")
         )
-        self.orchestrator.materialize(validated)
-        return self.store.enqueue(
-            mission_worker_job_binding(validated),
-            queue_capacity=self.configuration.queue_capacity,
-        )
+        binding = mission_worker_job_binding(validated)
+        with (
+            self.store.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY),
+            self.store.lock_manager.acquire(MISSION_WORKER_LOCK_KEY),
+        ):
+            receipts = self.store._load()  # noqa: SLF001
+            existing = self.store._preflight_enqueue_loaded(  # noqa: SLF001
+                receipts,
+                binding,
+                queue_capacity=self.configuration.queue_capacity,
+            )
+            if existing is not None:
+                return existing
+            self.orchestrator.materialize(validated)
+            return self.store._append_enqueue_loaded(  # noqa: SLF001
+                receipts,
+                binding,
+            )
 
     def resume_next(
         self,
@@ -1376,8 +1423,7 @@ class LocalMissionWorker:
         }
         self.orchestrator._preflight(request, bound)  # noqa: SLF001
         binding = mission_worker_job_binding(request)
-        self.orchestrator.materialize(request)
-        self.store.enqueue(binding, queue_capacity=self.configuration.queue_capacity)
+        self.enqueue(request)
         claim = self.store.claim(
             binding.job_ref,
             worker_ref=durable_worker_ref,
@@ -1499,13 +1545,16 @@ class MissionWorkerExecutionFenceValidator:
         request: Any,
         execution_fence: AuthorityDispatchExecutionFence | None,
         *,
-        current_time: datetime,
-    ) -> tuple[list[str], str | None]:
+        current_time: Callable[[], datetime],
+    ) -> tuple[list[str], str | None, datetime]:
         fingerprint = authority_dispatch_request_fingerprint(request)
         with self.store.lock_manager.acquire(MISSION_WORKER_LOCK_KEY):
             with self.orchestrator.step_store.lock_manager.acquire(
                 "authority-mission-steps"
             ):
+                admission_time = current_time()
+                if admission_time.tzinfo is None:
+                    raise ValueError("AUTHORITY_DISPATCH_ADMISSION_TIMEZONE_REQUIRED")
                 matches = [
                     item
                     for item in self.store._latest_by_job(self.store._load()).values()  # noqa: SLF001
@@ -1513,14 +1562,18 @@ class MissionWorkerExecutionFenceValidator:
                 ]
                 if not matches:
                     if execution_fence is not None:
-                        return [
-                            "reason-ref:authority-dispatch:worker-fence-unbound"
-                        ], None
-                    return [], None
+                        return (
+                            ["reason-ref:authority-dispatch:worker-fence-unbound"],
+                            None,
+                            admission_time,
+                        )
+                    return [], None, admission_time
                 if len(matches) != 1:
-                    return [
-                        "reason-ref:authority-dispatch:worker-fence-ambiguous"
-                    ], None
+                    return (
+                        ["reason-ref:authority-dispatch:worker-fence-ambiguous"],
+                        None,
+                        admission_time,
+                    )
                 job = matches[0]
                 if (
                     execution_fence is None
@@ -1530,11 +1583,15 @@ class MissionWorkerExecutionFenceValidator:
                     or execution_fence.job_generation != job.generation
                     or job.status != MissionWorkerJobStatus.claimed.value
                     or job.claim_expires_at is None
-                    or job.claim_expires_at <= current_time
+                    or job.claim_expires_at <= admission_time
                     or job.worker_ref is None
                     or job.claim_ref is None
                 ):
-                    return ["reason-ref:authority-dispatch:worker-fence-inactive"], None
+                    return (
+                        ["reason-ref:authority-dispatch:worker-fence-inactive"],
+                        None,
+                        admission_time,
+                    )
                 step_receipts = self.orchestrator.step_store._load()  # noqa: SLF001
                 step = next(
                     (
@@ -1552,12 +1609,14 @@ class MissionWorkerExecutionFenceValidator:
                     or step.status != MissionStepStatus.claimed.value
                     or step.owner_ref != job.worker_ref
                     or step.claim_expires_at is None
-                    or step.claim_expires_at <= current_time
+                    or step.claim_expires_at <= admission_time
                     or step.claim_ref is None
                 ):
-                    return [
-                        "reason-ref:authority-dispatch:mission-step-fence-inactive"
-                    ], None
+                    return (
+                        ["reason-ref:authority-dispatch:mission-step-fence-inactive"],
+                        None,
+                        admission_time,
+                    )
                 fence_ref = _safe_ref(
                     "authority-dispatch-execution-fence-ref",
                     {
@@ -1570,4 +1629,4 @@ class MissionWorkerExecutionFenceValidator:
                         "request_fingerprint_ref": fingerprint,
                     },
                 )
-                return [], fence_ref
+                return [], fence_ref, admission_time
