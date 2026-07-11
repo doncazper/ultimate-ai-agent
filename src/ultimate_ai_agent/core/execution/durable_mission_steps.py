@@ -15,6 +15,7 @@ from ultimate_ai_agent.core.authority.authority_constants import (
     AUTHORITY_STATE_LOCK_KEY,
 )
 from ultimate_ai_agent.core.authority.dispatch_contracts import (
+    AuthorityDispatchFailureCategory,
     AuthorityDispatchReceipt,
     AuthorityDispatchStatus,
 )
@@ -48,6 +49,8 @@ class MissionStepCorruptionError(MissionStepError):
 
 class MissionStepStatus(str, Enum):
     pending = "pending"
+    approval_wait = "approval_wait"
+    retry_pending = "retry_pending"
     claimed = "claimed"
     succeeded = "succeeded"
     failed = "failed"
@@ -55,6 +58,7 @@ class MissionStepStatus(str, Enum):
     recovery_required = "recovery_required"
     dependency_blocked = "dependency_blocked"
     fail_fast_halted = "fail_fast_halted"
+    dead_lettered = "dead_lettered"
 
 
 TERMINAL_MISSION_STEP_STATUSES = {
@@ -64,6 +68,7 @@ TERMINAL_MISSION_STEP_STATUSES = {
     MissionStepStatus.recovery_required.value,
     MissionStepStatus.dependency_blocked.value,
     MissionStepStatus.fail_fast_halted.value,
+    MissionStepStatus.dead_lettered.value,
 }
 
 
@@ -79,6 +84,21 @@ class _MissionStepModel(BaseModel):
     model_config = ConfigDict(extra="forbid", use_enum_values=True)
 
 
+class MissionStepPlannedRetryAttempt(_MissionStepModel):
+    attempt_no: StrictInt = Field(..., ge=2, le=3)
+    dispatch_ref: str
+    dispatch_request_fingerprint_ref: str
+
+    @model_validator(mode="after")
+    def validate_attempt(self) -> "MissionStepPlannedRetryAttempt":
+        validate_task_ref(self.dispatch_ref, "mission_step_retry_dispatch_ref")
+        validate_task_ref(
+            self.dispatch_request_fingerprint_ref,
+            "mission_step_retry_dispatch_fingerprint_ref",
+        )
+        return self
+
+
 class MissionStepDefinition(_MissionStepModel):
     schema_version: Literal["uaa-mission-step.v1"] = MISSION_STEP_SCHEMA_VERSION
     mission_ref: str
@@ -91,7 +111,16 @@ class MissionStepDefinition(_MissionStepModel):
     orchestration_plan_ref: str | None = None
     planned_dispatch_ref: str | None = None
     planned_dispatch_request_fingerprint_ref: str | None = None
-    max_attempts: Literal[1] = 1
+    max_attempts: StrictInt = Field(default=1, ge=1, le=3)
+    retryable_failure_categories: list[AuthorityDispatchFailureCategory] = Field(
+        default_factory=list,
+        max_length=3,
+    )
+    retry_backoff_seconds: StrictInt = Field(default=0, ge=0, le=300)
+    planned_retry_attempts: list[MissionStepPlannedRetryAttempt] = Field(
+        default_factory=list,
+        max_length=2,
+    )
     deadline: datetime
     safe_summary: str = Field(..., min_length=1, max_length=320)
 
@@ -132,6 +161,26 @@ class MissionStepDefinition(_MissionStepModel):
             raise ValueError("MISSION_STEP_PLANNED_DISPATCH_BINDING_INCOMPLETE")
         if self.deadline.tzinfo is None:
             raise ValueError("MISSION_STEP_DEADLINE_TIMEZONE_REQUIRED")
+        if self.max_attempts == 1 and (
+            self.retryable_failure_categories or self.planned_retry_attempts
+        ):
+            raise ValueError("MISSION_STEP_RETRY_POLICY_DISABLED")
+        retry_attempt_numbers = [
+            attempt.attempt_no for attempt in self.planned_retry_attempts
+        ]
+        if self.max_attempts > 1 and not self.retryable_failure_categories:
+            raise ValueError("MISSION_STEP_RETRY_POLICY_BINDING_REQUIRED")
+        if self.orchestration_plan_ref is None and self.planned_retry_attempts:
+            raise ValueError("MISSION_STEP_UNBOUND_RETRY_ATTEMPT_FORBIDDEN")
+        if self.orchestration_plan_ref is not None and self.max_attempts > 1 and (
+            len(self.planned_retry_attempts) != self.max_attempts - 1
+            or retry_attempt_numbers != list(range(2, self.max_attempts + 1))
+        ):
+            raise ValueError("MISSION_STEP_RETRY_ATTEMPT_BINDING_REQUIRED")
+        if len(self.retryable_failure_categories) != len(
+            set(self.retryable_failure_categories)
+        ):
+            raise ValueError("MISSION_STEP_DUPLICATE_RETRY_CATEGORY")
         validate_safe_task_text(self.safe_summary, "mission_step_safe_summary")
         return self
 
@@ -142,6 +191,12 @@ class MissionStepDefinition(_MissionStepModel):
 
 def _definition_payload(definition: MissionStepDefinition) -> dict[str, Any]:
     payload = definition.model_dump(mode="json")
+    if definition.max_attempts == 1:
+        payload.pop("retryable_failure_categories", None)
+        payload.pop("retry_backoff_seconds", None)
+        payload.pop("planned_retry_attempts", None)
+    elif not definition.planned_retry_attempts:
+        payload.pop("planned_retry_attempts", None)
     if definition.orchestration_plan_ref is None:
         payload.pop("orchestration_plan_ref", None)
         payload.pop("planned_dispatch_ref", None)
@@ -159,7 +214,7 @@ class MissionStepReceipt(_MissionStepModel):
     definition_fingerprint_ref: str
     status: MissionStepStatus
     generation: StrictInt = Field(default=0, ge=0)
-    attempt_no: Literal[1] = 1
+    attempt_no: StrictInt = Field(default=1, ge=1, le=3)
     owner_ref: str | None = None
     claim_ref: str | None = None
     claim_expires_at: datetime | None = None
@@ -167,6 +222,11 @@ class MissionStepReceipt(_MissionStepModel):
     dispatch_request_fingerprint_ref: str | None = None
     dispatch_receipt_ref: str | None = None
     dispatch_entry_hash_ref: str | None = None
+    approval_request_ref: str | None = None
+    approval_ref: str | None = None
+    approval_scope_fingerprint_ref: str | None = None
+    retry_not_before: datetime | None = None
+    failure_category: AuthorityDispatchFailureCategory | None = None
     blocked_dependency_step_ref: str | None = None
     halted_by_step_ref: str | None = None
     reason_refs: list[str] = Field(default_factory=list)
@@ -190,6 +250,12 @@ class MissionStepReceipt(_MissionStepModel):
             ),
             (self.dispatch_receipt_ref, "mission_step_dispatch_receipt_ref"),
             (self.dispatch_entry_hash_ref, "mission_step_dispatch_entry_hash_ref"),
+            (self.approval_request_ref, "mission_step_approval_request_ref"),
+            (self.approval_ref, "mission_step_approval_ref"),
+            (
+                self.approval_scope_fingerprint_ref,
+                "mission_step_approval_scope_fingerprint_ref",
+            ),
             (
                 self.blocked_dependency_step_ref,
                 "mission_step_blocked_dependency_ref",
@@ -212,6 +278,26 @@ class MissionStepReceipt(_MissionStepModel):
         fail_fast_halted = self.status == MissionStepStatus.fail_fast_halted.value
         if fail_fast_halted != (self.halted_by_step_ref is not None):
             raise ValueError("MISSION_STEP_FAIL_FAST_HALT_BINDING_INVALID")
+        approval_refs = (
+            self.approval_request_ref,
+            self.approval_ref,
+            self.approval_scope_fingerprint_ref,
+        )
+        if any(approval_refs) and not all(approval_refs):
+            raise ValueError("MISSION_STEP_APPROVAL_BINDING_INCOMPLETE")
+        if self.status == MissionStepStatus.approval_wait.value and not all(
+            approval_refs
+        ):
+            raise ValueError("MISSION_STEP_APPROVAL_WAIT_BINDING_REQUIRED")
+        retry_pending = self.status == MissionStepStatus.retry_pending.value
+        if retry_pending != bool(
+            self.retry_not_before is not None and self.failure_category is not None
+        ):
+            raise ValueError("MISSION_STEP_RETRY_PENDING_BINDING_INVALID")
+        if self.retry_not_before is not None and self.retry_not_before.tzinfo is None:
+            raise ValueError("MISSION_STEP_RETRY_TIMEZONE_REQUIRED")
+        if self.attempt_no > self.definition.max_attempts:
+            raise ValueError("MISSION_STEP_ATTEMPT_LIMIT_EXCEEDED")
         if self.definition_fingerprint_ref != self.definition.fingerprint_ref:
             raise ValueError("MISSION_STEP_DEFINITION_FINGERPRINT_INVALID")
         return self
@@ -221,7 +307,7 @@ class MissionStepReadModel(_MissionStepModel):
     step_ref: str
     status: MissionStepStatus
     generation: StrictInt
-    attempt_no: Literal[1]
+    attempt_no: StrictInt
     owner_ref: str | None
     claim_ref: str | None
     claim_expires_at: datetime | None
@@ -229,13 +315,18 @@ class MissionStepReadModel(_MissionStepModel):
     dispatch_request_fingerprint_ref: str | None
     dispatch_receipt_ref: str | None
     dispatch_entry_hash_ref: str | None
+    approval_request_ref: str | None = None
+    approval_ref: str | None = None
+    approval_scope_fingerprint_ref: str | None = None
+    retry_not_before: datetime | None = None
+    failure_category: AuthorityDispatchFailureCategory | None = None
     blocked_dependency_step_ref: str | None = None
     halted_by_step_ref: str | None = None
     reason_refs: list[str]
     evidence_refs: list[str]
     receipt_ref: str
     execution_authority_granted: Literal[False] = False
-    autonomous_retry_enabled: Literal[False] = False
+    autonomous_retry_enabled: bool = False
 
 
 class MissionStepOrchestrationContext(_MissionStepModel):
@@ -269,13 +360,18 @@ class _MissionStepInspectionSource(_MissionStepModel):
     deadline: datetime
     status: MissionStepStatus
     generation: StrictInt
-    attempt_no: Literal[1]
+    attempt_no: StrictInt
     owner_ref: str | None
     claim_ref: str | None
     claim_expires_at: datetime | None
     dispatch_ref: str | None
     dispatch_request_fingerprint_ref: str | None
     dispatch_receipt_ref: str | None
+    approval_request_ref: str | None
+    approval_ref: str | None
+    approval_scope_fingerprint_ref: str | None
+    retry_not_before: datetime | None
+    failure_category: AuthorityDispatchFailureCategory | None
     reason_refs: list[str]
     evidence_refs: list[str]
     receipt_ref: str
@@ -289,6 +385,10 @@ def _entry_hash(receipt: MissionStepReceipt) -> str:
         payload.pop("blocked_dependency_step_ref", None)
     if receipt.halted_by_step_ref is None:
         payload.pop("halted_by_step_ref", None)
+    if receipt.retry_not_before is None:
+        payload.pop("retry_not_before", None)
+    if receipt.failure_category is None:
+        payload.pop("failure_category", None)
     return _safe_ref(
         "mission-step-entry-hash-ref",
         payload,
@@ -550,7 +650,13 @@ class MissionStepStore:
                     safe_summary="Mission step deadline expired before claim.",
                     checked_at=current,
                 )
-            if latest.dispatch_ref is not None and (
+            retry_claim = latest.status == MissionStepStatus.retry_pending.value
+            if retry_claim and (
+                latest.retry_not_before is None
+                or latest.retry_not_before > current
+            ):
+                raise MissionStepConflictError("MISSION_STEP_RETRY_BACKOFF_ACTIVE")
+            if latest.dispatch_ref is not None and not retry_claim and (
                 dispatch_ref != latest.dispatch_ref
                 or dispatch_request_fingerprint_ref
                 != latest.dispatch_request_fingerprint_ref
@@ -558,10 +664,31 @@ class MissionStepStore:
                 raise MissionStepConflictError(
                     "MISSION_STEP_DISPATCH_FINGERPRINT_CONFLICT"
                 )
-            if latest.definition.planned_dispatch_ref is not None and (
-                dispatch_ref != latest.definition.planned_dispatch_ref
-                or dispatch_request_fingerprint_ref
-                != latest.definition.planned_dispatch_request_fingerprint_ref
+            next_attempt_no = latest.attempt_no + 1 if retry_claim else latest.attempt_no
+            planned_dispatch_ref = latest.definition.planned_dispatch_ref
+            planned_fingerprint_ref = (
+                latest.definition.planned_dispatch_request_fingerprint_ref
+            )
+            if next_attempt_no > 1:
+                planned_attempt = next(
+                    (
+                        attempt
+                        for attempt in latest.definition.planned_retry_attempts
+                        if attempt.attempt_no == next_attempt_no
+                    ),
+                    None,
+                )
+                if planned_attempt is None:
+                    raise MissionStepConflictError(
+                        "MISSION_STEP_RETRY_ATTEMPT_NOT_PLANNED"
+                    )
+                planned_dispatch_ref = planned_attempt.dispatch_ref
+                planned_fingerprint_ref = (
+                    planned_attempt.dispatch_request_fingerprint_ref
+                )
+            if planned_dispatch_ref is not None and (
+                dispatch_ref != planned_dispatch_ref
+                or dispatch_request_fingerprint_ref != planned_fingerprint_ref
             ):
                 raise MissionStepConflictError(
                     "MISSION_STEP_PLANNED_DISPATCH_FINGERPRINT_CONFLICT"
@@ -597,9 +724,11 @@ class MissionStepStore:
                 current + timedelta(seconds=ttl_seconds),
                 latest.definition.deadline,
             )
-            bound_dispatch_ref = latest.dispatch_ref or dispatch_ref
+            bound_dispatch_ref = dispatch_ref if retry_claim else latest.dispatch_ref or dispatch_ref
             bound_fingerprint_ref = (
-                latest.dispatch_request_fingerprint_ref
+                dispatch_request_fingerprint_ref
+                if retry_claim
+                else latest.dispatch_request_fingerprint_ref
                 or dispatch_request_fingerprint_ref
             )
             receipt = self._build_from(
@@ -607,6 +736,7 @@ class MissionStepStore:
                 latest,
                 status=MissionStepStatus.claimed,
                 generation=generation,
+                attempt_no=next_attempt_no,
                 owner_ref=owner_ref,
                 claim_ref=claim_ref,
                 claim_expires_at=expires,
@@ -767,6 +897,9 @@ class MissionStepStore:
                             AuthorityDispatchStatus.started.value,
                             AuthorityDispatchStatus.cancellation_pending.value,
                         },
+                        MissionStepStatus.dead_lettered: {
+                            AuthorityDispatchStatus.failed.value,
+                        },
                     }[status]
                     if dispatch_receipt.status not in expected_statuses:
                         raise MissionStepConflictError(
@@ -790,6 +923,325 @@ class MissionStepStore:
                 evidence_refs=evidence_refs or [],
                 checked_at=current,
                 safe_summary="Mission step reached a durable terminal posture.",
+            )
+            self._append(receipt)
+            return receipt
+
+    def schedule_retry(
+        self,
+        step_ref: str,
+        *,
+        owner_ref: str,
+        claim_ref: str,
+        generation: int,
+        failure_category: AuthorityDispatchFailureCategory,
+        dispatch_receipt: AuthorityDispatchReceipt,
+        evidence_refs: list[str],
+    ) -> MissionStepReceipt:
+        with (
+            self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY),
+            self.lock_manager.acquire(MISSION_STEP_LOCK_KEY),
+        ):
+            current = self.current_time()
+            receipts = self._load()
+            latest = self._require_owned(
+                receipts, step_ref, owner_ref, claim_ref, generation, current
+            )
+            if latest.attempt_no >= latest.definition.max_attempts:
+                raise MissionStepConflictError("MISSION_STEP_RETRY_LIMIT_EXHAUSTED")
+            if (
+                failure_category.value
+                not in latest.definition.retryable_failure_categories
+            ):
+                raise MissionStepConflictError(
+                    "MISSION_STEP_FAILURE_CATEGORY_NOT_RETRYABLE"
+                )
+            durable = self._validate_durable_dispatch(latest, dispatch_receipt)
+            if (
+                durable.status != AuthorityDispatchStatus.failed.value
+                or durable.failure_category != failure_category.value
+                or durable.budget_settlement_receipt_ref is None
+                or not durable.adapter_invocation_performed
+            ):
+                raise MissionStepConflictError(
+                    "MISSION_STEP_RETRY_DISPATCH_EVIDENCE_INVALID"
+                )
+            retry_not_before = current + timedelta(
+                seconds=latest.definition.retry_backoff_seconds
+            )
+            if retry_not_before >= latest.definition.deadline:
+                raise MissionStepConflictError(
+                    "MISSION_STEP_RETRY_DEADLINE_EXHAUSTED"
+                )
+            receipt = self._build_from(
+                receipts,
+                latest,
+                status=MissionStepStatus.retry_pending,
+                generation=latest.generation,
+                attempt_no=latest.attempt_no,
+                dispatch_ref=latest.dispatch_ref,
+                dispatch_request_fingerprint_ref=(
+                    latest.dispatch_request_fingerprint_ref
+                ),
+                dispatch_receipt_ref=durable.receipt_ref,
+                dispatch_entry_hash_ref=durable.entry_hash_ref,
+                retry_not_before=retry_not_before,
+                failure_category=failure_category,
+                reason_refs=["reason-ref:mission-step:retry-scheduled"],
+                evidence_refs=list(dict.fromkeys(evidence_refs)),
+                checked_at=current,
+                safe_summary=(
+                    "Mission step released its claim for a bounded retry."
+                ),
+            )
+            self._append(receipt)
+            return receipt
+
+    def record_approval_wait(
+        self,
+        step_ref: str,
+        *,
+        approval_request_ref: str,
+        approval_ref: str,
+        approval_scope_fingerprint_ref: str,
+        reason_refs: list[str],
+    ) -> MissionStepReceipt:
+        for value, field_name in [
+            (step_ref, "mission_step_ref"),
+            (approval_request_ref, "mission_step_approval_request_ref"),
+            (approval_ref, "mission_step_approval_ref"),
+            (
+                approval_scope_fingerprint_ref,
+                "mission_step_approval_scope_fingerprint_ref",
+            ),
+            *[(ref, "mission_step_reason_ref") for ref in reason_refs],
+        ]:
+            validate_task_ref(value, field_name)
+        with (
+            self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY),
+            self.lock_manager.acquire(MISSION_STEP_LOCK_KEY),
+        ):
+            receipts = self._load()
+            latest = self._require_latest(receipts, step_ref)
+            if latest.status == MissionStepStatus.approval_wait.value:
+                expected = (
+                    approval_request_ref,
+                    approval_ref,
+                    approval_scope_fingerprint_ref,
+                )
+                actual = (
+                    latest.approval_request_ref,
+                    latest.approval_ref,
+                    latest.approval_scope_fingerprint_ref,
+                )
+                if actual != expected:
+                    raise MissionStepConflictError(
+                        "MISSION_STEP_APPROVAL_WAIT_SCOPE_CONFLICT"
+                    )
+                return latest
+            if latest.status != MissionStepStatus.pending.value:
+                raise MissionStepConflictError(
+                    "MISSION_STEP_APPROVAL_WAIT_REQUIRES_PENDING"
+                )
+            current = self.current_time()
+            if latest.definition.deadline <= current:
+                receipt = self._build_from(
+                    receipts,
+                    latest,
+                    status=MissionStepStatus.failed,
+                    generation=latest.generation,
+                    reason_refs=["reason-ref:mission-step:deadline-expired"],
+                    checked_at=current,
+                    safe_summary=(
+                        "Mission step deadline expired before approval wait."
+                    ),
+                )
+                self._append(receipt)
+                return receipt
+            receipt = self._build_from(
+                receipts,
+                latest,
+                status=MissionStepStatus.approval_wait,
+                generation=latest.generation,
+                approval_request_ref=approval_request_ref,
+                approval_ref=approval_ref,
+                approval_scope_fingerprint_ref=approval_scope_fingerprint_ref,
+                reason_refs=list(dict.fromkeys(reason_refs)),
+                checked_at=current,
+                safe_summary=(
+                    "Mission step is waiting without a claim or budget reservation."
+                ),
+            )
+            self._append(receipt)
+            return receipt
+
+    def resume_approval_wait(
+        self,
+        step_ref: str,
+        *,
+        approval_ref: str,
+        approval_scope_fingerprint_ref: str,
+        validation_evidence_ref: str,
+        idempotency_ref: str | None = None,
+    ) -> MissionStepReceipt:
+        for value, field_name in [
+            (step_ref, "mission_step_ref"),
+            (approval_ref, "mission_step_approval_ref"),
+            (
+                approval_scope_fingerprint_ref,
+                "mission_step_approval_scope_fingerprint_ref",
+            ),
+            (validation_evidence_ref, "mission_step_approval_validation_ref"),
+            (idempotency_ref, "mission_step_approval_idempotency_ref"),
+        ]:
+            if value is not None:
+                validate_task_ref(value, field_name)
+        with (
+            self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY),
+            self.lock_manager.acquire(MISSION_STEP_LOCK_KEY),
+        ):
+            receipts = self._load()
+            latest = self._require_latest(receipts, step_ref)
+            if latest.status != MissionStepStatus.approval_wait.value:
+                raise MissionStepConflictError(
+                    "MISSION_STEP_APPROVAL_RESUME_REQUIRES_WAIT"
+                )
+            if (
+                latest.approval_ref != approval_ref
+                or latest.approval_scope_fingerprint_ref
+                != approval_scope_fingerprint_ref
+            ):
+                raise MissionStepConflictError(
+                    "MISSION_STEP_APPROVAL_RESUME_SCOPE_CONFLICT"
+                )
+            receipt = self._build_from(
+                receipts,
+                latest,
+                status=MissionStepStatus.pending,
+                generation=latest.generation,
+                approval_request_ref=latest.approval_request_ref,
+                approval_ref=latest.approval_ref,
+                approval_scope_fingerprint_ref=(
+                    latest.approval_scope_fingerprint_ref
+                ),
+                reason_refs=["reason-ref:mission-step:approval-freshly-validated"],
+                evidence_refs=[
+                    validation_evidence_ref,
+                    *([idempotency_ref] if idempotency_ref is not None else []),
+                ],
+                checked_at=self.current_time(),
+                safe_summary=(
+                    "Mission step left approval wait after fresh exact validation."
+                ),
+            )
+            self._append(receipt)
+            return receipt
+
+    def fail_approval_wait(
+        self,
+        step_ref: str,
+        *,
+        reason_ref: str,
+        evidence_refs: list[str] | None = None,
+    ) -> MissionStepReceipt:
+        validate_task_ref(step_ref, "mission_step_ref")
+        validate_task_ref(reason_ref, "mission_step_reason_ref")
+        with (
+            self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY),
+            self.lock_manager.acquire(MISSION_STEP_LOCK_KEY),
+        ):
+            receipts = self._load()
+            latest = self._require_latest(receipts, step_ref)
+            if latest.status != MissionStepStatus.approval_wait.value:
+                raise MissionStepConflictError(
+                    "MISSION_STEP_APPROVAL_FAILURE_REQUIRES_WAIT"
+                )
+            receipt = self._build_from(
+                receipts,
+                latest,
+                status=MissionStepStatus.failed,
+                generation=latest.generation,
+                approval_request_ref=latest.approval_request_ref,
+                approval_ref=latest.approval_ref,
+                approval_scope_fingerprint_ref=(
+                    latest.approval_scope_fingerprint_ref
+                ),
+                reason_refs=[reason_ref],
+                evidence_refs=evidence_refs or [],
+                checked_at=self.current_time(),
+                safe_summary="Mission approval wait failed closed before dispatch.",
+            )
+            self._append(receipt)
+            return receipt
+
+    def fail_before_dispatch(
+        self,
+        step_ref: str,
+        *,
+        reason_ref: str,
+        evidence_refs: list[str] | None = None,
+        approval_request_ref: str | None = None,
+        approval_ref: str | None = None,
+        approval_scope_fingerprint_ref: str | None = None,
+    ) -> MissionStepReceipt:
+        validate_task_ref(step_ref, "mission_step_ref")
+        validate_task_ref(reason_ref, "mission_step_reason_ref")
+        for value, field_name in [
+            (approval_request_ref, "mission_step_approval_request_ref"),
+            (approval_ref, "mission_step_approval_ref"),
+            (
+                approval_scope_fingerprint_ref,
+                "mission_step_approval_scope_fingerprint_ref",
+            ),
+            *[(ref, "mission_step_evidence_ref") for ref in evidence_refs or []],
+        ]:
+            if value is not None:
+                validate_task_ref(value, field_name)
+        approval_binding = (
+            approval_request_ref,
+            approval_ref,
+            approval_scope_fingerprint_ref,
+        )
+        if any(approval_binding) and not all(approval_binding):
+            approval_request_ref = None
+            approval_ref = None
+            approval_scope_fingerprint_ref = None
+        with (
+            self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY),
+            self.lock_manager.acquire(MISSION_STEP_LOCK_KEY),
+        ):
+            receipts = self._load()
+            latest = self._require_latest(receipts, step_ref)
+            if latest.status in TERMINAL_MISSION_STEP_STATUSES:
+                return latest
+            if latest.status not in {
+                MissionStepStatus.pending.value,
+                MissionStepStatus.approval_wait.value,
+            }:
+                raise MissionStepConflictError(
+                    "MISSION_STEP_PRE_DISPATCH_FAILURE_STATE_INVALID"
+                )
+            if latest.dispatch_ref is not None:
+                raise MissionStepConflictError(
+                    "MISSION_STEP_PRE_DISPATCH_FAILURE_DISPATCH_FORBIDDEN"
+                )
+            receipt = self._build_from(
+                receipts,
+                latest,
+                status=MissionStepStatus.failed,
+                generation=latest.generation,
+                approval_request_ref=(
+                    approval_request_ref or latest.approval_request_ref
+                ),
+                approval_ref=approval_ref or latest.approval_ref,
+                approval_scope_fingerprint_ref=(
+                    approval_scope_fingerprint_ref
+                    or latest.approval_scope_fingerprint_ref
+                ),
+                reason_refs=[reason_ref],
+                evidence_refs=evidence_refs or [],
+                checked_at=self.current_time(),
+                safe_summary="Mission step failed closed before dispatch preparation.",
             )
             self._append(receipt)
             return receipt
@@ -823,6 +1275,11 @@ class MissionStepStore:
                 dispatch_ref=latest.dispatch_ref,
                 dispatch_request_fingerprint_ref=(
                     latest.dispatch_request_fingerprint_ref
+                ),
+                approval_request_ref=latest.approval_request_ref,
+                approval_ref=latest.approval_ref,
+                approval_scope_fingerprint_ref=(
+                    latest.approval_scope_fingerprint_ref
                 ),
                 reason_refs=["reason-ref:mission-step:deadline-expired"],
                 evidence_refs=evidence_refs or [],
@@ -1028,12 +1485,20 @@ class MissionStepStore:
             dispatch_ref=latest.dispatch_ref,
             dispatch_request_fingerprint_ref=(latest.dispatch_request_fingerprint_ref),
             dispatch_receipt_ref=latest.dispatch_receipt_ref,
+            approval_request_ref=latest.approval_request_ref,
+            approval_ref=latest.approval_ref,
+            approval_scope_fingerprint_ref=(
+                latest.approval_scope_fingerprint_ref
+            ),
+            retry_not_before=latest.retry_not_before,
+            failure_category=latest.failure_category,
             dispatch_entry_hash_ref=latest.dispatch_entry_hash_ref,
             blocked_dependency_step_ref=latest.blocked_dependency_step_ref,
             halted_by_step_ref=latest.halted_by_step_ref,
             reason_refs=latest.reason_refs,
             evidence_refs=latest.evidence_refs,
             receipt_ref=latest.receipt_ref,
+            autonomous_retry_enabled=latest.definition.max_attempts > 1,
         )
 
     def _read_inspection_source(self, step_ref: str) -> _MissionStepInspectionSource:
@@ -1061,6 +1526,13 @@ class MissionStepStore:
             dispatch_ref=latest.dispatch_ref,
             dispatch_request_fingerprint_ref=(latest.dispatch_request_fingerprint_ref),
             dispatch_receipt_ref=latest.dispatch_receipt_ref,
+            approval_request_ref=latest.approval_request_ref,
+            approval_ref=latest.approval_ref,
+            approval_scope_fingerprint_ref=(
+                latest.approval_scope_fingerprint_ref
+            ),
+            retry_not_before=latest.retry_not_before,
+            failure_category=latest.failure_category,
             reason_refs=list(latest.reason_refs),
             evidence_refs=list(latest.evidence_refs),
             receipt_ref=latest.receipt_ref,
@@ -1148,10 +1620,30 @@ class MissionStepStore:
             or durable.capability_ref != latest.definition.capability_ref
         ):
             raise MissionStepConflictError("MISSION_STEP_DISPATCH_BINDING_INVALID")
+        expected_dispatch_ref = latest.definition.planned_dispatch_ref
+        expected_fingerprint_ref = (
+            latest.definition.planned_dispatch_request_fingerprint_ref
+        )
+        if latest.attempt_no > 1:
+            planned_attempt = next(
+                (
+                    attempt
+                    for attempt in latest.definition.planned_retry_attempts
+                    if attempt.attempt_no == latest.attempt_no
+                ),
+                None,
+            )
+            if planned_attempt is None:
+                raise MissionStepConflictError(
+                    "MISSION_STEP_RETRY_ATTEMPT_NOT_PLANNED"
+                )
+            expected_dispatch_ref = planned_attempt.dispatch_ref
+            expected_fingerprint_ref = (
+                planned_attempt.dispatch_request_fingerprint_ref
+            )
         if latest.definition.orchestration_plan_ref is not None and (
-            latest.dispatch_ref != latest.definition.planned_dispatch_ref
-            or latest.dispatch_request_fingerprint_ref
-            != latest.definition.planned_dispatch_request_fingerprint_ref
+            latest.dispatch_ref != expected_dispatch_ref
+            or latest.dispatch_request_fingerprint_ref != expected_fingerprint_ref
             or durable.start_deadline != latest.definition.deadline
         ):
             raise MissionStepConflictError(
@@ -1280,6 +1772,7 @@ class MissionStepStore:
         latest: MissionStepReceipt,
         **updates: Any,
     ) -> MissionStepReceipt:
+        updates.setdefault("attempt_no", latest.attempt_no)
         return self._build(receipts, definition=latest.definition, **updates)
 
     def _append(self, receipt: MissionStepReceipt) -> None:
@@ -1447,6 +1940,9 @@ class MissionStepStore:
                 receipt.status != MissionStepStatus.pending.value
                 or receipt.generation != 0
                 or receipt.dispatch_ref is not None
+                or receipt.approval_request_ref is not None
+                or receipt.approval_ref is not None
+                or receipt.approval_scope_fingerprint_ref is not None
                 or receipt.reason_refs
                 or receipt.evidence_refs
             ):
@@ -1458,12 +1954,17 @@ class MissionStepStore:
             or receipt.checked_at < prior.checked_at
         ):
             raise MissionStepCorruptionError("MISSION_STEP_TRANSITION_INVALID")
-        if prior.dispatch_ref is not None and (
+        if prior.dispatch_ref is not None and prior.status != MissionStepStatus.retry_pending.value and (
             receipt.dispatch_ref != prior.dispatch_ref
             or receipt.dispatch_request_fingerprint_ref
             != prior.dispatch_request_fingerprint_ref
         ):
             raise MissionStepCorruptionError("MISSION_STEP_DISPATCH_BINDING_INVALID")
+        if (
+            prior.status != MissionStepStatus.retry_pending.value
+            and receipt.attempt_no != prior.attempt_no
+        ):
+            raise MissionStepCorruptionError("MISSION_STEP_ATTEMPT_NUMBER_INVALID")
         if prior.status == MissionStepStatus.pending.value:
             allowed = (
                 receipt.status == MissionStepStatus.claimed.value
@@ -1471,6 +1972,7 @@ class MissionStepStore:
             ) or (
                 receipt.status
                 in {
+                    MissionStepStatus.approval_wait.value,
                     MissionStepStatus.failed.value,
                     MissionStepStatus.dependency_blocked.value,
                     MissionStepStatus.fail_fast_halted.value,
@@ -1479,8 +1981,59 @@ class MissionStepStore:
             )
             if not allowed:
                 raise MissionStepCorruptionError("MISSION_STEP_TRANSITION_INVALID")
+        elif prior.status == MissionStepStatus.approval_wait.value:
+            if (
+                receipt.status
+                not in {
+                    MissionStepStatus.pending.value,
+                    MissionStepStatus.failed.value,
+                }
+                or receipt.generation != prior.generation
+                or receipt.dispatch_ref is not None
+            ):
+                raise MissionStepCorruptionError("MISSION_STEP_TRANSITION_INVALID")
+            approval_binding = (
+                receipt.approval_request_ref,
+                receipt.approval_ref,
+                receipt.approval_scope_fingerprint_ref,
+            )
+            prior_approval_binding = (
+                prior.approval_request_ref,
+                prior.approval_ref,
+                prior.approval_scope_fingerprint_ref,
+            )
+            if approval_binding != prior_approval_binding:
+                raise MissionStepCorruptionError(
+                    "MISSION_STEP_APPROVAL_BINDING_CHANGED"
+                )
+            if receipt.status == MissionStepStatus.pending.value and (
+                receipt.reason_refs
+                != ["reason-ref:mission-step:approval-freshly-validated"]
+                or len(
+                    [
+                        ref
+                        for ref in receipt.evidence_refs
+                        if ref.startswith("approval-validation-ref:")
+                    ]
+                )
+                != 1
+            ):
+                raise MissionStepCorruptionError(
+                    "MISSION_STEP_APPROVAL_RESUME_EVIDENCE_INVALID"
+                )
         elif prior.status == MissionStepStatus.claimed.value:
             self._validate_claimed_transition(receipt, prior)
+        elif prior.status == MissionStepStatus.retry_pending.value:
+            if (
+                receipt.status != MissionStepStatus.claimed.value
+                or receipt.generation != prior.generation + 1
+                or receipt.attempt_no != prior.attempt_no + 1
+                or prior.retry_not_before is None
+                or receipt.checked_at < prior.retry_not_before
+            ):
+                raise MissionStepCorruptionError(
+                    "MISSION_STEP_RETRY_CLAIM_TRANSITION_INVALID"
+                )
         else:
             raise MissionStepCorruptionError("MISSION_STEP_TRANSITION_INVALID")
         if receipt.dispatch_receipt_ref is not None:
@@ -1578,6 +2131,18 @@ class MissionStepStore:
             ):
                 raise MissionStepCorruptionError("MISSION_STEP_CLAIM_BINDING_INVALID")
             return
+        if receipt.status == MissionStepStatus.retry_pending.value:
+            if (
+                receipt.attempt_no != prior.attempt_no
+                or receipt.retry_not_before is None
+                or receipt.retry_not_before < receipt.checked_at
+                or receipt.failure_category is None
+                or receipt.dispatch_receipt_ref is None
+            ):
+                raise MissionStepCorruptionError(
+                    "MISSION_STEP_RETRY_PENDING_TRANSITION_INVALID"
+                )
+            return
         if receipt.status not in TERMINAL_MISSION_STEP_STATUSES:
             raise MissionStepCorruptionError("MISSION_STEP_TRANSITION_INVALID")
 
@@ -1630,6 +2195,9 @@ class MissionStepStore:
                 MissionStepStatus.recovery_required.value: {
                     AuthorityDispatchStatus.started.value,
                     AuthorityDispatchStatus.cancellation_pending.value,
+                },
+                MissionStepStatus.dead_lettered.value: {
+                    AuthorityDispatchStatus.failed.value,
                 },
             }.get(receipt.status)
             if (

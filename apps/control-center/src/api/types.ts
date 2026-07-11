@@ -13544,6 +13544,107 @@ export interface AuthorityMissionPlan {
   redactions_applied: string[];
 }
 
+export type AuthorityMissionWorkerPlatform =
+  | "macos"
+  | "linux_placeholder"
+  | "windows_placeholder"
+  | "unsupported";
+
+export type AuthorityMissionWorkerStatus =
+  | "pending"
+  | "claimed"
+  | "approval_wait"
+  | "retry_pending"
+  | "succeeded"
+  | "failed"
+  | "recovery_required"
+  | "cancelled";
+
+export type AuthorityMissionRecoveryStatus =
+  | "pending"
+  | "actively_claimed"
+  | "approval_wait"
+  | "retry_pending"
+  | "stale_claim"
+  | "prepared_dispatch"
+  | "started_unknown_terminal"
+  | "succeeded"
+  | "failed"
+  | "dependency_blocked"
+  | "recovery_required"
+  | "cancelled";
+
+export interface AuthorityMissionWorkerStepRecovery {
+  step_safe_ref: string;
+  status: AuthorityMissionRecoveryStatus;
+  claim_freshness: "active" | "stale" | "not_claimed" | "unknown";
+  generation: number;
+  reason_refs: string[];
+  evidence_refs: string[];
+  adapter_reinvocation_allowed: false;
+}
+
+export interface AuthorityMissionWorkerJob {
+  job_safe_ref: string;
+  plan_safe_ref: string;
+  mission_safe_ref: string;
+  run_safe_ref: string;
+  durable_status: AuthorityMissionWorkerStatus;
+  recovery_status: AuthorityMissionRecoveryStatus;
+  generation: number;
+  latest_event:
+    | "enqueued"
+    | "claimed"
+    | "heartbeat"
+    | "deferred"
+    | "completed"
+    | "shutdown";
+  latest_event_at: string;
+  last_heartbeat_at: string | null;
+  heartbeat_freshness: "active" | "stale" | "not_observed";
+  worker_safe_ref: string | null;
+  claim_safe_ref: string | null;
+  claim_expires_at: string | null;
+  retry_not_before: string | null;
+  deadline: string;
+  steps: AuthorityMissionWorkerStepRecovery[];
+  reason_refs: string[];
+  evidence_refs: string[];
+  request_payload_persisted: false;
+  request_scoped_authority_required_before_resume: true;
+}
+
+export interface AuthorityMissionWorkerReadModel {
+  schema_version: "uaa-local-mission-worker.v1";
+  inspection_ref: string;
+  configuration_enabled: boolean;
+  canonical_platform: "macos";
+  observed_platform: AuthorityMissionWorkerPlatform;
+  platform_execution_supported: boolean;
+  linux_surface_posture: "render_placeholder";
+  windows_surface_posture: "render_placeholder";
+  queue_capacity: number;
+  queued_job_count: number;
+  total_job_count: number;
+  omitted_terminal_job_count: number;
+  active_claim_count: number;
+  stale_claim_count: number;
+  kill_switch_engaged: boolean;
+  jobs: AuthorityMissionWorkerJob[];
+  checked_at: string;
+  operator_summary: string;
+  local_only: true;
+  execution_authority_granted: false;
+  approval_or_lease_minted: false;
+  remote_queue_enabled: false;
+  daemon_enabled: false;
+  raw_task_input_persisted: false;
+  raw_paths_included: false;
+  raw_logs_included: false;
+  raw_provider_payloads_included: false;
+  redactions_applied: string[];
+}
+
 export interface AuthorityLeaseReceipt {
   operation: "issue" | "revoke";
   status: "issued" | "revoked" | "replayed" | "denied";

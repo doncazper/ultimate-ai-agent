@@ -481,11 +481,12 @@ def test_legacy_mission_step_payload_remains_readable_and_replayable(tmp_path) -
     store.create(definition)
     payload = json.loads(store.receipts_path.read_text(encoding="utf-8"))
     legacy_definition = payload["definition"]
-    legacy_definition.pop("orchestration_plan_ref")
-    legacy_definition.pop("planned_dispatch_ref")
-    legacy_definition.pop("planned_dispatch_request_fingerprint_ref")
-    payload.pop("blocked_dependency_step_ref")
-    payload.pop("halted_by_step_ref")
+    for field_name in ("orchestration_plan_ref", "planned_dispatch_ref", "planned_dispatch_request_fingerprint_ref"):  # noqa: E501
+        legacy_definition.pop(field_name)
+    for field_name in ("retryable_failure_categories", "retry_backoff_seconds", "planned_retry_attempts"):  # noqa: E501
+        legacy_definition.pop(field_name)
+    for field_name in ("blocked_dependency_step_ref", "halted_by_step_ref", "retry_not_before", "failure_category"):  # noqa: E501
+        payload.pop(field_name)
     payload["definition_fingerprint_ref"] = _short_ref(
         "mission-step-fingerprint-ref",
         legacy_definition,
@@ -498,7 +499,6 @@ def test_legacy_mission_step_payload_remains_readable_and_replayable(tmp_path) -
         entry_payload,
     )
     store.receipts_path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
-
     reloaded = MissionStepStore(tmp_path)
     assert (
         reloaded.receipts()[0].definition_fingerprint_ref == definition.fingerprint_ref
@@ -530,6 +530,7 @@ def test_legacy_dispatch_payload_remains_readable_and_replayable(tmp_path) -> No
     payload.pop("start_deadline")
     payload.pop("start_validated_at")
     payload.pop("execution_fence_ref")
+    payload.pop("failure_category")
     entry_payload = {
         key: value for key, value in payload.items() if key != "entry_hash_ref"
     }
@@ -538,7 +539,6 @@ def test_legacy_dispatch_payload_remains_readable_and_replayable(tmp_path) -> No
         entry_payload,
     )
     dispatcher.receipts_path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
-
     assert dispatcher.list_receipts()[0].dispatch_ref == request.dispatch_ref
     assert dispatcher.prepare(request).replayed is True
 

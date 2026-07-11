@@ -48,21 +48,28 @@ pre-start cancellation, recovery posture, and safe evidence for explicitly
 injected no-op and filesystem-metadata tool-runtime adapters. A fenced,
 append-first safe-ref mission-step ledger and synchronous MissionRunner now
 route one exact filesystem-metadata step through that dispatcher without
-minting authority or automatically retrying. The fenced claim atomically binds
+minting authority. The fenced claim atomically binds
 the dispatch ref and full request fingerprint. The later local mission-worker
 slice adds disabled-by-default macOS scheduling plus periodic fenced job and
-step heartbeats; generic background autonomy remains blocked. It does not yet
-provide mutation API/CLI or Control Center parity, approval waits, retry budgets,
-after-start cancellation, settlement recovery, paid-provider actual usage and
+step heartbeats; generic background autonomy remains blocked. Exact registered
+approval waits, prebound typed retries for explicitly idempotent adapters,
+immutable dead letters, append-first cancellation, and shared cancellation /
+dead-letter recovery-intent API/CLI contracts are now implemented. Safe
+after-start adapter cancellation, durable approval rehydration, mission-wide
+budgets, Control Center mutation controls, settlement recovery, paid-provider actual usage and
 cost proof, time-window or
 recipient/target constraints, renewal, reviewed unresolved-cost remediation,
-multi-host storage, or universal legacy-lane migration. No provider/model,
+multi-host storage, and universal legacy-lane migration remain unimplemented.
+Approval decisions are durable operator intent only and never execution
+authority; every resumed worker start must freshly validate the exact request
+scope. No provider/model,
 external spend, shell, browser, connector-write, public-release, production, or
 broad authority is added.
 One exact mission step is now inspectable through the existing protected
 AuthorityState route and a human-readable CLI command. The shared projection
-hashes dynamic refs, validates both durable ledgers, distinguishes expired from
-active claims, and cannot execute, mutate, mint authority, retry, or reconcile.
+hashes dynamic refs, validates durable safe-ref ledgers, distinguishes expired
+from active claims, and reports approval wait, retry, dead-letter, and
+cancellation posture without minting authority or reconciling work.
 The backend now also runs a bounded synchronous mission DAG of at most 16 exact
 filesystem-metadata steps. It accepts one immutable safe-ref plan before
 execution, binds every dispatch fingerprint and deadline, requires exact
@@ -76,8 +83,8 @@ boot classification, and exact request-resolver replay without persisting
 request payloads. The dispatcher consumes the worker/step fence inside its
 locked durable-start boundary, and durable starts are never reinvoked. The
 protected worker-state API and human-first CLI share one redacted backend read
-model. Parallelism, remote/public daemons, retries, approval waits, dead
-letters, cancellation, mission-wide settlement recovery, Control Center
+model. Parallelism, remote/public daemons, safe after-start cancellation,
+durable approval-grant rehydration, mission-wide settlement recovery, Control Center
 execution controls, and Linux/Windows runtime ports remain blocked.
 Beta 04 Universal Proof and Run Detail spine now hardens the repo-safe proof
 surface by requiring each backend-owned Universal Proof record to carry a

@@ -43,6 +43,7 @@ import type {
   RedactedLocalChatProbeStatus,
 } from "../api/types";
 import { EmptyState } from "./DataState";
+import { AuthorityMissionInspectionPanel } from "./AuthorityMissionInspectionPanel";
 import { EvidenceViewerPanel } from "./EvidenceFileMemoryViewerPanel";
 import { ChatToLoopHandoffPanel } from "./FounderLoopPanels";
 import { OperatorSurfaceStates } from "./OperatorSurfaceStates";
@@ -1787,6 +1788,8 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
       />
 
       <ProviderCatalogPanel catalog={data.providerCatalog} mode="settings" />
+
+      <AuthorityMissionInspectionPanel />
 
       <div className="panel-grid">
         <article className="panel">

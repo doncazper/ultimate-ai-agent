@@ -1,17 +1,23 @@
 from __future__ import annotations
 
+import json
 import threading
+from enum import Enum
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
+
+from ultimate_ai_agent.core.approvals.decisions import ApprovalValidationRequest
 
 from ultimate_ai_agent.core.authority.contracts import (
     AuthorityCapability,
+    AuthorityConstraintKind,
     AuthorityDomain,
 )
 from ultimate_ai_agent.core.authority.dispatch_contracts import (
     AuthorityDispatchCancelRequest,
     AuthorityDispatchExecutionFence,
+    AuthorityDispatchFailureCategory,
     AuthorityDispatchReceipt,
     AuthorityDispatchRequest,
     AuthorityDispatchResult,
@@ -40,16 +46,62 @@ from ultimate_ai_agent.core.tools.runtime.filesystem_metadata import (
 )
 
 
-def mission_step_action_ref(step_ref: str) -> str:
-    return f"authority-action-ref:mission-step:{hash_text(step_ref)[:24]}"
+def _mission_step_attempt_source(step_ref: str, attempt_no: int) -> str:
+    if attempt_no < 1:
+        raise ValueError("MISSION_STEP_ATTEMPT_NUMBER_INVALID")
+    return step_ref if attempt_no == 1 else f"{step_ref}:attempt:{attempt_no}"
 
 
-def mission_step_dispatch_ref(step_ref: str) -> str:
-    return f"authority-dispatch-ref:mission-step:{hash_text(step_ref)[:24]}"
+def mission_step_action_ref(step_ref: str, attempt_no: int = 1) -> str:
+    return (
+        "authority-action-ref:mission-step:"
+        f"{hash_text(_mission_step_attempt_source(step_ref, attempt_no))[:24]}"
+    )
 
 
-def mission_step_idempotency_ref(step_ref: str) -> str:
-    return f"idempotency-ref:mission-step:{hash_text(step_ref)[:24]}"
+def mission_step_dispatch_ref(step_ref: str, attempt_no: int = 1) -> str:
+    return (
+        "authority-dispatch-ref:mission-step:"
+        f"{hash_text(_mission_step_attempt_source(step_ref, attempt_no))[:24]}"
+    )
+
+
+def mission_step_idempotency_ref(step_ref: str, attempt_no: int = 1) -> str:
+    return (
+        "idempotency-ref:mission-step:"
+        f"{hash_text(_mission_step_attempt_source(step_ref, attempt_no))[:24]}"
+    )
+
+
+class MissionStepApprovalPosture(str, Enum):
+    not_required = "not_required"
+    ready = "ready"
+    wait = "wait"
+    invalid = "invalid"
+
+
+def mission_step_approval_scope_fingerprint(
+    validation_request: ApprovalValidationRequest,
+) -> str:
+    scope_payload = validation_request.model_dump(
+        mode="json",
+        exclude={"current_time"},
+    )
+    return (
+        "approval-scope-fingerprint-ref:sha256:"
+        f"{hash_text(json.dumps(scope_payload, sort_keys=True))[:24]}"
+    )
+
+
+class MissionStepApprovalEvaluation(BaseModel):
+    posture: MissionStepApprovalPosture
+    approval_request_ref: str | None = None
+    approval_ref: str | None = None
+    approval_scope_fingerprint_ref: str | None = None
+    validation_evidence_ref: str | None = None
+    reason_refs: list[str] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="forbid", use_enum_values=True)
 
 
 class AuthorityMissionStepResult(BaseModel):
@@ -57,7 +109,7 @@ class AuthorityMissionStepResult(BaseModel):
     dispatch_result: AuthorityDispatchResult | None = None
     replayed_terminal_step: bool = False
     execution_authority_minted_by_runner: Literal[False] = False
-    autonomous_retry_performed: Literal[False] = False
+    autonomous_retry_performed: bool = False
 
     model_config = ConfigDict(extra="forbid")
 
@@ -75,6 +127,81 @@ class AuthorityMissionRunner:
         self.step_store = step_store
         self.step_store._bind_dispatch_receipt_resolver(  # noqa: SLF001
             self._resolve_dispatch_receipt
+        )
+
+    def evaluate_approval_posture(
+        self,
+        request: AuthorityDispatchRequest,
+    ) -> MissionStepApprovalEvaluation:
+        adapter = self.dispatcher.adapters.get(request.adapter_ref)
+        if adapter is None or not adapter.descriptor.approval_required:
+            return MissionStepApprovalEvaluation(
+                posture=MissionStepApprovalPosture.not_required,
+            )
+        validation_request = request.approval_validation_request
+        authority = self.dispatcher.approval_authority
+        if validation_request is None or authority is None:
+            return MissionStepApprovalEvaluation(
+                posture=MissionStepApprovalPosture.invalid,
+                reason_refs=["reason-ref:mission-step:approval-authority-unavailable"],
+            )
+        scope_fingerprint_ref = mission_step_approval_scope_fingerprint(
+            validation_request
+        )
+        registered = authority.find_request_for_validation(validation_request)
+        if registered is None:
+            return MissionStepApprovalEvaluation(
+                posture=MissionStepApprovalPosture.invalid,
+                approval_ref=validation_request.approval_ref,
+                approval_scope_fingerprint_ref=scope_fingerprint_ref,
+                reason_refs=[
+                    "reason-ref:mission-step:approval-request-not-registered"
+                ],
+            )
+        grant = authority.get_grant(validation_request.approval_ref)
+        if grant is None:
+            return MissionStepApprovalEvaluation(
+                posture=MissionStepApprovalPosture.wait,
+                approval_request_ref=registered.approval_request_id,
+                approval_ref=validation_request.approval_ref,
+                approval_scope_fingerprint_ref=scope_fingerprint_ref,
+                reason_refs=["reason-ref:mission-step:approval-not-yet-granted"],
+            )
+        decision = authority.validate_at_trusted_time(
+            validation_request,
+            current_time=self.step_store.current_time(),
+        )
+        evidence_payload = {
+            "approval_ref": validation_request.approval_ref,
+            "matched_grant_ref": decision.matched_grant_ref,
+            "allowed": decision.allowed,
+            "status": decision.status,
+            "reason_codes": decision.reason_codes,
+            "scope_fingerprint_ref": scope_fingerprint_ref,
+        }
+        evidence_ref = (
+            "approval-validation-ref:mission-step:sha256:"
+            f"{hash_text(json.dumps(evidence_payload, sort_keys=True))[:24]}"
+        )
+        if (
+            decision.allowed
+            and decision.matched_grant_ref == validation_request.approval_ref
+        ):
+            return MissionStepApprovalEvaluation(
+                posture=MissionStepApprovalPosture.ready,
+                approval_request_ref=registered.approval_request_id,
+                approval_ref=validation_request.approval_ref,
+                approval_scope_fingerprint_ref=scope_fingerprint_ref,
+                validation_evidence_ref=evidence_ref,
+                reason_refs=["reason-ref:mission-step:approval-freshly-validated"],
+            )
+        return MissionStepApprovalEvaluation(
+            posture=MissionStepApprovalPosture.invalid,
+            approval_request_ref=registered.approval_request_id,
+            approval_ref=validation_request.approval_ref,
+            approval_scope_fingerprint_ref=scope_fingerprint_ref,
+            validation_evidence_ref=evidence_ref,
+            reason_refs=["reason-ref:mission-step:approval-invalid"],
         )
 
     def run_once(
@@ -254,7 +381,42 @@ class AuthorityMissionRunner:
                 reason_refs=["reason-ref:mission-step:dispatch-reconciliation-failed"],
             )
             raise dispatch_error
+        failure_category = dispatch_result.receipt.failure_category
+        retryable_failure = (
+            dispatch_result.receipt.status == AuthorityDispatchStatus.failed.value
+            and failure_category is not None
+            and failure_category in definition.retryable_failure_categories
+            and definition.max_attempts > 1
+            and request.approval_validation_request is None
+        )
+        if retryable_failure and claim.attempt_no < definition.max_attempts:
+            adapter = self.dispatcher.adapters[request.adapter_ref]
+            if adapter.descriptor.idempotent_replay_supported:
+                try:
+                    retried = self.step_store.schedule_retry(
+                        definition.step_ref,
+                        owner_ref=owner_ref,
+                        claim_ref=claim.claim_ref or "",
+                        generation=claim.generation,
+                        failure_category=AuthorityDispatchFailureCategory(
+                            failure_category
+                        ),
+                        dispatch_receipt=dispatch_result.receipt,
+                        evidence_refs=self._evidence_refs(dispatch_result),
+                    )
+                except MissionStepConflictError as exc:
+                    if str(exc) != "MISSION_STEP_RETRY_DEADLINE_EXHAUSTED":
+                        raise
+                else:
+                    return AuthorityMissionStepResult(
+                        step=self.step_store.read(retried.definition.step_ref),
+                        dispatch_result=dispatch_result,
+                        autonomous_retry_performed=True,
+                    )
         status, reason_ref = self._terminal_posture(dispatch_result)
+        if retryable_failure and claim.attempt_no >= definition.max_attempts:
+            status = MissionStepStatus.dead_lettered
+            reason_ref = "reason-ref:mission-step:retry-attempts-exhausted"
         evidence_refs = self._evidence_refs(dispatch_result)
         self.step_store.complete(
             definition.step_ref,
@@ -322,17 +484,36 @@ class AuthorityMissionRunner:
         definition: MissionStepDefinition,
         request: AuthorityDispatchRequest,
     ) -> None:
+        attempt_no = self._request_attempt_no(definition, request)
         if (
             definition.dependency_step_refs
             and definition.orchestration_plan_ref is None
         ):
             raise ValueError("MISSION_RUNNER_DURABLE_PLAN_BINDING_REQUIRED")
-        if definition.orchestration_plan_ref is not None and (
-            definition.planned_dispatch_ref != request.dispatch_ref
-            or definition.planned_dispatch_request_fingerprint_ref
-            != authority_dispatch_request_fingerprint(request)
-        ):
-            raise ValueError("MISSION_RUNNER_PLANNED_DISPATCH_BINDING_INVALID")
+        if definition.orchestration_plan_ref is not None:
+            if attempt_no == 1:
+                planned_dispatch_ref = definition.planned_dispatch_ref
+                planned_fingerprint_ref = (
+                    definition.planned_dispatch_request_fingerprint_ref
+                )
+            else:
+                planned_attempt = next(
+                    item
+                    for item in definition.planned_retry_attempts
+                    if item.attempt_no == attempt_no
+                )
+                planned_dispatch_ref = planned_attempt.dispatch_ref
+                planned_fingerprint_ref = (
+                    planned_attempt.dispatch_request_fingerprint_ref
+                )
+            if (
+                planned_dispatch_ref != request.dispatch_ref
+                or planned_fingerprint_ref
+                != authority_dispatch_request_fingerprint(request)
+            ):
+                raise ValueError(
+                    "MISSION_RUNNER_PLANNED_DISPATCH_BINDING_INVALID"
+                )
         adapter = self.dispatcher.adapters.get(definition.adapter_ref)
         if type(adapter) is not ToolRuntimeAuthorityDispatchAdapter:
             raise ValueError("MISSION_RUNNER_FILESYSTEM_ADAPTER_REQUIRED")
@@ -343,9 +524,13 @@ class AuthorityMissionRunner:
             "lease_ref": definition.lease_ref,
             "adapter_ref": definition.adapter_ref,
             "capability_ref": definition.capability_ref,
-            "dispatch_ref": mission_step_dispatch_ref(definition.step_ref),
-            "idempotency_ref": mission_step_idempotency_ref(definition.step_ref),
-            "action_ref": mission_step_action_ref(definition.step_ref),
+            "dispatch_ref": mission_step_dispatch_ref(
+                definition.step_ref, attempt_no
+            ),
+            "idempotency_ref": mission_step_idempotency_ref(
+                definition.step_ref, attempt_no
+            ),
+            "action_ref": mission_step_action_ref(definition.step_ref, attempt_no),
         }
         actual = {
             "run_ref": request.run_ref,
@@ -372,6 +557,50 @@ class AuthorityMissionRunner:
         root_ref = tool_request.get("metadata", {}).get("root_ref")
         if root_ref not in {root.root_ref for root in adapter.safe_roots}:
             raise ValueError("MISSION_RUNNER_INJECTED_ROOT_REQUIRED")
+        if definition.max_attempts > 1:
+            retry_claim = next(
+                (
+                    claim
+                    for claim in request.action_request.constraint_claims
+                    if claim.kind == AuthorityConstraintKind.retry_attempts.value
+                ),
+                None,
+            )
+            if (
+                not descriptor.idempotent_replay_supported
+                or descriptor.approval_required
+                or request.approval_validation_request is not None
+                or retry_claim is None
+                or retry_claim.value != definition.max_attempts
+            ):
+                raise ValueError("MISSION_RUNNER_RETRY_AUTHORITY_REQUIRED")
+
+    @staticmethod
+    def _request_attempt_no(
+        definition: MissionStepDefinition,
+        request: AuthorityDispatchRequest,
+    ) -> int:
+        if definition.max_attempts == 1:
+            return 1
+        if request.dispatch_ref == definition.planned_dispatch_ref or (
+            definition.planned_dispatch_ref is None
+            and request.dispatch_ref
+            == mission_step_dispatch_ref(definition.step_ref)
+        ):
+            return 1
+        attempt = next(
+            (
+                item
+                for item in definition.planned_retry_attempts
+                if item.dispatch_ref == request.dispatch_ref
+                and item.dispatch_request_fingerprint_ref
+                == authority_dispatch_request_fingerprint(request)
+            ),
+            None,
+        )
+        if attempt is None:
+            raise ValueError("MISSION_RUNNER_RETRY_REQUEST_NOT_PLANNED")
+        return attempt.attempt_no
 
     def _reconcile_dispatch(
         self,
@@ -438,6 +667,7 @@ class AuthorityMissionRunner:
             receipt.authority_decision_ref,
             receipt.authority_policy_receipt_ref,
             receipt.approval_validation_ref,
+            receipt.execution_fence_ref,
             receipt.budget_reservation_receipt_ref,
             receipt.budget_start_receipt_ref,
             receipt.budget_settlement_receipt_ref,

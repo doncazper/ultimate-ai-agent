@@ -17,8 +17,11 @@ Every current route in `/api/manifest` has exactly one route classification:
   observability, approvals, or connector-adjacent data without mutation
   authority.
 - `mutating_requires_authority`: mutation-like or authority-bearing local
-  routes that must stay exact-scoped, approval-bound, idempotent, auditable,
-  rollback-aware, redacted, and tested before product authority is claimed.
+  routes that must stay exact-scoped, approval-bound where the exact contract
+  requires approval, idempotent, auditable, rollback- or fence-aware,
+  redacted, and tested before product authority is claimed. Classification
+  does not imply that an approval identifier or operator-intent receipt grants
+  execution authority.
 
 Current route classification summary:
 
@@ -27,10 +30,10 @@ Current route classification summary:
 | `public_metadata` | 3 |
 | `local_readonly` | 29 |
 | `local_sensitive` | 172 |
-| `mutating_requires_authority` | 50 |
+| `mutating_requires_authority` | 53 |
 
-The current OpenAPI path count is `253` and `/api/manifest` currently reports
-`254` route operations after later scoped FCC-V1-003 through
+The current OpenAPI path count is `256` and `/api/manifest` currently reports
+`257` route operations after later scoped FCC-V1-003 through
 FCC-V1-006 Founder Loop route work, FCC-MEM-001 Memory Workbench/search/manual
 intake and lifecycle routes, the governed memory L1/L2/L3 index routes, Phase
 5 context-pack proposals, the Phase 6.1 internal Action proposal hook, the
@@ -66,7 +69,9 @@ inspection routes, plus the Hermes Runtime Adoption Phase 04 approval bridge
 read-model route, plus the Hermes Runtime Adoption Phase 05 streaming progress
 read-model route, plus the Hermes Runtime Adoption Phase 06 profile isolation
 read-model route, plus the AuthorityLease decision preview and mission planning
-routes, plus the protected authority domain readiness route, the Control Center
+routes, plus exact mission approval-decision intent, append-first cancellation,
+and immutable dead-letter recovery-intent routes, plus the protected authority
+domain readiness route, the Control Center
 capability-surface read model route, plus Hermes Runtime Adoption Phase 41
 voice/media posture, Phase 42
 messaging gateway posture, Phase 43 remote execution posture, Phase 44 plugin

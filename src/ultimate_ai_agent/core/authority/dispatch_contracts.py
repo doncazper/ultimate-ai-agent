@@ -45,6 +45,12 @@ class AuthorityDispatchStatus(str, Enum):
     cancelled_before_start = "cancelled_before_start"
 
 
+class AuthorityDispatchFailureCategory(str, Enum):
+    transient_adapter_error = "transient_adapter_error"
+    resource_temporarily_unavailable = "resource_temporarily_unavailable"
+    permanent_adapter_error = "permanent_adapter_error"
+
+
 class _AuthorityDispatchModel(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
@@ -61,6 +67,7 @@ class AuthorityDispatchAdapterDescriptor(_AuthorityDispatchModel):
     failure_cost_microusd: StrictInt | None = Field(default=0, ge=0)
     cancellation_before_start_supported: Literal[True] = True
     cancellation_after_start_supported: Literal[False] = False
+    idempotent_replay_supported: StrictBool = False
     rollback_ref: str
     safe_disable_ref: str
     safe_summary: str = Field(..., min_length=1, max_length=520)
@@ -197,6 +204,7 @@ class AuthorityDispatchCancelRequest(_AuthorityDispatchModel):
 class AuthorityDispatchAdapterResult(_AuthorityDispatchModel):
     execution_ref: str
     succeeded: StrictBool
+    failure_category: AuthorityDispatchFailureCategory | None = None
     actual_operation_count: StrictInt = Field(default=1, ge=1)
     actual_cost_microusd: StrictInt | None = Field(default=0, ge=0)
     actual_cost_ref: str | None = None
@@ -223,6 +231,8 @@ class AuthorityDispatchAdapterResult(_AuthorityDispatchModel):
             raise ValueError("AUTHORITY_DISPATCH_ACTUAL_COST_BINDING_INVALID")
         validate_safe_task_payload(self.safe_output, "authority_dispatch_safe_output")
         validate_safe_task_text(self.safe_summary, "authority_dispatch_summary")
+        if self.succeeded and self.failure_category is not None:
+            raise ValueError("AUTHORITY_DISPATCH_SUCCESS_FAILURE_CATEGORY_FORBIDDEN")
         return self
 
 
@@ -263,6 +273,7 @@ class AuthorityDispatchReceipt(_AuthorityDispatchModel):
     actual_operation_count: StrictInt | None = Field(default=None, ge=1)
     actual_cost_microusd: StrictInt | None = Field(default=None, ge=0)
     actual_cost_ref: str | None = None
+    failure_category: AuthorityDispatchFailureCategory | None = None
     evidence_refs: list[str] = Field(default_factory=list)
     output_refs: list[str] = Field(default_factory=list)
     reason_refs: list[str] = Field(default_factory=list)
@@ -403,6 +414,11 @@ class AuthorityDispatchReceipt(_AuthorityDispatchModel):
             raise ValueError("AUTHORITY_DISPATCH_START_AFTER_DEADLINE_FORBIDDEN")
         if (self.actual_cost_microusd is None) != (self.actual_cost_ref is None):
             raise ValueError("AUTHORITY_DISPATCH_ACTUAL_COST_BINDING_INVALID")
+        if (
+            self.status == AuthorityDispatchStatus.succeeded.value
+            and self.failure_category is not None
+        ):
+            raise ValueError("AUTHORITY_DISPATCH_SUCCESS_FAILURE_CATEGORY_FORBIDDEN")
         return self
 
 

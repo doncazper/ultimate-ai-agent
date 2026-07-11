@@ -7,7 +7,7 @@ from pathlib import Path
 import stat
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, model_validator
 
 from ultimate_ai_agent.core.authority.contracts import authority_state_lock_manager
 from ultimate_ai_agent.core.planning.validation import (
@@ -68,12 +68,31 @@ class _MissionPlanModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class DurableMissionPlanRetryAttemptBinding(_MissionPlanModel):
+    attempt_no: StrictInt = Field(..., ge=2, le=3)
+    dispatch_ref: str
+    dispatch_request_fingerprint_ref: str
+
+    @model_validator(mode="after")
+    def validate_attempt(self) -> "DurableMissionPlanRetryAttemptBinding":
+        validate_task_ref(self.dispatch_ref, "durable_mission_retry_dispatch_ref")
+        validate_task_ref(
+            self.dispatch_request_fingerprint_ref,
+            "durable_mission_retry_dispatch_fingerprint_ref",
+        )
+        return self
+
+
 class DurableMissionPlanStepBinding(_MissionPlanModel):
     step_ref: str
     definition_fingerprint_ref: str
     dispatch_ref: str
     dispatch_request_fingerprint_ref: str
     dependency_step_refs: list[str] = Field(default_factory=list, max_length=15)
+    retry_attempts: list[DurableMissionPlanRetryAttemptBinding] = Field(
+        default_factory=list,
+        max_length=2,
+    )
 
     @model_validator(mode="after")
     def validate_binding(self) -> "DurableMissionPlanStepBinding":
@@ -98,6 +117,10 @@ class DurableMissionPlanStepBinding(_MissionPlanModel):
             raise ValueError("DURABLE_MISSION_PLAN_SELF_DEPENDENCY_DENIED")
         if len(self.dependency_step_refs) != len(set(self.dependency_step_refs)):
             raise ValueError("DURABLE_MISSION_PLAN_DUPLICATE_DEPENDENCY_DENIED")
+        if [attempt.attempt_no for attempt in self.retry_attempts] != list(
+            range(2, len(self.retry_attempts) + 2)
+        ):
+            raise ValueError("DURABLE_MISSION_PLAN_RETRY_ATTEMPT_SEQUENCE_INVALID")
         return self
 
 
@@ -168,7 +191,7 @@ class DurableMissionPlan(_MissionPlanModel):
     def fingerprint_ref(self) -> str:
         return _safe_ref(
             "durable-mission-plan-fingerprint-ref",
-            self.model_dump(mode="json"),
+            _plan_payload(self),
         )
 
     @property
@@ -194,6 +217,14 @@ class DurableMissionPlan(_MissionPlanModel):
                         ready.append(step_ref)
                         ready.sort(key=order_index.__getitem__)
         return result
+
+
+def _plan_payload(plan: DurableMissionPlan) -> dict[str, Any]:
+    payload = plan.model_dump(mode="json")
+    for step in payload["ordered_steps"]:
+        if not step.get("retry_attempts"):
+            step.pop("retry_attempts", None)
+    return payload
 
 
 class DurableMissionPlanReceipt(_MissionPlanModel):
@@ -232,9 +263,11 @@ class DurableMissionPlanReceipt(_MissionPlanModel):
 
 
 def _entry_hash(receipt: DurableMissionPlanReceipt) -> str:
+    payload = receipt.model_dump(mode="json", exclude={"entry_hash_ref"})
+    payload["plan"] = _plan_payload(receipt.plan)
     return _safe_ref(
         "durable-mission-plan-entry-hash-ref",
-        receipt.model_dump(mode="json", exclude={"entry_hash_ref"}),
+        payload,
     )
 
 
@@ -363,6 +396,14 @@ class DurableMissionPlanStore:
             or binding.dispatch_request_fingerprint_ref
             != definition.planned_dispatch_request_fingerprint_ref
             or binding.dependency_step_refs != definition.dependency_step_refs
+            or [
+                attempt.model_dump(mode="json")
+                for attempt in binding.retry_attempts
+            ]
+            != [
+                attempt.model_dump(mode="json")
+                for attempt in definition.planned_retry_attempts
+            ]
         ):
             return None
         return self._execution_context(receipt)

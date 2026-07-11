@@ -9,23 +9,23 @@ from .repo import load_json
 
 ROUTE_FIXTURE_PATH = "tests/fixtures/api_route_inventory_133.json"
 ROUTE_FIXTURE_SCHEMA_VERSION = "uaa-api-route-inventory.v4"
-EXPECTED_ROUTE_COUNT = 254
-EXPECTED_OPENAPI_PATH_COUNT = 253
+EXPECTED_ROUTE_COUNT = 257
+EXPECTED_OPENAPI_PATH_COUNT = 256
 EXPECTED_AUTH_POSTURE_SUMMARY = {
     "public_metadata_no_auth": 3,
-    "protected_local_bearer_required": 251,
+    "protected_local_bearer_required": 254,
 }
 EXPECTED_APPROVAL_POSTURE_SUMMARY = {
     "not_required_for_route_classification": 204,
-    "required_before_mutation_authority": 50,
+    "required_before_mutation_authority": 53,
 }
 EXPECTED_IDEMPOTENCY_POSTURE_SUMMARY = {
     "not_required_for_route_classification": 204,
-    "required_before_mutation_authority": 50,
+    "required_before_mutation_authority": 53,
 }
 EXPECTED_RATE_LIMIT_POSTURE_SUMMARY = {
     "not_targeted_for_route": 184,
-    "targeted_local_fixed_window": 70,
+    "targeted_local_fixed_window": 73,
 }
 EXPECTED_MUTATING_ROUTE_COUNT = EXPECTED_APPROVAL_POSTURE_SUMMARY[
     "required_before_mutation_authority"
@@ -35,6 +35,9 @@ EXPECTED_TARGETED_RATE_LIMIT_ROUTE_COUNT = EXPECTED_RATE_LIMIT_POSTURE_SUMMARY[
 ]
 EXPECTED_CONTROL_CENTER_ROUTE_COUNT = 92
 EXPECTED_MUTATING_ROUTES = {
+    ("POST", "/api/runtime/authority-missions/approval-decisions"),
+    ("POST", "/api/runtime/authority-missions/cancel"),
+    ("POST", "/api/runtime/authority-missions/dead-letter-recovery"),
     ("POST", "/control-center/actions/{action_id}/approve"),
     ("POST", "/control-center/actions/{action_id}/defer"),
     ("POST", "/control-center/actions/{action_id}/edit"),

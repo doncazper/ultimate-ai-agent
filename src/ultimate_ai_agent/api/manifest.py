@@ -88,6 +88,13 @@ CAPABILITIES_DECLARED = [
     "authority_mission_worker_boot_reconciliation",
     "authority_mission_worker_read_only_inspection",
     "authority_mission_worker_graceful_shutdown_and_kill_switch",
+    "authority_mission_approval_wait_durable_state",
+    "authority_mission_retry_policy_exact_idempotent",
+    "authority_mission_dead_letter_terminal_state",
+    "authority_mission_cancellation_fence",
+    "authority_mission_failure_management_operator_intent_api",
+    "authority_mission_failure_management_cli",
+    "control_center_authority_mission_read_only_inspection",
     "governed_product_pilot_portable_evidence_envelope",
     "governed_product_pilot_durable_orchestration_profile",
     "control_center_coding_cockpit_session_read_model",
@@ -248,8 +255,12 @@ CAPABILITIES_BLOCKED = [
     "authority_mission_worker_remote_queue_or_public_daemon",
     "authority_mission_worker_default_enabled_execution",
     "authority_mission_worker_cached_or_minted_authority",
-    "authority_mission_orchestration_automatic_retry_or_approval_wait",
-    "authority_mission_orchestration_mission_level_cancellation",
+    "authority_mission_approval_decision_as_execution_authority",
+    "authority_mission_approval_grant_durable_rehydration",
+    "authority_mission_retry_unknown_execution_truth",
+    "authority_mission_dead_letter_automatic_replay",
+    "authority_mission_after_start_cancellation",
+    "authority_mission_control_center_mutation",
     "governed_product_pilot_broad_autonomy",
     "governed_product_pilot_unrestricted_shell_subprocess",
     "governed_product_pilot_browser_automation",
@@ -775,6 +786,9 @@ GOVERNED_RUNTIME_READONLY_PATHS = {
     "/api/runtime/invocations/{id}/receipt",
 }
 GOVERNED_RUNTIME_MUTATING_PATHS = {
+    "/api/runtime/authority-missions/approval-decisions",
+    "/api/runtime/authority-missions/cancel",
+    "/api/runtime/authority-missions/dead-letter-recovery",
     "/api/runtime/authority-leases",
     "/api/runtime/authority-leases/approve-and-issue",
     "/api/runtime/authority-leases/revoke",
@@ -1055,6 +1069,30 @@ def route_classification_for_path(
         return (
             ApiRouteClassification.mutating_requires_authority,
             "Governed runtime invocation metadata route is mutation-like authority posture only; it stores safe refs and policy decisions, and idempotency, approval posture, redaction, and execution-blocked receipts are required before later lease-scoped execution authority.",
+        )
+    if (
+        normalized_method == "POST"
+        and path == "/api/runtime/authority-missions/approval-decisions"
+    ):
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "Authority mission approval decision records exact durable operator intent after exact approval-wait binding validation; the decision grants no execution authority, invokes no adapter, and every resumed start requires fresh LocalApprovalAuthority and dispatcher request-scoped validation.",
+        )
+    if (
+        normalized_method == "POST"
+        and path == "/api/runtime/authority-missions/cancel"
+    ):
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "Authority mission cancellation appends an exact plan-, mission-, run-, lease-, and idempotency-bound pre-start fence that can only reduce authority; it invokes no adapter and cannot rewrite after-start truth.",
+        )
+    if (
+        normalized_method == "POST"
+        and path == "/api/runtime/authority-missions/dead-letter-recovery"
+    ):
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "Authority mission dead-letter recovery appends exact operator intent bound to the immutable terminal receipt and hash; it does not reopen, replay, or execute the dead-lettered step and grants no authority.",
         )
     if (
         normalized_method == "POST"

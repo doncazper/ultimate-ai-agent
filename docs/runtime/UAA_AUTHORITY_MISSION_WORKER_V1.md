@@ -8,9 +8,11 @@ Date: 2026-07-10
 
 The local mission worker adds bounded background scheduling around the existing
 `MissionOrchestrator -> AuthorityMissionRunner -> AuthorityDispatcher` path. It
+now supports durable approval-wait posture, exact typed retries for explicitly
+idempotent adapters, immutable dead letters, and append-first cancellation. It
 does not add another execution path, remote queue, public daemon, production
-scheduler, retry policy, approval wait, cancellation control, or Control Center
-mutation.
+scheduler, automatic approval authority, dead-letter replay, safe after-start
+cancellation, or Control Center mutation.
 
 Activation requires `UAA_LOCAL_MISSION_WORKER_ENABLED=1` on macOS and an active
 mission-scoped `AuthorityLease` that matches the immutable plan and every step.
@@ -52,11 +54,20 @@ Boot inspection derives `pending`, `actively_claimed`, `stale_claim`,
 `dependency_blocked`, and `recovery_required` without executing recovery. A
 durable `started` or `cancellation_pending` dispatch is never invoked again.
 Prepared dispatches resume only after exact request resolution and fresh
-request-scoped authority checks.
+request-scoped authority checks. An approval decision receipt is durable
+operator intent only. It never grants execution authority, and a resumed worker
+must freshly validate `LocalApprovalAuthority`, policy, lease, budget, kill
+switch, adapter, target, deadline, idempotency, and safe-disable posture before
+the dispatcher's locked pre-start boundary.
 
 Graceful shutdown stops new slices and releases the queue claim between steps.
 `UAA_AUTHORITY_LEASE_KILL_SWITCH=1` blocks new claims or starts. V1 is
-fail-fast, one local worker, one mission slice at a time, and attempt one only.
+fail-fast, one local worker, and one mission slice at a time. Retry defaults to
+off. A retry may occur only for a prebound typed retry category, an explicitly
+idempotent adapter, an unchanged request fingerprint, an exact mission-lease
+retry constraint, remaining deadline and budget, and a fresh dispatcher
+evaluation. Unknown execution truth and authority or approval denial never
+retry. Exhaustion becomes a durable dead letter with no automatic replay.
 
 ## Inspection parity
 
@@ -69,8 +80,14 @@ read-only, and cannot enqueue, claim, heartbeat, reconcile, start, approve,
 issue a lease, or mint authority. The Hermes
 `GET /api/runtime/background-jobs` contract remains proposal-only.
 
+The separate protected failure-management API and CLI record exact approval
+decisions, cancellation fences, and dead-letter recovery intent. These surfaces
+append safe operator state only; they do not resume a worker, grant authority,
+or execute an adapter.
+
 Parallel execution, remote queues, public or production daemons, default-on
-execution, retries, approval waits, dead-letter replay, mission cancellation,
+execution, restart-time approval-request resolver proof,
+automatic dead-letter replay, retries for unknown execution truth, safe
 after-start cancellation, mission-level settlement recovery, provider/model
-calls, browser or connector actions, broad shell, and Control Center execution
+calls, browser or connector actions, broad shell, and Control Center mission
 controls remain separate milestones.

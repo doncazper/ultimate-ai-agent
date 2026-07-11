@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `253`.
+Current OpenAPI path count: `256`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -709,3 +709,22 @@ Export:
 Use `--output` only for an intentional versioned snapshot. Historical docs may
 mention earlier path counts such as `74` or `75`; those counts are audit
 history, not the current OpenAPI route count.
+The three protected mission failure-management routes are local, idempotent
+operator-intent surfaces rather than execution endpoints:
+
+- `POST /api/runtime/authority-missions/approval-decisions` records an exact
+  approve or deny decision only after the registered request and
+  `LocalApprovalAuthority` scope validate. The durable decision is not
+  execution authority; a worker must freshly validate approval, policy, lease,
+  budget, kill switch, adapter, target, deadline, and safe-disable posture
+  before any later start. Durable approval-request rehydration across process
+  restart remains blocked.
+- `POST /api/runtime/authority-missions/cancel` appends an exact durable
+  pre-start fence. It can only reduce authority and cannot rewrite work that
+  already has durable start evidence.
+- `POST /api/runtime/authority-missions/dead-letter-recovery` records exact
+  operator recovery intent bound to the immutable terminal receipt and hash.
+  It never reopens, replays, or executes the original step.
+
+All three grant no adapter authority and persist only typed safe refs,
+fingerprints, reason codes, and redaction posture.
