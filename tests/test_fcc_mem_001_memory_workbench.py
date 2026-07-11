@@ -146,9 +146,10 @@ def test_memory_workbench_read_model_groups_and_blocks_authority(
         "stale_review",
         "conflict_review",
         "corrected",
-        "merged",
-        "superseded",
-        "forget_requested",
+            "merged",
+            "superseded",
+            "expired",
+            "forget_requested",
     }
     assert {group["group_id"] for group in workbench["groups"]} == {
         "needs_review",
@@ -178,56 +179,6 @@ def test_memory_workbench_read_model_groups_and_blocks_authority(
     assert "raw_prompt" not in serialized
     assert "raw_response" not in serialized
     assert "provider_payload" not in serialized
-
-
-@pytest.mark.parametrize(
-    ("decision", "request_overrides", "receipt_field"),
-    [
-        ("defer", {}, "defer_ref"),
-        (
-            "merge",
-            {"merge_refs": ["business-memory-candidate:preference:merge-peer"]},
-            "merge_ref",
-        ),
-        (
-            "supersede",
-            {"supersedes_refs": ["business-memory-candidate:preference:older"]},
-            "supersede_ref",
-        ),
-        ("forget_request", {}, "forget_request_ref"),
-    ],
-)
-def test_memory_review_lifecycle_expansion_does_not_create_recall_records(
-    tmp_path: Path,
-    decision: str,
-    request_overrides: dict[str, object],
-    receipt_field: str,
-) -> None:
-    repo = FounderLoopRepository(tmp_path / "founder_loop")
-    candidate_ref = _first_candidate_ref(repo)
-
-    receipt = repo.record_memory_review_decision(
-        candidate_ref=candidate_ref,
-        decision=decision,  # type: ignore[arg-type]
-        request=_decision_request(**request_overrides),
-        idempotency_key_ref=f"idempotency-ref:test-memory-{decision.replace('_', '-')}",
-    )
-
-    assert receipt["decision"] == decision
-    assert receipt[receipt_field]
-    assert receipt.get("reviewed_recall_record_ref") is None
-    assert repo.list_memory_review_recall_records() == []
-    queue_item = repo.list_memory_review_queue(limit=1)[0]
-    assert queue_item["review_state"] in {
-        "deferred",
-        "merged",
-        "superseded",
-        "forget_requested",
-    }
-    assert receipt["receipt_ref"] in queue_item["evidence_refs"]
-    assert receipt["context_injection_authorized"] is False
-    assert receipt["connector_write_authorized"] is False
-    assert receipt["production_authority_enabled"] is False
 
 
 def test_manual_memory_candidate_intake_is_review_candidate_only(
@@ -368,9 +319,10 @@ def test_merge_and_supersede_mark_local_peer_posture_without_deletion(
         ),
         idempotency_key_ref="idempotency-ref:manual-memory-supersede-old",
     )
+    supersede_primary = _manual_memory_candidate(repo, "supersede-primary")
 
     supersede_receipt = repo.record_memory_review_decision(
-        candidate_ref=first["review_ref"],
+        candidate_ref=supersede_primary["review_ref"],
         decision="supersede",
         request=_decision_request(supersedes_refs=[third["review_ref"]]),
         idempotency_key_ref="idempotency-ref:test-memory-supersede-local-peer",

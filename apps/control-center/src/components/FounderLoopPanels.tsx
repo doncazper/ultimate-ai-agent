@@ -8482,7 +8482,7 @@ export function MemoryReviewSurfacePanel({
           </div>
           <p>
             Memory review can record safe accept, correction, reject, defer,
-            merge, supersede, and forget-request receipts. Delete/export
+            merge, supersede, expiry, and forget-request receipts. Delete/export
             execution, connector sync, action execution, and context injection
             remain blocked.
           </p>
@@ -9165,6 +9165,7 @@ function MemoryContextManifestPanel({
 }: {
   contextManifest: FounderLoopMemoryContextManifest;
 }) {
+  const governed = contextManifest.governed_context;
   return (
     <article className="status-card">
       <div className="status-card-header">
@@ -9205,7 +9206,61 @@ function MemoryContextManifestPanel({
           label="Memory write"
           value={contextManifest.memory_write_authorized ? "enabled" : "blocked"}
         />
+        <DetailTerm
+          label="Governed context"
+          value={governed?.status ?? "unavailable"}
+        />
+        <DetailTerm
+          label="Selection budget"
+          value={
+            governed
+              ? `${governed.budget.selected_items}/${governed.budget.max_items} refs`
+              : "unavailable"
+          }
+        />
+        <DetailTerm
+          label="Capacity budget"
+          value={
+            governed
+              ? `${governed.budget.used_tokens}/${governed.budget.max_tokens} estimated units`
+              : "unavailable"
+          }
+        />
+        <DetailTerm
+          label="Included / excluded"
+          value={
+            governed
+              ? `${governed.selection_count} / ${governed.exclusion_count}`
+              : "unavailable"
+          }
+        />
+        <DetailTerm
+          label="Derived context receipt ref"
+          value={governed?.context_receipt_ref ?? "unavailable"}
+        />
+        <DetailTerm
+          label="Source scan"
+          value={
+            governed
+              ? governed.source_scan_truncated
+                ? "truncated / preview blocked"
+                : "complete for bounded snapshot"
+              : "unavailable"
+          }
+        />
       </dl>
+      {governed ? (
+        <>
+          <RefListWithFallback
+            emptyLabel="Included memory refs: none"
+            refs={governed.selections.map((selection) => selection.memory_ref)}
+          />
+          <RefListWithFallback
+            emptyLabel="Excluded memory reasons: none"
+            refs={governed.exclusions.flatMap((exclusion) => exclusion.reason_refs)}
+          />
+        </>
+      ) : null}
       <RefListWithFallback
         emptyLabel="Context manifest blockers: none"
         refs={contextManifest.blocked_state_refs}
@@ -13019,6 +13074,7 @@ const memoryDecisionLabels: Record<MemoryReviewDecisionKind, string> = {
   defer: "Record defer receipt",
   merge: "Record merge receipt",
   supersede: "Record supersede receipt",
+  expire: "Record expiry receipt",
   forget_request: "Record forget-request receipt",
 };
 
@@ -13033,6 +13089,7 @@ const memoryDecisionOrder: MemoryReviewDecisionKind[] = [
   "defer",
   "merge",
   "supersede",
+  "expire",
   "forget_request",
 ];
 
@@ -13330,7 +13387,7 @@ function MemoryReviewCard({
         subject={memoryDecisionSubjectFromReviewItem(item)}
       />
       <InlineListWithFallback
-        emptyLabel="Decision labels only: accept, correct, reject, defer, merge, supersede, forget request"
+        emptyLabel="Decision labels only: accept, correct, reject, defer, merge, supersede, expire, forget request"
         items={item.available_decision_states ?? []}
       />
       <InlineListWithFallback
@@ -13409,7 +13466,7 @@ function MemoryReviewDecisionControls({
           decision === "correct" ? correctedSafeSummary.trim() : undefined,
         merge_refs:
           decision === "merge"
-            ? [subject.candidateRef, ...subject.duplicateRefs]
+            ? subject.duplicateRefs
             : undefined,
         supersedes_refs:
           decision === "supersede" ? subject.conflictRefs : undefined,
@@ -13523,6 +13580,10 @@ function MemoryReviewDecisionControls({
           <DetailTerm
             label="Supersede ref"
             value={state.receipt.supersede_ref ?? "not created"}
+          />
+          <DetailTerm
+            label="Expiry ref"
+            value={state.receipt.expire_ref ?? "not created"}
           />
           <DetailTerm
             label="Forget-request ref"

@@ -32,6 +32,8 @@ from ultimate_ai_agent.core.memory import (
     MemoryReviewDecisionReceipt,
     MemoryReviewDecisionRequest,
     MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF,
+    MEMORY_REVIEW_AUTHORITY_ACTION_REF,
+    MEMORY_REVIEW_AUTHORITY_LANE_REF,
     MEMORY_REVIEW_WRITE_ROLLBACK_BLOCKED_REF,
     MEMORY_REVIEW_WRITE_ROLLBACK_REF,
     MEMORY_REVIEW_WRITE_SAFE_DISABLE_REF,
@@ -91,6 +93,9 @@ def _safe_receipt(**overrides: object) -> MemoryReviewDecisionReceipt:
         "authority_decision_ref": "authority-policy-decision-ref:memory-review:test",
         "authority_decision_outcome": "ask",
         "authority_lease_ref": "authority-lease-ref:test-memory-review-write",
+        "authority_action_ref": MEMORY_REVIEW_AUTHORITY_ACTION_REF,
+        "authority_lane_ref": MEMORY_REVIEW_AUTHORITY_LANE_REF,
+        "authority_scope_ref": MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF,
         "authority_domain_ref": "authority-domain-ref:memory",
         "authority_capability_ref": "authority-capability-ref:write",
         "safe_disable_ref": MEMORY_REVIEW_WRITE_SAFE_DISABLE_REF,
@@ -366,10 +371,7 @@ def test_memory_review_correction_stores_bounded_safe_summary_and_ref(
         receipt["corrected_summary_ref"]
         == "safe-summary-ref:memory-review-correction:test"
     )
-    assert (
-        receipt["corrected_safe_summary"]
-        == "Corrected bounded safe summary for review only."
-    )
+    assert "corrected_safe_summary" not in receipt
     assert "raw" not in str(receipt).lower()
     assert receipt["approval_ref"].startswith("approval-ref:memory-review:")
     assert receipt["reviewed_recall_write_performed"] is True
@@ -424,7 +426,7 @@ def test_rejected_candidate_is_preserved_and_evidence_visible(tmp_path: Path) ->
     history = memory_event["history_answers"]
     assert history["approved"]["status"] == "decision_receipt_recorded"
     assert (
-        "Memory Review accept, correct, reject, defer, merge, supersede, "
+        "Memory Review accept, correct, reject, defer, merge, supersede, expire, "
         "and forget-request decisions" in history["happened"]["answer"]
     )
     assert "context injection" in history["blocked"]["answer"]
@@ -627,6 +629,7 @@ def test_memory_review_cli_records_and_inspects_reviewed_recall_write(
         inspect_payload["write_safe_disable_posture"]["rollback_execution_enabled"]
         is False
     )
+
     assert inspect_payload["safe_refs_only"] is True
     serialized = json.dumps(inspect_payload).lower()
     assert "raw_prompt" not in serialized

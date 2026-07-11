@@ -60,7 +60,7 @@ EXTRACTED_CONTROL_CENTER_ROUTES = {
 EXPECTED_SIDE_EFFECT_MIX = {
     "none": 4,
     "validation_only": 78,
-    "local_dev_workspace_only": 173,
+    "local_dev_workspace_only": 174,
     "governed_network_read_only": 3,
 }
 
@@ -144,7 +144,7 @@ def _append_static_failures(failures: list[str]) -> None:
             "`/control-center/settings/status`",
         ],
         ROUTE_GROUPING_MAP: [
-            "`local_dev_workspace_only`:71",
+            "`local_dev_workspace_only`:72",
             "| GET | `/control-center/proof/index` | `get_control_center_proof_index` | `local_dev_workspace_only`",
             "| GET | `/control-center/start-here/summary` | `get_control_center_start_here_summary` | `local_dev_workspace_only`",
             "| GET | `/control-center/trust-authority/matrix` | `get_control_center_trust_authority_matrix` | `local_dev_workspace_only`",

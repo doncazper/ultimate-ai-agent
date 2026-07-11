@@ -21,16 +21,16 @@
   "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
   "route_approval_posture_summary": {
     "not_required_for_route_classification": 205,
-    "required_before_mutation_authority": 53
+    "required_before_mutation_authority": 54
   },
   "route_auth_posture_summary": {
-    "protected_local_bearer_required": 255,
+    "protected_local_bearer_required": 256,
     "public_metadata_no_auth": 3
   },
   "route_classification_summary": {
     "local_readonly": 29,
     "local_sensitive": 173,
-    "mutating_requires_authority": 53,
+    "mutating_requires_authority": 54,
     "public_metadata": 3
   },
   "route_classification_vocabulary": [
@@ -39,14 +39,14 @@
     "local_sensitive",
     "mutating_requires_authority"
   ],
-  "route_count": 258,
+  "route_count": 259,
   "route_idempotency_posture_summary": {
     "not_required_for_route_classification": 205,
-    "required_before_mutation_authority": 53
+    "required_before_mutation_authority": 54
   },
   "route_rate_limit_posture_summary": {
     "not_targeted_for_route": 185,
-    "targeted_local_fixed_window": 73
+    "targeted_local_fixed_window": 74
   },
   "routes": [
     {
@@ -2705,6 +2705,26 @@
       "route_classification": "mutating_requires_authority",
       "side_effect_class": "local_dev_workspace_only",
       "summary": "Post control center memory review candidate ref defer",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "post_control_center_memory_review_candidate_ref_expire",
+      "path": "/control-center/memory/review/{candidate_ref}/expire",
+      "rate_limit_group": "memory_review_decision",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "local_dev_workspace_only",
+      "summary": "Post control center memory review candidate ref expire",
       "tags": [
         "control-center"
       ]

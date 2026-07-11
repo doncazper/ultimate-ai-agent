@@ -1560,7 +1560,26 @@ def _inspect_memory_context_manifest(args: argparse.Namespace) -> int:
         "raw_content_omitted": True,
         "raw_paths_omitted": True,
     }
-    _print_json(output)
+    if args.json:
+        _print_json(output)
+    else:
+        governed = context_manifest.get("governed_context") or {}
+        budget = governed.get("budget") or {}
+        print("Memory context manifest")
+        print(f"  Status: {governed.get('status', context_manifest.get('status'))}")
+        print(f"  Manifest: {governed.get('context_manifest_ref', 'unavailable')}")
+        print(f"  Receipt: {governed.get('context_receipt_ref', 'unavailable')}")
+        print(
+            "  Selected / candidates: "
+            f"{governed.get('selection_count', 0)} / "
+            f"{governed.get('candidate_count', 0)}"
+        )
+        print(
+            "  Capacity: "
+            f"{budget.get('used_tokens', 0)} / "
+            f"{budget.get('max_tokens', 0)} estimated units"
+        )
+        print("  Context injection: blocked (preview only)")
     return 0
 
 
@@ -2343,6 +2362,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     memory_context_manifest_parser.add_argument("--query-ref", default=None)
     memory_context_manifest_parser.add_argument("--limit", type=int, default=20)
+    memory_context_manifest_parser.add_argument("--json", action="store_true")
     memory_context_manifest_parser.set_defaults(func=_inspect_memory_context_manifest)
 
     memory_context_pack_preview_parser = subparsers.add_parser(
@@ -2480,6 +2500,7 @@ def build_parser() -> argparse.ArgumentParser:
             "defer",
             "merge",
             "supersede",
+            "expire",
             "forget_request",
         ],
         required=True,

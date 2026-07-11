@@ -228,6 +228,7 @@ _ATTENTION_STATES = {
     "deferred",
     "merged",
     "superseded",
+    "expired",
     "forget_requested",
 }
 
@@ -1003,7 +1004,11 @@ def _memory_learning_lifecycle_counts(
             counts["corrected"] += 1
         if "rejected" in groups or review_state == "rejected":
             counts["rejected"] += 1
-        if "stale" in groups or str(item.get("stale_state") or "none") != "none":
+        if (
+            "stale" in groups
+            or review_state == "expired"
+            or str(item.get("stale_state") or "none") != "none"
+        ):
             counts["stale"] += 1
         if review_state in {"forget_requested", "revoked", "forgotten"}:
             counts["forgotten"] += 1
@@ -1115,6 +1120,7 @@ def _memory_lifecycle_posture(
             "defer",
             "merge",
             "supersede",
+            "expire",
             "forget_request",
         ]
     }
@@ -1130,6 +1136,7 @@ def _memory_lifecycle_posture(
     superseded_items = [
         item for item in items if item.get("review_state") == "superseded"
     ]
+    expired_items = [item for item in items if item.get("review_state") == "expired"]
     forget_requested_items = [
         item for item in items if item.get("review_state") == "forget_requested"
     ]
@@ -1198,6 +1205,17 @@ def _memory_lifecycle_posture(
                 decision_receipts,
                 decision="supersede",
                 items=superseded_items,
+            ),
+        ),
+        _memory_lifecycle_lane(
+            lane_id="expired",
+            label="Expired",
+            decision_kind="expire",
+            item_refs=_memory_lifecycle_item_refs(expired_items),
+            receipt_refs=_memory_lifecycle_receipt_refs_for_items(
+                decision_receipts,
+                decision="expire",
+                items=expired_items,
             ),
         ),
         _memory_lifecycle_lane(
@@ -2408,6 +2426,8 @@ def _groups_for_item(item: dict[str, Any]) -> list[MemoryWorkbenchGroup]:
     if "business-memory-quality:duplicate" in quality_refs:
         groups.append("duplicate")
     if "business-memory-quality:stale-expired" in quality_refs:
+        groups.append("stale")
+    if review_state == "expired":
         groups.append("stale")
     if "business-memory-quality:evidence-missing" in quality_refs:
         groups.append("missing_evidence")

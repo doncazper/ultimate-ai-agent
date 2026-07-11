@@ -1653,6 +1653,28 @@ def post_control_center_memory_review_supersede(
     )
 
 
+@router.post("/memory/review/{candidate_ref}/expire", response_model=ResultEnvelope)
+def post_control_center_memory_review_expire(
+    candidate_ref: str,
+    request: MemoryReviewDecisionRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_KEY_HEADER,
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_REF_HEADER,
+    ),
+) -> ResultEnvelope:
+    return _record_memory_review_decision(
+        candidate_ref=candidate_ref,
+        decision="expire",
+        request=request,
+        idempotency_key=x_uaa_idempotency_key,
+        idempotency_ref=x_uaa_idempotency_ref,
+    )
+
+
 @router.post(
     "/memory/review/{candidate_ref}/forget-request",
     response_model=ResultEnvelope,

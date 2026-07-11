@@ -94,6 +94,7 @@ import type {
   FounderLoopMemoryContextPacks,
   FounderLoopMemoryCitationIntegrity,
   FounderLoopMemoryContextManifest,
+  GovernedMemoryContextManifest,
   FounderLoopMemoryMaintenanceRuns,
   FounderLoopMemoryQualityIssues,
   FounderLoopMemoryReview,
@@ -8295,6 +8296,9 @@ function normalizeFounderMemoryContextManifest(
   const blockedStateRefs = Array.isArray(value.blocked_state_refs)
     ? value.blocked_state_refs
     : [];
+  const governedContext = isSafeGovernedMemoryContext(value.governed_context)
+    ? value.governed_context
+    : undefined;
   return {
     value: {
       ...merged.value,
@@ -8308,9 +8312,166 @@ function normalizeFounderMemoryContextManifest(
           ? value.context_pack_preview_count
           : manifests.length,
       blocked_state_refs: blockedStateRefs,
+      governed_context: governedContext,
+      governed_context_manifest_ref: governedContext?.context_manifest_ref,
+      governed_context_receipt_ref: governedContext?.context_receipt_ref,
+      governed_context_fingerprint_ref: governedContext?.manifest_fingerprint_ref,
     },
-    usedFallback: merged.usedFallback,
+    usedFallback:
+      merged.usedFallback ||
+      (value.governed_context !== undefined && governedContext === undefined),
   };
+}
+
+function isSafeGovernedMemoryContext(
+  value: unknown,
+): value is GovernedMemoryContextManifest {
+  if (!isPlainRecord(value)) return false;
+  const selections = Array.isArray(value.selections) ? value.selections : null;
+  const exclusions = Array.isArray(value.exclusions) ? value.exclusions : null;
+  const budget = isPlainRecord(value.budget) ? value.budget : null;
+  if (!selections || !exclusions || !budget) return false;
+  const selectionCount = Number(value.selection_count);
+  const exclusionCount = Number(value.exclusion_count);
+  const candidateCount = Number(value.candidate_count);
+  const maxItems = Number(budget.max_items);
+  const selectedItems = Number(budget.selected_items);
+  const maxTokens = Number(budget.max_tokens);
+  const usedTokens = Number(budget.used_tokens);
+  const capacityExcludedItems = Number(budget.capacity_excluded_items);
+  const hasSafeRefList = (candidate: unknown): candidate is string[] =>
+    Array.isArray(candidate) &&
+    candidate.length > 0 &&
+    candidate.every((ref) => typeof ref === "string" && ref.length > 0);
+  const safeSelections = selections.every(
+    (item) =>
+      isPlainRecord(item) &&
+      typeof item.memory_ref === "string" &&
+      item.memory_ref.length > 0 &&
+      hasSafeRefList(item.source_refs) &&
+      hasSafeRefList(item.evidence_refs) &&
+      hasSafeRefList(item.receipt_refs) &&
+      hasSafeRefList(item.inclusion_reason_refs) &&
+      typeof item.confidence_posture_ref === "string" &&
+      typeof item.freshness_posture_ref === "string" &&
+      typeof item.conflict_posture_ref === "string" &&
+      typeof item.sensitivity_posture_ref === "string" &&
+      Number.isInteger(Number(item.token_estimate)) &&
+      Number(item.token_estimate) > 0,
+  );
+  const safeExclusions = exclusions.every(
+    (item) =>
+      isPlainRecord(item) &&
+      typeof item.memory_ref === "string" &&
+      item.memory_ref.length > 0 &&
+      hasSafeRefList(item.reason_refs),
+  );
+  const selectedRefs = new Set(
+    selections
+      .filter(isPlainRecord)
+      .map((item) => String(item.memory_ref ?? "")),
+  );
+  const excludedRefs = new Set(
+    exclusions
+      .filter(isPlainRecord)
+      .map((item) => String(item.memory_ref ?? "")),
+  );
+  const tokenSum = selections.reduce(
+    (total, item) =>
+      total + (isPlainRecord(item) ? Number(item.token_estimate) : 0),
+    0,
+  );
+  const expectedBudgetStatus =
+    selectedItems === 0
+      ? "exhausted"
+      : capacityExcludedItems > 0 ||
+          selectedItems === maxItems ||
+          usedTokens === maxTokens
+        ? "constrained"
+        : "available";
+  const requiredBlockedStateRefs = [
+    "blocked-state:memory-context-no-hidden-injection",
+    "blocked-state:memory-context-no-automatic-memory-truth",
+    "blocked-state:memory-context-no-action-authority",
+    "blocked-state:memory-context-no-approval-authority",
+    "blocked-state:memory-context-no-connector-write",
+    "blocked-state:memory-context-no-model-provider-call",
+    "blocked-state:memory-context-no-production-authority",
+  ];
+  const blockedStateRefs = Array.isArray(value.blocked_state_refs)
+    ? value.blocked_state_refs
+    : [];
+  if (
+    !Number.isInteger(selectionCount) ||
+    !Number.isInteger(exclusionCount) ||
+    !Number.isInteger(candidateCount) ||
+    !Number.isInteger(maxItems) ||
+    maxItems < 1 ||
+    !Number.isInteger(maxTokens) ||
+    maxTokens < 1 ||
+    !Number.isInteger(selectedItems) ||
+    selectedItems < 0 ||
+    !Number.isInteger(usedTokens) ||
+    usedTokens < 0 ||
+    selectionCount !== selections.length ||
+    exclusionCount !== exclusions.length ||
+    candidateCount !== selectionCount + exclusionCount ||
+    selectedItems !== selectionCount ||
+    selectedItems > maxItems ||
+    usedTokens > maxTokens ||
+    tokenSum !== usedTokens ||
+    !Number.isInteger(capacityExcludedItems) ||
+    capacityExcludedItems < 0 ||
+    budget.status !== expectedBudgetStatus ||
+    value.schema_version !== "governed_memory_context_manifest.v1" ||
+    value.contract_ref !== "contract-ref:governed-memory-context-manifest:v1" ||
+    value.route_ref !== "GET /control-center/memory/context-manifest" ||
+    value.redaction_status !== "safe_refs_only" ||
+    !requiredBlockedStateRefs.every((ref) => blockedStateRefs.includes(ref)) ||
+    selectedRefs.size !== selections.length ||
+    excludedRefs.size !== exclusions.length ||
+    (value.status === "ready_for_operator_preview" && selectionCount === 0) ||
+    (value.status === "blocked_no_eligible_context" && selectionCount !== 0) ||
+    ![
+      "ready_for_operator_preview",
+      "blocked_no_eligible_context",
+    ].includes(String(value.status)) ||
+    value.context_receipt_status !== "derived_preview_not_persisted" ||
+    typeof value.context_manifest_ref !== "string" ||
+    typeof value.manifest_fingerprint_ref !== "string" ||
+    typeof value.context_receipt_ref !== "string" ||
+    typeof value.query_ref !== "string" ||
+    typeof value.checked_at !== "string" ||
+    typeof value.source_index_generated_at !== "string" ||
+    value.checked_at !== value.source_index_generated_at ||
+    typeof value.expires_at !== "string" ||
+    Number.isNaN(Date.parse(value.checked_at)) ||
+    Number.isNaN(Date.parse(value.expires_at)) ||
+    Date.parse(value.expires_at) <= Date.parse(value.checked_at) ||
+    !safeSelections ||
+    !safeExclusions ||
+    [...selectedRefs].some((ref) => excludedRefs.has(ref)) ||
+    typeof value.source_scan_truncated !== "boolean" ||
+    typeof value.candidate_count_complete !== "boolean" ||
+    value.candidate_count_complete === value.source_scan_truncated
+  ) {
+    return false;
+  }
+  if (
+    value.preview_only !== true ||
+    value.context_injection_authorized !== false ||
+    value.automatic_memory_inclusion_authorized !== false ||
+    value.memory_truth_authority !== false ||
+    value.action_execution_authorized !== false ||
+    value.approval_authority_granted !== false ||
+    value.connector_write_authorized !== false ||
+    value.model_provider_authority_allowed !== false ||
+    value.raw_content_persisted !== false ||
+    value.production_authority_enabled !== false
+  ) {
+    return false;
+  }
+  return true;
 }
 
 function normalizeControlCenterDashboard(

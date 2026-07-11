@@ -374,8 +374,7 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
         "correct",
         "reject",
         "defer",
-        "merge",
-        "supersede",
+        "merge", "supersede", "expire",
         "forget_request",
     ]
     assert today["memory_review_decision_authority_posture"]["review_only"] is True
@@ -701,8 +700,7 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
         "correct",
         "reject",
         "defer",
-        "merge",
-        "supersede",
+        "merge", "supersede", "expire",
         "forget_request",
     ]
     assert (

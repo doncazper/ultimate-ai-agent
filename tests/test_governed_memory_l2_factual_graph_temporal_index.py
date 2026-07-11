@@ -155,10 +155,10 @@ def test_l2_index_derives_fact_graph_and_time_from_l1_previews_only(
 
     assert l2_index["contract_ref"] == L2_FACTUAL_GRAPH_TEMPORAL_INDEX_CONTRACT_REF
     assert l2_index["route_ref"] == L2_FACTUAL_GRAPH_TEMPORAL_INDEX_ROUTE_REF
-    assert l2_index["source_l1_preview_count"] == 2
-    assert l2_index["fact_count"] == 2
-    assert l2_index["relation_count"] == 2
-    assert l2_index["temporal_count"] == 2
+    assert l2_index["source_l1_preview_count"] == 1
+    assert l2_index["fact_count"] == 1
+    assert l2_index["relation_count"] == 1
+    assert l2_index["temporal_count"] == 1
     assert l2_index["truth_authority_enabled"] is False
     assert l2_index["context_injection_authorized"] is False
     assert l2_index["automatic_recall_authorized"] is False

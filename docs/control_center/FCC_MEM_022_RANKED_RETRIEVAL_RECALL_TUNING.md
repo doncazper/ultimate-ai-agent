@@ -15,7 +15,7 @@ injection, connector writes, or memory-derived execution.
 | --- | --- | --- | --- |
 | FCC-MEM-022A | UAA-native adoption guardrail | Governed memory docs and manifest blockers record Honcho, Hindsight, and Holographic as design references only | No external memory runtime, cloud sync, automatic recall, model extraction, semantic/vector search, HRR retrieval, or context injection |
 | FCC-MEM-022B | Safe local ranked retrieval | `safe_query` hash refs, deterministic score components, retrieval strategy refs, and SQLite FTS5 status over safe summaries/refs only | No raw query echo, embeddings, vector DB, semantic provider, background indexing authority, context injection, or memory writes |
-| FCC-MEM-022C | Feedback receipts and trust tuning | `POST /control-center/memory/feedback` records idempotent local feedback receipts and updates reviewed recall trust/stale/conflict posture | No recall record creation, delete/export execution, connector write, cloud sync, context injection, action execution, or production authority |
+| FCC-MEM-022C | Feedback receipts and trust tuning | `POST /control-center/memory/feedback` records idempotent local feedback receipts and updates reviewed recall trust/stale/conflict posture through an append-first operation ledger | Exact LocalApprovalAuthority scope and an active Memory/write AuthorityLease are re-evaluated before metadata mutation; no recall record creation, delete/export execution, connector write, cloud sync, context injection, action execution, or production authority |
 | FCC-MEM-022D | Epistemic roles and observations | `MemoryEpistemicRole` plus `GET /control-center/memory/observation-candidates` over reviewed L1/L2 refs | Observations are candidates, not truth or automatic opinions |
 | FCC-MEM-022E | Perspective, probe, contradiction preview, HRR path | L3 observer/observed perspective fields, `GET /control-center/memory/probe`, `GET /control-center/memory/contradictions`, and HRR readiness | Probe/contradictions are inspection only; HRR/algebraic retrieval is disabled until `milestone-ref:fcc-mem-hrr-001-explicit-authority` |
 
@@ -32,8 +32,10 @@ injection, connector writes, or memory-derived execution.
 - `safe_query` is never echoed. Read models return only `safe_query_ref`,
   `query_mode`, `retrieval_strategy_refs`, `score_components`, and
   `search_index_status`.
-- `POST /control-center/memory/feedback` is an idempotent, approval-bound,
-  local-only feedback receipt route.
+- `POST /control-center/memory/feedback` is an idempotent, exact-approval- and
+  Memory/write AuthorityLease-bound local metadata update. Its append-first
+  operation ledger binds the request fingerprint, approval scope, lease,
+  authority decision, safe-disable posture, rollback ref, and terminal receipt.
 - `GET /control-center/memory/observation-candidates` derives read-only
   observation candidates from reviewed L1/L2 refs.
 - `GET /control-center/memory/probe?entity_ref=...` inspects reviewed recall,
