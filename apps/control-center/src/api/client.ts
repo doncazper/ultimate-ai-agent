@@ -7283,7 +7283,10 @@ function isSafeRuntimeStreamingProgress(
     value.schema_version === "runtime_streaming_progress.v1" &&
     value.status === "read_model_event_preview_only" &&
     value.route_ref === "GET /api/runtime/streaming-progress" &&
+    value.replay_route_ref ===
+      "GET /api/runtime/streaming-progress?transport=sse" &&
     value.cli_ref === "uaa runtime inspect-streaming-progress" &&
+    value.replay_cli_ref === "uaa runtime inspect-streaming-progress --replay-sse" &&
     isSafeTrustAuthorityRef(value.snapshot_ref) &&
     isSafeTrustAuthorityRef(value.snapshot_hash_ref) &&
     value.authority_state_route_ref === "GET /api/runtime/authority-state" &&
@@ -7309,6 +7312,14 @@ function isSafeRuntimeStreamingProgress(
     value.unsupported_adapter_refs.every(isSafeTrustAuthorityRef) &&
     value.stream_state === "stale_disconnected" &&
     value.stale_stream === true &&
+    value.readonly_sse_replay_enabled === true &&
+    value.readonly_sse_replay_source_posture ===
+      "deterministic_redacted_preview" &&
+    value.readonly_sse_replay_durable_event_source === false &&
+    value.readonly_sse_replay_requires_run_ref === true &&
+    value.readonly_sse_replay_resume_supported === true &&
+    value.readonly_sse_replay_control_messages_accepted === false &&
+    value.readonly_sse_replay_mutation_enabled === false &&
     value.uaa_controls_authority === true &&
     value.safe_refs_only === true &&
     value.bounded_retention_required === true &&

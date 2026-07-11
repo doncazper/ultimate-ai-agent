@@ -914,16 +914,7 @@ def build_parser(runtime_symbols: Mapping[str, Any]) -> argparse.ArgumentParser:
     )
     approval_bridge.set_defaults(func=_inspect_approval_bridge)
 
-    streaming_progress = subparsers.add_parser(
-        "inspect-streaming-progress",
-        help="Inspect redacted runtime streaming progress previews without live transport.",
-    )
-    streaming_progress.add_argument(
-        "--json",
-        action="store_true",
-        help="Emit the safe-ref runtime streaming progress read model as JSON.",
-    )
-    streaming_progress.set_defaults(func=_inspect_streaming_progress)
+    _streaming_progress_cli.register_parser(subparsers)
 
     profiles = subparsers.add_parser(
         "inspect-profiles",
