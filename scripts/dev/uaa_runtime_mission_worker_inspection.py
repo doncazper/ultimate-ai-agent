@@ -82,6 +82,9 @@ def inspect(args: argparse.Namespace) -> int:
             f"last_heartbeat={job['last_heartbeat_at'] or 'not observed'}"
         )
         print(f"  claim_expiry={job['claim_expires_at'] or 'not claimed'}")
+        print(
+            f"  retry_not_before={job.get('retry_not_before') or 'not scheduled'}"
+        )
         print("  steps=" + ", ".join(step["status"] for step in job["steps"]))
         print(
             "  reasons="

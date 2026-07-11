@@ -7,6 +7,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from ultimate_ai_agent.core.approvals.decisions import ApprovalValidationRequest
+
 from ultimate_ai_agent.core.authority.contracts import (
     AuthorityCapability,
     AuthorityConstraintKind,
@@ -78,6 +80,19 @@ class MissionStepApprovalPosture(str, Enum):
     invalid = "invalid"
 
 
+def mission_step_approval_scope_fingerprint(
+    validation_request: ApprovalValidationRequest,
+) -> str:
+    scope_payload = validation_request.model_dump(
+        mode="json",
+        exclude={"current_time"},
+    )
+    return (
+        "approval-scope-fingerprint-ref:sha256:"
+        f"{hash_text(json.dumps(scope_payload, sort_keys=True))[:24]}"
+    )
+
+
 class MissionStepApprovalEvaluation(BaseModel):
     posture: MissionStepApprovalPosture
     approval_request_ref: str | None = None
@@ -130,13 +145,8 @@ class AuthorityMissionRunner:
                 posture=MissionStepApprovalPosture.invalid,
                 reason_refs=["reason-ref:mission-step:approval-authority-unavailable"],
             )
-        scope_payload = validation_request.model_dump(
-            mode="json",
-            exclude={"current_time"},
-        )
-        scope_fingerprint_ref = (
-            "approval-scope-fingerprint-ref:sha256:"
-            f"{hash_text(json.dumps(scope_payload, sort_keys=True))[:24]}"
+        scope_fingerprint_ref = mission_step_approval_scope_fingerprint(
+            validation_request
         )
         registered = authority.find_request_for_validation(validation_request)
         if registered is None:

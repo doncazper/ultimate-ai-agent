@@ -2,14 +2,14 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `253`.
+Current OpenAPI path count: `256`.
 
 This inventory is generated from the FastAPI application and `/api/manifest`. It is the route ownership and side-effect classification map for the current local-first API boundary.
 
 ## Current Route Boundary
 
-- Manifest route operations: `254`
-- OpenAPI paths: `253`
+- Manifest route operations: `257`
+- OpenAPI paths: `256`
 - Production runtime authority: blocked
 - Public release authority: blocked
 
@@ -28,7 +28,7 @@ This inventory is generated from the FastAPI application and `/api/manifest`. It
 | `extension-catalog` | 3 | `extension-catalog` | `extension_catalog_service` | future auth required | `local_dev_workspace_only`:2, `validation_only`:1 | medium | stable/generated from path; unique | status_available_not_completion |
 | `files` | 6 | `workspace-files` | `workspace_files_service` | future auth required and local safe refs | `local_dev_workspace_only`:6 | high | stable/generated from path; unique | partial_backend_not_product_ready |
 | `foundation-gate` | 2 | `foundation-gate` | `verification_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | status_available_not_completion |
-| `governed-runtime` | 59 | `governed-runtime` | `runtime_pilot_service` | future auth required and exact approval before broader execution | `local_dev_workspace_only`:56, `validation_only`:3 | high | stable/generated from path; unique | partial_backend_not_product_ready |
+| `governed-runtime` | 62 | `governed-runtime` | `runtime_pilot_service` | future auth required and exact approval before broader execution | `local_dev_workspace_only`:59, `validation_only`:3 | high | stable/generated from path; unique | partial_backend_not_product_ready |
 | `kernel` | 1 | `kernel` | `kernel_service` | future auth required | `local_dev_workspace_only`:1 | high | stable/generated from path; unique | partial_backend_not_product_ready |
 | `ledger` | 3 | `ledger` | `evidence_service` | future auth required | `validation_only`:3 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `mattermost` | 8 | `mattermost` | `integrations_service` | disabled by default and future auth required | `local_dev_workspace_only`:8 | high | stable/generated from path; unique | partial_backend_not_product_ready |
@@ -51,6 +51,12 @@ This inventory is generated from the FastAPI application and `/api/manifest`. It
 
 ## All Current Routes
 
+The three AuthorityLease mission failure-management POST routes are durable
+operator-intent mutations, not execution endpoints. Approval decisions grant
+no execution authority; cancellation only adds a pre-start fence; dead-letter
+recovery records intent without replay. A later worker start must freshly
+validate the exact request-scoped authority boundary.
+
 | Method | Path | Operation ID | Side-effect class | Validation only | Auth posture | Blocked from production |
 |---|---|---|---|---|---|---|
 | POST | `/adapter-manifest/validate` | `post_adapter_manifest_validate` | `validation_only` | yes | future | yes |
@@ -63,6 +69,9 @@ This inventory is generated from the FastAPI application and `/api/manifest`. It
 | POST | `/api/runtime/authority-leases/revoke` | `post_api_runtime_authority_leases_revoke` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/api/runtime/authority-missions/plan` | `post_api_runtime_authority_missions_plan` | `validation_only` | yes | future | yes |
 | GET | `/api/runtime/authority-missions/worker-state` | `get_api_runtime_authority_missions_worker_state` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/api/runtime/authority-missions/cancel` | `post_api_runtime_authority_mission_cancel` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/api/runtime/authority-missions/approval-decisions` | `post_api_runtime_authority_mission_approval_decision` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/api/runtime/authority-missions/dead-letter-recovery` | `post_api_runtime_authority_mission_dead_letter_recovery` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/api/runtime/authority-state` | `get_api_runtime_authority_state` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/api/runtime/background-jobs` | `get_api_runtime_background_jobs` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/api/runtime/capabilities` | `get_api_runtime_capabilities` | `validation_only` | yes | future | yes |

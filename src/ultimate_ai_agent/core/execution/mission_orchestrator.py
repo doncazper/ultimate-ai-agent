@@ -479,6 +479,18 @@ class SynchronousAuthorityMissionOrchestrator:
                 raise ValueError(
                     "MISSION_CONTROL_DURABLE_DEAD_LETTER_REQUIRED"
                 )
+        if request.event == MissionControlEvent.approval_decision_recorded.value:
+            waiting = latest_steps.get(request.approval_step_ref or "")
+            if (
+                waiting is None
+                or waiting.status != MissionStepStatus.approval_wait.value
+                or waiting.approval_request_ref != request.approval_request_ref
+                or waiting.approval_ref != request.approval_ref
+                or waiting.approval_scope_fingerprint_ref
+                != request.approval_scope_fingerprint_ref
+                or waiting.definition.lease_ref != request.lease_ref
+            ):
+                raise ValueError("MISSION_CONTROL_DURABLE_APPROVAL_WAIT_REQUIRED")
         if (
             request.event == MissionControlEvent.cancellation_requested.value
             and all(

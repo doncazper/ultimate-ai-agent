@@ -44,6 +44,12 @@ from ultimate_ai_agent.core.execution.mission_orchestrator import (
     MissionCancellationExecutionFenceValidator,
     SynchronousAuthorityMissionOrchestrator,
 )
+from ultimate_ai_agent.core.execution.mission_runner import (
+    mission_step_approval_scope_fingerprint,
+)
+from ultimate_ai_agent.core.execution.mission_failure_management import (
+    MissionApprovalDecisionRequest,
+)
 from ultimate_ai_agent.core.planning.validation import (
     validate_safe_task_text,
     validate_task_ref,
@@ -1158,7 +1164,11 @@ class MissionWorkerStore:
                 (
                     prior.status == MissionWorkerJobStatus.claimed.value
                     or (
-                        prior.status == MissionWorkerJobStatus.pending.value
+                        prior.status
+                        in {
+                            MissionWorkerJobStatus.pending.value,
+                            MissionWorkerJobStatus.approval_wait.value,
+                        }
                         and (
                             (
                                 current.status
@@ -1234,6 +1244,7 @@ class MissionWorkerJobReadModel(_WorkerModel):
     worker_safe_ref: str | None = None
     claim_safe_ref: str | None = None
     claim_expires_at: datetime | None = None
+    retry_not_before: datetime | None = None
     deadline: datetime
     steps: list[MissionWorkerStepRecovery] = Field(default_factory=list, max_length=16)
     reason_refs: list[str] = Field(default_factory=list, max_length=32)
@@ -1374,6 +1385,7 @@ def build_mission_worker_read_model(
                     else None
                 ),
                 claim_expires_at=latest.claim_expires_at,
+                retry_not_before=latest.retry_not_before,
                 deadline=latest.binding.deadline,
                 steps=step_models,
                 reason_refs=latest.reason_refs,
@@ -1615,6 +1627,171 @@ class LocalMissionWorker:
             raise ValueError("MISSION_WORKER_EXECUTION_FENCE_ALREADY_BOUND")
         self.orchestrator.runner.dispatcher.execution_fence_validator = validator
 
+    def _apply_recorded_approval_decisions(
+        self,
+        request: AuthorityMissionOrchestrationRequest,
+    ) -> dict[str, str]:
+        created_grant_refs: dict[str, str] = {}
+        for step in request.steps:
+            current = self.orchestrator.step_store.read(
+                step.definition.step_ref
+            )
+            if current.status != MissionStepStatus.approval_wait.value:
+                continue
+            decision_receipt = self.control_store.approval_decision_for(
+                plan_ref=request.plan_ref,
+                step_ref=step.definition.step_ref,
+            )
+            if decision_receipt is None:
+                continue
+            decision = decision_receipt.request
+            evidence_refs = [
+                decision_receipt.receipt_ref,
+                decision_receipt.entry_hash_ref,
+                decision.approval_decision_fingerprint_ref or "",
+                decision.idempotency_ref,
+            ]
+            if decision.approval_decision == "deny":
+                authority = self.orchestrator.runner.dispatcher.approval_authority
+                if authority is not None and decision.approval_ref is not None:
+                    grant = authority.get_grant(decision.approval_ref)
+                    if grant is not None:
+                        authority.revoke(
+                            decision.approval_ref,
+                            "Exact mission approval was denied by the operator.",
+                        )
+                self.orchestrator.step_store.fail_approval_wait(
+                    step.definition.step_ref,
+                    reason_ref=decision.reason_ref,
+                    evidence_refs=evidence_refs,
+                )
+                continue
+            validation = step.request.approval_validation_request
+            authority = self.orchestrator.runner.dispatcher.approval_authority
+            expected_decision_fingerprint_ref = (
+                MissionApprovalDecisionRequest(
+                    step_ref=step.definition.step_ref,
+                    approval_request_ref=decision.approval_request_ref or "",
+                    approval_ref=decision.approval_ref or "",
+                    approval_scope_fingerprint_ref=(
+                        decision.approval_scope_fingerprint_ref or ""
+                    ),
+                    approval_validation_request=validation,
+                    decision=decision.approval_decision or "deny",
+                    operator_ref=decision.operator_ref or "",
+                    idempotency_ref=decision.idempotency_ref,
+                    reason_ref=decision.reason_ref,
+                    safe_summary=decision.safe_summary,
+                ).fingerprint_ref
+                if validation is not None
+                else None
+            )
+            if (
+                authority is None
+                or validation is None
+                or decision.approval_ref != validation.approval_ref
+                or decision.approval_request_ref != current.approval_request_ref
+                or decision.approval_scope_fingerprint_ref
+                != mission_step_approval_scope_fingerprint(validation)
+                or decision.approval_decision_fingerprint_ref
+                != expected_decision_fingerprint_ref
+            ):
+                self.orchestrator.step_store.fail_approval_wait(
+                    step.definition.step_ref,
+                    reason_ref="reason-ref:mission-step:approval-decision-invalid",
+                    evidence_refs=evidence_refs,
+                )
+                continue
+            registered = authority.find_request_for_validation(validation)
+            if (
+                registered is None
+                or registered.approval_request_id
+                != decision.approval_request_ref
+            ):
+                self.orchestrator.step_store.fail_approval_wait(
+                    step.definition.step_ref,
+                    reason_ref="reason-ref:mission-step:approval-request-unavailable",
+                    evidence_refs=evidence_refs,
+                )
+                continue
+            existing_grant = authority.get_grant(validation.approval_ref)
+            created_grant = existing_grant is None
+            try:
+                if created_grant:
+                    authority.grant(
+                        registered.approval_request_id,
+                        approved_by_actor_id=decision.operator_ref or "",
+                        approval_ref=validation.approval_ref,
+                    )
+                validation_decision = authority._validate_at_trusted_time(  # noqa: SLF001
+                    validation,
+                    current_time=self.orchestrator.step_store.current_time(),
+                )
+                if (
+                    not validation_decision.allowed
+                    or validation_decision.matched_grant_ref
+                    != validation.approval_ref
+                ):
+                    if created_grant:
+                        authority.remove_grant_for_rollback(
+                            validation.approval_ref
+                        )
+                    self.orchestrator.step_store.fail_approval_wait(
+                        step.definition.step_ref,
+                        reason_ref=(
+                            "reason-ref:mission-step:approval-fresh-validation-denied"
+                        ),
+                        evidence_refs=evidence_refs,
+                    )
+                    continue
+                self.orchestrator.step_store.resume_approval_wait(
+                    step.definition.step_ref,
+                    approval_ref=validation.approval_ref,
+                    approval_scope_fingerprint_ref=(
+                        decision.approval_scope_fingerprint_ref or ""
+                    ),
+                    validation_evidence_ref=(
+                        decision.approval_decision_fingerprint_ref or ""
+                    ),
+                    idempotency_ref=decision.idempotency_ref,
+                )
+                if created_grant:
+                    created_grant_refs[step.definition.step_ref] = (
+                        validation.approval_ref
+                    )
+            except Exception:
+                if created_grant:
+                    authority.remove_grant_for_rollback(validation.approval_ref)
+                raise
+        return created_grant_refs
+
+    def _remove_unstarted_approval_grants(
+        self,
+        created_grant_refs: dict[str, str],
+    ) -> None:
+        authority = self.orchestrator.runner.dispatcher.approval_authority
+        if authority is None:
+            return
+        try:
+            dispatch_receipts = self.orchestrator.runner.dispatcher.list_receipts()
+        except Exception:
+            for approval_ref in created_grant_refs.values():
+                authority.remove_grant_for_rollback(approval_ref)
+            raise
+        for step_ref, approval_ref in created_grant_refs.items():
+            try:
+                step = self.orchestrator.step_store.read(step_ref)
+                started = step.dispatch_ref is not None and any(
+                    receipt.dispatch_ref == step.dispatch_ref
+                    and receipt.execution_started
+                    for receipt in dispatch_receipts
+                )
+            except Exception:
+                authority.remove_grant_for_rollback(approval_ref)
+                raise
+            if not started:
+                authority.remove_grant_for_rollback(approval_ref)
+
     def _validate_control_request_locked(
         self,
         request: MissionControlRequest,
@@ -1750,7 +1927,27 @@ class LocalMissionWorker:
                     ).status
                     == MissionStepStatus.approval_wait.value
                 ]
-                if waiting_steps and all(
+                cancellation = self.control_store.cancellation_for(
+                    plan_ref=selected.binding.plan_ref,
+                    plan_fingerprint_ref=(
+                        selected.binding.plan_fingerprint_ref
+                    ),
+                    mission_ref=selected.binding.mission_ref,
+                    run_ref=selected.binding.run_ref,
+                )
+                decision_recorded = any(
+                    self.control_store.approval_decision_for(
+                        plan_ref=selected.binding.plan_ref,
+                        step_ref=step.definition.step_ref,
+                    )
+                    is not None
+                    for step in waiting_steps
+                )
+                if (
+                    cancellation is None
+                    and not decision_recorded
+                    and waiting_steps
+                    and all(
                     step.definition.deadline
                     > self.orchestrator.step_store.current_time()
                     and self.orchestrator.runner.evaluate_approval_posture(
@@ -1758,6 +1955,7 @@ class LocalMissionWorker:
                     ).posture
                     == "wait"
                     for step in waiting_steps
+                    )
                 ):
                     continue
             return self.run_once(validated, worker_ref=worker_ref)
@@ -1787,37 +1985,62 @@ class LocalMissionWorker:
         self.orchestrator._preflight(request, bound)  # noqa: SLF001
         binding = mission_worker_job_binding(request)
         enqueued = self.enqueue(request)
-        if enqueued.status == MissionWorkerJobStatus.approval_wait.value:
-            waiting_steps = [
-                step
-                for step in request.steps
-                if self.orchestrator.step_store.read(
-                    step.definition.step_ref
-                ).status
-                == MissionStepStatus.approval_wait.value
-            ]
-            if waiting_steps and all(
-                step.definition.deadline
-                > self.orchestrator.step_store.current_time()
-                and self.orchestrator.runner.evaluate_approval_posture(
-                    step.request
-                ).posture
-                == "wait"
-                for step in waiting_steps
+        created_grant_refs: dict[str, str] = {}
+        with (
+            self.control_store.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY),
+            self.control_store.lock_manager.acquire(MISSION_CONTROL_LOCK_KEY),
+        ):
+            cancellation = self.control_store._cancellation_for_loaded(  # noqa: SLF001
+                self.control_store._load(),  # noqa: SLF001
+                plan_ref=binding.plan_ref,
+                plan_fingerprint_ref=binding.plan_fingerprint_ref,
+                mission_ref=binding.mission_ref,
+                run_ref=binding.run_ref,
+            )
+            if cancellation is None:
+                created_grant_refs = self._apply_recorded_approval_decisions(
+                    request
+                )
+            if enqueued.status == MissionWorkerJobStatus.approval_wait.value:
+                waiting_steps = [
+                    step
+                    for step in request.steps
+                    if self.orchestrator.step_store.read(
+                        step.definition.step_ref
+                    ).status
+                    == MissionStepStatus.approval_wait.value
+                ]
+                if (
+                    cancellation is None
+                    and waiting_steps
+                    and all(
+                        step.definition.deadline
+                        > self.orchestrator.step_store.current_time()
+                        and self.orchestrator.runner.evaluate_approval_posture(
+                            step.request
+                        ).posture
+                        == "wait"
+                        for step in waiting_steps
+                    )
+                ):
+                    return None
+            if (
+                enqueued.status == MissionWorkerJobStatus.retry_pending.value
+                and enqueued.retry_not_before is not None
+                and enqueued.retry_not_before > self.store.current_time()
             ):
                 return None
-        if (
-            enqueued.status == MissionWorkerJobStatus.retry_pending.value
-            and enqueued.retry_not_before is not None
-            and enqueued.retry_not_before > self.store.current_time()
-        ):
-            return None
-        claim = self.store.claim(
-            binding.job_ref,
-            worker_ref=durable_worker_ref,
-            ttl_seconds=self.configuration.claim_ttl_seconds,
-        )
+            try:
+                claim = self.store.claim(
+                    binding.job_ref,
+                    worker_ref=durable_worker_ref,
+                    ttl_seconds=self.configuration.claim_ttl_seconds,
+                )
+            except Exception:
+                self._remove_unstarted_approval_grants(created_grant_refs)
+                raise
         if claim.status != MissionWorkerJobStatus.claimed.value:
+            self._remove_unstarted_approval_grants(created_grant_refs)
             if (
                 claim.status == MissionWorkerJobStatus.failed.value
                 and claim.reason_refs
@@ -1845,6 +2068,7 @@ class LocalMissionWorker:
                 claim_ref=claim.claim_ref or "",
                 generation=claim.generation,
             )
+            self._remove_unstarted_approval_grants(created_grant_refs)
             return None
         if authority_lease_kill_switch_engaged():
             self.store.record_shutdown(
@@ -1853,6 +2077,7 @@ class LocalMissionWorker:
                 claim_ref=claim.claim_ref or "",
                 generation=claim.generation,
             )
+            self._remove_unstarted_approval_grants(created_grant_refs)
             return None
         stop_heartbeat = threading.Event()
         heartbeat_error: list[BaseException] = []
@@ -1906,6 +2131,7 @@ class LocalMissionWorker:
         finally:
             stop_heartbeat.set()
             thread.join(timeout=self.configuration.heartbeat_interval_seconds + 1)
+            self._remove_unstarted_approval_grants(created_grant_refs)
         if heartbeat_error:
             raise MissionWorkerConflictError(
                 "MISSION_WORKER_HEARTBEAT_FAILED"

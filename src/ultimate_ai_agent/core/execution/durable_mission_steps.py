@@ -367,6 +367,11 @@ class _MissionStepInspectionSource(_MissionStepModel):
     dispatch_ref: str | None
     dispatch_request_fingerprint_ref: str | None
     dispatch_receipt_ref: str | None
+    approval_request_ref: str | None
+    approval_ref: str | None
+    approval_scope_fingerprint_ref: str | None
+    retry_not_before: datetime | None
+    failure_category: AuthorityDispatchFailureCategory | None
     reason_refs: list[str]
     evidence_refs: list[str]
     receipt_ref: str
@@ -1077,6 +1082,7 @@ class MissionStepStore:
         approval_ref: str,
         approval_scope_fingerprint_ref: str,
         validation_evidence_ref: str,
+        idempotency_ref: str | None = None,
     ) -> MissionStepReceipt:
         for value, field_name in [
             (step_ref, "mission_step_ref"),
@@ -1086,8 +1092,10 @@ class MissionStepStore:
                 "mission_step_approval_scope_fingerprint_ref",
             ),
             (validation_evidence_ref, "mission_step_approval_validation_ref"),
+            (idempotency_ref, "mission_step_approval_idempotency_ref"),
         ]:
-            validate_task_ref(value, field_name)
+            if value is not None:
+                validate_task_ref(value, field_name)
         with (
             self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY),
             self.lock_manager.acquire(MISSION_STEP_LOCK_KEY),
@@ -1117,7 +1125,10 @@ class MissionStepStore:
                     latest.approval_scope_fingerprint_ref
                 ),
                 reason_refs=["reason-ref:mission-step:approval-freshly-validated"],
-                evidence_refs=[validation_evidence_ref],
+                evidence_refs=[
+                    validation_evidence_ref,
+                    *([idempotency_ref] if idempotency_ref is not None else []),
+                ],
                 checked_at=self.current_time(),
                 safe_summary=(
                     "Mission step left approval wait after fresh exact validation."
@@ -1474,7 +1485,6 @@ class MissionStepStore:
             dispatch_ref=latest.dispatch_ref,
             dispatch_request_fingerprint_ref=(latest.dispatch_request_fingerprint_ref),
             dispatch_receipt_ref=latest.dispatch_receipt_ref,
-            dispatch_entry_hash_ref=latest.dispatch_entry_hash_ref,
             approval_request_ref=latest.approval_request_ref,
             approval_ref=latest.approval_ref,
             approval_scope_fingerprint_ref=(
@@ -1482,6 +1492,7 @@ class MissionStepStore:
             ),
             retry_not_before=latest.retry_not_before,
             failure_category=latest.failure_category,
+            dispatch_entry_hash_ref=latest.dispatch_entry_hash_ref,
             blocked_dependency_step_ref=latest.blocked_dependency_step_ref,
             halted_by_step_ref=latest.halted_by_step_ref,
             reason_refs=latest.reason_refs,
@@ -1515,6 +1526,13 @@ class MissionStepStore:
             dispatch_ref=latest.dispatch_ref,
             dispatch_request_fingerprint_ref=(latest.dispatch_request_fingerprint_ref),
             dispatch_receipt_ref=latest.dispatch_receipt_ref,
+            approval_request_ref=latest.approval_request_ref,
+            approval_ref=latest.approval_ref,
+            approval_scope_fingerprint_ref=(
+                latest.approval_scope_fingerprint_ref
+            ),
+            retry_not_before=latest.retry_not_before,
+            failure_category=latest.failure_category,
             reason_refs=list(latest.reason_refs),
             evidence_refs=list(latest.evidence_refs),
             receipt_ref=latest.receipt_ref,
@@ -1991,10 +2009,14 @@ class MissionStepStore:
             if receipt.status == MissionStepStatus.pending.value and (
                 receipt.reason_refs
                 != ["reason-ref:mission-step:approval-freshly-validated"]
-                or len(receipt.evidence_refs) != 1
-                or not receipt.evidence_refs[0].startswith(
-                    "approval-validation-ref:"
+                or len(
+                    [
+                        ref
+                        for ref in receipt.evidence_refs
+                        if ref.startswith("approval-validation-ref:")
+                    ]
                 )
+                != 1
             ):
                 raise MissionStepCorruptionError(
                     "MISSION_STEP_APPROVAL_RESUME_EVIDENCE_INVALID"

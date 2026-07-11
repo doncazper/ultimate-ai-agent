@@ -36,7 +36,7 @@ def _payload(read_model: dict[str, Any]) -> dict[str, Any]:
         "execution_performed": False,
         "mutation_performed": False,
         "approval_or_lease_minted": False,
-        "autonomous_retry_performed": False,
+        "autonomous_retry_performed": read_model["autonomous_retry_performed"],
         "reconciliation_performed": False,
     }
 
@@ -89,6 +89,7 @@ def inspect(args: argparse.Namespace) -> int:
     print(f"Adapter: {read_model['adapter_safe_ref']}")
     print(f"Lease: {read_model['lease_safe_ref']}")
     print(f"Generation: {read_model['generation']}")
+    print(f"Attempt: {read_model['attempt_no']}")
     print(f"Deadline: {read_model['deadline']}")
     print(f"Claim expiry: {read_model['claim_expires_at'] or 'not claimed'}")
     print(f"Dispatch: {read_model['dispatch_safe_ref'] or 'not recorded'}")
@@ -96,6 +97,14 @@ def inspect(args: argparse.Namespace) -> int:
         f"Dispatch receipt: {read_model['dispatch_receipt_safe_ref'] or 'not recorded'}"
     )
     print(f"Dispatch binding validated: {read_model['dispatch_binding_validated']}")
+    print(
+        "Approval request: "
+        f"{read_model['approval_request_safe_ref'] or 'not waiting'}"
+    )
+    print(f"Retry pending: {read_model['retry_pending']}")
+    print(f"Retry not before: {read_model['retry_not_before'] or 'not scheduled'}")
+    print(f"Failure category: {read_model['failure_category'] or 'none'}")
+    print(f"Dead lettered: {read_model['dead_lettered']}")
     print(f"Reasons: {_ref_summary(read_model['reason_safe_refs'])}")
     print(f"Evidence: {_ref_summary(read_model['evidence_safe_refs'])}")
     print(f"Summary: {read_model['operator_summary']}")
@@ -103,7 +112,10 @@ def inspect(args: argparse.Namespace) -> int:
     print("Request-scoped authority still required: true")
     print("Adapter invocation performed: false")
     print("Approval or lease minted: false")
-    print("Autonomous retry performed: false")
+    print(
+        "Autonomous retry performed: "
+        f"{str(read_model['autonomous_retry_performed']).lower()}"
+    )
     print("Reconciliation performed: false")
     return 0
 

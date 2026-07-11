@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `253`.
+Current OpenAPI path count: `256`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -51,7 +51,7 @@ Current route classification summary:
 | `public_metadata` | 3 |
 | `local_readonly` | 29 |
 | `local_sensitive` | 172 |
-| `mutating_requires_authority` | 50 |
+| `mutating_requires_authority` | 53 |
 
 Allowed current side-effect classes are:
 
@@ -781,3 +781,13 @@ PYTHONPATH=src .venv/bin/python -m pytest tests/test_api_boundary_enforcement.py
 .venv/bin/python scripts/verify_uaa_p1_086_api_boundary_enforcement_tests.py
 PYTHONPATH=src .venv/bin/python -m pytest tests/test_governed_web_evidence.py
 ```
+The three mission failure-management POST routes are
+`mutating_requires_authority` because they append durable operator state and
+therefore require local auth, idempotency, targeted rate limits, exact typed
+scope, audit refs, and redaction. Approval decisions record operator intent
+only after exact `LocalApprovalAuthority` validation; cancellation appends a
+pre-start authority-reducing fence; dead-letter recovery records intent bound
+to an immutable terminal receipt. None of the routes executes adapters, mints
+approval or lease authority, resumes a worker, rewrites after-start truth, or
+automatically replays dead-lettered work. Any later worker start must perform a
+fresh request-scoped authority evaluation.

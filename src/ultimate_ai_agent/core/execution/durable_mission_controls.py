@@ -43,6 +43,7 @@ class MissionControlCorruptionError(MissionControlError):
 
 class MissionControlEvent(str, Enum):
     cancellation_requested = "cancellation_requested"
+    approval_decision_recorded = "approval_decision_recorded"
     dead_letter_recovery_requested = "dead_letter_recovery_requested"
 
 
@@ -74,6 +75,13 @@ class MissionControlRequest(_MissionControlModel):
     dead_letter_step_ref: str | None = None
     dead_letter_receipt_ref: str | None = None
     dead_letter_entry_hash_ref: str | None = None
+    approval_step_ref: str | None = None
+    approval_request_ref: str | None = None
+    approval_ref: str | None = None
+    approval_scope_fingerprint_ref: str | None = None
+    approval_decision: Literal["approve", "deny"] | None = None
+    approval_decision_fingerprint_ref: str | None = None
+    operator_ref: str | None = None
     safe_summary: str = Field(..., min_length=1, max_length=320)
     raw_request_persisted: Literal[False] = False
     raw_output_persisted: Literal[False] = False
@@ -96,6 +104,18 @@ class MissionControlRequest(_MissionControlModel):
                 self.dead_letter_entry_hash_ref,
                 "mission_control_dead_letter_entry_hash_ref",
             ),
+            (self.approval_step_ref, "mission_control_approval_step_ref"),
+            (self.approval_request_ref, "mission_control_approval_request_ref"),
+            (self.approval_ref, "mission_control_approval_ref"),
+            (
+                self.approval_scope_fingerprint_ref,
+                "mission_control_approval_scope_fingerprint_ref",
+            ),
+            (
+                self.approval_decision_fingerprint_ref,
+                "mission_control_approval_decision_fingerprint_ref",
+            ),
+            (self.operator_ref, "mission_control_operator_ref"),
         ]:
             if value is not None:
                 validate_task_ref(value, field_name)
@@ -105,9 +125,25 @@ class MissionControlRequest(_MissionControlModel):
             self.dead_letter_receipt_ref,
             self.dead_letter_entry_hash_ref,
         )
+        approval_values = (
+            self.approval_step_ref,
+            self.approval_request_ref,
+            self.approval_ref,
+            self.approval_scope_fingerprint_ref,
+            self.approval_decision,
+            self.approval_decision_fingerprint_ref,
+            self.operator_ref,
+        )
         if self.event == MissionControlEvent.cancellation_requested.value:
+            if any(value is not None for value in (*dead_letter_refs, *approval_values)):
+                raise ValueError("MISSION_CONTROL_CANCELLATION_BINDING_FORBIDDEN")
+        elif self.event == MissionControlEvent.approval_decision_recorded.value:
             if any(value is not None for value in dead_letter_refs):
-                raise ValueError("MISSION_CONTROL_CANCELLATION_DEAD_LETTER_REF_FORBIDDEN")
+                raise ValueError("MISSION_CONTROL_APPROVAL_DEAD_LETTER_REF_FORBIDDEN")
+            if not all(value is not None for value in approval_values):
+                raise ValueError("MISSION_CONTROL_APPROVAL_BINDING_REQUIRED")
+        elif any(value is not None for value in approval_values):
+            raise ValueError("MISSION_CONTROL_DEAD_LETTER_APPROVAL_REF_FORBIDDEN")
         elif not all(value is not None for value in dead_letter_refs):
             raise ValueError("MISSION_CONTROL_DEAD_LETTER_BINDING_REQUIRED")
         return self
@@ -216,7 +252,12 @@ class MissionControlStore:
                     "Mission cancellation fence was appended before reconciliation."
                     if validated.event
                     == MissionControlEvent.cancellation_requested.value
-                    else "Dead-letter recovery intent was appended without replay."
+                    else (
+                        "Approval decision evidence was recorded without granting authority."
+                        if validated.event
+                        == MissionControlEvent.approval_decision_recorded.value
+                        else "Dead-letter recovery intent was appended without replay."
+                    )
                 ),
             )
             receipt = receipt.model_copy(
@@ -252,6 +293,27 @@ class MissionControlStore:
     def receipts(self) -> list[MissionControlReceipt]:
         with self.lock_manager.acquire(MISSION_CONTROL_LOCK_KEY):
             return self._load()
+
+    def approval_decision_for(
+        self,
+        *,
+        plan_ref: str,
+        step_ref: str,
+    ) -> MissionControlReceipt | None:
+        validate_task_ref(plan_ref, "mission_control_plan_ref")
+        validate_task_ref(step_ref, "mission_control_approval_step_ref")
+        with self.lock_manager.acquire(MISSION_CONTROL_LOCK_KEY):
+            return next(
+                (
+                    receipt
+                    for receipt in reversed(self._load())
+                    if receipt.request.event
+                    == MissionControlEvent.approval_decision_recorded.value
+                    and receipt.request.plan_ref == plan_ref
+                    and receipt.request.approval_step_ref == step_ref
+                ),
+                None,
+            )
 
     @staticmethod
     def _cancellation_for_loaded(
@@ -289,6 +351,7 @@ class MissionControlStore:
                 existing.plan_ref == request.plan_ref
                 and existing.event == request.event
                 and existing.dead_letter_step_ref == request.dead_letter_step_ref
+                and existing.approval_step_ref == request.approval_step_ref
             )
             if same_idempotency or same_control or same_plan_event:
                 if existing.fingerprint_ref != request.fingerprint_ref:

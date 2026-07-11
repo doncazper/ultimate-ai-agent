@@ -70,3 +70,21 @@ redaction, CLI/API/Core parity, route classification, focused tests, and
 Control Center truth labels. Run Observability may display receipts from
 AuthorityLease-gated capabilities, but it must not itself execute, resume,
 cancel, retry, schedule, stream, or approve work.
+
+## Authority Mission Failure-Management Truth
+
+The newer AuthorityLease mission worker is a separate backend-owned runtime
+from this legacy Run Observability projection. Python Core now implements
+durable approval waits, exact typed retries for explicitly idempotent adapters,
+immutable dead letters, append-first cancellation fences, and API operator
+intent for approval decisions and dead-letter recovery. Those capabilities do
+not make the existing Control Center Run Observability controls executable.
+
+Approval decisions are durable operator intent, never authority. A resumed
+worker must freshly validate exact `LocalApprovalAuthority` scope, policy,
+mission lease, budget, kill switch, adapter, target, deadline, idempotency, and
+safe-disable posture before execution. The macOS-first Settings surface now
+renders the backend-owned AuthorityLease worker projection as read-only safe
+refs, durable statuses, blocked reasons, evidence refs, kill-switch posture,
+and explicit Linux/Windows render placeholders. Mission mutation controls
+remain blocked rather than inferred from either Control Center panel.
