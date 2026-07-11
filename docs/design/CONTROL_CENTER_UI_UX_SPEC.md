@@ -254,9 +254,9 @@ become repetition:
   the route title.
 - Business pulse owns a compact set of non-actionable trend summaries and
   links to the canonical CRM, Work Board, commitment, or Evidence surface.
-- Recent receipts appears as a compact `Since your last check` section inside
-  Business pulse with a deep link to the receipt ledger; it does not create a
-  seventh Today panel.
+- Recent receipts appears as a compact full-width `Since your last check`
+  activity rail below the six panels with a deep link to the receipt ledger;
+  the rail does not count as a seventh panel.
 - The inspector title is `Selected item` or the selected object's name.
   `Why it matters` is a subsection inside it, never an unexplained panel title.
 - Other regions may show a count or deep link to the canonical home, but must
@@ -267,12 +267,15 @@ become repetition:
 The default Today screen contains exactly six panels in an information-rich
 three-column command deck: Morning Briefing, Needs your attention, and a
 selected-item inspector on the first row; Day Plan, News, and Business pulse on
-the second row. Business pulse includes a compact `Since your last check`
-receipt/activity footer instead of a separate seventh panel. The relationships
-between modules must feel intentional rather than like unrelated dashboard
-tiles. Selecting any row in the other five panels updates the named inspector
-in place, and its safe ref is attached visibly and removably to the persistent
-UAA composer. Compact layouts convert the inspector to a drawer.
+the second row. A compact full-width receipt/activity rail sits below the grid
+and above the composer. Both rows use the same three column tracks so their
+vertical boundaries align; use a `30 / 36 / 34` proportion, 14-16 px gutters,
+consistent panel header heights, 12-16 px interior padding, and aligned footer
+baselines. The relationships between modules must feel intentional rather than
+like unrelated dashboard tiles. Selecting any row in the other five panels
+updates the named inspector in place, and its safe ref is attached visibly and
+removably to the persistent UAA composer. Compact layouts convert the inspector
+to a drawer.
 
 - Morning Briefing is read-only synthesis. Its rows open source/provenance
   detail but do not expose completion controls.
@@ -285,7 +288,8 @@ UAA composer. Compact layouts convert the inspector to a drawer.
 - News rows may open the sourced detail, `Ask UAA`, save a safe reference for
   later review, or mute a source. News is not completable work.
 - Business pulse rows open their contributing CRM, Work Board, commitment, or
-  Evidence detail in the inspector. Its activity footer opens receipt history.
+  Evidence detail in the inspector. The separate activity rail opens receipt
+  history.
 - Compact overflow menus expose secondary actions; the row itself selects and
   opens detail. A chevron is reserved for navigation/disclosure and does not
   submit a change.
@@ -302,6 +306,11 @@ weather remain in the header; freshness and confidence appear in News and the
 inspector; continuity appears in Morning Briefing and Business pulse activity;
 morning, midday, end-of-day, calm, overloaded, stale, and offline are content
 states of this same layout rather than additional cards.
+
+The header decision command names workload and urgency. When three decision
+envelopes are pending, label it `Review 3 decisions`; never use the vague
+`Review decisions`. When none are pending, remove the primary blue treatment
+and show a quiet `No decisions pending` status or omit the command.
 
 #### Truth-safe queue and completion contract
 
