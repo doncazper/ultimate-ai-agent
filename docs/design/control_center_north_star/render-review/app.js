@@ -8,6 +8,7 @@ const state = {
   activeSet: "target-v1",
   query: "",
   versionByRender: {},
+  compareByRender: {},
   reviews: loadReviews(),
 };
 
@@ -15,7 +16,9 @@ const els = Object.fromEntries([
   "search", "setFilters", "renderList", "approvedCount", "reviewCount",
   "progressBar", "exportReviews", "importReviews", "renderId",
   "renderCategory", "surfaceTitle", "surfacePurpose", "versionSelect",
-  "openImage", "truthText", "renderImage", "imageError", "previousRender",
+  "compareVersion", "openImage", "truthText", "imageStage", "renderImage",
+  "comparePanel", "compareImage", "currentVersionTag", "compareVersionTag",
+  "imageError", "previousRender",
   "nextRender", "positionText", "reviewSurface", "saveState",
   "statusControl", "critiqueText", "saveReview", "metaId", "metaSet",
   "metaRoute", "metaVersion", "historyList",
@@ -43,7 +46,12 @@ function bindEvents() {
   els.previousRender.addEventListener("click", () => move(-1));
   els.nextRender.addEventListener("click", () => move(1));
   els.versionSelect.addEventListener("change", () => {
+    saveTextIfDirty();
     state.versionByRender[state.currentId] = els.versionSelect.value;
+    renderCurrent();
+  });
+  els.compareVersion.addEventListener("click", () => {
+    state.compareByRender[state.currentId] = !state.compareByRender[state.currentId];
     renderCurrent();
   });
   els.statusControl.addEventListener("click", (event) => {
@@ -121,7 +129,8 @@ function renderList() {
       els.renderList.append(heading);
       lastCategory = render.category;
     }
-    const review = reviewFor(render.id);
+    const latestVersionId = render.versions.at(-1).id;
+    const review = reviewFor(render.id, latestVersionId);
     const button = document.createElement("button");
     button.type = "button";
     button.className = "render-link";
@@ -151,6 +160,9 @@ function renderCurrent() {
   }
   const versionId = state.versionByRender[render.id] ?? render.versions.at(-1).id;
   const version = render.versions.find((item) => item.id === versionId) ?? render.versions.at(-1);
+  const versionIndex = render.versions.findIndex((item) => item.id === version.id);
+  const previousVersion = versionIndex > 0 ? render.versions[versionIndex - 1] : null;
+  const compareEnabled = Boolean(previousVersion && state.compareByRender[render.id]);
   state.versionByRender[render.id] = version.id;
 
   els.renderId.textContent = render.id;
@@ -187,6 +199,20 @@ function renderCurrent() {
   };
   els.renderImage.src = `${version.image}?v=${encodeURIComponent(state.manifest.updated)}`;
   els.openImage.href = version.image;
+  els.compareVersion.hidden = !previousVersion;
+  els.compareVersion.setAttribute("aria-pressed", String(compareEnabled));
+  els.compareVersion.textContent = compareEnabled ? "Close compare" : "Compare";
+  els.imageStage.classList.toggle("compare-mode", compareEnabled);
+  els.currentVersionTag.hidden = !compareEnabled;
+  els.currentVersionTag.textContent = version.label;
+  els.comparePanel.hidden = !compareEnabled;
+  if (compareEnabled) {
+    els.compareVersionTag.textContent = previousVersion.label;
+    els.compareImage.alt = `${render.surface} ${previousVersion.label} comparison render`;
+    els.compareImage.src = `${previousVersion.image}?v=${encodeURIComponent(state.manifest.updated)}`;
+  } else {
+    els.compareImage.removeAttribute("src");
+  }
   renderReviewControls();
   renderHistory(render);
 }
@@ -194,7 +220,7 @@ function renderCurrent() {
 function renderReviewControls() {
   const render = currentRender();
   if (!render) return;
-  const review = reviewFor(render.id);
+  const review = reviewFor(render.id, state.versionByRender[render.id]);
   els.statusControl.querySelectorAll("button[data-status]").forEach((button) => {
     button.setAttribute("aria-checked", String(button.dataset.status === review.status));
   });
@@ -216,13 +242,17 @@ function renderHistory(render) {
 function updateDraft(patch) {
   const render = currentRender();
   if (!render) return;
-  state.reviews[render.id] = { ...reviewFor(render.id), ...patch, updatedAt: new Date().toISOString() };
+  const versionId = state.versionByRender[render.id] ?? render.versions.at(-1).id;
+  const key = reviewKey(render.id, versionId);
+  state.reviews[key] = { ...reviewFor(render.id, versionId), ...patch, updatedAt: new Date().toISOString() };
   persistReviews();
 }
 
 function saveCurrentReview() {
   updateDraft({ notes: els.critiqueText.value.trim() });
-  els.saveState.textContent = `Saved ${formatTime(state.reviews[state.currentId].updatedAt)}`;
+  const render = currentRender();
+  const versionId = state.versionByRender[render.id] ?? render.versions.at(-1).id;
+  els.saveState.textContent = `Saved ${formatTime(reviewFor(render.id, versionId).updatedAt)}`;
   els.saveState.classList.remove("dirty");
   renderList();
   updateProgress();
@@ -247,10 +277,10 @@ function move(delta) {
 function updateProgress() {
   const setRenders = state.renders.filter((render) => render.set === state.activeSet);
   const reviewed = setRenders.filter((render) => {
-    const review = reviewFor(render.id);
+    const review = reviewFor(render.id, render.versions.at(-1).id);
     return review.status !== "draft" || Boolean(review.notes);
   }).length;
-  const approved = setRenders.filter((render) => reviewFor(render.id).status === "approved").length;
+  const approved = setRenders.filter((render) => reviewFor(render.id, render.versions.at(-1).id).status === "approved").length;
   const ratio = setRenders.length ? reviewed / setRenders.length : 0;
   els.approvedCount.textContent = `${approved} approved`;
   els.reviewCount.textContent = `${reviewed} of ${setRenders.length} reviewed`;
@@ -297,8 +327,12 @@ function currentRender() {
   return state.renders.find((render) => render.id === state.currentId) ?? null;
 }
 
-function reviewFor(id) {
-  return state.reviews[id] ?? { status: "draft", notes: "", updatedAt: null };
+function reviewFor(id, versionId) {
+  return state.reviews[reviewKey(id, versionId)] ?? state.reviews[id] ?? { status: "draft", notes: "", updatedAt: null };
+}
+
+function reviewKey(id, versionId) {
+  return `${id}:${versionId ?? "latest"}`;
 }
 
 function loadReviews() {

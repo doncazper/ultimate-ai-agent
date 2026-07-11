@@ -47,7 +47,8 @@
           </div>
           <div class="stage-actions">
             <label class="version-field">Version<select id="versionSelect"></select></label>
-            <a id="openImage" class="button secondary" href="#" target="_blank" rel="noreferrer">Open full size</a>
+            <button id="compareVersion" class="button secondary" type="button" aria-pressed="false">Compare</button>
+            <a id="openImage" class="button secondary" href="#" target="_blank" rel="noreferrer">Full size</a>
           </div>
         </header>
 
@@ -58,8 +59,15 @@
 
         <figure class="render-frame">
           <button id="previousRender" class="frame-nav previous" type="button" aria-label="Previous render">‹</button>
-          <div class="image-stage">
-            <img id="renderImage" alt="" />
+          <div id="imageStage" class="image-stage">
+            <div class="image-panel">
+              <span id="currentVersionTag" class="version-tag" hidden></span>
+              <img id="renderImage" alt="" />
+            </div>
+            <div id="comparePanel" class="image-panel" hidden>
+              <span id="compareVersionTag" class="version-tag"></span>
+              <img id="compareImage" alt="" />
+            </div>
             <div id="imageError" class="image-error" hidden>
               <strong>Render not generated yet</strong>
               <span>This catalog entry is queued for the current draft set.</span>

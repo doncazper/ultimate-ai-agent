@@ -45,7 +45,7 @@ answer, in this order:
 
 The target daily product spine is:
 
-`Today -> Communications -> Work Board -> CRM -> Calendar -> Studio`
+`Today -> Communications -> Work Board -> CRM -> Calendar -> News -> Studio`
 
 Knowledge and Activity & Trust support that loop without displacing daily
 work. Action Inbox is the global decision utility surfaced as `Review N
@@ -113,12 +113,13 @@ The target default order is:
 3. Work Board
 4. CRM
 5. Calendar
-6. Studio
-7. Knowledge
-8. Activity & Trust
-9. Customize
-10. Settings
-11. Developer Tools, collapsed and hidden by default
+6. News
+7. Studio
+8. Knowledge
+9. Activity & Trust
+10. Customize
+11. Settings
+12. Developer Tools, collapsed and hidden by default
 
 Today is the default landing workspace. `Start Here` is onboarding-only after
 setup. Plans becomes a Work Board view; Source Inbox becomes a Communications
@@ -157,6 +158,21 @@ The strip shows only operator-relevant global posture:
 Each group has an icon, a short label, and a short value. A global degraded or
 mock state uses one bounded banner immediately below the strip, not repeated
 warnings inside every route panel.
+
+### Standard route toolbar
+
+Normal workspaces use one invariant 64 px toolbar below the posture strip:
+
+- title and one-line subtitle occupy the left slot;
+- collection search occupies the same center-right slot on every applicable
+  route;
+- route-local filters and secondary commands follow search; and
+- `Review N decisions` is fixed at the far right when workload exists.
+
+Search does not move above, below, or to the opposite side between routes. At a
+compact breakpoint it collapses to an icon/`Command-K` affordance instead of
+wrapping. Studio is the only immersive shell exception and follows the workbench
+contract in `CONTROL_CENTER_RENDER_REVIEW_REVISION_02.md`.
 
 ### Persistent UAA composer and sidecar
 
@@ -390,6 +406,9 @@ Used by Plans, Work Board, and CRM pipeline views.
 - board columns scroll internally;
 - drag/move preview, dirty state, confirmation, persistence result, and reset
   remain visually distinct.
+- Work Board column accents identify status and a narrow card edge plus label
+  identifies priority. An explicit Group/Color selector chooses Status,
+  Priority, or Project grammar; color is never the only signal.
 
 ### D. Matrix and settings cockpit
 
@@ -401,6 +420,9 @@ Used by Trust, Settings, Models, Capabilities, and future-domain governance.
 - unsupported settings are status rows, not disabled fake toggles;
 - consequential changes show scope, confirmation, saving, receipt, and reload
   impact.
+- Activity & Trust provides a dedicated Trust cockpit with mode/domain matrix,
+  exact lease, live policy decisions, receipts/audit refs, revoke/pause/kill,
+  and safe-disable posture.
 
 ### E. Ledger and system inventory
 
@@ -551,6 +573,8 @@ is validated. Receipts describe past work and do not authorize future work.
   path when one exists.
 - `Customize sidebar` changes navigation presentation. It never uses `Enable`,
   `Disable`, or authority terminology.
+- Compact rail mode preserves order, badges, active state, accessible names,
+  tooltips, focus-visible labels, and bottom Settings/Developer Tools anchors.
 - The UAA composer distinguishes `Search`, `Go to`, `Ask`, `Filter`, `Draft`,
   and `Propose` intent before any operator-relevant mutation path is offered.
 

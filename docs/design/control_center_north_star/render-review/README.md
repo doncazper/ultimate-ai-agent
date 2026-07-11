@@ -17,12 +17,13 @@ The gallery supports:
 
 - target and legacy render sets;
 - search and keyboard previous/next navigation;
+- side-by-side current/previous comparison for revised surfaces;
 - Draft, Needs revision, Approved, and Superseded states;
-- per-render critique notes;
+- per-render-version critique notes;
 - version history for iterative replacements; and
 - JSON export/import so review notes can be preserved outside browser storage.
 
-Add a new iteration by copying the render into `../renders/target-v1/`, adding
+Add a new iteration by copying the render into a versioned render folder, adding
 the new image to the surface's `versions` array in `renders.json`, and changing
 the surface-level `image` to the current version. Never overwrite an approved
 version.

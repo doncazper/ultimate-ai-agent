@@ -1,7 +1,7 @@
 # Control Center North-Star Visual Renders
 
 Status: current target render set, documentation only.
-Baseline ID: CC-NS-TARGET-V1-2026-07-11.
+Baseline ID: CC-NS-TARGET-R2-2026-07-11.
 Current as of: 2026-07-11.
 Repo baseline: v0.104.0 / 0.104.0.
 
@@ -44,7 +44,7 @@ wins.
 - No render implies broad shell, browser, connector, provider, background, or
   production authority.
 
-## Target V1 Render Inventory
+## Target Render Inventory
 
 Every target render is a draft until explicitly approved in the local review
 gallery.
@@ -65,6 +65,18 @@ gallery.
 | `renders/target-v1/12-decision-review.png` | Global Decision Review |
 | `renders/target-v1/13-onboarding.png` | Onboarding |
 | `renders/target-v1/14-uaa-sidecar.png` | Global UAA Sidecar |
+
+Revision 02 adds non-destructive versions and new surfaces:
+
+| Render | Revision |
+|---|---|
+| `renders/target-v2/03-work-board-v2.png` | Work Board v2 color grammar |
+| `renders/target-v2/04-crm-v2.png` | CRM v2 governed calling placeholder |
+| `renders/target-v2/06-studio-v2.png` | Studio v2 immersive workbench |
+| `renders/target-v2/15-news-v1.png` | News v1 curated workspace |
+| `renders/target-v2/16-trust-v1.png` | Trust v1 authority cockpit |
+| `renders/target-v2/17-terminal-v1.png` | Terminal v1 governed terminal |
+| `renders/target-v2/18-compact-shell-v1.png` | Compact icon-only shell v1 |
 
 Run the one-at-a-time critique gallery with:
 
@@ -102,7 +114,7 @@ in browser local storage and can be exported/imported as JSON.
 
 ## Current Baseline
 
-- Current target render set: CC-NS-TARGET-V1-2026-07-11.
+- Current target render set: CC-NS-TARGET-R2-2026-07-11.
 - Current as of: 2026-07-11.
 - Canonical shell: `APP_SHELL_BASELINE.md`.
 - Route coverage: `SURFACE_COVERAGE.md`.
@@ -124,7 +136,9 @@ baseline.
 
 ![Target Calendar](renders/target-v1/05-calendar.png)
 
-![Target Studio](renders/target-v1/06-studio.png)
+![Target Studio v2](renders/target-v2/06-studio-v2.png)
+
+![Target Trust cockpit](renders/target-v2/16-trust-v1.png)
 
 ## Implementation Use
 

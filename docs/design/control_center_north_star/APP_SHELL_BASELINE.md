@@ -1,7 +1,7 @@
 # Control Center App Shell Baseline
 
 Status: current target shell baseline, documentation only.
-Baseline ID: CC-NS-TARGET-V1-2026-07-11.
+Baseline ID: CC-NS-TARGET-R2-2026-07-11.
 Current as of: 2026-07-11.
 Repo baseline: v0.104.0 / 0.104.0.
 
@@ -44,10 +44,11 @@ route availability, capability state, authority, or the resettable default.
 3. Work Board
 4. CRM
 5. Calendar
-6. Studio
+6. News
+7. Studio
 
 Today is fixed first and is the default landing workspace. Communications,
-Work Board, CRM, Calendar, and Studio may be reordered or hidden as presentation
+Work Board, CRM, Calendar, News, and Studio may be reordered or hidden as presentation
 preferences without disabling their routes or capabilities.
 
 ### Supporting workspaces and utilities
@@ -84,7 +85,8 @@ primary rail item. With no pending decisions the CTA is demoted or omitted.
 - Disabled, planned, blocked, partial, experimental, and mock-only states may
   appear as compact state labels, but state labels must not change item order.
 - The rail may collapse to icons at compact desktop widths only when the same
-  item order and route reachability are preserved.
+  item order and route reachability are preserved. Icon-only mode provides
+  tooltips, accessible names, focus-visible labels, badges, and active state.
 - The rail may expose overflow through a stable "More" or command-palette
   affordance only when the hidden list remains deterministic.
 - `Customize sidebar` may pin, unpin, reorder, collapse, change density, cancel,
@@ -207,17 +209,22 @@ dated baseline and update this package.
 
 ## Future Render Prompt Requirements
 
-Future render prompts must explicitly include:
+Future standard-shell render prompts must explicitly include:
 
 ```text
-Use the CC-NS-2026-07-06 static app shell.
-The left rail is identical across routes.
-Primary nav order: Start Here, Today, Source Inbox, Plans, Work Board,
-Action Inbox, Proof, Trust, Memory, Evidence, Settings.
+Use the CC-NS-TARGET-R2-2026-07-11 app shell.
+The standard left rail is identical across normal routes.
+Primary nav order: Today, Communications, Work Board, CRM, Calendar, News,
+Studio, Knowledge, Activity & Trust, Customize, Settings, Developer Tools.
 Do not add route-local tabs to the global left rail.
 Place route-local tabs and queues inside the workspace.
-Use Inter/system typography and the CC-NS-2026-07-06 size scale.
+Keep search in the fixed standard toolbar slot and Review N decisions at right.
+Use Inter/system typography and the CC-NS-TARGET-R2-2026-07-11 size scale.
 ```
+
+Studio is the explicit immersive exception: it replaces the ordinary rail with
+the UAA Studio workbench rail and provides a visible Back to Control Center
+command.
 
 Generated images are allowed to be visually approximate, but implementation
 must follow this baseline where generated pixels conflict with the spec.

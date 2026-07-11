@@ -4,8 +4,8 @@
   "sets": [
     {
       "id": "target-v1",
-      "label": "Target product v1",
-      "description": "First-pass defaults using the locked work-prioritized product architecture."
+      "label": "Target product drafts",
+      "description": "Current target surfaces with non-destructive version history."
     },
     {
       "id": "legacy-baseline",
@@ -47,8 +47,11 @@
       "route": "/work-board",
       "purpose": "Kanban, list, timeline, plans, and completed work using shared task truth.",
       "truth": "Target design; mutations remain exact-scoped and receipt-backed.",
-      "image": "../renders/target-v1/03-work-board.png",
-      "versions": [{"id": "v1", "label": "Draft v1", "image": "../renders/target-v1/03-work-board.png"}]
+      "image": "../renders/target-v2/03-work-board-v2.png",
+      "versions": [
+        {"id": "v1", "label": "Draft v1 · neutral board", "image": "../renders/target-v1/03-work-board.png"},
+        {"id": "v2", "label": "Draft v2 · status and priority color", "image": "../renders/target-v2/03-work-board-v2.png"}
+      ]
     },
     {
       "id": "CRM-01",
@@ -57,10 +60,13 @@
       "surface": "CRM",
       "category": "Primary workspace",
       "route": "/crm",
-      "purpose": "Relationship, pipeline, opportunity, follow-up, and activity workspace.",
-      "truth": "Target design; representative local relationship records only.",
-      "image": "../renders/target-v1/04-crm.png",
-      "versions": [{"id": "v1", "label": "Draft v1", "image": "../renders/target-v1/04-crm.png"}]
+      "purpose": "Provisional relationship workspace with governed calling, pipeline, follow-ups, and activity.",
+      "truth": "Target placeholder; calling methods reflect availability and no dialer launch proves call completion.",
+      "image": "../renders/target-v2/04-crm-v2.png",
+      "versions": [
+        {"id": "v1", "label": "Draft v1 · general CRM", "image": "../renders/target-v1/04-crm.png"},
+        {"id": "v2", "label": "Draft v2 · governed calling", "image": "../renders/target-v2/04-crm-v2.png"}
+      ]
     },
     {
       "id": "CAL-01",
@@ -75,21 +81,36 @@
       "versions": [{"id": "v1", "label": "Draft v1", "image": "../renders/target-v1/05-calendar.png"}]
     },
     {
-      "id": "STUDIO-01",
+      "id": "NEWS-01",
       "set": "target-v1",
       "order": 6,
+      "surface": "News",
+      "category": "Primary workspace",
+      "route": "target",
+      "purpose": "Curated, sourced situational context based on explicit interests and business watchlists.",
+      "truth": "Target design; read-only provenance is visible and no unrestricted web fetching is implied.",
+      "image": "../renders/target-v2/15-news-v1.png",
+      "versions": [{"id": "v1", "label": "Draft v1 · curated brief", "image": "../renders/target-v2/15-news-v1.png"}]
+    },
+    {
+      "id": "STUDIO-01",
+      "set": "target-v1",
+      "order": 7,
       "surface": "Studio",
       "category": "Primary workspace",
       "route": "target",
-      "purpose": "Codex-like Chat and Code workbench with context, changes, tests, and proof.",
-      "truth": "Target design; no model, shell, deploy, or write authority implied.",
-      "image": "../renders/target-v1/06-studio.png",
-      "versions": [{"id": "v1", "label": "Draft v1", "image": "../renders/target-v1/06-studio.png"}]
+      "purpose": "Immersive familiar coding-agent workbench with projects, tasks, changes, checks, and terminal access.",
+      "truth": "Target design; no model, arbitrary shell, deploy, or write authority implied.",
+      "image": "../renders/target-v2/06-studio-v2.png",
+      "versions": [
+        {"id": "v1", "label": "Draft v1 · Control Center shell", "image": "../renders/target-v1/06-studio.png"},
+        {"id": "v2", "label": "Draft v2 · immersive workbench", "image": "../renders/target-v2/06-studio-v2.png"}
+      ]
     },
     {
       "id": "KNOWLEDGE-01",
       "set": "target-v1",
-      "order": 7,
+      "order": 8,
       "surface": "Knowledge",
       "category": "Supporting workspace",
       "route": "target",
@@ -101,7 +122,7 @@
     {
       "id": "ACTIVITY-01",
       "set": "target-v1",
-      "order": 8,
+      "order": 9,
       "surface": "Activity & Trust",
       "category": "Supporting workspace",
       "route": "target",
@@ -111,9 +132,21 @@
       "versions": [{"id": "v1", "label": "Draft v1", "image": "../renders/target-v1/08-activity-trust.png"}]
     },
     {
+      "id": "TRUST-01",
+      "set": "target-v1",
+      "order": 10,
+      "surface": "Trust cockpit",
+      "category": "Supporting workspace",
+      "route": "target",
+      "purpose": "Mode/domain authority matrix, leases, policy decisions, receipts, and safe-disable controls.",
+      "truth": "Target design; the matrix reports backend-owned truth and cannot grant or broaden authority.",
+      "image": "../renders/target-v2/16-trust-v1.png",
+      "versions": [{"id": "v1", "label": "Draft v1 · authority cockpit", "image": "../renders/target-v2/16-trust-v1.png"}]
+    },
+    {
       "id": "CUSTOMIZE-01",
       "set": "target-v1",
-      "order": 9,
+      "order": 11,
       "surface": "Customize",
       "category": "Utility",
       "route": "target",
@@ -125,7 +158,7 @@
     {
       "id": "SETTINGS-01",
       "set": "target-v1",
-      "order": 10,
+      "order": 12,
       "surface": "Settings",
       "category": "Utility",
       "route": "/settings",
@@ -137,7 +170,7 @@
     {
       "id": "DEVTOOLS-01",
       "set": "target-v1",
-      "order": 11,
+      "order": 13,
       "surface": "Developer Tools",
       "category": "Utility",
       "route": "target",
@@ -147,9 +180,21 @@
       "versions": [{"id": "v1", "label": "Draft v1", "image": "../renders/target-v1/11-developer-tools.png"}]
     },
     {
+      "id": "TERMINAL-01",
+      "set": "target-v1",
+      "order": 14,
+      "surface": "Terminal",
+      "category": "Utility",
+      "route": "target",
+      "purpose": "Governed embedded terminal with exact commands, redacted output, receipts, and pop-out access.",
+      "truth": "Target design; opening Terminal grants no UAA shell authority and arbitrary execution remains blocked.",
+      "image": "../renders/target-v2/17-terminal-v1.png",
+      "versions": [{"id": "v1", "label": "Draft v1 · governed terminal", "image": "../renders/target-v2/17-terminal-v1.png"}]
+    },
+    {
       "id": "DECISIONS-01",
       "set": "target-v1",
-      "order": 12,
+      "order": 15,
       "surface": "Decision Review",
       "category": "Global utility",
       "route": "/actions",
@@ -161,7 +206,7 @@
     {
       "id": "ONBOARDING-01",
       "set": "target-v1",
-      "order": 13,
+      "order": 16,
       "surface": "Onboarding",
       "category": "Global utility",
       "route": "/start",
@@ -173,7 +218,7 @@
     {
       "id": "UAA-SIDECAR-01",
       "set": "target-v1",
-      "order": 14,
+      "order": 17,
       "surface": "UAA Sidecar",
       "category": "Global utility",
       "route": "global",
@@ -181,6 +226,18 @@
       "truth": "Target design; attached context uses safe refs and proposals do not bypass authority.",
       "image": "../renders/target-v1/14-uaa-sidecar.png",
       "versions": [{"id": "v1", "label": "Draft v1", "image": "../renders/target-v1/14-uaa-sidecar.png"}]
+    },
+    {
+      "id": "SHELL-COMPACT-01",
+      "set": "target-v1",
+      "order": 18,
+      "surface": "Compact shell",
+      "category": "Global utility",
+      "route": "global",
+      "purpose": "Icon-only standard product rail with the same order, reachability, badges, and fixed utilities.",
+      "truth": "Target design; compact mode changes presentation only and never hides safety posture or capability.",
+      "image": "../renders/target-v2/18-compact-shell-v1.png",
+      "versions": [{"id": "v1", "label": "Draft v1 · icon rail", "image": "../renders/target-v2/18-compact-shell-v1.png"}]
     },
     {"id":"LEGACY-01","set":"legacy-baseline","order":101,"surface":"Today composite","category":"Legacy baseline","route":"multiple","purpose":"Earlier Today command-center direction.","truth":"Historical visual reference; superseded where target contract differs.","image":"../renders/01_today_command_center.png","versions":[{"id":"baseline","label":"Baseline","image":"../renders/01_today_command_center.png"}]},
     {"id":"LEGACY-02","set":"legacy-baseline","order":102,"surface":"Action Inbox composite","category":"Legacy baseline","route":"multiple","purpose":"Earlier approval-envelope direction.","truth":"Historical visual reference.","image":"../renders/02_action_inbox_approval_envelope.png","versions":[{"id":"baseline","label":"Baseline","image":"../renders/02_action_inbox_approval_envelope.png"}]},

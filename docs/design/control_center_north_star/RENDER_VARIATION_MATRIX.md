@@ -56,17 +56,21 @@ architecture is defined by
 | `TARGET-NAV-01` | Today in target shell | Today-first rail; Communications, Work Board, CRM, Calendar, Studio; Knowledge; Activity & Trust; six Today panels; receipt activity rail; `Review N decisions`; weather; UAA composer |
 | `COMM-01` | Communications | unified queue/detail/inspector; Email, Messages, Follow-ups, Drafts, Waiting; CRM context; `Propose event`; proposal-only and blocked-send states |
 | `BOARD-01` | Work Board | Board/List/Timeline/Plans/Completed; shared task truth; CRM/Calendar/Communications links; receipt-backed completion |
-| `CRM-01` | CRM | relationship queue; activity timeline; opportunity/commitment context; source-backed next action |
+| `CRM-01` | CRM | relationship queue; activity timeline; opportunity/commitment context; governed availability-backed Call chooser; source-backed next action |
 | `CAL-01` | Calendar week | color-coded schedule; tasks and commitments; source-backed candidate; duplicate/conflict/timezone posture; shared refs; proposal-only external posture |
+| `NEWS-01` | News | curated For You/Business/Technology/Markets/Saved/Sources; visible provenance, freshness, and selection rationale |
 | `DECISIONS-01` | Decision Review | exact source, time, participants, location, CRM/work links, conflicts, confidence, authority, expiry, edit/approve/reject/defer outcomes |
-| `STUDIO-01` | Studio | Chat/Code modes; threads/projects; transcript/editor/diff; context/changes/tests/evidence; governed composer |
+| `STUDIO-01` | Studio | immersive Codex/Claude-like workbench; Back to Control Center; tasks/projects; dominant transcript/editor; optional drawers; governed composer; Terminal |
 | `KNOWLEDGE-01` | Knowledge | memory/files/context/sources; provenance; conflicts; corrections; reviewed-context decisions |
 | `ACTIVITY-01` | Activity & Trust | receipts, evidence, proof, history, approvals, authority, safe refs, and correction/rollback paths |
 | `CUSTOMIZE-01` | Customize | order, visibility, groups, density, preview, cancel, reset; no capability language |
 | `SETTINGS-01` | Settings | search-first preferences; semantic controls; current posture; blocked/planned explanations |
 | `DEVTOOLS-01` | Developer Tools | runtime/models/storage/API/gate/plugins/diagnostics; exact lanes and truthful blocked states |
+| `TERMINAL-01` | Terminal | Developer Tools terminal tab; exact command lanes; redacted output; exit/receipt state; pop-out without authority escalation |
 | `ONBOARDING-01` | Onboarding | first-run local setup; optional read-only sources; safety defaults; skip path |
 | `UAA-SIDECAR-01` | UAA Sidecar | safe context; cross-surface answer; citations; proposal handoff; blocked direct mutation |
+| `TRUST-01` | Trust cockpit | mode/domain matrix; exact lease; policy decisions; receipts/audit; revoke/pause/kill; safe-disable |
+| `SHELL-COMPACT-01` | Compact shell | icon-only rail; tooltips; accessible names; badges; active state; fixed bottom utilities |
 
 ## Route Render Queue
 

@@ -1,7 +1,7 @@
 # Control Center North-Star Render Manifest
 
 Status: current target render set, documentation only.
-Baseline ID: CC-NS-TARGET-V1-2026-07-11.
+Baseline ID: CC-NS-TARGET-R2-2026-07-11.
 Current as of: 2026-07-11.
 Repo baseline: v0.104.0 / 0.104.0.
 
@@ -40,6 +40,20 @@ evidence that consolidation is implemented.
 All target V1 entries begin as `Draft`. Critique, status, and version history
 are managed locally by `render-review/renders.json` and the review gallery.
 
+## Revision 02 Drafts
+
+Revision 02 preserves every V1 file and adds the accepted review corrections.
+
+| File | Surface/version | Required change | Must not imply |
+|---|---|---|---|
+| `renders/target-v2/03-work-board-v2.png` | Work Board v2 | status column bars; priority card edges; visible legend | color-only meaning or rainbow cards |
+| `renders/target-v2/04-crm-v2.png` | CRM v2 | availability-backed Call chooser; exact review; general placeholder | provider connected or call completed |
+| `renders/target-v2/06-studio-v2.png` | Studio v2 | immersive familiar workbench; back path; optional drawer; Terminal | arbitrary shell, deploy, or model authority |
+| `renders/target-v2/15-news-v1.png` | News v1 | curated sourced brief; freshness; why selected; saved/source controls | unrestricted fetch or unsourced ranking |
+| `renders/target-v2/16-trust-v1.png` | Trust v1 | authority matrix; exact lease; live decisions; revoke/pause/kill/safe-disable | matrix as authority grant |
+| `renders/target-v2/17-terminal-v1.png` | Terminal v1 | exact command lanes; redacted output; receipts; pop-out | unrestricted shell or raw environment |
+| `renders/target-v2/18-compact-shell-v1.png` | Compact shell v1 | same nav as icons; tooltip/focus labels; fixed utilities | hidden routes or changed capability |
+
 ## Legacy Composite Coverage
 
 | File | Covered surfaces | Must show | Must not imply |
@@ -71,7 +85,8 @@ All renders used the same design constraints:
 
 - contained 1440x900-ish desktop app window;
 - no webpage chrome, endless scrolling, landing page, or hero section;
-- fixed left navigation and persistent top status/authority strip;
+- fixed left navigation and persistent top status/authority strip on standard
+  routes; Studio uses the documented immersive workbench exception;
 - bounded split panes, inspectors, ledgers, and bottom evidence strips;
 - restrained graphite/off-white visual system with blue/teal active states,
   green receipts, amber ask/partial, red denied/blocked, gray planned;
@@ -84,10 +99,10 @@ All renders used the same design constraints:
 ## Target Shell Requirement
 
 All future target render prompts and implementation passes should use the
-CC-NS-TARGET-V1-2026-07-11 shell:
+CC-NS-TARGET-R2-2026-07-11 shell:
 
 ```text
-Today, Communications, Work Board, CRM, Calendar, Studio, Knowledge,
+Today, Communications, Work Board, CRM, Calendar, News, Studio, Knowledge,
 Activity & Trust, Customize, Settings, Developer Tools.
 ```
 

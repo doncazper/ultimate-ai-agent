@@ -30,7 +30,9 @@ system's internal architecture.
    relationship activity.
 5. **Calendar** — day, week, month, and agenda views combining commitments,
    proposed events, deadlines, focus blocks, and linked work.
-6. **Studio** — one Codex-like chat and coding workbench for asking, planning,
+6. **News** — curated, sourced situational context based on explicit interests,
+   business watchlists, and read-only bulletins.
+7. **Studio** — one familiar immersive chat and coding workbench for asking, planning,
    editing, reviewing changes, running allowed checks, and inspecting proof.
 
 ### Supporting workspaces
@@ -72,6 +74,7 @@ rename, or remove current routes.
 | Plans and Work Board | Work Board, as views of shared work |
 | CRM | CRM |
 | Calendar connector contracts and future schedule UI | Calendar |
+| Today News module and future sourced brief views | News |
 | Chat and Coding | Studio, with Chat and Code modes |
 | Memory and Files | Knowledge |
 | Receipts, Evidence, Proof, Trust, Events, Approvals | Activity & Trust |
@@ -108,6 +111,15 @@ Reports. It is the canonical relationship context for meetings and follow-ups.
 Calendar entries link to CRM refs and show the relationship context needed for
 preparation without copying raw correspondence.
 
+CRM exposes a governed `Call` action with an availability-backed method chooser
+for system/iPhone, FaceTime Audio, WhatsApp, Telegram, Google Voice, and future
+approved adapters. Launch and call outcome are distinct states; no dialer launch
+marks a relationship follow-up complete. The full exact-call, recording, and
+truth-state contract is defined by `CONTROL_CENTER_RENDER_REVIEW_REVISION_02.md`.
+
+The current CRM render remains a general placeholder. Specialty CRM profiles
+remain open until their earlier reference variants are reviewed.
+
 ### Calendar
 
 Calendar provides Day, Week, Month, and Agenda views, color-coded calendars,
@@ -124,11 +136,21 @@ was created or externally synchronized.
 
 ### Studio
 
-Studio combines Chat and Code modes. Its desktop composition uses a left
-thread/project rail, central transcript/editor/diff, right context/changes/
-tests/evidence inspector, and persistent bottom composer. It may propose
+Studio combines Chat and Code in an immersive workbench patterned after the
+established coding-agent interaction model. It replaces the ordinary product
+rail with a Studio identity, visible back command, project/thread rail, dominant
+central task/transcript/editor, optional context/changes/checks drawers, one
+bottom composer, bottom Settings, and governed Terminal access. It may propose
 governed actions and hand work into the same decision, receipt, and evidence
 loop as every other surface; it is not a second authority system.
+
+### News
+
+News provides For You, Business, Technology, Markets, Saved, and Sources. Each
+item keeps source, freshness, content type, and selection rationale visible.
+Curated ranking may use explicit interests, CRM/business watchlists, reviewed
+settings, and read-only bulletins, but never hides provenance or grants live web
+fetching. News is not an attention queue and is not completable work.
 
 ## Source-To-Calendar Proposal Loop
 
