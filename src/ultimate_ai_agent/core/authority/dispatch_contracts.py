@@ -4,10 +4,19 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictBool,
+    StrictInt,
+    model_validator,
+)
 
 from ultimate_ai_agent.core.approvals.decisions import ApprovalValidationRequest
-from ultimate_ai_agent.core.authority.authority_constants import AUTHORITY_STATE_REDACTIONS
+from ultimate_ai_agent.core.authority.authority_constants import (
+    AUTHORITY_STATE_REDACTIONS,
+)
 from ultimate_ai_agent.core.authority.contracts import (
     AuthorityActionRequest,
     AuthorityCapability,
@@ -88,6 +97,7 @@ class AuthorityDispatchRequest(_AuthorityDispatchModel):
     cost_governor_decision_ref: str
     cost_governor_allowed: StrictBool
     approval_validation_request: ApprovalValidationRequest | None = None
+    start_deadline: datetime | None = None
     safe_summary: str = Field(..., min_length=1, max_length=520)
 
     @model_validator(mode="after")
@@ -106,6 +116,8 @@ class AuthorityDispatchRequest(_AuthorityDispatchModel):
         ]:
             validate_task_ref(value, field_name)
         validate_safe_task_text(self.safe_summary, "authority_dispatch_summary")
+        if self.start_deadline is not None and self.start_deadline.tzinfo is None:
+            raise ValueError("AUTHORITY_DISPATCH_START_DEADLINE_TIMEZONE_REQUIRED")
         if self.action_request.adapter_ref != self.adapter_ref:
             raise ValueError("AUTHORITY_DISPATCH_ACTION_ADAPTER_MISMATCH")
         tool_ref = self.tool_invocation_request.get("tool_ref")
@@ -196,6 +208,8 @@ class AuthorityDispatchReceipt(_AuthorityDispatchModel):
     run_ref: str
     idempotency_ref: str
     request_fingerprint_ref: str
+    start_deadline: datetime | None = None
+    start_validated_at: datetime | None = None
     lease_ref: str
     action_ref: str
     adapter_ref: str
@@ -277,16 +291,32 @@ class AuthorityDispatchReceipt(_AuthorityDispatchModel):
             if ref is not None:
                 validate_task_ref(ref, "authority_dispatch_receipt_ref")
         validate_safe_task_text(self.safe_summary, "authority_dispatch_summary")
+        if self.start_deadline is not None and self.start_deadline.tzinfo is None:
+            raise ValueError("AUTHORITY_DISPATCH_START_DEADLINE_TIMEZONE_REQUIRED")
+        if (
+            self.start_validated_at is not None
+            and self.start_validated_at.tzinfo is None
+        ):
+            raise ValueError("AUTHORITY_DISPATCH_START_VALIDATION_TIMEZONE_REQUIRED")
         if not set(AUTHORITY_STATE_REDACTIONS).issubset(self.redactions_applied):
             raise ValueError("AUTHORITY_DISPATCH_REQUIRED_REDACTIONS_MISSING")
-        if self.approval_required and self.status not in {
-            AuthorityDispatchStatus.denied.value,
-        } and (not self.approval_ref or not self.approval_validation_ref):
+        if (
+            self.approval_required
+            and self.status
+            not in {
+                AuthorityDispatchStatus.denied.value,
+            }
+            and (not self.approval_ref or not self.approval_validation_ref)
+        ):
             raise ValueError("AUTHORITY_DISPATCH_REQUIRED_APPROVAL_BINDING_MISSING")
         if self.adapter_approval_required and not self.approval_required:
             raise ValueError("AUTHORITY_DISPATCH_ADAPTER_APPROVAL_POSTURE_INVALID")
         if self.status == AuthorityDispatchStatus.denied.value:
-            if self.execution_started or self.adapter_invocation_performed or not self.reason_refs:
+            if (
+                self.execution_started
+                or self.adapter_invocation_performed
+                or not self.reason_refs
+            ):
                 raise ValueError("AUTHORITY_DISPATCH_DENIAL_POSTURE_INVALID")
         elif (
             not self.adapter_binding_ref
@@ -304,8 +334,7 @@ class AuthorityDispatchReceipt(_AuthorityDispatchModel):
             AuthorityDispatchStatus.cancellation_pending.value,
             AuthorityDispatchStatus.cancelled_before_start.value,
         } and (
-            not self.cancellation_idempotency_ref
-            or not self.cancellation_reason_ref
+            not self.cancellation_idempotency_ref or not self.cancellation_reason_ref
         ):
             raise ValueError("AUTHORITY_DISPATCH_CANCELLATION_BINDING_REQUIRED")
         if self.status == AuthorityDispatchStatus.cancelled_before_start.value and (
@@ -317,6 +346,7 @@ class AuthorityDispatchReceipt(_AuthorityDispatchModel):
             or self.adapter_invocation_performed
             or not self.execution_ref
             or not self.budget_start_receipt_ref
+            or (self.start_deadline is not None and self.start_validated_at is None)
         ):
             raise ValueError("AUTHORITY_DISPATCH_STARTED_POSTURE_INVALID")
         if self.status in {
@@ -330,8 +360,17 @@ class AuthorityDispatchReceipt(_AuthorityDispatchModel):
             or not self.budget_settlement_receipt_ref
             or self.actual_operation_count is None
             or not self.evidence_refs
+            or (self.start_deadline is not None and self.start_validated_at is None)
         ):
             raise ValueError("AUTHORITY_DISPATCH_TERMINAL_EVIDENCE_REQUIRED")
+        if not self.execution_started and self.start_validated_at is not None:
+            raise ValueError("AUTHORITY_DISPATCH_PRESTART_VALIDATION_TIME_FORBIDDEN")
+        if (
+            self.start_deadline is not None
+            and self.start_validated_at is not None
+            and self.start_validated_at >= self.start_deadline
+        ):
+            raise ValueError("AUTHORITY_DISPATCH_START_AFTER_DEADLINE_FORBIDDEN")
         if (self.actual_cost_microusd is None) != (self.actual_cost_ref is None):
             raise ValueError("AUTHORITY_DISPATCH_ACTUAL_COST_BINDING_INVALID")
         return self
@@ -371,7 +410,9 @@ class AuthorityDispatchReadModel(_AuthorityDispatchModel):
     recovery_required_dispatch_refs: list[str] = Field(default_factory=list)
     execution_performed: Literal[False] = False
     mutation_available_from_read_model: Literal[False] = False
-    safe_summary: str = "Governed dispatch posture is derived from append-first receipts."
+    safe_summary: str = (
+        "Governed dispatch posture is derived from append-first receipts."
+    )
 
     @model_validator(mode="after")
     def validate_read_model(self) -> "AuthorityDispatchReadModel":

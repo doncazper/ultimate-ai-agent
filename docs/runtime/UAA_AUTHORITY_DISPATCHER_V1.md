@@ -1,8 +1,9 @@
 # AuthorityLease Governed Dispatcher V1
 
-Status: implemented Python Core dispatcher, one synchronous exact filesystem
-metadata MissionRunner step, and redacted API/CLI step inspection; multi-step
-missions, mutation controls, and Control Center integration remain missing
+Status: implemented Python Core dispatcher, exact filesystem-metadata
+MissionRunner, bounded synchronous dependency orchestration, and redacted
+API/CLI step inspection; mutation controls and Control Center integration remain
+missing
 
 Date: 2026-07-10
 
@@ -135,9 +136,8 @@ rejected.
 
 The mission-step ledger stores safe refs and bounded summaries, not tool input,
 file content, relative or absolute paths, provider payloads, or raw output.
-This slice is not a scheduler: it has no background worker, periodic/background
-heartbeat loop, approval wait, automatic retry, after-start cancellation, or
-multi-step execution loop.
+Append opens now deny symlink and FIFO substitution, require a bounded regular
+file, and fsync before returning.
 
 Operators can inspect one exact step through the optional `mission_step_ref`
 query on protected `GET /api/runtime/authority-state` or the human-readable
@@ -147,6 +147,56 @@ identity/evidence refs, omits persisted summaries and state paths, and reports
 claim freshness separately from durable status. Inspection performs no adapter
 invocation, mutation, approval or lease minting, retry, reconciliation, or
 request-scoped authority decision.
+
+## Bounded Synchronous Mission Orchestration V1
+
+`SynchronousAuthorityMissionOrchestrator` accepts at most 16 exact
+filesystem-metadata steps. Before any execution it validates a closed acyclic
+dependency graph, exact mission/run/action/request bindings, and an existing
+mission-scoped AuthorityLease whose mission ref is also carried by every action.
+It then appends one immutable safe-ref-only durable plan receipt containing the
+ordered membership, definition fingerprints, dispatch refs, complete dispatch
+request fingerprints, and dependencies. The same plan ref or mission/run pair
+cannot be rebound to changed membership, ordering, deadline, target, or request
+input.
+
+All bound step definitions are durably created before step one can execute.
+Each definition repeats its plan ref, dispatch ref, and request fingerprint, so
+an interruption during definition creation can resume only with the identical
+plan. Steps run sequentially in stable topological order exclusively through
+`AuthorityMissionRunner` and `AuthorityDispatcher`. Authority, approval, kill
+switch, budget, adapter, target, and safe-disable posture are therefore
+re-evaluated for every step immediately before its durable start claim; the
+orchestrator neither invokes adapters directly nor mints or caches authority.
+Plan-bound runner execution also requires the accepted plan's exact execution
+context. The step claim checks that context and every plan member's terminal
+posture while holding the mission-step ledger lock, so a crash window or direct
+runner call cannot start later work after fail-fast has activated. Before plan
+acceptance, each action receives a pure current lease-policy eligibility check;
+the dispatcher still performs the authoritative live check again immediately
+before execution.
+
+The dispatch request now carries an optional fingerprint-bound start deadline.
+For orchestration it must equal the durable step deadline. Under the authority
+and approval locks, the dispatcher captures one trusted admission timestamp,
+re-evaluates every expiring lease, approval, and cost-budget input at that exact
+instant, and persists the timestamp in the durable start receipt. Expiry at that
+admission boundary wins before adapter invocation and releases reserved
+capacity. Optional fields are omitted from legacy V1 canonical hash payloads
+when null, so pre-upgrade dispatch and mission-step ledgers remain readable.
+
+V1 is fail-fast. A known failed, cancelled, or recovery-required step prevents
+independent later work from starting. Declared descendants receive a durable
+`dependency_blocked` receipt bound to the terminal dependency receipt and entry
+hash; other unscheduled steps receive a durable `fail_fast_halted` receipt
+bound to the triggering terminal evidence. Identical replay skips proven
+successes; active competing claims return an in-progress posture; there is no
+wait loop. Plan-bound definitions cannot be created or claimed unless the
+accepted plan proves exact step, definition, dispatch, request-fingerprint, and
+dependency membership. This is not a background
+scheduler and adds no periodic heartbeat, parallel fan-out, approval wait,
+automatic retry, mission cancellation, dynamic output-to-input binding, API or
+CLI execution command, or Control Center mutation.
 
 ## Approval And Budget Binding
 
@@ -249,9 +299,9 @@ The focused `tests/test_authority_dispatcher*.py` modules cover:
 - mission-step ledger redaction proof that excludes raw safe-root paths,
   relative paths, and file contents.
 
-The focused dispatcher, budget, durable mission-step, and mission-runner suites
-are the acceptance source for this milestone. Broader repo checks remain
-required before merge.
+The focused dispatcher, budget, durable plan, durable mission-step,
+mission-runner, and mission-orchestrator suites are the acceptance source for
+this milestone. Broader repo checks remain required before merge.
 
 ## Explicit Non-Goals And Remaining Gaps
 
@@ -262,11 +312,11 @@ background worker, public distribution, production authority, or standing
 autonomy.
 
 The dispatcher is not yet the universal route for legacy executable lanes.
-Durable missions still need dependency scheduling, a periodic/background
+Durable missions still need a background scheduler, a periodic/background
 heartbeat and lease-renewal loop, approval waits, retry budgets, after-start
 cancellation, settlement recovery, dead-letter handling, boot reconciliation,
-mutation API/CLI and Control Center parity, and one end-to-end delegated
-multi-step mission proof. The runner's one
+mission completion receipts, mutation API/CLI and Control Center parity, and
+broader exact adapters. The runner's one
 pre-execute renewal is not an in-flight heartbeat loop. Each future
 adapter must be promoted as an exact descriptor and tested lane; V1 does not
 grant a broad capability class.

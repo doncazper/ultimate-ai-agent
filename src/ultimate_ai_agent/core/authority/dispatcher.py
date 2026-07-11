@@ -106,9 +106,12 @@ def _stable_ref(prefix: str, value: Any) -> str:
 def authority_dispatch_request_fingerprint(
     request: AuthorityDispatchRequest,
 ) -> str:
+    payload = request.model_dump(mode="json")
+    if request.start_deadline is None:
+        payload.pop("start_deadline", None)
     return _stable_ref(
         "request-fingerprint-ref:authority-dispatch",
-        request.model_dump(mode="json"),
+        payload,
     )
 
 
@@ -117,9 +120,16 @@ def _request_fingerprint(request: AuthorityDispatchRequest) -> str:
 
 
 def _entry_hash(receipt: AuthorityDispatchReceipt) -> str:
+    payload = receipt.model_dump(mode="json", exclude={"entry_hash_ref"})
+    # Preserve the canonical V1 payload for receipts written before these
+    # optional fields existed. Non-null values remain hash-bound.
+    if receipt.start_deadline is None:
+        payload.pop("start_deadline", None)
+    if receipt.start_validated_at is None:
+        payload.pop("start_validated_at", None)
     return _stable_ref(
         "entry-hash-ref:authority-dispatch",
-        receipt.model_dump(mode="json", exclude={"entry_hash_ref"}),
+        payload,
     )
 
 
@@ -489,6 +499,20 @@ class AuthorityDispatcher:
             return prepared
         return self.execute(request)
 
+    def structural_preflight_reason_refs(
+        self,
+        request: AuthorityDispatchRequest,
+    ) -> list[str]:
+        """Validate adapter, target, and cost structure without granting authority."""
+        reasons = self._cost_reason_refs(request)
+        adapter = self.adapters.get(request.adapter_ref)
+        if adapter is None:
+            reasons.append("reason-ref:authority-dispatch:adapter-not-registered")
+        else:
+            reasons.extend(_adapter_descriptor_reason_refs(request, adapter.descriptor))
+            reasons.extend(adapter.validate_request(request))
+        return list(dict.fromkeys(reasons))
+
     def prepare(self, request: AuthorityDispatchRequest) -> AuthorityDispatchResult:
         fingerprint = _request_fingerprint(request)
         initial_conflict: AuthorityDispatchConflictError | None = None
@@ -507,13 +531,7 @@ class AuthorityDispatcher:
             raise initial_conflict
 
         adapter = self.adapters.get(request.adapter_ref)
-        reasons = self._cost_reason_refs(request)
-        if adapter is None:
-            reasons.append("reason-ref:authority-dispatch:adapter-not-registered")
-        else:
-            reasons.extend(_adapter_descriptor_reason_refs(request, adapter.descriptor))
-            reasons.extend(adapter.validate_request(request))
-        reasons = list(dict.fromkeys(reasons))
+        reasons = self.structural_preflight_reason_refs(request)
         if reasons:
             self._release_unclaimed_reservation(request)
             return self._persist_initial_denial(
@@ -685,6 +703,13 @@ class AuthorityDispatcher:
             adapter = self.adapters.get(request.adapter_ref)
             prestart_reasons = self._prestart_reason_refs(request, latest, adapter)
             if not prestart_reasons:
+                start_validated_at = utc_now()
+                prestart_reasons = self._time_bound_prestart_reason_refs(
+                    request,
+                    latest,
+                    current_time=start_validated_at,
+                )
+            if not prestart_reasons:
                 execution_ref = _execution_ref(request)
                 budget_start = self.budget_store._start_locked(
                     AuthorityBudgetStartRequest(
@@ -711,6 +736,7 @@ class AuthorityDispatcher:
                     budget_start_receipt_ref=budget_start.receipt_ref,
                     execution_ref=execution_ref,
                     execution_started=True,
+                    start_validated_at=start_validated_at,
                     safe_summary="Governed adapter start recorded before invocation.",
                 )
                 self._append(started)
@@ -1128,20 +1154,43 @@ class AuthorityDispatcher:
             )
         if not budget_active:
             reasons.append("reason-ref:authority-dispatch:prestart-budget-inactive")
-        start_time = utc_now()
+        reasons.extend(
+            self._time_bound_prestart_reason_refs(
+                request,
+                prepared,
+                current_time=utc_now(),
+            )
+        )
+        return list(dict.fromkeys(reasons))
+
+    def _time_bound_prestart_reason_refs(
+        self,
+        request: AuthorityDispatchRequest,
+        prepared: AuthorityDispatchReceipt,
+        *,
+        current_time: datetime,
+    ) -> list[str]:
+        """Re-evaluate every expiring authority input at one trusted instant."""
+
+        reasons: list[str] = []
+        if (
+            request.start_deadline is not None
+            and request.start_deadline <= current_time
+        ):
+            reasons.append("reason-ref:authority-dispatch:start-deadline-expired")
         start_lease = next(
             (
                 item
                 for item in self.lease_store._list_leases(active_only=False)
                 if item.lease_ref == request.lease_ref
-                and item.is_active(now=start_time)
+                and item.is_active(now=current_time)
             ),
             None,
         )
         start_decision = evaluate_authority_request(
             request.action_request,
             [start_lease] if start_lease is not None else [],
-            now=start_time,
+            now=current_time,
         )
         start_policy_allowed = (
             start_decision.outcome == AuthorityDecisionOutcome.allow.value
@@ -1174,7 +1223,7 @@ class AuthorityDispatcher:
                     approval_decision = (
                         self.approval_authority._validate_at_trusted_time(
                             validation_request,
-                            current_time=start_time,
+                            current_time=current_time,
                         )
                     )
                 except Exception:
@@ -1204,7 +1253,7 @@ class AuthorityDispatcher:
                     reasons.append(
                         "reason-ref:authority-dispatch:prestart-approval-invalid"
                     )
-        reasons.extend(self._cost_reason_refs(request, current_time=start_time))
+        reasons.extend(self._cost_reason_refs(request, current_time=current_time))
         return list(dict.fromkeys(reasons))
 
     def _cost_reason_refs(
@@ -1607,6 +1656,8 @@ class AuthorityDispatcher:
             "run_ref": request.run_ref,
             "idempotency_ref": request.idempotency_ref,
             "request_fingerprint_ref": _request_fingerprint(request),
+            "start_deadline": request.start_deadline,
+            "start_validated_at": None,
             "lease_ref": request.lease_ref,
             "action_ref": request.action_request.action_ref,
             "adapter_ref": request.adapter_ref,
@@ -1662,6 +1713,7 @@ class AuthorityDispatcher:
                 "evidence_refs",
                 "output_refs",
                 "reason_refs",
+                "start_validated_at",
             ]:
                 base_values[field_name] = getattr(previous, field_name)
         base_values.update(updates)
@@ -1743,6 +1795,9 @@ class AuthorityDispatcher:
             raise AuthorityDispatchCorruptionError(
                 "AUTHORITY_DISPATCH_RECEIPT_SIZE_OR_TYPE_INVALID"
             )
+        return self._decode_receipts(payload)
+
+    def _decode_receipts(self, payload: bytes) -> list[AuthorityDispatchReceipt]:
         try:
             lines = payload.decode("utf-8").splitlines()
         except UnicodeDecodeError as exc:
@@ -1815,6 +1870,7 @@ class AuthorityDispatcher:
             "run_ref",
             "idempotency_ref",
             "request_fingerprint_ref",
+            "start_deadline",
             "lease_ref",
             "action_ref",
             "adapter_ref",
@@ -1855,6 +1911,7 @@ class AuthorityDispatcher:
         if previous.status == AuthorityDispatchStatus.started.value and (
             receipt.execution_ref != previous.execution_ref
             or receipt.budget_start_receipt_ref != previous.budget_start_receipt_ref
+            or receipt.start_validated_at != previous.start_validated_at
         ):
             raise AuthorityDispatchCorruptionError(
                 "AUTHORITY_DISPATCH_EXECUTION_BINDING_MISMATCH"
@@ -1870,13 +1927,78 @@ class AuthorityDispatcher:
 
     def _append(self, receipt: AuthorityDispatchReceipt) -> None:
         self.state_dir.mkdir(parents=True, exist_ok=True)
-        new_file = not self.receipts_path.exists()
-        with self.receipts_path.open("a", encoding="utf-8") as handle:
-            handle.write(
-                json.dumps(receipt.model_dump(mode="json"), sort_keys=True) + "\n"
+        encoded = (
+            json.dumps(receipt.model_dump(mode="json"), sort_keys=True) + "\n"
+        ).encode("utf-8")
+        flags = (
+            os.O_RDWR
+            | os.O_APPEND
+            | os.O_CREAT
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_NONBLOCK", 0)
+        )
+        try:
+            descriptor = os.open(self.receipts_path, flags, 0o600)
+        except OSError as exc:
+            raise AuthorityDispatchCorruptionError(
+                "AUTHORITY_DISPATCH_RECEIPT_WRITE_FAILED"
+            ) from exc
+        try:
+            metadata = os.fstat(descriptor)
+            if (
+                not stat.S_ISREG(metadata.st_mode)
+                or metadata.st_size + len(encoded) > AUTHORITY_DISPATCH_LEDGER_MAX_BYTES
+            ):
+                raise AuthorityDispatchCorruptionError(
+                    "AUTHORITY_DISPATCH_RECEIPT_SIZE_OR_TYPE_INVALID"
+                )
+            existing_payload = os.pread(descriptor, metadata.st_size, 0)
+            existing = self._decode_receipts(existing_payload)
+            if len(existing) >= AUTHORITY_DISPATCH_LEDGER_MAX_RECEIPTS:
+                raise AuthorityDispatchCorruptionError(
+                    "AUTHORITY_DISPATCH_RECEIPT_LIMIT_EXCEEDED"
+                )
+            expected_previous = existing[-1].entry_hash_ref if existing else None
+            if (
+                receipt.previous_entry_hash_ref != expected_previous
+                or receipt.entry_hash_ref != _entry_hash(receipt)
+                or any(
+                    item.idempotency_ref == receipt.idempotency_ref
+                    and item.dispatch_ref != receipt.dispatch_ref
+                    for item in existing
+                )
+                or any(
+                    item.action_ref == receipt.action_ref
+                    and item.dispatch_ref != receipt.dispatch_ref
+                    for item in existing
+                )
+            ):
+                raise AuthorityDispatchCorruptionError(
+                    "AUTHORITY_DISPATCH_APPEND_BINDING_INVALID"
+                )
+            self._validate_history_transition(
+                receipt,
+                [
+                    item
+                    for item in existing
+                    if item.dispatch_ref == receipt.dispatch_ref
+                ],
             )
-            handle.flush()
-            os.fsync(handle.fileno())
+            view = memoryview(encoded)
+            while view:
+                written = os.write(descriptor, view)
+                if written <= 0:
+                    raise OSError("authority dispatch append failed")
+                view = view[written:]
+            os.fsync(descriptor)
+            new_file = metadata.st_size == 0
+        except OSError as exc:
+            raise AuthorityDispatchCorruptionError(
+                "AUTHORITY_DISPATCH_RECEIPT_WRITE_FAILED"
+            ) from exc
+        finally:
+            os.close(descriptor)
         if new_file:
             directory_fd = os.open(self.state_dir, os.O_RDONLY)
             try:

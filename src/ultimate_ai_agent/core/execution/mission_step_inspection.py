@@ -16,6 +16,9 @@ from ultimate_ai_agent.core.execution.durable_mission_steps import (
     MissionStepStatus,
     MissionStepStore,
 )
+from ultimate_ai_agent.core.execution.durable_mission_plans import (
+    DurableMissionPlanStore,
+)
 from ultimate_ai_agent.core.planning.validation import validate_task_ref
 from ultimate_ai_agent.core.safe_refs import hash_text
 from ultimate_ai_agent.core.time import utc_now
@@ -141,6 +144,9 @@ def build_mission_step_inspection_read_model(
         latest_by_dispatch[receipt.dispatch_ref] = receipt
     mission_store._bind_dispatch_receipt_resolver(  # noqa: SLF001
         latest_by_dispatch.get
+    )
+    mission_store._bind_plan_binding_resolver(  # noqa: SLF001
+        DurableMissionPlanStore(owned_state_dir).resolve_definition_binding
     )
     source = mission_store._read_inspection_source(step_ref)  # noqa: SLF001
     dispatch_binding_validated = False

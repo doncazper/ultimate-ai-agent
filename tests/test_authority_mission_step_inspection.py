@@ -8,6 +8,7 @@ import pytest
 
 from scripts.dev import uaa_runtime
 from tests.test_authority_mission_runner import _runner_request
+from tests.test_authority_mission_orchestrator import _orchestration_fixture
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.local_auth import (
     LOCAL_API_AUTH_DISABLED_FOR_DEV_ONLY_ENV,
@@ -83,6 +84,64 @@ def _without_volatile_authority_times(value):
     if isinstance(value, list):
         return [_without_volatile_authority_times(item) for item in value]
     return value
+
+
+def test_inspection_validates_orchestrated_blocked_and_halted_plan_evidence(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    orchestrator, dispatcher, _, _, request, _ = _orchestration_fixture(
+        tmp_path,
+        suffix="inspection-terminal-plan-evidence",
+        dependency_graph=[[], [0], [1], []],
+        operation_limit=1,
+        shared_state=True,
+    )
+    result = orchestrator.run(
+        request,
+        owner_ref="mission-owner-ref:test:inspection-terminal-plan-evidence",
+    )
+    assert [step.status for step in result.steps] == [
+        MissionStepStatus.succeeded.value,
+        MissionStepStatus.failed.value,
+        MissionStepStatus.dependency_blocked.value,
+        MissionStepStatus.fail_fast_halted.value,
+    ]
+
+    blocked = build_mission_step_inspection_read_model(
+        request.steps[2].definition.step_ref,
+        state_dir=dispatcher.state_dir,
+    )
+    halted = build_mission_step_inspection_read_model(
+        request.steps[3].definition.step_ref,
+        state_dir=dispatcher.state_dir,
+    )
+    assert blocked.durable_status == MissionStepStatus.dependency_blocked.value
+    assert halted.durable_status == MissionStepStatus.fail_fast_halted.value
+    assert blocked.request_scoped_authority_required is True
+    assert halted.execution_authority_granted is False
+
+    _enable_dev_api(monkeypatch, dispatcher.state_dir)
+    response = client.get(
+        "/api/runtime/authority-state",
+        params={"mission_step_ref": request.steps[3].definition.step_ref},
+    )
+    assert response.status_code == 200
+    api_projection = response.json()["data"]["mission_step_inspection"]
+    exit_code = uaa_runtime.main(
+        [
+            "--state-dir",
+            str(dispatcher.state_dir),
+            "inspect-authority-mission-step",
+            request.steps[3].definition.step_ref,
+            "--json",
+        ]
+    )
+    assert exit_code == 0
+    cli_projection = json.loads(capsys.readouterr().out)["mission_step_inspection"]
+    assert api_projection["durable_status"] == "fail_fast_halted"
+    assert cli_projection["durable_status"] == "fail_fast_halted"
 
 
 def test_api_and_cli_share_redacted_backend_projection(

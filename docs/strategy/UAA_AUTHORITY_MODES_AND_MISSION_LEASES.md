@@ -535,7 +535,23 @@ command share a redacted backend projection. They validate both durable
 ledgers, distinguish claim freshness from durable status, and perform no
 execution, mutation, lease/approval minting, retry, or reconciliation.
 
-Legacy executable-lane migration, multi-step scheduling, background execution,
+The bounded synchronous mission orchestrator now validates and durably binds a
+closed dependency graph of at most 16 exact filesystem-metadata steps before
+any step executes. Every step requires the same exact mission/run, a
+mission-scoped lease and action mission scope, a plan-bound dispatch request
+fingerprint, and a dispatcher start deadline equal to the step deadline.
+Execution remains sequential and fail-fast through MissionRunner and
+AuthorityDispatcher, with request-scoped authority re-evaluated per step and
+durable dependency-blocked evidence for descendants. Other unscheduled work is
+durably fail-fast halted rather than left apparently resumable. An accepted
+plan receipt must prove exact membership before any plan-bound definition can
+be created or claimed. The internal runner requires the accepted plan's exact
+execution context, and the locked claim rejects any new start after another
+plan member reaches terminal non-success. No API/CLI/UI execution, background
+worker, parallel fan-out, automatic retry, approval wait, or mission-level
+cancellation is added.
+
+Legacy executable-lane migration, background scheduling and execution,
 a periodic/background heartbeat loop, approval waits, retry budgets,
 after-start cancellation, settlement recovery, paid-provider actual usage
 proof, typed time windows,

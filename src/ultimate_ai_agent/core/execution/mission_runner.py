@@ -25,6 +25,7 @@ from ultimate_ai_agent.core.authority.dispatcher import (
 from ultimate_ai_agent.core.execution.durable_mission_steps import (
     MissionStepConflictError,
     MissionStepDefinition,
+    MissionStepOrchestrationContext,
     MissionStepReadModel,
     MissionStepStatus,
     MissionStepStore,
@@ -81,7 +82,45 @@ class AuthorityMissionRunner:
         owner_ref: str,
         claim_ttl_seconds: int = 30,
     ) -> AuthorityMissionStepResult:
-        self._validate_exact_lane(definition, request)
+        if definition.orchestration_plan_ref is not None:
+            raise ValueError("MISSION_RUNNER_ORCHESTRATED_ENTRYPOINT_REQUIRED")
+        return self._run_once(
+            definition,
+            request,
+            owner_ref=owner_ref,
+            claim_ttl_seconds=claim_ttl_seconds,
+            orchestration_context=None,
+        )
+
+    def _run_orchestrated_once(
+        self,
+        definition: MissionStepDefinition,
+        request: AuthorityDispatchRequest,
+        *,
+        owner_ref: str,
+        claim_ttl_seconds: int,
+        orchestration_context: MissionStepOrchestrationContext,
+    ) -> AuthorityMissionStepResult:
+        if definition.orchestration_plan_ref != orchestration_context.plan_ref:
+            raise ValueError("MISSION_RUNNER_ORCHESTRATION_CONTEXT_INVALID")
+        return self._run_once(
+            definition,
+            request,
+            owner_ref=owner_ref,
+            claim_ttl_seconds=claim_ttl_seconds,
+            orchestration_context=orchestration_context,
+        )
+
+    def _run_once(
+        self,
+        definition: MissionStepDefinition,
+        request: AuthorityDispatchRequest,
+        *,
+        owner_ref: str,
+        claim_ttl_seconds: int,
+        orchestration_context: MissionStepOrchestrationContext | None,
+    ) -> AuthorityMissionStepResult:
+        self.validate_step(definition, request)
         initial = self.step_store.create(definition)
         if initial.status in TERMINAL_MISSION_STEP_STATUSES:
             return AuthorityMissionStepResult(
@@ -96,6 +135,7 @@ class AuthorityMissionRunner:
                 ttl_seconds=claim_ttl_seconds,
                 dispatch_ref=request.dispatch_ref,
                 dispatch_request_fingerprint_ref=request_fingerprint_ref,
+                orchestration_context=orchestration_context,
             )
         except MissionStepConflictError as exc:
             if str(exc) == "MISSION_STEP_PREPARED_DEADLINE_EXPIRED":
@@ -149,11 +189,7 @@ class AuthorityMissionRunner:
             status=status,
             reason_refs=[reason_ref, *dispatch_result.receipt.reason_refs],
             evidence_refs=evidence_refs,
-            dispatch_receipt=(
-                dispatch_result.receipt
-                if status == MissionStepStatus.succeeded
-                else None
-            ),
+            dispatch_receipt=dispatch_result.receipt,
         )
         return AuthorityMissionStepResult(
             step=self.step_store.read(definition.step_ref),
@@ -202,11 +238,22 @@ class AuthorityMissionRunner:
             None,
         )
 
-    def _validate_exact_lane(
+    def validate_step(
         self,
         definition: MissionStepDefinition,
         request: AuthorityDispatchRequest,
     ) -> None:
+        if (
+            definition.dependency_step_refs
+            and definition.orchestration_plan_ref is None
+        ):
+            raise ValueError("MISSION_RUNNER_DURABLE_PLAN_BINDING_REQUIRED")
+        if definition.orchestration_plan_ref is not None and (
+            definition.planned_dispatch_ref != request.dispatch_ref
+            or definition.planned_dispatch_request_fingerprint_ref
+            != authority_dispatch_request_fingerprint(request)
+        ):
+            raise ValueError("MISSION_RUNNER_PLANNED_DISPATCH_BINDING_INVALID")
         adapter = self.dispatcher.adapters.get(definition.adapter_ref)
         if type(adapter) is not ToolRuntimeAuthorityDispatchAdapter:
             raise ValueError("MISSION_RUNNER_FILESYSTEM_ADAPTER_REQUIRED")
