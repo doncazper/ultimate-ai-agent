@@ -88,7 +88,7 @@ Evidence:
 
 - `src/ultimate_ai_agent/core/authority/budgets.py`
 - `src/ultimate_ai_agent/core/authority/budget_contracts.py`
-- `tests/test_authority_budgets.py`
+- `tests/test_authority_budget*.py`
 - `docs/runtime/UAA_AUTHORITY_LEASE_BUDGET_LEDGER.md`
 
 At that checkpoint, remaining gaps included central dispatcher binding, durable
@@ -124,7 +124,7 @@ Evidence:
 
 - `src/ultimate_ai_agent/core/authority/dispatcher.py`
 - `src/ultimate_ai_agent/core/authority/dispatch_contracts.py`
-- `tests/test_authority_dispatcher.py`
+- `tests/test_authority_dispatcher*.py`
 - `docs/runtime/UAA_AUTHORITY_DISPATCHER_V1.md`
 
 Remaining gaps are durable MissionRunner integration, heartbeat ownership,

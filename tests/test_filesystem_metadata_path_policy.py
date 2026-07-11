@@ -1,4 +1,5 @@
 from typing import Any
+import os
 from pathlib import Path
 import pytest
 
@@ -116,3 +117,41 @@ def test_intermediate_symlink_cannot_escape_safe_root(tmp_path: Path) -> None:
     assert decision.invocation_allowed is False
     assert decision.execution_performed is False
     assert "SYMLINK_DENIED" in decision.reason_codes
+
+
+def test_intermediate_path_swap_cannot_escape_opened_safe_root(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    safe_root = _safe_root(tmp_path)
+    notes = safe_root.root_path / "notes"
+    notes.mkdir()
+    safe_content = b"safe"
+    (notes / "report.md").write_bytes(safe_content)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "report.md").write_bytes(b"outside-content-is-larger")
+    real_open = os.open
+    swapped = False
+
+    def swapping_open(path: Any, flags: int, *args: Any, **kwargs: Any) -> int:
+        nonlocal swapped
+        fd = real_open(path, flags, *args, **kwargs)
+        if path == "notes" and kwargs.get("dir_fd") is not None and not swapped:
+            notes.rename(safe_root.root_path / "detached-notes")
+            notes.symlink_to(outside, target_is_directory=True)
+            swapped = True
+        return fd
+
+    monkeypatch.setattr(os, "open", swapping_open)
+
+    decision = evaluate_tool_invocation(
+        _request("notes/report.md"),
+        safe_roots=[safe_root],
+    )
+
+    assert swapped is True
+    assert decision.status == ToolInvocationStatus.metadata_completed
+    assert decision.result is not None
+    assert decision.result.output is not None
+    assert decision.result.output.size_bytes == len(safe_content)

@@ -91,7 +91,9 @@ when the dispatch ledger proves that its corresponding dispatch-start receipt
 was never written and therefore adapter invocation never began. That release
 must retain the exact dispatch fingerprint and execution ref; it frees the
 orphaned capacity and remains `cancelled_before_start`. It does not grant
-after-start cancellation. `AuthorityDispatcher` supplies durable pre-start,
+after-start cancellation. Public denial attempts use a separate idempotency
+namespace and therefore cannot poison the dispatcher's exact recovery key.
+`AuthorityDispatcher` supplies durable pre-start,
 budget-start, dispatch-start, and pre-start cancellation receipts for its routed
 adapters. Direct budget-store callers and legacy execution paths do not gain
 adapter-start proof merely from this integration.
@@ -154,7 +156,7 @@ Focused tests cover:
 - release rejection once execution is declared started;
 - Python state, API, and JSON CLI projection parity.
 
-Evidence: `tests/test_authority_budgets.py`.
+Evidence: the focused `tests/test_authority_budget*.py` modules.
 
 ## Explicit Non-Goals And Remaining Gaps
 

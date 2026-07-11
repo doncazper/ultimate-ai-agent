@@ -15,6 +15,9 @@ from typing import Any, Iterator, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 from ultimate_ai_agent.core.approvals import ApprovalGrant, ApprovalRequest, LocalApprovalAuthority
+from ultimate_ai_agent.core.approvals.authority import (
+    build_approval_revocation_reason_ref,
+)
 from ultimate_ai_agent.core.approvals.enums import ApprovalRiskLevel, ApprovalSubjectType
 from ultimate_ai_agent.core.authority import (
     AuthorityActionRequest,
@@ -83,6 +86,9 @@ from ultimate_ai_agent.core.time import utc_now
 DEFAULT_REGISTRY_PATH = ".uaa/task_decomposition_registry.json"
 REGISTRY_SCHEMA_VERSION = "task-decomposition-registry/v1"
 APPROVAL_STATE_SCHEMA_VERSION = "task-decomposition-approvals/v1"
+APPROVAL_REVOCATION_TOMBSTONE_SCHEMA_VERSION = (
+    "task-decomposition-approval-revocation/v1"
+)
 AUDIT_SCHEMA_VERSION = "task-decomposition-audit/v1"
 TASK_DECOMPOSITION_EXECUTE_AUTHORITY_ACTION_REF = (
     "authority-action-ref:task-decomposition-plan-execute"
@@ -155,6 +161,15 @@ class TaskDecompositionApprovalState(BaseModel):
     schema_version: str = APPROVAL_STATE_SCHEMA_VERSION
     requests: list[ApprovalRequest] = Field(default_factory=list)
     grants: list[ApprovalGrant] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class TaskDecompositionApprovalRevocationTombstone(BaseModel):
+    schema_version: str = APPROVAL_REVOCATION_TOMBSTONE_SCHEMA_VERSION
+    approval_ref: str = Field(..., min_length=1)
+    reason_ref: str = Field(..., min_length=1)
+    revoked_at: datetime = Field(default_factory=utc_now)
 
     model_config = ConfigDict(extra="forbid")
 
@@ -316,6 +331,10 @@ class CapabilityRegistryStore:
         return self.path.with_suffix(".approvals.json")
 
     @property
+    def approval_revocations_path(self) -> Path:
+        return self.path.with_suffix(".approval-revocations.jsonl")
+
+    @property
     def audit_path(self) -> Path:
         if self.config.audit_path:
             return Path(self.config.audit_path)
@@ -396,6 +415,33 @@ class CapabilityRegistryStore:
 
     def save_approval_state(self, state: TaskDecompositionApprovalState) -> None:
         self._write_json(self.approval_state_path, state.model_dump(mode="json"))
+
+    def load_approval_revocation_tombstones(
+        self,
+    ) -> list[TaskDecompositionApprovalRevocationTombstone]:
+        if not self.approval_revocations_path.exists():
+            return []
+        with self._locked():
+            lines = self.approval_revocations_path.read_text(
+                encoding="utf-8"
+            ).splitlines()
+        return [
+            TaskDecompositionApprovalRevocationTombstone.model_validate_json(line)
+            for line in lines
+            if line.strip()
+        ]
+
+    def append_approval_revocation_tombstone(
+        self,
+        tombstone: TaskDecompositionApprovalRevocationTombstone,
+    ) -> None:
+        payload = tombstone.model_dump_json()
+        with self._locked():
+            self.approval_revocations_path.parent.mkdir(parents=True, exist_ok=True)
+            with self.approval_revocations_path.open("a", encoding="utf-8") as stream:
+                stream.write(payload + "\n")
+                stream.flush()
+                os.fsync(stream.fileno())
 
     def load_audit_events(self) -> list[TaskDecompositionAuditEvent]:
         if not self.audit_path.exists():
@@ -850,7 +896,9 @@ class TaskDecompositionService:
         except Exception:
             if not durable_attached:
                 self._approval_requests.pop(approval_request.approval_request_id, None)
-                self.approval_authority._requests.pop(approval_request.approval_request_id, None)
+                self.approval_authority.remove_request_for_rollback(
+                    approval_request.approval_request_id
+                )
             raise
         binding = self.durable_binding(record.run_id)
         self.record_audit_event(
@@ -907,7 +955,7 @@ class TaskDecompositionService:
             )
         except Exception:
             if not durable_attached:
-                self.approval_authority._grants.pop(grant.approval_ref, None)
+                self.approval_authority.remove_grant_for_rollback(grant.approval_ref)
             raise
         binding = self.durable_binding(record.run_id)
         self.record_audit_event(
@@ -926,9 +974,20 @@ class TaskDecompositionService:
 
     def revoke_approval(self, request: TaskDecompositionApprovalRevokeRequest) -> ApprovalGrant:
         self._check_rate_limit("approval_revocation")
-        previous_grant = self.approval_authority.get_grant(request.approval_ref)
-        revoked = self.approval_authority.revoke(request.approval_ref, request.reason)
-        durable_attached = False
+        tombstone = TaskDecompositionApprovalRevocationTombstone(
+            approval_ref=request.approval_ref,
+            reason_ref=build_approval_revocation_reason_ref(request.reason),
+        )
+        self.registry_store.append_approval_revocation_tombstone(tombstone)
+        revoked = self.approval_authority.apply_revocation_tombstone(
+            tombstone.approval_ref,
+            reason_ref=tombstone.reason_ref,
+            revoked_at=tombstone.revoked_at,
+        )
+        # Revocation is monotonic. Persist the revoked grant before attempting the
+        # secondary durable-run attachment so a later attachment failure cannot
+        # reactivate authority in this process or after restart.
+        self._save_persisted_approval_state()
         try:
             record = self._ensure_durable_run(
                 revoked.run_id,
@@ -946,7 +1005,6 @@ class TaskDecompositionService:
                 ),
                 approval_refs=approval_refs,
             )
-            durable_attached = True
             self._record_approval_state_after_durable_attachment(
                 record.run_id,
                 run_attached_approval_item_from_grant(
@@ -956,8 +1014,6 @@ class TaskDecompositionService:
                 operation="approval-revoked",
             )
         except Exception:
-            if not durable_attached and previous_grant is not None:
-                self.approval_authority._grants[previous_grant.approval_ref] = previous_grant
             raise
         binding = self.durable_binding(record.run_id)
         self.record_audit_event(
@@ -1734,6 +1790,12 @@ class TaskDecompositionService:
             self._approval_requests[request.approval_request_id] = request
         for grant in state.grants:
             self.approval_authority.load_grant_for_validation(grant)
+        for tombstone in self.registry_store.load_approval_revocation_tombstones():
+            self.approval_authority.apply_revocation_tombstone(
+                tombstone.approval_ref,
+                reason_ref=tombstone.reason_ref,
+                revoked_at=tombstone.revoked_at,
+            )
 
     def _save_persisted_approval_state(self) -> None:
         self.registry_store.save_approval_state(

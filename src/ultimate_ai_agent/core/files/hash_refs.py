@@ -1,14 +1,7 @@
 from __future__ import annotations
 
-import hashlib
-
-
-def hash_bytes(content: bytes) -> str:
-    return hashlib.sha256(content).hexdigest()
-
-
-def hash_text(content: str) -> str:
-    return hash_bytes(content.encode("utf-8"))
+from ultimate_ai_agent.core.safe_refs import hash_bytes as hash_bytes
+from ultimate_ai_agent.core.safe_refs import hash_text
 
 
 def safe_file_ref(normalized_path: str) -> str:

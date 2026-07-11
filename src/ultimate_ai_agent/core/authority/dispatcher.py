@@ -7,6 +7,7 @@ import os
 from collections import defaultdict
 from contextlib import nullcontext
 from decimal import Decimal, InvalidOperation
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Protocol, Sequence
 
@@ -296,12 +297,13 @@ def _adapter_descriptor_reason_refs(
 class ToolRuntimeAuthorityDispatchAdapter:
     """Exact, injected bridge to the existing allowlisted safe tool runtime."""
 
+    IMPLEMENTATION_REF = "adapter-implementation-ref:tool-runtime-authority-dispatch-v1"
+
     def __init__(
         self,
         descriptor: AuthorityDispatchAdapterDescriptor,
         *,
         safe_roots: Sequence[FilesystemSafeRoot] = (),
-        runtime_adapter: ToolRuntimeAdapter | None = None,
     ) -> None:
         if descriptor.tool_ref not in {
             NOOP_TOOL_REF,
@@ -313,9 +315,15 @@ class ToolRuntimeAuthorityDispatchAdapter:
         root_refs = [root.root_ref for root in safe_roots]
         if len(root_refs) != len(set(root_refs)):
             raise ValueError("AUTHORITY_DISPATCH_DUPLICATE_SAFE_ROOT_REF")
-        self.descriptor = descriptor
+        self._descriptor = AuthorityDispatchAdapterDescriptor.model_validate(
+            descriptor.model_dump(mode="python")
+        )
         self._safe_roots = tuple(root.model_copy(deep=True) for root in safe_roots)
-        self.runtime_adapter = runtime_adapter or ToolRuntimeAdapter()
+        self._runtime_adapter = ToolRuntimeAdapter()
+
+    @property
+    def descriptor(self) -> AuthorityDispatchAdapterDescriptor:
+        return self._descriptor.model_copy(deep=True)
 
     @property
     def safe_roots(self) -> tuple[FilesystemSafeRoot, ...]:
@@ -326,7 +334,11 @@ class ToolRuntimeAuthorityDispatchAdapter:
         return _stable_ref(
             "adapter-binding-ref:authority-dispatch",
             {
-                "descriptor": self.descriptor.model_dump(mode="json"),
+                "implementation_ref": self.IMPLEMENTATION_REF,
+                "descriptor": self._descriptor.model_dump(mode="json"),
+                "runtime_manifest": self._runtime_adapter.manifest.model_dump(
+                    mode="json"
+                ),
                 "safe_roots": sorted(
                     [
                         {
@@ -352,7 +364,7 @@ class ToolRuntimeAuthorityDispatchAdapter:
         except ValueError:
             return ["reason-ref:authority-dispatch:tool-request-invalid"]
         runtime_reasons = [
-            *validate_runtime_policy(self.runtime_adapter.manifest.policy),
+            *validate_runtime_policy(self._runtime_adapter.manifest.policy),
             *validate_tool_invocation_request(
                 tool_request,
                 safe_roots=[root.model_copy(deep=True) for root in self._safe_roots],
@@ -364,7 +376,7 @@ class ToolRuntimeAuthorityDispatchAdapter:
             )
         if not request.cost_governor_allowed:
             reasons.append("reason-ref:authority-dispatch:cost-governor-denied")
-        if self.descriptor.tool_ref == FILESYSTEM_METADATA_TOOL_REF:
+        if self._descriptor.tool_ref == FILESYSTEM_METADATA_TOOL_REF:
             root_ref = tool_request.metadata.get("root_ref")
             if isinstance(root_ref, str) and root_ref not in {
                 root.root_ref for root in self._safe_roots
@@ -377,7 +389,7 @@ class ToolRuntimeAuthorityDispatchAdapter:
     def invoke(
         self, request: AuthorityDispatchRequest
     ) -> AuthorityDispatchAdapterResult:
-        decision = self.runtime_adapter.invoke(
+        decision = self._runtime_adapter.invoke(
             ToolInvocationRequest.model_validate(request.tool_invocation_request),
             replay_keys_seen=[],
             safe_roots=[root.model_copy(deep=True) for root in self._safe_roots],
@@ -405,7 +417,7 @@ class ToolRuntimeAuthorityDispatchAdapter:
         return AuthorityDispatchAdapterResult(
             execution_ref=_execution_ref(request),
             succeeded=succeeded,
-            actual_operation_count=self.descriptor.operation_count,
+            actual_operation_count=self._descriptor.operation_count,
             actual_cost_microusd=0,
             actual_cost_ref=_stable_ref(
                 "actual-cost-ref:authority-dispatch",
@@ -821,7 +833,7 @@ class AuthorityDispatcher:
                 previous_entry_hash_ref=receipts[-1].entry_hash_ref,
                 execution_ref=adapter_result.execution_ref,
                 execution_started=True,
-                adapter_execution_performed=True,
+                adapter_invocation_performed=True,
                 budget_settlement_receipt_ref=settlement.receipt_ref,
                 actual_operation_count=adapter_result.actual_operation_count,
                 actual_cost_microusd=adapter_result.actual_cost_microusd,
@@ -1101,11 +1113,93 @@ class AuthorityDispatcher:
             )
         if not budget_active:
             reasons.append("reason-ref:authority-dispatch:prestart-budget-inactive")
-        reasons.extend(self._cost_reason_refs(request))
+        start_time = utc_now()
+        start_lease = next(
+            (
+                item
+                for item in self.lease_store._list_leases(active_only=False)
+                if item.lease_ref == request.lease_ref
+                and item.is_active(now=start_time)
+            ),
+            None,
+        )
+        start_decision = evaluate_authority_request(
+            request.action_request,
+            [start_lease] if start_lease is not None else [],
+            now=start_time,
+        )
+        start_policy_allowed = (
+            start_decision.outcome == AuthorityDecisionOutcome.allow.value
+            or (
+                start_decision.outcome == AuthorityDecisionOutcome.ask.value
+                and prepared.approval_required
+                and prepared.approval_ref is not None
+                and prepared.approval_validation_ref is not None
+            )
+        )
+        if (
+            not start_policy_allowed
+            or start_decision.lease_ref != request.lease_ref
+        ):
+            reasons.append("reason-ref:authority-dispatch:prestart-authority-invalid")
+        if prepared.approval_required or prepared.approval_ref is not None:
+            validation_request = request.approval_validation_request
+            expected_resource_refs = {
+                request.lease_ref,
+                request.adapter_ref,
+                *request.action_request.resource_refs,
+            }
+            if (
+                validation_request is None
+                or self.approval_authority is None
+                or set(validation_request.resource_refs) != expected_resource_refs
+            ):
+                reasons.append(
+                    "reason-ref:authority-dispatch:prestart-approval-invalid"
+                )
+            else:
+                try:
+                    approval_decision = (
+                        self.approval_authority._validate_at_trusted_time(
+                            validation_request,
+                            current_time=start_time,
+                        )
+                    )
+                except Exception:
+                    approval_decision = None
+                validation_ref = (
+                    _stable_ref(
+                        "approval-validation-ref:authority-budget",
+                        {
+                            "approval_ref": validation_request.approval_ref,
+                            "action_ref": request.action_request.action_ref,
+                            "allowed": approval_decision.allowed,
+                            "matched_grant_ref": approval_decision.matched_grant_ref,
+                            "reason_codes": approval_decision.reason_codes,
+                            "status": approval_decision.status,
+                        },
+                    )
+                    if approval_decision is not None
+                    else None
+                )
+                if (
+                    approval_decision is None
+                    or not approval_decision.allowed
+                    or approval_decision.matched_grant_ref
+                    != validation_request.approval_ref
+                    or validation_ref != prepared.approval_validation_ref
+                ):
+                    reasons.append(
+                        "reason-ref:authority-dispatch:prestart-approval-invalid"
+                    )
+        reasons.extend(self._cost_reason_refs(request, current_time=start_time))
         return list(dict.fromkeys(reasons))
 
     def _cost_reason_refs(
-        self, request: AuthorityDispatchRequest
+        self,
+        request: AuthorityDispatchRequest,
+        *,
+        current_time: datetime | None = None,
     ) -> list[str]:
         reasons: list[str] = []
         if _contains_nonfinite_float(request.cost_estimate.model_dump(mode="python")):
@@ -1122,7 +1216,7 @@ class AuthorityDispatcher:
             reasons.append("reason-ref:authority-dispatch:run-cost-budget-missing")
         if any(budget.scope_id != request.run_ref for budget in run_budgets):
             reasons.append("reason-ref:authority-dispatch:run-cost-budget-scope-mismatch")
-        now = utc_now()
+        now = current_time or utc_now()
         for budget in request.cost_budgets:
             if budget.expires_at is None:
                 continue
@@ -1546,7 +1640,7 @@ class AuthorityDispatcher:
                 "cancellation_reason_ref",
                 "execution_ref",
                 "execution_started",
-                "adapter_execution_performed",
+                "adapter_invocation_performed",
                 "actual_operation_count",
                 "actual_cost_microusd",
                 "actual_cost_ref",

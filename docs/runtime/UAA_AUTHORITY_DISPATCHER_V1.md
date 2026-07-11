@@ -118,7 +118,10 @@ cannot complete between a successful validation decision and the fsynced start
 claim: whichever acquires the approval-state critical section first defines the
 ordered outcome. Caller booleans and approval refs alone do not authorize work.
 Caller-selected approval-validation time is rejected so expiry is evaluated
-against the trusted local clock.
+against the trusted local clock. The dispatcher performs a second core-clock
+validation after other pre-start work, and approval rollback paths use the same
+mutation lock, so neither wall-clock expiry nor failure compensation can bypass
+the durable-start check.
 
 The dispatcher also recomputes `CostGovernor` from the typed estimate and
 budgets. It rejects caller posture, estimate-ref, decision-ref, integer
@@ -155,7 +158,7 @@ to replay.
 
 ## Verified Acceptance Cases
 
-`tests/test_authority_dispatcher.py` covers:
+The focused `tests/test_authority_dispatcher*.py` modules cover:
 
 - a useful filesystem metadata dispatch with no raw content or absolute path in
   durable evidence;
@@ -180,8 +183,12 @@ to replay.
 - safe-tool runtime policy denial before reservation/start and fresh authority
   revalidation before an orphaned reservation can recover to `prepared`;
 - descriptor and safe-root mapping drift cancellation, fixed tool authority
-  domains, immutable safe-root snapshots, and an explicit
-  no-op/filesystem-metadata tool bridge allowlist;
+  domains, immutable safe-root snapshots, implementation/manifest-bound
+  adapter identity, descriptor-relative no-follow metadata traversal, and an
+  explicit no-op/filesystem-metadata tool bridge allowlist;
+- approval-scope narrowing that cannot widen, detached validated approval
+  and lease state, safe-ref-only revocation reasons, and monotonic durable
+  revocation through an fsynced restart-replayed tombstone;
 - action/approval replay conflict, dispatch idempotency conflict, receipt hash
   tampering, cross-ledger semantic drift, mismatched injected lease sources,
   start-boundary cost expiry, and non-mutating fresh read inspection.

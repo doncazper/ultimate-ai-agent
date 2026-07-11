@@ -216,7 +216,7 @@ class AuthorityDispatchReceipt(_AuthorityDispatchModel):
     cancellation_reason_ref: str | None = None
     execution_ref: str | None = None
     execution_started: StrictBool = False
-    adapter_execution_performed: StrictBool = False
+    adapter_invocation_performed: StrictBool = False
     actual_operation_count: StrictInt | None = Field(default=None, ge=1)
     actual_cost_microusd: StrictInt | None = Field(default=None, ge=0)
     actual_cost_ref: str | None = None
@@ -286,7 +286,7 @@ class AuthorityDispatchReceipt(_AuthorityDispatchModel):
         if self.adapter_approval_required and not self.approval_required:
             raise ValueError("AUTHORITY_DISPATCH_ADAPTER_APPROVAL_POSTURE_INVALID")
         if self.status == AuthorityDispatchStatus.denied.value:
-            if self.execution_started or self.adapter_execution_performed or not self.reason_refs:
+            if self.execution_started or self.adapter_invocation_performed or not self.reason_refs:
                 raise ValueError("AUTHORITY_DISPATCH_DENIAL_POSTURE_INVALID")
         elif (
             not self.adapter_binding_ref
@@ -298,7 +298,7 @@ class AuthorityDispatchReceipt(_AuthorityDispatchModel):
             AuthorityDispatchStatus.prepared.value,
             AuthorityDispatchStatus.cancellation_pending.value,
             AuthorityDispatchStatus.cancelled_before_start.value,
-        } and (self.execution_started or self.adapter_execution_performed):
+        } and (self.execution_started or self.adapter_invocation_performed):
             raise ValueError("AUTHORITY_DISPATCH_PRESTART_EXECUTION_FORBIDDEN")
         if self.status in {
             AuthorityDispatchStatus.cancellation_pending.value,
@@ -314,7 +314,7 @@ class AuthorityDispatchReceipt(_AuthorityDispatchModel):
             raise ValueError("AUTHORITY_DISPATCH_CANCELLATION_RELEASE_REQUIRED")
         if self.status == AuthorityDispatchStatus.started.value and (
             not self.execution_started
-            or self.adapter_execution_performed
+            or self.adapter_invocation_performed
             or not self.execution_ref
             or not self.budget_start_receipt_ref
         ):
@@ -324,7 +324,7 @@ class AuthorityDispatchReceipt(_AuthorityDispatchModel):
             AuthorityDispatchStatus.failed.value,
         } and (
             not self.execution_started
-            or not self.adapter_execution_performed
+            or not self.adapter_invocation_performed
             or not self.execution_ref
             or not self.budget_start_receipt_ref
             or not self.budget_settlement_receipt_ref

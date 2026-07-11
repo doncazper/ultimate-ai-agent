@@ -25,7 +25,12 @@ from ultimate_ai_agent.core.authority import (
 )
 from ultimate_ai_agent.core.hygiene.policies import ClassificationValue, DataClassification
 from ultimate_ai_agent.core.planning.validation import validate_task_ref
+from ultimate_ai_agent.core.safe_refs import hash_text
 from ultimate_ai_agent.core.time import utc_now
+
+
+def build_approval_revocation_reason_ref(reason: str) -> str:
+    return f"approval-revocation-reason-ref:sha256:{hash_text(reason)[:24]}"
 
 
 class LocalApprovalAuthority:
@@ -44,9 +49,10 @@ class LocalApprovalAuthority:
             yield
 
     def create_request(self, request: ApprovalRequest) -> ApprovalRequest:
+        stored = ApprovalRequest.model_validate(request.model_dump(mode="python"))
         with self._validation_lock:
-            self._requests[request.approval_request_id] = request
-        return request
+            self._requests[stored.approval_request_id] = stored
+        return stored.model_copy(deep=True)
 
     def grant(
         self,
@@ -58,11 +64,21 @@ class LocalApprovalAuthority:
         approval_ref: Optional[str] = None,
     ) -> ApprovalGrant:
         with self._validation_lock:
-            request = self._requests[request_id]
+            request = self._requests[request_id].model_copy(deep=True)
         requested_actions = [request.requested_action]
-        requested_refs = request.resource_refs
-        actions = [action for action in (approved_actions or requested_actions) if action in requested_actions]
-        refs = [ref for ref in (approved_resource_refs or requested_refs) if ref in requested_refs]
+        requested_refs = list(request.resource_refs)
+        if approved_actions is None:
+            actions = requested_actions
+        else:
+            if not approved_actions or not set(approved_actions).issubset(requested_actions):
+                raise ValueError("APPROVAL_ACTION_SCOPE_INVALID")
+            actions = list(approved_actions)
+        if approved_resource_refs is None:
+            refs = requested_refs
+        else:
+            if not set(approved_resource_refs).issubset(requested_refs):
+                raise ValueError("APPROVAL_RESOURCE_SCOPE_INVALID")
+            refs = list(approved_resource_refs)
         grant = ApprovalGrant(
             approval_ref=approval_ref or f"appr_{uuid.uuid4().hex[:16]}",
             approval_request_id=request.approval_request_id,
@@ -71,7 +87,7 @@ class LocalApprovalAuthority:
             subject_id=request.subject_id,
             granted_to_actor_id=request.actor_context.actor_id,
             approved_by_actor_id=approved_by_actor_id,
-            approved_actions=actions or requested_actions,
+            approved_actions=actions,
             approved_resource_refs=refs,
             risk_level=request.risk_level,
             data_classification=request.data_classification,
@@ -84,8 +100,8 @@ class LocalApprovalAuthority:
             metadata={"approval_mode": self.mode.value},
         )
         with self._validation_lock:
-            self._grants[grant.approval_ref] = grant
-        return grant
+            self._grants[grant.approval_ref] = grant.model_copy(deep=True)
+        return grant.model_copy(deep=True)
 
     def create_test_grant(self, request_id: str, approval_ref: str = "approval_test_local_dev") -> ApprovalGrant:
         return self.grant(request_id, approved_by_actor_id="local_test_fixture", approval_ref=approval_ref)
@@ -105,15 +121,46 @@ class LocalApprovalAuthority:
     def revoke(self, approval_ref: str, reason: str) -> ApprovalGrant:
         with self._validation_lock:
             grant = self._grants[approval_ref]
-            revoked = grant.model_copy(
-                update={
+            reason_ref = build_approval_revocation_reason_ref(reason)
+            payload = grant.model_dump(mode="python")
+            payload.update(
+                {
                     "status": ApprovalStatus.revoked,
                     "revoked_at": utc_now(),
-                    "metadata": {**grant.metadata, "revocation_reason": reason},
+                    "metadata": {
+                        **grant.metadata,
+                        "revocation_reason_ref": reason_ref,
+                    },
                 }
             )
+            revoked = ApprovalGrant.model_validate(payload)
             self._grants[approval_ref] = revoked
-            return revoked
+            return revoked.model_copy(deep=True)
+
+    def apply_revocation_tombstone(
+        self,
+        approval_ref: str,
+        *,
+        reason_ref: str,
+        revoked_at: datetime,
+    ) -> ApprovalGrant:
+        validate_task_ref(reason_ref, "approval_revocation_reason_ref")
+        with self._validation_lock:
+            grant = self._grants[approval_ref]
+            payload = grant.model_dump(mode="python")
+            payload.update(
+                {
+                    "status": ApprovalStatus.revoked,
+                    "revoked_at": revoked_at,
+                    "metadata": {
+                        **grant.metadata,
+                        "revocation_reason_ref": reason_ref,
+                    },
+                }
+            )
+            revoked = ApprovalGrant.model_validate(payload)
+            self._grants[approval_ref] = revoked
+            return revoked.model_copy(deep=True)
 
     def validate_for_request(self, request: ApprovalRequest, approval_ref: str) -> ApprovalValidationDecision:
         return self.validate(request.to_validation_request(approval_ref))
@@ -141,48 +188,82 @@ class LocalApprovalAuthority:
             return self._decision(validation_request, ApprovalDecisionStatus.out_of_scope, scope_failures, "Approval grant does not cover the requested action.", grant)
         return self._decision(validation_request, ApprovalDecisionStatus.approved, ["APPROVAL_VALIDATED"], "Approval grant validated for the requested scope.", grant, allowed=True)
 
+    def _validate_at_trusted_time(
+        self,
+        validation_request: ApprovalValidationRequest,
+        *,
+        current_time: datetime,
+    ) -> ApprovalValidationDecision:
+        """Revalidate with a core-supplied clock value under the mutation lock."""
+
+        with self._validation_lock:
+            return self._validate_locked(
+                validation_request.model_copy(update={"current_time": current_time})
+            )
+
     def get_grant(self, approval_ref: str) -> Optional[ApprovalGrant]:
         with self._validation_lock:
-            return self._grants.get(approval_ref)
+            grant = self._grants.get(approval_ref)
+            return grant.model_copy(deep=True) if grant is not None else None
 
     def load_grant_for_validation(self, grant: ApprovalGrant) -> None:
+        stored = ApprovalGrant.model_validate(grant.model_dump(mode="python"))
         with self._validation_lock:
-            self._grants[grant.approval_ref] = grant
+            self._grants[stored.approval_ref] = stored
+
+    def remove_request_for_rollback(self, approval_request_id: str) -> None:
+        with self._validation_lock:
+            self._requests.pop(approval_request_id, None)
+
+    def remove_grant_for_rollback(self, approval_ref: str) -> None:
+        with self._validation_lock:
+            self._grants.pop(approval_ref, None)
 
     def list_grants(self, run_id: str | None = None) -> List[ApprovalGrant]:
         with self._validation_lock:
-            grants = list(self._grants.values())
+            grants = [grant.model_copy(deep=True) for grant in self._grants.values()]
         if run_id is not None:
             grants = [grant for grant in grants if grant.run_id == run_id]
         return grants
 
     def issue_authority_lease(self, lease: AuthorityLease) -> AuthorityLease:
-        self._authority_leases[lease.lease_ref] = lease
-        return lease
+        stored = AuthorityLease.model_validate(lease.model_dump(mode="python"))
+        with self._validation_lock:
+            self._authority_leases[stored.lease_ref] = stored
+        return stored.model_copy(deep=True)
 
     def revoke_authority_lease(self, lease_ref: str, reason_ref: str) -> AuthorityLease:
         validate_task_ref(reason_ref, "authority_lease_revocation_reason_ref")
-        lease = self._authority_leases[lease_ref]
-        revoked = lease.model_copy(
-            update={
-                "status": AuthorityLeaseStatus.revoked,
-                "constraints": {
-                    **lease.constraints,
-                    "revocation_reason_ref": reason_ref,
-                },
-            }
-        )
-        self._authority_leases[lease_ref] = revoked
-        return revoked
+        with self._validation_lock:
+            lease = self._authority_leases[lease_ref]
+            payload = lease.model_dump(mode="python")
+            payload.update(
+                {
+                    "status": AuthorityLeaseStatus.revoked,
+                    "constraints": {
+                        **lease.constraints,
+                        "revocation_reason_ref": reason_ref,
+                    },
+                }
+            )
+            revoked = AuthorityLease.model_validate(payload)
+            self._authority_leases[lease_ref] = revoked
+            return revoked.model_copy(deep=True)
 
     def list_authority_leases(self, *, active_only: bool = False) -> list[AuthorityLease]:
-        leases = list(self._authority_leases.values())
+        with self._validation_lock:
+            leases = [
+                lease.model_copy(deep=True)
+                for lease in self._authority_leases.values()
+            ]
         if active_only:
             leases = [lease for lease in leases if lease.is_active()]
         return leases
 
     def load_authority_lease_for_validation(self, lease: AuthorityLease) -> None:
-        self._authority_leases[lease.lease_ref] = lease
+        stored = AuthorityLease.model_validate(lease.model_dump(mode="python"))
+        with self._validation_lock:
+            self._authority_leases[stored.lease_ref] = stored
 
     def evaluate_authority_scope(
         self,

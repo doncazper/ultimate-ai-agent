@@ -35,5 +35,13 @@ model_copy-mutated fields. Constructor validation alone is not authority.
 Safe path refs include a SHA-256 digest of the complete safe-root ref, avoiding
 identity collisions between distinct structured root refs.
 
+Metadata resolution opens the server-owned root and each intermediate
+directory with descriptor-relative, no-follow operations, then stats the final
+entry relative to the opened directory descriptor. Replacing an already-opened
+path component cannot redirect the lookup outside the safe root. Platforms
+without the required descriptor-relative no-follow primitives fail closed with
+`DESCRIPTOR_RELATIVE_METADATA_UNSUPPORTED`; they do not fall back to a
+path-based lookup.
+
 No path denial message should echo raw secrets, raw local absolute paths, or
 unsafe caller-provided content.

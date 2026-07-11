@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import hashlib
+import os
 import stat
 from enum import Enum
 from pathlib import Path, PurePosixPath
@@ -9,6 +9,7 @@ from urllib.parse import unquote
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.safe_refs import hash_text
 from ultimate_ai_agent.core.tools.runtime.validation import (
     SECRET_LIKE_RE,
     validate_safe_tool_runtime_text,
@@ -187,28 +188,45 @@ def normalize_relative_metadata_path(relative_path: str) -> tuple[str | None, li
 
 
 def filesystem_safe_path_ref(root_ref: str, normalized_path: str) -> str:
-    root_digest = hashlib.sha256(root_ref.encode("utf-8")).hexdigest()
+    root_digest = hash_text(root_ref)
     return f"filesystem-path:root-sha256-{root_digest}/{normalized_path}"
 
 
-def filesystem_metadata_target_path(
+def filesystem_metadata_stat(
     root_path: Path,
     normalized_path: str,
-) -> Path:
-    target_path = root_path / normalized_path
-    current = root_path
-    candidates = [current]
-    for part in PurePosixPath(normalized_path).parts:
-        current = current / part
-        candidates.append(current)
-    for candidate in candidates:
+) -> os.stat_result:
+    try:
+        directory_flags = (
+            os.O_RDONLY | os.O_CLOEXEC | os.O_DIRECTORY | os.O_NOFOLLOW
+        )
+    except AttributeError as exc:
+        raise ValueError("DESCRIPTOR_RELATIVE_METADATA_UNSUPPORTED") from exc
+    current_fd = os.open(root_path, directory_flags)
+    try:
+        parts = PurePosixPath(normalized_path).parts
+        for part in parts[:-1]:
+            try:
+                next_fd = os.open(part, directory_flags, dir_fd=current_fd)
+            except OSError:
+                try:
+                    candidate = os.stat(part, dir_fd=current_fd, follow_symlinks=False)
+                except OSError:
+                    raise
+                if stat.S_ISLNK(candidate.st_mode):
+                    raise ValueError("SYMLINK_DENIED")
+                raise
+            os.close(current_fd)
+            current_fd = next_fd
         try:
-            mode = candidate.lstat().st_mode
-        except (FileNotFoundError, NotADirectoryError):
-            break
-        if stat.S_ISLNK(mode):
+            result = os.stat(parts[-1], dir_fd=current_fd, follow_symlinks=False)
+        except IndexError as exc:
+            raise ValueError("EMPTY_PATH_DENIED") from exc
+        if stat.S_ISLNK(result.st_mode):
             raise ValueError("SYMLINK_DENIED")
-    return target_path
+        return result
+    finally:
+        os.close(current_fd)
 
 
 def _payload_flag(payload: Dict[str, object], *names: str) -> bool:
@@ -270,9 +288,8 @@ def build_filesystem_metadata_output(
     invocation_id: str,
     root_ref: str,
     normalized_path: str,
-    target_path: Path,
+    stat_result: os.stat_result,
 ) -> FilesystemMetadataOutput:
-    stat_result = target_path.lstat()
     mode = stat_result.st_mode
     if stat.S_ISLNK(mode):
         raise ValueError("SYMLINK_DENIED")
@@ -283,7 +300,7 @@ def build_filesystem_metadata_output(
     elif stat.S_ISREG(mode):
         path_kind = "file"
         size_bytes = stat_result.st_size
-        extension = target_path.suffix.lower() or None
+        extension = PurePosixPath(normalized_path).suffix.lower() or None
     else:
         path_kind = "other"
         size_bytes = stat_result.st_size
