@@ -23,6 +23,8 @@ surfaces are:
 - `GET /control-center/settings/status#authority_lease_state`
 - `scripts/dev/uaa_runtime.py inspect-authority-state --json`
 - `scripts/dev/uaa_runtime.py inspect-authority-state --summary`
+- `GET /api/runtime/authority-state?mission_step_ref=...`
+- `scripts/dev/uaa_runtime.py inspect-authority-mission-step STEP_REF`
 - `scripts/dev/uaa_runtime.py inspect-authority-domain-readiness --json`
 - `scripts/dev/uaa_runtime.py preview-authority-decision --json`
 - `scripts/dev/uaa_runtime.py plan-authority-mission --json`
@@ -528,6 +530,10 @@ the runner performs one pre-execute claim renewal and cancels a prepared,
 expired dispatch before adapter start.
 The dispatcher, not the runner, still owns current lease, policy, exact
 approval, budget, kill-switch, adapter, and target evaluation.
+The optional authority-state mission-step query and exact CLI inspection
+command share a redacted backend projection. They validate both durable
+ledgers, distinguish claim freshness from durable status, and perform no
+execution, mutation, lease/approval minting, retry, or reconciliation.
 
 Legacy executable-lane migration, multi-step scheduling, background execution,
 a periodic/background heartbeat loop, approval waits, retry budgets,

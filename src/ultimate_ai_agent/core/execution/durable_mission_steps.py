@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import stat
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
@@ -25,6 +26,8 @@ from ultimate_ai_agent.core.time import utc_now
 MISSION_STEP_SCHEMA_VERSION = "uaa-mission-step.v1"
 MISSION_STEP_LEDGER_FILE = "mission_step_receipts.jsonl"
 MISSION_STEP_LOCK_KEY = "authority-mission-steps"
+MISSION_STEP_LEDGER_MAX_BYTES = 8 * 1024 * 1024
+MISSION_STEP_LEDGER_MAX_RECEIPTS = 10_000
 
 
 class MissionStepError(RuntimeError):
@@ -179,6 +182,30 @@ class MissionStepReadModel(_MissionStepModel):
     receipt_ref: str
     execution_authority_granted: Literal[False] = False
     autonomous_retry_enabled: Literal[False] = False
+
+
+class _MissionStepInspectionSource(_MissionStepModel):
+    mission_ref: str
+    run_ref: str
+    step_ref: str
+    capability_ref: str
+    adapter_ref: str
+    lease_ref: str
+    dependency_step_refs: list[str]
+    deadline: datetime
+    status: MissionStepStatus
+    generation: StrictInt
+    attempt_no: Literal[1]
+    owner_ref: str | None
+    claim_ref: str | None
+    claim_expires_at: datetime | None
+    dispatch_ref: str | None
+    dispatch_request_fingerprint_ref: str | None
+    dispatch_receipt_ref: str | None
+    reason_refs: list[str]
+    evidence_refs: list[str]
+    receipt_ref: str
+    checked_at: datetime
 
 
 def _entry_hash(receipt: MissionStepReceipt) -> str:
@@ -589,6 +616,7 @@ class MissionStepStore:
             return receipt
 
     def read(self, step_ref: str) -> MissionStepReadModel:
+        validate_task_ref(step_ref, "mission_step_ref")
         with self.lock_manager.acquire(MISSION_STEP_LOCK_KEY):
             latest = self._require_latest(self._load(), step_ref)
         return MissionStepReadModel(
@@ -606,6 +634,34 @@ class MissionStepStore:
             reason_refs=latest.reason_refs,
             evidence_refs=latest.evidence_refs,
             receipt_ref=latest.receipt_ref,
+        )
+
+    def _read_inspection_source(self, step_ref: str) -> _MissionStepInspectionSource:
+        validate_task_ref(step_ref, "mission_step_ref")
+        with self.lock_manager.acquire(MISSION_STEP_LOCK_KEY):
+            latest = self._require_latest(self._load(), step_ref)
+        return _MissionStepInspectionSource(
+            mission_ref=latest.definition.mission_ref,
+            run_ref=latest.definition.run_ref,
+            step_ref=latest.definition.step_ref,
+            capability_ref=latest.definition.capability_ref,
+            adapter_ref=latest.definition.adapter_ref,
+            lease_ref=latest.definition.lease_ref,
+            dependency_step_refs=list(latest.definition.dependency_step_refs),
+            deadline=latest.definition.deadline,
+            status=latest.status,
+            generation=latest.generation,
+            attempt_no=latest.attempt_no,
+            owner_ref=latest.owner_ref,
+            claim_ref=latest.claim_ref,
+            claim_expires_at=latest.claim_expires_at,
+            dispatch_ref=latest.dispatch_ref,
+            dispatch_request_fingerprint_ref=(latest.dispatch_request_fingerprint_ref),
+            dispatch_receipt_ref=latest.dispatch_receipt_ref,
+            reason_refs=list(latest.reason_refs),
+            evidence_refs=list(latest.evidence_refs),
+            receipt_ref=latest.receipt_ref,
+            checked_at=latest.checked_at,
         )
 
     def receipts(self) -> list[MissionStepReceipt]:
@@ -826,11 +882,45 @@ class MissionStepStore:
                 os.close(directory_fd)
 
     def _load(self) -> list[MissionStepReceipt]:
-        if not self.receipts_path.exists():
+        flags = (
+            os.O_RDONLY
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_NONBLOCK", 0)
+        )
+        try:
+            descriptor = os.open(self.receipts_path, flags)
+        except FileNotFoundError:
             return []
+        except OSError as exc:
+            raise MissionStepCorruptionError("MISSION_STEP_LEDGER_READ_FAILED") from exc
+        try:
+            metadata = os.fstat(descriptor)
+            if not stat.S_ISREG(metadata.st_mode):
+                raise MissionStepCorruptionError(
+                    "MISSION_STEP_LEDGER_REGULAR_FILE_REQUIRED"
+                )
+            if metadata.st_size > MISSION_STEP_LEDGER_MAX_BYTES:
+                raise MissionStepCorruptionError(
+                    "MISSION_STEP_LEDGER_SIZE_LIMIT_EXCEEDED"
+                )
+            with os.fdopen(descriptor, "rb", closefd=False) as stream:
+                payload = stream.read(MISSION_STEP_LEDGER_MAX_BYTES + 1)
+        finally:
+            os.close(descriptor)
+        if len(payload) > MISSION_STEP_LEDGER_MAX_BYTES:
+            raise MissionStepCorruptionError("MISSION_STEP_LEDGER_SIZE_LIMIT_EXCEEDED")
+        try:
+            lines = payload.decode("utf-8").splitlines()
+        except UnicodeDecodeError as exc:
+            raise MissionStepCorruptionError("MISSION_STEP_LEDGER_INVALID") from exc
+        if len(lines) > MISSION_STEP_LEDGER_MAX_RECEIPTS:
+            raise MissionStepCorruptionError(
+                "MISSION_STEP_LEDGER_RECEIPT_LIMIT_EXCEEDED"
+            )
         receipts = [
             MissionStepReceipt.model_validate_json(line)
-            for line in self.receipts_path.read_text(encoding="utf-8").splitlines()
+            for line in lines
             if line.strip()
         ]
         previous: str | None = None

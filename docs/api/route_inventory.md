@@ -125,6 +125,10 @@ readiness, WebAccessGateway evidence preview, Memory Review decisions,
 provider readiness, and extension catalog review with safe refs, approval
 scope, idempotency, receipt, rollback/safe-disable, and active policy decision
 posture. It is inspection-only and creates no new execution route.
+The same protected route accepts an optional `mission_step_ref` query for one
+exact redacted durable mission-step projection with CLI parity. It validates
+the mission and dispatch ledgers, distinguishes durable status from claim
+freshness, and adds no route, mutation, retry, reconciliation, or authority.
 `GET /api/runtime/authority-domain-readiness` exposes a focused read-only
 AuthorityLease domain readiness model derived from the same authority-state
 decision catalog, active leases, and mode catalog. It gives one row per target

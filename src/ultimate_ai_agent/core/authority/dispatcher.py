@@ -4,6 +4,7 @@ import hashlib
 import json
 import math
 import os
+import stat
 from collections import defaultdict
 from contextlib import nullcontext
 from decimal import Decimal, InvalidOperation
@@ -68,6 +69,10 @@ from ultimate_ai_agent.core.tools.runtime.policy import (
     validate_tool_invocation_request,
 )
 from ultimate_ai_agent.core.tools.runtime.validation import NOOP_TOOL_REF
+
+
+AUTHORITY_DISPATCH_LEDGER_MAX_BYTES = 16 * 1024 * 1024
+AUTHORITY_DISPATCH_LEDGER_MAX_RECEIPTS = 20_000
 
 
 class AuthorityDispatchConflictError(RuntimeError):
@@ -920,7 +925,7 @@ class AuthorityDispatcher:
         )
 
     def list_receipts(self) -> list[AuthorityDispatchReceipt]:
-        if not self.receipts_path.exists():
+        if not self._receipts_path_exists_no_follow():
             return []
         with self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY):
             return self._load_receipts()
@@ -928,7 +933,7 @@ class AuthorityDispatcher:
     def build_read_model(self, *, recent_limit: int = 12) -> AuthorityDispatchReadModel:
         if recent_limit < 0:
             raise ValueError("AUTHORITY_DISPATCH_RECENT_LIMIT_NONNEGATIVE_REQUIRED")
-        if not self.receipts_path.exists():
+        if not self._receipts_path_exists_no_follow():
             return AuthorityDispatchReadModel()
         with self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY):
             receipts = self._load_receipts()
@@ -952,6 +957,13 @@ class AuthorityDispatcher:
             receipt_count=len(receipts),
             recovery_required_dispatch_refs=recovery_refs,
         )
+
+    def _receipts_path_exists_no_follow(self) -> bool:
+        try:
+            os.lstat(self.receipts_path)
+        except FileNotFoundError:
+            return False
+        return True
 
     def _prestart_reason_refs(
         self,
@@ -1700,51 +1712,87 @@ class AuthorityDispatcher:
         )
 
     def _load_receipts(self) -> list[AuthorityDispatchReceipt]:
-        if not self.receipts_path.exists():
+        flags = (
+            os.O_RDONLY
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_NONBLOCK", 0)
+        )
+        try:
+            descriptor = os.open(self.receipts_path, flags)
+        except FileNotFoundError:
             return []
+        except OSError as exc:
+            raise AuthorityDispatchCorruptionError(
+                "AUTHORITY_DISPATCH_RECEIPT_READ_FAILED"
+            ) from exc
+        try:
+            metadata = os.fstat(descriptor)
+            if (
+                not stat.S_ISREG(metadata.st_mode)
+                or metadata.st_size > AUTHORITY_DISPATCH_LEDGER_MAX_BYTES
+            ):
+                raise AuthorityDispatchCorruptionError(
+                    "AUTHORITY_DISPATCH_RECEIPT_SIZE_OR_TYPE_INVALID"
+                )
+            with os.fdopen(descriptor, "rb", closefd=False) as stream:
+                payload = stream.read(AUTHORITY_DISPATCH_LEDGER_MAX_BYTES + 1)
+        finally:
+            os.close(descriptor)
+        if len(payload) > AUTHORITY_DISPATCH_LEDGER_MAX_BYTES:
+            raise AuthorityDispatchCorruptionError(
+                "AUTHORITY_DISPATCH_RECEIPT_SIZE_OR_TYPE_INVALID"
+            )
+        try:
+            lines = payload.decode("utf-8").splitlines()
+        except UnicodeDecodeError as exc:
+            raise AuthorityDispatchCorruptionError(
+                "AUTHORITY_DISPATCH_RECEIPT_INVALID"
+            ) from exc
         receipts: list[AuthorityDispatchReceipt] = []
         previous_hash: str | None = None
         histories: dict[str, list[AuthorityDispatchReceipt]] = defaultdict(list)
         idempotency_dispatch: dict[str, str] = {}
         action_dispatch: dict[str, str] = {}
-        with self.receipts_path.open(encoding="utf-8") as handle:
-            for line in handle:
-                if not line.strip():
-                    continue
-                try:
-                    receipt = AuthorityDispatchReceipt(**json.loads(line))
-                except Exception as exc:
-                    raise AuthorityDispatchCorruptionError(
-                        "AUTHORITY_DISPATCH_RECEIPT_INVALID"
-                    ) from exc
-                if receipt.previous_entry_hash_ref != previous_hash:
-                    raise AuthorityDispatchCorruptionError(
-                        "AUTHORITY_DISPATCH_HASH_CHAIN_PREVIOUS_MISMATCH"
-                    )
-                if receipt.entry_hash_ref != _entry_hash(receipt):
-                    raise AuthorityDispatchCorruptionError(
-                        "AUTHORITY_DISPATCH_ENTRY_HASH_MISMATCH"
-                    )
-                bound_dispatch = idempotency_dispatch.setdefault(
-                    receipt.idempotency_ref, receipt.dispatch_ref
+        if len(lines) > AUTHORITY_DISPATCH_LEDGER_MAX_RECEIPTS:
+            raise AuthorityDispatchCorruptionError(
+                "AUTHORITY_DISPATCH_RECEIPT_LIMIT_EXCEEDED"
+            )
+        for line in lines:
+            if not line.strip():
+                continue
+            try:
+                receipt = AuthorityDispatchReceipt(**json.loads(line))
+            except Exception as exc:
+                raise AuthorityDispatchCorruptionError(
+                    "AUTHORITY_DISPATCH_RECEIPT_INVALID"
+                ) from exc
+            if receipt.previous_entry_hash_ref != previous_hash:
+                raise AuthorityDispatchCorruptionError(
+                    "AUTHORITY_DISPATCH_HASH_CHAIN_PREVIOUS_MISMATCH"
                 )
-                if bound_dispatch != receipt.dispatch_ref:
-                    raise AuthorityDispatchCorruptionError(
-                        "AUTHORITY_DISPATCH_IDEMPOTENCY_HISTORY_MISMATCH"
-                    )
-                bound_action_dispatch = action_dispatch.setdefault(
-                    receipt.action_ref, receipt.dispatch_ref
+            if receipt.entry_hash_ref != _entry_hash(receipt):
+                raise AuthorityDispatchCorruptionError(
+                    "AUTHORITY_DISPATCH_ENTRY_HASH_MISMATCH"
                 )
-                if bound_action_dispatch != receipt.dispatch_ref:
-                    raise AuthorityDispatchCorruptionError(
-                        "AUTHORITY_DISPATCH_ACTION_HISTORY_MISMATCH"
-                    )
-                self._validate_history_transition(
-                    receipt, histories[receipt.dispatch_ref]
+            bound_dispatch = idempotency_dispatch.setdefault(
+                receipt.idempotency_ref, receipt.dispatch_ref
+            )
+            if bound_dispatch != receipt.dispatch_ref:
+                raise AuthorityDispatchCorruptionError(
+                    "AUTHORITY_DISPATCH_IDEMPOTENCY_HISTORY_MISMATCH"
                 )
-                histories[receipt.dispatch_ref].append(receipt)
-                receipts.append(receipt)
-                previous_hash = receipt.entry_hash_ref
+            bound_action_dispatch = action_dispatch.setdefault(
+                receipt.action_ref, receipt.dispatch_ref
+            )
+            if bound_action_dispatch != receipt.dispatch_ref:
+                raise AuthorityDispatchCorruptionError(
+                    "AUTHORITY_DISPATCH_ACTION_HISTORY_MISMATCH"
+                )
+            self._validate_history_transition(receipt, histories[receipt.dispatch_ref])
+            histories[receipt.dispatch_ref].append(receipt)
+            receipts.append(receipt)
+            previous_hash = receipt.entry_hash_ref
         return receipts
 
     def _validate_history_transition(

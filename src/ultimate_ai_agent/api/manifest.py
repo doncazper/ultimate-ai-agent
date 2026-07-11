@@ -81,6 +81,7 @@ CAPABILITIES_DECLARED = [
     "authority_state_mode_catalog",
     "authority_decision_preview",
     "authority_mission_plan_preview",
+    "authority_mission_step_read_only_inspection",
     "governed_product_pilot_portable_evidence_envelope",
     "governed_product_pilot_durable_orchestration_profile",
     "control_center_coding_cockpit_session_read_model",
@@ -233,6 +234,8 @@ CAPABILITIES_BLOCKED = [
     "governed_runtime_raw_prompt_response_persistence",
     "governed_runtime_raw_command_output_persistence",
     "governed_runtime_raw_local_path_or_env_persistence",
+    "authority_mission_step_inspection_as_execution_authority",
+    "authority_mission_step_inspection_mutation_or_retry",
     "governed_product_pilot_broad_autonomy",
     "governed_product_pilot_unrestricted_shell_subprocess",
     "governed_product_pilot_browser_automation",
@@ -1000,7 +1003,7 @@ def route_classification_for_path(
     if normalized_method == "GET" and path == "/api/runtime/authority-state":
         return (
             ApiRouteClassification.local_sensitive,
-            "Authority state inspection route exposes active mode/domain/lease refs, mode readiness catalog, capability mappings, decision catalog outcomes, receipts, kill-switch posture, and blocked reasons without mutation or execution.",
+            "Authority state inspection route exposes active mode/domain/lease refs, mode readiness catalog, capability mappings, decision catalog outcomes, receipts, kill-switch posture, blocked reasons, and an optional redacted exact mission-step projection without mutation or execution.",
         )
     if normalized_method == "GET" and path == "/api/runtime/authority-domain-readiness":
         return (
