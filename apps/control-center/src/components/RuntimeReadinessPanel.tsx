@@ -3848,6 +3848,14 @@ export function RuntimeReadinessPanel({
             <dd>{streamingProgress.cli_ref}</dd>
           </div>
           <div>
+            <dt>Replay route</dt>
+            <dd>{streamingProgress.replay_route_ref}</dd>
+          </div>
+          <div>
+            <dt>Replay CLI</dt>
+            <dd>{streamingProgress.replay_cli_ref}</dd>
+          </div>
+          <div>
             <dt>Authority</dt>
             <dd>{streamingProgress.authority_state_route_ref}</dd>
           </div>
@@ -3872,6 +3880,34 @@ export function RuntimeReadinessPanel({
             <dd>{streamingProgress.stale_stream ? "yes" : "no"}</dd>
           </div>
           <div>
+            <dt>Read-only preview replay</dt>
+            <dd>
+              {streamingProgress.readonly_sse_replay_enabled
+                ? "local preview replay available"
+                : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Replay source</dt>
+            <dd>
+              {streamingProgress.readonly_sse_replay_durable_event_source
+                ? "durable events"
+                : streamingProgress.readonly_sse_replay_source_posture.replaceAll(
+                    "_",
+                    " ",
+                  )}
+            </dd>
+          </div>
+          <div>
+            <dt>Replay control</dt>
+            <dd>
+              {streamingProgress.readonly_sse_replay_control_messages_accepted ||
+              streamingProgress.readonly_sse_replay_mutation_enabled
+                ? "enabled"
+                : "blocked (read-only)"}
+            </dd>
+          </div>
+          <div>
             <dt>Live subscription</dt>
             <dd>
               {streamingProgress.live_subscription_enabled
@@ -3880,7 +3916,7 @@ export function RuntimeReadinessPanel({
             </dd>
           </div>
           <div>
-            <dt>SSE/WebSocket</dt>
+            <dt>Live SSE/WebSocket</dt>
             <dd>
               {streamingProgress.sse_transport_enabled ||
               streamingProgress.websocket_transport_enabled

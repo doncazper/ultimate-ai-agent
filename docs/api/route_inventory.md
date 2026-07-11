@@ -488,8 +488,11 @@ Hermes Runtime Adoption Phase 05 streaming-progress posture for ordered,
 redacted event previews, stale/disconnected stream state, event hash refs,
 proof refs, and the AuthorityState mapping/catalog/decision/reason/unsupported-
 adapter refs for `lane-ref:runtime-streaming-progress-read-model`. It does not
-open SSE/WebSocket subscriptions, reconnect to Hermes, ingest live runtime
-events, or persist raw runtime/tool/generated/log/prompt/response payloads.
+open live SSE/WebSocket subscriptions, reconnect to Hermes, ingest live runtime
+events, or persist raw runtime/tool/generated/log/prompt/response payloads. An
+exact current run ref may select `transport=sse` to replay the already-built
+bounded redacted preview snapshot with an `after_sequence` cursor; that replay
+accepts no control messages and is not a durable or live event source.
 `GET /api/runtime/profiles` exposes a protected read-only Python Core Hermes
 Runtime Adoption Phase 06 profile isolation posture for UAA-owned profile refs
 that stay separate from delegated runtime profile refs, safe display labels,

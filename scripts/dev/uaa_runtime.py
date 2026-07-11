@@ -91,6 +91,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_runtime_action_signed_evidence,
     build_runtime_checkpoint_rollback_read_model_from_authority_catalog,
     build_runtime_context_references_read_model_from_authority_catalog,
+    iter_runtime_streaming_progress_sse_lines,
     verify_portable_evidence_envelope,
     verify_runtime_action_signed_evidence,
 )
@@ -4007,9 +4008,28 @@ def _inspect_approval_bridge(args: argparse.Namespace) -> int:
 
 def _inspect_streaming_progress(args: argparse.Namespace) -> int:
     authority_state = AuthorityLeaseStore().build_state_read_model()
-    read_model = build_runtime_streaming_progress_read_model_from_authority_catalog(
+    read_model_obj = build_runtime_streaming_progress_read_model_from_authority_catalog(
         authority_decision_catalog=authority_state.decision_catalog,
-    ).model_dump(mode="json")
+    )
+    read_model = read_model_obj.model_dump(mode="json")
+    if args.replay_sse:
+        if not args.run_ref:
+            print("ERROR: --run-ref is required with --replay-sse", file=sys.stderr)
+            return 2
+        try:
+            for line in iter_runtime_streaming_progress_sse_lines(
+                read_model_obj,
+                run_ref=args.run_ref,
+                after_sequence=args.after_sequence,
+            ):
+                print(line, end="")
+        except ValueError:
+            print(
+                "ERROR: read-only SSE replay is limited to deterministic redacted preview refs",
+                file=sys.stderr,
+            )
+            return 2
+        return 0
     payload = {
         "schema_version": "governed-runtime-cli:v1",
         "command_ref": "repo-local-command:uaa-runtime-inspect-streaming-progress",
@@ -4037,6 +4057,10 @@ def _inspect_streaming_progress(args: argparse.Namespace) -> int:
         "raw_response_persisted": False,
         "execution_performed": False,
         "live_subscription_performed": False,
+        "readonly_sse_replay_available": read_model["readonly_sse_replay_enabled"],
+        "readonly_sse_replay_source_posture": read_model[
+            "readonly_sse_replay_source_posture"
+        ],
         "sse_subscription_performed": False,
         "websocket_subscription_performed": False,
     }
