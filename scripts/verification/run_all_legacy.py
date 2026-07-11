@@ -12,16 +12,14 @@ import importlib.util
 from contextlib import contextmanager
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
+if __package__:
+    from .static_scan_policy import is_static_gate_scan_allowed_file, is_unapproved_static_fragment, repo_source_env
+else:
+    from static_scan_policy import is_static_gate_scan_allowed_file, is_unapproved_static_fragment, repo_source_env
 _P1_API_VERIFIER_LANE_RAN = False
 GOVERNED_RUNTIME_COMMAND_ADAPTER_REL = (
     "src/ultimate_ai_agent/core/runtime_gateway/command.py"
 )
-APPROVED_WEB_ADAPTER_STATIC_SCAN_FILES = {
-    "src/ultimate_ai_agent/core/web_access/firecrawl_cloud.py",
-    "src/ultimate_ai_agent/core/web_access/firecrawl_markdown.py",
-    "src/ultimate_ai_agent/core/web_access/searxng_search.py",
-}
-
 M44_ALLOWED_CCC_IOS_SKELETON_PREFIX = "apps/ccc-ios/Sources/UltimateAIAgentCCC/"
 M44_ALLOWED_CCC_IOS_SKELETON_FILES = {
     "apps/ccc-ios/README.md",
@@ -44,14 +42,7 @@ def _is_m46_allowed_ccc_ios_review_receipt_file(rel_path: str) -> bool:
 
 
 def _is_static_gate_scan_allowed_file(rel_path: str, allowed_files: set[str]) -> bool:
-    from ultimate_ai_agent.core.gate.legacy_support import (
-        _is_static_safety_scan_allowed_file,
-    )
-
-    return (
-        _is_static_safety_scan_allowed_file(rel_path, allowed_files)
-        or rel_path in APPROVED_WEB_ADAPTER_STATIC_SCAN_FILES
-    )
+    return is_static_gate_scan_allowed_file(rel_path, allowed_files)
 
 
 def _current_version() -> str:
@@ -1238,7 +1229,7 @@ def _run_p1_api_verifier_lane_once() -> None:
     # Run the shared lane in a clean interpreter. The legacy scan process imports
     # hundreds of contract modules before this point, so reusing that module
     # graph can make FastAPI route discovery depend on verifier import order.
-    run_cmd([sys.executable, "scripts/verification/api_lane.py"])
+    run_cmd([sys.executable, "scripts/verification/api_lane.py"], env=repo_source_env(ROOT))
     _P1_API_VERIFIER_LANE_RAN = True
 
 
@@ -8052,7 +8043,7 @@ def verify_m55_redacted_observability_export() -> None:
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
-                if fragment in text:
+                if is_unapproved_static_fragment(rel=rel, fragment=fragment, source=text):
                     print(f"FAIL: M55 forbidden observability export fragment in {rel}: {fragment}")
                     sys.exit(1)
 
@@ -8278,7 +8269,7 @@ def verify_m56_agent_eval_regression_harness() -> None:
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
-                if fragment in text:
+                if is_unapproved_static_fragment(rel=rel, fragment=fragment, source=text):
                     print(f"FAIL: M56 forbidden eval regression fragment in {rel}: {fragment}")
                     sys.exit(1)
 
@@ -11813,9 +11804,9 @@ def verify_m71_network_tool_contract_review() -> None:
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
-                if (
-                    fragment in text
-                    and fragment not in allowed_fragments_by_file.get(rel, set())
+                if is_unapproved_static_fragment(
+                    rel=rel, fragment=fragment, source=text,
+                    allowed_fragments=allowed_fragments_by_file.get(rel, set()),
                 ):
                     print(f"FAIL: M71 forbidden network tool contract fragment in {rel}: {fragment}")
                     sys.exit(1)
@@ -12071,7 +12062,10 @@ def verify_m72_read_only_http_fetch_tool() -> None:
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
-                if fragment in text and fragment not in allowed_fragments_by_file.get(rel, set()):
+                if is_unapproved_static_fragment(
+                    rel=rel, fragment=fragment, source=text,
+                    allowed_fragments=allowed_fragments_by_file.get(rel, set()),
+                ):
                     print(f"FAIL: M72 forbidden HTTP fetch fragment in {rel}: {fragment}")
                     sys.exit(1)
 
@@ -12574,7 +12568,7 @@ def verify_m74_browser_observe_only_adapter() -> None:
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
-                if fragment in text:
+                if is_unapproved_static_fragment(rel=rel, fragment=fragment, source=text):
                     print(f"FAIL: M74 forbidden browser observe/control fragment in {rel}: {fragment}")
                     sys.exit(1)
 
@@ -12800,7 +12794,7 @@ def verify_m75_browser_action_dry_run_planner() -> None:
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
-                if fragment in text:
+                if is_unapproved_static_fragment(rel=rel, fragment=fragment, source=text):
                     print(f"FAIL: M75 forbidden browser action fragment in {rel}: {fragment}")
                     sys.exit(1)
 
@@ -17225,8 +17219,8 @@ def verify_m95_authless_network_tool_expansion() -> None:
         "src/ultimate_ai_agent/core/network/__init__.py",
         "src/ultimate_ai_agent/core/network/authless_expansion.py",
     }
-    source_text = "\n".join(
-        path.read_text(encoding="utf-8")
+    source_files = [
+        (path.relative_to(ROOT).as_posix(), path.read_text(encoding="utf-8"))
         for root in [ROOT / "src" / "ultimate_ai_agent", ROOT / "apps" / "control-center" / "src"]
         if root.exists()
         for path in root.rglob("*")
@@ -17237,7 +17231,8 @@ def verify_m95_authless_network_tool_expansion() -> None:
         and not _is_static_gate_scan_allowed_file(
             path.relative_to(ROOT).as_posix(), allowed_scan_files
         )
-    )
+    ]
+    source_text = "\n".join(text for _, text in source_files)
     for fragment in [
         "unrestricted_network_allowed=True",
         "authenticated_network_allowed=True",
@@ -17274,9 +17269,12 @@ def verify_m95_authless_network_tool_expansion() -> None:
         "store_raw_provider_payload=True",
         "store_secret=True",
     ]:
-        if fragment in source_text:
-            print(f"FAIL: M95 forbidden source fragment present: {fragment}")
-            sys.exit(1)
+        for rel, text in source_files:
+            if is_unapproved_static_fragment(
+                rel=rel, fragment=fragment, source=text
+            ):
+                print(f"FAIL: M95 forbidden source fragment in {rel}: {fragment}")
+                sys.exit(1)
 
     for forbidden_route in [
         "/network/get",
