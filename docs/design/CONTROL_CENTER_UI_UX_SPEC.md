@@ -227,9 +227,9 @@ Used by Start Here, Today, Overview, Dashboard, Briefing, and Operator Loop.
 - one unified `Needs your attention` queue containing approvals, CRM follow-ups,
   Work Board blockers/movement, missing sources, memory conflicts, and stale or
   missing evidence;
-- a contextual detail drawer, opened only from a selected signal, showing why
-  it matters, linked plan/work item, relevant safe evidence, authority scope,
-  and next safe step;
+- a clearly labeled selected-item inspector showing the selected signal's
+  title, why it matters, linked plan/work item, relevant safe evidence,
+  authority scope, and next safe step; compact layouts convert it to a drawer;
 - a compact business pulse for CRM, Work Board, upcoming commitments, and
   evidence movement;
 - a compact News module that separates sourced situational context from work
@@ -252,30 +252,32 @@ become repetition:
   source label, freshness, and a safe reference to the underlying source.
   Weather shows only current temperature, today's high, and conditions beside
   the route title.
-- Morning Briefing may include one synthesized Business pulse sentence.
-  Detailed CRM, Work Board, commitment, and evidence metrics remain in their
-  canonical surfaces rather than a separate Today card.
-- Recent receipts collapses to one `Since your last check` disclosure instead
-  of a persistent card.
-- `Why it matters` is a subsection of a selected item's named detail drawer,
-  never the title of an unexplained permanent panel.
+- Business pulse owns a compact set of non-actionable trend summaries and
+  links to the canonical CRM, Work Board, commitment, or Evidence surface.
+- Recent receipts owns a compact two-row history card with a deep link to the
+  receipt ledger.
+- The inspector title is `Selected item` or the selected object's name.
+  `Why it matters` is a subsection inside it, never an unexplained panel title.
 - Other regions may show a count or deep link to the canonical home, but must
   not repeat the same full row, description, and status.
 
 #### Today default composition and interaction
 
-The default Today screen has four primary modules: Morning Briefing, Needs your
-attention, Day Plan, and News. The layout favors two calm columns rather than a
-dashboard grid. Selecting a row opens a named right-side detail drawer without
-permanently reserving an empty inspector column. While the drawer is open, its
-safe ref is attached visibly and removably to the persistent UAA composer.
+The default Today screen preserves the information-rich three-column command
+deck: Morning Briefing, Needs your attention, and a selected-item inspector on
+the first row; Today priorities, News, and a compact Business pulse/Recent
+receipts stack on the second row. The relationships between modules must feel
+intentional rather than like unrelated dashboard tiles. Selecting a row updates
+the named inspector in place, and its safe ref is attached visibly and
+removably to the persistent UAA composer. Compact layouts convert the inspector
+to a drawer.
 
 - Morning Briefing is read-only synthesis. Its rows open source/provenance
   detail but do not expose completion controls.
 - Needs your attention rows open details and offer only type-correct actions:
   `Review`, `Resolve`, `Defer`, `Dismiss`, or `Ask UAA`. A signal is never
   labeled complete merely because the operator dismissed it.
-- Day Plan tasks may offer `Queue`, `Start`, `Defer`, and `Complete` only when
+- Today priority tasks may offer `Queue`, `Start`, `Defer`, and `Complete` only when
   the backing Python-core/API contract supports that exact transition.
 - News rows may open the sourced detail, `Ask UAA`, save a safe reference for
   later review, or mute a source. News is not completable work.
