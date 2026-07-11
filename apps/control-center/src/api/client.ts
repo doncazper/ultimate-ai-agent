@@ -7780,6 +7780,87 @@ function isSafeFounderAgentLoopThread(
     typeof value.contract_ref === "string" &&
     typeof value.route_ref === "string" &&
     typeof value.cli_ref === "string" &&
+    value.reasoning_truth?.schema_version ===
+      "uaa-intent-reasoning-truth.v1" &&
+    value.reasoning_truth?.contract_ref ===
+      "contract-ref:intent-reasoning-truth:v1" &&
+    value.reasoning_truth?.backend_owned === true &&
+    value.reasoning_truth?.safe_refs_only === true &&
+    value.reasoning_truth?.raw_content_included === false &&
+    value.reasoning_truth?.authority_posture ===
+      "non_authoritative_review_truth" &&
+    value.reasoning_truth?.model_assistance_posture === "deterministic_only" &&
+    typeof value.reasoning_truth?.intent_ref === "string" &&
+    typeof value.reasoning_truth?.intent_fingerprint_ref === "string" &&
+    typeof value.reasoning_truth?.request_fingerprint_ref === "string" &&
+    [
+      "answer_directly",
+      "base_answer",
+      "answer_with_reviewed_memory",
+      "draft_or_plan",
+      "prepare_tool_or_action",
+      "approval_required",
+      "execute_approved_action",
+      "ask_clarifying_question",
+      "blocked_unsafe",
+    ].includes(value.reasoning_truth.turn_contract) &&
+    Array.isArray(value.reasoning_truth?.facts) &&
+    value.reasoning_truth.facts.length > 0 &&
+    value.reasoning_truth.facts.every(
+      (item) =>
+        item.kind === "fact" &&
+        typeof item.statement_ref === "string" &&
+        typeof item.safe_summary === "string" &&
+        isNonEmptyStringArray(item.source_refs) &&
+        isNonEmptyStringArray(item.evidence_refs),
+    ) &&
+    Array.isArray(value.reasoning_truth?.assumptions) &&
+    value.reasoning_truth.assumptions.every(
+      (item) =>
+        item.kind === "assumption" &&
+        item.review_required === true &&
+        typeof item.statement_ref === "string",
+    ) &&
+    Array.isArray(value.reasoning_truth?.unknowns) &&
+    value.reasoning_truth.unknowns.every(
+      (item) =>
+        item.kind === "unknown" &&
+        item.review_required === true &&
+        typeof item.statement_ref === "string",
+    ) &&
+    Array.isArray(value.reasoning_truth?.operator_questions) &&
+    value.reasoning_truth.operator_questions.every(
+      (item) =>
+        typeof item.question_ref === "string" &&
+        typeof item.safe_question === "string" &&
+        isNonEmptyStringArray(item.resolves_refs),
+    ) &&
+    ((value.reasoning_truth.confidence_band !== "low" &&
+      value.reasoning_truth.confidence_band !== "conflicting" &&
+      value.reasoning_truth.ambiguity_posture === "clear") ||
+      value.reasoning_truth.operator_questions.length > 0) &&
+    isNonEmptyStringArray(value.reasoning_truth?.blocked_authority_refs) &&
+    value.plan_revision?.schema_version === "uaa-plan-revision.v1" &&
+    value.plan_revision?.authority_posture ===
+      "non_authoritative_plan_truth" &&
+    value.plan_revision?.downstream_authority_bindings_invalidated === true &&
+    typeof value.plan_revision?.revision_fingerprint_ref === "string" &&
+    value.plan_revision?.decomposition?.schema_version ===
+      "uaa-immutable-decomposition.v1" &&
+    value.plan_revision.decomposition.intent_fingerprint_ref ===
+      value.reasoning_truth.intent_fingerprint_ref &&
+    typeof value.plan_revision.decomposition.decomposition_fingerprint_ref ===
+      "string" &&
+    Array.isArray(value.plan_revision.decomposition.ordered_steps) &&
+    value.plan_revision.decomposition.ordered_steps.length > 0 &&
+    value.plan_revision.decomposition.ordered_steps.every(
+      (step) =>
+        typeof step.step_ref === "string" &&
+        typeof step.definition_fingerprint_ref === "string" &&
+        isNonEmptyStringArray(step.target_refs) &&
+        isNonEmptyStringArray(step.source_refs) &&
+        Array.isArray(step.dependency_step_refs),
+    ) &&
     Array.isArray(value.plan?.steps) &&
     Array.isArray(value.proposed_actions) &&
     Array.isArray(value.evidence?.evidence_refs) &&

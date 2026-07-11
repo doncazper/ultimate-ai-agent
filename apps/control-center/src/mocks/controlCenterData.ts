@@ -19574,6 +19574,114 @@ export const mockControlCenterData: ControlCenterData = {
         "Mock-only Agent Loop shape. Reconnect the local backend before treating loop refs as product truth.",
       source_surface: "Today",
     },
+    reasoning_truth: {
+      schema_version: "uaa-intent-reasoning-truth.v1",
+      contract_ref: "contract-ref:intent-reasoning-truth:v1",
+      intent_ref: "intent-ref:mock-fallback:current",
+      intent_fingerprint_ref:
+        "intent-fingerprint-ref:sha256:mockfallback00000000000000000000",
+      request_fingerprint_ref:
+        "intent-request-fingerprint-ref:sha256:mockfallback0000000000000000",
+      safe_summary:
+        "Mock-only reasoning shape. Reconnect Python Core before relying on this posture.",
+      classification_ref: "turn-decision:mock-fallback",
+      turn_contract: "ask_clarifying_question",
+      confidence_score: 0.2,
+      confidence_band: "low",
+      ambiguity_posture: "insufficient_evidence",
+      contradiction_posture: "none_observed",
+      instruction_content_posture: "untrusted_data",
+      facts: [
+        {
+          statement_ref: "fact-ref:mock-fallback:backend-required",
+          kind: "fact",
+          safe_summary:
+            "The backend-owned reasoning endpoint did not return safely.",
+          source_refs: ["source-ref:mock-fallback:control-center"],
+          evidence_refs: ["evidence-ref:mock-fallback:agent-loop"],
+          review_required: false,
+        },
+      ],
+      assumptions: [
+        {
+          statement_ref: "assumption-ref:mock-fallback:operator-review",
+          kind: "assumption",
+          safe_summary:
+            "Operator review is required before using this fallback shape.",
+          source_refs: ["source-ref:mock-fallback:operator-shell"],
+          evidence_refs: [],
+          review_required: true,
+        },
+      ],
+      unknowns: [
+        {
+          statement_ref: "unknown-ref:mock-fallback:backend-truth",
+          kind: "unknown",
+          safe_summary:
+            "Current backend reasoning and plan truth is unavailable.",
+          source_refs: ["source-ref:mock-fallback:control-center"],
+          evidence_refs: [],
+          review_required: true,
+        },
+      ],
+      operator_questions: [
+        {
+          question_ref: "question-ref:intent:mock-fallback-backend-truth",
+          safe_question:
+            "Should the operator reconnect Python Core before continuing?",
+          resolves_refs: ["unknown-ref:mock-fallback:backend-truth"],
+        },
+      ],
+      source_refs: ["source-ref:mock-fallback:control-center"],
+      evidence_refs: ["evidence-ref:mock-fallback:agent-loop"],
+      contradiction_refs: [],
+      reason_refs: ["reason-ref:intent:backend-truth-unavailable"],
+      deterministic_policy_ref:
+        "policy-ref:turn-contract-router:deterministic-classifier:v1",
+      model_assistance_posture: "deterministic_only",
+      authority_posture: "non_authoritative_review_truth",
+      blocked_authority_refs: [
+        "blocked-state:reasoning-truth:no-approval-authority",
+        "blocked-state:reasoning-truth:no-tool-or-action-authority",
+      ],
+      backend_owned: false,
+      safe_refs_only: true,
+      raw_content_included: false,
+    },
+    plan_revision: {
+      schema_version: "uaa-plan-revision.v1",
+      lineage_ref: "plan-lineage-ref:mock-fallback:current",
+      revision_ref: "plan-revision-ref:mock-fallback:current-v1",
+      revision_index: 1,
+      predecessor_revision_ref: null,
+      predecessor_revision_fingerprint_ref: null,
+      reason_ref: "plan-revision-reason-ref:mock-fallback:initial",
+      safe_reason:
+        "Mock-only initial projection; backend-owned revision truth is required.",
+      decomposition: {
+        schema_version: "uaa-immutable-decomposition.v1",
+        decomposition_ref: "decomposition-ref:mock-fallback:current",
+        intent_fingerprint_ref:
+          "intent-fingerprint-ref:sha256:mockfallback00000000000000000000",
+        ordered_steps: [
+          {
+            step_ref: "reasoning-step-ref:mock-fallback:reconnect",
+            safe_summary: "Reconnect the backend-owned read model.",
+            dependency_step_refs: [],
+            target_refs: ["surface-ref:today"],
+            source_refs: ["source-ref:mock-fallback:control-center"],
+            definition_fingerprint_ref:
+              "decomposition-step-definition-ref:sha256:mockfallback000000000000",
+          },
+        ],
+        decomposition_fingerprint_ref:
+          "decomposition-fingerprint-ref:sha256:mockfallback0000000000000000",
+      },
+      revision_fingerprint_ref:
+        "plan-revision-fingerprint-ref:sha256:mockfallback000000000000000",
+      authority_posture: "non_authoritative_plan_truth",
+      downstream_authority_bindings_invalidated: true,
+    },
     intent: {
       status: "mock_fallback_review_required",
       classification_ref: "intent-ref:mock-fallback",

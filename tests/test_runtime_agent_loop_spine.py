@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 import json
 from pathlib import Path
 
@@ -48,6 +49,33 @@ def _assert_safe_agent_loop_thread(thread: dict[str, object]) -> None:
     assert thread["local_read_model_only"] is True
     assert thread["safe_refs_only"] is True
     assert thread["raw_content_included"] is False
+
+    reasoning_truth = thread["reasoning_truth"]
+    assert isinstance(reasoning_truth, dict)
+    assert reasoning_truth["schema_version"] == "uaa-intent-reasoning-truth.v1"
+    assert reasoning_truth["contract_ref"] == (
+        "contract-ref:intent-reasoning-truth:v1"
+    )
+    assert reasoning_truth["backend_owned"] is True
+    assert reasoning_truth["safe_refs_only"] is True
+    assert reasoning_truth["raw_content_included"] is False
+    assert reasoning_truth["facts"]
+    assert reasoning_truth["assumptions"]
+    assert reasoning_truth["unknowns"]
+    assert reasoning_truth["operator_questions"]
+    assert reasoning_truth["authority_posture"] == (
+        "non_authoritative_review_truth"
+    )
+
+    plan_revision = thread["plan_revision"]
+    assert isinstance(plan_revision, dict)
+    assert plan_revision["schema_version"] == "uaa-plan-revision.v1"
+    assert plan_revision["authority_posture"] == "non_authoritative_plan_truth"
+    assert plan_revision["downstream_authority_bindings_invalidated"] is True
+    assert plan_revision["decomposition"]["intent_fingerprint_ref"] == (
+        reasoning_truth["intent_fingerprint_ref"]
+    )
+    assert plan_revision["decomposition"]["ordered_steps"]
 
     approval_posture = thread["approval_posture"]
     assert isinstance(approval_posture, dict)
@@ -517,6 +545,58 @@ def test_agent_loop_thread_builder_composes_existing_safe_refs(
         ("founder-action:", "work-request-ref:", "plan-ref:")
     )
     assert thread["current_state"]["next_safe_operator_decision"]
+
+
+def test_agent_loop_thread_plan_snapshot_identity_changes_with_plan_content(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    repo = _repo(monkeypatch, tmp_path)
+    today = repo.today_summary(limit=12)
+    common = {
+        "actions_inbox": repo.actions_inbox(limit=50),
+        "evidence_timeline": repo.evidence_timeline(limit=50),
+        "memory_review": repo.memory_review(limit=20),
+        "proof_index": {"items": []},
+        "trust_authority_matrix": {"lanes": []},
+    }
+    original = build_agent_loop_thread_read_model(
+        today_summary=today,
+        **common,
+    )
+    unchanged = build_agent_loop_thread_read_model(
+        today_summary=deepcopy(today),
+        **common,
+    )
+    assert original["plan_revision"] == unchanged["plan_revision"]
+
+    changed_definition = deepcopy(today)
+    changed_definition["plans"][0]["task_decomposition_steps"][0][
+        "safe_summary"
+    ] = "Review a changed safe plan-step definition."
+    definition_thread = build_agent_loop_thread_read_model(
+        today_summary=changed_definition,
+        **common,
+    )
+
+    changed_dependency = deepcopy(today)
+    changed_dependency["plans"][0]["task_decomposition_steps"][1][
+        "depends_on"
+    ] = []
+    dependency_thread = build_agent_loop_thread_read_model(
+        today_summary=changed_dependency,
+        **common,
+    )
+
+    original_revision = original["plan_revision"]
+    for changed in (definition_thread, dependency_thread):
+        changed_revision = changed["plan_revision"]
+        assert changed_revision["revision_ref"] != original_revision["revision_ref"]
+        assert changed_revision["revision_fingerprint_ref"] != (
+            original_revision["revision_fingerprint_ref"]
+        )
+        assert changed_revision["decomposition"]["decomposition_ref"] != (
+            original_revision["decomposition"]["decomposition_ref"]
+        )
 
 
 def test_agent_loop_thread_api_route_is_read_only_and_redacted(

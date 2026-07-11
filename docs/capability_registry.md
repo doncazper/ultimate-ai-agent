@@ -70,6 +70,41 @@ authority. The protected read-only API route
 read model. No live probe, provider call, network access, background polling,
 or runtime execution is added.
 
+## Intent Reasoning And Plan Revision Truth
+
+`ultimate_ai_agent.core.intent.reasoning_truth` provides the deterministic,
+no-effect reasoning contract for one current request. Raw request text is a
+bounded transient function input only. The returned `IntentReasoningTruth`
+contains a request fingerprint, safe intent ref and fingerprint, separate
+facts, assumptions, and unknowns, confidence and ambiguity posture,
+contradiction refs, operator questions, source/evidence refs, and explicit
+instruction-shaped-content posture. All input remains untrusted data. The
+contract cannot carry approval, lease, callable, tool, memory, provider, web,
+shell, or execution authority.
+
+`ultimate_ai_agent.core.planning.revisions` adds an immutable projection over
+existing plan rows; it is not a third planner. Tuple-bound ordered membership,
+dependencies, targets, sources, step definitions, and intent binding are
+covered by SHA-256 safe refs. An unchanged revision replays only when the
+complete revision fingerprint matches. Any membership, order, dependency,
+definition, or target change requires a new, contiguous revision bound to the
+exact predecessor ref and fingerprint plus a safe reason. Every revision
+invalidates downstream approval, lease, dispatch, and budget assumptions; it
+does not mint replacements.
+
+The existing protected `GET /control-center/agent-loop/thread` route exposes
+this backend-owned truth without changing its operation ID or read-only route
+classification. `scripts/dev/uaa_founder_loop.py inspect-reasoning` renders a
+human-readable explanation by default and optional redacted JSON from the same
+object. The macOS-first Today cockpit renders the same facts, assumptions,
+unknowns, questions, and revision fingerprints. The older canned user-intent
+proposal catalog remains a compatibility surface and is not mislabeled as the
+current-request assessment. Because this read surface is stateless, its current
+plan is labeled as a content-addressed initial snapshot: any definition,
+membership, order, dependency, or target change produces new decomposition and
+revision refs. It does not claim predecessor lineage unless a prior revision is
+supplied to the core revision validator.
+
 ## Progressive Disclosure
 
 Use `registry.list_catalog(context)` or `registry.search(query, context, filters)` to expose compact `CapabilityCatalogEntry` records. Load the full manifest only after selection:

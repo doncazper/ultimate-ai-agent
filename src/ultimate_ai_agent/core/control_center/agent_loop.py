@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from ultimate_ai_agent.core.control_center.action_tool_code_catalog import (
@@ -49,6 +50,18 @@ from ultimate_ai_agent.core.execution.staged_orchestration import (
     STAGED_ORCHESTRATION_READ_MODEL_AUTHORITY_MAPPING_REF,
     STAGED_ORCHESTRATION_RUNTIME_COMMAND_AUTHORITY_MAPPING_REF,
 )
+from ultimate_ai_agent.core.intent import (
+    IntentAssessmentInput,
+    OperatorQuestion,
+    ReasoningStatement,
+    assess_intent,
+)
+from ultimate_ai_agent.core.planning import (
+    build_immutable_decomposition,
+    build_immutable_decomposition_step,
+    build_initial_plan_revision,
+)
+from ultimate_ai_agent.core.safe_refs import hash_text
 
 
 AGENT_LOOP_THREAD_CONTRACT_REF = (
@@ -2305,6 +2318,156 @@ def build_agent_loop_thread_read_model(
             },
         ]
 
+    reasoning_truth = assess_intent(
+        primary_summary,
+        IntentAssessmentInput(
+            intent_ref="intent-ref:agent-loop:current-request",
+            safe_summary=primary_summary,
+            source_refs=(
+                "source-ref:agent-loop:today",
+                "source-ref:agent-loop:action-inbox",
+            ),
+            evidence_refs=(
+                "evidence-ref:control-center:agent-loop-thread",
+                "evidence-ref:founder-loop:today-summary",
+                "evidence-ref:founder-loop:action-inbox",
+            ),
+            facts=(
+                ReasoningStatement(
+                    statement_ref="fact-ref:agent-loop:backend-owned-surfaces",
+                    kind="fact",
+                    safe_summary=(
+                        "Today, Action Inbox, Evidence, Proof, Memory, and Trust "
+                        "are projected from Python Core read models."
+                    ),
+                    source_refs=("source-ref:agent-loop:python-core",),
+                    evidence_refs=(
+                        "evidence-ref:control-center:agent-loop-thread",
+                    ),
+                    review_required=False,
+                ),
+                ReasoningStatement(
+                    statement_ref="fact-ref:agent-loop:proposal-first-authority",
+                    kind="fact",
+                    safe_summary=(
+                        "Plans, proposals, receipts, and memory candidates remain "
+                        "non-authoritative until exact downstream evaluation."
+                    ),
+                    source_refs=("source-ref:agent-loop:authority-boundary",),
+                    evidence_refs=(
+                        "evidence-ref:founder-loop:action-inbox",
+                    ),
+                    review_required=False,
+                ),
+            ),
+            assumptions=(
+                ReasoningStatement(
+                    statement_ref=(
+                        "assumption-ref:agent-loop:operator-selects-next-safe-action"
+                    ),
+                    kind="assumption",
+                    safe_summary=(
+                        "The operator will select the exact next proposal scope "
+                        "before any request-scoped authority evaluation."
+                    ),
+                    source_refs=("source-ref:agent-loop:operator-shell",),
+                    evidence_refs=(),
+                    review_required=True,
+                ),
+            ),
+            unknowns=(
+                ReasoningStatement(
+                    statement_ref="unknown-ref:agent-loop:exact-next-proposal-scope",
+                    kind="unknown",
+                    safe_summary=(
+                        "The exact proposal the operator wants to advance has not "
+                        "been selected in this read-only thread."
+                    ),
+                    source_refs=("source-ref:agent-loop:operator-decision",),
+                    evidence_refs=(),
+                    review_required=True,
+                ),
+            ),
+            operator_questions=(
+                OperatorQuestion(
+                    question_ref="question-ref:intent:exact-next-proposal-scope",
+                    safe_question=(
+                        "Which exact reviewed proposal should be considered next?"
+                    ),
+                    resolves_refs=(
+                        "unknown-ref:agent-loop:exact-next-proposal-scope",
+                    ),
+                ),
+            ),
+        ),
+    )
+    decomposition_source_steps = _records(
+        primary_plan.get("task_decomposition_steps")
+    )
+    if decomposition_source_steps:
+        reasoning_step_bindings = tuple(
+            build_immutable_decomposition_step(
+                step_ref=_first_string(
+                    step.get("step_ref"),
+                    f"reasoning-step-ref:agent-loop:{index + 1}",
+                ),
+                safe_summary=_safe_text(
+                    step.get("safe_summary") or step.get("title"),
+                    fallback=f"Review plan step {index + 1}.",
+                ),
+                dependency_step_refs=tuple(
+                    _string_values(step.get("depends_on"))
+                ),
+                target_refs=tuple(
+                    _string_values(step.get("what_this_affects"))
+                    or ["surface-ref:plans"]
+                ),
+                source_refs=tuple(
+                    _string_values(step.get("evidence_refs"))
+                    or ["evidence-ref:control-center:agent-loop-thread"]
+                ),
+            )
+            for index, step in enumerate(decomposition_source_steps)
+        )
+    else:
+        reasoning_step_bindings = tuple(
+            build_immutable_decomposition_step(
+                step_ref=f"reasoning-step-ref:agent-loop:{index + 1}",
+                safe_summary=str(step["title"]),
+                target_refs=("surface-ref:plans",),
+                source_refs=(str(step["step_ref"]),),
+            )
+            for index, step in enumerate(plan_steps)
+        )
+    decomposition_content_hash = hash_text(
+        json.dumps(
+            [step.model_dump(mode="json") for step in reasoning_step_bindings],
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+        )
+    )
+    immutable_decomposition = build_immutable_decomposition(
+        decomposition_ref=(
+            f"decomposition-ref:agent-loop:{decomposition_content_hash}"
+        ),
+        intent_fingerprint_ref=reasoning_truth.intent_fingerprint_ref,
+        ordered_steps=reasoning_step_bindings,
+    )
+    revision_content_hash = hash_text(
+        immutable_decomposition.decomposition_fingerprint_ref
+    )
+    plan_revision = build_initial_plan_revision(
+        lineage_ref="plan-lineage-ref:agent-loop:current",
+        revision_ref=f"plan-revision-ref:agent-loop:{revision_content_hash}",
+        reason_ref="plan-revision-reason-ref:agent-loop:initial-projection",
+        safe_reason=(
+            "Content-addressed immutable projection of the current backend-owned "
+            "plan rows; predecessor lineage requires a separately supplied revision."
+        ),
+        decomposition=immutable_decomposition,
+    )
+
     next_decision = _safe_text(
         (next_safe_actions[0].get("label") if next_safe_actions else None)
         or (next_safe_actions[0].get("safe_summary") if next_safe_actions else None)
@@ -2342,69 +2505,55 @@ def build_agent_loop_thread_read_model(
                 fallback="Today",
             ),
         },
+        "reasoning_truth": reasoning_truth.model_dump(mode="json"),
+        "plan_revision": plan_revision.model_dump(mode="json"),
         "intent": {
             "status": _safe_text(
                 today_summary.get("user_intent_understanding_status"),
                 fallback="implemented_review_required",
             ),
-            "classification_ref": "intent-ref:agent-loop:current-request",
-            "ambiguity_state": (
-                "operator_review_required"
-                if today_summary.get("user_intent_review_required", True)
-                else "reviewed"
-            ),
-            "confidence_label": "bounded_from_existing_refs",
-            "low_confidence_asks_user": bool(
-                today_summary.get("user_intent_low_confidence_asks_user", True)
-            ),
+            "classification_ref": reasoning_truth.classification_ref,
+            "ambiguity_state": reasoning_truth.ambiguity_posture.value,
+            "confidence_label": reasoning_truth.confidence_band.value,
+            "low_confidence_asks_user": bool(reasoning_truth.operator_questions),
             "action_execution_enabled": False,
         },
         "facts": [
             {
-                "fact_ref": "fact-ref:agent-loop:backend-owned-surfaces",
-                "summary": (
-                    "Today, Action Inbox, Evidence, Proof, Memory, and Trust are "
-                    "read from Python Core/API read models."
-                ),
-                "evidence_refs": [
-                    "GET /control-center/today/summary",
-                    "GET /control-center/actions/inbox",
-                    "GET /control-center/evidence/timeline",
-                ],
-            },
-            {
-                "fact_ref": "fact-ref:agent-loop:proposal-first-authority",
-                "summary": (
-                    "The loop can show plans, proposed actions, receipts, proof refs, "
-                    "and memory review candidates without treating them as authority."
-                ),
-                "evidence_refs": evidence_refs[:6],
-            },
+                "fact_ref": statement.statement_ref,
+                "summary": statement.safe_summary,
+                "evidence_refs": list(statement.evidence_refs),
+            }
+            for statement in reasoning_truth.facts
         ],
         "assumptions": [
             {
-                "assumption_ref": "assumption-ref:agent-loop:operator-selects-next-safe-action",
-                "summary": (
-                    "The operator chooses the next decision; Control Center does not "
-                    "infer approval or execute broad workflows from the display."
-                ),
-                "review_required": True,
+                "assumption_ref": statement.statement_ref,
+                "summary": statement.safe_summary,
+                "review_required": statement.review_required,
             }
+            for statement in reasoning_truth.assumptions
         ],
         "unknowns": [
             {
-                "unknown_ref": "unknown-ref:agent-loop:external-runtime-results",
-                "summary": (
-                    "External model, connector, browser, shell, plugin, and production "
-                    "results are unknown because those broad lanes remain blocked."
-                ),
-                "blocked_state_refs": list(AGENT_LOOP_THREAD_BLOCKED_AUTHORITY_REFS),
+                "unknown_ref": statement.statement_ref,
+                "summary": statement.safe_summary,
+                "review_required": statement.review_required,
+                "blocked_state_refs": list(reasoning_truth.blocked_authority_refs),
             }
+            for statement in reasoning_truth.unknowns
         ],
         "plan": {
             "status": "proposal_first",
-            "revision_ref": "plan-revision-ref:agent-loop:current",
-            "revision_count": len(plan_steps),
+            "revision_ref": plan_revision.revision_ref,
+            "revision_count": plan_revision.revision_index,
+            "revision_fingerprint_ref": plan_revision.revision_fingerprint_ref,
+            "decomposition_fingerprint_ref": (
+                immutable_decomposition.decomposition_fingerprint_ref
+            ),
+            "predecessor_revision_ref": plan_revision.predecessor_revision_ref,
+            "reason_ref": plan_revision.reason_ref,
+            "safe_reason": plan_revision.safe_reason,
             "steps": plan_steps,
         },
         "proposed_actions": proposed_actions,

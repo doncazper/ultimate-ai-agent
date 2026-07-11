@@ -1956,6 +1956,20 @@ manifest/capability implications as strategy/watchlist only while keeping
 runtime authority, connector writes, plugin execution, broad tool invocation,
 network authority, backend routes, OpenAPI paths, public distribution, and
 production authority unavailable.
+
+UAA-RCF-01 Deterministic reasoning and immutable plan revision truth
+Gate met locally: `core.intent.reasoning_truth` derives safe current-request
+facts, assumptions, unknowns, contradictions, questions, confidence, and
+instruction-shaped-content posture without persisting request text or calling a
+model. `core.planning.revisions` binds immutable ordered decomposition and exact
+revision lineage; changed membership, order, dependency, definition, or target
+requires a new predecessor-bound revision. The existing protected Agent Loop
+API, readable `inspect-reasoning` CLI, and macOS-first Today panel render one
+backend-owned truth. The legacy user-intent catalog remains compatible. This
+gate grants no approval, lease, tool/action execution, memory truth/write,
+context injection, provider/model, web, shell, connector, background, public,
+or production authority. Remote merge/hosted-CI status remains separate from
+this local implementation gate.
 ```
 
 ## ASAP Sequence
