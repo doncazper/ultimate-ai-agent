@@ -62,6 +62,7 @@ jobs:
           .venv/bin/python scripts/verification/run_pytest_shards.py \
             --shards 8 \
             --shard-index ${{ matrix.shard }} \
+            --timings-json scripts/verification/pytest_file_timing_seed.json \
             --basetemp /tmp/uaa_pytest_shards \
             --quiet \
             --safe-summary

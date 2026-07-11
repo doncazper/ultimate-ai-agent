@@ -30,7 +30,9 @@ def load_verifier() -> Any:
     return module
 
 
-def test_dev_environment_verifier_passes_current_repo(capsys: pytest.CaptureFixture[str]) -> None:
+def test_dev_environment_verifier_passes_current_repo(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     verifier = load_verifier()
 
     assert verifier.verify(ROOT) == []
@@ -42,17 +44,23 @@ def test_dev_environment_verifier_passes_current_repo(capsys: pytest.CaptureFixt
     assert "ruff: OK" in output
 
 
-def test_dev_environment_verifier_reports_clear_remediation_for_missing_venv(tmp_path: Path) -> None:
+def test_dev_environment_verifier_reports_clear_remediation_for_missing_venv(
+    tmp_path: Path,
+) -> None:
     verifier = load_verifier()
 
     failures = verifier.verify(tmp_path)
 
     assert any(".venv/bin/python is missing" in failure for failure in failures)
     assert any("python3 -m venv .venv" in failure for failure in failures)
-    assert any('.venv/bin/python -m pip install -e ".[dev]"' in failure for failure in failures)
+    assert any(
+        '.venv/bin/python -m pip install -e ".[dev]"' in failure for failure in failures
+    )
 
 
-def test_dev_environment_verifier_warns_without_failing_when_npm_is_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+def test_dev_environment_verifier_warns_without_failing_when_npm_is_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     verifier = load_verifier()
     app_root = tmp_path / "apps/control-center"
     app_root.mkdir(parents=True)
@@ -62,8 +70,12 @@ def test_dev_environment_verifier_warns_without_failing_when_npm_is_missing(tmp_
     venv_python.write_text("", encoding="utf-8")
 
     monkeypatch.setattr(verifier, "_python_version", lambda path: "Python 3.12.0")
-    monkeypatch.setattr(verifier, "_python_module_available", lambda path, module_name, root=None: True)
-    monkeypatch.setattr(verifier.shutil, "which", lambda command: None if command == "npm" else command)
+    monkeypatch.setattr(
+        verifier, "_python_module_available", lambda path, module_name, root=None: True
+    )
+    monkeypatch.setattr(
+        verifier.shutil, "which", lambda command: None if command == "npm" else command
+    )
 
     assert verifier.verify(tmp_path) == []
     output = capsys.readouterr().out
@@ -77,6 +89,9 @@ def test_makefile_uses_project_venv_python_for_verification_commands() -> None:
     for target in [
         "doctor:",
         "test:",
+        "test-serial:",
+        "test-sharded:",
+        "test-sharded-profile:",
         "verify:",
         "verify-static:",
         "verify-gate-architecture:",
@@ -91,14 +106,18 @@ def test_makefile_uses_project_venv_python_for_verification_commands() -> None:
     assert "PYTHON := .venv/bin/python" in text
     assert "VERIFY_TIMINGS_JSON ?= /tmp/uaa_verify_all_timings.json" in text
     assert "VERIFY_DEV_FAST_JOBS ?= 4" in text
+    assert "PYTEST_SHARD_WORKERS ?= 8" in text
     assert "PYTHONPATH=src $(PYTHON) -m pytest" in text
     assert "$(PYTHON) scripts/verify_all.py" in text
     assert (
         "$(PYTHON) scripts/verify_all.py --skip-ruff --skip-pytest --timings-json $(VERIFY_TIMINGS_JSON)"
         in text
     )
-    assert "$(MAKE) -j$(VERIFY_DEV_FAST_JOBS) ruff test verify-static verify-gate-architecture" in text
-    assert "verify-local: verify-dev-fast" in text
+    assert (
+        "$(MAKE) -j$(VERIFY_DEV_FAST_JOBS) ruff test verify-static verify-gate-architecture"
+        in text
+    )
+    assert "verify-local: verify-dev-sharded" in text
     assert "PYTHONPATH=src $(PYTHON) scripts/verify_gate_architecture.py" in text
     assert "$(PYTHON) scripts/run_foundation_gate.py --command-mode report-only" in text
     assert (
@@ -109,20 +128,32 @@ def test_makefile_uses_project_venv_python_for_verification_commands() -> None:
     assert "python scripts/" not in text
 
 
-def test_make_verify_remains_serial_release_gate_and_dev_fast_is_opt_in() -> None:
+def test_make_verify_runs_full_sharded_release_gate_and_preserves_serial_diagnostics() -> (
+    None
+):
     text = MAKEFILE.read_text(encoding="utf-8")
 
     verify_body = make_target_body(text, "verify")
     assert verify_body == [
-        "$(PYTHON) scripts/verify_all.py",
+        "$(MAKE) ruff test-sharded verify-static",
         "PYTHONPATH=src $(PYTHON) scripts/verify_gate_architecture.py",
         "$(PYTHON) scripts/run_foundation_gate.py --command-mode report-only",
     ]
-    assert not any("verify-dev-fast" in line or "-j$(VERIFY_DEV_FAST_JOBS)" in line for line in verify_body)
+    assert not any(
+        "verify-dev-fast" in line or "-j$(VERIFY_DEV_FAST_JOBS)" in line
+        for line in verify_body
+    )
 
     verify_dev_fast_body = make_target_body(text, "verify-dev-fast")
     assert verify_dev_fast_body == [
         "$(MAKE) -j$(VERIFY_DEV_FAST_JOBS) ruff test verify-static verify-gate-architecture",
         "$(PYTHON) scripts/run_foundation_gate.py --command-mode report-only --no-write-latest",
     ]
-    assert not any("verify " in line or "scripts/verify_all.py" in line for line in verify_dev_fast_body)
+    assert not any(
+        "verify " in line or "scripts/verify_all.py" in line
+        for line in verify_dev_fast_body
+    )
+    assert make_target_body(text, "test") == ["$(MAKE) test-sharded"]
+    assert make_target_body(text, "test-serial") == [
+        "PYTHONPATH=src $(PYTHON) -m pytest"
+    ]
