@@ -850,7 +850,9 @@ class TaskDecompositionService:
         except Exception:
             if not durable_attached:
                 self._approval_requests.pop(approval_request.approval_request_id, None)
-                self.approval_authority._requests.pop(approval_request.approval_request_id, None)
+                self.approval_authority.remove_request_for_rollback(
+                    approval_request.approval_request_id
+                )
             raise
         binding = self.durable_binding(record.run_id)
         self.record_audit_event(
@@ -907,7 +909,9 @@ class TaskDecompositionService:
             )
         except Exception:
             if not durable_attached:
-                self.approval_authority._grants.pop(grant.approval_ref, None)
+                self.approval_authority.remove_grant_for_rollback(
+                    grant.approval_ref
+                )
             raise
         binding = self.durable_binding(record.run_id)
         self.record_audit_event(
@@ -957,7 +961,7 @@ class TaskDecompositionService:
             )
         except Exception:
             if not durable_attached and previous_grant is not None:
-                self.approval_authority._grants[previous_grant.approval_ref] = previous_grant
+                self.approval_authority.load_grant_for_validation(previous_grant)
             raise
         binding = self.durable_binding(record.run_id)
         self.record_audit_event(

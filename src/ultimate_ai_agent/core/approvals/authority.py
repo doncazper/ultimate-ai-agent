@@ -141,6 +141,19 @@ class LocalApprovalAuthority:
             return self._decision(validation_request, ApprovalDecisionStatus.out_of_scope, scope_failures, "Approval grant does not cover the requested action.", grant)
         return self._decision(validation_request, ApprovalDecisionStatus.approved, ["APPROVAL_VALIDATED"], "Approval grant validated for the requested scope.", grant, allowed=True)
 
+    def validate_at_trusted_time(
+        self,
+        validation_request: ApprovalValidationRequest,
+        *,
+        current_time: datetime,
+    ) -> ApprovalValidationDecision:
+        """Revalidate with a core-supplied clock value under the mutation lock."""
+
+        with self._validation_lock:
+            return self._validate_locked(
+                validation_request.model_copy(update={"current_time": current_time})
+            )
+
     def get_grant(self, approval_ref: str) -> Optional[ApprovalGrant]:
         with self._validation_lock:
             return self._grants.get(approval_ref)
@@ -148,6 +161,14 @@ class LocalApprovalAuthority:
     def load_grant_for_validation(self, grant: ApprovalGrant) -> None:
         with self._validation_lock:
             self._grants[grant.approval_ref] = grant
+
+    def remove_request_for_rollback(self, approval_request_id: str) -> None:
+        with self._validation_lock:
+            self._requests.pop(approval_request_id, None)
+
+    def remove_grant_for_rollback(self, approval_ref: str) -> None:
+        with self._validation_lock:
+            self._grants.pop(approval_ref, None)
 
     def list_grants(self, run_id: str | None = None) -> List[ApprovalGrant]:
         with self._validation_lock:

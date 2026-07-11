@@ -790,6 +790,42 @@ class AuthorityBudgetStore:
         )
         with lock_context:
             receipts = self._load_receipts()
+            state = self._reservation_state(receipts, request.reservation_ref)
+            if (
+                state is not None
+                and state["status"] == AuthorityBudgetStatus.started.value
+                and started_dispatch_fingerprint_ref is None
+                and started_execution_ref is None
+            ):
+                denial_idempotency_ref = _stable_ref(
+                    "idempotency-ref:authority-budget-public-release-denial",
+                    {
+                        "reservation_ref": request.reservation_ref,
+                        "caller_idempotency_ref": request.idempotency_ref,
+                    },
+                )
+                denial_fingerprint = _stable_ref(
+                    "request-fingerprint-ref:authority-budget-public-release-denial",
+                    request.model_dump(mode="json"),
+                )
+                replay = self._replay_or_conflict(
+                    receipts,
+                    AuthorityBudgetOperation.release,
+                    denial_idempotency_ref,
+                    denial_fingerprint,
+                )
+                if replay is not None:
+                    return replay
+                receipt = self._denied_followup_receipt(
+                    receipts,
+                    operation=AuthorityBudgetOperation.release,
+                    reservation_ref=request.reservation_ref,
+                    idempotency_ref=denial_idempotency_ref,
+                    request_fingerprint_ref=denial_fingerprint,
+                    reason_ref="reason-ref:authority-budget:dispatch-owner-required",
+                )
+                self._append(receipt)
+                return receipt
             fingerprint = _request_fingerprint(
                 AuthorityBudgetOperation.release, request
             )

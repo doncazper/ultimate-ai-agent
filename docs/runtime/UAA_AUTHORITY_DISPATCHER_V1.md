@@ -118,7 +118,10 @@ cannot complete between a successful validation decision and the fsynced start
 claim: whichever acquires the approval-state critical section first defines the
 ordered outcome. Caller booleans and approval refs alone do not authorize work.
 Caller-selected approval-validation time is rejected so expiry is evaluated
-against the trusted local clock.
+against the trusted local clock. The dispatcher performs a second core-clock
+validation after other pre-start work, and approval rollback paths use the same
+mutation lock, so neither wall-clock expiry nor failure compensation can bypass
+the durable-start check.
 
 The dispatcher also recomputes `CostGovernor` from the typed estimate and
 budgets. It rejects caller posture, estimate-ref, decision-ref, integer

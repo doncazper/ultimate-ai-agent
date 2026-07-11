@@ -43,6 +43,7 @@ from ultimate_ai_agent.core.authority.dispatcher import (
     AuthorityDispatchCorruptionError,
     AuthorityDispatcher,
     ToolRuntimeAuthorityDispatchAdapter,
+    _budget_release_idempotency_ref,
     _entry_hash as _dispatch_entry_hash,
     _phase_idempotency_ref,
     build_authority_dispatch_cost_estimate_ref,
@@ -2712,6 +2713,62 @@ def test_expired_cost_budget_after_slow_approval_cancels_before_start(
     ]
 
 
+def test_approval_expiry_during_prestart_work_cancels_before_start(
+    tmp_path: Path,
+) -> None:
+    state_dir = tmp_path / "authority"
+    lease_store, lease = _lease(
+        state_dir,
+        mode=TrustMode.ask_before_changes,
+        domain=AuthorityDomain.workspace,
+        capability=AuthorityCapability.execute,
+    )
+    approval_authority = LocalApprovalAuthority()
+    dispatcher = AuthorityDispatcher(
+        state_dir,
+        adapters=[ToolRuntimeAuthorityDispatchAdapter(_descriptor(filesystem=False))],
+        lease_store=lease_store,
+        approval_authority=approval_authority,
+    )
+    pending = _request(
+        lease.lease_ref,
+        suffix="approval-expiry-at-start",
+        filesystem=False,
+    )
+    validation_request = _approval(approval_authority, pending)
+    request = pending.model_copy(
+        update={"approval_validation_request": validation_request}
+    )
+    dispatcher.prepare(request)
+    grant = approval_authority.get_grant(validation_request.approval_ref)
+    assert grant is not None
+    expires_at = utc_now() + timedelta(seconds=0.2)
+    approval_authority.load_grant_for_validation(
+        grant.model_copy(update={"expires_at": expires_at})
+    )
+    validate = approval_authority.validate
+
+    def validation_delayed_past_expiry(validation: Any) -> Any:
+        decision = validate(validation)
+        assert decision.allowed
+        while utc_now() <= expires_at:
+            time.sleep(0.01)
+        return decision
+
+    approval_authority.validate = (  # type: ignore[method-assign]
+        validation_delayed_past_expiry
+    )
+
+    result = dispatcher.execute(request)
+
+    assert result.receipt.status == AuthorityDispatchStatus.cancelled_before_start.value
+    assert result.receipt.execution_started is False
+    assert (
+        "reason-ref:authority-dispatch:prestart-approval-invalid"
+        in result.receipt.reason_refs
+    )
+
+
 def test_cross_ledger_reservation_binding_drift_cancels_fail_closed(
     tmp_path: Path,
 ) -> None:
@@ -2809,7 +2866,7 @@ def test_orphaned_budget_start_is_rolled_back_when_dispatch_never_started(
         suffix="orphaned-budget-start",
         filesystem=True,
     )
-    dispatcher.prepare(request)
+    prepared = dispatcher.prepare(request)
     append = dispatcher._append
 
     def crash_before_dispatch_start(receipt: Any) -> None:
@@ -2829,20 +2886,38 @@ def test_orphaned_budget_start_is_rolled_back_when_dispatch_never_started(
         ),
         idempotency_ref="idempotency-ref:test-orphaned-budget-start-revoked",
     )
+    pending = prepared.receipt.model_copy(
+        update={
+            "cancellation_idempotency_ref": _phase_idempotency_ref(
+                request, "prestart-policy-release"
+            )
+        }
+    )
+    public_release = dispatcher.budget_store.release(
+        AuthorityBudgetReleaseRequest(
+            reservation_ref=prepared.receipt.budget_reservation_ref or "",
+            idempotency_ref=_budget_release_idempotency_ref(pending),
+            reason_ref="reason-ref:authority-dispatch:prestart-authority-invalid",
+            safe_summary="Release governed dispatch capacity before adapter start.",
+        )
+    )
 
     result = dispatcher.execute(request)
     budget_receipts = dispatcher.budget_store.list_receipts()
     budget_summary = dispatcher.budget_store.build_read_model().lease_summaries[0]
 
     assert result.receipt.status == AuthorityDispatchStatus.cancelled_before_start.value
+    assert public_release.status == AuthorityBudgetStatus.denied.value
+    assert public_release.idempotency_ref != _budget_release_idempotency_ref(pending)
     assert result.receipt.execution_started is False
     assert result.adapter_result is None
     assert [receipt.status for receipt in budget_receipts] == [
         AuthorityBudgetStatus.reserved.value,
         AuthorityBudgetStatus.started.value,
+        AuthorityBudgetStatus.denied.value,
         AuthorityBudgetStatus.released.value,
     ]
-    assert budget_receipts[-1].execution_ref == budget_receipts[-2].execution_ref
+    assert budget_receipts[-1].execution_ref == budget_receipts[-3].execution_ref
     assert budget_summary.active_reservation_count == 0
     assert budget_summary.allocated_operation_count == 0
     assert [receipt.status for receipt in dispatcher.list_receipts()] == [
