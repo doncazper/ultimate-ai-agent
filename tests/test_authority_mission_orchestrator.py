@@ -645,7 +645,9 @@ def test_manifest_truth_declares_backend_and_blocks_external_execution() -> None
         "authority_mission_orchestration_api_cli_ui_execution",
         "authority_mission_orchestration_parallel_worker",
         "authority_mission_worker_remote_queue_or_public_daemon",
-        "authority_mission_orchestration_automatic_retry_or_approval_wait",
-        "authority_mission_orchestration_mission_level_cancellation",
+        "authority_mission_approval_decision_as_execution_authority",
+        "authority_mission_retry_unknown_execution_truth",
+        "authority_mission_dead_letter_automatic_replay",
+        "authority_mission_after_start_cancellation",
     ]:
         assert capability in manifest["capabilities_blocked"]

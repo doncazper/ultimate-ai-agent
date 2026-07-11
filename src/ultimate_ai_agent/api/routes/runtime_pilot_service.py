@@ -37,6 +37,7 @@ from ultimate_ai_agent.core.execution import (
     build_sample_staged_orchestration_read_model,
 )
 from ultimate_ai_agent.core.execution.durable_mission_steps import (
+    MissionStepConflictError,
     MissionStepCorruptionError,
 )
 from ultimate_ai_agent.core.execution.mission_step_inspection import (
@@ -49,6 +50,16 @@ from ultimate_ai_agent.core.execution.durable_mission_worker import (
 )
 from ultimate_ai_agent.core.execution.mission_worker_inspection import (
     build_local_mission_worker_inspection,
+)
+from ultimate_ai_agent.core.execution.durable_mission_controls import (
+    MissionControlConflictError,
+    MissionControlCorruptionError,
+    MissionControlRequest,
+)
+from ultimate_ai_agent.core.execution.mission_failure_management import (
+    MISSION_FAILURE_MANAGEMENT_REDACTIONS,
+    AuthorityMissionFailureManagementService,
+    MissionApprovalDecisionRequest,
 )
 from ultimate_ai_agent.core.planning.validation import validate_task_ref
 from ultimate_ai_agent.core.runtime_gateway import (
@@ -117,6 +128,10 @@ router = APIRouter(prefix="/api/runtime", tags=["governed-runtime"])
 _REGISTERED_ATTR = "_uaa_governed_runtime_routes_registered"
 _RuntimeStoreGetter = Callable[[], RuntimeInvocationStore]
 _runtime_store_getter: _RuntimeStoreGetter | None = None
+_MissionFailureServiceGetter = Callable[
+    [], AuthorityMissionFailureManagementService
+]
+_mission_failure_service_getter: _MissionFailureServiceGetter | None = None
 
 
 def _default_runtime_store() -> RuntimeInvocationStore:
@@ -133,6 +148,12 @@ def _runtime_store() -> RuntimeInvocationStore:
 
 def _authority_store() -> AuthorityLeaseStore:
     return AuthorityLeaseStore()
+
+
+def _mission_failure_service() -> AuthorityMissionFailureManagementService:
+    if _mission_failure_service_getter is None:
+        return AuthorityMissionFailureManagementService()
+    return _mission_failure_service_getter()
 
 
 def _idempotency_ref(
@@ -1014,6 +1035,7 @@ def get_api_runtime_authority_missions_worker_state() -> ResultEnvelope:
     except (
         AuthorityDispatchCorruptionError,
         MissionStepCorruptionError,
+        MissionStepConflictError,
         MissionWorkerCorruptionError,
         ValidationError,
         UnicodeError,
@@ -1053,6 +1075,228 @@ def get_api_runtime_authority_missions_worker_state() -> ResultEnvelope:
         data=read_model.model_dump(mode="json"),
         evidence=[{"evidence_ref": read_model.inspection_ref}],
         redactions_applied=read_model.redactions_applied,
+    )
+
+
+def _mission_mutation_error(
+    *,
+    operation: str,
+    trace_id: str,
+    code: str,
+    category: ErrorCategory,
+    safe_message: str,
+) -> ResultEnvelope:
+    return ResultEnvelope(
+        success=False,
+        operation=operation,
+        service="GovernedRuntimeAPI",
+        trace_id=trace_id,
+        error=ErrorEnvelope(
+            code=code,
+            category=category,
+            safe_message=safe_message,
+            severity=Severity.high,
+            retryable=False,
+            details_redacted=True,
+            source="GovernedRuntimeAPI",
+        ),
+        redactions_applied=list(MISSION_FAILURE_MANAGEMENT_REDACTIONS),
+    )
+
+
+def _mission_control_response(
+    *,
+    operation: str,
+    request: MissionControlRequest,
+    idempotency_key: str | None,
+    idempotency_ref: str | None,
+    dead_letter_recovery: bool,
+) -> ResultEnvelope:
+    supplied_idempotency = _idempotency_ref(idempotency_key, idempotency_ref)
+    if supplied_idempotency != request.idempotency_ref:
+        return ResultEnvelope(
+            success=False,
+            operation=operation,
+            service="GovernedRuntimeAPI",
+            trace_id=request.control_ref,
+            error=ErrorEnvelope(
+                code="MISSION_CONTROL_IDEMPOTENCY_MISMATCH",
+                category=ErrorCategory.validation_error,
+                safe_message=(
+                    "The mission control idempotency header must match the "
+                    "typed request."
+                ),
+                severity=Severity.medium,
+                retryable=False,
+                details_redacted=True,
+                source="GovernedRuntimeAPI",
+            ),
+            redactions_applied=list(MISSION_FAILURE_MANAGEMENT_REDACTIONS),
+        )
+    try:
+        service = _mission_failure_service()
+        result = (
+            service.request_dead_letter_recovery(request)
+            if dead_letter_recovery
+            else service.cancel(request)
+        )
+    except MissionControlConflictError:
+        return _mission_mutation_error(
+            operation=operation,
+            trace_id=request.control_ref,
+            code="MISSION_CONTROL_CONFLICT",
+            category=ErrorCategory.conflict,
+            safe_message="The mission control idempotency or scope conflicts.",
+        )
+    except (MissionControlCorruptionError, UnicodeError, OSError):
+        return _mission_mutation_error(
+            operation=operation,
+            trace_id=request.control_ref,
+            code="MISSION_CONTROL_STATE_INVALID",
+            category=ErrorCategory.internal_error,
+            safe_message="The local durable mission control state is invalid.",
+        )
+    except (ValidationError, ValueError):
+        return _mission_mutation_error(
+            operation=operation,
+            trace_id=request.control_ref,
+            code="MISSION_CONTROL_DENIED",
+            category=ErrorCategory.policy_denied,
+            safe_message="The exact mission control request was denied.",
+        )
+    return ResultEnvelope(
+        success=True,
+        operation=operation,
+        service="GovernedRuntimeAPI",
+        trace_id=result.control_receipt_ref,
+        data=result.model_dump(mode="json"),
+        evidence=[
+            {"evidence_ref": result.control_receipt_ref},
+            {"evidence_ref": result.control_entry_hash_ref},
+        ],
+        redactions_applied=result.redactions_applied,
+    )
+
+
+@router.post(
+    "/authority-missions/cancel",
+    response_model=ResultEnvelope,
+    operation_id="post_api_runtime_authority_mission_cancel",
+)
+def post_api_runtime_authority_mission_cancel(
+    request: MissionControlRequest,
+    x_uaa_idempotency_key: str | None = Header(default=None),
+    x_uaa_idempotency_ref: str | None = Header(default=None),
+) -> ResultEnvelope:
+    return _mission_control_response(
+        operation="api_runtime_authority_mission_cancel",
+        request=request,
+        idempotency_key=x_uaa_idempotency_key,
+        idempotency_ref=x_uaa_idempotency_ref,
+        dead_letter_recovery=False,
+    )
+
+
+@router.post(
+    "/authority-missions/approval-decisions",
+    response_model=ResultEnvelope,
+    operation_id="post_api_runtime_authority_mission_approval_decision",
+)
+def post_api_runtime_authority_mission_approval_decision(
+    request: MissionApprovalDecisionRequest,
+    x_uaa_idempotency_key: str | None = Header(default=None),
+    x_uaa_idempotency_ref: str | None = Header(default=None),
+) -> ResultEnvelope:
+    operation = "api_runtime_authority_mission_approval_decision"
+    supplied_idempotency = _idempotency_ref(
+        x_uaa_idempotency_key,
+        x_uaa_idempotency_ref,
+    )
+    if supplied_idempotency != request.idempotency_ref:
+        return ResultEnvelope(
+            success=False,
+            operation=operation,
+            service="GovernedRuntimeAPI",
+            trace_id=request.step_ref,
+            error=ErrorEnvelope(
+                code="MISSION_APPROVAL_IDEMPOTENCY_MISMATCH",
+                category=ErrorCategory.validation_error,
+                safe_message=(
+                    "The mission approval idempotency header must match the "
+                    "typed request."
+                ),
+                severity=Severity.medium,
+                retryable=False,
+                details_redacted=True,
+                source="GovernedRuntimeAPI",
+            ),
+            redactions_applied=list(MISSION_FAILURE_MANAGEMENT_REDACTIONS),
+        )
+    try:
+        result = _mission_failure_service().resolve_approval(request)
+    except (MissionControlConflictError, MissionStepConflictError):
+        return _mission_mutation_error(
+            operation=operation,
+            trace_id=request.step_ref,
+            code="MISSION_APPROVAL_CONFLICT",
+            category=ErrorCategory.conflict,
+            safe_message="The exact approval decision conflicts with durable state.",
+        )
+    except (
+        MissionControlCorruptionError,
+        MissionStepCorruptionError,
+        UnicodeError,
+        OSError,
+    ):
+        return _mission_mutation_error(
+            operation=operation,
+            trace_id=request.step_ref,
+            code="MISSION_APPROVAL_STATE_INVALID",
+            category=ErrorCategory.internal_error,
+            safe_message="The local durable mission approval state is invalid.",
+        )
+    except (ValidationError, ValueError):
+        return _mission_mutation_error(
+            operation=operation,
+            trace_id=request.step_ref,
+            code="MISSION_APPROVAL_DENIED",
+            category=ErrorCategory.policy_denied,
+            safe_message=(
+                "The exact durable approval wait was unavailable, mismatched, "
+                "terminal, or could not be validated."
+            ),
+        )
+    return ResultEnvelope(
+        success=True,
+        operation=operation,
+        service="GovernedRuntimeAPI",
+        trace_id=result.control_receipt_ref,
+        data=result.model_dump(mode="json"),
+        evidence=[
+            {"evidence_ref": result.control_receipt_ref},
+            {"evidence_ref": result.control_entry_hash_ref},
+            {"evidence_ref": result.decision_fingerprint_ref},
+        ],
+        redactions_applied=result.redactions_applied,
+    )
+
+
+@router.post(
+    "/authority-missions/dead-letter-recovery",
+    response_model=ResultEnvelope,
+    operation_id="post_api_runtime_authority_mission_dead_letter_recovery",
+)
+def post_api_runtime_authority_mission_dead_letter_recovery(
+    request: MissionControlRequest,
+    x_uaa_idempotency_key: str | None = Header(default=None),
+    x_uaa_idempotency_ref: str | None = Header(default=None),
+) -> ResultEnvelope:
+    return _mission_control_response(
+        operation="api_runtime_authority_mission_dead_letter_recovery",
+        request=request,
+        idempotency_key=x_uaa_idempotency_key,
+        idempotency_ref=x_uaa_idempotency_ref,
+        dead_letter_recovery=True,
     )
 
 
@@ -2096,7 +2340,9 @@ def register_governed_runtime_routes(
     app: FastAPI,
     *,
     runtime_store_getter: _RuntimeStoreGetter | None = None,
+    mission_failure_service_getter: _MissionFailureServiceGetter | None = None,
 ) -> None:
-    global _runtime_store_getter
+    global _mission_failure_service_getter, _runtime_store_getter
     _runtime_store_getter = runtime_store_getter
+    _mission_failure_service_getter = mission_failure_service_getter
     register_router_once(app, router, state_attr=_REGISTERED_ATTR)

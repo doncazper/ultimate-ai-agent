@@ -540,9 +540,9 @@ expired dispatch before adapter start.
 The dispatcher, not the runner, still owns current lease, policy, exact
 approval, budget, kill-switch, adapter, and target evaluation.
 The optional authority-state mission-step query and exact CLI inspection
-command share a redacted backend projection. They validate both durable
-ledgers, distinguish claim freshness from durable status, and perform no
-execution, mutation, lease/approval minting, retry, or reconciliation.
+command share a redacted backend projection. They validate the durable plan,
+step, dispatch, retry/dead-letter, approval-wait, and worker truth without
+granting execution authority or performing reconciliation.
 
 The bounded synchronous mission orchestrator now validates and durably binds a
 closed dependency graph of at most 16 exact filesystem-metadata steps before
@@ -558,12 +558,29 @@ be created or claimed. The internal runner requires the accepted plan's exact
 execution context, and the locked claim rejects any new start after another
 plan member reaches terminal non-success. The subsequent macOS-only local
 mission worker adds disabled-by-default bounded scheduling around these exact
-one-step slices; no API/CLI/UI execution control, parallel fan-out, automatic
-retry, approval wait, or mission-level cancellation is added.
+one-step slices. Registered exact approval requests may wait without holding a
+claim or budget reservation and resume only after fresh LocalApprovalAuthority
+validation. The API approval-decision receipt records durable operator intent
+only; it does not grant execution authority, cache a grant, or start a worker.
+Durable approval-request rehydration across process restarts remains blocked.
+Any resumed worker must freshly validate approval, policy, the exact mission
+lease, budget, kill switch, adapter, target, deadline, idempotency, and
+safe-disable posture immediately before execution. Retry remains off by
+default; when an immutable plan, an active
+mission lease with an exact retry-attempt constraint, a typed retryable adapter
+failure, an explicitly idempotent adapter, remaining deadline, and fresh
+dispatcher budget/authority checks all agree, at most three prebound attempts
+may run. Backoff releases claims, exhausted typed retries become immutable dead
+letters, and no dead letter auto-replays. Exact API/CLI cancellation and
+dead-letter recovery-intent commands share one Python service; cancellation is
+append-first and checked at synchronous and worker pre-start boundaries, while
+after-start cancellation remains recovery-required rather than falsely
+reported as cancelled.
 
 Legacy executable-lane migration, remote/public background scheduling,
-parallel execution, approval waits, retry budgets,
-after-start cancellation, settlement recovery, paid-provider actual usage
+parallel execution, durable approval-grant rehydration across process restarts,
+mission-wide retry/cost budgets, safe after-start adapter cancellation,
+settlement recovery, paid-provider actual usage
 proof, typed time windows,
 recipient/target binding, renewal, reviewed unresolved-cost remediation, and
 Control Center budget operations remain unimplemented.

@@ -118,6 +118,9 @@ EXTENSION_INSTALL_DISABLED_RECORD_PATHS = {
     "/extensions/disabled-install-records/rollback",
 }
 GOVERNED_RUNTIME_MUTATING_PATHS = {
+    "/api/runtime/authority-missions/approval-decisions",
+    "/api/runtime/authority-missions/cancel",
+    "/api/runtime/authority-missions/dead-letter-recovery",
     "/api/runtime/authority-leases",
     "/api/runtime/authority-leases/approve-and-issue",
     "/api/runtime/authority-leases/revoke",

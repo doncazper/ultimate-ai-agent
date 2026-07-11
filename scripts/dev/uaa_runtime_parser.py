@@ -128,6 +128,7 @@ def build_parser(runtime_symbols: Mapping[str, Any]) -> argparse.ArgumentParser:
     authority_state.set_defaults(func=_inspect_authority_state)
     _mission_step_cli.register_parser(subparsers)
     _mission_worker_cli.register_parser(subparsers)
+    _mission_failure_cli.register_parser(subparsers)
     authority_lane_catalog = subparsers.add_parser(
         "inspect-authority-lane-catalog",
         help="Inspect Authority Lane Catalog V1 without execution.",
@@ -136,7 +137,6 @@ def build_parser(runtime_symbols: Mapping[str, Any]) -> argparse.ArgumentParser:
         "--json", action="store_true", help="Emit safe JSON."
     )
     authority_lane_catalog.set_defaults(func=_inspect_authority_lane_catalog)
-
     authority_domain_readiness = subparsers.add_parser(
         "inspect-authority-domain-readiness",
         help="Inspect AuthorityLease domain readiness without execution.",

@@ -2,8 +2,8 @@
 
 Status: implemented Python Core dispatcher, exact filesystem-metadata
 MissionRunner, bounded synchronous dependency orchestration, disabled-by-default
-local mission worker, and redacted API/CLI inspection; mutation controls and
-Control Center integration remain missing
+local mission worker, durable failure-management state, and redacted API/CLI
+inspection; Control Center integration remains missing
 
 Date: 2026-07-10
 
@@ -201,9 +201,12 @@ successes; active competing claims return an in-progress posture; there is no
 wait loop. Plan-bound definitions cannot be created or claimed unless the
 accepted plan proves exact step, definition, dispatch, request-fingerprint, and
 dependency membership. This synchronous path is not itself a background
-scheduler and adds no parallel fan-out, approval wait,
-automatic retry, mission cancellation, dynamic output-to-input binding, API or
-CLI execution command, or Control Center mutation.
+scheduler and adds no parallel fan-out, dynamic output-to-input binding, API or
+CLI execution command, or Control Center mutation. The surrounding mission
+worker now adds durable approval waits, exact typed retry policy, immutable dead
+letters, and append-first mission cancellation without changing the dispatcher
+path. Approval decisions and recovery requests are operator intent only; every
+later start re-enters the dispatcher's fresh request-scoped checks.
 
 ## Approval And Budget Binding
 
@@ -318,10 +321,12 @@ provider/model call, browser action, connector write, network expansion,
 public distribution, production authority, or standing autonomy.
 
 The dispatcher is not yet the universal route for legacy executable lanes.
-Durable missions still need approval waits, retry budgets, after-start
-cancellation, settlement recovery, dead-letter handling, mission completion
-receipts, mutation API/CLI and Control Center parity, and broader exact
-adapters. The local worker supplies bounded job and step heartbeats but does
-not cache authority; every resumed start re-enters the dispatcher. Each future
-adapter must be promoted as an exact descriptor and tested lane; V1 does not
-grant a broad capability class.
+Durable missions still need mission-wide retry and cost budgets, safe
+after-start cancellation, settlement recovery, mission completion receipts,
+restart-time approval-request resolver proof, Control Center mission controls,
+and broader exact adapters. Dead letters
+remain terminal and require a new plan and fresh request-scoped authority;
+recovery intent does not replay them. The local worker supplies bounded job and
+step heartbeats but does not cache authority; every resumed start re-enters the
+dispatcher. Each future adapter must be promoted as an exact descriptor and
+tested lane; V1 does not grant a broad capability class.

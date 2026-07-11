@@ -131,6 +131,7 @@ class AuthorityConstraintKind(str, Enum):
     delegation_depth = "delegation_depth"
     operation_budget = "operation_budget"
     cost_budget_microusd = "cost_budget_microusd"
+    retry_attempts = "retry_attempts"
 
 
 def _stable_ref(prefix: str, payload: Any) -> str:
@@ -166,6 +167,7 @@ _AUTHORITY_NUMERIC_CONSTRAINT_KINDS = {
     AuthorityConstraintKind.delegation_depth,
     AuthorityConstraintKind.operation_budget,
     AuthorityConstraintKind.cost_budget_microusd,
+    AuthorityConstraintKind.retry_attempts,
 }
 
 
@@ -178,7 +180,6 @@ class AuthorityConstraint(_AuthorityModel):
     allowed_refs: list[str] = Field(default_factory=list)
     maximum: StrictInt | None = Field(default=None, ge=0)
     safe_summary: str = Field(..., min_length=1, max_length=260)
-
     @model_validator(mode="after")
     def validate_constraint(self) -> "AuthorityConstraint":
         validate_task_ref(self.constraint_ref, "authority_constraint_ref")
@@ -200,7 +201,6 @@ class AuthorityConstraintClaim(_AuthorityModel):
     kind: AuthorityConstraintKind
     refs: list[str] = Field(default_factory=list)
     value: StrictInt | None = Field(default=None, ge=0)
-
     @model_validator(mode="after")
     def validate_claim(self) -> "AuthorityConstraintClaim":
         validate_safe_task_text(_enum_value(self.kind), "authority_constraint_claim_kind")

@@ -140,6 +140,8 @@ def _entry_hash(receipt: AuthorityDispatchReceipt) -> str:
         payload.pop("start_validated_at", None)
     if receipt.execution_fence_ref is None:
         payload.pop("execution_fence_ref", None)
+    if receipt.failure_category is None:
+        payload.pop("failure_category", None)
     return _stable_ref(
         "entry-hash-ref:authority-dispatch",
         payload,
@@ -786,6 +788,7 @@ class AuthorityDispatcher:
                         request, "prestart-policy-release"
                     ),
                     cancellation_reason_ref=prestart_reasons[0],
+                    execution_fence_ref=execution_fence_ref,
                     reason_refs=prestart_reasons,
                     safe_summary="Dispatch cancellation claimed before adapter start.",
                 )
@@ -908,6 +911,7 @@ class AuthorityDispatcher:
                 actual_operation_count=adapter_result.actual_operation_count,
                 actual_cost_microusd=adapter_result.actual_cost_microusd,
                 actual_cost_ref=adapter_result.actual_cost_ref,
+                failure_category=adapter_result.failure_category,
                 evidence_refs=adapter_result.evidence_refs,
                 output_refs=adapter_result.output_refs,
                 reason_refs=(
@@ -1258,7 +1262,7 @@ class AuthorityDispatcher:
             else:
                 try:
                     approval_decision = (
-                        self.approval_authority._validate_at_trusted_time(
+                        self.approval_authority.validate_at_trusted_time(
                             validation_request,
                             current_time=current_time,
                         )

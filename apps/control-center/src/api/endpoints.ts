@@ -103,6 +103,8 @@ export const API_ENDPOINTS = {
   runtimeSkillMarketplacePosture: "/api/runtime/skill-marketplace-posture",
   runtimeAuthorityDecisionPreview: "/api/runtime/authority-decisions/preview",
   runtimeAuthorityMissionPlan: "/api/runtime/authority-missions/plan",
+  runtimeAuthorityMissionWorkerState:
+    "/api/runtime/authority-missions/worker-state",
   runtimeAuthorityLeases: "/api/runtime/authority-leases",
   runtimeAuthorityLeasesApproveAndIssue:
     "/api/runtime/authority-leases/approve-and-issue",
@@ -206,6 +208,7 @@ export const READ_ENDPOINTS = [
   API_ENDPOINTS.providerSetupGuide,
   API_ENDPOINTS.modelProviderControlPlane,
   API_ENDPOINTS.controlCenterSettingsStatus,
+  API_ENDPOINTS.runtimeAuthorityMissionWorkerState,
   API_ENDPOINTS.controlCenterLocalModelsStatus,
   API_ENDPOINTS.founderTodaySummary,
   API_ENDPOINTS.founderAgentLoopThread,

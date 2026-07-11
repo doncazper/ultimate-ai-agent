@@ -188,7 +188,7 @@ class LocalApprovalAuthority:
             return self._decision(validation_request, ApprovalDecisionStatus.out_of_scope, scope_failures, "Approval grant does not cover the requested action.", grant)
         return self._decision(validation_request, ApprovalDecisionStatus.approved, ["APPROVAL_VALIDATED"], "Approval grant validated for the requested scope.", grant, allowed=True)
 
-    def _validate_at_trusted_time(
+    def validate_at_trusted_time(
         self,
         validation_request: ApprovalValidationRequest,
         *,
@@ -205,6 +205,25 @@ class LocalApprovalAuthority:
         with self._validation_lock:
             grant = self._grants.get(approval_ref)
             return grant.model_copy(deep=True) if grant is not None else None
+
+    def find_request_for_validation(
+        self,
+        validation_request: ApprovalValidationRequest,
+    ) -> Optional[ApprovalRequest]:
+        """Return an exact registered request; this lookup grants no authority."""
+
+        expected = validation_request.model_dump(
+            mode="json",
+            exclude={"current_time"},
+        )
+        with self._validation_lock:
+            for request in self._requests.values():
+                candidate = request.to_validation_request(
+                    validation_request.approval_ref
+                ).model_dump(mode="json", exclude={"current_time"})
+                if candidate == expected:
+                    return request.model_copy(deep=True)
+        return None
 
     def load_grant_for_validation(self, grant: ApprovalGrant) -> None:
         stored = ApprovalGrant.model_validate(grant.model_dump(mode="python"))

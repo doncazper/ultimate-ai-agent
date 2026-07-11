@@ -10,6 +10,9 @@ import type {
   AuthorityLeaseRevokeRequest,
   AuthorityMissionPlan,
   AuthorityMissionPlanRequest,
+  AuthorityMissionWorkerJob,
+  AuthorityMissionWorkerReadModel,
+  AuthorityMissionWorkerStepRecovery,
   BackendConnectionSummary,
   CodingCockpitSessionReadModel,
   CodingWorkspaceContextReadModel,
@@ -3037,6 +3040,18 @@ export async function fetchControlCenterSettingsStatus(): Promise<ControlCenterS
   return readEnvelope<ControlCenterSettingsStatus>(
     API_ENDPOINTS.controlCenterSettingsStatus,
   );
+}
+
+export async function fetchAuthorityMissionWorkerState(): Promise<AuthorityMissionWorkerReadModel> {
+  const value = await readEnvelope<unknown>(
+    API_ENDPOINTS.runtimeAuthorityMissionWorkerState,
+  );
+  if (!isSafeAuthorityMissionWorkerReadModel(value)) {
+    throw new Error(
+      "Authority mission worker inspection returned unsafe or incompatible data.",
+    );
+  }
+  return value;
 }
 
 export async function previewAuthorityDecision(
@@ -13725,6 +13740,182 @@ function normalizeFounderMemoryWorkbench(
     };
   }
   return merged;
+}
+
+const AUTHORITY_MISSION_WORKER_STATUSES = new Set([
+  "pending",
+  "claimed",
+  "approval_wait",
+  "retry_pending",
+  "succeeded",
+  "failed",
+  "recovery_required",
+  "cancelled",
+]);
+
+const AUTHORITY_MISSION_RECOVERY_STATUSES = new Set([
+  "pending",
+  "actively_claimed",
+  "approval_wait",
+  "retry_pending",
+  "stale_claim",
+  "prepared_dispatch",
+  "started_unknown_terminal",
+  "succeeded",
+  "failed",
+  "dependency_blocked",
+  "recovery_required",
+  "cancelled",
+]);
+
+function isSafeAuthorityMissionRef(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= 320 &&
+    !/[\\/\r\n]/u.test(value)
+  );
+}
+
+function isSafeAuthorityMissionText(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= 720 &&
+    !/[\\/\r\n]/u.test(value)
+  );
+}
+
+function isAuthorityMissionStringArray(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.length <= 64 &&
+    value.every(isSafeAuthorityMissionRef)
+  );
+}
+
+function isOptionalMissionTimestamp(value: unknown): value is string | null {
+  return value === null || typeof value === "string";
+}
+
+function isSafeAuthorityMissionWorkerStep(
+  value: unknown,
+): value is AuthorityMissionWorkerStepRecovery {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  return (
+    isSafeAuthorityMissionRef(value.step_safe_ref) &&
+    typeof value.status === "string" &&
+    AUTHORITY_MISSION_RECOVERY_STATUSES.has(value.status) &&
+    ["active", "stale", "not_claimed", "unknown"].includes(
+      String(value.claim_freshness),
+    ) &&
+    Number.isInteger(value.generation) &&
+    Number(value.generation) >= 0 &&
+    isAuthorityMissionStringArray(value.reason_refs) &&
+    isAuthorityMissionStringArray(value.evidence_refs) &&
+    value.adapter_reinvocation_allowed === false
+  );
+}
+
+function isSafeAuthorityMissionWorkerJob(
+  value: unknown,
+): value is AuthorityMissionWorkerJob {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  const safeOptionalRef = (candidate: unknown) =>
+    candidate === null || isSafeAuthorityMissionRef(candidate);
+  return (
+    [
+      value.job_safe_ref,
+      value.plan_safe_ref,
+      value.mission_safe_ref,
+      value.run_safe_ref,
+    ].every(isSafeAuthorityMissionRef) &&
+    typeof value.durable_status === "string" &&
+    AUTHORITY_MISSION_WORKER_STATUSES.has(value.durable_status) &&
+    typeof value.recovery_status === "string" &&
+    AUTHORITY_MISSION_RECOVERY_STATUSES.has(value.recovery_status) &&
+    Number.isInteger(value.generation) &&
+    Number(value.generation) >= 0 &&
+    [
+      "enqueued",
+      "claimed",
+      "heartbeat",
+      "deferred",
+      "completed",
+      "shutdown",
+    ].includes(String(value.latest_event)) &&
+    typeof value.latest_event_at === "string" &&
+    isOptionalMissionTimestamp(value.last_heartbeat_at) &&
+    ["active", "stale", "not_observed"].includes(
+      String(value.heartbeat_freshness),
+    ) &&
+    safeOptionalRef(value.worker_safe_ref) &&
+    safeOptionalRef(value.claim_safe_ref) &&
+    isOptionalMissionTimestamp(value.claim_expires_at) &&
+    isOptionalMissionTimestamp(value.retry_not_before) &&
+    typeof value.deadline === "string" &&
+    Array.isArray(value.steps) &&
+    value.steps.length <= 16 &&
+    value.steps.every(isSafeAuthorityMissionWorkerStep) &&
+    isAuthorityMissionStringArray(value.reason_refs) &&
+    isAuthorityMissionStringArray(value.evidence_refs) &&
+    value.request_payload_persisted === false &&
+    value.request_scoped_authority_required_before_resume === true
+  );
+}
+
+function isSafeAuthorityMissionWorkerReadModel(
+  value: unknown,
+): value is AuthorityMissionWorkerReadModel {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  const nonnegativeIntegerFields = [
+    "queue_capacity",
+    "queued_job_count",
+    "total_job_count",
+    "omitted_terminal_job_count",
+    "active_claim_count",
+    "stale_claim_count",
+  ];
+  return (
+    value.schema_version === "uaa-local-mission-worker.v1" &&
+    isSafeAuthorityMissionRef(value.inspection_ref) &&
+    typeof value.configuration_enabled === "boolean" &&
+    value.canonical_platform === "macos" &&
+    [
+      "macos",
+      "linux_placeholder",
+      "windows_placeholder",
+      "unsupported",
+    ].includes(String(value.observed_platform)) &&
+    typeof value.platform_execution_supported === "boolean" &&
+    value.linux_surface_posture === "render_placeholder" &&
+    value.windows_surface_posture === "render_placeholder" &&
+    nonnegativeIntegerFields.every(
+      (field) => Number.isInteger(value[field]) && Number(value[field]) >= 0,
+    ) &&
+    typeof value.kill_switch_engaged === "boolean" &&
+    Array.isArray(value.jobs) &&
+    value.jobs.length <= 32 &&
+    value.jobs.every(isSafeAuthorityMissionWorkerJob) &&
+    typeof value.checked_at === "string" &&
+    isSafeAuthorityMissionText(value.operator_summary) &&
+    value.local_only === true &&
+    value.execution_authority_granted === false &&
+    value.approval_or_lease_minted === false &&
+    value.remote_queue_enabled === false &&
+    value.daemon_enabled === false &&
+    value.raw_task_input_persisted === false &&
+    value.raw_paths_included === false &&
+    value.raw_logs_included === false &&
+    value.raw_provider_payloads_included === false &&
+    isAuthorityMissionStringArray(value.redactions_applied)
+  );
 }
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {

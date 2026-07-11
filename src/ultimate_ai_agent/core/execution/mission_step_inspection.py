@@ -9,7 +9,10 @@ from typing import Any, Callable, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from ultimate_ai_agent.core.authority.contracts import authority_state_dir
-from ultimate_ai_agent.core.authority.dispatch_contracts import AuthorityDispatchReceipt
+from ultimate_ai_agent.core.authority.dispatch_contracts import (
+    AuthorityDispatchFailureCategory,
+    AuthorityDispatchReceipt,
+)
 from ultimate_ai_agent.core.authority.dispatcher import AuthorityDispatcher
 from ultimate_ai_agent.core.execution.durable_mission_steps import (
     MissionStepCorruptionError,
@@ -70,10 +73,15 @@ class MissionStepInspectionReadModel(BaseModel):
     claim_safe_ref: str | None = None
     dispatch_safe_ref: str | None = None
     dispatch_receipt_safe_ref: str | None = None
+    approval_request_safe_ref: str | None = None
+    approval_safe_ref: str | None = None
+    approval_scope_safe_ref: str | None = None
     dispatch_binding_validated: bool
     dependency_count: int = Field(..., ge=0)
     generation: int = Field(..., ge=0)
-    attempt_no: Literal[1] = 1
+    attempt_no: int = Field(default=1, ge=1, le=3)
+    retry_not_before: datetime | None = None
+    failure_category: AuthorityDispatchFailureCategory | None = None
     deadline: datetime
     claim_expires_at: datetime | None = None
     checked_at: datetime
@@ -85,7 +93,9 @@ class MissionStepInspectionReadModel(BaseModel):
     request_scoped_authority_required: Literal[True] = True
     adapter_invocation_performed: Literal[False] = False
     approval_or_lease_minted: Literal[False] = False
-    autonomous_retry_performed: Literal[False] = False
+    autonomous_retry_performed: bool = False
+    retry_pending: bool = False
+    dead_lettered: bool = False
     reconciliation_performed: Literal[False] = False
     inspection_only: Literal[True] = True
     raw_content_included: Literal[False] = False
@@ -201,9 +211,33 @@ def build_mission_step_inspection_read_model(
             if source.dispatch_receipt_ref is not None
             else None
         ),
+        approval_request_safe_ref=(
+            _identity_safe_ref(
+                "approval-request-safe-ref",
+                source.approval_request_ref,
+            )
+            if source.approval_request_ref is not None
+            else None
+        ),
+        approval_safe_ref=(
+            _identity_safe_ref("approval-safe-ref", source.approval_ref)
+            if source.approval_ref is not None
+            else None
+        ),
+        approval_scope_safe_ref=(
+            _identity_safe_ref(
+                "approval-scope-safe-ref",
+                source.approval_scope_fingerprint_ref,
+            )
+            if source.approval_scope_fingerprint_ref is not None
+            else None
+        ),
         dispatch_binding_validated=dispatch_binding_validated,
         dependency_count=len(source.dependency_step_refs),
         generation=source.generation,
+        attempt_no=source.attempt_no,
+        retry_not_before=source.retry_not_before,
+        failure_category=source.failure_category,
         deadline=source.deadline,
         claim_expires_at=source.claim_expires_at,
         checked_at=source.checked_at,
@@ -218,4 +252,7 @@ def build_mission_step_inspection_read_model(
             "Mission step inspection is read-only; durable status and claim "
             "freshness do not grant request execution authority."
         ),
+        autonomous_retry_performed=source.attempt_no > 1,
+        retry_pending=source.status == MissionStepStatus.retry_pending.value,
+        dead_lettered=source.status == MissionStepStatus.dead_lettered.value,
     )

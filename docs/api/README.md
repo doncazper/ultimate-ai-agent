@@ -2,8 +2,8 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `253`, generated from the FastAPI application and
-exposed through `/api/manifest`. `/api/manifest` currently reports `254` route
+Current OpenAPI path count: `256`, generated from the FastAPI application and
+exposed through `/api/manifest`. `/api/manifest` currently reports `257` route
 operations because governed runtime pilot routes intentionally have both `GET`
 and `POST` contracts on `/api/runtime/invocations`, and the Turn Contract
 Router preview plus AuthorityLease mission planning routes add no-effect
@@ -38,6 +38,13 @@ invocation creation is workspace draft/record-only, approval binding and
 approved execution are workspace execute with exact approval and lease gates,
 and runtime safe-disable is a local safety control that can only reduce
 authority.
+The mission failure-management boundary adds three protected, idempotent local
+operator-intent routes: approval decision recording, append-first mission
+cancellation, and dead-letter recovery intent. An approval decision is not
+authority, cancellation can only block a future start, and recovery intent
+does not reopen or replay a terminal step. The local worker must freshly
+evaluate request-scoped approval, policy, lease, budget, kill switch, adapter,
+target, deadline, and safe-disable posture immediately before any execution.
 `POST /api/runtime/local-model/call` is AuthorityLease-gated as
 `provider_model_calls/execute`: configured loopback local-model transport
 requires Full machine access scope before execution, records metadata-only

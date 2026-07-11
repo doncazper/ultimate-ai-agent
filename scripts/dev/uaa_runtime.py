@@ -15,6 +15,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 from scripts.dev import uaa_runtime_mission_step_inspection as _mission_step_cli  # noqa: E402, F401
 from scripts.dev import uaa_runtime_mission_worker_inspection as _mission_worker_cli  # noqa: E402, F401
+from scripts.dev import uaa_runtime_mission_failure_management as _mission_failure_cli  # noqa: E402, F401
 from scripts.dev import uaa_runtime_streaming_progress as _streaming_progress_cli  # noqa: E402, F401
 from ultimate_ai_agent.core.control_center.runtime_action_bridge import (  # noqa: E402
     build_runtime_action_inbox_bridge_read_model,

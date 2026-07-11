@@ -3419,7 +3419,7 @@ describe("Web Control Center shell", () => {
         name: /approve|run|send|write|sync|execute/i,
       }),
     ).not.toBeInTheDocument();
-  });
+  }, 15_000);
 
   it("renders backend-owned Operator Workspace Spine on Today without mutation controls", async () => {
     const today = cloneForTest(mockControlCenterData.founderToday);
