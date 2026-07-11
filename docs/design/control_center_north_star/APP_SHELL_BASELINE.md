@@ -1,8 +1,8 @@
 # Control Center App Shell Baseline
 
-Status: current north-star design baseline, documentation only.
-Baseline ID: CC-NS-2026-07-06.
-Current as of: 2026-07-06.
+Status: current target shell baseline, documentation only.
+Baseline ID: CC-NS-TARGET-V1-2026-07-11.
+Current as of: 2026-07-11.
 Repo baseline: v0.104.0 / 0.104.0.
 
 This file is the source of truth for the static Control Center shell used by
@@ -30,81 +30,50 @@ controls, or inspectors.
 
 ## Canonical Left Rail
 
-The rail is owned by `apps/control-center/src/routes.tsx`. The route order below
-is the product default and deterministic `All surfaces` order. Under the
-approved `CC-UIUX-2026-07-11` specification, operators may customize which
-surfaces are pinned and their pinned order without changing route availability,
-capability state, authority, or the resettable default order.
+The target product rail below is governed by
+`../CONTROL_CENTER_PRODUCT_IA_AND_CALENDAR_CONTRACT.md`. The current route
+registry in `apps/control-center/src/routes.tsx` remains implementation truth
+until consolidation is separately implemented. The operator may customize
+which middle workspaces are pinned and their pinned order without changing
+route availability, capability state, authority, or the resettable default.
 
-### Primary Founder Loop
+### Primary workspaces
 
-These items are always visible in the same order on the standard desktop shell:
+1. Today
+2. Communications
+3. Work Board
+4. CRM
+5. Calendar
+6. Studio
 
-1. Start Here
-2. Today
-3. Source Inbox
-4. Plans
-5. Work Board
-6. Action Inbox
-7. Proof
-8. Trust
-9. Memory
-10. Evidence
-11. Settings
+Today is fixed first and is the default landing workspace. Communications,
+Work Board, CRM, Calendar, and Studio may be reordered or hidden as presentation
+preferences without disabling their routes or capabilities.
 
-Source Inbox remains visible for route reachability and continuity, but copy
-must still describe it as source-readiness/read-only/draft-only until connector
-contracts grant more.
+### Supporting workspaces and utilities
 
-### Supporting Surfaces
+The stable supporting section is:
 
-Supporting surfaces use a stable secondary section after the primary Founder
-Loop list. They may be grouped, collapsed, or exposed through a command
-palette at narrower widths, but they must not appear or disappear based on the
-active route.
+1. Knowledge
+2. Activity & Trust
 
-Founder Loop support:
+The stable lower utilities are:
 
-1. Briefing
-2. CRM
-3. Trial Packet
+1. Customize
+2. Settings
+3. Developer Tools, collapsed and hidden by default
 
-Review:
+Current Memory and Files concepts consolidate under Knowledge. Receipts,
+Evidence, Proof, Trust, Events, and Approvals consolidate under Activity &
+Trust. Runtime, Models, Storage, API Routes, Foundation Gate, Plugins, setup
+diagnostics, and other technical routes consolidate under Developer Tools.
+`Start Here` becomes onboarding-only after setup. Plans becomes a Work Board
+view; Source Inbox becomes a Communications view; Chat and Coding become
+Studio modes.
 
-1. Operator Loop
-2. Setup
-3. Coding
-4. Chat
-5. Models
-6. Approvals
-7. Files
-8. File Review
-9. Context Proposals
-10. Action Preview
-
-Runtime:
-
-1. Runtime
-2. Storage
-3. Local Runtime
-4. Manual Smoke
-5. Remote Workers
-6. Mobile Planning
-7. Plugin Governance
-
-Evidence:
-
-1. Foundation Gate
-2. Receipts
-3. Events
-4. Timeline
-
-System:
-
-1. Overview
-2. Dashboard
-3. API Routes
-4. Differentiators
+Action Inbox is a global decision utility reached through `Review N decisions`,
+attention items, command search, and Activity & Trust. It is not a permanent
+primary rail item. With no pending decisions the CTA is demoted or omitted.
 
 ## Rail Behavior
 

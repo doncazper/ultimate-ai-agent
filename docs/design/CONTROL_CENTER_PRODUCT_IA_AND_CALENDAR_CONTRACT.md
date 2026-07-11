@@ -203,19 +203,30 @@ appearing on the committed calendar.
 
 ## Locked First Render Set
 
-The next approved-direction render batch consists of:
+The complete target V1 default render set consists of:
 
 1. `TARGET-NAV-01` — Today with the locked product rail, six panels, receipt
    activity rail, workload-aware decision CTA, weather, and UAA composer.
 2. `CAL-01` — Calendar week view with approved events, linked work, a visibly
    provisional source-backed candidate, conflicts/duplicate posture, and its
    contextual inspector.
-3. `CAL-02` — Action Inbox review of the exact calendar proposal, including
+3. `DECISIONS-01` — Action Inbox review of the exact calendar proposal, including
    source, time, participants, links, conflict result, authority, and outcomes.
 4. `COMM-01` — Communications detail with the `Propose event` handoff and CRM
    relationship context.
 5. `STUDIO-01` — combined Chat/Code workbench.
 6. `ACTIVITY-01` — consolidated Activity & Trust workspace.
+7. `BOARD-01` — Work Board with shared task, plan, CRM, calendar, and receipt
+   context.
+8. `CRM-01` — relationship activity, commitments, pipeline context, and next
+   best action.
+9. `KNOWLEDGE-01` — reviewed memory, files, context, provenance, and correction.
+10. `CUSTOMIZE-01` — presentation-only navigation arrangement and preview.
+11. `SETTINGS-01` — search-first preferences and readable governed posture.
+12. `DEVTOOLS-01` — consolidated advanced diagnostics and exact local lanes.
+13. `ONBOARDING-01` — first-run local readiness and safety defaults.
+14. `UAA-SIDECAR-01` — cross-surface explanation and proposal handoff.
 
-This sequence establishes the connected daily loop before every current route
-is rendered in the new shell.
+The one-at-a-time review gallery is the approval ledger for these draft visual
+targets. Current implementation routes remain separately covered by the full
+route matrix and legacy composites until consolidation is implemented.

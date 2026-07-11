@@ -55,10 +55,18 @@ architecture is defined by
 |---|---|---|
 | `TARGET-NAV-01` | Today in target shell | Today-first rail; Communications, Work Board, CRM, Calendar, Studio; Knowledge; Activity & Trust; six Today panels; receipt activity rail; `Review N decisions`; weather; UAA composer |
 | `COMM-01` | Communications | unified queue/detail/inspector; Email, Messages, Follow-ups, Drafts, Waiting; CRM context; `Propose event`; proposal-only and blocked-send states |
+| `BOARD-01` | Work Board | Board/List/Timeline/Plans/Completed; shared task truth; CRM/Calendar/Communications links; receipt-backed completion |
+| `CRM-01` | CRM | relationship queue; activity timeline; opportunity/commitment context; source-backed next action |
 | `CAL-01` | Calendar week | color-coded schedule; tasks and commitments; source-backed candidate; duplicate/conflict/timezone posture; shared refs; proposal-only external posture |
-| `CAL-02` | Calendar proposal review | exact source, time, participants, location, CRM/work links, conflicts, confidence, authority, expiry, edit/approve/reject/defer outcomes |
+| `DECISIONS-01` | Decision Review | exact source, time, participants, location, CRM/work links, conflicts, confidence, authority, expiry, edit/approve/reject/defer outcomes |
 | `STUDIO-01` | Studio | Chat/Code modes; threads/projects; transcript/editor/diff; context/changes/tests/evidence; governed composer |
+| `KNOWLEDGE-01` | Knowledge | memory/files/context/sources; provenance; conflicts; corrections; reviewed-context decisions |
 | `ACTIVITY-01` | Activity & Trust | receipts, evidence, proof, history, approvals, authority, safe refs, and correction/rollback paths |
+| `CUSTOMIZE-01` | Customize | order, visibility, groups, density, preview, cancel, reset; no capability language |
+| `SETTINGS-01` | Settings | search-first preferences; semantic controls; current posture; blocked/planned explanations |
+| `DEVTOOLS-01` | Developer Tools | runtime/models/storage/API/gate/plugins/diagnostics; exact lanes and truthful blocked states |
+| `ONBOARDING-01` | Onboarding | first-run local setup; optional read-only sources; safety defaults; skip path |
+| `UAA-SIDECAR-01` | UAA Sidecar | safe context; cross-surface answer; citations; proposal handoff; blocked direct mutation |
 
 ## Route Render Queue
 
