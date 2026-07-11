@@ -13604,6 +13604,12 @@ function isSafeActionToolCodeLaneEntry(value: unknown): boolean {
     typeof value.proposal_only === "boolean" &&
     typeof value.exact_local_mutation_available === "boolean" &&
     typeof value.exact_runtime_lane_available === "boolean" &&
+    (value.availability_snapshot_ref == null ||
+      isSafeActionWorkQueueRef(value.availability_snapshot_ref)) &&
+    (value.canonical_execution_path_ref == null ||
+      isSafeActionWorkQueueRef(value.canonical_execution_path_ref)) &&
+    (value.canonical_mission_dispatch == null ||
+      typeof value.canonical_mission_dispatch === "boolean") &&
     (value.receipt_refs as string[]).every(isSafeActionWorkQueueRef) &&
     (value.evidence_refs as string[]).every(isSafeActionWorkQueueRef) &&
     (value.proof_refs as string[]).every(isSafeActionWorkQueueRef) &&

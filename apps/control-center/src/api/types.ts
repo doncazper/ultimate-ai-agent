@@ -3281,6 +3281,9 @@ export interface ActionToolCodeLaneEntry {
   proof_refs: string[];
   blocked_authority_refs: string[];
   unblock_prompt_refs: string[];
+  availability_snapshot_ref?: string | null;
+  canonical_execution_path_ref?: string | null;
+  canonical_mission_dispatch?: boolean;
   operator_visible: boolean;
   inspectable_now: boolean;
   proposal_only: boolean;

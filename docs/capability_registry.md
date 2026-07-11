@@ -281,6 +281,13 @@ model output. Broad filesystem reads, directory traversal, content reads,
 mutation, shell execution, automatic memory write, and context injection remain
 blocked.
 
+Runtime Capability Foundation Phase 04 projects this proven lane into the
+canonical capability-availability snapshot and Action/Tool/Code catalog. The
+snapshot separates supported declaration, unknown current-environment readiness,
+and approval-required request authority. Current root, resource, health, and
+safe-disable truth is evaluated only for the exact request; implementation
+availability never means globally callable or authorized.
+
 Preparation inputs are durably recoverable as bounded safe refs and hashes,
 but no public API, mutating CLI, or Control Center execution control is exposed
 in this phase. The existing read-only API, CLI, and macOS panel inspect

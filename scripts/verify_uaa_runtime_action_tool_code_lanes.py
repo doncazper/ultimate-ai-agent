@@ -81,11 +81,23 @@ def main() -> int:
             failures.append(
                 f"{source_name} catalog exact local capability count drifted"
             )
-        if model.get("exact_runtime_lane_count") != 5:
+        if model.get("exact_runtime_lane_count") != 6:
             failures.append(f"{source_name} catalog exact runtime lane count drifted")
-        if model.get("exact_runtime_authority_capability_count") != 5:
+        if model.get("exact_runtime_authority_capability_count") != 6:
             failures.append(
                 f"{source_name} catalog exact runtime capability count drifted"
+            )
+        metadata = _entry_by_id(
+            model,
+            "founder_loop.filesystem_metadata_mission",
+        )
+        if not metadata.get("canonical_mission_dispatch"):
+            failures.append(
+                f"{source_name} filesystem metadata mission path is not canonical"
+            )
+        if not metadata.get("availability_snapshot_ref"):
+            failures.append(
+                f"{source_name} filesystem metadata availability snapshot is missing"
             )
         if model.get("blocked_count") != 3:
             failures.append(f"{source_name} catalog blocked count drifted")
@@ -175,9 +187,7 @@ def main() -> int:
         if "generic tool execution remains blocked" not in text.lower():
             failures.append(f"generic tool execution blocker missing from {doc.name}")
 
-    cli_text = (ROOT / "scripts/dev/uaa_founder_loop.py").read_text(
-        encoding="utf-8"
-    )
+    cli_text = (ROOT / "scripts/dev/uaa_founder_loop.py").read_text(encoding="utf-8")
     if "inspect-action-tool-code-catalog" not in cli_text:
         failures.append("Founder Loop CLI catalog command missing")
 
