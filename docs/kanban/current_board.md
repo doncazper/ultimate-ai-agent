@@ -389,6 +389,12 @@ docs remain historical/contract evidence, not blanket callable runtime
 authority. Keep the runtime authority WIP limit at one lane. This lane adds no
 live web fetching, browser automation, provider SDK calls, POST/click/form/
 download/upload, generic public-web mutation, or callable runtime authority.
+The planning-only child sequence for local SearXNG discovery, self-hosted
+Firecrawl extraction, authenticated free-credit cloud fallback, quota
+reservations, deterministic failover, Docker packaging, and later operator/MCP
+surfaces is documented in
+`docs/network/SEARXNG_FIRECRAWL_HYBRID_IMPLEMENTATION_PLAN.md`; it does not
+start a second WIP lane or grant provider runtime authority.
 Provider shells and diagnostics are metadata-only until a later exact milestone
 adds WebAccessGateway routing, durable audit, side-effect ledger blockers,
 exact approval scope, blocked/degraded/partial operator labels, CostGovernor
