@@ -43,6 +43,23 @@ These boards prevent every route from inventing its own shell or common state.
 | `ASSIST-02` | UAA sidecar | answer, cross-surface context, navigation result, proposal preview, blocked request |
 | `NAV-01` | Sidebar customization | pin/unpin, reorder, collapsed groups, density, cancel, reset defaults |
 
+## Locked Target Product Render Set
+
+The route queue below remains the coverage ledger for the current 40-route
+implementation. The following target renders establish the approved
+consolidated shell before route-by-route fidelity work. Their information
+architecture is defined by
+`../CONTROL_CENTER_PRODUCT_IA_AND_CALENDAR_CONTRACT.md`.
+
+| ID | Target surface | Required content |
+|---|---|---|
+| `TARGET-NAV-01` | Today in target shell | Today-first rail; Communications, Work Board, CRM, Calendar, Studio; Knowledge; Activity & Trust; six Today panels; receipt activity rail; `Review N decisions`; weather; UAA composer |
+| `COMM-01` | Communications | unified queue/detail/inspector; Email, Messages, Follow-ups, Drafts, Waiting; CRM context; `Propose event`; proposal-only and blocked-send states |
+| `CAL-01` | Calendar week | color-coded schedule; tasks and commitments; source-backed candidate; duplicate/conflict/timezone posture; shared refs; proposal-only external posture |
+| `CAL-02` | Calendar proposal review | exact source, time, participants, location, CRM/work links, conflicts, confidence, authority, expiry, edit/approve/reject/defer outcomes |
+| `STUDIO-01` | Studio | Chat/Code modes; threads/projects; transcript/editor/diff; context/changes/tests/evidence; governed composer |
+| `ACTIVITY-01` | Activity & Trust | receipts, evidence, proof, history, approvals, authority, safe refs, and correction/rollback paths |
+
 ## Route Render Queue
 
 Every route requires a default desktop and compact render. `Mobile` means a

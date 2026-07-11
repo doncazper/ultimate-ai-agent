@@ -43,12 +43,15 @@ answer, in this order:
 5. What happened, and what proves it?
 6. What remains blocked or needs a separate authority lane?
 
-The daily product spine is:
+The target daily product spine is:
 
-`Start Here -> Today -> Plans/Work Board -> Action Inbox -> Proof/Evidence -> Memory Review -> Weekly Review`
+`Today -> Communications -> Work Board -> CRM -> Calendar -> Studio`
 
-Source Inbox, CRM, Chat, Coding, Files, Runtime, and Settings feed or govern
-that spine. They must not become unrelated diagnostic islands.
+Knowledge and Activity & Trust support that loop without displacing daily
+work. Action Inbox is the global decision utility surfaced as `Review N
+decisions`, not a permanent primary tab. The complete target navigation,
+current-to-target mapping, and source-to-calendar proposal loop are locked in
+`CONTROL_CENTER_PRODUCT_IA_AND_CALENDAR_CONTRACT.md`.
 
 ## Experience Principles
 
@@ -103,23 +106,27 @@ explicit long-form report.
 
 ### Canonical global rail
 
-Default Founder Loop order:
+The target default order is:
 
-1. Start Here
-2. Today
-3. Source Inbox
-4. Plans
-5. Work Board
-6. Action Inbox
-7. Proof
-8. Trust
-9. Memory
-10. Evidence
-11. Settings
+1. Today
+2. Communications
+3. Work Board
+4. CRM
+5. Calendar
+6. Studio
+7. Knowledge
+8. Activity & Trust
+9. Customize
+10. Settings
+11. Developer Tools, collapsed and hidden by default
 
-Supporting surfaces live in stable collapsed groups or the command palette.
-Their complete membership and default order are deterministic. Route-local
-tabs never enter the global rail. One item, and only one item, has
+Today is the default landing workspace. `Start Here` is onboarding-only after
+setup. Plans becomes a Work Board view; Source Inbox becomes a Communications
+view; Chat and Coding become Studio modes; Memory and Files become Knowledge;
+and receipts, evidence, proof, trust, events, and approvals consolidate under
+Activity & Trust. This is a target render and implementation architecture, not
+a claim that current routes have already been consolidated. Route-local tabs
+never enter the global rail. One item, and only one item, has
 `aria-current="page"`.
 
 The operator may enter `Customize sidebar` to pin/unpin surfaces, reorder
