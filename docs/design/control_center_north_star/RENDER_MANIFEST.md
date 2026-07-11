@@ -54,6 +54,17 @@ Revision 02 preserves every V1 file and adds the accepted review corrections.
 | `renders/target-v2/17-terminal-v1.png` | Terminal v1 | exact command lanes; redacted output; receipts; pop-out | unrestricted shell or raw environment |
 | `renders/target-v2/18-compact-shell-v1.png` | Compact shell v1 | same nav as icons; tooltip/focus labels; fixed utilities | hidden routes or changed capability |
 
+## CRM Revision 03
+
+CRM v3 preserves the v1 general workspace and v2 governed-call concept while
+replacing the provisional layout with a compact, general-purpose relationship
+operating surface. The reference synthesis and locked design rules are recorded
+in `CRM_V3_REFERENCE_SYNTHESIS.md`.
+
+| File | Surface/version | Required change | Must not imply |
+|---|---|---|---|
+| `renders/target-v3/04-crm-v3.png` | CRM v3 | fixed toolbar; route tabs; six KPIs; smart views; sortable relationship table; persistent inspector; pipeline analytics; availability-backed calling; route-aware UAA composer | specialty vertical; raw contact data; provider connection; sync; dialer launch as completed call; recording by default |
+
 ## Legacy Composite Coverage
 
 | File | Covered surfaces | Must show | Must not imply |

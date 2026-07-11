@@ -77,8 +77,11 @@ launching a dialer never marks the call or follow-up complete. `Connected`,
 adapter result or explicit operator confirmation with provenance. Recording is
 off unless a later exact legal/consent-aware lane is separately promoted.
 
-The current CRM target remains a placeholder pending review of earlier
-specialty CRM variants. No specialty vertical is locked by this revision.
+Revision 02 intentionally left the CRM target as a placeholder pending review
+of earlier specialty variants. `CRM-01` v3 now supersedes that placeholder with
+the general-purpose synthesis in
+`control_center_north_star/CRM_V3_REFERENCE_SYNTHESIS.md`; no specialty vertical
+is locked by either revision.
 
 ### Governed terminal access
 

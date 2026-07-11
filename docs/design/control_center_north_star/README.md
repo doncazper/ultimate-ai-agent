@@ -78,6 +78,13 @@ Revision 02 adds non-destructive versions and new surfaces:
 | `renders/target-v2/17-terminal-v1.png` | Terminal v1 governed terminal |
 | `renders/target-v2/18-compact-shell-v1.png` | Compact icon-only shell v1 |
 
+CRM revision 03 adds one non-destructive specialty-reference synthesis while
+retaining both earlier CRM drafts:
+
+| Render | Revision |
+|---|---|
+| `renders/target-v3/04-crm-v3.png` | CRM v3 premier general relationship workspace |
+
 Run the one-at-a-time critique gallery with:
 
 ```bash

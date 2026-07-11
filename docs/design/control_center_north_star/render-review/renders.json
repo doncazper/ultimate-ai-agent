@@ -60,12 +60,13 @@
       "surface": "CRM",
       "category": "Primary workspace",
       "route": "/crm",
-      "purpose": "Provisional relationship workspace with governed calling, pipeline, follow-ups, and activity.",
-      "truth": "Target placeholder; calling methods reflect availability and no dialer launch proves call completion.",
-      "image": "../renders/target-v2/04-crm-v2.png",
+      "purpose": "Premier general-purpose relationship workspace with smart views, dense relationship operations, pipeline context, commitments, and governed calling.",
+      "truth": "Target design; provider availability is explicit, dialer launch requires exact review where applicable, and no launch proves call completion.",
+      "image": "../renders/target-v3/04-crm-v3.png",
       "versions": [
         {"id": "v1", "label": "Draft v1 · general CRM", "image": "../renders/target-v1/04-crm.png"},
-        {"id": "v2", "label": "Draft v2 · governed calling", "image": "../renders/target-v2/04-crm-v2.png"}
+        {"id": "v2", "label": "Draft v2 · governed calling", "image": "../renders/target-v2/04-crm-v2.png"},
+        {"id": "v3", "label": "Draft v3 · premier relationship CRM", "image": "../renders/target-v3/04-crm-v3.png"}
       ]
     },
     {
