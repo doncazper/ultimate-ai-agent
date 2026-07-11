@@ -231,6 +231,8 @@ Used by Start Here, Today, Overview, Dashboard, Briefing, and Operator Loop.
   relevant safe evidence, authority scope, and next safe step;
 - a compact business pulse for CRM, Work Board, upcoming commitments, and
   evidence movement;
+- a compact News & Weather module that separates sourced situational context
+  from work requiring attention;
 - priorities and cross-surface decisions before low-level readiness;
 - bottom receipts/evidence/heartbeat band when useful;
 - no repeated dashboard card grid below the first viewport.
@@ -243,6 +245,10 @@ become repetition:
 - Needs your attention owns concrete approvals, blockers, conflicts, missing
   evidence, and overdue items.
 - Today priorities owns planned work in intended execution order.
+- News & Weather owns read-only outside context. News entries are bounded
+  summaries with an explicit source type (`Article` or `Email bulletin`),
+  source label, freshness, and a safe reference to the underlying source.
+  Weather shows only current temperature, today's high, and conditions.
 - Business pulse owns non-actionable trends and health such as pipeline
   movement, board throughput, upcoming commitments, and evidence freshness.
 - Recent receipts owns completed/recorded history.
@@ -250,6 +256,32 @@ become repetition:
   provenance, authority scope, and the next safe step.
 - Other regions may show a count or deep link to the canonical home, but must
   not repeat the same full row, description, and status.
+
+#### Today News & Weather contract
+
+The module is a target product contract, not a grant of live network or
+connector authority. Its compact default state contains one weather strip and
+at most three ranked news summaries so it does not displace operator work.
+
+- Article discovery and retrieval must use an exact, governed, read-only
+  `WebAccessGateway` lane when that lane is implemented. Fetched content is
+  untrusted evidence and cannot issue instructions or directly trigger work.
+- Email bulletins must use a separately accepted read-only email-source lane.
+  The Today module shows a bounded redacted summary and safe source reference,
+  never a raw message body, account identifier, or write control.
+- Every news row must expose source type, human-readable source label,
+  freshness, and a source/detail affordance. Unsourced summaries are blocked
+  from the assembled state.
+- The module distinguishes `loading`, `ready`, `mixed sources`, `stale`,
+  `partially blocked`, `blocked`, `empty`, and `error` states. A blocked source
+  remains visibly blocked rather than being presented as current.
+- Weather uses a configured read-only source and does not infer or persist a
+  private location from IP or hidden account data. Its visible payload is
+  limited to current temperature, today's high, and conditions; stale or
+  unavailable data carries an explicit status.
+- News is situational context, not another attention queue or business pulse.
+  If an item becomes actionable, UAA may propose a linked plan or action through
+  the existing governed proposal flow; the module itself does not mutate state.
 
 ### B. Queue, detail, inspector
 
