@@ -1723,7 +1723,7 @@ class LocalMissionWorker:
                         approved_by_actor_id=decision.operator_ref or "",
                         approval_ref=validation.approval_ref,
                     )
-                validation_decision = authority._validate_at_trusted_time(  # noqa: SLF001
+                validation_decision = authority.validate_at_trusted_time(
                     validation,
                     current_time=self.orchestrator.step_store.current_time(),
                 )

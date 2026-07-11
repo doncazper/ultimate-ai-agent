@@ -167,7 +167,7 @@ class AuthorityMissionRunner:
                 approval_scope_fingerprint_ref=scope_fingerprint_ref,
                 reason_refs=["reason-ref:mission-step:approval-not-yet-granted"],
             )
-        decision = authority._validate_at_trusted_time(  # noqa: SLF001
+        decision = authority.validate_at_trusted_time(
             validation_request,
             current_time=self.step_store.current_time(),
         )

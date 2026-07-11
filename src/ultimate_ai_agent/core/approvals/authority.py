@@ -188,7 +188,7 @@ class LocalApprovalAuthority:
             return self._decision(validation_request, ApprovalDecisionStatus.out_of_scope, scope_failures, "Approval grant does not cover the requested action.", grant)
         return self._decision(validation_request, ApprovalDecisionStatus.approved, ["APPROVAL_VALIDATED"], "Approval grant validated for the requested scope.", grant, allowed=True)
 
-    def _validate_at_trusted_time(
+    def validate_at_trusted_time(
         self,
         validation_request: ApprovalValidationRequest,
         *,

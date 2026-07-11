@@ -1262,7 +1262,7 @@ class AuthorityDispatcher:
             else:
                 try:
                     approval_decision = (
-                        self.approval_authority._validate_at_trusted_time(
+                        self.approval_authority.validate_at_trusted_time(
                             validation_request,
                             current_time=current_time,
                         )
