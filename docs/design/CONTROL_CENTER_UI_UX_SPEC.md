@@ -254,8 +254,9 @@ become repetition:
   the route title.
 - Business pulse owns a compact set of non-actionable trend summaries and
   links to the canonical CRM, Work Board, commitment, or Evidence surface.
-- Recent receipts owns a compact two-row history card with a deep link to the
-  receipt ledger.
+- Recent receipts appears as a compact `Since your last check` section inside
+  Business pulse with a deep link to the receipt ledger; it does not create a
+  seventh Today panel.
 - The inspector title is `Selected item` or the selected object's name.
   `Why it matters` is a subsection inside it, never an unexplained panel title.
 - Other regions may show a count or deep link to the canonical home, but must
@@ -263,27 +264,44 @@ become repetition:
 
 #### Today default composition and interaction
 
-The default Today screen preserves the information-rich three-column command
-deck: Morning Briefing, Needs your attention, and a selected-item inspector on
-the first row; Today priorities, News, and a compact Business pulse/Recent
-receipts stack on the second row. The relationships between modules must feel
-intentional rather than like unrelated dashboard tiles. Selecting a row updates
-the named inspector in place, and its safe ref is attached visibly and
-removably to the persistent UAA composer. Compact layouts convert the inspector
-to a drawer.
+The default Today screen contains exactly six panels in an information-rich
+three-column command deck: Morning Briefing, Needs your attention, and a
+selected-item inspector on the first row; Day Plan, News, and Business pulse on
+the second row. Business pulse includes a compact `Since your last check`
+receipt/activity footer instead of a separate seventh panel. The relationships
+between modules must feel intentional rather than like unrelated dashboard
+tiles. Selecting any row in the other five panels updates the named inspector
+in place, and its safe ref is attached visibly and removably to the persistent
+UAA composer. Compact layouts convert the inspector to a drawer.
 
 - Morning Briefing is read-only synthesis. Its rows open source/provenance
   detail but do not expose completion controls.
 - Needs your attention rows open details and offer only type-correct actions:
   `Review`, `Resolve`, `Defer`, `Dismiss`, or `Ask UAA`. A signal is never
   labeled complete merely because the operator dismissed it.
-- Today priority tasks may offer `Queue`, `Start`, `Defer`, and `Complete` only when
-  the backing Python-core/API contract supports that exact transition.
+- Day Plan owns `Now`, `Next`, meetings/commitments, and planned priorities.
+  Its tasks may offer `Queue`, `Start`, `Defer`, and `Complete` only when the
+  backing Python-core/API contract supports that exact transition.
 - News rows may open the sourced detail, `Ask UAA`, save a safe reference for
   later review, or mute a source. News is not completable work.
+- Business pulse rows open their contributing CRM, Work Board, commitment, or
+  Evidence detail in the inspector. Its activity footer opens receipt history.
 - Compact overflow menus expose secondary actions; the row itself selects and
   opens detail. A chevron is reserved for navigation/disclosure and does not
   submit a change.
+- Right-edge controls follow one grammar across all panels: a chevron selects
+  and exposes detail, an outward arrow opens the canonical source, one named
+  verb button offers the most likely safe action on the selected/hovered row,
+  and an ellipsis opens type-correct secondary actions. Status pills remain
+  read-only state labels.
+
+The six panels absorb Today context without adding more permanent modules:
+meetings and commitments live in Day Plan; urgent memory review and exceptional
+weather/calendar conflicts enter Needs your attention; date and ordinary
+weather remain in the header; freshness and confidence appear in News and the
+inspector; continuity appears in Morning Briefing and Business pulse activity;
+morning, midday, end-of-day, calm, overloaded, stale, and offline are content
+states of this same layout rather than additional cards.
 
 #### Truth-safe queue and completion contract
 
