@@ -227,12 +227,14 @@ Used by Start Here, Today, Overview, Dashboard, Briefing, and Operator Loop.
 - one unified `Needs your attention` queue containing approvals, CRM follow-ups,
   Work Board blockers/movement, missing sources, memory conflicts, and stale or
   missing evidence;
-- a selected-signal inspector showing why it matters, linked plan/work item,
-  relevant safe evidence, authority scope, and next safe step;
+- a contextual detail drawer, opened only from a selected signal, showing why
+  it matters, linked plan/work item, relevant safe evidence, authority scope,
+  and next safe step;
 - a compact business pulse for CRM, Work Board, upcoming commitments, and
   evidence movement;
-- a compact News & Weather module that separates sourced situational context
-  from work requiring attention;
+- a compact News module that separates sourced situational context from work
+  requiring attention; current temperature, today's high, and conditions sit
+  beside the Today title instead of consuming another card region;
 - priorities and cross-surface decisions before low-level readiness;
 - bottom receipts/evidence/heartbeat band when useful;
 - no repeated dashboard card grid below the first viewport.
@@ -245,23 +247,71 @@ become repetition:
 - Needs your attention owns concrete approvals, blockers, conflicts, missing
   evidence, and overdue items.
 - Today priorities owns planned work in intended execution order.
-- News & Weather owns read-only outside context. News entries are bounded
+- News owns read-only outside context. News entries are bounded
   summaries with an explicit source type (`Article` or `Email bulletin`),
   source label, freshness, and a safe reference to the underlying source.
-  Weather shows only current temperature, today's high, and conditions.
-- Business pulse owns non-actionable trends and health such as pipeline
-  movement, board throughput, upcoming commitments, and evidence freshness.
-- Recent receipts owns completed/recorded history.
-- Why this matters may repeat the selected item's title only to add detail,
-  provenance, authority scope, and the next safe step.
+  Weather shows only current temperature, today's high, and conditions beside
+  the route title.
+- Morning Briefing may include one synthesized Business pulse sentence.
+  Detailed CRM, Work Board, commitment, and evidence metrics remain in their
+  canonical surfaces rather than a separate Today card.
+- Recent receipts collapses to one `Since your last check` disclosure instead
+  of a persistent card.
+- `Why it matters` is a subsection of a selected item's named detail drawer,
+  never the title of an unexplained permanent panel.
 - Other regions may show a count or deep link to the canonical home, but must
   not repeat the same full row, description, and status.
 
-#### Today News & Weather contract
+#### Today default composition and interaction
+
+The default Today screen has four primary modules: Morning Briefing, Needs your
+attention, Day Plan, and News. The layout favors two calm columns rather than a
+dashboard grid. Selecting a row opens a named right-side detail drawer without
+permanently reserving an empty inspector column. While the drawer is open, its
+safe ref is attached visibly and removably to the persistent UAA composer.
+
+- Morning Briefing is read-only synthesis. Its rows open source/provenance
+  detail but do not expose completion controls.
+- Needs your attention rows open details and offer only type-correct actions:
+  `Review`, `Resolve`, `Defer`, `Dismiss`, or `Ask UAA`. A signal is never
+  labeled complete merely because the operator dismissed it.
+- Day Plan tasks may offer `Queue`, `Start`, `Defer`, and `Complete` only when
+  the backing Python-core/API contract supports that exact transition.
+- News rows may open the sourced detail, `Ask UAA`, save a safe reference for
+  later review, or mute a source. News is not completable work.
+- Compact overflow menus expose secondary actions; the row itself selects and
+  opens detail. A chevron is reserved for navigation/disclosure and does not
+  submit a change.
+
+#### Truth-safe queue and completion contract
+
+Display convenience cannot create product truth.
+
+- `Queue` writes or proposes an exact backed plan/task transition; it is not a
+  React-only list change. Show proposal, confirmation, receipt, or blocked
+  posture according to the implemented lane.
+- `Complete` is available only for an object with a defined completion
+  transition and required evidence/receipt posture. The control opens a compact
+  confirmation naming the object, completion meaning, source of truth, and any
+  required proof before recording the change.
+- When completion cannot be verified, use `Report complete` or `Mark for
+  review`, visibly labeled as unverified, instead of `Complete`. A later source
+  conflict reopens review; it never silently preserves a false green state.
+- `Dismiss` means remove the signal from attention, not resolve its underlying
+  source object. `Defer` records when it should return. `Resolve` requires the
+  source's real resolved state or a receipt-backed local decision.
+- Completed, user-reported, dismissed, deferred, blocked, and source-conflict
+  states have distinct text and icon treatment. Green `Completed` requires the
+  backing state plus its receipt or safe evidence reference.
+- Every mutation remains exact-scoped, idempotent, auditable, redacted, and
+  reload-verifiable. Mock or unavailable backing state never exposes a control
+  that can claim completion.
+
+#### Today News and Weather contract
 
 The module is a target product contract, not a grant of live network or
-connector authority. Its compact default state contains one weather strip and
-at most three ranked news summaries so it does not displace operator work.
+connector authority. Weather is a compact title-line status. The News module
+contains at most three ranked summaries so it does not displace operator work.
 
 - Article discovery and retrieval must use an exact, governed, read-only
   `WebAccessGateway` lane when that lane is implemented. Fetched content is
