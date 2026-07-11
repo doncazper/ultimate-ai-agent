@@ -162,7 +162,7 @@ def _validate_backend_and_frontend(root: Path, failures: list[str]) -> None:
             "actionReadModelAuthoritative",
         ],
         APP_TEST: [
-            "filters Action Inbox lanes as presentation-only drilldowns over backend groups",
+            "filters Action Inbox groups as presentation-only drilldowns over backend data",
             "keeps missing Action Inbox envelope fields non-authoritative",
             "records approval through backend refresh before committing the local task lane",
             "shows replay posture from the refreshed Action Inbox read model",

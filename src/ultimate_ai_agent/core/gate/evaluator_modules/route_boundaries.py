@@ -2365,6 +2365,7 @@ CONTROL_CENTER_CODING_COCKPIT_ROUTES = frozenset(
 )
 CONTROL_CENTER_CAPABILITY_SURFACE_ROUTES = frozenset(
     {
+        "/control-center/capabilities/availability",
         "/control-center/capabilities/surface",
     }
 )

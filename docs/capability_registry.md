@@ -20,6 +20,56 @@ The existing `CapabilitySpec` registry remains available for decorator-style Pyt
 - `LocalApprovalAuthority` validates exact approval grants for high-risk or explicit-approval capabilities.
 - `SingleWriterLockManager` and `FileSingleWriterLockManager` serialize mutating nodes through a single writer lease.
 
+## Capability Availability Truth Model
+
+`ultimate_ai_agent.core.capability_availability` is an additive normalization
+layer over the existing capability, provider, runtime-readiness, and extension
+contracts. It is not another registry and does not replace their domain models.
+The four truth layers remain structurally separate:
+
+```text
+CapabilityManifest
+    -> stable declaration
+
+CapabilityAvailabilitySnapshot
+    -> observed environment readiness
+
+CapabilityInvocationDecision
+    -> one exact request authority evaluation
+
+ExecutionReceipt (lane-specific)
+    -> actual outcome evidence
+```
+
+The legacy `ExecutionReceiptPlan` remains a no-effect planning receipt and does
+not prove that execution occurred. Only a lane-specific post-attempt execution
+receipt may satisfy the outcome-evidence layer.
+
+The snapshot records typed catalog, compatibility, configuration, health,
+resource/budget, safe-disable, freshness, and derived runtime-readiness states.
+Its pure derivation function evaluates environment readiness only. Unknown or
+stale compatibility and health fail closed, degraded health stays unavailable,
+unknown metered budgets block use, and active safe-disable posture overrides
+every otherwise-positive input.
+
+The snapshot has no global authorization or callable flag. A runtime-ready row
+means only that one exact request may proceed to immediate policy evaluation.
+The separate invocation decision consumes the existing `PolicyEngine`
+decision, exact `AuthorityLease` decision, exact `LocalApprovalAuthority`
+result when required, `CostDecision`, safe-disable state, and idempotency
+posture. Approval refs remain identifiers, the decision is not cacheable, and a
+separate redacted execution receipt remains required after any attempt.
+
+Narrow adapters normalize `CapabilityManifest`, `CapabilityCatalogEntry`,
+`ProviderManifest`, existing provider-readiness posture, and inspectable
+extension entries. Missing source evidence remains unknown or blocked; adapter
+mapping never invents configuration, compatibility, health, budget, or
+authority. The protected read-only API route
+`GET /control-center/capabilities/availability` and repo-local
+`uaa_runtime.py capability-availability` command render the same backend-owned
+read model. No live probe, provider call, network access, background polling,
+or runtime execution is added.
+
 ## Progressive Disclosure
 
 Use `registry.list_catalog(context)` or `registry.search(query, context, filters)` to expose compact `CapabilityCatalogEntry` records. Load the full manifest only after selection:

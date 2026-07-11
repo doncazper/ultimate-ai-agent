@@ -9,22 +9,22 @@ from .repo import load_json
 
 ROUTE_FIXTURE_PATH = "tests/fixtures/api_route_inventory_133.json"
 ROUTE_FIXTURE_SCHEMA_VERSION = "uaa-api-route-inventory.v4"
-EXPECTED_ROUTE_COUNT = 252
-EXPECTED_OPENAPI_PATH_COUNT = 251
+EXPECTED_ROUTE_COUNT = 253
+EXPECTED_OPENAPI_PATH_COUNT = 252
 EXPECTED_AUTH_POSTURE_SUMMARY = {
     "public_metadata_no_auth": 3,
-    "protected_local_bearer_required": 249,
+    "protected_local_bearer_required": 250,
 }
 EXPECTED_APPROVAL_POSTURE_SUMMARY = {
-    "not_required_for_route_classification": 202,
+    "not_required_for_route_classification": 203,
     "required_before_mutation_authority": 50,
 }
 EXPECTED_IDEMPOTENCY_POSTURE_SUMMARY = {
-    "not_required_for_route_classification": 202,
+    "not_required_for_route_classification": 203,
     "required_before_mutation_authority": 50,
 }
 EXPECTED_RATE_LIMIT_POSTURE_SUMMARY = {
-    "not_targeted_for_route": 182,
+    "not_targeted_for_route": 183,
     "targeted_local_fixed_window": 70,
 }
 EXPECTED_MUTATING_ROUTE_COUNT = EXPECTED_APPROVAL_POSTURE_SUMMARY[
@@ -33,7 +33,7 @@ EXPECTED_MUTATING_ROUTE_COUNT = EXPECTED_APPROVAL_POSTURE_SUMMARY[
 EXPECTED_TARGETED_RATE_LIMIT_ROUTE_COUNT = EXPECTED_RATE_LIMIT_POSTURE_SUMMARY[
     "targeted_local_fixed_window"
 ]
-EXPECTED_CONTROL_CENTER_ROUTE_COUNT = 91
+EXPECTED_CONTROL_CENTER_ROUTE_COUNT = 92
 EXPECTED_MUTATING_ROUTES = {
     ("POST", "/control-center/actions/{action_id}/approve"),
     ("POST", "/control-center/actions/{action_id}/defer"),
@@ -166,8 +166,21 @@ def append_route_fixture_mismatches(
     fixture = route_fixture()
     if fixture.get("schema_version") != ROUTE_FIXTURE_SCHEMA_VERSION:
         failures.append(f"{label} schema_version is stale")
-    if fixture.get("routes") != projected_routes(manifest):
+    projected = projected_routes(manifest)
+    if fixture.get("routes") != projected:
         failures.append(f"{label} does not match live manifest")
+        fixture_routes = fixture.get("routes", [])
+        if isinstance(fixture_routes, list):
+            fixture_keys = {
+                route_key(route)
+                for route in fixture_routes
+                if isinstance(route, dict) and "method" in route and "path" in route
+            }
+            projected_keys = {route_key(route) for route in projected}
+            for method, path in sorted(fixture_keys - projected_keys):
+                failures.append(f"{label} live manifest missing {method} {path}")
+            for method, path in sorted(projected_keys - fixture_keys):
+                failures.append(f"{label} live manifest added {method} {path}")
     for key in [
         "route_classification_vocabulary",
         "route_classification_summary",

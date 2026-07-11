@@ -17,6 +17,9 @@ sys.path.insert(0, str(ROOT / "src"))
 from ultimate_ai_agent.core.control_center.runtime_action_bridge import (  # noqa: E402
     build_runtime_action_inbox_bridge_read_model,
 )
+from ultimate_ai_agent.core.capability_availability import (  # noqa: E402
+    build_capability_availability_read_model,
+)
 from ultimate_ai_agent.core.authority import (  # noqa: E402
     AuthorityActionRequest,
     AuthorityDomain,
@@ -329,6 +332,28 @@ def _print_capabilities() -> None:
     print("Blocked authority refs:")
     for ref in capabilities["blocked_authority_refs"]:
         print(f"- {ref}")
+
+
+def _print_capability_availability(read_model: dict[str, Any]) -> None:
+    print("Capability availability truth model")
+    print(f"Read model: {read_model['read_model_ref']}")
+    print(f"Truth owner: {read_model['truth_owner']}")
+    print(f"Authority boundary: {read_model['authority_boundary']}")
+    print(f"Snapshots: {read_model['snapshot_count']}")
+    print("States:")
+    for item in read_model["snapshots"]:
+        print(
+            "- "
+            f"{item['capability_ref']} "
+            f"runtime={item['runtime_readiness_status']} "
+            f"authority={item['authority_posture']} "
+            f"freshness={item['freshness_status']}"
+        )
+        if item["blocker_codes"]:
+            print(f"  blockers: {', '.join(item['blocker_codes'])}")
+    print(
+        "Availability never grants execution; evaluate one exact request immediately before any future execution."
+    )
 
 
 def _print_authority_profile(read_model: dict[str, Any]) -> None:
@@ -1959,6 +1984,21 @@ def _capabilities(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_capabilities()
+    return 0
+
+
+def _capability_availability(args: argparse.Namespace) -> int:
+    read_model = build_capability_availability_read_model().model_dump(mode="json")
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-capability-availability",
+        "capability_availability": read_model,
+        "redaction_posture": "safe_refs_and_bounded_summaries_only",
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_capability_availability(read_model)
     return 0
 
 

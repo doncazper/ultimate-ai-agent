@@ -1,0 +1,71 @@
+{
+  "schema_version": "uaa-local-web-services-provider-lock.v1",
+  "reviewed_at": "2026-07-10T00:00:00Z",
+  "topology_ref": "firecrawl:v2.9.0:docker-compose",
+  "providers": {
+    "searxng": {
+      "source_ref": "searxng:2026.7.10-6a4d5148d",
+      "license": "AGPL-3.0-or-later",
+      "image": "searxng/searxng@sha256:4ebe6ab0297397426fe7ca015caab8f5ed3b50784cf968bfbda7887ea6b16f6e",
+      "published_api": "search-api",
+      "provenance_posture": "image-label-and-immutable-multiarch-digest-verified"
+    },
+    "firecrawl": {
+      "source_ref": "firecrawl:v2.9.0",
+      "source_commit": "11490b52b46b35423548df809c966d51463ec49d",
+      "license": "AGPL-3.0",
+      "image": "ghcr.io/firecrawl/firecrawl@sha256:af615fb8d742db000cbd99658acc33badc8b8a6252df7b6b25b05907f1c87061",
+      "published_api": "scrape-api",
+      "provenance_posture": "release-ref-and-image-digest-separately-verified-no-image-release-label"
+    },
+    "firecrawl_playwright": {
+      "source_ref": "firecrawl:v2.9.0:apps/playwright-service-ts",
+      "license": "AGPL-3.0",
+      "image": "ghcr.io/firecrawl/playwright-service@sha256:6359b0d9070f27400b4a9b615509be06919e40121fc1fdc42d4efeddf02653d2",
+      "published_api": null
+    },
+    "firecrawl_postgres": {
+      "source_ref": "firecrawl:v2.9.0:apps/nuq-postgres",
+      "license": "AGPL-3.0",
+      "image": "ghcr.io/firecrawl/nuq-postgres@sha256:aed86f62858f29bd971abddcdeb301c12888098d2cf5d33c1ba42b053bc460f6",
+      "published_api": null
+    },
+    "searxng_valkey": {
+      "source_ref": "valkey:8-alpine",
+      "license": "BSD-3-Clause",
+      "image": "valkey/valkey@sha256:cfe71288f087704b06be45e270afa7a2abbf820093d6b11a23762081f5ff321d",
+      "published_api": null
+    },
+    "firecrawl_redis": {
+      "source_ref": "redis:7.4-alpine",
+      "license": "RSALv2-or-SSPLv1",
+      "image": "redis@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99",
+      "published_api": null
+    },
+    "firecrawl_rabbitmq": {
+      "source_ref": "rabbitmq:3.13-alpine",
+      "license": "MPL-2.0",
+      "image": "rabbitmq@sha256:d7af1c87c5f1eda13fcfca06db452bf3aeab6619fc3358b68535c0c02c4e52bc",
+      "published_api": null
+    }
+  },
+  "capability_limits": {
+    "searxng": [
+      "bounded-json-search"
+    ],
+    "firecrawl_self_hosted": [
+      "one-page-markdown-extraction"
+    ]
+  },
+  "explicitly_disabled": [
+    "cloud-provider-credential-injection",
+    "firecrawl-agent",
+    "firecrawl-browser",
+    "interactive-browser-actions",
+    "local-webhooks",
+    "model-backed-extraction",
+    "persistent-browser-profiles",
+    "proxy-credentials",
+    "public-listing"
+  ]
+}

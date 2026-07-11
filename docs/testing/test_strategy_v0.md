@@ -485,6 +485,7 @@ Missing npm is a warning unless frontend checks are explicitly required by the c
 Makefile targets `doctor`, `test`, `test-sharded`, `verify`, `verify-static`, `verify-gate-architecture`, `verify-fast`, `verify-dev-fast`, `verify-dev-sharded`, `verify-local`, `frontend-check`, `openapi`, and `ruff` use `.venv/bin/python`.
 `verify-fast` keeps the serial local shard composition. `verify-dev-fast` runs `ruff`, `test`, `verify-static`, and `verify-gate-architecture` through bounded `make -j$(VERIFY_DEV_FAST_JOBS)` fanout, then runs Foundation Gate in `report-only --no-write-latest` mode without implying release readiness.
 `verify-dev-sharded` is an opt-in local/dev readability lane that runs the same static and gate checks with sharded pytest through `scripts/verification/run_dev_fast_gate.py`, captures per-phase logs under ignored `/tmp` paths, and prints concise phase timing summaries.
+Hosted CI runs the same default-safe pytest inventory across eight isolated deterministic file shards and preserves one aggregate `pytest` check that fails unless the complete matrix passes.
 `verify-dev-fast` keeps pytest on the normal non-xdist runner because pytest-xdist is not an accepted dev dependency.
 Repo verification commands should use `.venv/bin/python` or Makefile targets, not bare `python`.
 Shell aliases are not reliable for Codex/non-interactive shells.

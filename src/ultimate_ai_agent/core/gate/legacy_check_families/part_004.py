@@ -110,6 +110,7 @@ class FoundationGateLegacyChecksPart004Mixin:
                     normalized_line = line.strip()
                     if playwright_proof_lane_present and normalized_line in {
                         "- name: install playwright chromium",
+                        "run: npx playwright install chromium",
                         "run: npx playwright install --with-deps chromium",
                     }:
                         continue

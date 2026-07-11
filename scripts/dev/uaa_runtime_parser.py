@@ -35,6 +35,17 @@ def build_parser(runtime_symbols: Mapping[str, Any]) -> argparse.ArgumentParser:
     capabilities.add_argument("--json", action="store_true", help="Emit safe JSON.")
     capabilities.set_defaults(func=_capabilities)
 
+    capability_availability = subparsers.add_parser(
+        "capability-availability",
+        help="Inspect backend-owned capability availability without granting authority.",
+    )
+    capability_availability.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the safe capability availability read model as JSON.",
+    )
+    capability_availability.set_defaults(func=_capability_availability)
+
     command = subparsers.add_parser(
         "command",
         help="Run governed RuntimeGateway command capabilities.",

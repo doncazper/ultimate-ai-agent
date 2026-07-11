@@ -1,23 +1,28 @@
 import hashlib
 import json
+from pathlib import Path
 
 from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.api.rate_limits import reset_api_rate_limit_state, route_rate_limit_group
+from ultimate_ai_agent.api.routes import runtime_pilot_service
 from ultimate_ai_agent.core.authority import AUTHORITY_STATE_DIR_ENV
 from ultimate_ai_agent.core.runtime_gateway import (
+    GovernedCommandRuntimeAdapter,
     RuntimeCommandExecutionRequest,
+    RuntimeCommandRunResult,
+    RuntimeGateway,
     runtime_command_invocation_request,
 )
-from ultimate_ai_agent.core.runtime_gateway.storage import RUNTIME_GATEWAY_STATE_DIR_ENV
-from ultimate_ai_agent.core.runtime_gateway.local_model import RUNTIME_LOCAL_MODEL_ENABLED_ENV
 from ultimate_ai_agent.core.runtime_gateway.interface_mode import (
     HERMES_CHAT_AUTHORITY_CAPABILITY_REF,
     HERMES_CHAT_AUTHORITY_REQUIRED_BLOCKED_REF,
     HERMES_INTERFACE_MODE_ENABLED_ENV,
 )
+from ultimate_ai_agent.core.runtime_gateway.local_model import RUNTIME_LOCAL_MODEL_ENABLED_ENV
+from ultimate_ai_agent.core.runtime_gateway.storage import RUNTIME_GATEWAY_STATE_DIR_ENV
 from ultimate_ai_agent.core.local_model_management.gateway import UAA_LLAMA_CPP_BASE_URL_ENV
 
 
@@ -713,6 +718,27 @@ def test_governed_runtime_action_inbox_execute_receipt_detail_reports_execution(
     tmp_path,
     monkeypatch,
 ) -> None:
+    calls: list[dict[str, object]] = []
+
+    def runner(**kwargs: object) -> RuntimeCommandRunResult:
+        calls.append(kwargs)
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=3,
+            output_bytes=b"safe pytest output",
+        )
+
+    def runtime_gateway(*, store) -> RuntimeGateway:
+        return RuntimeGateway(
+            store=store,
+            command_adapter=GovernedCommandRuntimeAdapter(
+                workspace_root=Path(__file__).resolve().parents[1],
+                runner=runner,
+            ),
+        )
+
+    monkeypatch.setattr(runtime_pilot_service, "RuntimeGateway", runtime_gateway)
     monkeypatch.setenv(RUNTIME_GATEWAY_STATE_DIR_ENV, str(tmp_path))
     reset_api_rate_limit_state()
     _activate_workspace_execute_authority(tmp_path, monkeypatch, suffix="success-api")
@@ -775,6 +801,8 @@ def test_governed_runtime_action_inbox_execute_receipt_detail_reports_execution(
     assert body["success"] is True
     assert body["data"]["execution_performed"] is True
     assert body["data"]["command_execution_performed"] is True
+    assert body["data"]["error_category"] is None
+    assert len(calls) == 1
 
     receipt = client.get(f"/api/runtime/invocations/{invocation_ref}/receipt")
     assert receipt.status_code == 200

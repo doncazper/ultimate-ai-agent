@@ -10,6 +10,9 @@ from ultimate_ai_agent.api.idempotency import (
 )
 from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.api.route_registration import register_router_once
+from ultimate_ai_agent.core.capability_availability import (
+    build_capability_availability_read_model,
+)
 from ultimate_ai_agent.core.control_center import (
     ControlCenterActionPreviewRequest,
     build_control_center_dashboard,
@@ -274,6 +277,29 @@ def get_control_center_capability_surface(request: Request) -> ResultEnvelope:
         data=surface.model_dump(mode="json"),
         evidence=[{"evidence_ref": "evidence-ref:control-center-capability-surface"}],
         redactions_applied=surface.redactions_applied,
+    )
+
+
+@router.get(
+    "/capabilities/availability",
+    response_model=ResultEnvelope,
+    operation_id="get_control_center_capabilities_availability",
+)
+def get_control_center_capabilities_availability() -> ResultEnvelope:
+    read_model = build_capability_availability_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_capabilities_availability",
+        service="ControlCenterAPI",
+        trace_id=read_model.read_model_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:capability-availability-read-model"}],
+        redactions_applied=[
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_runtime_observations_omitted",
+            "raw_provider_payloads_omitted",
+        ],
     )
 
 

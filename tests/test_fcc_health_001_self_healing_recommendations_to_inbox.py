@@ -17,6 +17,7 @@ from ultimate_ai_agent.core.control_center.health_recommendations import (
     build_recommendation_candidate,
 )
 from ultimate_ai_agent.core.storage import FounderLoopRepository
+from tests.authority_helpers import workspace_write_authority_lease
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -251,7 +252,10 @@ def test_health_recommendations_project_into_action_inbox_without_execution(
 def test_health_recommendation_review_decision_records_receipt_without_execution(
     tmp_path: Path,
 ) -> None:
-    repo = FounderLoopRepository(tmp_path / "founder-loop.sqlite3")
+    repo = FounderLoopRepository(
+        tmp_path / "founder-loop.sqlite3",
+        active_authority_leases=[workspace_write_authority_lease()],
+    )
     health_item = next(
         item
         for item in repo.actions_inbox()["items"]

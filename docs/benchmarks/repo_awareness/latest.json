@@ -102,7 +102,7 @@
         "README.md",
         "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md",
         "docs/production/RELEASE_EVIDENCE_PACKET_TEMPLATE.json",
-        "reports/performance/latest_release_latency_baseline.json",
+        "report:performance:latest-release-latency-baseline",
         "docs/control_center/route_status_manifest.json"
       ],
       "id": "safety_boundary_health",
@@ -129,8 +129,8 @@
     {
       "blockers": [],
       "evidence_refs": [
-        "reports/performance/latest_release_latency_baseline.json",
-        "reports/performance/latest_performance_regression_report.json",
+        "report:performance:latest-release-latency-baseline",
+        "report:performance:latest-regression",
         "scripts/benchmark_foundation_gate.py"
       ],
       "id": "performance_state",

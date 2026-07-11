@@ -24,6 +24,10 @@ from ultimate_ai_agent.core.gate.reports import (
     FoundationGateResult,
     build_foundation_gate_report,
 )
+from ultimate_ai_agent.core.gate.web_hybrid_static_policy import (
+    WEB_HYBRID_EXACT_ADAPTER_FILES,
+    _is_web_hybrid_promoted_static_fragment,
+)
 from ultimate_ai_agent.core.gate.evaluator_modules.route_side_effects import (
     forbidden_route_fragment_failures,
     operation_id_failures,
@@ -110,7 +114,7 @@ def _version_doc_marks_milestone_implemented(text: str, milestone: str) -> bool:
 # Route-boundary evaluators are imported here to preserve the historical public facade.
 from ultimate_ai_agent.core.gate.evaluator_modules.route_boundaries import *  # noqa: F401,F403
 
-EXPECTED_M13_CONTROL_CENTER_ROUTE_COUNT = 91
+EXPECTED_M13_CONTROL_CENTER_ROUTE_COUNT = 92
 
 STATIC_SAFETY_EVALUATOR_DATA_FILES = frozenset(
     {
@@ -119,6 +123,7 @@ STATIC_SAFETY_EVALUATOR_DATA_FILES = frozenset(
         "src/ultimate_ai_agent/core/gate/legacy_checks.py",
         "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/gate/legacy_support.py",
+        "src/ultimate_ai_agent/core/gate/web_hybrid_static_policy.py",
     }
     | {
         "src/ultimate_ai_agent/core/gate/legacy_check_families/"
@@ -149,8 +154,6 @@ GOVERNED_RUNTIME_COMMAND_ADAPTER_STATIC_SCAN_ALLOWED_FILES = frozenset(
         "src/ultimate_ai_agent/core/runtime_gateway/command.py",
     }
 )
-
-
 def _is_static_safety_scan_allowed_file(rel: str, allowed_files: Iterable[str]) -> bool:
     return (
         rel in allowed_files

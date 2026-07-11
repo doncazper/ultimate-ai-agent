@@ -1,18 +1,8 @@
 from __future__ import annotations
 from typing import Any
 from ultimate_ai_agent.core.autonomy import (
-    ABUSE_LOOP_DETECTION_DOCS,
     M139_MAX_SIGNAL_REFS,
-    AbuseLoopDetectionDecision,
-    AbuseLoopDetectionPolicy,
     AbuseLoopDetectionRequest,
-    AbuseLoopDetectionStatus,
-    AutonomyAuthorityMode,
-    AutonomyRiskClass,
-    build_abuse_loop_detection_decision,
-    validate_abuse_loop_detection_decision,
-    validate_abuse_loop_detection_policy,
-    validate_abuse_loop_detection_request,
 )
 
 

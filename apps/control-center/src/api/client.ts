@@ -7862,6 +7862,29 @@ function isSafeControlCenterCapabilitySurface(
         Array.isArray(row.cli_paths) &&
         Array.isArray(row.tests_evidence_refs),
     ) &&
+    isPlainRecord(value.web_hybrid) &&
+    value.web_hybrid.schema_version === "uaa-web-hybrid-availability.v1" &&
+    value.web_hybrid.truth_owner === "python_core" &&
+    value.web_hybrid.status === "implemented_runtime_observation_required" &&
+    value.web_hybrid.routing_policy ===
+      "self_host_first_cloud_escalation" &&
+    value.web_hybrid.routing_attempt_ceiling === 2 &&
+    value.web_hybrid.cloud_first_enabled === false &&
+    value.web_hybrid.paid_usage_enabled === false &&
+    value.web_hybrid.keyless_enabled === false &&
+    value.web_hybrid.provider_zero_data_retention_claimed === false &&
+    value.web_hybrid.current_credit_snapshot_status ===
+      "not_observed_by_read_only_route" &&
+    value.web_hybrid.current_remaining_credits === null &&
+    value.web_hybrid.request_scoped_evaluation_required === true &&
+    value.web_hybrid.external_content_untrusted === true &&
+    value.web_hybrid.instruction_authority_granted === false &&
+    value.web_hybrid.memory_write_allowed === false &&
+    value.web_hybrid.context_injection_allowed === false &&
+    value.web_hybrid.browser_actions_allowed === false &&
+    value.web_hybrid.provider_network_call_performed === false &&
+    Array.isArray(value.web_hybrid.lanes) &&
+    value.web_hybrid.lanes.length === 3 &&
     isNonEmptyStringArray(value.blocked_authority_refs) &&
     isNonEmptyStringArray(value.redactions_applied)
   );

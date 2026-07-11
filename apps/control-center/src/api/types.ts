@@ -10016,6 +10016,63 @@ export interface CapabilitySurfaceSummary {
   source_truth_status_counts: Record<string, number>;
 }
 
+export interface WebHybridCapabilityLanePosture {
+  lane_ref: string;
+  capability_ref: string;
+  display_label: string;
+  implementation_status: "implemented_exact_lane";
+  runtime_availability: string;
+  provider_ref: string;
+  adapter_ref: string;
+  side_effect_class: "read_only_external";
+  approval_posture: string;
+  authority_posture: "request_scoped_evaluation_required";
+  cost_posture: "not_metered" | "metered_free_plan_only";
+  reason_codes: string[];
+  blocker_codes: string[];
+}
+
+export interface WebHybridAvailabilityReadModel {
+  schema_version: "uaa-web-hybrid-availability.v1";
+  read_model_ref: string;
+  truth_owner: "python_core";
+  status: "implemented_runtime_observation_required";
+  cli_ref: string;
+  lanes: WebHybridCapabilityLanePosture[];
+  routing_policy: "self_host_first_cloud_escalation";
+  routing_attempt_ceiling: 2;
+  cloud_first_enabled: false;
+  paid_usage_enabled: false;
+  keyless_enabled: false;
+  provider_zero_data_retention_claimed: false;
+  current_credit_snapshot_status: "not_observed_by_read_only_route";
+  current_remaining_credits: null;
+  reviewed_free_plan_credits: 1000;
+  reviewed_free_plan_concurrency: 2;
+  uaa_effective_cloud_concurrency: 1;
+  reviewed_standard_scrape_credits: 1;
+  cost_policy_ref: string;
+  credential_ref: string;
+  circuit_state: "unknown_until_runtime_inspection";
+  circuit_ref: string;
+  request_scoped_evaluation_required: true;
+  local_approval_required: true;
+  exact_authority_lease_required: true;
+  budget_reservation_required_for_cloud: true;
+  external_content_untrusted: true;
+  instruction_authority_granted: false;
+  memory_write_allowed: false;
+  context_injection_allowed: false;
+  browser_actions_allowed: false;
+  raw_page_persisted: false;
+  raw_provider_payload_persisted: false;
+  credential_material_returned: false;
+  provider_network_call_performed: false;
+  proof_refs: string[];
+  blocker_codes: string[];
+  safe_summary: string;
+}
+
 export interface ControlCenterCapabilitySurfaceReadModel {
   schema_version: "control-center-capability-surface-read-model.v1";
   read_model_ref: string;
@@ -10038,6 +10095,7 @@ export interface ControlCenterCapabilitySurfaceReadModel {
   safe_summary: string;
   summary: CapabilitySurfaceSummary;
   rows: CapabilitySurfaceRow[];
+  web_hybrid: WebHybridAvailabilityReadModel;
   blocked_authority_refs: string[];
   redactions_applied: string[];
 }

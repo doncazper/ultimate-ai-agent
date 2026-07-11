@@ -9,18 +9,12 @@ from ultimate_ai_agent.core.sandbox import (
     ReadOnlyCommandAllowlistEntry,
     ReadOnlyCommandAllowlistRequest,
     SandboxedEchoNoOpCommandRequest,
-    ShellApprovalGatePolicy,
     ShellApprovalGateRequest,
-    ShellApprovalGateStatus,
     ShellDryRunClassifierRequest,
     build_command_proposal,
     build_read_only_command_allowlist_decision,
     build_sandboxed_echo_noop_command,
-    build_shell_approval_gate_decision,
     build_shell_dry_run_classification,
-    validate_shell_approval_gate_decision,
-    validate_shell_approval_gate_policy,
-    validate_shell_approval_gate_request,
 )
 
 

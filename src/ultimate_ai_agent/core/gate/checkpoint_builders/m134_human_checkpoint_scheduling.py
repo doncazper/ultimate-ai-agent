@@ -2,16 +2,8 @@ from __future__ import annotations
 from typing import Any
 from ultimate_ai_agent.core.autonomy import (
     M134_MAX_CHECKPOINT_WINDOW_SECONDS,
-    M134_MAX_REVIEWER_REFS,
-    AutonomyAuthorityMode,
     AutonomyRiskClass,
-    HumanCheckpointSchedulingPolicy,
     HumanCheckpointSchedulingRequest,
-    HumanCheckpointSchedulingStatus,
-    build_human_checkpoint_scheduling_decision,
-    validate_human_checkpoint_scheduling_decision,
-    validate_human_checkpoint_scheduling_policy,
-    validate_human_checkpoint_scheduling_request,
 )
 
 

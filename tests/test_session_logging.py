@@ -23,6 +23,7 @@ from ultimate_ai_agent.core.observability import (
 from ultimate_ai_agent.core.task_decomposition import CapabilityRegistryStore, CapabilityRegistryStoreConfig
 from ultimate_ai_agent.core.task_decomposition.runtime import TaskDecompositionRunRequest, TaskDecompositionService
 from ultimate_ai_agent.core.time import utc_now
+from tests.authority_helpers import workspace_execute_authority_lease
 
 
 def _session_event(**overrides: Any) -> Any:
@@ -378,7 +379,10 @@ def test_task_decomposition_records_safe_run_and_node_correlation(tmp_path: Path
     monkeypatch.setenv("UAA_SESSION_LOG_ROOT", str(tmp_path / ".uaa"))
     clear_default_session_log_store_cache()
     store = CapabilityRegistryStore(CapabilityRegistryStoreConfig(registry_path=str(tmp_path / "registry.json")))
-    service = TaskDecompositionService(registry_store=store)
+    service = TaskDecompositionService(
+        registry_store=store,
+        active_authority_leases=[workspace_execute_authority_lease()],
+    )
     service.ensure_examples()
 
     result = asyncio.run(service.run(TaskDecompositionRunRequest(raw_request="Summarize this request directly.")))

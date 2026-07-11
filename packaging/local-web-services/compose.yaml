@@ -1,0 +1,224 @@
+name: uaa-local-web-services
+
+x-firecrawl-logging: &firecrawl-logging
+  driver: json-file
+  options:
+    max-size: 5m
+    max-file: "2"
+    compress: "true"
+
+services:
+  searxng-valkey:
+    image: valkey/valkey@sha256:cfe71288f087704b06be45e270afa7a2abbf820093d6b11a23762081f5ff321d
+    command:
+      - valkey-server
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+    networks:
+      - search-backend
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    read_only: true
+    tmpfs:
+      - /data:noexec,nosuid,size=64m
+    mem_limit: 128m
+
+  searxng:
+    image: searxng/searxng@sha256:4ebe6ab0297397426fe7ca015caab8f5ed3b50784cf968bfbda7887ea6b16f6e
+    depends_on:
+      searxng-valkey:
+        condition: service_healthy
+    environment:
+      SEARXNG_BIND_ADDRESS: 0.0.0.0
+      SEARXNG_PORT: "8080"
+      SEARXNG_LIMITER: "true"
+      SEARXNG_PUBLIC_INSTANCE: "false"
+      SEARXNG_VALKEY_URL: valkey://searxng-valkey:6379/0
+    volumes:
+      - ../../.uaa/local-web-services/searxng/settings.yml:/etc/searxng/settings.yml:ro
+      - ./searxng/limiter.toml:/etc/searxng/limiter.toml:ro
+    ports:
+      - "127.0.0.1:${UAA_SEARXNG_PORT:-8888}:8080"
+    networks:
+      - search-backend
+      - adapter-facing
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 4s
+      retries: 12
+      start_period: 10s
+    mem_limit: 1g
+    cpus: 1.0
+
+  firecrawl-redis:
+    image: redis@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
+    command: ["redis-server", "--bind", "0.0.0.0", "--save", "", "--appendonly", "no"]
+    networks:
+      - firecrawl-backend
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    read_only: true
+    tmpfs:
+      - /data:noexec,nosuid,size=128m
+    mem_limit: 256m
+    logging: *firecrawl-logging
+
+  firecrawl-rabbitmq:
+    image: rabbitmq@sha256:d7af1c87c5f1eda13fcfca06db452bf3aeab6619fc3358b68535c0c02c4e52bc
+    command: rabbitmq-server
+    networks:
+      - firecrawl-backend
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    mem_limit: 768m
+    logging: *firecrawl-logging
+
+  firecrawl-postgres:
+    image: ghcr.io/firecrawl/nuq-postgres@sha256:aed86f62858f29bd971abddcdeb301c12888098d2cf5d33c1ba42b053bc460f6
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/firecrawl_postgres_password
+      POSTGRES_DB: postgres
+    secrets:
+      - firecrawl_postgres_password
+    volumes:
+      - firecrawl-postgres-data:/var/lib/postgresql/data
+    networks:
+      - firecrawl-backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+    mem_limit: 1g
+    logging: *firecrawl-logging
+
+  firecrawl-playwright:
+    image: ghcr.io/firecrawl/playwright-service@sha256:6359b0d9070f27400b4a9b615509be06919e40121fc1fdc42d4efeddf02653d2
+    environment:
+      PORT: "3000"
+      ALLOW_LOCAL_WEBHOOKS: "false"
+      BLOCK_MEDIA: "true"
+      MAX_CONCURRENT_PAGES: "2"
+    networks:
+      - firecrawl-backend
+      - provider-egress
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    tmpfs:
+      - /tmp/.cache:noexec,nosuid,size=512m
+    mem_limit: 3g
+    cpus: 1.5
+    logging: *firecrawl-logging
+
+  firecrawl-api:
+    image: ghcr.io/firecrawl/firecrawl@sha256:af615fb8d742db000cbd99658acc33badc8b8a6252df7b6b25b05907f1c87061
+    depends_on:
+      firecrawl-redis:
+        condition: service_healthy
+      firecrawl-rabbitmq:
+        condition: service_healthy
+      firecrawl-postgres:
+        condition: service_healthy
+      firecrawl-playwright:
+        condition: service_healthy
+      searxng:
+        condition: service_healthy
+    environment:
+      HOST: 0.0.0.0
+      PORT: "3002"
+      EXTRACT_WORKER_PORT: "3004"
+      WORKER_PORT: "3005"
+      ENV: local
+      REDIS_URL: redis://firecrawl-redis:6379
+      REDIS_RATE_LIMIT_URL: redis://firecrawl-redis:6379
+      PLAYWRIGHT_MICROSERVICE_URL: http://firecrawl-playwright:3000/scrape
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
+      POSTGRES_HOST: firecrawl-postgres
+      POSTGRES_PORT: "5432"
+      USE_DB_AUTHENTICATION: "false"
+      NUQ_RABBITMQ_URL: amqp://firecrawl-rabbitmq:5672
+      SEARXNG_ENDPOINT: http://searxng:8080
+      SEARXNG_ENGINES: google,bing,duckduckgo
+      SEARXNG_CATEGORIES: general
+      NUM_WORKERS_PER_QUEUE: "2"
+      CRAWL_CONCURRENT_REQUESTS: "2"
+      MAX_CONCURRENT_JOBS: "2"
+      BROWSER_POOL_SIZE: "2"
+      LOGGING_LEVEL: WARN
+    secrets:
+      - firecrawl_postgres_password
+      - firecrawl_bull_auth_key
+    command:
+      - /bin/sh
+      - -ec
+      - >-
+        export POSTGRES_PASSWORD="$$(cat /run/secrets/firecrawl_postgres_password)";
+        export BULL_AUTH_KEY="$$(cat /run/secrets/firecrawl_bull_auth_key)";
+        exec node dist/src/harness.js --start-docker
+    ports:
+      - "127.0.0.1:${UAA_FIRECRAWL_PORT:-3002}:3002"
+    networks:
+      - firecrawl-backend
+      - adapter-facing
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3002/v0/health/liveness').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 30s
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+    mem_limit: 4g
+    cpus: 2.0
+    logging: *firecrawl-logging
+
+networks:
+  adapter-facing:
+    driver: bridge
+  search-backend:
+    driver: bridge
+    internal: true
+  firecrawl-backend:
+    driver: bridge
+    internal: true
+  provider-egress:
+    driver: bridge
+
+secrets:
+  firecrawl_postgres_password:
+    file: ../../.uaa/local-web-services/firecrawl_postgres_password
+  firecrawl_bull_auth_key:
+    file: ../../.uaa/local-web-services/firecrawl_bull_auth_key
+
+volumes:
+  firecrawl-postgres-data:

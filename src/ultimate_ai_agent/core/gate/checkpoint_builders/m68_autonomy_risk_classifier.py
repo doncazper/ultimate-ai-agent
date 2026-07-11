@@ -19,7 +19,6 @@ from ultimate_ai_agent.core.autonomy import (
     build_autonomy_risk_classification_decision,
     build_revocation_kill_switch_record,
     build_scoped_approval_bundle,
-    validate_autonomy_risk_classification_decision,
 )
 
 

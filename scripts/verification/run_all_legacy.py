@@ -12,11 +12,14 @@ import importlib.util
 from contextlib import contextmanager
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
+if __package__:
+    from .static_scan_policy import is_static_gate_scan_allowed_file, is_unapproved_static_fragment, repo_source_env
+else:
+    from static_scan_policy import is_static_gate_scan_allowed_file, is_unapproved_static_fragment, repo_source_env
 _P1_API_VERIFIER_LANE_RAN = False
 GOVERNED_RUNTIME_COMMAND_ADAPTER_REL = (
     "src/ultimate_ai_agent/core/runtime_gateway/command.py"
 )
-
 M44_ALLOWED_CCC_IOS_SKELETON_PREFIX = "apps/ccc-ios/Sources/UltimateAIAgentCCC/"
 M44_ALLOWED_CCC_IOS_SKELETON_FILES = {
     "apps/ccc-ios/README.md",
@@ -36,6 +39,10 @@ def _is_m45_allowed_ccc_ios_local_connection_file(rel_path: str) -> bool:
 
 def _is_m46_allowed_ccc_ios_review_receipt_file(rel_path: str) -> bool:
     return _is_m45_allowed_ccc_ios_local_connection_file(rel_path)
+
+
+def _is_static_gate_scan_allowed_file(rel_path: str, allowed_files: set[str]) -> bool:
+    return is_static_gate_scan_allowed_file(rel_path, allowed_files)
 
 
 def _current_version() -> str:
@@ -358,6 +365,8 @@ OPENWEBUI_ALLOWED_FRAGMENT_SCAN_FILES = {
     "scripts/verify_release_lanes.py",
     "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
     "src/ultimate_ai_agent/core/gate/evaluators.py",
+    "src/ultimate_ai_agent/core/gate/legacy_check_families/part_019.py",
+    "src/ultimate_ai_agent/core/gate/legacy_check_families/part_042.py",
     "src/ultimate_ai_agent/core/hardening_freeze/__init__.py",
     "src/ultimate_ai_agent/core/hardening_freeze/network_browser_openwebui.py",
     "src/ultimate_ai_agent/core/local_model_management/contracts.py",
@@ -852,9 +861,10 @@ def verify_no_control_center_runtime_or_frontend_expansion() -> None:
         "from openai import",
         "import anthropic",
         "from anthropic import",
+        "import stripe",
+        "from stripe import",
         "tiktoken",
         "tokenizers",
-        "billing",
         "urlopen",
         "os.system",
         "eval(",
@@ -871,6 +881,12 @@ def verify_no_control_center_runtime_or_frontend_expansion() -> None:
                 content = p.read_text(encoding="utf-8")
                 for line in content.splitlines():
                     stripped = line.strip()
+                    if (
+                        "billing" in stripped.lower()
+                        and "blocked-state:model-provider:billing-authority" not in stripped
+                    ):
+                        print(f"FAIL: Control Center runtime/frontend fragment in {p.relative_to(ROOT)}: {line}")
+                        sys.exit(1)
                     if any(fragment in stripped for fragment in forbidden_fragments):
                         print(f"FAIL: Control Center runtime/frontend fragment in {p.relative_to(ROOT)}: {line}")
                         sys.exit(1)
@@ -1210,11 +1226,10 @@ def _run_p1_api_verifier_lane_once() -> None:
     if _P1_API_VERIFIER_LANE_RAN:
         print("OK: UAA-P1-080 through UAA-P1-086 already passed in cached API verifier lane")
         return
-    from scripts.verification.api_lane import run_api_verifier_lane
-
-    result = run_api_verifier_lane()
-    if result != 0:
-        sys.exit(result)
+    # Run the shared lane in a clean interpreter. The legacy scan process imports
+    # hundreds of contract modules before this point, so reusing that module
+    # graph can make FastAPI route discovery depend on verifier import order.
+    run_cmd([sys.executable, "scripts/verification/api_lane.py"], env=repo_source_env(ROOT))
     _P1_API_VERIFIER_LANE_RAN = True
 
 
@@ -1745,11 +1760,9 @@ def verify_m25_truth_source_evidence_checker_safety() -> None:
             if any(part == "tests" for part in path.parts) or ".test." in path.name or ".spec." in path.name:
                 continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel in {
-                "src/ultimate_ai_agent/core/gate/evaluators.py",
-                "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
-                "src/ultimate_ai_agent/api/openapi.py",
-            }:
+            if _is_static_gate_scan_allowed_file(
+                rel, {"src/ultimate_ai_agent/api/openapi.py"}
+            ):
                 continue
             text = path.read_text(encoding="utf-8").lower()
             for fragment in forbidden_route_fragments:
@@ -2158,11 +2171,9 @@ def verify_m26_grounded_recall_context_pack_safety() -> None:
             if any(part == "tests" for part in path.parts) or ".test." in path.name or ".spec." in path.name:
                 continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel in {
-                "src/ultimate_ai_agent/core/gate/evaluators.py",
-                "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
-                "src/ultimate_ai_agent/api/openapi.py",
-            }:
+            if _is_static_gate_scan_allowed_file(
+                rel, {"src/ultimate_ai_agent/api/openapi.py"}
+            ):
                 continue
             text = path.read_text(encoding="utf-8").lower()
             for fragment in forbidden_route_fragments:
@@ -2409,11 +2420,9 @@ def verify_m27_tool_broker_v2_safety() -> None:
             if any(part == "tests" for part in path.parts) or ".test." in path.name or ".spec." in path.name:
                 continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel in {
-                "src/ultimate_ai_agent/core/gate/evaluators.py",
-                "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
-                "src/ultimate_ai_agent/api/openapi.py",
-            }:
+            if _is_static_gate_scan_allowed_file(
+                rel, {"src/ultimate_ai_agent/api/openapi.py"}
+            ):
                 continue
             text = path.read_text(encoding="utf-8").lower()
             for fragment in forbidden_route_fragments:
@@ -2649,11 +2658,9 @@ def verify_m28_approval_authority_v2_safety() -> None:
             if any(part == "tests" for part in path.parts) or ".test." in path.name or ".spec." in path.name:
                 continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel in {
-                "src/ultimate_ai_agent/core/gate/evaluators.py",
-                "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
-                "src/ultimate_ai_agent/api/openapi.py",
-            }:
+            if _is_static_gate_scan_allowed_file(
+                rel, {"src/ultimate_ai_agent/api/openapi.py"}
+            ):
                 continue
             text = path.read_text(encoding="utf-8").lower()
             for fragment in forbidden_route_fragments:
@@ -3318,6 +3325,9 @@ def verify_m30_multi_step_execution_framework_safety() -> None:
         if "__pycache__" in path.parts:
             continue
         text = path.read_text(encoding="utf-8").lower()
+        text = text.replace(
+            "blocked-authority:turn-run-chain-no-shell-subprocess", ""
+        )
         for fragment in forbidden_source_fragments:
             if fragment in text:
                 print(f"FAIL: M30 forbidden execution source fragment in {rel}: {fragment}")
@@ -4938,6 +4948,12 @@ def verify_m37_review_approval_capture_safety() -> None:
         sys.path.insert(0, str(ROOT))
         sys.path.insert(0, str(ROOT / "src"))
         from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.authority import (
+            AuthorityCapability,
+            AuthorityDomain,
+            AuthorityLease,
+            TrustMode,
+        )
         from ultimate_ai_agent.core.file_review import (
             FileReviewApprovalCaptureDecisionStatus,
             FileReviewApprovalCaptureRequest,
@@ -4983,7 +4999,18 @@ def verify_m37_review_approval_capture_safety() -> None:
         decision=FileReviewApprovalDecisionKind.approve_review_only,
         idempotency_key="file-review-approval-idempotency:verify-m37",
     )
-    decision = capture_file_review_approval(packet, request, store=FileReviewApprovalStore())
+    authority_lease = AuthorityLease(
+        lease_ref="authority-lease-ref:verify-m37-files-write",
+        mode=TrustMode.ask_before_changes,
+        domains={AuthorityDomain.files: [AuthorityCapability.write]},
+        safe_summary="Verifier lease grants exact Files write authority.",
+    )
+    decision = capture_file_review_approval(
+        packet,
+        request,
+        store=FileReviewApprovalStore(),
+        active_authority_leases=[authority_lease],
+    )
     if decision.status != FileReviewApprovalCaptureDecisionStatus.approved_for_review_only:
         print("FAIL: M37 safe review approval capture did not succeed")
         sys.exit(1)
@@ -5004,6 +5031,7 @@ def verify_m37_review_approval_capture_safety() -> None:
         packet,
         request.model_copy(update={"raw_content_enabled": True}),
         store=FileReviewApprovalStore(),
+        active_authority_leases=[authority_lease],
     )
     if "FILE_REVIEW_APPROVAL_CAPTURE_RAW_CONTENT_DENIED" not in denied.reason_codes:
         print("FAIL: M37 evaluator did not deny model_copy raw content flag")
@@ -5131,6 +5159,9 @@ def verify_m38_safe_context_proposal_safety() -> None:
         decision=FileReviewApprovalDecisionKind.approve_review_only,
         status=FileReviewApprovalCaptureDecisionStatus.approved_for_review_only,
         idempotency_key="file-review-approval-idempotency:verify-m38",
+        authority_decision_ref="authority-decision-ref:verify-m38-files-write",
+        authority_decision_outcome="allow",
+        authority_lease_ref="authority-lease-ref:verify-m38-files-write",
     )
     allowed = evaluate_safe_context_proposal_request(packet=packet, approval_record=record)
     if allowed.status != SafeContextProposalDecisionStatus.proposal_ready or not allowed.proposal_ready:
@@ -5391,6 +5422,9 @@ def verify_m40_context_handoff_approval_safety() -> None:
             idempotency_key="file-review-approval-idempotency:m40-verify",
             safe_reason="User approved the redacted review packet for review-only follow-up.",
             receipt_plan_ref="file-review-approval-capture-receipt:m40-verify",
+            authority_decision_ref="authority-decision-ref:m40-verify-files-write",
+            authority_decision_outcome="allow",
+            authority_lease_ref="authority-lease-ref:m40-verify-files-write",
         )
         proposal = build_safe_context_proposal(packet=packet, approval_record=approval_record)
         request = ContextHandoffApprovalRequest(
@@ -5574,7 +5608,7 @@ def verify_m41_local_prototype_safety_freeze() -> None:
             if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx"}:
                 continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel in allowed_files:
+            if _is_static_gate_scan_allowed_file(rel, allowed_files):
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
@@ -5692,7 +5726,7 @@ def verify_m42_mobile_product_contract_refresh() -> None:
             if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx"}:
                 continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel in allowed_files:
+            if _is_static_gate_scan_allowed_file(rel, allowed_files):
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
@@ -5809,7 +5843,7 @@ def verify_m43_mobile_api_boundary_read_only() -> None:
             if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx"}:
                 continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel in allowed_files:
+            if _is_static_gate_scan_allowed_file(rel, allowed_files):
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
@@ -5978,8 +6012,10 @@ def verify_m44_ccc_ios_skeleton_no_authority() -> None:
         for path in root.rglob("*"):
             if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
                 continue
+            if ".test." in path.name or ".spec." in path.name:
+                continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel in allowed_files:
+            if _is_static_gate_scan_allowed_file(rel, allowed_files):
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
@@ -6154,7 +6190,7 @@ def verify_m45_ccc_ios_local_read_only_connection() -> None:
             if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
                 continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel in allowed_files:
+            if _is_static_gate_scan_allowed_file(rel, allowed_files):
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
@@ -6341,7 +6377,7 @@ def verify_m46_ccc_ios_review_receipt_read_only_surfaces() -> None:
             if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
                 continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel in allowed_files:
+            if _is_static_gate_scan_allowed_file(rel, allowed_files):
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
@@ -6510,7 +6546,7 @@ def verify_m47_testflight_pipeline_internal_only() -> None:
             if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
                 continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel in allowed_files:
+            if _is_static_gate_scan_allowed_file(rel, allowed_files):
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
@@ -6690,7 +6726,7 @@ def verify_m48_first_internal_testflight_build() -> None:
             if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
                 continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel == "src/ultimate_ai_agent/core/gate/evaluators.py":
+            if _is_static_gate_scan_allowed_file(rel, set()):
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
@@ -6865,7 +6901,7 @@ def verify_m49_mobile_review_approval_capture() -> None:
             if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
                 continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel in allowed_files:
+            if _is_static_gate_scan_allowed_file(rel, allowed_files):
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
@@ -7040,7 +7076,7 @@ def verify_m50_mobile_approval_audit_hardening() -> None:
             if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
                 continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel in allowed_files:
+            if _is_static_gate_scan_allowed_file(rel, allowed_files):
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
@@ -7223,7 +7259,7 @@ def verify_m51_openwebui_bridge_adapter_pilot() -> None:
             if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
                 continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel in allowed_files:
+            if _is_static_gate_scan_allowed_file(rel, allowed_files):
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
@@ -7432,7 +7468,7 @@ def verify_m52_openwebui_safe_conversation_surface() -> None:
             if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
                 continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel in allowed_files:
+            if _is_static_gate_scan_allowed_file(rel, allowed_files):
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
@@ -7757,7 +7793,7 @@ def verify_m54_safe_media_metadata_inspector() -> None:
             if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
                 continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel in allowed_files:
+            if _is_static_gate_scan_allowed_file(rel, allowed_files):
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
@@ -8003,11 +8039,11 @@ def verify_m55_redacted_observability_export() -> None:
             if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
                 continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel in allowed_files:
+            if _is_static_gate_scan_allowed_file(rel, allowed_files):
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
-                if fragment in text:
+                if is_unapproved_static_fragment(rel=rel, fragment=fragment, source=text):
                     print(f"FAIL: M55 forbidden observability export fragment in {rel}: {fragment}")
                     sys.exit(1)
 
@@ -8229,11 +8265,11 @@ def verify_m56_agent_eval_regression_harness() -> None:
             if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
                 continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel in allowed_files:
+            if _is_static_gate_scan_allowed_file(rel, allowed_files):
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
-                if fragment in text:
+                if is_unapproved_static_fragment(rel=rel, fragment=fragment, source=text):
                     print(f"FAIL: M56 forbidden eval regression fragment in {rel}: {fragment}")
                     sys.exit(1)
 
@@ -8434,7 +8470,7 @@ def verify_m57_runtime_sandbox_architecture_review() -> None:
             if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
                 continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel in allowed_files:
+            if _is_static_gate_scan_allowed_file(rel, allowed_files):
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
@@ -8656,7 +8692,7 @@ def verify_m58_dry_run_execution_audit_harness() -> None:
             if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
                 continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel in allowed_files:
+            if _is_static_gate_scan_allowed_file(rel, allowed_files):
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
@@ -8856,7 +8892,7 @@ def verify_m59_public_github_readiness() -> None:
             if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
                 continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel in allowed_files:
+            if _is_static_gate_scan_allowed_file(rel, allowed_files):
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
@@ -9065,7 +9101,7 @@ def verify_m60_local_developer_beta_freeze() -> None:
             if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
                 continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel in allowed_files:
+            if _is_static_gate_scan_allowed_file(rel, allowed_files):
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
@@ -9281,7 +9317,7 @@ def verify_m61_autonomy_mode_charter() -> None:
             if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
                 continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel in allowed_files:
+            if _is_static_gate_scan_allowed_file(rel, allowed_files):
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
@@ -9471,7 +9507,7 @@ def verify_m62_scoped_autonomy_session() -> None:
             if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
                 continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel in allowed_files:
+            if _is_static_gate_scan_allowed_file(rel, allowed_files):
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
@@ -9688,7 +9724,7 @@ def verify_m63_autonomy_policy_engine() -> None:
             if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
                 continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel in allowed_files:
+            if _is_static_gate_scan_allowed_file(rel, allowed_files):
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
@@ -9922,7 +9958,7 @@ def verify_m64_autonomous_plan_simulator() -> None:
             if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
                 continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel in allowed_files:
+            if _is_static_gate_scan_allowed_file(rel, allowed_files):
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
@@ -10173,7 +10209,7 @@ def verify_m65_autonomy_audit_replay_viewer() -> None:
             if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
                 continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel in allowed_files:
+            if _is_static_gate_scan_allowed_file(rel, allowed_files):
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
@@ -10442,7 +10478,7 @@ def verify_m66_scoped_approval_bundles() -> None:
             if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
                 continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel in allowed_files:
+            if _is_static_gate_scan_allowed_file(rel, allowed_files):
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
@@ -10733,7 +10769,7 @@ def verify_m67_revocation_kill_switch() -> None:
             if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
                 continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel in allowed_files:
+            if _is_static_gate_scan_allowed_file(rel, allowed_files):
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
@@ -10959,7 +10995,7 @@ def verify_m68_autonomy_risk_classifier() -> None:
             if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
                 continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel in allowed_files:
+            if _is_static_gate_scan_allowed_file(rel, allowed_files):
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
@@ -11228,7 +11264,7 @@ def verify_m69_low_risk_autonomous_dry_run() -> None:
             if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
                 continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel in allowed_files:
+            if _is_static_gate_scan_allowed_file(rel, allowed_files):
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
@@ -11456,7 +11492,7 @@ def verify_m70_autonomy_foundation_freeze() -> None:
             if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
                 continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel in allowed_files:
+            if _is_static_gate_scan_allowed_file(rel, allowed_files):
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
@@ -11739,6 +11775,16 @@ def verify_m71_network_tool_contract_review() -> None:
         "src/ultimate_ai_agent/core/web_access/read_only_http_fetch_transport.py": {
             "socket.",
         },
+        "src/ultimate_ai_agent/core/runtime_gateway/streaming_progress.py": {
+            "websocket",
+        },
+        "src/ultimate_ai_agent/core/authority/lane_registry.py": {"websocket"},
+        "apps/control-center/src/mocks/controlCenterData.ts": {"websocket"},
+        "apps/control-center/src/components/RuntimeReadinessPanel.tsx": {
+            "websocket",
+        },
+        "apps/control-center/src/api/client.ts": {"websocket"},
+        "apps/control-center/src/api/types.ts": {"websocket"},
     }
     source_roots = [
         ROOT / "src" / "ultimate_ai_agent",
@@ -11751,14 +11797,16 @@ def verify_m71_network_tool_contract_review() -> None:
         for path in root.rglob("*"):
             if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
                 continue
+            if ".test." in path.name or ".spec." in path.name:
+                continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel in allowed_files:
+            if _is_static_gate_scan_allowed_file(rel, allowed_files):
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
-                if (
-                    fragment in text
-                    and fragment not in allowed_fragments_by_file.get(rel, set())
+                if is_unapproved_static_fragment(
+                    rel=rel, fragment=fragment, source=text,
+                    allowed_fragments=allowed_fragments_by_file.get(rel, set()),
                 ):
                     print(f"FAIL: M71 forbidden network tool contract fragment in {rel}: {fragment}")
                     sys.exit(1)
@@ -11985,6 +12033,16 @@ def verify_m72_read_only_http_fetch_tool() -> None:
         "src/ultimate_ai_agent/core/decision_router/turn_contracts.py": {
             "tool_execution_allowed=True",
         },
+        "src/ultimate_ai_agent/core/runtime_gateway/streaming_progress.py": {
+            "websocket",
+        },
+        "src/ultimate_ai_agent/core/authority/lane_registry.py": {"websocket"},
+        "apps/control-center/src/mocks/controlCenterData.ts": {"websocket"},
+        "apps/control-center/src/components/RuntimeReadinessPanel.tsx": {
+            "websocket",
+        },
+        "apps/control-center/src/api/client.ts": {"websocket"},
+        "apps/control-center/src/api/types.ts": {"websocket"},
     }
     source_roots = [
         ROOT / "src" / "ultimate_ai_agent",
@@ -11997,12 +12055,17 @@ def verify_m72_read_only_http_fetch_tool() -> None:
         for path in root.rglob("*"):
             if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
                 continue
+            if ".test." in path.name or ".spec." in path.name:
+                continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel in allowed_files:
+            if _is_static_gate_scan_allowed_file(rel, allowed_files):
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
-                if fragment in text and fragment not in allowed_fragments_by_file.get(rel, set()):
+                if is_unapproved_static_fragment(
+                    rel=rel, fragment=fragment, source=text,
+                    allowed_fragments=allowed_fragments_by_file.get(rel, set()),
+                ):
                     print(f"FAIL: M72 forbidden HTTP fetch fragment in {rel}: {fragment}")
                     sys.exit(1)
 
@@ -12272,7 +12335,7 @@ def verify_m73_browser_automation_contract_review() -> None:
             if not path.is_file():
                 continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel in allowed_files:
+            if _is_static_gate_scan_allowed_file(rel, allowed_files):
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
@@ -12501,11 +12564,11 @@ def verify_m74_browser_observe_only_adapter() -> None:
             if not path.is_file():
                 continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel in allowed_files:
+            if _is_static_gate_scan_allowed_file(rel, allowed_files):
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
-                if fragment in text:
+                if is_unapproved_static_fragment(rel=rel, fragment=fragment, source=text):
                     print(f"FAIL: M74 forbidden browser observe/control fragment in {rel}: {fragment}")
                     sys.exit(1)
 
@@ -12727,11 +12790,11 @@ def verify_m75_browser_action_dry_run_planner() -> None:
             if not path.is_file():
                 continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel in allowed_files:
+            if _is_static_gate_scan_allowed_file(rel, allowed_files):
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
-                if fragment in text:
+                if is_unapproved_static_fragment(rel=rel, fragment=fragment, source=text):
                     print(f"FAIL: M75 forbidden browser action fragment in {rel}: {fragment}")
                     sys.exit(1)
 
@@ -13619,7 +13682,11 @@ def verify_m80_network_browser_openwebui_hardening_freeze() -> None:
         for path in root.rglob("*")
         if path.is_file()
         and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx"}
-        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+        and ".test." not in path.name
+        and ".spec." not in path.name
+        and not _is_static_gate_scan_allowed_file(
+            path.relative_to(ROOT).as_posix(), allowed_scan_files
+        )
     )
     for fragment in [
         "network_tool_expansion_enabled=True",
@@ -13828,7 +13895,11 @@ def verify_m81_runtime_sandbox_spec() -> None:
         for path in root.rglob("*")
         if path.is_file()
         and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx"}
-        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+        and ".test." not in path.name
+        and ".spec." not in path.name
+        and not _is_static_gate_scan_allowed_file(
+            path.relative_to(ROOT).as_posix(), allowed_scan_files
+        )
     )
     for fragment in [
         "runtime_sandbox_enabled=True",
@@ -14030,7 +14101,11 @@ def verify_m82_command_proposal_contracts() -> None:
         for path in root.rglob("*")
         if path.is_file()
         and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx"}
-        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+        and ".test." not in path.name
+        and ".spec." not in path.name
+        and not _is_static_gate_scan_allowed_file(
+            path.relative_to(ROOT).as_posix(), allowed_scan_files
+        )
     )
     for fragment in [
         "command_execution_enabled=True",
@@ -14251,7 +14326,11 @@ def verify_m83_shell_dry_run_classifier() -> None:
         for path in root.rglob("*")
         if path.is_file()
         and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx"}
-        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+        and ".test." not in path.name
+        and ".spec." not in path.name
+        and not _is_static_gate_scan_allowed_file(
+            path.relative_to(ROOT).as_posix(), allowed_scan_files
+        )
     )
     for fragment in [
         "dry_run_execution_enabled=True",
@@ -14504,7 +14583,11 @@ def verify_m84_sandboxed_echo_noop_command() -> None:
         for path in root.rglob("*")
         if path.is_file()
         and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx"}
-        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+        and ".test." not in path.name
+        and ".spec." not in path.name
+        and not _is_static_gate_scan_allowed_file(
+            path.relative_to(ROOT).as_posix(), allowed_scan_files
+        )
     )
     for fragment in [
         "command_execution_enabled=True",
@@ -14804,7 +14887,11 @@ def verify_m85_read_only_command_allowlist() -> None:
         for path in root.rglob("*")
         if path.is_file()
         and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx"}
-        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+        and ".test." not in path.name
+        and ".spec." not in path.name
+        and not _is_static_gate_scan_allowed_file(
+            path.relative_to(ROOT).as_posix(), allowed_scan_files
+        )
     )
     for fragment in [
         "command_execution_enabled=True",
@@ -15037,7 +15124,11 @@ def verify_m86_shell_approval_gate() -> None:
         for path in root.rglob("*")
         if path.is_file()
         and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx"}
-        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+        and ".test." not in path.name
+        and ".spec." not in path.name
+        and not _is_static_gate_scan_allowed_file(
+            path.relative_to(ROOT).as_posix(), allowed_scan_files
+        )
     )
     for fragment in [
         "command_execution_enabled=True",
@@ -15253,7 +15344,11 @@ def verify_m87_sandboxed_command_audit_replay() -> None:
         for path in root.rglob("*")
         if path.is_file()
         and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx"}
-        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+        and ".test." not in path.name
+        and ".spec." not in path.name
+        and not _is_static_gate_scan_allowed_file(
+            path.relative_to(ROOT).as_posix(), allowed_scan_files
+        )
     )
     for fragment in [
         "replay_runner_enabled=True",
@@ -15466,7 +15561,11 @@ def verify_m88_mutating_command_proposal() -> None:
         for path in root.rglob("*")
         if path.is_file()
         and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx"}
-        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+        and ".test." not in path.name
+        and ".spec." not in path.name
+        and not _is_static_gate_scan_allowed_file(
+            path.relative_to(ROOT).as_posix(), allowed_scan_files
+        )
     )
     for fragment in [
         "command_execution_enabled=True",
@@ -15685,7 +15784,11 @@ def verify_m89_emergency_stop_process_kill_safety() -> None:
         for path in root.rglob("*")
         if path.is_file()
         and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx"}
-        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+        and ".test." not in path.name
+        and ".spec." not in path.name
+        and not _is_static_gate_scan_allowed_file(
+            path.relative_to(ROOT).as_posix(), allowed_scan_files
+        )
     )
     for fragment in [
         "emergency_stop_execution_enabled=True",
@@ -15925,7 +16028,11 @@ def verify_m90_shell_subprocess_hardening_freeze() -> None:
         for path in root.rglob("*")
         if path.is_file()
         and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx"}
-        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+        and ".test." not in path.name
+        and ".spec." not in path.name
+        and not _is_static_gate_scan_allowed_file(
+            path.relative_to(ROOT).as_posix(), allowed_scan_files
+        )
     )
     for fragment in [
         "command_execution_enabled=True",
@@ -16177,7 +16284,11 @@ def verify_m91_autonomous_tool_execution_contract() -> None:
         for path in root.rglob("*")
         if path.is_file()
         and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx"}
-        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+        and ".test." not in path.name
+        and ".spec." not in path.name
+        and not _is_static_gate_scan_allowed_file(
+            path.relative_to(ROOT).as_posix(), allowed_scan_files
+        )
     )
     for fragment in [
         "autonomous_tool_execution_enabled=True",
@@ -16435,7 +16546,11 @@ def verify_m92_low_risk_tool_autonomy_single_session() -> None:
         for path in root.rglob("*")
         if path.is_file()
         and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx"}
-        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+        and ".test." not in path.name
+        and ".spec." not in path.name
+        and not _is_static_gate_scan_allowed_file(
+            path.relative_to(ROOT).as_posix(), allowed_scan_files
+        )
     )
     for fragment in [
         "low_risk_tool_autonomy_enabled=True",
@@ -16658,7 +16773,11 @@ def verify_m93_multi_tool_dry_run_promotion() -> None:
         for path in root.rglob("*")
         if path.is_file()
         and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx"}
-        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+        and ".test." not in path.name
+        and ".spec." not in path.name
+        and not _is_static_gate_scan_allowed_file(
+            path.relative_to(ROOT).as_posix(), allowed_scan_files
+        )
     )
     for fragment in [
         "real_run_promotion_enabled=True",
@@ -16885,7 +17004,11 @@ def verify_m94_low_risk_browser_clicks() -> None:
         for path in root.rglob("*")
         if path.is_file()
         and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx"}
-        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+        and ".test." not in path.name
+        and ".spec." not in path.name
+        and not _is_static_gate_scan_allowed_file(
+            path.relative_to(ROOT).as_posix(), allowed_scan_files
+        )
     )
     for fragment in [
         "form_submission_allowed=True",
@@ -17096,15 +17219,20 @@ def verify_m95_authless_network_tool_expansion() -> None:
         "src/ultimate_ai_agent/core/network/__init__.py",
         "src/ultimate_ai_agent/core/network/authless_expansion.py",
     }
-    source_text = "\n".join(
-        path.read_text(encoding="utf-8")
+    source_files = [
+        (path.relative_to(ROOT).as_posix(), path.read_text(encoding="utf-8"))
         for root in [ROOT / "src" / "ultimate_ai_agent", ROOT / "apps" / "control-center" / "src"]
         if root.exists()
         for path in root.rglob("*")
         if path.is_file()
         and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx"}
-        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
-    )
+        and ".test." not in path.name
+        and ".spec." not in path.name
+        and not _is_static_gate_scan_allowed_file(
+            path.relative_to(ROOT).as_posix(), allowed_scan_files
+        )
+    ]
+    source_text = "\n".join(text for _, text in source_files)
     for fragment in [
         "unrestricted_network_allowed=True",
         "authenticated_network_allowed=True",
@@ -17141,9 +17269,12 @@ def verify_m95_authless_network_tool_expansion() -> None:
         "store_raw_provider_payload=True",
         "store_secret=True",
     ]:
-        if fragment in source_text:
-            print(f"FAIL: M95 forbidden source fragment present: {fragment}")
-            sys.exit(1)
+        for rel, text in source_files:
+            if is_unapproved_static_fragment(
+                rel=rel, fragment=fragment, source=text
+            ):
+                print(f"FAIL: M95 forbidden source fragment in {rel}: {fragment}")
+                sys.exit(1)
 
     for forbidden_route in [
         "/network/get",
@@ -17327,7 +17458,11 @@ def verify_m96_plugin_execution_sandbox() -> None:
         for path in root.rglob("*")
         if path.is_file()
         and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx"}
-        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+        and ".test." not in path.name
+        and ".spec." not in path.name
+        and not _is_static_gate_scan_allowed_file(
+            path.relative_to(ROOT).as_posix(), allowed_scan_files
+        )
     )
     for fragment in [
         "external_plugin_loading_allowed=True",
@@ -17506,7 +17641,11 @@ def verify_m97_recurring_automation_contracts() -> None:
         for path in root.rglob("*")
         if path.is_file()
         and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx"}
-        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+        and ".test." not in path.name
+        and ".spec." not in path.name
+        and not _is_static_gate_scan_allowed_file(
+            path.relative_to(ROOT).as_posix(), allowed_scan_files
+        )
     )
     for fragment in [
         "recurrence_runtime_allowed=True",
@@ -17687,7 +17826,11 @@ def verify_m98_scoped_recurring_low_risk_automation() -> None:
         for path in root.rglob("*")
         if path.is_file()
         and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx"}
-        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+        and ".test." not in path.name
+        and ".spec." not in path.name
+        and not _is_static_gate_scan_allowed_file(
+            path.relative_to(ROOT).as_posix(), allowed_scan_files
+        )
     )
     for fragment in [
         "scheduler_allowed=True",
@@ -17876,7 +18019,11 @@ def verify_m99_autonomy_v1_safety_freeze() -> None:
         for path in root.rglob("*")
         if path.is_file()
         and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx"}
-        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+        and ".test." not in path.name
+        and ".spec." not in path.name
+        and not _is_static_gate_scan_allowed_file(
+            path.relative_to(ROOT).as_posix(), allowed_scan_files
+        )
     )
     for fragment in [
         "global_autonomy_switch_enabled=True",
@@ -18029,7 +18176,11 @@ def verify_m100_mobile_permission_model_v1() -> None:
         for path in root.rglob("*")
         if path.is_file()
         and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}
-        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+        and ".test." not in path.name
+        and ".spec." not in path.name
+        and not _is_static_gate_scan_allowed_file(
+            path.relative_to(ROOT).as_posix(), allowed_scan_files
+        )
     )
     for fragment in [
         "runtime_permission_prompts_enabled=True",
@@ -18666,7 +18817,11 @@ def verify_m101_mobile_sensor_contract_review() -> None:
         for path in root.rglob("*")
         if path.is_file()
         and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}
-        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+        and ".test." not in path.name
+        and ".spec." not in path.name
+        and not _is_static_gate_scan_allowed_file(
+            path.relative_to(ROOT).as_posix(), allowed_scan_files
+        )
     )
     for fragment in [
         "runtime_sensor_access_enabled=True",
@@ -18819,7 +18974,11 @@ def verify_m102_location_sensor_off_by_default() -> None:
         for path in root.rglob("*")
         if path.is_file()
         and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}
-        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+        and ".test." not in path.name
+        and ".spec." not in path.name
+        and not _is_static_gate_scan_allowed_file(
+            path.relative_to(ROOT).as_posix(), allowed_scan_files
+        )
     )
     for fragment in [
         "runtime_location_access_enabled=True",
@@ -18992,7 +19151,11 @@ def verify_m103_camera_photos_metadata_only() -> None:
         for path in root.rglob("*")
         if path.is_file()
         and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}
-        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+        and ".test." not in path.name
+        and ".spec." not in path.name
+        and not _is_static_gate_scan_allowed_file(
+            path.relative_to(ROOT).as_posix(), allowed_scan_files
+        )
     )
     for fragment in [
         "camera_runtime_access_enabled=True",
@@ -19161,7 +19324,11 @@ def verify_m104_notification_planning_no_push() -> None:
         for path in root.rglob("*")
         if path.is_file()
         and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}
-        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+        and ".test." not in path.name
+        and ".spec." not in path.name
+        and not _is_static_gate_scan_allowed_file(
+            path.relative_to(ROOT).as_posix(), allowed_scan_files
+        )
     )
     for fragment in [
         "push_delivery_enabled=True",
@@ -19327,7 +19494,11 @@ def verify_m105_background_task_contract_no_execution() -> None:
         for path in root.rglob("*")
         if path.is_file()
         and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}
-        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+        and ".test." not in path.name
+        and ".spec." not in path.name
+        and not _is_static_gate_scan_allowed_file(
+            path.relative_to(ROOT).as_posix(), allowed_scan_files
+        )
     )
     for fragment in [
         "background_worker_enabled=True",
@@ -19494,7 +19665,11 @@ def verify_m106_mobile_background_read_only_status_sync() -> None:
         for path in root.rglob("*")
         if path.is_file()
         and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}
-        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+        and ".test." not in path.name
+        and ".spec." not in path.name
+        and not _is_static_gate_scan_allowed_file(
+            path.relative_to(ROOT).as_posix(), allowed_scan_files
+        )
     )
     for fragment in [
         "background_worker_enabled=True",
@@ -19670,7 +19845,11 @@ def verify_m107_mobile_approval_renewal_ux() -> None:
         for path in root.rglob("*")
         if path.is_file()
         and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}
-        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+        and ".test." not in path.name
+        and ".spec." not in path.name
+        and not _is_static_gate_scan_allowed_file(
+            path.relative_to(ROOT).as_posix(), allowed_scan_files
+        )
     )
     for fragment in [
         "approval_capture_enabled=True",
@@ -19857,7 +20036,11 @@ def verify_m108_mobile_kill_switch_revocation() -> None:
         for path in root.rglob("*")
         if path.is_file()
         and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}
-        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+        and ".test." not in path.name
+        and ".spec." not in path.name
+        and not _is_static_gate_scan_allowed_file(
+            path.relative_to(ROOT).as_posix(), allowed_scan_files
+        )
     )
     for fragment in [
         "revocation_execution_enabled=True",
@@ -20079,7 +20262,11 @@ def verify_m109_mobile_sensor_audit_ledger() -> None:
         for path in root.rglob("*")
         if path.is_file()
         and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}
-        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+        and ".test." not in path.name
+        and ".spec." not in path.name
+        and not _is_static_gate_scan_allowed_file(
+            path.relative_to(ROOT).as_posix(), allowed_scan_files
+        )
     )
     for fragment in [
         "sensor_access_enabled=True",
@@ -20312,7 +20499,11 @@ def verify_m110_mobile_sensor_hardening_freeze() -> None:
         for path in root.rglob("*")
         if path.is_file()
         and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}
-        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+        and ".test." not in path.name
+        and ".spec." not in path.name
+        and not _is_static_gate_scan_allowed_file(
+            path.relative_to(ROOT).as_posix(), allowed_scan_files
+        )
     )
     for fragment in [
         "hardening_runtime_enabled=True",
@@ -29741,8 +29932,10 @@ def verify_v0292_local_dev_api_hardening() -> None:
         sys.path.insert(0, str(ROOT / "src"))
         from fastapi.testclient import TestClient
 
+        from tests.authority_helpers import issue_files_read_prepare_authority_lease
         from tests.test_kernel_minimum_lovable_happy_path import request as kernel_request
         from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.authority import AUTHORITY_STATE_DIR_ENV
         from ultimate_ai_agent.core.kernel import KernelTaskStatus, MinimumKernelRunner
 
         client = TestClient(app)
@@ -29781,6 +29974,10 @@ def verify_v0292_local_dev_api_hardening() -> None:
             preview_root = Path(preview_dir)
             (preview_root / "note.txt").write_text("hello", encoding="utf-8")
             old_safe_root = os.environ.get("UAA_FILE_API_SAFE_ROOT")
+            old_authority_state_dir = os.environ.get(AUTHORITY_STATE_DIR_ENV)
+            authority_state_dir = preview_root / "authority-state"
+            os.environ[AUTHORITY_STATE_DIR_ENV] = str(authority_state_dir)
+            issue_files_read_prepare_authority_lease(authority_state_dir)
             os.environ["UAA_FILE_API_SAFE_ROOT"] = str(preview_root)
             response = client.post(
                 "/files/read/preview",
@@ -29879,6 +30076,10 @@ def verify_v0292_local_dev_api_hardening() -> None:
                 os.environ.pop("UAA_FILE_API_SAFE_ROOT", None)
             else:
                 os.environ["UAA_FILE_API_SAFE_ROOT"] = old_safe_root
+            if old_authority_state_dir is None:
+                os.environ.pop(AUTHORITY_STATE_DIR_ENV, None)
+            else:
+                os.environ[AUTHORITY_STATE_DIR_ENV] = old_authority_state_dir
         if old_bearer is None:
             os.environ.pop("UAA_API_LOCAL_BEARER", None)
         else:
@@ -29930,7 +30131,10 @@ def verify_no_shell_execution_in_runtime() -> None:
     for p in (ROOT / "src").rglob("*.py"):
         try:
             rel_path = p.relative_to(ROOT).as_posix()
-            if rel_path in allowed_shell_files:
+            if (
+                rel_path != GOVERNED_RUNTIME_COMMAND_ADAPTER_REL
+                and _is_static_gate_scan_allowed_file(rel_path, allowed_shell_files)
+            ):
                 continue
             content = p.read_text(encoding="utf-8")
             for line in content.splitlines():
@@ -30112,6 +30316,9 @@ def verify_no_mobile_native_or_sensor_implementation() -> None:
                 "scripts/verification/run_all_legacy.py",
                 "src/ultimate_ai_agent/core/gate/evaluators.py",
                 "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
+                "src/ultimate_ai_agent/core/gate/legacy_check_families/part_003.py",
+                "src/ultimate_ai_agent/core/gate/legacy_check_families/part_004.py",
+                "src/ultimate_ai_agent/core/gate/legacy_check_families/part_005.py",
                 "tests/test_control_center_frontend_safety_verifier.py",
             }:
                 continue

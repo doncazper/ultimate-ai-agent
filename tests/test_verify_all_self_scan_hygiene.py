@@ -1,7 +1,62 @@
 from __future__ import annotations
 
 from scripts.verification import run_all_legacy
+from scripts.verification import static_scan_policy
 
 
 def test_mobile_sensor_guard_does_not_flag_verifier_literals() -> None:
     run_all_legacy.verify_no_mobile_native_or_sensor_implementation()
+
+
+def test_openwebui_guard_does_not_flag_foundation_gate_policy_literals() -> None:
+    run_all_legacy.verify_no_openwebui_runtime_or_config_implementation()
+
+
+def test_control_center_guard_allows_safe_blocker_and_billing_reason_refs() -> None:
+    run_all_legacy.verify_no_control_center_runtime_or_frontend_expansion()
+
+
+def test_static_scan_allowlist_is_dependency_free_and_does_not_hide_web_adapters(
+    monkeypatch,
+) -> None:
+    original_import = __import__
+
+    def reject_package_import(name, *args, **kwargs):
+        if name.startswith("ultimate_ai_agent"):
+            raise AssertionError("static allowlist must not import application dependencies")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.__import__", reject_package_import)
+
+    assert run_all_legacy._is_static_gate_scan_allowed_file(
+        "src/ultimate_ai_agent/core/gate/criteria.py", set()
+    )
+    assert not run_all_legacy._is_static_gate_scan_allowed_file(
+        "src/ultimate_ai_agent/core/web_access/firecrawl_cloud.py", set()
+    )
+
+
+def test_web_hybrid_static_scan_policy_keeps_exceptions_fragment_scoped() -> None:
+    for rel in static_scan_policy.WEB_HYBRID_EXACT_ADAPTER_FILES:
+        source = (run_all_legacy.ROOT / rel).read_text(encoding="utf-8")
+        assert not static_scan_policy.is_unapproved_static_fragment(
+            rel=rel,
+            fragment="network_call_performed=True",
+            source=source,
+        )
+        assert static_scan_policy.is_unapproved_static_fragment(
+            rel=rel,
+            fragment="memory_write_performed=True",
+            source=source + "\nmemory_write_performed=True\n",
+        )
+
+
+def test_web_hybrid_static_scan_policy_rejects_unreviewed_socket_call() -> None:
+    rel = "src/ultimate_ai_agent/core/web_access/firecrawl_cloud.py"
+    source = (run_all_legacy.ROOT / rel).read_text(encoding="utf-8")
+
+    assert static_scan_policy.is_unapproved_static_fragment(
+        rel=rel,
+        fragment="socket.",
+        source=source + "\ndef unreviewed_transport():\n    socket.socket()\n",
+    )

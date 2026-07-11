@@ -187,7 +187,7 @@ def test_hermes_context_pack_is_curated_and_redacted(monkeypatch) -> None:
     }
 
 
-def test_runtime_hermes_api_routes_return_backend_read_models(
+def test_runtime_hermes_api_routes_fail_closed_without_injected_runner(
     tmp_path,
     monkeypatch,
 ) -> None:
@@ -218,10 +218,14 @@ def test_runtime_hermes_api_routes_return_backend_read_models(
     assert context_pack.json()["data"]["schema_version"] == "hermes_context_pack.v1"
     assert chat.status_code == 200
     receipt = chat.json()["data"]["receipt"]
-    assert receipt["status"] == "receipt_recorded"
-    assert receipt["execution_performed"] is True
+    assert chat.json()["success"] is False
+    assert receipt["status"] == "unavailable"
+    assert receipt["execution_performed"] is False
     assert receipt["authority_decision_outcome"] == "allow"
     assert receipt["authority_lease_ref"]
+    assert "blocked-authority:hermes-chat-runner-unavailable" in (
+        receipt["blocked_reason_refs"]
+    )
     assert receipt["query_ref"].startswith("hermes-query-ref:")
     assert receipt["raw_prompt_persisted"] is False
     assert receipt["raw_output_persisted"] is False

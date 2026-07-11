@@ -3,16 +3,8 @@ from typing import Any
 from ultimate_ai_agent.core.gate.checkpoint_builders.m93_multi_tool_dry_run_promotion import _request as _m93_request
 from ultimate_ai_agent.core.autonomy import build_multi_tool_dry_run_promotion_decision
 from ultimate_ai_agent.core.browser import (
-    LowRiskBrowserClickPolicy,
     LowRiskBrowserClickRequest,
-    LowRiskBrowserClickStatus,
     LowRiskBrowserClickTransportResponse,
-    build_low_risk_browser_click_decision,
-    perform_low_risk_browser_click,
-    validate_low_risk_browser_click_decision,
-    validate_low_risk_browser_click_policy,
-    validate_low_risk_browser_click_request,
-    validate_low_risk_browser_click_result,
 )
 
 

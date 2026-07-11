@@ -48,6 +48,8 @@ CAPABILITIES_DECLARED = [
     "runtime_readiness_status",
     "manual_smoke_report_validation",
     "control_center_read_only_dashboard",
+    "control_center_capability_availability_read_model",
+    "capability_availability_request_scoped_invocation_decisions",
     "control_center_setup_assistant_summary",
     "control_center_setup_approval_envelopes_dry_run",
     "control_center_founder_loop_storage_summaries",
@@ -187,6 +189,11 @@ CAPABILITIES_DECLARED = [
     "web_access_provider_adapter_shells_disabled",
     "web_access_provider_diagnostics_metadata_only",
     "web_access_provider_catalog_visibility_metadata_only",
+    "web_hybrid_searxng_readonly_search",
+    "web_hybrid_self_hosted_firecrawl_markdown",
+    "web_hybrid_free_plan_firecrawl_cloud_markdown",
+    "web_hybrid_self_host_first_one_step_fallback",
+    "web_hybrid_operator_read_model",
     "mattermost_agent_rooms_disabled_by_default",
     "mattermost_role_catalog",
     "mattermost_redacted_message_ingress",
@@ -196,8 +203,13 @@ CAPABILITIES_DECLARED = [
 
 CAPABILITIES_BLOCKED = [
     "runtime_remote_or_unrestricted_model_calls",
-    "provider_api_calls",
-    "web_fetching",
+    "unscoped_provider_api_calls",
+    "unrestricted_web_fetching",
+    "web_hybrid_cloud_budget_first",
+    "web_hybrid_paid_usage",
+    "web_hybrid_keyless",
+    "web_hybrid_multi_step_fallback",
+    "web_hybrid_provider_zero_data_retention_claim",
     "browser_automation",
     "control_center_web_evidence_unrestricted_browsing",
     "control_center_web_evidence_browser_actions",
@@ -251,6 +263,9 @@ CAPABILITIES_BLOCKED = [
     "targeted_rate_limits_as_production_authority",
     "plugin_enablement_routes",
     "control_center_execution",
+    "capability_availability_global_authorization",
+    "capability_availability_live_health_probes",
+    "capability_availability_as_execution_evidence",
     "control_center_run_observability_as_runtime_authority",
     "control_center_run_observability_cancel_resume_execution",
     "control_center_run_observability_live_streaming_runtime",
@@ -558,9 +573,9 @@ CAPABILITIES_BLOCKED = [
     "web_access_provider_shells_as_runtime_authority",
     "web_access_provider_sdk_imports",
     "web_access_provider_credentials",
-    "search_provider_live_calls",
-    "firecrawl_provider_calls",
-    "firecrawl_scrape_jobs",
+    "unscoped_search_provider_live_calls",
+    "unscoped_firecrawl_provider_calls",
+    "unscoped_firecrawl_scrape_jobs",
     "browserbase_provider_sessions",
     "mattermost_raw_transcript_storage",
     "mattermost_unapproved_connector_writes",
@@ -573,16 +588,16 @@ CAPABILITIES_BLOCKED = [
 WEB_ACCESS_POSTURE = {
     "web_access_gateway_boundary": "implemented",
     "boundary_module": "ultimate_ai_agent.core.web_access",
-    "governed_web_access": "boundary_only",
+    "governed_web_access": "exact_request_scoped_lanes",
     "unrestricted_web_fetching": "not_available",
     "browser_execution": "not_available",
     "browser_observe_runtime": "not_available",
     "browser_action_dry_run_runtime": "not_available",
-    "providers": "not_configured",
+    "providers": "runtime_observation_required",
     "content_untrusted": True,
     "grants_runtime_browsing_authority": False,
     "allows_clicks_forms_auth_cookies_downloads_uploads": False,
-    "allowed_methods": (),
+    "allowed_methods": ("GET",),
     "mutation_methods": "not_available",
 }
 
@@ -759,6 +774,7 @@ CONTROL_CENTER_VALIDATION_ONLY_PATHS = {
 }
 LOCAL_READONLY_PATHS = {
     "/control-center/dashboard",
+    "/control-center/capabilities/availability",
     "/control-center/capabilities/surface",
     "/control-center/foundation-gate/summary",
     "/control-center/local-models/status",
@@ -991,7 +1007,10 @@ def route_classification_for_path(
             ApiRouteClassification.local_sensitive,
             "Authority domain readiness inspection route exposes one backend-derived readiness row for every target AuthorityLease domain with active lease refs, decision outcomes, blocked reasons, unsupported adapter refs, and issue-ready mode posture without mutation or execution.",
         )
-    if normalized_method == "POST" and path == "/api/runtime/authority-decisions/preview":
+    if (
+        normalized_method == "POST"
+        and path == "/api/runtime/authority-decisions/preview"
+    ):
         return (
             ApiRouteClassification.local_sensitive,
             "Authority decision preview evaluates active lease scope and returns redacted allow/ask/deny/degrade refs without mutation or execution.",
@@ -1123,10 +1142,7 @@ def route_classification_for_path(
             ApiRouteClassification.local_sensitive,
             "Tier 1 WebAccessGateway preview route; active browser/read AuthorityLease scope, allowlisted HTTPS GET only, bounded redacted preview returned, safe receipt refs stored locally, and browser action/session/download/upload/mutation/context/memory/provider/connector authority remains blocked",
         )
-    if (
-        normalized_method == "POST"
-        and path in EXTENSION_INSTALL_DISABLED_RECORD_PATHS
-    ):
+    if normalized_method == "POST" and path in EXTENSION_INSTALL_DISABLED_RECORD_PATHS:
         return (
             ApiRouteClassification.mutating_requires_authority,
             "Extension install-disabled metadata record route; active workspace/write AuthorityLease scope, exact LocalApprovalAuthority grant payload, idempotency, redacted receipt refs, local disabled-record store, rollback/delete posture, and safe-disable posture required while plugin package install, enablement, runtime import, execution, marketplace fetch, connector writes, shell, browser, provider calls, and production authority remain blocked",

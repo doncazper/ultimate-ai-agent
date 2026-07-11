@@ -40,6 +40,47 @@ def test_deterministic_file_count_shards_are_stable() -> None:
     ]
 
 
+def test_test_discovery_is_recursive_and_sorted(tmp_path: Path) -> None:
+    runner = load_runner()
+    (tmp_path / "tests/nested").mkdir(parents=True)
+    (tmp_path / "tests/test_z.py").write_text("", encoding="utf-8")
+    (tmp_path / "tests/nested/test_a.py").write_text("", encoding="utf-8")
+    (tmp_path / "tests/nested/helper.py").write_text("", encoding="utf-8")
+
+    assert runner.discover_test_files(tmp_path) == [
+        "tests/nested/test_a.py",
+        "tests/test_z.py",
+    ]
+
+
+def test_shard_selection_is_exact_and_validated() -> None:
+    runner = load_runner()
+    plans = runner.deterministic_file_count_shards(
+        [f"tests/test_{index}.py" for index in range(8)],
+        4,
+    )
+
+    assert runner.select_shard(plans, None) == plans
+    assert runner.select_shard(plans, 2) == [plans[2]]
+    with pytest.raises(ValueError, match="one configured shard"):
+        runner.select_shard(plans, -1)
+    with pytest.raises(ValueError, match="one configured shard"):
+        runner.select_shard(plans, 4)
+
+
+def test_eight_way_partition_covers_every_file_once() -> None:
+    runner = load_runner()
+    files = [f"tests/test_{index}.py" for index in range(810)]
+
+    plans, method = runner.assign_shards(files, 8, None)
+    assigned = [file_path for plan in plans for file_path in plan.files]
+
+    assert method == "deterministic-file-count"
+    assert sorted(assigned) == sorted(files)
+    assert len(assigned) == len(set(assigned))
+    assert sorted(len(plan.files) for plan in plans) == [101] * 6 + [102] * 2
+
+
 def test_timing_aware_shards_balance_by_prior_duration() -> None:
     runner = load_runner()
     files = [
@@ -315,6 +356,38 @@ def test_overall_return_code_fails_if_any_shard_failed(tmp_path: Path) -> None:
 
     assert runner.overall_return_code([passed]) == 0
     assert runner.overall_return_code([passed, failed]) == 1
+
+
+def test_single_shard_rejects_partial_timing_output(capsys) -> None:
+    runner = load_runner()
+
+    assert runner.main(
+        ["--shards", "8", "--shard-index", "2", "--write-timings-json", "timings.json"]
+    ) == 2
+    assert "complete shard set" in capsys.readouterr().err
+
+
+def test_safe_summary_omits_local_log_paths(tmp_path: Path, capsys) -> None:
+    runner = load_runner()
+    result = runner.ShardResult(
+        index=2,
+        file_count=101,
+        returncode=0,
+        elapsed_seconds=12.5,
+        log_path=tmp_path / "private" / "pytest.log",
+    )
+
+    runner.print_summary(
+        [result],
+        assignment_method="deterministic-file-count",
+        timing_source="not-requested",
+        timing_output=None,
+        safe_summary=True,
+    )
+
+    output = capsys.readouterr().out
+    assert "pytest-shard-log:2" in output
+    assert str(tmp_path) not in output
 
 
 def test_makefile_exposes_opt_in_sharded_targets_without_changing_verify() -> None:

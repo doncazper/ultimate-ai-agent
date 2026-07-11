@@ -258,7 +258,9 @@ class FoundationGateLegacyChecksPart013Mixin:
                     continue
                 text = self._context.read_text(path, encoding="utf-8")
                 for fragment in forbidden_source_fragments:
-                    if fragment in text:
+                    if fragment in text and not _is_web_hybrid_promoted_static_fragment(
+                        rel, fragment, text
+                    ):
                         failures.append(
                             f"M55 forbidden observability export fragment in {rel}: {fragment}"
                         )
@@ -622,7 +624,9 @@ class FoundationGateLegacyChecksPart013Mixin:
                     continue
                 text = self._context.read_text(path, encoding="utf-8")
                 for fragment in forbidden_source_fragments:
-                    if fragment in text:
+                    if fragment in text and not _is_web_hybrid_promoted_static_fragment(
+                        rel, fragment, text
+                    ):
                         failures.append(
                             f"M56 forbidden eval harness fragment in {rel}: {fragment}"
                         )

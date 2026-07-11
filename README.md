@@ -74,7 +74,7 @@ curated gallery and snapshot caveats.
 
 | Area | Current status | What to inspect |
 |---|---|---|
-| API boundary | Implemented for the current **251** OpenAPI paths, **252** `/api/manifest` route operations, and route metadata. | [docs/api/README.md](docs/api/README.md) |
+| API boundary | Implemented for the current **252** OpenAPI paths, **253** `/api/manifest` route operations, and route metadata. | [docs/api/README.md](docs/api/README.md) |
 | Action Inbox | Backend-owned approve/edit/reject/defer decisions, receipts, evidence refs, and one exact approved local-task AuthorityLease capability. Generic execution remains blocked. | [docs/control_center/FCC_V1_002_ACTION_INBOX_STATE_MACHINE.md](docs/control_center/FCC_V1_002_ACTION_INBOX_STATE_MACHINE.md) |
 | Chat handoff | Durable safe Chat turn receipts and reviewable Actions/Plans handoff receipts. Model output is not authority. | [docs/control_center/FCC_V1_004_CHAT_DURABLE_RECEIPT_HANDOFF.md](docs/control_center/FCC_V1_004_CHAT_DURABLE_RECEIPT_HANDOFF.md) |
 | Memory | Review receipts, reviewed recall-only records, read-only L1/L2/L3 indexes, proposal-only context packs, and internal Action proposal receipts. Memory remains recall, not truth or authority. | [docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md](docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md) |
@@ -150,7 +150,7 @@ Morning Briefing
 | Local model lane checkpoints | **checkpoint-m166**, **checkpoint-m167** |
 | Local model lane | **M160-M167**, including **M166** local readiness evidence and **M167** live evidence hardening; non-production by default |
 | Governed runtime pilot | **UAA-P1-091 / v0.105.0** scoped internal milestone; Phase 07 hardening keeps `v0.104.0` active baseline until the milestone tag is created from green release truth |
-| API boundary | FastAPI route contract with **251** OpenAPI paths and **252** manifest route operations |
+| API boundary | FastAPI route contract with **252** OpenAPI paths and **253** manifest route operations |
 | Founder Loop V1 | `FCC-V1-000` through `FCC-V1-007` complete for bounded proofed route surfaces |
 | Governed Cognitive Memory Spine | Phases 1-5 implemented as reviewed/read-only/proposal capabilities; Phase 6.1 is internal Action proposal receipts only |
 | Deferred lane | `UAA-P1-087.2` in-person private UI functional tuning |
@@ -240,8 +240,9 @@ a bounded `make -j$(VERIFY_DEV_FAST_JOBS)` fanout, then generates a serialized
 report-only Foundation Gate summary with `--no-write-latest`. It records static
 verification timings through `VERIFY_TIMINGS_JSON`, uses the normal non-xdist
 pytest suite, and is local verification evidence, not a release-readiness claim
-by itself. PR final proof should still include full `make verify` until parallel
-equivalence is accepted.
+by itself. Hosted CI now proves pytest equivalence through eight isolated
+deterministic file shards plus one stable aggregate `pytest` check. Local
+`make verify` remains the conservative serial all-in proof.
 
 `make test-sharded` is an opt-in local/dev pytest file sharding lane. It uses
 `scripts/verification/run_pytest_shards.py` with `PYTEST_SHARDS`, stores
@@ -255,8 +256,9 @@ sharded pytest, static verification, and gate architecture run in bounded local
 fanout, then Foundation Gate runs serialized in report-only mode with
 `--no-write-latest`. The runner captures per-phase logs under ignored `/tmp`
 paths, writes a timing summary, prints concise pass/fail phase summaries, and
-prints detailed log tails when a phase fails. This is local pre-review feedback
-only; full `make verify` remains the conservative release-grade proof.
+prints detailed log tails when a phase fails. This remains local pre-review
+feedback. Hosted CI requires every shard through the aggregate `pytest` check;
+full local `make verify` remains serial.
 
 The sharded lane parallelizes the same default-safe contract test posture. It
 does not opt into live GGUF search or acquisition, local model root
