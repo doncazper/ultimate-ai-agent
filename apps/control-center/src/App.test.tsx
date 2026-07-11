@@ -8502,6 +8502,16 @@ describe("Web Control Center shell", () => {
       screen.getByText("uaa runtime inspect-streaming-progress"),
     ).toBeInTheDocument();
     expect(
+      screen.getByText("GET /api/runtime/streaming-progress?transport=sse"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("uaa runtime inspect-streaming-progress --replay-sse"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("local preview replay available")).toBeInTheDocument();
+    expect(screen.getByText("deterministic redacted preview")).toBeInTheDocument();
+    expect(screen.getByText("blocked (read-only)")).toBeInTheDocument();
+    expect(screen.getByText("Live SSE/WebSocket")).toBeInTheDocument();
+    expect(
       screen.getByText("lane-ref:runtime-streaming-progress-read-model"),
     ).toBeInTheDocument();
     expect(

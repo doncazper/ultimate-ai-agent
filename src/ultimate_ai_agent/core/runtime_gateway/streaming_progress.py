@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
 import hashlib
 import json
 from enum import Enum
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -31,9 +33,18 @@ RUNTIME_STREAMING_PROGRESS_CONTRACT_REF = (
     "contract-ref:runtime-streaming-progress:v1"
 )
 RUNTIME_STREAMING_PROGRESS_ROUTE_REF = "GET /api/runtime/streaming-progress"
+RUNTIME_STREAMING_PROGRESS_REPLAY_ROUTE_REF = (
+    "GET /api/runtime/streaming-progress?transport=sse"
+)
 RUNTIME_STREAMING_PROGRESS_CLI_REF = "uaa runtime inspect-streaming-progress"
+RUNTIME_STREAMING_PROGRESS_REPLAY_CLI_REF = (
+    "uaa runtime inspect-streaming-progress --replay-sse"
+)
 RUNTIME_STREAMING_PROGRESS_PROOF_REF = (
     "proof-ref:runtime-streaming-progress:phase-05"
+)
+RUNTIME_STREAMING_PROGRESS_REPLAY_PROOF_REF = (
+    "proof-ref:runtime-streaming-progress:readonly-sse-replay"
 )
 RUNTIME_STREAMING_PROGRESS_SNAPSHOT_REF = (
     "runtime-streaming-progress-snapshot-ref:hermes-agent:event-preview"
@@ -124,13 +135,80 @@ class RuntimeStreamingProgressEventPreview(BaseModel):
         return self
 
 
+class RuntimeStreamingProgressReplayEvent(BaseModel):
+    schema_version: str = "runtime_streaming_progress_replay_event.v1"
+    transport_ref: str = "transport-ref:runtime-streaming-progress:readonly-sse-replay"
+    route_ref: str = RUNTIME_STREAMING_PROGRESS_REPLAY_ROUTE_REF
+    event_ref: str
+    sequence: int
+    event_kind: RuntimeStreamingProgressEventKind
+    runtime_run_ref: str
+    uaa_durable_run_ref: str
+    proof_ref: str
+    event_hash_ref: str
+    redaction_status: str
+    safe_summary: str
+    source_posture: Literal["deterministic_redacted_preview"] = (
+        "deterministic_redacted_preview"
+    )
+    readonly_replay: bool = True
+    durable_event_source: bool = False
+    accepts_control_messages: bool = False
+    mutation_enabled: bool = False
+    runtime_event_ingest_enabled: bool = False
+    live_runtime_subscription_enabled: bool = False
+    raw_payload_included: bool = False
+
+    model_config = ConfigDict(use_enum_values=True, extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_replay_event(self) -> "RuntimeStreamingProgressReplayEvent":
+        for value, field_name in [
+            (self.transport_ref, "transport_ref"),
+            (self.event_ref, "event_ref"),
+            (self.runtime_run_ref, "runtime_run_ref"),
+            (self.uaa_durable_run_ref, "uaa_durable_run_ref"),
+            (self.proof_ref, "proof_ref"),
+            (self.event_hash_ref, "event_hash_ref"),
+        ]:
+            validate_execution_ref(value, field_name)
+        for value, field_name in [
+            (self.schema_version, "schema_version"),
+            (self.route_ref, "route_ref"),
+            (self.redaction_status, "redaction_status"),
+            (self.safe_summary, "safe_summary"),
+        ]:
+            validate_safe_execution_text(value, field_name)
+        if self.sequence < 0:
+            raise ValueError("RUNTIME_STREAMING_PROGRESS_REPLAY_SEQUENCE_INVALID")
+        if not self.readonly_replay:
+            raise ValueError("RUNTIME_STREAMING_PROGRESS_REPLAY_READONLY_REQUIRED")
+        denied_flags = {
+            "durable_event_source": self.durable_event_source,
+            "accepts_control_messages": self.accepts_control_messages,
+            "mutation_enabled": self.mutation_enabled,
+            "runtime_event_ingest_enabled": self.runtime_event_ingest_enabled,
+            "live_runtime_subscription_enabled": self.live_runtime_subscription_enabled,
+            "raw_payload_included": self.raw_payload_included,
+        }
+        enabled = [name for name, value in denied_flags.items() if value]
+        if enabled:
+            raise ValueError(
+                "RUNTIME_STREAMING_PROGRESS_REPLAY_CONTROL_DENIED: "
+                + ", ".join(enabled)
+            )
+        return self
+
+
 class RuntimeStreamingProgressReadModel(BaseModel):
     schema_version: str = "runtime_streaming_progress.v1"
     contract_ref: str = RUNTIME_STREAMING_PROGRESS_CONTRACT_REF
     snapshot_ref: str = RUNTIME_STREAMING_PROGRESS_SNAPSHOT_REF
     snapshot_hash_ref: str
     route_ref: str = RUNTIME_STREAMING_PROGRESS_ROUTE_REF
+    replay_route_ref: str = RUNTIME_STREAMING_PROGRESS_REPLAY_ROUTE_REF
     cli_ref: str = RUNTIME_STREAMING_PROGRESS_CLI_REF
+    replay_cli_ref: str = RUNTIME_STREAMING_PROGRESS_REPLAY_CLI_REF
     control_center_ref: str = RUNTIME_DELEGATION_CONTROL_CENTER_REF
     runtime_identity_ref: str = "runtime-identity-ref:hermes-agent:optional-target"
     runtime_run_ref: str = RUNTIME_RUN_EVENTS_SAMPLE_RUN_REF
@@ -152,6 +230,15 @@ class RuntimeStreamingProgressReadModel(BaseModel):
     event_previews: list[RuntimeStreamingProgressEventPreview]
     event_count: int
     stale_stream: bool = True
+    readonly_sse_replay_enabled: bool = True
+    readonly_sse_replay_source_posture: Literal[
+        "deterministic_redacted_preview"
+    ] = "deterministic_redacted_preview"
+    readonly_sse_replay_durable_event_source: bool = False
+    readonly_sse_replay_requires_run_ref: bool = True
+    readonly_sse_replay_resume_supported: bool = True
+    readonly_sse_replay_control_messages_accepted: bool = False
+    readonly_sse_replay_mutation_enabled: bool = False
     live_subscription_enabled: bool = False
     sse_transport_enabled: bool = False
     websocket_transport_enabled: bool = False
@@ -173,7 +260,8 @@ class RuntimeStreamingProgressReadModel(BaseModel):
     next_safe_action_refs: list[str] = Field(default_factory=list)
     safe_summary: str = (
         "Runtime streaming progress is represented as redacted ordered event "
-        "previews only; no live SSE, WebSocket, or direct runtime subscription is enabled."
+        "previews plus a local read-only SSE preview replay; no durable or live runtime "
+        "subscription, WebSocket, or direct runtime control channel is enabled."
     )
     redactions_applied: list[str] = Field(
         default_factory=lambda: list(GOVERNED_RUNTIME_REDACTIONS)
@@ -200,7 +288,9 @@ class RuntimeStreamingProgressReadModel(BaseModel):
         for value, field_name in [
             (self.schema_version, "schema_version"),
             (self.route_ref, "route_ref"),
+            (self.replay_route_ref, "replay_route_ref"),
             (self.cli_ref, "cli_ref"),
+            (self.replay_cli_ref, "replay_cli_ref"),
             (self.status, "status"),
             (self.authority_state_route_ref, "authority_state_route_ref"),
             (self.authority_state_cli_ref, "authority_state_cli_ref"),
@@ -239,9 +329,24 @@ class RuntimeStreamingProgressReadModel(BaseModel):
             raise ValueError("RUNTIME_STREAMING_PROGRESS_EVENT_ORDER_INVALID")
         if not self.stale_stream:
             raise ValueError("RUNTIME_STREAMING_PROGRESS_STALE_LABEL_REQUIRED")
+        if not self.readonly_sse_replay_enabled:
+            raise ValueError("RUNTIME_STREAMING_PROGRESS_READONLY_REPLAY_REQUIRED")
+        if not self.readonly_sse_replay_requires_run_ref:
+            raise ValueError("RUNTIME_STREAMING_PROGRESS_REPLAY_RUN_REF_REQUIRED")
+        if not self.readonly_sse_replay_resume_supported:
+            raise ValueError("RUNTIME_STREAMING_PROGRESS_REPLAY_RESUME_REQUIRED")
         if not self.bounded_retention_required or not self.event_hashes_required:
             raise ValueError("RUNTIME_STREAMING_PROGRESS_RETENTION_HASH_REQUIRED")
         denied_flags = {
+            "readonly_sse_replay_durable_event_source": (
+                self.readonly_sse_replay_durable_event_source
+            ),
+            "readonly_sse_replay_control_messages_accepted": (
+                self.readonly_sse_replay_control_messages_accepted
+            ),
+            "readonly_sse_replay_mutation_enabled": (
+                self.readonly_sse_replay_mutation_enabled
+            ),
             "live_subscription_enabled": self.live_subscription_enabled,
             "sse_transport_enabled": self.sse_transport_enabled,
             "websocket_transport_enabled": self.websocket_transport_enabled,
@@ -361,6 +466,7 @@ def build_runtime_streaming_progress_read_model_from_authority_catalog(
         blocked_authority_refs=blocked_refs,
         proof_refs=[
             RUNTIME_STREAMING_PROGRESS_PROOF_REF,
+            RUNTIME_STREAMING_PROGRESS_REPLAY_PROOF_REF,
             "proof-ref:runtime-streaming-progress:fragment-preview",
             "proof-ref:runtime-streaming-progress:tool-started",
             "proof-ref:runtime-streaming-progress:tool-completed",
@@ -371,12 +477,63 @@ def build_runtime_streaming_progress_read_model_from_authority_catalog(
             "proof-ref:runtime-streaming-progress:stale-label",
         ],
         next_safe_action_refs=[
-            "next-safe-action-ref:runtime-streaming-progress:add-approved-loopback-transport",
             "next-safe-action-ref:runtime-streaming-progress:define-bounded-retention",
             "next-safe-action-ref:runtime-streaming-progress:add-event-hash-verifier",
             "next-safe-action-ref:runtime-streaming-progress:bind-proof-refs",
         ],
     )
+
+
+def build_runtime_streaming_progress_replay_events(
+    read_model: RuntimeStreamingProgressReadModel,
+    *,
+    run_ref: str,
+    after_sequence: int = -1,
+) -> list[RuntimeStreamingProgressReplayEvent]:
+    validate_execution_ref(run_ref, "runtime_streaming_progress_replay_run_ref")
+    if after_sequence < -1:
+        raise ValueError("RUNTIME_STREAMING_PROGRESS_REPLAY_AFTER_SEQUENCE_INVALID")
+    if run_ref not in {read_model.runtime_run_ref, read_model.uaa_durable_run_ref}:
+        raise ValueError("RUNTIME_STREAMING_PROGRESS_REPLAY_RUN_REF_UNKNOWN")
+    events = [
+        event for event in read_model.event_previews if event.sequence > after_sequence
+    ]
+    return [
+        RuntimeStreamingProgressReplayEvent(
+            event_ref=event.event_ref,
+            sequence=event.sequence,
+            event_kind=event.event_kind,
+            runtime_run_ref=event.runtime_run_ref,
+            uaa_durable_run_ref=event.uaa_durable_run_ref,
+            proof_ref=event.proof_ref,
+            event_hash_ref=event.event_hash_ref,
+            redaction_status=event.redaction_status,
+            safe_summary=event.safe_summary,
+        )
+        for event in events
+    ]
+
+
+def iter_runtime_streaming_progress_sse_lines(
+    read_model: RuntimeStreamingProgressReadModel,
+    *,
+    run_ref: str,
+    after_sequence: int = -1,
+) -> Iterator[str]:
+    for event in build_runtime_streaming_progress_replay_events(
+        read_model,
+        run_ref=run_ref,
+        after_sequence=after_sequence,
+    ):
+        payload = event.model_dump(mode="json")
+        event_id = f"runtime-streaming-progress:{event.sequence}"
+        yield f"id: {event_id}\n"
+        yield f"event: {event.event_kind}\n"
+        yield (
+            "data: "
+            + json.dumps(payload, sort_keys=True, separators=(",", ":"))
+            + "\n\n"
+        )
 
 
 def _snapshot_hash_ref(

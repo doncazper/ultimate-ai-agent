@@ -440,9 +440,12 @@ Contract rules:
   and proof refs. It now also returns the AuthorityState mapping, catalog,
   decision, reason, unsupported-adapter, and decision-bound snapshot refs for
   `lane-ref:runtime-streaming-progress-read-model` under Read-only
-  `workspace/read`. It is read-model only and does not open SSE/WebSocket
-  subscriptions, reconnect to Hermes, ingest live runtime events, or persist
-  raw runtime/tool/generated/log/prompt/response payloads.
+  `workspace/read`. With `transport=sse` plus the exact current runtime or UAA
+  durable run ref, the route may replay the already-built bounded redacted
+  preview snapshot as `text/event-stream`, including an explicit
+  `after_sequence` cursor. This is not live SSE: it does not subscribe or
+  reconnect to Hermes, ingest or durably retain runtime events, accept control
+  messages, or persist raw runtime/tool/generated/log/prompt/response payloads.
   `GET /api/runtime/profiles` exposes the Hermes Runtime Adoption Phase 06
   backend-owned runtime profile isolation posture for UAA-owned profile refs
   that are separate from delegated runtime profile refs, safe display labels,
