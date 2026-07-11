@@ -50,13 +50,14 @@ def test_pytest_ci_uses_complete_eight_way_matrix_with_stable_aggregate() -> Non
     assert "fail-fast: false" in shards
     assert "shard: [0, 1, 2, 3, 4, 5, 6, 7]" in shards
     assert "--shards 8" in shards
+    assert "--timings-json scripts/verification/pytest_file_timing_seed.json" in shards
     assert "--shard-index ${{ matrix.shard }}" in shards
     assert "--safe-summary" in shards
     assert "--write-timings-json" not in shards
     assert "name: pytest" in aggregate
     assert "- pytest-shards" in aggregate
     assert "if: always()" in aggregate
-    assert 'needs.pytest-shards.result' in aggregate
+    assert "needs.pytest-shards.result" in aggregate
     assert '!= "success"' in aggregate
 
 
@@ -87,7 +88,9 @@ def test_openapi_release_lane_keeps_route_module_ownership_green() -> None:
     assert "PYTHONPATH=src" in section
 
 
-def test_frontend_release_lane_uses_existing_frontend_job_as_required_equivalent() -> None:
+def test_frontend_release_lane_uses_existing_frontend_job_as_required_equivalent() -> (
+    None
+):
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
     section = _extract_job_block(workflow, "release-lane-frontend")
 

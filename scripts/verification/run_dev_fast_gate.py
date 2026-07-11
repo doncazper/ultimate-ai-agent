@@ -17,9 +17,11 @@ DEFAULT_LOG_ROOT = "/tmp/uaa_verify_dev_fast"
 DEFAULT_TIMINGS_JSON = "/tmp/uaa_verify_dev_fast_timings.json"
 DEFAULT_STATIC_TIMINGS_JSON = "/tmp/uaa_verify_all_timings.json"
 DEFAULT_PYTEST_TIMINGS_JSON = "/tmp/uaa_pytest_file_timings.json"
+DEFAULT_PYTEST_TIMING_SEED_JSON = "scripts/verification/pytest_file_timing_seed.json"
 DEFAULT_PYTEST_BASETEMP = "/tmp/uaa_pytest_shards"
 DEFAULT_JOBS = 4
-DEFAULT_PYTEST_SHARDS = 4
+DEFAULT_PYTEST_SHARDS = 8
+DEFAULT_PYTEST_WORKERS = 8
 LOG_TAIL_LINES = 80
 
 
@@ -55,13 +57,16 @@ def build_env(*, pythonpath_src: bool = False) -> dict[str, str]:
     if pythonpath_src:
         src_path = str(ROOT / "src")
         existing = env.get("PYTHONPATH")
-        env["PYTHONPATH"] = src_path if not existing else f"{src_path}{os.pathsep}{existing}"
+        env["PYTHONPATH"] = (
+            src_path if not existing else f"{src_path}{os.pathsep}{existing}"
+        )
     return env
 
 
 def build_parallel_phases(args: argparse.Namespace) -> list[Phase]:
     static_timings = resolve_path(args.static_timings_json)
     pytest_timings = resolve_path(args.pytest_timings_json)
+    pytest_timing_seed = resolve_path(args.pytest_timing_seed_json)
     pytest_basetemp = resolve_path(args.pytest_basetemp)
     python = sys.executable
     return [
@@ -78,9 +83,11 @@ def build_parallel_phases(args: argparse.Namespace) -> list[Phase]:
                 "scripts/verification/run_pytest_shards.py",
                 "--shards",
                 str(args.pytest_shards),
+                "--max-workers",
+                str(args.pytest_workers),
                 "--timings-json",
-                str(pytest_timings),
-                "--write-timings-json",
+                str(pytest_timing_seed),
+                "--timings-json",
                 str(pytest_timings),
                 "--basetemp",
                 str(pytest_basetemp),
@@ -127,7 +134,9 @@ def build_serial_phases() -> list[Phase]:
 
 
 def sanitize_ref(value: str) -> str:
-    return "".join(char if char.isalnum() else "_" for char in value).strip("_") or "phase"
+    return (
+        "".join(char if char.isalnum() else "_" for char in value).strip("_") or "phase"
+    )
 
 
 def run_phase(phase: Phase, log_dir: Path) -> PhaseResult:
@@ -157,7 +166,9 @@ def run_phase(phase: Phase, log_dir: Path) -> PhaseResult:
     )
 
 
-def run_parallel_phases(phases: list[Phase], log_dir: Path, jobs: int) -> list[PhaseResult]:
+def run_parallel_phases(
+    phases: list[Phase], log_dir: Path, jobs: int
+) -> list[PhaseResult]:
     pending = list(phases)
     active: dict[int, tuple[Phase, subprocess.Popen[str], Any, float, Path]] = {}
     results: list[PhaseResult] = []
@@ -178,7 +189,13 @@ def run_parallel_phases(phases: list[Phase], log_dir: Path, jobs: int) -> list[P
                 stderr=subprocess.STDOUT,
                 text=True,
             )
-            active[id(process)] = (phase, process, log_file, time.perf_counter(), log_path)
+            active[id(process)] = (
+                phase,
+                process,
+                log_file,
+                time.perf_counter(),
+                log_path,
+            )
 
         for key, (phase, process, log_file, started, log_path) in list(active.items()):
             returncode = process.poll()
@@ -222,7 +239,9 @@ def static_timing_count(path: Path) -> int | None:
     return len([item for item in timings if isinstance(item, dict)])
 
 
-def write_timing_summary(path: Path, results: list[PhaseResult], total_elapsed_seconds: float) -> None:
+def write_timing_summary(
+    path: Path, results: list[PhaseResult], total_elapsed_seconds: float
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "schema_version": "uaa_verify_dev_fast_gate_timings.v1",
@@ -233,7 +252,9 @@ def write_timing_summary(path: Path, results: list[PhaseResult], total_elapsed_s
             if all(result.status == "passed" for result in results)
             else "failed",
             "total_elapsed_seconds": round(total_elapsed_seconds, 3),
-            "phase_elapsed_seconds_sum": round(sum(result.elapsed_seconds for result in results), 3),
+            "phase_elapsed_seconds_sum": round(
+                sum(result.elapsed_seconds for result in results), 3
+            ),
         },
         "phases": [
             {
@@ -248,7 +269,9 @@ def write_timing_summary(path: Path, results: list[PhaseResult], total_elapsed_s
         ],
     }
     temp_path = path.with_suffix(path.suffix + ".tmp")
-    temp_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    temp_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     temp_path.replace(path)
 
 
@@ -281,7 +304,9 @@ def print_success_summary(
         print(f"static verifier tail: {static_count} timed checks")
     print(f"total wall time: {format_seconds(total_elapsed_seconds)}")
     print("docs/product language: represented by verify-static")
-    print("OpenAPI/route classification/redaction/authority-boundary: represented by verify-static")
+    print(
+        "OpenAPI/route classification/redaction/authority-boundary: represented by verify-static"
+    )
     print("Foundation Gate: passed")
     print(f"Timing summary: {timings_path}")
     print("\nFull release proof remains: make verify")
@@ -307,13 +332,37 @@ def print_failure_summary(
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run the opt-in local/dev fast verification gate with concise phase summaries."
+        description="Run the local/dev verification gate with concise phase summaries."
     )
-    parser.add_argument("--jobs", type=int, default=int(os.environ.get("VERIFY_DEV_FAST_JOBS", DEFAULT_JOBS)))
-    parser.add_argument("--pytest-shards", type=int, default=int(os.environ.get("PYTEST_SHARDS", DEFAULT_PYTEST_SHARDS)))
+    parser.add_argument(
+        "--jobs",
+        type=int,
+        default=int(os.environ.get("VERIFY_DEV_FAST_JOBS", DEFAULT_JOBS)),
+    )
+    parser.add_argument(
+        "--pytest-shards",
+        type=int,
+        default=int(os.environ.get("PYTEST_SHARDS", DEFAULT_PYTEST_SHARDS)),
+    )
+    parser.add_argument(
+        "--pytest-workers",
+        type=int,
+        default=int(
+            os.environ.get("PYTEST_SHARD_WORKERS", DEFAULT_PYTEST_WORKERS)
+        ),
+    )
     parser.add_argument(
         "--pytest-timings-json",
-        default=os.environ.get("PYTEST_SHARD_TIMINGS_JSON", DEFAULT_PYTEST_TIMINGS_JSON),
+        default=os.environ.get(
+            "PYTEST_SHARD_TIMINGS_JSON", DEFAULT_PYTEST_TIMINGS_JSON
+        ),
+    )
+    parser.add_argument(
+        "--pytest-timing-seed-json",
+        default=os.environ.get(
+            "PYTEST_SHARD_TIMING_SEED_JSON",
+            DEFAULT_PYTEST_TIMING_SEED_JSON,
+        ),
     )
     parser.add_argument(
         "--pytest-basetemp",
@@ -335,6 +384,9 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     if args.pytest_shards <= 0:
         print("FAIL: --pytest-shards must be greater than zero", file=sys.stderr)
+        return 2
+    if args.pytest_workers <= 0:
+        print("FAIL: --pytest-workers must be greater than zero", file=sys.stderr)
         return 2
 
     run_id = f"{time.strftime('%Y%m%d-%H%M%S')}-{os.getpid()}"
@@ -359,7 +411,9 @@ def main(argv: list[str] | None = None) -> int:
     total_elapsed_seconds = time.perf_counter() - started
     write_timing_summary(timings_path, results, total_elapsed_seconds)
     if all(result.status == "passed" for result in results):
-        print_success_summary(results, static_timings_path, timings_path, total_elapsed_seconds)
+        print_success_summary(
+            results, static_timings_path, timings_path, total_elapsed_seconds
+        )
         return 0
 
     print_failure_summary(results, timings_path, total_elapsed_seconds)

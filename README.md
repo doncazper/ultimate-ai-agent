@@ -228,29 +228,41 @@ make verify
 make verify-fast
 make verify-dev-fast
 make test-sharded
+make test-sharded-profile
 make verify-dev-sharded
 make frontend-check
 ```
 
-`make verify` preserves the conservative serial all-in verification contract and
-remains the release-grade local gate. `make verify-fast` keeps the older serial
-local shard composition. `make verify-dev-fast` is the opt-in faster local lane:
-it runs `ruff`, `test`, `verify-static`, and `verify-gate-architecture` through
-a bounded `make -j$(VERIFY_DEV_FAST_JOBS)` fanout, then generates a serialized
-report-only Foundation Gate summary with `--no-write-latest`. It records static
-verification timings through `VERIFY_TIMINGS_JSON`, uses the normal non-xdist
-pytest suite, and is local verification evidence, not a release-readiness claim
-by itself. Hosted CI now proves pytest equivalence through eight isolated
-deterministic file shards plus one stable aggregate `pytest` check. Local
-`make verify` remains the conservative serial all-in proof.
+`make verify` is the release-grade local gate. It runs Ruff, the complete
+timing-balanced pytest inventory, static verification, gate architecture, and a
+serialized report-only Foundation Gate. `make test-serial` remains available
+for order-sensitive diagnostics. `make verify-fast` uses the same complete
+pytest inventory but does not update the latest Foundation Gate report.
+`make verify-dev-fast` runs the four pre-gate phases concurrently, then
+serializes Foundation Gate with `--no-write-latest`. `VERIFY_DEV_FAST_JOBS`
+bounds top-level phase fanout and `PYTEST_SHARD_WORKERS` independently bounds
+the pytest subprocess pool. This is local verification evidence, not a
+release-readiness claim by itself. Hosted CI proves pytest equivalence through
+eight isolated, timing-balanced file shards plus one stable aggregate `pytest`
+check.
 
-`make test-sharded` is an opt-in local/dev pytest file sharding lane. It uses
+`make test` and `make test-sharded` use the same canonical local pytest lane.
+It uses
 `scripts/verification/run_pytest_shards.py` with `PYTEST_SHARDS`, stores
 inspectable shard logs and isolated pytest temp dirs under ignored `/tmp`
-paths, and writes file timing data to `PYTEST_SHARD_TIMINGS_JSON`. When that
-timing file is complete, the runner greedily balances files by prior duration;
-when timing data is missing or partial, it falls back to deterministic
-file-count sharding. `make verify-dev-sharded` runs the same local/dev
+paths, and writes local file timing data to `PYTEST_SHARD_TIMINGS_JSON`. The
+runner starts with the tracked, repo-relative advisory timing seed, overlays a
+newer local timing file when present, and greedily balances files by prior
+duration. Missing files receive a conservative p90 estimate instead of being
+dropped or disabling timing data. Tests that consume the real session-scoped
+Foundation Gate fixture remain together on one process so the full gate is
+evaluated once per complete shard run. The timing seed is scheduling input
+only: it is not cached test, authority, or release evidence.
+Normal runs do not regenerate timing data. Use `make test-sharded-profile` for
+an explicit complete green timing refresh; failed runs never replace the local
+profile.
+
+`make verify-dev-sharded` runs the same local/dev
 composition through `scripts/verification/run_dev_fast_gate.py`: `ruff`,
 sharded pytest, static verification, and gate architecture run in bounded local
 fanout, then Foundation Gate runs serialized in report-only mode with
@@ -258,7 +270,7 @@ fanout, then Foundation Gate runs serialized in report-only mode with
 paths, writes a timing summary, prints concise pass/fail phase summaries, and
 prints detailed log tails when a phase fails. This remains local pre-review
 feedback. Hosted CI requires every shard through the aggregate `pytest` check;
-full local `make verify` remains serial.
+every discovered test file remains assigned exactly once.
 
 The sharded lane parallelizes the same default-safe contract test posture. It
 does not opt into live GGUF search or acquisition, local model root

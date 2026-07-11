@@ -34,22 +34,28 @@ def make_target_body(text: str, target: str) -> list[str]:
     return body
 
 
-def test_make_verify_stays_conservative_and_dev_sharded_uses_summary_runner() -> None:
+def test_make_verify_keeps_full_proof_with_sharded_pytest_and_summary_runner() -> None:
     text = MAKEFILE.read_text(encoding="utf-8")
 
     assert make_target_body(text, "verify") == [
-        "$(PYTHON) scripts/verify_all.py",
+        "$(MAKE) ruff test-sharded verify-static",
         "PYTHONPATH=src $(PYTHON) scripts/verify_gate_architecture.py",
         "$(PYTHON) scripts/run_foundation_gate.py --command-mode report-only",
     ]
     dev_sharded_body = make_target_body(text, "verify-dev-sharded")
     assert "scripts/verification/run_dev_fast_gate.py" in " ".join(dev_sharded_body)
     assert "--pytest-shards $(PYTEST_SHARDS)" in " ".join(dev_sharded_body)
+    assert "--pytest-workers $(PYTEST_SHARD_WORKERS)" in " ".join(dev_sharded_body)
+    assert "--pytest-timing-seed-json $(PYTEST_SHARD_TIMING_SEED_JSON)" in " ".join(
+        dev_sharded_body
+    )
     assert "--static-timings-json $(VERIFY_TIMINGS_JSON)" in " ".join(dev_sharded_body)
     assert "--no-write-latest" not in make_target_body(text, "verify")[2]
 
 
-def test_fast_gate_parallel_phases_keep_required_contract_checks(tmp_path: Path) -> None:
+def test_fast_gate_parallel_phases_keep_required_contract_checks(
+    tmp_path: Path,
+) -> None:
     gate = load_gate()
     args = gate.parse_args(
         [
@@ -57,8 +63,12 @@ def test_fast_gate_parallel_phases_keep_required_contract_checks(tmp_path: Path)
             "2",
             "--pytest-shards",
             "2",
+            "--pytest-workers",
+            "1",
             "--pytest-timings-json",
             str(tmp_path / "pytest.json"),
+            "--pytest-timing-seed-json",
+            str(tmp_path / "seed.json"),
             "--pytest-basetemp",
             str(tmp_path / "pytest-tmp"),
             "--static-timings-json",
@@ -84,9 +94,20 @@ def test_fast_gate_parallel_phases_keep_required_contract_checks(tmp_path: Path)
     assert "--skip-openapi" not in static_command
     assert "--skip-docs" not in static_command
     assert "--skip-static-scans" not in static_command
-    assert "scripts/verify_gate_architecture.py" in phase_by_name["gate-architecture"].command
-    assert "scripts/verification/run_pytest_shards.py" in phase_by_name["pytest-sharded"].command
-    assert "UAA_M160_LIVE_HF_GGUF_SEARCH" not in (phase_by_name["pytest-sharded"].env or {})
+    assert (
+        "scripts/verify_gate_architecture.py"
+        in phase_by_name["gate-architecture"].command
+    )
+    assert (
+        "scripts/verification/run_pytest_shards.py"
+        in phase_by_name["pytest-sharded"].command
+    )
+    assert str(tmp_path / "seed.json") in phase_by_name["pytest-sharded"].command
+    assert "--max-workers" in phase_by_name["pytest-sharded"].command
+    assert "1" in phase_by_name["pytest-sharded"].command
+    assert "UAA_M160_LIVE_HF_GGUF_SEARCH" not in (
+        phase_by_name["pytest-sharded"].env or {}
+    )
 
 
 def test_foundation_gate_is_serial_report_only_no_write() -> None:
@@ -139,7 +160,11 @@ def test_static_timing_count_reads_verify_all_timings(tmp_path: Path) -> None:
                 "schema_version": "verify_all_timings.v1",
                 "timings": [
                     {"name": "static_scan:one", "elapsed_ms": 1, "status": "passed"},
-                    {"name": "command:verify_openapi_contract", "elapsed_ms": 2, "status": "passed"},
+                    {
+                        "name": "command:verify_openapi_contract",
+                        "elapsed_ms": 2,
+                        "status": "passed",
+                    },
                 ],
             }
         ),

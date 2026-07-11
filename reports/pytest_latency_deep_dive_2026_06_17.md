@@ -2,6 +2,34 @@
 
 Scope: local pytest profiling for the Ultimate AI Agent repo. This report assesses why the test suite is slow and lists safe speedup options. It does not remove safety checks, weaken Foundation Gate coverage, add runtime authority, or change product behavior.
 
+## 2026-07-11 Implementation Update
+
+The canonical local pytest lane now uses eight process-isolated, timing-aware
+file shards. A tracked repo-relative seed is overlaid by the latest complete
+local timing profile, unknown files receive a conservative p90 duration, and
+all consumers of the real session-scoped Foundation Gate fixture are assigned
+to one shard. The seed is advisory scheduling input only; it is explicitly not
+verification evidence and does not cache a pass, policy result, approval,
+lease, budget, kill-switch state, or Foundation Gate result.
+
+Measured on the same local macOS workspace with the complete 828-file inventory:
+
+| Run | Result | Wall/critical-path time |
+| --- | ---: | ---: |
+| Previous deterministic eight-shard runs | complete | 269-277s |
+| First green timing-aware run | complete | 152.82s |
+| Final green timing-aware run | complete | 142.42s |
+| Canonical no-refresh pytest phase | complete | 128.34s slowest shard |
+
+The final profiled run's slowest shard completed in 142.23s and its fastest in
+120.18s. After moving timing refresh to its explicit target, the release-grade
+`make verify` run completed its pytest shards in 114.01-128.34s and the entire
+pytest/static/gate sequence in 272.84s. This is a measured 47-53% pytest
+critical-path reduction from the comparable local deterministic-shard
+baseline. No tests were removed or selected out. Serial pytest remains
+available as `make test-serial` for diagnostics, while `make test` and `make
+verify` use the complete sharded inventory.
+
 ## Measurements
 
 Commands run:

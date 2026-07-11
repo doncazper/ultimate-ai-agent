@@ -392,6 +392,7 @@ make verify
 make verify-fast
 make verify-dev-fast
 make test-sharded
+make test-sharded-profile
 make verify-dev-sharded
 .venv/bin/python scripts/verify_documentation_integrity.py
 .venv/bin/python scripts/verify_verifier_maintainability.py
@@ -400,27 +401,28 @@ PYTHONPATH=src .venv/bin/python -m pytest tests/test_api_manifest.py
 .venv/bin/python scripts/run_foundation_gate.py --command-mode report-only
 ```
 
-`make verify` remains the conservative serial release-grade local gate.
-`make verify-fast` keeps the older serial local shard composition. Use
-`make verify-dev-fast` for faster local pre-review feedback: it runs `ruff`,
-`test`, `verify-static`, and `verify-gate-architecture` through a bounded
-`make -j$(VERIFY_DEV_FAST_JOBS)` fanout, then serializes Foundation Gate in
-`report-only --no-write-latest` mode. It records the existing static verifier
-timings through `VERIFY_TIMINGS_JSON` and keeps pytest on the normal non-xdist
-runner. Hosted CI separately proves pytest equivalence through eight isolated
-deterministic file shards and one stable aggregate `pytest` check. This does not
-grant release readiness or replace populated release evidence packets; full
-local `make verify` remains serial.
+`make verify` is the release-grade local gate. It runs the complete pytest
+inventory across timing-balanced, process-isolated shards, followed by the
+static verifier, gate architecture, and a serialized report-only Foundation
+Gate. `make test-serial` remains available for order-sensitive diagnostics.
+`make verify-fast` uses the same complete pytest inventory without updating the
+latest Foundation Gate report. `make verify-dev-fast` runs the four pre-gate
+phases concurrently and then serializes Foundation Gate with
+`report-only --no-write-latest`. `VERIFY_DEV_FAST_JOBS` bounds top-level phase
+fanout, while `PYTEST_SHARD_WORKERS` separately bounds pytest subprocesses.
+Hosted CI proves the same complete inventory through eight isolated shards and
+one aggregate `pytest` check. These local lanes do not populate release evidence
+packets or independently grant release readiness.
 
-Use `make test-sharded` or `make verify-dev-sharded` for opt-in local/dev
-pytest sharding. The shard runner discovers `tests/**/test_*.py`, stores logs and
+`make test` and `make test-sharded` use the canonical sharded pytest lane. The
+shard runner discovers `tests/**/test_*.py`, stores logs and
 isolated pytest temp dirs under ignored `/tmp` paths by default, and writes
-file-level timing data to `PYTEST_SHARD_TIMINGS_JSON`. Complete timing data is
-used for greedy timing-aware balancing; missing or partial timing data falls
-back to deterministic file-count sharding. This lane does not change
-`make verify` or add dependencies such as pytest-xdist. Hosted CI promotes the
-same default-safe partitioning as required pytest evidence only when every one
-of its eight isolated shards passes.
+file-level timing data only during explicit `make test-sharded-profile` runs.
+The tracked repo-relative advisory seed is overlaid by a newer local profile;
+missing files receive a conservative p90 estimate. Timing data schedules files
+only and never caches a pass or authority result. No pytest-xdist dependency is
+added. Hosted CI promotes the same default-safe partitioning as required pytest
+evidence only when every one of its eight isolated shards passes.
 
 `make verify-dev-sharded` uses `scripts/verification/run_dev_fast_gate.py` to
 keep local output readable: phase output is captured to ignored `/tmp` logs,
@@ -433,6 +435,7 @@ Gate report-only coverage through the same underlying commands.
 The sharded lane does not broaden test authority. Shard subprocesses strip
 known live/model-heavy opt-in environment variables for GGUF search,
 acquisition, local model roots, llama.cpp gateways, OpenWebUI test gateways,
+Web Hybrid transports and Firecrawl credential references,
 and provider live-network smoke tests. Existing optional/live tests remain
 env-gated and skipped by default.
 
