@@ -83,6 +83,11 @@ CAPABILITIES_DECLARED = [
     "authority_mission_plan_preview",
     "authority_mission_step_read_only_inspection",
     "authority_mission_synchronous_dependency_orchestration_backend",
+    "authority_mission_local_worker_v1",
+    "authority_mission_worker_fenced_claim_heartbeats",
+    "authority_mission_worker_boot_reconciliation",
+    "authority_mission_worker_read_only_inspection",
+    "authority_mission_worker_graceful_shutdown_and_kill_switch",
     "governed_product_pilot_portable_evidence_envelope",
     "governed_product_pilot_durable_orchestration_profile",
     "control_center_coding_cockpit_session_read_model",
@@ -239,6 +244,10 @@ CAPABILITIES_BLOCKED = [
     "authority_mission_step_inspection_mutation_or_retry",
     "authority_mission_orchestration_api_cli_ui_execution",
     "authority_mission_orchestration_background_or_parallel_worker",
+    "authority_mission_orchestration_parallel_worker",
+    "authority_mission_worker_remote_queue_or_public_daemon",
+    "authority_mission_worker_default_enabled_execution",
+    "authority_mission_worker_cached_or_minted_authority",
     "authority_mission_orchestration_automatic_retry_or_approval_wait",
     "authority_mission_orchestration_mission_level_cancellation",
     "governed_product_pilot_broad_autonomy",
@@ -736,6 +745,7 @@ GOVERNED_RUNTIME_READONLY_PATHS = {
     "/api/runtime/authority-decisions/preview",
     "/api/runtime/authority-domain-readiness",
     "/api/runtime/authority-missions/plan",
+    "/api/runtime/authority-missions/worker-state",
     "/api/runtime/authority-state",
     "/api/runtime/capabilities",
     "/api/runtime/approval-bridge",
@@ -1014,6 +1024,14 @@ def route_classification_for_path(
         return (
             ApiRouteClassification.local_sensitive,
             "Authority domain readiness inspection route exposes one backend-derived readiness row for every target AuthorityLease domain with active lease refs, decision outcomes, blocked reasons, unsupported adapter refs, and issue-ready mode posture without mutation or execution.",
+        )
+    if (
+        normalized_method == "GET"
+        and path == "/api/runtime/authority-missions/worker-state"
+    ):
+        return (
+            ApiRouteClassification.local_sensitive,
+            "Local AuthorityLease mission worker inspection exposes only redacted queue, fenced claim, heartbeat, recovery, kill-switch, and macOS-first platform posture without starting a worker or granting execution authority.",
         )
     if (
         normalized_method == "POST"

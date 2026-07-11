@@ -127,6 +127,7 @@ def build_parser(runtime_symbols: Mapping[str, Any]) -> argparse.ArgumentParser:
     )
     authority_state.set_defaults(func=_inspect_authority_state)
     _mission_step_cli.register_parser(subparsers)
+    _mission_worker_cli.register_parser(subparsers)
     authority_lane_catalog = subparsers.add_parser(
         "inspect-authority-lane-catalog",
         help="Inspect Authority Lane Catalog V1 without execution.",

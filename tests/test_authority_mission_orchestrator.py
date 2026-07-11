@@ -640,9 +640,11 @@ def test_manifest_truth_declares_backend_and_blocks_external_execution() -> None
         "authority_mission_synchronous_dependency_orchestration_backend"
         in manifest["capabilities_declared"]
     )
+    assert "authority_mission_local_worker_v1" in manifest["capabilities_declared"]
     for capability in [
         "authority_mission_orchestration_api_cli_ui_execution",
-        "authority_mission_orchestration_background_or_parallel_worker",
+        "authority_mission_orchestration_parallel_worker",
+        "authority_mission_worker_remote_queue_or_public_daemon",
         "authority_mission_orchestration_automatic_retry_or_approval_wait",
         "authority_mission_orchestration_mission_level_cancellation",
     ]:

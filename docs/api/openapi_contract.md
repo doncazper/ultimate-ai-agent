@@ -2,13 +2,18 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `252`.
+Current OpenAPI path count: `253`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
 for the same boundary. The schema and manifest must stay aligned with
 `ultimate_ai_agent.__version__`, route side-effect classification, and
 Foundation Gate checks.
+
+`GET /api/runtime/authority-missions/worker-state` is the protected read-only
+inspection surface for the disabled-by-default local AuthorityLease mission
+worker. It exposes redacted queue, claim, heartbeat, recovery, kill-switch, and
+macOS-first platform posture; it cannot start a worker or mint authority.
 
 Contract rules:
 

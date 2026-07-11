@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
@@ -10,10 +11,12 @@ from ultimate_ai_agent.core.authority.contracts import (
 )
 from ultimate_ai_agent.core.authority.dispatch_contracts import (
     AuthorityDispatchCancelRequest,
+    AuthorityDispatchExecutionFence,
     AuthorityDispatchReceipt,
     AuthorityDispatchRequest,
     AuthorityDispatchResult,
     AuthorityDispatchStatus,
+    AuthorityDispatchWorkerClaimFence,
 )
 from ultimate_ai_agent.core.authority.dispatcher import (
     AuthorityDispatchConflictError,
@@ -81,6 +84,7 @@ class AuthorityMissionRunner:
         *,
         owner_ref: str,
         claim_ttl_seconds: int = 30,
+        heartbeat_interval_seconds: int | None = None,
     ) -> AuthorityMissionStepResult:
         if definition.orchestration_plan_ref is not None:
             raise ValueError("MISSION_RUNNER_ORCHESTRATED_ENTRYPOINT_REQUIRED")
@@ -89,6 +93,8 @@ class AuthorityMissionRunner:
             request,
             owner_ref=owner_ref,
             claim_ttl_seconds=claim_ttl_seconds,
+            heartbeat_interval_seconds=heartbeat_interval_seconds,
+            worker_claim_fence=None,
             orchestration_context=None,
         )
 
@@ -100,6 +106,8 @@ class AuthorityMissionRunner:
         owner_ref: str,
         claim_ttl_seconds: int,
         orchestration_context: MissionStepOrchestrationContext,
+        heartbeat_interval_seconds: int | None = None,
+        worker_claim_fence: AuthorityDispatchWorkerClaimFence | None = None,
     ) -> AuthorityMissionStepResult:
         if definition.orchestration_plan_ref != orchestration_context.plan_ref:
             raise ValueError("MISSION_RUNNER_ORCHESTRATION_CONTEXT_INVALID")
@@ -109,6 +117,8 @@ class AuthorityMissionRunner:
             owner_ref=owner_ref,
             claim_ttl_seconds=claim_ttl_seconds,
             orchestration_context=orchestration_context,
+            heartbeat_interval_seconds=heartbeat_interval_seconds,
+            worker_claim_fence=worker_claim_fence,
         )
 
     def _run_once(
@@ -119,6 +129,8 @@ class AuthorityMissionRunner:
         owner_ref: str,
         claim_ttl_seconds: int,
         orchestration_context: MissionStepOrchestrationContext | None,
+        heartbeat_interval_seconds: int | None,
+        worker_claim_fence: AuthorityDispatchWorkerClaimFence | None,
     ) -> AuthorityMissionStepResult:
         self.validate_step(definition, request)
         initial = self.step_store.create(definition)
@@ -151,6 +163,47 @@ class AuthorityMissionRunner:
                 dispatch_result=dispatch_result,
                 replayed_terminal_step=True,
             )
+        stop_heartbeat = threading.Event()
+        heartbeat_errors: list[BaseException] = []
+        heartbeat_thread: threading.Thread | None = None
+        if heartbeat_interval_seconds is not None:
+            if (
+                heartbeat_interval_seconds < 1
+                or heartbeat_interval_seconds * 2 >= claim_ttl_seconds
+            ):
+                raise ValueError("MISSION_STEP_HEARTBEAT_INTERVAL_UNSAFE")
+
+            def renew_claim() -> None:
+                while not stop_heartbeat.wait(heartbeat_interval_seconds):
+                    try:
+                        self.step_store.heartbeat(
+                            definition.step_ref,
+                            owner_ref=owner_ref,
+                            claim_ref=claim.claim_ref or "",
+                            generation=claim.generation,
+                            ttl_seconds=claim_ttl_seconds,
+                        )
+                    except (
+                        BaseException
+                    ) as exc:  # pragma: no cover - asserted by caller
+                        heartbeat_errors.append(exc)
+                        return
+
+            heartbeat_thread = threading.Thread(
+                target=renew_claim,
+                name="uaa-mission-step-heartbeat",
+                daemon=True,
+            )
+            heartbeat_thread.start()
+
+        def stop_claim_heartbeat() -> None:
+            stop_heartbeat.set()
+            if heartbeat_thread is not None:
+                heartbeat_thread.join(timeout=(heartbeat_interval_seconds or 1) + 1)
+
+        dispatch_error: (
+            AuthorityDispatchConflictError | AuthorityDispatchCorruptionError | None
+        ) = None
         try:
             dispatch_result = self.dispatcher.prepare(request)
             if dispatch_result.receipt.status == AuthorityDispatchStatus.prepared.value:
@@ -167,9 +220,31 @@ class AuthorityMissionRunner:
                     if definition.deadline <= self.step_store.current_time():
                         return self._cancel_expired_step(definition, request)
                     else:
-                        dispatch_result = self.dispatcher.execute(request)
+                        execution_fence = None
+                        if worker_claim_fence is not None:
+                            if worker_claim_fence.worker_ref != owner_ref:
+                                raise MissionStepConflictError(
+                                    "MISSION_STEP_WORKER_FENCE_OWNER_MISMATCH"
+                                )
+                            execution_fence = AuthorityDispatchExecutionFence(
+                                **worker_claim_fence.model_dump(mode="python"),
+                                step_ref=definition.step_ref,
+                                step_claim_ref=claim.claim_ref or "",
+                                step_generation=claim.generation,
+                            )
+                        dispatch_result = self.dispatcher.execute(
+                            request,
+                            execution_fence=execution_fence,
+                        )
             self._reconcile_dispatch(request, dispatch_result)
-        except (AuthorityDispatchConflictError, AuthorityDispatchCorruptionError):
+        except (
+            AuthorityDispatchConflictError,
+            AuthorityDispatchCorruptionError,
+        ) as exc:
+            dispatch_error = exc
+        finally:
+            stop_claim_heartbeat()
+        if dispatch_error is not None:
             self.step_store.complete(
                 definition.step_ref,
                 owner_ref=owner_ref,
@@ -178,7 +253,7 @@ class AuthorityMissionRunner:
                 status=MissionStepStatus.recovery_required,
                 reason_refs=["reason-ref:mission-step:dispatch-reconciliation-failed"],
             )
-            raise
+            raise dispatch_error
         status, reason_ref = self._terminal_posture(dispatch_result)
         evidence_refs = self._evidence_refs(dispatch_result)
         self.step_store.complete(
@@ -191,6 +266,10 @@ class AuthorityMissionRunner:
             evidence_refs=evidence_refs,
             dispatch_receipt=dispatch_result.receipt,
         )
+        if heartbeat_errors:
+            raise MissionStepConflictError(
+                "MISSION_STEP_HEARTBEAT_FAILED"
+            ) from heartbeat_errors[0]
         return AuthorityMissionStepResult(
             step=self.step_store.read(definition.step_ref),
             dispatch_result=dispatch_result,

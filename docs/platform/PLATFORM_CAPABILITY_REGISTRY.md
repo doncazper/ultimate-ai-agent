@@ -41,6 +41,11 @@ represented as a first-class platform posture at the metadata and readiness
 layer, while executable authority remains blocked until scoped milestones add
 exact adapters, approvals, receipts, rollback plans, and tests.
 
+The AuthorityLease local mission worker follows this posture: executable V1
+activation is macOS-only and disabled by default. Linux and Windows expose
+`render_placeholder` operator posture until explicit porting work begins; these
+placeholders do not imply a launcher, service, scheduler, or runtime authority.
+
 CLI inspection is available with:
 
 ```bash

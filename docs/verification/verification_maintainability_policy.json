@@ -158,7 +158,7 @@
           "reason": "Developer runtime CLI shell after parser extraction. Future command behavior should move behind focused command modules instead of regrowing this file."
         },
         "scripts/dev/uaa_runtime_parser.py": {
-          "max_lines": 959,
+          "max_lines": 960,
           "reason": "Extracted developer runtime parser module. Future parser growth should split into command-family registration modules."
         }
       }

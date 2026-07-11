@@ -148,6 +148,34 @@ class AuthorityDispatchRequest(_AuthorityDispatchModel):
         return self
 
 
+class AuthorityDispatchWorkerClaimFence(_AuthorityDispatchModel):
+    job_ref: str
+    worker_ref: str
+    job_claim_ref: str
+    job_generation: StrictInt = Field(..., ge=1)
+
+    @model_validator(mode="after")
+    def validate_fence(self) -> "AuthorityDispatchWorkerClaimFence":
+        for value in (self.job_ref, self.worker_ref, self.job_claim_ref):
+            validate_task_ref(value, "authority_dispatch_worker_claim_fence_ref")
+        return self
+
+
+class AuthorityDispatchExecutionFence(AuthorityDispatchWorkerClaimFence):
+    step_ref: str
+    step_claim_ref: str
+    step_generation: StrictInt = Field(..., ge=1)
+
+    @model_validator(mode="after")
+    def validate_execution_fence(self) -> "AuthorityDispatchExecutionFence":
+        validate_task_ref(self.step_ref, "authority_dispatch_step_fence_ref")
+        validate_task_ref(
+            self.step_claim_ref,
+            "authority_dispatch_step_claim_fence_ref",
+        )
+        return self
+
+
 class AuthorityDispatchCancelRequest(_AuthorityDispatchModel):
     dispatch_ref: str
     idempotency_ref: str
@@ -229,6 +257,7 @@ class AuthorityDispatchReceipt(_AuthorityDispatchModel):
     cancellation_idempotency_ref: str | None = None
     cancellation_reason_ref: str | None = None
     execution_ref: str | None = None
+    execution_fence_ref: str | None = None
     execution_started: StrictBool = False
     adapter_invocation_performed: StrictBool = False
     actual_operation_count: StrictInt | None = Field(default=None, ge=1)
@@ -277,6 +306,7 @@ class AuthorityDispatchReceipt(_AuthorityDispatchModel):
             self.cancellation_idempotency_ref,
             self.cancellation_reason_ref,
             self.execution_ref,
+            self.execution_fence_ref,
             self.actual_cost_ref,
             self.rollback_ref,
             self.safe_disable_ref,

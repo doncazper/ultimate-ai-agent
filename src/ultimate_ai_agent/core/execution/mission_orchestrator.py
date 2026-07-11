@@ -10,7 +10,13 @@ from ultimate_ai_agent.core.authority.contracts import (
     AuthorityLeaseScope,
     evaluate_authority_request,
 )
+from ultimate_ai_agent.core.authority.authority_constants import (
+    AUTHORITY_STATE_LOCK_KEY,
+)
 from ultimate_ai_agent.core.authority.dispatch_contracts import AuthorityDispatchRequest
+from ultimate_ai_agent.core.authority.dispatch_contracts import (
+    AuthorityDispatchWorkerClaimFence,
+)
 from ultimate_ai_agent.core.authority.dispatcher import (
     authority_dispatch_request_fingerprint,
 )
@@ -234,36 +240,18 @@ class SynchronousAuthorityMissionOrchestrator:
         *,
         owner_ref: str,
         claim_ttl_seconds: int = 30,
+        max_step_count: Literal[1] | None = None,
+        heartbeat_interval_seconds: int | None = None,
+        worker_claim_fence: AuthorityDispatchWorkerClaimFence | None = None,
     ) -> AuthorityMissionOrchestrationResult:
         validate_task_ref(owner_ref, "authority_mission_orchestration_owner_ref")
         request = AuthorityMissionOrchestrationRequest.model_validate(
             request.model_dump(mode="python")
         )
-        plan = request.build_durable_plan()
+        plan, plan_receipt, bound_definitions = self._materialize(request)
         steps_by_ref = {step.definition.step_ref: step for step in request.steps}
-        bound_definitions = {
-            step_ref: request.bound_definition(step)
-            for step_ref, step in steps_by_ref.items()
-        }
-        self._preflight(request, bound_definitions)
-        definitions = [
-            bound_definitions[step_ref] for step_ref in plan.topological_step_refs
-        ]
-        with self.step_store.lock_manager.acquire(
-            MISSION_PLAN_MATERIALIZATION_LOCK_KEY
-        ):
-            self.plan_store.preflight_acceptance(plan)
-            self.step_store._preflight_definitions_under_orchestration_lock(  # noqa: SLF001
-                definitions
-            )
-            plan_receipt = self.plan_store._accept_under_materialization_lock(  # noqa: SLF001
-                plan
-            )
-            self.step_store._materialize_definitions_under_orchestration_lock(  # noqa: SLF001
-                definitions
-            )
         orchestration_context = self.plan_store.resolve_definition_binding(
-            definitions[0]
+            bound_definitions[plan.topological_step_refs[0]]
         )
         if orchestration_context is None:
             raise ValueError("AUTHORITY_MISSION_ORCHESTRATION_PLAN_CONTEXT_REQUIRED")
@@ -301,6 +289,8 @@ class SynchronousAuthorityMissionOrchestrator:
                     owner_ref=owner_ref,
                     claim_ttl_seconds=claim_ttl_seconds,
                     orchestration_context=orchestration_context,
+                    heartbeat_interval_seconds=heartbeat_interval_seconds,
+                    worker_claim_fence=worker_claim_fence,
                 )
             except MissionStepConflictError as exc:
                 if str(exc) == "MISSION_STEP_ALREADY_CLAIMED":
@@ -313,6 +303,8 @@ class SynchronousAuthorityMissionOrchestrator:
             if result.step.status != MissionStepStatus.succeeded.value:
                 self._apply_fail_fast(plan, result.step.step_ref)
                 break
+            if max_step_count is not None and evaluated >= max_step_count:
+                break
         return self._result(
             request,
             plan,
@@ -320,6 +312,51 @@ class SynchronousAuthorityMissionOrchestrator:
             evaluated=evaluated,
             replayed=replayed,
         )
+
+    def materialize(
+        self,
+        request: AuthorityMissionOrchestrationRequest,
+    ) -> DurableMissionPlanReceipt:
+        """Persist one immutable safe-ref plan without starting an adapter."""
+        validated = AuthorityMissionOrchestrationRequest.model_validate(
+            request.model_dump(mode="python")
+        )
+        _, receipt, _ = self._materialize(validated)
+        return receipt
+
+    def _materialize(
+        self,
+        request: AuthorityMissionOrchestrationRequest,
+    ) -> tuple[
+        DurableMissionPlan,
+        DurableMissionPlanReceipt,
+        dict[str, MissionStepDefinition],
+    ]:
+        plan = request.build_durable_plan()
+        steps_by_ref = {step.definition.step_ref: step for step in request.steps}
+        bound_definitions = {
+            step_ref: request.bound_definition(step)
+            for step_ref, step in steps_by_ref.items()
+        }
+        self._preflight(request, bound_definitions)
+        definitions = [
+            bound_definitions[step_ref] for step_ref in plan.topological_step_refs
+        ]
+        with (
+            self.step_store.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY),
+            self.step_store.lock_manager.acquire(MISSION_PLAN_MATERIALIZATION_LOCK_KEY),
+        ):
+            self.plan_store.preflight_acceptance(plan)
+            self.step_store._preflight_definitions_under_orchestration_lock(  # noqa: SLF001
+                definitions
+            )
+            plan_receipt = self.plan_store._accept_under_materialization_lock(  # noqa: SLF001
+                plan
+            )
+            self.step_store._materialize_definitions_under_orchestration_lock(  # noqa: SLF001
+                definitions
+            )
+        return plan, plan_receipt, bound_definitions
 
     def _preflight(
         self,

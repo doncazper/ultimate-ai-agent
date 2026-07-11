@@ -11,6 +11,9 @@ from typing import Any, Callable, Literal
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, model_validator
 
 from ultimate_ai_agent.core.authority.contracts import authority_state_lock_manager
+from ultimate_ai_agent.core.authority.authority_constants import (
+    AUTHORITY_STATE_LOCK_KEY,
+)
 from ultimate_ai_agent.core.authority.dispatch_contracts import (
     AuthorityDispatchReceipt,
     AuthorityDispatchStatus,
@@ -332,11 +335,12 @@ class MissionStepStore:
         self._plan_binding_resolver = resolver
 
     def create(self, definition: MissionStepDefinition) -> MissionStepReceipt:
-        with self.lock_manager.acquire(MISSION_PLAN_MATERIALIZATION_LOCK_KEY):
-            self._require_plan_binding(definition)
-            with self.lock_manager.acquire(MISSION_STEP_LOCK_KEY):
-                receipts = self._load()
-                return self._create_from_loaded(receipts, definition)
+        with self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY):
+            with self.lock_manager.acquire(MISSION_PLAN_MATERIALIZATION_LOCK_KEY):
+                self._require_plan_binding(definition)
+                with self.lock_manager.acquire(MISSION_STEP_LOCK_KEY):
+                    receipts = self._load()
+                    return self._create_from_loaded(receipts, definition)
 
     def _preflight_definitions_under_orchestration_lock(
         self,
@@ -344,7 +348,10 @@ class MissionStepStore:
     ) -> None:
         """Validate a complete batch while the caller holds authority state."""
 
-        with self.lock_manager.acquire(MISSION_STEP_LOCK_KEY):
+        with (
+            self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY),
+            self.lock_manager.acquire(MISSION_STEP_LOCK_KEY),
+        ):
             receipts = self._load()
             for definition in definitions:
                 existing = self._latest(receipts, definition.step_ref)
@@ -363,7 +370,10 @@ class MissionStepStore:
 
         for definition in definitions:
             self._require_plan_binding(definition)
-        with self.lock_manager.acquire(MISSION_STEP_LOCK_KEY):
+        with (
+            self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY),
+            self.lock_manager.acquire(MISSION_STEP_LOCK_KEY),
+        ):
             receipts = self._load()
             for definition in definitions:
                 existing = self._latest(receipts, definition.step_ref)
@@ -445,8 +455,11 @@ class MissionStepStore:
                 "mission_step_dispatch_request_fingerprint_ref",
             )
         self._validate_ttl(ttl_seconds)
-        current = self.current_time()
-        with self.lock_manager.acquire(MISSION_STEP_LOCK_KEY):
+        with (
+            self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY),
+            self.lock_manager.acquire(MISSION_STEP_LOCK_KEY),
+        ):
+            current = self.current_time()
             receipts = self._load()
             latest = self._require_latest(receipts, step_ref)
             resolved_context = self._require_plan_binding(latest.definition)
@@ -615,8 +628,11 @@ class MissionStepStore:
         ttl_seconds: int,
     ) -> MissionStepReceipt:
         self._validate_ttl(ttl_seconds)
-        current = self.current_time()
-        with self.lock_manager.acquire(MISSION_STEP_LOCK_KEY):
+        with (
+            self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY),
+            self.lock_manager.acquire(MISSION_STEP_LOCK_KEY),
+        ):
+            current = self.current_time()
             receipts = self._load()
             latest = self._require_owned(
                 receipts, step_ref, owner_ref, claim_ref, generation, current
@@ -658,8 +674,11 @@ class MissionStepStore:
             dispatch_request_fingerprint_ref,
             "mission_step_dispatch_request_fingerprint_ref",
         )
-        current = self.current_time()
-        with self.lock_manager.acquire(MISSION_STEP_LOCK_KEY):
+        with (
+            self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY),
+            self.lock_manager.acquire(MISSION_STEP_LOCK_KEY),
+        ):
+            current = self.current_time()
             receipts = self._load()
             latest = self._require_owned(
                 receipts, step_ref, owner_ref, claim_ref, generation, current
@@ -704,8 +723,11 @@ class MissionStepStore:
     ) -> MissionStepReceipt:
         if status.value not in TERMINAL_MISSION_STEP_STATUSES:
             raise ValueError("MISSION_STEP_TERMINAL_STATUS_REQUIRED")
-        current = self.current_time()
-        with self.lock_manager.acquire(MISSION_STEP_LOCK_KEY):
+        with (
+            self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY),
+            self.lock_manager.acquire(MISSION_STEP_LOCK_KEY),
+        ):
+            current = self.current_time()
             receipts = self._load()
             latest = self._require_owned(
                 receipts, step_ref, owner_ref, claim_ref, generation, current
@@ -778,8 +800,11 @@ class MissionStepStore:
         *,
         evidence_refs: list[str] | None = None,
     ) -> MissionStepReceipt:
-        current = self.current_time()
-        with self.lock_manager.acquire(MISSION_STEP_LOCK_KEY):
+        with (
+            self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY),
+            self.lock_manager.acquire(MISSION_STEP_LOCK_KEY),
+        ):
+            current = self.current_time()
             receipts = self._load()
             latest = self._require_latest(receipts, step_ref)
             if latest.status in TERMINAL_MISSION_STEP_STATUSES:
@@ -814,8 +839,11 @@ class MissionStepStore:
         dispatch_receipt: AuthorityDispatchReceipt,
         evidence_refs: list[str],
     ) -> MissionStepReceipt:
-        current = self.current_time()
-        with self.lock_manager.acquire(MISSION_STEP_LOCK_KEY):
+        with (
+            self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY),
+            self.lock_manager.acquire(MISSION_STEP_LOCK_KEY),
+        ):
+            current = self.current_time()
             receipts = self._load()
             latest = self._require_latest(receipts, step_ref)
             if latest.status in TERMINAL_MISSION_STEP_STATUSES:
@@ -856,7 +884,10 @@ class MissionStepStore:
     ) -> MissionStepReceipt:
         validate_task_ref(step_ref, "mission_step_ref")
         validate_task_ref(dependency_step_ref, "mission_step_dependency_ref")
-        with self.lock_manager.acquire(MISSION_STEP_LOCK_KEY):
+        with (
+            self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY),
+            self.lock_manager.acquire(MISSION_STEP_LOCK_KEY),
+        ):
             receipts = self._load()
             latest = self._require_latest(receipts, step_ref)
             if latest.status in TERMINAL_MISSION_STEP_STATUSES:
@@ -911,7 +942,10 @@ class MissionStepStore:
 
         validate_task_ref(step_ref, "mission_step_ref")
         validate_task_ref(terminal_step_ref, "mission_step_terminal_ref")
-        with self.lock_manager.acquire(MISSION_STEP_LOCK_KEY):
+        with (
+            self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY),
+            self.lock_manager.acquire(MISSION_STEP_LOCK_KEY),
+        ):
             receipts = self._load()
             latest = self._require_latest(receipts, step_ref)
             if latest.status in TERMINAL_MISSION_STEP_STATUSES:
@@ -954,7 +988,10 @@ class MissionStepStore:
 
     def read(self, step_ref: str) -> MissionStepReadModel:
         validate_task_ref(step_ref, "mission_step_ref")
-        with self.lock_manager.acquire(MISSION_STEP_LOCK_KEY):
+        with (
+            self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY),
+            self.lock_manager.acquire(MISSION_STEP_LOCK_KEY),
+        ):
             latest = self._require_latest(self._load(), step_ref)
         return self._read_model_from_receipt(latest)
 
@@ -964,7 +1001,10 @@ class MissionStepStore:
     ) -> tuple[list[MissionStepReadModel], dict[str, MissionStepReceipt]]:
         for step_ref in step_refs:
             validate_task_ref(step_ref, "mission_step_ref")
-        with self.lock_manager.acquire(MISSION_STEP_LOCK_KEY):
+        with (
+            self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY),
+            self.lock_manager.acquire(MISSION_STEP_LOCK_KEY),
+        ):
             receipts = self._load()
             latest = {
                 step_ref: self._require_latest(receipts, step_ref)
@@ -998,7 +1038,10 @@ class MissionStepStore:
 
     def _read_inspection_source(self, step_ref: str) -> _MissionStepInspectionSource:
         validate_task_ref(step_ref, "mission_step_ref")
-        with self.lock_manager.acquire(MISSION_STEP_LOCK_KEY):
+        with (
+            self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY),
+            self.lock_manager.acquire(MISSION_STEP_LOCK_KEY),
+        ):
             latest = self._require_latest(self._load(), step_ref)
         return _MissionStepInspectionSource(
             mission_ref=latest.definition.mission_ref,
@@ -1025,7 +1068,10 @@ class MissionStepStore:
         )
 
     def receipts(self) -> list[MissionStepReceipt]:
-        with self.lock_manager.acquire(MISSION_STEP_LOCK_KEY):
+        with (
+            self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY),
+            self.lock_manager.acquire(MISSION_STEP_LOCK_KEY),
+        ):
             return self._load()
 
     def _terminal_locked(
