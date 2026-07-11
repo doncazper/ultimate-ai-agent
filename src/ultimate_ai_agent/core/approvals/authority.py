@@ -206,6 +206,25 @@ class LocalApprovalAuthority:
             grant = self._grants.get(approval_ref)
             return grant.model_copy(deep=True) if grant is not None else None
 
+    def find_request_for_validation(
+        self,
+        validation_request: ApprovalValidationRequest,
+    ) -> Optional[ApprovalRequest]:
+        """Return an exact registered request; this lookup grants no authority."""
+
+        expected = validation_request.model_dump(
+            mode="json",
+            exclude={"current_time"},
+        )
+        with self._validation_lock:
+            for request in self._requests.values():
+                candidate = request.to_validation_request(
+                    validation_request.approval_ref
+                ).model_dump(mode="json", exclude={"current_time"})
+                if candidate == expected:
+                    return request.model_copy(deep=True)
+        return None
+
     def load_grant_for_validation(self, grant: ApprovalGrant) -> None:
         stored = ApprovalGrant.model_validate(grant.model_dump(mode="python"))
         with self._validation_lock:

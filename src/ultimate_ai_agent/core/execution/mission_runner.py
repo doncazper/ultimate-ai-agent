@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
 import threading
+from enum import Enum
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from ultimate_ai_agent.core.authority.contracts import (
     AuthorityCapability,
@@ -52,6 +54,24 @@ def mission_step_idempotency_ref(step_ref: str) -> str:
     return f"idempotency-ref:mission-step:{hash_text(step_ref)[:24]}"
 
 
+class MissionStepApprovalPosture(str, Enum):
+    not_required = "not_required"
+    ready = "ready"
+    wait = "wait"
+    invalid = "invalid"
+
+
+class MissionStepApprovalEvaluation(BaseModel):
+    posture: MissionStepApprovalPosture
+    approval_request_ref: str | None = None
+    approval_ref: str | None = None
+    approval_scope_fingerprint_ref: str | None = None
+    validation_evidence_ref: str | None = None
+    reason_refs: list[str] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="forbid", use_enum_values=True)
+
+
 class AuthorityMissionStepResult(BaseModel):
     step: MissionStepReadModel
     dispatch_result: AuthorityDispatchResult | None = None
@@ -75,6 +95,86 @@ class AuthorityMissionRunner:
         self.step_store = step_store
         self.step_store._bind_dispatch_receipt_resolver(  # noqa: SLF001
             self._resolve_dispatch_receipt
+        )
+
+    def evaluate_approval_posture(
+        self,
+        request: AuthorityDispatchRequest,
+    ) -> MissionStepApprovalEvaluation:
+        adapter = self.dispatcher.adapters.get(request.adapter_ref)
+        if adapter is None or not adapter.descriptor.approval_required:
+            return MissionStepApprovalEvaluation(
+                posture=MissionStepApprovalPosture.not_required,
+            )
+        validation_request = request.approval_validation_request
+        authority = self.dispatcher.approval_authority
+        if validation_request is None or authority is None:
+            return MissionStepApprovalEvaluation(
+                posture=MissionStepApprovalPosture.invalid,
+                reason_refs=["reason-ref:mission-step:approval-authority-unavailable"],
+            )
+        scope_payload = validation_request.model_dump(
+            mode="json",
+            exclude={"current_time"},
+        )
+        scope_fingerprint_ref = (
+            "approval-scope-fingerprint-ref:sha256:"
+            f"{hash_text(json.dumps(scope_payload, sort_keys=True))[:24]}"
+        )
+        registered = authority.find_request_for_validation(validation_request)
+        if registered is None:
+            return MissionStepApprovalEvaluation(
+                posture=MissionStepApprovalPosture.invalid,
+                approval_ref=validation_request.approval_ref,
+                approval_scope_fingerprint_ref=scope_fingerprint_ref,
+                reason_refs=[
+                    "reason-ref:mission-step:approval-request-not-registered"
+                ],
+            )
+        grant = authority.get_grant(validation_request.approval_ref)
+        if grant is None:
+            return MissionStepApprovalEvaluation(
+                posture=MissionStepApprovalPosture.wait,
+                approval_request_ref=registered.approval_request_id,
+                approval_ref=validation_request.approval_ref,
+                approval_scope_fingerprint_ref=scope_fingerprint_ref,
+                reason_refs=["reason-ref:mission-step:approval-not-yet-granted"],
+            )
+        decision = authority._validate_at_trusted_time(  # noqa: SLF001
+            validation_request,
+            current_time=self.step_store.current_time(),
+        )
+        evidence_payload = {
+            "approval_ref": validation_request.approval_ref,
+            "matched_grant_ref": decision.matched_grant_ref,
+            "allowed": decision.allowed,
+            "status": decision.status,
+            "reason_codes": decision.reason_codes,
+            "scope_fingerprint_ref": scope_fingerprint_ref,
+        }
+        evidence_ref = (
+            "approval-validation-ref:mission-step:sha256:"
+            f"{hash_text(json.dumps(evidence_payload, sort_keys=True))[:24]}"
+        )
+        if (
+            decision.allowed
+            and decision.matched_grant_ref == validation_request.approval_ref
+        ):
+            return MissionStepApprovalEvaluation(
+                posture=MissionStepApprovalPosture.ready,
+                approval_request_ref=registered.approval_request_id,
+                approval_ref=validation_request.approval_ref,
+                approval_scope_fingerprint_ref=scope_fingerprint_ref,
+                validation_evidence_ref=evidence_ref,
+                reason_refs=["reason-ref:mission-step:approval-freshly-validated"],
+            )
+        return MissionStepApprovalEvaluation(
+            posture=MissionStepApprovalPosture.invalid,
+            approval_request_ref=registered.approval_request_id,
+            approval_ref=validation_request.approval_ref,
+            approval_scope_fingerprint_ref=scope_fingerprint_ref,
+            validation_evidence_ref=evidence_ref,
+            reason_refs=["reason-ref:mission-step:approval-invalid"],
         )
 
     def run_once(
@@ -438,6 +538,7 @@ class AuthorityMissionRunner:
             receipt.authority_decision_ref,
             receipt.authority_policy_receipt_ref,
             receipt.approval_validation_ref,
+            receipt.execution_fence_ref,
             receipt.budget_reservation_receipt_ref,
             receipt.budget_start_receipt_ref,
             receipt.budget_settlement_receipt_ref,

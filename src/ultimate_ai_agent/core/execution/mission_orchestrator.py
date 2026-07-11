@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from datetime import datetime
 from enum import Enum
-from typing import Literal
+from typing import Callable, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -15,6 +16,7 @@ from ultimate_ai_agent.core.authority.authority_constants import (
 )
 from ultimate_ai_agent.core.authority.dispatch_contracts import AuthorityDispatchRequest
 from ultimate_ai_agent.core.authority.dispatch_contracts import (
+    AuthorityDispatchExecutionFence,
     AuthorityDispatchWorkerClaimFence,
 )
 from ultimate_ai_agent.core.authority.dispatcher import (
@@ -27,6 +29,11 @@ from ultimate_ai_agent.core.execution.durable_mission_plans import (
     DurableMissionPlanStepBinding,
     DurableMissionPlanStore,
 )
+from ultimate_ai_agent.core.execution.durable_mission_controls import (
+    MissionControlEvent,
+    MissionControlRequest,
+    MissionControlStore,
+)
 from ultimate_ai_agent.core.execution.durable_mission_steps import (
     MISSION_PLAN_MATERIALIZATION_LOCK_KEY,
     MissionStepConflictError,
@@ -38,6 +45,7 @@ from ultimate_ai_agent.core.execution.durable_mission_steps import (
 )
 from ultimate_ai_agent.core.execution.mission_runner import (
     AuthorityMissionRunner,
+    MissionStepApprovalPosture,
     mission_step_action_ref,
     mission_step_dispatch_ref,
     mission_step_idempotency_ref,
@@ -57,6 +65,7 @@ class AuthorityMissionOrchestrationStatus(str, Enum):
     succeeded = "succeeded"
     failed = "failed"
     recovery_required = "recovery_required"
+    waiting_for_approval = "waiting_for_approval"
     in_progress = "in_progress"
 
 
@@ -204,6 +213,7 @@ class AuthorityMissionOrchestrationResult(_MissionOrchestrationModel):
     invoked_step_count: int = Field(..., ge=0)
     replayed_step_count: int = Field(..., ge=0)
     dependency_blocked_step_count: int = Field(..., ge=0)
+    approval_wait_step_count: int = Field(default=0, ge=0)
     reason_refs: list[str] = Field(default_factory=list)
     evidence_refs: list[str] = Field(default_factory=list)
     operator_summary: str = Field(..., min_length=1, max_length=520)
@@ -213,9 +223,64 @@ class AuthorityMissionOrchestrationResult(_MissionOrchestrationModel):
     background_execution_performed: Literal[False] = False
     parallel_execution_performed: Literal[False] = False
     automatic_retry_performed: Literal[False] = False
-    mission_cancellation_claimed: Literal[False] = False
+    mission_cancellation_claimed: bool = False
     raw_request_payload_persisted: Literal[False] = False
     raw_output_persisted: Literal[False] = False
+
+
+class MissionCancellationExecutionFenceValidator:
+    """Fail closed on a durable mission cancellation before any adapter start."""
+
+    def __init__(
+        self,
+        *,
+        control_store: MissionControlStore,
+        plan_store: DurableMissionPlanStore,
+    ) -> None:
+        self.control_store = control_store
+        self.plan_store = plan_store
+
+    def validate_prestart_fence(
+        self,
+        request: AuthorityDispatchRequest,
+        _execution_fence: AuthorityDispatchExecutionFence | None,
+        *,
+        current_time: Callable[[], datetime],
+    ) -> tuple[list[str], str | None, datetime]:
+        checked_at = current_time()
+        if checked_at.tzinfo is None:
+            raise ValueError("AUTHORITY_DISPATCH_ADMISSION_TIMEZONE_REQUIRED")
+        if _execution_fence is not None:
+            return [
+                "reason-ref:authority-dispatch:worker-fence-validator-unavailable"
+            ], None, checked_at
+        fingerprint = authority_dispatch_request_fingerprint(request)
+        matches = [
+            receipt
+            for receipt in self.plan_store.list_receipts()
+            if any(
+                binding.dispatch_request_fingerprint_ref == fingerprint
+                for binding in receipt.plan.ordered_steps
+            )
+        ]
+        if not matches:
+            return [], None, checked_at
+        if len(matches) != 1:
+            return [
+                "reason-ref:authority-dispatch:mission-plan-fence-ambiguous"
+            ], None, checked_at
+        plan_receipt = matches[0]
+        cancellation = self.control_store.cancellation_for(
+            plan_ref=plan_receipt.plan.plan_ref,
+            plan_fingerprint_ref=plan_receipt.plan_fingerprint_ref,
+            mission_ref=plan_receipt.plan.mission_ref,
+            run_ref=plan_receipt.plan.run_ref,
+        )
+        if cancellation is None:
+            return [], None, checked_at
+        return [
+            "reason-ref:authority-dispatch:mission-cancellation-fenced"
+        ], cancellation.receipt_ref, checked_at
 
 
 class SynchronousAuthorityMissionOrchestrator:
@@ -224,15 +289,73 @@ class SynchronousAuthorityMissionOrchestrator:
         *,
         runner: AuthorityMissionRunner,
         plan_store: DurableMissionPlanStore,
+        control_store: MissionControlStore | None = None,
     ) -> None:
         if runner.step_store.state_dir.resolve() != plan_store.state_dir.resolve():
             raise ValueError("AUTHORITY_MISSION_ORCHESTRATION_STATE_DIR_MISMATCH")
         self.runner = runner
         self.step_store: MissionStepStore = runner.step_store
         self.plan_store = plan_store
+        self.control_store = control_store or MissionControlStore(
+            self.step_store.state_dir
+        )
+        if self.control_store.state_dir.resolve() != self.step_store.state_dir.resolve():
+            raise ValueError("AUTHORITY_MISSION_CONTROL_STATE_DIR_MISMATCH")
+        self.control_store.bind_request_validator(
+            self._validate_control_request_locked
+        )
         self.step_store._bind_plan_binding_resolver(  # noqa: SLF001
             self.plan_store.resolve_definition_binding
         )
+        existing_fence = self.runner.dispatcher.execution_fence_validator
+        if existing_fence is None:
+            self.runner.dispatcher.execution_fence_validator = (
+                MissionCancellationExecutionFenceValidator(
+                    control_store=self.control_store,
+                    plan_store=self.plan_store,
+                )
+            )
+
+    def _validate_control_request_locked(
+        self,
+        request: MissionControlRequest,
+    ) -> None:
+        matching_plans = [
+            receipt
+            for receipt in self.plan_store.list_receipts()
+            if receipt.plan.plan_ref == request.plan_ref
+        ]
+        if len(matching_plans) != 1:
+            raise ValueError("MISSION_CONTROL_ACCEPTED_PLAN_REQUIRED")
+        plan_receipt = matching_plans[0]
+        if (
+            plan_receipt.plan_fingerprint_ref != request.plan_fingerprint_ref
+            or plan_receipt.plan.mission_ref != request.mission_ref
+            or plan_receipt.plan.run_ref != request.run_ref
+        ):
+            raise ValueError("MISSION_CONTROL_ACCEPTED_PLAN_BINDING_INVALID")
+        leases = [
+            lease
+            for lease in self.runner.dispatcher.lease_store._list_leases(  # noqa: SLF001
+                active_only=True
+            )
+            if lease.lease_ref == request.lease_ref
+        ]
+        if (
+            len(leases) != 1
+            or leases[0].scope != AuthorityLeaseScope.mission.value
+            or leases[0].mission_ref != request.mission_ref
+        ):
+            raise ValueError("MISSION_CONTROL_ACTIVE_MISSION_LEASE_REQUIRED")
+        if (
+            request.event
+            == MissionControlEvent.dead_letter_recovery_requested.value
+            and (
+                request.dead_letter_receipt_ref is None
+                or request.dead_letter_entry_hash_ref is None
+            )
+        ):
+            raise ValueError("MISSION_CONTROL_DEAD_LETTER_BINDING_REQUIRED")
 
     def run(
         self,
@@ -282,6 +405,63 @@ class SynchronousAuthorityMissionOrchestrator:
                 self._apply_fail_fast(plan, terminal_failure.step_ref)
                 break
             step = steps_by_ref[step_ref]
+            if step.definition.deadline <= self.step_store.current_time():
+                expired = self.step_store.expire_deadline(step_ref)
+                self._apply_fail_fast(plan, expired.definition.step_ref)
+                break
+            approval = self.runner.evaluate_approval_posture(step.request)
+            if approval.posture == MissionStepApprovalPosture.wait.value:
+                waiting = self.step_store.record_approval_wait(
+                    step_ref,
+                    approval_request_ref=approval.approval_request_ref or "",
+                    approval_ref=approval.approval_ref or "",
+                    approval_scope_fingerprint_ref=(
+                        approval.approval_scope_fingerprint_ref or ""
+                    ),
+                    reason_refs=approval.reason_refs,
+                )
+                if waiting.status == MissionStepStatus.failed.value:
+                    self._apply_fail_fast(plan, waiting.definition.step_ref)
+                break
+            if approval.posture == MissionStepApprovalPosture.invalid.value:
+                failed = self.step_store.fail_before_dispatch(
+                    step_ref,
+                    reason_ref=(
+                        approval.reason_refs[0]
+                        if approval.reason_refs
+                        else "reason-ref:mission-step:approval-invalid"
+                    ),
+                    evidence_refs=(
+                        [approval.validation_evidence_ref]
+                        if approval.validation_evidence_ref
+                        else []
+                    ),
+                    approval_request_ref=approval.approval_request_ref,
+                    approval_ref=approval.approval_ref,
+                    approval_scope_fingerprint_ref=(
+                        approval.approval_scope_fingerprint_ref
+                    ),
+                )
+                self._apply_fail_fast(plan, failed.definition.step_ref)
+                break
+            if current.status == MissionStepStatus.approval_wait.value:
+                if (
+                    approval.posture != MissionStepApprovalPosture.ready.value
+                    or approval.approval_ref is None
+                    or approval.approval_scope_fingerprint_ref is None
+                    or approval.validation_evidence_ref is None
+                ):
+                    raise MissionStepConflictError(
+                        "MISSION_STEP_APPROVAL_RESUME_EVIDENCE_REQUIRED"
+                    )
+                self.step_store.resume_approval_wait(
+                    step_ref,
+                    approval_ref=approval.approval_ref,
+                    approval_scope_fingerprint_ref=(
+                        approval.approval_scope_fingerprint_ref
+                    ),
+                    validation_evidence_ref=approval.validation_evidence_ref,
+                )
             try:
                 result = self.runner._run_orchestrated_once(  # noqa: SLF001
                     bound_definitions[step_ref],
@@ -463,6 +643,11 @@ class SynchronousAuthorityMissionOrchestrator:
             reason_refs = [
                 "reason-ref:authority-mission-orchestration:recovery-required"
             ]
+        elif MissionStepStatus.approval_wait.value in statuses:
+            status = AuthorityMissionOrchestrationStatus.waiting_for_approval
+            reason_refs = [
+                "reason-ref:authority-mission-orchestration:approval-wait"
+            ]
         elif any(
             item
             in {
@@ -481,6 +666,12 @@ class SynchronousAuthorityMissionOrchestrator:
         else:
             status = AuthorityMissionOrchestrationStatus.in_progress
             reason_refs = ["reason-ref:authority-mission-orchestration:in-progress"]
+        cancellation = self.control_store.cancellation_for(
+            plan_ref=plan.plan_ref,
+            plan_fingerprint_ref=plan.fingerprint_ref,
+            mission_ref=plan.mission_ref,
+            run_ref=plan.run_ref,
+        )
         evidence_refs = [
             plan_receipt.receipt_ref,
             plan_receipt.entry_hash_ref,
@@ -490,8 +681,14 @@ class SynchronousAuthorityMissionOrchestrator:
                 for value in [
                     latest_receipts[step_ref].receipt_ref,
                     latest_receipts[step_ref].entry_hash_ref,
+                    *latest_receipts[step_ref].evidence_refs,
                 ]
             ],
+            *(
+                [cancellation.receipt_ref, cancellation.entry_hash_ref]
+                if cancellation is not None
+                else []
+            ),
         ]
         dispatch_receipts = self.runner.dispatcher.list_receipts()
         return AuthorityMissionOrchestrationResult(
@@ -526,9 +723,14 @@ class SynchronousAuthorityMissionOrchestrator:
                 step.status == MissionStepStatus.dependency_blocked.value
                 for step in steps
             ),
+            approval_wait_step_count=sum(
+                step.status == MissionStepStatus.approval_wait.value
+                for step in steps
+            ),
             reason_refs=reason_refs,
             evidence_refs=evidence_refs,
             operator_summary=self._operator_summary(status),
+            mission_cancellation_claimed=cancellation is not None,
         )
 
     @staticmethod
@@ -545,6 +747,10 @@ class SynchronousAuthorityMissionOrchestrator:
             AuthorityMissionOrchestrationStatus.recovery_required.value: (
                 "Mission orchestration requires recovery because durable execution "
                 "truth is unresolved."
+            ),
+            AuthorityMissionOrchestrationStatus.waiting_for_approval.value: (
+                "Mission orchestration is waiting without a worker claim; an exact "
+                "approval must be freshly validated before dispatch preparation."
             ),
             AuthorityMissionOrchestrationStatus.in_progress.value: (
                 "Mission orchestration remains in progress under an existing fenced claim."

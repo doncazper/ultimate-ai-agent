@@ -786,6 +786,7 @@ class AuthorityDispatcher:
                         request, "prestart-policy-release"
                     ),
                     cancellation_reason_ref=prestart_reasons[0],
+                    execution_fence_ref=execution_fence_ref,
                     reason_refs=prestart_reasons,
                     safe_summary="Dispatch cancellation claimed before adapter start.",
                 )

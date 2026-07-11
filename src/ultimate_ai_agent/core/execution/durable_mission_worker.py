@@ -5,6 +5,7 @@ import os
 import platform
 import stat
 import threading
+from contextlib import nullcontext
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
@@ -13,6 +14,7 @@ from typing import Any, Callable, Literal, Protocol
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, model_validator
 
 from ultimate_ai_agent.core.authority.contracts import (
+    AuthorityLeaseScope,
     authority_lease_kill_switch_engaged,
     authority_state_lock_manager,
 )
@@ -30,9 +32,16 @@ from ultimate_ai_agent.core.authority.dispatch_contracts import (
 from ultimate_ai_agent.core.execution.durable_mission_steps import (
     MissionStepStatus,
 )
+from ultimate_ai_agent.core.execution.durable_mission_controls import (
+    MISSION_CONTROL_LOCK_KEY,
+    MissionControlEvent,
+    MissionControlRequest,
+    MissionControlStore,
+)
 from ultimate_ai_agent.core.execution.mission_orchestrator import (
     AuthorityMissionOrchestrationRequest,
     AuthorityMissionOrchestrationResult,
+    MissionCancellationExecutionFenceValidator,
     SynchronousAuthorityMissionOrchestrator,
 )
 from ultimate_ai_agent.core.planning.validation import (
@@ -82,6 +91,7 @@ class MissionWorkerEvent(str, Enum):
     enqueued = "enqueued"
     claimed = "claimed"
     heartbeat = "heartbeat"
+    deferred = "deferred"
     completed = "completed"
     shutdown = "shutdown"
 
@@ -89,14 +99,17 @@ class MissionWorkerEvent(str, Enum):
 class MissionWorkerJobStatus(str, Enum):
     pending = "pending"
     claimed = "claimed"
+    approval_wait = "approval_wait"
     succeeded = "succeeded"
     failed = "failed"
     recovery_required = "recovery_required"
+    cancelled = "cancelled"
 
 
 class MissionWorkerRecoveryStatus(str, Enum):
     pending = "pending"
     actively_claimed = "actively_claimed"
+    approval_wait = "approval_wait"
     stale_claim = "stale_claim"
     prepared_dispatch = "prepared_dispatch"
     started_unknown_terminal = "started_unknown_terminal"
@@ -104,6 +117,7 @@ class MissionWorkerRecoveryStatus(str, Enum):
     failed = "failed"
     dependency_blocked = "dependency_blocked"
     recovery_required = "recovery_required"
+    cancelled = "cancelled"
 
 
 def current_mission_worker_platform() -> MissionWorkerPlatform:
@@ -331,6 +345,7 @@ class MissionWorkerReceipt(_WorkerModel):
                 MissionWorkerJobStatus.succeeded.value,
                 MissionWorkerJobStatus.failed.value,
                 MissionWorkerJobStatus.recovery_required.value,
+                MissionWorkerJobStatus.cancelled.value,
             }
             and not self.reason_refs
         ):
@@ -356,6 +371,12 @@ class MissionWorkerStore:
         self.receipts_path = state_dir / MISSION_WORKER_LEDGER_FILE
         self.lock_manager = authority_state_lock_manager(str(state_dir.resolve()))
         self._clock = clock
+        self._control_store: MissionControlStore | None = None
+
+    def bind_control_store(self, control_store: MissionControlStore) -> None:
+        if control_store.state_dir.resolve() != self.state_dir.resolve():
+            raise ValueError("MISSION_WORKER_CONTROL_STATE_DIR_MISMATCH")
+        self._control_store = control_store
 
     def current_time(self) -> datetime:
         current = self._clock()
@@ -371,8 +392,14 @@ class MissionWorkerStore:
     ) -> MissionWorkerReceipt:
         if not 1 <= queue_capacity <= MISSION_WORKER_QUEUE_MAX_ITEMS:
             raise ValueError("MISSION_WORKER_QUEUE_CAPACITY_INVALID")
+        control_lock = (
+            self._control_store.lock_manager.acquire(MISSION_CONTROL_LOCK_KEY)
+            if self._control_store is not None
+            else nullcontext()
+        )
         with (
             self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY),
+            control_lock,
             self.lock_manager.acquire(MISSION_WORKER_LOCK_KEY),
         ):
             receipts = self._load()
@@ -402,6 +429,7 @@ class MissionWorkerStore:
             in {
                 MissionWorkerJobStatus.pending.value,
                 MissionWorkerJobStatus.claimed.value,
+                MissionWorkerJobStatus.approval_wait.value,
             }
         }
         if len(active) >= queue_capacity:
@@ -434,8 +462,14 @@ class MissionWorkerStore:
         validate_task_ref(job_ref, "mission_worker_job_ref")
         _validate_opaque_worker_ref(worker_ref)
         self._validate_ttl(ttl_seconds)
+        control_lock = (
+            self._control_store.lock_manager.acquire(MISSION_CONTROL_LOCK_KEY)
+            if self._control_store is not None
+            else nullcontext()
+        )
         with (
             self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY),
+            control_lock,
             self.lock_manager.acquire(MISSION_WORKER_LOCK_KEY),
         ):
             current = self.current_time()
@@ -447,8 +481,38 @@ class MissionWorkerStore:
                 MissionWorkerJobStatus.succeeded.value,
                 MissionWorkerJobStatus.failed.value,
                 MissionWorkerJobStatus.recovery_required.value,
+                MissionWorkerJobStatus.cancelled.value,
             }:
                 return latest
+            if self._control_store is not None:
+                cancellation = self._control_store._cancellation_for_loaded(  # noqa: SLF001
+                    self._control_store._load(),  # noqa: SLF001
+                    plan_ref=latest.binding.plan_ref,
+                    plan_fingerprint_ref=latest.binding.plan_fingerprint_ref,
+                    mission_ref=latest.binding.mission_ref,
+                    run_ref=latest.binding.run_ref,
+                )
+                if cancellation is not None:
+                    receipt = self._build_from(
+                        receipts,
+                        latest,
+                        event=MissionWorkerEvent.completed,
+                        status=MissionWorkerJobStatus.cancelled,
+                        generation=latest.generation,
+                        reason_refs=[
+                            "reason-ref:mission-worker:mission-cancellation-fenced"
+                        ],
+                        evidence_refs=[
+                            cancellation.receipt_ref,
+                            cancellation.entry_hash_ref,
+                        ],
+                        checked_at=current,
+                        safe_summary=(
+                            "Mission work was cancelled before a new worker claim."
+                        ),
+                    )
+                    self._append(receipt)
+                    return receipt
             if latest.binding.deadline <= current:
                 receipt = self._build_from(
                     receipts,
@@ -541,13 +605,83 @@ class MissionWorkerStore:
         status: MissionWorkerJobStatus,
         reason_refs: list[str],
         evidence_refs: list[str],
+        execution_started: bool = False,
     ) -> MissionWorkerReceipt:
         if status not in {
             MissionWorkerJobStatus.succeeded,
             MissionWorkerJobStatus.failed,
             MissionWorkerJobStatus.recovery_required,
+            MissionWorkerJobStatus.cancelled,
         }:
             raise ValueError("MISSION_WORKER_TERMINAL_STATUS_REQUIRED")
+        _validate_opaque_worker_ref(worker_ref)
+        control_lock = (
+            self._control_store.lock_manager.acquire(MISSION_CONTROL_LOCK_KEY)
+            if self._control_store is not None
+            else nullcontext()
+        )
+        with (
+            self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY),
+            control_lock,
+            self.lock_manager.acquire(MISSION_WORKER_LOCK_KEY),
+        ):
+            current = self.current_time()
+            receipts = self._load()
+            latest = self._require_owned(
+                receipts, job_ref, worker_ref, claim_ref, generation, current
+            )
+            if self._control_store is not None:
+                cancellation = self._control_store._cancellation_for_loaded(  # noqa: SLF001
+                    self._control_store._load(),  # noqa: SLF001
+                    plan_ref=latest.binding.plan_ref,
+                    plan_fingerprint_ref=latest.binding.plan_fingerprint_ref,
+                    mission_ref=latest.binding.mission_ref,
+                    run_ref=latest.binding.run_ref,
+                )
+                if cancellation is not None:
+                    status = (
+                        MissionWorkerJobStatus.recovery_required
+                        if execution_started
+                        else MissionWorkerJobStatus.cancelled
+                    )
+                    reason_refs = [
+                        *reason_refs,
+                        (
+                            "reason-ref:mission-worker:"
+                            "cancellation-after-start-unsupported"
+                            if execution_started
+                            else "reason-ref:mission-worker:cancelled-before-start"
+                        ),
+                    ]
+                    evidence_refs = [
+                        *evidence_refs,
+                        cancellation.receipt_ref,
+                        cancellation.entry_hash_ref,
+                    ]
+            receipt = self._build_from(
+                receipts,
+                latest,
+                event=MissionWorkerEvent.completed,
+                status=status,
+                generation=generation,
+                reason_refs=list(dict.fromkeys(reason_refs)),
+                evidence_refs=list(dict.fromkeys(evidence_refs)),
+                checked_at=current,
+                safe_summary="Local mission work reached a durable terminal posture.",
+            )
+            self._append(receipt)
+            return receipt
+
+    def defer_for_approval(
+        self,
+        job_ref: str,
+        *,
+        worker_ref: str,
+        claim_ref: str,
+        generation: int,
+        reason_refs: list[str],
+        evidence_refs: list[str],
+    ) -> MissionWorkerReceipt:
         _validate_opaque_worker_ref(worker_ref)
         with (
             self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY),
@@ -561,13 +695,15 @@ class MissionWorkerStore:
             receipt = self._build_from(
                 receipts,
                 latest,
-                event=MissionWorkerEvent.completed,
-                status=status,
+                event=MissionWorkerEvent.deferred,
+                status=MissionWorkerJobStatus.approval_wait,
                 generation=generation,
                 reason_refs=list(dict.fromkeys(reason_refs)),
                 evidence_refs=list(dict.fromkeys(evidence_refs)),
                 checked_at=current,
-                safe_summary="Local mission work reached a durable terminal posture.",
+                safe_summary=(
+                    "Mission work released its claim while waiting for approval."
+                ),
             )
             self._append(receipt)
             return receipt
@@ -884,6 +1020,7 @@ class MissionWorkerStore:
             MissionWorkerJobStatus.succeeded.value,
             MissionWorkerJobStatus.failed.value,
             MissionWorkerJobStatus.recovery_required.value,
+            MissionWorkerJobStatus.cancelled.value,
         }:
             valid = False
         elif current.event == MissionWorkerEvent.claimed.value:
@@ -892,6 +1029,7 @@ class MissionWorkerStore:
                 and current.generation == prior.generation + 1
                 and (
                     prior.status == MissionWorkerJobStatus.pending.value
+                    or prior.status == MissionWorkerJobStatus.approval_wait.value
                     or (
                         prior.status == MissionWorkerJobStatus.claimed.value
                         and prior.claim_expires_at is not None
@@ -911,15 +1049,31 @@ class MissionWorkerStore:
                 and current.claim_expires_at is not None
                 and current.claim_expires_at >= prior.claim_expires_at
             )
+        elif current.event == MissionWorkerEvent.deferred.value:
+            valid = (
+                prior.status == MissionWorkerJobStatus.claimed.value
+                and current.status == MissionWorkerJobStatus.approval_wait.value
+                and current.generation == prior.generation
+                and prior.claim_expires_at is not None
+                and prior.claim_expires_at > current.checked_at
+                and bool(current.reason_refs)
+            )
         elif current.event == MissionWorkerEvent.completed.value:
             valid = (
                 (
                     prior.status == MissionWorkerJobStatus.claimed.value
                     or (
                         prior.status == MissionWorkerJobStatus.pending.value
-                        and current.status == MissionWorkerJobStatus.failed.value
-                        and current.reason_refs
-                        == ["reason-ref:mission-worker:deadline-expired"]
+                        and (
+                            (
+                                current.status
+                                == MissionWorkerJobStatus.failed.value
+                                and current.reason_refs
+                                == ["reason-ref:mission-worker:deadline-expired"]
+                            )
+                            or current.status
+                            == MissionWorkerJobStatus.cancelled.value
+                        )
                     )
                 )
                 and current.status
@@ -927,6 +1081,7 @@ class MissionWorkerStore:
                     MissionWorkerJobStatus.succeeded.value,
                     MissionWorkerJobStatus.failed.value,
                     MissionWorkerJobStatus.recovery_required.value,
+                    MissionWorkerJobStatus.cancelled.value,
                 }
                 and current.generation == prior.generation
                 and (
@@ -1057,6 +1212,7 @@ def build_mission_worker_read_model(
         in {
             MissionWorkerJobStatus.pending.value,
             MissionWorkerJobStatus.claimed.value,
+            MissionWorkerJobStatus.approval_wait.value,
         }
     ]
     terminal_jobs = [item for item in all_latest_jobs if item not in active_jobs]
@@ -1156,6 +1312,7 @@ def build_mission_worker_read_model(
             in {
                 MissionWorkerJobStatus.pending.value,
                 MissionWorkerJobStatus.claimed.value,
+                MissionWorkerJobStatus.approval_wait.value,
             }
             for job in jobs
         ),
@@ -1219,12 +1376,15 @@ def _step_recovery(
         status = MissionWorkerRecoveryStatus.dependency_blocked
     elif step.status == MissionStepStatus.recovery_required.value:
         status = MissionWorkerRecoveryStatus.recovery_required
+    elif step.status == MissionStepStatus.approval_wait.value:
+        status = MissionWorkerRecoveryStatus.approval_wait
     elif step.status in {
         MissionStepStatus.failed.value,
-        MissionStepStatus.cancelled.value,
         MissionStepStatus.fail_fast_halted.value,
     }:
         status = MissionWorkerRecoveryStatus.failed
+    elif step.status == MissionStepStatus.cancelled.value:
+        status = MissionWorkerRecoveryStatus.cancelled
     elif (
         step.status == MissionStepStatus.claimed.value
         and step.claim_expires_at is not None
@@ -1282,8 +1442,12 @@ def _job_recovery(
             return status
     if latest.status == MissionWorkerJobStatus.recovery_required.value:
         return MissionWorkerRecoveryStatus.recovery_required
+    if latest.status == MissionWorkerJobStatus.approval_wait.value:
+        return MissionWorkerRecoveryStatus.approval_wait
     if latest.status == MissionWorkerJobStatus.failed.value:
         return MissionWorkerRecoveryStatus.failed
+    if latest.status == MissionWorkerJobStatus.cancelled.value:
+        return MissionWorkerRecoveryStatus.cancelled
     if latest.status == MissionWorkerJobStatus.succeeded.value and not all(
         step.status == MissionWorkerRecoveryStatus.succeeded.value for step in steps
     ):
@@ -1313,29 +1477,96 @@ class LocalMissionWorker:
         *,
         orchestrator: SynchronousAuthorityMissionOrchestrator,
         store: MissionWorkerStore,
+        control_store: MissionControlStore | None = None,
         configuration: LocalMissionWorkerConfiguration | None = None,
     ) -> None:
         self.orchestrator = orchestrator
         self.store = store
+        self.control_store = control_store or orchestrator.control_store
+        self.store.bind_control_store(self.control_store)
+        self.control_store.bind_request_validator(
+            self._validate_control_request_locked
+        )
         self.configuration = configuration or LocalMissionWorkerConfiguration()
         self._shutdown = threading.Event()
         if not (
             self.orchestrator.runner.dispatcher.state_dir.resolve()
             == self.orchestrator.step_store.state_dir.resolve()
             == self.store.state_dir.resolve()
+            == self.control_store.state_dir.resolve()
         ):
             raise ValueError("MISSION_WORKER_SHARED_AUTHORITY_STATE_REQUIRED")
         validator = MissionWorkerExecutionFenceValidator(
             store=self.store,
             orchestrator=self.orchestrator,
+            control_store=self.control_store,
         )
         existing = self.orchestrator.runner.dispatcher.execution_fence_validator
         if (
             existing is not None
-            and type(existing) is not MissionWorkerExecutionFenceValidator
+            and type(existing)
+            not in {
+                MissionCancellationExecutionFenceValidator,
+                MissionWorkerExecutionFenceValidator,
+            }
         ):
             raise ValueError("MISSION_WORKER_EXECUTION_FENCE_ALREADY_BOUND")
         self.orchestrator.runner.dispatcher.execution_fence_validator = validator
+
+    def _validate_control_request_locked(
+        self,
+        request: MissionControlRequest,
+    ) -> None:
+        matching_plans = [
+            receipt
+            for receipt in self.orchestrator.plan_store.list_receipts()
+            if receipt.plan.plan_ref == request.plan_ref
+        ]
+        if len(matching_plans) != 1:
+            raise MissionWorkerConflictError(
+                "MISSION_CONTROL_ACCEPTED_PLAN_REQUIRED"
+            )
+        plan_receipt = matching_plans[0]
+        if (
+            plan_receipt.plan_fingerprint_ref != request.plan_fingerprint_ref
+            or plan_receipt.plan.mission_ref != request.mission_ref
+            or plan_receipt.plan.run_ref != request.run_ref
+        ):
+            raise MissionWorkerConflictError(
+                "MISSION_CONTROL_ACCEPTED_PLAN_BINDING_INVALID"
+            )
+        matching_leases = [
+            lease
+            for lease in self.orchestrator.runner.dispatcher.lease_store._list_leases(  # noqa: SLF001
+                active_only=True
+            )
+            if lease.lease_ref == request.lease_ref
+        ]
+        if (
+            len(matching_leases) != 1
+            or matching_leases[0].scope != AuthorityLeaseScope.mission.value
+            or matching_leases[0].mission_ref != request.mission_ref
+        ):
+            raise MissionWorkerConflictError(
+                "MISSION_CONTROL_ACTIVE_MISSION_LEASE_REQUIRED"
+            )
+        if request.event == MissionControlEvent.cancellation_requested.value:
+            terminal_jobs = [
+                job
+                for job in self.store._latest_by_job(self.store._load()).values()  # noqa: SLF001
+                if job.binding.plan_ref == request.plan_ref
+                and job.status
+                in {
+                    MissionWorkerJobStatus.succeeded.value,
+                    MissionWorkerJobStatus.failed.value,
+                    MissionWorkerJobStatus.recovery_required.value,
+                    MissionWorkerJobStatus.cancelled.value,
+                }
+            ]
+            if terminal_jobs:
+                raise MissionWorkerConflictError(
+                    "MISSION_CONTROL_MISSION_ALREADY_TERMINAL"
+                )
 
     def request_shutdown(self) -> None:
         self._shutdown.set()
@@ -1378,7 +1609,11 @@ class LocalMissionWorker:
         candidates = [
             item
             for item in self.store.latest()
-            if item.status == MissionWorkerJobStatus.pending.value
+            if item.status
+            in {
+                MissionWorkerJobStatus.pending.value,
+                MissionWorkerJobStatus.approval_wait.value,
+            }
             or (
                 item.status == MissionWorkerJobStatus.claimed.value
                 and item.claim_expires_at is not None
@@ -1387,18 +1622,38 @@ class LocalMissionWorker:
         ]
         if not candidates:
             return None
-        selected = min(candidates, key=lambda item: item.sequence)
-        request = resolver.resolve(selected.binding)
-        if request is None:
-            return None
-        validated = AuthorityMissionOrchestrationRequest.model_validate(
-            request.model_dump(mode="python")
-        )
-        if mission_worker_job_binding(validated) != selected.binding:
-            raise MissionWorkerConflictError(
-                "MISSION_WORKER_REQUEST_RESOLVER_FINGERPRINT_MISMATCH"
+        for selected in sorted(candidates, key=lambda item: item.sequence):
+            request = resolver.resolve(selected.binding)
+            if request is None:
+                continue
+            validated = AuthorityMissionOrchestrationRequest.model_validate(
+                request.model_dump(mode="python")
             )
-        return self.run_once(validated, worker_ref=worker_ref)
+            if mission_worker_job_binding(validated) != selected.binding:
+                raise MissionWorkerConflictError(
+                    "MISSION_WORKER_REQUEST_RESOLVER_FINGERPRINT_MISMATCH"
+                )
+            if selected.status == MissionWorkerJobStatus.approval_wait.value:
+                waiting_steps = [
+                    step
+                    for step in validated.steps
+                    if self.orchestrator.step_store.read(
+                        step.definition.step_ref
+                    ).status
+                    == MissionStepStatus.approval_wait.value
+                ]
+                if waiting_steps and all(
+                    step.definition.deadline
+                    > self.orchestrator.step_store.current_time()
+                    and self.orchestrator.runner.evaluate_approval_posture(
+                        step.request
+                    ).posture
+                    == "wait"
+                    for step in waiting_steps
+                ):
+                    continue
+            return self.run_once(validated, worker_ref=worker_ref)
+        return None
 
     def run_once(
         self,
@@ -1423,13 +1678,45 @@ class LocalMissionWorker:
         }
         self.orchestrator._preflight(request, bound)  # noqa: SLF001
         binding = mission_worker_job_binding(request)
-        self.enqueue(request)
+        enqueued = self.enqueue(request)
+        if enqueued.status == MissionWorkerJobStatus.approval_wait.value:
+            waiting_steps = [
+                step
+                for step in request.steps
+                if self.orchestrator.step_store.read(
+                    step.definition.step_ref
+                ).status
+                == MissionStepStatus.approval_wait.value
+            ]
+            if waiting_steps and all(
+                step.definition.deadline
+                > self.orchestrator.step_store.current_time()
+                and self.orchestrator.runner.evaluate_approval_posture(
+                    step.request
+                ).posture
+                == "wait"
+                for step in waiting_steps
+            ):
+                return None
         claim = self.store.claim(
             binding.job_ref,
             worker_ref=durable_worker_ref,
             ttl_seconds=self.configuration.claim_ttl_seconds,
         )
         if claim.status != MissionWorkerJobStatus.claimed.value:
+            if (
+                claim.status == MissionWorkerJobStatus.failed.value
+                and claim.reason_refs
+                == ["reason-ref:mission-worker:deadline-expired"]
+            ):
+                return self.orchestrator.run(
+                    request,
+                    owner_ref=durable_worker_ref,
+                    claim_ttl_seconds=self.configuration.claim_ttl_seconds,
+                    max_step_count=1,
+                    heartbeat_interval_seconds=None,
+                    worker_claim_fence=None,
+                )
             return None
         worker_claim_fence = AuthorityDispatchWorkerClaimFence(
             job_ref=binding.job_ref,
@@ -1510,13 +1797,23 @@ class LocalMissionWorker:
                 "MISSION_WORKER_HEARTBEAT_FAILED"
             ) from heartbeat_error[0]
         assert result is not None
+        if result.status == "waiting_for_approval":
+            self.store.defer_for_approval(
+                binding.job_ref,
+                worker_ref=durable_worker_ref,
+                claim_ref=claim.claim_ref or "",
+                generation=claim.generation,
+                reason_refs=result.reason_refs,
+                evidence_refs=result.evidence_refs,
+            )
+            return result
         status = {
             "succeeded": MissionWorkerJobStatus.succeeded,
             "failed": MissionWorkerJobStatus.failed,
             "recovery_required": MissionWorkerJobStatus.recovery_required,
             "in_progress": MissionWorkerJobStatus.recovery_required,
         }[result.status]
-        self.store.complete(
+        completed = self.store.complete(
             binding.job_ref,
             worker_ref=durable_worker_ref,
             claim_ref=claim.claim_ref or "",
@@ -1524,7 +1821,22 @@ class LocalMissionWorker:
             status=status,
             reason_refs=result.reason_refs,
             evidence_refs=result.evidence_refs,
+            execution_started=result.started_step_count > 0,
         )
+        if completed.status != status.value:
+            result = result.model_copy(
+                update={
+                    "status": (
+                        "recovery_required"
+                        if completed.status
+                        == MissionWorkerJobStatus.recovery_required.value
+                        else "failed"
+                    ),
+                    "reason_refs": completed.reason_refs,
+                    "evidence_refs": completed.evidence_refs,
+                    "mission_cancellation_claimed": True,
+                }
+            )
         return result
 
 
@@ -1536,9 +1848,11 @@ class MissionWorkerExecutionFenceValidator:
         *,
         store: MissionWorkerStore,
         orchestrator: SynchronousAuthorityMissionOrchestrator,
+        control_store: MissionControlStore,
     ) -> None:
         self.store = store
         self.orchestrator = orchestrator
+        self.control_store = control_store
 
     def validate_prestart_fence(
         self,
@@ -1548,9 +1862,13 @@ class MissionWorkerExecutionFenceValidator:
         current_time: Callable[[], datetime],
     ) -> tuple[list[str], str | None, datetime]:
         fingerprint = authority_dispatch_request_fingerprint(request)
-        with self.store.lock_manager.acquire(MISSION_WORKER_LOCK_KEY):
-            with self.orchestrator.step_store.lock_manager.acquire(
-                "authority-mission-steps"
+        with self.control_store.lock_manager.acquire(MISSION_CONTROL_LOCK_KEY):
+            control_receipts = self.control_store._load()  # noqa: SLF001
+            with (
+                self.store.lock_manager.acquire(MISSION_WORKER_LOCK_KEY),
+                self.orchestrator.step_store.lock_manager.acquire(
+                    "authority-mission-steps"
+                ),
             ):
                 admission_time = current_time()
                 if admission_time.tzinfo is None:
@@ -1575,6 +1893,21 @@ class MissionWorkerExecutionFenceValidator:
                         admission_time,
                     )
                 job = matches[0]
+                cancellation = self.control_store._cancellation_for_loaded(  # noqa: SLF001
+                    control_receipts,
+                    plan_ref=job.binding.plan_ref,
+                    plan_fingerprint_ref=job.binding.plan_fingerprint_ref,
+                    mission_ref=job.binding.mission_ref,
+                    run_ref=job.binding.run_ref,
+                )
+                if cancellation is not None:
+                    return (
+                        [
+                            "reason-ref:authority-dispatch:mission-cancellation-fenced"
+                        ],
+                        cancellation.receipt_ref,
+                        admission_time,
+                    )
                 if (
                     execution_fence is None
                     or execution_fence.job_ref != job.binding.job_ref
