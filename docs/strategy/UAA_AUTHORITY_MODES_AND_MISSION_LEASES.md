@@ -519,8 +519,20 @@ kill switch, approval revocation, budget, and adapter identity immediately
 before start and exposes crash recovery without replaying a started adapter.
 See `docs/runtime/UAA_AUTHORITY_DISPATCHER_V1.md`.
 
-Legacy executable lanes, durable mission steps, after-start cancellation,
-settlement recovery, paid-provider actual usage proof, typed time windows,
+One synchronous MissionRunner slice now uses a fenced, append-first mission-step
+ledger to send an exact filesystem-metadata step through the dispatcher. It
+binds mission/run/step/capability/adapter/lease refs, dependencies, deadline,
+claim generation, and an immutable dispatch ref plus full request fingerprint
+without granting authority. The store-owned clock governs claims and deadlines;
+the runner performs one pre-execute claim renewal and cancels a prepared,
+expired dispatch before adapter start.
+The dispatcher, not the runner, still owns current lease, policy, exact
+approval, budget, kill-switch, adapter, and target evaluation.
+
+Legacy executable-lane migration, multi-step scheduling, background execution,
+a periodic/background heartbeat loop, approval waits, retry budgets,
+after-start cancellation, settlement recovery, paid-provider actual usage
+proof, typed time windows,
 recipient/target binding, renewal, reviewed unresolved-cost remediation, and
 Control Center budget operations remain unimplemented.
 

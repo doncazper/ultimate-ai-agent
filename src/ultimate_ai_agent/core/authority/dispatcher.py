@@ -98,11 +98,17 @@ def _stable_ref(prefix: str, value: Any) -> str:
     return f"{prefix}:sha256:{digest}"
 
 
-def _request_fingerprint(request: AuthorityDispatchRequest) -> str:
+def authority_dispatch_request_fingerprint(
+    request: AuthorityDispatchRequest,
+) -> str:
     return _stable_ref(
         "request-fingerprint-ref:authority-dispatch",
         request.model_dump(mode="json"),
     )
+
+
+def _request_fingerprint(request: AuthorityDispatchRequest) -> str:
+    return authority_dispatch_request_fingerprint(request)
 
 
 def _entry_hash(receipt: AuthorityDispatchReceipt) -> str:
@@ -284,9 +290,7 @@ def _adapter_descriptor_reason_refs(
     if descriptor.failure_cost_microusd is None:
         reasons.append("reason-ref:authority-dispatch:failure-cost-unknown")
     elif descriptor.failure_cost_microusd > (request.estimated_cost_microusd or 0):
-        reasons.append(
-            "reason-ref:authority-dispatch:failure-cost-exceeds-reservation"
-        )
+        reasons.append("reason-ref:authority-dispatch:failure-cost-exceeds-reservation")
     if descriptor.approval_required and request.approval_validation_request is None:
         reasons.append("reason-ref:authority-dispatch:approval-missing")
     if descriptor.tool_ref == FILESYSTEM_METADATA_TOOL_REF:
@@ -468,7 +472,9 @@ class AuthorityDispatcher:
             if not isinstance(binding_ref, str):
                 raise ValueError("AUTHORITY_DISPATCH_ADAPTER_BINDING_REF_REQUIRED")
             validate_task_ref(binding_ref, "authority_dispatch_adapter_binding_ref")
-        self.adapters = {adapter.descriptor.adapter_ref: adapter for adapter in adapters}
+        self.adapters = {
+            adapter.descriptor.adapter_ref: adapter for adapter in adapters
+        }
         if len(self.adapters) != len(adapters):
             raise ValueError("AUTHORITY_DISPATCH_DUPLICATE_ADAPTER_REF")
 
@@ -500,9 +506,7 @@ class AuthorityDispatcher:
         if adapter is None:
             reasons.append("reason-ref:authority-dispatch:adapter-not-registered")
         else:
-            reasons.extend(
-                _adapter_descriptor_reason_refs(request, adapter.descriptor)
-            )
+            reasons.extend(_adapter_descriptor_reason_refs(request, adapter.descriptor))
             reasons.extend(adapter.validate_request(request))
         reasons = list(dict.fromkeys(reasons))
         if reasons:
@@ -614,10 +618,8 @@ class AuthorityDispatcher:
             # this also reclaims a replayed reservation orphaned by an earlier
             # crash between reserve and prepared.
             if (
-                (reservation.original_status or reservation.status)
-                == AuthorityBudgetStatus.reserved.value
-                and not reservation_claimed
-            ):
+                reservation.original_status or reservation.status
+            ) == AuthorityBudgetStatus.reserved.value and not reservation_claimed:
                 release = self.budget_store.release(
                     AuthorityBudgetReleaseRequest(
                         reservation_ref=reservation.reservation_ref,
@@ -682,9 +684,7 @@ class AuthorityDispatcher:
                 budget_start = self.budget_store._start_locked(
                     AuthorityBudgetStartRequest(
                         reservation_ref=latest.budget_reservation_ref or "",
-                        idempotency_ref=_phase_idempotency_ref(
-                            request, "budget-start"
-                        ),
+                        idempotency_ref=_phase_idempotency_ref(request, "budget-start"),
                         dispatch_fingerprint_ref=fingerprint,
                         execution_ref=execution_ref,
                         safe_summary=(
@@ -692,7 +692,9 @@ class AuthorityDispatcher:
                         ),
                     )
                 )
-                budget_start_status = budget_start.original_status or budget_start.status
+                budget_start_status = (
+                    budget_start.original_status or budget_start.status
+                )
                 if budget_start_status != AuthorityBudgetStatus.started.value:
                     raise AuthorityDispatchCorruptionError(
                         "AUTHORITY_DISPATCH_BUDGET_START_CLAIM_FAILED"
@@ -853,7 +855,9 @@ class AuthorityDispatcher:
                 adapter_result=adapter_result,
             )
 
-    def cancel(self, request: AuthorityDispatchCancelRequest) -> AuthorityDispatchResult:
+    def cancel(
+        self, request: AuthorityDispatchCancelRequest
+    ) -> AuthorityDispatchResult:
         with self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY):
             receipts = self._load_receipts()
             history = [
@@ -870,9 +874,13 @@ class AuthorityDispatcher:
                 AuthorityDispatchStatus.failed.value,
                 AuthorityDispatchStatus.cancelled_before_start.value,
             }:
-                if latest.status == AuthorityDispatchStatus.cancelled_before_start.value and (
-                    latest.cancellation_idempotency_ref != request.idempotency_ref
-                    or latest.cancellation_reason_ref != request.reason_ref
+                if (
+                    latest.status
+                    == AuthorityDispatchStatus.cancelled_before_start.value
+                    and (
+                        latest.cancellation_idempotency_ref != request.idempotency_ref
+                        or latest.cancellation_reason_ref != request.reason_ref
+                    )
                 ):
                     raise AuthorityDispatchConflictError(
                         "AUTHORITY_DISPATCH_CANCELLATION_IDEMPOTENCY_CONFLICT"
@@ -955,9 +963,7 @@ class AuthorityDispatcher:
         if adapter is None:
             reasons.append("reason-ref:authority-dispatch:adapter-not-registered")
         else:
-            reasons.extend(
-                _adapter_descriptor_reason_refs(request, adapter.descriptor)
-            )
+            reasons.extend(_adapter_descriptor_reason_refs(request, adapter.descriptor))
             reasons.extend(adapter.validate_request(request))
             descriptor = adapter.descriptor
             if (
@@ -965,8 +971,7 @@ class AuthorityDispatcher:
                 or descriptor.capability_ref != prepared.capability_ref
                 or descriptor.rollback_ref != prepared.rollback_ref
                 or descriptor.safe_disable_ref != prepared.safe_disable_ref
-                or descriptor.approval_required
-                != prepared.adapter_approval_required
+                or descriptor.approval_required != prepared.adapter_approval_required
                 or adapter.binding_ref != prepared.adapter_binding_ref
             ):
                 reasons.append(
@@ -1087,8 +1092,7 @@ class AuthorityDispatcher:
             and budget_state["cost_estimate_ref"] == request.cost_estimate_ref
             and budget_state["cost_governor_decision_ref"]
             == request.cost_governor_decision_ref
-            and budget_state["cost_governor_allowed"]
-            == request.cost_governor_allowed
+            and budget_state["cost_governor_allowed"] == request.cost_governor_allowed
             and budget_state["reserved_operations"] == request.operation_count
             and budget_state["reserved_cost"] == request.estimated_cost_microusd
         )
@@ -1102,8 +1106,7 @@ class AuthorityDispatcher:
                 or (
                     budget_state["status"] == AuthorityBudgetStatus.started.value
                     and budget_state["execution_ref"] == _execution_ref(request)
-                    and budget_state["dispatch_fingerprint_ref"]
-                    == fingerprint
+                    and budget_state["dispatch_fingerprint_ref"] == fingerprint
                 )
             )
         )
@@ -1137,10 +1140,7 @@ class AuthorityDispatcher:
                 and prepared.approval_validation_ref is not None
             )
         )
-        if (
-            not start_policy_allowed
-            or start_decision.lease_ref != request.lease_ref
-        ):
+        if not start_policy_allowed or start_decision.lease_ref != request.lease_ref:
             reasons.append("reason-ref:authority-dispatch:prestart-authority-invalid")
         if prepared.approval_required or prepared.approval_ref is not None:
             validation_request = request.approval_validation_request
@@ -1215,7 +1215,9 @@ class AuthorityDispatcher:
         if not run_budgets:
             reasons.append("reason-ref:authority-dispatch:run-cost-budget-missing")
         if any(budget.scope_id != request.run_ref for budget in run_budgets):
-            reasons.append("reason-ref:authority-dispatch:run-cost-budget-scope-mismatch")
+            reasons.append(
+                "reason-ref:authority-dispatch:run-cost-budget-scope-mismatch"
+            )
         now = current_time or utc_now()
         for budget in request.cost_budgets:
             if budget.expires_at is None:
@@ -1223,9 +1225,7 @@ class AuthorityDispatcher:
             try:
                 expired = budget.expires_at <= now
             except TypeError:
-                reasons.append(
-                    "reason-ref:authority-dispatch:cost-budget-time-invalid"
-                )
+                reasons.append("reason-ref:authority-dispatch:cost-budget-time-invalid")
                 continue
             if expired:
                 reasons.append("reason-ref:authority-dispatch:cost-budget-expired")
@@ -1233,7 +1233,9 @@ class AuthorityDispatcher:
         if estimated_microusd is None:
             reasons.append("reason-ref:authority-dispatch:cost-estimate-unknown")
         elif estimated_microusd != request.estimated_cost_microusd:
-            reasons.append("reason-ref:authority-dispatch:cost-estimate-amount-mismatch")
+            reasons.append(
+                "reason-ref:authority-dispatch:cost-estimate-amount-mismatch"
+            )
         expected_estimate_ref = build_authority_dispatch_cost_estimate_ref(
             request.cost_estimate
         )
@@ -1243,11 +1245,9 @@ class AuthorityDispatcher:
             request.cost_estimate,
             request.cost_budgets,
         )
-        expected_decision_ref = (
-            build_authority_dispatch_cost_governor_decision_ref(
-                request.cost_estimate,
-                request.cost_budgets,
-            )
+        expected_decision_ref = build_authority_dispatch_cost_governor_decision_ref(
+            request.cost_estimate,
+            request.cost_budgets,
         )
         if expected_decision_ref != request.cost_governor_decision_ref:
             reasons.append(
@@ -1280,9 +1280,7 @@ class AuthorityDispatcher:
                     _request_fingerprint(request),
                 )
             except AuthorityDispatchConflictError:
-                return [
-                    "reason-ref:authority-dispatch:reservation-recovery-conflict"
-                ]
+                return ["reason-ref:authority-dispatch:reservation-recovery-conflict"]
             if replay is not None:
                 return []
             candidate = self._build_receipt(
@@ -1294,9 +1292,7 @@ class AuthorityDispatcher:
                 descriptor=adapter.descriptor,
                 adapter_binding_ref=adapter.binding_ref,
                 authority_decision_ref=reservation.authority_decision_ref,
-                authority_policy_receipt_ref=(
-                    reservation.authority_policy_receipt_ref
-                ),
+                authority_policy_receipt_ref=(reservation.authority_policy_receipt_ref),
                 approval_required=reservation.approval_required,
                 approval_ref=reservation.approval_ref,
                 approval_validation_ref=reservation.approval_validation_ref,
@@ -1418,8 +1414,7 @@ class AuthorityDispatcher:
             )
             if (
                 reservation_state is None
-                or reservation_state["status"]
-                != AuthorityBudgetStatus.reserved.value
+                or reservation_state["status"] != AuthorityBudgetStatus.reserved.value
                 or any(
                     receipt.budget_reservation_ref == reservation.reservation_ref
                     for receipt in dispatch_receipts
@@ -1472,7 +1467,9 @@ class AuthorityDispatcher:
                     adapter.binding_ref if adapter is not None else None
                 ),
                 authority_decision_ref=(
-                    reservation.authority_decision_ref if reservation is not None else None
+                    reservation.authority_decision_ref
+                    if reservation is not None
+                    else None
                 ),
                 authority_policy_receipt_ref=(
                     reservation.authority_policy_receipt_ref
@@ -1484,7 +1481,9 @@ class AuthorityDispatcher:
                     if reservation is not None
                     else bool(adapter and adapter.descriptor.approval_required)
                 ),
-                approval_ref=(reservation.approval_ref if reservation is not None else None),
+                approval_ref=(
+                    reservation.approval_ref if reservation is not None else None
+                ),
                 approval_validation_ref=(
                     reservation.approval_validation_ref
                     if reservation is not None
@@ -1509,7 +1508,9 @@ class AuthorityDispatcher:
         fingerprint: str,
     ) -> AuthorityDispatchResult | None:
         by_dispatch = [
-            receipt for receipt in receipts if receipt.dispatch_ref == request.dispatch_ref
+            receipt
+            for receipt in receipts
+            if receipt.dispatch_ref == request.dispatch_ref
         ]
         by_idempotency = [
             receipt
@@ -1553,7 +1554,9 @@ class AuthorityDispatcher:
         fingerprint: str,
     ) -> list[AuthorityDispatchReceipt]:
         history = [
-            receipt for receipt in receipts if receipt.dispatch_ref == request.dispatch_ref
+            receipt
+            for receipt in receipts
+            if receipt.dispatch_ref == request.dispatch_ref
         ]
         if not history:
             raise KeyError("AUTHORITY_DISPATCH_NOT_PREPARED")
@@ -1803,8 +1806,7 @@ class AuthorityDispatcher:
             )
         if previous.status == AuthorityDispatchStatus.started.value and (
             receipt.execution_ref != previous.execution_ref
-            or receipt.budget_start_receipt_ref
-            != previous.budget_start_receipt_ref
+            or receipt.budget_start_receipt_ref != previous.budget_start_receipt_ref
         ):
             raise AuthorityDispatchCorruptionError(
                 "AUTHORITY_DISPATCH_EXECUTION_BINDING_MISMATCH"

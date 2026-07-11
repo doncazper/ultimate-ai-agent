@@ -45,13 +45,20 @@ explicit allowed posture are required; and the posture is visible in the
 AuthorityState API/JSON CLI read model. The dispatcher now binds exact policy,
 approval, reservation, pre-start receipt, adapter start, settlement/release,
 pre-start cancellation, recovery posture, and safe evidence for explicitly
-injected no-op and filesystem-metadata tool-runtime adapters. It does not yet
-provide mutation API/CLI/Control Center parity, durable mission-step use,
+injected no-op and filesystem-metadata tool-runtime adapters. A fenced,
+append-first safe-ref mission-step ledger and synchronous MissionRunner now
+route one exact filesystem-metadata step through that dispatcher without
+minting authority or automatically retrying. The fenced claim atomically binds
+the dispatch ref and full request fingerprint, and one synchronous pre-execute
+renewal is not a background heartbeat loop. It does not yet provide mutation
+API/CLI/Control Center parity, multi-step scheduling, background execution,
+a periodic/background heartbeat loop, approval waits, retry budgets,
 after-start cancellation, settlement recovery, paid-provider actual usage and
-cost proof, time-window or recipient/target constraints, renewal, reviewed
-unresolved-cost remediation, multi-host storage, or universal legacy-lane
-migration. No provider/model, external spend, shell, browser, connector-write,
-public-release, production, or broad authority is added.
+cost proof, time-window or
+recipient/target constraints, renewal, reviewed unresolved-cost remediation,
+multi-host storage, or universal legacy-lane migration. No provider/model,
+external spend, shell, browser, connector-write, public-release, production, or
+broad authority is added.
 Beta 04 Universal Proof and Run Detail spine now hardens the repo-safe proof
 surface by requiring each backend-owned Universal Proof record to carry a
 `control-center-proof-run-detail.v1` safe-ref snapshot with route, receipt,
