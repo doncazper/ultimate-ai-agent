@@ -199,8 +199,8 @@
         "mobile": "visual-baseline-file:mobile:settings"
       },
       "baseline_hashes": {
-        "desktop": "sha256:7acfe7d221101ecc08af336cd85cee92532a6490f923e3a6dfb76e13aaba4bf3",
-        "mobile": "sha256:e83dd48d505f01fa1f51f15e27f2c075c2a2e85c2baac48c16acc24bbec387c5"
+        "desktop": "sha256:45193a7a5153082dc8ef76fdbd0de18b4801a6cea76cccce661e46bd51214ffe",
+        "mobile": "sha256:f192176e700ade385d2d4670cc5a94d5910def512cb727fee4ae99e1f41f8eb2"
       },
       "raw_private_screenshot_included": false
     },

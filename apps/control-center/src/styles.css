@@ -1317,6 +1317,10 @@ main {
   gap: 12px;
 }
 
+.authority-mission-jobs {
+  margin-top: 16px;
+}
+
 .action-lane-stack {
   display: grid;
   gap: 16px;

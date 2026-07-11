@@ -117,7 +117,10 @@ export function AuthorityMissionInspectionPanel({
           message="The local worker inspection is healthy and has no queued, waiting, retrying, cancelled, or terminal mission jobs to show."
         />
       ) : (
-        <div className="review-list" aria-label="Authority mission jobs">
+        <div
+          className="review-list authority-mission-jobs"
+          aria-label="Authority mission jobs"
+        >
           {readModel.jobs.map((job) => (
             <article className="review-card" key={job.job_safe_ref}>
               <div className="review-card-heading">
