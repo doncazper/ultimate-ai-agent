@@ -12965,7 +12965,9 @@ export interface RuntimeStreamingProgressReadModel {
   snapshot_ref: string;
   snapshot_hash_ref: string;
   route_ref: string;
+  replay_route_ref: string;
   cli_ref: string;
+  replay_cli_ref: string;
   control_center_ref: string;
   runtime_identity_ref: string;
   runtime_run_ref: string;
@@ -12989,7 +12991,15 @@ export interface RuntimeStreamingProgressReadModel {
   event_previews: RuntimeStreamingProgressEventPreview[];
   event_count: number;
   stale_stream: boolean;
+  readonly_sse_replay_enabled: boolean;
+  readonly_sse_replay_source_posture: "deterministic_redacted_preview";
+  readonly_sse_replay_durable_event_source: boolean;
+  readonly_sse_replay_requires_run_ref: boolean;
+  readonly_sse_replay_resume_supported: boolean;
+  readonly_sse_replay_control_messages_accepted: boolean;
+  readonly_sse_replay_mutation_enabled: boolean;
   live_subscription_enabled: boolean;
+  /** Live runtime SSE transport; deterministic bounded preview replay is separate. */
   sse_transport_enabled: boolean;
   websocket_transport_enabled: boolean;
   reconnect_enabled: boolean;

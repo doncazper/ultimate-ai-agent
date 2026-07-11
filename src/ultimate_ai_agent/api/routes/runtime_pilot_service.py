@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from fastapi import APIRouter, FastAPI, Header, Query
+from fastapi.responses import StreamingResponse
 from pydantic import ValidationError
 
 from ultimate_ai_agent.api.route_registration import register_router_once
@@ -83,6 +84,7 @@ from ultimate_ai_agent.core.runtime_gateway import (
     build_runtime_checkpoint_rollback_read_model_from_authority_catalog,
     build_runtime_context_references_read_model_from_authority_catalog,
     command_allowlist_catalog,
+    iter_runtime_streaming_progress_sse_lines,
     verify_runtime_action_signed_evidence,
 )
 from ultimate_ai_agent.core.runtime_gateway.contracts import (
@@ -1141,12 +1143,92 @@ def get_api_runtime_approval_bridge() -> ResultEnvelope:
     )
 
 
-@router.get("/streaming-progress", response_model=ResultEnvelope)
-def get_api_runtime_streaming_progress() -> ResultEnvelope:
+@router.get(
+    "/streaming-progress",
+    response_model=ResultEnvelope,
+    responses={
+        200: {
+            "description": (
+                "JSON posture read model or bounded deterministic redacted "
+                "preview replay as text/event-stream."
+            ),
+            "content": {
+                "text/event-stream": {
+                    "schema": {"type": "string"},
+                }
+            },
+        }
+    },
+)
+def get_api_runtime_streaming_progress(
+    transport: str = Query(default="json", pattern="^(json|sse)$"),
+    run_ref: str | None = Query(default=None, min_length=1, max_length=160),
+    after_sequence: int = Query(default=-1, ge=-1, le=10_000),
+) -> ResultEnvelope | StreamingResponse:
     authority_state = _authority_store().build_state_read_model()
     read_model = build_runtime_streaming_progress_read_model_from_authority_catalog(
         authority_decision_catalog=authority_state.decision_catalog,
     )
+    if transport == "sse":
+        if run_ref is None:
+            return ResultEnvelope(
+                success=False,
+                operation="api_runtime_streaming_progress",
+                service="GovernedRuntimeAPI",
+                trace_id=read_model.snapshot_hash_ref,
+                error=ErrorEnvelope(
+                    code="RUNTIME_STREAMING_PROGRESS_RUN_REF_REQUIRED",
+                    category=ErrorCategory.validation_error,
+                    safe_message=(
+                        "Read-only streaming progress preview replay requires the "
+                        "current deterministic runtime or durable run ref."
+                    ),
+                    severity=Severity.low,
+                    retryable=False,
+                    details_redacted=True,
+                    source="GovernedRuntimeAPI",
+                ),
+                redactions_applied=read_model.redactions_applied,
+            )
+        try:
+            # Materialize the bounded redacted replay before returning the streaming
+            # response so denied run refs stay ordinary error envelopes.
+            stream = tuple(
+                iter_runtime_streaming_progress_sse_lines(
+                    read_model,
+                    run_ref=run_ref,
+                    after_sequence=after_sequence,
+                )
+            )
+        except ValueError:
+            return ResultEnvelope(
+                success=False,
+                operation="api_runtime_streaming_progress",
+                service="GovernedRuntimeAPI",
+                trace_id=read_model.snapshot_hash_ref,
+                error=ErrorEnvelope(
+                    code="RUNTIME_STREAMING_PROGRESS_REPLAY_DENIED",
+                    category=ErrorCategory.validation_error,
+                    safe_message=(
+                        "Read-only streaming progress preview replay is limited to "
+                        "the current deterministic redacted preview refs."
+                    ),
+                    severity=Severity.low,
+                    retryable=False,
+                    details_redacted=True,
+                    source="GovernedRuntimeAPI",
+                ),
+                redactions_applied=read_model.redactions_applied,
+            )
+        return StreamingResponse(
+            stream,
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-store",
+                "X-UAA-Authority": "read-only-sse-replay",
+                "X-UAA-Control-Messages-Accepted": "false",
+            },
+        )
     return ResultEnvelope(
         success=True,
         operation="api_runtime_streaming_progress",

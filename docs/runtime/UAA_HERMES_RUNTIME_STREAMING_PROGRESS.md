@@ -1,14 +1,16 @@
 # UAA Hermes Runtime Streaming Progress
 
-Status: Phase 05 AuthorityState-bound repo-safe read model.
+Status: Phase 05 AuthorityState-bound read model with bounded read-only preview replay.
 
-UAA now exposes a backend-owned runtime streaming progress posture for optional
-Hermes delegation. This is not a live stream subscription, SSE, WebSocket, or
-direct runtime connection. It models ordered, redacted event previews for
-delegated runtime progress with proof refs, event hash refs, stale-stream
-labeling, bounded preview limits, and blocked live-transport refs. The read
-model evaluates as `lane-ref:runtime-streaming-progress-read-model` under the
-Read-only `workspace/read` AuthorityLease decision.
+UAA exposes a backend-owned runtime streaming progress posture for optional
+Hermes delegation. It is not a live runtime subscription, event-ingestion
+transport, WebSocket, or control channel. It models ordered, redacted event
+previews and may serialize that already-built bounded snapshot as local
+read-only `text/event-stream` output. The replay carries proof refs, event hash
+refs, stale-stream labeling, bounded preview limits, and blocked live-transport
+refs. The read model evaluates as
+`lane-ref:runtime-streaming-progress-read-model` under the Read-only
+`workspace/read` AuthorityLease decision.
 
 Implemented:
 
@@ -24,17 +26,27 @@ Implemented:
   decision outcome, reason refs, unsupported adapter refs, and a
   decision-bound snapshot hash.
 - `GET /api/runtime/streaming-progress`.
+- `GET /api/runtime/streaming-progress?transport=sse&run_ref=<safe-ref>` for
+  deterministic preview replay only. It materializes the bounded safe-ref
+  snapshot before returning, accepts no control messages, and supports an
+  explicit `after_sequence` replay cursor.
 - `scripts/dev/uaa_runtime.py inspect-streaming-progress`.
+- CLI replay uses `inspect-streaming-progress --replay-sse` with required
+  `--run-ref <safe-ref>` and optional `--after-sequence N`, through the same
+  Python Core model as `scripts/dev/uaa_runtime.py`.
 - Control Center `/runtime` display of the streaming progress route, CLI,
-  event count, stale status, blocked live subscription, blocked SSE/WebSocket
-  transports, event proof refs, event hash refs, and blocked transport refs.
+  preview-replay route/CLI/source, event count, stale status, blocked live
+  subscription, blocked live SSE/WebSocket transports, event proof refs, event
+  hash refs, and blocked transport refs.
 
 Blocked:
 
-- Live SSE subscription to Hermes or any delegated runtime.
+- Live SSE subscription to Hermes or any delegated runtime. The implemented SSE
+  representation replays deterministic redacted previews only.
 - WebSocket subscription to Hermes or any delegated runtime.
 - Direct Control Center-to-runtime subscription.
-- Reconnect/resume semantics.
+- Live reconnect and durable resume semantics. `after_sequence` only filters the
+  current bounded preview snapshot; it does not reconnect to a runtime.
 - Runtime event ingestion or durable stream storage beyond redacted preview
   contracts.
 - Raw tool payload, raw runtime stream payload, raw generated content, raw log,
@@ -46,11 +58,11 @@ Blocked:
 
 Promotion path:
 
-1. Define an exact read-only loopback or approved transport lane for runtime
-   progress events.
-2. Add bounded event retention with event hash verification and redacted
+1. Define an exact read-only loopback or approved live transport lane for
+   runtime progress events; do not treat preview replay as that lane.
+2. Add durable bounded event retention with event hash verification and redacted
    preview limits.
-3. Define reconnect/resume semantics that degrade stale streams to blocked
+3. Define live reconnect/resume semantics that degrade stale streams to blocked
    inspection rather than fake liveness.
 4. Bind each event to runtime run ref, UAA durable run ref, proof ref,
    receipt/proof spine refs, and redaction status.
