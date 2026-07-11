@@ -25,6 +25,9 @@ from ultimate_ai_agent.core.authority.approval_validation import (
     build_authority_lease_operator_approval_grant,
     validate_authority_lease_approval,
 )
+from ultimate_ai_agent.core.authority.dispatcher import (
+    AuthorityDispatchCorruptionError,
+)
 from ultimate_ai_agent.core.decision_router import prepare_turn
 from ultimate_ai_agent.core.control_center.runtime_parity_loop import (
     build_runtime_parity_loop_read_model,
@@ -32,6 +35,15 @@ from ultimate_ai_agent.core.control_center.runtime_parity_loop import (
 from ultimate_ai_agent.core.execution import (
     build_sample_staged_orchestration_read_model,
 )
+from ultimate_ai_agent.core.execution.durable_mission_steps import (
+    MissionStepCorruptionError,
+)
+from ultimate_ai_agent.core.execution.mission_step_inspection import (
+    MISSION_STEP_INSPECTION_REDACTIONS,
+    MissionStepInspectionNotInitializedError,
+    build_mission_step_inspection_read_model,
+)
+from ultimate_ai_agent.core.planning.validation import validate_task_ref
 from ultimate_ai_agent.core.runtime_gateway import (
     RuntimeGateway,
     HermesChatRequest,
@@ -882,16 +894,108 @@ def get_api_runtime_run_events() -> ResultEnvelope:
 
 
 @router.get("/authority-state", response_model=ResultEnvelope)
-def get_api_runtime_authority_state() -> ResultEnvelope:
+def get_api_runtime_authority_state(
+    mission_step_ref: str | None = Query(default=None, min_length=1, max_length=320),
+) -> ResultEnvelope:
+    if mission_step_ref is not None:
+        try:
+            validate_task_ref(mission_step_ref, "mission_step_inspection_ref")
+        except ValueError:
+            return ResultEnvelope(
+                success=False,
+                operation="api_runtime_authority_state",
+                service="GovernedRuntimeAPI",
+                trace_id="mission-step-inspection-ref:invalid",
+                error=ErrorEnvelope(
+                    code="MISSION_STEP_REF_INVALID",
+                    category=ErrorCategory.validation_error,
+                    safe_message="The mission step ref is invalid.",
+                    severity=Severity.medium,
+                    retryable=False,
+                    details_redacted=True,
+                    source="GovernedRuntimeAPI",
+                ),
+                redactions_applied=list(MISSION_STEP_INSPECTION_REDACTIONS),
+            )
     read_model = _authority_store().build_state_read_model()
+    data = read_model.model_dump(mode="json")
+    evidence = [{"evidence_ref": "evidence-ref:authority-state:v1"}]
+    redactions = list(read_model.redactions_applied)
+    if mission_step_ref is not None:
+        try:
+            inspection = build_mission_step_inspection_read_model(mission_step_ref)
+        except MissionStepInspectionNotInitializedError:
+            return ResultEnvelope(
+                success=False,
+                operation="api_runtime_authority_state",
+                service="GovernedRuntimeAPI",
+                trace_id="mission-step-inspection-ref:not-initialized",
+                error=ErrorEnvelope(
+                    code="MISSION_STEP_INSPECTION_NOT_INITIALIZED",
+                    category=ErrorCategory.not_found,
+                    safe_message="Mission step inspection has not been initialized.",
+                    severity=Severity.low,
+                    retryable=False,
+                    details_redacted=True,
+                    source="GovernedRuntimeAPI",
+                ),
+                redactions_applied=list(MISSION_STEP_INSPECTION_REDACTIONS),
+            )
+        except KeyError:
+            return ResultEnvelope(
+                success=False,
+                operation="api_runtime_authority_state",
+                service="GovernedRuntimeAPI",
+                trace_id="mission-step-inspection-ref:not-found",
+                error=ErrorEnvelope(
+                    code="MISSION_STEP_NOT_FOUND",
+                    category=ErrorCategory.not_found,
+                    safe_message="The requested mission step was not found.",
+                    severity=Severity.medium,
+                    retryable=False,
+                    details_redacted=True,
+                    source="GovernedRuntimeAPI",
+                ),
+                redactions_applied=list(MISSION_STEP_INSPECTION_REDACTIONS),
+            )
+        except (
+            AuthorityDispatchCorruptionError,
+            MissionStepCorruptionError,
+            ValidationError,
+            UnicodeError,
+            OSError,
+            ValueError,
+        ):
+            return ResultEnvelope(
+                success=False,
+                operation="api_runtime_authority_state",
+                service="GovernedRuntimeAPI",
+                trace_id="mission-step-inspection-ref:unavailable",
+                error=ErrorEnvelope(
+                    code="MISSION_STEP_INSPECTION_UNAVAILABLE",
+                    category=ErrorCategory.internal_error,
+                    safe_message=(
+                        "Mission step inspection is unavailable because local "
+                        "state could not be validated."
+                    ),
+                    severity=Severity.high,
+                    retryable=False,
+                    details_redacted=True,
+                    source="GovernedRuntimeAPI",
+                ),
+                redactions_applied=list(MISSION_STEP_INSPECTION_REDACTIONS),
+            )
+        data["mission_step_inspection"] = inspection.model_dump(mode="json")
+        evidence.append({"evidence_ref": inspection.inspection_ref})
+        redactions = list(dict.fromkeys([*redactions, *inspection.redactions_applied]))
     return ResultEnvelope(
         success=True,
         operation="api_runtime_authority_state",
         service="GovernedRuntimeAPI",
         trace_id=read_model.contract_ref,
-        data=read_model.model_dump(mode="json"),
-        evidence=[{"evidence_ref": "evidence-ref:authority-state:v1"}],
-        redactions_applied=read_model.redactions_applied,
+        data=data,
+        evidence=evidence,
+        redactions_applied=redactions,
     )
 
 

@@ -77,6 +77,9 @@ Contract rules:
   posture, receipt kinds, API/CLI/Control Center refs, and active policy
   decision refs. It does not add a new execution route or broaden runtime
   authority.
+  Its optional `mission_step_ref` query returns one exact redacted durable
+  mission-step projection with CLI parity while preserving the existing route,
+  operation ID, local-sensitive classification, and no-execution posture.
   `GET /api/runtime/authority-domain-readiness` exposes the derived
   AuthorityLease domain readiness projection as a focused read-only route with
   one row per target domain, active lease refs, issue-ready mode posture,

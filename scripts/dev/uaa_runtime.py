@@ -13,7 +13,7 @@ from pydantic import ValidationError
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
-
+from scripts.dev import uaa_runtime_mission_step_inspection as _mission_step_cli  # noqa: E402, F401
 from ultimate_ai_agent.core.control_center.runtime_action_bridge import (  # noqa: E402
     build_runtime_action_inbox_bridge_read_model,
 )
@@ -2381,8 +2381,7 @@ def _inspect_authority_lane_catalog(args: argparse.Namespace) -> int:
     print(f"Entries: {read_model['entry_count']}")
     print(f"Status counts: {_authority_counts_summary(read_model['status_counts'])}")
     print(
-        "Blocked reasons: "
-        f"{_authority_ref_summary(read_model['blocked_reason_refs'])}"
+        f"Blocked reasons: {_authority_ref_summary(read_model['blocked_reason_refs'])}"
     )
     print(
         "Unsupported adapters: "
@@ -2404,10 +2403,7 @@ def _inspect_authority_lane_catalog(args: argparse.Namespace) -> int:
             "  active decision: "
             f"{entry['active_decision_outcome']} {entry['active_decision_ref']}"
         )
-        print(
-            "  blocked: "
-            f"{_authority_ref_summary(entry['blocked_reason_refs'])}"
-        )
+        print(f"  blocked: {_authority_ref_summary(entry['blocked_reason_refs'])}")
     return 0
 
 
@@ -2433,8 +2429,7 @@ def _inspect_authority_domain_readiness(args: argparse.Namespace) -> int:
         f"{_authority_counts_summary(read_model['decision_outcome_counts'], read_model['policy_outcomes'])}"
     )
     print(
-        "Blocked reasons: "
-        f"{_authority_ref_summary(read_model['blocked_reason_refs'])}"
+        f"Blocked reasons: {_authority_ref_summary(read_model['blocked_reason_refs'])}"
     )
     print(
         "Unsupported adapters: "
@@ -2451,10 +2446,7 @@ def _inspect_authority_domain_readiness(args: argparse.Namespace) -> int:
             "  outcomes: "
             f"{_authority_counts_summary(entry['decision_outcome_counts'], read_model['policy_outcomes'])}"
         )
-        print(
-            "  issue-ready modes: "
-            f"{', '.join(entry['issue_ready_modes']) or 'none'}"
-        )
+        print(f"  issue-ready modes: {', '.join(entry['issue_ready_modes']) or 'none'}")
         print(
             "  grantable capabilities: "
             f"{', '.join(entry['grantable_capabilities']) or 'none'}"
@@ -2464,8 +2456,7 @@ def _inspect_authority_domain_readiness(args: argparse.Namespace) -> int:
             f"{_authority_ref_summary(entry['unsupported_adapter_refs'])}"
         )
         print(
-            "  blocked reasons: "
-            f"{_authority_ref_summary(entry['blocked_reason_refs'])}"
+            f"  blocked reasons: {_authority_ref_summary(entry['blocked_reason_refs'])}"
         )
     print(f"Unknown authority default: {read_model['unknown_authority_default']}")
     return 0
@@ -2939,9 +2930,11 @@ def _inspect_capability_discovery(args: argparse.Namespace) -> int:
 
 def _inspect_tool_registry(args: argparse.Namespace) -> int:
     authority_state = AuthorityLeaseStore().build_state_read_model()
-    read_model = build_runtime_tool_registry_availability_read_model_from_authority_catalog(
-        authority_decision_catalog=authority_state.decision_catalog,
-    ).model_dump(mode="json")
+    read_model = (
+        build_runtime_tool_registry_availability_read_model_from_authority_catalog(
+            authority_decision_catalog=authority_state.decision_catalog,
+        ).model_dump(mode="json")
+    )
     payload = {
         "schema_version": "governed-runtime-cli:v1",
         "command_ref": "repo-local-command:uaa-runtime-inspect-tool-registry",
@@ -3080,9 +3073,11 @@ def _inspect_prompt_stability_tiers(args: argparse.Namespace) -> int:
 
 def _inspect_context_budget_pressure(args: argparse.Namespace) -> int:
     authority_state = AuthorityLeaseStore().build_state_read_model()
-    read_model = build_runtime_context_budget_pressure_read_model_from_authority_catalog(
-        authority_decision_catalog=authority_state.decision_catalog,
-    ).model_dump(mode="json")
+    read_model = (
+        build_runtime_context_budget_pressure_read_model_from_authority_catalog(
+            authority_decision_catalog=authority_state.decision_catalog,
+        ).model_dump(mode="json")
+    )
     payload = {
         "schema_version": "governed-runtime-cli:v1",
         "command_ref": "repo-local-command:uaa-runtime-inspect-context-budget-pressure",
@@ -3118,9 +3113,11 @@ def _inspect_context_budget_pressure(args: argparse.Namespace) -> int:
 
 def _inspect_hardline_command_blocklist(args: argparse.Namespace) -> int:
     authority_state = AuthorityLeaseStore().build_state_read_model()
-    read_model = build_runtime_hardline_command_blocklist_read_model_from_authority_catalog(
-        authority_decision_catalog=authority_state.decision_catalog,
-    ).model_dump(mode="json")
+    read_model = (
+        build_runtime_hardline_command_blocklist_read_model_from_authority_catalog(
+            authority_decision_catalog=authority_state.decision_catalog,
+        ).model_dump(mode="json")
+    )
     payload = {
         "schema_version": "governed-runtime-cli:v1",
         "command_ref": "repo-local-command:uaa-runtime-inspect-hardline-command-blocklist",

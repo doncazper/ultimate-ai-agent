@@ -1,8 +1,8 @@
 # AuthorityLease Governed Dispatcher V1
 
-Status: implemented Python Core dispatcher plus one synchronous, exact
-filesystem-metadata MissionRunner step; multi-step missions, API, CLI mutation,
-and Control Center integration remain partial or missing
+Status: implemented Python Core dispatcher, one synchronous exact filesystem
+metadata MissionRunner step, and redacted API/CLI step inspection; multi-step
+missions, mutation controls, and Control Center integration remain missing
 
 Date: 2026-07-10
 
@@ -139,6 +139,15 @@ This slice is not a scheduler: it has no background worker, periodic/background
 heartbeat loop, approval wait, automatic retry, after-start cancellation, or
 multi-step execution loop.
 
+Operators can inspect one exact step through the optional `mission_step_ref`
+query on protected `GET /api/runtime/authority-state` or the human-readable
+`inspect-authority-mission-step STEP_REF` CLI command. Both use one backend
+projection that validates the mission and dispatcher ledgers, hashes dynamic
+identity/evidence refs, omits persisted summaries and state paths, and reports
+claim freshness separately from durable status. Inspection performs no adapter
+invocation, mutation, approval or lease minting, retry, reconciliation, or
+request-scoped authority decision.
+
 ## Approval And Budget Binding
 
 Budget reservation now understands AuthorityLease policy outcomes that require
@@ -256,8 +265,8 @@ The dispatcher is not yet the universal route for legacy executable lanes.
 Durable missions still need dependency scheduling, a periodic/background
 heartbeat and lease-renewal loop, approval waits, retry budgets, after-start
 cancellation, settlement recovery, dead-letter handling, boot reconciliation,
-CLI/API/Control Center
-parity, and one end-to-end delegated multi-step mission proof. The runner's one
+mutation API/CLI and Control Center parity, and one end-to-end delegated
+multi-step mission proof. The runner's one
 pre-execute renewal is not an in-flight heartbeat loop. Each future
 adapter must be promoted as an exact descriptor and tested lane; V1 does not
 grant a broad capability class.

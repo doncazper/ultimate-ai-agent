@@ -11,7 +11,7 @@ def build_parser(runtime_symbols: Mapping[str, Any]) -> argparse.ArgumentParser:
         {
             name: value
             for name, value in runtime_symbols.items()
-            if name != "build_parser" and not (name.startswith("__") and name.endswith("__"))
+            if name != "build_parser" and not (name[:2] == name[-2:] == "__")
         }
     )
     parser = argparse.ArgumentParser(
@@ -126,7 +126,7 @@ def build_parser(runtime_symbols: Mapping[str, Any]) -> argparse.ArgumentParser:
         help="Print a compact operator-readable authority summary before detailed refs.",
     )
     authority_state.set_defaults(func=_inspect_authority_state)
-
+    _mission_step_cli.register_parser(subparsers)
     authority_lane_catalog = subparsers.add_parser(
         "inspect-authority-lane-catalog",
         help="Inspect Authority Lane Catalog V1 without execution.",

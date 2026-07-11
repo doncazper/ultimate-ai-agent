@@ -51,7 +51,7 @@ route one exact filesystem-metadata step through that dispatcher without
 minting authority or automatically retrying. The fenced claim atomically binds
 the dispatch ref and full request fingerprint, and one synchronous pre-execute
 renewal is not a background heartbeat loop. It does not yet provide mutation
-API/CLI/Control Center parity, multi-step scheduling, background execution,
+API/CLI or Control Center parity, multi-step scheduling, background execution,
 a periodic/background heartbeat loop, approval waits, retry budgets,
 after-start cancellation, settlement recovery, paid-provider actual usage and
 cost proof, time-window or
@@ -59,6 +59,10 @@ recipient/target constraints, renewal, reviewed unresolved-cost remediation,
 multi-host storage, or universal legacy-lane migration. No provider/model,
 external spend, shell, browser, connector-write, public-release, production, or
 broad authority is added.
+One exact mission step is now inspectable through the existing protected
+AuthorityState route and a human-readable CLI command. The shared projection
+hashes dynamic refs, validates both durable ledgers, distinguishes expired from
+active claims, and cannot execute, mutate, mint authority, retry, or reconcile.
 Beta 04 Universal Proof and Run Detail spine now hardens the repo-safe proof
 surface by requiring each backend-owned Universal Proof record to carry a
 `control-center-proof-run-detail.v1` safe-ref snapshot with route, receipt,
