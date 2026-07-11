@@ -511,10 +511,16 @@ receipts are fsync-backed, hash-chained, full-history replay and semantic
 transition checked, redacted, and included in the AuthorityState read model. See
 `docs/runtime/UAA_AUTHORITY_LEASE_BUDGET_LEDGER.md`.
 
-This counter boundary is not yet wired to every executable adapter. A central
-dispatcher must still bind policy, exact approval where required, reservation,
-adapter start, settlement/release, cancellation, and evidence before a runtime
-lane can claim end-to-end budget governance. Typed time windows,
+This counter boundary is not yet wired to every executable adapter.
+`AuthorityDispatcher` now binds policy, exact approval where required,
+reservation, durable adapter start, settlement/release, pre-start cancellation,
+and evidence for explicitly injected safe tool adapters. It rechecks lease,
+kill switch, approval revocation, budget, and adapter identity immediately
+before start and exposes crash recovery without replaying a started adapter.
+See `docs/runtime/UAA_AUTHORITY_DISPATCHER_V1.md`.
+
+Legacy executable lanes, durable mission steps, after-start cancellation,
+settlement recovery, paid-provider actual usage proof, typed time windows,
 recipient/target binding, renewal, reviewed unresolved-cost remediation, and
 Control Center budget operations remain unimplemented.
 

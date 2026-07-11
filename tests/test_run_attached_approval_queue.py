@@ -378,7 +378,7 @@ def test_persist_failure_keeps_approval_visible_from_durable_receipt(
     assert queue["queue_items"][0]["durable_attachment_status"] == "attached"
 
 
-def test_durable_write_failure_restores_visible_grant_on_revoke(
+def test_durable_write_failure_keeps_revocation_monotonic(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -406,14 +406,67 @@ def test_durable_write_failure_restores_visible_grant_on_revoke(
         service.revoke_approval(
             TaskDecompositionApprovalRevokeRequest(
                 approval_ref=grant.approval_ref,
-                reason="Durable failure should restore prior grant.",
+                reason="Durable failure must not reactivate authority.",
             )
         )
 
     persisted = service.registry_store.load_approval_state()
     visible_grants = service.approval_queue()["grants"]
-    assert [saved.status for saved in persisted.grants] == ["granted"]
-    assert [saved["status"] for saved in visible_grants] == ["granted"]
+    assert [saved.status for saved in persisted.grants] == ["revoked"]
+    assert [saved["status"] for saved in visible_grants] == ["revoked"]
+
+    restarted = TaskDecompositionService(registry_store=service.registry_store)
+    restarted_grants = restarted.approval_queue()["grants"]
+    assert [saved["status"] for saved in restarted_grants] == ["revoked"]
+
+
+def test_primary_approval_state_failure_replays_revocation_tombstone(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = _service(tmp_path)
+    request = service.build_approval_request(
+        TaskCapabilityApprovalRequestPayload(
+            capability_id="capability:example-echo-summary",
+            run_id="task-decomposition-run:approval-revoke-save-failure",
+            actor_id="local_actor",
+        )
+    )
+    grant = service.grant_approval(
+        TaskDecompositionApprovalGrantRequest(
+            approval_request_id=request.approval_request_id,
+            approved_by_actor_id="local_reviewer",
+        )
+    )
+    raw_reason = "operator supplied /Users/example/.secret-token"
+
+    def fail_save_approval_state(*_args: object, **_kwargs: object) -> None:
+        raise RuntimeError("approval state save failed")
+
+    monkeypatch.setattr(
+        service.registry_store,
+        "save_approval_state",
+        fail_save_approval_state,
+    )
+
+    with pytest.raises(RuntimeError, match="approval state save failed"):
+        service.revoke_approval(
+            TaskDecompositionApprovalRevokeRequest(
+                approval_ref=grant.approval_ref,
+                reason=raw_reason,
+            )
+        )
+
+    assert service.approval_queue()["grants"][0]["status"] == "revoked"
+    tombstone_payload = service.registry_store.approval_revocations_path.read_text(
+        encoding="utf-8"
+    )
+    assert raw_reason not in tombstone_payload
+    assert "/Users/" not in tombstone_payload
+
+    restarted = TaskDecompositionService(registry_store=service.registry_store)
+    restarted_grants = restarted.approval_queue()["grants"]
+    assert [saved["status"] for saved in restarted_grants] == ["revoked"]
 
 
 def test_invalid_approval_run_id_uses_one_durable_run_ref(tmp_path: Path) -> None:

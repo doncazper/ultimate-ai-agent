@@ -1,3 +1,5 @@
+import pytest
+
 from tests.m85_helpers import approval_request
 from ultimate_ai_agent.core.approvals import ApprovalDecisionStatus, LocalApprovalAuthority
 
@@ -6,15 +8,18 @@ def test_grant_cannot_approve_broader_scope_than_request() -> None:
     authority = LocalApprovalAuthority()
     request = authority.create_request(approval_request(resource_refs=["cloud_reasoner"]))
 
-    grant = authority.grant(
-        request.approval_request_id,
-        approved_by_actor_id="human_reviewer",
-        approved_actions=["route_cloud_model", "delete"],
-        approved_resource_refs=["cloud_reasoner", "other_resource"],
-    )
-
-    assert grant.approved_actions == ["route_cloud_model"]
-    assert grant.approved_resource_refs == ["cloud_reasoner"]
+    with pytest.raises(ValueError, match="APPROVAL_ACTION_SCOPE_INVALID"):
+        authority.grant(
+            request.approval_request_id,
+            approved_by_actor_id="human_reviewer",
+            approved_actions=["route_cloud_model", "delete"],
+        )
+    with pytest.raises(ValueError, match="APPROVAL_RESOURCE_SCOPE_INVALID"):
+        authority.grant(
+            request.approval_request_id,
+            approved_by_actor_id="human_reviewer",
+            approved_resource_refs=["cloud_reasoner", "other_resource"],
+        )
 
 
 def test_validation_rejects_ungranted_extra_resource() -> None:

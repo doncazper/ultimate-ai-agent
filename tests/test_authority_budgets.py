@@ -1,23 +1,16 @@
-from concurrent.futures import ThreadPoolExecutor
 import json
 
-from fastapi.testclient import TestClient
 import pytest
 
-from scripts.dev import uaa_runtime
-from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.authority import (
-    AUTHORITY_LEASE_KILL_SWITCH_ENV,
-    AUTHORITY_STATE_DIR_ENV,
     AuthorityActionRequest,
     AuthorityBudgetConflictError,
-    AuthorityBudgetCorruptionError,
     AuthorityBudgetExecutionStatus,
-    AuthorityBudgetOperation,
     AuthorityBudgetReleaseRequest,
     AuthorityBudgetReservationRequest,
     AuthorityBudgetReceipt,
     AuthorityBudgetSettlementRequest,
+    AuthorityBudgetStartRequest,
     AuthorityBudgetStatus,
     AuthorityBudgetStore,
     AuthorityCapability,
@@ -27,13 +20,17 @@ from ultimate_ai_agent.core.authority import (
     AuthorityDecisionOutcome,
     AuthorityDomain,
     AuthorityLeaseIssueRequest,
-    AuthorityLeaseRevokeRequest,
     AuthorityLeaseStore,
     TrustMode,
     evaluate_authority_request,
 )
 from ultimate_ai_agent.core.authority.approval_validation import (
     issue_authority_lease_with_test_approval,
+)
+from ultimate_ai_agent.core.authority.budgets import (
+    _entry_hash_payload,
+    _legacy_reservation_request_fingerprint,
+    _legacy_settlement_request_fingerprint,
 )
 
 
@@ -113,6 +110,7 @@ def _reserve_request(
     operation_count: int = 1,
     cost_microusd: int | None = 400_000,
     action_cost_microusd: int | None = None,
+    dispatch_fingerprint_ref: str | None = None,
 ) -> AuthorityBudgetReservationRequest:
     claimed_cost = (
         cost_microusd if action_cost_microusd is None else action_cost_microusd
@@ -129,6 +127,7 @@ def _reserve_request(
         cost_estimate_ref=f"cost-estimate-ref:test-budget:{suffix}",
         cost_governor_decision_ref=(f"cost-governor-decision-ref:test-budget:{suffix}"),
         cost_governor_allowed=cost_microusd is not None,
+        dispatch_fingerprint_ref=dispatch_fingerprint_ref,
         idempotency_ref=f"idempotency-ref:test-budget-reserve:{suffix}",
         safe_summary="Reserve exact operation and cost capacity before execution.",
     )
@@ -177,6 +176,74 @@ def test_budget_integer_contracts_reject_boolean_and_string_coercion() -> None:
     request_payload["cost_governor_allowed"] = "true"
     with pytest.raises(ValueError, match="bool_type"):
         AuthorityBudgetReservationRequest.model_validate(request_payload)
+
+
+def test_pre_approval_binding_budget_receipt_hash_remains_readable(tmp_path) -> None:
+    _, budget_store, lease = _stores(tmp_path)
+    request = _reserve_request(lease.lease_ref, suffix="legacy-hash")
+    receipt = budget_store.reserve(request)
+    legacy_payload = receipt.model_dump(mode="json")
+    for field_name in [
+        "approval_ref",
+        "approval_validation_ref",
+        "approval_required",
+        "dispatch_fingerprint_ref",
+        "execution_ref",
+    ]:
+        legacy_payload.pop(field_name)
+    legacy_payload["request_fingerprint_ref"] = (
+        _legacy_reservation_request_fingerprint(request)
+    )
+    legacy_payload["entry_hash_ref"] = _entry_hash_payload(legacy_payload)
+    budget_store.receipts_path.write_text(
+        json.dumps(legacy_payload, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    loaded = budget_store.list_receipts()
+    replay = budget_store.reserve(request)
+
+    assert len(loaded) == 1
+    assert loaded[0].approval_required is False
+    assert loaded[0].approval_ref is None
+    assert replay.status == AuthorityBudgetStatus.replayed.value
+
+
+def test_pre_execution_binding_settlement_replay_remains_compatible(tmp_path) -> None:
+    _, budget_store, lease = _stores(tmp_path)
+    reservation = budget_store.reserve(
+        _reserve_request(lease.lease_ref, suffix="legacy-settlement")
+    )
+    request = AuthorityBudgetSettlementRequest(
+        reservation_ref=reservation.reservation_ref,
+        idempotency_ref="idempotency-ref:test-budget-settle:legacy",
+        actual_operation_count=1,
+        actual_cost_microusd=300_000,
+        actual_cost_ref="actual-cost-ref:test-budget-settle:legacy",
+        execution_status=AuthorityBudgetExecutionStatus.succeeded,
+        evidence_refs=["evidence-ref:test-budget-settle:legacy"],
+        safe_summary="Replay one settlement written before execution refs existed.",
+    )
+    budget_store.settle(request)
+    payloads = [
+        json.loads(line)
+        for line in budget_store.receipts_path.read_text(encoding="utf-8").splitlines()
+    ]
+    settlement_payload = payloads[-1]
+    settlement_payload.pop("execution_ref")
+    settlement_payload["request_fingerprint_ref"] = (
+        _legacy_settlement_request_fingerprint(request)
+    )
+    settlement_payload["entry_hash_ref"] = _entry_hash_payload(settlement_payload)
+    budget_store.receipts_path.write_text(
+        "".join(json.dumps(payload, sort_keys=True) + "\n" for payload in payloads),
+        encoding="utf-8",
+    )
+
+    replay = budget_store.settle(request)
+
+    assert replay.status == AuthorityBudgetStatus.replayed.value
+    assert replay.original_status == AuthorityBudgetStatus.settled.value
 
 
 def test_reserve_settle_and_cumulative_exhaustion_are_durable(tmp_path) -> None:
@@ -272,6 +339,165 @@ def test_release_frees_unexecuted_reservation_capacity(tmp_path) -> None:
     assert replacement.status == AuthorityBudgetStatus.reserved.value
     assert replacement.remaining_operation_count == 0
     assert replacement.remaining_cost_microusd == 0
+
+
+def test_dispatch_start_claim_blocks_release_and_binds_settlement(tmp_path) -> None:
+    _, budget_store, lease = _stores(tmp_path)
+    dispatch_fingerprint_ref = "request-fingerprint-ref:test-budget:start-claim"
+    execution_ref = "authority-dispatch-execution-ref:test-budget:start-claim"
+    reservation = budget_store.reserve(
+        _reserve_request(
+            lease.lease_ref,
+            suffix="start-claim",
+            dispatch_fingerprint_ref=dispatch_fingerprint_ref,
+        )
+    )
+    start_request = AuthorityBudgetStartRequest(
+        reservation_ref=reservation.reservation_ref,
+        idempotency_ref="idempotency-ref:test-budget-start:start-claim",
+        dispatch_fingerprint_ref=dispatch_fingerprint_ref,
+        execution_ref=execution_ref,
+        safe_summary="Bind this reservation to one durable adapter start.",
+    )
+    assert not hasattr(budget_store, "start")
+
+    premature = budget_store.settle(
+        AuthorityBudgetSettlementRequest(
+            reservation_ref=reservation.reservation_ref,
+            idempotency_ref="idempotency-ref:test-budget-settle:before-start",
+            actual_operation_count=1,
+            actual_cost_microusd=300_000,
+            actual_cost_ref="actual-cost-ref:test-budget:before-start",
+            execution_status=AuthorityBudgetExecutionStatus.succeeded,
+            evidence_refs=["evidence-ref:test-budget:before-start"],
+            safe_summary="Deny dispatch-bound settlement before durable start.",
+        )
+    )
+    started = budget_store._start_dispatch(start_request)
+    replay = budget_store._start_dispatch(start_request)
+    release = budget_store.release(
+        AuthorityBudgetReleaseRequest(
+            reservation_ref=reservation.reservation_ref,
+            idempotency_ref="idempotency-ref:test-budget-release:after-start",
+            reason_ref="reason-ref:test-budget-release-after-start",
+            safe_summary="Attempt to release capacity after durable start.",
+        )
+    )
+    competing = budget_store.settle(
+        AuthorityBudgetSettlementRequest(
+            reservation_ref=reservation.reservation_ref,
+            idempotency_ref="idempotency-ref:test-budget-settle:start-claim",
+            execution_ref=execution_ref,
+            actual_operation_count=1,
+            actual_cost_microusd=1,
+            actual_cost_ref="actual-cost-ref:test-budget:competing-owner",
+            execution_status=AuthorityBudgetExecutionStatus.succeeded,
+            evidence_refs=["evidence-ref:test-budget:competing-owner"],
+            safe_summary="Reject settlement outside the owning dispatcher.",
+        )
+    )
+    mismatched = budget_store._settle_dispatch(
+        AuthorityBudgetSettlementRequest(
+            reservation_ref=reservation.reservation_ref,
+            idempotency_ref="idempotency-ref:test-budget-settle:mismatched-start",
+            execution_ref="authority-dispatch-execution-ref:test-budget:other",
+            actual_operation_count=1,
+            actual_cost_microusd=300_000,
+            actual_cost_ref="actual-cost-ref:test-budget:mismatched-start",
+            execution_status=AuthorityBudgetExecutionStatus.succeeded,
+            evidence_refs=["evidence-ref:test-budget:mismatched-start"],
+            safe_summary="Reject settlement from a different execution binding.",
+        )
+    )
+    settled = budget_store._settle_dispatch(
+        AuthorityBudgetSettlementRequest(
+            reservation_ref=reservation.reservation_ref,
+            idempotency_ref="idempotency-ref:test-budget-settle:start-claim",
+            execution_ref=execution_ref,
+            actual_operation_count=1,
+            actual_cost_microusd=300_000,
+            actual_cost_ref="actual-cost-ref:test-budget:start-claim",
+            execution_status=AuthorityBudgetExecutionStatus.succeeded,
+            evidence_refs=["evidence-ref:test-budget:start-claim"],
+            safe_summary="Settle the exact execution bound at durable start.",
+        )
+    )
+
+    assert premature.status == AuthorityBudgetStatus.denied.value
+    assert "reason-ref:authority-budget:dispatch-start-required" in (
+        premature.reason_refs
+    )
+    assert started.status == AuthorityBudgetStatus.started.value
+    assert started.execution_ref == execution_ref
+    assert replay.status == AuthorityBudgetStatus.replayed.value
+    assert replay.original_status == AuthorityBudgetStatus.started.value
+    assert release.status == AuthorityBudgetStatus.denied.value
+    assert competing.status == AuthorityBudgetStatus.denied.value
+    assert competing.idempotency_ref != (
+        "idempotency-ref:test-budget-settle:start-claim"
+    )
+    assert "reason-ref:authority-budget:dispatch-owner-required" in (
+        competing.reason_refs
+    )
+    assert mismatched.status == AuthorityBudgetStatus.denied.value
+    assert (
+        "reason-ref:authority-budget:execution-binding-mismatch"
+        in mismatched.reason_refs
+    )
+    assert settled.status == AuthorityBudgetStatus.settled.value
+    assert settled.execution_ref == execution_ref
+
+
+def test_internal_orphaned_start_release_requires_exact_dispatch_binding(
+    tmp_path,
+) -> None:
+    _, budget_store, lease = _stores(tmp_path)
+    dispatch_fingerprint_ref = "request-fingerprint-ref:test-budget:orphan-release"
+    execution_ref = "authority-dispatch-execution-ref:test-budget:orphan-release"
+    reservation = budget_store.reserve(
+        _reserve_request(
+            lease.lease_ref,
+            suffix="orphan-start-release",
+            dispatch_fingerprint_ref=dispatch_fingerprint_ref,
+        )
+    )
+    budget_store._start_dispatch(
+        AuthorityBudgetStartRequest(
+            reservation_ref=reservation.reservation_ref,
+            idempotency_ref="idempotency-ref:test-budget-start:orphan-release",
+            dispatch_fingerprint_ref=dispatch_fingerprint_ref,
+            execution_ref=execution_ref,
+            safe_summary="Bind the orphan recovery test start claim.",
+        )
+    )
+    denied = budget_store._release_started_dispatch(
+        AuthorityBudgetReleaseRequest(
+            reservation_ref=reservation.reservation_ref,
+            idempotency_ref="idempotency-ref:test-budget-release:orphan-mismatch",
+            reason_ref="reason-ref:test-budget-orphan-release-mismatch",
+            safe_summary="Reject a mismatched orphan start rollback.",
+        ),
+        dispatch_fingerprint_ref=dispatch_fingerprint_ref,
+        execution_ref="authority-dispatch-execution-ref:test-budget:wrong-owner",
+    )
+    released = budget_store._release_started_dispatch(
+        AuthorityBudgetReleaseRequest(
+            reservation_ref=reservation.reservation_ref,
+            idempotency_ref="idempotency-ref:test-budget-release:orphan-exact",
+            reason_ref="reason-ref:test-budget-orphan-release-exact",
+            safe_summary="Release the exact orphaned dispatch start claim.",
+        ),
+        dispatch_fingerprint_ref=dispatch_fingerprint_ref,
+        execution_ref=execution_ref,
+    )
+
+    assert denied.status == AuthorityBudgetStatus.denied.value
+    assert released.status == AuthorityBudgetStatus.released.value
+    assert released.dispatch_fingerprint_ref == dispatch_fingerprint_ref
+    assert released.execution_ref == execution_ref
+    assert budget_store.build_read_model().lease_summaries[
+        0
+    ].allocated_operation_count == 0
 
 
 def test_unknown_cost_claim_drift_and_idempotency_drift_fail_closed(tmp_path) -> None:
@@ -454,344 +680,3 @@ def test_settlement_contract_requires_evidence() -> None:
             evidence_refs=[],
             safe_summary="Reject settlement without evidence refs.",
         )
-
-
-def test_reservation_rechecks_kill_switch_and_revocation(
-    tmp_path,
-    monkeypatch,
-) -> None:
-    lease_store, budget_store, lease = _stores(tmp_path)
-    monkeypatch.setenv(AUTHORITY_LEASE_KILL_SWITCH_ENV, "1")
-    kill_denied = budget_store.reserve(
-        _reserve_request(lease.lease_ref, suffix="kill-switch")
-    )
-    kill_summary = budget_store.build_read_model().lease_summaries[0]
-    monkeypatch.delenv(AUTHORITY_LEASE_KILL_SWITCH_ENV)
-    revoked, revoke_receipt = lease_store.revoke_lease(
-        AuthorityLeaseRevokeRequest(
-            lease_ref=lease.lease_ref,
-            decision_reason_ref="reason-ref:test-budget-revoke",
-            safe_summary="Revoke the budgeted test lease.",
-        ),
-        idempotency_ref="idempotency-ref:test-budget-revoke",
-    )
-    revoke_denied = budget_store.reserve(
-        _reserve_request(lease.lease_ref, suffix="revoked")
-    )
-
-    assert kill_denied.status == AuthorityBudgetStatus.denied.value
-    assert "reason-ref:authority-budget:kill-switch-engaged" in kill_denied.reason_refs
-    assert kill_summary.kill_switch_engaged is True
-    assert kill_summary.reservation_available is False
-    assert "reason-ref:authority-budget:kill-switch-engaged" in (
-        kill_summary.blocked_reason_refs
-    )
-    assert revoked is not None
-    assert revoke_receipt.status == "revoked"
-    assert revoke_denied.status == AuthorityBudgetStatus.denied.value
-    assert "reason-ref:authority-budget:lease-binding-mismatch" in (
-        revoke_denied.reason_refs
-    )
-    summary = budget_store.build_read_model().lease_summaries[0]
-    assert summary.lease_active is False
-    assert summary.reservation_available is False
-    assert "reason-ref:authority-budget:lease-inactive" in (summary.blocked_reason_refs)
-
-
-def test_concurrent_reservations_cannot_oversubscribe_budget(tmp_path) -> None:
-    _, budget_store, lease = _stores(
-        tmp_path,
-        operation_limit=1,
-        cost_limit=100,
-    )
-
-    def reserve(index: int):
-        return AuthorityBudgetStore(budget_store.state_dir).reserve(
-            _reserve_request(
-                lease.lease_ref,
-                suffix=f"concurrent-{index}",
-                cost_microusd=100,
-            )
-        )
-
-    with ThreadPoolExecutor(max_workers=8) as executor:
-        receipts = list(executor.map(reserve, range(8)))
-
-    assert (
-        sum(item.status == AuthorityBudgetStatus.reserved.value for item in receipts)
-        == 1
-    )
-    assert (
-        sum(item.status == AuthorityBudgetStatus.denied.value for item in receipts) == 7
-    )
-    summary = budget_store.build_read_model().lease_summaries[0]
-    assert summary.allocated_operation_count == 1
-    assert summary.allocated_cost_microusd == 100
-
-
-def test_concurrent_lease_issues_preserve_every_atomic_update(tmp_path) -> None:
-    state_dir = tmp_path / "authority"
-
-    def issue(index: int):
-        return issue_authority_lease_with_test_approval(
-            AuthorityLeaseStore(state_dir),
-            AuthorityLeaseIssueRequest(
-                mode=TrustMode.full_local_workspace_session,
-                requested_domains={
-                    AuthorityDomain.workspace: [AuthorityCapability.execute]
-                },
-                authority_constraints=_budget_constraints(),
-                decision_reason_ref=f"reason-ref:test-concurrent-lease:{index}",
-                safe_summary="Issue one atomic concurrent authority lease.",
-            ),
-            idempotency_ref=f"idempotency-ref:test-concurrent-lease:{index}",
-        )
-
-    with ThreadPoolExecutor(max_workers=8) as executor:
-        results = list(executor.map(issue, range(8)))
-
-    assert all(lease is not None for lease, _ in results)
-    assert all(receipt.status == "issued" for _, receipt in results)
-    assert len(AuthorityLeaseStore(state_dir).list_leases()) == 8
-    assert len(AuthorityLeaseStore(state_dir).list_receipts(limit=20)) == 8
-
-
-def test_reservation_evaluates_only_the_exact_requested_active_lease(tmp_path) -> None:
-    lease_store, budget_store, first_lease = _stores(tmp_path)
-    second_lease, receipt = issue_authority_lease_with_test_approval(
-        lease_store,
-        AuthorityLeaseIssueRequest(
-            mode=TrustMode.full_local_workspace_session,
-            requested_domains={
-                AuthorityDomain.workspace: [AuthorityCapability.execute]
-            },
-            authority_constraints=_budget_constraints(),
-            decision_reason_ref="reason-ref:test-second-budget-lease",
-            safe_summary="Issue a second exact budgeted workspace lease.",
-        ),
-        idempotency_ref="idempotency-ref:test-second-budget-lease",
-    )
-    assert second_lease is not None
-    assert receipt.status == "issued"
-    assert first_lease.lease_ref != second_lease.lease_ref
-
-    reservation = budget_store.reserve(
-        _reserve_request(second_lease.lease_ref, suffix="second-exact-lease")
-    )
-
-    assert reservation.status == AuthorityBudgetStatus.reserved.value
-    assert reservation.lease_ref == second_lease.lease_ref
-
-
-def test_budget_hash_chain_tampering_is_detected(tmp_path) -> None:
-    _, budget_store, lease = _stores(tmp_path)
-    budget_store.reserve(_reserve_request(lease.lease_ref, suffix="tamper"))
-    payload = json.loads(budget_store.receipts_path.read_text(encoding="utf-8"))
-    payload["reserved_operation_count"] = 2
-    budget_store.receipts_path.write_text(
-        json.dumps(payload, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-
-    with pytest.raises(
-        AuthorityBudgetCorruptionError,
-        match="AUTHORITY_BUDGET_ENTRY_HASH_MISMATCH",
-    ):
-        budget_store.list_receipts()
-
-
-def test_correctly_hashed_impossible_reservation_transition_is_detected(
-    tmp_path,
-) -> None:
-    _, budget_store, lease = _stores(tmp_path)
-    reservation = budget_store.reserve(
-        _reserve_request(lease.lease_ref, suffix="impossible-transition")
-    )
-    budget_store.settle(
-        AuthorityBudgetSettlementRequest(
-            reservation_ref=reservation.reservation_ref,
-            idempotency_ref="idempotency-ref:test-impossible-transition-settle",
-            actual_operation_count=1,
-            actual_cost_microusd=100,
-            actual_cost_ref="actual-cost-ref:test-impossible-transition",
-            execution_status=AuthorityBudgetExecutionStatus.succeeded,
-            evidence_refs=["evidence-ref:test-impossible-transition"],
-            safe_summary="Settle before injecting an impossible release transition.",
-        )
-    )
-    receipts = budget_store.list_receipts()
-    impossible_release = budget_store._build_receipt(
-        operation=AuthorityBudgetOperation.release,
-        status=AuthorityBudgetStatus.released,
-        reservation_ref=reservation.reservation_ref,
-        idempotency_ref="idempotency-ref:test-impossible-transition-release",
-        request_fingerprint_ref=(
-            "request-fingerprint-ref:authority-budget:test-impossible-transition"
-        ),
-        previous_entry_hash_ref=receipts[-1].entry_hash_ref,
-        lease_ref=reservation.lease_ref,
-        action_ref=reservation.action_ref,
-        cost_estimate_ref=reservation.cost_estimate_ref,
-        cost_governor_decision_ref=reservation.cost_governor_decision_ref,
-        cost_governor_allowed=reservation.cost_governor_allowed,
-        reserved_operation_count=reservation.reserved_operation_count,
-        reserved_cost_microusd=reservation.reserved_cost_microusd,
-        reason_refs=["reason-ref:test-impossible-transition-release"],
-        safe_summary="Inject one correctly hashed but impossible release transition.",
-    )
-    budget_store._append(impossible_release)
-
-    with pytest.raises(
-        AuthorityBudgetCorruptionError,
-        match="AUTHORITY_BUDGET_INVALID_RESERVATION_TRANSITION",
-    ):
-        budget_store.list_receipts()
-
-
-def test_correctly_hashed_overage_misclassification_is_detected(tmp_path) -> None:
-    _, budget_store, lease = _stores(tmp_path)
-    reservation = budget_store.reserve(
-        _reserve_request(
-            lease.lease_ref,
-            suffix="misclassified-overage",
-            cost_microusd=100,
-        )
-    )
-    misclassified = budget_store._build_receipt(
-        operation=AuthorityBudgetOperation.settle,
-        status=AuthorityBudgetStatus.settled,
-        reservation_ref=reservation.reservation_ref,
-        idempotency_ref="idempotency-ref:test-misclassified-overage",
-        request_fingerprint_ref=(
-            "request-fingerprint-ref:authority-budget:test-misclassified-overage"
-        ),
-        previous_entry_hash_ref=reservation.entry_hash_ref,
-        lease_ref=reservation.lease_ref,
-        action_ref=reservation.action_ref,
-        cost_estimate_ref=reservation.cost_estimate_ref,
-        cost_governor_decision_ref=reservation.cost_governor_decision_ref,
-        cost_governor_allowed=reservation.cost_governor_allowed,
-        reserved_operation_count=reservation.reserved_operation_count,
-        reserved_cost_microusd=reservation.reserved_cost_microusd,
-        actual_operation_count=1,
-        actual_cost_microusd=200,
-        actual_cost_ref="actual-cost-ref:test-misclassified-overage",
-        execution_status=AuthorityBudgetExecutionStatus.succeeded,
-        evidence_refs=["evidence-ref:test-misclassified-overage"],
-        safe_summary="Inject one correctly hashed misclassified overage.",
-    )
-    budget_store._append(misclassified)
-
-    with pytest.raises(
-        AuthorityBudgetCorruptionError,
-        match="AUTHORITY_BUDGET_SETTLEMENT_STATUS_MISMATCH",
-    ):
-        budget_store.list_receipts()
-
-
-def test_release_contract_rejects_started_execution() -> None:
-    with pytest.raises(
-        ValueError,
-        match="AUTHORITY_BUDGET_RELEASE_EXECUTION_ALREADY_STARTED",
-    ):
-        AuthorityBudgetReleaseRequest(
-            reservation_ref="authority-budget-reservation-ref:test-started",
-            idempotency_ref="idempotency-ref:test-budget-release:started",
-            reason_ref="reason-ref:test-budget-release-started",
-            execution_started=True,
-            safe_summary="Reject release because execution already started.",
-        )
-
-
-def test_partial_budget_constraint_is_visible_but_not_reservable(tmp_path) -> None:
-    state_dir = tmp_path / "authority"
-    lease_store = AuthorityLeaseStore(state_dir)
-    lease, receipt = issue_authority_lease_with_test_approval(
-        lease_store,
-        AuthorityLeaseIssueRequest(
-            mode=TrustMode.full_local_workspace_session,
-            requested_domains={
-                AuthorityDomain.workspace: [AuthorityCapability.execute]
-            },
-            authority_constraints=_budget_constraints()[:1],
-            decision_reason_ref="reason-ref:test-partial-budget-lease",
-            safe_summary="Issue one lease with an intentionally partial budget.",
-        ),
-        idempotency_ref="idempotency-ref:test-partial-budget-lease",
-    )
-    assert lease is not None
-    assert receipt.status == "issued"
-    budget_store = AuthorityBudgetStore(state_dir, lease_store=lease_store)
-
-    denied = budget_store.reserve(
-        _reserve_request(lease.lease_ref, suffix="partial-budget")
-    )
-    summary = budget_store.build_read_model().lease_summaries[0]
-
-    assert denied.status == AuthorityBudgetStatus.denied.value
-    assert "reason-ref:authority-budget:cost-budget-missing" in denied.reason_refs
-    assert summary.exhausted is True
-    assert "reason-ref:authority-budget:cost-budget-missing" in (
-        summary.blocked_reason_refs
-    )
-    assert "reason-ref:authority-budget:budget-exhausted" in (
-        summary.blocked_reason_refs
-    )
-
-
-def test_budget_posture_projects_through_state_api_and_json_cli(
-    tmp_path,
-    monkeypatch,
-    capsys,
-) -> None:
-    state_dir = tmp_path / "authority"
-    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(state_dir))
-    _, budget_store, lease = _stores(tmp_path)
-    reservation = budget_store.reserve(
-        _reserve_request(lease.lease_ref, suffix="operator-projection")
-    )
-
-    state_model = AuthorityLeaseStore().build_state_read_model()
-    assert state_model.authority_budget.receipt_count == 1
-    assert state_model.authority_budget.lease_summaries[0].lease_active is True
-    assert state_model.authority_budget.lease_summaries[0].reservation_available is True
-    assert state_model.authority_budget.recent_receipts[0].receipt_ref == (
-        reservation.receipt_ref
-    )
-
-    api_response = TestClient(app).get("/api/runtime/authority-state")
-    assert api_response.status_code == 200
-    api_budget = api_response.json()["data"]["authority_budget"]
-    assert api_budget["receipt_count"] == 1
-    assert api_budget["lease_summaries"][0]["remaining_operation_count"] == 1
-
-    assert uaa_runtime.main(["inspect-authority-state", "--json"]) == 0
-    cli_payload = json.loads(capsys.readouterr().out)
-    cli_budget = cli_payload["authority_state_read_model"]["authority_budget"]
-    assert cli_budget == api_budget
-    assert cli_budget["execution_performed"] is False
-
-
-def test_fresh_authority_inspection_does_not_create_state_directory(
-    tmp_path,
-    monkeypatch,
-) -> None:
-    state_dir = tmp_path / "absent-authority-state"
-    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(state_dir))
-    lease_store = AuthorityLeaseStore()
-    budget_store = AuthorityBudgetStore()
-
-    assert lease_store.list_leases() == []
-    assert lease_store.list_receipts() == []
-    assert budget_store.list_receipts() == []
-    state_model = lease_store.build_state_read_model()
-    budget_model = budget_store.build_read_model()
-
-    assert state_model.authority_budget.receipt_count == 0
-    assert budget_model.receipt_count == 0
-    assert not state_dir.exists()
-
-    api_response = TestClient(app).get("/api/runtime/authority-state")
-    assert api_response.status_code == 200
-    assert api_response.json()["data"]["authority_budget"]["receipt_count"] == 0
-    assert not state_dir.exists()

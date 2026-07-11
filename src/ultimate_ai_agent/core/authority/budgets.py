@@ -3,6 +3,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+from collections.abc import Callable
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Any
 
@@ -39,6 +41,11 @@ from ultimate_ai_agent.core.authority.budget_contracts import (
     AuthorityBudgetReceipt,
     AuthorityBudgetStatus,
 )
+from ultimate_ai_agent.core.approvals.decisions import (
+    ApprovalValidationDecision,
+    ApprovalValidationRequest,
+)
+from ultimate_ai_agent.core.approvals.enums import ApprovalSubjectType
 from ultimate_ai_agent.core.planning.validation import (
     validate_safe_task_text,
     validate_task_ref,
@@ -65,6 +72,9 @@ class AuthorityBudgetReservationRequest(_AuthorityBudgetModel):
     cost_estimate_ref: str = Field(..., min_length=1)
     cost_governor_decision_ref: str = Field(..., min_length=1)
     cost_governor_allowed: StrictBool
+    approval_required: StrictBool = False
+    approval_validation_request: ApprovalValidationRequest | None = None
+    dispatch_fingerprint_ref: str | None = None
     idempotency_ref: str = Field(..., min_length=1)
     safe_summary: str = Field(..., min_length=1, max_length=520)
 
@@ -77,13 +87,37 @@ class AuthorityBudgetReservationRequest(_AuthorityBudgetModel):
             "authority_budget_cost_governor_decision_ref",
         )
         validate_task_ref(self.idempotency_ref, "authority_budget_idempotency_ref")
+        if self.dispatch_fingerprint_ref is not None:
+            validate_task_ref(
+                self.dispatch_fingerprint_ref,
+                "authority_budget_dispatch_fingerprint_ref",
+            )
+        if self.approval_required and self.approval_validation_request is None:
+            raise ValueError("AUTHORITY_BUDGET_APPROVAL_VALIDATION_REQUEST_REQUIRED")
+        if self.approval_validation_request is not None:
+            validate_task_ref(
+                self.approval_validation_request.approval_ref,
+                "authority_budget_approval_ref",
+            )
+            validate_task_ref(
+                self.approval_validation_request.run_id,
+                "authority_budget_approval_run_ref",
+            )
+            if self.approval_validation_request.current_time is not None:
+                raise ValueError("AUTHORITY_BUDGET_CALLER_APPROVAL_TIME_FORBIDDEN")
         validate_safe_task_text(self.safe_summary, "authority_budget_summary")
         return self
+
+
+AuthorityBudgetApprovalValidator = Callable[
+    [ApprovalValidationRequest], ApprovalValidationDecision
+]
 
 
 class AuthorityBudgetSettlementRequest(_AuthorityBudgetModel):
     reservation_ref: str = Field(..., min_length=1)
     idempotency_ref: str = Field(..., min_length=1)
+    execution_ref: str | None = None
     actual_operation_count: StrictInt = Field(default=1, ge=1)
     actual_cost_microusd: StrictInt | None = Field(default=None, ge=0)
     actual_cost_ref: str | None = None
@@ -95,12 +129,34 @@ class AuthorityBudgetSettlementRequest(_AuthorityBudgetModel):
     def validate_request(self) -> "AuthorityBudgetSettlementRequest":
         validate_task_ref(self.reservation_ref, "authority_budget_reservation_ref")
         validate_task_ref(self.idempotency_ref, "authority_budget_idempotency_ref")
+        if self.execution_ref is not None:
+            validate_task_ref(self.execution_ref, "authority_budget_execution_ref")
         if self.actual_cost_ref is not None:
             validate_task_ref(self.actual_cost_ref, "authority_budget_actual_cost_ref")
         if (self.actual_cost_microusd is None) != (self.actual_cost_ref is None):
             raise ValueError("AUTHORITY_BUDGET_ACTUAL_COST_REF_MUST_MATCH_COST")
         for ref in self.evidence_refs:
             validate_task_ref(ref, "authority_budget_evidence_ref")
+        validate_safe_task_text(self.safe_summary, "authority_budget_summary")
+        return self
+
+
+class AuthorityBudgetStartRequest(_AuthorityBudgetModel):
+    reservation_ref: str = Field(..., min_length=1)
+    idempotency_ref: str = Field(..., min_length=1)
+    dispatch_fingerprint_ref: str = Field(..., min_length=1)
+    execution_ref: str = Field(..., min_length=1)
+    safe_summary: str = Field(..., min_length=1, max_length=520)
+
+    @model_validator(mode="after")
+    def validate_request(self) -> "AuthorityBudgetStartRequest":
+        validate_task_ref(self.reservation_ref, "authority_budget_reservation_ref")
+        validate_task_ref(self.idempotency_ref, "authority_budget_idempotency_ref")
+        validate_task_ref(
+            self.dispatch_fingerprint_ref,
+            "authority_budget_dispatch_fingerprint_ref",
+        )
+        validate_task_ref(self.execution_ref, "authority_budget_execution_ref")
         validate_safe_task_text(self.safe_summary, "authority_budget_summary")
         return self
 
@@ -135,6 +191,7 @@ def _stable_ref(prefix: str, value: Any) -> str:
 def _request_fingerprint(
     operation: AuthorityBudgetOperation,
     request: AuthorityBudgetReservationRequest
+    | AuthorityBudgetStartRequest
     | AuthorityBudgetSettlementRequest
     | AuthorityBudgetReleaseRequest,
 ) -> str:
@@ -144,10 +201,56 @@ def _request_fingerprint(
     )
 
 
+def _legacy_reservation_request_fingerprint(
+    request: AuthorityBudgetReservationRequest,
+) -> str | None:
+    if (
+        request.approval_required
+        or request.approval_validation_request is not None
+        or request.dispatch_fingerprint_ref is not None
+    ):
+        return None
+    return _stable_ref(
+        "request-fingerprint-ref:authority-budget",
+        {
+            "operation": AuthorityBudgetOperation.reserve.value,
+            "request": request.model_dump(
+                mode="json",
+                exclude={
+                    "approval_required",
+                    "approval_validation_request",
+                    "dispatch_fingerprint_ref",
+                },
+            ),
+        },
+    )
+
+
+def _legacy_settlement_request_fingerprint(
+    request: AuthorityBudgetSettlementRequest,
+) -> str | None:
+    if request.execution_ref is not None:
+        return None
+    return _stable_ref(
+        "request-fingerprint-ref:authority-budget",
+        {
+            "operation": AuthorityBudgetOperation.settle.value,
+            "request": request.model_dump(mode="json", exclude={"execution_ref"}),
+        },
+    )
+
+
 def _entry_hash(receipt: AuthorityBudgetReceipt) -> str:
     return _stable_ref(
         "entry-hash-ref:authority-budget",
         receipt.model_dump(mode="json", exclude={"entry_hash_ref"}),
+    )
+
+
+def _entry_hash_payload(payload: dict[str, Any]) -> str:
+    return _stable_ref(
+        "entry-hash-ref:authority-budget",
+        {key: value for key, value in payload.items() if key != "entry_hash_ref"},
     )
 
 
@@ -190,6 +293,8 @@ class AuthorityBudgetStore:
     def reserve(
         self,
         request: AuthorityBudgetReservationRequest,
+        *,
+        approval_validator: AuthorityBudgetApprovalValidator | None = None,
     ) -> AuthorityBudgetReceipt:
         with self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY):
             receipts = self._load_receipts()
@@ -198,6 +303,13 @@ class AuthorityBudgetStore:
                 AuthorityBudgetOperation.reserve,
                 request.idempotency_ref,
                 _request_fingerprint(AuthorityBudgetOperation.reserve, request),
+                compatible_fingerprint_refs={
+                    fingerprint
+                    for fingerprint in [
+                        _legacy_reservation_request_fingerprint(request)
+                    ]
+                    if fingerprint is not None
+                },
             )
             if replay is not None:
                 return replay
@@ -211,7 +323,28 @@ class AuthorityBudgetStore:
                 [lease] if lease is not None else [],
             )
             reason_refs: list[str] = []
-            if decision.outcome != AuthorityDecisionOutcome.allow.value:
+            approval_required = bool(
+                request.approval_required
+                or decision.outcome == AuthorityDecisionOutcome.ask.value
+            )
+            approval_ref: str | None = None
+            approval_validation_ref: str | None = None
+            approval_allowed = not approval_required
+            if request.approval_validation_request is not None:
+                approval_ref = request.approval_validation_request.approval_ref
+            if approval_required or request.approval_validation_request is not None:
+                approval_reasons = self._approval_reason_refs(
+                    request,
+                    approval_validator=approval_validator,
+                )
+                reason_refs.extend(approval_reasons[0])
+                approval_validation_ref = approval_reasons[1]
+                approval_allowed = not approval_reasons[0]
+            policy_allowed = decision.outcome == AuthorityDecisionOutcome.allow.value or (
+                decision.outcome == AuthorityDecisionOutcome.ask.value
+                and approval_allowed
+            )
+            if not policy_allowed:
                 reason_refs.append("reason-ref:authority-budget:policy-not-allow")
             if decision.lease_ref != request.lease_ref or lease is None:
                 reason_refs.append("reason-ref:authority-budget:lease-binding-mismatch")
@@ -303,6 +436,10 @@ class AuthorityBudgetStore:
                 action_ref=request.action_request.action_ref,
                 authority_decision_ref=decision.decision_ref,
                 authority_policy_receipt_ref=decision.receipt_ref,
+                approval_ref=approval_ref,
+                approval_validation_ref=approval_validation_ref,
+                approval_required=approval_required,
+                dispatch_fingerprint_ref=request.dispatch_fingerprint_ref,
                 cost_estimate_ref=request.cost_estimate_ref,
                 cost_governor_decision_ref=request.cost_governor_decision_ref,
                 cost_governor_allowed=request.cost_governor_allowed,
@@ -338,23 +475,174 @@ class AuthorityBudgetStore:
             self._append(receipt)
             return receipt
 
+    def _start_dispatch(
+        self,
+        request: AuthorityBudgetStartRequest,
+    ) -> AuthorityBudgetReceipt:
+        with self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY):
+            return self._start_locked(request)
+
+    def _start_locked(
+        self,
+        request: AuthorityBudgetStartRequest,
+    ) -> AuthorityBudgetReceipt:
+        receipts = self._load_receipts()
+        fingerprint = _request_fingerprint(AuthorityBudgetOperation.start, request)
+        replay = self._replay_or_conflict(
+            receipts,
+            AuthorityBudgetOperation.start,
+            request.idempotency_ref,
+            fingerprint,
+        )
+        if replay is not None:
+            return replay
+        state = self._reservation_state(receipts, request.reservation_ref)
+        if state is None or state["status"] != AuthorityBudgetStatus.reserved.value:
+            receipt = self._denied_followup_receipt(
+                receipts,
+                operation=AuthorityBudgetOperation.start,
+                reservation_ref=request.reservation_ref,
+                idempotency_ref=request.idempotency_ref,
+                request_fingerprint_ref=fingerprint,
+                reason_ref="reason-ref:authority-budget:reservation-not-active",
+            )
+            self._append(receipt)
+            return receipt
+        if (
+            state["dispatch_fingerprint_ref"] is None
+            or state["dispatch_fingerprint_ref"] != request.dispatch_fingerprint_ref
+        ):
+            receipt = self._denied_followup_receipt(
+                receipts,
+                operation=AuthorityBudgetOperation.start,
+                reservation_ref=request.reservation_ref,
+                idempotency_ref=request.idempotency_ref,
+                request_fingerprint_ref=fingerprint,
+                reason_ref="reason-ref:authority-budget:dispatch-start-binding-mismatch",
+            )
+            self._append(receipt)
+            return receipt
+        lease = self.lease_store._lease_by_ref(state["lease_ref"])
+        if lease is None or not lease.is_active() or authority_lease_kill_switch_engaged():
+            receipt = self._denied_followup_receipt(
+                receipts,
+                operation=AuthorityBudgetOperation.start,
+                reservation_ref=request.reservation_ref,
+                idempotency_ref=request.idempotency_ref,
+                request_fingerprint_ref=fingerprint,
+                reason_ref="reason-ref:authority-budget:dispatch-start-authority-inactive",
+            )
+            self._append(receipt)
+            return receipt
+        receipt = self._build_receipt(
+            operation=AuthorityBudgetOperation.start,
+            status=AuthorityBudgetStatus.started,
+            reservation_ref=request.reservation_ref,
+            idempotency_ref=request.idempotency_ref,
+            request_fingerprint_ref=fingerprint,
+            previous_entry_hash_ref=receipts[-1].entry_hash_ref,
+            lease_ref=state["lease_ref"],
+            action_ref=state["action_ref"],
+            approval_ref=state["approval_ref"],
+            approval_validation_ref=state["approval_validation_ref"],
+            approval_required=state["approval_required"],
+            dispatch_fingerprint_ref=state["dispatch_fingerprint_ref"],
+            execution_ref=request.execution_ref,
+            cost_estimate_ref=state["cost_estimate_ref"],
+            cost_governor_decision_ref=state["cost_governor_decision_ref"],
+            cost_governor_allowed=state["cost_governor_allowed"],
+            reserved_operation_count=state["reserved_operations"],
+            reserved_cost_microusd=state["reserved_cost"],
+            safe_summary="Authority budget reservation bound to durable adapter start.",
+        )
+        self._append(receipt)
+        return receipt
+
     def settle(
         self,
         request: AuthorityBudgetSettlementRequest,
     ) -> AuthorityBudgetReceipt:
+        return self._settle(request, dispatcher_owned=False)
+
+    def _settle_dispatch(
+        self,
+        request: AuthorityBudgetSettlementRequest,
+    ) -> AuthorityBudgetReceipt:
+        return self._settle(request, dispatcher_owned=True)
+
+    def _settle(
+        self,
+        request: AuthorityBudgetSettlementRequest,
+        *,
+        dispatcher_owned: bool,
+    ) -> AuthorityBudgetReceipt:
         with self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY):
             receipts = self._load_receipts()
+            state = self._reservation_state(receipts, request.reservation_ref)
+            if (
+                state is not None
+                and state["dispatch_fingerprint_ref"] is not None
+                and state["status"]
+                in {
+                    AuthorityBudgetStatus.reserved.value,
+                    AuthorityBudgetStatus.started.value,
+                }
+                and not dispatcher_owned
+            ):
+                denial_idempotency_ref = _stable_ref(
+                    "idempotency-ref:authority-budget-public-settle-denial",
+                    {
+                        "reservation_ref": request.reservation_ref,
+                        "caller_idempotency_ref": request.idempotency_ref,
+                    },
+                )
+                denial_fingerprint = _stable_ref(
+                    "request-fingerprint-ref:authority-budget-public-settle-denial",
+                    request.model_dump(mode="json"),
+                )
+                replay = self._replay_or_conflict(
+                    receipts,
+                    AuthorityBudgetOperation.settle,
+                    denial_idempotency_ref,
+                    denial_fingerprint,
+                )
+                if replay is not None:
+                    return replay
+                receipt = self._denied_followup_receipt(
+                    receipts,
+                    operation=AuthorityBudgetOperation.settle,
+                    reservation_ref=request.reservation_ref,
+                    idempotency_ref=denial_idempotency_ref,
+                    request_fingerprint_ref=denial_fingerprint,
+                    reason_ref=(
+                        "reason-ref:authority-budget:dispatch-start-required"
+                        if state["status"] == AuthorityBudgetStatus.reserved.value
+                        else "reason-ref:authority-budget:dispatch-owner-required"
+                    ),
+                )
+                self._append(receipt)
+                return receipt
             fingerprint = _request_fingerprint(AuthorityBudgetOperation.settle, request)
             replay = self._replay_or_conflict(
                 receipts,
                 AuthorityBudgetOperation.settle,
                 request.idempotency_ref,
                 fingerprint,
+                compatible_fingerprint_refs={
+                    compatible
+                    for compatible in [
+                        _legacy_settlement_request_fingerprint(request)
+                    ]
+                    if compatible is not None
+                },
             )
             if replay is not None:
                 return replay
             state = self._reservation_state(receipts, request.reservation_ref)
-            if state is None or state["status"] != AuthorityBudgetStatus.reserved.value:
+            if state is None or state["status"] not in {
+                AuthorityBudgetStatus.reserved.value,
+                AuthorityBudgetStatus.started.value,
+            }:
                 receipt = self._denied_followup_receipt(
                     receipts,
                     operation=AuthorityBudgetOperation.settle,
@@ -362,6 +650,31 @@ class AuthorityBudgetStore:
                     idempotency_ref=request.idempotency_ref,
                     request_fingerprint_ref=fingerprint,
                     reason_ref="reason-ref:authority-budget:reservation-not-active",
+                )
+                self._append(receipt)
+                return receipt
+            if (
+                state["dispatch_fingerprint_ref"] is not None
+                and state["status"] != AuthorityBudgetStatus.started.value
+            ):
+                receipt = self._denied_followup_receipt(
+                    receipts,
+                    operation=AuthorityBudgetOperation.settle,
+                    reservation_ref=request.reservation_ref,
+                    idempotency_ref=request.idempotency_ref,
+                    request_fingerprint_ref=fingerprint,
+                    reason_ref="reason-ref:authority-budget:dispatch-start-required",
+                )
+                self._append(receipt)
+                return receipt
+            if request.execution_ref != state["execution_ref"]:
+                receipt = self._denied_followup_receipt(
+                    receipts,
+                    operation=AuthorityBudgetOperation.settle,
+                    reservation_ref=request.reservation_ref,
+                    idempotency_ref=request.idempotency_ref,
+                    request_fingerprint_ref=fingerprint,
+                    reason_ref="reason-ref:authority-budget:execution-binding-mismatch",
                 )
                 self._append(receipt)
                 return receipt
@@ -423,6 +736,11 @@ class AuthorityBudgetStore:
                 previous_entry_hash_ref=receipts[-1].entry_hash_ref,
                 lease_ref=state["lease_ref"],
                 action_ref=state["action_ref"],
+                approval_ref=state["approval_ref"],
+                approval_validation_ref=state["approval_validation_ref"],
+                approval_required=state["approval_required"],
+                dispatch_fingerprint_ref=state["dispatch_fingerprint_ref"],
+                execution_ref=state["execution_ref"],
                 cost_estimate_ref=state["cost_estimate_ref"],
                 cost_governor_decision_ref=state["cost_governor_decision_ref"],
                 cost_governor_allowed=state["cost_governor_allowed"],
@@ -455,8 +773,59 @@ class AuthorityBudgetStore:
         self,
         request: AuthorityBudgetReleaseRequest,
     ) -> AuthorityBudgetReceipt:
-        with self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY):
+        return self._release(request, lock_held=False)
+
+    def _release(
+        self,
+        request: AuthorityBudgetReleaseRequest,
+        *,
+        lock_held: bool,
+        started_dispatch_fingerprint_ref: str | None = None,
+        started_execution_ref: str | None = None,
+    ) -> AuthorityBudgetReceipt:
+        lock_context = (
+            nullcontext()
+            if lock_held
+            else self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY)
+        )
+        with lock_context:
             receipts = self._load_receipts()
+            state = self._reservation_state(receipts, request.reservation_ref)
+            if (
+                state is not None
+                and state["status"] == AuthorityBudgetStatus.started.value
+                and started_dispatch_fingerprint_ref is None
+                and started_execution_ref is None
+            ):
+                denial_idempotency_ref = _stable_ref(
+                    "idempotency-ref:authority-budget-public-release-denial",
+                    {
+                        "reservation_ref": request.reservation_ref,
+                        "caller_idempotency_ref": request.idempotency_ref,
+                    },
+                )
+                denial_fingerprint = _stable_ref(
+                    "request-fingerprint-ref:authority-budget-public-release-denial",
+                    request.model_dump(mode="json"),
+                )
+                replay = self._replay_or_conflict(
+                    receipts,
+                    AuthorityBudgetOperation.release,
+                    denial_idempotency_ref,
+                    denial_fingerprint,
+                )
+                if replay is not None:
+                    return replay
+                receipt = self._denied_followup_receipt(
+                    receipts,
+                    operation=AuthorityBudgetOperation.release,
+                    reservation_ref=request.reservation_ref,
+                    idempotency_ref=denial_idempotency_ref,
+                    request_fingerprint_ref=denial_fingerprint,
+                    reason_ref="reason-ref:authority-budget:dispatch-owner-required",
+                )
+                self._append(receipt)
+                return receipt
             fingerprint = _request_fingerprint(
                 AuthorityBudgetOperation.release, request
             )
@@ -469,7 +838,19 @@ class AuthorityBudgetStore:
             if replay is not None:
                 return replay
             state = self._reservation_state(receipts, request.reservation_ref)
-            if state is None or state["status"] != AuthorityBudgetStatus.reserved.value:
+            started_dispatch_rollback = bool(
+                state is not None
+                and state["status"] == AuthorityBudgetStatus.started.value
+                and started_dispatch_fingerprint_ref is not None
+                and started_execution_ref is not None
+                and state["dispatch_fingerprint_ref"]
+                == started_dispatch_fingerprint_ref
+                and state["execution_ref"] == started_execution_ref
+            )
+            if state is None or (
+                state["status"] != AuthorityBudgetStatus.reserved.value
+                and not started_dispatch_rollback
+            ):
                 receipt = self._denied_followup_receipt(
                     receipts,
                     operation=AuthorityBudgetOperation.release,
@@ -505,6 +886,13 @@ class AuthorityBudgetStore:
                 previous_entry_hash_ref=receipts[-1].entry_hash_ref,
                 lease_ref=state["lease_ref"],
                 action_ref=state["action_ref"],
+                approval_ref=state["approval_ref"],
+                approval_validation_ref=state["approval_validation_ref"],
+                approval_required=state["approval_required"],
+                dispatch_fingerprint_ref=state["dispatch_fingerprint_ref"],
+                execution_ref=(
+                    state["execution_ref"] if started_dispatch_rollback else None
+                ),
                 cost_estimate_ref=state["cost_estimate_ref"],
                 cost_governor_decision_ref=state["cost_governor_decision_ref"],
                 cost_governor_allowed=state["cost_governor_allowed"],
@@ -521,10 +909,36 @@ class AuthorityBudgetStore:
                     else None
                 ),
                 reason_refs=[request.reason_ref],
-                safe_summary="Authority budget reservation released before execution.",
+                safe_summary=(
+                    "Authority budget start claim rolled back before adapter invocation."
+                    if started_dispatch_rollback
+                    else "Authority budget reservation released before execution."
+                ),
             )
             self._append(receipt)
             return receipt
+
+    def _release_locked(
+        self,
+        request: AuthorityBudgetReleaseRequest,
+    ) -> AuthorityBudgetReceipt:
+        return self._release(request, lock_held=True)
+
+    def _release_started_dispatch(
+        self,
+        request: AuthorityBudgetReleaseRequest,
+        *,
+        dispatch_fingerprint_ref: str,
+        execution_ref: str,
+    ) -> AuthorityBudgetReceipt:
+        """Roll back a dispatch start claim proven not to have reached invocation."""
+
+        return self._release(
+            request,
+            lock_held=False,
+            started_dispatch_fingerprint_ref=dispatch_fingerprint_ref,
+            started_execution_ref=execution_ref,
+        )
 
     def build_read_model(self, *, recent_limit: int = 12) -> AuthorityBudgetReadModel:
         if recent_limit < 0:
@@ -635,7 +1049,8 @@ class AuthorityBudgetStore:
                 if not line.strip():
                     continue
                 try:
-                    receipt = AuthorityBudgetReceipt(**json.loads(line))
+                    payload = json.loads(line)
+                    receipt = AuthorityBudgetReceipt(**payload)
                 except Exception as exc:
                     raise AuthorityBudgetCorruptionError(
                         "AUTHORITY_BUDGET_RECEIPT_INVALID"
@@ -648,7 +1063,7 @@ class AuthorityBudgetStore:
                     raise AuthorityBudgetCorruptionError(
                         "AUTHORITY_BUDGET_HASH_CHAIN_PREVIOUS_MISMATCH"
                     )
-                if receipt.entry_hash_ref != _entry_hash(receipt):
+                if receipt.entry_hash_ref != _entry_hash_payload(payload):
                     raise AuthorityBudgetCorruptionError(
                         "AUTHORITY_BUDGET_ENTRY_HASH_MISMATCH"
                     )
@@ -679,6 +1094,11 @@ class AuthorityBudgetStore:
                 "cost_estimate_ref": receipt.cost_estimate_ref,
                 "cost_governor_decision_ref": receipt.cost_governor_decision_ref,
                 "cost_governor_allowed": receipt.cost_governor_allowed,
+                "approval_ref": receipt.approval_ref,
+                "approval_validation_ref": receipt.approval_validation_ref,
+                "approval_required": receipt.approval_required,
+                "dispatch_fingerprint_ref": receipt.dispatch_fingerprint_ref,
+                "execution_ref": receipt.execution_ref,
                 "reserved_operation_count": receipt.reserved_operation_count,
                 "reserved_cost_microusd": receipt.reserved_cost_microusd,
             }
@@ -686,7 +1106,36 @@ class AuthorityBudgetStore:
         if receipt.status == AuthorityBudgetStatus.denied.value:
             return
         state = reservation_states.get(receipt.reservation_ref)
-        if state is None or state["status"] != AuthorityBudgetStatus.reserved.value:
+        allowed_previous_statuses = {
+            AuthorityBudgetOperation.start.value: {
+                AuthorityBudgetStatus.reserved.value,
+            },
+            AuthorityBudgetOperation.settle.value: {
+                AuthorityBudgetStatus.reserved.value,
+                AuthorityBudgetStatus.started.value,
+            },
+            AuthorityBudgetOperation.release.value: {
+                AuthorityBudgetStatus.reserved.value,
+            },
+        }
+        if (
+            receipt.operation == AuthorityBudgetOperation.release.value
+            and receipt.execution_ref is not None
+        ):
+            allowed_previous_statuses[AuthorityBudgetOperation.release.value] = {
+                AuthorityBudgetStatus.started.value,
+            }
+        if (
+            receipt.operation == AuthorityBudgetOperation.settle.value
+            and state is not None
+            and state["dispatch_fingerprint_ref"] is not None
+        ):
+            allowed_previous_statuses[AuthorityBudgetOperation.settle.value] = {
+                AuthorityBudgetStatus.started.value,
+            }
+        if state is None or state["status"] not in allowed_previous_statuses.get(
+            receipt.operation, set()
+        ):
             raise AuthorityBudgetCorruptionError(
                 "AUTHORITY_BUDGET_INVALID_RESERVATION_TRANSITION"
             )
@@ -696,6 +1145,10 @@ class AuthorityBudgetStore:
             "cost_estimate_ref",
             "cost_governor_decision_ref",
             "cost_governor_allowed",
+            "approval_ref",
+            "approval_validation_ref",
+            "approval_required",
+            "dispatch_fingerprint_ref",
             "reserved_operation_count",
             "reserved_cost_microusd",
         ]:
@@ -703,6 +1156,15 @@ class AuthorityBudgetStore:
                 raise AuthorityBudgetCorruptionError(
                     "AUTHORITY_BUDGET_FOLLOWUP_BINDING_MISMATCH"
                 )
+        if receipt.operation == AuthorityBudgetOperation.start.value:
+            if not receipt.execution_ref or state["execution_ref"] is not None:
+                raise AuthorityBudgetCorruptionError(
+                    "AUTHORITY_BUDGET_START_BINDING_MISMATCH"
+                )
+        elif receipt.execution_ref != state["execution_ref"]:
+            raise AuthorityBudgetCorruptionError(
+                "AUTHORITY_BUDGET_EXECUTION_BINDING_MISMATCH"
+            )
         if receipt.operation == AuthorityBudgetOperation.settle.value:
             operation_overage = (
                 receipt.actual_operation_count is not None
@@ -728,6 +1190,7 @@ class AuthorityBudgetStore:
                     "AUTHORITY_BUDGET_SETTLEMENT_STATUS_MISMATCH"
                 )
         state["status"] = receipt.status
+        state["execution_ref"] = receipt.execution_ref
 
     def _append(self, receipt: AuthorityBudgetReceipt) -> None:
         self.state_dir.mkdir(parents=True, exist_ok=True)
@@ -751,6 +1214,7 @@ class AuthorityBudgetStore:
         operation: AuthorityBudgetOperation,
         idempotency_ref: str,
         fingerprint_ref: str,
+        compatible_fingerprint_refs: set[str] | None = None,
     ) -> AuthorityBudgetReceipt | None:
         existing = next(
             (item for item in receipts if item.idempotency_ref == idempotency_ref),
@@ -760,7 +1224,8 @@ class AuthorityBudgetStore:
             return None
         if (
             existing.operation != operation.value
-            or existing.request_fingerprint_ref != fingerprint_ref
+            or existing.request_fingerprint_ref
+            not in {fingerprint_ref, *(compatible_fingerprint_refs or set())}
         ):
             raise AuthorityBudgetConflictError("AUTHORITY_BUDGET_IDEMPOTENCY_CONFLICT")
         replay = AuthorityBudgetReceipt.model_validate(
@@ -797,11 +1262,27 @@ class AuthorityBudgetStore:
                     "cost_estimate_ref": receipt.cost_estimate_ref,
                     "cost_governor_decision_ref": receipt.cost_governor_decision_ref,
                     "cost_governor_allowed": receipt.cost_governor_allowed,
+                    "approval_ref": receipt.approval_ref,
+                    "approval_validation_ref": receipt.approval_validation_ref,
+                    "approval_required": receipt.approval_required,
+                    "dispatch_fingerprint_ref": receipt.dispatch_fingerprint_ref,
+                    "execution_ref": receipt.execution_ref,
                     "reserved_operations": receipt.reserved_operation_count,
                     "reserved_cost": receipt.reserved_cost_microusd,
                     "actual_operations": None,
                     "actual_cost": None,
                 }
+            elif (
+                state is not None
+                and receipt.operation == AuthorityBudgetOperation.start.value
+                and receipt.status == AuthorityBudgetStatus.started.value
+            ):
+                state.update(
+                    {
+                        "status": receipt.status,
+                        "execution_ref": receipt.execution_ref,
+                    }
+                )
             elif (
                 state is not None
                 and receipt.operation
@@ -845,7 +1326,10 @@ class AuthorityBudgetStore:
             state = self._reservation_state(receipts, reservation_ref)
             if state is None:
                 continue
-            if state["status"] == AuthorityBudgetStatus.reserved.value:
+            if state["status"] in {
+                AuthorityBudgetStatus.reserved.value,
+                AuthorityBudgetStatus.started.value,
+            }:
                 operations += state["reserved_operations"]
                 cost += state["reserved_cost"] or 0
                 active_count += 1
@@ -872,6 +1356,58 @@ class AuthorityBudgetStore:
             "unresolved_cost": unresolved_cost,
             "unreviewed_overage": unreviewed_overage,
         }
+
+    def _approval_reason_refs(
+        self,
+        request: AuthorityBudgetReservationRequest,
+        *,
+        approval_validator: AuthorityBudgetApprovalValidator | None,
+    ) -> tuple[list[str], str | None]:
+        validation_request = request.approval_validation_request
+        if validation_request is None:
+            return ["reason-ref:authority-budget:approval-missing"], None
+        action = request.action_request
+        expected_resource_refs = {
+            request.lease_ref,
+            *action.resource_refs,
+        }
+        if action.adapter_ref is not None:
+            expected_resource_refs.add(action.adapter_ref)
+        reasons: list[str] = []
+        if validation_request.subject_type != ApprovalSubjectType.tool_request.value:
+            reasons.append("reason-ref:authority-budget:approval-subject-type-mismatch")
+        if validation_request.subject_id != action.action_ref:
+            reasons.append("reason-ref:authority-budget:approval-subject-mismatch")
+        if validation_request.requested_action != action.action_ref:
+            reasons.append("reason-ref:authority-budget:approval-action-mismatch")
+        if set(validation_request.resource_refs) != expected_resource_refs:
+            reasons.append("reason-ref:authority-budget:approval-resource-mismatch")
+        if approval_validator is None:
+            reasons.append("reason-ref:authority-budget:approval-validator-missing")
+            return reasons, None
+        if reasons:
+            return reasons, None
+        try:
+            decision = approval_validator(validation_request)
+        except Exception:
+            return ["reason-ref:authority-budget:approval-validator-failed"], None
+        validation_ref = _stable_ref(
+            "approval-validation-ref:authority-budget",
+            {
+                "approval_ref": validation_request.approval_ref,
+                "action_ref": action.action_ref,
+                "allowed": decision.allowed,
+                "matched_grant_ref": decision.matched_grant_ref,
+                "reason_codes": decision.reason_codes,
+                "status": decision.status,
+            },
+        )
+        if (
+            not decision.allowed
+            or decision.matched_grant_ref != validation_request.approval_ref
+        ):
+            reasons.append("reason-ref:authority-budget:approval-not-valid")
+        return reasons, validation_ref
 
     def _denied_followup_receipt(
         self,

@@ -1,7 +1,8 @@
 # AuthorityLease Durable Budget Ledger V1
 
-Status: implemented Python Core budget foundation; dispatcher and Control Center
-mutation integration remain missing
+Status: implemented Python Core budget foundation with initial governed
+dispatcher consumption; universal adapter and Control Center mutation
+integration remain missing
 
 Date: 2026-07-10
 
@@ -13,8 +14,9 @@ AuthorityLease V1 now supports two typed, integer constraints:
 - `cost_budget_microusd`: maximum cumulative cost in integer micro-USD for one
   lease.
 
-`AuthorityBudgetStore` records reservations, settlements, releases, and denials
-in `authority_budget_receipts.jsonl` under `UAA_AUTHORITY_STATE_DIR`. The ledger
+`AuthorityBudgetStore` records reservations, durable start claims, settlements,
+releases, and denials in `authority_budget_receipts.jsonl` under
+`UAA_AUTHORITY_STATE_DIR`. The ledger
 is append-first, fsync-backed, hash-chained, safe-ref-only, and protected by the
 same single-writer lock used for AuthorityLease issue and revoke. Lease writes
 use an fsync-backed temporary file plus atomic replace. Concurrent store
@@ -29,10 +31,13 @@ capacity is reserved or unavailable.
 A reservation must bind all of the following:
 
 - an active `AuthorityLease` ref;
-- a complete `AuthorityActionRequest` that independently evaluates to `allow`;
+- a complete `AuthorityActionRequest` that independently evaluates to `allow`,
+  or evaluates to `ask` and carries exact trusted LocalApprovalAuthority
+  validation;
 - exact operation and estimated-cost claims matching the action's typed
   constraint claims;
 - structured cost-estimate and CostGovernor decision refs;
+- the full dispatch fingerprint when the central dispatcher is the caller;
 - an explicit CostGovernor allowed posture;
 - an idempotency ref and bounded safe summary.
 
@@ -44,14 +49,33 @@ policy denial, exhausted capacity, or stale lease binding produces a durable
 denial receipt and no reservation.
 
 CostGovernor refs are a required integration contract, not self-sufficient
-proof of a CostGovernor evaluation. The future central dispatcher must supply
-them from the same verified dispatch envelope before any executable adapter is
-bound to this store.
+proof of a CostGovernor evaluation. The initial central dispatcher supplies
+them from the same typed dispatch request and recomputes CostGovernor from a
+typed estimate plus an exact run-scoped budget set for explicitly registered
+safe tool adapters. Its dispatch fingerprint binding prevents a reservation
+replay after a crash from authorizing changed adapter input. Direct budget-store
+callers still need a trusted integration boundary, and paid provider execution
+still needs exact live usage and cost proof.
 
 ## Settlement And Release
 
-After execution starts, a reservation must be settled with actual operation
-count, actual cost plus its safe ref, execution status, and evidence refs. The
+Before the central dispatcher invokes an adapter, the budget ledger moves its
+dispatch-bound reservation from `reserved` to `started` with the exact dispatch
+fingerprint and execution ref. The transition is idempotent and is written
+under the shared authority-state lock before the dispatch-start receipt. The
+start transition is internal to the owning dispatcher rather than exposed as a
+public budget-store method. A started reservation continues consuming its
+reserved capacity and cannot be released by a standalone caller.
+
+After execution starts, that reservation must be settled with the same
+execution ref, actual operation count, actual cost plus its safe ref, execution
+status, and evidence refs. A dispatch-bound reservation cannot settle directly
+from `reserved`, and its `started` settlement transition is internal to the
+owning dispatcher rather than available through the public budget-store method;
+legacy direct callers without a dispatch fingerprint retain their V1
+reserve-to-settle path. Denied public attempts use a separate durable
+idempotency namespace, so they cannot consume or poison the owning dispatcher's
+settlement phase key. The
 ledger always records actual overage. A settlement exceeding its reservation or
 lease ceiling becomes `settled_overage`; any unreviewed reservation overage
 freezes future capacity even when actual usage remains below the lease ceiling.
@@ -59,10 +83,20 @@ When actual cost is unknown, the settlement becomes
 `settled_cost_unresolved` and all later reservations for that lease fail closed
 until a future reviewed remediation contract exists.
 
-A reservation may be released only through a request whose typed contract says
-execution has not started. Release frees the reserved capacity and records the
-reason ref. This V1 store cannot independently prove adapter start state; that
-binding belongs in the central dispatcher and remains missing.
+A public reservation release may succeed only while its durable state is still
+`reserved`; the caller's typed `execution_started=False` assertion is not
+sufficient once the ledger records `started`. The dispatcher has one narrower
+internal recovery transition: it may roll back a `started` budget claim only
+when the dispatch ledger proves that its corresponding dispatch-start receipt
+was never written and therefore adapter invocation never began. That release
+must retain the exact dispatch fingerprint and execution ref; it frees the
+orphaned capacity and remains `cancelled_before_start`. It does not grant
+after-start cancellation. Public denial attempts use a separate idempotency
+namespace and therefore cannot poison the dispatcher's exact recovery key.
+`AuthorityDispatcher` supplies durable pre-start,
+budget-start, dispatch-start, and pre-start cancellation receipts for its routed
+adapters. Direct budget-store callers and legacy execution paths do not gain
+adapter-start proof merely from this integration.
 
 ## Replay, Corruption, And Read Surfaces
 
@@ -73,6 +107,13 @@ validated on every transaction. Duplicate idempotency or reservation history,
 invalid receipt semantics, impossible reservation transitions, follow-up
 binding drift, broken previous-hash linkage, or changed entry content fails
 closed as ledger corruption.
+
+Approval-binding fields added with dispatcher V1 preserve existing V1 ledger
+compatibility: hashes are verified against the exact persisted payload, and a
+pre-approval-field reservation fingerprint is accepted only when the current
+request carries no approval requirement or approval validation request.
+Settlement replay likewise accepts the pre-execution-ref request fingerprint
+only when the current settlement still has no execution ref.
 
 The typed `AuthorityBudgetReadModel` reports per-lease active and reservation-
 available and kill-switch posture, limits, allocated and remaining capacity,
@@ -96,6 +137,12 @@ Focused tests cover:
 
 - exact constraint evaluation and applied constraint refs;
 - reserve, replay, settle, overage, release, and cumulative exhaustion;
+- exact dispatch start, replay, execution-ref settlement binding, and release
+  denial after start, plus internal rollback of an orphaned budget start when
+  the dispatch ledger proves invocation never began;
+- compatibility replay for pre-execution-ref settlements and denial of
+  dispatch-bound settlement before start;
+- denial of competing public settlement after dispatch start;
 - unknown and unresolved cost fail-closed behavior;
 - claim and idempotency drift;
 - kill-switch and revocation rechecks;
@@ -109,7 +156,7 @@ Focused tests cover:
 - release rejection once execution is declared started;
 - Python state, API, and JSON CLI projection parity.
 
-Evidence: `tests/test_authority_budgets.py`.
+Evidence: the focused `tests/test_authority_budget*.py` modules.
 
 ## Explicit Non-Goals And Remaining Gaps
 
@@ -118,10 +165,11 @@ Center budget controls, provider SDK calls, model calls, billing actions,
 external price lookup, browser automation, connector writes, broad shell
 execution, production authority, or standing autonomy.
 
-Before an executable capability can claim end-to-end durable budgeting, UAA
-still needs a central dispatcher that atomically binds policy decision,
-LocalApprovalAuthority validation where required, reservation, adapter start,
-settlement/release, cancellation, and one receipt envelope. Typed time windows,
+The initial dispatcher now binds policy decision, exact approval validation,
+reservation, adapter start, settlement/release, pre-start cancellation, and a
+hash-chained dispatch receipt for explicitly injected safe tool adapters. See
+`docs/runtime/UAA_AUTHORITY_DISPATCHER_V1.md`. Universal migration of legacy
+execution paths, durable mission-step consumption, after-start cancellation,
+settlement recovery, paid-provider actual usage proof, typed time windows,
 recipient/target constraints, renewal policy, reviewed unresolved-cost
-remediation, multi-host storage, and operator budget controls also remain
-missing.
+remediation, multi-host storage, and operator budget controls remain missing.
