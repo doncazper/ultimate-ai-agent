@@ -73,6 +73,7 @@ coverage map below assigns route workspaces, not route-specific sidebars.
 | `/events/timeline` | Timeline | `renders/20_api_foundation_events.png` | Timeline view for typed product and runtime events. | Timeline may be mock/experimental where route state says so. |
 | `/` | Overview | `renders/11_start_overview_dashboard.png` | System overview of route readiness, product loop state, and next step. | Overview is informational and non-authoritative. |
 | `/dashboard` | Dashboard | `renders/11_start_overview_dashboard.png` | Compact system/product dashboard with readiness, blocked/planned states, and receipts. | Dashboard status does not imply production readiness. |
+| `/capabilities` | Capabilities | `renders/17_future_domain_governance.png` | Backend-owned capability matrix showing implemented, partial, blocked, planned, exact-lane, and safe-disable posture. | Capability visibility does not grant runtime authority or imply unsupported adapters are available. |
 | `/api-routes` | API Routes | `renders/20_api_foundation_events.png` | Route inventory, side-effect class, OpenAPI/manifest posture, stable operation IDs. | Contracts do not grant runtime capability. |
 | `/differentiators` | Differentiators | `renders/20_api_foundation_events.png` | Evidence-backed product differentiators grounded in local-first governance and receipts. | No marketing-only or unsupported product claims. |
 
@@ -92,3 +93,5 @@ coverage map below assigns route workspaces, not route-specific sidebars.
   rollback, or safe-disable posture.
 - Preserve the canonical left rail from `APP_SHELL_BASELINE.md` across all
   route workspaces unless a later dated baseline intentionally changes it.
+- Use `RENDER_VARIATION_MATRIX.md` for the required default, compact,
+  route-specific state, mobile, overlay, and shared-state render deliverables.

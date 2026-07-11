@@ -42,3 +42,9 @@ North-star visual targets for the contained desktop-app direction live in
 rules in `docs/design/control_center_north_star/APP_SHELL_BASELINE.md`. These
 renders are design targets only and do not claim shipped UI behavior or new
 authority.
+
+The canonical implementation-ready UI/UX rules are now consolidated in
+`docs/design/CONTROL_CENTER_UI_UX_SPEC.md`. This historical design-language
+summary remains active background governance, but the dated specification wins
+for shell geometry, templates, tokens, controls, render production, fidelity,
+and the three-pass polish gate.

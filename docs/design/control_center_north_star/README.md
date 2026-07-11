@@ -9,6 +9,12 @@ These renders define the desired visual direction for the Control Center as a
 contained operator cockpit. They are not shipped UI evidence, runtime behavior,
 route proof, authority grant, public beta claim, or production readiness claim.
 
+The canonical rules extracted from this directional set now live in
+`../CONTROL_CENTER_UI_UX_SPEC.md` (`CC-UIUX-2026-07-11`). That specification
+wins when the generated PNGs disagree with each other. The complete next-render
+queue, including all 40 routed surfaces and applicable state/responsive
+variations, lives in `RENDER_VARIATION_MATRIX.md`.
+
 The package is meant to remove ambiguity before implementation. Each render is
 a bounded desktop-app target for one or more Control Center surfaces, with the
 route coverage recorded in `SURFACE_COVERAGE.md`.
@@ -68,6 +74,8 @@ wins.
 - Canonical shell: `APP_SHELL_BASELINE.md`.
 - Route coverage: `SURFACE_COVERAGE.md`.
 - Render constraints: `RENDER_MANIFEST.md`.
+- Canonical UI/UX specification: `../CONTROL_CENTER_UI_UX_SPEC.md`.
+- Complete render queue: `RENDER_VARIATION_MATRIX.md`.
 
 Known generated-render limitation: the screenshots are directional UI renders,
 so small sidebar text/order variations inside individual PNGs are not
