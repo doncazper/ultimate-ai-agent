@@ -32,8 +32,13 @@ jobs:
       - name: Run Ruff
         run: .venv/bin/python -m ruff check .
 
-  pytest:
+  pytest-shards:
+    name: pytest / shard ${{ matrix.shard }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7]
 
     steps:
       - name: Check out repository
@@ -52,8 +57,32 @@ jobs:
           .venv/bin/python -m pip install --upgrade pip
           .venv/bin/python -m pip install -e ".[dev]"
 
-      - name: Run pytest
-        run: .venv/bin/python -m pytest -q --durations=50 --durations-min=0.05
+      - name: Run pytest shard
+        run: |
+          .venv/bin/python scripts/verification/run_pytest_shards.py \
+            --shards 8 \
+            --shard-index ${{ matrix.shard }} \
+            --basetemp /tmp/uaa_pytest_shards \
+            --quiet \
+            --safe-summary
+
+  pytest:
+    name: pytest
+    needs:
+      - pytest-shards
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Confirm complete pytest shard matrix
+        env:
+          PYTEST_SHARDS_RESULT: ${{ needs.pytest-shards.result }}
+        run: |
+          if [ "$PYTEST_SHARDS_RESULT" != "success" ]; then
+            echo "Pytest shard matrix did not complete successfully."
+            exit 1
+          fi
+          echo "All eight isolated pytest shards passed."
 
   static-verification:
     runs-on: ubuntu-latest

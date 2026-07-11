@@ -54,7 +54,7 @@ class ShardResult:
 def discover_test_files(root: Path = ROOT) -> list[str]:
     return sorted(
         path.relative_to(root).as_posix()
-        for path in (root / "tests").glob("test_*.py")
+        for path in (root / "tests").rglob("test_*.py")
         if path.is_file()
     )
 
@@ -138,6 +138,14 @@ def assign_shards(
     if timings:
         return timing_aware_shards(files, shard_count, timings), "timing-aware"
     return deterministic_file_count_shards(files, shard_count), "deterministic-file-count"
+
+
+def select_shard(plans: list[ShardPlan], shard_index: int | None) -> list[ShardPlan]:
+    if shard_index is None:
+        return plans
+    if shard_index < 0 or shard_index >= len(plans):
+        raise ValueError("--shard-index must identify one configured shard")
+    return [plans[shard_index]]
 
 
 def parse_pytest_durations(log_text: str, allowed_files: set[str]) -> dict[str, float]:
@@ -347,18 +355,29 @@ def print_summary(
     assignment_method: str,
     timing_source: str,
     timing_output: Path | None,
+    safe_summary: bool,
 ) -> None:
     print("\n=== Pytest Shard Summary ===")
     print(f"Assignment: {assignment_method}")
     print(f"Timing source: {timing_source}")
     for result in results:
+        log_ref = (
+            f"pytest-shard-log:{result.index}"
+            if safe_summary
+            else str(result.log_path)
+        )
         print(
             "shard "
             f"{result.index}: files={result.file_count} return_code={result.returncode} "
-            f"elapsed_seconds={result.elapsed_seconds:.2f} log={result.log_path}"
+            f"elapsed_seconds={result.elapsed_seconds:.2f} log_ref={log_ref}"
         )
     if timing_output is not None:
-        print(f"Timing output: {timing_output}")
+        output_ref = (
+            "pytest-timing-output:local"
+            if safe_summary
+            else str(timing_output)
+        )
+        print(f"Timing output ref: {output_ref}")
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -366,11 +385,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         description="Run pytest test files in deterministic local shards."
     )
     parser.add_argument("--shards", type=int, default=DEFAULT_SHARDS)
+    parser.add_argument("--shard-index", type=int)
     parser.add_argument("--timings-json")
     parser.add_argument("--write-timings-json")
     parser.add_argument("--basetemp", default=DEFAULT_BASETEMP)
     parser.add_argument("--junit-dir")
     parser.add_argument("--quiet", action="store_true")
+    parser.add_argument("--safe-summary", action="store_true")
     return parser.parse_args(argv)
 
 
@@ -378,6 +399,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     if args.shards <= 0:
         print("FAIL: --shards must be greater than zero", file=sys.stderr)
+        return 2
+    if args.shard_index is not None and args.write_timings_json is not None:
+        print(
+            "FAIL: --write-timings-json requires the complete shard set",
+            file=sys.stderr,
+        )
         return 2
 
     files = discover_test_files(ROOT)
@@ -393,6 +420,11 @@ def main(argv: list[str] | None = None) -> int:
 
     timings, timing_source = load_complete_timings(timings_path, files)
     plans, assignment_method = assign_shards(files, args.shards, timings)
+    try:
+        plans = select_shard(plans, args.shard_index)
+    except ValueError as exc:
+        print(f"FAIL: {exc}", file=sys.stderr)
+        return 2
     results = run_shards(
         plans,
         root=ROOT,
@@ -414,6 +446,7 @@ def main(argv: list[str] | None = None) -> int:
         assignment_method=assignment_method,
         timing_source=timing_source,
         timing_output=write_timings_path if return_code == 0 else None,
+        safe_summary=args.safe_summary,
     )
     return return_code
 

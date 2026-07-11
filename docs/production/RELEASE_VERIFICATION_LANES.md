@@ -103,8 +103,9 @@ fanout, then generates a serialized report-only Foundation Gate summary with
 `--no-write-latest`. It uses the normal non-xdist pytest suite and the existing
 `VERIFY_TIMINGS_JSON` static-verifier timing output. It is useful local
 evidence, but it does not by itself create populated release evidence packets or
-claim release readiness. Use full `make verify` for release-grade local proof
-until parallel equivalence is accepted.
+claim release readiness. Hosted CI proves pytest equivalence with eight isolated
+deterministic file shards and a stable aggregate `pytest` check; use full
+`make verify` for the conservative serial local proof.
 
 `verify-dev-sharded` is a second opt-in local/dev lane. It uses
 `scripts/verification/run_dev_fast_gate.py` to run `ruff`, sharded pytest,
@@ -116,10 +117,10 @@ per-shard logs under ignored `/tmp` paths, write timing summaries, and print
 concise phase summaries on success while preserving detailed log tails on
 failure. Complete timing data is used for greedy duration-aware balancing on
 later runs. If timing data is missing, unreadable, or partial, it falls back to
-deterministic file-count sharding. This lane does not change `make verify`, does
-not add pytest-xdist or dependency churn, and does not become the release gate
-unless a later accepted equivalence milestone promotes it with verifier-backed
-proof.
+deterministic file-count sharding. This local lane does not change `make verify`
+or add pytest-xdist or dependency churn. The hosted required pytest lane uses
+eight isolated file-count shards, rejects partial coverage through a stable
+aggregate check, and keeps optional live/model-heavy execution disabled.
 
 The sharded lane is not a live/model-heavy lane. Shard subprocesses strip known
 opt-in environment variables for live GGUF search/acquisition, local model root

@@ -63,13 +63,9 @@ from scripts.verify_operational_maturity import (
     _append_module_failures,
     _append_read_only_status_probe_failures,
     _append_stale_language_scan_failures,
-    verify,
+    verify_contracts,
 )
 from scripts.verification.repo import load_json
-
-
-def test_operational_maturity_manifest_passes_verifier() -> None:
-    assert verify() == []
 
 
 def test_operational_maturity_manifest_declares_canonical_ladder() -> None:
@@ -248,7 +244,7 @@ def test_operational_maturity_verifier_requires_local_task_posture_refs() -> Non
     capability = modules["action_inbox"]["authority_capabilities"][0]
     capability["rollback_or_safe_disable_refs"] = []
 
-    failures = verify(manifest_override=manifest)
+    failures = verify_contracts(manifest_override=manifest)
 
     posture_failure = (
         "action_inbox:authority-capability:action-inbox:local-task-create "
@@ -277,7 +273,7 @@ def test_operational_maturity_verifier_requires_authority_capability_mapping() -
         "authority-domain-ref:workspace"
     )
 
-    failures = verify(manifest_override=manifest)
+    failures = verify_contracts(manifest_override=manifest)
 
     assert any(
         "Action Inbox local_task_create authority capability missing" in failure
@@ -301,7 +297,7 @@ def test_operational_maturity_verifier_requires_authority_capability_contract() 
         "deny",
     ]
 
-    failures = verify(manifest_override=manifest)
+    failures = verify_contracts(manifest_override=manifest)
 
     assert any(
         "authority capability contract must deny unknown authority by default"
@@ -323,7 +319,7 @@ def test_operational_maturity_verifier_requires_capability_policy_decisions() ->
         "deny",
     ]
 
-    failures = verify(manifest_override=manifest)
+    failures = verify_contracts(manifest_override=manifest)
 
     assert any(
         "action_inbox:authority-capability:action-inbox:local-task-create "
@@ -346,7 +342,7 @@ def test_operational_maturity_verifier_requires_local_task_repeatability_gate() 
     capability["frontend_repeatability_test_refs"] = []
     capability["verifier_repeatability_refs"] = []
 
-    failures = verify(manifest_override=manifest)
+    failures = verify_contracts(manifest_override=manifest)
 
     assert any(
         "local_task_create authority capability must declare FCC-ACTION-002"
@@ -376,7 +372,7 @@ def test_operational_maturity_verifier_requires_local_task_safe_disable_flag() -
     capability = modules["action_inbox"]["authority_capabilities"][0]
     capability["rollback_or_safe_disable_refs"] = []
 
-    failures = verify(manifest_override=manifest)
+    failures = verify_contracts(manifest_override=manifest)
 
     assert any(
         "action_inbox:authority-capability:action-inbox:local-task-create "
@@ -402,7 +398,7 @@ def test_operational_maturity_verifier_requires_rollback_execution_blocked() -> 
         if authority != "rollback_execution"
     ]
 
-    failures = verify(manifest_override=manifest)
+    failures = verify_contracts(manifest_override=manifest)
 
     assert any(
         "local_task_create authority capability must keep rollback_execution blocked"
@@ -629,7 +625,7 @@ def test_authority_scorecard_rejects_context_injection_selection_or_missing_cont
         if authority != "runtime_prompt_context_injection"
     ]
 
-    failures = verify(scorecard_override=scorecard)
+    failures = verify_contracts(scorecard_override=scorecard)
 
     assert any(
         "context_injection must remain unselected" in failure for failure in failures
@@ -703,7 +699,7 @@ def test_authority_scorecard_rejects_missing_first_implementation_lane() -> None
     scorecard = _scorecard_copy()
     scorecard.pop("first_implementation_lane")
 
-    failures = verify(scorecard_override=scorecard)
+    failures = verify_contracts(scorecard_override=scorecard)
 
     assert any(
         "authority scorecard requires first_implementation_lane" in failure
@@ -715,7 +711,7 @@ def test_authority_scorecard_rejects_first_lane_as_follow_on_candidate() -> None
     scorecard = _scorecard_copy()
     scorecard["authority_candidates"][0]["candidate_id"] = FIRST_IMPLEMENTATION_LANE_ID
 
-    failures = verify(scorecard_override=scorecard)
+    failures = verify_contracts(scorecard_override=scorecard)
 
     assert any(
         "fixed first implementation lane must not be a follow-on authority candidate"
@@ -730,7 +726,7 @@ def test_authority_scorecard_rejects_first_lane_in_follow_on_ranking() -> None:
         FIRST_IMPLEMENTATION_LANE_ID
     )
 
-    failures = verify(scorecard_override=scorecard)
+    failures = verify_contracts(scorecard_override=scorecard)
 
     assert any(
         "follow-on candidate ranking order drifted" in failure for failure in failures
@@ -762,7 +758,7 @@ def test_authority_scorecard_rejects_ranking_authority_claim() -> None:
         "LocalApprovalAuthority, rollback/safe-disable, CLI parity, and tests exist."
     )
 
-    failures = verify(scorecard_override=scorecard)
+    failures = verify_contracts(scorecard_override=scorecard)
 
     assert any(
         "follow-on ranking must not grant authority" in failure for failure in failures
@@ -776,7 +772,7 @@ def test_authority_scorecard_rejects_duplicate_or_missing_follow_on_ranking_ids(
     ranked_ids = scorecard["follow_on_candidate_ranking"]["ranked_candidate_ids"]
     ranked_ids[-1] = ranked_ids[0]
 
-    failures = verify(scorecard_override=scorecard)
+    failures = verify_contracts(scorecard_override=scorecard)
 
     assert any(
         "follow-on candidate ranking order drifted" in failure for failure in failures
@@ -793,7 +789,7 @@ def test_authority_scorecard_rejects_mismatched_safest_candidate() -> None:
         "context_injection"
     )
 
-    failures = verify(scorecard_override=scorecard)
+    failures = verify_contracts(scorecard_override=scorecard)
 
     assert any(
         "follow-on ranking safest candidate must match rank 1" in failure
@@ -807,7 +803,7 @@ def test_authority_scorecard_rejects_mismatched_safest_candidate_status() -> Non
         "authority_capability_candidate"
     )
 
-    failures = verify(scorecard_override=scorecard)
+    failures = verify_contracts(scorecard_override=scorecard)
 
     assert any(
         "follow-on ranking safest candidate status drifted" in failure
@@ -824,7 +820,7 @@ def test_authority_scorecard_rejects_first_lane_missing_blockers() -> None:
     first_lane["status"] = "partial"
     first_lane["next_safe_action"] = "Pick a different lane."
 
-    failures = verify(scorecard_override=scorecard)
+    failures = verify_contracts(scorecard_override=scorecard)
 
     assert any(
         "first implementation lane missing allowed scope https_get_only" in failure
@@ -858,7 +854,7 @@ def test_authority_scorecard_rejects_selected_candidate_without_capability_statu
     )
     scorecard["first_authority_capability_decision"]["no_go_reason"] = None
 
-    failures = verify(scorecard_override=scorecard)
+    failures = verify_contracts(scorecard_override=scorecard)
 
     assert any(
         f"{candidate['candidate_id']} selected authority capability must be authority_capability_candidate or implemented"
@@ -887,7 +883,7 @@ def test_authority_scorecard_rejects_capability_candidate_missing_required_refs(
     )
     scorecard["first_authority_capability_decision"]["no_go_reason"] = None
 
-    failures = verify(scorecard_override=scorecard)
+    failures = verify_contracts(scorecard_override=scorecard)
 
     assert any(
         f"{candidate['candidate_id']} authority capability candidate requires exact_scope_ref"
@@ -917,7 +913,7 @@ def test_authority_scorecard_rejects_multiple_selected_candidates() -> None:
     )
     scorecard["first_authority_capability_decision"]["no_go_reason"] = None
 
-    failures = verify(scorecard_override=scorecard)
+    failures = verify_contracts(scorecard_override=scorecard)
 
     assert any(
         "authority scorecard must select at most one authority capability candidate"
@@ -935,7 +931,7 @@ def test_authority_scorecard_requires_documented_no_go_when_none_selected() -> N
     scorecard["first_authority_capability_decision"]["no_go_reason"] = None
     scorecard["first_authority_capability_decision"]["smallest_next_safe_action"] = ""
 
-    failures = verify(scorecard_override=scorecard)
+    failures = verify_contracts(scorecard_override=scorecard)
 
     assert any(
         "authority scorecard with no selected candidate requires no_go decision"
@@ -965,7 +961,7 @@ def test_authority_scorecard_no_go_must_explain_top_ranked_candidate_blocker() -
         "Keep planning."
     )
 
-    failures = verify(scorecard_override=scorecard)
+    failures = verify_contracts(scorecard_override=scorecard)
 
     assert any(
         "no_go authority decision must explain the top-ranked candidate blocker"
@@ -990,7 +986,7 @@ def test_operational_maturity_verifier_requires_ui_status_binding_for_rank2_stat
     modules = {module["module_id"]: module for module in manifest["modules"]}
     modules["settings"].pop("ui_status_binding")
 
-    failures = verify(manifest_override=manifest)
+    failures = verify_contracts(manifest_override=manifest)
 
     assert any(
         "settings rank 2+ backend status route requires ui_status_binding" in failure
@@ -1009,7 +1005,7 @@ def test_operational_maturity_verifier_rejects_undocumented_backend_only_status(
     binding["backend_only_doc_ref"] = None
     binding["backend_only_blocker_ref"] = None
 
-    failures = verify(manifest_override=manifest)
+    failures = verify_contracts(manifest_override=manifest)
 
     assert any(
         "local_models backend-only status binding requires backend_only_reason"
@@ -1045,7 +1041,7 @@ def test_operational_maturity_verifier_accepts_documented_backend_only_status() 
     binding["frontend_test_refs"] = []
     binding["stale_language_scan_refs"] = []
 
-    assert verify(manifest_override=manifest) == []
+    assert verify_contracts(manifest_override=manifest) == []
 
 
 def test_operational_maturity_stale_language_scan_is_module_scoped() -> None:

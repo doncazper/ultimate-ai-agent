@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 from pathlib import Path
 
 from pydantic import SecretStr, ValidationError
@@ -535,7 +536,7 @@ def test_fallback_decision_rejects_raw_or_authority_claims() -> None:
 def test_fallback_cli_inspection_outputs_safe_schema() -> None:
     result = subprocess.run(
         [
-            ".venv/bin/python",
+            sys.executable,
             "scripts/inspect_exact_approved_provider_fallback.py",
             "--fallback-run-ref",
             "provider-fallback-run-ref:exact-approved:test-cli",

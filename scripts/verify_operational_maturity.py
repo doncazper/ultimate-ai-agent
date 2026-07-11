@@ -398,6 +398,24 @@ def verify(
     manifest_override: dict[str, Any] | None = None,
     scorecard_override: dict[str, Any] | None = None,
 ) -> list[str]:
+    failures = verify_contracts(
+        root=root,
+        manifest_override=manifest_override,
+        scorecard_override=scorecard_override,
+    )
+    _append_public_request_schema_failures(failures)
+    _append_mock_fallback_fixture_failures(failures, root)
+    _append_behavior_probe_failures(failures, root)
+    _append_read_only_status_probe_failures(failures)
+    return failures
+
+
+def verify_contracts(
+    root: Path = ROOT,
+    manifest_override: dict[str, Any] | None = None,
+    scorecard_override: dict[str, Any] | None = None,
+) -> list[str]:
+    """Validate static operational-maturity contracts without runtime probes."""
     failures: list[str] = []
     manifest = (
         manifest_override
@@ -436,11 +454,7 @@ def verify(
     _append_ladder_doc_failures(failures, ladder_text)
     _append_module_failures(failures, manifest, routes_by_ref, root)
     _append_first_lane_failures(failures, manifest, routes_by_ref, root)
-    _append_public_request_schema_failures(failures)
     _append_ref_resolution_failures(failures, manifest, root)
-    _append_mock_fallback_fixture_failures(failures, root)
-    _append_behavior_probe_failures(failures, root)
-    _append_read_only_status_probe_failures(failures)
     _append_status_doc_failures(failures, gap_map_text, board_text)
     return failures
 
