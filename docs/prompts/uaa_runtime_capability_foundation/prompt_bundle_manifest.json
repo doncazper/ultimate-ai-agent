@@ -1,8 +1,8 @@
 {
   "$schema": "../../schemas/prompt_bundle_manifest.schema.json",
   "bundle_id": "uaa-runtime-capability-foundation-001",
-  "version": "1.1.0",
-  "purpose": "Stored prompts for accelerating UAA toward high-maturity agent-platform capability while preserving UAA's governed local-first authority model.",
+  "version": "1.2.0",
+  "purpose": "Finite merge-gated prompts for evidence-backed UAA agent-capability maturity while preserving exact governed local-first authority and WEB-HYBRID lanes.",
   "developer_prompt_refs": [
     "docs/prompts/uaa_runtime_capability_foundation/00_execute_uaa_runtime_capability_foundation_end_to_end.prompt.md",
     "docs/prompts/uaa_runtime_capability_foundation/01_reference_gap_truth_and_age_adjusted_scoreboard.prompt.md",
@@ -15,7 +15,7 @@
     "docs/prompts/uaa_runtime_capability_foundation/08_cockpit_cli_api_parity_and_operator_ux.prompt.md",
     "docs/prompts/uaa_runtime_capability_foundation/09_extensibility_ecosystem_and_final_hardening.prompt.md"
   ],
-  "bundle_hash": "sha256:362269795db89f694fa75b9d7624e9b2fbc6df7fd902e32d1587a4ce1e1f1514",
+  "bundle_hash": "sha256:f61008650695963fd02c3126dbf54a481aacb4344c9097c1b3ea9209657ccaa9",
   "stable_within_run": true,
   "created_at": "2026-07-05"
 }

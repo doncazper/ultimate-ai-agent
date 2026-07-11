@@ -1,90 +1,55 @@
-# Phase 01: Reference Gap Truth And Age-Adjusted Scoreboard
+# Phase 01: Reasoning And Task Understanding
 
-Goal: establish a code-evidenced catch-up baseline before implementation. The
-output must be a UAA-owned scorecard and backlog that distinguishes real code
-from docs, mocks, screenshots, aspirations, and blocked authority.
-
-This phase is inspection, documentation, and verifier work. It must not add
-runtime authority.
+Goal: implement backend-owned, deterministic intent and plan-revision truth
+without treating model output as authority.
 
 ## Required Work
 
-1. Record current UAA branch, commit, package/version baseline, dirty files,
-   primary runtime/language, main app surfaces, backend/core surfaces,
-   CLI/script surfaces, and relevant tests/verifiers.
-2. If the sibling external comparison runtime repo is available, record the same high-level
-   facts read-only. Do not persist absolute local paths.
-3. Build a UAA vs runtime capability foundation matrix focused on agent-platform
-   components:
-   - reasoning and task understanding;
-   - planning and orchestration;
-   - learning and adaptation;
-   - memory and context management;
-   - communication and interaction;
-   - action and tool calling;
-   - autonomy and authority management;
-   - code and implementation assistance;
-   - research/web/external information handling;
-   - model/provider management;
-   - evidence, audit, and observability;
-   - safety, security, and failure handling;
-   - UX as an AI cockpit;
-   - CLI/API parity;
-   - extensibility and ecosystem;
-   - productized agent loop.
-4. Add an age-adjusted view that separates:
-   - what UAA already does better because of stricter governance;
-   - what external comparison runtime does better because of older or broader product surface;
-   - what UAA can catch up on without broad authority;
-   - what UAA should defer until exact authority lanes are accepted.
-5. Convert the top catch-up gaps into a ranked implementation backlog with:
-   - target status;
-   - owner surface;
-   - route/API/CLI/UI impact;
-   - authority needed or blocked;
-   - tests/verifiers required;
-   - first safe PR lane.
+1. Inspect existing intent, planner, task-decomposition, evidence, CLI, API,
+   OpenAPI, route-classification, Control Center, and redaction contracts.
+2. Add typed records for:
+   - safe intent ref and fingerprint;
+   - facts, assumptions, and unknowns;
+   - ambiguity and contradiction posture;
+   - questions requiring operator input;
+   - confidence band;
+   - source and evidence refs;
+   - immutable decomposition; and
+   - revision fingerprint, predecessor ref, and reason.
+3. Provide a deterministic baseline that works without a model. Runtime-model
+   assistance may run only through an existing exact approved provider lane.
+   Raw prompts remain transient. Model output remains evidence, not authority.
+4. Expose one backend-owned readable explanation through the smallest existing
+   CLI/API/macOS Control Center surfaces. JSON is optional and redacted.
+5. Bind revisions to the prior immutable plan. Reject changed membership,
+   reordered steps, retargeting, or other mutation unless represented as a new
+   explicit revision with its own fingerprint and reason.
 
-## UAA Outputs
+## Required Proofs
 
-Create or update the smallest appropriate docs. Prefer one dedicated report
-such as:
+- ambiguity and low-confidence question generation;
+- contradictory inputs;
+- prompt-injection-shaped text remains untrusted data;
+- facts, assumptions, and unknowns remain distinct;
+- unchanged deterministic replay;
+- changed-plan rejection;
+- source/evidence refs remain safe and redacted; and
+- no raw prompt, answer, path, log, provider payload, or secret persistence.
 
-`docs/control_center/UAA_RUNTIME_CAPABILITY_SCOREBOARD.md`
+## Authority Boundary
 
-The report must include:
-
-- branch and commit evidence;
-- source files inspected;
-- component scores or maturity labels;
-- age-adjusted interpretation;
-- ranked catch-up backlog;
-- explicit "not copied from external runtime references" statement;
-- explicit blocked authority list.
-
-Add a verifier such as:
-
-`scripts/verify_uaa_runtime_capability_scoreboard.py`
-
-The verifier should fail if the report omits statuses, authority boundaries,
-test references, or product-language limits.
-
-## Acceptance Criteria
-
-- Every major claim cites UAA files or marks the evidence unknown.
-- external comparison runtime is used only as a reference comparator.
-- The report distinguishes implemented, partial, planned, mock-only, blocked,
-  deprecated, contradicted, and unknown states.
-- No runtime model, web, connector, browser, shell, plugin, memory-write, or
-  production authority is added.
-- The backlog can drive Phases 02-09 without reopening broad generic audit.
+Intent, confidence, questions, decomposition, revisions, model output, and UI
+state grant no approval, lease, tool, memory, web, shell, connector, provider,
+or production authority. Unknown authority is denied.
 
 ## Verification
 
-Run:
+Run focused intent/planning tests plus affected API/CLI/UI tests, OpenAPI and
+route classification when routes change, redaction/product-truth/docs checks,
+Foundation Gate report-only with `--no-write-latest`, and `git diff --check`.
 
-```bash
-git diff --check
-.venv/bin/python scripts/verify_uaa_runtime_capability_scoreboard.py
-.venv/bin/python scripts/verify_documentation_integrity.py
-```
+## Exit
+
+Reasoning truth is typed, deterministic, operator-readable, evidence-bound,
+and tested. Any unavailable model-assisted path is terminally classified; it
+does not delay the phase or generate another prompt.

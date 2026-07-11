@@ -1,64 +1,44 @@
-# Phase 06: Evidence, Audit, Receipts, And Observability
+# Phase 06: Portable Evidence And Observability
 
-Goal: make UAA's proof surfaces more operator-visible and tamper-aware:
-timeline, receipts, provenance, redaction, runtime state, and offline
-inspection where practical.
+Goal: unify content-free receipts, tamper-aware hash chains, offline
+verification, exportable manifests, and operator-readable timelines.
 
 ## Required Work
 
-1. Inspect UAA evidence timeline, event log, receipt viewer, audit docs,
-   storage, run/receipt trace viewer, release evidence, redaction utilities,
-   API routes, CLI scripts, and tests.
-2. Define or harden a common receipt envelope for agent-loop events:
-   - receipt id and safe refs;
-   - run/action/approval ids;
-   - side-effect class;
-   - authority decision;
-   - inputs as safe refs or redacted summaries;
-   - outputs as safe refs or redacted summaries;
-   - artifact hash refs when applicable;
-   - timestamp;
-   - verifier version;
-   - redaction status.
-3. Add operator-facing evidence timeline grouping:
-   - plan changes;
-   - approval waits;
-   - action proposals;
-   - execution receipts for accepted lanes;
-   - memory proposals and review decisions;
-   - blocked/no-go events;
-   - recovery events.
-4. Add CLI/API inspection for receipt and timeline queries.
-5. Add tests and verifiers for redaction, receipt schema, evidence refs,
-   missing receipt handling, and no raw payload persistence.
+1. Inspect evidence timeline, event ledgers, dispatch/approval/budget/mission
+   receipts, redaction, export, CLI/API/UI, and offline verifiers.
+2. Define or consolidate a canonical receipt envelope binding safe refs for:
+   plan and fingerprint, mission/run/step, current AuthorityLease scope, exact
+   approval validation, policy decision, budget reservation/settlement,
+   capability/adapter/provider/target, request fingerprint, terminal outcome,
+   predecessor hash, redaction status, and verifier version.
+3. Implement deterministic canonical serialization and hash chaining with
+   content-free portable manifests.
+4. Detect tamper, truncation, reorder, replay, duplicate sequence, and
+   cross-plan/run/target substitution offline.
+5. Add readable CLI/API/macOS timeline and verification posture without raw
+   JSON as the primary operator flow.
+6. Keep execution evidence structurally distinct from invocation authority.
 
-## Safe Implementation Shape
+## Signing Boundary
 
-- Safe refs and bounded summaries only.
-- Do not persist raw prompt content, raw model responses, provider payloads,
-  local absolute paths, logs, credentials, tokens, cookies, hostnames, or
-  environment dumps.
-- Evidence is proof of what UAA did or refused; it is not new authority.
+Implement Ed25519 signing only if a real macOS Keychain-backed lifecycle,
+rotation, verification, loss, recovery, and revocation model is proven. If it
+is not, retain honest local SHA-256/hash-chain integrity and label signing
+blocked. Do not call hashes signatures.
 
-## Acceptance Criteria
+## Required Proofs
 
-- Operators can answer: what happened, who approved it, what policy allowed or
-  blocked it, what evidence exists, and what remains unknown.
-- Receipt/timeline surfaces degrade safely when evidence is missing.
-- Tests fail on raw-payload and unsafe-path leaks in new surfaces.
-- UI avoids raw JSON for critical evidence workflows.
+- deterministic unchanged verification;
+- tamper, truncation, reorder, replay, and substitution rejection;
+- missing predecessor and missing required binding rejection;
+- cross-run and cross-target receipt denial;
+- bounded export and operator-readable verification;
+- evidence refs cannot grant authority; and
+- no raw prompts, results, pages, logs, paths, provider payloads, credentials,
+  environment values, usernames, or hostnames persist.
 
-## Verification
+## Exit
 
-Run focused evidence/redaction tests plus:
-
-```bash
-git diff --check
-.venv/bin/python scripts/verify_documentation_integrity.py
-.venv/bin/python scripts/verify_product_truth.py
-PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py
-PYTHONPATH=src .venv/bin/python -m pytest tests/test_api_manifest.py -q
-PYTHONPATH=src .venv/bin/python -m pytest tests/test_control_center_api_routes.py -q
-.venv/bin/python scripts/run_foundation_gate.py --command-mode report-only
-make frontend-check
-```
+Completion and action evidence are portable, content-free, tamper-aware,
+offline-verifiable, redacted, and honestly labeled.

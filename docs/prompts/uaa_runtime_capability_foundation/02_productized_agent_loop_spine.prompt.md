@@ -1,67 +1,55 @@
-# Phase 02: Productized Agent Loop Spine
+# Phase 02: Productized Founder Loop And Mission Completion
 
-Goal: make UAA's operator loop visibly coherent: input -> intent summary ->
-plan proposal -> action proposal -> approval posture -> result/blocked state ->
-evidence -> memory review candidate.
+Goal: complete one genuinely useful bounded workflow:
 
-This phase should strengthen UAA's Founder Command Center spine without adding
-new high-authority runtime behavior.
+operator input -> intent assessment -> immutable plan -> action proposal ->
+exact approval -> mission-scoped AuthorityLease -> MissionOrchestrator ->
+AuthorityMissionRunner -> AuthorityDispatcher -> exact adapter -> terminal
+receipt and evidence -> reviewable memory candidate.
 
 ## Required Work
 
-1. Inspect existing Founder Loop, Today, Inbox, Plans, Actions, Chat handoff,
-   Evidence, Memory, and Settings read models, routes, CLI scripts, tests, and
-   Control Center components.
-2. Define a backend-owned `AgentLoopThread` or equivalent read model that can
-   represent:
-   - operator input or work request safe ref;
-   - intent classification and ambiguity posture;
-   - facts, assumptions, and unknowns;
-   - plan steps and revision state;
-   - proposed actions and required approvals;
-   - current blocked/degraded/partial status;
-   - evidence refs;
-   - memory-review candidate refs;
-   - next safe operator decision.
-3. Bind existing surfaces to the read model instead of duplicating truth in UI
-   state.
-4. Add CLI/API inspection for the same loop state.
-5. Render the loop in Control Center using operator-readable language, not raw
-   JSON.
-6. Update docs and product truth with exact implemented and blocked states.
+1. Reuse the existing synchronous DAG, failure-management, approval-wait,
+   retry, dead-letter, cancellation, dispatcher, budget, evidence, Founder Loop,
+   API, CLI, and Control Center contracts.
+2. Choose one already implemented low-risk exact adapter. Do not fake an
+   adapter and do not broaden its authority.
+3. Bind immutable plan membership, dependency edges, definition and request
+   fingerprints, exact targets, mission/run refs, deadlines, approval scope,
+   lease scope, idempotency, and terminal receipts.
+4. Finish mission-wide operation, time, cost, and concurrency budgets with
+   atomic reserve/start/settle/release, unresolved-cost posture, concurrency
+   protection, and crash-safe settlement recovery.
+5. Produce a content-free completion manifest bound to plan fingerprint, lease,
+   approvals, dispatcher evidence, budget settlement, cancellation/dead-letter
+   posture, step terminal receipts, redaction status, and safe refs.
+6. Add deterministic offline completion verification. Do not claim signatures
+   unless real key-backed signing and verification exist.
+7. Expose the same backend truth across existing CLI/API/macOS UI surfaces.
 
-## Safe Implementation Shape
+## Required Proofs
 
-Prefer a read-only or proposal-first vertical slice first:
+- bounded success from operator input through reviewable memory candidate;
+- approval expiry and revocation;
+- lease revocation;
+- budget exhaustion and unknown metered budget;
+- kill switch and safe-disable;
+- changed request or target;
+- duplicate concurrent start;
+- cancellation race;
+- crash during settlement;
+- unchanged replay without double execution or charge; and
+- no unsafe durable payloads.
 
-- Python core owns loop state assembly.
-- API exposes typed read-only routes unless an exact approved mutation lane
-  already exists.
-- CLI prints the same fields in redacted summary form.
-- UI renders status, plan, actions, evidence, and memory-review candidates.
-- No model output is treated as truth or authority.
+## Authority Boundary
 
-## Acceptance Criteria
+Every start flows only through MissionOrchestrator -> AuthorityMissionRunner ->
+AuthorityDispatcher. Inside the final locked pre-start boundary, re-evaluate
+policy, exact approval, current mission lease, capability/adapter/provider/
+target, mission/run, TTL/deadline, budget, kill switch, safe-disable,
+readiness, idempotency, and replay posture.
 
-- A user can inspect where a work item is in the agent loop.
-- Ambiguity, assumptions, unknowns, and blocked states are explicit.
-- The UI cannot approve or execute anything without backend-owned approval
-  posture.
-- Existing Action Inbox and Evidence routes remain the authority source for
-  their domains.
-- No new runtime model call or action execution is introduced by this phase.
+## Exit
 
-## Verification
-
-Run focused tests for changed core/API/CLI/UI files plus:
-
-```bash
-git diff --check
-PYTHONPATH=src .venv/bin/python -m pytest tests/test_api_manifest.py -q
-PYTHONPATH=src .venv/bin/python -m pytest tests/test_control_center_api_routes.py -q
-PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py
-.venv/bin/python scripts/verify_product_truth.py
-make frontend-check
-```
-
-Skip frontend checks only if no frontend files changed.
+One bounded useful workflow is real, receipt-backed, crash/replay safe, and
+operator-visible. Unsupported adapters remain explicitly blocked.
