@@ -86,6 +86,10 @@ class AuthorityDispatchCorruptionError(RuntimeError):
     """Raised when durable dispatch history fails validation."""
 
 
+class AuthorityDispatchAtomicStartRecoveryRequired(RuntimeError):
+    """Raised when an atomic adapter cannot prove pre-commit containment."""
+
+
 class AuthorityDispatchAdapter(Protocol):
     descriptor: AuthorityDispatchAdapterDescriptor
     binding_ref: str
@@ -95,6 +99,12 @@ class AuthorityDispatchAdapter(Protocol):
     def invoke(
         self, request: AuthorityDispatchRequest
     ) -> AuthorityDispatchAdapterResult: ...
+
+
+class AuthorityDispatchAtomicStartHandle(Protocol):
+    commit_validated_at: datetime
+
+    def collect(self) -> AuthorityDispatchAdapterResult: ...
 
 
 class AuthorityDispatchExecutionFenceValidator(Protocol):
@@ -185,6 +195,19 @@ def authority_dispatch_receipt_entry_hash(
         payload.pop("target_binding_ref", None)
     if receipt.approval_scope_fingerprint_ref is None:
         payload.pop("approval_scope_fingerprint_ref", None)
+    # These V2 atomic-start fields default to false. Exclude false values so
+    # previously written V1 receipts still verify after model validation adds
+    # the defaults; true values remain bound for sealed atomic adapters.
+    if not receipt.atomic_start_required:
+        payload.pop("atomic_start_required", None)
+    if not receipt.runtime_start_confirmed:
+        payload.pop("runtime_start_confirmed", None)
+    if not receipt.input_committed:
+        payload.pop("input_committed", None)
+    if not receipt.adapter_start_attempted:
+        payload.pop("adapter_start_attempted", None)
+    if not receipt.result_collection_performed:
+        payload.pop("result_collection_performed", None)
     return _stable_ref(
         "entry-hash-ref:authority-dispatch",
         payload,
@@ -195,7 +218,7 @@ def _entry_hash(receipt: AuthorityDispatchReceipt) -> str:
     return authority_dispatch_receipt_entry_hash(receipt)
 
 
-def _execution_ref(request: AuthorityDispatchRequest) -> str:
+def authority_dispatch_execution_ref(request: AuthorityDispatchRequest) -> str:
     return _stable_ref(
         "authority-dispatch-execution-ref",
         {
@@ -204,6 +227,10 @@ def _execution_ref(request: AuthorityDispatchRequest) -> str:
             "adapter_ref": request.adapter_ref,
         },
     )
+
+
+def _execution_ref(request: AuthorityDispatchRequest) -> str:
+    return authority_dispatch_execution_ref(request)
 
 
 def build_authority_dispatch_cost_estimate_ref(estimate: CostEstimate) -> str:
@@ -329,6 +356,10 @@ _TOOL_AUTHORITY_BINDINGS = {
         AuthorityDomain.files.value,
         AuthorityCapability.read.value,
     ),
+    "tool:sealed_calculation.v1": (
+        AuthorityDomain.workspace.value,
+        AuthorityCapability.execute.value,
+    ),
 }
 
 
@@ -432,11 +463,17 @@ class ToolRuntimeAuthorityDispatchAdapter:
 
     @property
     def binding_ref(self) -> str:
+        descriptor_payload = self._descriptor.model_dump(mode="json")
+        # Preserve the V1 binding for existing non-atomic adapters. Atomic
+        # adapters retain the true field in their independently versioned
+        # binding, so the strengthened start contract is still hash-bound.
+        if not self._descriptor.atomic_start_required:
+            descriptor_payload.pop("atomic_start_required", None)
         return _stable_ref(
             "adapter-binding-ref:authority-dispatch",
             {
                 "implementation_ref": self.IMPLEMENTATION_REF,
-                "descriptor": self._descriptor.model_dump(mode="json"),
+                "descriptor": descriptor_payload,
                 "runtime_manifest": self._runtime_adapter.manifest.model_dump(
                     mode="json"
                 ),
@@ -595,6 +632,10 @@ class AuthorityDispatcher:
             if not isinstance(binding_ref, str):
                 raise ValueError("AUTHORITY_DISPATCH_ADAPTER_BINDING_REF_REQUIRED")
             validate_task_ref(binding_ref, "authority_dispatch_adapter_binding_ref")
+            if adapter.descriptor.atomic_start_required and not callable(
+                getattr(adapter, "start", None)
+            ):
+                raise ValueError("AUTHORITY_DISPATCH_ATOMIC_START_HOOK_REQUIRED")
         self.adapters = {
             adapter.descriptor.adapter_ref: adapter for adapter in adapters
         }
@@ -786,6 +827,9 @@ class AuthorityDispatcher:
         fingerprint = _request_fingerprint(request)
         pending_cancellation: AuthorityDispatchReceipt | None = None
         pending_reason_ref: str | None = None
+        atomic_start_handle: AuthorityDispatchAtomicStartHandle | None = None
+        atomic_start_failed = False
+        atomic_start_recovery_required = False
         approval_lock = (
             self.approval_authority.hold_validation_lock()
             if self.approval_authority is not None
@@ -879,9 +923,65 @@ class AuthorityDispatcher:
                     execution_fence_ref=execution_fence_ref,
                     execution_started=True,
                     start_validated_at=start_validated_at,
-                    safe_summary="Governed adapter start recorded before invocation.",
+                    safe_summary="Governed adapter start claim recorded before invocation.",
                 )
                 self._append(started)
+                if adapter is not None and adapter.descriptor.atomic_start_required:
+
+                    def validate_commit_fence() -> tuple[list[str], datetime]:
+                        commit_validated_at = utc_now()
+                        return (
+                            self._prestart_reason_refs(
+                                request,
+                                started,
+                                adapter,
+                                current_time=commit_validated_at,
+                            ),
+                            commit_validated_at,
+                        )
+
+                    try:
+                        atomic_start_handle = adapter.start(  # type: ignore[attr-defined]
+                            request,
+                            validate_commit_fence=validate_commit_fence,
+                        )
+                    except AuthorityDispatchAtomicStartRecoveryRequired:
+                        atomic_start_recovery_required = True
+                        recovery_started = self._build_receipt_from_existing(
+                            started,
+                            status=AuthorityDispatchStatus.started,
+                            previous_entry_hash_ref=started.entry_hash_ref,
+                            adapter_start_attempted=True,
+                            reason_refs=[
+                                "reason-ref:authority-dispatch:atomic-start-recovery-required"
+                            ],
+                            safe_summary=(
+                                "Atomic adapter start truth requires operator recovery; "
+                                "automatic replay remains denied."
+                            ),
+                        )
+                        self._append(recovery_started)
+                        started = recovery_started
+                    except Exception:
+                        atomic_start_failed = True
+                    else:
+                        confirmed = self._build_receipt_from_existing(
+                            started,
+                            status=AuthorityDispatchStatus.started,
+                            previous_entry_hash_ref=started.entry_hash_ref,
+                            runtime_start_confirmed=True,
+                            input_committed=True,
+                            adapter_start_attempted=True,
+                            start_validated_at=(
+                                atomic_start_handle.commit_validated_at
+                            ),
+                            safe_summary=(
+                                "Exact adapter runtime start and bounded input commit "
+                                "confirmed inside the authority start boundary."
+                            ),
+                        )
+                        self._append(confirmed)
+                        started = confirmed
             else:
                 pending = self._build_receipt_from_existing(
                     latest,
@@ -905,10 +1005,15 @@ class AuthorityDispatcher:
                 reason_ref=pending_reason_ref,
             )
 
+        if atomic_start_recovery_required:
+            return AuthorityDispatchResult(
+                receipt=started,
+                replayed=False,
+                recovery_required=True,
+            )
+
         assert adapter is not None
-        try:
-            adapter_result = adapter.invoke(request)
-        except Exception:
+        if atomic_start_failed:
             failure_cost = adapter.descriptor.failure_cost_microusd
             adapter_result = AuthorityDispatchAdapterResult(
                 execution_ref=_execution_ref(request),
@@ -935,6 +1040,74 @@ class AuthorityDispatcher:
                 ],
                 safe_summary="Adapter invocation failed safely without raw exception data.",
             )
+        elif atomic_start_handle is not None:
+            try:
+                adapter_result = atomic_start_handle.collect()
+            except AuthorityDispatchAtomicStartRecoveryRequired:
+                return AuthorityDispatchResult(
+                    receipt=started,
+                    replayed=False,
+                    recovery_required=True,
+                )
+            except Exception:
+                failure_cost = adapter.descriptor.failure_cost_microusd
+                adapter_result = AuthorityDispatchAdapterResult(
+                    execution_ref=_execution_ref(request),
+                    succeeded=False,
+                    actual_operation_count=adapter.descriptor.operation_count,
+                    actual_cost_microusd=failure_cost,
+                    actual_cost_ref=(
+                        _stable_ref(
+                            "actual-cost-ref:authority-dispatch",
+                            {
+                                "dispatch_ref": request.dispatch_ref,
+                                "cost_microusd": failure_cost,
+                                "atomic_collection_failure": True,
+                            },
+                        )
+                        if failure_cost is not None
+                        else None
+                    ),
+                    evidence_refs=[
+                        _stable_ref(
+                            "evidence-ref:authority-dispatch-atomic-collection-failure",
+                            {"dispatch_ref": request.dispatch_ref},
+                        )
+                    ],
+                    safe_summary=(
+                        "Atomic adapter result collection failed safely without raw output."
+                    ),
+                )
+        else:
+            try:
+                adapter_result = adapter.invoke(request)
+            except Exception:
+                failure_cost = adapter.descriptor.failure_cost_microusd
+                adapter_result = AuthorityDispatchAdapterResult(
+                    execution_ref=_execution_ref(request),
+                    succeeded=False,
+                    actual_operation_count=adapter.descriptor.operation_count,
+                    actual_cost_microusd=failure_cost,
+                    actual_cost_ref=(
+                        _stable_ref(
+                            "actual-cost-ref:authority-dispatch",
+                            {
+                                "dispatch_ref": request.dispatch_ref,
+                                "cost_microusd": failure_cost,
+                                "failure": True,
+                            },
+                        )
+                        if failure_cost is not None
+                        else None
+                    ),
+                    evidence_refs=[
+                        _stable_ref(
+                            "evidence-ref:authority-dispatch-adapter-failure",
+                            {"dispatch_ref": request.dispatch_ref},
+                        )
+                    ],
+                    safe_summary="Adapter invocation failed safely without raw exception data.",
+                )
         if adapter_result.execution_ref != started.execution_ref:
             failure_cost = adapter.descriptor.failure_cost_microusd
             adapter_result = AuthorityDispatchAdapterResult(
@@ -1009,7 +1182,9 @@ class AuthorityDispatcher:
                 previous_entry_hash_ref=receipts[-1].entry_hash_ref,
                 execution_ref=adapter_result.execution_ref,
                 execution_started=True,
-                adapter_invocation_performed=True,
+                adapter_start_attempted=adapter.descriptor.atomic_start_required,
+                adapter_invocation_performed=not atomic_start_failed,
+                result_collection_performed=atomic_start_handle is not None,
                 budget_settlement_receipt_ref=settlement.receipt_ref,
                 actual_operation_count=adapter_result.actual_operation_count,
                 actual_cost_microusd=adapter_result.actual_cost_microusd,
@@ -1102,7 +1277,9 @@ class AuthorityDispatcher:
             previous_entry_hash_ref=receipts[-1].entry_hash_ref,
             execution_ref=latest.execution_ref,
             execution_started=True,
+            adapter_start_attempted=latest.adapter_start_attempted,
             adapter_invocation_performed=True,
+            result_collection_performed=latest.atomic_start_required,
             budget_settlement_receipt_ref=settlement.receipt_ref,
             actual_operation_count=settlement.actual_operation_count,
             actual_cost_microusd=settlement.actual_cost_microusd,
@@ -1234,7 +1411,10 @@ class AuthorityDispatcher:
         request: AuthorityDispatchRequest,
         prepared: AuthorityDispatchReceipt,
         adapter: AuthorityDispatchAdapter | None,
+        *,
+        current_time: datetime | None = None,
     ) -> list[str]:
+        validation_time = current_time or utc_now()
         reasons: list[str] = []
         if adapter is None:
             reasons.append("reason-ref:authority-dispatch:adapter-not-registered")
@@ -1248,6 +1428,7 @@ class AuthorityDispatcher:
                 or descriptor.rollback_ref != prepared.rollback_ref
                 or descriptor.safe_disable_ref != prepared.safe_disable_ref
                 or descriptor.approval_required != prepared.adapter_approval_required
+                or descriptor.atomic_start_required != prepared.atomic_start_required
                 or adapter.binding_ref != prepared.adapter_binding_ref
             ):
                 reasons.append(
@@ -1256,13 +1437,16 @@ class AuthorityDispatcher:
         lease = next(
             (
                 item
-                for item in self.lease_store._list_leases(active_only=True)
+                for item in self.lease_store._list_leases(active_only=False)
                 if item.lease_ref == request.lease_ref
+                and item.is_active(now=validation_time)
             ),
             None,
         )
         decision = evaluate_authority_request(
-            request.action_request, [lease] if lease is not None else []
+            request.action_request,
+            [lease] if lease is not None else [],
+            now=validation_time,
         )
         policy_allowed = decision.outcome == AuthorityDecisionOutcome.allow.value or (
             decision.outcome == AuthorityDecisionOutcome.ask.value
@@ -1289,8 +1473,13 @@ class AuthorityDispatcher:
                 )
             else:
                 try:
-                    approval_decision = self.approval_authority.validate(
-                        validation_request
+                    approval_decision = (
+                        self.approval_authority.validate_at_trusted_time(
+                            validation_request,
+                            current_time=validation_time,
+                        )
+                        if current_time is not None
+                        else self.approval_authority.validate(validation_request)
                     )
                 except Exception:
                     approval_decision = None
@@ -1390,7 +1579,7 @@ class AuthorityDispatcher:
             self._time_bound_prestart_reason_refs(
                 request,
                 prepared,
-                current_time=utc_now(),
+                current_time=current_time or utc_now(),
             )
         )
         return list(dict.fromkeys(reasons))
@@ -1891,6 +2080,9 @@ class AuthorityDispatcher:
             "adapter_approval_required": (
                 descriptor.approval_required if descriptor is not None else False
             ),
+            "atomic_start_required": (
+                descriptor.atomic_start_required if descriptor is not None else False
+            ),
             "capability_ref": (
                 descriptor.capability_ref
                 if descriptor is not None
@@ -1908,9 +2100,7 @@ class AuthorityDispatcher:
                 },
             ),
             "approval_scope_fingerprint_ref": (
-                _approval_scope_fingerprint_ref(
-                    request.approval_validation_request
-                )
+                _approval_scope_fingerprint_ref(request.approval_validation_request)
                 if request.approval_validation_request is not None
                 else None
             ),
@@ -1937,6 +2127,7 @@ class AuthorityDispatcher:
                 "authority_policy_receipt_ref",
                 "approval_required",
                 "adapter_approval_required",
+                "atomic_start_required",
                 "adapter_binding_ref",
                 "provider_ref",
                 "target_binding_ref",
@@ -1953,6 +2144,8 @@ class AuthorityDispatcher:
                 "execution_ref",
                 "execution_fence_ref",
                 "execution_started",
+                "runtime_start_confirmed",
+                "input_committed",
                 "adapter_invocation_performed",
                 "actual_operation_count",
                 "actual_cost_microusd",
@@ -2126,6 +2319,7 @@ class AuthorityDispatcher:
             "authority_policy_receipt_ref",
             "approval_required",
             "adapter_approval_required",
+            "atomic_start_required",
             "adapter_binding_ref",
             "approval_ref",
             "approval_validation_ref",
@@ -2147,6 +2341,7 @@ class AuthorityDispatcher:
                 AuthorityDispatchStatus.cancelled_before_start.value,
             },
             AuthorityDispatchStatus.started.value: {
+                AuthorityDispatchStatus.started.value,
                 AuthorityDispatchStatus.succeeded.value,
                 AuthorityDispatchStatus.failed.value,
             },
@@ -2158,12 +2353,44 @@ class AuthorityDispatcher:
         if previous.status == AuthorityDispatchStatus.started.value and (
             receipt.execution_ref != previous.execution_ref
             or receipt.budget_start_receipt_ref != previous.budget_start_receipt_ref
-            or receipt.start_validated_at != previous.start_validated_at
             or receipt.execution_fence_ref != previous.execution_fence_ref
         ):
             raise AuthorityDispatchCorruptionError(
                 "AUTHORITY_DISPATCH_EXECUTION_BINDING_MISMATCH"
             )
+        if previous.status == AuthorityDispatchStatus.started.value:
+            if receipt.status == AuthorityDispatchStatus.started.value:
+                if (
+                    not previous.atomic_start_required
+                    or previous.adapter_start_attempted
+                    or previous.runtime_start_confirmed
+                    or previous.input_committed
+                    or not receipt.adapter_start_attempted
+                    or previous.start_validated_at is None
+                    or (receipt.runtime_start_confirmed != receipt.input_committed)
+                    or (
+                        receipt.runtime_start_confirmed
+                        and (
+                            receipt.start_validated_at is None
+                            or receipt.start_validated_at < previous.start_validated_at
+                        )
+                    )
+                    or (
+                        not receipt.runtime_start_confirmed
+                        and receipt.start_validated_at != previous.start_validated_at
+                    )
+                ):
+                    raise AuthorityDispatchCorruptionError(
+                        "AUTHORITY_DISPATCH_ATOMIC_START_CONFIRMATION_INVALID"
+                    )
+            elif (
+                receipt.runtime_start_confirmed != previous.runtime_start_confirmed
+                or receipt.input_committed != previous.input_committed
+                or receipt.start_validated_at != previous.start_validated_at
+            ):
+                raise AuthorityDispatchCorruptionError(
+                    "AUTHORITY_DISPATCH_ATOMIC_START_BINDING_MISMATCH"
+                )
         if previous.status == AuthorityDispatchStatus.cancellation_pending.value and (
             receipt.cancellation_idempotency_ref
             != previous.cancellation_idempotency_ref

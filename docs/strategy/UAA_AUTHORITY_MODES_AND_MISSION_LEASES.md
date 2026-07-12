@@ -397,6 +397,15 @@ refs instead of silently executing or claiming broad shell/tool authority.
 The same task execution authority decision observes the local AuthorityLease
 kill switch, so an active workspace lease cannot start registered handlers while
 `UAA_AUTHORITY_LEASE_KILL_SWITCH=1` is engaged.
+
+The sealed deterministic calculation lane is a concrete example of replacing a
+blanket sandbox prohibition with exact authority. It evaluates bounded
+arithmetic only through a mission-scoped `workspace/execute` lease and the
+canonical dispatcher. No per-invocation approval is required after exact lease
+issuance, but policy, lease, budget, deadline, kill switch, safe-disable,
+attestation, target, idempotency, and input hash are still rechecked at the
+atomic start boundary. This does not authorize Python, broad CodeAct, shell,
+network, host files, environment access, packages, or background execution.
 Governed Runtime Action Inbox command execution now re-evaluates the current
 active AuthorityLease scope immediately before an approved command starts. A
 command that was approved under a workspace execute lease degrades back to a

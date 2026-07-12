@@ -2,6 +2,10 @@ from typing import Any
 from pathlib import Path
 
 from ultimate_ai_agent.core.gate import FoundationGateStatus, default_foundation_gate_criteria
+from ultimate_ai_agent.core.sandbox_calculation.static_safety import (
+    is_exact_sealed_calculation_forbidden_fragment_exception,
+    is_exact_sealed_calculation_subprocess_site,
+)
 
 
 def _assert_exact_governed_runtime_command_subprocess_site(source: str) -> None:
@@ -58,13 +62,73 @@ def test_m7_does_not_add_runtime_execution_integrations() -> None:
         / "runtime_gateway"
         / "command.py"
     )
+    sealed_subprocess_path = (
+        Path("src")
+        / "ultimate_ai_agent"
+        / "core"
+        / "sandbox_calculation"
+        / "backend.py"
+    )
     sources = {
         path: path.read_text(encoding="utf-8")
         for path in (Path("src") / "ultimate_ai_agent" / "core").rglob("*.py")
     }
     command_source = sources.pop(allowed_subprocess_path)
+    sealed_source = sources[sealed_subprocess_path]
     _assert_exact_governed_runtime_command_subprocess_site(command_source)
+    assert is_exact_sealed_calculation_subprocess_site(
+        rel_path=sealed_subprocess_path.as_posix(),
+        source=sealed_source,
+        fragment="subprocess.run(",
+    )
+    assert is_exact_sealed_calculation_subprocess_site(
+        rel_path=sealed_subprocess_path.as_posix(),
+        source=sealed_source,
+        fragment="subprocess.Popen(",
+    )
 
-    for marker in forbidden:
-        checked = "\n".join(sources.values())
-        assert marker not in checked
+    for path, source in sources.items():
+        for marker in forbidden:
+            if path == sealed_subprocess_path and marker == "subprocess.":
+                assert is_exact_sealed_calculation_subprocess_site(
+                    rel_path=path.as_posix(),
+                    source=source,
+                    fragment="subprocess.run(",
+                )
+                continue
+            assert marker not in source
+
+
+def test_sealed_backend_subprocess_exception_rejects_unrelated_drift() -> None:
+    backend_path = (
+        Path("src")
+        / "ultimate_ai_agent"
+        / "core"
+        / "sandbox_calculation"
+        / "backend.py"
+    )
+    source = backend_path.read_text(encoding="utf-8")
+    drift_markers = (
+        "\nimport " + "requests\n",
+        "\nsubprocess" + ".call(['unsafe'])\n",
+        "\nsp = subprocess\nsp.call(['unsafe'])\n",
+        "\ngetattr(subprocess, 'call')(['unsafe'])\n",
+        "\nnetwork_access_enabled" + "=True\n",
+        "\nos" + ".environ\n",
+    )
+    for drift in drift_markers:
+        assert not is_exact_sealed_calculation_subprocess_site(
+            rel_path=backend_path.as_posix(),
+            source=source + drift,
+            fragment="subprocess.run(",
+        )
+    assert is_exact_sealed_calculation_forbidden_fragment_exception(
+        rel_path=backend_path.as_posix(),
+        source=source,
+        fragment="import " + "subprocess",
+    )
+    assert not is_exact_sealed_calculation_forbidden_fragment_exception(
+        rel_path=backend_path.as_posix(),
+        source=source,
+        fragment="import " + "requests",
+    )

@@ -80,6 +80,18 @@ validation and rollback/safe-disable refs. Catalog and activation metadata
 explicitly grant no invocation authority. Client-supplied approval-grant
 payloads are rejected by the disabled-install mutation surface.
 
+## Sealed Deterministic Calculation
+
+The exact `calculation.sandbox.arithmetic.exact_lease` lane is implemented as bounded
+arithmetic, not general CodeAct or Python. Its declaration appears in the shared
+availability and Action/Tool/Code catalogs, while current platform,
+configuration, image, health, safe-disable, budget, and lease truth remains
+request-scoped. Execution requires the canonical mission orchestrator, runner,
+dispatcher, exact `workspace/execute` mission lease, policy and budget checks,
+and atomic container start/input-commit evidence. Raw expressions are transient;
+durable state stores hashes and safe refs only. See
+`docs/runtime/UAA_SEALED_CALCULATION_ADAPTER.md`.
+
 ## Intent Reasoning And Plan Revision Truth
 
 `ultimate_ai_agent.core.intent.reasoning_truth` provides the deterministic,

@@ -12,7 +12,6 @@ from ultimate_ai_agent.api.manifest import (
     GOVERNED_RUNTIME_READONLY_PATHS,
     LOCAL_READONLY_PATHS,
 )
-
 EXPECTED_M16_OPENAPI_PATH_COUNT = 79
 M16_FORBIDDEN_BACKEND_ROUTES = (
     "/events/timeline",

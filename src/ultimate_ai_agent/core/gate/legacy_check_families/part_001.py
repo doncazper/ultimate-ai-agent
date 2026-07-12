@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from ultimate_ai_agent.core.gate.legacy_support import *  # noqa: F401,F403
+from ultimate_ai_agent.core.sandbox_calculation.static_safety import is_exact_sealed_calculation_subprocess_site
 
 
 class FoundationGateLegacyChecksPart001Mixin:
@@ -331,14 +332,27 @@ class FoundationGateLegacyChecksPart001Mixin:
         allowed_phase04_command_adapter_file = (
             "src/ultimate_ai_agent/core/runtime_gateway/command.py"
         )
+        allowed_sealed_arithmetic_adapter_file = (
+            "src/ultimate_ai_agent/core/sandbox_calculation/backend.py"
+        )
+        sealed_source = self._read(self.root / allowed_sealed_arithmetic_adapter_file)
+        sealed_adapter_exact = all(
+            is_exact_sealed_calculation_subprocess_site(
+                rel_path=allowed_sealed_arithmetic_adapter_file,
+                source=sealed_source,
+                fragment=fragment,
+            )
+            for fragment in ("subprocess" + ".run(", "subprocess" + ".Popen(")
+        )
         failures = []
         for path, line_no, stripped in self._runtime_lines():
             if self._is_static_scanner_text(stripped):
                 continue
-            if path in {
+            exact_allowed_path = path in {
                 allowed_m163_supervisor_file,
                 allowed_phase04_command_adapter_file,
-            } and any(fragment in stripped for fragment in forbidden):
+            } or (path == allowed_sealed_arithmetic_adapter_file and sealed_adapter_exact)
+            if exact_allowed_path and any(fragment in stripped for fragment in forbidden):
                 continue
             if any(fragment in stripped for fragment in forbidden):
                 failures.append(f"{path}:{line_no} shell execution")

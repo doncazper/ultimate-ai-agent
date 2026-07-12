@@ -41,6 +41,15 @@ from ultimate_ai_agent.core.execution.durable_mission_steps import (
     TERMINAL_MISSION_STEP_STATUSES,
 )
 from ultimate_ai_agent.core.safe_refs import hash_text
+from ultimate_ai_agent.core.sandbox_calculation.adapter import (
+    SealedCalculationAuthorityDispatchAdapter,
+)
+from ultimate_ai_agent.core.sandbox_calculation.contracts import (
+    SEALED_CALCULATION_ADAPTER_REF,
+    SEALED_CALCULATION_CAPABILITY_REF,
+    SEALED_CALCULATION_TARGET_REF,
+    SEALED_CALCULATION_TOOL_REF,
+)
 from ultimate_ai_agent.core.tools.runtime.filesystem_metadata import (
     FILESYSTEM_METADATA_TOOL_REF,
 )
@@ -115,7 +124,7 @@ class AuthorityMissionStepResult(BaseModel):
 
 
 class AuthorityMissionRunner:
-    """Synchronous V1 runner for one exact filesystem-metadata mission step."""
+    """Synchronous runner for explicitly allowlisted exact mission adapters."""
 
     def __init__(
         self,
@@ -515,8 +524,13 @@ class AuthorityMissionRunner:
                     "MISSION_RUNNER_PLANNED_DISPATCH_BINDING_INVALID"
                 )
         adapter = self.dispatcher.adapters.get(definition.adapter_ref)
-        if type(adapter) is not ToolRuntimeAuthorityDispatchAdapter:
-            raise ValueError("MISSION_RUNNER_FILESYSTEM_ADAPTER_REQUIRED")
+        filesystem_adapter = type(adapter) is ToolRuntimeAuthorityDispatchAdapter
+        sealed_calculation_adapter = (
+            type(adapter) is SealedCalculationAuthorityDispatchAdapter
+        )
+        if not filesystem_adapter and not sealed_calculation_adapter:
+            raise ValueError("MISSION_RUNNER_EXACT_ADAPTER_REQUIRED")
+        assert adapter is not None
         descriptor = adapter.descriptor
         tool_request = request.tool_invocation_request
         expected = {
@@ -543,20 +557,43 @@ class AuthorityMissionRunner:
         }
         if actual != expected:
             raise ValueError("MISSION_RUNNER_DISPATCH_BINDING_INVALID")
-        if (
-            descriptor.tool_ref != FILESYSTEM_METADATA_TOOL_REF
-            or descriptor.domain != AuthorityDomain.files.value
-            or descriptor.capability != AuthorityCapability.read.value
-            or request.action_request.domain != AuthorityDomain.files.value
-            or request.action_request.capability != AuthorityCapability.read.value
-            or tool_request.get("tool_ref") != FILESYSTEM_METADATA_TOOL_REF
-            or request.operation_count != 1
-            or request.estimated_cost_microusd != 0
-        ):
-            raise ValueError("MISSION_RUNNER_EXACT_FILESYSTEM_LANE_REQUIRED")
-        root_ref = tool_request.get("metadata", {}).get("root_ref")
-        if root_ref not in {root.root_ref for root in adapter.safe_roots}:
-            raise ValueError("MISSION_RUNNER_INJECTED_ROOT_REQUIRED")
+        if filesystem_adapter:
+            assert isinstance(adapter, ToolRuntimeAuthorityDispatchAdapter)
+            if (
+                descriptor.tool_ref != FILESYSTEM_METADATA_TOOL_REF
+                or descriptor.domain != AuthorityDomain.files.value
+                or descriptor.capability != AuthorityCapability.read.value
+                or request.action_request.domain != AuthorityDomain.files.value
+                or request.action_request.capability != AuthorityCapability.read.value
+                or tool_request.get("tool_ref") != FILESYSTEM_METADATA_TOOL_REF
+                or request.operation_count != 1
+                or request.estimated_cost_microusd != 0
+            ):
+                raise ValueError("MISSION_RUNNER_EXACT_FILESYSTEM_LANE_REQUIRED")
+            root_ref = tool_request.get("metadata", {}).get("root_ref")
+            if root_ref not in {root.root_ref for root in adapter.safe_roots}:
+                raise ValueError("MISSION_RUNNER_INJECTED_ROOT_REQUIRED")
+        else:
+            metadata = tool_request.get("metadata", {})
+            if (
+                descriptor.adapter_ref != SEALED_CALCULATION_ADAPTER_REF
+                or descriptor.capability_ref != SEALED_CALCULATION_CAPABILITY_REF
+                or descriptor.tool_ref != SEALED_CALCULATION_TOOL_REF
+                or descriptor.domain != AuthorityDomain.workspace.value
+                or descriptor.capability != AuthorityCapability.execute.value
+                or descriptor.approval_required
+                or not descriptor.atomic_start_required
+                or request.action_request.domain != AuthorityDomain.workspace.value
+                or request.action_request.capability != AuthorityCapability.execute.value
+                or tool_request.get("tool_ref") != SEALED_CALCULATION_TOOL_REF
+                or metadata.get("target_ref") != SEALED_CALCULATION_TARGET_REF
+                or request.approval_validation_request is not None
+                or request.operation_count != 1
+                or request.estimated_cost_microusd != 0
+            ):
+                raise ValueError(
+                    "MISSION_RUNNER_EXACT_SEALED_CALCULATION_LANE_REQUIRED"
+                )
         if definition.max_attempts > 1:
             retry_claim = next(
                 (

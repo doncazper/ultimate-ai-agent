@@ -11,15 +11,14 @@ import time
 import importlib.util
 from contextlib import contextmanager
 from pathlib import Path
+from ultimate_ai_agent.core.sandbox_calculation.static_safety import is_exact_sealed_calculation_subprocess_site
 ROOT = Path(__file__).resolve().parents[2]
 if __package__:
     from .static_scan_policy import is_static_gate_scan_allowed_file, is_unapproved_static_fragment, repo_source_env
 else:
     from static_scan_policy import is_static_gate_scan_allowed_file, is_unapproved_static_fragment, repo_source_env
 _P1_API_VERIFIER_LANE_RAN = False
-GOVERNED_RUNTIME_COMMAND_ADAPTER_REL = (
-    "src/ultimate_ai_agent/core/runtime_gateway/command.py"
-)
+GOVERNED_RUNTIME_COMMAND_ADAPTER_REL = "src/ultimate_ai_agent/core/runtime_gateway/command.py"
 M44_ALLOWED_CCC_IOS_SKELETON_PREFIX = "apps/ccc-ios/Sources/UltimateAIAgentCCC/"
 M44_ALLOWED_CCC_IOS_SKELETON_FILES = {
     "apps/ccc-ios/README.md",
@@ -83,6 +82,8 @@ def _version_doc_marks_milestone_implemented(text: str, milestone: str) -> bool:
 def _is_exact_governed_runtime_command_subprocess_site(
     *, rel_path: str, source: str, fragment: str
 ) -> bool:
+    if is_exact_sealed_calculation_subprocess_site(rel_path=rel_path, source=source, fragment=fragment):
+        return True
     if rel_path != GOVERNED_RUNTIME_COMMAND_ADAPTER_REL:
         return False
     if fragment != "subprocess.run(":

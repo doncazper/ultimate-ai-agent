@@ -1932,6 +1932,54 @@ function actionToolCodeLaneCatalogFixture(
       ...flags,
     },
     {
+      capability_id: "calculation.sandbox.arithmetic.exact_lease",
+      capability_ref:
+        "authority-capability-ref:sealed-arithmetic-v1",
+      lane_ref: "lane-ref:sealed-arithmetic-exact-lease",
+      label: "Sealed deterministic calculation",
+      capability_kind: "runtime_authority_capability",
+      surface: "Runtime",
+      status: "implemented_configuration_required",
+      side_effect_class: "sandboxed_compute_read_only",
+      required_approval_scope:
+        "No per-invocation approval after an exact mission lease",
+      eligibility_reason:
+        "One bounded arithmetic expression may execute through the canonical mission dispatcher.",
+      blocked_reason:
+        "Python, shell, network, host files, environment, packages, and broad CodeAct remain denied.",
+      receipt_requirement:
+        "Requires atomic start, input commit, attestation, and content-free receipts.",
+      rollback_or_safe_disable_posture:
+        "Disposable container with exact safe-disable and kill-switch posture.",
+      route_refs: ["GET /control-center/capabilities/availability"],
+      cli_refs: ["scripts/dev/uaa_runtime.py sealed-calculation inspect"],
+      receipt_refs: [
+        "receipt-contract-ref:sealed-calculation-execution-v1",
+      ],
+      evidence_refs: [
+        "evidence-ref:sealed-calculation:content-free-terminal",
+      ],
+      proof_refs: [],
+      blocked_authority_refs: [
+        "blocked-authority:sealed-calculation:no-general-code",
+        "blocked-authority:sealed-calculation:no-shell",
+        "blocked-authority:sealed-calculation:no-network",
+        "blocked-authority:sealed-calculation:no-host-files",
+      ],
+      unblock_prompt_refs: [],
+      availability_snapshot_ref:
+        "capability-availability-ref:sealed-calculation-v1",
+      canonical_execution_path_ref:
+        "execution-path-ref:mission-orchestrator:mission-runner:authority-dispatcher",
+      canonical_mission_dispatch: true,
+      operator_visible: true,
+      inspectable_now: true,
+      proposal_only: false,
+      exact_local_mutation_available: false,
+      exact_runtime_lane_available: false,
+      ...flags,
+    },
+    {
       capability_id: "runtime.repo_verifier_action_inbox",
       capability_ref: "capability-ref:runtime-gateway:repo-verifier",
       lane_ref: "lane-ref:runtime-gateway:repo-verifier",
@@ -2107,7 +2155,7 @@ function actionToolCodeLaneCatalogFixture(
     next_safe_action:
       "Inspect capability mappings, required AuthorityLease scope, receipts, and blocked reasons before execution.",
     operator_summary:
-      "Four action, tool, runtime, and code lanes are inspectable; implemented local and approval-bound capabilities may produce receipts only inside active AuthorityLease scope.",
+      "Action, tool, runtime, and code lanes are inspectable; implemented capabilities may produce receipts only inside active AuthorityLease scope.",
     ...flags,
     ...overrides,
   };
@@ -6929,6 +6977,17 @@ describe("Web Control Center shell", () => {
       "RuntimeGateway documentation verifier command",
     );
     expect(catalog).toHaveTextContent("RuntimeGateway frontend check command");
+    expect(catalog).toHaveTextContent("Sealed deterministic calculation");
+    expect(catalog).toHaveTextContent("implemented_configuration_required");
+    expect(catalog).toHaveTextContent(
+      "No per-invocation approval after an exact mission lease",
+    );
+    expect(catalog).toHaveTextContent(
+      "capability-availability-ref:sealed-calculation-v1",
+    );
+    expect(catalog).toHaveTextContent(
+      "blocked-authority:sealed-calculation:no-general-code",
+    );
     expect(catalog).toHaveTextContent("Coding approved patch apply");
     expect(catalog).toHaveTextContent("Compatibility source");
     expect(catalog).toHaveTextContent("Exact local capability");
