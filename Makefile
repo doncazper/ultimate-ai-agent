@@ -11,8 +11,7 @@ PYTEST_STRETCH_GOAL_SECONDS ?= 110
 PYTEST_TARGET_SECONDS ?= 125
 PYTEST_HARD_TIMEOUT_SECONDS ?= 180
 PYTEST_PERFORMANCE_REPORT ?= /tmp/uaa_pytest_performance_report.json
-
-.PHONY: doctor test test-serial test-sharded test-sharded-profile verify verify-static verify-gate-architecture verify-fast verify-dev-fast verify-dev-sharded verify-local verify-beta-local verify-beta-local-visual frontend-check frontend-visual-check frontend-turn-router-smoke openapi ruff
+.PHONY: doctor test test-serial test-sharded test-sharded-profile verify verify-static verify-gate-architecture verify-fast verify-affected verify-value-audit verify-dev-fast verify-dev-sharded verify-local verify-beta-local verify-beta-local-visual frontend-check frontend-visual-check frontend-turn-router-smoke openapi ruff
 
 doctor:
 	$(PYTHON) scripts/verify_dev_environment.py
@@ -40,8 +39,14 @@ verify-static:
 verify-gate-architecture:
 	PYTHONPATH=src $(PYTHON) scripts/verify_gate_architecture.py
 
-verify-fast: ruff test verify-static verify-gate-architecture
-	$(PYTHON) scripts/run_foundation_gate.py --command-mode report-only --no-write-latest
+verify-fast:
+	PYTHONPATH=src $(PYTHON) scripts/verification/changed_path_selector.py --tier fast --execute
+
+verify-affected:
+	PYTHONPATH=src $(PYTHON) scripts/verification/changed_path_selector.py --tier affected --execute
+
+verify-value-audit:
+	PYTHONPATH=src $(PYTHON) scripts/verification/verifier_value_audit.py
 
 verify-dev-fast:
 	$(MAKE) -j$(VERIFY_DEV_FAST_JOBS) ruff test verify-static verify-gate-architecture

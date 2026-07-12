@@ -2,7 +2,19 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `258`.
+<!-- uaa-api-contract-counts:start -->
+Current generated contract snapshot: `258` OpenAPI paths and `259` manifest route operations.
+<!-- uaa-api-contract-counts:end -->
+
+The checked-in inventory is the canonical generated static API contract
+snapshot. `scripts/verification/api_contract_snapshot.py --refresh` updates the
+snapshot and these active count blocks atomically per file; `--check` detects
+route, operation-ID, fingerprint, or active-documentation drift. It does not
+capture live readiness or grant runtime authority.
+The current inventory schema is `uaa-api-route-inventory.v5`. Its generated
+counts are deliberately separate from the hand-reviewed API security policy
+floor; a refresh fails when public, mutating, auth, approval/idempotency, or
+targeted rate-limit posture drifts.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.

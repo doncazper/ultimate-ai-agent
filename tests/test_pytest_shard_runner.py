@@ -82,6 +82,39 @@ def test_eight_way_partition_covers_every_file_once() -> None:
     assert sorted(len(plan.files) for plan in plans) == [101] * 6 + [102] * 2
 
 
+def test_plan_validation_rejects_duplicate_or_incomplete_assignments() -> None:
+    runner = load_runner()
+    files = ["tests/test_a.py", "tests/test_b.py"]
+    valid, _ = runner.assign_shards(files, 2, None)
+    runner.validate_shard_plans(files, valid, 2)
+
+    with pytest.raises(ValueError, match="duplicate test files"):
+        runner.validate_shard_plans([*files, files[0]], valid, 2)
+    with pytest.raises(ValueError, match="exactly once"):
+        runner.validate_shard_plans(
+            files,
+            [runner.ShardPlan(0, (files[0],), 0.0), runner.ShardPlan(1, (), 0.0)],
+            2,
+        )
+
+
+def test_timing_plans_are_stable_across_input_order() -> None:
+    runner = load_runner()
+    files = [f"tests/test_{name}.py" for name in ("d", "a", "c", "b")]
+    timings = {path: float(index + 1) for index, path in enumerate(files)}
+    first, _ = runner.assign_shards(files, 2, timings)
+    second, _ = runner.assign_shards(
+        list(reversed(files)),
+        2,
+        dict(reversed(list(timings.items()))),
+    )
+
+    assert first == second
+    assert runner.shard_plan_fingerprint(first) == runner.shard_plan_fingerprint(
+        second
+    )
+
+
 def test_timing_aware_shards_balance_by_prior_duration() -> None:
     runner = load_runner()
     files = [

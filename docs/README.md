@@ -269,7 +269,7 @@ product-truth ledgers.
 | Product claims and gaps | `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md` |
 | Canonical navigation | `docs/DOCUMENTATION_INDEX.md`, `docs/canonical/CANONICAL_DOC_MAP.md` |
 | API boundary | `docs/api/README.md`, `docs/api/openapi_contract.md`, `docs/api/route_inventory.md` |
-| Verification maintainability | `docs/verification/milestone_status_manifest.json`, `docs/verification/verification_maintainability_policy.json` |
+| Verification maintainability | `docs/verification/FAST_LOCAL_VERIFICATION.md`, `docs/verification/milestone_status_manifest.json`, `docs/verification/verification_maintainability_policy.json` |
 | Computer Use / CUA contract lane | `docs/cua/COMPUTER_USE_CUA_CONTRACT.md`, `docs/cua/cua_release_surface_manifest.json` |
 | Security posture | `SECURITY.md`, `docs/security/SECURITY_TRIAGE_RUNBOOK.md` |
 | Documentation policy | `docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md` |
@@ -390,6 +390,8 @@ Use these before release-facing claims or milestone status changes:
 ```bash
 make verify
 make verify-fast
+make verify-affected
+make verify-value-audit
 make verify-dev-fast
 make test-sharded
 make test-sharded-profile
@@ -405,8 +407,10 @@ PYTHONPATH=src .venv/bin/python -m pytest tests/test_api_manifest.py
 inventory across timing-balanced, process-isolated shards, followed by the
 static verifier, gate architecture, and a serialized report-only Foundation
 Gate. `make test-serial` remains available for order-sensitive diagnostics.
-`make verify-fast` uses the same complete pytest inventory without updating the
-latest Foundation Gate report. `make verify-dev-fast` runs the four pre-gate
+`make verify-fast` selects deterministic advisory checks for changed paths;
+`make verify-affected` adds affected boundary checks. Unknown or verifier-
+topology changes fail closed to the complete local/dev gate. Neither command
+replaces merge or release gates. `make verify-dev-fast` runs the four pre-gate
 phases concurrently and then serializes Foundation Gate with
 `report-only --no-write-latest`. `VERIFY_DEV_FAST_JOBS` bounds top-level phase
 fanout, while `PYTEST_SHARD_WORKERS` separately bounds pytest subprocesses.
@@ -439,8 +443,9 @@ Web Hybrid transports and Firecrawl credential references,
 and provider live-network smoke tests. Existing optional/live tests remain
 env-gated and skipped by default.
 
-No local unchanged-file cache shortcut is currently enabled. Cache shortcuts are
-planned-only until deterministic invalidation can be reviewed.
+No local pass-result cache is enabled. The changed-path selector is deterministic,
+local-only, and fail-closed; see
+`docs/verification/FAST_LOCAL_VERIFICATION.md` for scope and timing evidence.
 
 The named release lanes are described in
 `docs/production/RELEASE_VERIFICATION_LANES.md`. Release evidence packets are

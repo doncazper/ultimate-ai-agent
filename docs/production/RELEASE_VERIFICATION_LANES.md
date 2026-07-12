@@ -131,9 +131,11 @@ model-router sweep posture. Existing optional/live tests remain env-gated and
 skipped by default, so `verify-dev-sharded` stays local/dev contract
 verification rather than model discovery or runtime activation.
 
-No unchanged-file cache shortcut is active in the local/dev lanes. Cache
-shortcuts remain planned-only until their invalidation rules are deterministic
-and verifier-backed.
+`verify-fast` and `verify-affected` provide deterministic changed-path selection
+for advisory local feedback. They cache no pass result, and unknown, CI,
+dependency, shared-test, gate, or verifier-topology changes fail closed to the
+complete local/dev gate. They do not replace any release lane or populate a
+release evidence packet.
 
 For lane-focused review, use the command refs from
 `scripts/verify_release_lanes.py --json`. Split CI may satisfy a lane with an

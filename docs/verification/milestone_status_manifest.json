@@ -4,7 +4,7 @@
   "api_route_inventory": {
     "fixture_ref": "tests/fixtures/api_route_inventory_133.json",
     "route_count": 190,
-    "schema_version": "uaa-api-route-inventory.v4"
+    "schema_version": "uaa-api-route-inventory.v5"
   },
   "milestones": [
     {

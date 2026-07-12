@@ -4,128 +4,45 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from .repo import load_json
-
-
-ROUTE_FIXTURE_PATH = "tests/fixtures/api_route_inventory_133.json"
-ROUTE_FIXTURE_SCHEMA_VERSION = "uaa-api-route-inventory.v4"
-EXPECTED_ROUTE_COUNT = 259
-EXPECTED_OPENAPI_PATH_COUNT = 258
-EXPECTED_AUTH_POSTURE_SUMMARY = {
-    "public_metadata_no_auth": 3,
-    "protected_local_bearer_required": 256,
-}
-EXPECTED_APPROVAL_POSTURE_SUMMARY = {
-    "not_required_for_route_classification": 205,
-    "required_before_mutation_authority": 54,
-}
-EXPECTED_IDEMPOTENCY_POSTURE_SUMMARY = {
-    "not_required_for_route_classification": 205,
-    "required_before_mutation_authority": 54,
-}
-EXPECTED_RATE_LIMIT_POSTURE_SUMMARY = {
-    "not_targeted_for_route": 185,
-    "targeted_local_fixed_window": 74,
-}
-EXPECTED_MUTATING_ROUTE_COUNT = EXPECTED_APPROVAL_POSTURE_SUMMARY[
-    "required_before_mutation_authority"
-]
-EXPECTED_TARGETED_RATE_LIMIT_ROUTE_COUNT = EXPECTED_RATE_LIMIT_POSTURE_SUMMARY[
-    "targeted_local_fixed_window"
-]
-EXPECTED_CONTROL_CENTER_ROUTE_COUNT = 93
-EXPECTED_MUTATING_ROUTES = {
-    ("POST", "/api/runtime/authority-missions/approval-decisions"),
-    ("POST", "/api/runtime/authority-missions/cancel"),
-    ("POST", "/api/runtime/authority-missions/dead-letter-recovery"),
-    ("POST", "/control-center/actions/{action_id}/approve"),
-    ("POST", "/control-center/actions/{action_id}/defer"),
-    ("POST", "/control-center/actions/{action_id}/edit"),
-    ("POST", "/control-center/actions/{action_id}/local-task/commit"),
-    ("POST", "/control-center/actions/{action_id}/reject"),
-    ("POST", "/control-center/chat/turns"),
-    ("POST", "/control-center/chat/turns/{turn_ref}/handoff"),
-    ("POST", "/control-center/crm/local-mutations"),
-    ("POST", "/control-center/memory/context-packs/{context_pack_ref}/action-proposal"),
-    ("POST", "/control-center/memory/feedback"),
-    ("POST", "/control-center/memory/review/{candidate_ref}/accept"),
-    ("POST", "/control-center/memory/review/{candidate_ref}/correct"),
-    ("POST", "/control-center/memory/review/{candidate_ref}/defer"),
-    ("POST", "/control-center/memory/review/{candidate_ref}/expire"),
-    ("POST", "/control-center/memory/review/{candidate_ref}/forget-request"),
-    ("POST", "/control-center/memory/review/{candidate_ref}/merge"),
-    ("POST", "/control-center/memory/review/{candidate_ref}/reject"),
-    ("POST", "/control-center/memory/review/{candidate_ref}/supersede"),
-    ("POST", "/control-center/memory/review/manual-candidate"),
-    ("POST", "/control-center/providers/credentials/validate"),
-    ("POST", "/control-center/providers/exact-approved-lanes/tiny"),
-    ("POST", "/control-center/providers/router/dry-run"),
-    ("POST", "/control-center/today/action-envelope"),
-    ("POST", "/control-center/work-board/cards"),
-    ("POST", "/control-center/work-board/reorder"),
-    ("POST", "/control-center/work-board/tasks"),
-    ("POST", "/extensions/disabled-install-records"),
-    ("POST", "/extensions/disabled-install-records/rollback"),
-    ("POST", "/files/review/approvals/capture"),
-    ("POST", "/integrations/mattermost/events/message"),
-    ("POST", "/integrations/mattermost/roles/bind"),
-    ("POST", "/integrations/mattermost/roles/unbind"),
-    ("POST", "/api/runtime/command/run"),
-    ("POST", "/api/runtime/authority-leases"),
-    ("POST", "/api/runtime/authority-leases/approve-and-issue"),
-    ("POST", "/api/runtime/authority-leases/revoke"),
-    ("POST", "/api/runtime/hermes/chat"),
-    ("POST", "/api/runtime/invocations"),
-    ("POST", "/api/runtime/local-model/call"),
-    ("POST", "/api/runtime/invocations/{id}/approve"),
-    ("POST", "/api/runtime/invocations/{id}/execute"),
-    ("POST", "/api/runtime/safe-disable"),
-    ("POST", "/kernel/tasks/run"),
-    ("POST", "/task-decomposition/approval-requests"),
-    ("POST", "/task-decomposition/approvals/grants/capture"),
-    ("POST", "/task-decomposition/approvals/revoke"),
-    ("POST", "/task-decomposition/capabilities/register"),
-    ("POST", "/task-decomposition/examples/init"),
-    ("POST", "/task-decomposition/plans/execute"),
-    ("POST", "/task-decomposition/run"),
-    ("POST", "/v1/chat/completions"),
-}
-EXPECTED_RATE_LIMIT_GROUPS = {
-    "action_decision",
-    "action_preview_proposal",
-    "chat_durable_receipt",
-    "local_model_validation",
-    "memory_context_pack_action_proposal",
-    "memory_feedback",
-    "memory_review_decision",
-    "model_chat",
-    "provider_credential_validation",
-    "provider_exact_approved_lane",
-    "provider_router_dry_run",
-    "governed_runtime_pilot",
-    "extension_install_disabled_record",
-    "task_decomposition",
-    "today_to_action_envelope",
-    "web_evidence_product_slice",
-}
-ROUTE_PROJECTION_FIELDS = (
-    "path",
-    "method",
-    "operation_id",
-    "tags",
-    "summary",
-    "side_effect_class",
-    "route_classification",
-    "auth_posture",
-    "approval_posture",
-    "idempotency_required",
-    "idempotency_posture",
-    "idempotency_policy_ref",
-    "rate_limit_targeted",
-    "rate_limit_posture",
-    "rate_limit_policy_ref",
-    "rate_limit_group",
+from .api_contract_snapshot import (
+    ROUTE_PROJECTION_FIELDS,
+    SNAPSHOT_PATH,
+    SNAPSHOT_SCHEMA_VERSION,
+    load_snapshot,
 )
+from .api_route_policy_floor import (
+    MUTATING_ROUTES,
+    TARGETED_RATE_LIMIT_GROUPS,
+    TARGETED_RATE_LIMIT_ROUTE_COUNT,
+)
+
+
+ROUTE_FIXTURE_PATH = SNAPSHOT_PATH
+ROUTE_FIXTURE_SCHEMA_VERSION = SNAPSHOT_SCHEMA_VERSION
+_CANONICAL_API_SNAPSHOT = load_snapshot()
+EXPECTED_ROUTE_COUNT = _CANONICAL_API_SNAPSHOT["route_operation_count"]
+EXPECTED_OPENAPI_PATH_COUNT = _CANONICAL_API_SNAPSHOT["openapi_path_count"]
+EXPECTED_AUTH_POSTURE_SUMMARY = _CANONICAL_API_SNAPSHOT["route_auth_posture_summary"]
+EXPECTED_APPROVAL_POSTURE_SUMMARY = _CANONICAL_API_SNAPSHOT[
+    "route_approval_posture_summary"
+]
+EXPECTED_IDEMPOTENCY_POSTURE_SUMMARY = _CANONICAL_API_SNAPSHOT[
+    "route_idempotency_posture_summary"
+]
+EXPECTED_RATE_LIMIT_POSTURE_SUMMARY = _CANONICAL_API_SNAPSHOT[
+    "route_rate_limit_posture_summary"
+]
+EXPECTED_MUTATING_ROUTE_COUNT = _CANONICAL_API_SNAPSHOT["mutating_route_count"]
+EXPECTED_TARGETED_RATE_LIMIT_ROUTE_COUNT = _CANONICAL_API_SNAPSHOT[
+    "targeted_rate_limit_route_count"
+]
+EXPECTED_CONTROL_CENTER_ROUTE_COUNT = _CANONICAL_API_SNAPSHOT[
+    "control_center_route_count"
+]
+EXPECTED_MUTATING_ROUTES = set(MUTATING_ROUTES)
+EXPECTED_RATE_LIMIT_GROUPS = set(TARGETED_RATE_LIMIT_GROUPS)
+if EXPECTED_TARGETED_RATE_LIMIT_ROUTE_COUNT != TARGETED_RATE_LIMIT_ROUTE_COUNT:
+    raise ValueError("API_CONTRACT_RATE_LIMIT_POLICY_FLOOR_DRIFT")
 
 
 def route_key(route: dict[str, Any]) -> tuple[str, str]:
@@ -145,7 +62,7 @@ def projected_routes(manifest: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def route_fixture(path: str | Path = ROUTE_FIXTURE_PATH) -> dict[str, Any]:
-    return load_json(path)
+    return load_snapshot(Path(path))
 
 
 def classification_counter(manifest: dict[str, Any]) -> Counter[str]:

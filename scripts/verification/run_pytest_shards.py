@@ -39,6 +39,14 @@ except ModuleNotFoundError:  # Direct script execution from the repository root.
         write_timings_json,
     )
 
+try:
+    from scripts.verification import pytest_shard_plan
+except ModuleNotFoundError:  # Direct script execution from the repository root.
+    import pytest_shard_plan  # type: ignore[no-redef]
+
+shard_plan_fingerprint = pytest_shard_plan.shard_plan_fingerprint
+validate_shard_plans = pytest_shard_plan.validate_shard_plans
+
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_BASETEMP = "/tmp/uaa_pytest_shards"
@@ -626,6 +634,12 @@ def main(argv: list[str] | None = None) -> int:
         affinity_groups,
     )
     try:
+        validate_shard_plans(files, plans, args.shards, affinity_groups)
+    except ValueError as exc:
+        print(f"FAIL: {exc}", file=sys.stderr)
+        return 2
+    plan_fingerprint_ref = shard_plan_fingerprint(plans)
+    try:
         plans = select_shard(plans, args.shard_index)
     except ValueError as exc:
         print(f"FAIL: {exc}", file=sys.stderr)
@@ -663,6 +677,7 @@ def main(argv: list[str] | None = None) -> int:
             hard_timeout_seconds=args.hard_timeout_seconds,
             total_elapsed_seconds=total_elapsed_seconds,
             estimated_timings=timings,
+            plan_fingerprint_ref=plan_fingerprint_ref,
         )
 
     print_summary(
@@ -676,6 +691,7 @@ def main(argv: list[str] | None = None) -> int:
         hard_timeout_seconds=args.hard_timeout_seconds,
         total_elapsed_seconds=total_elapsed_seconds,
         safe_summary=args.safe_summary,
+        plan_fingerprint_ref=plan_fingerprint_ref,
     )
     return return_code
 

@@ -2,7 +2,17 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `258`.
+<!-- uaa-api-contract-counts:start -->
+Current generated contract snapshot: `258` OpenAPI paths and `259` manifest route operations.
+<!-- uaa-api-contract-counts:end -->
+
+Refresh and check this canonical static declaration snapshot with
+`PYTHONPATH=src .venv/bin/python scripts/verification/api_contract_snapshot.py
+--refresh` and `--check`. The snapshot is generated from FastAPI OpenAPI plus
+`/api/manifest` declaration metadata; it contains no runtime health or authority.
+The current generated inventory schema is `uaa-api-route-inventory.v5`. Refresh
+cannot redefine the separate hand-reviewed public-route, mutating-route,
+approval/idempotency, auth, or targeted-rate-limit policy floor.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
