@@ -13,6 +13,9 @@ from ultimate_ai_agent.core.authority import (
     AuthorityConstraintKind,
     AuthorityDomain,
     AuthorityLease,
+    AuthorityLeaseScope,
+    AuthorityLeaseStatus,
+    AUTHORITY_LEASE_KILL_SWITCH_ENV,
     TrustMode,
 )
 from ultimate_ai_agent.core.capabilities.approval import (
@@ -49,6 +52,7 @@ from ultimate_ai_agent.core.web_access import (
     execute_searxng_search,
     searxng_query_ref,
 )
+from ultimate_ai_agent.core.web_access.hybrid_contracts import stable_web_hybrid_ref
 
 
 NOW = datetime(2026, 7, 10, 18, 0, tzinfo=timezone.utc)
@@ -58,6 +62,10 @@ def _request(**overrides: Any) -> SearxngSearchRequest:
     values: dict[str, Any] = {
         "request_ref": "web-search-request-ref:test",
         "task_ref": "task-ref:web-search:test",
+        "mission_ref": "mission-ref:web-search:test",
+        "run_ref": "run-ref:web-search:test",
+        "idempotency_ref": "idempotency-ref:web-search:test",
+        "start_deadline": NOW + timedelta(minutes=4),
         "approval_ref": "approval-ref:web-search:test",
         "query": "bounded public evidence",
         "max_results": 2,
@@ -101,6 +109,10 @@ def _approval_authority(
                 approval_ref=request.approval_ref or "approval-ref:web-search:missing",
                 capability_id=capability_ref,
                 task_id=request.task_ref,
+                mission_ref=request.mission_ref,
+                run_ref=request.run_ref,
+                request_fingerprint_ref=request.request_fingerprint_ref,
+                resource_refs=tuple(_exact_resource_refs(request)),
                 granted_by="operator-ref:test",
             )
         ]
@@ -111,6 +123,14 @@ def _exact_resource_refs(request: SearxngSearchRequest) -> list[str]:
     return [
         request.request_ref,
         request.task_ref,
+        request.mission_ref,
+        request.run_ref,
+        request.idempotency_ref,
+        request.request_fingerprint_ref,
+        stable_web_hybrid_ref(
+            "start-deadline-ref",
+            {"start_deadline": request.start_deadline.isoformat()},
+        ),
         SEARXNG_SEARCH_CAPABILITY_REF,
         SEARXNG_SEARCH_PROVIDER_REF,
         SEARXNG_SEARCH_ADAPTER_REF,
@@ -122,6 +142,8 @@ def _exact_lease(request: SearxngSearchRequest) -> AuthorityLease:
     return AuthorityLease(
         lease_ref="authority-lease-ref:web-search:test",
         mode=TrustMode.read_only,
+        scope=AuthorityLeaseScope.mission,
+        mission_ref=request.mission_ref,
         domains={AuthorityDomain.browser: [AuthorityCapability.read]},
         authority_constraints=[
             AuthorityConstraint(
@@ -255,6 +277,12 @@ def test_approval_identifier_without_exact_grant_never_calls_transport() -> None
     assert result.status == WebProviderTransportStatus.blocked
     assert result.invocation_decision.outcome == InvocationDecisionOutcome.blocked
     assert result.transport_receipt.network_call_performed is False
+    assert result.transport_receipt.mission_ref == request.mission_ref
+    assert result.transport_receipt.run_ref == request.run_ref
+    assert (
+        result.transport_receipt.request_fingerprint_ref
+        == request.request_fingerprint_ref
+    )
     assert result.gateway_audit_ref.startswith(
         "web-access-audit-correlation-ref:sha256:"
     )
@@ -283,7 +311,12 @@ def test_broad_authority_lease_never_calls_transport() -> None:
 
 def test_query_change_cannot_reuse_prior_exact_authority_scope() -> None:
     original = _request()
-    changed = original.model_copy(update={"query": "different safe query"})
+    changed = original.model_copy(
+        update={
+            "query": "different safe query",
+            "request_fingerprint_ref": "request-fingerprint-ref:pending",
+        }
+    )
     calls: list[SearxngSearchRequest] = []
 
     result = execute_searxng_search(
@@ -368,6 +401,148 @@ def test_exact_gates_route_through_gateway_and_normalize_untrusted_results() -> 
     assert result.query_ref == searxng_query_ref(request.query)
     assert result.raw_provider_payload_stored is False
     assert '"results"' not in serialized
+
+
+def test_final_start_revalidates_revoked_approval_under_shared_lock() -> None:
+    request = _request()
+    approval = _approval_authority(request)
+    calls: list[SearxngSearchRequest] = []
+
+    result = execute_searxng_search(
+        request,
+        capability_state=_state(),
+        approval_authority=approval,
+        authority_leases=[_exact_lease(request)],
+        transport=_fixture_transport(calls),
+        before_final_start=lambda: approval.revoke(request.approval_ref or ""),
+        evaluated_at=NOW,
+    )
+
+    assert calls == []
+    assert result.status == WebProviderTransportStatus.blocked
+    assert result.invocation_decision.outcome != InvocationDecisionOutcome.allow
+    assert "POLICY_ENGINE_DENIED" in result.reason_codes
+    assert (
+        "EXACT_LOCAL_APPROVAL_VALIDATION_REQUIRED"
+        in result.invocation_decision.reason_codes
+    )
+    assert result.transport_receipt.network_call_performed is False
+
+
+def test_final_start_hook_failure_returns_a_blocked_decision() -> None:
+    request = _request()
+    calls: list[SearxngSearchRequest] = []
+
+    def fail_hook() -> None:
+        raise RuntimeError("private final-start hook detail")
+
+    result = execute_searxng_search(
+        request,
+        capability_state=_state(),
+        approval_authority=_approval_authority(request),
+        authority_leases=[_exact_lease(request)],
+        transport=_fixture_transport(calls),
+        before_final_start=fail_hook,
+        evaluated_at=NOW,
+    )
+
+    assert calls == []
+    assert result.status == WebProviderTransportStatus.blocked
+    assert result.invocation_decision.outcome == InvocationDecisionOutcome.blocked
+    assert "SEARXNG_FINAL_START_HOOK_FAILED" in result.blocker_codes
+    assert "private final-start hook detail" not in result.model_dump_json()
+
+
+def test_final_start_revalidates_current_lease() -> None:
+    request = _request()
+    leases = [_exact_lease(request)]
+    calls: list[SearxngSearchRequest] = []
+
+    def revoke() -> None:
+        leases[0] = leases[0].model_copy(
+            update={"status": AuthorityLeaseStatus.revoked}
+        )
+
+    result = execute_searxng_search(
+        request,
+        capability_state=_state(),
+        approval_authority=_approval_authority(request),
+        authority_leases=leases,
+        authority_leases_provider=lambda: tuple(leases),
+        transport=_fixture_transport(calls),
+        before_final_start=revoke,
+        evaluated_at=NOW,
+    )
+
+    assert calls == []
+    assert result.status == WebProviderTransportStatus.blocked
+    assert result.invocation_decision.outcome == InvocationDecisionOutcome.lease_required
+    assert result.transport_receipt.network_call_performed is False
+
+
+def test_final_start_rechecks_global_kill_switch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request = _request()
+    calls: list[SearxngSearchRequest] = []
+
+    result = execute_searxng_search(
+        request,
+        capability_state=_state(),
+        approval_authority=_approval_authority(request),
+        authority_leases=[_exact_lease(request)],
+        transport=_fixture_transport(calls),
+        before_final_start=lambda: monkeypatch.setenv(
+            AUTHORITY_LEASE_KILL_SWITCH_ENV,
+            "engaged",
+        ),
+        evaluated_at=NOW,
+    )
+
+    assert calls == []
+    assert result.status == WebProviderTransportStatus.blocked
+    assert result.invocation_decision.outcome == InvocationDecisionOutcome.lease_required
+    assert result.transport_receipt.network_call_performed is False
+
+
+def test_final_start_uses_second_trusted_time_and_blocks_stale_observation() -> None:
+    request = _request()
+    calls: list[SearxngSearchRequest] = []
+    clock = iter((NOW, NOW + timedelta(minutes=5)))
+
+    result = execute_searxng_search(
+        request,
+        capability_state=_state(),
+        approval_authority=_approval_authority(request),
+        authority_leases=[_exact_lease(request)],
+        transport=_fixture_transport(calls),
+        trusted_clock=lambda: next(clock),
+    )
+
+    assert calls == []
+    assert result.status == WebProviderTransportStatus.blocked
+    assert "FINAL_START_CAPABILITY_OBSERVATION_STALE" in result.blocker_codes
+    assert result.invocation_decision.evaluated_at == NOW + timedelta(minutes=5)
+
+
+def test_final_start_deadline_expiry_blocks_with_current_provider_state() -> None:
+    request = _request(start_deadline=NOW + timedelta(minutes=2))
+    calls: list[SearxngSearchRequest] = []
+    clock = iter((NOW, NOW + timedelta(minutes=2)))
+
+    result = execute_searxng_search(
+        request,
+        capability_state=_state(),
+        approval_authority=_approval_authority(request),
+        authority_leases=[_exact_lease(request)],
+        transport=_fixture_transport(calls),
+        trusted_clock=lambda: next(clock),
+    )
+
+    assert calls == []
+    assert result.status == WebProviderTransportStatus.blocked
+    assert "FINAL_START_DEADLINE_EXPIRED" in result.blocker_codes
+    assert "FINAL_START_CAPABILITY_OBSERVATION_STALE" not in result.blocker_codes
 
 
 def test_invalid_provider_shape_fails_closed_without_retaining_payload() -> None:

@@ -7998,12 +7998,46 @@ function isSafeControlCenterCapabilitySurface(
       "not_observed_by_read_only_route" &&
     value.web_hybrid.current_remaining_credits === null &&
     value.web_hybrid.request_scoped_evaluation_required === true &&
+    value.web_hybrid.final_start_revalidation_required === true &&
+    value.web_hybrid.mission_scoped_lease_required === true &&
+    value.web_hybrid.complete_request_fingerprint_required === true &&
+    value.web_hybrid.start_deadline_required === true &&
     value.web_hybrid.external_content_untrusted === true &&
     value.web_hybrid.instruction_authority_granted === false &&
     value.web_hybrid.memory_write_allowed === false &&
     value.web_hybrid.context_injection_allowed === false &&
     value.web_hybrid.browser_actions_allowed === false &&
     value.web_hybrid.provider_network_call_performed === false &&
+    isPlainRecord(value.web_hybrid.research_aggregation) &&
+    value.web_hybrid.research_aggregation.schema_version ===
+      "uaa-web-research-aggregation-posture.v1" &&
+    value.web_hybrid.research_aggregation.status ===
+      "implemented_injected_observations_required" &&
+    value.web_hybrid.research_aggregation.current_observation_status ===
+      "not_injected_by_read_only_route" &&
+    value.web_hybrid.research_aggregation.current_citation_count === 0 &&
+    value.web_hybrid.research_aggregation.citation_limit === 10 &&
+    value.web_hybrid.research_aggregation.summary_character_limit === 4000 &&
+    value.web_hybrid.research_aggregation.deterministic_injected_observations_only ===
+      true &&
+    value.web_hybrid.research_aggregation.provider_readiness_included === true &&
+    value.web_hybrid.research_aggregation.provider_latency_posture_included === true &&
+    value.web_hybrid.research_aggregation.provider_cost_posture_included === true &&
+    value.web_hybrid.research_aggregation.provider_context_posture_included === true &&
+    value.web_hybrid.research_aggregation.provider_routing_posture_included === true &&
+    value.web_hybrid.research_aggregation.excluded_source_reasons_included === true &&
+    value.web_hybrid.research_aggregation.content_untrusted === true &&
+    value.web_hybrid.research_aggregation.not_instruction_authority === true &&
+    value.web_hybrid.research_aggregation.context_injection_authorized === false &&
+    value.web_hybrid.research_aggregation.memory_write_authorized === false &&
+    value.web_hybrid.research_aggregation.action_execution_authorized === false &&
+    value.web_hybrid.research_aggregation.raw_query_persisted === false &&
+    value.web_hybrid.research_aggregation.raw_page_content_persisted === false &&
+    value.web_hybrid.research_aggregation.raw_provider_payload_persisted === false &&
+    typeof value.web_hybrid.research_aggregation.contract_ref === "string" &&
+    typeof value.web_hybrid.research_aggregation.safe_summary === "string" &&
+    isNonEmptyStringArray(value.web_hybrid.research_aggregation.proof_refs) &&
+    isNonEmptyStringArray(value.web_hybrid.research_aggregation.blocker_codes) &&
     Array.isArray(value.web_hybrid.lanes) &&
     value.web_hybrid.lanes.length === 3 &&
     isNonEmptyStringArray(value.blocked_authority_refs) &&

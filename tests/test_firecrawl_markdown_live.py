@@ -53,6 +53,8 @@ def test_live_self_hosted_firecrawl_returns_bounded_transient_markdown() -> None
         capability_state=state,
         approval_authority=_approval_authority(request),
         authority_leases=[lease],
+        capability_state_provider=lambda: state,
+        authority_leases_provider=lambda: [lease],
         evaluated_at=now,
     )
 

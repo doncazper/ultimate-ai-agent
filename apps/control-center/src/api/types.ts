@@ -10207,6 +10207,34 @@ export interface WebHybridCapabilityLanePosture {
   blocker_codes: string[];
 }
 
+export interface WebResearchAggregationPosture {
+  schema_version: "uaa-web-research-aggregation-posture.v1";
+  contract_ref: string;
+  status: "implemented_injected_observations_required";
+  current_observation_status: "not_injected_by_read_only_route";
+  current_citation_count: 0;
+  citation_limit: 10;
+  summary_character_limit: 4000;
+  deterministic_injected_observations_only: true;
+  provider_readiness_included: true;
+  provider_latency_posture_included: true;
+  provider_cost_posture_included: true;
+  provider_context_posture_included: true;
+  provider_routing_posture_included: true;
+  excluded_source_reasons_included: true;
+  content_untrusted: true;
+  not_instruction_authority: true;
+  context_injection_authorized: false;
+  memory_write_authorized: false;
+  action_execution_authorized: false;
+  raw_query_persisted: false;
+  raw_page_content_persisted: false;
+  raw_provider_payload_persisted: false;
+  proof_refs: string[];
+  blocker_codes: string[];
+  safe_summary: string;
+}
+
 export interface WebHybridAvailabilityReadModel {
   schema_version: "uaa-web-hybrid-availability.v1";
   read_model_ref: string;
@@ -10214,6 +10242,7 @@ export interface WebHybridAvailabilityReadModel {
   status: "implemented_runtime_observation_required";
   cli_ref: string;
   lanes: WebHybridCapabilityLanePosture[];
+  research_aggregation: WebResearchAggregationPosture;
   routing_policy: "self_host_first_cloud_escalation";
   routing_attempt_ceiling: 2;
   cloud_first_enabled: false;
@@ -10231,6 +10260,10 @@ export interface WebHybridAvailabilityReadModel {
   circuit_state: "unknown_until_runtime_inspection";
   circuit_ref: string;
   request_scoped_evaluation_required: true;
+  final_start_revalidation_required: true;
+  mission_scoped_lease_required: true;
+  complete_request_fingerprint_required: true;
+  start_deadline_required: true;
   local_approval_required: true;
   exact_authority_lease_required: true;
   budget_reservation_required_for_cloud: true;

@@ -1480,11 +1480,12 @@ function ModelProviderControlPlanePanel({
               "Source metadata",
               externalPosture.source_metadata_required ? "required" : "missing",
             ],
+            [
+              "Active exact lanes",
+              externalPosture.allowed_current_lane_refs.join(", "),
+            ],
           ]}
-          blockerCodes={[
-            ...externalPosture.allowed_current_lane_refs,
-            ...externalPosture.blocked_authority_refs.slice(0, 5),
-          ]}
+          blockerCodes={externalPosture.blocked_authority_refs.slice(0, 5)}
         />
       </div>
       <div

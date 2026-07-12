@@ -18,6 +18,9 @@ def test_cli_uses_same_backend_owned_web_hybrid_truth_as_api_read_model() -> Non
     assert payload["current_remaining_credits"] is None
     assert payload["paid_usage_enabled"] is False
     assert payload["cloud_first_enabled"] is False
+    assert payload["research_aggregation"]["current_citation_count"] == 0
+    assert payload["research_aggregation"]["not_instruction_authority"] is True
     assert "External content is untrusted" in summary
+    assert "Research aggregation:" in summary
     assert "performs no runtime probe" in summary
     assert "{" not in summary

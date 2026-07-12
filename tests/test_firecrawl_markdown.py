@@ -8,11 +8,13 @@ import pytest
 from pydantic import ValidationError
 
 from ultimate_ai_agent.core.authority import (
+    AUTHORITY_LEASE_KILL_SWITCH_ENV,
     AuthorityCapability,
     AuthorityConstraint,
     AuthorityConstraintKind,
     AuthorityDomain,
     AuthorityLease,
+    AuthorityLeaseScope,
     TrustMode,
 )
 from ultimate_ai_agent.core.capabilities.approval import (
@@ -50,6 +52,7 @@ from ultimate_ai_agent.core.web_access import (
     execute_firecrawl_markdown,
     firecrawl_target_source_ref,
 )
+from ultimate_ai_agent.core.web_access.hybrid_contracts import stable_web_hybrid_ref
 
 
 NOW = datetime(2026, 7, 10, 19, 0, tzinfo=timezone.utc)
@@ -60,6 +63,10 @@ def _request(**overrides: Any) -> FirecrawlMarkdownRequest:
     values: dict[str, Any] = {
         "request_ref": "web-extract-request-ref:test",
         "task_ref": "task-ref:web-extract:test",
+        "mission_ref": "mission-ref:web-extract:test",
+        "run_ref": "run-ref:web-extract:test",
+        "idempotency_ref": "idempotency-ref:web-extract:test",
+        "start_deadline": NOW + timedelta(minutes=4),
         "approval_ref": "approval-ref:web-extract:test",
         "target_url": TARGET_URL,
         "target_source_ref": firecrawl_target_source_ref(TARGET_URL),
@@ -105,6 +112,10 @@ def _approval_authority(
                 approval_ref=request.approval_ref or "approval-ref:web-extract:missing",
                 capability_id=capability_ref,
                 task_id=request.task_ref,
+                mission_ref=request.mission_ref,
+                run_ref=request.run_ref,
+                request_fingerprint_ref=request.request_fingerprint_ref,
+                resource_refs=tuple(_exact_resource_refs(request)),
                 granted_by="operator-ref:test",
             )
         ]
@@ -115,6 +126,14 @@ def _exact_resource_refs(request: FirecrawlMarkdownRequest) -> list[str]:
     return [
         request.request_ref,
         request.task_ref,
+        request.mission_ref,
+        request.run_ref,
+        request.idempotency_ref,
+        request.request_fingerprint_ref,
+        stable_web_hybrid_ref(
+            "start-deadline-ref",
+            {"start_deadline": request.start_deadline.isoformat()},
+        ),
         request.target_source_ref,
         FIRECRAWL_MARKDOWN_CAPABILITY_REF,
         FIRECRAWL_SELF_HOSTED_PROVIDER_REF,
@@ -126,6 +145,8 @@ def _exact_lease(request: FirecrawlMarkdownRequest) -> AuthorityLease:
     return AuthorityLease(
         lease_ref="authority-lease-ref:web-extract:test",
         mode=TrustMode.read_only,
+        scope=AuthorityLeaseScope.mission,
+        mission_ref=request.mission_ref,
         domains={AuthorityDomain.browser: [AuthorityCapability.read]},
         authority_constraints=[
             AuthorityConstraint(
@@ -397,6 +418,99 @@ def test_target_resolution_failure_never_calls_provider_transport() -> None:
     assert result.reason_codes == ("FIRECRAWL_TARGET_VALIDATION_FAILED",)
     assert result.transport_receipt.network_call_performed is False
     assert "unsafe target detail" not in result.model_dump_json()
+
+
+def test_final_start_revalidates_revoked_approval_before_transport() -> None:
+    request = _request()
+    approval = _approval_authority(request)
+    transport_calls: list[FirecrawlMarkdownRequest] = []
+
+    result = execute_firecrawl_markdown(
+        request,
+        capability_state=_state(),
+        approval_authority=approval,
+        authority_leases=[_exact_lease(request)],
+        transport=_fixture_transport(transport_calls),
+        target_validator=lambda _url: None,
+        before_final_start=lambda: approval.revoke(request.approval_ref or ""),
+        evaluated_at=NOW,
+    )
+
+    assert transport_calls == []
+    assert result.status == WebProviderTransportStatus.blocked
+    assert result.invocation_decision.outcome != InvocationDecisionOutcome.allow
+    assert result.transport_receipt.network_call_performed is False
+
+
+def test_final_start_hook_failure_returns_a_blocked_decision() -> None:
+    request = _request()
+    transport_calls: list[FirecrawlMarkdownRequest] = []
+
+    def fail_hook() -> None:
+        raise RuntimeError("private final-start hook detail")
+
+    result = execute_firecrawl_markdown(
+        request,
+        capability_state=_state(),
+        approval_authority=_approval_authority(request),
+        authority_leases=[_exact_lease(request)],
+        transport=_fixture_transport(transport_calls),
+        target_validator=lambda _url: None,
+        before_final_start=fail_hook,
+        evaluated_at=NOW,
+    )
+
+    assert transport_calls == []
+    assert result.status == WebProviderTransportStatus.blocked
+    assert result.invocation_decision.outcome == InvocationDecisionOutcome.blocked
+    assert "FIRECRAWL_FINAL_START_HOOK_FAILED" in result.blocker_codes
+    assert "private final-start hook detail" not in result.model_dump_json()
+
+
+def test_final_start_uses_fresh_time_and_blocks_stale_state() -> None:
+    request = _request()
+    transport_calls: list[FirecrawlMarkdownRequest] = []
+    clock = iter((NOW, NOW + timedelta(minutes=5)))
+
+    result = execute_firecrawl_markdown(
+        request,
+        capability_state=_state(),
+        approval_authority=_approval_authority(request),
+        authority_leases=[_exact_lease(request)],
+        transport=_fixture_transport(transport_calls),
+        target_validator=lambda _url: None,
+        trusted_clock=lambda: next(clock),
+    )
+
+    assert transport_calls == []
+    assert result.status == WebProviderTransportStatus.blocked
+    assert "FINAL_START_CAPABILITY_OBSERVATION_STALE" in result.blocker_codes
+    assert result.invocation_decision.evaluated_at == NOW + timedelta(minutes=5)
+
+
+def test_target_validation_precedes_final_authority_evaluation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request = _request()
+    transport_calls: list[FirecrawlMarkdownRequest] = []
+
+    def validate_target(_url: str) -> None:
+        monkeypatch.setenv(AUTHORITY_LEASE_KILL_SWITCH_ENV, "engaged")
+
+    result = execute_firecrawl_markdown(
+        request,
+        capability_state=_state(),
+        approval_authority=_approval_authority(request),
+        authority_leases=[_exact_lease(request)],
+        transport=_fixture_transport(transport_calls),
+        target_validator=validate_target,
+        evaluated_at=NOW,
+    )
+
+    assert transport_calls == []
+    assert result.status == WebProviderTransportStatus.blocked
+    assert result.invocation_decision.outcome == InvocationDecisionOutcome.lease_required
+    assert result.transport_receipt.network_call_performed is False
 
 
 def test_oversized_markdown_and_provider_payload_fields_fail_closed() -> None:

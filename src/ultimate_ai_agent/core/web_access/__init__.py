@@ -112,6 +112,7 @@ from .hybrid_contracts import (
     build_web_provider_capability_state,
 )
 from .hybrid_ledger import (
+    DurableWebCreditLedger,
     InMemoryWebCreditLedger,
     WebCreditLedgerConflictError,
     WebCreditReservationInProgressError,
@@ -174,8 +175,32 @@ from .searxng_search import (
     searxng_query_ref,
     searxng_search_snapshot_from_state,
 )
+from .research_aggregation import (
+    BoundedWebResearchAggregation,
+    WebResearchCitationObservation,
+    WebResearchCostPosture,
+    WebResearchExcludedSource,
+    WebResearchProviderObservation,
+    WebResearchProviderReadiness,
+    WebResearchRedactionStatus,
+    WebResearchSafeDisableStatus,
+    aggregate_web_research,
+    citation_from_hybrid_result,
+    citations_from_searxng_result,
+)
 
 __all__ = [
+    "BoundedWebResearchAggregation",
+    "WebResearchCitationObservation",
+    "WebResearchCostPosture",
+    "WebResearchExcludedSource",
+    "WebResearchProviderObservation",
+    "WebResearchProviderReadiness",
+    "WebResearchRedactionStatus",
+    "WebResearchSafeDisableStatus",
+    "aggregate_web_research",
+    "citation_from_hybrid_result",
+    "citations_from_searxng_result",
     "SourceMetadata",
     "FIRECRAWL_CLOUD_ACCOUNT_REF",
     "FIRECRAWL_CLOUD_ADAPTER_REF",
@@ -247,6 +272,7 @@ __all__ = [
     "WEB_HYBRID_COST_POLICY_REF",
     "WEB_HYBRID_SCHEMA_VERSION",
     "InMemoryWebCreditLedger",
+    "DurableWebCreditLedger",
     "HybridMarkdownExecutionRequest",
     "HybridMarkdownExecutionResult",
     "InMemoryWebCloudCircuitBreaker",

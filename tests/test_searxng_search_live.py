@@ -41,18 +41,19 @@ def test_live_searxng_search_is_bounded_untrusted_and_redacted() -> None:
         expires_at=now + timedelta(minutes=5),
     )
 
+    lease = _exact_lease(request).model_copy(
+        update={
+            "issued_at": now - timedelta(minutes=1),
+            "expires_at": now + timedelta(minutes=10),
+        }
+    )
     result = execute_searxng_search(
         request,
         capability_state=state,
         approval_authority=_approval_authority(request),
-        authority_leases=[
-            _exact_lease(request).model_copy(
-                update={
-                    "issued_at": now - timedelta(minutes=1),
-                    "expires_at": now + timedelta(minutes=10),
-                }
-            )
-        ],
+        authority_leases=[lease],
+        capability_state_provider=lambda: state,
+        authority_leases_provider=lambda: [lease],
         evaluated_at=now,
     )
 

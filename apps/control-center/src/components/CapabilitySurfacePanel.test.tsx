@@ -19,8 +19,10 @@ describe("CapabilitySurfacePanel web hybrid posture", () => {
       screen.getByText("Firecrawl Cloud free-plan one-page markdown"),
     ).toBeInTheDocument();
     expect(screen.getByText("External content is untrusted")).toBeInTheDocument();
+    expect(screen.getByText("Bounded cited research")).toBeInTheDocument();
+    expect(screen.getByText(/Current citations: 0/)).toBeInTheDocument();
     expect(
-      screen.getByText(/Exact approval, AuthorityLease, and request budget/),
+      screen.getByText(/Exact approval, mission-scoped AuthorityLease/),
     ).toBeInTheDocument();
     expect(screen.getByText(/Paid usage, Keyless/)).toBeInTheDocument();
     expect(screen.queryByText(/\{.*\}/)).not.toBeInTheDocument();

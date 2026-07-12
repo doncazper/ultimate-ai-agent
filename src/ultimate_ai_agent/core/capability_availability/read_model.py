@@ -57,6 +57,7 @@ from .contracts import (
     SafeDisableStatus,
     WebHybridAvailabilityReadModel,
     WebHybridCapabilityLanePosture,
+    WebResearchAggregationPosture,
     build_capability_availability_snapshot,
 )
 
@@ -320,6 +321,24 @@ def build_web_hybrid_availability_read_model() -> WebHybridAvailabilityReadModel
     )
 
     return WebHybridAvailabilityReadModel(
+        research_aggregation=WebResearchAggregationPosture(
+            proof_refs=[
+                "proof-ref:web-research-aggregation:deterministic-bounds",
+                "proof-ref:web-research-aggregation:untrusted-citations",
+                "proof-ref:web-research-aggregation:provider-observations",
+            ],
+            blocker_codes=[
+                "CURRENT_RESEARCH_OBSERVATIONS_NOT_INJECTED",
+                "REQUEST_SCOPED_RETRIEVAL_AUTHORITY_REQUIRED",
+                "MEMORY_AND_ACTION_PROMOTION_DENIED",
+            ],
+            safe_summary=(
+                "Bounded cited research aggregation is implemented for deterministic "
+                "injected observations. This read-only surface performs no retrieval "
+                "and has no current citations; provider readiness, latency, cost, "
+                "context, routing, exclusions, and redaction remain explicit."
+            ),
+        ),
         lanes=[
             WebHybridCapabilityLanePosture(
                 lane_ref=SEARXNG_SEARCH_LANE_REF,
