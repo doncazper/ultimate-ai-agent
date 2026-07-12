@@ -25,7 +25,10 @@ DOC_REQUIRED = [
     "repo_verifier",
     "frontend_check",
     "repo_doctor",
-    "signed evidence is local hash verification",
+    "legacy signed identifiers",
+    "local SHA-256",
+    "not cryptographic signatures",
+    "Signing is blocked",
     "Control Center cannot mint authority",
     "broad runtime authority remains blocked",
     "no raw command output",
@@ -43,6 +46,12 @@ CORE_REQUIRED = [
     "route_decision_binding_ref",
     "envelope_hash_ref",
     "signed_envelope_ref",
+    "integrity_scheme_ref",
+    "sha256_hash_only_not_a_cryptographic_signature",
+    "cryptographic_signature_present",
+    "blocked_signing_lifecycle_not_implemented",
+    "external_anchor_verified",
+    "legacy_signed_envelope_ref_is_hash_only",
     "raw_command_output_persisted",
     "unrestricted_shell_execution_performed",
 ]
@@ -68,6 +77,7 @@ TEST_REQUIRED = [
     "test_runtime_action_signed_evidence_idempotent_replay_is_stable",
     "test_runtime_action_signed_evidence_safe_disable_blocks_execution",
     "test_runtime_action_signed_evidence_cli_export_and_verify",
+    "cryptographic_signature_verified",
 ]
 
 FORBIDDEN_OVERCLAIMS = [
@@ -121,7 +131,7 @@ def main() -> int:
         if phrase in lowered:
             failures.append(f"Forbidden overclaim present: {phrase}")
     if RAW_PATH_RE.search(combined):
-        failures.append("Raw local path leaked in runtime action signed evidence files")
+        failures.append("Raw local path leaked in runtime action evidence files")
 
     if failures:
         for failure in failures:

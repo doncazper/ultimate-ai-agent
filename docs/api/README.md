@@ -196,7 +196,8 @@ Current boundary summary:
 - `GET /api/runtime/parity-loop` exposes the Phase 08 backend-owned runtime
   parity-loop inspection model across prepared turn, route binding, durable run,
   staged orchestration, provider evidence, Action Inbox approval, receipt,
-  signed evidence, and blocked-state refs. It does not execute work or grant
+  local hash-integrity evidence (with legacy signed identifiers), and
+  blocked-state refs. It does not execute work or grant
   authority.
 - CRM Local Command Center M2 adds six local read routes under
   `/control-center/crm/*` and one exact local mutation receipt route at

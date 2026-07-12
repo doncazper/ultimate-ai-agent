@@ -5,14 +5,18 @@ Status: implemented for Action Inbox approved workspace/execute utility command 
 
 This phase borrows external comparison runtime's operator-visible execution spine without
 copying external runtime code or importing external runtime packages. UAA keeps Python
-Agent Core as the source of truth and exposes signed evidence as local,
-safe-ref-only receipt metadata.
+Agent Core as the source of truth and exposes local SHA-256 hash-integrity
+evidence as safe-ref-only receipt metadata. Historical `signed_*` identifiers
+are compatibility names only: legacy signed identifiers are local SHA-256
+hash-integrity fields, not cryptographic signatures. Signing is blocked until
+a real Keychain-backed lifecycle exists.
 
-This does not copy external reference code. The signed evidence is local hash
-verification, Control Center cannot mint authority, broad runtime authority
-remains blocked, and no unrestricted shell is added.
+This does not copy external reference code. The evidence provides local hash
+verification only. Keychain-backed signing, authenticity, non-repudiation, and
+external anchoring remain blocked. Control Center cannot mint authority, broad
+runtime authority remains blocked, and no unrestricted shell is added.
 
-- signed evidence is local hash verification
+- legacy signed-evidence fields carry local hash verification only
 - broad runtime authority remains blocked
 
 ## What Is Implemented
@@ -25,8 +29,8 @@ remains blocked, and no unrestricted shell is added.
   policy decision ref, route-decision binding ref, payload fingerprint ref,
   receipt ref, rollback ref, safe-disable ref, artifact hash refs, and evidence
   refs.
-- Stable canonical JSON hash and local signed-envelope ref. The signed evidence
-  is local hash verification, not public notarization or external trust.
+- Stable canonical JSON hash and legacy signed-envelope compatibility ref. Both
+  are hashes, not signatures, public notarization, or external trust.
 - Offline verifier through `verify_runtime_action_signed_evidence`.
 - API receipt detail includes `signed_evidence_available`,
   `signed_evidence_envelope`, and `signed_evidence_verification` when an action
@@ -61,7 +65,7 @@ and verifier refs only.
 
 ## Extension Path
 
-Future non-utility actions may add signed evidence only when each
+Future non-utility actions may add hash-integrity evidence only when each
 AuthorityLease-gated capability proves approval binding, idempotency, replay
 conflict detection, rollback or safe-disable posture, receipt refs, proof refs,
 redaction, CLI/API parity, route classification, and focused verifier coverage.

@@ -159,6 +159,7 @@ const completionReadModel: AuthorityMissionCompletionReadModel = {
       mission_ref: "mission-ref:panel",
       run_ref: "run-ref:panel",
       lease_ref: "authority-lease-ref:panel",
+      lease_scope_fingerprint_ref: "authority-lease-scope-fingerprint-ref:panel",
       lease_scope: "mission",
       lease_mission_ref: "mission-ref:panel",
       lease_issued_at: "2026-07-11T12:00:00Z",
@@ -251,6 +252,41 @@ const completionReadModel: AuthorityMissionCompletionReadModel = {
       raw_provider_payload_included: false,
     },
   ],
+  integrity_summary: {
+    schema_version: "uaa-mission-completion-integrity-summary.v1",
+    verifier_version_ref: "verifier-ref:mission-completion:sha256-chain:v1",
+    manifest_count: 1,
+    chain_ref: "mission-completion-chain-ref:panel",
+    genesis_entry_hash_ref: "mission-completion-entry-hash-ref:sha256:panel",
+    terminal_entry_hash_ref: "mission-completion-entry-hash-ref:sha256:panel",
+    hash_chain_verified: true,
+    source_ledgers_verified: false,
+    signature_present: false,
+    signing_status: "blocked_signing_lifecycle_not_implemented",
+    cryptographic_authenticity_verified: false,
+    external_anchor_verified: false,
+    execution_evidence_grants_authority: false,
+  },
+  portable_evidence_summary: {
+    schema_version: "uaa-portable-mission-evidence-inspection.v1",
+    status: "verified_local_hash_chain",
+    bundle_ref: "portable-mission-evidence-bundle-ref:panel",
+    completion_count: 1,
+    envelope_count: 1,
+    terminal_entry_hash_ref: "portable-evidence-entry-hash-ref:panel",
+    local_hash_chain_verified: true,
+    source_receipts_bound: true,
+    source_ledgers_verified: false,
+    caller_expected_binding_matched: false,
+    signature_verified: false,
+    signing_status: "blocked_signing_lifecycle_not_implemented",
+    cryptographic_authenticity_verified: false,
+    external_anchor_verified: false,
+    execution_evidence_grants_authority: false,
+    reason_refs: [
+      "reason-ref:portable-mission-evidence:hash-chain-verified",
+    ],
+  },
   operator_summary: "One content-free mission completion is available.",
   request_scoped_authority_still_required: true,
   execution_available_from_read_model: false,
@@ -286,7 +322,12 @@ describe("AuthorityMissionInspectionPanel", () => {
     expect(within(panel).queryByRole("button")).not.toBeInTheDocument();
     expect(within(panel).getByText("Mission completion evidence")).toBeInTheDocument();
     expect(within(panel).getByText("review required, recall only")).toBeInTheDocument();
-    expect(within(panel).getAllByText(/content-free hash chain/)).toHaveLength(2);
+    expect(within(panel).getAllByText(/content-free hash chain/)).toHaveLength(1);
+    expect(within(panel).getByText(/Completion chain: local SHA-256 verified/)).toBeInTheDocument();
+    expect(within(panel).getByText(/Portable evidence: verified local hash chain/)).toBeInTheDocument();
+    expect(within(panel).getByText(/Source records bound: yes/)).toBeInTheDocument();
+    expect(within(panel).getByText(/Signing: blocked/)).toBeInTheDocument();
+    expect(within(panel).getByText(/Authenticity verified: false/)).toBeInTheDocument();
     expect(loadWorkerState).toHaveBeenCalledTimes(1);
     expect(loadCompletions).toHaveBeenCalledTimes(1);
   });

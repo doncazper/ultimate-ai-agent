@@ -156,8 +156,8 @@ run, and evidence refs without persisting raw prompt text or granting runtime
 authority.
 `GET /api/runtime/parity-loop` exposes a protected read-only Python Core final
 runtime parity-loop read model over prepared turn, route decision, durable run,
-staged orchestration, provider evidence, Action Inbox approval, receipt, signed
-evidence, and blocked-state refs without executing work or granting runtime
+staged orchestration, provider evidence, Action Inbox approval, receipt, local
+SHA-256 hash-integrity evidence (with legacy signed identifiers), and blocked-state refs without executing work or granting runtime
 authority.
 `GET /api/runtime/delegation-adapter` exposes a protected read-only Python Core
 Hermes Runtime Adoption Phase 01 delegation adapter readiness model. It shows

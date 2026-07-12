@@ -12,6 +12,39 @@ const safeReadModel: AuthorityMissionCompletionReadModel = {
   ledger_ref: "ledger-ref:mission-completion-receipts",
   completion_count: 0,
   latest_manifests: [],
+  integrity_summary: {
+    schema_version: "uaa-mission-completion-integrity-summary.v1",
+    verifier_version_ref: "verifier-ref:mission-completion:sha256-chain:v1",
+    manifest_count: 0,
+    chain_ref: "mission-completion-chain-ref:empty",
+    genesis_entry_hash_ref: null,
+    terminal_entry_hash_ref: null,
+    hash_chain_verified: true,
+    source_ledgers_verified: false,
+    signature_present: false,
+    signing_status: "blocked_signing_lifecycle_not_implemented",
+    cryptographic_authenticity_verified: false,
+    external_anchor_verified: false,
+    execution_evidence_grants_authority: false,
+  },
+  portable_evidence_summary: {
+    schema_version: "uaa-portable-mission-evidence-inspection.v1",
+    status: "not_recorded",
+    bundle_ref: null,
+    completion_count: 0,
+    envelope_count: 0,
+    terminal_entry_hash_ref: null,
+    local_hash_chain_verified: false,
+    source_receipts_bound: false,
+    source_ledgers_verified: false,
+    caller_expected_binding_matched: false,
+    signature_verified: false,
+    signing_status: "blocked_signing_lifecycle_not_implemented",
+    cryptographic_authenticity_verified: false,
+    external_anchor_verified: false,
+    execution_evidence_grants_authority: false,
+    reason_refs: ["reason-ref:portable-mission-evidence:not-recorded"],
+  },
   operator_summary: "No content-free mission completions are recorded.",
   request_scoped_authority_still_required: true,
   execution_available_from_read_model: false,
@@ -24,6 +57,25 @@ const safeReadModel: AuthorityMissionCompletionReadModel = {
 const boundCompletionReadModel: AuthorityMissionCompletionReadModel = {
   ...safeReadModel,
   completion_count: 1,
+  integrity_summary: {
+    ...safeReadModel.integrity_summary,
+    manifest_count: 1,
+    genesis_entry_hash_ref: "mission-completion-entry-hash-ref:bound",
+    terminal_entry_hash_ref: "mission-completion-entry-hash-ref:bound",
+  },
+  portable_evidence_summary: {
+    ...safeReadModel.portable_evidence_summary,
+    status: "verified_local_hash_chain",
+    bundle_ref: "portable-mission-evidence-bundle-ref:bound",
+    completion_count: 1,
+    envelope_count: 1,
+    terminal_entry_hash_ref: "portable-evidence-entry-hash-ref:bound",
+    local_hash_chain_verified: true,
+    source_receipts_bound: true,
+    reason_refs: [
+      "reason-ref:portable-mission-evidence:hash-chain-verified",
+    ],
+  },
   latest_manifests: [
     {
       schema_version: "uaa-mission-completion.v1",
@@ -35,6 +87,7 @@ const boundCompletionReadModel: AuthorityMissionCompletionReadModel = {
       mission_ref: "mission-ref:bound",
       run_ref: "run-ref:bound",
       lease_ref: "authority-lease-ref:bound",
+      lease_scope_fingerprint_ref: "authority-lease-scope-fingerprint-ref:bound",
       lease_scope: "mission",
       lease_mission_ref: "mission-ref:bound",
       lease_issued_at: "2026-07-11T12:00:00Z",
@@ -166,6 +219,69 @@ describe("authority mission completion client", () => {
               ...safeReadModel,
               execution_available_from_read_model: true,
               approval_or_lease_minted: true,
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    );
+
+    await expect(fetchAuthorityMissionCompletions()).rejects.toThrow(
+      "unsafe or incompatible",
+    );
+  });
+
+  it.each([
+    ["signature_present", true],
+    ["source_ledgers_verified", true],
+    ["external_anchor_verified", true],
+    ["cryptographic_authenticity_verified", true],
+    ["execution_evidence_grants_authority", true],
+  ])("rejects unsafe integrity posture %s", async (field, claimed) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            success: true,
+            data: {
+              ...safeReadModel,
+              integrity_summary: {
+                ...safeReadModel.integrity_summary,
+                [field]: claimed,
+              },
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    );
+
+    await expect(fetchAuthorityMissionCompletions()).rejects.toThrow(
+      "unsafe or incompatible",
+    );
+  });
+
+  it.each([
+    ["source_ledgers_verified", true],
+    ["caller_expected_binding_matched", true],
+    ["signature_verified", true],
+    ["external_anchor_verified", true],
+    ["cryptographic_authenticity_verified", true],
+    ["execution_evidence_grants_authority", true],
+  ])("rejects unsafe portable evidence posture %s", async (field, claimed) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            success: true,
+            data: {
+              ...safeReadModel,
+              portable_evidence_summary: {
+                ...safeReadModel.portable_evidence_summary,
+                [field]: claimed,
+              },
             },
           }),
           { status: 200, headers: { "Content-Type": "application/json" } },

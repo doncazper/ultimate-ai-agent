@@ -419,7 +419,8 @@ def build_runtime_action_inbox_bridge_read_model(
         blocked_authority_refs=list(RUNTIME_ACTION_INBOX_BRIDGE_BLOCKED_AUTHORITY_REFS),
         operator_summary=(
             f"{len(items)} governed runtime approval envelopes are visible with "
-            f"{len(receipt_refs)} receipt refs, {len(signed_evidence_refs)} signed evidence refs, "
+            f"{len(receipt_refs)} receipt refs, {len(signed_evidence_refs)} local "
+            "hash-integrity evidence refs (legacy signed identifiers), "
             f"{len(evidence_refs)} evidence refs, "
             f"and {len(evidence_timeline)} timeline events."
         ),

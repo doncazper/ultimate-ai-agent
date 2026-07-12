@@ -280,7 +280,7 @@ def _print_parity_loop(read_model: dict[str, Any]) -> None:
         "Counts: "
         f"invocations={read_model['runtime_invocation_count']} "
         f"receipts={read_model['runtime_receipt_count']} "
-        f"signed_evidence={read_model['runtime_signed_evidence_count']} "
+        f"hash_integrity_evidence={read_model['runtime_signed_evidence_count']} "
         f"timeline={read_model['runtime_timeline_event_count']}"
     )
     print(
@@ -380,7 +380,11 @@ def _print_authority_profile(read_model: dict[str, Any]) -> None:
         print(f"  lane: {lane['lane_ref']}")
         print(f"  promotion: {lane['promotion_path_ref']}")
     envelope = read_model["portable_evidence_envelope"]
-    print(f"Portable evidence: {envelope['signed_envelope_ref']}")
+    print(
+        "Portable integrity ref (legacy signed field; not a signature): "
+        f"{envelope['signed_envelope_ref']}"
+    )
+    print("Cryptographic signing: blocked")
     print("Still blocked:")
     for ref in read_model["blocked_authority_refs"]:
         print(f"- {ref}")
@@ -1896,7 +1900,10 @@ def _print_receipt(record: Any) -> None:
     except ValueError:
         evidence = None
     if evidence is not None:
-        print(f"Signed evidence: {evidence.signed_envelope_ref}")
+        print(
+            "Hash-integrity evidence (legacy signed ref; not a signature): "
+            f"{evidence.signed_envelope_ref}"
+        )
         print(f"Evidence verifier: {evidence.verifier_ref}")
 
 
@@ -4079,7 +4086,11 @@ def _export_evidence_envelope(args: argparse.Namespace) -> int:
         print(f"Receipt: {envelope['receipt_ref']}")
         print(f"Evidence: {envelope['evidence_ref']}")
         print(f"Hash: {envelope['envelope_hash_ref']}")
-        print(f"Signed ref: {envelope['signed_envelope_ref']}")
+        print(
+            "Integrity ref (legacy signed field; not a signature): "
+            f"{envelope['signed_envelope_ref']}"
+        )
+        print("Cryptographic signing: blocked")
         print("Safe refs only: true")
     return 0
 
@@ -4102,7 +4113,13 @@ def _verify_evidence_envelope(args: argparse.Namespace) -> int:
             build_portable_evidence_envelope().model_dump(mode="json")
         )
     else:
-        envelope_payload = json.loads(Path(args.input).read_text(encoding="utf-8"))
+        try:
+            envelope_payload = json.loads(
+                _mission_completion_cli.read_bounded_regular_file(Path(args.input))
+            )
+        except (OSError, UnicodeError, ValueError, json.JSONDecodeError):
+            print("Evidence envelope could not be safely read.", file=sys.stderr)
+            return 1
     result = verify_portable_evidence_envelope(envelope_payload)
     payload = _verification_payload(result)
     if args.json:
@@ -4113,7 +4130,11 @@ def _verify_evidence_envelope(args: argparse.Namespace) -> int:
         print(f"Status: {verification['verification_status']}")
         print(f"Envelope: {verification['envelope_ref']}")
         print(f"Hash valid: {verification['envelope_hash_valid']}")
-        print(f"Signed ref valid: {verification['signed_envelope_ref_valid']}")
+        print(
+            "Legacy integrity ref valid: "
+            f"{verification['signed_envelope_ref_valid']}"
+        )
+        print("Cryptographic signature verified: false")
         print(f"Redaction valid: {verification['redaction_status_valid']}")
         print(f"Tamper detected: {verification['tamper_detected']}")
         print("Input path echoed: false")
@@ -4318,7 +4339,7 @@ def _receipts_evidence(args: argparse.Namespace) -> int:
     try:
         envelope = build_runtime_action_signed_evidence(record)
     except ValueError:
-        print("Runtime action signed evidence not available")
+        print("Runtime action hash-integrity evidence not available")
         return 1
     payload = _portable_evidence_payload(
         "repo-local-command:governed-runtime-receipt-signed-evidence",
@@ -4330,18 +4351,28 @@ def _receipts_evidence(args: argparse.Namespace) -> int:
     if args.json:
         _print_json(payload)
     else:
-        print("Governed runtime action signed evidence")
+        print("Governed runtime action hash-integrity evidence")
         print(f"Envelope: {envelope.envelope_ref}")
         print(f"Receipt: {envelope.receipt_ref}")
         print(f"Hash: {envelope.envelope_hash_ref}")
-        print(f"Signed ref: {envelope.signed_envelope_ref}")
+        print(
+            "Integrity ref (legacy signed field; not a signature): "
+            f"{envelope.signed_envelope_ref}"
+        )
+        print("Cryptographic signing: blocked")
         print(f"Verifier: {envelope.verifier_ref}")
         print("Safe refs only: true")
     return 0
 
 
 def _receipts_verify_evidence(args: argparse.Namespace) -> int:
-    envelope_payload = json.loads(Path(args.input).read_text(encoding="utf-8"))
+    try:
+        envelope_payload = json.loads(
+            _mission_completion_cli.read_bounded_regular_file(Path(args.input))
+        )
+    except (OSError, UnicodeError, ValueError, json.JSONDecodeError):
+        print("Runtime evidence envelope could not be safely read.", file=sys.stderr)
+        return 1
     result = verify_runtime_action_signed_evidence(envelope_payload)
     payload = {
         "schema_version": "governed-runtime-cli:v1",
@@ -4355,11 +4386,12 @@ def _receipts_verify_evidence(args: argparse.Namespace) -> int:
     if args.json:
         _print_json(payload)
     else:
-        print("Governed runtime action signed evidence verification")
+        print("Governed runtime action hash-integrity evidence verification")
         print(f"Envelope: {result.envelope_ref}")
         print(f"Status: {result.verification_status}")
         print(f"Hash valid: {result.envelope_hash_valid}")
-        print(f"Signed ref valid: {result.signed_envelope_ref_valid}")
+        print(f"Legacy integrity ref valid: {result.signed_envelope_ref_valid}")
+        print("Cryptographic signature verified: false")
         print(f"Tamper detected: {result.tamper_detected}")
     return 0 if result.verification_status == "passed" else 1
 

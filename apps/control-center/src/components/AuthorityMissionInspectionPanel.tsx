@@ -220,6 +220,21 @@ export function AuthorityMissionInspectionPanel({
                 : `${completions?.completion_count ?? 0} recorded`}
           </span>
         </div>
+        {completions ? (
+          <div className="summary-strip" aria-label="Completion integrity posture">
+            <span>
+              Completion chain: {completions.completion_count === 0 ? "no evidence recorded" : completions.integrity_summary.hash_chain_verified ? "local SHA-256 verified" : "invalid"}
+            </span>
+            <span>
+              Portable evidence: {formatStatus(completions.portable_evidence_summary.status)}
+            </span>
+            <span>
+              Source records bound: {completions.portable_evidence_summary.source_receipts_bound ? "yes" : "no"}
+            </span>
+            <span>Signing: blocked, not implemented</span>
+            <span>Authenticity verified: false</span>
+          </div>
+        ) : null}
         {completionLoading ? (
           <p className="muted">Completion evidence is loading.</p>
         ) : completionError ? (
@@ -273,10 +288,11 @@ export function AuthorityMissionInspectionPanel({
           </p>
         )}
         <p className="muted">
-          Completion evidence records what happened. Source ledgers were checked
-          when completion was recorded; this read-only view validates the
-          content-free hash chain and does not grant future authority, accept
-          memory as truth, or enable another run.
+          Completion evidence records what happened. The backend validated this
+          local content-free SHA-256 chain. It is not cryptographically signed,
+          externally anchored, or independently source-ledger verified, and it
+          cannot grant future authority, accept memory as truth, or enable
+          another run.
         </p>
       </div>
 

@@ -1208,7 +1208,7 @@ function RuntimeActionInboxBridgePanel({
           value={readModel.execution_result_refs.length}
         />
         <Metric
-          label="signed evidence"
+          label="hash-integrity evidence"
           value={readModel.signed_evidence_refs.length}
         />
       </div>
@@ -1287,7 +1287,7 @@ function RuntimeActionInboxBridgePanel({
               />
               <DetailTerm label="Receipt status" value={item.receipt_status} />
               <DetailTerm
-                label="Signed evidence"
+                label="Hash-integrity evidence"
                 value={item.signed_evidence_verification_status}
               />
               <DetailTerm
@@ -1324,7 +1324,7 @@ function RuntimeActionInboxBridgePanel({
               }
             />
             <RefListWithFallback
-              emptyLabel="Signed evidence refs: none"
+              emptyLabel="Hash-integrity evidence refs: none"
               refs={
                 item.signed_evidence_ref ? [item.signed_evidence_ref] : []
               }
@@ -1405,7 +1405,7 @@ function RuntimeActionInboxBridgePanel({
         refs={readModel.execution_result_refs}
       />
       <RefListWithFallback
-        emptyLabel="Runtime bridge signed evidence refs: none"
+        emptyLabel="Runtime bridge hash-integrity evidence refs: none"
         refs={readModel.signed_evidence_refs}
       />
       <RefListWithFallback

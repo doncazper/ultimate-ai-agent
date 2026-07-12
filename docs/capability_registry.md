@@ -281,6 +281,17 @@ model output. Broad filesystem reads, directory traversal, content reads,
 mutation, shell execution, automatic memory write, and context injection remain
 blocked.
 
+Runtime Capability Foundation Phase 06 derives a bounded portable evidence
+bundle from the complete locally readable mission-completion chain and the
+exact referenced terminal dispatch records. Each
+entry binds plan/run/step, full lease-scope fingerprint, exact approval-scope
+fingerprint, policy, budget settlement, capability, adapter, truthful provider
+posture, target/resource binding, request fingerprint, terminal outcome,
+predecessor hash, redaction posture, and verifier version. The bundle provides
+local SHA-256 hash-chain integrity only. It is not cryptographically signed or
+externally anchored, source-ledger verification remains explicitly false until
+lease/budget storage hardening is complete, and evidence never grants authority.
+
 Runtime Capability Foundation Phase 04 projects this proven lane into the
 canonical capability-availability snapshot and Action/Tool/Code catalog. The
 snapshot separates supported declaration, unknown current-environment readiness,
@@ -289,9 +300,10 @@ safe-disable truth is evaluated only for the exact request; implementation
 availability never means globally callable or authorized.
 
 Preparation inputs are durably recoverable as bounded safe refs and hashes,
-but no public API, mutating CLI, or Control Center execution control is exposed
-in this phase. The existing read-only API, CLI, and macOS panel inspect
-completion truth only. Operator initiation remains a Python-core integration
+but no public mutating API, mutating CLI, or Control Center execution control is
+exposed in this phase. The existing read-only API, CLI, and macOS panel inspect
+completion-chain and portable-evidence verification truth only. Operator
+initiation remains a Python-core integration
 surface until the later parity phase binds one protected contract without
 allowing the shell to mint approval or lease authority.
 

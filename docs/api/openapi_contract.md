@@ -107,7 +107,8 @@ Contract rules:
   `GET /api/runtime/parity-loop` exposes the Phase 08 backend-owned runtime
   parity-loop inspection model that ties prepared turn, route decision, durable
   run, staged orchestration, provider evidence, Action Inbox approval, receipt,
-  signed evidence, and blocked-state refs together without executing work.
+  local hash-integrity evidence (with legacy signed identifiers), and
+  blocked-state refs together without executing work.
   `GET /api/runtime/delegation-adapter` exposes the Hermes Runtime Adoption
   Phase 01 backend-owned runtime delegation adapter readiness model with
   runtime identity refs, endpoint posture, authority mode, capability refs,

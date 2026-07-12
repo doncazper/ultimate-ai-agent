@@ -14219,6 +14219,90 @@ function isSafeAuthorityMissionCompletionReadModel(
   if (!isPlainRecord(value) || !Array.isArray(value.latest_manifests)) {
     return false;
   }
+  const integrity = value.integrity_summary;
+  const portable = value.portable_evidence_summary;
+  if (
+    !isPlainRecord(integrity) ||
+    integrity.schema_version !==
+      "uaa-mission-completion-integrity-summary.v1" ||
+    !isSafeAuthorityMissionRef(integrity.verifier_version_ref) ||
+    !Number.isInteger(integrity.manifest_count) ||
+    Number(integrity.manifest_count) !== Number(value.completion_count) ||
+    !isSafeAuthorityMissionRef(integrity.chain_ref) ||
+    (integrity.genesis_entry_hash_ref !== null &&
+      !isSafeAuthorityMissionRef(integrity.genesis_entry_hash_ref)) ||
+    (integrity.terminal_entry_hash_ref !== null &&
+      !isSafeAuthorityMissionRef(integrity.terminal_entry_hash_ref)) ||
+    integrity.hash_chain_verified !== true ||
+    integrity.source_ledgers_verified !== false ||
+    integrity.signature_present !== false ||
+    integrity.signing_status !==
+      "blocked_signing_lifecycle_not_implemented" ||
+    integrity.cryptographic_authenticity_verified !== false ||
+    integrity.external_anchor_verified !== false ||
+    integrity.execution_evidence_grants_authority !== false
+  ) {
+    return false;
+  }
+  if (
+    !isPlainRecord(portable) ||
+    portable.schema_version !==
+      "uaa-portable-mission-evidence-inspection.v1" ||
+    ![
+      "verified_local_hash_chain",
+      "not_recorded",
+      "not_evaluated",
+      "unavailable",
+    ].includes(String(portable.status)) ||
+    (portable.bundle_ref !== null &&
+      !isSafeAuthorityMissionRef(portable.bundle_ref)) ||
+    !Number.isInteger(portable.completion_count) ||
+    Number(portable.completion_count) < 0 ||
+    Number(portable.completion_count) !== Number(value.completion_count) ||
+    !Number.isInteger(portable.envelope_count) ||
+    Number(portable.envelope_count) < 0 ||
+    (portable.terminal_entry_hash_ref !== null &&
+      !isSafeAuthorityMissionRef(portable.terminal_entry_hash_ref)) ||
+    typeof portable.local_hash_chain_verified !== "boolean" ||
+    typeof portable.source_receipts_bound !== "boolean" ||
+    portable.source_ledgers_verified !== false ||
+    portable.caller_expected_binding_matched !== false ||
+    portable.signature_verified !== false ||
+    portable.signing_status !==
+      "blocked_signing_lifecycle_not_implemented" ||
+    portable.cryptographic_authenticity_verified !== false ||
+    portable.external_anchor_verified !== false ||
+    portable.execution_evidence_grants_authority !== false ||
+    !isAuthorityMissionStringArray(portable.reason_refs)
+  ) {
+    return false;
+  }
+  const portableVerified = portable.status === "verified_local_hash_chain";
+  if (
+    portableVerified !== portable.local_hash_chain_verified ||
+    portableVerified !== portable.source_receipts_bound ||
+    (portableVerified &&
+      (!isSafeAuthorityMissionRef(portable.bundle_ref) ||
+        !isSafeAuthorityMissionRef(portable.terminal_entry_hash_ref) ||
+        Number(portable.completion_count) < 1 ||
+        Number(portable.envelope_count) < 1)) ||
+    (!portableVerified &&
+      (portable.bundle_ref !== null ||
+        portable.terminal_entry_hash_ref !== null ||
+        Number(portable.envelope_count) !== 0))
+  ) {
+    return false;
+  }
+  if (
+    (Number(integrity.manifest_count) === 0 &&
+      (integrity.genesis_entry_hash_ref !== null ||
+        integrity.terminal_entry_hash_ref !== null)) ||
+    (Number(integrity.manifest_count) > 0 &&
+      (!isSafeAuthorityMissionRef(integrity.genesis_entry_hash_ref) ||
+        !isSafeAuthorityMissionRef(integrity.terminal_entry_hash_ref)))
+  ) {
+    return false;
+  }
   return (
     value.schema_version === "uaa-mission-completion-read-model.v1" &&
     isSafeAuthorityMissionRef(value.ledger_ref) &&
@@ -14271,6 +14355,8 @@ function isSafeAuthorityMissionCompletionReadModel(
           manifest.memory_candidate_ref,
           manifest.entry_hash_ref,
         ].every(isSafeAuthorityMissionRef) &&
+        (manifest.lease_scope_fingerprint_ref === null ||
+          isSafeAuthorityMissionRef(manifest.lease_scope_fingerprint_ref)) &&
         (manifest.previous_entry_hash_ref === null ||
           isSafeAuthorityMissionRef(manifest.previous_entry_hash_ref)) &&
         typeof manifest.lease_issued_at === "string" &&
