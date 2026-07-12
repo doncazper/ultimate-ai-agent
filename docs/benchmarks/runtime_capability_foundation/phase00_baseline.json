@@ -1,0 +1,243 @@
+{
+  "schema_version": "uaa_runtime_capability_benchmark.v1",
+  "benchmark_ref": "benchmark-ref:runtime-capability-foundation:phase00",
+  "status": "evidence_backed_baseline",
+  "authority_granted": false,
+  "comparison": {
+    "uaa": {
+      "version": "0.104.0",
+      "commit_ref": "git-sha:5490fe755a7e9004bca38e6da1c2d91f8e2e4a08"
+    },
+    "goatcitadel": {
+      "version": "1.0.0",
+      "tag_ref": "git-tag:v1.0.0",
+      "commit_ref": "git-sha:dff26c018b44c394c189c170265a00ab640f1214",
+      "inspection_posture": "read_only_no_import"
+    }
+  },
+  "scoring": {
+    "minimum": 0,
+    "maximum": 10,
+    "weight_total": 124,
+    "formula": "round_half_up(sum(score*weight)/124*10,1)",
+    "confidence_values": ["high", "medium", "low"],
+    "status_values": [
+      "implemented", "partial", "planned", "mock-only", "blocked",
+      "deprecated", "contradicted", "unknown"
+    ]
+  },
+  "components": [
+    {
+      "component_id": "reasoning_task_understanding",
+      "label": "Reasoning and task understanding",
+      "weight": 8,
+      "phase_owner": "phase_01",
+      "unknown_refs": ["unknown-ref:model-assisted-reasoning-quality-not-evaluated"],
+      "uaa": {"score": 5.8, "status": "partial", "confidence": "high", "evidence_refs": ["repo-ref:uaa:src/ultimate_ai_agent/core/intent/user_intent.py#L149-L246", "repo-ref:uaa:tests/test_uaa_p1_079_user_intent_understanding.py"], "gap_refs": ["gap-ref:typed-intent-and-plan-revision"], "safe_summary": "Reviewable intent posture exists; typed fact-assumption-unknown and revision truth are incomplete."},
+      "goatcitadel": {"score": 7.5, "status": "implemented", "confidence": "medium", "evidence_refs": ["repo-ref:goatcitadel:v1.0.0:apps/gateway/src/orchestration/router.ts#L33-L105"], "gap_refs": [], "safe_summary": "Mode routing and decomposition are implemented, with less exact authority evidence than UAA."}
+    },
+    {
+      "component_id": "planning_orchestration",
+      "label": "Planning and orchestration",
+      "weight": 8,
+      "phase_owner": "phase_02",
+      "unknown_refs": ["unknown-ref:long-running-operational-recovery-not-benchmarked"],
+      "uaa": {"score": 8.1, "status": "implemented", "confidence": "high", "evidence_refs": ["repo-ref:uaa:src/ultimate_ai_agent/core/execution/mission_orchestrator.py#L79-L187", "repo-ref:uaa:src/ultimate_ai_agent/core/authority/dispatcher.py#L471-L620", "repo-ref:uaa:tests/test_authority_mission_orchestrator.py"], "gap_refs": ["gap-ref:bounded-founder-loop-completion"], "safe_summary": "Bounded DAG and exact dispatcher execution are strong; mission-wide completion truth remains incomplete."},
+      "goatcitadel": {"score": 9.0, "status": "implemented", "confidence": "high", "evidence_refs": ["repo-ref:goatcitadel:v1.0.0:packages/orchestration/src/engine.ts#L19-L190", "repo-ref:goatcitadel:v1.0.0:packages/contracts/src/durable.ts#L3-L220"], "gap_refs": [], "safe_summary": "Durable orchestration breadth, waits, recovery, and operator integration are strong."}
+    },
+    {
+      "component_id": "learning_adaptation",
+      "label": "Learning and adaptation",
+      "weight": 8,
+      "phase_owner": "phase_03",
+      "unknown_refs": ["unknown-ref:retrieval-quality-benchmark-not-run"],
+      "uaa": {"score": 6.0, "status": "partial", "confidence": "high", "evidence_refs": ["repo-ref:uaa:src/ultimate_ai_agent/core/memory/workbench.py", "repo-ref:uaa:src/ultimate_ai_agent/core/memory/diagnostics.py#L491-L625", "repo-ref:uaa:tests/test_runtime_memory_learning.py"], "gap_refs": ["gap-ref:governed-context-learning"], "safe_summary": "Reviewable memory decisions exist; feedback quality and governed context selection need deeper proof."},
+      "goatcitadel": {"score": 8.0, "status": "implemented", "confidence": "medium", "evidence_refs": ["repo-ref:goatcitadel:v1.0.0:packages/memory-core/src/context-composer.ts#L11-L75"], "gap_refs": [], "safe_summary": "Context composition and memory workflow integration are broader, with governance evidence still mixed."}
+    },
+    {
+      "component_id": "memory_context_management",
+      "label": "Memory and context management",
+      "weight": 9,
+      "phase_owner": "phase_03",
+      "unknown_refs": ["unknown-ref:context-materialization-remains-preview-only"],
+      "uaa": {"score": 7.6, "status": "implemented", "confidence": "high", "evidence_refs": ["repo-ref:uaa:src/ultimate_ai_agent/core/memory/diagnostics.py#L491-L625", "repo-ref:uaa:tests/test_runtime_memory_learning.py"], "gap_refs": ["gap-ref:governed-context-learning"], "safe_summary": "Recall-only provenance and review are strong; context manifests and correction precedence need completion."},
+      "goatcitadel": {"score": 9.0, "status": "implemented", "confidence": "high", "evidence_refs": ["repo-ref:goatcitadel:v1.0.0:packages/memory-core/src/context-composer.ts#L11-L75", "repo-ref:goatcitadel:v1.0.0:packages/contracts/src/memory.ts"], "gap_refs": [], "safe_summary": "Structured memory and context composition are deeply integrated."}
+    },
+    {
+      "component_id": "communication_interaction",
+      "label": "Communication and interaction quality",
+      "weight": 7,
+      "phase_owner": "phase_08",
+      "unknown_refs": ["unknown-ref:operator-communication-quality-runtime-evidence-limited"],
+      "uaa": {"score": 7.1, "status": "partial", "confidence": "medium", "evidence_refs": ["repo-ref:uaa:apps/control-center/src/App.tsx", "repo-ref:uaa:src/ultimate_ai_agent/api/founder_loop.py"], "gap_refs": ["gap-ref:operator-cockpit-parity"], "safe_summary": "Readable governed surfaces exist, but end-to-end live status communication is uneven."},
+      "goatcitadel": {"score": 8.5, "status": "implemented", "confidence": "medium", "evidence_refs": ["repo-ref:goatcitadel:v1.0.0:apps/mission-control-next/src/app/MissionControlNextApp.tsx"], "gap_refs": [], "safe_summary": "The operator work surface is coherent and broad."}
+    },
+    {
+      "component_id": "action_tool_calling",
+      "label": "Action and tool calling",
+      "weight": 9,
+      "phase_owner": "phase_04",
+      "unknown_refs": ["unknown-ref:sealed-sandbox-facility-not-proven"],
+      "uaa": {"score": 7.2, "status": "implemented", "confidence": "high", "evidence_refs": ["repo-ref:uaa:src/ultimate_ai_agent/core/control_center/action_tool_code_catalog.py", "repo-ref:uaa:src/ultimate_ai_agent/core/authority/dispatcher.py#L694-L800", "repo-ref:uaa:tests/test_runtime_action_tool_code_lanes.py"], "gap_refs": ["gap-ref:exact-tool-and-code-lanes"], "safe_summary": "Exact governed lanes and receipts exist; useful executable breadth remains narrow."},
+      "goatcitadel": {"score": 9.1, "status": "implemented", "confidence": "high", "evidence_refs": ["repo-ref:goatcitadel:v1.0.0:packages/policy-engine/src/tool-executor.ts#L126-L220"], "gap_refs": [], "safe_summary": "Tool execution breadth and integrated controls are strong."}
+    },
+    {
+      "component_id": "autonomy_authority",
+      "label": "Autonomy and authority management",
+      "weight": 10,
+      "phase_owner": "phase_02",
+      "unknown_refs": ["unknown-ref:production-scale-authority-not-evaluated"],
+      "uaa": {"score": 9.2, "status": "implemented", "confidence": "high", "evidence_refs": ["repo-ref:uaa:src/ultimate_ai_agent/core/authority/contracts.py#L221-L300", "repo-ref:uaa:src/ultimate_ai_agent/core/authority/dispatcher.py#L1035-L1297", "repo-ref:uaa:tests/test_authority_mission_orchestrator.py"], "gap_refs": ["gap-ref:bounded-founder-loop-completion"], "safe_summary": "Exact AuthorityLease governance and deny-by-default boundaries are UAA's clearest lead."},
+      "goatcitadel": {"score": 7.8, "status": "implemented", "confidence": "medium", "evidence_refs": ["repo-ref:goatcitadel:v1.0.0:packages/orchestration/src/engine.ts#L19-L190"], "gap_refs": [], "safe_summary": "Governance is broad and useful but less exact than UAA's lease model."}
+    },
+    {
+      "component_id": "code_implementation_assistance",
+      "label": "Code and implementation assistance",
+      "weight": 6,
+      "phase_owner": "phase_04",
+      "unknown_refs": ["unknown-ref:real-code-sandbox-backend-not-proven"],
+      "uaa": {"score": 5.8, "status": "partial", "confidence": "high", "evidence_refs": ["repo-ref:uaa:src/ultimate_ai_agent/core/control_center/action_tool_code_catalog.py", "repo-ref:uaa:docs/control_center/UAA_RUNTIME_ACTION_TOOL_CODE_LANES.md"], "gap_refs": ["gap-ref:exact-tool-and-code-lanes"], "safe_summary": "Proposal and validation posture is reviewable; sealed execution and coherent apply workflow remain limited."},
+      "goatcitadel": {"score": 8.5, "status": "implemented", "confidence": "high", "evidence_refs": ["repo-ref:goatcitadel:v1.0.0:apps/gateway/src/services/code-mode-sandbox-runner.ts#L34-L68"], "gap_refs": [], "safe_summary": "Code-mode workflows and fail-closed sandbox posture are substantially deeper."}
+    },
+    {
+      "component_id": "research_web_external",
+      "label": "Research, web, and external information handling",
+      "weight": 5,
+      "phase_owner": "phase_05",
+      "unknown_refs": ["unknown-ref:final-start-web-race-hardening-pending"],
+      "uaa": {"score": 8.3, "status": "implemented", "confidence": "high", "evidence_refs": ["repo-ref:uaa:src/ultimate_ai_agent/core/web_access/hybrid_execution.py", "repo-ref:uaa:tests/test_web_hybrid_execution.py", "repo-ref:uaa:docs/network/SEARXNG_FIRECRAWL_HYBRID_IMPLEMENTATION_PLAN.md"], "gap_refs": ["gap-ref:web-research-provider-observability"], "safe_summary": "Exact SearXNG/Firecrawl hybrid execution is governed and bounded; aggregation and final-start race hardening remain."},
+      "goatcitadel": {"score": 7.0, "status": "implemented", "confidence": "medium", "evidence_refs": ["repo-ref:goatcitadel:v1.0.0:apps/gateway/src"], "gap_refs": [], "safe_summary": "External information tooling exists, with less evidence of UAA-style exact web governance."}
+    },
+    {
+      "component_id": "model_provider_management",
+      "label": "Model/provider management",
+      "weight": 6,
+      "phase_owner": "phase_05",
+      "unknown_refs": ["unknown-ref:external-provider-runtime-not-evaluated"],
+      "uaa": {"score": 6.7, "status": "partial", "confidence": "high", "evidence_refs": ["repo-ref:uaa:src/ultimate_ai_agent/core/providers", "repo-ref:uaa:src/ultimate_ai_agent/core/capability_availability/read_model.py#L253-L330"], "gap_refs": ["gap-ref:web-research-provider-observability"], "safe_summary": "Provider truth and safety boundaries exist; runtime routing and observability are incomplete."},
+      "goatcitadel": {"score": 8.7, "status": "implemented", "confidence": "high", "evidence_refs": ["repo-ref:goatcitadel:v1.0.0:packages/contracts/src/llm.ts"], "gap_refs": [], "safe_summary": "Provider catalog, model routing, and operator visibility are mature."}
+    },
+    {
+      "component_id": "evidence_audit_observability",
+      "label": "Evidence, audit, and observability",
+      "weight": 9,
+      "phase_owner": "phase_06",
+      "unknown_refs": ["unknown-ref:key-backed-signing-lifecycle-absent"],
+      "uaa": {"score": 8.7, "status": "implemented", "confidence": "high", "evidence_refs": ["repo-ref:uaa:src/ultimate_ai_agent/core/authority/dispatcher.py#L1035-L1297", "repo-ref:uaa:tests/test_runtime_evidence_audit.py"], "gap_refs": ["gap-ref:portable-content-free-evidence"], "safe_summary": "Receipts, provenance, and redaction are strong; unified portable verification remains incomplete."},
+      "goatcitadel": {"score": 8.5, "status": "implemented", "confidence": "medium", "evidence_refs": ["repo-ref:goatcitadel:v1.0.0:packages/contracts/src/evidence.ts#L1-L31"], "gap_refs": [], "safe_summary": "Evidence contracts are broad; asymmetric signing maturity is not proven by the inspected contract."}
+    },
+    {
+      "component_id": "safety_security_failure",
+      "label": "Safety, security, and failure handling",
+      "weight": 10,
+      "phase_owner": "phase_06",
+      "unknown_refs": ["unknown-ref:public-release-threat-model-out-of-scope"],
+      "uaa": {"score": 9.0, "status": "implemented", "confidence": "high", "evidence_refs": ["repo-ref:uaa:SECURITY.md", "repo-ref:uaa:src/ultimate_ai_agent/core/authority/dispatcher.py#L1035-L1297", "repo-ref:uaa:tests/test_authority_mission_retries.py"], "gap_refs": ["gap-ref:portable-content-free-evidence"], "safe_summary": "Fail-closed authority, redaction, and failure management are deeply tested."},
+      "goatcitadel": {"score": 8.3, "status": "implemented", "confidence": "high", "evidence_refs": ["repo-ref:goatcitadel:v1.0.0:packages/policy-engine/src/tool-executor.ts#L126-L220"], "gap_refs": [], "safe_summary": "Strong execution controls cover a broader attack surface."}
+    },
+    {
+      "component_id": "ux_ai_cockpit",
+      "label": "UX as an AI cockpit",
+      "weight": 7,
+      "phase_owner": "phase_08",
+      "unknown_refs": ["unknown-ref:visual-operator-benchmark-limited"],
+      "uaa": {"score": 7.7, "status": "partial", "confidence": "medium", "evidence_refs": ["repo-ref:uaa:apps/control-center/src/App.tsx", "repo-ref:uaa:apps/control-center/src/App.test.tsx"], "gap_refs": ["gap-ref:operator-cockpit-parity"], "safe_summary": "The macOS-first shell is readable and governed, but workflow cohesion and live depth lag."},
+      "goatcitadel": {"score": 9.0, "status": "implemented", "confidence": "high", "evidence_refs": ["repo-ref:goatcitadel:v1.0.0:apps/mission-control-next/src/app/MissionControlNextApp.tsx"], "gap_refs": [], "safe_summary": "Mission Control presents a cohesive operational cockpit."}
+    },
+    {
+      "component_id": "cli_api_parity",
+      "label": "CLI/API parity",
+      "weight": 6,
+      "phase_owner": "phase_08",
+      "unknown_refs": ["unknown-ref:mutation-parity-breadth-not-evaluated"],
+      "uaa": {"score": 8.6, "status": "implemented", "confidence": "high", "evidence_refs": ["repo-ref:uaa:src/ultimate_ai_agent/api/manifest.py", "repo-ref:uaa:tests/test_api_manifest.py", "repo-ref:uaa:tests/test_openapi_contract.py"], "gap_refs": ["gap-ref:operator-cockpit-parity"], "safe_summary": "Manifest, OpenAPI, route classification, and CLI parity are unusually disciplined."},
+      "goatcitadel": {"score": 7.8, "status": "partial", "confidence": "medium", "evidence_refs": ["repo-ref:goatcitadel:v1.0.0:apps/gateway/src"], "gap_refs": [], "safe_summary": "API and UI breadth are strong; CLI parity evidence is less complete."}
+    },
+    {
+      "component_id": "extensibility_ecosystem",
+      "label": "Extensibility and ecosystem",
+      "weight": 6,
+      "phase_owner": "phase_07",
+      "unknown_refs": ["unknown-ref:callable-extension-runtime-remains-blocked"],
+      "uaa": {"score": 5.0, "status": "partial", "confidence": "high", "evidence_refs": ["repo-ref:uaa:src/ultimate_ai_agent/core/extension_catalog/contracts.py", "repo-ref:uaa:src/ultimate_ai_agent/core/extension_catalog/install_disabled.py", "repo-ref:uaa:tests/test_inspectable_extension_catalog.py"], "gap_refs": ["gap-ref:extension-catalog-maturity"], "safe_summary": "Inspectable contracts are safe but callable ecosystem depth remains intentionally blocked."},
+      "goatcitadel": {"score": 8.5, "status": "implemented", "confidence": "high", "evidence_refs": ["repo-ref:goatcitadel:v1.0.0:packages/extensions-sdk/src/addons.ts", "repo-ref:goatcitadel:v1.0.0:packages/extensions-sdk/src/integration-plugins.ts"], "gap_refs": [], "safe_summary": "Extension SDK and capability-pack breadth are mature."}
+    },
+    {
+      "component_id": "productized_agent_loop",
+      "label": "Productized agent loop",
+      "weight": 10,
+      "phase_owner": "phase_02",
+      "unknown_refs": ["unknown-ref:complete-useful-workflow-not-yet-proven"],
+      "uaa": {"score": 6.9, "status": "partial", "confidence": "high", "evidence_refs": ["repo-ref:uaa:src/ultimate_ai_agent/core/control_center/agent_loop.py", "repo-ref:uaa:tests/test_runtime_agent_loop_spine.py", "repo-ref:uaa:scripts/dev/uaa_founder_loop.py"], "gap_refs": ["gap-ref:bounded-founder-loop-completion"], "safe_summary": "The founder-loop spine is visible; one complete useful input-to-evidence-to-memory workflow remains incomplete."},
+      "goatcitadel": {"score": 9.0, "status": "implemented", "confidence": "high", "evidence_refs": ["repo-ref:goatcitadel:v1.0.0:apps/mission-control-next/src/app/MissionControlNextApp.tsx", "repo-ref:goatcitadel:v1.0.0:packages/orchestration/src/engine.ts#L19-L190"], "gap_refs": [], "safe_summary": "A broad input-to-plan-to-action-to-evidence operator loop is productized."}
+    }
+  ],
+  "weighted_totals": {"uaa": 74.5, "goatcitadel": 84.3},
+  "gap_map": [
+    {"gap_ref": "gap-ref:typed-intent-and-plan-revision", "phase_owner": "phase_01", "terminal_posture": "deterministic_baseline_if_model_lane_unavailable"},
+    {"gap_ref": "gap-ref:bounded-founder-loop-completion", "phase_owner": "phase_02", "terminal_posture": "unsafe_or_missing_adapter_blocked"},
+    {"gap_ref": "gap-ref:governed-context-learning", "phase_owner": "phase_03", "terminal_posture": "hidden_injection_and_automatic_truth_blocked"},
+    {"gap_ref": "gap-ref:exact-tool-and-code-lanes", "phase_owner": "phase_04", "terminal_posture": "sandbox_execution_blocked_without_isolation_proof"},
+    {"gap_ref": "gap-ref:web-research-provider-observability", "phase_owner": "phase_05", "terminal_posture": "browser_authenticated_and_paid_lanes_blocked"},
+    {"gap_ref": "gap-ref:portable-content-free-evidence", "phase_owner": "phase_06", "terminal_posture": "ed25519_blocked_without_keychain_lifecycle"},
+    {"gap_ref": "gap-ref:extension-catalog-maturity", "phase_owner": "phase_07", "terminal_posture": "arbitrary_runtime_import_blocked"},
+    {"gap_ref": "gap-ref:operator-cockpit-parity", "phase_owner": "phase_08", "terminal_posture": "linux_windows_render_placeholders"},
+    {"gap_ref": "gap-ref:final-benchmark-and-repair", "phase_owner": "phase_09", "terminal_posture": "stop_after_two_bounded_repair_passes"}
+  ],
+  "scenarios": [
+    {"scenario_id": "scenario:ambiguous-intent", "phase_refs": ["phase_01"], "status": "mapped_not_run", "safe_summary": "Phase 09 scenario contract mapped."},
+    {"scenario_id": "scenario:plan-revision", "phase_refs": ["phase_01"], "status": "mapped_not_run", "safe_summary": "Phase 09 scenario contract mapped."},
+    {"scenario_id": "scenario:dag-replay-crash", "phase_refs": ["phase_02"], "status": "mapped_not_run", "safe_summary": "Phase 09 scenario contract mapped."},
+    {"scenario_id": "scenario:approval-expiry", "phase_refs": ["phase_02"], "status": "mapped_not_run", "safe_summary": "Phase 09 scenario contract mapped."},
+    {"scenario_id": "scenario:cancellation-race", "phase_refs": ["phase_02"], "status": "mapped_not_run", "safe_summary": "Phase 09 scenario contract mapped."},
+    {"scenario_id": "scenario:budget-exhaustion-settlement", "phase_refs": ["phase_02"], "status": "mapped_not_run", "safe_summary": "Phase 09 scenario contract mapped."},
+    {"scenario_id": "scenario:exact-tool-idempotency", "phase_refs": ["phase_04"], "status": "mapped_not_run", "safe_summary": "Phase 09 scenario contract mapped."},
+    {"scenario_id": "scenario:sandbox-escape-denial", "phase_refs": ["phase_04"], "status": "mapped_not_run", "safe_summary": "A blocked sandbox is a valid truthful outcome."},
+    {"scenario_id": "scenario:memory-correction", "phase_refs": ["phase_03"], "status": "mapped_not_run", "safe_summary": "Phase 09 scenario contract mapped."},
+    {"scenario_id": "scenario:web-citation-injection", "phase_refs": ["phase_05"], "status": "mapped_not_run", "safe_summary": "Phase 09 scenario contract mapped."},
+    {"scenario_id": "scenario:provider-stale-unavailable", "phase_refs": ["phase_05"], "status": "mapped_not_run", "safe_summary": "Phase 09 scenario contract mapped."},
+    {"scenario_id": "scenario:receipt-tamper-surface-parity", "phase_refs": ["phase_06", "phase_08", "phase_09"], "status": "mapped_not_run", "safe_summary": "Phase 09 scenario contract mapped."}
+  ],
+  "preservation_refs": [
+    "capability-ref:webaccessgateway",
+    "capability-ref:web.search.searxng.readonly",
+    "capability-ref:web.extract.firecrawl.self_hosted.markdown",
+    "capability-ref:web.extract.firecrawl.cloud_free.markdown",
+    "capability-ref:web.hybrid.self_host_first.single_fallback",
+    "capability-ref:web.hybrid.cloud_budget_credit_reconciliation",
+    "capability-ref:web.hybrid.local_services_packaging_configuration",
+    "capability-ref:web.hybrid.cli_api_control_center_truth",
+    "capability-ref:web.hybrid.activation_and_implementation_plan",
+    "capability-ref:typescript.exact.7.0.2",
+    "capability-ref:pytest.sharded.timing_aware",
+    "capability-ref:verifier.maintainability_refactor",
+    "capability-ref:runtime_cli.extracted_modules",
+    "capability-ref:mission.failure_management",
+    "capability-ref:mission.approval_waits",
+    "capability-ref:mission.retries_dead_letters",
+    "capability-ref:mission.cancellation_fences",
+    "capability-ref:sse.progress_preview.deterministic_replay"
+  ],
+  "denied_postures": [
+    "paid_web_or_provider_use", "browser_actions", "authenticated_web",
+    "cookies", "downloads_uploads", "external_mutations", "broad_host_shell",
+    "arbitrary_plugin_import", "production_authority"
+  ],
+  "timing_snapshot": {
+    "runner_profile_ref": "runner-profile:local-macos",
+    "unit": "seconds",
+    "safe_summary_only": true,
+    "measurements": [
+      {"command_ref": "command-ref:pytest-shards-tracked-seed", "status": "measured", "samples": [99.22, 96.26, 99.53], "median": 99.22, "cold_sample": 99.22, "warm_samples": [96.26, 99.53], "test_count": 9506, "final_acceptance_test_count": 9528, "skipped_count": 4, "shard_count": 8, "worker_count": 8, "diagnostic_samples": [127.65, 143.65], "diagnostic_reason_ref": "reason-ref:sustained-local-load-variance-over-15-percent", "performance_claimed": false},
+      {"command_ref": "command-ref:frontend-check", "status": "measured", "samples": [47.16, 49.11, 47.43], "median": 47.43, "test_count": 211, "test_file_count": 12, "typescript_version": "7.0.2"},
+      {"command_ref": "command-ref:web-hybrid-focused", "status": "measured", "samples": [2.72, 2.58, 3.15, 3.07], "median": 2.90, "test_count": 80, "live_network_enabled": false},
+      {"command_ref": "command-ref:foundation-gate-report-only", "status": "measured", "samples": [20.97], "median": 20.97, "criterion_count": 627, "benchmark_runs_seconds": [14.17582, 14.13161, 14.12824]}
+    ]
+  },
+  "redaction": {
+    "safe_refs_only": true,
+    "raw_content_persisted": false,
+    "local_paths_persisted": false,
+    "machine_identity_persisted": false
+  }
+}

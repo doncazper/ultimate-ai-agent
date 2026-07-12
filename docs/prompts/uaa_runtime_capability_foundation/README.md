@@ -51,6 +51,32 @@ Use `00_execute_uaa_runtime_capability_foundation_end_to_end.prompt.md` when the
 operator wants a single orchestrated run. The wrapper sends that prompt to
 Codex after validating the bundle hash and file list.
 
+## Finite Completion Contract
+
+The pack is exactly ten merge-gated phases, Phase 00 through Phase 09. Phase 00
+combines pack hardening with the truth/benchmark baseline. Phase 09 permits at
+most two focused repair passes, then the program stops with an honest scorecard
+and remaining blockers. Missing score targets do not create new phases or
+recursive prompts.
+
+Each phase uses one isolated `codex/capability-maturity-XX` branch/worktree,
+focused verification, read-only subagent audits, one PR, hosted CI, post-merge
+verification, and clean merged-branch/worktree removal. A hosted CI capacity
+failure is retried once after three minutes; if it still cannot start, the
+phase is `external_blocked` and is not mislabeled green.
+
+## Preservation Contract
+
+Every phase preserves WebAccessGateway, exact SearXNG search, self-hosted
+Firecrawl markdown, free-plan Firecrawl Cloud, self-host-first single eligible
+fallback, cloud budget serialization/reconciliation, local web-service
+packaging, WEB-HYBRID CLI/API/Control Center truth, the TypeScript 7 exact pin,
+local web-service configuration, the WEB-HYBRID activation prompt and
+implementation plan,
+pytest sharding/timing/seed/basetemp work, verifier/runtime CLI refactors,
+mission failure management, and bounded SSE preview replay. Replacement
+requires equal-or-stronger proof in the same phase.
+
 ## Catch-Up Target
 
 The pack aims to make UAA stronger in the areas where GoatCitadel or other
@@ -97,7 +123,7 @@ The W1-W19 weakness map is the required coverage queue:
 - W6 weak Code Mode/code-assistance workflow
 - W7 web/research evidence utility gaps
 - W8 model/provider management partiality
-- W9 missing signed portable receipts
+- W9 missing portable tamper-aware/hash-chain receipts
 - W10 extensibility/catalog maturity gaps
 - W11 incomplete end-to-end Founder Loop
 - W12 missing system-level agent evals
@@ -113,8 +139,9 @@ GoatCitadel patterns to borrow, adapted to UAA-native governance:
 
 - durable orchestration with run records, steps, approval waits, retries,
   recovery state, timeline, and diagnostics;
-- signed evidence receipts with canonical manifests, hashes, verification, and
-  portable artifact refs;
+- tamper-aware evidence receipts with canonical manifests, local SHA-256 hash
+  verification, and portable artifact refs; asymmetric signing remains blocked
+  until a real Keychain-backed lifecycle is proven;
 - operator cockpit UX with readable activity rows, approval cards, evidence
   receipts, and blocked-state explanations;
 - exact action/tool lanes with central catalogs, policy decisions, idempotency,
@@ -130,17 +157,22 @@ GoatCitadel patterns to borrow, adapted to UAA-native governance:
 
 Phase-to-component coverage:
 
+The numbered filenames are legacy-stable repository paths. Their H1 titles and
+the mapping below are the authoritative finite phase semantics; the verifier
+binds each legacy path to its current phase contract.
+
 | Phase | Components covered |
 |---|---|
-| 01 Reference gap truth | reasoning, evidence, product truth, eval targets |
-| 02 Productized loop spine | productized agent loop, communication, UX cockpit |
-| 03 Durable orchestration | planning/orchestration, recovery, observability |
-| 04 Action/tool/code lanes | action/tool calling, Code Mode, authority |
-| 05 Memory/learning/context | memory, learning/adaptation, context governance |
-| 06 Evidence/audit | signed receipts, provenance, observability |
-| 07 Model/provider/research | model/provider posture, web/external evidence |
-| 08 Cockpit/CLI/API | UX cockpit, communication, CLI/API parity |
-| 09 Extensibility/final hardening | extensibility, safety, product truth |
+| 00 Pack/baseline | finite pack integrity, benchmark truth, timings, gap ownership |
+| 01 Reasoning/task understanding | intent, facts/assumptions/unknowns, immutable revisions |
+| 02 Founder Loop/mission completion | planning, authority, budgets, productized loop |
+| 03 Memory/learning/context | memory, learning/adaptation, context governance |
+| 04 Exact tool/code lanes | action/tool calling, code proposals, sandbox proof posture |
+| 05 Web/provider observability | governed research, WEB-HYBRID, provider truth |
+| 06 Portable evidence | tamper-aware/hash-chain receipts, provenance, observability |
+| 07 Extensibility ecosystem | catalogs, compatibility, validation, blocked callability |
+| 08 macOS cockpit/CLI/API | UX cockpit, communication, CLI/API parity |
+| 09 Benchmark/gap closure/stop | twelve scenarios, bounded repair, final score and hygiene |
 
 The pack also protects UAA's current strengths:
 
@@ -155,34 +187,54 @@ The pack also protects UAA's current strengths:
 
 ## Authority Boundary
 
-This bundle does not grant runtime model calls, provider SDK calls, live web
-fetching, browser automation, connector writes, unrestricted shell/subprocess
-execution, plugin runtime import, memory writes, context injection, remote
-execution, public beta/release claims, production authority, or broad autonomy.
+This bundle preserves the already implemented exact WEB-HYBRID-001 through
+WEB-HYBRID-008 lanes: bounded SearXNG search, self-hosted Firecrawl one-page
+markdown extraction, free-plan Firecrawl Cloud one-page markdown extraction,
+and self-host-first routing with at most one separately authorized eligible
+cloud fallback through WebAccessGateway. Those lanes are read-only evidence
+operations; external content remains untrusted and grants no authority.
+
+The bundle grants no other live web fetching, browser automation, auth/cookies,
+downloads/uploads, arbitrary external POST/PUT/PATCH/DELETE, connector writes,
+unrestricted shell/subprocess execution, provider SDK authority, plugin runtime
+import, hidden context injection, remote execution, public beta/release claims,
+production authority, or broad autonomy.
 
 If a phase discovers that a GoatCitadel-style capability requires one of those
-authorities, it must produce a no-go posture or an exact future authority
-graduation prompt. It must not silently implement the authority.
+authorities, it records only a terminal no-go or blocked classification. Only
+the Phase 09 final deliverable may name at most one optional unactivated next
+program. It must not silently implement the authority or activate another
+prompt pack.
+
+## Measurement Targets
+
+The evidence targets are overall 82/100, authority/safety/evidence 9.0,
+planning and CLI/API parity 8.5, product loop/tools/web/provider/memory/UX 8.0,
+reasoning/code/extensibility 7.5, and learning 7.0. A stretch score of 86/100
+may be reported only when code, tests, runtime proof, and operator visibility
+support it. Scores never mint product truth or prolong the finite program.
 
 ## Authority Graduation Delegation
 
 High-authority work is delegated to the existing
 `docs/prompts/authority_graduation_program/` pack. The runtime-capability pack
-may record posture, blockers, read models, and exact next prompts, but it must
-not duplicate or bypass the authority lanes.
+may record posture, blockers, read models, terminal classifications, and refs
+to existing lanes, but it must not generate prompts, duplicate authority, or
+bypass the authority lanes.
 
 | Milestone | Runtime-capability posture | Executable authority prompt lane |
 |---|---|---|
-| M1 Browser Authority | Browser action remains blocked here; show read-only/observe/dry-run posture only. | `01_web_evidence_lane.prompt.md` and `02_browser_lane.prompt.md` |
+| M1 Browser Authority | Exact SearXNG/Firecrawl read-only evidence remains implemented; browser observe/action beyond those lanes stays blocked here. | `01_web_evidence_lane.prompt.md` and `02_browser_lane.prompt.md` |
 | M2 Connector Writes | Connector writes remain blocked here; show read-only/draft/write-gate posture only. | `04_connector_read_lane.prompt.md`, `05_connector_write_send_lane.prompt.md`, and `12_credential_oauth_account_lane.prompt.md` |
 | M3 Managed Shell | Unrestricted shell remains blocked here; show managed command profile posture only. | `06_local_shell_subprocess_lane.prompt.md` |
-| M4 Runtime Model Calls | Runtime model calls remain blocked here; show readiness/routing/cost posture only. | `03_provider_model_invocation_lane.prompt.md` |
+| M4 Runtime Model Calls | Exact separately accepted local/provider lanes may be regression-tested; every broader runtime model/provider lane remains blocked here. | `03_provider_model_invocation_lane.prompt.md` |
 | M5 Production Authority | Production authority remains blocked here; show release blockers only. | `14_production_authority_lane.prompt.md` |
 | M6 Extension/Plugin Callable Promotion | Plugin runtime import and callable promotion remain blocked here; show inspectable catalog posture only. | `15_extension_plugin_callable_lane.prompt.md` |
 
 Broad browser action, connector writes, production authority, unrestricted
-shell, runtime model calls, and plugin execution stay blocked unless a later
-exact authority lane proves and grants the specific scoped capability.
+shell, runtime model calls beyond separately accepted exact lanes, and plugin
+execution stay blocked unless a later exact authority lane proves and grants
+the specific scoped capability.
 
 ## Verification
 

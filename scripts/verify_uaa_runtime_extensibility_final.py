@@ -367,9 +367,13 @@ def _verify_docs() -> None:
             "connector writes remain blocked",
             "production authority remains blocked",
             "safe refs",
-            "30-day plan",
         ):
             _require(phrase in lowered, f"{name} missing phrase: {phrase}")
+        terminal_phrase = "30-day plan" if name == "Phase 09 doc" else "optional next program"
+        _require(
+            terminal_phrase in lowered,
+            f"{name} missing phrase: {terminal_phrase}",
+        )
         for unsafe in (
             "plugin runtime import is enabled",
             "connector writes are enabled",
