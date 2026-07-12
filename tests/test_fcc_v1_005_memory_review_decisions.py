@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from scripts import verify_fcc_v1_005_memory_review_decisions as verifier
+from scripts.dev import uaa_founder_loop
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.authority import (
     AUTHORITY_STATE_DIR_ENV,
@@ -555,6 +556,8 @@ def test_memory_review_decision_api_requires_idempotency_replays_and_conflicts(
 
 def test_memory_review_cli_records_and_inspects_reviewed_recall_write(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     state_dir = tmp_path / "founder_loop"
     authority_state_dir = tmp_path / "authority"
@@ -600,22 +603,18 @@ def test_memory_review_cli_records_and_inspects_reviewed_recall_write(
     assert decision_payload["safe_refs_only"] is True
     assert str(state_dir) not in decision.stdout
 
-    inspect = subprocess.run(
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(authority_state_dir))
+    assert uaa_founder_loop.main(
         [
-            sys.executable,
-            str(Path("scripts/dev/uaa_founder_loop.py")),
             "--state-dir",
             str(state_dir),
             "memory-receipts",
             "--limit",
             "5",
-        ],
-        env={**os.environ, AUTHORITY_STATE_DIR_ENV: str(authority_state_dir)},
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    inspect_payload = json.loads(inspect.stdout)
+        ]
+    ) == 0
+    inspect_output = capsys.readouterr().out
+    inspect_payload = json.loads(inspect_output)
     assert (
         inspect_payload["exact_write_scope_ref"] == MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF
     )

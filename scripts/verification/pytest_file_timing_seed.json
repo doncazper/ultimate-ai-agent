@@ -387,13 +387,13 @@
     },
     {
       "path": "tests/test_coding_cockpit_read_model.py",
-      "seconds": 22.65,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 3.28,
+      "source": "focused-pytest-duration-summary"
     },
     {
       "path": "tests/test_coding_pair_agent_relay_runner.py",
-      "seconds": 20.18,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 4.63,
+      "source": "focused-pytest-duration-summary"
     },
     {
       "path": "tests/test_coding_pair_agent_relay_runner_prompt_pack.py",
@@ -542,8 +542,8 @@
     },
     {
       "path": "tests/test_control_center_proof_spine.py",
-      "seconds": 26.5,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 17.51,
+      "source": "focused-pytest-duration-summary"
     },
     {
       "path": "tests/test_control_center_release_surface_manifest.py",
@@ -717,13 +717,13 @@
     },
     {
       "path": "tests/test_evidence_memory_loop_binding.py",
-      "seconds": 16.51,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 11.0,
+      "source": "focused-pytest-duration-summary"
     },
     {
       "path": "tests/test_evidence_timeline_narrative_v1.py",
-      "seconds": 79.34,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 8.63,
+      "source": "focused-pytest-duration-summary"
     },
     {
       "path": "tests/test_exact_approved_provider_fallback.py",
@@ -792,18 +792,18 @@
     },
     {
       "path": "tests/test_fcc_mem_001_memory_workbench.py",
-      "seconds": 23.83,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 8.38,
+      "source": "focused-pytest-duration-summary"
     },
     {
       "path": "tests/test_fcc_mem_015_memory_impact_graph_followup_queue.py",
-      "seconds": 20.84,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 11.16,
+      "source": "focused-pytest-duration-summary"
     },
     {
       "path": "tests/test_fcc_mem_016_020_memory_diagnostics.py",
-      "seconds": 82.07,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 35.16,
+      "source": "focused-pytest-duration-summary"
     },
     {
       "path": "tests/test_fcc_mem_021_memory_ui_action_inbox_bridge.py",
@@ -852,8 +852,8 @@
     },
     {
       "path": "tests/test_fcc_thread_001_unified_work_thread.py",
-      "seconds": 12.23,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 7.56,
+      "source": "focused-pytest-duration-summary"
     },
     {
       "path": "tests/test_fcc_v1_001_api_perimeter.py",
@@ -877,8 +877,8 @@
     },
     {
       "path": "tests/test_fcc_v1_005_memory_review_decisions.py",
-      "seconds": 16.67,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 10.44,
+      "source": "focused-pytest-duration-summary"
     },
     {
       "path": "tests/test_fcc_v1_006_evidence_timeline_productization.py",
@@ -1107,8 +1107,8 @@
     },
     {
       "path": "tests/test_founder_loop_v1_product_proof.py",
-      "seconds": 20.27,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 14.58,
+      "source": "focused-pytest-duration-summary"
     },
     {
       "path": "tests/test_founder_loop_v1_proof_lane.py",
@@ -1162,8 +1162,8 @@
     },
     {
       "path": "tests/test_governed_runtime_contracts.py",
-      "seconds": 32.76,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 11.97,
+      "source": "focused-pytest-duration-summary"
     },
     {
       "path": "tests/test_governed_web_evidence.py",
@@ -3262,8 +3262,8 @@
     },
     {
       "path": "tests/test_operator_run_timeline_enforcement.py",
-      "seconds": 12.55,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 4.56,
+      "source": "focused-pytest-duration-summary"
     },
     {
       "path": "tests/test_orchestration_efficiency.py",
@@ -3527,8 +3527,8 @@
     },
     {
       "path": "tests/test_runtime_agent_loop_spine.py",
-      "seconds": 16.4,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 13.11,
+      "source": "focused-pytest-duration-summary"
     },
     {
       "path": "tests/test_runtime_authority_live_refresh.py",
@@ -3822,8 +3822,8 @@
     },
     {
       "path": "tests/test_trust_authority_matrix.py",
-      "seconds": 13.62,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 5.24,
+      "source": "focused-pytest-duration-summary"
     },
     {
       "path": "tests/test_truth_api_routes.py",

@@ -1537,6 +1537,30 @@ def _inspect_memory_maintenance_runs(args: argparse.Namespace) -> int:
     return 0
 
 
+def render_memory_context_manifest_readable(context_manifest: dict[str, Any]) -> str:
+    governed = context_manifest.get("governed_context") or {}
+    budget = governed.get("budget") or {}
+    return "\n".join(
+        [
+            "Memory context manifest",
+            f"  Status: {governed.get('status', context_manifest.get('status'))}",
+            f"  Manifest: {governed.get('context_manifest_ref', 'unavailable')}",
+            f"  Receipt: {governed.get('context_receipt_ref', 'unavailable')}",
+            (
+                "  Selected / candidates: "
+                f"{governed.get('selection_count', 0)} / "
+                f"{governed.get('candidate_count', 0)}"
+            ),
+            (
+                "  Capacity: "
+                f"{budget.get('used_tokens', 0)} / "
+                f"{budget.get('max_tokens', 0)} estimated units"
+            ),
+            "  Context injection: blocked (preview only)",
+        ]
+    )
+
+
 def _inspect_memory_context_manifest(args: argparse.Namespace) -> int:
     repo = _repository(args)
     try:
@@ -1563,23 +1587,7 @@ def _inspect_memory_context_manifest(args: argparse.Namespace) -> int:
     if args.json:
         _print_json(output)
     else:
-        governed = context_manifest.get("governed_context") or {}
-        budget = governed.get("budget") or {}
-        print("Memory context manifest")
-        print(f"  Status: {governed.get('status', context_manifest.get('status'))}")
-        print(f"  Manifest: {governed.get('context_manifest_ref', 'unavailable')}")
-        print(f"  Receipt: {governed.get('context_receipt_ref', 'unavailable')}")
-        print(
-            "  Selected / candidates: "
-            f"{governed.get('selection_count', 0)} / "
-            f"{governed.get('candidate_count', 0)}"
-        )
-        print(
-            "  Capacity: "
-            f"{budget.get('used_tokens', 0)} / "
-            f"{budget.get('max_tokens', 0)} estimated units"
-        )
-        print("  Context injection: blocked (preview only)")
+        print(render_memory_context_manifest_readable(context_manifest))
     return 0
 
 

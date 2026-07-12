@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+from scripts.dev import uaa_coding
 from ultimate_ai_agent.core.code import (
     CODING_PAIR_AGENT_RELAY_LANE_REF,
     CODING_PAIR_AGENT_RELAY_REQUIRED_BLOCKED_REFS,
@@ -171,8 +172,10 @@ def test_multi_agent_review_nests_pair_agent_relay() -> None:
     assert review.pair_agent_relay.foreground_adapter_execution_enabled is False
 
 
-def test_pair_agent_cli_surfaces_are_no_effect() -> None:
-    for command in [
+def test_pair_agent_cli_surfaces_are_no_effect(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    commands = [
         "inspect-pair-agent-relay",
         "preview-pair-run",
         "inspect-pair-run",
@@ -180,15 +183,20 @@ def test_pair_agent_cli_surfaces_are_no_effect() -> None:
         "inspect-pair-receipts",
         "start-pair-run-readiness",
         "stop-pair-run-readiness",
-    ]:
-        result = subprocess.run(
-            [sys.executable, "scripts/dev/uaa_coding.py", command],
-            cwd=ROOT,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        payload = json.loads(result.stdout)
+    ]
+    boundary = subprocess.run(
+        [sys.executable, "scripts/dev/uaa_coding.py", commands[0]],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    outputs = [boundary.stdout]
+    for command in commands[1:]:
+        assert uaa_coding.main([command]) == 0
+        outputs.append(capsys.readouterr().out)
+    for stdout in outputs:
+        payload = json.loads(stdout)
         serialized = json.dumps(payload).lower()
         assert "raw_prompt_value" not in serialized
         assert "raw_response_value" not in serialized

@@ -9,6 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
+from scripts.dev import uaa_coding
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.core.code import (
@@ -57,6 +58,29 @@ from ultimate_ai_agent.core.code import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _coding_cli_payload(
+    command: str,
+    capsys: pytest.CaptureFixture[str],
+    *,
+    subprocess_boundary: bool = False,
+) -> tuple[dict[str, object], str]:
+    if subprocess_boundary:
+        result = subprocess.run(
+            [sys.executable, str(ROOT / "scripts/dev/uaa_coding.py"), command],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        stdout = result.stdout
+    else:
+        assert uaa_coding.main([command]) == 0
+        stdout = capsys.readouterr().out
+    assert "/Users/" not in stdout
+    assert "credential" not in stdout.lower()
+    return json.loads(stdout), stdout
 
 
 def test_coding_cockpit_session_seed_is_backend_owned_safe_refs_only() -> None:
@@ -1196,37 +1220,26 @@ def test_coding_cockpit_route_and_capabilities_are_manifested_as_local_read_mode
         assert capability in manifest.capabilities_blocked
 
 
-def test_coding_cockpit_cli_inspection_prints_same_safe_session() -> None:
-    result = subprocess.run(
-        [sys.executable, str(ROOT / "scripts/dev/uaa_coding.py"), "inspect-session"],
-        cwd=ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
+def test_coding_cockpit_cli_inspection_prints_same_safe_session(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    data, stdout = _coding_cli_payload(
+        "inspect-session", capsys, subprocess_boundary=True
     )
-    data = json.loads(result.stdout)
 
     assert data["session_ref"] == CODING_COCKPIT_SESSION_REF
     assert data["backend_owned"] is True
     assert data["mock_fallback"] is False
     assert data["frontend_route_refs"] == [CODING_COCKPIT_FRONTEND_ROUTE_REF]
-    assert "/Users/" not in result.stdout
-    assert "credential" not in result.stdout.lower()
+    assert "/Users/" not in stdout
 
 
-def test_coding_project_model_cli_inspection_prints_same_safe_model() -> None:
-    result = subprocess.run(
-        [
-            sys.executable,
-            str(ROOT / "scripts/dev/uaa_coding.py"),
-            "inspect-project-model",
-        ],
-        cwd=ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
+def test_coding_project_model_cli_inspection_prints_same_safe_model(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    data, stdout = _coding_cli_payload(
+        "inspect-project-model", capsys
     )
-    data = json.loads(result.stdout)
 
     assert data["project_model_ref"] == CODING_COCKPIT_PROJECT_MODEL_REF
     assert data["backend_owned"] is True
@@ -1237,43 +1250,25 @@ def test_coding_project_model_cli_inspection_prints_same_safe_model() -> None:
     assert data["shell_subprocess_execution_enabled"] is False
     assert data["git_mutation_enabled"] is False
     assert data["browser_automation_enabled"] is False
-    assert "/Users/" not in result.stdout
-    assert "credential" not in result.stdout.lower()
-    assert "secret" not in result.stdout.lower()
+    assert "secret" not in stdout.lower()
 
 
-def test_coding_context_cli_inspection_prints_same_safe_context() -> None:
-    result = subprocess.run(
-        [sys.executable, str(ROOT / "scripts/dev/uaa_coding.py"), "inspect-context"],
-        cwd=ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    data = json.loads(result.stdout)
+def test_coding_context_cli_inspection_prints_same_safe_context(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    data, _stdout = _coding_cli_payload("inspect-context", capsys)
 
     assert data["context_pack_ref"] == CODING_COCKPIT_CONTEXT_PACK_REF
     assert data["backend_owned"] is True
     assert data["read_only"] is True
     assert data["safe_refs_only"] is True
     assert data["repo_file_read_performed"] is False
-    assert "/Users/" not in result.stdout
-    assert "credential" not in result.stdout.lower()
 
 
-def test_coding_patch_proposal_cli_inspection_prints_same_safe_proposal() -> None:
-    result = subprocess.run(
-        [
-            sys.executable,
-            str(ROOT / "scripts/dev/uaa_coding.py"),
-            "inspect-patch-proposal",
-        ],
-        cwd=ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    data = json.loads(result.stdout)
+def test_coding_patch_proposal_cli_inspection_prints_same_safe_proposal(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    data, _stdout = _coding_cli_payload("inspect-patch-proposal", capsys)
 
     assert data["patch_proposal_ref"] == CODING_COCKPIT_PATCH_PROPOSAL_REF
     assert data["backend_owned"] is True
@@ -1284,23 +1279,12 @@ def test_coding_patch_proposal_cli_inspection_prints_same_safe_proposal() -> Non
         CODING_PATCH_PROPOSAL_EVIDENCE_CONTRACT_REF
     )
     assert data["signed_evidence_verification_status"] == "passed"
-    assert "/Users/" not in result.stdout
-    assert "credential" not in result.stdout.lower()
 
 
-def test_coding_patch_proposal_evidence_cli_verifies_safe_envelope() -> None:
-    result = subprocess.run(
-        [
-            sys.executable,
-            str(ROOT / "scripts/dev/uaa_coding.py"),
-            "verify-patch-proposal-evidence",
-        ],
-        cwd=ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    data = json.loads(result.stdout)
+def test_coding_patch_proposal_evidence_cli_verifies_safe_envelope(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    data, _stdout = _coding_cli_payload("verify-patch-proposal-evidence", capsys)
 
     assert data["command_ref"] == (
         "repo-local-command:coding-patch-proposal-evidence-verify"
@@ -1313,23 +1297,12 @@ def test_coding_patch_proposal_evidence_cli_verifies_safe_envelope() -> None:
     )
     assert data["verification"]["verification_status"] == "passed"
     assert data["verification"]["tamper_detected"] is False
-    assert "/Users/" not in result.stdout
-    assert "credential" not in result.stdout.lower()
 
 
-def test_coding_patch_apply_readiness_cli_inspection_prints_same_safe_model() -> None:
-    result = subprocess.run(
-        [
-            sys.executable,
-            str(ROOT / "scripts/dev/uaa_coding.py"),
-            "inspect-patch-apply-readiness",
-        ],
-        cwd=ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    data = json.loads(result.stdout)
+def test_coding_patch_apply_readiness_cli_inspection_prints_same_safe_model(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    data, _stdout = _coding_cli_payload("inspect-patch-apply-readiness", capsys)
 
     assert data["readiness_ref"] == CODING_COCKPIT_PATCH_APPLY_READINESS_REF
     assert data["backend_owned"] is True
@@ -1337,23 +1310,12 @@ def test_coding_patch_apply_readiness_cli_inspection_prints_same_safe_model() ->
     assert data["safe_refs_only"] is True
     assert data["patch_apply_enabled"] is False
     assert data["file_write_enabled"] is False
-    assert "/Users/" not in result.stdout
-    assert "credential" not in result.stdout.lower()
 
 
-def test_coding_test_command_readiness_cli_inspection_prints_same_safe_model() -> None:
-    result = subprocess.run(
-        [
-            sys.executable,
-            str(ROOT / "scripts/dev/uaa_coding.py"),
-            "inspect-test-command-readiness",
-        ],
-        cwd=ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    data = json.loads(result.stdout)
+def test_coding_test_command_readiness_cli_inspection_prints_same_safe_model(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    data, stdout = _coding_cli_payload("inspect-test-command-readiness", capsys)
 
     assert data["readiness_ref"] == CODING_COCKPIT_TEST_COMMAND_READINESS_REF
     assert data["backend_owned"] is True
@@ -1362,24 +1324,13 @@ def test_coding_test_command_readiness_cli_inspection_prints_same_safe_model() -
     assert data["command_execution_enabled"] is False
     assert data["shell_subprocess_execution_enabled"] is False
     assert data["test_receipt_created"] is False
-    assert "/Users/" not in result.stdout
-    assert "credential" not in result.stdout.lower()
-    assert "secret" not in result.stdout.lower()
+    assert "secret" not in stdout.lower()
 
 
-def test_coding_git_review_cli_inspection_prints_same_safe_model() -> None:
-    result = subprocess.run(
-        [
-            sys.executable,
-            str(ROOT / "scripts/dev/uaa_coding.py"),
-            "inspect-git-review",
-        ],
-        cwd=ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    data = json.loads(result.stdout)
+def test_coding_git_review_cli_inspection_prints_same_safe_model(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    data, stdout = _coding_cli_payload("inspect-git-review", capsys)
 
     assert data["git_review_ref"] == CODING_COCKPIT_GIT_REVIEW_REF
     assert data["backend_owned"] is True
@@ -1389,24 +1340,13 @@ def test_coding_git_review_cli_inspection_prints_same_safe_model() -> None:
     assert data["git_status_execution_enabled"] is False
     assert data["git_mutation_enabled"] is False
     assert data["git_receipt_created"] is False
-    assert "/Users/" not in result.stdout
-    assert "credential" not in result.stdout.lower()
-    assert "secret" not in result.stdout.lower()
+    assert "secret" not in stdout.lower()
 
 
-def test_coding_live_preview_cli_inspection_prints_same_safe_model() -> None:
-    result = subprocess.run(
-        [
-            sys.executable,
-            str(ROOT / "scripts/dev/uaa_coding.py"),
-            "inspect-live-preview",
-        ],
-        cwd=ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    data = json.loads(result.stdout)
+def test_coding_live_preview_cli_inspection_prints_same_safe_model(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    data, stdout = _coding_cli_payload("inspect-live-preview", capsys)
 
     assert data["live_preview_ref"] == CODING_COCKPIT_LIVE_PREVIEW_REF
     assert data["backend_owned"] is True
@@ -1417,24 +1357,13 @@ def test_coding_live_preview_cli_inspection_prints_same_safe_model() -> None:
     assert data["browser_preview_enabled"] is False
     assert data["browser_automation_enabled"] is False
     assert data["screenshot_capture_enabled"] is False
-    assert "/Users/" not in result.stdout
-    assert "credential" not in result.stdout.lower()
-    assert "secret" not in result.stdout.lower()
+    assert "secret" not in stdout.lower()
 
 
-def test_coding_multi_agent_review_cli_inspection_prints_same_safe_model() -> None:
-    result = subprocess.run(
-        [
-            sys.executable,
-            str(ROOT / "scripts/dev/uaa_coding.py"),
-            "inspect-multi-agent-review",
-        ],
-        cwd=ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    data = json.loads(result.stdout)
+def test_coding_multi_agent_review_cli_inspection_prints_same_safe_model(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    data, stdout = _coding_cli_payload("inspect-multi-agent-review", capsys)
 
     assert data["review_ref"] == CODING_COCKPIT_MULTI_AGENT_REVIEW_REF
     assert data["backend_owned"] is True
@@ -1447,9 +1376,7 @@ def test_coding_multi_agent_review_cli_inspection_prints_same_safe_model() -> No
     assert data["background_dispatch_enabled"] is False
     assert data["raw_prompt_included"] is False
     assert data["raw_response_included"] is False
-    assert "/Users/" not in result.stdout
-    assert "credential" not in result.stdout.lower()
-    assert "secret" not in result.stdout.lower()
+    assert "secret" not in stdout.lower()
 
 
 def _coding_panels(session: CodingCockpitSessionReadModel):
