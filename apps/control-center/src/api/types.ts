@@ -9015,6 +9015,27 @@ export interface MobilePlanningSummary {
   mobile_app_implemented: boolean;
 }
 
+export interface PluginGovernanceEntrySummary {
+  package_ref: string;
+  manifest_ref: string;
+  version_ref: string;
+  availability_snapshot_count: number;
+  validation_status: "validated_metadata_only" | "blocked";
+  compatibility_status: "supported" | "unknown";
+  configuration_status: "not_configured";
+  health_status: "unknown";
+  authority_posture: "blocked";
+  resource_status: "unknown";
+  safe_disable_status: "unknown";
+  provenance_status: "reviewed" | "blocked" | "unknown";
+  hashes_verified_against_pinned_values: boolean;
+  signature_status: "not_present" | "unknown";
+  signature_verified: false;
+  safe_disable_ref: string;
+  rollback_ref: string;
+  blocker_codes: string[];
+}
+
 export interface PluginGovernanceSummary {
   status: string;
   plugin_enablement_allowed: boolean;
@@ -9024,6 +9045,19 @@ export interface PluginGovernanceSummary {
   skill_bundle_proposal_refs: string[];
   skill_bundle_activation_enabled: boolean;
   skill_bundle_tool_execution_enabled: boolean;
+  catalog_entry_count: number;
+  availability_snapshot_count: number;
+  developer_validation_count: number;
+  blocked_validation_count: number;
+  blocker_codes: string[];
+  safe_disable_refs: string[];
+  rollback_refs: string[];
+  extension_entries: PluginGovernanceEntrySummary[];
+  plugin_metadata_boundary_ref: string;
+  skill_marketplace_boundary_ref: string;
+  mcp_catalog_boundary_ref: string;
+  catalog_visibility_grants_authority: false;
+  request_scoped_invocation_decision_required: true;
 }
 
 export type ProviderCredentialReadinessPosture =

@@ -1,15 +1,20 @@
 from __future__ import annotations
 
 import json
+import os
+import re
+import stat
+import uuid
+from contextlib import contextmanager
 from datetime import timedelta
 from hashlib import sha256
 from pathlib import Path
-from typing import Any, Literal
+from threading import RLock
+from typing import Iterator, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ultimate_ai_agent.core.approvals import (
-    ApprovalGrant,
     ApprovalRequest,
     ApprovalRiskLevel,
     ApprovalSubjectType,
@@ -23,6 +28,7 @@ from ultimate_ai_agent.core.authority import (
     AuthorityDomain,
     AuthorityLease,
     TrustMode,
+    authority_lease_kill_switch_engaged,
     authority_state_dir,
     evaluate_authority_request,
 )
@@ -31,7 +37,11 @@ from ultimate_ai_agent.core.hygiene.actor_context import (
     ActorType,
     AuthoritySource,
 )
-from ultimate_ai_agent.core.hygiene.policies import ClassificationValue, DataClassification
+from ultimate_ai_agent.core.hygiene.policies import (
+    ClassificationValue,
+    DataClassification,
+)
+from ultimate_ai_agent.core.model_runtime.redaction import contains_secret_like
 from ultimate_ai_agent.core.plugin_install_review import (
     PluginInstallReviewApprovalBinding,
     PluginInstallReviewDecision,
@@ -46,7 +56,9 @@ from ultimate_ai_agent.core.plugin_manifest import (
     PluginManifestSecurityReviewRequest,
     build_plugin_manifest_security_decision,
 )
+from ultimate_ai_agent.core.secrets.redaction import contains_obvious_secret
 from ultimate_ai_agent.core.time import utc_now
+from ultimate_ai_agent.core.single_writer_lock import FileSingleWriterLockManager
 
 
 SAFE_REF_PATTERN = r"^[a-z][a-z0-9_-]*:[a-z0-9][a-z0-9_.:-]*$"
@@ -97,6 +109,61 @@ EXTENSION_INSTALL_DISABLED_DELETE_NOOP_EFFECT_REF = (
 EXTENSION_INSTALL_DISABLED_DELETE_RECEIPT_EFFECT_REF = (
     "side-effect:extension-install-disabled:local-delete-receipt-write"
 )
+EXTENSION_INSTALL_DISABLED_MAX_RECORD_BYTES = 262_144
+_EXPECTED_INSTALL_DISABLED_FILE_SHA256 = {
+    "docs/tooling/PLUGIN_INSTALL_REVIEW_POLICY.md": "ee4fa6782f7a3d95b8bc75322b723f4eb6227999f69f9de4cb7d5eb9cf4a8736",
+    "docs/tooling/PLUGIN_INSTALL_REVIEW_RECEIPT_PLAN.md": "9f0191157a6680060cfc075efcdd1b72a48bb4f6516622bb44c7f148f60611c5",
+    "docs/schemas/plugin_skill_trust_manifest.schema.json": "9c1d0fdfe45577f4510e6c1a90517f9789f58e523f90c006a2141d43db07bc46",
+}
+_HOSTNAME_RE = re.compile(
+    r"(?i)\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+"
+    r"(?:com|net|org|io|dev|app|local|internal)\b"
+)
+
+
+def _validate_durable_ref_value(value: str, *, field_name: str) -> None:
+    if (
+        re.fullmatch(SAFE_REF_PATTERN, value) is None
+        or "/" in value
+        or "\\" in value
+        or "@" in value
+        or "://" in value
+        or _HOSTNAME_RE.search(value)
+    ):
+        raise ValueError("EXTENSION_INSTALL_DISABLED_UNSAFE_DURABLE_REF")
+    forbidden_namespace = value.split(":", 1)[0]
+    if forbidden_namespace in {
+        "api-key",
+        "credential",
+        "key",
+        "password",
+        "secret",
+        "token",
+    }:
+        raise ValueError("EXTENSION_INSTALL_DISABLED_SECRET_NAMESPACE_DENIED")
+    required_prefixes = {
+        "approval_ref": "approval-ref:",
+        "approval_request_ref": "approval-request-ref:",
+        "idempotency_key_ref": "idempotency-ref:",
+    }
+    required_prefix = required_prefixes.get(field_name)
+    if required_prefix is not None and not value.startswith(required_prefix):
+        raise ValueError("EXTENSION_INSTALL_DISABLED_REF_NAMESPACE_INVALID")
+
+
+def _validate_durable_refs(payload: object, *, field_name: str = "") -> None:
+    if isinstance(payload, dict):
+        for key, value in payload.items():
+            _validate_durable_refs(value, field_name=str(key))
+        return
+    if isinstance(payload, list):
+        for value in payload:
+            _validate_durable_refs(value, field_name=field_name)
+        return
+    if isinstance(payload, str) and (
+        field_name.endswith("_ref") or field_name.endswith("_refs")
+    ):
+        _validate_durable_ref_value(payload, field_name=field_name)
 
 
 class _ExtensionInstallDisabledModel(BaseModel):
@@ -106,12 +173,20 @@ class _ExtensionInstallDisabledModel(BaseModel):
         protected_namespaces=(),
     )
 
+    @model_validator(mode="after")
+    def validate_durable_safe_refs(self) -> "_ExtensionInstallDisabledModel":
+        payload = self.model_dump(mode="python")
+        _validate_durable_refs(payload)
+        if contains_secret_like(payload) or contains_obvious_secret(payload):
+            raise ValueError("EXTENSION_INSTALL_DISABLED_SECRET_LIKE_PAYLOAD_DENIED")
+        return self
+
 
 class ExtensionInstallDisabledFileHash(_ExtensionInstallDisabledModel):
     file_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
     hash_algorithm: Literal["sha256"] = "sha256"
     hash_value: str | None = Field(default=None, pattern=SHA256_PATTERN)
-    hash_status: Literal["reviewed", "missing"] = "reviewed"
+    hash_status: Literal["reviewed", "missing", "mismatch"] = "reviewed"
 
 
 class ExtensionInstallDisabledCandidateRecord(_ExtensionInstallDisabledModel):
@@ -141,8 +216,12 @@ class ExtensionInstallDisabledCandidateRecord(_ExtensionInstallDisabledModel):
     required_mode: TrustMode = TrustMode.approved_safe_local_work_session
     required_domain: AuthorityDomain = AuthorityDomain.workspace
     required_capability: AuthorityCapability = AuthorityCapability.write
-    manifest_security_decision_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
-    install_review_decision_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    manifest_security_decision_ref: str = Field(
+        ..., min_length=1, pattern=SAFE_REF_PATTERN
+    )
+    install_review_decision_ref: str = Field(
+        ..., min_length=1, pattern=SAFE_REF_PATTERN
+    )
     receipt_plan_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
     audit_refs: list[str] = Field(default_factory=list)
     receipt_refs: list[str] = Field(default_factory=list)
@@ -190,6 +269,18 @@ class ExtensionInstallDisabledCandidateRecord(_ExtensionInstallDisabledModel):
             or self.authority_decision_outcome != AuthorityDecisionOutcome.allow.value
         ):
             raise ValueError("EXTENSION_INSTALL_DISABLED_READY_REQUIRES_AUTHORITY")
+        file_refs = [item.file_ref for item in self.file_hashes]
+        if len(file_refs) != len(set(file_refs)):
+            raise ValueError("EXTENSION_INSTALL_DISABLED_DUPLICATE_FILE_REF")
+        if any(
+            item.hash_status == "reviewed" and item.hash_value is None
+            for item in self.file_hashes
+        ):
+            raise ValueError("EXTENSION_INSTALL_DISABLED_REVIEWED_HASH_REQUIRED")
+        if self.disabled_install_record_ready and any(
+            item.hash_status != "reviewed" for item in self.file_hashes
+        ):
+            raise ValueError("EXTENSION_INSTALL_DISABLED_PINNED_HASHES_REQUIRED")
         _deny_runtime_flags(self)
         return self
 
@@ -204,7 +295,9 @@ class ExtensionInstallDisabledPostureReadModel(_ExtensionInstallDisabledModel):
         "review_ready_disabled_not_persisted",
     ]
     candidate_count: int = Field(..., ge=0)
-    candidates: list[ExtensionInstallDisabledCandidateRecord] = Field(default_factory=list)
+    candidates: list[ExtensionInstallDisabledCandidateRecord] = Field(
+        default_factory=list
+    )
     required_authority_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
     required_approval_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
     verifier_refs: list[str] = Field(default_factory=list)
@@ -328,7 +421,9 @@ class ExtensionInstallDisabledRecordReceipt(_ExtensionInstallDisabledModel):
                 raise ValueError("EXTENSION_INSTALL_DISABLED_STORAGE_MODE_REQUIRED")
             if self.record_path_ref is None:
                 raise ValueError("EXTENSION_INSTALL_DISABLED_RECORD_PATH_REF_REQUIRED")
-            if self.side_effects_performed != [EXTENSION_INSTALL_DISABLED_STORAGE_EFFECT_REF]:
+            if self.side_effects_performed != [
+                EXTENSION_INSTALL_DISABLED_STORAGE_EFFECT_REF
+            ]:
                 raise ValueError("EXTENSION_INSTALL_DISABLED_STORAGE_EFFECT_REQUIRED")
         elif self.side_effects_performed:
             raise ValueError("EXTENSION_INSTALL_DISABLED_SIDE_EFFECTS_DENIED")
@@ -337,11 +432,10 @@ class ExtensionInstallDisabledRecordReceipt(_ExtensionInstallDisabledModel):
 
 
 class ExtensionInstallDisabledRecordIssueRequest(_ExtensionInstallDisabledModel):
-    schema_version: Literal["uaa_extension_install_disabled_record_issue_request.v1"] = (
+    schema_version: Literal[
         "uaa_extension_install_disabled_record_issue_request.v1"
-    )
+    ] = "uaa_extension_install_disabled_record_issue_request.v1"
     approval_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
-    approval_grants: list[dict[str, Any]] = Field(default_factory=list)
     persist_to_local_disabled_record_store: Literal[True] = True
     plugin_install_enabled: Literal[False] = False
     plugin_enablement_enabled: Literal[False] = False
@@ -360,9 +454,9 @@ class ExtensionInstallDisabledRecordIssueRequest(_ExtensionInstallDisabledModel)
 
 
 class ExtensionInstallDisabledRecordDeleteReceipt(_ExtensionInstallDisabledModel):
-    schema_version: Literal["uaa_extension_install_disabled_record_delete_receipt.v1"] = (
+    schema_version: Literal[
         "uaa_extension_install_disabled_record_delete_receipt.v1"
-    )
+    ] = "uaa_extension_install_disabled_record_delete_receipt.v1"
     receipt_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
     record_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
     idempotency_key_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
@@ -451,11 +545,10 @@ class ExtensionInstallDisabledRecordDeleteReceipt(_ExtensionInstallDisabledModel
 
 
 class ExtensionInstallDisabledRecordDeleteRequest(_ExtensionInstallDisabledModel):
-    schema_version: Literal["uaa_extension_install_disabled_record_delete_request.v1"] = (
+    schema_version: Literal[
         "uaa_extension_install_disabled_record_delete_request.v1"
-    )
+    ] = "uaa_extension_install_disabled_record_delete_request.v1"
     approval_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
-    approval_grants: list[dict[str, Any]] = Field(default_factory=list)
     delete_from_local_disabled_record_store: Literal[True] = True
     plugin_install_enabled: Literal[False] = False
     plugin_enablement_enabled: Literal[False] = False
@@ -473,17 +566,69 @@ class ExtensionInstallDisabledRecordDeleteRequest(_ExtensionInstallDisabledModel
         return self
 
 
+class ExtensionInstallDisabledAuthorityState:
+    """Core-owned atomic lease and safe-disable state for the metadata lane."""
+
+    def __init__(
+        self,
+        *,
+        leases: list[AuthorityLease] | None = None,
+        safe_disable_active: bool = True,
+    ) -> None:
+        self._lock = RLock()
+        self._leases = [
+            AuthorityLease.model_validate(lease.model_dump(mode="python"))
+            for lease in leases or []
+        ]
+        self._safe_disable_active = safe_disable_active
+
+    @contextmanager
+    def hold_start_lock(self) -> Iterator[None]:
+        with self._lock:
+            yield
+
+    def active_leases_locked(self) -> list[AuthorityLease]:
+        with self._lock:
+            return [
+                lease.model_copy(deep=True)
+                for lease in self._leases
+                if lease.is_active()
+            ]
+
+    def safe_disable_active_locked(self) -> bool:
+        return self._safe_disable_active
+
+    def replace_leases(self, leases: list[AuthorityLease]) -> None:
+        with self._lock:
+            self._leases = [
+                AuthorityLease.model_validate(lease.model_dump(mode="python"))
+                for lease in leases
+            ]
+
+    def engage_safe_disable(self) -> None:
+        with self._lock:
+            self._safe_disable_active = True
+
+
 class ExtensionInstallDisabledRecordStore:
     """Tiny exact-scoped local store for disabled install record receipts."""
 
     def __init__(self, storage_root: Path) -> None:
         self.storage_root = Path(storage_root)
         self.records_dir = self.storage_root / "extension_install_disabled_records"
+        self._lock_manager = FileSingleWriterLockManager(
+            self.storage_root / "extension_install_disabled_locks"
+        )
 
     def record_receipt(
         self,
         receipt: ExtensionInstallDisabledRecordReceipt,
+        *,
+        authority_state: ExtensionInstallDisabledAuthorityState | None = None,
+        approval_authority: LocalApprovalAuthority | None = None,
     ) -> ExtensionInstallDisabledRecordReceipt:
+        if authority_state is None or approval_authority is None:
+            raise ValueError("EXTENSION_INSTALL_DISABLED_ATOMIC_AUTHORITY_STATE_REQUIRED")
         persisted = validate_extension_install_disabled_record_receipt(
             receipt.model_dump(mode="json")
             | {
@@ -493,86 +638,139 @@ class ExtensionInstallDisabledRecordStore:
                     "storage-ref:extension-install-disabled-record:"
                     "uaa-plugin-skill-boundary"
                 ),
-                "side_effects_performed": [EXTENSION_INSTALL_DISABLED_STORAGE_EFFECT_REF],
+                "side_effects_performed": [
+                    EXTENSION_INSTALL_DISABLED_STORAGE_EFFECT_REF
+                ],
             }
         )
-        self.records_dir.mkdir(parents=True, exist_ok=True)
+        _ensure_real_directory(self.storage_root)
+        _ensure_real_directory(self.records_dir)
         path = self.records_dir / "uaa-plugin-skill-boundary.disabled-install.json"
-        if path.exists():
-            existing = ExtensionInstallDisabledRecordReceipt.model_validate_json(
-                path.read_text(encoding="utf-8")
+        with (
+            approval_authority.hold_validation_lock(),
+            authority_state.hold_start_lock(),
+            self._lock_manager.acquire("extension-install-disabled-record"),
+        ):
+            if authority_lease_kill_switch_engaged():
+                raise ValueError("EXTENSION_INSTALL_DISABLED_KILL_SWITCH_ENGAGED")
+            if authority_state.safe_disable_active_locked():
+                raise ValueError("EXTENSION_INSTALL_DISABLED_SAFE_DISABLE_ACTIVE")
+            live_receipt = build_extension_install_disabled_record_receipt(
+                leases=authority_state.active_leases_locked(),
+                approval_authority=approval_authority,
+                approval_ref=receipt.approval_ref,
+                idempotency_key_ref=receipt.idempotency_key_ref,
             )
-            if existing.idempotency_key_ref != persisted.idempotency_key_ref:
-                raise ValueError("EXTENSION_INSTALL_DISABLED_IDEMPOTENCY_MISMATCH")
-            if existing.model_dump(mode="json") != persisted.model_dump(mode="json"):
-                raise ValueError("EXTENSION_INSTALL_DISABLED_IDEMPOTENCY_PAYLOAD_MISMATCH")
-            return existing
-        temp_path = path.with_suffix(".json.tmp")
-        temp_path.write_text(
-            json.dumps(persisted.model_dump(mode="json"), indent=2, sort_keys=True)
-            + "\n",
-            encoding="utf-8",
-        )
-        temp_path.replace(path)
-        return persisted
+            _require_live_receipt_binding(receipt, live_receipt)
+            existing_payload = _read_bounded_regular_file(path)
+            if existing_payload is not None:
+                existing = ExtensionInstallDisabledRecordReceipt.model_validate_json(
+                    existing_payload
+                )
+                if existing.idempotency_key_ref != persisted.idempotency_key_ref:
+                    raise ValueError("EXTENSION_INSTALL_DISABLED_IDEMPOTENCY_MISMATCH")
+                if existing.model_dump(mode="json") != persisted.model_dump(
+                    mode="json"
+                ):
+                    raise ValueError(
+                        "EXTENSION_INSTALL_DISABLED_IDEMPOTENCY_PAYLOAD_MISMATCH"
+                    )
+                return existing
+            _write_atomic_bounded_json(path, persisted.model_dump(mode="json"))
+            return persisted
 
     def delete_record(
         self,
         receipt: ExtensionInstallDisabledRecordDeleteReceipt,
+        *,
+        authority_state: ExtensionInstallDisabledAuthorityState | None = None,
+        approval_authority: LocalApprovalAuthority | None = None,
     ) -> ExtensionInstallDisabledRecordDeleteReceipt:
-        self.records_dir.mkdir(parents=True, exist_ok=True)
+        if authority_state is None or approval_authority is None:
+            raise ValueError(
+                "EXTENSION_INSTALL_DISABLED_DELETE_ATOMIC_AUTHORITY_STATE_REQUIRED"
+            )
+        _ensure_real_directory(self.storage_root)
+        _ensure_real_directory(self.records_dir)
         delete_receipts_dir = self.storage_root / "extension_install_disabled_deletions"
-        delete_receipts_dir.mkdir(parents=True, exist_ok=True)
+        _ensure_real_directory(delete_receipts_dir)
         delete_receipt_path = (
             delete_receipts_dir
             / f"{sha256(receipt.idempotency_key_ref.encode('utf-8')).hexdigest()}.json"
         )
-        if delete_receipt_path.exists():
-            existing = ExtensionInstallDisabledRecordDeleteReceipt.model_validate_json(
-                delete_receipt_path.read_text(encoding="utf-8")
+        record_path = (
+            self.records_dir / "uaa-plugin-skill-boundary.disabled-install.json"
+        )
+        with (
+            approval_authority.hold_validation_lock(),
+            authority_state.hold_start_lock(),
+            self._lock_manager.acquire("extension-install-disabled-record"),
+        ):
+            if authority_lease_kill_switch_engaged():
+                raise ValueError("EXTENSION_INSTALL_DISABLED_KILL_SWITCH_ENGAGED")
+            if authority_state.safe_disable_active_locked():
+                raise ValueError("EXTENSION_INSTALL_DISABLED_SAFE_DISABLE_ACTIVE")
+            live_receipt = build_extension_install_disabled_record_delete_receipt(
+                leases=authority_state.active_leases_locked(),
+                approval_authority=approval_authority,
+                approval_ref=receipt.approval_ref,
+                idempotency_key_ref=receipt.idempotency_key_ref,
             )
-            if existing.idempotency_key_ref != receipt.idempotency_key_ref:
-                raise ValueError(
-                    "EXTENSION_INSTALL_DISABLED_DELETE_IDEMPOTENCY_MISMATCH"
+            _require_live_delete_receipt_binding(receipt, live_receipt)
+            existing_payload = _read_bounded_regular_file(delete_receipt_path)
+            if existing_payload is not None:
+                existing = (
+                    ExtensionInstallDisabledRecordDeleteReceipt.model_validate_json(
+                        existing_payload
+                    )
                 )
-            if _delete_receipt_replay_identity(existing) != _delete_receipt_replay_identity(
-                receipt
-            ):
-                raise ValueError(
-                    "EXTENSION_INSTALL_DISABLED_DELETE_IDEMPOTENCY_PAYLOAD_MISMATCH"
-                )
-            return existing
+                if existing.idempotency_key_ref != receipt.idempotency_key_ref:
+                    raise ValueError(
+                        "EXTENSION_INSTALL_DISABLED_DELETE_IDEMPOTENCY_MISMATCH"
+                    )
+                if _delete_receipt_replay_identity(
+                    existing
+                ) != _delete_receipt_replay_identity(receipt):
+                    raise ValueError(
+                        "EXTENSION_INSTALL_DISABLED_DELETE_IDEMPOTENCY_PAYLOAD_MISMATCH"
+                    )
+                if (
+                    existing.deletion_status == "record_deleted"
+                    and _read_bounded_regular_file(record_path) is not None
+                ):
+                    record_path.unlink()
+                    _fsync_directory(record_path.parent)
+                return existing
 
-        record_path = self.records_dir / "uaa-plugin-skill-boundary.disabled-install.json"
-        record_existed = record_path.exists()
-        delete_effect = (
-            EXTENSION_INSTALL_DISABLED_DELETE_EFFECT_REF
-            if record_existed
-            else EXTENSION_INSTALL_DISABLED_DELETE_NOOP_EFFECT_REF
-        )
-        persisted = validate_extension_install_disabled_record_delete_receipt(
-            receipt.model_dump(mode="json")
-            | {
-                "deletion_status": (
-                    "record_deleted" if record_existed else "record_already_absent"
-                ),
-                "disabled_install_record_deleted": record_existed,
-                "side_effects_performed": [
-                    delete_effect,
-                    EXTENSION_INSTALL_DISABLED_DELETE_RECEIPT_EFFECT_REF,
-                ],
-            }
-        )
-        temp_path = delete_receipt_path.with_suffix(".json.tmp")
-        temp_path.write_text(
-            json.dumps(persisted.model_dump(mode="json"), indent=2, sort_keys=True)
-            + "\n",
-            encoding="utf-8",
-        )
-        if record_existed:
-            record_path.unlink()
-        temp_path.replace(delete_receipt_path)
-        return persisted
+            record_existed = _read_bounded_regular_file(record_path) is not None
+            delete_effect = (
+                EXTENSION_INSTALL_DISABLED_DELETE_EFFECT_REF
+                if record_existed
+                else EXTENSION_INSTALL_DISABLED_DELETE_NOOP_EFFECT_REF
+            )
+            persisted = validate_extension_install_disabled_record_delete_receipt(
+                receipt.model_dump(mode="json")
+                | {
+                    "deletion_status": (
+                        "record_deleted" if record_existed else "record_already_absent"
+                    ),
+                    "disabled_install_record_deleted": record_existed,
+                    "side_effects_performed": [
+                        delete_effect,
+                        EXTENSION_INSTALL_DISABLED_DELETE_RECEIPT_EFFECT_REF,
+                    ],
+                }
+            )
+            # Persist the exact deletion decision first. Replay completes an
+            # interrupted unlink without authorizing or repeating other work.
+            _write_atomic_bounded_json(
+                delete_receipt_path,
+                persisted.model_dump(mode="json"),
+            )
+            if record_existed:
+                record_path.unlink()
+                _fsync_directory(record_path.parent)
+            return persisted
 
 
 def build_extension_install_disabled_approval_request() -> ApprovalRequest:
@@ -603,6 +801,8 @@ def build_extension_install_disabled_approval_request() -> ApprovalRequest:
             "extension-package:uaa-plugin-skill-boundary",
             "plugin-skill-manifest:uaa-plugin-skill-boundary",
             "version:uaa-p1-024",
+            "plugin-provenance:uaa-plugin-skill-boundary",
+            "storage-ref:extension-install-disabled-record:uaa-plugin-skill-boundary",
         ],
         event_ref="event-ref:extension-install-disabled:approval-request",
         trace_id="trace-ref:extension-install-disabled:uaa-plugin-skill-boundary",
@@ -638,6 +838,8 @@ def build_extension_install_disabled_delete_approval_request() -> ApprovalReques
             "extension-package:uaa-plugin-skill-boundary",
             "plugin-skill-manifest:uaa-plugin-skill-boundary",
             "version:uaa-p1-024",
+            "plugin-provenance:uaa-plugin-skill-boundary",
+            "storage-ref:extension-install-disabled-record:uaa-plugin-skill-boundary",
         ],
         event_ref="event-ref:extension-install-disabled-delete:approval-request",
         trace_id="trace-ref:extension-install-disabled-delete:uaa-plugin-skill-boundary",
@@ -667,6 +869,9 @@ def build_default_extension_install_disabled_posture(
             resource_refs=[
                 "extension-package:uaa-plugin-skill-boundary",
                 "plugin-skill-manifest:uaa-plugin-skill-boundary",
+                "version:uaa-p1-024",
+                "plugin-provenance:uaa-plugin-skill-boundary",
+                "storage-ref:extension-install-disabled-record:uaa-plugin-skill-boundary",
             ],
             rollback_ref="rollback-ref:extension-install-disabled:delete-record",
             safe_disable_ref="safe-disable-ref:extension-install-disabled",
@@ -853,19 +1058,26 @@ def issue_extension_install_disabled_record(
     request: ExtensionInstallDisabledRecordIssueRequest,
     *,
     leases: list[AuthorityLease] | None = None,
+    authority_state: ExtensionInstallDisabledAuthorityState | None = None,
+    approval_authority: LocalApprovalAuthority | None = None,
     idempotency_key_ref: str = EXTENSION_INSTALL_DISABLED_IDEMPOTENCY_REF,
     storage_root: Path | None = None,
 ) -> ExtensionInstallDisabledRecordReceipt:
-    approval_authority = _approval_authority_from_grants(request.approval_grants)
+    if authority_state is None:
+        raise ValueError("EXTENSION_INSTALL_DISABLED_ATOMIC_AUTHORITY_STATE_REQUIRED")
     receipt = build_extension_install_disabled_record_receipt(
-        leases=leases,
+        leases=authority_state.active_leases_locked(),
         approval_authority=approval_authority,
         approval_ref=request.approval_ref,
         idempotency_key_ref=idempotency_key_ref,
     )
     return ExtensionInstallDisabledRecordStore(
         storage_root or authority_state_dir()
-    ).record_receipt(receipt)
+    ).record_receipt(
+        receipt,
+        authority_state=authority_state,
+        approval_authority=approval_authority,
+    )
 
 
 def build_extension_install_disabled_record_delete_receipt(
@@ -890,6 +1102,9 @@ def build_extension_install_disabled_record_delete_receipt(
             resource_refs=[
                 "extension-package:uaa-plugin-skill-boundary",
                 "plugin-skill-manifest:uaa-plugin-skill-boundary",
+                "version:uaa-p1-024",
+                "plugin-provenance:uaa-plugin-skill-boundary",
+                "storage-ref:extension-install-disabled-record:uaa-plugin-skill-boundary",
             ],
             rollback_ref="rollback-ref:extension-install-disabled:delete-record",
             safe_disable_ref="safe-disable-ref:extension-install-disabled",
@@ -964,22 +1179,28 @@ def delete_extension_install_disabled_record(
     request: ExtensionInstallDisabledRecordDeleteRequest,
     *,
     leases: list[AuthorityLease] | None = None,
+    authority_state: ExtensionInstallDisabledAuthorityState | None = None,
+    approval_authority: LocalApprovalAuthority | None = None,
     idempotency_key_ref: str = EXTENSION_INSTALL_DISABLED_DELETE_IDEMPOTENCY_REF,
     storage_root: Path | None = None,
 ) -> ExtensionInstallDisabledRecordDeleteReceipt:
-    approval_authority = _approval_authority_from_grants(
-        request.approval_grants,
-        approval_request_builder=build_extension_install_disabled_delete_approval_request,
-    )
+    if authority_state is None:
+        raise ValueError(
+            "EXTENSION_INSTALL_DISABLED_DELETE_ATOMIC_AUTHORITY_STATE_REQUIRED"
+        )
     receipt = build_extension_install_disabled_record_delete_receipt(
-        leases=leases,
+        leases=authority_state.active_leases_locked(),
         approval_authority=approval_authority,
         approval_ref=request.approval_ref,
         idempotency_key_ref=idempotency_key_ref,
     )
     return ExtensionInstallDisabledRecordStore(
         storage_root or authority_state_dir()
-    ).delete_record(receipt)
+    ).delete_record(
+        receipt,
+        authority_state=authority_state,
+        approval_authority=approval_authority,
+    )
 
 
 def validate_extension_install_disabled_record_receipt(
@@ -1016,18 +1237,6 @@ def _validate_local_approval(
     return approval_authority.validate_for_request(request, approval_ref)
 
 
-def _approval_authority_from_grants(
-    approval_grants: list[dict[str, Any]],
-    *,
-    approval_request_builder=build_extension_install_disabled_approval_request,
-) -> LocalApprovalAuthority:
-    authority = LocalApprovalAuthority()
-    authority.create_request(approval_request_builder())
-    for grant_payload in approval_grants:
-        authority.load_grant_for_validation(ApprovalGrant(**grant_payload))
-    return authority
-
-
 def _delete_receipt_replay_identity(
     receipt: ExtensionInstallDisabledRecordDeleteReceipt,
 ) -> dict[str, object]:
@@ -1042,6 +1251,52 @@ def _delete_receipt_replay_identity(
             "side_effects_performed",
         }
     }
+
+
+def _require_live_receipt_binding(
+    supplied: ExtensionInstallDisabledRecordReceipt,
+    live: ExtensionInstallDisabledRecordReceipt,
+) -> None:
+    for field_name in (
+        "record_ref",
+        "idempotency_key_ref",
+        "candidate_ref",
+        "package_ref",
+        "manifest_ref",
+        "version_ref",
+        "authority_lane_ref",
+        "authority_lease_ref",
+        "approval_request_ref",
+        "approval_ref",
+        "safe_disable_ref",
+        "rollback_ref",
+    ):
+        if getattr(supplied, field_name) != getattr(live, field_name):
+            raise ValueError("EXTENSION_INSTALL_DISABLED_LIVE_AUTHORITY_BINDING_MISMATCH")
+
+
+def _require_live_delete_receipt_binding(
+    supplied: ExtensionInstallDisabledRecordDeleteReceipt,
+    live: ExtensionInstallDisabledRecordDeleteReceipt,
+) -> None:
+    for field_name in (
+        "record_ref",
+        "idempotency_key_ref",
+        "candidate_ref",
+        "package_ref",
+        "manifest_ref",
+        "version_ref",
+        "authority_lane_ref",
+        "authority_lease_ref",
+        "approval_request_ref",
+        "approval_ref",
+        "safe_disable_ref",
+        "rollback_ref",
+    ):
+        if getattr(supplied, field_name) != getattr(live, field_name):
+            raise ValueError(
+                "EXTENSION_INSTALL_DISABLED_DELETE_LIVE_AUTHORITY_BINDING_MISMATCH"
+            )
 
 
 def _build_repo_owned_plugin_install_review_decision() -> PluginInstallReviewDecision:
@@ -1122,20 +1377,156 @@ def _build_repo_owned_plugin_install_review_decision() -> PluginInstallReviewDec
 
 def _safe_file_hash(file_ref: str, rel_path: str) -> ExtensionInstallDisabledFileHash:
     path = Path(__file__).resolve().parents[4] / rel_path
-    if not path.exists():
+    payload = _read_bounded_regular_file(path)
+    if payload is None:
         return ExtensionInstallDisabledFileHash(
             file_ref=file_ref,
             hash_status="missing",
         )
+    digest = sha256(payload).hexdigest()
+    if digest != _EXPECTED_INSTALL_DISABLED_FILE_SHA256.get(rel_path):
+        return ExtensionInstallDisabledFileHash(
+            file_ref=file_ref,
+            hash_value=f"sha256:{digest}",
+            hash_status="mismatch",
+        )
     return ExtensionInstallDisabledFileHash(
         file_ref=file_ref,
-        hash_value=f"sha256:{sha256(path.read_bytes()).hexdigest()}",
+        hash_value=f"sha256:{digest}",
         hash_status="reviewed",
     )
 
 
+def _ensure_real_directory(path: Path) -> None:
+    path.mkdir(parents=True, exist_ok=True)
+    metadata = path.lstat()
+    if not stat.S_ISDIR(metadata.st_mode) or stat.S_ISLNK(metadata.st_mode):
+        raise ValueError("EXTENSION_INSTALL_DISABLED_STORAGE_DIRECTORY_INVALID")
+
+
+def _read_bounded_regular_file(path: Path) -> bytes | None:
+    flags = (
+        os.O_RDONLY
+        | getattr(os, "O_CLOEXEC", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_NONBLOCK", 0)
+    )
+    try:
+        descriptor = os.open(path, flags)
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        raise ValueError("EXTENSION_INSTALL_DISABLED_STORAGE_FILE_INVALID") from exc
+    try:
+        metadata = os.fstat(descriptor)
+        path_metadata = os.lstat(path)
+        if (
+            not stat.S_ISREG(metadata.st_mode)
+            or metadata.st_nlink != 1
+            or (metadata.st_dev, metadata.st_ino)
+            != (path_metadata.st_dev, path_metadata.st_ino)
+            or metadata.st_size > EXTENSION_INSTALL_DISABLED_MAX_RECORD_BYTES
+        ):
+            raise ValueError("EXTENSION_INSTALL_DISABLED_STORAGE_FILE_INVALID")
+        chunks: list[bytes] = []
+        remaining = metadata.st_size
+        while remaining:
+            chunk = os.read(descriptor, min(remaining, 65_536))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        payload = b"".join(chunks)
+        if len(payload) != metadata.st_size:
+            raise ValueError("EXTENSION_INSTALL_DISABLED_STORAGE_FILE_INVALID")
+        if len(payload) > EXTENSION_INSTALL_DISABLED_MAX_RECORD_BYTES:
+            raise ValueError("EXTENSION_INSTALL_DISABLED_STORAGE_FILE_INVALID")
+        return payload
+    finally:
+        os.close(descriptor)
+
+
+def _write_atomic_bounded_json(path: Path, payload: dict[str, object]) -> None:
+    encoded = (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    if len(encoded) > EXTENSION_INSTALL_DISABLED_MAX_RECORD_BYTES:
+        raise ValueError("EXTENSION_INSTALL_DISABLED_STORAGE_SIZE_INVALID")
+    _ensure_real_directory(path.parent)
+    _recover_stale_pending_files(path)
+    temp_path = path.with_name(f".{path.name}.{uuid.uuid4().hex}.pending")
+    flags = (
+        os.O_WRONLY
+        | os.O_CREAT
+        | os.O_EXCL
+        | getattr(os, "O_CLOEXEC", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_NONBLOCK", 0)
+    )
+    try:
+        descriptor = os.open(temp_path, flags, 0o600)
+    except OSError as exc:
+        raise ValueError("EXTENSION_INSTALL_DISABLED_STORAGE_WRITE_FAILED") from exc
+    try:
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+            raise ValueError("EXTENSION_INSTALL_DISABLED_STORAGE_FILE_INVALID")
+        view = memoryview(encoded)
+        while view:
+            written = os.write(descriptor, view)
+            if written <= 0:
+                raise OSError("extension disabled record write failed")
+            view = view[written:]
+        os.fsync(descriptor)
+    except Exception:
+        try:
+            temp_path.unlink(missing_ok=True)
+        finally:
+            raise
+    finally:
+        os.close(descriptor)
+    try:
+        existing = path.lstat()
+    except FileNotFoundError:
+        existing = None
+    if existing is not None and (
+        not stat.S_ISREG(existing.st_mode) or stat.S_ISLNK(existing.st_mode)
+    ):
+        temp_path.unlink(missing_ok=True)
+        raise ValueError("EXTENSION_INSTALL_DISABLED_STORAGE_FILE_INVALID")
+    os.replace(temp_path, path)
+    _fsync_directory(path.parent)
+
+
+def _recover_stale_pending_files(path: Path) -> None:
+    pending_paths = list(path.parent.glob(f".{path.name}.*.pending"))
+    if len(pending_paths) > 16:
+        raise ValueError("EXTENSION_INSTALL_DISABLED_PENDING_FILE_LIMIT_EXCEEDED")
+    removed = False
+    for pending_path in pending_paths:
+        metadata = pending_path.lstat()
+        if (
+            not stat.S_ISREG(metadata.st_mode)
+            or stat.S_ISLNK(metadata.st_mode)
+            or metadata.st_nlink != 1
+            or metadata.st_size > EXTENSION_INSTALL_DISABLED_MAX_RECORD_BYTES
+        ):
+            raise ValueError("EXTENSION_INSTALL_DISABLED_PENDING_FILE_INVALID")
+        pending_path.unlink()
+        removed = True
+    if removed:
+        _fsync_directory(path.parent)
+
+
+def _fsync_directory(path: Path) -> None:
+    descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
 def _deny_runtime_flags(
-    model: ExtensionInstallDisabledCandidateRecord | ExtensionInstallDisabledPostureReadModel,
+    model: ExtensionInstallDisabledCandidateRecord
+    | ExtensionInstallDisabledPostureReadModel,
 ) -> None:
     _deny_runtime_authority_flags(model)
     if model.side_effects_performed:

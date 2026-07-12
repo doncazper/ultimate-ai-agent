@@ -70,13 +70,13 @@ Contract rules:
   retrieve memory bodies, inject context, run shell/browser work, write
   connectors, or wire chat runtime behavior.
 - `POST /extensions/disabled-install-records` and
-  `POST /extensions/disabled-install-records/rollback` are exact local metadata
-  receipt lanes for reviewed disabled extension install posture. Both require
-  active `workspace/write` AuthorityLease scope, exact LocalApprovalAuthority
-  approval for the specific action, idempotency, redacted receipts, and
-  rollback/safe-disable posture. They do not install packages, import runtime
-  code, enable plugins, execute plugins, fetch marketplaces, write connectors,
-  run shell/browser work, call providers/models, or grant production authority.
+  `POST /extensions/disabled-install-records/rollback` are blocked local metadata
+  mutation boundaries. They reject caller-supplied approval grants and cannot
+  execute until a core-owned durable approval resolver is implemented. The
+  underlying Python receipt builders still require active `workspace/write`
+  AuthorityLease scope, an injected exact LocalApprovalAuthority decision,
+  a core-owned atomic lease/safe-disable state, idempotency, pinned hashes, and
+  rollback/safe-disable posture.
 - `/api/runtime/*` is the governed runtime pilot contract surface. The
   Governed Product Pilot authority profile is exposed at
   `GET /api/runtime/governed-product-pilot-profile` as a protected read-only
@@ -521,12 +521,12 @@ Contract rules:
   plan refs, rollback refs, safe-disable refs, and blocked capability refs, but
   it must not persist package installs, import runtime code, enable plugins, or
   execute extensions.
-- `POST /extensions/disabled-install-records` may record one exact disabled
-  extension install metadata receipt only after active `workspace/write`
-  AuthorityLease scope, exact `LocalApprovalAuthority` validation, idempotency,
-  redacted receipt refs, and the local disabled-record store validate. It must
-  not persist package installs, import runtime code, enable plugins, activate
-  extensions, fetch marketplaces, execute extensions, or widen authority.
+- `POST /extensions/disabled-install-records` must fail closed until a
+  core-owned durable approval resolver can supply an exact current
+  `LocalApprovalAuthority` decision. Caller-supplied grant payloads are not in
+  the request contract. It must not persist package installs, import runtime
+  code, enable plugins, activate extensions, fetch marketplaces, execute
+  extensions, or widen authority.
 - `GET /control-center/capabilities/surface` must remain a read-only Control
   Center capability coverage route only. It may expose bounded capability rows,
   source-truth posture, route refs, CLI refs, missing reasons, and blocked

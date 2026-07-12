@@ -588,13 +588,16 @@ background monitoring, or process control.
 
 `GET /extensions/catalog` returns read-only inspectable extension catalog
 metadata with safe refs, visibility status, trust posture, callable posture,
-blocked reasons, review evidence refs, safe adoption posture, and
-install-disabled posture. `POST /extensions/disabled-install-records` records
-only an exact disabled extension install metadata receipt after active
-`workspace/write` AuthorityLease scope, exact `LocalApprovalAuthority`
-validation, idempotency, redacted receipt refs, and the local disabled-record
-store validate. These routes do not persist package installs, import, enable,
-activate, revoke, execute, fetch, or mutate extensions.
+blocked reasons, review evidence refs, safe adoption posture, deterministic
+developer validation, canonical availability snapshot refs, and
+install-disabled posture. The disabled-install record and rollback mutation
+routes reject caller-supplied approval-grant payloads and fail closed until a
+durable core-owned approval resolver can supply an exact current
+`LocalApprovalAuthority` decision. Python Core receipt builders still require
+an active `workspace/write` AuthorityLease, injected exact approval authority,
+idempotency, pinned metadata hashes, and safe local storage validation. These
+routes do not persist package installs, import, enable, activate, execute,
+fetch, or otherwise grant extension authority.
 
 ### Control Center capability surface
 

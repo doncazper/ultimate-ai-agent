@@ -70,6 +70,16 @@ authority. The protected read-only API route
 read model. No live probe, provider call, network access, background polling,
 or runtime execution is added.
 
+The extension catalog now projects every declared extension capability through
+this same availability contract. Reviewed repository metadata uses pinned,
+bounded, no-follow SHA-256 observations; unknown versions, provenance, hash
+state, configuration, health, budget, or safe-disable posture remain unknown or
+blocked. `GET /extensions/catalog`, the human-readable `inspect-catalog` CLI,
+and the macOS-first Plugin Governance panel expose deterministic developer
+validation and rollback/safe-disable refs. Catalog and activation metadata
+explicitly grant no invocation authority. Client-supplied approval-grant
+payloads are rejected by the disabled-install mutation surface.
+
 ## Intent Reasoning And Plan Revision Truth
 
 `ultimate_ai_agent.core.intent.reasoning_truth` provides the deterministic,

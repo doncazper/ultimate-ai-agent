@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://ultimate-ai-agent.local/schemas/inspectable_extension_catalog.schema.json",
-  "title": "uaa_inspectable_extension_catalog",
+  "$id": "https://ultimate-ai-agent.local/schemas/extension_ecosystem_read_model.schema.json",
+  "title": "uaa_extension_ecosystem_read_model",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -38,11 +38,21 @@
     "schema_refs",
     "developer_guidance_refs",
     "final_hardening_refs",
+    "availability_snapshot_refs",
+    "availability_snapshot_count",
+    "developer_validation_results",
+    "developer_validation_count",
+    "plugin_metadata_boundary_ref",
+    "skill_marketplace_boundary_ref",
+    "mcp_catalog_boundary_ref",
+    "catalog_visibility_grants_authority",
+    "activation_metadata_grants_authority",
+    "request_scoped_invocation_decision_required",
     "safe_summary"
   ],
   "properties": {
     "schema_version": {
-      "const": "uaa_inspectable_extension_catalog.v1"
+      "const": "uaa_extension_ecosystem_read_model.v1"
     },
     "catalog_ref": {
       "type": "string",
@@ -169,6 +179,22 @@
         "$ref": "#/$defs/safe_ref"
       }
     },
+    "availability_snapshot_refs": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/safe_ref"}
+    },
+    "availability_snapshot_count": {"type": "integer", "minimum": 0},
+    "developer_validation_results": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/developer_validation_result"}
+    },
+    "developer_validation_count": {"type": "integer", "minimum": 0},
+    "plugin_metadata_boundary_ref": {"$ref": "#/$defs/safe_ref"},
+    "skill_marketplace_boundary_ref": {"$ref": "#/$defs/safe_ref"},
+    "mcp_catalog_boundary_ref": {"$ref": "#/$defs/safe_ref"},
+    "catalog_visibility_grants_authority": {"const": false},
+    "activation_metadata_grants_authority": {"const": false},
+    "request_scoped_invocation_decision_required": {"const": true},
     "safe_summary": {
       "type": "string",
       "minLength": 1,
@@ -179,6 +205,52 @@
     "safe_ref": {
       "type": "string",
       "pattern": "^[a-z][a-z0-9_-]*:[a-z0-9][a-z0-9_.:-]*$"
+    },
+    "developer_validation_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version", "validation_ref", "catalog_entry_ref", "package_ref",
+        "manifest_ref", "version_ref", "status", "compatibility_status",
+        "configuration_status", "health_status", "authority_posture",
+        "resource_status", "safe_disable_status", "provenance_status",
+        "reviewed_hash_count", "declared_hash_count",
+        "hashes_verified_against_pinned_values", "signature_status",
+        "signature_verified", "safe_disable_ref", "rollback_ref", "reason_codes",
+        "blocker_codes", "activation_metadata_grants_authority",
+        "catalog_visibility_grants_authority", "runtime_import_enabled",
+        "execution_enabled", "safe_summary"
+      ],
+      "properties": {
+        "schema_version": {"const": "uaa_extension_developer_validation.v1"},
+        "validation_ref": {"$ref": "#/$defs/safe_ref"},
+        "catalog_entry_ref": {"$ref": "#/$defs/safe_ref"},
+        "package_ref": {"$ref": "#/$defs/safe_ref"},
+        "manifest_ref": {"$ref": "#/$defs/safe_ref"},
+        "version_ref": {"$ref": "#/$defs/safe_ref"},
+        "status": {"enum": ["validated_metadata_only", "blocked"]},
+        "compatibility_status": {"enum": ["supported", "unknown"]},
+        "configuration_status": {"const": "not_configured"},
+        "health_status": {"const": "unknown"},
+        "authority_posture": {"const": "blocked"},
+        "resource_status": {"const": "unknown"},
+        "safe_disable_status": {"const": "unknown"},
+        "provenance_status": {"enum": ["reviewed", "blocked", "unknown"]},
+        "reviewed_hash_count": {"type": "integer", "minimum": 0},
+        "declared_hash_count": {"type": "integer", "minimum": 0},
+        "hashes_verified_against_pinned_values": {"type": "boolean"},
+        "signature_status": {"enum": ["not_present", "unknown"]},
+        "signature_verified": {"const": false},
+        "safe_disable_ref": {"$ref": "#/$defs/safe_ref"},
+        "rollback_ref": {"$ref": "#/$defs/safe_ref"},
+        "reason_codes": {"type": "array", "items": {"type": "string"}},
+        "blocker_codes": {"type": "array", "items": {"type": "string"}},
+        "activation_metadata_grants_authority": {"const": false},
+        "catalog_visibility_grants_authority": {"const": false},
+        "runtime_import_enabled": {"const": false},
+        "execution_enabled": {"const": false},
+        "safe_summary": {"type": "string", "minLength": 1, "maxLength": 500}
+      }
     },
     "extension_install_disabled_posture": {
       "type": "object",
@@ -348,6 +420,7 @@
         "rollback_ref",
         "authority_lane_ref",
         "authority_decision_ref",
+        "authority_lease_ref",
         "authority_decision_outcome",
         "authority_decision_reason_refs",
         "required_mode",

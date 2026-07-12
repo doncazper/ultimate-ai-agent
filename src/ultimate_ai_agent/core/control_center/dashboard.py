@@ -1,12 +1,16 @@
 import os
+import re
 from collections.abc import Mapping
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from ultimate_ai_agent import __version__
 from ultimate_ai_agent.core.local_model_management.readiness import inspect_local_model_gateway
 from ultimate_ai_agent.core.extension_catalog import build_default_skill_bundle_proposal_posture
+from ultimate_ai_agent.core.extension_catalog.ecosystem import (
+    build_default_extension_ecosystem_read_model,
+)
 from ultimate_ai_agent.core.model_runtime.redaction import contains_secret_like
 from ultimate_ai_agent.core.providers.readiness import (
     GovernedProviderInvocationReadiness,
@@ -49,6 +53,8 @@ ProviderSettingsDiagnosticState = Literal[
     "disabled",
     "future_scoped",
 ]
+_EXTENSION_SAFE_REF_PATTERN = r"^[a-z][a-z0-9_-]*:[a-z0-9][a-z0-9_.:-]*$"
+_EXTENSION_REASON_CODE_PATTERN = r"^[A-Z][A-Z0-9_]*$"
 PROVIDER_SETTINGS_DIAGNOSTIC_STATES: tuple[ProviderSettingsDiagnosticState, ...] = (
     "configured",
     "missing",
@@ -140,21 +146,127 @@ class MobilePlanningSummary(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
-class PluginGovernanceSummary(BaseModel):
-    status: str = "planned_disabled"
-    plugin_enablement_allowed: bool = False
-    native_build_tools_enabled: bool = False
-    skill_bundle_proposal_status: str = "proposal_only"
-    skill_bundle_proposal_count: int = 0
-    skill_bundle_proposal_refs: list[str] = Field(default_factory=list)
-    skill_bundle_activation_enabled: bool = False
-    skill_bundle_tool_execution_enabled: bool = False
+class PluginGovernanceEntrySummary(BaseModel):
+    package_ref: str = Field(..., min_length=1, pattern=_EXTENSION_SAFE_REF_PATTERN)
+    manifest_ref: str = Field(..., min_length=1, pattern=_EXTENSION_SAFE_REF_PATTERN)
+    version_ref: str = Field(..., min_length=1, pattern=_EXTENSION_SAFE_REF_PATTERN)
+    availability_snapshot_count: int = Field(..., ge=0)
+    validation_status: Literal["validated_metadata_only", "blocked"]
+    compatibility_status: Literal["supported", "unknown"]
+    configuration_status: Literal["not_configured"] = "not_configured"
+    health_status: Literal["unknown"] = "unknown"
+    authority_posture: Literal["blocked"] = "blocked"
+    resource_status: Literal["unknown"] = "unknown"
+    safe_disable_status: Literal["unknown"] = "unknown"
+    provenance_status: Literal["reviewed", "blocked", "unknown"]
+    hashes_verified_against_pinned_values: bool
+    signature_status: Literal["not_present", "unknown"]
+    signature_verified: Literal[False] = False
+    safe_disable_ref: str = Field(..., min_length=1, pattern=_EXTENSION_SAFE_REF_PATTERN)
+    rollback_ref: str = Field(..., min_length=1, pattern=_EXTENSION_SAFE_REF_PATTERN)
+    blocker_codes: list[str] = Field(default_factory=list)
 
     model_config = ConfigDict(extra="forbid")
+
+    @field_validator("blocker_codes")
+    @classmethod
+    def validate_blocker_codes(cls, values: list[str]) -> list[str]:
+        if any(re.fullmatch(_EXTENSION_REASON_CODE_PATTERN, value) is None for value in values):
+            raise ValueError("PLUGIN_GOVERNANCE_BLOCKER_CODE_INVALID")
+        return values
+
+
+class PluginGovernanceSummary(BaseModel):
+    status: Literal["inspectable_non_callable"] = "inspectable_non_callable"
+    plugin_enablement_allowed: Literal[False] = False
+    native_build_tools_enabled: Literal[False] = False
+    skill_bundle_proposal_status: Literal["proposal_only"] = "proposal_only"
+    skill_bundle_proposal_count: int = Field(default=0, ge=0)
+    skill_bundle_proposal_refs: list[str] = Field(default_factory=list)
+    skill_bundle_activation_enabled: Literal[False] = False
+    skill_bundle_tool_execution_enabled: Literal[False] = False
+    catalog_entry_count: int = Field(default=0, ge=0)
+    availability_snapshot_count: int = Field(default=0, ge=0)
+    developer_validation_count: int = Field(default=0, ge=0)
+    blocked_validation_count: int = Field(default=0, ge=0)
+    blocker_codes: list[str] = Field(default_factory=list)
+    safe_disable_refs: list[str] = Field(default_factory=list)
+    rollback_refs: list[str] = Field(default_factory=list)
+    extension_entries: list[PluginGovernanceEntrySummary] = Field(default_factory=list)
+    plugin_metadata_boundary_ref: str = Field(..., min_length=1, pattern=_EXTENSION_SAFE_REF_PATTERN)
+    skill_marketplace_boundary_ref: str = Field(..., min_length=1, pattern=_EXTENSION_SAFE_REF_PATTERN)
+    mcp_catalog_boundary_ref: str = Field(..., min_length=1, pattern=_EXTENSION_SAFE_REF_PATTERN)
+    catalog_visibility_grants_authority: Literal[False] = False
+    request_scoped_invocation_decision_required: Literal[True] = True
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("skill_bundle_proposal_refs", "safe_disable_refs", "rollback_refs")
+    @classmethod
+    def validate_ref_arrays(cls, values: list[str]) -> list[str]:
+        if any(re.fullmatch(_EXTENSION_SAFE_REF_PATTERN, value) is None for value in values):
+            raise ValueError("PLUGIN_GOVERNANCE_REF_ARRAY_INVALID")
+        if len(values) != len(set(values)):
+            raise ValueError("PLUGIN_GOVERNANCE_REF_ARRAY_DUPLICATE")
+        return values
+
+    @field_validator("blocker_codes")
+    @classmethod
+    def validate_reason_codes(cls, values: list[str]) -> list[str]:
+        if any(re.fullmatch(_EXTENSION_REASON_CODE_PATTERN, value) is None for value in values):
+            raise ValueError("PLUGIN_GOVERNANCE_BLOCKER_CODE_INVALID")
+        return values
+
+    @model_validator(mode="after")
+    def validate_plugin_governance(self) -> "PluginGovernanceSummary":
+        if self.skill_bundle_proposal_count != len(self.skill_bundle_proposal_refs):
+            raise ValueError("PLUGIN_GOVERNANCE_SKILL_BUNDLE_COUNT_DRIFT")
+        actual_blocked_count = sum(
+            entry.validation_status == "blocked" for entry in self.extension_entries
+        )
+        if self.blocked_validation_count != actual_blocked_count:
+            raise ValueError("PLUGIN_GOVERNANCE_BLOCKED_COUNT_DRIFT")
+        if self.catalog_entry_count != len(self.extension_entries):
+            raise ValueError("PLUGIN_GOVERNANCE_ENTRY_COUNT_DRIFT")
+        if self.developer_validation_count != len(self.extension_entries):
+            raise ValueError("PLUGIN_GOVERNANCE_VALIDATION_COUNT_DRIFT")
+        if self.availability_snapshot_count != sum(
+            entry.availability_snapshot_count for entry in self.extension_entries
+        ):
+            raise ValueError("PLUGIN_GOVERNANCE_AVAILABILITY_COUNT_DRIFT")
+        if set(self.safe_disable_refs) != {
+            entry.safe_disable_ref for entry in self.extension_entries
+        }:
+            raise ValueError("PLUGIN_GOVERNANCE_SAFE_DISABLE_REF_DRIFT")
+        if set(self.rollback_refs) != {
+            entry.rollback_ref for entry in self.extension_entries
+        }:
+            raise ValueError("PLUGIN_GOVERNANCE_ROLLBACK_REF_DRIFT")
+        if self.blocker_codes != sorted(
+            {
+                blocker
+                for entry in self.extension_entries
+                for blocker in entry.blocker_codes
+            }
+        ):
+            raise ValueError("PLUGIN_GOVERNANCE_BLOCKER_CODE_DRIFT")
+        return self
 
 
 def build_plugin_governance_summary() -> PluginGovernanceSummary:
     skill_bundle_posture = build_default_skill_bundle_proposal_posture()
+    ecosystem = build_default_extension_ecosystem_read_model()
+    blockers = sorted(
+        {
+            code
+            for result in ecosystem.developer_validation_results
+            for code in result.blocker_codes
+        }
+    )
+    capability_counts = {
+        entry.package_identity.package_ref: len(entry.declared_capabilities)
+        for entry in ecosystem.entries
+    }
     return PluginGovernanceSummary(
         skill_bundle_proposal_status=skill_bundle_posture.status,
         skill_bundle_proposal_count=skill_bundle_posture.proposal_count,
@@ -163,6 +275,54 @@ def build_plugin_governance_summary() -> PluginGovernanceSummary:
         ],
         skill_bundle_activation_enabled=skill_bundle_posture.bundle_activation_enabled,
         skill_bundle_tool_execution_enabled=skill_bundle_posture.tool_execution_enabled,
+        catalog_entry_count=len(ecosystem.entries),
+        availability_snapshot_count=ecosystem.availability_snapshot_count,
+        developer_validation_count=ecosystem.developer_validation_count,
+        blocked_validation_count=sum(
+            result.status == "blocked"
+            for result in ecosystem.developer_validation_results
+        ),
+        blocker_codes=blockers,
+        safe_disable_refs=sorted(
+            {result.safe_disable_ref for result in ecosystem.developer_validation_results}
+        ),
+        rollback_refs=sorted(
+            {result.rollback_ref for result in ecosystem.developer_validation_results}
+        ),
+        extension_entries=[
+            PluginGovernanceEntrySummary(
+                package_ref=result.package_ref,
+                manifest_ref=result.manifest_ref,
+                version_ref=result.version_ref,
+                availability_snapshot_count=capability_counts[result.package_ref],
+                validation_status=result.status,
+                compatibility_status=result.compatibility_status,
+                configuration_status=result.configuration_status,
+                health_status=result.health_status,
+                authority_posture=result.authority_posture,
+                resource_status=result.resource_status,
+                safe_disable_status=result.safe_disable_status,
+                provenance_status=result.provenance_status,
+                hashes_verified_against_pinned_values=(
+                    result.hashes_verified_against_pinned_values
+                ),
+                signature_status=result.signature_status,
+                signature_verified=result.signature_verified,
+                safe_disable_ref=result.safe_disable_ref,
+                rollback_ref=result.rollback_ref,
+                blocker_codes=list(result.blocker_codes),
+            )
+            for result in ecosystem.developer_validation_results
+        ],
+        plugin_metadata_boundary_ref=ecosystem.plugin_metadata_boundary_ref,
+        skill_marketplace_boundary_ref=ecosystem.skill_marketplace_boundary_ref,
+        mcp_catalog_boundary_ref=ecosystem.mcp_catalog_boundary_ref,
+        catalog_visibility_grants_authority=(
+            ecosystem.catalog_visibility_grants_authority
+        ),
+        request_scoped_invocation_decision_required=(
+            ecosystem.request_scoped_invocation_decision_required
+        ),
     )
 
 
