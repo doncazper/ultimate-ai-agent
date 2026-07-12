@@ -360,6 +360,39 @@ describe("AuthorityMissionInspectionPanel", () => {
     expect(screen.queryByText("approval wait")).not.toBeInTheDocument();
   });
 
+  it("renders invalid completion evidence as unverified", async () => {
+    const invalidCompletion = {
+      ...completionReadModel,
+      integrity_summary: {
+        ...completionReadModel.integrity_summary,
+        hash_chain_verified: false,
+      },
+      portable_evidence_summary: {
+        ...completionReadModel.portable_evidence_summary,
+        status: "invalid",
+        local_hash_chain_verified: false,
+        source_receipts_bound: false,
+        reason_refs: ["reason-ref:portable-mission-evidence:verification-failed"],
+      },
+    };
+    render(
+      <AuthorityMissionInspectionPanel
+        loadWorkerState={vi.fn().mockResolvedValue(readModel)}
+        loadCompletions={vi.fn().mockResolvedValue(invalidCompletion)}
+      />,
+    );
+
+    const panel = await screen.findByRole("region", {
+      name: "Authority mission worker",
+    });
+    expect(within(panel).getByText("Completion chain: invalid")).toBeInTheDocument();
+    expect(within(panel).getByText("Portable evidence: invalid")).toBeInTheDocument();
+    expect(within(panel).getByText("Source records bound: no")).toBeInTheDocument();
+    expect(
+      within(panel).queryByText("Completion chain: local SHA-256 verified"),
+    ).not.toBeInTheDocument();
+  });
+
   it("does not present completion loading or failure as zero recorded", async () => {
     let resolveCompletions: (
       value: AuthorityMissionCompletionReadModel,
