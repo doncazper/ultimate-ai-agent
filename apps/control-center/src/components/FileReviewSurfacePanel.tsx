@@ -1,6 +1,5 @@
 import { useState } from "react";
 import type {
-  FileReviewApprovalCaptureSummary,
   FileReviewPacketSummary,
   M36FileReviewData,
 } from "../api/types";
@@ -8,40 +7,20 @@ import { EmptyState } from "./DataState";
 import { OperatorSurfaceStates } from "./OperatorSurfaceStates";
 
 const FILE_REVIEW_SAFE_REFS_COPY =
-  "Safe refs only are displayed. Packet selection is local read-only UI state. Only the review approval capture route may persist safe refs.";
+  "Safe refs only are displayed. Packet selection is local read-only UI state. The backend review approval capture route exists but is not exposed or wired in this Control Center panel.";
 const FILE_REVIEW_CAPTURE_BOUNDARY_COPY =
-  "Review approval capture is review-only persistence for the exact selected packet. Only the review approval capture route may persist safe refs, and it does not grant raw file access, context proposal, context injection, memory writes, export, or execution.";
+  "M37 review approval capture is a separately governed backend contract for exact safe refs. Review-only persistence for an exact selected packet remains backend-only and is not wired here. This inspection-only panel cannot submit or persist a decision and grants no raw file access, context proposal, context injection, memory writes, export, or execution.";
 
 export function FileReviewSurfacePanel({ review }: { review: M36FileReviewData }) {
   const [selectedRef, setSelectedRef] = useState(review.packets[0]?.reviewPacketRef ?? "");
-  const [captureByPacketRef, setCaptureByPacketRef] = useState<
-    Record<string, FileReviewApprovalCaptureSummary>
-  >(() =>
-    Object.fromEntries(
-      review.packets.map((packet) => [packet.reviewPacketRef, packet.approvalCapture]),
-    ),
-  );
   const selected =
     review.packets.find((packet) => packet.reviewPacketRef === selectedRef) ?? review.packets[0];
-  const selectedCapture = selected
-    ? (captureByPacketRef[selected.reviewPacketRef] ?? selected.approvalCapture)
-    : undefined;
-
-  function updateSelectedCapture(capture: FileReviewApprovalCaptureSummary) {
-    if (!selected) {
-      return;
-    }
-    setCaptureByPacketRef((previous) => ({
-      ...previous,
-      [selected.reviewPacketRef]: capture,
-    }));
-  }
 
   return (
     <section className="page-section" aria-labelledby="file-review-surface-heading">
       <div className="section-heading">
         <div>
-          <p className="eyebrow">M37 review approval capture</p>
+          <p className="eyebrow">M37 review approval posture</p>
           <h2 id="file-review-surface-heading">File Review Surface</h2>
         </div>
         <span className="status-pill compact">review-only</span>
@@ -73,11 +52,7 @@ export function FileReviewSurfacePanel({ review }: { review: M36FileReviewData }
               />
             ))}
           </div>
-          <FileReviewPacketDetail
-            packet={selected}
-            capture={selectedCapture ?? selected.approvalCapture}
-            onCaptureChange={updateSelectedCapture}
-          />
+          <FileReviewPacketDetail packet={selected} />
         </div>
       ) : (
         <EmptyState
@@ -125,30 +100,10 @@ function FileReviewPacketRow({
 
 function FileReviewPacketDetail({
   packet,
-  capture,
-  onCaptureChange,
 }: {
   packet: FileReviewPacketSummary;
-  capture: FileReviewApprovalCaptureSummary;
-  onCaptureChange: (capture: FileReviewApprovalCaptureSummary) => void;
 }) {
-  function captureReviewOnly(status: "approved_for_review_only" | "denied_for_review") {
-    onCaptureChange({
-      status,
-      captured: true,
-      persisted: true,
-      reviewOnly: true,
-      rawFileAccessAuthorized: false,
-      contextProposalAuthorized: false,
-      contextInjectionAuthorized: false,
-      memoryWriteAuthorized: false,
-      exportAuthorized: false,
-      executionAuthorized: false,
-      executionPerformed: false,
-      safeMessage:
-        "Review-only approval capture persisted safe refs for this exact redacted packet. No authority was granted.",
-    });
-  }
+  const capture = packet.approvalCapture;
 
   return (
     <article className="panel review-detail" aria-label="File review packet detail">
@@ -160,22 +115,11 @@ function FileReviewPacketDetail({
         <span className="status-pill compact">Review-only surface</span>
       </div>
       <p className="safe-copy">{FILE_REVIEW_CAPTURE_BOUNDARY_COPY}</p>
-      <div className="button-row" aria-label="Review-only approval capture controls">
-        <button
-          type="button"
-          className="secondary-button"
-          onClick={() => captureReviewOnly("approved_for_review_only")}
-        >
-          Approve review-only
-        </button>
-        <button
-          type="button"
-          className="secondary-button"
-          onClick={() => captureReviewOnly("denied_for_review")}
-        >
-          Deny review-only
-        </button>
-      </div>
+      <p className="safe-copy" role="status">
+        Approve review-only and Deny review-only controls are not rendered. The exact
+        backend capture route exists, but no Control Center operator flow is wired to
+        it and no decision can be submitted here.
+      </p>
 
       <section aria-labelledby="redacted-preview-heading">
         <h4 id="redacted-preview-heading">Redacted preview</h4>

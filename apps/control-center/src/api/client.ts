@@ -147,7 +147,11 @@ import {
   memoryReviewReceiptEndpoint,
 } from "./endpoints";
 import { normalizeMacOSSetupAssistant } from "./macosSetupAssistant";
-import { sanitizeForDisplay } from "./redaction";
+import {
+  containsSecretLike,
+  safeApiErrorMessage,
+  sanitizeForDisplay,
+} from "./redaction";
 
 const API_BASE_POLICY = resolveApiBaseUrl(
   import.meta.env.VITE_UAA_API_BASE_URL,
@@ -283,7 +287,9 @@ async function readEnvelope<T>(
     );
     const data = (await response.json()) as ResultEnvelope<T> | T;
     if (!response.ok) {
-      throw new Error(sanitizeForDisplay(data));
+      throw new Error(
+        safeApiErrorMessage(data, "Local backend read failed safely."),
+      );
     }
     if (
       typeof data === "object" &&
@@ -295,7 +301,7 @@ async function readEnvelope<T>(
       const ok = envelope.ok ?? envelope.success;
       if (!ok || result === undefined) {
         throw new Error(
-          sanitizeForDisplay(envelope.error?.message ?? "Request failed"),
+          safeApiErrorMessage(envelope, "Local backend read failed safely."),
         );
       }
       return result;
@@ -2269,9 +2275,7 @@ export async function submitActionPreview(
   const decision = data.result ?? data.data;
   if (!response.ok || !decision) {
     throw new Error(
-      sanitizeForDisplay(
-        data.error?.message ?? "Preview request was rejected safely.",
-      ),
+      safeApiErrorMessage(data, "Preview request was rejected safely."),
     );
   }
   return decision;
@@ -2298,9 +2302,7 @@ export async function submitTurnRouterPreview(
   const preview = data.result ?? data.data;
   if (!response.ok || !preview) {
     throw new Error(
-      sanitizeForDisplay(
-        data.error?.message ?? "Turn router preview failed safely.",
-      ),
+      safeApiErrorMessage(data, "Turn router preview failed safely."),
     );
   }
   if (!isSafeTurnRouterPreview(preview)) {
@@ -2856,9 +2858,9 @@ export async function submitActionDecision(
   const receipt = data.result ?? data.data;
   if (!response.ok || !receipt) {
     throw new Error(
-      sanitizeForDisplay(
-        data.error?.message ??
-          "Action decision receipt was not recorded safely.",
+      safeApiErrorMessage(
+        data,
+        "Action decision receipt was not recorded safely.",
       ),
     );
   }
@@ -2883,8 +2885,9 @@ export async function fetchActionReceipt(
     (await response.json()) as ResultEnvelope<FounderLoopActionDecisionReceipt>;
   if (!response.ok) {
     throw new Error(
-      sanitizeForDisplay(
-        data.error?.message ?? "Action decision receipt was not fetched safely.",
+      safeApiErrorMessage(
+        data,
+        "Action decision receipt was not fetched safely.",
       ),
     );
   }
@@ -3278,9 +3281,9 @@ export async function submitTodayActionEnvelope(
   const receipt = data.result ?? data.data;
   if (!response.ok || !receipt) {
     throw new Error(
-      sanitizeForDisplay(
-        data.error?.message ??
-          "Today action envelope receipt was not recorded safely.",
+      safeApiErrorMessage(
+        data,
+        "Today action envelope receipt was not recorded safely.",
       ),
     );
   }
@@ -7905,6 +7908,9 @@ function isSafeFounderAgentLoopThread(
         Array.isArray(row.test_refs) &&
         row.test_refs.length > 0,
     ) &&
+    isSafeExternalInformationHandling(
+      value.high_maturity_spine_readiness.external_information_handling,
+    ) &&
     value.operator_decision_matrix?.backend_owned === true &&
     value.operator_decision_matrix?.control_center_presentation_only === true &&
     value.operator_decision_matrix?.safe_refs_only === true &&
@@ -7929,6 +7935,7 @@ function isSafeFounderAgentLoopThread(
     value.authority_posture?.runtime_model_calls_enabled === false &&
     value.authority_posture?.provider_sdk_calls_enabled === false &&
     value.authority_posture?.live_web_fetching_enabled === false &&
+    value.authority_posture?.unrestricted_live_web_fetching_enabled === false &&
     value.authority_posture?.browser_automation_enabled === false &&
     value.authority_posture?.connector_writes_enabled === false &&
     value.authority_posture?.unrestricted_shell_enabled === false &&
@@ -7944,6 +7951,210 @@ function isNonEmptyStringArray(value: unknown): value is string[] {
     Array.isArray(value) &&
     value.length > 0 &&
     value.every((item) => typeof item === "string" && item.length > 0)
+  );
+}
+
+const WEB_HYBRID_SAFE_REF_RE = /^[a-z][a-z0-9_-]*(?::[a-z0-9][a-z0-9_.-]*)+$/;
+const WEB_HYBRID_CODE_RE = /^[A-Z][A-Z0-9_]*$/;
+const WEB_HYBRID_UNSAFE_TEXT_RE =
+  /(?:(?:^|\s)\/(?:Users|home|private|var)\/|[a-z]:\\|\b(?:file|https?):\/\/|<(?:html|body|script)\b|raw[_ -]?(?:prompt|response|page|payload|log)|provider[_ -]?payload|api[_-]?key|token\x3d)/i;
+const WEB_HYBRID_LANE_CONTRACTS: Record<
+  string,
+  {
+    capability_ref: string;
+    provider_ref: string;
+    adapter_ref: string;
+    runtime_availability: string;
+    approval_posture: string;
+    cost_posture: string;
+  }
+> = {
+  "authority-lane-ref:web-access:searxng-search:v1": {
+    capability_ref: "capability-ref:web-access:searxng-search",
+    provider_ref: "provider-ref:searxng:self-hosted",
+    adapter_ref: "adapter-ref:web-access:searxng-search:v1",
+    runtime_availability: "requires_current_loopback_observation",
+    approval_posture: "exact_local_approval_and_lease_required",
+    cost_posture: "not_metered",
+  },
+  "authority-lane-ref:web-access:firecrawl-markdown-extract:v1": {
+    capability_ref: "capability-ref:web-access:firecrawl-markdown-extract",
+    provider_ref: "provider-ref:firecrawl:self-hosted",
+    adapter_ref: "adapter-ref:web-access:firecrawl-markdown-extract:v1",
+    runtime_availability: "requires_current_loopback_observation",
+    approval_posture: "exact_local_approval_and_lease_required",
+    cost_posture: "not_metered",
+  },
+  "web-lane-ref:firecrawl-cloud-markdown:v1": {
+    capability_ref: "capability-ref:web-access:firecrawl-cloud-markdown:v1",
+    provider_ref: "web-provider-ref:firecrawl-cloud",
+    adapter_ref: "web-adapter-ref:firecrawl-cloud-markdown:v1",
+    runtime_availability: "requires_credential_and_current_credit_snapshot",
+    approval_posture: "exact_approval_lease_budget_and_reservation_required",
+    cost_posture: "metered_free_plan_only",
+  },
+};
+
+function isSafeWebHybridText(value: unknown, maxLength: number): value is string {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= maxLength &&
+    !containsSecretLike(value) &&
+    !WEB_HYBRID_UNSAFE_TEXT_RE.test(value)
+  );
+}
+
+const EXTERNAL_INFORMATION_LANE_COUNTS: Record<string, number> = {
+  trusted_local_evidence: 0,
+  operator_supplied_external_metadata: 0,
+  allowlisted_gateway_preview: 1,
+  untrusted_content_quarantine: 0,
+  browser_observe: 0,
+  browser_action: 0,
+  provider_search_scrape: 3,
+  external_content_authority_isolation: 0,
+};
+
+function isSafeExternalInformationStringArray(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.every((item) => isSafeWebHybridText(item, 700))
+  );
+}
+
+function isSafeNonEmptyExternalInformationStringArray(
+  value: unknown,
+): value is string[] {
+  return (
+    isSafeExternalInformationStringArray(value) && value.length > 0
+  );
+}
+
+function isSafeExternalInformationHandling(value: unknown): boolean {
+  if (!isPlainRecord(value) || !Array.isArray(value.rows)) {
+    return false;
+  }
+  const expectedCategoryIds = Object.keys(EXTERNAL_INFORMATION_LANE_COUNTS);
+  if (
+    value.schema_version !== "external_information_handling_posture.v1" ||
+    value.contract_ref !==
+      "contract-ref:external-information-handling-posture:v1" ||
+    value.status !== "implemented_read_only_posture_map_existing_lanes_only" ||
+    value.source !== "python_core_agent_loop_thread_read_model" ||
+    value.route_ref !== "GET /control-center/agent-loop/thread" ||
+    value.cli_ref !==
+      "scripts/dev/uaa_founder_loop.py inspect-high-maturity-spine" ||
+    value.backend_owned !== true ||
+    value.local_read_model_only !== true ||
+    value.safe_refs_only !== true ||
+    value.raw_content_included !== false ||
+    value.category_count !== expectedCategoryIds.length ||
+    value.implemented_or_blocked_count !== expectedCategoryIds.length ||
+    value.existing_exact_network_lane_count !== 4 ||
+    value.rows.length !== expectedCategoryIds.length ||
+    value.new_live_web_fetching_added !== false ||
+    value.browser_observe_enabled !== false ||
+    value.browser_action_execution_enabled !== false ||
+    value.provider_search_enabled !== false ||
+    value.exact_bounded_provider_lanes_implemented !== true ||
+    value.provider_sdk_calls_added !== false ||
+    value.connector_writes_added !== false ||
+    value.memory_writes_added !== false ||
+    value.context_injection_added !== false ||
+    value.production_authority_added !== false ||
+    !isSafeWebHybridText(value.safe_summary, 700) ||
+    !isSafeNonEmptyExternalInformationStringArray(value.blocked_authority_refs) ||
+    !isSafeNonEmptyExternalInformationStringArray(value.redactions_applied)
+  ) {
+    return false;
+  }
+  if (
+    !hasExactStringSet(
+      value.rows.map((row) =>
+        isPlainRecord(row) ? row.category_id : undefined,
+      ),
+      expectedCategoryIds,
+    )
+  ) {
+    return false;
+  }
+  return value.rows.every((row) => {
+    if (!isPlainRecord(row) || typeof row.category_id !== "string") {
+      return false;
+    }
+    const expectedLaneCount = EXTERNAL_INFORMATION_LANE_COUNTS[row.category_id];
+    return (
+      expectedLaneCount !== undefined &&
+      row.exact_network_lane_count === expectedLaneCount &&
+      row.existing_exact_network_lane === (expectedLaneCount > 0) &&
+      isSafeWebHybridText(row.label, 160) &&
+      isSafeWebHybridText(row.status, 160) &&
+      isSafeWebHybridText(row.network_posture, 160) &&
+      isSafeWebHybridText(row.authority_posture, 160) &&
+      isSafeWebHybridText(row.safe_summary, 700) &&
+      isSafeExternalInformationStringArray(row.route_refs) &&
+      isSafeExternalInformationStringArray(row.cli_refs) &&
+      isSafeNonEmptyExternalInformationStringArray(row.evidence_refs) &&
+      isSafeNonEmptyExternalInformationStringArray(row.test_refs) &&
+      isSafeNonEmptyExternalInformationStringArray(row.blocked_authority_refs) &&
+      typeof row.authority_required === "boolean" &&
+      row.policy_decision_required === true &&
+      typeof row.receipt_required === "boolean" &&
+      row.safe_refs_only === true &&
+      row.raw_content_included === false &&
+      row.untrusted_content_can_instruct_agent === false &&
+      row.external_content_can_grant_authority === false &&
+      row.new_live_web_fetching_added === false &&
+      row.browser_observe_enabled === false &&
+      row.browser_action_execution_enabled === false &&
+      row.provider_search_enabled === false &&
+      row.provider_sdk_calls_added === false &&
+      row.connector_writes_added === false &&
+      row.memory_writes_added === false &&
+      row.context_injection_added === false &&
+      row.production_authority_added === false
+    );
+  });
+}
+
+function isSafeWebHybridRef(value: unknown): value is string {
+  return typeof value === "string" && WEB_HYBRID_SAFE_REF_RE.test(value);
+}
+
+function isSafeWebHybridRefArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.length > 0 && value.every(isSafeWebHybridRef);
+}
+
+function isSafeWebHybridCodeArray(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every(
+      (item) => typeof item === "string" && WEB_HYBRID_CODE_RE.test(item),
+    )
+  );
+}
+
+function isSafeWebHybridLane(value: unknown): boolean {
+  if (!isPlainRecord(value) || !isSafeWebHybridRef(value.lane_ref)) {
+    return false;
+  }
+  const expected = WEB_HYBRID_LANE_CONTRACTS[value.lane_ref];
+  return Boolean(
+    expected &&
+      value.capability_ref === expected.capability_ref &&
+      value.provider_ref === expected.provider_ref &&
+      value.adapter_ref === expected.adapter_ref &&
+      value.runtime_availability === expected.runtime_availability &&
+      value.approval_posture === expected.approval_posture &&
+      value.cost_posture === expected.cost_posture &&
+      value.implementation_status === "implemented_exact_lane" &&
+      value.side_effect_class === "read_only_external" &&
+      value.authority_posture === "request_scoped_evaluation_required" &&
+      isSafeWebHybridText(value.display_label, 120) &&
+      isSafeWebHybridCodeArray(value.reason_codes) &&
+      isSafeWebHybridCodeArray(value.blocker_codes),
   );
 }
 
@@ -7987,6 +8198,9 @@ function isSafeControlCenterCapabilitySurface(
     value.web_hybrid.schema_version === "uaa-web-hybrid-availability.v1" &&
     value.web_hybrid.truth_owner === "python_core" &&
     value.web_hybrid.status === "implemented_runtime_observation_required" &&
+    isSafeWebHybridRef(value.web_hybrid.read_model_ref) &&
+    isSafeWebHybridRef(value.web_hybrid.cli_ref) &&
+    value.web_hybrid.cli_path === "scripts/inspect_web_hybrid_status.py" &&
     value.web_hybrid.routing_policy ===
       "self_host_first_cloud_escalation" &&
     value.web_hybrid.routing_attempt_ceiling === 2 &&
@@ -7997,17 +8211,34 @@ function isSafeControlCenterCapabilitySurface(
     value.web_hybrid.current_credit_snapshot_status ===
       "not_observed_by_read_only_route" &&
     value.web_hybrid.current_remaining_credits === null &&
+    value.web_hybrid.reviewed_free_plan_credits === 1000 &&
+    value.web_hybrid.reviewed_free_plan_concurrency === 2 &&
+    value.web_hybrid.uaa_effective_cloud_concurrency === 1 &&
+    value.web_hybrid.reviewed_standard_scrape_credits === 1 &&
+    isSafeWebHybridRef(value.web_hybrid.cost_policy_ref) &&
+    isSafeWebHybridRef(value.web_hybrid.credential_ref) &&
+    value.web_hybrid.circuit_state === "unknown_until_runtime_inspection" &&
+    isSafeWebHybridRef(value.web_hybrid.circuit_ref) &&
     value.web_hybrid.request_scoped_evaluation_required === true &&
     value.web_hybrid.final_start_revalidation_required === true &&
     value.web_hybrid.mission_scoped_lease_required === true &&
     value.web_hybrid.complete_request_fingerprint_required === true &&
     value.web_hybrid.start_deadline_required === true &&
+    value.web_hybrid.local_approval_required === true &&
+    value.web_hybrid.exact_authority_lease_required === true &&
+    value.web_hybrid.budget_reservation_required_for_cloud === true &&
     value.web_hybrid.external_content_untrusted === true &&
     value.web_hybrid.instruction_authority_granted === false &&
     value.web_hybrid.memory_write_allowed === false &&
     value.web_hybrid.context_injection_allowed === false &&
     value.web_hybrid.browser_actions_allowed === false &&
+    value.web_hybrid.raw_page_persisted === false &&
+    value.web_hybrid.raw_provider_payload_persisted === false &&
+    value.web_hybrid.credential_material_returned === false &&
     value.web_hybrid.provider_network_call_performed === false &&
+    isSafeWebHybridRefArray(value.web_hybrid.proof_refs) &&
+    isSafeWebHybridCodeArray(value.web_hybrid.blocker_codes) &&
+    isSafeWebHybridText(value.web_hybrid.safe_summary, 700) &&
     isPlainRecord(value.web_hybrid.research_aggregation) &&
     value.web_hybrid.research_aggregation.schema_version ===
       "uaa-web-research-aggregation-posture.v1" &&
@@ -8034,12 +8265,22 @@ function isSafeControlCenterCapabilitySurface(
     value.web_hybrid.research_aggregation.raw_query_persisted === false &&
     value.web_hybrid.research_aggregation.raw_page_content_persisted === false &&
     value.web_hybrid.research_aggregation.raw_provider_payload_persisted === false &&
-    typeof value.web_hybrid.research_aggregation.contract_ref === "string" &&
-    typeof value.web_hybrid.research_aggregation.safe_summary === "string" &&
-    isNonEmptyStringArray(value.web_hybrid.research_aggregation.proof_refs) &&
-    isNonEmptyStringArray(value.web_hybrid.research_aggregation.blocker_codes) &&
+    isSafeWebHybridRef(value.web_hybrid.research_aggregation.contract_ref) &&
+    isSafeWebHybridText(
+      value.web_hybrid.research_aggregation.safe_summary,
+      700,
+    ) &&
+    isSafeWebHybridRefArray(value.web_hybrid.research_aggregation.proof_refs) &&
+    isSafeWebHybridCodeArray(value.web_hybrid.research_aggregation.blocker_codes) &&
     Array.isArray(value.web_hybrid.lanes) &&
     value.web_hybrid.lanes.length === 3 &&
+    value.web_hybrid.lanes.every(isSafeWebHybridLane) &&
+    hasExactStringSet(
+      value.web_hybrid.lanes.map((lane) =>
+        isPlainRecord(lane) ? lane.lane_ref : undefined,
+      ),
+      Object.keys(WEB_HYBRID_LANE_CONTRACTS),
+    ) &&
     isNonEmptyStringArray(value.blocked_authority_refs) &&
     isNonEmptyStringArray(value.redactions_applied)
   );
@@ -14729,30 +14970,5 @@ function unwrapEnvelope(data: unknown): unknown {
 }
 
 function extractErrorMessage(data: unknown, fallback: string): string {
-  if (typeof data !== "object" || data === null) {
-    return fallback;
-  }
-  const record = data as Record<string, unknown>;
-  const detail = record.detail;
-  if (typeof detail === "string") {
-    return detail;
-  }
-  if (typeof detail === "object" && detail !== null) {
-    const safeMessage = (detail as Record<string, unknown>).safe_message;
-    if (typeof safeMessage === "string") {
-      return safeMessage;
-    }
-    const message = (detail as Record<string, unknown>).message;
-    if (typeof message === "string") {
-      return message;
-    }
-  }
-  const error = record.error;
-  if (typeof error === "object" && error !== null) {
-    const message = (error as Record<string, unknown>).message;
-    if (typeof message === "string") {
-      return message;
-    }
-  }
-  return fallback;
+  return safeApiErrorMessage(data, fallback);
 }

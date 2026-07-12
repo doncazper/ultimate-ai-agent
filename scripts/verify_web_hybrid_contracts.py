@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify inert WEB-HYBRID contracts, ledger, and router simulation."""
+"""Verify governed exact WEB-HYBRID contracts and operator truth."""
 
 from __future__ import annotations
 
@@ -20,6 +20,18 @@ from ultimate_ai_agent.core.web_access import (  # noqa: E402
     WebAccessRequestKind,
     WebProviderRoutingPolicy,
 )
+from ultimate_ai_agent.core.capability_availability import (  # noqa: E402
+    build_web_hybrid_availability_read_model,
+)
+from ultimate_ai_agent.core.web_access.firecrawl_cloud import (  # noqa: E402
+    FIRECRAWL_CLOUD_LANE_REF,
+)
+from ultimate_ai_agent.core.web_access.firecrawl_markdown import (  # noqa: E402
+    FIRECRAWL_MARKDOWN_LANE_REF,
+)
+from ultimate_ai_agent.core.web_access.searxng_search import (  # noqa: E402
+    SEARXNG_SEARCH_LANE_REF,
+)
 
 
 PHASE_001_FILES = (
@@ -38,6 +50,11 @@ FORBIDDEN_IMPORT_ROOTS = {
     "urllib",
 }
 PLAN_PATH = Path("docs/network/SEARXNG_FIRECRAWL_HYBRID_IMPLEMENTATION_PLAN.md")
+OPERATOR_SURFACE_FILES = (
+    Path("scripts/inspect_web_hybrid_status.py"),
+    Path("src/ultimate_ai_agent/core/capability_availability/read_model.py"),
+    Path("apps/control-center/src/components/CapabilitySurfacePanel.tsx"),
+)
 
 
 def _import_root(name: str) -> str:
@@ -81,11 +98,45 @@ def main() -> int:
     )
     if decision.status != WebAccessPolicyStatus.DENIED:
         failures.append("WEB_HYBRID_EXTRACT_MARKDOWN_NOT_POLICY_DENIED")
+    read_model = build_web_hybrid_availability_read_model()
+    lane_refs = {lane.lane_ref for lane in read_model.lanes}
+    if lane_refs != {
+        SEARXNG_SEARCH_LANE_REF,
+        FIRECRAWL_MARKDOWN_LANE_REF,
+        FIRECRAWL_CLOUD_LANE_REF,
+    }:
+        failures.append("WEB_HYBRID_EXACT_LANE_SET_INVALID")
+    if len(read_model.lanes) != 3:
+        failures.append("WEB_HYBRID_EXACT_LANE_COUNT_INVALID")
+    if (
+        read_model.routing_policy != "self_host_first_cloud_escalation"
+        or read_model.routing_attempt_ceiling != 2
+        or read_model.cloud_first_enabled
+        or read_model.paid_usage_enabled
+        or read_model.keyless_enabled
+        or read_model.provider_network_call_performed
+        or read_model.current_remaining_credits is not None
+    ):
+        failures.append("WEB_HYBRID_ROUTING_OR_RUNTIME_TRUTH_INVALID")
+    aggregation = read_model.research_aggregation
+    if (
+        aggregation.current_observation_status != "not_injected_by_read_only_route"
+        or aggregation.current_citation_count != 0
+        or not aggregation.content_untrusted
+        or not aggregation.not_instruction_authority
+        or aggregation.context_injection_authorized
+        or aggregation.memory_write_authorized
+        or aggregation.action_execution_authorized
+    ):
+        failures.append("WEB_HYBRID_AGGREGATION_TRUTH_INVALID")
     for path in PHASE_001_FILES:
         if not path.exists():
             failures.append(f"WEB_HYBRID_REQUIRED_FILE_MISSING:{path}")
             continue
         failures.extend(_forbidden_imports(path))
+    for path in OPERATOR_SURFACE_FILES:
+        if not path.exists():
+            failures.append(f"WEB_HYBRID_OPERATOR_SURFACE_MISSING:{path}")
     plan = PLAN_PATH.read_text(encoding="utf-8")
     for fragment in (
         "WEB-HYBRID-001",
@@ -99,7 +150,7 @@ def main() -> int:
         for failure in failures:
             print(f"- {failure}")
         return 1
-    print("WEB-HYBRID inert contract verification passed.")
+    print("WEB-HYBRID governed exact contract verification passed.")
     return 0
 
 

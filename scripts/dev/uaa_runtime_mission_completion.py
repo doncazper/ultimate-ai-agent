@@ -92,6 +92,22 @@ def inspect(args: argparse.Namespace) -> int:
             f"{len(manifest['budget_bindings'])} settled "
             f"unresolved={any(item['unresolved_cost'] for item in manifest['budget_bindings'])}"
         )
+        for binding in manifest["budget_bindings"]:
+            print(
+                "    reservation="
+                f"{binding['reservation_ref']} status={binding['settlement_status']} "
+                f"reserved_ops={binding['reserved_operation_count']} "
+                f"actual_ops={binding['actual_operation_count']} "
+                f"reserved_microusd={binding['reserved_cost_microusd']} "
+                f"actual_microusd={binding['actual_cost_microusd']} "
+                f"unresolved={str(binding['unresolved_cost']).lower()}"
+            )
+            print(
+                "    receipts="
+                f"{binding['reserve_receipt_ref']}, "
+                f"{binding['start_receipt_ref']}, "
+                f"{binding['settlement_receipt_ref']}"
+            )
         print(
             "  evidence="
             f"{manifest['entry_hash_ref']} memory={manifest['memory_candidate_ref']}"

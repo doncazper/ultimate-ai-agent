@@ -49,9 +49,9 @@ export interface ResultEnvelope<T> {
   data?: T;
   result?: T;
   error?: {
-    code: string;
-    message: string;
-    details?: unknown;
+    code?: string;
+    safe_message?: string;
+    details_redacted?: boolean;
   };
 }
 
@@ -8089,6 +8089,7 @@ export interface ExternalInformationHandlingRow {
   policy_decision_required: boolean;
   receipt_required: boolean;
   existing_exact_network_lane: boolean;
+  exact_network_lane_count: number;
   safe_refs_only: boolean;
   raw_content_included: boolean;
   untrusted_content_can_instruct_agent: boolean;
@@ -8265,6 +8266,7 @@ export interface ExternalInformationHandlingPosture {
   browser_observe_enabled: boolean;
   browser_action_execution_enabled: boolean;
   provider_search_enabled: boolean;
+  exact_bounded_provider_lanes_implemented: boolean;
   provider_sdk_calls_added: boolean;
   connector_writes_added: boolean;
   memory_writes_added: boolean;
@@ -8482,7 +8484,9 @@ export interface FounderLoopAgentLoopThread {
     control_center_mints_authority: boolean;
     runtime_model_calls_enabled: boolean;
     provider_sdk_calls_enabled: boolean;
+    /** Legacy v1 broad-web alias. Always false; retained for consumer compatibility. */
     live_web_fetching_enabled: boolean;
+    unrestricted_live_web_fetching_enabled: boolean;
     browser_automation_enabled: boolean;
     connector_writes_enabled: boolean;
     unrestricted_shell_enabled: boolean;
@@ -10281,6 +10285,7 @@ export interface WebHybridAvailabilityReadModel {
   truth_owner: "python_core";
   status: "implemented_runtime_observation_required";
   cli_ref: string;
+  cli_path: "scripts/inspect_web_hybrid_status.py";
   lanes: WebHybridCapabilityLanePosture[];
   research_aggregation: WebResearchAggregationPosture;
   routing_policy: "self_host_first_cloud_escalation";
@@ -14121,8 +14126,6 @@ export interface AuthorityLeaseApprovalRequirement {
 
 export interface AuthorityLeaseApproveAndIssueRequest {
   lease_issue_request: AuthorityLeaseIssueRequest;
-  approved_by_actor_ref?: string;
-  approval_safe_summary?: string;
 }
 
 export interface AuthorityLeaseRevokeRequest {

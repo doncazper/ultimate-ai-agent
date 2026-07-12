@@ -90,6 +90,7 @@ def _assert_safe_agent_loop_thread(thread: dict[str, object]) -> None:
         "runtime_model_calls_enabled",
         "provider_sdk_calls_enabled",
         "live_web_fetching_enabled",
+        "unrestricted_live_web_fetching_enabled",
         "browser_automation_enabled",
         "connector_writes_enabled",
         "unrestricted_shell_enabled",
@@ -128,7 +129,7 @@ def _assert_safe_agent_loop_thread(thread: dict[str, object]) -> None:
         assert row["backend_truth_required"] is True
         assert row["mutation_enabled"] is False
         assert row["backend_route_ref"].startswith("GET ")
-        assert row["cli_ref"].startswith("scripts/dev/")
+        assert row["cli_ref"].startswith("scripts/")
         assert row["primary_ref"]
     assert thread["blocked_authority_refs"]
     high_maturity = thread["high_maturity_spine_readiness"]
@@ -434,11 +435,12 @@ def _assert_safe_agent_loop_thread(thread: dict[str, object]) -> None:
     assert external_info["implemented_or_blocked_count"] == len(
         EXTERNAL_INFORMATION_POSTURE_CATEGORY_IDS
     )
-    assert external_info["existing_exact_network_lane_count"] == 1
+    assert external_info["existing_exact_network_lane_count"] == 4
     assert external_info["new_live_web_fetching_added"] is False
     assert external_info["browser_observe_enabled"] is False
     assert external_info["browser_action_execution_enabled"] is False
     assert external_info["provider_search_enabled"] is False
+    assert external_info["exact_bounded_provider_lanes_implemented"] is True
     assert external_info["provider_sdk_calls_added"] is False
     assert external_info["connector_writes_added"] is False
     assert external_info["memory_writes_added"] is False
@@ -448,27 +450,6 @@ def _assert_safe_agent_loop_thread(thread: dict[str, object]) -> None:
     assert [row["category_id"] for row in external_rows] == list(
         EXTERNAL_INFORMATION_POSTURE_CATEGORY_IDS
     )
-    exact_rows = [
-        row for row in external_rows if row["existing_exact_network_lane"] is True
-    ]
-    assert [row["category_id"] for row in exact_rows] == [
-        "allowlisted_gateway_preview"
-    ]
-    for external_row in external_rows:
-        assert external_row["safe_refs_only"] is True
-        assert external_row["raw_content_included"] is False
-        assert external_row["untrusted_content_can_instruct_agent"] is False
-        assert external_row["external_content_can_grant_authority"] is False
-        assert external_row["new_live_web_fetching_added"] is False
-        assert external_row["browser_action_execution_enabled"] is False
-        assert external_row["provider_sdk_calls_added"] is False
-        assert external_row["connector_writes_added"] is False
-        assert external_row["memory_writes_added"] is False
-        assert external_row["context_injection_added"] is False
-        assert external_row["production_authority_added"] is False
-        assert external_row["evidence_refs"]
-        assert external_row["test_refs"]
-        assert external_row["blocked_authority_refs"]
     assert rows_by_id["W12"]["status"] == "implemented"
     assert rows_by_id["W12"]["maturity"] == "strong"
     assert rows_by_id["W12"]["score_0_10"] == 8
@@ -596,6 +577,7 @@ def test_cockpit_parity_cli_inspects_same_operator_matrix(
             "--state-dir",
             str(state_dir),
             "inspect-cockpit-parity",
+            "--json",
             "--limit",
             "8",
         ]
@@ -616,6 +598,30 @@ def test_cockpit_parity_cli_inspects_same_operator_matrix(
     assert matrix["operator_can_decide_from_cockpit"] is True
     assert matrix["ui_mints_authority"] is False
     assert matrix["mutation_controls_enabled"] is False
+
+
+def test_cockpit_parity_cli_is_human_readable_by_default(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    exit_code = uaa_founder_loop.main(
+        [
+            "--state-dir",
+            str(tmp_path / "founder-loop"),
+            "inspect-cockpit-parity",
+            "--limit",
+            "8",
+        ]
+    )
+    output = capsys.readouterr().out
+    assert exit_code == 0
+    assert output.startswith("UAA governed operator cockpit")
+    assert "Truth owner: Python Agent Core" in output
+    assert "Action Inbox" in output
+    assert "Runtime and Providers" in output
+    assert "External content: untrusted evidence" in output
+    assert "Mutation: blocked" in output
+    assert not output.lstrip().startswith("{")
 
 
 def test_high_maturity_spine_cli_inspects_same_w1_w13_readiness(

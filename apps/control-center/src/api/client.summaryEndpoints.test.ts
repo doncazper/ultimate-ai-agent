@@ -493,6 +493,43 @@ describe("loadControlCenterData summary endpoint wiring", () => {
     );
   });
 
+  it.each([
+    ["lane count", (posture: Record<string, unknown>) => {
+      posture.existing_exact_network_lane_count = 5;
+    }],
+    ["content authority", (posture: Record<string, unknown>) => {
+      const rows = posture.rows as Array<Record<string, unknown>>;
+      rows[0].external_content_can_grant_authority = true;
+    }],
+    ["missing evidence", (posture: Record<string, unknown>) => {
+      const rows = posture.rows as Array<Record<string, unknown>>;
+      rows[0].evidence_refs = [];
+    }],
+  ])("rejects unsafe external-information %s truth", async (_label, mutate) => {
+    const routeData = baseRouteData();
+    const thread = JSON.parse(
+      JSON.stringify(routeData[API_ENDPOINTS.founderAgentLoopThread]),
+    ) as Record<string, unknown>;
+    const highMaturity = thread.high_maturity_spine_readiness as Record<
+      string,
+      unknown
+    >;
+    const externalInformation = highMaturity.external_information_handling as Record<
+      string,
+      unknown
+    >;
+    mutate(externalInformation);
+    routeData[API_ENDPOINTS.founderAgentLoopThread] = thread;
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.founderAgentLoopThread.backend_owned).toBe(false);
+    expect(data.connection.warnings).toContain(
+      "AGENT_LOOP_THREAD_MOCK_FALLBACK",
+    );
+  });
+
   it("rejects malformed governed memory context selections", async () => {
     const routeData = baseRouteData();
     const contextManifest = routeData[
@@ -574,6 +611,67 @@ describe("loadControlCenterData summary endpoint wiring", () => {
         .raw_page_content_persisted,
     ).toBe(false);
     expect(data.connection.warnings).toContain("PARTIAL_MOCK_FALLBACK");
+  });
+
+  it("rejects unsafe WEB-HYBRID lane and rendered-ref content", async () => {
+    const routeData = baseRouteData();
+    const capabilitySurface = JSON.parse(
+      JSON.stringify(
+        routeData[API_ENDPOINTS.controlCenterCapabilitySurface],
+      ),
+    ) as typeof mockControlCenterData.capabilitySurface;
+    const unsafePath = ["", "Users", "private", "raw page content"].join("/");
+    const unsafeProviderMarker = ["provider", "payload"].join("_");
+    const unsafePageRef = ["https:", "", "private.example", "raw-page"].join("/");
+    capabilitySurface.web_hybrid.lanes[0].display_label = unsafePath;
+    capabilitySurface.web_hybrid.lanes[1].provider_ref =
+      `provider-ref:firecrawl:${unsafeProviderMarker}`;
+    capabilitySurface.web_hybrid.research_aggregation.proof_refs = [
+      unsafePageRef,
+    ];
+    routeData[API_ENDPOINTS.controlCenterCapabilitySurface] = capabilitySurface;
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+    const serialized = JSON.stringify(data.capabilitySurface);
+
+    expect(data.connection.warnings).toContain("PARTIAL_MOCK_FALLBACK");
+    expect(data.capabilitySurface.web_hybrid.lanes[0].display_label).toBe(
+      "SearXNG read-only search",
+    );
+    expect(serialized).not.toContain(unsafePath);
+    expect(serialized).not.toContain(
+      `provider-ref:firecrawl:${unsafeProviderMarker}`,
+    );
+    expect(serialized).not.toContain("private.example");
+  });
+
+  it("rejects secret and local-path shapes in WEB-HYBRID rendered text", async () => {
+    const unsafeRenderedValues = [
+      ["password", "supersecret"].join("="),
+      ["authorization", "Bearer private-value"].join("="),
+      ["cookie", "private-value"].join("="),
+      ["", "private", "tmp", "private-value"].join("/"),
+      ["", "var", "tmp", "private-value"].join("/"),
+      ["C:", "Users", "private", "private-value"].join("\\"),
+    ];
+
+    for (const unsafeValue of unsafeRenderedValues) {
+      const routeData = baseRouteData();
+      const capabilitySurface = JSON.parse(
+        JSON.stringify(
+          routeData[API_ENDPOINTS.controlCenterCapabilitySurface],
+        ),
+      ) as typeof mockControlCenterData.capabilitySurface;
+      capabilitySurface.web_hybrid.safe_summary = unsafeValue;
+      routeData[API_ENDPOINTS.controlCenterCapabilitySurface] = capabilitySurface;
+      stubControlCenterFetch(routeData);
+
+      const data = await loadControlCenterData();
+
+      expect(data.connection.warnings).toContain("PARTIAL_MOCK_FALLBACK");
+      expect(JSON.stringify(data.capabilitySurface)).not.toContain(unsafeValue);
+    }
   });
 });
 
@@ -1063,6 +1161,33 @@ function baseRouteData(): Record<string, unknown> {
               score_0_10: index % 3 === 0 ? 8 : 7,
             }),
           ),
+        external_information_handling: {
+          ...mockControlCenterData.founderAgentLoopThread
+            .high_maturity_spine_readiness.external_information_handling,
+          status: "implemented_read_only_posture_map_existing_lanes_only",
+          source: "python_core_agent_loop_thread_read_model",
+          backend_owned: true,
+          implemented_or_blocked_count: 8,
+          existing_exact_network_lane_count: 4,
+          exact_bounded_provider_lanes_implemented: true,
+          rows:
+            mockControlCenterData.founderAgentLoopThread.high_maturity_spine_readiness.external_information_handling.rows.map(
+              (row) => {
+                const exactLaneCount =
+                  row.category_id === "allowlisted_gateway_preview"
+                    ? 1
+                    : row.category_id === "provider_search_scrape"
+                      ? 3
+                      : 0;
+                return {
+                  ...row,
+                  status: "implemented_or_governed_blocked",
+                  existing_exact_network_lane: exactLaneCount > 0,
+                  exact_network_lane_count: exactLaneCount,
+                };
+              },
+            ),
+        },
       },
       operator_decision_matrix: {
         ...mockControlCenterData.founderAgentLoopThread.operator_decision_matrix,

@@ -1367,6 +1367,29 @@ function backendOwnedHighMaturitySpineReadiness(
           "Operator can inspect this surface before choosing a safe next action.",
       })),
     },
+    external_information_handling: {
+      ...base.external_information_handling,
+      status: "implemented_read_only_posture_map_existing_lanes_only",
+      source: "python_core_agent_loop_thread_read_model",
+      backend_owned: true,
+      implemented_or_blocked_count: 8,
+      existing_exact_network_lane_count: 4,
+      exact_bounded_provider_lanes_implemented: true,
+      rows: base.external_information_handling.rows.map((row) => {
+        const exactLaneCount =
+          row.category_id === "allowlisted_gateway_preview"
+            ? 1
+            : row.category_id === "provider_search_scrape"
+              ? 3
+              : 0;
+        return {
+          ...row,
+          status: "implemented_or_governed_blocked",
+          existing_exact_network_lane: exactLaneCount > 0,
+          exact_network_lane_count: exactLaneCount,
+        };
+      }),
+    },
     ...overrides,
   };
 }
@@ -2530,6 +2553,9 @@ describe("Web Control Center shell", () => {
       screen.getByText(/inspect the approval envelope before mutation/i),
     ).toBeInTheDocument();
     expect(
+      screen.getByText(/External web content is untrusted evidence/i),
+    ).toBeInTheDocument();
+    expect(
       screen.getByRole("heading", { name: "High-Maturity Agent Spine" }),
     ).toBeInTheDocument();
     expect(
@@ -2567,7 +2593,8 @@ describe("Web Control Center shell", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByText(/Exact network lanes/)).toBeInTheDocument();
-    expect(screen.getByText(/Provider search/)).toBeInTheDocument();
+    expect(screen.getByText(/Unrestricted provider search/)).toBeInTheDocument();
+    expect(screen.getByText(/Exact bounded provider lanes/)).toBeInTheDocument();
     expect(screen.getByText("Model and Provider Posture")).toBeInTheDocument();
     expect(
       screen.getByText("contract-ref:model-provider-management-posture:v1"),
@@ -2793,8 +2820,8 @@ describe("Web Control Center shell", () => {
       expect(within(cockpit).getByText("Git Preview")).toBeInTheDocument();
       expect(within(cockpit).getByText("Live Preview")).toBeInTheDocument();
       expect(
-        screen.getByRole("combobox", { name: "Coding authority mode" }),
-      ).toBeDisabled();
+        screen.getByText("Authority mode posture"),
+      ).toBeInTheDocument();
       for (const action of [
         "Accept all",
         "Accept file",
@@ -2805,8 +2832,12 @@ describe("Web Control Center shell", () => {
         "Run tests",
         "Preview status",
       ]) {
-        expect(screen.getByRole("button", { name: action })).toBeDisabled();
+        expect(screen.queryByRole("button", { name: action })).not.toBeInTheDocument();
       }
+      expect(screen.queryByRole("combobox", { name: "Coding authority mode" })).not.toBeInTheDocument();
+      expect(
+        screen.getByText(/Patch selection and apply controls are not exposed/i),
+      ).toBeInTheDocument();
       expect(screen.queryByText(/Apply succeeded/i)).not.toBeInTheDocument();
     } finally {
       view.unmount();
@@ -2831,16 +2862,9 @@ describe("Web Control Center shell", () => {
       expect(
         screen.getByText(/no coding authority is enabled/i),
       ).toBeInTheDocument();
-      expect(
-        screen.getByRole("button", { name: "Apply patch" }),
-      ).toBeDisabled();
-      expect(
-        screen.getByRole("button", { name: "Run command" }),
-      ).toBeDisabled();
-      expect(screen.getByRole("button", { name: "Commit" })).toBeDisabled();
-      expect(
-        screen.getByRole("button", { name: "Preview status" }),
-      ).toBeDisabled();
+      for (const action of ["Apply patch", "Run command", "Commit", "Preview status"]) {
+        expect(screen.queryByRole("button", { name: action })).not.toBeInTheDocument();
+      }
     } finally {
       view.unmount();
       cleanup();
@@ -5948,7 +5972,10 @@ describe("Web Control Center shell", () => {
           return new Response(
             JSON.stringify({
               ok: false,
-              error: { message: "Turn router preview unavailable." },
+              error: {
+                safe_message: "Turn router preview unavailable.",
+                details_redacted: true,
+              },
             }),
             { status: 503, headers: { "Content-Type": "application/json" } },
           );
@@ -10583,7 +10610,10 @@ describe("Web Control Center shell", () => {
           return new Response(
             JSON.stringify({
               ok: false,
-              error: { message: "Action Inbox read model unavailable" },
+              error: {
+                safe_message: "Action Inbox read model unavailable",
+                details_redacted: true,
+              },
             }),
             {
               status: 503,
@@ -11479,7 +11509,7 @@ describe("Web Control Center shell", () => {
       {
         path: "/settings",
         heading: /^Settings$/,
-        marker: /Backend-owned Settings status/i,
+        marker: /Non-authoritative Settings fallback/i,
         route: /GET \/control-center\/settings\/status/i,
       },
     ] as const;
@@ -11762,7 +11792,13 @@ describe("Web Control Center shell", () => {
       next_safe_action:
         "Issue the mission-scoped AuthorityLease with the displayed domain scope.",
     };
-    let settingsStatus = mockControlCenterData.settingsStatus;
+    let settingsStatus = {
+      ...mockControlCenterData.settingsStatus,
+      authority_lease_state: {
+        ...mockControlCenterData.settingsStatus.authority_lease_state,
+        backend_owned: true,
+      },
+    };
     const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
       const urlText = String(url);
       if (
@@ -11816,6 +11852,7 @@ describe("Web Control Center shell", () => {
           ...mockControlCenterData.settingsStatus,
           authority_lease_state: {
             ...mockControlCenterData.settingsStatus.authority_lease_state,
+            backend_owned: true,
             active_mode: "approved_safe_local_work_session",
             active_leases: [nextLease],
             recent_receipts: [nextReceipt],
@@ -11850,6 +11887,7 @@ describe("Web Control Center shell", () => {
           ...mockControlCenterData.settingsStatus,
           authority_lease_state: {
             ...mockControlCenterData.settingsStatus.authority_lease_state,
+            backend_owned: true,
             active_mode: "read_only",
             active_leases:
               mockControlCenterData.settingsStatus.authority_lease_state.active_leases,
@@ -12217,6 +12255,9 @@ describe("Web Control Center shell", () => {
     expect(JSON.stringify(missionIssueRequest.headers)).toContain(
       "idempotency-ref:control-center-authority-lease",
     );
+    const missionIssueBody = JSON.parse(String(missionIssueRequest.body));
+    expect(missionIssueBody).not.toHaveProperty("approved_by_actor_ref");
+    expect(missionIssueBody).not.toHaveProperty("approval_safe_summary");
 
     fireEvent.click(screen.getByRole("button", { name: "Safe local work" }));
     const issueResult = await screen.findByLabelText(
@@ -12280,6 +12321,8 @@ describe("Web Control Center shell", () => {
     expect(safeLocalRequest.lease_issue_request.safe_summary).toContain(
       "backend AuthorityLease mode catalog",
     );
+    expect(safeLocalRequest).not.toHaveProperty("approved_by_actor_ref");
+    expect(safeLocalRequest).not.toHaveProperty("approval_safe_summary");
 
     fireEvent.click(screen.getByRole("button", { name: "Revoke active lease" }));
     await waitFor(() =>
@@ -12518,6 +12561,36 @@ describe("Web Control Center shell", () => {
 
     vi.unstubAllGlobals();
   }, 10_000);
+
+  it("disables AuthorityLease mutations for fallback Settings truth", async () => {
+    const fetchMock = vi.fn(async (_url: string, _options?: RequestInit) => {
+      throw new Error("backend unavailable");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/settings");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /Non-authoritative Settings fallback/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Authority mutations are disabled/i),
+    ).toBeInTheDocument();
+    for (const label of [
+      "Read-only",
+      "Ask before changes",
+      "Safe local work",
+      "Full workspace",
+      "Full machine",
+      "Delegated mission",
+      "Revoke active lease",
+    ]) {
+      expect(screen.getByRole("button", { name: label })).toBeDisabled();
+    }
+    expect(
+      fetchMock.mock.calls.filter(([, init]) => init?.method === "POST"),
+    ).toHaveLength(0);
+  });
 
   it("fails closed for unsafe model provider control-plane payloads", async () => {
     const unsafeControlPlane = JSON.parse(
@@ -14415,7 +14488,7 @@ describe("Web Control Center shell", () => {
     expect(screen.queryByText(/\/home\//i)).not.toBeInTheDocument();
   });
 
-  it("renders M37 file review packets with review-only approval capture controls", async () => {
+  it("renders M37 file review packets without local approval capture controls", async () => {
     mockFetchWithFallback();
     window.history.pushState({}, "", "/files/review");
     render(<App />);
@@ -14469,19 +14542,19 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText(/Receipt plan metadata/i)).toBeInTheDocument();
     expect(screen.getByText(/raw content stored: no/i)).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /approve review-only/i }),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: /approve review-only/i }),
+    ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /deny review-only/i }),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: /deny review-only/i }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByText(
-        /captures a review-only approval record bound to this exact redacted packet/i,
+        /cannot submit or persist a decision/i,
       ),
     ).toBeInTheDocument();
     expect(
       screen.getAllByText(
-        /does not grant raw file access, context proposal, context injection, memory writes, export, or execution/i,
+        /grants no raw file access, context proposal, context injection, memory writes, export, or execution/i,
       ).length,
     ).toBeGreaterThan(0);
   });
@@ -14546,11 +14619,11 @@ describe("Web Control Center shell", () => {
       ).not.toBeInTheDocument();
     }
     expect(
-      screen.getByRole("button", { name: /approve review-only/i }),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: /approve review-only/i }),
+    ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /deny review-only/i }),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: /deny review-only/i }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText(/raw_content/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/full_file_content/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/unredacted_preview/i)).not.toBeInTheDocument();
@@ -14561,7 +14634,7 @@ describe("Web Control Center shell", () => {
     expect(screen.queryByText(/supersecretvalue123/i)).not.toBeInTheDocument();
   });
 
-  it("captures a mock M37 review-only decision without authority", async () => {
+  it("does not synthesize a persisted M37 decision in React state", async () => {
     mockFetchWithFallback();
     window.history.pushState({}, "", "/files/review");
     render(<App />);
@@ -14569,12 +14642,11 @@ describe("Web Control Center shell", () => {
     expect(
       await screen.findByRole("heading", { name: /File Review Surface/i }),
     ).toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole("button", { name: /approve review-only/i }),
-    );
-
-    expect(screen.getByText(/approved_for_review_only/i)).toBeInTheDocument();
-    expect(screen.getByText(/capture persisted: yes/i)).toBeInTheDocument();
+    expect(screen.queryByText(/approved_for_review_only/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/capture persisted: yes/i)).not.toBeInTheDocument();
+    expect(screen.getAllByText(/not_captured/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/approval persisted/i)).toBeInTheDocument();
+    expect(screen.getByText(/approval persisted/i).nextSibling).toHaveTextContent("no");
     expect(screen.getByText(/raw access authorized: no/i)).toBeInTheDocument();
     expect(
       screen.getByText(/context proposal authorized: no/i),
@@ -14586,7 +14658,7 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText(/execution authorized: no/i)).toBeInTheDocument();
   });
 
-  it("does not carry review-only capture state across packet selection", async () => {
+  it("keeps packet selection presentation-only without decision persistence", async () => {
     mockFetchWithFallback();
     window.history.pushState({}, "", "/files/review");
     render(<App />);
@@ -14595,14 +14667,7 @@ describe("Web Control Center shell", () => {
       await screen.findByRole("heading", { name: /File Review Surface/i }),
     ).toBeInTheDocument();
 
-    // Approve review-only on the first (default-selected) packet.
-    fireEvent.click(
-      screen.getByRole("button", { name: /approve review-only/i }),
-    );
-    expect(screen.getByText(/approved_for_review_only/i)).toBeInTheDocument();
-
-    // Switching to a different packet must reset the capture state to that
-    // packet's own value rather than leaking the first packet's approval.
+    expect(screen.getAllByText(/not_captured/i).length).toBeGreaterThan(0);
     const reviewButtons = screen.getAllByRole("button", {
       name: /view review packet/i,
     });
@@ -14611,9 +14676,7 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByRole("article", { name: /file-review-packet:mock_002/i }),
     ).toHaveAttribute("aria-current", "true");
-    expect(
-      screen.queryByText(/approved_for_review_only/i),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/approved_for_review_only/i)).not.toBeInTheDocument();
     expect(screen.getAllByText(/not_captured/i).length).toBeGreaterThan(0);
 
     fireEvent.click(reviewButtons[0]);
@@ -14621,8 +14684,9 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByRole("article", { name: /file-review-packet:mock_001/i }),
     ).toHaveAttribute("aria-current", "true");
-    expect(screen.getByText(/approved_for_review_only/i)).toBeInTheDocument();
-    expect(screen.getByText(/capture persisted: yes/i)).toBeInTheDocument();
+    expect(screen.queryByText(/approved_for_review_only/i)).not.toBeInTheDocument();
+    expect(screen.getAllByText(/not_captured/i).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/capture persisted: yes/i)).not.toBeInTheDocument();
   });
 
   it("keeps M37 binding refs safe and free of private path shapes", async () => {
@@ -14662,7 +14726,7 @@ describe("Web Control Center shell", () => {
     expect(screen.getAllByText(/safe refs only/i).length).toBeGreaterThan(0);
     expect(
       screen.getAllByText(
-        /Only the review approval capture route may persist safe refs/i,
+        /backend review approval capture route exists but is not exposed or wired/i,
       ).length,
     ).toBeGreaterThan(0);
   });
@@ -16325,8 +16389,13 @@ describe("Web Control Center shell", () => {
               ok: false,
               error: {
                 code: "SAFE_REJECTION",
-                message:
-                  "Preview rejected because token=supersecretvalue123 was invalid.",
+                safe_message: "Preview request was rejected safely.",
+                details_redacted: true,
+                message: "raw prompt: token=supersecretvalue123",
+                details: {
+                  local_path: "/Users/private/project",
+                  raw_page: "private page content",
+                },
               },
             }),
             { status: 400, headers: { "Content-Type": "application/json" } },
@@ -16342,10 +16411,12 @@ describe("Web Control Center shell", () => {
 
     expect(
       await screen.findByText(
-        /Preview rejected because \[redacted\] was invalid/i,
+        /Preview request was rejected safely/i,
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText(/supersecretvalue123/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/private page content/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Users\/private/i)).not.toBeInTheDocument();
   });
 
   it("keeps read endpoints separate from preview POST endpoints", () => {

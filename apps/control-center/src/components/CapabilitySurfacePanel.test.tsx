@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { mockControlCenterData } from "../mocks/controlCenterData";
@@ -9,6 +9,9 @@ describe("CapabilitySurfacePanel web hybrid posture", () => {
     render(
       <CapabilitySurfacePanel surface={mockControlCenterData.capabilitySurface} />,
     );
+    const webPanel = screen.getByRole("region", {
+      name: "Web search and extraction",
+    });
 
     expect(screen.getByText("Web search and extraction")).toBeInTheDocument();
     expect(screen.getByText("SearXNG read-only search")).toBeInTheDocument();
@@ -20,9 +23,38 @@ describe("CapabilitySurfacePanel web hybrid posture", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("External content is untrusted")).toBeInTheDocument();
     expect(screen.getByText("Bounded cited research")).toBeInTheDocument();
-    expect(screen.getByText(/Current citations: 0/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/current citations are 0; zero means no current observation/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("scripts/inspect_web_hybrid_status.py"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("web-hybrid-read-model-ref:operator:v1"),
+    ).toBeInTheDocument();
+    for (const lane of mockControlCenterData.capabilitySurface.web_hybrid.lanes) {
+      expect(screen.getByText(lane.capability_ref)).toBeInTheDocument();
+      expect(screen.getByText(lane.adapter_ref)).toBeInTheDocument();
+    }
+    expect(
+      within(webPanel).getByText(
+        new RegExp(
+          mockControlCenterData.capabilitySurface.web_hybrid.research_aggregation
+            .proof_refs[0],
+        ),
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/CURRENT_RESEARCH_OBSERVATIONS_NOT_INJECTED/),
+    ).toBeInTheDocument();
     expect(
       screen.getByText(/Exact approval, mission-scoped AuthorityLease/),
+    ).toBeInTheDocument();
+    expect(
+      within(webPanel).getByText("not injected by this read-only surface"),
+    ).toBeInTheDocument();
+    expect(
+      within(webPanel).getByText("3", { selector: ".stat-card strong" }),
     ).toBeInTheDocument();
     expect(screen.getByText(/Paid usage, Keyless/)).toBeInTheDocument();
     expect(screen.queryByText(/\{.*\}/)).not.toBeInTheDocument();

@@ -14914,6 +14914,7 @@ export const mockControlCenterData: ControlCenterData = {
       truth_owner: "python_core",
       status: "implemented_runtime_observation_required",
       cli_ref: "repo-local-command:inspect-web-hybrid-status",
+      cli_path: "scripts/inspect_web_hybrid_status.py",
       research_aggregation: {
         schema_version: "uaa-web-research-aggregation-posture.v1",
         contract_ref: "contract-ref:web-research-aggregation:v1",
@@ -19334,7 +19335,7 @@ export const mockControlCenterData: ControlCenterData = {
     boundarySummary:
       "This surface is mock and non-authoritative. It displays redacted review packets and exact safe binding refs only.",
     captureBoundarySummary:
-      "Review approval capture is review-only persistence. It captures a review-only approval record bound to this exact redacted packet and does not grant raw file access, context proposal, context injection, memory writes, export, or execution.",
+      "Review approval capture is review-only persistence. This mock inspection surface does not capture or persist a decision; the separately governed backend route exists but is not exposed or wired in Control Center and grants no raw file access, context proposal, context injection, memory writes, export, or execution.",
     warningCodes: [
       "MOCK_DATA_ONLY",
       "NO_PRODUCTION_AUTHORITY",
@@ -20218,6 +20219,7 @@ export const mockControlCenterData: ControlCenterData = {
           policy_decision_required: true,
           receipt_required: false,
           existing_exact_network_lane: false,
+          exact_network_lane_count: 0,
           safe_refs_only: true,
           raw_content_included: false,
           untrusted_content_can_instruct_agent: false,
@@ -20236,6 +20238,7 @@ export const mockControlCenterData: ControlCenterData = {
         browser_observe_enabled: false,
         browser_action_execution_enabled: false,
         provider_search_enabled: false,
+        exact_bounded_provider_lanes_implemented: false,
         provider_sdk_calls_added: false,
         connector_writes_added: false,
         memory_writes_added: false,
@@ -20245,7 +20248,7 @@ export const mockControlCenterData: ControlCenterData = {
           "Mock fallback external information posture is not backend truth.",
         blocked_authority_refs: [
           "blocked-state:agent-loop:mock-fallback",
-          "blocked-state:agent-loop:no-live-web-fetching",
+          "blocked-state:agent-loop:no-unrestricted-live-web-fetching",
           "blocked-state:agent-loop:no-browser-automation",
         ],
         redactions_applied: [
@@ -20504,6 +20507,7 @@ export const mockControlCenterData: ControlCenterData = {
       runtime_model_calls_enabled: false,
       provider_sdk_calls_enabled: false,
       live_web_fetching_enabled: false,
+      unrestricted_live_web_fetching_enabled: false,
       browser_automation_enabled: false,
       connector_writes_enabled: false,
       unrestricted_shell_enabled: false,
@@ -20515,7 +20519,7 @@ export const mockControlCenterData: ControlCenterData = {
     blocked_authority_refs: [
       "blocked-state:agent-loop:no-runtime-model-calls",
       "blocked-state:agent-loop:no-provider-sdk-calls",
-      "blocked-state:agent-loop:no-live-web-fetching",
+      "blocked-state:agent-loop:no-unrestricted-live-web-fetching",
       "blocked-state:agent-loop:no-browser-automation",
       "blocked-state:agent-loop:no-connector-writes",
       "blocked-state:agent-loop:no-unrestricted-shell",

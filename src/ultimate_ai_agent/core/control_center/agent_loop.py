@@ -3,6 +3,10 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from ultimate_ai_agent.core.capability_availability import (
+    CAPABILITY_AVAILABILITY_ROUTE_REF,
+    build_web_hybrid_availability_read_model,
+)
 from ultimate_ai_agent.core.control_center.action_tool_code_catalog import (
     ACTION_TOOL_CODE_CATALOG_CONTRACT_REF,
     ACTION_TOOL_CODE_CATALOG_CLI_REF,
@@ -106,7 +110,7 @@ AGENT_LOOP_THREAD_SOURCE = "python_core_agent_loop_thread_read_model"
 AGENT_LOOP_THREAD_BLOCKED_AUTHORITY_REFS = (
     "blocked-state:agent-loop:no-runtime-model-calls",
     "blocked-state:agent-loop:no-provider-sdk-calls",
-    "blocked-state:agent-loop:no-live-web-fetching",
+    "blocked-state:agent-loop:no-unrestricted-live-web-fetching",
     "blocked-state:agent-loop:no-browser-automation",
     "blocked-state:agent-loop:no-connector-writes",
     "blocked-state:agent-loop:no-unrestricted-shell",
@@ -533,7 +537,7 @@ def build_founder_loop_product_cockpit_posture() -> dict[str, Any]:
                 "browser action or external-content authority."
             ),
             blocked_authority_refs=[
-                "blocked-state:agent-loop:no-live-web-fetching",
+                "blocked-state:agent-loop:no-unrestricted-live-web-fetching",
                 "blocked-state:agent-loop:no-browser-automation",
             ],
         ),
@@ -1021,6 +1025,7 @@ def build_durable_orchestration_posture() -> dict[str, Any]:
 def build_external_information_handling_posture() -> dict[str, Any]:
     """Return web/external information posture without adding new fetch authority."""
 
+    web_hybrid = build_web_hybrid_availability_read_model()
     rows = [
         _external_information_row(
             category_id="trusted_local_evidence",
@@ -1204,29 +1209,34 @@ def build_external_information_handling_posture() -> dict[str, Any]:
         _external_information_row(
             category_id="provider_search_scrape",
             label="Provider search/scrape adapters",
-            status="planned_disabled_adapter_shell",
-            network_posture="provider_runtime_blocked",
-            authority_posture="catalog_visibility_is_not_callable_authority",
-            safe_summary=(
-                "Firecrawl, Browserbase, search, and scrape providers remain "
-                "future/disabled adapter shells unless an exact WebAccessGateway "
-                "lane grants read-only authority with audit and receipts."
-            ),
-            route_refs=[],
-            cli_refs=[],
+            status=web_hybrid.status,
+            network_posture="exact_web_hybrid_lanes_request_scoped",
+            authority_posture="fresh_request_scoped_final_start_evaluation_required",
+            safe_summary=web_hybrid.safe_summary,
+            route_refs=[CAPABILITY_AVAILABILITY_ROUTE_REF],
+            cli_refs=[web_hybrid.cli_path],
             evidence_refs=[
                 "docs/network/WEB_ACCESS_PROVIDER_AUTHORITY_SEQUENCE.md",
-                "docs/control_center/UAA_RUNTIME_MODEL_PROVIDER_RESEARCH.md",
+                web_hybrid.read_model_ref,
+                *web_hybrid.proof_refs,
             ],
             test_refs=[
-                "tests/test_model_runtime_no_real_calls.py",
-                "tests/test_tool_runtime_authority_boundaries.py",
+                "tests/test_searxng_search.py",
+                "tests/test_firecrawl_markdown.py",
+                "tests/test_firecrawl_cloud.py",
+                "tests/test_web_hybrid_ledger_router.py",
+                "tests/test_web_research_aggregation.py",
+                "tests/test_inspect_web_hybrid_status.py",
             ],
             blocked_authority_refs=[
-                "blocked-state:agent-loop:no-provider-sdk-calls",
-                "blocked-state:web-evidence:no-provider-model-call",
-                "blocked-state:web-evidence:no-connector-write",
+                "blocked-state:web-hybrid:current-runtime-observation-required",
+                "blocked-state:web-hybrid:paid-usage-denied",
+                "blocked-state:web-evidence:no-browser-actions",
             ],
+            authority_required=True,
+            receipt_required=True,
+            existing_exact_network_lane=True,
+            exact_network_lane_count=len(web_hybrid.lanes),
         ),
         _external_information_row(
             category_id="external_content_authority_isolation",
@@ -1273,13 +1283,14 @@ def build_external_information_handling_posture() -> dict[str, Any]:
         "category_count": len(rows),
         "implemented_or_blocked_count": len(rows),
         "existing_exact_network_lane_count": sum(
-            1 for row in rows if row["existing_exact_network_lane"] is True
+            row["exact_network_lane_count"] for row in rows
         ),
         "rows": rows,
         "new_live_web_fetching_added": False,
         "browser_observe_enabled": False,
         "browser_action_execution_enabled": False,
         "provider_search_enabled": False,
+        "exact_bounded_provider_lanes_implemented": True,
         "provider_sdk_calls_added": False,
         "connector_writes_added": False,
         "memory_writes_added": False,
@@ -1287,9 +1298,10 @@ def build_external_information_handling_posture() -> dict[str, Any]:
         "production_authority_added": False,
         "safe_summary": (
             "External information handling is explicit: local evidence is "
-            "receipt/proof backed, one existing WebAccessGateway HTTPS GET lane "
-            "is AuthorityLease-gated, and browser/provider/action expansion "
-            "remains planned or blocked."
+            "receipt/proof backed; the existing allowlisted HTTPS GET preview and "
+            "three exact SearXNG/Firecrawl lanes are request-scoped and "
+            "AuthorityLease-gated. Current runtime observations are never inferred, "
+            "and unrestricted provider, browser, or action expansion remains blocked."
         ),
         "blocked_authority_refs": _dedupe(
             [
@@ -1931,12 +1943,15 @@ def build_high_maturity_agent_spine_readiness() -> dict[str, Any]:
             score=8,
             safe_summary=(
                 "Web/external information is mapped into an explicit handling "
-                "posture: local evidence refs, one existing AuthorityLease-gated "
-                "WebAccessGateway preview lane, untrusted-content quarantine, "
-                "and blocked browser/provider/action expansion."
+                "posture: local evidence refs, the AuthorityLease-gated allowlisted "
+                "GET preview, exact bounded SearXNG/Firecrawl lanes, untrusted-content "
+                "quarantine, and blocked unrestricted browser/provider expansion."
             ),
             evidence_refs=[
                 EXTERNAL_INFORMATION_HANDLING_CONTRACT_REF,
+                "GET /control-center/capabilities/availability",
+                "scripts/inspect_web_hybrid_status.py",
+                "proof-ref:web-hybrid:deterministic-contracts",
                 "GET /control-center/web-evidence/attachments",
                 "docs/network/WEB_ACCESS_PROVIDER_AUTHORITY_SEQUENCE.md",
                 "src/ultimate_ai_agent/core/network/governed_web_evidence.py",
@@ -1944,10 +1959,13 @@ def build_high_maturity_agent_spine_readiness() -> dict[str, Any]:
             test_refs=[
                 "tests/test_governed_web_evidence.py",
                 "tests/test_web_evidence_product_slice.py",
+                "tests/test_web_hybrid_ledger_router.py",
+                "tests/test_web_research_aggregation.py",
             ],
             gap=(
-                "Unrestricted browsing, browser actions, provider search/scrape "
-                "runtime, and broad external-data authority remain blocked."
+                "All provider search/scrape lanes beyond the exact SearXNG/Firecrawl "
+                "set, every browser action, and broad external-data authority remain "
+                "blocked."
             ),
             recommendation=(
                 "Keep WebAccessGateway as the only boundary; add read-only "
@@ -2613,7 +2631,10 @@ def build_agent_loop_thread_read_model(
             "control_center_mints_authority": False,
             "runtime_model_calls_enabled": False,
             "provider_sdk_calls_enabled": False,
+            # Retained as the v1 broad-web compatibility alias. Exact bounded
+            # WEB-HYBRID lanes do not change this deny posture.
             "live_web_fetching_enabled": False,
+            "unrestricted_live_web_fetching_enabled": False,
             "browser_automation_enabled": False,
             "connector_writes_enabled": False,
             "unrestricted_shell_enabled": False,
@@ -2775,7 +2796,13 @@ def _external_information_row(
     policy_decision_required: bool = True,
     receipt_required: bool = False,
     existing_exact_network_lane: bool = False,
+    exact_network_lane_count: int | None = None,
 ) -> dict[str, Any]:
+    lane_count = (
+        1 if existing_exact_network_lane else 0
+    ) if exact_network_lane_count is None else exact_network_lane_count
+    if lane_count < 0 or (lane_count > 0) is not existing_exact_network_lane:
+        raise ValueError("EXTERNAL_INFORMATION_EXACT_LANE_COUNT_INVALID")
     return {
         "category_id": _safe_text(category_id),
         "label": _safe_text(label),
@@ -2792,6 +2819,7 @@ def _external_information_row(
         "policy_decision_required": policy_decision_required,
         "receipt_required": receipt_required,
         "existing_exact_network_lane": existing_exact_network_lane,
+        "exact_network_lane_count": lane_count,
         "safe_refs_only": True,
         "raw_content_included": False,
         "untrusted_content_can_instruct_agent": False,
@@ -3019,7 +3047,7 @@ def _build_operator_decision_matrix(
             capability_status="proposal_only",
             operator_question="What plan is visible, and what still needs review?",
             backend_route_ref="GET /control-center/today/summary",
-            cli_ref="scripts/dev/uaa_founder_loop.py inspect-state",
+            cli_ref="scripts/dev/uaa_founder_loop.py inspect",
             primary_ref="plan-revision-ref:agent-loop:current",
             approval_posture="review_required_before_action",
             side_effect_class="read_only",
@@ -3081,8 +3109,8 @@ def _build_operator_decision_matrix(
             surface="Runtime and Providers",
             capability_status="blocked",
             operator_question="Can model/provider output make decisions?",
-            backend_route_ref="GET /control-center/model-provider/control-plane",
-            cli_ref="scripts/dev/uaa_runtime.py inspect-capabilities",
+            backend_route_ref=MODEL_PROVIDER_CONTROL_PLANE_ROUTE_REF,
+            cli_ref=MODEL_PROVIDER_CONTROL_PLANE_CLI_REF,
             primary_ref="runtime-provider-posture:metadata-only",
             approval_posture="metadata_only_no_invocation",
             side_effect_class="read_only",

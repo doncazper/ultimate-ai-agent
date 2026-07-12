@@ -72,9 +72,23 @@ export function CapabilitySurfacePanel({
           <span className="status-pill compact">read-only evidence</span>
         </div>
         <p>{surface.web_hybrid.safe_summary}</p>
+        <dl className="detail-list compact">
+          <div>
+            <dt>Read model</dt>
+            <dd>{surface.web_hybrid.read_model_ref}</dd>
+          </div>
+          <div>
+            <dt>Human CLI</dt>
+            <dd>{surface.web_hybrid.cli_path}</dd>
+          </div>
+          <div>
+            <dt>Current observations</dt>
+            <dd>not injected by this read-only surface</dd>
+          </div>
+        </dl>
         <div className="panel-grid">
           <MetricCard
-            label="Active exact lanes"
+            label="Implemented exact lanes"
             value={surface.web_hybrid.lanes.length}
           />
           <MetricCard
@@ -98,6 +112,8 @@ export function CapabilitySurfacePanel({
                   <td>
                     <strong>{lane.display_label}</strong>
                     <small>{lane.provider_ref}</small>
+                    <small>{lane.capability_ref}</small>
+                    <small>{lane.adapter_ref}</small>
                   </td>
                   <td>{operatorLabel(lane.runtime_availability)}</td>
                   <td>{operatorLabel(lane.approval_posture)}</td>
@@ -120,9 +136,19 @@ export function CapabilitySurfacePanel({
           <strong>Bounded cited research</strong>
           <p>{surface.web_hybrid.research_aggregation.safe_summary}</p>
           <p>
-            Current citations: {surface.web_hybrid.research_aggregation.current_citation_count}.
-            Provider readiness, latency, cost, context, routing, exclusions, and
-            redaction are explicit. No observation is inferred by this read-only view.
+            Deterministic cited aggregation is implemented for injected safe
+            observations. This read-only surface performed no retrieval, so current
+            citations are {surface.web_hybrid.research_aggregation.current_citation_count};
+            zero means no current observation, not a live empty result. Provider
+            readiness, latency, cost, context, routing, exclusions, and redaction are
+            explicit.
+          </p>
+          <p>
+            Proof refs: {surface.web_hybrid.research_aggregation.proof_refs.join(", ")}.
+          </p>
+          <p>
+            Blockers:{" "}
+            {surface.web_hybrid.research_aggregation.blocker_codes.join(", ")}.
           </p>
         </div>
         <div className="callout">

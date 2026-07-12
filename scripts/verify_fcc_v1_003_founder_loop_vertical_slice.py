@@ -382,7 +382,7 @@ def _issue_action_decision_authority_lease(
             "lease_issue_request": {
                 "mode": "approved_safe_local_work_session",
                 "scope": "session",
-                "operator_ref": "operator-ref:fcc-v1-003-verifier",
+                "operator_ref": "operator-ref:local-user",
                 "requested_domains": {"workspace": ["read", "write"]},
                 "constraints": {"workspace_ref": "workspace-ref:fcc-v1-003"},
                 "decision_reason_ref": "reason-ref:fcc-v1-003-workspace-write",
@@ -392,11 +392,6 @@ def _issue_action_decision_authority_lease(
                     "verification only."
                 ),
             },
-            "approved_by_actor_ref": "operator-ref:fcc-v1-003-verifier",
-            "approval_safe_summary": (
-                "Operator approved exact workspace read/write lease for "
-                "verifier receipt exercise."
-            ),
         },
         headers={
             **auth_headers,
