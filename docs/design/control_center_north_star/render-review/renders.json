@@ -149,7 +149,13 @@
       "purpose": "Default founder rundown and cross-surface command deck.",
       "truth": "Target design; representative safe data; no runtime claim.",
       "image": "../renders/target-v1/01-today.png",
-      "versions": [{"id": "v1", "label": "Draft v1", "image": "../renders/target-v1/01-today.png"}]
+      "versions": [
+        {"id": "r2-v1", "label": "Shell R2 · iteration 1", "image": "../renders/drafts/CC-R2-SHELL-01-today-desktop-default-v1.png"},
+        {"id": "r2-v2", "label": "Shell R2 · iteration 2", "image": "../renders/drafts/CC-R2-SHELL-01-today-desktop-default-v2.png"},
+        {"id": "r2-v3", "label": "Shell R2 · iteration 3", "image": "../renders/drafts/CC-R2-SHELL-01-today-desktop-default-v3.png"},
+        {"id": "r2-v4", "label": "Shell R2 · iteration 4", "image": "../renders/drafts/CC-R2-SHELL-01-today-desktop-default-v4.png"},
+        {"id": "target-v1", "label": "Current six-panel draft · 2026-07", "image": "../renders/target-v1/01-today.png"}
+      ]
     },
     {
       "id": "COMM-01",

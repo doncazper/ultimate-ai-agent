@@ -5,6 +5,8 @@ Baseline ID: CC-NS-TARGET-R3-2026-07-11.
 Current as of: 2026-07-11.
 Repo baseline: v0.104.0 / 0.104.0.
 
+Machine-readable currentness: `CURRENT_RENDER_BASELINE.json`.
+
 The renders were generated as UI mockups for the Control Center target
 direction and then copied into this repository as design artifacts. They should
 be treated as visual targets and alignment aids, not shipped UI screenshots.
@@ -39,6 +41,21 @@ evidence that consolidation is implemented.
 
 All target V1 entries begin as `Draft`. Critique, status, and version history
 are managed locally by `render-review/renders.json` and the review gallery.
+
+## Today Shell Explorations
+
+The four non-destructive Today iterations below preserve the refinement trail.
+The later six-panel `renders/target-v1/01-today.png` composition is the current
+review target for the 2026-07 period; `current` here means preferred draft for
+critique, not approved or implemented.
+
+| File | Status | Period |
+|---|---|---|
+| `renders/drafts/CC-R2-SHELL-01-today-desktop-default-v1.png` | Preserved draft | 2026-07 |
+| `renders/drafts/CC-R2-SHELL-01-today-desktop-default-v2.png` | Preserved draft | 2026-07 |
+| `renders/drafts/CC-R2-SHELL-01-today-desktop-default-v3.png` | Preserved draft | 2026-07 |
+| `renders/drafts/CC-R2-SHELL-01-today-desktop-default-v4.png` | Preserved draft | 2026-07 |
+| `renders/target-v1/01-today.png` | Current draft | 2026-07 |
 
 ## Revision 02 Drafts
 

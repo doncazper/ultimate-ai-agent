@@ -5,6 +5,8 @@ Baseline ID: CC-NS-TARGET-R3-2026-07-11.
 Current as of: 2026-07-11.
 Repo baseline: v0.104.0 / 0.104.0.
 
+Machine-readable currentness: `CURRENT_RENDER_BASELINE.json`.
+
 These renders define the desired visual direction for the Control Center as a
 contained operator cockpit. They are not shipped UI evidence, runtime behavior,
 route proof, authority grant, public beta claim, or production readiness claim.
@@ -20,6 +22,16 @@ surface architecture is defined by
 The package is meant to remove ambiguity before implementation. Each render is
 a bounded desktop-app target for one or more Control Center surfaces, with the
 route coverage recorded in `SURFACE_COVERAGE.md`.
+
+## Currentness Contract
+
+`CURRENT_RENDER_BASELINE.json` is the repository-readable pointer to the
+preferred review target for the current period. A `current` render is the
+latest design target to critique; it is not automatically approved, shipped,
+connected, or implemented. Earlier versions remain immutable comparison
+artifacts. Every new preferred revision must update the baseline ID or
+`current_as_of` date, its latest asset pointer, and the gallery version history
+in the same commit.
 
 The target shell source of truth is `APP_SHELL_BASELINE.md`. If a generated
 render shows a different left-rail order, a missing global item, a route-local
@@ -131,6 +143,7 @@ in browser local storage and can be exported/imported as JSON.
 
 - Current target render set: CC-NS-TARGET-R3-2026-07-11.
 - Current as of: 2026-07-11.
+- Machine-readable pointer: `CURRENT_RENDER_BASELINE.json`.
 - Canonical shell: `APP_SHELL_BASELINE.md`.
 - Route coverage: `SURFACE_COVERAGE.md`.
 - Render constraints: `RENDER_MANIFEST.md`.
