@@ -256,7 +256,7 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "/api/runtime/voice-media-posture",
         "/api/runtime/worktree-per-agent",
     }
-    assert len(paths & UAA_RUNTIME_CONTROL_PLANE_ROUTES) == 60
+    assert len(paths & UAA_RUNTIME_CONTROL_PLANE_ROUTES) == 61
     assert RUN_ATTACHED_APPROVAL_QUEUE_ROUTES == {
         "/control-center/approvals/queue",
     }

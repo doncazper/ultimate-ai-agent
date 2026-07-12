@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `256`.
+Current OpenAPI path count: `257`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -14,6 +14,13 @@ Foundation Gate checks.
 inspection surface for the disabled-by-default local AuthorityLease mission
 worker. It exposes redacted queue, claim, heartbeat, recovery, kill-switch, and
 macOS-first platform posture; it cannot start a worker or mint authority.
+
+`GET /api/runtime/authority-missions/completions` is the protected read-only
+mission-completion evidence surface. It returns content-free plan, mission,
+run, lease, exact approval-validation, settled-budget, terminal receipt,
+hash-chain, and review-only memory-candidate refs. It cannot start or resume a
+mission, mint an approval or lease, accept memory as truth, or grant future
+authority.
 
 Contract rules:
 

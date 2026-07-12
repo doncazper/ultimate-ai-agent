@@ -51,6 +51,11 @@ from ultimate_ai_agent.core.execution.durable_mission_worker import (
 from ultimate_ai_agent.core.execution.mission_worker_inspection import (
     build_local_mission_worker_inspection,
 )
+from ultimate_ai_agent.core.execution.mission_completion import (
+    MissionCompletionCorruptionError,
+    MissionCompletionStore,
+)
+from ultimate_ai_agent.core.authority.contracts import authority_state_dir
 from ultimate_ai_agent.core.execution.durable_mission_controls import (
     MissionControlConflictError,
     MissionControlCorruptionError,
@@ -1311,6 +1316,51 @@ def get_api_runtime_authority_domain_readiness() -> ResultEnvelope:
         data=read_model.model_dump(mode="json"),
         evidence=[{"evidence_ref": "evidence-ref:authority-domain-readiness:v1"}],
         redactions_applied=list(read_model.redactions_applied),
+    )
+
+
+@router.get("/authority-missions/completions", response_model=ResultEnvelope)
+def get_api_runtime_authority_missions_completions() -> ResultEnvelope:
+    try:
+        read_model = MissionCompletionStore(authority_state_dir()).build_read_model()
+    except (MissionCompletionCorruptionError, OSError, UnicodeError, ValueError):
+        return ResultEnvelope(
+            success=False,
+            operation="api_runtime_authority_missions_completions",
+            service="GovernedRuntimeAPI",
+            trace_id="mission-completion-read-model-ref:unavailable",
+            error=ErrorEnvelope(
+                code="MISSION_COMPLETION_INSPECTION_UNAVAILABLE",
+                category=ErrorCategory.internal_error,
+                safe_message=(
+                    "Mission completion inspection is unavailable because local "
+                    "state could not be validated."
+                ),
+                severity=Severity.high,
+                retryable=False,
+                details_redacted=True,
+                source="GovernedRuntimeAPI",
+            ),
+            redactions_applied=[
+                "raw_task_inputs",
+                "raw_paths",
+                "raw_logs",
+                "raw_provider_payloads",
+            ],
+        )
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_authority_missions_completions",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.ledger_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[{"evidence_ref": read_model.ledger_ref}],
+        redactions_applied=[
+            "raw_task_inputs",
+            "raw_paths",
+            "raw_logs",
+            "raw_provider_payloads",
+        ],
     )
 
 
