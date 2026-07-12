@@ -49,6 +49,33 @@ def _assert_safe_agent_loop_thread(thread: dict[str, object]) -> None:
     assert thread["safe_refs_only"] is True
     assert thread["raw_content_included"] is False
 
+    reasoning_truth = thread["reasoning_truth"]
+    assert isinstance(reasoning_truth, dict)
+    assert reasoning_truth["schema_version"] == "uaa-intent-reasoning-truth.v1"
+    assert reasoning_truth["contract_ref"] == (
+        "contract-ref:intent-reasoning-truth:v1"
+    )
+    assert reasoning_truth["backend_owned"] is True
+    assert reasoning_truth["safe_refs_only"] is True
+    assert reasoning_truth["raw_content_included"] is False
+    assert reasoning_truth["facts"]
+    assert reasoning_truth["assumptions"]
+    assert reasoning_truth["unknowns"]
+    assert reasoning_truth["operator_questions"]
+    assert reasoning_truth["authority_posture"] == (
+        "non_authoritative_review_truth"
+    )
+
+    plan_revision = thread["plan_revision"]
+    assert isinstance(plan_revision, dict)
+    assert plan_revision["schema_version"] == "uaa-plan-revision.v1"
+    assert plan_revision["authority_posture"] == "non_authoritative_plan_truth"
+    assert plan_revision["downstream_authority_bindings_invalidated"] is True
+    assert plan_revision["decomposition"]["intent_fingerprint_ref"] == (
+        reasoning_truth["intent_fingerprint_ref"]
+    )
+    assert plan_revision["decomposition"]["ordered_steps"]
+
     approval_posture = thread["approval_posture"]
     assert isinstance(approval_posture, dict)
     assert approval_posture["control_center_mints_authority"] is False

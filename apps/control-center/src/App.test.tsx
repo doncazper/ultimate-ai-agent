@@ -1374,6 +1374,8 @@ function backendOwnedHighMaturitySpineReadiness(
 function backendOwnedFounderAgentLoopThread(
   overrides: Record<string, unknown> = {},
 ) {
+  const intentFingerprint =
+    "intent-fingerprint-ref:sha256:apptest0000000000000000000000000";
   return {
     ...mockControlCenterData.founderAgentLoopThread,
     thread_ref: "agent-loop-thread:app-test:current",
@@ -1381,6 +1383,69 @@ function backendOwnedFounderAgentLoopThread(
     capability_status: "partial",
     source: "python_core_agent_loop_thread_read_model",
     backend_owned: true,
+    reasoning_truth: {
+      ...mockControlCenterData.founderAgentLoopThread.reasoning_truth,
+      intent_ref: "intent-ref:app-test:current",
+      intent_fingerprint_ref: intentFingerprint,
+      request_fingerprint_ref:
+        "intent-request-fingerprint-ref:sha256:apptest000000000000000000000",
+      safe_summary:
+        "Backend-owned deterministic reasoning truth for the current test thread.",
+      facts: [
+        {
+          statement_ref: "fact-ref:app-test:backend-owned-truth",
+          kind: "fact",
+          safe_summary:
+            "Python Core supplied the current reasoning truth read model.",
+          source_refs: ["source-ref:app-test:python-core"],
+          evidence_refs: ["evidence-ref:app-test:agent-loop"],
+          review_required: false,
+        },
+      ],
+      assumptions: [
+        {
+          statement_ref: "assumption-ref:app-test:operator-review",
+          kind: "assumption",
+          safe_summary: "The operator will review the selected scope.",
+          source_refs: ["source-ref:app-test:operator-shell"],
+          evidence_refs: [],
+          review_required: true,
+        },
+      ],
+      unknowns: [
+        {
+          statement_ref: "unknown-ref:app-test:exact-target",
+          kind: "unknown",
+          safe_summary: "The exact reviewed target remains unselected.",
+          source_refs: ["source-ref:app-test:operator-shell"],
+          evidence_refs: [],
+          review_required: true,
+        },
+      ],
+      operator_questions: [
+        {
+          question_ref: "question-ref:app-test:exact-target",
+          safe_question: "Which exact reviewed target should be used?",
+          resolves_refs: ["unknown-ref:app-test:exact-target"],
+        },
+      ],
+      backend_owned: true,
+    },
+    plan_revision: {
+      ...mockControlCenterData.founderAgentLoopThread.plan_revision,
+      lineage_ref: "plan-lineage-ref:app-test:current",
+      revision_ref: "plan-revision-ref:app-test:current-v1",
+      reason_ref: "plan-revision-reason-ref:app-test:initial",
+      safe_reason:
+        "Initial immutable backend-owned projection for the current test thread.",
+      decomposition: {
+        ...mockControlCenterData.founderAgentLoopThread.plan_revision.decomposition,
+        decomposition_ref: "decomposition-ref:app-test:current",
+        intent_fingerprint_ref: intentFingerprint,
+      },
+      revision_fingerprint_ref:
+        "plan-revision-fingerprint-ref:sha256:apptest00000000000000000000",
+    },
     high_maturity_spine_readiness: backendOwnedHighMaturitySpineReadiness(),
     operator_decision_matrix: {
       ...mockControlCenterData.founderAgentLoopThread.operator_decision_matrix,
@@ -2514,6 +2579,22 @@ describe("Web Control Center shell", () => {
       screen.getByText("contract-ref:system-agent-eval-coverage:v1"),
     ).toBeInTheDocument();
     expect(screen.getByText(/Model scoring/)).toBeInTheDocument();
+    expect(screen.getByText("Reasoning truth")).toBeInTheDocument();
+    expect(
+      screen.getByText("intent-ref:app-test:current"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Input remains untrusted data/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Which exact reviewed target should be used/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("non_authoritative_plan_truth"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Initial immutable backend-owned projection/i),
+    ).toBeInTheDocument();
     expect(screen.getAllByText("blocked").length).toBeGreaterThan(0);
   });
 

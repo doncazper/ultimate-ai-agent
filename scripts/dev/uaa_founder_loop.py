@@ -391,6 +391,65 @@ def _inspect_agent_loop(args: argparse.Namespace) -> int:
     return 0
 
 
+def _inspect_reasoning_truth(args: argparse.Namespace) -> int:
+    repo = _repository(args)
+    today_summary = repo.today_summary(limit=args.limit)
+    thread = build_agent_loop_thread_read_model(
+        today_summary=today_summary,
+        actions_inbox=repo.actions_inbox(limit=args.limit),
+        evidence_timeline=repo.evidence_timeline(limit=args.limit),
+        memory_review=repo.memory_review(limit=args.limit),
+        proof_index=build_control_center_proof_index(today_summary=today_summary),
+        trust_authority_matrix=build_trust_authority_matrix_read_model(
+            today_summary=today_summary
+        ),
+    )
+    truth = thread["reasoning_truth"]
+    revision = thread["plan_revision"]
+    output = {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": "repo-local-command:founder-loop-inspect-reasoning",
+        "reasoning_truth": truth,
+        "plan_revision": revision,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+    }
+    if args.json:
+        _print_json(output)
+        return 0
+
+    print(
+        f"Reasoning truth: {truth['confidence_band']} confidence; "
+        f"{truth['ambiguity_posture']}"
+    )
+    print(f"Intent ref: {truth['intent_ref']}")
+    print(f"Intent fingerprint: {truth['intent_fingerprint_ref']}")
+    print(f"Content posture: {truth['instruction_content_posture']}")
+    print("Facts:")
+    for item in truth["facts"]:
+        print(f"  - {item['safe_summary']} [{item['statement_ref']}]")
+    print("Assumptions:")
+    for item in truth["assumptions"]:
+        print(f"  - {item['safe_summary']} [{item['statement_ref']}]")
+    print("Unknowns:")
+    for item in truth["unknowns"]:
+        print(f"  - {item['safe_summary']} [{item['statement_ref']}]")
+    print("Questions requiring operator input:")
+    for item in truth["operator_questions"]:
+        print(f"  - {item['safe_question']} [{item['question_ref']}]")
+    print(
+        f"Plan revision: {revision['revision_ref']} "
+        f"({revision['revision_fingerprint_ref']})"
+    )
+    print(f"Revision reason: {revision['safe_reason']}")
+    print(
+        "Authority: non-authoritative reasoning and plan truth; exact "
+        "request-scoped evaluation is still required."
+    )
+    return 0
+
+
 def _inspect_cockpit_parity(args: argparse.Namespace) -> int:
     repo = _repository(args)
     today_summary = repo.today_summary(limit=args.limit)
@@ -1976,6 +2035,21 @@ def build_parser() -> argparse.ArgumentParser:
     )
     agent_loop_parser.add_argument("--limit", type=int, default=50)
     agent_loop_parser.set_defaults(func=_inspect_agent_loop)
+
+    reasoning_parser = subparsers.add_parser(
+        "inspect-reasoning",
+        help=(
+            "Explain deterministic intent and immutable plan-revision truth; "
+            "human-readable output is the default."
+        ),
+    )
+    reasoning_parser.add_argument("--limit", type=int, default=12)
+    reasoning_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the same backend-owned safe truth as redacted JSON.",
+    )
+    reasoning_parser.set_defaults(func=_inspect_reasoning_truth)
 
     cockpit_parity_parser = subparsers.add_parser(
         "inspect-cockpit-parity",

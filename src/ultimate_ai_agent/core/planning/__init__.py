@@ -32,15 +32,35 @@ from ultimate_ai_agent.core.planning.enums import (
 )
 from ultimate_ai_agent.core.planning.manifests import build_task_planning_manifest
 from ultimate_ai_agent.core.planning.planner import evaluate_task_plan
+from ultimate_ai_agent.core.planning.revisions import (
+    IMMUTABLE_DECOMPOSITION_SCHEMA_VERSION,
+    PLAN_REVISION_SCHEMA_VERSION,
+    ImmutableDecompositionBinding,
+    ImmutableDecompositionStep,
+    PlanRevisionBinding,
+    PlanRevisionConflictError,
+    build_immutable_decomposition,
+    build_immutable_decomposition_step,
+    build_initial_plan_revision,
+    build_plan_revision,
+    validate_plan_replay,
+    validate_revision_successor,
+)
 from ultimate_ai_agent.core.planning.validation import infer_input_trust_level
 
 __all__ = [
     "PlanInputTrustLevel",
+    "IMMUTABLE_DECOMPOSITION_SCHEMA_VERSION",
+    "PLAN_REVISION_SCHEMA_VERSION",
     "PLANS_ACTION_ENVELOPE_CONTRACT_REF",
     "PLANS_ACTION_ENVELOPE_REQUIRED_BLOCKED_REFS",
     "PLANS_ACTION_ENVELOPE_REQUIRED_REF_FIELDS",
     "PLANS_ACTION_ENVELOPE_REVIEW_ACTIONS",
     "PlanActionEnvelope",
+    "ImmutableDecompositionBinding",
+    "ImmutableDecompositionStep",
+    "PlanRevisionBinding",
+    "PlanRevisionConflictError",
     "TaskConstraint",
     "TaskDependency",
     "TaskDependencyKind",
@@ -58,10 +78,16 @@ __all__ = [
     "TaskStepInputBoundary",
     "TaskStepKind",
     "build_task_planning_manifest",
+    "build_immutable_decomposition",
+    "build_immutable_decomposition_step",
+    "build_initial_plan_revision",
+    "build_plan_revision",
     "build_plan_action_envelope",
     "evaluate_task_plan",
     "infer_input_trust_level",
     "plans_action_envelope_authority_posture",
     "plans_action_envelope_review_posture_rows",
     "plans_action_envelope_surface_bindings",
+    "validate_plan_replay",
+    "validate_revision_successor",
 ]

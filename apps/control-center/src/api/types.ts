@@ -70,7 +70,16 @@ export interface TurnRouterPreviewRequest {
 }
 
 export interface TurnRouterPolicySummary {
-  turn_contract: string;
+  turn_contract:
+    | "answer_directly"
+    | "base_answer"
+    | "answer_with_reviewed_memory"
+    | "draft_or_plan"
+    | "prepare_tool_or_action"
+    | "approval_required"
+    | "execute_approved_action"
+    | "ask_clarifying_question"
+    | "blocked_unsafe";
   memory_scope: string;
   memory_read_allowed: boolean;
   memory_write_allowed: boolean;
@@ -7767,6 +7776,97 @@ export interface FounderLoopAgentLoopPlanStep {
   execution_enabled: boolean;
 }
 
+export interface FounderLoopReasoningStatement {
+  statement_ref: string;
+  kind: "fact" | "assumption" | "unknown";
+  safe_summary: string;
+  source_refs: string[];
+  evidence_refs: string[];
+  review_required: boolean;
+}
+
+export interface FounderLoopOperatorQuestion {
+  question_ref: string;
+  safe_question: string;
+  resolves_refs: string[];
+}
+
+export interface FounderLoopIntentReasoningTruth {
+  schema_version: "uaa-intent-reasoning-truth.v1";
+  contract_ref: "contract-ref:intent-reasoning-truth:v1";
+  intent_ref: string;
+  intent_fingerprint_ref: string;
+  request_fingerprint_ref: string;
+  safe_summary: string;
+  classification_ref: string;
+  turn_contract:
+    | "answer_directly"
+    | "base_answer"
+    | "answer_with_reviewed_memory"
+    | "draft_or_plan"
+    | "prepare_tool_or_action"
+    | "approval_required"
+    | "execute_approved_action"
+    | "ask_clarifying_question"
+    | "blocked_unsafe";
+  confidence_score: number;
+  confidence_band: "high" | "medium" | "low" | "conflicting";
+  ambiguity_posture:
+    | "clear"
+    | "ambiguous_missing_scope"
+    | "conflicting"
+    | "insufficient_evidence";
+  contradiction_posture: "none_observed" | "conflicting_safe_refs";
+  instruction_content_posture:
+    | "untrusted_data"
+    | "instruction_shaped_untrusted_data";
+  facts: FounderLoopReasoningStatement[];
+  assumptions: FounderLoopReasoningStatement[];
+  unknowns: FounderLoopReasoningStatement[];
+  operator_questions: FounderLoopOperatorQuestion[];
+  source_refs: string[];
+  evidence_refs: string[];
+  contradiction_refs: string[];
+  reason_refs: string[];
+  deterministic_policy_ref: string;
+  model_assistance_posture:
+    | "deterministic_only"
+    | "exact_provider_lane_required";
+  authority_posture: "non_authoritative_review_truth";
+  blocked_authority_refs: string[];
+  backend_owned: boolean;
+  safe_refs_only: boolean;
+  raw_content_included: boolean;
+}
+
+export interface FounderLoopPlanRevisionTruth {
+  schema_version: "uaa-plan-revision.v1";
+  lineage_ref: string;
+  revision_ref: string;
+  revision_index: number;
+  predecessor_revision_ref?: string | null;
+  predecessor_revision_fingerprint_ref?: string | null;
+  reason_ref: string;
+  safe_reason: string;
+  decomposition: {
+    schema_version: "uaa-immutable-decomposition.v1";
+    decomposition_ref: string;
+    intent_fingerprint_ref: string;
+    ordered_steps: Array<{
+      step_ref: string;
+      safe_summary: string;
+      dependency_step_refs: string[];
+      target_refs: string[];
+      source_refs: string[];
+      definition_fingerprint_ref: string;
+    }>;
+    decomposition_fingerprint_ref: string;
+  };
+  revision_fingerprint_ref: string;
+  authority_posture: "non_authoritative_plan_truth";
+  downstream_authority_bindings_invalidated: true;
+}
+
 export interface FounderLoopAgentLoopProposedAction {
   action_ref: string;
   title: string;
@@ -8243,6 +8343,8 @@ export interface FounderLoopAgentLoopThread {
     safe_summary: string;
     source_surface: string;
   };
+  reasoning_truth: FounderLoopIntentReasoningTruth;
+  plan_revision: FounderLoopPlanRevisionTruth;
   intent: {
     status: string;
     classification_ref: string;
@@ -13653,6 +13755,122 @@ export interface AuthorityMissionWorkerReadModel {
   raw_logs_included: false;
   raw_provider_payloads_included: false;
   redactions_applied: string[];
+}
+
+export interface AuthorityMissionCompletionBudgetBinding {
+  reservation_ref: string;
+  reserve_receipt_ref: string;
+  reserve_entry_hash_ref: string;
+  start_receipt_ref: string;
+  start_entry_hash_ref: string;
+  settlement_receipt_ref: string;
+  settlement_entry_hash_ref: string;
+  lease_ref: string;
+  action_ref: string;
+  execution_ref: string;
+  reserved_operation_count: number;
+  reserved_cost_microusd: number;
+  settlement_status: "settled";
+  actual_operation_count: number;
+  actual_cost_microusd: number;
+  actual_cost_ref: string;
+  unresolved_cost: false;
+}
+
+export interface AuthorityMissionCompletionStepBinding {
+  step_ref: string;
+  definition_fingerprint_ref: string;
+  dispatch_ref: string;
+  dispatch_request_fingerprint_ref: string;
+  step_receipt_ref: string;
+  step_entry_hash_ref: string;
+  dispatch_receipt_ref: string;
+  dispatch_entry_hash_ref: string;
+  evidence_refs: string[];
+}
+
+export interface AuthorityMissionCompletionDispatchBinding {
+  dispatch_ref: string;
+  receipt_ref: string;
+  entry_hash_ref: string;
+  request_fingerprint_ref: string;
+  lease_ref: string;
+  action_ref: string;
+  adapter_ref: string;
+  capability_ref: string;
+  authority_decision_ref: string;
+  authority_policy_receipt_ref: string;
+  approval_required: boolean;
+  approval_ref: string | null;
+  approval_validation_ref: string | null;
+  budget_reservation_ref: string;
+  budget_reservation_receipt_ref: string;
+  budget_start_receipt_ref: string;
+  budget_settlement_receipt_ref: string;
+  execution_ref: string;
+  actual_operation_count: number;
+  actual_cost_microusd: number;
+  actual_cost_ref: string;
+  evidence_refs: string[];
+}
+
+export interface AuthorityMissionCompletionManifest {
+  schema_version: "uaa-mission-completion.v1";
+  completion_ref: string;
+  plan_ref: string;
+  plan_fingerprint_ref: string;
+  plan_receipt_ref: string;
+  plan_entry_hash_ref: string;
+  mission_ref: string;
+  run_ref: string;
+  lease_ref: string;
+  lease_scope: "mission";
+  lease_mission_ref: string;
+  lease_issued_at: string;
+  lease_expires_at: string;
+  mission_deadline: string;
+  status: "succeeded";
+  concurrency_limit: 1;
+  parallel_execution_performed: false;
+  step_bindings: AuthorityMissionCompletionStepBinding[];
+  dispatch_bindings: AuthorityMissionCompletionDispatchBinding[];
+  budget_bindings: AuthorityMissionCompletionBudgetBinding[];
+  approval_refs: string[];
+  approval_validation_refs: string[];
+  control_snapshot_ref: string;
+  control_receipt_refs: string[];
+  cancellation_receipt_refs: string[];
+  dead_letter_receipt_refs: string[];
+  evidence_refs: string[];
+  memory_candidate_ref: string;
+  memory_candidate_posture: "review_required_recall_only";
+  memory_truth_authority: false;
+  context_injection_authorized: false;
+  execution_evidence_grants_authority: false;
+  signature_present: false;
+  integrity_posture: "content_free_hash_chain";
+  previous_entry_hash_ref: string | null;
+  entry_hash_ref: string;
+  created_at: string;
+  redactions_applied: string[];
+  raw_paths_included: false;
+  raw_prompt_included: false;
+  raw_response_included: false;
+  raw_provider_payload_included: false;
+}
+
+export interface AuthorityMissionCompletionReadModel {
+  schema_version: "uaa-mission-completion-read-model.v1";
+  ledger_ref: string;
+  completion_count: number;
+  latest_manifests: AuthorityMissionCompletionManifest[];
+  operator_summary: string;
+  request_scoped_authority_still_required: true;
+  execution_available_from_read_model: false;
+  approval_or_lease_minted: false;
+  raw_content_included: false;
+  raw_paths_included: false;
+  source_ledgers_verified: false;
 }
 
 export interface AuthorityLeaseReceipt {

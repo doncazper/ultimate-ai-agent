@@ -32,6 +32,8 @@ DEFAULT_SCOPES = (
     "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md",
     "docs/control_center/PRODUCT_LANGUAGE_RULES.md",
     "docs/control_center/ROUTE_STATUS_MANIFEST.md",
+    "docs/control_center/UAA_RUNTIME_CAPABILITY_SCOREBOARD.md",
+    "docs/benchmarks/runtime_capability_foundation",
     "reports/foundation_gate",
     "reports/performance",
     "apps/control-center/dist",

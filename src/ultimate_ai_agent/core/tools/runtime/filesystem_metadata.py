@@ -19,6 +19,7 @@ from ultimate_ai_agent.core.tools.runtime.validation import (
 
 FILESYSTEM_METADATA_TOOL_REF = "tool:filesystem_metadata.v1"
 FILESYSTEM_METADATA_TOOL_NAME = "filesystem_metadata"
+FILESYSTEM_OPAQUE_PATH_REF_VERSION = "opaque-sha256-v2"
 
 HIDDEN_SEGMENT_DENY_REASON = "HIDDEN_PATH_DENIED"
 SECRET_SEGMENT_DENY_REASON = "SECRET_LIKE_PATH_DENIED"
@@ -42,6 +43,8 @@ class FilesystemSafeRoot(BaseModel):
     root_ref: str = Field(..., min_length=1)
     root_path: Path
     safe_label: str = Field(..., min_length=1)
+    expected_device: int | None = Field(default=None, exclude=True)
+    expected_inode: int | None = Field(default=None, exclude=True)
 
     model_config = ConfigDict(extra="forbid")
 
@@ -51,6 +54,8 @@ class FilesystemSafeRoot(BaseModel):
         validate_safe_tool_runtime_text(self.safe_label, "safe_label")
         if not self.root_path.is_absolute():
             raise ValueError("SAFE_ROOT_PATH_MUST_BE_ABSOLUTE")
+        if (self.expected_device is None) != (self.expected_inode is None):
+            raise ValueError("SAFE_ROOT_IDENTITY_BINDING_INCOMPLETE")
         return self
 
 
@@ -192,9 +197,16 @@ def filesystem_safe_path_ref(root_ref: str, normalized_path: str) -> str:
     return f"filesystem-path:root-sha256-{root_digest}/{normalized_path}"
 
 
+def filesystem_opaque_path_ref(root_ref: str, normalized_path: str) -> str:
+    digest = hash_text(root_ref + chr(0) + normalized_path)
+    return f"filesystem-path-ref:sha256:{digest}"
+
+
 def filesystem_metadata_stat(
     root_path: Path,
     normalized_path: str,
+    *,
+    expected_root_identity: tuple[int, int] | None = None,
 ) -> os.stat_result:
     try:
         directory_flags = (
@@ -204,6 +216,13 @@ def filesystem_metadata_stat(
         raise ValueError("DESCRIPTOR_RELATIVE_METADATA_UNSUPPORTED") from exc
     current_fd = os.open(root_path, directory_flags)
     try:
+        if expected_root_identity is not None:
+            root_stat = os.fstat(current_fd)
+            if (
+                not stat.S_ISDIR(root_stat.st_mode)
+                or (root_stat.st_dev, root_stat.st_ino) != expected_root_identity
+            ):
+                raise ValueError("SAFE_ROOT_IDENTITY_DRIFT_DENIED")
         parts = PurePosixPath(normalized_path).parts
         for part in parts[:-1]:
             try:
@@ -289,6 +308,7 @@ def build_filesystem_metadata_output(
     root_ref: str,
     normalized_path: str,
     stat_result: os.stat_result,
+    safe_path_ref: str | None = None,
 ) -> FilesystemMetadataOutput:
     mode = stat_result.st_mode
     if stat.S_ISLNK(mode):
@@ -310,7 +330,8 @@ def build_filesystem_metadata_output(
         output_ref=f"filesystem-metadata-output:{suffix}",
         status=FilesystemMetadataStatus.metadata_returned,
         root_ref=root_ref,
-        safe_path_ref=filesystem_safe_path_ref(root_ref, normalized_path),
+        safe_path_ref=safe_path_ref
+        or filesystem_safe_path_ref(root_ref, normalized_path),
         path_kind=path_kind,
         exists=True,
         size_bytes=size_bytes,
@@ -324,6 +345,7 @@ def build_missing_filesystem_metadata_output(
     invocation_id: str,
     root_ref: str,
     normalized_path: str,
+    safe_path_ref: str | None = None,
 ) -> FilesystemMetadataOutput:
     suffix = invocation_id.split(":", 1)[-1]
     return FilesystemMetadataOutput(
@@ -331,7 +353,8 @@ def build_missing_filesystem_metadata_output(
         safe_message="FILESYSTEM_METADATA_MISSING",
         status=FilesystemMetadataStatus.missing,
         root_ref=root_ref,
-        safe_path_ref=filesystem_safe_path_ref(root_ref, normalized_path),
+        safe_path_ref=safe_path_ref
+        or filesystem_safe_path_ref(root_ref, normalized_path),
         path_kind="missing",
         exists=False,
     )

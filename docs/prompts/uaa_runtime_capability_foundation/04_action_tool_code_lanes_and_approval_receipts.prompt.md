@@ -1,67 +1,61 @@
-# Phase 04: Action, Tool, Code Lanes, And Approval Receipts
+# Phase 04: Useful Exact Tool And Code Lanes
 
-Goal: catch up on operator-visible tool/action/code workflows without granting
-broad authority. UAA should have a clear catalog, exact eligibility, proposal
-envelopes, approval validation, execution receipts for accepted lanes, and
-reviewable code-workbench posture.
+Goal: promote only individually proven local capabilities through current
+request-scoped AuthorityLease evaluation.
 
 ## Required Work
 
-1. Inspect UAA's PolicyEngine, LocalApprovalAuthority, Action Inbox, approval
-   envelopes, route side-effect classification, provider/tool runtime safety,
-   code workbench docs, CLI scripts, and tests.
-2. Build or harden a tool/action catalog read model with:
-   - capability id;
-   - status;
-   - side-effect class;
-   - required approval scope;
-   - eligibility reason;
-   - blocked reason;
-   - receipt requirements;
-   - rollback or safe-disable posture.
-3. For any already-approved exact lane, verify:
-   - exact approval binding;
-   - idempotency;
-   - redacted receipt;
-   - operator-visible result;
-   - CLI/API/Control Center parity;
-   - tests and route classification.
-4. For code assistance, add or harden proposal-first workflow surfaces:
-   - diff/proposal refs;
-   - validation plan;
-   - test command eligibility;
-   - artifact hash/receipt requirements;
-   - sandbox/path controls;
-   - review and rejection states.
-5. Generate unblock prompts for any external-runtime-like execution feature that
-   remains blocked.
+1. Inventory existing tool, action, runtime gateway, repository, code-workbench,
+   sandbox, approval, dispatcher, CLI/API/UI, receipt, and redaction contracts.
+2. Prefer exact low-risk usefulness:
+   - bounded repository filesystem metadata;
+   - bounded read-only repository inspection;
+   - allowlisted repository verification commands;
+   - deterministic sealed-sandbox calculation only if a real sandbox exists;
+   - proposal-only code diff and validation plans; and
+   - exact code apply only with separate approval, lease, target, idempotency,
+     rollback, and receipt proof.
+3. Every catalog entry distinguishes declaration, runtime availability, and
+   eligibility for immediate request-scoped evaluation. Inspectable never
+   means callable and no global `authorized` or `callable` state is permitted.
+4. Every executable lane uses MissionOrchestrator -> AuthorityMissionRunner ->
+   AuthorityDispatcher and independently re-evaluates every authority gate at
+   the locked pre-start boundary.
+5. Bind typed inputs/outputs, exact target/resource, bounded execution,
+   idempotency, budget, safe-disable, rollback readiness, hashes, redaction,
+   receipts, and blocked reasons.
+6. Record terminal `blocked`, `unsupported`, `adapter required`,
+   `configuration required`, `external facility required`, or
+   `deferred by authority policy` states; do not create recursive prompts.
 
-## Explicit Non-Goals
+## Sandbox Proof Floor
 
-Do not add unrestricted shell execution, arbitrary command strings, broad tool
-invocation, connector writes, browser automation, remote execution, plugin
-runtime import, or unapproved code mutation.
+A callable sandbox must prove no network, host filesystem access or mutation,
+host environment/secret access, package installation, or subprocess escape.
+It must enforce CPU, time, memory, and output limits; bounded redacted
+stdout/stderr; code/result hashes; kill switch; safe-disable; and receipts. If
+that proof is absent, CodeAct-style execution remains blocked/readiness-only.
 
-Do not let UI controls mint approval, eligibility, authority, or receipts.
+## Shell And Development Boundary
 
-## Acceptance Criteria
+Broad host shell remains denied. Repository verification commands run by
+developers during this program grant no UAA runtime shell authority. Arbitrary
+commands, shell expansion, caller-controlled cwd/environment, package install,
+home traversal, and destructive operations remain denied.
 
-- Operators can inspect what tools/actions exist and why each is callable,
-  approval-required, preview-only, or blocked.
-- Approved micro-lanes produce redacted receipts and safe refs.
-- Code workflow is reviewable even when execution remains blocked.
-- Blocked lanes produce exact future prompts instead of vague TODOs.
+## Required Proofs
 
-## Verification
+- exact read-only metadata and inspection boundaries;
+- allowlist rejection for command, cwd, env, target, and argument changes;
+- approval/lease expiry or revocation produces zero starts;
+- idempotent unchanged replay and concurrent-start exclusion;
+- sandbox escape and secret/network/host denial, or truthful blocked posture;
+- bounded/redacted output and receipt/hash validation;
+- code proposal cannot execute; and
+- kill switch and safe-disable block new starts.
 
-Run focused policy/action/code-workbench tests plus:
+## Exit
 
-```bash
-git diff --check
-PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py
-PYTHONPATH=src .venv/bin/python -m pytest tests/test_api_manifest.py -q
-PYTHONPATH=src .venv/bin/python -m pytest tests/test_control_center_api_routes.py -q
-.venv/bin/python scripts/run_foundation_gate.py --command-mode report-only
-.venv/bin/python scripts/verify_product_truth.py
-make frontend-check
-```
+Only proven exact lanes are executable and operator-visible. Broad shell,
+browser actions, connector writes, arbitrary plugins/MCP, payments, outbound
+messages, production deployment, and fake sandboxing remain denied.

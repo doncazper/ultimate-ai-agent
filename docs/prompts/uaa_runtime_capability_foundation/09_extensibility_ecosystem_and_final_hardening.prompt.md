@@ -1,78 +1,72 @@
-# Phase 09: Extensibility, Ecosystem, And Final Hardening
+# Phase 09: Benchmark, Gap Closure, And Stop
 
-Goal: give UAA a stronger long-term platform shape: inspectable extension and
-capability catalogs, safe activation boundaries, developer experience, and a
-final release-truth hardening sweep.
+Goal: run the finite evidence-backed comparison, make at most two safe focused
+repair passes, merge all intentional work, publish an honest final scorecard,
+and stop.
 
-This phase must keep plugin runtime import and broad extension execution
-blocked unless a separate exact authority lane has already promoted them.
+## Required Scenarios
 
-## Required Work
+Run exactly these repeatable redacted scenarios:
 
-1. Inspect UAA skill workbench, plugin/skill ecosystem boundary, inspectable
-   extension catalog, activation grants, MCP/A2A compatibility, capability
-   registries, API/CLI surfaces, docs, and tests.
-2. Add or harden an inspectable capability/extension catalog:
-   - id;
-   - type;
-   - source;
-   - status;
-   - trust posture;
-   - callable posture;
-   - required grants;
-   - blocked reason;
-   - review evidence refs;
-   - safe install/adoption posture.
-3. Split catalog visibility from runtime callability.
-4. Add future activation-grant contracts only where they remain exact-scoped,
-   expiring, auditable, revocable, and deny-by-default.
-5. Add developer guidance for creating UAA-native capabilities without
-   bypassing policy, approval, redaction, route classification, OpenAPI, CLI
-   parity, or Foundation Gate checks.
-6. Run a final catch-up hardening sweep across Phases 01-08:
-   - route contract drift;
-   - docs/product truth drift;
-   - missing tests;
-   - UI-only truth;
-   - redaction leaks;
-   - unsafe authority claims;
-   - unsupported external comparison runtime parity claims.
-7. Produce a final 30-day plan ranked by impact, effort, risk, and authority
-   needed.
+1. ambiguous intent;
+2. plan revision;
+3. DAG replay and crash;
+4. approval expiry;
+5. cancellation race;
+6. budget exhaustion and settlement;
+7. exact tool idempotency;
+8. sandbox escape denial;
+9. memory correction;
+10. web citation and injection handling;
+11. unavailable or stale provider; and
+12. receipt tamper plus UI/CLI/API parity.
 
-## Explicit Non-Goals
+Each result records deterministic scenario id/version, component, status,
+confidence, safe evidence refs, test/verifier refs, duration, blocker code, and
+redaction status. Never persist raw prompts, results, pages, logs, provider
+payloads, paths, credentials, usernames, or hostnames.
 
-Do not import or execute plugins, external skills, remote MCP tools, connector
-writes, browser automation, remote code, or public marketplace behavior.
+## Comparison Rules
 
-Do not merge a external-runtime-style broad extension model if it conflicts with
-UAA's local-first governed authority boundaries.
+- Compare GoatCitadel read-only from code, tests, runtime evidence, and operator
+  visibility. Documentation, screenshots, mocks, and claims do not count as
+  execution proof.
+- Score all sixteen components with weights, 0-10 scores, confidence, status,
+  evidence, gap, and recommendation. Do not score raw model intelligence.
+- Increase no score without code, tests, and operator-visible evidence.
+- Borrow patterns only as UAA-native designs. Do not import packages or copy
+  implementation wholesale.
 
-## Acceptance Criteria
+## Bounded Repair Rule
 
-- Operators can inspect available capabilities and why they are visible,
-  inactive, callable, approval-required, or blocked.
-- Extension/capability runtime activation remains deny-by-default.
-- Final docs and product truth distinguish implemented, partial, planned,
-  mock-only, blocked, deprecated, contradicted, and unknown states.
-- Final verifiers prove no broad authority, raw payload persistence, or
-  product-language overclaim was introduced.
+Allow at most two focused repair passes for safe in-scope defects revealed by
+the scenarios. Each pass uses the same branch/PR/CI/merge gate. Missing targets,
+unsafe work, unavailable adapters, or external facilities do not generate more
+phases or prompts.
 
-## Verification
+Classify every unresolved item as `blocked`, `unsupported`, `adapter required`,
+`configuration required`, `external facility required`, or
+`deferred by authority policy`.
 
-Run focused ecosystem tests plus the final gate set:
+## Final Verification And Hygiene
 
-```bash
-git diff --check
-.venv/bin/python scripts/verify_documentation_integrity.py
-.venv/bin/python scripts/verify_product_truth.py
-.venv/bin/python scripts/verify_operational_maturity.py
-PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py
-PYTHONPATH=src .venv/bin/python -m pytest tests/test_api_manifest.py -q
-PYTHONPATH=src .venv/bin/python -m pytest tests/test_control_center_api_routes.py -q
-.venv/bin/python scripts/run_foundation_gate.py --command-mode report-only
-make frontend-check
-make frontend-visual-check
-```
+Run focused and common gates, sharded pytest, frontend, WEB-HYBRID,
+documentation, product truth, redaction, OpenAPI, verifier maintainability,
+Foundation Gate report-only with `--no-write-latest`, and `git diff --check`.
+Audit all PRs, branches, remotes, tags, worktrees, status, and ignored generated
+artifacts. Merge only green intentional PRs, fast-forward and verify exact
+`main`, push it, and delete only clean merged temporary branches/worktrees.
 
-Report any skipped checks with concrete blockers.
+## Final Deliverable
+
+Report every phase status; commit/branch/PR/CI/merge/post-merge result;
+implemented/partial/blocked capabilities; adversarial fixes; before/after
+scores and confidence; patterns borrowed/rejected; commands, test counts,
+timings, blockers, unsupported adapters; exact clean pushed `main` SHA; and one
+optional next program that is not activated.
+
+## Stop Rule
+
+After Phase 09 and at most two repair passes, stop. No recursively generated
+follow-on work and no automatic continuation. Honest blocked items satisfy the
+finite endpoint even when a score target remains unmet.

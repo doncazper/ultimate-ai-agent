@@ -1,8 +1,12 @@
+import hashlib
 import json
 import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
+from scripts import verify_uaa_runtime_capability_foundation_prompt_pack as pack_verify
 
 ROOT = Path(__file__).resolve().parents[1]
 PACK_DIR = ROOT / "docs" / "prompts" / "uaa_runtime_capability_foundation"
@@ -14,7 +18,7 @@ WRAPPER = ROOT / "scripts" / "dev" / "run_uaa_runtime_capability_foundation_prom
 def test_manifest_refs_are_ordered_and_present() -> None:
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
 
-    assert manifest["version"] == "1.1.0"
+    assert manifest["version"] == "1.2.0"
     refs = manifest["developer_prompt_refs"]
     assert len(refs) == 10
     assert refs[0].endswith("00_execute_uaa_runtime_capability_foundation_end_to_end.prompt.md")
@@ -37,12 +41,140 @@ def test_verifier_accepts_pack() -> None:
     )
     data = json.loads(result.stdout)
     assert data["bundle_id"] == "uaa-runtime-capability-foundation-001"
-    assert data["version"] == "1.1.0"
+    assert data["version"] == "1.2.0"
     assert data["prompt_count"] == 10
     assert data["component_count"] == 16
     assert data["weakness_count"] == 19
     assert data["authority_milestone_count"] == 6
+    assert data["finite_phase_count"] == 10
+    assert data["repair_pass_limit"] == 2
+    assert data["benchmark_scenario_count"] == 12
+    assert data["readme_integrity_protected"] is True
     assert data["bundle_hash"].startswith("sha256:")
+
+
+def test_bundle_hash_protects_readme_and_all_prompts() -> None:
+    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    refs = manifest["developer_prompt_refs"]
+    digest = hashlib.sha256()
+    for ref in (pack_verify.README_REF, *refs):
+        digest.update(b"\n--UAA-PROMPT-PACK-FILE--\n")
+        digest.update(ref.encode("utf-8"))
+        digest.update(b"\n")
+        digest.update((ROOT / ref).read_bytes())
+
+    assert pack_verify.compute_bundle_hash(refs) == f"sha256:{digest.hexdigest()}"
+
+
+def test_verifier_rejects_readme_tamper(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    tampered = tmp_path / "README.md"
+    tampered.write_text(pack_verify.README_PATH.read_text(encoding="utf-8") + "\nTampered.\n")
+    original_repo_path = pack_verify._repo_path
+
+    monkeypatch.setattr(pack_verify, "README_PATH", tampered)
+    monkeypatch.setattr(
+        pack_verify,
+        "_repo_path",
+        lambda ref: tampered if ref == pack_verify.README_REF else original_repo_path(ref),
+    )
+    with pytest.raises(pack_verify.VerificationError, match="bundle_hash mismatch"):
+        pack_verify.verify_manifest()
+
+
+def test_verifier_rejects_prompt_tamper(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    ref = manifest["developer_prompt_refs"][1]
+    tampered = tmp_path / Path(ref).name
+    tampered.write_text((ROOT / ref).read_text(encoding="utf-8") + "\nTampered.\n")
+    original_repo_path = pack_verify._repo_path
+
+    monkeypatch.setattr(
+        pack_verify,
+        "_repo_path",
+        lambda candidate: tampered if candidate == ref else original_repo_path(candidate),
+    )
+    with pytest.raises(pack_verify.VerificationError, match="bundle_hash mismatch"):
+        pack_verify.verify_manifest()
+
+
+@pytest.mark.parametrize(
+    "unsafe_path",
+    ("/Users/example/private", "/home/example/private", "C:\\Users\\example\\private"),
+)
+def test_prompt_safety_rejects_user_paths(unsafe_path: str) -> None:
+    with pytest.raises(pack_verify.VerificationError, match="absolute local user path"):
+        pack_verify._validate_text_safety(pack_verify.README_PATH, unsafe_path)
+
+
+@pytest.mark.parametrize(
+    "stale_phrase",
+    (
+        "stop after Phase 01",
+        "Do not add live web fetch",
+        "recommended next exact prompt",
+        "generate unblock prompts",
+        "authorized=true",
+        "callable=true",
+    ),
+)
+def test_finite_contract_rejects_stale_or_global_authority_phrases(
+    stale_phrase: str,
+) -> None:
+    wrapper = (ROOT / pack_verify.WRAPPER_PROMPT).read_text(encoding="utf-8")
+    readme = pack_verify.README_PATH.read_text(encoding="utf-8")
+
+    with pytest.raises(pack_verify.VerificationError, match="stale or unsafe"):
+        pack_verify._validate_finite_contract(
+            readme,
+            wrapper,
+            f"{readme}\n{wrapper}\n{stale_phrase}",
+        )
+
+
+def test_finite_contract_rejects_missing_phase_heading() -> None:
+    wrapper = (ROOT / pack_verify.WRAPPER_PROMPT).read_text(encoding="utf-8")
+    readme = pack_verify.README_PATH.read_text(encoding="utf-8")
+    broken = wrapper.replace("### Phase 09 \u2014", "### Final Phase \u2014", 1)
+
+    with pytest.raises(pack_verify.VerificationError, match="exactly 00-09"):
+        pack_verify._validate_finite_contract(readme, broken, f"{readme}\n{broken}")
+
+
+def test_web_contract_requires_final_start_revalidation() -> None:
+    readme = pack_verify.README_PATH.read_text(encoding="utf-8")
+    phase_five = (ROOT / json.loads(MANIFEST.read_text())["developer_prompt_refs"][5]).read_text(
+        encoding="utf-8"
+    )
+    broken = phase_five.replace("inside the final locked transport-start boundary", "before use")
+
+    with pytest.raises(pack_verify.VerificationError, match="WEB-HYBRID"):
+        pack_verify._validate_web_contract(readme, broken)
+
+
+def test_phase_contract_rejects_semantic_mismatch() -> None:
+    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    refs = manifest["developer_prompt_refs"]
+    prompt_texts = {
+        ref: (ROOT / ref).read_text(encoding="utf-8")
+        for ref in refs
+    }
+    prompt_texts[refs[3]] = prompt_texts[refs[3]].replace(
+        "corrections win deterministically",
+        "corrections are considered",
+    )
+
+    with pytest.raises(pack_verify.VerificationError, match="Phase 03 semantic"):
+        pack_verify._validate_phase_contracts(refs, prompt_texts)
+
+
+def test_finite_contract_rejects_stale_readme_phase_map() -> None:
+    wrapper = (ROOT / pack_verify.WRAPPER_PROMPT).read_text(encoding="utf-8")
+    readme = pack_verify.README_PATH.read_text(encoding="utf-8").replace(
+        "| 05 Web/provider observability |",
+        "| 05 Memory/learning/context |",
+    )
+    with pytest.raises(pack_verify.VerificationError, match="README phase map"):
+        pack_verify._validate_finite_contract(readme, wrapper, f"{readme}\n{wrapper}")
 
 
 def test_wrapper_dry_run_emits_combined_prompt(tmp_path: Path) -> None:
@@ -60,3 +192,8 @@ def test_wrapper_dry_run_emits_combined_prompt(tmp_path: Path) -> None:
     assert "00_execute_uaa_runtime_capability_foundation_end_to_end.prompt.md" in text
     assert "W19 extension/plugin callable graduation" in text
     assert "M6 Extension/Plugin Callable Promotion" in text
+    assert "exactly ten merge-gated phases" in text
+    assert "at most two focused final repair passes" in text
+    assert "bounded SearXNG search" in text
+    assert "self-hosted Firecrawl one-page markdown extraction" in text
+    assert "Do not automatically continue into another program" in " ".join(text.split())

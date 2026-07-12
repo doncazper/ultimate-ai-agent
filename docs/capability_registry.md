@@ -70,6 +70,41 @@ authority. The protected read-only API route
 read model. No live probe, provider call, network access, background polling,
 or runtime execution is added.
 
+## Intent Reasoning And Plan Revision Truth
+
+`ultimate_ai_agent.core.intent.reasoning_truth` provides the deterministic,
+no-effect reasoning contract for one current request. Raw request text is a
+bounded transient function input only. The returned `IntentReasoningTruth`
+contains a request fingerprint, safe intent ref and fingerprint, separate
+facts, assumptions, and unknowns, confidence and ambiguity posture,
+contradiction refs, operator questions, source/evidence refs, and explicit
+instruction-shaped-content posture. All input remains untrusted data. The
+contract cannot carry approval, lease, callable, tool, memory, provider, web,
+shell, or execution authority.
+
+`ultimate_ai_agent.core.planning.revisions` adds an immutable projection over
+existing plan rows; it is not a third planner. Tuple-bound ordered membership,
+dependencies, targets, sources, step definitions, and intent binding are
+covered by SHA-256 safe refs. An unchanged revision replays only when the
+complete revision fingerprint matches. Any membership, order, dependency,
+definition, or target change requires a new, contiguous revision bound to the
+exact predecessor ref and fingerprint plus a safe reason. Every revision
+invalidates downstream approval, lease, dispatch, and budget assumptions; it
+does not mint replacements.
+
+The existing protected `GET /control-center/agent-loop/thread` route exposes
+this backend-owned truth without changing its operation ID or read-only route
+classification. `scripts/dev/uaa_founder_loop.py inspect-reasoning` renders a
+human-readable explanation by default and optional redacted JSON from the same
+object. The macOS-first Today cockpit renders the same facts, assumptions,
+unknowns, questions, and revision fingerprints. The older canned user-intent
+proposal catalog remains a compatibility surface and is not mislabeled as the
+current-request assessment. Because this read surface is stateless, its current
+plan is labeled as a content-addressed initial snapshot: any definition,
+membership, order, dependency, or target change produces new decomposition and
+revision refs. It does not claim predecessor lineage unless a prior revision is
+supplied to the core revision validator.
+
 ## Progressive Disclosure
 
 Use `registry.list_catalog(context)` or `registry.search(query, context, filters)` to expose compact `CapabilityCatalogEntry` records. Load the full manifest only after selection:
@@ -225,6 +260,38 @@ Static OpenAI/MCP-shaped schema export may expose UAA authority metadata under
 `x-uaa-authority`, including `dispatch_authorized=false`. These exports are
 metadata only; they do not import SDKs, create MCP clients, perform A2A
 delegation, call providers, fetch the web, or dispatch tools.
+
+## Exact Metadata Mission Core
+
+The exact `founder-loop-filesystem-metadata-v1` capability is the first
+end-to-end synchronous Founder Loop core lane. It accepts only a
+backend-predeclared target ref under one injected repository root, runs one
+metadata-only stat through `MissionOrchestrator -> MissionRunner ->
+AuthorityDispatcher`, and requires a fresh `PolicyEngine` approval posture,
+exact `LocalApprovalAuthority` validation, one shared mission-scoped
+`AuthorityLease`, exact path/operation/cost claims, ready safe-disable and root
+identity posture, and immutable request/target/deadline/idempotency bindings.
+
+Success records a bounded hash-chained completion manifest covering the plan,
+lease, approval validation, step and dispatch receipts, settled budgets,
+evidence refs, and a review-required recall-only memory-candidate ref. The
+manifest is execution evidence, not reusable authority. It stores no file
+content, relative or absolute path, raw operator input, provider payload, or
+model output. Broad filesystem reads, directory traversal, content reads,
+mutation, shell execution, automatic memory write, and context injection remain
+blocked.
+
+Preparation inputs are durably recoverable as bounded safe refs and hashes,
+but no public API, mutating CLI, or Control Center execution control is exposed
+in this phase. The existing read-only API, CLI, and macOS panel inspect
+completion truth only. Operator initiation remains a Python-core integration
+surface until the later parity phase binds one protected contract without
+allowing the shell to mint approval or lease authority.
+
+Pre-Phase02 unfinished durable plans that bind more than one mission lease fail
+closed at the new whole-plan single-lease preflight. They are not silently
+migrated or resumed; a future persisted-state migration must classify them as
+recovery-required before cross-version replay is supported.
 
 ## MCP And A2A Extension Points
 
