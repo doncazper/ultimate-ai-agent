@@ -31,6 +31,7 @@ DECISION_STATES = [
     "defer",
     "merge",
     "supersede",
+    "expire",
     "forget_request",
 ]
 
@@ -111,10 +112,8 @@ def _require_no_unscoped_legacy_memory_calls(path: Path, failures: list[str]) ->
         "def _memory_review_recall_store(",
         "self.memory_review_recall_db_path",
         "LocalMemoryStore(storage_path=self.memory_review_recall_db_path)",
-        "store.put_record(memory_request)",
-        "automatic_write=False",
-        "context_pack_eligible=False",
-        "injection_priority=0",
+        "return write_memory_review_recall_record(",
+        "storage_path=self.memory_review_recall_db_path",
         "Memory Review decisions are backend-owned receipt state only.",
     ]
     if all(snippet in text for snippet in scoped_fcc_v1_005_allowance):

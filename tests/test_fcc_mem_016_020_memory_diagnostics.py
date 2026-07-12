@@ -12,6 +12,9 @@ from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api import founder_loop as founder_loop_api
 from ultimate_ai_agent.api.app import app
+from ultimate_ai_agent.core.control_center.founder_loop import (
+    FounderLoopControlCenterService,
+)
 from ultimate_ai_agent.core.memory import (
     FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS,
     MEMORY_CITATION_INTEGRITY_CONTRACT_REF,
@@ -27,7 +30,6 @@ from ultimate_ai_agent.core.memory import (
     MemoryReviewDecisionRequest,
 )
 from ultimate_ai_agent.core.storage import FounderLoopRepository
-from scripts.dev.uaa_founder_loop import render_memory_context_manifest_readable
 from tests.authority_helpers import memory_write_authority_lease
 
 
@@ -135,7 +137,9 @@ def test_fcc_mem_016_020_repository_read_models_are_safe(
     assert quality["memory_write_authorized"] is False
     assert quality["automatic_memory_write_authorized"] is False
 
-    assert maintenance["schema_version"] == "fcc_mem_019_proposal_only_maintenance_run.v1"
+    assert (
+        maintenance["schema_version"] == "fcc_mem_019_proposal_only_maintenance_run.v1"
+    )
     assert maintenance["contract_ref"] == MEMORY_MAINTENANCE_RUN_CONTRACT_REF
     assert maintenance["proposal_only"] is True
     assert maintenance["auto_merge_authorized"] is False
@@ -165,12 +169,8 @@ def test_fcc_mem_016_020_repository_read_models_are_safe(
     assert governed["contract_ref"] == (
         "contract-ref:governed-memory-context-manifest:v1"
     )
-    assert governed["context_manifest_ref"] == manifest[
-        "governed_context_manifest_ref"
-    ]
-    assert governed["context_receipt_ref"] == manifest[
-        "governed_context_receipt_ref"
-    ]
+    assert governed["context_manifest_ref"] == manifest["governed_context_manifest_ref"]
+    assert governed["context_receipt_ref"] == manifest["governed_context_receipt_ref"]
     assert governed["budget"]["used_tokens"] <= governed["budget"]["max_tokens"]
     assert governed["budget"]["selected_items"] == governed["selection_count"]
     assert governed["context_injection_authorized"] is False
@@ -183,9 +183,10 @@ def test_fcc_mem_016_020_repository_read_models_are_safe(
     assert preview["schema_version"] == "fcc_mem_020_context_pack_preview.v1"
     assert preview["contract_ref"] == MEMORY_CONTEXT_PACK_PREVIEW_CONTRACT_REF
     assert preview["context_pack_ref"] == context_pack_ref
-    assert preview["context_manifest_ref"] == manifest["manifests"][0][
-        "context_manifest_ref"
-    ]
+    assert (
+        preview["context_manifest_ref"]
+        == manifest["manifests"][0]["context_manifest_ref"]
+    )
     assert preview["context_pack_preview_ref"].startswith(
         "context-pack-preview-ref:fcc-mem-020:"
     )
@@ -255,7 +256,9 @@ def test_memory_feedback_rejects_orphan_targets(
     memory_diagnostic_bundle: dict[str, Any],
 ) -> None:
     repo = memory_diagnostic_bundle["repo"]
-    with pytest.raises(Exception, match="FOUNDER_LOOP_MEMORY_FEEDBACK_TARGET_NOT_FOUND"):
+    with pytest.raises(
+        Exception, match="FOUNDER_LOOP_MEMORY_FEEDBACK_TARGET_NOT_FOUND"
+    ):
         repo.record_memory_feedback(
             request=MemoryFeedbackRequest(
                 target_ref="memory-ref:fcc-mem-018:missing",
@@ -275,30 +278,11 @@ def test_control_center_memory_diagnostic_routes_and_feedback(
     target_ref = memory_diagnostic_bundle["target_ref"]
     client = TestClient(app)
 
-    class ReadModelService:
-        def memory_retrieval_diagnostics(self, **_kwargs: Any) -> dict[str, Any]:
-            return memory_diagnostic_bundle["retrieval"]
-
-        def memory_citation_integrity(self, **_kwargs: Any) -> dict[str, Any]:
-            return memory_diagnostic_bundle["citation"]
-
-        def memory_quality_issues(self, **_kwargs: Any) -> dict[str, Any]:
-            return memory_diagnostic_bundle["quality"]
-
-        def memory_maintenance_runs(self, **_kwargs: Any) -> dict[str, Any]:
-            return memory_diagnostic_bundle["maintenance"]
-
-        def memory_context_manifest(self, **_kwargs: Any) -> dict[str, Any]:
-            return memory_diagnostic_bundle["manifest"]
-
-        def record_memory_feedback(self, **_kwargs: Any) -> dict[str, Any]:
-            return memory_diagnostic_bundle["feedback_receipt"]
-
     with monkeypatch.context() as route_patch:
         route_patch.setattr(
             founder_loop_api,
             "get_founder_loop_service",
-            lambda: ReadModelService(),
+            lambda: FounderLoopControlCenterService(memory_diagnostic_bundle["repo"]),
         )
         for path, operation in [
             (
@@ -367,33 +351,64 @@ def test_founder_loop_cli_memory_context_manifest_omits_raw_paths(
     )
     from scripts.dev import uaa_founder_loop
 
-    assert uaa_founder_loop.main(
-        [
-            "--state-dir",
-            str(state_dir),
-            "memory-context-manifest",
-            "--limit",
-            "5",
-            "--json",
-        ]
-    ) == 0
+    assert (
+        uaa_founder_loop.main(
+            [
+                "--state-dir",
+                str(state_dir),
+                "memory-context-manifest",
+                "--limit",
+                "5",
+                "--json",
+            ]
+        )
+        == 0
+    )
 
     stdout = capsys.readouterr().out
     output = json.loads(stdout)
-    assert output["command_ref"] == "repo-local-command:founder-loop-memory-context-manifest"
+    assert (
+        output["command_ref"]
+        == "repo-local-command:founder-loop-memory-context-manifest"
+    )
     assert output["safe_refs_only"] is True
     assert output["raw_paths_omitted"] is True
-    assert output["context_manifest"]["schema_version"] == "fcc_mem_020_context_manifest.v1"
+    assert (
+        output["context_manifest"]["schema_version"]
+        == "fcc_mem_020_context_manifest.v1"
+    )
     assert str(state_dir) not in stdout
 
 
 def test_founder_loop_cli_memory_context_manifest_is_readable_by_default(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
     memory_diagnostic_bundle: dict[str, Any],
 ) -> None:
-    output = render_memory_context_manifest_readable(
-        memory_diagnostic_bundle["manifest"]
+    class ContextManifestRepo:
+        def memory_context_manifest(self, **_kwargs: Any) -> dict[str, Any]:
+            return memory_diagnostic_bundle["manifest"]
+
+    monkeypatch.setattr(
+        "scripts.dev.uaa_founder_loop._repository",
+        lambda _args: ContextManifestRepo(),
+    )
+    from scripts.dev import uaa_founder_loop
+
+    assert (
+        uaa_founder_loop.main(
+            [
+                "--state-dir",
+                str(memory_diagnostic_bundle["state_dir"]),
+                "memory-context-manifest",
+                "--limit",
+                "5",
+            ]
+        )
+        == 0
     )
 
+    output = capsys.readouterr().out
     assert output.startswith("Memory context manifest\n")
     assert "Context injection: blocked (preview only)" in output
     assert str(memory_diagnostic_bundle["state_dir"]) not in output

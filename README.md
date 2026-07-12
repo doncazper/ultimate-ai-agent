@@ -248,7 +248,7 @@ check.
 
 `make test` and `make test-sharded` use the same canonical local pytest lane.
 It uses
-`scripts/verification/run_pytest_shards.py` with `PYTEST_SHARDS` (twelve local
+`scripts/verification/run_pytest_shards.py` with `PYTEST_SHARDS` (eight local
 shards and workers by default), stores
 inspectable shard logs and isolated pytest temp dirs under ignored `/tmp`
 paths, and writes local file timing data to `PYTEST_SHARD_TIMINGS_JSON`. The
@@ -263,8 +263,10 @@ Normal runs do not regenerate timing data. Use `make test-sharded-profile` for
 an explicit complete green timing refresh; failed runs never replace the local
 profile.
 
-The canonical local lane has a 90-second stretch goal, a 100-second performance
-budget, and a 120-second hard wall-clock limit. Crossing the stretch goal emits
+The canonical local lane has a 110-second stretch goal, a 125-second performance
+budget, and a 180-second hard wall-clock limit. The eight-worker default bounds
+parallel contention on the canonical macOS development host; local timing
+profiles should be refreshed before changing that topology. Crossing the stretch goal emits
 an optimization notice. Crossing the performance budget emits a warning and
 marks the local `PYTEST_PERFORMANCE_REPORT` as requiring refactoring. Crossing
 the hard limit terminates every active shard process group, prevents pending

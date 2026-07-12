@@ -2,14 +2,14 @@ PYTHON := .venv/bin/python
 FRONTEND_DIR := apps/control-center
 VERIFY_TIMINGS_JSON ?= /tmp/uaa_verify_all_timings.json
 VERIFY_DEV_FAST_JOBS ?= 4
-PYTEST_SHARDS ?= 12
-PYTEST_SHARD_WORKERS ?= 12
+PYTEST_SHARDS ?= 8
+PYTEST_SHARD_WORKERS ?= 8
 PYTEST_SHARD_TIMINGS_JSON ?= /tmp/uaa_pytest_file_timings.json
 PYTEST_SHARD_TIMING_SEED_JSON ?= scripts/verification/pytest_file_timing_seed.json
 PYTEST_SHARD_BASETEMP ?= /tmp/uaa_pytest_shards
-PYTEST_STRETCH_GOAL_SECONDS ?= 90
-PYTEST_TARGET_SECONDS ?= 100
-PYTEST_HARD_TIMEOUT_SECONDS ?= 120
+PYTEST_STRETCH_GOAL_SECONDS ?= 110
+PYTEST_TARGET_SECONDS ?= 125
+PYTEST_HARD_TIMEOUT_SECONDS ?= 180
 PYTEST_PERFORMANCE_REPORT ?= /tmp/uaa_pytest_performance_report.json
 
 .PHONY: doctor test test-serial test-sharded test-sharded-profile verify verify-static verify-gate-architecture verify-fast verify-dev-fast verify-dev-sharded verify-local verify-beta-local verify-beta-local-visual frontend-check frontend-visual-check frontend-turn-router-smoke openapi ruff
