@@ -748,6 +748,12 @@ export interface CodingPatchProposalSignedEvidenceEnvelope {
   issued_at_ref: string;
   proposal_hash_ref: string;
   signed_envelope_ref: string;
+  integrity_scheme_ref: "integrity-scheme-ref:local-sha256-hash-v1";
+  integrity_posture: "sha256_hash_only_not_a_cryptographic_signature";
+  cryptographic_signature_present: false;
+  signing_status: "blocked_signing_lifecycle_not_implemented";
+  external_anchor_verified: false;
+  legacy_signed_envelope_ref_is_hash_only: true;
   safe_refs_only: boolean;
   proposal_only: boolean;
   read_only: boolean;
@@ -13930,6 +13936,7 @@ export interface AuthorityMissionCompletionManifest {
   mission_ref: string;
   run_ref: string;
   lease_ref: string;
+  lease_scope_fingerprint_ref: string | null;
   lease_scope: "mission";
   lease_mission_ref: string;
   lease_issued_at: string;
@@ -13970,6 +13977,43 @@ export interface AuthorityMissionCompletionReadModel {
   ledger_ref: string;
   completion_count: number;
   latest_manifests: AuthorityMissionCompletionManifest[];
+  integrity_summary: {
+    schema_version: "uaa-mission-completion-integrity-summary.v1";
+    verifier_version_ref: string;
+    manifest_count: number;
+    chain_ref: string;
+    genesis_entry_hash_ref: string | null;
+    terminal_entry_hash_ref: string | null;
+    hash_chain_verified: true;
+    source_ledgers_verified: false;
+    signature_present: false;
+    signing_status: "blocked_signing_lifecycle_not_implemented";
+    cryptographic_authenticity_verified: false;
+    external_anchor_verified: false;
+    execution_evidence_grants_authority: false;
+  };
+  portable_evidence_summary: {
+    schema_version: "uaa-portable-mission-evidence-inspection.v1";
+    status:
+      | "verified_local_hash_chain"
+      | "not_recorded"
+      | "not_evaluated"
+      | "unavailable";
+    bundle_ref: string | null;
+    completion_count: number;
+    envelope_count: number;
+    terminal_entry_hash_ref: string | null;
+    local_hash_chain_verified: boolean;
+    source_receipts_bound: boolean;
+    source_ledgers_verified: false;
+    caller_expected_binding_matched: false;
+    signature_verified: false;
+    signing_status: "blocked_signing_lifecycle_not_implemented";
+    cryptographic_authenticity_verified: false;
+    external_anchor_verified: false;
+    execution_evidence_grants_authority: false;
+    reason_refs: string[];
+  };
   operator_summary: string;
   request_scoped_authority_still_required: true;
   execution_available_from_read_model: false;

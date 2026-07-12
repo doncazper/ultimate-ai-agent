@@ -55,6 +55,9 @@ from ultimate_ai_agent.core.execution.mission_completion import (
     MissionCompletionCorruptionError,
     MissionCompletionStore,
 )
+from ultimate_ai_agent.core.execution.portable_mission_evidence import (
+    build_portable_mission_evidence_inspection,
+)
 from ultimate_ai_agent.core.authority.contracts import authority_state_dir
 from ultimate_ai_agent.core.execution.durable_mission_controls import (
     MissionControlConflictError,
@@ -1322,7 +1325,12 @@ def get_api_runtime_authority_domain_readiness() -> ResultEnvelope:
 @router.get("/authority-missions/completions", response_model=ResultEnvelope)
 def get_api_runtime_authority_missions_completions() -> ResultEnvelope:
     try:
-        read_model = MissionCompletionStore(authority_state_dir()).build_read_model()
+        state_dir = authority_state_dir()
+        read_model = MissionCompletionStore(state_dir).build_read_model(
+            portable_evidence_summary=build_portable_mission_evidence_inspection(
+                state_dir
+            )
+        )
     except (MissionCompletionCorruptionError, OSError, UnicodeError, ValueError):
         return ResultEnvelope(
             success=False,

@@ -253,6 +253,9 @@ class AuthorityDispatchReceipt(_AuthorityDispatchModel):
     adapter_ref: str
     adapter_binding_ref: str | None
     capability_ref: str
+    provider_ref: str | None = None
+    target_binding_ref: str | None = None
+    approval_scope_fingerprint_ref: str | None = None
     authority_decision_ref: str | None = None
     authority_policy_receipt_ref: str | None = None
     approval_required: StrictBool = False
@@ -305,6 +308,9 @@ class AuthorityDispatchReceipt(_AuthorityDispatchModel):
             self.adapter_ref,
             self.adapter_binding_ref,
             self.capability_ref,
+            self.provider_ref,
+            self.target_binding_ref,
+            self.approval_scope_fingerprint_ref,
             self.authority_decision_ref,
             self.authority_policy_receipt_ref,
             self.approval_ref,

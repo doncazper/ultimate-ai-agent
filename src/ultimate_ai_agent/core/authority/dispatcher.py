@@ -116,6 +116,37 @@ def _stable_ref(prefix: str, value: Any) -> str:
     return f"{prefix}:sha256:{digest}"
 
 
+def _approval_scope_fingerprint_ref(validation_request: Any) -> str:
+    return _stable_ref(
+        "approval-scope-fingerprint-ref:authority-dispatch",
+        validation_request.model_dump(
+            mode="json",
+            exclude={"current_time", "purpose"},
+        ),
+    )
+
+
+def _approval_validation_ref(
+    validation_request: Any,
+    action_ref: str,
+    approval_decision: Any,
+) -> str:
+    return _stable_ref(
+        "approval-validation-ref:authority-budget",
+        {
+            "approval_ref": validation_request.approval_ref,
+            "approval_scope_fingerprint_ref": _approval_scope_fingerprint_ref(
+                validation_request
+            ),
+            "action_ref": action_ref,
+            "allowed": approval_decision.allowed,
+            "matched_grant_ref": approval_decision.matched_grant_ref,
+            "reason_codes": approval_decision.reason_codes,
+            "status": approval_decision.status,
+        },
+    )
+
+
 def authority_dispatch_request_fingerprint(
     request: AuthorityDispatchRequest,
 ) -> str:
@@ -132,7 +163,11 @@ def _request_fingerprint(request: AuthorityDispatchRequest) -> str:
     return authority_dispatch_request_fingerprint(request)
 
 
-def _entry_hash(receipt: AuthorityDispatchReceipt) -> str:
+def authority_dispatch_receipt_entry_hash(
+    receipt: AuthorityDispatchReceipt,
+) -> str:
+    """Return the canonical V1 hash for one validated dispatch receipt."""
+
     payload = receipt.model_dump(mode="json", exclude={"entry_hash_ref"})
     # Preserve the canonical V1 payload for receipts written before these
     # optional fields existed. Non-null values remain hash-bound.
@@ -144,10 +179,20 @@ def _entry_hash(receipt: AuthorityDispatchReceipt) -> str:
         payload.pop("execution_fence_ref", None)
     if receipt.failure_category is None:
         payload.pop("failure_category", None)
+    if receipt.provider_ref is None:
+        payload.pop("provider_ref", None)
+    if receipt.target_binding_ref is None:
+        payload.pop("target_binding_ref", None)
+    if receipt.approval_scope_fingerprint_ref is None:
+        payload.pop("approval_scope_fingerprint_ref", None)
     return _stable_ref(
         "entry-hash-ref:authority-dispatch",
         payload,
     )
+
+
+def _entry_hash(receipt: AuthorityDispatchReceipt) -> str:
+    return authority_dispatch_receipt_entry_hash(receipt)
 
 
 def _execution_ref(request: AuthorityDispatchRequest) -> str:
@@ -1250,16 +1295,10 @@ class AuthorityDispatcher:
                 except Exception:
                     approval_decision = None
                 validation_ref = (
-                    _stable_ref(
-                        "approval-validation-ref:authority-budget",
-                        {
-                            "approval_ref": validation_request.approval_ref,
-                            "action_ref": request.action_request.action_ref,
-                            "allowed": approval_decision.allowed,
-                            "matched_grant_ref": approval_decision.matched_grant_ref,
-                            "reason_codes": approval_decision.reason_codes,
-                            "status": approval_decision.status,
-                        },
+                    _approval_validation_ref(
+                        validation_request,
+                        request.action_request.action_ref,
+                        approval_decision,
                     )
                     if approval_decision is not None
                     else None
@@ -1422,16 +1461,10 @@ class AuthorityDispatcher:
                 except Exception:
                     approval_decision = None
                 validation_ref = (
-                    _stable_ref(
-                        "approval-validation-ref:authority-budget",
-                        {
-                            "approval_ref": validation_request.approval_ref,
-                            "action_ref": request.action_request.action_ref,
-                            "allowed": approval_decision.allowed,
-                            "matched_grant_ref": approval_decision.matched_grant_ref,
-                            "reason_codes": approval_decision.reason_codes,
-                            "status": approval_decision.status,
-                        },
+                    _approval_validation_ref(
+                        validation_request,
+                        request.action_request.action_ref,
+                        approval_decision,
                     )
                     if approval_decision is not None
                     else None
@@ -1864,6 +1897,23 @@ class AuthorityDispatcher:
                 else request.action_request.capability_ref
                 or "authority-capability-ref:unknown-denied"
             ),
+            # The generic dispatcher cannot infer provider identity from a tool
+            # adapter descriptor. Preserve that uncertainty rather than
+            # mislabeling future provider-backed adapters as local-only.
+            "provider_ref": "provider-ref:unknown:not-declared-by-adapter",
+            "target_binding_ref": _stable_ref(
+                "target-binding-ref:authority-dispatch",
+                {
+                    "resource_refs": sorted(request.action_request.resource_refs),
+                },
+            ),
+            "approval_scope_fingerprint_ref": (
+                _approval_scope_fingerprint_ref(
+                    request.approval_validation_request
+                )
+                if request.approval_validation_request is not None
+                else None
+            ),
             "rollback_ref": (
                 descriptor.rollback_ref
                 if descriptor is not None
@@ -1888,6 +1938,9 @@ class AuthorityDispatcher:
                 "approval_required",
                 "adapter_approval_required",
                 "adapter_binding_ref",
+                "provider_ref",
+                "target_binding_ref",
+                "approval_scope_fingerprint_ref",
                 "approval_ref",
                 "approval_validation_ref",
                 "budget_reservation_ref",

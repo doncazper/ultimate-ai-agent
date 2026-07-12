@@ -43,7 +43,7 @@ Tool Broker v2 entries as preview-only, Action Inbox `local_task_create` as an
 exact local mutation authority capability, RuntimeGateway focused pytest,
 repo-verifier, frontend-check, and repo-doctor as exact approval-required
 runtime capabilities, Coding patch proposal as proposal-only with deterministic
-signed safe-ref evidence, Coding allowlisted validation commands as an
+SHA-256 hash-integrity evidence, Coding allowlisted validation commands as an
 approval-required RuntimeGateway-backed lane, and Coding patch apply, Git
 review, and live preview as blocked until later exact AuthorityLease capability
 implementation.
@@ -82,8 +82,9 @@ refs before it can mutate files.
 
 Coding patch proposal evidence is available through
 `GET /control-center/coding/patch-proposal` and
-`scripts/dev/uaa_coding.py verify-patch-proposal-evidence`. The signed envelope
-is local hash based, safe-ref-only, verifier-backed, and explicitly records that
+`scripts/dev/uaa_coding.py verify-patch-proposal-evidence`. The legacy
+signed-envelope compatibility field is a local hash, not a cryptographic
+signature. The evidence is safe-ref-only, verifier-backed, and explicitly records that
 patch apply, file mutation, shell/subprocess, Git mutation, provider/model call,
 browser automation, connector write, and production authority did not occur.
 

@@ -341,10 +341,10 @@ function PatchProposalPreview({
       </p>
       <div
         className="coding-context-comparison"
-        aria-label="Coding patch proposal signed evidence"
+        aria-label="Coding patch proposal hash-integrity evidence"
       >
         <DetailTile
-          label="Signed evidence"
+          label="Integrity ref (legacy signed field; not a signature)"
           value={proposal.signed_evidence.signed_envelope_ref}
         />
         <DetailTile
@@ -352,6 +352,9 @@ function PatchProposalPreview({
           value={proposal.signed_evidence_verification_status}
         />
         <p className="safe-copy">{proposal.signed_evidence.safe_summary}</p>
+        <p className="safe-copy">
+          Local SHA-256 integrity only. Cryptographic signing is blocked.
+        </p>
       </div>
       <div className="coding-item-stack">
         {proposal.file_changes.map((item) => (

@@ -1902,7 +1902,7 @@ def build_high_maturity_agent_spine_readiness() -> dict[str, Any]:
             score=8,
             safe_summary=(
                 "Coding cockpit and code workbench expose proposal, patch, "
-                "signed proposal evidence, apply-readiness, validation, "
+                "local hash-integrity proposal evidence, apply-readiness, validation, "
                 "rollback, and blocked-authority posture without broad coding "
                 "autonomy."
             ),
@@ -1986,13 +1986,13 @@ def build_high_maturity_agent_spine_readiness() -> dict[str, Any]:
         ),
         _high_maturity_row(
             weakness_id="W9",
-            component="Signed evidence receipts",
+            component="Local hash-integrity evidence receipts",
             status="implemented",
             maturity="strong",
             score=8,
             safe_summary=(
-                "Runtime action signed evidence, Coding patch proposal signed "
-                "evidence, and evidence audit spines use safe refs, hashes, "
+                "Runtime action and coding proposal hash-integrity evidence, "
+                "plus evidence audit spines, use safe refs, hashes, "
                 "lineage, verification posture, and receipt refs instead of raw "
                 "payloads."
             ),
@@ -2009,7 +2009,7 @@ def build_high_maturity_agent_spine_readiness() -> dict[str, Any]:
             ],
             gap="Portable production signing/compliance claims stay blocked.",
             recommendation=(
-                "Keep signed evidence local and verifier-backed; add portable "
+                "Keep hash-integrity evidence local and verifier-backed; add portable "
                 "export only after key material and redaction posture are proven."
             ),
         ),

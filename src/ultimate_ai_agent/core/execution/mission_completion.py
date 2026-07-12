@@ -153,6 +153,7 @@ class MissionCompletionManifest(_MissionCompletionModel):
     mission_ref: str
     run_ref: str
     lease_ref: str
+    lease_scope_fingerprint_ref: str | None = None
     lease_scope: Literal["mission"] = "mission"
     lease_mission_ref: str
     lease_issued_at: datetime
@@ -259,9 +260,7 @@ class MissionCompletionManifest(_MissionCompletionModel):
             raise ValueError("MISSION_COMPLETION_APPROVAL_SUMMARY_MISMATCH")
         if set(AUTHORITY_STATE_REDACTIONS) - set(self.redactions_applied):
             raise ValueError("MISSION_COMPLETION_REQUIRED_REDACTIONS_MISSING")
-        expected_ref = _stable_ref(
-            "mission-completion-ref",
-            {
+        completion_payload: dict[str, Any] = {
                 "plan_ref": self.plan_ref,
                 "plan_fingerprint_ref": self.plan_fingerprint_ref,
                 "mission_ref": self.mission_ref,
@@ -288,8 +287,12 @@ class MissionCompletionManifest(_MissionCompletionModel):
                 "cancellation_receipt_refs": self.cancellation_receipt_refs,
                 "dead_letter_receipt_refs": self.dead_letter_receipt_refs,
                 "evidence_refs": self.evidence_refs,
-            },
-        )
+            }
+        if self.lease_scope_fingerprint_ref is not None:
+            completion_payload["lease_scope_fingerprint_ref"] = (
+                self.lease_scope_fingerprint_ref
+            )
+        expected_ref = _stable_ref("mission-completion-ref", completion_payload)
         if self.completion_ref != expected_ref:
             raise ValueError("MISSION_COMPLETION_REF_INVALID")
         expected_memory_ref = _stable_ref(
@@ -310,6 +313,94 @@ class MissionCompletionVerificationResult(_MissionCompletionModel):
     source_ledgers_verified: StrictBool = False
 
 
+class MissionCompletionIntegritySummary(_MissionCompletionModel):
+    schema_version: Literal["uaa-mission-completion-integrity-summary.v1"] = (
+        "uaa-mission-completion-integrity-summary.v1"
+    )
+    verifier_version_ref: str = (
+        "verifier-ref:mission-completion:sha256-chain:v1"
+    )
+    manifest_count: StrictInt = Field(..., ge=0, le=MISSION_COMPLETION_LEDGER_MAX_RECEIPTS)
+    chain_ref: str
+    genesis_entry_hash_ref: str | None = None
+    terminal_entry_hash_ref: str | None = None
+    hash_chain_verified: Literal[True] = True
+    source_ledgers_verified: Literal[False] = False
+    signature_present: Literal[False] = False
+    signing_status: Literal["blocked_signing_lifecycle_not_implemented"] = (
+        "blocked_signing_lifecycle_not_implemented"
+    )
+    cryptographic_authenticity_verified: Literal[False] = False
+    external_anchor_verified: Literal[False] = False
+    execution_evidence_grants_authority: Literal[False] = False
+
+    @model_validator(mode="after")
+    def validate_summary(self) -> "MissionCompletionIntegritySummary":
+        _validate_refs(self.model_dump(mode="python"), "mission_completion_integrity")
+        if self.manifest_count == 0 and (
+            self.genesis_entry_hash_ref is not None
+            or self.terminal_entry_hash_ref is not None
+        ):
+            raise ValueError("MISSION_COMPLETION_EMPTY_CHAIN_HASH_INVALID")
+        if self.manifest_count > 0 and (
+            self.genesis_entry_hash_ref is None
+            or self.terminal_entry_hash_ref is None
+        ):
+            raise ValueError("MISSION_COMPLETION_CHAIN_HASH_REQUIRED")
+        return self
+
+
+class PortableMissionEvidenceInspectionSummary(_MissionCompletionModel):
+    schema_version: Literal["uaa-portable-mission-evidence-inspection.v1"] = (
+        "uaa-portable-mission-evidence-inspection.v1"
+    )
+    status: Literal[
+        "verified_local_hash_chain",
+        "not_recorded",
+        "not_evaluated",
+        "unavailable",
+    ]
+    bundle_ref: str | None = None
+    completion_count: StrictInt = Field(..., ge=0, le=MISSION_COMPLETION_LEDGER_MAX_RECEIPTS)
+    envelope_count: StrictInt = Field(..., ge=0, le=MISSION_COMPLETION_LEDGER_MAX_RECEIPTS)
+    terminal_entry_hash_ref: str | None = None
+    local_hash_chain_verified: StrictBool = False
+    source_receipts_bound: StrictBool = False
+    source_ledgers_verified: Literal[False] = False
+    caller_expected_binding_matched: Literal[False] = False
+    signature_verified: Literal[False] = False
+    signing_status: Literal["blocked_signing_lifecycle_not_implemented"] = (
+        "blocked_signing_lifecycle_not_implemented"
+    )
+    cryptographic_authenticity_verified: Literal[False] = False
+    external_anchor_verified: Literal[False] = False
+    execution_evidence_grants_authority: Literal[False] = False
+    reason_refs: tuple[str, ...] = ()
+
+    @model_validator(mode="after")
+    def validate_summary(self) -> "PortableMissionEvidenceInspectionSummary":
+        _validate_refs(self.model_dump(mode="python"), "portable_evidence_inspection")
+        if self.status == "verified_local_hash_chain":
+            if (
+                not self.bundle_ref
+                or not self.terminal_entry_hash_ref
+                or self.completion_count < 1
+                or self.envelope_count < 1
+                or not self.local_hash_chain_verified
+                or not self.source_receipts_bound
+            ):
+                raise ValueError("PORTABLE_EVIDENCE_VERIFIED_SUMMARY_INVALID")
+        elif (
+            self.bundle_ref is not None
+            or self.terminal_entry_hash_ref is not None
+            or self.envelope_count != 0
+            or self.local_hash_chain_verified
+            or self.source_receipts_bound
+        ):
+            raise ValueError("PORTABLE_EVIDENCE_UNVERIFIED_SUMMARY_INVALID")
+        return self
+
+
 class MissionCompletionReadModel(_MissionCompletionModel):
     schema_version: Literal["uaa-mission-completion-read-model.v1"] = (
         "uaa-mission-completion-read-model.v1"
@@ -319,6 +410,8 @@ class MissionCompletionReadModel(_MissionCompletionModel):
     latest_manifests: tuple[MissionCompletionManifest, ...] = Field(
         default=(), max_length=12
     )
+    integrity_summary: MissionCompletionIntegritySummary
+    portable_evidence_summary: PortableMissionEvidenceInspectionSummary
     operator_summary: str
     request_scoped_authority_still_required: Literal[True] = True
     execution_available_from_read_model: Literal[False] = False
@@ -332,6 +425,8 @@ class MissionCompletionReadModel(_MissionCompletionModel):
         validate_task_ref(self.ledger_ref, "mission_completion_ledger_ref")
         if len(self.latest_manifests) > self.completion_count:
             raise ValueError("MISSION_COMPLETION_READ_MODEL_COUNT_INVALID")
+        if self.portable_evidence_summary.completion_count != self.completion_count:
+            raise ValueError("MISSION_COMPLETION_PORTABLE_COUNT_MISMATCH")
         return self
 
 
@@ -342,6 +437,17 @@ def _canonical(value: Any) -> str:
 def _stable_ref(prefix: str, value: Any) -> str:
     digest = hashlib.sha256(_canonical(value).encode("utf-8")).hexdigest()
     return f"{prefix}:sha256:{digest}"
+
+
+def authority_lease_issuance_scope_fingerprint_ref(lease: AuthorityLease) -> str:
+    """Hash immutable issuance scope while excluding later revocation posture."""
+
+    payload = lease.model_dump(mode="json", exclude={"status", "safe_summary"})
+    constraints = dict(payload.get("constraints", {}))
+    constraints.pop("revocation_reason_ref", None)
+    constraints.pop("revocation_idempotency_ref", None)
+    payload["constraints"] = constraints
+    return _stable_ref("authority-lease-scope-fingerprint-ref", payload)
 
 
 def _validate_refs(value: Any, field_name: str) -> None:
@@ -361,6 +467,8 @@ def _validate_refs(value: Any, field_name: str) -> None:
 
 def _entry_hash(manifest: MissionCompletionManifest) -> str:
     payload = manifest.model_dump(mode="json", exclude={"entry_hash_ref"})
+    if manifest.lease_scope_fingerprint_ref is None:
+        payload.pop("lease_scope_fingerprint_ref", None)
     return _stable_ref("mission-completion-entry-hash-ref", payload)
 
 
@@ -672,9 +780,10 @@ def build_mission_completion_manifest(
                 *dispatch.evidence_refs,
             ]
         )
-    completion_ref = _stable_ref(
-        "mission-completion-ref",
-        {
+    lease_scope_fingerprint_ref = authority_lease_issuance_scope_fingerprint_ref(
+        lease
+    )
+    completion_payload: dict[str, Any] = {
             "plan_ref": plan.plan_ref,
             "plan_fingerprint_ref": plan_receipt.plan_fingerprint_ref,
             "mission_ref": plan.mission_ref,
@@ -710,7 +819,11 @@ def build_mission_completion_manifest(
             "cancellation_receipt_refs": cancellation_receipt_refs,
             "dead_letter_receipt_refs": dead_letter_receipt_refs,
             "evidence_refs": list(dict.fromkeys(evidence_refs)),
-        },
+            "lease_scope_fingerprint_ref": lease_scope_fingerprint_ref,
+        }
+    completion_ref = _stable_ref(
+        "mission-completion-ref",
+        completion_payload,
     )
     base = MissionCompletionManifest(
         sequence=sequence,
@@ -722,6 +835,7 @@ def build_mission_completion_manifest(
         mission_ref=plan.mission_ref,
         run_ref=plan.run_ref,
         lease_ref=lease.lease_ref,
+        lease_scope_fingerprint_ref=lease_scope_fingerprint_ref,
         lease_mission_ref=lease.mission_ref or "",
         lease_issued_at=lease.issued_at,
         lease_expires_at=lease.expires_at,
@@ -795,14 +909,40 @@ class MissionCompletionStore:
         with self.lock_manager.acquire(MISSION_COMPLETION_LOCK_KEY):
             return self._load()
 
-    def build_read_model(self, *, recent_limit: int = 12) -> MissionCompletionReadModel:
+    def build_read_model(
+        self,
+        *,
+        recent_limit: int = 12,
+        portable_evidence_summary: PortableMissionEvidenceInspectionSummary | None = None,
+    ) -> MissionCompletionReadModel:
         if recent_limit < 0 or recent_limit > 12:
             raise ValueError("MISSION_COMPLETION_RECENT_LIMIT_INVALID")
         manifests = self.list_manifests()
         latest = tuple(manifests[-recent_limit:]) if recent_limit else ()
+        integrity_summary = MissionCompletionIntegritySummary(
+            manifest_count=len(manifests),
+            chain_ref=_stable_ref(
+                "mission-completion-chain-ref",
+                [item.entry_hash_ref for item in manifests],
+            ),
+            genesis_entry_hash_ref=(manifests[0].entry_hash_ref if manifests else None),
+            terminal_entry_hash_ref=(manifests[-1].entry_hash_ref if manifests else None),
+        )
         return MissionCompletionReadModel(
             completion_count=len(manifests),
             latest_manifests=latest,
+            integrity_summary=integrity_summary,
+            portable_evidence_summary=(
+                portable_evidence_summary
+                or PortableMissionEvidenceInspectionSummary(
+                    status="not_evaluated",
+                    completion_count=len(manifests),
+                    envelope_count=0,
+                    reason_refs=(
+                        "reason-ref:portable-mission-evidence:not-evaluated",
+                    ),
+                )
+            ),
             operator_summary=(
                 f"{len(manifests)} content-free hash-chained mission completion "
                 "manifest(s) are available for review; source-ledger verification "

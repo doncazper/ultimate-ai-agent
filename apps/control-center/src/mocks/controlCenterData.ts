@@ -4777,6 +4777,12 @@ const mockCodingPatchProposal: CodingPatchProposalReadModel = {
     issued_at_ref: "issued-at-ref:coding-patch-proposal-deterministic-v1",
     proposal_hash_ref: "coding-patch-proposal-evidence-hash-ref:mock",
     signed_envelope_ref: "coding-patch-proposal-signed-envelope-ref:mock",
+    integrity_scheme_ref: "integrity-scheme-ref:local-sha256-hash-v1",
+    integrity_posture: "sha256_hash_only_not_a_cryptographic_signature",
+    cryptographic_signature_present: false,
+    signing_status: "blocked_signing_lifecycle_not_implemented",
+    external_anchor_verified: false,
+    legacy_signed_envelope_ref_is_hash_only: true,
     safe_refs_only: true,
     proposal_only: true,
     read_only: true,
@@ -4795,7 +4801,7 @@ const mockCodingPatchProposal: CodingPatchProposalReadModel = {
     public_notarization_enabled: false,
     signing_key_material_persisted: false,
     safe_summary:
-      "Mock fallback signed evidence is non-authoritative and safe-ref only.",
+      "Mock fallback hash-integrity evidence is non-authoritative, safe-ref only, and not a cryptographic signature.",
   },
   signed_evidence_verification_status: "passed",
   next_safe_action:

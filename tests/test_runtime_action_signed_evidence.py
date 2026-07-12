@@ -202,8 +202,13 @@ def test_runtime_action_signed_evidence_pass_path_is_verifiable(
     assert envelope.route_decision_binding_ref.startswith("route-decision-binding-ref:")
     assert envelope.envelope_hash_ref.startswith("runtime-action-evidence-hash-ref:")
     assert envelope.signed_envelope_ref.startswith("runtime-action-signed-envelope-ref:")
+    assert envelope.integrity_posture == "sha256_hash_only_not_a_cryptographic_signature"
+    assert envelope.cryptographic_signature_present is False
+    assert envelope.external_anchor_verified is False
+    assert envelope.legacy_signed_envelope_ref_is_hash_only is True
     assert verification.verification_status == "passed"
     assert verification.tamper_detected is False
+    assert verification.cryptographic_signature_verified is False
 
     payload = json.dumps(envelope.model_dump(mode="json"), sort_keys=True)
     assert "raw output must never persist" not in payload
@@ -269,6 +274,15 @@ def test_runtime_action_signed_evidence_detects_scope_drift_and_tamper(
         "failure-reason-ref:runtime-action-evidence:envelope-hash-invalid"
         in tampered_result.failure_reason_refs
     )
+
+    for unsafe in (
+        envelope.model_dump(mode="json") | {"raw_prompt": "unsafe"},
+        envelope.model_dump(mode="json") | {"cryptographic_signature_present": True},
+        envelope.model_dump(mode="json") | {"envelope_ref": "/Users/private"},
+    ):
+        rejected = verify_runtime_action_signed_evidence(unsafe)
+        assert rejected.verification_status == "failed"
+        assert rejected.tamper_detected is True
 
 
 def test_runtime_action_signed_evidence_idempotent_replay_is_stable(
@@ -382,3 +396,24 @@ def test_runtime_action_signed_evidence_cli_export_and_verify(tmp_path: Path) ->
     verification = json.loads(verify.stdout)["verification"]
     assert verification["verification_status"] == "passed"
     assert str(envelope_path) not in verify.stdout
+
+    symlink_path = tmp_path / "runtime-action-evidence-symlink.json"
+    symlink_path.symlink_to(envelope_path)
+    rejected = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts/dev/uaa_runtime.py"),
+            "receipts",
+            "verify-evidence",
+            "--input",
+            str(symlink_path),
+            "--json",
+        ],
+        cwd=ROOT,
+        check=False,
+        text=True,
+        capture_output=True,
+    )
+    assert rejected.returncode == 1
+    assert str(symlink_path) not in rejected.stdout
+    assert str(symlink_path) not in rejected.stderr

@@ -1306,7 +1306,7 @@ function backendOwnedHighMaturitySpineReadiness(
     "Code Mode discipline",
     "Web and external evidence",
     "Model and provider management",
-    "Signed evidence receipts",
+    "Local hash-integrity evidence receipts",
     "Extensibility and catalog maturity",
     "End-to-end Founder Loop",
     "System-level agent evals",

@@ -124,7 +124,7 @@ claims, production authority, or broad autonomy through an ecosystem surface.
 | Rank | Recommendation | Impact | Effort | Risk | Authority Needed | First Step |
 |---:|---|---|---|---|---|---|
 | 1 | Productize one end-to-end operator loop from Today to Action to Proof to Memory. | high | medium | medium | exact local lanes only | Add a single read model that shows run, approval, receipt, evidence, and memory refs together. |
-| 2 | Add signed portable evidence export for local receipts. | high | medium | medium | local evidence export lane | Define verifier version, hash refs, approval refs, policy decision, and redacted envelope contract. |
+| 2 | Add portable hash-integrity evidence export for local receipts; keep real signing separately blocked. | high | medium | medium | local evidence export lane | Define verifier version, hash refs, approval refs, policy decision, and redacted envelope contract. |
 | 3 | Harden RuntimeGateway decision traces before live provider expansion. | high | medium | high | metadata/read-only first | Bind turn router, runtime readiness, model/provider posture, and proof refs without runtime model calls. |
 | 4 | Add static package review for repo-owned extension samples. | medium | medium | medium | read-only package review | Produce reviewed hash/provenance records and blocker refs without install/import. |
 | 5 | Add extension trust UI over `GET /extensions/catalog`. | medium | low | low | read-only Control Center surface | Render visibility, trust, callable posture, blocked reason, and adoption posture from backend data. |

@@ -527,10 +527,8 @@ def test_legacy_dispatch_payload_remains_readable_and_replayable(tmp_path) -> No
     )
     dispatcher.prepare(request)
     payload = json.loads(dispatcher.receipts_path.read_text(encoding="utf-8"))
-    payload.pop("start_deadline")
-    payload.pop("start_validated_at")
-    payload.pop("execution_fence_ref")
-    payload.pop("failure_category")
+    for field in ("start_deadline", "start_validated_at", "execution_fence_ref", "failure_category", "provider_ref", "target_binding_ref", "approval_scope_fingerprint_ref"):
+        payload.pop(field)
     entry_payload = {
         key: value for key, value in payload.items() if key != "entry_hash_ref"
     }

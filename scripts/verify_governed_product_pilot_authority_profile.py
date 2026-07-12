@@ -138,7 +138,34 @@ def main() -> int:
     _append(
         envelope["signed_envelope_ref"].startswith("signed-envelope-ref:sha256:"),
         failures,
-        "evidence envelope signed ref is not local hash signed",
+        "legacy evidence envelope signed ref is not a local SHA-256 hash ref",
+    )
+    _append(
+        envelope["integrity_posture"]
+        == "sha256_hash_only_not_a_cryptographic_signature",
+        failures,
+        "portable evidence must identify its hash-only integrity posture",
+    )
+    _append(
+        envelope["cryptographic_signature_present"] is False,
+        failures,
+        "portable evidence must not claim a cryptographic signature",
+    )
+    _append(
+        envelope["signing_status"]
+        == "blocked_signing_lifecycle_not_implemented",
+        failures,
+        "portable evidence signing must remain explicitly blocked",
+    )
+    _append(
+        envelope["external_anchor_verified"] is False,
+        failures,
+        "portable evidence must not claim an external anchor",
+    )
+    _append(
+        envelope["legacy_signed_envelope_ref_is_hash_only"] is True,
+        failures,
+        "legacy signed-envelope compatibility field must be marked hash-only",
     )
     _append(
         envelope["public_notarization_enabled"] is False,
@@ -160,6 +187,16 @@ def main() -> int:
         verification["tamper_detected"] is False,
         failures,
         "fresh portable evidence envelope should not be tampered",
+    )
+    _append(
+        verification["cryptographic_signature_verified"] is False,
+        failures,
+        "portable evidence verification must not claim signature verification",
+    )
+    _append(
+        verification["external_anchor_verified"] is False,
+        failures,
+        "portable evidence verification must not claim external anchoring",
     )
     tampered = envelope | {"action_id": "governed-product-pilot-tampered"}
     tampered_verification = verify_portable_evidence_envelope(tampered).model_dump(

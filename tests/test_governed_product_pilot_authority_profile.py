@@ -118,6 +118,10 @@ def test_portable_evidence_envelope_contains_required_signed_fields() -> None:
     assert payload["verifier_version_ref"].startswith("verifier-version-ref:")
     assert payload["envelope_hash_ref"].startswith("hash-ref:sha256:")
     assert payload["signed_envelope_ref"].startswith("signed-envelope-ref:sha256:")
+    assert payload["integrity_posture"] == "sha256_hash_only_not_a_cryptographic_signature"
+    assert payload["cryptographic_signature_present"] is False
+    assert payload["external_anchor_verified"] is False
+    assert payload["legacy_signed_envelope_ref_is_hash_only"] is True
     assert payload["public_notarization_enabled"] is False
     assert payload["signing_key_material_persisted"] is False
     assert payload["safe_refs_only"] is True
@@ -157,6 +161,15 @@ def test_portable_evidence_offline_verifier_detects_tamper_and_missing_fields() 
         "failure-reason-ref:portable-evidence-envelope-hash-invalid"
         in tampered_result.failure_reason_refs
     )
+
+    for unsafe in (
+        payload | {"raw_prompt": "unsafe"},
+        payload | {"cryptographic_signature_present": True},
+        payload | {"envelope_ref": "/Users/private"},
+    ):
+        rejected = verify_portable_evidence_envelope(unsafe)
+        assert rejected.verification_status == "failed"
+        assert rejected.tamper_detected is True
 
     missing = dict(payload)
     missing.pop("approval_ref")
