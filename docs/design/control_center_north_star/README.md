@@ -1,7 +1,7 @@
 # Control Center North-Star Visual Renders
 
 Status: current target render set, documentation only.
-Baseline ID: CC-NS-TARGET-R2-2026-07-11.
+Baseline ID: CC-NS-TARGET-R3-2026-07-11.
 Current as of: 2026-07-11.
 Repo baseline: v0.104.0 / 0.104.0.
 
@@ -85,6 +85,14 @@ retaining both earlier CRM drafts:
 |---|---|
 | `renders/target-v3/04-crm-v3.png` | CRM v3 premier general relationship workspace |
 
+The independent Messenger client set covers the Element-familiar Matrix north
+star through the UAA lens while Communications keeps its accepted unified hub.
+Messenger is a separate immersive tab like Studio. Its two primary Spaces are
+Founder HQ and Personal Circle. The surface contract is in
+`UAA_COMMUNICATIONS_MATRIX_NORTH_STAR.md`; all images remain design targets.
+The staged implementation sequence is in
+`../UAA_MESSENGER_MATRIX_IMPLEMENTATION_PLAN.md`.
+
 Run the one-at-a-time critique gallery with:
 
 ```bash
@@ -121,7 +129,7 @@ in browser local storage and can be exported/imported as JSON.
 
 ## Current Baseline
 
-- Current target render set: CC-NS-TARGET-R2-2026-07-11.
+- Current target render set: CC-NS-TARGET-R3-2026-07-11.
 - Current as of: 2026-07-11.
 - Canonical shell: `APP_SHELL_BASELINE.md`.
 - Route coverage: `SURFACE_COVERAGE.md`.

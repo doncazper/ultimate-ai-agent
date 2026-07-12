@@ -39,9 +39,10 @@ All five references use the same compact desktop-software model:
 
 ## Locked v3 Composition
 
-The standard UAA shell remains unchanged and includes Today, Communications,
-Work Board, CRM, Calendar, News, Studio, Knowledge, Activity & Trust,
-Customize, Settings, and Developer Tools.
+The standard UAA shell includes Today, Communications, Messenger, Work Board,
+CRM, Calendar, News, Studio, Knowledge, Activity & Trust, Customize, Settings,
+and Developer Tools. Older generated CRM pixels may predate the Messenger rail
+entry; the shell baseline wins.
 
 The CRM workspace uses:
 

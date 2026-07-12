@@ -1,7 +1,7 @@
 # Control Center App Shell Baseline
 
 Status: current target shell baseline, documentation only.
-Baseline ID: CC-NS-TARGET-R2-2026-07-11.
+Baseline ID: CC-NS-TARGET-R3-2026-07-11.
 Current as of: 2026-07-11.
 Repo baseline: v0.104.0 / 0.104.0.
 
@@ -16,7 +16,7 @@ target for implementation and future render generation.
 
 ## Static App Shell
 
-The Control Center uses one persistent shell across the app:
+The Control Center uses one persistent shell across normal routes:
 
 - fixed left navigation rail;
 - persistent top status and authority strip;
@@ -24,9 +24,11 @@ The Control Center uses one persistent shell across the app:
 - optional bottom evidence/receipt band;
 - route-local panes, tabs, queues, and inspectors inside the workspace only.
 
-The left rail must not be replaced by route-specific navigation. Route-specific
-navigation belongs in the route workspace as tabs, split-pane lists, segmented
-controls, or inspectors.
+The left rail must not be replaced by route-specific navigation on normal
+routes. Route-specific navigation belongs in the route workspace as tabs,
+split-pane lists, segmented controls, or inspectors. Studio and Messenger are
+the two explicit immersive exceptions; both replace the standard rail and
+provide a visible Back to Control Center command.
 
 ## Canonical Left Rail
 
@@ -41,15 +43,17 @@ route availability, capability state, authority, or the resettable default.
 
 1. Today
 2. Communications
-3. Work Board
-4. CRM
-5. Calendar
-6. News
-7. Studio
+3. Messenger
+4. Work Board
+5. CRM
+6. Calendar
+7. News
+8. Studio
 
 Today is fixed first and is the default landing workspace. Communications,
-Work Board, CRM, Calendar, News, and Studio may be reordered or hidden as presentation
-preferences without disabling their routes or capabilities.
+Messenger, Work Board, CRM, Calendar, News, and Studio may be reordered or
+hidden as presentation preferences without disabling their routes or
+capabilities.
 
 ### Supporting workspaces and utilities
 
@@ -102,7 +106,11 @@ primary rail item. With no pending decisions the CTA is demoted or omitted.
 The standard shell includes the shared UAA composer defined by
 `../CONTROL_CENTER_UI_UX_SPEC.md`. It occupies the bottom application rail,
 uses safe route/selection context only, and expands into a consistent sidecar.
-It does not replace the dedicated Chat workspace or grant mutation authority.
+It does not replace Studio or Messenger and grants no mutation authority.
+
+Messenger contains a human room-message composer and a separately labeled
+Ask-UAA field. The shared bottom composer is not duplicated in that immersive
+shell.
 
 ## Standard Desktop Layout
 
@@ -212,19 +220,21 @@ dated baseline and update this package.
 Future standard-shell render prompts must explicitly include:
 
 ```text
-Use the CC-NS-TARGET-R2-2026-07-11 app shell.
+Use the CC-NS-TARGET-R3-2026-07-11 app shell.
 The standard left rail is identical across normal routes.
-Primary nav order: Today, Communications, Work Board, CRM, Calendar, News,
-Studio, Knowledge, Activity & Trust, Customize, Settings, Developer Tools.
+Primary nav order: Today, Communications, Messenger, Work Board, CRM,
+Calendar, News, Studio, Knowledge, Activity & Trust, Customize, Settings,
+Developer Tools.
 Do not add route-local tabs to the global left rail.
 Place route-local tabs and queues inside the workspace.
 Keep search in the fixed standard toolbar slot and Review N decisions at right.
-Use Inter/system typography and the CC-NS-TARGET-R2-2026-07-11 size scale.
+Use Inter/system typography and the CC-NS-TARGET-R3-2026-07-11 size scale.
 ```
 
-Studio is the explicit immersive exception: it replaces the ordinary rail with
-the UAA Studio workbench rail and provides a visible Back to Control Center
-command.
+Studio and Messenger are the explicit immersive exceptions. Studio replaces
+the ordinary rail with its workbench rail. Messenger replaces it with Home,
+exactly two Matrix Spaces, room and direct-message navigation, and account
+security. Both provide a visible Back to Control Center command.
 
 Generated images are allowed to be visually approximate, but implementation
 must follow this baseline where generated pixels conflict with the spec.

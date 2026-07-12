@@ -1,7 +1,7 @@
 # Control Center North-Star Render Manifest
 
 Status: current target render set, documentation only.
-Baseline ID: CC-NS-TARGET-R2-2026-07-11.
+Baseline ID: CC-NS-TARGET-R3-2026-07-11.
 Current as of: 2026-07-11.
 Repo baseline: v0.104.0 / 0.104.0.
 
@@ -65,6 +65,15 @@ in `CRM_V3_REFERENCE_SYNTHESIS.md`.
 |---|---|---|---|
 | `renders/target-v3/04-crm-v3.png` | CRM v3 | fixed toolbar; route tabs; six KPIs; smart views; sortable relationship table; persistent inspector; pipeline analytics; availability-backed calling; route-aware UAA composer | specialty vertical; raw contact data; provider connection; sync; dialer launch as completed call; recording by default |
 
+## Messenger Matrix Client V1
+
+The 15-image `communications-v1` set defines the clean-room,
+Element-familiar UAA Messenger workspace. It includes the two-Space model, daily
+conversation surfaces, room management, account security, UAA intelligence,
+failure recovery, dark appearance, and later calling preflight. See
+`UAA_COMMUNICATIONS_MATRIX_NORTH_STAR.md` for the complete surface and truth
+contract. These images do not claim any current Matrix runtime.
+
 ## Legacy Composite Coverage
 
 | File | Covered surfaces | Must show | Must not imply |
@@ -110,11 +119,11 @@ All renders used the same design constraints:
 ## Target Shell Requirement
 
 All future target render prompts and implementation passes should use the
-CC-NS-TARGET-R2-2026-07-11 shell:
+CC-NS-TARGET-R3-2026-07-11 shell:
 
 ```text
-Today, Communications, Work Board, CRM, Calendar, News, Studio, Knowledge,
-Activity & Trust, Customize, Settings, Developer Tools.
+Today, Communications, Messenger, Work Board, CRM, Calendar, News, Studio,
+Knowledge, Activity & Trust, Customize, Settings, Developer Tools.
 ```
 
 Action Inbox is reached through `Review N decisions` rather than a permanent

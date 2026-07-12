@@ -45,7 +45,7 @@ answer, in this order:
 
 The target daily product spine is:
 
-`Today -> Communications -> Work Board -> CRM -> Calendar -> News -> Studio`
+`Today -> Communications -> Messenger -> Work Board -> CRM -> Calendar -> News -> Studio`
 
 Knowledge and Activity & Trust support that loop without displacing daily
 work. Action Inbox is the global decision utility surfaced as `Review N
@@ -110,16 +110,17 @@ The target default order is:
 
 1. Today
 2. Communications
-3. Work Board
-4. CRM
-5. Calendar
-6. News
-7. Studio
-8. Knowledge
-9. Activity & Trust
-10. Customize
-11. Settings
-12. Developer Tools, collapsed and hidden by default
+3. Messenger
+4. Work Board
+5. CRM
+6. Calendar
+7. News
+8. Studio
+9. Knowledge
+10. Activity & Trust
+11. Customize
+12. Settings
+13. Developer Tools, collapsed and hidden by default
 
 Today is the default landing workspace. `Start Here` is onboarding-only after
 setup. Plans becomes a Work Board view; Source Inbox becomes a Communications
@@ -171,8 +172,10 @@ Normal workspaces use one invariant 64 px toolbar below the posture strip:
 
 Search does not move above, below, or to the opposite side between routes. At a
 compact breakpoint it collapses to an icon/`Command-K` affordance instead of
-wrapping. Studio is the only immersive shell exception and follows the workbench
-contract in `CONTROL_CENTER_RENDER_REVIEW_REVISION_02.md`.
+wrapping. Studio and Messenger are the two immersive shell exceptions. Studio
+follows the workbench contract in
+`CONTROL_CENTER_RENDER_REVIEW_REVISION_02.md`; Messenger follows
+`control_center_north_star/UAA_COMMUNICATIONS_MATRIX_NORTH_STAR.md`.
 
 ### Persistent UAA composer and sidecar
 

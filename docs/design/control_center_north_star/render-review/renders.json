@@ -11,9 +11,134 @@
       "id": "legacy-baseline",
       "label": "Legacy composite baseline",
       "description": "Earlier composite references retained for information and comparison."
+    },
+    {
+      "id": "communications-v1",
+      "label": "Messenger client",
+      "description": "Clean-room Element-familiar Matrix client in a dedicated immersive UAA workspace."
     }
   ],
   "renders": [
+    {
+      "id": "COMMS-MX-01", "set": "communications-v1", "order": 1,
+      "surface": "Founder HQ Space", "category": "Spaces and rooms", "route": "/messenger",
+      "purpose": "Founder work Space with room list, encrypted group timeline, and bounded UAA intelligence.",
+      "truth": "Target design; no Matrix account, sync, encryption session, or send runtime is currently implied.",
+      "image": "../renders/communications-v1/01-founder-hq.png",
+      "versions": [{"id":"v1","label":"Draft v1 · Founder HQ","image":"../renders/communications-v1/01-founder-hq.png"}]
+    },
+    {
+      "id": "COMMS-MX-02", "set": "communications-v1", "order": 2,
+      "surface": "Personal Circle Space", "category": "Spaces and rooms", "route": "/messenger",
+      "purpose": "Personal Space with private rooms, direct messages, and room-scoped AI access Off.",
+      "truth": "Target design; fictional safe data and no connected Matrix account or live message claim.",
+      "image": "../renders/communications-v1/02-personal-circle.png",
+      "versions": [{"id":"v1","label":"Draft v1 · Personal Circle","image":"../renders/communications-v1/02-personal-circle.png"}]
+    },
+    {
+      "id": "COMMS-MX-03", "set": "communications-v1", "order": 3,
+      "surface": "Direct Message", "category": "Conversation", "route": "/messenger/rooms/:room",
+      "purpose": "Encrypted one-to-one conversation with replies, reactions, receipts, typing, and governed call actions.",
+      "truth": "Target design; safe fictional messages and no live send, call, or encryption claim.",
+      "image": "../renders/communications-v1/03-direct-message.png",
+      "versions": [{"id":"v1","label":"Draft v1 · direct message","image":"../renders/communications-v1/03-direct-message.png"}]
+    },
+    {
+      "id": "COMMS-MX-04", "set": "communications-v1", "order": 4,
+      "surface": "Group Room", "category": "Conversation", "route": "/messenger/rooms/:room",
+      "purpose": "Information-dense group room with topic, members, mentions, files, reactions, and read markers.",
+      "truth": "Target design; representative room events only and no live Matrix state.",
+      "image": "../renders/communications-v1/04-group-room.png",
+      "versions": [{"id":"v1","label":"Draft v1 · group room","image":"../renders/communications-v1/04-group-room.png"}]
+    },
+    {
+      "id": "COMMS-MX-05", "set": "communications-v1", "order": 5,
+      "surface": "Threads", "category": "Conversation tools", "route": "/messenger/rooms/:room/threads",
+      "purpose": "Thread list and focused thread conversation without losing main-room context.",
+      "truth": "Target design; unread and receipt states are illustrative, not synchronized runtime evidence.",
+      "image": "../renders/communications-v1/05-threads.png",
+      "versions": [{"id":"v1","label":"Draft v1 · threads","image":"../renders/communications-v1/05-threads.png"}]
+    },
+    {
+      "id": "COMMS-MX-06", "set": "communications-v1", "order": 6,
+      "surface": "Search and Attention", "category": "Conversation tools", "route": "/messenger/search",
+      "purpose": "Global and room search with mentions, unread, pinned, and saved-result modes.",
+      "truth": "Target design; search requires a later local index and governed Matrix read lane.",
+      "image": "../renders/communications-v1/06-search-attention.png",
+      "versions": [{"id":"v1","label":"Draft v1 · search and attention","image":"../renders/communications-v1/06-search-attention.png"}]
+    },
+    {
+      "id": "COMMS-MX-07", "set": "communications-v1", "order": 7,
+      "surface": "Room Information", "category": "Room management", "route": "/messenger/rooms/:room/info",
+      "purpose": "People, roles, invitations, files, links, pins, integrations, and receipts for one room.",
+      "truth": "Target design; member and integration state is fictional and grants no management authority.",
+      "image": "../renders/communications-v1/07-room-information.png",
+      "versions": [{"id":"v1","label":"Draft v1 · room information","image":"../renders/communications-v1/07-room-information.png"}]
+    },
+    {
+      "id": "COMMS-MX-08", "set": "communications-v1", "order": 8,
+      "surface": "Create and Invite", "category": "Room management", "route": "/messenger/new",
+      "purpose": "Start a direct message or create an encrypted room in one of the two Spaces with exact invitation review.",
+      "truth": "Target design; creation and invitations are previews until later approved Matrix write authority exists.",
+      "image": "../renders/communications-v1/08-create-invite.png",
+      "versions": [{"id":"v1","label":"Draft v1 · create and invite","image":"../renders/communications-v1/08-create-invite.png"}]
+    },
+    {
+      "id": "COMMS-MX-09", "set": "communications-v1", "order": 9,
+      "surface": "Room Settings", "category": "Room management", "route": "/messenger/rooms/:room/settings",
+      "purpose": "Room security, permissions, notifications, history, and UAA access policy.",
+      "truth": "Target design; settings show proposed controls and do not mutate Matrix room state.",
+      "image": "../renders/communications-v1/09-room-settings.png",
+      "versions": [{"id":"v1","label":"Draft v1 · room settings","image":"../renders/communications-v1/09-room-settings.png"}]
+    },
+    {
+      "id": "COMMS-MX-10", "set": "communications-v1", "order": 10,
+      "surface": "Sessions and Recovery", "category": "Account and security", "route": "/messenger/settings/sessions",
+      "purpose": "Current and other sessions, verification, secure backup, and recovery posture.",
+      "truth": "Target design; no device is actually registered or verified and no recovery material is displayed.",
+      "image": "../renders/communications-v1/10-sessions-recovery.png",
+      "versions": [{"id":"v1","label":"Draft v1 · sessions and recovery","image":"../renders/communications-v1/10-sessions-recovery.png"}]
+    },
+    {
+      "id": "COMMS-MX-11", "set": "communications-v1", "order": 11,
+      "surface": "UAA Intelligence", "category": "UAA integration", "route": "/messenger/rooms/:room/intelligence",
+      "purpose": "Conversation summary, questions, decisions, commitments, tasks, calendar proposals, and exact approvals.",
+      "truth": "Target design; UAA drafts and proposals do not send messages or perform external actions.",
+      "image": "../renders/communications-v1/11-uaa-intelligence.png",
+      "versions": [{"id":"v1","label":"Draft v1 · UAA intelligence","image":"../renders/communications-v1/11-uaa-intelligence.png"}]
+    },
+    {
+      "id": "COMMS-MX-12", "set": "communications-v1", "order": 12,
+      "surface": "Failure and Recovery", "category": "System states", "route": "/messenger",
+      "purpose": "Offline, reconnecting, failed-send, rate-limit, and undecryptable-message recovery states.",
+      "truth": "Target design; recovery controls are illustrative until Matrix runtime exists.",
+      "image": "../renders/communications-v1/12-failure-recovery.png",
+      "versions": [{"id":"v1","label":"Draft v1 · failure and recovery","image":"../renders/communications-v1/12-failure-recovery.png"}]
+    },
+    {
+      "id": "COMMS-MX-13", "set": "communications-v1", "order": 13,
+      "surface": "Dark Theme", "category": "Appearance", "route": "/messenger/rooms/:room",
+      "purpose": "Dark appearance using the same communications hierarchy, semantics, and density.",
+      "truth": "Target design; appearance variation only and no capability change.",
+      "image": "../renders/communications-v1/13-dark-theme.png",
+      "versions": [{"id":"v1","label":"Draft v1 · dark theme","image":"../renders/communications-v1/13-dark-theme.png"}]
+    },
+    {
+      "id": "COMMS-MX-14", "set": "communications-v1", "order": 14,
+      "surface": "Calling", "category": "Future communication", "route": "/messenger/rooms/:room/call",
+      "purpose": "Voice/video availability and permission preflight without obscuring the room context.",
+      "truth": "Target design; calling is planned, no call is active, and no provider or media permission is implied.",
+      "image": "../renders/communications-v1/14-calling.png",
+      "versions": [{"id":"v1","label":"Draft v1 · calling preflight","image":"../renders/communications-v1/14-calling.png"}]
+    },
+    {
+      "id": "COMMS-MX-15", "set": "communications-v1", "order": 15,
+      "surface": "Setup and Sign In", "category": "Account and security", "route": "/messenger/setup",
+      "purpose": "Homeserver discovery, account sign-in, secure local storage, and exact connection review.",
+      "truth": "Target design; no server is contacted, no credential is stored, and no Matrix session is created.",
+      "image": "../renders/communications-v1/15-setup-sign-in.png",
+      "versions": [{"id":"v1","label":"Draft v1 · setup and sign in","image":"../renders/communications-v1/15-setup-sign-in.png"}]
+    },
     {
       "id": "TARGET-NAV-01",
       "set": "target-v1",

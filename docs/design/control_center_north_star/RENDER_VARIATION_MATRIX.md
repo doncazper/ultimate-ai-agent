@@ -53,8 +53,9 @@ architecture is defined by
 
 | ID | Target surface | Required content |
 |---|---|---|
-| `TARGET-NAV-01` | Today in target shell | Today-first rail; Communications, Work Board, CRM, Calendar, Studio; Knowledge; Activity & Trust; six Today panels; receipt activity rail; `Review N decisions`; weather; UAA composer |
+| `TARGET-NAV-01` | Today in target shell | Today-first rail; Communications, Messenger, Work Board, CRM, Calendar, News, Studio; Knowledge; Activity & Trust; six Today panels; receipt activity rail; `Review N decisions`; weather; UAA composer |
 | `COMM-01` | Communications | unified queue/detail/inspector; Email, Messages, Follow-ups, Drafts, Waiting; CRM context; `Propose event`; proposal-only and blocked-send states |
+| `COMMS-MX-01`–`15` | Messenger | immersive light shell; Home plus exactly two Spaces; rooms/DMs; threads; search; room info; create/invite; settings; sessions/recovery; UAA approval; failure recovery; full dark theme; calling preflight; setup/sign-in |
 | `BOARD-01` | Work Board | Board/List/Timeline/Plans/Completed; shared task truth; CRM/Calendar/Communications links; receipt-backed completion |
 | `CRM-01` | CRM | People/Organizations/Opportunities/Pipeline/Follow-ups/Reports tabs; six compact KPIs; smart views; dense sortable relationship table; persistent record inspector; pipeline analytics; governed availability-backed Call chooser; source-backed next action; v1/v2/v3 gallery history |
 | `CAL-01` | Calendar week | color-coded schedule; tasks and commitments; source-backed candidate; duplicate/conflict/timezone posture; shared refs; proposal-only external posture |

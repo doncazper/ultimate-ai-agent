@@ -25,14 +25,16 @@ system's internal architecture.
 1. **Today** — the default landing surface and daily rundown.
 2. **Communications** — unified email, messages, follow-ups, drafts, and items
    waiting on other people.
-3. **Work Board** — kanban, list, timeline, plans, and completed work.
-4. **CRM** — people, organizations, opportunities, pipeline, follow-ups, and
+3. **Messenger** — an immersive Element-familiar Matrix client for direct
+   messages, rooms, Spaces, threads, files, people, and governed UAA assistance.
+4. **Work Board** — kanban, list, timeline, plans, and completed work.
+5. **CRM** — people, organizations, opportunities, pipeline, follow-ups, and
    relationship activity.
-5. **Calendar** — day, week, month, and agenda views combining commitments,
+6. **Calendar** — day, week, month, and agenda views combining commitments,
    proposed events, deadlines, focus blocks, and linked work.
-6. **News** — curated, sourced situational context based on explicit interests,
+7. **News** — curated, sourced situational context based on explicit interests,
    business watchlists, and read-only bulletins.
-7. **Studio** — one familiar immersive chat and coding workbench for asking, planning,
+8. **Studio** — one familiar immersive chat and coding workbench for asking, planning,
    editing, reviewing changes, running allowed checks, and inspecting proof.
 
 ### Supporting workspaces
@@ -71,6 +73,7 @@ rename, or remove current routes.
 |---|---|
 | Today and Briefing | Today |
 | Source Inbox, email, messages, drafts, follow-ups | Communications |
+| Matrix direct messages, rooms, Spaces, and threads | Messenger |
 | Plans and Work Board | Work Board, as views of shared work |
 | CRM | CRM |
 | Calendar connector contracts and future schedule UI | Calendar |
@@ -144,6 +147,19 @@ bottom composer, bottom Settings, and governed Terminal access. It may propose
 governed actions and hand work into the same decision, receipt, and evidence
 loop as every other surface; it is not a second authority system.
 
+### Messenger
+
+Messenger is a separate primary workspace from Communications. Communications
+retains the accepted unified email, message-source, follow-up, draft, and
+waiting-on-others hub. Messenger is the full Matrix client.
+
+Like Studio, Messenger is an immersive shell exception. It replaces the normal
+rail with a Messenger identity, visible Back to Control Center command, Home /
+All Messages, exactly two primary Spaces (Founder HQ and Personal Circle), room
+and direct-message lists, and account/security access. The conversation timeline
+is dominant. Room details or UAA intelligence may occupy a collapsible right
+inspector. The human message composer and Ask-UAA field remain separate.
+
 ### News
 
 News provides For You, Business, Technology, Markets, Saved, and Sources. Each
@@ -195,8 +211,8 @@ The review surface shows:
    exact connector lane is separately promoted.
 6. A successful exact mutation produces a receipt/evidence ref. A blocked,
    failed, or expired request remains visibly unresolved.
-7. Calendar, Today, CRM, Communications, Work Board, and Activity & Trust
-   update from shared refs and receipts rather than duplicated UI truth.
+7. Calendar, Today, CRM, Communications, Messenger, Work Board, and Activity &
+   Trust update from shared refs and receipts rather than duplicated UI truth.
 
 Rescheduling, cancellation, participant changes, and external synchronization
 use the same exact-scope sequence. Default posture is ask-first. Any future

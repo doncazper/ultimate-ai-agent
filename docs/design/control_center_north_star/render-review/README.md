@@ -15,7 +15,7 @@ Open `http://127.0.0.1:4179/render-review/`.
 
 The gallery supports:
 
-- target and legacy render sets;
+- target, Messenger-client, and legacy render sets;
 - search and keyboard previous/next navigation;
 - side-by-side current/previous comparison for revised surfaces;
 - Draft, Needs revision, Approved, and Superseded states;

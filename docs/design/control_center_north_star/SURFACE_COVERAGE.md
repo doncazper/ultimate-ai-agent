@@ -1,16 +1,24 @@
 # Control Center North-Star Surface Coverage
 
 Status: current design target, documentation only.
-Baseline ID: CC-NS-2026-07-06.
-Current as of: 2026-07-06.
+Baseline ID: CC-NS-TARGET-R3-2026-07-11.
+Current as of: 2026-07-11.
 Repo baseline: v0.104.0 / 0.104.0.
 
 Every active Control Center route in `apps/control-center/src/routes.tsx` has a
 mapped visual target below. A single render may cover more than one route when
 the surfaces are intentionally part of the same operator workflow.
 
-All routes share the static shell defined in `APP_SHELL_BASELINE.md`. The
-coverage map below assigns route workspaces, not route-specific sidebars.
+Normal routes share the static shell defined in `APP_SHELL_BASELINE.md`. Studio
+and the planned Messenger workspace are the two documented immersive
+exceptions. The coverage map below assigns route workspaces; it does not claim
+that planned Messenger routes are implemented.
+
+## Planned Messenger Routes
+
+| Route family | Label | Render target | Design intent | Boundary to preserve |
+|---|---|---|---|---|
+| `/messenger` | Messenger | `renders/communications-v1/01-founder-hq.png` through `15-setup-sign-in.png` | Clean-room Element-familiar Matrix client with Home, exactly two Spaces, rooms, DMs, threads, search, settings, security, recovery, UAA intelligence, and calling preflight. | Planned design only; no Matrix account, network, sync, encryption, send, room mutation, media, or call authority. Communications remains a separate unified hub. |
 
 ## Primary Founder Loop Routes
 
@@ -91,7 +99,8 @@ coverage map below assigns route workspaces, not route-specific sidebars.
   payloads, logs, local paths, credentials, usernames, hostnames, or serials.
 - Make the operator's next action obvious without hiding approval, policy,
   rollback, or safe-disable posture.
-- Preserve the canonical left rail from `APP_SHELL_BASELINE.md` across all
-  route workspaces unless a later dated baseline intentionally changes it.
+- Preserve the canonical left rail from `APP_SHELL_BASELINE.md` across normal
+  route workspaces. Studio and Messenger use their documented immersive rails
+  with a visible Back to Control Center command.
 - Use `RENDER_VARIATION_MATRIX.md` for the required default, compact,
   route-specific state, mobile, overlay, and shared-state render deliverables.
