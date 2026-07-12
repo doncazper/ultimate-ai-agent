@@ -12,6 +12,7 @@ readonly RUNNER_VERSION="2.335.1"
 readonly RUNNER_SHA256="e1a9bc7a3661e06fa0b129d15c2064fe65dc81a431001d8958a9db1409b73769"
 readonly RUNNER_ASSET="actions-runner-osx-arm64-${RUNNER_VERSION}.tar.gz"
 readonly RUNNER_URL="https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/${RUNNER_ASSET}"
+readonly TOOLCHAIN_PATH="/opt/homebrew/opt/python@3.12/libexec/bin:/opt/homebrew/opt/node@22/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
 fail() {
   print -u2 -- "runner bootstrap blocked: $1"
@@ -90,6 +91,11 @@ fi
 
 registration_token=""
 unset registration_token
+
+/bin/mkdir -p "$HOME/uaa-actions-runners" "$install_directory/_work/_tool"
+/usr/bin/touch "$HOME/uaa-actions-runners/.metadata_never_index"
+/usr/bin/touch "$install_directory/_work/.metadata_never_index"
+print -r -- "$TOOLCHAIN_PATH" > .path
 
 [[ -x ./runsvc.sh ]] || /bin/cp ./bin/runsvc.sh ./runsvc.sh
 /bin/chmod u+x ./runsvc.sh

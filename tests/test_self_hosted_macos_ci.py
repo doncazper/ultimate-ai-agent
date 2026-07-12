@@ -20,6 +20,16 @@ def test_provisioner_keeps_root_owned_helper_directory_traversable() -> None:
     assert "mkdir -p /usr/local/libexec/uaa-ci" not in provisioner
 
 
+def test_workflow_uses_non_admin_preprovisioned_toolchains() -> None:
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+
+    assert "actions/setup-python" not in workflow
+    assert "actions/setup-node" not in workflow
+    assert "python3.12 -m venv .venv" in workflow
+    assert "/opt/homebrew/opt/python@3.12/libexec/bin" in workflow
+    assert "/opt/homebrew/opt/node@22/bin" in workflow
+
+
 def test_verifier_rejects_hosted_runner_and_cache_regression(tmp_path: Path) -> None:
     workflow = tmp_path / ".github/workflows/ci.yml"
     actionlint_config = tmp_path / ".github/actionlint.yaml"

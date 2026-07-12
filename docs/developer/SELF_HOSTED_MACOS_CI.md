@@ -29,6 +29,11 @@ provider, connector, production, or AuthorityLease capability.
 - Four isolated runner processes are the default so the existing pytest shard
   contract can make progress concurrently. Set `UAA_RUNNER_COUNT=1` through
   `4` before provisioning to choose a smaller bounded count.
+- Python 3.12 and Node 22 are shared, pre-provisioned Homebrew toolchains. CI
+  does not use the setup actions because their macOS installers require
+  host-level installation privileges that the non-admin runner must not gain.
+- Runner work roots contain `.metadata_never_index` markers so Spotlight does
+  not amplify I/O while four large repository checkouts are materialized.
 
 Same-repository branches can execute their checked-in workflow commands on the
 runner. Keep repository write access narrow and review workflow changes as
@@ -40,6 +45,7 @@ From an administrator account with authenticated `gh`, on the intended Apple
 Silicon Mac:
 
 ```bash
+brew install python@3.12 node@22
 ./scripts/ci/provision_self_hosted_macos_runners.sh
 ```
 
@@ -47,7 +53,9 @@ The script uses secure `sudo` and `sysadminctl` prompts to create `uaa-ci` as a
 standard user when it does not exist. It downloads the exact GitHub runner
 archive `2.335.1`, verifies the published SHA-256 checksum, requests short-lived
 repository registration tokens without printing them, registers each runner,
-and installs root-owned LaunchDaemons that execute as `uaa-ci`.
+and installs root-owned LaunchDaemons that execute as `uaa-ci`. Each service
+receives a private writable tool-cache path, while jobs use the pre-provisioned
+Python and Node binaries without granting the runner `sudo`.
 
 The provisioning script never changes GitHub billing, spending limits,
 payment methods, repository visibility, workflow permissions, or paid runner

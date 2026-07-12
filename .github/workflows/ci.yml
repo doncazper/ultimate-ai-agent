@@ -15,6 +15,9 @@ concurrency:
   group: uaa-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+env:
+  PATH: /opt/homebrew/opt/python@3.12/libexec/bin:/opt/homebrew/opt/node@22/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+
 # Self-hosted jobs are limited to branches in this private repository. Fork pull
 # requests must never schedule code on the local Mac.
 
@@ -31,14 +34,9 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
       - name: Install package
         run: |
-          python -m venv .venv
+          python3.12 -m venv .venv
           .venv/bin/python -m pip install --upgrade pip
           .venv/bin/python -m pip install -e ".[dev]"
 
@@ -65,14 +63,9 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
       - name: Install package
         run: |
-          python -m venv .venv
+          python3.12 -m venv .venv
           .venv/bin/python -m pip install --upgrade pip
           .venv/bin/python -m pip install -e ".[dev]"
 
@@ -116,14 +109,9 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
       - name: Install package
         run: |
-          python -m venv .venv
+          python3.12 -m venv .venv
           .venv/bin/python -m pip install --upgrade pip
           .venv/bin/python -m pip install -e ".[dev]"
 
@@ -143,14 +131,9 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
       - name: Install package
         run: |
-          python -m venv .venv
+          python3.12 -m venv .venv
           .venv/bin/python -m pip install --upgrade pip
           .venv/bin/python -m pip install -e ".[dev]"
 
@@ -201,14 +184,9 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
       - name: Install package
         run: |
-          python -m venv .venv
+          python3.12 -m venv .venv
           .venv/bin/python -m pip install --upgrade pip
           .venv/bin/python -m pip install -e ".[dev]"
 
@@ -261,14 +239,9 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
       - name: Install package
         run: |
-          python -m venv .venv
+          python3.12 -m venv .venv
           .venv/bin/python -m pip install --upgrade pip
           .venv/bin/python -m pip install -e ".[dev]"
 
@@ -320,14 +293,9 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
       - name: Install package
         run: |
-          python -m venv .venv
+          python3.12 -m venv .venv
           .venv/bin/python -m pip install --upgrade pip
           .venv/bin/python -m pip install -e ".[dev]"
 
@@ -381,14 +349,9 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
       - name: Install package
         run: |
-          python -m venv .venv
+          python3.12 -m venv .venv
           .venv/bin/python -m pip install --upgrade pip
           .venv/bin/python -m pip install -e ".[dev]"
 
@@ -440,14 +403,9 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
       - name: Install package
         run: |
-          python -m venv .venv
+          python3.12 -m venv .venv
           .venv/bin/python -m pip install --upgrade pip
           .venv/bin/python -m pip install -e ".[dev]"
 
@@ -500,14 +458,9 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
       - name: Install package
         run: |
-          python -m venv .venv
+          python3.12 -m venv .venv
           .venv/bin/python -m pip install --upgrade pip
           .venv/bin/python -m pip install -e ".[dev]"
 
@@ -563,14 +516,9 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
       - name: Install package
         run: |
-          python -m venv .venv
+          python3.12 -m venv .venv
           .venv/bin/python -m pip install --upgrade pip
           .venv/bin/python -m pip install -e ".[dev]"
 
@@ -623,14 +571,9 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
       - name: Install package
         run: |
-          python -m venv .venv
+          python3.12 -m venv .venv
           .venv/bin/python -m pip install --upgrade pip
           .venv/bin/python -m pip install -e ".[dev]"
 
@@ -687,11 +630,6 @@ jobs:
           clean: true
           fetch-depth: 1
           persist-credentials: false
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
 
       - name: Install Control Center dependencies
         working-directory: apps/control-center
@@ -752,21 +690,11 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
       - name: Install package
         run: |
-          python -m venv .venv
+          python3.12 -m venv .venv
           .venv/bin/python -m pip install --upgrade pip
           .venv/bin/python -m pip install -e ".[dev]"
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
 
       - name: Install Control Center dependencies
         working-directory: apps/control-center
@@ -840,14 +768,9 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
       - name: Install package
         run: |
-          python -m venv .venv
+          python3.12 -m venv .venv
           .venv/bin/python -m pip install --upgrade pip
           .venv/bin/python -m pip install -e ".[dev]"
 
@@ -880,11 +803,6 @@ jobs:
           clean: true
           fetch-depth: 1
           persist-credentials: false
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
 
       - name: Install frontend dependencies
         run: npm ci

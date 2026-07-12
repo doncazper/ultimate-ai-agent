@@ -16,6 +16,8 @@ readonly MAX_RUNNER_COUNT=4
 readonly HELPER_INSTALL_PATH="/usr/local/libexec/uaa-ci/bootstrap_self_hosted_macos_runner.sh"
 readonly SCRIPT_DIRECTORY="${0:A:h}"
 readonly HELPER_SOURCE="${SCRIPT_DIRECTORY}/bootstrap_self_hosted_macos_runner.sh"
+readonly PYTHON_BIN="/opt/homebrew/bin/python3.12"
+readonly NODE_BIN="/opt/homebrew/opt/node@22/bin/node"
 
 fail() {
   print -u2 -- "runner provisioning blocked: $1"
@@ -25,6 +27,10 @@ fail() {
 [[ "$(uname -s)" == "Darwin" ]] || fail "macOS is required"
 [[ "$(uname -m)" == "arm64" ]] || fail "Apple Silicon arm64 is required"
 [[ "$(id -u)" -ne 0 ]] || fail "run this script from the administrator account, not a root shell"
+[[ -x "$PYTHON_BIN" ]] || fail "Homebrew python@3.12 is required"
+[[ -x "$NODE_BIN" ]] || fail "Homebrew node@22 is required"
+[[ "$($PYTHON_BIN -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')" == "3.12" ]] || fail "Homebrew Python must be version 3.12"
+[[ "$($NODE_BIN -p 'process.versions.node.split(".")[0]')" == "22" ]] || fail "Homebrew Node must be major version 22"
 command -v gh >/dev/null 2>&1 || fail "GitHub CLI is required"
 gh auth status >/dev/null 2>&1 || fail "GitHub CLI authentication is required"
 [[ -x "$HELPER_SOURCE" ]] || fail "runner bootstrap helper is missing or not executable"
@@ -103,7 +109,9 @@ for index in $(/usr/bin/seq 1 "$runner_count"); do
     <key>LANG</key>
     <string>en_US.UTF-8</string>
     <key>PATH</key>
-    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <string>/opt/homebrew/opt/python@3.12/libexec/bin:/opt/homebrew/opt/node@22/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>RUNNER_TOOL_CACHE</key>
+    <string>${install_directory}/_work/_tool</string>
   </dict>
   <key>KeepAlive</key>
   <true/>

@@ -26,6 +26,8 @@ FORBIDDEN_WORKFLOW_FRAGMENTS = (
     "actions/cache",
     "actions/upload-artifact",
     "actions/download-artifact",
+    "actions/setup-python",
+    "actions/setup-node",
     "pull_request_target",
 )
 
@@ -64,6 +66,10 @@ def verify(root: Path = ROOT) -> list[str]:
         failures.append("CI workflow token permissions must be contents-read only")
     if "cancel-in-progress: true" not in workflow:
         failures.append("CI workflow must cancel superseded local runs")
+    if "python3.12 -m venv .venv" not in workflow:
+        failures.append("CI workflow must use the pre-provisioned Python 3.12 toolchain")
+    if "/opt/homebrew/opt/node@22/bin" not in workflow:
+        failures.append("CI workflow must use the pre-provisioned Node 22 toolchain")
     checkout_count = workflow.count("uses: actions/checkout@v4")
     if checkout_count == 0 or workflow.count("persist-credentials: false") != checkout_count:
         failures.append("every checkout must avoid persisting GitHub credentials")
@@ -87,6 +93,9 @@ def verify(root: Path = ROOT) -> list[str]:
         'UserName</key>\n  <string>${RUNNER_ACCOUNT}</string>',
         "launchctl bootstrap system",
         "launchctl kickstart -k",
+        "Homebrew python@3.12 is required",
+        "Homebrew node@22 is required",
+        "RUNNER_TOOL_CACHE</key>",
     )
     required_bootstrap_fragments = (
         'readonly RUNNER_VERSION="2.335.1"',
@@ -96,6 +105,8 @@ def verify(root: Path = ROOT) -> list[str]:
         "registration token on stdin",
         "--unattended",
         "--replace",
+        ".metadata_never_index",
+        "TOOLCHAIN_PATH",
     )
     for fragment in required_provisioner_fragments:
         if fragment not in provisioner:

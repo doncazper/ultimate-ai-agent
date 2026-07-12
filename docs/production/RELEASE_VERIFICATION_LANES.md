@@ -115,6 +115,9 @@ Fork pull requests cannot schedule local jobs, the workflow token is read-only,
 checkout credentials are not persisted, and GitHub Actions caches and uploaded
 artifacts are intentionally absent. Self-hosting changes only CI compute; it
 does not grant runtime authority or imply release readiness.
+Python 3.12 and Node 22 are provisioned as shared read-only Homebrew toolchains;
+the workflow intentionally avoids setup actions whose macOS installation path
+would require host-level privileges unavailable to the non-admin runner.
 
 `verify-dev-sharded` and `verify-local` expose the readable local/dev runner. It uses
 `scripts/verification/run_dev_fast_gate.py` to run `ruff`, sharded pytest,
