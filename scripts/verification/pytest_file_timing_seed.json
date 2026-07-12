@@ -3,4147 +3,4277 @@
   "declared_source_run_status": "green",
   "schema_version": "uaa_pytest_file_timings.v1",
   "source_run_status_attestation": "operator_supplied_advisory",
-  "timed_file_count": 828,
+  "timed_file_count": 854,
   "timings": [
     {
       "path": "tests/test_a2a_adapter_boundaries.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_a2a_gateway_foundation.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_action_inbox_decision_lanes.py",
-      "seconds": 6.11,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 7.15,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_action_inbox_work_queue.py",
-      "seconds": 3.45,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 4.01,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_agent_module_maturity_map.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_agent_runtime_adapter_contract.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_agent_runtime_compatibility_verifier.py",
-      "seconds": 0.05,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.2,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_agent_runtime_handoff_envelope.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_agent_runtime_specialist_demo.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_agent_runtime_trace_contract.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_agents_md_guidance.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_api.py",
-      "seconds": 1.62,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.79,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_api_boundary_enforcement.py",
-      "seconds": 2.3,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 2.25,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_api_cors.py",
-      "seconds": 0.81,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.95,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_api_idempotency_audit.py",
-      "seconds": 0.67,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.05,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_api_local_auth_gate.py",
-      "seconds": 1.62,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.82,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_api_manifest.py",
-      "seconds": 0.1,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.06,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_api_rate_limits.py",
-      "seconds": 0.12,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.09,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_api_route_inventory_fixture.py",
       "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_api_safe_exception_messages.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_api_security_headers.py",
-      "seconds": 0.65,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.06,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_api_verifier_lane.py",
-      "seconds": 4.44,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 6.41,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_approval_authority.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_approval_authority_v2_contracts.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_approval_expiration.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_approval_integration_kernel.py",
-      "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_approval_integration_model_router.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.091767,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_approval_integration_model_runtime.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_approval_integration_tool_broker.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.091767,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_approval_receipts.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_approval_requests.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_approval_scope.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_approval_validation.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_authority_budget_integrity.py",
-      "seconds": 1.03,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.69,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_authority_budgets.py",
       "seconds": 0.13,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_authority_dispatcher.py",
-      "seconds": 0.07,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.08,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_authority_dispatcher_approval_and_start.py",
-      "seconds": 0.26,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.25,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_authority_dispatcher_budget_recovery.py",
-      "seconds": 0.16,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.17,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_authority_dispatcher_cost_cross_ledger.py",
       "seconds": 1.5,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_authority_dispatcher_orphan_binding_integrity.py",
-      "seconds": 0.26,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.25,
+      "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_authority_dispatcher_settlement_reconciliation.py",
+      "seconds": 0.04,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_authority_graduation_program_prompt_pack.py",
-      "seconds": 0.12,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.17,
+      "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_authority_lease_approval_endpoint_hardening.py",
+      "seconds": 0.04,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_authority_leases.py",
-      "seconds": 1.96,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 2.79,
+      "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_authority_mission_approval_wait.py",
+      "seconds": 0.41,
+      "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_authority_mission_completion.py",
+      "seconds": 3.16,
+      "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_authority_mission_completion_surfaces.py",
+      "seconds": 0.26,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_authority_mission_contract_hardening.py",
-      "seconds": 0.29,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.54,
+      "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_authority_mission_controls.py",
+      "seconds": 0.54,
+      "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_authority_mission_failure_management_api_cli.py",
+      "seconds": 1.82,
+      "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_authority_mission_manifest_truth.py",
+      "seconds": 0.02,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_authority_mission_orchestrator.py",
-      "seconds": 1.91,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 2.83,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_authority_mission_orchestrator_hardening.py",
-      "seconds": 2.89,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 3.73,
+      "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_authority_mission_retries.py",
+      "seconds": 0.93,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_authority_mission_runner.py",
-      "seconds": 0.34,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.46,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_authority_mission_step_inspection.py",
-      "seconds": 1.77,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.13,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_authority_mission_storage_hardening.py",
-      "seconds": 0.27,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.02,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_authority_mission_worker.py",
-      "seconds": 2.64,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 3.04,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_authority_mission_worker_inspection.py",
-      "seconds": 0.94,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.41,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_authority_mission_worker_lifecycle.py",
-      "seconds": 0.72,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.08,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_authority_mission_worker_security.py",
-      "seconds": 0.36,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.49,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_background_autonomous_provider_plan.py",
-      "seconds": 0.07,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.06,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_background_coworker_worker_contract.py",
-      "seconds": 0.05,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.03,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_backup_restore_verification.py",
-      "seconds": 0.03,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.05,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_beta_07_trust_authority_map_verifier.py",
-      "seconds": 7.21,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 8.18,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_beta_08_web_evidence_product_slice_verifier.py",
-      "seconds": 3.54,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 3.8,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_beta_09_provider_draft_preview_verifier.py",
-      "seconds": 4.31,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 4.53,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_beta_10_connector_draft_only_verifier.py",
-      "seconds": 2.1,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 2.29,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_beta_11_operator_workspace_spine.py",
-      "seconds": 4.38,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 3.66,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_beta_11_operator_workspace_spine_verifier.py",
-      "seconds": 3.04,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 3.35,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_beta_12_backend_modularization_api_verifier.py",
-      "seconds": 0.02,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.03,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_beta_13_frontend_loading_visual_proof_verifier.py",
       "seconds": 0.08,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_beta_14_beta_qa_gate.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_browser_gateway_ladder.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_capability_availability.py",
-      "seconds": 0.06,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.09,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_capability_availability_import_order.py",
-      "seconds": 1.08,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.35,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_capability_firewall.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_capability_registry.py",
-      "seconds": 0.11,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.09,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_capability_registry_coordinator.py",
-      "seconds": 0.02,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.06,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_chat_to_loop_handoff_v1.py",
-      "seconds": 11.13,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 10.44,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_ci_workflow.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_claim_conflict_handling.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.091767,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_claim_evidence.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_claim_evidence_contracts.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.091767,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_claim_verification_decisions.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_coding_cockpit_read_model.py",
-      "seconds": 22.65,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 3.05,
+      "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_coding_evidence_integrity_truth.py",
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_coding_pair_agent_relay_runner.py",
-      "seconds": 20.18,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 7.37,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_coding_pair_agent_relay_runner_prompt_pack.py",
       "seconds": 0.14,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_connector_delivery_semantics_contract.py",
-      "seconds": 0.08,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.1,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_connector_draft_proposals.py",
-      "seconds": 1.63,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.5,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_consent_grants.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_consent_ledger.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_consent_policy_decisions.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_context_budget.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_context_handoff_approval_binding.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_context_handoff_approval_contracts.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_context_handoff_no_injection.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_context_handoff_receipt_plan.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_context_pack.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_context_pack_builder.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_context_pack_no_injection.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_contract_compatibility.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_contract_factory.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_contract_validation.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_control_center_action_preview.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_control_center_api_routes.py",
-      "seconds": 12.43,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 13.07,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_control_center_browser_smoke_readiness_verifier.py",
-      "seconds": 0.09,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.08,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_control_center_capability_surface_manifest.py",
-      "seconds": 4.32,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 4.69,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_control_center_dashboard.py",
-      "seconds": 0.13,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.43,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_control_center_founder_loop_api.py",
-      "seconds": 2.52,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 2.27,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_control_center_founder_loop_api_manifest.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_control_center_founder_loop_evidence_timeline.py",
-      "seconds": 0.45,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.51,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_control_center_frontend_safety_verifier.py",
-      "seconds": 1.09,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.33,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_control_center_manifest.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.091767,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_control_center_no_execution.py",
-      "seconds": 0.03,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.02,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_control_center_operator_shell_gap_map.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.091767,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_control_center_proof_spine.py",
-      "seconds": 26.5,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 18.87,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_control_center_release_surface_manifest.py",
       "seconds": 0.12,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_control_center_route_status_manifest.py",
-      "seconds": 0.92,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_control_center_start_here.py",
-      "seconds": 4.07,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 4.15,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_control_center_status_surfaces.py",
-      "seconds": 0.14,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.17,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_control_center_visual_and_packaging_proofs.py",
       "seconds": 0.12,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_control_center_work_board.py",
-      "seconds": 7.0,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 6.17,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_cost_budgets.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_cost_governor.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_credential_vault_backend_v1.py",
-      "seconds": 0.46,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.47,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_credential_vault_contract_shell.py",
       "seconds": 0.41,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_crm_communications_spine_contracts.py",
-      "seconds": 0.11,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.13,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_crm_local_command_center.py",
-      "seconds": 1.21,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.13,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_crm_local_command_center_api_routes.py",
-      "seconds": 0.26,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.31,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_crm_m1_fixture_only_vertical_shell.py",
-      "seconds": 0.62,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.69,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_cua_contract_lane_verifier.py",
-      "seconds": 0.83,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.81,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_cua_contract_models.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_current_baseline_verifier.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_debug_log_system.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.091767,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_dev_environment_verifier.py",
-      "seconds": 0.24,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.23,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_dev_launcher.py",
-      "seconds": 0.05,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.03,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_dev_setup.py",
-      "seconds": 0.05,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.04,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_device_capability_contracts.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_device_capability_manifest.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_device_capability_no_authority.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_device_capability_no_sensor_access.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_device_capability_validation.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.091767,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_documentation_integrity_verifier.py",
-      "seconds": 1.74,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 2.21,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_dogfood_live_loop_acceptance.py",
-      "seconds": 10.75,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 10.47,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_durable_mission_step_ledger.py",
-      "seconds": 0.11,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.15,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_durable_run_lifecycle_read_model.py",
       "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_event_ledger_append_only.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_event_ledger_events.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_event_redaction.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.091767,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_evidence_manifest.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_evidence_memory_loop_binding.py",
-      "seconds": 16.51,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 15.69,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_evidence_timeline_narrative_v1.py",
-      "seconds": 79.34,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 10.57,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_exact_approved_provider_fallback.py",
       "seconds": 1.53,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_execution_contract.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_execution_dependency_progression.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_execution_framework_contracts.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_execution_receipt_plan.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_execution_state_machine_safety.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_extension_activation_grants.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.091767,
+      "source": "shard-elapsed-fallback"
+    },
+    {
+      "path": "tests/test_extension_catalog_storage_hardening.py",
+      "seconds": 0.31,
+      "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_extension_ecosystem.py",
+      "seconds": 1.54,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_fcc_action_001_approval_bound_local_authority_capability.py",
       "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_fcc_briefing_001_morning_briefing_today_plan.py",
-      "seconds": 0.86,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.82,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_fcc_dogfood_001_fourteen_day_private_harness.py",
-      "seconds": 0.03,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.1,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_fcc_fusion_routing_delegation.py",
-      "seconds": 0.99,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.73,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_fcc_health_001_self_healing_recommendations_to_inbox.py",
-      "seconds": 1.1,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.97,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_fcc_inbox_001_approval_envelope_ux.py",
-      "seconds": 0.3,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.27,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_fcc_mem_001_memory_workbench.py",
-      "seconds": 23.83,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 10.99,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_fcc_mem_015_memory_impact_graph_followup_queue.py",
-      "seconds": 20.84,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 13.39,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_fcc_mem_016_020_memory_diagnostics.py",
-      "seconds": 82.07,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 64.93,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_fcc_mem_021_memory_ui_action_inbox_bridge.py",
-      "seconds": 6.34,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 6.82,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_fcc_mem_022_ranked_retrieval_recall_tuning.py",
-      "seconds": 3.38,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 2.34,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_fcc_memory_crm_001_professional_memory_crm_lite_binding.py",
-      "seconds": 9.22,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 9.91,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_fcc_p1_009_draft_email_response_proposal_contract.py",
       "seconds": 0.04,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_fcc_p1_010_relationship_memory_schema.py",
       "seconds": 0.04,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_fcc_p1_read_only_integration_contracts.py",
       "seconds": 0.04,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_fcc_polish_001_native_apple_grade_ux_layer.py",
-      "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_fcc_review_001_evidence_narrative_weekly_review.py",
-      "seconds": 1.68,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.74,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_fcc_sources_001_source_readiness_draft_only_inputs.py",
-      "seconds": 4.12,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 3.67,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_fcc_thread_001_unified_work_thread.py",
-      "seconds": 12.23,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 8.82,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_fcc_v1_001_api_perimeter.py",
-      "seconds": 4.37,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 3.08,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_fcc_v1_002_action_inbox_state_machine.py",
-      "seconds": 0.96,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.64,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_fcc_v1_003_founder_loop_vertical_slice.py",
-      "seconds": 10.08,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 10.21,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_fcc_v1_004_chat_durable_receipt_handoff.py",
-      "seconds": 0.74,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.65,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_fcc_v1_005_memory_review_decisions.py",
-      "seconds": 16.67,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 12.93,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_fcc_v1_006_evidence_timeline_productization.py",
-      "seconds": 5.58,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 5.77,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_file_api_routes.py",
-      "seconds": 0.18,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.09,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_file_atomic_writes.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_file_diff_preview.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_file_manager_hash_consistency.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_file_manager_paths.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_file_manager_read_preview.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_file_refs.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_file_review_approval_api.py",
-      "seconds": 0.06,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.75,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_file_review_approval_capture_contracts.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_file_review_approval_gate.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_file_review_approval_store.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_file_review_authority_boundaries.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.02,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_file_review_packet_validation.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_file_review_receipt_plan.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_file_review_workflow_contracts.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.091767,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_file_rollback.py",
-      "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_file_secret_blocking.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_file_tree_preview.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.091767,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_file_write_proposals.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_filesystem_metadata_authority_boundaries.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_filesystem_metadata_path_policy.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_filesystem_metadata_tool_contracts.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_firecrawl_cloud.py",
-      "seconds": 0.04,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.05,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_firecrawl_cloud_live.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_firecrawl_markdown.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_firecrawl_markdown_live.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_follow_up_tracker.py",
-      "seconds": 9.15,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 8.12,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_foundation_gate_api_routes.py",
-      "seconds": 0.06,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.03,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_foundation_gate_blocked_modules.py",
-      "seconds": 22.1,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 20.71,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_foundation_gate_criteria.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_foundation_gate_latency_no_write.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_foundation_gate_latency_scripts.py",
-      "seconds": 1.77,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.21,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_foundation_gate_receipts.py",
       "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_foundation_gate_report.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_foundation_gate_rollback.py",
       "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_foundation_gate_secret_hygiene.py",
-      "seconds": 0.14,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.08,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_foundation_gate_truth_evidence.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
+    },
+    {
+      "path": "tests/test_founder_loop_filesystem_mission.py",
+      "seconds": 1.09,
+      "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_founder_loop_proposal_recovery.py",
+      "seconds": 0.15,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_founder_loop_runs_integration.py",
-      "seconds": 2.31,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 2.3,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_founder_loop_storage.py",
-      "seconds": 1.7,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.86,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_founder_loop_storage_actions.py",
-      "seconds": 2.95,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 3.31,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_founder_loop_storage_briefing.py",
       "seconds": 0.21,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_founder_loop_storage_crud.py",
-      "seconds": 0.39,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.21,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_founder_loop_storage_memory_review.py",
-      "seconds": 0.34,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.38,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_founder_loop_storage_safety.py",
-      "seconds": 0.09,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.04,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_founder_loop_v1_product_proof.py",
-      "seconds": 20.27,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 18.66,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_founder_loop_v1_proof_lane.py",
-      "seconds": 2.82,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 2.64,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_gate_architecture_guard.py",
-      "seconds": 2.3,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.2,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_gate_evaluator_characterization.py",
-      "seconds": 4.6,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 3.32,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_governed_memory_context_pack_proposals.py",
-      "seconds": 6.53,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 7.07,
+      "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_governed_memory_context_phase03.py",
+      "seconds": 2.12,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_governed_memory_l1_hot_index.py",
-      "seconds": 0.46,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.43,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_governed_memory_l2_factual_graph_temporal_index.py",
-      "seconds": 0.36,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.41,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_governed_memory_l3_identity_session_preference_commitment.py",
-      "seconds": 0.45,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.34,
+      "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_governed_memory_phase03_surfaces.py",
+      "seconds": 3.19,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_governed_memory_phase6_execution_hooks.py",
-      "seconds": 3.45,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 2.26,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_governed_product_pilot_authority_profile.py",
-      "seconds": 9.84,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 8.89,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_governed_runtime_api_routes.py",
-      "seconds": 3.35,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.39,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_governed_runtime_contracts.py",
-      "seconds": 32.76,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 16.56,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_governed_web_evidence.py",
-      "seconds": 0.03,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.04,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_governed_web_evidence_gate.py",
-      "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_grounded_recall_contracts.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_grounded_recall_router.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_grounding_policy.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_hermes_interface_mode.py",
-      "seconds": 9.73,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 8.99,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_hermes_runtime_approval_bridge.py",
-      "seconds": 2.38,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 2.65,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_hermes_runtime_background_jobs.py",
-      "seconds": 2.92,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 3.16,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_hermes_runtime_capability_discovery.py",
-      "seconds": 2.17,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 2.53,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_hermes_runtime_checkpoint_rollback.py",
-      "seconds": 2.39,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 2.79,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_hermes_runtime_context_budget_pressure.py",
-      "seconds": 3.44,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 3.6,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_hermes_runtime_context_references.py",
-      "seconds": 3.27,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 2.78,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_hermes_runtime_delegation_adapter.py",
-      "seconds": 2.03,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 2.22,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_hermes_runtime_doctor_diagnostics.py",
-      "seconds": 2.56,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 2.72,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_hermes_runtime_hardline_command_blocklist.py",
-      "seconds": 2.44,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 2.65,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_hermes_runtime_interrupt_redirect.py",
-      "seconds": 2.88,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 3.2,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_hermes_runtime_logging_profile.py",
-      "seconds": 2.87,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 2.72,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_hermes_runtime_lsp_diagnostics.py",
-      "seconds": 2.57,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 2.88,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_hermes_runtime_managed_scope_policy.py",
-      "seconds": 3.47,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 2.87,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_hermes_runtime_mcp_catalog_filtering.py",
-      "seconds": 3.04,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 3.0,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_hermes_runtime_messaging_gateway_posture.py",
-      "seconds": 3.22,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 2.93,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_hermes_runtime_plugin_metadata_posture.py",
-      "seconds": 4.95,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 3.02,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_hermes_runtime_preview_rail.py",
-      "seconds": 2.95,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 2.71,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_hermes_runtime_profile_isolation.py",
-      "seconds": 2.2,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 2.41,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_hermes_runtime_progressive_skills.py",
-      "seconds": 0.4,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.55,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_hermes_runtime_prompt_stability_tiers.py",
-      "seconds": 3.27,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 2.85,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_hermes_runtime_remote_execution_posture.py",
-      "seconds": 2.68,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 3.07,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_hermes_runtime_result_classification.py",
-      "seconds": 2.98,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 3.01,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_hermes_runtime_run_events.py",
-      "seconds": 2.14,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 2.2,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_hermes_runtime_sensitive_context_guards.py",
-      "seconds": 2.34,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 2.28,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_hermes_runtime_session_continuity.py",
-      "seconds": 3.26,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 2.92,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_hermes_runtime_session_lineage.py",
-      "seconds": 2.57,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 2.36,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_hermes_runtime_session_search.py",
-      "seconds": 6.32,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 5.1,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_hermes_runtime_skill_bundles.py",
-      "seconds": 0.43,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.48,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_hermes_runtime_skill_marketplace_posture.py",
-      "seconds": 2.78,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 3.02,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_hermes_runtime_skill_write_gate.py",
-      "seconds": 0.42,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.47,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_hermes_runtime_slash_command_registry.py",
-      "seconds": 2.99,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 3.05,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_hermes_runtime_streaming_progress.py",
-      "seconds": 2.27,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 5.07,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_hermes_runtime_subagent_isolation.py",
-      "seconds": 2.57,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 2.81,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_hermes_runtime_tool_registry.py",
-      "seconds": 2.91,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 2.25,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_hermes_runtime_trajectory_eval_capture.py",
-      "seconds": 0.08,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.04,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_hermes_runtime_usage_cost_analytics.py",
-      "seconds": 3.33,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 3.11,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_hermes_runtime_virtual_provider_moa.py",
-      "seconds": 2.66,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 2.79,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_hermes_runtime_voice_media_posture.py",
-      "seconds": 2.73,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 3.05,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_hermes_runtime_worktree_per_agent.py",
-      "seconds": 2.93,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 3.0,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_hygiene.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_inspect_filesystem_mutation_lane.py",
       "seconds": 0.02,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_inspect_firecrawl_cloud_credits.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_inspect_firecrawl_markdown.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_inspect_read_only_web_fetch.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_inspect_searxng_search.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_inspect_web_hybrid_status.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_inspectable_extension_catalog.py",
-      "seconds": 0.15,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.01,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_kernel_api_routes.py",
-      "seconds": 0.16,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.04,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_kernel_denied_without_approval.py",
-      "seconds": 0.02,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_kernel_denied_without_consent.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_kernel_denied_without_idempotency.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_kernel_event_trace.py",
       "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_kernel_minimum_lovable_happy_path.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_kernel_request.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_kernel_rollback.py",
       "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_kernel_secret_blocking.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_kernel_world_state.py",
       "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_ledger_trace_chronology.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_local_loopback_adapter.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_local_loopback_api_routes.py",
-      "seconds": 0.09,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.1,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_local_loopback_approval.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_local_loopback_endpoint_policy.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_local_loopback_no_remote.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.091767,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_local_loopback_transport.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.091767,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_local_macos_app_bundle_proof.py",
-      "seconds": 0.06,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.07,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_local_model_readiness.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_local_runtime_activation_contracts.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_local_runtime_activation_validation.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_local_runtime_endpoint_policy.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_local_runtime_health_probe_plan.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_local_runtime_no_execution.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_local_runtime_profiles.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_local_runtime_provider_profiles.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_local_web_services_packaging.py",
       "seconds": 0.17,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m100_gate_integration.py",
-      "seconds": 0.29,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.22,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m100_mobile_permission_model_v1.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.01,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m101_gate_integration.py",
-      "seconds": 0.25,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.24,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m101_mobile_sensor_contract_review.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m102_gate_integration.py",
-      "seconds": 0.28,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.22,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m102_location_sensor_off_by_default.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m103_camera_photos_metadata_only.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m103_gate_integration.py",
-      "seconds": 0.41,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.31,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m104_gate_integration.py",
-      "seconds": 0.4,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.29,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m104_notification_planning_no_push.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.091767,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m105_background_task_contract_no_execution.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m105_gate_integration.py",
-      "seconds": 0.29,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.26,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m106_gate_integration.py",
-      "seconds": 0.4,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.37,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m106_mobile_background_read_only_status_sync.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m107_gate_integration.py",
-      "seconds": 0.36,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.24,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m107_mobile_approval_renewal_ux.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m108_gate_integration.py",
-      "seconds": 0.34,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.33,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m108_mobile_kill_switch_revocation.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m109_gate_integration.py",
-      "seconds": 0.36,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.35,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m109_mobile_sensor_audit_ledger.py",
       "seconds": 0.02,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m10_gate_integration.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m110_gate_integration.py",
-      "seconds": 0.32,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.33,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m110_mobile_sensor_hardening_freeze.py",
       "seconds": 0.02,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m111_gate_integration.py",
-      "seconds": 0.3,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.35,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m111_production_threat_model.py",
       "seconds": 0.06,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m112_gate_integration.py",
-      "seconds": 0.9,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.33,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m112_user_workspace_identity_model.py",
       "seconds": 0.09,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m113_gate_integration.py",
-      "seconds": 0.47,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.35,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m113_secrets_boundary_credential_vault.py",
-      "seconds": 0.14,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.11,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m114_account_connector_contract_review.py",
-      "seconds": 0.24,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.25,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m114_gate_integration.py",
-      "seconds": 0.4,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.43,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m115_gate_integration.py",
-      "seconds": 0.39,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.52,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m115_production_audit_retention_policy.py",
-      "seconds": 0.33,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.25,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m116_gate_integration.py",
-      "seconds": 0.59,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.61,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m116_role_based_authority_model.py",
       "seconds": 0.42,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m117_gate_integration.py",
       "seconds": 0.4,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m117_remote_agent_coordination_contract.py",
-      "seconds": 0.47,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.74,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m118_deployment_mode_matrix.py",
-      "seconds": 0.57,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.5,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m118_gate_integration.py",
-      "seconds": 0.47,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.48,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m119_gate_integration.py",
-      "seconds": 0.64,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.45,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m119_production_red_team_harness.py",
-      "seconds": 0.82,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.84,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m11_gate_integration.py",
-      "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.02,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m120_gate_integration.py",
-      "seconds": 0.48,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.44,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m120_production_authority_readiness_review.py",
-      "seconds": 1.02,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.09,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m121_email_connector_contract_refresh.py",
-      "seconds": 0.98,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.06,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m121_gate_integration.py",
-      "seconds": 0.94,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.53,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m122_calendar_connector_contract_refresh.py",
-      "seconds": 1.15,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.19,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m122_gate_integration.py",
       "seconds": 0.58,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m123_contacts_connector_contract_refresh.py",
-      "seconds": 1.45,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.54,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m123_gate_integration.py",
-      "seconds": 0.65,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.66,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m124_gate_integration.py",
-      "seconds": 0.72,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.75,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m124_messages_connector_contract_review.py",
-      "seconds": 3.24,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.93,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m125_connector_read_only_runtime.py",
-      "seconds": 2.42,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 2.2,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m125_gate_integration.py",
-      "seconds": 0.79,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.73,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m126_connector_approval_capture.py",
-      "seconds": 1.18,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.47,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m126_gate_integration.py",
-      "seconds": 1.12,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.11,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m127_connector_write_dry_run_planner.py",
-      "seconds": 1.38,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.44,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m127_gate_integration.py",
-      "seconds": 0.76,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.79,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m128_connector_write_execution_low_risk.py",
-      "seconds": 0.33,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.39,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m128_gate_integration.py",
-      "seconds": 0.97,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.03,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m129_connector_audit_revocation_hardening.py",
-      "seconds": 0.37,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m129_gate_integration.py",
-      "seconds": 0.87,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.73,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m12_gate_integration.py",
-      "seconds": 0.09,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.11,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m130_connector_safety_freeze.py",
-      "seconds": 0.05,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.39,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m130_gate_integration.py",
-      "seconds": 0.97,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.93,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m131_autonomy_mode4_scoped_work_session.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m131_gate_integration.py",
-      "seconds": 0.76,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.82,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m132_gate_integration.py",
-      "seconds": 0.76,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.82,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m132_trusted_recurring_workflow.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m133_gate_integration.py",
-      "seconds": 0.96,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.97,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m133_long_running_task_supervisor.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m134_gate_integration.py",
       "seconds": 0.92,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m134_human_checkpoint_scheduling.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m135_autonomous_recovery_planner.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m135_gate_integration.py",
-      "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m136_cross_tool_dependency_execution.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m136_gate_integration.py",
-      "seconds": 0.88,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.91,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m137_browser_connector_combined_workflow.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m137_gate_integration.py",
       "seconds": 0.49,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m138_error_handling_guardrails.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m138_gate_integration.py",
-      "seconds": 0.55,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.43,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m139_abuse_loop_detection.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m139_gate_integration.py",
       "seconds": 0.45,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m13_gate_integration.py",
-      "seconds": 0.63,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.58,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m140_gate_integration.py",
-      "seconds": 0.36,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.38,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m140_higher_autonomy_red_team_freeze.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m141_gate_integration.py",
-      "seconds": 0.53,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.4,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m141_multi_user_product_boundary.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m142_alpha_privacy_review.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m142_gate_integration.py",
-      "seconds": 0.31,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.33,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m143_alpha_ui_app_readiness.py",
-      "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m143_gate_integration.py",
-      "seconds": 0.39,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.4,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m144_gate_integration.py",
-      "seconds": 0.45,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.47,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m144_plugin_marketplace_policy_draft.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m145_enterprise_pro_safety_modes.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m145_gate_integration.py",
-      "seconds": 0.42,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.5,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m146_billing_plan_boundary.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m146_gate_integration.py",
-      "seconds": 0.54,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.49,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m147_gate_integration.py",
       "seconds": 0.43,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m147_public_docs_wiki_readiness.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m148_external_security_review.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.091767,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m148_gate_integration.py",
-      "seconds": 0.41,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.55,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m149_alpha_release_candidate_freeze.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.091767,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m149_gate_integration.py",
-      "seconds": 0.48,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.52,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m14_gate_integration.py",
-      "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.02,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m150_gate_integration.py",
-      "seconds": 0.46,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.41,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m150_ultimate_ai_agent_alpha.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.091767,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m151_gate_integration.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m151_openwebui_local_gateway_api.py",
-      "seconds": 0.05,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.03,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m151_openwebui_local_test_shell.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m152_gate_integration.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m152_local_model_management.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m153_m165_local_model_management_progression.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.01,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m15_gate_integration.py",
       "seconds": 0.58,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m160_hf_gguf_search.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m161_local_system_probe.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m162_model_acquisition.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.091767,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m163_llama_cpp_supervisor.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m164_llama_cpp_gateway.py",
-      "seconds": 0.16,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.05,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m165_llama_cpp_tuning.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m166_gate_integration.py",
       "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m166_local_model_production_readiness.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m166_production_release_gate.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m167_gate_integration.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.01,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m167_github_bootstrap_local_installer.py",
-      "seconds": 0.19,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.2,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m167_live_model_hardening.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.091767,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m167_live_model_production_hardening.py",
-      "seconds": 0.11,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.16,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m16_gate_integration.py",
-      "seconds": 0.58,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.56,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m17_gate_integration.py",
-      "seconds": 1.11,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.26,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m182_gate_integration.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m183_gate_integration.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m184_gate_integration.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m18_gate_integration.py",
-      "seconds": 0.58,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.65,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m19_gate_integration.py",
-      "seconds": 0.69,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.32,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m20_gate_integration.py",
-      "seconds": 0.78,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.37,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m21_gate_integration.py",
-      "seconds": 0.81,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.5,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m22_gate_integration.py",
       "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m23_gate_integration.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m23_llama_cpp_openai_completions_transport.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m23_local_model_call_contracts.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m23_local_model_endpoint_policy.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m23_local_model_fake_transport.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m23_manual_cli_dry_run.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m24_gate_integration.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m24_local_memory_store.py",
-      "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.091767,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m24_memory_provider_contracts.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m24_memory_write_validation.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m25_gate_integration.py",
-      "seconds": 0.02,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.01,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m26_gate_integration.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.01,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m27_gate_integration.py",
       "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m28_gate_integration.py",
       "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m29_gate_integration.py",
       "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m30_gate_integration.py",
       "seconds": 0.02,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m31_gate_integration.py",
       "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m32_gate_integration.py",
-      "seconds": 0.02,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.01,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m33_gate_integration.py",
       "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m34_gate_integration.py",
       "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m35_api_routes.py",
-      "seconds": 0.13,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.01,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m35_gate_integration.py",
       "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m36_gate_integration.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m37_gate_integration.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m38_gate_integration.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m39_gate_integration.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m3_api_routes.py",
-      "seconds": 0.05,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.04,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m40_gate_integration.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m41_gate_integration.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m41_local_prototype_safety_freeze.py",
-      "seconds": 0.42,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.2,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m42_gate_integration.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m42_mobile_product_contract_refresh.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m43_gate_integration.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m43_mobile_api_boundary_read_only.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m44_ccc_ios_skeleton_no_authority.py",
-      "seconds": 0.13,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.05,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m44_gate_integration.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m45_ccc_ios_local_read_only_connection.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m45_gate_integration.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m46_ccc_ios_review_receipt_read_only_surfaces.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m46_gate_integration.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m47_gate_integration.py",
-      "seconds": 0.25,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.29,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m47_testflight_pipeline_internal_only.py",
-      "seconds": 0.05,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.04,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m48_first_internal_testflight_build.py",
-      "seconds": 0.05,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.03,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m48_gate_integration.py",
-      "seconds": 0.33,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.32,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m49_gate_integration.py",
-      "seconds": 0.3,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.35,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m49_mobile_review_approval_capture.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m50_gate_integration.py",
-      "seconds": 0.33,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.28,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m50_mobile_approval_audit_hardening.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m51_gate_integration.py",
-      "seconds": 0.58,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.31,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m51_openwebui_bridge_adapter_pilot.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.091767,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m52_gate_integration.py",
-      "seconds": 0.44,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.53,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m52_openwebui_safe_conversation_surface.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m53_controlled_tool_expansion_review.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.091767,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m53_gate_integration.py",
       "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m54_gate_integration.py",
-      "seconds": 0.42,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.27,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m54_safe_media_metadata_inspector.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m55_gate_integration.py",
-      "seconds": 0.33,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.37,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m55_redacted_observability_export.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m56_agent_eval_regression_harness.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m56_gate_integration.py",
-      "seconds": 0.5,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.4,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m57_gate_integration.py",
-      "seconds": 0.41,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.4,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m57_runtime_sandbox_architecture_review.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m58_dry_run_execution_audit_harness.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m58_gate_integration.py",
-      "seconds": 0.73,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.45,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m59_gate_integration.py",
-      "seconds": 0.32,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.38,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m59_public_github_readiness.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m60_gate_integration.py",
-      "seconds": 0.35,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.46,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m60_local_developer_beta_freeze.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m61_autonomy_mode_charter.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m61_gate_integration.py",
-      "seconds": 0.38,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.37,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m62_gate_integration.py",
-      "seconds": 0.37,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.29,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m62_scoped_autonomy_session_contracts.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m63_autonomy_policy_engine_contracts.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m63_gate_integration.py",
-      "seconds": 0.43,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.41,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m64_autonomous_plan_simulator_contracts.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m64_gate_integration.py",
-      "seconds": 0.6,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.37,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m65_autonomy_audit_replay_viewer_contracts.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m65_gate_integration.py",
-      "seconds": 0.43,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.31,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m66_gate_integration.py",
-      "seconds": 0.35,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.44,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m66_scoped_approval_bundles.py",
       "seconds": 0.03,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m67_gate_integration.py",
-      "seconds": 0.82,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.65,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m67_revocation_kill_switch.py",
       "seconds": 0.06,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m68_autonomy_risk_classifier.py",
-      "seconds": 0.26,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.25,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m68_gate_integration.py",
-      "seconds": 0.42,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.44,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m69_gate_integration.py",
-      "seconds": 0.54,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.38,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m69_low_risk_autonomous_dry_run.py",
-      "seconds": 0.36,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.35,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m70_autonomy_foundation_freeze.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m70_gate_integration.py",
-      "seconds": 0.6,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.57,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m71_gate_integration.py",
-      "seconds": 0.63,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.76,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m71_network_tool_contract_review.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m72_gate_integration.py",
-      "seconds": 0.81,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.39,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m72_read_only_http_fetch_tool.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m73_browser_automation_contract_review.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m73_gate_integration.py",
-      "seconds": 0.53,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.57,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m74_browser_observe_only_adapter.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m74_gate_integration.py",
-      "seconds": 0.44,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.45,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m75_browser_action_dry_run_planner.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m75_browser_action_gate_integration.py",
-      "seconds": 0.45,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.57,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m75_gate_integration.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m76_openwebui_runtime_bridge.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m76_openwebui_runtime_bridge_gate_integration.py",
-      "seconds": 0.38,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.36,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m77_openwebui_safe_handoff_execution.py",
       "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m77_openwebui_safe_handoff_gate_integration.py",
-      "seconds": 0.37,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.28,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m78_plugin_manifest_gate_integration.py",
-      "seconds": 0.34,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.35,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m78_plugin_manifest_security_model.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m79_plugin_install_review_disabled.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m79_plugin_install_review_gate_integration.py",
-      "seconds": 0.39,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.35,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m7_api_routes.py",
-      "seconds": 0.1,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.02,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m7_gate_integration.py",
       "seconds": 0.11,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m80_gate_integration.py",
-      "seconds": 0.49,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.51,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m80_network_browser_openwebui_hardening_freeze.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m81_gate_integration.py",
-      "seconds": 0.34,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.4,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m81_runtime_sandbox_spec.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m82_command_proposal_contracts.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m82_gate_integration.py",
-      "seconds": 0.53,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.34,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m83_gate_integration.py",
-      "seconds": 0.5,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.45,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m83_shell_dry_run_classifier.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m84_gate_integration.py",
-      "seconds": 0.4,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.47,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m84_sandboxed_echo_noop_command.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m85_api_routes.py",
-      "seconds": 0.13,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.06,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m85_gate_integration.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.091767,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m85_read_only_command_allowlist.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m86_gate_integration.py",
-      "seconds": 0.52,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.48,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m86_shell_approval_gate.py",
-      "seconds": 0.09,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.1,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m87_gate_integration.py",
       "seconds": 0.48,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m87_sandboxed_command_audit_replay.py",
-      "seconds": 0.34,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.32,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m88_gate_integration.py",
-      "seconds": 0.45,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.52,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m88_mutating_command_proposal.py",
-      "seconds": 0.31,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.33,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m89_emergency_stop_process_kill_safety.py",
-      "seconds": 0.36,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.37,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m89_gate_integration.py",
-      "seconds": 0.94,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.54,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m8_gate_integration.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m90_gate_integration.py",
-      "seconds": 0.56,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.72,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m90_shell_subprocess_hardening_freeze.py",
-      "seconds": 0.38,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.35,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m91_autonomous_tool_execution_contract.py",
-      "seconds": 0.47,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.33,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m91_gate_integration.py",
-      "seconds": 0.58,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.77,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m92_gate_integration.py",
-      "seconds": 0.45,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.44,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m92_low_risk_tool_autonomy_single_session.py",
       "seconds": 0.71,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m93_gate_integration.py",
       "seconds": 0.46,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m93_multi_tool_dry_run_promotion.py",
-      "seconds": 0.79,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.77,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m94_gate_integration.py",
-      "seconds": 0.47,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.45,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m94_low_risk_browser_clicks.py",
-      "seconds": 1.25,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.94,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m95_gate_integration.py",
-      "seconds": 0.5,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.43,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m95_network_tool_expansion_authless.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m96_gate_integration.py",
-      "seconds": 0.41,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.36,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m96_plugin_execution_sandbox.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m97_gate_integration.py",
-      "seconds": 0.49,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.35,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m97_recurring_automation_contracts.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m98_gate_integration.py",
-      "seconds": 0.34,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.38,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m98_scoped_recurring_low_risk_automation.py",
-      "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m99_autonomy_v1_safety_freeze.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_m99_gate_integration.py",
-      "seconds": 0.64,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.41,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_m9_gate_integration.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_macos_setup_assistant.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_manual_loopback_smoke_api_routes.py",
-      "seconds": 0.03,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.02,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_manual_loopback_smoke_policy.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_manual_loopback_smoke_script.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_manual_loopback_smoke_transport.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_manual_smoke_report_validation.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.091767,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_mattermost_agent_rooms.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_mattermost_agent_rooms_api.py",
-      "seconds": 0.49,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.19,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_mattermost_plugin_scaffold.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.091767,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_mcp_gateway_foundation.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_memory_api_routes.py",
-      "seconds": 0.03,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_memory_records.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_memory_redaction.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_memory_retrieval.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_memory_store.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.091767,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_memory_supersession.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_memory_validation.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_mobile_companion_contracts.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_mobile_companion_no_authority.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_mobile_companion_no_sensor_access.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_mobile_companion_permissions.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_model_profiles.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_model_provider_control_plane.py",
-      "seconds": 2.57,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 2.6,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_model_router_context_budget.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_model_router_decisions.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_model_router_no_execution.py",
-      "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_model_router_privacy.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_model_routing_policy.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_model_runtime_api_routes.py",
-      "seconds": 0.11,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.01,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_model_runtime_event_metadata.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_model_runtime_manifests.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_model_runtime_no_real_calls.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_model_runtime_redaction.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_model_runtime_requests.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_model_runtime_simulator.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_morning_briefing_v1.py",
-      "seconds": 8.31,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 4.67,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_morning_reconciliation_artifact.py",
-      "seconds": 0.02,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_observability_mapping.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_openapi_contract.py",
-      "seconds": 4.3,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 4.19,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_openapi_schema_redaction.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_openwebui_bridge_contracts.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.091767,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_openwebui_bridge_no_authority.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.091767,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_openwebui_bridge_no_execution.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_openwebui_bridge_no_raw_content.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_openwebui_bridge_validation.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_operational_maturity_manifest.py",
-      "seconds": 2.15,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 2.12,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_operational_maturity_mock_fixture_guards.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_operational_maturity_probe_wiring.py",
-      "seconds": 6.44,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 5.93,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_operator_loop_p1_011.py",
-      "seconds": 0.14,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.21,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_operator_readiness_taxonomy.py",
       "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_operator_run_timeline_enforcement.py",
-      "seconds": 12.55,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 4.37,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_orchestration_efficiency.py",
       "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_phase01_reasoning_truth.py",
+      "seconds": 4.52,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_plans_to_actions_bridge.py",
-      "seconds": 9.54,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 7.4,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_platform_capabilities.py",
-      "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
+    },
+    {
+      "path": "tests/test_portable_mission_evidence.py",
+      "seconds": 2.2,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_post_m100_roadmap_reconciliation.py",
-      "seconds": 1.05,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.96,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_prepared_turn.py",
-      "seconds": 0.48,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.44,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_product_loop_012_private_trial_script.py",
-      "seconds": 2.0,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.42,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_product_truth_verifier.py",
-      "seconds": 4.14,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 4.13,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_provider_billing_authority_boundary.py",
       "seconds": 0.06,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_provider_catalog_cost_literacy.py",
-      "seconds": 1.6,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.25,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_provider_credential_readiness_contracts.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.091767,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_provider_credential_validation_lane.py",
-      "seconds": 0.11,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.05,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_provider_draft_summarize_lane.py",
-      "seconds": 3.54,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.84,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_provider_invocation_promotion_plan.py",
-      "seconds": 0.09,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.07,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_provider_manifests.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_provider_normalization_contracts.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_provider_registry.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_provider_resolver_free_first.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_provider_result_envelope.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_provider_router_dry_run.py",
-      "seconds": 1.8,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.77,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_provider_tool_runtime_safety_contracts.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_provider_usage_cost_receipt_hardening.py",
-      "seconds": 0.03,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.02,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_pytest_shard_runner.py",
       "seconds": 0.45,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_pytest_shard_runtime.py",
+      "seconds": 0.14,
+      "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_pytest_timing_seed_builder.py",
+      "seconds": 0.03,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_recall_no_memory_writes.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_recall_no_raw_content.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_recall_no_vector_embeddings.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_recall_source_priority.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_receipts.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_redacted_file_preview_authority_boundaries.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.091767,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_redacted_file_preview_path_policy.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.091767,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_redacted_file_preview_tool_contracts.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_release_evidence_packet.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_release_verification_lanes.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_remote_worker_api_routes.py",
-      "seconds": 0.47,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.06,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_remote_worker_dry_run.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_remote_worker_gate_integration.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_remote_worker_models.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_remote_worker_no_network.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_remote_worker_policy.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_remote_worker_registry.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_remote_worker_transports.py",
       "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_repo_awareness_benchmark.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_resource_governor.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_retrieval_log.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_role_provider_evidence.py",
-      "seconds": 3.27,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 2.68,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_route_decision_binding.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.091767,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_route_module_ownership.py",
-      "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.02,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_run_attached_approval_queue.py",
-      "seconds": 0.27,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.17,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_run_foundation_gate_script.py",
       "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_run_observability_surface.py",
-      "seconds": 0.18,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.19,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_run_state.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_runtime_action_signed_evidence.py",
-      "seconds": 4.42,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 6.29,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_runtime_action_tool_code_lanes.py",
-      "seconds": 0.9,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.77,
+      "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_runtime_agent_loop_plan_identity.py",
+      "seconds": 2.61,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_runtime_agent_loop_spine.py",
-      "seconds": 16.4,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 16.9,
+      "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_runtime_agent_loop_web_hybrid_truth.py",
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_runtime_authority_live_refresh.py",
-      "seconds": 0.11,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.09,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_runtime_capability_matrix.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_runtime_evidence_audit.py",
-      "seconds": 3.43,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 2.44,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_runtime_extensibility_final.py",
-      "seconds": 1.97,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.58,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_runtime_health_contracts.py",
       "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_runtime_memory_learning.py",
-      "seconds": 2.92,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 2.64,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_runtime_model_provider_research.py",
-      "seconds": 0.23,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.22,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_runtime_parity_loop_read_model.py",
-      "seconds": 5.91,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 4.87,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_runtime_readiness_api_routes.py",
-      "seconds": 0.03,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.02,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_runtime_readiness_no_execution.py",
       "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_runtime_readiness_report.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_safe_context_proposal_authority_boundaries.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_safe_context_proposal_binding.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_safe_context_proposal_contracts.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.091767,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_safe_context_proposal_no_raw_content.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_safe_context_proposal_no_routes_or_ui.py",
-      "seconds": 0.05,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.03,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_safe_context_proposal_receipt_plan.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_sdk_adapter_boundaries.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_searxng_search.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_searxng_search_live.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_secret_broker_no_leakage.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_secret_broker_redaction.py",
       "seconds": 0.02,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_secret_credentials.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_security_redaction_artifact_verifier.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_session_logging.py",
-      "seconds": 0.16,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.07,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_settings_kill_switch_clarity.py",
-      "seconds": 2.68,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 2.41,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_shadow_replay_m5.py",
       "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_source_conflicts.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_stage_a_policy_hardening.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_staged_orchestration_engine.py",
-      "seconds": 0.52,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.1,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_stale_source_policy.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_streaming_progress_read_model.py",
       "seconds": 0.05,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_task_decomposition_capability_registry.py",
       "seconds": 0.05,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_task_decomposition_live_local.py",
-      "seconds": 0.29,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.15,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_task_decomposition_production_api.py",
-      "seconds": 0.76,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.62,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_task_plan_dependencies.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_task_plan_no_execution.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_task_plan_validation.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_task_planning_contracts.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_tiny_live_provider_adapter.py",
-      "seconds": 0.04,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.01,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_tiny_live_provider_adapter_receipts.py",
-      "seconds": 0.1,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.09,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_tiny_provider_invocation_lane.py",
-      "seconds": 0.02,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.03,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_today_loop_tightening.py",
-      "seconds": 6.88,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 6.19,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_token_accounting.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.091767,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_tool_broker_authorization.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_tool_broker_foundation_gate.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_tool_broker_redaction_and_receipts.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_tool_broker_risk_policy.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_tool_broker_v2_contracts.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_tool_manifest_risk_mapping.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_tool_manifests.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_tool_result_trimming.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_tool_runtime_authority_boundaries.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_tool_runtime_contracts.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_tool_runtime_no_dynamic_dispatch.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_tool_runtime_no_side_effects.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.091767,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_tool_runtime_noop_invocation.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.091767,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_tool_runtime_replay_protection.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_trust_authority_matrix.py",
-      "seconds": 13.62,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 4.59,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_truth_api_routes.py",
-      "seconds": 0.06,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.02,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_truth_no_external_verification.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_truth_no_memory_authority.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_truth_no_model_output_authority.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_truth_source_contracts.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.091767,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_truth_source_manifest.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_truth_source_priority.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_truth_source_router.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_turn_contract_router_classifier.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_turn_contract_router_cli.py",
-      "seconds": 0.12,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.07,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_turn_contract_router_contracts.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.113627,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_turn_contract_router_executor_fence.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_turn_contract_router_harness_binding.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_turn_contract_router_parallel_preflight.py",
-      "seconds": 0.11,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.08,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_turn_contract_router_preflight_plan.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_turn_contract_router_quality.py",
-      "seconds": 0.06,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.04,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_turn_run_approval_chain.py",
-      "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.02,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_uaa_p1_062_local_model_manager_scope.py",
-      "seconds": 0.02,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.03,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_uaa_p1_064_local_model_inventory.py",
       "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_uaa_p1_064_local_model_inventory_scope.py",
       "seconds": 0.03,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_uaa_p1_065_founder_command_center_review_cleanup.py",
-      "seconds": 0.04,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.02,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_uaa_p1_066_local_model_control_center_status.py",
       "seconds": 0.02,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_uaa_p1_068_today_product_spine_contract.py",
-      "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_uaa_p1_069_evidence_history_grammar.py",
-      "seconds": 0.49,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.43,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_uaa_p1_070_memory_source_provenance_model.py",
-      "seconds": 0.53,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.42,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_uaa_p1_071_memory_review_decision_capture.py",
-      "seconds": 0.45,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.33,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_uaa_p1_072_business_memory_quality_controls.py",
-      "seconds": 0.4,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.39,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_uaa_p1_073_plans_action_envelopes.py",
-      "seconds": 0.62,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.58,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_uaa_p1_074_chat_local_operator_surface.py",
-      "seconds": 0.42,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.44,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_uaa_p1_075_governed_code_workbench.py",
-      "seconds": 0.46,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.42,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_uaa_p1_076_cross_surface_memory_intake.py",
-      "seconds": 0.51,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.39,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_uaa_p1_077_memory_to_loop_binding.py",
-      "seconds": 0.73,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.55,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_uaa_p1_078_private_beta_readiness_gate.py",
-      "seconds": 0.68,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.64,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_uaa_p1_079_user_intent_understanding.py",
       "seconds": 0.62,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_uaa_p1_087_1_local_launcher_boot_readiness.py",
-      "seconds": 0.04,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.01,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_uaa_p1_087_2a_private_trial_packet.py",
-      "seconds": 0.02,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.03,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_uaa_p1_087_2b_private_trial_acceptance_ledger.py",
       "seconds": 0.03,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_uaa_p1_087_2c_private_trial_manual_review_scaffold.py",
-      "seconds": 0.09,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.06,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_uaa_p1_088_agent_module_maturity_review_v2.py",
-      "seconds": 0.19,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.02,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_uaa_p1_089_top_level_decision_router_contract.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_uaa_p1_090_task_decomposition_proposal_engine.py",
-      "seconds": 0.67,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.88,
+      "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_uaa_runtime_capability_final_scorecard.py",
+      "seconds": 0.07,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_uaa_runtime_capability_foundation_prompt_pack.py",
-      "seconds": 0.16,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.14,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_uaa_runtime_capability_scoreboard.py",
-      "seconds": 0.11,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.01,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_uaa_runtime_parity_final_verifier.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_uaa_runtime_parity_prompt_pack.py",
-      "seconds": 0.14,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.12,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_uaa_runtime_parity_scorecard.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
+    },
+    {
+      "path": "tests/test_uaa_runtime_phase09_benchmark.py",
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_uaa_runtime_prepared_turn_verifier.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.091767,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_uaa_runtime_route_decision_binding_verifier.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_uaa_runtime_staged_orchestration_verifier.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_uaa_runtime_turn_run_approval_chain_verifier.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_unsupported_claims.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.119566,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_verification_fast_local_gate.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.091767,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_verify_all_self_scan_hygiene.py",
-      "seconds": 1.21,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.67,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_web_access_gateway.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.090408,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_web_access_static_guards.py",
-      "seconds": 7.39,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 6.36,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_web_evidence_product_slice.py",
-      "seconds": 10.09,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 7.08,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_web_hybrid_contracts.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_web_hybrid_execution.py",
-      "seconds": 0.08,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.16,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_web_hybrid_foundation_gate_promotion.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.02827,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_web_hybrid_ledger_router.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.07,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_web_hybrid_operator_read_model.py",
       "seconds": 0.01,
-      "source": "historical-pytest-duration-summary"
+      "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_web_research_adapters.py",
+      "seconds": 0.01,
+      "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_web_research_aggregation.py",
+      "seconds": 1.29687,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_web_runtime_authority_contract.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 1.116776,
+      "source": "shard-elapsed-fallback"
     },
     {
       "path": "tests/test_weekly_ceo_review_v1.py",
-      "seconds": 9.37,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 6.97,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_world_state.py",
-      "seconds": 0.001,
-      "source": "historical-pytest-duration-summary"
+      "seconds": 0.709172,
+      "source": "shard-elapsed-fallback"
     }
   ],
   "verification_evidence": false

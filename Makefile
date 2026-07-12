@@ -7,6 +7,10 @@ PYTEST_SHARD_WORKERS ?= 8
 PYTEST_SHARD_TIMINGS_JSON ?= /tmp/uaa_pytest_file_timings.json
 PYTEST_SHARD_TIMING_SEED_JSON ?= scripts/verification/pytest_file_timing_seed.json
 PYTEST_SHARD_BASETEMP ?= /tmp/uaa_pytest_shards
+PYTEST_STRETCH_GOAL_SECONDS ?= 110
+PYTEST_TARGET_SECONDS ?= 125
+PYTEST_HARD_TIMEOUT_SECONDS ?= 180
+PYTEST_PERFORMANCE_REPORT ?= /tmp/uaa_pytest_performance_report.json
 
 .PHONY: doctor test test-serial test-sharded test-sharded-profile verify verify-static verify-gate-architecture verify-fast verify-dev-fast verify-dev-sharded verify-local verify-beta-local verify-beta-local-visual frontend-check frontend-visual-check frontend-turn-router-smoke openapi ruff
 
@@ -20,10 +24,10 @@ test-serial:
 	PYTHONPATH=src $(PYTHON) -m pytest
 
 test-sharded:
-	PYTHONPATH=src $(PYTHON) scripts/verification/run_pytest_shards.py --shards $(PYTEST_SHARDS) --max-workers $(PYTEST_SHARD_WORKERS) --timings-json $(PYTEST_SHARD_TIMING_SEED_JSON) --timings-json $(PYTEST_SHARD_TIMINGS_JSON) --basetemp $(PYTEST_SHARD_BASETEMP)
+	PYTHONPATH=src $(PYTHON) scripts/verification/run_pytest_shards.py --shards $(PYTEST_SHARDS) --max-workers $(PYTEST_SHARD_WORKERS) --timings-json $(PYTEST_SHARD_TIMING_SEED_JSON) --timings-json $(PYTEST_SHARD_TIMINGS_JSON) --basetemp $(PYTEST_SHARD_BASETEMP) --stretch-goal-seconds $(PYTEST_STRETCH_GOAL_SECONDS) --target-seconds $(PYTEST_TARGET_SECONDS) --hard-timeout-seconds $(PYTEST_HARD_TIMEOUT_SECONDS) --performance-report $(PYTEST_PERFORMANCE_REPORT)
 
 test-sharded-profile:
-	PYTHONPATH=src $(PYTHON) scripts/verification/run_pytest_shards.py --shards $(PYTEST_SHARDS) --max-workers $(PYTEST_SHARD_WORKERS) --timings-json $(PYTEST_SHARD_TIMING_SEED_JSON) --timings-json $(PYTEST_SHARD_TIMINGS_JSON) --write-timings-json $(PYTEST_SHARD_TIMINGS_JSON) --basetemp $(PYTEST_SHARD_BASETEMP)
+	PYTHONPATH=src $(PYTHON) scripts/verification/run_pytest_shards.py --shards $(PYTEST_SHARDS) --max-workers $(PYTEST_SHARD_WORKERS) --timings-json $(PYTEST_SHARD_TIMING_SEED_JSON) --timings-json $(PYTEST_SHARD_TIMINGS_JSON) --write-timings-json $(PYTEST_SHARD_TIMINGS_JSON) --basetemp $(PYTEST_SHARD_BASETEMP) --stretch-goal-seconds $(PYTEST_STRETCH_GOAL_SECONDS) --target-seconds $(PYTEST_TARGET_SECONDS) --hard-timeout-seconds $(PYTEST_HARD_TIMEOUT_SECONDS) --performance-report $(PYTEST_PERFORMANCE_REPORT)
 
 verify:
 	$(MAKE) ruff test-sharded verify-static

@@ -30,6 +30,11 @@ def _clone(value: dict[str, Any]) -> dict[str, Any]:
     return copy.deepcopy(value)
 
 
+@pytest.fixture(scope="module")
+def narrative_read_model(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
+    return _read_model(tmp_path_factory.mktemp("evidence-timeline-narrative"))
+
+
 def _assert_narrative_read_model(read_model: dict[str, Any]) -> None:
     parsed = FounderLoopEvidenceTimelineNarrativeReadModel(**read_model)
     assert parsed.schema_version == "product-loop-010-evidence-timeline-narrative.v1"
@@ -117,17 +122,16 @@ def test_evidence_timeline_narrative_surfaces_existing_safe_refs(
     ],
 )
 def test_evidence_timeline_narrative_rejects_authority_flags(
-    tmp_path: Path,
+    narrative_read_model: dict[str, Any],
     field_name: str,
 ) -> None:
-    read_model = _read_model(tmp_path)
-    payload = _clone(read_model)
+    payload = _clone(narrative_read_model)
     payload[field_name] = True
 
     with pytest.raises(ValidationError):
         FounderLoopEvidenceTimelineNarrativeReadModel(**payload)
 
-    payload = _clone(read_model)
+    payload = _clone(narrative_read_model)
     payload["entries"][0][field_name] = True
     with pytest.raises(ValidationError):
         FounderLoopEvidenceTimelineNarrativeReadModel(**payload)
@@ -160,11 +164,10 @@ def test_evidence_timeline_narrative_rejects_authority_flags(
     ],
 )
 def test_evidence_timeline_narrative_rejects_raw_private_text(
-    tmp_path: Path,
+    narrative_read_model: dict[str, Any],
     unsafe_text: str,
 ) -> None:
-    read_model = _read_model(tmp_path)
-    payload = _clone(read_model)
+    payload = _clone(narrative_read_model)
     payload["entries"][0]["what_happened"] = unsafe_text
 
     with pytest.raises(ValidationError):
@@ -191,11 +194,10 @@ def test_evidence_timeline_narrative_rejects_raw_private_text(
     ],
 )
 def test_evidence_timeline_narrative_rejects_unsafe_refs(
-    tmp_path: Path,
+    narrative_read_model: dict[str, Any],
     unsafe_ref: str,
 ) -> None:
-    read_model = _read_model(tmp_path)
-    payload = _clone(read_model)
+    payload = _clone(narrative_read_model)
     entry_refs = list(payload["entries"][0]["evidence_refs"])
     entry_refs.append(unsafe_ref)
     payload["entries"][0]["evidence_refs"] = entry_refs
@@ -206,10 +208,9 @@ def test_evidence_timeline_narrative_rejects_unsafe_refs(
 
 
 def test_evidence_timeline_narrative_rejects_aggregate_ref_drift(
-    tmp_path: Path,
+    narrative_read_model: dict[str, Any],
 ) -> None:
-    read_model = _read_model(tmp_path)
-    payload = _clone(read_model)
+    payload = _clone(narrative_read_model)
     payload["receipt_refs"] = ["receipt-ref:drift"]
 
     with pytest.raises(ValidationError, match="receipt_refs"):

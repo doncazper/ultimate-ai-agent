@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 import subprocess
 import sys
@@ -24,6 +25,16 @@ from ultimate_ai_agent.core.storage import FounderLoopRepository
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+@pytest.fixture(scope="module")
+def trust_authority_matrix(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> dict[str, Any]:
+    service = FounderLoopControlCenterService(
+        FounderLoopRepository(tmp_path_factory.mktemp("trust-authority"))
+    )
+    return service.trust_authority_matrix()
 
 
 def _assert_no_runtime_authority(payload: dict[str, Any]) -> None:
@@ -52,14 +63,9 @@ def _assert_no_runtime_authority(payload: dict[str, Any]) -> None:
 
 
 def test_trust_authority_matrix_explains_available_approval_and_blocked(
-    tmp_path: Path,
+    trust_authority_matrix: dict[str, Any],
 ) -> None:
-    service = FounderLoopControlCenterService(
-        FounderLoopRepository(tmp_path / "founder_loop")
-    )
-
-    matrix = service.trust_authority_matrix()
-    parsed = TrustAuthorityMatrixReadModel(**matrix)
+    parsed = TrustAuthorityMatrixReadModel(**trust_authority_matrix)
 
     assert parsed.contract_ref == TRUST_AUTHORITY_MATRIX_CONTRACT_REF
     assert parsed.route_ref == TRUST_AUTHORITY_MATRIX_ROUTE_REF
@@ -340,7 +346,7 @@ def test_trust_authority_matrix_explains_available_approval_and_blocked(
     assert production_lane.authority_domain_ref == (
         "authority-domain-ref:cloud_production"
     )
-    _assert_no_runtime_authority(matrix)
+    _assert_no_runtime_authority(trust_authority_matrix)
 
 
 def test_trust_authority_route_is_backend_owned() -> None:
@@ -397,13 +403,10 @@ def test_trust_authority_cli_outputs_safe_refs_only(tmp_path: Path) -> None:
     "production_authority_enabled",
 ])
 def test_trust_authority_matrix_rejects_authority_creep(
-    tmp_path: Path,
+    trust_authority_matrix: dict[str, Any],
     flag: str,
 ) -> None:
-    service = FounderLoopControlCenterService(
-        FounderLoopRepository(tmp_path / "founder_loop")
-    )
-    matrix = service.trust_authority_matrix()
+    matrix = copy.deepcopy(trust_authority_matrix)
     matrix[flag] = True
 
     with pytest.raises(ValidationError):
@@ -411,12 +414,9 @@ def test_trust_authority_matrix_rejects_authority_creep(
 
 
 def test_trust_authority_matrix_rejects_posture_ref_drift(
-    tmp_path: Path,
+    trust_authority_matrix: dict[str, Any],
 ) -> None:
-    service = FounderLoopControlCenterService(
-        FounderLoopRepository(tmp_path / "founder_loop")
-    )
-    matrix = service.trust_authority_matrix()
+    matrix = copy.deepcopy(trust_authority_matrix)
     matrix["safe_disable_refs"] = []
 
     with pytest.raises(ValidationError):
@@ -424,12 +424,9 @@ def test_trust_authority_matrix_rejects_posture_ref_drift(
 
 
 def test_trust_authority_matrix_rejects_domain_coverage_drift(
-    tmp_path: Path,
+    trust_authority_matrix: dict[str, Any],
 ) -> None:
-    service = FounderLoopControlCenterService(
-        FounderLoopRepository(tmp_path / "founder_loop")
-    )
-    matrix = service.trust_authority_matrix()
+    matrix = copy.deepcopy(trust_authority_matrix)
     matrix["authority_domain_coverage"] = [
         coverage
         for coverage in matrix["authority_domain_coverage"]
@@ -446,14 +443,11 @@ def test_trust_authority_matrix_rejects_domain_coverage_drift(
     ("cli_inspection_refs", []),
 ])
 def test_trust_authority_matrix_rejects_lane_posture_drift(
-    tmp_path: Path,
+    trust_authority_matrix: dict[str, Any],
     field: str,
     value: Any,
 ) -> None:
-    service = FounderLoopControlCenterService(
-        FounderLoopRepository(tmp_path / "founder_loop")
-    )
-    matrix = service.trust_authority_matrix()
+    matrix = copy.deepcopy(trust_authority_matrix)
     tier_2_index = next(
         index for index, lane in enumerate(matrix["lanes"]) if lane["tier"] == 2
     )
