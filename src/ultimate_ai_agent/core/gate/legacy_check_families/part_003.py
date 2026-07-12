@@ -1078,6 +1078,7 @@ class FoundationGateLegacyChecksPart003Mixin:
         allowed_deps = {
             "react",
             "react-dom",
+            "lucide-react",
             "@playwright/test",
             "@vitejs/plugin-react",
             "vite",
