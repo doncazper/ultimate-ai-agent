@@ -7,6 +7,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from jsonschema import Draft202012Validator
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -18,15 +20,23 @@ def _load_json(path: Path) -> dict[str, Any]:
         _fail(f"{path.relative_to(ROOT)} is not valid JSON: {exc}")
 
 
-def _writeable_model_schema(model: type[Any], *, schema_id: str | None = None) -> dict[str, Any]:
+def _writeable_model_schema(
+    model: type[Any], *, schema_id: str | None = None
+) -> dict[str, Any]:
     schema = model.model_json_schema()
     schema = {"$schema": "https://json-schema.org/draft/2020-12/schema", **schema}
     if schema_id:
-        schema = {"$schema": schema["$schema"], "$id": schema_id, **{k: v for k, v in schema.items() if k != "$schema"}}
+        schema = {
+            "$schema": schema["$schema"],
+            "$id": schema_id,
+            **{k: v for k, v in schema.items() if k != "$schema"},
+        }
     return schema
 
 
-def _assert_schema_matches_model(path: Path, model: type[Any], *, schema_id: str | None = None) -> None:
+def _assert_schema_matches_model(
+    path: Path, model: type[Any], *, schema_id: str | None = None
+) -> None:
     actual = _load_json(path)
     expected = _writeable_model_schema(model, schema_id=schema_id)
     if actual != expected:
@@ -34,17 +44,24 @@ def _assert_schema_matches_model(path: Path, model: type[Any], *, schema_id: str
     _assert_contract_posture(path, actual, model)
 
 
-def _assert_contract_posture(path: Path, schema: dict[str, Any], model: type[Any]) -> None:
+def _assert_contract_posture(
+    path: Path, schema: dict[str, Any], model: type[Any]
+) -> None:
     relative = path.relative_to(ROOT)
     if schema.get("additionalProperties") is not False:
         _fail(f"{relative} must forbid additional properties")
     properties = schema.get("properties")
     if not isinstance(properties, dict):
         _fail(f"{relative} must define object properties")
-    model_fields = {_schema_field_name(field_name, field_info) for field_name, field_info in model.model_fields.items()}
+    model_fields = {
+        _schema_field_name(field_name, field_info)
+        for field_name, field_info in model.model_fields.items()
+    }
     schema_fields = set(properties)
     if schema_fields != model_fields:
-        _fail(f"{relative} property drift: schema={sorted(schema_fields)} model={sorted(model_fields)}")
+        _fail(
+            f"{relative} property drift: schema={sorted(schema_fields)} model={sorted(model_fields)}"
+        )
     required = schema.get("required", [])
     if not isinstance(required, list):
         _fail(f"{relative} required must be a list")
@@ -121,10 +138,16 @@ def _assert_wrapper_record_fields(
     if missing_properties:
         _fail(f"{relative} $defs.{def_name} missing model fields: {missing_properties}")
     required = set(record_schema.get("required", []))
-    model_required = {field_name for field_name, field_info in model.model_fields.items() if field_info.is_required()}
+    model_required = {
+        field_name
+        for field_name, field_info in model.model_fields.items()
+        if field_info.is_required()
+    }
     missing_required = sorted(model_required - required)
     if missing_required:
-        _fail(f"{relative} $defs.{def_name} must require wrapper fields: {missing_required}")
+        _fail(
+            f"{relative} $defs.{def_name} must require wrapper fields: {missing_required}"
+        )
     for field_name in (
         "runtime_import_enabled",
         "execution_enabled",
@@ -135,11 +158,16 @@ def _assert_wrapper_record_fields(
         "mobile_control_enabled",
         "public_distribution_claimed",
     ):
-        if field_name in properties and properties[field_name].get("const") is not False:
+        if (
+            field_name in properties
+            and properties[field_name].get("const") is not False
+        ):
             _fail(f"{relative} $defs.{def_name}.{field_name} must be const false")
 
 
-def _fail_with_diff(path: Path, actual: dict[str, Any], expected: dict[str, Any]) -> None:
+def _fail_with_diff(
+    path: Path, actual: dict[str, Any], expected: dict[str, Any]
+) -> None:
     actual_text = json.dumps(actual, indent=2, sort_keys=True).splitlines()
     expected_text = json.dumps(expected, indent=2, sort_keys=True).splitlines()
     diff = "\n".join(
@@ -158,9 +186,30 @@ def _fail(message: str) -> None:
     raise SystemExit(f"Compatibility schema drift verification failed: {message}")
 
 
+def _assert_payload_matches_schema(path: Path, payload: dict[str, Any]) -> None:
+    schema = json.loads(path.read_text(encoding="utf-8"))
+    errors = sorted(
+        Draft202012Validator(schema).iter_errors(payload),
+        key=lambda item: list(item.path),
+    )
+    if errors:
+        first = errors[0]
+        location = "/".join(str(value) for value in first.path) or "<root>"
+        _fail(
+            f"{path.relative_to(ROOT)} rejects live payload at {location}: {first.message}"
+        )
+
+
 def main() -> None:
-    from ultimate_ai_agent.core.adapters import A2AAgentCardV1, AgentRuntimeAdapterManifest, UAAA2AAgentCardMetadataImport
+    from ultimate_ai_agent.core.adapters import (
+        A2AAgentCardV1,
+        AgentRuntimeAdapterManifest,
+        UAAA2AAgentCardMetadataImport,
+    )
     from ultimate_ai_agent.core.providers import ProviderManifest
+    from ultimate_ai_agent.core.extension_catalog.ecosystem import (
+        build_default_extension_ecosystem_read_model,
+    )
 
     _assert_schema_matches_model(
         ROOT / "docs/schemas/a2a_agent_card_minimal.schema.json",
@@ -179,7 +228,13 @@ def main() -> None:
         ProviderManifest,
         schema_id="https://ultimate-ai-agent.local/schemas/provider_manifest.schema.json",
     )
-    _assert_extension_activation_wrapper(ROOT / "docs/schemas/extension_activation_grant.schema.json")
+    _assert_extension_activation_wrapper(
+        ROOT / "docs/schemas/extension_activation_grant.schema.json"
+    )
+    _assert_payload_matches_schema(
+        ROOT / "docs/schemas/extension_ecosystem_read_model.schema.json",
+        build_default_extension_ecosystem_read_model().model_dump(mode="json"),
+    )
     print("Compatibility schema drift verification passed")
 
 

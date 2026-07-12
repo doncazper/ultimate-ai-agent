@@ -40,7 +40,7 @@ from ultimate_ai_agent.core.time import utc_now
 from .adapters import (
     snapshot_from_capability_catalog_entry,
     snapshot_from_capability_manifest,
-    snapshot_from_extension_catalog_entry,
+    snapshots_from_extension_catalog,
     snapshot_from_provider_manifest,
 )
 from .contracts import (
@@ -252,11 +252,9 @@ def build_capability_availability_read_model(
         ),
     )
 
-    extension_entry = build_default_inspectable_extension_catalog().entries[0]
-    inspectable_extension = snapshot_from_extension_catalog_entry(
-        extension_entry,
+    inspectable_extensions = snapshots_from_extension_catalog(
+        build_default_inspectable_extension_catalog(),
         checked_at=observed_at,
-        safe_disable_status=SafeDisableStatus.inactive,
     )
 
     snapshots = [
@@ -267,7 +265,7 @@ def build_capability_availability_read_model(
         provider_budget_blocked,
         safe_disabled,
         ready_for_policy,
-        inspectable_extension,
+        *inspectable_extensions,
     ]
     readiness_counts = {
         status.value: sum(item.runtime_readiness_status == status for item in snapshots)

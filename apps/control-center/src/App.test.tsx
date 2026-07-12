@@ -8694,6 +8694,20 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByText(/Skill bundle tool execution enabled: no/i),
     ).toBeInTheDocument();
+    expect(screen.getByText(/Inspectable catalog entries: 3/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Catalog visibility grants authority: no/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Fresh request-scoped invocation decision required: yes/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Inspectable extensions are never globally callable/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Plugin metadata boundary: runtime-boundary-ref:plugin-metadata-posture/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText("safe-disable-ref:extension-metadata-inspection")).toBeInTheDocument();
+    expect(screen.getByText("rollback-ref:extension-metadata-inspection:disable")).toBeInTheDocument();
+    expect(screen.getAllByText(/authority blocked/i).length).toBeGreaterThan(0);
   }, 30000);
 
   it("renders clear headings for every local shell page", async () => {
@@ -12733,6 +12747,51 @@ describe("Web Control Center shell", () => {
         name: /test provider|call provider|invoke provider/i,
       }),
     ).not.toBeInTheDocument();
+
+    vi.unstubAllGlobals();
+  });
+
+  it("fails closed for plugin governance aggregate and safe-ref drift", async () => {
+    const unsafeDashboard = JSON.parse(
+      JSON.stringify(mockApiData.dashboard),
+    ) as Record<string, unknown>;
+    const unsafePlugin = JSON.parse(
+      JSON.stringify(mockControlCenterData.dashboard.plugin_governance_summary),
+    ) as Record<string, unknown>;
+    unsafePlugin.blocked_validation_count = 0;
+    unsafePlugin.availability_snapshot_count = 5;
+    unsafePlugin.safe_disable_refs = ["https://unsafe.example"];
+    unsafeDashboard.plugin_governance_summary = unsafePlugin;
+
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      const urlText = String(url);
+      if (!options?.method && urlText.endsWith(API_ENDPOINTS.controlCenterDashboard)) {
+        return new Response(JSON.stringify({ ok: true, result: unsafeDashboard }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (
+        !options?.method &&
+        READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))
+      ) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/plugin-governance");
+    render(<App />);
+
+    expect(await screen.findByText("Plugin Governance")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Catalog visibility grants authority: no/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Catalog visibility grants authority: yes/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/99 blocked/i)).not.toBeInTheDocument();
 
     vi.unstubAllGlobals();
   });
@@ -18039,7 +18098,7 @@ const mockApiData = {
       mobile_app_implemented: false,
     },
     plugin_governance_summary: {
-      status: "planned_disabled",
+      status: "inspectable_non_callable",
       plugin_enablement_allowed: false,
       native_build_tools_enabled: false,
       skill_bundle_proposal_status: "proposal_only",
@@ -18047,6 +18106,88 @@ const mockApiData = {
       skill_bundle_proposal_refs: ["skill-bundle-proposal:founder-loop-review"],
       skill_bundle_activation_enabled: false,
       skill_bundle_tool_execution_enabled: false,
+      catalog_entry_count: 3,
+      availability_snapshot_count: 4,
+      developer_validation_count: 3,
+      blocked_validation_count: 1,
+      blocker_codes: ["EXTENSION_VERSION_COMPATIBILITY_UNKNOWN"],
+      safe_disable_refs: [
+        "safe-disable-ref:extension-metadata-inspection",
+        "safe-disable-ref:skill-metadata-index",
+        "safe-disable-ref:unknown-extension-candidate",
+      ],
+      rollback_refs: [
+        "rollback-ref:extension-metadata-inspection:disable",
+        "rollback-ref:skill-metadata-index:disable",
+        "rollback-ref:unknown-extension-candidate:none",
+      ],
+      extension_entries: [
+        {
+          package_ref: "extension-package:uaa-plugin-skill-boundary",
+          manifest_ref: "plugin-skill-manifest:uaa-plugin-skill-boundary",
+          version_ref: "version:uaa-p1-024",
+          availability_snapshot_count: 1,
+          validation_status: "validated_metadata_only",
+          compatibility_status: "supported",
+          configuration_status: "not_configured",
+          health_status: "unknown",
+          authority_posture: "blocked",
+          resource_status: "unknown",
+          safe_disable_status: "unknown",
+          provenance_status: "reviewed",
+          hashes_verified_against_pinned_values: true,
+          signature_status: "not_present",
+          signature_verified: false,
+          safe_disable_ref: "safe-disable-ref:extension-metadata-inspection",
+          rollback_ref: "rollback-ref:extension-metadata-inspection:disable",
+          blocker_codes: [],
+        },
+        {
+          package_ref: "extension-package:uaa-skill-metadata-index",
+          manifest_ref: "plugin-skill-manifest:uaa-skill-metadata-index",
+          version_ref: "version:hermes-runtime-adoption-phase-13",
+          availability_snapshot_count: 2,
+          validation_status: "validated_metadata_only",
+          compatibility_status: "supported",
+          configuration_status: "not_configured",
+          health_status: "unknown",
+          authority_posture: "blocked",
+          resource_status: "unknown",
+          safe_disable_status: "unknown",
+          provenance_status: "reviewed",
+          hashes_verified_against_pinned_values: true,
+          signature_status: "not_present",
+          signature_verified: false,
+          safe_disable_ref: "safe-disable-ref:skill-metadata-index",
+          rollback_ref: "rollback-ref:skill-metadata-index:disable",
+          blocker_codes: [],
+        },
+        {
+          package_ref: "extension-package:unknown-extension-candidate",
+          manifest_ref: "plugin-skill-manifest:unknown-candidate",
+          version_ref: "version:unknown",
+          availability_snapshot_count: 1,
+          validation_status: "blocked",
+          compatibility_status: "unknown",
+          configuration_status: "not_configured",
+          health_status: "unknown",
+          authority_posture: "blocked",
+          resource_status: "unknown",
+          safe_disable_status: "unknown",
+          provenance_status: "unknown",
+          hashes_verified_against_pinned_values: false,
+          signature_status: "not_present",
+          signature_verified: false,
+          safe_disable_ref: "safe-disable-ref:unknown-extension-candidate",
+          rollback_ref: "rollback-ref:unknown-extension-candidate:none",
+          blocker_codes: ["EXTENSION_VERSION_COMPATIBILITY_UNKNOWN"],
+        },
+      ],
+      plugin_metadata_boundary_ref: "runtime-boundary-ref:plugin-metadata-posture",
+      skill_marketplace_boundary_ref: "runtime-boundary-ref:skill-marketplace-posture",
+      mcp_catalog_boundary_ref: "runtime-boundary-ref:mcp-catalog-filtering",
+      catalog_visibility_grants_authority: false,
+      request_scoped_invocation_decision_required: true,
     },
     warnings: [],
     blockers: [],

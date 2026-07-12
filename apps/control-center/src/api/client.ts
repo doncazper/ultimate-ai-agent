@@ -8508,6 +8508,132 @@ function isSafeGovernedMemoryContext(
   return true;
 }
 
+const EXTENSION_SAFE_REF_RE = /^[a-z][a-z0-9_-]*:[a-z0-9][a-z0-9_.:-]*$/;
+const EXTENSION_REASON_CODE_RE = /^[A-Z][A-Z0-9_]*$/;
+
+function hasExactStringSet(left: unknown[], right: string[]): boolean {
+  const normalizedLeft = left.filter(
+    (item): item is string => typeof item === "string",
+  );
+  return (
+    normalizedLeft.length === left.length &&
+    new Set(normalizedLeft).size === normalizedLeft.length &&
+    new Set(right).size === right.length &&
+    normalizedLeft.length === right.length &&
+    normalizedLeft.every((item) => right.includes(item)) &&
+    right.every((item) => normalizedLeft.includes(item))
+  );
+}
+
+function isSafePluginGovernanceSummary(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  const entries = value.extension_entries;
+  if (
+    !Array.isArray(entries) ||
+    !Array.isArray(value.blocker_codes) ||
+    !Array.isArray(value.safe_disable_refs) ||
+    !Array.isArray(value.rollback_refs) ||
+    !Array.isArray(value.skill_bundle_proposal_refs) ||
+    value.status !== "inspectable_non_callable" ||
+    value.plugin_enablement_allowed !== false ||
+    value.native_build_tools_enabled !== false ||
+    value.skill_bundle_proposal_status !== "proposal_only" ||
+    value.skill_bundle_activation_enabled !== false ||
+    value.skill_bundle_tool_execution_enabled !== false ||
+    !Number.isInteger(value.skill_bundle_proposal_count) ||
+    Number(value.skill_bundle_proposal_count) !== value.skill_bundle_proposal_refs.length ||
+    !Number.isInteger(value.catalog_entry_count) ||
+    Number(value.catalog_entry_count) < 0 ||
+    !Number.isInteger(value.developer_validation_count) ||
+    Number(value.developer_validation_count) < 0 ||
+    !Number.isInteger(value.availability_snapshot_count) ||
+    Number(value.availability_snapshot_count) < 0 ||
+    !Number.isInteger(value.blocked_validation_count) ||
+    Number(value.blocked_validation_count) < 0 ||
+    Number(value.blocked_validation_count) > Number(value.developer_validation_count) ||
+    Number(value.catalog_entry_count) !== entries.length ||
+    Number(value.developer_validation_count) !== entries.length ||
+    value.catalog_visibility_grants_authority !== false ||
+    value.request_scoped_invocation_decision_required !== true ||
+    !EXTENSION_SAFE_REF_RE.test(String(value.plugin_metadata_boundary_ref)) ||
+    !EXTENSION_SAFE_REF_RE.test(String(value.skill_marketplace_boundary_ref)) ||
+    !EXTENSION_SAFE_REF_RE.test(String(value.mcp_catalog_boundary_ref))
+  ) {
+    return false;
+  }
+  const safeEntries = entries.every((entry) => {
+    if (!isPlainRecord(entry)) {
+      return false;
+    }
+    return (
+      EXTENSION_SAFE_REF_RE.test(String(entry.package_ref)) &&
+      EXTENSION_SAFE_REF_RE.test(String(entry.manifest_ref)) &&
+      EXTENSION_SAFE_REF_RE.test(String(entry.version_ref)) &&
+      EXTENSION_SAFE_REF_RE.test(String(entry.safe_disable_ref)) &&
+      EXTENSION_SAFE_REF_RE.test(String(entry.rollback_ref)) &&
+      Number.isInteger(entry.availability_snapshot_count) &&
+      Number(entry.availability_snapshot_count) >= 0 &&
+      ["validated_metadata_only", "blocked"].includes(String(entry.validation_status)) &&
+      ["supported", "unknown"].includes(String(entry.compatibility_status)) &&
+      entry.configuration_status === "not_configured" &&
+      entry.health_status === "unknown" &&
+      entry.authority_posture === "blocked" &&
+      entry.resource_status === "unknown" &&
+      entry.safe_disable_status === "unknown" &&
+      ["reviewed", "blocked", "unknown"].includes(String(entry.provenance_status)) &&
+      typeof entry.hashes_verified_against_pinned_values === "boolean" &&
+      ["not_present", "unknown"].includes(String(entry.signature_status)) &&
+      entry.signature_verified === false &&
+      Array.isArray(entry.blocker_codes) &&
+      entry.blocker_codes.every(
+        (code) => typeof code === "string" && EXTENSION_REASON_CODE_RE.test(code),
+      )
+    );
+  });
+  if (!safeEntries) {
+    return false;
+  }
+  const typedEntries = entries as Array<Record<string, unknown>>;
+  const blockedCount = typedEntries.filter(
+    (entry) => entry.validation_status === "blocked",
+  ).length;
+  const availabilityCount = typedEntries.reduce(
+    (count, entry) => count + Number(entry.availability_snapshot_count),
+    0,
+  );
+  const safeDisableRefs = typedEntries.map((entry) => String(entry.safe_disable_ref));
+  const rollbackRefs = typedEntries.map((entry) => String(entry.rollback_ref));
+  const entryBlockerCodes = Array.from(
+    new Set(
+      typedEntries.flatMap((entry) =>
+        (entry.blocker_codes as unknown[]).map((code) => String(code)),
+      ),
+    ),
+  ).sort();
+  return (
+    Number(value.blocked_validation_count) === blockedCount &&
+    Number(value.availability_snapshot_count) === availabilityCount &&
+    value.blocker_codes.every(
+      (code) => typeof code === "string" && EXTENSION_REASON_CODE_RE.test(code),
+    ) &&
+    value.skill_bundle_proposal_refs.every(
+      (ref) => typeof ref === "string" && EXTENSION_SAFE_REF_RE.test(ref),
+    ) &&
+    value.safe_disable_refs.every(
+      (ref) => typeof ref === "string" && EXTENSION_SAFE_REF_RE.test(ref),
+    ) &&
+    value.rollback_refs.every(
+      (ref) => typeof ref === "string" && EXTENSION_SAFE_REF_RE.test(ref),
+    ) &&
+    hasExactStringSet(value.safe_disable_refs, safeDisableRefs) &&
+    hasExactStringSet(value.rollback_refs, rollbackRefs) &&
+    JSON.stringify([...value.blocker_codes].sort()) ===
+      JSON.stringify(entryBlockerCodes)
+  );
+}
+
 function normalizeControlCenterDashboard(
   value: ControlCenterDashboardSnapshot | undefined,
 ): { value: ControlCenterDashboardSnapshot; usedFallback: boolean } {
@@ -8515,12 +8641,19 @@ function normalizeControlCenterDashboard(
     return { value: mockControlCenterData.dashboard, usedFallback: true };
   }
   const normalized = { ...value } as Record<string, unknown>;
+  const pluginGovernanceSafe = isSafePluginGovernanceSummary(
+    normalized.plugin_governance_summary,
+  );
+  if (!pluginGovernanceSafe) {
+    normalized.plugin_governance_summary =
+      mockControlCenterData.dashboard.plugin_governance_summary;
+  }
   if (
     isSafeProviderCredentialReadiness(normalized.provider_credential_readiness)
   ) {
     return {
       value: normalized as unknown as ControlCenterDashboardSnapshot,
-      usedFallback: false,
+      usedFallback: !pluginGovernanceSafe,
     };
   }
   normalized.provider_credential_readiness =

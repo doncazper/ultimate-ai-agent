@@ -1,3 +1,4 @@
+import re
 from enum import Enum
 from typing import Literal
 
@@ -11,6 +12,10 @@ from ultimate_ai_agent.core.extension_catalog.install_disabled import (
 
 SAFE_REF_PATTERN = r"^[a-z][a-z0-9_-]*:[a-z0-9][a-z0-9_.:-]*$"
 SHA256_PATTERN = r"^sha256:[a-f0-9]{64}$"
+_HOSTNAME_RE = re.compile(
+    r"(?i)\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+"
+    r"(?:com|net|org|io|dev|app|local|internal)\b"
+)
 
 
 class ExtensionPackageKind(str, Enum):
@@ -43,6 +48,7 @@ class ExtensionProvenanceStatus(str, Enum):
 
 class ExtensionHashStatus(str, Enum):
     reviewed = "reviewed"
+    mismatch = "mismatch"
     missing = "missing"
     unknown = "unknown"
 
@@ -390,6 +396,8 @@ class ExtensionActivationGrantRecord(_ExtensionCatalogModel):
     audit_refs: list[str] = Field(..., min_length=1)
     receipt_refs: list[str] = Field(default_factory=list)
     replay_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    activation_metadata_only: Literal[True] = True
+    invocation_authority_granted: Literal[False] = False
     runtime_import_enabled: Literal[False] = False
     execution_enabled: Literal[False] = False
     connector_writes_enabled: Literal[False] = False
@@ -418,6 +426,8 @@ class ExtensionActivationRevocationRecord(_ExtensionCatalogModel):
     audit_refs: list[str] = Field(..., min_length=1)
     receipt_refs: list[str] = Field(default_factory=list)
     replay_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    activation_metadata_only: Literal[True] = True
+    invocation_authority_granted: Literal[False] = False
     runtime_import_enabled: Literal[False] = False
     execution_enabled: Literal[False] = False
     connector_writes_enabled: Literal[False] = False
@@ -536,9 +546,35 @@ def validate_inspectable_extension_catalog(
     validate_skill_write_approval_gate(catalog.skill_write_approval_gate)
     validate_skill_bundle_proposal_posture(catalog.skill_bundle_proposal_posture)
     validate_extension_install_disabled_posture(catalog.install_disabled_posture)
+    catalog_entry_refs: set[str] = set()
+    package_refs: set[str] = set()
+    manifest_refs: set[str] = set()
     for entry in catalog.entries:
+        for value, seen, reason in (
+            (
+                entry.catalog_entry_ref,
+                catalog_entry_refs,
+                "EXTENSION_CATALOG_DUPLICATE_ENTRY_REF",
+            ),
+            (
+                entry.package_identity.package_ref,
+                package_refs,
+                "EXTENSION_CATALOG_DUPLICATE_PACKAGE_REF",
+            ),
+            (
+                entry.manifest_ref,
+                manifest_refs,
+                "EXTENSION_CATALOG_DUPLICATE_MANIFEST_REF",
+            ),
+        ):
+            if value in seen:
+                raise ValueError(reason)
+            seen.add(value)
         _validate_safe_ref_list(
-            [entry.compact_skill_index_ref, entry.metadata_summary_ref],
+            [
+                entry.compact_skill_index_ref,
+                entry.metadata_summary_ref,
+            ],
             "EXTENSION_CATALOG_SKILL_METADATA_REF_REQUIRED",
         )
         _validate_safe_ref_list(
@@ -553,11 +589,54 @@ def validate_inspectable_extension_catalog(
             raise ValueError("EXTENSION_CATALOG_ENTRY_AUTO_INSTRUCTION_LOAD_DENIED")
         if entry.hidden_activation_enabled:
             raise ValueError("EXTENSION_CATALOG_ENTRY_HIDDEN_ACTIVATION_DENIED")
+        _validate_safe_ref_list(
+            entry.blocker_refs,
+            "EXTENSION_CATALOG_BLOCKER_REF_REQUIRED",
+        )
+        _validate_safe_ref_list(
+            entry.audit_refs,
+            "EXTENSION_CATALOG_AUDIT_REF_REQUIRED",
+        )
+        file_refs = [item.file_ref for item in entry.file_hashes]
+        capability_refs = [item.capability_ref for item in entry.declared_capabilities]
+        grant_refs = [item.grant_ref for item in entry.requested_grants]
+        for values, reason in (
+            (file_refs, "EXTENSION_CATALOG_DUPLICATE_FILE_REF"),
+            (capability_refs, "EXTENSION_CATALOG_DUPLICATE_CAPABILITY_REF"),
+            (grant_refs, "EXTENSION_CATALOG_DUPLICATE_GRANT_REF"),
+        ):
+            if len(values) != len(set(values)):
+                raise ValueError(reason)
+        for file_hash in entry.file_hashes:
+            if (
+                file_hash.hash_status == ExtensionHashStatus.reviewed.value
+                and file_hash.hash_value is None
+            ):
+                raise ValueError("EXTENSION_CATALOG_REVIEWED_HASH_VALUE_REQUIRED")
+        if entry.trust_posture == ExtensionTrustPosture.reviewed_metadata.value:
+            if (
+                entry.provenance.provenance_status
+                != ExtensionProvenanceStatus.reviewed.value
+            ):
+                raise ValueError("EXTENSION_CATALOG_REVIEWED_PROVENANCE_REQUIRED")
+        if (
+            entry.visibility_status
+            == ExtensionCatalogVisibilityStatus.implemented.value
+        ):
+            if not entry.declared_capabilities:
+                raise ValueError("EXTENSION_CATALOG_IMPLEMENTED_CAPABILITY_REQUIRED")
+            if (
+                entry.provenance.provenance_status
+                != ExtensionProvenanceStatus.reviewed.value
+            ):
+                raise ValueError("EXTENSION_CATALOG_IMPLEMENTED_PROVENANCE_REQUIRED")
         if entry.required_grant_refs:
             _validate_safe_ref_list(
                 entry.required_grant_refs,
                 "EXTENSION_CATALOG_REQUIRED_GRANT_REF_REQUIRED",
             )
+            if not set(entry.required_grant_refs).issubset(grant_refs):
+                raise ValueError("EXTENSION_CATALOG_REQUIRED_GRANT_NOT_DECLARED")
         if entry.callable_posture not in {
             ExtensionCallablePosture.inspectable_only.value,
             ExtensionCallablePosture.blocked_runtime.value,
@@ -679,8 +758,10 @@ def validate_skill_write_approval_gate(
 def _validate_safe_ref_list(refs: list[str], reason: str) -> None:
     if not refs:
         raise ValueError(reason)
+    if len(refs) != len(set(refs)):
+        raise ValueError(reason)
     for ref in refs:
-        if not ref or ":" not in ref:
+        if re.fullmatch(SAFE_REF_PATTERN, ref) is None or _HOSTNAME_RE.search(ref):
             raise ValueError(reason)
 
 
@@ -710,9 +791,11 @@ def validate_extension_activation_grant_record(
     return record
 
 
-def assert_extension_activation_grant_treatable_as_active(
+def assert_extension_activation_metadata_current(
     record: ExtensionActivationGrantRecord,
 ) -> ExtensionActivationGrantRecord:
+    """Validate metadata freshness only; this never grants invocation authority."""
+
     validate_extension_activation_grant_record(record)
     if record.grant_status == ExtensionActivationGrantStatus.revoked.value:
         raise ValueError("EXTENSION_ACTIVATION_REVOKED_GRANT_DENIED")
@@ -721,6 +804,14 @@ def assert_extension_activation_grant_treatable_as_active(
     if record.grant_status != ExtensionActivationGrantStatus.granted.value:
         raise ValueError("EXTENSION_ACTIVATION_GRANT_NOT_ACTIVE")
     return record
+
+
+def assert_extension_activation_grant_treatable_as_active(
+    record: ExtensionActivationGrantRecord,
+) -> ExtensionActivationGrantRecord:
+    """Compatibility alias for metadata-current validation, never callability."""
+
+    return assert_extension_activation_metadata_current(record)
 
 
 def validate_extension_activation_grant_batch(
@@ -739,8 +830,11 @@ def validate_extension_activation_grant_batch(
             record.manifest_ref,
             record.version_ref,
             record.actor_ref,
+            record.approval_ref,
             record.scope_ref,
+            record.replay_ref,
             *sorted(record.capability_refs),
+            *sorted(record.requested_grant_refs),
         )
         if binding in seen_bindings:
             raise ValueError("EXTENSION_ACTIVATION_DUPLICATE_GRANT_DENIED")
@@ -787,6 +881,8 @@ def revoke_extension_activation_grant(
     for _field_name, grant_value, revocation_value in binding_pairs:
         if grant_value != revocation_value:
             raise ValueError("EXTENSION_ACTIVATION_REVOCATION_BINDING_MISMATCH")
+    if revocation.revocation_ref != grant.revocation_ref:
+        raise ValueError("EXTENSION_ACTIVATION_REVOCATION_REF_MISMATCH")
     return grant.model_copy(
         update={
             "grant_status": ExtensionActivationGrantStatus.revoked,

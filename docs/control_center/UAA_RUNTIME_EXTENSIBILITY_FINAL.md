@@ -1,6 +1,6 @@
 # UAA Runtime Extensibility Final
 
-Status: Phase 09 implemented as read-only ecosystem hardening.
+Status: capability-maturity Phase 07 implemented as read-only ecosystem hardening.
 
 This document closes the UAA runtime capability foundation prompt pack with an
 extension and capability ecosystem posture that is useful to inspect without
@@ -13,6 +13,11 @@ external runtime packages, or adopt broad extension execution.
 UAA now exposes explicit operator posture fields through the existing
 backend-owned inspectable extension catalog:
 
+The stable `uaa_inspectable_extension_catalog.v1` declaration remains a
+separately validated base contract. API/CLI operator inspection uses the
+distinct additive projection `uaa_extension_ecosystem_read_model.v1`, validated
+by `docs/schemas/extension_ecosystem_read_model.schema.json`.
+
 - visibility status
 - trust posture
 - callable posture
@@ -20,22 +25,28 @@ backend-owned inspectable extension catalog:
 - blocked reason
 - review evidence refs
 - safe adoption posture
+- canonical compatibility, configuration, health, budget, safe-disable, and
+  request-scoped authority projections for every declared extension capability
+- pinned, bounded, no-follow repository metadata hash validation
+- deterministic developer validation results, explicit absent-signature posture,
+  rollback refs, and safe-disable refs
 - install-disabled posture with AuthorityLease decision refs, exact approval
   requirement, hash refs, receipt plan refs, rollback refs, safe-disable refs,
   and blocked capability refs
-- exact disabled-install record receipts plus an idempotent caller-supplied
-  local disabled-record store, available only after active `workspace/write`
-  AuthorityLease scope and exact LocalApprovalAuthority validation
-- exact disabled-install record rollback/delete receipts plus a caller-supplied
-  local delete receipt store, available only after active `workspace/write`
-  AuthorityLease scope, separate exact rollback LocalApprovalAuthority
-  validation, and idempotency
+- exact disabled-install record and rollback receipts remain available to
+  Python Core callers only when a core-owned `LocalApprovalAuthority` instance,
+  core-owned atomic lease/safe-disable state, active `workspace/write`
+  AuthorityLease, and idempotency binding are injected; approval, lease,
+  kill-switch, and safe-disable truth is fenced through durable start
+- API and CLI mutation entry points reject caller-supplied approval-grant
+  payloads and fail closed until a durable core-owned approval resolver exists
 
 Canonical core/API/CLI refs:
 
 - `src/ultimate_ai_agent/core/extension_catalog/contracts.py`
 - `src/ultimate_ai_agent/core/extension_catalog/install_disabled.py`
 - `src/ultimate_ai_agent/core/extension_catalog/runtime.py`
+- `src/ultimate_ai_agent/core/extension_catalog/ecosystem.py`
 - `GET /extensions/catalog`
 - `POST /extensions/disabled-install-records`
 - `POST /extensions/disabled-install-records/rollback`
@@ -61,10 +72,10 @@ Current posture:
 
 | Surface | Status | What The Operator Can Inspect | Runtime Authority |
 |---|---|---|---|
-| Plugin/skill boundary metadata | implemented | package refs, reviewed hash refs, review refs, blocker refs, adoption posture | none |
+| Plugin/skill boundary metadata | implemented | package refs, pinned reviewed hash refs, compatibility/configuration/health/budget/safe-disable posture, validation refs, blocker refs, adoption posture | none |
 | Unknown extension candidate | blocked | unknown provenance, missing review, blocked grant refs, blocked reason | none |
-| Disabled install posture | implemented | exact approval requirement, workspace/write AuthorityLease decision refs, reviewed hash refs, receipt plan refs, rollback and safe-disable refs | default catalog remains read-only; disabled-install record receipt/local store path and rollback/delete receipt path are available only when lease, idempotency, and the matching exact LocalApprovalAuthority approval validate |
-| Activation grant records | partial | exact-scope grant and revocation record shapes | record-only; no runtime import |
+| Disabled install posture | partial/blocked at API and CLI | exact approval requirement, workspace/write AuthorityLease decision refs, pinned hash refs, receipt plan refs, rollback and safe-disable refs | core-injected approval path only; client-supplied grants are denied and API/CLI mutation remains blocked pending a durable approval resolver |
+| Activation grant records | partial | exact-scope grant and prebound revocation record shapes, explicitly metadata-only | record-only; no invocation authority or runtime import |
 | MCP/A2A compatibility | planned | watchlist and future questions | none |
 | Static package review | planned | future package review posture | none |
 | Callable catalog | blocked | blocked reason refs only | none |
@@ -126,8 +137,8 @@ claims, production authority, or broad autonomy through an ecosystem surface.
 | 1 | Productize one end-to-end operator loop from Today to Action to Proof to Memory. | high | medium | medium | exact local lanes only | Add a single read model that shows run, approval, receipt, evidence, and memory refs together. |
 | 2 | Add portable hash-integrity evidence export for local receipts; keep real signing separately blocked. | high | medium | medium | local evidence export lane | Define verifier version, hash refs, approval refs, policy decision, and redacted envelope contract. |
 | 3 | Harden RuntimeGateway decision traces before live provider expansion. | high | medium | high | metadata/read-only first | Bind turn router, runtime readiness, model/provider posture, and proof refs without runtime model calls. |
-| 4 | Add static package review for repo-owned extension samples. | medium | medium | medium | read-only package review | Produce reviewed hash/provenance records and blocker refs without install/import. |
-| 5 | Add extension trust UI over `GET /extensions/catalog`. | medium | low | low | read-only Control Center surface | Render visibility, trust, callable posture, blocked reason, and adoption posture from backend data. |
+| 4 | Keep pinned package-metadata review current for repo-owned extension samples. | medium | medium | medium | read-only package review | Maintain expected hashes, provenance records, and blocker refs without install/import. |
+| 5 | Extend the existing Plugin Governance summary only when new backend-owned truth exists. | medium | low | low | read-only Control Center surface | Preserve visibility, trust, callable posture, blocked reasons, availability, and adoption posture parity. |
 | 6 | Define the first exact callable capability lane. | medium | high | high | later scoped approval | Pick one safe local capability and prove approval, receipts, rollback, CLI/API/Core parity, and tests. |
 | 7 | Add MCP/A2A contract conformance checks. | medium | medium | medium | metadata/read-only only | Validate manifests and compatibility records without remote execution. |
 | 8 | Improve developer docs for capability authors. | medium | low | low | none | Add a template that requires blocked-authority and redaction sections. |

@@ -140,6 +140,12 @@
         "replay_ref": {
           "$ref": "#/$defs/safe_ref"
         },
+        "activation_metadata_only": {
+          "const": true
+        },
+        "invocation_authority_granted": {
+          "const": false
+        },
         "runtime_import_enabled": {
           "const": false
         },
@@ -247,6 +253,12 @@
         },
         "replay_ref": {
           "$ref": "#/$defs/safe_ref"
+        },
+        "activation_metadata_only": {
+          "const": true
+        },
+        "invocation_authority_granted": {
+          "const": false
         },
         "runtime_import_enabled": {
           "const": false

@@ -1464,6 +1464,7 @@ docs/tooling/EXTENSION_ACTIVATION_GRANTS.md
 docs/tooling/MCP_A2A_COMPATIBILITY_WATCHLIST.md
 docs/schemas/plugin_skill_trust_manifest.schema.json
 docs/schemas/inspectable_extension_catalog.schema.json
+docs/schemas/extension_ecosystem_read_model.schema.json
 docs/schemas/extension_activation_grant.schema.json
 docs/backlog/codex_plugin_enablement_backlog.md
 ```

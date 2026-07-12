@@ -11,10 +11,15 @@ from ultimate_ai_agent.core.capabilities.models import (
     CapabilityCatalogEntry,
     CapabilityManifest,
 )
-from ultimate_ai_agent.core.extension_catalog import (
+from ultimate_ai_agent.core.extension_catalog.contracts import (
     ExtensionCallablePosture,
     ExtensionCatalogVisibilityStatus,
+    InspectableExtensionCatalog,
     InspectableExtensionCatalogEntry,
+)
+from ultimate_ai_agent.core.extension_catalog.ecosystem import (
+    extension_availability_snapshot_ref,
+    validate_extension_catalog_entry_for_development,
 )
 from ultimate_ai_agent.core.providers import (
     GovernedProviderInvocationReadiness,
@@ -95,9 +100,7 @@ def snapshot_from_capability_manifest(
         blocker_codes=blocker_codes or [],
         evidence_refs=evidence_refs or [],
         probe_refs=probe_refs or [],
-        source_ref=(
-            source_ref or f"capability-manifest-ref:{capability_fragment}"
-        ),
+        source_ref=(source_ref or f"capability-manifest-ref:{capability_fragment}"),
         safe_summary=(
             safe_summary
             or "Capability declaration normalized without assuming configuration, health, resources, or execution authority."
@@ -197,16 +200,12 @@ def snapshot_from_provider_manifest(
         else CatalogStatus.supported
     )
     readiness_blockers = list(readiness.blocker_codes) if readiness else []
-    readiness_reasons = (
-        ["PROVIDER_READINESS_POSTURE_NORMALIZED"] if readiness else []
-    )
+    readiness_reasons = ["PROVIDER_READINESS_POSTURE_NORMALIZED"] if readiness else []
     return build_capability_availability_snapshot(
         snapshot_ref=(
             f"capability-availability-ref:{provider_fragment}:{capability_fragment}"
         ),
-        capability_ref=(
-            f"capability-ref:{provider_fragment}:{capability_fragment}"
-        ),
+        capability_ref=(f"capability-ref:{provider_fragment}:{capability_fragment}"),
         provider_ref=f"provider-ref:{provider_fragment}",
         catalog_status=catalog_status,
         compatibility_status=compatibility_status,
@@ -247,8 +246,18 @@ def snapshot_from_extension_catalog_entry(
     *,
     capability_ref: str | None = None,
     checked_at: datetime | None = None,
+    compatibility_status: CompatibilityStatus = CompatibilityStatus.unknown,
+    configuration_status: ConfigurationStatus = ConfigurationStatus.not_configured,
+    health_status: HealthStatus = HealthStatus.unknown,
+    resource_status: ResourceBudgetStatus = ResourceBudgetStatus.unknown,
+    cost_posture: CostPosture = CostPosture.unknown,
     safe_disable_status: SafeDisableStatus = SafeDisableStatus.unknown,
     freshness_status: FreshnessStatus = FreshnessStatus.current,
+    expires_at: datetime | None = None,
+    evidence_refs: list[str] | None = None,
+    probe_refs: list[str] | None = None,
+    reason_codes: list[str] | None = None,
+    blocker_codes: list[str] | None = None,
 ) -> CapabilityAvailabilitySnapshot:
     """Normalize inspectable extension metadata as non-callable runtime posture."""
 
@@ -272,11 +281,11 @@ def snapshot_from_extension_catalog_entry(
         ExtensionCallablePosture.blocked_runtime.value,
         ExtensionCallablePosture.future_exact_lane_required.value,
     }
-    blocker_codes = ["EXTENSION_CATALOG_ENTRY_NOT_CALLABLE"] if callable_blocked else []
+    catalog_blockers = (
+        ["EXTENSION_CATALOG_ENTRY_NOT_CALLABLE"] if callable_blocked else []
+    )
     return build_capability_availability_snapshot(
-        snapshot_ref=(
-            f"capability-availability-ref:{package_fragment}:{capability_fragment}"
-        ),
+        snapshot_ref=extension_availability_snapshot_ref(entry, declared_ref),
         capability_ref=f"capability-ref:{capability_fragment}",
         adapter_ref=f"adapter-ref:{package_fragment}",
         catalog_status=(
@@ -284,24 +293,80 @@ def snapshot_from_extension_catalog_entry(
             if visibility_supported
             else CatalogStatus.unsupported
         ),
-        compatibility_status=CompatibilityStatus.unknown,
-        configuration_status=ConfigurationStatus.not_configured,
-        health_status=HealthStatus.unknown,
+        compatibility_status=compatibility_status,
+        configuration_status=configuration_status,
+        health_status=health_status,
         authority_posture=AuthorityPosture.blocked,
-        resource_status=ResourceBudgetStatus.unknown,
-        cost_posture=CostPosture.unknown,
+        resource_status=resource_status,
+        cost_posture=cost_posture,
         safe_disable_status=safe_disable_status,
         declared_or_observed_version_ref=entry.package_identity.version_ref,
         checked_at=checked_at or utc_now(),
+        expires_at=expires_at,
         freshness_status=freshness_status,
-        reason_codes=["INSPECTABLE_EXTENSION_CATALOG_ENTRY_NORMALIZED"],
-        blocker_codes=blocker_codes,
-        evidence_refs=list(entry.review_evidence_refs),
+        reason_codes=[
+            "INSPECTABLE_EXTENSION_CATALOG_ENTRY_NORMALIZED",
+            *(reason_codes or []),
+        ],
+        blocker_codes=[
+            *catalog_blockers,
+            *(blocker_codes or []),
+        ],
+        evidence_refs=list(
+            dict.fromkeys(
+                [
+                    *entry.review_evidence_refs,
+                    *(evidence_refs or []),
+                ]
+            )
+        ),
+        probe_refs=probe_refs or [],
         source_ref=entry.catalog_entry_ref,
         safe_summary=(
             "Inspectable extension metadata normalized; catalog visibility and review posture do not enable runtime import or execution."
         ),
     )
+
+
+def snapshots_from_extension_catalog(
+    catalog: InspectableExtensionCatalog,
+    *,
+    checked_at: datetime | None = None,
+) -> list[CapabilityAvailabilitySnapshot]:
+    """Normalize every declared extension capability without minting authority."""
+
+    observed_at = checked_at or utc_now()
+    snapshots: list[CapabilityAvailabilitySnapshot] = []
+    for entry in catalog.entries:
+        validation = validate_extension_catalog_entry_for_development(entry)
+        compatibility_status = CompatibilityStatus(validation.compatibility_status)
+        for capability in entry.declared_capabilities:
+            snapshots.append(
+                snapshot_from_extension_catalog_entry(
+                    entry,
+                    capability_ref=capability.capability_ref,
+                    checked_at=observed_at,
+                    compatibility_status=compatibility_status,
+                    configuration_status=ConfigurationStatus.not_configured,
+                    health_status=HealthStatus.unknown,
+                    resource_status=ResourceBudgetStatus.unknown,
+                    cost_posture=CostPosture.unknown,
+                    safe_disable_status=SafeDisableStatus.unknown,
+                    freshness_status=FreshnessStatus.current,
+                    evidence_refs=[validation.validation_ref],
+                    reason_codes=[
+                        "EXTENSION_REQUEST_SCOPED_INVOCATION_DECISION_REQUIRED"
+                    ],
+                    blocker_codes=[
+                        *validation.blocker_codes,
+                        "EXTENSION_CONFIGURATION_NOT_PRESENT",
+                        "EXTENSION_HEALTH_NOT_OBSERVED",
+                        "EXTENSION_SAFE_DISABLE_STATUS_UNKNOWN",
+                        "EXTENSION_BUDGET_STATUS_UNKNOWN",
+                    ],
+                )
+            )
+    return snapshots
 
 
 def _manifest_authority_posture(manifest: CapabilityManifest) -> AuthorityPosture:
