@@ -50,6 +50,7 @@ if /usr/sbin/dseditgroup -o checkmember -m "$RUNNER_ACCOUNT" admin 2>/dev/null |
   fail "${RUNNER_ACCOUNT} must be a standard non-admin account"
 fi
 
+/usr/bin/sudo /usr/bin/install -d -o root -g wheel -m 0755 /usr/local/libexec
 /usr/bin/sudo /usr/bin/install -d -o root -g wheel -m 0755 /usr/local/libexec/uaa-ci
 /usr/bin/sudo /usr/bin/install -o root -g wheel -m 0755 "$HELPER_SOURCE" "$HELPER_INSTALL_PATH"
 /usr/bin/sudo /bin/mkdir -p "/Users/${RUNNER_ACCOUNT}/uaa-actions-runners"

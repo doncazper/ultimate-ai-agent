@@ -82,6 +82,7 @@ def verify(root: Path = ROOT) -> list[str]:
         'readonly MAX_RUNNER_COUNT=4',
         "actions/runners/registration-token",
         'self-hosted runners require the UAA repository to remain private',
+        'install -d -o root -g wheel -m 0755 /usr/local/libexec\n',
         'install -d -o root -g wheel -m 0755 /usr/local/libexec/uaa-ci',
         'UserName</key>\n  <string>${RUNNER_ACCOUNT}</string>',
         "launchctl bootstrap system",

@@ -15,6 +15,7 @@ def test_provisioner_keeps_root_owned_helper_directory_traversable() -> None:
         ROOT / "scripts/ci/provision_self_hosted_macos_runners.sh"
     ).read_text(encoding="utf-8")
 
+    assert "install -d -o root -g wheel -m 0755 /usr/local/libexec\n" in provisioner
     assert "install -d -o root -g wheel -m 0755 /usr/local/libexec/uaa-ci" in provisioner
     assert "mkdir -p /usr/local/libexec/uaa-ci" not in provisioner
 
