@@ -70,7 +70,16 @@ export interface TurnRouterPreviewRequest {
 }
 
 export interface TurnRouterPolicySummary {
-  turn_contract: string;
+  turn_contract:
+    | "answer_directly"
+    | "base_answer"
+    | "answer_with_reviewed_memory"
+    | "draft_or_plan"
+    | "prepare_tool_or_action"
+    | "approval_required"
+    | "execute_approved_action"
+    | "ask_clarifying_question"
+    | "blocked_unsafe";
   memory_scope: string;
   memory_read_allowed: boolean;
   memory_write_allowed: boolean;
@@ -7767,6 +7776,97 @@ export interface FounderLoopAgentLoopPlanStep {
   execution_enabled: boolean;
 }
 
+export interface FounderLoopReasoningStatement {
+  statement_ref: string;
+  kind: "fact" | "assumption" | "unknown";
+  safe_summary: string;
+  source_refs: string[];
+  evidence_refs: string[];
+  review_required: boolean;
+}
+
+export interface FounderLoopOperatorQuestion {
+  question_ref: string;
+  safe_question: string;
+  resolves_refs: string[];
+}
+
+export interface FounderLoopIntentReasoningTruth {
+  schema_version: "uaa-intent-reasoning-truth.v1";
+  contract_ref: "contract-ref:intent-reasoning-truth:v1";
+  intent_ref: string;
+  intent_fingerprint_ref: string;
+  request_fingerprint_ref: string;
+  safe_summary: string;
+  classification_ref: string;
+  turn_contract:
+    | "answer_directly"
+    | "base_answer"
+    | "answer_with_reviewed_memory"
+    | "draft_or_plan"
+    | "prepare_tool_or_action"
+    | "approval_required"
+    | "execute_approved_action"
+    | "ask_clarifying_question"
+    | "blocked_unsafe";
+  confidence_score: number;
+  confidence_band: "high" | "medium" | "low" | "conflicting";
+  ambiguity_posture:
+    | "clear"
+    | "ambiguous_missing_scope"
+    | "conflicting"
+    | "insufficient_evidence";
+  contradiction_posture: "none_observed" | "conflicting_safe_refs";
+  instruction_content_posture:
+    | "untrusted_data"
+    | "instruction_shaped_untrusted_data";
+  facts: FounderLoopReasoningStatement[];
+  assumptions: FounderLoopReasoningStatement[];
+  unknowns: FounderLoopReasoningStatement[];
+  operator_questions: FounderLoopOperatorQuestion[];
+  source_refs: string[];
+  evidence_refs: string[];
+  contradiction_refs: string[];
+  reason_refs: string[];
+  deterministic_policy_ref: string;
+  model_assistance_posture:
+    | "deterministic_only"
+    | "exact_provider_lane_required";
+  authority_posture: "non_authoritative_review_truth";
+  blocked_authority_refs: string[];
+  backend_owned: boolean;
+  safe_refs_only: boolean;
+  raw_content_included: boolean;
+}
+
+export interface FounderLoopPlanRevisionTruth {
+  schema_version: "uaa-plan-revision.v1";
+  lineage_ref: string;
+  revision_ref: string;
+  revision_index: number;
+  predecessor_revision_ref?: string | null;
+  predecessor_revision_fingerprint_ref?: string | null;
+  reason_ref: string;
+  safe_reason: string;
+  decomposition: {
+    schema_version: "uaa-immutable-decomposition.v1";
+    decomposition_ref: string;
+    intent_fingerprint_ref: string;
+    ordered_steps: Array<{
+      step_ref: string;
+      safe_summary: string;
+      dependency_step_refs: string[];
+      target_refs: string[];
+      source_refs: string[];
+      definition_fingerprint_ref: string;
+    }>;
+    decomposition_fingerprint_ref: string;
+  };
+  revision_fingerprint_ref: string;
+  authority_posture: "non_authoritative_plan_truth";
+  downstream_authority_bindings_invalidated: true;
+}
+
 export interface FounderLoopAgentLoopProposedAction {
   action_ref: string;
   title: string;
@@ -8243,6 +8343,8 @@ export interface FounderLoopAgentLoopThread {
     safe_summary: string;
     source_surface: string;
   };
+  reasoning_truth: FounderLoopIntentReasoningTruth;
+  plan_revision: FounderLoopPlanRevisionTruth;
   intent: {
     status: string;
     classification_ref: string;

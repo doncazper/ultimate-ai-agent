@@ -4732,6 +4732,73 @@ function AgentLoopThreadPanel({
             />
           </dl>
           <p>{readModel.work_request.safe_summary}</p>
+          <div className="detail-panel compact">
+            <strong>Reasoning truth</strong>
+            <dl className="detail-list compact">
+              <DetailTerm
+                label="Intent ref"
+                value={readModel.reasoning_truth.intent_ref}
+              />
+              <DetailTerm
+                label="Fingerprint"
+                value={readModel.reasoning_truth.intent_fingerprint_ref}
+              />
+              <DetailTerm
+                label="Contradictions"
+                value={readModel.reasoning_truth.contradiction_posture}
+              />
+              <DetailTerm
+                label="Input posture"
+                value={readModel.reasoning_truth.instruction_content_posture}
+              />
+              <DetailTerm
+                label="Model assistance"
+                value={readModel.reasoning_truth.model_assistance_posture}
+              />
+            </dl>
+            <p className="muted">
+              Input remains untrusted data. Reasoning truth does not grant
+              approval, lease, tools, memory, or execution authority.
+            </p>
+          </div>
+          <div className="detail-panel compact">
+            <strong>Facts</strong>
+            <ul className="ref-list">
+              {readModel.reasoning_truth.facts.map((item) => (
+                <li key={item.statement_ref}>
+                  {item.safe_summary}
+                  <RefListWithFallback
+                    emptyLabel="Fact evidence: missing"
+                    refs={[item.statement_ref, ...item.evidence_refs]}
+                  />
+                </li>
+              ))}
+            </ul>
+            <strong>Assumptions</strong>
+            <ul className="ref-list">
+              {readModel.reasoning_truth.assumptions.map((item) => (
+                <li key={item.statement_ref}>{item.safe_summary}</li>
+              ))}
+            </ul>
+            <strong>Unknowns</strong>
+            <ul className="ref-list">
+              {readModel.reasoning_truth.unknowns.map((item) => (
+                <li key={item.statement_ref}>{item.safe_summary}</li>
+              ))}
+            </ul>
+            <strong>Questions requiring operator input</strong>
+            <ul className="ref-list">
+              {readModel.reasoning_truth.operator_questions.map((item) => (
+                <li key={item.question_ref}>
+                  {item.safe_question}
+                  <RefListWithFallback
+                    emptyLabel="Question refs: missing"
+                    refs={[item.question_ref, ...item.resolves_refs]}
+                  />
+                </li>
+              ))}
+            </ul>
+          </div>
         </article>
 
         <article className="status-card">
@@ -4806,6 +4873,35 @@ function AgentLoopThreadPanel({
             <h3>Plan proposal</h3>
             <span>{readModel.plan.status}</span>
           </div>
+          <dl className="detail-list">
+            <DetailTerm
+              label="Revision ref"
+              value={readModel.plan_revision.revision_ref}
+            />
+            <DetailTerm
+              label="Revision fingerprint"
+              value={readModel.plan_revision.revision_fingerprint_ref}
+            />
+            <DetailTerm
+              label="Decomposition fingerprint"
+              value={
+                readModel.plan_revision.decomposition
+                  .decomposition_fingerprint_ref
+              }
+            />
+            <DetailTerm
+              label="Predecessor"
+              value={
+                readModel.plan_revision.predecessor_revision_ref ??
+                "initial revision"
+              }
+            />
+            <DetailTerm
+              label="Revision authority"
+              value={readModel.plan_revision.authority_posture}
+            />
+          </dl>
+          <p className="muted">{readModel.plan_revision.safe_reason}</p>
           <ul className="ref-list">
             {planSteps.map((step) => (
               <li key={step.step_ref}>

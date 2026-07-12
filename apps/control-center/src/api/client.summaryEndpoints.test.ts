@@ -464,6 +464,34 @@ describe("loadControlCenterData summary endpoint wiring", () => {
       "CRM_LOCAL_COMMAND_CENTER_MOCK_FALLBACK",
     );
   });
+
+  it("rejects agent-loop payloads missing backend-owned reasoning truth", async () => {
+    const routeData = baseRouteData();
+    const thread = routeData[API_ENDPOINTS.founderAgentLoopThread] as Record<
+      string,
+      unknown
+    >;
+    routeData[API_ENDPOINTS.founderAgentLoopThread] = {
+      ...thread,
+      reasoning_truth: {
+        ...(thread.reasoning_truth as Record<string, unknown>),
+        backend_owned: false,
+        authority_posture: "authorized",
+      },
+    };
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.founderAgentLoopThread.backend_owned).toBe(false);
+    expect(data.founderAgentLoopThread.reasoning_truth.authority_posture).toBe(
+      "non_authoritative_review_truth",
+    );
+    expect(data.connection.state).toBe("degraded");
+    expect(data.connection.warnings).toContain(
+      "AGENT_LOOP_THREAD_MOCK_FALLBACK",
+    );
+  });
 });
 
 function baseRouteData(): Record<string, unknown> {
@@ -928,6 +956,10 @@ function baseRouteData(): Record<string, unknown> {
       capability_status: "partial",
       source: "python_core_agent_loop_thread_read_model",
       backend_owned: true,
+      reasoning_truth: {
+        ...mockControlCenterData.founderAgentLoopThread.reasoning_truth,
+        backend_owned: true,
+      },
       high_maturity_spine_readiness: {
         ...mockControlCenterData.founderAgentLoopThread.high_maturity_spine_readiness,
         status: "implemented_backend_owned_read_model_no_new_authority",
