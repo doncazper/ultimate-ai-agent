@@ -10,6 +10,15 @@ def test_current_self_hosted_macos_ci_contract_passes() -> None:
     assert verifier.verify(ROOT) == []
 
 
+def test_provisioner_keeps_root_owned_helper_directory_traversable() -> None:
+    provisioner = (
+        ROOT / "scripts/ci/provision_self_hosted_macos_runners.sh"
+    ).read_text(encoding="utf-8")
+
+    assert "install -d -o root -g wheel -m 0755 /usr/local/libexec/uaa-ci" in provisioner
+    assert "mkdir -p /usr/local/libexec/uaa-ci" not in provisioner
+
+
 def test_verifier_rejects_hosted_runner_and_cache_regression(tmp_path: Path) -> None:
     workflow = tmp_path / ".github/workflows/ci.yml"
     actionlint_config = tmp_path / ".github/actionlint.yaml"
