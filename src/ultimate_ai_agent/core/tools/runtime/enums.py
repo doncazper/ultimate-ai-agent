@@ -42,6 +42,7 @@ class ToolInvocationKind(str, Enum):
     redacted_file_preview = "redacted_file_preview"
     read_only_http_fetch = "read_only_http_fetch"
     validation_only = "validation_only"
+    portable_evidence_signing = "portable_evidence_signing"
     blocked_unknown = "blocked_unknown"
     blocked_effectful = "blocked_effectful"
     blocked_shell = "blocked_shell"

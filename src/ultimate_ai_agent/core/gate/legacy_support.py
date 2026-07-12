@@ -152,6 +152,7 @@ STATIC_SAFETY_EVALUATOR_DATA_PREFIXES = (
 GOVERNED_RUNTIME_COMMAND_ADAPTER_STATIC_SCAN_ALLOWED_FILES = frozenset(
     {
         "src/ultimate_ai_agent/core/runtime_gateway/command.py",
+        "src/ultimate_ai_agent/core/evidence_signing/macos_keychain.py",
     }
 )
 def _is_static_safety_scan_allowed_file(rel: str, allowed_files: Iterable[str]) -> bool:

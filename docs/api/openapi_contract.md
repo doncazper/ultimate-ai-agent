@@ -20,7 +20,10 @@ mission-completion evidence surface. It returns content-free plan, mission,
 run, lease, exact approval-validation, settled-budget, terminal receipt,
 hash-chain, and review-only memory-candidate refs. It cannot start or resume a
 mission, mint an approval or lease, accept memory as truth, or grant future
-authority.
+authority. It also reports safe managed-signing lifecycle posture only; the GET
+route cannot unlock Keychain, sign, create, rotate, revoke, or mark a key lost.
+It also cannot run interrupted key-material cleanup; that remains a separate
+exact dispatcher operation.
 
 Contract rules:
 

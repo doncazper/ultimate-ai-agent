@@ -331,6 +331,9 @@ class FoundationGateLegacyChecksPart001Mixin:
         allowed_phase04_command_adapter_file = (
             "src/ultimate_ai_agent/core/runtime_gateway/command.py"
         )
+        allowed_phase06_signing_adapter_file = (
+            "src/ultimate_ai_agent/core/evidence_signing/macos_keychain.py"
+        )
         failures = []
         for path, line_no, stripped in self._runtime_lines():
             if self._is_static_scanner_text(stripped):
@@ -338,6 +341,7 @@ class FoundationGateLegacyChecksPart001Mixin:
             if path in {
                 allowed_m163_supervisor_file,
                 allowed_phase04_command_adapter_file,
+                allowed_phase06_signing_adapter_file,
             } and any(fragment in stripped for fragment in forbidden):
                 continue
             if any(fragment in stripped for fragment in forbidden):

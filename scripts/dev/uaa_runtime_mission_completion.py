@@ -7,16 +7,25 @@ import stat
 from pathlib import Path
 import sys
 
-from ultimate_ai_agent.core.authority.contracts import AuthorityLeaseStore, authority_state_dir
+from ultimate_ai_agent.core.authority.contracts import (
+    AuthorityLeaseStore,
+    authority_state_dir,
+)
 from ultimate_ai_agent.core.authority.dispatcher import AuthorityDispatcher
 from ultimate_ai_agent.core.execution.mission_completion import (
     MissionCompletionCorruptionError,
     MissionCompletionStore,
+    PortableEvidenceManagedSigningInspection,
 )
 from ultimate_ai_agent.core.execution.portable_mission_evidence import (
     build_portable_mission_evidence_bundle,
     build_portable_mission_evidence_inspection,
     verify_portable_mission_evidence_bundle,
+)
+from ultimate_ai_agent.core.evidence_signing import (
+    PortableEvidenceKeyLifecycleError,
+    PortableEvidenceKeyLifecycleLedger,
+    verify_signed_portable_evidence_artifact,
 )
 
 
@@ -24,17 +33,52 @@ MISSION_COMPLETION_CLI_REF = (
     "repo-local-command:uaa-runtime-inspect-authority-mission-completions"
 )
 PORTABLE_EVIDENCE_MAX_BYTES = 4 * 1024 * 1024
+SIGNED_PORTABLE_EVIDENCE_MAX_BYTES = 5 * 1024 * 1024
+PORTABLE_EVIDENCE_PUBLIC_KEY_BUNDLE_MAX_BYTES = 1024 * 1024
+
+
+def _signing_lifecycle(state_dir: Path) -> PortableEvidenceKeyLifecycleLedger:
+    return PortableEvidenceKeyLifecycleLedger(state_dir / "portable_evidence_signing")
+
+
+def _managed_signing_inspection(
+    state_dir: Path,
+) -> PortableEvidenceManagedSigningInspection:
+    inspection = _signing_lifecycle(state_dir).inspect()
+    return PortableEvidenceManagedSigningInspection(
+        status=inspection.status,
+        active_key_ref=inspection.active_key_ref,
+        active_key_version_ref=inspection.active_key_version_ref,
+        active_public_key_fingerprint_ref=(
+            inspection.active_public_key_fingerprint_ref
+        ),
+        lifecycle_terminal_entry_hash_ref=(
+            inspection.lifecycle_terminal_entry_hash_ref
+        ),
+        reason_refs=inspection.reason_refs,
+    )
 
 
 def inspect(args: argparse.Namespace) -> int:
     state_dir = Path(args.state_dir) if args.state_dir else authority_state_dir()
     try:
-        model = MissionCompletionStore(state_dir).build_read_model(
-            portable_evidence_summary=build_portable_mission_evidence_inspection(
-                state_dir
+        model = (
+            MissionCompletionStore(state_dir)
+            .build_read_model(
+                portable_evidence_summary=build_portable_mission_evidence_inspection(
+                    state_dir
+                ),
+                managed_signing=_managed_signing_inspection(state_dir),
             )
-        ).model_dump(mode="json")
-    except (MissionCompletionCorruptionError, OSError, UnicodeError, ValueError):
+            .model_dump(mode="json")
+        )
+    except (
+        MissionCompletionCorruptionError,
+        PortableEvidenceKeyLifecycleError,
+        OSError,
+        UnicodeError,
+        ValueError,
+    ):
         print(
             "Authority mission completion inspection: local state could not be validated.",
             file=sys.stderr,
@@ -70,7 +114,12 @@ def inspect(args: argparse.Namespace) -> int:
         print("Completion integrity: no completion evidence recorded")
     print(f"Chain ref: {integrity['chain_ref']}")
     print(f"Terminal hash: {integrity['terminal_entry_hash_ref'] or 'none'}")
-    print("Cryptographic signing: blocked; Keychain lifecycle is not implemented")
+    signing = model["managed_signing"]
+    print(f"Managed Ed25519 key lifecycle: {signing['status']}")
+    print(
+        "Managed signing execution: requires exact approval, AuthorityLease, "
+        "budget, kill-switch, and pinned macOS helper readiness"
+    )
     print("Authenticity or external anchoring verified: false")
     portable = model["portable_evidence_summary"]
     print(f"Portable evidence: {portable['status']}")
@@ -139,12 +188,46 @@ def export_portable(args: argparse.Namespace) -> int:
 
 def verify_portable(args: argparse.Namespace) -> int:
     try:
-        payload = json.loads(read_bounded_regular_file(Path(args.input)))
-        result = verify_portable_mission_evidence_bundle(
-            payload,
-            expected_bundle_ref=args.expected_bundle_ref,
-            expected_envelope_count=args.expected_envelope_count,
+        payload = json.loads(
+            read_bounded_regular_file(
+                Path(args.input),
+                max_bytes=SIGNED_PORTABLE_EVIDENCE_MAX_BYTES,
+            )
         )
+        if payload.get("schema_version") == (
+            "uaa-portable-mission-evidence-signed-artifact.v1"
+        ):
+            required = (
+                getattr(args, "public_key_bundle", None),
+                getattr(args, "expected_public_key_bundle_ref", None),
+                getattr(args, "expected_public_key_fingerprint_ref", None),
+            )
+            if not all(required):
+                raise ValueError("PORTABLE_EVIDENCE_SIGNED_TRUST_ANCHOR_REQUIRED")
+            public_bundle = json.loads(
+                read_bounded_regular_file(
+                    Path(args.public_key_bundle),
+                    max_bytes=PORTABLE_EVIDENCE_PUBLIC_KEY_BUNDLE_MAX_BYTES,
+                )
+            )
+            result = verify_signed_portable_evidence_artifact(
+                payload,
+                public_key_bundle=public_bundle,
+                expected_public_key_bundle_ref=args.expected_public_key_bundle_ref,
+                expected_public_key_fingerprint_ref=(
+                    args.expected_public_key_fingerprint_ref
+                ),
+            )
+            signed = True
+        else:
+            if getattr(args, "require_signature", False):
+                raise ValueError("PORTABLE_EVIDENCE_SIGNATURE_REQUIRED")
+            result = verify_portable_mission_evidence_bundle(
+                payload,
+                expected_bundle_ref=args.expected_bundle_ref,
+                expected_envelope_count=args.expected_envelope_count,
+            )
+            signed = False
     except (OSError, UnicodeError, ValueError, json.JSONDecodeError):
         print("Portable mission evidence could not be safely read.", file=sys.stderr)
         return 1
@@ -152,20 +235,53 @@ def verify_portable(args: argparse.Namespace) -> int:
         print(json.dumps(result.model_dump(mode="json"), sort_keys=True))
     else:
         print("Portable mission evidence verification")
-        print(f"Valid local hash chain: {str(result.valid).lower()}")
-        print(
-            "Caller-supplied expected binding matched: "
-            f"{str(result.caller_expected_binding_matched).lower()}"
-        )
+        if signed:
+            print(f"Valid signed artifact: {str(result.valid).lower()}")
+            print("Signed artifact: true")
+            print(
+                f"Local hash chain verified: {str(result.hash_chain_verified).lower()}"
+            )
+            print(
+                "Ed25519 signature verified relative to pinned bundle: "
+                f"{str(result.signature_verified).lower()}"
+            )
+            print(
+                "Pinned public-key bundle matched: "
+                f"{str(result.public_key_bundle_matched).lower()}"
+            )
+        else:
+            print(f"Valid local hash chain: {str(result.valid).lower()}")
+            print(
+                "Caller-supplied expected binding matched: "
+                f"{str(result.caller_expected_binding_matched).lower()}"
+            )
+            print("Cryptographic signature verified: false")
         print("External anchor verified: false")
-        print("Cryptographic signature verified: false")
+        print("Signer identity verified: false")
         print("Evidence grants execution authority: false")
         for reason_ref in result.reason_refs:
             print(f"- {reason_ref}")
     return 0 if result.valid else 1
 
 
-def read_bounded_regular_file(path: Path) -> str:
+def export_public_key_bundle(args: argparse.Namespace) -> int:
+    state_dir = Path(args.state_dir) if args.state_dir else authority_state_dir()
+    try:
+        bundle = _signing_lifecycle(state_dir).public_key_bundle(
+            issuer_ref=args.issuer_ref,
+        )
+    except (PortableEvidenceKeyLifecycleError, OSError, UnicodeError, ValueError):
+        print("Portable evidence public-key bundle is unavailable.", file=sys.stderr)
+        return 1
+    print(json.dumps(bundle.model_dump(mode="json"), sort_keys=True))
+    return 0
+
+
+def read_bounded_regular_file(
+    path: Path,
+    *,
+    max_bytes: int = PORTABLE_EVIDENCE_MAX_BYTES,
+) -> str:
     flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0)
     flags |= getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
     descriptor = os.open(path, flags)
@@ -174,11 +290,11 @@ def read_bounded_regular_file(path: Path) -> str:
         if (
             not stat.S_ISREG(metadata.st_mode)
             or metadata.st_nlink != 1
-            or metadata.st_size > PORTABLE_EVIDENCE_MAX_BYTES
+            or metadata.st_size > max_bytes
         ):
             raise ValueError("PORTABLE_EVIDENCE_INPUT_UNSAFE")
-        payload = os.read(descriptor, PORTABLE_EVIDENCE_MAX_BYTES + 1)
-        if len(payload) > PORTABLE_EVIDENCE_MAX_BYTES:
+        payload = os.read(descriptor, max_bytes + 1)
+        if len(payload) > max_bytes:
             raise ValueError("PORTABLE_EVIDENCE_INPUT_TOO_LARGE")
         return payload.decode("utf-8")
     finally:
@@ -210,5 +326,19 @@ def register_parser(subparsers: object) -> None:
     verify_parser.add_argument("--input", required=True)
     verify_parser.add_argument("--expected-bundle-ref")
     verify_parser.add_argument("--expected-envelope-count", type=int)
+    verify_parser.add_argument("--public-key-bundle")
+    verify_parser.add_argument("--expected-public-key-bundle-ref")
+    verify_parser.add_argument("--expected-public-key-fingerprint-ref")
+    verify_parser.add_argument("--require-signature", action="store_true")
     verify_parser.add_argument("--json", action="store_true")
     verify_parser.set_defaults(func=verify_portable)
+
+    public_key_parser = subparsers.add_parser(
+        "export-portable-evidence-public-key-bundle",
+        help="Export safe public trust metadata for offline signature verification.",
+    )
+    public_key_parser.add_argument(
+        "--issuer-ref",
+        default="issuer-ref:portable-evidence:local-operator",
+    )
+    public_key_parser.set_defaults(func=export_public_key_bundle)

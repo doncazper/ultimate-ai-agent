@@ -17,7 +17,11 @@ execute, reconcile, or mutate.
 `GET /api/runtime/authority-missions/completions` is `local_sensitive` and
 read-only. It reports offline-hash-verified, content-free completion manifests
 with settled budget and terminal evidence refs. It performs no execution,
-approval, lease, memory write, context injection, or authority mutation.
+approval, lease, memory write, context injection, or authority mutation. Safe
+managed-signing lifecycle refs are inspection-only; Keychain and signing
+operations remain exact dispatcher actions outside this route.
+Interrupted rotation/revocation cleanup is likewise an exact dispatcher action,
+not a read-route side effect.
 
 Each route declares:
 

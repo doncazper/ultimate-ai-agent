@@ -2003,6 +2003,19 @@ gate grants no approval, lease, tool/action execution, memory truth/write,
 context injection, provider/model, web, shell, connector, background, public,
 or production authority. Remote merge/hosted-CI status remains separate from
 this local implementation gate.
+
+UAA-EVIDENCE-SIGN-001 Managed portable mission evidence signing
+Deterministic implementation gate met locally: preserves unsigned v1, adds a
+separate Ed25519 signed wrapper,
+bounded public-key lifecycle ledger, purpose-specific macOS Keychain helper,
+pinned helper adapter, exact AuthorityDispatcher lanes for sign/create/rotate/
+revoke/mark-lost/interrupted-deletion cleanup, offline pinned-trust verification,
+read-only API/CLI posture, and adversarial tests. The live Keychain roundtrip
+remains configuration-required whenever the login Keychain is locked; no live
+success is claimed from helper-only tests. Signer identity, Secure Enclave
+Ed25519, non-repudiation,
+external anchoring/timestamps, public lifecycle transparency, production
+compliance, and any evidence-derived authority remain blocked.
 ```
 
 ## ASAP Sequence

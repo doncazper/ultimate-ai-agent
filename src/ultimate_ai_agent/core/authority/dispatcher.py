@@ -16,6 +16,12 @@ from ultimate_ai_agent.core.approvals.authority import LocalApprovalAuthority
 from ultimate_ai_agent.core.authority.authority_constants import (
     AUTHORITY_DISPATCH_RECEIPTS_FILE,
     AUTHORITY_STATE_LOCK_KEY,
+    PORTABLE_EVIDENCE_KEY_CREATE_TOOL_REF,
+    PORTABLE_EVIDENCE_KEY_CLEANUP_TOOL_REF,
+    PORTABLE_EVIDENCE_KEY_MARK_LOST_TOOL_REF,
+    PORTABLE_EVIDENCE_KEY_REVOKE_TOOL_REF,
+    PORTABLE_EVIDENCE_KEY_ROTATE_TOOL_REF,
+    PORTABLE_EVIDENCE_SIGN_TOOL_REF,
 )
 from ultimate_ai_agent.core.authority.budget_contracts import (
     AuthorityBudgetExecutionStatus,
@@ -51,11 +57,11 @@ from ultimate_ai_agent.core.authority.dispatch_contracts import (
     AuthorityDispatchResult,
     AuthorityDispatchStatus,
 )
-from ultimate_ai_agent.core.planning.validation import validate_task_ref
 from ultimate_ai_agent.core.costs.budgets import CostBudget
 from ultimate_ai_agent.core.costs.decisions import CostDecision
 from ultimate_ai_agent.core.costs.estimates import CostEstimate
 from ultimate_ai_agent.core.costs.governor import CostGovernor
+from ultimate_ai_agent.core.planning.validation import validate_task_ref
 from ultimate_ai_agent.core.time import utc_now
 from ultimate_ai_agent.core.tools.runtime.adapters import ToolRuntimeAdapter
 from ultimate_ai_agent.core.tools.runtime.contracts import ToolInvocationRequest
@@ -328,6 +334,30 @@ _TOOL_AUTHORITY_BINDINGS = {
     FILESYSTEM_METADATA_TOOL_REF: (
         AuthorityDomain.files.value,
         AuthorityCapability.read.value,
+    ),
+    PORTABLE_EVIDENCE_SIGN_TOOL_REF: (
+        AuthorityDomain.evidence_signing.value,
+        AuthorityCapability.execute.value,
+    ),
+    PORTABLE_EVIDENCE_KEY_CREATE_TOOL_REF: (
+        AuthorityDomain.evidence_signing.value,
+        AuthorityCapability.mutate.value,
+    ),
+    PORTABLE_EVIDENCE_KEY_ROTATE_TOOL_REF: (
+        AuthorityDomain.evidence_signing.value,
+        AuthorityCapability.mutate.value,
+    ),
+    PORTABLE_EVIDENCE_KEY_REVOKE_TOOL_REF: (
+        AuthorityDomain.evidence_signing.value,
+        AuthorityCapability.mutate.value,
+    ),
+    PORTABLE_EVIDENCE_KEY_MARK_LOST_TOOL_REF: (
+        AuthorityDomain.evidence_signing.value,
+        AuthorityCapability.mutate.value,
+    ),
+    PORTABLE_EVIDENCE_KEY_CLEANUP_TOOL_REF: (
+        AuthorityDomain.evidence_signing.value,
+        AuthorityCapability.mutate.value,
     ),
 }
 

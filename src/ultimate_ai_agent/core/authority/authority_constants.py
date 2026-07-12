@@ -11,3 +11,14 @@ AUTHORITY_STATE_REDACTIONS = (
     "provider_payload_omitted",
     "credentials_omitted",
 )
+
+PORTABLE_EVIDENCE_SIGN_TOOL_REF = "tool-ref:portable-evidence-sign:v1"
+PORTABLE_EVIDENCE_KEY_CREATE_TOOL_REF = "tool-ref:portable-evidence-key-create:v1"
+PORTABLE_EVIDENCE_KEY_ROTATE_TOOL_REF = "tool-ref:portable-evidence-key-rotate:v1"
+PORTABLE_EVIDENCE_KEY_REVOKE_TOOL_REF = "tool-ref:portable-evidence-key-revoke:v1"
+PORTABLE_EVIDENCE_KEY_MARK_LOST_TOOL_REF = (
+    "tool-ref:portable-evidence-key-mark-lost:v1"
+)
+PORTABLE_EVIDENCE_KEY_CLEANUP_TOOL_REF = (
+    "tool-ref:portable-evidence-key-material-cleanup:v1"
+)

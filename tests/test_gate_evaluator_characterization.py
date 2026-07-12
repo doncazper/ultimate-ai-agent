@@ -364,6 +364,9 @@ def test_static_safety_evaluator_data_exemption_is_scoped() -> None:
         "src/ultimate_ai_agent/core/gate/criteria_families/cross_release_docs.py",
     }
     command_adapter_file = "src/ultimate_ai_agent/core/runtime_gateway/command.py"
+    evidence_signing_adapter_file = (
+        "src/ultimate_ai_agent/core/evidence_signing/macos_keychain.py"
+    )
 
     assert STATIC_SAFETY_EVALUATOR_DATA_FILES == frozenset(
         {
@@ -381,7 +384,7 @@ def test_static_safety_evaluator_data_exemption_is_scoped() -> None:
         "src/ultimate_ai_agent/core/gate/checkpoint_builders/",
     )
     assert GOVERNED_RUNTIME_COMMAND_ADAPTER_STATIC_SCAN_ALLOWED_FILES == frozenset(
-        {command_adapter_file}
+        {command_adapter_file, evidence_signing_adapter_file}
     )
     assert _is_static_safety_scan_allowed_file(criteria_file, frozenset())
     assert _is_static_safety_scan_allowed_file(evaluator_facade_file, frozenset())
@@ -401,6 +404,9 @@ def test_static_safety_evaluator_data_exemption_is_scoped() -> None:
         frozenset(),
     )
     assert _is_static_safety_scan_allowed_file(command_adapter_file, frozenset())
+    assert _is_static_safety_scan_allowed_file(
+        evidence_signing_adapter_file, frozenset()
+    )
     assert _is_static_safety_scan_allowed_file("src/allowed.py", {"src/allowed.py"})
     assert not _is_static_safety_scan_allowed_file(
         "src/ultimate_ai_agent/core/gate/evaluator_modules/route_contracts.py",

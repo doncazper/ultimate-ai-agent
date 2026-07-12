@@ -16,6 +16,21 @@ def _assert_exact_governed_runtime_command_subprocess_site(source: str) -> None:
     assert "subprocess." not in allowed_removed
 
 
+def _assert_exact_portable_evidence_helper_subprocess_site(source: str) -> None:
+    assert source.count("subprocess.run(") == 1
+    assert source.count("subprocess.TimeoutExpired") == 1
+    assert "shell=False" in source
+    assert "shell=True" not in source
+    assert "subprocess.Popen(" not in source
+    assert source.count("subprocess.PIPE") == 2
+    allowed_removed = source.replace("subprocess.run(", "").replace(
+        "subprocess.TimeoutExpired", ""
+    ).replace("subprocess.PIPE", "")
+    assert "subprocess." not in allowed_removed
+    assert 'env={"PATH": "/usr/bin:/bin", "TMPDIR": "/tmp"}' in source
+    assert "start_new_session=True" in source
+
+
 def test_foundation_gate_criteria_include_m7_policy_only_surface() -> None:
     criteria = default_foundation_gate_criteria()
     by_id = {criterion.criterion_id: criterion for criterion in criteria}
@@ -58,12 +73,21 @@ def test_m7_does_not_add_runtime_execution_integrations() -> None:
         / "runtime_gateway"
         / "command.py"
     )
+    allowed_signing_helper_path = (
+        Path("src")
+        / "ultimate_ai_agent"
+        / "core"
+        / "evidence_signing"
+        / "macos_keychain.py"
+    )
     sources = {
         path: path.read_text(encoding="utf-8")
         for path in (Path("src") / "ultimate_ai_agent" / "core").rglob("*.py")
     }
     command_source = sources.pop(allowed_subprocess_path)
     _assert_exact_governed_runtime_command_subprocess_site(command_source)
+    signing_source = sources.pop(allowed_signing_helper_path)
+    _assert_exact_portable_evidence_helper_subprocess_site(signing_source)
 
     for marker in forbidden:
         checked = "\n".join(sources.values())
