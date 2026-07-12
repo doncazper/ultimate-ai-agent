@@ -769,6 +769,59 @@ class WebHybridCapabilityLanePosture(_CapabilityAvailabilityModel):
         return _validated_codes(values)
 
 
+class WebResearchAggregationPosture(_CapabilityAvailabilityModel):
+    schema_version: Literal["uaa-web-research-aggregation-posture.v1"] = (
+        "uaa-web-research-aggregation-posture.v1"
+    )
+    contract_ref: str = "contract-ref:web-research-aggregation:v1"
+    status: Literal["implemented_injected_observations_required"] = (
+        "implemented_injected_observations_required"
+    )
+    current_observation_status: Literal["not_injected_by_read_only_route"] = (
+        "not_injected_by_read_only_route"
+    )
+    current_citation_count: Literal[0] = 0
+    citation_limit: Literal[10] = 10
+    summary_character_limit: Literal[4000] = 4000
+    deterministic_injected_observations_only: Literal[True] = True
+    provider_readiness_included: Literal[True] = True
+    provider_latency_posture_included: Literal[True] = True
+    provider_cost_posture_included: Literal[True] = True
+    provider_context_posture_included: Literal[True] = True
+    provider_routing_posture_included: Literal[True] = True
+    excluded_source_reasons_included: Literal[True] = True
+    content_untrusted: Literal[True] = True
+    not_instruction_authority: Literal[True] = True
+    context_injection_authorized: Literal[False] = False
+    memory_write_authorized: Literal[False] = False
+    action_execution_authorized: Literal[False] = False
+    raw_query_persisted: Literal[False] = False
+    raw_page_content_persisted: Literal[False] = False
+    raw_provider_payload_persisted: Literal[False] = False
+    proof_refs: list[str] = Field(default_factory=list)
+    blocker_codes: list[str] = Field(default_factory=list)
+    safe_summary: str = Field(..., min_length=1, max_length=700)
+
+    @field_validator("contract_ref", "proof_refs")
+    @classmethod
+    def validate_refs(cls, value: str | list[str]) -> str | list[str]:
+        values = [value] if isinstance(value, str) else value
+        for item in values:
+            validate_execution_ref(item, "web_research_aggregation_posture_ref")
+        return value
+
+    @field_validator("blocker_codes")
+    @classmethod
+    def validate_blockers(cls, values: list[str]) -> list[str]:
+        return _validated_codes(values)
+
+    @field_validator("safe_summary")
+    @classmethod
+    def validate_summary(cls, value: str) -> str:
+        _validate_safe_summary(value)
+        return value
+
+
 class WebHybridAvailabilityReadModel(_CapabilityAvailabilityModel):
     schema_version: Literal["uaa-web-hybrid-availability.v1"] = (
         "uaa-web-hybrid-availability.v1"
@@ -780,6 +833,7 @@ class WebHybridAvailabilityReadModel(_CapabilityAvailabilityModel):
     )
     cli_ref: str = "repo-local-command:inspect-web-hybrid-status"
     lanes: list[WebHybridCapabilityLanePosture]
+    research_aggregation: WebResearchAggregationPosture
     routing_policy: Literal["self_host_first_cloud_escalation"] = (
         "self_host_first_cloud_escalation"
     )
@@ -803,6 +857,10 @@ class WebHybridAvailabilityReadModel(_CapabilityAvailabilityModel):
     )
     circuit_ref: str = "web-provider-circuit-ref:firecrawl-cloud:v1"
     request_scoped_evaluation_required: Literal[True] = True
+    final_start_revalidation_required: Literal[True] = True
+    mission_scoped_lease_required: Literal[True] = True
+    complete_request_fingerprint_required: Literal[True] = True
+    start_deadline_required: Literal[True] = True
     local_approval_required: Literal[True] = True
     exact_authority_lease_required: Literal[True] = True
     budget_reservation_required_for_cloud: Literal[True] = True

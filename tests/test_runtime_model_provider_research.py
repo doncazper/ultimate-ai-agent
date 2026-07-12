@@ -31,6 +31,14 @@ def test_model_provider_research_posture_is_backend_owned_and_blocked() -> None:
     assert posture.external_information.default_policy_denied is True
     assert posture.external_information.fetched_content_untrusted is True
     assert posture.external_information.browser_action_enabled_by_control_plane is False
+    assert (
+        "authority-lane-ref:web-access:searxng-search:v1"
+        in posture.external_information.allowed_current_lane_refs
+    )
+    assert (
+        "blocked-state:web-access:no-unscoped-provider-search-calls"
+        in posture.external_information.blocked_authority_refs
+    )
 
 
 def test_model_provider_research_posture_rejects_authority_creep() -> None:

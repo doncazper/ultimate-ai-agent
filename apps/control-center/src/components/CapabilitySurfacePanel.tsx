@@ -112,7 +112,17 @@ export function CapabilitySurfacePanel({
           <p>
             Credits: {operatorLabel(surface.web_hybrid.current_credit_snapshot_status)}.
             Circuit: {operatorLabel(surface.web_hybrid.circuit_state)}. Exact approval,
-            AuthorityLease, and request budget evaluation remain mandatory.
+            mission-scoped AuthorityLease, complete request fingerprint, start
+            deadline, and request budget evaluation remain mandatory at final start.
+          </p>
+        </div>
+        <div className="callout">
+          <strong>Bounded cited research</strong>
+          <p>{surface.web_hybrid.research_aggregation.safe_summary}</p>
+          <p>
+            Current citations: {surface.web_hybrid.research_aggregation.current_citation_count}.
+            Provider readiness, latency, cost, context, routing, exclusions, and
+            redaction are explicit. No observation is inferred by this read-only view.
           </p>
         </div>
         <div className="callout">

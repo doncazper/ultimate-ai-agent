@@ -14,6 +14,7 @@ from ultimate_ai_agent.core.authority import (
     AuthorityConstraintKind,
     AuthorityDomain,
     AuthorityLease,
+    AuthorityLeaseScope,
     TrustMode,
 )
 from ultimate_ai_agent.core.capabilities.approval import (
@@ -50,11 +51,13 @@ from ultimate_ai_agent.core.web_access.firecrawl_markdown import (
 )
 from ultimate_ai_agent.core.web_access.hybrid_contracts import (
     WebCreditReservationStatus,
+    WebCreditSnapshotFreshness,
     WebProviderDeploymentKind,
     WebProviderOperation,
     WebProviderPlanKind,
     WebProviderTransportStatus,
     build_web_provider_capability_state,
+    stable_web_hybrid_ref,
 )
 from ultimate_ai_agent.core.web_access.hybrid_ledger import InMemoryWebCreditLedger
 
@@ -65,6 +68,11 @@ TARGET_URL = "https://example.org/"
 
 def _credential() -> FirecrawlCloudCredential:
     return FirecrawlCloudCredential(value=SecretStr("fc-" + "x" * 32))
+
+
+def _clock(*offset_seconds: int):  # type: ignore[no-untyped-def]
+    values = iter(NOW + timedelta(seconds=value) for value in offset_seconds)
+    return lambda: next(values)
 
 
 def _credit_payload(*, remaining: int = 10, plan: int = 1_000) -> dict[str, Any]:
@@ -93,6 +101,9 @@ def _request(**overrides: Any) -> FirecrawlCloudMarkdownRequest:
     values: dict[str, Any] = {
         "request_ref": "web-extract-request-ref:cloud:test",
         "task_ref": "task-ref:web-extract:cloud:test",
+        "mission_ref": "mission-ref:web-extract:cloud:test",
+        "run_ref": "run-ref:web-extract:cloud:test",
+        "start_deadline": NOW + timedelta(minutes=4),
         "approval_ref": "approval-ref:web-extract:cloud:test",
         "target_url": TARGET_URL,
         "target_source_ref": firecrawl_target_source_ref(TARGET_URL),
@@ -137,6 +148,12 @@ def _approval(request: FirecrawlCloudMarkdownRequest) -> LocalApprovalAuthority:
                 approval_ref=request.approval_ref or "approval-ref:missing",
                 capability_id=FIRECRAWL_CLOUD_CAPABILITY_REF,
                 task_id=request.task_ref,
+                mission_ref=request.mission_ref,
+                run_ref=request.run_ref,
+                request_fingerprint_ref=request.request_fingerprint_ref,
+                resource_refs=tuple(
+                    _resource_refs(request, _reconcile(remaining=10).snapshot)
+                ),
                 granted_by="operator-ref:test",
             )
         ]
@@ -147,6 +164,13 @@ def _resource_refs(request: FirecrawlCloudMarkdownRequest, snapshot: Any) -> lis
     return [
         request.request_ref,
         request.task_ref,
+        request.mission_ref,
+        request.run_ref,
+        request.request_fingerprint_ref,
+        stable_web_hybrid_ref(
+            "start-deadline-ref",
+            {"start_deadline": request.start_deadline.isoformat()},
+        ),
         request.target_source_ref,
         request.idempotency_ref,
         request.routing_decision_ref,
@@ -163,6 +187,8 @@ def _lease(request: FirecrawlCloudMarkdownRequest, snapshot: Any) -> AuthorityLe
     return AuthorityLease(
         lease_ref="authority-lease-ref:web-extract:cloud:test",
         mode=TrustMode.read_only,
+        scope=AuthorityLeaseScope.mission,
+        mission_ref=request.mission_ref,
         domains={AuthorityDomain.browser: [AuthorityCapability.read]},
         authority_constraints=[
             AuthorityConstraint(
@@ -271,6 +297,7 @@ def test_missing_snapshot_or_approval_identifier_alone_blocks_before_scrape() ->
         authority_leases=[],
         scrape_transport=_scrape(scrape_calls),
         target_validator=lambda _url: None,
+        trusted_clock=lambda: NOW,
         evaluated_at=NOW,
     )
     snapshot = _reconcile().snapshot
@@ -312,6 +339,7 @@ def test_exact_fake_cloud_attempt_reserves_reconciles_and_settles_one_credit() -
         scrape_transport=_scrape(scrape_calls),
         credit_transport=lambda _credential: _credit_payload(remaining=9),
         target_validator=lambda _url: None,
+        trusted_clock=_clock(1, 2),
         evaluated_at=NOW,
     )
 
@@ -328,6 +356,43 @@ def test_exact_fake_cloud_attempt_reserves_reconciles_and_settles_one_credit() -
     serialized = result.model_dump_json()
     assert _credential().value.get_secret_value() not in serialized
     assert "providerPrivateField" not in serialized
+
+
+def test_final_start_rechecks_current_credit_snapshot_before_scrape() -> None:
+    request = _request()
+    before = _reconcile(remaining=10).snapshot
+    assert before is not None
+    current = {"snapshot": before}
+    scrape_calls: list[FirecrawlCloudMarkdownRequest] = []
+    credit_calls: list[str] = []
+
+    def make_stale() -> None:
+        current["snapshot"] = before.model_copy(
+            update={"freshness": WebCreditSnapshotFreshness.stale}
+        )
+
+    result = execute_firecrawl_cloud_markdown(
+        request,
+        capability_state=_state(),
+        credit_snapshot=before,
+        ledger=InMemoryWebCreditLedger(),
+        credential=_credential(),
+        approval_authority=_approval(request),
+        authority_leases=[_lease(request, before)],
+        scrape_transport=_scrape(scrape_calls),
+        credit_transport=lambda _credential: credit_calls.append("credit") or {},
+        target_validator=lambda _url: None,
+        credit_snapshot_provider=lambda: current["snapshot"],
+        before_final_start=make_stale,
+        evaluated_at=NOW,
+    )
+
+    assert scrape_calls == []
+    assert credit_calls == []
+    assert result.status == WebProviderTransportStatus.blocked
+    assert result.reservation is not None
+    assert result.reservation.status == WebCreditReservationStatus.released
+    assert result.transport_receipt.network_call_performed is False
 
 
 def test_incomplete_usage_delta_fails_closed_and_blocks_follow_on_credit() -> None:
@@ -357,7 +422,9 @@ def test_incomplete_usage_delta_fails_closed_and_blocks_follow_on_credit() -> No
     assert "FIRECRAWL_CLOUD_USAGE_PROOF_INCOMPLETE" in result.reason_codes
 
 
-def test_safe_cloud_transport_error_survives_gateway_without_raw_detail() -> None:
+def test_safe_cloud_transport_error_survives_gateway_without_raw_detail(
+    tmp_path: Path,
+) -> None:
     request = _request()
     before = _reconcile(remaining=10).snapshot
     assert before is not None
@@ -376,19 +443,53 @@ def test_safe_cloud_transport_error_survives_gateway_without_raw_detail() -> Non
         request,
         capability_state=_state(),
         credit_snapshot=before,
-        ledger=InMemoryWebCreditLedger(),
+        ledger=InMemoryWebCreditLedger(state_path=tmp_path / "cloud-credit.jsonl"),
         credential=_credential(),
         approval_authority=_approval(request),
         authority_leases=[_lease(request, before)],
         scrape_transport=failed_transport,
         credit_transport=lambda _credential: _credit_payload(remaining=10),
         target_validator=lambda _url: None,
+        capability_state_provider=_state,
+        credit_snapshot_provider=lambda: before,
+        authority_leases_provider=lambda: [_lease(request, before)],
+        trusted_clock=_clock(1, 2),
         evaluated_at=NOW,
     )
 
     assert result.status == WebProviderTransportStatus.failed
     assert result.evidence is None
     assert result.reason_codes == ("FIRECRAWL_CLOUD_PROVIDER_NON_SUCCESS",)
+
+
+def test_real_cloud_transport_requires_crash_recovery_ledger() -> None:
+    request = _request()
+    before = _reconcile(remaining=10).snapshot
+    assert before is not None
+    calls: list[FirecrawlCloudMarkdownRequest] = []
+    transport = _scrape(calls)
+    transport.real_world_transport_performed = True  # type: ignore[attr-defined]
+
+    result = execute_firecrawl_cloud_markdown(
+        request,
+        capability_state=_state(),
+        credit_snapshot=before,
+        ledger=InMemoryWebCreditLedger(),
+        credential=_credential(),
+        approval_authority=_approval(request),
+        authority_leases=[_lease(request, before)],
+        scrape_transport=transport,
+        target_validator=lambda _url: None,
+        capability_state_provider=_state,
+        credit_snapshot_provider=lambda: before,
+        authority_leases_provider=lambda: [_lease(request, before)],
+        trusted_clock=_clock(1),
+        evaluated_at=NOW,
+    )
+
+    assert calls == []
+    assert result.status == WebProviderTransportStatus.blocked
+    assert "FIRECRAWL_CLOUD_DURABLE_CREDIT_LEDGER_REQUIRED" in result.blocker_codes
 
 
 def test_credential_resolver_rejects_wrong_path_and_permissions(tmp_path: Path) -> None:

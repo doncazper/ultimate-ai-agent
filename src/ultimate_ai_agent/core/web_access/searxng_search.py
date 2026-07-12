@@ -15,9 +15,10 @@ import json
 import re
 import socket
 import threading
+from contextlib import ExitStack, contextmanager
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Literal, Mapping, Sequence
+from typing import Any, Callable, ContextManager, Iterator, Literal, Mapping, Sequence
 from urllib.parse import urlencode, urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -28,6 +29,7 @@ from ultimate_ai_agent.core.authority import (
     AuthorityConstraintKind,
     AuthorityDomain,
     AuthorityLease,
+    AuthorityLeaseScope,
     AuthorityPolicyDecision,
     evaluate_authority_request,
 )
@@ -108,6 +110,7 @@ class SearxngSearchLanguage(str, Enum):
 class _SearxngModel(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
+        frozen=True,
         hide_input_in_errors=True,
         use_enum_values=False,
     )
@@ -120,6 +123,11 @@ class _SearxngModel(BaseModel):
 class SearxngSearchRequest(_SearxngModel):
     request_ref: str
     task_ref: str
+    mission_ref: str
+    run_ref: str
+    idempotency_ref: str
+    request_fingerprint_ref: str = "request-fingerprint-ref:pending"
+    start_deadline: datetime
     approval_ref: str | None = None
     query: str = Field(..., min_length=1, max_length=240)
     max_results: int = Field(default=5, ge=1, le=10)
@@ -132,6 +140,10 @@ class SearxngSearchRequest(_SearxngModel):
     @field_validator(
         "request_ref",
         "task_ref",
+        "mission_ref",
+        "run_ref",
+        "idempotency_ref",
+        "request_fingerprint_ref",
         "approval_ref",
         "expected_execution_receipt_ref",
     )
@@ -150,6 +162,35 @@ class SearxngSearchRequest(_SearxngModel):
         ):
             raise ValueError("SEARXNG_QUERY_CONTROL_CHARACTER_DENIED")
         return normalized
+
+    @model_validator(mode="after")
+    def validate_execution_binding(self) -> "SearxngSearchRequest":
+        if self.start_deadline.tzinfo is None or self.start_deadline.utcoffset() is None:
+            raise ValueError("SEARXNG_START_DEADLINE_TIMEZONE_REQUIRED")
+        expected = stable_web_hybrid_ref(
+            "request-fingerprint-ref:searxng-search",
+            {
+                "request_ref": self.request_ref,
+                "task_ref": self.task_ref,
+                "mission_ref": self.mission_ref,
+                "run_ref": self.run_ref,
+                "idempotency_ref": self.idempotency_ref,
+                "approval_ref": self.approval_ref,
+                "query_ref": searxng_query_ref(self.query),
+                "max_results": self.max_results,
+                "page": self.page,
+                "category": self.category.value,
+                "language": self.language.value,
+                "safe_search": self.safe_search,
+                "expected_execution_receipt_ref": self.expected_execution_receipt_ref,
+                "start_deadline": self.start_deadline.isoformat(),
+            },
+        )
+        if self.request_fingerprint_ref == "request-fingerprint-ref:pending":
+            object.__setattr__(self, "request_fingerprint_ref", expected)
+        elif self.request_fingerprint_ref != expected:
+            raise ValueError("SEARXNG_REQUEST_FINGERPRINT_MISMATCH")
+        return self
 
 
 class SearxngConfiguredEndpoint(_SearxngModel):
@@ -551,11 +592,172 @@ def execute_searxng_search(
     authority_leases: Sequence[AuthorityLease],
     transport: SearxngTransport | None = None,
     endpoint: SearxngConfiguredEndpoint | None = None,
+    capability_state_provider: Callable[[], WebProviderCapabilityState] | None = None,
+    authority_leases_provider: Callable[[], Sequence[AuthorityLease]] | None = None,
+    before_final_start: Callable[[], None] | None = None,
+    trusted_clock: Callable[[], datetime] | None = None,
     evaluated_at: datetime | None = None,
 ) -> SearxngSearchExecutionResult:
     """Evaluate every exact gate and, only if all allow, perform one search."""
 
-    now = evaluated_at or utc_now()
+    initial_time_source = (
+        (lambda: evaluated_at)
+        if evaluated_at is not None
+        else (trusted_clock or utc_now)
+    )
+    now = initial_time_source()
+    invocation_decision = _evaluate_searxng_invocation(
+        request=request,
+        capability_state=capability_state,
+        approval_authority=approval_authority,
+        authority_leases=authority_leases,
+        evaluated_at=now,
+    )
+    if invocation_decision.outcome != InvocationDecisionOutcome.allow:
+        receipt = _transport_receipt(
+            request=request,
+            invocation_decision=invocation_decision,
+            status=WebProviderTransportStatus.blocked,
+            reason_codes=tuple(
+                dict.fromkeys(
+                    (
+                        *invocation_decision.blocker_codes,
+                        *invocation_decision.reason_codes,
+                    )
+                )
+            ),
+            network_call_performed=False,
+            evidence=(),
+            created_at=now,
+        )
+        return _execution_result(
+            request=request,
+            invocation_decision=invocation_decision,
+            receipt=receipt,
+            evidence=(),
+            reason_codes=tuple(invocation_decision.reason_codes),
+            blocker_codes=tuple(invocation_decision.blocker_codes),
+        )
+
+    selected_transport = transport or build_loopback_searxng_transport(endpoint)
+    live_transport_selected = bool(
+        getattr(selected_transport, "real_world_transport_performed", False)
+    )
+    final_time_source = trusted_clock or (
+        utc_now
+        if getattr(selected_transport, "real_world_transport_performed", False)
+        else initial_time_source
+    )
+
+    def final_start_evaluator() -> CapabilityInvocationDecision:
+        if live_transport_selected and (
+            capability_state_provider is None or authority_leases_provider is None
+        ):
+            raise ValueError("SEARXNG_CURRENT_FINAL_START_PROVIDERS_REQUIRED")
+        return _evaluate_searxng_invocation(
+            request=request,
+            capability_state=(
+                capability_state_provider()
+                if capability_state_provider
+                else capability_state
+            ),
+            approval_authority=approval_authority,
+            authority_leases=(
+                authority_leases_provider()
+                if authority_leases_provider
+                else authority_leases
+            ),
+            evaluated_at=final_time_source(),
+        )
+
+    adapter = _SearxngSearchAdapter(
+        search_request=request,
+        invocation_decision=invocation_decision,
+        final_start_evaluator=final_start_evaluator,
+        approval_authority=approval_authority,
+        before_final_start=before_final_start,
+        transport=selected_transport,
+    )
+    gateway = WebAccessGateway(
+        policy=WebAccessPolicy(allow_searxng_search=True),
+        adapters={WebAccessRequestKind.SEARCH: adapter},
+    )
+    gateway_result = gateway.execute(
+        WebAccessRequest(
+            kind=WebAccessRequestKind.SEARCH,
+            query=request.query,
+            method="GET",
+            authority_mode=WebAccessAuthorityMode.READ_ONLY,
+            network_lane=WebAccessNetworkLane.AGENT_PUBLIC_WEB,
+            metadata={
+                "page": request.page,
+                "max_results": request.max_results,
+                "category": request.category.value,
+                "language": request.language.value,
+                "safe_search": request.safe_search,
+            },
+            request_id=request.request_ref,
+        )
+    )
+    payload = (
+        gateway_result.evidence_bundle.payload
+        if gateway_result.evidence_bundle is not None
+        else {}
+    )
+    final_payload = payload.get("final_invocation_decision")
+    if isinstance(final_payload, Mapping):
+        invocation_decision = CapabilityInvocationDecision.model_validate(final_payload)
+    status = _transport_status(payload, gateway_result.status)
+    evidence = (
+        tuple(
+            SearxngSearchEvidenceItem.model_validate(item)
+            for item in payload.get("results", ())
+            if isinstance(item, Mapping)
+        )
+        if status
+        in {WebProviderTransportStatus.succeeded, WebProviderTransportStatus.simulated}
+        else ()
+    )
+    reason_codes = _safe_reason_codes(payload.get("reason_codes"))
+    network_call_performed = payload.get("network_call_performed") is True
+    receipt = _transport_receipt(
+        request=request,
+        invocation_decision=invocation_decision,
+        status=status,
+        reason_codes=reason_codes,
+        network_call_performed=network_call_performed,
+        evidence=evidence,
+        created_at=invocation_decision.evaluated_at,
+    )
+    return _execution_result(
+        request=request,
+        invocation_decision=invocation_decision,
+        receipt=receipt,
+        evidence=(
+            evidence
+            if status
+            in {
+                WebProviderTransportStatus.succeeded,
+                WebProviderTransportStatus.simulated,
+            }
+            else ()
+        ),
+        reason_codes=reason_codes,
+        blocker_codes=()
+        if status == WebProviderTransportStatus.succeeded
+        else reason_codes,
+        gateway_audit_ref=stable_gateway_audit_ref(gateway_result.audit),
+    )
+
+
+def _evaluate_searxng_invocation(
+    *,
+    request: SearxngSearchRequest,
+    capability_state: WebProviderCapabilityState,
+    approval_authority: LocalApprovalAuthority,
+    authority_leases: Sequence[AuthorityLease],
+    evaluated_at: datetime,
+) -> CapabilityInvocationDecision:
     snapshot = searxng_search_snapshot_from_state(capability_state)
     manifest = build_searxng_search_capability_manifest()
     task = TaskEnvelope(
@@ -567,6 +769,11 @@ def execute_searxng_search(
     )
     policy_context: dict[str, Any] = {
         "coordination_mode": CoordinationMode.direct_tool.value,
+        "current_time": evaluated_at,
+        "mission_ref": request.mission_ref,
+        "run_ref": request.run_ref,
+        "request_fingerprint_ref": request.request_fingerprint_ref,
+        "resource_refs": list(_exact_authority_resource_refs(request)),
     }
     if request.approval_ref:
         policy_context["approval_ref"] = request.approval_ref
@@ -598,7 +805,7 @@ def execute_searxng_search(
     observed_authority_decision = evaluate_authority_request(
         authority_action,
         list(authority_leases),
-        now=now,
+        now=evaluated_at,
     )
     authority_decision = (
         observed_authority_decision
@@ -606,6 +813,7 @@ def execute_searxng_search(
             observed_authority_decision,
             authority_leases,
             exact_resource_refs,
+            mission_ref=request.mission_ref,
         )
         else None
     )
@@ -629,107 +837,41 @@ def execute_searxng_search(
         policy_decision=policy_decision,
         authority_decision=authority_decision,
         local_approval_decision=local_approval_decision,
-        evaluated_at=now,
+        evaluated_at=evaluated_at,
     )
-    if invocation_decision.outcome != InvocationDecisionOutcome.allow:
-        receipt = _transport_receipt(
-            request=request,
-            invocation_decision=invocation_decision,
-            status=WebProviderTransportStatus.blocked,
-            reason_codes=tuple(
-                dict.fromkeys(
-                    (
-                        *invocation_decision.blocker_codes,
-                        *invocation_decision.reason_codes,
+    final_blockers: list[str] = []
+    if capability_state.expires_at <= evaluated_at:
+        final_blockers.append("FINAL_START_CAPABILITY_OBSERVATION_STALE")
+    if request.start_deadline <= evaluated_at:
+        final_blockers.append("FINAL_START_DEADLINE_EXPIRED")
+    if final_blockers:
+        payload = invocation_decision.model_dump(mode="python")
+        payload.update(
+            {
+                "decision_ref": stable_web_hybrid_ref(
+                    "capability-invocation-decision-ref",
+                    {
+                        "prior_ref": invocation_decision.decision_ref,
+                        "blockers": final_blockers,
+                        "evaluated_at": evaluated_at.isoformat(),
+                    },
+                ),
+                "outcome": InvocationDecisionOutcome.blocked,
+                "blocker_codes": list(
+                    dict.fromkeys(
+                        (
+                            *invocation_decision.blocker_codes,
+                            *final_blockers,
+                        )
                     )
-                )
-            ),
-            network_call_performed=False,
-            evidence=(),
-            created_at=now,
-        )
-        return _execution_result(
-            request=request,
-            invocation_decision=invocation_decision,
-            receipt=receipt,
-            evidence=(),
-            reason_codes=tuple(invocation_decision.reason_codes),
-            blocker_codes=tuple(invocation_decision.blocker_codes),
-        )
-
-    selected_transport = transport or build_loopback_searxng_transport(endpoint)
-    adapter = _SearxngSearchAdapter(
-        search_request=request,
-        invocation_decision=invocation_decision,
-        transport=selected_transport,
-    )
-    gateway = WebAccessGateway(
-        policy=WebAccessPolicy(allow_searxng_search=True),
-        adapters={WebAccessRequestKind.SEARCH: adapter},
-    )
-    gateway_result = gateway.execute(
-        WebAccessRequest(
-            kind=WebAccessRequestKind.SEARCH,
-            query=request.query,
-            method="GET",
-            authority_mode=WebAccessAuthorityMode.READ_ONLY,
-            network_lane=WebAccessNetworkLane.AGENT_PUBLIC_WEB,
-            metadata={
-                "page": request.page,
-                "max_results": request.max_results,
-                "category": request.category.value,
-                "language": request.language.value,
-                "safe_search": request.safe_search,
-            },
-            request_id=request.request_ref,
-        )
-    )
-    payload = (
-        gateway_result.evidence_bundle.payload
-        if gateway_result.evidence_bundle is not None
-        else {}
-    )
-    status = _transport_status(payload, gateway_result.status)
-    evidence = (
-        tuple(
-            SearxngSearchEvidenceItem.model_validate(item)
-            for item in payload.get("results", ())
-            if isinstance(item, Mapping)
-        )
-        if status
-        in {WebProviderTransportStatus.succeeded, WebProviderTransportStatus.simulated}
-        else ()
-    )
-    reason_codes = _safe_reason_codes(payload.get("reason_codes"))
-    network_call_performed = payload.get("network_call_performed") is True
-    receipt = _transport_receipt(
-        request=request,
-        invocation_decision=invocation_decision,
-        status=status,
-        reason_codes=reason_codes,
-        network_call_performed=network_call_performed,
-        evidence=evidence,
-        created_at=now,
-    )
-    return _execution_result(
-        request=request,
-        invocation_decision=invocation_decision,
-        receipt=receipt,
-        evidence=(
-            evidence
-            if status
-            in {
-                WebProviderTransportStatus.succeeded,
-                WebProviderTransportStatus.simulated,
+                ),
+                "safe_summary": (
+                    "Final-start evaluation blocked stale or expired request truth."
+                ),
             }
-            else ()
-        ),
-        reason_codes=reason_codes,
-        blocker_codes=()
-        if status == WebProviderTransportStatus.succeeded
-        else reason_codes,
-        gateway_audit_ref=stable_gateway_audit_ref(gateway_result.audit),
-    )
+        )
+        return CapabilityInvocationDecision.model_validate(payload)
+    return invocation_decision
 
 
 class _SearxngSearchAdapter:
@@ -740,10 +882,16 @@ class _SearxngSearchAdapter:
         *,
         search_request: SearxngSearchRequest,
         invocation_decision: CapabilityInvocationDecision,
+        final_start_evaluator: Callable[[], CapabilityInvocationDecision],
+        approval_authority: LocalApprovalAuthority,
+        before_final_start: Callable[[], None] | None,
         transport: SearxngTransport,
     ) -> None:
         self._search_request = search_request
         self._invocation_decision = invocation_decision
+        self._final_start_evaluator = final_start_evaluator
+        self._approval_authority = approval_authority
+        self._before_final_start = before_final_start
         self._transport = transport
         self._use_lock = threading.Lock()
         self._used = False
@@ -759,41 +907,98 @@ class _SearxngSearchAdapter:
                     "SEARXNG_INVOCATION_DECISION_REPLAY_DENIED",
                     False,
                 )
-            self._used = True
-        invocation_scope_matches = (
-            self._invocation_decision.outcome == InvocationDecisionOutcome.allow
-            and self._invocation_decision.cache_posture == "not_cacheable"
-            and self._invocation_decision.request_ref
-            == self._search_request.request_ref
-            and self._invocation_decision.capability_ref
-            == SEARXNG_SEARCH_CAPABILITY_REF
-            and self._invocation_decision.provider_ref == SEARXNG_SEARCH_PROVIDER_REF
-            and self._invocation_decision.adapter_ref == SEARXNG_SEARCH_ADAPTER_REF
-            and self._invocation_decision.authority_decision_ref is not None
-            and self._invocation_decision.approval_decision_ref is not None
-        )
-        if (
-            not decision.allowed
-            or request.request_id != self._search_request.request_ref
-            or not invocation_scope_matches
-        ):
-            return _adapter_failure("SEARXNG_GATEWAY_SCOPE_MISMATCH", False)
-        live_transport = bool(
-            getattr(self._transport, "real_world_transport_performed", False)
-        )
-        try:
-            payload = self._transport(self._search_request)
-            evidence = _normalize_search_results(
-                payload,
-                limit=self._search_request.max_results,
-            )
-        except SearxngSearchTransportError as exc:
-            return _adapter_failure(
-                exc.code,
-                exc.network_call_performed and live_transport,
-            )
-        except Exception:  # noqa: BLE001 - provider boundary must not leak details.
-            return _adapter_failure("SEARXNG_TRANSPORT_FAILED", live_transport)
+            if self._before_final_start is not None:
+                try:
+                    self._before_final_start()
+                except Exception:  # noqa: BLE001 - hook detail stays private.
+                    self._used = True
+                    failed = _final_start_failure_decision(
+                        self._invocation_decision,
+                        "SEARXNG_FINAL_START_HOOK_FAILED",
+                    )
+                    return _adapter_failure(
+                        "SEARXNG_FINAL_START_HOOK_FAILED",
+                        False,
+                        final_invocation_decision=failed,
+                        blocked=True,
+                    )
+            with _safe_start_context(
+                self._approval_authority.hold_validation_lock()
+            ) as start_ready:
+                if not start_ready:
+                    self._used = True
+                    failed = _final_start_failure_decision(
+                        self._invocation_decision,
+                        "SEARXNG_FINAL_START_FENCE_FAILED",
+                    )
+                    return _adapter_failure(
+                        "SEARXNG_FINAL_START_FENCE_FAILED",
+                        False,
+                        final_invocation_decision=failed,
+                        blocked=True,
+                    )
+                try:
+                    final_decision = self._final_start_evaluator()
+                except Exception:  # noqa: BLE001 - final truth detail stays private.
+                    self._used = True
+                    failed = _final_start_failure_decision(
+                        self._invocation_decision,
+                        "SEARXNG_FINAL_START_EVALUATION_FAILED",
+                    )
+                    return _adapter_failure(
+                        "SEARXNG_FINAL_START_EVALUATION_FAILED",
+                        False,
+                        final_invocation_decision=failed,
+                        blocked=True,
+                    )
+                self._used = True
+                invocation_scope_matches = (
+                    final_decision.outcome == InvocationDecisionOutcome.allow
+                    and final_decision.cache_posture == "not_cacheable"
+                    and final_decision.request_ref == self._search_request.request_ref
+                    and final_decision.capability_ref == SEARXNG_SEARCH_CAPABILITY_REF
+                    and final_decision.provider_ref == SEARXNG_SEARCH_PROVIDER_REF
+                    and final_decision.adapter_ref == SEARXNG_SEARCH_ADAPTER_REF
+                    and final_decision.authority_decision_ref is not None
+                    and final_decision.approval_decision_ref is not None
+                )
+                if (
+                    not decision.allowed
+                    or request.request_id != self._search_request.request_ref
+                    or not invocation_scope_matches
+                ):
+                    code = (
+                        final_decision.blocker_codes[0]
+                        if final_decision.blocker_codes
+                        else "SEARXNG_FINAL_START_SCOPE_MISMATCH"
+                    )
+                    return _adapter_failure(
+                        code,
+                        False,
+                        final_invocation_decision=final_decision,
+                        blocked=True,
+                    )
+                live_transport = bool(
+                    getattr(self._transport, "real_world_transport_performed", False)
+                )
+                try:
+                    payload = self._transport(self._search_request)
+                    evidence = _normalize_search_results(
+                        payload,
+                        limit=self._search_request.max_results,
+                    )
+                except SearxngSearchTransportError as exc:
+                    return _adapter_failure(
+                        exc.code,
+                        exc.network_call_performed and live_transport,
+                        final_invocation_decision=final_decision,
+                    )
+                except Exception:  # noqa: BLE001 - boundary hides private detail.
+                    return _adapter_failure(
+                        "SEARXNG_TRANSPORT_FAILED",
+                        live_transport,
+                        final_invocation_decision=final_decision,
+                    )
 
         status = (
             WebProviderTransportStatus.succeeded
@@ -827,13 +1032,66 @@ class _SearxngSearchAdapter:
             "network_call_performed": live_transport,
             "raw_query_stored": False,
             "raw_provider_payload_stored": False,
+            "final_invocation_decision": final_decision.model_dump(mode="json"),
         }
 
 
-def _adapter_failure(code: str, network_call_performed: bool) -> Mapping[str, Any]:
-    return {
+@contextmanager
+def _safe_start_context(lock: ContextManager[None]) -> Iterator[bool]:
+    stack = ExitStack()
+    try:
+        stack.enter_context(lock)
+    except Exception:  # noqa: BLE001 - lock detail stays private.
+        stack.close()
+        yield False
+        return
+    try:
+        yield True
+    finally:
+        stack.close()
+
+
+def _final_start_failure_decision(
+    prior: CapabilityInvocationDecision,
+    blocker_code: str,
+) -> CapabilityInvocationDecision:
+    checked_at = utc_now()
+    payload = prior.model_dump(mode="python")
+    payload.update(
+        {
+            "decision_ref": stable_web_hybrid_ref(
+                "capability-invocation-decision-ref",
+                {
+                    "prior_ref": prior.decision_ref,
+                    "blocker_code": blocker_code,
+                    "checked_at": checked_at.isoformat(),
+                },
+            ),
+            "outcome": InvocationDecisionOutcome.blocked,
+            "evaluated_at": checked_at,
+            "blocker_codes": list(
+                dict.fromkeys((*prior.blocker_codes, blocker_code))
+            ),
+            "safe_summary": "Final-start evaluation failed closed before transport.",
+        }
+    )
+    return CapabilityInvocationDecision.model_validate(payload)
+
+
+def _adapter_failure(
+    code: str,
+    network_call_performed: bool,
+    *,
+    final_invocation_decision: CapabilityInvocationDecision | None = None,
+    blocked: bool = False,
+) -> Mapping[str, Any]:
+    payload: dict[str, Any] = {
         "allowed": False,
-        "status": WebProviderTransportStatus.failed.value,
+        "status": (
+            WebProviderTransportStatus.blocked.value
+            if blocked
+            else WebProviderTransportStatus.failed.value
+        ),
         "summary": "SearXNG search failed closed with no provider payload retained.",
         "reason_codes": (code,),
         "results": [],
@@ -842,6 +1100,11 @@ def _adapter_failure(code: str, network_call_performed: bool) -> Mapping[str, An
         "raw_query_stored": False,
         "raw_provider_payload_stored": False,
     }
+    if final_invocation_decision is not None:
+        payload["final_invocation_decision"] = final_invocation_decision.model_dump(
+            mode="json"
+        )
+    return payload
 
 
 def _normalize_search_results(
@@ -925,6 +1188,14 @@ def _exact_authority_resource_refs(
     return (
         request.request_ref,
         request.task_ref,
+        request.mission_ref,
+        request.run_ref,
+        request.idempotency_ref,
+        request.request_fingerprint_ref,
+        stable_web_hybrid_ref(
+            "start-deadline-ref",
+            {"start_deadline": request.start_deadline.isoformat()},
+        ),
         SEARXNG_SEARCH_CAPABILITY_REF,
         SEARXNG_SEARCH_PROVIDER_REF,
         SEARXNG_SEARCH_ADAPTER_REF,
@@ -936,6 +1207,8 @@ def _decision_has_exact_resource_scope(
     decision: AuthorityPolicyDecision,
     leases: Sequence[AuthorityLease],
     exact_resource_refs: tuple[str, ...],
+    *,
+    mission_ref: str,
 ) -> bool:
     if not decision.lease_ref:
         return False
@@ -943,6 +1216,11 @@ def _decision_has_exact_resource_scope(
         (item for item in leases if item.lease_ref == decision.lease_ref), None
     )
     if lease is None:
+        return False
+    if (
+        lease.scope != AuthorityLeaseScope.mission.value
+        or lease.mission_ref != mission_ref
+    ):
         return False
     required = set(exact_resource_refs)
     for constraint in lease.authority_constraints:
@@ -1011,6 +1289,11 @@ def _transport_receipt(
             },
         ),
         request_ref=request.request_ref,
+        mission_ref=request.mission_ref,
+        run_ref=request.run_ref,
+        request_fingerprint_ref=request.request_fingerprint_ref,
+        start_deadline=request.start_deadline,
+        final_start_validated_at=invocation_decision.evaluated_at,
         provider_ref=SEARXNG_SEARCH_PROVIDER_REF,
         deployment=WebProviderDeploymentKind.searxng_self_hosted,
         operation=WebProviderOperation.search,

@@ -549,6 +549,32 @@ describe("loadControlCenterData summary endpoint wiring", () => {
     expect(data.founderMemoryContextManifest.governed_context).toBeUndefined();
     expect(data.connection.warnings).toContain("PARTIAL_MOCK_FALLBACK");
   });
+
+  it("rejects unsafe web research aggregation posture", async () => {
+    const routeData = baseRouteData();
+    const capabilitySurface = routeData[
+      API_ENDPOINTS.controlCenterCapabilitySurface
+    ] as typeof mockControlCenterData.capabilitySurface;
+    routeData[API_ENDPOINTS.controlCenterCapabilitySurface] = {
+      ...capabilitySurface,
+      web_hybrid: {
+        ...capabilitySurface.web_hybrid,
+        research_aggregation: {
+          ...capabilitySurface.web_hybrid.research_aggregation,
+          raw_page_content_persisted: true,
+        },
+      },
+    };
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(
+      data.capabilitySurface.web_hybrid.research_aggregation
+        .raw_page_content_persisted,
+    ).toBe(false);
+    expect(data.connection.warnings).toContain("PARTIAL_MOCK_FALLBACK");
+  });
 });
 
 function baseRouteData(): Record<string, unknown> {

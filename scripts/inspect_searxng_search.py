@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
 import sys
@@ -137,6 +137,10 @@ def main(argv: list[str] | None = None) -> int:
         request = SearxngSearchRequest(
             request_ref=args.request_ref,
             task_ref=args.task_ref,
+            mission_ref="mission-ref:web-search:cli-inspection",
+            run_ref="run-ref:web-search:cli-inspection",
+            idempotency_ref="idempotency-ref:web-search:cli-inspection",
+            start_deadline=now + timedelta(minutes=1),
             approval_ref=args.approval_ref,
             query=args.query,
             expected_execution_receipt_ref=(

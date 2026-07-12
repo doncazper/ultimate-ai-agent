@@ -12468,7 +12468,7 @@ describe("Web Control Center shell", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "lane-ref:web-evidence:allowlisted-https-get-through-web-access-gateway",
+        /lane-ref:web-evidence:allowlisted-https-get-through-web-access-gateway/,
       ),
     ).toBeInTheDocument();
     expect(

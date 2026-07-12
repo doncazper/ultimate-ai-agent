@@ -49,7 +49,7 @@ from .hybrid_router import simulate_hybrid_route
 
 
 class HybridMarkdownExecutionRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+    model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
 
     request_ref: str
     idempotency_ref: str
@@ -82,6 +82,12 @@ class HybridMarkdownExecutionRequest(BaseModel):
             or self.local_request.allowed_domains != self.cloud_request.allowed_domains
         ):
             raise ValueError("HYBRID_CHILD_TARGET_SCOPE_MISMATCH")
+        if (
+            self.local_request.mission_ref != self.cloud_request.mission_ref
+            or self.local_request.run_ref != self.cloud_request.run_ref
+            or self.local_request.start_deadline != self.cloud_request.start_deadline
+        ):
+            raise ValueError("HYBRID_CHILD_EXECUTION_SCOPE_MISMATCH")
         return self
 
 
@@ -334,11 +340,26 @@ def execute_hybrid_firecrawl_markdown(
     cloud_scrape_transport: CloudScrapeTransport,
     cloud_credit_transport: CreditTransport,
     target_validator: TargetValidator,
+    local_state_provider: Callable[[], WebProviderCapabilityState] | None = None,
+    local_authority_leases_provider: Callable[[], Sequence[AuthorityLease]]
+    | None = None,
+    before_local_final_start: Callable[[], None] | None = None,
     before_fallback: Callable[[], None] | None = None,
     cloud_state_provider: Callable[[], WebProviderCapabilityState] | None = None,
+    credit_snapshot_provider: Callable[[], WebProviderCreditSnapshot] | None = None,
+    cloud_authority_leases_provider: Callable[[], Sequence[AuthorityLease]]
+    | None = None,
+    before_cloud_final_start: Callable[[], None] | None = None,
+    trusted_clock: Callable[[], datetime] | None = None,
     evaluated_at: datetime | None = None,
 ) -> HybridMarkdownExecutionResult:
-    now = _aware(evaluated_at or datetime.now(timezone.utc))
+    initial_time_source = (
+        (lambda: evaluated_at)
+        if evaluated_at is not None
+        else (trusted_clock or (lambda: datetime.now(timezone.utc)))
+    )
+    final_time_source = trusted_clock or (lambda: datetime.now(timezone.utc))
+    now = _aware(initial_time_source())
     replay = execution_ledger.replay_or_conflict(request)
     if replay is not None:
         return replay
@@ -350,6 +371,10 @@ def execute_hybrid_firecrawl_markdown(
         authority_leases=local_authority_leases,
         transport=local_transport,
         target_validator=target_validator,
+        capability_state_provider=local_state_provider,
+        authority_leases_provider=local_authority_leases_provider,
+        before_final_start=before_local_final_start,
+        trusted_clock=final_time_source,
         evaluated_at=now,
     )
     first_outcome = classify_local_firecrawl_outcome(local_result)
@@ -399,13 +424,45 @@ def execute_hybrid_firecrawl_markdown(
     ):
         if before_fallback is not None:
             before_fallback()
+        fallback_now = _aware(final_time_source())
         current_cloud_state = (
             cloud_state_provider() if cloud_state_provider else cloud_capability_state
         )
+        current_credit_snapshot = (
+            credit_snapshot_provider()
+            if credit_snapshot_provider
+            else credit_snapshot
+        )
+        current_circuit = cloud_circuit.inspect()
+        routing = simulate_hybrid_route(
+            request_ref=request.request_ref,
+            operation=WebProviderOperation.scrape_markdown,
+            policy=request.policy,
+            capability_states=(local_capability_state, current_cloud_state),
+            first_attempt_outcome=first_outcome,
+            cloud_snapshot=current_credit_snapshot,
+            cloud_safety_reserve_credits=request.cloud_request.safety_reserve_credits,
+            cloud_circuit_state=current_circuit.state,
+            now=fallback_now,
+        )
+        if (
+            current_circuit.state != WebProviderCircuitState.closed
+            or routing.fallback_deployment
+            != WebProviderDeploymentKind.firecrawl_cloud
+        ):
+            result = _hybrid_result(
+                request=request,
+                routing=routing,
+                first_outcome=first_outcome,
+                local_result=local_result,
+                cloud_result=None,
+            )
+            execution_ledger.record(request, result)
+            return result
         cloud_result = execute_firecrawl_cloud_markdown(
             request.cloud_request,
             capability_state=current_cloud_state,
-            credit_snapshot=credit_snapshot,
+            credit_snapshot=current_credit_snapshot,
             ledger=credit_ledger,
             credential=credential,
             approval_authority=cloud_approval_authority,
@@ -413,11 +470,16 @@ def execute_hybrid_firecrawl_markdown(
             scrape_transport=cloud_scrape_transport,
             credit_transport=cloud_credit_transport,
             target_validator=target_validator,
-            evaluated_at=now,
+            capability_state_provider=cloud_state_provider,
+            credit_snapshot_provider=credit_snapshot_provider,
+            authority_leases_provider=cloud_authority_leases_provider,
+            before_final_start=before_cloud_final_start,
+            trusted_clock=final_time_source,
+            evaluated_at=fallback_now,
         )
         cloud_outcome = classify_cloud_firecrawl_outcome(cloud_result)
         if cloud_outcome != WebProviderAttemptOutcome.succeeded:
-            cloud_circuit.record_failure(cloud_outcome, now=now)
+            cloud_circuit.record_failure(cloud_outcome, now=fallback_now)
 
     result = _hybrid_result(
         request=request,
@@ -538,6 +600,8 @@ def _hybrid_result(
         )
     )
     status = selected_result.status
+    if cloud_result is None and routing.blocker_codes and not succeeded:
+        status = WebProviderTransportStatus.blocked
     evidence = selected_result.evidence if succeeded else None
     return HybridMarkdownExecutionResult(
         request_ref=request.request_ref,
@@ -570,16 +634,7 @@ def _hybrid_result(
 def _hybrid_fingerprint(request: HybridMarkdownExecutionRequest) -> str:
     return stable_web_hybrid_ref(
         "hybrid-request-fingerprint-ref",
-        {
-            "request_ref": request.request_ref,
-            "idempotency_ref": request.idempotency_ref,
-            "policy": request.policy.value,
-            "target_source_ref": request.local_request.target_source_ref,
-            "local_request_ref": request.local_request.request_ref,
-            "cloud_request_ref": request.cloud_request.request_ref,
-            "cloud_routing_ref": request.cloud_request.routing_decision_ref,
-            "max_attempts": request.max_attempts,
-        },
+        request.model_dump(mode="json"),
     )
 
 

@@ -24,6 +24,9 @@ def render_summary(payload: Mapping[str, Any]) -> str:
         f"Current credits: {payload['current_credit_snapshot_status']}",
         f"Cloud circuit: {payload['circuit_state']}",
         f"UAA cloud concurrency: {payload['uaa_effective_cloud_concurrency']}",
+        f"Research aggregation: {payload['research_aggregation']['status']}",
+        f"Current citations: {payload['research_aggregation']['current_citation_count']}",
+        "Final start: fresh approval, mission lease, request fingerprint, deadline, readiness, target, and budget evaluation required",
         "",
         "Capability lanes",
     ]
@@ -40,6 +43,7 @@ def render_summary(payload: Mapping[str, Any]) -> str:
         [
             "",
             "External content is untrusted evidence, never instructions or authority.",
+            "Cited aggregation uses deterministic injected observations and exposes provider readiness, cost, latency, context, routing, exclusions, and redaction posture.",
             "This inspection performs no runtime probe, provider call, or credit reconciliation.",
             "Paid usage, cloud-first routing, Keyless, browser actions, memory writes, and context injection remain denied.",
         ]
