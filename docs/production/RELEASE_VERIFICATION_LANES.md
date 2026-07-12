@@ -103,9 +103,18 @@ serialized report-only Foundation Gate summary with `--no-write-latest`.
 `VERIFY_DEV_FAST_JOBS` bounds top-level phases and `PYTEST_SHARD_WORKERS`
 separately bounds pytest subprocesses. It is useful local evidence, but it does
 not create populated release evidence packets or claim release readiness.
-Hosted CI proves pytest equivalence with eight isolated timing-balanced shards
+CI proves pytest equivalence with eight isolated timing-balanced shards
 and a stable aggregate `pytest` check; `make verify` runs the same complete
 pytest posture plus the release-grade local gate sequence.
+
+The current private-repository workflow schedules those named jobs only on the
+repo-scoped self-hosted Apple Silicon runner pool described in
+`docs/developer/SELF_HOSTED_MACOS_CI.md`. This preserves the named lane and
+eight-shard evidence contract without consuming GitHub-hosted runner minutes.
+Fork pull requests cannot schedule local jobs, the workflow token is read-only,
+checkout credentials are not persisted, and GitHub Actions caches and uploaded
+artifacts are intentionally absent. Self-hosting changes only CI compute; it
+does not grant runtime authority or imply release readiness.
 
 `verify-dev-sharded` and `verify-local` expose the readable local/dev runner. It uses
 `scripts/verification/run_dev_fast_gate.py` to run `ruff`, sharded pytest,
