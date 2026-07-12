@@ -136,10 +136,6 @@ def _activate_workspace_execute_authority(
         },
         json={
             "lease_issue_request": payload,
-            "approved_by_actor_ref": "operator-ref:test-runtime-authority",
-            "approval_safe_summary": (
-                "Approve exact governed runtime workspace command authority."
-            ),
         },
     )
     assert response.status_code == 200

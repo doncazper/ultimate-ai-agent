@@ -14,6 +14,7 @@ from ultimate_ai_agent.core.hygiene.envelopes import (
     Severity,
 )
 from ultimate_ai_agent.core.authority import (
+    AUTHORITY_LEASE_LOCAL_OPERATOR_REF,
     AuthorityActionRequest,
     AuthorityLeaseApproveAndIssueRequest,
     AuthorityLeaseConflictError,
@@ -1472,12 +1473,14 @@ def post_api_runtime_authority_lease_approve_and_issue(
     ),
 ) -> ResultEnvelope:
     idempotency_ref = _idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
-    lease_request = request.lease_issue_request
+    lease_request = request.lease_issue_request.model_copy(
+        update={"operator_ref": AUTHORITY_LEASE_LOCAL_OPERATOR_REF}
+    )
     approval_requirement, approval_grant = (
         build_authority_lease_operator_approval_grant(
             lease_request,
             idempotency_ref=idempotency_ref,
-            approved_by_actor_id=request.approved_by_actor_ref,
+            approved_by_actor_id=AUTHORITY_LEASE_LOCAL_OPERATOR_REF,
         )
     )
     if approval_grant is not None:

@@ -832,6 +832,9 @@ class WebHybridAvailabilityReadModel(_CapabilityAvailabilityModel):
         "implemented_runtime_observation_required"
     )
     cli_ref: str = "repo-local-command:inspect-web-hybrid-status"
+    cli_path: Literal["scripts/inspect_web_hybrid_status.py"] = (
+        "scripts/inspect_web_hybrid_status.py"
+    )
     lanes: list[WebHybridCapabilityLanePosture]
     research_aggregation: WebResearchAggregationPosture
     routing_policy: Literal["self_host_first_cloud_escalation"] = (

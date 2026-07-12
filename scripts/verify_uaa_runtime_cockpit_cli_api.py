@@ -4,6 +4,8 @@ from __future__ import annotations
 import contextlib
 import io
 import json
+import shlex
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -14,6 +16,8 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
 from scripts.dev import uaa_founder_loop  # noqa: E402
+from ultimate_ai_agent.api.app import app  # noqa: E402
+from ultimate_ai_agent.api.manifest import build_api_manifest  # noqa: E402
 from ultimate_ai_agent.core.control_center.agent_loop import (  # noqa: E402
     AGENT_LOOP_COCKPIT_PARITY_CONTRACT_REF,
 )
@@ -42,6 +46,9 @@ REQUIRED_SURFACES = {
 
 def main() -> int:
     failures: list[str] = []
+    manifest_routes = {
+        f"{route.method} {route.path}" for route in build_api_manifest(app).routes
+    }
 
     with tempfile.TemporaryDirectory(prefix="uaa-cockpit-parity-") as temp:
         state_dir = Path(temp) / "founder-loop"
@@ -56,6 +63,7 @@ def main() -> int:
                     "--state-dir",
                     str(state_dir),
                     "inspect-cockpit-parity",
+                    "--json",
                     "--limit",
                     "20",
                 ]
@@ -97,10 +105,34 @@ def main() -> int:
             failures.append(f"{row.get('surface')} row missing backend truth")
         if row.get("mutation_enabled") is not False:
             failures.append(f"{row.get('surface')} row enabled mutation")
-        if not str(row.get("backend_route_ref") or "").startswith("GET "):
+        backend_route_ref = str(row.get("backend_route_ref") or "")
+        if not backend_route_ref.startswith("GET "):
             failures.append(f"{row.get('surface')} row missing backend route ref")
-        if not str(row.get("cli_ref") or "").startswith("scripts/dev/"):
+        elif backend_route_ref not in manifest_routes:
+            failures.append(
+                f"{row.get('surface')} row route is absent from the API manifest"
+            )
+        cli_ref = str(row.get("cli_ref") or "")
+        cli_parts = shlex.split(cli_ref)
+        if not cli_parts or not cli_parts[0].startswith("scripts/"):
             failures.append(f"{row.get('surface')} row missing CLI ref")
+        else:
+            cli_path = ROOT / cli_parts[0]
+            if not cli_path.is_file():
+                failures.append(f"{row.get('surface')} row CLI path does not exist")
+            elif len(cli_parts) > 1:
+                check = subprocess.run(
+                    [sys.executable, str(cli_path), *cli_parts[1:], "--help"],
+                    cwd=ROOT,
+                    capture_output=True,
+                    text=True,
+                    timeout=15,
+                    check=False,
+                )
+                if check.returncode != 0:
+                    failures.append(
+                        f"{row.get('surface')} row CLI command is not registered"
+                    )
         if not row.get("safe_action"):
             failures.append(f"{row.get('surface')} row missing safe action text")
 
@@ -111,6 +143,8 @@ def main() -> int:
         failures.append("cockpit parity CLI command ref drifted")
     if cli_matrix.get("contract_ref") != AGENT_LOOP_COCKPIT_PARITY_CONTRACT_REF:
         failures.append("cockpit parity CLI contract ref drifted")
+    if cli_matrix != matrix:
+        failures.append("cockpit parity API and CLI matrices drifted")
     if cli_payload.get("safe_refs_only") is not True:
         failures.append("cockpit parity CLI safe refs flag missing")
     if cli_payload.get("raw_content_omitted") is not True:

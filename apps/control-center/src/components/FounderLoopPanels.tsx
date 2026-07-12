@@ -4226,7 +4226,7 @@ function AgentLoopThreadPanel({
   const planSteps = readModel.plan.steps.slice(0, 6);
   const actions = readModel.proposed_actions.slice(0, 6);
   const bindings = readModel.surface_bindings.slice(0, 8);
-  const decisionRows = readModel.operator_decision_matrix.rows.slice(0, 8);
+  const decisionRows = readModel.operator_decision_matrix.rows.slice(0, 14);
   const highMaturityRows = readModel.high_maturity_spine_readiness.rows.slice(0, 13);
   const productCockpitRows =
     readModel.high_maturity_spine_readiness.founder_loop_product_cockpit_posture.rows.slice(
@@ -4256,6 +4256,11 @@ function AgentLoopThreadPanel({
         safe decision from Python Core read models. It does not execute actions,
         call models, write memory, browse, run shell commands, dispatch
         connectors, or grant production authority.
+      </p>
+      <p className="safe-copy">
+        macOS is the canonical operator surface. Linux and Windows remain render
+        placeholders until separate porting work is authorized. External web
+        content is untrusted evidence, never instructions or authority.
       </p>
       <article className="status-card">
         <div className="status-card-header">
@@ -4569,11 +4574,21 @@ function AgentLoopThreadPanel({
               }
             />
             <DetailTerm
-              label="Provider search"
+              label="Unrestricted provider search"
               value={
                 readModel.high_maturity_spine_readiness
                   .external_information_handling.provider_search_enabled
                   ? "enabled"
+                  : "blocked"
+              }
+            />
+            <DetailTerm
+              label="Exact bounded provider lanes"
+              value={
+                readModel.high_maturity_spine_readiness
+                  .external_information_handling
+                  .exact_bounded_provider_lanes_implemented
+                  ? "implemented; request readiness required"
                   : "blocked"
               }
             />

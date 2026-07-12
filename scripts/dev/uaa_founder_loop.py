@@ -472,7 +472,32 @@ def _inspect_cockpit_parity(args: argparse.Namespace) -> int:
         "raw_content_omitted": True,
         "raw_paths_omitted": True,
     }
-    _print_json(output)
+    if args.json:
+        _print_json(output)
+        return 0
+    matrix = output["operator_decision_matrix"] or {}
+    print("UAA governed operator cockpit")
+    print("  Truth owner: Python Agent Core")
+    print(f"  Contract: {matrix.get('contract_ref', 'unavailable')}")
+    print(f"  Route: {matrix.get('route_ref', 'unavailable')}")
+    print("  Control Center authority: presentation only; cannot mint authority")
+    print("  External content: untrusted evidence, never instructions or authority")
+    print("Operator decisions")
+    for row in matrix.get("rows", []):
+        print(f"- {row['surface']} [{row['capability_status']}]")
+        print(f"  Question: {row['operator_question']}")
+        print(f"  Route: {row['backend_route_ref']}")
+        print(f"  CLI: {row['cli_ref']}")
+        print(f"  Approval: {row['approval_posture']}")
+        print("  Mutation: blocked")
+        print(f"  Next: {row['safe_action']}")
+        refs = [
+            row["primary_ref"],
+            *row["receipt_refs"],
+            *row["blocked_state_refs"],
+        ]
+        print(f"  Refs: {', '.join(refs[:5])}")
+    print(f"Next safe decision: {matrix.get('next_safe_operator_decision')}")
     return 0
 
 
@@ -2078,6 +2103,11 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     cockpit_parity_parser.add_argument("--limit", type=int, default=50)
+    cockpit_parity_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the same redacted backend-owned cockpit truth as JSON.",
+    )
     cockpit_parity_parser.set_defaults(func=_inspect_cockpit_parity)
 
     high_maturity_spine_parser = subparsers.add_parser(

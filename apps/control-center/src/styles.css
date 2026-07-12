@@ -4563,8 +4563,7 @@ th {
   box-shadow: 0 10px 28px rgba(15, 23, 42, 0.04);
 }
 
-.coding-detail-tile,
-.coding-authority-select {
+.coding-detail-tile {
   display: grid;
   gap: 4px;
   min-width: 0;
@@ -4575,7 +4574,6 @@ th {
 }
 
 .coding-detail-tile span,
-.coding-authority-select span,
 .coding-ref-stack > span {
   color: var(--fcc-muted);
   font-size: 0.66rem;
@@ -4583,20 +4581,12 @@ th {
   text-transform: uppercase;
 }
 
-.coding-detail-tile strong,
-.coding-authority-select select {
+.coding-detail-tile strong {
   min-width: 0;
   color: #111827;
   font-size: 0.78rem;
   font-weight: 760;
   overflow-wrap: anywhere;
-}
-
-.coding-authority-select select {
-  width: 100%;
-  min-height: 30px;
-  border: 0;
-  background: transparent;
 }
 
 .coding-grid {
@@ -4717,28 +4707,10 @@ th {
   line-height: 1.4;
 }
 
-.coding-action-row {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
-}
-
 .coding-bottom-drawer {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
-}
-
-.coding-disabled-action {
-  min-height: 32px;
-  width: 100%;
-  border: 1px dashed #cbd5e1;
-  border-radius: 7px;
-  background: #f8fafc;
-  color: #64748b;
-  cursor: not-allowed;
-  font-size: 0.76rem;
-  font-weight: 760;
 }
 
 .coding-ref-stack {
@@ -5394,7 +5366,6 @@ th {
   .coding-grid,
   .coding-bottom-drawer,
   .coding-boundary-strip,
-  .coding-action-row,
   .crm-command-layout,
   .crm-pipeline {
     grid-template-columns: 1fr;

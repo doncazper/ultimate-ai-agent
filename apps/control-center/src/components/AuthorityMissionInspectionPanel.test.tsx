@@ -323,6 +323,18 @@ describe("AuthorityMissionInspectionPanel", () => {
     expect(within(panel).getByText("Mission completion evidence")).toBeInTheDocument();
     expect(within(panel).getByText("review required, recall only")).toBeInTheDocument();
     expect(within(panel).getAllByText(/content-free hash chain/)).toHaveLength(1);
+    expect(within(panel).getByText("Mission budget settlement")).toBeInTheDocument();
+    expect(within(panel).getByText("budget-reservation-ref:panel")).toBeInTheDocument();
+    expect(within(panel).getByText("1 actual / 1 reserved")).toBeInTheDocument();
+    expect(within(panel).getByText("0 actual / 0 reserved microusd")).toBeInTheDocument();
+    expect(
+      within(panel).getByText("Completion unresolved cost").closest("div"),
+    ).toHaveTextContent("no");
+    expect(
+      within(panel).getByText(/active unresolved-cost posture is not exposed/i),
+    ).toBeInTheDocument();
+    expect(within(panel).getByLabelText("Budget receipts")).toBeInTheDocument();
+    expect(within(panel).getByText("budget-settlement-receipt-ref:panel")).toBeInTheDocument();
     expect(within(panel).getByText(/Completion chain: local SHA-256 verified/)).toBeInTheDocument();
     expect(within(panel).getByText(/Portable evidence: verified local hash chain/)).toBeInTheDocument();
     expect(within(panel).getByText(/Source records bound: yes/)).toBeInTheDocument();

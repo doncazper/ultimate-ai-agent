@@ -5024,8 +5024,8 @@ def _verify_control_center_operator_shell_gap_map(root: Path) -> list[str]:
             "| `local_dev_workspace_only` |"
         ),
         "gap map must include visible action map": "## visible action map",
-        "gap map must call out local file review buttons": (
-            "updates local component state for review-only display"
+        "gap map must call out removed local file review buttons": (
+            "web panel exposes no approve/deny control and never synthesizes persisted state"
         ),
         "gap map must include first product loop gaps": "## first product loop gaps",
         "gap map must include product language rules": "## product language rules",

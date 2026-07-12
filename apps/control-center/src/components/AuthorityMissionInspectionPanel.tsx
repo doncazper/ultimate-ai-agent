@@ -275,6 +275,52 @@ export function AuthorityMissionInspectionPanel({
                     <dd>review required, recall only</dd>
                   </div>
                 </dl>
+                {manifest.budget_bindings.map((binding) => (
+                  <div className="detail-panel compact" key={binding.reservation_ref}>
+                    <strong>Mission budget settlement</strong>
+                    <dl className="metadata-list">
+                      <div>
+                        <dt>Reservation</dt>
+                        <dd>{binding.reservation_ref}</dd>
+                      </div>
+                      <div>
+                        <dt>Settlement</dt>
+                        <dd>{binding.settlement_status}</dd>
+                      </div>
+                      <div>
+                        <dt>Operations</dt>
+                        <dd>
+                          {binding.actual_operation_count} actual /{" "}
+                          {binding.reserved_operation_count} reserved
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Cost</dt>
+                        <dd>
+                          {binding.actual_cost_microusd} actual /{" "}
+                          {binding.reserved_cost_microusd} reserved microusd
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Completion unresolved cost</dt>
+                        <dd>{binding.unresolved_cost ? "yes — blocked" : "no"}</dd>
+                      </div>
+                    </dl>
+                    <SafeRefList
+                      label="Budget receipts"
+                      refs={[
+                        binding.reserve_receipt_ref,
+                        binding.start_receipt_ref,
+                        binding.settlement_receipt_ref,
+                        binding.actual_cost_ref,
+                      ]}
+                    />
+                    <p className="muted">
+                      This completion binding reports terminal settlement only;
+                      active unresolved-cost posture is not exposed by this panel.
+                    </p>
+                  </div>
+                ))}
                 <SafeRefList
                   label="Completion evidence"
                   refs={[manifest.entry_hash_ref, manifest.memory_candidate_ref]}

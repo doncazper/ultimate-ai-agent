@@ -603,12 +603,12 @@ M36_FILE_REVIEW_BOUNDARY_MARKERS = [
     "Redaction summary",
     "Exact binding refs",
     "Safe refs only",
-    "Only the review approval capture route may persist safe refs",
+    "backend review approval capture route exists but is not exposed or wired",
     "Approval gate contract status",
     "Receipt plan metadata",
     "Approve review-only",
     "Deny review-only",
-    "does not grant raw file access",
+    "grants no raw file access",
 ]
 
 M36_FILE_REVIEW_MOCK_MARKERS = [

@@ -79,6 +79,15 @@ def test_completion_api_and_cli_expose_the_same_backend_owned_truth(
     assert "Portable source records bound: true" in cli_output
     assert "Cryptographic signing: blocked" in cli_output
     assert "Authenticity or external anchoring verified: false" in cli_output
+    budget_binding = envelope.data["latest_manifests"][0]["budget_bindings"][0]
+    assert budget_binding["reservation_ref"] in cli_output
+    assert budget_binding["reserve_receipt_ref"] in cli_output
+    assert budget_binding["start_receipt_ref"] in cli_output
+    assert budget_binding["settlement_receipt_ref"] in cli_output
+    assert f"status={budget_binding['settlement_status']}" in cli_output
+    assert f"actual_ops={budget_binding['actual_operation_count']}" in cli_output
+    assert f"actual_microusd={budget_binding['actual_cost_microusd']}" in cli_output
+    assert "unresolved=false" in cli_output
 
     json_status = inspect(argparse.Namespace(state_dir=str(state_dir), json=True))
     json_output = json.loads(capsys.readouterr().out)
