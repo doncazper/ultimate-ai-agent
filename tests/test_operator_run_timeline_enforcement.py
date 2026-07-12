@@ -25,6 +25,11 @@ def _timeline(tmp_path: Path) -> dict:
     return repository.evidence_timeline()["operator_run_timeline"]
 
 
+@pytest.fixture(scope="module")
+def timeline_payload(tmp_path_factory: pytest.TempPathFactory) -> dict:
+    return _timeline(tmp_path_factory.mktemp("operator-run-timeline"))
+
+
 def test_inspect_operator_run_timeline_cli_outputs_redacted_json(
     tmp_path: Path,
 ) -> None:
@@ -54,14 +59,16 @@ def test_inspect_operator_run_timeline_cli_outputs_redacted_json(
     assert "provider_payload" not in result.stdout.lower()
 
 
-def test_operator_run_timeline_verifier_passes_seed_payload(tmp_path: Path) -> None:
-    assert verifier.verify(_timeline(tmp_path)) == []
+def test_operator_run_timeline_verifier_passes_seed_payload(
+    timeline_payload: dict,
+) -> None:
+    assert verifier.verify(timeline_payload) == []
 
 
 def test_operator_run_timeline_cost_usage_model_rejects_denied_content_flag(
-    tmp_path: Path,
+    timeline_payload: dict,
 ) -> None:
-    payload = copy.deepcopy(_timeline(tmp_path)["run_events"][0]["cost_usage"])
+    payload = copy.deepcopy(timeline_payload["run_events"][0]["cost_usage"])
     payload["prompt_content_stored"] = True
 
     with pytest.raises((ValidationError, ValueError)):
@@ -124,8 +131,10 @@ def test_cost_slot_claimed_frontier_usage_has_receipt_refs(
     }.issubset(set(slot["cost_receipt_refs"]))
 
 
-def test_verifier_fails_frontier_usage_without_cost_receipts(tmp_path: Path) -> None:
-    payload = copy.deepcopy(_timeline(tmp_path))
+def test_verifier_fails_frontier_usage_without_cost_receipts(
+    timeline_payload: dict,
+) -> None:
+    payload = copy.deepcopy(timeline_payload)
     cost_usage = payload["run_events"][0]["cost_usage"]
     cost_usage["frontier_usage_claimed"] = True
     cost_usage["cost_receipt_refs"] = []
@@ -136,9 +145,9 @@ def test_verifier_fails_frontier_usage_without_cost_receipts(tmp_path: Path) -> 
 
 
 def test_verifier_fails_unknown_paid_cost_without_approval_binding(
-    tmp_path: Path,
+    timeline_payload: dict,
 ) -> None:
-    payload = copy.deepcopy(_timeline(tmp_path))
+    payload = copy.deepcopy(timeline_payload)
     cost_usage = payload["run_events"][0]["cost_usage"]
     cost_usage["unknown_cost"] = True
     cost_usage["cost_state_label"] = "Unknown paid cost"
@@ -156,9 +165,9 @@ def test_verifier_fails_unknown_paid_cost_without_approval_binding(
 
 
 def test_verifier_fails_provider_model_authority_implied_without_scope(
-    tmp_path: Path,
+    timeline_payload: dict,
 ) -> None:
-    payload = copy.deepcopy(_timeline(tmp_path))
+    payload = copy.deepcopy(timeline_payload)
     payload["frontier_ai_usage_summary"]["provider_sdk_call_enabled"] = True
     payload["run_events"][0]["cost_usage"]["frontier_ai_routing_allowed"] = True
 
@@ -169,9 +178,9 @@ def test_verifier_fails_provider_model_authority_implied_without_scope(
 
 
 def test_verifier_fails_prompt_response_or_provider_exchange_content(
-    tmp_path: Path,
+    timeline_payload: dict,
 ) -> None:
-    payload = copy.deepcopy(_timeline(tmp_path))
+    payload = copy.deepcopy(timeline_payload)
     payload["run_events"][0]["cost_usage"]["response_content_stored"] = True
     payload["run_events"][0]["safe_summary"] = "raw response content was stored"
 

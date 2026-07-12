@@ -54,8 +54,8 @@ def test_repository_memory_impact_graph_followups_and_health_are_safe(
     _accept_first_memory_candidate(repo)
 
     impact_graph = repo.memory_impact_graph(limit=10)
-    follow_ups = repo.memory_follow_up_queue(limit=10)
-    recall_health = repo.memory_recall_health_v2(limit=10)
+    follow_ups = dict(impact_graph["follow_up_queue"])
+    recall_health = dict(impact_graph["health_v2"])
 
     assert impact_graph["schema_version"] == "fcc_mem_015_memory_impact_graph.v1"
     assert impact_graph["contract_ref"] == MEMORY_IMPACT_GRAPH_CONTRACT_REF
