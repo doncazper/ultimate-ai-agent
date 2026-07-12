@@ -877,6 +877,44 @@ class FounderLoopFilesystemMissionService:
         self._prepared: dict[str, _PreparedInternal] = {}
         self._lock = threading.RLock()
 
+    def prepared_proposal(
+        self,
+        proposal_ref: str,
+    ) -> FounderLoopMissionPrepared | None:
+        validate_task_ref(proposal_ref, "founder_loop_proposal_ref")
+        with self._lock:
+            internal = self._prepared.get(proposal_ref)
+        if internal is not None:
+            return internal.prepared
+        recovered_record = self._proposal_store.get_record(proposal_ref)
+        if recovered_record is None:
+            return None
+        self.prepare(recovered_record.request)
+        with self._lock:
+            internal = self._prepared.get(proposal_ref)
+        return internal.prepared if internal is not None else None
+
+    def prepared_request(
+        self,
+        proposal_ref: str,
+    ) -> FounderLoopFilesystemMissionRequest | None:
+        validate_task_ref(proposal_ref, "founder_loop_proposal_ref")
+        record = self._proposal_store.get_record(proposal_ref)
+        return record.request if record is not None else None
+
+    def prepared_approval_request(
+        self,
+        proposal_ref: str,
+    ) -> ApprovalRequest | None:
+        self.prepared_proposal(proposal_ref)
+        with self._lock:
+            internal = self._prepared.get(proposal_ref)
+        return (
+            internal.approval_request.model_copy(deep=True)
+            if internal is not None
+            else None
+        )
+
     def prepare(
         self,
         request: FounderLoopFilesystemMissionRequest,

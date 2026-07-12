@@ -28,7 +28,7 @@
     "same_key_conflicting_payload": "required_future_reject_conflict",
     "evidence_requirement_ref": "receipt-backed append-first route-owner storage"
   },
-  "current_mutating_route_count": 54,
+  "current_mutating_route_count": 58,
   "current_mutating_routes": [
     {
       "method": "POST",
@@ -497,6 +497,58 @@
       "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
       "rate_limit_posture": "targeted_local_fixed_window",
       "rate_limit_group": "today_to_action_envelope"
+    },
+    {
+      "method": "POST",
+      "path": "/control-center/today/exact-action/approve",
+      "operation_id": "post_control_center_today_exact_action_approve",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mutating_requires_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "approval_posture": "required_before_mutation_authority",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_group": "founder_loop_exact_action"
+    },
+    {
+      "method": "POST",
+      "path": "/control-center/today/exact-action/execute",
+      "operation_id": "post_control_center_today_exact_action_execute",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mutating_requires_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "approval_posture": "required_before_mutation_authority",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_group": "founder_loop_exact_action"
+    },
+    {
+      "method": "POST",
+      "path": "/control-center/today/exact-action/prepare",
+      "operation_id": "post_control_center_today_exact_action_prepare",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mutating_requires_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "approval_posture": "required_before_mutation_authority",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_group": "founder_loop_exact_action"
+    },
+    {
+      "method": "POST",
+      "path": "/control-center/today/exact-action/source-review",
+      "operation_id": "post_control_center_today_exact_action_source_review",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mutating_requires_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "approval_posture": "required_before_mutation_authority",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_group": "founder_loop_exact_action"
     },
     {
       "method": "POST",

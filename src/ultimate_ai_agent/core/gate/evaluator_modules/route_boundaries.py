@@ -2220,6 +2220,15 @@ FOUNDER_LOOP_ACTION_ENVELOPE_ROUTES = frozenset(
         "/control-center/today/action-envelope",
     }
 )
+FOUNDER_LOOP_EXACT_ATTENTION_ROUTES = frozenset(
+    {
+        "/control-center/today/exact-action/{today_item_ref}/status",
+        "/control-center/today/exact-action/source-review",
+        "/control-center/today/exact-action/prepare",
+        "/control-center/today/exact-action/approve",
+        "/control-center/today/exact-action/execute",
+    }
+)
 FOUNDER_LOOP_CHAT_DURABLE_RECEIPT_ROUTES = frozenset(
     {
         "/control-center/chat/turns",
@@ -2298,6 +2307,7 @@ FOUNDER_LOOP_CONTROL_CENTER_ROUTES = (
     )
     | FOUNDER_LOOP_ACTION_DECISION_ROUTES
     | FOUNDER_LOOP_ACTION_ENVELOPE_ROUTES
+    | FOUNDER_LOOP_EXACT_ATTENTION_ROUTES
     | FOUNDER_LOOP_CHAT_DURABLE_RECEIPT_ROUTES
     | FOUNDER_LOOP_MEMORY_REVIEW_DECISION_ROUTES
     | FOUNDER_LOOP_LOCAL_TASK_COMMIT_ROUTES
