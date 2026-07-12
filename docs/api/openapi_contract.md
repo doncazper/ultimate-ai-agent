@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `257`.
+Current OpenAPI path count: `258`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -563,7 +563,8 @@ Contract rules:
   `GET /control-center/memory/review/{candidate_ref}/receipt`,
   `POST /control-center/memory/review/{candidate_ref}/accept`,
   `POST /control-center/memory/review/{candidate_ref}/correct`,
-  `POST /control-center/memory/review/{candidate_ref}/reject`,
+  `POST /control-center/memory/review/{candidate_ref}/reject`, and
+  `POST /control-center/memory/review/{candidate_ref}/expire`,
   `GET /control-center/morning-briefing/summary`, and
   `GET /control-center/storage/status` expose storage-backed Founder Loop
   summaries plus Action Inbox and Chat receipts using SQLite and JSONL refs

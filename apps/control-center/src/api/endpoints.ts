@@ -133,6 +133,7 @@ export const MEMORY_REVIEW_DECISION_KINDS = [
   "defer",
   "merge",
   "supersede",
+  "expire",
   "forget_request",
 ] as const;
 

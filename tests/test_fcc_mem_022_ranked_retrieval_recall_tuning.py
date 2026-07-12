@@ -308,15 +308,11 @@ def test_feedback_receipts_tune_trust_and_power_inspection_models(
     assert replayed["replayed"] is True
 
     observations = repo.memory_observation_candidates(safe_query="feedback alpha")
-    assert observations["candidate_count"] >= 1
-    observation = observations["candidates"][0]
-    assert observation["proof_count"] >= 1
-    assert memory_record_ref in observation["supporting_memory_record_refs"]
-    assert observation["safe_summary"].startswith("Observation candidate for")
-    assert observation["hrr_enabled"] is False
+    assert observations["candidate_count"] == 0
+    assert observations["hrr_readiness"]["hrr_enabled"] is False
 
     probe = repo.memory_probe(entity_ref=memory_record_ref)
-    assert memory_record_ref in probe["reviewed_recall_refs"]
+    assert memory_record_ref not in probe["reviewed_recall_refs"]
     assert receipt["receipt_ref"] in probe["feedback_receipt_refs"]
     assert probe["counts"]["feedback"] == 1
     assert probe["hrr_readiness"]["algebraic_retrieval_enabled"] is False

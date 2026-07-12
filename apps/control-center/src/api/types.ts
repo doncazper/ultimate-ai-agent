@@ -3689,6 +3689,7 @@ export type MemoryReviewDecisionKind =
   | "defer"
   | "merge"
   | "supersede"
+  | "expire"
   | "forget_request";
 
 export interface MemoryReviewDecisionRequest {
@@ -3710,7 +3711,6 @@ export interface MemoryReviewDecisionReceipt {
   review_ref: string;
   decision: MemoryReviewDecisionKind;
   corrected_summary_ref?: string | null;
-  corrected_safe_summary?: string | null;
   source_refs: string[];
   evidence_refs: string[];
   reviewer_ref: string;
@@ -3730,6 +3730,7 @@ export interface MemoryReviewDecisionReceipt {
   defer_ref?: string | null;
   merge_ref?: string | null;
   supersede_ref?: string | null;
+  expire_ref?: string | null;
   forget_request_ref?: string | null;
   merge_refs?: string[];
   supersedes_refs?: string[];
@@ -3820,6 +3821,7 @@ export type FounderLoopMemoryLifecycleLaneId =
   | "corrected"
   | "merged"
   | "superseded"
+  | "expired"
   | "forget_requested";
 
 export interface FounderLoopMemoryLifecycleLane {
@@ -5991,6 +5993,8 @@ export interface FounderLoopMemoryContextManifestItem {
   citation_integrity_result_ref: string;
   risk_posture_ref: string;
   token_budget: number;
+  content_budget?: number;
+  actual_content_count?: number;
   token_estimate: number;
   cache_key_ref?: string;
   expires_at: string;
@@ -6055,6 +6059,72 @@ export interface FounderLoopMemoryContextManifest {
   public_beta_claim_authorized?: boolean;
   public_distribution_claim_authorized?: boolean;
   production_readiness_claim_authorized?: boolean;
+  production_authority_enabled: boolean;
+  governed_context_manifest_ref?: string;
+  governed_context_receipt_ref?: string;
+  governed_context_fingerprint_ref?: string;
+  governed_context?: GovernedMemoryContextManifest;
+}
+
+export interface GovernedMemoryContextBudget {
+  max_items: number;
+  max_tokens: number;
+  selected_items: number;
+  used_tokens: number;
+  capacity_excluded_items: number;
+  status: "available" | "constrained" | "exhausted";
+}
+
+export interface GovernedMemoryContextSelection {
+  memory_ref: string;
+  source_refs: string[];
+  evidence_refs: string[];
+  receipt_refs: string[];
+  inclusion_reason_refs: string[];
+  confidence_posture_ref: string;
+  freshness_posture_ref: string;
+  conflict_posture_ref: string;
+  sensitivity_posture_ref: string;
+  token_estimate: number;
+}
+
+export interface GovernedMemoryContextExclusion {
+  memory_ref: string;
+  reason_refs: string[];
+}
+
+export interface GovernedMemoryContextManifest {
+  schema_version: string;
+  contract_ref: string;
+  route_ref: string;
+  status: "ready_for_operator_preview" | "blocked_no_eligible_context";
+  context_manifest_ref: string;
+  manifest_fingerprint_ref: string;
+  context_receipt_ref: string;
+  context_receipt_status: "derived_preview_not_persisted";
+  query_ref: string;
+  source_index_generated_at: string;
+  source_scan_truncated: boolean;
+  candidate_count_complete: boolean;
+  checked_at: string;
+  expires_at: string;
+  budget: GovernedMemoryContextBudget;
+  candidate_count: number;
+  selection_count: number;
+  exclusion_count: number;
+  selections: GovernedMemoryContextSelection[];
+  exclusions: GovernedMemoryContextExclusion[];
+  blocked_state_refs: string[];
+  redaction_status: string;
+  preview_only: boolean;
+  context_injection_authorized: boolean;
+  automatic_memory_inclusion_authorized: boolean;
+  memory_truth_authority: boolean;
+  action_execution_authorized: boolean;
+  approval_authority_granted: boolean;
+  connector_write_authorized: boolean;
+  model_provider_authority_allowed: boolean;
+  raw_content_persisted: boolean;
   production_authority_enabled: boolean;
 }
 

@@ -266,8 +266,11 @@ FCC-MEM-022 adds ranked retrieval and recall tuning:
 - `GET /control-center/memory/probe`
 - `GET /control-center/memory/contradictions`
 
-Feedback is local, approval-bound, and idempotent. It can update trust,
-stale, or conflict posture for reviewed recall records only. It cannot create
+Feedback is local, idempotent, and bound to an exact LocalApprovalAuthority
+scope plus an active Memory/write AuthorityLease immediately before mutation.
+An append-first operation record binds the authority and request fingerprints
+for crash-safe replay. Feedback can update trust, stale, or conflict posture for
+reviewed recall records only. It cannot create
 recall records, delete/export memory, write connectors, inject context, execute
 actions, call providers/models, sync cloud memory, or grant production
 authority.
@@ -276,6 +279,32 @@ Observation candidates, probe results, and contradiction previews are read-only
 inspection models. They are not truth, automatic opinions, context packs ready
 for prompt injection, merge/forget actions, or authority to operate on external
 systems.
+
+## Runtime Capability Foundation Phase 03
+
+The existing L1-L3 pipeline now fails closed before context proposal building:
+inactive, deleted, revoked, stale, conflicting, expired, malformed, or unknown
+lifecycle posture is excluded with an exact safe reason ref. Corrections reuse
+one deterministic reviewed-recall lineage, so the latest governed correction
+replaces the active projection while prior receipt refs remain inspectable.
+
+`contract-ref:governed-memory-context-manifest:v1` extends the existing
+`GET /control-center/memory/context-manifest` response. It records only safe
+memory, source, evidence, receipt, exclusion, confidence, freshness, conflict,
+sensitivity, and budget refs. Item and estimated-capacity budgets reconcile
+exactly; over-budget refs are excluded rather than silently truncated into
+model context. Query, checked-at time, evidence bindings, scan completeness,
+and expiry are bound to the exact L1 snapshot; a truncated source scan blocks
+selection, and manifest expiry never exceeds the earliest selected-source
+expiry. The context receipt ref is a deterministic preview identifier, not a
+persisted durable receipt. The manifest is preview-only and cannot inject a
+prompt, mint an approval or lease, execute an action, or promote memory to
+truth.
+
+`scripts/benchmark_governed_memory_retrieval.py` runs a fixed-clock synthetic
+safe-ref benchmark for precision, recall, and stale/conflict exclusion
+correctness. Its result is content-free and repeatable; it stores no source
+bodies or prompts.
 
 ## Authority Boundary
 

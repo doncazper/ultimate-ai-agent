@@ -492,6 +492,63 @@ describe("loadControlCenterData summary endpoint wiring", () => {
       "AGENT_LOOP_THREAD_MOCK_FALLBACK",
     );
   });
+
+  it("rejects malformed governed memory context selections", async () => {
+    const routeData = baseRouteData();
+    const contextManifest = routeData[
+      API_ENDPOINTS.founderMemoryContextManifest
+    ] as Record<string, unknown>;
+    routeData[API_ENDPOINTS.founderMemoryContextManifest] = {
+      ...contextManifest,
+      governed_context: {
+        schema_version: "governed_memory_context_manifest.v1",
+        contract_ref: "contract-ref:governed-memory-context-manifest:v1",
+        route_ref: "GET /control-center/memory/context-manifest",
+        status: "ready_for_operator_preview",
+        context_manifest_ref: "context-manifest-ref:malformed",
+        manifest_fingerprint_ref: "fingerprint-ref:malformed",
+        context_receipt_ref: "receipt-ref:malformed",
+        context_receipt_status: "derived_preview_not_persisted",
+        query_ref: "query-ref:malformed",
+        checked_at: "2026-07-11T00:00:00Z",
+        source_index_generated_at: "2026-07-11T00:00:00Z",
+        expires_at: "2026-07-11T01:00:00Z",
+        source_scan_truncated: false,
+        candidate_count_complete: true,
+        budget: {
+          max_items: 1,
+          max_tokens: 10,
+          selected_items: 1,
+          used_tokens: 1,
+          capacity_excluded_items: 0,
+          status: "available",
+        },
+        candidate_count: 1,
+        selection_count: 1,
+        exclusion_count: 0,
+        selections: [{}],
+        exclusions: [],
+        blocked_state_refs: ["blocked-state:memory-context:no-authority"],
+        redaction_status: "safe_refs_only",
+        preview_only: true,
+        context_injection_authorized: false,
+        automatic_memory_inclusion_authorized: false,
+        memory_truth_authority: false,
+        action_execution_authorized: false,
+        approval_authority_granted: false,
+        connector_write_authorized: false,
+        model_provider_authority_allowed: false,
+        raw_content_persisted: false,
+        production_authority_enabled: false,
+      },
+    };
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.founderMemoryContextManifest.governed_context).toBeUndefined();
+    expect(data.connection.warnings).toContain("PARTIAL_MOCK_FALLBACK");
+  });
 });
 
 function baseRouteData(): Record<string, unknown> {

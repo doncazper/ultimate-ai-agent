@@ -62,6 +62,7 @@ def test_memory_review_decision_contract_covers_required_states() -> None:
         "defer",
         "merge",
         "supersede",
+        "expire",
         "forget_request",
     ]
     assert MEMORY_REVIEW_DECISION_REQUIRED_REF_FIELDS == [

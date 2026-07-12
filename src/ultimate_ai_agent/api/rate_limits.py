@@ -84,6 +84,7 @@ MEMORY_REVIEW_DECISION_SUFFIXES = (
     "/defer",
     "/merge",
     "/supersede",
+    "/expire",
     "/forget-request",
 )
 MEMORY_MANUAL_CANDIDATE_PATHS = {

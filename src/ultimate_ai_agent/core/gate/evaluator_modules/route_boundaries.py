@@ -2231,6 +2231,7 @@ FOUNDER_LOOP_MEMORY_REVIEW_DECISION_ROUTES = frozenset(
         "/control-center/memory/review/{candidate_ref}/accept",
         "/control-center/memory/review/{candidate_ref}/correct",
         "/control-center/memory/review/{candidate_ref}/defer",
+        "/control-center/memory/review/{candidate_ref}/expire",
         "/control-center/memory/review/{candidate_ref}/forget-request",
         "/control-center/memory/review/{candidate_ref}/merge",
         "/control-center/memory/review/{candidate_ref}/reject",
@@ -2647,7 +2648,6 @@ POST_MILESTONE_SAFE_ROUTE_FAMILIES = {
     "extension_disabled_install_record": EXTENSION_DISABLED_INSTALL_RECORD_ROUTES,
     "v1_local_model_gateway": M151_LOCAL_OPENWEBUI_TEST_ROUTES,
 }
-
 
 def post_milestone_safe_route_paths() -> set[str]:
     paths: set[str] = set()

@@ -2,14 +2,14 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `257`.
+Current OpenAPI path count: `258`.
 
 This inventory is generated from the FastAPI application and `/api/manifest`. It is the route ownership and side-effect classification map for the current local-first API boundary.
 
 ## Current Route Boundary
 
-- Manifest route operations: `258`
-- OpenAPI paths: `257`
+- Manifest route operations: `259`
+- OpenAPI paths: `258`
 - Production runtime authority: blocked
 - Public release authority: blocked
 
@@ -23,7 +23,7 @@ This inventory is generated from the FastAPI application and `/api/manifest`. It
 | `consent` | 2 | `consent` | `approval_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `context-budget` | 1 | `context` | `contracts_service` | future auth required | `validation_only`:1 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `contracts` | 2 | `contracts` | `contracts_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
-| `control-center` | 92 | `control-center` | `control_center_service` | local status or future auth per route | `governed_network_read_only`:2, `local_dev_workspace_only`:71, `validation_only`:19 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
+| `control-center` | 93 | `control-center` | `control_center_service` | local status or future auth per route | `governed_network_read_only`:2, `local_dev_workspace_only`:72, `validation_only`:19 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `cost-governor` | 3 | `cost-governor` | `cost_service` | future auth required | `validation_only`:3 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `extension-catalog` | 3 | `extension-catalog` | `extension_catalog_service` | future auth required | `local_dev_workspace_only`:2, `validation_only`:1 | medium | stable/generated from path; unique | status_available_not_completion |
 | `files` | 6 | `workspace-files` | `workspace_files_service` | future auth required and local safe refs | `local_dev_workspace_only`:6 | high | stable/generated from path; unique | partial_backend_not_product_ready |
@@ -192,6 +192,7 @@ validate the exact request-scoped authority boundary.
 | POST | `/control-center/memory/review/{candidate_ref}/accept` | `post_control_center_memory_review_candidate_ref_accept` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/control-center/memory/review/{candidate_ref}/correct` | `post_control_center_memory_review_candidate_ref_correct` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/control-center/memory/review/{candidate_ref}/defer` | `post_control_center_memory_review_candidate_ref_defer` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/control-center/memory/review/{candidate_ref}/expire` | `post_control_center_memory_review_candidate_ref_expire` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/control-center/memory/review/{candidate_ref}/forget-request` | `post_control_center_memory_review_candidate_ref_forget_request` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/control-center/memory/review/{candidate_ref}/merge` | `post_control_center_memory_review_candidate_ref_merge` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/memory/review/{candidate_ref}/receipt` | `get_control_center_memory_review_candidate_ref_receipt` | `local_dev_workspace_only` | no | future | yes |

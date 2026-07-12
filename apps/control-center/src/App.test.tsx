@@ -14796,8 +14796,11 @@ describe("Web Control Center shell", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        /Memory review can record safe accept, correction, reject, defer, merge, supersede, and forget-request receipts/i,
+        /Memory review can record safe accept, correction, reject, defer, merge, supersede, expiry, and forget-request receipts/i,
       ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Record expiry receipt/i }),
     ).toBeInTheDocument();
     expect(
       screen.getAllByText("memory-review:founder-loop-preferences").length,

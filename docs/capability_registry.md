@@ -293,6 +293,23 @@ closed at the new whole-plan single-lease preflight. They are not silently
 migrated or resumed; a future persisted-state migration must classify them as
 recovery-required before cross-version replay is supported.
 
+## Governed Memory Context And Lifecycle
+
+`GET /control-center/memory/context-manifest` includes the typed
+`contract-ref:governed-memory-context-manifest:v1` preview with exact
+included/excluded refs, freshness/conflict/sensitivity posture, content-free
+receipt and fingerprint refs, and reconciled item/capacity budgets. L1 recall
+excludes stale, conflicting, expired, inactive, malformed, or unknown lifecycle
+posture before L2/L3/context proposal derivation.
+
+Accept/correct writes use `lane-ref:memory-review-accept-correct`.
+Reject/merge/supersede/expire/forget-request use
+`lane-ref:memory-review-lifecycle-suppression` only when exact existing recall
+records must be suppressed; current approval, AuthorityLease, safe-disable, and
+exact record refs are re-evaluated before mutation. Context materialization,
+automatic memory truth, action authority, connector writes, provider/model
+calls, and hidden injection remain blocked.
+
 ## MCP And A2A Extension Points
 
 Use `manifest_from_mcp_tool_spec()` and `manifest_from_a2a_agent_card()` to convert external metadata into local manifests. These helpers do not create live remote dispatch, network access, provider calls, or plugin execution. MCP and A2A imports fail closed by default: unknown MCP tools and unknown A2A agents become blocked, review-required UAA capability candidates, not read-only or delegation-ready capabilities. A future adapter can be registered only after its manifest, policy, exact approval, receipt, replay, revocation, and authority boundary are reviewed.

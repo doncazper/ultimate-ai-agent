@@ -319,6 +319,7 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         "defer",
         "merge",
         "supersede",
+        "expire",
         "forget_request",
     ]
     assert today["memory_review_decision_required_ref_fields"] == [
@@ -1024,6 +1025,7 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         "defer",
         "merge",
         "supersede",
+        "expire",
         "forget_request",
     ]
     assert (

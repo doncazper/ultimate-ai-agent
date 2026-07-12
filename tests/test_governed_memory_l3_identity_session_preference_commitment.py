@@ -177,10 +177,10 @@ def test_l3_index_derives_from_l2_reviewed_refs_only(tmp_path: Path) -> None:
 
     assert l3_index["contract_ref"] == L3_IDENTITY_SESSION_MODELING_CONTRACT_REF
     assert l3_index["route_ref"] == L3_IDENTITY_SESSION_MODELING_ROUTE_REF
-    assert l3_index["source_l2_fact_count"] == 2
-    assert l3_index["source_l2_relation_count"] == 2
-    assert l3_index["source_l2_temporal_count"] == 2
-    assert l3_index["item_count"] == 2
+    assert l3_index["source_l2_fact_count"] == 1
+    assert l3_index["source_l2_relation_count"] == 1
+    assert l3_index["source_l2_temporal_count"] == 1
+    assert l3_index["item_count"] == 1
     assert l3_index["safe_refs_only"] is True
     assert l3_index["representation_proposal_only"] is True
     assert l3_index["deterministic_projection_only"] is True
@@ -192,7 +192,7 @@ def test_l3_index_derives_from_l2_reviewed_refs_only(tmp_path: Path) -> None:
     receipt_refs = {accept_receipt["receipt_ref"], correct_receipt["receipt_ref"]}
 
     kinds = {item["l3_kind"] for item in l3_index["items"]}
-    assert {"preference", "session"} <= kinds
+    assert kinds == {"session"}
     for item in l3_index["items"]:
         assert item["supporting_memory_record_refs"]
         assert item["supporting_l1_preview_refs"]

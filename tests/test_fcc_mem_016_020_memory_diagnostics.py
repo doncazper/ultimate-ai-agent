@@ -116,6 +116,21 @@ def test_fcc_mem_016_020_repository_read_models_are_safe(tmp_path: Path) -> None
     assert manifest["public_beta_claim_authorized"] is False
     assert manifest["public_distribution_claim_authorized"] is False
     assert manifest["production_readiness_claim_authorized"] is False
+    governed = manifest["governed_context"]
+    assert governed["contract_ref"] == (
+        "contract-ref:governed-memory-context-manifest:v1"
+    )
+    assert governed["context_manifest_ref"] == manifest[
+        "governed_context_manifest_ref"
+    ]
+    assert governed["context_receipt_ref"] == manifest[
+        "governed_context_receipt_ref"
+    ]
+    assert governed["budget"]["used_tokens"] <= governed["budget"]["max_tokens"]
+    assert governed["budget"]["selected_items"] == governed["selection_count"]
+    assert governed["context_injection_authorized"] is False
+    assert governed["memory_truth_authority"] is False
+    assert governed["raw_content_persisted"] is False
     for blocked_ref in MEMORY_CONTEXT_MANIFEST_BLOCKED_STATE_REFS:
         assert blocked_ref in manifest["blocked_state_refs"]
         assert blocked_ref in manifest["manifests"][0]["blocked_state_refs"]
@@ -302,6 +317,7 @@ def test_founder_loop_cli_memory_context_manifest_omits_raw_paths(
             "memory-context-manifest",
             "--limit",
             "5",
+            "--json",
         ],
         cwd=ROOT,
         env=env,
@@ -316,6 +332,33 @@ def test_founder_loop_cli_memory_context_manifest_omits_raw_paths(
     assert output["raw_paths_omitted"] is True
     assert output["context_manifest"]["schema_version"] == "fcc_mem_020_context_manifest.v1"
     assert str(state_dir) not in result.stdout
+
+
+def test_founder_loop_cli_memory_context_manifest_is_readable_by_default(
+    tmp_path: Path,
+) -> None:
+    env = os.environ.copy()
+    env["PYTHONPATH"] = "src"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/dev/uaa_founder_loop.py",
+            "--state-dir",
+            str(tmp_path / "cli-readable"),
+            "memory-context-manifest",
+            "--limit",
+            "5",
+        ],
+        cwd=ROOT,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+
+    assert result.stdout.startswith("Memory context manifest\n")
+    assert "Context injection: blocked (preview only)" in result.stdout
+    assert str(tmp_path) not in result.stdout
 
 
 def test_founder_loop_cli_memory_context_pack_preview_omits_raw_paths(

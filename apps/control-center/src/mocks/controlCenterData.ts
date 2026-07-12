@@ -76,7 +76,7 @@ import type {
 type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
 
 export const MOCK_OPENAPI_ROUTE_COUNT = 245;
-export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 92;
+export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 93;
 
 function runtimeToolRegistryEntry(
   slug: string,
@@ -20790,6 +20790,7 @@ export const mockControlCenterData: ControlCenterData = {
       "defer",
       "merge",
       "supersede",
+      "expire",
       "forget_request",
     ].map((decisionState) => ({
       decision_state: decisionState,
@@ -21453,6 +21454,7 @@ export const mockControlCenterData: ControlCenterData = {
           "defer",
           "merge",
           "supersede",
+          "expire",
           "forget_request",
         ],
         decision_capture_status: "review_needed_no_decision_captured",
@@ -22987,6 +22989,7 @@ export const mockControlCenterData: ControlCenterData = {
       "POST /control-center/memory/review/{candidate_ref}/defer",
       "POST /control-center/memory/review/{candidate_ref}/merge",
       "POST /control-center/memory/review/{candidate_ref}/supersede",
+      "POST /control-center/memory/review/{candidate_ref}/expire",
       "POST /control-center/memory/review/{candidate_ref}/forget-request",
     ],
     decision_kinds: [
@@ -22996,6 +22999,7 @@ export const mockControlCenterData: ControlCenterData = {
       "defer",
       "merge",
       "supersede",
+      "expire",
       "forget_request",
     ],
     items: [],
@@ -23121,6 +23125,7 @@ export const mockControlCenterData: ControlCenterData = {
           "correct",
           "reject",
           "defer",
+          "expire",
           "forget_request",
         ],
         lifecycle_receipt_refs: ["receipt:memory-review:defer:mock-stale"],
