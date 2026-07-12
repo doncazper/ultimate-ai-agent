@@ -1,8 +1,8 @@
 # Control Center App Shell Baseline
 
-Status: current north-star design baseline, documentation only.
-Baseline ID: CC-NS-2026-07-06.
-Current as of: 2026-07-06.
+Status: current target shell baseline, documentation only.
+Baseline ID: CC-NS-TARGET-R3-2026-07-11.
+Current as of: 2026-07-11.
 Repo baseline: v0.104.0 / 0.104.0.
 
 This file is the source of truth for the static Control Center shell used by
@@ -16,7 +16,7 @@ target for implementation and future render generation.
 
 ## Static App Shell
 
-The Control Center uses one persistent shell across the app:
+The Control Center uses one persistent shell across normal routes:
 
 - fixed left navigation rail;
 - persistent top status and authority strip;
@@ -24,84 +24,61 @@ The Control Center uses one persistent shell across the app:
 - optional bottom evidence/receipt band;
 - route-local panes, tabs, queues, and inspectors inside the workspace only.
 
-The left rail must not be replaced by route-specific navigation. Route-specific
-navigation belongs in the route workspace as tabs, split-pane lists, segmented
-controls, or inspectors.
+The left rail must not be replaced by route-specific navigation on normal
+routes. Route-specific navigation belongs in the route workspace as tabs,
+split-pane lists, segmented controls, or inspectors. Studio and Messenger are
+the two explicit immersive exceptions; both replace the standard rail and
+provide a visible Back to Control Center command.
 
 ## Canonical Left Rail
 
-The rail is owned by `apps/control-center/src/routes.tsx` and should preserve
-the route order below unless a later dated baseline intentionally changes it.
+The target product rail below is governed by
+`../CONTROL_CENTER_PRODUCT_IA_AND_CALENDAR_CONTRACT.md`. The current route
+registry in `apps/control-center/src/routes.tsx` remains implementation truth
+until consolidation is separately implemented. The operator may customize
+which middle workspaces are pinned and their pinned order without changing
+route availability, capability state, authority, or the resettable default.
 
-### Primary Founder Loop
+### Primary workspaces
 
-These items are always visible in the same order on the standard desktop shell:
+1. Today
+2. Communications
+3. Messenger
+4. Work Board
+5. CRM
+6. Calendar
+7. News
+8. Studio
 
-1. Start Here
-2. Today
-3. Source Inbox
-4. Plans
-5. Work Board
-6. Action Inbox
-7. Proof
-8. Trust
-9. Memory
-10. Evidence
-11. Settings
+Today is fixed first and is the default landing workspace. Communications,
+Messenger, Work Board, CRM, Calendar, News, and Studio may be reordered or
+hidden as presentation preferences without disabling their routes or
+capabilities.
 
-Source Inbox remains visible for route reachability and continuity, but copy
-must still describe it as source-readiness/read-only/draft-only until connector
-contracts grant more.
+### Supporting workspaces and utilities
 
-### Supporting Surfaces
+The stable supporting section is:
 
-Supporting surfaces use a stable secondary section after the primary Founder
-Loop list. They may be grouped, collapsed, or exposed through a command
-palette at narrower widths, but they must not appear or disappear based on the
-active route.
+1. Knowledge
+2. Activity & Trust
 
-Founder Loop support:
+The stable lower utilities are:
 
-1. Briefing
-2. CRM
-3. Trial Packet
+1. Customize
+2. Settings
+3. Developer Tools, collapsed and hidden by default
 
-Review:
+Current Memory and Files concepts consolidate under Knowledge. Receipts,
+Evidence, Proof, Trust, Events, and Approvals consolidate under Activity &
+Trust. Runtime, Models, Storage, API Routes, Foundation Gate, Plugins, setup
+diagnostics, and other technical routes consolidate under Developer Tools.
+`Start Here` becomes onboarding-only after setup. Plans becomes a Work Board
+view; Source Inbox becomes a Communications view; Chat and Coding become
+Studio modes.
 
-1. Operator Loop
-2. Setup
-3. Coding
-4. Chat
-5. Models
-6. Approvals
-7. Files
-8. File Review
-9. Context Proposals
-10. Action Preview
-
-Runtime:
-
-1. Runtime
-2. Storage
-3. Local Runtime
-4. Manual Smoke
-5. Remote Workers
-6. Mobile Planning
-7. Plugin Governance
-
-Evidence:
-
-1. Foundation Gate
-2. Receipts
-3. Events
-4. Timeline
-
-System:
-
-1. Overview
-2. Dashboard
-3. API Routes
-4. Differentiators
+Action Inbox is a global decision utility reached through `Review N decisions`,
+attention items, command search, and Activity & Trust. It is not a permanent
+primary rail item. With no pending decisions the CTA is demoted or omitted.
 
 ## Rail Behavior
 
@@ -112,9 +89,28 @@ System:
 - Disabled, planned, blocked, partial, experimental, and mock-only states may
   appear as compact state labels, but state labels must not change item order.
 - The rail may collapse to icons at compact desktop widths only when the same
-  item order and route reachability are preserved.
+  item order and route reachability are preserved. Icon-only mode provides
+  tooltips, accessible names, focus-visible labels, badges, and active state.
 - The rail may expose overflow through a stable "More" or command-palette
   affordance only when the hidden list remains deterministic.
+- `Customize sidebar` may pin, unpin, reorder, collapse, change density, cancel,
+  or restore defaults. Use visibility/pinning language, never capability
+  enable/disable language.
+- Hidden surfaces remain reachable from `All surfaces`, the UAA composer,
+  command search, and direct navigation.
+- Global safety posture, blockers, and approval controls are not customizable
+  navigation items and cannot be hidden through rail preferences.
+
+## Persistent UAA Composer
+
+The standard shell includes the shared UAA composer defined by
+`../CONTROL_CENTER_UI_UX_SPEC.md`. It occupies the bottom application rail,
+uses safe route/selection context only, and expands into a consistent sidecar.
+It does not replace Studio or Messenger and grants no mutation authority.
+
+Messenger contains a human room-message composer and a separately labeled
+Ask-UAA field. The shared bottom composer is not duplicated in that immersive
+shell.
 
 ## Standard Desktop Layout
 
@@ -221,17 +217,24 @@ dated baseline and update this package.
 
 ## Future Render Prompt Requirements
 
-Future render prompts must explicitly include:
+Future standard-shell render prompts must explicitly include:
 
 ```text
-Use the CC-NS-2026-07-06 static app shell.
-The left rail is identical across routes.
-Primary nav order: Start Here, Today, Source Inbox, Plans, Work Board,
-Action Inbox, Proof, Trust, Memory, Evidence, Settings.
+Use the CC-NS-TARGET-R3-2026-07-11 app shell.
+The standard left rail is identical across normal routes.
+Primary nav order: Today, Communications, Messenger, Work Board, CRM,
+Calendar, News, Studio, Knowledge, Activity & Trust, Customize, Settings,
+Developer Tools.
 Do not add route-local tabs to the global left rail.
 Place route-local tabs and queues inside the workspace.
-Use Inter/system typography and the CC-NS-2026-07-06 size scale.
+Keep search in the fixed standard toolbar slot and Review N decisions at right.
+Use Inter/system typography and the CC-NS-TARGET-R3-2026-07-11 size scale.
 ```
+
+Studio and Messenger are the explicit immersive exceptions. Studio replaces
+the ordinary rail with its workbench rail. Messenger replaces it with Home,
+exactly two Matrix Spaces, room and direct-message navigation, and account
+security. Both provide a visible Back to Control Center command.
 
 Generated images are allowed to be visually approximate, but implementation
 must follow this baseline where generated pixels conflict with the spec.

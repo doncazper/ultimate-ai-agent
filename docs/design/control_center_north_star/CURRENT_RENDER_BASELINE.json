@@ -1,0 +1,60 @@
+{
+  "schema": "uaa.control_center.render_baseline.v1",
+  "baseline_id": "CC-NS-TARGET-R3-2026-07-11",
+  "current_as_of": "2026-07-11",
+  "period": "2026-07",
+  "status": "current_review_target",
+  "meaning": "Current identifies the preferred design-review target for this period; it does not mean approved, implemented, connected, or production-ready.",
+  "sources_of_truth": {
+    "shell": "APP_SHELL_BASELINE.md",
+    "ui_ux_spec": "../CONTROL_CENTER_UI_UX_SPEC.md",
+    "manifest": "RENDER_MANIFEST.md",
+    "coverage": "SURFACE_COVERAGE.md",
+    "review_gallery": "render-review/renders.json"
+  },
+  "current_sets": [
+    {
+      "id": "target-v1",
+      "path": "renders/target-v1",
+      "status": "current_with_later_surface_revisions"
+    },
+    {
+      "id": "target-v2",
+      "path": "renders/target-v2",
+      "status": "current_surface_revisions"
+    },
+    {
+      "id": "target-v3",
+      "path": "renders/target-v3",
+      "status": "current_crm_revision"
+    },
+    {
+      "id": "communications-v1",
+      "path": "renders/communications-v1",
+      "status": "current_messenger_review_set"
+    }
+  ],
+  "current_surface_revisions": {
+    "today": {
+      "series_id": "CC-R2-SHELL-01",
+      "status": "current_draft",
+      "latest": "renders/target-v1/01-today.png",
+      "preserved_explorations": [
+        "renders/drafts/CC-R2-SHELL-01-today-desktop-default-v1.png",
+        "renders/drafts/CC-R2-SHELL-01-today-desktop-default-v2.png",
+        "renders/drafts/CC-R2-SHELL-01-today-desktop-default-v3.png",
+        "renders/drafts/CC-R2-SHELL-01-today-desktop-default-v4.png"
+      ]
+    },
+    "crm": {
+      "series_id": "CRM-01",
+      "status": "current_draft",
+      "latest": "renders/target-v3/04-crm-v3.png"
+    },
+    "messenger": {
+      "series_id": "COMMS-MX",
+      "status": "current_draft_set",
+      "latest_set": "renders/communications-v1"
+    }
+  }
+}
