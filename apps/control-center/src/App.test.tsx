@@ -6906,6 +6906,9 @@ describe("Web Control Center shell", () => {
     expect(catalog).toHaveTextContent("Compatibility source");
     expect(catalog).toHaveTextContent("Exact local capability");
     expect(catalog).toHaveTextContent("Exact runtime capability");
+    expect(catalog).toHaveTextContent("Canonical mission dispatch");
+    expect(catalog).toHaveTextContent("Availability snapshot");
+    expect(catalog).toHaveTextContent("Execution path");
     expect(catalog).not.toHaveTextContent("Exact local lane");
     expect(catalog).not.toHaveTextContent("Exact runtime lane");
     expect(catalog).toHaveTextContent("Generic tool execution");

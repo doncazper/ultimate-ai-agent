@@ -1604,6 +1604,18 @@ function ActionToolCodeCapabilityEntryCard({
           value={entry.exact_runtime_lane_available ? "available" : "blocked"}
         />
         <DetailTerm
+          label="Canonical mission dispatch"
+          value={entry.canonical_mission_dispatch ? "verified" : "not promoted"}
+        />
+        <DetailTerm
+          label="Availability snapshot"
+          value={entry.availability_snapshot_ref ?? "not bound"}
+        />
+        <DetailTerm
+          label="Execution path"
+          value={entry.canonical_execution_path_ref ?? "not promoted"}
+        />
+        <DetailTerm
           label="Broad authority"
           value={broadAuthorityEnabled ? "unsafe" : "blocked"}
         />

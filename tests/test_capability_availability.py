@@ -533,6 +533,19 @@ def test_backend_read_model_contains_representative_safe_states() -> None:
         by_ref["capability-ref:api-contract-metadata"]["runtime_readiness_status"]
         == "ready"
     )
+    metadata = by_ref["authority-capability-ref:founder-loop-filesystem-metadata-v1"]
+    assert metadata["runtime_readiness_status"] == "unknown"
+    assert metadata["authority_posture"] == "approval_required"
+    assert metadata["adapter_ref"] == (
+        "authority-adapter-ref:founder-loop-filesystem-metadata-v1"
+    )
+    assert "REQUEST_SCOPED_AUTHORITY_REEVALUATION_REQUIRED" in metadata["reason_codes"]
+    assert metadata["safe_disable_status"] == "unknown"
+    assert metadata["freshness_status"] == "unknown"
+    assert metadata["probe_refs"] == []
+    assert metadata["source_ref"] == (
+        "capability-manifest-ref:founder-loop-filesystem-metadata-v1"
+    )
     assert all(item["reason_codes"] for item in payload["snapshots"])
     assert all(item["source_ref"] for item in payload["snapshots"])
     serialized = json.dumps(payload)

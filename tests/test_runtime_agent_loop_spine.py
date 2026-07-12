@@ -300,7 +300,7 @@ def _assert_safe_agent_loop_thread(thread: dict[str, object]) -> None:
     assert action_tool["entry_count"] == len(action_tool["rows"])
     assert action_tool["preview_only_count"] == 4
     assert action_tool["exact_local_mutation_count"] == 1
-    assert action_tool["exact_runtime_lane_count"] == 5
+    assert action_tool["exact_runtime_lane_count"] == 6
     assert action_tool["proposal_only_count"] == 5
     assert action_tool["blocked_count"] == 3
     assert set(action_tool["category_ids"]) == set(
@@ -321,7 +321,7 @@ def _assert_safe_agent_loop_thread(thread: dict[str, object]) -> None:
     exact_runtime = [
         row for row in action_tool["rows"] if row["exact_runtime_lane_available"]
     ]
-    assert len(exact_runtime) == 5
+    assert len(exact_runtime) == 6
     exact_local = [
         row for row in action_tool["rows"] if row["exact_local_mutation_available"]
     ]

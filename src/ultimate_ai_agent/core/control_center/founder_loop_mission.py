@@ -103,6 +103,12 @@ from ultimate_ai_agent.core.planning.validation import (
     validate_task_ref,
 )
 from ultimate_ai_agent.core.safe_refs import hash_text
+from ultimate_ai_agent.core.control_center.founder_loop_mission_refs import (
+    FOUNDER_LOOP_FILESYSTEM_ADAPTER_REF,
+    FOUNDER_LOOP_FILESYSTEM_CAPABILITY_REF,
+    FOUNDER_LOOP_FILESYSTEM_POLICY_REF,
+    FOUNDER_LOOP_FILESYSTEM_SAFE_DISABLE_REF,
+)
 from ultimate_ai_agent.core.tools.runtime import (
     FILESYSTEM_OPAQUE_PATH_REF_VERSION,
     FILESYSTEM_METADATA_TOOL_NAME,
@@ -115,16 +121,6 @@ from ultimate_ai_agent.core.tools.runtime import (
 )
 
 
-FOUNDER_LOOP_FILESYSTEM_ADAPTER_REF = (
-    "authority-adapter-ref:founder-loop-filesystem-metadata-v1"
-)
-FOUNDER_LOOP_FILESYSTEM_CAPABILITY_REF = (
-    "authority-capability-ref:founder-loop-filesystem-metadata-v1"
-)
-FOUNDER_LOOP_FILESYSTEM_POLICY_REF = "policy-ref:founder-loop-filesystem-metadata-v1"
-FOUNDER_LOOP_FILESYSTEM_SAFE_DISABLE_REF = (
-    "safe-disable-ref:founder-loop-filesystem-metadata-v1"
-)
 FOUNDER_LOOP_PROPOSAL_LEDGER_FILE = "founder_loop_prepared_proposals.jsonl"
 FOUNDER_LOOP_PROPOSAL_LEDGER_MAX_BYTES = 1024 * 1024
 FOUNDER_LOOP_PROPOSAL_LEDGER_MAX_RECORDS = 256
@@ -286,9 +282,7 @@ class FounderLoopPreparedProposalStore:
         record = self.get_record(proposal_ref)
         return record.request.model_copy(deep=True) if record else None
 
-    def get_record(
-        self, proposal_ref: str
-    ) -> FounderLoopPreparedProposalRecord | None:
+    def get_record(self, proposal_ref: str) -> FounderLoopPreparedProposalRecord | None:
         validate_task_ref(proposal_ref, "founder_loop_proposal_ref")
         with self._lock_manager.acquire(FOUNDER_LOOP_PROPOSAL_LEDGER_LOCK_KEY):
             record = next(

@@ -19,6 +19,11 @@ from ultimate_ai_agent.core.capabilities.models import (
 from ultimate_ai_agent.core.extension_catalog import (
     build_default_inspectable_extension_catalog,
 )
+from ultimate_ai_agent.core.control_center.founder_loop_mission_refs import (
+    FOUNDER_LOOP_FILESYSTEM_ADAPTER_REF,
+    FOUNDER_LOOP_FILESYSTEM_CAPABILITY_REF,
+    FOUNDER_LOOP_FILESYSTEM_SAFE_DISABLE_REF,
+)
 from ultimate_ai_agent.core.providers import (
     GovernedProviderInvocationReadiness,
     ProviderAuthRequirement,
@@ -60,6 +65,49 @@ def build_capability_availability_read_model(
     *, checked_at: datetime | None = None
 ) -> CapabilityAvailabilityReadModel:
     observed_at = (checked_at or utc_now()).replace(microsecond=0)
+
+    filesystem_metadata_mission = build_capability_availability_snapshot(
+        snapshot_ref=(
+            "capability-availability-ref:founder-loop-filesystem-metadata-v1"
+        ),
+        capability_ref=FOUNDER_LOOP_FILESYSTEM_CAPABILITY_REF,
+        adapter_ref=FOUNDER_LOOP_FILESYSTEM_ADAPTER_REF,
+        catalog_status=CatalogStatus.supported,
+        compatibility_status=CompatibilityStatus.supported,
+        configuration_status=ConfigurationStatus.unknown,
+        health_status=HealthStatus.unknown,
+        authority_posture=AuthorityPosture.approval_required,
+        resource_status=ResourceBudgetStatus.unknown,
+        cost_posture=CostPosture.not_metered,
+        safe_disable_status=SafeDisableStatus.unknown,
+        declared_or_observed_version_ref=f"version-ref:{__version__}",
+        checked_at=observed_at,
+        freshness_status=FreshnessStatus.unknown,
+        reason_codes=[
+            "EXACT_FILESYSTEM_METADATA_MISSION_IMPLEMENTED",
+            "CANONICAL_MISSION_DISPATCH_PATH_VERIFIED",
+            "REQUEST_SCOPED_AUTHORITY_REEVALUATION_REQUIRED",
+        ],
+        blocker_codes=[
+            "CURRENT_ROOT_IDENTITY_OBSERVATION_REQUIRED",
+            "CURRENT_SAFE_DISABLE_OBSERVATION_REQUIRED",
+            "CURRENT_RESOURCE_RESERVATION_REQUIRED",
+            "EXACT_LOCAL_APPROVAL_REQUIRED",
+            "EXACT_MISSION_SCOPED_LEASE_REQUIRED",
+        ],
+        evidence_refs=[
+            "proof-ref:founder-loop-filesystem-metadata:mission-dispatch",
+            "receipt-contract-ref:authority-mission-completion:v1",
+            FOUNDER_LOOP_FILESYSTEM_SAFE_DISABLE_REF,
+        ],
+        probe_refs=[],
+        source_ref="capability-manifest-ref:founder-loop-filesystem-metadata-v1",
+        safe_summary=(
+            "Exact predeclared filesystem metadata is implemented, while current "
+            "root, resource, health, and safe-disable availability remain unknown "
+            "until immediate request-scoped evaluation; it is never globally callable."
+        ),
+    )
 
     ready_for_policy = snapshot_from_capability_manifest(
         _declaration_manifest(
@@ -211,6 +259,7 @@ def build_capability_availability_read_model(
     )
 
     snapshots = [
+        filesystem_metadata_mission,
         declared_unavailable,
         configured_but_blocked,
         stale_unknown,

@@ -11,6 +11,10 @@ from ultimate_ai_agent.core.control_center.local_tasks import (
     FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_REF,
     FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_REF,
 )
+from ultimate_ai_agent.core.control_center.founder_loop_mission_refs import (
+    FOUNDER_LOOP_FILESYSTEM_CAPABILITY_REF,
+    FOUNDER_LOOP_FILESYSTEM_SAFE_DISABLE_REF,
+)
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_payload,
@@ -26,9 +30,7 @@ from ultimate_ai_agent.core.tools.v2 import build_default_tool_catalog
 ACTION_TOOL_CODE_CATALOG_CONTRACT_REF = (
     "contract-ref:runtime-action-tool-code-catalog:v1"
 )
-ACTION_TOOL_CODE_CATALOG_SOURCE = (
-    "python_core_action_tool_code_lane_catalog_read_model"
-)
+ACTION_TOOL_CODE_CATALOG_SOURCE = "python_core_action_tool_code_lane_catalog_read_model"
 ACTION_TOOL_CODE_CATALOG_ROUTE_REF = "GET /control-center/actions/inbox"
 ACTION_TOOL_CODE_CATALOG_CLI_REF = (
     "scripts/dev/uaa_founder_loop.py inspect-action-tool-code-catalog"
@@ -125,6 +127,9 @@ class ActionToolCodeLaneEntry(BaseModel):
     proof_refs: list[str] = Field(default_factory=list)
     blocked_authority_refs: list[str] = Field(default_factory=list)
     unblock_prompt_refs: list[str] = Field(default_factory=list)
+    availability_snapshot_ref: str | None = None
+    canonical_execution_path_ref: str | None = None
+    canonical_mission_dispatch: bool = False
     operator_visible: bool = True
     inspectable_now: bool = True
     proposal_only: bool = False
@@ -152,8 +157,11 @@ class ActionToolCodeLaneEntry(BaseModel):
             *self.proof_refs,
             *self.blocked_authority_refs,
             *self.unblock_prompt_refs,
+            self.availability_snapshot_ref,
+            self.canonical_execution_path_ref,
         ]:
-            validate_execution_ref(ref, "action_tool_code_catalog_ref")
+            if ref is not None:
+                validate_execution_ref(ref, "action_tool_code_catalog_ref")
         for value in [
             self.capability_id,
             self.label,
@@ -184,6 +192,11 @@ class ActionToolCodeLaneEntry(BaseModel):
                 raise ValueError("ACTION_TOOL_CODE_EXACT_RUNTIME_LANE_REQUIRED")
             if not self.receipt_refs:
                 raise ValueError("ACTION_TOOL_CODE_EXACT_RUNTIME_RECEIPT_REQUIRED")
+        if self.canonical_mission_dispatch and (
+            self.availability_snapshot_ref is None
+            or self.canonical_execution_path_ref is None
+        ):
+            raise ValueError("ACTION_TOOL_CODE_CANONICAL_MISSION_BINDING_REQUIRED")
         for flag in (
             "generic_tool_execution_enabled",
             "unrestricted_shell_execution_enabled",
@@ -306,10 +319,14 @@ class ActionToolCodeLaneCatalogReadModel(BaseModel):
             1 for entry in self.entries if entry.exact_runtime_lane_available
         ):
             raise ValueError("ACTION_TOOL_CODE_RUNTIME_CAPABILITY_COUNT_DRIFT")
-        if self.proposal_only_count != sum(1 for entry in self.entries if entry.proposal_only):
+        if self.proposal_only_count != sum(
+            1 for entry in self.entries if entry.proposal_only
+        ):
             raise ValueError("ACTION_TOOL_CODE_PROPOSAL_COUNT_DRIFT")
         if self.blocked_count != sum(
-            1 for entry in self.entries if entry.status == "blocked_missing_exact_authority"
+            1
+            for entry in self.entries
+            if entry.status == "blocked_missing_exact_authority"
         ):
             raise ValueError("ACTION_TOOL_CODE_BLOCKED_COUNT_DRIFT")
         if (
@@ -345,6 +362,7 @@ def build_action_tool_code_lane_catalog_read_model(
     runtime_action_bridge: dict[str, Any] | None = None,
 ) -> ActionToolCodeLaneCatalogReadModel:
     entries: list[ActionToolCodeLaneEntry] = []
+    entries.append(_filesystem_metadata_mission_entry())
     entries.extend(_tool_preview_entries())
     entries.append(_local_task_entry(action_work_queue))
     entries.extend(_runtime_exact_command_entries(runtime_action_bridge))
@@ -388,6 +406,59 @@ def build_action_tool_code_lane_catalog_read_model(
             "only inside active AuthorityLease scope, while generic tool execution "
             "remains denied."
         ),
+    )
+
+
+def _filesystem_metadata_mission_entry() -> ActionToolCodeLaneEntry:
+    return ActionToolCodeLaneEntry(
+        capability_id="founder_loop.filesystem_metadata_mission",
+        capability_ref=FOUNDER_LOOP_FILESYSTEM_CAPABILITY_REF,
+        lane_ref="lane-ref:founder-loop-filesystem-metadata-v1",
+        label="Founder Loop filesystem metadata mission",
+        capability_kind="runtime_authority_capability",
+        surface="Runtime",
+        status="implemented_exact_approval_required",
+        side_effect_class="local_dev_workspace_only",
+        required_approval_scope=(
+            "Exact action, lease, adapter, capability, target, root, path, and "
+            "mission resource binding"
+        ),
+        eligibility_reason=(
+            "One backend-predeclared target may enter immediate request-scoped "
+            "evaluation through MissionOrchestrator, MissionRunner, and AuthorityDispatcher."
+        ),
+        blocked_reason=(
+            "No content read, directory traversal, caller-selected root, mutation, "
+            "shell, context injection, or global callable authority is included."
+        ),
+        receipt_requirement=(
+            "Requires exact approval, mission-scoped lease, budget reservation, "
+            "durable dispatch receipt, terminal evidence, and completion manifest."
+        ),
+        rollback_or_safe_disable_posture=(
+            f"Safe-disable ref {FOUNDER_LOOP_FILESYSTEM_SAFE_DISABLE_REF}; metadata "
+            "read performs no mutation and has no rollback execution."
+        ),
+        route_refs=["GET /api/runtime/authority-missions/completions"],
+        cli_refs=["scripts/dev/uaa_runtime_mission_completion.py inspect"],
+        receipt_refs=["receipt-contract-ref:authority-mission-completion:v1"],
+        evidence_refs=[
+            "evidence-ref:founder-loop-filesystem-metadata:terminal-receipts"
+        ],
+        proof_refs=["proof-ref:founder-loop-filesystem-metadata:mission-dispatch"],
+        blocked_authority_refs=[
+            "blocked-authority:filesystem-metadata:no-content-read",
+            "blocked-authority:filesystem-metadata:no-mutation",
+            "blocked-authority:filesystem-metadata:no-global-callable-state",
+        ],
+        availability_snapshot_ref=(
+            "capability-availability-ref:founder-loop-filesystem-metadata-v1"
+        ),
+        canonical_execution_path_ref=(
+            "execution-path-ref:mission-orchestrator:mission-runner:authority-dispatcher"
+        ),
+        canonical_mission_dispatch=True,
+        exact_runtime_lane_available=True,
     )
 
 
@@ -441,7 +512,9 @@ def _local_task_entry(
                 continue
             receipt_refs.extend(item.get("expected_receipt_refs") or [])
             receipt_refs.extend(item.get("receipt_refs") or [])
-    receipt_refs = list(dict.fromkeys(ref for ref in receipt_refs if isinstance(ref, str)))
+    receipt_refs = list(
+        dict.fromkeys(ref for ref in receipt_refs if isinstance(ref, str))
+    )
     return ActionToolCodeLaneEntry(
         capability_id=FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND,
         capability_ref="capability-ref:action-inbox:local-task-create",
@@ -537,8 +610,12 @@ def _runtime_exact_command_entry(
             "scripts/dev/uaa_runtime.py inspect-action-inbox-bridge",
             "scripts/dev/uaa_runtime.py receipts",
         ],
-        receipt_refs=list(dict.fromkeys(ref for ref in receipt_refs if isinstance(ref, str))),
-        evidence_refs=list(dict.fromkeys(ref for ref in evidence_refs if isinstance(ref, str))),
+        receipt_refs=list(
+            dict.fromkeys(ref for ref in receipt_refs if isinstance(ref, str))
+        ),
+        evidence_refs=list(
+            dict.fromkeys(ref for ref in evidence_refs if isinstance(ref, str))
+        ),
         proof_refs=[spec["proof_ref"]],
         blocked_authority_refs=list(GOVERNED_RUNTIME_REQUIRED_BLOCKED_AUTHORITY_REFS),
         exact_runtime_lane_available=True,
