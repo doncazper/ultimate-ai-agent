@@ -189,9 +189,16 @@ class EntityVersion(_EcosystemModel):
     version: int = Field(..., ge=1)
     fingerprint_ref: str
 
-    @field_validator("schema_version", "fingerprint_ref")
+    @field_validator("schema_version")
     @classmethod
-    def validate_refs(cls, value: str) -> str:
+    def validate_schema_version(cls, value: str) -> str:
+        if value != ECO_000_CONTRACT_VERSION:
+            raise ValueError("ECO_ENTITY_SCHEMA_VERSION_UNSUPPORTED")
+        return value
+
+    @field_validator("fingerprint_ref")
+    @classmethod
+    def validate_fingerprint_ref(cls, value: str) -> str:
         return _validated_ref(value)
 
 
@@ -361,7 +368,7 @@ class BoardProjection(Projection):
 
     @model_validator(mode="after")
     def validate_board_subject(self) -> "BoardProjection":
-        if self.card_subject.canonical_subject.entity_ref != self.subject.entity_ref:
+        if self.card_subject.canonical_subject != self.subject:
             raise ValueError("ECO_BOARD_CARD_SUBJECT_REF_MISMATCH")
         if self.subject.entity_kind not in {
             EntityKind.task,
@@ -525,6 +532,10 @@ class ChangeOperation(_EcosystemModel):
 
     @model_validator(mode="after")
     def validate_recovery_posture(self) -> "ChangeOperation":
+        if self.claims_external_atomicity:
+            raise ValueError("ECO_EXTERNAL_ATOMICITY_CLAIM_DENIED")
+        if self.planned_result != OperationResultStatus.not_started:
+            raise ValueError("ECO_REVIEW_PLAN_TERMINAL_RESULT_DENIED")
         if self.operation_ref in self.depends_on:
             raise ValueError("ECO_CHANGE_OPERATION_SELF_DEPENDENCY")
         if self.conflict_precondition.target_ref != self.target.entity_ref:
@@ -545,8 +556,6 @@ class ChangeOperation(_EcosystemModel):
                 raise ValueError("ECO_COMPENSATION_TARGET_MISMATCH")
             if self.rollback_plan is not None:
                 raise ValueError("ECO_EXTERNAL_OPERATION_ROLLBACK_PLAN_UNEXPECTED")
-            if self.claims_external_atomicity:
-                raise ValueError("ECO_EXTERNAL_ATOMICITY_CLAIM_DENIED")
         return self
 
 

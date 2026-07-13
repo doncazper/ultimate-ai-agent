@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from types import MappingProxyType
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ultimate_ai_agent.core.ecosystem.contracts import CanonicalOwnerId, EntityKind
 
 
-CANONICAL_OWNER_BY_ENTITY_KIND: Mapping[EntityKind, CanonicalOwnerId] = {
+CANONICAL_OWNER_BY_ENTITY_KIND: Mapping[EntityKind, CanonicalOwnerId] = MappingProxyType({
     EntityKind.person: CanonicalOwnerId.identity,
     EntityKind.organization: CanonicalOwnerId.identity,
     EntityKind.household: CanonicalOwnerId.identity,
@@ -83,7 +84,7 @@ CANONICAL_OWNER_BY_ENTITY_KIND: Mapping[EntityKind, CanonicalOwnerId] = {
     EntityKind.reviewed_memory: CanonicalOwnerId.memory,
     EntityKind.memory_provenance: CanonicalOwnerId.memory,
     EntityKind.correction_record: CanonicalOwnerId.memory,
-}
+})
 
 
 class CanonicalOwnershipAssignment(BaseModel):

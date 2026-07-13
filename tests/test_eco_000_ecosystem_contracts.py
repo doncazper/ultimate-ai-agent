@@ -136,6 +136,17 @@ def test_canonical_ownership_is_total_unique_and_locked() -> None:
     assert canonical_owner_for(EntityKind.opportunity) == CanonicalOwnerId.crm
     assert canonical_owner_for(EntityKind.reviewed_memory) == CanonicalOwnerId.memory
     assert len(CANONICAL_OWNERSHIP_REGISTRY.assignments) == len(EntityKind)
+    with pytest.raises(TypeError):
+        CANONICAL_OWNER_BY_ENTITY_KIND[EntityKind.task] = CanonicalOwnerId.crm  # type: ignore[index]
+
+
+def test_entity_version_rejects_unknown_schema_version() -> None:
+    with pytest.raises(ValidationError, match="ECO_ENTITY_SCHEMA_VERSION_UNSUPPORTED"):
+        EntityVersion(
+            schema_version="uaa-ecosystem-contract.v999",
+            version=1,
+            fingerprint_ref="fingerprint-ref:eco-test:unsupported-schema",
+        )
 
 
 def test_duplicate_canonical_ownership_assignments_are_rejected() -> None:
@@ -391,6 +402,18 @@ def test_local_requires_rollback_and_external_requires_compensation_not_atomicit
     with pytest.raises(ValidationError, match="ECO_EXTERNAL_ATOMICITY_CLAIM_DENIED"):
         ChangeOperation(
             **common,
+            atomicity_posture=AtomicityPosture.local_atomic,
+            rollback_plan=RollbackPlan(
+                plan_ref="rollback-plan-ref:eco-test:atomicity-claim",
+                target_ref=target.entity_ref,
+                capability_ref="capability-ref:eco-test:rollback",
+                plan_fingerprint_ref="fingerprint-ref:eco-test:rollback",
+            ),
+            claims_external_atomicity=True,
+        )
+    with pytest.raises(ValidationError, match="ECO_EXTERNAL_ATOMICITY_CLAIM_DENIED"):
+        ChangeOperation(
+            **common,
             atomicity_posture=AtomicityPosture.external_compensating,
             compensation_plan=CompensationPlan(
                 plan_ref="compensation-plan-ref:eco-test:required",
@@ -399,6 +422,18 @@ def test_local_requires_rollback_and_external_requires_compensation_not_atomicit
                 plan_fingerprint_ref="fingerprint-ref:eco-test:compensate",
             ),
             claims_external_atomicity=True,
+        )
+    with pytest.raises(ValidationError, match="ECO_REVIEW_PLAN_TERMINAL_RESULT_DENIED"):
+        ChangeOperation(
+            **common,
+            atomicity_posture=AtomicityPosture.local_atomic,
+            rollback_plan=RollbackPlan(
+                plan_ref="rollback-plan-ref:eco-test:terminal-result",
+                target_ref=target.entity_ref,
+                capability_ref="capability-ref:eco-test:rollback",
+                plan_fingerprint_ref="fingerprint-ref:eco-test:rollback",
+            ),
+            planned_result="applied",
         )
 
 
@@ -476,6 +511,27 @@ def test_board_projection_app_is_not_overridable() -> None:
             card_subject=CardSubject(
                 subject_ref="card-subject-ref:eco-test:wrong-app",
                 canonical_subject=task,
+                subject_owner=CanonicalOwnerId.tasks,
+            ),
+            projected_field_refs=("field-ref:task:title",),
+            placement_ref="placement-ref:board:lane",
+            board_ref="board-ref:eco-test:work",
+            lane_ref="lane-ref:eco-test:doing",
+            ordering_ref="ordering-ref:eco-test:010",
+        )
+
+
+def test_board_projection_requires_the_exact_canonical_subject() -> None:
+    task = _entity(EntityKind.task)
+    stale_task = task.model_copy(update={"entity_version": _version(2)})
+
+    with pytest.raises(ValidationError, match="ECO_BOARD_CARD_SUBJECT_REF_MISMATCH"):
+        BoardProjection(
+            projection_ref="projection-ref:eco-test:stale-card-subject",
+            subject=task,
+            card_subject=CardSubject(
+                subject_ref="card-subject-ref:eco-test:stale-task",
+                canonical_subject=stale_task,
                 subject_owner=CanonicalOwnerId.tasks,
             ),
             projected_field_refs=("field-ref:task:title",),

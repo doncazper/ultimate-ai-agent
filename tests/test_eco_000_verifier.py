@@ -13,6 +13,17 @@ def test_eco_000_verifier_passes() -> None:
     assert verifier.verify() == []
 
 
+def test_eco_000_verifier_scans_nested_route_modules(tmp_path: Path) -> None:
+    routes = tmp_path / "routes" / "nested"
+    routes.mkdir(parents=True)
+    (routes / "ecosystem.py").write_text(
+        '@router.get("/ecosystem/status")\n',
+        encoding="utf-8",
+    )
+
+    assert verifier._contains_runtime_ecosystem_route(tmp_path) is True
+
+
 def test_render_manifest_is_traceable_and_non_shipping() -> None:
     payload = json.loads(
         (

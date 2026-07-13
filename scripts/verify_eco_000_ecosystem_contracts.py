@@ -55,6 +55,18 @@ def _load(relative: str) -> dict[str, object]:
     return json.loads((ROOT / relative).read_text(encoding="utf-8"))
 
 
+def _contains_runtime_ecosystem_route(api_root: Path) -> bool:
+    api_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in api_root.rglob("*.py")
+        if path.is_file()
+    )
+    lowered = api_text.lower()
+    return "/ecosystem" in api_text or (
+        "/calendar" in api_text and "eco-000" in lowered
+    )
+
+
 def verify() -> list[str]:
     failures: list[str] = []
 
@@ -130,11 +142,7 @@ def verify() -> list[str]:
         if not (ROOT / relative).is_file():
             failures.append(f"missing ECO-000 artifact: {relative}")
 
-    api_text = "\n".join(
-        path.read_text(encoding="utf-8")
-        for path in (ROOT / "src/ultimate_ai_agent/api").glob("*.py")
-    )
-    if "/ecosystem" in api_text or "/calendar" in api_text and "eco-000" in api_text.lower():
+    if _contains_runtime_ecosystem_route(ROOT / "src/ultimate_ai_agent/api"):
         failures.append("ECO-000 runtime API route detected")
 
     return failures
