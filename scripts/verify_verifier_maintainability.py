@@ -14,6 +14,7 @@ from scripts.verification.repo import load_json, read_text, repo_path  # noqa: E
 
 POLICY_PATH = "docs/verification/verification_maintainability_policy.json"
 MILESTONE_PATTERN = re.compile(r"UAA-P1-(\d{3})")
+LINE_BUDGET_ENFORCEMENTS = frozenset({"hard", "advisory"})
 
 
 def _relative(path: Path) -> str:
@@ -34,11 +35,21 @@ def _iter_policy_paths(globs: Iterable[str]) -> Iterable[Path]:
             yield path
 
 
-def _append_line_budget_failures(
+def _append_line_budget_findings(
     failures: list[str],
+    warnings: list[str],
     label: str,
     section: dict[str, Any],
 ) -> None:
+    enforcement = section.get("enforcement", "hard")
+    if (
+        not isinstance(enforcement, str)
+        or enforcement not in LINE_BUDGET_ENFORCEMENTS
+    ):
+        failures.append(
+            f"{label} has unsupported line budget enforcement {enforcement!r}"
+        )
+        return
     max_lines = int(section["max_lines"])
     allowlist = section.get("allowlist", {})
     paths = [repo_path(path) for path in section.get("paths", [])]
@@ -50,9 +61,12 @@ def _append_line_budget_failures(
         effective_max = int(allowed.get("max_lines", max_lines)) if allowed else max_lines
         line_count = _line_count(path)
         if line_count > effective_max:
-            failures.append(
-                f"{label} line budget exceeded for {rel}: {line_count} > {effective_max}"
+            finding = (
+                f"{label} line "
+                f"{'review threshold' if enforcement == 'advisory' else 'budget'} "
+                f"exceeded for {rel}: {line_count} > {effective_max}"
             )
+            (warnings if enforcement == "advisory" else failures).append(finding)
 
 
 def _append_future_milestone_failures(failures: list[str], policy: dict[str, Any]) -> None:
@@ -104,14 +118,17 @@ def _append_shared_api_lane_failures(failures: list[str], policy: dict[str, Any]
 
 def main() -> int:
     failures: list[str] = []
+    warnings: list[str] = []
     policy = load_json(POLICY_PATH)
 
     for label, section in policy.get("line_budgets", {}).items():
-        _append_line_budget_failures(failures, label, section)
+        _append_line_budget_findings(failures, warnings, label, section)
     _append_future_milestone_failures(failures, policy)
     _append_duplicate_helper_failures(failures, policy)
     _append_shared_api_lane_failures(failures, policy)
 
+    for warning in warnings:
+        print(f"WARNING: {warning}")
     if failures:
         for failure in failures:
             print(f"ERROR: {failure}")
