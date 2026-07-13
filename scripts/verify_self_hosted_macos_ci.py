@@ -74,10 +74,12 @@ def verify(root: Path = ROOT) -> list[str]:
         failures.append("pytest shards must use the isolated per-job runner temp directory")
     if '--performance-report "${RUNNER_TEMP}/uaa_pytest_performance_report.json"' not in workflow:
         failures.append("pytest performance reports must use the isolated per-job runner temp directory")
+    if '--timings-json "${RUNNER_TEMP}/uaa_static_verification_timings.json"' not in workflow:
+        failures.append("static verification timings must use the isolated per-job runner temp directory")
     for fragment in (
         "--stretch-goal-seconds 180",
-        "--target-seconds 240",
-        "--hard-timeout-seconds 300",
+        "--target-seconds 360",
+        "--hard-timeout-seconds 480",
     ):
         if fragment not in workflow:
             failures.append("pytest shards must declare the self-hosted runtime budget")

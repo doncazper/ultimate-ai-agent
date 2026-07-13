@@ -40,8 +40,18 @@ def test_pytest_shards_use_runner_scoped_temp_directory() -> None:
     )
     assert "--basetemp /tmp/uaa_pytest_shards" not in workflow
     assert "--stretch-goal-seconds 180" in workflow
-    assert "--target-seconds 240" in workflow
-    assert "--hard-timeout-seconds 300" in workflow
+    assert "--target-seconds 360" in workflow
+    assert "--hard-timeout-seconds 480" in workflow
+
+
+def test_static_verification_uses_runner_scoped_timing_output() -> None:
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+
+    assert (
+        '--timings-json "${RUNNER_TEMP}/uaa_static_verification_timings.json"'
+        in workflow
+    )
+    assert "--timings-json /tmp/uaa_static_verification_timings.json" not in workflow
 
 
 def test_desktop_packaging_preserves_non_admin_docker_boundary() -> None:

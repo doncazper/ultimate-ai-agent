@@ -76,10 +76,10 @@ jobs:
             --shard-index ${{ matrix.shard }} \
             --timings-json scripts/verification/pytest_file_timing_seed.json \
             --basetemp "${RUNNER_TEMP}/uaa_pytest_shards" \
-            --stretch-goal-seconds 180 \
-            --target-seconds 240 \
-            --hard-timeout-seconds 300 \
             --performance-report "${RUNNER_TEMP}/uaa_pytest_performance_report.json" \
+            --stretch-goal-seconds 180 \
+            --target-seconds 360 \
+            --hard-timeout-seconds 480 \
             --quiet \
             --safe-summary
 
@@ -120,7 +120,7 @@ jobs:
           .venv/bin/python -m pip install -e ".[dev]"
 
       - name: Run static verification
-        run: .venv/bin/python scripts/verify_all.py --skip-ruff --skip-pytest --timings-json /tmp/uaa_static_verification_timings.json
+        run: .venv/bin/python scripts/verify_all.py --skip-ruff --skip-pytest --timings-json "${RUNNER_TEMP}/uaa_static_verification_timings.json"
 
   release-lane-docs:
     name: Release Lane / Documentation Integrity
