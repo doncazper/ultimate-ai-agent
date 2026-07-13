@@ -22,6 +22,7 @@ from ultimate_ai_agent.core.control_center.founder_loop_mission import (
     FounderLoopFilesystemMissionRequest,
     FounderLoopFilesystemMissionResult,
     FounderLoopFilesystemMissionService,
+    FounderLoopMissionPrepared,
 )
 from ultimate_ai_agent.core.control_center.founder_loop_mission_refs import (
     FOUNDER_LOOP_FILESYSTEM_ADAPTER_REF,
@@ -268,8 +269,7 @@ def build_attention_workflow_request(
             ensure_ascii=True,
         )
         return (
-            f"{prefix}:sha256:"
-            f"{hashlib.sha256(canonical.encode('utf-8')).hexdigest()}"
+            f"{prefix}:sha256:{hashlib.sha256(canonical.encode('utf-8')).hexdigest()}"
         )
 
     proposal_ref = stable_ref("action-proposal-ref:founder-loop-attention")
@@ -422,16 +422,16 @@ class FounderLoopAttentionWorkflow:
         approval_status = "exact_approval_not_recorded"
         current_approval = False
         if len(approval_refs) == 1:
-            grant = self.mission_service.approval_authority.get_grant(
-                approval_refs[0]
-            )
+            grant = self.mission_service.approval_authority.get_grant(approval_refs[0])
             if (
                 grant is not None
                 and grant.status == ApprovalStatus.granted
                 and (grant.expires_at is None or grant.expires_at > utc_now())
             ):
                 current_approval = True
-                approval_status = "exact_approval_current_but_execution_revalidation_pending"
+                approval_status = (
+                    "exact_approval_current_but_execution_revalidation_pending"
+                )
             else:
                 approval_status = "recorded_approval_not_current"
         elif len(approval_refs) > 1:
@@ -471,8 +471,7 @@ class FounderLoopAttentionWorkflow:
             }
             all_dispatch_receipts = orchestrator.runner.dispatcher.list_receipts()
             dispatch_receipts = {
-                item.receipt_ref: item
-                for item in all_dispatch_receipts
+                item.receipt_ref: item for item in all_dispatch_receipts
             }
             for binding in manifest.dispatch_bindings:
                 receipt = dispatch_receipts.get(binding.receipt_ref)
@@ -480,22 +479,18 @@ class FounderLoopAttentionWorkflow:
                     receipt is None
                     or receipt.status != AuthorityDispatchStatus.succeeded.value
                     or receipt.dispatch_ref != binding.dispatch_ref
-                    or receipt.request_fingerprint_ref != binding.request_fingerprint_ref
+                    or receipt.request_fingerprint_ref
+                    != binding.request_fingerprint_ref
                 ):
-                    raise ValueError(
-                        "FOUNDER_LOOP_ATTENTION_DISPATCH_EVIDENCE_INVALID"
-                    )
+                    raise ValueError("FOUNDER_LOOP_ATTENTION_DISPATCH_EVIDENCE_INVALID")
                 if (
                     binding.adapter_ref != FOUNDER_LOOP_FILESYSTEM_ADAPTER_REF
-                    or binding.capability_ref
-                    != FOUNDER_LOOP_FILESYSTEM_CAPABILITY_REF
+                    or binding.capability_ref != FOUNDER_LOOP_FILESYSTEM_CAPABILITY_REF
                     or not binding.approval_required
                     or binding.approval_ref is None
                     or binding.approval_validation_ref is None
                 ):
-                    raise ValueError(
-                        "FOUNDER_LOOP_ATTENTION_DISPATCH_SCOPE_INVALID"
-                    )
+                    raise ValueError("FOUNDER_LOOP_ATTENTION_DISPATCH_SCOPE_INVALID")
             selected_steps = [
                 step_receipts[item.step_receipt_ref]
                 for item in manifest.step_bindings
@@ -521,9 +516,7 @@ class FounderLoopAttentionWorkflow:
                 action.state_change_contract_ref
                 != FOUNDER_LOOP_ATTENTION_WORKFLOW_CONTRACT_REF
                 or not any(
-                    ref.startswith(
-                        "source-review-receipt-ref:founder-loop-attention:"
-                    )
+                    ref.startswith("source-review-receipt-ref:founder-loop-attention:")
                     for ref in action.receipt_refs
                 )
             ):
@@ -554,7 +547,9 @@ class FounderLoopAttentionWorkflow:
         mission_ref: str,
         lease_ref: str,
     ) -> FounderLoopAttentionSourceReview:
-        validate_task_ref(idempotency_ref, "founder_loop_attention_source_review_idempotency")
+        validate_task_ref(
+            idempotency_ref, "founder_loop_attention_source_review_idempotency"
+        )
         action = self._action(today_item_ref)
         required = self.required_source_refs(today_item_ref)
         if tuple(sorted(inspected_source_refs)) != required:
@@ -609,7 +604,7 @@ class FounderLoopAttentionWorkflow:
                     "Prepare the exact source-bound metadata action for approval."
                 ),
                 "updated_at": utc_now(),
-            }
+            },
         )
         self.repository.upsert_action(updated)
         return FounderLoopAttentionSourceReview(
@@ -630,12 +625,6 @@ class FounderLoopAttentionWorkflow:
         target = self.mission_service.targets.get(request.mission_request.target_ref)
         if target is None:
             raise ValueError("FOUNDER_LOOP_ATTENTION_TARGET_NOT_PREDECLARED")
-        authority_decision_ref = self._validate_current_mission_lease(
-            operation="prepare",
-            mission_ref=request.mission_request.mission_ref,
-            lease_ref=request.mission_request.lease_ref,
-            target_ref=target.target_ref,
-        )
         required_sources = {
             request.today_item_ref,
             target.target_ref,
@@ -644,6 +633,51 @@ class FounderLoopAttentionWorkflow:
         }
         if set(request.inspected_source_refs) != required_sources:
             raise ValueError("FOUNDER_LOOP_ATTENTION_SOURCE_BINDING_REQUIRED")
+        expected_operator_ref = attention_workflow_operator_request_ref(
+            workflow_ref=request.workflow_ref,
+            today_item_ref=request.today_item_ref,
+            inspected_source_refs=request.inspected_source_refs,
+            source_review_receipt_ref=request.source_review_receipt_ref,
+            proposal_ref=request.mission_request.proposal_ref,
+            target_ref=target.target_ref,
+        )
+        if request.mission_request.operator_request_ref != expected_operator_ref:
+            raise ValueError("FOUNDER_LOOP_ATTENTION_OPERATOR_BINDING_MISMATCH")
+        stored_request = self.mission_service.prepared_request(
+            request.mission_request.proposal_ref
+        )
+        if stored_request is not None:
+            if stored_request.model_dump(
+                mode="json"
+            ) != request.mission_request.model_dump(mode="json"):
+                raise ValueError("FOUNDER_LOOP_ATTENTION_PREPARE_REPLAY_CONFLICT")
+            if action.status != "source_refs_reviewed":
+                prepared = self.mission_service.prepared_proposal(
+                    request.mission_request.proposal_ref
+                )
+                if (
+                    prepared is None
+                    or request.source_review_receipt_ref not in action.receipt_refs
+                    or action.idempotency_key_ref
+                    != request.mission_request.proposal_ref
+                    or action.approval_envelope_ref
+                    != prepared.proposal.approval_request_ref
+                    or prepared.proposal.target_ref != target.target_ref
+                ):
+                    raise ValueError(
+                        "FOUNDER_LOOP_ATTENTION_PREPARE_REPLAY_BINDING_INVALID"
+                    )
+                self._validate_current_action_definition(
+                    action=action,
+                    target_ref=target.target_ref,
+                )
+                return self._prepared_response(request=request, prepared=prepared)
+        authority_decision_ref = self._validate_current_mission_lease(
+            operation="prepare",
+            mission_ref=request.mission_request.mission_ref,
+            lease_ref=request.mission_request.lease_ref,
+            target_ref=target.target_ref,
+        )
         if (
             action.status != "source_refs_reviewed"
             or request.source_review_receipt_ref not in action.receipt_refs
@@ -659,16 +693,6 @@ class FounderLoopAttentionWorkflow:
         )
         if request.source_review_receipt_ref != expected_source_review_ref:
             raise ValueError("FOUNDER_LOOP_ATTENTION_SOURCE_REVIEW_RECEIPT_INVALID")
-        expected_operator_ref = attention_workflow_operator_request_ref(
-            workflow_ref=request.workflow_ref,
-            today_item_ref=request.today_item_ref,
-            inspected_source_refs=request.inspected_source_refs,
-            source_review_receipt_ref=request.source_review_receipt_ref,
-            proposal_ref=request.mission_request.proposal_ref,
-            target_ref=target.target_ref,
-        )
-        if request.mission_request.operator_request_ref != expected_operator_ref:
-            raise ValueError("FOUNDER_LOOP_ATTENTION_OPERATOR_BINDING_MISMATCH")
         prepared = self.mission_service.prepare(request.mission_request)
         updated_without_definition = self._validated_action_update(
             action,
@@ -709,8 +733,10 @@ class FounderLoopAttentionWorkflow:
                 "next_safe_action": (
                     "Review and grant the exact approval request before execution."
                 ),
-                "updated_at": datetime.now(tz=request.mission_request.start_deadline.tzinfo),
-            }
+                "updated_at": datetime.now(
+                    tz=request.mission_request.start_deadline.tzinfo
+                ),
+            },
         )
         definition_ref = _attention_action_definition_ref(
             action=updated_without_definition,
@@ -724,17 +750,26 @@ class FounderLoopAttentionWorkflow:
                     *updated_without_definition.evidence_refs,
                     definition_ref,
                 ]
-            }
+            },
         )
         self.repository.upsert_action(updated)
+        return self._prepared_response(request=request, prepared=prepared)
+
+    @staticmethod
+    def _prepared_response(
+        *,
+        request: FounderLoopAttentionWorkflowRequest,
+        prepared: FounderLoopMissionPrepared,
+    ) -> FounderLoopAttentionWorkflowPrepared:
+        proposal = prepared.proposal
         return FounderLoopAttentionWorkflowPrepared(
             workflow_ref=request.workflow_ref,
             today_item_ref=request.today_item_ref,
-            proposal_ref=prepared.proposal.proposal_ref,
-            approval_request_ref=prepared.proposal.approval_request_ref,
-            intent_ref=prepared.proposal.intent_ref,
-            plan_revision_ref=prepared.proposal.plan_revision_ref,
-            target_ref=prepared.proposal.target_ref,
+            proposal_ref=proposal.proposal_ref,
+            approval_request_ref=proposal.approval_request_ref,
+            intent_ref=proposal.intent_ref,
+            plan_revision_ref=proposal.plan_revision_ref,
+            target_ref=proposal.target_ref,
             inspected_source_refs=request.inspected_source_refs,
         )
 
@@ -777,41 +812,51 @@ class FounderLoopAttentionWorkflow:
             target_ref=prepared.proposal.target_ref,
         )
         with self.mission_service.approval_authority.hold_validation_lock():
-            existing = self.mission_service.approval_authority.get_grant(approval_ref)
+            authority = self.mission_service.approval_authority
+            matching_grants = [
+                grant
+                for grant in authority.list_grants()
+                if grant.approval_request_id == approval_request.approval_request_id
+            ]
+            durable_approval_refs = {
+                ref
+                for ref in self._action(today_item_ref).audit_refs
+                if ref.startswith("approval-ref:founder-loop-attention:")
+            }
+            if len(matching_grants) > 1 or len(durable_approval_refs) > 1:
+                raise ValueError("FOUNDER_LOOP_ATTENTION_APPROVAL_EVIDENCE_AMBIGUOUS")
+            if durable_approval_refs and (
+                not matching_grants
+                or durable_approval_refs != {matching_grants[0].approval_ref}
+            ):
+                raise ValueError("FOUNDER_LOOP_ATTENTION_APPROVAL_EVIDENCE_MISSING")
+            existing = matching_grants[0] if matching_grants else None
             if existing is not None:
                 if (
-                    existing.approval_request_id
-                    != approval_request.approval_request_id
+                    existing.approval_request_id != approval_request.approval_request_id
                     or existing.approved_by_actor_id != approved_by_actor_ref
-                    or existing.approved_actions
-                    != [approval_request.requested_action]
+                    or existing.approved_actions != [approval_request.requested_action]
                     or existing.approved_resource_refs
                     != list(approval_request.resource_refs)
                 ):
-                    raise ValueError(
-                        "FOUNDER_LOOP_ATTENTION_APPROVAL_REPLAY_CONFLICT"
-                    )
+                    raise ValueError("FOUNDER_LOOP_ATTENTION_APPROVAL_REPLAY_CONFLICT")
                 if existing.status != ApprovalStatus.granted:
-                    raise ValueError(
-                        "FOUNDER_LOOP_ATTENTION_APPROVAL_REPLAY_DENIED"
-                    )
+                    raise ValueError("FOUNDER_LOOP_ATTENTION_APPROVAL_REPLAY_DENIED")
                 if existing.expires_at is not None and existing.expires_at <= utc_now():
-                    raise ValueError(
-                        "FOUNDER_LOOP_ATTENTION_APPROVAL_REPLAY_DENIED"
-                    )
+                    raise ValueError("FOUNDER_LOOP_ATTENTION_APPROVAL_REPLAY_DENIED")
                 grant = existing
             else:
-                grant = self.mission_service.approval_authority.grant(
+                grant = authority.grant(
                     prepared.proposal.approval_request_ref,
                     approved_by_actor_id=approved_by_actor_ref,
                     approval_ref=approval_ref,
                 )
-        self._record_approval_posture(
-            today_item_ref=today_item_ref,
-            target_ref=prepared.proposal.target_ref,
-            approval_ref=grant.approval_ref,
-            authority_decision_ref=authority_decision_ref,
-        )
+            self._record_approval_posture(
+                today_item_ref=today_item_ref,
+                target_ref=prepared.proposal.target_ref,
+                approval_ref=grant.approval_ref,
+                authority_decision_ref=authority_decision_ref,
+            )
         return grant.approval_ref
 
     def execute(
@@ -884,7 +929,10 @@ class FounderLoopAttentionWorkflow:
                     *action.receipt_refs,
                     result.completion.completion_ref,
                     result.completion.plan_receipt_ref,
-                    *(item.dispatch_receipt_ref for item in result.completion.step_bindings),
+                    *(
+                        item.dispatch_receipt_ref
+                        for item in result.completion.step_bindings
+                    ),
                 ]
             )
         )
@@ -896,7 +944,7 @@ class FounderLoopAttentionWorkflow:
                 ]
             )
         )
-        updated = self._validated_action_update(
+        updated_without_definition = self._validated_action_update(
             action,
             update={
                 "status": "receipt_recorded",
@@ -915,9 +963,29 @@ class FounderLoopAttentionWorkflow:
                     "Inspect the content-free execution and completion receipts."
                 ),
                 "updated_at": result.completion.created_at,
-            }
+            },
+        )
+        target = self.mission_service.targets[result.proposal.target_ref]
+        definition_ref = _attention_action_definition_ref(
+            action=updated_without_definition,
+            target_ref=target.target_ref,
+            path_ref=target.path_ref,
+        )
+        updated = self._validated_action_update(
+            updated_without_definition,
+            update={
+                "evidence_refs": [
+                    *(
+                        ref
+                        for ref in updated_without_definition.evidence_refs
+                        if not ref.startswith(_ACTION_DEFINITION_REF_PREFIX)
+                    ),
+                    definition_ref,
+                ]
+            },
         )
         self.repository.upsert_action(updated)
+        evidence_refs = tuple(updated.evidence_refs)
         return FounderLoopAttentionWorkflowResult(
             workflow_ref=workflow_ref,
             today_item_ref=today_item_ref,
@@ -1039,7 +1107,8 @@ class FounderLoopAttentionWorkflow:
             for domain, capabilities in lease.domains.items()
         }
         if (
-            domain_values != {AuthorityDomain.files.value: [AuthorityCapability.read.value]}
+            domain_values
+            != {AuthorityDomain.files.value: [AuthorityCapability.read.value]}
             or path_constraint is None
             or path_constraint.allowed_refs != [target.path_ref]
             or operation_constraint is None

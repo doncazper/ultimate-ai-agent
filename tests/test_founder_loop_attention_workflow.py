@@ -47,7 +47,9 @@ def _workflow_fixture(tmp_path: Path, *, suffix: str, review_sources: bool = Tru
         repository=repository,
         mission_service=service,
     )
-    source_review_receipt_ref = "source-review-receipt-ref:founder-loop-attention:missing"
+    source_review_receipt_ref = (
+        "source-review-receipt-ref:founder-loop-attention:missing"
+    )
     if review_sources:
         source_review_receipt_ref = workflow.review_source_refs(
             today_item_ref=TODAY_ITEM_REF,
@@ -118,6 +120,7 @@ def test_attention_workflow_refreshes_today_after_exact_receipt(tmp_path: Path) 
         approval_ref=approval_ref,
         owner_ref="mission-owner-ref:founder-loop-attention:replay",
     )
+    prepare_replay = workflow.prepare(request)
     assert workflow.required_source_refs(TODAY_ITEM_REF) == required_source_refs
 
     today = repository.today_summary(limit=20)
@@ -143,10 +146,9 @@ def test_attention_workflow_refreshes_today_after_exact_receipt(tmp_path: Path) 
     )
     assert replay.completion_ref == result.completion_ref
     assert replay.terminal_replay is True
+    assert prepare_replay == prepared
     assert not any(
-        item.get("safe_summary", "").startswith(
-            "A completed exact metadata inspection"
-        )
+        item.get("safe_summary", "").startswith("A completed exact metadata inspection")
         for item in today["memory_review_queue"]
     )
     assert str(root_path).encode("utf-8") not in repository.db_path.read_bytes()
@@ -158,6 +160,133 @@ def test_attention_workflow_refreshes_today_after_exact_receipt(tmp_path: Path) 
     )
     assert setup_action["status"] == "review_ready"
     assert setup_action["action_kind"] == "review_only"
+
+
+def test_prepare_replays_exact_durable_result_without_current_lease(
+    tmp_path: Path,
+) -> None:
+    workflow, _, request, _ = _workflow_fixture(
+        tmp_path,
+        suffix="attention-prepare-replay",
+    )
+    prepared = workflow.prepare(request)
+    workflow.mission_service.lease_store.revoke_lease(
+        AuthorityLeaseRevokeRequest(
+            lease_ref=request.mission_request.lease_ref,
+            decision_reason_ref="reason-ref:attention:prepare-replay-revoked",
+            safe_summary="Revoke after the prepared response became durable.",
+        ),
+        idempotency_ref="idempotency-ref:attention:prepare-replay-revoked",
+    )
+
+    replay = workflow.prepare(request)
+
+    assert replay == prepared
+    assert len(workflow.mission_service._proposal_store._load()) == 1  # noqa: SLF001
+
+
+def test_prepare_replay_rejects_changed_request(tmp_path: Path) -> None:
+    workflow, _, request, _ = _workflow_fixture(
+        tmp_path,
+        suffix="attention-prepare-conflict",
+    )
+    workflow.prepare(request)
+    changed = request.model_copy(
+        update={
+            "mission_request": request.mission_request.model_copy(
+                update={"run_ref": "run-ref:attention:prepare-conflict-changed"}
+            )
+        }
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="FOUNDER_LOOP_ATTENTION_PREPARE_REPLAY_CONFLICT",
+    ):
+        workflow.prepare(changed)
+
+    assert len(workflow.mission_service._proposal_store._load()) == 1  # noqa: SLF001
+
+
+def test_second_approval_identifier_replays_the_single_exact_grant(
+    tmp_path: Path,
+) -> None:
+    workflow, _, request, _ = _workflow_fixture(
+        tmp_path,
+        suffix="attention-approval-singleton",
+    )
+    prepared = workflow.prepare(request)
+    original_ref = workflow.grant_exact_approval(
+        workflow_ref=request.workflow_ref,
+        today_item_ref=request.today_item_ref,
+        inspected_source_refs=request.inspected_source_refs,
+        source_review_receipt_ref=request.source_review_receipt_ref,
+        proposal_ref=prepared.proposal_ref,
+        approved_by_actor_ref="operator-ref:local-user",
+        approval_ref="approval-ref:founder-loop-attention:singleton-original",
+    )
+    assert workflow.prepare(request) == prepared
+
+    replayed_ref = workflow.grant_exact_approval(
+        workflow_ref=request.workflow_ref,
+        today_item_ref=request.today_item_ref,
+        inspected_source_refs=request.inspected_source_refs,
+        source_review_receipt_ref=request.source_review_receipt_ref,
+        proposal_ref=prepared.proposal_ref,
+        approved_by_actor_ref="operator-ref:local-user",
+        approval_ref="approval-ref:founder-loop-attention:singleton-second",
+    )
+
+    approval_refs = [
+        ref
+        for ref in workflow.action_status(TODAY_ITEM_REF).audit_refs
+        if ref.startswith("approval-ref:founder-loop-attention:")
+    ]
+    assert replayed_ref == original_ref
+    assert len(workflow.mission_service.approval_authority.list_grants()) == 1
+    assert approval_refs == [original_ref]
+    assert workflow.verified_status(TODAY_ITEM_REF).approval_truth_status != (
+        "approval_evidence_ambiguous"
+    )
+
+
+def test_concurrent_approval_identifiers_create_at_most_one_grant(
+    tmp_path: Path,
+) -> None:
+    import threading
+
+    workflow, _, request, _ = _workflow_fixture(
+        tmp_path,
+        suffix="attention-approval-concurrent",
+    )
+    prepared = workflow.prepare(request)
+    outcomes: list[str] = []
+
+    def approve(suffix: str) -> None:
+        outcomes.append(
+            workflow.grant_exact_approval(
+                workflow_ref=request.workflow_ref,
+                today_item_ref=request.today_item_ref,
+                inspected_source_refs=request.inspected_source_refs,
+                source_review_receipt_ref=request.source_review_receipt_ref,
+                proposal_ref=prepared.proposal_ref,
+                approved_by_actor_ref="operator-ref:local-user",
+                approval_ref=f"approval-ref:founder-loop-attention:{suffix}",
+            )
+        )
+
+    threads = [
+        threading.Thread(target=approve, args=("concurrent-one",)),
+        threading.Thread(target=approve, args=("concurrent-two",)),
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=2)
+
+    assert len(outcomes) == 2
+    assert len(set(outcomes)) == 1
+    assert len(workflow.mission_service.approval_authority.list_grants()) == 1
 
 
 def test_attention_workflow_source_inspection_requires_current_exact_lease(
@@ -207,9 +336,10 @@ def test_attention_workflow_rejects_uninspected_or_changed_sources(
         if item["item_ref"] == TODAY_ITEM_REF
     )
     assert action["status"] == "source_refs_reviewed"
-    assert workflow.mission_service.prepared_proposal(
-        request.mission_request.proposal_ref
-    ) is None
+    assert (
+        workflow.mission_service.prepared_proposal(request.mission_request.proposal_ref)
+        is None
+    )
 
 
 def test_attention_workflow_rechecks_lease_before_prepare_and_approval(
@@ -232,7 +362,9 @@ def test_attention_workflow_rechecks_lease_before_prepare_and_approval(
         match="FOUNDER_LOOP_ATTENTION_CURRENT_MISSION_LEASE_REQUIRED",
     ):
         prepare_workflow.prepare(prepare_request)
-    assert prepare_workflow.action_status(TODAY_ITEM_REF).status == "source_refs_reviewed"
+    assert (
+        prepare_workflow.action_status(TODAY_ITEM_REF).status == "source_refs_reviewed"
+    )
 
     approval_workflow, _, approval_request, _ = _workflow_fixture(
         tmp_path / "approval",
@@ -331,7 +463,9 @@ def test_attention_workflow_rejects_unrelated_action_items(tmp_path: Path) -> No
         workflow.required_source_refs("founder-action:setup-assistant-hardening")
 
 
-def test_revoked_approval_cannot_be_restored_by_idempotent_replay(tmp_path: Path) -> None:
+def test_revoked_approval_cannot_be_restored_by_idempotent_replay(
+    tmp_path: Path,
+) -> None:
     workflow, _, request, _ = _workflow_fixture(
         tmp_path,
         suffix="attention-revoked-approval",
@@ -364,6 +498,20 @@ def test_revoked_approval_cannot_be_restored_by_idempotent_replay(tmp_path: Path
             proposal_ref=prepared.proposal_ref,
             approved_by_actor_ref="operator-ref:local-user",
             approval_ref=approval_ref,
+        )
+
+    with pytest.raises(
+        ValueError,
+        match="FOUNDER_LOOP_ATTENTION_APPROVAL_REPLAY_DENIED",
+    ):
+        workflow.grant_exact_approval(
+            workflow_ref=request.workflow_ref,
+            today_item_ref=request.today_item_ref,
+            inspected_source_refs=request.inspected_source_refs,
+            source_review_receipt_ref=request.source_review_receipt_ref,
+            proposal_ref=prepared.proposal_ref,
+            approved_by_actor_ref="operator-ref:local-user",
+            approval_ref="approval-ref:founder-loop-attention:revoked-replacement",
         )
 
 
@@ -484,9 +632,7 @@ def test_status_fails_closed_when_terminal_evidence_is_unavailable(
 
     assert status.action.status == "receipt_recorded"
     assert status.execution_performed is None
-    assert status.execution_truth_status == (
-        "completion_or_dispatch_evidence_unknown"
-    )
+    assert status.execution_truth_status == ("completion_or_dispatch_evidence_unknown")
     assert status.recovery_required is True
     assert status.exact_approval_required is True
 
@@ -517,7 +663,9 @@ def test_execute_does_not_return_success_without_terminal_evidence_verification(
         execution_truth_status="completion_or_dispatch_evidence_unknown",
         approval_truth_status="recorded_approval_not_current",
     )
-    monkeypatch.setattr(workflow, "verified_status", lambda _item_ref: unavailable_status)
+    monkeypatch.setattr(
+        workflow, "verified_status", lambda _item_ref: unavailable_status
+    )
 
     with pytest.raises(
         ValueError,

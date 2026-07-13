@@ -12,6 +12,7 @@ from ultimate_ai_agent.api.dependencies import get_founder_attention_workflow
 from ultimate_ai_agent.api.idempotency import (
     IDEMPOTENCY_KEY_HEADER,
     IDEMPOTENCY_REF_HEADER,
+    idempotency_value_valid,
 )
 from ultimate_ai_agent.api.route_registration import register_router_once
 from ultimate_ai_agent.core.control_center.founder_loop_attention_workflow import (
@@ -89,8 +90,21 @@ def _stable_ref(prefix: str, payload: object) -> str:
 
 
 def _idempotency_ref(key: str | None, ref: str | None) -> str:
-    value = (key or ref or "").strip()
-    if not value:
+    valid_values = [
+        value.strip() for value in (key, ref) if idempotency_value_valid(value)
+    ]
+    if len(set(valid_values)) > 1:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "API_IDEMPOTENCY_CONFLICT",
+                "safe_message": "The supplied idempotency values do not match.",
+            },
+        )
+    if valid_values:
+        return valid_values[0]
+    supplied_values = [value for value in (key, ref) if value and value.strip()]
+    if not supplied_values:
         raise HTTPException(
             status_code=428,
             detail={
@@ -98,7 +112,13 @@ def _idempotency_ref(key: str | None, ref: str | None) -> str:
                 "safe_message": "Exact Founder Loop mutations require idempotency.",
             },
         )
-    return value
+    raise HTTPException(
+        status_code=400,
+        detail={
+            "code": "API_IDEMPOTENCY_INVALID",
+            "safe_message": "The supplied idempotency value is invalid.",
+        },
+    )
 
 
 def _safe_error_code(exc: ValueError, fallback: str) -> str:
@@ -106,7 +126,9 @@ def _safe_error_code(exc: ValueError, fallback: str) -> str:
     return candidate if _SAFE_ERROR_CODE.fullmatch(candidate) else fallback
 
 
-@router.get("/today/exact-action/{today_item_ref}/status", response_model=ResultEnvelope)
+@router.get(
+    "/today/exact-action/{today_item_ref}/status", response_model=ResultEnvelope
+)
 def get_control_center_today_exact_action_status(
     today_item_ref: str,
 ) -> ResultEnvelope:
@@ -280,7 +302,7 @@ def post_control_center_today_exact_action_approve(
         {"proposal_ref": request.proposal_ref, "idempotency_ref": idempotency_ref},
     )
     try:
-        get_founder_attention_workflow().grant_exact_approval(
+        approval_ref = get_founder_attention_workflow().grant_exact_approval(
             workflow_ref=request.workflow_ref,
             today_item_ref=request.today_item_ref,
             inspected_source_refs=request.inspected_source_refs,
@@ -343,7 +365,10 @@ def post_control_center_today_exact_action_execute(
             approval_ref=request.approval_ref,
             owner_ref=_stable_ref(
                 "mission-owner-ref:founder-loop-attention",
-                {"proposal_ref": request.proposal_ref, "idempotency_ref": idempotency_ref},
+                {
+                    "proposal_ref": request.proposal_ref,
+                    "idempotency_ref": idempotency_ref,
+                },
             ),
         )
     except ValueError as exc:

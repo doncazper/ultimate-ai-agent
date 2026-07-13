@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.dependencies import clear_founder_attention_workflow_cache
+from ultimate_ai_agent.api.rate_limits import reset_api_rate_limit_state
 from ultimate_ai_agent.core.authority import (
     AuthorityCapability,
     AuthorityConstraint,
@@ -31,6 +32,13 @@ from ultimate_ai_agent.core.storage.founder_loop_exact_action import (
 
 client = TestClient(app)
 TODAY_ITEM_REF = FOUNDER_LOOP_EXACT_ATTENTION_ACTION_REF
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limit_state():
+    reset_api_rate_limit_state()
+    yield
+    reset_api_rate_limit_state()
 
 
 def _issue_exact_lease(
@@ -122,7 +130,10 @@ def test_exact_action_api_completes_and_refreshes_backend_today(
             "mission_ref": mission_ref,
             "lease_ref": lease.lease_ref,
         },
-        headers={"x-uaa-idempotency-key": "attention-api-inspect"},
+        headers={
+            "x-uaa-idempotency-key": "bad",
+            "x-uaa-idempotency-ref": "attention-api-inspect",
+        },
     )
     assert source_review_response.status_code == 200, source_review_response.text
     source_review = source_review_response.json()["data"]
@@ -134,10 +145,28 @@ def test_exact_action_api_completes_and_refreshes_backend_today(
             "mission_ref": mission_ref,
             "lease_ref": lease.lease_ref,
         },
-        headers={"x-uaa-idempotency-key": "attention-api-inspect"},
+        headers={"x-uaa-idempotency-ref": "attention-api-inspect"},
     ).json()["data"]
-    assert source_review_replay["source_review_receipt_ref"] == (
-        source_review["source_review_receipt_ref"]
+    assert (
+        source_review_replay["source_review_receipt_ref"]
+        == (source_review["source_review_receipt_ref"])
+    )
+    conflicting_idempotency = client.post(
+        "/control-center/today/exact-action/source-review",
+        json={
+            "today_item_ref": TODAY_ITEM_REF,
+            "inspected_source_refs": status["required_inspected_source_refs"],
+            "mission_ref": mission_ref,
+            "lease_ref": lease.lease_ref,
+        },
+        headers={
+            "x-uaa-idempotency-key": "attention-api-conflict-key",
+            "x-uaa-idempotency-ref": "attention-api-conflict-ref",
+        },
+    )
+    assert conflicting_idempotency.status_code == 400
+    assert conflicting_idempotency.json()["detail"]["code"] == (
+        "API_IDEMPOTENCY_CONFLICT"
     )
     request = {
         "workflow_ref": "founder-loop-attention-workflow:api-success",
@@ -157,6 +186,13 @@ def test_exact_action_api_completes_and_refreshes_backend_today(
     )
     assert prepared_response.status_code == 200, prepared_response.text
     prepared = prepared_response.json()["data"]
+    prepared_replay_response = client.post(
+        "/control-center/today/exact-action/prepare",
+        json=request,
+        headers={"x-uaa-idempotency-key": "attention-api-prepare"},
+    )
+    assert prepared_replay_response.status_code == 200
+    assert prepared_replay_response.json()["data"] == prepared
     assert prepared["execution_performed"] is False
     decision_payload = {
         "workflow_ref": request["workflow_ref"],
@@ -172,6 +208,16 @@ def test_exact_action_api_completes_and_refreshes_backend_today(
     )
     assert approval_response.status_code == 200, approval_response.text
     approval = approval_response.json()["data"]
+    approval_replay_response = client.post(
+        "/control-center/today/exact-action/approve",
+        json=decision_payload,
+        headers={"x-uaa-idempotency-ref": "attention-api-approve-second"},
+    )
+    assert approval_replay_response.status_code == 200
+    assert (
+        approval_replay_response.json()["data"]["approval_ref"]
+        == approval["approval_ref"]
+    )
     assert approval["approval_ref_is_identifier_only"] is True
     assert approval["exact_scope_recorded_by_python_core"] is True
     assert approval["execution_scope_validation_pending"] is True
