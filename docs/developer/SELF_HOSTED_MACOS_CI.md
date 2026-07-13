@@ -52,8 +52,8 @@ provider, connector, production, or AuthorityLease capability.
   installed environment. Two isolated workers overlap the heavy affinity shard
   with ordinary shards while avoiding the lock starvation and repeated
   dependency installation caused by multiple runner jobs on one physical Mac.
-- Checkout is pinned to the exact `actions/checkout` v6.0.2 commit. That release
-  uses Node 24 and is compatible with the pinned runner version; checkout tokens
+- Checkout is pinned to the exact `actions/checkout` v6.0.2 release. It uses
+  Node 24 and is compatible with the pinned runner version; checkout tokens
   remain non-persistent.
 - GitHub cancellation is handled inside the shard runner. `SIGTERM` closes the
   active shard process groups with a bounded grace period so superseded runs do

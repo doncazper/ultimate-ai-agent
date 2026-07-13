@@ -112,10 +112,7 @@ def test_shared_mac_ci_stages_cpu_and_io_heavy_job_classes() -> None:
 def test_checkout_is_pinned_to_current_node_24_release() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
 
-    checkout_action = (
-        "uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd "
-        "# v6.0.2"
-    )
+    checkout_action = "uses: actions/checkout@v6.0.2"
     assert workflow.count(checkout_action) == workflow.count(
         "persist-credentials: false"
     )
