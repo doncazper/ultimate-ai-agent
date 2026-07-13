@@ -167,8 +167,8 @@ def _validate_visual_baseline(root: Path, failures: list[str]) -> None:
             "toHaveScreenshot",
         ],
         PACKAGE_JSON: [
-            '"visual:check": "playwright test --config=playwright.visual.config.ts"',
-            '"visual:capture": "playwright test --config=playwright.visual.config.ts --update-snapshots"',
+            '"visual:check": "playwright test --config=playwright.visual.config.ts --project=desktop"',
+            '"visual:capture": "playwright test --config=playwright.visual.config.ts --project=desktop --update-snapshots"',
         ],
         SETUP_PANEL: [
             "Visual setup preview",
