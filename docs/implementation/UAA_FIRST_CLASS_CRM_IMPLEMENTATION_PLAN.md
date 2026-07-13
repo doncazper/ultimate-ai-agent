@@ -10,6 +10,12 @@ Suite ownership plan:
 
 ## Decision Summary
 
+ECO-000 was accepted on 2026-07-12 for shared ownership and planning contracts.
+CRM must use the ECO-000 Identity, Calendar Event, Task, Boards projection,
+Inbox Source, Governance ChangeSet, and Memory-recall boundaries. This does not
+accept CRM-FC-000 renders or authorize CRM-FC-001 storage; CRM-specific private
+schema, key lifecycle, and threat-review decisions remain open.
+
 UAA CRM will become a first-class local relationship operating system, not a
 sales-only database and not a collection of unrelated vertical skins. The
 shared foundation will support five initial operator workspaces:

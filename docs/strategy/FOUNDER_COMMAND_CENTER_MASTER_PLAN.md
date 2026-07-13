@@ -138,6 +138,9 @@ and Memory can become individually complete while sharing canonical objects
 and governed cross-app workflows. It is subordinate to the Founder Command
 Center wedge and does not reorder current authority or claim those apps are
 implemented.
+ECO-000 accepts that shared vocabulary and experience bar only. Founder Loop,
+Work Board, local-task, CRM M2, memory, planning, and connector records remain
+the current runtime truth until previewed compatibility migrations are proven.
 
 ## If Hermes Is Linux, UAA Becomes macOS
 

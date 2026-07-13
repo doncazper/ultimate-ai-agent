@@ -83,6 +83,10 @@ share the Python Agent Core and governance boundaries while keeping one
 canonical owner for each event, task, relationship, opportunity, source
 artifact, board projection, and receipt. This planning target adds no routes,
 stores, connectors, controls, dependencies, packaging, or authority by itself.
+ECO-000 accepts the additive ownership/link/projection/ChangeSet vocabulary,
+ADRs 0054-0061, migration inventory, privacy threat model, app acceptance bar,
+planned navigation, reviewed design drafts, and unmeasured quality targets.
+Implementation begins only through a separately accepted ECO-001 milestone.
 
 ### OpenWebUI Optional Shell
 
