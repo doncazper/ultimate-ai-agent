@@ -83,6 +83,35 @@ curated gallery and snapshot caveats.
 | CRM | Backend-owned local CRM command center with read routes, CLI inspection, local storage posture, redacted import/export preview, and one exact local mutation receipt capability. Connector runtime, account sync, sends, calendar writes, provider/model calls, and external CRM writes remain blocked. | [docs/control_center/CRM_LOCAL_COMMAND_CENTER_M2.md](docs/control_center/CRM_LOCAL_COMMAND_CENTER_M2.md) |
 | Inbox/email/calendar connectors | Planned or blocked AuthorityLease capability contracts only. No live connector runtime or writes. | [docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md](docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md) |
 
+## Planned Creator Feature: Social Media Intelligence
+
+**Status: planned and dependency-gated.** Social Media Intelligence is a
+creator-focused command view for cross-channel performance, audience signals,
+campaigns, publishing cadence, and high-value conversations. Social explains
+what changed and routes context into UAA Calendar, Work Board,
+Communications, CRM, Studio, and Evidence; it does not replace those apps.
+
+![Accepted Social Media Intelligence command-view concept](docs/design/control_center_north_star/renders/social-media-v1/01-social-command-view.jpg)
+
+The first milestone is read-only. It does not publish, reply, change external
+accounts, or create a second scheduler, Kanban board, inbox, CRM, or asset
+library. Social owns interpretation; Calendar owns time; Work Board owns
+production; Communications owns conversations; CRM owns relationships; Studio
+owns assets; and Evidence owns proof.
+
+This feature is deliberately deferred. UAA must not recommend it as the next
+implementation lane until **Work Board/Kanban**, **first-class CRM**, and
+**Communications/Messenger** are each accepted as fully implemented with
+current backend, API/CLI, frontend, test, visual, and product-truth evidence.
+Passing all three gates makes Social eligible for prioritization, not
+automatically next.
+
+See the
+[product contract](docs/product/UAA_SOCIAL_MEDIA_INTELLIGENCE_PRODUCT_CONTRACT.md),
+[accepted render pack](docs/design/control_center_north_star/renders/social-media-v1/README.md),
+and
+[gated future implementation prompt](docs/prompts/implement_social_media_intelligence_after_foundation_gates.prompt.md).
+
 ## Architecture At A Glance
 
 ```text
@@ -423,6 +452,8 @@ Start with the active product truth and indexes.
 | [docs/kanban/current_board.md](docs/kanban/current_board.md) | Current board |
 | [docs/control_center/OPERATOR_SHELL_GAP_MAP.md](docs/control_center/OPERATOR_SHELL_GAP_MAP.md) | Control Center shell gap map |
 | [docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md](docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md) | Founder Loop V1 milestone truth |
+| [docs/product/UAA_SOCIAL_MEDIA_INTELLIGENCE_PRODUCT_CONTRACT.md](docs/product/UAA_SOCIAL_MEDIA_INTELLIGENCE_PRODUCT_CONTRACT.md) | Planned read-only Social Media Intelligence product and ownership contract |
+| [docs/prompts/implement_social_media_intelligence_after_foundation_gates.prompt.md](docs/prompts/implement_social_media_intelligence_after_foundation_gates.prompt.md) | Deferred execution prompt gated on Work Board, CRM, and Communications completion |
 | [docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md](docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md) | Governed memory spine contract |
 | [docs/api/README.md](docs/api/README.md) | API documentation entrypoint |
 | [docs/api/openapi_contract.md](docs/api/openapi_contract.md) | OpenAPI contract |
@@ -510,6 +541,9 @@ tests/                    Backend, contract, storage, verifier, and API tests
 - **Control Center polish**: clearer shell states and fewer raw technical surfaces.
 - **Local model support**: safer inventory/status/readiness visibility.
 - **Connector contracts**: read-only email/calendar capabilities before any write authority.
+- **Social Media Intelligence**: deferred read-only creator command view, eligible
+  only after Work Board/Kanban, first-class CRM, and Communications/Messenger
+  have accepted completion evidence.
 - **Private UI testing**: deferred `UAA-P1-087.2` functional tuning after more implementation evidence.
 
 ## Contributing

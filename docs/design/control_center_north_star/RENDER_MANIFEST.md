@@ -95,6 +95,24 @@ failure recovery, dark appearance, and later calling preflight. See
 `UAA_COMMUNICATIONS_MATRIX_NORTH_STAR.md` for the complete surface and truth
 contract. These images do not claim any current Matrix runtime.
 
+## Social Media Intelligence V1
+
+The four-image `social-media-v1` set records the accepted planning-only creator
+intelligence direction and its projections into existing application owners.
+It is dependency-gated behind accepted completion of Work Board/Kanban,
+first-class CRM, and Communications/Messenger.
+
+| File | Surface/version | Required relationship | Must not imply |
+|---|---|---|---|
+| `renders/social-media-v1/01-social-command-view.jpg` | Social command view v1 | interpret performance, audience, campaigns, cadence, and conversation signals | implemented route, live accounts, connector reads, publishing, or replies |
+| `renders/social-media-v1/02-calendar-social-publishing-view.jpg` | Calendar Social publishing v1 | Calendar retains schedule ownership | external scheduling or a second calendar |
+| `renders/social-media-v1/03-work-board-social-content-view.jpg` | Work Board Social Content v1 | Work Board retains production ownership | a second Kanban engine or copied task truth |
+| `renders/social-media-v1/04-communications-social-media-view.jpg` | Communications Social Media v1 | Communications retains conversation ownership | live threads, sends, replies, or moderation |
+
+See `renders/social-media-v1/README.md` for locked labels, ownership, and the
+future implementation gate. These renders are concept artifacts, not current
+Control Center screenshots or implementation evidence.
+
 ## Legacy Composite Coverage
 
 | File | Covered surfaces | Must show | Must not imply |
