@@ -128,6 +128,33 @@ def test_shared_mac_ci_stages_cpu_and_io_heavy_job_classes() -> None:
     )
 
 
+def test_visual_regression_runs_only_for_affected_control_center_paths() -> None:
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    visual_job = verifier.job_section(workflow, "release-lane-visual-regression")
+
+    assert "          fetch-depth: 2\n" in visual_job
+    assert "git rev-parse --verify HEAD^1" in visual_job
+    assert "git diff --quiet HEAD^1 HEAD --" in visual_job
+    for path in (
+        "apps/control-center",
+        "docs/control_center",
+        "docs/design/control_center_north_star",
+        "scripts/verify_beta_local.py",
+        "scripts/verify_control_center_visual_regression.py",
+        "scripts/verify_fcc_polish_001_native_apple_grade_ux_layer.py",
+    ):
+        assert path in visual_job
+    assert visual_job.count(
+        "if: steps.visual-scope.outputs.run_visual == 'true'"
+    ) == 2
+    assert 'if [ "$RUN_VISUAL" = "true" ]; then' in visual_job
+    assert "reason-ref:visual-regression:not-affected" in visual_job
+    assert (
+        'run_lane_command "command:frontend.visual-regression-contract"'
+        in visual_job
+    )
+
+
 def test_checkout_matches_repository_actions_allow_policy() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
 

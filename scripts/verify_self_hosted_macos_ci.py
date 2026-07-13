@@ -135,10 +135,25 @@ def verify(root: Path = ROOT) -> list[str]:
         )
     ):
         failures.append("Control Center verification must wait for backend release checks")
-    if "      - control-center-frontend\n" not in job_section(
-        workflow, "release-lane-visual-regression"
-    ):
+    visual_regression_job = job_section(workflow, "release-lane-visual-regression")
+    if "      - control-center-frontend\n" not in visual_regression_job:
         failures.append("visual regression must wait for Control Center verification")
+    for fragment in (
+        "          fetch-depth: 2\n",
+        "      - name: Determine visual regression scope\n",
+        "git rev-parse --verify HEAD^1",
+        "git diff --quiet HEAD^1 HEAD --",
+        "              apps/control-center \\\n",
+        "              docs/control_center \\\n",
+        "          run_visual=false\n",
+        '          echo "run_visual=${run_visual}" >> "$GITHUB_OUTPUT"\n',
+        "        if: steps.visual-scope.outputs.run_visual == 'true'\n",
+        '          if [ "$RUN_VISUAL" = "true" ]; then\n',
+        "reason-ref:visual-regression:not-affected",
+        'run_lane_command "command:frontend.visual-regression-contract"',
+    ):
+        if fragment not in visual_regression_job:
+            failures.append("visual regression scope must be affected-path bound and fail closed")
     performance_job = job_section(workflow, "release-lane-performance")
     if not all(
         fragment in performance_job
