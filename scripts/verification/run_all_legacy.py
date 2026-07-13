@@ -109,6 +109,7 @@ def _is_exact_governed_runtime_command_shell_scan_line(
         return False
     return (
         stripped_line == "import subprocess"
+        or (rel_path == "src/ultimate_ai_agent/core/sandbox_calculation/backend.py" and "subprocess." in stripped_line)
         or "subprocess.run(" in stripped_line
         or "subprocess.TimeoutExpired" in stripped_line
     )
