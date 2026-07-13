@@ -26,15 +26,14 @@ eligibility, deterministic correction/lifecycle ordering, exact suppression
 authority, and the redacted retrieval benchmark are complete without granting
 hidden context injection or automatic memory truth.
 
-Runtime Capability Foundation Phase 04 is implemented locally pending its
-ordered merge gate for the smallest proven tool slice. The existing exact
-filesystem-metadata mission is now visible in the canonical availability and
-Action/Tool/Code read models with its orchestrator/runner/dispatcher path and
-request-scoped approval posture. Current root, resource, health, and
-safe-disable state remains unknown until exact evaluation. Redacted file
-preview, legacy RuntimeGateway verification commands, CodeAct, sandbox, patch
-apply, broad shell, Git mutation, browser, plugin, and MCP promotion remain
-explicitly outside this phase.
+Runtime Capability Foundation Phase 04 and its sealed-calculation follow-up
+implement two exact tool slices. Filesystem metadata retains request-scoped
+approval. Bounded deterministic arithmetic now runs through the canonical
+orchestrator/runner/dispatcher path in an attested local no-network container
+after an exact mission lease. Static compatibility, configuration, health,
+safe-disable, and resource truth remains unknown until current evaluation.
+General CodeAct/Python, patch apply, broad shell, Git mutation, browser, plugin,
+and MCP execution remain blocked.
 
 Founder Command Center state: macOS Setup Assistant hardening, first
 product-loop readability, Action Inbox approval-envelope/state-change posture,

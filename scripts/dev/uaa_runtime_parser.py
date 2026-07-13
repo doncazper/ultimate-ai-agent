@@ -130,6 +130,7 @@ def build_parser(runtime_symbols: Mapping[str, Any]) -> argparse.ArgumentParser:
     _mission_worker_cli.register_parser(subparsers)
     _mission_completion_cli.register_parser(subparsers)
     _mission_failure_cli.register_parser(subparsers)
+    _sealed_calculation_cli.register_parser(subparsers)
     authority_lane_catalog = subparsers.add_parser(
         "inspect-authority-lane-catalog",
         help="Inspect Authority Lane Catalog V1 without execution.",

@@ -24,6 +24,12 @@ from ultimate_ai_agent.core.runtime_gateway.contracts import (
     GOVERNED_RUNTIME_REQUIRED_BLOCKED_AUTHORITY_REFS,
     GOVERNED_RUNTIME_SAFE_DISABLE_REF,
 )
+from ultimate_ai_agent.core.sandbox_calculation.contracts import (
+    SEALED_CALCULATION_CAPABILITY_REF,
+    SEALED_CALCULATION_LANE_REF,
+    SEALED_CALCULATION_RECEIPT_CONTRACT_REF,
+    SEALED_CALCULATION_SAFE_DISABLE_REF,
+)
 from ultimate_ai_agent.core.tools.v2 import build_default_tool_catalog
 
 
@@ -101,6 +107,8 @@ ActionToolCodeStatus = Literal[
     "implemented_preview_only",
     "implemented_exact_local_mutation_lane",
     "implemented_exact_approval_required",
+    "implemented_exact_lease_required",
+    "implemented_configuration_required",
     "proposal_only",
     "blocked_missing_exact_authority",
 ]
@@ -192,6 +200,15 @@ class ActionToolCodeLaneEntry(BaseModel):
                 raise ValueError("ACTION_TOOL_CODE_EXACT_RUNTIME_LANE_REQUIRED")
             if not self.receipt_refs:
                 raise ValueError("ACTION_TOOL_CODE_EXACT_RUNTIME_RECEIPT_REQUIRED")
+        if self.status == "implemented_exact_lease_required":
+            if not self.exact_runtime_lane_available:
+                raise ValueError("ACTION_TOOL_CODE_EXACT_RUNTIME_LANE_REQUIRED")
+            if not self.receipt_refs:
+                raise ValueError("ACTION_TOOL_CODE_EXACT_RUNTIME_RECEIPT_REQUIRED")
+        if self.status == "implemented_configuration_required" and (
+            self.exact_runtime_lane_available or self.availability_snapshot_ref is None
+        ):
+            raise ValueError("ACTION_TOOL_CODE_CONFIGURATION_POSTURE_INVALID")
         if self.canonical_mission_dispatch and (
             self.availability_snapshot_ref is None
             or self.canonical_execution_path_ref is None
@@ -363,6 +380,7 @@ def build_action_tool_code_lane_catalog_read_model(
 ) -> ActionToolCodeLaneCatalogReadModel:
     entries: list[ActionToolCodeLaneEntry] = []
     entries.append(_filesystem_metadata_mission_entry())
+    entries.append(_sealed_calculation_entry())
     entries.extend(_tool_preview_entries())
     entries.append(_local_task_entry(action_work_queue))
     entries.extend(_runtime_exact_command_entries(runtime_action_bridge))
@@ -459,6 +477,66 @@ def _filesystem_metadata_mission_entry() -> ActionToolCodeLaneEntry:
         ),
         canonical_mission_dispatch=True,
         exact_runtime_lane_available=True,
+    )
+
+
+def _sealed_calculation_entry() -> ActionToolCodeLaneEntry:
+    return ActionToolCodeLaneEntry(
+        capability_id="calculation.sandbox.arithmetic.exact_lease",
+        capability_ref=SEALED_CALCULATION_CAPABILITY_REF,
+        lane_ref=SEALED_CALCULATION_LANE_REF,
+        label="Sealed deterministic calculation",
+        capability_kind="runtime_authority_capability",
+        surface="Runtime",
+        status="implemented_configuration_required",
+        side_effect_class="sandboxed_compute_read_only",
+        required_approval_scope=(
+            "No per-invocation approval after an exact LocalApprovalAuthority-issued "
+            "mission lease binds the input hash, target, adapter, and attestation"
+        ),
+        eligibility_reason=(
+            "One bounded arithmetic expression may execute through MissionOrchestrator, "
+            "MissionRunner, AuthorityDispatcher, and the attested no-network container."
+        ),
+        blocked_reason=(
+            "Python/code execution, shell, network, host files, environment, packages, "
+            "subprocesses, broad CodeAct, background work, and global authority remain denied."
+        ),
+        receipt_requirement=(
+            "Requires exact mission lease, policy decision, budget reservation, atomic "
+            "runtime-start/input-commit receipts, attestation, and content-free terminal evidence."
+        ),
+        rollback_or_safe_disable_posture=(
+            f"Safe-disable ref {SEALED_CALCULATION_SAFE_DISABLE_REF}; the container is "
+            "disposable, has no host mutation surface, and is killed on failure."
+        ),
+        route_refs=[
+            "GET /control-center/capabilities/availability",
+            "GET /api/runtime/authority-missions/completions",
+        ],
+        cli_refs=[
+            "scripts/dev/uaa_runtime.py capability-availability",
+            "scripts/dev/uaa_runtime.py sealed-calculation inspect",
+            "scripts/dev/uaa_runtime.py sealed-calculation prepare",
+            "scripts/dev/uaa_runtime.py sealed-calculation run",
+        ],
+        receipt_refs=[SEALED_CALCULATION_RECEIPT_CONTRACT_REF],
+        evidence_refs=["evidence-ref:sealed-calculation:content-free-terminal"],
+        proof_refs=[],
+        blocked_authority_refs=[
+            "blocked-authority:sealed-calculation:no-general-code",
+            "blocked-authority:sealed-calculation:no-shell",
+            "blocked-authority:sealed-calculation:no-network",
+            "blocked-authority:sealed-calculation:no-host-files",
+            "blocked-authority:sealed-calculation:no-environment",
+            "blocked-authority:sealed-calculation:no-background-autonomy",
+        ],
+        availability_snapshot_ref="capability-availability-ref:sealed-calculation-v1",
+        canonical_execution_path_ref=(
+            "execution-path-ref:mission-orchestrator:mission-runner:authority-dispatcher"
+        ),
+        canonical_mission_dispatch=True,
+        exact_runtime_lane_available=False,
     )
 
 

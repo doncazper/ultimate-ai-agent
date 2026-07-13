@@ -248,6 +248,8 @@ class FoundationGateLegacyChecksPart017Mixin:
                 text = self._context.read_text(path, encoding="utf-8")
                 for fragment in forbidden_source_fragments:
                     if fragment in text:
+                        if sealed_fragment_allowed(rel, text, fragment):
+                            continue
                         failures.append(
                             f"M70 forbidden autonomy foundation freeze fragment in {rel}: {fragment}"
                         )

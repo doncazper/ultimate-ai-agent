@@ -6,6 +6,10 @@ Snapshot date: 2026-07-11
 
 UAA implementation snapshot: `d5eca61ee586ffc06b699ee196f8cd1af0702563`
 
+The scored snapshot remains pinned above. The Tool execution row also records
+the later sealed-calculation follow-up as current repository evidence without
+retroactively changing the Phase 09 score.
+
 GoatCitadel scored release snapshot: tag `v1.0.0` at
 `dff26c018b44c394c189c170265a00ab640f1214`
 
@@ -31,7 +35,7 @@ Status meanings:
 | Area | Status | UAA implementation evidence | GoatCitadel implementation evidence | Concrete gap to tie or lead |
 |---|---|---|---|---|
 | Durable orchestration | Mixed | `mission_orchestrator.py`, `mission_completion.py`, approval waits, retry/dead-letter/cancellation controls, mission budgets, settlement recovery, and completion verification now provide exact lease-bound local orchestration. | `durable-run-service.test.ts` and its boot-recovery integration tests prove broader live scheduling and recovery. | GoatCitadel retains breadth; UAA retains stricter final-start authority. Add only exact local worker controls, not broad autonomy. |
-| Tool execution | GoatCitadel ahead | The canonical orchestrator/runner/dispatcher path executes exact filesystem metadata with idempotency, receipts, and budgets. Allowlisted verification commands remain separate governed RuntimeGateway capabilities and are not represented as dispatcher-promoted adapters. Generic tool dispatch and sealed CodeAct remain blocked. | `tools-invoke.test.ts`, the invocation coordinator, and policy-engine tests prove substantially broader callable tool execution. | Promote additional UAA adapters individually; a proven sealed sandbox is a separate threat-reviewed program. |
+| Tool execution | GoatCitadel ahead | The canonical orchestrator/runner/dispatcher path executes exact filesystem metadata and bounded sealed arithmetic with idempotency, budgets, atomic-start evidence, and content-free receipts. The calculation lane proves no network, host mounts/files, unsafe environment, subprocesses, shells, or packages. Generic tool dispatch and general CodeAct remain blocked. | `tools-invoke.test.ts`, the invocation coordinator, policy-engine tests, and broader sandbox tests still prove substantially greater callable breadth. | Promote additional UAA adapters individually; do not generalize the sealed arithmetic lane into a global tool or code switch. |
 | Evidence receipts | Mixed | `portable_mission_evidence.py` and mission completion bind plan, lease, approval, budget, adapter, target, and terminal evidence into content-free, offline-verifiable hash chains with tamper/reorder/replay rejection. | GoatCitadel evidence-envelope service and storage tests prove broad persisted evidence integration. | UAA signing remains blocked until Keychain lifecycle proof; GoatCitadel should add UAA-style portable substitution checks. |
 | Memory | Mixed | Governed context, deterministic correction precedence, feedback receipts, staleness/conflict exclusion, retrieval benchmarks, and operator review are implemented without hidden injection. | GoatCitadel retains deeper live context composition, maintenance, and runtime memory breadth. | Add exact reviewed context materialization in UAA; GoatCitadel should strengthen correction and content-free receipt boundaries. |
 | Provider observability | GoatCitadel ahead | UAA now separates catalog, compatibility, configuration, health, authority, budget, safe-disable, and readiness; WEB-HYBRID adds bounded provider cost/readiness evidence. | `llm-runtime-truth-service.test.ts`, LLM routes, usage accounting, and spend UI prove wider live provider operation. | UAA needs one fully configured exact provider lane with actual cost settlement; credentials/configuration remain external. |

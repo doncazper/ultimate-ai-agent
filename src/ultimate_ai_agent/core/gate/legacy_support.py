@@ -33,6 +33,7 @@ from ultimate_ai_agent.core.gate.evaluator_modules.route_side_effects import (
     operation_id_failures,
 )
 from ultimate_ai_agent.core.gate.shadow_replay import run_m5_shadow_replay
+from ultimate_ai_agent.core.sandbox_calculation.static_safety import sealed_backend_fragment_allowed as sealed_fragment_allowed
 from ultimate_ai_agent.core.context_budget import ContextBudget
 from ultimate_ai_agent.core.hygiene.actor_context import (
     ActorContext,
@@ -328,7 +329,7 @@ def m152_local_model_management_forbidden_fragment_failures(root: Path, context:
                 continue
             text = _context_read_text(context, path)
             for fragment in M152_FORBIDDEN_SOURCE_FRAGMENTS:
-                if fragment in text:
+                if fragment in text and not sealed_fragment_allowed(rel, text, fragment):
                     failures.append(
                         f"M152 forbidden local model management fragment in {rel}: {fragment}"
                     )

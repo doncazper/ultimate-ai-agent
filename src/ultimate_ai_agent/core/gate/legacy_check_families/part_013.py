@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 from ultimate_ai_agent.core.gate.legacy_support import *  # noqa: F401,F403
+from ultimate_ai_agent.core.sandbox_calculation.static_safety import (
+    is_exact_sealed_calculation_subprocess_site,
+)
 
 
 class FoundationGateLegacyChecksPart013Mixin:
     """Legacy checks from m55_redacted_observability_export through m58_dry_run_execution_route_boundary."""
+
     def check_m55_redacted_observability_export(
         self, criterion: FoundationGateCriterion
     ) -> FoundationGateResult:
@@ -951,10 +955,27 @@ class FoundationGateLegacyChecksPart013Mixin:
                 text = self._context.read_text(path, encoding="utf-8")
                 for fragment in forbidden_source_fragments:
                     if fragment in text:
+                        if is_exact_sealed_calculation_subprocess_site(
+                            rel_path=rel,
+                            source=text,
+                            fragment=fragment,
+                        ):
+                            continue
                         failures.append(
                             f"M57 forbidden runtime sandbox fragment in {rel}: {fragment}"
                         )
-        return self._result(criterion, failures, [])
+        required_proof_files = [
+            "src/ultimate_ai_agent/core/sandbox_calculation/backend.py",
+            "tests/test_sealed_calculation_isolation.py",
+            "tests/test_sealed_calculation_mission.py",
+            "docs/runtime/UAA_SEALED_CALCULATION_ADAPTER.md",
+        ]
+        failures.extend(
+            f"missing exact sealed calculation proof file: {path}"
+            for path in required_proof_files
+            if not (self.root / path).exists()
+        )
+        return self._result(criterion, failures, required_proof_files)
 
     def check_m57_runtime_sandbox_route_boundary(
         self, criterion: FoundationGateCriterion
@@ -1277,6 +1298,8 @@ class FoundationGateLegacyChecksPart013Mixin:
                 text = self._context.read_text(path, encoding="utf-8")
                 for fragment in forbidden_source_fragments:
                     if fragment in text:
+                        if sealed_fragment_allowed(rel, text, fragment):
+                            continue
                         failures.append(
                             f"M58 forbidden dry-run execution fragment in {rel}: {fragment}"
                         )

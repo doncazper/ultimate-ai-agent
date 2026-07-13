@@ -51,7 +51,7 @@ def test_action_tool_code_catalog_preserves_exact_lanes_and_blocks_broad_authori
     assert catalog["control_center_presentation_only"] is True
     assert catalog["safe_refs_only"] is True
     assert catalog["raw_content_included"] is False
-    assert catalog["entry_count"] == 15
+    assert catalog["entry_count"] == 16
     assert catalog["preview_only_count"] == 4
     assert catalog["exact_local_mutation_count"] == 1
     assert catalog["exact_local_authority_capability_count"] == 1
@@ -70,6 +70,23 @@ def test_action_tool_code_catalog_preserves_exact_lanes_and_blocks_broad_authori
         ":mission-runner:authority-dispatcher"
     )
     assert metadata["route_refs"] == ["GET /api/runtime/authority-missions/completions"]
+
+    sealed = _entry_by_id(catalog, "calculation.sandbox.arithmetic.exact_lease")
+    assert sealed["status"] == "implemented_configuration_required"
+    assert sealed["side_effect_class"] == "sandboxed_compute_read_only"
+    assert sealed["canonical_mission_dispatch"] is True
+    assert sealed["exact_runtime_lane_available"] is False
+    assert sealed["availability_snapshot_ref"] == (
+        "capability-availability-ref:sealed-calculation-v1"
+    )
+    assert sealed["receipt_refs"] == [
+        "receipt-contract-ref:sealed-calculation-execution-v1"
+    ]
+    assert all(route.startswith("GET ") for route in sealed["route_refs"])
+    assert "scripts/dev/uaa_runtime.py sealed-calculation run" in sealed["cli_refs"]
+    assert sealed["generic_tool_execution_enabled"] is False
+    assert sealed["unrestricted_shell_execution_enabled"] is False
+    assert "no-general-code" in " ".join(sealed["blocked_authority_refs"])
 
     local_task = _entry_by_id(catalog, "local_task_create")
     assert local_task["capability_kind"] == "local_authority_capability"
@@ -201,5 +218,5 @@ def test_founder_loop_cli_inspects_action_tool_code_catalog(capsys, tmp_path) ->
     assert output["raw_content_omitted"] is True
     assert output["raw_paths_omitted"] is True
     assert catalog["contract_ref"] == ACTION_TOOL_CODE_CATALOG_CONTRACT_REF
-    assert catalog["entry_count"] == 15
+    assert catalog["entry_count"] == 16
     assert catalog["background_autonomy_enabled"] is False

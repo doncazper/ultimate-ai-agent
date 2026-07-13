@@ -3263,6 +3263,8 @@ export type ActionToolCodeLaneStatus =
   | "implemented_preview_only"
   | "implemented_exact_local_mutation_lane"
   | "implemented_exact_approval_required"
+  | "implemented_exact_lease_required"
+  | "implemented_configuration_required"
   | "proposal_only"
   | "blocked_missing_exact_authority";
 
