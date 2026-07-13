@@ -81,6 +81,11 @@ def verify(root: Path = ROOT) -> list[str]:
         failures.append("CI workflow must use the pre-provisioned Python 3.12 toolchain")
     if "/opt/homebrew/opt/node@22/bin" not in workflow:
         failures.append("CI workflow must use the pre-provisioned Node 22 toolchain")
+    utility_shell = "/usr/sbin/taskpolicy -c utility /bin/bash --noprofile --norc -e -o pipefail {0}"
+    if f"defaults:\n  run:\n    shell: {utility_shell}" not in workflow:
+        failures.append("every CI command must escape inherited macOS background QoS throttling")
+    if re.search(r"(?m)^\s+shell: bash$", workflow):
+        failures.append("CI steps must not override the utility-QoS default shell")
     if '--basetemp "${RUNNER_TEMP}/uaa_pytest_shards"' not in workflow:
         failures.append("pytest shards must use the isolated per-job runner temp directory")
     if '--performance-report "${RUNNER_TEMP}/uaa_pytest_performance_report.json"' not in workflow:

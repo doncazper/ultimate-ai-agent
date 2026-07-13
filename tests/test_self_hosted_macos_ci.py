@@ -51,6 +51,8 @@ def test_workflow_uses_non_admin_preprovisioned_toolchains() -> None:
     assert "python3.12 -m venv .venv" in workflow
     assert "/opt/homebrew/opt/python@3.12/libexec/bin" in workflow
     assert "/opt/homebrew/opt/node@22/bin" in workflow
+    assert "shell: /usr/sbin/taskpolicy -c utility /bin/bash --noprofile --norc -e -o pipefail {0}" in workflow
+    assert "shell: bash" not in workflow
 
 
 def test_pytest_shards_use_runner_scoped_temp_directory() -> None:
