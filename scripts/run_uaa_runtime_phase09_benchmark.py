@@ -407,17 +407,25 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Replace the canonical result only after every accepted scenario passes.",
     )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the bounded content-free scenario result as JSON.",
+    )
     args = parser.parse_args(argv)
     payload = run_scenarios()
     passed = payload["status"] == "passed_with_truthful_blocked_sandbox"
     if passed and args.update_canonical:
         _write_result(DEFAULT_OUTPUT, payload)
-    print(
-        "UAA Phase 09 benchmark scenarios completed: "
-        f"{payload['scenario_count']} scenarios; "
-        f"status={payload['status']}; raw outputs omitted; "
-        f"canonical_updated={passed and args.update_canonical}"
-    )
+    if args.json:
+        print(json.dumps(payload, sort_keys=True))
+    else:
+        print(
+            "UAA Phase 09 benchmark scenarios completed: "
+            f"{payload['scenario_count']} scenarios; "
+            f"status={payload['status']}; raw outputs omitted; "
+            f"canonical_updated={passed and args.update_canonical}"
+        )
     return 0 if passed else 1
 
 

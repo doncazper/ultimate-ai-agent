@@ -1,0 +1,1438 @@
+{
+  "schema_version": "uaa_goat_comparison_findings.v1",
+  "comparison_ref": "comparison-ref:uaa-goat:20260712",
+  "comparison_date": "2026-07-12",
+  "authority_granted": false,
+  "baselines": {
+    "uaa": {
+      "branch": "main",
+      "commit_ref": "git-sha:7f4230ac984177d44142330d7b4d3714874d0bd9",
+      "version": "0.104.0",
+      "worktree_status": "clean"
+    },
+    "goatcitadel": {
+      "branch": "codex/mac-desktop-e2e-hardening",
+      "commit_ref": "git-sha:91775e6905c8ca6c5083444f64eb3457b2d0aaa0",
+      "package_version": "0.1.0-rc.1",
+      "expected_release_ref": "git-tag:v1.0.0",
+      "worktree_status": "preexisting_untracked_artifact",
+      "comparison_limitation": "local checkout does not match the expected release baseline"
+    }
+  },
+  "scoring": {
+    "method_ref": "skill-ref:goat-comparison:evidence-gates",
+    "weights": {
+      "reasoning_task_understanding": 8,
+      "planning_orchestration": 8,
+      "learning_adaptation": 8,
+      "memory_context_management": 9,
+      "communication_interaction": 7,
+      "action_tool_calling": 9,
+      "autonomy_authority": 10,
+      "code_implementation_assistance": 6,
+      "research_web_external": 5,
+      "model_provider_management": 6,
+      "evidence_audit_observability": 9,
+      "safety_security_failure": 10,
+      "ux_ai_cockpit": 7,
+      "cli_api_parity": 6,
+      "extensibility_ecosystem": 6,
+      "productized_agent_loop": 10
+    },
+    "gate_order": [
+      "contract",
+      "implementation",
+      "tests",
+      "runtime_integration",
+      "operator_surface",
+      "reference_scenario",
+      "failure_recovery_audit"
+    ],
+    "gate_maxima": [
+      1,
+      2,
+      2,
+      2,
+      1,
+      1,
+      1
+    ]
+  },
+  "initial_scores": {
+    "uaa": {
+      "weighted_total_raw": 87.5,
+      "weighted_total_reported": 88,
+      "band": "Mature system",
+      "components": [
+        {
+          "component_id": "reasoning_task_understanding",
+          "score": 8
+        },
+        {
+          "component_id": "planning_orchestration",
+          "score": 10
+        },
+        {
+          "component_id": "learning_adaptation",
+          "score": 8
+        },
+        {
+          "component_id": "memory_context_management",
+          "score": 9
+        },
+        {
+          "component_id": "communication_interaction",
+          "score": 8
+        },
+        {
+          "component_id": "action_tool_calling",
+          "score": 9
+        },
+        {
+          "component_id": "autonomy_authority",
+          "score": 10
+        },
+        {
+          "component_id": "code_implementation_assistance",
+          "score": 8
+        },
+        {
+          "component_id": "research_web_external",
+          "score": 10
+        },
+        {
+          "component_id": "model_provider_management",
+          "score": 8
+        },
+        {
+          "component_id": "evidence_audit_observability",
+          "score": 9
+        },
+        {
+          "component_id": "safety_security_failure",
+          "score": 10
+        },
+        {
+          "component_id": "ux_ai_cockpit",
+          "score": 8
+        },
+        {
+          "component_id": "cli_api_parity",
+          "score": 9
+        },
+        {
+          "component_id": "extensibility_ecosystem",
+          "score": 7
+        },
+        {
+          "component_id": "productized_agent_loop",
+          "score": 8
+        }
+      ]
+    },
+    "goatcitadel": {
+      "weighted_total_raw": 85.7258,
+      "weighted_total_reported": 86,
+      "band": "Mature system",
+      "components": [
+        {
+          "component_id": "reasoning_task_understanding",
+          "score": 8
+        },
+        {
+          "component_id": "planning_orchestration",
+          "score": 9
+        },
+        {
+          "component_id": "learning_adaptation",
+          "score": 8
+        },
+        {
+          "component_id": "memory_context_management",
+          "score": 9
+        },
+        {
+          "component_id": "communication_interaction",
+          "score": 8
+        },
+        {
+          "component_id": "action_tool_calling",
+          "score": 9
+        },
+        {
+          "component_id": "autonomy_authority",
+          "score": 8
+        },
+        {
+          "component_id": "code_implementation_assistance",
+          "score": 8
+        },
+        {
+          "component_id": "research_web_external",
+          "score": 8
+        },
+        {
+          "component_id": "model_provider_management",
+          "score": 9
+        },
+        {
+          "component_id": "evidence_audit_observability",
+          "score": 9
+        },
+        {
+          "component_id": "safety_security_failure",
+          "score": 9
+        },
+        {
+          "component_id": "ux_ai_cockpit",
+          "score": 10
+        },
+        {
+          "component_id": "cli_api_parity",
+          "score": 8
+        },
+        {
+          "component_id": "extensibility_ecosystem",
+          "score": 9
+        },
+        {
+          "component_id": "productized_agent_loop",
+          "score": 8
+        }
+      ]
+    }
+  },
+  "findings": [
+    {
+      "component": "reasoning_task_understanding",
+      "label": "Reasoning and task understanding",
+      "weight": 8,
+      "current_uaa_maturity": "Strong",
+      "goatcitadel_maturity": "Strong",
+      "uaa_status": "partial",
+      "goatcitadel_status": "partial",
+      "uaa_confidence": "high",
+      "goatcitadel_confidence": "medium",
+      "uaa_gates": {
+        "contract": 1,
+        "implementation": 1,
+        "tests": 2,
+        "runtime_integration": 1,
+        "operator_surface": 1,
+        "reference_scenario": 1,
+        "failure_recovery_audit": 1
+      },
+      "goatcitadel_gates": {
+        "contract": 1,
+        "implementation": 2,
+        "tests": 2,
+        "runtime_integration": 2,
+        "operator_surface": 1,
+        "reference_scenario": 0,
+        "failure_recovery_audit": 0
+      },
+      "evidence_refs": {
+        "uaa": [
+          "repo-ref:uaa:src/ultimate_ai_agent/core/intent/reasoning_truth.py#L115-L136",
+          "repo-ref:uaa:tests/test_phase01_reasoning_truth.py#L94-L163"
+        ],
+        "goatcitadel": [
+          "repo-ref:goatcitadel:apps/gateway/src/services/surface-router-heuristics.ts#L8-L46",
+          "repo-ref:goatcitadel:apps/gateway/src/services/model-router-decision-service.ts#L137-L185"
+        ]
+      },
+      "missing_runtime_behavior": "The normal operator read model is not the exact executable founder mission entry point.",
+      "authority_safety_risk": "A model-assisted interpretation must never mint approval or request authority.",
+      "operator_impact": "Operators cannot yet carry one assessed intent directly into the proven exact mission lane.",
+      "proposed_uaa_native_implementation": "Use the existing exact founder mission surface and keep typed facts, assumptions, unknowns, and questions visible.",
+      "acceptance_test_refs": [
+        "test-ref:phase01-reasoning-truth",
+        "test-ref:founder-loop-filesystem-mission"
+      ],
+      "priority": "P0",
+      "effort": "medium",
+      "blocked_external_status": "existing_pr_ci_blocked"
+    },
+    {
+      "component": "planning_orchestration",
+      "label": "Planning and orchestration",
+      "weight": 8,
+      "current_uaa_maturity": "Mature",
+      "goatcitadel_maturity": "Mature",
+      "uaa_status": "implemented",
+      "goatcitadel_status": "implemented",
+      "uaa_confidence": "high",
+      "goatcitadel_confidence": "medium",
+      "uaa_gates": {
+        "contract": 1,
+        "implementation": 2,
+        "tests": 2,
+        "runtime_integration": 2,
+        "operator_surface": 1,
+        "reference_scenario": 1,
+        "failure_recovery_audit": 1
+      },
+      "goatcitadel_gates": {
+        "contract": 1,
+        "implementation": 2,
+        "tests": 2,
+        "runtime_integration": 2,
+        "operator_surface": 1,
+        "reference_scenario": 0,
+        "failure_recovery_audit": 1
+      },
+      "evidence_refs": {
+        "uaa": [
+          "repo-ref:uaa:src/ultimate_ai_agent/core/execution/mission_orchestrator.py#L529-L702",
+          "repo-ref:uaa:tests/test_authority_mission_orchestrator.py#L236-L326"
+        ],
+        "goatcitadel": [
+          "repo-ref:goatcitadel:packages/orchestration/src/engine.ts#L19-L115",
+          "repo-ref:goatcitadel:apps/gateway/src/services/durable-run-service.boot-recovery.integration.test.ts#L105-L161"
+        ]
+      },
+      "missing_runtime_behavior": "Arbitrary goals do not receive runtime-generated plans and after-start cancellation stays bounded.",
+      "authority_safety_risk": "Broader planning must not bypass immutable plan or exact dispatch bindings.",
+      "operator_impact": "Useful mission breadth is narrower than GoatCitadel.",
+      "proposed_uaa_native_implementation": "Promote only exact predeclared plans and retain dispatcher re-evaluation for every step.",
+      "acceptance_test_refs": [
+        "test-ref:authority-mission-orchestrator",
+        "test-ref:authority-mission-controls"
+      ],
+      "priority": "P2",
+      "effort": "large",
+      "blocked_external_status": "deferred_by_authority_policy"
+    },
+    {
+      "component": "learning_adaptation",
+      "label": "Learning and adaptation",
+      "weight": 8,
+      "current_uaa_maturity": "Strong",
+      "goatcitadel_maturity": "Strong",
+      "uaa_status": "partial",
+      "goatcitadel_status": "partial",
+      "uaa_confidence": "high",
+      "goatcitadel_confidence": "medium",
+      "uaa_gates": {
+        "contract": 1,
+        "implementation": 1,
+        "tests": 2,
+        "runtime_integration": 1,
+        "operator_surface": 1,
+        "reference_scenario": 1,
+        "failure_recovery_audit": 1
+      },
+      "goatcitadel_gates": {
+        "contract": 1,
+        "implementation": 2,
+        "tests": 2,
+        "runtime_integration": 1,
+        "operator_surface": 1,
+        "reference_scenario": 0,
+        "failure_recovery_audit": 1
+      },
+      "evidence_refs": {
+        "uaa": [
+          "repo-ref:uaa:src/ultimate_ai_agent/core/memory/review_runtime.py#L189-L325",
+          "repo-ref:uaa:tests/test_governed_memory_context_phase03.py#L504-L603"
+        ],
+        "goatcitadel": [
+          "repo-ref:goatcitadel:apps/gateway/src/services/improvement-service.ts#L1283-L1329",
+          "repo-ref:goatcitadel:apps/gateway/src/services/agentic-improvement-bridge-service.ts#L73-L102"
+        ]
+      },
+      "missing_runtime_behavior": "Adaptation is governed metadata feedback rather than demonstrated longitudinal improvement.",
+      "authority_safety_risk": "Automatic preference inference could silently promote recall to truth.",
+      "operator_impact": "Quality changes are reviewable but not yet measured over repeated use.",
+      "proposed_uaa_native_implementation": "Measure accepted and corrected memory feedback with repeatable retrieval-quality scenarios.",
+      "acceptance_test_refs": [
+        "test-ref:memory-feedback-replay",
+        "test-ref:governed-memory-retrieval"
+      ],
+      "priority": "P1",
+      "effort": "small",
+      "blocked_external_status": "implemented_in_this_slice"
+    },
+    {
+      "component": "memory_context_management",
+      "label": "Memory and context management",
+      "weight": 9,
+      "current_uaa_maturity": "Mature",
+      "goatcitadel_maturity": "Mature",
+      "uaa_status": "partial",
+      "goatcitadel_status": "implemented",
+      "uaa_confidence": "high",
+      "goatcitadel_confidence": "medium",
+      "uaa_gates": {
+        "contract": 1,
+        "implementation": 2,
+        "tests": 2,
+        "runtime_integration": 1,
+        "operator_surface": 1,
+        "reference_scenario": 1,
+        "failure_recovery_audit": 1
+      },
+      "goatcitadel_gates": {
+        "contract": 1,
+        "implementation": 2,
+        "tests": 2,
+        "runtime_integration": 2,
+        "operator_surface": 1,
+        "reference_scenario": 0,
+        "failure_recovery_audit": 1
+      },
+      "evidence_refs": {
+        "uaa": [
+          "repo-ref:uaa:src/ultimate_ai_agent/core/memory/local_store.py#L36-L79",
+          "repo-ref:uaa:src/ultimate_ai_agent/core/memory/governed_context.py#L197-L310"
+        ],
+        "goatcitadel": [
+          "repo-ref:goatcitadel:packages/memory-core/src/context-composer.ts#L5-L74",
+          "repo-ref:goatcitadel:apps/gateway/src/services/memory-lifecycle-service.ts#L1843-L1926"
+        ]
+      },
+      "missing_runtime_behavior": "The safe FTS projection has no demonstrated query consumer and context remains preview-only.",
+      "authority_safety_risk": "Context materialization must not become hidden injection or action authority.",
+      "operator_impact": "UAA has stronger governance but narrower usable recall.",
+      "proposed_uaa_native_implementation": "Add bounded lexical retrieval over safe projections in a later focused memory slice.",
+      "acceptance_test_refs": [
+        "test-ref:governed-memory-context-phase03",
+        "test-ref:memory-retrieval-benchmark"
+      ],
+      "priority": "P2",
+      "effort": "medium",
+      "blocked_external_status": "deferred_by_scope"
+    },
+    {
+      "component": "communication_interaction",
+      "label": "Communication and interaction",
+      "weight": 7,
+      "current_uaa_maturity": "Strong",
+      "goatcitadel_maturity": "Strong",
+      "uaa_status": "partial",
+      "goatcitadel_status": "implemented",
+      "uaa_confidence": "high",
+      "goatcitadel_confidence": "medium",
+      "uaa_gates": {
+        "contract": 1,
+        "implementation": 1,
+        "tests": 2,
+        "runtime_integration": 1,
+        "operator_surface": 1,
+        "reference_scenario": 1,
+        "failure_recovery_audit": 1
+      },
+      "goatcitadel_gates": {
+        "contract": 1,
+        "implementation": 2,
+        "tests": 2,
+        "runtime_integration": 2,
+        "operator_surface": 1,
+        "reference_scenario": 0,
+        "failure_recovery_audit": 0
+      },
+      "evidence_refs": {
+        "uaa": [
+          "repo-ref:uaa:src/ultimate_ai_agent/core/chat/operator_surface.py#L23-L59",
+          "repo-ref:uaa:tests/test_chat_to_loop_handoff_v1.py#L106-L216"
+        ],
+        "goatcitadel": [
+          "repo-ref:goatcitadel:apps/mission-control-next/src/features/threaded-surface/ThreadedModeControl.tsx#L15-L88",
+          "repo-ref:goatcitadel:apps/mission-control-next/src/features/native-routes/ops/ApprovalsRoutePage.tsx#L182-L269"
+        ]
+      },
+      "missing_runtime_behavior": "UAA proves content-free handoffs, not a broad conversational model experience.",
+      "authority_safety_risk": "Messages and model output must remain data rather than authority.",
+      "operator_impact": "The operator path is less fluid than GoatCitadel Unified Work.",
+      "proposed_uaa_native_implementation": "Adapt GoatCitadel's readable mode posture while keeping backend intent truth and exact leases.",
+      "acceptance_test_refs": [
+        "test-ref:chat-loop-handoff",
+        "test-ref:runtime-agent-loop-spine"
+      ],
+      "priority": "P2",
+      "effort": "large",
+      "blocked_external_status": "provider_lane_required"
+    },
+    {
+      "component": "action_tool_calling",
+      "label": "Action and tool calling",
+      "weight": 9,
+      "current_uaa_maturity": "Mature",
+      "goatcitadel_maturity": "Mature",
+      "uaa_status": "partial",
+      "goatcitadel_status": "implemented",
+      "uaa_confidence": "high",
+      "goatcitadel_confidence": "medium",
+      "uaa_gates": {
+        "contract": 1,
+        "implementation": 1,
+        "tests": 2,
+        "runtime_integration": 2,
+        "operator_surface": 1,
+        "reference_scenario": 1,
+        "failure_recovery_audit": 1
+      },
+      "goatcitadel_gates": {
+        "contract": 1,
+        "implementation": 2,
+        "tests": 2,
+        "runtime_integration": 2,
+        "operator_surface": 1,
+        "reference_scenario": 0,
+        "failure_recovery_audit": 1
+      },
+      "evidence_refs": {
+        "uaa": [
+          "repo-ref:uaa:src/ultimate_ai_agent/core/control_center/action_tool_code_catalog.py#L554-L622",
+          "repo-ref:uaa:tests/test_founder_loop_filesystem_mission.py#L142-L242"
+        ],
+        "goatcitadel": [
+          "repo-ref:goatcitadel:apps/gateway/src/services/tool-invocation-coordinator-service.ts#L353-L475",
+          "repo-ref:goatcitadel:packages/policy-engine/src/engine.ts#L192-L274"
+        ]
+      },
+      "missing_runtime_behavior": "Exact useful lanes work, while the generic tool registry remains intentionally non-callable.",
+      "authority_safety_risk": "A global callable registry would expand authority and replay attack surface.",
+      "operator_impact": "UAA is safer but exposes fewer useful tools.",
+      "proposed_uaa_native_implementation": "Promote individually proven adapters through the dispatcher only.",
+      "acceptance_test_refs": [
+        "test-ref:authority-dispatcher-approval-start",
+        "test-ref:founder-loop-filesystem-mission"
+      ],
+      "priority": "P0",
+      "effort": "medium",
+      "blocked_external_status": "existing_pr_ci_blocked"
+    },
+    {
+      "component": "autonomy_authority",
+      "label": "Autonomy and authority",
+      "weight": 10,
+      "current_uaa_maturity": "Mature",
+      "goatcitadel_maturity": "Strong",
+      "uaa_status": "implemented",
+      "goatcitadel_status": "partial",
+      "uaa_confidence": "high",
+      "goatcitadel_confidence": "medium",
+      "uaa_gates": {
+        "contract": 1,
+        "implementation": 2,
+        "tests": 2,
+        "runtime_integration": 2,
+        "operator_surface": 1,
+        "reference_scenario": 1,
+        "failure_recovery_audit": 1
+      },
+      "goatcitadel_gates": {
+        "contract": 1,
+        "implementation": 1,
+        "tests": 2,
+        "runtime_integration": 2,
+        "operator_surface": 1,
+        "reference_scenario": 0,
+        "failure_recovery_audit": 1
+      },
+      "evidence_refs": {
+        "uaa": [
+          "repo-ref:uaa:src/ultimate_ai_agent/core/authority/contracts.py#L108-L145",
+          "repo-ref:uaa:src/ultimate_ai_agent/core/authority/dispatcher.py#L1232-L1396"
+        ],
+        "goatcitadel": [
+          "repo-ref:goatcitadel:packages/policy-engine/src/engine.ts#L661-L756",
+          "repo-ref:goatcitadel:apps/gateway/src/services/autonomous-activation-grant-service.ts#L38-L79"
+        ]
+      },
+      "missing_runtime_behavior": "Production and public authority remain explicitly outside scope.",
+      "authority_safety_risk": "Wildcard grants and approval bypass would violate UAA's exact request boundary.",
+      "operator_impact": "UAA trades breadth for stronger assurance.",
+      "proposed_uaa_native_implementation": "Retain deny-unknown and immediately re-evaluate every exact start.",
+      "acceptance_test_refs": [
+        "test-ref:authority-dispatcher-approval-start",
+        "test-ref:authority-mission-controls"
+      ],
+      "priority": "P3",
+      "effort": "large",
+      "blocked_external_status": "deferred_by_authority_policy"
+    },
+    {
+      "component": "code_implementation_assistance",
+      "label": "Code and implementation assistance",
+      "weight": 6,
+      "current_uaa_maturity": "Strong",
+      "goatcitadel_maturity": "Strong",
+      "uaa_status": "partial",
+      "goatcitadel_status": "partial",
+      "uaa_confidence": "high",
+      "goatcitadel_confidence": "medium",
+      "uaa_gates": {
+        "contract": 1,
+        "implementation": 1,
+        "tests": 2,
+        "runtime_integration": 1,
+        "operator_surface": 1,
+        "reference_scenario": 1,
+        "failure_recovery_audit": 1
+      },
+      "goatcitadel_gates": {
+        "contract": 1,
+        "implementation": 2,
+        "tests": 2,
+        "runtime_integration": 1,
+        "operator_surface": 1,
+        "reference_scenario": 0,
+        "failure_recovery_audit": 1
+      },
+      "evidence_refs": {
+        "uaa": [
+          "repo-ref:uaa:src/ultimate_ai_agent/core/control_center/action_tool_code_catalog.py#L663-L732",
+          "repo-ref:uaa:tests/test_runtime_action_tool_code_lanes.py#L138-L205"
+        ],
+        "goatcitadel": [
+          "repo-ref:goatcitadel:apps/gateway/src/services/code-mode-execution-backends.ts#L15-L203",
+          "repo-ref:goatcitadel:apps/gateway/src/services/code-mode-execution-backend-runner.ts#L47-L124"
+        ]
+      },
+      "missing_runtime_behavior": "Main does not yet contain the separately proven sealed calculation adapter or exact patch-apply lane.",
+      "authority_safety_risk": "Trusted host execution cannot substitute for sealed isolation.",
+      "operator_impact": "GoatCitadel currently offers a broader coding workflow.",
+      "proposed_uaa_native_implementation": "Land the preserved sealed-adapter PR, then add hash-bound proposal and exact apply as separate lanes.",
+      "acceptance_test_refs": [
+        "test-ref:sealed-calculation-adapter",
+        "test-ref:runtime-action-tool-code-lanes"
+      ],
+      "priority": "P0",
+      "effort": "medium",
+      "blocked_external_status": "existing_pr_ci_blocked"
+    },
+    {
+      "component": "research_web_external",
+      "label": "Research and external information",
+      "weight": 5,
+      "current_uaa_maturity": "Mature",
+      "goatcitadel_maturity": "Strong",
+      "uaa_status": "implemented",
+      "goatcitadel_status": "implemented",
+      "uaa_confidence": "high",
+      "goatcitadel_confidence": "medium",
+      "uaa_gates": {
+        "contract": 1,
+        "implementation": 2,
+        "tests": 2,
+        "runtime_integration": 2,
+        "operator_surface": 1,
+        "reference_scenario": 1,
+        "failure_recovery_audit": 1
+      },
+      "goatcitadel_gates": {
+        "contract": 1,
+        "implementation": 2,
+        "tests": 2,
+        "runtime_integration": 2,
+        "operator_surface": 1,
+        "reference_scenario": 0,
+        "failure_recovery_audit": 0
+      },
+      "evidence_refs": {
+        "uaa": [
+          "repo-ref:uaa:src/ultimate_ai_agent/core/web_access/hybrid_execution.py#L1-L220",
+          "repo-ref:uaa:tests/test_web_research_aggregation.py#L1-L220"
+        ],
+        "goatcitadel": [
+          "repo-ref:goatcitadel:apps/gateway/src/services/research-service.ts#L32-L139",
+          "repo-ref:goatcitadel:packages/policy-engine/src/browser-tools.ts#L2332-L2432"
+        ]
+      },
+      "missing_runtime_behavior": "Authenticated browsing, browser actions, and paid use remain denied.",
+      "authority_safety_risk": "Fetched content must never become instruction or action authority.",
+      "operator_impact": "UAA already leads on governed bounded research but has less browser breadth.",
+      "proposed_uaa_native_implementation": "Preserve SearXNG and Firecrawl self-host-first behavior and cited untrusted aggregation.",
+      "acceptance_test_refs": [
+        "test-ref:web-research-aggregation",
+        "test-ref:web-hybrid-contracts"
+      ],
+      "priority": "P3",
+      "effort": "large",
+      "blocked_external_status": "deferred_by_authority_policy"
+    },
+    {
+      "component": "model_provider_management",
+      "label": "Model and provider management",
+      "weight": 6,
+      "current_uaa_maturity": "Strong",
+      "goatcitadel_maturity": "Mature",
+      "uaa_status": "partial",
+      "goatcitadel_status": "implemented",
+      "uaa_confidence": "high",
+      "goatcitadel_confidence": "medium",
+      "uaa_gates": {
+        "contract": 1,
+        "implementation": 1,
+        "tests": 2,
+        "runtime_integration": 1,
+        "operator_surface": 1,
+        "reference_scenario": 1,
+        "failure_recovery_audit": 1
+      },
+      "goatcitadel_gates": {
+        "contract": 1,
+        "implementation": 2,
+        "tests": 2,
+        "runtime_integration": 2,
+        "operator_surface": 1,
+        "reference_scenario": 0,
+        "failure_recovery_audit": 1
+      },
+      "evidence_refs": {
+        "uaa": [
+          "repo-ref:uaa:src/ultimate_ai_agent/core/capability_availability/read_model.py#L1-L260",
+          "repo-ref:uaa:tests/test_capability_availability.py#L1-L220"
+        ],
+        "goatcitadel": [
+          "repo-ref:goatcitadel:apps/gateway/src/services/model-router-decision-service.ts#L12-L125",
+          "repo-ref:goatcitadel:apps/gateway/src/services/llm-service.ts#L430-L515"
+        ]
+      },
+      "missing_runtime_behavior": "Configured multi-provider routing breadth and live comparative cost evidence are limited.",
+      "authority_safety_risk": "Unknown readiness or budget must fail closed and provider output cannot grant authority.",
+      "operator_impact": "Provider selection is less flexible than GoatCitadel.",
+      "proposed_uaa_native_implementation": "Add one exact configured provider lane with settlement before broad routing.",
+      "acceptance_test_refs": [
+        "test-ref:capability-availability",
+        "test-ref:model-provider-control-plane"
+      ],
+      "priority": "P2",
+      "effort": "large",
+      "blocked_external_status": "configuration_required"
+    },
+    {
+      "component": "evidence_audit_observability",
+      "label": "Evidence, audit, and observability",
+      "weight": 9,
+      "current_uaa_maturity": "Mature",
+      "goatcitadel_maturity": "Mature",
+      "uaa_status": "implemented",
+      "goatcitadel_status": "implemented",
+      "uaa_confidence": "high",
+      "goatcitadel_confidence": "medium",
+      "uaa_gates": {
+        "contract": 1,
+        "implementation": 1,
+        "tests": 2,
+        "runtime_integration": 2,
+        "operator_surface": 1,
+        "reference_scenario": 1,
+        "failure_recovery_audit": 1
+      },
+      "goatcitadel_gates": {
+        "contract": 1,
+        "implementation": 1,
+        "tests": 2,
+        "runtime_integration": 2,
+        "operator_surface": 1,
+        "reference_scenario": 1,
+        "failure_recovery_audit": 1
+      },
+      "evidence_refs": {
+        "uaa": [
+          "repo-ref:uaa:src/ultimate_ai_agent/core/execution/portable_mission_evidence.py#L40-L117",
+          "repo-ref:uaa:src/ultimate_ai_agent/core/evals/capability_metrics.py#L1-L260"
+        ],
+        "goatcitadel": [
+          "repo-ref:goatcitadel:apps/gateway/src/services/evidence-receipt-service.ts#L163-L313",
+          "repo-ref:goatcitadel:apps/gateway/src/services/evidence-receipt-signing-key.ts#L57-L103"
+        ]
+      },
+      "missing_runtime_behavior": "Cross-repository empirical task performance and observed usability are not measured.",
+      "authority_safety_risk": "Scores must not become authority or conceal false completion.",
+      "operator_impact": "Operators lacked one metric-bearing view of completion, recovery, evidence, and policy violations.",
+      "proposed_uaa_native_implementation": "Run a bounded content-free evaluation across all 16 components and label cross-repo performance not measured.",
+      "acceptance_test_refs": [
+        "test-ref:agent-capability-evaluation",
+        "test-ref:phase09-runtime-benchmark"
+      ],
+      "priority": "P1",
+      "effort": "small",
+      "blocked_external_status": "implemented_in_this_slice"
+    },
+    {
+      "component": "safety_security_failure",
+      "label": "Safety, security, and failure handling",
+      "weight": 10,
+      "current_uaa_maturity": "Mature",
+      "goatcitadel_maturity": "Mature",
+      "uaa_status": "implemented",
+      "goatcitadel_status": "implemented",
+      "uaa_confidence": "high",
+      "goatcitadel_confidence": "medium",
+      "uaa_gates": {
+        "contract": 1,
+        "implementation": 2,
+        "tests": 2,
+        "runtime_integration": 2,
+        "operator_surface": 1,
+        "reference_scenario": 1,
+        "failure_recovery_audit": 1
+      },
+      "goatcitadel_gates": {
+        "contract": 1,
+        "implementation": 1,
+        "tests": 2,
+        "runtime_integration": 2,
+        "operator_surface": 1,
+        "reference_scenario": 1,
+        "failure_recovery_audit": 1
+      },
+      "evidence_refs": {
+        "uaa": [
+          "repo-ref:uaa:src/ultimate_ai_agent/core/authority/dispatcher.py#L629-L705",
+          "repo-ref:uaa:tests/test_authority_mission_controls.py#L162-L229"
+        ],
+        "goatcitadel": [
+          "repo-ref:goatcitadel:apps/gateway/src/plugins/auth.ts#L138-L299",
+          "repo-ref:goatcitadel:packages/policy-engine/src/tool-security.ts#L43-L163"
+        ]
+      },
+      "missing_runtime_behavior": "Public distribution and production operations remain outside evidence.",
+      "authority_safety_risk": "Failures must never be converted into completion or silently swallowed.",
+      "operator_impact": "UAA leads on exact failure truth but is not production-certified.",
+      "proposed_uaa_native_implementation": "Keep atomic denial, recovery-required states, redaction, and kill-switch proof mandatory.",
+      "acceptance_test_refs": [
+        "test-ref:authority-mission-controls",
+        "test-ref:security-redaction-artifacts"
+      ],
+      "priority": "P3",
+      "effort": "large",
+      "blocked_external_status": "external_facility_required"
+    },
+    {
+      "component": "ux_ai_cockpit",
+      "label": "UX implementation as an AI cockpit",
+      "weight": 7,
+      "current_uaa_maturity": "Strong",
+      "goatcitadel_maturity": "Mature",
+      "uaa_status": "partial",
+      "goatcitadel_status": "implemented",
+      "uaa_confidence": "high",
+      "goatcitadel_confidence": "medium",
+      "uaa_gates": {
+        "contract": 1,
+        "implementation": 1,
+        "tests": 2,
+        "runtime_integration": 1,
+        "operator_surface": 1,
+        "reference_scenario": 1,
+        "failure_recovery_audit": 1
+      },
+      "goatcitadel_gates": {
+        "contract": 1,
+        "implementation": 2,
+        "tests": 2,
+        "runtime_integration": 2,
+        "operator_surface": 1,
+        "reference_scenario": 1,
+        "failure_recovery_audit": 1
+      },
+      "evidence_refs": {
+        "uaa": [
+          "repo-ref:uaa:apps/control-center/src/components/AuthorityMissionInspectionPanel.tsx#L85-L234",
+          "repo-ref:uaa:apps/control-center/src/App.test.tsx#L4108-L4241"
+        ],
+        "goatcitadel": [
+          "repo-ref:goatcitadel:apps/mission-control-next/src/features/native-routes/ops/RunDetailRoutePage.tsx#L20-L96",
+          "repo-ref:goatcitadel:apps/mission-control-next/src/features/native-routes/ops/ApprovalsRoutePage.tsx#L144-L214"
+        ]
+      },
+      "missing_runtime_behavior": "Exact founder mission execution is not yet reachable from the current cockpit.",
+      "authority_safety_risk": "React controls cannot mint or cache authority.",
+      "operator_impact": "GoatCitadel presents a more complete operator workflow today.",
+      "proposed_uaa_native_implementation": "Adapt readable approval and run-detail presentation after the exact backend PR lands.",
+      "acceptance_test_refs": [
+        "test-ref:control-center-app-coherent-loop",
+        "test-ref:control-center-frontend"
+      ],
+      "priority": "P0",
+      "effort": "medium",
+      "blocked_external_status": "concurrent_ui_and_existing_pr"
+    },
+    {
+      "component": "cli_api_parity",
+      "label": "CLI and API parity",
+      "weight": 6,
+      "current_uaa_maturity": "Mature",
+      "goatcitadel_maturity": "Strong",
+      "uaa_status": "implemented",
+      "goatcitadel_status": "partial",
+      "uaa_confidence": "high",
+      "goatcitadel_confidence": "medium",
+      "uaa_gates": {
+        "contract": 1,
+        "implementation": 1,
+        "tests": 2,
+        "runtime_integration": 2,
+        "operator_surface": 1,
+        "reference_scenario": 1,
+        "failure_recovery_audit": 1
+      },
+      "goatcitadel_gates": {
+        "contract": 1,
+        "implementation": 1,
+        "tests": 2,
+        "runtime_integration": 1,
+        "operator_surface": 1,
+        "reference_scenario": 1,
+        "failure_recovery_audit": 1
+      },
+      "evidence_refs": {
+        "uaa": [
+          "repo-ref:uaa:src/ultimate_ai_agent/api/manifest.py#L970-L1105",
+          "repo-ref:uaa:scripts/verify_uaa_runtime_cockpit_cli_api.py#L1-L193"
+        ],
+        "goatcitadel": [
+          "repo-ref:goatcitadel:apps/gateway/src/routes/approvals.ts#L83-L216",
+          "repo-ref:goatcitadel:apps/gateway/src/routes/docs.ts#L34-L140"
+        ]
+      },
+      "missing_runtime_behavior": "Some mutations remain intentionally absent rather than falsely mirrored.",
+      "authority_safety_risk": "No surface may bypass Python authority contracts.",
+      "operator_impact": "UAA leads on systematic parity and route classification.",
+      "proposed_uaa_native_implementation": "Keep human-readable CLI primary and add routes only for real backend capabilities.",
+      "acceptance_test_refs": [
+        "test-ref:runtime-cockpit-cli-api",
+        "test-ref:api-manifest"
+      ],
+      "priority": "P3",
+      "effort": "medium",
+      "blocked_external_status": "none"
+    },
+    {
+      "component": "extensibility_ecosystem",
+      "label": "Extensibility and ecosystem",
+      "weight": 6,
+      "current_uaa_maturity": "Strong",
+      "goatcitadel_maturity": "Mature",
+      "uaa_status": "partial",
+      "goatcitadel_status": "implemented",
+      "uaa_confidence": "high",
+      "goatcitadel_confidence": "medium",
+      "uaa_gates": {
+        "contract": 1,
+        "implementation": 1,
+        "tests": 2,
+        "runtime_integration": 1,
+        "operator_surface": 1,
+        "reference_scenario": 0,
+        "failure_recovery_audit": 1
+      },
+      "goatcitadel_gates": {
+        "contract": 1,
+        "implementation": 1,
+        "tests": 2,
+        "runtime_integration": 2,
+        "operator_surface": 1,
+        "reference_scenario": 1,
+        "failure_recovery_audit": 1
+      },
+      "evidence_refs": {
+        "uaa": [
+          "repo-ref:uaa:src/ultimate_ai_agent/core/extension_catalog/contracts.py#L21-L133",
+          "repo-ref:uaa:src/ultimate_ai_agent/core/extension_catalog/runtime.py#L65-L85"
+        ],
+        "goatcitadel": [
+          "repo-ref:goatcitadel:packages/extensions-sdk/src/integration-plugins.ts#L21-L93",
+          "repo-ref:goatcitadel:apps/gateway/src/services/plugin-tool-override-service.ts#L56-L183"
+        ]
+      },
+      "missing_runtime_behavior": "UAA has no controlled reference scenario spanning the inspectable non-callable contract.",
+      "authority_safety_risk": "Inspectable metadata must never imply callable runtime authority.",
+      "operator_impact": "GoatCitadel offers a broader developer ecosystem.",
+      "proposed_uaa_native_implementation": "Add a deterministic non-callable extension scenario without enabling runtime import.",
+      "acceptance_test_refs": [
+        "test-ref:extension-non-callable",
+        "test-ref:inspectable-extension-catalog"
+      ],
+      "priority": "P1",
+      "effort": "small",
+      "blocked_external_status": "implemented_in_this_slice"
+    },
+    {
+      "component": "productized_agent_loop",
+      "label": "Productized agent loop",
+      "weight": 10,
+      "current_uaa_maturity": "Strong",
+      "goatcitadel_maturity": "Strong",
+      "uaa_status": "partial",
+      "goatcitadel_status": "partial",
+      "uaa_confidence": "high",
+      "goatcitadel_confidence": "medium",
+      "uaa_gates": {
+        "contract": 1,
+        "implementation": 1,
+        "tests": 2,
+        "runtime_integration": 2,
+        "operator_surface": 0,
+        "reference_scenario": 1,
+        "failure_recovery_audit": 1
+      },
+      "goatcitadel_gates": {
+        "contract": 1,
+        "implementation": 2,
+        "tests": 2,
+        "runtime_integration": 1,
+        "operator_surface": 1,
+        "reference_scenario": 0,
+        "failure_recovery_audit": 1
+      },
+      "evidence_refs": {
+        "uaa": [
+          "repo-ref:uaa:src/ultimate_ai_agent/core/control_center/founder_loop_mission.py#L478-L549",
+          "repo-ref:uaa:tests/test_founder_loop_filesystem_mission.py#L142-L242"
+        ],
+        "goatcitadel": [
+          "repo-ref:goatcitadel:apps/gateway/src/smoke.ts#L522-L742",
+          "repo-ref:goatcitadel:README.md#L142-L174"
+        ]
+      },
+      "missing_runtime_behavior": "The proven founder filesystem mission is not wired to a protected operator mutation surface on current main.",
+      "authority_safety_risk": "The UI cannot manufacture approval, leases, targets, or completion.",
+      "operator_impact": "This is UAA's largest current product-usefulness gap.",
+      "proposed_uaa_native_implementation": "Land PR 272's exact prepare, approve, execute, receipt, and memory-candidate path before adding broader workflows.",
+      "acceptance_test_refs": [
+        "test-ref:founder-loop-filesystem-mission",
+        "test-ref:founder-loop-exact-action"
+      ],
+      "priority": "P0",
+      "effort": "medium",
+      "blocked_external_status": "existing_pr_ci_blocked"
+    }
+  ],
+  "implementation_result": {
+    "selected_slice_ref": "implementation-slice-ref:agent-capability-evaluation:v1",
+    "status": "implemented",
+    "scenario_count": 21,
+    "component_count": 16,
+    "safe_outcome_adherence_rate": 1,
+    "verification_pass_rate": 1,
+    "passed_unblocked_verifier_rate": 0.9524,
+    "passed_unblocked_verifier_count": 20,
+    "task_completion_rate": null,
+    "task_completion_count": null,
+    "task_completion_posture": "not_measured",
+    "blocked_safe_outcome_count": 1,
+    "correctness_rate": null,
+    "correctness_rate_posture": "not_measured",
+    "recovery_success_rate": null,
+    "recovery_success_rate_posture": "not_measured",
+    "evidence_completeness_rate": null,
+    "evidence_completeness_rate_posture": "not_measured",
+    "replay_correctness_rate": null,
+    "replay_correctness_rate_posture": "not_measured",
+    "operator_intervention_count": null,
+    "operator_intervention_count_posture": "not_measured",
+    "false_completion_count": null,
+    "false_completion_count_posture": "not_measured",
+    "unsupported_claim_count": null,
+    "unsupported_claim_count_posture": "not_measured",
+    "authority_policy_violation_count": null,
+    "authority_policy_violation_count_posture": "not_measured",
+    "cross_repo_empirical_performance": "not_measured",
+    "observed_product_experience": "not_measured",
+    "content_free": true,
+    "registry_fingerprint_ref": "fingerprint-ref:agent-capability-registry:sha256:a523431115759904ae7f1f2046001b749219d979c4cbd61c5b17bc4b6795029a",
+    "report_projection_digest": "sha256:609ca6581817d3fe1beb63ab979b5fef62585855ec4e41e8ce76000d983b8ea9",
+    "report_projection": {
+      "schema_version": "uaa-agent-capability-evaluation.v1",
+      "contract_ref": "contract-ref:agent-capability-evaluation:v1",
+      "report_ref": "evaluation-report:uaa-agent-capability:20260712",
+      "benchmark_ref": "benchmark-ref:uaa-goat-comparison:20260712",
+      "registry_fingerprint_ref": "fingerprint-ref:agent-capability-registry:sha256:a523431115759904ae7f1f2046001b749219d979c4cbd61c5b17bc4b6795029a",
+      "status": "passed",
+      "scenario_count": 21,
+      "component_ids": [
+        "reasoning_task_understanding",
+        "planning_orchestration",
+        "learning_adaptation",
+        "memory_context_management",
+        "communication_interaction",
+        "action_tool_calling",
+        "autonomy_authority",
+        "code_implementation_assistance",
+        "research_web_external",
+        "model_provider_management",
+        "evidence_audit_observability",
+        "safety_security_failure",
+        "ux_ai_cockpit",
+        "cli_api_parity",
+        "extensibility_ecosystem",
+        "productized_agent_loop"
+      ],
+      "safe_outcome_adherence_rate": 1.0,
+      "verification_pass_rate": 1.0,
+      "passed_unblocked_verifier_rate": 0.9524,
+      "passed_unblocked_verifier_count": 20,
+      "task_completion_rate": null,
+      "task_completion_count": null,
+      "task_completion_posture": "not_measured",
+      "blocked_safe_outcome_count": 1,
+      "correctness_rate": null,
+      "recovery_success_rate": null,
+      "evidence_completeness_rate": null,
+      "replay_correctness_rate": null,
+      "operator_intervention_count": null,
+      "false_completion_count": null,
+      "unsupported_claim_count": null,
+      "authority_policy_violation_count": null,
+      "observations": [
+        {
+          "scenario_ref": "scenario:ambiguous-intent",
+          "component_id": "reasoning_task_understanding",
+          "expected_status": "passed",
+          "observed_status": "passed",
+          "execution_fingerprint_ref": "sha256:161b201c5d618751d86db175b6da67da942aebcecceecbc719b3fd90b8d9b694",
+          "failure_code": "none"
+        },
+        {
+          "scenario_ref": "scenario:plan-revision",
+          "component_id": "reasoning_task_understanding",
+          "expected_status": "passed",
+          "observed_status": "passed",
+          "execution_fingerprint_ref": "sha256:1032eb9bdff98e0a8967f678e710b1a8c225ac7b76c500890461af9bb971b219",
+          "failure_code": "none"
+        },
+        {
+          "scenario_ref": "scenario:dag-replay-crash",
+          "component_id": "planning_orchestration",
+          "expected_status": "passed",
+          "observed_status": "passed",
+          "execution_fingerprint_ref": "sha256:fd321f03229afd607190ed718b750ed3864d1ce6c25a3cf8b76bcaa9f0e49fa3",
+          "failure_code": "none"
+        },
+        {
+          "scenario_ref": "scenario:approval-expiry",
+          "component_id": "autonomy_authority",
+          "expected_status": "passed",
+          "observed_status": "passed",
+          "execution_fingerprint_ref": "sha256:06b2ed73d30439d89d7006266a681ee8722addbd2d0a66819453ef28acf4964f",
+          "failure_code": "none"
+        },
+        {
+          "scenario_ref": "scenario:cancellation-race",
+          "component_id": "planning_orchestration",
+          "expected_status": "passed",
+          "observed_status": "passed",
+          "execution_fingerprint_ref": "sha256:1d3cf4017f27e6e65f60f8bd2e2ac944c14d0668cb5ce0c79220c0f45beb1dc0",
+          "failure_code": "none"
+        },
+        {
+          "scenario_ref": "scenario:budget-exhaustion-settlement",
+          "component_id": "planning_orchestration",
+          "expected_status": "passed",
+          "observed_status": "passed",
+          "execution_fingerprint_ref": "sha256:1bd35e34778820d678785768fc3285d71f1769e88ea557ab900d8705dd4942a8",
+          "failure_code": "none"
+        },
+        {
+          "scenario_ref": "scenario:exact-tool-idempotency",
+          "component_id": "action_tool_calling",
+          "expected_status": "passed",
+          "observed_status": "passed",
+          "execution_fingerprint_ref": "sha256:3f34b69767c55e9089f6be5ad0ca19a880800af078ccc946ebb4919b1b0afdf2",
+          "failure_code": "none"
+        },
+        {
+          "scenario_ref": "scenario:sandbox-escape-denial",
+          "component_id": "code_implementation_assistance",
+          "expected_status": "blocked",
+          "observed_status": "blocked",
+          "execution_fingerprint_ref": "sha256:89389b4cb417a8b6601e7c417a7c461b347698e04f673ecc29d1a5c89d43ed6f",
+          "failure_code": "none"
+        },
+        {
+          "scenario_ref": "scenario:memory-correction",
+          "component_id": "memory_context_management",
+          "expected_status": "passed",
+          "observed_status": "passed",
+          "execution_fingerprint_ref": "sha256:ce22eed9a1e8aa33cfbabbbb91269f3235db595d966d133e0ca66278522f45fc",
+          "failure_code": "none"
+        },
+        {
+          "scenario_ref": "scenario:web-citation-injection",
+          "component_id": "research_web_external",
+          "expected_status": "passed",
+          "observed_status": "passed",
+          "execution_fingerprint_ref": "sha256:24d21d67e3244a1471886e6f84d771dc5c95d03164ca322d3fc1a43f91b30b66",
+          "failure_code": "none"
+        },
+        {
+          "scenario_ref": "scenario:provider-stale-unavailable",
+          "component_id": "model_provider_management",
+          "expected_status": "passed",
+          "observed_status": "passed",
+          "execution_fingerprint_ref": "sha256:53f1036f3ff4a9ba41fb355d4054f5719eca07e721fa7168587486488b62743e",
+          "failure_code": "none"
+        },
+        {
+          "scenario_ref": "scenario:receipt-tamper-surface-parity",
+          "component_id": "evidence_audit_observability",
+          "expected_status": "passed",
+          "observed_status": "passed",
+          "execution_fingerprint_ref": "sha256:1e147b54fbc3a7b8ee25898b55fff5064b36ea85ed946f4352acbde24b7a0fb5",
+          "failure_code": "none"
+        },
+        {
+          "scenario_ref": "scenario:learning-feedback-replay",
+          "component_id": "learning_adaptation",
+          "expected_status": "passed",
+          "observed_status": "passed",
+          "execution_fingerprint_ref": "fingerprint-ref:agent-capability-scenario:sha256:8fc2924b983a2f328e752894a2fdf11f59bf83e42e9560648b1d22771582609b",
+          "failure_code": "none"
+        },
+        {
+          "scenario_ref": "scenario:communication-handoff-truth",
+          "component_id": "communication_interaction",
+          "expected_status": "passed",
+          "observed_status": "passed",
+          "execution_fingerprint_ref": "fingerprint-ref:agent-capability-scenario:sha256:9daf42188099b96edf258cde266667cdfb15c07bf1716e0ac071aaa8b0cc4c53",
+          "failure_code": "none"
+        },
+        {
+          "scenario_ref": "scenario:safety-tamper-denial",
+          "component_id": "safety_security_failure",
+          "expected_status": "passed",
+          "observed_status": "passed",
+          "execution_fingerprint_ref": "fingerprint-ref:agent-capability-scenario:sha256:d1c674c315c57ef0759ddb95147841a012fb0470261bad6fa7b18fe6393b21a8",
+          "failure_code": "none"
+        },
+        {
+          "scenario_ref": "scenario:cockpit-coherent-loop",
+          "component_id": "ux_ai_cockpit",
+          "expected_status": "passed",
+          "observed_status": "passed",
+          "execution_fingerprint_ref": "fingerprint-ref:agent-capability-scenario:sha256:fc415af9ebae12506b56aa44476100ba73a285285e7349666c14c1533fa901e5",
+          "failure_code": "none"
+        },
+        {
+          "scenario_ref": "scenario:cli-api-cockpit-parity",
+          "component_id": "cli_api_parity",
+          "expected_status": "passed",
+          "observed_status": "passed",
+          "execution_fingerprint_ref": "fingerprint-ref:agent-capability-scenario:sha256:4cc2ed35236707c5d56ca5b2bbf230199d880655e2f533935e81cdba16748713",
+          "failure_code": "none"
+        },
+        {
+          "scenario_ref": "scenario:extension-inspectable-not-callable",
+          "component_id": "extensibility_ecosystem",
+          "expected_status": "passed",
+          "observed_status": "passed",
+          "execution_fingerprint_ref": "fingerprint-ref:agent-capability-scenario:sha256:65b8cf7365564cf967e2b4c720750445798e380ef25d4b75fb5ce767b9eac0a5",
+          "failure_code": "none"
+        },
+        {
+          "scenario_ref": "scenario:product-loop-terminal-receipt",
+          "component_id": "productized_agent_loop",
+          "expected_status": "passed",
+          "observed_status": "passed",
+          "execution_fingerprint_ref": "fingerprint-ref:agent-capability-scenario:sha256:c9f7b330ed6af7d7532f9dbe2baea7c032c5fcde87a09a799d78dd6bb17c2f55",
+          "failure_code": "none"
+        },
+        {
+          "scenario_ref": "scenario:web-hybrid-preservation-tests",
+          "component_id": "research_web_external",
+          "expected_status": "passed",
+          "observed_status": "passed",
+          "execution_fingerprint_ref": "fingerprint-ref:agent-capability-scenario:sha256:b1c92ae3605d1ac0301510f8f2a55776658a95bb7419e7e0ba33d5ca3087ad95",
+          "failure_code": "none"
+        },
+        {
+          "scenario_ref": "scenario:web-hybrid-contract-verifier",
+          "component_id": "research_web_external",
+          "expected_status": "passed",
+          "observed_status": "passed",
+          "execution_fingerprint_ref": "fingerprint-ref:agent-capability-scenario:sha256:04f613409bcf5b84efd5c7d241ee4a3f2731f446b97c63d685f83797979fd64d",
+          "failure_code": "none"
+        }
+      ],
+      "content_free": true,
+      "authority_granted": false
+    }
+  },
+  "final_scores": {
+    "uaa": {
+      "weighted_total_raw": 87.5,
+      "weighted_total_reported": 88,
+      "band": "Mature system",
+      "components": [
+        {
+          "component_id": "reasoning_task_understanding",
+          "score": 8
+        },
+        {
+          "component_id": "planning_orchestration",
+          "score": 10
+        },
+        {
+          "component_id": "learning_adaptation",
+          "score": 8
+        },
+        {
+          "component_id": "memory_context_management",
+          "score": 9
+        },
+        {
+          "component_id": "communication_interaction",
+          "score": 8
+        },
+        {
+          "component_id": "action_tool_calling",
+          "score": 9
+        },
+        {
+          "component_id": "autonomy_authority",
+          "score": 10
+        },
+        {
+          "component_id": "code_implementation_assistance",
+          "score": 8
+        },
+        {
+          "component_id": "research_web_external",
+          "score": 10
+        },
+        {
+          "component_id": "model_provider_management",
+          "score": 8
+        },
+        {
+          "component_id": "evidence_audit_observability",
+          "score": 9
+        },
+        {
+          "component_id": "safety_security_failure",
+          "score": 10
+        },
+        {
+          "component_id": "ux_ai_cockpit",
+          "score": 8
+        },
+        {
+          "component_id": "cli_api_parity",
+          "score": 9
+        },
+        {
+          "component_id": "extensibility_ecosystem",
+          "score": 7
+        },
+        {
+          "component_id": "productized_agent_loop",
+          "score": 8
+        }
+      ]
+    },
+    "goatcitadel": {
+      "weighted_total_raw": 85.7258,
+      "weighted_total_reported": 86,
+      "band": "Mature system",
+      "components": [
+        {
+          "component_id": "reasoning_task_understanding",
+          "score": 8
+        },
+        {
+          "component_id": "planning_orchestration",
+          "score": 9
+        },
+        {
+          "component_id": "learning_adaptation",
+          "score": 8
+        },
+        {
+          "component_id": "memory_context_management",
+          "score": 9
+        },
+        {
+          "component_id": "communication_interaction",
+          "score": 8
+        },
+        {
+          "component_id": "action_tool_calling",
+          "score": 9
+        },
+        {
+          "component_id": "autonomy_authority",
+          "score": 8
+        },
+        {
+          "component_id": "code_implementation_assistance",
+          "score": 8
+        },
+        {
+          "component_id": "research_web_external",
+          "score": 8
+        },
+        {
+          "component_id": "model_provider_management",
+          "score": 9
+        },
+        {
+          "component_id": "evidence_audit_observability",
+          "score": 9
+        },
+        {
+          "component_id": "safety_security_failure",
+          "score": 9
+        },
+        {
+          "component_id": "ux_ai_cockpit",
+          "score": 10
+        },
+        {
+          "component_id": "cli_api_parity",
+          "score": 8
+        },
+        {
+          "component_id": "extensibility_ecosystem",
+          "score": 9
+        },
+        {
+          "component_id": "productized_agent_loop",
+          "score": 8
+        }
+      ]
+    }
+  },
+  "borrowing": [
+    {
+      "source_to_target": "GoatCitadel_to_UAA",
+      "pattern": "readable approval and run detail grouping",
+      "transfer_score": 9,
+      "recommendation": "adapt",
+      "boundary": "retain exact AuthorityLease and content-free receipts"
+    },
+    {
+      "source_to_target": "GoatCitadel_to_UAA",
+      "pattern": "bounded fanout and ordered aggregation",
+      "transfer_score": 8,
+      "recommendation": "study_only",
+      "boundary": "each child must re-enter the UAA dispatcher"
+    },
+    {
+      "source_to_target": "UAA_to_GoatCitadel",
+      "pattern": "exact request-scoped authority and deny unknown",
+      "transfer_score": 10,
+      "recommendation": "adapt",
+      "boundary": "remove wildcard and approval-bypass semantics"
+    },
+    {
+      "source_to_target": "UAA_to_GoatCitadel",
+      "pattern": "content-free web and execution evidence",
+      "transfer_score": 9,
+      "recommendation": "adapt",
+      "boundary": "do not persist content-bearing research projections"
+    }
+  ],
+  "rejected_patterns": [
+    "wildcard authority grants",
+    "approval bypass profiles",
+    "content-bearing research persistence",
+    "trusted host execution presented as sealed isolation",
+    "arbitrary runtime extension import"
+  ]
+}
