@@ -5076,7 +5076,7 @@ describe("Web Control Center shell", () => {
     expect(currentProofLinks).toHaveLength(0);
   });
 
-  it("renders Action Inbox when an optional shared read times out", async () => {
+  it("keeps exact Action Inbox controls route-scoped when an unrelated read times out", async () => {
     vi.useFakeTimers();
     const fetchMock = stubReadEndpointsWithHungEndpoint(
       API_ENDPOINTS.providerSetupGuide,
@@ -5116,12 +5116,14 @@ describe("Web Control Center shell", () => {
       expect(
         screen.queryByRole("button", { name: /^execute$/i }),
       ).not.toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /Create local task record/i }),
+      ).toBeInTheDocument();
       for (const blockedControl of [
         /Record approval receipt/i,
         /Record edit receipt/i,
         /Record rejection receipt/i,
         /Record defer receipt/i,
-        /Create local task record/i,
       ]) {
         expect(
           screen.queryByRole("button", { name: blockedControl }),
@@ -12753,6 +12755,9 @@ describe("Web Control Center shell", () => {
     const staleSettingsStatus = JSON.parse(
       JSON.stringify(mockControlCenterData.settingsStatus),
     ) as Record<string, unknown>;
+    (
+      staleSettingsStatus.authority_lease_state as Record<string, unknown>
+    ).backend_owned = true;
     staleSettingsStatus.authority_postures = "stale";
     delete staleSettingsStatus.kill_switch_postures;
     staleSettingsStatus.feature_flag_postures = [

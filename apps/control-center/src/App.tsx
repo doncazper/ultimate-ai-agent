@@ -14,6 +14,7 @@ import {
 } from "./routes";
 import type {
   BackendConnectionSummary,
+  ControlCenterData,
   RuntimeInterfaceModeReadModel,
 } from "./api/types";
 
@@ -71,8 +72,25 @@ export function App() {
   }
 
   return (
-    <AppShell activePath={activePath} connection={state.data.connection}>
-      <ConnectionStatus connection={state.data.connection} />
+    <AppShell
+      activePath={activePath}
+      authorityMode={state.data.settingsStatus.authority_lease_state.active_mode}
+      authorityModeAuthoritative={
+        state.data.routeStates["/settings"]?.state === "backend_owned"
+      }
+      connection={state.data.connection}
+      killSwitchEngaged={
+        state.data.settingsStatus.authority_lease_state.kill_switch_engaged
+      }
+      killSwitchVisible={
+        state.data.settingsStatus.authority_lease_state.kill_switch_visible
+      }
+      routeState={state.data.routeStates[activePath]}
+    >
+      <ConnectionStatus
+        connection={state.data.connection}
+        routeState={state.data.routeStates[activePath]}
+      />
       {state.data.runtimeInterfaceMode.interface_enabled ? (
         <RuntimeInterfaceModeBanner mode={state.data.runtimeInterfaceMode} />
       ) : null}
@@ -166,7 +184,13 @@ function useActivePath(): string {
   return activePath;
 }
 
-function ConnectionStatus({ connection }: { connection: BackendConnectionSummary }) {
+function ConnectionStatus({
+  connection,
+  routeState,
+}: {
+  connection: BackendConnectionSummary;
+  routeState?: ControlCenterData["routeStates"][string];
+}) {
   const titleByState: Record<BackendConnectionSummary["state"], string> = {
     unknown: "Backend state unknown",
     checking: "Checking backend connection",
@@ -177,6 +201,18 @@ function ConnectionStatus({ connection }: { connection: BackendConnectionSummary
   };
   const warnings =
     connection.warnings.length > 0 ? ` Warnings: ${connection.warnings.join(", ")}.` : "";
+  if (
+    connection.state !== "online" &&
+    routeState?.state === "backend_owned"
+  ) {
+    return (
+      <SafeAlert
+        title="Backend degraded"
+        message={`${connection.safeMessage} ${routeState.surfaceLabel} remains backed by ${routeState.sourceLabel}; inspect its exact refs independently. ${warnings}`}
+        tone="warning"
+      />
+    );
+  }
   return (
     <SafeAlert
       title={titleByState[connection.state]}

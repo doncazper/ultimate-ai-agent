@@ -53,6 +53,7 @@ CAPABILITIES_DECLARED = [
     "control_center_setup_assistant_summary",
     "control_center_setup_approval_envelopes_dry_run",
     "control_center_founder_loop_storage_summaries",
+    "control_center_founder_loop_exact_attention_workflow",
     "control_center_crm_local_command_center_read_model",
     "control_center_crm_relationship_timeline_read_model",
     "control_center_crm_follow_up_queue_read_model",
@@ -725,6 +726,15 @@ CONTROL_CENTER_MEMORY_DECISION_SUFFIXES = (
 CONTROL_CENTER_TODAY_ACTION_ENVELOPE_PATHS = {
     "/control-center/today/action-envelope",
 }
+CONTROL_CENTER_TODAY_EXACT_ACTION_MUTATION_PATHS = {
+    "/control-center/today/exact-action/source-review",
+    "/control-center/today/exact-action/prepare",
+    "/control-center/today/exact-action/approve",
+    "/control-center/today/exact-action/execute",
+}
+CONTROL_CENTER_TODAY_EXACT_ACTION_STATUS_PATHS = {
+    "/control-center/today/exact-action/{today_item_ref}/status",
+}
 CONTROL_CENTER_ACTION_LOCAL_TASK_COMMIT_PATHS = {
     "/control-center/actions/{action_id}/local-task/commit",
 }
@@ -1153,6 +1163,19 @@ def route_classification_for_path(
         return (
             ApiRouteClassification.mutating_requires_authority,
             "Today-to-Action envelope authority route; workspace/draft AuthorityLease, exact idempotency, authority decision refs, receipt, audit, and evidence posture required while execution stays blocked",
+        )
+    if normalized_method == "GET" and path in CONTROL_CENTER_TODAY_EXACT_ACTION_STATUS_PATHS:
+        return (
+            ApiRouteClassification.local_sensitive,
+            "Exact Founder Loop action status exposes only backend-owned source, target, approval, and mission-lease requirements without preparing or executing work.",
+        )
+    if (
+        normalized_method == "POST"
+        and path in CONTROL_CENTER_TODAY_EXACT_ACTION_MUTATION_PATHS
+    ):
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "Exact Founder Loop action route requires idempotency, immutable source and target bindings, exact LocalApprovalAuthority scope, a current mission-scoped AuthorityLease, dispatcher pre-start revalidation, and content-free receipts; it grants no broad filesystem authority.",
         )
     if (
         normalized_method == "POST"

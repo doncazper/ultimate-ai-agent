@@ -612,6 +612,38 @@ capabilities and any send/write capability remain blocked behind separate
 AuthorityLease capability evidence, unblock prompts, route contracts, redaction
 tests, safe-disable posture, and rollback-readiness evidence.
 
+ECO-000 Coherent App Ecosystem Contract And Experience Acceptance
+Goal: lock the complete standalone-quality Calendar, Tasks, Boards, CRM, Inbox,
+Today, Organizer, Evidence, and Memory ecosystem before new private CRM,
+Calendar, or Tasks repositories invent conflicting domain truth.
+Scope: planning and acceptance work in
+`docs/implementation/UAA_COHERENT_APP_ECOSYSTEM_IMPLEMENTATION_PLAN.md`:
+canonical object ownership, EntityLink and projection rules, shared local data
+and migration direction, cross-app ChangeSets, capability catalog, complete app
+product bars, integrated golden paths, desktop/narrow/wallboard experience
+architecture, full render program, and measurable polish gates. This lane adds
+no new route, storage, dependency, connector runtime, account sync, external
+write, send, calendar write, provider/model call, browser runtime, background
+autonomy, collaboration authority, packaging claim, public release, or
+production authority.
+Next: accept ECO-000 ownership and experience contracts before finalizing
+CRM-FC-000 shared Event, Task, Board, Source, or ChangeSet contracts.
+
+CRM-FC-000 First-Class CRM Product Contract And Render Acceptance
+Goal: evolve the implemented CRM M2 baseline into one relationship-first local
+CRM foundation with Sales, Real Estate, Professional Network, Personal Network,
+and Private Relationships workspaces.
+Scope: planning and acceptance work in
+`docs/implementation/UAA_FIRST_CLASS_CRM_IMPLEMENTATION_PLAN.md`: versioned
+domain nouns, private-data versus governance-plane boundary, workspace
+isolation, storage/encryption ADR and threat model, nested route map, and CRM
+north-star render revision pack. No private-data persistence, new backend
+route, connector runtime, account sync, send, calendar write, external CRM
+write, provider/model call, browser runtime, background autonomy, public
+release, or production authority is authorized by the plan.
+Next: accept `ECO-000`, then accept `CRM-FC-000` before implementing
+`CRM-FC-001` private local repository and migrations.
+
 WEB-RUNTIME-AUTH-001 Web Runtime Authority Promotion Ladder
 Goal: promote the web/provider/browser authority ladder into active roadmap and
 board truth before any new web runtime authority is implemented.

@@ -42,18 +42,25 @@ def test_foundation_gate_ci_report_depends_on_required_verification_jobs() -> No
     assert "$GITHUB_STEP_SUMMARY" in section
 
 
-def test_pytest_ci_uses_complete_eight_way_matrix_with_stable_aggregate() -> None:
+def test_pytest_ci_uses_one_installed_job_with_bounded_workers_and_stable_aggregate() -> (
+    None
+):
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
     shards = _extract_job_block(workflow, "pytest-shards")
     aggregate = _extract_job_block(workflow, "pytest")
 
-    assert "fail-fast: false" in shards
-    assert "shard: [0, 1, 2, 3, 4, 5, 6, 7]" in shards
+    assert "matrix:" not in shards
     assert "--shards 8" in shards
+    assert "--max-workers 4" in shards
+    assert "/usr/sbin/taskpolicy -c utility" in shards
     assert "--timings-json scripts/verification/pytest_file_timing_seed.json" in shards
-    assert "--shard-index ${{ matrix.shard }}" in shards
+    assert "--shard-index" not in shards
     assert "--safe-summary" in shards
     assert "--write-timings-json" not in shards
+    assert "trap terminate_shard_runner EXIT INT TERM HUP" in shards
+    assert 'kill -TERM "$shard_runner_pid"' in shards
+    assert "for _ in {1..100}" in shards
+    assert 'kill -KILL "$shard_runner_pid"' in shards
     assert "name: pytest" in aggregate
     assert "- pytest-shards" in aggregate
     assert "if: always()" in aggregate

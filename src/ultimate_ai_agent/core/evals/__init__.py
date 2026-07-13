@@ -12,6 +12,15 @@ from ultimate_ai_agent.core.evals.regression import (
     validate_agent_eval_harness_policy,
     validate_agent_eval_regression_request,
 )
+from ultimate_ai_agent.core.evals.capability_metrics import (
+    CAPABILITY_COMPONENT_IDS,
+    CAPABILITY_EVALUATION_CONTRACT_REF,
+    CAPABILITY_EVALUATION_SCHEMA_VERSION,
+    AgentCapabilityEvaluationReport,
+    CapabilityEvaluationStatus,
+    CapabilityScenarioObservation,
+    build_agent_capability_evaluation_report,
+)
 
 __all__ = [
     "AgentEvalCase",
@@ -23,7 +32,14 @@ __all__ = [
     "AgentEvalRegressionRunRequest",
     "AgentEvalRegressionStatus",
     "AgentEvalSuite",
+    "AgentCapabilityEvaluationReport",
+    "CAPABILITY_COMPONENT_IDS",
+    "CAPABILITY_EVALUATION_CONTRACT_REF",
+    "CAPABILITY_EVALUATION_SCHEMA_VERSION",
+    "CapabilityEvaluationStatus",
+    "CapabilityScenarioObservation",
     "build_agent_eval_regression_report",
+    "build_agent_capability_evaluation_report",
     "validate_agent_eval_harness_policy",
     "validate_agent_eval_regression_request",
 ]

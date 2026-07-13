@@ -74,6 +74,16 @@ human-readable state before developer detail and must follow
 
 Control Center does not become the authority layer.
 
+### Coherent Application Ecosystem
+
+The full application-suite target is subordinate to this architecture in
+`docs/implementation/UAA_COHERENT_APP_ECOSYSTEM_IMPLEMENTATION_PLAN.md`.
+Calendar, Tasks, Boards, CRM, Inbox, Today, Organizer, Evidence, and Memory must
+share the Python Agent Core and governance boundaries while keeping one
+canonical owner for each event, task, relationship, opportunity, source
+artifact, board projection, and receipt. This planning target adds no routes,
+stores, connectors, controls, dependencies, packaging, or authority by itself.
+
 ### OpenWebUI Optional Shell
 
 OpenWebUI remains an optional local shell into UAA-managed local model behavior.

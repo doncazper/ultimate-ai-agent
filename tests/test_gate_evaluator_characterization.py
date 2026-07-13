@@ -138,6 +138,11 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "/control-center/morning-briefing/summary",
         "/control-center/sources/readiness",
         "/control-center/storage/status",
+        "/control-center/today/exact-action/approve",
+        "/control-center/today/exact-action/execute",
+        "/control-center/today/exact-action/prepare",
+        "/control-center/today/exact-action/source-review",
+        "/control-center/today/exact-action/{today_item_ref}/status",
         "/control-center/today/summary",
     }
     assert FOUNDER_LOOP_ACTION_DECISION_ROUTES == {

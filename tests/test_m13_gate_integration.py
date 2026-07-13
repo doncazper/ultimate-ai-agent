@@ -91,7 +91,10 @@ def test_frontend_package_has_only_local_shell_dependencies() -> None:
         assert fragment not in package
     assert '"lucide-react"' in package
     assert '"@playwright/test"' in package
-    assert '"visual:check": "playwright test --config=playwright.visual.config.ts"' in package
+    assert (
+        '"visual:check": "playwright test --config=playwright.visual.config.ts --project=desktop"'
+        in package
+    )
 
 
 def test_frontend_mocks_remain_non_authoritative() -> None:
