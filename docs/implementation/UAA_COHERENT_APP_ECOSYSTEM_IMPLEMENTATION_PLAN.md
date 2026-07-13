@@ -2,7 +2,7 @@
 
 Status: active full-vision implementation plan; planning-only authority
 Baseline: v0.104.0 / 0.104.0
-Date: 2026-07-12
+Date: 2026-07-13
 Subordinate to:
 `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md` and
 `docs/architecture/TARGET_PRODUCT_ARCHITECTURE.md`
@@ -13,7 +13,7 @@ Related product plans:
 ## Executive Decision
 
 UAA will become a coherent local-first application ecosystem in which Calendar,
-Tasks, Boards, CRM, Inbox, Today, Memory, and Evidence are individually
+Tasks, Boards, CRM, Inbox, Social, Today, Memory, and Evidence are individually
 excellent products and materially better when used together.
 
 The product target is not a set of shallow dashboard widgets. Each primary app
@@ -68,6 +68,9 @@ professional life:
 - Inbox turns selected email, message, meeting, form, file, and connector
   artifacts into reviewable proposals rather than silently changing product
   state.
+- Social turns authorized performance, audience, campaign, cadence, and
+  conversation observations into source-linked creator intelligence, then
+  routes context to the canonical owning application.
 - Today and Briefing assemble the operator's actual commitments, priorities,
   follow-ups, events, risks, and evidence gaps across every app.
 - Evidence and Memory make the ecosystem trustworthy, correctable, and
@@ -271,6 +274,32 @@ Inbox becomes the governed source and communication workbench:
 Inbox owns source artifacts and communication drafts. It does not own the Task,
 Event, or CRM record created from an approved proposal.
 
+### UAA Social Media Intelligence
+
+Social is the creator-focused intelligence and coordination surface defined in
+`docs/product/UAA_SOCIAL_MEDIA_INTELLIGENCE_PRODUCT_CONTRACT.md`.
+
+- Overview ranks a bounded daily social briefing over performance changes,
+  audience intent, campaign drift, cadence variance, important conversations,
+  and source gaps.
+- Performance explains cross-channel and post-level trends with freshness,
+  missing coverage, uncertainty, and evidence refs.
+- Audience groups authorized observations about growth, returning engagement,
+  repeated questions, and relationship candidates without silently creating or
+  enriching CRM records.
+- Campaigns connects observed outcomes to canonical Calendar slots, Work Board
+  production, Communications threads, CRM relationships, Studio assets, and
+  Evidence refs.
+- Sources makes configuration, authority, field scope, freshness, retention,
+  stale, partial, and blocked posture explicit.
+
+Social owns interpretation and derived creator-intelligence projections.
+Calendar owns time, Work Board owns production, Communications owns
+conversations, CRM owns relationships, Studio owns assets, and Evidence owns
+proof. The initial milestone is read-only and adds no account authentication,
+live connector read, background sync, publishing, reply, delete, moderation,
+provider/model call, or external account authority.
+
 ### UAA Lists, Routines, And Personal Organizer
 
 Lists and routines provide the Skylight-like personal organization layer
@@ -315,6 +344,7 @@ These remain shared control planes rather than standalone copies in each app:
 | Boards | `Board`, `BoardView`, `Lane`, `Swimlane`, `BoardMembership`, `CardProjection`, `CardOrdering`, `BoardTemplate` | Canonical subject remains in Tasks, Plans, CRM, or standalone `BoardItem`. |
 | CRM | `Relationship`, `WorkspaceContext`, `OrganizationMembership`, `Role`, `Circle`, `FollowUp`, `Opportunity`, `Pipeline`, `PipelineStage`, `Property`, `Showing`, `Offer`, `Transaction`, `ClosingMilestone` | Links Events, Tasks, Sources, Plans, Boards, Evidence, and Memory. |
 | Inbox/Communications | `SourceBinding`, `SourceArtifact`, `ConversationThread`, `CommunicationItem`, `AttachmentRef`, `CommunicationDraft` | Produces proposals for Tasks, Events, CRM, Lists, and Boards. |
+| Social intelligence | Planned `SocialMetricSnapshot`, `SocialSignal`, `SocialCadenceAssessment`, `SocialAudienceObservation`, `SocialCampaignProjection`, and `SocialBriefingItem` nouns pending a later ADR/schema milestone | Interprets source-linked observations and opens typed projections in Calendar, Work Board, Communications, CRM, Studio, Evidence, and Memory review without copying their records. |
 | Organizer | `List`, `ListItem`, `Routine`, `RoutineOccurrence`, `MealPlan`, `HouseholdResponsibility` | Calendar and Today project scheduled items; Tasks receives promoted accountable work. |
 | Integration catalog | `CatalogEntry`, `CapabilityDefinition`, `SourceBindingProposal`, `CapabilityProposal`, `ConnectorCursor`, `SyncConflict` | Describes available and configured capabilities without granting authority. |
 | Governance | `ChangeSet`, `ChangeOperation`, `ApprovalRecord`, `MutationReceipt`, `RollbackRef`, `EvidenceRef`, `PolicyDecision` | Every mutating app uses the same consequence and receipt grammar. |
@@ -484,6 +514,7 @@ Planned primary destinations after accepted route work:
 ```text
 Today
 Inbox
+Social
 Calendar
 Tasks
 Boards
@@ -571,6 +602,19 @@ Calendar occurrences + due Tasks + CRM follow-ups + Plan milestones
 -> end-of-day carry forward -> Weekly Review
 ```
 
+### Creator social loop
+
+```text
+Authorized social observations -> performance and audience signals
+-> Social briefing -> Calendar publishing context / Work Board content work
+-> Communications Social Media thread / CRM relationship context
+-> Studio asset link -> observed result -> Evidence and reviewed learning
+```
+
+The read-only Social milestone routes context only. It does not publish, reply,
+change schedules, create contacts, modify external accounts, or run recurring
+sync.
+
 ### Household organizer loop
 
 ```text
@@ -608,6 +652,8 @@ AI may later assist with:
 - Task decomposition and priority explanations.
 - CRM follow-up suggestions and pipeline-risk explanations.
 - Board setup and layout proposals.
+- Social performance explanations, audience-signal clustering, cadence
+  observations, campaign lessons, and conversation prioritization.
 - Briefings, weekly reviews, and missing-evidence detection.
 
 Every generated result carries source citations, workspace scope, privacy

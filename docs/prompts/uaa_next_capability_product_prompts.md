@@ -45,6 +45,17 @@ These deferred prompts may be promoted into their own PRs when they become the
 next explicitly accepted lane. Do not mix them into MCP, A2A, browser,
 release-surface, provider/settings, CRM, unified-thread, or backup/restore PRs.
 
+Dependency-gated future product lane:
+
+- Social Media Intelligence remains deferred and must not be recommended as
+  the next implementation lane until Work Board/Kanban, first-class CRM, and
+  Communications/Messenger each have accepted completion evidence covering
+  durable backend truth, API/CLI parity, tested Control Center workflows,
+  visual acceptance, and aligned product truth. When all three gates pass,
+  Social becomes eligible for prioritization, not automatically next. Use
+  `docs/prompts/implement_social_media_intelligence_after_foundation_gates.prompt.md`
+  for the fail-closed activation check and implementation sequence.
+
 Global rules:
 
 - Treat `AGENTS.md` as binding.
