@@ -98,6 +98,7 @@ def test_shared_mac_ci_stages_cpu_and_io_heavy_job_classes() -> None:
     pytest_shards_job = verifier.job_section(workflow, "pytest-shards")
     assert "      - lint\n" in pytest_shards_job
     assert "            --max-workers 4 \\\n" in pytest_shards_job
+    assert "/usr/sbin/taskpolicy -c utility .venv/bin/python scripts/verification/run_pytest_shards.py" in pytest_shards_job
     assert "trap terminate_shard_runner EXIT INT TERM HUP" in pytest_shards_job
     assert 'kill -TERM "$shard_runner_pid"' in pytest_shards_job
     assert "for _ in {1..100}" in pytest_shards_job

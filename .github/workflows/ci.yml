@@ -89,7 +89,7 @@ jobs:
             fi
           }
           trap terminate_shard_runner EXIT INT TERM HUP
-          .venv/bin/python scripts/verification/run_pytest_shards.py \
+          /usr/sbin/taskpolicy -c utility .venv/bin/python scripts/verification/run_pytest_shards.py \
             --shards 8 \
             --max-workers 4 \
             --timings-json scripts/verification/pytest_file_timing_seed.json \

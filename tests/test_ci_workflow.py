@@ -52,6 +52,7 @@ def test_pytest_ci_uses_one_installed_job_with_bounded_workers_and_stable_aggreg
     assert "matrix:" not in shards
     assert "--shards 8" in shards
     assert "--max-workers 4" in shards
+    assert "/usr/sbin/taskpolicy -c utility" in shards
     assert "--timings-json scripts/verification/pytest_file_timing_seed.json" in shards
     assert "--shard-index" not in shards
     assert "--safe-summary" in shards

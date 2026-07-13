@@ -33,6 +33,9 @@ provider, connector, production, or AuthorityLease capability.
   classification is intentionally rejected because it constrains CI children
   to background scheduling and makes the bounded test budget non-representative;
   interactive scheduling is not granted.
+- The pytest command also declares exact `taskpolicy -c utility` scheduling so
+  an older installed runner cannot silently inherit background QoS. The wrapper
+  execs the existing bounded shard runner and grants no administrator access.
 - Python 3.12 and Node 22 are shared, pre-provisioned Homebrew toolchains. CI
   does not use the setup actions because their macOS installers require
   host-level installation privileges that the non-admin runner must not gain.

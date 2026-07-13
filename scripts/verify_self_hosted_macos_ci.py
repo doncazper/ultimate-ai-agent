@@ -92,6 +92,8 @@ def verify(root: Path = ROOT) -> list[str]:
     pytest_shards_job = job_section(workflow, "pytest-shards")
     if "            --max-workers 4 \\\n" not in pytest_shards_job:
         failures.append("pytest shards must use the bounded four-worker single-host cap")
+    if "/usr/sbin/taskpolicy -c utility .venv/bin/python scripts/verification/run_pytest_shards.py" not in pytest_shards_job:
+        failures.append("pytest shards must escape inherited macOS background QoS throttling")
     if "trap terminate_shard_runner EXIT INT TERM HUP" not in pytest_shards_job:
         failures.append("pytest job cancellation must reach the shard runner")
     if "for _ in {1..100}" not in pytest_shards_job:
