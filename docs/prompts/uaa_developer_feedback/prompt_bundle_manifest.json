@@ -1,0 +1,20 @@
+{
+  "bundle_id": "uaa-developer-feedback-001",
+  "version": "1.0.0",
+  "purpose": "End-to-end stored prompts for global UAA Developer Mode, screenshot/video annotation, extreme structured diagnostics, Feedback Inbox, post-quit Codex handoff, evidence-backed patches, and whole-app hardening.",
+  "developer_prompt_refs": [
+    "docs/prompts/uaa_developer_feedback/00_execute_all_review_verify_harden.prompt.md",
+    "docs/prompts/uaa_developer_feedback/01_contract_authority_and_schema.prompt.md",
+    "docs/prompts/uaa_developer_feedback/02_core_storage_api_cli.prompt.md",
+    "docs/prompts/uaa_developer_feedback/03_native_shell_global_developer_mode.prompt.md",
+    "docs/prompts/uaa_developer_feedback/04_screenshot_annotation_workflow.prompt.md",
+    "docs/prompts/uaa_developer_feedback/05_video_timeline_keyframes.prompt.md",
+    "docs/prompts/uaa_developer_feedback/06_extreme_diagnostics_and_feedback_inbox.prompt.md",
+    "docs/prompts/uaa_developer_feedback/07_post_quit_codex_handoff.prompt.md",
+    "docs/prompts/uaa_developer_feedback/08_codex_patch_workflow.prompt.md",
+    "docs/prompts/uaa_developer_feedback/09_whole_app_acceptance_hardening.prompt.md"
+  ],
+  "bundle_hash": "sha256:d792902c331bc291db0aad535be9ef1596b8fb4123952af3537dd22f056b76fb",
+  "stable_within_run": true,
+  "created_at": "2026-07-12"
+}
