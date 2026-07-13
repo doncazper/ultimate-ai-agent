@@ -132,9 +132,15 @@ PLIST
   trap - EXIT
 
   /usr/bin/sudo /bin/launchctl bootout "system/${service_label}" >/dev/null 2>&1 || true
-  /usr/bin/sudo /bin/launchctl bootstrap system "$service_path"
+  if ! /usr/bin/sudo /bin/launchctl bootstrap system "$service_path"; then
+    print -u2 -- "launchd did not settle after bootout for ${service_label}; retrying once"
+    /usr/bin/sudo /bin/launchctl bootout "system/${service_label}" >/dev/null 2>&1 || true
+    /bin/sleep 2
+    /usr/bin/sudo /bin/launchctl bootstrap system "$service_path"
+  fi
   /usr/bin/sudo /bin/launchctl enable "system/${service_label}"
   /usr/bin/sudo /bin/launchctl kickstart -k "system/${service_label}"
+  /usr/bin/sudo /bin/launchctl print "system/${service_label}" >/dev/null
 done
 
 print -- "Provisioned ${runner_count} repo-scoped UAA runner instance(s)."

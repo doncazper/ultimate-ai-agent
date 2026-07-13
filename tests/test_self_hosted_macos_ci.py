@@ -20,6 +20,17 @@ def test_provisioner_keeps_root_owned_helper_directory_traversable() -> None:
     assert "mkdir -p /usr/local/libexec/uaa-ci" not in provisioner
 
 
+def test_provisioner_retries_transient_launchd_bootstrap_failure() -> None:
+    provisioner = (
+        ROOT / "scripts/ci/provision_self_hosted_macos_runners.sh"
+    ).read_text(encoding="utf-8")
+
+    assert "launchd did not settle after bootout" in provisioner
+    assert "/bin/sleep 2" in provisioner
+    assert provisioner.count('launchctl bootstrap system "$service_path"') == 2
+    assert 'launchctl print "system/${service_label}"' in provisioner
+
+
 def test_workflow_uses_non_admin_preprovisioned_toolchains() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
 

@@ -87,6 +87,11 @@ The provisioning script never changes GitHub billing, spending limits,
 payment methods, repository visibility, workflow permissions, or paid runner
 settings.
 
+The provisioner tolerates one transient macOS `launchctl` bootstrap race after
+unloading an existing service. It waits two seconds, retries exactly once, and
+then verifies that the system-domain service is loaded. A second failure remains
+fatal and requires inspection rather than an unbounded retry loop.
+
 ## Verify
 
 Run the static contract and inspect GitHub's live runner state:
