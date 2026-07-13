@@ -33,6 +33,11 @@ The read model unifies existing UAA contracts:
 - local model inventory and M164 llama.cpp gateway posture;
 - M163 llama.cpp lifecycle contract posture;
 - deterministic ModelRouter trace metadata.
+- deterministic, bounded provider-routing intelligence adapted from the public
+  MIT-licensed ModelRouter project. The UAA-native projection uses injected
+  compatibility, configuration, health, budget, cost, latency, quality,
+  context, and safe-disable observations; unknown or stale evidence fails
+  closed and the result remains a non-authorizing proposal.
 - UAA Runtime Parity Phase 06 role-based provider/model evidence
   for answerer, planner, reviewer, synthesizer, coder, extractor, and safety
   reviewer roles.
@@ -54,8 +59,38 @@ CLI parity:
 
 ```bash
 .venv/bin/python scripts/inspect_model_provider_control_plane.py
+.venv/bin/python scripts/inspect_model_provider_control_plane.py --json
 .venv/bin/python scripts/dev/uaa_runtime.py inspect-role-provider-evidence --json
 ```
+
+Human-readable output is primary. JSON exposes the same redacted Python-owned
+truth for automation. Candidate presentation is bounded to four rows and never
+performs provider fanout.
+
+## Reciprocal Learning Kept UAA-Native
+
+The evidence-backed GoatCitadel comparison identified four Goat-to-UAA
+patterns worth adapting. Their current UAA-native boundaries are:
+
+- **Run Detail and readable approvals:** the existing backend-owned,
+  run-attached approval queue and Proof Run Detail remain the source of truth;
+  React renders them and cannot mint approval or lease authority.
+- **Provider explanations:** `ProviderRoutingProposal` explains bounded
+  candidates, blockers, cost, latency, quality, and readiness. A recommendation
+  must still pass fresh request-scoped policy, LocalApprovalAuthority,
+  AuthorityLease, budget, target, adapter, kill-switch, safe-disable, deadline,
+  and idempotency evaluation before invocation.
+- **Code workbench review:** transient patch content can be reduced to an exact
+  hash, target fingerprint, base revision, approval-scope fingerprint,
+  validation plan, rollback plan, and idempotency ref. The patch body is not
+  persisted and apply remains a separately governed lane.
+- **Extension developer tooling:** `uaa_extensions.py validate-entry` provides
+  focused metadata, provenance, version, and pinned-hash feedback for known
+  catalog entries. Validation never imports or executes an extension.
+
+UAA intentionally does not borrow wildcard grants, approval bypasses,
+content-bearing durable traces, trusted-host execution presented as sealed
+isolation, or arbitrary extension imports.
 
 Verifier:
 

@@ -200,7 +200,8 @@ def main() -> int:
         "API delegated runtime model catalog missing",
     )
     _assert(
-        api_payload["delegated_runtime_model_catalog"]["uaa_authorized_model_count"] == 0,
+        api_payload["delegated_runtime_model_catalog"]["uaa_authorized_model_count"]
+        == 0,
         "API delegated runtime model catalog authorized a model",
     )
     _assert(
@@ -218,6 +219,7 @@ def main() -> int:
         [
             sys.executable,
             "scripts/inspect_model_provider_control_plane.py",
+            "--json",
         ],
         cwd=ROOT,
         check=True,
@@ -225,7 +227,9 @@ def main() -> int:
         text=True,
     )
     cli_payload = json.loads(cli.stdout)
-    _assert(cli_payload["contract_ref"] == read_model.contract_ref, "CLI contract mismatch")
+    _assert(
+        cli_payload["contract_ref"] == read_model.contract_ref, "CLI contract mismatch"
+    )
     _assert(
         cli_payload["role_provider_evidence"]["role_count"] == 7,
         "CLI role provider evidence missing",
@@ -236,13 +240,22 @@ def main() -> int:
         "CLI delegated runtime model catalog missing",
     )
     _assert(
-        cli_payload["delegated_runtime_model_catalog"]["uaa_authorized_model_count"] == 0,
+        cli_payload["delegated_runtime_model_catalog"]["uaa_authorized_model_count"]
+        == 0,
         "CLI delegated runtime model catalog authorized a model",
     )
     _assert(
         cli_payload["model_slot_posture"]["schema_version"]
         == "hermes_runtime_model_slot_posture.v1",
         "CLI model slot posture missing",
+    )
+    _assert(
+        cli_payload["provider_routing_intelligence"]["proposal_only"] is True,
+        "CLI provider routing intelligence is not proposal-only",
+    )
+    _assert(
+        cli_payload["provider_routing_intelligence"]["invocation_authorized"] is False,
+        "CLI provider routing intelligence minted authority",
     )
     _assert(
         cli_payload["model_slot_posture"]["slot_count"] == 8,

@@ -1,12 +1,24 @@
-from tests.m7_helpers import classification, cloud_profile, local_profile, policy, route_request
+from tests.m7_helpers import (
+    classification,
+    cloud_profile,
+    local_profile,
+    policy,
+    route_request,
+)
 from ultimate_ai_agent.core.hygiene.policies import ClassificationValue
-from ultimate_ai_agent.core.model_router import ModelPrivacyClass, ModelRouteStatus, ModelRouter
+from ultimate_ai_agent.core.model_router import (
+    ModelPrivacyClass,
+    ModelRouteStatus,
+    ModelRouter,
+)
 
 
 def test_cloud_candidate_blocked_in_local_only_privacy_mode() -> None:
     request = route_request(
         profiles=[cloud_profile()],
-        routing_policy=policy(privacy_mode=ModelPrivacyClass.local_only, allow_cloud=False),
+        routing_policy=policy(
+            privacy_mode=ModelPrivacyClass.local_only, allow_cloud=False
+        ),
     )
 
     decision = ModelRouter().route(request)
@@ -16,7 +28,9 @@ def test_cloud_candidate_blocked_in_local_only_privacy_mode() -> None:
     assert "CLOUD_BLOCKED_BY_PRIVACY_MODE" in decision.reason_codes
 
 
-def test_sensitive_personal_cloud_route_requires_approval_when_policy_demands_it() -> None:
+def test_sensitive_personal_cloud_route_requires_approval_when_policy_demands_it() -> (
+    None
+):
     request = route_request(
         profiles=[cloud_profile()],
         data_classification=classification(ClassificationValue.sensitive_personal),
@@ -46,7 +60,7 @@ def test_arbitrary_approval_ref_does_not_authorize_sensitive_cloud_route() -> No
     assert "APPROVAL_REF_UNVALIDATED" in decision.reason_codes
 
 
-def test_test_approval_ref_can_authorize_sensitive_cloud_route() -> None:
+def test_test_shaped_approval_ref_cannot_authorize_sensitive_cloud_route() -> None:
     request = route_request(
         profiles=[cloud_profile()],
         data_classification=classification(ClassificationValue.sensitive_personal),
@@ -56,9 +70,9 @@ def test_test_approval_ref_can_authorize_sensitive_cloud_route() -> None:
 
     decision = ModelRouter().route(request)
 
-    assert decision.status == ModelRouteStatus.selected
-    assert decision.selected_profile_id == "cloud_reasoner"
-    assert "SELECTED_PROFILE" in decision.reason_codes
+    assert decision.status == ModelRouteStatus.approval_required
+    assert decision.selected_profile_id is None
+    assert "APPROVAL_REF_UNVALIDATED" in decision.reason_codes
 
 
 def test_local_route_does_not_require_cloud_approval() -> None:

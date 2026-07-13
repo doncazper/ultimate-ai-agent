@@ -4,10 +4,13 @@ import pytest
 from pydantic import ValidationError
 
 from ultimate_ai_agent.core.code import (
+    GOVERNED_CODE_PATCH_REVIEW_CONTRACT_REF,
     GOVERNED_CODE_WORKBENCH_CONTRACT_REF,
     GOVERNED_CODE_WORKBENCH_REQUIRED_BLOCKED_REFS,
     GOVERNED_CODE_WORKBENCH_REQUIRED_REF_FIELDS,
+    GovernedCodePatchReview,
     GovernedCodeWorkbenchProposal,
+    build_governed_code_patch_review,
     build_governed_code_workbench_proposal,
     governed_code_workbench_authority_posture,
     governed_code_workbench_surface_bindings,
@@ -84,6 +87,54 @@ def test_governed_code_workbench_rejects_unsafe_diff_or_secret_text() -> None:
         GovernedCodeWorkbenchProposal(**unsafe)
 
 
+def test_governed_code_patch_review_binds_exact_hash_target_and_scope_without_apply() -> (
+    None
+):
+    patch_body = "--- a/module.py\n+++ b/module.py\n@@\n-old = 1\n+new = 2\n"
+    review = build_governed_code_patch_review(
+        patch_body=patch_body,
+        target_refs=["repo-target-ref:src-module"],
+        base_revision_ref="git-revision-ref:base:abc123",
+    )
+    payload = review.model_dump(mode="json")
+
+    assert payload["contract_ref"] == GOVERNED_CODE_PATCH_REVIEW_CONTRACT_REF
+    assert payload["patch_hash_ref"].startswith("patch-hash-ref:sha256:")
+    assert payload["target_fingerprint_ref"].startswith(
+        "target-fingerprint-ref:sha256:"
+    )
+    assert payload["approval_scope_fingerprint_ref"].startswith(
+        "approval-scope-fingerprint-ref:sha256:"
+    )
+    assert payload["line_addition_count"] == 1
+    assert payload["line_deletion_count"] == 1
+    assert payload["patch_body_persisted"] is False
+    assert payload["patch_apply_performed"] is False
+    assert payload["approval_ref_grants_authority"] is False
+    assert patch_body not in json.dumps(payload)
+
+
+def test_governed_code_patch_review_rejects_empty_unsafe_or_authorizing_input() -> None:
+    with pytest.raises(ValueError):
+        build_governed_code_patch_review(
+            patch_body="",
+            target_refs=["repo-target-ref:src-module"],
+        )
+    with pytest.raises(ValueError):
+        build_governed_code_patch_review(
+            patch_body="+api key placeholder",
+            target_refs=["repo-target-ref:src-module"],
+        )
+
+    payload = build_governed_code_patch_review(
+        patch_body="--- a/module.py\n+++ b/module.py\n@@\n-old = 1\n+new = 2\n",
+        target_refs=["repo-target-ref:src-module"],
+    ).model_dump(mode="python")
+    payload["patch_apply_performed"] = True
+    with pytest.raises(ValidationError):
+        GovernedCodePatchReview(**payload)
+
+
 def test_governed_code_workbench_posture_and_surface_bindings() -> None:
     posture = governed_code_workbench_authority_posture()
     bindings = governed_code_workbench_surface_bindings()
@@ -132,9 +183,10 @@ def test_founder_loop_today_binds_governed_code_workbench(tmp_path) -> None:
     assert module_feeds["Code"]["status"] == (
         "implemented_governed_code_workbench_contract_apply_blocked"
     )
-    assert GOVERNED_CODE_WORKBENCH_CONTRACT_REF in module_feeds["Code"][
-        "current_feed_refs"
-    ]
+    assert (
+        GOVERNED_CODE_WORKBENCH_CONTRACT_REF
+        in module_feeds["Code"]["current_feed_refs"]
+    )
 
     code_item = next(
         item
@@ -142,15 +194,17 @@ def test_founder_loop_today_binds_governed_code_workbench(tmp_path) -> None:
         if item["item_kind"] == "governed_code_workbench_proposal_ref"
     )
     assert GOVERNED_CODE_WORKBENCH_CONTRACT_REF in code_item["status_refs"]
-    assert today["governed_code_workbench_safe_diff_summary_ref"] in (
-        code_item["status_refs"]
+    assert (
+        today["governed_code_workbench_safe_diff_summary_ref"]
+        in (code_item["status_refs"])
     )
-    assert today["governed_code_workbench_expected_apply_receipt_ref"] in (
-        code_item["receipt_refs"]
+    assert (
+        today["governed_code_workbench_expected_apply_receipt_ref"]
+        in (code_item["receipt_refs"])
     )
     assert code_item["history_answers"]["approved"]["status"] == "blocked"
-    assert "no files were changed" in (
-        code_item["history_answers"]["happened"]["answer"]
+    assert (
+        "no files were changed" in (code_item["history_answers"]["happened"]["answer"])
     )
     assert code_item["approval_ref_authority"] is False
     assert code_item["rollback_execution_enabled"] is False

@@ -68,6 +68,12 @@ from ultimate_ai_agent.core.providers.role_evidence import (
     RoleBasedModelProviderEvidenceReadModel,
     build_role_based_model_provider_evidence,
 )
+from ultimate_ai_agent.core.providers.routing_intelligence import (
+    ProviderRoutingNeed,
+    ProviderRoutingProposal,
+    build_provider_routing_proposal,
+    observations_from_provider_readiness,
+)
 from ultimate_ai_agent.core.runtime_gateway.profile_isolation import (
     RUNTIME_PROFILE_ISOLATION_ROUTE_REF,
     build_runtime_profile_isolation_read_model,
@@ -711,7 +717,9 @@ class ModelSlotPostureReadModel(BaseModel):
             "docs/control_center/MODEL_PROVIDER_CONTROL_PLANE.md",
         ]
     )
-    verifier_refs: list[str] = Field(default_factory=lambda: [MODEL_SLOT_POSTURE_VERIFIER_REF])
+    verifier_refs: list[str] = Field(
+        default_factory=lambda: [MODEL_SLOT_POSTURE_VERIFIER_REF]
+    )
     blocked_authority_refs: list[str] = Field(
         default_factory=lambda: [
             "blocked-state:model-slot:live-auxiliary-model-calls",
@@ -754,12 +762,16 @@ class ModelSlotPostureReadModel(BaseModel):
             raise ValueError("MODEL_SLOT_POSTURE_AUTHORITY_DRIFT")
         if self.slot_count != len(self.records):
             raise ValueError("MODEL_SLOT_POSTURE_COUNT_DRIFT")
-        if self.warning_count != sum(bool(record.warning_refs) for record in self.records):
+        if self.warning_count != sum(
+            bool(record.warning_refs) for record in self.records
+        ):
             raise ValueError("MODEL_SLOT_POSTURE_WARNING_COUNT_DRIFT")
         if self.main_slot_ref not in {record.slot_ref for record in self.records}:
             raise ValueError("MODEL_SLOT_POSTURE_MAIN_SLOT_MISSING")
         if set(self.auxiliary_slot_refs) != {
-            record.slot_ref for record in self.records if record.slot_ref != self.main_slot_ref
+            record.slot_ref
+            for record in self.records
+            if record.slot_ref != self.main_slot_ref
         }:
             raise ValueError("MODEL_SLOT_POSTURE_AUXILIARY_SLOT_DRIFT")
         return self
@@ -1038,6 +1050,7 @@ class ModelProviderControlPlaneReadModel(BaseModel):
     delegated_runtime_model_catalog: DelegatedRuntimeModelCatalogPosture
     model_slot_posture: ModelSlotPostureReadModel
     role_provider_evidence: RoleBasedModelProviderEvidenceReadModel
+    provider_routing_intelligence: ProviderRoutingProposal
     model_provider_research_posture: ModelProviderResearchPosture
     credential_readiness_ref: str = (
         "control-center-dashboard-field:provider_credential_readiness"
@@ -1111,9 +1124,17 @@ class ModelProviderControlPlaneReadModel(BaseModel):
         if self.model_slot_posture.live_auxiliary_calls_enabled:
             raise ValueError("MODEL_PROVIDER_CONTROL_PLANE_MODEL_SLOT_AUTHORITY_DRIFT")
         if self.role_provider_evidence.provider_sdk_call_enabled:
-            raise ValueError("MODEL_PROVIDER_CONTROL_PLANE_ROLE_EVIDENCE_AUTHORITY_DRIFT")
+            raise ValueError(
+                "MODEL_PROVIDER_CONTROL_PLANE_ROLE_EVIDENCE_AUTHORITY_DRIFT"
+            )
         if self.role_provider_evidence.model_invocation_performed:
-            raise ValueError("MODEL_PROVIDER_CONTROL_PLANE_ROLE_EVIDENCE_MODEL_CALL_DRIFT")
+            raise ValueError(
+                "MODEL_PROVIDER_CONTROL_PLANE_ROLE_EVIDENCE_MODEL_CALL_DRIFT"
+            )
+        if self.provider_routing_intelligence.invocation_authorized:
+            raise ValueError("MODEL_PROVIDER_CONTROL_PLANE_ROUTING_AUTHORITY_DRIFT")
+        if self.provider_routing_intelligence.provider_call_performed:
+            raise ValueError("MODEL_PROVIDER_CONTROL_PLANE_ROUTING_EXECUTION_DRIFT")
         return self
 
 
@@ -1206,6 +1227,10 @@ def build_model_provider_control_plane_read_model(
             provider_readiness_items=readiness.providers,
             provider_catalog_ref=catalog.catalog_ref,
             router_trace_refs=[router_trace.trace_ref],
+        ),
+        provider_routing_intelligence=build_provider_routing_proposal(
+            ProviderRoutingNeed(),
+            observations_from_provider_readiness(readiness.providers),
         ),
         model_provider_research_posture=_build_model_provider_research_posture(
             readiness=readiness,
