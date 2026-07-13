@@ -30,6 +30,13 @@ def test_workflow_uses_non_admin_preprovisioned_toolchains() -> None:
     assert "/opt/homebrew/opt/node@22/bin" in workflow
 
 
+def test_pytest_shards_use_runner_scoped_temp_directory() -> None:
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+
+    assert '--basetemp "${RUNNER_TEMP}/uaa_pytest_shards"' in workflow
+    assert "--basetemp /tmp/uaa_pytest_shards" not in workflow
+
+
 def test_verifier_rejects_hosted_runner_and_cache_regression(tmp_path: Path) -> None:
     workflow = tmp_path / ".github/workflows/ci.yml"
     actionlint_config = tmp_path / ".github/actionlint.yaml"

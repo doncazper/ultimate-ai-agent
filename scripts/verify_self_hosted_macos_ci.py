@@ -70,6 +70,8 @@ def verify(root: Path = ROOT) -> list[str]:
         failures.append("CI workflow must use the pre-provisioned Python 3.12 toolchain")
     if "/opt/homebrew/opt/node@22/bin" not in workflow:
         failures.append("CI workflow must use the pre-provisioned Node 22 toolchain")
+    if '--basetemp "${RUNNER_TEMP}/uaa_pytest_shards"' not in workflow:
+        failures.append("pytest shards must use the isolated per-job runner temp directory")
     checkout_count = workflow.count("uses: actions/checkout@v4")
     if checkout_count == 0 or workflow.count("persist-credentials: false") != checkout_count:
         failures.append("every checkout must avoid persisting GitHub credentials")
