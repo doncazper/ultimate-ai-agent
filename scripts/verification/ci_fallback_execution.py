@@ -230,14 +230,8 @@ def _read_lane_receipt(
     return receipt_ref
 
 
-PRIVATE_LANE_REFS = tuple(
-    dict.fromkeys(
-        (
-            "ci-affected-preflight",
-            *(job.lane_ref for job in CI_JOB_GRAPH if job.lane_ref is not None),
-        )
-    )
-)
+_JOB_LANES = (job.lane_ref for job in CI_JOB_GRAPH if job.lane_ref)
+PRIVATE_LANE_REFS = tuple(dict.fromkeys(("ci-affected-preflight", *_JOB_LANES)))
 ALLOWED_ORIGIN_URLS = frozenset(
     {
         "git@github.com:doncazper/ultimate-ai-agent.git",
