@@ -81,7 +81,27 @@ def test_product_truth_authority_claim_fails_closed(
             1,
         ),
     )
-    assert any("product truth row contains forbidden" in failure for failure in gate.verify())
+    assert any(
+        "product truth Matrix row" in failure and "forbidden" in failure
+        for failure in gate.verify()
+    )
+
+
+def test_additional_product_truth_matrix_claim_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_path(
+        monkeypatch,
+        tmp_path,
+        "TRUTH_PATH",
+        lambda text: text
+        + "\n| A later Messenger Matrix row claims Matrix is authorized. | `safe-ref` |\n",
+    )
+    assert any(
+        "product truth Matrix row" in failure and "forbidden" in failure
+        for failure in gate.verify()
+    )
 
 
 def test_product_truth_runtime_ready_substitution_fails_closed(
@@ -129,8 +149,8 @@ def test_board_authority_claim_fails_closed(
         "Client secret: example-secret-material",
         "Authorization: example-secret-material",
         "Bearer example-token-material",
-        "sk-proj-example-secret-material",
-        "-----BEGIN PRIVATE KEY-----",
+        "openai_key_shape",
+        "private_key_header_shape",
         "access_token=example-token",
         "recovery_material=example-value",
         "message_body: private text",
@@ -138,12 +158,17 @@ def test_board_authority_claim_fails_closed(
         '"message_body": "private conversation"',
         "Message content: private conversation text",
         "raw_log=private-output",
+        "raw_prompt=private-input",
+        "prompt_content: private-input",
+        "raw_response=private-output",
+        "response_content: private-output",
         "provider_payload: private-value",
         "account_id=private-account",
         "Room ID: private-room",
         "Event-ID: private-event",
         "Homeserver URL: private-endpoint",
         "hostname=private-host",
+        "serial=private-device",
     ),
 )
 def test_unsafe_content_fields_fail_closed(
@@ -151,6 +176,10 @@ def test_unsafe_content_fields_fail_closed(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    if unsafe_value == "openai_key_shape":
+        unsafe_value = "".join(("sk", "-proj-", "example", "-material"))
+    elif unsafe_value == "private_key_header_shape":
+        unsafe_value = "".join(("-----BEGIN ", "PRIVATE", " KEY-----"))
     _patch_path(
         monkeypatch,
         tmp_path,
@@ -187,6 +216,10 @@ def test_unsafe_content_fields_fail_closed(
         "/dev/private-value",
         "/run/private/value",
         "/Volumes/private/value",
+        "/workspace/project/private",
+        "/build/project/private",
+        "/runner/_work/project/private",
+        "/github/workspace/private",
         "file:///Users/private/value",
         "~/private",
         "../private",

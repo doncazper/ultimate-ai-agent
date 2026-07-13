@@ -362,14 +362,17 @@ HIGH_SIGNAL_SECRET_PATTERN = re.compile(
     re.IGNORECASE,
 )
 RAW_FIELD_PATTERN = re.compile(
-    r"(?:[\"']?\b(?:message[ _-]?(?:body|content)|raw[ _-]?(?:message|log)|provider[ _-]?payload|"
+    r"(?:[\"']?\b(?:message[ _-]?(?:body|content)|"
+    r"raw[ _-]?(?:message|log|prompt|response)|"
+    r"(?:prompt|response)[ _-]?content|provider[ _-]?payload|"
     r"(?:account|room|event|device)[ _-]?id|homeserver[ _-]?(?:url|address)|"
-    r"hostname|username)\b[\"']?)\s*[:=]",
+    r"hostname|username|serial)\b[\"']?)\s*[:=]",
     re.IGNORECASE,
 )
 ABSOLUTE_LOCAL_PATH_PATTERN = re.compile(
     r"(?:^|[\s(`'\"])(?:file:(?://)?/|/(?:Users|home|root|private|tmp|var|etc|"
-    r"System|Library|Applications|opt|usr|Volumes|srv|mnt|proc|dev|run|bin|sbin)"
+    r"System|Library|Applications|opt|usr|Volumes|srv|mnt|proc|dev|run|bin|sbin|"
+    r"workspace|build|runner|github)"
     r"(?:/|\b)|~/|\.\./|[A-Za-z]:\\Users\\|\\\\)",
     re.MULTILINE,
 )
@@ -731,7 +734,7 @@ def _rendered_table_row(text: str, token: str) -> list[str]:
             if not re.search(r"</(?:pre|code)>", stripped, re.IGNORECASE):
                 in_html_code = True
             continue
-        if line.startswith("|") and token in line:
+        if line.startswith("|") and token.casefold() in line.casefold():
             rows.append(line)
     return rows
 
@@ -847,7 +850,11 @@ def _verify_bindings(
             failures.append(f"documentation index row must contain exactly one {ref}")
 
     _scan_security("current board overlay", overlay, failures)
-    _scan_security("product truth row", truth_row, failures)
+    matrix_truth_rows = _rendered_table_row(truth, "matrix")
+    if truth_row and truth_row not in matrix_truth_rows:
+        failures.append("product truth baseline row is not included in Matrix claim scan")
+    for row_number, row in enumerate(matrix_truth_rows, start=1):
+        _scan_security(f"product truth Matrix row {row_number}", row, failures)
     _scan_security("documentation index row", index_row, failures)
 
 
