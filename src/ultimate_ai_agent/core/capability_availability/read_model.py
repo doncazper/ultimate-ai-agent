@@ -17,6 +17,11 @@ from ultimate_ai_agent.core.capabilities.models import (
     SafetyPolicy,
 )
 from ultimate_ai_agent.core.extension_catalog import (
+    EXACT_EXTENSION_ADAPTER_CONTRACT_REF,
+    EXACT_EXTENSION_ADAPTER_REF,
+    EXACT_EXTENSION_CAPABILITY_REF,
+    EXACT_EXTENSION_REGISTRATION_REF,
+    EXACT_EXTENSION_SAFE_DISABLE_REF,
     build_default_inspectable_extension_catalog,
 )
 from ultimate_ai_agent.core.control_center.founder_loop_mission_refs import (
@@ -156,6 +161,47 @@ def build_capability_availability_read_model(
             "container and canonical mission dispatch. Current image, runtime, "
             "safe-disable, budget, and exact lease posture are re-evaluated before "
             "each start; availability never grants global code or shell authority."
+        ),
+    )
+
+    exact_extension_adapter = build_capability_availability_snapshot(
+        snapshot_ref="capability-availability-ref:exact-extension-metadata-v1",
+        capability_ref=EXACT_EXTENSION_CAPABILITY_REF,
+        adapter_ref=EXACT_EXTENSION_ADAPTER_REF,
+        catalog_status=CatalogStatus.supported,
+        compatibility_status=CompatibilityStatus.supported,
+        configuration_status=ConfigurationStatus.unknown,
+        health_status=HealthStatus.unknown,
+        authority_posture=AuthorityPosture.lease_required,
+        resource_status=ResourceBudgetStatus.unknown,
+        cost_posture=CostPosture.not_metered,
+        safe_disable_status=SafeDisableStatus.unknown,
+        declared_or_observed_version_ref="version:uaa-p1-024",
+        checked_at=observed_at,
+        freshness_status=FreshnessStatus.unknown,
+        reason_codes=[
+            "EXACT_REPO_OWNED_EXTENSION_ADAPTER_IMPLEMENTED",
+            "RUNTIME_PACKAGE_IMPORT_NOT_USED",
+            "REQUEST_SCOPED_AUTHORITY_REEVALUATION_REQUIRED",
+        ],
+        blocker_codes=[
+            "CURRENT_SAFE_ROOT_CONFIGURATION_REQUIRED",
+            "CURRENT_HEALTH_OBSERVATION_REQUIRED",
+            "CURRENT_SAFE_DISABLE_OBSERVATION_REQUIRED",
+            "CURRENT_RESOURCE_RESERVATION_REQUIRED",
+            "EXACT_AUTHORITY_LEASE_REQUIRED",
+        ],
+        evidence_refs=[
+            EXACT_EXTENSION_REGISTRATION_REF,
+            EXACT_EXTENSION_SAFE_DISABLE_REF,
+            EXACT_EXTENSION_ADAPTER_CONTRACT_REF,
+        ],
+        probe_refs=[],
+        source_ref=EXACT_EXTENSION_REGISTRATION_REF,
+        safe_summary=(
+            "One exact repo-owned extension binding is implemented without runtime "
+            "package import. Current safe-root, health, budget, safe-disable, and "
+            "lease observations remain request-scoped and fail closed when absent."
         ),
     )
 
@@ -309,6 +355,7 @@ def build_capability_availability_read_model(
     snapshots = [
         filesystem_metadata_mission,
         sealed_calculation,
+        exact_extension_adapter,
         declared_unavailable,
         configured_but_blocked,
         stale_unknown,

@@ -132,7 +132,7 @@ blocked, planned, and future-scoped states distinct.
 | Governed web evidence and WebAccess runtime authority | `docs/truth/GOVERNED_WEB_EVIDENCE.md`, `docs/network/WEB_ACCESS_GATEWAY.md`, `docs/network/WEB_ACCESS_PROVIDER_AUTHORITY_SEQUENCE.md`, `docs/network/SEARXNG_FIRECRAWL_HYBRID_IMPLEMENTATION_PLAN.md`, `docs/prompts/web_hybrid/00_execute_searxng_firecrawl_hybrid_end_to_end.prompt.md`, `docs/network/WEB_RUNTIME_AUTHORITY_HARDENING.md` |
 | Local model lane | `docs/production/M167_LIVE_MODEL_EVIDENCE_MATRIX.md`, `docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md`, `docs/production/M167_OPENWEBUI_LOCAL_INSTALLER.md`, `docs/production/M167_GITHUB_BOOTSTRAP_LOCAL_INSTALLER.md`, `docs/model_management/UAA_P1_062_LOCAL_MODEL_MANAGER_SCOPE.md`, `docs/model_management/UAA_P1_064_LOCAL_MODEL_INVENTORY_READ_ONLY.md`, `docs/model_management/UAA_P1_066_LOCAL_MODEL_CONTROL_CENTER_READ_ONLY_STATUS.md` |
 | Redacted observability | `docs/observability/SESSION_LOGGING_M167.md` |
-| Plugin/skill ecosystem | `docs/control_center/SKILL_WORKBENCH_DISCOVERY_AND_ADOPTION.md`, `docs/control_center/UAA_RUNTIME_EXTENSIBILITY_FINAL.md`, `docs/tooling/PLUGIN_SKILL_ECOSYSTEM_BOUNDARY.md`, `docs/tooling/INSPECTABLE_EXTENSION_CATALOG.md`, `docs/tooling/EXTENSION_ACTIVATION_GRANTS.md`, `docs/tooling/MCP_A2A_COMPATIBILITY_WATCHLIST.md` |
+| Plugin/skill ecosystem | `docs/control_center/SKILL_WORKBENCH_DISCOVERY_AND_ADOPTION.md`, `docs/control_center/UAA_RUNTIME_EXTENSIBILITY_FINAL.md`, `docs/tooling/PLUGIN_SKILL_ECOSYSTEM_BOUNDARY.md`, `docs/tooling/INSPECTABLE_EXTENSION_CATALOG.md`, `docs/tooling/EXTENSION_ACTIVATION_GRANTS.md`, `docs/tooling/EXACT_EXTENSION_ADAPTER.md`, `docs/tooling/MCP_A2A_COMPATIBILITY_WATCHLIST.md`, `docs/schemas/exact_extension_adapter.schema.json` |
 | Documentation policy | `docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md`, `docs/archive/README.md` |
 
 Use the curated table first. The long list below is intentionally retained as
@@ -813,6 +813,7 @@ docs/openwebui/OPENWEBUI_SAFE_HANDOFF_RECEIPT_PLAN.md
 docs/openwebui/M77_TO_M78_BOUNDARY.md
 docs/tooling/PLUGIN_MANIFEST_SECURITY_MODEL.md
 docs/tooling/PLUGIN_SKILL_ECOSYSTEM_BOUNDARY.md
+docs/tooling/EXACT_EXTENSION_ADAPTER.md
 docs/tooling/INSPECTABLE_EXTENSION_CATALOG.md
 docs/tooling/EXTENSION_ACTIVATION_GRANTS.md
 docs/tooling/MCP_A2A_COMPATIBILITY_WATCHLIST.md
@@ -1470,13 +1471,16 @@ docs/tooling/CODEX_PLUGIN_RISK_POLICY.md
 docs/canonical/66_external_tooling_and_codex_plugin_governance.md
 docs/control_center/SKILL_WORKBENCH_DISCOVERY_AND_ADOPTION.md
 docs/tooling/PLUGIN_SKILL_ECOSYSTEM_BOUNDARY.md
+docs/tooling/EXACT_EXTENSION_ADAPTER.md
 docs/tooling/INSPECTABLE_EXTENSION_CATALOG.md
 docs/tooling/EXTENSION_ACTIVATION_GRANTS.md
 docs/tooling/MCP_A2A_COMPATIBILITY_WATCHLIST.md
 docs/schemas/plugin_skill_trust_manifest.schema.json
 docs/schemas/inspectable_extension_catalog.schema.json
 docs/schemas/extension_ecosystem_read_model.schema.json
+docs/schemas/exact_extension_adapter.schema.json
 docs/schemas/extension_activation_grant.schema.json
+docs/benchmarks/extensibility/exact_extension_adapter_score.json
 docs/backlog/codex_plugin_enablement_backlog.md
 ```
 
