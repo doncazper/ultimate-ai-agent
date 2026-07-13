@@ -49,6 +49,10 @@ REQUIRED_SURFACES = {
     "ECO-TODAY-NARROW-AGENDA",
     "ECO-ORGANIZER-WALLBOARD-SCHEDULE",
 }
+APP_ACCEPTANCE_SCHEMA_VERSION = "uaa-eco-000-app-acceptance.v1"
+RENDER_MANIFEST_SCHEMA_VERSION = "uaa-eco-000-render-manifest.v1"
+ECO_000_MILESTONE_REF = "milestone-ref:ECO-000"
+RENDER_ROOT = ROOT / "docs/design/ecosystem_north_star"
 
 
 def _load(relative: str) -> dict[str, object]:
@@ -67,6 +71,26 @@ def _contains_runtime_ecosystem_route(api_root: Path) -> bool:
     )
 
 
+def _resolve_render_asset(asset_value: object) -> Path | None:
+    if not isinstance(asset_value, str):
+        return None
+    relative = Path(asset_value)
+    if (
+        relative.is_absolute()
+        or len(relative.parts) != 2
+        or relative.parts[0] != "renders"
+        or relative.suffix != ".svg"
+        or ".." in relative.parts
+    ):
+        return None
+    candidate = RENDER_ROOT / relative
+    resolved_root = RENDER_ROOT.resolve()
+    resolved_candidate = candidate.resolve()
+    if resolved_root not in resolved_candidate.parents or candidate.is_symlink():
+        return None
+    return resolved_candidate
+
+
 def verify() -> list[str]:
     failures: list[str] = []
 
@@ -75,6 +99,10 @@ def verify() -> list[str]:
             failures.append(f"missing ADR: {path.name}")
 
     acceptance = _load("docs/product/eco_000_app_acceptance.json")
+    if acceptance.get("schema_version") != APP_ACCEPTANCE_SCHEMA_VERSION:
+        failures.append("ECO-000 app acceptance schema version is unsupported")
+    if acceptance.get("milestone_ref") != ECO_000_MILESTONE_REF:
+        failures.append("ECO-000 app acceptance milestone binding is invalid")
     if acceptance.get("implementation_authorized") is not False:
         failures.append("ECO-000 acceptance must not authorize implementation")
     if acceptance.get("runtime_routes_added") is not False:
@@ -111,6 +139,10 @@ def verify() -> list[str]:
         failures.append("CRM must require shared Boards")
 
     manifest = _load("docs/design/ecosystem_north_star/render_manifest.json")
+    if manifest.get("schema_version") != RENDER_MANIFEST_SCHEMA_VERSION:
+        failures.append("ECO-000 render manifest schema version is unsupported")
+    if manifest.get("milestone_ref") != ECO_000_MILESTONE_REF:
+        failures.append("ECO-000 render manifest milestone binding is invalid")
     if manifest.get("implementation_evidence") is not False:
         failures.append("render manifest must not claim implementation evidence")
     if manifest.get("runtime_routes_added") is not False:
@@ -132,8 +164,12 @@ def verify() -> list[str]:
         if not isinstance(item, dict):
             failures.append("invalid render manifest record")
             continue
-        asset = ROOT / "docs/design/ecosystem_north_star" / str(item.get("asset"))
-        if not asset.is_file() or asset.stat().st_size < 1_000:
+        asset = _resolve_render_asset(item.get("asset"))
+        if asset is None:
+            failures.append(
+                f"render asset path is unsafe: {item.get('surface_state_ref')}"
+            )
+        elif not asset.is_file() or asset.stat().st_size < 1_000:
             failures.append(f"render asset missing or empty: {asset.name}")
         if item.get("status") != "reviewed" or item.get("shipped") is not False:
             failures.append(f"render truth invalid: {item.get('surface_state_ref')}")

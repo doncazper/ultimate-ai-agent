@@ -80,3 +80,48 @@ def test_verifier_rejects_duplicate_surface_and_asset_records(monkeypatch) -> No
     failures = verifier.verify()
     assert "render surface/state records must be unique" in failures
     assert "render assets must be unique per surface/state" in failures
+
+
+def test_verifier_rejects_unknown_schema_and_milestone(monkeypatch) -> None:
+    original_load = verifier._load
+    acceptance = original_load("docs/product/eco_000_app_acceptance.json")
+    acceptance["schema_version"] = "uaa-eco-000-app-acceptance.v999"
+    acceptance["milestone_ref"] = "milestone-ref:ECO-OTHER"
+    render_manifest = original_load(
+        "docs/design/ecosystem_north_star/render_manifest.json"
+    )
+    render_manifest["schema_version"] = "uaa-eco-000-render-manifest.v999"
+    render_manifest["milestone_ref"] = "milestone-ref:ECO-OTHER"
+    replacements = {
+        "docs/product/eco_000_app_acceptance.json": acceptance,
+        "docs/design/ecosystem_north_star/render_manifest.json": render_manifest,
+    }
+    monkeypatch.setattr(
+        verifier,
+        "_load",
+        lambda relative: replacements.get(relative, original_load(relative)),
+    )
+
+    failures = verifier.verify()
+    assert "ECO-000 app acceptance schema version is unsupported" in failures
+    assert "ECO-000 app acceptance milestone binding is invalid" in failures
+    assert "ECO-000 render manifest schema version is unsupported" in failures
+    assert "ECO-000 render manifest milestone binding is invalid" in failures
+
+
+def test_verifier_rejects_render_asset_traversal(monkeypatch) -> None:
+    original_load = verifier._load
+    manifest = original_load("docs/design/ecosystem_north_star/render_manifest.json")
+    manifest["surfaces"][0]["asset"] = "../outside.svg"
+    monkeypatch.setattr(
+        verifier,
+        "_load",
+        lambda relative: manifest
+        if relative == "docs/design/ecosystem_north_star/render_manifest.json"
+        else original_load(relative),
+    )
+
+    assert any(
+        failure.startswith("render asset path is unsafe:")
+        for failure in verifier.verify()
+    )
