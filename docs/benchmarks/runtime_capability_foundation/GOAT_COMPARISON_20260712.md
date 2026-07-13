@@ -88,6 +88,14 @@ The local result was:
 These are UAA-only controlled scenarios. They do not establish a cross-project
 empirical winner.
 
+The stored projection is bound to exact UAA source commit `9a76be7b4` and a
+content digest covering the 49 evaluator, verifier, dependency-lock, and target
+files used by the run. The default verifier is repository-local and does not
+open a sibling benchmark checkout. GoatCitadel evidence-line revalidation is an
+explicit opt-in operation requiring a caller-supplied read-only root. A fresh
+bounded UAA runtime revalidation matched the stored projection after these
+bindings were added.
+
 ## Reciprocal learning
 
 UAA should adapt GoatCitadel's readable approval queue, Run Detail grouping,
