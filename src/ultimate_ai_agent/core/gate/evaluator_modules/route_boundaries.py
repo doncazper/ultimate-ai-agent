@@ -12,6 +12,9 @@ from ultimate_ai_agent.api.manifest import (
     GOVERNED_RUNTIME_READONLY_PATHS,
     LOCAL_READONLY_PATHS,
 )
+from ultimate_ai_agent.core.gate.evaluator_modules.route_families import (
+    FOUNDER_LOOP_EXACT_ATTENTION_ROUTES,
+)
 
 EXPECTED_M16_OPENAPI_PATH_COUNT = 79
 M16_FORBIDDEN_BACKEND_ROUTES = (
@@ -2216,18 +2219,7 @@ FOUNDER_LOOP_ACTION_DECISION_ROUTES = frozenset(
     }
 )
 FOUNDER_LOOP_ACTION_ENVELOPE_ROUTES = frozenset(
-    {
-        "/control-center/today/action-envelope",
-    }
-)
-FOUNDER_LOOP_EXACT_ATTENTION_ROUTES = frozenset(
-    {
-        "/control-center/today/exact-action/{today_item_ref}/status",
-        "/control-center/today/exact-action/source-review",
-        "/control-center/today/exact-action/prepare",
-        "/control-center/today/exact-action/approve",
-        "/control-center/today/exact-action/execute",
-    }
+    {"/control-center/today/action-envelope"}
 )
 FOUNDER_LOOP_CHAT_DURABLE_RECEIPT_ROUTES = frozenset(
     {
@@ -2278,9 +2270,7 @@ FOUNDER_LOOP_MEMORY_READ_MODEL_ROUTES = frozenset(
         "/control-center/memory/retrieval-diagnostics",
     }
 )
-FOUNDER_LOOP_MEMORY_FEEDBACK_ROUTES = frozenset(
-    {"/control-center/memory/feedback"}
-)
+FOUNDER_LOOP_MEMORY_FEEDBACK_ROUTES = frozenset({"/control-center/memory/feedback"})
 FOUNDER_LOOP_MEMORY_FEATURE_MINE_ROUTES = frozenset(
     {
         "/control-center/memory/contradictions",

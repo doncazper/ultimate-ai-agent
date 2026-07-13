@@ -432,7 +432,9 @@ def test_proof_cli_default_covers_action_inbox_next_item_after_default_bound(
     work_items = action_payload["action_inbox_work_queue_read_model"]["work_items"]
     proof_refs = set(proof_payload["proof_index"]["proof_refs"])
 
-    assert next_item["item_ref"] == "founder-action:late-approved-local-task"
+    assert next_item["item_ref"] == (
+        "founder-action:canonical-readme-metadata-inspection"
+    )
     assert next_item["proof_ref"] in proof_refs
     assert {item["proof_ref"] for item in work_items} <= proof_refs
     _assert_no_runtime_authority(action_payload)
