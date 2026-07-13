@@ -12696,6 +12696,9 @@ describe("Web Control Center shell", () => {
     const staleSettingsStatus = JSON.parse(
       JSON.stringify(mockControlCenterData.settingsStatus),
     ) as Record<string, unknown>;
+    (
+      staleSettingsStatus.authority_lease_state as Record<string, unknown>
+    ).backend_owned = true;
     staleSettingsStatus.authority_postures = "stale";
     delete staleSettingsStatus.kill_switch_postures;
     staleSettingsStatus.feature_flag_postures = [

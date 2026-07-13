@@ -6177,17 +6177,14 @@ th {
   flex-direction: column;
   gap: 6px;
   min-height: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .app-shell .primary-nav-list,
 .app-shell .supporting-nav-list {
   display: grid;
   gap: 2px;
-}
-
-.app-shell .supporting-nav-list a:not([aria-label="Briefing"]):not([aria-label="Setup"]):not([aria-label="Coding"]):not([aria-label="Chat"]) {
-  display: none;
 }
 
 .app-shell .nav-section-label {

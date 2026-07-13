@@ -8399,7 +8399,7 @@ function isSafeControlCenterSettingsStatus(
     Array.isArray(value.blocked_authorities) &&
     Array.isArray(value.redactions_applied) &&
     authority.schema_version === "uaa-authority-state.v1" &&
-    typeof authority.backend_owned === "boolean" &&
+    authority.backend_owned === true &&
     typeof authority.active_mode === "string" &&
     authorityModes.has(authority.active_mode) &&
     authority.unknown_authority_default === "deny" &&
