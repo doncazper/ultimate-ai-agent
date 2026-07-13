@@ -11,7 +11,7 @@ _SHELL_TRUE_FRAGMENT = "shell" + "=True"
 _OS_SYSTEM_FRAGMENT = "os." + "system("
 _BACKEND_REL = "src/ultimate_ai_agent/core/sandbox_calculation/backend.py"
 _BACKEND_SOURCE_SHA256 = (
-    "dfc320196f039206a7c69b6849e60142d993f1b2fa5299aaa041f4a9541162c9"
+    "d91461deb55b78a9eb965170e3f9eb1fcea0bd04ad1d274cfca10c84ebdd41f7"
 )
 _ALLOWED_SUBPROCESS_ATTRIBUTES = frozenset(
     {

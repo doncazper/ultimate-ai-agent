@@ -11,8 +11,9 @@ import time
 import importlib.util
 from contextlib import contextmanager
 from pathlib import Path
-from ultimate_ai_agent.core.sandbox_calculation.static_safety import is_exact_sealed_calculation_subprocess_site
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "src"))
+from ultimate_ai_agent.core.sandbox_calculation.static_safety import is_exact_sealed_calculation_subprocess_site  # noqa: E402
 if __package__:
     from .static_scan_policy import is_static_gate_scan_allowed_file, is_unapproved_static_fragment, repo_source_env
 else:
@@ -23,7 +24,6 @@ M44_ALLOWED_CCC_IOS_SKELETON_PREFIX = "apps/ccc-ios/Sources/UltimateAIAgentCCC/"
 M44_ALLOWED_CCC_IOS_SKELETON_FILES = {
     "apps/ccc-ios/README.md",
 }
-
 
 def _is_m44_allowed_ccc_ios_skeleton_file(rel_path: str) -> bool:
     return rel_path in M44_ALLOWED_CCC_IOS_SKELETON_FILES or (

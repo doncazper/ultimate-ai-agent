@@ -130,8 +130,9 @@ def _inspect(args: argparse.Namespace) -> int:
 
 
 def _run(args: argparse.Namespace) -> int:
-    expression = _read_expression()
+    expression = ""
     try:
+        expression = _read_expression()
         state_dir = Path(args.state_dir) if args.state_dir else None
         backend = _discover(state_dir)
         lease_store = AuthorityLeaseStore(state_dir)
@@ -189,10 +190,11 @@ def _run(args: argparse.Namespace) -> int:
 
 
 def _prepare(args: argparse.Namespace) -> int:
-    validate_execution_ref(args.input_ref, "sealed_calculation_input_ref")
-    validate_execution_ref(args.mission_ref, "sealed_calculation_mission_ref")
-    expression = _read_expression()
+    expression = ""
     try:
+        validate_execution_ref(args.input_ref, "sealed_calculation_input_ref")
+        validate_execution_ref(args.mission_ref, "sealed_calculation_mission_ref")
+        expression = _read_expression()
         state_dir = Path(args.state_dir) if args.state_dir else None
         backend = _discover(state_dir)
         expression_sha256 = hash_text(expression)

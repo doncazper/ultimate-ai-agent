@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from ultimate_ai_agent.core.sandbox_calculation import backend as backend_module
 from ultimate_ai_agent.core.sandbox_calculation.backend import (
     DockerSealedCalculationBackend,
     SealedCalculationBackendConfig,
@@ -120,6 +121,64 @@ def test_exact_container_profile_denies_escape_surfaces(probe: str) -> None:
 
 def test_exact_container_profile_allows_only_bounded_ephemeral_tmp_write() -> None:
     assert _probe("tmp_write") == {"probe": "tmp_write", "status": "allowed"}
+
+
+def test_container_validation_accepts_only_the_exact_tmpfs_mount_shape() -> None:
+    exact_tmpfs = {
+        "Type": "tmpfs",
+        "Source": "",
+        "Destination": "/tmp",
+        "Mode": "",
+        "RW": True,
+        "Propagation": "",
+    }
+
+    assert DockerSealedCalculationBackend._is_exact_tmpfs_mount(exact_tmpfs) is True
+    assert (
+        DockerSealedCalculationBackend._is_exact_tmpfs_mount(
+            {**exact_tmpfs, "Type": "bind", "Source": "safe-location-marker"}
+        )
+        is False
+    )
+    assert (
+        DockerSealedCalculationBackend._is_exact_tmpfs_mount(
+            {**exact_tmpfs, "Destination": "/workspace"}
+        )
+        is False
+    )
+
+
+def test_transient_payload_validation_finishes_before_commit_attempt() -> None:
+    expression = "\\" * 512
+    request = SealedCalculationRequest(
+        request_ref="request-ref:sealed-calculation:payload-limit",
+        input_ref="input-ref:sealed-calculation:payload-limit",
+        expression=expression,
+        expression_sha256=hash_text(expression),
+    )
+
+    with pytest.raises(
+        SealedCalculationBackendError,
+        match="SEALED_CALCULATION_TRANSIENT_INPUT_SIZE_EXCEEDED",
+    ):
+        DockerSealedCalculationBackend._validated_input_payload(request)
+
+
+def test_backend_discovery_normalizes_missing_docker_binary(monkeypatch) -> None:
+    original_resolve = Path.resolve
+
+    def missing_docker(path: Path, *, strict: bool = False) -> Path:
+        if path == Path("/usr/local/bin/docker"):
+            raise FileNotFoundError("docker unavailable")
+        return original_resolve(path, strict=strict)
+
+    monkeypatch.setattr(backend_module.Path, "resolve", missing_docker)
+
+    with pytest.raises(
+        SealedCalculationBackendError,
+        match="SEALED_CALCULATION_LOCAL_BACKEND_NOT_CONFIGURED",
+    ):
+        discover_local_docker_backend(seccomp_profile=SECCOMP_PROFILE)
 
 
 def test_backend_attestation_binds_image_runner_profile_and_limits() -> None:

@@ -37,7 +37,9 @@ def test_cli_inspect_normalizes_backend_failures_without_path_leak(
     capsys,
 ) -> None:
     def unavailable(_state_dir=None):
-        raise SealedCalculationBackendError("backend failure at /unsafe/local/path")
+        raise SealedCalculationBackendError(
+            "backend failure with unsafe-location-marker"
+        )
 
     monkeypatch.setattr(uaa_runtime_sealed_calculation, "_discover", unavailable)
 
@@ -47,7 +49,7 @@ def test_cli_inspect_normalizes_backend_failures_without_path_leak(
     assert payload["status"] == "configuration_required"
     assert payload["reason_code"] == "SEALED_CALCULATION_BACKEND_UNAVAILABLE"
     assert payload["execution_performed"] is False
-    assert "/unsafe/" not in json.dumps(payload)
+    assert "unsafe-location-marker" not in json.dumps(payload)
 
 
 def test_cli_inspect_normalizes_configuration_value_errors(
@@ -55,7 +57,7 @@ def test_cli_inspect_normalizes_configuration_value_errors(
     capsys,
 ) -> None:
     def unavailable(_state_dir=None):
-        raise ValueError("configuration failed at /unsafe/local/path")
+        raise ValueError("configuration failed with unsafe-location-marker")
 
     monkeypatch.setattr(uaa_runtime_sealed_calculation, "_discover", unavailable)
 
@@ -64,7 +66,7 @@ def test_cli_inspect_normalizes_configuration_value_errors(
 
     assert payload["status"] == "configuration_required"
     assert payload["reason_code"] == "SEALED_CALCULATION_BACKEND_UNAVAILABLE"
-    assert "/unsafe/" not in json.dumps(payload)
+    assert "unsafe-location-marker" not in json.dumps(payload)
 
 
 def test_cli_run_uses_exact_mission_service_and_returns_safe_evidence(
@@ -166,6 +168,80 @@ def test_cli_prepare_emits_exact_lease_refs_without_execution(
     assert request.mission_ref in payload["resource_refs"]
     assert request.input_ref in payload["resource_refs"]
     assert EXPRESSION not in json.dumps(payload)
+
+
+def test_cli_prepare_rejects_oversized_stdin_without_traceback(
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.setattr(
+        uaa_runtime_sealed_calculation.sys,
+        "stdin",
+        io.BytesIO(b"1" * 514),
+    )
+
+    exit_code = uaa_runtime.main(
+        [
+            "sealed-calculation",
+            "prepare",
+            "--input-ref",
+            "input-ref:sealed-calculation:invalid-stdin",
+            "--mission-ref",
+            "mission-ref:sealed-calculation:invalid-stdin",
+            "--json",
+        ]
+    )
+    payload = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 2
+    assert payload["status"] == "configuration_required"
+    assert payload["reason_code"] == "SEALED_CALCULATION_EXPRESSION_SIZE_LIMIT_EXCEEDED"
+    assert payload["execution_performed"] is False
+
+
+def test_cli_run_rejects_invalid_utf8_stdin_without_traceback(
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.setattr(
+        uaa_runtime_sealed_calculation.sys,
+        "stdin",
+        io.BytesIO(b"\xff"),
+    )
+
+    exit_code = uaa_runtime.main(
+        [
+            "sealed-calculation",
+            "run",
+            "--request-ref",
+            "request-ref:sealed-calculation:invalid-stdin",
+            "--input-ref",
+            "input-ref:sealed-calculation:invalid-stdin",
+            "--plan-ref",
+            "plan-ref:sealed-calculation:invalid-stdin",
+            "--mission-ref",
+            "mission-ref:sealed-calculation:invalid-stdin",
+            "--run-ref",
+            "run-ref:sealed-calculation:invalid-stdin",
+            "--step-ref",
+            "step-ref:sealed-calculation:invalid-stdin",
+            "--lease-ref",
+            "lease-ref:sealed-calculation:invalid-stdin",
+            "--owner-ref",
+            "worker-ref:sealed-calculation:invalid-stdin",
+            "--request-created-at",
+            "2026-01-01T00:00:00+00:00",
+            "--start-deadline",
+            "2026-01-01T00:01:00+00:00",
+            "--json",
+        ]
+    )
+    payload = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 2
+    assert payload["status"] == "blocked"
+    assert payload["reason_code"] == "SEALED_CALCULATION_EXPRESSION_ENCODING_INVALID"
+    assert payload["execution_performed"] is False
 
 
 def test_cli_discovery_wires_current_global_kill_and_safe_disable(

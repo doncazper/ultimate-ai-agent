@@ -588,8 +588,9 @@ class DockerSealedCalculationBackend:
                 raise SealedCalculationBackendError(
                     "SEALED_CALCULATION_START_FENCE_DENIED"
                 )
+            input_payload = self._validated_input_payload(request)
             input_commit_attempted = True
-            self._commit_input(process, request)
+            self._commit_input(process, input_payload)
             accepted = self._read_json_frame(
                 process,
                 request.limits.startup_time_seconds,
@@ -882,14 +883,9 @@ class DockerSealedCalculationBackend:
             selector.close()
 
     @staticmethod
-    def _commit_input(
-        process: subprocess.Popen[bytes],
+    def _validated_input_payload(
         request: SealedCalculationRequest,
-    ) -> None:
-        if process.stdin is None:
-            raise SealedCalculationBackendError(
-                "SEALED_CALCULATION_STDIN_PIPE_REQUIRED"
-            )
+    ) -> bytes:
         if hash_text(request.expression) != request.expression_sha256:
             raise SealedCalculationBackendError(
                 "SEALED_CALCULATION_TRANSIENT_INPUT_HASH_MISMATCH"
@@ -905,6 +901,17 @@ class DockerSealedCalculationBackend:
         if len(payload) > 1024:
             raise SealedCalculationBackendError(
                 "SEALED_CALCULATION_TRANSIENT_INPUT_SIZE_EXCEEDED"
+            )
+        return payload
+
+    @staticmethod
+    def _commit_input(
+        process: subprocess.Popen[bytes],
+        payload: bytes,
+    ) -> None:
+        if process.stdin is None:
+            raise SealedCalculationBackendError(
+                "SEALED_CALCULATION_STDIN_PIPE_REQUIRED"
             )
         process.stdin.write(payload)
         process.stdin.flush()
@@ -961,7 +968,12 @@ class DockerSealedCalculationBackend:
             reasons.append("ENVIRONMENT_DRIFT")
         if config.get("Volumes") not in (None, {}):
             reasons.append("IMAGE_VOLUME_DENIED")
-        if payload.get("Mounts") not in (None, []):
+        mounts = payload.get("Mounts")
+        if mounts not in (None, []) and not (
+            isinstance(mounts, list)
+            and len(mounts) == 1
+            and self._is_exact_tmpfs_mount(mounts[0])
+        ):
             reasons.append("HOST_MOUNT_DENIED")
         if host.get("Binds") not in (None, []):
             reasons.append("HOST_BIND_DENIED")
@@ -1069,6 +1081,32 @@ class DockerSealedCalculationBackend:
             raise SealedCalculationBackendError(
                 f"SEALED_CALCULATION_CONTAINER_CONFIG_INVALID:{reasons[0]}"
             )
+
+    @staticmethod
+    def _is_exact_tmpfs_mount(mount: object) -> bool:
+        if not isinstance(mount, dict):
+            return False
+        allowed_fields = {
+            "Type",
+            "Source",
+            "Destination",
+            "Mode",
+            "RW",
+            "Propagation",
+            "Name",
+            "Driver",
+        }
+        return (
+            set(mount) <= allowed_fields
+            and mount.get("Type") == "tmpfs"
+            and mount.get("Destination") == "/tmp"
+            and mount.get("Source") in (None, "")
+            and mount.get("Mode") in (None, "")
+            and mount.get("RW") is True
+            and mount.get("Propagation") in (None, "")
+            and mount.get("Name") in (None, "")
+            and mount.get("Driver") in (None, "")
+        )
 
     def _bounded_collect(
         self,
@@ -1303,7 +1341,12 @@ def discover_local_docker_backend(
     kill_switch: Callable[[], bool] = lambda: False,
     safe_disabled: Callable[[], bool] = lambda: False,
 ) -> DockerSealedCalculationBackend:
-    docker_binary = Path("/usr/local/bin/docker").resolve(strict=True)
+    try:
+        docker_binary = Path("/usr/local/bin/docker").resolve(strict=True)
+    except OSError as exc:
+        raise SealedCalculationBackendError(
+            "SEALED_CALCULATION_LOCAL_BACKEND_NOT_CONFIGURED"
+        ) from exc
     local_home = Path(pwd.getpwuid(os.getuid()).pw_dir)
     endpoint = f"unix://{local_home / '.docker' / 'run' / 'docker.sock'}"
     try:
@@ -1335,7 +1378,9 @@ def discover_local_docker_backend(
                 docker_host=endpoint,
                 image_id=image_id,
                 seccomp_profile=seccomp_profile.resolve(strict=True),
-                runner_source=(seccomp_profile.parent / "runner.py").resolve(strict=True),
+                runner_source=(seccomp_profile.parent / "runner.py").resolve(
+                    strict=True
+                ),
                 isolation_probe_source=(
                     seccomp_profile.parent / "isolation_probe.py"
                 ).resolve(strict=True),
