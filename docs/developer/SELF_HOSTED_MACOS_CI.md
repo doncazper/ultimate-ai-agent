@@ -1,8 +1,8 @@
 # Self-Hosted macOS CI
 
-Status: implemented repository workflow and provisioning contract; runner
-registration remains local operator setup until the dedicated account is
-created and the provisioner completes.
+Status: implemented repository workflow and provisioning contract. Runner
+registration is local operator-managed infrastructure and must remain
+repository-scoped, bounded, and independently revocable.
 
 UAA uses repository-scoped self-hosted Apple Silicon runners so normal CI can
 continue without GitHub-hosted runner minutes. GitHub still coordinates jobs,
@@ -49,15 +49,17 @@ provider, connector, production, or AuthorityLease capability.
   runners concurrently. This prevents unrelated scans from exhausting pytest
   and Vitest per-test deadlines on one physical Mac.
 - Pytest keeps eight deterministic logical shards inside one job and one
-  installed environment. Two isolated workers overlap the heavy affinity shard
-  with ordinary shards while avoiding the lock starvation and repeated
+  installed environment. Four isolated workers overlap subprocess-heavy shard
+  waits while avoiding the lock starvation and repeated
   dependency installation caused by multiple runner jobs on one physical Mac.
 - Checkout remains on the repository-allowlisted `actions/checkout@v4` action;
   changing the repository Actions allow-policy is outside this provisioner's
   authority. Checkout tokens remain non-persistent.
-- GitHub cancellation is handled inside the shard runner. `SIGTERM` closes the
-  active shard process groups with a bounded grace period so superseded runs do
-  not leave orphaned pytest processes consuming the dedicated account.
+- GitHub cancellation is forwarded by the Bash step and handled inside the
+  shard runner for `SIGINT`, `SIGTERM`, and `SIGHUP`. Active shard process groups
+  close with a bounded grace period; the wrapper escalates after a bounded wait
+  so superseded runs do not leave an indefinitely waiting job on the dedicated
+  account.
 - Release lanes disable Bash's immediate-exit behavior only inside their
   bounded command wrappers so failures produce safe summaries and still end
   the job unsuccessfully.

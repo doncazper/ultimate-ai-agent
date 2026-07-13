@@ -16,6 +16,11 @@ from scripts.verification import run_pytest_shards as runner
 
 ROOT = Path(__file__).resolve().parents[1]
 MAKEFILE = ROOT / "Makefile"
+POSIX_CANCELLATION_SIGNALS = tuple(
+    candidate
+    for candidate in (signal.SIGINT, signal.SIGTERM, getattr(signal, "SIGHUP", None))
+    if candidate is not None
+)
 
 
 def test_run_shards_respects_explicit_worker_cap(
@@ -187,15 +192,24 @@ def test_terminate_active_shards_kills_real_process_group(tmp_path: Path) -> Non
 
 
 @pytest.mark.skipif(os.name != "posix", reason="signal cleanup proof is POSIX-only")
-def test_external_sigterm_reaps_active_shard_process_group(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "termination_signal",
+    POSIX_CANCELLATION_SIGNALS,
+)
+def test_external_signal_reaps_active_shard_process_group(
+    tmp_path: Path,
+    termination_signal: signal.Signals,
+) -> None:
     pid_path = tmp_path / "active-shard.pid"
     test_path = tmp_path / "test_waits_for_cancellation.py"
     test_path.write_text(
         "\n".join(
             (
                 "import os",
+                "import signal",
                 "import time",
                 "from pathlib import Path",
+                "signal.signal(signal.SIGTERM, signal.SIG_IGN)",
                 f"Path({str(pid_path)!r}).write_text(str(os.getpid()), encoding='utf-8')",
                 "time.sleep(60)",
             )
@@ -234,11 +248,16 @@ def test_external_sigterm_reaps_active_shard_process_group(tmp_path: Path) -> No
                 child_pid = int(pid_path.read_text(encoding="utf-8"))
                 break
             if process.poll() is not None:
-                pytest.fail("shard runner exited before the cancellation fixture started")
+                pytest.fail(
+                    "shard runner exited before the cancellation fixture started"
+                )
             time.sleep(0.02)
         assert child_pid is not None
 
-        process.terminate()
+        process.send_signal(termination_signal)
+        time.sleep(0.05)
+        if process.poll() is None:
+            process.send_signal(signal.SIGTERM)
         assert process.wait(timeout=5) != 0
         for _ in range(50):
             try:
@@ -257,6 +276,84 @@ def test_external_sigterm_reaps_active_shard_process_group(tmp_path: Path) -> No
                 os.kill(child_pid, signal.SIGKILL)
             except ProcessLookupError:
                 pass
+
+
+@pytest.mark.skipif(os.name != "posix", reason="signal launch guard is POSIX-only")
+def test_signal_during_spawn_registration_reaps_the_new_shard(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    launched: list[Any] = []
+
+    class SignalledProcess:
+        pid = None
+
+        def __init__(self, *_args: Any, **_kwargs: Any) -> None:
+            self.returncode: int | None = None
+            self.terminated = False
+            launched.append(self)
+            os.kill(os.getpid(), signal.SIGTERM)
+
+        def poll(self) -> int | None:
+            return self.returncode
+
+        def terminate(self) -> None:
+            self.terminated = True
+            self.returncode = -signal.SIGTERM
+
+        def kill(self) -> None:
+            self.returncode = -signal.SIGKILL
+
+        def wait(self, timeout: float | None = None) -> int:
+            del timeout
+            assert self.returncode is not None
+            return self.returncode
+
+    monkeypatch.setattr(runner.subprocess, "Popen", SignalledProcess)
+
+    with pytest.raises(runner.ShardRunInterrupted):
+        runner.run_shards(
+            [runner.ShardPlan(0, ("tests/test_launch_guard.py",), 1.0)],
+            root=tmp_path,
+            basetemp=tmp_path / "shards",
+            junit_dir=None,
+            write_timings=False,
+            quiet=True,
+            termination_grace_seconds=0.0,
+        )
+
+    assert len(launched) == 1
+    assert launched[0].terminated is True
+
+
+@pytest.mark.skipif(os.name != "posix", reason="signal mask proof is POSIX-only")
+def test_shard_process_does_not_inherit_blocked_cancellation_signals(
+    tmp_path: Path,
+) -> None:
+    test_path = tmp_path / "test_signal_mask.py"
+    test_path.write_text(
+        "\n".join(
+            (
+                "import signal",
+                "def test_cancellation_signals_unblocked():",
+                "    blocked = signal.pthread_sigmask(signal.SIG_BLOCK, [])",
+                "    cancellation = {signal.SIGINT, signal.SIGTERM, signal.SIGHUP}",
+                "    assert blocked.isdisjoint(cancellation)",
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    results = runner.run_shards(
+        [runner.ShardPlan(0, (str(test_path),), 1.0)],
+        root=tmp_path,
+        basetemp=tmp_path / "shards",
+        junit_dir=None,
+        write_timings=False,
+        quiet=True,
+    )
+
+    assert [result.returncode for result in results] == [0]
 
 
 def test_overall_return_code_fails_if_any_shard_failed(tmp_path: Path) -> None:

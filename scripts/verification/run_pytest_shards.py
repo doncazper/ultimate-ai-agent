@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse
 import math
 import os
-import signal
 import subprocess
 import sys
 import time
@@ -25,6 +24,7 @@ try:
         write_performance_report,
         write_timings_json,
     )
+    from scripts.verification import pytest_shard_processes as shard_processes
 except ModuleNotFoundError:  # Direct script execution from the repository root.
     from pytest_shard_artifacts import (  # type: ignore[no-redef]
         TIMING_SCHEMA_VERSION,  # noqa: F401 - compatibility re-export
@@ -38,6 +38,7 @@ except ModuleNotFoundError:  # Direct script execution from the repository root.
         write_performance_report,
         write_timings_json,
     )
+    import pytest_shard_processes as shard_processes  # type: ignore[no-redef]
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -50,10 +51,7 @@ DEFAULT_HARD_TIMEOUT_SECONDS = 180.0
 DEFAULT_TERMINATION_GRACE_SECONDS = 2.0
 DEFAULT_PERFORMANCE_REPORT = "/tmp/uaa_pytest_performance_report.json"
 TIMEOUT_RETURN_CODE = 124
-FOUNDATION_GATE_AFFINITY_TOKENS = (
-    "foundation_gate_report",
-    "foundation_gate_results",
-)
+FOUNDATION_GATE_AFFINITY_TOKENS = ("foundation_gate_report", "foundation_gate_results")
 LIVE_MODEL_ENV_DENYLIST_PREFIXES = (
     "UAA_M160_LIVE_HF_",
     "UAA_M162_LIVE_HF_",
@@ -340,150 +338,151 @@ def run_shards(
     results: dict[int, ShardResult] = {}
     stretch_reported = False
     target_reported = False
-    previous_sigterm_handler = signal.getsignal(signal.SIGTERM)
+    handled_signals = shard_processes.cancellation_signals()
+    launch_registration_active = False
+    pending_signal: int | None = None
 
     def interrupt_run(signum: int, _frame: Any) -> None:
+        nonlocal pending_signal
+        if launch_registration_active:
+            pending_signal = signum
+            return
+        shard_processes.ignore_signals(handled_signals)
         raise ShardRunInterrupted(signum)
 
-    signal.signal(signal.SIGTERM, interrupt_run)
-    try:
-        while pending or active:
-            overall_elapsed = time.perf_counter() - run_started
-            if not stretch_reported and overall_elapsed >= stretch_goal_seconds:
-                stretch_reported = True
-                if not quiet:
-                    print(
-                        "PERFORMANCE NOTICE: pytest shard stretch goal exceeded: "
-                        f"elapsed_seconds={overall_elapsed:.2f} "
-                        f"stretch_goal_seconds={stretch_goal_seconds:.2f}"
+    with shard_processes.installed_signal_handlers(handled_signals, interrupt_run):
+        try:
+            while pending or active:
+                overall_elapsed = time.perf_counter() - run_started
+                if not stretch_reported and overall_elapsed >= stretch_goal_seconds:
+                    stretch_reported = True
+                    if not quiet:
+                        print(
+                            "PERFORMANCE NOTICE: pytest shard stretch goal exceeded: "
+                            f"elapsed_seconds={overall_elapsed:.2f} "
+                            f"stretch_goal_seconds={stretch_goal_seconds:.2f}"
+                        )
+                if not target_reported and overall_elapsed >= target_seconds:
+                    target_reported = True
+                    if not quiet:
+                        print(
+                            "PERFORMANCE WARNING: pytest shard target exceeded: "
+                            f"elapsed_seconds={overall_elapsed:.2f} target_seconds={target_seconds:.2f}"
+                        )
+                if overall_elapsed >= hard_timeout_seconds:
+                    if not quiet:
+                        print(
+                            "PERFORMANCE FAILURE: pytest shard hard timeout exceeded; "
+                            f"terminating active shards at {overall_elapsed:.2f}s"
+                        )
+                    _terminate_active_shards(
+                        active,
+                        results,
+                        hard_timeout_seconds,
+                        termination_grace_seconds,
                     )
-            if not target_reported and overall_elapsed >= target_seconds:
-                target_reported = True
-                if not quiet:
-                    print(
-                        "PERFORMANCE WARNING: pytest shard target exceeded: "
-                        f"elapsed_seconds={overall_elapsed:.2f} target_seconds={target_seconds:.2f}"
-                    )
-            if overall_elapsed >= hard_timeout_seconds:
-                if not quiet:
-                    print(
-                        "PERFORMANCE FAILURE: pytest shard hard timeout exceeded; "
-                        f"terminating active shards at {overall_elapsed:.2f}s"
-                    )
-                _terminate_active_shards(
-                    active,
-                    results,
-                    hard_timeout_seconds,
-                    termination_grace_seconds,
-                )
-                for plan in pending:
+                    for plan in pending:
+                        log_path = log_dir / f"pytest-shard-{plan.index}.log"
+                        log_path.write_text(
+                            "Shard did not start because the overall pytest runtime budget expired.\n",
+                            encoding="utf-8",
+                        )
+                        results[plan.index] = ShardResult(
+                            index=plan.index,
+                            file_count=len(plan.files),
+                            returncode=TIMEOUT_RETURN_CODE,
+                            elapsed_seconds=0.0,
+                            log_path=log_path,
+                            timed_out=True,
+                        )
+                    pending.clear()
+                    break
+                while pending and len(active) < worker_limit:
+                    plan = pending.pop(0)
                     log_path = log_dir / f"pytest-shard-{plan.index}.log"
-                    log_path.write_text(
-                        "Shard did not start because the overall pytest runtime budget expired.\n",
-                        encoding="utf-8",
+                    if not plan.files:
+                        log_path.write_text(
+                            "No test files assigned to this shard.\n", encoding="utf-8"
+                        )
+                        results[plan.index] = ShardResult(
+                            index=plan.index,
+                            file_count=0,
+                            returncode=0,
+                            elapsed_seconds=0.0,
+                            log_path=log_path,
+                        )
+                        continue
+                    command = build_pytest_command(
+                        plan,
+                        temp_dir / f"shard-{plan.index}",
+                        write_timings=write_timings,
+                        junit_dir=junit_dir,
                     )
-                    results[plan.index] = ShardResult(
-                        index=plan.index,
-                        file_count=len(plan.files),
-                        returncode=TIMEOUT_RETURN_CODE,
-                        elapsed_seconds=0.0,
-                        log_path=log_path,
-                        timed_out=True,
-                    )
-                pending.clear()
-                break
-            while pending and len(active) < worker_limit:
-                plan = pending.pop(0)
-                log_path = log_dir / f"pytest-shard-{plan.index}.log"
-                if not plan.files:
-                    log_path.write_text(
-                        "No test files assigned to this shard.\n", encoding="utf-8"
-                    )
-                    results[plan.index] = ShardResult(
-                        index=plan.index,
-                        file_count=0,
-                        returncode=0,
-                        elapsed_seconds=0.0,
-                        log_path=log_path,
-                    )
-                    continue
-                command = build_pytest_command(
-                    plan,
-                    temp_dir / f"shard-{plan.index}",
-                    write_timings=write_timings,
-                    junit_dir=junit_dir,
-                )
-                if not quiet:
-                    print(
-                        f"Starting shard {plan.index}: files={len(plan.files)} "
-                        f"expected_seconds={plan.expected_seconds:.2f} log={log_path}"
-                    )
-                log_handle = log_path.open("w", encoding="utf-8")
-                log_handle.write("$ " + " ".join(command) + "\n\n")
-                log_handle.flush()
-                process = subprocess.Popen(
-                    command,
-                    cwd=root,
-                    env=env,
-                    stdout=log_handle,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                    start_new_session=os.name == "posix",
-                )
-                active[plan.index] = (
-                    process,
-                    log_handle,
-                    time.perf_counter(),
-                    log_path,
-                    plan,
-                )
+                    if not quiet:
+                        print(
+                            f"Starting shard {plan.index}: files={len(plan.files)} "
+                            f"expected_seconds={plan.expected_seconds:.2f} log={log_path}"
+                        )
+                    log_handle = log_path.open("w", encoding="utf-8")
+                    log_handle.write("$ " + " ".join(command) + "\n\n")
+                    log_handle.flush()
+                    launch_registration_active = True
+                    try:
+                        process = subprocess.Popen(
+                            command,
+                            cwd=root,
+                            env=env,
+                            stdout=log_handle,
+                            stderr=subprocess.STDOUT,
+                            text=True,
+                            start_new_session=os.name == "posix",
+                        )
+                        active[plan.index] = (
+                            process,
+                            log_handle,
+                            time.perf_counter(),
+                            log_path,
+                            plan,
+                        )
+                    finally:
+                        launch_registration_active = False
+                        if pending_signal is not None:
+                            interrupted_by = pending_signal
+                            pending_signal = None
+                            interrupt_run(interrupted_by, None)
 
-            for index, (process, log_handle, started, log_path, plan) in list(
+                for index, (process, log_handle, started, log_path, plan) in list(
+                    active.items()
+                ):
+                    returncode = process.poll()
+                    if returncode is None:
+                        continue
+                    elapsed = time.perf_counter() - started
+                    log_handle.close()
+                    results[index] = ShardResult(
+                        index=index,
+                        file_count=len(plan.files),
+                        returncode=returncode,
+                        elapsed_seconds=elapsed,
+                        log_path=log_path,
+                    )
+                    del active[index]
+                if active:
+                    time.sleep(0.2)
+        except BaseException:
+            _stop_active_shards(active, termination_grace_seconds)
+            for _index, (_process, log_handle, _started, _log_path, _plan) in list(
                 active.items()
             ):
-                returncode = process.poll()
-                if returncode is None:
-                    continue
-                elapsed = time.perf_counter() - started
-                log_handle.close()
-                results[index] = ShardResult(
-                    index=index,
-                    file_count=len(plan.files),
-                    returncode=returncode,
-                    elapsed_seconds=elapsed,
-                    log_path=log_path,
-                )
-                del active[index]
-            if active:
-                time.sleep(0.2)
-    except BaseException:
-        _stop_active_shards(active, termination_grace_seconds)
-        for _index, (_process, log_handle, _started, _log_path, _plan) in list(
-            active.items()
-        ):
-            if not log_handle.closed:
-                log_handle.write("\nPytest shard terminated because the runner was interrupted.\n")
-                log_handle.close()
-        active.clear()
-        raise
-    finally:
-        signal.signal(signal.SIGTERM, previous_sigterm_handler)
+                if not log_handle.closed:
+                    log_handle.write(
+                        "\nPytest shard terminated because the runner was interrupted.\n"
+                    )
+                    log_handle.close()
+            active.clear()
+            raise
 
     return [results[index] for index in sorted(results)]
-
-
-def _signal_process(process: subprocess.Popen[str], sig: signal.Signals) -> None:
-    if os.name == "posix" and isinstance(getattr(process, "pid", None), int):
-        try:
-            os.killpg(process.pid, sig)
-            return
-        except ProcessLookupError:
-            return
-    action = process.terminate if sig == signal.SIGTERM else process.kill
-    try:
-        action()
-    except ProcessLookupError:
-        return
 
 
 def _terminate_active_shards(
@@ -514,33 +513,9 @@ def _stop_active_shards(
     active: dict[int, tuple[subprocess.Popen[str], Any, float, Path, ShardPlan]],
     termination_grace_seconds: float,
 ) -> None:
-    process_groups = {
-        process.pid
-        for process, _handle, _started, _path, _plan in active.values()
-        if os.name == "posix" and isinstance(getattr(process, "pid", None), int)
-    }
-    for process, _handle, _started, _path, _plan in active.values():
-        _signal_process(process, signal.SIGTERM)
-    grace_deadline = time.perf_counter() + termination_grace_seconds
-    while active and time.perf_counter() < grace_deadline:
-        if all(process.poll() is not None for process, *_rest in active.values()):
-            break
-        time.sleep(0.05)
-    if os.name == "posix":
-        for process_group in process_groups:
-            try:
-                os.killpg(process_group, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-    else:
-        for process, _handle, _started, _path, _plan in active.values():
-            if process.poll() is None:
-                _signal_process(process, signal.SIGKILL)
-    for process, _log_handle, _started, _log_path, _plan in active.values():
-        try:
-            process.wait(timeout=max(termination_grace_seconds, 0.1))
-        except subprocess.TimeoutExpired:
-            pass
+    shard_processes.stop_processes(
+        (process for process, *_rest in active.values()), termination_grace_seconds
+    )
 
 
 def _prepend_pythonpath(src_path: str, existing: str | None) -> str:

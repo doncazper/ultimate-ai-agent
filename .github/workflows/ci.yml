@@ -67,10 +67,31 @@ jobs:
           .venv/bin/python -m pip install -e ".[dev]"
 
       - name: Run pytest shard
+        shell: bash
         run: |
+          shard_runner_pid=""
+          # shellcheck disable=SC2329
+          terminate_shard_runner() {
+            trap - EXIT
+            trap '' INT TERM HUP
+            if [ -n "$shard_runner_pid" ] && kill -0 "$shard_runner_pid" 2>/dev/null; then
+              kill -TERM "$shard_runner_pid" 2>/dev/null || true
+              for _ in {1..100}; do
+                if ! kill -0 "$shard_runner_pid" 2>/dev/null; then
+                  break
+                fi
+                sleep 0.1
+              done
+              if kill -0 "$shard_runner_pid" 2>/dev/null; then
+                kill -KILL "$shard_runner_pid" 2>/dev/null || true
+              fi
+              wait "$shard_runner_pid" || true
+            fi
+          }
+          trap terminate_shard_runner EXIT INT TERM HUP
           .venv/bin/python scripts/verification/run_pytest_shards.py \
             --shards 8 \
-            --max-workers 2 \
+            --max-workers 4 \
             --timings-json scripts/verification/pytest_file_timing_seed.json \
             --basetemp "${RUNNER_TEMP}/uaa_pytest_shards" \
             --performance-report "${RUNNER_TEMP}/uaa_pytest_performance_report.json" \
@@ -78,7 +99,15 @@ jobs:
             --target-seconds 1200 \
             --hard-timeout-seconds 1800 \
             --quiet \
-            --safe-summary
+            --safe-summary &
+          shard_runner_pid=$!
+          set +e
+          wait "$shard_runner_pid"
+          shard_status=$?
+          set -e
+          shard_runner_pid=""
+          trap - EXIT INT TERM HUP
+          exit "$shard_status"
 
   pytest:
     name: pytest
@@ -88,15 +117,15 @@ jobs:
     runs-on: [self-hosted, macOS, ARM64, uaa-ci]
 
     steps:
-      - name: Confirm complete pytest shard matrix
+      - name: Confirm complete pytest sharded suite
         env:
           PYTEST_SHARDS_RESULT: ${{ needs.pytest-shards.result }}
         run: |
           if [ "$PYTEST_SHARDS_RESULT" != "success" ]; then
-            echo "Pytest shard matrix did not complete successfully."
+            echo "Pytest sharded suite did not complete successfully."
             exit 1
           fi
-          echo "All eight isolated pytest shards passed."
+          echo "All eight bounded pytest shards passed in the installed suite job."
 
   static-verification:
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository

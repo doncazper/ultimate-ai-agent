@@ -90,8 +90,14 @@ def verify(root: Path = ROOT) -> list[str]:
     if "    needs:\n      - lint\n" not in job_section(workflow, "pytest-shards"):
         failures.append("pytest shards must start only after lint passes")
     pytest_shards_job = job_section(workflow, "pytest-shards")
-    if "            --max-workers 2 \\\n" not in pytest_shards_job:
-        failures.append("pytest shards must use the bounded two-worker single-host cap")
+    if "            --max-workers 4 \\\n" not in pytest_shards_job:
+        failures.append("pytest shards must use the bounded four-worker single-host cap")
+    if "trap terminate_shard_runner EXIT INT TERM HUP" not in pytest_shards_job:
+        failures.append("pytest job cancellation must reach the shard runner")
+    if "for _ in {1..100}" not in pytest_shards_job:
+        failures.append("pytest job cancellation cleanup must remain bounded")
+    if 'kill -KILL "$shard_runner_pid"' not in pytest_shards_job:
+        failures.append("pytest job cancellation must escalate after the bounded wait")
     if "--shard-index" in pytest_shards_job or "matrix:" in pytest_shards_job:
         failures.append("pytest shards must share one installed single-host environment")
     pytest_gated_jobs = (

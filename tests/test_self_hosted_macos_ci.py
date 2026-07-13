@@ -16,7 +16,9 @@ def test_provisioner_keeps_root_owned_helper_directory_traversable() -> None:
     ).read_text(encoding="utf-8")
 
     assert "install -d -o root -g wheel -m 0755 /usr/local/libexec\n" in provisioner
-    assert "install -d -o root -g wheel -m 0755 /usr/local/libexec/uaa-ci" in provisioner
+    assert (
+        "install -d -o root -g wheel -m 0755 /usr/local/libexec/uaa-ci" in provisioner
+    )
     assert "mkdir -p /usr/local/libexec/uaa-ci" not in provisioner
 
 
@@ -85,7 +87,11 @@ def test_shared_mac_ci_stages_cpu_and_io_heavy_job_classes() -> None:
 
     pytest_shards_job = verifier.job_section(workflow, "pytest-shards")
     assert "      - lint\n" in pytest_shards_job
-    assert "            --max-workers 2 \\\n" in pytest_shards_job
+    assert "            --max-workers 4 \\\n" in pytest_shards_job
+    assert "trap terminate_shard_runner EXIT INT TERM HUP" in pytest_shards_job
+    assert 'kill -TERM "$shard_runner_pid"' in pytest_shards_job
+    assert "for _ in {1..100}" in pytest_shards_job
+    assert 'kill -KILL "$shard_runner_pid"' in pytest_shards_job
     assert "--shard-index" not in pytest_shards_job
     assert "matrix:" not in pytest_shards_job
     for job_name in (
@@ -147,7 +153,15 @@ def test_verifier_rejects_hosted_runner_and_cache_regression(tmp_path: Path) -> 
 
     failures = verifier.verify(tmp_path)
 
-    assert any("exact UAA self-hosted macOS selector" in failure for failure in failures)
+    assert any(
+        "exact UAA self-hosted macOS selector" in failure for failure in failures
+    )
     assert any("fork pull requests" in failure for failure in failures)
-    assert any("forbidden self-hosted CI workflow fragment: ubuntu-latest" in failure for failure in failures)
-    assert any("forbidden self-hosted CI workflow fragment: actions/cache" in failure for failure in failures)
+    assert any(
+        "forbidden self-hosted CI workflow fragment: ubuntu-latest" in failure
+        for failure in failures
+    )
+    assert any(
+        "forbidden self-hosted CI workflow fragment: actions/cache" in failure
+        for failure in failures
+    )
