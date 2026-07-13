@@ -6,6 +6,7 @@ import {
   RouteStatePanel,
 } from "./components/DataState";
 import { SafeAlert } from "./components/SafeAlert";
+import { NewsSignalsPreviewPanel } from "./components/NewsSignalsPreviewPanel";
 import { useControlCenterData } from "./hooks/useControlCenterData";
 import {
   getRouteStateDescriptor,
@@ -25,6 +26,14 @@ export function App() {
     () => getRouteSurfaceLabel(activePath),
     [activePath],
   );
+
+  if (activePath === "/news") {
+    return (
+      <AppShell activePath={activePath}>
+        <NewsSignalsPreviewPanel />
+      </AppShell>
+    );
+  }
 
   if (state.status === "loading") {
     return (

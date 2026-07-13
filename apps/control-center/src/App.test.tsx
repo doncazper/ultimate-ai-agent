@@ -3185,6 +3185,7 @@ describe("Web Control Center shell", () => {
     expect(primaryNavItems.map((item) => item.label)).toEqual([
       "Start Here",
       "Today",
+      "News & Signals",
       "Source Inbox",
       "Plans",
       "Work Board",
@@ -3218,9 +3219,10 @@ describe("Web Control Center shell", () => {
     const labels = within(navigation)
       .getAllByRole("link")
       .map((link) => link.getAttribute("aria-label"));
-    expect(labels.slice(0, 11)).toEqual([
+    expect(labels.slice(0, 12)).toEqual([
       "Start Here",
       "Today",
+      "News & Signals",
       "Source Inbox",
       "Plans",
       "Work Board",
@@ -3623,6 +3625,59 @@ describe("Web Control Center shell", () => {
         name: /git commit|commit changes|push branch|pull branch|checkout branch|merge branch|rebase branch|create pr|apply patch|rollback patch|run command|execute command|open terminal|dispatch coworker|schedule worker|stream logs|cancel run|resume run/i,
       }),
     ).not.toBeInTheDocument();
+  });
+
+  it("renders the News & Signals concept with honest preview state", async () => {
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/news");
+    const view = render(<App />);
+
+    try {
+      expect(
+        screen.getByRole("heading", { name: "News & Signals" }),
+      ).toBeInTheDocument();
+      expect(screen.getByText("Illustrative preview")).toBeInTheDocument();
+      expect(
+        screen.getByText(/Sample records only. No live fetching/i),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("link", { name: "Open Morning Briefing" }),
+      ).toHaveAttribute("href", "/briefing");
+
+      const briefFilter = screen.getByRole("button", {
+        name: "Brief candidates",
+      });
+      fireEvent.click(briefFilter);
+      expect(briefFilter).toHaveAttribute("aria-pressed", "true");
+      const stream = screen.getByLabelText("Curated signal stream");
+      expect(
+        within(stream).getAllByRole("button", { name: /Inspect signal:/i }),
+      ).toHaveLength(3);
+
+      const communityFilter = screen.getByRole("button", { name: "Community" });
+      fireEvent.click(communityFilter);
+      const discordSignal = within(stream).getByRole("button", {
+        name: "Inspect signal: Founder community announces a local-first workflow track",
+      });
+      fireEvent.click(discordSignal);
+      const inspector = screen.getByLabelText("Signal detail");
+      expect(
+        within(inspector).getByRole("heading", {
+          name: "Founder community announces a local-first workflow track",
+        }),
+      ).toBeInTheDocument();
+      expect(within(inspector).getByText("Discord")).toBeInTheDocument();
+
+      for (const unavailableCommand of ["Save", "Dismiss", "Mute", "Propose action"]) {
+        expect(
+          screen.queryByRole("button", { name: unavailableCommand }),
+        ).not.toBeInTheDocument();
+      }
+    } finally {
+      view.unmount();
+      cleanup();
+      window.history.pushState({}, "", "/");
+    }
   });
 
   it("renders Start Here as a backend-owned loop guide without runtime controls", async () => {

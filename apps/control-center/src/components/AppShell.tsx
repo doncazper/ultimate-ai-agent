@@ -58,6 +58,7 @@ export function AppShell({
   const visiblePrimaryLabels = new Set([
     "Start Here",
     "Today",
+    "News & Signals",
     "Source Inbox",
     "Plans",
     "Work Board",
@@ -283,6 +284,7 @@ function navIconForLabel(label: string): IconReference {
     "Local Runtime": "cpu",
     "Manual Smoke": "gauge",
     Memory: "brain",
+    "News & Signals": "signal",
     "Mobile Planning": "phone",
     Models: "boxes",
     Operator: "user",
