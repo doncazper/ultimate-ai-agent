@@ -5,8 +5,16 @@ import re
 import sys
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from scripts.verification.ci_command_manifest import (  # noqa: E402
+    CI_JOB_GRAPH,
+    command_registry,
+    validate_definition,
+)
+
 WORKFLOW = ROOT / ".github/workflows/ci.yml"
 PROVISIONER = ROOT / "scripts/ci/provision_self_hosted_macos_runners.sh"
 BOOTSTRAP = ROOT / "scripts/ci/bootstrap_self_hosted_macos_runner.sh"
@@ -82,9 +90,8 @@ def verify(root: Path = ROOT) -> list[str]:
         failures.append("CI workflow token permissions must be contents-read only")
     if "cancel-in-progress: true" not in workflow:
         failures.append("CI workflow must cancel superseded local runs")
-    lane_function_count = workflow.count("          run_lane_command() {")
-    if workflow.count("          set +e\n          set -u") != lane_function_count:
-        failures.append("every release lane must capture command failures before exiting")
+    if validate_definition():
+        failures.append("canonical CI command manifest must validate")
     if "python3.12 -m venv .venv" not in workflow:
         failures.append("CI workflow must use the pre-provisioned Python 3.12 toolchain")
     if "/opt/homebrew/opt/node@22/bin" not in workflow:
@@ -94,18 +101,31 @@ def verify(root: Path = ROOT) -> list[str]:
         failures.append("every CI command must escape inherited macOS background QoS throttling")
     if re.search(r"(?m)^\s+shell: bash$", workflow):
         failures.append("CI steps must not override the utility-QoS default shell")
-    if '--basetemp "${RUNNER_TEMP}/uaa_pytest_shards"' not in workflow:
-        failures.append("pytest shards must use the isolated per-job runner temp directory")
-    if '--performance-report "${RUNNER_TEMP}/uaa_pytest_performance_report.json"' not in workflow:
-        failures.append("pytest performance reports must use the isolated per-job runner temp directory")
-    if '--timings-json "${RUNNER_TEMP}/uaa_static_verification_timings.json"' not in workflow:
-        failures.append("static verification timings must use the isolated per-job runner temp directory")
+    if set(jobs) != {job.job_ref for job in CI_JOB_GRAPH}:
+        failures.append("CI workflow job refs must match the canonical job graph")
+    for job in CI_JOB_GRAPH:
+        section = job_section(workflow, job.job_ref)
+        for dependency in job.needs:
+            if f"      - {dependency}\n" not in section:
+                failures.append(f"{job.job_ref} must preserve canonical dependency {dependency}")
+        if job.lane_ref is not None:
+            for fragment in (
+                "scripts/verification/run_ci_lane.py",
+                f"--lane {job.lane_ref}",
+                '--sha "$UAA_CI_EXACT_SHA"',
+                '--temp-root "$RUNNER_TEMP"',
+                '--summary-file "$GITHUB_STEP_SUMMARY"',
+            ):
+                if fragment not in section:
+                    failures.append(
+                        f"{job.job_ref} must invoke its canonical shared CI lane"
+                    )
+        if f"    timeout-minutes: {job.timeout_minutes}\n" not in section:
+            failures.append(f"{job.job_ref} must have its canonical bounded timeout")
     if "    needs:\n      - lint\n" not in job_section(workflow, "pytest-shards"):
         failures.append("pytest shards must start only after lint passes")
     pytest_shards_job = job_section(workflow, "pytest-shards")
-    if "            --max-workers 4 \\\n" not in pytest_shards_job:
-        failures.append("pytest shards must use the bounded four-worker single-host cap")
-    if "/usr/sbin/taskpolicy -c utility .venv/bin/python scripts/verification/run_pytest_shards.py" not in pytest_shards_job:
+    if "/usr/sbin/taskpolicy -c utility .venv/bin/python scripts/verification/run_ci_lane.py" not in pytest_shards_job:
         failures.append("pytest shards must escape inherited macOS background QoS throttling")
     if "trap terminate_shard_runner EXIT INT TERM HUP" not in pytest_shards_job:
         failures.append("pytest job cancellation must reach the shard runner")
@@ -163,7 +183,9 @@ def verify(root: Path = ROOT) -> list[str]:
         "        if: steps.visual-scope.outputs.run_visual == 'true'\n",
         '          if [ "$RUN_VISUAL" = "true" ]; then\n',
         "reason-ref:visual-regression:not-affected",
-        'run_lane_command "command:frontend.visual-regression-contract"',
+        "      PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/playwright-browsers\n",
+        "            --lane visual-regression \\\n",
+        '            --visual-scope "$visual_scope" \\\n',
     ):
         if fragment not in visual_regression_job:
             failures.append("visual regression scope must be affected-path bound and fail closed")
@@ -178,19 +200,26 @@ def verify(root: Path = ROOT) -> list[str]:
         )
     ):
         failures.append("performance verification must run after the shared-Mac matrix")
-    for fragment in (
-        "--stretch-goal-seconds 900",
-        "--target-seconds 1200",
-        "--hard-timeout-seconds 1800",
-    ):
-        if fragment not in workflow:
+    shard_argv = command_registry()["command:pytest.sharded-suite"].argv
+    for fragment in ("--stretch-goal-seconds", "900", "--target-seconds", "1200", "--hard-timeout-seconds", "1800"):
+        if fragment not in shard_argv:
             failures.append("pytest shards must declare the self-hosted runtime budget")
-    if "reason-ref:self-hosted-runner-docker-unavailable" not in workflow:
+    desktop_lane = job_section(workflow, "release-lane-desktop-packaging")
+    if '--docker-available "$docker_posture"' not in desktop_lane:
         failures.append("desktop packaging must report an explicit unavailable Docker prerequisite")
+    if (
+        "      PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/playwright-browsers\n"
+        not in desktop_lane
+    ):
+        failures.append(
+            "desktop packaging must share the canonical Playwright browser cache"
+        )
     checkout_action = "uses: actions/checkout@v4"
     checkout_count = workflow.count(checkout_action)
     if checkout_count == 0 or workflow.count("persist-credentials: false") != checkout_count:
         failures.append("every checkout must avoid persisting GitHub credentials")
+    if workflow.count("ref: ${{ env.UAA_CI_EXACT_SHA }}") != checkout_count:
+        failures.append("every checkout must bind the explicit exact SHA")
     for fragment in FORBIDDEN_WORKFLOW_FRAGMENTS:
         if fragment in workflow:
             failures.append(f"forbidden self-hosted CI workflow fragment: {fragment}")

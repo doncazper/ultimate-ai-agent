@@ -67,6 +67,18 @@
       "safe_summary": "Replace with the security and redaction lane result summary for the release candidate."
     },
     {
+      "lane_id": "product-truth-regression",
+      "status": "blocked",
+      "command_refs": [
+        "command:product-truth.regression-verifier",
+        "command:product-truth.regression-tests"
+      ],
+      "report_refs": [
+        "report:product-truth-regression:pending"
+      ],
+      "safe_summary": "Replace with the product-truth regression lane result summary for the release candidate."
+    },
+    {
       "lane_id": "local-model-e2e",
       "status": "skipped",
       "command_refs": [

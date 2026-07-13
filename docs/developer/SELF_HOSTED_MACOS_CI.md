@@ -81,9 +81,12 @@ provider, connector, production, or AuthorityLease capability.
   close with a bounded grace period; the wrapper escalates after a bounded wait
   so superseded runs do not leave an indefinitely waiting job on the dedicated
   account.
-- Release lanes disable Bash's immediate-exit behavior only inside their
-  bounded command wrappers so failures produce safe summaries and still end
-  the job unsuccessfully.
+- GitHub jobs and the private fallback execute the same fixed command and lane
+  definitions from `scripts/verification/ci_command_manifest.py`. The lane
+  runner captures raw output only in a bounded transient file, persists only
+  hashes, counts, durations, refs, and statuses, forwards cancellation to the
+  entire child process group, and still ends the job unsuccessfully on a
+  command failure.
 - The dedicated account is not granted access to the everyday account's Docker
   Desktop socket. The desktop-packaging lane reports its permitted explicit
   `self-hosted-runner-docker-unavailable` skipped posture and still runs the
@@ -137,6 +140,7 @@ Run the static contract and inspect GitHub's live runner state:
 
 ```bash
 .venv/bin/python scripts/verify_self_hosted_macos_ci.py
+.venv/bin/python scripts/verification/ci_command_manifest.py
 gh api repos/doncazper/ultimate-ai-agent/actions/runners \
   --jq '.runners[] | [.name, .status, .busy, [.labels[].name]]'
 ```
@@ -147,6 +151,86 @@ must be `online` and advertise `self-hosted`, `macOS`, `ARM64`, and `uaa-ci`.
 Open a same-repository pull request only after at least one runner is online.
 All named release lanes remain present. With fewer than four local runner
 instances they queue and serialize rather than consume GitHub-hosted minutes.
+
+## GitHub-first private fallback
+
+GitHub Actions remains the authoritative merge gate. Normal flow is an affected
+local preflight, push of one exact SHA, and one required GitHub run on the
+repository-scoped runners. Pull requests explicitly check out and attest the
+pushed head SHA instead of GitHub's synthetic merge ref. The required
+`manifest-attestation` job validates the exact repository-owned plan before
+`lint` can start. The workflow concurrency key cancels superseded
+SHAs, and the shared host guard permits only one GitHub full sharded pytest
+attempt for that SHA. Private verification has a separate one-attempt scope so
+the required final GitHub run can still verify the exact privately checked SHA.
+
+When the GitHub control plane is unavailable, a run fails before any repository
+command starts, runner capacity exceeds the bounded queue budget, runner contact
+is lost before checkout, or superseded-run churn reaches its cap, the operator
+may use the one-shot local controller:
+
+```bash
+.venv/bin/python scripts/ci/verify_with_fallback.py \
+  --repo . \
+  --sha "$(git rev-parse HEAD)" \
+  --mode github-first
+
+.venv/bin/python scripts/ci/verify_with_fallback.py \
+  --repo . \
+  --sha "$(git rev-parse HEAD)" \
+  --mode status
+```
+
+The controller uses only read-only `gh run list` and `gh run view` observations.
+It cannot dispatch, rerun, cancel, approve, merge, push, tag, or change Actions
+or billing settings. A code/test/install failure after a repository command has
+started is `github_code_failure` and never enters private fallback.
+
+An operator can reproduce one exact deterministic failed shard without rerunning
+the complete suite by using `make ci-reproduce-shard CI_SHARD_INDEX=0` (indices
+0 through 7). These fixed reproduction lanes come from the same canonical
+manifest and do not satisfy the GitHub merge gate.
+
+Eligible private fallback creates a standalone credential-free local clone at
+the exact pushed SHA, pins the source checkout's exact validated `origin/main`
+object ID to an isolated immutable
+base ref, removes its remote, and never shares refs, config, or hooks with the
+developer repository. It verifies the canonical origin, lock
+fingerprints, and regular repository
+paths, installs frontend dependencies before an affected frontend preflight,
+then runs affected checks first unless they select the full gate. Playwright
+installation and lane execution share one temp-root-bound browser cache. It
+takes the single content-free, group-protected cross-account host lock, and installs
+through the existing lockfile policy before executing the canonical job graph.
+A new versioned coordination directory avoids dependence on legacy lock-file
+ownership and holds one bounded exact-SHA attempt ledger shared by all four
+runners and private CI. The bounded controller ledger records only safe refs,
+hashes, timestamps, duration buckets, and terminal states. Raw command output,
+paths, environment values, runner identity, credentials, and host details are
+not durable evidence. A crash after `private_start` becomes
+`recovery_required`; the same SHA is never started a second time.
+
+The GitHub pytest job reserves bounded time for at most ten minutes of shared-Mac
+lock contention, fifteen minutes of setup, and the canonical 1,830-second suite
+command inside its 60-minute job timeout. The attempt is recorded only after
+all locked pre-start validation succeeds and immediately before process spawn.
+A spawn failure conservatively consumes the one-attempt allowance so a hard
+termination cannot leave an unrecorded full-suite process. Empty or partial
+GitHub job evidence fails closed as a
+code/evidence failure rather than being relabeled as an infrastructure outage.
+
+CLI exit code `0` means only `github_green` on the exact live, attested SHA.
+Pending/running states return `2`; code failure, private failure, and external
+blocking return `1`. Injected observation files are simulation-only and can
+never satisfy the merge gate.
+
+Private `pass` is reported as `private_green_pending_github`. It never satisfies
+branch protection or authorizes merge. The exact privately verified SHA must be
+pushed and receive one final green GitHub merge-gate run, created after the
+private terminal receipt, using the same manifest fingerprint. Capacity gets
+one three-minute cooldown, a repair series gets at
+most two private SHA attempts, and private green gets at most one final GitHub
+retry. Exhaustion ends as `externally_blocked`.
 
 ## Stop and incident response
 

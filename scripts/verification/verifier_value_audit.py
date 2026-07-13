@@ -79,7 +79,10 @@ VALUES = (
     ),
     VerifierValue(
         "verifier-ref:product-truth",
-        ("selector:command-ref:product-truth",),
+        (
+            "selector:command-ref:product-truth",
+            "release-lane:product-truth-regression",
+        ),
         "defect-ref:unsupported-product-claim",
         "overlap-ref:documentation-text-scan-partial",
         "retain",

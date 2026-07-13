@@ -1,18 +1,13 @@
 from pathlib import Path
 
-import scripts.verify_release_lanes as release_lanes
+from scripts.verification.ci_command_manifest import (
+    CI_JOB_GRAPH,
+    command_registry,
+    lane_registry,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
-
-RELEASE_LANE_JOBS = {
-    f"release-lane-{lane.lane_id}": (
-        lane.lane_id,
-        lane.name,
-        [command.command_ref for command in lane.commands],
-    )
-    for lane in release_lanes.release_lanes()
-}
 
 
 def _extract_job_block(workflow: str, job_name: str) -> str:
@@ -27,36 +22,58 @@ def _extract_job_block(workflow: str, job_name: str) -> str:
     return "\n".join(lines[start:end])
 
 
+def test_workflow_job_graph_and_lane_refs_match_canonical_manifest() -> None:
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    for job in CI_JOB_GRAPH:
+        section = _extract_job_block(workflow, job.job_ref)
+        for dependency in job.needs:
+            assert f"- {dependency}" in section
+        if job.lane_ref is not None:
+            assert "scripts/verification/run_ci_lane.py" in section
+            assert f"--lane {job.lane_ref}" in section
+            assert '--sha "$UAA_CI_EXACT_SHA"' in section
+            assert '--temp-root "$RUNNER_TEMP"' in section
+            assert '--summary-file "$GITHUB_STEP_SUMMARY"' in section
+        assert f"timeout-minutes: {job.timeout_minutes}" in section
+
+
+def test_pr_and_push_jobs_checkout_the_same_explicit_sha_they_attest() -> None:
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    assert (
+        "UAA_CI_EXACT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}"
+        in workflow
+    )
+    checkout_count = workflow.count("uses: actions/checkout@v4")
+    assert checkout_count > 0
+    assert workflow.count("ref: ${{ env.UAA_CI_EXACT_SHA }}") == checkout_count
+    assert "$GITHUB_SHA" not in workflow
+    attestation = _extract_job_block(workflow, "manifest-attestation")
+    assert "--lane ci-manifest-attestation" in attestation
+    assert "Run canonical manifest attestation" in attestation
+
+
 def test_foundation_gate_ci_report_depends_on_required_verification_jobs() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
     section = _extract_job_block(workflow, "foundation-gate-report")
-
-    assert "needs:" in section
-    for job in ["lint", "pytest", "static-verification", *RELEASE_LANE_JOBS]:
-        assert f"- {job}" in section
-    assert "--command-mode ci-parallel" in section
-    assert "--no-write-latest" in section
-    assert "safe-summary-only" in section
-    assert "required CI job dependencies" in section
-    assert "not collected or uploaded" in section
+    graph_job = next(job for job in CI_JOB_GRAPH if job.job_ref == "foundation-gate-report")
+    for dependency in graph_job.needs:
+        assert f"- {dependency}" in section
+    assert "--lane ci-foundation-report" in section
     assert "$GITHUB_STEP_SUMMARY" in section
 
 
-def test_pytest_ci_uses_one_installed_job_with_bounded_workers_and_stable_aggregate() -> (
-    None
-):
+def test_pytest_ci_uses_one_installed_job_with_bounded_workers_and_stable_aggregate() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
     shards = _extract_job_block(workflow, "pytest-shards")
     aggregate = _extract_job_block(workflow, "pytest")
+    argv = command_registry()["command:pytest.sharded-suite"].argv
 
     assert "matrix:" not in shards
-    assert "--shards 8" in shards
-    assert "--max-workers 4" in shards
+    assert argv[argv.index("--shards") + 1] == "8"
+    assert argv[argv.index("--max-workers") + 1] == "4"
+    assert "--safe-summary" in argv
+    assert "--write-timings-json" not in argv
     assert "/usr/sbin/taskpolicy -c utility" in shards
-    assert "--timings-json scripts/verification/pytest_file_timing_seed.json" in shards
-    assert "--shard-index" not in shards
-    assert "--safe-summary" in shards
-    assert "--write-timings-json" not in shards
     assert "trap terminate_shard_runner EXIT INT TERM HUP" in shards
     assert 'kill -TERM "$shard_runner_pid"' in shards
     assert "for _ in {1..100}" in shards
@@ -68,39 +85,24 @@ def test_pytest_ci_uses_one_installed_job_with_bounded_workers_and_stable_aggreg
     assert '!= "success"' in aggregate
 
 
-def test_release_lanes_are_visible_ci_jobs_with_safe_summary_reports() -> None:
+def test_release_lanes_are_visible_jobs_using_shared_command_definitions() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
-
+    lanes = lane_registry()
     assert "actions/upload-artifact" not in workflow
-    for job, (lane_id, lane_name, command_refs) in RELEASE_LANE_JOBS.items():
-        section = _extract_job_block(workflow, job)
-
-        assert f"name: Release Lane / {lane_name}" in section
-        assert f"- Lane id: {lane_id}" in section
-        assert "safe-summary-only" in section
-        assert "not uploaded" in section
-        assert "$GITHUB_STEP_SUMMARY" in section
-        assert '> "$log_file" 2>&1' in section
+    for job in CI_JOB_GRAPH:
+        if not job.job_ref.startswith("release-lane-"):
+            continue
+        section = _extract_job_block(workflow, job.job_ref)
+        assert f"name: {job.display_name}" in section
+        assert f"--lane {job.lane_ref}" in section
+        assert job.lane_ref in lanes
         assert "actions/upload-artifact" not in section
-        for command_ref in command_refs:
-            assert command_ref in section
 
 
-def test_openapi_release_lane_keeps_route_module_ownership_green() -> None:
-    workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
-    section = _extract_job_block(workflow, "release-lane-openapi")
-
-    assert "command:route-module.ownership" in section
-    assert "tests/test_route_module_ownership.py" in section
-    assert "PYTHONPATH=src" in section
-
-
-def test_frontend_release_lane_uses_existing_frontend_job_as_required_equivalent() -> (
-    None
-):
-    workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
-    section = _extract_job_block(workflow, "release-lane-frontend")
-
-    assert "needs:" in section
-    assert "- control-center-frontend" in section
-    assert "satisfied by required control-center-frontend job" in section
+def test_openapi_and_frontend_commands_exist_only_in_canonical_registry() -> None:
+    commands = command_registry()
+    lanes = lane_registry()
+    assert "command:route-module.ownership" in lanes["openapi"].command_refs
+    assert commands["command:route-module.ownership"].env == (("PYTHONPATH", "src"),)
+    assert lanes["frontend"].satisfied_command_refs == ("command:frontend.check",)
+    assert command_registry()["command:frontend.check"].argv == ("make", "frontend-check")

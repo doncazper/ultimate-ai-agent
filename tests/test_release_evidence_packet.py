@@ -47,6 +47,7 @@ def test_release_evidence_packet_schema_and_template_cover_required_fields() -> 
         "openapi",
         "api-safety",
         "security-redaction",
+        "product-truth-regression",
         "local-model-e2e",
         "durability",
         "frontend",

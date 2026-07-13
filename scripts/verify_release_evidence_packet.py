@@ -33,6 +33,7 @@ REQUIRED_LANE_IDS = {
     "openapi",
     "api-safety",
     "security-redaction",
+    "product-truth-regression",
     "local-model-e2e",
     "durability",
     "frontend",
