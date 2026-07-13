@@ -1,17 +1,32 @@
-import type { ControlCenterStartHereSummary } from "../api/types";
+import type {
+  AuthorityTrustMode,
+  ControlCenterStartHereSummary,
+} from "../api/types";
 
 interface StartHerePanelProps {
   startHere: ControlCenterStartHereSummary;
   authoritative: boolean;
+  authorityMode: AuthorityTrustMode;
+  authorityModeAuthoritative: boolean;
 }
 
 export function StartHerePanel({
   authoritative,
+  authorityMode,
+  authorityModeAuthoritative,
   startHere,
 }: StartHerePanelProps) {
   const visibleSteps = startHere.steps.slice(0, 8);
+  const overviewItems = [
+    ["Today", "/today", "Daily priorities and source-backed attention"],
+    ["Action Inbox", "/actions", "Exact decisions and receipt posture"],
+    ["Plans", "/plans", "Immutable plan and work review"],
+    ["Memory", "/memory", "Review queue; recall is not truth"],
+    ["Evidence", "/evidence", "Receipts and safe evidence refs"],
+    ["Trust", "/trust", "AuthorityLease and blocked domains"],
+  ] as const;
   return (
-    <section className="page-section" aria-labelledby="start-here-heading">
+    <section className="page-section start-here-surface" aria-labelledby="start-here-heading">
       <div className="section-heading">
         <div>
           <p className="eyebrow">Local governed loop</p>
@@ -22,81 +37,94 @@ export function StartHerePanel({
         </span>
       </div>
 
-      <div className="hero-panel">
-        <div>
-          <p className="eyebrow">Next safe action</p>
-          <h3>{startHere.next_safe_action}</h3>
-          <p className="muted">{startHere.operator_goal}</p>
-        </div>
-        <div className="detail-grid compact">
-          <DetailTerm label="Loop status" value={startHere.local_loop_status} />
-          <DetailTerm label="Action proposal" value={startHere.action_proposal_ref} />
-          <DetailTerm label="Run" value={startHere.primary_run_ref} />
-          <DetailTerm label="Proof" value={startHere.primary_proof_ref} />
-        </div>
-      </div>
-
-      <div className="metric-grid start-here-metric-grid">
-        <MetricCard
-          label="Source"
-          value={startHere.source}
-          tone={authoritative ? "green" : "orange"}
-        />
-        <MetricCard
-          label="Daily loop"
-          value={
-            authoritative && startHere.complete_daily_loop_available
-              ? "repo-safe available"
-              : "partial or blocked"
-          }
-          tone={
-            authoritative && startHere.complete_daily_loop_available
-              ? "green"
-              : "orange"
-          }
-        />
-        <MetricCard
-          label="Runtime authority"
-          value="not granted"
-          tone="blue"
-        />
-      </div>
-
-      {startHere.missing_prerequisite_refs.length > 0 && (
-        <div className="callout-panel warning">
-          <strong>Missing prerequisites</strong>
-          <RefList refs={startHere.missing_prerequisite_refs} />
-        </div>
-      )}
-
-      <div className="stacked-list">
-        {visibleSteps.map((step) => (
-          <article className="list-card" key={step.step_id}>
-            <div className="list-card-header">
-              <div>
+      <div className="start-here-dashboard-grid">
+        <article className="north-star-panel start-setup-card">
+          <div className="north-star-panel-header">
+            <div>
+              <p className="eyebrow">First-run setup</p>
+              <h3>Founder Loop readiness</h3>
+            </div>
+            <span>{visibleSteps.length} checks</span>
+          </div>
+          <div className="start-check-list">
+            {visibleSteps.map((step, index) => (
+              <a href={safeRouteHref(step.route_ref)} key={step.step_id}>
+                <span className={`start-check-dot ${statusTone(step.status)}`} />
+                <small>{index + 1}</small>
                 <strong>{step.label}</strong>
-                <p>{step.safe_summary}</p>
-              </div>
-              <span className="status-pill compact">{step.status}</span>
+                <span>{humanize(step.status)}</span>
+              </a>
+            ))}
+          </div>
+        </article>
+
+        <article className="north-star-panel start-overview-card">
+          <div className="north-star-panel-header">
+            <div>
+              <p className="eyebrow">Overview</p>
+              <h3>Founder Loop surfaces</h3>
             </div>
-            <div className="detail-grid compact">
-              <DetailTerm label="Route" value={step.route_ref} />
-              <DetailTerm label="Backend" value={step.backend_route_ref} />
-              <DetailTerm label="Proof" value={step.proof_ref} />
-              <DetailTerm label="Next" value={step.next_safe_action} />
+            <span>{authoritative ? "backend-owned" : "fallback"}</span>
+          </div>
+          <div className="start-overview-grid">
+            {overviewItems.map(([label, href, summary]) => (
+              <a href={href} key={href}>
+                <strong>{label}</strong>
+                <span>{summary}</span>
+                <small>{authoritative ? "Ready to inspect" : "Verify backend"}</small>
+              </a>
+            ))}
+          </div>
+          <dl className="detail-list compact">
+            <DetailTerm
+              label="Mode"
+              value={
+                authoritative && authorityModeAuthoritative
+                  ? humanize(authorityMode)
+                  : "unverified fallback"
+              }
+            />
+            <DetailTerm label="Runtime authority" value="not granted" />
+            <DetailTerm label="Receipts" value="required" />
+          </dl>
+          <span className="sr-only">{startHere.local_loop_status}</span>
+        </article>
+
+        <article className="north-star-panel start-dashboard-card">
+          <div className="north-star-panel-header">
+            <div>
+              <p className="eyebrow">Dashboard</p>
+              <h3>Current route truth</h3>
             </div>
-          </article>
-        ))}
+            <span>{authoritative ? "verified" : "check"}</span>
+          </div>
+          <p>{startHere.operator_goal}</p>
+          <div className="start-next-step">
+            <strong>Next safe action</strong>
+            <span>{startHere.next_safe_action}</span>
+          </div>
+          <dl className="detail-list compact">
+            <DetailTerm label="Loop" value={humanize(startHere.local_loop_status)} />
+            <DetailTerm label="Run" value={startHere.primary_run_ref} />
+            <DetailTerm label="Proof" value={startHere.primary_proof_ref} />
+          </dl>
+          {startHere.missing_prerequisite_refs.length > 0 ? (
+            <div className="start-blocked-list">
+              <strong>Blocked / needs attention</strong>
+              <RefList refs={startHere.missing_prerequisite_refs} />
+            </div>
+          ) : null}
+        </article>
       </div>
 
-      <div className="two-column-grid">
-        <div className="panel-card">
-          <h3>Evidence</h3>
-          <RefList refs={startHere.evidence_refs} />
+      <div className="start-here-proof-strip">
+        <div>
+          <strong>Evidence</strong>
+          <RefList refs={[startHere.action_proposal_ref, ...startHere.evidence_refs]} />
         </div>
-        <div className="panel-card">
-          <h3>Still Blocked</h3>
-          <RefList refs={startHere.blocked_authority_refs} />
+        <div>
+          <strong>Authority stays bounded</strong>
+          <RefList refs={startHere.blocked_authority_refs.slice(0, 4)} />
         </div>
       </div>
     </section>
@@ -112,22 +140,71 @@ function DetailTerm({ label, value }: { label: string; value: string }) {
   );
 }
 
-function MetricCard({
-  label,
-  tone,
-  value,
-}: {
-  label: string;
-  tone: "blue" | "green" | "orange";
-  value: string;
-}) {
-  return (
-    <div className={`metric-card ${tone}`}>
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
+function humanize(value: string): string {
+  return value.replaceAll("_", " ");
 }
+
+function statusTone(value: string): "green" | "orange" | "red" | "gray" {
+  const normalized = value.toLowerCase();
+  if (
+    normalized.includes("blocked") ||
+    normalized.includes("error") ||
+    normalized.includes("invalid") ||
+    normalized.includes("missing") ||
+    normalized.includes("not_ready") ||
+    normalized.includes("unavailable") ||
+    normalized.includes("unhealthy") ||
+    normalized.includes("unknown") ||
+    normalized.includes("stale")
+  ) {
+    return "red";
+  }
+  if (
+    normalized.includes("ready") ||
+    normalized.includes("complete") ||
+    normalized.includes("done") ||
+    normalized.includes("implemented") ||
+    normalized.includes("healthy")
+  ) {
+    return "green";
+  }
+  if (
+    normalized.includes("partial") ||
+    normalized.includes("pending") ||
+    normalized.includes("review")
+  ) {
+    return "orange";
+  }
+  return "gray";
+}
+
+function safeRouteHref(routeRef: string): string {
+  if (START_HERE_LOCAL_ROUTES.has(routeRef)) {
+    return routeRef;
+  }
+  return START_HERE_ROUTE_REFS[routeRef] ?? "/start";
+}
+
+const START_HERE_LOCAL_ROUTES = new Set([
+  "/start",
+  "/today",
+  "/actions",
+  "/evidence",
+  "/memory",
+]);
+
+const START_HERE_ROUTE_REFS: Readonly<Record<string, string>> = {
+  "route-ref:control-center:start": "/start",
+  "route-ref:control-center:today": "/today",
+  "route-ref:control-center:action-inbox": "/actions",
+  "route-ref:control-center:actions": "/actions",
+  "route-ref:control-center:decision-receipt": "/actions",
+  "route-ref:control-center:evidence-timeline": "/evidence",
+  "route-ref:control-center:evidence": "/evidence",
+  "route-ref:control-center:memory-review": "/memory",
+  "route-ref:control-center:memory": "/memory",
+  "route-ref:control-center:weekly-review": "/today",
+};
 
 function RefList({ refs }: { refs: string[] }) {
   if (refs.length === 0) {

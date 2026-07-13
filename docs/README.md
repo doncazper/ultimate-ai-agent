@@ -145,6 +145,25 @@ sends, calendar writes, provider/model calls, live web, browser runtime,
 public beta, public release, production readiness, and production authority
 blocked.
 
+The planning-only successor is
+`docs/implementation/UAA_FIRST_CLASS_CRM_IMPLEMENTATION_PLAN.md`. It defines the
+separately gated path from M2 to a first-class local CRM with Sales, Real
+Estate, Professional Network, Personal Network, and Private Relationships
+workspaces, private-data isolation,
+durable local CRUD, search, pipelines, import/export, and reporting. It grants
+no connector, send, calendar-write, provider/model, browser, background, public
+release, or production authority.
+
+The full-vision application-suite program is defined in
+`docs/implementation/UAA_COHERENT_APP_ECOSYSTEM_IMPLEMENTATION_PLAN.md`. It
+plans standalone-quality Calendar, Tasks, Boards, CRM, Inbox, Today, and
+personal-organizer applications over canonical shared identity, event, task,
+relationship, source, link, change-set, evidence, and memory contracts. The
+plan includes local storage and migration, presets, complete north-star render
+sets, cross-app workflows, connectors, AI proposals, exact writes, automation,
+collaboration, packaging, accessibility, performance, recovery, and dogfood
+gates. It grants no new runtime or production authority.
+
 Connector draft-only proposals are backend-owned safe-ref review artifacts in
 `docs/control_center/CONNECTOR_DRAFT_ONLY_PROPOSALS.md`,
 `src/ultimate_ai_agent/core/connectors/connector_draft_proposals.py`,

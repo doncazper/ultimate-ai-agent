@@ -9,23 +9,23 @@ from .repo import load_json
 
 ROUTE_FIXTURE_PATH = "tests/fixtures/api_route_inventory_133.json"
 ROUTE_FIXTURE_SCHEMA_VERSION = "uaa-api-route-inventory.v4"
-EXPECTED_ROUTE_COUNT = 259
-EXPECTED_OPENAPI_PATH_COUNT = 258
+EXPECTED_ROUTE_COUNT = 264
+EXPECTED_OPENAPI_PATH_COUNT = 263
 EXPECTED_AUTH_POSTURE_SUMMARY = {
     "public_metadata_no_auth": 3,
-    "protected_local_bearer_required": 256,
+    "protected_local_bearer_required": 261,
 }
 EXPECTED_APPROVAL_POSTURE_SUMMARY = {
-    "not_required_for_route_classification": 205,
-    "required_before_mutation_authority": 54,
+    "not_required_for_route_classification": 206,
+    "required_before_mutation_authority": 58,
 }
 EXPECTED_IDEMPOTENCY_POSTURE_SUMMARY = {
-    "not_required_for_route_classification": 205,
-    "required_before_mutation_authority": 54,
+    "not_required_for_route_classification": 206,
+    "required_before_mutation_authority": 58,
 }
 EXPECTED_RATE_LIMIT_POSTURE_SUMMARY = {
-    "not_targeted_for_route": 185,
-    "targeted_local_fixed_window": 74,
+    "not_targeted_for_route": 186,
+    "targeted_local_fixed_window": 78,
 }
 EXPECTED_MUTATING_ROUTE_COUNT = EXPECTED_APPROVAL_POSTURE_SUMMARY[
     "required_before_mutation_authority"
@@ -33,7 +33,7 @@ EXPECTED_MUTATING_ROUTE_COUNT = EXPECTED_APPROVAL_POSTURE_SUMMARY[
 EXPECTED_TARGETED_RATE_LIMIT_ROUTE_COUNT = EXPECTED_RATE_LIMIT_POSTURE_SUMMARY[
     "targeted_local_fixed_window"
 ]
-EXPECTED_CONTROL_CENTER_ROUTE_COUNT = 93
+EXPECTED_CONTROL_CENTER_ROUTE_COUNT = 98
 EXPECTED_MUTATING_ROUTES = {
     ("POST", "/api/runtime/authority-missions/approval-decisions"),
     ("POST", "/api/runtime/authority-missions/cancel"),
@@ -61,6 +61,10 @@ EXPECTED_MUTATING_ROUTES = {
     ("POST", "/control-center/providers/exact-approved-lanes/tiny"),
     ("POST", "/control-center/providers/router/dry-run"),
     ("POST", "/control-center/today/action-envelope"),
+    ("POST", "/control-center/today/exact-action/approve"),
+    ("POST", "/control-center/today/exact-action/execute"),
+    ("POST", "/control-center/today/exact-action/source-review"),
+    ("POST", "/control-center/today/exact-action/prepare"),
     ("POST", "/control-center/work-board/cards"),
     ("POST", "/control-center/work-board/reorder"),
     ("POST", "/control-center/work-board/tasks"),
@@ -103,6 +107,7 @@ EXPECTED_RATE_LIMIT_GROUPS = {
     "provider_exact_approved_lane",
     "provider_router_dry_run",
     "governed_runtime_pilot",
+    "founder_loop_exact_action",
     "extension_install_disabled_record",
     "task_decomposition",
     "today_to_action_envelope",

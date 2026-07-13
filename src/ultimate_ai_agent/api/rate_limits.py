@@ -19,6 +19,7 @@ TARGETED_RATE_LIMIT_GROUP_DEFAULTS: dict[str, dict[str, int]] = {
     "task_decomposition": {"max_requests": 120, "window_seconds": 60},
     "action_preview_proposal": {"max_requests": 120, "window_seconds": 60},
     "today_to_action_envelope": {"max_requests": 60, "window_seconds": 60},
+    "founder_loop_exact_action": {"max_requests": 12, "window_seconds": 60},
     "chat_durable_receipt": {"max_requests": 60, "window_seconds": 60},
     "memory_review_decision": {"max_requests": 60, "window_seconds": 60},
     "memory_context_pack_action_proposal": {"max_requests": 60, "window_seconds": 60},
@@ -95,6 +96,12 @@ MEMORY_FEEDBACK_PATHS = {
 }
 TODAY_TO_ACTION_ENVELOPE_PATHS = {
     "/control-center/today/action-envelope",
+}
+FOUNDER_LOOP_EXACT_ACTION_PATHS = {
+    "/control-center/today/exact-action/source-review",
+    "/control-center/today/exact-action/prepare",
+    "/control-center/today/exact-action/approve",
+    "/control-center/today/exact-action/execute",
 }
 MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_PATHS = {
     "/control-center/memory/context-packs/{context_pack_ref}/action-proposal",
@@ -192,6 +199,8 @@ def route_rate_limit_group(method: str, path: str) -> str | None:
         return "action_preview_proposal"
     if normalized_method == "POST" and path in TODAY_TO_ACTION_ENVELOPE_PATHS:
         return "today_to_action_envelope"
+    if normalized_method == "POST" and path in FOUNDER_LOOP_EXACT_ACTION_PATHS:
+        return "founder_loop_exact_action"
     if normalized_method == "POST" and (
         path in CHAT_DURABLE_RECEIPT_PATHS
         or (

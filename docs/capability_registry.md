@@ -318,13 +318,22 @@ and approval-required request authority. Current root, resource, health, and
 safe-disable truth is evaluated only for the exact request; implementation
 availability never means globally callable or authorized.
 
-Preparation inputs are durably recoverable as bounded safe refs and hashes,
-but no public mutating API, mutating CLI, or Control Center execution control is
-exposed in this phase. The existing read-only API, CLI, and macOS panel inspect
-completion-chain and portable-evidence verification truth only. Operator
-initiation remains a Python-core integration
-surface until the later parity phase binds one protected contract without
-allowing the shell to mint approval or lease authority.
+Preparation inputs are durably recoverable as bounded safe refs and hashes.
+The protected Founder Loop exact-action API and repo-local CLI expose this one
+predeclared metadata target as status → receipt-backed source-ref review →
+source-bound prepare → exact approval → dispatcher execution → receipt → Today
+refresh. Inspect, prepare, and approval recording each require the same current
+exact mission lease; every adapter start still performs fresh request-scoped
+authority, approval, budget, readiness, and kill-switch evaluation. Terminal
+status is derived from the hash-chain-valid completion and exact terminal
+dispatch ledgers, not from the mutable Today projection. The workflow preserves
+the source-review receipt but does not create a business-memory candidate
+from a metadata stat. No generic
+filesystem target, path, content read, shell, provider, connector, automatic
+memory write, or production authority was added. The macOS UI control remains
+pending the separate control-registry wiring pass; it must not appear enabled
+until it invokes these backend contracts, and the shell cannot mint approval or
+lease authority.
 
 Pre-Phase02 unfinished durable plans that bind more than one mission lease fail
 closed at the new whole-plan single-lease preflight. They are not silently

@@ -280,6 +280,13 @@ North-star visuals are allowed only as design direction. They must be labeled
 as north-star visual targets and must not be described as shipped
 implementation evidence unless matching route/API/UI behavior is verified.
 
+The first-class CRM and coherent app ecosystem plans may be described as the
+full product target only when they are also labeled planning-only. Calendar,
+Tasks, reusable Boards, CRM presets, Inbox integration, personal Organizer,
+cross-app ChangeSets, connector sync, AI assistance, automation,
+collaboration, standalone launch modes, and packaging must not be described as
+implemented merely because their contracts, plans, prompts, or renders exist.
+
 CLI is a first-class operator surface. Product behavior must not live only in
 React state; UI-only state is limited to presentation concerns such as filters,
 expanded panels, selected tabs, and layout preferences. If the UI can trigger or

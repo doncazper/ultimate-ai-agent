@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import os
+import shutil
 import signal
 import stat
 import subprocess
@@ -251,12 +252,28 @@ def scenario_registry_fingerprint() -> str:
     return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
 
 
+def _trusted_executable(name: str) -> str:
+    candidate = sys.executable if name == sys.executable else shutil.which(name)
+    if not candidate:
+        raise OSError("scenario executable unavailable")
+    resolved = Path(candidate).resolve(strict=True)
+    if not resolved.is_file():
+        raise OSError("scenario executable is not a regular file")
+    return str(resolved)
+
+
 def _run_command(command: list[str], *, basetemp: Path | None = None) -> int:
     env = os.environ.copy()
     env["PYTHONHASHSEED"] = "0"
-    env["PYTHONPATH"] = "src"
+    env["PYTHONPATH"] = os.pathsep.join(
+        part for part in ("src", env.get("PYTHONPATH")) if part
+    )
     if basetemp is not None:
         command = [*command, "--basetemp", str(basetemp)]
+    try:
+        command = [_trusted_executable(command[0]), *command[1:]]
+    except OSError:
+        return 127
     process = subprocess.Popen(
         command,
         cwd=ROOT,
@@ -407,17 +424,25 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Replace the canonical result only after every accepted scenario passes.",
     )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the bounded content-free scenario result as JSON.",
+    )
     args = parser.parse_args(argv)
     payload = run_scenarios()
     passed = payload["status"] == "passed_with_truthful_blocked_sandbox"
     if passed and args.update_canonical:
         _write_result(DEFAULT_OUTPUT, payload)
-    print(
-        "UAA Phase 09 benchmark scenarios completed: "
-        f"{payload['scenario_count']} scenarios; "
-        f"status={payload['status']}; raw outputs omitted; "
-        f"canonical_updated={passed and args.update_canonical}"
-    )
+    if args.json:
+        print(json.dumps(payload, sort_keys=True))
+    else:
+        print(
+            "UAA Phase 09 benchmark scenarios completed: "
+            f"{payload['scenario_count']} scenarios; "
+            f"status={payload['status']}; raw outputs omitted; "
+            f"canonical_updated={passed and args.update_canonical}"
+        )
     return 0 if passed else 1
 
 

@@ -76,7 +76,7 @@ import type {
 type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
 
 export const MOCK_OPENAPI_ROUTE_COUNT = 245;
-export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 93;
+export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 98;
 
 function runtimeToolRegistryEntry(
   slug: string,
