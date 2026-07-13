@@ -7,6 +7,7 @@ Subordinate to:
 `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md` and
 `docs/architecture/TARGET_PRODUCT_ARCHITECTURE.md`
 Related product plans:
+`docs/implementation/UAA_FIRST_CLASS_BOARDS_IMPLEMENTATION_PLAN.md`,
 `docs/implementation/UAA_FIRST_CLASS_CRM_IMPLEMENTATION_PLAN.md` and
 `docs/strategy/DELEGATED_LIFE_OS_NORTH_STAR.md`
 
@@ -213,6 +214,14 @@ The current local-task lane becomes a migration input and governed mutation
 foundation, not the final Tasks data model.
 
 ### UAA Boards
+
+Boards follows
+`docs/implementation/UAA_FIRST_CLASS_BOARDS_IMPLEMENTATION_PLAN.md`. That
+subordinate plan defines local Trello/kan.bn capability parity, the clean-room
+reference boundary, rich-card and deep-link behavior, exact mutation and drag
+semantics, Work Board compatibility migration, offline import/export, phased
+PR sequence, and first-class acceptance gate without granting runtime
+authority.
 
 Boards must be a beautiful general-purpose Kanban and visual-work product:
 
@@ -768,12 +777,18 @@ criteria.
 
 ### `ECO-003` Reusable Boards V1
 
+- Execute the accepted
+  `docs/implementation/UAA_FIRST_CLASS_BOARDS_IMPLEMENTATION_PLAN.md` through
+  its separately gated product-contract, repository, CRUD, UI, portability,
+  projection, advanced-organization, and hardening milestones.
 - Refactor the current Work Board into reusable board contracts, multiple
   boards, projections, ordering, templates, card configuration, filters,
   keyboard/touch interactions, conflict/undo, and task projection.
 
-Gate: general standalone boards and canonical Task boards work without copied
-task truth.
+Gate: Core V1 local parity is evidenced, general standalone boards and
+canonical Task boards work without copied task truth, the current Work Board
+migrates through an accepted compatibility path, and cloud/collaboration
+capabilities remain explicitly excluded or separately gated.
 
 ### `ECO-004` Standalone Calendar V1
 
