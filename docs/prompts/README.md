@@ -210,6 +210,18 @@ authority, or broad autonomy. Use
 or `scripts/dev/run_uaa_runtime_capability_foundation_prompt_pack.sh` for the
 end-to-end wrapper.
 
+## Messenger Matrix prompts
+
+Stored execution prompts for the macOS-first Messenger Matrix sequence live in
+`docs/prompts/messenger_matrix/`. They progress from planning truth and a static
+desktop shell through separately accepted exact local harness, session, read,
+crypto, manual messaging, room/media, and governed-intelligence lanes. The
+bundle itself is planning-only and grants no runtime authority. Prompts 04–10 use
+an exact authority-acceptance stage before runtime implementation on the same
+branch and PR; every invocation still requires fresh request-scoped evaluation.
+Use `scripts/verify_messenger_matrix_prompt_pack.py` to validate bundle order,
+integrity, desktop-only scope, and release gates.
+
 ## UAA Runtime parity prompts
 
 Stored execution prompts for the focused UAA runtime parity push
