@@ -230,9 +230,13 @@ def _read_lane_receipt(
     return receipt_ref
 
 
-PRIVATE_LANE_REFS = (
-    "ci-affected-preflight",
-    *(job.lane_ref for job in CI_JOB_GRAPH if job.lane_ref is not None),
+PRIVATE_LANE_REFS = tuple(
+    dict.fromkeys(
+        (
+            "ci-affected-preflight",
+            *(job.lane_ref for job in CI_JOB_GRAPH if job.lane_ref is not None),
+        )
+    )
 )
 ALLOWED_ORIGIN_URLS = frozenset(
     {
@@ -583,7 +587,7 @@ class IsolatedPrivateExecutor:
                 docker_available = "available"
         playwright_ready = False
         for job in CI_JOB_GRAPH:
-            if job.lane_ref is None:
+            if job.lane_ref is None or job.lane_ref == "ci-affected-preflight":
                 continue
             needs_frontend = job.lane_ref in {
                 "ci-control-center-frontend",

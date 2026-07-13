@@ -81,9 +81,11 @@ provider, connector, production, or AuthorityLease capability.
 - The complete pytest lane reads only the bounded, content-free shard rows from
   its transient performance report. GitHub's safe step summary retains failed
   shard refs and the fixed `make ci-reproduce-shard CI_SHARD_INDEX=<index>`
-  command shape after raw shard output is deleted. Malformed, oversized,
-  writable, or symlink-substituted reports are rejected and never become test
-  evidence.
+  command shape without uploading or retaining raw shard output as durable
+  evidence. Transient shard logs remain only under the job-private runner temp
+  directory until runner cleanup. Malformed, oversized, group/other-writable,
+  stale, assignment-mismatched, or symlink-substituted reports are rejected and
+  never become test evidence.
 - Checkout remains on the repository-allowlisted `actions/checkout@v4` action;
   changing the repository Actions allow-policy is outside this provisioner's
   authority. Checkout tokens remain non-persistent.

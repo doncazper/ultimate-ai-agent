@@ -169,7 +169,11 @@ def test_private_frontend_dependencies_are_installed_before_affected_preflight(
     monkeypatch.setattr(
         execution.IsolatedPrivateExecutor, "_run_lane", staticmethod(fake_lane)
     )
-    monkeypatch.setattr(execution, "CI_JOB_GRAPH", ())
+    monkeypatch.setattr(
+        execution,
+        "CI_JOB_GRAPH",
+        (SimpleNamespace(lane_ref="ci-affected-preflight"),),
+    )
     monkeypatch.setattr(execution.shutil, "which", lambda *_args, **_kwargs: None)
     plan = SimpleNamespace(
         definition_fingerprint="a" * 64,
@@ -189,6 +193,32 @@ def test_private_frontend_dependencies_are_installed_before_affected_preflight(
 
     assert status == "pass"
     assert events[:2] == ["npm ci", "lane:ci-affected-preflight"]
+    assert events.count("lane:ci-affected-preflight") == 1
+
+
+def test_private_lane_refs_include_affected_preflight_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assert execution.PRIVATE_LANE_REFS.count("ci-affected-preflight") == 1
+    observed: dict[str, object] = {}
+
+    def fake_build_plan(
+        repo: Path,
+        repository_sha: str,
+        *,
+        lane_refs: tuple[str, ...],
+    ) -> object:
+        observed.update(
+            repo=repo,
+            repository_sha=repository_sha,
+            lane_refs=lane_refs,
+        )
+        return object()
+
+    monkeypatch.setattr(execution, "build_plan", fake_build_plan)
+    plan = execution.private_verification_plan(ROOT, SHA)
+    assert plan is not None
+    assert observed["lane_refs"] == execution.PRIVATE_LANE_REFS
 
 
 def test_private_and_lane_environments_share_playwright_browser_directory(

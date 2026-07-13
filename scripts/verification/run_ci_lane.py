@@ -41,6 +41,14 @@ from scripts.verification.pytest_shard_processes import (  # noqa: E402
     installed_signal_handlers,
     stop_processes,
 )
+from scripts.verification.run_pytest_shards import (  # noqa: E402
+    assign_shards,
+    discover_affinity_groups,
+    discover_test_files,
+    load_timing_profiles,
+    shard_plan_fingerprint,
+    validate_shard_plans,
+)
 
 
 TERMINATION_GRACE_SECONDS = 10.0
@@ -131,7 +139,33 @@ def _result_ref(
     return f"result-ref:ci:{hashlib.sha256(payload.encode()).hexdigest()}"
 
 
-def _pytest_shard_evidence(temp_root: Path) -> dict[str, Any]:
+def _expected_pytest_shard_plan_ref() -> str:
+    files = discover_test_files(ROOT)
+    timings, _source = load_timing_profiles(
+        [ROOT / "scripts/verification/pytest_file_timing_seed.json"],
+        files,
+    )
+    affinity_groups = discover_affinity_groups(files, ROOT)
+    plans, _method = assign_shards(files, 8, timings, affinity_groups)
+    validate_shard_plans(files, plans, 8, affinity_groups)
+    return shard_plan_fingerprint(plans)
+
+
+def _assert_pytest_report_absent(temp_root: Path) -> None:
+    path = temp_root / PYTEST_PERFORMANCE_REPORT_NAME
+    try:
+        path.lstat()
+    except FileNotFoundError:
+        return
+    raise ValueError("pytest performance report must not predate the current attempt")
+
+
+def _pytest_shard_evidence(
+    temp_root: Path,
+    *,
+    expected_plan_ref: str,
+    command_status: str,
+) -> dict[str, Any]:
     path = temp_root / PYTEST_PERFORMANCE_REPORT_NAME
     try:
         path_info = path.lstat()
@@ -194,11 +228,14 @@ def _pytest_shard_evidence(temp_root: Path) -> dict[str, Any]:
             ),
         }
     plan_ref = payload.get("plan_fingerprint_ref")
+    run_status = payload.get("run_status")
     rows = payload.get("shards")
     if (
         payload.get("schema_version") != PYTEST_PERFORMANCE_SCHEMA_VERSION
         or not isinstance(plan_ref, str)
         or PYTEST_PLAN_REF_RE.fullmatch(plan_ref) is None
+        or plan_ref != expected_plan_ref
+        or run_status not in {"green", "failed", "timeout"}
         or not isinstance(rows, list)
         or len(rows) != 8
     ):
@@ -236,6 +273,22 @@ def _pytest_shard_evidence(temp_root: Path) -> dict[str, Any]:
         for index, return_code, timed_out in sorted(normalized)
         if timed_out or return_code != 0
     )
+    derived_run_status = (
+        "timeout"
+        if any(timed_out for _, _, timed_out in normalized)
+        else "failed"
+        if failed_refs
+        else "green"
+    )
+    if run_status != derived_run_status or (command_status == "pass") != (
+        derived_run_status == "green"
+    ):
+        return {
+            "pytest_shard_evidence_status": "rejected",
+            "pytest_shard_evidence_reason_ref": (
+                "reason-ref:ci:pytest-performance-report-inconsistent"
+            ),
+        }
     return {
         "pytest_shard_evidence_status": "available",
         "pytest_shard_plan_fingerprint_ref": plan_ref,
@@ -451,6 +504,10 @@ def run_lane(
         else nullcontext()
     )
     with lock as full_suite_lock:
+        expected_pytest_plan_ref: str | None = None
+        if lane_ref == "ci-pytest-shards":
+            _assert_pytest_report_absent(temp_root)
+            expected_pytest_plan_ref = _expected_pytest_shard_plan_ref()
         for command_ref in lane.command_refs:
             if command_ref in lane.satisfied_command_refs:
                 results.append(
@@ -498,7 +555,14 @@ def run_lane(
                 ),
             )
             if lane_ref == "ci-pytest-shards":
-                result.update(_pytest_shard_evidence(temp_root))
+                assert expected_pytest_plan_ref is not None
+                result.update(
+                    _pytest_shard_evidence(
+                        temp_root,
+                        expected_plan_ref=expected_pytest_plan_ref,
+                        command_status=str(result["status"]),
+                    )
+                )
             results.append(result)
             if result["status"] != "pass":
                 break
