@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from typing import Any
 
 
@@ -33,7 +35,10 @@ MUTATING_ROUTES = frozenset(
         ("POST", "/control-center/chat/turns"),
         ("POST", "/control-center/chat/turns/{turn_ref}/handoff"),
         ("POST", "/control-center/crm/local-mutations"),
-        ("POST", "/control-center/memory/context-packs/{context_pack_ref}/action-proposal"),
+        (
+            "POST",
+            "/control-center/memory/context-packs/{context_pack_ref}/action-proposal",
+        ),
         ("POST", "/control-center/memory/feedback"),
         ("POST", "/control-center/memory/review/manual-candidate"),
         ("POST", "/control-center/memory/review/{candidate_ref}/accept"),
@@ -89,6 +94,9 @@ TARGETED_RATE_LIMIT_GROUPS = frozenset(
     }
 )
 TARGETED_RATE_LIMIT_ROUTE_COUNT = 74
+TARGETED_RATE_LIMIT_ROUTE_FINGERPRINT = (
+    "01688489d2bb366b72ce94ce4a9b1bf0f1286899c06677cc4bbd33f5fbcb50bf"
+)
 
 
 def validate_route_policy_floor(routes: list[dict[str, Any]]) -> None:
@@ -120,13 +128,34 @@ def validate_route_policy_floor(routes: list[dict[str, Any]]) -> None:
         if (
             route["approval_posture"] != "required_before_mutation_authority"
             or route["idempotency_required"] is not True
-            or route["idempotency_posture"]
-            != "required_before_mutation_authority"
+            or route["idempotency_posture"] != "required_before_mutation_authority"
         ):
             raise ValueError("API_CONTRACT_MUTATION_GUARD_POLICY_DRIFT")
+    for key, route in index.items():
+        if key in MUTATING_ROUTES:
+            continue
+        if (
+            route["approval_posture"] != "not_required_for_route_classification"
+            or route["idempotency_required"] is not False
+            or route["idempotency_posture"] != "not_required_for_route_classification"
+        ):
+            raise ValueError("API_CONTRACT_NONMUTATING_GUARD_POLICY_DRIFT")
     targeted = [route for route in routes if route["rate_limit_targeted"] is True]
     targeted_groups = frozenset(route["rate_limit_group"] for route in targeted)
     if len(targeted) != TARGETED_RATE_LIMIT_ROUTE_COUNT:
         raise ValueError("API_CONTRACT_RATE_LIMIT_COUNT_POLICY_DRIFT")
     if targeted_groups != TARGETED_RATE_LIMIT_GROUPS:
         raise ValueError("API_CONTRACT_RATE_LIMIT_GROUP_POLICY_DRIFT")
+    targeted_route_payload = sorted(
+        [route["method"], route["path"]] for route in targeted
+    )
+    targeted_route_fingerprint = hashlib.sha256(
+        json.dumps(
+            targeted_route_payload,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+        ).encode("utf-8")
+    ).hexdigest()
+    if targeted_route_fingerprint != TARGETED_RATE_LIMIT_ROUTE_FINGERPRINT:
+        raise ValueError("API_CONTRACT_RATE_LIMIT_ROUTE_POLICY_DRIFT")

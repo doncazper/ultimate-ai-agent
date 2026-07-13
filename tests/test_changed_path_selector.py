@@ -12,9 +12,7 @@ def test_selection_is_deterministic_and_deduplicated() -> None:
     first = selector.select_paths(
         ["README.md", "tests/test_api_manifest.py", "README.md"]
     )
-    second = selector.select_paths(
-        ["tests/test_api_manifest.py", "README.md"]
-    )
+    second = selector.select_paths(["tests/test_api_manifest.py", "README.md"])
 
     assert first == second
     assert first.changed_paths == ("README.md", "tests/test_api_manifest.py")
@@ -52,9 +50,7 @@ def test_unknown_path_fails_closed_to_full_local_gate() -> None:
     assert selection.selected_command_refs == (selector.FULL_COMMAND_REF,)
     assert selection.unknown_paths == ("unclassified/new_surface.xyz",)
     assert selection.status == "full_gate_required"
-    assert selection.fallback_reason_refs == (
-        "reason-ref:verification:unknown-path",
-    )
+    assert selection.fallback_reason_refs == ("reason-ref:verification:unknown-path",)
 
 
 def test_critical_topology_change_fails_closed_to_full_local_gate() -> None:
@@ -65,6 +61,31 @@ def test_critical_topology_change_fails_closed_to_full_local_gate() -> None:
     assert selection.fallback_reason_refs == (
         "reason-ref:verification:critical-topology-change",
     )
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["apps/control-center/package.json", "apps/control-center/package-lock.json"],
+)
+def test_frontend_dependency_manifest_fails_closed_to_full_gate(path: str) -> None:
+    selection = selector.select_paths([path], tier="fast")
+
+    assert selection.selected_command_refs == (selector.FULL_COMMAND_REF,)
+    assert selection.status == "full_gate_required"
+    assert selection.fallback_reason_refs == (
+        "reason-ref:verification:critical-topology-change",
+    )
+
+
+@pytest.mark.parametrize("tier", ["fast", "affected"])
+def test_verifier_measurement_artifact_selects_value_audit(tier: str) -> None:
+    selection = selector.select_paths(
+        ["docs/verification/verifier_value_measurements.json"],
+        tier=tier,
+    )
+
+    assert selection.selected_command_refs == ("command-ref:verifier-value-audit",)
+    assert selection.matched_rule_refs == ("rule-ref:verifier-value-measurement",)
 
 
 @pytest.mark.parametrize(
@@ -113,7 +134,10 @@ def test_every_selected_rule_reference_exists() -> None:
         assert selection.status in {"selected", "full_gate_required"}
         assert selection.selected_command_refs
         for command_ref in selection.selected_command_refs:
-            assert command_ref == "command-ref:ruff-changed" or command_ref in selector.COMMANDS
+            assert (
+                command_ref == "command-ref:ruff-changed"
+                or command_ref in selector.COMMANDS
+            )
         for test_ref in selection.selected_test_refs:
             assert (selector.ROOT / test_ref).is_file()
 
@@ -175,9 +199,7 @@ def test_rename_or_delete_forces_full_gate(
     payload = json.loads(capsys.readouterr().out)
 
     assert payload["status"] == "full_gate_required"
-    assert payload["fallback_reason_refs"] == [
-        "reason-ref:verification:rename-delete"
-    ]
+    assert payload["fallback_reason_refs"] == ["reason-ref:verification:rename-delete"]
 
 
 def test_json_execute_combination_is_rejected() -> None:

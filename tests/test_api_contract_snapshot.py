@@ -14,6 +14,7 @@ def _sources_from_snapshot() -> tuple[dict[str, object], dict[str, object]]:
         key: stored[key]
         for key in (
             "route_classification_vocabulary",
+            "route_classification_summary",
             "route_auth_posture_summary",
             "route_approval_posture_summary",
             "route_idempotency_posture_summary",
@@ -65,6 +66,27 @@ def test_snapshot_builder_rejects_duplicate_route_or_operation_id() -> None:
         snapshot.build_snapshot_from_sources(duplicate_operation, openapi)
 
 
+def test_snapshot_builder_rejects_openapi_route_identity_drift() -> None:
+    manifest, openapi = _sources_from_snapshot()
+    health = openapi["paths"].pop("/health")
+    openapi["paths"]["/health-renamed"] = health
+
+    with pytest.raises(ValueError, match="OPENAPI_ROUTE_IDENTITY_DRIFT"):
+        snapshot.build_snapshot_from_sources(manifest, openapi)
+
+
+def test_snapshot_builder_rejects_stale_manifest_summary_with_same_total() -> None:
+    manifest, openapi = _sources_from_snapshot()
+    summary = dict(manifest["route_rate_limit_posture_summary"])
+    keys = sorted(summary)
+    summary[keys[0]] += 1
+    summary[keys[1]] -= 1
+    manifest["route_rate_limit_posture_summary"] = summary
+
+    with pytest.raises(ValueError, match="MANIFEST_SUMMARY_DRIFT"):
+        snapshot.build_snapshot_from_sources(manifest, openapi)
+
+
 @pytest.mark.parametrize(
     ("route_key", "field", "value", "error"),
     [
@@ -86,6 +108,24 @@ def test_snapshot_builder_rejects_duplicate_route_or_operation_id() -> None:
             False,
             "RATE_LIMIT_COUNT_POLICY_DRIFT",
         ),
+        (
+            ("GET", "/health"),
+            "approval_posture",
+            "required_before_mutation_authority",
+            "NONMUTATING_GUARD_POLICY_DRIFT",
+        ),
+        (
+            ("GET", "/health"),
+            "idempotency_required",
+            True,
+            "NONMUTATING_GUARD_POLICY_DRIFT",
+        ),
+        (
+            ("GET", "/health"),
+            "idempotency_posture",
+            "required_before_mutation_authority",
+            "NONMUTATING_GUARD_POLICY_DRIFT",
+        ),
     ],
 )
 def test_snapshot_refresh_cannot_redefine_security_policy_floor(
@@ -97,9 +137,7 @@ def test_snapshot_refresh_cannot_redefine_security_policy_floor(
     manifest, openapi = _sources_from_snapshot()
     routes = [dict(route) for route in manifest["routes"]]
     route = next(
-        route
-        for route in routes
-        if (route["method"], route["path"]) == route_key
+        route for route in routes if (route["method"], route["path"]) == route_key
     )
     route[field] = value
     manifest["routes"] = routes
@@ -108,10 +146,35 @@ def test_snapshot_refresh_cannot_redefine_security_policy_floor(
         snapshot.build_snapshot_from_sources(manifest, openapi)
 
 
+def test_snapshot_policy_floor_pins_exact_targeted_rate_limit_routes() -> None:
+    manifest, openapi = _sources_from_snapshot()
+    routes = [dict(route) for route in manifest["routes"]]
+    removed = next(route for route in routes if route["rate_limit_targeted"] is True)
+    replacement = next(
+        route for route in routes if route["rate_limit_targeted"] is False
+    )
+    rate_fields = (
+        "rate_limit_targeted",
+        "rate_limit_posture",
+        "rate_limit_policy_ref",
+        "rate_limit_group",
+    )
+    removed_values = {field: removed[field] for field in rate_fields}
+    replacement_values = {field: replacement[field] for field in rate_fields}
+    removed.update(replacement_values)
+    replacement.update(removed_values)
+    manifest["routes"] = routes
+    manifest["route_rate_limit_posture_summary"] = dict(
+        snapshot._route_summary(routes, "rate_limit_posture")
+    )
+
+    with pytest.raises(ValueError, match="RATE_LIMIT_ROUTE_POLICY_DRIFT"):
+        snapshot.build_snapshot_from_sources(manifest, openapi)
+
+
 def _doc(text: str = "old") -> str:
     return (
-        f"before\n{snapshot.DOC_COUNT_START}\n{text}\n"
-        f"{snapshot.DOC_COUNT_END}\nafter\n"
+        f"before\n{snapshot.DOC_COUNT_START}\n{text}\n{snapshot.DOC_COUNT_END}\nafter\n"
     )
 
 

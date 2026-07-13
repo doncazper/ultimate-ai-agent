@@ -43,6 +43,20 @@ class VerifierValue:
 
 VALUES = (
     VerifierValue(
+        "verifier-ref:ruff-changed",
+        ("selector:command-ref:ruff-changed",),
+        "defect-ref:changed-python-lint-drift",
+        "overlap-ref:full-ruff-partial",
+        "retain-fast-loop",
+    ),
+    VerifierValue(
+        "verifier-ref:verification-value-audit",
+        ("selector:command-ref:verifier-value-audit",),
+        "defect-ref:verifier-measurement-and-coverage-drift",
+        "overlap-ref:verifier-maintainability-partial",
+        "retain",
+    ),
+    VerifierValue(
         "verifier-ref:api-contract",
         (
             "selector:command-ref:api-contract-snapshot",
@@ -175,6 +189,7 @@ def load_measurements(path: Path = MEASUREMENT_PATH) -> dict[str, object]:
 
 def required_coverage_refs() -> set[str]:
     selector_refs = {f"selector:{command_ref}" for command_ref in COMMANDS}
+    selector_refs.add("selector:command-ref:ruff-changed")
     release_refs = {f"release-lane:{lane.lane_id}" for lane in release_lanes()}
     return selector_refs | release_refs
 
@@ -201,7 +216,12 @@ def validate(
     }
     for value in values:
         if not value.coverage_refs or not all(
-            (value.verifier_ref, value.unique_defect_ref, value.overlap_ref, value.disposition)
+            (
+                value.verifier_ref,
+                value.unique_defect_ref,
+                value.overlap_ref,
+                value.disposition,
+            )
         ):
             raise ValueError("VERIFIER_VALUE_FIELD_MISSING")
         if value.measurement_ref and value.measurement_ref not in measurement_refs:

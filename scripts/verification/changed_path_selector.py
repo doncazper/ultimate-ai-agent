@@ -15,6 +15,8 @@ SCHEMA_VERSION = "uaa-changed-verification-selection.v1"
 FULL_COMMAND_REF = "command-ref:verification:full-local-gate"
 CRITICAL_PATHS = {
     "Makefile",
+    "apps/control-center/package-lock.json",
+    "apps/control-center/package.json",
     "pyproject.toml",
     "package-lock.json",
     "scripts/verify_all.py",
@@ -73,6 +75,12 @@ def _rule_for_path(
 ) -> tuple[str, tuple[str, ...], tuple[str, ...]] | None:
     if path in CRITICAL_PATHS or path.startswith(CRITICAL_PREFIXES):
         return ("rule-ref:verification-topology-full", (FULL_COMMAND_REF,), ())
+    if path == "docs/verification/verifier_value_measurements.json":
+        return (
+            "rule-ref:verifier-value-measurement",
+            ("command-ref:verifier-value-audit",),
+            (),
+        )
     if path.startswith(
         (
             "src/ultimate_ai_agent/core/authority/",
@@ -137,7 +145,10 @@ def _rule_for_path(
         return (
             "rule-ref:providers",
             ("command-ref:ruff-changed",),
-            ("tests/test_provider_manifests.py", "tests/test_provider_result_envelope.py"),
+            (
+                "tests/test_provider_manifests.py",
+                "tests/test_provider_result_envelope.py",
+            ),
         )
     if "extension_catalog" in path or path.startswith("docs/extensions/"):
         return (
@@ -311,7 +322,10 @@ COMMANDS: dict[str, tuple[str, ...]] = {
         sys.executable,
         "scripts/verify_control_center_frontend.py",
     ),
-    "command-ref:web-hybrid": (sys.executable, "scripts/verify_web_hybrid_contracts.py"),
+    "command-ref:web-hybrid": (
+        sys.executable,
+        "scripts/verify_web_hybrid_contracts.py",
+    ),
     "command-ref:authority-focused": (
         sys.executable,
         "-m",
@@ -324,6 +338,10 @@ COMMANDS: dict[str, tuple[str, ...]] = {
         sys.executable,
         "scripts/verify_local_runtime_packaging_proof.py",
     ),
+    "command-ref:verifier-value-audit": (
+        sys.executable,
+        "scripts/verification/verifier_value_audit.py",
+    ),
     FULL_COMMAND_REF: ("make", "verify-dev-sharded"),
 }
 
@@ -331,7 +349,9 @@ COMMANDS: dict[str, tuple[str, ...]] = {
 def execute_selection(selection: Selection) -> int:
     env = {**os.environ, "PYTHONPATH": "src", "PYTHONHASHSEED": "0"}
     python_paths = [
-        path for path in selection.changed_paths if path.endswith(".py") and (ROOT / path).is_file()
+        path
+        for path in selection.changed_paths
+        if path.endswith(".py") and (ROOT / path).is_file()
     ]
     if "command-ref:ruff-changed" in selection.selected_command_refs and python_paths:
         result = subprocess.run(

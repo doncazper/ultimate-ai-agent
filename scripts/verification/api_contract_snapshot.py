@@ -70,13 +70,20 @@ def _project_routes(manifest: dict[str, Any]) -> list[dict[str, Any]]:
     return sorted(routes, key=lambda item: (item["path"], item["method"]))
 
 
-def _operation_ids_from_openapi(openapi: dict[str, Any]) -> list[str]:
-    return sorted(
-        operation["operationId"]
-        for methods in openapi.get("paths", {}).values()
+def _operations_from_openapi(
+    openapi: dict[str, Any],
+) -> dict[tuple[str, str], str | None]:
+    return {
+        (method.upper(), path): operation.get("operationId")
+        for path, methods in openapi.get("paths", {}).items()
         for method, operation in methods.items()
-        if method.lower() in {"get", "post", "put", "patch", "delete", "options", "head"}
-    )
+        if method.lower()
+        in {"get", "post", "put", "patch", "delete", "options", "head"}
+    }
+
+
+def _route_summary(routes: list[dict[str, Any]], field: str) -> dict[str, int]:
+    return dict(sorted(Counter(route[field] for route in routes).items()))
 
 
 def build_snapshot() -> dict[str, Any]:
@@ -95,17 +102,31 @@ def build_snapshot_from_sources(
     validate_route_policy_floor(routes)
     route_keys = [(route["method"], route["path"]) for route in routes]
     operation_ids = [route["operation_id"] for route in routes]
-    openapi_operation_ids = _operation_ids_from_openapi(openapi)
+    manifest_operations = {
+        (route["method"], route["path"]): route["operation_id"] for route in routes
+    }
+    openapi_operations = _operations_from_openapi(openapi)
     if len(route_keys) != len(set(route_keys)):
         raise ValueError("API_CONTRACT_DUPLICATE_ROUTE_KEY")
     if not all(operation_ids) or len(operation_ids) != len(set(operation_ids)):
         raise ValueError("API_CONTRACT_OPERATION_ID_INVALID")
-    if sorted(operation_ids) != openapi_operation_ids:
-        raise ValueError("API_CONTRACT_OPENAPI_OPERATION_ID_DRIFT")
+    if manifest_operations != openapi_operations:
+        raise ValueError("API_CONTRACT_OPENAPI_ROUTE_IDENTITY_DRIFT")
 
-    classification_summary = dict(
-        sorted(Counter(route["route_classification"] for route in routes).items())
-    )
+    summary_fields = {
+        "route_classification_summary": "route_classification",
+        "route_auth_posture_summary": "auth_posture",
+        "route_approval_posture_summary": "approval_posture",
+        "route_idempotency_posture_summary": "idempotency_posture",
+        "route_rate_limit_posture_summary": "rate_limit_posture",
+    }
+    summaries = {
+        summary_key: _route_summary(routes, field)
+        for summary_key, field in summary_fields.items()
+    }
+    for summary_key, summary in summaries.items():
+        if manifest.get(summary_key) != summary:
+            raise ValueError(f"API_CONTRACT_MANIFEST_SUMMARY_DRIFT:{summary_key}")
     payload: dict[str, Any] = {
         "schema_version": SNAPSHOT_SCHEMA_VERSION,
         "schema_ref": "schema-ref:api-contract-snapshot:v1",
@@ -124,19 +145,15 @@ def build_snapshot_from_sources(
             bool(route["rate_limit_targeted"]) for route in routes
         ),
         "projection_fields": list(ROUTE_PROJECTION_FIELDS),
-        "route_classification_vocabulary": manifest[
-            "route_classification_vocabulary"
-        ],
-        "route_classification_summary": classification_summary,
-        "route_auth_posture_summary": manifest["route_auth_posture_summary"],
-        "route_approval_posture_summary": manifest[
-            "route_approval_posture_summary"
-        ],
-        "route_idempotency_posture_summary": manifest[
+        "route_classification_vocabulary": manifest["route_classification_vocabulary"],
+        "route_classification_summary": summaries["route_classification_summary"],
+        "route_auth_posture_summary": summaries["route_auth_posture_summary"],
+        "route_approval_posture_summary": summaries["route_approval_posture_summary"],
+        "route_idempotency_posture_summary": summaries[
             "route_idempotency_posture_summary"
         ],
         "idempotency_audit_policy_ref": manifest["idempotency_audit_policy_ref"],
-        "route_rate_limit_posture_summary": manifest[
+        "route_rate_limit_posture_summary": summaries[
             "route_rate_limit_posture_summary"
         ],
         "rate_limit_policy_ref": manifest["rate_limit_policy_ref"],
