@@ -507,3 +507,50 @@ def test_unconfirmed_cleanup_remains_dispatch_recovery_required(
     replay = dispatcher.execute(dispatch_request)
     assert replay.recovery_required is True
     assert replay.receipt.status == "started"
+
+
+def test_unexpected_collection_failure_requires_recovery_without_second_start(
+    tmp_path: Path,
+) -> None:
+    service, request, _state_dir = _service_with_exact_lease(tmp_path)
+    transient = SealedCalculationRequest(
+        request_ref=request.request_ref,
+        input_ref=request.input_ref,
+        expression=request.expression,
+        expression_sha256=request.expression_sha256,
+    )
+    resources = service._action_resource_refs(request)  # noqa: SLF001
+    dispatch_request = service._build_orchestration_request(  # noqa: SLF001
+        request,
+        transient,
+        resources,
+    ).steps[0].request
+    service.input_store.put(transient)
+    dispatcher = service.orchestrator.runner.dispatcher
+    dispatcher.prepare(dispatch_request)
+    backend = service.adapter._backend  # noqa: SLF001
+    original_start = backend.start
+    start_count = 0
+
+    def counted_start(**kwargs):
+        nonlocal start_count
+        start_count += 1
+        return original_start(**kwargs)
+
+    def collection_failed(*_args, **_kwargs):
+        raise OSError("injected collection failure")
+
+    backend.start = counted_start  # type: ignore[method-assign]
+    backend._bounded_collect = collection_failed  # type: ignore[method-assign]  # noqa: SLF001
+
+    result = dispatcher.execute(dispatch_request)
+    replay = dispatcher.execute(dispatch_request)
+
+    assert result.recovery_required is True
+    assert result.receipt.status == "started"
+    assert result.receipt.runtime_start_confirmed is True
+    assert result.receipt.input_committed is True
+    assert replay.recovery_required is True
+    assert replay.receipt.receipt_ref == result.receipt.receipt_ref
+    assert start_count == 1
+    assert backend.list_orphan_refs() == []

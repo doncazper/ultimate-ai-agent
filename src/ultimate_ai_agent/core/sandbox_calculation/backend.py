@@ -264,6 +264,26 @@ class SealedCalculationExecutionHandle:
                 SealedCalculationStatus.killed,
                 "SEALED_CALCULATION_RUNTIME_FENCE_ENGAGED",
             )
+        except Exception:
+            try:
+                self._backend._terminate(
+                    self._process,
+                    self._container_name,
+                    self._execution_ref,
+                )
+            except SealedCalculationCleanupUnconfirmedError:
+                return self._backend._failure_result(
+                    self._execution_ref,
+                    self._request,
+                    SealedCalculationStatus.recovery_required,
+                    "SEALED_CALCULATION_CLEANUP_UNCONFIRMED",
+                )
+            return self._backend._failure_result(
+                self._execution_ref,
+                self._request,
+                SealedCalculationStatus.recovery_required,
+                "SEALED_CALCULATION_COLLECTION_TRUTH_UNKNOWN",
+            )
         try:
             self._backend._remove_owned_container(
                 self._container_name,
