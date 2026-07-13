@@ -154,6 +154,15 @@ durable local CRUD, search, pipelines, import/export, and reporting. It grants
 no connector, send, calendar-write, provider/model, browser, background, public
 release, or production authority.
 
+The proposed first-class Boards refinement is
+`docs/implementation/UAA_FIRST_CLASS_BOARDS_IMPLEMENTATION_PLAN.md`. It is
+subordinate to the coherent app ecosystem plan and defines the local
+Trello/kan.bn capability-parity target, UAA-specific canonical projection and
+mutation model, Work Board migration, offline portability, interaction and
+quality gates, and phased PR sequence. It grants no new route, storage,
+dependency, connector, provider/model, browser, collaboration, public release,
+or production authority.
+
 The full-vision application-suite program is defined in
 `docs/implementation/UAA_COHERENT_APP_ECOSYSTEM_IMPLEMENTATION_PLAN.md`. It
 plans standalone-quality Calendar, Tasks, Boards, CRM, Inbox, Social, Today,
