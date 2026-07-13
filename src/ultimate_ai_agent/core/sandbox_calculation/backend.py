@@ -521,7 +521,7 @@ class DockerSealedCalculationBackend:
             self.config.image_id,
         ]
         container_created = False
-        input_commit_attempted = False
+        input_committed = False
         try:
             created = subprocess.run(
                 create_command,
@@ -589,8 +589,8 @@ class DockerSealedCalculationBackend:
                     "SEALED_CALCULATION_START_FENCE_DENIED"
                 )
             input_payload = self._validated_input_payload(request)
-            input_commit_attempted = True
             self._commit_input(process, input_payload)
+            input_committed = True
             accepted = self._read_json_frame(
                 process,
                 request.limits.startup_time_seconds,
@@ -613,7 +613,9 @@ class DockerSealedCalculationBackend:
                 ambiguous_container = self._inspect_container_or_none(container_name)
                 if ambiguous_container is not None:
                     self._remove_owned_container(container_name, execution_ref)
-            if input_commit_attempted:
+            if isinstance(original_error, SealedCalculationExecutionTruthUnknownError):
+                raise
+            if input_committed:
                 raise SealedCalculationExecutionTruthUnknownError(
                     "SEALED_CALCULATION_EXECUTION_TRUTH_UNKNOWN"
                 ) from original_error
@@ -913,9 +915,16 @@ class DockerSealedCalculationBackend:
             raise SealedCalculationBackendError(
                 "SEALED_CALCULATION_STDIN_PIPE_REQUIRED"
             )
-        process.stdin.write(payload)
-        process.stdin.flush()
-        process.stdin.close()
+        try:
+            written = process.stdin.write(payload)
+            if written != len(payload):
+                raise OSError("SEALED_CALCULATION_STDIN_SHORT_WRITE")
+            process.stdin.flush()
+            process.stdin.close()
+        except Exception as exc:
+            raise SealedCalculationExecutionTruthUnknownError(
+                "SEALED_CALCULATION_EXECUTION_TRUTH_UNKNOWN"
+            ) from exc
         process.stdin = None
 
     def _validate_container_config(

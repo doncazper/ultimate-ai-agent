@@ -14,6 +14,7 @@ from ultimate_ai_agent.core.sandbox_calculation.backend import (
     SealedCalculationBackendError,
     SealedCalculationCleanupUnconfirmedError,
     SealedCalculationExecutionHandle,
+    SealedCalculationExecutionTruthUnknownError,
     discover_local_docker_backend,
 )
 from ultimate_ai_agent.core.sandbox_calculation.contracts import (
@@ -25,6 +26,69 @@ from ultimate_ai_agent.core.time import utc_now
 
 ROOT = Path(__file__).resolve().parents[1]
 SECCOMP_PROFILE = ROOT / "packaging" / "sealed-calculation" / "seccomp.json"
+
+
+class _InputPipe:
+    def __init__(self, *, write_result: int | None = None, fail_flush: bool = False):
+        self.write_result = write_result
+        self.fail_flush = fail_flush
+        self.closed = False
+
+    def write(self, payload: bytes) -> int:
+        return len(payload) if self.write_result is None else self.write_result
+
+    def flush(self) -> None:
+        if self.fail_flush:
+            raise OSError("injected flush failure")
+
+    def close(self) -> None:
+        self.closed = True
+
+
+class _InputProcess:
+    def __init__(self, stdin: _InputPipe | None):
+        self.stdin = stdin
+
+
+def test_missing_stdin_fails_before_input_commit_truth_becomes_unknown() -> None:
+    process = _InputProcess(None)
+
+    with pytest.raises(
+        SealedCalculationBackendError,
+        match="SEALED_CALCULATION_STDIN_PIPE_REQUIRED",
+    ) as exc_info:
+        DockerSealedCalculationBackend._commit_input(process, b"{}\n")  # type: ignore[arg-type]  # noqa: SLF001
+
+    assert not isinstance(exc_info.value, SealedCalculationExecutionTruthUnknownError)
+
+
+@pytest.mark.parametrize(
+    "pipe",
+    [
+        _InputPipe(write_result=1),
+        _InputPipe(fail_flush=True),
+    ],
+)
+def test_partial_input_delivery_reports_unknown_execution_truth(
+    pipe: _InputPipe,
+) -> None:
+    process = _InputProcess(pipe)
+
+    with pytest.raises(
+        SealedCalculationExecutionTruthUnknownError,
+        match="SEALED_CALCULATION_EXECUTION_TRUTH_UNKNOWN",
+    ):
+        DockerSealedCalculationBackend._commit_input(process, b"{}\n")  # type: ignore[arg-type]  # noqa: SLF001
+
+
+def test_complete_input_delivery_closes_and_clears_stdin() -> None:
+    pipe = _InputPipe()
+    process = _InputProcess(pipe)
+
+    DockerSealedCalculationBackend._commit_input(process, b"{}\n")  # type: ignore[arg-type]  # noqa: SLF001
+
+    assert pipe.closed is True
+    assert process.stdin is None
 
 
 def _backend_or_skip():
