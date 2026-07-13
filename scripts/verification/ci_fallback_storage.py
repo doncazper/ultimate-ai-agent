@@ -21,8 +21,68 @@ from scripts.verification.ci_fallback_contracts import (
 )
 
 
-FULL_SUITE_LOCK_PATH = Path("/tmp/uaa-private-ci-full-suite.v1.lock")
-FULL_SUITE_ATTEMPT_PATH = Path("/tmp/uaa-ci-full-suite-attempts.v1.json")
+FULL_SUITE_SHARED_DIRECTORY = Path("/tmp/uaa-ci-full-suite.v2")
+FULL_SUITE_LOCK_PATH = FULL_SUITE_SHARED_DIRECTORY / "active.lock"
+FULL_SUITE_ATTEMPT_PATH = FULL_SUITE_SHARED_DIRECTORY / "attempts.json"
+SHARED_FULL_SUITE_DIRECTORY_MODE = 0o770
+SHARED_FULL_SUITE_FILE_MODE = 0o660
+
+
+class FullSuiteLockUnavailableError(RuntimeError):
+    """Raised when the host-wide full-suite lock cannot be acquired safely."""
+
+
+def _prepare_shared_full_suite_directory(path: Path) -> None:
+    try:
+        path.mkdir(mode=SHARED_FULL_SUITE_DIRECTORY_MODE, parents=True, exist_ok=True)
+        info = path.lstat()
+        if info.st_uid == os.getuid():
+            os.chown(path, -1, os.getgid())
+            os.chmod(path, SHARED_FULL_SUITE_DIRECTORY_MODE)
+            info = path.lstat()
+    except OSError as exc:
+        raise FullSuiteLockUnavailableError(
+            "host-wide full-suite coordination is unavailable"
+        ) from exc
+    if (
+        not stat.S_ISDIR(info.st_mode)
+        or stat.S_ISLNK(info.st_mode)
+        or info.st_gid != os.getgid()
+        or stat.S_IMODE(info.st_mode) != SHARED_FULL_SUITE_DIRECTORY_MODE
+    ):
+        raise FullSuiteLockUnavailableError(
+            "host-wide full-suite coordination is unsafe"
+        )
+
+
+def _open_shared_full_suite_file(path: Path) -> int:
+    common_flags = os.O_NOFOLLOW if hasattr(os, "O_NOFOLLOW") else 0
+    try:
+        descriptor = os.open(
+            path,
+            os.O_RDWR | os.O_CREAT | common_flags,
+            SHARED_FULL_SUITE_FILE_MODE,
+        )
+        info = os.fstat(descriptor)
+        if info.st_uid == os.getuid():
+            os.fchown(descriptor, -1, os.getgid())
+            os.fchmod(descriptor, SHARED_FULL_SUITE_FILE_MODE)
+            info = os.fstat(descriptor)
+    except OSError as exc:
+        raise FullSuiteLockUnavailableError(
+            "host-wide full-suite coordination is unavailable"
+        ) from exc
+    if (
+        not stat.S_ISREG(info.st_mode)
+        or info.st_nlink != 1
+        or info.st_gid != os.getgid()
+        or stat.S_IMODE(info.st_mode) != SHARED_FULL_SUITE_FILE_MODE
+    ):
+        os.close(descriptor)
+        raise FullSuiteLockUnavailableError(
+            "host-wide full-suite coordination is unsafe"
+        )
+    return descriptor
 
 
 class AttemptLedger:
@@ -276,28 +336,38 @@ class FullSuiteLock:
         repository_sha: str | None = None,
         attempt_scope: str = "private",
         attempt_path: Path = FULL_SUITE_ATTEMPT_PATH,
+        shared_across_accounts: bool | None = None,
     ) -> None:
         self.path = path
         self.wait_seconds = wait_seconds
         self.repository_sha = repository_sha
         self.attempt_scope = attempt_scope
         self.attempt_path = attempt_path
+        self.shared_across_accounts = (
+            path == FULL_SUITE_LOCK_PATH
+            if shared_across_accounts is None
+            else shared_across_accounts
+        )
         self.descriptor: int | None = None
 
     def __enter__(self) -> FullSuiteLock:
-        flags = os.O_RDWR | os.O_CREAT
-        if hasattr(os, "O_NOFOLLOW"):
-            flags |= os.O_NOFOLLOW
-        descriptor = os.open(self.path, flags, 0o600)
-        info = os.fstat(descriptor)
-        if (
-            not stat.S_ISREG(info.st_mode)
-            or info.st_nlink != 1
-            or info.st_uid != os.getuid()
-            or info.st_mode & 0o077
-        ):
-            os.close(descriptor)
-            raise ValueError("private full-suite lock is unsafe")
+        if self.shared_across_accounts:
+            _prepare_shared_full_suite_directory(self.path.parent)
+            descriptor = _open_shared_full_suite_file(self.path)
+        else:
+            flags = os.O_RDWR | os.O_CREAT
+            if hasattr(os, "O_NOFOLLOW"):
+                flags |= os.O_NOFOLLOW
+            descriptor = os.open(self.path, flags, 0o600)
+            info = os.fstat(descriptor)
+            if (
+                not stat.S_ISREG(info.st_mode)
+                or info.st_nlink != 1
+                or info.st_uid != os.getuid()
+                or info.st_mode & 0o077
+            ):
+                os.close(descriptor)
+                raise ValueError("private full-suite lock is unsafe")
         deadline = time.monotonic() + self.wait_seconds
         while True:
             try:
@@ -306,7 +376,9 @@ class FullSuiteLock:
             except BlockingIOError:
                 if time.monotonic() >= deadline:
                     os.close(descriptor)
-                    raise RuntimeError("a full-suite run is already active") from None
+                    raise FullSuiteLockUnavailableError(
+                        "a full-suite run is already active"
+                    ) from None
                 time.sleep(min(0.25, max(0.01, deadline - time.monotonic())))
         self.descriptor = descriptor
         return self
@@ -322,18 +394,26 @@ class FullSuiteLock:
             raise ValueError("full-suite attempt scope is invalid")
 
     def _read_attempt_records(self) -> list[dict[str, str]]:
-        flags = os.O_RDWR | os.O_CREAT
-        if hasattr(os, "O_NOFOLLOW"):
-            flags |= os.O_NOFOLLOW
-        descriptor = os.open(self.attempt_path, flags, 0o600)
+        if self.shared_across_accounts:
+            _prepare_shared_full_suite_directory(self.attempt_path.parent)
+            descriptor = _open_shared_full_suite_file(self.attempt_path)
+        else:
+            flags = os.O_RDWR | os.O_CREAT
+            if hasattr(os, "O_NOFOLLOW"):
+                flags |= os.O_NOFOLLOW
+            descriptor = os.open(self.attempt_path, flags, 0o600)
         try:
             info = os.fstat(descriptor)
-            if (
-                not stat.S_ISREG(info.st_mode)
-                or info.st_nlink != 1
-                or info.st_uid != os.getuid()
-                or info.st_mode & 0o077
-            ):
+            private_file_unsafe = (
+                not self.shared_across_accounts
+                and (
+                    not stat.S_ISREG(info.st_mode)
+                    or info.st_nlink != 1
+                    or info.st_uid != os.getuid()
+                    or info.st_mode & 0o077
+                )
+            )
+            if private_file_unsafe:
                 raise ValueError("full-suite attempt ledger is unsafe")
             raw = os.read(descriptor, MAX_LEDGER_BYTES + 1)
             if len(raw) > MAX_LEDGER_BYTES:
@@ -400,7 +480,11 @@ class FullSuiteLock:
         )
         temp_path = Path(temp_name)
         try:
-            os.fchmod(descriptor, 0o600)
+            if self.shared_across_accounts:
+                os.fchown(descriptor, -1, os.getgid())
+                os.fchmod(descriptor, SHARED_FULL_SUITE_FILE_MODE)
+            else:
+                os.fchmod(descriptor, 0o600)
             os.write(descriptor, encoded)
             os.fsync(descriptor)
             os.close(descriptor)

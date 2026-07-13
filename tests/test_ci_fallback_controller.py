@@ -464,6 +464,40 @@ def test_concurrent_private_full_suites_are_denied_and_stale_lock_recovers(
         pass
 
 
+def test_full_suite_attempt_bound_is_shared_across_local_accounts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    shared_dir = tmp_path / "shared-v2"
+    lock_path = shared_dir / "active.lock"
+    attempts = shared_dir / "attempts.json"
+    with FullSuiteLock(
+        lock_path,
+        repository_sha=SHA_A,
+        attempt_scope="github",
+        attempt_path=attempts,
+        shared_across_accounts=True,
+    ) as lock:
+        lock.record_start()
+
+    first_account_uid = os.getuid()
+    monkeypatch.setattr(os, "getuid", lambda: first_account_uid + 1000)
+
+    with pytest.raises(RuntimeError, match="already attempted"):
+        with FullSuiteLock(
+            lock_path,
+            repository_sha=SHA_A,
+            attempt_scope="github",
+            attempt_path=attempts,
+            shared_across_accounts=True,
+        ) as lock:
+            lock.ensure_start_available()
+
+    assert shared_dir.stat().st_mode & 0o777 == 0o770
+    assert lock_path.stat().st_mode & 0o777 == 0o660
+    assert attempts.stat().st_mode & 0o777 == 0o660
+
+
 def test_full_suite_attempts_are_bounded_per_sha_and_execution_plane(
     tmp_path: Path,
 ) -> None:

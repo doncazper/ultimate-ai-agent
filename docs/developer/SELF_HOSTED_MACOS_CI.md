@@ -197,8 +197,11 @@ base ref, removes its remote, and never shares refs, config, or hooks with the
 developer repository. It verifies the canonical origin, lock
 fingerprints, and regular repository
 paths, runs affected checks first unless they select the full gate, takes the
-single host-wide full-suite lock, installs through the existing lockfile policy,
-and executes the canonical job graph. Its bounded ledger records only safe refs,
+single content-free, group-protected cross-account host lock, and installs
+through the existing lockfile policy before executing the canonical job graph.
+A new versioned coordination directory avoids dependence on legacy lock-file
+ownership and holds one bounded exact-SHA attempt ledger shared by all four
+runners and private CI. The bounded controller ledger records only safe refs,
 hashes, timestamps, duration buckets, and terminal states. Raw command output,
 paths, environment values, runner identity, credentials, and host details are
 not durable evidence. A crash after `private_start` becomes
