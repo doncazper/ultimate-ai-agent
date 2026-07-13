@@ -185,6 +185,35 @@ Safety notes: Dry-run setup previews do not install, download models, create
 background services, mutate credentials, execute rollback, grant public
 distribution, or grant production authority.
 
+### Social Media Intelligence (Dependency-Gated Future Target)
+
+![Social Media Intelligence command-view concept](../design/control_center_north_star/renders/social-media-v1/01-social-command-view.jpg)
+
+What the design communicates: Social is a creator-focused interpretation layer
+for performance, audience, campaigns, cadence, and high-signal conversations.
+It routes work into the existing canonical owner instead of rebuilding the
+Calendar, Kanban board, inbox, CRM, or Studio.
+
+| Calendar owns time | Work Board owns production | Communications owns conversations |
+|---|---|---|
+| ![Social publishing Calendar concept](../design/control_center_north_star/renders/social-media-v1/02-calendar-social-publishing-view.jpg) | ![Social Content Work Board concept](../design/control_center_north_star/renders/social-media-v1/03-work-board-social-content-view.jpg) | ![Social Media Communications concept](../design/control_center_north_star/renders/social-media-v1/04-communications-social-media-view.jpg) |
+
+Current repo truth: planned and deferred. The product contract, labels,
+ownership model, render pack, and future execution prompt are accepted planning
+artifacts. No Social route, read model, API, CLI, frontend behavior, connector,
+publishing, reply, or background sync is implemented by those artifacts.
+
+Recommendation gate: Social must not be proposed as the next implementation
+lane until Work Board/Kanban, first-class CRM, and Communications/Messenger are
+all accepted as fully implemented. Passing those gates makes Social eligible,
+not automatically next.
+
+Safety notes: The initial milestone is read-only. See the
+[product contract](../product/UAA_SOCIAL_MEDIA_INTELLIGENCE_PRODUCT_CONTRACT.md),
+[render pack](../design/control_center_north_star/renders/social-media-v1/README.md),
+and
+[future implementation prompt](../prompts/implement_social_media_intelligence_after_foundation_gates.prompt.md).
+
 ## Non-Goals
 
 This north-star packet does not add or imply:

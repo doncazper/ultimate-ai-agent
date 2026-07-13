@@ -42,6 +42,42 @@ Evidence:
 
 ## Entries
 
+### 2026-07-13 - Social Media Intelligence Deferred Behind Foundation Apps
+
+Date: 2026-07-13
+
+Thread: Creator-focused Social Media Intelligence concept, cross-app ownership,
+and future sequencing.
+
+Recommendation: Preserve Social Media Intelligence as a read-only future
+creator command view, but do not recommend or implement it next until Work
+Board/Kanban, first-class CRM, and Communications/Messenger each have accepted
+completion evidence.
+
+Next prompt: Use
+`docs/prompts/implement_social_media_intelligence_after_foundation_gates.prompt.md`
+only after proving all three activation gates. If any proof is missing, stop
+and recommend the owning foundation lane instead.
+
+Decision: Accepted as a future product direction and deferred behind the three
+foundation applications.
+
+Status: deferred
+
+Completed: Locked the product contract, naming, cross-app ownership, read-only
+authority boundary, recommendation gate, implementation prompt, and four-image
+accepted render pack.
+
+Not done: No Social route, schema, read model, API, CLI, UI, connector,
+publishing, reply, external scheduling, provider/model call, background sync,
+or production workflow was implemented.
+
+Evidence: `README.md`,
+`docs/product/UAA_SOCIAL_MEDIA_INTELLIGENCE_PRODUCT_CONTRACT.md`,
+`docs/prompts/implement_social_media_intelligence_after_foundation_gates.prompt.md`,
+`docs/design/control_center_north_star/renders/social-media-v1/README.md`, and
+`docs/kanban/founder_command_center_board.md`.
+
 ### 2026-06-21 - UAA-P1-082 Loopback CORS Allowlist Completed
 
 Date: 2026-06-21

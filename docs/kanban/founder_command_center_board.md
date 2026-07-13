@@ -1173,6 +1173,34 @@ route-status checks are green on the target branch.
 
 ## Backlog
 
+### FCC-TODAY-RENDER-001 - P0 - Restore Accepted Today Render Fidelity
+
+Epic: Product/UX, Today Spine, Visual Regression
+
+Status: queued follow-up; begin after the current Social documentation/render
+package is closed.
+
+Description: Determine whether the reported Today image is an actual current
+Control Center capture or a stale/mock/fallback artifact, then restore the
+accepted Today composition and product language. The reported image with a
+mock-fallback warning, technical route-state copy, and dense diagnostic table
+is not the accepted Today design.
+
+Acceptance criteria: Reproduce and identify the source of the mismatched Today
+screen; compare it against the accepted current Today render and shell contract;
+fix the actual UI, fixture, screenshot, or documentation source as appropriate;
+add or update focused visual/product-language coverage; and save a verified
+current capture without overstating backend authority.
+
+Required tests/verifiers: focused Today frontend tests, applicable browser
+smoke/visual checks, product-language verification, documentation integrity,
+and `git diff --check`.
+
+Safety notes: A visual correction does not grant connector, execution,
+provider/model, public-release, or production authority. Preserve truthful
+empty, partial, blocked, and fallback states while removing developer-facing
+diagnostic treatment from the primary operator experience.
+
 ### UAA-P1-070 - Memory Source And Provenance Model
 
 Epic: Memory/Knowledge, Safety/Permissions
@@ -1708,6 +1736,39 @@ Required tests/verifiers: documentation integrity and release-truth checks.
 Safety notes: No commercialization claim by itself.
 
 Blockers/dependencies: Founder Command Center MVP proof.
+
+## Deferred Future Product Lanes
+
+### FCC-SOCIAL-001 - P2 - Social Media Intelligence Read-Only
+
+Epic: Product/UX, Creator Operations, Governed Read Models
+
+Description: Build the accepted creator-focused Social command view and typed
+projections into Calendar, Work Board, Communications, CRM, Studio, Evidence,
+and Memory. The first milestone remains read-only and preserves canonical app
+ownership.
+
+Activation gates: Work Board/Kanban, first-class CRM, and
+Communications/Messenger must each be accepted as fully implemented with
+durable backend truth, API/CLI parity, tested Control Center workflows,
+accepted visual evidence, and aligned product truth.
+
+Board posture: Deferred. This card is not current WIP and is not eligible as
+"what's next" while any activation gate lacks accepted evidence. Passing all
+three gates makes it eligible for prioritization; it does not automatically
+outrank current P0/P1 work.
+
+Execution prompt:
+`docs/prompts/implement_social_media_intelligence_after_foundation_gates.prompt.md`.
+
+Design and product refs:
+`docs/product/UAA_SOCIAL_MEDIA_INTELLIGENCE_PRODUCT_CONTRACT.md` and
+`docs/design/control_center_north_star/renders/social-media-v1/README.md`.
+
+Safety notes: No live source access, OAuth, publishing, replies, deletes,
+moderation, external scheduling, provider/model calls, browser scraping,
+background sync, broad automation, public release, or production authority is
+granted by this card.
 
 ## Review
 
