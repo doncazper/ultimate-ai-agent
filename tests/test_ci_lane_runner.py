@@ -292,6 +292,45 @@ def test_pytest_lane_receipt_and_summary_retain_safe_failed_shard_ref(
     assert str(tmp_path) not in json.dumps(receipt, sort_keys=True)
 
 
+def test_main_prints_safe_failed_shard_reproduction_ref(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    receipt = {
+        "lane_ref": "ci-pytest-shards",
+        "status": "fail",
+        "repository_sha": SHA,
+        "plan": {"definition_fingerprint": "manifest-ref:safe"},
+        "command_results": [
+            {
+                "command_ref": "command:pytest.sharded-suite",
+                "status": "fail",
+                "pytest_shard_evidence_status": "available",
+                "failed_shard_refs": ("pytest-shard-ref:4:failed",),
+            }
+        ],
+    }
+    monkeypatch.setattr(runner, "run_lane", lambda *_args, **_kwargs: receipt)
+
+    exit_code = runner.main(
+        [
+            "--lane",
+            "ci-pytest-shards",
+            "--sha",
+            SHA,
+            "--temp-root",
+            str(tmp_path / "temp"),
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "pytest-shard-ref:4:failed" in captured.out
+    assert "make ci-reproduce-shard CI_SHARD_INDEX=4" in captured.out
+    assert str(tmp_path) not in captured.out
+
+
 def test_pytest_shard_evidence_rejects_stale_or_contradictory_report(
     tmp_path: Path,
 ) -> None:

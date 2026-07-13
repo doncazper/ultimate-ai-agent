@@ -456,6 +456,20 @@ def _write_receipt(path: Path | None, receipt: dict[str, Any], temp_root: Path) 
         os.close(descriptor)
 
 
+def _pytest_shard_summary_lines(result: dict[str, Any]) -> list[str]:
+    status = result.get("pytest_shard_evidence_status")
+    if status is None:
+        return []
+    lines = ["Pytest shard evidence: " + str(status)]
+    for failed_ref in result.get("failed_shard_refs", ()):
+        shard_index = failed_ref.split(":", maxsplit=2)[1]
+        lines.append(
+            f"Failed shard: {failed_ref} "
+            f"(reproduce with make ci-reproduce-shard CI_SHARD_INDEX={shard_index})"
+        )
+    return lines
+
+
 def run_lane(
     lane_ref: str,
     *,
@@ -606,18 +620,7 @@ def run_lane(
         f"- {result['command_ref']}: {result['status']}" for result in results
     )
     for result in results:
-        if result.get("pytest_shard_evidence_status") is None:
-            continue
-        summary.append(
-            "- Pytest shard evidence: "
-            + str(result["pytest_shard_evidence_status"])
-        )
-        for failed_ref in result.get("failed_shard_refs", ()):
-            shard_index = failed_ref.split(":", maxsplit=2)[1]
-            summary.append(
-                f"- Failed shard: {failed_ref} "
-                f"(reproduce with make ci-reproduce-shard CI_SHARD_INDEX={shard_index})"
-            )
+        summary.extend(f"- {line}" for line in _pytest_shard_summary_lines(result))
     _append_summary(summary_file, summary)
     _write_receipt(receipt_file, receipt, temp_root)
     return receipt
@@ -682,6 +685,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Manifest: {receipt['plan']['definition_fingerprint']}")
         for result in receipt["command_results"]:
             print(f"- {result['command_ref']}: {result['status']}")
+            for line in _pytest_shard_summary_lines(result):
+                print(f"- {line}")
         print("GitHub merge gate satisfied: no")
     return 0 if receipt["status"] == "pass" else 1
 
