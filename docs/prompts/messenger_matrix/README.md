@@ -48,6 +48,11 @@ Activate the prompts only in the listed order. Every prompt requires the executo
     push verified `main`, and confirm the worktree is clean; and
 15. start no later prompt until that predecessor is merged and verified.
 
+The post-merge push must be a synchronization no-op: local `main` and
+`origin/main` must resolve to the exact same merge SHA. If post-merge
+verification finds a defect or any divergence, use a new scoped branch and PR;
+never repair or commit directly on `main`.
+
 Every phase is desktop-only and macOS-first. Do not add, test, capture, or claim
 mobile surfaces. Linux and Windows implementation remains outside this bundle.
 
@@ -86,7 +91,12 @@ TTL/deadline; budget; readiness; kill switch; safe-disable; and
 idempotency/replay posture. Unknown, stale, expired, or mismatched state fails
 closed before the operation starts.
 Prompts 11–12 grant no new lane and may exercise only exact previously accepted
-authorities.
+authorities. Immediately before every runtime call in prompts 11–12, apply the
+same complete request-scoped gate: PolicyEngine; exact LocalApprovalAuthority
+scope where required; current exact AuthorityLease; exact capability, adapter,
+provider, target, mission, and run; TTL/deadline; budget; readiness; kill switch;
+safe-disable; and idempotency/replay posture. Approval refs alone never authorize.
+Unknown, stale, expired, or mismatched state fails closed before the call starts.
 
 ## Runtime Authority Map
 

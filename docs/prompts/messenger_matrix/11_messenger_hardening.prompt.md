@@ -45,10 +45,13 @@ content-free receipts, rollback or rollback-readiness, and safe-disable. Do not
 weaken policy, approval, leases, budget, target validation, route classification,
 OpenAPI, redaction, or Foundation Gate.
 
-Immediately before any repaired mutation, re-evaluate PolicyEngine, exact
-LocalApprovalAuthority scope, the current exact AuthorityLease, adapter, target,
-TTL/deadline, budget, readiness, kill switch, safe-disable, and
-idempotency/replay.
+Immediately before every runtime call, including a read, test, interoperability
+operation, cleanup, or repaired mutation, re-evaluate PolicyEngine; exact
+LocalApprovalAuthority scope where required; the current exact AuthorityLease;
+exact capability, adapter, provider, target, mission, and run; TTL/deadline;
+budget; readiness; kill switch; safe-disable; and idempotency/replay posture.
+Approval refs alone never authorize. Unknown, stale, expired, or mismatched
+state fails closed before the call starts.
 
 ## Required Verification
 
@@ -78,6 +81,10 @@ self-hosted macOS CI, never paid or GitHub-hosted compute. Merge only when
 required checks are green, update local `main` to the exact remote merge, run
 post-merge verification, push verified `main`, and confirm a clean worktree. Do
 not begin MSG-MX-012 before that proof.
+The post-merge push must be a synchronization no-op: local `main` and
+`origin/main` must resolve to the exact same merge SHA. If verification finds a
+defect or divergence, use a new scoped branch and PR; never repair `main`
+directly.
 
 This milestone is desktop-only. Do not add, test, capture, or claim mobile
 surfaces.

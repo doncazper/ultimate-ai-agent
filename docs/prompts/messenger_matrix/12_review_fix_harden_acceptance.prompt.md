@@ -52,10 +52,13 @@ content-free receipts, rollback or rollback-readiness, and safe-disable. Evidenc
 must never contain raw messages, tokens, keys, attachments, provider payloads,
 logs, paths, host/user identity, or recovery material.
 
-Immediately before any repaired mutation, re-evaluate PolicyEngine, exact
-LocalApprovalAuthority scope, the current exact AuthorityLease, adapter, target,
-TTL/deadline, budget, readiness, kill switch, safe-disable, and
-idempotency/replay.
+Immediately before every runtime call, including a read, test, interoperability
+operation, cleanup, or repaired mutation, re-evaluate PolicyEngine; exact
+LocalApprovalAuthority scope where required; the current exact AuthorityLease;
+exact capability, adapter, provider, target, mission, and run; TTL/deadline;
+budget; readiness; kill switch; safe-disable; and idempotency/replay posture.
+Approval refs alone never authorize. Unknown, stale, expired, or mismatched
+state fails closed before the call starts.
 
 ## Required Verification
 
@@ -82,6 +85,10 @@ never paid or GitHub-hosted compute. Merge only when required checks are green,
 update local `main` to the exact remote merge, run post-merge verification, push
 verified `main`, confirm a clean worktree, and stop at the finite acceptance
 endpoint. Do not generate a follow-on prompt pack or continue recursively.
+The post-merge push must be a synchronization no-op: local `main` and
+`origin/main` must resolve to the exact same merge SHA. If verification finds a
+defect or divergence, use a new scoped branch and PR; never repair `main`
+directly.
 
 This milestone is desktop-only. Do not add, test, capture, or claim mobile
 surfaces.

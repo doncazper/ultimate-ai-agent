@@ -72,6 +72,10 @@ pass; run only repository-scoped self-hosted macOS CI, never paid or GitHub-
 hosted compute. Merge only when required checks are green, update local `main`
 to the exact remote merge, run post-merge verification, push verified `main`,
 and confirm a clean worktree. Do not begin MSG-MX-002 before that proof.
+The post-merge push must be a synchronization no-op: local `main` and
+`origin/main` must resolve to the exact same merge SHA. If verification finds a
+defect or divergence, use a new scoped branch and PR; never repair `main`
+directly.
 
 This milestone is desktop-only. Do not add, test, capture, or claim mobile
 surfaces.

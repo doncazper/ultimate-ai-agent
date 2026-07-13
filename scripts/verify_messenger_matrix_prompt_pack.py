@@ -17,6 +17,10 @@ PACK_DIR = ROOT / "docs" / "prompts" / "messenger_matrix"
 MANIFEST_PATH = PACK_DIR / "prompt_bundle_manifest.json"
 README_PATH = PACK_DIR / "README.md"
 README_REF = "docs/prompts/messenger_matrix/README.md"
+DESIGN_REFS = (
+    "docs/design/UAA_MESSENGER_MATRIX_IMPLEMENTATION_PLAN.md",
+    "docs/design/control_center_north_star/UAA_COMMUNICATIONS_MATRIX_NORTH_STAR.md",
+)
 HASH_PREFIX = "sha256:"
 EXPECTED_VERSION = "1.1.0"
 EXPECTED_PROMPT_COUNT = 13
@@ -27,7 +31,10 @@ PROMPT_REF_PATTERN = re.compile(
     r"(0[0-9]|1[0-2])_[a-z0-9_]+\.prompt\.md$"
 )
 ABSOLUTE_LOCAL_PATH_PATTERN = re.compile(
-    r"(?:/Users/|/home/|[A-Za-z]:\\Users\\)[^)\s`]+"
+    r"(?:"
+    r"/Users/|/home/|/(?:private/)?tmp/|/var/folders/|"
+    r"/workspaces?/|/mnt/|/Volumes/|[A-Za-z]:\\Users\\"
+    r")[^)\s`]+"
 )
 FORBIDDEN_CLAIMS = (
     "this bundle grants runtime authority",
@@ -48,6 +55,8 @@ RELEASE_FRAGMENTS = (
     "update local `main` to the exact remote merge",
     "post-merge verification",
     "push verified `main`",
+    "post-merge push must be a synchronization no-op",
+    "new scoped branch and PR",
     "clean worktree",
 )
 DESKTOP_ONLY_FRAGMENTS = (
@@ -74,6 +83,21 @@ PRE_START_AUTHORITY_FRAGMENTS = (
     "idempotency/replay posture",
     "Approval refs alone never authorize",
     "fails closed before the call starts",
+)
+EXERCISED_RUNTIME_AUTHORITY_FRAGMENTS = (
+    "Immediately before every runtime call",
+    "PolicyEngine",
+    "exact LocalApprovalAuthority scope where required",
+    "current exact AuthorityLease",
+    "exact capability, adapter, provider, target, mission, and run",
+    "TTL/deadline",
+    "budget",
+    "readiness",
+    "kill switch",
+    "safe-disable",
+    "idempotency/replay posture",
+    "Approval refs alone never authorize",
+    "Unknown, stale, expired, or mismatched state fails closed",
 )
 REQUIRED_README_FRAGMENTS = (
     "planning artifacts only; no runtime authority granted",
@@ -158,7 +182,7 @@ def _repo_path(ref: str) -> Path:
 
 def compute_bundle_hash(refs: list[str]) -> str:
     digest = hashlib.sha256()
-    for ref in (README_REF, *refs):
+    for ref in (README_REF, *DESIGN_REFS, *refs):
         path = _repo_path(ref)
         digest.update(b"\n--UAA-PROMPT-PACK-FILE--\n")
         digest.update(ref.encode("utf-8"))
@@ -235,6 +259,12 @@ def _validate_prompt(
         flags=re.IGNORECASE,
     ):
         raise VerificationError(f"prompt {index:02d} must grant no new authority lane")
+    if index >= 11:
+        _require_fragments(
+            f"prompt {index:02d} exercised runtime authority contract",
+            text,
+            EXERCISED_RUNTIME_AUTHORITY_FRAGMENTS,
+        )
 
     return True, no_new_authority, staged
 
