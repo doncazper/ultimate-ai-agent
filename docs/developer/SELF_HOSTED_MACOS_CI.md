@@ -56,8 +56,8 @@ provider, connector, production, or AuthorityLease capability.
   then the aggregate Foundation Gate. Jobs within a stage still use the four
   runners concurrently. This prevents unrelated scans from exhausting pytest
   and Vitest per-test deadlines on one physical Mac.
-- Pull-request and main-push visual screenshots run only when the exact commit
-  range changes the Control Center, its visual/product-language documentation,
+- Pull-request and main-push visual screenshots use the exact GitHub event
+  range and run only when it changes the Control Center, its visual/product-language documentation,
   or its visual contract verifiers. The visual-contract verifier still runs on
   every CI invocation, and missing Git history fails closed to the full browser
   lane. This preserves the macOS image gate for affected UI changes without

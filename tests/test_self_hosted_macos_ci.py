@@ -132,16 +132,25 @@ def test_visual_regression_runs_only_for_affected_control_center_paths() -> None
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
     visual_job = verifier.job_section(workflow, "release-lane-visual-regression")
 
-    assert "          fetch-depth: 2\n" in visual_job
-    assert "git rev-parse --verify HEAD^1" in visual_job
-    assert "git diff --quiet HEAD^1 HEAD --" in visual_job
+    assert "          fetch-depth: 0\n" in visual_job
+    assert "PULL_REQUEST_BASE_SHA: ${{ github.event.pull_request.base.sha }}" in visual_job
+    assert "PUSH_BEFORE_SHA: ${{ github.event.before }}" in visual_job
+    assert 'if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then' in visual_job
+    assert 'git cat-file -e "${range_base}^{commit}"' in visual_job
+    assert 'git diff --no-renames --quiet "$range_base" "$RANGE_HEAD_SHA" --' in visual_job
     for path in (
         "apps/control-center",
         "docs/control_center",
         "docs/design/control_center_north_star",
+        "docs/schemas/control_center_release_surface.schema.json",
         "scripts/verify_beta_local.py",
+        "scripts/verify_beta_13_frontend_loading_visual_proof.py",
         "scripts/verify_control_center_visual_regression.py",
+        "scripts/verify_control_center_release_surface.py",
         "scripts/verify_fcc_polish_001_native_apple_grade_ux_layer.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "tests/test_control_center_visual_and_packaging_proofs.py",
+        "tests/test_fcc_polish_001_native_apple_grade_ux_layer.py",
     ):
         assert path in visual_job
     assert visual_job.count(

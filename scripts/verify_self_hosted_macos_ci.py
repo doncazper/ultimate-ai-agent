@@ -139,12 +139,17 @@ def verify(root: Path = ROOT) -> list[str]:
     if "      - control-center-frontend\n" not in visual_regression_job:
         failures.append("visual regression must wait for Control Center verification")
     for fragment in (
-        "          fetch-depth: 2\n",
+        "          fetch-depth: 0\n",
         "      - name: Determine visual regression scope\n",
-        "git rev-parse --verify HEAD^1",
-        "git diff --quiet HEAD^1 HEAD --",
+        "          PULL_REQUEST_BASE_SHA: ${{ github.event.pull_request.base.sha }}\n",
+        "          PUSH_BEFORE_SHA: ${{ github.event.before }}\n",
+        '          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then\n',
+        'git cat-file -e "${range_base}^{commit}"',
+        'git diff --no-renames --quiet "$range_base" "$RANGE_HEAD_SHA" --',
         "              apps/control-center \\\n",
         "              docs/control_center \\\n",
+        "              docs/schemas/control_center_release_surface.schema.json \\\n",
+        "              tests/test_control_center_visual_and_packaging_proofs.py \\\n",
         "          run_visual=false\n",
         '          echo "run_visual=${run_visual}" >> "$GITHUB_OUTPUT"\n',
         "        if: steps.visual-scope.outputs.run_visual == 'true'\n",
