@@ -4196,15 +4196,23 @@ describe("Web Control Center shell", () => {
       ["/settings", /^Settings$/i, "proof-ref:founder-loop-v1:governed-local-loop"],
     ] as const;
 
-    for (const [path, heading, expectedRef] of routes) {
-      window.history.pushState({}, "", path);
-      const view = render(<App />);
-      try {
-        expect(await screen.findByText("Backend online")).toBeInTheDocument();
+    window.history.pushState({}, "", routes[0][0]);
+    const view = render(<App />);
+    try {
+      expect(await screen.findByText("Backend online")).toBeInTheDocument();
+      for (const [path, heading, expectedRef] of routes) {
+        act(() => {
+          window.history.pushState({}, "", path);
+          window.dispatchEvent(new PopStateEvent("popstate"));
+        });
+        await waitFor(() => {
+          expect(
+            screen.getAllByRole("heading", { name: heading }).length,
+          ).toBeGreaterThan(0);
+        });
         expect(
-          screen.getAllByRole("heading", { name: heading }).length,
+          screen.getAllByText(expectedRef).length,
         ).toBeGreaterThan(0);
-        expect(screen.getAllByText(expectedRef).length).toBeGreaterThan(0);
         const spine = screen.getByLabelText("Founder daily loop modules");
         for (const surface of [
           "Start Here",
@@ -4272,18 +4280,18 @@ describe("Web Control Center shell", () => {
             screen.getAllByText(dogfoodRefs.localTaskProofRef).length,
           ).toBeGreaterThan(0);
         }
-      } finally {
-        view.unmount();
-        cleanup();
       }
+      expect(
+        fetchMock.mock.calls.some(
+          ([, options]) =>
+            (options as RequestInit | undefined)?.method === "POST",
+        ),
+      ).toBe(false);
+    } finally {
+      view.unmount();
+      cleanup();
+      window.history.pushState({}, "", "/");
     }
-
-    window.history.pushState({}, "", "/");
-    expect(
-      fetchMock.mock.calls.some(
-        ([, options]) => (options as RequestInit | undefined)?.method === "POST",
-      ),
-    ).toBe(false);
   });
 
   it("fails closed when Evidence/Memory shared refs drift", async () => {
