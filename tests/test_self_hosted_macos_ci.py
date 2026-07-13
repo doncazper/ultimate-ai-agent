@@ -129,6 +129,16 @@ def test_shared_mac_ci_stages_cpu_and_io_heavy_job_classes() -> None:
 
     pytest_shards_job = verifier.job_section(workflow, "pytest-shards")
     assert "      - lint\n" in pytest_shards_job
+    assert "      - affected-preflight\n" in pytest_shards_job
+    affected_preflight_job = verifier.job_section(workflow, "affected-preflight")
+    assert "      - manifest-attestation\n" in affected_preflight_job
+    assert "          fetch-depth: 0\n" in affected_preflight_job
+    assert "git update-ref refs/uaa-ci/base-main" in affected_preflight_job
+    assert "--lane ci-affected-preflight" in affected_preflight_job
+    assert command_registry()["command:affected.preflight"].argv[-2:] == (
+        "--tier",
+        "fast",
+    )
     assert command_registry()["command:pytest.sharded-suite"].argv[
         command_registry()["command:pytest.sharded-suite"].argv.index("--max-workers")
         + 1

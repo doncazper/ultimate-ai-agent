@@ -60,6 +60,11 @@ provider, connector, production, or AuthorityLease capability.
   then the aggregate Foundation Gate. Jobs within a stage still use the four
   runners concurrently. This prevents unrelated scans from exhausting pytest
   and Vitest per-test deadlines on one physical Mac.
+- After manifest attestation, lint and a canonical fast affected-path preflight
+  run in parallel. The preflight binds the exact pull-request base or prior push
+  SHA and can fail quickly on focused Python, documentation, or frontend-safety
+  regressions. It never replaces or satisfies the complete pytest and release
+  gates; critical CI/topology changes fail closed to those full gates.
 - Pull-request and main-push visual screenshots use the exact GitHub event
   range and run only when it changes the Control Center, its visual/product-language documentation,
   or its visual contract verifiers. The visual-contract verifier still runs on
@@ -73,6 +78,12 @@ provider, connector, production, or AuthorityLease capability.
   Every logical shard receives its own bounded `HOME`, `TEMP`, `TMP`, and
   `TMPDIR` below the run basetemp, so child processes cannot share runner-home
   caches, state, or credential configuration.
+- The complete pytest lane reads only the bounded, content-free shard rows from
+  its transient performance report. GitHub's safe step summary retains failed
+  shard refs and the fixed `make ci-reproduce-shard CI_SHARD_INDEX=<index>`
+  command shape after raw shard output is deleted. Malformed, oversized,
+  writable, or symlink-substituted reports are rejected and never become test
+  evidence.
 - Checkout remains on the repository-allowlisted `actions/checkout@v4` action;
   changing the repository Actions allow-policy is outside this provisioner's
   authority. Checkout tokens remain non-persistent.
@@ -159,7 +170,8 @@ local preflight, push of one exact SHA, and one required GitHub run on the
 repository-scoped runners. Pull requests explicitly check out and attest the
 pushed head SHA instead of GitHub's synthetic merge ref. The required
 `manifest-attestation` job validates the exact repository-owned plan before
-`lint` can start. The workflow concurrency key cancels superseded
+parallel lint and fast affected preflight can start. Complete pytest waits for
+both. The workflow concurrency key cancels superseded
 SHAs, and the shared host guard permits only one GitHub full sharded pytest
 attempt for that SHA. Private verification has a separate one-attempt scope so
 the required final GitHub run can still verify the exact privately checked SHA.
