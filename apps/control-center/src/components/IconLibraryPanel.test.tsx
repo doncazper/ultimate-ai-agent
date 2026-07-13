@@ -11,7 +11,13 @@ describe("IconLibraryPanel", () => {
         exact: false,
       }),
     ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Shield Check/i }));
+    const shieldButton = screen
+      .getByText("Shield Check", {
+        selector: ".icon-catalog-grid button > span",
+      })
+      .closest("button");
+    expect(shieldButton).not.toBeNull();
+    fireEvent.click(shieldButton!);
     expect(
       screen.getAllByText("shield-check", { selector: "code" }).length,
     ).toBeGreaterThanOrEqual(2);
