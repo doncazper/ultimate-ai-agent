@@ -1,5 +1,9 @@
 {
+  "control_center_route_count": 98,
+  "fingerprint": "api-contract-fingerprint:sha256:d288ec9bf76c0b59151fc59dfd824e7ea977808ead8202e22c772da8c3c2345d",
   "idempotency_audit_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+  "mutating_route_count": 58,
+  "openapi_path_count": 263,
   "projection_fields": [
     "path",
     "method",
@@ -44,6 +48,7 @@
     "not_required_for_route_classification": 206,
     "required_before_mutation_authority": 58
   },
+  "route_operation_count": 264,
   "route_rate_limit_posture_summary": {
     "not_targeted_for_route": 186,
     "targeted_local_fixed_window": 78
@@ -5330,5 +5335,10 @@
       ]
     }
   ],
-  "schema_version": "uaa-api-route-inventory.v4"
+  "runtime_authority_included": false,
+  "schema_ref": "schema-ref:api-contract-snapshot:v1",
+  "schema_version": "uaa-api-route-inventory.v5",
+  "source_ref": "source-ref:fastapi-openapi-and-api-manifest",
+  "static_declaration_only": true,
+  "targeted_rate_limit_route_count": 78
 }

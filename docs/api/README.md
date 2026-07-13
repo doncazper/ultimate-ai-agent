@@ -2,9 +2,15 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `263`, generated from the FastAPI application and
-exposed through `/api/manifest`. `/api/manifest` currently reports `264` route
-operations because governed runtime pilot routes intentionally have both `GET`
+<!-- uaa-api-contract-counts:start -->
+Current generated contract snapshot: `263` OpenAPI paths and `264` manifest route operations.
+<!-- uaa-api-contract-counts:end -->
+
+The counts are generated from the FastAPI application and `/api/manifest`.
+The current inventory schema is `uaa-api-route-inventory.v5`; a separate
+hand-reviewed security policy floor prevents refresh from blessing public,
+mutating, auth, approval/idempotency, or targeted-rate-limit drift.
+Governed runtime pilot routes intentionally have both `GET`
 and `POST` contracts on `/api/runtime/invocations`, and the Turn Contract
 Router preview plus AuthorityLease mission planning routes add no-effect
 diagnostic/planning surfaces. The Hermes Runtime

@@ -411,6 +411,36 @@ def test_overall_return_code_fails_if_any_shard_failed(tmp_path: Path) -> None:
     assert runner.overall_return_code([passed, failed]) == 1
 
 
+def test_zero_duration_files_share_only_unattributed_shard_residual(
+    tmp_path: Path,
+) -> None:
+    log_path = tmp_path / "shard.log"
+    log_path.write_text(
+        "2.00s call tests/test_a.py::test_a\n"
+        "0.00s call tests/test_b.py::test_b\n"
+        "0.00s call tests/test_c.py::test_c\n",
+        encoding="utf-8",
+    )
+    plan = runner.ShardPlan(
+        0,
+        ("tests/test_a.py", "tests/test_b.py", "tests/test_c.py"),
+        4.0,
+    )
+    result = runner.ShardResult(0, 3, 0, 4.0, log_path)
+
+    entries = runner.collect_file_timings(
+        [plan],
+        [result],
+        set(plan.files),
+    )
+
+    by_path = {entry["path"]: entry for entry in entries}
+    assert by_path["tests/test_a.py"]["seconds"] == 2.0
+    assert by_path["tests/test_b.py"]["seconds"] == 1.0
+    assert by_path["tests/test_c.py"]["seconds"] == 1.0
+    assert by_path["tests/test_b.py"]["source"] == "shard-elapsed-fallback"
+
+
 def test_performance_report_requires_refactor_after_target(tmp_path: Path) -> None:
     output = tmp_path / "performance.json"
     plan = runner.ShardPlan(0, ("tests/test_slow.py",), 75.0)

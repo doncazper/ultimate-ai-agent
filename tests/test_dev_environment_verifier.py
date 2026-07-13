@@ -96,6 +96,8 @@ def test_makefile_uses_project_venv_python_for_verification_commands() -> None:
         "verify-static:",
         "verify-gate-architecture:",
         "verify-fast:",
+        "verify-affected:",
+        "verify-value-audit:",
         "verify-dev-fast:",
         "verify-local:",
         "frontend-check:",
