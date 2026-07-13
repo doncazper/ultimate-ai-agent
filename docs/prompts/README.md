@@ -240,3 +240,15 @@ local-agent execution by themselves. Use
 `docs/prompts/coding_pair_agent_relay_runner/00_execute_coding_pair_agent_relay_runner_end_to_end.prompt.md`
 or `scripts/dev/run_coding_pair_agent_relay_runner_prompt_pack.sh` for the
 end-to-end wrapper.
+
+## UAA developer-feedback prompts
+
+Stored prompts for the local, desktop-only UAA Developer Feedback program live
+in `docs/prompts/uaa_developer_feedback/`. The pack covers contracts, local
+storage, native controls, manual screenshot/video capture, diagnostics, a
+Feedback Inbox, post-quit Codex handoff, and a governed patch workflow. The
+prompts grant no runtime authority. Capture, media disclosure, Codex launch,
+repository mutation, commit, push, and draft-PR creation remain separate exact
+capabilities subject to fresh request-scoped evaluation. Use
+`docs/prompts/uaa_developer_feedback/00_execute_all_review_verify_harden.prompt.md`
+for the finite merge-gated wrapper.
