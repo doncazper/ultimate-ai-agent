@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import hashlib
 import os
@@ -33,7 +34,11 @@ from scripts.run_agent_capability_evaluation import (  # noqa: E402
     ADDITIONAL_SCENARIOS,
     PHASE09_SCENARIOS,
     _scenario_fingerprint,
+    evaluation_report_projection,
     evaluation_registry_fingerprint,
+    evaluation_source_digest,
+    evaluation_source_paths,
+    run_agent_capability_evaluation,
 )
 from scripts.run_uaa_runtime_phase09_benchmark import (  # noqa: E402
     scenario_execution_fingerprint,
@@ -211,23 +216,29 @@ def _weighted_total(findings: list[dict[str, Any]], system: str) -> float:
     return round(numerator / 124 * 10, 4)
 
 
-def _goat_root() -> Path:
-    configured = os.environ.get("UAA_GOAT_BENCHMARK_ROOT")
-    return (
-        Path(configured)
-        if configured
-        else Path.home() / "Documents" / "GitHub" / "GoatCitadel"
-    )
+def _validate_external_root(root: Path) -> Path:
+    if root.is_symlink() or not root.is_dir():
+        raise VerificationError("external evidence root must be a real directory")
+    return root.resolve(strict=True)
 
 
-def _validate_evidence_ref(value: str, system: str) -> None:
+def _validate_evidence_ref(
+    value: str,
+    system: str,
+    *,
+    goat_root: Path | None,
+) -> None:
     match = EVIDENCE_RE.fullmatch(value)
     if match is None or match.group(1) != system:
         raise VerificationError(f"invalid comparison evidence ref: {value}")
     relative = Path(match.group(2))
     if relative.is_absolute() or ".." in relative.parts:
         raise VerificationError("comparison evidence path is unsafe")
-    repo_root = ROOT if system == "uaa" else _goat_root()
+    if system == "goatcitadel" and goat_root is None:
+        return
+    repo_root = ROOT if system == "uaa" else goat_root
+    if repo_root is None:
+        raise VerificationError("external comparison evidence root is required")
     try:
         payload = _safe_read(relative, root=repo_root, maximum_bytes=MAX_EVIDENCE_BYTES)
     except FileNotFoundError as exc:
@@ -240,58 +251,80 @@ def _validate_evidence_ref(value: str, system: str) -> None:
         raise VerificationError("comparison evidence line range is invalid")
 
 
-def _expected_report_projection() -> dict[str, Any]:
-    observations = [
-        {
-            "scenario_ref": spec.scenario_id,
-            "component_id": spec.component_id,
-            "expected_status": spec.expected_status,
-            "observed_status": spec.expected_status,
-            "execution_fingerprint_ref": scenario_execution_fingerprint(spec),
-            "failure_code": "none",
-        }
+def _validate_report_projection(
+    projection: dict[str, Any],
+    result: dict[str, Any],
+) -> None:
+    phase09_bindings = [
+        (
+            spec.scenario_id,
+            spec.component_id,
+            spec.expected_status,
+            scenario_execution_fingerprint(spec),
+        )
         for spec in PHASE09_SCENARIOS
     ]
-    observations.extend(
-        {
-            "scenario_ref": spec.scenario_ref,
-            "component_id": spec.component_id,
-            "expected_status": "passed",
-            "observed_status": "passed",
-            "execution_fingerprint_ref": _scenario_fingerprint(spec),
-            "failure_code": "none",
-        }
+    additional_bindings = [
+        (
+            spec.scenario_ref,
+            spec.component_id,
+            "passed",
+            _scenario_fingerprint(spec),
+        )
         for spec in ADDITIONAL_SCENARIOS
+    ]
+    expected_bindings = (*phase09_bindings, *additional_bindings)
+    observations = projection.get("observations")
+    if not isinstance(observations, list) or len(observations) != len(
+        expected_bindings
+    ):
+        raise VerificationError("capability evaluation observation coverage drift")
+    for observation, expected in zip(observations, expected_bindings, strict=True):
+        if not isinstance(observation, dict):
+            raise VerificationError("capability evaluation observation shape drift")
+        binding = (
+            observation.get("scenario_ref"),
+            observation.get("component_id"),
+            observation.get("expected_status"),
+            observation.get("execution_fingerprint_ref"),
+        )
+        if binding != expected:
+            raise VerificationError("capability evaluation observation binding drift")
+        observed_status = observation.get("observed_status")
+        failure_code = observation.get("failure_code")
+        if observed_status not in {"passed", "blocked", "failed"}:
+            raise VerificationError("capability evaluation observed status drift")
+        if (observed_status == "failed") != (failure_code != "none"):
+            raise VerificationError("capability evaluation failure posture drift")
+    adherence_count = sum(
+        item["observed_status"] == item["expected_status"] for item in observations
     )
-    return {
-        "schema_version": "uaa-agent-capability-evaluation.v1",
-        "contract_ref": "contract-ref:agent-capability-evaluation:v1",
-        "report_ref": "evaluation-report:uaa-agent-capability:20260712",
-        "benchmark_ref": "benchmark-ref:uaa-goat-comparison:20260712",
-        "registry_fingerprint_ref": evaluation_registry_fingerprint(),
-        "status": "passed",
-        "scenario_count": 21,
-        "component_ids": list(COMPONENT_IDS),
-        "safe_outcome_adherence_rate": 1.0,
-        "verification_pass_rate": 1.0,
-        "passed_unblocked_verifier_rate": round(20 / 21, 4),
-        "passed_unblocked_verifier_count": 20,
-        "task_completion_rate": None,
-        "task_completion_count": None,
-        "task_completion_posture": "not_measured",
-        "blocked_safe_outcome_count": 1,
-        "correctness_rate": None,
-        "recovery_success_rate": None,
-        "evidence_completeness_rate": None,
-        "replay_correctness_rate": None,
-        "operator_intervention_count": None,
-        "false_completion_count": None,
-        "unsupported_claim_count": None,
-        "authority_policy_violation_count": None,
-        "observations": observations,
-        "content_free": True,
-        "authority_granted": False,
+    passed_unblocked_count = sum(
+        item["expected_status"] == "passed" and item["observed_status"] == "passed"
+        for item in observations
+    )
+    blocked_count = sum(item["observed_status"] == "blocked" for item in observations)
+    expected_summary = {
+        "scenario_count": len(observations),
+        "safe_outcome_adherence_rate": round(adherence_count / len(observations), 4),
+        "verification_pass_rate": round(adherence_count / len(observations), 4),
+        "passed_unblocked_verifier_rate": round(
+            passed_unblocked_count / len(observations), 4
+        ),
+        "passed_unblocked_verifier_count": passed_unblocked_count,
+        "blocked_safe_outcome_count": blocked_count,
     }
+    for key, value in expected_summary.items():
+        if projection.get(key) != value or result.get(key) != value:
+            raise VerificationError(f"capability evaluation {key} drift")
+    if projection.get("registry_fingerprint_ref") != evaluation_registry_fingerprint():
+        raise VerificationError("capability evaluation registry projection drift")
+    if projection.get("component_ids") != list(COMPONENT_IDS):
+        raise VerificationError("capability evaluation component projection drift")
+    if projection.get("content_free") is not True:
+        raise VerificationError("capability evaluation projection is not content-free")
+    if projection.get("authority_granted") is not False:
+        raise VerificationError("capability evaluation projection grants authority")
 
 
 def _projection_digest(projection: dict[str, Any]) -> str:
@@ -299,7 +332,14 @@ def _projection_digest(projection: dict[str, Any]) -> str:
     return "sha256:" + hashlib.sha256(encoded).hexdigest()
 
 
-def verify_data(data: dict[str, Any]) -> dict[str, Any]:
+def verify_data(
+    data: dict[str, Any],
+    *,
+    goat_root: Path | None = None,
+    revalidate_uaa: bool = False,
+) -> dict[str, Any]:
+    if goat_root is not None:
+        goat_root = _validate_external_root(goat_root)
     _walk(data)
     if contains_secret_like(data) or contains_obvious_secret(data):
         raise VerificationError("comparison contains secret-like material")
@@ -323,7 +363,7 @@ def verify_data(data: dict[str, Any]) -> dict[str, Any]:
             if not isinstance(values, list) or not values:
                 raise VerificationError("every comparison component requires evidence refs")
             for value in values:
-                _validate_evidence_ref(value, system)
+                _validate_evidence_ref(value, system, goat_root=goat_root)
         for required in (
             "missing_runtime_behavior",
             "authority_safety_risk",
@@ -390,14 +430,25 @@ def verify_data(data: dict[str, Any]) -> dict[str, Any]:
     projection = result.get("report_projection")
     if not isinstance(projection, dict):
         raise VerificationError("capability evaluation report projection is required")
-    expected_projection = _expected_report_projection()
-    if projection != expected_projection:
-        raise VerificationError("capability evaluation report projection drift")
+    _validate_report_projection(projection, result)
     projection_digest = _projection_digest(projection)
     if result.get("report_projection_digest") != projection_digest:
         raise VerificationError("capability evaluation report projection digest drift")
     if result.get("registry_fingerprint_ref") != evaluation_registry_fingerprint():
         raise VerificationError("capability evaluation registry fingerprint drift")
+    source_commit = result.get("uaa_source_commit")
+    if not isinstance(source_commit, str) or not re.fullmatch(
+        r"[0-9a-f]{40}", source_commit
+    ):
+        raise VerificationError("exact UAA evaluation source commit is required")
+    if result.get("evaluator_source_digest") != evaluation_source_digest():
+        raise VerificationError("capability evaluator source digest drift")
+    if result.get("evaluator_source_file_count") != len(evaluation_source_paths()):
+        raise VerificationError("capability evaluator source coverage drift")
+    if result.get("runtime_revalidation_required") is not True:
+        raise VerificationError("runtime revalidation posture drift")
+    if result.get("external_evidence_posture") != "opt_in_root_required":
+        raise VerificationError("external evidence revalidation posture drift")
     for metric in (
         "correctness_rate",
         "recovery_success_rate",
@@ -414,16 +465,45 @@ def verify_data(data: dict[str, Any]) -> dict[str, Any]:
         raise VerificationError("cross-repository empirical result must remain not measured")
     if result.get("observed_product_experience") != "not_measured":
         raise VerificationError("observed product experience must remain not measured")
+    if revalidate_uaa:
+        actual_projection = evaluation_report_projection(
+            run_agent_capability_evaluation()
+        )
+        if actual_projection != projection:
+            raise VerificationError(
+                "stored capability projection does not match current runtime evaluation"
+            )
     return data
 
 
-def verify(path: Path = DEFAULT_ARTIFACT) -> dict[str, Any]:
+def verify(
+    path: Path = DEFAULT_ARTIFACT,
+    *,
+    goat_root: Path | None = None,
+    revalidate_uaa: bool = False,
+) -> dict[str, Any]:
     payload = _safe_read(path.relative_to(ROOT), root=ROOT, maximum_bytes=MAX_ARTIFACT_BYTES)
-    return verify_data(json.loads(payload.decode("utf-8")))
+    return verify_data(
+        json.loads(payload.decode("utf-8")),
+        goat_root=goat_root,
+        revalidate_uaa=revalidate_uaa,
+    )
 
 
-def main() -> int:
-    verify()
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--goat-root",
+        type=Path,
+        help="Explicit read-only GoatCitadel evidence root for opt-in line validation.",
+    )
+    parser.add_argument(
+        "--revalidate-uaa",
+        action="store_true",
+        help="Run the bounded UAA evaluator and compare it with the stored projection.",
+    )
+    args = parser.parse_args(argv)
+    verify(goat_root=args.goat_root, revalidate_uaa=args.revalidate_uaa)
     print("OK: UAA-GoatCitadel comparison findings are bounded and evidence-gated")
     return 0
 

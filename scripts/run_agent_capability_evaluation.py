@@ -17,6 +17,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from typing import Iterable
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
@@ -193,6 +194,93 @@ def evaluation_registry_fingerprint() -> str:
     return f"fingerprint-ref:agent-capability-registry:sha256:{hashlib.sha256(encoded).hexdigest()}"
 
 
+def _repo_ref_path(value: str) -> str | None:
+    prefix = "repo-ref:uaa:"
+    if not value.startswith(prefix):
+        return None
+    return value.removeprefix(prefix).split("#", 1)[0]
+
+
+def _command_paths(command: Iterable[str]) -> set[str]:
+    parts = tuple(command)
+    frontend_prefix: Path | None = None
+    if "--prefix" in parts:
+        prefix_index = parts.index("--prefix") + 1
+        if prefix_index < len(parts):
+            frontend_prefix = Path(parts[prefix_index])
+    paths: set[str] = set()
+    for part in parts:
+        relative = part.split("::", 1)[0]
+        if relative.startswith(("tests/", "scripts/")):
+            paths.add(relative)
+        elif frontend_prefix is not None and relative.startswith("src/"):
+            paths.add(str(frontend_prefix / relative))
+    return paths
+
+
+def evaluation_source_paths() -> tuple[str, ...]:
+    paths = {
+        "apps/control-center/package-lock.json",
+        "apps/control-center/package.json",
+        "pyproject.toml",
+        "scripts/run_agent_capability_evaluation.py",
+        "scripts/run_uaa_runtime_phase09_benchmark.py",
+        "scripts/verify_goat_comparison_findings.py",
+        "src/ultimate_ai_agent/core/evals/capability_metrics.py",
+        "tests/test_agent_capability_evaluation.py",
+        "tests/test_goat_comparison_findings.py",
+        "tests/test_uaa_runtime_phase09_benchmark.py",
+        "uv.lock",
+    }
+    for scenario in PHASE09_SCENARIOS:
+        for ref in (*scenario.evidence_refs, *scenario.test_verifier_refs):
+            relative = _repo_ref_path(ref)
+            if relative is not None:
+                paths.add(relative)
+        paths.update(node.split("::", 1)[0] for node in scenario.pytest_nodes)
+        paths.update(scenario.verifier_scripts)
+        for command in scenario.frontend_commands:
+            paths.update(_command_paths(command))
+    for scenario in ADDITIONAL_SCENARIOS:
+        paths.update(_command_paths(scenario.command))
+    return tuple(sorted(paths))
+
+
+def evaluation_source_digest() -> str:
+    digest = hashlib.sha256()
+    for relative in evaluation_source_paths():
+        path = ROOT / relative
+        if not path.is_file() or path.is_symlink():
+            raise ValueError(f"evaluation source is missing or unsafe: {relative}")
+        digest.update(b"\n--UAA-AGENT-EVAL-SOURCE--\n")
+        digest.update(relative.encode("utf-8"))
+        digest.update(b"\n")
+        digest.update(path.read_bytes())
+    return f"sha256:{digest.hexdigest()}"
+
+
+def repository_commit() -> str:
+    executable = _trusted_executable("git")
+    result = subprocess.run(
+        (executable, "rev-parse", "--verify", "HEAD"),
+        cwd=ROOT,
+        env={
+            "PATH": "/usr/bin:/bin",
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_CONFIG_GLOBAL": "/dev/null",
+        },
+        capture_output=True,
+        check=False,
+        timeout=5,
+    )
+    commit = result.stdout.decode("ascii", errors="strict").strip()
+    if result.returncode != 0 or len(commit) != 40 or any(
+        character not in "0123456789abcdef" for character in commit
+    ):
+        raise OSError("exact UAA source commit is unavailable")
+    return commit
+
+
 def _validate_registry() -> None:
     refs = [scenario.scenario_ref for scenario in ADDITIONAL_SCENARIOS]
     if len(refs) != len(set(refs)):
@@ -224,7 +312,7 @@ def _trusted_executable(name: str) -> str:
     file_stat = os.stat(resolved)
     if not stat.S_ISREG(file_stat.st_mode):
         raise OSError(f"trusted executable is not a regular file: {name}")
-    return str(Path(candidate).absolute())
+    return str(resolved)
 
 
 def _sandbox_prefix() -> tuple[str, ...]:
@@ -240,17 +328,35 @@ def _child_environment(temp_root: Path) -> dict[str, str]:
     python_dir = str(Path(_trusted_executable("{python}")).parent)
     npm_dir = str(Path(_trusted_executable("npm")).parent)
     node_dir = str(Path(_trusted_executable("node")).parent)
+    npm_search_dir = str(Path(shutil.which("npm") or npm_dir).absolute().parent)
+    node_search_dir = str(Path(shutil.which("node") or node_dir).absolute().parent)
     home = temp_root / "home"
     home.mkdir(parents=True, exist_ok=True)
+    site_packages = tuple(
+        path
+        for path in sys.path
+        if path and Path(path).is_dir() and Path(path).name in {"site-packages", "dist-packages"}
+    )
     return {
-        "PATH": os.pathsep.join((python_dir, npm_dir, node_dir, "/usr/bin", "/bin")),
+        "PATH": os.pathsep.join(
+            (
+                python_dir,
+                npm_search_dir,
+                node_search_dir,
+                npm_dir,
+                node_dir,
+                "/usr/bin",
+                "/bin",
+            )
+        ),
         "HOME": str(home),
         "TMPDIR": str(temp_root),
         "LANG": "C.UTF-8",
         "LC_ALL": "C.UTF-8",
         "CI": "true",
         "PYTHONHASHSEED": "0",
-        "PYTHONPATH": "src",
+        "PYTHONPATH": os.pathsep.join(("src", *site_packages)),
+        "VIRTUAL_ENV": sys.prefix,
         "UAA_AGENT_EVAL_OFFLINE": "1",
         "npm_config_offline": "true",
         "GIT_CONFIG_NOSYSTEM": "1",
@@ -598,6 +704,9 @@ def main(argv: list[str] | None = None) -> int:
                 {
                     "report_projection": evaluation_report_projection(report),
                     "report_projection_digest": evaluation_report_projection_digest(report),
+                    "uaa_source_commit": repository_commit(),
+                    "evaluator_source_digest": evaluation_source_digest(),
+                    "evaluator_source_file_count": len(evaluation_source_paths()),
                 },
                 indent=2,
                 sort_keys=True,
@@ -619,5 +728,8 @@ __all__ = [
     "evaluation_registry_fingerprint",
     "evaluation_report_projection",
     "evaluation_report_projection_digest",
+    "evaluation_source_digest",
+    "evaluation_source_paths",
+    "repository_commit",
     "run_agent_capability_evaluation",
 ]

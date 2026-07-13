@@ -77,6 +77,7 @@ class CapabilityScenarioObservation(_FrozenEvalModel):
         "output_limit_exceeded",
     ] = "none"
     evidence_complete: bool | None = None
+    task_completed: bool | None = None
     completion_claimed: bool | None = None
     operator_interventions: int | None = Field(default=None, ge=0, le=100)
     unsupported_claim_count: int | None = Field(default=None, ge=0, le=100)
@@ -104,8 +105,8 @@ class CapabilityScenarioObservation(_FrozenEvalModel):
             raise ValueError("capability evaluation observations must remain content-free")
         if self.authority_granted:
             raise ValueError("capability evaluation cannot grant authority")
-        if self.completion_claimed is True and self.observed_status != CapabilityEvaluationStatus.passed:
-            raise ValueError("completion cannot be claimed for a non-passed outcome")
+        if self.completion_claimed is not None and self.task_completed is None:
+            raise ValueError("completion claims require independently recorded task truth")
         if not self.recovery_expected and self.recovery_succeeded is not None:
             raise ValueError("recovery result requires recovery applicability")
         if not self.replay_expected and self.replay_succeeded is not None:
@@ -147,9 +148,9 @@ class AgentCapabilityEvaluationReport(_FrozenEvalModel):
     verification_pass_rate: float = Field(..., ge=0.0, le=1.0)
     passed_unblocked_verifier_rate: float = Field(..., ge=0.0, le=1.0)
     passed_unblocked_verifier_count: int = Field(..., ge=0)
-    task_completion_rate: None = None
-    task_completion_count: None = None
-    task_completion_posture: Literal["not_measured"] = "not_measured"
+    task_completion_rate: float | None = Field(default=None, ge=0.0, le=1.0)
+    task_completion_count: int | None = Field(default=None, ge=0)
+    task_completion_posture: Literal["measured", "not_measured"] = "not_measured"
     blocked_safe_outcome_count: int = Field(..., ge=0)
     correctness_rate: float | None = Field(default=None, ge=0.0, le=1.0)
     recovery_success_rate: float | None = Field(default=None, ge=0.0, le=1.0)
@@ -216,7 +217,11 @@ def build_agent_capability_evaluation_report(
         item.observed_status == CapabilityEvaluationStatus.blocked for item in observations
     )
     interventions_measured = all(item.operator_interventions is not None for item in observations)
-    claims_measured = all(item.completion_claimed is not None for item in observations)
+    task_completion_measured = all(item.task_completed is not None for item in observations)
+    claims_measured = all(
+        item.completion_claimed is not None and item.task_completed is not None
+        for item in observations
+    )
     unsupported_measured = all(item.unsupported_claim_count is not None for item in observations)
     policy_measured = all(item.policy_violation_refs is not None for item in observations)
     evidence_measured = all(item.evidence_complete is not None for item in observations)
@@ -231,7 +236,7 @@ def build_agent_capability_evaluation_report(
     false_completion_count = (
         sum(
             item.completion_claimed is True
-            and item.observed_status != CapabilityEvaluationStatus.passed
+            and item.task_completed is False
             for item in observations
         )
         if claims_measured
@@ -278,6 +283,7 @@ def build_agent_capability_evaluation_report(
             evidence_measured,
             replay_measured,
             interventions_measured,
+            task_completion_measured,
             claims_measured,
             unsupported_measured,
             policy_measured,
@@ -295,6 +301,22 @@ def build_agent_capability_evaluation_report(
         verification_pass_rate=_rate(verification_pass_count, len(observations)),
         passed_unblocked_verifier_rate=_rate(passed_unblocked_count, len(observations)),
         passed_unblocked_verifier_count=passed_unblocked_count,
+        task_completion_rate=(
+            _rate(
+                sum(item.task_completed is True for item in observations),
+                len(observations),
+            )
+            if task_completion_measured
+            else None
+        ),
+        task_completion_count=(
+            sum(item.task_completed is True for item in observations)
+            if task_completion_measured
+            else None
+        ),
+        task_completion_posture=(
+            "measured" if task_completion_measured else "not_measured"
+        ),
         blocked_safe_outcome_count=blocked_count,
         correctness_rate=correctness_rate,
         recovery_success_rate=(

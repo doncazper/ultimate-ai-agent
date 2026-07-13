@@ -36,6 +36,7 @@ def _observation(
         verifier_refs=(f"verifier-ref:test:{index}",),
         execution_fingerprint_ref=f"fingerprint-ref:test:{index}",
         duration_ms=1,
+        task_completed=(status == CapabilityEvaluationStatus.passed if structured_metrics else None),
         completion_claimed=(status == CapabilityEvaluationStatus.passed if structured_metrics else None),
         operator_interventions=0 if structured_metrics else None,
         unsupported_claim_count=0 if structured_metrics else None,
@@ -104,6 +105,28 @@ def test_report_aggregates_only_explicit_structured_metrics() -> None:
     assert report.false_completion_count == 0
     assert report.authority_policy_violation_count == 0
     assert report.correctness_posture == "measured"
+    assert report.task_completion_count == len(CAPABILITY_COMPONENT_IDS)
+    assert report.task_completion_rate == 1.0
+    assert report.task_completion_posture == "measured"
+
+
+def test_false_completion_is_measurable_and_fails_the_report() -> None:
+    observations = list(_observations(structured_metrics=True))
+    observations[0] = observations[0].model_copy(
+        update={"task_completed": False, "completion_claimed": True}
+    )
+
+    report = build_agent_capability_evaluation_report(
+        report_ref="evaluation-report:test:false-completion",
+        benchmark_ref="benchmark-ref:test:false-completion",
+        registry_fingerprint_ref="fingerprint-ref:test:registry",
+        observations=tuple(observations),
+    )
+
+    assert report.status == CapabilityEvaluationStatus.failed
+    assert report.false_completion_count == 1
+    assert report.false_completion_posture == "measured"
+    assert report.task_completion_count == len(CAPABILITY_COMPONENT_IDS) - 1
 
 
 def test_measured_policy_recovery_and_evidence_failures_fail_report() -> None:
@@ -147,13 +170,18 @@ def test_report_fails_closed_for_missing_component_and_duplicate_scenario() -> N
         )
 
 
-def test_observation_rejects_nonpassed_completion_raw_fields_and_authority() -> None:
+def test_observation_requires_task_truth_for_claims_and_rejects_raw_fields_and_authority() -> None:
     payload = _observation(
         CAPABILITY_COMPONENT_IDS[0], 0, status=CapabilityEvaluationStatus.blocked
     ).model_dump(mode="json")
     payload["completion_claimed"] = True
-    with pytest.raises(ValidationError, match="non-passed"):
+    with pytest.raises(ValidationError, match="task truth"):
         CapabilityScenarioObservation.model_validate(payload)
+
+    payload["task_completed"] = False
+    observation = CapabilityScenarioObservation.model_validate(payload)
+    assert observation.completion_claimed is True
+    assert observation.task_completed is False
 
     payload = _observations()[0].model_dump(mode="json")
     payload["raw_prompt"] = "not allowed"
@@ -274,6 +302,27 @@ def test_runner_reports_spawn_failure_without_output(
     result = runner._run_command(("{python}", "-c", "pass"), basetemp=tmp_path)
     assert result.failure_code == "spawn_failed"
     assert result.output == b""
+
+
+def test_trusted_executable_returns_the_validated_resolved_path(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    first = tmp_path / "first"
+    first.write_text("executable", encoding="utf-8")
+    first.chmod(0o700)
+    second = tmp_path / "second"
+    second.write_text("replacement", encoding="utf-8")
+    second.chmod(0o700)
+    linked = tmp_path / "tool"
+    linked.symlink_to(first)
+    monkeypatch.setattr(runner.shutil, "which", lambda _: str(linked))
+
+    resolved = runner._trusted_executable("npm")
+    linked.unlink()
+    linked.symlink_to(second)
+
+    assert resolved == str(first.resolve())
 
 
 def test_phase09_observations_reject_registry_binding_drift() -> None:
