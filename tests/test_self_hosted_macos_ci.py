@@ -72,7 +72,9 @@ def test_release_lanes_capture_failures_and_isolate_performance_measurement() ->
 def test_shared_mac_ci_stages_cpu_and_io_heavy_job_classes() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
 
-    assert "      - lint\n" in verifier.job_section(workflow, "pytest-shards")
+    pytest_shards_job = verifier.job_section(workflow, "pytest-shards")
+    assert "      - lint\n" in pytest_shards_job
+    assert "      max-parallel: 2\n" in pytest_shards_job
     for job_name in (
         "static-verification",
         "release-lane-docs",

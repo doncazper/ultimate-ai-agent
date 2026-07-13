@@ -89,6 +89,8 @@ def verify(root: Path = ROOT) -> list[str]:
         failures.append("static verification timings must use the isolated per-job runner temp directory")
     if "    needs:\n      - lint\n" not in job_section(workflow, "pytest-shards"):
         failures.append("pytest shards must start only after lint passes")
+    if "      max-parallel: 2\n" not in job_section(workflow, "pytest-shards"):
+        failures.append("pytest shards must avoid shared-Mac lock starvation")
     pytest_gated_jobs = (
         "static-verification",
         "release-lane-docs",

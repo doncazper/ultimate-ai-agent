@@ -48,6 +48,9 @@ provider, connector, production, or AuthorityLease capability.
   then the aggregate Foundation Gate. Jobs within a stage still use the four
   runners concurrently. This prevents unrelated scans from exhausting pytest
   and Vitest per-test deadlines on one physical Mac.
+- Pytest keeps eight deterministic shards but schedules at most two at once.
+  Repository-global test locks serialize much of the suite on one host, so
+  four concurrent shard processes add starvation rather than throughput.
 - Release lanes disable Bash's immediate-exit behavior only inside their
   bounded command wrappers so failures produce safe summaries and still end
   the job unsuccessfully.
