@@ -95,17 +95,17 @@ not grant additional authority.
 
 ## Accepted Screens
 
-### Agent Studio v3
+### Agent Studio v4
 
-![Accepted Agent Studio v3](control_center_north_star/renders/target-v3/06-agent-studio-v3.png)
+![Accepted Agent Studio v4](control_center_north_star/renders/target-v3/06-agent-studio-v4.png)
 
 This screen locks the shared geometry and the coding-agent workflow: project
 rail, conversation and diff, changed-files/checks/evidence inspector, docked
 composer, and bottom authority/status band.
 
-### Creative Studio v1
+### Creative Studio v2
 
-![Accepted Creative Studio v1](control_center_north_star/renders/target-v3/06-creative-studio-v1.png)
+![Accepted Creative Studio v2](control_center_north_star/renders/target-v3/06-creative-studio-v2.png)
 
 This screen locks the creative workflow: creation modes, slide strip, dominant
 asset canvas, presentation metadata, versions, linked work, rights, governed
@@ -121,7 +121,7 @@ Later implementation should proceed as separately scoped work:
 
 1. preserve one global Studio navigation item and define backend-owned workspace
    identity and durable selection;
-2. implement the shared fixed-pane shell and responsive fallback;
+2. implement the shared fixed-pane shell and a narrow macOS desktop fallback;
 3. bind Agent Studio to existing Chat, Coding, checks, and evidence contracts;
 4. add Creative Studio read/write contracts for local draft assets and version
    metadata without external delivery;
@@ -130,3 +130,5 @@ Later implementation should proceed as separately scoped work:
    route classification, OpenAPI, and focused verifier coverage.
 
 This document is the accepted direction, not implementation authorization.
+Mobile implementation and mobile renders are deferred until a separately
+accepted porting milestone.

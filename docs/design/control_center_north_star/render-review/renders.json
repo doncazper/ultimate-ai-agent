@@ -229,29 +229,29 @@
       "set": "target-v1",
       "order": 7,
       "surface": "Agent Studio",
-      "category": "Primary workspace",
+      "category": "Studio workspace",
       "route": "target",
       "purpose": "Immersive coding-agent workbench with clean fixed panes for projects, transcript, changes, checks, evidence, and terminal access.",
       "truth": "Target design; no model, arbitrary shell, deploy, or write authority implied.",
-      "image": "../renders/target-v3/06-agent-studio-v3.png",
+      "image": "../renders/target-v3/06-agent-studio-v4.png",
       "versions": [
         {"id": "v1", "label": "Draft v1 · Control Center shell", "image": "../renders/target-v1/06-studio.png"},
         {"id": "v2", "label": "Draft v2 · immersive workbench", "image": "../renders/target-v2/06-studio-v2.png"},
-        {"id": "v3", "label": "Accepted v3 · clean fixed-pane geometry", "image": "../renders/target-v3/06-agent-studio-v3.png"}
+        {"id": "v4", "label": "Accepted v4 · sanitized fixed-pane geometry", "image": "../renders/target-v3/06-agent-studio-v4.png"}
       ]
     },
     {
       "id": "CREATIVE-STUDIO-01",
       "set": "target-v1",
-      "order": 7.5,
+      "order": 7,
       "surface": "Creative Studio",
-      "category": "Primary workspace",
+      "category": "Studio workspace",
       "route": "target",
       "purpose": "Versioned production workspace for presentations, documents, spreadsheets, media, and brand assets using the shared Studio geometry.",
       "truth": "Accepted target design; local export, external delivery, publishing, connector writes, and runtime behavior are not implemented or granted by this render.",
-      "image": "../renders/target-v3/06-creative-studio-v1.png",
+      "image": "../renders/target-v3/06-creative-studio-v2.png",
       "versions": [
-        {"id": "v1", "label": "Accepted v1 · presentation workspace", "image": "../renders/target-v3/06-creative-studio-v1.png"}
+        {"id": "v2", "label": "Accepted v2 · presentation workspace with blocked export", "image": "../renders/target-v3/06-creative-studio-v2.png"}
       ]
     },
     {

@@ -102,8 +102,8 @@ retaining every earlier draft:
 | Render | Revision |
 |---|---|
 | `renders/target-v3/04-crm-v3.png` | CRM v3 premier general relationship workspace |
-| `renders/target-v3/06-agent-studio-v3.png` | Agent Studio v3 accepted clean fixed-pane geometry |
-| `renders/target-v3/06-creative-studio-v1.png` | Creative Studio v1 accepted presentation and version-review workspace |
+| `renders/target-v3/06-agent-studio-v4.png` | Agent Studio v4 accepted sanitized fixed-pane geometry |
+| `renders/target-v3/06-creative-studio-v2.png` | Creative Studio v2 accepted presentation workspace with blocked export truth |
 
 The independent Messenger client set covers the Element-familiar Matrix north
 star through the UAA lens while Communications keeps its accepted unified hub.
@@ -172,9 +172,9 @@ baseline.
 
 ![Target Calendar](renders/target-v1/05-calendar.png)
 
-![Target Agent Studio v3](renders/target-v3/06-agent-studio-v3.png)
+![Target Agent Studio v4](renders/target-v3/06-agent-studio-v4.png)
 
-![Target Creative Studio v1](renders/target-v3/06-creative-studio-v1.png)
+![Target Creative Studio v2](renders/target-v3/06-creative-studio-v2.png)
 
 ![Target Trust cockpit](renders/target-v2/16-trust-v1.png)
 

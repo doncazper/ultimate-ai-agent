@@ -88,18 +88,19 @@ in `CRM_V3_REFERENCE_SYNTHESIS.md`.
 
 ## Studio Split Revision 03
 
-Agent Studio v3 is the accepted geometry target for the coding-agent half of
+Agent Studio v4 is the accepted geometry target for the coding-agent half of
 the Studio split. It preserves the immersive workbench while replacing
 floating, clipped, and pill-heavy treatment with fixed panes and clean shared
-edges. Creative Studio v1 applies the same geometry to presentations,
+edges. Creative Studio v2 applies the same geometry to presentations,
 documents, spreadsheets, media, and brand assets. Earlier Studio renders
 remain immutable comparison artifacts. The normative purpose and ownership
-contract is `../STUDIO_TAB_PRODUCT_DIRECTION.md`.
+contract is `../STUDIO_TAB_PRODUCT_DIRECTION.md`. The accepted renders use
+fictional safe refs and explicitly label their non-authoritative posture.
 
 | File | Surface/version | Required change | Must not imply |
 |---|---|---|---|
-| `renders/target-v3/06-agent-studio-v3.png` | Agent Studio v3 | fixed 250 px rail; flexible transcript/editor; fixed inspector; docked composer; full-width status bar; square shared separators; restrained 8 px maximum radius | arbitrary shell, deploy, model authority, approval bypass, or implementation evidence |
-| `renders/target-v3/06-creative-studio-v1.png` | Creative Studio v1 | same fixed-pane geometry; presentation canvas and slide strip; versions, linked work, evidence/rights, governed review; PowerPoint as an explicit creation format | implemented export, external delivery, publishing, connector writes, or implementation evidence |
+| `renders/target-v3/06-agent-studio-v4.png` | Agent Studio v4 | fixed 250 px rail; flexible transcript/editor; fixed inspector; docked composer; full-width status bar; fictional safe refs; explicit no-runtime-authority posture | arbitrary shell, deploy, model authority, approval bypass, or implementation evidence |
+| `renders/target-v3/06-creative-studio-v2.png` | Creative Studio v2 | same fixed-pane geometry; presentation canvas and slide strip; versions, linked work, evidence/rights, governed review; explicitly blocked export | implemented export, external delivery, publishing, connector writes, or implementation evidence |
 
 ## Messenger Matrix Client V1
 

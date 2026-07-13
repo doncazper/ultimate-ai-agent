@@ -18,7 +18,7 @@ Viewports:
 
 - `desktop`: 1440x900;
 - `compact`: 1280x800;
-- `mobile`: 390x844;
+- `mobile`: 390x844 future port placeholder; no current render or implementation;
 - `board`: component/state reference board at 1440x900.
 
 Approval states: `draft`, `review`, `approved`, `superseded`.
@@ -31,7 +31,7 @@ These boards prevent every route from inventing its own shell or common state.
 |---|---|---|
 | `SHELL-01` | Standard shell | full rail, collapsed groups, top strip, workspace, bottom band |
 | `SHELL-02` | Compact shell | collapsed rail, inspector drawer, compact top strip |
-| `SHELL-03` | Mobile shell | navigation drawer, one-pane workspace, sheet inspector, sticky action bar |
+| `SHELL-03` | Deferred mobile placeholder | future navigation drawer, one-pane workspace, sheet inspector, sticky action bar; no current implementation |
 | `STATE-01` | Route data states | loading, empty, partial, blocked, error, success, mock fallback |
 | `STATE-02` | Mutation states | default, dirty, confirm, busy, validation error, rejected, saved receipt, reloaded |
 | `STATE-03` | Authority states | read-only, proposal-only, approval required, receipt-backed, denied, planned |
@@ -76,10 +76,11 @@ architecture is defined by
 
 ## Route Render Queue
 
-Every route requires a default desktop and compact render. `Mobile` means a
-route-specific mobile render is required in addition to the shared mobile
-shell. The variations column names only route-specific variants; generic
-states come from the shared boards above.
+Every current route requires a default macOS desktop and compact/narrow-desktop
+render. `Mobile` records only a future porting placeholder and does not schedule
+mobile design or implementation in the current program. The variations column
+names only route-specific variants; generic states come from the shared boards
+above.
 
 Unless a blocking confirmation dialog temporarily owns focus, every default
 route render shows the shared UAA composer. At least one route-specific render
@@ -139,7 +140,7 @@ Route count: 40. Every route in `apps/control-center/src/routes.tsx` is listed.
 5. Runtime, Storage, system/evidence inventories, future-domain surfaces, and
    private trial.
 6. Compact variants.
-7. Route-specific mobile variants.
+7. Deferred mobile port placeholders; no current render production.
 8. Cross-set coherence review and approval packet.
 
 No implementation phase begins until the render set is explicitly approved.
