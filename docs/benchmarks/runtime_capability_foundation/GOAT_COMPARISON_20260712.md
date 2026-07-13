@@ -8,7 +8,7 @@ or a production-readiness claim. The machine-readable ledger is
 
 | Repository | Inspected state | Version truth | Limitation |
 |---|---|---|---|
-| UAA | `main` at `7f4230ac984177d44142330d7b4d3714874d0bd9` | `0.104.0` | Clean and synchronized before implementation. |
+| UAA (historical comparison baseline) | `main` at `7f4230ac984177d44142330d7b4d3714874d0bd9` | `0.104.0` | Clean and synchronized before implementation; this SHA is intentionally not rewritten to the later integrated UI head. |
 | GoatCitadel | `91775e6905c8ca6c5083444f64eb3457b2d0aaa0` | root package `0.1.0-rc.1`; gateway/UI `1.0.0` | Local branch tracks a removed upstream branch and has one pre-existing untracked report. It is not the expected clean `v1.0.0` release checkout. |
 
 GoatCitadel remained read-only. Its focused existing test binary produced 209
@@ -54,11 +54,12 @@ maturity, not empirical task success or user satisfaction.
 
 ## Gap selected and implemented
 
-The highest user-facing gap is still the exact founder-loop operator surface,
-but that work already exists on preserved PR `#272`. Reimplementing it here
-would duplicate authority code and conflict with concurrent UI work. The sealed
-adapter and signed evidence similarly remain preserved on PRs `#271` and `#275`;
-they remain outside this slice and require their own merge-gate evidence.
+The highest user-facing gap is still exact founder-loop execution, but that
+backend work already exists on preserved PR `#272`. The desktop operator shell
+has since landed separately; reimplementing the backend here would duplicate
+authority code. The sealed adapter and signed evidence similarly remain
+preserved on PRs `#271` and `#275`; they remain outside this slice and require
+their own merge-gate evidence.
 
 This slice therefore closed the next independent P1 gap: complete component
 verifier coverage with honest measurement posture. UAA now has a backend-owned

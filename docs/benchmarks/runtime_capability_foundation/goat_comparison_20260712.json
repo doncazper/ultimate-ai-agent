@@ -851,7 +851,7 @@
       ],
       "priority": "P0",
       "effort": "medium",
-      "blocked_external_status": "concurrent_ui_and_existing_pr"
+      "blocked_external_status": "existing_pr_ci_blocked"
     },
     {
       "component": "cli_api_parity",
