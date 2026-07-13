@@ -41,6 +41,7 @@ from ultimate_ai_agent.core.evidence_signing.constants import (
     PORTABLE_EVIDENCE_SIGN_TOOL_REF,
 )
 from ultimate_ai_agent.core.evidence_signing.lifecycle import (
+    PORTABLE_EVIDENCE_KEY_LEDGER_REF_MAX_LENGTH,
     PortableEvidenceKeyLifecycleError,
     PortableEvidenceKeyLifecycleLedger,
 )
@@ -160,6 +161,7 @@ class PortableEvidenceSigningAuthorityAdapter:
             },
         )
         self._pending_bundles: dict[str, PortableMissionEvidenceBundle] = {}
+        self._active_request_refs: set[str] = set()
         self._lock = threading.RLock()
 
     @property
@@ -208,8 +210,31 @@ class PortableEvidenceSigningAuthorityAdapter:
         if self.operation == PortableEvidenceSigningOperation.bundle_sign:
             with self._lock:
                 self._pending_bundles.pop(dispatch_ref, None)
+                self._active_request_refs.discard(dispatch_ref)
+
+    def claim_request_state(self, dispatch_ref: str) -> None:
+        if self.operation != PortableEvidenceSigningOperation.bundle_sign:
+            return
+        with self._lock:
+            if dispatch_ref not in self._pending_bundles:
+                raise RuntimeError("PORTABLE_EVIDENCE_SIGN_BUNDLE_UNAVAILABLE")
+            self._active_request_refs.add(dispatch_ref)
+
+    def request_state_active(self, dispatch_ref: str) -> bool:
+        if self.operation != PortableEvidenceSigningOperation.bundle_sign:
+            return False
+        with self._lock:
+            return dispatch_ref in self._active_request_refs
 
     def validate_request(self, request: AuthorityDispatchRequest) -> list[str]:
+        return self._validate_request(request, include_lease_binding=True)
+
+    def _validate_request(
+        self,
+        request: AuthorityDispatchRequest,
+        *,
+        include_lease_binding: bool,
+    ) -> list[str]:
         reasons: list[str] = []
         try:
             tool = ToolInvocationRequest.model_validate(request.tool_invocation_request)
@@ -236,6 +261,22 @@ class PortableEvidenceSigningAuthorityAdapter:
         if not isinstance(key_ref, str) or not isinstance(key_version_ref, str):
             reasons.append("reason-ref:portable-evidence-signing:key-binding-missing")
             return reasons
+        if self.operation != PortableEvidenceSigningOperation.bundle_sign:
+            persisted_refs = (
+                request.dispatch_ref,
+                key_ref,
+                key_version_ref,
+                tool.metadata.get("revocation_ref"),
+                tool.metadata.get("predecessor_key_version_ref"),
+            )
+            if any(
+                isinstance(ref, str)
+                and len(ref) > PORTABLE_EVIDENCE_KEY_LEDGER_REF_MAX_LENGTH
+                for ref in persisted_refs
+            ):
+                reasons.append(
+                    "reason-ref:portable-evidence-signing:lifecycle-ref-too-long"
+                )
         expected_resources = self.binding_resource_refs | {key_ref, key_version_ref}
         if self._safe_disable_engaged():
             reasons.append("reason-ref:portable-evidence-signing:safe-disabled")
@@ -356,42 +397,61 @@ class PortableEvidenceSigningAuthorityAdapter:
             reasons.append(
                 "reason-ref:portable-evidence-signing:resource-scope-mismatch"
             )
-        lease = next(
-            (
-                item
-                for item in self.lease_store.list_leases(active_only=False)
-                if item.lease_ref == request.lease_ref
-            ),
-            None,
-        )
-        resource_constraint = (
-            next(
+        if include_lease_binding:
+            lease = next(
                 (
-                    constraint
-                    for constraint in lease.authority_constraints
-                    if constraint.kind == AuthorityConstraintKind.resource_refs.value
+                    item
+                    for item in self.lease_store.list_leases(active_only=False)
+                    if item.lease_ref == request.lease_ref
                 ),
                 None,
             )
-            if lease is not None
-            else None
-        )
-        if (
-            lease is None
-            or resource_constraint is None
-            or set(resource_constraint.allowed_refs) != expected_resources
-        ):
-            reasons.append("reason-ref:portable-evidence-signing:exact-lease-required")
+            resource_constraint = (
+                next(
+                    (
+                        constraint
+                        for constraint in lease.authority_constraints
+                        if constraint.kind
+                        == AuthorityConstraintKind.resource_refs.value
+                    ),
+                    None,
+                )
+                if lease is not None
+                else None
+            )
+            if (
+                lease is None
+                or resource_constraint is None
+                or set(resource_constraint.allowed_refs) != expected_resources
+            ):
+                reasons.append(
+                    "reason-ref:portable-evidence-signing:exact-lease-required"
+                )
         return list(dict.fromkeys(reasons))
 
     def invoke(
         self, request: AuthorityDispatchRequest
     ) -> AuthorityDispatchAdapterResult:
         try:
+            # Direct adapter callers still fail closed on the exact lease. The
+            # authority read completes before taking the lifecycle writer lock,
+            # preserving the global authority->lifecycle lock order.
+            reasons = self.validate_request(request)
+            if reasons:
+                raise RuntimeError(
+                    "PORTABLE_EVIDENCE_SIGNING_PRESTART_STATE_CHANGED"
+                )
             with self.lifecycle.operation_lock():
-                reasons = self.validate_request(request)
+                # Authority and lease truth were committed at the dispatcher's
+                # durable start boundary. Avoid reversing the global
+                # authority->lifecycle lock order after start; this recheck is
+                # limited to immutable request and lifecycle/runtime bindings.
+                reasons = self._validate_request(
+                    request,
+                    include_lease_binding=False,
+                )
                 if not reasons:
-                    reasons = self._runtime_prestart_reason_refs(request)
+                    reasons = self._locked_runtime_prestart_reason_refs(request)
                 if reasons:
                     raise RuntimeError(
                         "PORTABLE_EVIDENCE_SIGNING_PRESTART_STATE_CHANGED"
@@ -400,7 +460,27 @@ class PortableEvidenceSigningAuthorityAdapter:
         finally:
             self.release_request_state(request.dispatch_ref)
 
-    def _runtime_prestart_reason_refs(
+    def runtime_prestart_reason_refs(
+        self,
+        request: AuthorityDispatchRequest,
+    ) -> list[str]:
+        """Probe governed runtime readiness before durable execution start."""
+        # Complete the authority read before taking the lifecycle writer lock.
+        # Direct hook callers therefore preserve the same global
+        # authority->lifecycle order as dispatcher-owned calls and invoke().
+        reasons = self.validate_request(request)
+        if reasons:
+            return reasons
+        with self.lifecycle.operation_lock():
+            reasons = self._validate_request(
+                request,
+                include_lease_binding=False,
+            )
+            if not reasons:
+                reasons = self._locked_runtime_prestart_reason_refs(request)
+            return list(dict.fromkeys(reasons))
+
+    def _locked_runtime_prestart_reason_refs(
         self,
         request: AuthorityDispatchRequest,
     ) -> list[str]:
@@ -411,7 +491,43 @@ class PortableEvidenceSigningAuthorityAdapter:
         except (OSError, RuntimeError, ValueError):
             return ["reason-ref:portable-evidence-signing:backend-readiness-invalid"]
         if readiness.status != PortableEvidenceSigningBackendStatus.ready.value:
-            return list(readiness.reason_refs)
+            return list(readiness.reason_refs) or [
+                "reason-ref:portable-evidence-signing:backend-not-ready"
+            ]
+        if self.operation in {
+            PortableEvidenceSigningOperation.key_create,
+            PortableEvidenceSigningOperation.key_rotate,
+            PortableEvidenceSigningOperation.key_revoke,
+            PortableEvidenceSigningOperation.key_mark_lost,
+            PortableEvidenceSigningOperation.key_material_cleanup,
+        }:
+            if self.operation == PortableEvidenceSigningOperation.key_create:
+                required_entries = 3
+            elif self.operation == PortableEvidenceSigningOperation.key_rotate:
+                required_entries = 4
+            elif self.operation in {
+                PortableEvidenceSigningOperation.key_revoke,
+                PortableEvidenceSigningOperation.key_mark_lost,
+            }:
+                required_entries = 2
+            else:
+                try:
+                    _pending, deletion_reason, _revocation_ref = (
+                        self.lifecycle.pending_key_deletion()
+                    )
+                except (PortableEvidenceKeyLifecycleError, RuntimeError, ValueError):
+                    return [
+                        "reason-ref:portable-evidence-signing:key-delete-not-pending"
+                    ]
+                required_entries = 3 if deletion_reason == "rotation" else 1
+            try:
+                self.lifecycle._require_entry_capacity_locked(
+                    required_entries=required_entries
+                )
+            except (PortableEvidenceKeyLifecycleError, OSError, ValueError):
+                return [
+                    "reason-ref:portable-evidence-signing:ledger-capacity-exhausted"
+                ]
         if self.operation in {
             PortableEvidenceSigningOperation.key_create,
             PortableEvidenceSigningOperation.key_mark_lost,
@@ -510,7 +626,7 @@ class PortableEvidenceSigningAuthorityAdapter:
                     "request-fingerprint-ref:portable-evidence:rotation-delete-settlement",
                     request_fingerprint_ref,
                 ),
-                receipt_ref=deleted.helper_receipt_ref,
+                receipt_ref=receipt_ref,
                 retired_key_version_ref=predecessor.key_version_ref,
             )
             evidence_refs.extend(
@@ -539,7 +655,7 @@ class PortableEvidenceSigningAuthorityAdapter:
                     "request-fingerprint-ref:portable-evidence:revocation-delete-settlement",
                     request_fingerprint_ref,
                 ),
-                receipt_ref=deleted.helper_receipt_ref,
+                receipt_ref=receipt_ref,
                 revocation_ref=revocation_ref,
             )
             evidence_refs.extend(
@@ -572,7 +688,7 @@ class PortableEvidenceSigningAuthorityAdapter:
                     "request-fingerprint-ref:portable-evidence:lost-delete-settlement",
                     request_fingerprint_ref,
                 ),
-                receipt_ref=deleted.helper_receipt_ref,
+                receipt_ref=receipt_ref,
             )
             evidence_refs.extend(
                 [

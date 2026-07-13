@@ -438,7 +438,7 @@ def test_key_create_requires_exact_approval_and_terminal_replay_is_exactly_once(
     assert replay.receipt.status == AuthorityDispatchStatus.succeeded.value
     assert lifecycle.inspect().status == "active"
     assert backend.create_count == 1
-    assert backend.readiness_count == 1
+    assert backend.readiness_count == 2
 
 
 def test_managed_bundle_signing_verifies_offline_and_cannot_use_broad_lease(

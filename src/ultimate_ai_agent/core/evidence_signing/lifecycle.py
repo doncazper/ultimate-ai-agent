@@ -25,6 +25,8 @@ from ultimate_ai_agent.core.time import utc_now
 PORTABLE_EVIDENCE_KEY_LEDGER_FILE = "portable_evidence_key_lifecycle.jsonl"
 PORTABLE_EVIDENCE_KEY_LEDGER_MAX_BYTES = 2 * 1024 * 1024
 PORTABLE_EVIDENCE_KEY_LEDGER_MAX_ENTRIES = 1_000
+PORTABLE_EVIDENCE_KEY_LEDGER_REF_MAX_LENGTH = 520
+PORTABLE_EVIDENCE_KEY_LEDGER_ENTRY_MAX_BYTES = 8 * 1024
 
 
 class PortableEvidenceKeyLifecycleError(RuntimeError):
@@ -73,21 +75,38 @@ class PortableEvidenceKeyLifecycleEntry(_LifecycleModel):
     )
     sequence: StrictInt = Field(..., ge=1, le=PORTABLE_EVIDENCE_KEY_LEDGER_MAX_ENTRIES)
     action: PortableEvidenceKeyLifecycleAction
-    request_ref: str
-    request_fingerprint_ref: str
-    receipt_ref: str
-    key_ref: str
-    key_version_ref: str
+    request_ref: str = Field(..., max_length=PORTABLE_EVIDENCE_KEY_LEDGER_REF_MAX_LENGTH)
+    request_fingerprint_ref: str = Field(
+        ..., max_length=PORTABLE_EVIDENCE_KEY_LEDGER_REF_MAX_LENGTH
+    )
+    receipt_ref: str = Field(..., max_length=PORTABLE_EVIDENCE_KEY_LEDGER_REF_MAX_LENGTH)
+    key_ref: str = Field(..., max_length=PORTABLE_EVIDENCE_KEY_LEDGER_REF_MAX_LENGTH)
+    key_version_ref: str = Field(
+        ..., max_length=PORTABLE_EVIDENCE_KEY_LEDGER_REF_MAX_LENGTH
+    )
     generation: StrictInt = Field(
         ..., ge=1, le=PORTABLE_EVIDENCE_KEY_LEDGER_MAX_ENTRIES
     )
     public_key_base64url: str = Field(..., min_length=43, max_length=43)
-    public_key_fingerprint_ref: str
-    predecessor_key_version_ref: str | None = None
-    revocation_ref: str | None = None
+    public_key_fingerprint_ref: str = Field(
+        ..., max_length=PORTABLE_EVIDENCE_KEY_LEDGER_REF_MAX_LENGTH
+    )
+    predecessor_key_version_ref: str | None = Field(
+        default=None,
+        max_length=PORTABLE_EVIDENCE_KEY_LEDGER_REF_MAX_LENGTH,
+    )
+    revocation_ref: str | None = Field(
+        default=None,
+        max_length=PORTABLE_EVIDENCE_KEY_LEDGER_REF_MAX_LENGTH,
+    )
     checked_at: datetime = Field(default_factory=utc_now)
-    previous_entry_hash_ref: str | None = None
-    entry_hash_ref: str
+    previous_entry_hash_ref: str | None = Field(
+        default=None,
+        max_length=PORTABLE_EVIDENCE_KEY_LEDGER_REF_MAX_LENGTH,
+    )
+    entry_hash_ref: str = Field(
+        ..., max_length=PORTABLE_EVIDENCE_KEY_LEDGER_REF_MAX_LENGTH
+    )
     raw_content_persisted: Literal[False] = False
     private_key_persisted: Literal[False] = False
     execution_authority_granted: Literal[False] = False
@@ -510,6 +529,10 @@ class PortableEvidenceKeyLifecycleLedger:
             os.close(descriptor)
         if not raw:
             return ()
+        if not raw.endswith(b"\n"):
+            raise PortableEvidenceKeyLifecycleCorruptionError(
+                "PORTABLE_EVIDENCE_KEY_LEDGER_UNTERMINATED_RECORD"
+            )
         lines = raw.decode("utf-8").splitlines()
         if len(lines) > PORTABLE_EVIDENCE_KEY_LEDGER_MAX_ENTRIES:
             raise PortableEvidenceKeyLifecycleCorruptionError(
@@ -526,6 +549,38 @@ class PortableEvidenceKeyLifecycleLedger:
             ) from exc
         _validate_chain(entries)
         return entries
+
+    def require_entry_capacity(self, *, required_entries: int) -> None:
+        """Fail before backend mutation unless all transition entry slots exist."""
+        with self.operation_lock():
+            self._require_entry_capacity_locked(required_entries=required_entries)
+
+    def _require_entry_capacity_locked(self, *, required_entries: int) -> None:
+        if required_entries not in {1, 2, 3, 4}:
+            raise ValueError("PORTABLE_EVIDENCE_KEY_LEDGER_CAPACITY_REQUEST_INVALID")
+        entries = self.load_entries()
+        if (
+            len(entries) + required_entries
+            > PORTABLE_EVIDENCE_KEY_LEDGER_MAX_ENTRIES
+        ):
+            raise PortableEvidenceKeyLifecycleConflictError(
+                "PORTABLE_EVIDENCE_KEY_LEDGER_FULL"
+            )
+        current_size = 0
+        if entries:
+            descriptor = _open_regular(self.path, os.O_RDONLY)
+            try:
+                current_size = os.fstat(descriptor).st_size
+            finally:
+                os.close(descriptor)
+        if (
+            current_size
+            + required_entries * PORTABLE_EVIDENCE_KEY_LEDGER_ENTRY_MAX_BYTES
+            > PORTABLE_EVIDENCE_KEY_LEDGER_MAX_BYTES
+        ):
+            raise PortableEvidenceKeyLifecycleConflictError(
+                "PORTABLE_EVIDENCE_KEY_LEDGER_SIZE_LIMIT_EXCEEDED"
+            )
 
     def _append_terminal(
         self,
@@ -612,7 +667,19 @@ class PortableEvidenceKeyLifecycleLedger:
                     "PORTABLE_EVIDENCE_KEY_REQUEST_CONFLICT"
                 )
             return existing
-        if len(entries) >= PORTABLE_EVIDENCE_KEY_LEDGER_MAX_ENTRIES:
+        reserved_entries_after_append = {
+            # An active key must always retain room for one terminal transition
+            # and its deletion settlement.  A rotation additionally needs its
+            # own settlement before that emergency pair remains available.
+            PortableEvidenceKeyLifecycleAction.created: 2,
+            PortableEvidenceKeyLifecycleAction.rotated: 3,
+            PortableEvidenceKeyLifecycleAction.retired_key_delete_completed: 2,
+            PortableEvidenceKeyLifecycleAction.revoked: 1,
+            PortableEvidenceKeyLifecycleAction.marked_lost: 1,
+        }.get(action, 0)
+        entry_limit = PORTABLE_EVIDENCE_KEY_LEDGER_MAX_ENTRIES
+        entry_limit -= reserved_entries_after_append
+        if len(entries) >= entry_limit:
             raise PortableEvidenceKeyLifecycleConflictError(
                 "PORTABLE_EVIDENCE_KEY_LEDGER_FULL"
             )
@@ -648,8 +715,24 @@ class PortableEvidenceKeyLifecycleLedger:
     def _append_bytes(self, entry: PortableEvidenceKeyLifecycleEntry) -> None:
         self._ensure_state_dir()
         encoded = (entry.model_dump_json() + "\n").encode("utf-8")
+        if len(encoded) > PORTABLE_EVIDENCE_KEY_LEDGER_ENTRY_MAX_BYTES:
+            raise PortableEvidenceKeyLifecycleConflictError(
+                "PORTABLE_EVIDENCE_KEY_LEDGER_ENTRY_SIZE_LIMIT_EXCEEDED"
+            )
         current_size = self.path.stat().st_size if self.path.exists() else 0
-        if current_size + len(encoded) > PORTABLE_EVIDENCE_KEY_LEDGER_MAX_BYTES:
+        reserved_entries_after_append = {
+            PortableEvidenceKeyLifecycleAction.created.value: 2,
+            PortableEvidenceKeyLifecycleAction.rotated.value: 3,
+            PortableEvidenceKeyLifecycleAction.retired_key_delete_completed.value: 2,
+            PortableEvidenceKeyLifecycleAction.revoked.value: 1,
+            PortableEvidenceKeyLifecycleAction.marked_lost.value: 1,
+        }.get(entry.action, 0)
+        size_limit = PORTABLE_EVIDENCE_KEY_LEDGER_MAX_BYTES
+        size_limit -= (
+            reserved_entries_after_append
+            * PORTABLE_EVIDENCE_KEY_LEDGER_ENTRY_MAX_BYTES
+        )
+        if current_size + len(encoded) > size_limit:
             raise PortableEvidenceKeyLifecycleConflictError(
                 "PORTABLE_EVIDENCE_KEY_LEDGER_SIZE_LIMIT_EXCEEDED"
             )

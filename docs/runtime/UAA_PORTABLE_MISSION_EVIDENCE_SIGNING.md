@@ -49,6 +49,12 @@ non-exportability. The helper is explicitly built and installed with:
 make portable-evidence-keychain-helper
 ```
 
+Installation fsyncs the staged helper before publishing it and records only
+hash-bound, content-free metadata. If the process stops between the binary and
+metadata renames, the next installer run forward-recovers only when the private
+staging metadata and exact helper digest agree; mismatched or unsafe staging
+fails closed without replacing the last coherent pair.
+
 The helper source and installer are source-checkout tooling and are not shipped
 inside the Python wheel. A usable local signing backend therefore requires a
 trusted source checkout, a locally built pinned helper, and an unlocked login

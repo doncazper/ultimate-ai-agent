@@ -22,6 +22,10 @@ from ultimate_ai_agent.core.authority.dispatcher import AuthorityDispatcher
 from ultimate_ai_agent.core.evidence_signing.artifact_store import (
     PortableEvidenceSignedArtifactStore,
 )
+from ultimate_ai_agent.core.evidence_signing.backend import (
+    PortableEvidenceSigningBackendReadiness,
+    PortableEvidenceSigningBackendStatus,
+)
 from ultimate_ai_agent.core.evidence_signing.dispatcher_adapter import (
     PortableEvidenceSigningAuthorityAdapter,
     PortableEvidenceSigningOperation,
@@ -215,6 +219,57 @@ def test_safe_disable_flip_is_rechecked_inside_locked_prestart_boundary(
     assert backend.create_count == 0
     assert backend.readiness_count == 0
     assert backend.probe_count == 0
+
+
+def test_backend_readiness_denial_cancels_before_durable_start(
+    tmp_path: Path,
+) -> None:
+    state_dir, store, lifecycle, backend, adapter = _adapter_setup(
+        tmp_path,
+        PortableEvidenceSigningOperation.key_create,
+    )
+    del lifecycle
+
+    def locked_readiness() -> PortableEvidenceSigningBackendReadiness:
+        backend.readiness_count += 1
+        return PortableEvidenceSigningBackendReadiness(
+            adapter_ref=backend.adapter_ref,
+            status=PortableEvidenceSigningBackendStatus.locked,
+            reason_refs=("reason-ref:portable-evidence-signing:keychain-locked",),
+        )
+
+    backend.readiness = locked_readiness  # type: ignore[method-assign]
+    key_ref = "signing-key-ref:portable-evidence:readiness-denied"
+    key_version_ref = "signing-key-version-ref:portable-evidence:readiness-denied:1"
+    resources = adapter.binding_resource_refs | {key_ref, key_version_ref}
+    result, request = _approved_dispatch(
+        state_dir=state_dir,
+        store=store,
+        adapter=adapter,
+        resources=resources,
+        metadata={
+            "operation": "key_create",
+            "key_ref": key_ref,
+            "key_version_ref": key_version_ref,
+        },
+        suffix="readiness-denied",
+    )
+
+    assert result.receipt.status == "cancelled_before_start"
+    assert result.receipt.execution_started is False
+    assert backend.readiness_count == 1
+    assert backend.create_count == 0
+    replay_dispatcher = AuthorityDispatcher(
+        state_dir,
+        adapters=[adapter],
+        lease_store=store,
+    )
+    replay = replay_dispatcher.dispatch(request)
+    receipts = replay_dispatcher.list_receipts()
+    assert replay.receipt == result.receipt
+    assert replay.replayed is True
+    assert backend.readiness_count == 1
+    assert all(receipt.status != "started" for receipt in receipts)
 
 
 def test_pending_unsigned_bundle_bindings_are_bounded(tmp_path: Path) -> None:
@@ -427,18 +482,20 @@ def test_unapproved_active_key_request_never_probes_helper_or_keychain(
     baseline_readiness = backend.readiness_count
     baseline_probes = backend.probe_count
     adapter = PortableEvidenceSigningAuthorityAdapter(
-        operation=PortableEvidenceSigningOperation.key_revoke,
+        operation=PortableEvidenceSigningOperation.key_rotate,
         backend=backend,
         lifecycle=lifecycle,
         lease_store=store,
         safe_disable_engaged=lambda: False,
         artifact_store=PortableEvidenceSignedArtifactStore(state_dir / "signing"),
     )
-    revocation_ref = "revocation-ref:portable-evidence:unapproved-probe-denied"
+    next_key_version_ref = (
+        "signing-key-version-ref:portable-evidence:unapproved-probe-denied:2"
+    )
     resources = adapter.binding_resource_refs | {
         key_ref,
         key_version_ref,
-        revocation_ref,
+        next_key_version_ref,
     }
     lease = _lease(
         store,
@@ -451,10 +508,10 @@ def test_unapproved_active_key_request_never_probes_helper_or_keychain(
         lease_ref=lease.lease_ref,
         resources=resources,
         metadata={
-            "operation": "key_revoke",
+            "operation": "key_rotate",
             "key_ref": key_ref,
-            "key_version_ref": key_version_ref,
-            "revocation_ref": revocation_ref,
+            "key_version_ref": next_key_version_ref,
+            "predecessor_key_version_ref": key_version_ref,
         },
         suffix="unapproved-probe-denied",
     )
