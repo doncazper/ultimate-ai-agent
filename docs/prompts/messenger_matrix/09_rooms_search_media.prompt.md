@@ -37,10 +37,14 @@ eligible for fresh request-scoped evaluation only; it does not grant standing
 room, media, filesystem, or search authority. If exact authority cannot be
 safely accepted, stop before Stage B with an explicit blocked report.
 
-For each mutation, re-evaluate PolicyEngine, exact LocalApprovalAuthority scope,
-the current exact AuthorityLease, adapter, target, TTL/deadline, budget,
-readiness, kill switch, safe-disable, and idempotency/replay immediately before
-execution.
+Immediately before every Stage B runtime call, including encrypted search,
+authenticated reads, room administration, transfer, quarantine, preview, and
+cleanup, re-evaluate PolicyEngine; exact LocalApprovalAuthority scope where
+required; the current exact AuthorityLease; exact capability, adapter,
+provider, target, mission, and run; TTL/deadline; budget; readiness; kill
+switch; safe-disable; and idempotency/replay posture. Approval refs alone never
+authorize. Unknown, stale, expired, or mismatched state fails closed before the
+call starts.
 
 ## Stage B — Runtime Implementation
 

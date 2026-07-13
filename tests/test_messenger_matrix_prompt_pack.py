@@ -117,6 +117,17 @@ def test_staged_authority_rejects_missing_fresh_evaluation() -> None:
         pack_verify._validate_prompt(6, ref, text)
 
 
+def test_staged_authority_rejects_missing_all_call_pre_start_evaluation() -> None:
+    refs = json.loads(MANIFEST.read_text())["developer_prompt_refs"]
+    ref = refs[10]
+    text = (ROOT / ref).read_text().replace(
+        "Immediately before every Stage B runtime call",
+        "Before selected mutations",
+    )
+    with pytest.raises(pack_verify.VerificationError, match="pre-start authority"):
+        pack_verify._validate_prompt(10, ref, text)
+
+
 def test_release_loop_rejects_github_hosted_ci() -> None:
     refs = json.loads(MANIFEST.read_text())["developer_prompt_refs"]
     ref = refs[2]

@@ -60,6 +60,21 @@ STAGED_AUTHORITY_FRAGMENTS = (
     "On this branch and PR",
     "eligible for fresh request-scoped evaluation only",
 )
+PRE_START_AUTHORITY_FRAGMENTS = (
+    "Immediately before every Stage B runtime call",
+    "PolicyEngine",
+    "LocalApprovalAuthority scope where required",
+    "current exact AuthorityLease",
+    "exact capability, adapter, provider, target, mission, and run",
+    "TTL/deadline",
+    "budget",
+    "readiness",
+    "kill switch",
+    "safe-disable",
+    "idempotency/replay posture",
+    "Approval refs alone never authorize",
+    "fails closed before the call starts",
+)
 REQUIRED_README_FRAGMENTS = (
     "planning artifacts only; no runtime authority granted",
     "Prompts 04–10 use a two-stage contract on one branch and PR",
@@ -197,6 +212,11 @@ def _validate_prompt(
             f"prompt {index:02d} staged authority contract",
             text,
             STAGED_AUTHORITY_FRAGMENTS,
+        )
+        _require_fragments(
+            f"prompt {index:02d} pre-start authority contract",
+            text,
+            PRE_START_AUTHORITY_FRAGMENTS,
         )
     elif "## Stage A — Exact Authority Acceptance" in text:
         raise VerificationError(f"prompt {index:02d} must not accept a new authority lane")

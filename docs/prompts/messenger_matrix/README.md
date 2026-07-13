@@ -77,6 +77,14 @@ named by that prompt, with the required contracts and adversarial proofs; Stage 
 may implement runtime behavior only after Stage A is accepted and verified.
 Acceptance makes a lane eligible for fresh request-scoped evaluation. It never
 creates standing authority, caches authorization, or makes UI state callable.
+Immediately before every callable Stage B runtime operation, including reads,
+mutations, model invocation, content materialization, transfers, and cleanup as
+applicable, re-evaluate PolicyEngine; exact LocalApprovalAuthority scope where
+required (approval refs alone never authorize); the current exact
+AuthorityLease; exact capability, adapter, provider, target, mission, and run;
+TTL/deadline; budget; readiness; kill switch; safe-disable; and
+idempotency/replay posture. Unknown, stale, expired, or mismatched state fails
+closed before the operation starts.
 Prompts 11–12 grant no new lane and may exercise only exact previously accepted
 authorities.
 

@@ -38,6 +38,15 @@ content, model, attachment, proposal, send, or Memory-write authority. If any
 exact family cannot be safely accepted, keep that family blocked and do not
 implement its Stage B runtime.
 
+Immediately before every Stage B runtime call, including context
+materialization, model invocation, attachment analysis, policy reads, proposal
+reads, and proposal persistence, re-evaluate PolicyEngine; exact
+LocalApprovalAuthority scope where required; the current exact AuthorityLease;
+exact capability, adapter, provider, target, mission, and run; TTL/deadline;
+budget; readiness; kill switch; safe-disable; and idempotency/replay posture.
+Approval refs alone never authorize. Unknown, stale, expired, or mismatched
+state fails closed before the call starts.
+
 ## Stage B — Runtime Implementation
 
 Add:

@@ -36,6 +36,14 @@ authority, authenticate an account, or make UI state callable. If exact
 authority cannot be safely accepted, stop before Stage B with an explicit
 blocked report.
 
+Immediately before every Stage B runtime call, including discovery,
+capability reads, authentication, session refresh, logout, and revocation,
+re-evaluate PolicyEngine; exact LocalApprovalAuthority scope where required;
+the current exact AuthorityLease; exact capability, adapter, provider, target,
+mission, and run; TTL/deadline; budget; readiness; kill switch; safe-disable;
+and idempotency/replay posture. Approval refs alone never authorize. Unknown,
+stale, expired, or mismatched state fails closed before the call starts.
+
 ## Stage B — Runtime Implementation
 
 Implement:
