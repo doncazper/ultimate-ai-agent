@@ -40,6 +40,7 @@ RELEASE_LATENCY_LOCAL_API_BEARER = "local-performance-api-bearer"
 RELEASE_LATENCY_TASK_BEARER = "local-performance-bearer"
 RELEASE_LATENCY_LOCAL_GATEWAY_KEY = "uaa-local-test"
 RELEASE_LATENCY_CHAT_IDEMPOTENCY_KEY = "idempotency:release-latency:v1-chat"
+HEALTH_RELEASE_PATH_MIN_REPEAT = 20
 RELEASE_LATENCY_BUDGETS_MS: dict[str, float] = {
     "health": 50.0,
     "api_manifest": 150.0,
@@ -429,7 +430,7 @@ def _measure_release_paths(*, repeat: int, warmup: int) -> list[dict[str, object
                 "health",
                 "GET /health",
                 RELEASE_LATENCY_BUDGETS_MS["health"],
-                repeat,
+                max(repeat, HEALTH_RELEASE_PATH_MIN_REPEAT),
                 warmup,
                 lambda: _ok_status(client.get("/health")),
             ),
