@@ -19,6 +19,7 @@ README_PATH = PACK_DIR / "README.md"
 HASH_PREFIX = "sha256:"
 EXPECTED_VERSION = "1.0.0"
 README_REF = "docs/prompts/uaa_developer_feedback/README.md"
+IMPLEMENTATION_PLAN_REF = "docs/implementation/UAA_DEVELOPER_FEEDBACK_IMPLEMENTATION_PLAN.md"
 EXPECTED_PROMPTS = (
     "00_execute_all_review_verify_harden.prompt.md",
     "01_contract_authority_and_schema.prompt.md",
@@ -32,7 +33,8 @@ EXPECTED_PROMPTS = (
     "09_whole_app_acceptance_hardening.prompt.md",
 )
 ABSOLUTE_LOCAL_PATH_PATTERN = re.compile(
-    r"(?:/Users/|/home/|[A-Za-z]:\\Users\\)[^)\s`]+"
+    r"(?:/Users/|/home/|/workspace/|/tmp/|/private/tmp/|"
+    r"/var/folders/|/private/var/folders/|[A-Za-z]:\\Users\\)[^)\s`]+"
 )
 FORBIDDEN_SELF_AUTHORITY_PHRASES = (
     "current operator request authorizes",
@@ -54,6 +56,8 @@ WRAPPER_RELEASE_FRAGMENTS = (
     "repository-scoped self-hosted macOS CI only",
     "Merge only when required checks are green",
     "Update local `main` to the exact remote merge",
+    "Do not commit or push a repair directly to `main`",
+    "verified local SHA already matches `origin/main`",
     "remove only clean merged phase branches/worktrees",
 )
 DISCLOSURE_PHASE_FRAGMENTS: dict[int, tuple[str, ...]] = {
@@ -113,9 +117,9 @@ def _repo_path(ref: str) -> Path:
 
 
 def compute_bundle_hash(refs: list[str]) -> str:
-    """Return the canonical README-plus-prompts digest."""
+    """Return the canonical plan-plus-README-plus-prompts digest."""
     digest = hashlib.sha256()
-    for ref in (README_REF, *refs):
+    for ref in (IMPLEMENTATION_PLAN_REF, README_REF, *refs):
         digest.update(b"\n--UAA-PROMPT-PACK-FILE--\n")
         digest.update(ref.encode("utf-8"))
         digest.update(b"\n")

@@ -59,8 +59,11 @@ Execution loop for every phase:
    GitHub-hosted compute.
 10. Merge only when required checks are green and no actionable review finding
     remains.
-11. Update local `main` to the exact remote merge, run post-merge verification,
-    push verified `main`, and remove only clean merged phase branches/worktrees.
+11. Update local `main` to the exact remote merge and run post-merge
+    verification. Do not commit or push a repair directly to `main`; any defect
+    or divergence requires a new scoped repair branch and PR. Confirm the
+    verified local SHA already matches `origin/main`, then remove only clean
+    merged phase branches/worktrees.
 12. Confirm `main` is clean before starting the next phase.
 
 Final verification must include:

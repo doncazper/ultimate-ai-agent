@@ -77,6 +77,23 @@ def test_verifier_rejects_readme_tamper(
         pack_verify.verify_manifest()
 
 
+def test_verifier_rejects_implementation_plan_tamper(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ref = pack_verify.IMPLEMENTATION_PLAN_REF
+    tampered = tmp_path / "UAA_DEVELOPER_FEEDBACK_IMPLEMENTATION_PLAN.md"
+    tampered.write_text((ROOT / ref).read_text(encoding="utf-8") + "\nTampered.\n")
+    original_repo_path = pack_verify._repo_path
+    monkeypatch.setattr(
+        pack_verify,
+        "_repo_path",
+        lambda candidate: tampered if candidate == ref else original_repo_path(candidate),
+    )
+
+    with pytest.raises(pack_verify.VerificationError, match="bundle_hash mismatch"):
+        pack_verify.verify_manifest()
+
+
 @pytest.mark.parametrize(
     "phrase",
     (
@@ -121,7 +138,14 @@ def test_missing_release_gate_is_rejected() -> None:
 
 @pytest.mark.parametrize(
     "unsafe_path",
-    ("/Users/example/private", "/home/example/private", "C:\\Users\\example\\private"),
+    (
+        "/Users/example/private",
+        "/home/example/private",
+        "/workspace/ultimate-ai-agent/private",
+        "/tmp/feedback-artifact",
+        "/var/folders/example/private",
+        "C:\\Users\\example\\private",
+    ),
 )
 def test_absolute_local_paths_are_rejected(unsafe_path: str) -> None:
     with pytest.raises(pack_verify.VerificationError, match="absolute local path"):
