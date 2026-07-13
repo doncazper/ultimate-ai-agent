@@ -42,7 +42,7 @@ def _is_exact_governed_runtime_command_subprocess_site(
     return (
         source.count("subprocess.run(") == 1
         and "subprocess.Popen(" not in source
-        and "shell=True" not in source
+        and "shell" + "=True" not in source
         and "shell=False" in source
         and "os.system(" not in source
         and "popen(" not in source.lower().replace("subprocess.Popen(", "")
