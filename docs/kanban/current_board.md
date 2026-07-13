@@ -584,6 +584,14 @@ ECO-000 Coherent App Ecosystem Contract And Experience Acceptance
 Goal: lock the complete standalone-quality Calendar, Tasks, Boards, CRM, Inbox,
 Today, Organizer, Evidence, and Memory ecosystem before new private CRM,
 Calendar, or Tasks repositories invent conflicting domain truth.
+Status: accepted for contract/design scope on 2026-07-12. ADR-0054 through
+ADR-0061, additive `core/ecosystem` contracts, existing-store inventory, threat
+model, seven-app acceptance matrix, planned route architecture, twelve reviewed
+design drafts, full remaining render briefs/state matrix, quality targets,
+focused tests, and a verifier are present. No app implementation, route,
+storage dependency, connector, account sync, external operation, model call,
+background authority, packaging, public release, or production authority was
+added.
 Scope: planning and acceptance work in
 `docs/implementation/UAA_COHERENT_APP_ECOSYSTEM_IMPLEMENTATION_PLAN.md`:
 canonical object ownership, EntityLink and projection rules, shared local data
@@ -594,8 +602,10 @@ no new route, storage, dependency, connector runtime, account sync, external
 write, send, calendar write, provider/model call, browser runtime, background
 autonomy, collaboration authority, packaging claim, public release, or
 production authority.
-Next: accept ECO-000 ownership and experience contracts before finalizing
-CRM-FC-000 shared Event, Task, Board, Source, or ChangeSet contracts.
+Next: enter ECO-001 only through a separate threat-reviewed storage/key/
+migration evidence slice; CRM-FC-000 may now finalize CRM-specific product and
+render acceptance without changing the accepted shared Event, Task, Board,
+Source, or ChangeSet ownership.
 
 CRM-FC-000 First-Class CRM Product Contract And Render Acceptance
 Goal: evolve the implemented CRM M2 baseline into one relationship-first local
