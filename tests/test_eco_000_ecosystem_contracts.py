@@ -232,6 +232,31 @@ def test_private_entity_links_cannot_cross_workspace_or_hide_context() -> None:
         )
 
 
+def test_private_entity_link_cannot_downgrade_same_workspace_scope() -> None:
+    workspace_ref = "workspace-ref:eco-test:shared-private"
+    source = _entity(
+        EntityKind.relationship,
+        workspace=_workspace(workspace_ref, PrivacyScope.restricted_private),
+    )
+    target = _entity(
+        EntityKind.task,
+        workspace=_workspace(workspace_ref, PrivacyScope.workspace),
+    )
+    with pytest.raises(
+        ValidationError,
+        match="ECO_PRIVATE_ENTITY_LINK_SCOPE_DOWNGRADE_DENIED",
+    ):
+        EntityLink(
+            link_ref="link-ref:eco-test:private-scope-downgrade",
+            link_kind=EntityLinkKind.follows_up,
+            source=source,
+            target=target,
+            workspace=target.workspace,
+            provenance_ref="provenance-ref:eco-test:operator",
+            deletion_posture_ref="deletion-posture-ref:eco-test:linked",
+        )
+
+
 def test_entity_link_workspace_must_match_an_exact_endpoint_envelope() -> None:
     source = _entity(
         EntityKind.relationship,
@@ -428,6 +453,19 @@ def test_catalog_visibility_does_not_imply_authority() -> None:
         )
 
 
+def test_catalog_source_posture_requires_exact_binding_ref() -> None:
+    with pytest.raises(
+        ValidationError,
+        match="ECO_CAPABILITY_SOURCE_BINDING_REQUIRED",
+    ):
+        CapabilityCatalogRelationship(
+            catalog_entry_ref="catalog-entry-ref:eco-test:configured",
+            capability_ref="capability-ref:eco-test:configured",
+            available_in_catalog=True,
+            configured_for_source=True,
+        )
+
+
 def test_board_projection_app_is_not_overridable() -> None:
     task = _entity(EntityKind.task)
     with pytest.raises(ValidationError):
@@ -460,6 +498,36 @@ def test_standalone_and_render_acceptance_are_complete_and_truthful() -> None:
         blocker_refs=("blocked-state-ref:tasks:not-implemented",),
     )
     assert maturity.implementation_claimed is False
+
+    implementation_claim = {
+        "app_id": AppId.tasks,
+        "contract_ref": "contract-ref:eco-test:tasks:implemented",
+        "acceptance_status": ProductAcceptanceStatus.accepted,
+        "required_workflow_refs": ("workflow-ref:tasks:capture-to-complete",),
+        "required_view_refs": ("view-ref:tasks:today",),
+        "required_state_refs": ("state-ref:tasks:complete",),
+        "required_mode_refs": ("mode-ref:tasks:desktop",),
+        "implementation_claimed": True,
+    }
+    with pytest.raises(
+        ValidationError,
+        match="ECO_IMPLEMENTATION_CLAIM_REQUIRES_API_CLI_PARITY",
+    ):
+        StandaloneAppMaturity.model_validate(
+            {**implementation_claim, "api_cli_parity_required": False}
+        )
+    with pytest.raises(
+        ValidationError,
+        match="ECO_IMPLEMENTATION_CLAIM_REQUIRES_EVIDENCE",
+    ):
+        StandaloneAppMaturity.model_validate(implementation_claim)
+    accepted = StandaloneAppMaturity.model_validate(
+        {
+            **implementation_claim,
+            "evidence_refs": ("evidence-ref:eco-test:tasks-implementation",),
+        }
+    )
+    assert accepted.implementation_claimed is True
 
     with pytest.raises(
         ValidationError,

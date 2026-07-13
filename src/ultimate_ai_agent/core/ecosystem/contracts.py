@@ -277,8 +277,17 @@ class EntityLink(_EcosystemModel):
         if (
             self.source.workspace.privacy_scope == PrivacyScope.restricted_private
             or self.target.workspace.privacy_scope == PrivacyScope.restricted_private
-        ) and len(refs) > 1:
-            raise ValueError("ECO_PRIVATE_ENTITY_LINK_LEAK_DENIED")
+        ):
+            if len(refs) > 1:
+                raise ValueError("ECO_PRIVATE_ENTITY_LINK_LEAK_DENIED")
+            private_workspace = (
+                self.source.workspace
+                if self.source.workspace.privacy_scope
+                == PrivacyScope.restricted_private
+                else self.target.workspace
+            )
+            if self.workspace != private_workspace:
+                raise ValueError("ECO_PRIVATE_ENTITY_LINK_SCOPE_DOWNGRADE_DENIED")
         if (
             self.workspace != self.source.workspace
             and self.workspace != self.target.workspace
@@ -629,6 +638,11 @@ class StandaloneAppMaturity(_EcosystemModel):
             raise ValueError("ECO_STANDALONE_LOCAL_MANUAL_USEFULNESS_REQUIRED")
         if self.acceptance_status != ProductAcceptanceStatus.accepted and self.implementation_claimed:
             raise ValueError("ECO_UNACCEPTED_PRODUCT_IMPLEMENTATION_CLAIM_DENIED")
+        if self.implementation_claimed:
+            if not self.api_cli_parity_required:
+                raise ValueError("ECO_IMPLEMENTATION_CLAIM_REQUIRES_API_CLI_PARITY")
+            if not self.evidence_refs:
+                raise ValueError("ECO_IMPLEMENTATION_CLAIM_REQUIRES_EVIDENCE")
         return self
 
 
@@ -698,6 +712,12 @@ class CapabilityCatalogRelationship(_EcosystemModel):
 
     @model_validator(mode="after")
     def validate_monotonic_truth(self) -> "CapabilityCatalogRelationship":
+        if (
+            self.configured_for_source
+            or self.source_binding_reviewed
+            or self.capability_proposed
+        ) and self.source_binding_ref is None:
+            raise ValueError("ECO_CAPABILITY_SOURCE_BINDING_REQUIRED")
         sequence = [
             self.available_in_catalog,
             self.configured_for_source,
