@@ -147,6 +147,29 @@ def test_full_suite_attempt_is_not_consumed_when_process_spawn_fails(
     assert starts == []
 
 
+def test_pytest_lane_rejects_missing_runtime_before_attempt_lock(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    command = CommandSpec(
+        "command:test.pass",
+        (sys.executable, "-c", "raise SystemExit(0)"),
+        (),
+        "test",
+        10,
+    )
+    _patch_lane(monkeypatch, (command,), lane_ref="ci-pytest-shards")
+    monkeypatch.setattr(runner.importlib.util, "find_spec", lambda _name: None)
+
+    with pytest.raises(RuntimeError, match="pytest runtime is unavailable"):
+        runner.run_lane(
+            "ci-pytest-shards",
+            repository_sha=SHA,
+            temp_root=tmp_path / "temp",
+            full_suite_lock_mode="private",
+        )
+
+
 def test_visual_optional_command_is_skipped_only_for_exact_not_affected_posture(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

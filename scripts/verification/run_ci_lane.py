@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 from contextlib import nullcontext
 import hashlib
+import importlib.util
 import json
 import os
 import stat
@@ -295,6 +296,8 @@ def run_lane(
         frontend_visual_scope=visual_scope,
     )
     commands = command_registry()
+    if lane_ref == "ci-pytest-shards" and importlib.util.find_spec("pytest") is None:
+        raise RuntimeError("canonical pytest runtime is unavailable before suite start")
     started_at = _utc_now()
     started = time.perf_counter()
     results: list[dict[str, Any]] = []
