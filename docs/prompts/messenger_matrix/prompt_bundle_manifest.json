@@ -1,0 +1,24 @@
+{
+  "$schema": "../../schemas/prompt_bundle_manifest.schema.json",
+  "bundle_id": "messenger-matrix-001",
+  "version": "1.1.0",
+  "purpose": "Stored merge-gated prompts for building a clean-room UAA Messenger Matrix desktop client from static truth through separately authorized local harness, session, read, encryption, manual messaging, room/media, governed intelligence, hardening, and acceptance milestones.",
+  "developer_prompt_refs": [
+    "docs/prompts/messenger_matrix/00_baseline_and_authority_gate.prompt.md",
+    "docs/prompts/messenger_matrix/01_design_adr_threat_model.prompt.md",
+    "docs/prompts/messenger_matrix/02_static_messenger_shell.prompt.md",
+    "docs/prompts/messenger_matrix/03_communications_contracts_api_cli.prompt.md",
+    "docs/prompts/messenger_matrix/04_local_synapse_harness.prompt.md",
+    "docs/prompts/messenger_matrix/05_matrix_discovery_and_session.prompt.md",
+    "docs/prompts/messenger_matrix/06_read_only_sync.prompt.md",
+    "docs/prompts/messenger_matrix/07_encryption_verification_recovery.prompt.md",
+    "docs/prompts/messenger_matrix/08_manual_messaging_mvp.prompt.md",
+    "docs/prompts/messenger_matrix/09_rooms_search_media.prompt.md",
+    "docs/prompts/messenger_matrix/10_uaa_intelligence_proposals.prompt.md",
+    "docs/prompts/messenger_matrix/11_messenger_hardening.prompt.md",
+    "docs/prompts/messenger_matrix/12_review_fix_harden_acceptance.prompt.md"
+  ],
+  "bundle_hash": "sha256:8b1a33632809c2b43d58ff2034348f144d7ab985f77272ed67be2e8b586515b7",
+  "stable_within_run": true,
+  "created_at": "2026-07-13"
+}
