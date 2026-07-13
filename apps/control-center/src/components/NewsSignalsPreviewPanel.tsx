@@ -123,7 +123,7 @@ const SIGNAL_ITEMS: NewsSignalPreviewItem[] = [
     id: "social-commentary",
     title: "Operator discussion shifts from autonomy to dependable handoffs",
     summary:
-      "Several monitored social posts focus less on fully autonomous agents and more on reviewable delegation, continuity, and recovery.",
+      "Several monitored social posts focus less on hands-off agents and more on reviewable delegation, continuity, and recovery.",
     quickTake:
       "The conversation is noisy, but the wording shift is notable and aligns with UAA's human-governed product direction.",
     whyItMatters:

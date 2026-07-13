@@ -4,6 +4,8 @@ Status: canonical target design contract, documentation and renders only
 
 Contract ID: `CC-IA-CALENDAR-2026-07-11`
 
+Revised: 2026-07-13 for the accepted News & Signals front-page target
+
 Parent specification: `CONTROL_CENTER_UI_UX_SPEC.md`
 
 Repository baseline: `v0.104.0` / package `0.104.0`
@@ -32,8 +34,8 @@ system's internal architecture.
    relationship activity.
 6. **Calendar** — day, week, month, and agenda views combining commitments,
    proposed events, deadlines, focus blocks, and linked work.
-7. **News** — curated, sourced situational context based on explicit interests,
-   business watchlists, and read-only bulletins.
+7. **News & Signals** — personalized outside context grouped by familiar news
+   categories and explicit source feeds, with bounded Morning Brief candidates.
 8. **Studio** — one familiar immersive chat and coding workbench for asking, planning,
    editing, reviewing changes, running allowed checks, and inspecting proof.
 
@@ -77,7 +79,7 @@ rename, or remove current routes.
 | Plans and Work Board | Work Board, as views of shared work |
 | CRM | CRM |
 | Calendar connector contracts and future schedule UI | Calendar |
-| Today News module and future sourced brief views | News |
+| Today News module and future sourced brief views | News & Signals |
 | Chat and Coding | Studio, with Chat and Code modes |
 | Memory and Files | Knowledge |
 | Receipts, Evidence, Proof, Trust, Events, Approvals | Activity & Trust |
@@ -160,13 +162,26 @@ and direct-message lists, and account/security access. The conversation timeline
 is dominant. Room details or UAA intelligence may occupy a collapsible right
 inspector. The human message composer and Ask-UAA field remain separate.
 
-### News
+### News & Signals
 
-News provides For You, Business, Technology, Markets, Saved, and Sources. Each
-item keeps source, freshness, content type, and selection rationale visible.
-Curated ranking may use explicit interests, CRM/business watchlists, reviewed
-settings, and read-only bulletins, but never hides provenance or grants live web
-fetching. News is not an attention queue and is not completable work.
+News & Signals provides For You, Categories, Source Feeds, Saved, and Sources.
+The default front page groups outside context by familiar categories such as
+AI, Technology, Business, Politics, World, Sports, Science, and Culture while
+allowing later user-configured additions.
+
+Source Feeds preserves the identity of each authorized intake path. Reddit
+findings, watched public X posts, email newsletter bulletins, Discord channels,
+RSS feeds, official blogs, YouTube channels, podcasts, and later exact adapters
+must remain individually inspectable rather than being flattened into an
+unsourced cluster. The product taxonomy does not grant adapter authority.
+
+Each item keeps category, source, freshness, content type, source count, and
+selection rationale visible. Curated ranking may later use explicit interests,
+CRM/business watchlists, reviewed settings, and authorized read-only bulletins,
+but never hides provenance or grants live web fetching. A bounded Morning Brief
+queue projects selected candidates into the canonical Morning Briefing without
+duplicating the full pool. News & Signals is not an attention queue and is not
+completable work.
 
 ## Source-To-Calendar Proposal Loop
 

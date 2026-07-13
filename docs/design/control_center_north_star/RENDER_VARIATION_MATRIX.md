@@ -3,7 +3,7 @@
 Status: render production queue, documentation only  
 Specification: `CC-UIUX-2026-07-11`  
 Input baseline: `CC-NS-2026-07-06`  
-Current as of: 2026-07-11  
+Current as of: 2026-07-13
 Repository baseline: `v0.104.0` / package `0.104.0`
 
 This matrix defines the complete set of coherent render deliverables required
@@ -53,13 +53,13 @@ architecture is defined by
 
 | ID | Target surface | Required content |
 |---|---|---|
-| `TARGET-NAV-01` | Today in target shell | Today-first rail; Communications, Messenger, Work Board, CRM, Calendar, News, Studio; Knowledge; Activity & Trust; six Today panels; receipt activity rail; `Review N decisions`; weather; UAA composer |
+| `TARGET-NAV-01` | Today in target shell | Today-first rail; Communications, Messenger, Work Board, CRM, Calendar, News & Signals, Studio; Knowledge; Activity & Trust; six Today panels; receipt activity rail; `Review N decisions`; weather; UAA composer |
 | `COMM-01` | Communications | unified queue/detail/inspector; Email, Messages, Follow-ups, Drafts, Waiting; CRM context; `Propose event`; proposal-only and blocked-send states |
 | `COMMS-MX-01`–`15` | Messenger | immersive light shell; Home plus exactly two Spaces; rooms/DMs; threads; search; room info; create/invite; settings; sessions/recovery; UAA approval; failure recovery; full dark theme; calling preflight; setup/sign-in |
 | `BOARD-01` | Work Board | Board/List/Timeline/Plans/Completed; shared task truth; CRM/Calendar/Communications links; receipt-backed completion |
 | `CRM-01` | CRM | People/Organizations/Opportunities/Pipeline/Follow-ups/Reports tabs; six compact KPIs; smart views; dense sortable relationship table; persistent record inspector; pipeline analytics; governed availability-backed Call chooser; source-backed next action; v1/v2/v3 gallery history |
 | `CAL-01` | Calendar week | color-coded schedule; tasks and commitments; source-backed candidate; duplicate/conflict/timezone posture; shared refs; proposal-only external posture |
-| `NEWS-01` | News | curated For You/Business/Technology/Markets/Saved/Sources; visible provenance, freshness, and selection rationale |
+| `NEWS-01` | News & Signals | personalized For You front page; familiar category navigation; Top Stories; paginated Morning Brief candidate pool; source-specific Reddit/X/newsletter previews; extensible Discord/RSS/blog/video/podcast posture; visible provenance, freshness, and selection rationale |
 | `DECISIONS-01` | Decision Review | exact source, time, participants, location, CRM/work links, conflicts, confidence, authority, expiry, edit/approve/reject/defer outcomes |
 | `STUDIO-01` | Studio | immersive Codex/Claude-like workbench; Back to Control Center; tasks/projects; dominant transcript/editor; optional drawers; governed composer; Terminal |
 | `KNOWLEDGE-01` | Knowledge | memory/files/context/sources; provenance; conflicts; corrections; reviewed-context decisions |
@@ -88,6 +88,7 @@ for each workspace template shows the expanded sidecar.
 |---|---|---|---|---|---|
 | Founder Loop | `/start` | Start Here | Daily command deck | first run; partial setup; ready return visit | yes |
 | Founder Loop | `/today` | Today | Daily command deck | exactly six information-rich panels on aligned three-column tracks; full-width receipt activity rail; workload-aware `Review N decisions`; title-line weather; non-redundant synthesized briefing; cross-surface attention queue; universal selected-item inspector/drawer; Day Plan with Now/Next; truth-safe queue/complete confirmation; reported-complete review; sourced news with mixed article/email-bulletin sources; Business pulse; morning/midday/end-of-day; calm/overloaded; stale or blocked news/weather; CRM follow-up selected; Work Board blocker selected; no decisions with demoted CTA; high-risk blocked item; degraded sources; persistent privacy/authority posture; UAA sidecar asking about board/CRM | yes |
+| Founder Loop | `/news` | News & Signals | Daily command deck | For You front page; category selected; source feed selected; paginated Morning Brief candidate pool; Reddit/X/newsletter fixture previews; source partial/stale/blocked/unsupported; empty front page; inspectable selection reason | yes |
 | Founder Loop | `/inbox` | Source Inbox | Queue/detail/inspector | ready sources; missing source; connector draft-only; all sources blocked | yes |
 | Founder Loop | `/plans` | Plans | Board/planning | plan selected; no plan; proposal dirty; action-envelope handoff | yes |
 | Founder Loop | `/work-board` | Work Board | Board/planning | backend order; unsaved preview; persist confirmation; receipt saved; blocked external lane; UAA board question/task proposal | yes |
@@ -127,7 +128,7 @@ for each workspace template shows the expanded sidecar.
 | System | `/api-routes` | API Routes | Ledger/inventory | all routes; filtered class; route selected; manifest mismatch | no |
 | System | `/differentiators` | Differentiators | Ledger/inventory | evidence-backed claims; missing proof; unsupported claim blocked | no |
 
-Route count: 40. Every route in `apps/control-center/src/routes.tsx` is listed.
+Route count: 41. Every route in `apps/control-center/src/routes.tsx` is listed.
 
 ## Production Order
 

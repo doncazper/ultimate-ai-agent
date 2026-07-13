@@ -2,7 +2,7 @@
 
 Status: current target render set, documentation only.
 Baseline ID: CC-NS-TARGET-R3-2026-07-11.
-Current as of: 2026-07-11.
+Current as of: 2026-07-13.
 Repo baseline: v0.104.0 / 0.104.0.
 
 Machine-readable currentness: `CURRENT_RENDER_BASELINE.json`.
@@ -89,7 +89,7 @@ Revision 02 adds non-destructive versions and new surfaces:
 | `renders/target-v2/03-work-board-v2.png` | Work Board v2 color grammar |
 | `renders/target-v2/04-crm-v2.png` | CRM v2 governed calling placeholder |
 | `renders/target-v2/06-studio-v2.png` | Studio v2 immersive workbench |
-| `renders/target-v2/15-news-v1.png` | News v1 curated workspace |
+| `renders/target-v2/15-news-v1.png` | Preserved News v1 curated-workspace exploration |
 | `renders/target-v2/16-trust-v1.png` | Trust v1 authority cockpit |
 | `renders/target-v2/17-terminal-v1.png` | Terminal v1 governed terminal |
 | `renders/target-v2/18-compact-shell-v1.png` | Compact icon-only shell v1 |
@@ -100,6 +100,17 @@ retaining both earlier CRM drafts:
 | Render | Revision |
 |---|---|
 | `renders/target-v3/04-crm-v3.png` | CRM v3 premier general relationship workspace |
+
+News & Signals V1 replaces the earlier analytical News exploration with the
+accepted personalized front-page direction while preserving the old image:
+
+| Render | Revision |
+|---|---|
+| `renders/news-signals-v1/01-news-signals-home.png` | News & Signals personalized front page with categories, Top Stories, Morning Brief queue, source-specific scanners/subscriptions, and governed source posture |
+
+See `renders/news-signals-v1/README.md` for the locked hierarchy, interaction
+intent, and authority boundary. The render is a planning/design artifact, not
+evidence that Reddit, X, email, Discord, RSS, or any other source is connected.
 
 The independent Messenger client set covers the Element-familiar Matrix north
 star through the UAA lens while Communications keeps its accepted unified hub.

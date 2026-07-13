@@ -2,7 +2,7 @@
 
 Status: current target render set, documentation only.
 Baseline ID: CC-NS-TARGET-R3-2026-07-11.
-Current as of: 2026-07-11.
+Current as of: 2026-07-13.
 Repo baseline: v0.104.0 / 0.104.0.
 
 Machine-readable currentness: `CURRENT_RENDER_BASELINE.json`.
@@ -70,7 +70,7 @@ Revision 02 preserves every V1 file and adds the accepted review corrections.
 | `renders/target-v2/03-work-board-v2.png` | Work Board v2 | status column bars; priority card edges; visible legend | color-only meaning or rainbow cards |
 | `renders/target-v2/04-crm-v2.png` | CRM v2 | availability-backed Call chooser; exact review; general placeholder | provider connected or call completed |
 | `renders/target-v2/06-studio-v2.png` | Studio v2 | immersive familiar workbench; back path; optional drawer; Terminal | arbitrary shell, deploy, or model authority |
-| `renders/target-v2/15-news-v1.png` | News v1 | curated sourced brief; freshness; why selected; saved/source controls | unrestricted fetch or unsourced ranking |
+| `renders/target-v2/15-news-v1.png` | News v1, preserved | earlier curated-workspace exploration; superseded by News & Signals V1 | current accepted layout, unrestricted fetch, or unsourced ranking |
 | `renders/target-v2/16-trust-v1.png` | Trust v1 | authority matrix; exact lease; live decisions; revoke/pause/kill/safe-disable | matrix as authority grant |
 | `renders/target-v2/17-terminal-v1.png` | Terminal v1 | exact command lanes; redacted output; receipts; pop-out | unrestricted shell or raw environment |
 | `renders/target-v2/18-compact-shell-v1.png` | Compact shell v1 | same nav as icons; tooltip/focus labels; fixed utilities | hidden routes or changed capability |
@@ -85,6 +85,19 @@ in `CRM_V3_REFERENCE_SYNTHESIS.md`.
 | File | Surface/version | Required change | Must not imply |
 |---|---|---|---|
 | `renders/target-v3/04-crm-v3.png` | CRM v3 | fixed toolbar; route tabs; six KPIs; smart views; sortable relationship table; persistent inspector; pipeline analytics; availability-backed calling; route-aware UAA composer | specialty vertical; raw contact data; provider connection; sync; dialer launch as completed call; recording by default |
+
+## News & Signals V1
+
+The News & Signals V1 set records the accepted personalized news front-page
+direction. It replaces the earlier analytical News exploration as the current
+surface target without deleting or rewriting that historical artifact.
+
+| File | Surface/version | Required relationship | Must not imply |
+|---|---|---|---|
+| `renders/news-signals-v1/01-news-signals-home.png` | News & Signals home v1 | familiar category grouping; personalized Top Stories; bounded paginated Morning Brief candidate pool; separate Reddit, X, newsletter, and later source-family views; persistent read-only posture | implemented adapters, authenticated accounts, live scraping, background polling, connector reads/writes, unrestricted web fetching, provider/model calls, or production authority |
+
+See `renders/news-signals-v1/README.md` for the locked hierarchy and adapter
+truth boundary.
 
 ## Messenger Matrix Client V1
 
@@ -172,7 +185,7 @@ All future target render prompts and implementation passes should use the
 CC-NS-TARGET-R3-2026-07-11 shell:
 
 ```text
-Today, Communications, Messenger, Work Board, CRM, Calendar, News, Studio,
+Today, Communications, Messenger, Work Board, CRM, Calendar, News & Signals, Studio,
 Knowledge, Activity & Trust, Customize, Settings, Developer Tools.
 ```
 

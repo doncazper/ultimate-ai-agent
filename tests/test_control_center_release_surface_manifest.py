@@ -60,7 +60,7 @@ def test_control_center_release_surface_manifest_covers_visible_routes() -> None
         "blocked",
         "experimental",
     ]
-    assert len(manifest["routes"]) == len(visible_routes) == 40
+    assert len(manifest["routes"]) == len(visible_routes) == 41
     by_path = {route["path"]: route for route in manifest["routes"]}
     assert by_path["/start"]["status"] == "partial"
     assert by_path["/start"]["backend_routes"][0]["path"] == (
@@ -128,6 +128,17 @@ def test_control_center_release_surface_manifest_covers_visible_routes() -> None
     assert by_path["/today"]["visual_proof_status"] == "checked_in_baseline"
     assert by_path["/today"]["visual_baseline_ref"] == (
         "visual-baseline:control-center:today"
+    )
+    assert by_path["/news"]["status"] == "experimental"
+    assert by_path["/news"]["backend_routes"] == []
+    assert by_path["/news"]["side_effect_class"] == "local_ui_state_only"
+    assert by_path["/news"]["visual_proof_status"] == "experimental_no_baseline"
+    assert "missing_backend:news-signals-read-model" in (
+        by_path["/news"]["blocked_capabilities"]
+    )
+    assert any(
+        "illustrative local fixtures only" in caveat.lower()
+        for caveat in by_path["/news"]["product_language_caveats"]
     )
     assert by_path["/inbox"]["status"] == "partial"
     assert by_path["/inbox"]["backend_routes"][0]["path"] == (

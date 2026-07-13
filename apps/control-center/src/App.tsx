@@ -6,12 +6,12 @@ import {
   RouteStatePanel,
 } from "./components/DataState";
 import { SafeAlert } from "./components/SafeAlert";
-import { NewsSignalsPreviewPanel } from "./components/NewsSignalsPreviewPanel";
 import { useControlCenterData } from "./hooks/useControlCenterData";
 import {
   getRouteStateDescriptor,
   getRouteSurfaceLabel,
   renderRoute,
+  renderStaticPreviewRoute,
 } from "./routes";
 import type {
   BackendConnectionSummary,
@@ -27,10 +27,11 @@ export function App() {
     [activePath],
   );
 
-  if (activePath === "/news") {
+  const staticPreviewRoute = renderStaticPreviewRoute(activePath);
+  if (staticPreviewRoute) {
     return (
       <AppShell activePath={activePath}>
-        <NewsSignalsPreviewPanel />
+        {staticPreviewRoute}
       </AppShell>
     );
   }

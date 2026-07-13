@@ -2,7 +2,7 @@
 
 Status: current design target, documentation only.
 Baseline ID: CC-NS-TARGET-R3-2026-07-11.
-Current as of: 2026-07-11.
+Current as of: 2026-07-13.
 Repo baseline: v0.104.0 / 0.104.0.
 
 Every active Control Center route in `apps/control-center/src/routes.tsx` has a
@@ -26,6 +26,7 @@ that planned Messenger routes are implemented.
 |---|---|---|---|---|
 | `/start` | Start Here | `renders/11_start_overview_dashboard.png` | First-run local cockpit with setup state, route proof, next operator step. | No marketing hero, no public beta or production readiness claim. |
 | `/today` | Today | `renders/01_today_command_center.png` | Daily command surface with briefing, priorities, approvals, memory, evidence, and blockers in one window. | Today coordinates loop state; it does not create hidden authority. |
+| `/news` | News & Signals | `renders/news-signals-v1/01-news-signals-home.png` | Personalized outside-context front page with familiar categories, Top Stories, a bounded Morning Brief queue, and separate scanner/subscription previews. | Accepted target only; no Reddit, X, email, Discord, RSS, blog, video, podcast, connector, browser, polling, or unrestricted fetch authority. |
 | `/inbox` | Source Inbox | `renders/09_source_inbox_crm_briefing_prep.png` | Read-only/draft-only source readiness feeding briefing and action proposals. | No connector writes, live import commits, browser automation, or raw private content. |
 | `/plans` | Plans | `renders/03_plans_work_board.png` | Plan outline tied to action envelopes, board cards, dependencies, and evidence. | Plans produce proposals and envelopes, not unapproved execution. |
 | `/work-board` | Work Board | `renders/03_plans_work_board.png` | Backend-owned board cockpit with bounded columns, approvals, receipts, and rollback posture. | Local board mutation requires exact approval and workspace/write authority. |

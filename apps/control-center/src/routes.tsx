@@ -345,8 +345,6 @@ export const commandPaletteItems: CommandPaletteItem[] = [
 
 export function renderRoute(path: string, data: ControlCenterData) {
   switch (path) {
-    case "/news":
-      return <NewsSignalsPreviewPanel />;
     case "/start":
       return (
         <>
@@ -694,6 +692,10 @@ export function renderRoute(path: string, data: ControlCenterData) {
     default:
       return <DashboardSummary dashboard={data.dashboard} />;
   }
+}
+
+export function renderStaticPreviewRoute(path: string) {
+  return path === "/news" ? <NewsSignalsPreviewPanel /> : null;
 }
 
 function isAuthoritativeRoute(data: ControlCenterData, route: string): boolean {

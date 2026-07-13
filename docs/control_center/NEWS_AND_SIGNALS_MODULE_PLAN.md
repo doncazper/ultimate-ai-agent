@@ -1,6 +1,6 @@
 # News & Signals Module Plan
 
-Status: refined design preview; planning-only beyond the local sample UI
+Status: accepted front-page design target; implemented sample UI remains partial
 Baseline: v0.104.0 / 0.104.0
 Reviewed: 2026-07-13
 
@@ -13,18 +13,20 @@ external action, public release, or production authority.
 
 ## Executive Decision
 
-News & Signals is UAA's external situational-intelligence workspace. It gathers
-authorized outside context, preserves source and confidence posture, ranks it
-against explicit user interests, and identifies the few items worth carrying
-into Morning Briefing.
+News & Signals is designed as UAA's external situational-intelligence
+workspace. A later backend-owned milestone may gather authorized outside
+context, preserve source and confidence posture, rank it against explicit user
+interests, and identify the few items worth carrying into Morning Briefing.
 
-The product loop is:
+The target product loop is:
 
 ```text
-Authorized sources -> normalize -> cluster -> rank -> review
-                                               |        |
-                                               |        +-> retain as context
-                                               +-> Morning Briefing candidate
+Authorized sources -> source-specific feeds -> normalize + preserve provenance
+                                                    |
+                                                    v
+                          categories + preferences -> ranked front page
+                                                    |
+                                review pool --------+-> Morning Brief candidate
 ```
 
 The global navigation label becomes **News & Signals** while the canonical
@@ -51,8 +53,9 @@ It does not own:
 - durable truth or authority; Evidence, Trust, policy, and approval boundaries
   remain canonical.
 
-Morning Briefing consumes only the highest-ranked, reviewable News & Signals
-items. It does not duplicate the entire stream.
+Morning Briefing will consume only the highest-ranked, reviewable News &
+Signals items after a backend-owned projection is separately accepted. It will
+not duplicate the entire stream.
 
 ## Refinement Pass 1: Complete Review Workspace
 
@@ -81,7 +84,36 @@ Save, dismiss, mute, and action-proposal controls were deliberately removed
 from the preview. Those controls would imply backend-owned state changes and
 receipt behavior that this milestone does not implement.
 
-## Final Preview Contract
+## Refinement Pass 3: Analytical Intelligence Desk
+
+The third pass explored an editorial lead signal, topic radar, story clusters,
+and a Morning Brief queue. It improved hierarchy but over-indexed on analytical
+abstractions. `Signal radar`, `What changed today`, and `Topics worth opening`
+overlapped and required the operator to interpret UAA's model before reading
+the news.
+
+That composition is not the accepted front-page target.
+
+## Refinement Pass 4: Personalized News Front Page
+
+The accepted direction starts with familiar news-consumption questions:
+
+1. What happened in the categories I care about?
+2. Which stories matter to me now?
+3. What did each source scanner or subscription find?
+4. Which items are entering Morning Briefing?
+
+The accepted visual target is:
+
+`docs/design/control_center_north_star/renders/news-signals-v1/01-news-signals-home.png`
+
+Its detailed truth and interaction contract is recorded in:
+
+`docs/design/control_center_north_star/renders/news-signals-v1/README.md`
+
+## Current Preview And Accepted Target
+
+### Implemented sample preview
 
 The sample `/news` surface demonstrates:
 
@@ -97,6 +129,30 @@ The sample `/news` surface demonstrates:
 
 Only filter and selection state are held in React. They are presentation state,
 not product authority or durable workflow state.
+
+### Accepted target composition
+
+The later implemented front page should provide:
+
+- primary tabs for `For You`, `Categories`, `Source Feeds`, `Saved`, and
+  `Sources`;
+- familiar category grouping for Top, AI, Technology, Business, Politics,
+  World, Sports, Science, Culture, and user-configurable additions;
+- `Top stories for you` with visible category, source, freshness, source count,
+  and an inspectable reason the item was selected;
+- a bounded `Morning Brief queue` with candidate-pool pagination and a stable
+  path to the full Morning Briefing;
+- separate source-specific previews for Reddit findings, watched X accounts,
+  email newsletter bulletins, and later Discord, RSS, official blog, YouTube,
+  podcast, and other exact read-only adapters;
+- source-specific `View all` paths so curated intake does not erase where an
+  item came from;
+- a calm contained desktop composition rather than an endless feed or
+  analytics dashboard.
+
+The listed source families are an extensible product taxonomy, not a claim
+that every source is implemented or permitted. Readiness and authority must be
+shown per exact adapter.
 
 ## Future Contract Sequence
 

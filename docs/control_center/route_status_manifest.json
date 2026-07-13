@@ -1633,6 +1633,26 @@
       "missing_backend_routes": []
     },
     {
+      "action_id": "navigate-news-signals",
+      "label": "Navigate News & Signals",
+      "ui_surface": "News & Signals",
+      "frontend_route": "/news",
+      "owner": "founder-loop",
+      "auth_posture": "frontend_fixture_preview_only_no_backend_truth",
+      "side_effect_class": "local_ui_state_only",
+      "risk_class": "medium",
+      "release_status": "mock_only_not_product_ready",
+      "approval_requirement": "No approval for filtering or selecting local sample records. Live retrieval, storage, ranking, Morning Briefing projection, memory intake, or action proposals require separately accepted exact backend lanes.",
+      "evidence_audit_output": "Illustrative local sample labels and safe preview refs only; no live source reads, provider payloads, raw page content, connector access, durable memory, action proposal, runtime execution, public release, or production authority.",
+      "backend_routes": [],
+      "missing_backend_routes": [
+        "news-signals-read-model",
+        "news-signals-source-provenance",
+        "news-signals-morning-briefing-projection",
+        "news-signals-source-adapter-readiness"
+      ]
+    },
+    {
       "action_id": "navigate-inbox",
       "label": "Navigate Inbox",
       "ui_surface": "Inbox",

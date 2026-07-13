@@ -1,6 +1,6 @@
 {
   "schema": "uaa.control_center.render_review.v1",
-  "updated": "2026-07-11",
+  "updated": "2026-07-13",
   "sets": [
     {
       "id": "target-v1",
@@ -16,6 +16,11 @@
       "id": "communications-v1",
       "label": "Messenger client",
       "description": "Clean-room Element-familiar Matrix client in a dedicated immersive UAA workspace."
+    },
+    {
+      "id": "news-signals-v1",
+      "label": "News & Signals",
+      "description": "Accepted personalized news front-page direction with categories, Morning Brief candidates, and source-specific scanner/subscription previews."
     }
   ],
   "renders": [
@@ -163,7 +168,7 @@
       "order": 2,
       "surface": "Communications",
       "category": "Primary workspace",
-      "route": "target",
+      "route": "/news",
       "purpose": "Unified email, messages, follow-ups, drafts, and waiting-on-others workspace.",
       "truth": "Target design; connector reads/writes remain governed or blocked.",
       "image": "../renders/target-v1/02-communications.png",
@@ -214,15 +219,18 @@
     },
     {
       "id": "NEWS-01",
-      "set": "target-v1",
+      "set": "news-signals-v1",
       "order": 6,
-      "surface": "News",
+      "surface": "News & Signals",
       "category": "Primary workspace",
       "route": "target",
-      "purpose": "Curated, sourced situational context based on explicit interests and business watchlists.",
-      "truth": "Target design; read-only provenance is visible and no unrestricted web fetching is implied.",
-      "image": "../renders/target-v2/15-news-v1.png",
-      "versions": [{"id": "v1", "label": "Draft v1 · curated brief", "image": "../renders/target-v2/15-news-v1.png"}]
+      "purpose": "Personalized outside-context front page with familiar categories, Top Stories, a bounded Morning Brief queue, and source-specific scanner/subscription previews.",
+      "truth": "Accepted design target; all visible content is illustrative and no source adapter, account access, scraping, polling, connector read/write, or unrestricted web fetching is implied.",
+      "image": "../renders/news-signals-v1/01-news-signals-home.png",
+      "versions": [
+        {"id": "v1", "label": "Preserved v1 · curated brief exploration", "image": "../renders/target-v2/15-news-v1.png"},
+        {"id": "v2", "label": "Accepted v2 · personalized front page", "image": "../renders/news-signals-v1/01-news-signals-home.png"}
+      ]
     },
     {
       "id": "STUDIO-01",
