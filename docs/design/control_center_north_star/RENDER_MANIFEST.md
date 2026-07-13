@@ -2,7 +2,7 @@
 
 Status: current target render set, documentation only.
 Baseline ID: CC-NS-TARGET-R3-2026-07-11.
-Current as of: 2026-07-11.
+Current as of: 2026-07-13.
 Repo baseline: v0.104.0 / 0.104.0.
 
 Machine-readable currentness: `CURRENT_RENDER_BASELINE.json`.
@@ -85,6 +85,21 @@ in `CRM_V3_REFERENCE_SYNTHESIS.md`.
 | File | Surface/version | Required change | Must not imply |
 |---|---|---|---|
 | `renders/target-v3/04-crm-v3.png` | CRM v3 | fixed toolbar; route tabs; six KPIs; smart views; sortable relationship table; persistent inspector; pipeline analytics; availability-backed calling; route-aware UAA composer | specialty vertical; raw contact data; provider connection; sync; dialer launch as completed call; recording by default |
+
+## Studio Split Revision 03
+
+Agent Studio v3 is the accepted geometry target for the coding-agent half of
+the Studio split. It preserves the immersive workbench while replacing
+floating, clipped, and pill-heavy treatment with fixed panes and clean shared
+edges. Creative Studio v1 applies the same geometry to presentations,
+documents, spreadsheets, media, and brand assets. Earlier Studio renders
+remain immutable comparison artifacts. The normative purpose and ownership
+contract is `../STUDIO_TAB_PRODUCT_DIRECTION.md`.
+
+| File | Surface/version | Required change | Must not imply |
+|---|---|---|---|
+| `renders/target-v3/06-agent-studio-v3.png` | Agent Studio v3 | fixed 250 px rail; flexible transcript/editor; fixed inspector; docked composer; full-width status bar; square shared separators; restrained 8 px maximum radius | arbitrary shell, deploy, model authority, approval bypass, or implementation evidence |
+| `renders/target-v3/06-creative-studio-v1.png` | Creative Studio v1 | same fixed-pane geometry; presentation canvas and slide strip; versions, linked work, evidence/rights, governed review; PowerPoint as an explicit creation format | implemented export, external delivery, publishing, connector writes, or implementation evidence |
 
 ## Messenger Matrix Client V1
 

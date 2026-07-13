@@ -1,7 +1,7 @@
 {
   "schema": "uaa.control_center.render_baseline.v1",
   "baseline_id": "CC-NS-TARGET-R3-2026-07-11",
-  "current_as_of": "2026-07-11",
+  "current_as_of": "2026-07-13",
   "period": "2026-07",
   "status": "current_review_target",
   "meaning": "Current identifies the preferred design-review target for this period; it does not mean approved, implemented, connected, or production-ready.",
@@ -26,7 +26,7 @@
     {
       "id": "target-v3",
       "path": "renders/target-v3",
-      "status": "current_crm_revision"
+      "status": "current_surface_revisions"
     },
     {
       "id": "communications-v1",
@@ -50,6 +50,16 @@
       "series_id": "CRM-01",
       "status": "current_draft",
       "latest": "renders/target-v3/04-crm-v3.png"
+    },
+    "agent_studio": {
+      "series_id": "STUDIO-01",
+      "status": "accepted_design_target",
+      "latest": "renders/target-v3/06-agent-studio-v3.png"
+    },
+    "creative_studio": {
+      "series_id": "CREATIVE-STUDIO-01",
+      "status": "accepted_design_target",
+      "latest": "renders/target-v3/06-creative-studio-v1.png"
     },
     "messenger": {
       "series_id": "COMMS-MX",

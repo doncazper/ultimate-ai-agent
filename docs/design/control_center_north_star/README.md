@@ -2,7 +2,7 @@
 
 Status: current target render set, documentation only.
 Baseline ID: CC-NS-TARGET-R3-2026-07-11.
-Current as of: 2026-07-11.
+Current as of: 2026-07-13.
 Repo baseline: v0.104.0 / 0.104.0.
 
 Machine-readable currentness: `CURRENT_RENDER_BASELINE.json`.
@@ -17,7 +17,9 @@ wins when the generated PNGs disagree with each other. The complete next-render
 queue, including all 40 current routed surfaces and applicable state/responsive
 variations, lives in `RENDER_VARIATION_MATRIX.md`. The consolidated target
 surface architecture is defined by
-`../CONTROL_CENTER_PRODUCT_IA_AND_CALENDAR_CONTRACT.md`.
+`../CONTROL_CENTER_PRODUCT_IA_AND_CALENDAR_CONTRACT.md`. The accepted purpose,
+ownership, and geometry of the Agent Studio / Creative Studio split are defined
+by `../STUDIO_TAB_PRODUCT_DIRECTION.md`.
 
 The package is meant to remove ambiguity before implementation. Each render is
 a bounded desktop-app target for one or more Control Center surfaces, with the
@@ -94,12 +96,14 @@ Revision 02 adds non-destructive versions and new surfaces:
 | `renders/target-v2/17-terminal-v1.png` | Terminal v1 governed terminal |
 | `renders/target-v2/18-compact-shell-v1.png` | Compact icon-only shell v1 |
 
-CRM revision 03 adds one non-destructive specialty-reference synthesis while
-retaining both earlier CRM drafts:
+Revision 03 adds non-destructive CRM and Studio-split refinements while
+retaining every earlier draft:
 
 | Render | Revision |
 |---|---|
 | `renders/target-v3/04-crm-v3.png` | CRM v3 premier general relationship workspace |
+| `renders/target-v3/06-agent-studio-v3.png` | Agent Studio v3 accepted clean fixed-pane geometry |
+| `renders/target-v3/06-creative-studio-v1.png` | Creative Studio v1 accepted presentation and version-review workspace |
 
 The independent Messenger client set covers the Element-familiar Matrix north
 star through the UAA lens while Communications keeps its accepted unified hub.
@@ -146,7 +150,7 @@ in browser local storage and can be exported/imported as JSON.
 ## Current Baseline
 
 - Current target render set: CC-NS-TARGET-R3-2026-07-11.
-- Current as of: 2026-07-11.
+- Current as of: 2026-07-13.
 - Machine-readable pointer: `CURRENT_RENDER_BASELINE.json`.
 - Canonical shell: `APP_SHELL_BASELINE.md`.
 - Route coverage: `SURFACE_COVERAGE.md`.
@@ -168,7 +172,9 @@ baseline.
 
 ![Target Calendar](renders/target-v1/05-calendar.png)
 
-![Target Studio v2](renders/target-v2/06-studio-v2.png)
+![Target Agent Studio v3](renders/target-v3/06-agent-studio-v3.png)
+
+![Target Creative Studio v1](renders/target-v3/06-creative-studio-v1.png)
 
 ![Target Trust cockpit](renders/target-v2/16-trust-v1.png)
 

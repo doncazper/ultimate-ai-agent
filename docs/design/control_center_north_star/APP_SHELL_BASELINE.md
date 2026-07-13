@@ -73,8 +73,9 @@ Evidence, Proof, Trust, Events, and Approvals consolidate under Activity &
 Trust. Runtime, Models, Storage, API Routes, Foundation Gate, Plugins, setup
 diagnostics, and other technical routes consolidate under Developer Tools.
 `Start Here` becomes onboarding-only after setup. Plans becomes a Work Board
-view; Source Inbox becomes a Communications view; Chat and Coding become
-Studio modes.
+view; Source Inbox becomes a Communications view; Chat and Coding become Agent
+Studio, while presentations, documents, spreadsheets, media, and brand assets
+become Creative Studio. Both remain beneath one global Studio entry.
 
 Action Inbox is a global decision utility reached through `Review N decisions`,
 attention items, command search, and Activity & Trust. It is not a permanent
@@ -232,9 +233,11 @@ Use Inter/system typography and the CC-NS-TARGET-R3-2026-07-11 size scale.
 ```
 
 Studio and Messenger are the explicit immersive exceptions. Studio replaces
-the ordinary rail with its workbench rail. Messenger replaces it with Home,
-exactly two Matrix Spaces, room and direct-message navigation, and account
-security. Both provide a visible Back to Control Center command.
+the ordinary rail with the selected Agent Studio or Creative Studio workbench
+rail; the split and shared geometry are defined by
+`../STUDIO_TAB_PRODUCT_DIRECTION.md`. Messenger replaces the ordinary rail
+with Home, exactly two Matrix Spaces, room and direct-message navigation, and
+account security. Both provide a visible Back to Control Center command.
 
 Generated images are allowed to be visually approximate, but implementation
 must follow this baseline where generated pixels conflict with the spec.

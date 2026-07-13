@@ -3,7 +3,7 @@
 Status: render production queue, documentation only  
 Specification: `CC-UIUX-2026-07-11`  
 Input baseline: `CC-NS-2026-07-06`  
-Current as of: 2026-07-11  
+Current as of: 2026-07-13
 Repository baseline: `v0.104.0` / package `0.104.0`
 
 This matrix defines the complete set of coherent render deliverables required
@@ -61,7 +61,8 @@ architecture is defined by
 | `CAL-01` | Calendar week | color-coded schedule; tasks and commitments; source-backed candidate; duplicate/conflict/timezone posture; shared refs; proposal-only external posture |
 | `NEWS-01` | News | curated For You/Business/Technology/Markets/Saved/Sources; visible provenance, freshness, and selection rationale |
 | `DECISIONS-01` | Decision Review | exact source, time, participants, location, CRM/work links, conflicts, confidence, authority, expiry, edit/approve/reject/defer outcomes |
-| `STUDIO-01` | Studio | immersive Codex/Claude-like workbench; Back to Control Center; tasks/projects; dominant transcript/editor; optional drawers; governed composer; Terminal |
+| `STUDIO-01` | Agent Studio | immersive coding-agent workbench; Back to Control Center; fixed project rail; dominant transcript/editor; fixed inspector; docked governed composer; Terminal; clean shared pane edges |
+| `CREATIVE-STUDIO-01` | Creative Studio | presentations, documents, spreadsheets, media, and brand assets; fixed project rail; slide/page/sheet canvas; versions; references; rights; linked work; governed review and blocked-until-promoted export |
 | `KNOWLEDGE-01` | Knowledge | memory/files/context/sources; provenance; conflicts; corrections; reviewed-context decisions |
 | `ACTIVITY-01` | Activity & Trust | receipts, evidence, proof, history, approvals, authority, safe refs, and correction/rollback paths |
 | `CUSTOMIZE-01` | Customize | order, visibility, groups, density, preview, cancel, reset; no capability language |

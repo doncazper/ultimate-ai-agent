@@ -124,11 +124,14 @@ The target default order is:
 
 Today is the default landing workspace. `Start Here` is onboarding-only after
 setup. Plans becomes a Work Board view; Source Inbox becomes a Communications
-view; Chat and Coding become Studio modes; Memory and Files become Knowledge;
-and receipts, evidence, proof, trust, events, and approvals consolidate under
-Activity & Trust. This is a target render and implementation architecture, not
-a claim that current routes have already been consolidated. Route-local tabs
-never enter the global rail. One item, and only one item, has
+view; Chat and Coding become Agent Studio, while presentations, documents,
+spreadsheets, media, and brand assets live in Creative Studio; Memory and Files
+become Knowledge; and receipts, evidence, proof, trust, events, and approvals
+consolidate under Activity & Trust. Agent and Creative remain internal
+workspaces beneath one global Studio entry. This is a target render and
+implementation architecture, not a claim that current routes have already been
+consolidated. Route-local tabs never enter the global rail. One item, and only
+one item, has
 `aria-current="page"`.
 
 The operator may enter `Customize sidebar` to pin/unpin surfaces, reorder
@@ -173,7 +176,7 @@ Normal workspaces use one invariant 64 px toolbar below the posture strip:
 Search does not move above, below, or to the opposite side between routes. At a
 compact breakpoint it collapses to an icon/`Command-K` affordance instead of
 wrapping. Studio and Messenger are the two immersive shell exceptions. Studio
-follows the workbench contract in
+follows `STUDIO_TAB_PRODUCT_DIRECTION.md` and the earlier workbench review in
 `CONTROL_CENTER_RENDER_REVIEW_REVISION_02.md`; Messenger follows
 `control_center_north_star/UAA_COMMUNICATIONS_MATRIX_NORTH_STAR.md`.
 
