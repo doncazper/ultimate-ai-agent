@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from scripts import verify_fcc_v1_005_memory_review_decisions as verifier
+from scripts.dev import uaa_founder_loop
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.authority import (
     AUTHORITY_STATE_DIR_ENV,
@@ -32,6 +33,8 @@ from ultimate_ai_agent.core.memory import (
     MemoryReviewDecisionReceipt,
     MemoryReviewDecisionRequest,
     MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF,
+    MEMORY_REVIEW_AUTHORITY_ACTION_REF,
+    MEMORY_REVIEW_AUTHORITY_LANE_REF,
     MEMORY_REVIEW_WRITE_ROLLBACK_BLOCKED_REF,
     MEMORY_REVIEW_WRITE_ROLLBACK_REF,
     MEMORY_REVIEW_WRITE_SAFE_DISABLE_REF,
@@ -91,6 +94,9 @@ def _safe_receipt(**overrides: object) -> MemoryReviewDecisionReceipt:
         "authority_decision_ref": "authority-policy-decision-ref:memory-review:test",
         "authority_decision_outcome": "ask",
         "authority_lease_ref": "authority-lease-ref:test-memory-review-write",
+        "authority_action_ref": MEMORY_REVIEW_AUTHORITY_ACTION_REF,
+        "authority_lane_ref": MEMORY_REVIEW_AUTHORITY_LANE_REF,
+        "authority_scope_ref": MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF,
         "authority_domain_ref": "authority-domain-ref:memory",
         "authority_capability_ref": "authority-capability-ref:write",
         "safe_disable_ref": MEMORY_REVIEW_WRITE_SAFE_DISABLE_REF,
@@ -366,10 +372,7 @@ def test_memory_review_correction_stores_bounded_safe_summary_and_ref(
         receipt["corrected_summary_ref"]
         == "safe-summary-ref:memory-review-correction:test"
     )
-    assert (
-        receipt["corrected_safe_summary"]
-        == "Corrected bounded safe summary for review only."
-    )
+    assert "corrected_safe_summary" not in receipt
     assert "raw" not in str(receipt).lower()
     assert receipt["approval_ref"].startswith("approval-ref:memory-review:")
     assert receipt["reviewed_recall_write_performed"] is True
@@ -424,7 +427,7 @@ def test_rejected_candidate_is_preserved_and_evidence_visible(tmp_path: Path) ->
     history = memory_event["history_answers"]
     assert history["approved"]["status"] == "decision_receipt_recorded"
     assert (
-        "Memory Review accept, correct, reject, defer, merge, supersede, "
+        "Memory Review accept, correct, reject, defer, merge, supersede, expire, "
         "and forget-request decisions" in history["happened"]["answer"]
     )
     assert "context injection" in history["blocked"]["answer"]
@@ -553,6 +556,8 @@ def test_memory_review_decision_api_requires_idempotency_replays_and_conflicts(
 
 def test_memory_review_cli_records_and_inspects_reviewed_recall_write(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     state_dir = tmp_path / "founder_loop"
     authority_state_dir = tmp_path / "authority"
@@ -598,22 +603,18 @@ def test_memory_review_cli_records_and_inspects_reviewed_recall_write(
     assert decision_payload["safe_refs_only"] is True
     assert str(state_dir) not in decision.stdout
 
-    inspect = subprocess.run(
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(authority_state_dir))
+    assert uaa_founder_loop.main(
         [
-            sys.executable,
-            str(Path("scripts/dev/uaa_founder_loop.py")),
             "--state-dir",
             str(state_dir),
             "memory-receipts",
             "--limit",
             "5",
-        ],
-        env={**os.environ, AUTHORITY_STATE_DIR_ENV: str(authority_state_dir)},
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    inspect_payload = json.loads(inspect.stdout)
+        ]
+    ) == 0
+    inspect_output = capsys.readouterr().out
+    inspect_payload = json.loads(inspect_output)
     assert (
         inspect_payload["exact_write_scope_ref"] == MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF
     )
@@ -627,6 +628,7 @@ def test_memory_review_cli_records_and_inspects_reviewed_recall_write(
         inspect_payload["write_safe_disable_posture"]["rollback_execution_enabled"]
         is False
     )
+
     assert inspect_payload["safe_refs_only"] is True
     serialized = json.dumps(inspect_payload).lower()
     assert "raw_prompt" not in serialized

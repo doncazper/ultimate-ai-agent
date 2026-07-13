@@ -32,7 +32,7 @@ cannot live only in React state.
 |---|---|---|---|
 | Live local agent runtime | Implemented | Configured loopback/local RuntimeGateway calls with non-authoritative output, redacted receipts, and safe refs. | No remote provider/model calls, tools, memory writes, file writes, connector writes, browser automation, or production authority. |
 | Mature action execution | Implemented | Named RuntimeGateway authority capabilities: one read-only local status command under `workspace/read` and exact Action Inbox approved focused pytest, repo-verifier, frontend-check, and repo-doctor command execution under active `workspace/execute` AuthorityLease scope. | No generic tool execution, arbitrary shell/subprocess, networked commands, installs, background execution, or approval refs as authority. |
-| Portable evidence envelopes | Profile-ready | Local hash-signed receipt envelopes with safe refs, hash refs, timestamp, policy decision, approval ref, action id, side-effect class, and verifier version. | No public notarization claim, persisted signing key material, raw payloads, raw logs, raw local paths, provider payloads, or sensitive material. |
+| Portable evidence envelopes | Profile-ready | Local SHA-256 hash-integrity receipt envelopes with safe refs, hash refs, timestamp, policy decision, approval ref, action id, side-effect class, and verifier version. Legacy signed identifiers are compatibility fields, not signatures. | No cryptographic signing, public notarization claim, persisted signing key material, raw payloads, raw logs, raw local paths, provider payloads, or sensitive material. |
 | Durable orchestration | Implemented | Local run records, checkpoints, progress refs, approval-wait states, retry/recovery posture, cancellation/blocked states, receipt refs, evidence refs, and redacted errors. | No broad background autonomy, scheduler authority, remote execution, provider/tool dispatch, or production authority. |
 
 ## Capability Maturity Matrix
@@ -40,7 +40,7 @@ cannot live only in React state.
 | Capability | Current maturity | Evidence | Remaining gap |
 |---|---|---|---|
 | Mature action execution | Strong exact-capability local pilot | RuntimeGateway allowlist, AuthorityLease evaluation, Action Inbox approval envelope, receipt refs, CLI/API/Core parity, and tests for read-only command plus exact approved focused pytest, repo-verifier, frontend-check, and repo-doctor execution. | More action capabilities require separate domain/capability scope, approval binding, rollback/safe-disable, redaction, and verifier coverage. |
-| Signed portable evidence | Strong local hash envelope, not public notarization | Envelope includes receipt, evidence, action, policy, approval, side-effect, timestamp, verifier, deterministic hash ref, local signed-envelope ref, offline verifier, tamper tests, redaction tests, and CLI export/verify. | Public signing, key custody, revocation, external notarization, and cross-device trust remain blocked until a separate signing-boundary milestone. |
+| Portable hash-integrity evidence | Strong local hash envelope, not cryptographically signed or publicly notarized | Envelope includes receipt, evidence, action, policy, approval, side-effect, timestamp, verifier, deterministic hash ref, legacy signed-envelope compatibility ref, offline verifier, tamper tests, redaction tests, and CLI export/verify. | Cryptographic signing, key custody, revocation, external notarization, and cross-device trust remain blocked until a separate signing-boundary milestone. |
 | Durable orchestration | Strong local durable run posture | Profile binds local run records, checkpoints, approval wait, retry/recovery, cancel/blocked/dead-letter posture, read-model status refs, redacted errors, and marks durable event log as truth while progress refs are not truth. | Live resume/cancel/retry execution controls and scheduler/background workers remain blocked until exact capabilities are approved. |
 | Live local agent runtime | Usable local pilot capability | RuntimeGateway supports configured loopback/local model receipts with non-authoritative output, safe refs, redaction posture, and sealed/local-runtime/operator-approved profile separation. | Remote provider calls, arbitrary model routing, tool dispatch, memory writes, and production authority remain blocked. |
 
@@ -56,8 +56,8 @@ scripts/dev/uaa_runtime.py verify-evidence-envelope --profile --json
 scripts/dev/uaa_runtime.py verify-evidence-envelope --input <local-envelope-json> --json
 ```
 
-The verifier checks required fields, envelope hash, signed-envelope hash chain,
-redaction posture, missing fields, and tamper detection. The CLI accepts a local
+The verifier checks required fields, envelope hash, the legacy signed-envelope
+compatibility hash, redaction posture, missing fields, and tamper detection. The CLI accepts a local
 input file for offline verification but does not echo or persist the local path.
 
 ## Still Blocked

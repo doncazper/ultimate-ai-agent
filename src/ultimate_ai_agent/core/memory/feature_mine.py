@@ -16,6 +16,20 @@ from ultimate_ai_agent.core.time import utc_now
 
 MEMORY_FEEDBACK_CONTRACT_REF = "contract-ref:fcc-mem-022-feedback:v1"
 MEMORY_FEEDBACK_ROUTE_REF = "POST /control-center/memory/feedback"
+MEMORY_FEEDBACK_AUTHORITY_ACTION_REF = (
+    "authority-action-ref:memory-feedback-metadata-update"
+)
+MEMORY_FEEDBACK_AUTHORITY_LANE_REF = "lane-ref:memory-feedback-metadata-update"
+MEMORY_FEEDBACK_EXACT_SCOPE_REF = (
+    "exact-scope-ref:memory-feedback:reviewed-recall-metadata-update"
+)
+MEMORY_FEEDBACK_SAFE_DISABLE_REF = (
+    "safe-disable-ref:memory-feedback:reviewed-recall-metadata-update"
+)
+MEMORY_FEEDBACK_SAFE_DISABLE_POSTURE_REF = (
+    "safe-disable-posture-ref:memory-feedback:metadata-update-enabled"
+)
+MEMORY_FEEDBACK_ROLLBACK_REF = "rollback-ref:memory-feedback:suppress-feedback-metadata"
 MEMORY_OBSERVATION_CANDIDATE_CONTRACT_REF = (
     "contract-ref:fcc-mem-022-observation-candidates:v1"
 )
@@ -29,9 +43,7 @@ MEMORY_CONTRADICTION_PREVIEW_CONTRACT_REF = (
 )
 MEMORY_CONTRADICTION_PREVIEW_ROUTE_REF = "GET /control-center/memory/contradictions"
 MEMORY_HRR_READINESS_CONTRACT_REF = "contract-ref:fcc-mem-hrr-001-readiness:v1"
-MEMORY_HRR_REQUIRED_MILESTONE_REF = (
-    "milestone-ref:fcc-mem-hrr-001-explicit-authority"
-)
+MEMORY_HRR_REQUIRED_MILESTONE_REF = "milestone-ref:fcc-mem-hrr-001-explicit-authority"
 
 MEMORY_SAFE_QUERY_BLOCKED_STATE_REFS = [
     "blocked-state:memory-safe-query-no-raw-content-echo",
@@ -270,7 +282,9 @@ class MemoryFeedbackRequest(BaseModel):
                     "memory feedback requires evidence refs or reason refs"
                 )
             if self.blocked_state_refs == MEMORY_FEEDBACK_BLOCKED_STATE_REFS:
-                self.blocked_state_refs = list(MEMORY_FEEDBACK_QUALITY_BLOCKED_STATE_REFS)
+                self.blocked_state_refs = list(
+                    MEMORY_FEEDBACK_QUALITY_BLOCKED_STATE_REFS
+                )
             else:
                 self.blocked_state_refs = _safe_refs(
                     self.blocked_state_refs,
@@ -325,8 +339,19 @@ class MemoryFeedbackReceipt(BaseModel):
     idempotency_key_ref: str
     payload_fingerprint_ref: str
     approval_ref: str
+    approval_scope_ref: str = MEMORY_FEEDBACK_EXACT_SCOPE_REF
     approval_status: str
     approval_reason_refs: list[str] = Field(default_factory=list)
+    authority_decision_ref: str
+    authority_decision_outcome: str
+    authority_lease_ref: str
+    authority_action_ref: str = MEMORY_FEEDBACK_AUTHORITY_ACTION_REF
+    authority_lane_ref: str = MEMORY_FEEDBACK_AUTHORITY_LANE_REF
+    authority_scope_ref: str = MEMORY_FEEDBACK_EXACT_SCOPE_REF
+    safe_disable_ref: str = MEMORY_FEEDBACK_SAFE_DISABLE_REF
+    safe_disable_posture_ref: str = MEMORY_FEEDBACK_SAFE_DISABLE_POSTURE_REF
+    safe_disable_enabled: bool = True
+    rollback_ref: str = MEMORY_FEEDBACK_ROLLBACK_REF
     source_refs: list[str] = Field(default_factory=list)
     evidence_refs: list[str] = Field(default_factory=list)
     note_ref: str | None = None
@@ -351,6 +376,38 @@ class MemoryFeedbackReceipt(BaseModel):
     created_at: str = Field(default_factory=lambda: utc_now().isoformat())
 
     model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_authority_proof(self) -> "MemoryFeedbackReceipt":
+        for field_name in [
+            "receipt_ref",
+            "memory_record_ref",
+            "reviewer_ref",
+            "idempotency_key_ref",
+            "payload_fingerprint_ref",
+            "approval_ref",
+            "approval_scope_ref",
+            "authority_decision_ref",
+            "authority_lease_ref",
+            "authority_action_ref",
+            "authority_lane_ref",
+            "authority_scope_ref",
+            "safe_disable_ref",
+            "safe_disable_posture_ref",
+            "rollback_ref",
+        ]:
+            _safe_ref(getattr(self, field_name), field_name)
+        if self.authority_decision_outcome not in {"allow", "ask"}:
+            raise ValueError("memory feedback authority decision unsupported")
+        if (
+            self.approval_scope_ref != MEMORY_FEEDBACK_EXACT_SCOPE_REF
+            or self.authority_scope_ref != MEMORY_FEEDBACK_EXACT_SCOPE_REF
+            or self.authority_action_ref != MEMORY_FEEDBACK_AUTHORITY_ACTION_REF
+            or self.authority_lane_ref != MEMORY_FEEDBACK_AUTHORITY_LANE_REF
+            or not self.safe_disable_enabled
+        ):
+            raise ValueError("memory feedback authority proof drifted")
+        return self
 
 
 def memory_feedback_payload_for_fingerprint(
@@ -395,7 +452,16 @@ def trust_delta_for_feedback(feedback_kind: str) -> float:
 
 def epistemic_role_for_candidate_kind(candidate_kind: str) -> MemoryEpistemicRole:
     normalized = str(candidate_kind or "").strip().lower().replace("-", "_")
-    if normalized in {"profile", "profiles", "project", "projects", "organization", "organizations", "deal", "deals"}:
+    if normalized in {
+        "profile",
+        "profiles",
+        "project",
+        "projects",
+        "organization",
+        "organizations",
+        "deal",
+        "deals",
+    }:
         return MemoryEpistemicRole.world_fact
     if normalized in {
         "decision",
@@ -436,8 +502,14 @@ __all__ = [
     "MEMORY_CONTRADICTION_PREVIEW_CONTRACT_REF",
     "MEMORY_CONTRADICTION_PREVIEW_ROUTE_REF",
     "MEMORY_FEEDBACK_BLOCKED_STATE_REFS",
+    "MEMORY_FEEDBACK_AUTHORITY_ACTION_REF",
+    "MEMORY_FEEDBACK_AUTHORITY_LANE_REF",
     "MEMORY_FEEDBACK_CONTRACT_REF",
+    "MEMORY_FEEDBACK_EXACT_SCOPE_REF",
+    "MEMORY_FEEDBACK_ROLLBACK_REF",
     "MEMORY_FEEDBACK_ROUTE_REF",
+    "MEMORY_FEEDBACK_SAFE_DISABLE_POSTURE_REF",
+    "MEMORY_FEEDBACK_SAFE_DISABLE_REF",
     "MEMORY_HRR_BLOCKED_STATE_REFS",
     "MEMORY_HRR_READINESS_CONTRACT_REF",
     "MEMORY_HRR_REQUIRED_MILESTONE_REF",

@@ -40,7 +40,9 @@ def _entry_by_id(catalog: dict[str, object], capability_id: str) -> dict[str, ob
     raise AssertionError(f"missing catalog entry {capability_id}")
 
 
-def test_action_tool_code_catalog_preserves_exact_lanes_and_blocks_broad_authority() -> None:
+def test_action_tool_code_catalog_preserves_exact_lanes_and_blocks_broad_authority() -> (
+    None
+):
     catalog = build_action_tool_code_lane_catalog_read_model().model_dump(mode="json")
 
     assert catalog["contract_ref"] == ACTION_TOOL_CODE_CATALOG_CONTRACT_REF
@@ -49,23 +51,34 @@ def test_action_tool_code_catalog_preserves_exact_lanes_and_blocks_broad_authori
     assert catalog["control_center_presentation_only"] is True
     assert catalog["safe_refs_only"] is True
     assert catalog["raw_content_included"] is False
-    assert catalog["entry_count"] == 14
+    assert catalog["entry_count"] == 15
     assert catalog["preview_only_count"] == 4
     assert catalog["exact_local_mutation_count"] == 1
     assert catalog["exact_local_authority_capability_count"] == 1
-    assert catalog["exact_runtime_lane_count"] == 5
-    assert catalog["exact_runtime_authority_capability_count"] == 5
+    assert catalog["exact_runtime_lane_count"] == 6
+    assert catalog["exact_runtime_authority_capability_count"] == 6
     assert catalog["proposal_only_count"] == 5
     assert catalog["blocked_count"] == 3
     assert all(catalog[flag] is False for flag in BROAD_AUTHORITY_FLAGS)
+
+    metadata = _entry_by_id(catalog, "founder_loop.filesystem_metadata_mission")
+    assert metadata["canonical_mission_dispatch"] is True
+    assert metadata["availability_snapshot_ref"] == (
+        "capability-availability-ref:founder-loop-filesystem-metadata-v1"
+    )
+    assert metadata["canonical_execution_path_ref"].endswith(
+        ":mission-runner:authority-dispatcher"
+    )
+    assert metadata["route_refs"] == ["GET /api/runtime/authority-missions/completions"]
 
     local_task = _entry_by_id(catalog, "local_task_create")
     assert local_task["capability_kind"] == "local_authority_capability"
     assert local_task["status"] == "implemented_exact_local_mutation_lane"
     assert local_task["exact_local_mutation_available"] is True
     assert local_task["receipt_refs"]
-    assert "POST /control-center/actions/{action_id}/local-task/commit" in (
-        local_task["route_refs"]
+    assert (
+        "POST /control-center/actions/{action_id}/local-task/commit"
+        in (local_task["route_refs"])
     )
 
     for capability_id in [
@@ -90,12 +103,11 @@ def test_action_tool_code_catalog_preserves_exact_lanes_and_blocks_broad_authori
     assert coding_tests["status"] == "implemented_exact_approval_required"
     assert coding_tests["capability_kind"] == "code_workflow"
     assert coding_tests["exact_runtime_lane_available"] is True
-    assert "GET /control-center/coding/test-command-readiness" in (
-        coding_tests["route_refs"]
+    assert (
+        "GET /control-center/coding/test-command-readiness"
+        in (coding_tests["route_refs"])
     )
-    assert "POST /api/runtime/invocations/{id}/execute" in (
-        coding_tests["route_refs"]
-    )
+    assert "POST /api/runtime/invocations/{id}/execute" in (coding_tests["route_refs"])
     assert "scripts/dev/uaa_runtime.py receipts" in coding_tests["cli_refs"]
     assert coding_tests["receipt_refs"]
 
@@ -138,8 +150,8 @@ def test_actions_inbox_persists_backend_owned_action_tool_code_catalog(
     assert catalog["entry_count"] == len(catalog["entries"])
     assert catalog["exact_local_mutation_count"] == 1
     assert catalog["exact_local_authority_capability_count"] == 1
-    assert catalog["exact_runtime_lane_count"] == 5
-    assert catalog["exact_runtime_authority_capability_count"] == 5
+    assert catalog["exact_runtime_lane_count"] == 6
+    assert catalog["exact_runtime_authority_capability_count"] == 6
     assert catalog["generic_tool_execution_enabled"] is False
 
 
@@ -181,10 +193,13 @@ def test_founder_loop_cli_inspects_action_tool_code_catalog(capsys, tmp_path) ->
     assert exit_code == 0
     output = json.loads(capsys.readouterr().out)
     catalog = output["action_tool_code_lane_catalog_read_model"]
-    assert output["command_ref"] == "repo-local-command:founder-loop-action-tool-code-catalog"
+    assert (
+        output["command_ref"]
+        == "repo-local-command:founder-loop-action-tool-code-catalog"
+    )
     assert output["safe_refs_only"] is True
     assert output["raw_content_omitted"] is True
     assert output["raw_paths_omitted"] is True
     assert catalog["contract_ref"] == ACTION_TOOL_CODE_CATALOG_CONTRACT_REF
-    assert catalog["entry_count"] == 14
+    assert catalog["entry_count"] == 15
     assert catalog["background_autonomy_enabled"] is False

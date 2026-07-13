@@ -391,6 +391,65 @@ def _inspect_agent_loop(args: argparse.Namespace) -> int:
     return 0
 
 
+def _inspect_reasoning_truth(args: argparse.Namespace) -> int:
+    repo = _repository(args)
+    today_summary = repo.today_summary(limit=args.limit)
+    thread = build_agent_loop_thread_read_model(
+        today_summary=today_summary,
+        actions_inbox=repo.actions_inbox(limit=args.limit),
+        evidence_timeline=repo.evidence_timeline(limit=args.limit),
+        memory_review=repo.memory_review(limit=args.limit),
+        proof_index=build_control_center_proof_index(today_summary=today_summary),
+        trust_authority_matrix=build_trust_authority_matrix_read_model(
+            today_summary=today_summary
+        ),
+    )
+    truth = thread["reasoning_truth"]
+    revision = thread["plan_revision"]
+    output = {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": "repo-local-command:founder-loop-inspect-reasoning",
+        "reasoning_truth": truth,
+        "plan_revision": revision,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+    }
+    if args.json:
+        _print_json(output)
+        return 0
+
+    print(
+        f"Reasoning truth: {truth['confidence_band']} confidence; "
+        f"{truth['ambiguity_posture']}"
+    )
+    print(f"Intent ref: {truth['intent_ref']}")
+    print(f"Intent fingerprint: {truth['intent_fingerprint_ref']}")
+    print(f"Content posture: {truth['instruction_content_posture']}")
+    print("Facts:")
+    for item in truth["facts"]:
+        print(f"  - {item['safe_summary']} [{item['statement_ref']}]")
+    print("Assumptions:")
+    for item in truth["assumptions"]:
+        print(f"  - {item['safe_summary']} [{item['statement_ref']}]")
+    print("Unknowns:")
+    for item in truth["unknowns"]:
+        print(f"  - {item['safe_summary']} [{item['statement_ref']}]")
+    print("Questions requiring operator input:")
+    for item in truth["operator_questions"]:
+        print(f"  - {item['safe_question']} [{item['question_ref']}]")
+    print(
+        f"Plan revision: {revision['revision_ref']} "
+        f"({revision['revision_fingerprint_ref']})"
+    )
+    print(f"Revision reason: {revision['safe_reason']}")
+    print(
+        "Authority: non-authoritative reasoning and plan truth; exact "
+        "request-scoped evaluation is still required."
+    )
+    return 0
+
+
 def _inspect_cockpit_parity(args: argparse.Namespace) -> int:
     repo = _repository(args)
     today_summary = repo.today_summary(limit=args.limit)
@@ -413,7 +472,32 @@ def _inspect_cockpit_parity(args: argparse.Namespace) -> int:
         "raw_content_omitted": True,
         "raw_paths_omitted": True,
     }
-    _print_json(output)
+    if args.json:
+        _print_json(output)
+        return 0
+    matrix = output["operator_decision_matrix"] or {}
+    print("UAA governed operator cockpit")
+    print("  Truth owner: Python Agent Core")
+    print(f"  Contract: {matrix.get('contract_ref', 'unavailable')}")
+    print(f"  Route: {matrix.get('route_ref', 'unavailable')}")
+    print("  Control Center authority: presentation only; cannot mint authority")
+    print("  External content: untrusted evidence, never instructions or authority")
+    print("Operator decisions")
+    for row in matrix.get("rows", []):
+        print(f"- {row['surface']} [{row['capability_status']}]")
+        print(f"  Question: {row['operator_question']}")
+        print(f"  Route: {row['backend_route_ref']}")
+        print(f"  CLI: {row['cli_ref']}")
+        print(f"  Approval: {row['approval_posture']}")
+        print("  Mutation: blocked")
+        print(f"  Next: {row['safe_action']}")
+        refs = [
+            row["primary_ref"],
+            *row["receipt_refs"],
+            *row["blocked_state_refs"],
+        ]
+        print(f"  Refs: {', '.join(refs[:5])}")
+    print(f"Next safe decision: {matrix.get('next_safe_operator_decision')}")
     return 0
 
 
@@ -1478,6 +1562,30 @@ def _inspect_memory_maintenance_runs(args: argparse.Namespace) -> int:
     return 0
 
 
+def render_memory_context_manifest_readable(context_manifest: dict[str, Any]) -> str:
+    governed = context_manifest.get("governed_context") or {}
+    budget = governed.get("budget") or {}
+    return "\n".join(
+        [
+            "Memory context manifest",
+            f"  Status: {governed.get('status', context_manifest.get('status'))}",
+            f"  Manifest: {governed.get('context_manifest_ref', 'unavailable')}",
+            f"  Receipt: {governed.get('context_receipt_ref', 'unavailable')}",
+            (
+                "  Selected / candidates: "
+                f"{governed.get('selection_count', 0)} / "
+                f"{governed.get('candidate_count', 0)}"
+            ),
+            (
+                "  Capacity: "
+                f"{budget.get('used_tokens', 0)} / "
+                f"{budget.get('max_tokens', 0)} estimated units"
+            ),
+            "  Context injection: blocked (preview only)",
+        ]
+    )
+
+
 def _inspect_memory_context_manifest(args: argparse.Namespace) -> int:
     repo = _repository(args)
     try:
@@ -1501,7 +1609,10 @@ def _inspect_memory_context_manifest(args: argparse.Namespace) -> int:
         "raw_content_omitted": True,
         "raw_paths_omitted": True,
     }
-    _print_json(output)
+    if args.json:
+        _print_json(output)
+    else:
+        print(render_memory_context_manifest_readable(context_manifest))
     return 0
 
 
@@ -1977,6 +2088,21 @@ def build_parser() -> argparse.ArgumentParser:
     agent_loop_parser.add_argument("--limit", type=int, default=50)
     agent_loop_parser.set_defaults(func=_inspect_agent_loop)
 
+    reasoning_parser = subparsers.add_parser(
+        "inspect-reasoning",
+        help=(
+            "Explain deterministic intent and immutable plan-revision truth; "
+            "human-readable output is the default."
+        ),
+    )
+    reasoning_parser.add_argument("--limit", type=int, default=12)
+    reasoning_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the same backend-owned safe truth as redacted JSON.",
+    )
+    reasoning_parser.set_defaults(func=_inspect_reasoning_truth)
+
     cockpit_parity_parser = subparsers.add_parser(
         "inspect-cockpit-parity",
         help=(
@@ -1985,6 +2111,11 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     cockpit_parity_parser.add_argument("--limit", type=int, default=50)
+    cockpit_parity_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the same redacted backend-owned cockpit truth as JSON.",
+    )
     cockpit_parity_parser.set_defaults(func=_inspect_cockpit_parity)
 
     high_maturity_spine_parser = subparsers.add_parser(
@@ -2269,6 +2400,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     memory_context_manifest_parser.add_argument("--query-ref", default=None)
     memory_context_manifest_parser.add_argument("--limit", type=int, default=20)
+    memory_context_manifest_parser.add_argument("--json", action="store_true")
     memory_context_manifest_parser.set_defaults(func=_inspect_memory_context_manifest)
 
     memory_context_pack_preview_parser = subparsers.add_parser(
@@ -2406,6 +2538,7 @@ def build_parser() -> argparse.ArgumentParser:
             "defer",
             "merge",
             "supersede",
+            "expire",
             "forget_request",
         ],
         required=True,

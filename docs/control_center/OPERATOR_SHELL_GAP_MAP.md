@@ -3,7 +3,7 @@
 Status: active UAA-P0-007 operator-shell gap map
 Baseline: v0.104.0 / 0.104.0
 Source plan: `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md` M172
-API boundary: current FastAPI manifest has 256 OpenAPI paths
+API boundary: current FastAPI manifest has 258 OpenAPI paths
 Lineage: carries forward the UAA-P1-065 `FCC-P0-002` Control Center
 organization cleanup as historical product-surface context.
 
@@ -340,7 +340,7 @@ Current visible actions expose UAA-P1-011 as inspection evidence only:
 | Preview action | Calls `POST /control-center/actions/preview`. | `validation_only`; execution remains denied. | Safe preview only. |
 | Record Action Inbox decision | Calls `POST /control-center/actions/{action_id}/approve`, `/edit`, `/reject`, or `/defer`, then reads `GET /control-center/actions/{action_id}/receipt`. | `local_dev_workspace_only`; decision state is backend-owned and mutating routes require local auth, exact approval where required, idempotency, and receipts. | Records decision receipt refs only; action execution remains denied. |
 | Commit approved local task | Calls `POST /control-center/actions/{action_id}/local-task/commit` only for eligible approved `local_task_create` items with backend-owned envelope, receipt visibility, active `workspace/write` AuthorityLease scope, and enabled safe-disable posture. Mock/degraded data cannot expose this control. | `local_dev_workspace_only`; active `workspace/write` AuthorityLease, exact LocalApprovalAuthority scope, idempotency, durable local receipt, Evidence Timeline event, CLI parity, and safe-disable posture are required. | Creates local task state only; connector writes, shell/subprocess execution, model/provider authority, memory write, context injection, external side effects, rollback execution, broad action execution, and production authority remain denied. |
-| Approve review-only / Deny review-only on File Review | Updates local component state for review-only display. | No backend route call in CCC Web. | Not product completion evidence; must not be described as a real approval. |
+| Inspect File Review approval posture | Displays backend/mock safe-ref posture only. The web panel exposes no Approve/Deny control and never synthesizes persisted state. | No backend route call in CCC Web; the separately governed exact capture route remains unwired here. | Inspection only; not approval or completion evidence. |
 | Load dashboard/runtime/routes summaries | Reads local summary endpoints. | `none` or `validation_only`. | Safe status evidence only. |
 
 No visible CCC action currently sends a chat message, launches llama.cpp,

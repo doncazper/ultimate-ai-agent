@@ -128,6 +128,7 @@ def build_parser(runtime_symbols: Mapping[str, Any]) -> argparse.ArgumentParser:
     authority_state.set_defaults(func=_inspect_authority_state)
     _mission_step_cli.register_parser(subparsers)
     _mission_worker_cli.register_parser(subparsers)
+    _mission_completion_cli.register_parser(subparsers)
     _mission_failure_cli.register_parser(subparsers)
     authority_lane_catalog = subparsers.add_parser(
         "inspect-authority-lane-catalog",
@@ -404,14 +405,20 @@ def build_parser(runtime_symbols: Mapping[str, Any]) -> argparse.ArgumentParser:
     receipt_show.set_defaults(func=_receipts_show)
     receipt_evidence = receipt_subparsers.add_parser(
         "evidence",
-        help="Export signed evidence for a runtime receipt.",
+        help=(
+            "Export local SHA-256 hash-integrity evidence for a runtime receipt; "
+            "legacy signed identifiers are compatibility fields only."
+        ),
     )
     receipt_evidence.add_argument("receipt_ref")
     receipt_evidence.add_argument("--json", action="store_true", help="Emit safe JSON.")
     receipt_evidence.set_defaults(func=_receipts_evidence)
     receipt_verify_evidence = receipt_subparsers.add_parser(
         "verify-evidence",
-        help="Verify a runtime receipt signed evidence envelope without echoing paths.",
+        help=(
+            "Verify a runtime receipt hash-integrity evidence envelope without "
+            "echoing paths; this does not verify a cryptographic signature."
+        ),
     )
     receipt_verify_evidence.add_argument("--input", required=True)
     receipt_verify_evidence.add_argument(

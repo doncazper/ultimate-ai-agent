@@ -1,0 +1,395 @@
+{
+  "schema": "uaa.control_center.render_review.v1",
+  "updated": "2026-07-11",
+  "sets": [
+    {
+      "id": "target-v1",
+      "label": "Target product drafts",
+      "description": "Current target surfaces with non-destructive version history."
+    },
+    {
+      "id": "legacy-baseline",
+      "label": "Legacy composite baseline",
+      "description": "Earlier composite references retained for information and comparison."
+    },
+    {
+      "id": "communications-v1",
+      "label": "Messenger client",
+      "description": "Clean-room Element-familiar Matrix client in a dedicated immersive UAA workspace."
+    }
+  ],
+  "renders": [
+    {
+      "id": "COMMS-MX-01", "set": "communications-v1", "order": 1,
+      "surface": "Founder HQ Space", "category": "Spaces and rooms", "route": "/messenger",
+      "purpose": "Founder work Space with room list, encrypted group timeline, and bounded UAA intelligence.",
+      "truth": "Target design; no Matrix account, sync, encryption session, or send runtime is currently implied.",
+      "image": "../renders/communications-v1/01-founder-hq.png",
+      "versions": [{"id":"v1","label":"Draft v1 · Founder HQ","image":"../renders/communications-v1/01-founder-hq.png"}]
+    },
+    {
+      "id": "COMMS-MX-02", "set": "communications-v1", "order": 2,
+      "surface": "Personal Circle Space", "category": "Spaces and rooms", "route": "/messenger",
+      "purpose": "Personal Space with private rooms, direct messages, and room-scoped AI access Off.",
+      "truth": "Target design; fictional safe data and no connected Matrix account or live message claim.",
+      "image": "../renders/communications-v1/02-personal-circle.png",
+      "versions": [{"id":"v1","label":"Draft v1 · Personal Circle","image":"../renders/communications-v1/02-personal-circle.png"}]
+    },
+    {
+      "id": "COMMS-MX-03", "set": "communications-v1", "order": 3,
+      "surface": "Direct Message", "category": "Conversation", "route": "/messenger/rooms/:room",
+      "purpose": "Encrypted one-to-one conversation with replies, reactions, receipts, typing, and governed call actions.",
+      "truth": "Target design; safe fictional messages and no live send, call, or encryption claim.",
+      "image": "../renders/communications-v1/03-direct-message.png",
+      "versions": [{"id":"v1","label":"Draft v1 · direct message","image":"../renders/communications-v1/03-direct-message.png"}]
+    },
+    {
+      "id": "COMMS-MX-04", "set": "communications-v1", "order": 4,
+      "surface": "Group Room", "category": "Conversation", "route": "/messenger/rooms/:room",
+      "purpose": "Information-dense group room with topic, members, mentions, files, reactions, and read markers.",
+      "truth": "Target design; representative room events only and no live Matrix state.",
+      "image": "../renders/communications-v1/04-group-room.png",
+      "versions": [{"id":"v1","label":"Draft v1 · group room","image":"../renders/communications-v1/04-group-room.png"}]
+    },
+    {
+      "id": "COMMS-MX-05", "set": "communications-v1", "order": 5,
+      "surface": "Threads", "category": "Conversation tools", "route": "/messenger/rooms/:room/threads",
+      "purpose": "Thread list and focused thread conversation without losing main-room context.",
+      "truth": "Target design; unread and receipt states are illustrative, not synchronized runtime evidence.",
+      "image": "../renders/communications-v1/05-threads.png",
+      "versions": [{"id":"v1","label":"Draft v1 · threads","image":"../renders/communications-v1/05-threads.png"}]
+    },
+    {
+      "id": "COMMS-MX-06", "set": "communications-v1", "order": 6,
+      "surface": "Search and Attention", "category": "Conversation tools", "route": "/messenger/search",
+      "purpose": "Global and room search with mentions, unread, pinned, and saved-result modes.",
+      "truth": "Target design; search requires a later local index and governed Matrix read lane.",
+      "image": "../renders/communications-v1/06-search-attention.png",
+      "versions": [{"id":"v1","label":"Draft v1 · search and attention","image":"../renders/communications-v1/06-search-attention.png"}]
+    },
+    {
+      "id": "COMMS-MX-07", "set": "communications-v1", "order": 7,
+      "surface": "Room Information", "category": "Room management", "route": "/messenger/rooms/:room/info",
+      "purpose": "People, roles, invitations, files, links, pins, integrations, and receipts for one room.",
+      "truth": "Target design; member and integration state is fictional and grants no management authority.",
+      "image": "../renders/communications-v1/07-room-information.png",
+      "versions": [{"id":"v1","label":"Draft v1 · room information","image":"../renders/communications-v1/07-room-information.png"}]
+    },
+    {
+      "id": "COMMS-MX-08", "set": "communications-v1", "order": 8,
+      "surface": "Create and Invite", "category": "Room management", "route": "/messenger/new",
+      "purpose": "Start a direct message or create an encrypted room in one of the two Spaces with exact invitation review.",
+      "truth": "Target design; creation and invitations are previews until later approved Matrix write authority exists.",
+      "image": "../renders/communications-v1/08-create-invite.png",
+      "versions": [{"id":"v1","label":"Draft v1 · create and invite","image":"../renders/communications-v1/08-create-invite.png"}]
+    },
+    {
+      "id": "COMMS-MX-09", "set": "communications-v1", "order": 9,
+      "surface": "Room Settings", "category": "Room management", "route": "/messenger/rooms/:room/settings",
+      "purpose": "Room security, permissions, notifications, history, and UAA access policy.",
+      "truth": "Target design; settings show proposed controls and do not mutate Matrix room state.",
+      "image": "../renders/communications-v1/09-room-settings.png",
+      "versions": [{"id":"v1","label":"Draft v1 · room settings","image":"../renders/communications-v1/09-room-settings.png"}]
+    },
+    {
+      "id": "COMMS-MX-10", "set": "communications-v1", "order": 10,
+      "surface": "Sessions and Recovery", "category": "Account and security", "route": "/messenger/settings/sessions",
+      "purpose": "Current and other sessions, verification, secure backup, and recovery posture.",
+      "truth": "Target design; no device is actually registered or verified and no recovery material is displayed.",
+      "image": "../renders/communications-v1/10-sessions-recovery.png",
+      "versions": [{"id":"v1","label":"Draft v1 · sessions and recovery","image":"../renders/communications-v1/10-sessions-recovery.png"}]
+    },
+    {
+      "id": "COMMS-MX-11", "set": "communications-v1", "order": 11,
+      "surface": "UAA Intelligence", "category": "UAA integration", "route": "/messenger/rooms/:room/intelligence",
+      "purpose": "Conversation summary, questions, decisions, commitments, tasks, calendar proposals, and exact approvals.",
+      "truth": "Target design; UAA drafts and proposals do not send messages or perform external actions.",
+      "image": "../renders/communications-v1/11-uaa-intelligence.png",
+      "versions": [{"id":"v1","label":"Draft v1 · UAA intelligence","image":"../renders/communications-v1/11-uaa-intelligence.png"}]
+    },
+    {
+      "id": "COMMS-MX-12", "set": "communications-v1", "order": 12,
+      "surface": "Failure and Recovery", "category": "System states", "route": "/messenger",
+      "purpose": "Offline, reconnecting, failed-send, rate-limit, and undecryptable-message recovery states.",
+      "truth": "Target design; recovery controls are illustrative until Matrix runtime exists.",
+      "image": "../renders/communications-v1/12-failure-recovery.png",
+      "versions": [{"id":"v1","label":"Draft v1 · failure and recovery","image":"../renders/communications-v1/12-failure-recovery.png"}]
+    },
+    {
+      "id": "COMMS-MX-13", "set": "communications-v1", "order": 13,
+      "surface": "Dark Theme", "category": "Appearance", "route": "/messenger/rooms/:room",
+      "purpose": "Dark appearance using the same communications hierarchy, semantics, and density.",
+      "truth": "Target design; appearance variation only and no capability change.",
+      "image": "../renders/communications-v1/13-dark-theme.png",
+      "versions": [{"id":"v1","label":"Draft v1 · dark theme","image":"../renders/communications-v1/13-dark-theme.png"}]
+    },
+    {
+      "id": "COMMS-MX-14", "set": "communications-v1", "order": 14,
+      "surface": "Calling", "category": "Future communication", "route": "/messenger/rooms/:room/call",
+      "purpose": "Voice/video availability and permission preflight without obscuring the room context.",
+      "truth": "Target design; calling is planned, no call is active, and no provider or media permission is implied.",
+      "image": "../renders/communications-v1/14-calling.png",
+      "versions": [{"id":"v1","label":"Draft v1 · calling preflight","image":"../renders/communications-v1/14-calling.png"}]
+    },
+    {
+      "id": "COMMS-MX-15", "set": "communications-v1", "order": 15,
+      "surface": "Setup and Sign In", "category": "Account and security", "route": "/messenger/setup",
+      "purpose": "Homeserver discovery, account sign-in, secure local storage, and exact connection review.",
+      "truth": "Target design; no server is contacted, no credential is stored, and no Matrix session is created.",
+      "image": "../renders/communications-v1/15-setup-sign-in.png",
+      "versions": [{"id":"v1","label":"Draft v1 · setup and sign in","image":"../renders/communications-v1/15-setup-sign-in.png"}]
+    },
+    {
+      "id": "TARGET-NAV-01",
+      "set": "target-v1",
+      "order": 1,
+      "surface": "Today",
+      "category": "Primary workspace",
+      "route": "/today",
+      "purpose": "Default founder rundown and cross-surface command deck.",
+      "truth": "Target design; representative safe data; no runtime claim.",
+      "image": "../renders/target-v1/01-today.png",
+      "versions": [
+        {"id": "r2-v1", "label": "Shell R2 · iteration 1", "image": "../renders/drafts/CC-R2-SHELL-01-today-desktop-default-v1.png"},
+        {"id": "r2-v2", "label": "Shell R2 · iteration 2", "image": "../renders/drafts/CC-R2-SHELL-01-today-desktop-default-v2.png"},
+        {"id": "r2-v3", "label": "Shell R2 · iteration 3", "image": "../renders/drafts/CC-R2-SHELL-01-today-desktop-default-v3.png"},
+        {"id": "r2-v4", "label": "Shell R2 · iteration 4", "image": "../renders/drafts/CC-R2-SHELL-01-today-desktop-default-v4.png"},
+        {"id": "target-v1", "label": "Current six-panel draft · 2026-07", "image": "../renders/target-v1/01-today.png"}
+      ]
+    },
+    {
+      "id": "COMM-01",
+      "set": "target-v1",
+      "order": 2,
+      "surface": "Communications",
+      "category": "Primary workspace",
+      "route": "target",
+      "purpose": "Unified email, messages, follow-ups, drafts, and waiting-on-others workspace.",
+      "truth": "Target design; connector reads/writes remain governed or blocked.",
+      "image": "../renders/target-v1/02-communications.png",
+      "versions": [{"id": "v1", "label": "Draft v1", "image": "../renders/target-v1/02-communications.png"}]
+    },
+    {
+      "id": "BOARD-01",
+      "set": "target-v1",
+      "order": 3,
+      "surface": "Work Board",
+      "category": "Primary workspace",
+      "route": "/work-board",
+      "purpose": "Kanban, list, timeline, plans, and completed work using shared task truth.",
+      "truth": "Target design; mutations remain exact-scoped and receipt-backed.",
+      "image": "../renders/target-v2/03-work-board-v2.png",
+      "versions": [
+        {"id": "v1", "label": "Draft v1 · neutral board", "image": "../renders/target-v1/03-work-board.png"},
+        {"id": "v2", "label": "Draft v2 · status and priority color", "image": "../renders/target-v2/03-work-board-v2.png"}
+      ]
+    },
+    {
+      "id": "CRM-01",
+      "set": "target-v1",
+      "order": 4,
+      "surface": "CRM",
+      "category": "Primary workspace",
+      "route": "/crm",
+      "purpose": "Premier general-purpose relationship workspace with smart views, dense relationship operations, pipeline context, commitments, and governed calling.",
+      "truth": "Target design; provider availability is explicit, dialer launch requires exact review where applicable, and no launch proves call completion.",
+      "image": "../renders/target-v3/04-crm-v3.png",
+      "versions": [
+        {"id": "v1", "label": "Draft v1 · general CRM", "image": "../renders/target-v1/04-crm.png"},
+        {"id": "v2", "label": "Draft v2 · governed calling", "image": "../renders/target-v2/04-crm-v2.png"},
+        {"id": "v3", "label": "Draft v3 · premier relationship CRM", "image": "../renders/target-v3/04-crm-v3.png"}
+      ]
+    },
+    {
+      "id": "CAL-01",
+      "set": "target-v1",
+      "order": 5,
+      "surface": "Calendar",
+      "category": "Primary workspace",
+      "route": "target",
+      "purpose": "Smart schedule with shared work, relationship context, and source-backed proposals.",
+      "truth": "Target design; proposals are not calendar writes or external sync.",
+      "image": "../renders/target-v1/05-calendar.png",
+      "versions": [{"id": "v1", "label": "Draft v1", "image": "../renders/target-v1/05-calendar.png"}]
+    },
+    {
+      "id": "NEWS-01",
+      "set": "target-v1",
+      "order": 6,
+      "surface": "News",
+      "category": "Primary workspace",
+      "route": "target",
+      "purpose": "Curated, sourced situational context based on explicit interests and business watchlists.",
+      "truth": "Target design; read-only provenance is visible and no unrestricted web fetching is implied.",
+      "image": "../renders/target-v2/15-news-v1.png",
+      "versions": [{"id": "v1", "label": "Draft v1 · curated brief", "image": "../renders/target-v2/15-news-v1.png"}]
+    },
+    {
+      "id": "STUDIO-01",
+      "set": "target-v1",
+      "order": 7,
+      "surface": "Studio",
+      "category": "Primary workspace",
+      "route": "target",
+      "purpose": "Immersive familiar coding-agent workbench with projects, tasks, changes, checks, and terminal access.",
+      "truth": "Target design; no model, arbitrary shell, deploy, or write authority implied.",
+      "image": "../renders/target-v2/06-studio-v2.png",
+      "versions": [
+        {"id": "v1", "label": "Draft v1 · Control Center shell", "image": "../renders/target-v1/06-studio.png"},
+        {"id": "v2", "label": "Draft v2 · immersive workbench", "image": "../renders/target-v2/06-studio-v2.png"}
+      ]
+    },
+    {
+      "id": "KNOWLEDGE-01",
+      "set": "target-v1",
+      "order": 8,
+      "surface": "Knowledge",
+      "category": "Supporting workspace",
+      "route": "target",
+      "purpose": "Reviewed memory, files, context, and provenance in one workspace.",
+      "truth": "Target design; memory remains recall, not truth or authority.",
+      "image": "../renders/target-v1/07-knowledge.png",
+      "versions": [{"id": "v1", "label": "Draft v1", "image": "../renders/target-v1/07-knowledge.png"}]
+    },
+    {
+      "id": "ACTIVITY-01",
+      "set": "target-v1",
+      "order": 9,
+      "surface": "Activity & Trust",
+      "category": "Supporting workspace",
+      "route": "target",
+      "purpose": "Receipts, evidence, proof, history, approvals, and authority inspection.",
+      "truth": "Target design; audit records do not grant execution authority.",
+      "image": "../renders/target-v1/08-activity-trust.png",
+      "versions": [{"id": "v1", "label": "Draft v1", "image": "../renders/target-v1/08-activity-trust.png"}]
+    },
+    {
+      "id": "TRUST-01",
+      "set": "target-v1",
+      "order": 10,
+      "surface": "Trust cockpit",
+      "category": "Supporting workspace",
+      "route": "target",
+      "purpose": "Mode/domain authority matrix, leases, policy decisions, receipts, and safe-disable controls.",
+      "truth": "Target design; the matrix reports backend-owned truth and cannot grant or broaden authority.",
+      "image": "../renders/target-v2/16-trust-v1.png",
+      "versions": [{"id": "v1", "label": "Draft v1 · authority cockpit", "image": "../renders/target-v2/16-trust-v1.png"}]
+    },
+    {
+      "id": "CUSTOMIZE-01",
+      "set": "target-v1",
+      "order": 11,
+      "surface": "Customize",
+      "category": "Utility",
+      "route": "target",
+      "purpose": "Reorder, show, hide, group, and restore navigation presentation.",
+      "truth": "Target design; visibility preferences never disable capability or authority posture.",
+      "image": "../renders/target-v1/09-customize.png",
+      "versions": [{"id": "v1", "label": "Draft v1", "image": "../renders/target-v1/09-customize.png"}]
+    },
+    {
+      "id": "SETTINGS-01",
+      "set": "target-v1",
+      "order": 12,
+      "surface": "Settings",
+      "category": "Utility",
+      "route": "/settings",
+      "purpose": "Search-first settings with readable posture and exact change proposals.",
+      "truth": "Target design; unsupported settings remain visibly blocked or planned.",
+      "image": "../renders/target-v1/10-settings.png",
+      "versions": [{"id": "v1", "label": "Draft v1", "image": "../renders/target-v1/10-settings.png"}]
+    },
+    {
+      "id": "DEVTOOLS-01",
+      "set": "target-v1",
+      "order": 13,
+      "surface": "Developer Tools",
+      "category": "Utility",
+      "route": "target",
+      "purpose": "Technical runtime, model, storage, API, gate, plugin, and diagnostics hub.",
+      "truth": "Target design; blocked and planned lanes remain distinct from implemented diagnostics.",
+      "image": "../renders/target-v1/11-developer-tools.png",
+      "versions": [{"id": "v1", "label": "Draft v1", "image": "../renders/target-v1/11-developer-tools.png"}]
+    },
+    {
+      "id": "TERMINAL-01",
+      "set": "target-v1",
+      "order": 14,
+      "surface": "Terminal",
+      "category": "Utility",
+      "route": "target",
+      "purpose": "Governed embedded terminal with exact commands, redacted output, receipts, and pop-out access.",
+      "truth": "Target design; opening Terminal grants no UAA shell authority and arbitrary execution remains blocked.",
+      "image": "../renders/target-v2/17-terminal-v1.png",
+      "versions": [{"id": "v1", "label": "Draft v1 · governed terminal", "image": "../renders/target-v2/17-terminal-v1.png"}]
+    },
+    {
+      "id": "DECISIONS-01",
+      "set": "target-v1",
+      "order": 15,
+      "surface": "Decision Review",
+      "category": "Global utility",
+      "route": "/actions",
+      "purpose": "Action Inbox as a workload-aware exact decision queue.",
+      "truth": "Target design; approval refs alone never execute work.",
+      "image": "../renders/target-v1/12-decision-review.png",
+      "versions": [{"id": "v1", "label": "Draft v1", "image": "../renders/target-v1/12-decision-review.png"}]
+    },
+    {
+      "id": "ONBOARDING-01",
+      "set": "target-v1",
+      "order": 16,
+      "surface": "Onboarding",
+      "category": "Global utility",
+      "route": "/start",
+      "purpose": "First-run local readiness and truthful setup guidance.",
+      "truth": "Target design; setup status is not production readiness or authority.",
+      "image": "../renders/target-v1/13-onboarding.png",
+      "versions": [{"id": "v1", "label": "Draft v1", "image": "../renders/target-v1/13-onboarding.png"}]
+    },
+    {
+      "id": "UAA-SIDECAR-01",
+      "set": "target-v1",
+      "order": 17,
+      "surface": "UAA Sidecar",
+      "category": "Global utility",
+      "route": "global",
+      "purpose": "Cross-surface ask, find, explain, and proposal workspace.",
+      "truth": "Target design; attached context uses safe refs and proposals do not bypass authority.",
+      "image": "../renders/target-v1/14-uaa-sidecar.png",
+      "versions": [{"id": "v1", "label": "Draft v1", "image": "../renders/target-v1/14-uaa-sidecar.png"}]
+    },
+    {
+      "id": "SHELL-COMPACT-01",
+      "set": "target-v1",
+      "order": 18,
+      "surface": "Compact shell",
+      "category": "Global utility",
+      "route": "global",
+      "purpose": "Icon-only standard product rail with the same order, reachability, badges, and fixed utilities.",
+      "truth": "Target design; compact mode changes presentation only and never hides safety posture or capability.",
+      "image": "../renders/target-v2/18-compact-shell-v1.png",
+      "versions": [{"id": "v1", "label": "Draft v1 · icon rail", "image": "../renders/target-v2/18-compact-shell-v1.png"}]
+    },
+    {"id":"LEGACY-01","set":"legacy-baseline","order":101,"surface":"Today composite","category":"Legacy baseline","route":"multiple","purpose":"Earlier Today command-center direction.","truth":"Historical visual reference; superseded where target contract differs.","image":"../renders/01_today_command_center.png","versions":[{"id":"baseline","label":"Baseline","image":"../renders/01_today_command_center.png"}]},
+    {"id":"LEGACY-02","set":"legacy-baseline","order":102,"surface":"Action Inbox composite","category":"Legacy baseline","route":"multiple","purpose":"Earlier approval-envelope direction.","truth":"Historical visual reference.","image":"../renders/02_action_inbox_approval_envelope.png","versions":[{"id":"baseline","label":"Baseline","image":"../renders/02_action_inbox_approval_envelope.png"}]},
+    {"id":"LEGACY-03","set":"legacy-baseline","order":103,"surface":"Plans and Board composite","category":"Legacy baseline","route":"multiple","purpose":"Earlier plan and kanban direction.","truth":"Historical visual reference.","image":"../renders/03_plans_work_board.png","versions":[{"id":"baseline","label":"Baseline","image":"../renders/03_plans_work_board.png"}]},
+    {"id":"LEGACY-04","set":"legacy-baseline","order":104,"surface":"Trust composite","category":"Legacy baseline","route":"multiple","purpose":"Earlier trust and authority direction.","truth":"Historical visual reference.","image":"../renders/04_trust_authority_lease.png","versions":[{"id":"baseline","label":"Baseline","image":"../renders/04_trust_authority_lease.png"}]},
+    {"id":"LEGACY-05","set":"legacy-baseline","order":105,"surface":"Evidence composite","category":"Legacy baseline","route":"multiple","purpose":"Earlier evidence, proof, and receipts direction.","truth":"Historical visual reference.","image":"../renders/05_evidence_proof_receipts.png","versions":[{"id":"baseline","label":"Baseline","image":"../renders/05_evidence_proof_receipts.png"}]},
+    {"id":"LEGACY-06","set":"legacy-baseline","order":106,"surface":"Memory composite","category":"Legacy baseline","route":"multiple","purpose":"Earlier memory-review direction.","truth":"Historical visual reference.","image":"../renders/06_memory_review_context_manifest.png","versions":[{"id":"baseline","label":"Baseline","image":"../renders/06_memory_review_context_manifest.png"}]},
+    {"id":"LEGACY-07","set":"legacy-baseline","order":107,"surface":"Setup composite","category":"Legacy baseline","route":"multiple","purpose":"Earlier setup and readiness direction.","truth":"Historical visual reference.","image":"../renders/07_setup_runtime_readiness.png","versions":[{"id":"baseline","label":"Baseline","image":"../renders/07_setup_runtime_readiness.png"}]},
+    {"id":"LEGACY-08","set":"legacy-baseline","order":108,"surface":"Coding composite","category":"Legacy baseline","route":"multiple","purpose":"Earlier coding-cockpit direction.","truth":"Historical visual reference.","image":"../renders/08_coding_cockpit.png","versions":[{"id":"baseline","label":"Baseline","image":"../renders/08_coding_cockpit.png"}]},
+    {"id":"LEGACY-09","set":"legacy-baseline","order":109,"surface":"Sources and CRM composite","category":"Legacy baseline","route":"multiple","purpose":"Earlier sources, CRM, and briefing direction.","truth":"Historical visual reference.","image":"../renders/09_source_inbox_crm_briefing_prep.png","versions":[{"id":"baseline","label":"Baseline","image":"../renders/09_source_inbox_crm_briefing_prep.png"}]},
+    {"id":"LEGACY-10","set":"legacy-baseline","order":110,"surface":"Chat composite","category":"Legacy baseline","route":"multiple","purpose":"Earlier chat-handoff direction.","truth":"Historical visual reference.","image":"../renders/10_chat_handoff.png","versions":[{"id":"baseline","label":"Baseline","image":"../renders/10_chat_handoff.png"}]},
+    {"id":"LEGACY-11","set":"legacy-baseline","order":111,"surface":"Start and overview composite","category":"Legacy baseline","route":"multiple","purpose":"Earlier onboarding and overview direction.","truth":"Historical visual reference.","image":"../renders/11_start_overview_dashboard.png","versions":[{"id":"baseline","label":"Baseline","image":"../renders/11_start_overview_dashboard.png"}]},
+    {"id":"LEGACY-12","set":"legacy-baseline","order":112,"surface":"Settings composite","category":"Legacy baseline","route":"multiple","purpose":"Earlier settings direction.","truth":"Historical visual reference.","image":"../renders/12_settings_authority_profiles.png","versions":[{"id":"baseline","label":"Baseline","image":"../renders/12_settings_authority_profiles.png"}]},
+    {"id":"LEGACY-13","set":"legacy-baseline","order":113,"surface":"Models composite","category":"Legacy baseline","route":"multiple","purpose":"Earlier model-readiness direction.","truth":"Historical visual reference.","image":"../renders/13_models_readiness.png","versions":[{"id":"baseline","label":"Baseline","image":"../renders/13_models_readiness.png"}]},
+    {"id":"LEGACY-14","set":"legacy-baseline","order":114,"surface":"Files composite","category":"Legacy baseline","route":"multiple","purpose":"Earlier files and context direction.","truth":"Historical visual reference.","image":"../renders/14_files_context_proposals.png","versions":[{"id":"baseline","label":"Baseline","image":"../renders/14_files_context_proposals.png"}]},
+    {"id":"LEGACY-15","set":"legacy-baseline","order":115,"surface":"Action preview composite","category":"Legacy baseline","route":"multiple","purpose":"Earlier preflight direction.","truth":"Historical visual reference.","image":"../renders/15_action_preview_preflight.png","versions":[{"id":"baseline","label":"Baseline","image":"../renders/15_action_preview_preflight.png"}]},
+    {"id":"LEGACY-16","set":"legacy-baseline","order":116,"surface":"Runtime composite","category":"Legacy baseline","route":"multiple","purpose":"Earlier runtime and storage direction.","truth":"Historical visual reference.","image":"../renders/16_runtime_storage_manual_smoke.png","versions":[{"id":"baseline","label":"Baseline","image":"../renders/16_runtime_storage_manual_smoke.png"}]},
+    {"id":"LEGACY-17","set":"legacy-baseline","order":117,"surface":"Future governance composite","category":"Legacy baseline","route":"multiple","purpose":"Earlier future-domain governance direction.","truth":"Historical visual reference.","image":"../renders/17_future_domain_governance.png","versions":[{"id":"baseline","label":"Baseline","image":"../renders/17_future_domain_governance.png"}]},
+    {"id":"LEGACY-18","set":"legacy-baseline","order":118,"surface":"Private trial composite","category":"Legacy baseline","route":"multiple","purpose":"Earlier private-trial direction.","truth":"Historical visual reference.","image":"../renders/18_private_trial_packet.png","versions":[{"id":"baseline","label":"Baseline","image":"../renders/18_private_trial_packet.png"}]},
+    {"id":"LEGACY-19","set":"legacy-baseline","order":119,"surface":"Operator loop composite","category":"Legacy baseline","route":"multiple","purpose":"Earlier readable-loop direction.","truth":"Historical visual reference.","image":"../renders/19_operator_loop.png","versions":[{"id":"baseline","label":"Baseline","image":"../renders/19_operator_loop.png"}]},
+    {"id":"LEGACY-20","set":"legacy-baseline","order":120,"surface":"API and events composite","category":"Legacy baseline","route":"multiple","purpose":"Earlier technical evidence direction.","truth":"Historical visual reference.","image":"../renders/20_api_foundation_events.png","versions":[{"id":"baseline","label":"Baseline","image":"../renders/20_api_foundation_events.png"}]}
+  ]
+}

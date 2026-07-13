@@ -677,7 +677,10 @@ export function renderRoute(path: string, data: ControlCenterData) {
             settingsStatus={data.settingsStatus}
             today={data.founderToday}
           />
-          <SettingsOperatorPanel data={data} />
+          <SettingsOperatorPanel
+            authoritative={isAuthoritativeConnection(data)}
+            data={data}
+          />
         </>
       );
     case "/action-preview":

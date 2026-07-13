@@ -875,13 +875,16 @@ class ExternalInformationResearchPosture(BaseModel):
     memory_write_from_external_content_enabled: bool = False
     allowed_current_lane_refs: list[str] = Field(
         default_factory=lambda: [
-            "lane-ref:web-evidence:allowlisted-https-get-through-web-access-gateway"
+            "lane-ref:web-evidence:allowlisted-https-get-through-web-access-gateway",
+            "authority-lane-ref:web-access:searxng-search:v1",
+            "authority-lane-ref:web-access:firecrawl-markdown-extract:v1",
+            "web-lane-ref:firecrawl-cloud-markdown:v1",
         ]
     )
     blocked_authority_refs: list[str] = Field(
         default_factory=lambda: [
             "blocked-state:web-access:no-unrestricted-web-fetch",
-            "blocked-state:web-access:no-provider-search-calls",
+            "blocked-state:web-access:no-unscoped-provider-search-calls",
             "blocked-state:web-access:no-browser-observe-by-control-plane",
             "blocked-state:web-access:no-browser-actions",
             "blocked-state:web-access:no-context-injection",
@@ -1601,7 +1604,7 @@ def _build_model_provider_research_posture(
             "blocked-state:model-provider:credential-material-display",
             "blocked-state:web-access:live-fetch-by-control-plane",
             "blocked-state:web-access:browser-automation",
-            "blocked-state:web-access:provider-search-calls",
+            "blocked-state:web-access:unscoped-provider-search-calls",
             "blocked-state:model-provider:memory-action-context-escalation",
             "blocked-state:model-provider:production-authority",
             *provider_catalog.blocked_authorities[:3],

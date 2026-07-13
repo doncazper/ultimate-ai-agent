@@ -61,7 +61,9 @@ from ultimate_ai_agent.core.tools.runtime.adapters import ToolRuntimeAdapter
 from ultimate_ai_agent.core.tools.runtime.contracts import ToolInvocationRequest
 from ultimate_ai_agent.core.tools.runtime.filesystem_metadata import (
     FILESYSTEM_METADATA_TOOL_REF,
+    FILESYSTEM_OPAQUE_PATH_REF_VERSION,
     FilesystemSafeRoot,
+    filesystem_opaque_path_ref,
     filesystem_safe_path_ref,
     normalize_relative_metadata_path,
 )
@@ -114,6 +116,37 @@ def _stable_ref(prefix: str, value: Any) -> str:
     return f"{prefix}:sha256:{digest}"
 
 
+def _approval_scope_fingerprint_ref(validation_request: Any) -> str:
+    return _stable_ref(
+        "approval-scope-fingerprint-ref:authority-dispatch",
+        validation_request.model_dump(
+            mode="json",
+            exclude={"current_time", "purpose"},
+        ),
+    )
+
+
+def _approval_validation_ref(
+    validation_request: Any,
+    action_ref: str,
+    approval_decision: Any,
+) -> str:
+    return _stable_ref(
+        "approval-validation-ref:authority-budget",
+        {
+            "approval_ref": validation_request.approval_ref,
+            "approval_scope_fingerprint_ref": _approval_scope_fingerprint_ref(
+                validation_request
+            ),
+            "action_ref": action_ref,
+            "allowed": approval_decision.allowed,
+            "matched_grant_ref": approval_decision.matched_grant_ref,
+            "reason_codes": approval_decision.reason_codes,
+            "status": approval_decision.status,
+        },
+    )
+
+
 def authority_dispatch_request_fingerprint(
     request: AuthorityDispatchRequest,
 ) -> str:
@@ -130,7 +163,11 @@ def _request_fingerprint(request: AuthorityDispatchRequest) -> str:
     return authority_dispatch_request_fingerprint(request)
 
 
-def _entry_hash(receipt: AuthorityDispatchReceipt) -> str:
+def authority_dispatch_receipt_entry_hash(
+    receipt: AuthorityDispatchReceipt,
+) -> str:
+    """Return the canonical V1 hash for one validated dispatch receipt."""
+
     payload = receipt.model_dump(mode="json", exclude={"entry_hash_ref"})
     # Preserve the canonical V1 payload for receipts written before these
     # optional fields existed. Non-null values remain hash-bound.
@@ -142,10 +179,20 @@ def _entry_hash(receipt: AuthorityDispatchReceipt) -> str:
         payload.pop("execution_fence_ref", None)
     if receipt.failure_category is None:
         payload.pop("failure_category", None)
+    if receipt.provider_ref is None:
+        payload.pop("provider_ref", None)
+    if receipt.target_binding_ref is None:
+        payload.pop("target_binding_ref", None)
+    if receipt.approval_scope_fingerprint_ref is None:
+        payload.pop("approval_scope_fingerprint_ref", None)
     return _stable_ref(
         "entry-hash-ref:authority-dispatch",
         payload,
     )
+
+
+def _entry_hash(receipt: AuthorityDispatchReceipt) -> str:
+    return authority_dispatch_receipt_entry_hash(receipt)
 
 
 def _execution_ref(request: AuthorityDispatchRequest) -> str:
@@ -251,7 +298,12 @@ def _filesystem_target_reason_refs(
     if path_reasons or normalized_path is None:
         return ["reason-ref:authority-dispatch:filesystem-target-invalid"]
     reasons: list[str] = []
-    expected_path_ref = filesystem_safe_path_ref(root_ref, normalized_path)
+    expected_path_ref = (
+        filesystem_opaque_path_ref(root_ref, normalized_path)
+        if tool_request.metadata.get("safe_path_ref_version")
+        == FILESYSTEM_OPAQUE_PATH_REF_VERSION
+        else filesystem_safe_path_ref(root_ref, normalized_path)
+    )
     if root_ref not in request.action_request.resource_refs:
         reasons.append("reason-ref:authority-dispatch:filesystem-root-unbound")
     path_claim = next(
@@ -338,6 +390,11 @@ class ToolRuntimeAuthorityDispatchAdapter:
         descriptor: AuthorityDispatchAdapterDescriptor,
         *,
         safe_roots: Sequence[FilesystemSafeRoot] = (),
+        admission_validator_ref: str | None = None,
+        admission_validator: Callable[[AuthorityDispatchRequest], list[str]]
+        | None = None,
+        evidence_ref_provider: Callable[[AuthorityDispatchRequest], list[str]]
+        | None = None,
     ) -> None:
         if descriptor.tool_ref not in {
             NOOP_TOOL_REF,
@@ -349,11 +406,21 @@ class ToolRuntimeAuthorityDispatchAdapter:
         root_refs = [root.root_ref for root in safe_roots]
         if len(root_refs) != len(set(root_refs)):
             raise ValueError("AUTHORITY_DISPATCH_DUPLICATE_SAFE_ROOT_REF")
+        if (admission_validator_ref is None) != (admission_validator is None):
+            raise ValueError("AUTHORITY_DISPATCH_ADMISSION_VALIDATOR_BINDING_REQUIRED")
+        if admission_validator_ref is not None:
+            validate_task_ref(
+                admission_validator_ref,
+                "authority_dispatch_admission_validator_ref",
+            )
         self._descriptor = AuthorityDispatchAdapterDescriptor.model_validate(
             descriptor.model_dump(mode="python")
         )
         self._safe_roots = tuple(root.model_copy(deep=True) for root in safe_roots)
         self._runtime_adapter = ToolRuntimeAdapter()
+        self._admission_validator_ref = admission_validator_ref
+        self._admission_validator = admission_validator
+        self._evidence_ref_provider = evidence_ref_provider
 
     @property
     def descriptor(self) -> AuthorityDispatchAdapterDescriptor:
@@ -373,6 +440,7 @@ class ToolRuntimeAuthorityDispatchAdapter:
                 "runtime_manifest": self._runtime_adapter.manifest.model_dump(
                     mode="json"
                 ),
+                "admission_validator_ref": self._admission_validator_ref,
                 "safe_roots": sorted(
                     [
                         {
@@ -380,6 +448,19 @@ class ToolRuntimeAuthorityDispatchAdapter:
                             "root_path_ref": _stable_ref(
                                 "root-path-ref:authority-dispatch",
                                 str(root.root_path.resolve(strict=False)),
+                            ),
+                            "root_identity_ref": (
+                                _stable_ref(
+                                    "root-identity-ref:authority-dispatch",
+                                    {
+                                        "root_ref": root.root_ref,
+                                        "device": root.expected_device,
+                                        "inode": root.expected_inode,
+                                    },
+                                )
+                                if root.expected_device is not None
+                                and root.expected_inode is not None
+                                else None
                             ),
                         }
                         for root in self._safe_roots
@@ -418,6 +499,13 @@ class ToolRuntimeAuthorityDispatchAdapter:
                 reasons.append(
                     "reason-ref:authority-dispatch:filesystem-root-not-injected"
                 )
+        if self._admission_validator is not None:
+            try:
+                reasons.extend(self._admission_validator(request))
+            except Exception:
+                reasons.append(
+                    "reason-ref:authority-dispatch:admission-validator-failed"
+                )
         return list(dict.fromkeys(reasons))
 
     def invoke(
@@ -429,6 +517,8 @@ class ToolRuntimeAuthorityDispatchAdapter:
             safe_roots=[root.model_copy(deep=True) for root in self._safe_roots],
         )
         evidence_refs = [decision.decision_id]
+        if self._evidence_ref_provider is not None:
+            evidence_refs.extend(self._evidence_ref_provider(request))
         output_refs: list[str] = []
         safe_output: dict[str, Any] = {
             "decision_ref": decision.decision_id,
@@ -513,6 +603,11 @@ class AuthorityDispatcher:
 
     def dispatch(self, request: AuthorityDispatchRequest) -> AuthorityDispatchResult:
         prepared = self.prepare(request)
+        if (
+            prepared.receipt.status == AuthorityDispatchStatus.started.value
+            and prepared.recovery_required
+        ):
+            return self.execute(request)
         if prepared.receipt.status != AuthorityDispatchStatus.prepared.value:
             return prepared
         return self.execute(request)
@@ -712,6 +807,14 @@ class AuthorityDispatcher:
             }:
                 return AuthorityDispatchResult(receipt=latest, replayed=True)
             if latest.status == AuthorityDispatchStatus.started.value:
+                reconciled = self._reconcile_settled_started_locked(
+                    request,
+                    latest=latest,
+                    receipts=receipts,
+                    fingerprint=fingerprint,
+                )
+                if reconciled is not None:
+                    return reconciled
                 return AuthorityDispatchResult(
                     receipt=latest, replayed=True, recovery_required=True
                 )
@@ -927,6 +1030,100 @@ class AuthorityDispatcher:
                 adapter_result=adapter_result,
             )
 
+    def _reconcile_settled_started_locked(
+        self,
+        request: AuthorityDispatchRequest,
+        *,
+        latest: AuthorityDispatchReceipt,
+        receipts: list[AuthorityDispatchReceipt],
+        fingerprint: str,
+    ) -> AuthorityDispatchResult | None:
+        """Recover a settled start without invoking the adapter a second time."""
+
+        if (
+            latest.status != AuthorityDispatchStatus.started.value
+            or latest.budget_reservation_ref is None
+            or latest.execution_ref is None
+        ):
+            return None
+        settlements = [
+            receipt
+            for receipt in self.budget_store._load_receipts()  # noqa: SLF001
+            if receipt.operation == AuthorityBudgetOperation.settle.value
+            and receipt.reservation_ref == latest.budget_reservation_ref
+            and receipt.idempotency_ref
+            == _phase_idempotency_ref(request, "budget-settle")
+        ]
+        if not settlements:
+            return None
+        if len(settlements) != 1:
+            raise AuthorityDispatchCorruptionError(
+                "AUTHORITY_DISPATCH_SETTLEMENT_RECOVERY_AMBIGUOUS"
+            )
+        settlement = settlements[0]
+        semantic_status = settlement.original_status or settlement.status
+        if semantic_status not in {
+            AuthorityBudgetStatus.settled.value,
+            AuthorityBudgetStatus.settled_overage.value,
+            AuthorityBudgetStatus.settled_cost_unresolved.value,
+        }:
+            return None
+        if (
+            settlement.dispatch_fingerprint_ref != fingerprint
+            or settlement.execution_ref != latest.execution_ref
+            or settlement.lease_ref != latest.lease_ref
+            or settlement.action_ref != latest.action_ref
+            or settlement.actual_operation_count is None
+            or not settlement.evidence_refs
+            or (
+                settlement.actual_cost_microusd is None
+                and semantic_status
+                != AuthorityBudgetStatus.settled_cost_unresolved.value
+            )
+            or (
+                settlement.actual_cost_microusd is not None
+                and settlement.actual_cost_ref is None
+            )
+        ):
+            raise AuthorityDispatchCorruptionError(
+                "AUTHORITY_DISPATCH_SETTLEMENT_RECOVERY_BINDING_INVALID"
+            )
+        succeeded = (
+            settlement.execution_status
+            == AuthorityBudgetExecutionStatus.succeeded.value
+        )
+        terminal = self._build_receipt_from_existing(
+            latest,
+            status=(
+                AuthorityDispatchStatus.succeeded
+                if succeeded
+                else AuthorityDispatchStatus.failed
+            ),
+            previous_entry_hash_ref=receipts[-1].entry_hash_ref,
+            execution_ref=latest.execution_ref,
+            execution_started=True,
+            adapter_invocation_performed=True,
+            budget_settlement_receipt_ref=settlement.receipt_ref,
+            actual_operation_count=settlement.actual_operation_count,
+            actual_cost_microusd=settlement.actual_cost_microusd,
+            actual_cost_ref=settlement.actual_cost_ref,
+            evidence_refs=settlement.evidence_refs,
+            reason_refs=(
+                ["reason-ref:authority-dispatch:settlement-reconciled"]
+                if succeeded
+                else [
+                    "reason-ref:authority-dispatch:adapter-failed",
+                    "reason-ref:authority-dispatch:settlement-reconciled",
+                ]
+            ),
+            safe_summary=(
+                "Governed dispatch terminal truth was reconciled from its exact "
+                "durable budget settlement without another adapter invocation."
+            ),
+        )
+        self._append(terminal)
+        return AuthorityDispatchResult(receipt=terminal, replayed=True)
+
     def cancel(
         self, request: AuthorityDispatchCancelRequest
     ) -> AuthorityDispatchResult:
@@ -1098,16 +1295,10 @@ class AuthorityDispatcher:
                 except Exception:
                     approval_decision = None
                 validation_ref = (
-                    _stable_ref(
-                        "approval-validation-ref:authority-budget",
-                        {
-                            "approval_ref": validation_request.approval_ref,
-                            "action_ref": request.action_request.action_ref,
-                            "allowed": approval_decision.allowed,
-                            "matched_grant_ref": approval_decision.matched_grant_ref,
-                            "reason_codes": approval_decision.reason_codes,
-                            "status": approval_decision.status,
-                        },
+                    _approval_validation_ref(
+                        validation_request,
+                        request.action_request.action_ref,
+                        approval_decision,
                     )
                     if approval_decision is not None
                     else None
@@ -1270,16 +1461,10 @@ class AuthorityDispatcher:
                 except Exception:
                     approval_decision = None
                 validation_ref = (
-                    _stable_ref(
-                        "approval-validation-ref:authority-budget",
-                        {
-                            "approval_ref": validation_request.approval_ref,
-                            "action_ref": request.action_request.action_ref,
-                            "allowed": approval_decision.allowed,
-                            "matched_grant_ref": approval_decision.matched_grant_ref,
-                            "reason_codes": approval_decision.reason_codes,
-                            "status": approval_decision.status,
-                        },
+                    _approval_validation_ref(
+                        validation_request,
+                        request.action_request.action_ref,
+                        approval_decision,
                     )
                     if approval_decision is not None
                     else None
@@ -1712,6 +1897,23 @@ class AuthorityDispatcher:
                 else request.action_request.capability_ref
                 or "authority-capability-ref:unknown-denied"
             ),
+            # The generic dispatcher cannot infer provider identity from a tool
+            # adapter descriptor. Preserve that uncertainty rather than
+            # mislabeling future provider-backed adapters as local-only.
+            "provider_ref": "provider-ref:unknown:not-declared-by-adapter",
+            "target_binding_ref": _stable_ref(
+                "target-binding-ref:authority-dispatch",
+                {
+                    "resource_refs": sorted(request.action_request.resource_refs),
+                },
+            ),
+            "approval_scope_fingerprint_ref": (
+                _approval_scope_fingerprint_ref(
+                    request.approval_validation_request
+                )
+                if request.approval_validation_request is not None
+                else None
+            ),
             "rollback_ref": (
                 descriptor.rollback_ref
                 if descriptor is not None
@@ -1736,6 +1938,9 @@ class AuthorityDispatcher:
                 "approval_required",
                 "adapter_approval_required",
                 "adapter_binding_ref",
+                "provider_ref",
+                "target_binding_ref",
+                "approval_scope_fingerprint_ref",
                 "approval_ref",
                 "approval_validation_ref",
                 "budget_reservation_ref",

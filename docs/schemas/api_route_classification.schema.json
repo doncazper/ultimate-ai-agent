@@ -51,7 +51,7 @@
       "const": "uaa-api-route-inventory.v4"
     },
     "route_count": {
-      "const": 257
+      "const": 259
     },
     "route_classification_vocabulary": {
       "type": "array",
@@ -109,7 +109,7 @@
         },
         "protected_local_bearer_required": {
           "type": "integer",
-          "const": 254
+          "const": 256
         }
       }
     },
@@ -123,11 +123,11 @@
       "properties": {
         "not_required_for_route_classification": {
           "type": "integer",
-          "const": 204
+          "const": 205
         },
         "required_before_mutation_authority": {
           "type": "integer",
-          "const": 53
+          "const": 54
         }
       }
     },
@@ -145,7 +145,7 @@
         },
         "required_before_mutation_authority": {
           "type": "integer",
-          "const": 53
+          "const": 54
         }
       }
     },
@@ -166,7 +166,7 @@
         },
         "targeted_local_fixed_window": {
           "type": "integer",
-          "const": 73
+          "const": 74
         }
       }
     },
@@ -199,8 +199,8 @@
     },
     "routes": {
       "type": "array",
-      "minItems": 257,
-      "maxItems": 257,
+      "minItems": 259,
+      "maxItems": 259,
       "items": {
         "type": "object",
         "additionalProperties": false,

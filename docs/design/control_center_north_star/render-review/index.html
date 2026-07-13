@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light" />
+    <title>Control Center Render Review</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2307283d'/%3E%3Cpath d='M16 6l8 10-8 10L8 16z' fill='none' stroke='%238dc2ff' stroke-width='2'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="review-app" aria-label="Control Center render review">
+      <aside class="library" aria-label="Render library">
+        <header class="brand">
+          <div class="brand-mark" aria-hidden="true">◇</div>
+          <div>
+            <strong>Render Review</strong>
+            <span>Control Center UI/UX</span>
+          </div>
+        </header>
+
+        <div class="library-tools">
+          <label class="search-field">
+            <span class="sr-only">Search surfaces</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+            <input id="search" type="search" placeholder="Find a surface…" autocomplete="off" />
+          </label>
+          <div id="setFilters" class="set-filters" aria-label="Render set"></div>
+        </div>
+
+        <nav id="renderList" class="render-list" aria-label="Surfaces"></nav>
+
+        <footer class="library-footer">
+          <div class="progress-copy"><span id="approvedCount">0 approved</span><span id="reviewCount">0 of 0 reviewed</span></div>
+          <div class="progress-track" aria-hidden="true"><span id="progressBar"></span></div>
+          <button id="exportReviews" class="quiet-button" type="button">Export review JSON</button>
+          <label class="quiet-button import-label">Import review JSON<input id="importReviews" type="file" accept="application/json" /></label>
+        </footer>
+      </aside>
+
+      <section class="stage">
+        <header class="stage-header">
+          <div>
+            <div class="eyebrow"><span id="renderId">—</span><span aria-hidden="true">·</span><span id="renderCategory">—</span></div>
+            <h1 id="surfaceTitle">Loading render set…</h1>
+            <p id="surfacePurpose"></p>
+          </div>
+          <div class="stage-actions">
+            <label class="version-field">Version<select id="versionSelect"></select></label>
+            <button id="compareVersion" class="button secondary" type="button" aria-pressed="false">Compare</button>
+            <a id="openImage" class="button secondary" href="#" target="_blank" rel="noreferrer">Full size</a>
+          </div>
+        </header>
+
+        <div class="truth-strip">
+          <span class="truth-label">Design truth</span>
+          <span id="truthText"></span>
+        </div>
+
+        <figure class="render-frame">
+          <button id="previousRender" class="frame-nav previous" type="button" aria-label="Previous render">‹</button>
+          <div id="imageStage" class="image-stage">
+            <div class="image-panel">
+              <span id="currentVersionTag" class="version-tag" hidden></span>
+              <img id="renderImage" alt="" />
+            </div>
+            <div id="comparePanel" class="image-panel" hidden>
+              <span id="compareVersionTag" class="version-tag"></span>
+              <img id="compareImage" alt="" />
+            </div>
+            <div id="imageError" class="image-error" hidden>
+              <strong>Render not generated yet</strong>
+              <span>This catalog entry is queued for the current draft set.</span>
+            </div>
+          </div>
+          <button id="nextRender" class="frame-nav next" type="button" aria-label="Next render">›</button>
+          <figcaption><span id="positionText"></span><span>Use ← and → to move through surfaces</span></figcaption>
+        </figure>
+      </section>
+
+      <aside class="critique" aria-label="Critique and approval">
+        <header class="critique-header">
+          <div>
+            <span class="section-label">Your review</span>
+            <strong id="reviewSurface">—</strong>
+          </div>
+          <span id="saveState" class="save-state">Saved locally</span>
+        </header>
+
+        <section class="review-section">
+          <h2>Status</h2>
+          <div id="statusControl" class="status-control" role="radiogroup" aria-label="Review status">
+            <button type="button" role="radio" data-status="draft">Draft</button>
+            <button type="button" role="radio" data-status="needs-revision">Needs revision</button>
+            <button type="button" role="radio" data-status="approved">Approved</button>
+            <button type="button" role="radio" data-status="superseded">Superseded</button>
+          </div>
+        </section>
+
+        <section class="review-section critique-notes">
+          <label for="critiqueText">Critique and changes</label>
+          <textarea id="critiqueText" rows="11" placeholder="What should stay? What should change? Be specific about hierarchy, spacing, content, controls, and state behavior."></textarea>
+          <div class="prompt-chips" aria-label="Critique prompts">
+            <button type="button" data-prompt="Keep: ">Keep</button>
+            <button type="button" data-prompt="Change: ">Change</button>
+            <button type="button" data-prompt="Missing: ">Missing</button>
+            <button type="button" data-prompt="Interaction: ">Interaction</button>
+          </div>
+          <button id="saveReview" class="button primary full" type="button">Save review</button>
+        </section>
+
+        <section class="review-section metadata">
+          <h2>Surface contract</h2>
+          <dl>
+            <div><dt>Render ID</dt><dd id="metaId">—</dd></div>
+            <div><dt>Set</dt><dd id="metaSet">—</dd></div>
+            <div><dt>Route</dt><dd id="metaRoute">—</dd></div>
+            <div><dt>Version</dt><dd id="metaVersion">—</dd></div>
+          </dl>
+        </section>
+
+        <section class="review-section history">
+          <h2>Iteration history</h2>
+          <div id="historyList" class="history-list"></div>
+        </section>
+      </aside>
+    </main>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

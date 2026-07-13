@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `256`.
+Current OpenAPI path count: `258`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -14,6 +14,13 @@ Foundation Gate checks.
 inspection surface for the disabled-by-default local AuthorityLease mission
 worker. It exposes redacted queue, claim, heartbeat, recovery, kill-switch, and
 macOS-first platform posture; it cannot start a worker or mint authority.
+
+`GET /api/runtime/authority-missions/completions` is the protected read-only
+mission-completion evidence surface. It returns content-free plan, mission,
+run, lease, exact approval-validation, settled-budget, terminal receipt,
+hash-chain, and review-only memory-candidate refs. It cannot start or resume a
+mission, mint an approval or lease, accept memory as truth, or grant future
+authority.
 
 Contract rules:
 
@@ -63,13 +70,13 @@ Contract rules:
   retrieve memory bodies, inject context, run shell/browser work, write
   connectors, or wire chat runtime behavior.
 - `POST /extensions/disabled-install-records` and
-  `POST /extensions/disabled-install-records/rollback` are exact local metadata
-  receipt lanes for reviewed disabled extension install posture. Both require
-  active `workspace/write` AuthorityLease scope, exact LocalApprovalAuthority
-  approval for the specific action, idempotency, redacted receipts, and
-  rollback/safe-disable posture. They do not install packages, import runtime
-  code, enable plugins, execute plugins, fetch marketplaces, write connectors,
-  run shell/browser work, call providers/models, or grant production authority.
+  `POST /extensions/disabled-install-records/rollback` are blocked local metadata
+  mutation boundaries. They reject caller-supplied approval grants and cannot
+  execute until a core-owned durable approval resolver is implemented. The
+  underlying Python receipt builders still require active `workspace/write`
+  AuthorityLease scope, an injected exact LocalApprovalAuthority decision,
+  a core-owned atomic lease/safe-disable state, idempotency, pinned hashes, and
+  rollback/safe-disable posture.
 - `/api/runtime/*` is the governed runtime pilot contract surface. The
   Governed Product Pilot authority profile is exposed at
   `GET /api/runtime/governed-product-pilot-profile` as a protected read-only
@@ -100,7 +107,8 @@ Contract rules:
   `GET /api/runtime/parity-loop` exposes the Phase 08 backend-owned runtime
   parity-loop inspection model that ties prepared turn, route decision, durable
   run, staged orchestration, provider evidence, Action Inbox approval, receipt,
-  signed evidence, and blocked-state refs together without executing work.
+  local hash-integrity evidence (with legacy signed identifiers), and
+  blocked-state refs together without executing work.
   `GET /api/runtime/delegation-adapter` exposes the Hermes Runtime Adoption
   Phase 01 backend-owned runtime delegation adapter readiness model with
   runtime identity refs, endpoint posture, authority mode, capability refs,
@@ -513,12 +521,12 @@ Contract rules:
   plan refs, rollback refs, safe-disable refs, and blocked capability refs, but
   it must not persist package installs, import runtime code, enable plugins, or
   execute extensions.
-- `POST /extensions/disabled-install-records` may record one exact disabled
-  extension install metadata receipt only after active `workspace/write`
-  AuthorityLease scope, exact `LocalApprovalAuthority` validation, idempotency,
-  redacted receipt refs, and the local disabled-record store validate. It must
-  not persist package installs, import runtime code, enable plugins, activate
-  extensions, fetch marketplaces, execute extensions, or widen authority.
+- `POST /extensions/disabled-install-records` must fail closed until a
+  core-owned durable approval resolver can supply an exact current
+  `LocalApprovalAuthority` decision. Caller-supplied grant payloads are not in
+  the request contract. It must not persist package installs, import runtime
+  code, enable plugins, activate extensions, fetch marketplaces, execute
+  extensions, or widen authority.
 - `GET /control-center/capabilities/surface` must remain a read-only Control
   Center capability coverage route only. It may expose bounded capability rows,
   source-truth posture, route refs, CLI refs, missing reasons, and blocked
@@ -556,7 +564,8 @@ Contract rules:
   `GET /control-center/memory/review/{candidate_ref}/receipt`,
   `POST /control-center/memory/review/{candidate_ref}/accept`,
   `POST /control-center/memory/review/{candidate_ref}/correct`,
-  `POST /control-center/memory/review/{candidate_ref}/reject`,
+  `POST /control-center/memory/review/{candidate_ref}/reject`, and
+  `POST /control-center/memory/review/{candidate_ref}/expire`,
   `GET /control-center/morning-briefing/summary`, and
   `GET /control-center/storage/status` expose storage-backed Founder Loop
   summaries plus Action Inbox and Chat receipts using SQLite and JSONL refs

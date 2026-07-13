@@ -18,6 +18,7 @@ from ultimate_ai_agent.core.authority.authority_constants import (
 from ultimate_ai_agent.core.authority.dispatch_contracts import AuthorityDispatchRequest
 from ultimate_ai_agent.core.authority.dispatch_contracts import (
     AuthorityDispatchExecutionFence,
+    AuthorityDispatchStatus,
     AuthorityDispatchWorkerClaimFence,
 )
 from ultimate_ai_agent.core.authority.dispatcher import (
@@ -53,10 +54,15 @@ from ultimate_ai_agent.core.execution.mission_runner import (
     mission_step_dispatch_ref,
     mission_step_idempotency_ref,
 )
+from ultimate_ai_agent.core.execution.mission_completion import (
+    MissionCompletionStore,
+    verify_mission_completion,
+)
 from ultimate_ai_agent.core.planning.validation import (
     validate_safe_task_text,
     validate_task_ref,
 )
+from ultimate_ai_agent.core.safe_refs import hash_text
 
 
 AUTHORITY_MISSION_ORCHESTRATION_SCHEMA_VERSION = (
@@ -297,6 +303,9 @@ class AuthorityMissionOrchestrationResult(_MissionOrchestrationModel):
     dead_letter_step_count: int = Field(default=0, ge=0)
     reason_refs: list[str] = Field(default_factory=list)
     evidence_refs: list[str] = Field(default_factory=list)
+    completion_manifest_ref: str | None = None
+    memory_candidate_ref: str | None = None
+    completion_offline_verified: bool = False
     operator_summary: str = Field(..., min_length=1, max_length=520)
     request_scoped_authority_evaluated_for_each_attempted_step: Literal[True] = True
     execution_authority_minted_by_orchestrator: Literal[False] = False
@@ -371,6 +380,7 @@ class SynchronousAuthorityMissionOrchestrator:
         runner: AuthorityMissionRunner,
         plan_store: DurableMissionPlanStore,
         control_store: MissionControlStore | None = None,
+        completion_store: MissionCompletionStore | None = None,
     ) -> None:
         if runner.step_store.state_dir.resolve() != plan_store.state_dir.resolve():
             raise ValueError("AUTHORITY_MISSION_ORCHESTRATION_STATE_DIR_MISMATCH")
@@ -380,8 +390,23 @@ class SynchronousAuthorityMissionOrchestrator:
         self.control_store = control_store or MissionControlStore(
             self.step_store.state_dir
         )
+        self.completion_store = completion_store or MissionCompletionStore(
+            self.step_store.state_dir
+        )
         if self.control_store.state_dir.resolve() != self.step_store.state_dir.resolve():
             raise ValueError("AUTHORITY_MISSION_CONTROL_STATE_DIR_MISMATCH")
+        if self.completion_store.state_dir.resolve() != self.step_store.state_dir.resolve():
+            raise ValueError("AUTHORITY_MISSION_COMPLETION_STATE_DIR_MISMATCH")
+        self.completion_store.bind_source_resolvers(
+            plan_receipts=self.plan_store.list_receipts,
+            leases=lambda: self.runner.dispatcher.lease_store.list_leases(
+                active_only=False
+            ),
+            step_receipts=self.step_store.receipts,
+            dispatch_receipts=self.runner.dispatcher.list_receipts,
+            budget_receipts=self.runner.dispatcher.budget_store.list_receipts,
+            control_receipts=self.control_store.receipts,
+        )
         self.control_store.bind_request_validator(
             self._validate_control_request_locked
         )
@@ -502,6 +527,34 @@ class SynchronousAuthorityMissionOrchestrator:
             raise ValueError("MISSION_CONTROL_MISSION_ALREADY_TERMINAL")
 
     def run(
+        self,
+        request: AuthorityMissionOrchestrationRequest,
+        *,
+        owner_ref: str,
+        claim_ttl_seconds: int = 30,
+        max_step_count: Literal[1] | None = None,
+        heartbeat_interval_seconds: int | None = None,
+        worker_claim_fence: AuthorityDispatchWorkerClaimFence | None = None,
+    ) -> AuthorityMissionOrchestrationResult:
+        validate_task_ref(owner_ref, "authority_mission_orchestration_owner_ref")
+        validated = AuthorityMissionOrchestrationRequest.model_validate(
+            request.model_dump(mode="python")
+        )
+        mission_lock_key = (
+            "authority-mission-execution:"
+            f"{hash_text(validated.mission_ref)[:24]}"
+        )
+        with self.step_store.lock_manager.acquire(mission_lock_key):
+            return self._run_with_mission_concurrency_fence(
+                validated,
+                owner_ref=owner_ref,
+                claim_ttl_seconds=claim_ttl_seconds,
+                max_step_count=max_step_count,
+                heartbeat_interval_seconds=heartbeat_interval_seconds,
+                worker_claim_fence=worker_claim_fence,
+            )
+
+    def _run_with_mission_concurrency_fence(
         self,
         request: AuthorityMissionOrchestrationRequest,
         *,
@@ -756,6 +809,11 @@ class SynchronousAuthorityMissionOrchestrator:
                     raise ValueError(
                         "AUTHORITY_MISSION_ORCHESTRATION_STRUCTURAL_PREFLIGHT_DENIED"
                     )
+        plan_lease_refs = {step.request.lease_ref for step in request.steps}
+        if len(plan_lease_refs) != 1:
+            raise ValueError(
+                "AUTHORITY_MISSION_ORCHESTRATION_SINGLE_MISSION_LEASE_REQUIRED"
+            )
 
     def _apply_fail_fast(
         self,
@@ -886,7 +944,7 @@ class SynchronousAuthorityMissionOrchestrator:
                 "reason-ref:authority-mission-orchestration:"
                 "cancellation-after-start-unsupported"
             ]
-        return AuthorityMissionOrchestrationResult(
+        result = AuthorityMissionOrchestrationResult(
             plan_ref=request.plan_ref,
             plan_fingerprint_ref=plan.fingerprint_ref,
             plan_receipt_ref=plan_receipt.receipt_ref,
@@ -935,6 +993,138 @@ class SynchronousAuthorityMissionOrchestrator:
             operator_summary=self._operator_summary(status),
             mission_cancellation_claimed=cancellation is not None,
             automatic_retry_performed=any(step.attempt_no > 1 for step in steps),
+        )
+        if status != AuthorityMissionOrchestrationStatus.succeeded.value:
+            return result
+        lease_refs = {
+            receipt.definition.lease_ref for receipt in latest_receipts.values()
+        }
+        if len(lease_refs) != 1:
+            raise ValueError(
+                "AUTHORITY_MISSION_ORCHESTRATION_SINGLE_MISSION_LEASE_REQUIRED"
+            )
+        lease_ref = next(iter(lease_refs))
+        lease = next(
+            (
+                item
+                for item in self.runner.dispatcher.lease_store.list_leases(
+                    active_only=False
+                )
+                if item.lease_ref == lease_ref
+            ),
+            None,
+        )
+        if lease is None:
+            raise ValueError("AUTHORITY_MISSION_ORCHESTRATION_LEASE_EVIDENCE_REQUIRED")
+        terminal_dispatches = []
+        for binding in plan.ordered_steps:
+            step_receipt = latest_receipts[binding.step_ref]
+            terminal_dispatch_ref = step_receipt.dispatch_ref
+            terminal_fingerprint_ref = step_receipt.dispatch_request_fingerprint_ref
+            permitted_attempts = {
+                binding.dispatch_ref: binding.dispatch_request_fingerprint_ref,
+                **{
+                    attempt.dispatch_ref: attempt.dispatch_request_fingerprint_ref
+                    for attempt in binding.retry_attempts
+                },
+            }
+            if (
+                terminal_dispatch_ref not in permitted_attempts
+                or terminal_fingerprint_ref
+                != permitted_attempts.get(terminal_dispatch_ref or "")
+            ):
+                raise ValueError(
+                    "AUTHORITY_MISSION_ORCHESTRATION_TERMINAL_ATTEMPT_INVALID"
+                )
+            dispatch = next(
+                (
+                    item
+                    for item in reversed(dispatch_receipts)
+                    if item.dispatch_ref == terminal_dispatch_ref
+                    and item.request_fingerprint_ref == terminal_fingerprint_ref
+                    and item.status == AuthorityDispatchStatus.succeeded.value
+                ),
+                None,
+            )
+            if dispatch is None:
+                raise ValueError(
+                    "AUTHORITY_MISSION_ORCHESTRATION_TERMINAL_DISPATCH_REQUIRED"
+                )
+            terminal_dispatches.append(dispatch)
+        budget_receipts = self.runner.dispatcher.budget_store.list_receipts()
+        budget_by_ref = {receipt.receipt_ref: receipt for receipt in budget_receipts}
+        terminal_settlements = [
+            budget_by_ref.get(dispatch.budget_settlement_receipt_ref or "")
+            for dispatch in terminal_dispatches
+        ]
+        if any(
+            settlement is None
+            or settlement.status != "settled"
+            for settlement in terminal_settlements
+        ):
+            return result.model_copy(
+                update={
+                    "status": AuthorityMissionOrchestrationStatus.recovery_required,
+                    "reason_refs": [
+                        "reason-ref:authority-mission-orchestration:"
+                        "completion-budget-review-required"
+                    ],
+                    "evidence_refs": list(
+                        dict.fromkeys(
+                            [
+                                *result.evidence_refs,
+                                *[
+                                    settlement.receipt_ref
+                                    for settlement in terminal_settlements
+                                    if settlement is not None
+                                ],
+                            ]
+                        )
+                    ),
+                    "operator_summary": (
+                        "Mission execution reached terminal adapter results, but "
+                        "overage or unresolved cost blocks verified completion."
+                    ),
+                }
+            )
+        manifest = self.completion_store.record(
+            plan_receipt=plan_receipt,
+            lease=lease,
+            step_receipts=[
+                latest_receipts[step_ref] for step_ref in plan.topological_step_refs
+            ],
+            dispatch_receipts=terminal_dispatches,
+            budget_receipts=budget_receipts,
+        )
+        verification = verify_mission_completion(
+            manifest,
+            plan_receipt=plan_receipt,
+            lease=lease,
+            step_receipts=[
+                latest_receipts[step_ref]
+                for step_ref in plan.topological_step_refs
+            ],
+            dispatch_receipts=terminal_dispatches,
+            budget_receipts=budget_receipts,
+            control_receipts=self.control_store.receipts(),
+        )
+        if not verification.valid:
+            raise ValueError("AUTHORITY_MISSION_COMPLETION_OFFLINE_VERIFY_FAILED")
+        return result.model_copy(
+            update={
+                "completion_manifest_ref": manifest.completion_ref,
+                "memory_candidate_ref": manifest.memory_candidate_ref,
+                "completion_offline_verified": True,
+                "evidence_refs": list(
+                    dict.fromkeys(
+                        [
+                            *result.evidence_refs,
+                            manifest.completion_ref,
+                            manifest.entry_hash_ref,
+                        ]
+                    )
+                ),
+            }
         )
 
     @staticmethod

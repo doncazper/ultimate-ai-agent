@@ -105,6 +105,8 @@ export const API_ENDPOINTS = {
   runtimeAuthorityMissionPlan: "/api/runtime/authority-missions/plan",
   runtimeAuthorityMissionWorkerState:
     "/api/runtime/authority-missions/worker-state",
+  runtimeAuthorityMissionCompletions:
+    "/api/runtime/authority-missions/completions",
   runtimeAuthorityLeases: "/api/runtime/authority-leases",
   runtimeAuthorityLeasesApproveAndIssue:
     "/api/runtime/authority-leases/approve-and-issue",
@@ -131,6 +133,7 @@ export const MEMORY_REVIEW_DECISION_KINDS = [
   "defer",
   "merge",
   "supersede",
+  "expire",
   "forget_request",
 ] as const;
 

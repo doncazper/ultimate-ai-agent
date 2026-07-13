@@ -8,6 +8,9 @@ def build_existing_lane_authority_mappings():
         TrustMode,
         _mapping,
     )
+    from ultimate_ai_agent.core.authority.memory_lane_registry import (
+        build_memory_lane_authority_mappings,
+    )
 
     return [
         _mapping(
@@ -1277,20 +1280,7 @@ def build_existing_lane_authority_mappings():
             ["repo-local-command:inspect-action-inbox-local-task-commit"],
             "Requires Workspace write authority plus exact Action Inbox approval, idempotency, receipts, and safe-disable refs.",
         ),
-        _mapping(
-            "lane-ref:memory-review-accept-correct",
-            "Reviewed memory write",
-            AuthorityDomain.memory,
-            AuthorityCapability.write,
-            TrustMode.ask_before_changes,
-            "implemented_ask_required",
-            [
-                "POST /control-center/memory/review/{candidate_ref}/accept",
-                "POST /control-center/memory/review/{candidate_ref}/correct",
-            ],
-            ["repo-local-command:inspect-memory-review"],
-            "Requires Memory domain write authority; Ask before changes returns ask until an operator confirms.",
-        ),
+        *build_memory_lane_authority_mappings(),
         _mapping(
             "lane-ref:memory-context-pack-action-proposal",
             "Memory context-pack internal Action proposal",

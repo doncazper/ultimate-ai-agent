@@ -220,6 +220,18 @@ class RuntimeActionSignedEvidenceEnvelope(BaseModel):
     issued_at: datetime = Field(default_factory=utc_now)
     envelope_hash_ref: str = Field(..., min_length=1)
     signed_envelope_ref: str = Field(..., min_length=1)
+    integrity_scheme_ref: Literal[
+        "integrity-scheme-ref:local-sha256-hash-v1"
+    ] = "integrity-scheme-ref:local-sha256-hash-v1"
+    integrity_posture: Literal[
+        "sha256_hash_only_not_a_cryptographic_signature"
+    ] = "sha256_hash_only_not_a_cryptographic_signature"
+    cryptographic_signature_present: Literal[False] = False
+    signing_status: Literal["blocked_signing_lifecycle_not_implemented"] = (
+        "blocked_signing_lifecycle_not_implemented"
+    )
+    external_anchor_verified: Literal[False] = False
+    legacy_signed_envelope_ref_is_hash_only: Literal[True] = True
     safe_refs_only: bool = True
     raw_prompt_persisted: bool = False
     raw_response_persisted: bool = False
@@ -241,8 +253,9 @@ class RuntimeActionSignedEvidenceEnvelope(BaseModel):
     signing_key_material_persisted: bool = False
     verifier_only_local_hash_signature: bool = True
     safe_summary: str = (
-        "Runtime action signed evidence stores safe refs, stable hashes, "
-        "approval posture, receipt refs, and redacted execution metadata only."
+        "Runtime action hash-integrity evidence stores safe refs, stable SHA-256 "
+        "hashes, approval posture, receipt refs, and redacted execution metadata "
+        "only; legacy signed identifiers are not cryptographic signatures."
     )
 
     model_config = ConfigDict(extra="forbid")
@@ -327,6 +340,11 @@ class RuntimeActionSignedEvidenceVerificationResult(BaseModel):
     required_fields_present: bool
     envelope_hash_valid: bool
     signed_envelope_ref_valid: bool
+    cryptographic_signature_verified: Literal[False] = False
+    signing_status: Literal["blocked_signing_lifecycle_not_implemented"] = (
+        "blocked_signing_lifecycle_not_implemented"
+    )
+    external_anchor_verified: Literal[False] = False
     redaction_status_valid: bool
     denied_authority_status_valid: bool
     tamper_detected: bool
@@ -335,7 +353,10 @@ class RuntimeActionSignedEvidenceVerificationResult(BaseModel):
     missing_field_refs: list[str] = Field(default_factory=list)
     failure_reason_refs: list[str] = Field(default_factory=list)
     evidence_refs: list[str] = Field(default_factory=list)
-    safe_summary: str = "Runtime action signed evidence was verified offline using safe refs only."
+    safe_summary: str = (
+        "Runtime action SHA-256 hash integrity was verified offline using safe "
+        "refs only; no cryptographic signature was verified."
+    )
 
     model_config = ConfigDict(extra="forbid")
 
@@ -470,12 +491,41 @@ def build_runtime_action_signed_evidence(
 def verify_runtime_action_signed_evidence(
     envelope: Mapping[str, Any] | RuntimeActionSignedEvidenceEnvelope,
 ) -> RuntimeActionSignedEvidenceVerificationResult:
-    payload = (
+    raw_payload = (
         envelope.model_dump(mode="json")
         if isinstance(envelope, RuntimeActionSignedEvidenceEnvelope)
         else dict(envelope)
     )
-    missing_fields = [field for field in _REQUIRED_FIELDS if field not in payload]
+    missing_fields = [field for field in _REQUIRED_FIELDS if field not in raw_payload]
+    try:
+        parsed = RuntimeActionSignedEvidenceEnvelope.model_validate(raw_payload)
+    except ValueError:
+        failure_refs = [
+            "failure-reason-ref:runtime-action-evidence:contract-invalid"
+        ]
+        if any(bool(raw_payload.get(field)) for field in _REDACTION_FLAG_FIELDS):
+            failure_refs.append(
+                "failure-reason-ref:runtime-action-evidence:redaction-status-invalid"
+            )
+        if any(bool(raw_payload.get(field)) for field in _DENIED_AUTHORITY_FLAG_FIELDS):
+            failure_refs.append(
+                "failure-reason-ref:runtime-action-evidence:denied-authority-invalid"
+            )
+        return RuntimeActionSignedEvidenceVerificationResult(
+            envelope_ref="runtime-action-evidence-envelope-ref:invalid",
+            verification_status="failed",
+            required_fields_present=not missing_fields,
+            envelope_hash_valid=False,
+            signed_envelope_ref_valid=False,
+            redaction_status_valid=False,
+            denied_authority_status_valid=False,
+            tamper_detected=True,
+            safe_refs_only=False,
+            missing_field_refs=[_missing_field_ref(field) for field in missing_fields],
+            failure_reason_refs=failure_refs,
+            evidence_refs=[],
+        )
+    payload = parsed.model_dump(mode="json")
     required_fields_present = not missing_fields
     envelope_ref = str(
         payload.get("envelope_ref", "runtime-action-evidence-envelope-ref:missing")

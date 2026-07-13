@@ -464,6 +464,215 @@ describe("loadControlCenterData summary endpoint wiring", () => {
       "CRM_LOCAL_COMMAND_CENTER_MOCK_FALLBACK",
     );
   });
+
+  it("rejects agent-loop payloads missing backend-owned reasoning truth", async () => {
+    const routeData = baseRouteData();
+    const thread = routeData[API_ENDPOINTS.founderAgentLoopThread] as Record<
+      string,
+      unknown
+    >;
+    routeData[API_ENDPOINTS.founderAgentLoopThread] = {
+      ...thread,
+      reasoning_truth: {
+        ...(thread.reasoning_truth as Record<string, unknown>),
+        backend_owned: false,
+        authority_posture: "authorized",
+      },
+    };
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.founderAgentLoopThread.backend_owned).toBe(false);
+    expect(data.founderAgentLoopThread.reasoning_truth.authority_posture).toBe(
+      "non_authoritative_review_truth",
+    );
+    expect(data.connection.state).toBe("degraded");
+    expect(data.connection.warnings).toContain(
+      "AGENT_LOOP_THREAD_MOCK_FALLBACK",
+    );
+  });
+
+  it.each([
+    ["lane count", (posture: Record<string, unknown>) => {
+      posture.existing_exact_network_lane_count = 5;
+    }],
+    ["content authority", (posture: Record<string, unknown>) => {
+      const rows = posture.rows as Array<Record<string, unknown>>;
+      rows[0].external_content_can_grant_authority = true;
+    }],
+    ["missing evidence", (posture: Record<string, unknown>) => {
+      const rows = posture.rows as Array<Record<string, unknown>>;
+      rows[0].evidence_refs = [];
+    }],
+  ])("rejects unsafe external-information %s truth", async (_label, mutate) => {
+    const routeData = baseRouteData();
+    const thread = JSON.parse(
+      JSON.stringify(routeData[API_ENDPOINTS.founderAgentLoopThread]),
+    ) as Record<string, unknown>;
+    const highMaturity = thread.high_maturity_spine_readiness as Record<
+      string,
+      unknown
+    >;
+    const externalInformation = highMaturity.external_information_handling as Record<
+      string,
+      unknown
+    >;
+    mutate(externalInformation);
+    routeData[API_ENDPOINTS.founderAgentLoopThread] = thread;
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.founderAgentLoopThread.backend_owned).toBe(false);
+    expect(data.connection.warnings).toContain(
+      "AGENT_LOOP_THREAD_MOCK_FALLBACK",
+    );
+  });
+
+  it("rejects malformed governed memory context selections", async () => {
+    const routeData = baseRouteData();
+    const contextManifest = routeData[
+      API_ENDPOINTS.founderMemoryContextManifest
+    ] as Record<string, unknown>;
+    routeData[API_ENDPOINTS.founderMemoryContextManifest] = {
+      ...contextManifest,
+      governed_context: {
+        schema_version: "governed_memory_context_manifest.v1",
+        contract_ref: "contract-ref:governed-memory-context-manifest:v1",
+        route_ref: "GET /control-center/memory/context-manifest",
+        status: "ready_for_operator_preview",
+        context_manifest_ref: "context-manifest-ref:malformed",
+        manifest_fingerprint_ref: "fingerprint-ref:malformed",
+        context_receipt_ref: "receipt-ref:malformed",
+        context_receipt_status: "derived_preview_not_persisted",
+        query_ref: "query-ref:malformed",
+        checked_at: "2026-07-11T00:00:00Z",
+        source_index_generated_at: "2026-07-11T00:00:00Z",
+        expires_at: "2026-07-11T01:00:00Z",
+        source_scan_truncated: false,
+        candidate_count_complete: true,
+        budget: {
+          max_items: 1,
+          max_tokens: 10,
+          selected_items: 1,
+          used_tokens: 1,
+          capacity_excluded_items: 0,
+          status: "available",
+        },
+        candidate_count: 1,
+        selection_count: 1,
+        exclusion_count: 0,
+        selections: [{}],
+        exclusions: [],
+        blocked_state_refs: ["blocked-state:memory-context:no-authority"],
+        redaction_status: "safe_refs_only",
+        preview_only: true,
+        context_injection_authorized: false,
+        automatic_memory_inclusion_authorized: false,
+        memory_truth_authority: false,
+        action_execution_authorized: false,
+        approval_authority_granted: false,
+        connector_write_authorized: false,
+        model_provider_authority_allowed: false,
+        raw_content_persisted: false,
+        production_authority_enabled: false,
+      },
+    };
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.founderMemoryContextManifest.governed_context).toBeUndefined();
+    expect(data.connection.warnings).toContain("PARTIAL_MOCK_FALLBACK");
+  });
+
+  it("rejects unsafe web research aggregation posture", async () => {
+    const routeData = baseRouteData();
+    const capabilitySurface = routeData[
+      API_ENDPOINTS.controlCenterCapabilitySurface
+    ] as typeof mockControlCenterData.capabilitySurface;
+    routeData[API_ENDPOINTS.controlCenterCapabilitySurface] = {
+      ...capabilitySurface,
+      web_hybrid: {
+        ...capabilitySurface.web_hybrid,
+        research_aggregation: {
+          ...capabilitySurface.web_hybrid.research_aggregation,
+          raw_page_content_persisted: true,
+        },
+      },
+    };
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(
+      data.capabilitySurface.web_hybrid.research_aggregation
+        .raw_page_content_persisted,
+    ).toBe(false);
+    expect(data.connection.warnings).toContain("PARTIAL_MOCK_FALLBACK");
+  });
+
+  it("rejects unsafe WEB-HYBRID lane and rendered-ref content", async () => {
+    const routeData = baseRouteData();
+    const capabilitySurface = JSON.parse(
+      JSON.stringify(
+        routeData[API_ENDPOINTS.controlCenterCapabilitySurface],
+      ),
+    ) as typeof mockControlCenterData.capabilitySurface;
+    const unsafePath = ["", "Users", "private", "raw page content"].join("/");
+    const unsafeProviderMarker = ["provider", "payload"].join("_");
+    const unsafePageRef = ["https:", "", "private.example", "raw-page"].join("/");
+    capabilitySurface.web_hybrid.lanes[0].display_label = unsafePath;
+    capabilitySurface.web_hybrid.lanes[1].provider_ref =
+      `provider-ref:firecrawl:${unsafeProviderMarker}`;
+    capabilitySurface.web_hybrid.research_aggregation.proof_refs = [
+      unsafePageRef,
+    ];
+    routeData[API_ENDPOINTS.controlCenterCapabilitySurface] = capabilitySurface;
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+    const serialized = JSON.stringify(data.capabilitySurface);
+
+    expect(data.connection.warnings).toContain("PARTIAL_MOCK_FALLBACK");
+    expect(data.capabilitySurface.web_hybrid.lanes[0].display_label).toBe(
+      "SearXNG read-only search",
+    );
+    expect(serialized).not.toContain(unsafePath);
+    expect(serialized).not.toContain(
+      `provider-ref:firecrawl:${unsafeProviderMarker}`,
+    );
+    expect(serialized).not.toContain("private.example");
+  });
+
+  it("rejects secret and local-path shapes in WEB-HYBRID rendered text", async () => {
+    const unsafeRenderedValues = [
+      ["password", "supersecret"].join("="),
+      ["authorization", "Bearer private-value"].join("="),
+      ["cookie", "private-value"].join("="),
+      ["", "private", "tmp", "private-value"].join("/"),
+      ["", "var", "tmp", "private-value"].join("/"),
+      ["C:", "Users", "private", "private-value"].join("\\"),
+    ];
+
+    for (const unsafeValue of unsafeRenderedValues) {
+      const routeData = baseRouteData();
+      const capabilitySurface = JSON.parse(
+        JSON.stringify(
+          routeData[API_ENDPOINTS.controlCenterCapabilitySurface],
+        ),
+      ) as typeof mockControlCenterData.capabilitySurface;
+      capabilitySurface.web_hybrid.safe_summary = unsafeValue;
+      routeData[API_ENDPOINTS.controlCenterCapabilitySurface] = capabilitySurface;
+      stubControlCenterFetch(routeData);
+
+      const data = await loadControlCenterData();
+
+      expect(data.connection.warnings).toContain("PARTIAL_MOCK_FALLBACK");
+      expect(JSON.stringify(data.capabilitySurface)).not.toContain(unsafeValue);
+    }
+  });
 });
 
 function baseRouteData(): Record<string, unknown> {
@@ -928,6 +1137,10 @@ function baseRouteData(): Record<string, unknown> {
       capability_status: "partial",
       source: "python_core_agent_loop_thread_read_model",
       backend_owned: true,
+      reasoning_truth: {
+        ...mockControlCenterData.founderAgentLoopThread.reasoning_truth,
+        backend_owned: true,
+      },
       high_maturity_spine_readiness: {
         ...mockControlCenterData.founderAgentLoopThread.high_maturity_spine_readiness,
         status: "implemented_backend_owned_read_model_no_new_authority",
@@ -948,6 +1161,33 @@ function baseRouteData(): Record<string, unknown> {
               score_0_10: index % 3 === 0 ? 8 : 7,
             }),
           ),
+        external_information_handling: {
+          ...mockControlCenterData.founderAgentLoopThread
+            .high_maturity_spine_readiness.external_information_handling,
+          status: "implemented_read_only_posture_map_existing_lanes_only",
+          source: "python_core_agent_loop_thread_read_model",
+          backend_owned: true,
+          implemented_or_blocked_count: 8,
+          existing_exact_network_lane_count: 4,
+          exact_bounded_provider_lanes_implemented: true,
+          rows:
+            mockControlCenterData.founderAgentLoopThread.high_maturity_spine_readiness.external_information_handling.rows.map(
+              (row) => {
+                const exactLaneCount =
+                  row.category_id === "allowlisted_gateway_preview"
+                    ? 1
+                    : row.category_id === "provider_search_scrape"
+                      ? 3
+                      : 0;
+                return {
+                  ...row,
+                  status: "implemented_or_governed_blocked",
+                  existing_exact_network_lane: exactLaneCount > 0,
+                  exact_network_lane_count: exactLaneCount,
+                };
+              },
+            ),
+        },
       },
       operator_decision_matrix: {
         ...mockControlCenterData.founderAgentLoopThread.operator_decision_matrix,

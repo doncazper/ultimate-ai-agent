@@ -5042,7 +5042,7 @@ def verify_m37_review_approval_capture_safety() -> None:
         sys.exit(1)
 
     component_text = (ROOT / "apps/control-center/src/components/FileReviewSurfacePanel.tsx").read_text(encoding="utf-8").lower()
-    for required in ["approve review-only", "deny review-only", "does not grant raw file access"]:
+    for required in ["approve review-only", "deny review-only", "grants no raw file access"]:
         if required not in component_text:
             print(f"FAIL: M37 Control Center missing review-only capture marker: {required}")
             sys.exit(1)

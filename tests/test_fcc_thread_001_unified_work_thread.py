@@ -10,6 +10,7 @@ import pytest
 from pydantic import ValidationError
 
 from scripts import verify_fcc_thread_001_unified_work_thread
+from scripts.dev import uaa_founder_loop
 from ultimate_ai_agent.core.chat import ChatHandoffRequest, ChatTurnReceiptRequest
 from ultimate_ai_agent.core.control_center.action_decisions import (
     FounderLoopActionDecisionRequest,
@@ -183,7 +184,10 @@ def test_unified_work_thread_rejects_authority_and_raw_content(tmp_path: Path) -
         UnifiedWorkThreadReadModel(**payload)
 
 
-def test_unified_work_thread_cli_is_read_only_and_redacted(tmp_path: Path) -> None:
+def test_unified_work_thread_cli_is_read_only_and_redacted(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     state_dir = tmp_path / "founder_loop"
     FounderLoopRepository(state_dir).today_summary()
     before_files = {
@@ -235,24 +239,20 @@ def test_unified_work_thread_cli_is_read_only_and_redacted(tmp_path: Path) -> No
     assert after_files == before_files
 
     missing_state_dir = tmp_path / "missing_founder_loop"
-    missing_result = subprocess.run(
+    assert uaa_founder_loop.main(
         [
-            sys.executable,
-            str(ROOT / "scripts/dev/uaa_founder_loop.py"),
             "--state-dir",
             str(missing_state_dir),
             "inspect-work-thread",
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    missing_payload = json.loads(missing_result.stdout)
+        ]
+    ) == 0
+    missing_output = capsys.readouterr().out
+    missing_payload = json.loads(missing_output)
     assert missing_payload["storage_state"] == "state_not_found_no_write"
     assert missing_payload["steps"] == []
     assert missing_payload["step_order"] == list(UNIFIED_WORK_THREAD_STEP_ORDER)
     assert missing_payload["raw_paths_omitted"] is True
-    assert str(missing_state_dir) not in missing_result.stdout
+    assert str(missing_state_dir) not in missing_output
     assert not missing_state_dir.exists()
 
 

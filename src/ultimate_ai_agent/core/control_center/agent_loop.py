@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
+from ultimate_ai_agent.core.capability_availability import (
+    CAPABILITY_AVAILABILITY_ROUTE_REF,
+    build_web_hybrid_availability_read_model,
+)
 from ultimate_ai_agent.core.control_center.action_tool_code_catalog import (
     ACTION_TOOL_CODE_CATALOG_CONTRACT_REF,
     ACTION_TOOL_CODE_CATALOG_CLI_REF,
@@ -49,6 +54,18 @@ from ultimate_ai_agent.core.execution.staged_orchestration import (
     STAGED_ORCHESTRATION_READ_MODEL_AUTHORITY_MAPPING_REF,
     STAGED_ORCHESTRATION_RUNTIME_COMMAND_AUTHORITY_MAPPING_REF,
 )
+from ultimate_ai_agent.core.intent import (
+    IntentAssessmentInput,
+    OperatorQuestion,
+    ReasoningStatement,
+    assess_intent,
+)
+from ultimate_ai_agent.core.planning import (
+    build_immutable_decomposition,
+    build_immutable_decomposition_step,
+    build_initial_plan_revision,
+)
+from ultimate_ai_agent.core.safe_refs import hash_text
 
 
 AGENT_LOOP_THREAD_CONTRACT_REF = (
@@ -93,7 +110,7 @@ AGENT_LOOP_THREAD_SOURCE = "python_core_agent_loop_thread_read_model"
 AGENT_LOOP_THREAD_BLOCKED_AUTHORITY_REFS = (
     "blocked-state:agent-loop:no-runtime-model-calls",
     "blocked-state:agent-loop:no-provider-sdk-calls",
-    "blocked-state:agent-loop:no-live-web-fetching",
+    "blocked-state:agent-loop:no-unrestricted-live-web-fetching",
     "blocked-state:agent-loop:no-browser-automation",
     "blocked-state:agent-loop:no-connector-writes",
     "blocked-state:agent-loop:no-unrestricted-shell",
@@ -520,7 +537,7 @@ def build_founder_loop_product_cockpit_posture() -> dict[str, Any]:
                 "browser action or external-content authority."
             ),
             blocked_authority_refs=[
-                "blocked-state:agent-loop:no-live-web-fetching",
+                "blocked-state:agent-loop:no-unrestricted-live-web-fetching",
                 "blocked-state:agent-loop:no-browser-automation",
             ],
         ),
@@ -1008,6 +1025,7 @@ def build_durable_orchestration_posture() -> dict[str, Any]:
 def build_external_information_handling_posture() -> dict[str, Any]:
     """Return web/external information posture without adding new fetch authority."""
 
+    web_hybrid = build_web_hybrid_availability_read_model()
     rows = [
         _external_information_row(
             category_id="trusted_local_evidence",
@@ -1191,29 +1209,34 @@ def build_external_information_handling_posture() -> dict[str, Any]:
         _external_information_row(
             category_id="provider_search_scrape",
             label="Provider search/scrape adapters",
-            status="planned_disabled_adapter_shell",
-            network_posture="provider_runtime_blocked",
-            authority_posture="catalog_visibility_is_not_callable_authority",
-            safe_summary=(
-                "Firecrawl, Browserbase, search, and scrape providers remain "
-                "future/disabled adapter shells unless an exact WebAccessGateway "
-                "lane grants read-only authority with audit and receipts."
-            ),
-            route_refs=[],
-            cli_refs=[],
+            status=web_hybrid.status,
+            network_posture="exact_web_hybrid_lanes_request_scoped",
+            authority_posture="fresh_request_scoped_final_start_evaluation_required",
+            safe_summary=web_hybrid.safe_summary,
+            route_refs=[CAPABILITY_AVAILABILITY_ROUTE_REF],
+            cli_refs=[web_hybrid.cli_path],
             evidence_refs=[
                 "docs/network/WEB_ACCESS_PROVIDER_AUTHORITY_SEQUENCE.md",
-                "docs/control_center/UAA_RUNTIME_MODEL_PROVIDER_RESEARCH.md",
+                web_hybrid.read_model_ref,
+                *web_hybrid.proof_refs,
             ],
             test_refs=[
-                "tests/test_model_runtime_no_real_calls.py",
-                "tests/test_tool_runtime_authority_boundaries.py",
+                "tests/test_searxng_search.py",
+                "tests/test_firecrawl_markdown.py",
+                "tests/test_firecrawl_cloud.py",
+                "tests/test_web_hybrid_ledger_router.py",
+                "tests/test_web_research_aggregation.py",
+                "tests/test_inspect_web_hybrid_status.py",
             ],
             blocked_authority_refs=[
-                "blocked-state:agent-loop:no-provider-sdk-calls",
-                "blocked-state:web-evidence:no-provider-model-call",
-                "blocked-state:web-evidence:no-connector-write",
+                "blocked-state:web-hybrid:current-runtime-observation-required",
+                "blocked-state:web-hybrid:paid-usage-denied",
+                "blocked-state:web-evidence:no-browser-actions",
             ],
+            authority_required=True,
+            receipt_required=True,
+            existing_exact_network_lane=True,
+            exact_network_lane_count=len(web_hybrid.lanes),
         ),
         _external_information_row(
             category_id="external_content_authority_isolation",
@@ -1260,13 +1283,14 @@ def build_external_information_handling_posture() -> dict[str, Any]:
         "category_count": len(rows),
         "implemented_or_blocked_count": len(rows),
         "existing_exact_network_lane_count": sum(
-            1 for row in rows if row["existing_exact_network_lane"] is True
+            row["exact_network_lane_count"] for row in rows
         ),
         "rows": rows,
         "new_live_web_fetching_added": False,
         "browser_observe_enabled": False,
         "browser_action_execution_enabled": False,
         "provider_search_enabled": False,
+        "exact_bounded_provider_lanes_implemented": True,
         "provider_sdk_calls_added": False,
         "connector_writes_added": False,
         "memory_writes_added": False,
@@ -1274,9 +1298,10 @@ def build_external_information_handling_posture() -> dict[str, Any]:
         "production_authority_added": False,
         "safe_summary": (
             "External information handling is explicit: local evidence is "
-            "receipt/proof backed, one existing WebAccessGateway HTTPS GET lane "
-            "is AuthorityLease-gated, and browser/provider/action expansion "
-            "remains planned or blocked."
+            "receipt/proof backed; the existing allowlisted HTTPS GET preview and "
+            "three exact SearXNG/Firecrawl lanes are request-scoped and "
+            "AuthorityLease-gated. Current runtime observations are never inferred, "
+            "and unrestricted provider, browser, or action expansion remains blocked."
         ),
         "blocked_authority_refs": _dedupe(
             [
@@ -1889,7 +1914,7 @@ def build_high_maturity_agent_spine_readiness() -> dict[str, Any]:
             score=8,
             safe_summary=(
                 "Coding cockpit and code workbench expose proposal, patch, "
-                "signed proposal evidence, apply-readiness, validation, "
+                "local hash-integrity proposal evidence, apply-readiness, validation, "
                 "rollback, and blocked-authority posture without broad coding "
                 "autonomy."
             ),
@@ -1918,12 +1943,15 @@ def build_high_maturity_agent_spine_readiness() -> dict[str, Any]:
             score=8,
             safe_summary=(
                 "Web/external information is mapped into an explicit handling "
-                "posture: local evidence refs, one existing AuthorityLease-gated "
-                "WebAccessGateway preview lane, untrusted-content quarantine, "
-                "and blocked browser/provider/action expansion."
+                "posture: local evidence refs, the AuthorityLease-gated allowlisted "
+                "GET preview, exact bounded SearXNG/Firecrawl lanes, untrusted-content "
+                "quarantine, and blocked unrestricted browser/provider expansion."
             ),
             evidence_refs=[
                 EXTERNAL_INFORMATION_HANDLING_CONTRACT_REF,
+                "GET /control-center/capabilities/availability",
+                "scripts/inspect_web_hybrid_status.py",
+                "proof-ref:web-hybrid:deterministic-contracts",
                 "GET /control-center/web-evidence/attachments",
                 "docs/network/WEB_ACCESS_PROVIDER_AUTHORITY_SEQUENCE.md",
                 "src/ultimate_ai_agent/core/network/governed_web_evidence.py",
@@ -1931,10 +1959,13 @@ def build_high_maturity_agent_spine_readiness() -> dict[str, Any]:
             test_refs=[
                 "tests/test_governed_web_evidence.py",
                 "tests/test_web_evidence_product_slice.py",
+                "tests/test_web_hybrid_ledger_router.py",
+                "tests/test_web_research_aggregation.py",
             ],
             gap=(
-                "Unrestricted browsing, browser actions, provider search/scrape "
-                "runtime, and broad external-data authority remain blocked."
+                "All provider search/scrape lanes beyond the exact SearXNG/Firecrawl "
+                "set, every browser action, and broad external-data authority remain "
+                "blocked."
             ),
             recommendation=(
                 "Keep WebAccessGateway as the only boundary; add read-only "
@@ -1973,13 +2004,13 @@ def build_high_maturity_agent_spine_readiness() -> dict[str, Any]:
         ),
         _high_maturity_row(
             weakness_id="W9",
-            component="Signed evidence receipts",
+            component="Local hash-integrity evidence receipts",
             status="implemented",
             maturity="strong",
             score=8,
             safe_summary=(
-                "Runtime action signed evidence, Coding patch proposal signed "
-                "evidence, and evidence audit spines use safe refs, hashes, "
+                "Runtime action and coding proposal hash-integrity evidence, "
+                "plus evidence audit spines, use safe refs, hashes, "
                 "lineage, verification posture, and receipt refs instead of raw "
                 "payloads."
             ),
@@ -1996,7 +2027,7 @@ def build_high_maturity_agent_spine_readiness() -> dict[str, Any]:
             ],
             gap="Portable production signing/compliance claims stay blocked.",
             recommendation=(
-                "Keep signed evidence local and verifier-backed; add portable "
+                "Keep hash-integrity evidence local and verifier-backed; add portable "
                 "export only after key material and redaction posture are proven."
             ),
         ),
@@ -2305,6 +2336,156 @@ def build_agent_loop_thread_read_model(
             },
         ]
 
+    reasoning_truth = assess_intent(
+        primary_summary,
+        IntentAssessmentInput(
+            intent_ref="intent-ref:agent-loop:current-request",
+            safe_summary=primary_summary,
+            source_refs=(
+                "source-ref:agent-loop:today",
+                "source-ref:agent-loop:action-inbox",
+            ),
+            evidence_refs=(
+                "evidence-ref:control-center:agent-loop-thread",
+                "evidence-ref:founder-loop:today-summary",
+                "evidence-ref:founder-loop:action-inbox",
+            ),
+            facts=(
+                ReasoningStatement(
+                    statement_ref="fact-ref:agent-loop:backend-owned-surfaces",
+                    kind="fact",
+                    safe_summary=(
+                        "Today, Action Inbox, Evidence, Proof, Memory, and Trust "
+                        "are projected from Python Core read models."
+                    ),
+                    source_refs=("source-ref:agent-loop:python-core",),
+                    evidence_refs=(
+                        "evidence-ref:control-center:agent-loop-thread",
+                    ),
+                    review_required=False,
+                ),
+                ReasoningStatement(
+                    statement_ref="fact-ref:agent-loop:proposal-first-authority",
+                    kind="fact",
+                    safe_summary=(
+                        "Plans, proposals, receipts, and memory candidates remain "
+                        "non-authoritative until exact downstream evaluation."
+                    ),
+                    source_refs=("source-ref:agent-loop:authority-boundary",),
+                    evidence_refs=(
+                        "evidence-ref:founder-loop:action-inbox",
+                    ),
+                    review_required=False,
+                ),
+            ),
+            assumptions=(
+                ReasoningStatement(
+                    statement_ref=(
+                        "assumption-ref:agent-loop:operator-selects-next-safe-action"
+                    ),
+                    kind="assumption",
+                    safe_summary=(
+                        "The operator will select the exact next proposal scope "
+                        "before any request-scoped authority evaluation."
+                    ),
+                    source_refs=("source-ref:agent-loop:operator-shell",),
+                    evidence_refs=(),
+                    review_required=True,
+                ),
+            ),
+            unknowns=(
+                ReasoningStatement(
+                    statement_ref="unknown-ref:agent-loop:exact-next-proposal-scope",
+                    kind="unknown",
+                    safe_summary=(
+                        "The exact proposal the operator wants to advance has not "
+                        "been selected in this read-only thread."
+                    ),
+                    source_refs=("source-ref:agent-loop:operator-decision",),
+                    evidence_refs=(),
+                    review_required=True,
+                ),
+            ),
+            operator_questions=(
+                OperatorQuestion(
+                    question_ref="question-ref:intent:exact-next-proposal-scope",
+                    safe_question=(
+                        "Which exact reviewed proposal should be considered next?"
+                    ),
+                    resolves_refs=(
+                        "unknown-ref:agent-loop:exact-next-proposal-scope",
+                    ),
+                ),
+            ),
+        ),
+    )
+    decomposition_source_steps = _records(
+        primary_plan.get("task_decomposition_steps")
+    )
+    if decomposition_source_steps:
+        reasoning_step_bindings = tuple(
+            build_immutable_decomposition_step(
+                step_ref=_first_string(
+                    step.get("step_ref"),
+                    f"reasoning-step-ref:agent-loop:{index + 1}",
+                ),
+                safe_summary=_safe_text(
+                    step.get("safe_summary") or step.get("title"),
+                    fallback=f"Review plan step {index + 1}.",
+                ),
+                dependency_step_refs=tuple(
+                    _string_values(step.get("depends_on"))
+                ),
+                target_refs=tuple(
+                    _string_values(step.get("what_this_affects"))
+                    or ["surface-ref:plans"]
+                ),
+                source_refs=tuple(
+                    _string_values(step.get("evidence_refs"))
+                    or ["evidence-ref:control-center:agent-loop-thread"]
+                ),
+            )
+            for index, step in enumerate(decomposition_source_steps)
+        )
+    else:
+        reasoning_step_bindings = tuple(
+            build_immutable_decomposition_step(
+                step_ref=f"reasoning-step-ref:agent-loop:{index + 1}",
+                safe_summary=str(step["title"]),
+                target_refs=("surface-ref:plans",),
+                source_refs=(str(step["step_ref"]),),
+            )
+            for index, step in enumerate(plan_steps)
+        )
+    decomposition_content_hash = hash_text(
+        json.dumps(
+            [step.model_dump(mode="json") for step in reasoning_step_bindings],
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+        )
+    )
+    immutable_decomposition = build_immutable_decomposition(
+        decomposition_ref=(
+            f"decomposition-ref:agent-loop:{decomposition_content_hash}"
+        ),
+        intent_fingerprint_ref=reasoning_truth.intent_fingerprint_ref,
+        ordered_steps=reasoning_step_bindings,
+    )
+    revision_content_hash = hash_text(
+        immutable_decomposition.decomposition_fingerprint_ref
+    )
+    plan_revision = build_initial_plan_revision(
+        lineage_ref="plan-lineage-ref:agent-loop:current",
+        revision_ref=f"plan-revision-ref:agent-loop:{revision_content_hash}",
+        reason_ref="plan-revision-reason-ref:agent-loop:initial-projection",
+        safe_reason=(
+            "Content-addressed immutable projection of the current backend-owned "
+            "plan rows; predecessor lineage requires a separately supplied revision."
+        ),
+        decomposition=immutable_decomposition,
+    )
+
     next_decision = _safe_text(
         (next_safe_actions[0].get("label") if next_safe_actions else None)
         or (next_safe_actions[0].get("safe_summary") if next_safe_actions else None)
@@ -2342,69 +2523,55 @@ def build_agent_loop_thread_read_model(
                 fallback="Today",
             ),
         },
+        "reasoning_truth": reasoning_truth.model_dump(mode="json"),
+        "plan_revision": plan_revision.model_dump(mode="json"),
         "intent": {
             "status": _safe_text(
                 today_summary.get("user_intent_understanding_status"),
                 fallback="implemented_review_required",
             ),
-            "classification_ref": "intent-ref:agent-loop:current-request",
-            "ambiguity_state": (
-                "operator_review_required"
-                if today_summary.get("user_intent_review_required", True)
-                else "reviewed"
-            ),
-            "confidence_label": "bounded_from_existing_refs",
-            "low_confidence_asks_user": bool(
-                today_summary.get("user_intent_low_confidence_asks_user", True)
-            ),
+            "classification_ref": reasoning_truth.classification_ref,
+            "ambiguity_state": reasoning_truth.ambiguity_posture.value,
+            "confidence_label": reasoning_truth.confidence_band.value,
+            "low_confidence_asks_user": bool(reasoning_truth.operator_questions),
             "action_execution_enabled": False,
         },
         "facts": [
             {
-                "fact_ref": "fact-ref:agent-loop:backend-owned-surfaces",
-                "summary": (
-                    "Today, Action Inbox, Evidence, Proof, Memory, and Trust are "
-                    "read from Python Core/API read models."
-                ),
-                "evidence_refs": [
-                    "GET /control-center/today/summary",
-                    "GET /control-center/actions/inbox",
-                    "GET /control-center/evidence/timeline",
-                ],
-            },
-            {
-                "fact_ref": "fact-ref:agent-loop:proposal-first-authority",
-                "summary": (
-                    "The loop can show plans, proposed actions, receipts, proof refs, "
-                    "and memory review candidates without treating them as authority."
-                ),
-                "evidence_refs": evidence_refs[:6],
-            },
+                "fact_ref": statement.statement_ref,
+                "summary": statement.safe_summary,
+                "evidence_refs": list(statement.evidence_refs),
+            }
+            for statement in reasoning_truth.facts
         ],
         "assumptions": [
             {
-                "assumption_ref": "assumption-ref:agent-loop:operator-selects-next-safe-action",
-                "summary": (
-                    "The operator chooses the next decision; Control Center does not "
-                    "infer approval or execute broad workflows from the display."
-                ),
-                "review_required": True,
+                "assumption_ref": statement.statement_ref,
+                "summary": statement.safe_summary,
+                "review_required": statement.review_required,
             }
+            for statement in reasoning_truth.assumptions
         ],
         "unknowns": [
             {
-                "unknown_ref": "unknown-ref:agent-loop:external-runtime-results",
-                "summary": (
-                    "External model, connector, browser, shell, plugin, and production "
-                    "results are unknown because those broad lanes remain blocked."
-                ),
-                "blocked_state_refs": list(AGENT_LOOP_THREAD_BLOCKED_AUTHORITY_REFS),
+                "unknown_ref": statement.statement_ref,
+                "summary": statement.safe_summary,
+                "review_required": statement.review_required,
+                "blocked_state_refs": list(reasoning_truth.blocked_authority_refs),
             }
+            for statement in reasoning_truth.unknowns
         ],
         "plan": {
             "status": "proposal_first",
-            "revision_ref": "plan-revision-ref:agent-loop:current",
-            "revision_count": len(plan_steps),
+            "revision_ref": plan_revision.revision_ref,
+            "revision_count": plan_revision.revision_index,
+            "revision_fingerprint_ref": plan_revision.revision_fingerprint_ref,
+            "decomposition_fingerprint_ref": (
+                immutable_decomposition.decomposition_fingerprint_ref
+            ),
+            "predecessor_revision_ref": plan_revision.predecessor_revision_ref,
+            "reason_ref": plan_revision.reason_ref,
+            "safe_reason": plan_revision.safe_reason,
             "steps": plan_steps,
         },
         "proposed_actions": proposed_actions,
@@ -2464,7 +2631,10 @@ def build_agent_loop_thread_read_model(
             "control_center_mints_authority": False,
             "runtime_model_calls_enabled": False,
             "provider_sdk_calls_enabled": False,
+            # Retained as the v1 broad-web compatibility alias. Exact bounded
+            # WEB-HYBRID lanes do not change this deny posture.
             "live_web_fetching_enabled": False,
+            "unrestricted_live_web_fetching_enabled": False,
             "browser_automation_enabled": False,
             "connector_writes_enabled": False,
             "unrestricted_shell_enabled": False,
@@ -2626,7 +2796,13 @@ def _external_information_row(
     policy_decision_required: bool = True,
     receipt_required: bool = False,
     existing_exact_network_lane: bool = False,
+    exact_network_lane_count: int | None = None,
 ) -> dict[str, Any]:
+    lane_count = (
+        1 if existing_exact_network_lane else 0
+    ) if exact_network_lane_count is None else exact_network_lane_count
+    if lane_count < 0 or (lane_count > 0) is not existing_exact_network_lane:
+        raise ValueError("EXTERNAL_INFORMATION_EXACT_LANE_COUNT_INVALID")
     return {
         "category_id": _safe_text(category_id),
         "label": _safe_text(label),
@@ -2643,6 +2819,7 @@ def _external_information_row(
         "policy_decision_required": policy_decision_required,
         "receipt_required": receipt_required,
         "existing_exact_network_lane": existing_exact_network_lane,
+        "exact_network_lane_count": lane_count,
         "safe_refs_only": True,
         "raw_content_included": False,
         "untrusted_content_can_instruct_agent": False,
@@ -2870,7 +3047,7 @@ def _build_operator_decision_matrix(
             capability_status="proposal_only",
             operator_question="What plan is visible, and what still needs review?",
             backend_route_ref="GET /control-center/today/summary",
-            cli_ref="scripts/dev/uaa_founder_loop.py inspect-state",
+            cli_ref="scripts/dev/uaa_founder_loop.py inspect",
             primary_ref="plan-revision-ref:agent-loop:current",
             approval_posture="review_required_before_action",
             side_effect_class="read_only",
@@ -2932,8 +3109,8 @@ def _build_operator_decision_matrix(
             surface="Runtime and Providers",
             capability_status="blocked",
             operator_question="Can model/provider output make decisions?",
-            backend_route_ref="GET /control-center/model-provider/control-plane",
-            cli_ref="scripts/dev/uaa_runtime.py inspect-capabilities",
+            backend_route_ref=MODEL_PROVIDER_CONTROL_PLANE_ROUTE_REF,
+            cli_ref=MODEL_PROVIDER_CONTROL_PLANE_CLI_REF,
             primary_ref="runtime-provider-posture:metadata-only",
             approval_posture="metadata_only_no_invocation",
             side_effect_class="read_only",

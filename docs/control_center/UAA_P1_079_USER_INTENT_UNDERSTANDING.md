@@ -1,6 +1,6 @@
 # UAA-P1-079 User Intent Understanding V1
 
-Status: Implemented.
+Status: Implemented; Runtime Capability Foundation Phase 01 hardened.
 
 UAA-P1-079 adds a reviewable user-intent-understanding contract for the
 Founder Command Center loop. It proposes intent metadata with confidence,
@@ -11,6 +11,39 @@ authority, not approval, not memory truth, not context injection, not tool
 execution, not action execution, not Code apply, not connector authority, not
 provider/model authority, not public beta, and not production authority.
 Short form: not hidden authority; No context injection.
+
+## Runtime Capability Foundation Phase 01
+
+The original V1 proposal catalog remains compatible, while current-request
+reasoning now uses the separate typed
+`contract-ref:intent-reasoning-truth:v1` contract. The deterministic builder:
+
+- receives raw request text only as bounded transient input;
+- persists only a safe request fingerprint and reviewed summaries/refs;
+- separates facts, assumptions, unknowns, contradictions, and operator
+  questions;
+- derives confidence bands and rejects score/band or contradiction drift;
+- marks all content, including instruction-shaped text, as untrusted data;
+- uses the deterministic turn classifier with no runtime model call; and
+- remains non-authoritative review truth.
+
+The companion immutable decomposition and plan-revision binding covers ordered
+membership, dependencies, targets, sources, definitions, lineage, predecessor
+fingerprints, and safe revision reasons. Unchanged replay requires the exact
+revision fingerprint. Changed membership, order, dependency, or target is
+rejected unless represented by a new contiguous revision. A revision
+invalidates old downstream authority assumptions and grants no new authority.
+
+Operator parity reuses `GET /control-center/agent-loop/thread`, adds readable
+`scripts/dev/uaa_founder_loop.py inspect-reasoning` output with optional
+redacted JSON, and renders the same truth in the existing Today Agent Loop
+panel. No new route, OpenAPI operation, route classification, model/provider
+call, execution path, memory write, or context injection was added.
+The stateless Agent Loop read projection uses content-addressed decomposition
+and revision refs, so changed definitions, membership, order, dependencies, or
+targets cannot reuse the same snapshot identity. It does not claim a
+predecessor until a prior revision is explicitly supplied to the core
+validator.
 
 ## Contract
 
@@ -111,10 +144,15 @@ Evidence Timeline now records user intent as history:
 ## Artifacts
 
 - `src/ultimate_ai_agent/core/intent/user_intent.py`
+- `src/ultimate_ai_agent/core/intent/reasoning_truth.py`
+- `src/ultimate_ai_agent/core/planning/revisions.py`
+- `src/ultimate_ai_agent/core/control_center/agent_loop.py`
+- `scripts/dev/uaa_founder_loop.py`
 - `src/ultimate_ai_agent/core/storage/founder_loop.py`
 - `docs/schemas/user_intent_understanding.schema.json`
 - `scripts/verify_uaa_p1_079_user_intent_understanding.py`
 - `tests/test_uaa_p1_079_user_intent_understanding.py`
+- `tests/test_phase01_reasoning_truth.py`
 - `tests/test_founder_loop_storage.py`
 - `tests/test_control_center_founder_loop_api.py`
 - `apps/control-center/src/api/types.ts`

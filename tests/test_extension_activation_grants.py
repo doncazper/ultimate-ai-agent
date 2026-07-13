@@ -79,6 +79,8 @@ def test_extension_activation_grant_is_exact_scope_and_no_runtime_authority() ->
     assert payload["browser_automation_enabled"] is False
     assert payload["mobile_control_enabled"] is False
     assert payload["public_distribution_claimed"] is False
+    assert payload["activation_metadata_only"] is True
+    assert payload["invocation_authority_granted"] is False
     assert payload["approval_ref"].startswith("approval:")
     assert payload["audit_refs"] == ["audit:uaa-p2-050"]
 
@@ -120,6 +122,25 @@ def test_revoked_extension_activation_grant_cannot_be_treated_active() -> None:
     assert "audit:uaa-p2-050-revocation" in revoked.audit_refs
     with pytest.raises(ValueError, match="EXTENSION_ACTIVATION_REVOKED_GRANT_DENIED"):
         assert_extension_activation_grant_treatable_as_active(revoked)
+
+
+def test_revocation_requires_prebound_ref_and_is_deterministic() -> None:
+    grant = _grant()
+    revocation = _revocation()
+    first = revoke_extension_activation_grant(grant, revocation)
+    second = revoke_extension_activation_grant(grant, revocation)
+    assert first.model_dump(mode="json") == second.model_dump(mode="json")
+    assert revocation.activation_metadata_only is True
+    assert revocation.invocation_authority_granted is False
+
+    with pytest.raises(
+        ValueError,
+        match="EXTENSION_ACTIVATION_REVOCATION_REF_MISMATCH",
+    ):
+        revoke_extension_activation_grant(
+            grant,
+            _revocation(revocation_ref="revocation:wrong-extension"),
+        )
 
 
 def test_stale_extension_activation_grants_are_denied_for_active_use() -> None:

@@ -76,7 +76,7 @@ import type {
 type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
 
 export const MOCK_OPENAPI_ROUTE_COUNT = 245;
-export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 92;
+export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 93;
 
 function runtimeToolRegistryEntry(
   slug: string,
@@ -4777,6 +4777,12 @@ const mockCodingPatchProposal: CodingPatchProposalReadModel = {
     issued_at_ref: "issued-at-ref:coding-patch-proposal-deterministic-v1",
     proposal_hash_ref: "coding-patch-proposal-evidence-hash-ref:mock",
     signed_envelope_ref: "coding-patch-proposal-signed-envelope-ref:mock",
+    integrity_scheme_ref: "integrity-scheme-ref:local-sha256-hash-v1",
+    integrity_posture: "sha256_hash_only_not_a_cryptographic_signature",
+    cryptographic_signature_present: false,
+    signing_status: "blocked_signing_lifecycle_not_implemented",
+    external_anchor_verified: false,
+    legacy_signed_envelope_ref_is_hash_only: true,
     safe_refs_only: true,
     proposal_only: true,
     read_only: true,
@@ -4795,7 +4801,7 @@ const mockCodingPatchProposal: CodingPatchProposalReadModel = {
     public_notarization_enabled: false,
     signing_key_material_persisted: false,
     safe_summary:
-      "Mock fallback signed evidence is non-authoritative and safe-ref only.",
+      "Mock fallback hash-integrity evidence is non-authoritative, safe-ref only, and not a cryptographic signature.",
   },
   signed_evidence_verification_status: "passed",
   next_safe_action:
@@ -8311,10 +8317,13 @@ const modelProviderControlPlane: ModelProviderControlPlaneReadModel = {
       memory_write_from_external_content_enabled: false,
       allowed_current_lane_refs: [
         "lane-ref:web-evidence:allowlisted-https-get-through-web-access-gateway",
+        "authority-lane-ref:web-access:searxng-search:v1",
+        "authority-lane-ref:web-access:firecrawl-markdown-extract:v1",
+        "web-lane-ref:firecrawl-cloud-markdown:v1",
       ],
       blocked_authority_refs: [
         "blocked-state:web-access:no-unrestricted-web-fetch",
-        "blocked-state:web-access:no-provider-search-calls",
+        "blocked-state:web-access:no-unscoped-provider-search-calls",
         "blocked-state:web-access:no-browser-observe-by-control-plane",
         "blocked-state:web-access:no-browser-actions",
         "blocked-state:web-access:no-context-injection",
@@ -8344,7 +8353,7 @@ const modelProviderControlPlane: ModelProviderControlPlaneReadModel = {
       "blocked-state:model-provider:credential-material-display",
       "blocked-state:web-access:live-fetch-by-control-plane",
       "blocked-state:web-access:browser-automation",
-      "blocked-state:web-access:provider-search-calls",
+      "blocked-state:web-access:unscoped-provider-search-calls",
       "blocked-state:model-provider:memory-action-context-escalation",
       "blocked-state:model-provider:production-authority",
     ],
@@ -13911,7 +13920,7 @@ export const mockControlCenterData: ControlCenterData = {
       mobile_app_implemented: false,
     },
     plugin_governance_summary: {
-      status: "planned_disabled",
+      status: "inspectable_non_callable",
       plugin_enablement_allowed: false,
       native_build_tools_enabled: false,
       skill_bundle_proposal_status: "proposal_only",
@@ -13919,6 +13928,88 @@ export const mockControlCenterData: ControlCenterData = {
       skill_bundle_proposal_refs: ["skill-bundle-proposal:founder-loop-review"],
       skill_bundle_activation_enabled: false,
       skill_bundle_tool_execution_enabled: false,
+      catalog_entry_count: 3,
+      availability_snapshot_count: 4,
+      developer_validation_count: 3,
+      blocked_validation_count: 1,
+      blocker_codes: ["EXTENSION_VERSION_COMPATIBILITY_UNKNOWN"],
+      safe_disable_refs: [
+        "safe-disable-ref:extension-metadata-inspection",
+        "safe-disable-ref:skill-metadata-index",
+        "safe-disable-ref:unknown-extension-candidate",
+      ],
+      rollback_refs: [
+        "rollback-ref:extension-metadata-inspection:disable",
+        "rollback-ref:skill-metadata-index:disable",
+        "rollback-ref:unknown-extension-candidate:none",
+      ],
+      extension_entries: [
+        {
+          package_ref: "extension-package:uaa-plugin-skill-boundary",
+          manifest_ref: "plugin-skill-manifest:uaa-plugin-skill-boundary",
+          version_ref: "version:uaa-p1-024",
+          availability_snapshot_count: 1,
+          validation_status: "validated_metadata_only",
+          compatibility_status: "supported",
+          configuration_status: "not_configured",
+          health_status: "unknown",
+          authority_posture: "blocked",
+          resource_status: "unknown",
+          safe_disable_status: "unknown",
+          provenance_status: "reviewed",
+          hashes_verified_against_pinned_values: true,
+          signature_status: "not_present",
+          signature_verified: false,
+          safe_disable_ref: "safe-disable-ref:extension-metadata-inspection",
+          rollback_ref: "rollback-ref:extension-metadata-inspection:disable",
+          blocker_codes: [],
+        },
+        {
+          package_ref: "extension-package:uaa-skill-metadata-index",
+          manifest_ref: "plugin-skill-manifest:uaa-skill-metadata-index",
+          version_ref: "version:hermes-runtime-adoption-phase-13",
+          availability_snapshot_count: 2,
+          validation_status: "validated_metadata_only",
+          compatibility_status: "supported",
+          configuration_status: "not_configured",
+          health_status: "unknown",
+          authority_posture: "blocked",
+          resource_status: "unknown",
+          safe_disable_status: "unknown",
+          provenance_status: "reviewed",
+          hashes_verified_against_pinned_values: true,
+          signature_status: "not_present",
+          signature_verified: false,
+          safe_disable_ref: "safe-disable-ref:skill-metadata-index",
+          rollback_ref: "rollback-ref:skill-metadata-index:disable",
+          blocker_codes: [],
+        },
+        {
+          package_ref: "extension-package:unknown-extension-candidate",
+          manifest_ref: "plugin-skill-manifest:unknown-candidate",
+          version_ref: "version:unknown",
+          availability_snapshot_count: 1,
+          validation_status: "blocked",
+          compatibility_status: "unknown",
+          configuration_status: "not_configured",
+          health_status: "unknown",
+          authority_posture: "blocked",
+          resource_status: "unknown",
+          safe_disable_status: "unknown",
+          provenance_status: "unknown",
+          hashes_verified_against_pinned_values: false,
+          signature_status: "not_present",
+          signature_verified: false,
+          safe_disable_ref: "safe-disable-ref:unknown-extension-candidate",
+          rollback_ref: "rollback-ref:unknown-extension-candidate:none",
+          blocker_codes: ["EXTENSION_VERSION_COMPATIBILITY_UNKNOWN"],
+        },
+      ],
+      plugin_metadata_boundary_ref: "runtime-boundary-ref:plugin-metadata-posture",
+      skill_marketplace_boundary_ref: "runtime-boundary-ref:skill-marketplace-posture",
+      mcp_catalog_boundary_ref: "runtime-boundary-ref:mcp-catalog-filtering",
+      catalog_visibility_grants_authority: false,
+      request_scoped_invocation_decision_required: true,
     },
     provider_credential_readiness: {
       status: "reference_readiness_only",
@@ -14823,6 +14914,38 @@ export const mockControlCenterData: ControlCenterData = {
       truth_owner: "python_core",
       status: "implemented_runtime_observation_required",
       cli_ref: "repo-local-command:inspect-web-hybrid-status",
+      cli_path: "scripts/inspect_web_hybrid_status.py",
+      research_aggregation: {
+        schema_version: "uaa-web-research-aggregation-posture.v1",
+        contract_ref: "contract-ref:web-research-aggregation:v1",
+        status: "implemented_injected_observations_required",
+        current_observation_status: "not_injected_by_read_only_route",
+        current_citation_count: 0,
+        citation_limit: 10,
+        summary_character_limit: 4000,
+        deterministic_injected_observations_only: true,
+        provider_readiness_included: true,
+        provider_latency_posture_included: true,
+        provider_cost_posture_included: true,
+        provider_context_posture_included: true,
+        provider_routing_posture_included: true,
+        excluded_source_reasons_included: true,
+        content_untrusted: true,
+        not_instruction_authority: true,
+        context_injection_authorized: false,
+        memory_write_authorized: false,
+        action_execution_authorized: false,
+        raw_query_persisted: false,
+        raw_page_content_persisted: false,
+        raw_provider_payload_persisted: false,
+        proof_refs: ["proof-ref:web-research-aggregation:mock-shape-only"],
+        blocker_codes: [
+          "CURRENT_RESEARCH_OBSERVATIONS_NOT_INJECTED",
+          "REQUEST_SCOPED_RETRIEVAL_AUTHORITY_REQUIRED",
+        ],
+        safe_summary:
+          "Bounded cited aggregation accepts deterministic injected observations; this fallback performs no retrieval and has no current citations.",
+      },
       lanes: [
         {
           lane_ref: "authority-lane-ref:web-access:searxng-search:v1",
@@ -14890,6 +15013,10 @@ export const mockControlCenterData: ControlCenterData = {
       circuit_state: "unknown_until_runtime_inspection",
       circuit_ref: "web-provider-circuit-ref:firecrawl-cloud:v1",
       request_scoped_evaluation_required: true,
+      final_start_revalidation_required: true,
+      mission_scoped_lease_required: true,
+      complete_request_fingerprint_required: true,
+      start_deadline_required: true,
       local_approval_required: true,
       exact_authority_lease_required: true,
       budget_reservation_required_for_cloud: true,
@@ -19208,7 +19335,7 @@ export const mockControlCenterData: ControlCenterData = {
     boundarySummary:
       "This surface is mock and non-authoritative. It displays redacted review packets and exact safe binding refs only.",
     captureBoundarySummary:
-      "Review approval capture is review-only persistence. It captures a review-only approval record bound to this exact redacted packet and does not grant raw file access, context proposal, context injection, memory writes, export, or execution.",
+      "Review approval capture is review-only persistence. This mock inspection surface does not capture or persist a decision; the separately governed backend route exists but is not exposed or wired in Control Center and grants no raw file access, context proposal, context injection, memory writes, export, or execution.",
     warningCodes: [
       "MOCK_DATA_ONLY",
       "NO_PRODUCTION_AUTHORITY",
@@ -19573,6 +19700,114 @@ export const mockControlCenterData: ControlCenterData = {
       safe_summary:
         "Mock-only Agent Loop shape. Reconnect the local backend before treating loop refs as product truth.",
       source_surface: "Today",
+    },
+    reasoning_truth: {
+      schema_version: "uaa-intent-reasoning-truth.v1",
+      contract_ref: "contract-ref:intent-reasoning-truth:v1",
+      intent_ref: "intent-ref:mock-fallback:current",
+      intent_fingerprint_ref:
+        "intent-fingerprint-ref:sha256:mockfallback00000000000000000000",
+      request_fingerprint_ref:
+        "intent-request-fingerprint-ref:sha256:mockfallback0000000000000000",
+      safe_summary:
+        "Mock-only reasoning shape. Reconnect Python Core before relying on this posture.",
+      classification_ref: "turn-decision:mock-fallback",
+      turn_contract: "ask_clarifying_question",
+      confidence_score: 0.2,
+      confidence_band: "low",
+      ambiguity_posture: "insufficient_evidence",
+      contradiction_posture: "none_observed",
+      instruction_content_posture: "untrusted_data",
+      facts: [
+        {
+          statement_ref: "fact-ref:mock-fallback:backend-required",
+          kind: "fact",
+          safe_summary:
+            "The backend-owned reasoning endpoint did not return safely.",
+          source_refs: ["source-ref:mock-fallback:control-center"],
+          evidence_refs: ["evidence-ref:mock-fallback:agent-loop"],
+          review_required: false,
+        },
+      ],
+      assumptions: [
+        {
+          statement_ref: "assumption-ref:mock-fallback:operator-review",
+          kind: "assumption",
+          safe_summary:
+            "Operator review is required before using this fallback shape.",
+          source_refs: ["source-ref:mock-fallback:operator-shell"],
+          evidence_refs: [],
+          review_required: true,
+        },
+      ],
+      unknowns: [
+        {
+          statement_ref: "unknown-ref:mock-fallback:backend-truth",
+          kind: "unknown",
+          safe_summary:
+            "Current backend reasoning and plan truth is unavailable.",
+          source_refs: ["source-ref:mock-fallback:control-center"],
+          evidence_refs: [],
+          review_required: true,
+        },
+      ],
+      operator_questions: [
+        {
+          question_ref: "question-ref:intent:mock-fallback-backend-truth",
+          safe_question:
+            "Should the operator reconnect Python Core before continuing?",
+          resolves_refs: ["unknown-ref:mock-fallback:backend-truth"],
+        },
+      ],
+      source_refs: ["source-ref:mock-fallback:control-center"],
+      evidence_refs: ["evidence-ref:mock-fallback:agent-loop"],
+      contradiction_refs: [],
+      reason_refs: ["reason-ref:intent:backend-truth-unavailable"],
+      deterministic_policy_ref:
+        "policy-ref:turn-contract-router:deterministic-classifier:v1",
+      model_assistance_posture: "deterministic_only",
+      authority_posture: "non_authoritative_review_truth",
+      blocked_authority_refs: [
+        "blocked-state:reasoning-truth:no-approval-authority",
+        "blocked-state:reasoning-truth:no-tool-or-action-authority",
+      ],
+      backend_owned: false,
+      safe_refs_only: true,
+      raw_content_included: false,
+    },
+    plan_revision: {
+      schema_version: "uaa-plan-revision.v1",
+      lineage_ref: "plan-lineage-ref:mock-fallback:current",
+      revision_ref: "plan-revision-ref:mock-fallback:current-v1",
+      revision_index: 1,
+      predecessor_revision_ref: null,
+      predecessor_revision_fingerprint_ref: null,
+      reason_ref: "plan-revision-reason-ref:mock-fallback:initial",
+      safe_reason:
+        "Mock-only initial projection; backend-owned revision truth is required.",
+      decomposition: {
+        schema_version: "uaa-immutable-decomposition.v1",
+        decomposition_ref: "decomposition-ref:mock-fallback:current",
+        intent_fingerprint_ref:
+          "intent-fingerprint-ref:sha256:mockfallback00000000000000000000",
+        ordered_steps: [
+          {
+            step_ref: "reasoning-step-ref:mock-fallback:reconnect",
+            safe_summary: "Reconnect the backend-owned read model.",
+            dependency_step_refs: [],
+            target_refs: ["surface-ref:today"],
+            source_refs: ["source-ref:mock-fallback:control-center"],
+            definition_fingerprint_ref:
+              "decomposition-step-definition-ref:sha256:mockfallback000000000000",
+          },
+        ],
+        decomposition_fingerprint_ref:
+          "decomposition-fingerprint-ref:sha256:mockfallback0000000000000000",
+      },
+      revision_fingerprint_ref:
+        "plan-revision-fingerprint-ref:sha256:mockfallback000000000000000",
+      authority_posture: "non_authoritative_plan_truth",
+      downstream_authority_bindings_invalidated: true,
     },
     intent: {
       status: "mock_fallback_review_required",
@@ -19984,6 +20219,7 @@ export const mockControlCenterData: ControlCenterData = {
           policy_decision_required: true,
           receipt_required: false,
           existing_exact_network_lane: false,
+          exact_network_lane_count: 0,
           safe_refs_only: true,
           raw_content_included: false,
           untrusted_content_can_instruct_agent: false,
@@ -20002,6 +20238,7 @@ export const mockControlCenterData: ControlCenterData = {
         browser_observe_enabled: false,
         browser_action_execution_enabled: false,
         provider_search_enabled: false,
+        exact_bounded_provider_lanes_implemented: false,
         provider_sdk_calls_added: false,
         connector_writes_added: false,
         memory_writes_added: false,
@@ -20011,7 +20248,7 @@ export const mockControlCenterData: ControlCenterData = {
           "Mock fallback external information posture is not backend truth.",
         blocked_authority_refs: [
           "blocked-state:agent-loop:mock-fallback",
-          "blocked-state:agent-loop:no-live-web-fetching",
+          "blocked-state:agent-loop:no-unrestricted-live-web-fetching",
           "blocked-state:agent-loop:no-browser-automation",
         ],
         redactions_applied: [
@@ -20270,6 +20507,7 @@ export const mockControlCenterData: ControlCenterData = {
       runtime_model_calls_enabled: false,
       provider_sdk_calls_enabled: false,
       live_web_fetching_enabled: false,
+      unrestricted_live_web_fetching_enabled: false,
       browser_automation_enabled: false,
       connector_writes_enabled: false,
       unrestricted_shell_enabled: false,
@@ -20281,7 +20519,7 @@ export const mockControlCenterData: ControlCenterData = {
     blocked_authority_refs: [
       "blocked-state:agent-loop:no-runtime-model-calls",
       "blocked-state:agent-loop:no-provider-sdk-calls",
-      "blocked-state:agent-loop:no-live-web-fetching",
+      "blocked-state:agent-loop:no-unrestricted-live-web-fetching",
       "blocked-state:agent-loop:no-browser-automation",
       "blocked-state:agent-loop:no-connector-writes",
       "blocked-state:agent-loop:no-unrestricted-shell",
@@ -20682,6 +20920,7 @@ export const mockControlCenterData: ControlCenterData = {
       "defer",
       "merge",
       "supersede",
+      "expire",
       "forget_request",
     ].map((decisionState) => ({
       decision_state: decisionState,
@@ -21345,6 +21584,7 @@ export const mockControlCenterData: ControlCenterData = {
           "defer",
           "merge",
           "supersede",
+          "expire",
           "forget_request",
         ],
         decision_capture_status: "review_needed_no_decision_captured",
@@ -22879,6 +23119,7 @@ export const mockControlCenterData: ControlCenterData = {
       "POST /control-center/memory/review/{candidate_ref}/defer",
       "POST /control-center/memory/review/{candidate_ref}/merge",
       "POST /control-center/memory/review/{candidate_ref}/supersede",
+      "POST /control-center/memory/review/{candidate_ref}/expire",
       "POST /control-center/memory/review/{candidate_ref}/forget-request",
     ],
     decision_kinds: [
@@ -22888,6 +23129,7 @@ export const mockControlCenterData: ControlCenterData = {
       "defer",
       "merge",
       "supersede",
+      "expire",
       "forget_request",
     ],
     items: [],
@@ -23013,6 +23255,7 @@ export const mockControlCenterData: ControlCenterData = {
           "correct",
           "reject",
           "defer",
+          "expire",
           "forget_request",
         ],
         lifecycle_receipt_refs: ["receipt:memory-review:defer:mock-stale"],

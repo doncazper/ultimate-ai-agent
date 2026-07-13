@@ -756,6 +756,7 @@ GOVERNED_RUNTIME_READONLY_PATHS = {
     "/api/runtime/authority-decisions/preview",
     "/api/runtime/authority-domain-readiness",
     "/api/runtime/authority-missions/plan",
+    "/api/runtime/authority-missions/completions",
     "/api/runtime/authority-missions/worker-state",
     "/api/runtime/authority-state",
     "/api/runtime/capabilities",
@@ -1046,6 +1047,14 @@ def route_classification_for_path(
         return (
             ApiRouteClassification.local_sensitive,
             "Local AuthorityLease mission worker inspection exposes only redacted queue, fenced claim, heartbeat, recovery, kill-switch, and macOS-first platform posture without starting a worker or granting execution authority.",
+        )
+    if (
+        normalized_method == "GET"
+        and path == "/api/runtime/authority-missions/completions"
+    ):
+        return (
+            ApiRouteClassification.local_sensitive,
+            "Mission completion inspection exposes content-free plan, lease, approval, settled-budget, terminal receipt, evidence, integrity, and review-only memory-candidate refs without execution or authority mutation.",
         )
     if (
         normalized_method == "POST"

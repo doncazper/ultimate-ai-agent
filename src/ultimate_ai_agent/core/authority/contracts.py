@@ -54,6 +54,7 @@ AUTHORITY_STATE_DIR_ENV = "UAA_AUTHORITY_STATE_DIR"
 AUTHORITY_LEASE_KILL_SWITCH_ENV = "UAA_AUTHORITY_LEASE_KILL_SWITCH"
 AUTHORITY_LEASES_FILE = "authority_leases.json"
 AUTHORITY_LEASE_RECEIPTS_FILE = "authority_lease_receipts.jsonl"
+AUTHORITY_LEASE_LOCAL_OPERATOR_REF = "operator-ref:local-user"
 
 
 class TrustMode(str, Enum):
@@ -1000,7 +1001,7 @@ class AuthorityLeaseIssueRequest(_AuthorityModel):
     mode: TrustMode
     scope: AuthorityLeaseScope = AuthorityLeaseScope.session
     mission_ref: str | None = None
-    operator_ref: str = "operator-ref:local-user"
+    operator_ref: str = AUTHORITY_LEASE_LOCAL_OPERATOR_REF
     requested_domains: dict[AuthorityDomain, list[AuthorityCapability]] = Field(
         default_factory=dict
     )
@@ -1047,28 +1048,13 @@ class AuthorityLeaseIssueRequest(_AuthorityModel):
 
 class AuthorityLeaseApproveAndIssueRequest(_AuthorityModel):
     lease_issue_request: AuthorityLeaseIssueRequest
-    approved_by_actor_ref: str = "operator-ref:local-user"
-    approval_safe_summary: str = Field(
-        default=(
-            "Operator approved this exact AuthorityLease mode, domain, "
-            "capability, scope, and duration."
-        ),
-        min_length=1,
-        max_length=520,
-    )
 
     @model_validator(mode="after")
     def validate_approve_and_issue_request(
         self,
     ) -> "AuthorityLeaseApproveAndIssueRequest":
-        validate_task_ref(
-            self.approved_by_actor_ref,
-            "authority_lease_approved_by_actor_ref",
-        )
-        validate_safe_task_text(
-            self.approval_safe_summary,
-            "authority_lease_approval_safe_summary",
-        )
+        if self.lease_issue_request.operator_ref != AUTHORITY_LEASE_LOCAL_OPERATOR_REF:
+            raise ValueError("AUTHORITY_LEASE_LOCAL_OPERATOR_REF_REQUIRED")
         if (
             self.lease_issue_request.approval_ref is not None
             or self.lease_issue_request.approval_grants

@@ -2,8 +2,8 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `256`, generated from the FastAPI application and
-exposed through `/api/manifest`. `/api/manifest` currently reports `257` route
+Current OpenAPI path count: `258`, generated from the FastAPI application and
+exposed through `/api/manifest`. `/api/manifest` currently reports `259` route
 operations because governed runtime pilot routes intentionally have both `GET`
 and `POST` contracts on `/api/runtime/invocations`, and the Turn Contract
 Router preview plus AuthorityLease mission planning routes add no-effect
@@ -51,10 +51,9 @@ requires Full machine access scope before execution, records metadata-only
 receipts, treats model output as untrusted proposal text, and still denies
 remote provider SDK calls, tools/functions, streaming, connector writes,
 browser automation, billing, and production authority.
-`POST /extensions/disabled-install-records/rollback` is the exact rollback
-metadata lane for the local disabled extension install record. It requires
-active `workspace/write` AuthorityLease scope, exact rollback
-LocalApprovalAuthority validation, idempotency, and a redacted delete receipt;
+`POST /extensions/disabled-install-records/rollback` is a blocked rollback
+boundary for local disabled extension metadata. It cannot execute until a
+core-owned durable approval resolver supplies exact rollback validation;
 plugin install, runtime import, plugin execution, marketplace fetch,
 connector writes, shell/browser execution, provider/model calls, and production
 authority remain blocked.
@@ -196,7 +195,8 @@ Current boundary summary:
 - `GET /api/runtime/parity-loop` exposes the Phase 08 backend-owned runtime
   parity-loop inspection model across prepared turn, route binding, durable run,
   staged orchestration, provider evidence, Action Inbox approval, receipt,
-  signed evidence, and blocked-state refs. It does not execute work or grant
+  local hash-integrity evidence (with legacy signed identifiers), and
+  blocked-state refs. It does not execute work or grant
   authority.
 - CRM Local Command Center M2 adds six local read routes under
   `/control-center/crm/*` and one exact local mutation receipt route at
@@ -272,11 +272,12 @@ Current boundary summary:
 - Task decomposition and file routes remain local-dev scoped and governed by
   approval, policy, redaction, idempotency, and rollback contracts.
 - `GET /extensions/catalog` exposes read-only inspectable extension metadata.
-  `POST /extensions/disabled-install-records` records only an exact disabled
-  extension install metadata receipt after active `workspace/write`
-  AuthorityLease scope, exact `LocalApprovalAuthority` validation, idempotency,
-  redacted receipt refs, and the local disabled-record store validate. These
-  routes are separate from any callable catalog and do not enable package
+  `POST /extensions/disabled-install-records` and its rollback route reject
+  caller-supplied approval grants and remain blocked until a core-owned durable
+  approval resolver exists. Python Core builders still require an exact
+  injected `LocalApprovalAuthority`, active `workspace/write` AuthorityLease,
+  pinned hashes, and idempotency. These routes are separate from any callable
+  catalog and do not enable package
   install persistence, runtime import, plugin execution, connector writes,
   shell/subprocess behavior, unrestricted network/browser automation, mobile
   control, or public distribution.

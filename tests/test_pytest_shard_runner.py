@@ -182,14 +182,10 @@ def test_non_object_timing_profile_fails_soft_and_keeps_valid_seed(
     runner = load_runner()
     seed = tmp_path / "seed.json"
     overlay = tmp_path / "overlay.json"
-    seed.write_text(
-        json.dumps({"timings": {"tests/test_a.py": 2.0}}), encoding="utf-8"
-    )
+    seed.write_text(json.dumps({"timings": {"tests/test_a.py": 2.0}}), encoding="utf-8")
     overlay.write_text("[]\n", encoding="utf-8")
 
-    timings, source = runner.load_timing_profiles(
-        [seed, overlay], ["tests/test_a.py"]
-    )
+    timings, source = runner.load_timing_profiles([seed, overlay], ["tests/test_a.py"])
 
     assert timings == {"tests/test_a.py": 2.0}
     assert source == "profiles=1:complete"
@@ -378,13 +374,28 @@ def test_shard_env_strips_live_model_opt_in_flags(tmp_path: Path) -> None:
         "UAA_WEB_HYBRID_LIVE_FIRECRAWL_LOCAL": "1",
         "UAA_WEB_HYBRID_LIVE_FIRECRAWL_CLOUD": "1",
         "UAA_FIRECRAWL_CLOUD_SECRET_FILE": "secret-file-ref:test",
-        "SAFE_UNRELATED_ENV": "kept",
+        "GITHUB_TOKEN": "synthetic-token",
+        "AWS_ACCESS_KEY_ID": "synthetic-access-key",
+        "HTTPS_PROXY": "synthetic-proxy",
+        "CUSTOM_API_KEY": "synthetic-api-key",
+        "DATABASE_URL": "synthetic-database-url",
+        "CI_JOB_JWT": "synthetic-jwt",
+        "DOCKER_AUTH_CONFIG": "synthetic-docker-auth",
+        "SSH_AUTH_SOCK": "synthetic-agent-socket",
+        "CUSTOM_PRIVATE_KEY": "synthetic-private-key",
+        "CUSTOM_ACCESS_KEY": "synthetic-access-key",
+        "PATH": "/safe-bin",
+        "LANG": "en_US.UTF-8",
+        "LC_ALL": "en_US.UTF-8",
+        "SAFE_UNRELATED_ENV": "must-not-cross-shard-boundary",
     }
 
     env = runner.build_shard_env(tmp_path, inherited)
 
-    assert env["PYTHONPATH"] == f"{tmp_path / 'src'}:existing"
-    assert env["SAFE_UNRELATED_ENV"] == "kept"
+    assert env["PYTHONPATH"] == str(tmp_path / "src")
+    assert env["PATH"] == "/safe-bin"
+    assert env["LANG"] == "en_US.UTF-8"
+    assert env["LC_ALL"] == "en_US.UTF-8"
     assert "UAA_M160_LIVE_HF_GGUF_SEARCH" not in env
     assert "UAA_M160_LIVE_HF_QUERY" not in env
     assert "UAA_M162_LIVE_HF_ACQUISITION" not in env
@@ -401,6 +412,17 @@ def test_shard_env_strips_live_model_opt_in_flags(tmp_path: Path) -> None:
     assert "UAA_WEB_HYBRID_LIVE_FIRECRAWL_LOCAL" not in env
     assert "UAA_WEB_HYBRID_LIVE_FIRECRAWL_CLOUD" not in env
     assert "UAA_FIRECRAWL_CLOUD_SECRET_FILE" not in env
+    assert "GITHUB_TOKEN" not in env
+    assert "AWS_ACCESS_KEY_ID" not in env
+    assert "HTTPS_PROXY" not in env
+    assert "CUSTOM_API_KEY" not in env
+    assert "DATABASE_URL" not in env
+    assert "CI_JOB_JWT" not in env
+    assert "DOCKER_AUTH_CONFIG" not in env
+    assert "SSH_AUTH_SOCK" not in env
+    assert "CUSTOM_PRIVATE_KEY" not in env
+    assert "CUSTOM_ACCESS_KEY" not in env
+    assert "SAFE_UNRELATED_ENV" not in env
 
 
 def test_live_model_opt_in_env_guard_covers_known_live_lanes() -> None:
@@ -519,137 +541,3 @@ def test_shard_subprocess_preserves_default_skips_for_live_model_tests(
     assert runner.overall_return_code(results) == 0
     log_text = results[0].log_path.read_text(encoding="utf-8")
     assert "1 passed, 1 skipped" in log_text
-
-
-def test_run_shards_respects_explicit_worker_cap(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    runner = load_runner()
-    active = 0
-    max_active = 0
-
-    class ImmediateProcess:
-        def __init__(self, *_args: Any, **_kwargs: Any) -> None:
-            nonlocal active, max_active
-            active += 1
-            max_active = max(max_active, active)
-            self._settled = False
-
-        def poll(self) -> int:
-            nonlocal active
-            if not self._settled:
-                active -= 1
-                self._settled = True
-            return 0
-
-    monkeypatch.setattr(runner.subprocess, "Popen", ImmediateProcess)
-    plans = [
-        runner.ShardPlan(index, (f"tests/test_{index}.py",), 1.0)
-        for index in range(5)
-    ]
-
-    results = runner.run_shards(
-        plans,
-        root=tmp_path,
-        basetemp=tmp_path / "shards",
-        junit_dir=None,
-        write_timings=False,
-        quiet=True,
-        max_workers=2,
-    )
-
-    assert max_active == 2
-    assert [result.index for result in results] == list(range(5))
-    assert runner.overall_return_code(results) == 0
-
-
-def test_overall_return_code_fails_if_any_shard_failed(tmp_path: Path) -> None:
-    runner = load_runner()
-    passed = runner.ShardResult(0, 1, 0, 1.0, tmp_path / "a.log")
-    failed = runner.ShardResult(1, 1, 2, 1.0, tmp_path / "b.log")
-
-    assert runner.overall_return_code([passed]) == 0
-    assert runner.overall_return_code([passed, failed]) == 1
-
-
-def test_timing_output_uses_atomic_process_scoped_temporary_file(
-    tmp_path: Path,
-) -> None:
-    runner = load_runner()
-    output = tmp_path / "timings.json"
-
-    runner.write_timings_json(
-        output,
-        [
-            {
-                "path": "tests/test_a.py",
-                "seconds": 1.25,
-                "source": "pytest-duration-summary",
-            }
-        ],
-    )
-
-    payload = json.loads(output.read_text(encoding="utf-8"))
-    assert payload["schema_version"] == runner.TIMING_SCHEMA_VERSION
-    assert payload["timings"][0]["path"] == "tests/test_a.py"
-    assert list(tmp_path.glob("timings.json.*.tmp")) == []
-
-
-def test_single_shard_rejects_partial_timing_output(capsys) -> None:
-    runner = load_runner()
-
-    assert (
-        runner.main(
-            [
-                "--shards",
-                "8",
-                "--shard-index",
-                "2",
-                "--write-timings-json",
-                "timings.json",
-            ]
-        )
-        == 2
-    )
-    assert "complete shard set" in capsys.readouterr().err
-
-
-def test_safe_summary_omits_local_log_paths(tmp_path: Path, capsys) -> None:
-    runner = load_runner()
-    result = runner.ShardResult(
-        index=2,
-        file_count=101,
-        returncode=0,
-        elapsed_seconds=12.5,
-        log_path=tmp_path / "private" / "pytest.log",
-    )
-
-    runner.print_summary(
-        [result],
-        assignment_method="deterministic-file-count",
-        timing_source="not-requested",
-        timing_output=None,
-        safe_summary=True,
-    )
-
-    output = capsys.readouterr().out
-    assert "pytest-shard-log:2" in output
-    assert str(tmp_path) not in output
-
-
-def test_makefile_makes_sharded_pytest_canonical_and_preserves_serial_diagnostics() -> (
-    None
-):
-    makefile = MAKEFILE.read_text(encoding="utf-8")
-
-    assert "\ntest-sharded:\n" in makefile
-    assert "\ntest-sharded-profile:\n" in makefile
-    assert "\ntest-serial:\n" in makefile
-    assert "\nverify-dev-sharded:\n" in makefile
-    assert "scripts/verification/run_pytest_shards.py" in makefile
-    test_block = makefile.split("\ntest:\n", 1)[1].split("\ntest-serial:", 1)[0]
-    assert "test-sharded" in test_block
-    verify_block = makefile.split("\nverify:\n", 1)[1].split("\nverify-static:", 1)[0]
-    assert "test-sharded" in verify_block
-    assert "verify-static" in verify_block

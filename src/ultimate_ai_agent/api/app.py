@@ -196,9 +196,11 @@ from ultimate_ai_agent.core.observability import (
 from ultimate_ai_agent.core.extension_catalog import (
     ExtensionInstallDisabledRecordDeleteRequest,
     ExtensionInstallDisabledRecordIssueRequest,
-    build_default_inspectable_extension_catalog,
     delete_extension_install_disabled_record,
     issue_extension_install_disabled_record,
+)
+from ultimate_ai_agent.core.extension_catalog.ecosystem import (
+    build_default_extension_ecosystem_read_model,
 )
 from ultimate_ai_agent.core.file_review import (
     FileReviewApprovalCaptureRequest,
@@ -870,7 +872,7 @@ def post_observability_client_error(report: ClientErrorReport) -> Any:
 
 @app.get("/extensions/catalog", response_model=ResultEnvelope)
 def get_extensions_catalog() -> Any:
-    catalog = build_default_inspectable_extension_catalog()
+    catalog = build_default_extension_ecosystem_read_model()
     return ResultEnvelope(
         success=True,
         operation="inspect_extension_catalog",

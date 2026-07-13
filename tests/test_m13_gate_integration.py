@@ -89,6 +89,7 @@ def test_frontend_package_has_only_local_shell_dependencies() -> None:
     ]
     for fragment in forbidden:
         assert fragment not in package
+    assert '"lucide-react"' in package
     assert '"@playwright/test"' in package
     assert '"visual:check": "playwright test --config=playwright.visual.config.ts"' in package
 

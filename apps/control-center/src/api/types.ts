@@ -49,9 +49,9 @@ export interface ResultEnvelope<T> {
   data?: T;
   result?: T;
   error?: {
-    code: string;
-    message: string;
-    details?: unknown;
+    code?: string;
+    safe_message?: string;
+    details_redacted?: boolean;
   };
 }
 
@@ -70,7 +70,16 @@ export interface TurnRouterPreviewRequest {
 }
 
 export interface TurnRouterPolicySummary {
-  turn_contract: string;
+  turn_contract:
+    | "answer_directly"
+    | "base_answer"
+    | "answer_with_reviewed_memory"
+    | "draft_or_plan"
+    | "prepare_tool_or_action"
+    | "approval_required"
+    | "execute_approved_action"
+    | "ask_clarifying_question"
+    | "blocked_unsafe";
   memory_scope: string;
   memory_read_allowed: boolean;
   memory_write_allowed: boolean;
@@ -739,6 +748,12 @@ export interface CodingPatchProposalSignedEvidenceEnvelope {
   issued_at_ref: string;
   proposal_hash_ref: string;
   signed_envelope_ref: string;
+  integrity_scheme_ref: "integrity-scheme-ref:local-sha256-hash-v1";
+  integrity_posture: "sha256_hash_only_not_a_cryptographic_signature";
+  cryptographic_signature_present: false;
+  signing_status: "blocked_signing_lifecycle_not_implemented";
+  external_anchor_verified: false;
+  legacy_signed_envelope_ref_is_hash_only: true;
   safe_refs_only: boolean;
   proposal_only: boolean;
   read_only: boolean;
@@ -3272,6 +3287,9 @@ export interface ActionToolCodeLaneEntry {
   proof_refs: string[];
   blocked_authority_refs: string[];
   unblock_prompt_refs: string[];
+  availability_snapshot_ref?: string | null;
+  canonical_execution_path_ref?: string | null;
+  canonical_mission_dispatch?: boolean;
   operator_visible: boolean;
   inspectable_now: boolean;
   proposal_only: boolean;
@@ -3680,6 +3698,7 @@ export type MemoryReviewDecisionKind =
   | "defer"
   | "merge"
   | "supersede"
+  | "expire"
   | "forget_request";
 
 export interface MemoryReviewDecisionRequest {
@@ -3701,7 +3720,6 @@ export interface MemoryReviewDecisionReceipt {
   review_ref: string;
   decision: MemoryReviewDecisionKind;
   corrected_summary_ref?: string | null;
-  corrected_safe_summary?: string | null;
   source_refs: string[];
   evidence_refs: string[];
   reviewer_ref: string;
@@ -3721,6 +3739,7 @@ export interface MemoryReviewDecisionReceipt {
   defer_ref?: string | null;
   merge_ref?: string | null;
   supersede_ref?: string | null;
+  expire_ref?: string | null;
   forget_request_ref?: string | null;
   merge_refs?: string[];
   supersedes_refs?: string[];
@@ -3811,6 +3830,7 @@ export type FounderLoopMemoryLifecycleLaneId =
   | "corrected"
   | "merged"
   | "superseded"
+  | "expired"
   | "forget_requested";
 
 export interface FounderLoopMemoryLifecycleLane {
@@ -5982,6 +6002,8 @@ export interface FounderLoopMemoryContextManifestItem {
   citation_integrity_result_ref: string;
   risk_posture_ref: string;
   token_budget: number;
+  content_budget?: number;
+  actual_content_count?: number;
   token_estimate: number;
   cache_key_ref?: string;
   expires_at: string;
@@ -6046,6 +6068,72 @@ export interface FounderLoopMemoryContextManifest {
   public_beta_claim_authorized?: boolean;
   public_distribution_claim_authorized?: boolean;
   production_readiness_claim_authorized?: boolean;
+  production_authority_enabled: boolean;
+  governed_context_manifest_ref?: string;
+  governed_context_receipt_ref?: string;
+  governed_context_fingerprint_ref?: string;
+  governed_context?: GovernedMemoryContextManifest;
+}
+
+export interface GovernedMemoryContextBudget {
+  max_items: number;
+  max_tokens: number;
+  selected_items: number;
+  used_tokens: number;
+  capacity_excluded_items: number;
+  status: "available" | "constrained" | "exhausted";
+}
+
+export interface GovernedMemoryContextSelection {
+  memory_ref: string;
+  source_refs: string[];
+  evidence_refs: string[];
+  receipt_refs: string[];
+  inclusion_reason_refs: string[];
+  confidence_posture_ref: string;
+  freshness_posture_ref: string;
+  conflict_posture_ref: string;
+  sensitivity_posture_ref: string;
+  token_estimate: number;
+}
+
+export interface GovernedMemoryContextExclusion {
+  memory_ref: string;
+  reason_refs: string[];
+}
+
+export interface GovernedMemoryContextManifest {
+  schema_version: string;
+  contract_ref: string;
+  route_ref: string;
+  status: "ready_for_operator_preview" | "blocked_no_eligible_context";
+  context_manifest_ref: string;
+  manifest_fingerprint_ref: string;
+  context_receipt_ref: string;
+  context_receipt_status: "derived_preview_not_persisted";
+  query_ref: string;
+  source_index_generated_at: string;
+  source_scan_truncated: boolean;
+  candidate_count_complete: boolean;
+  checked_at: string;
+  expires_at: string;
+  budget: GovernedMemoryContextBudget;
+  candidate_count: number;
+  selection_count: number;
+  exclusion_count: number;
+  selections: GovernedMemoryContextSelection[];
+  exclusions: GovernedMemoryContextExclusion[];
+  blocked_state_refs: string[];
+  redaction_status: string;
+  preview_only: boolean;
+  context_injection_authorized: boolean;
+  automatic_memory_inclusion_authorized: boolean;
+  memory_truth_authority: boolean;
+  action_execution_authorized: boolean;
+  approval_authority_granted: boolean;
+  connector_write_authorized: boolean;
+  model_provider_authority_allowed: boolean;
+  raw_content_persisted: boolean;
   production_authority_enabled: boolean;
 }
 
@@ -7767,6 +7855,97 @@ export interface FounderLoopAgentLoopPlanStep {
   execution_enabled: boolean;
 }
 
+export interface FounderLoopReasoningStatement {
+  statement_ref: string;
+  kind: "fact" | "assumption" | "unknown";
+  safe_summary: string;
+  source_refs: string[];
+  evidence_refs: string[];
+  review_required: boolean;
+}
+
+export interface FounderLoopOperatorQuestion {
+  question_ref: string;
+  safe_question: string;
+  resolves_refs: string[];
+}
+
+export interface FounderLoopIntentReasoningTruth {
+  schema_version: "uaa-intent-reasoning-truth.v1";
+  contract_ref: "contract-ref:intent-reasoning-truth:v1";
+  intent_ref: string;
+  intent_fingerprint_ref: string;
+  request_fingerprint_ref: string;
+  safe_summary: string;
+  classification_ref: string;
+  turn_contract:
+    | "answer_directly"
+    | "base_answer"
+    | "answer_with_reviewed_memory"
+    | "draft_or_plan"
+    | "prepare_tool_or_action"
+    | "approval_required"
+    | "execute_approved_action"
+    | "ask_clarifying_question"
+    | "blocked_unsafe";
+  confidence_score: number;
+  confidence_band: "high" | "medium" | "low" | "conflicting";
+  ambiguity_posture:
+    | "clear"
+    | "ambiguous_missing_scope"
+    | "conflicting"
+    | "insufficient_evidence";
+  contradiction_posture: "none_observed" | "conflicting_safe_refs";
+  instruction_content_posture:
+    | "untrusted_data"
+    | "instruction_shaped_untrusted_data";
+  facts: FounderLoopReasoningStatement[];
+  assumptions: FounderLoopReasoningStatement[];
+  unknowns: FounderLoopReasoningStatement[];
+  operator_questions: FounderLoopOperatorQuestion[];
+  source_refs: string[];
+  evidence_refs: string[];
+  contradiction_refs: string[];
+  reason_refs: string[];
+  deterministic_policy_ref: string;
+  model_assistance_posture:
+    | "deterministic_only"
+    | "exact_provider_lane_required";
+  authority_posture: "non_authoritative_review_truth";
+  blocked_authority_refs: string[];
+  backend_owned: boolean;
+  safe_refs_only: boolean;
+  raw_content_included: boolean;
+}
+
+export interface FounderLoopPlanRevisionTruth {
+  schema_version: "uaa-plan-revision.v1";
+  lineage_ref: string;
+  revision_ref: string;
+  revision_index: number;
+  predecessor_revision_ref?: string | null;
+  predecessor_revision_fingerprint_ref?: string | null;
+  reason_ref: string;
+  safe_reason: string;
+  decomposition: {
+    schema_version: "uaa-immutable-decomposition.v1";
+    decomposition_ref: string;
+    intent_fingerprint_ref: string;
+    ordered_steps: Array<{
+      step_ref: string;
+      safe_summary: string;
+      dependency_step_refs: string[];
+      target_refs: string[];
+      source_refs: string[];
+      definition_fingerprint_ref: string;
+    }>;
+    decomposition_fingerprint_ref: string;
+  };
+  revision_fingerprint_ref: string;
+  authority_posture: "non_authoritative_plan_truth";
+  downstream_authority_bindings_invalidated: true;
+}
+
 export interface FounderLoopAgentLoopProposedAction {
   action_ref: string;
   title: string;
@@ -7910,6 +8089,7 @@ export interface ExternalInformationHandlingRow {
   policy_decision_required: boolean;
   receipt_required: boolean;
   existing_exact_network_lane: boolean;
+  exact_network_lane_count: number;
   safe_refs_only: boolean;
   raw_content_included: boolean;
   untrusted_content_can_instruct_agent: boolean;
@@ -8086,6 +8266,7 @@ export interface ExternalInformationHandlingPosture {
   browser_observe_enabled: boolean;
   browser_action_execution_enabled: boolean;
   provider_search_enabled: boolean;
+  exact_bounded_provider_lanes_implemented: boolean;
   provider_sdk_calls_added: boolean;
   connector_writes_added: boolean;
   memory_writes_added: boolean;
@@ -8243,6 +8424,8 @@ export interface FounderLoopAgentLoopThread {
     safe_summary: string;
     source_surface: string;
   };
+  reasoning_truth: FounderLoopIntentReasoningTruth;
+  plan_revision: FounderLoopPlanRevisionTruth;
   intent: {
     status: string;
     classification_ref: string;
@@ -8301,7 +8484,9 @@ export interface FounderLoopAgentLoopThread {
     control_center_mints_authority: boolean;
     runtime_model_calls_enabled: boolean;
     provider_sdk_calls_enabled: boolean;
+    /** Legacy v1 broad-web alias. Always false; retained for consumer compatibility. */
     live_web_fetching_enabled: boolean;
+    unrestricted_live_web_fetching_enabled: boolean;
     browser_automation_enabled: boolean;
     connector_writes_enabled: boolean;
     unrestricted_shell_enabled: boolean;
@@ -8834,6 +9019,27 @@ export interface MobilePlanningSummary {
   mobile_app_implemented: boolean;
 }
 
+export interface PluginGovernanceEntrySummary {
+  package_ref: string;
+  manifest_ref: string;
+  version_ref: string;
+  availability_snapshot_count: number;
+  validation_status: "validated_metadata_only" | "blocked";
+  compatibility_status: "supported" | "unknown";
+  configuration_status: "not_configured";
+  health_status: "unknown";
+  authority_posture: "blocked";
+  resource_status: "unknown";
+  safe_disable_status: "unknown";
+  provenance_status: "reviewed" | "blocked" | "unknown";
+  hashes_verified_against_pinned_values: boolean;
+  signature_status: "not_present" | "unknown";
+  signature_verified: false;
+  safe_disable_ref: string;
+  rollback_ref: string;
+  blocker_codes: string[];
+}
+
 export interface PluginGovernanceSummary {
   status: string;
   plugin_enablement_allowed: boolean;
@@ -8843,6 +9049,19 @@ export interface PluginGovernanceSummary {
   skill_bundle_proposal_refs: string[];
   skill_bundle_activation_enabled: boolean;
   skill_bundle_tool_execution_enabled: boolean;
+  catalog_entry_count: number;
+  availability_snapshot_count: number;
+  developer_validation_count: number;
+  blocked_validation_count: number;
+  blocker_codes: string[];
+  safe_disable_refs: string[];
+  rollback_refs: string[];
+  extension_entries: PluginGovernanceEntrySummary[];
+  plugin_metadata_boundary_ref: string;
+  skill_marketplace_boundary_ref: string;
+  mcp_catalog_boundary_ref: string;
+  catalog_visibility_grants_authority: false;
+  request_scoped_invocation_decision_required: true;
 }
 
 export type ProviderCredentialReadinessPosture =
@@ -10032,13 +10251,43 @@ export interface WebHybridCapabilityLanePosture {
   blocker_codes: string[];
 }
 
+export interface WebResearchAggregationPosture {
+  schema_version: "uaa-web-research-aggregation-posture.v1";
+  contract_ref: string;
+  status: "implemented_injected_observations_required";
+  current_observation_status: "not_injected_by_read_only_route";
+  current_citation_count: 0;
+  citation_limit: 10;
+  summary_character_limit: 4000;
+  deterministic_injected_observations_only: true;
+  provider_readiness_included: true;
+  provider_latency_posture_included: true;
+  provider_cost_posture_included: true;
+  provider_context_posture_included: true;
+  provider_routing_posture_included: true;
+  excluded_source_reasons_included: true;
+  content_untrusted: true;
+  not_instruction_authority: true;
+  context_injection_authorized: false;
+  memory_write_authorized: false;
+  action_execution_authorized: false;
+  raw_query_persisted: false;
+  raw_page_content_persisted: false;
+  raw_provider_payload_persisted: false;
+  proof_refs: string[];
+  blocker_codes: string[];
+  safe_summary: string;
+}
+
 export interface WebHybridAvailabilityReadModel {
   schema_version: "uaa-web-hybrid-availability.v1";
   read_model_ref: string;
   truth_owner: "python_core";
   status: "implemented_runtime_observation_required";
   cli_ref: string;
+  cli_path: "scripts/inspect_web_hybrid_status.py";
   lanes: WebHybridCapabilityLanePosture[];
+  research_aggregation: WebResearchAggregationPosture;
   routing_policy: "self_host_first_cloud_escalation";
   routing_attempt_ceiling: 2;
   cloud_first_enabled: false;
@@ -10056,6 +10305,10 @@ export interface WebHybridAvailabilityReadModel {
   circuit_state: "unknown_until_runtime_inspection";
   circuit_ref: string;
   request_scoped_evaluation_required: true;
+  final_start_revalidation_required: true;
+  mission_scoped_lease_required: true;
+  complete_request_fingerprint_required: true;
+  start_deadline_required: true;
   local_approval_required: true;
   exact_authority_lease_required: true;
   budget_reservation_required_for_cloud: true;
@@ -13655,6 +13908,160 @@ export interface AuthorityMissionWorkerReadModel {
   redactions_applied: string[];
 }
 
+export interface AuthorityMissionCompletionBudgetBinding {
+  reservation_ref: string;
+  reserve_receipt_ref: string;
+  reserve_entry_hash_ref: string;
+  start_receipt_ref: string;
+  start_entry_hash_ref: string;
+  settlement_receipt_ref: string;
+  settlement_entry_hash_ref: string;
+  lease_ref: string;
+  action_ref: string;
+  execution_ref: string;
+  reserved_operation_count: number;
+  reserved_cost_microusd: number;
+  settlement_status: "settled";
+  actual_operation_count: number;
+  actual_cost_microusd: number;
+  actual_cost_ref: string;
+  unresolved_cost: false;
+}
+
+export interface AuthorityMissionCompletionStepBinding {
+  step_ref: string;
+  definition_fingerprint_ref: string;
+  dispatch_ref: string;
+  dispatch_request_fingerprint_ref: string;
+  step_receipt_ref: string;
+  step_entry_hash_ref: string;
+  dispatch_receipt_ref: string;
+  dispatch_entry_hash_ref: string;
+  evidence_refs: string[];
+}
+
+export interface AuthorityMissionCompletionDispatchBinding {
+  dispatch_ref: string;
+  receipt_ref: string;
+  entry_hash_ref: string;
+  request_fingerprint_ref: string;
+  lease_ref: string;
+  action_ref: string;
+  adapter_ref: string;
+  capability_ref: string;
+  authority_decision_ref: string;
+  authority_policy_receipt_ref: string;
+  approval_required: boolean;
+  approval_ref: string | null;
+  approval_validation_ref: string | null;
+  budget_reservation_ref: string;
+  budget_reservation_receipt_ref: string;
+  budget_start_receipt_ref: string;
+  budget_settlement_receipt_ref: string;
+  execution_ref: string;
+  actual_operation_count: number;
+  actual_cost_microusd: number;
+  actual_cost_ref: string;
+  evidence_refs: string[];
+}
+
+export interface AuthorityMissionCompletionManifest {
+  schema_version: "uaa-mission-completion.v1";
+  completion_ref: string;
+  plan_ref: string;
+  plan_fingerprint_ref: string;
+  plan_receipt_ref: string;
+  plan_entry_hash_ref: string;
+  mission_ref: string;
+  run_ref: string;
+  lease_ref: string;
+  lease_scope_fingerprint_ref: string | null;
+  lease_scope: "mission";
+  lease_mission_ref: string;
+  lease_issued_at: string;
+  lease_expires_at: string;
+  mission_deadline: string;
+  status: "succeeded";
+  concurrency_limit: 1;
+  parallel_execution_performed: false;
+  step_bindings: AuthorityMissionCompletionStepBinding[];
+  dispatch_bindings: AuthorityMissionCompletionDispatchBinding[];
+  budget_bindings: AuthorityMissionCompletionBudgetBinding[];
+  approval_refs: string[];
+  approval_validation_refs: string[];
+  control_snapshot_ref: string;
+  control_receipt_refs: string[];
+  cancellation_receipt_refs: string[];
+  dead_letter_receipt_refs: string[];
+  evidence_refs: string[];
+  memory_candidate_ref: string;
+  memory_candidate_posture: "review_required_recall_only";
+  memory_truth_authority: false;
+  context_injection_authorized: false;
+  execution_evidence_grants_authority: false;
+  signature_present: false;
+  integrity_posture: "content_free_hash_chain";
+  previous_entry_hash_ref: string | null;
+  entry_hash_ref: string;
+  created_at: string;
+  redactions_applied: string[];
+  raw_paths_included: false;
+  raw_prompt_included: false;
+  raw_response_included: false;
+  raw_provider_payload_included: false;
+}
+
+export interface AuthorityMissionCompletionReadModel {
+  schema_version: "uaa-mission-completion-read-model.v1";
+  ledger_ref: string;
+  completion_count: number;
+  latest_manifests: AuthorityMissionCompletionManifest[];
+  integrity_summary: {
+    schema_version: "uaa-mission-completion-integrity-summary.v1";
+    verifier_version_ref: string;
+    manifest_count: number;
+    chain_ref: string;
+    genesis_entry_hash_ref: string | null;
+    terminal_entry_hash_ref: string | null;
+    hash_chain_verified: true;
+    source_ledgers_verified: false;
+    signature_present: false;
+    signing_status: "blocked_signing_lifecycle_not_implemented";
+    cryptographic_authenticity_verified: false;
+    external_anchor_verified: false;
+    execution_evidence_grants_authority: false;
+  };
+  portable_evidence_summary: {
+    schema_version: "uaa-portable-mission-evidence-inspection.v1";
+    status:
+      | "verified_local_hash_chain"
+      | "not_recorded"
+      | "not_evaluated"
+      | "unavailable";
+    bundle_ref: string | null;
+    completion_count: number;
+    envelope_count: number;
+    terminal_entry_hash_ref: string | null;
+    local_hash_chain_verified: boolean;
+    source_receipts_bound: boolean;
+    source_ledgers_verified: false;
+    caller_expected_binding_matched: false;
+    signature_verified: false;
+    signing_status: "blocked_signing_lifecycle_not_implemented";
+    cryptographic_authenticity_verified: false;
+    external_anchor_verified: false;
+    execution_evidence_grants_authority: false;
+    reason_refs: string[];
+  };
+  operator_summary: string;
+  request_scoped_authority_still_required: true;
+  execution_available_from_read_model: false;
+  approval_or_lease_minted: false;
+  raw_content_included: false;
+  raw_paths_included: false;
+  source_ledgers_verified: false;
+}
+
 export interface AuthorityLeaseReceipt {
   operation: "issue" | "revoke";
   status: "issued" | "revoked" | "replayed" | "denied";
@@ -13719,8 +14126,6 @@ export interface AuthorityLeaseApprovalRequirement {
 
 export interface AuthorityLeaseApproveAndIssueRequest {
   lease_issue_request: AuthorityLeaseIssueRequest;
-  approved_by_actor_ref?: string;
-  approval_safe_summary?: string;
 }
 
 export interface AuthorityLeaseRevokeRequest {

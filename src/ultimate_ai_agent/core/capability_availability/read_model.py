@@ -19,6 +19,11 @@ from ultimate_ai_agent.core.capabilities.models import (
 from ultimate_ai_agent.core.extension_catalog import (
     build_default_inspectable_extension_catalog,
 )
+from ultimate_ai_agent.core.control_center.founder_loop_mission_refs import (
+    FOUNDER_LOOP_FILESYSTEM_ADAPTER_REF,
+    FOUNDER_LOOP_FILESYSTEM_CAPABILITY_REF,
+    FOUNDER_LOOP_FILESYSTEM_SAFE_DISABLE_REF,
+)
 from ultimate_ai_agent.core.providers import (
     GovernedProviderInvocationReadiness,
     ProviderAuthRequirement,
@@ -35,7 +40,7 @@ from ultimate_ai_agent.core.time import utc_now
 from .adapters import (
     snapshot_from_capability_catalog_entry,
     snapshot_from_capability_manifest,
-    snapshot_from_extension_catalog_entry,
+    snapshots_from_extension_catalog,
     snapshot_from_provider_manifest,
 )
 from .contracts import (
@@ -52,6 +57,7 @@ from .contracts import (
     SafeDisableStatus,
     WebHybridAvailabilityReadModel,
     WebHybridCapabilityLanePosture,
+    WebResearchAggregationPosture,
     build_capability_availability_snapshot,
 )
 
@@ -60,6 +66,49 @@ def build_capability_availability_read_model(
     *, checked_at: datetime | None = None
 ) -> CapabilityAvailabilityReadModel:
     observed_at = (checked_at or utc_now()).replace(microsecond=0)
+
+    filesystem_metadata_mission = build_capability_availability_snapshot(
+        snapshot_ref=(
+            "capability-availability-ref:founder-loop-filesystem-metadata-v1"
+        ),
+        capability_ref=FOUNDER_LOOP_FILESYSTEM_CAPABILITY_REF,
+        adapter_ref=FOUNDER_LOOP_FILESYSTEM_ADAPTER_REF,
+        catalog_status=CatalogStatus.supported,
+        compatibility_status=CompatibilityStatus.supported,
+        configuration_status=ConfigurationStatus.unknown,
+        health_status=HealthStatus.unknown,
+        authority_posture=AuthorityPosture.approval_required,
+        resource_status=ResourceBudgetStatus.unknown,
+        cost_posture=CostPosture.not_metered,
+        safe_disable_status=SafeDisableStatus.unknown,
+        declared_or_observed_version_ref=f"version-ref:{__version__}",
+        checked_at=observed_at,
+        freshness_status=FreshnessStatus.unknown,
+        reason_codes=[
+            "EXACT_FILESYSTEM_METADATA_MISSION_IMPLEMENTED",
+            "CANONICAL_MISSION_DISPATCH_PATH_VERIFIED",
+            "REQUEST_SCOPED_AUTHORITY_REEVALUATION_REQUIRED",
+        ],
+        blocker_codes=[
+            "CURRENT_ROOT_IDENTITY_OBSERVATION_REQUIRED",
+            "CURRENT_SAFE_DISABLE_OBSERVATION_REQUIRED",
+            "CURRENT_RESOURCE_RESERVATION_REQUIRED",
+            "EXACT_LOCAL_APPROVAL_REQUIRED",
+            "EXACT_MISSION_SCOPED_LEASE_REQUIRED",
+        ],
+        evidence_refs=[
+            "proof-ref:founder-loop-filesystem-metadata:mission-dispatch",
+            "receipt-contract-ref:authority-mission-completion:v1",
+            FOUNDER_LOOP_FILESYSTEM_SAFE_DISABLE_REF,
+        ],
+        probe_refs=[],
+        source_ref="capability-manifest-ref:founder-loop-filesystem-metadata-v1",
+        safe_summary=(
+            "Exact predeclared filesystem metadata is implemented, while current "
+            "root, resource, health, and safe-disable availability remain unknown "
+            "until immediate request-scoped evaluation; it is never globally callable."
+        ),
+    )
 
     ready_for_policy = snapshot_from_capability_manifest(
         _declaration_manifest(
@@ -203,21 +252,20 @@ def build_capability_availability_read_model(
         ),
     )
 
-    extension_entry = build_default_inspectable_extension_catalog().entries[0]
-    inspectable_extension = snapshot_from_extension_catalog_entry(
-        extension_entry,
+    inspectable_extensions = snapshots_from_extension_catalog(
+        build_default_inspectable_extension_catalog(),
         checked_at=observed_at,
-        safe_disable_status=SafeDisableStatus.inactive,
     )
 
     snapshots = [
+        filesystem_metadata_mission,
         declared_unavailable,
         configured_but_blocked,
         stale_unknown,
         provider_budget_blocked,
         safe_disabled,
         ready_for_policy,
-        inspectable_extension,
+        *inspectable_extensions,
     ]
     readiness_counts = {
         status.value: sum(item.runtime_readiness_status == status for item in snapshots)
@@ -271,6 +319,24 @@ def build_web_hybrid_availability_read_model() -> WebHybridAvailabilityReadModel
     )
 
     return WebHybridAvailabilityReadModel(
+        research_aggregation=WebResearchAggregationPosture(
+            proof_refs=[
+                "proof-ref:web-research-aggregation:deterministic-bounds",
+                "proof-ref:web-research-aggregation:untrusted-citations",
+                "proof-ref:web-research-aggregation:provider-observations",
+            ],
+            blocker_codes=[
+                "CURRENT_RESEARCH_OBSERVATIONS_NOT_INJECTED",
+                "REQUEST_SCOPED_RETRIEVAL_AUTHORITY_REQUIRED",
+                "MEMORY_AND_ACTION_PROMOTION_DENIED",
+            ],
+            safe_summary=(
+                "Bounded cited research aggregation is implemented for deterministic "
+                "injected observations. This read-only surface performs no retrieval "
+                "and has no current citations; provider readiness, latency, cost, "
+                "context, routing, exclusions, and redaction remain explicit."
+            ),
+        ),
         lanes=[
             WebHybridCapabilityLanePosture(
                 lane_ref=SEARXNG_SEARCH_LANE_REF,

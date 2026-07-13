@@ -137,6 +137,7 @@ class WebProviderCircuitState(str, Enum):
 class _WebHybridModel(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
+        frozen=True,
         hide_input_in_errors=True,
         use_enum_values=False,
     )
@@ -213,6 +214,11 @@ class WebProviderTransportReceipt(_WebHybridModel):
     schema_version: Literal["uaa-web-hybrid.v1"] = WEB_HYBRID_SCHEMA_VERSION
     receipt_ref: str = Field(..., min_length=1)
     request_ref: str = Field(..., min_length=1)
+    mission_ref: str | None = None
+    run_ref: str | None = None
+    request_fingerprint_ref: str | None = None
+    start_deadline: datetime | None = None
+    final_start_validated_at: datetime | None = None
     provider_ref: str = Field(..., min_length=1)
     deployment: WebProviderDeploymentKind
     operation: WebProviderOperation
@@ -248,6 +254,13 @@ class WebProviderTransportReceipt(_WebHybridModel):
             self.approval_decision_ref,
             self.budget_decision_ref,
         ]
+        for optional_ref in (
+            self.mission_ref,
+            self.run_ref,
+            self.request_fingerprint_ref,
+        ):
+            if optional_ref is not None:
+                refs.append(optional_ref)
         if self.target_source_ref:
             refs.append(self.target_source_ref)
         if self.response_receipt_hash_ref:
@@ -264,6 +277,28 @@ class WebProviderTransportReceipt(_WebHybridModel):
             and self.network_call_performed
         ):
             raise ValueError("WEB_PROVIDER_BLOCKED_OR_SIMULATED_CALL_DENIED")
+        execution_bindings = (
+            self.mission_ref,
+            self.run_ref,
+            self.request_fingerprint_ref,
+            self.start_deadline,
+            self.final_start_validated_at,
+        )
+        if any(value is not None for value in execution_bindings) and any(
+            value is None for value in execution_bindings
+        ):
+            raise ValueError("WEB_PROVIDER_EXECUTION_BINDING_INCOMPLETE")
+        if (
+            self.start_deadline is not None
+            and self.final_start_validated_at is not None
+            and self.final_start_validated_at >= self.start_deadline
+            and self.status
+            in {
+                WebProviderTransportStatus.succeeded,
+                WebProviderTransportStatus.simulated,
+            }
+        ):
+            raise ValueError("WEB_PROVIDER_FINAL_START_DEADLINE_EXPIRED")
         return self
 
 

@@ -843,6 +843,18 @@ class CodingPatchProposalSignedEvidenceEnvelope(BaseModel):
     issued_at_ref: str = "issued-at-ref:coding-patch-proposal-deterministic-v1"
     proposal_hash_ref: str = Field(..., min_length=1)
     signed_envelope_ref: str = Field(..., min_length=1)
+    integrity_scheme_ref: Literal[
+        "integrity-scheme-ref:local-sha256-hash-v1"
+    ] = "integrity-scheme-ref:local-sha256-hash-v1"
+    integrity_posture: Literal[
+        "sha256_hash_only_not_a_cryptographic_signature"
+    ] = "sha256_hash_only_not_a_cryptographic_signature"
+    cryptographic_signature_present: Literal[False] = False
+    signing_status: Literal["blocked_signing_lifecycle_not_implemented"] = (
+        "blocked_signing_lifecycle_not_implemented"
+    )
+    external_anchor_verified: Literal[False] = False
+    legacy_signed_envelope_ref_is_hash_only: Literal[True] = True
     safe_refs_only: bool = True
     proposal_only: bool = True
     read_only: bool = True
@@ -861,8 +873,10 @@ class CodingPatchProposalSignedEvidenceEnvelope(BaseModel):
     public_notarization_enabled: bool = False
     signing_key_material_persisted: bool = False
     safe_summary: str = (
-        "Coding patch proposal signed evidence stores safe refs, stable hashes, "
-        "redaction posture, blocked authority refs, and proposal-only status."
+        "Coding patch proposal hash-integrity evidence stores safe refs, stable "
+        "SHA-256 hashes, redaction posture, blocked authority refs, and "
+        "proposal-only status; legacy signed identifiers are not cryptographic "
+        "signatures."
     )
 
     model_config = ConfigDict(extra="forbid")
@@ -953,6 +967,11 @@ class CodingPatchProposalSignedEvidenceVerificationResult(BaseModel):
     required_fields_present: bool
     proposal_hash_valid: bool
     signed_envelope_ref_valid: bool
+    cryptographic_signature_verified: Literal[False] = False
+    signing_status: Literal["blocked_signing_lifecycle_not_implemented"] = (
+        "blocked_signing_lifecycle_not_implemented"
+    )
+    external_anchor_verified: Literal[False] = False
     redaction_status_valid: bool
     denied_authority_status_valid: bool
     tamper_detected: bool
@@ -961,8 +980,8 @@ class CodingPatchProposalSignedEvidenceVerificationResult(BaseModel):
     failure_reason_refs: list[str] = Field(default_factory=list)
     evidence_refs: list[str] = Field(default_factory=list)
     safe_summary: str = (
-        "Coding patch proposal signed evidence was verified offline using "
-        "safe refs only."
+        "Coding patch proposal SHA-256 hash-integrity evidence was verified "
+        "offline using safe refs only; no cryptographic signature was verified."
     )
 
     model_config = ConfigDict(extra="forbid")
@@ -1232,7 +1251,7 @@ def verify_coding_patch_proposal_signed_evidence(
         | CodingPatchProposalSignedEvidenceEnvelope
     ),
 ) -> CodingPatchProposalSignedEvidenceVerificationResult:
-    payload = (
+    raw_payload = (
         envelope.model_dump(mode="json")
         if isinstance(envelope, CodingPatchProposalSignedEvidenceEnvelope)
         else dict(envelope)
@@ -1240,8 +1259,55 @@ def verify_coding_patch_proposal_signed_evidence(
     missing_fields = [
         field
         for field in _CODING_PATCH_PROPOSAL_EVIDENCE_REQUIRED_FIELDS
-        if field not in payload
+        if field not in raw_payload
     ]
+    try:
+        parsed = CodingPatchProposalSignedEvidenceEnvelope.model_validate(raw_payload)
+    except ValueError:
+        redaction_fields = (
+            "raw_paths_persisted",
+            "raw_content_persisted",
+            "diff_body_persisted",
+        )
+        denied_fields = (
+            "file_mutation_performed",
+            "patch_apply_performed",
+            "shell_subprocess_performed",
+            "git_mutation_performed",
+            "provider_model_call_performed",
+            "browser_automation_performed",
+            "connector_write_performed",
+            "production_authority_performed",
+        )
+        failure_refs = [
+            "failure-reason-ref:coding-patch-proposal-evidence:contract-invalid"
+        ]
+        if any(bool(raw_payload.get(field)) for field in redaction_fields):
+            failure_refs.append(
+                "failure-reason-ref:coding-patch-proposal-evidence:redaction-status-invalid"
+            )
+        if any(bool(raw_payload.get(field)) for field in denied_fields):
+            failure_refs.append(
+                "failure-reason-ref:coding-patch-proposal-evidence:denied-authority-invalid"
+            )
+        return CodingPatchProposalSignedEvidenceVerificationResult(
+            envelope_ref="coding-patch-proposal-evidence-envelope-ref:invalid",
+            verification_status="failed",
+            required_fields_present=not missing_fields,
+            proposal_hash_valid=False,
+            signed_envelope_ref_valid=False,
+            redaction_status_valid=False,
+            denied_authority_status_valid=False,
+            tamper_detected=True,
+            safe_refs_only=False,
+            missing_field_refs=[
+                _coding_patch_proposal_missing_field_ref(field)
+                for field in missing_fields
+            ],
+            failure_reason_refs=failure_refs,
+            evidence_refs=[],
+        )
+    payload = parsed.model_dump(mode="json")
     required_fields_present = not missing_fields
     envelope_ref = str(
         payload.get(

@@ -11,6 +11,7 @@ from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.authority import (
     AUTHORITY_DOMAIN_READINESS_CONTRACT_REF,
     AUTHORITY_LEASE_KILL_SWITCH_ENV,
+    AUTHORITY_LEASE_LOCAL_OPERATOR_REF,
     AUTHORITY_LANE_CATALOG_CONTRACT_REF,
     AUTHORITY_STATE_DIR_ENV,
     AuthorityActionRequest,
@@ -2142,10 +2143,6 @@ def test_authority_lease_kill_switch_blocks_new_lease_issue_api_cli_and_state(
         headers={"x-uaa-idempotency-key": "idempotency-ref:test-api-kill-switch"},
         json={
             "lease_issue_request": issue_request.model_dump(mode="json"),
-            "approved_by_actor_ref": "operator-ref:test-control-center",
-            "approval_safe_summary": (
-                "Operator approved the exact local workspace authority lease."
-            ),
         },
     )
     assert api_issue.status_code == 200
@@ -3394,10 +3391,6 @@ def test_authority_lease_approve_and_issue_api_captures_exact_backend_approval(
         },
         json={
             "lease_issue_request": issue_request.model_dump(mode="json"),
-            "approved_by_actor_ref": "operator-ref:test-control-center",
-            "approval_safe_summary": (
-                "Operator approved the exact local workspace authority lease."
-            ),
         },
     )
     assert response.status_code == 200
@@ -3415,6 +3408,8 @@ def test_authority_lease_approve_and_issue_api_captures_exact_backend_approval(
     assert receipt["approval_ref"] == data["approval_ref"]
     assert receipt["approval_scope_ref"] == requirement["approval_scope_ref"]
     assert requirement["approval_required"] is True
+    assert requirement["operator_ref"] == AUTHORITY_LEASE_LOCAL_OPERATOR_REF
+    assert data["lease"]["operator_ref"] == AUTHORITY_LEASE_LOCAL_OPERATOR_REF
     assert "authority-domain-ref:workspace" in requirement["resource_refs"]
     assert "authority-domain-ref:browser" not in requirement["resource_refs"]
     assert "authority-domain-ref:browser" in receipt["denied_domain_refs"]
@@ -3439,11 +3434,9 @@ def test_authority_lease_approve_and_issue_api_captures_exact_backend_approval(
                 **issue_request.model_dump(mode="json"),
                 "approval_ref": "approval-ref:caller-supplied-denied",
             },
-            "approved_by_actor_ref": "operator-ref:test-control-center",
         },
     )
     assert inline_grant.status_code == 422
-
 
 def _exact_workspace_constraints(*, path_ref: str) -> list[AuthorityConstraint]:
     return [

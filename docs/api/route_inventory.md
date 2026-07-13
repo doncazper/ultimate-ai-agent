@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `256`.
+Current OpenAPI path count: `258`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -13,6 +13,11 @@ Historical release notes may preserve older route counts for audit history.
 disabled-by-default local AuthorityLease mission worker; approval, idempotency,
 and targeted rate limiting are not required because it cannot enqueue,
 execute, reconcile, or mutate.
+
+`GET /api/runtime/authority-missions/completions` is `local_sensitive` and
+read-only. It reports offline-hash-verified, content-free completion manifests
+with settled budget and terminal evidence refs. It performs no execution,
+approval, lease, memory write, context injection, or authority mutation.
 
 Each route declares:
 
@@ -51,7 +56,7 @@ Current route classification summary:
 | `public_metadata` | 3 |
 | `local_readonly` | 29 |
 | `local_sensitive` | 172 |
-| `mutating_requires_authority` | 53 |
+| `mutating_requires_authority` | 54 |
 
 Allowed current side-effect classes are:
 
@@ -151,8 +156,8 @@ run, and evidence refs without persisting raw prompt text or granting runtime
 authority.
 `GET /api/runtime/parity-loop` exposes a protected read-only Python Core final
 runtime parity-loop read model over prepared turn, route decision, durable run,
-staged orchestration, provider evidence, Action Inbox approval, receipt, signed
-evidence, and blocked-state refs without executing work or granting runtime
+staged orchestration, provider evidence, Action Inbox approval, receipt, local
+SHA-256 hash-integrity evidence (with legacy signed identifiers), and blocked-state refs without executing work or granting runtime
 authority.
 `GET /api/runtime/delegation-adapter` exposes a protected read-only Python Core
 Hermes Runtime Adoption Phase 01 delegation adapter readiness model. It shows
@@ -583,13 +588,16 @@ background monitoring, or process control.
 
 `GET /extensions/catalog` returns read-only inspectable extension catalog
 metadata with safe refs, visibility status, trust posture, callable posture,
-blocked reasons, review evidence refs, safe adoption posture, and
-install-disabled posture. `POST /extensions/disabled-install-records` records
-only an exact disabled extension install metadata receipt after active
-`workspace/write` AuthorityLease scope, exact `LocalApprovalAuthority`
-validation, idempotency, redacted receipt refs, and the local disabled-record
-store validate. These routes do not persist package installs, import, enable,
-activate, revoke, execute, fetch, or mutate extensions.
+blocked reasons, review evidence refs, safe adoption posture, deterministic
+developer validation, canonical availability snapshot refs, and
+install-disabled posture. The disabled-install record and rollback mutation
+routes reject caller-supplied approval-grant payloads and fail closed until a
+durable core-owned approval resolver can supply an exact current
+`LocalApprovalAuthority` decision. Python Core receipt builders still require
+an active `workspace/write` AuthorityLease, injected exact approval authority,
+idempotency, pinned metadata hashes, and safe local storage validation. These
+routes do not persist package installs, import, enable, activate, execute,
+fetch, or otherwise grant extension authority.
 
 ### Control Center capability surface
 
@@ -700,6 +708,7 @@ authority.
 - `POST /control-center/memory/review/{candidate_ref}/accept`
 - `POST /control-center/memory/review/{candidate_ref}/correct`
 - `POST /control-center/memory/review/{candidate_ref}/reject`
+- `POST /control-center/memory/review/{candidate_ref}/expire`
 - `GET /control-center/morning-briefing/summary`
 - `GET /control-center/proof/index`
 - `GET /control-center/proof/{proof_ref}`

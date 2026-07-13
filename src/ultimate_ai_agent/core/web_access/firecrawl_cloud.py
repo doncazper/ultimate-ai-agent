@@ -133,7 +133,6 @@ class FirecrawlCloudCredential:
 
 
 class FirecrawlCloudMarkdownRequest(FirecrawlMarkdownRequest):
-    idempotency_ref: str
     routing_decision_ref: str
     run_credit_ceiling: int = Field(default=10, ge=1, le=100)
     safety_reserve_credits: int = Field(default=1, ge=0, le=100)
@@ -143,6 +142,33 @@ class FirecrawlCloudMarkdownRequest(FirecrawlMarkdownRequest):
     def validate_cloud_refs(cls, value: str) -> str:
         validate_execution_ref(value, "firecrawl_cloud_request_ref")
         return value
+
+    @model_validator(mode="after")
+    def validate_cloud_fingerprint(self) -> "FirecrawlCloudMarkdownRequest":
+        expected = stable_web_hybrid_ref(
+            "request-fingerprint-ref:firecrawl-cloud-markdown",
+            {
+                "request_ref": self.request_ref,
+                "task_ref": self.task_ref,
+                "mission_ref": self.mission_ref,
+                "run_ref": self.run_ref,
+                "idempotency_ref": self.idempotency_ref,
+                "approval_ref": self.approval_ref,
+                "target_source_ref": self.target_source_ref,
+                "allowed_domains": self.allowed_domains,
+                "max_markdown_chars": self.max_markdown_chars,
+                "expected_execution_receipt_ref": self.expected_execution_receipt_ref,
+                "routing_decision_ref": self.routing_decision_ref,
+                "run_credit_ceiling": self.run_credit_ceiling,
+                "safety_reserve_credits": self.safety_reserve_credits,
+                "start_deadline": self.start_deadline.isoformat(),
+            },
+        )
+        if self.request_fingerprint_ref == "request-fingerprint-ref:pending":
+            object.__setattr__(self, "request_fingerprint_ref", expected)
+        elif self.request_fingerprint_ref != expected:
+            raise ValueError("FIRECRAWL_CLOUD_REQUEST_FINGERPRINT_MISMATCH")
+        return self
 
 
 class FirecrawlCloudCreditReconciliationResult(BaseModel):
@@ -502,9 +528,20 @@ def execute_firecrawl_cloud_markdown(
     scrape_transport: CloudScrapeTransport | None = None,
     credit_transport: CreditTransport | None = None,
     target_validator: TargetValidator | None = None,
+    capability_state_provider: Callable[[], WebProviderCapabilityState] | None = None,
+    credit_snapshot_provider: Callable[[], WebProviderCreditSnapshot | None]
+    | None = None,
+    authority_leases_provider: Callable[[], Sequence[AuthorityLease]] | None = None,
+    before_final_start: Callable[[], None] | None = None,
+    trusted_clock: Callable[[], datetime] | None = None,
     evaluated_at: datetime | None = None,
 ) -> FirecrawlCloudExecutionResult:
-    now = _aware(evaluated_at or utc_now())
+    initial_time_source = (
+        (lambda: evaluated_at)
+        if evaluated_at is not None
+        else (trusted_clock or utc_now)
+    )
+    now = _aware(initial_time_source())
     snapshot = firecrawl_cloud_snapshot_from_state(capability_state)
     manifest = build_firecrawl_cloud_capability_manifest()
     task = TaskEnvelope(
@@ -514,7 +551,14 @@ def execute_firecrawl_cloud_markdown(
         selected_capability_ids=[FIRECRAWL_CLOUD_CAPABILITY_REF],
         context={"approval_ref": request.approval_ref} if request.approval_ref else {},
     )
-    context: dict[str, Any] = {"coordination_mode": CoordinationMode.direct_tool.value}
+    context: dict[str, Any] = {
+        "coordination_mode": CoordinationMode.direct_tool.value,
+        "current_time": now,
+        "mission_ref": request.mission_ref,
+        "run_ref": request.run_ref,
+        "request_fingerprint_ref": request.request_fingerprint_ref,
+        "resource_refs": list(_exact_cloud_resource_refs(request, credit_snapshot)),
+    }
     if request.approval_ref:
         context["approval_ref"] = request.approval_ref
     local_approval = approval_authority.validate_approval(manifest, task, context)
@@ -549,6 +593,7 @@ def execute_firecrawl_cloud_markdown(
             observed_authority,
             authority_leases,
             exact_refs,
+            mission_ref=request.mission_ref,
         )
         else None
     )
@@ -646,6 +691,11 @@ def execute_firecrawl_cloud_markdown(
         )
 
     selected_scrape = scrape_transport or build_firecrawl_cloud_scrape_transport()
+    final_time_source = trusted_clock or (
+        utc_now
+        if getattr(selected_scrape, "real_world_transport_performed", False)
+        else initial_time_source
+    )
 
     def bound_transport(extract_request: FirecrawlMarkdownRequest) -> Mapping[str, Any]:
         try:
@@ -659,6 +709,9 @@ def execute_firecrawl_cloud_markdown(
     bound_transport.real_world_transport_performed = bool(  # type: ignore[attr-defined]
         getattr(selected_scrape, "real_world_transport_performed", False)
     )
+    live_transport_selected = bool(
+        getattr(selected_scrape, "real_world_transport_performed", False)
+    )
     attempt = execute_authorized_firecrawl_markdown_attempt(
         request=request,
         invocation_decision=invocation,
@@ -667,11 +720,50 @@ def execute_firecrawl_cloud_markdown(
         adapter_ref=FIRECRAWL_CLOUD_ADAPTER_REF,
         transport=bound_transport,
         target_validator=target_validator or validate_resolved_public_target,
+        final_start_evaluator=lambda: _evaluate_cloud_final_start_from_providers(
+            request=request,
+            capability_state=capability_state,
+            credit_snapshot=credit_snapshot,
+            reservation=(
+                ledger.reservation_snapshot(reservation.reservation_ref)
+                if reservation is not None
+                else None
+            ),
+            credential=credential,
+            approval_authority=approval_authority,
+            authority_leases=authority_leases,
+            capability_state_provider=capability_state_provider,
+            credit_snapshot_provider=credit_snapshot_provider,
+            authority_leases_provider=authority_leases_provider,
+            evaluated_at=_aware(final_time_source()),
+            live_transport_selected=live_transport_selected,
+            crash_recovery_enabled=ledger.crash_recovery_enabled,
+        ),
+        approval_authority=approval_authority,
+        before_final_start=before_final_start,
+        final_start_lock=(
+            (lambda: ledger.hold_reservation_start(reservation.reservation_ref))
+            if reservation is not None
+            else None
+        ),
     )
     after_snapshot: WebProviderCreditSnapshot | None = None
     final_status = attempt.status
     final_evidence = attempt.evidence
     final_reasons = list(attempt.reason_codes)
+    if attempt.status == WebProviderTransportStatus.blocked:
+        final_reasons = list(
+            dict.fromkeys(
+                (
+                    *final_reasons,
+                    *attempt.final_invocation_decision.reason_codes,
+                )
+            )
+        )
+        if live_transport_selected and not ledger.crash_recovery_enabled:
+            final_reasons.append(
+                "FIRECRAWL_CLOUD_DURABLE_CREDIT_LEDGER_REQUIRED"
+            )
     if (
         reservation is not None
         and reservation.status == WebCreditReservationStatus.reserved
@@ -683,7 +775,7 @@ def execute_firecrawl_cloud_markdown(
             reconciled = reconcile_firecrawl_cloud_credits(
                 credential,
                 transport=credit_transport,
-                fetched_at=now + timedelta(seconds=1),
+                fetched_at=_aware(final_time_source()),
             )
             after_snapshot = reconciled.snapshot
             actual_usage_ref, actual_credits = _actual_usage(
@@ -711,10 +803,29 @@ def execute_firecrawl_cloud_markdown(
                 final_evidence = None
                 final_reasons.append("FIRECRAWL_CLOUD_USAGE_PROOF_INCOMPLETE")
         else:
-            reservation = ledger.release(reservation.reservation_ref)
+            current_reservation = ledger.reservation_snapshot(
+                reservation.reservation_ref
+            )
+            if (
+                current_reservation is not None
+                and current_reservation.status
+                == WebCreditReservationStatus.reserved
+            ):
+                ledger.abort_unstarted(
+                    reservation.reservation_ref,
+                    authorized_decision=invocation,
+                    final_decision=attempt.final_invocation_decision,
+                    network_call_performed=attempt.network_call_performed,
+                )
+                reservation = ledger.release(reservation.reservation_ref)
+            elif current_reservation is not None:
+                reservation = current_reservation
+                final_status = WebProviderTransportStatus.blocked
+                final_evidence = None
+                final_reasons.append("FIRECRAWL_CLOUD_FINAL_START_FENCE_LOST")
     return _cloud_result(
         request=request,
-        invocation=invocation,
+        invocation=attempt.final_invocation_decision,
         reservation=reservation,
         credit_before=credit_snapshot,
         credit_after=after_snapshot,
@@ -727,7 +838,182 @@ def execute_firecrawl_cloud_markdown(
         in {WebProviderTransportStatus.succeeded, WebProviderTransportStatus.simulated}
         else tuple(dict.fromkeys(final_reasons)),
         gateway_audit_ref=attempt.gateway_audit_ref,
-        created_at=now,
+        created_at=attempt.final_invocation_decision.evaluated_at,
+    )
+
+
+def _evaluate_cloud_final_start_from_providers(
+    *,
+    request: FirecrawlCloudMarkdownRequest,
+    capability_state: WebProviderCapabilityState,
+    credit_snapshot: WebProviderCreditSnapshot | None,
+    reservation: WebProviderCreditReservation | None,
+    credential: FirecrawlCloudCredential,
+    approval_authority: LocalApprovalAuthority,
+    authority_leases: Sequence[AuthorityLease],
+    capability_state_provider: Callable[[], WebProviderCapabilityState] | None,
+    credit_snapshot_provider: Callable[[], WebProviderCreditSnapshot | None]
+    | None,
+    authority_leases_provider: Callable[[], Sequence[AuthorityLease]] | None,
+    evaluated_at: datetime,
+    live_transport_selected: bool,
+    crash_recovery_enabled: bool,
+) -> CapabilityInvocationDecision:
+    if live_transport_selected and (
+        capability_state_provider is None
+        or credit_snapshot_provider is None
+        or authority_leases_provider is None
+    ):
+        raise ValueError("FIRECRAWL_CLOUD_CURRENT_FINAL_START_PROVIDERS_REQUIRED")
+    return _evaluate_cloud_final_start(
+        request=request,
+        capability_state=(
+            capability_state_provider()
+            if capability_state_provider is not None
+            else capability_state
+        ),
+        credit_snapshot=(
+            credit_snapshot_provider()
+            if credit_snapshot_provider is not None
+            else credit_snapshot
+        ),
+        reservation=reservation,
+        credential=credential,
+        approval_authority=approval_authority,
+        authority_leases=(
+            authority_leases_provider()
+            if authority_leases_provider is not None
+            else authority_leases
+        ),
+        evaluated_at=evaluated_at,
+        crash_recovery_enabled=crash_recovery_enabled,
+        live_transport_selected=live_transport_selected,
+    )
+
+
+def _evaluate_cloud_final_start(
+    *,
+    request: FirecrawlCloudMarkdownRequest,
+    capability_state: WebProviderCapabilityState,
+    credit_snapshot: WebProviderCreditSnapshot | None,
+    reservation: WebProviderCreditReservation | None,
+    credential: FirecrawlCloudCredential,
+    approval_authority: LocalApprovalAuthority,
+    authority_leases: Sequence[AuthorityLease],
+    evaluated_at: datetime,
+    crash_recovery_enabled: bool,
+    live_transport_selected: bool,
+) -> CapabilityInvocationDecision:
+    snapshot = firecrawl_cloud_snapshot_from_state(capability_state)
+    manifest = build_firecrawl_cloud_capability_manifest()
+    task = TaskEnvelope(
+        task_id=request.task_ref,
+        user_request="Execute one exact governed cloud markdown extraction.",
+        objective="Return transient evidence with complete free-credit proof.",
+        selected_capability_ids=[FIRECRAWL_CLOUD_CAPABILITY_REF],
+        context={"approval_ref": request.approval_ref} if request.approval_ref else {},
+    )
+    context: dict[str, Any] = {
+        "coordination_mode": CoordinationMode.direct_tool.value,
+        "current_time": evaluated_at,
+        "mission_ref": request.mission_ref,
+        "run_ref": request.run_ref,
+        "request_fingerprint_ref": request.request_fingerprint_ref,
+        "resource_refs": list(_exact_cloud_resource_refs(request, credit_snapshot)),
+    }
+    if request.approval_ref:
+        context["approval_ref"] = request.approval_ref
+    local_approval = approval_authority.validate_approval(manifest, task, context)
+    policy_decision = PolicyEngine(approval_authority=approval_authority).can_execute(
+        manifest,
+        task,
+        context,
+    )
+    exact_refs = _exact_cloud_resource_refs(request, credit_snapshot)
+    observed_authority = evaluate_authority_request(
+        AuthorityActionRequest(
+            action_ref=stable_web_hybrid_ref(
+                "authority-action-ref",
+                {"request_ref": request.request_ref, "task_ref": request.task_ref},
+            ),
+            domain=AuthorityDomain.browser,
+            capability=AuthorityCapability.read,
+            safe_summary="Evaluate one exact free-plan cloud extraction attempt.",
+            resource_refs=list(exact_refs),
+            capability_ref=FIRECRAWL_CLOUD_CAPABILITY_REF,
+            lane_ref=FIRECRAWL_CLOUD_LANE_REF,
+            adapter_ref=FIRECRAWL_CLOUD_ADAPTER_REF,
+            rollback_ref="rollback-ref:web-access:firecrawl-cloud:disable",
+            safe_disable_ref="safe-disable-ref:web-access:firecrawl-cloud",
+        ),
+        list(authority_leases),
+        now=evaluated_at,
+    )
+    authority_decision = (
+        observed_authority
+        if authority_decision_has_exact_resource_scope(
+            observed_authority,
+            authority_leases,
+            exact_refs,
+            mission_ref=request.mission_ref,
+        )
+        else None
+    )
+    reasons = _cloud_preflight_reasons(
+        snapshot=snapshot,
+        credit_snapshot=credit_snapshot,
+        credential=credential,
+        request=request,
+        policy_allowed=policy_decision.allowed,
+        approval_allowed=local_approval.allowed,
+        authority_allowed=authority_decision is not None,
+        now=evaluated_at,
+    )
+    if capability_state.expires_at <= evaluated_at:
+        reasons.append("FINAL_START_CAPABILITY_OBSERVATION_STALE")
+    if request.start_deadline <= evaluated_at:
+        reasons.append("FINAL_START_DEADLINE_EXPIRED")
+    if live_transport_selected and not crash_recovery_enabled:
+        reasons.append("FIRECRAWL_CLOUD_DURABLE_CREDIT_LEDGER_REQUIRED")
+    if reservation is None:
+        reasons.append("FINAL_START_CREDIT_RESERVATION_MISSING")
+    else:
+        if reservation.status != WebCreditReservationStatus.reserved:
+            reasons.append("FINAL_START_CREDIT_RESERVATION_NOT_ACTIVE")
+        if credit_snapshot is None or reservation.snapshot_ref != credit_snapshot.snapshot_ref:
+            reasons.append("FINAL_START_CREDIT_SNAPSHOT_BINDING_MISMATCH")
+        if (
+            credit_snapshot is None
+            or reservation.billing_period_ref != credit_snapshot.billing_period_ref
+        ):
+            reasons.append("FINAL_START_CREDIT_BILLING_BINDING_MISMATCH")
+        if reservation.request_ref != request.request_ref:
+            reasons.append("FINAL_START_CREDIT_REQUEST_BINDING_MISMATCH")
+        if reservation.idempotency_ref != request.idempotency_ref:
+            reasons.append("FINAL_START_CREDIT_IDEMPOTENCY_BINDING_MISMATCH")
+    reasons = list(dict.fromkeys(reasons))
+    budget_decision = _budget_decision(request, reservation, reasons)
+    return evaluate_capability_invocation(
+        request=CapabilityInvocationRequest(
+            request_ref=request.request_ref,
+            snapshot_ref=snapshot.snapshot_ref,
+            capability_ref=FIRECRAWL_CLOUD_CAPABILITY_REF,
+            provider_ref=FIRECRAWL_CLOUD_PROVIDER_REF,
+            adapter_ref=FIRECRAWL_CLOUD_ADAPTER_REF,
+            task_ref=request.task_ref,
+            approval_ref=request.approval_ref,
+            budget_decision_ref=f"budget-decision-ref:{budget_decision.decision_id}",
+            authority_lease_required=True,
+            local_approval_required=True,
+            idempotency_posture=IdempotencyPosture.validated,
+            expected_execution_receipt_ref=request.expected_execution_receipt_ref,
+        ),
+        snapshot=snapshot,
+        policy_decision=policy_decision,
+        authority_decision=authority_decision,
+        local_approval_decision=local_approval,
+        budget_decision=budget_decision,
+        evaluated_at=evaluated_at,
     )
 
 
@@ -1169,6 +1455,11 @@ def _cloud_result(
             },
         ),
         request_ref=request.request_ref,
+        mission_ref=request.mission_ref,
+        run_ref=request.run_ref,
+        request_fingerprint_ref=request.request_fingerprint_ref,
+        start_deadline=request.start_deadline,
+        final_start_validated_at=invocation.evaluated_at,
         provider_ref=FIRECRAWL_CLOUD_PROVIDER_REF,
         deployment=WebProviderDeploymentKind.firecrawl_cloud,
         operation=WebProviderOperation.scrape_markdown,
@@ -1222,6 +1513,13 @@ def _exact_cloud_resource_refs(
     return (
         request.request_ref,
         request.task_ref,
+        request.mission_ref,
+        request.run_ref,
+        request.request_fingerprint_ref,
+        stable_web_hybrid_ref(
+            "start-deadline-ref",
+            {"start_deadline": request.start_deadline.isoformat()},
+        ),
         request.target_source_ref,
         request.idempotency_ref,
         request.routing_decision_ref,

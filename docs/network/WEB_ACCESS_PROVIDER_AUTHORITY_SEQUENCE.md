@@ -271,3 +271,23 @@ Official docs to re-check before implementation:
 - MDN HTTP methods documentation: method semantics for GET, POST, PUT, PATCH, DELETE, safety, and idempotency.
 
 This document is a sequencing reference. It does not grant runtime authority.
+The runtime-capability Phase 05 hardening keeps those exact lanes and adds a
+second evaluation inside each one-use transport-start boundary. The decision
+is bound to an exact mission and run, complete request fingerprint, start
+deadline, current capability observation, current LocalApprovalAuthority
+scope, current mission AuthorityLease, target, safe-disable posture, and—for
+the cloud lane—the current free-credit snapshot and active reservation. The
+hybrid fallback takes a new trusted time and re-reads provider and credit truth
+after the local attempt. This does not enable another provider, browser action,
+paid use, memory write, or context injection.
+
+Marked real cloud transports also require the bounded append-first
+`DurableWebCreditLedger`. Its hash-chained local journal preserves reservation,
+irreversible start-claim, and settlement/recovery posture across restart;
+symlink, FIFO, truncated, oversized, or chain-invalid state fails closed.
+
+Bounded cited research aggregation is a separate pure read model over injected
+receipts. It records safe source, evidence, audit, adapter, retrieval,
+redaction, provider-readiness, latency, context, routing, cost, and exclusion
+refs. It performs no retrieval itself, stores no raw query or page, and keeps
+`content_untrusted=true` and `not_instruction_authority=true`.

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
+from itertools import islice
 from typing import Any, Iterable
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -182,7 +183,9 @@ def _status(value: Any) -> str:
 
 def _record_ref(record: dict[str, Any]) -> str:
     memory_id = _safe_text(record.get("memory_id"), "memory_id")
-    return f"memory-record-ref:{memory_id}"
+    ref = f"memory-record-ref:{memory_id}"
+    _validate_safe_ref(ref, "memory_record_ref")
+    return ref
 
 
 def _bounded_limit(limit: int) -> int:
@@ -217,6 +220,12 @@ class L1HotMemoryPreview(BaseModel):
     query_mode: str = "default"
     safe_query_ref: str | None = None
     epistemic_role: str = "unknown"
+    data_classification: str = "unknown"
+    sensitivity: str = "unknown"
+    confidence_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    trust_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    expires_at: datetime | None = None
+    checked_at: datetime = Field(default_factory=utc_now)
     context_injection_authorized: bool = False
     automatic_recall_authorized: bool = False
     automatic_memory_write_authorized: bool = False
@@ -264,6 +273,8 @@ class L1HotMemoryPreview(BaseModel):
             _validate_safe_text(str(getattr(self, text_field)), text_field)
         _validate_safe_text(self.query_mode, "query_mode")
         _validate_safe_text(self.epistemic_role, "epistemic_role")
+        _validate_safe_text(self.data_classification, "data_classification")
+        _validate_safe_text(self.sensitivity, "sensitivity")
         if self.safe_query_ref is not None:
             _validate_safe_ref(self.safe_query_ref, "safe_query_ref")
         for reason in self.match_reasons:
@@ -294,10 +305,14 @@ class L1HotMemoryIndex(BaseModel):
     safe_query_ref: str | None = None
     query_mode: str = "default"
     generated_at: datetime = Field(default_factory=utc_now)
+    scan_limit: int = Field(default=200, ge=1, le=500)
+    scanned_record_count: int = Field(default=0, ge=0)
+    scan_truncated: bool = False
     indexed_record_count: int = Field(default=0, ge=0)
     preview_count: int = Field(default=0, ge=0)
     previews: list[L1HotMemoryPreview] = Field(default_factory=list)
     skipped_record_refs: list[str] = Field(default_factory=list)
+    skipped_record_reasons: dict[str, str] = Field(default_factory=dict)
     skipped_record_count: int = Field(default=0, ge=0)
     safe_refs_only: bool = True
     retrieval_strategy_refs: list[str] = Field(default_factory=list)
@@ -338,6 +353,9 @@ class L1HotMemoryIndex(BaseModel):
             _validate_safe_ref(ref, "retrieval_strategy_refs")
         for ref in self.skipped_record_refs:
             _validate_safe_ref(ref, "skipped_record_refs")
+        for ref, reason_ref in self.skipped_record_reasons.items():
+            _validate_safe_ref(ref, "skipped_record_reasons")
+            _validate_safe_ref(reason_ref, "skipped_record_reasons")
         for ref in self.blocked_state_refs:
             _validate_safe_ref(ref, "blocked_state_refs")
         for flag in _DENIED_AUTHORITY_FLAGS:
@@ -351,7 +369,47 @@ class L1HotMemoryIndex(BaseModel):
             raise ValueError("preview_count must match previews")
         if self.skipped_record_count != len(self.skipped_record_refs):
             raise ValueError("skipped_record_count must match skipped refs")
+        if self.scanned_record_count > self.scan_limit:
+            raise ValueError("scanned record count exceeds scan limit")
+        if set(self.skipped_record_reasons) != set(self.skipped_record_refs):
+            raise ValueError("every skipped record requires one exclusion reason")
         return self
+
+
+def _eligibility_exclusion_reason(
+    record: dict[str, Any],
+    *,
+    checked_at: datetime,
+) -> str | None:
+    if _status(record.get("review_state")) != "user_reviewed":
+        return "excluded-reason-ref:l1-memory:not-reviewed"
+    if _status(record.get("authority_level")) != "recall_only":
+        return "excluded-reason-ref:l1-memory:not-recall-only"
+    status = _status(record.get("status"))
+    if status != "active":
+        return "excluded-reason-ref:l1-memory:inactive-status"
+    retention_state = _status(record.get("retention_state"))
+    if retention_state != "active":
+        return "excluded-reason-ref:l1-memory:inactive-retention"
+    stale_state = _status(record.get("stale_state"))
+    if stale_state != "none":
+        return "excluded-reason-ref:l1-memory:stale"
+    conflict_state = _status(record.get("conflict_state"))
+    if conflict_state != "none":
+        return "excluded-reason-ref:l1-memory:conflict"
+    expires_at = record.get("expires_at")
+    if expires_at:
+        try:
+            parsed_expiry = datetime.fromisoformat(
+                str(expires_at).replace("Z", "+00:00")
+            )
+        except ValueError:
+            return "excluded-reason-ref:l1-memory:expiry-unknown"
+        if parsed_expiry.tzinfo is None:
+            parsed_expiry = parsed_expiry.replace(tzinfo=timezone.utc)
+        if parsed_expiry <= checked_at.astimezone(timezone.utc):
+            return "excluded-reason-ref:l1-memory:expired"
+    return None
 
 
 def build_l1_hot_memory_index(
@@ -360,6 +418,8 @@ def build_l1_hot_memory_index(
     query_ref: str | None = None,
     safe_query: str | None = None,
     search_index_status: dict[str, Any] | None = None,
+    checked_at: datetime | None = None,
+    scan_limit: int = 200,
     limit: int = 20,
 ) -> L1HotMemoryIndex:
     safe_query_ref, hashed_safe_query_ref, query_mode = validate_query_mode(
@@ -369,12 +429,39 @@ def build_l1_hot_memory_index(
     safe_query_text = _safe_text(safe_query, "safe_query") if safe_query else None
     previews: list[L1HotMemoryPreview] = []
     skipped_record_refs: list[str] = []
-    for raw_record in records:
+    skipped_record_reasons: dict[str, str] = {}
+    effective_checked_at = checked_at or utc_now()
+    if effective_checked_at.tzinfo is None:
+        effective_checked_at = effective_checked_at.replace(tzinfo=timezone.utc)
+    bounded_scan_limit = max(1, min(int(scan_limit), 500))
+    scanned_records = list(islice(records, bounded_scan_limit + 1))
+    scan_truncated = len(scanned_records) > bounded_scan_limit
+    for record_index, raw_record in enumerate(scanned_records[:bounded_scan_limit]):
+        unsafe_record_ref = (
+            f"memory-record-ref:unsafe-record-blocked:slot-{record_index:04d}"
+        )
         record = (
             raw_record.model_dump(mode="json")
             if hasattr(raw_record, "model_dump")
             else dict(raw_record)
         )
+        try:
+            record_ref = _record_ref(record)
+            exclusion_reason = _eligibility_exclusion_reason(
+                record,
+                checked_at=effective_checked_at,
+            )
+            if exclusion_reason is not None:
+                skipped_record_refs.append(record_ref)
+                skipped_record_reasons[record_ref] = exclusion_reason
+                continue
+        except ValueError:
+            record_ref = unsafe_record_ref
+            skipped_record_refs.append(record_ref)
+            skipped_record_reasons[record_ref] = (
+                "excluded-reason-ref:l1-memory:unsafe-record"
+            )
+            continue
         try:
             preview = _preview_for_record(
                 record,
@@ -382,28 +469,53 @@ def build_l1_hot_memory_index(
                 safe_query=safe_query_text,
                 safe_query_ref=hashed_safe_query_ref,
                 query_mode=query_mode,
+                checked_at=effective_checked_at,
             )
         except ValueError:
             try:
-                skipped_record_refs.append(_record_ref(record))
+                record_ref = _record_ref(record)
             except ValueError:
-                skipped_record_refs.append("memory-record-ref:unsafe-record-blocked")
+                record_ref = unsafe_record_ref
+            skipped_record_refs.append(record_ref)
+            skipped_record_reasons[record_ref] = (
+                "excluded-reason-ref:l1-memory:invalid-or-ineligible"
+            )
             continue
         if preview is not None:
             previews.append(preview)
-    previews = sorted(
+        else:
+            skipped_record_refs.append(record_ref)
+            skipped_record_reasons[record_ref] = (
+                "excluded-reason-ref:l1-memory:query-no-match"
+            )
+    ranked_previews = sorted(
         previews,
         key=lambda preview: (-preview.score, preview.memory_record_ref),
-    )[: _bounded_limit(limit)]
+    )
+    bounded_preview_limit = _bounded_limit(limit)
+    for overflow in ranked_previews[bounded_preview_limit:]:
+        skipped_record_refs.append(overflow.memory_record_ref)
+        skipped_record_reasons[overflow.memory_record_ref] = (
+            "excluded-reason-ref:l1-memory:rank-limit"
+        )
+    previews = ranked_previews[:bounded_preview_limit]
     skipped_record_refs = list(dict.fromkeys(skipped_record_refs))
+    skipped_record_reasons = {
+        ref: skipped_record_reasons[ref] for ref in skipped_record_refs
+    }
     return L1HotMemoryIndex(
         query_ref=safe_query_ref,
         safe_query_ref=hashed_safe_query_ref,
         query_mode=query_mode,
+        generated_at=effective_checked_at,
+        scan_limit=bounded_scan_limit,
+        scanned_record_count=min(len(scanned_records), bounded_scan_limit),
+        scan_truncated=scan_truncated,
         indexed_record_count=len(previews),
         preview_count=len(previews),
         previews=previews,
         skipped_record_refs=skipped_record_refs,
+        skipped_record_reasons=skipped_record_reasons,
         skipped_record_count=len(skipped_record_refs),
         retrieval_strategy_refs=_retrieval_strategy_refs(
             query_mode=query_mode,
@@ -420,13 +532,10 @@ def _preview_for_record(
     safe_query: str | None,
     safe_query_ref: str | None,
     query_mode: str,
+    checked_at: datetime,
 ) -> L1HotMemoryPreview | None:
-    if _status(record.get("review_state")) != "user_reviewed":
-        raise ValueError("unreviewed memory records are not L1 eligible")
-    if _status(record.get("authority_level")) != "recall_only":
-        raise ValueError("non-recall memory records are not L1 eligible")
-    if _status(record.get("retention_state")) != "active":
-        raise ValueError("inactive memory records are not L1 eligible")
+    if _eligibility_exclusion_reason(record, checked_at=checked_at) is not None:
+        raise ValueError("memory record is not L1 eligible")
     recall_metadata = record.get("recall_metadata") or {}
     metadata = record.get("metadata") or {}
     if bool(recall_metadata.get("context_pack_eligible")):
@@ -552,6 +661,21 @@ def _preview_for_record(
         query_mode=query_mode,
         safe_query_ref=safe_query_ref,
         epistemic_role=_safe_text(record.get("epistemic_role") or "unknown", "epistemic_role"),
+        data_classification=_safe_text(
+            record.get("data_classification") or "unknown",
+            "data_classification",
+        ),
+        sensitivity=_safe_text(
+            record.get("sensitivity") or "unknown",
+            "sensitivity",
+        ),
+        confidence_score=max(
+            0.0,
+            min(float(record.get("confidence_score") or 0.0), 1.0),
+        ),
+        trust_score=max(0.0, min(float(record.get("trust_score") or 0.0), 1.0)),
+        expires_at=record.get("expires_at"),
+        checked_at=checked_at,
     )
 
 

@@ -101,7 +101,7 @@ The coverage rows are intentionally product-operational:
 - W6 Code Mode discipline
 - W7 web and external evidence
 - W8 model/provider management
-- W9 signed evidence receipts
+- W9 local hash-integrity evidence receipts (legacy signed identifiers)
 - W10 extensibility/catalog maturity
 - W11 end-to-end Founder Loop
 - W12 system-level agent evals

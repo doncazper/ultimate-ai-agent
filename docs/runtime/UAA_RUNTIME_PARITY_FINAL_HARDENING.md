@@ -13,7 +13,7 @@ surfaces together for operators:
 - role-based model/provider evidence;
 - Action Inbox approval envelope;
 - exact action receipt;
-- local signed evidence;
+- local SHA-256 hash-integrity evidence (legacy signed identifiers only);
 - blocked, degraded, retry, and recovery posture.
 
 ## Implemented Surfaces

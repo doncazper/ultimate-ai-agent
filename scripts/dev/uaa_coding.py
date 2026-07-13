@@ -238,7 +238,10 @@ def build_parser() -> argparse.ArgumentParser:
     patch_proposal.set_defaults(func=inspect_patch_proposal)
     patch_proposal_evidence = subparsers.add_parser(
         "verify-patch-proposal-evidence",
-        help="Verify the deterministic signed evidence for the patch proposal preview.",
+        help=(
+            "Verify deterministic SHA-256 hash-integrity evidence for the patch "
+            "proposal preview; this is not a cryptographic signature."
+        ),
     )
     patch_proposal_evidence.add_argument(
         "--pretty",

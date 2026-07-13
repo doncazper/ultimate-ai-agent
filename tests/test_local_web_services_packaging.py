@@ -41,12 +41,14 @@ def test_provider_lock_pins_all_images_and_records_capability_limits() -> None:
 
 
 def test_compose_publishes_only_adapter_apis_on_loopback() -> None:
-    if shutil.which("docker") is None:
+    docker_compose = shutil.which("docker-compose")
+    docker = shutil.which("docker")
+    if docker_compose is None and docker is None:
         pytest.skip("Docker is unavailable")
+    compose_command = [docker_compose] if docker_compose is not None else [docker, "compose"]
     result = subprocess.run(
-        [
-            "docker",
-            "compose",
+        compose_command
+        + [
             "-f",
             str(PACKAGE / "compose.yaml"),
             "config",

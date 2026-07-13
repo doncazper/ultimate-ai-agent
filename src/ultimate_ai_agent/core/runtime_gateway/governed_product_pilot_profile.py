@@ -181,6 +181,18 @@ class GovernedProductPilotPortableEvidenceEnvelope(BaseModel):
     envelope_hash_ref: str
     signed_envelope_ref: str
     signature_scheme_ref: str = "signature-scheme-ref:local-sha256-envelope-v1"
+    integrity_scheme_ref: Literal[
+        "integrity-scheme-ref:local-sha256-hash-v1"
+    ] = "integrity-scheme-ref:local-sha256-hash-v1"
+    integrity_posture: Literal[
+        "sha256_hash_only_not_a_cryptographic_signature"
+    ] = "sha256_hash_only_not_a_cryptographic_signature"
+    cryptographic_signature_present: Literal[False] = False
+    signing_status: Literal["blocked_signing_lifecycle_not_implemented"] = (
+        "blocked_signing_lifecycle_not_implemented"
+    )
+    external_anchor_verified: Literal[False] = False
+    legacy_signed_envelope_ref_is_hash_only: Literal[True] = True
     public_notarization_enabled: bool = False
     signing_key_material_persisted: bool = False
     safe_refs_only: bool = True
@@ -251,6 +263,11 @@ class GovernedProductPilotEvidenceVerificationResult(BaseModel):
     required_fields_present: bool
     envelope_hash_valid: bool
     signed_envelope_ref_valid: bool
+    cryptographic_signature_verified: Literal[False] = False
+    signing_status: Literal["blocked_signing_lifecycle_not_implemented"] = (
+        "blocked_signing_lifecycle_not_implemented"
+    )
+    external_anchor_verified: Literal[False] = False
     redaction_status_valid: bool
     tamper_detected: bool
     safe_refs_only: bool
@@ -617,14 +634,43 @@ def build_portable_evidence_envelope() -> GovernedProductPilotPortableEvidenceEn
 def verify_portable_evidence_envelope(
     envelope: Mapping[str, Any] | GovernedProductPilotPortableEvidenceEnvelope,
 ) -> GovernedProductPilotEvidenceVerificationResult:
-    payload = (
+    raw_payload = (
         envelope.model_dump(mode="json")
         if isinstance(envelope, GovernedProductPilotPortableEvidenceEnvelope)
         else dict(envelope)
     )
     missing_fields = [
-        field for field in PORTABLE_EVIDENCE_REQUIRED_FIELDS if field not in payload
+        field for field in PORTABLE_EVIDENCE_REQUIRED_FIELDS if field not in raw_payload
     ]
+    try:
+        parsed = GovernedProductPilotPortableEvidenceEnvelope.model_validate(
+            raw_payload
+        )
+    except ValueError:
+        failure_refs = ["failure-reason-ref:portable-evidence-contract-invalid"]
+        if any(
+            bool(raw_payload.get(field))
+            for field in PORTABLE_EVIDENCE_REDACTION_FIELDS
+        ):
+            failure_refs.append(
+                "failure-reason-ref:portable-evidence-redaction-status-invalid"
+            )
+        return GovernedProductPilotEvidenceVerificationResult(
+            envelope_ref=(
+                "evidence-envelope-ref:governed-product-pilot-profile-invalid"
+            ),
+            verification_status="failed",
+            required_fields_present=not missing_fields,
+            envelope_hash_valid=False,
+            signed_envelope_ref_valid=False,
+            redaction_status_valid=False,
+            tamper_detected=True,
+            safe_refs_only=False,
+            missing_field_refs=[_missing_field_ref(field) for field in missing_fields],
+            failure_reason_refs=failure_refs,
+            evidence_refs=[],
+        )
+    payload = parsed.model_dump(mode="json")
     required_fields_present = not missing_fields
     envelope_ref = str(
         payload.get(
@@ -807,7 +853,8 @@ def _pilot_capabilities() -> list[GovernedProductPilotAuthorityCapability]:
             title="Portable evidence envelopes",
             status="profile_ready",
             full_strength_goal=(
-                "Receipts can be inspected offline as portable signed evidence envelopes."
+                "Receipts can be inspected offline as portable hash-integrity "
+                "evidence envelopes."
             ),
             repo_safe_status=(
                 "Local hash envelope contract covers safe refs, policy, approval, "

@@ -1306,7 +1306,7 @@ function backendOwnedHighMaturitySpineReadiness(
     "Code Mode discipline",
     "Web and external evidence",
     "Model and provider management",
-    "Signed evidence receipts",
+    "Local hash-integrity evidence receipts",
     "Extensibility and catalog maturity",
     "End-to-end Founder Loop",
     "System-level agent evals",
@@ -1367,6 +1367,29 @@ function backendOwnedHighMaturitySpineReadiness(
           "Operator can inspect this surface before choosing a safe next action.",
       })),
     },
+    external_information_handling: {
+      ...base.external_information_handling,
+      status: "implemented_read_only_posture_map_existing_lanes_only",
+      source: "python_core_agent_loop_thread_read_model",
+      backend_owned: true,
+      implemented_or_blocked_count: 8,
+      existing_exact_network_lane_count: 4,
+      exact_bounded_provider_lanes_implemented: true,
+      rows: base.external_information_handling.rows.map((row) => {
+        const exactLaneCount =
+          row.category_id === "allowlisted_gateway_preview"
+            ? 1
+            : row.category_id === "provider_search_scrape"
+              ? 3
+              : 0;
+        return {
+          ...row,
+          status: "implemented_or_governed_blocked",
+          existing_exact_network_lane: exactLaneCount > 0,
+          exact_network_lane_count: exactLaneCount,
+        };
+      }),
+    },
     ...overrides,
   };
 }
@@ -1374,6 +1397,8 @@ function backendOwnedHighMaturitySpineReadiness(
 function backendOwnedFounderAgentLoopThread(
   overrides: Record<string, unknown> = {},
 ) {
+  const intentFingerprint =
+    "intent-fingerprint-ref:sha256:apptest0000000000000000000000000";
   return {
     ...mockControlCenterData.founderAgentLoopThread,
     thread_ref: "agent-loop-thread:app-test:current",
@@ -1381,6 +1406,69 @@ function backendOwnedFounderAgentLoopThread(
     capability_status: "partial",
     source: "python_core_agent_loop_thread_read_model",
     backend_owned: true,
+    reasoning_truth: {
+      ...mockControlCenterData.founderAgentLoopThread.reasoning_truth,
+      intent_ref: "intent-ref:app-test:current",
+      intent_fingerprint_ref: intentFingerprint,
+      request_fingerprint_ref:
+        "intent-request-fingerprint-ref:sha256:apptest000000000000000000000",
+      safe_summary:
+        "Backend-owned deterministic reasoning truth for the current test thread.",
+      facts: [
+        {
+          statement_ref: "fact-ref:app-test:backend-owned-truth",
+          kind: "fact",
+          safe_summary:
+            "Python Core supplied the current reasoning truth read model.",
+          source_refs: ["source-ref:app-test:python-core"],
+          evidence_refs: ["evidence-ref:app-test:agent-loop"],
+          review_required: false,
+        },
+      ],
+      assumptions: [
+        {
+          statement_ref: "assumption-ref:app-test:operator-review",
+          kind: "assumption",
+          safe_summary: "The operator will review the selected scope.",
+          source_refs: ["source-ref:app-test:operator-shell"],
+          evidence_refs: [],
+          review_required: true,
+        },
+      ],
+      unknowns: [
+        {
+          statement_ref: "unknown-ref:app-test:exact-target",
+          kind: "unknown",
+          safe_summary: "The exact reviewed target remains unselected.",
+          source_refs: ["source-ref:app-test:operator-shell"],
+          evidence_refs: [],
+          review_required: true,
+        },
+      ],
+      operator_questions: [
+        {
+          question_ref: "question-ref:app-test:exact-target",
+          safe_question: "Which exact reviewed target should be used?",
+          resolves_refs: ["unknown-ref:app-test:exact-target"],
+        },
+      ],
+      backend_owned: true,
+    },
+    plan_revision: {
+      ...mockControlCenterData.founderAgentLoopThread.plan_revision,
+      lineage_ref: "plan-lineage-ref:app-test:current",
+      revision_ref: "plan-revision-ref:app-test:current-v1",
+      reason_ref: "plan-revision-reason-ref:app-test:initial",
+      safe_reason:
+        "Initial immutable backend-owned projection for the current test thread.",
+      decomposition: {
+        ...mockControlCenterData.founderAgentLoopThread.plan_revision.decomposition,
+        decomposition_ref: "decomposition-ref:app-test:current",
+        intent_fingerprint_ref: intentFingerprint,
+      },
+      revision_fingerprint_ref:
+        "plan-revision-fingerprint-ref:sha256:apptest00000000000000000000",
+    },
     high_maturity_spine_readiness: backendOwnedHighMaturitySpineReadiness(),
     operator_decision_matrix: {
       ...mockControlCenterData.founderAgentLoopThread.operator_decision_matrix,
@@ -2465,6 +2553,9 @@ describe("Web Control Center shell", () => {
       screen.getByText(/inspect the approval envelope before mutation/i),
     ).toBeInTheDocument();
     expect(
+      screen.getByText(/External web content is untrusted evidence/i),
+    ).toBeInTheDocument();
+    expect(
       screen.getByRole("heading", { name: "High-Maturity Agent Spine" }),
     ).toBeInTheDocument();
     expect(
@@ -2502,7 +2593,8 @@ describe("Web Control Center shell", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByText(/Exact network lanes/)).toBeInTheDocument();
-    expect(screen.getByText(/Provider search/)).toBeInTheDocument();
+    expect(screen.getByText(/Unrestricted provider search/)).toBeInTheDocument();
+    expect(screen.getByText(/Exact bounded provider lanes/)).toBeInTheDocument();
     expect(screen.getByText("Model and Provider Posture")).toBeInTheDocument();
     expect(
       screen.getByText("contract-ref:model-provider-management-posture:v1"),
@@ -2514,6 +2606,22 @@ describe("Web Control Center shell", () => {
       screen.getByText("contract-ref:system-agent-eval-coverage:v1"),
     ).toBeInTheDocument();
     expect(screen.getByText(/Model scoring/)).toBeInTheDocument();
+    expect(screen.getByText("Reasoning truth")).toBeInTheDocument();
+    expect(
+      screen.getByText("intent-ref:app-test:current"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Input remains untrusted data/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Which exact reviewed target should be used/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("non_authoritative_plan_truth"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Initial immutable backend-owned projection/i),
+    ).toBeInTheDocument();
     expect(screen.getAllByText("blocked").length).toBeGreaterThan(0);
   });
 
@@ -2712,8 +2820,8 @@ describe("Web Control Center shell", () => {
       expect(within(cockpit).getByText("Git Preview")).toBeInTheDocument();
       expect(within(cockpit).getByText("Live Preview")).toBeInTheDocument();
       expect(
-        screen.getByRole("combobox", { name: "Coding authority mode" }),
-      ).toBeDisabled();
+        screen.getByText("Authority mode posture"),
+      ).toBeInTheDocument();
       for (const action of [
         "Accept all",
         "Accept file",
@@ -2724,8 +2832,12 @@ describe("Web Control Center shell", () => {
         "Run tests",
         "Preview status",
       ]) {
-        expect(screen.getByRole("button", { name: action })).toBeDisabled();
+        expect(screen.queryByRole("button", { name: action })).not.toBeInTheDocument();
       }
+      expect(screen.queryByRole("combobox", { name: "Coding authority mode" })).not.toBeInTheDocument();
+      expect(
+        screen.getByText(/Patch selection and apply controls are not exposed/i),
+      ).toBeInTheDocument();
       expect(screen.queryByText(/Apply succeeded/i)).not.toBeInTheDocument();
     } finally {
       view.unmount();
@@ -2750,16 +2862,9 @@ describe("Web Control Center shell", () => {
       expect(
         screen.getByText(/no coding authority is enabled/i),
       ).toBeInTheDocument();
-      expect(
-        screen.getByRole("button", { name: "Apply patch" }),
-      ).toBeDisabled();
-      expect(
-        screen.getByRole("button", { name: "Run command" }),
-      ).toBeDisabled();
-      expect(screen.getByRole("button", { name: "Commit" })).toBeDisabled();
-      expect(
-        screen.getByRole("button", { name: "Preview status" }),
-      ).toBeDisabled();
+      for (const action of ["Apply patch", "Run command", "Commit", "Preview status"]) {
+        expect(screen.queryByRole("button", { name: action })).not.toBeInTheDocument();
+      }
     } finally {
       view.unmount();
       cleanup();
@@ -5869,7 +5974,10 @@ describe("Web Control Center shell", () => {
           return new Response(
             JSON.stringify({
               ok: false,
-              error: { message: "Turn router preview unavailable." },
+              error: {
+                safe_message: "Turn router preview unavailable.",
+                details_redacted: true,
+              },
             }),
             { status: 503, headers: { "Content-Type": "application/json" } },
           );
@@ -6827,6 +6935,9 @@ describe("Web Control Center shell", () => {
     expect(catalog).toHaveTextContent("Compatibility source");
     expect(catalog).toHaveTextContent("Exact local capability");
     expect(catalog).toHaveTextContent("Exact runtime capability");
+    expect(catalog).toHaveTextContent("Canonical mission dispatch");
+    expect(catalog).toHaveTextContent("Availability snapshot");
+    expect(catalog).toHaveTextContent("Execution path");
     expect(catalog).not.toHaveTextContent("Exact local lane");
     expect(catalog).not.toHaveTextContent("Exact runtime lane");
     expect(catalog).toHaveTextContent("Generic tool execution");
@@ -8612,6 +8723,20 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByText(/Skill bundle tool execution enabled: no/i),
     ).toBeInTheDocument();
+    expect(screen.getByText(/Inspectable catalog entries: 3/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Catalog visibility grants authority: no/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Fresh request-scoped invocation decision required: yes/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Inspectable extensions are never globally callable/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Plugin metadata boundary: runtime-boundary-ref:plugin-metadata-posture/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText("safe-disable-ref:extension-metadata-inspection")).toBeInTheDocument();
+    expect(screen.getByText("rollback-ref:extension-metadata-inspection:disable")).toBeInTheDocument();
+    expect(screen.getAllByText(/authority blocked/i).length).toBeGreaterThan(0);
   }, 30000);
 
   it("renders clear headings for every local shell page", async () => {
@@ -10487,7 +10612,10 @@ describe("Web Control Center shell", () => {
           return new Response(
             JSON.stringify({
               ok: false,
-              error: { message: "Action Inbox read model unavailable" },
+              error: {
+                safe_message: "Action Inbox read model unavailable",
+                details_redacted: true,
+              },
             }),
             {
               status: 503,
@@ -11383,7 +11511,7 @@ describe("Web Control Center shell", () => {
       {
         path: "/settings",
         heading: /^Settings$/,
-        marker: /Backend-owned Settings status/i,
+        marker: /Non-authoritative Settings fallback/i,
         route: /GET \/control-center\/settings\/status/i,
       },
     ] as const;
@@ -11666,7 +11794,13 @@ describe("Web Control Center shell", () => {
       next_safe_action:
         "Issue the mission-scoped AuthorityLease with the displayed domain scope.",
     };
-    let settingsStatus = mockControlCenterData.settingsStatus;
+    let settingsStatus = {
+      ...mockControlCenterData.settingsStatus,
+      authority_lease_state: {
+        ...mockControlCenterData.settingsStatus.authority_lease_state,
+        backend_owned: true,
+      },
+    };
     const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
       const urlText = String(url);
       if (
@@ -11720,6 +11854,7 @@ describe("Web Control Center shell", () => {
           ...mockControlCenterData.settingsStatus,
           authority_lease_state: {
             ...mockControlCenterData.settingsStatus.authority_lease_state,
+            backend_owned: true,
             active_mode: "approved_safe_local_work_session",
             active_leases: [nextLease],
             recent_receipts: [nextReceipt],
@@ -11754,6 +11889,7 @@ describe("Web Control Center shell", () => {
           ...mockControlCenterData.settingsStatus,
           authority_lease_state: {
             ...mockControlCenterData.settingsStatus.authority_lease_state,
+            backend_owned: true,
             active_mode: "read_only",
             active_leases:
               mockControlCenterData.settingsStatus.authority_lease_state.active_leases,
@@ -12121,6 +12257,9 @@ describe("Web Control Center shell", () => {
     expect(JSON.stringify(missionIssueRequest.headers)).toContain(
       "idempotency-ref:control-center-authority-lease",
     );
+    const missionIssueBody = JSON.parse(String(missionIssueRequest.body));
+    expect(missionIssueBody).not.toHaveProperty("approved_by_actor_ref");
+    expect(missionIssueBody).not.toHaveProperty("approval_safe_summary");
 
     fireEvent.click(screen.getByRole("button", { name: "Safe local work" }));
     const issueResult = await screen.findByLabelText(
@@ -12184,6 +12323,8 @@ describe("Web Control Center shell", () => {
     expect(safeLocalRequest.lease_issue_request.safe_summary).toContain(
       "backend AuthorityLease mode catalog",
     );
+    expect(safeLocalRequest).not.toHaveProperty("approved_by_actor_ref");
+    expect(safeLocalRequest).not.toHaveProperty("approval_safe_summary");
 
     fireEvent.click(screen.getByRole("button", { name: "Revoke active lease" }));
     await waitFor(() =>
@@ -12386,7 +12527,7 @@ describe("Web Control Center shell", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "lane-ref:web-evidence:allowlisted-https-get-through-web-access-gateway",
+        /lane-ref:web-evidence:allowlisted-https-get-through-web-access-gateway/,
       ),
     ).toBeInTheDocument();
     expect(
@@ -12422,6 +12563,36 @@ describe("Web Control Center shell", () => {
 
     vi.unstubAllGlobals();
   }, 10_000);
+
+  it("disables AuthorityLease mutations for fallback Settings truth", async () => {
+    const fetchMock = vi.fn(async (_url: string, _options?: RequestInit) => {
+      throw new Error("backend unavailable");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/settings");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /Non-authoritative Settings fallback/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Authority mutations are disabled/i),
+    ).toBeInTheDocument();
+    for (const label of [
+      "Read-only",
+      "Ask before changes",
+      "Safe local work",
+      "Full workspace",
+      "Full machine",
+      "Delegated mission",
+      "Revoke active lease",
+    ]) {
+      expect(screen.getByRole("button", { name: label })).toBeDisabled();
+    }
+    expect(
+      fetchMock.mock.calls.filter(([, init]) => init?.method === "POST"),
+    ).toHaveLength(0);
+  });
 
   it("fails closed for unsafe model provider control-plane payloads", async () => {
     const unsafeControlPlane = JSON.parse(
@@ -12651,6 +12822,51 @@ describe("Web Control Center shell", () => {
         name: /test provider|call provider|invoke provider/i,
       }),
     ).not.toBeInTheDocument();
+
+    vi.unstubAllGlobals();
+  });
+
+  it("fails closed for plugin governance aggregate and safe-ref drift", async () => {
+    const unsafeDashboard = JSON.parse(
+      JSON.stringify(mockApiData.dashboard),
+    ) as Record<string, unknown>;
+    const unsafePlugin = JSON.parse(
+      JSON.stringify(mockControlCenterData.dashboard.plugin_governance_summary),
+    ) as Record<string, unknown>;
+    unsafePlugin.blocked_validation_count = 0;
+    unsafePlugin.availability_snapshot_count = 5;
+    unsafePlugin.safe_disable_refs = ["https://unsafe.example"];
+    unsafeDashboard.plugin_governance_summary = unsafePlugin;
+
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      const urlText = String(url);
+      if (!options?.method && urlText.endsWith(API_ENDPOINTS.controlCenterDashboard)) {
+        return new Response(JSON.stringify({ ok: true, result: unsafeDashboard }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (
+        !options?.method &&
+        READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))
+      ) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/plugin-governance");
+    render(<App />);
+
+    expect(await screen.findByText("Plugin Governance")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Catalog visibility grants authority: no/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Catalog visibility grants authority: yes/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/99 blocked/i)).not.toBeInTheDocument();
 
     vi.unstubAllGlobals();
   });
@@ -14274,7 +14490,7 @@ describe("Web Control Center shell", () => {
     expect(screen.queryByText(/\/home\//i)).not.toBeInTheDocument();
   });
 
-  it("renders M37 file review packets with review-only approval capture controls", async () => {
+  it("renders M37 file review packets without local approval capture controls", async () => {
     mockFetchWithFallback();
     window.history.pushState({}, "", "/files/review");
     render(<App />);
@@ -14328,19 +14544,19 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText(/Receipt plan metadata/i)).toBeInTheDocument();
     expect(screen.getByText(/raw content stored: no/i)).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /approve review-only/i }),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: /approve review-only/i }),
+    ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /deny review-only/i }),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: /deny review-only/i }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByText(
-        /captures a review-only approval record bound to this exact redacted packet/i,
+        /cannot submit or persist a decision/i,
       ),
     ).toBeInTheDocument();
     expect(
       screen.getAllByText(
-        /does not grant raw file access, context proposal, context injection, memory writes, export, or execution/i,
+        /grants no raw file access, context proposal, context injection, memory writes, export, or execution/i,
       ).length,
     ).toBeGreaterThan(0);
   });
@@ -14405,11 +14621,11 @@ describe("Web Control Center shell", () => {
       ).not.toBeInTheDocument();
     }
     expect(
-      screen.getByRole("button", { name: /approve review-only/i }),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: /approve review-only/i }),
+    ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /deny review-only/i }),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: /deny review-only/i }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText(/raw_content/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/full_file_content/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/unredacted_preview/i)).not.toBeInTheDocument();
@@ -14420,7 +14636,7 @@ describe("Web Control Center shell", () => {
     expect(screen.queryByText(/supersecretvalue123/i)).not.toBeInTheDocument();
   });
 
-  it("captures a mock M37 review-only decision without authority", async () => {
+  it("does not synthesize a persisted M37 decision in React state", async () => {
     mockFetchWithFallback();
     window.history.pushState({}, "", "/files/review");
     render(<App />);
@@ -14428,12 +14644,11 @@ describe("Web Control Center shell", () => {
     expect(
       await screen.findByRole("heading", { name: /File Review Surface/i }),
     ).toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole("button", { name: /approve review-only/i }),
-    );
-
-    expect(screen.getByText(/approved_for_review_only/i)).toBeInTheDocument();
-    expect(screen.getByText(/capture persisted: yes/i)).toBeInTheDocument();
+    expect(screen.queryByText(/approved_for_review_only/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/capture persisted: yes/i)).not.toBeInTheDocument();
+    expect(screen.getAllByText(/not_captured/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/approval persisted/i)).toBeInTheDocument();
+    expect(screen.getByText(/approval persisted/i).nextSibling).toHaveTextContent("no");
     expect(screen.getByText(/raw access authorized: no/i)).toBeInTheDocument();
     expect(
       screen.getByText(/context proposal authorized: no/i),
@@ -14445,7 +14660,7 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText(/execution authorized: no/i)).toBeInTheDocument();
   });
 
-  it("does not carry review-only capture state across packet selection", async () => {
+  it("keeps packet selection presentation-only without decision persistence", async () => {
     mockFetchWithFallback();
     window.history.pushState({}, "", "/files/review");
     render(<App />);
@@ -14454,14 +14669,7 @@ describe("Web Control Center shell", () => {
       await screen.findByRole("heading", { name: /File Review Surface/i }),
     ).toBeInTheDocument();
 
-    // Approve review-only on the first (default-selected) packet.
-    fireEvent.click(
-      screen.getByRole("button", { name: /approve review-only/i }),
-    );
-    expect(screen.getByText(/approved_for_review_only/i)).toBeInTheDocument();
-
-    // Switching to a different packet must reset the capture state to that
-    // packet's own value rather than leaking the first packet's approval.
+    expect(screen.getAllByText(/not_captured/i).length).toBeGreaterThan(0);
     const reviewButtons = screen.getAllByRole("button", {
       name: /view review packet/i,
     });
@@ -14470,9 +14678,7 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByRole("article", { name: /file-review-packet:mock_002/i }),
     ).toHaveAttribute("aria-current", "true");
-    expect(
-      screen.queryByText(/approved_for_review_only/i),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/approved_for_review_only/i)).not.toBeInTheDocument();
     expect(screen.getAllByText(/not_captured/i).length).toBeGreaterThan(0);
 
     fireEvent.click(reviewButtons[0]);
@@ -14480,8 +14686,9 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByRole("article", { name: /file-review-packet:mock_001/i }),
     ).toHaveAttribute("aria-current", "true");
-    expect(screen.getByText(/approved_for_review_only/i)).toBeInTheDocument();
-    expect(screen.getByText(/capture persisted: yes/i)).toBeInTheDocument();
+    expect(screen.queryByText(/approved_for_review_only/i)).not.toBeInTheDocument();
+    expect(screen.getAllByText(/not_captured/i).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/capture persisted: yes/i)).not.toBeInTheDocument();
   });
 
   it("keeps M37 binding refs safe and free of private path shapes", async () => {
@@ -14521,7 +14728,7 @@ describe("Web Control Center shell", () => {
     expect(screen.getAllByText(/safe refs only/i).length).toBeGreaterThan(0);
     expect(
       screen.getAllByText(
-        /Only the review approval capture route may persist safe refs/i,
+        /backend review approval capture route exists but is not exposed or wired/i,
       ).length,
     ).toBeGreaterThan(0);
   });
@@ -14717,8 +14924,11 @@ describe("Web Control Center shell", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        /Memory review can record safe accept, correction, reject, defer, merge, supersede, and forget-request receipts/i,
+        /Memory review can record safe accept, correction, reject, defer, merge, supersede, expiry, and forget-request receipts/i,
       ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Record expiry receipt/i }),
     ).toBeInTheDocument();
     expect(
       screen.getAllByText("memory-review:founder-loop-preferences").length,
@@ -16181,8 +16391,13 @@ describe("Web Control Center shell", () => {
               ok: false,
               error: {
                 code: "SAFE_REJECTION",
-                message:
-                  "Preview rejected because token=supersecretvalue123 was invalid.",
+                safe_message: "Preview request was rejected safely.",
+                details_redacted: true,
+                message: "raw prompt: token=supersecretvalue123",
+                details: {
+                  local_path: "/Users/private/project",
+                  raw_page: "private page content",
+                },
               },
             }),
             { status: 400, headers: { "Content-Type": "application/json" } },
@@ -16198,10 +16413,12 @@ describe("Web Control Center shell", () => {
 
     expect(
       await screen.findByText(
-        /Preview rejected because \[redacted\] was invalid/i,
+        /Preview request was rejected safely/i,
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText(/supersecretvalue123/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/private page content/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Users\/private/i)).not.toBeInTheDocument();
   });
 
   it("keeps read endpoints separate from preview POST endpoints", () => {
@@ -17954,7 +18171,7 @@ const mockApiData = {
       mobile_app_implemented: false,
     },
     plugin_governance_summary: {
-      status: "planned_disabled",
+      status: "inspectable_non_callable",
       plugin_enablement_allowed: false,
       native_build_tools_enabled: false,
       skill_bundle_proposal_status: "proposal_only",
@@ -17962,6 +18179,88 @@ const mockApiData = {
       skill_bundle_proposal_refs: ["skill-bundle-proposal:founder-loop-review"],
       skill_bundle_activation_enabled: false,
       skill_bundle_tool_execution_enabled: false,
+      catalog_entry_count: 3,
+      availability_snapshot_count: 4,
+      developer_validation_count: 3,
+      blocked_validation_count: 1,
+      blocker_codes: ["EXTENSION_VERSION_COMPATIBILITY_UNKNOWN"],
+      safe_disable_refs: [
+        "safe-disable-ref:extension-metadata-inspection",
+        "safe-disable-ref:skill-metadata-index",
+        "safe-disable-ref:unknown-extension-candidate",
+      ],
+      rollback_refs: [
+        "rollback-ref:extension-metadata-inspection:disable",
+        "rollback-ref:skill-metadata-index:disable",
+        "rollback-ref:unknown-extension-candidate:none",
+      ],
+      extension_entries: [
+        {
+          package_ref: "extension-package:uaa-plugin-skill-boundary",
+          manifest_ref: "plugin-skill-manifest:uaa-plugin-skill-boundary",
+          version_ref: "version:uaa-p1-024",
+          availability_snapshot_count: 1,
+          validation_status: "validated_metadata_only",
+          compatibility_status: "supported",
+          configuration_status: "not_configured",
+          health_status: "unknown",
+          authority_posture: "blocked",
+          resource_status: "unknown",
+          safe_disable_status: "unknown",
+          provenance_status: "reviewed",
+          hashes_verified_against_pinned_values: true,
+          signature_status: "not_present",
+          signature_verified: false,
+          safe_disable_ref: "safe-disable-ref:extension-metadata-inspection",
+          rollback_ref: "rollback-ref:extension-metadata-inspection:disable",
+          blocker_codes: [],
+        },
+        {
+          package_ref: "extension-package:uaa-skill-metadata-index",
+          manifest_ref: "plugin-skill-manifest:uaa-skill-metadata-index",
+          version_ref: "version:hermes-runtime-adoption-phase-13",
+          availability_snapshot_count: 2,
+          validation_status: "validated_metadata_only",
+          compatibility_status: "supported",
+          configuration_status: "not_configured",
+          health_status: "unknown",
+          authority_posture: "blocked",
+          resource_status: "unknown",
+          safe_disable_status: "unknown",
+          provenance_status: "reviewed",
+          hashes_verified_against_pinned_values: true,
+          signature_status: "not_present",
+          signature_verified: false,
+          safe_disable_ref: "safe-disable-ref:skill-metadata-index",
+          rollback_ref: "rollback-ref:skill-metadata-index:disable",
+          blocker_codes: [],
+        },
+        {
+          package_ref: "extension-package:unknown-extension-candidate",
+          manifest_ref: "plugin-skill-manifest:unknown-candidate",
+          version_ref: "version:unknown",
+          availability_snapshot_count: 1,
+          validation_status: "blocked",
+          compatibility_status: "unknown",
+          configuration_status: "not_configured",
+          health_status: "unknown",
+          authority_posture: "blocked",
+          resource_status: "unknown",
+          safe_disable_status: "unknown",
+          provenance_status: "unknown",
+          hashes_verified_against_pinned_values: false,
+          signature_status: "not_present",
+          signature_verified: false,
+          safe_disable_ref: "safe-disable-ref:unknown-extension-candidate",
+          rollback_ref: "rollback-ref:unknown-extension-candidate:none",
+          blocker_codes: ["EXTENSION_VERSION_COMPATIBILITY_UNKNOWN"],
+        },
+      ],
+      plugin_metadata_boundary_ref: "runtime-boundary-ref:plugin-metadata-posture",
+      skill_marketplace_boundary_ref: "runtime-boundary-ref:skill-marketplace-posture",
+      mcp_catalog_boundary_ref: "runtime-boundary-ref:mcp-catalog-filtering",
+      catalog_visibility_grants_authority: false,
+      request_scoped_invocation_decision_required: true,
     },
     warnings: [],
     blockers: [],

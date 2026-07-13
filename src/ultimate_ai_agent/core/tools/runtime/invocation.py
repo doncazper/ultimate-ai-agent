@@ -11,11 +11,14 @@ from ultimate_ai_agent.core.tools.runtime.contracts import (
 from ultimate_ai_agent.core.tools.runtime.enums import ToolInvocationStatus, ToolRuntimeAuthorityLevel
 from ultimate_ai_agent.core.tools.runtime.filesystem_metadata import (
     FILESYSTEM_METADATA_TOOL_REF,
+    FILESYSTEM_OPAQUE_PATH_REF_VERSION,
     FilesystemSafeRoot,
     build_filesystem_metadata_output,
     build_missing_filesystem_metadata_output,
     filesystem_metadata_stat,
+    filesystem_opaque_path_ref,
     filesystem_metadata_policy_reason_codes,
+    filesystem_safe_path_ref,
 )
 from ultimate_ai_agent.core.tools.runtime.file_preview import (
     RedactedFilePreviewPolicy,
@@ -152,22 +155,36 @@ def evaluate_tool_invocation(
         assert fs_request is not None
         assert fs_root is not None
         assert fs_normalized_path is not None
+        safe_path_ref = (
+            filesystem_opaque_path_ref(fs_request.root_ref, fs_normalized_path)
+            if request.metadata.get("safe_path_ref_version")
+            == FILESYSTEM_OPAQUE_PATH_REF_VERSION
+            else filesystem_safe_path_ref(fs_request.root_ref, fs_normalized_path)
+        )
         try:
             stat_result = filesystem_metadata_stat(
                 fs_root.root_path,
                 fs_normalized_path,
+                expected_root_identity=(
+                    (fs_root.expected_device, fs_root.expected_inode)
+                    if fs_root.expected_device is not None
+                    and fs_root.expected_inode is not None
+                    else None
+                ),
             )
             output = build_filesystem_metadata_output(
                 invocation_id=request.invocation_id,
                 root_ref=fs_request.root_ref,
                 normalized_path=fs_normalized_path,
                 stat_result=stat_result,
+                safe_path_ref=safe_path_ref,
             )
         except (FileNotFoundError, NotADirectoryError):
             output = build_missing_filesystem_metadata_output(
                 invocation_id=request.invocation_id,
                 root_ref=fs_request.root_ref,
                 normalized_path=fs_normalized_path,
+                safe_path_ref=safe_path_ref,
             )
         except ValueError as exc:
             return _denied_decision(request, [str(exc)])

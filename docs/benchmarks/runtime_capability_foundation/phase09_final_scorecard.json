@@ -1,0 +1,150 @@
+{
+  "schema_version": "uaa_runtime_capability_final_scorecard.v1",
+  "scorecard_ref": "scorecard-ref:runtime-capability-foundation:phase09-final",
+  "status": "evidence_backed_final_bounded_stop",
+  "authority_granted": false,
+  "baseline": {
+    "artifact_ref": "repo-ref:uaa:docs/benchmarks/runtime_capability_foundation/phase00_baseline.json",
+    "artifact_sha256": "sha256:8a7bfbc51f972f138405ba5ead6e12c96dc9d8eff64865a9b5670819963a8ae6",
+    "uaa_score": 74.5,
+    "goatcitadel_score": 84.3
+  },
+  "comparison": {
+    "uaa": {
+      "version": "0.104.0",
+      "implementation_commit_ref": "git-sha:d5eca61ee586ffc06b699ee196f8cd1af0702563"
+    },
+    "goatcitadel_release": {
+      "version": "1.0.0",
+      "tag_ref": "git-tag:v1.0.0",
+      "commit_ref": "git-sha:dff26c018b44c394c189c170265a00ab640f1214",
+      "inspection_posture": "read_only_no_import"
+    },
+    "goatcitadel_local_head_observation": {
+      "commit_ref": "git-sha:91775e6905c8ca6c5083444f64eb3457b2d0aaa0",
+      "package_version": "0.1.0-rc.1",
+      "score_posture": "not_scored_different_target"
+    }
+  },
+  "scoring": {
+    "minimum": 0,
+    "maximum": 10,
+    "weight_total": 124,
+    "formula": "round_half_up(sum(score*weight)/124*10,1)"
+  },
+  "components": [
+    {
+      "component_id": "reasoning_task_understanding", "label": "Reasoning and task understanding", "weight": 8, "phase_owner": "phase_01", "before_score": 5.8,
+      "uaa": {"score": 8.0, "status": "implemented", "confidence": "high", "evidence_refs": ["repo-ref:uaa:src/ultimate_ai_agent/core/intent/reasoning_truth.py", "repo-ref:uaa:src/ultimate_ai_agent/core/planning/revisions.py", "repo-ref:uaa:tests/test_phase01_reasoning_truth.py", "repo-ref:uaa:apps/control-center/src/components/FounderLoopPanels.tsx", "repo-ref:uaa:scripts/dev/uaa_founder_loop.py"], "gap": "Runtime-model assistance remains optional and cannot become authority.", "recommendation": "Keep the deterministic ambiguity and plan-revision baseline as the required fallback."},
+      "goatcitadel": {"score": 7.5, "status": "implemented", "confidence": "medium", "evidence_refs": ["repo-ref:goatcitadel:v1.0.0:apps/gateway/src/services/chat-agent-orchestrator.test.ts", "repo-ref:goatcitadel:v1.0.0:apps/gateway/src/routes/chat.prompt-pack-run.test.ts"], "gap": "Fact, assumption, and unknown separation is less explicit in inspected evidence.", "recommendation": "Borrow UAA-style typed uncertainty without weakening live orchestration."}
+    },
+    {
+      "component_id": "planning_orchestration", "label": "Planning and orchestration", "weight": 8, "phase_owner": "phase_02", "before_score": 8.1,
+      "uaa": {"score": 8.8, "status": "implemented", "confidence": "high", "evidence_refs": ["repo-ref:uaa:src/ultimate_ai_agent/core/execution/mission_orchestrator.py", "repo-ref:uaa:src/ultimate_ai_agent/core/execution/mission_completion.py", "repo-ref:uaa:tests/test_authority_mission_orchestrator_hardening.py", "repo-ref:uaa:tests/test_authority_mission_controls.py", "repo-ref:uaa:apps/control-center/src/components/AuthorityMissionInspectionPanel.tsx", "repo-ref:uaa:scripts/dev/uaa_runtime_mission_completion.py"], "gap": "Local scheduling breadth and after-start cancellation remain deliberately bounded.", "recommendation": "Add only exact locally fenced worker operations backed by current AuthorityLease evaluation."},
+      "goatcitadel": {"score": 9.0, "status": "implemented", "confidence": "high", "evidence_refs": ["repo-ref:goatcitadel:v1.0.0:apps/gateway/src/services/durable-run-service.test.ts", "repo-ref:goatcitadel:v1.0.0:apps/gateway/src/services/durable-run-service.boot-recovery.integration.test.ts", "repo-ref:goatcitadel:v1.0.0:apps/gateway/src/orchestration/engine.test.ts"], "gap": "Authority scope is broader and less exact than UAA's lease boundary.", "recommendation": "Borrow UAA's request-scoped final-start authority checks."}
+    },
+    {
+      "component_id": "learning_adaptation", "label": "Learning and adaptation", "weight": 8, "phase_owner": "phase_03", "before_score": 6.0,
+      "uaa": {"score": 7.4, "status": "partial", "confidence": "high", "evidence_refs": ["repo-ref:uaa:src/ultimate_ai_agent/core/memory/review_runtime.py", "repo-ref:uaa:src/ultimate_ai_agent/core/memory/governed_context.py", "repo-ref:uaa:tests/test_governed_memory_context_phase03.py", "repo-ref:uaa:apps/control-center/src/components/FounderLoopPanels.tsx", "repo-ref:uaa:scripts/benchmark_governed_memory_retrieval.py"], "gap": "Adaptation remains review-bound and preview-first rather than automatically materialized.", "recommendation": "Improve retrieval feedback quality without automatic memory truth or hidden context."},
+      "goatcitadel": {"score": 8.0, "status": "implemented", "confidence": "high", "evidence_refs": ["repo-ref:goatcitadel:v1.0.0:apps/gateway/src/services/memory-lifecycle-service.test.ts", "repo-ref:goatcitadel:v1.0.0:apps/gateway/src/services/memory-lifecycle-policy.test.ts"], "gap": "Broader automatic lifecycle behavior carries more accidental-adaptation risk.", "recommendation": "Borrow UAA's review receipts and correction precedence."}
+    },
+    {
+      "component_id": "memory_context_management", "label": "Memory and context management", "weight": 9, "phase_owner": "phase_03", "before_score": 7.6,
+      "uaa": {"score": 8.3, "status": "implemented", "confidence": "high", "evidence_refs": ["repo-ref:uaa:src/ultimate_ai_agent/core/memory/governed_context.py", "repo-ref:uaa:src/ultimate_ai_agent/core/memory/retrieval_benchmark.py", "repo-ref:uaa:tests/test_governed_memory_context_phase03.py", "repo-ref:uaa:apps/control-center/src/components/FounderLoopPanels.tsx", "repo-ref:uaa:scripts/dev/uaa_founder_loop.py"], "gap": "Approved context materialization is still intentionally narrow.", "recommendation": "Keep citations, exclusion reasons, token budgets, and recall-not-truth semantics mandatory."},
+      "goatcitadel": {"score": 9.0, "status": "implemented", "confidence": "high", "evidence_refs": ["repo-ref:goatcitadel:v1.0.0:packages/memory-core/src/context-composer.ts", "repo-ref:goatcitadel:v1.0.0:apps/gateway/src/services/memory-lifecycle-service.test.ts", "repo-ref:goatcitadel:v1.0.0:apps/gateway/src/routes/memory.test.ts"], "gap": "Runtime breadth exceeds the inspected correction and safe-ref governance depth.", "recommendation": "Add stronger source exclusion, correction, and content-free receipt boundaries."}
+    },
+    {
+      "component_id": "communication_interaction", "label": "Communication and interaction quality", "weight": 7, "phase_owner": "phase_08", "before_score": 7.1,
+      "uaa": {"score": 8.0, "status": "partial", "confidence": "medium", "evidence_refs": ["repo-ref:uaa:src/ultimate_ai_agent/core/control_center/agent_loop.py", "repo-ref:uaa:tests/test_runtime_agent_loop_spine.py", "repo-ref:uaa:apps/control-center/src/components/FounderLoopPanels.tsx", "repo-ref:uaa:apps/control-center/src/App.test.tsx", "repo-ref:uaa:scripts/dev/uaa_founder_loop.py"], "gap": "Live multi-channel conversation breadth is outside this program.", "recommendation": "Continue human-readable blocked-state and uncertainty communication before adding channels."},
+      "goatcitadel": {"score": 8.5, "status": "implemented", "confidence": "high", "evidence_refs": ["repo-ref:goatcitadel:v1.0.0:apps/mission-control-next/src/app/MissionControlNextApp.test.tsx", "repo-ref:goatcitadel:v1.0.0:apps/mission-control-next/src/features/threaded-surface/ThreadedSurfacePage.test.tsx"], "gap": "Broader communication surfaces have less explicit authority-language evidence.", "recommendation": "Borrow UAA's operator-readable authority and untrusted-content copy."}
+    },
+    {
+      "component_id": "action_tool_calling", "label": "Action and tool calling", "weight": 9, "phase_owner": "phase_04", "before_score": 7.2,
+      "uaa": {"score": 7.8, "status": "implemented", "confidence": "high", "evidence_refs": ["repo-ref:uaa:src/ultimate_ai_agent/core/authority/dispatcher.py", "repo-ref:uaa:src/ultimate_ai_agent/core/control_center/action_tool_code_catalog.py", "repo-ref:uaa:tests/test_authority_dispatcher_approval_and_start.py", "repo-ref:uaa:tests/test_runtime_action_tool_code_lanes.py", "repo-ref:uaa:apps/control-center/src/components/FounderLoopPanels.tsx", "repo-ref:uaa:scripts/dev/uaa_runtime.py"], "gap": "Executable breadth is deliberately narrow and generic dispatch remains denied.", "recommendation": "Promote useful adapters individually; never add a global callable-tool switch."},
+      "goatcitadel": {"score": 9.1, "status": "implemented", "confidence": "high", "evidence_refs": ["repo-ref:goatcitadel:v1.0.0:apps/gateway/src/routes/tools-invoke.test.ts", "repo-ref:goatcitadel:v1.0.0:apps/gateway/src/services/tool-invocation-coordinator-service.test.ts", "repo-ref:goatcitadel:v1.0.0:packages/policy-engine/src/tool-executor.test.ts"], "gap": "Broader tool surface raises a larger policy and replay attack surface.", "recommendation": "Borrow UAA's exact target, lease, budget, and final-start binding."}
+    },
+    {
+      "component_id": "autonomy_authority", "label": "Autonomy and authority management", "weight": 10, "phase_owner": "phase_02", "before_score": 9.2,
+      "uaa": {"score": 9.4, "status": "implemented", "confidence": "high", "evidence_refs": ["repo-ref:uaa:src/ultimate_ai_agent/core/authority/contracts.py", "repo-ref:uaa:src/ultimate_ai_agent/core/authority/dispatcher.py", "repo-ref:uaa:tests/test_authority_mission_approval_wait.py", "repo-ref:uaa:tests/test_authority_mission_controls.py", "repo-ref:uaa:apps/control-center/src/components/OperatorFlowPanels.tsx", "repo-ref:uaa:scripts/dev/uaa_runtime.py"], "gap": "Production-scale and public authority remain out of scope.", "recommendation": "Preserve exact AuthorityLease evaluation and deny unknown authority in every mode."},
+      "goatcitadel": {"score": 7.8, "status": "implemented", "confidence": "medium", "evidence_refs": ["repo-ref:goatcitadel:v1.0.0:apps/gateway/src/services/approval-runtime-service.test.ts", "repo-ref:goatcitadel:v1.0.0:apps/gateway/src/routes/approvals.test.ts", "repo-ref:goatcitadel:v1.0.0:packages/policy-engine/src/tool-executor.test.ts"], "gap": "The inspected model is less consistently exact-capability and mission-lease scoped.", "recommendation": "Adopt exact lease, approval-scope, and final-start reevaluation semantics."}
+    },
+    {
+      "component_id": "code_implementation_assistance", "label": "Code and implementation assistance", "weight": 6, "phase_owner": "phase_04", "before_score": 5.8,
+      "uaa": {"score": 6.8, "status": "partial", "confidence": "high", "evidence_refs": ["repo-ref:uaa:src/ultimate_ai_agent/core/control_center/action_tool_code_catalog.py", "repo-ref:uaa:apps/control-center/src/components/CodingCockpitPanel.tsx", "repo-ref:uaa:apps/control-center/src/App.test.tsx", "repo-ref:uaa:tests/test_runtime_action_tool_code_lanes.py", "repo-ref:uaa:scripts/dev/uaa_runtime.py"], "gap": "No proven sealed calculation or CodeAct execution backend exists.", "recommendation": "Build a separately threat-reviewed sealed adapter before enabling sandbox execution."},
+      "goatcitadel": {"score": 8.5, "status": "implemented", "confidence": "high", "evidence_refs": ["repo-ref:goatcitadel:v1.0.0:apps/gateway/src/services/code-mode-sandbox-runner.test.ts", "repo-ref:goatcitadel:v1.0.0:apps/gateway/src/services/code-mode-sandbox/linux-firejail-adapter.security.test.ts", "repo-ref:goatcitadel:v1.0.0:apps/gateway/src/code-mode-sandbox-proof.test.ts"], "gap": "Platform-specific containment and authority composition remain complex.", "recommendation": "Keep hostile canaries and add UAA-style request-scoped lease evidence."}
+    },
+    {
+      "component_id": "research_web_external", "label": "Research, web, and external information handling", "weight": 5, "phase_owner": "phase_05", "before_score": 8.3,
+      "uaa": {"score": 8.7, "status": "implemented", "confidence": "high", "evidence_refs": ["repo-ref:uaa:src/ultimate_ai_agent/core/web_access/hybrid_execution.py", "repo-ref:uaa:src/ultimate_ai_agent/core/web_access/research_aggregation.py", "repo-ref:uaa:tests/test_web_research_aggregation.py", "repo-ref:uaa:apps/control-center/src/components/CapabilitySurfacePanel.tsx", "repo-ref:uaa:scripts/inspect_web_hybrid_status.py"], "gap": "Authenticated browsing, browser actions, and paid usage remain denied.", "recommendation": "Preserve self-host-first bounded fallback and untrusted-content isolation."},
+      "goatcitadel": {"score": 7.0, "status": "implemented", "confidence": "medium", "evidence_refs": ["repo-ref:goatcitadel:v1.0.0:apps/gateway/src/routes/research-search.test.ts", "repo-ref:goatcitadel:v1.0.0:apps/gateway/src/routes/browser-sessions.test.ts"], "gap": "Exact web-cost and content-as-non-authority evidence is weaker.", "recommendation": "Borrow UAA's gateway-only routing, citation, and injection boundaries."}
+    },
+    {
+      "component_id": "model_provider_management", "label": "Model/provider management", "weight": 6, "phase_owner": "phase_05", "before_score": 6.7,
+      "uaa": {"score": 7.5, "status": "partial", "confidence": "high", "evidence_refs": ["repo-ref:uaa:src/ultimate_ai_agent/core/capability_availability/read_model.py", "repo-ref:uaa:src/ultimate_ai_agent/core/control_center/agent_loop.py", "repo-ref:uaa:tests/test_capability_availability.py", "repo-ref:uaa:apps/control-center/src/components/FounderLoopPanels.tsx", "repo-ref:uaa:scripts/inspect_model_provider_control_plane.py"], "gap": "Live multi-provider routing and configured-provider breadth remain limited.", "recommendation": "Add one exact configured provider lane with cost settlement before broad routing."},
+      "goatcitadel": {"score": 8.7, "status": "implemented", "confidence": "high", "evidence_refs": ["repo-ref:goatcitadel:v1.0.0:apps/gateway/src/services/llm-runtime-truth-service.test.ts", "repo-ref:goatcitadel:v1.0.0:apps/gateway/src/routes/llm.test.ts", "repo-ref:goatcitadel:v1.0.0:apps/mission-control-next/src/features/native-routes/ops/RuntimeSpendChart.test.tsx"], "gap": "Provider output and cost truth should be more explicitly separated from authority.", "recommendation": "Borrow UAA's availability-versus-authority model and fail-closed unknown budget."}
+    },
+    {
+      "component_id": "evidence_audit_observability", "label": "Evidence, audit, and observability", "weight": 9, "phase_owner": "phase_06", "before_score": 8.7,
+      "uaa": {"score": 9.2, "status": "implemented", "confidence": "high", "evidence_refs": ["repo-ref:uaa:src/ultimate_ai_agent/core/execution/portable_mission_evidence.py", "repo-ref:uaa:src/ultimate_ai_agent/core/execution/mission_completion.py", "repo-ref:uaa:tests/test_portable_mission_evidence.py", "repo-ref:uaa:apps/control-center/src/components/AuthorityMissionInspectionPanel.tsx", "repo-ref:uaa:scripts/dev/uaa_runtime_mission_completion.py"], "gap": "Key-backed signing is blocked without a complete Keychain lifecycle.", "recommendation": "Retain content-free hash-chain verification until safe signing is proven."},
+      "goatcitadel": {"score": 8.5, "status": "implemented", "confidence": "high", "evidence_refs": ["repo-ref:goatcitadel:v1.0.0:apps/gateway/src/services/evidence-envelope-service.test.ts", "repo-ref:goatcitadel:v1.0.0:packages/storage/src/evidence-envelope-repo.test.ts", "repo-ref:goatcitadel:v1.0.0:apps/gateway/src/routes/evidence.test.ts"], "gap": "Portable offline tamper verification is less explicit in inspected evidence.", "recommendation": "Borrow UAA's content-free portable verifier and cross-run substitution checks."}
+    },
+    {
+      "component_id": "safety_security_failure", "label": "Safety, security, and failure handling", "weight": 10, "phase_owner": "phase_06", "before_score": 9.0,
+      "uaa": {"score": 9.3, "status": "implemented", "confidence": "high", "evidence_refs": ["repo-ref:uaa:src/ultimate_ai_agent/core/authority/dispatcher.py", "repo-ref:uaa:src/ultimate_ai_agent/core/execution/durable_mission_controls.py", "repo-ref:uaa:tests/test_authority_mission_controls.py", "repo-ref:uaa:apps/control-center/src/api/redaction.ts", "repo-ref:uaa:apps/control-center/src/api/redaction.test.ts", "repo-ref:uaa:scripts/verify_security_redaction_artifacts.py"], "gap": "Public distribution threat modeling and production operations remain out of scope.", "recommendation": "Keep deny floors, redaction, kill switches, and unknown-state blocking mandatory."},
+      "goatcitadel": {"score": 8.3, "status": "implemented", "confidence": "high", "evidence_refs": ["repo-ref:goatcitadel:v1.0.0:packages/policy-engine/src/tool-executor.test.ts", "repo-ref:goatcitadel:v1.0.0:apps/gateway/src/app.rate-limit.test.ts", "repo-ref:goatcitadel:v1.0.0:apps/gateway/src/cors-origin-guard.test.ts"], "gap": "The broader executable surface increases failure and policy complexity.", "recommendation": "Adopt stricter exact capability, budget, and safe-disable reevaluation."}
+    },
+    {
+      "component_id": "ux_ai_cockpit", "label": "UX as an AI cockpit", "weight": 7, "phase_owner": "phase_08", "before_score": 7.7,
+      "uaa": {"score": 8.2, "status": "partial", "confidence": "medium", "evidence_refs": ["repo-ref:uaa:src/ultimate_ai_agent/core/control_center/agent_loop.py", "repo-ref:uaa:tests/test_runtime_agent_loop_spine.py", "repo-ref:uaa:apps/control-center/src/components/FounderLoopPanels.tsx", "repo-ref:uaa:apps/control-center/src/components/AuthorityMissionInspectionPanel.tsx", "repo-ref:uaa:apps/control-center/src/App.test.tsx", "repo-ref:uaa:scripts/verify_control_center_frontend.py"], "gap": "Operator mutation depth and end-to-end browser proof remain narrower than GoatCitadel.", "recommendation": "Keep macOS canonical and add only backend-wired exact controls."},
+      "goatcitadel": {"score": 9.0, "status": "implemented", "confidence": "high", "evidence_refs": ["repo-ref:goatcitadel:v1.0.0:apps/mission-control-next/src/app/MissionControlNextApp.test.tsx", "repo-ref:goatcitadel:v1.0.0:apps/mission-control-next/src/features/native-routes/ops/RunDetailRoutePage.test.tsx", "repo-ref:goatcitadel:v1.0.0:apps/mission-control-next/src/features/native-routes/ops/ApprovalsRoutePage.test.tsx"], "gap": "Authority posture is less prominent and exact than UAA's cockpit.", "recommendation": "Borrow UAA's blocked reasons, lease expiry, and non-authoritative fallback language."}
+    },
+    {
+      "component_id": "cli_api_parity", "label": "CLI/API parity", "weight": 6, "phase_owner": "phase_08", "before_score": 8.6,
+      "uaa": {"score": 9.0, "status": "implemented", "confidence": "high", "evidence_refs": ["repo-ref:uaa:src/ultimate_ai_agent/api/manifest.py", "repo-ref:uaa:tests/test_api_manifest.py", "repo-ref:uaa:tests/test_runtime_agent_loop_spine.py", "repo-ref:uaa:apps/control-center/src/components/FounderLoopPanels.tsx", "repo-ref:uaa:scripts/verify_uaa_runtime_cockpit_cli_api.py"], "gap": "Some mutation surfaces remain intentionally absent rather than falsely mirrored.", "recommendation": "Continue resolving every cockpit route and CLI command against canonical contracts."},
+      "goatcitadel": {"score": 7.8, "status": "partial", "confidence": "medium", "evidence_refs": ["repo-ref:goatcitadel:v1.0.0:apps/gateway/src/admin-cli.integration.test.ts", "repo-ref:goatcitadel:v1.0.0:apps/gateway/src/app.test.ts", "repo-ref:goatcitadel:v1.0.0:apps/mission-control-next/src/app/MissionControlNextApp.test.tsx"], "gap": "Broad API/UI evidence does not prove systematic CLI parity.", "recommendation": "Add a manifest-backed UI/API/CLI parity verifier."}
+    },
+    {
+      "component_id": "extensibility_ecosystem", "label": "Extensibility and ecosystem", "weight": 6, "phase_owner": "phase_07", "before_score": 5.0,
+      "uaa": {"score": 7.0, "status": "partial", "confidence": "high", "evidence_refs": ["repo-ref:uaa:src/ultimate_ai_agent/core/extension_catalog/contracts.py", "repo-ref:uaa:src/ultimate_ai_agent/core/capability_availability/adapters.py", "repo-ref:uaa:tests/test_inspectable_extension_catalog.py", "repo-ref:uaa:apps/control-center/src/components/CapabilitySurfacePanel.tsx", "repo-ref:uaa:scripts/dev/uaa_extensions.py"], "gap": "Callable extension import remains intentionally blocked.", "recommendation": "Prove one isolated exact adapter lane before any runtime extension activation."},
+      "goatcitadel": {"score": 8.5, "status": "implemented", "confidence": "high", "evidence_refs": ["repo-ref:goatcitadel:v1.0.0:packages/extensions-sdk/src/addons.test.ts", "repo-ref:goatcitadel:v1.0.0:packages/extensions-sdk/src/integration-plugins.test.ts", "repo-ref:goatcitadel:v1.0.0:apps/gateway/src/services/skill-import.path-traversal.security.test.ts"], "gap": "Runtime extension breadth expands supply-chain and import risk.", "recommendation": "Borrow UAA's inspectable-not-callable and compatibility/readiness separation."}
+    },
+    {
+      "component_id": "productized_agent_loop", "label": "Productized agent loop", "weight": 10, "phase_owner": "phase_02", "before_score": 6.9,
+      "uaa": {"score": 8.0, "status": "partial", "confidence": "high", "evidence_refs": ["repo-ref:uaa:src/ultimate_ai_agent/core/control_center/founder_loop_mission.py", "repo-ref:uaa:src/ultimate_ai_agent/core/execution/mission_completion.py", "repo-ref:uaa:tests/test_founder_loop_filesystem_mission.py", "repo-ref:uaa:apps/control-center/src/components/FounderLoopPanels.tsx", "repo-ref:uaa:scripts/dev/uaa_founder_loop.py"], "gap": "The useful end-to-end workflow is real but narrower than GoatCitadel's live tool/provider breadth.", "recommendation": "Add useful exact adapters without weakening the completed governed loop."},
+      "goatcitadel": {"score": 9.0, "status": "implemented", "confidence": "high", "evidence_refs": ["repo-ref:goatcitadel:v1.0.0:apps/gateway/src/services/chat-agent-orchestrator.test.ts", "repo-ref:goatcitadel:v1.0.0:apps/gateway/src/services/durable-run-service.test.ts", "repo-ref:goatcitadel:v1.0.0:apps/mission-control-next/src/features/threaded-surface/ThreadedWorkflowPanel.test.tsx"], "gap": "The broader loop has less exact per-request authority evidence.", "recommendation": "Borrow UAA's lease-bound completion evidence and safe replay semantics."}
+    }
+  ],
+  "weighted_totals": {
+    "uaa": 82.8,
+    "goatcitadel": 84.3
+  },
+  "scenario_results": {
+    "artifact_ref": "repo-ref:uaa:docs/benchmarks/runtime_capability_foundation/phase09_scenario_results.json",
+    "artifact_sha256": "sha256:3fb7506639108b87ae6031082cf7eff3621fbf82e609aca3e10edd2a22ad1bd7",
+    "scenario_count": 12,
+    "passed_count": 11,
+    "blocked_count": 1
+  },
+  "repair_passes": [
+    {
+      "repair_pass_ref": "repair-pass-ref:phase09:final-benchmark-contract",
+      "status": "completed",
+      "safe_summary": "Bound every scenario to the exact execution registry, made reruns non-destructive, bounded subprocess and artifact handling, and added fail-closed frontend tamper rendering.",
+      "evidence_refs": ["repo-ref:uaa:scripts/run_uaa_runtime_phase09_benchmark.py", "repo-ref:uaa:scripts/verify_uaa_runtime_phase09_benchmark.py", "repo-ref:uaa:tests/test_uaa_runtime_phase09_benchmark.py", "repo-ref:uaa:apps/control-center/src/components/AuthorityMissionInspectionPanel.test.tsx"]
+    }
+  ],
+  "unresolved_items": [
+    {"item_ref": "unresolved-ref:sealed-sandbox-adapter", "classification": "adapter required", "safe_summary": "A proven sealed calculation adapter is unavailable; sandbox execution remains blocked.", "evidence_refs": ["repo-ref:uaa:tests/test_hermes_runtime_remote_execution_posture.py"]},
+    {"item_ref": "unresolved-ref:live-provider-breadth", "classification": "adapter required", "safe_summary": "Broader live provider routing requires exact configured adapters and cost settlement.", "evidence_refs": ["repo-ref:uaa:src/ultimate_ai_agent/core/capability_availability/read_model.py"]},
+    {"item_ref": "unresolved-ref:provider-runtime-configuration", "classification": "configuration required", "safe_summary": "Live provider proof depends on separately configured credentials and runtime readiness.", "evidence_refs": ["repo-ref:uaa:tests/test_capability_availability.py"]},
+    {"item_ref": "unresolved-ref:broad-host-and-browser-authority", "classification": "deferred by authority policy", "safe_summary": "Broad host shell, authenticated browser actions, and paid web usage remain denied.", "evidence_refs": ["repo-ref:uaa:src/ultimate_ai_agent/core/authority/contracts.py"]},
+    {"item_ref": "unresolved-ref:callable-extension-runtime", "classification": "blocked", "safe_summary": "Arbitrary extension import remains non-callable until one isolated exact adapter is proven.", "evidence_refs": ["repo-ref:uaa:src/ultimate_ai_agent/core/extension_catalog/contracts.py"]},
+    {"item_ref": "unresolved-ref:linux-windows-cockpit", "classification": "unsupported", "safe_summary": "Linux and Windows remain explicit render placeholders; macOS is canonical.", "evidence_refs": ["repo-ref:uaa:apps/control-center/src/components/FounderLoopPanels.tsx"]}
+  ],
+  "redaction": {
+    "safe_refs_only": true,
+    "raw_content_persisted": false,
+    "local_paths_persisted": false,
+    "machine_identity_persisted": false
+  }
+}

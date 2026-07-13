@@ -1480,11 +1480,12 @@ function ModelProviderControlPlanePanel({
               "Source metadata",
               externalPosture.source_metadata_required ? "required" : "missing",
             ],
+            [
+              "Active exact lanes",
+              externalPosture.allowed_current_lane_refs.join(", "),
+            ],
           ]}
-          blockerCodes={[
-            ...externalPosture.allowed_current_lane_refs,
-            ...externalPosture.blocked_authority_refs.slice(0, 5),
-          ]}
+          blockerCodes={externalPosture.blocked_authority_refs.slice(0, 5)}
         />
       </div>
       <div
@@ -1566,7 +1567,13 @@ export function EvidenceOperatorPanel({ data }: { data: ControlCenterData }) {
   );
 }
 
-export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
+export function SettingsOperatorPanel({
+  authoritative,
+  data,
+}: {
+  authoritative: boolean;
+  data: ControlCenterData;
+}) {
   const localModelStep = useOperatorStep(data, "local_model_readiness");
   const taskStep = useOperatorStep(data, "task_decomposition_plan");
   const [settingsSnapshot, setSettingsSnapshot] =
@@ -1593,6 +1600,8 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
   }, [data.settingsStatus]);
   const settingsStatus = settingsSnapshot;
   const authorityLeaseState = settingsStatus.authority_lease_state;
+  const authorityMutationsAllowed =
+    authoritative && authorityLeaseState.backend_owned === true;
   const authorityModeCatalogByMode = new Map(
     authorityLeaseState.mode_catalog.map((entry) => [entry.mode, entry]),
   );
@@ -1615,6 +1624,7 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
   async function handleAuthorityMode(option: (typeof AUTHORITY_MODE_OPTIONS)[number]) {
     const modeReadiness = authorityModeCatalogByMode.get(option.mode);
     if (
+      !authorityMutationsAllowed ||
       !modeReadiness ||
       !modeReadiness.issue_ready ||
       modeReadiness.requires_mission_ref
@@ -1633,8 +1643,6 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
           duration_minutes: 120,
           safe_summary: `Control Center selected ${option.label} authority mode from the backend AuthorityLease mode catalog.`,
         },
-        approved_by_actor_ref: "operator-ref:control-center-local-user",
-        approval_safe_summary: `Operator selected ${option.label} authority mode for the current session.`,
       });
       setAuthorityMutation(result);
       await refreshSettingsSnapshot();
@@ -1649,7 +1657,7 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
     }
   }
   async function handleAuthorityRevoke() {
-    if (!revokableLease) {
+    if (!authorityMutationsAllowed || !revokableLease) {
       return;
     }
     setAuthorityRevoking(true);
@@ -1709,7 +1717,7 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
     }
   }
   async function handleAuthorityMissionIssue() {
-    if (!authorityMissionPlan?.lease_issue_ready) {
+    if (!authorityMutationsAllowed || !authorityMissionPlan?.lease_issue_ready) {
       return;
     }
     setAuthorityMissionIssuing(true);
@@ -1717,9 +1725,6 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
     try {
       const result = await approveAndIssueAuthorityLease({
         lease_issue_request: authorityMissionPlan.lease_issue_request,
-        approved_by_actor_ref: "operator-ref:control-center-local-user",
-        approval_safe_summary:
-          "Operator approved this exact mission-scoped AuthorityLease plan.",
       });
       setAuthorityMutation(result);
       await refreshSettingsSnapshot();
@@ -1784,7 +1789,11 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
         headingId="settings-heading"
         heading="Settings"
         status={settingsStatus.status}
-        summary="Settings show backend-owned maturity, feature-flag, kill-switch, route-safety, and blocked-authority posture. Scoped AuthorityLease controls are receipt-backed; unsupported mutation controls stay absent."
+        summary={
+          authorityMutationsAllowed
+            ? "Settings show backend-owned maturity, feature-flag, kill-switch, route-safety, and blocked-authority posture. Scoped AuthorityLease controls are receipt-backed; unsupported mutation controls stay absent."
+            : "Settings are showing non-authoritative fallback posture. Inspection remains available, but AuthorityLease mutations are disabled until backend-owned truth is restored."
+        }
       />
 
       <ProviderCatalogPanel catalog={data.providerCatalog} mode="settings" />
@@ -1794,7 +1803,11 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
       <div className="panel-grid">
         <article className="panel">
           <div className="panel-heading">
-            <h3>Backend-owned Settings status</h3>
+            <h3>
+              {authorityMutationsAllowed
+                ? "Backend-owned Settings status"
+                : "Non-authoritative Settings fallback"}
+            </h3>
             <span>{settingsStatus.maturity_gate_status}</span>
           </div>
           <p>{settingsStatus.safe_summary}</p>
@@ -2033,6 +2046,12 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
             className="operator-action-panel"
             aria-label="Authority mode controls"
           >
+            {!authorityMutationsAllowed ? (
+              <p className="safe-copy" role="status">
+                Authority mutations are disabled because the current connection
+                or AuthorityLease state is not backend-owned.
+              </p>
+            ) : null}
             <div className="action-button-row">
               {AUTHORITY_MODE_OPTIONS.map((option) => {
                 const modeReadiness = authorityModeCatalogByMode.get(option.mode);
@@ -2044,6 +2063,7 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
                   <button
                     className="secondary-button"
                     disabled={
+                      !authorityMutationsAllowed ||
                       modeBlocked ||
                       authorityPendingMode !== undefined
                     }
@@ -2069,7 +2089,9 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
             <div className="action-button-row">
               <button
                 className="secondary-button"
-                disabled={!revokableLease || authorityRevoking}
+                disabled={
+                  !authorityMutationsAllowed || !revokableLease || authorityRevoking
+                }
                 onClick={() => void handleAuthorityRevoke()}
                 type="button"
               >
@@ -2365,6 +2387,7 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
                   <button
                     className="secondary-button"
                     disabled={
+                      !authorityMutationsAllowed ||
                       !authorityMissionPlan.lease_issue_ready ||
                       authorityMissionIssuing
                     }

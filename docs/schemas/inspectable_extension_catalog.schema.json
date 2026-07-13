@@ -439,6 +439,12 @@
         "authority_decision_ref": {
           "$ref": "#/$defs/safe_ref"
         },
+        "authority_lease_ref": {
+          "anyOf": [
+            {"$ref": "#/$defs/safe_ref"},
+            {"type": "null"}
+          ]
+        },
         "authority_decision_outcome": {
           "enum": ["allow", "ask", "deny", "degrade_to_draft"]
         },
@@ -595,7 +601,7 @@
           ]
         },
         "hash_status": {
-          "enum": ["reviewed", "missing"]
+          "enum": ["reviewed", "missing", "mismatch"]
         }
       }
     },
@@ -1325,7 +1331,7 @@
           ]
         },
         "hash_status": {
-          "enum": ["reviewed", "missing", "unknown"]
+          "enum": ["reviewed", "mismatch", "missing", "unknown"]
         }
       }
     },

@@ -1,6 +1,7 @@
 # UAA Runtime Capability Foundation Action Tool Code Capabilities
 
-Status: Phase 04 implemented as backend-owned catalog/read-model hardening only.
+Status: Phase 04 exact filesystem-metadata mission is implemented and visible;
+all other additions in this slice remain catalog/read-model truth only.
 
 ## Full-Strength Version
 
@@ -29,11 +30,20 @@ Phase 04 adds Python Core Action/Tool/Code capability catalog contract
   evidence/proof refs, blocked authority refs, and unblock prompt refs.
 
 The catalog separates inspectable metadata from callable execution. It shows
+the already-proven `founder-loop-filesystem-metadata-v1` lane as the single
+Phase 04 promoted tool capability. Its availability snapshot says supported and
+approval-required, while current root, resource, health, and safe-disable truth
+remain unknown until fresh request-scoped approval, mission lease, budget,
+kill-switch, target, and dispatcher evaluation. Execution remains Python-core
+only through `MissionOrchestrator -> AuthorityMissionRunner ->
+AuthorityDispatcher`; no API, CLI, or Control Center execution control is added.
+
+The catalog also shows
 Tool Broker v2 entries as preview-only, Action Inbox `local_task_create` as an
 exact local mutation authority capability, RuntimeGateway focused pytest,
 repo-verifier, frontend-check, and repo-doctor as exact approval-required
 runtime capabilities, Coding patch proposal as proposal-only with deterministic
-signed safe-ref evidence, Coding allowlisted validation commands as an
+SHA-256 hash-integrity evidence, Coding allowlisted validation commands as an
 approval-required RuntimeGateway-backed lane, and Coding patch apply, Git
 review, and live preview as blocked until later exact AuthorityLease capability
 implementation.
@@ -72,8 +82,9 @@ refs before it can mutate files.
 
 Coding patch proposal evidence is available through
 `GET /control-center/coding/patch-proposal` and
-`scripts/dev/uaa_coding.py verify-patch-proposal-evidence`. The signed envelope
-is local hash based, safe-ref-only, verifier-backed, and explicitly records that
+`scripts/dev/uaa_coding.py verify-patch-proposal-evidence`. The legacy
+signed-envelope compatibility field is a local hash, not a cryptographic
+signature. The evidence is safe-ref-only, verifier-backed, and explicitly records that
 patch apply, file mutation, shell/subprocess, Git mutation, provider/model call,
 browser automation, connector write, and production authority did not occur.
 
@@ -82,6 +93,13 @@ focused pytest, repo-verifier, frontend-check, and repo-doctor intents. Any
 future command expansion still needs argv-only allowlists, cwd jail, timeout,
 env scrub, bounded redacted output, receipt refs, safe-disable posture, and
 focused tests before it can run.
+
+Those legacy RuntimeGateway verification commands are preserved but are not
+counted as new Phase 04 promoted tool lanes because they do not yet traverse the
+canonical mission orchestrator/runner/dispatcher path. The existing redacted
+file preview also remains unpromoted: its path-based open must be replaced by a
+descriptor-relative, root-identity-bound `O_NOFOLLOW` reader with opaque path
+refs before dispatcher integration.
 
 Callable tool catalog work needs separate inspectable and callable catalogs,
 policy decisions, approval envelopes, idempotency, side-effect classes, receipt

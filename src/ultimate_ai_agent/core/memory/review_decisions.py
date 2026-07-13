@@ -31,6 +31,7 @@ MEMORY_REVIEW_DECISION_ROUTE_REFS = (
     "POST /control-center/memory/review/{candidate_ref}/defer",
     "POST /control-center/memory/review/{candidate_ref}/merge",
     "POST /control-center/memory/review/{candidate_ref}/supersede",
+    "POST /control-center/memory/review/{candidate_ref}/expire",
     "POST /control-center/memory/review/{candidate_ref}/forget-request",
 )
 
@@ -41,6 +42,7 @@ MemoryReviewDecisionKind = Literal[
     "defer",
     "merge",
     "supersede",
+    "expire",
     "forget_request",
 ]
 MEMORY_REVIEW_DECISION_KINDS: list[MemoryReviewDecisionKind] = [
@@ -50,6 +52,7 @@ MEMORY_REVIEW_DECISION_KINDS: list[MemoryReviewDecisionKind] = [
     "defer",
     "merge",
     "supersede",
+    "expire",
     "forget_request",
 ]
 
@@ -60,6 +63,7 @@ MemoryReviewDecisionState = Literal[
     "defer",
     "merge",
     "supersede",
+    "expire",
     "forget_request",
 ]
 
@@ -70,6 +74,7 @@ MEMORY_REVIEW_DECISION_STATES: list[MemoryReviewDecisionState] = [
     "defer",
     "merge",
     "supersede",
+    "expire",
     "forget_request",
 ]
 
@@ -121,6 +126,15 @@ MEMORY_REVIEW_AUTHORITY_ACTION_REF = (
     "authority-action-ref:memory-review-accept-correct"
 )
 MEMORY_REVIEW_AUTHORITY_LANE_REF = "lane-ref:memory-review-accept-correct"
+MEMORY_REVIEW_LIFECYCLE_SCOPE_REF = (
+    "exact-scope-ref:memory-review:lifecycle-suppression-write"
+)
+MEMORY_REVIEW_LIFECYCLE_AUTHORITY_ACTION_REF = (
+    "authority-action-ref:memory-review-lifecycle-suppression"
+)
+MEMORY_REVIEW_LIFECYCLE_AUTHORITY_LANE_REF = (
+    "lane-ref:memory-review-lifecycle-suppression"
+)
 MEMORY_REVIEW_AUTHORITY_DOMAIN_REF = "authority-domain-ref:memory"
 MEMORY_REVIEW_AUTHORITY_CAPABILITY_REF = "authority-capability-ref:write"
 MEMORY_REVIEW_AUTHORITY_REQUIRED_MODE_REF = "authority-mode-ref:ask-before-changes"
@@ -426,11 +440,6 @@ class MemoryReviewDecisionReceipt(BaseModel):
     review_ref: str = Field(..., min_length=1)
     decision: MemoryReviewDecisionKind
     corrected_summary_ref: str | None = Field(default=None, min_length=1)
-    corrected_safe_summary: str | None = Field(
-        default=None,
-        min_length=1,
-        max_length=500,
-    )
     source_refs: list[str] = Field(default_factory=list)
     evidence_refs: list[str] = Field(default_factory=list)
     reviewer_ref: str = Field(..., min_length=1)
@@ -449,6 +458,9 @@ class MemoryReviewDecisionReceipt(BaseModel):
     authority_decision_ref: str | None = None
     authority_decision_outcome: str | None = None
     authority_lease_ref: str | None = None
+    authority_action_ref: str | None = None
+    authority_lane_ref: str | None = None
+    authority_scope_ref: str | None = None
     authority_domain_ref: str = MEMORY_REVIEW_AUTHORITY_DOMAIN_REF
     authority_capability_ref: str = MEMORY_REVIEW_AUTHORITY_CAPABILITY_REF
     safe_disable_ref: str = Field(default=MEMORY_REVIEW_WRITE_SAFE_DISABLE_REF)
@@ -469,6 +481,7 @@ class MemoryReviewDecisionReceipt(BaseModel):
     defer_ref: str | None = Field(default=None, min_length=1)
     merge_ref: str | None = Field(default=None, min_length=1)
     supersede_ref: str | None = Field(default=None, min_length=1)
+    expire_ref: str | None = Field(default=None, min_length=1)
     forget_request_ref: str | None = Field(default=None, min_length=1)
     merge_refs: list[str] = Field(default_factory=list)
     supersedes_refs: list[str] = Field(default_factory=list)
@@ -523,7 +536,13 @@ class MemoryReviewDecisionReceipt(BaseModel):
         _safe_text(self.approval_status, "approval_status")
         _safe_ref(self.authority_domain_ref, "authority_domain_ref")
         _safe_ref(self.authority_capability_ref, "authority_capability_ref")
-        for field_name in ["authority_decision_ref", "authority_lease_ref"]:
+        for field_name in [
+            "authority_decision_ref",
+            "authority_lease_ref",
+            "authority_action_ref",
+            "authority_lane_ref",
+            "authority_scope_ref",
+        ]:
             ref_value = getattr(self, field_name)
             if ref_value is not None:
                 _safe_ref(ref_value, field_name)
@@ -556,10 +575,10 @@ class MemoryReviewDecisionReceipt(BaseModel):
             "defer_ref",
             "merge_ref",
             "supersede_ref",
+            "expire_ref",
             "forget_request_ref",
         ]:
             _safe_optional_ref(getattr(self, field_name), field_name)
-        _safe_optional_text(self.corrected_safe_summary, "corrected_safe_summary")
         for field_name in [
             "merge_refs",
             "supersedes_refs",
@@ -577,12 +596,8 @@ class MemoryReviewDecisionReceipt(BaseModel):
             raise ValueError("FCC memory review decision missing blocked states")
         if self.decision == "correct" and self.corrected_summary_ref is None:
             raise ValueError("correct memory review decisions require corrected_summary_ref")
-        if self.decision == "correct" and self.corrected_safe_summary is None:
-            raise ValueError("correct memory review decisions require corrected_safe_summary")
         if self.decision != "correct" and self.corrected_summary_ref is not None:
             raise ValueError("corrected_summary_ref belongs only to correct decisions")
-        if self.decision != "correct" and self.corrected_safe_summary is not None:
-            raise ValueError("corrected_safe_summary belongs only to correct decisions")
         if self.decision in {"accept", "correct"} and self.reviewed_recall_ref is None:
             raise ValueError("accept/correct decisions require reviewed recall ref")
         if self.decision in {"accept", "correct"} and self.reviewed_recall_record_ref is None:
@@ -593,16 +608,55 @@ class MemoryReviewDecisionReceipt(BaseModel):
             self.authority_decision_ref is None
             or self.authority_decision_outcome is None
             or self.authority_lease_ref is None
+            or self.authority_action_ref is None
+            or self.authority_lane_ref is None
+            or self.authority_scope_ref is None
         ):
             raise ValueError("accept/correct decisions require authority lease proof")
+        if self.decision in {"accept", "correct"} and (
+            self.authority_action_ref != MEMORY_REVIEW_AUTHORITY_ACTION_REF
+            or self.authority_lane_ref != MEMORY_REVIEW_AUTHORITY_LANE_REF
+            or self.authority_scope_ref != MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF
+        ):
+            raise ValueError("accept/correct authority scope drifted")
         if self.decision not in {"accept", "correct"} and self.reviewed_recall_write_performed:
             raise ValueError("non-write memory review decisions must not claim recall writes")
-        if self.decision not in {"accept", "correct"} and (
-            self.authority_decision_ref is not None
-            or self.authority_decision_outcome is not None
-            or self.authority_lease_ref is not None
-        ):
-            raise ValueError("receipt-only memory decisions must not claim authority lease proof")
+        if self.decision not in {"accept", "correct"}:
+            has_authority_proof = any(
+                value is not None
+                for value in (
+                    self.authority_decision_ref,
+                    self.authority_decision_outcome,
+                    self.authority_lease_ref,
+                    self.authority_action_ref,
+                    self.authority_lane_ref,
+                    self.authority_scope_ref,
+                )
+            )
+            if has_authority_proof != bool(self.suppressed_recall_record_refs):
+                raise ValueError(
+                    "memory lifecycle suppression requires exact authority proof"
+                )
+            if has_authority_proof and not all(
+                value is not None
+                for value in (
+                    self.authority_decision_ref,
+                    self.authority_decision_outcome,
+                    self.authority_lease_ref,
+                    self.authority_action_ref,
+                    self.authority_lane_ref,
+                    self.authority_scope_ref,
+                )
+            ):
+                raise ValueError("memory lifecycle authority proof is incomplete")
+            if has_authority_proof and (
+                self.authority_action_ref
+                != MEMORY_REVIEW_LIFECYCLE_AUTHORITY_ACTION_REF
+                or self.authority_lane_ref
+                != MEMORY_REVIEW_LIFECYCLE_AUTHORITY_LANE_REF
+                or self.authority_scope_ref != MEMORY_REVIEW_LIFECYCLE_SCOPE_REF
+            ):
+                raise ValueError("memory lifecycle authority scope drifted")
         if self.decision == "reject" and self.reviewed_recall_record_ref is not None:
             raise ValueError("reject decisions must not create reviewed recall records")
         if self.decision == "reject" and self.rejection_ref is None:
@@ -618,6 +672,8 @@ class MemoryReviewDecisionReceipt(BaseModel):
             raise ValueError("supersede decisions require supersede refs")
         if self.decision == "forget_request" and self.forget_request_ref is None:
             raise ValueError("forget_request decisions require forget request ref")
+        if self.decision == "expire" and self.expire_ref is None:
+            raise ValueError("expire decisions require expiry ref")
         if self.decision not in {"accept", "correct"} and (
             self.reviewed_recall_ref is not None
             or self.reviewed_recall_record_ref is not None
@@ -781,6 +837,10 @@ def memory_review_forget_request_ref(candidate_ref: str) -> str:
     return f"forget-request-ref:memory-review:{_short_ref_suffix(candidate_ref)}"
 
 
+def memory_review_expire_ref(candidate_ref: str) -> str:
+    return f"expired-memory-ref:memory-review:{_short_ref_suffix(candidate_ref)}"
+
+
 def validate_memory_review_decision_envelope(
     envelope: MemoryReviewDecisionEnvelope,
 ) -> bool:
@@ -807,6 +867,14 @@ def memory_review_decision_state_rows() -> list[dict[str, object]]:
                 if state in {"accept", "correct"}
                 else "blocked-state:no-memory-write"
             ),
+            "conditional_lifecycle_suppression_write": state
+            in {"reject", "merge", "supersede", "expire", "forget_request"},
+            "lifecycle_suppression_scope_ref": (
+                MEMORY_REVIEW_LIFECYCLE_SCOPE_REF
+                if state
+                in {"reject", "merge", "supersede", "expire", "forget_request"}
+                else "blocked-state:no-lifecycle-suppression-write"
+            ),
             "deletes_authorized": False,
             "exports_authorized": False,
             "context_injection_authorized": False,
@@ -823,6 +891,14 @@ def memory_review_decision_authority_posture() -> dict[str, object]:
         "reviewed_recall_write_authorized": True,
         "reviewed_recall_write_scope_ref": MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF,
         "reviewed_recall_write_scope": "accept_correct_reviewed_recall_only",
+        "lifecycle_suppression_write_authorized": True,
+        "lifecycle_suppression_write_scope_ref": MEMORY_REVIEW_LIFECYCLE_SCOPE_REF,
+        "lifecycle_suppression_write_lane_ref": (
+            MEMORY_REVIEW_LIFECYCLE_AUTHORITY_LANE_REF
+        ),
+        "lifecycle_suppression_write_posture": (
+            "conditional_exact_approval_and_lease_required_when_recall_exists"
+        ),
         "automatic_memory_write_authorized": False,
         "memory_delete_authorized": False,
         "memory_export_authorized": False,
@@ -843,6 +919,9 @@ __all__ = [
     "FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS",
     "FCC_MEMORY_REVIEW_DECISION_CONTRACT_REF",
     "MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF",
+    "MEMORY_REVIEW_LIFECYCLE_AUTHORITY_ACTION_REF",
+    "MEMORY_REVIEW_LIFECYCLE_AUTHORITY_LANE_REF",
+    "MEMORY_REVIEW_LIFECYCLE_SCOPE_REF",
     "MEMORY_REVIEW_RECEIPT_SCOPE_REF",
     "MEMORY_REVIEW_DECISION_CONTRACT_REF",
     "MEMORY_REVIEW_DECISION_KINDS",
@@ -870,6 +949,7 @@ __all__ = [
     "memory_review_decision_ref",
     "memory_review_decision_state_rows",
     "memory_review_forget_request_ref",
+    "memory_review_expire_ref",
     "memory_review_merge_ref",
     "memory_review_payload_fingerprint_ref",
     "memory_review_rejection_ref",
