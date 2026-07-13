@@ -16,6 +16,23 @@ def test_control_center_guard_allows_safe_blocker_and_billing_reason_refs() -> N
     run_all_legacy.verify_no_control_center_runtime_or_frontend_expansion()
 
 
+def test_shell_guard_accepts_only_the_exact_sealed_backend_subprocess_profile() -> None:
+    rel = "src/ultimate_ai_agent/core/sandbox_calculation/backend.py"
+    source = (run_all_legacy.ROOT / rel).read_text(encoding="utf-8")
+
+    run_all_legacy.verify_no_shell_execution_in_runtime()
+    assert run_all_legacy._is_exact_governed_runtime_command_shell_scan_line(
+        rel_path=rel,
+        source=source,
+        stripped_line="process: subprocess.Popen[bytes],",
+    )
+    assert not run_all_legacy._is_exact_governed_runtime_command_shell_scan_line(
+        rel_path=rel,
+        source=source + "\nsubprocess.call(['unsafe'])\n",
+        stripped_line="subprocess.call(['unsafe'])",
+    )
+
+
 def test_static_scan_allowlist_is_dependency_free_and_does_not_hide_web_adapters(
     monkeypatch,
 ) -> None:

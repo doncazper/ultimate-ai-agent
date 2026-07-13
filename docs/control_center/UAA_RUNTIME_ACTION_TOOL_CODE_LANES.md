@@ -1,7 +1,7 @@
 # UAA Runtime Capability Foundation Action Tool Code Capabilities
 
-Status: Phase 04 exact filesystem-metadata mission is implemented and visible;
-all other additions in this slice remain catalog/read-model truth only.
+Status: exact filesystem-metadata and sealed deterministic calculation missions
+are implemented and visible; broad code/tool execution remains blocked.
 
 ## Full-Strength Version
 
@@ -30,13 +30,27 @@ Phase 04 adds Python Core Action/Tool/Code capability catalog contract
   evidence/proof refs, blocked authority refs, and unblock prompt refs.
 
 The catalog separates inspectable metadata from callable execution. It shows
-the already-proven `founder-loop-filesystem-metadata-v1` lane as the single
-Phase 04 promoted tool capability. Its availability snapshot says supported and
+the already-proven `founder-loop-filesystem-metadata-v1` lane as an exact
+promoted tool capability. Its availability snapshot says supported and
 approval-required, while current root, resource, health, and safe-disable truth
 remain unknown until fresh request-scoped approval, mission lease, budget,
 kill-switch, target, and dispatcher evaluation. Execution remains Python-core
 only through `MissionOrchestrator -> AuthorityMissionRunner ->
-AuthorityDispatcher`; no API, CLI, or Control Center execution control is added.
+AuthorityDispatcher`; no API or Control Center execution control is added.
+
+The separately threat-reviewed
+`lane-ref:sealed-arithmetic-exact-lease` is also implemented as exact
+bounded arithmetic. It uses the same canonical mission path, an exact
+`workspace/execute` mission lease, a source-bound pinned local container,
+default-deny seccomp, no network or host mounts, bounded resources, atomic
+runtime-start/input-commit receipts, and transient-only raw input. No
+per-invocation approval is required only after exact mission-lease issuance has
+passed `LocalApprovalAuthority`. `uaa_runtime.py sealed-calculation inspect`
+and `run` provide readable CLI parity. General Python, CodeAct, shell, host
+filesystem/environment access, packages, and background work remain denied.
+The catalog remains `implemented_configuration_required` and does not advertise
+a live proof ref; current callable readiness comes only from the CLI inspection
+and macOS hostile verifier for the exact local image and daemon.
 
 The catalog also shows
 Tool Broker v2 entries as preview-only, Action Inbox `local_task_create` as an
@@ -57,6 +71,7 @@ raw local paths, raw logs, account material, credentials, or private data.
 Generic tool execution remains blocked. These also remain blocked:
 
 - unrestricted shell/subprocess execution
+- general Python or CodeAct execution beyond bounded arithmetic
 - arbitrary command strings
 - unapproved code mutation or patch apply
 - broad tool invocation
@@ -105,3 +120,8 @@ Callable tool catalog work needs separate inspectable and callable catalogs,
 policy decisions, approval envelopes, idempotency, side-effect classes, receipt
 plans, rollback/safe-disable posture, CLI/API/Core parity, and verifier coverage
 before any tool invocation is allowed.
+
+The sealed arithmetic implementation is the one exception: after current local
+readiness passes, it is individually callable through its exact mission adapter
+and lease. Its static catalog entry remains configuration-required and does not
+make Tool Broker entries or any other catalog item callable.

@@ -546,6 +546,15 @@ def test_backend_read_model_contains_representative_safe_states() -> None:
     assert metadata["source_ref"] == (
         "capability-manifest-ref:founder-loop-filesystem-metadata-v1"
     )
+    sealed = by_ref["authority-capability-ref:sealed-arithmetic-v1"]
+    assert sealed["runtime_readiness_status"] == "unknown"
+    assert sealed["authority_posture"] == "lease_required"
+    assert sealed["adapter_ref"] == (
+        "authority-adapter-ref:sealed-arithmetic-docker-v1"
+    )
+    assert "SEALED_DETERMINISTIC_CALCULATION_IMPLEMENTED" in sealed["reason_codes"]
+    assert "EXACT_MISSION_SCOPED_LEASE_REQUIRED" in sealed["blocker_codes"]
+    assert sealed["probe_refs"] == []
     assert all(item["reason_codes"] for item in payload["snapshots"])
     assert all(item["source_ref"] for item in payload["snapshots"])
     serialized = json.dumps(payload)

@@ -43,6 +43,7 @@ class ToolInvocationKind(str, Enum):
     read_only_http_fetch = "read_only_http_fetch"
     validation_only = "validation_only"
     portable_evidence_signing = "portable_evidence_signing"
+    sealed_arithmetic = "sealed_arithmetic"
     blocked_unknown = "blocked_unknown"
     blocked_effectful = "blocked_effectful"
     blocked_shell = "blocked_shell"

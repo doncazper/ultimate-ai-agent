@@ -99,6 +99,35 @@ def main() -> int:
             failures.append(
                 f"{source_name} filesystem metadata availability snapshot is missing"
             )
+        sealed = _entry_by_id(
+            model,
+            "calculation.sandbox.arithmetic.exact_lease",
+        )
+        if sealed.get("status") != "implemented_configuration_required":
+            failures.append(
+                f"{source_name} sealed calculation lease posture drifted"
+            )
+        if sealed.get("exact_runtime_lane_available") is not False:
+            failures.append(
+                f"{source_name} sealed calculation exact lane is unavailable"
+            )
+        if sealed.get("availability_snapshot_ref") != (
+            "capability-availability-ref:sealed-calculation-v1"
+        ):
+            failures.append(
+                f"{source_name} sealed calculation availability binding drifted"
+            )
+        if any(
+            not str(route_ref).startswith("GET ")
+            for route_ref in sealed.get("route_refs") or []
+        ):
+            failures.append(
+                f"{source_name} sealed calculation gained a mutating API route"
+            )
+        if not sealed.get("receipt_refs"):
+            failures.append(
+                f"{source_name} sealed calculation receipt contract is missing"
+            )
         if model.get("blocked_count") != 3:
             failures.append(f"{source_name} catalog blocked count drifted")
         entries = model.get("entries") or []

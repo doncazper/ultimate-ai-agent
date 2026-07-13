@@ -423,6 +423,11 @@ def test_static_safety_evaluator_data_exemption_is_scoped() -> None:
     )
 
 
+def test_sealed_backend_is_not_a_global_static_scan_exception() -> None:
+    backend_rel = "src/ultimate_ai_agent/core/sandbox_calculation/backend.py"
+    assert not _is_static_safety_scan_allowed_file(backend_rel, frozenset())
+
+
 def test_route_boundary_data_only_static_scan_failures_classify_as_stale() -> None:
     summary = classify_failures(
         {
