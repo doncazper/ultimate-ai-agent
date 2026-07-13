@@ -17,7 +17,7 @@ The global product rail keeps one `Studio` entry. Inside it, the operator works
 in one shared `UAA Studio` shell with exactly three persistent modes:
 
 1. **Chat** — talk, decide, and hand off.
-2. **Code** — build, diff, and verify.
+2. **Code** — propose, review, and validate.
 3. **Create** — design, version, and review.
 
 These are modes of one workspace, not separate Studio products or global
@@ -108,13 +108,14 @@ not grant additional authority.
 
 ## Accepted Screen
 
-### Unified Studio v6 — Create mode
+### Unified Studio v7 — Create mode
 
-![Accepted unified Studio v6](control_center_north_star/renders/target-v3/06-studio-unified-v6.png)
+![Accepted unified Studio v7](control_center_north_star/renders/target-v3/06-studio-unified-v7.png)
 
 This screen locks the single Studio identity, persistent Chat/Code/Create mode
 switcher, narrow rail, dominant center canvas, mode-ownership inspector, docked
-composer, and full-width status band. Create is active to prove that
+proposal composer, fail-closed export posture, and full-width status band.
+Create is active to prove that
 presentations and other creative assets fit inside the same shell as Chat and
 Code without becoming a separate product.
 

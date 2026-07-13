@@ -1,7 +1,7 @@
 # Control Center North-Star Visual Renders
 
 Status: current target render set, documentation only.
-Baseline ID: CC-NS-TARGET-R5-2026-07-13.
+Baseline ID: CC-NS-TARGET-R6-2026-07-13.
 Current as of: 2026-07-13.
 Repo baseline: v0.104.0 / 0.104.0.
 
@@ -108,7 +108,7 @@ Studio revision 05 supersedes the split as the current accepted direction:
 
 | Render | Revision |
 |---|---|
-| `renders/target-v3/06-studio-unified-v6.png` | Unified Studio v6 with persistent Chat, Code, and Create modes; Create active |
+| `renders/target-v3/06-studio-unified-v7.png` | Unified Studio v7 with persistent Chat, Code, and Create modes; Create active; export blocked |
 
 The independent Messenger client set covers the Element-familiar Matrix north
 star through the UAA lens while Communications keeps its accepted unified hub.
@@ -154,7 +154,7 @@ in browser local storage and can be exported/imported as JSON.
 
 ## Current Baseline
 
-- Current target render set: CC-NS-TARGET-R5-2026-07-13.
+- Current target render set: CC-NS-TARGET-R6-2026-07-13.
 - Current as of: 2026-07-13.
 - Machine-readable pointer: `CURRENT_RENDER_BASELINE.json`.
 - Canonical shell: `APP_SHELL_BASELINE.md`.
@@ -177,7 +177,7 @@ baseline.
 
 ![Target Calendar](renders/target-v1/05-calendar.png)
 
-![Target unified Studio v6](renders/target-v3/06-studio-unified-v6.png)
+![Target unified Studio v7](renders/target-v3/06-studio-unified-v7.png)
 
 ![Target Trust cockpit](renders/target-v2/16-trust-v1.png)
 
