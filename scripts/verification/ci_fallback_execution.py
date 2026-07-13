@@ -8,6 +8,7 @@ import stat
 import subprocess
 import tempfile
 import time
+from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -20,7 +21,6 @@ from scripts.verification.ci_command_manifest import (
     build_plan,
     command_registry,
     lane_registry,
-    verification_plan_fingerprint,
     visual_scope_for_paths,
 )
 from scripts.verification.ci_fallback_contracts import (
@@ -28,6 +28,7 @@ from scripts.verification.ci_fallback_contracts import (
     SHA_PATTERN,
     PrivateVerificationResult,
     has_valid_command_result_evidence,
+    has_valid_timing_window,
 )
 from scripts.verification.pytest_shard_processes import (
     cancellation_signals,
@@ -104,12 +105,9 @@ def _read_lane_receipt(
     path: Path,
     *,
     lane_ref: str,
-    repository_sha: str,
-    definition_ref: str,
-    lock_fingerprints: tuple[tuple[str, str], ...],
-    shard_plan_fingerprint: str,
-    visual_scope: str,
+    expected_plan: VerificationPlan,
 ) -> str:
+    repository_sha = expected_plan.repository_sha
     descriptor = -1
     try:
         flags = os.O_RDONLY
@@ -151,21 +149,9 @@ def _read_lane_receipt(
         "receipt_ref",
     }
     lane = lane_registry()[lane_ref]
-    selected_command_refs = tuple(
-        command_ref
-        for command_ref in lane.command_refs
-        if command_ref not in lane.satisfied_command_refs
-    )
     plan = payload.get("plan") if isinstance(payload, dict) else None
     if not isinstance(plan, dict):
         raise ValueError("private CI lane receipt does not contain a plan")
-    plan_without_fingerprint = {
-        key: value for key, value in plan.items() if key != "plan_fingerprint"
-    }
-    try:
-        recomputed_plan_ref = verification_plan_fingerprint(plan_without_fingerprint)
-    except ValueError as exc:
-        raise ValueError("private CI lane receipt plan is invalid") from exc
     command_results = payload.get("command_results")
     if not isinstance(command_results, list) or [
         result.get("command_ref") if isinstance(result, dict) else None
@@ -177,7 +163,12 @@ def _read_lane_receipt(
         not has_valid_command_result_evidence(
             result,
             lane_ref=lane_ref,
+            repository_sha=repository_sha,
+            expected_category=command_registry()[result["command_ref"]].category,
             expected_pytest_plan_ref=expected_pytest_plan_ref,
+            satisfied_by_dependency=(
+                result["command_ref"] in lane.satisfied_command_refs
+            ),
         )
         for result in command_results
     ):
@@ -194,14 +185,12 @@ def _read_lane_receipt(
         or payload.get("merge_gate_satisfied") is not False
         or payload.get("redaction_status")
         != "content_free_refs_hashes_counts_and_durations_only"
-        or plan.get("definition_fingerprint") != definition_ref
-        or tuple(tuple(value) for value in plan.get("dependency_lock_fingerprints", []))
-        != lock_fingerprints
-        or tuple(plan.get("selected_lane_refs", [])) != (lane_ref,)
-        or tuple(plan.get("selected_command_refs", [])) != selected_command_refs
-        or plan.get("pytest_shard_plan_fingerprint") != shard_plan_fingerprint
-        or plan.get("frontend_visual_scope") != visual_scope
-        or plan.get("plan_fingerprint") != recomputed_plan_ref
+        or not has_valid_timing_window(
+            payload.get("started_at"),
+            payload.get("completed_at"),
+            payload.get("duration_ms"),
+        )
+        or plan != json.loads(json.dumps(asdict(expected_plan)))
     ):
         raise ValueError("private CI lane receipt does not match its exact plan")
     receipt_ref = payload.get("receipt_ref")
@@ -476,9 +465,6 @@ class IsolatedPrivateExecutor:
         lane_ref: str,
         *,
         repository_sha: str,
-        definition_ref: str,
-        lock_fingerprints: tuple[tuple[str, str], ...],
-        shard_plan_fingerprint: str,
         root: Path,
         worktree: Path,
         env: dict[str, str],
@@ -488,6 +474,12 @@ class IsolatedPrivateExecutor:
         result_refs: list[str],
         full_suite_lock_mode: str | None = None,
     ) -> bool:
+        expected_plan = build_plan(
+            worktree,
+            repository_sha,
+            lane_refs=(lane_ref,),
+            frontend_visual_scope=visual_scope,
+        )
         receipt_path = root / "lane-receipts" / f"{lane_ref}.json"
         lane_command = (
             ".venv/bin/python",
@@ -520,11 +512,7 @@ class IsolatedPrivateExecutor:
             _read_lane_receipt(
                 receipt_path,
                 lane_ref=lane_ref,
-                repository_sha=repository_sha,
-                definition_ref=definition_ref,
-                lock_fingerprints=lock_fingerprints,
-                shard_plan_fingerprint=shard_plan_fingerprint,
-                visual_scope=visual_scope,
+                expected_plan=expected_plan,
             )
         )
         return True
@@ -539,9 +527,6 @@ class IsolatedPrivateExecutor:
         result_refs: list[str],
         isolated_plan: VerificationPlan,
     ) -> str:
-        definition_ref = isolated_plan.definition_fingerprint
-        lock_fingerprints = isolated_plan.dependency_lock_fingerprints
-        shard_plan_fingerprint = isolated_plan.pytest_shard_plan_fingerprint
         npm_ready = False
         if IsolatedPrivateExecutor._affected_preflight_requires_frontend(worktree):
             returncode, duration_ms, result_ref = _safe_subprocess(
@@ -558,9 +543,6 @@ class IsolatedPrivateExecutor:
         if not IsolatedPrivateExecutor._run_lane(
             "ci-affected-preflight",
             repository_sha=repository_sha,
-            definition_ref=definition_ref,
-            lock_fingerprints=lock_fingerprints,
-            shard_plan_fingerprint=shard_plan_fingerprint,
             root=root,
             worktree=worktree,
             env=env,
@@ -633,9 +615,6 @@ class IsolatedPrivateExecutor:
             if not IsolatedPrivateExecutor._run_lane(
                 job.lane_ref,
                 repository_sha=repository_sha,
-                definition_ref=definition_ref,
-                lock_fingerprints=lock_fingerprints,
-                shard_plan_fingerprint=shard_plan_fingerprint,
                 root=root,
                 worktree=worktree,
                 env=env,
