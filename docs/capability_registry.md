@@ -104,6 +104,18 @@ project the same backend-owned truth. These routes are connector-adjacent
 remains disconnected. No Matrix SDK, network operation, authentication,
 message read/send, raw-content persistence, or new authority is present.
 
+## Exact Repo-Owned Extension Metadata Adapter
+
+One exact repo-owned registration now binds the reviewed
+`capability:extension-metadata-inspection` declaration to UAA's bounded
+filesystem metadata tool. It never imports extension package code and executes
+only through `AuthorityDispatcher` after current policy, exact `AuthorityLease`,
+safe-root target, budget, deadline, kill-switch, safe-disable, and idempotency
+checks. The existing capability-availability API and CLI show unknown current
+runtime posture until those request-scoped observations exist; the canonical
+extension CLI adds `inspect-exact-adapter` for the registration manifest and
+blockers. See `docs/tooling/EXACT_EXTENSION_ADAPTER.md`.
+
 ## Sealed Deterministic Calculation
 
 The exact `calculation.sandbox.arithmetic.exact_lease` lane is implemented as bounded

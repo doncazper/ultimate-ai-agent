@@ -1,0 +1,63 @@
+{
+  "schema_version": "uaa_extensibility_evidence_score.v1",
+  "score_ref": "score-ref:uaa-extensibility:exact-adapter-v1",
+  "component": "extensibility_ecosystem",
+  "score": 9.0,
+  "confidence": "high",
+  "status": "implemented_exact_lane_general_runtime_blocked",
+  "implementation_ref": "adapter-implementation-ref:exact-extension-metadata-inspection-v1",
+  "score_basis": [
+    {
+      "gate_ref": "score-gate:extension:declaration-and-schema",
+      "points": 1,
+      "status": "passed"
+    },
+    {
+      "gate_ref": "score-gate:extension:runtime-truth-dimensions",
+      "points": 1,
+      "status": "passed"
+    },
+    {
+      "gate_ref": "score-gate:extension:exact-core-owned-adapter",
+      "points": 2,
+      "status": "passed"
+    },
+    {
+      "gate_ref": "score-gate:extension:request-scoped-authority",
+      "points": 2,
+      "status": "passed"
+    },
+    {
+      "gate_ref": "score-gate:extension:replay-receipts-redaction",
+      "points": 1,
+      "status": "passed"
+    },
+    {
+      "gate_ref": "score-gate:extension:api-cli-visibility",
+      "points": 1,
+      "status": "passed"
+    },
+    {
+      "gate_ref": "score-gate:extension:adversarial-failure-proof",
+      "points": 1,
+      "status": "passed"
+    }
+  ],
+  "evidence_refs": [
+    "repo-ref:uaa:src/ultimate_ai_agent/core/extension_catalog/exact_adapter.py",
+    "repo-ref:uaa:src/ultimate_ai_agent/core/capability_availability/read_model.py",
+    "repo-ref:uaa:docs/tooling/exact_extension_adapter_manifest.json",
+    "repo-ref:uaa:docs/schemas/exact_extension_adapter.schema.json",
+    "repo-ref:uaa:scripts/dev/uaa_extensions.py",
+    "repo-ref:uaa:scripts/verify_exact_extension_adapter.py",
+    "repo-ref:uaa:tests/test_exact_extension_adapter.py"
+  ],
+  "remaining_gap": {
+    "classification": "intentionally_bounded",
+    "safe_summary": "Only one exact repo-owned adapter is callable; arbitrary package import, marketplace execution, wildcard capabilities, and unsigned third-party runtime code remain blocked."
+  },
+  "authority_granted_by_score": false,
+  "raw_content_persisted": false,
+  "local_paths_persisted": false,
+  "credentials_persisted": false
+}
