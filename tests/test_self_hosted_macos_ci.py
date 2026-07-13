@@ -55,6 +55,43 @@ def test_workflow_uses_non_admin_preprovisioned_toolchains() -> None:
     assert "shell: bash" not in workflow
 
 
+def test_base_controlled_workflow_rejects_forks_without_checkout() -> None:
+    policy = (
+        ROOT / ".github/workflows/fork-pr-policy.yml"
+    ).read_text(encoding="utf-8")
+
+    assert "pull_request_target:" in policy
+    assert "permissions: {}" in policy
+    assert "EXPECTED_REPOSITORY: ${{ github.repository }}" in policy
+    assert (
+        "PR_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}"
+        in policy
+    )
+    assert 'if [ "$PR_HEAD_REPOSITORY" != "$EXPECTED_REPOSITORY" ]; then' in policy
+    assert "uses:" not in policy
+    assert "checkout" not in policy
+    assert "secrets." not in policy
+
+
+def test_runner_bootstrap_keeps_tokens_out_of_argv_and_rejects_stale_state() -> None:
+    provisioner = (
+        ROOT / "scripts/ci/provision_self_hosted_macos_runners.sh"
+    ).read_text(encoding="utf-8")
+    bootstrap = (
+        ROOT / "scripts/ci/bootstrap_self_hosted_macos_runner.sh"
+    ).read_text(encoding="utf-8")
+
+    assert 'remote_registration_state="registered"' in provisioner
+    assert 'remote_registration_state="absent"' in provisioner
+    assert 'ACTIONS_RUNNER_INPUT_TOKEN="$registration_token" ./config.sh' in bootstrap
+    assert '--token "$registration_token"' not in bootstrap
+    assert "local runner registration is stale" in bootstrap
+    assert "regular non-symlink file" in bootstrap
+    assert 'settings.get("agentName")' in bootstrap
+    assert 'settings.get("gitHubUrl"' in bootstrap
+    assert 'settings.get("workFolder")' in bootstrap
+
+
 def test_pytest_shards_use_runner_scoped_temp_directory() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
 
@@ -184,6 +221,7 @@ def test_desktop_packaging_preserves_non_admin_docker_boundary() -> None:
 
 def test_verifier_rejects_hosted_runner_and_cache_regression(tmp_path: Path) -> None:
     workflow = tmp_path / ".github/workflows/ci.yml"
+    fork_policy = tmp_path / ".github/workflows/fork-pr-policy.yml"
     actionlint_config = tmp_path / ".github/actionlint.yaml"
     provisioner = tmp_path / "scripts/ci/provision_self_hosted_macos_runners.sh"
     bootstrap = tmp_path / "scripts/ci/bootstrap_self_hosted_macos_runner.sh"
@@ -193,6 +231,7 @@ def test_verifier_rejects_hosted_runner_and_cache_regression(tmp_path: Path) -> 
         "name: unsafe\njobs:\n  unsafe:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/cache@v4\n",
         encoding="utf-8",
     )
+    fork_policy.write_text("name: unsafe fork policy\n", encoding="utf-8")
     actionlint_config.write_text(
         "self-hosted-runner:\n  labels:\n    - uaa-ci\n",
         encoding="utf-8",

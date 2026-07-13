@@ -1,0 +1,33 @@
+name: Fork PR Policy
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      - synchronize
+
+permissions: {}
+
+env:
+  PATH: /usr/bin:/bin:/usr/sbin:/sbin
+
+defaults:
+  run:
+    shell: /usr/sbin/taskpolicy -c utility /bin/bash --noprofile --norc -e -o pipefail {0}
+
+jobs:
+  fork-policy:
+    name: fork-policy
+    runs-on: [self-hosted, macOS, ARM64, uaa-ci]
+    env:
+      EXPECTED_REPOSITORY: ${{ github.repository }}
+      PR_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+    steps:
+      - name: Enforce same-repository pull request boundary
+        run: |
+          if [ "$PR_HEAD_REPOSITORY" != "$EXPECTED_REPOSITORY" ]; then
+            echo "Fork pull requests cannot run on the private UAA runners."
+            exit 1
+          fi
+          echo "Same-repository pull request confirmed."

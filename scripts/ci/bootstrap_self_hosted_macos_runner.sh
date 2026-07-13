@@ -19,13 +19,14 @@ fail() {
   exit 1
 }
 
-[[ $# -eq 5 ]] || fail "expected account, repository URL, runner name, install directory, and label"
+[[ $# -eq 6 ]] || fail "expected account, repository URL, runner name, install directory, label, and remote registration state"
 
 readonly expected_account="$1"
 readonly repository_url="$2"
 readonly runner_name="$3"
 readonly install_directory="$4"
 readonly custom_label="$5"
+readonly remote_registration_state="$6"
 
 [[ "$(uname -s)" == "Darwin" ]] || fail "macOS is required"
 [[ "$(uname -m)" == "arm64" ]] || fail "Apple Silicon arm64 is required"
@@ -36,6 +37,7 @@ readonly custom_label="$5"
 [[ "$runner_name" == uaa-ci-mac-arm64-[0-9][0-9] ]] || fail "unexpected runner name"
 [[ "$install_directory" == "$HOME/uaa-actions-runners/runner-"[0-9][0-9] ]] || fail "unexpected install directory"
 [[ "$custom_label" == "uaa-ci" ]] || fail "unexpected custom label"
+[[ "$remote_registration_state" == "registered" || "$remote_registration_state" == "absent" ]] || fail "unexpected remote registration state"
 
 if /usr/sbin/dseditgroup -o checkmember -m "$expected_account" admin 2>/dev/null | /usr/bin/grep -q "yes"; then
   fail "the dedicated runner account must not be an administrator"
@@ -77,11 +79,27 @@ actual_sha256="$(/usr/bin/shasum -a 256 "$archive_path" | /usr/bin/awk '{print $
 /bin/mkdir -p "$install_directory"
 cd "$install_directory"
 
-if [[ ! -f .runner ]]; then
+if [[ -e .runner || -L .runner ]]; then
+  [[ -f .runner && ! -L .runner ]] || fail "local runner registration must be a regular non-symlink file"
+  [[ "$remote_registration_state" == "registered" ]] || fail "local runner registration is stale; remove it with an exact GitHub removal token before reprovisioning"
+  /opt/homebrew/bin/python3.12 - "$runner_name" "$repository_url" <<'PY' || fail "local runner registration does not match the exact repository scope"
+import json
+import sys
+from pathlib import Path
+
+settings = json.loads(Path(".runner").read_text(encoding="utf-8"))
+expected_name, expected_url = sys.argv[1:]
+if settings.get("agentName") != expected_name:
+    raise SystemExit(1)
+if str(settings.get("gitHubUrl", "")).rstrip("/") != expected_url:
+    raise SystemExit(1)
+if settings.get("workFolder") != "_work":
+    raise SystemExit(1)
+PY
+else
   /usr/bin/tar -xzf "$archive_path" -C "$install_directory"
-  ./config.sh \
+  ACTIONS_RUNNER_INPUT_TOKEN="$registration_token" ./config.sh \
     --url "$repository_url" \
-    --token "$registration_token" \
     --name "$runner_name" \
     --labels "$custom_label" \
     --work _work \

@@ -11,6 +11,7 @@ WORKFLOW = ROOT / ".github/workflows/ci.yml"
 PROVISIONER = ROOT / "scripts/ci/provision_self_hosted_macos_runners.sh"
 BOOTSTRAP = ROOT / "scripts/ci/bootstrap_self_hosted_macos_runner.sh"
 ACTIONLINT_CONFIG = ROOT / ".github/actionlint.yaml"
+FORK_POLICY_WORKFLOW = ROOT / ".github/workflows/fork-pr-policy.yml"
 
 RUNNER_SELECTOR = "runs-on: [self-hosted, macOS, ARM64, uaa-ci]"
 FORK_GUARD = (
@@ -56,7 +57,14 @@ def verify(root: Path = ROOT) -> list[str]:
     provisioner_path = root / PROVISIONER.relative_to(ROOT)
     bootstrap_path = root / BOOTSTRAP.relative_to(ROOT)
     actionlint_path = root / ACTIONLINT_CONFIG.relative_to(ROOT)
-    for path in (workflow_path, provisioner_path, bootstrap_path, actionlint_path):
+    fork_policy_path = root / FORK_POLICY_WORKFLOW.relative_to(ROOT)
+    for path in (
+        workflow_path,
+        provisioner_path,
+        bootstrap_path,
+        actionlint_path,
+        fork_policy_path,
+    ):
         if not path.is_file():
             failures.append(f"missing self-hosted CI contract file: {path.relative_to(root)}")
     if failures:
@@ -190,6 +198,28 @@ def verify(root: Path = ROOT) -> list[str]:
     provisioner = provisioner_path.read_text(encoding="utf-8")
     bootstrap = bootstrap_path.read_text(encoding="utf-8")
     actionlint_config = actionlint_path.read_text(encoding="utf-8")
+    fork_policy = fork_policy_path.read_text(encoding="utf-8")
+    required_fork_policy_fragments = (
+        "pull_request_target:",
+        "permissions: {}",
+        "name: fork-policy",
+        RUNNER_SELECTOR,
+        "EXPECTED_REPOSITORY: ${{ github.repository }}",
+        "PR_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}",
+        'if [ "$PR_HEAD_REPOSITORY" != "$EXPECTED_REPOSITORY" ]; then',
+    )
+    if any(fragment not in fork_policy for fragment in required_fork_policy_fragments):
+        failures.append("fork policy workflow must be base-controlled and fail closed")
+    for forbidden in (
+        "uses:",
+        "checkout",
+        "github.event.pull_request.head.sha",
+        "github.event.pull_request.head.ref",
+        "secrets.",
+        "contents:",
+    ):
+        if forbidden in fork_policy:
+            failures.append("fork policy workflow must remain metadata-only")
     if "self-hosted-runner:\n  labels:\n    - uaa-ci" not in actionlint_config:
         failures.append("actionlint must recognize only the custom UAA runner label")
     required_provisioner_fragments = (
@@ -197,6 +227,8 @@ def verify(root: Path = ROOT) -> list[str]:
         'readonly DEFAULT_RUNNER_COUNT=4',
         'readonly MAX_RUNNER_COUNT=4',
         "actions/runners/registration-token",
+        'remote_registration_state="registered"',
+        'remote_registration_state="absent"',
         'self-hosted runners require the UAA repository to remain private',
         'install -d -o root -g wheel -m 0755 /usr/local/libexec\n',
         'install -d -o root -g wheel -m 0755 /usr/local/libexec/uaa-ci',
@@ -217,6 +249,12 @@ def verify(root: Path = ROOT) -> list[str]:
         '[[ "$(id -u)" -ne 0 ]]',
         "must not be an administrator",
         "registration token on stdin",
+        'ACTIONS_RUNNER_INPUT_TOKEN="$registration_token" ./config.sh',
+        "local runner registration is stale",
+        "regular non-symlink file",
+        'settings.get("agentName")',
+        'settings.get("gitHubUrl"',
+        'settings.get("workFolder")',
         "--unattended",
         "--replace",
         ".metadata_never_index",
@@ -230,6 +268,8 @@ def verify(root: Path = ROOT) -> list[str]:
     for fragment in required_bootstrap_fragments:
         if fragment not in bootstrap:
             failures.append("runner bootstrap is missing a required hardening control")
+    if '--token "$registration_token"' in bootstrap:
+        failures.append("runner registration tokens must not be exposed in process arguments")
     if "--disableupdate" in provisioner or "--disableupdate" in bootstrap:
         failures.append("automatic GitHub runner security updates must remain enabled")
     return failures

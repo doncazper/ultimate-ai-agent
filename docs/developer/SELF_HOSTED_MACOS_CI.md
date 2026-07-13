@@ -21,7 +21,11 @@ provider, connector, production, or AuthorityLease capability.
 - Each runner is scoped only to `doncazper/ultimate-ai-agent` and carries the
   custom label `uaa-ci` plus GitHub's `self-hosted`, `macOS`, and `ARM64`
   labels.
-- Fork pull requests fail closed before a job is scheduled on the Mac.
+- Fork pull requests never reach the normal CI workflow. A separate
+  base-controlled `pull_request_target` policy job checks only repository-name
+  metadata, uses no checkout, action, secret, PR ref, or head SHA, and fails the
+  pull request. No fork-controlled repository content or command reaches the
+  Mac. Keep `fork-policy` among the repository's required merge checks.
 - The workflow token has `contents: read` only, and checkout does not persist
   its token.
 - No GitHub Actions cache or artifact upload/download action is used. Job logs
@@ -103,10 +107,20 @@ brew install python@3.12 node@22
 The script uses secure `sudo` and `sysadminctl` prompts to create `uaa-ci` as a
 standard user when it does not exist. It downloads the exact GitHub runner
 archive `2.335.1`, verifies the published SHA-256 checksum, requests short-lived
-repository registration tokens without printing them, registers each runner,
-and installs root-owned LaunchDaemons that execute as `uaa-ci`. Each service
-receives a private writable tool-cache path, while jobs use the pre-provisioned
-Python and Node binaries without granting the runner `sudo`.
+repository registration tokens without printing them, and passes each token to
+the upstream runner through its masked `ACTIONS_RUNNER_INPUT_TOKEN` input rather
+than a process argument. It then registers each runner and installs root-owned
+LaunchDaemons that execute as `uaa-ci`. Each service receives a private writable
+tool-cache path, while jobs use the pre-provisioned Python and Node binaries
+without granting the runner `sudo`.
+
+An existing local `.runner` record is reused only when GitHub still reports the
+exact runner name and the local record matches the expected repository, work
+folder, and runner name. The record must be a regular non-symlink file. A local
+record without a matching remote registration fails closed. Remove that stale
+registration with an exact short-lived GitHub removal token before
+reprovisioning; the bootstrap helper never silently trusts or overwrites
+ambiguous runner state.
 
 The provisioning script never changes GitHub billing, spending limits,
 payment methods, repository visibility, workflow permissions, or paid runner

@@ -70,6 +70,14 @@ for index in $(/usr/bin/seq 1 "$runner_count"); do
   service_path="/Library/LaunchDaemons/${service_label}.plist"
   log_directory="/Users/${RUNNER_ACCOUNT}/Library/Logs/${service_label}"
 
+  remote_runner_count="$(gh api "repos/${REPOSITORY}/actions/runners" \
+    --jq "[.runners[] | select(.name == \"${runner_name}\")] | length")"
+  case "$remote_runner_count" in
+    0) remote_registration_state="absent" ;;
+    1) remote_registration_state="registered" ;;
+    *) fail "GitHub returned duplicate registrations for ${runner_name}" ;;
+  esac
+
   registration_token="$(gh api --method POST "repos/${REPOSITORY}/actions/runners/registration-token" --jq .token)"
   [[ -n "$registration_token" ]] || fail "GitHub did not return a runner registration token"
   printf '%s\n' "$registration_token" | /usr/bin/sudo -H -u "$RUNNER_ACCOUNT" \
@@ -78,7 +86,8 @@ for index in $(/usr/bin/seq 1 "$runner_count"); do
     "$REPOSITORY_URL" \
     "$runner_name" \
     "$install_directory" \
-    "$RUNNER_LABEL"
+    "$RUNNER_LABEL" \
+    "$remote_registration_state"
   registration_token=""
   unset registration_token
 
