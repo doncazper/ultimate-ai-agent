@@ -4923,7 +4923,7 @@ describe("Web Control Center shell", () => {
     expect(currentProofLinks).toHaveLength(0);
   });
 
-  it("renders Action Inbox when an optional shared read times out", async () => {
+  it("keeps exact Action Inbox controls route-scoped when an unrelated read times out", async () => {
     vi.useFakeTimers();
     const fetchMock = stubReadEndpointsWithHungEndpoint(
       API_ENDPOINTS.providerSetupGuide,
@@ -4963,12 +4963,14 @@ describe("Web Control Center shell", () => {
       expect(
         screen.queryByRole("button", { name: /^execute$/i }),
       ).not.toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /Create local task record/i }),
+      ).toBeInTheDocument();
       for (const blockedControl of [
         /Record approval receipt/i,
         /Record edit receipt/i,
         /Record rejection receipt/i,
         /Record defer receipt/i,
-        /Create local task record/i,
       ]) {
         expect(
           screen.queryByRole("button", { name: blockedControl }),
