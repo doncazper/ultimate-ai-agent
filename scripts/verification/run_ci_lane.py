@@ -43,6 +43,11 @@ from scripts.verification.pytest_shard_processes import (  # noqa: E402
 TERMINATION_GRACE_SECONDS = 10.0
 MAX_TRANSIENT_OUTPUT_BYTES = 32 * 1024 * 1024
 MAX_RECEIPT_BYTES = 1024 * 1024
+PYTEST_RUNTIME_UNAVAILABLE_REASON_REF = "reason-ref:ci:pytest-runtime-unavailable"
+
+
+class PytestRuntimeUnavailableError(RuntimeError):
+    """Raised before a full-suite attempt when pytest cannot be imported."""
 
 
 def _utc_now() -> str:
@@ -297,7 +302,9 @@ def run_lane(
     )
     commands = command_registry()
     if lane_ref == "ci-pytest-shards" and importlib.util.find_spec("pytest") is None:
-        raise RuntimeError("canonical pytest runtime is unavailable before suite start")
+        raise PytestRuntimeUnavailableError(
+            "canonical pytest runtime is unavailable before suite start"
+        )
     started_at = _utc_now()
     started = time.perf_counter()
     results: list[dict[str, Any]] = []
@@ -437,16 +444,23 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.profile != PROFILE_REF:
         parser.error("unknown CI profile")
-    receipt = run_lane(
-        args.lane,
-        repository_sha=args.sha,
-        temp_root=Path(args.temp_root),
-        visual_scope=args.visual_scope,
-        docker_available=args.docker_available,
-        summary_file=Path(args.summary_file) if args.summary_file else None,
-        receipt_file=Path(args.receipt_file) if args.receipt_file else None,
-        full_suite_lock_mode=args.full_suite_lock_mode,
-    )
+    try:
+        receipt = run_lane(
+            args.lane,
+            repository_sha=args.sha,
+            temp_root=Path(args.temp_root),
+            visual_scope=args.visual_scope,
+            docker_available=args.docker_available,
+            summary_file=Path(args.summary_file) if args.summary_file else None,
+            receipt_file=Path(args.receipt_file) if args.receipt_file else None,
+            full_suite_lock_mode=args.full_suite_lock_mode,
+        )
+    except PytestRuntimeUnavailableError:
+        print(
+            "UAA CI lane blocked: " + PYTEST_RUNTIME_UNAVAILABLE_REASON_REF,
+            file=sys.stderr,
+        )
+        return 1
     if args.json:
         print(json.dumps(receipt, indent=2, sort_keys=True))
     else:

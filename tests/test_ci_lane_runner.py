@@ -161,13 +161,50 @@ def test_pytest_lane_rejects_missing_runtime_before_attempt_lock(
     _patch_lane(monkeypatch, (command,), lane_ref="ci-pytest-shards")
     monkeypatch.setattr(runner.importlib.util, "find_spec", lambda _name: None)
 
-    with pytest.raises(RuntimeError, match="pytest runtime is unavailable"):
+    with pytest.raises(
+        runner.PytestRuntimeUnavailableError,
+        match="pytest runtime is unavailable",
+    ):
         runner.run_lane(
             "ci-pytest-shards",
             repository_sha=SHA,
             temp_root=tmp_path / "temp",
             full_suite_lock_mode="private",
         )
+
+
+def test_cli_redacts_missing_pytest_runtime_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    unsafe_detail = f"pytest missing from {tmp_path}"
+
+    def _raise_unavailable(*_args: object, **_kwargs: object) -> dict[str, object]:
+        raise runner.PytestRuntimeUnavailableError(unsafe_detail)
+
+    monkeypatch.setattr(runner, "run_lane", _raise_unavailable)
+
+    exit_code = runner.main(
+        [
+            "--lane",
+            "ci-pytest-shards",
+            "--sha",
+            SHA,
+            "--temp-root",
+            str(tmp_path / "temp"),
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert captured.out == ""
+    assert captured.err.strip() == (
+        "UAA CI lane blocked: reason-ref:ci:pytest-runtime-unavailable"
+    )
+    assert "Traceback" not in captured.err
+    assert unsafe_detail not in captured.err
+    assert str(tmp_path) not in captured.err
 
 
 def test_visual_optional_command_is_skipped_only_for_exact_not_affected_posture(
