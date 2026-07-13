@@ -11,7 +11,11 @@ PYTEST_STRETCH_GOAL_SECONDS ?= 110
 PYTEST_TARGET_SECONDS ?= 125
 PYTEST_HARD_TIMEOUT_SECONDS ?= 180
 PYTEST_PERFORMANCE_REPORT ?= /tmp/uaa_pytest_performance_report.json
-.PHONY: doctor test test-serial test-sharded test-sharded-profile verify verify-static verify-gate-architecture verify-fast verify-affected verify-value-audit verify-dev-fast verify-dev-sharded verify-local verify-beta-local verify-beta-local-visual frontend-check frontend-visual-check frontend-turn-router-smoke openapi ruff
+CI_SHA ?= $(shell git rev-parse HEAD)
+CI_LANE ?= ci-lint
+CI_TEMP_ROOT ?= /tmp/uaa-ci-lane
+CI_SHARD_INDEX ?= 0
+.PHONY: doctor test test-serial test-sharded test-sharded-profile verify verify-static verify-gate-architecture verify-fast verify-affected verify-value-audit verify-dev-fast verify-dev-sharded verify-local verify-beta-local verify-beta-local-visual ci-manifest ci-lane ci-reproduce-shard ci-fallback ci-fallback-status frontend-check frontend-visual-check frontend-turn-router-smoke openapi ruff
 
 doctor:
 	$(PYTHON) scripts/verify_dev_environment.py
@@ -63,6 +67,21 @@ verify-dev-sharded:
 		--static-timings-json $(VERIFY_TIMINGS_JSON)
 
 verify-local: verify-dev-sharded
+
+ci-manifest:
+	$(PYTHON) scripts/verification/ci_command_manifest.py
+
+ci-lane:
+	$(PYTHON) scripts/verification/run_ci_lane.py --lane $(CI_LANE) --sha $(CI_SHA) --temp-root $(CI_TEMP_ROOT)
+
+ci-reproduce-shard:
+	$(PYTHON) scripts/verification/run_ci_lane.py --lane ci-pytest-shard-$(CI_SHARD_INDEX)-reproduce --sha $(CI_SHA) --temp-root $(CI_TEMP_ROOT)
+
+ci-fallback:
+	$(PYTHON) scripts/ci/verify_with_fallback.py --repo . --sha $(CI_SHA) --mode github-first
+
+ci-fallback-status:
+	$(PYTHON) scripts/ci/verify_with_fallback.py --repo . --sha $(CI_SHA) --mode status
 
 verify-beta-local:
 	$(PYTHON) scripts/verify_beta_local.py

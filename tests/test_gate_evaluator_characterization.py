@@ -559,6 +559,18 @@ def test_m13_playwright_ci_exception_rejects_chained_execution(tmp_path: Path) -
         ),
         encoding="utf-8",
     )
+    verifier = tmp_path / "scripts/verify_control_center_browser_smoke_readiness.py"
+    verifier.parent.mkdir(parents=True)
+    verifier.write_text(
+        (ROOT / "scripts/verify_control_center_browser_smoke_readiness.py").read_text(
+            encoding="utf-8"
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "Makefile").write_text(
+        (ROOT / "Makefile").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
     criteria_by_id = {
         criterion.criterion_id: criterion
         for criterion in default_foundation_gate_criteria()
@@ -570,7 +582,7 @@ def test_m13_playwright_ci_exception_rejects_chained_execution(tmp_path: Path) -
 
     assert report.overall_status == "failed"
     assert report.failed_count == 1
-    assert "CI includes forbidden browser/native/deploy fragment: playwright" in (
+    assert "forbidden CI browser automation fragment: playwright" in (
         report.results[0].failures
     )
 

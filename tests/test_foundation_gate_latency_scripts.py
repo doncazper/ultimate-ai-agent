@@ -12,6 +12,12 @@ class _FakeReport:
     results = ("criterion:one", "criterion:two")
 
 
+def test_health_release_path_uses_a_meaningful_p95_sample_floor() -> None:
+    assert benchmark_foundation_gate.HEALTH_RELEASE_PATH_MIN_REPEAT == 20
+    assert benchmark_foundation_gate._percentile_ms([1.0] * 19 + [85.0], 95) == 1.0
+    assert benchmark_foundation_gate._percentile_ms([1.0] * 18 + [85.0] * 2, 95) == 85.0
+
+
 def _release_latency_result(
     path_id: str,
     *,
@@ -206,6 +212,8 @@ def test_foundation_gate_benchmark_emits_parseable_metrics(monkeypatch: pytest.M
     path_results = {
         result["path_id"]: result for result in metrics["release_latency_path_results"]
     }
+    assert path_results["health"]["samples"] == 20
+    assert path_results["api_manifest"]["samples"] == 1
     for path_id in sorted(benchmark_foundation_gate.RELEASE_LATENCY_REQUIRED_PATH_IDS):
         assert path_results[path_id]["status"] == "passed"
         assert path_results[path_id]["failed_call_count"] == 0

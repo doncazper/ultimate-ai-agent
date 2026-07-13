@@ -4,6 +4,9 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
+    "$schema": {
+      "const": "../../schemas/prompt_bundle_manifest.schema.json"
+    },
     "bundle_id": {
       "type": "string"
     },

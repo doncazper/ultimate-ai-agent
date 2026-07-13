@@ -66,63 +66,33 @@ class FoundationGateLegacyChecksPart004Mixin:
     def check_m13_frontend_ci_covers_local_checks(
         self, criterion: FoundationGateCriterion
     ) -> FoundationGateResult:
-        workflow = self.root / ".github/workflows/ci.yml"
-        text = self._read(workflow).lower()
-        required = [
-            "apps/control-center",
-            "npm ci",
-            "npm run typecheck --if-present",
-            "npm run lint --if-present",
-            "npm run test --if-present -- --run",
-            "npm run build --if-present",
-        ]
-        forbidden = [
-            "playwright",
-            "puppeteer",
-            "selenium",
-            "webdriver",
-            "chrome --user-data-dir",
-            "computer use",
-            "xcodebuild",
-            "app-store-connect",
-            "fastlane",
-            "vercel",
-            "netlify",
-            "firebase deploy",
-        ]
-        failures = [
-            f"CI missing frontend check fragment: {fragment}"
-            for fragment in required
-            if fragment not in text
-        ]
-        playwright_proof_lane_present = (
-            "release-lane-visual-regression" in text
-            and "release-lane-desktop-packaging" in text
-            and "npm run visual:check" in text
-            and "scripts/verify_control_center_visual_regression.py" in text
-            and "scripts/run_local_runtime_packaging_proof.py" in text
+        import importlib.util
+
+        script = self.root / "scripts/verify_control_center_browser_smoke_readiness.py"
+        failures = []
+        if not script.exists():
+            failures.append(
+                "scripts/verify_control_center_browser_smoke_readiness.py missing"
+            )
+        else:
+            spec = importlib.util.spec_from_file_location(
+                "verify_control_center_browser_smoke_readiness_ci", script
+            )
+            if spec is None or spec.loader is None:
+                failures.append("could not load browser smoke readiness verifier")
+            else:
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                failures.extend(module._ci_failures(self.root))
+        return self._result(
+            criterion,
+            failures,
+            [
+                ".github/workflows/ci.yml",
+                "scripts/verification/ci_command_manifest.py",
+                "Makefile",
+            ],
         )
-        for fragment in forbidden:
-            if fragment == "playwright":
-                for line in text.splitlines():
-                    if "playwright" not in line:
-                        continue
-                    normalized_line = line.strip()
-                    if playwright_proof_lane_present and normalized_line in {
-                        "- name: install playwright chromium",
-                        "run: npx playwright install chromium",
-                        "run: npx playwright install --with-deps chromium",
-                    }:
-                        continue
-                    failures.append(
-                        "CI includes forbidden browser/native/deploy fragment: playwright"
-                    )
-                continue
-            if fragment in text:
-                failures.append(
-                    f"CI includes forbidden browser/native/deploy fragment: {fragment}"
-                )
-        return self._result(criterion, failures, [".github/workflows/ci.yml"])
 
     def check_m13_browser_smoke_readiness_manual_local_only(
         self, criterion: FoundationGateCriterion

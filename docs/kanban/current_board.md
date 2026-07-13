@@ -612,6 +612,35 @@ capabilities and any send/write capability remain blocked behind separate
 AuthorityLease capability evidence, unblock prompts, route contracts, redaction
 tests, safe-disable posture, and rollback-readiness evidence.
 
+<!-- MSG-MX-CURRENT-OVERLAY:START -->
+MSG-MX-000 through MSG-MX-012 Messenger Matrix Desktop Program
+Baseline authority map: `docs/connectors/MESSENGER_MATRIX_BASELINE_AUTHORITY_MAP.md`
+Current phase: `MSG-MX-000`
+Current program status: `planning_audit_accepted_on_merge`
+Current evidence ref: `evidence-ref:msg-mx-000:baseline-authority-map`
+Goal: build a clean-room, macOS-first Messenger Matrix client through thirteen
+finite merge-gated milestones without treating design, UI state, generic
+messages authority, or Full Machine Access as Matrix runtime authority.
+Historical baseline status at `d1066c0cdc90a3d882114eab145e235cb8d1ae38`:
+MSG-MX-000 is accepted for a planning audit and subordinate authority map only.
+MSG-MX-001 through MSG-MX-003 are planned with no new runtime authority.
+MSG-MX-004 through MSG-MX-010 are
+`blocked_pending_separate_exact_authority`. MSG-MX-011 and MSG-MX-012 add no
+lane and may exercise only exact previously accepted lanes.
+Scope: `docs/prompts/messenger_matrix/README.md`. The baseline adds no Matrix SDK,
+Synapse service, runtime route, network access, session, account auth,
+credential/key store, sync/read, crypto, send/write, room/media/search,
+provider/model call, UI control, public release, or production authority.
+Authority: every future runtime call must freshly evaluate exact policy,
+approval scope where required, AuthorityLease, capability, adapter, provider,
+target, mission/run, TTL/deadline, budget, readiness, kill switch,
+safe-disable, and idempotency/replay. Approval refs grant nothing; unknown or
+stale state fails closed.
+Next: execute MSG-MX-001 only after MSG-MX-000 merges and its post-merge
+verifier evidence passes. Later phases may advance only their separately
+accepted exact lane families.
+<!-- MSG-MX-CURRENT-OVERLAY:END -->
+
 ECO-000 Coherent App Ecosystem Contract And Experience Acceptance
 Goal: lock the complete standalone-quality Calendar, Tasks, Boards, CRM, Inbox,
 Today, Organizer, Evidence, and Memory ecosystem before new private CRM,
