@@ -11,6 +11,10 @@ The renders were generated as UI mockups for the Control Center target
 direction and then copied into this repository as design artifacts. They should
 be treated as visual targets and alignment aids, not shipped UI screenshots.
 
+The separate ECO-000 planning-only extension is indexed at
+`../ecosystem_north_star/RENDER_MANIFEST.md`; those SVG drafts do not alter the
+accepted shell or count as shipped UI evidence.
+
 `APP_SHELL_BASELINE.md` is the normative target shell specification for left-rail
 order, route stability, typography, spacing, and state treatment. The PNGs are
 not normative when their generated sidebar details conflict with that file.

@@ -1,0 +1,103 @@
+{
+  "schema_version": "uaa-eco-000-app-acceptance.v1",
+  "milestone_ref": "milestone-ref:ECO-000",
+  "implementation_authorized": false,
+  "runtime_routes_added": false,
+  "required_states": [
+    "empty", "loading", "locked", "offline", "stale", "conflict",
+    "blocked", "partial", "error", "success", "undo"
+  ],
+  "required_modes": [
+    "desktop", "compact", "narrow", "focus", "print_export"
+  ],
+  "required_dimensions": [
+    "primary_workflows", "canonical_records", "required_views",
+    "quick_capture", "search", "filtering_saved_views", "import_export",
+    "local_crud", "conflict_handling", "undo_history", "backup_recovery",
+    "state_coverage", "keyboard_screen_reader", "display_modes",
+    "api_cli_parity", "evidence_privacy", "standalone_worthiness",
+    "optional_integrations"
+  ],
+  "apps": [
+    {
+      "app_id": "calendar",
+      "status": "planned",
+      "contract_ref": "contract-ref:eco-000:calendar-acceptance:v1",
+      "workflow_refs": ["workflow-ref:calendar:local-capture-to-history", "workflow-ref:calendar:recurrence-conflict-recovery"],
+      "view_refs": ["view-ref:calendar:day", "view-ref:calendar:week", "view-ref:calendar:month", "view-ref:calendar:agenda", "view-ref:calendar:conflict"],
+      "canonical_entity_kinds": ["calendar", "calendar_set", "event", "event_series", "event_occurrence", "event_participant", "availability_block", "reminder"],
+      "wallboard_applicable": true,
+      "local_manual_useful": true,
+      "connector_required": false
+    },
+    {
+      "app_id": "tasks",
+      "status": "planned",
+      "contract_ref": "contract-ref:eco-000:tasks-acceptance:v1",
+      "workflow_refs": ["workflow-ref:tasks:capture-to-complete-undo", "workflow-ref:tasks:daily-weekly-review"],
+      "view_refs": ["view-ref:tasks:inbox", "view-ref:tasks:today", "view-ref:tasks:upcoming", "view-ref:tasks:project", "view-ref:tasks:dependency"],
+      "canonical_entity_kinds": ["task", "task_occurrence", "subtask", "checklist", "task_dependency", "task_recurrence", "commitment"],
+      "wallboard_applicable": false,
+      "local_manual_useful": true,
+      "connector_required": false
+    },
+    {
+      "app_id": "boards",
+      "status": "planned",
+      "contract_ref": "contract-ref:eco-000:boards-acceptance:v1",
+      "workflow_refs": ["workflow-ref:boards:create-project-reorder-undo", "workflow-ref:boards:projection-conflict"],
+      "view_refs": ["view-ref:boards:general", "view-ref:boards:task", "view-ref:boards:pipeline", "view-ref:boards:table", "view-ref:boards:narrow"],
+      "canonical_entity_kinds": ["board", "board_view", "lane", "swimlane", "board_membership", "card_projection", "card_ordering", "board_template", "board_item"],
+      "wallboard_applicable": false,
+      "local_manual_useful": true,
+      "connector_required": false
+    },
+    {
+      "app_id": "crm",
+      "status": "planned",
+      "contract_ref": "contract-ref:eco-000:crm-acceptance:v1",
+      "workflow_refs": ["workflow-ref:crm:relationship-to-follow-up", "workflow-ref:crm:pipeline-to-receipt", "workflow-ref:crm:import-dedupe-review"],
+      "view_refs": ["view-ref:crm:home", "view-ref:crm:people", "view-ref:crm:sales", "view-ref:crm:real-estate", "view-ref:crm:professional-network", "view-ref:crm:personal-network", "view-ref:crm:private-relationships"],
+      "canonical_entity_kinds": ["relationship", "workspace_context", "organization_membership", "role", "circle", "follow_up", "opportunity", "pipeline", "pipeline_stage", "property", "showing", "offer", "transaction", "closing_milestone"],
+      "required_presets": ["sales", "real_estate", "professional_network", "personal_network", "private_relationships"],
+      "shared_boards_required": true,
+      "wallboard_applicable": false,
+      "local_manual_useful": true,
+      "connector_required": false
+    },
+    {
+      "app_id": "inbox",
+      "status": "planned",
+      "contract_ref": "contract-ref:eco-000:inbox-acceptance:v1",
+      "workflow_refs": ["workflow-ref:inbox:manual-source-to-proposals", "workflow-ref:inbox:retention-delete"],
+      "view_refs": ["view-ref:inbox:source-triage", "view-ref:inbox:thread", "view-ref:inbox:linked-context", "view-ref:inbox:proposal", "view-ref:inbox:conflict"],
+      "canonical_entity_kinds": ["source_binding", "source_artifact", "conversation_thread", "communication_item", "attachment_ref", "communication_draft"],
+      "wallboard_applicable": false,
+      "local_manual_useful": true,
+      "connector_required": false
+    },
+    {
+      "app_id": "organizer",
+      "status": "planned",
+      "contract_ref": "contract-ref:eco-000:organizer-acceptance:v1",
+      "workflow_refs": ["workflow-ref:organizer:list-routine-complete", "workflow-ref:organizer:wallboard-private-display"],
+      "view_refs": ["view-ref:organizer:lists", "view-ref:organizer:routines", "view-ref:organizer:schedule", "view-ref:organizer:meal-plan", "view-ref:organizer:wallboard"],
+      "canonical_entity_kinds": ["list", "list_item", "routine", "routine_occurrence", "meal_plan", "household_responsibility"],
+      "wallboard_applicable": true,
+      "local_manual_useful": true,
+      "connector_required": false
+    },
+    {
+      "app_id": "today",
+      "status": "planned",
+      "contract_ref": "contract-ref:eco-000:today-acceptance:v1",
+      "workflow_refs": ["workflow-ref:today:review-to-owner-action", "workflow-ref:today:carry-forward-weekly-review"],
+      "view_refs": ["view-ref:today:home", "view-ref:today:briefing", "view-ref:today:agenda", "view-ref:today:focus", "view-ref:today:recent-proof"],
+      "canonical_entity_kinds": [],
+      "projection_only": true,
+      "wallboard_applicable": true,
+      "local_manual_useful": true,
+      "connector_required": false
+    }
+  ]
+}

@@ -286,6 +286,11 @@ Tasks, reusable Boards, CRM presets, Inbox integration, personal Organizer,
 cross-app ChangeSets, connector sync, AI assistance, automation,
 collaboration, standalone launch modes, and packaging must not be described as
 implemented merely because their contracts, plans, prompts, or renders exist.
+ECO-000 may be described as accepted architecture and experience criteria, not
+as accepted app implementation. Its twelve SVG concepts are reviewed design
+drafts only. "Accepted ECO-000" must never imply that Calendar, Tasks, Boards,
+Inbox, Organizer, shared storage, migration, ChangeSets, search, direct launch,
+connectors, or external operations exist at runtime.
 
 CLI is a first-class operator surface. Product behavior must not live only in
 React state; UI-only state is limited to presentation concerns such as filters,

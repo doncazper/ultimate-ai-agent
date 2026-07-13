@@ -678,6 +678,15 @@ accepted; render acceptance does not claim implementation.
 
 ### `ECO-000` Suite contract, ownership ADR, and experience acceptance
 
+Acceptance status: accepted on 2026-07-12 for contract, architecture,
+migration, threat-model, product-acceptance, route-planning, render-draft, and
+quality-target scope. The additive Python contracts live in
+`src/ultimate_ai_agent/core/ecosystem/`; ADR-0054 through ADR-0061 record the
+decisions. This accepts no app implementation, storage dependency, route,
+connector, account sync, external operation, model/provider call, background
+work, packaging, or authority. ECO-001 remains a separate threat-reviewed
+milestone.
+
 - Ratify canonical object ownership, `EntityLink`, projection, timeline, and
   cross-app change-set vocabulary.
 - Inventory overlapping current task/event/activity/card stores and contracts.

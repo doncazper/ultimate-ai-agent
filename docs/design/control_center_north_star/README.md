@@ -38,6 +38,10 @@ render shows a different left-rail order, a missing global item, a route-local
 tab in the global rail, or a typography mismatch, `APP_SHELL_BASELINE.md`
 wins.
 
+The planning-only coherent-app extension of this shell lives in
+`../ecosystem_north_star/README.md`. Its reviewed SVG drafts do not replace this
+baseline and are not route or implementation evidence.
+
 ## Design Posture
 
 - The Control Center should feel like a native desktop cockpit, not a webpage.
