@@ -54,11 +54,11 @@
     "agent_studio": {
       "series_id": "STUDIO-01",
       "status": "accepted_design_target",
-      "latest": "renders/target-v3/06-agent-studio-v4.png",
+      "latest": "renders/target-v3/06-agent-studio-v5.png",
       "platform": "macos_desktop",
       "pixel_width": 1586,
       "pixel_height": 992,
-      "sha256": "0b01fd4a0bd1b5f97c4f815cbbcee9c5fed123ac29f636c2b1956a2141ed4922"
+      "sha256": "879bac09872e6dcb4a51492c009eebdd28491335a3f2dca7079f5e36098a0801"
     },
     "creative_studio": {
       "series_id": "CREATIVE-STUDIO-01",

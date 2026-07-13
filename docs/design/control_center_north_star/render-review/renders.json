@@ -233,11 +233,11 @@
       "route": "target",
       "purpose": "Immersive coding-agent workbench with clean fixed panes for projects, transcript, changes, checks, evidence, and terminal access.",
       "truth": "Target design; no model, arbitrary shell, deploy, or write authority implied.",
-      "image": "../renders/target-v3/06-agent-studio-v4.png",
+      "image": "../renders/target-v3/06-agent-studio-v5.png",
       "versions": [
         {"id": "v1", "label": "Draft v1 · Control Center shell", "image": "../renders/target-v1/06-studio.png"},
         {"id": "v2", "label": "Draft v2 · immersive workbench", "image": "../renders/target-v2/06-studio-v2.png"},
-        {"id": "v4", "label": "Accepted v4 · sanitized fixed-pane geometry", "image": "../renders/target-v3/06-agent-studio-v4.png"}
+        {"id": "v5", "label": "Accepted v5 · sanitized geometry and blocked terminal", "image": "../renders/target-v3/06-agent-studio-v5.png"}
       ]
     },
     {

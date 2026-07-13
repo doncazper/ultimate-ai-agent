@@ -95,9 +95,9 @@ not grant additional authority.
 
 ## Accepted Screens
 
-### Agent Studio v4
+### Agent Studio v5
 
-![Accepted Agent Studio v4](control_center_north_star/renders/target-v3/06-agent-studio-v4.png)
+![Accepted Agent Studio v5](control_center_north_star/renders/target-v3/06-agent-studio-v5.png)
 
 This screen locks the shared geometry and the coding-agent workflow: project
 rail, conversation and diff, changed-files/checks/evidence inspector, docked

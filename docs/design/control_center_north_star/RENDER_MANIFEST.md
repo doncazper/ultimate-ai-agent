@@ -88,7 +88,7 @@ in `CRM_V3_REFERENCE_SYNTHESIS.md`.
 
 ## Studio Split Revision 03
 
-Agent Studio v4 is the accepted geometry target for the coding-agent half of
+Agent Studio v5 is the accepted geometry target for the coding-agent half of
 the Studio split. It preserves the immersive workbench while replacing
 floating, clipped, and pill-heavy treatment with fixed panes and clean shared
 edges. Creative Studio v2 applies the same geometry to presentations,
@@ -99,7 +99,7 @@ fictional safe refs and explicitly label their non-authoritative posture.
 
 | File | Surface/version | Required change | Must not imply |
 |---|---|---|---|
-| `renders/target-v3/06-agent-studio-v4.png` | Agent Studio v4 | fixed 250 px rail; flexible transcript/editor; fixed inspector; docked composer; full-width status bar; fictional safe refs; explicit no-runtime-authority posture | arbitrary shell, deploy, model authority, approval bypass, or implementation evidence |
+| `renders/target-v3/06-agent-studio-v5.png` | Agent Studio v5 | fixed 250 px rail; flexible transcript/editor; fixed inspector; docked composer; full-width status bar; fictional safe refs; blocked terminal; proposal-only composer; explicit no-runtime-authority posture | arbitrary shell, deploy, model authority, approval bypass, or implementation evidence |
 | `renders/target-v3/06-creative-studio-v2.png` | Creative Studio v2 | same fixed-pane geometry; presentation canvas and slide strip; versions, linked work, evidence/rights, governed review; explicitly blocked export | implemented export, external delivery, publishing, connector writes, or implementation evidence |
 
 ## Messenger Matrix Client V1
