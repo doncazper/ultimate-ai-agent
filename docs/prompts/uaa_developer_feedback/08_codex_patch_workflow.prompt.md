@@ -2,6 +2,11 @@
 
 Implement and prove the task that Codex receives from the post-quit handoff.
 
+Approval refs alone authorize nothing. Repository mutation, patch application,
+Git commit, branch push, and draft-PR creation are separate exact capabilities;
+each must pass its own fresh request-scoped evaluation immediately before
+start.
+
 The generated Codex task must:
 
 1. Read `AGENTS.md` and applicable nested instructions.
@@ -15,14 +20,21 @@ The generated Codex task must:
 6. Cluster duplicates and order fixes by blocking, broken, confusing, polish,
    and performance severity.
 7. Create or reuse exactly one bundle-specific
-   `codex/developer-feedback-*` branch. If user changes cannot be preserved
-   safely, stop and record the blocker rather than stashing or discarding them.
-8. Implement evidence-supported fixes only. Do not perform unrelated refactors.
+   `codex/developer-feedback-*` branch only after a separate exact repository-
+   mutation capability is accepted and freshly authorized. If that lane is
+   absent, produce a reviewable patch proposal and blocked report without
+   changing Git. If user changes cannot be preserved safely, stop and record
+   the blocker rather than stashing or discarding them.
+8. Apply evidence-supported fixes only under the exact patch-application lane.
+   Do not perform unrelated refactors.
 9. Add regression tests and visual coverage where practical.
 10. Run focused checks after each fix and the broadest practical final checks.
 11. Write schema-valid findings/fixes/tests/blockers/result output.
-12. Commit and push normally only when authorized/configured and checks pass;
-    optionally open a draft PR. Never push `main`, force-push, mutate tags, or
+12. Treat Git commit, branch push, and draft-PR creation as three separate exact
+    capabilities. Re-evaluate policy, approval, AuthorityLease, target,
+    deadline, budget, readiness, kill switch, safe-disable, and idempotency
+    immediately before each; otherwise leave the verified patch local and
+    report the blocked operation. Never push `main`, force-push, mutate tags, or
     auto-merge.
 
 Implement the result ingestion path:
@@ -46,6 +58,9 @@ Acceptance scenarios:
 - tests fail and result remains `partially_patched` or `failed`;
 - retry resumes idempotently without duplicate commits or findings.
 
-Exit gate: a real synthetic feedback bundle results in a dedicated patch
-branch, evidence-backed operator/Codex finding records, focused tests, and an
-accurate structured result consumable on next launch.
+Exit gate: when the exact repository-mutation and patch-application lanes are
+separately accepted and freshly authorized, a real synthetic feedback bundle
+results in a dedicated patch branch, evidence-backed operator/Codex finding
+records, focused tests, and an accurate structured result consumable on next
+launch. Without those lanes, a reviewed patch proposal, unchanged Git state,
+and an explicit blocked result satisfy the proposal-only exit posture.

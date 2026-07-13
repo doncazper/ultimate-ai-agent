@@ -24,9 +24,16 @@ Deliver:
    failure, storage failure, and interrupted-edit recovery.
 10. Feedback Inbox refresh and CLI inspection of capture/finding refs.
 
-No mandatory consent or privacy review UI is required. Secret-like values,
-credentials, recovery material, unsafe paths, and attempts to store media in
-Git remain blocked.
+No prompt or operator request grants capture or disclosure authority. Manual
+capture requires a separately accepted exact screenshot lane, current macOS
+permission, explicit operator initiation, and fresh request-scoped authority
+evaluation immediately before capture. Before any screenshot or operator note
+can be disclosed to Codex, require a separate exact
+destination/content-disclosure decision with redaction/OCR review and explicit
+confirmation; otherwise attachment materialization remains blocked and uses
+safe refs only.
+Secret-like values, credentials, recovery material, unsafe paths, and attempts
+to store media in Git remain blocked.
 
 Verification:
 
@@ -38,6 +45,8 @@ Verification:
   compact-width local capture proof;
 - adversarial file, size, hash, annotation, and malformed-note tests.
 
-Exit gate: the operator can capture any UAA surface, add multiple precisely
-located and independently described findings, restart, and inspect the same
-backend-owned findings.
+Exit gate: when the exact screenshot lane is separately accepted and passes
+fresh evaluation, the operator can capture any UAA surface, add multiple
+precisely located and independently described findings, restart, and inspect
+the same backend-owned findings. Otherwise the phase records an explicit
+blocked posture without claiming capture proof.

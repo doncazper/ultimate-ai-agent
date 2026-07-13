@@ -19,10 +19,14 @@ Deliver:
    Codex result, and next-launch summary.
 2. Explicit state machines with legal transitions and fail-closed invalid
    transition behavior.
-3. A capability/authority entry for the exact local developer-feedback lane.
+3. Separate exact capability/authority entries for manual screenshot capture,
+   manual video capture, artifact cleanup, post-quit Codex launch, content
+   disclosure, repository patch application, Git commit, branch push, and
+   draft-PR creation. No broad developer-feedback capability is callable.
 4. Default settings proving Developer Mode and extreme structured diagnostics
-   are enabled, capture is manual, and post-quit handoff is enabled only for a
-   nonempty finalized bundle.
+   are enabled and capture is manual. A nonempty finalized bundle may make a
+   configured post-quit handoff eligible for fresh authority evaluation; it
+   never makes the handoff callable by itself.
 5. Safe-disable, rollback, idempotency, timeout, concurrency, retention, and
    cleanup contracts.
 6. Exact allowed/forbidden `codex exec` argument policy. Validate against the

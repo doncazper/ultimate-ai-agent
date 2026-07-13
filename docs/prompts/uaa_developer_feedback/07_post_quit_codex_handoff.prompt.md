@@ -40,10 +40,23 @@ Deliver:
    model failure, tool denial, timeout, nonzero exit, malformed output, and
    partial patch.
 
-Do not implement dangerous unattended authority. The current operator request
-authorizes this exact local post-quit feedback lane only. It does not authorize
-direct-main push, force-push, tag mutation, auto-merge, unrelated repository
-work, network expansion, or arbitrary command execution.
+Do not implement dangerous unattended authority. This prompt and the current
+operator request do not authorize the post-quit lane. Before runtime work,
+separately accept the exact post-quit Codex-launch capability with its adapter,
+repository/target, process-exit proof, budget, deadline, idempotency, rollback,
+receipt, and safe-disable contracts. Keep screenshot/keyframe/operator-note
+materialization blocked unless a separate exact destination/content-disclosure
+lane is accepted with artifact hashes, redaction/OCR review, bounded content,
+and explicit operator confirmation. If either required lane is absent, stop
+with an explicit blocked report rather than launching or attaching content.
+
+Immediately before every launch or retry, re-evaluate PolicyEngine; exact
+LocalApprovalAuthority scope where required; the current exact AuthorityLease;
+exact capability, adapter, provider/destination, repository and target,
+mission/run, TTL/deadline, budget, readiness, kill switch, safe-disable, and
+idempotency/replay posture. Approval refs alone never authorize. Direct-main
+push, force-push, tag mutation, auto-merge, unrelated repository work, network
+expansion, and arbitrary command execution remain denied.
 
 Verification:
 

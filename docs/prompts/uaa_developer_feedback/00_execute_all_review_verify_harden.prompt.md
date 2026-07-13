@@ -24,7 +24,8 @@ Global rules:
   user-owned changes and use a separate worktree if needed.
 - Start from the latest integrated `origin/main` unless the operator explicitly
   names another base.
-- Use a dedicated `codex/uaa-developer-feedback-*` implementation branch.
+- Use one dedicated `codex/uaa-developer-feedback-XX-*` branch and one PR per
+  phase, starting from the latest integrated `origin/main`.
 - Keep Python Core as the owner of settings, sessions, findings, diagnostics,
   artifact refs, lifecycle, handoff eligibility, and results.
 - Keep React and SwiftUI presentation from becoming durable authority.
@@ -51,7 +52,16 @@ Execution loop for every phase:
    unbounded logs, UI-only truth, stale product language, missing CLI/API
    parity, and unsafe Codex/Git behavior.
 6. Fix every reproducible in-scope issue before advancing.
-7. Record a focused commit/PR checkpoint where practical.
+7. Stage only intentional files, commit, and push normally without force.
+8. Open the phase PR as draft, complete local review/hardening, then mark it
+   ready only after local checks pass.
+9. Run required repository-scoped self-hosted macOS CI only; never paid or
+   GitHub-hosted compute.
+10. Merge only when required checks are green and no actionable review finding
+    remains.
+11. Update local `main` to the exact remote merge, run post-merge verification,
+    push verified `main`, and remove only clean merged phase branches/worktrees.
+12. Confirm `main` is clean before starting the next phase.
 
 Final verification must include:
 
@@ -73,7 +83,7 @@ Git finalization:
 - preserve unrelated changes;
 - commit with scoped messages;
 - push normally without force;
-- open draft PRs for review;
+- open one draft PR per phase for review;
 - never merge around failed checks or unresolved blockers.
 
 Final response must include phases completed, files changed, behavior proven,

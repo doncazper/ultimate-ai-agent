@@ -76,9 +76,10 @@ Launch UAA
 6. Raw screenshots, videos, keyframes, and diagnostic journals remain in
    ignored `.uaa` local state. Git receives code, tests, safe fixture metadata,
    and hashes only.
-7. No end-user privacy review workflow is required for this solo-developer
-   mode. Credential, token, recovery-key, and secret leakage guards remain
-   mandatory repository hygiene.
+7. No generic end-user privacy-review workflow is required for this
+   solo-developer mode. That does not waive exact destination/content-
+   disclosure evaluation, redaction/OCR review, bounded-content checks, or
+   explicit operator confirmation before materializing any artifact or note.
 8. Quitting with an empty feedback session does not start Codex.
 9. Quitting with actionable findings starts at most one idempotent Codex run
    for that finalized bundle.
@@ -136,7 +137,8 @@ Required fields:
 - `diagnostic_level`, default `extreme_structured`;
 - `screenshot_capture_manual_only`, fixed `true`;
 - `video_capture_manual_only`, fixed `true`;
-- `post_quit_handoff_enabled`, default `true`;
+- `post_quit_handoff_enabled`, default `true` as configuration only; it does
+  not make the handoff callable without fresh exact authority evaluation;
 - `post_quit_patch_branch_prefix`, fixed
   `codex/developer-feedback-`;
 - `auto_merge_enabled`, fixed `false`;
@@ -304,6 +306,20 @@ Eligibility requires:
 - safe-disable not active;
 - no concurrent handoff for the same bundle;
 - a usable Git repository.
+- a separately accepted exact post-quit Codex-launch capability;
+- a fresh request-scoped PolicyEngine decision, exact LocalApprovalAuthority
+  scope where required, current exact AuthorityLease, bound
+  provider/destination, repository/target, mission/run, TTL/deadline, budget,
+  readiness, kill switch, safe-disable, and idempotency/replay posture;
+- for screenshots, keyframes, operator notes, or diagnostic content, a separate
+  exact content-disclosure decision binding artifact refs/hashes, destination,
+  redaction/OCR review, bounded content, and explicit operator confirmation.
+
+Capture, recording, artifact cleanup, Codex launch, content disclosure,
+repository patch application, Git commit, branch push, and draft-PR creation
+remain separate exact capabilities. No prompt, operator request, UI state, or
+approval ref authorizes any of them. Missing, unknown, stale, expired, or
+mismatched authority fails closed before the operation starts.
 
 The exact command shape is based on the supported local Codex CLI:
 
@@ -452,10 +468,12 @@ The program is usable only when all of the following are proven:
 - The diagnostic journal correlates UI, native shell, API, backend, capture,
   and shutdown events without forbidden raw content.
 - Quitting with no findings starts no Codex run.
-- Quitting with actionable findings starts exactly one bounded Codex run after
-  the UAA process exits.
-- Codex receives the annotations, screenshots/keyframes, diagnostic window,
-  and reproduction context.
+- Quitting with actionable findings starts at most one bounded Codex run after
+  the UAA process exits only when the exact launch lane passes fresh authority
+  evaluation; otherwise it records an explicit blocked result.
+- Codex receives annotations, screenshots/keyframes, diagnostic windows, and
+  reproduction context only when the separate exact content-disclosure lane
+  binds the approved material, destination, redaction, and operator decision.
 - Codex may add evidence-backed observations that are visibly distinct from
   operator annotations.
 - Codex patches only a dedicated branch, preserves user work, adds tests, and

@@ -6,6 +6,14 @@ authority boundaries to obtain green results.
 
 Required product walkthroughs:
 
+Run each walkthrough only when every exact capability it invokes has been
+separately accepted and passes fresh request-scoped evaluation immediately
+before start. Screenshot capture, video capture, artifact cleanup, Codex
+launch, content disclosure, repository mutation, patch application, Git
+commit, branch push, and draft-PR creation remain separate capabilities. An
+unavailable lane produces an explicit blocked acceptance result with safe refs;
+it neither authorizes execution nor turns the whole pack into a false failure.
+
 1. Launch UAA and prove Developer Mode/extreme diagnostics are enabled by
    default.
 2. Exercise the title bar on Today, Messenger, CRM, Calendar, Work Board,
@@ -64,6 +72,7 @@ Codex observations, tests/verifiers with pass/fail, skipped checks with reason,
 remaining blockers, safe-disable/rollback posture, branch/commit/PR state, and
 current Git status.
 
-Exit gate: the entire local mechanism is usable for daily solo-developer UAA
-dogfooding and accurately reports every success, partial result, failure, and
-blocker.
+Exit gate: every separately accepted exact lane is proven usable for daily
+solo-developer UAA dogfooding, while unavailable lanes are truthfully reported
+as blocked. The integrated mechanism accurately reports every success, partial
+result, failure, and blocker without claiming unproven runtime behavior.

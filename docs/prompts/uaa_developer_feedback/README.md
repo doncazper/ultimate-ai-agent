@@ -18,8 +18,9 @@ subprocess, Codex, Git push, or external authority.
 - Extreme structured diagnostics: enabled.
 - Screenshot capture: manual only.
 - Video capture: manual only.
-- Post-quit Codex handoff: enabled when a finalized session contains
-  actionable findings.
+- Post-quit Codex handoff: blocked until the exact handoff lane and any exact
+  content-disclosure lane are separately accepted, then eligible for fresh
+  request-scoped evaluation only.
 - Direct push to `main`: disabled.
 - Auto-merge: disabled.
 - Dangerous Codex bypass flags: disabled.
@@ -44,11 +45,30 @@ its own focused commit or PR checkpoint where practical.
 
 ## Authority Boundary
 
-This bundle promotes only the exact local developer-feedback capabilities
-defined in the implementation plan. It does not grant background capture,
+This bundle promotes nothing by itself. No prompt, operator request, UI state,
+or approval ref grants runtime authority. Each implemented lane must be
+separately accepted as an exact capability and remains eligible only for fresh
+request-scoped evaluation. It does not grant background capture,
 keystroke logging, unrestricted shell execution, provider/model routing inside
 UAA, connector writes, external uploads, direct-main pushes, force-pushes,
 tag mutation, automatic merge, public distribution, or production authority.
+
+Keep screenshot capture, video capture, artifact cleanup, post-quit Codex
+launch, content disclosure, repository patch application, Git commit, branch
+push, and draft-PR creation as separate exact capabilities. Immediately before
+every callable operation, re-evaluate PolicyEngine; exact
+LocalApprovalAuthority scope where required; the current exact AuthorityLease;
+capability, adapter, provider/destination, target, repository, mission, and run;
+TTL/deadline; budget; readiness; kill switch; safe-disable; and
+idempotency/replay posture. Unknown, stale, expired, or mismatched state fails
+closed before start.
+
+Screenshots, keyframes, operator notes, and diagnostic material must not be
+attached or materialized into Codex unless a separate exact content-disclosure
+decision binds the destination, provider, artifact refs and hashes, redaction
+and OCR review, bounded content, and explicit operator confirmation. Without
+that decision, the handoff is safe-ref-only and attachment materialization stays
+blocked.
 
 The post-quit Codex lane must invoke the installed supported `codex exec`
 surface with an exact argv list and `workspace-write` sandbox. It must never use

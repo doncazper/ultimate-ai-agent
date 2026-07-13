@@ -14,7 +14,7 @@
     "docs/prompts/uaa_developer_feedback/08_codex_patch_workflow.prompt.md",
     "docs/prompts/uaa_developer_feedback/09_whole_app_acceptance_hardening.prompt.md"
   ],
-  "bundle_hash": "sha256:e52dfd69b917ed7c91c86d815d54e609baae22e8c9b223548c7a26702c528632",
+  "bundle_hash": "sha256:4487fcdd6da5fb00f531739778ab75820089a3b3ee549ed387053ac779bd31f6",
   "stable_within_run": true,
   "created_at": "2026-07-12"
 }
