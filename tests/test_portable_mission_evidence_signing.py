@@ -348,7 +348,24 @@ def test_signed_cli_verification_requires_independently_pinned_trust(
     assert output["signature_verified"] is True
     assert output["signer_identity_verified"] is False
 
+    args.expected_bundle_ref = artifact.unsigned_bundle.bundle_ref
+    args.expected_envelope_count = artifact.unsigned_bundle.envelope_count
+    assert verify_portable(args) == 0
+    capsys.readouterr()
+
+    args.expected_bundle_ref = (
+        "portable-mission-evidence-bundle-ref:sha256:" + "0" * 64
+    )
+    assert verify_portable(args) == 1
+    assert "could not be safely read" not in capsys.readouterr().err
+    args.expected_bundle_ref = None
+    args.expected_envelope_count = None
+
     args.expected_public_key_bundle_ref = (
         "portable-evidence-public-key-bundle-ref:sha256:" + "0" * 64
     )
     assert verify_portable(args) == 1
+
+    artifact_path.write_text("[]", encoding="utf-8")
+    assert verify_portable(args) == 1
+    assert "could not be safely read" in capsys.readouterr().err

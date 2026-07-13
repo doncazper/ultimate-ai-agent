@@ -80,6 +80,7 @@ class PortableEvidenceSignedArtifactStore:
         return self.load(dispatch_ref=dispatch_ref)
 
     def load(self, *, dispatch_ref: str) -> PortableEvidenceSignedArtifact:
+        self._ensure_directory()
         path = self._path(dispatch_ref)
         temporary = self.directory / f".{path.name}.pending"
         self._reconcile_pending(target=path, temporary=temporary)

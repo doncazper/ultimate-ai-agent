@@ -239,6 +239,135 @@ def test_pending_unsigned_bundle_bindings_are_bounded(tmp_path: Path) -> None:
         )
 
 
+def test_denied_dispatch_releases_bound_unsigned_bundle(tmp_path: Path) -> None:
+    state_dir = tmp_path / "authority"
+    store = AuthorityLeaseStore(state_dir)
+    lifecycle = PortableEvidenceKeyLifecycleLedger(state_dir / "signing")
+    backend = _FakeManagedBackend()
+    key_ref, key_version_ref = _create_active_key(
+        state_dir=state_dir,
+        store=store,
+        lifecycle=lifecycle,
+        backend=backend,
+        suffix="pending-denial",
+    )
+    adapter = PortableEvidenceSigningAuthorityAdapter(
+        operation=PortableEvidenceSigningOperation.bundle_sign,
+        backend=backend,
+        lifecycle=lifecycle,
+        lease_store=store,
+        safe_disable_engaged=lambda: False,
+        artifact_store=PortableEvidenceSignedArtifactStore(state_dir / "signing"),
+    )
+    bundle = _bundle(tmp_path / "pending-denial-bundle")
+    resources = adapter.binding_resource_refs | {
+        key_ref,
+        key_version_ref,
+        bundle.bundle_ref,
+        bundle.terminal_entry_hash_ref,
+    }
+    lease = _lease(
+        store,
+        capability=AuthorityCapability.execute,
+        resources=resources,
+        suffix="pending-denial",
+    )
+    request = _request(
+        adapter=adapter,
+        lease_ref=lease.lease_ref,
+        resources=resources,
+        metadata={
+            "operation": "bundle_sign",
+            "key_ref": key_ref,
+            "key_version_ref": key_version_ref,
+            "bundle_ref": bundle.bundle_ref,
+            "bundle_terminal_entry_hash_ref": bundle.terminal_entry_hash_ref,
+        },
+        suffix="pending-denial",
+    )
+    adapter.bind_bundle(dispatch_ref=request.dispatch_ref, bundle=bundle)
+
+    result = AuthorityDispatcher(
+        state_dir,
+        adapters=[adapter],
+        lease_store=store,
+        approval_authority=LocalApprovalAuthority(),
+    ).dispatch(request)
+
+    assert result.receipt.status == "denied"
+    assert request.dispatch_ref not in adapter._pending_bundles
+
+
+def test_retired_key_version_cannot_be_reused_before_backend_creation(
+    tmp_path: Path,
+) -> None:
+    state_dir = tmp_path / "authority"
+    store = AuthorityLeaseStore(state_dir)
+    lifecycle = PortableEvidenceKeyLifecycleLedger(state_dir / "signing")
+    backend = _FakeManagedBackend()
+    key_ref, retired_ref = _create_active_key(
+        state_dir=state_dir,
+        store=store,
+        lifecycle=lifecycle,
+        backend=backend,
+        suffix="version-reuse",
+    )
+    adapter = PortableEvidenceSigningAuthorityAdapter(
+        operation=PortableEvidenceSigningOperation.key_rotate,
+        backend=backend,
+        lifecycle=lifecycle,
+        lease_store=store,
+        safe_disable_engaged=lambda: False,
+        artifact_store=PortableEvidenceSignedArtifactStore(state_dir / "signing"),
+    )
+    active_ref = "signing-key-version-ref:portable-evidence:version-reuse:2"
+    first_resources = adapter.binding_resource_refs | {
+        key_ref,
+        active_ref,
+        retired_ref,
+    }
+    first, _request_value = _approved_dispatch(
+        state_dir=state_dir,
+        store=store,
+        adapter=adapter,
+        resources=first_resources,
+        metadata={
+            "operation": "key_rotate",
+            "key_ref": key_ref,
+            "key_version_ref": active_ref,
+            "predecessor_key_version_ref": retired_ref,
+        },
+        suffix="version-reuse-first",
+    )
+    assert first.receipt.status == "succeeded"
+    baseline_create_count = backend.create_count
+
+    reuse_resources = adapter.binding_resource_refs | {
+        key_ref,
+        retired_ref,
+        active_ref,
+    }
+    denied, _request_value = _approved_dispatch(
+        state_dir=state_dir,
+        store=store,
+        adapter=adapter,
+        resources=reuse_resources,
+        metadata={
+            "operation": "key_rotate",
+            "key_ref": key_ref,
+            "key_version_ref": retired_ref,
+            "predecessor_key_version_ref": active_ref,
+        },
+        suffix="version-reuse-denied",
+    )
+
+    assert denied.receipt.status == "denied"
+    assert "reason-ref:portable-evidence-signing:key-version-reused" in (
+        denied.receipt.reason_refs
+    )
+    assert backend.create_count == baseline_create_count
+
+
 def test_corrupt_lifecycle_denies_before_dispatcher_start(tmp_path: Path) -> None:
     state_dir = tmp_path / "authority"
     signing_dir = state_dir / "signing"

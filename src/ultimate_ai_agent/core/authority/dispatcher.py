@@ -632,15 +632,21 @@ class AuthorityDispatcher:
             raise ValueError("AUTHORITY_DISPATCH_DUPLICATE_ADAPTER_REF")
 
     def dispatch(self, request: AuthorityDispatchRequest) -> AuthorityDispatchResult:
-        prepared = self.prepare(request)
-        if (
-            prepared.receipt.status == AuthorityDispatchStatus.started.value
-            and prepared.recovery_required
-        ):
+        adapter = self.adapters.get(request.adapter_ref)
+        try:
+            prepared = self.prepare(request)
+            if (
+                prepared.receipt.status == AuthorityDispatchStatus.started.value
+                and prepared.recovery_required
+            ):
+                return self.execute(request)
+            if prepared.receipt.status != AuthorityDispatchStatus.prepared.value:
+                return prepared
             return self.execute(request)
-        if prepared.receipt.status != AuthorityDispatchStatus.prepared.value:
-            return prepared
-        return self.execute(request)
+        finally:
+            release_request_state = getattr(adapter, "release_request_state", None)
+            if callable(release_request_state):
+                release_request_state(request.dispatch_ref)
 
     def structural_preflight_reason_refs(
         self,

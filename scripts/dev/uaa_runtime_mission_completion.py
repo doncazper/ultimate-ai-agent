@@ -194,6 +194,8 @@ def verify_portable(args: argparse.Namespace) -> int:
                 max_bytes=SIGNED_PORTABLE_EVIDENCE_MAX_BYTES,
             )
         )
+        if not isinstance(payload, dict):
+            raise ValueError("PORTABLE_EVIDENCE_OBJECT_REQUIRED")
         if payload.get("schema_version") == (
             "uaa-portable-mission-evidence-signed-artifact.v1"
         ):
@@ -217,6 +219,8 @@ def verify_portable(args: argparse.Namespace) -> int:
                 expected_public_key_fingerprint_ref=(
                     args.expected_public_key_fingerprint_ref
                 ),
+                expected_bundle_ref=args.expected_bundle_ref,
+                expected_envelope_count=args.expected_envelope_count,
             )
             signed = True
         else:

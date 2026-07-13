@@ -381,11 +381,17 @@ def verify_signed_portable_evidence_artifact(
     public_key_bundle: PortableEvidencePublicKeyBundle | dict[str, Any],
     expected_public_key_bundle_ref: str,
     expected_public_key_fingerprint_ref: str,
+    expected_bundle_ref: str | None = None,
+    expected_envelope_count: int | None = None,
 ) -> PortableEvidenceSignedVerification:
     try:
         artifact = PortableEvidenceSignedArtifact.model_validate(value)
         trust = PortableEvidencePublicKeyBundle.model_validate(public_key_bundle)
-        chain = verify_portable_mission_evidence_bundle(artifact.unsigned_bundle)
+        chain = verify_portable_mission_evidence_bundle(
+            artifact.unsigned_bundle,
+            expected_bundle_ref=expected_bundle_ref,
+            expected_envelope_count=expected_envelope_count,
+        )
         if not chain.valid or not chain.chain_verified:
             raise ValueError("PORTABLE_EVIDENCE_SIGNED_CHAIN_INVALID")
         bundle_matched = trust.public_key_bundle_ref == expected_public_key_bundle_ref

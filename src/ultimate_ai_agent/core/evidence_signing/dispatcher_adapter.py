@@ -204,6 +204,11 @@ class PortableEvidenceSigningAuthorityAdapter:
     ) -> PortableEvidenceSignedArtifact:
         return self.artifact_store.load(dispatch_ref=dispatch_ref)
 
+    def release_request_state(self, dispatch_ref: str) -> None:
+        if self.operation == PortableEvidenceSigningOperation.bundle_sign:
+            with self._lock:
+                self._pending_bundles.pop(dispatch_ref, None)
+
     def validate_request(self, request: AuthorityDispatchRequest) -> list[str]:
         reasons: list[str] = []
         try:
@@ -302,6 +307,13 @@ class PortableEvidenceSigningAuthorityAdapter:
                         "reason-ref:portable-evidence-signing:key-ref-mismatch"
                     )
                 if self.operation == PortableEvidenceSigningOperation.key_rotate:
+                    if any(
+                        entry.key_version_ref == key_version_ref
+                        for entry in self.lifecycle.load_entries()
+                    ):
+                        reasons.append(
+                            "reason-ref:portable-evidence-signing:key-version-reused"
+                        )
                     predecessor_ref = tool.metadata.get("predecessor_key_version_ref")
                     if predecessor_ref != active.key_version_ref:
                         reasons.append(
@@ -386,9 +398,7 @@ class PortableEvidenceSigningAuthorityAdapter:
                     )
                 return self._invoke_locked(request)
         finally:
-            if self.operation == PortableEvidenceSigningOperation.bundle_sign:
-                with self._lock:
-                    self._pending_bundles.pop(request.dispatch_ref, None)
+            self.release_request_state(request.dispatch_ref)
 
     def _runtime_prestart_reason_refs(
         self,

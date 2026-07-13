@@ -572,6 +572,16 @@ def test_managed_bundle_signing_verifies_offline_and_cannot_use_broad_lease(
         sign_adapter.artifact_for_dispatch(sign_request.dispatch_ref)
     hardlink.unlink()
 
+    artifact_directory = sign_adapter.artifact_store.directory
+    relocated_directory = artifact_directory.with_name("relocated-signed-artifacts")
+    artifact_directory.rename(relocated_directory)
+    artifact_directory.symlink_to(relocated_directory, target_is_directory=True)
+    with pytest.raises(
+        PortableEvidenceSignedArtifactStoreError,
+        match="PORTABLE_EVIDENCE_SIGNED_ARTIFACT_DIR_INVALID",
+    ):
+        sign_adapter.artifact_for_dispatch(sign_request.dispatch_ref)
+
 
 def test_broad_domain_lease_without_exact_resources_denies_before_keychain(
     tmp_path: Path,
