@@ -33,6 +33,16 @@ def test_provisioner_retries_transient_launchd_bootstrap_failure() -> None:
     assert 'launchctl print "system/${service_label}"' in provisioner
 
 
+def test_provisioner_uses_standard_not_interactive_runner_scheduling() -> None:
+    provisioner = (
+        ROOT / "scripts/ci/provision_self_hosted_macos_runners.sh"
+    ).read_text(encoding="utf-8")
+
+    assert "<key>ProcessType</key>\n  <string>Standard</string>" in provisioner
+    assert "<string>Background</string>" not in provisioner
+    assert "<string>Interactive</string>" not in provisioner
+
+
 def test_workflow_uses_non_admin_preprovisioned_toolchains() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
 

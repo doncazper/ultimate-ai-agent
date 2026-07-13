@@ -118,7 +118,7 @@ for index in $(/usr/bin/seq 1 "$runner_count"); do
   <key>RunAtLoad</key>
   <true/>
   <key>ProcessType</key>
-  <string>Background</string>
+  <string>Standard</string>
   <key>StandardOutPath</key>
   <string>${log_directory}/stdout.log</string>
   <key>StandardErrorPath</key>

@@ -29,6 +29,10 @@ provider, connector, production, or AuthorityLease capability.
 - Four isolated runner processes are the default so the existing pytest shard
   contract can make progress concurrently. Set `UAA_RUNNER_COUNT=1` through
   `4` before provisioning to choose a smaller bounded count.
+- Runner LaunchDaemons use macOS `ProcessType=Standard`. Background process
+  classification is intentionally rejected because it constrains CI children
+  to background scheduling and makes the bounded test budget non-representative;
+  interactive scheduling is not granted.
 - Python 3.12 and Node 22 are shared, pre-provisioned Homebrew toolchains. CI
   does not use the setup actions because their macOS installers require
   host-level installation privileges that the non-admin runner must not gain.

@@ -174,6 +174,7 @@ def verify(root: Path = ROOT) -> list[str]:
         'install -d -o root -g wheel -m 0755 /usr/local/libexec\n',
         'install -d -o root -g wheel -m 0755 /usr/local/libexec/uaa-ci',
         'UserName</key>\n  <string>${RUNNER_ACCOUNT}</string>',
+        'ProcessType</key>\n  <string>Standard</string>',
         "launchctl bootstrap system",
         "launchctl kickstart -k",
         "launchd did not settle after bootout",
@@ -197,6 +198,8 @@ def verify(root: Path = ROOT) -> list[str]:
     for fragment in required_provisioner_fragments:
         if fragment not in provisioner:
             failures.append("runner provisioner is missing a required hardening control")
+    if 'ProcessType</key>\n  <string>Background</string>' in provisioner:
+        failures.append("runner services must not inherit macOS background throttling")
     for fragment in required_bootstrap_fragments:
         if fragment not in bootstrap:
             failures.append("runner bootstrap is missing a required hardening control")
