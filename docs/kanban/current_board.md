@@ -26,15 +26,14 @@ eligibility, deterministic correction/lifecycle ordering, exact suppression
 authority, and the redacted retrieval benchmark are complete without granting
 hidden context injection or automatic memory truth.
 
-Runtime Capability Foundation Phase 04 is implemented locally pending its
-ordered merge gate for the smallest proven tool slice. The existing exact
-filesystem-metadata mission is now visible in the canonical availability and
-Action/Tool/Code read models with its orchestrator/runner/dispatcher path and
-request-scoped approval posture. Current root, resource, health, and
-safe-disable state remains unknown until exact evaluation. Redacted file
-preview, legacy RuntimeGateway verification commands, CodeAct, sandbox, patch
-apply, broad shell, Git mutation, browser, plugin, and MCP promotion remain
-explicitly outside this phase.
+Runtime Capability Foundation Phase 04 and its sealed-calculation follow-up
+implement two exact tool slices. Filesystem metadata retains request-scoped
+approval. Bounded deterministic arithmetic now runs through the canonical
+orchestrator/runner/dispatcher path in an attested local no-network container
+after an exact mission lease. Static compatibility, configuration, health,
+safe-disable, and resource truth remains unknown until current evaluation.
+General CodeAct/Python, patch apply, broad shell, Git mutation, browser, plugin,
+and MCP execution remain blocked.
 
 Founder Command Center state: macOS Setup Assistant hardening, first
 product-loop readability, Action Inbox approval-envelope/state-change posture,
@@ -2035,6 +2034,19 @@ gate grants no approval, lease, tool/action execution, memory truth/write,
 context injection, provider/model, web, shell, connector, background, public,
 or production authority. Remote merge/hosted-CI status remains separate from
 this local implementation gate.
+
+UAA-EVIDENCE-SIGN-001 Managed portable mission evidence signing
+Deterministic implementation gate met locally: preserves unsigned v1, adds a
+separate Ed25519 signed wrapper,
+bounded public-key lifecycle ledger, purpose-specific macOS Keychain helper,
+pinned helper adapter, exact AuthorityDispatcher lanes for sign/create/rotate/
+revoke/mark-lost/interrupted-deletion cleanup, offline pinned-trust verification,
+read-only API/CLI posture, and adversarial tests. The live Keychain roundtrip
+remains configuration-required whenever the login Keychain is locked; no live
+success is claimed from helper-only tests. Signer identity, Secure Enclave
+Ed25519, non-repudiation,
+external anchoring/timestamps, public lifecycle transparency, production
+compliance, and any evidence-derived authority remain blocked.
 ```
 
 ## ASAP Sequence

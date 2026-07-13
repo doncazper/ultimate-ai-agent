@@ -86,6 +86,8 @@ class FoundationGateLegacyChecksPart016Mixin:
                 text = self._context.read_text(path, encoding="utf-8")
                 for fragment in forbidden_source_fragments:
                     if fragment in text:
+                        if sealed_fragment_allowed(rel, text, fragment) or portable_evidence_helper_fragment_allowed(rel, text, fragment):
+                            continue
                         failures.append(
                             f"M66 forbidden scoped approval bundle fragment in {rel}: {fragment}"
                         )
@@ -496,6 +498,8 @@ class FoundationGateLegacyChecksPart016Mixin:
                 text = self._context.read_text(path, encoding="utf-8")
                 for fragment in forbidden_source_fragments:
                     if fragment in text:
+                        if sealed_fragment_allowed(rel, text, fragment) or portable_evidence_helper_fragment_allowed(rel, text, fragment):
+                            continue
                         failures.append(
                             f"M67 forbidden revocation kill switch fragment in {rel}: {fragment}"
                         )
@@ -903,6 +907,8 @@ class FoundationGateLegacyChecksPart016Mixin:
                 text = self._context.read_text(path, encoding="utf-8")
                 for fragment in forbidden_source_fragments:
                     if fragment in text:
+                        if sealed_fragment_allowed(rel, text, fragment) or portable_evidence_helper_fragment_allowed(rel, text, fragment):
+                            continue
                         failures.append(
                             f"M68 forbidden autonomy risk classifier fragment in {rel}: {fragment}"
                         )
@@ -1216,6 +1222,8 @@ class FoundationGateLegacyChecksPart016Mixin:
                 text = self._context.read_text(path, encoding="utf-8")
                 for fragment in forbidden_source_fragments:
                     if fragment in text:
+                        if sealed_fragment_allowed(rel, text, fragment) or portable_evidence_helper_fragment_allowed(rel, text, fragment):
+                            continue
                         failures.append(
                             f"M69 forbidden low-risk dry-run fragment in {rel}: {fragment}"
                         )

@@ -35,6 +35,11 @@ from ultimate_ai_agent.core.providers import (
     ProviderStatus,
 )
 from ultimate_ai_agent.core.runtime_gateway.contracts import RuntimeSafeDisableState
+from ultimate_ai_agent.core.sandbox_calculation.contracts import (
+    SEALED_CALCULATION_ADAPTER_REF,
+    SEALED_CALCULATION_CAPABILITY_REF,
+    SEALED_CALCULATION_SAFE_DISABLE_REF,
+)
 from ultimate_ai_agent.core.time import utc_now
 
 from .adapters import (
@@ -107,6 +112,50 @@ def build_capability_availability_read_model(
             "Exact predeclared filesystem metadata is implemented, while current "
             "root, resource, health, and safe-disable availability remain unknown "
             "until immediate request-scoped evaluation; it is never globally callable."
+        ),
+    )
+
+    sealed_calculation = build_capability_availability_snapshot(
+        snapshot_ref="capability-availability-ref:sealed-calculation-v1",
+        capability_ref=SEALED_CALCULATION_CAPABILITY_REF,
+        adapter_ref=SEALED_CALCULATION_ADAPTER_REF,
+        catalog_status=CatalogStatus.supported,
+        compatibility_status=CompatibilityStatus.unknown,
+        configuration_status=ConfigurationStatus.unknown,
+        health_status=HealthStatus.unknown,
+        authority_posture=AuthorityPosture.lease_required,
+        resource_status=ResourceBudgetStatus.unknown,
+        cost_posture=CostPosture.not_metered,
+        safe_disable_status=SafeDisableStatus.unknown,
+        declared_or_observed_version_ref=f"version-ref:{__version__}",
+        checked_at=observed_at,
+        freshness_status=FreshnessStatus.unknown,
+        reason_codes=[
+            "SEALED_DETERMINISTIC_CALCULATION_IMPLEMENTED",
+            "CANONICAL_MISSION_DISPATCH_PATH_VERIFIED",
+            "NO_PER_INVOCATION_APPROVAL_AFTER_EXACT_LEASE",
+            "CODE_OUTPUT_IS_EVIDENCE_NOT_AUTHORITY",
+        ],
+        blocker_codes=[
+            "CURRENT_DOCKER_DESKTOP_OBSERVATION_REQUIRED",
+            "CURRENT_PLATFORM_COMPATIBILITY_OBSERVATION_REQUIRED",
+            "CURRENT_PINNED_IMAGE_ATTESTATION_REQUIRED",
+            "CURRENT_SAFE_DISABLE_OBSERVATION_REQUIRED",
+            "CURRENT_OPERATION_RESERVATION_REQUIRED",
+            "EXACT_MISSION_SCOPED_LEASE_REQUIRED",
+        ],
+        evidence_refs=[
+            "test-contract-ref:sealed-calculation:adversarial-isolation-v1",
+            "receipt-contract-ref:sealed-calculation-execution-v1",
+            SEALED_CALCULATION_SAFE_DISABLE_REF,
+        ],
+        probe_refs=[],
+        source_ref="capability-manifest-ref:sealed-calculation-v1",
+        safe_summary=(
+            "Exact bounded arithmetic is implemented through an attested local "
+            "container and canonical mission dispatch. Current image, runtime, "
+            "safe-disable, budget, and exact lease posture are re-evaluated before "
+            "each start; availability never grants global code or shell authority."
         ),
     )
 
@@ -259,6 +308,7 @@ def build_capability_availability_read_model(
 
     snapshots = [
         filesystem_metadata_mission,
+        sealed_calculation,
         declared_unavailable,
         configured_but_blocked,
         stale_unknown,

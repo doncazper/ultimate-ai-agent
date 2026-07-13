@@ -248,6 +248,8 @@ class FoundationGateLegacyChecksPart015Mixin:
                 text = self._context.read_text(path, encoding="utf-8")
                 for fragment in forbidden_source_fragments:
                     if fragment in text:
+                        if sealed_fragment_allowed(rel, text, fragment) or portable_evidence_helper_fragment_allowed(rel, text, fragment):
+                            continue
                         failures.append(
                             f"M63 forbidden autonomy policy fragment in {rel}: {fragment}"
                         )
@@ -607,6 +609,8 @@ class FoundationGateLegacyChecksPart015Mixin:
                 text = self._context.read_text(path, encoding="utf-8")
                 for fragment in forbidden_source_fragments:
                     if fragment in text:
+                        if sealed_fragment_allowed(rel, text, fragment) or portable_evidence_helper_fragment_allowed(rel, text, fragment):
+                            continue
                         failures.append(
                             f"M64 forbidden autonomy simulation fragment in {rel}: {fragment}"
                         )
@@ -1001,6 +1005,8 @@ class FoundationGateLegacyChecksPart015Mixin:
                 text = self._context.read_text(path, encoding="utf-8")
                 for fragment in forbidden_source_fragments:
                     if fragment in text:
+                        if sealed_fragment_allowed(rel, text, fragment) or portable_evidence_helper_fragment_allowed(rel, text, fragment):
+                            continue
                         failures.append(
                             f"M65 forbidden autonomy audit replay fragment in {rel}: {fragment}"
                         )

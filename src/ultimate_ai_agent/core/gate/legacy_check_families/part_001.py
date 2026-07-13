@@ -1,6 +1,11 @@
 from __future__ import annotations
 
 from ultimate_ai_agent.core.gate.legacy_support import *  # noqa: F401,F403
+from ultimate_ai_agent.core.evidence_signing.static_safety import (
+    is_exact_portable_evidence_helper_home_path,
+    is_exact_portable_evidence_helper_subprocess_site,
+)
+from ultimate_ai_agent.core.sandbox_calculation.static_safety import is_exact_sealed_calculation_subprocess_site
 
 
 class FoundationGateLegacyChecksPart001Mixin:
@@ -331,14 +336,38 @@ class FoundationGateLegacyChecksPart001Mixin:
         allowed_phase04_command_adapter_file = (
             "src/ultimate_ai_agent/core/runtime_gateway/command.py"
         )
+        allowed_phase06_signing_adapter_file = (
+            "src/ultimate_ai_agent/core/evidence_signing/macos_keychain.py"
+        )
+        allowed_sealed_arithmetic_adapter_file = (
+            "src/ultimate_ai_agent/core/sandbox_calculation/backend.py"
+        )
+        sealed_source = self._read(self.root / allowed_sealed_arithmetic_adapter_file)
+        sealed_adapter_exact = all(
+            is_exact_sealed_calculation_subprocess_site(
+                rel_path=allowed_sealed_arithmetic_adapter_file,
+                source=sealed_source,
+                fragment=fragment,
+            )
+            for fragment in ("subprocess" + ".run(", "subprocess" + ".Popen(")
+        )
+        signing_source = self._read(self.root / allowed_phase06_signing_adapter_file)
+        signing_adapter_exact = is_exact_portable_evidence_helper_subprocess_site(
+            rel_path=allowed_phase06_signing_adapter_file,
+            source=signing_source,
+            fragment="subprocess" + ".run(",
+        )
         failures = []
         for path, line_no, stripped in self._runtime_lines():
             if self._is_static_scanner_text(stripped):
                 continue
-            if path in {
+            exact_allowed_path = path in {
                 allowed_m163_supervisor_file,
                 allowed_phase04_command_adapter_file,
-            } and any(fragment in stripped for fragment in forbidden):
+            } or (
+                path == allowed_phase06_signing_adapter_file and signing_adapter_exact
+            ) or (path == allowed_sealed_arithmetic_adapter_file and sealed_adapter_exact)
+            if exact_allowed_path and any(fragment in stripped for fragment in forbidden):
                 continue
             if any(fragment in stripped for fragment in forbidden):
                 failures.append(f"{path}:{line_no} shell execution")
@@ -358,6 +387,11 @@ class FoundationGateLegacyChecksPart001Mixin:
             for path, line_no, stripped in self._runtime_lines()
             if not self._is_static_scanner_text(stripped)
             and any(fragment in stripped for fragment in forbidden)
+            and not is_exact_portable_evidence_helper_home_path(
+                rel_path=path,
+                source=self._read(self.root / path),
+                fragment="Path." + "home(",
+            )
         ]
         return self._result(criterion, failures, ["src/ultimate_ai_agent"])
 

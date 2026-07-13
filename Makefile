@@ -87,3 +87,8 @@ openapi:
 
 ruff:
 	$(PYTHON) -m ruff check .
+
+portable-evidence-keychain-helper:
+	$(PYTHON) scripts/dev/install_portable_evidence_keychain_helper.py
+
+.PHONY: portable-evidence-keychain-helper

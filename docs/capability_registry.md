@@ -80,6 +80,18 @@ validation and rollback/safe-disable refs. Catalog and activation metadata
 explicitly grant no invocation authority. Client-supplied approval-grant
 payloads are rejected by the disabled-install mutation surface.
 
+## Sealed Deterministic Calculation
+
+The exact `calculation.sandbox.arithmetic.exact_lease` lane is implemented as bounded
+arithmetic, not general CodeAct or Python. Its declaration appears in the shared
+availability and Action/Tool/Code catalogs, while current platform,
+configuration, image, health, safe-disable, budget, and lease truth remains
+request-scoped. Execution requires the canonical mission orchestrator, runner,
+dispatcher, exact `workspace/execute` mission lease, policy and budget checks,
+and atomic container start/input-commit evidence. Raw expressions are transient;
+durable state stores hashes and safe refs only. See
+`docs/runtime/UAA_SEALED_CALCULATION_ADAPTER.md`.
+
 ## Intent Reasoning And Plan Revision Truth
 
 `ultimate_ai_agent.core.intent.reasoning_truth` provides the deterministic,
@@ -297,10 +309,19 @@ exact referenced terminal dispatch records. Each
 entry binds plan/run/step, full lease-scope fingerprint, exact approval-scope
 fingerprint, policy, budget settlement, capability, adapter, truthful provider
 posture, target/resource binding, request fingerprint, terminal outcome,
-predecessor hash, redaction posture, and verifier version. The bundle provides
-local SHA-256 hash-chain integrity only. It is not cryptographically signed or
-externally anchored, source-ledger verification remains explicitly false until
-lease/budget storage hardening is complete, and evidence never grants authority.
+predecessor hash, redaction posture, and verifier version. The unchanged v1
+bundle provides local SHA-256 hash-chain integrity only. A separate signed
+artifact wrapper may now bind that verified bundle to an exact Ed25519 key
+through the request-scoped `evidence_signing` dispatcher lanes. Signing requires
+a pinned macOS Keychain helper, exact approval and resource-scoped
+AuthorityLease, budget, kill-switch, safe-disable, readiness, and replay checks.
+Structural dispatcher preflight performs no helper execution or Keychain probe;
+those occur only after request-scoped authority succeeds and are rechecked at
+the adapter start boundary.
+Offline verification requires independently pinned public trust metadata. It
+does not establish signer identity, non-repudiation, external anchoring, current
+revocation truth, or source-ledger availability; evidence never grants
+authority. See `docs/runtime/UAA_PORTABLE_MISSION_EVIDENCE_SIGNING.md`.
 
 Runtime Capability Foundation Phase 04 projects this proven lane into the
 canonical capability-availability snapshot and Action/Tool/Code catalog. The

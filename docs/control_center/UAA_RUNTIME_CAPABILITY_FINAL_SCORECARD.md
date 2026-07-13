@@ -2,6 +2,12 @@
 
 Status: finite Phase 09 evidence-backed closeout
 
+Historical snapshot note: this scorecard remains bound to the listed Phase 09
+implementation commit. A later threat-reviewed follow-up implements exact
+bounded sealed arithmetic under a mission lease; statements below that the
+adapter was missing are retained as accurate evidence for the scored snapshot.
+The score is not increased here without a separate full comparison rerun.
+
 Final scorecard hash:
 `sha256:8eced56b16799183f6a2f5fdb3a4607598a577ee726c777f909cfe75fbdc2586`
 

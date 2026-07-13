@@ -62,6 +62,7 @@ class AuthorityDispatchAdapterDescriptor(_AuthorityDispatchModel):
     capability_ref: str
     tool_ref: str
     approval_required: StrictBool = False
+    atomic_start_required: StrictBool = False
     operation_count: StrictInt = Field(default=1, ge=1)
     estimated_cost_microusd: StrictInt = Field(default=0, ge=0)
     failure_cost_microusd: StrictInt | None = Field(default=0, ge=0)
@@ -260,6 +261,7 @@ class AuthorityDispatchReceipt(_AuthorityDispatchModel):
     authority_policy_receipt_ref: str | None = None
     approval_required: StrictBool = False
     adapter_approval_required: StrictBool = False
+    atomic_start_required: StrictBool = False
     approval_ref: str | None = None
     approval_validation_ref: str | None = None
     budget_reservation_ref: str | None = None
@@ -272,7 +274,11 @@ class AuthorityDispatchReceipt(_AuthorityDispatchModel):
     execution_ref: str | None = None
     execution_fence_ref: str | None = None
     execution_started: StrictBool = False
+    adapter_start_attempted: StrictBool = False
+    runtime_start_confirmed: StrictBool = False
+    input_committed: StrictBool = False
     adapter_invocation_performed: StrictBool = False
+    result_collection_performed: StrictBool = False
     actual_operation_count: StrictInt | None = Field(default=None, ge=1)
     actual_cost_microusd: StrictInt | None = Field(default=None, ge=0)
     actual_cost_ref: str | None = None
@@ -358,10 +364,16 @@ class AuthorityDispatchReceipt(_AuthorityDispatchModel):
             raise ValueError("AUTHORITY_DISPATCH_REQUIRED_APPROVAL_BINDING_MISSING")
         if self.adapter_approval_required and not self.approval_required:
             raise ValueError("AUTHORITY_DISPATCH_ADAPTER_APPROVAL_POSTURE_INVALID")
+        if self.input_committed and not self.runtime_start_confirmed:
+            raise ValueError("AUTHORITY_DISPATCH_INPUT_COMMIT_REQUIRES_RUNTIME_START")
+        if self.result_collection_performed and not self.adapter_invocation_performed:
+            raise ValueError("AUTHORITY_DISPATCH_COLLECTION_REQUIRES_INVOCATION")
         if self.status == AuthorityDispatchStatus.denied.value:
             if (
                 self.execution_started
+                or self.adapter_start_attempted
                 or self.adapter_invocation_performed
+                or self.result_collection_performed
                 or not self.reason_refs
             ):
                 raise ValueError("AUTHORITY_DISPATCH_DENIAL_POSTURE_INVALID")
@@ -375,7 +387,14 @@ class AuthorityDispatchReceipt(_AuthorityDispatchModel):
             AuthorityDispatchStatus.prepared.value,
             AuthorityDispatchStatus.cancellation_pending.value,
             AuthorityDispatchStatus.cancelled_before_start.value,
-        } and (self.execution_started or self.adapter_invocation_performed):
+        } and (
+            self.execution_started
+            or self.adapter_start_attempted
+            or self.runtime_start_confirmed
+            or self.input_committed
+            or self.adapter_invocation_performed
+            or self.result_collection_performed
+        ):
             raise ValueError("AUTHORITY_DISPATCH_PRESTART_EXECUTION_FORBIDDEN")
         if self.status in {
             AuthorityDispatchStatus.cancellation_pending.value,
@@ -396,12 +415,19 @@ class AuthorityDispatchReceipt(_AuthorityDispatchModel):
             or (self.start_deadline is not None and self.start_validated_at is None)
         ):
             raise ValueError("AUTHORITY_DISPATCH_STARTED_POSTURE_INVALID")
+        if (
+            self.status == AuthorityDispatchStatus.started.value
+            and not self.atomic_start_required
+            and (self.runtime_start_confirmed or self.input_committed)
+        ):
+            raise ValueError(
+                "AUTHORITY_DISPATCH_NONATOMIC_START_CONFIRMATION_FORBIDDEN"
+            )
         if self.status in {
             AuthorityDispatchStatus.succeeded.value,
             AuthorityDispatchStatus.failed.value,
         } and (
             not self.execution_started
-            or not self.adapter_invocation_performed
             or not self.execution_ref
             or not self.budget_start_receipt_ref
             or not self.budget_settlement_receipt_ref
@@ -410,6 +436,29 @@ class AuthorityDispatchReceipt(_AuthorityDispatchModel):
             or (self.start_deadline is not None and self.start_validated_at is None)
         ):
             raise ValueError("AUTHORITY_DISPATCH_TERMINAL_EVIDENCE_REQUIRED")
+        if self.status == AuthorityDispatchStatus.succeeded.value and (
+            not self.adapter_invocation_performed
+            or (self.atomic_start_required and not self.result_collection_performed)
+        ):
+            raise ValueError("AUTHORITY_DISPATCH_SUCCESS_INVOCATION_EVIDENCE_REQUIRED")
+        if (
+            self.status == AuthorityDispatchStatus.failed.value
+            and not self.adapter_invocation_performed
+            and not (
+                self.atomic_start_required
+                and self.adapter_start_attempted
+                and not self.runtime_start_confirmed
+                and not self.input_committed
+                and not self.result_collection_performed
+            )
+        ):
+            raise ValueError("AUTHORITY_DISPATCH_FAILURE_INVOCATION_POSTURE_INVALID")
+        if (
+            self.status == AuthorityDispatchStatus.succeeded.value
+            and self.atomic_start_required
+            and (not self.runtime_start_confirmed or not self.input_committed)
+        ):
+            raise ValueError("AUTHORITY_DISPATCH_ATOMIC_START_CONFIRMATION_REQUIRED")
         if not self.execution_started and self.start_validated_at is not None:
             raise ValueError("AUTHORITY_DISPATCH_PRESTART_VALIDATION_TIME_FORBIDDEN")
         if (
