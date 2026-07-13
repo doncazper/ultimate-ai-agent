@@ -1767,8 +1767,8 @@ Design and product refs:
 
 Safety notes: No live source access, OAuth, publishing, replies, deletes,
 moderation, external scheduling, provider/model calls, browser scraping,
-background sync, broad automation, public release, or production authority is
-granted by this card.
+background sync, broad automation, public release, or production authority.
+This card grants no runtime capability.
 
 ## Review
 
