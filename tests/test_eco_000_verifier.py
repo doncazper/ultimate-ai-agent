@@ -48,3 +48,35 @@ def test_app_acceptance_is_complete_but_planning_only() -> None:
     assert payload["runtime_routes_added"] is False
     assert {item["app_id"] for item in payload["apps"]} == verifier.REQUIRED_APPS
     assert all(item["status"] == "planned" for item in payload["apps"])
+
+
+def test_verifier_rejects_duplicate_app_records(monkeypatch) -> None:
+    original_load = verifier._load
+    payload = original_load("docs/product/eco_000_app_acceptance.json")
+    payload["apps"] = [*payload["apps"], payload["apps"][0]]
+    monkeypatch.setattr(
+        verifier,
+        "_load",
+        lambda relative: payload
+        if relative == "docs/product/eco_000_app_acceptance.json"
+        else original_load(relative),
+    )
+
+    assert "standalone app acceptance records must be unique" in verifier.verify()
+
+
+def test_verifier_rejects_duplicate_surface_and_asset_records(monkeypatch) -> None:
+    original_load = verifier._load
+    payload = original_load("docs/design/ecosystem_north_star/render_manifest.json")
+    payload["surfaces"] = [*payload["surfaces"], payload["surfaces"][0]]
+    monkeypatch.setattr(
+        verifier,
+        "_load",
+        lambda relative: payload
+        if relative == "docs/design/ecosystem_north_star/render_manifest.json"
+        else original_load(relative),
+    )
+
+    failures = verifier.verify()
+    assert "render surface/state records must be unique" in failures
+    assert "render assets must be unique per surface/state" in failures

@@ -279,8 +279,6 @@ class EntityLink(_EcosystemModel):
             self.source.workspace.workspace_ref,
             self.target.workspace.workspace_ref,
         }
-        if len(refs) > 1 and not self.workspace.cross_workspace_projection_allowed:
-            raise ValueError("ECO_CROSS_WORKSPACE_LINK_NOT_ALLOWED")
         if (
             self.source.workspace.privacy_scope == PrivacyScope.restricted_private
             or self.target.workspace.privacy_scope == PrivacyScope.restricted_private
@@ -300,6 +298,14 @@ class EntityLink(_EcosystemModel):
             and self.workspace != self.target.workspace
         ):
             raise ValueError("ECO_ENTITY_LINK_WORKSPACE_ENVELOPE_MISMATCH")
+        if len(refs) > 1:
+            if not self.workspace.cross_workspace_projection_allowed:
+                raise ValueError("ECO_CROSS_WORKSPACE_LINK_NOT_ALLOWED")
+            other_workspace_refs = refs - {self.workspace.workspace_ref}
+            if not other_workspace_refs.issubset(
+                set(self.workspace.allowed_workspace_refs)
+            ):
+                raise ValueError("ECO_CROSS_WORKSPACE_LINK_TARGET_NOT_ALLOWED")
         return self
 
 
@@ -691,8 +697,11 @@ class ProductRenderAcceptance(_EcosystemModel):
         if self.acceptance_status in {
             ProductAcceptanceStatus.reviewed,
             ProductAcceptanceStatus.accepted,
-        } and (self.asset_ref is None or self.reviewed_by_ref is None):
-            raise ValueError("ECO_REVIEWED_RENDER_REQUIRES_ASSET_AND_REVIEW_REF")
+        }:
+            if self.asset_ref is None or self.reviewed_by_ref is None:
+                raise ValueError("ECO_REVIEWED_RENDER_REQUIRES_ASSET_AND_REVIEW_REF")
+            if not self.privacy_state_visible or not self.authority_state_visible:
+                raise ValueError("ECO_REVIEWED_RENDER_GOVERNANCE_VISIBILITY_REQUIRED")
         return self
 
 

@@ -243,6 +243,44 @@ def test_private_entity_links_cannot_cross_workspace_or_hide_context() -> None:
         )
 
 
+def test_cross_workspace_links_require_exact_allowlisted_target() -> None:
+    source_workspace = WorkspaceScope(
+        workspace_ref="workspace-ref:eco-test:source",
+        cross_workspace_projection_allowed=True,
+    )
+    source = _entity(EntityKind.task, workspace=source_workspace)
+    target = _entity(
+        EntityKind.event,
+        workspace=_workspace("workspace-ref:eco-test:target"),
+    )
+    common = {
+        "link_ref": "link-ref:eco-test:cross-workspace",
+        "link_kind": EntityLinkKind.schedules,
+        "source": source,
+        "target": target,
+        "provenance_ref": "provenance-ref:eco-test:operator",
+        "deletion_posture_ref": "deletion-ref:eco-test:cascade",
+    }
+
+    with pytest.raises(
+        ValidationError,
+        match="ECO_CROSS_WORKSPACE_LINK_TARGET_NOT_ALLOWED",
+    ):
+        EntityLink(**common, workspace=source_workspace)
+
+    allowed_source_workspace = source_workspace.model_copy(
+        update={"allowed_workspace_refs": (target.workspace.workspace_ref,)}
+    )
+    allowed = EntityLink(
+        **{
+            **common,
+            "source": source.model_copy(update={"workspace": allowed_source_workspace}),
+        },
+        workspace=allowed_source_workspace,
+    )
+    assert allowed.target.workspace.workspace_ref in allowed.workspace.allowed_workspace_refs
+
+
 def test_private_entity_link_cannot_downgrade_same_workspace_scope() -> None:
     workspace_ref = "workspace-ref:eco-test:shared-private"
     source = _entity(
@@ -594,6 +632,20 @@ def test_standalone_and_render_acceptance_are_complete_and_truthful() -> None:
             acceptance_status=ProductAcceptanceStatus.reviewed,
             shell_baseline_ref="shell-baseline-ref:control-center:v1",
             synthetic_dataset_ref="dataset-ref:eco-test:medium",
+        )
+    with pytest.raises(
+        ValidationError,
+        match="ECO_REVIEWED_RENDER_GOVERNANCE_VISIBILITY_REQUIRED",
+    ):
+        ProductRenderAcceptance(
+            surface_state_ref="surface-state-ref:eco-test:hidden-governance",
+            asset_ref="asset-ref:eco-test:hidden-governance",
+            acceptance_status=ProductAcceptanceStatus.accepted,
+            reviewed_by_ref="review-ref:eco-test:accepted",
+            shell_baseline_ref="shell-baseline-ref:control-center:v1",
+            synthetic_dataset_ref="dataset-ref:eco-test:medium",
+            privacy_state_visible=False,
+            authority_state_visible=False,
         )
 
 

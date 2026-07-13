@@ -87,6 +87,8 @@ def verify() -> list[str]:
     app_ids = {item.get("app_id") for item in apps if isinstance(item, dict)}
     if app_ids != REQUIRED_APPS:
         failures.append("standalone app acceptance set is incomplete")
+    if len(apps) != len(REQUIRED_APPS) or len(app_ids) != len(apps):
+        failures.append("standalone app acceptance records must be unique")
     for item in apps:
         if not isinstance(item, dict):
             failures.append("invalid app acceptance record")
@@ -119,6 +121,13 @@ def verify() -> list[str]:
     }
     if surface_ids != REQUIRED_SURFACES:
         failures.append("required render surface/state coverage is incomplete")
+    if len(surfaces) != len(REQUIRED_SURFACES) or len(surface_ids) != len(surfaces):
+        failures.append("render surface/state records must be unique")
+    asset_names = [
+        item.get("asset") for item in surfaces if isinstance(item, dict)
+    ]
+    if len(asset_names) != len(set(asset_names)):
+        failures.append("render assets must be unique per surface/state")
     for item in surfaces:
         if not isinstance(item, dict):
             failures.append("invalid render manifest record")
