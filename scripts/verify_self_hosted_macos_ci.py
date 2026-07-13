@@ -42,6 +42,14 @@ def job_names(workflow: str) -> tuple[str, ...]:
     )
 
 
+def job_section(workflow: str, job_name: str) -> str:
+    match = re.search(
+        rf"(?ms)^  {re.escape(job_name)}:\n.*?(?=^  [a-zA-Z0-9_-]+:\n|\Z)",
+        workflow,
+    )
+    return match.group(0) if match is not None else ""
+
+
 def verify(root: Path = ROOT) -> list[str]:
     failures: list[str] = []
     workflow_path = root / WORKFLOW.relative_to(ROOT)
@@ -79,12 +87,41 @@ def verify(root: Path = ROOT) -> list[str]:
         failures.append("pytest performance reports must use the isolated per-job runner temp directory")
     if '--timings-json "${RUNNER_TEMP}/uaa_static_verification_timings.json"' not in workflow:
         failures.append("static verification timings must use the isolated per-job runner temp directory")
-    performance_sections = workflow.split("  release-lane-performance:\n", 1)
-    performance_job = (
-        performance_sections[1].split("\n  release-lane-visual-regression:", 1)[0]
-        if len(performance_sections) == 2
-        else ""
+    if "    needs:\n      - lint\n" not in job_section(workflow, "pytest-shards"):
+        failures.append("pytest shards must start only after lint passes")
+    pytest_gated_jobs = (
+        "static-verification",
+        "release-lane-docs",
+        "release-lane-openapi",
+        "release-lane-api-safety",
+        "release-lane-security-redaction",
+        "release-lane-product-truth",
+        "release-lane-local-model-e2e",
+        "release-lane-durability",
+        "release-lane-desktop-packaging",
     )
+    if any(
+        "    needs:\n      - pytest\n" not in job_section(workflow, job_name)
+        for job_name in pytest_gated_jobs
+    ):
+        failures.append("backend release checks must wait for isolated pytest shards")
+    control_center_job = job_section(workflow, "control-center-frontend")
+    if not all(
+        f"      - {dependency}\n" in control_center_job
+        for dependency in (
+            "static-verification",
+            "release-lane-docs",
+            "release-lane-api-safety",
+            "release-lane-security-redaction",
+            "release-lane-desktop-packaging",
+        )
+    ):
+        failures.append("Control Center verification must wait for backend release checks")
+    if "      - control-center-frontend\n" not in job_section(
+        workflow, "release-lane-visual-regression"
+    ):
+        failures.append("visual regression must wait for Control Center verification")
+    performance_job = job_section(workflow, "release-lane-performance")
     if not all(
         fragment in performance_job
         for fragment in (

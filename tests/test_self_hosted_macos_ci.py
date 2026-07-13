@@ -69,6 +69,31 @@ def test_release_lanes_capture_failures_and_isolate_performance_measurement() ->
     assert "      - control-center-frontend\n" in performance_job
 
 
+def test_shared_mac_ci_stages_cpu_and_io_heavy_job_classes() -> None:
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+
+    assert "      - lint\n" in verifier.job_section(workflow, "pytest-shards")
+    for job_name in (
+        "static-verification",
+        "release-lane-docs",
+        "release-lane-openapi",
+        "release-lane-api-safety",
+        "release-lane-security-redaction",
+        "release-lane-product-truth",
+        "release-lane-local-model-e2e",
+        "release-lane-durability",
+        "release-lane-desktop-packaging",
+    ):
+        assert "      - pytest\n" in verifier.job_section(workflow, job_name)
+
+    control_center_job = verifier.job_section(workflow, "control-center-frontend")
+    assert "      - static-verification\n" in control_center_job
+    assert "      - release-lane-desktop-packaging\n" in control_center_job
+    assert "      - control-center-frontend\n" in verifier.job_section(
+        workflow, "release-lane-visual-regression"
+    )
+
+
 def test_desktop_packaging_preserves_non_admin_docker_boundary() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
 

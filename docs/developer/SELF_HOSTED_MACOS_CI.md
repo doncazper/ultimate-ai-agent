@@ -43,6 +43,11 @@ provider, connector, production, or AuthorityLease capability.
 - The performance release lane waits for the rest of the CI matrix before it
   measures latency. This keeps the four-runner pool useful for functional
   checks without treating whole-machine contention as product latency.
+- CPU- and I/O-heavy job classes are staged: lint, pytest shards, backend and
+  release checks, Control Center verification, visual regression, performance,
+  then the aggregate Foundation Gate. Jobs within a stage still use the four
+  runners concurrently. This prevents unrelated scans from exhausting pytest
+  and Vitest per-test deadlines on one physical Mac.
 - Release lanes disable Bash's immediate-exit behavior only inside their
   bounded command wrappers so failures produce safe summaries and still end
   the job unsuccessfully.
