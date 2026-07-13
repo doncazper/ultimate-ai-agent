@@ -256,6 +256,15 @@ def test_exact_action_api_completes_and_refreshes_backend_today(
     ).json()["data"]
     assert execution_replay["completion_ref"] == result["completion_ref"]
     assert execution_replay["terminal_replay"] is True
+    changed_execution_key = client.post(
+        "/control-center/today/exact-action/execute",
+        json={**decision_payload, "approval_ref": approval["approval_ref"]},
+        headers={"x-uaa-idempotency-key": "attention-api-execute-changed"},
+    )
+    assert changed_execution_key.status_code == 200
+    changed_replay = changed_execution_key.json()["data"]
+    assert changed_replay["completion_ref"] == result["completion_ref"]
+    assert changed_replay["terminal_replay"] is True
 
     today = client.get("/control-center/today/summary").json()["data"]
     action = next(

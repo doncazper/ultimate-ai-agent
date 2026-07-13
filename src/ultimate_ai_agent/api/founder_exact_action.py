@@ -17,6 +17,7 @@ from ultimate_ai_agent.api.idempotency import (
 from ultimate_ai_agent.api.route_registration import register_router_once
 from ultimate_ai_agent.core.control_center.founder_loop_attention_workflow import (
     FOUNDER_LOOP_ATTENTION_WORKFLOW_CONTRACT_REF,
+    attention_execution_owner_ref,
     build_attention_workflow_request,
 )
 from ultimate_ai_agent.core.hygiene.envelopes import ResultEnvelope
@@ -363,12 +364,9 @@ def post_control_center_today_exact_action_execute(
             source_review_receipt_ref=request.source_review_receipt_ref,
             proposal_ref=request.proposal_ref,
             approval_ref=request.approval_ref,
-            owner_ref=_stable_ref(
-                "mission-owner-ref:founder-loop-attention",
-                {
-                    "proposal_ref": request.proposal_ref,
-                    "idempotency_ref": idempotency_ref,
-                },
+            owner_ref=attention_execution_owner_ref(
+                proposal_ref=request.proposal_ref,
+                idempotency_ref=idempotency_ref,
             ),
         )
     except ValueError as exc:

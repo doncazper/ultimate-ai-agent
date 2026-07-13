@@ -66,6 +66,7 @@ from ultimate_ai_agent.api.dependencies import (  # noqa: E402
     get_founder_attention_workflow,
 )
 from ultimate_ai_agent.core.control_center.founder_loop_attention_workflow import (  # noqa: E402
+    attention_execution_owner_ref,
     build_attention_workflow_request,
 )
 from ultimate_ai_agent.core.time import utc_now  # noqa: E402
@@ -2151,15 +2152,18 @@ def _run_exact_action(args: argparse.Namespace) -> int:
             or prepared_request.lease_ref != args.lease_ref
         ):
             raise ValueError("FOUNDER_LOOP_ATTENTION_REVIEWED_PROPOSAL_REQUIRED")
-        approval_ref = workflow.grant_exact_approval(
-            workflow_ref=args.workflow_ref,
-            today_item_ref=args.today_item_ref,
-            inspected_source_refs=tuple(args.source_ref),
-            source_review_receipt_ref=args.source_review_receipt_ref,
-            proposal_ref=args.proposal_ref,
-            approved_by_actor_ref="operator-ref:local-user",
-            approval_ref=args.approval_ref,
-        )
+        if workflow.verified_status(args.today_item_ref).action.status == "receipt_recorded":
+            approval_ref = args.approval_ref
+        else:
+            approval_ref = workflow.grant_exact_approval(
+                workflow_ref=args.workflow_ref,
+                today_item_ref=args.today_item_ref,
+                inspected_source_refs=tuple(args.source_ref),
+                source_review_receipt_ref=args.source_review_receipt_ref,
+                proposal_ref=args.proposal_ref,
+                approved_by_actor_ref="operator-ref:local-user",
+                approval_ref=args.approval_ref,
+            )
         result = workflow.execute(
             workflow_ref=args.workflow_ref,
             today_item_ref=args.today_item_ref,
@@ -2167,7 +2171,10 @@ def _run_exact_action(args: argparse.Namespace) -> int:
             source_review_receipt_ref=args.source_review_receipt_ref,
             proposal_ref=args.proposal_ref,
             approval_ref=approval_ref,
-            owner_ref=args.owner_ref,
+            owner_ref=attention_execution_owner_ref(
+                proposal_ref=args.proposal_ref,
+                idempotency_ref=args.idempotency_ref,
+            ),
         )
     except (ValidationError, ValueError):
         print("Exact Founder Loop action: blocked (exact binding or authority denied)")
@@ -2244,9 +2251,6 @@ def build_parser() -> argparse.ArgumentParser:
     exact_run_parser.add_argument("--approval-request-ref", required=True)
     exact_run_parser.add_argument("--source-review-receipt-ref", required=True)
     exact_run_parser.add_argument("--approval-ref", required=True)
-    exact_run_parser.add_argument(
-        "--owner-ref", default="mission-owner-ref:founder-loop-cli"
-    )
     exact_run_parser.add_argument("--confirm-exact-approval", action="store_true")
     exact_run_parser.add_argument("--json", action="store_true")
     exact_run_parser.set_defaults(func=_run_exact_action)

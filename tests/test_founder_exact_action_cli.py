@@ -223,6 +223,15 @@ def test_exact_action_cli_success_matches_api_terminal_truth(
     assert result["completion_ref"] in api_status["receipt_refs"]
     assert str(tmp_path) not in json.dumps(result)
 
+    replay_args = list(run_args)
+    replay_args[replay_args.index("--idempotency-ref") + 1] = (
+        "idempotency-ref:founder-loop-cli-success:execute-replay"
+    )
+    assert main(replay_args) == 0
+    replay = json.loads(capsys.readouterr().out)
+    assert replay["completion_ref"] == result["completion_ref"]
+    assert replay["terminal_replay"] is True
+
     (authority_state / MISSION_COMPLETION_LEDGER_FILE).unlink()
     assert (
         main(

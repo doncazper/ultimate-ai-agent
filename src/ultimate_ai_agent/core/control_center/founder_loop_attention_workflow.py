@@ -32,6 +32,11 @@ from ultimate_ai_agent.core.execution.mission_completion import (
     MissionCompletionError,
     verify_mission_completion,
 )
+from ultimate_ai_agent.core.execution.mission_runner import (
+    mission_step_action_ref,
+    mission_step_dispatch_ref,
+    mission_step_idempotency_ref,
+)
 from ultimate_ai_agent.core.planning.validation import (
     validate_safe_task_text,
     validate_task_ref,
@@ -231,6 +236,35 @@ def attention_workflow_operator_request_ref(
     )
     return (
         "operator-request-ref:founder-loop-attention:sha256:"
+        f"{hashlib.sha256(canonical.encode('utf-8')).hexdigest()}"
+    )
+
+
+def attention_execution_owner_ref(
+    *,
+    proposal_ref: str,
+    idempotency_ref: str,
+) -> str:
+    """Bind one execution claimant to the proposal and mutation replay key."""
+
+    validate_task_ref(proposal_ref, "founder_loop_attention_proposal_ref")
+    validate_safe_task_text(
+        idempotency_ref,
+        "founder_loop_attention_idempotency_ref",
+    )
+    if len(idempotency_ref) > 256:
+        raise ValueError("founder_loop_attention_idempotency_ref is too long")
+    canonical = json.dumps(
+        {
+            "proposal_ref": proposal_ref,
+            "idempotency_ref": idempotency_ref,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+    )
+    return (
+        "mission-owner-ref:founder-loop-attention:sha256:"
         f"{hashlib.sha256(canonical.encode('utf-8')).hexdigest()}"
     )
 
@@ -801,10 +835,12 @@ class FounderLoopAttentionWorkflow:
             prepared_target_ref=prepared.proposal.target_ref,
             prepared_operator_request_ref=prepared_request.operator_request_ref,
         )
+        current_action = self._action(today_item_ref)
         self._validate_current_action_definition(
-            action=self._action(today_item_ref),
+            action=current_action,
             target_ref=prepared.proposal.target_ref,
         )
+        terminal_replay = current_action.status == "receipt_recorded"
         authority_decision_ref = self._validate_current_mission_lease(
             operation="approve",
             mission_ref=prepared_request.mission_ref,
@@ -830,6 +866,13 @@ class FounderLoopAttentionWorkflow:
                 or durable_approval_refs != {matching_grants[0].approval_ref}
             ):
                 raise ValueError("FOUNDER_LOOP_ATTENTION_APPROVAL_EVIDENCE_MISSING")
+            if terminal_replay and (
+                durable_approval_refs != {approval_ref}
+                or len(matching_grants) != 1
+            ):
+                raise ValueError(
+                    "FOUNDER_LOOP_ATTENTION_TERMINAL_APPROVAL_BINDING_DRIFT"
+                )
             existing = matching_grants[0] if matching_grants else None
             if existing is not None:
                 if (
@@ -851,12 +894,13 @@ class FounderLoopAttentionWorkflow:
                     approved_by_actor_id=approved_by_actor_ref,
                     approval_ref=approval_ref,
                 )
-            self._record_approval_posture(
-                today_item_ref=today_item_ref,
-                target_ref=prepared.proposal.target_ref,
-                approval_ref=grant.approval_ref,
-                authority_decision_ref=authority_decision_ref,
-            )
+            if not terminal_replay:
+                self._record_approval_posture(
+                    today_item_ref=today_item_ref,
+                    target_ref=prepared.proposal.target_ref,
+                    approval_ref=grant.approval_ref,
+                    authority_decision_ref=authority_decision_ref,
+                )
         return grant.approval_ref
 
     def execute(
@@ -890,18 +934,20 @@ class FounderLoopAttentionWorkflow:
                 action=action,
                 target_ref=prepared.proposal.target_ref,
             )
+        if terminal_replay_expected:
+            return self._replay_terminal(
+                workflow_ref=workflow_ref,
+                today_item_ref=today_item_ref,
+                inspected_source_refs=inspected_source_refs,
+                source_review_receipt_ref=source_review_receipt_ref,
+                proposal_ref=proposal_ref,
+                approval_ref=approval_ref,
+            )
         result = self.mission_service.execute(
             proposal_ref=proposal_ref,
             approval_ref=approval_ref,
             owner_ref=owner_ref,
         )
-        if terminal_replay_expected:
-            if (
-                result.completion.completion_ref not in action.receipt_refs
-                or action.state_change_contract_ref
-                != FOUNDER_LOOP_ATTENTION_WORKFLOW_CONTRACT_REF
-            ):
-                raise ValueError("FOUNDER_LOOP_ATTENTION_TERMINAL_BINDING_DRIFT")
         recorded = self._record_completion(
             workflow_ref=workflow_ref,
             today_item_ref=today_item_ref,
@@ -913,6 +959,138 @@ class FounderLoopAttentionWorkflow:
         if verified.execution_performed is not True:
             raise ValueError("FOUNDER_LOOP_ATTENTION_TERMINAL_EVIDENCE_UNVERIFIED")
         return recorded
+
+    def _replay_terminal(
+        self,
+        *,
+        workflow_ref: str,
+        today_item_ref: str,
+        inspected_source_refs: tuple[str, ...],
+        source_review_receipt_ref: str,
+        proposal_ref: str,
+        approval_ref: str,
+    ) -> FounderLoopAttentionWorkflowResult:
+        """Verify one exact durable terminal mission without starting it again."""
+
+        action = self._action(today_item_ref)
+        prepared = self.mission_service.prepared_proposal(proposal_ref)
+        request = self.mission_service.prepared_request(proposal_ref)
+        if prepared is None or request is None:
+            raise ValueError("FOUNDER_LOOP_MISSION_PROPOSAL_NOT_PREPARED")
+        self._validate_prepared_binding(
+            workflow_ref=workflow_ref,
+            today_item_ref=today_item_ref,
+            inspected_source_refs=inspected_source_refs,
+            source_review_receipt_ref=source_review_receipt_ref,
+            proposal_ref=proposal_ref,
+            prepared_target_ref=prepared.proposal.target_ref,
+            prepared_operator_request_ref=request.operator_request_ref,
+        )
+        self._validate_current_action_definition(
+            action=action,
+            target_ref=prepared.proposal.target_ref,
+        )
+        completion_refs = {
+            ref
+            for ref in action.receipt_refs
+            if ref.startswith("mission-completion-ref:")
+        }
+        manifests = [
+            item
+            for item in self.mission_service.orchestrator.completion_store.list_manifests()
+            if item.completion_ref in completion_refs
+        ]
+        if (
+            approval_ref not in action.audit_refs
+            or len(completion_refs) != 1
+            or len(manifests) != 1
+        ):
+            raise ValueError("FOUNDER_LOOP_ATTENTION_TERMINAL_BINDING_DRIFT")
+        manifest = manifests[0]
+        plan_receipts = [
+            item
+            for item in self.mission_service.orchestrator.plan_store.list_receipts()
+            if item.receipt_ref == manifest.plan_receipt_ref
+        ]
+        if len(plan_receipts) != 1:
+            raise ValueError("FOUNDER_LOOP_ATTENTION_TERMINAL_BINDING_DRIFT")
+        plan_receipt = plan_receipts[0]
+        if (
+            manifest.plan_ref != request.plan_ref
+            or manifest.plan_fingerprint_ref != plan_receipt.plan_fingerprint_ref
+            or manifest.mission_ref != request.mission_ref
+            or manifest.run_ref != request.run_ref
+            or manifest.lease_ref != request.lease_ref
+            or manifest.lease_mission_ref != request.mission_ref
+            or manifest.mission_deadline != request.start_deadline
+            or plan_receipt.plan.plan_ref != request.plan_ref
+            or plan_receipt.plan.mission_ref != request.mission_ref
+            or plan_receipt.plan.run_ref != request.run_ref
+            or len(plan_receipt.plan.ordered_steps) != 1
+            or len(manifest.step_bindings) != 1
+            or len(manifest.dispatch_bindings) != 1
+        ):
+            raise ValueError("FOUNDER_LOOP_ATTENTION_TERMINAL_BINDING_DRIFT")
+        plan_step = plan_receipt.plan.ordered_steps[0]
+        step = manifest.step_bindings[0]
+        dispatch = manifest.dispatch_bindings[0]
+        expected_dispatch_ref = mission_step_dispatch_ref(request.step_ref)
+        expected_action_ref = mission_step_action_ref(request.step_ref)
+        expected_idempotency_ref = mission_step_idempotency_ref(request.step_ref)
+        if (
+            plan_step.step_ref != request.step_ref
+            or step.step_ref != request.step_ref
+            or plan_step.definition_fingerprint_ref
+            != step.definition_fingerprint_ref
+            or plan_step.dispatch_ref != expected_dispatch_ref
+            or step.dispatch_ref != expected_dispatch_ref
+            or dispatch.dispatch_ref != expected_dispatch_ref
+            or plan_step.dispatch_request_fingerprint_ref
+            != step.dispatch_request_fingerprint_ref
+            or step.dispatch_request_fingerprint_ref
+            != dispatch.request_fingerprint_ref
+            or dispatch.action_ref != expected_action_ref
+            or dispatch.adapter_ref != FOUNDER_LOOP_FILESYSTEM_ADAPTER_REF
+            or dispatch.capability_ref != FOUNDER_LOOP_FILESYSTEM_CAPABILITY_REF
+            or dispatch.lease_ref != request.lease_ref
+            or dispatch.approval_ref != approval_ref
+            or manifest.approval_refs != (approval_ref,)
+        ):
+            raise ValueError("FOUNDER_LOOP_ATTENTION_TERMINAL_BINDING_DRIFT")
+        dispatch_receipts = [
+            item
+            for item in self.mission_service.orchestrator.runner.dispatcher.list_receipts()
+            if item.receipt_ref == dispatch.receipt_ref
+        ]
+        if len(dispatch_receipts) != 1:
+            raise ValueError("FOUNDER_LOOP_ATTENTION_TERMINAL_BINDING_DRIFT")
+        receipt = dispatch_receipts[0]
+        if (
+            receipt.run_ref != request.run_ref
+            or receipt.idempotency_ref != expected_idempotency_ref
+            or receipt.request_fingerprint_ref != dispatch.request_fingerprint_ref
+            or receipt.start_deadline != request.start_deadline
+            or receipt.lease_ref != request.lease_ref
+            or receipt.action_ref != expected_action_ref
+            or receipt.adapter_ref != FOUNDER_LOOP_FILESYSTEM_ADAPTER_REF
+            or receipt.capability_ref != FOUNDER_LOOP_FILESYSTEM_CAPABILITY_REF
+            or receipt.approval_ref != approval_ref
+            or prepared.proposal.policy_decision_ref not in receipt.evidence_refs
+        ):
+            raise ValueError("FOUNDER_LOOP_ATTENTION_TERMINAL_BINDING_DRIFT")
+        verified = self.verified_status(today_item_ref)
+        if verified.execution_performed is not True:
+            raise ValueError("FOUNDER_LOOP_ATTENTION_TERMINAL_EVIDENCE_UNVERIFIED")
+        return FounderLoopAttentionWorkflowResult(
+            workflow_ref=workflow_ref,
+            today_item_ref=today_item_ref,
+            proposal_ref=proposal_ref,
+            approval_ref=approval_ref,
+            completion_ref=manifest.completion_ref,
+            receipt_refs=tuple(action.receipt_refs),
+            evidence_refs=tuple(action.evidence_refs),
+            terminal_replay=True,
+        )
 
     def _record_completion(
         self,
