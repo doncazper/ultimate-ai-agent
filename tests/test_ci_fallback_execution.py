@@ -5,6 +5,7 @@ import hashlib
 import json
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -28,6 +29,7 @@ def test_private_preflight_requires_clean_pushed_canonical_origin(
     executor = execution.IsolatedPrivateExecutor(tmp_path)
     values = {
         ("rev-parse", "HEAD"): SHA,
+        ("rev-parse", "refs/remotes/origin/main"): "b" * 40,
         ("status", "--porcelain"): "",
         ("remote", "get-url", "origin"): "https://invalid.example/repository.git",
         ("branch", "-r", "--contains", SHA): "origin/feature",
@@ -39,7 +41,7 @@ def test_private_preflight_requires_clean_pushed_canonical_origin(
     values[("remote", "get-url", "origin")] = (
         "git@github.com:doncazper/ultimate-ai-agent.git"
     )
-    executor._preflight(SHA)
+    assert executor._preflight(SHA) == "b" * 40
 
 
 def test_private_worktree_rejects_symlinked_selected_command_path(
@@ -114,10 +116,94 @@ def test_private_execution_uses_standalone_clone_not_shared_worktree() -> None:
     source = Path(execution.__file__).read_text(encoding="utf-8")
     assert '"clone"' in source
     assert '"--no-local"' in source
-    assert '"refs/remotes/origin/main"' in source
+    assert 'self._git("rev-parse", "refs/remotes/origin/main")' in source
+    assert "origin_main_sha" in source
     assert "PRIVATE_BASE_REF" in source
     assert '("git", "remote", "remove", "origin")' in source
     assert '"worktree", "add"' not in source
+
+
+@pytest.mark.parametrize(("returncode", "expected"), ((0, False), (1, True), (2, True)))
+def test_private_affected_preflight_frontend_dependency_is_fail_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    returncode: int,
+    expected: bool,
+) -> None:
+    monkeypatch.setattr(
+        execution.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args=args[0], returncode=returncode
+        ),
+    )
+
+    assert (
+        execution.IsolatedPrivateExecutor._affected_preflight_requires_frontend(
+            tmp_path
+        )
+        is expected
+    )
+
+
+def test_private_frontend_dependencies_are_installed_before_affected_preflight(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+
+    def fake_subprocess(argv, **_kwargs):
+        events.append(" ".join(argv))
+        return 0, 1, "result-ref:ci:test"
+
+    def fake_lane(lane_ref: str, **_kwargs):
+        events.append(f"lane:{lane_ref}")
+        return True
+
+    monkeypatch.setattr(execution, "_safe_subprocess", fake_subprocess)
+    monkeypatch.setattr(
+        execution.IsolatedPrivateExecutor,
+        "_affected_preflight_requires_frontend",
+        staticmethod(lambda _worktree: True),
+    )
+    monkeypatch.setattr(
+        execution.IsolatedPrivateExecutor, "_run_lane", staticmethod(fake_lane)
+    )
+    monkeypatch.setattr(execution, "CI_JOB_GRAPH", ())
+    monkeypatch.setattr(execution.shutil, "which", lambda *_args, **_kwargs: None)
+    plan = SimpleNamespace(
+        definition_fingerprint="a" * 64,
+        dependency_lock_fingerprints=(),
+        pytest_shard_plan_fingerprint="b" * 64,
+    )
+
+    status = execution.IsolatedPrivateExecutor._run_graph(
+        SHA,
+        tmp_path,
+        tmp_path,
+        {"PATH": "/usr/bin"},
+        [],
+        [],
+        plan,
+    )
+
+    assert status == "pass"
+    assert events[:2] == ["npm ci", "lane:ci-affected-preflight"]
+
+
+def test_private_and_lane_environments_share_playwright_browser_directory(
+    tmp_path: Path,
+) -> None:
+    from scripts.verification import run_ci_lane
+
+    private_env = execution._minimal_env(tmp_path)
+    lane_temp = tmp_path / "lane-temp"
+    command = CommandSpec("command:test", ("true",), (), "test", 10)
+    lane_env = run_ci_lane._safe_env(command, lane_temp)
+
+    assert private_env["PLAYWRIGHT_BROWSERS_PATH"] == lane_env[
+        "PLAYWRIGHT_BROWSERS_PATH"
+    ]
 
 
 def test_private_lane_receipt_is_recomputed_and_exact_plan_bound(tmp_path: Path) -> None:

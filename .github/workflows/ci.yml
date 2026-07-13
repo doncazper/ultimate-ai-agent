@@ -551,11 +551,14 @@ jobs:
 
       - name: Install Playwright Chromium
         if: steps.visual-scope.outputs.run_visual == 'true'
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/playwright-browsers
         working-directory: apps/control-center
         run: npx playwright install chromium
 
       - name: Run visual regression release lane
         env:
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/playwright-browsers
           RUN_VISUAL: ${{ steps.visual-scope.outputs.run_visual }}
         run: |
           visual_scope="not_affected"
@@ -608,12 +611,15 @@ jobs:
 
       - name: Install Playwright Chromium
         if: steps.docker.outputs.available == 'true'
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/playwright-browsers
         working-directory: apps/control-center
         run: npx playwright install --with-deps chromium
 
       - name: Run desktop packaging release lane
         env:
           DOCKER_AVAILABLE: ${{ steps.docker.outputs.available }}
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/playwright-browsers
         run: |
           docker_posture="unavailable"
           if [ "$DOCKER_AVAILABLE" = "true" ]; then

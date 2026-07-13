@@ -192,12 +192,15 @@ the complete suite by using `make ci-reproduce-shard CI_SHARD_INDEX=0` (indices
 manifest and do not satisfy the GitHub merge gate.
 
 Eligible private fallback creates a standalone credential-free local clone at
-the exact pushed SHA, pins the fetched `main` commit to an isolated immutable
+the exact pushed SHA, pins the source checkout's exact validated `origin/main`
+object ID to an isolated immutable
 base ref, removes its remote, and never shares refs, config, or hooks with the
 developer repository. It verifies the canonical origin, lock
 fingerprints, and regular repository
-paths, runs affected checks first unless they select the full gate, takes the
-single content-free, group-protected cross-account host lock, and installs
+paths, installs frontend dependencies before an affected frontend preflight,
+then runs affected checks first unless they select the full gate. Playwright
+installation and lane execution share one temp-root-bound browser cache. It
+takes the single content-free, group-protected cross-account host lock, and installs
 through the existing lockfile policy before executing the canonical job graph.
 A new versioned coordination directory avoids dependence on legacy lock-file
 ownership and holds one bounded exact-SHA attempt ledger shared by all four

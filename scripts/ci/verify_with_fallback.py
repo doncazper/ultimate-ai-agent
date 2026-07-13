@@ -31,6 +31,8 @@ from scripts.verification.ci_fallback_controller import (  # noqa: E402
     status_payload,
 )
 from scripts.verification.ci_fallback_contracts import (  # noqa: E402
+    GITHUB_ACTIVE_STATUSES,
+    GITHUB_QUEUE_STATUSES,
     INFRASTRUCTURE_WINDOW,
 )
 
@@ -125,7 +127,7 @@ def observe_github(repo: Path, sha: str) -> GitHubObservation:
             if window_start <= candidate_created <= run_created:
                 superseded += 1
     queue_duration_ms = 0
-    if run.get("status") == "queued" and run_timestamp_available:
+    if run.get("status") in GITHUB_QUEUE_STATUSES and run_timestamp_available:
         queue_duration_ms = max(
             0, int((datetime.now(UTC) - run_created).total_seconds() * 1000)
         )
@@ -214,7 +216,7 @@ def observe_github(repo: Path, sha: str) -> GitHubObservation:
     elif status == "completed" and conclusion == "success":
         reason_ref = "reason-ref:github:required-evidence-missing"
         repository_command_started = True
-    elif status in {"queued", "in_progress"}:
+    elif status in GITHUB_ACTIVE_STATUSES:
         reason_ref = (
             "reason-ref:github:runner-capacity"
             if queue_duration_ms > 10 * 60 * 1000

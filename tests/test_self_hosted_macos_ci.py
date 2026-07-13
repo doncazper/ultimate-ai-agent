@@ -192,6 +192,10 @@ def test_visual_regression_runs_only_for_affected_control_center_paths() -> None
     assert 'if [ "$RUN_VISUAL" = "true" ]; then' in visual_job
     assert "reason-ref:visual-regression:not-affected" in visual_job
     assert (
+        "PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/playwright-browsers"
+        in visual_job
+    )
+    assert (
         "--lane visual-regression"
         in visual_job
     )
@@ -214,6 +218,11 @@ def test_desktop_packaging_preserves_non_admin_docker_boundary() -> None:
 
     assert "docker info >/dev/null 2>&1" in workflow
     assert "steps.docker.outputs.available == 'true'" in workflow
+    desktop_job = verifier.job_section(workflow, "release-lane-desktop-packaging")
+    assert (
+        "PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/playwright-browsers"
+        in desktop_job
+    )
     assert '--docker-available "$docker_posture"' in workflow
     assert "command:desktop-packaging.contract" in lane_registry()[
         "desktop-packaging"

@@ -291,6 +291,19 @@ def test_capacity_cooldown_occurs_once_and_is_bounded(tmp_path: Path) -> None:
     assert executor.calls == [SHA_A]
 
 
+@pytest.mark.parametrize(
+    "status", ("requested", "waiting", "pending", "queued", "in_progress")
+)
+def test_all_github_active_statuses_remain_running(status: str) -> None:
+    active = observation(
+        status=status,
+        conclusion="",
+        started=False,
+        reason="reason-ref:github:run-active",
+    )
+    assert classify_github(active) == FallbackState.GITHUB_RUNNING
+
+
 def test_private_failure_is_not_rerun_for_same_sha(tmp_path: Path) -> None:
     executor = FakeExecutor(["fail", "pass"])
     sut = controller(tmp_path, executor)

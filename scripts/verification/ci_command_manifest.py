@@ -23,6 +23,7 @@ SCHEMA_VERSION = "uaa_ci_command_manifest.v1"
 PROFILE_REF = "ci-profile:merge-macos-v1"
 MACHINE_PROFILE_REF = "machine-profile:macos-arm64-private"
 PRIVATE_BASE_REF = "refs/uaa-ci/base-main"
+PLAYWRIGHT_BROWSER_DIRNAME = "playwright-browsers"
 GITHUB_FULL_SUITE_LOCK_WAIT_SECONDS = 600
 PYTEST_JOB_SETUP_BUDGET_SECONDS = 900
 SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
@@ -427,6 +428,7 @@ def definition_payload() -> dict[str, Any]:
         "machine_profile_ref": MACHINE_PROFILE_REF,
         "lockfile_refs": list(LOCKFILE_REFS),
         "visual_scope_paths": list(VISUAL_SCOPE_PATHS),
+        "playwright_browser_directory_name": PLAYWRIGHT_BROWSER_DIRNAME,
         "commands": [asdict(commands[key]) for key in sorted(commands)],
         "lanes": [asdict(lanes[key]) for key in sorted(lanes)],
         "job_graph": [asdict(job) for job in CI_JOB_GRAPH],

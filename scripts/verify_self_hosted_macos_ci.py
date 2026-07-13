@@ -183,6 +183,7 @@ def verify(root: Path = ROOT) -> list[str]:
         "        if: steps.visual-scope.outputs.run_visual == 'true'\n",
         '          if [ "$RUN_VISUAL" = "true" ]; then\n',
         "reason-ref:visual-regression:not-affected",
+        "      PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/playwright-browsers\n",
         "            --lane visual-regression \\\n",
         '            --visual-scope "$visual_scope" \\\n',
     ):
@@ -206,6 +207,13 @@ def verify(root: Path = ROOT) -> list[str]:
     desktop_lane = job_section(workflow, "release-lane-desktop-packaging")
     if '--docker-available "$docker_posture"' not in desktop_lane:
         failures.append("desktop packaging must report an explicit unavailable Docker prerequisite")
+    if (
+        "      PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/playwright-browsers\n"
+        not in desktop_lane
+    ):
+        failures.append(
+            "desktop packaging must share the canonical Playwright browser cache"
+        )
     checkout_action = "uses: actions/checkout@v4"
     checkout_count = workflow.count(checkout_action)
     if checkout_count == 0 or workflow.count("persist-credentials: false") != checkout_count:

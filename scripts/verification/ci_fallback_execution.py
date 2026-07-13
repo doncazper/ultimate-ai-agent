@@ -13,6 +13,7 @@ from pathlib import Path
 
 from scripts.verification.ci_command_manifest import (
     CI_JOB_GRAPH,
+    PLAYWRIGHT_BROWSER_DIRNAME,
     PRIVATE_BASE_REF,
     PROFILE_REF,
     VerificationPlan,
@@ -78,8 +79,10 @@ def _safe_subprocess(
 def _minimal_env(temp_root: Path) -> dict[str, str]:
     home = temp_root / "home"
     runtime_tmp = temp_root / "tmp"
+    playwright_browsers = temp_root / "lane-temp" / PLAYWRIGHT_BROWSER_DIRNAME
     home.mkdir(parents=True, exist_ok=True)
     runtime_tmp.mkdir(parents=True, exist_ok=True)
+    playwright_browsers.mkdir(parents=True, exist_ok=True)
     return {
         "PATH": "/opt/homebrew/opt/python@3.12/libexec/bin:/opt/homebrew/opt/node@22/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
         "HOME": str(home),
@@ -88,6 +91,7 @@ def _minimal_env(temp_root: Path) -> dict[str, str]:
         "TMPDIR": str(runtime_tmp),
         "CI": "true",
         "LANG": "C.UTF-8",
+        "PLAYWRIGHT_BROWSERS_PATH": str(playwright_browsers),
     }
 
 
@@ -263,7 +267,7 @@ class IsolatedPrivateExecutor:
         )
         return completed.stdout.strip()
 
-    def _preflight(self, repository_sha: str) -> None:
+    def _preflight(self, repository_sha: str) -> str:
         if not SHA_PATTERN.fullmatch(repository_sha):
             raise ValueError("private CI requires an exact lowercase SHA")
         if self._git("rev-parse", "HEAD") != repository_sha:
@@ -275,11 +279,15 @@ class IsolatedPrivateExecutor:
         remote_contains = self._git("branch", "-r", "--contains", repository_sha)
         if not any(line.strip().startswith("origin/") for line in remote_contains.splitlines()):
             raise ValueError("private CI exact SHA must already be pushed to origin")
+        origin_main_sha = self._git("rev-parse", "refs/remotes/origin/main")
+        if not SHA_PATTERN.fullmatch(origin_main_sha):
+            raise ValueError("private CI origin/main ref is invalid")
         private_verification_plan(self.repo, repository_sha)
+        return origin_main_sha
 
     def verify(self, repository_sha: str, *, series_ref: str) -> PrivateVerificationResult:
         del series_ref
-        self._preflight(repository_sha)
+        origin_main_sha = self._preflight(repository_sha)
         started_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
         root = Path(tempfile.mkdtemp(prefix="uaa-private-ci-"))
         worktree = root / "worktree"
@@ -290,6 +298,7 @@ class IsolatedPrivateExecutor:
         try:
             status_value, isolated_plan = self._verify_isolated(
                 repository_sha,
+                origin_main_sha,
                 root,
                 worktree,
                 timings,
@@ -321,6 +330,7 @@ class IsolatedPrivateExecutor:
     def _verify_isolated(
         self,
         repository_sha: str,
+        origin_main_sha: str,
         root: Path,
         worktree: Path,
         timings: list[tuple[str, int]],
@@ -350,7 +360,7 @@ class IsolatedPrivateExecutor:
                 "git",
                 "update-ref",
                 PRIVATE_BASE_REF,
-                "refs/remotes/origin/main",
+                origin_main_sha,
             ),
             ("git", "remote", "remove", "origin"),
         ):
@@ -533,6 +543,19 @@ class IsolatedPrivateExecutor:
         definition_ref = isolated_plan.definition_fingerprint
         lock_fingerprints = isolated_plan.dependency_lock_fingerprints
         shard_plan_fingerprint = isolated_plan.pytest_shard_plan_fingerprint
+        npm_ready = False
+        if IsolatedPrivateExecutor._affected_preflight_requires_frontend(worktree):
+            returncode, duration_ms, result_ref = _safe_subprocess(
+                ("npm", "ci"),
+                cwd=worktree / "apps/control-center",
+                timeout=900,
+                env=env,
+            )
+            timings.append(("phase-ref:private-ci:frontend-install", duration_ms))
+            result_refs.append(result_ref)
+            npm_ready = returncode == 0
+            if not npm_ready:
+                return "fail"
         if not IsolatedPrivateExecutor._run_lane(
             "ci-affected-preflight",
             repository_sha=repository_sha,
@@ -558,7 +581,6 @@ class IsolatedPrivateExecutor:
             result_refs.append(result_ref)
             if returncode == 0:
                 docker_available = "available"
-        npm_ready = False
         playwright_ready = False
         for job in CI_JOB_GRAPH:
             if job.lane_ref is None:
@@ -629,6 +651,27 @@ class IsolatedPrivateExecutor:
             ):
                 return "fail"
         return "pass"
+
+    @staticmethod
+    def _affected_preflight_requires_frontend(worktree: Path) -> bool:
+        completed = subprocess.run(
+            (
+                "git",
+                "diff",
+                "--no-renames",
+                "--quiet",
+                f"{PRIVATE_BASE_REF}...HEAD",
+                "--",
+                "apps/control-center",
+            ),
+            cwd=worktree,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=20,
+            check=False,
+        )
+        return completed.returncode != 0
 
     def _remove_owned_worktree(
         self,

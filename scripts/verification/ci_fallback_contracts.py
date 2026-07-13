@@ -29,6 +29,8 @@ QUEUE_BUDGET_MS = 10 * 60 * 1000
 CHURN_BUDGET = 2
 MAX_DURATION_MS = 24 * 60 * 60 * 1000
 INFRASTRUCTURE_WINDOW = timedelta(minutes=30)
+GITHUB_QUEUE_STATUSES = frozenset({"requested", "waiting", "pending", "queued"})
+GITHUB_ACTIVE_STATUSES = frozenset({*GITHUB_QUEUE_STATUSES, "in_progress"})
 UTC_TIMESTAMP_PATTERN = re.compile(
     r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$"
 )
@@ -106,7 +108,7 @@ class GitHubObservation:
             raise ValueError("GitHub observation posture is invalid")
         validate_utc_timestamp(self.observed_at)
         validate_utc_timestamp(self.run_created_at)
-        if self.status not in {"queued", "in_progress", "completed", "unavailable"}:
+        if self.status not in {*GITHUB_ACTIVE_STATUSES, "completed", "unavailable"}:
             raise ValueError("unsupported GitHub status")
         if self.conclusion not in {
             "",
@@ -219,7 +221,7 @@ def classify_github(observation: GitHubObservation) -> FallbackState:
         ):
             return FallbackState.GITHUB_CODE_FAILURE
         return FallbackState.GITHUB_GREEN
-    if observation.status in {"queued", "in_progress"}:
+    if observation.status in GITHUB_ACTIVE_STATUSES:
         if (
             observation.queue_duration_ms > QUEUE_BUDGET_MS
             or observation.superseded_run_count >= CHURN_BUDGET

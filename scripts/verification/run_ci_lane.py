@@ -23,6 +23,7 @@ if str(ROOT) not in sys.path:
 
 from scripts.verification.ci_command_manifest import (  # noqa: E402
     GITHUB_FULL_SUITE_LOCK_WAIT_SECONDS,
+    PLAYWRIGHT_BROWSER_DIRNAME,
     PROFILE_REF,
     CommandSpec,
     build_plan,
@@ -94,8 +95,10 @@ def _safe_env(command: CommandSpec, temp_root: Path) -> dict[str, str]:
     env = build_shard_env(ROOT)
     isolated_home = temp_root / "runtime-home"
     isolated_tmp = temp_root / "runtime-tmp"
+    playwright_browsers = temp_root / PLAYWRIGHT_BROWSER_DIRNAME
     isolated_home.mkdir(parents=True, exist_ok=True)
     isolated_tmp.mkdir(parents=True, exist_ok=True)
+    playwright_browsers.mkdir(parents=True, exist_ok=True)
     env.update(
         {
             "CI": "true",
@@ -103,6 +106,7 @@ def _safe_env(command: CommandSpec, temp_root: Path) -> dict[str, str]:
             "TEMP": str(isolated_tmp),
             "TMP": str(isolated_tmp),
             "TMPDIR": str(isolated_tmp),
+            "PLAYWRIGHT_BROWSERS_PATH": str(playwright_browsers),
         }
     )
     env.update(dict(command.env))

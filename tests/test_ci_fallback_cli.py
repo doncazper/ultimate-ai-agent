@@ -203,6 +203,28 @@ def test_cross_sha_superseded_churn_is_bounded_to_the_branch_window(
     )
 
 
+@pytest.mark.parametrize("run_status", ("requested", "waiting", "pending"))
+def test_live_github_prequeue_statuses_are_observed_as_active(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    run_status: str,
+) -> None:
+    run = _run_payload()[0]
+    run.update(
+        status=run_status,
+        conclusion="",
+        createdAt=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+    )
+    responses = iter(([run], {"jobs": []}))
+    monkeypatch.setattr(cli, "_run_json", lambda *_args, **_kwargs: next(responses))
+
+    observed = cli.observe_github(tmp_path, SHA)
+
+    assert observed.status == run_status
+    assert observed.reason_ref == "reason-ref:github:run-active"
+    assert cli.inspection_status(observed).state == FallbackState.GITHUB_RUNNING
+
+
 def test_authoritative_checkout_rejects_dirty_manifest_state(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

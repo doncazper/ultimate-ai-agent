@@ -21,6 +21,7 @@ FRONTEND_APP_TEST = "apps/control-center/src/App.test.tsx"
 CI_WORKFLOW = ".github/workflows/ci.yml"
 ALLOWED_CI_PLAYWRIGHT_LINES = {
     "- name: install playwright chromium",
+    "playwright_browsers_path: ${{ runner.temp }}/playwright-browsers",
     "run: npx playwright install chromium",
     "run: npx playwright install --with-deps chromium",
 }
