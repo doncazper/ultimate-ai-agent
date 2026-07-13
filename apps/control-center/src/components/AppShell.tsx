@@ -188,7 +188,7 @@ export function AppShell({
             <strong>{activeRoute}</strong>
             <small>{routeTruthLabel}</small>
             <div className="topbar-safety-floor" aria-label="Visible safety floor">
-              <span>No generic execution</span>
+              <span>No generic execution · no authority to run actions</span>
               <span>Local task authority requires backend approval</span>
               <span>Sources blocked/status-only</span>
               {!authorityModeAuthoritative ? (

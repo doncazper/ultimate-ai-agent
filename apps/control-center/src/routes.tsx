@@ -701,6 +701,7 @@ function isTrustAuthorityAuthoritative(data: ControlCenterData): boolean {
     isAuthoritativeRoute(data, "/trust") &&
     data.trustAuthorityMatrix.backend_owned === true &&
     data.trustAuthorityMatrix.local_read_model_only === true &&
-    data.trustAuthorityMatrix.control_center_grants_authority === false
+    data.trustAuthorityMatrix.control_center_grants_authority === false &&
+    !data.connection.warnings.includes("TRUST_AUTHORITY_MATRIX_MOCK_FALLBACK")
   );
 }
