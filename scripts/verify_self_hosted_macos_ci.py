@@ -89,8 +89,11 @@ def verify(root: Path = ROOT) -> list[str]:
         failures.append("static verification timings must use the isolated per-job runner temp directory")
     if "    needs:\n      - lint\n" not in job_section(workflow, "pytest-shards"):
         failures.append("pytest shards must start only after lint passes")
-    if "      max-parallel: 2\n" not in job_section(workflow, "pytest-shards"):
+    pytest_shards_job = job_section(workflow, "pytest-shards")
+    if "            --max-workers 1 \\\n" not in pytest_shards_job:
         failures.append("pytest shards must avoid shared-Mac lock starvation")
+    if "--shard-index" in pytest_shards_job or "matrix:" in pytest_shards_job:
+        failures.append("pytest shards must share one installed single-host environment")
     pytest_gated_jobs = (
         "static-verification",
         "release-lane-docs",
@@ -135,9 +138,9 @@ def verify(root: Path = ROOT) -> list[str]:
     ):
         failures.append("performance verification must run after the shared-Mac matrix")
     for fragment in (
-        "--stretch-goal-seconds 180",
-        "--target-seconds 360",
-        "--hard-timeout-seconds 480",
+        "--stretch-goal-seconds 900",
+        "--target-seconds 1200",
+        "--hard-timeout-seconds 1800",
     ):
         if fragment not in workflow:
             failures.append("pytest shards must declare the self-hosted runtime budget")

@@ -39,9 +39,9 @@ def test_pytest_shards_use_runner_scoped_temp_directory() -> None:
         in workflow
     )
     assert "--basetemp /tmp/uaa_pytest_shards" not in workflow
-    assert "--stretch-goal-seconds 180" in workflow
-    assert "--target-seconds 360" in workflow
-    assert "--hard-timeout-seconds 480" in workflow
+    assert "--stretch-goal-seconds 900" in workflow
+    assert "--target-seconds 1200" in workflow
+    assert "--hard-timeout-seconds 1800" in workflow
 
 
 def test_static_verification_uses_runner_scoped_timing_output() -> None:
@@ -74,7 +74,9 @@ def test_shared_mac_ci_stages_cpu_and_io_heavy_job_classes() -> None:
 
     pytest_shards_job = verifier.job_section(workflow, "pytest-shards")
     assert "      - lint\n" in pytest_shards_job
-    assert "      max-parallel: 2\n" in pytest_shards_job
+    assert "            --max-workers 1 \\\n" in pytest_shards_job
+    assert "--shard-index" not in pytest_shards_job
+    assert "matrix:" not in pytest_shards_job
     for job_name in (
         "static-verification",
         "release-lane-docs",

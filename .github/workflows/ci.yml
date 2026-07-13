@@ -47,17 +47,11 @@ jobs:
         run: .venv/bin/python scripts/verify_self_hosted_macos_ci.py
 
   pytest-shards:
-    name: pytest / shard ${{ matrix.shard }}
+    name: pytest / sharded suite
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, macOS, ARM64, uaa-ci]
     needs:
       - lint
-    strategy:
-      fail-fast: false
-      max-parallel: 2
-      matrix:
-        shard: [0, 1, 2, 3, 4, 5, 6, 7]
-
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -76,13 +70,13 @@ jobs:
         run: |
           .venv/bin/python scripts/verification/run_pytest_shards.py \
             --shards 8 \
-            --shard-index ${{ matrix.shard }} \
+            --max-workers 1 \
             --timings-json scripts/verification/pytest_file_timing_seed.json \
             --basetemp "${RUNNER_TEMP}/uaa_pytest_shards" \
             --performance-report "${RUNNER_TEMP}/uaa_pytest_performance_report.json" \
-            --stretch-goal-seconds 180 \
-            --target-seconds 360 \
-            --hard-timeout-seconds 480 \
+            --stretch-goal-seconds 900 \
+            --target-seconds 1200 \
+            --hard-timeout-seconds 1800 \
             --quiet \
             --safe-summary
 

@@ -36,10 +36,10 @@ provider, connector, production, or AuthorityLease capability.
   not amplify I/O while four large repository checkouts are materialized.
 - Pytest shard basetemps, performance reports, and static-verification timings
   use each job's private `RUNNER_TEMP`. The shared-Mac CI budget keeps a
-  180-second stretch goal, reports a 360-second target, and enforces a
-  480-second hard timeout. The wider ceiling absorbs measured whole-machine
-  contention from the release matrix without hiding it; only the hard timeout
-  terminates a shard.
+  900-second stretch goal, reports a 1200-second target, and enforces an
+  1800-second hard timeout for the complete eight-shard suite. The wider suite
+  ceiling absorbs measured single-host variance without hiding it; only the
+  hard timeout terminates the sharded run.
 - The performance release lane waits for the rest of the CI matrix before it
   measures latency. This keeps the four-runner pool useful for functional
   checks without treating whole-machine contention as product latency.
@@ -48,9 +48,10 @@ provider, connector, production, or AuthorityLease capability.
   then the aggregate Foundation Gate. Jobs within a stage still use the four
   runners concurrently. This prevents unrelated scans from exhausting pytest
   and Vitest per-test deadlines on one physical Mac.
-- Pytest keeps eight deterministic shards but schedules at most two at once.
-  Repository-global test locks serialize much of the suite on one host, so
-  four concurrent shard processes add starvation rather than throughput.
+- Pytest keeps eight deterministic logical shards but executes them
+  sequentially inside one job and one installed environment. Repository-global
+  test locks serialize much of the suite on one host, so multiple shard jobs
+  add starvation and repeated dependency installation rather than throughput.
 - Release lanes disable Bash's immediate-exit behavior only inside their
   bounded command wrappers so failures produce safe summaries and still end
   the job unsuccessfully.
