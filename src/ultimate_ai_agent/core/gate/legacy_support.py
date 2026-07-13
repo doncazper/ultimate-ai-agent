@@ -34,6 +34,7 @@ from ultimate_ai_agent.core.gate.evaluator_modules.route_side_effects import (
 )
 from ultimate_ai_agent.core.gate.shadow_replay import run_m5_shadow_replay
 from ultimate_ai_agent.core.sandbox_calculation.static_safety import sealed_backend_fragment_allowed as sealed_fragment_allowed
+from ultimate_ai_agent.core.evidence_signing.static_safety import portable_evidence_helper_fragment_allowed
 from ultimate_ai_agent.core.context_budget import ContextBudget
 from ultimate_ai_agent.core.hygiene.actor_context import (
     ActorContext,
@@ -147,14 +148,9 @@ STATIC_SAFETY_EVALUATOR_DATA_FILES = frozenset(
         )
     }
 )
-STATIC_SAFETY_EVALUATOR_DATA_PREFIXES = (
-    "src/ultimate_ai_agent/core/gate/checkpoint_builders/",
-)
+STATIC_SAFETY_EVALUATOR_DATA_PREFIXES = ("src/ultimate_ai_agent/core/gate/checkpoint_builders/",)
 GOVERNED_RUNTIME_COMMAND_ADAPTER_STATIC_SCAN_ALLOWED_FILES = frozenset(
-    {
-        "src/ultimate_ai_agent/core/runtime_gateway/command.py",
-        "src/ultimate_ai_agent/core/evidence_signing/macos_keychain.py",
-    }
+    {"src/ultimate_ai_agent/core/runtime_gateway/command.py"}
 )
 def _is_static_safety_scan_allowed_file(rel: str, allowed_files: Iterable[str]) -> bool:
     return (
@@ -330,7 +326,13 @@ def m152_local_model_management_forbidden_fragment_failures(root: Path, context:
                 continue
             text = _context_read_text(context, path)
             for fragment in M152_FORBIDDEN_SOURCE_FRAGMENTS:
-                if fragment in text and not sealed_fragment_allowed(rel, text, fragment):
+                if (
+                    fragment in text
+                    and not sealed_fragment_allowed(rel, text, fragment)
+                    and not portable_evidence_helper_fragment_allowed(
+                        rel, text, fragment
+                    )
+                ):
                     failures.append(
                         f"M152 forbidden local model management fragment in {rel}: {fragment}"
                     )
@@ -442,10 +444,6 @@ def _control_center_frontend_verifier_failures(evaluator: Any) -> List[str]:
             run_verifier,
         )
     )
-
-
-
-
 
 # Export single-underscore historical helpers for compatibility modules.
 __all__ = [name for name in globals() if not name.startswith("__")]

@@ -278,7 +278,7 @@ class FoundationGateLegacyChecksPart014Mixin:
                 text = self._context.read_text(path, encoding="utf-8")
                 for fragment in forbidden_source_fragments:
                     if fragment in text:
-                        if sealed_fragment_allowed(rel, text, fragment):
+                        if sealed_fragment_allowed(rel, text, fragment) or portable_evidence_helper_fragment_allowed(rel, text, fragment):
                             continue
                         failures.append(
                             f"M59 forbidden public readiness fragment in {rel}: {fragment}"
@@ -567,7 +567,7 @@ class FoundationGateLegacyChecksPart014Mixin:
                 text = self._context.read_text(path, encoding="utf-8")
                 for fragment in forbidden_source_fragments:
                     if fragment in text:
-                        if sealed_fragment_allowed(rel, text, fragment):
+                        if sealed_fragment_allowed(rel, text, fragment) or portable_evidence_helper_fragment_allowed(rel, text, fragment):
                             continue
                         failures.append(
                             f"M60 forbidden beta freeze fragment in {rel}: {fragment}"
@@ -871,7 +871,7 @@ class FoundationGateLegacyChecksPart014Mixin:
                 text = self._context.read_text(path, encoding="utf-8")
                 for fragment in forbidden_source_fragments:
                     if fragment in text:
-                        if sealed_fragment_allowed(rel, text, fragment):
+                        if sealed_fragment_allowed(rel, text, fragment) or portable_evidence_helper_fragment_allowed(rel, text, fragment):
                             continue
                         failures.append(
                             f"M61 forbidden autonomy fragment in {rel}: {fragment}"
@@ -1183,7 +1183,7 @@ class FoundationGateLegacyChecksPart014Mixin:
                 text = self._context.read_text(path, encoding="utf-8")
                 for fragment in forbidden_source_fragments:
                     if fragment in text:
-                        if sealed_fragment_allowed(rel, text, fragment):
+                        if sealed_fragment_allowed(rel, text, fragment) or portable_evidence_helper_fragment_allowed(rel, text, fragment):
                             continue
                         failures.append(
                             f"M62 forbidden scoped session fragment in {rel}: {fragment}"

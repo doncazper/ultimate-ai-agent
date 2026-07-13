@@ -6,6 +6,9 @@ from ultimate_ai_agent.core.sandbox_calculation.static_safety import (
     is_exact_sealed_calculation_forbidden_fragment_exception,
     is_exact_sealed_calculation_subprocess_site,
 )
+from ultimate_ai_agent.core.evidence_signing.static_safety import (
+    is_exact_portable_evidence_helper_subprocess_site,
+)
 
 
 def _assert_exact_governed_runtime_command_subprocess_site(source: str) -> None:
@@ -21,6 +24,12 @@ def _assert_exact_governed_runtime_command_subprocess_site(source: str) -> None:
 
 
 def _assert_exact_portable_evidence_helper_subprocess_site(source: str) -> None:
+    rel = "src/ultimate_ai_agent/core/evidence_signing/macos_keychain.py"
+    assert is_exact_portable_evidence_helper_subprocess_site(
+        rel_path=rel,
+        source=source,
+        fragment="subprocess.run(",
+    )
     assert source.count("subprocess.run(") == 1
     assert source.count("subprocess.TimeoutExpired") == 1
     assert "shell=False" in source
@@ -33,6 +42,17 @@ def _assert_exact_portable_evidence_helper_subprocess_site(source: str) -> None:
     assert "subprocess." not in allowed_removed
     assert 'env={"PATH": "/usr/bin:/bin", "TMPDIR": "/tmp"}' in source
     assert "start_new_session=True" in source
+    for drift in (
+        "\nos.system('unsafe')\n",
+        "\nsubprocess.call(['unsafe'])\n",
+        "\nimport requests\n",
+        "\nimport httpx\n",
+    ):
+        assert not is_exact_portable_evidence_helper_subprocess_site(
+            rel_path=rel,
+            source=source + drift,
+            fragment="subprocess.run(",
+        )
 
 
 def test_foundation_gate_criteria_include_m7_policy_only_surface() -> None:
