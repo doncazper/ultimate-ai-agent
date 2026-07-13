@@ -115,7 +115,7 @@ def test_lane_runner_stops_after_deterministic_failure(
     ]
 
 
-def test_full_suite_attempt_is_not_consumed_when_process_spawn_fails(
+def test_full_suite_attempt_is_fenced_before_process_spawn(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -144,7 +144,7 @@ def test_full_suite_attempt_is_not_consumed_when_process_spawn_fails(
         )
 
     assert validations == [True]
-    assert starts == []
+    assert starts == [True]
 
 
 def test_pytest_lane_rejects_missing_runtime_before_attempt_lock(

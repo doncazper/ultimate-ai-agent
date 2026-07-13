@@ -159,6 +159,8 @@ def _run_command(
             with installed_signal_handlers(cancellation_signals(), handle_signal):
                 if validate_start is not None:
                     validate_start()
+                if before_start is not None:
+                    before_start()
                 process = subprocess.Popen(
                     _resolved_argv(command, temp_root, repository_sha),
                     cwd=ROOT,
@@ -167,8 +169,6 @@ def _run_command(
                     stderr=subprocess.STDOUT,
                     start_new_session=os.name == "posix",
                 )
-                if before_start is not None:
-                    before_start()
                 deadline = time.monotonic() + command.timeout_seconds
                 returncode: int | None = None
                 while returncode is None:

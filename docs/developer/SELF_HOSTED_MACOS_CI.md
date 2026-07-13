@@ -213,8 +213,10 @@ not durable evidence. A crash after `private_start` becomes
 The GitHub pytest job reserves bounded time for at most ten minutes of shared-Mac
 lock contention, fifteen minutes of setup, and the canonical 1,830-second suite
 command inside its 60-minute job timeout. The attempt is recorded only after
-the pytest process starts successfully; a spawn failure does not consume the
-one-attempt allowance. Empty or partial GitHub job evidence fails closed as a
+all locked pre-start validation succeeds and immediately before process spawn.
+A spawn failure conservatively consumes the one-attempt allowance so a hard
+termination cannot leave an unrecorded full-suite process. Empty or partial
+GitHub job evidence fails closed as a
 code/evidence failure rather than being relabeled as an infrastructure outage.
 
 CLI exit code `0` means only `github_green` on the exact live, attested SHA.
