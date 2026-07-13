@@ -34,9 +34,10 @@ system's internal architecture.
    proposed events, deadlines, focus blocks, and linked work.
 7. **News** — curated, sourced situational context based on explicit interests,
    business watchlists, and read-only bulletins.
-8. **Studio** — one immersive production entry with two explicit workspaces:
-   Agent Studio for chat/code tasks and Creative Studio for versioned business
-   assets such as presentations, documents, spreadsheets, media, and brand work.
+8. **Studio** — one immersive production workspace with exactly three modes:
+   Chat for conversation and handoffs, Code for repo-local change and
+   verification, and Create for versioned presentations, documents,
+   spreadsheets, media, and brand assets.
 
 ### Supporting workspaces
 
@@ -79,8 +80,9 @@ rename, or remove current routes.
 | CRM | CRM |
 | Calendar connector contracts and future schedule UI | Calendar |
 | Today News module and future sourced brief views | News |
-| Chat and Coding | Studio, in Agent Studio |
-| Presentations, documents, spreadsheets, media, and brand assets | Studio, in Creative Studio |
+| Conversation, explanation, decisions to review, and handoffs | Studio, in Chat mode |
+| Coding, diffs, checks, terminal posture, and code evidence | Studio, in Code mode |
+| Presentations, documents, spreadsheets, media, and brand assets | Studio, in Create mode |
 | Memory and Files | Knowledge |
 | Receipts, Evidence, Proof, Trust, Events, Approvals | Activity & Trust |
 | Runtime, Models, Storage, API Routes, Foundation Gate, Plugins, Setup diagnostics | Developer Tools |
@@ -141,21 +143,21 @@ was created or externally synchronized.
 
 ### Studio
 
-Studio is one global navigation entry with two explicit immersive workspaces.
-Agent Studio combines Chat and Code using a project/task rail, dominant
-transcript/editor, changes/checks/evidence inspector, docked composer, and
-governed Terminal access. Creative Studio owns presentations, documents,
-spreadsheets, media, and brand assets using an asset/project rail, dominant
-canvas, version/reference/rights inspector, and governed review handoff.
+Studio is one global navigation entry and one immersive `UAA Studio` shell with
+exactly Chat, Code, and Create modes. Chat owns conversation context and
+proposed handoffs. Code owns repo context, diffs, checks, bounded terminal
+posture, and code evidence. Create owns local draft assets, versions,
+references, rights, and review handoffs for presentations, documents,
+spreadsheets, media, and brand work.
 
-Both workspaces replace the ordinary product rail with a Studio identity and a
-visible back command. They share fixed-pane geometry and the same decision,
-receipt, evidence, and safe-reference loop; neither is a second authority
-system. Work Board retains production status, CRM retains relationship truth,
+The mode switcher is persistent at the top of the Studio rail; mode-local
+navigation and the center work surface change beneath it. All modes share the
+same fixed-pane geometry, composer, decision, receipt, evidence, and safe-ref
+loop. Work Board retains production status, CRM retains relationship truth,
 Calendar retains time, Communications/Messenger retain external conversation,
 Social retains performance interpretation, and Activity & Trust retains proof.
-The complete accepted direction is defined by
-`STUDIO_TAB_PRODUCT_DIRECTION.md`.
+Changing modes grants no authority. The complete accepted direction is defined
+by `STUDIO_TAB_PRODUCT_DIRECTION.md`.
 
 ### Messenger
 
@@ -262,8 +264,8 @@ The complete target V1 default render set consists of:
    source, time, participants, links, conflict result, authority, and outcomes.
 4. `COMM-01` — Communications detail with the `Propose event` handoff and CRM
    relationship context.
-5. `STUDIO-01` and `CREATIVE-STUDIO-01` — the accepted Agent Studio and
-   Creative Studio split under one global Studio entry.
+5. `STUDIO-01` — one accepted Studio shell with exactly Chat, Code, and Create
+   modes.
 6. `ACTIVITY-01` — consolidated Activity & Trust workspace.
 7. `BOARD-01` — Work Board with shared task, plan, CRM, calendar, and receipt
    context.

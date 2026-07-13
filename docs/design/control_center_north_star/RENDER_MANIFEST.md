@@ -1,7 +1,7 @@
 # Control Center North-Star Render Manifest
 
 Status: current target render set, documentation only.
-Baseline ID: CC-NS-TARGET-R3-2026-07-11.
+Baseline ID: CC-NS-TARGET-R5-2026-07-13.
 Current as of: 2026-07-13.
 Repo baseline: v0.104.0 / 0.104.0.
 
@@ -86,21 +86,26 @@ in `CRM_V3_REFERENCE_SYNTHESIS.md`.
 |---|---|---|---|
 | `renders/target-v3/04-crm-v3.png` | CRM v3 | fixed toolbar; route tabs; six KPIs; smart views; sortable relationship table; persistent inspector; pipeline analytics; availability-backed calling; route-aware UAA composer | specialty vertical; raw contact data; provider connection; sync; dialer launch as completed call; recording by default |
 
-## Studio Split Revision 03
+## Studio Unified Revision 05
 
-Agent Studio v5 is the accepted geometry target for the coding-agent half of
-the Studio split. It preserves the immersive workbench while replacing
-floating, clipped, and pill-heavy treatment with fixed panes and clean shared
-edges. Creative Studio v2 applies the same geometry to presentations,
-documents, spreadsheets, media, and brand assets. Earlier Studio renders
-remain immutable comparison artifacts. The normative purpose and ownership
-contract is `../STUDIO_TAB_PRODUCT_DIRECTION.md`. The accepted renders use
-fictional safe refs and explicitly label their non-authoritative posture.
+Unified Studio v6 supersedes the separate Agent Studio / Creative Studio split.
+One `UAA Studio` identity now exposes exactly three persistent modes: Chat,
+Code, and Create. The refined geometry narrows the Studio rail to 220 px and the
+Create presentation strip to 96 px so the center work surface remains dominant.
+The normative purpose and ownership contract is
+`../STUDIO_TAB_PRODUCT_DIRECTION.md`.
 
 | File | Surface/version | Required change | Must not imply |
 |---|---|---|---|
-| `renders/target-v3/06-agent-studio-v5.png` | Agent Studio v5 | fixed 250 px rail; flexible transcript/editor; fixed inspector; docked composer; full-width status bar; fictional safe refs; blocked terminal; proposal-only composer; explicit no-runtime-authority posture | arbitrary shell, deploy, model authority, approval bypass, or implementation evidence |
-| `renders/target-v3/06-creative-studio-v2.png` | Creative Studio v2 | same fixed-pane geometry; presentation canvas and slide strip; versions, linked work, evidence/rights, governed review; explicitly blocked export | implemented export, external delivery, publishing, connector writes, or implementation evidence |
+| `renders/target-v3/06-studio-unified-v6.png` | Unified Studio v6 | one Studio identity; persistent Chat/Code/Create mode rail; 220 px rail; flexible center; fixed 350 px inspector; 96 px Create thumbnail strip; mode ownership; docked composer; full-width status bar | modes as authority; implemented model/runtime/export/publish/deploy/delivery; approval bypass; or implementation evidence |
+
+The following sanitized screens remain preserved comparison artifacts and no
+longer define separate current workspaces:
+
+| File | Preserved exploration | Status |
+|---|---|---|
+| `renders/target-v3/06-agent-studio-v5.png` | coding-only fixed-pane Studio | superseded by unified v6 |
+| `renders/target-v3/06-creative-studio-v2.png` | creative-only presentation Studio | superseded by unified v6 |
 
 ## Messenger Matrix Client V1
 

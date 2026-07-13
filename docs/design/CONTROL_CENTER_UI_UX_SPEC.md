@@ -124,11 +124,12 @@ The target default order is:
 
 Today is the default landing workspace. `Start Here` is onboarding-only after
 setup. Plans becomes a Work Board view; Source Inbox becomes a Communications
-view; Chat and Coding become Agent Studio, while presentations, documents,
-spreadsheets, media, and brand assets live in Creative Studio; Memory and Files
-become Knowledge; and receipts, evidence, proof, trust, events, and approvals
-consolidate under Activity & Trust. Agent and Creative remain internal
-workspaces beneath one global Studio entry. This is a target render and
+view; conversation and handoffs become Studio Chat, repo-local change and
+verification become Studio Code, and presentations, documents, spreadsheets,
+media, and brand assets become Studio Create; Memory and Files become
+Knowledge; and receipts, evidence, proof, trust, events, and approvals
+consolidate under Activity & Trust. Chat, Code, and Create remain internal modes
+beneath one global Studio entry. This is a target render and
 implementation architecture, not a claim that current routes have already been
 consolidated. Route-local tabs never enter the global rail. One item, and only
 one item, has

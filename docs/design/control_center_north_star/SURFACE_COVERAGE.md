@@ -1,7 +1,7 @@
 # Control Center North-Star Surface Coverage
 
 Status: current design target, documentation only.
-Baseline ID: CC-NS-TARGET-R3-2026-07-11.
+Baseline ID: CC-NS-TARGET-R5-2026-07-13.
 Current as of: 2026-07-11.
 Repo baseline: v0.104.0 / 0.104.0.
 
