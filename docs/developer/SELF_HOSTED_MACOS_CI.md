@@ -34,6 +34,15 @@ provider, connector, production, or AuthorityLease capability.
   host-level installation privileges that the non-admin runner must not gain.
 - Runner work roots contain `.metadata_never_index` markers so Spotlight does
   not amplify I/O while four large repository checkouts are materialized.
+- Pytest shard basetemps and advisory performance reports use each job's
+  private `RUNNER_TEMP`. The shared-Mac CI budget is 180-second stretch,
+  240-second target, and 300-second hard timeout; exceeding the advisory goals
+  remains visible, while only the hard timeout terminates a shard.
+- The dedicated account is not granted access to the everyday account's Docker
+  Desktop socket. The desktop-packaging lane reports its permitted explicit
+  `self-hosted-runner-docker-unavailable` skipped posture and still runs the
+  packaging contract verifier. Live packaging proof remains available through
+  the separate local operator verification lane.
 
 Same-repository branches can execute their checked-in workflow commands on the
 runner. Keep repository write access narrow and review workflow changes as

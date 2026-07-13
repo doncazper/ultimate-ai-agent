@@ -72,6 +72,17 @@ def verify(root: Path = ROOT) -> list[str]:
         failures.append("CI workflow must use the pre-provisioned Node 22 toolchain")
     if '--basetemp "${RUNNER_TEMP}/uaa_pytest_shards"' not in workflow:
         failures.append("pytest shards must use the isolated per-job runner temp directory")
+    if '--performance-report "${RUNNER_TEMP}/uaa_pytest_performance_report.json"' not in workflow:
+        failures.append("pytest performance reports must use the isolated per-job runner temp directory")
+    for fragment in (
+        "--stretch-goal-seconds 180",
+        "--target-seconds 240",
+        "--hard-timeout-seconds 300",
+    ):
+        if fragment not in workflow:
+            failures.append("pytest shards must declare the self-hosted runtime budget")
+    if "reason-ref:self-hosted-runner-docker-unavailable" not in workflow:
+        failures.append("desktop packaging must report an explicit unavailable Docker prerequisite")
     checkout_count = workflow.count("uses: actions/checkout@v4")
     if checkout_count == 0 or workflow.count("persist-credentials: false") != checkout_count:
         failures.append("every checkout must avoid persisting GitHub credentials")

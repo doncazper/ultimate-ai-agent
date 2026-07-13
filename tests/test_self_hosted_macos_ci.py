@@ -34,7 +34,23 @@ def test_pytest_shards_use_runner_scoped_temp_directory() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
 
     assert '--basetemp "${RUNNER_TEMP}/uaa_pytest_shards"' in workflow
+    assert (
+        '--performance-report "${RUNNER_TEMP}/uaa_pytest_performance_report.json"'
+        in workflow
+    )
     assert "--basetemp /tmp/uaa_pytest_shards" not in workflow
+    assert "--stretch-goal-seconds 180" in workflow
+    assert "--target-seconds 240" in workflow
+    assert "--hard-timeout-seconds 300" in workflow
+
+
+def test_desktop_packaging_preserves_non_admin_docker_boundary() -> None:
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+
+    assert "docker info >/dev/null 2>&1" in workflow
+    assert "steps.docker.outputs.available == 'true'" in workflow
+    assert "reason-ref:self-hosted-runner-docker-unavailable" in workflow
+    assert 'run_lane_command "command:desktop-packaging.contract"' in workflow
 
 
 def test_verifier_rejects_hosted_runner_and_cache_regression(tmp_path: Path) -> None:
