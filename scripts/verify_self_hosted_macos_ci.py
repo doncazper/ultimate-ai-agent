@@ -66,6 +66,9 @@ def verify(root: Path = ROOT) -> list[str]:
         failures.append("CI workflow token permissions must be contents-read only")
     if "cancel-in-progress: true" not in workflow:
         failures.append("CI workflow must cancel superseded local runs")
+    lane_function_count = workflow.count("          run_lane_command() {")
+    if workflow.count("          set +e\n          set -u") != lane_function_count:
+        failures.append("every release lane must capture command failures before exiting")
     if "python3.12 -m venv .venv" not in workflow:
         failures.append("CI workflow must use the pre-provisioned Python 3.12 toolchain")
     if "/opt/homebrew/opt/node@22/bin" not in workflow:
@@ -76,6 +79,22 @@ def verify(root: Path = ROOT) -> list[str]:
         failures.append("pytest performance reports must use the isolated per-job runner temp directory")
     if '--timings-json "${RUNNER_TEMP}/uaa_static_verification_timings.json"' not in workflow:
         failures.append("static verification timings must use the isolated per-job runner temp directory")
+    performance_sections = workflow.split("  release-lane-performance:\n", 1)
+    performance_job = (
+        performance_sections[1].split("\n  release-lane-visual-regression:", 1)[0]
+        if len(performance_sections) == 2
+        else ""
+    )
+    if not all(
+        fragment in performance_job
+        for fragment in (
+            "    needs:\n",
+            "      - pytest\n",
+            "      - static-verification\n",
+            "      - control-center-frontend\n",
+        )
+    ):
+        failures.append("performance verification must run after the shared-Mac matrix")
     for fragment in (
         "--stretch-goal-seconds 180",
         "--target-seconds 360",

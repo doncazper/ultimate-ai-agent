@@ -40,6 +40,12 @@ provider, connector, production, or AuthorityLease capability.
   480-second hard timeout. The wider ceiling absorbs measured whole-machine
   contention from the release matrix without hiding it; only the hard timeout
   terminates a shard.
+- The performance release lane waits for the rest of the CI matrix before it
+  measures latency. This keeps the four-runner pool useful for functional
+  checks without treating whole-machine contention as product latency.
+- Release lanes disable Bash's immediate-exit behavior only inside their
+  bounded command wrappers so failures produce safe summaries and still end
+  the job unsuccessfully.
 - The dedicated account is not granted access to the everyday account's Docker
   Desktop socket. The desktop-packaging lane reports its permitted explicit
   `self-hosted-runner-docker-unavailable` skipped posture and still runs the

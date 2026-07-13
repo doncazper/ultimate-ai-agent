@@ -54,6 +54,21 @@ def test_static_verification_uses_runner_scoped_timing_output() -> None:
     assert "--timings-json /tmp/uaa_static_verification_timings.json" not in workflow
 
 
+def test_release_lanes_capture_failures_and_isolate_performance_measurement() -> None:
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+
+    assert workflow.count("          set +e\n          set -u") == workflow.count(
+        "          run_lane_command() {"
+    )
+    performance_job = workflow.split("  release-lane-performance:\n", 1)[1].split(
+        "\n  release-lane-visual-regression:", 1
+    )[0]
+    assert "    needs:\n" in performance_job
+    assert "      - pytest\n" in performance_job
+    assert "      - static-verification\n" in performance_job
+    assert "      - control-center-frontend\n" in performance_job
+
+
 def test_desktop_packaging_preserves_non_admin_docker_boundary() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
 
