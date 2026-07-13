@@ -34,6 +34,74 @@ GITHUB_ACTIVE_STATUSES = frozenset({*GITHUB_QUEUE_STATUSES, "in_progress"})
 UTC_TIMESTAMP_PATTERN = re.compile(
     r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$"
 )
+PYTEST_SHARD_EVIDENCE_FIELDS = frozenset(
+    {
+        "pytest_shard_evidence_status",
+        "pytest_shard_plan_fingerprint_ref",
+        "pytest_shard_count",
+        "failed_shard_count",
+        "failed_shard_refs",
+    }
+)
+CI_COMMAND_RESULT_FIELDS = frozenset(
+    {
+        "command_ref",
+        "category",
+        "status",
+        "started_at",
+        "completed_at",
+        "duration_ms",
+        "output_byte_count",
+        "output_digest",
+        "result_ref",
+        "reason_ref",
+        "redaction_status",
+        *PYTEST_SHARD_EVIDENCE_FIELDS,
+    }
+)
+
+
+def has_valid_pytest_shard_evidence(
+    result: dict[str, object],
+    *,
+    lane_ref: str,
+    expected_plan_ref: str,
+) -> bool:
+    present_fields = set(result) & PYTEST_SHARD_EVIDENCE_FIELDS
+    is_shard_command = (
+        lane_ref == "ci-pytest-shards"
+        and result.get("command_ref") == "command:pytest.sharded-suite"
+    )
+    if not is_shard_command:
+        return not present_fields
+    return (
+        present_fields == PYTEST_SHARD_EVIDENCE_FIELDS
+        and result.get("pytest_shard_evidence_status") == "available"
+        and result.get("pytest_shard_plan_fingerprint_ref") == expected_plan_ref
+        and result.get("pytest_shard_count") == 8
+        and result.get("failed_shard_count") == 0
+        and result.get("failed_shard_refs") == []
+    )
+
+
+def has_valid_command_result_evidence(
+    result: dict[str, object],
+    *,
+    lane_ref: str,
+    expected_pytest_plan_ref: str,
+) -> bool:
+    result_ref = result.get("result_ref")
+    return (
+        not (set(result) - CI_COMMAND_RESULT_FIELDS)
+        and has_valid_pytest_shard_evidence(
+            result,
+            lane_ref=lane_ref,
+            expected_plan_ref=expected_pytest_plan_ref,
+        )
+        and result.get("redaction_status") == "content_free_output_metadata_only"
+        and isinstance(result_ref, str)
+        and SAFE_REF_PATTERN.fullmatch(result_ref) is not None
+    )
 
 
 def validate_utc_timestamp(value: str) -> None:
@@ -99,7 +167,9 @@ class GitHubObservation:
         if self.manifest_fingerprint and not re.fullmatch(
             r"[0-9a-f]{64}", self.manifest_fingerprint
         ):
-            raise ValueError("GitHub observation contains an unsafe manifest fingerprint")
+            raise ValueError(
+                "GitHub observation contains an unsafe manifest fingerprint"
+            )
         if self.observation_source not in {"live_github", "injected_simulation"}:
             raise ValueError("GitHub observation source is invalid")
         if not isinstance(self.manifest_attested, bool) or not isinstance(
@@ -157,7 +227,10 @@ class PrivateVerificationResult:
             raise ValueError("unsupported private result status")
         if not re.fullmatch(r"[0-9a-f]{64}", self.plan_fingerprint):
             raise ValueError("private result contains an unsafe plan fingerprint")
-        if self.redaction_status != "content_free_refs_hashes_counts_and_durations_only":
+        if (
+            self.redaction_status
+            != "content_free_refs_hashes_counts_and_durations_only"
+        ):
             raise ValueError("private result redaction status is unsafe")
         if len(self.command_result_refs) > MAX_LEDGER_RECORDS:
             raise ValueError("private result exceeds its command-result bound")
@@ -198,11 +271,11 @@ class ControllerStatus:
 
 
 class PrivateExecutor(Protocol):
-    def plan_fingerprint(self, repository_sha: str) -> str:
-        ...
+    def plan_fingerprint(self, repository_sha: str) -> str: ...
 
-    def verify(self, repository_sha: str, *, series_ref: str) -> PrivateVerificationResult:
-        ...
+    def verify(
+        self, repository_sha: str, *, series_ref: str
+    ) -> PrivateVerificationResult: ...
 
 
 def classify_github(observation: GitHubObservation) -> FallbackState:

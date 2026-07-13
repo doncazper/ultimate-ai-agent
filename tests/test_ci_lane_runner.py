@@ -128,8 +128,9 @@ def test_lane_runner_emits_content_free_hash_bound_receipt(
     assert str(tmp_path) not in serialized
     assert receipt["command_results"][0]["output_byte_count"] > 0
     assert len(receipt["command_results"][0]["output_digest"]) == 64
-    assert json.loads(receipt_file.read_text(encoding="utf-8"))["receipt_ref"] == (
-        receipt["receipt_ref"]
+    assert (
+        json.loads(receipt_file.read_text(encoding="utf-8"))["receipt_ref"]
+        == (receipt["receipt_ref"])
     )
 
 
@@ -271,7 +272,7 @@ def test_pytest_lane_receipt_and_summary_retain_safe_failed_shard_ref(
     monkeypatch.setattr(runner.importlib.util, "find_spec", lambda _name: object())
     monkeypatch.setattr(
         runner,
-        "_expected_pytest_shard_plan_ref",
+        "expected_pytest_shard_plan_ref",
         lambda: "pytest-shard-plan-ref:sha256:" + "a" * 64,
     )
     monkeypatch.setattr(runner, "_run_command", fake_run_command)

@@ -42,12 +42,7 @@ from scripts.verification.pytest_shard_processes import (  # noqa: E402
     stop_processes,
 )
 from scripts.verification.run_pytest_shards import (  # noqa: E402
-    assign_shards,
-    discover_affinity_groups,
-    discover_test_files,
-    load_timing_profiles,
-    shard_plan_fingerprint,
-    validate_shard_plans,
+    current_shard_plan_fingerprint,
 )
 
 
@@ -59,9 +54,7 @@ PYTEST_PERFORMANCE_REPORT_NAME = "uaa_pytest_performance_report.json"
 PYTEST_PERFORMANCE_SCHEMA_VERSION = "uaa_pytest_performance_report.v1"
 PYTEST_PLAN_REF_RE = re.compile(r"^pytest-shard-plan-ref:sha256:[0-9a-f]{64}$")
 PYTEST_RUNTIME_UNAVAILABLE_REASON_REF = "reason-ref:ci:pytest-runtime-unavailable"
-FULL_SUITE_LOCK_UNAVAILABLE_REASON_REF = (
-    "reason-ref:ci:full-suite-capacity-unavailable"
-)
+FULL_SUITE_LOCK_UNAVAILABLE_REASON_REF = "reason-ref:ci:full-suite-capacity-unavailable"
 
 
 class PytestRuntimeUnavailableError(RuntimeError):
@@ -139,16 +132,10 @@ def _result_ref(
     return f"result-ref:ci:{hashlib.sha256(payload.encode()).hexdigest()}"
 
 
-def _expected_pytest_shard_plan_ref() -> str:
-    files = discover_test_files(ROOT)
-    timings, _source = load_timing_profiles(
-        [ROOT / "scripts/verification/pytest_file_timing_seed.json"],
-        files,
+def expected_pytest_shard_plan_ref() -> str:
+    return current_shard_plan_fingerprint(
+        ROOT, 8, ROOT / "scripts/verification/pytest_file_timing_seed.json"
     )
-    affinity_groups = discover_affinity_groups(files, ROOT)
-    plans, _method = assign_shards(files, 8, timings, affinity_groups)
-    validate_shard_plans(files, plans, 8, affinity_groups)
-    return shard_plan_fingerprint(plans)
 
 
 def _assert_pytest_report_absent(temp_root: Path) -> None:
@@ -261,7 +248,8 @@ def _pytest_shard_evidence(
         ):
             break
         normalized.append((shard_index, return_code, timed_out))
-    if len(normalized) != 8 or sorted(index for index, _, _ in normalized) != list(range(8)):
+    shard_indices = sorted(index for index, _, _ in normalized)
+    if len(normalized) != 8 or shard_indices != list(range(8)):
         return {
             "pytest_shard_evidence_status": "rejected",
             "pytest_shard_evidence_reason_ref": (
@@ -521,7 +509,7 @@ def run_lane(
         expected_pytest_plan_ref: str | None = None
         if lane_ref == "ci-pytest-shards":
             _assert_pytest_report_absent(temp_root)
-            expected_pytest_plan_ref = _expected_pytest_shard_plan_ref()
+            expected_pytest_plan_ref = expected_pytest_shard_plan_ref()
         for command_ref in lane.command_refs:
             if command_ref in lane.satisfied_command_refs:
                 results.append(
@@ -536,16 +524,25 @@ def run_lane(
                 )
                 continue
             skip_reason: str | None = None
-            if command_ref == "command:frontend.visual-regression" and visual_scope == "not_affected":
+            if (
+                command_ref == "command:frontend.visual-regression"
+                and visual_scope == "not_affected"
+            ):
                 skip_reason = "reason-ref:visual-regression:not-affected"
-            if command_ref == "command:desktop-packaging.proof" and docker_available == "unavailable":
+            if (
+                command_ref == "command:desktop-packaging.proof"
+                and docker_available == "unavailable"
+            ):
                 skip_reason = "reason-ref:self-hosted-runner-docker-unavailable"
             if skip_reason is not None:
+                skip_status = (
+                    "not_applicable" if "not-affected" in skip_reason else "skipped"
+                )
                 results.append(
                     {
                         "command_ref": command_ref,
                         "category": commands[command_ref].category,
-                        "status": "not_applicable" if "not-affected" in skip_reason else "skipped",
+                        "status": skip_status,
                         "duration_ms": 0,
                         "reason_ref": skip_reason,
                         "result_ref": f"result-ref:ci:{hashlib.sha256((repository_sha + command_ref + skip_reason).encode()).hexdigest()}",

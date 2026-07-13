@@ -27,12 +27,14 @@ from scripts.verification.ci_fallback_contracts import (
     SAFE_REF_PATTERN,
     SHA_PATTERN,
     PrivateVerificationResult,
+    has_valid_command_result_evidence,
 )
 from scripts.verification.pytest_shard_processes import (
     cancellation_signals,
     installed_signal_handlers,
     stop_processes,
 )
+from scripts.verification.run_ci_lane import expected_pytest_shard_plan_ref
 
 
 def _safe_subprocess(
@@ -70,9 +72,12 @@ def _safe_subprocess(
         stop_processes((process,), 10.0)
         returncode = 130
     duration_ms = max(0, int((time.perf_counter() - started) * 1000))
-    result_ref = "result-ref:ci:" + hashlib.sha256(
-        ("|".join(argv) + f"|{returncode}|{duration_ms}").encode()
-    ).hexdigest()
+    result_ref = (
+        "result-ref:ci:"
+        + hashlib.sha256(
+            ("|".join(argv) + f"|{returncode}|{duration_ms}").encode()
+        ).hexdigest()
+    )
     return returncode, duration_ms, result_ref
 
 
@@ -167,24 +172,13 @@ def _read_lane_receipt(
         for result in command_results
     ] != list(lane.command_refs):
         raise ValueError("private CI lane receipt command membership is invalid")
-    allowed_result_fields = {
-        "command_ref",
-        "category",
-        "status",
-        "started_at",
-        "completed_at",
-        "duration_ms",
-        "output_byte_count",
-        "output_digest",
-        "result_ref",
-        "reason_ref",
-        "redaction_status",
-    }
+    expected_pytest_plan_ref = expected_pytest_shard_plan_ref()
     if any(
-        set(result) - allowed_result_fields
-        or result.get("redaction_status") != "content_free_output_metadata_only"
-        or not isinstance(result.get("result_ref"), str)
-        or not SAFE_REF_PATTERN.fullmatch(result["result_ref"])
+        not has_valid_command_result_evidence(
+            result,
+            lane_ref=lane_ref,
+            expected_pytest_plan_ref=expected_pytest_plan_ref,
+        )
         for result in command_results
     ):
         raise ValueError("private CI lane receipt command evidence is unsafe")
@@ -201,10 +195,7 @@ def _read_lane_receipt(
         or payload.get("redaction_status")
         != "content_free_refs_hashes_counts_and_durations_only"
         or plan.get("definition_fingerprint") != definition_ref
-        or tuple(
-            tuple(value)
-            for value in plan.get("dependency_lock_fingerprints", [])
-        )
+        or tuple(tuple(value) for value in plan.get("dependency_lock_fingerprints", []))
         != lock_fingerprints
         or tuple(plan.get("selected_lane_refs", [])) != (lane_ref,)
         or tuple(plan.get("selected_command_refs", [])) != selected_command_refs
@@ -214,13 +205,16 @@ def _read_lane_receipt(
     ):
         raise ValueError("private CI lane receipt does not match its exact plan")
     receipt_ref = payload.get("receipt_ref")
-    expected_receipt_ref = "receipt-ref:ci-lane:" + hashlib.sha256(
-        json.dumps(
-            {key: value for key, value in payload.items() if key != "receipt_ref"},
-            sort_keys=True,
-            separators=(",", ":"),
-        ).encode()
-    ).hexdigest()
+    expected_receipt_ref = (
+        "receipt-ref:ci-lane:"
+        + hashlib.sha256(
+            json.dumps(
+                {key: value for key, value in payload.items() if key != "receipt_ref"},
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode()
+        ).hexdigest()
+    )
     if (
         not isinstance(receipt_ref, str)
         or not SAFE_REF_PATTERN.fullmatch(receipt_ref)
@@ -275,7 +269,9 @@ class IsolatedPrivateExecutor:
         if self._git("remote", "get-url", "origin") not in ALLOWED_ORIGIN_URLS:
             raise ValueError("private CI origin is not the canonical UAA repository")
         remote_contains = self._git("branch", "-r", "--contains", repository_sha)
-        if not any(line.strip().startswith("origin/") for line in remote_contains.splitlines()):
+        if not any(
+            line.strip().startswith("origin/") for line in remote_contains.splitlines()
+        ):
             raise ValueError("private CI exact SHA must already be pushed to origin")
         origin_main_sha = self._git("rev-parse", "refs/remotes/origin/main")
         if not SHA_PATTERN.fullmatch(origin_main_sha):
@@ -283,7 +279,9 @@ class IsolatedPrivateExecutor:
         private_verification_plan(self.repo, repository_sha)
         return origin_main_sha
 
-    def verify(self, repository_sha: str, *, series_ref: str) -> PrivateVerificationResult:
+    def verify(
+        self, repository_sha: str, *, series_ref: str
+    ) -> PrivateVerificationResult:
         del series_ref
         origin_main_sha = self._preflight(repository_sha)
         started_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
@@ -303,9 +301,7 @@ class IsolatedPrivateExecutor:
                 result_refs,
             )
         finally:
-            status_value = self._remove_owned_worktree(
-                worktree, root, status_value
-            )
+            status_value = self._remove_owned_worktree(worktree, root, status_value)
 
         if isolated_plan is None:
             raise RuntimeError("private CI did not prepare an isolated plan")
@@ -318,9 +314,14 @@ class IsolatedPrivateExecutor:
             "started_at": started_at,
             "completed_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         }
-        receipt_ref = "receipt-ref:private-ci:" + hashlib.sha256(
-            json.dumps(receipt_payload, sort_keys=True, separators=(",", ":")).encode()
-        ).hexdigest()
+        receipt_ref = (
+            "receipt-ref:private-ci:"
+            + hashlib.sha256(
+                json.dumps(
+                    receipt_payload, sort_keys=True, separators=(",", ":")
+                ).encode()
+            ).hexdigest()
+        )
         result = PrivateVerificationResult(**receipt_payload, receipt_ref=receipt_ref)
         result.validate()
         return result
@@ -588,8 +589,7 @@ class IsolatedPrivateExecutor:
                 "frontend",
                 "visual-regression",
             } or (
-                job.lane_ref == "desktop-packaging"
-                and docker_available == "available"
+                job.lane_ref == "desktop-packaging" and docker_available == "available"
             )
             if needs_frontend and not npm_ready:
                 returncode, duration_ms, result_ref = _safe_subprocess(
