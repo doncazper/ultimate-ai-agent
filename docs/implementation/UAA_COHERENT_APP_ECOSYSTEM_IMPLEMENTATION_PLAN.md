@@ -784,6 +784,11 @@ criteria.
 - Refactor the current Work Board into reusable board contracts, multiple
   boards, projections, ordering, templates, card configuration, filters,
   keyboard/touch interactions, conflict/undo, and task projection.
+- The standalone Boards product contract may be accepted before `ECO-001`;
+  repository, local CRUD, desktop UI, and portability milestones require the
+  accepted `ECO-001` shared data platform. Canonical Task projections remain
+  separately blocked until `ECO-002` is accepted. This split permits local
+  standalone Boards without copying or anticipating Task truth.
 
 Gate: Core V1 local parity is evidenced, general standalone boards and
 canonical Task boards work without copied task truth, the current Work Board
@@ -961,7 +966,9 @@ ECO-000 ownership and experience contract
         v
 ECO-001 shared local data platform
         |
-        +--> ECO-002 Tasks --> ECO-003 Boards
+        +--> ECO-003A-E standalone Boards
+        |
+        +--> ECO-002 Tasks --> ECO-003F Task projections
         |
         +--> ECO-004 Calendar
         |

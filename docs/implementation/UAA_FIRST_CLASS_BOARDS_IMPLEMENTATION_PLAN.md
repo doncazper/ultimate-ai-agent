@@ -204,11 +204,15 @@ routes edits to the owning service; it never forks mutable truth.
 
 The operator's Save, Drop, Archive, Restore, or Confirm action is the visible
 intent boundary, but the Control Center cannot mint authority. The Python core
-must prepare and validate the exact scope, bind it through
-`LocalApprovalAuthority` and any required `AuthorityLease`, apply idempotently,
-and return a receipt. Simple local board-only moves may use an already prepared
-exact preview so Drop confirms the mutation. Cross-domain or higher-consequence
-moves always show a diff/ChangeSet confirmation.
+must prepare and validate the exact scope. Immediately before commit, every
+mutation re-evaluates the current `PolicyEngine` decision, exact
+`LocalApprovalAuthority` scope, active request-scoped `AuthorityLease`, target
+and expected version, readiness, budget posture, kill switch, safe-disable,
+deadline, and idempotency/replay posture, then returns a content-free receipt.
+Approval refs are identifiers only and never grant authority by themselves.
+Simple local board-only moves may use an already prepared exact preview so Drop
+confirms the mutation, but the preview cannot cache authority. Cross-domain or
+higher-consequence moves always show a diff/ChangeSet confirmation.
 
 ### Fast feedback is not fabricated success
 
@@ -431,7 +435,9 @@ idle
 -> local draft or drag preview
 -> backend exact-scope preview
 -> operator confirm boundary
--> policy + approval + lease + version validation
+-> current policy + exact approval + active lease + target/version validation
+-> readiness + budget + kill switch + safe-disable + deadline validation
+-> idempotency/replay validation
 -> pending optimistic render
 -> atomic commit
 -> receipt + canonical refresh
@@ -578,8 +584,10 @@ silently uploading data.
 - Cards, lanes, menus, checklists, filters, field editors, dialogs, and pending
   states expose correct names, roles, state, errors, and shortcuts.
 - A non-drag list/table workflow supports the complete primary loop.
-- 200% zoom and 320 CSS-pixel reflow preserve titles, actions, conflicts,
-  privacy, and approval state without two-dimensional page scrolling.
+- Within the canonical macOS desktop app, 200% zoom and a narrow 320
+  CSS-pixel content-region reflow preserve titles, actions, conflicts, privacy,
+  and approval state without two-dimensional page scrolling. This is a
+  desktop-window accessibility proof, not a mobile or iOS implementation.
 - Reduced motion removes nonessential transforms and preserves clear pending,
   success, conflict, and rollback transitions.
 - Truncation never hides the only indication of a due, blocked, privacy,
@@ -605,9 +613,10 @@ Required targets include:
 - complete local/manual CRUD with network disabled;
 - WCAG 2.2 AA target, zero automated violations at the milestone gate,
   complete keyboard path, VoiceOver review, visible focus, contrast, 200% zoom,
-  320 CSS-pixel reflow, and reduced-motion proof; and
-- reviewed desktop 1440x960, compact 1100x800, narrow 390x844, and applicable
-  wallboard 1920x1080 states with no unreviewed clipping or hidden controls.
+  narrow desktop content-region reflow, and reduced-motion proof; and
+- reviewed macOS desktop 1440x960, compact 1100x800, narrow-window 390x844,
+  and applicable wallboard 1920x1080 states with no unreviewed clipping or
+  hidden controls. These sizes do not authorize mobile surfaces.
 
 Targets are not implementation claims. Results require a recorded machine
 profile, deterministic synthetic dataset, method, run count, p50/p95 where
@@ -636,7 +645,9 @@ render acceptance, and `ECO-001` dependency are accepted.
 
 ### `ECO-003B` Repository, migrations, and Work Board compatibility
 
-Depends on: `ECO-001`.
+Depends on: accepted `ECO-001`. This repository/storage milestone may proceed
+without `ECO-002`; canonical Task projections remain separately gated by
+`ECO-003F`.
 
 Deliver:
 
@@ -652,6 +663,8 @@ consistency, corruption, low disk, privacy, backup/restore, and redaction tests
 pass; the source Work Board remains intact.
 
 ### `ECO-003C` Exact local CRUD, ordering, API, and CLI
+
+Depends on: accepted `ECO-003B`. It does not project or mutate canonical Tasks.
 
 Deliver:
 
@@ -670,6 +683,9 @@ explicit non-reversible posture.
 
 ### `ECO-003D` Boards home, board surface, and card detail
 
+Depends on: accepted `ECO-003C`. It remains a macOS desktop surface; narrow
+window states are accessibility evidence, not mobile implementation.
+
 Deliver:
 
 - Boards home, blank/template creation, favorites, recent, archive/restore, and
@@ -685,6 +701,9 @@ desktop/compact/narrow behavior, accessibility, no private-data leakage, and no
 React-only product truth.
 
 ### `ECO-003E` Portability, templates, and recovery
+
+Depends on: accepted `ECO-003C` and the relevant repository/backup contracts
+from `ECO-003B`. It does not require or grant Task projection authority.
 
 Deliver:
 
@@ -825,8 +844,10 @@ UAA Boards may be called first-class only when all of the following are true:
 - Standalone `BoardItem` and canonical Task projection loops both pass without
   copied Task truth.
 - Every mutation has Python/core/API/CLI parity, stable route contracts, exact
-  scope, policy/approval validation, idempotency, versions, receipts, and undo
-  or explicit compensation posture.
+  scope, current policy, exact `LocalApprovalAuthority`, active request-scoped
+  `AuthorityLease`, target/version, readiness, budget, kill-switch,
+  safe-disable, deadline, and idempotency/replay validation immediately before
+  commit, plus content-free receipts and undo or explicit compensation posture.
 - Private content never appears in durable evidence, logs, docs, reports,
   fixtures, screenshots, or default CLI output.
 - Empty, loading, locked, offline, stale, conflict, blocked, partial, error,

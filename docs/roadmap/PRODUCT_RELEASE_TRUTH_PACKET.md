@@ -299,10 +299,12 @@ no calendar writes, no provider/model calls, no live web fetching, no browser
 runtime, no hidden context injection, no public beta, no public release, no
 production readiness claims, and no production authority.
 
-First-class CRM and coherent app ecosystem future truth is planning-only in
-`docs/implementation/UAA_FIRST_CLASS_CRM_IMPLEMENTATION_PLAN.md` and
+First-class CRM, first-class local Boards, and coherent app ecosystem future
+truth is planning-only in
+`docs/implementation/UAA_FIRST_CLASS_CRM_IMPLEMENTATION_PLAN.md`,
+`docs/implementation/UAA_FIRST_CLASS_BOARDS_IMPLEMENTATION_PLAN.md`, and
 `docs/implementation/UAA_COHERENT_APP_ECOSYSTEM_IMPLEMENTATION_PLAN.md`.
-Those plans define the target for standalone-quality Calendar, Tasks, Boards,
+Those plans define targets for standalone-quality Calendar, Tasks, Boards,
 CRM, Inbox, Today, Organizer, shared canonical objects, cross-app ChangeSets,
 connectors, automation, collaboration, packaging, and polish. They do not
 change the current M2 CRM, Work Board, local-task, calendar/email metadata,
