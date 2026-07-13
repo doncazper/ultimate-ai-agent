@@ -5,6 +5,7 @@ import argparse
 import json
 import os
 import sys
+from datetime import timedelta
 from pathlib import Path
 from typing import Any, Sequence
 
@@ -56,7 +57,19 @@ from ultimate_ai_agent.core.control_center.web_evidence_product_slice import (  
     WebEvidenceProductSliceRequest,
     build_web_evidence_product_slice_receipt,
 )
-from ultimate_ai_agent.core.authority import AuthorityLeaseStore  # noqa: E402
+from ultimate_ai_agent.core.authority import (  # noqa: E402
+    AUTHORITY_STATE_DIR_ENV,
+    AuthorityLeaseStore,
+)
+from ultimate_ai_agent.api.dependencies import (  # noqa: E402
+    clear_founder_attention_workflow_cache,
+    get_founder_attention_workflow,
+)
+from ultimate_ai_agent.core.control_center.founder_loop_attention_workflow import (  # noqa: E402
+    attention_execution_owner_ref,
+    build_attention_workflow_request,
+)
+from ultimate_ai_agent.core.time import utc_now  # noqa: E402
 from ultimate_ai_agent.core.memory import (  # noqa: E402
     FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS,
     MEMORY_FEEDBACK_QUALITY_BLOCKED_STATE_REFS,
@@ -2019,6 +2032,172 @@ def _blocked_cli_payload(
     }
 
 
+def _configure_exact_action_state(args: argparse.Namespace) -> None:
+    if args.state_dir is not None:
+        os.environ[FOUNDER_LOOP_STATE_DIR_ENV] = args.state_dir
+    if args.authority_state_dir is not None:
+        os.environ[AUTHORITY_STATE_DIR_ENV] = args.authority_state_dir
+    clear_founder_attention_workflow_cache()
+
+
+def _exact_action_status(args: argparse.Namespace) -> int:
+    _configure_exact_action_state(args)
+    try:
+        workflow = get_founder_attention_workflow()
+        source_refs = workflow.required_source_refs(args.today_item_ref)
+        verified = workflow.verified_status(args.today_item_ref)
+        action = verified.action
+        target = next(iter(workflow.mission_service.targets.values()))
+    except ValueError:
+        print("Exact Founder Loop action: blocked (attention item unavailable)")
+        return 1
+    payload = {
+        "schema_version": "founder-loop-exact-action-cli:v1",
+        "status": action.status,
+        "today_item_ref": args.today_item_ref,
+        "target_ref": target.target_ref,
+        "root_ref": target.root_ref,
+        "path_ref": target.path_ref,
+        "required_inspected_source_refs": list(source_refs),
+        "mission_scoped_lease_required": True,
+        "receipt_refs": list(action.receipt_refs),
+        "exact_approval_required": verified.exact_approval_required,
+        "execution_performed": verified.execution_performed,
+        "execution_truth_status": verified.execution_truth_status,
+        "approval_truth_status": verified.approval_truth_status,
+        "recovery_required": verified.recovery_required,
+        "safe_refs_only": True,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        print(f"Exact Founder Loop action: {action.status.replace('_', ' ')}")
+        print(f"Today item: {args.today_item_ref}")
+        print(f"Target: {target.safe_label} ({target.target_ref})")
+        print("Required source refs to review:")
+        for ref in source_refs:
+            print(f"  - {ref}")
+        if verified.execution_performed is True:
+            print("Execution: performed")
+        elif verified.execution_performed is False:
+            print("Execution: not performed")
+        else:
+            print("Execution: unknown; recovery required")
+    return 0
+
+
+def _prepare_exact_action(args: argparse.Namespace) -> int:
+    _configure_exact_action_state(args)
+    try:
+        workflow = get_founder_attention_workflow()
+        target = next(iter(workflow.mission_service.targets.values()))
+        source_review = workflow.review_source_refs(
+            today_item_ref=args.today_item_ref,
+            inspected_source_refs=tuple(args.source_ref),
+            idempotency_ref=f"{args.idempotency_ref}:source-review",
+            mission_ref=args.mission_ref,
+            lease_ref=args.lease_ref,
+        )
+        request = build_attention_workflow_request(
+            workflow_ref=args.workflow_ref,
+            today_item_ref=args.today_item_ref,
+            inspected_source_refs=tuple(args.source_ref),
+            source_review_receipt_ref=source_review.source_review_receipt_ref,
+            mission_ref=args.mission_ref,
+            run_ref=args.run_ref,
+            lease_ref=args.lease_ref,
+            start_deadline=utc_now() + timedelta(seconds=args.deadline_seconds),
+            idempotency_ref=args.idempotency_ref,
+            target_ref=target.target_ref,
+        )
+        prepared = workflow.prepare(request)
+    except (ValidationError, ValueError):
+        print("Exact Founder Loop action: blocked (exact binding or authority denied)")
+        return 1
+    payload = {
+        "schema_version": "founder-loop-exact-action-cli:v1",
+        **prepared.model_dump(mode="json"),
+        "source_review_receipt_ref": source_review.source_review_receipt_ref,
+        "execution_performed": False,
+        "safe_refs_only": True,
+        "raw_paths_omitted": True,
+        "raw_content_omitted": True,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        print("Exact Founder Loop action: prepared for separate review")
+        print(f"Proposal: {prepared.proposal_ref}")
+        print(f"Approval request: {prepared.approval_request_ref}")
+        print(f"Source review: {source_review.source_review_receipt_ref}")
+        print("Execution: not performed")
+    return 0
+
+
+def _run_exact_action(args: argparse.Namespace) -> int:
+    if not args.confirm_exact_approval:
+        print("Exact Founder Loop action: blocked (explicit approval confirmation required)")
+        return 1
+    _configure_exact_action_state(args)
+    try:
+        workflow = get_founder_attention_workflow()
+        prepared = workflow.mission_service.prepared_proposal(args.proposal_ref)
+        prepared_request = workflow.mission_service.prepared_request(args.proposal_ref)
+        if (
+            prepared is None
+            or prepared_request is None
+            or prepared.proposal.approval_request_ref != args.approval_request_ref
+            or prepared_request.mission_ref != args.mission_ref
+            or prepared_request.run_ref != args.run_ref
+            or prepared_request.lease_ref != args.lease_ref
+        ):
+            raise ValueError("FOUNDER_LOOP_ATTENTION_REVIEWED_PROPOSAL_REQUIRED")
+        if workflow.verified_status(args.today_item_ref).action.status == "receipt_recorded":
+            approval_ref = args.approval_ref
+        else:
+            approval_ref = workflow.grant_exact_approval(
+                workflow_ref=args.workflow_ref,
+                today_item_ref=args.today_item_ref,
+                inspected_source_refs=tuple(args.source_ref),
+                source_review_receipt_ref=args.source_review_receipt_ref,
+                proposal_ref=args.proposal_ref,
+                approved_by_actor_ref="operator-ref:local-user",
+                approval_ref=args.approval_ref,
+            )
+        result = workflow.execute(
+            workflow_ref=args.workflow_ref,
+            today_item_ref=args.today_item_ref,
+            inspected_source_refs=tuple(args.source_ref),
+            source_review_receipt_ref=args.source_review_receipt_ref,
+            proposal_ref=args.proposal_ref,
+            approval_ref=approval_ref,
+            owner_ref=attention_execution_owner_ref(
+                proposal_ref=args.proposal_ref,
+                idempotency_ref=args.idempotency_ref,
+            ),
+        )
+    except (ValidationError, ValueError):
+        print("Exact Founder Loop action: blocked (exact binding or authority denied)")
+        return 1
+    payload = {
+        "schema_version": "founder-loop-exact-action-cli:v1",
+        **result.model_dump(mode="json"),
+        "safe_refs_only": True,
+        "raw_paths_omitted": True,
+        "raw_content_omitted": True,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        print("Exact Founder Loop action: receipt recorded")
+        print(f"Completion: {result.completion_ref}")
+        print("Memory candidate: not created for metadata-only evidence")
+        print("Receipt refs:")
+        for ref in result.receipt_refs:
+            print(f"  - {ref}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="uaa_founder_loop",
@@ -2028,7 +2207,53 @@ def build_parser() -> argparse.ArgumentParser:
         "--state-dir",
         help="Use an explicit local state directory; the value is not echoed in output.",
     )
+    parser.add_argument(
+        "--authority-state-dir",
+        help="Use an explicit authority state directory; the value is not echoed in output.",
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
+
+    exact_status_parser = subparsers.add_parser(
+        "exact-action-status",
+        help="Inspect one exact metadata-only Founder Loop action without execution.",
+    )
+    exact_status_parser.add_argument("--today-item-ref", required=True)
+    exact_status_parser.add_argument("--json", action="store_true")
+    exact_status_parser.set_defaults(func=_exact_action_status)
+
+    exact_prepare_parser = subparsers.add_parser(
+        "prepare-exact-action",
+        help="Review source refs and prepare one exact metadata action without approval.",
+    )
+    exact_prepare_parser.add_argument("--workflow-ref", required=True)
+    exact_prepare_parser.add_argument("--today-item-ref", required=True)
+    exact_prepare_parser.add_argument("--source-ref", action="append", required=True)
+    exact_prepare_parser.add_argument("--mission-ref", required=True)
+    exact_prepare_parser.add_argument("--run-ref", required=True)
+    exact_prepare_parser.add_argument("--lease-ref", required=True)
+    exact_prepare_parser.add_argument("--idempotency-ref", required=True)
+    exact_prepare_parser.add_argument("--deadline-seconds", type=int, default=600)
+    exact_prepare_parser.add_argument("--json", action="store_true")
+    exact_prepare_parser.set_defaults(func=_prepare_exact_action)
+
+    exact_run_parser = subparsers.add_parser(
+        "run-exact-action",
+        help="Approve and execute one previously reviewed exact metadata proposal.",
+    )
+    exact_run_parser.add_argument("--workflow-ref", required=True)
+    exact_run_parser.add_argument("--today-item-ref", required=True)
+    exact_run_parser.add_argument("--source-ref", action="append", required=True)
+    exact_run_parser.add_argument("--mission-ref", required=True)
+    exact_run_parser.add_argument("--run-ref", required=True)
+    exact_run_parser.add_argument("--lease-ref", required=True)
+    exact_run_parser.add_argument("--idempotency-ref", required=True)
+    exact_run_parser.add_argument("--proposal-ref", required=True)
+    exact_run_parser.add_argument("--approval-request-ref", required=True)
+    exact_run_parser.add_argument("--source-review-receipt-ref", required=True)
+    exact_run_parser.add_argument("--approval-ref", required=True)
+    exact_run_parser.add_argument("--confirm-exact-approval", action="store_true")
+    exact_run_parser.add_argument("--json", action="store_true")
+    exact_run_parser.set_defaults(func=_run_exact_action)
 
     inspect_parser = subparsers.add_parser(
         "inspect",

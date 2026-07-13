@@ -53,6 +53,10 @@ MUTATING_ROUTES = frozenset(
         ("POST", "/control-center/providers/exact-approved-lanes/tiny"),
         ("POST", "/control-center/providers/router/dry-run"),
         ("POST", "/control-center/today/action-envelope"),
+        ("POST", "/control-center/today/exact-action/approve"),
+        ("POST", "/control-center/today/exact-action/execute"),
+        ("POST", "/control-center/today/exact-action/prepare"),
+        ("POST", "/control-center/today/exact-action/source-review"),
         ("POST", "/control-center/work-board/cards"),
         ("POST", "/control-center/work-board/reorder"),
         ("POST", "/control-center/work-board/tasks"),
@@ -79,6 +83,7 @@ TARGETED_RATE_LIMIT_GROUPS = frozenset(
         "action_preview_proposal",
         "chat_durable_receipt",
         "extension_install_disabled_record",
+        "founder_loop_exact_action",
         "governed_runtime_pilot",
         "local_model_validation",
         "memory_context_pack_action_proposal",
@@ -93,9 +98,9 @@ TARGETED_RATE_LIMIT_GROUPS = frozenset(
         "web_evidence_product_slice",
     }
 )
-TARGETED_RATE_LIMIT_ROUTE_COUNT = 74
+TARGETED_RATE_LIMIT_ROUTE_COUNT = 78
 TARGETED_RATE_LIMIT_ROUTE_FINGERPRINT = (
-    "01688489d2bb366b72ce94ce4a9b1bf0f1286899c06677cc4bbd33f5fbcb50bf"
+    "cfcfb9d7ea33b9e5e44180a300a107a873d85dae15f44f4abdbe6e331f0d45df"
 )
 
 

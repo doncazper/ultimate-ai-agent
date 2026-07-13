@@ -4,7 +4,7 @@
   "baseline": "v0.104.0 / 0.104.0",
   "source_map": "docs/control_center/OPERATOR_SHELL_GAP_MAP.md",
   "operator_readiness_taxonomy_ref": "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md",
-  "openapi_path_count": 258,
+  "openapi_path_count": 263,
   "default_posture": "contract_first_disabled_by_default_least_authority_review_gated",
   "allowed_release_statuses": [
     "status_available_not_completion",
@@ -32,8 +32,8 @@
       "side_effect_class": "local_dev_workspace_only",
       "risk_class": "medium",
       "release_status": "partial_backend_not_product_ready",
-      "approval_requirement": "None for read-only summary; Today-to-Action envelope creation is a protected mutating route requiring active workspace/draft AuthorityLease scope, idempotency, authority decision refs, receipt refs, rollback/safe-disable refs, and Evidence Timeline refs.",
-      "evidence_audit_output": "Storage-backed safe refs and bounded summaries for Today, workspace/draft AuthorityLease-gated Today-to-Action envelope authority decision refs, action inbox, plan, memory-review, briefing state, UAA-P1-073 Action envelope posture, UAA-P1-074 Chat local operator truth, UAA-P1-075 governed Code proposal metadata, UAA-P1-076 cross-surface memory intake proposal metadata, UAA-P1-077 memory-to-loop binding metadata, UAA-P1-078 private beta-readiness metadata, and UAA-P1-079 user intent proposal metadata; no raw prompts, raw responses, raw paths, raw logs, raw diff bodies, raw source imports, hidden authority, context injection, memory writes, action execution, Code apply, public beta, distribution, production authority, or credential material.",
+      "approval_requirement": "None for read-only summaries. Today-to-Action envelope creation requires workspace/draft scope. The exact metadata workflow requires immutable source and target bindings, idempotency, the same current mission-scoped files/read AuthorityLease at inspection, preparation, and approval recording, exact LocalApprovalAuthority validation, and fresh dispatcher pre-start evaluation.",
+      "evidence_audit_output": "Storage-backed safe refs and bounded summaries for Today, exact metadata-only source-ref review, authority decision, dispatch, and completion receipts, ledger-derived terminal truth, workspace/draft AuthorityLease-gated Today-to-Action envelope authority decision refs, action inbox, plan, memory-review, briefing state, UAA-P1-073 Action envelope posture, UAA-P1-074 Chat local operator truth, UAA-P1-075 governed Code proposal metadata, UAA-P1-076 cross-surface memory intake proposal metadata, UAA-P1-077 memory-to-loop binding metadata, UAA-P1-078 private beta-readiness metadata, and UAA-P1-079 user intent proposal metadata; source review performs no content read, and no metadata-stat business-memory candidate, raw prompts, raw responses, raw paths, raw logs, raw diff bodies, raw source imports, hidden authority, context injection, automatic memory truth, broad filesystem authority, public beta, distribution, production authority, or credential material is added.",
       "current_backend_routes": [
         {
           "method": "GET",
@@ -53,6 +53,41 @@
           "method": "POST",
           "path": "/control-center/today/action-envelope",
           "operation_id": "post_control_center_today_action_envelope",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/today/exact-action/{today_item_ref}/status",
+          "operation_id": "get_control_center_today_exact_action_today_item_ref_status",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/today/exact-action/source-review",
+          "operation_id": "post_control_center_today_exact_action_source_review",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/today/exact-action/prepare",
+          "operation_id": "post_control_center_today_exact_action_prepare",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/today/exact-action/approve",
+          "operation_id": "post_control_center_today_exact_action_approve",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/today/exact-action/execute",
+          "operation_id": "post_control_center_today_exact_action_execute",
           "side_effect_class": "local_dev_workspace_only",
           "route_classification": "mutating_requires_authority"
         }

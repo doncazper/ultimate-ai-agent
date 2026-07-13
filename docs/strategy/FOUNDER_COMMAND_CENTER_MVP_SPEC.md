@@ -62,7 +62,14 @@ Center receipt visibility. It does not execute approved actions or grant
 connector, shell/subprocess, provider/model, memory-write, public beta, or
 production authority. FCC-V1-003 Founder Loop V1 Vertical Slice is complete
 for the first active `workspace/draft` AuthorityLease-gated Today-to-Action
-receipt loop without action execution. FCC-V1-004
+receipt loop. A later exact-action slice now executes only the predeclared
+canonical repository-metadata target after explicit review of its fixed safe
+source refs, exact local
+approval, and current mission-scoped `files/read` AuthorityLease validation at
+each durable workflow mutation, then refreshes Today with content-free source,
+dispatch, and completion receipts. Terminal status is ledger-derived. This
+metadata stat does not create a business-memory candidate. All other Action
+execution remains blocked. FCC-V1-004
 Control Center Chat Durable Receipt And Handoff is complete for durable safe
 Chat turn receipts and reviewable Actions/Plans handoff receipts without
 action execution, memory writes, model-output authority, connector writes, or

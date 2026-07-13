@@ -348,14 +348,16 @@ export function renderRoute(path: string, data: ControlCenterData) {
         <>
           <FounderLoopSpinePanel
             activeSurface="Start Here"
-            actionReadModelAuthoritative={isAuthoritativeConnection(data)}
+            actionReadModelAuthoritative={isAuthoritativeRoute(data, "/actions")}
             evidence={data.founderEvidenceTimeline}
             inbox={data.founderActionsInbox}
             settingsStatus={data.settingsStatus}
             today={data.founderToday}
           />
           <StartHerePanel
-            authoritative={isAuthoritativeConnection(data)}
+            authoritative={isAuthoritativeRoute(data, "/start")}
+            authorityMode={data.settingsStatus.authority_lease_state.active_mode}
+            authorityModeAuthoritative={isAuthoritativeRoute(data, "/settings")}
             startHere={data.founderStartHere}
           />
         </>
@@ -364,13 +366,13 @@ export function renderRoute(path: string, data: ControlCenterData) {
       return (
         <>
           <TodaySurfacePanel
-            actionReadModelAuthoritative={isAuthoritativeConnection(data)}
+            actionReadModelAuthoritative={isAuthoritativeRoute(data, "/actions")}
             agentLoopThread={data.founderAgentLoopThread}
             today={data.founderToday}
           />
           <FounderLoopSpinePanel
             activeSurface="Today"
-            actionReadModelAuthoritative={isAuthoritativeConnection(data)}
+            actionReadModelAuthoritative={isAuthoritativeRoute(data, "/actions")}
             evidence={data.founderEvidenceTimeline}
             inbox={data.founderActionsInbox}
             settingsStatus={data.settingsStatus}
@@ -383,7 +385,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
         <>
           <FounderLoopSpinePanel
             activeSurface="Inbox"
-            actionReadModelAuthoritative={isAuthoritativeConnection(data)}
+            actionReadModelAuthoritative={isAuthoritativeRoute(data, "/actions")}
             evidence={data.founderEvidenceTimeline}
             inbox={data.founderActionsInbox}
             settingsStatus={data.settingsStatus}
@@ -397,14 +399,14 @@ export function renderRoute(path: string, data: ControlCenterData) {
         <>
           <FounderLoopSpinePanel
             activeSurface="Actions"
-            actionReadModelAuthoritative={isAuthoritativeConnection(data)}
+            actionReadModelAuthoritative={isAuthoritativeRoute(data, "/actions")}
             evidence={data.founderEvidenceTimeline}
             inbox={data.founderActionsInbox}
             settingsStatus={data.settingsStatus}
             today={data.founderToday}
           />
           <ActionInboxSurfacePanel
-            actionReadModelAuthoritative={isAuthoritativeConnection(data)}
+            actionReadModelAuthoritative={isAuthoritativeRoute(data, "/actions")}
             approvalReview={data.runAttachedApprovalQueue}
             inbox={data.founderActionsInbox}
             providerCredentialReadiness={
@@ -419,14 +421,14 @@ export function renderRoute(path: string, data: ControlCenterData) {
         <>
           <FounderLoopSpinePanel
             activeSurface="Proof"
-            actionReadModelAuthoritative={isAuthoritativeConnection(data)}
+            actionReadModelAuthoritative={isAuthoritativeRoute(data, "/actions")}
             evidence={data.founderEvidenceTimeline}
             inbox={data.founderActionsInbox}
             settingsStatus={data.settingsStatus}
             today={data.founderToday}
           />
           <ProofDetailPanel
-            authoritative={isAuthoritativeConnection(data)}
+            authoritative={isAuthoritativeRoute(data, "/proof")}
             proofIndex={data.proofIndex}
           />
         </>
@@ -436,7 +438,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
         <>
           <FounderLoopSpinePanel
             activeSurface="Trust"
-            actionReadModelAuthoritative={isAuthoritativeConnection(data)}
+            actionReadModelAuthoritative={isAuthoritativeRoute(data, "/actions")}
             evidence={data.founderEvidenceTimeline}
             inbox={data.founderActionsInbox}
             settingsStatus={data.settingsStatus}
@@ -453,7 +455,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
         <>
           <FounderLoopSpinePanel
             activeSurface="Briefing"
-            actionReadModelAuthoritative={isAuthoritativeConnection(data)}
+            actionReadModelAuthoritative={isAuthoritativeRoute(data, "/actions")}
             evidence={data.founderEvidenceTimeline}
             inbox={data.founderActionsInbox}
             settingsStatus={data.settingsStatus}
@@ -487,7 +489,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
           multiAgentReview={data.codingMultiAgentReview}
           patchApplyReadiness={data.codingPatchApplyReadiness}
           patchProposal={data.codingPatchProposal}
-          authoritative={isAuthoritativeConnection(data)}
+          authoritative={isAuthoritativeRoute(data, "/coding")}
           session={data.codingSession}
           testCommandReadiness={data.codingTestCommandReadiness}
         />
@@ -499,7 +501,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
         <>
           <FounderLoopSpinePanel
             activeSurface="Plans"
-            actionReadModelAuthoritative={isAuthoritativeConnection(data)}
+            actionReadModelAuthoritative={isAuthoritativeRoute(data, "/actions")}
             evidence={data.founderEvidenceTimeline}
             inbox={data.founderActionsInbox}
             settingsStatus={data.settingsStatus}
@@ -511,7 +513,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
     case "/work-board":
       return (
         <WorkBoardPanel
-          authoritative={isAuthoritativeConnection(data)}
+          authoritative={isAuthoritativeRoute(data, "/work-board")}
           board={data.workBoard}
         />
       );
@@ -590,7 +592,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
         <>
           <FounderLoopSpinePanel
             activeSurface="Evidence"
-            actionReadModelAuthoritative={isAuthoritativeConnection(data)}
+            actionReadModelAuthoritative={isAuthoritativeRoute(data, "/actions")}
             evidence={data.founderEvidenceTimeline}
             inbox={data.founderActionsInbox}
             settingsStatus={data.settingsStatus}
@@ -617,14 +619,14 @@ export function renderRoute(path: string, data: ControlCenterData) {
         <>
           <FounderLoopSpinePanel
             activeSurface="Memory"
-            actionReadModelAuthoritative={isAuthoritativeConnection(data)}
+            actionReadModelAuthoritative={isAuthoritativeRoute(data, "/actions")}
             evidence={data.founderEvidenceTimeline}
             inbox={data.founderActionsInbox}
             settingsStatus={data.settingsStatus}
             today={data.founderToday}
           />
           <MemoryReviewSurfacePanel
-            authoritative={isAuthoritativeConnection(data)}
+            authoritative={isAuthoritativeRoute(data, "/memory")}
             citationIntegrity={data.founderMemoryCitationIntegrity}
             contextPacks={data.founderMemoryContextPacks}
             contextManifest={data.founderMemoryContextManifest}
@@ -669,14 +671,14 @@ export function renderRoute(path: string, data: ControlCenterData) {
         <>
           <FounderLoopSpinePanel
             activeSurface="Settings"
-            actionReadModelAuthoritative={isAuthoritativeConnection(data)}
+            actionReadModelAuthoritative={isAuthoritativeRoute(data, "/actions")}
             evidence={data.founderEvidenceTimeline}
             inbox={data.founderActionsInbox}
             settingsStatus={data.settingsStatus}
             today={data.founderToday}
           />
           <SettingsOperatorPanel
-            authoritative={isAuthoritativeConnection(data)}
+            authoritative={isAuthoritativeRoute(data, "/settings")}
             data={data}
           />
         </>
@@ -690,12 +692,13 @@ export function renderRoute(path: string, data: ControlCenterData) {
   }
 }
 
-function isAuthoritativeConnection(data: ControlCenterData): boolean {
-  return data.connection.state === "online" && !data.connection.usingMockData;
+function isAuthoritativeRoute(data: ControlCenterData, route: string): boolean {
+  return data.routeStates[route]?.state === "backend_owned";
 }
 
 function isTrustAuthorityAuthoritative(data: ControlCenterData): boolean {
   return (
+    isAuthoritativeRoute(data, "/trust") &&
     data.trustAuthorityMatrix.backend_owned === true &&
     data.trustAuthorityMatrix.local_read_model_only === true &&
     data.trustAuthorityMatrix.control_center_grants_authority === false &&

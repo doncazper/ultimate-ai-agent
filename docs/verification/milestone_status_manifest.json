@@ -3,7 +3,7 @@
   "active_baseline": "v0.104.0",
   "api_route_inventory": {
     "fixture_ref": "tests/fixtures/api_route_inventory_133.json",
-    "route_count": 190,
+    "route_count": 264,
     "schema_version": "uaa-api-route-inventory.v5"
   },
   "milestones": [

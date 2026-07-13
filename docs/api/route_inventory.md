@@ -3,7 +3,7 @@
 Current active baseline: **v0.104.0**
 
 <!-- uaa-api-contract-counts:start -->
-Current generated contract snapshot: `258` OpenAPI paths and `259` manifest route operations.
+Current generated contract snapshot: `263` OpenAPI paths and `264` manifest route operations.
 <!-- uaa-api-contract-counts:end -->
 
 The checked-in inventory is the canonical generated static API contract
@@ -67,8 +67,8 @@ Current route classification summary:
 |---|---:|
 | `public_metadata` | 3 |
 | `local_readonly` | 29 |
-| `local_sensitive` | 172 |
-| `mutating_requires_authority` | 54 |
+| `local_sensitive` | 174 |
+| `mutating_requires_authority` | 58 |
 
 Allowed current side-effect classes are:
 
@@ -111,6 +111,23 @@ The Today-to-Action envelope promotion route additionally requires active
 before local review-only Action envelope state is written.
 This is not durable dedupe storage, exactly-once execution, replay execution,
 mutation authority, production authority, or a public beta claim.
+
+The Founder Loop exact-action surface adds one protected status route and four
+protected mutation routes for a single predeclared repository-metadata target.
+Source review acknowledges a fixed set of safe refs without reading their
+content and records a content-free receipt only after exact
+current mission-lease evaluation. Prepare binds that receipt, the inspected
+source refs, target, mission, run, lease, deadline, and idempotency ref and
+re-evaluates the same lease. Approval is validated by
+`LocalApprovalAuthority` in one revocation-safe critical section after another
+current-lease evaluation; the approval ref remains an identifier only.
+Execution re-enters `MissionOrchestrator` → `AuthorityMissionRunner` →
+`AuthorityDispatcher`, revalidates the current mission-scoped `files/read`
+lease, and records content-free source, dispatch, and completion receipt refs.
+Status verifies the execution source ledgers and terminal dispatch rather than trusting
+the mutable Action projection. The API does not create a business-memory
+candidate from the metadata result, grant broad filesystem authority, or
+persist paths or file content.
 
 UAA-P1-085 implements targeted local fixed-window rate-limit posture for
 model/chat, task decomposition, action preview/proposal, turn-router preview,

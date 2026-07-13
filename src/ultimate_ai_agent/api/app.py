@@ -19,6 +19,9 @@ from ultimate_ai_agent.api.cors import (
 )
 from ultimate_ai_agent.api.control_center import register_control_center_routes
 from ultimate_ai_agent.api.founder_loop import register_founder_loop_routes
+from ultimate_ai_agent.api.founder_exact_action import (
+    register_founder_exact_action_routes,
+)
 from ultimate_ai_agent.api.idempotency import (
     API_IDEMPOTENCY_AUDIT_POLICY_REF,
     idempotency_header_failure,
@@ -246,6 +249,7 @@ configure_loopback_cors(app)
 register_governed_web_evidence_routes(app)
 register_mattermost_routes(app)
 register_founder_loop_routes(app)
+register_founder_exact_action_routes(app)
 register_provider_setup_routes(app)
 register_governed_runtime_routes(app)
 

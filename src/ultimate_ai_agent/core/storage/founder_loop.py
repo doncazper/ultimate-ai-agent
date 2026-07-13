@@ -130,6 +130,7 @@ from ultimate_ai_agent.core.control_center.local_tasks import (
     local_task_commit_receipt_ref,
     local_task_ref_for_action,
 )
+from ultimate_ai_agent.core.storage import founder_loop_exact_action
 from ultimate_ai_agent.core.control_center.today_loop import (
     TODAY_LOOP_TIGHTENING_CONTRACT_REF,
     build_today_loop_read_model,
@@ -17220,6 +17221,7 @@ class FounderLoopRepository:
             self._ensure_memory_review_write_lane_posture(conn)
         if self.seed_defaults:
             self._seed_defaults_if_empty()
+            founder_loop_exact_action.ensure_exact_attention_action(self, FounderLoopActionRecord)
             self._backfill_seed_action_contract_metadata()
             self._backfill_seed_memory_review_contract_metadata()
             self._backfill_seed_briefing_contract_metadata()
@@ -17690,9 +17692,7 @@ class FounderLoopRepository:
             },
         )
 
-    def _update_action_contract_metadata(
-        self, item_ref: str, metadata: dict[str, Any]
-    ) -> None:
+    def _update_action_contract_metadata(self, item_ref: str, metadata: dict[str, Any]) -> None:
         _validate_safe_ref(item_ref, "item_ref")
         _validate_safe_payload(metadata, "action_contract_metadata")
         self._execute(

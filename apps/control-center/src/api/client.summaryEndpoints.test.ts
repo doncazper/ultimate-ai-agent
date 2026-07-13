@@ -465,6 +465,26 @@ describe("loadControlCenterData summary endpoint wiring", () => {
     );
   });
 
+  it("rejects Settings authority state that is not backend-owned", async () => {
+    const routeData = baseRouteData();
+    const settings = routeData[
+      API_ENDPOINTS.controlCenterSettingsStatus
+    ] as Record<string, unknown>;
+    routeData[API_ENDPOINTS.controlCenterSettingsStatus] = {
+      ...settings,
+      authority_lease_state: {
+        ...(settings.authority_lease_state as Record<string, unknown>),
+        backend_owned: false,
+      },
+    };
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.routeStates["/settings"].state).toBe("mock_fallback");
+    expect(data.settingsStatus.authority_lease_state.backend_owned).toBe(false);
+  });
+
   it("rejects agent-loop payloads missing backend-owned reasoning truth", async () => {
     const routeData = baseRouteData();
     const thread = routeData[API_ENDPOINTS.founderAgentLoopThread] as Record<
@@ -1125,8 +1145,13 @@ function baseRouteData(): Record<string, unknown> {
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,
     [API_ENDPOINTS.modelProviderControlPlane]:
       mockControlCenterData.modelProviderControlPlane,
-    [API_ENDPOINTS.controlCenterSettingsStatus]:
-      mockControlCenterData.settingsStatus,
+    [API_ENDPOINTS.controlCenterSettingsStatus]: {
+      ...mockControlCenterData.settingsStatus,
+      authority_lease_state: {
+        ...mockControlCenterData.settingsStatus.authority_lease_state,
+        backend_owned: true,
+      },
+    },
     [API_ENDPOINTS.controlCenterLocalModelsStatus]:
       mockControlCenterData.localModelsStatus,
     [API_ENDPOINTS.founderTodaySummary]: mockControlCenterData.founderToday,
