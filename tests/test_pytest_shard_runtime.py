@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import signal
 import subprocess
 import sys
 import time
@@ -183,6 +184,79 @@ def test_terminate_active_shards_kills_real_process_group(tmp_path: Path) -> Non
         process.wait(timeout=2)
         if not log_handle.closed:
             log_handle.close()
+
+
+@pytest.mark.skipif(os.name != "posix", reason="signal cleanup proof is POSIX-only")
+def test_external_sigterm_reaps_active_shard_process_group(tmp_path: Path) -> None:
+    pid_path = tmp_path / "active-shard.pid"
+    test_path = tmp_path / "test_waits_for_cancellation.py"
+    test_path.write_text(
+        "\n".join(
+            (
+                "import os",
+                "import time",
+                "from pathlib import Path",
+                f"Path({str(pid_path)!r}).write_text(str(os.getpid()), encoding='utf-8')",
+                "time.sleep(60)",
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    script = "\n".join(
+        (
+            "from pathlib import Path",
+            "from scripts.verification import run_pytest_shards as runner",
+            "runner.run_shards(",
+            f"    [runner.ShardPlan(0, ({str(test_path)!r},), 1.0)],",
+            f"    root=Path({str(tmp_path)!r}),",
+            f"    basetemp=Path({str(tmp_path / 'shards')!r}),",
+            "    junit_dir=None,",
+            "    write_timings=False,",
+            "    quiet=True,",
+            "    termination_grace_seconds=0.2,",
+            ")",
+        )
+    )
+    process = subprocess.Popen(
+        [sys.executable, "-c", script],
+        cwd=ROOT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    child_pid: int | None = None
+
+    try:
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            if pid_path.exists():
+                child_pid = int(pid_path.read_text(encoding="utf-8"))
+                break
+            if process.poll() is not None:
+                pytest.fail("shard runner exited before the cancellation fixture started")
+            time.sleep(0.02)
+        assert child_pid is not None
+
+        process.terminate()
+        assert process.wait(timeout=5) != 0
+        for _ in range(50):
+            try:
+                os.kill(child_pid, 0)
+            except ProcessLookupError:
+                break
+            time.sleep(0.02)
+        else:
+            pytest.fail("active shard survived external runner cancellation")
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait(timeout=2)
+        if child_pid is not None:
+            try:
+                os.kill(child_pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
 
 
 def test_overall_return_code_fails_if_any_shard_failed(tmp_path: Path) -> None:

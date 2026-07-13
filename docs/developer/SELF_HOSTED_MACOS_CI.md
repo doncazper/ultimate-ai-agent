@@ -48,10 +48,16 @@ provider, connector, production, or AuthorityLease capability.
   then the aggregate Foundation Gate. Jobs within a stage still use the four
   runners concurrently. This prevents unrelated scans from exhausting pytest
   and Vitest per-test deadlines on one physical Mac.
-- Pytest keeps eight deterministic logical shards but executes them
-  sequentially inside one job and one installed environment. Repository-global
-  test locks serialize much of the suite on one host, so multiple shard jobs
-  add starvation and repeated dependency installation rather than throughput.
+- Pytest keeps eight deterministic logical shards inside one job and one
+  installed environment. Two isolated workers overlap the heavy affinity shard
+  with ordinary shards while avoiding the lock starvation and repeated
+  dependency installation caused by multiple runner jobs on one physical Mac.
+- Checkout is pinned to the exact `actions/checkout` v6.0.2 commit. That release
+  uses Node 24 and is compatible with the pinned runner version; checkout tokens
+  remain non-persistent.
+- GitHub cancellation is handled inside the shard runner. `SIGTERM` closes the
+  active shard process groups with a bounded grace period so superseded runs do
+  not leave orphaned pytest processes consuming the dedicated account.
 - Release lanes disable Bash's immediate-exit behavior only inside their
   bounded command wrappers so failures produce safe summaries and still end
   the job unsuccessfully.

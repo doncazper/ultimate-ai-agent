@@ -85,7 +85,7 @@ def test_shared_mac_ci_stages_cpu_and_io_heavy_job_classes() -> None:
 
     pytest_shards_job = verifier.job_section(workflow, "pytest-shards")
     assert "      - lint\n" in pytest_shards_job
-    assert "            --max-workers 1 \\\n" in pytest_shards_job
+    assert "            --max-workers 2 \\\n" in pytest_shards_job
     assert "--shard-index" not in pytest_shards_job
     assert "matrix:" not in pytest_shards_job
     for job_name in (
@@ -107,6 +107,19 @@ def test_shared_mac_ci_stages_cpu_and_io_heavy_job_classes() -> None:
     assert "      - control-center-frontend\n" in verifier.job_section(
         workflow, "release-lane-visual-regression"
     )
+
+
+def test_checkout_is_pinned_to_current_node_24_release() -> None:
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+
+    checkout_action = (
+        "uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd "
+        "# v6.0.2"
+    )
+    assert workflow.count(checkout_action) == workflow.count(
+        "persist-credentials: false"
+    )
+    assert "actions/checkout@v4" not in workflow
 
 
 def test_desktop_packaging_preserves_non_admin_docker_boundary() -> None:

@@ -90,8 +90,8 @@ def verify(root: Path = ROOT) -> list[str]:
     if "    needs:\n      - lint\n" not in job_section(workflow, "pytest-shards"):
         failures.append("pytest shards must start only after lint passes")
     pytest_shards_job = job_section(workflow, "pytest-shards")
-    if "            --max-workers 1 \\\n" not in pytest_shards_job:
-        failures.append("pytest shards must avoid shared-Mac lock starvation")
+    if "            --max-workers 2 \\\n" not in pytest_shards_job:
+        failures.append("pytest shards must use the bounded two-worker single-host cap")
     if "--shard-index" in pytest_shards_job or "matrix:" in pytest_shards_job:
         failures.append("pytest shards must share one installed single-host environment")
     pytest_gated_jobs = (
@@ -146,7 +146,11 @@ def verify(root: Path = ROOT) -> list[str]:
             failures.append("pytest shards must declare the self-hosted runtime budget")
     if "reason-ref:self-hosted-runner-docker-unavailable" not in workflow:
         failures.append("desktop packaging must report an explicit unavailable Docker prerequisite")
-    checkout_count = workflow.count("uses: actions/checkout@v4")
+    checkout_action = (
+        "uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd "
+        "# v6.0.2"
+    )
+    checkout_count = workflow.count(checkout_action)
     if checkout_count == 0 or workflow.count("persist-credentials: false") != checkout_count:
         failures.append("every checkout must avoid persisting GitHub credentials")
     for fragment in FORBIDDEN_WORKFLOW_FRAGMENTS:
