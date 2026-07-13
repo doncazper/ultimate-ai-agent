@@ -1,0 +1,23 @@
+{
+  "schema_version": "uaa-eco-000-render-manifest.v1",
+  "milestone_ref": "milestone-ref:ECO-000",
+  "shell_baseline_ref": "shell-baseline-ref:control-center:accepted",
+  "synthetic_dataset_ref": "dataset-ref:eco-000:medium",
+  "implementation_evidence": false,
+  "runtime_routes_added": false,
+  "review_ref": "review-ref:eco-000:visual-draft:2026-07-12",
+  "surfaces": [
+    {"surface_state_ref":"ECO-TODAY-DESKTOP-DEFAULT","asset":"renders/01_ecosystem_today_home.svg","width":1440,"height":960,"status":"reviewed","shipped":false},
+    {"surface_state_ref":"ECO-CALENDAR-DESKTOP-WEEK","asset":"renders/02_calendar_home.svg","width":1440,"height":960,"status":"reviewed","shipped":false},
+    {"surface_state_ref":"ECO-TASKS-DESKTOP-TODAY","asset":"renders/03_tasks_home.svg","width":1440,"height":960,"status":"reviewed","shipped":false},
+    {"surface_state_ref":"ECO-BOARDS-DESKTOP-GENERAL","asset":"renders/04_boards_home.svg","width":1440,"height":960,"status":"reviewed","shipped":false},
+    {"surface_state_ref":"ECO-CRM-SALES-DESKTOP-HOME","asset":"renders/05_crm_sales_home.svg","width":1440,"height":960,"status":"reviewed","shipped":false},
+    {"surface_state_ref":"ECO-INBOX-DESKTOP-MULTIAPP-PROPOSAL","asset":"renders/06_inbox_source_proposal.svg","width":1440,"height":960,"status":"reviewed","shipped":false},
+    {"surface_state_ref":"ECO-CHANGESET-DESKTOP-REVIEW","asset":"renders/07_cross_app_changeset_review.svg","width":1440,"height":960,"status":"reviewed","shipped":false},
+    {"surface_state_ref":"ECO-CHANGESET-DESKTOP-PARTIAL","asset":"renders/08_partial_failure_compensation.svg","width":1440,"height":960,"status":"reviewed","shipped":false},
+    {"surface_state_ref":"ECO-SEARCH-DESKTOP-PALETTE","asset":"renders/09_global_search_command.svg","width":1440,"height":960,"status":"reviewed","shipped":false},
+    {"surface_state_ref":"ECO-SETTINGS-DESKTOP-PRIVACY","asset":"renders/10_privacy_source_settings.svg","width":1440,"height":960,"status":"reviewed","shipped":false},
+    {"surface_state_ref":"ECO-TODAY-NARROW-AGENDA","asset":"renders/11_narrow_today_agenda_capture.svg","width":390,"height":844,"status":"reviewed","shipped":false},
+    {"surface_state_ref":"ECO-ORGANIZER-WALLBOARD-SCHEDULE","asset":"renders/12_wallboard_organizer_schedule.svg","width":1920,"height":1080,"status":"reviewed","shipped":false}
+  ]
+}

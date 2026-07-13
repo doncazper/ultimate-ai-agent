@@ -1747,17 +1747,17 @@ def _verify_operator_runtime_currentness(root: Path) -> list[str]:
     for message, fragment in required_current_fragments.items():
         if fragment not in active_text:
             failures.append(message)
-
-    current_count = str(EXPECTED_CURRENT_OPENAPI_PATH_COUNT)
-    if f"**{current_count}** openapi paths" not in readme:
-        failures.append("README.md current OpenAPI path count is stale or missing")
-    for rel_path, text in {
-        "docs/api/README.md": api_readme,
-        "docs/api/openapi_contract.md": openapi_contract,
-        "docs/api/route_inventory.md": route_inventory,
-    }.items():
-        if f"current openapi path count: `{current_count}`" not in text.lower():
-            failures.append(f"{rel_path} current OpenAPI path count is stale or missing")
+    if "generated openapi and `/api/manifest` route contract snapshot" not in readme:
+        failures.append("README.md must point to the generated API contract snapshot")
+    current_count_block = (
+        "<!-- uaa-api-contract-counts:start -->\n"
+        f"current generated contract snapshot: `{EXPECTED_CURRENT_OPENAPI_PATH_COUNT}` "
+        f"openapi paths and `{EXPECTED_ROUTE_COUNT}` manifest route operations.\n"
+        "<!-- uaa-api-contract-counts:end -->"
+    )
+    for text in (api_readme, openapi_contract, route_inventory):
+        if current_count_block not in text.lower():
+            failures.append("active API generated count block is stale or missing")
 
     stale_current_claims = {
         "README.md": [

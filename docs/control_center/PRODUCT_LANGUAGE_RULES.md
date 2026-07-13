@@ -280,6 +280,18 @@ North-star visuals are allowed only as design direction. They must be labeled
 as north-star visual targets and must not be described as shipped
 implementation evidence unless matching route/API/UI behavior is verified.
 
+The first-class CRM and coherent app ecosystem plans may be described as the
+full product target only when they are also labeled planning-only. Calendar,
+Tasks, reusable Boards, CRM presets, Inbox integration, personal Organizer,
+cross-app ChangeSets, connector sync, AI assistance, automation,
+collaboration, standalone launch modes, and packaging must not be described as
+implemented merely because their contracts, plans, prompts, or renders exist.
+ECO-000 may be described as accepted architecture and experience criteria, not
+as accepted app implementation. Its twelve SVG concepts are reviewed design
+drafts only. "Accepted ECO-000" must never imply that Calendar, Tasks, Boards,
+Inbox, Organizer, shared storage, migration, ChangeSets, search, direct launch,
+connectors, or external operations exist at runtime.
+
 CLI is a first-class operator surface. Product behavior must not live only in
 React state; UI-only state is limited to presentation concerns such as filters,
 expanded panels, selected tabs, and layout preferences. If the UI can trigger or
@@ -430,6 +442,15 @@ but it cannot become the only access path.
 Status panels must avoid standalone readiness claims. When a backend field uses
 a readiness-shaped name, the UI must frame it as a claim status or evidence
 status and keep false/unproven values visibly unclaimed.
+
+Portable evidence may say “Ed25519 signature verified relative to the supplied
+and pinned public-key bundle.” It must not say signed identity, notarized,
+non-repudiable, externally timestamped, Secure Enclave Ed25519, or currently
+unrevoked. Managed-signing status is read-only lifecycle posture; it is not a
+button, approval, AuthorityLease, or execution grant.
+The legacy unsigned-v1 `blocked_signing_lifecycle_not_implemented` value may be
+shown only as an artifact-format compatibility field, never as the current
+managed-signing lifecycle status.
 
 ## Current Gaps
 

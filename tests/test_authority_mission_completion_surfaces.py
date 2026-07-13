@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from scripts.dev.uaa_runtime_mission_completion import (
+    export_public_key_bundle,
     export_portable,
     inspect,
     read_bounded_regular_file,
@@ -69,6 +70,13 @@ def test_completion_api_and_cli_expose_the_same_backend_owned_truth(
     assert portable["source_ledgers_verified"] is False
     assert portable["caller_expected_binding_matched"] is False
     assert portable["external_anchor_verified"] is False
+    signing = envelope.data["managed_signing"]
+    assert signing["status"] == "not_configured"
+    assert signing["backend_readiness"] == "configuration_required"
+    assert signing["request_scoped_policy_required"] is True
+    assert signing["exact_local_approval_required"] is True
+    assert signing["exact_authority_lease_required"] is True
+    assert signing["execution_available_from_read_model"] is False
     assert cli_status == 0
     assert "Authority mission completions" in cli_output
     assert result.completion.completion_ref in cli_output
@@ -77,7 +85,8 @@ def test_completion_api_and_cli_expose_the_same_backend_owned_truth(
     assert "Completion integrity: local SHA-256 hash chain verified" in cli_output
     assert "Portable evidence: verified_local_hash_chain" in cli_output
     assert "Portable source records bound: true" in cli_output
-    assert "Cryptographic signing: blocked" in cli_output
+    assert "Managed Ed25519 key lifecycle: not_configured" in cli_output
+    assert "Managed signing execution: requires exact approval" in cli_output
     assert "Authenticity or external anchoring verified: false" in cli_output
     budget_binding = envelope.data["latest_manifests"][0]["budget_bindings"][0]
     assert budget_binding["reservation_ref"] in cli_output
@@ -118,6 +127,40 @@ def test_completion_api_fails_closed_on_corrupt_local_ledger(
     assert envelope.error is not None
     assert envelope.error.code == "MISSION_COMPLETION_INSPECTION_UNAVAILABLE"
     assert envelope.error.details_redacted is True
+
+
+def test_signing_lifecycle_corruption_fails_closed_in_api_and_cli(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    state_dir = tmp_path / "corrupt-signing"
+    signing_dir = state_dir / "portable_evidence_signing"
+    signing_dir.mkdir(parents=True, mode=0o700)
+    ledger = signing_dir / "portable_evidence_key_lifecycle.jsonl"
+    ledger.write_text('"unsafe-input-sentinel"\n', encoding="utf-8")
+    ledger.chmod(0o600)
+    monkeypatch.setattr(runtime_pilot_service, "authority_state_dir", lambda: state_dir)
+
+    envelope = runtime_pilot_service.get_api_runtime_authority_missions_completions()
+    inspect_status = inspect(argparse.Namespace(state_dir=str(state_dir), json=False))
+    inspect_error = capsys.readouterr().err
+    export_status = export_public_key_bundle(
+        argparse.Namespace(
+            state_dir=str(state_dir),
+            issuer_ref="issuer-ref:portable-evidence:local-operator",
+        )
+    )
+    export_error = capsys.readouterr().err
+
+    assert envelope.success is False
+    assert envelope.error is not None
+    assert envelope.error.code == "MISSION_COMPLETION_INSPECTION_UNAVAILABLE"
+    assert envelope.error.details_redacted is True
+    assert inspect_status == 1
+    assert export_status == 1
+    assert "unsafe-input-sentinel" not in inspect_error
+    assert "unsafe-input-sentinel" not in export_error
 
 
 def test_portable_evidence_cli_export_and_offline_verify(

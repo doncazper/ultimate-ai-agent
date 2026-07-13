@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import argparse
-import math
 import os
 import subprocess
 import sys
@@ -40,6 +39,17 @@ except ModuleNotFoundError:  # Direct script execution from the repository root.
     )
     import pytest_shard_processes as shard_processes  # type: ignore[no-redef]
 
+try:
+    from scripts.verification import pytest_shard_plan
+except ModuleNotFoundError:  # Direct script execution from the repository root.
+    import pytest_shard_plan  # type: ignore[no-redef]
+
+shard_plan_fingerprint = pytest_shard_plan.shard_plan_fingerprint
+validate_shard_plans = pytest_shard_plan.validate_shard_plans
+build_shard_env = shard_processes.build_shard_env
+is_live_model_opt_in_env_var = shard_processes.is_live_model_opt_in_env_var
+validate_runtime_budget = shard_processes.validate_runtime_budget
+
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_BASETEMP = "/tmp/uaa_pytest_shards"
@@ -52,42 +62,6 @@ DEFAULT_TERMINATION_GRACE_SECONDS = 2.0
 DEFAULT_PERFORMANCE_REPORT = "/tmp/uaa_pytest_performance_report.json"
 TIMEOUT_RETURN_CODE = 124
 FOUNDATION_GATE_AFFINITY_TOKENS = ("foundation_gate_report", "foundation_gate_results")
-LIVE_MODEL_ENV_DENYLIST_PREFIXES = (
-    "UAA_M160_LIVE_HF_",
-    "UAA_M162_LIVE_HF_",
-    "UAA_M164_LLAMA_CPP_",
-    "UAA_LLAMA_CPP_",
-    "UAA_MODEL_ROUTER_SWEEP",
-    "UAA_OPENWEBUI_TEST_",
-    "UAA_TINY_LIVE_PROVIDER_",
-    "UAA_WEB_HYBRID_LIVE_",
-)
-LIVE_MODEL_ENV_DENYLIST_EXACT = frozenset(
-    {
-        "UAA_FIRECRAWL_CLOUD_SECRET_FILE",
-        "UAA_LOCAL_MODEL_REF",
-        "UAA_LOCAL_MODEL_ROOTS",
-    }
-)
-SHARD_ENV_ALLOWLIST_EXACT = frozenset(
-    {
-        "HOME",
-        "LANG",
-        "PATH",
-        "PYTHONDONTWRITEBYTECODE",
-        "PYTHONHASHSEED",
-        "PYTHONIOENCODING",
-        "PYTHONUTF8",
-        "SHELL",
-        "TEMP",
-        "TERM",
-        "TMP",
-        "TMPDIR",
-        "TZ",
-        "VIRTUAL_ENV",
-    }
-)
-SHARD_ENV_ALLOWLIST_PREFIXES = ("LC_",)
 
 
 @dataclass(frozen=True)
@@ -271,30 +245,6 @@ def build_pytest_command(
         command.append(f"--junitxml={junit_dir / f'pytest-shard-{plan.index}.xml'}")
     command.extend(plan.files)
     return command
-
-
-def validate_runtime_budget(
-    *,
-    stretch_goal_seconds: float,
-    target_seconds: float,
-    hard_timeout_seconds: float,
-    termination_grace_seconds: float,
-) -> None:
-    if not math.isfinite(stretch_goal_seconds) or stretch_goal_seconds <= 0:
-        raise ValueError("--stretch-goal-seconds must be finite and greater than zero")
-    if not math.isfinite(target_seconds) or target_seconds <= stretch_goal_seconds:
-        raise ValueError(
-            "--target-seconds must be finite and exceed --stretch-goal-seconds"
-        )
-    if (
-        not math.isfinite(hard_timeout_seconds)
-        or hard_timeout_seconds <= target_seconds
-    ):
-        raise ValueError(
-            "--hard-timeout-seconds must be finite and exceed --target-seconds"
-        )
-    if not math.isfinite(termination_grace_seconds) or termination_grace_seconds < 0:
-        raise ValueError("--termination-grace-seconds must be finite and non-negative")
 
 
 def run_shards(
@@ -519,40 +469,6 @@ def _stop_active_shards(
     )
 
 
-def _prepend_pythonpath(src_path: str, existing: str | None) -> str:
-    if not existing:
-        return src_path
-    return f"{src_path}{os.pathsep}{existing}"
-
-
-def is_live_model_opt_in_env_var(name: str) -> bool:
-    if name in LIVE_MODEL_ENV_DENYLIST_EXACT:
-        return True
-    return any(name.startswith(prefix) for prefix in LIVE_MODEL_ENV_DENYLIST_PREFIXES)
-
-
-def strip_live_model_opt_in_env(env: dict[str, str]) -> dict[str, str]:
-    return {
-        name: value
-        for name, value in env.items()
-        if not is_live_model_opt_in_env_var(name)
-    }
-
-
-def build_shard_env(
-    root: Path, inherited: dict[str, str] | None = None
-) -> dict[str, str]:
-    base_env = dict(os.environ if inherited is None else inherited)
-    env = {
-        name: value
-        for name, value in strip_live_model_opt_in_env(base_env).items()
-        if name in SHARD_ENV_ALLOWLIST_EXACT
-        or any(name.startswith(prefix) for prefix in SHARD_ENV_ALLOWLIST_PREFIXES)
-    }
-    env["PYTHONPATH"] = _prepend_pythonpath(str(root / "src"), env.get("PYTHONPATH"))
-    return env
-
-
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run pytest test files in deterministic local shards."
@@ -635,6 +551,12 @@ def main(argv: list[str] | None = None) -> int:
         affinity_groups,
     )
     try:
+        validate_shard_plans(files, plans, args.shards, affinity_groups)
+    except ValueError as exc:
+        print(f"FAIL: {exc}", file=sys.stderr)
+        return 2
+    plan_fingerprint_ref = shard_plan_fingerprint(plans)
+    try:
         plans = select_shard(plans, args.shard_index)
     except ValueError as exc:
         print(f"FAIL: {exc}", file=sys.stderr)
@@ -679,6 +601,7 @@ def main(argv: list[str] | None = None) -> int:
             hard_timeout_seconds=args.hard_timeout_seconds,
             total_elapsed_seconds=total_elapsed_seconds,
             estimated_timings=timings,
+            plan_fingerprint_ref=plan_fingerprint_ref,
         )
 
     print_summary(
@@ -692,6 +615,7 @@ def main(argv: list[str] | None = None) -> int:
         hard_timeout_seconds=args.hard_timeout_seconds,
         total_elapsed_seconds=total_elapsed_seconds,
         safe_summary=args.safe_summary,
+        plan_fingerprint_ref=plan_fingerprint_ref,
     )
     return return_code
 

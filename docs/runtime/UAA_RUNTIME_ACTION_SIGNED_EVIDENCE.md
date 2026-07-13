@@ -8,12 +8,14 @@ copying external runtime code or importing external runtime packages. UAA keeps 
 Agent Core as the source of truth and exposes local SHA-256 hash-integrity
 evidence as safe-ref-only receipt metadata. Historical `signed_*` identifiers
 are compatibility names only: legacy signed identifiers are local SHA-256
-hash-integrity fields, not cryptographic signatures. Signing is blocked until
-a real Keychain-backed lifecycle exists.
+hash-integrity fields, not cryptographic signatures. The separate portable
+mission-evidence format now has a real macOS Keychain-backed Ed25519 wrapper;
+it does not retroactively turn these runtime-action compatibility hashes into
+signatures. See `docs/runtime/UAA_PORTABLE_MISSION_EVIDENCE_SIGNING.md`.
 
 This does not copy external reference code. The evidence provides local hash
-verification only. Keychain-backed signing, authenticity, non-repudiation, and
-external anchoring remain blocked. Control Center cannot mint authority, broad
+verification only. Portable mission-evidence signing is a separate exact lane;
+signer identity, non-repudiation, and external anchoring remain blocked. Control Center cannot mint authority, broad
 runtime authority remains blocked, and no unrestricted shell is added.
 
 - legacy signed-evidence fields carry local hash verification only

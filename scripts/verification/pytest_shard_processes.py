@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import os
 import signal
 import subprocess
@@ -11,6 +12,96 @@ from types import FrameType
 
 
 SignalHandler = Callable[[int, FrameType | None], None]
+
+LIVE_MODEL_ENV_DENYLIST_PREFIXES = (
+    "UAA_M160_LIVE_HF_",
+    "UAA_M162_LIVE_HF_",
+    "UAA_M164_LLAMA_CPP_",
+    "UAA_LLAMA_CPP_",
+    "UAA_MODEL_ROUTER_SWEEP",
+    "UAA_OPENWEBUI_TEST_",
+    "UAA_TINY_LIVE_PROVIDER_",
+    "UAA_WEB_HYBRID_LIVE_",
+)
+LIVE_MODEL_ENV_DENYLIST_EXACT = frozenset(
+    {
+        "UAA_FIRECRAWL_CLOUD_SECRET_FILE",
+        "UAA_LOCAL_MODEL_REF",
+        "UAA_LOCAL_MODEL_ROOTS",
+    }
+)
+SHARD_ENV_ALLOWLIST_EXACT = frozenset(
+    {
+        "HOME",
+        "LANG",
+        "PATH",
+        "PYTHONDONTWRITEBYTECODE",
+        "PYTHONHASHSEED",
+        "PYTHONIOENCODING",
+        "PYTHONUTF8",
+        "SHELL",
+        "TEMP",
+        "TERM",
+        "TMP",
+        "TMPDIR",
+        "TZ",
+        "VIRTUAL_ENV",
+    }
+)
+SHARD_ENV_ALLOWLIST_PREFIXES = ("LC_",)
+
+
+def validate_runtime_budget(
+    *,
+    stretch_goal_seconds: float,
+    target_seconds: float,
+    hard_timeout_seconds: float,
+    termination_grace_seconds: float,
+) -> None:
+    if not math.isfinite(stretch_goal_seconds) or stretch_goal_seconds <= 0:
+        raise ValueError("--stretch-goal-seconds must be finite and greater than zero")
+    if not math.isfinite(target_seconds) or target_seconds <= stretch_goal_seconds:
+        raise ValueError(
+            "--target-seconds must be finite and exceed --stretch-goal-seconds"
+        )
+    if (
+        not math.isfinite(hard_timeout_seconds)
+        or hard_timeout_seconds <= target_seconds
+    ):
+        raise ValueError(
+            "--hard-timeout-seconds must be finite and exceed --target-seconds"
+        )
+    if not math.isfinite(termination_grace_seconds) or termination_grace_seconds < 0:
+        raise ValueError("--termination-grace-seconds must be finite and non-negative")
+
+
+def is_live_model_opt_in_env_var(name: str) -> bool:
+    if name in LIVE_MODEL_ENV_DENYLIST_EXACT:
+        return True
+    return any(name.startswith(prefix) for prefix in LIVE_MODEL_ENV_DENYLIST_PREFIXES)
+
+
+def build_shard_env(
+    root: Path, inherited: dict[str, str] | None = None
+) -> dict[str, str]:
+    base_env = dict(os.environ if inherited is None else inherited)
+    env = {
+        name: value
+        for name, value in base_env.items()
+        if not is_live_model_opt_in_env_var(name)
+        and (
+            name in SHARD_ENV_ALLOWLIST_EXACT
+            or any(name.startswith(prefix) for prefix in SHARD_ENV_ALLOWLIST_PREFIXES)
+        )
+    }
+    src_path = str(root / "src")
+    existing_pythonpath = env.get("PYTHONPATH")
+    env["PYTHONPATH"] = (
+        src_path
+        if not existing_pythonpath
+        else f"{src_path}{os.pathsep}{existing_pythonpath}"
+    )
+    return env
 
 
 def cancellation_signals() -> tuple[signal.Signals, ...]:

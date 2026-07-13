@@ -26,15 +26,14 @@ eligibility, deterministic correction/lifecycle ordering, exact suppression
 authority, and the redacted retrieval benchmark are complete without granting
 hidden context injection or automatic memory truth.
 
-Runtime Capability Foundation Phase 04 is implemented locally pending its
-ordered merge gate for the smallest proven tool slice. The existing exact
-filesystem-metadata mission is now visible in the canonical availability and
-Action/Tool/Code read models with its orchestrator/runner/dispatcher path and
-request-scoped approval posture. Current root, resource, health, and
-safe-disable state remains unknown until exact evaluation. Redacted file
-preview, legacy RuntimeGateway verification commands, CodeAct, sandbox, patch
-apply, broad shell, Git mutation, browser, plugin, and MCP promotion remain
-explicitly outside this phase.
+Runtime Capability Foundation Phase 04 and its sealed-calculation follow-up
+implement two exact tool slices. Filesystem metadata retains request-scoped
+approval. Bounded deterministic arithmetic now runs through the canonical
+orchestrator/runner/dispatcher path in an attested local no-network container
+after an exact mission lease. Static compatibility, configuration, health,
+safe-disable, and resource truth remains unknown until current evaluation.
+General CodeAct/Python, patch apply, broad shell, Git mutation, browser, plugin,
+and MCP execution remain blocked.
 
 Founder Command Center state: macOS Setup Assistant hardening, first
 product-loop readability, Action Inbox approval-envelope/state-change posture,
@@ -612,6 +611,48 @@ read/local mutation lane. Future work must stay exact-scoped: connector read
 capabilities and any send/write capability remain blocked behind separate
 AuthorityLease capability evidence, unblock prompts, route contracts, redaction
 tests, safe-disable posture, and rollback-readiness evidence.
+
+ECO-000 Coherent App Ecosystem Contract And Experience Acceptance
+Goal: lock the complete standalone-quality Calendar, Tasks, Boards, CRM, Inbox,
+Today, Organizer, Evidence, and Memory ecosystem before new private CRM,
+Calendar, or Tasks repositories invent conflicting domain truth.
+Status: accepted for contract/design scope on 2026-07-12. ADR-0054 through
+ADR-0061, additive `core/ecosystem` contracts, existing-store inventory, threat
+model, seven-app acceptance matrix, planned route architecture, twelve reviewed
+design drafts, full remaining render briefs/state matrix, quality targets,
+focused tests, and a verifier are present. No app implementation, route,
+storage dependency, connector, account sync, external operation, model call,
+background authority, packaging, public release, or production authority was
+added.
+Scope: planning and acceptance work in
+`docs/implementation/UAA_COHERENT_APP_ECOSYSTEM_IMPLEMENTATION_PLAN.md`:
+canonical object ownership, EntityLink and projection rules, shared local data
+and migration direction, cross-app ChangeSets, capability catalog, complete app
+product bars, integrated golden paths, desktop/narrow/wallboard experience
+architecture, full render program, and measurable polish gates. This lane adds
+no new route, storage, dependency, connector runtime, account sync, external
+write, send, calendar write, provider/model call, browser runtime, background
+autonomy, collaboration authority, packaging claim, public release, or
+production authority.
+Next: enter ECO-001 only through a separate threat-reviewed storage/key/
+migration evidence slice; CRM-FC-000 may now finalize CRM-specific product and
+render acceptance without changing the accepted shared Event, Task, Board,
+Source, or ChangeSet ownership.
+
+CRM-FC-000 First-Class CRM Product Contract And Render Acceptance
+Goal: evolve the implemented CRM M2 baseline into one relationship-first local
+CRM foundation with Sales, Real Estate, Professional Network, Personal Network,
+and Private Relationships workspaces.
+Scope: planning and acceptance work in
+`docs/implementation/UAA_FIRST_CLASS_CRM_IMPLEMENTATION_PLAN.md`: versioned
+domain nouns, private-data versus governance-plane boundary, workspace
+isolation, storage/encryption ADR and threat model, nested route map, and CRM
+north-star render revision pack. No private-data persistence, new backend
+route, connector runtime, account sync, send, calendar write, external CRM
+write, provider/model call, browser runtime, background autonomy, public
+release, or production authority is authorized by the plan.
+Next: accept `ECO-000`, then accept `CRM-FC-000` before implementing
+`CRM-FC-001` private local repository and migrations.
 
 WEB-RUNTIME-AUTH-001 Web Runtime Authority Promotion Ladder
 Goal: promote the web/provider/browser authority ladder into active roadmap and
@@ -2003,6 +2044,19 @@ gate grants no approval, lease, tool/action execution, memory truth/write,
 context injection, provider/model, web, shell, connector, background, public,
 or production authority. Remote merge/hosted-CI status remains separate from
 this local implementation gate.
+
+UAA-EVIDENCE-SIGN-001 Managed portable mission evidence signing
+Deterministic implementation gate met locally: preserves unsigned v1, adds a
+separate Ed25519 signed wrapper,
+bounded public-key lifecycle ledger, purpose-specific macOS Keychain helper,
+pinned helper adapter, exact AuthorityDispatcher lanes for sign/create/rotate/
+revoke/mark-lost/interrupted-deletion cleanup, offline pinned-trust verification,
+read-only API/CLI posture, and adversarial tests. The live Keychain roundtrip
+remains configuration-required whenever the login Keychain is locked; no live
+success is claimed from helper-only tests. Signer identity, Secure Enclave
+Ed25519, non-repudiation,
+external anchoring/timestamps, public lifecycle transparency, production
+compliance, and any evidence-derived authority remain blocked.
 ```
 
 ## ASAP Sequence

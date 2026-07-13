@@ -11,6 +11,10 @@ The renders were generated as UI mockups for the Control Center target
 direction and then copied into this repository as design artifacts. They should
 be treated as visual targets and alignment aids, not shipped UI screenshots.
 
+The separate ECO-000 planning-only extension is indexed at
+`../ecosystem_north_star/RENDER_MANIFEST.md`; those SVG drafts do not alter the
+accepted shell or count as shipped UI evidence.
+
 `APP_SHELL_BASELINE.md` is the normative target shell specification for left-rail
 order, route stability, typography, spacing, and state treatment. The PNGs are
 not normative when their generated sidebar details conflict with that file.
@@ -115,6 +119,17 @@ contract. These images do not claim any current Matrix runtime.
 | `renders/18_private_trial_packet.png` | Trial Packet | Acceptance ledger, review questions, private evidence refs | Public beta or production readiness |
 | `renders/19_operator_loop.png` | Operator Loop | Observe-plan-act-prove-remember loop, route proof, blockers | Broad autonomy or fake workflow completion |
 | `renders/20_api_foundation_events.png` | API Routes, Foundation Gate, Events, Differentiators | Route classes, OpenAPI/manifest checks, event ledger, proof claims | Contracts as runtime authority |
+
+## Draft Candidates
+
+Draft candidates are preserved for design review but are not part of the
+accepted `CC-NS-2026-07-06` baseline. Every visible status, count, timestamp,
+receipt, and control in these files is illustrative mock data rather than
+backend or runtime evidence.
+
+| File | Candidate scope | Review posture | Must not imply |
+|---|---|---|---|
+| `renders/drafts/CC-R2-SHELL-01-today-desktop-default-v1.png` | Alternate Today desktop shell | Draft-only; route wiring, data states, and product language remain unaccepted | Live system health, completed work, callable controls, current receipts, or runtime authority |
 
 ## Common Prompt Constraints
 

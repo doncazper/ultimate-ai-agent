@@ -138,6 +138,11 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "/control-center/morning-briefing/summary",
         "/control-center/sources/readiness",
         "/control-center/storage/status",
+        "/control-center/today/exact-action/approve",
+        "/control-center/today/exact-action/execute",
+        "/control-center/today/exact-action/prepare",
+        "/control-center/today/exact-action/source-review",
+        "/control-center/today/exact-action/{today_item_ref}/status",
         "/control-center/today/summary",
     }
     assert FOUNDER_LOOP_ACTION_DECISION_ROUTES == {
@@ -401,6 +406,10 @@ def test_static_safety_evaluator_data_exemption_is_scoped() -> None:
         frozenset(),
     )
     assert _is_static_safety_scan_allowed_file(command_adapter_file, frozenset())
+    assert not _is_static_safety_scan_allowed_file(
+        "src/ultimate_ai_agent/core/evidence_signing/macos_keychain.py",
+        frozenset(),
+    )
     assert _is_static_safety_scan_allowed_file("src/allowed.py", {"src/allowed.py"})
     assert not _is_static_safety_scan_allowed_file(
         "src/ultimate_ai_agent/core/gate/evaluator_modules/route_contracts.py",
@@ -410,6 +419,11 @@ def test_static_safety_evaluator_data_exemption_is_scoped() -> None:
         "src/ultimate_ai_agent/core/gate/checkpoint_builder_notes.py",
         frozenset(),
     )
+
+
+def test_sealed_backend_is_not_a_global_static_scan_exception() -> None:
+    backend_rel = "src/ultimate_ai_agent/core/sandbox_calculation/backend.py"
+    assert not _is_static_safety_scan_allowed_file(backend_rel, frozenset())
 
 
 def test_route_boundary_data_only_static_scan_failures_classify_as_stale() -> None:

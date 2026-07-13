@@ -53,6 +53,7 @@ CAPABILITIES_DECLARED = [
     "control_center_setup_assistant_summary",
     "control_center_setup_approval_envelopes_dry_run",
     "control_center_founder_loop_storage_summaries",
+    "control_center_founder_loop_exact_attention_workflow",
     "control_center_crm_local_command_center_read_model",
     "control_center_crm_relationship_timeline_read_model",
     "control_center_crm_follow_up_queue_read_model",
@@ -94,8 +95,16 @@ CAPABILITIES_DECLARED = [
     "authority_mission_cancellation_fence",
     "authority_mission_failure_management_operator_intent_api",
     "authority_mission_failure_management_cli",
+    "sealed_deterministic_calculation_exact_mission_lane",
+    "sealed_calculation_no_per_invocation_approval_after_exact_lease",
+    "sealed_calculation_atomic_start_content_free_receipts",
     "control_center_authority_mission_read_only_inspection",
     "governed_product_pilot_portable_evidence_envelope",
+    "portable_evidence_ed25519_signed_artifact_v1",
+    "portable_evidence_public_key_lifecycle_ledger_v1",
+    "portable_evidence_macos_keychain_signing_backend_v1",
+    "portable_evidence_exact_authority_dispatch_adapters_v1",
+    "portable_evidence_offline_pinned_public_key_verification_v1",
     "governed_product_pilot_durable_orchestration_profile",
     "control_center_coding_cockpit_session_read_model",
     "control_center_coding_context_pack_preview_read_model",
@@ -247,6 +256,13 @@ CAPABILITIES_BLOCKED = [
     "governed_runtime_raw_prompt_response_persistence",
     "governed_runtime_raw_command_output_persistence",
     "governed_runtime_raw_local_path_or_env_persistence",
+    "sealed_calculation_without_exact_mission_lease",
+    "sealed_calculation_without_pinned_attested_backend",
+    "sealed_calculation_general_python_or_codeact_execution",
+    "sealed_calculation_shell_execution",
+    "sealed_calculation_network_or_host_filesystem_access",
+    "sealed_calculation_environment_credentials_or_package_access",
+    "sealed_calculation_control_center_execution",
     "authority_mission_step_inspection_as_execution_authority",
     "authority_mission_step_inspection_mutation_or_retry",
     "authority_mission_orchestration_api_cli_ui_execution",
@@ -270,6 +286,11 @@ CAPABILITIES_BLOCKED = [
     "governed_product_pilot_production_authority",
     "governed_product_pilot_public_beta_or_release_claim",
     "governed_product_pilot_raw_persistence",
+    "portable_evidence_signing_without_exact_approval_lease_budget_or_dispatch",
+    "portable_evidence_private_key_export_or_file_persistence",
+    "portable_evidence_secure_enclave_ed25519_claim",
+    "portable_evidence_signer_identity_or_non_repudiation_claim",
+    "portable_evidence_external_anchor_or_timestamp_claim",
     "security_headers_as_authentication",
     "security_headers_as_cors_policy",
     "security_headers_as_rate_limits",
@@ -715,6 +736,15 @@ CONTROL_CENTER_MEMORY_DECISION_SUFFIXES = (
 CONTROL_CENTER_TODAY_ACTION_ENVELOPE_PATHS = {
     "/control-center/today/action-envelope",
 }
+CONTROL_CENTER_TODAY_EXACT_ACTION_MUTATION_PATHS = {
+    "/control-center/today/exact-action/source-review",
+    "/control-center/today/exact-action/prepare",
+    "/control-center/today/exact-action/approve",
+    "/control-center/today/exact-action/execute",
+}
+CONTROL_CENTER_TODAY_EXACT_ACTION_STATUS_PATHS = {
+    "/control-center/today/exact-action/{today_item_ref}/status",
+}
 CONTROL_CENTER_ACTION_LOCAL_TASK_COMMIT_PATHS = {
     "/control-center/actions/{action_id}/local-task/commit",
 }
@@ -1143,6 +1173,19 @@ def route_classification_for_path(
         return (
             ApiRouteClassification.mutating_requires_authority,
             "Today-to-Action envelope authority route; workspace/draft AuthorityLease, exact idempotency, authority decision refs, receipt, audit, and evidence posture required while execution stays blocked",
+        )
+    if normalized_method == "GET" and path in CONTROL_CENTER_TODAY_EXACT_ACTION_STATUS_PATHS:
+        return (
+            ApiRouteClassification.local_sensitive,
+            "Exact Founder Loop action status exposes only backend-owned source, target, approval, and mission-lease requirements without preparing or executing work.",
+        )
+    if (
+        normalized_method == "POST"
+        and path in CONTROL_CENTER_TODAY_EXACT_ACTION_MUTATION_PATHS
+    ):
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "Exact Founder Loop action route requires idempotency, immutable source and target bindings, exact LocalApprovalAuthority scope, a current mission-scoped AuthorityLease, dispatcher pre-start revalidation, and content-free receipts; it grants no broad filesystem authority.",
         )
     if (
         normalized_method == "POST"

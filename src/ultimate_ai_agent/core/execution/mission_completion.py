@@ -401,6 +401,52 @@ class PortableMissionEvidenceInspectionSummary(_MissionCompletionModel):
         return self
 
 
+class PortableEvidenceManagedSigningInspection(_MissionCompletionModel):
+    schema_version: Literal["uaa-portable-evidence-managed-signing-inspection.v1"] = (
+        "uaa-portable-evidence-managed-signing-inspection.v1"
+    )
+    status: Literal[
+        "not_configured",
+        "active",
+        "active_rotation_delete_pending",
+        "retired",
+        "revoked_deletion_pending",
+        "revoked",
+        "lost_deletion_pending",
+        "lost",
+    ]
+    active_key_ref: str | None = None
+    active_key_version_ref: str | None = None
+    active_public_key_fingerprint_ref: str | None = None
+    lifecycle_terminal_entry_hash_ref: str | None = None
+    backend_readiness: Literal["configuration_required"] = "configuration_required"
+    request_scoped_policy_required: Literal[True] = True
+    exact_local_approval_required: Literal[True] = True
+    exact_authority_lease_required: Literal[True] = True
+    budget_and_kill_switch_required: Literal[True] = True
+    signature_present_in_read_model: Literal[False] = False
+    execution_available_from_read_model: Literal[False] = False
+    reason_refs: tuple[str, ...] = ()
+
+    @model_validator(mode="after")
+    def validate_inspection(self) -> "PortableEvidenceManagedSigningInspection":
+        _validate_refs(self.model_dump(mode="python"), "portable_evidence_signing")
+        active_values = (
+            self.active_key_ref,
+            self.active_key_version_ref,
+            self.active_public_key_fingerprint_ref,
+        )
+        if self.status in {"active", "active_rotation_delete_pending"} and not all(
+            active_values
+        ):
+            raise ValueError("PORTABLE_EVIDENCE_SIGNING_ACTIVE_KEY_REQUIRED")
+        if self.status not in {"active", "active_rotation_delete_pending"} and any(
+            active_values
+        ):
+            raise ValueError("PORTABLE_EVIDENCE_SIGNING_INACTIVE_KEY_FORBIDDEN")
+        return self
+
+
 class MissionCompletionReadModel(_MissionCompletionModel):
     schema_version: Literal["uaa-mission-completion-read-model.v1"] = (
         "uaa-mission-completion-read-model.v1"
@@ -412,6 +458,14 @@ class MissionCompletionReadModel(_MissionCompletionModel):
     )
     integrity_summary: MissionCompletionIntegritySummary
     portable_evidence_summary: PortableMissionEvidenceInspectionSummary
+    managed_signing: PortableEvidenceManagedSigningInspection = Field(
+        default_factory=lambda: PortableEvidenceManagedSigningInspection(
+            status="not_configured",
+            reason_refs=(
+                "reason-ref:portable-evidence-signing:key-not-configured",
+            ),
+        )
+    )
     operator_summary: str
     request_scoped_authority_still_required: Literal[True] = True
     execution_available_from_read_model: Literal[False] = False
@@ -914,6 +968,7 @@ class MissionCompletionStore:
         *,
         recent_limit: int = 12,
         portable_evidence_summary: PortableMissionEvidenceInspectionSummary | None = None,
+        managed_signing: PortableEvidenceManagedSigningInspection | None = None,
     ) -> MissionCompletionReadModel:
         if recent_limit < 0 or recent_limit > 12:
             raise ValueError("MISSION_COMPLETION_RECENT_LIMIT_INVALID")
@@ -940,6 +995,15 @@ class MissionCompletionStore:
                     envelope_count=0,
                     reason_refs=(
                         "reason-ref:portable-mission-evidence:not-evaluated",
+                    ),
+                )
+            ),
+            managed_signing=(
+                managed_signing
+                or PortableEvidenceManagedSigningInspection(
+                    status="not_configured",
+                    reason_refs=(
+                        "reason-ref:portable-evidence-signing:key-not-configured",
                     ),
                 )
             ),

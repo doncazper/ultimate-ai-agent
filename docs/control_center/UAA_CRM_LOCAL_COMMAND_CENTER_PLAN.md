@@ -4,6 +4,13 @@ Status: implemented as M2 local-first CRM command center
 Contract ref: `contract-ref:crm-local-command-center:m2:v1`
 Verifier: `scripts/verify_crm_local_command_center.py`
 
+Next implementation plan:
+`docs/implementation/UAA_FIRST_CLASS_CRM_IMPLEMENTATION_PLAN.md`. It evolves
+this implemented M2 baseline toward Sales, Real Estate, Professional Network,
+Personal Network, and Private Relationships workspaces through separately
+gated milestones. The successor
+plan is planning-only and does not change current CRM authority.
+
 ## Scope
 
 UAA CRM is a backend-owned local relationship command center for the single-user

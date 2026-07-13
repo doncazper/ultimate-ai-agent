@@ -13,6 +13,10 @@ The Control Center is the technical web shell, Founder Command Center is the
 user-facing product name, and the Founder Loop is the bounded product spine.
 Python Agent Core, PolicyEngine, LocalApprovalAuthority, route classification,
 OpenAPI checks, and Foundation Gate checks remain the authority boundaries.
+Managed portable mission-evidence signing is documented in
+`docs/runtime/UAA_PORTABLE_MISSION_EVIDENCE_SIGNING.md`; it is a macOS-only,
+exact dispatcher-governed Ed25519 lane and is not signer identity, notarization,
+non-repudiation, an external timestamp, or execution authority.
 
 Status: active
 Current through: v0.104.0 plus accepted checkpoint-m169, completed
@@ -141,6 +145,25 @@ sends, calendar writes, provider/model calls, live web, browser runtime,
 public beta, public release, production readiness, and production authority
 blocked.
 
+The planning-only successor is
+`docs/implementation/UAA_FIRST_CLASS_CRM_IMPLEMENTATION_PLAN.md`. It defines the
+separately gated path from M2 to a first-class local CRM with Sales, Real
+Estate, Professional Network, Personal Network, and Private Relationships
+workspaces, private-data isolation,
+durable local CRUD, search, pipelines, import/export, and reporting. It grants
+no connector, send, calendar-write, provider/model, browser, background, public
+release, or production authority.
+
+The full-vision application-suite program is defined in
+`docs/implementation/UAA_COHERENT_APP_ECOSYSTEM_IMPLEMENTATION_PLAN.md`. It
+plans standalone-quality Calendar, Tasks, Boards, CRM, Inbox, Today, and
+personal-organizer applications over canonical shared identity, event, task,
+relationship, source, link, change-set, evidence, and memory contracts. The
+plan includes local storage and migration, presets, complete north-star render
+sets, cross-app workflows, connectors, AI proposals, exact writes, automation,
+collaboration, packaging, accessibility, performance, recovery, and dogfood
+gates. It grants no new runtime or production authority.
+
 Connector draft-only proposals are backend-owned safe-ref review artifacts in
 `docs/control_center/CONNECTOR_DRAFT_ONLY_PROPOSALS.md`,
 `src/ultimate_ai_agent/core/connectors/connector_draft_proposals.py`,
@@ -262,14 +285,14 @@ product-truth ledgers.
 | Top-level decision router contract | `docs/control_center/UAA_P1_089_TOP_LEVEL_DECISION_ROUTER_CONTRACT.md`, `src/ultimate_ai_agent/core/decision_router/contracts.py`, `scripts/verify_uaa_p1_089_top_level_decision_router_contract.py` |
 | Task decomposition proposal engine | `docs/control_center/UAA_P1_090_TASK_DECOMPOSITION_PROPOSAL_ENGINE.md`, `src/ultimate_ai_agent/core/task_decomposition/proposals.py`, `scripts/verify_uaa_p1_090_task_decomposition_proposal_engine.py` |
 | FCC fusion routing/delegation readability | `docs/control_center/FCC_FUSION_ROUTING_DELEGATION.md`, `src/ultimate_ai_agent/core/control_center/fusion_routing.py`, `scripts/verify_fcc_fusion_routing_delegation.py` |
-| Operational maturity and authority ramp | `docs/strategy/UAA_AUTHORITY_MODES_AND_MISSION_LEASES.md`, `docs/runtime/UAA_AUTHORITY_LEASE_BUDGET_LEDGER.md`, `docs/runtime/UAA_AUTHORITY_MISSION_WORKER_V1.md`, `docs/control_center/OPERATIONALIZATION_LADDER.md`, `docs/control_center/operational_maturity_manifest.json`, `docs/control_center/AUTHORITY_RAMP_CONVEYOR.md`, `docs/control_center/authority_candidate_scorecard.json` |
+| Operational maturity and authority ramp | `docs/strategy/UAA_AUTHORITY_MODES_AND_MISSION_LEASES.md`, `docs/runtime/UAA_AUTHORITY_LEASE_BUDGET_LEDGER.md`, `docs/runtime/UAA_AUTHORITY_MISSION_WORKER_V1.md`, `docs/runtime/UAA_SEALED_CALCULATION_ADAPTER.md`, `docs/control_center/OPERATIONALIZATION_LADDER.md`, `docs/control_center/operational_maturity_manifest.json`, `docs/control_center/AUTHORITY_RAMP_CONVEYOR.md`, `docs/control_center/authority_candidate_scorecard.json` |
 | Version and checkpoint currentness | `VERSION.md`, `docs/release_notes/v0_104_0.md`, `docs/release_notes/checkpoint_m169.md` |
 | Tag history and future tag convention | `docs/releases/TAG_CATALOG.md`, `docs/maintenance/RELEASE_PROCESS.md`, `docs/maintenance/SEMVER_POLICY.md` |
 | Catch-up/surpass loop | `docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md`, `docs/backlog/codex_recommendation_log.md`, `docs/backlog/MORNING_RECONCILIATION_ARTIFACT.md` |
 | Product claims and gaps | `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md` |
 | Canonical navigation | `docs/DOCUMENTATION_INDEX.md`, `docs/canonical/CANONICAL_DOC_MAP.md` |
 | API boundary | `docs/api/README.md`, `docs/api/openapi_contract.md`, `docs/api/route_inventory.md` |
-| Verification maintainability | `docs/verification/milestone_status_manifest.json`, `docs/verification/verification_maintainability_policy.json` |
+| Verification maintainability | `docs/verification/FAST_LOCAL_VERIFICATION.md`, `docs/verification/milestone_status_manifest.json`, `docs/verification/verification_maintainability_policy.json` |
 | Computer Use / CUA contract lane | `docs/cua/COMPUTER_USE_CUA_CONTRACT.md`, `docs/cua/cua_release_surface_manifest.json` |
 | Security posture | `SECURITY.md`, `docs/security/SECURITY_TRIAGE_RUNBOOK.md` |
 | Documentation policy | `docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md` |
@@ -390,6 +413,8 @@ Use these before release-facing claims or milestone status changes:
 ```bash
 make verify
 make verify-fast
+make verify-affected
+make verify-value-audit
 make verify-dev-fast
 make test-sharded
 make test-sharded-profile
@@ -405,8 +430,10 @@ PYTHONPATH=src .venv/bin/python -m pytest tests/test_api_manifest.py
 inventory across timing-balanced, process-isolated shards, followed by the
 static verifier, gate architecture, and a serialized report-only Foundation
 Gate. `make test-serial` remains available for order-sensitive diagnostics.
-`make verify-fast` uses the same complete pytest inventory without updating the
-latest Foundation Gate report. `make verify-dev-fast` runs the four pre-gate
+`make verify-fast` selects deterministic advisory checks for changed paths;
+`make verify-affected` adds affected boundary checks. Unknown or verifier-
+topology changes fail closed to the complete local/dev gate. Neither command
+replaces merge or release gates. `make verify-dev-fast` runs the four pre-gate
 phases concurrently and then serializes Foundation Gate with
 `report-only --no-write-latest`. `VERIFY_DEV_FAST_JOBS` bounds top-level phase
 fanout, while `PYTEST_SHARD_WORKERS` separately bounds pytest subprocesses.
@@ -439,8 +466,9 @@ Web Hybrid transports and Firecrawl credential references,
 and provider live-network smoke tests. Existing optional/live tests remain
 env-gated and skipped by default.
 
-No local unchanged-file cache shortcut is currently enabled. Cache shortcuts are
-planned-only until deterministic invalidation can be reviewed.
+No local pass-result cache is enabled. The changed-path selector is deterministic,
+local-only, and fail-closed; see
+`docs/verification/FAST_LOCAL_VERIFICATION.md` for scope and timing evidence.
 
 The named release lanes are described in
 `docs/production/RELEASE_VERIFICATION_LANES.md`. Release evidence packets are

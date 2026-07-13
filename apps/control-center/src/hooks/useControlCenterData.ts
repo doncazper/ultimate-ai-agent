@@ -15,12 +15,13 @@ export function useControlCenterData(): LoadState {
   useEffect(() => {
     let active = true;
     let retryTimeout: ReturnType<typeof setTimeout> | undefined;
+    const load = () => loadControlCenterData();
     const scheduleMockFallbackRetry = (attemptIndex: number) => {
       if (!active || attemptIndex >= MOCK_FALLBACK_RETRY_DELAYS_MS.length) {
         return;
       }
       retryTimeout = setTimeout(() => {
-        loadControlCenterData()
+        load()
           .then((retryData) => {
             if (!active) {
               return;
@@ -38,7 +39,7 @@ export function useControlCenterData(): LoadState {
           });
       }, MOCK_FALLBACK_RETRY_DELAYS_MS[attemptIndex]);
     };
-    loadControlCenterData()
+    load()
       .then((data) => {
         if (active) {
           setState({ status: "ready", data, error: null });

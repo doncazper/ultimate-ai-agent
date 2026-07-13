@@ -5,7 +5,12 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
+    "control_center_route_count",
+    "fingerprint",
+    "mutating_route_count",
+    "openapi_path_count",
     "route_count",
+    "route_operation_count",
     "route_classification_vocabulary",
     "route_classification_summary",
     "route_auth_posture_summary",
@@ -15,7 +20,12 @@
     "route_rate_limit_posture_summary",
     "rate_limit_policy_ref",
     "routes",
-    "schema_version"
+    "runtime_authority_included",
+    "schema_version",
+    "schema_ref",
+    "source_ref",
+    "static_declaration_only",
+    "targeted_rate_limit_route_count"
   ],
   "properties": {
     "active_baseline": {
@@ -48,10 +58,47 @@
       }
     },
     "schema_version": {
-      "const": "uaa-api-route-inventory.v4"
+      "const": "uaa-api-route-inventory.v5"
+    },
+    "schema_ref": {
+      "const": "schema-ref:api-contract-snapshot:v1"
+    },
+    "source_ref": {
+      "const": "source-ref:fastapi-openapi-and-api-manifest"
+    },
+    "fingerprint": {
+      "type": "string",
+      "pattern": "^api-contract-fingerprint:sha256:[0-9a-f]{64}$"
     },
     "route_count": {
-      "const": 259
+      "type": "integer",
+      "minimum": 1
+    },
+    "route_operation_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "openapi_path_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "control_center_route_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "mutating_route_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "targeted_rate_limit_route_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "static_declaration_only": {
+      "const": true
+    },
+    "runtime_authority_included": {
+      "const": false
     },
     "route_classification_vocabulary": {
       "type": "array",
@@ -105,11 +152,11 @@
       "properties": {
         "public_metadata_no_auth": {
           "type": "integer",
-          "const": 3
+          "minimum": 0
         },
         "protected_local_bearer_required": {
           "type": "integer",
-          "const": 256
+          "minimum": 0
         }
       }
     },
@@ -123,11 +170,11 @@
       "properties": {
         "not_required_for_route_classification": {
           "type": "integer",
-          "const": 205
+          "minimum": 0
         },
         "required_before_mutation_authority": {
           "type": "integer",
-          "const": 54
+          "minimum": 0
         }
       }
     },
@@ -145,7 +192,7 @@
         },
         "required_before_mutation_authority": {
           "type": "integer",
-          "const": 54
+          "minimum": 0
         }
       }
     },
@@ -166,7 +213,7 @@
         },
         "targeted_local_fixed_window": {
           "type": "integer",
-          "const": 74
+          "minimum": 0
         }
       }
     },
@@ -199,8 +246,7 @@
     },
     "routes": {
       "type": "array",
-      "minItems": 259,
-      "maxItems": 259,
+      "minItems": 1,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -323,6 +369,7 @@
               "provider_router_dry_run",
               "governed_runtime_pilot",
               "extension_install_disabled_record",
+              "founder_loop_exact_action",
               "today_to_action_envelope",
               "task_decomposition",
               "web_evidence_product_slice",

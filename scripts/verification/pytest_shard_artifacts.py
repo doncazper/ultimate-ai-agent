@@ -149,10 +149,14 @@ def collect_file_timings(
         result = result_by_index[plan.index]
         log_text = result.log_path.read_text(encoding="utf-8", errors="replace")
         parsed = parse_pytest_durations(log_text, set(plan.files))
-        fallback_seconds = (
-            result.elapsed_seconds / len(plan.files)
-            if plan.files and result.elapsed_seconds > 0
-            else 0.001
+        missing_files = [
+            file_path for file_path in plan.files if parsed.get(file_path, 0.0) <= 0.0
+        ]
+        attributed_seconds = sum(seconds for seconds in parsed.values() if seconds > 0)
+        residual_seconds = max(result.elapsed_seconds - attributed_seconds, 0.0)
+        fallback_seconds = max(
+            residual_seconds / len(missing_files) if missing_files else 0.0,
+            0.001,
         )
         for file_path in plan.files:
             if file_path in parsed and parsed[file_path] > 0:
@@ -205,6 +209,7 @@ def write_performance_report(
     hard_timeout_seconds: float,
     total_elapsed_seconds: float,
     estimated_timings: dict[str, float] | None,
+    plan_fingerprint_ref: str = "pytest-shard-plan-ref:not-recorded",
 ) -> None:
     result_by_index = {result.index: result for result in results}
     status = "within_stretch_goal"
@@ -266,6 +271,7 @@ def write_performance_report(
         "shards": shard_rows,
         "refactor_candidates": candidates,
         "verification_evidence": False,
+        "plan_fingerprint_ref": plan_fingerprint_ref,
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     temp_path = path.with_name(f"{path.name}.{os.getpid()}.tmp")
@@ -287,10 +293,12 @@ def print_summary(
     hard_timeout_seconds: float,
     total_elapsed_seconds: float,
     safe_summary: bool,
+    plan_fingerprint_ref: str = "pytest-shard-plan-ref:not-recorded",
 ) -> None:
     print("\n=== Pytest Shard Summary ===")
     print(f"Assignment: {assignment_method}")
     print(f"Timing source: {timing_source}")
+    print(f"Plan fingerprint: {plan_fingerprint_ref}")
     print(
         "Runtime budget: "
         f"stretch_goal_seconds={stretch_goal_seconds:.2f} "

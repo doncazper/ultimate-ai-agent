@@ -49,8 +49,8 @@
         "mobile": "visual-baseline-file:mobile:overview"
       },
       "baseline_hashes": {
-        "desktop": "sha256:c957ed769ef4fcf3bbce04b3d68021645e0cd86d169957c2e2f92fe1d41de286",
-        "mobile": "sha256:da5e8751d0aee11a750e7f407c2b10d2535a784e8a9938e422cddd6aa62e436c"
+        "desktop": "sha256:cc2154b3d0a1fba2ed1ff4b4c76c9ed21d97ce1bc24b6c8e711d249eabb3fd27",
+        "mobile": "sha256:cf7f12c234e51bc682d5a2acda14b06af2d73a67b9ebeb9d6b5ad68ebd044fb5"
       },
       "raw_private_screenshot_included": false
     },
@@ -64,8 +64,8 @@
         "mobile": "visual-baseline-file:mobile:start"
       },
       "baseline_hashes": {
-        "desktop": "sha256:0f3143ec9ebe530c38d84aaea09f7d72dc4aa928bb7e4d055f661198e658614f",
-        "mobile": "sha256:d2839c1dbdcdcd9585a40ea7923263f8a20962f82489466a9b0a222e7b855720"
+        "desktop": "sha256:46072731a78abd2e6c3be9ab815d081ca413e89442dbd628dae680c85c765b43",
+        "mobile": "sha256:9151893bfd133070fbd7665875587fb4b8586335c1613f79c7efe149a9bff267"
       },
       "raw_private_screenshot_included": false
     },
@@ -79,8 +79,8 @@
         "mobile": "visual-baseline-file:mobile:today"
       },
       "baseline_hashes": {
-        "desktop": "sha256:1b8e0e73a016c8c7933a78c64051381cb0c7acb7807843dd9e8ea2b569f7fb7a",
-        "mobile": "sha256:0e99bde293eb7e0717833713cd37fa532947c711e6019ebebe4ac4c6daa6251d"
+        "desktop": "sha256:d750a6d2b47c8b0b8e2fa77753254e174ab1ab4145a59ca701139bab52c36799",
+        "mobile": "sha256:4084e653d2c6d910b86afd5e3af244cc3488cc39669459f0fab794c9c2f74ab3"
       },
       "raw_private_screenshot_included": false
     },
@@ -94,8 +94,8 @@
         "mobile": "visual-baseline-file:mobile:inbox"
       },
       "baseline_hashes": {
-        "desktop": "sha256:8b0e22c55436c49c6434e7ebfdc251ac4da0f5011389930939cdcb94a1c69fe2",
-        "mobile": "sha256:928176ce313aeb83696a24d1216688a54df66372cc5888c1047dbc1fd3de3222"
+        "desktop": "sha256:f90f8b019ecccae5b2291bf976a497c004f3b031f0f5bf7a6809ccd3a2819065",
+        "mobile": "sha256:698b1be057448b25553c936ce5bb53bde8300449690a37631a7b970ea0a969dc"
       },
       "raw_private_screenshot_included": false
     },
@@ -109,8 +109,8 @@
         "mobile": "visual-baseline-file:mobile:actions"
       },
       "baseline_hashes": {
-        "desktop": "sha256:7fbc451a258339748567ec9aae07ebd5854c1cc1de0d2675385fc4a1e1c1990e",
-        "mobile": "sha256:ac4b2b9ed31fbcb1d388a1d72a5d6ecd41c69b994c2912f13384214a5ac8b1ee"
+        "desktop": "sha256:3e3895b41797bc50b403671bf49f66b66d75a5ca59451ce716a25e574e70af04",
+        "mobile": "sha256:a21ecd2d909a32e783d792df8b9de4713c39a4983ef73b54e1a9cc5e0a3d95c9"
       },
       "raw_private_screenshot_included": false
     },
@@ -124,8 +124,8 @@
         "mobile": "visual-baseline-file:mobile:plans"
       },
       "baseline_hashes": {
-        "desktop": "sha256:feed3f55112c77e56ae5e3cbe5d5783bb1708f0993c92ff13c2a1aa189044273",
-        "mobile": "sha256:a1524adb66f250dcd5905cdc19a5df44c5be06ea96ccc3debb9f93960fc5acea"
+        "desktop": "sha256:9aa98fadddbb6e7ff675c2d83711af784e55d5477ff705b4f8bde63157981f21",
+        "mobile": "sha256:32f0927435c6946556e3d63f10c53b8c24ffb78d8a8f312e1379d71146451fac"
       },
       "raw_private_screenshot_included": false
     },
@@ -139,8 +139,8 @@
         "mobile": "visual-baseline-file:mobile:proof"
       },
       "baseline_hashes": {
-        "desktop": "sha256:fd2268086cf8d3ff3de4af043fd36fd721df5f1f45080f5cea81eae5888487d2",
-        "mobile": "sha256:e967d9362cb62d58a0b1c518ff04b093411511b04d63048008d58e97cea4e372"
+        "desktop": "sha256:5ae17eaf5b2525432612a2bc02a4abeed9c5ac4cbd23e5bcd6f94f7448b58a62",
+        "mobile": "sha256:0da637795f5133f3eee71228ad4c6ab1c0d48ec6bd1fa43ca112bb5aae0e4cbe"
       },
       "raw_private_screenshot_included": false
     },
@@ -154,8 +154,8 @@
         "mobile": "visual-baseline-file:mobile:trust"
       },
       "baseline_hashes": {
-        "desktop": "sha256:cdf511ca74d7696278779cd2875f7041c8486a1db547d2744a7e076e9ee40efd",
-        "mobile": "sha256:db9970283bd87c708a663f4f9d645a79585d05e11304ce7206e7080592a9afde"
+        "desktop": "sha256:c6baa87c8efa6711a29d302d17cd79be28a81d95a8a207876f069997772b79cb",
+        "mobile": "sha256:73ca9906733125ae03bde2b530d44e43ad7502bc92f7b8ed01a99afdd03a4360"
       },
       "raw_private_screenshot_included": false
     },
@@ -169,8 +169,8 @@
         "mobile": "visual-baseline-file:mobile:memory"
       },
       "baseline_hashes": {
-        "desktop": "sha256:571725063ec81811c9dcf88af34bf23c7ed61d2e41e20a4038f3e0f581a3b799",
-        "mobile": "sha256:9daf2d237816319e6db0734fa820d9ca10fb6c14de7631d536994490b10516fd"
+        "desktop": "sha256:c16623f93652b658ff8a03d403fa93001215e6de510834e5a9c134f3f8fd2c4f",
+        "mobile": "sha256:0b9694eea92e3a6cbda1efd01448315f047300781ff43c2129087229ca72b770"
       },
       "raw_private_screenshot_included": false
     },
@@ -184,8 +184,8 @@
         "mobile": "visual-baseline-file:mobile:evidence"
       },
       "baseline_hashes": {
-        "desktop": "sha256:58028398f5f9f86868ab32d3dac34e0798e0486b151cec581e7bfabca17ad749",
-        "mobile": "sha256:52055e44b9064a9c7993010ac8d9ea25755759ffe1d465156230665b68ef5f25"
+        "desktop": "sha256:67e2a1ed7fb194e036fb3f4c881d2871446d3ee45b4bef2cd342c98a15c237f9",
+        "mobile": "sha256:fe35e7dab3ed5bdcd018be5ac24faea79df53fb6012c344215136a408c6db6fa"
       },
       "raw_private_screenshot_included": false
     },
@@ -199,8 +199,8 @@
         "mobile": "visual-baseline-file:mobile:settings"
       },
       "baseline_hashes": {
-        "desktop": "sha256:45193a7a5153082dc8ef76fdbd0de18b4801a6cea76cccce661e46bd51214ffe",
-        "mobile": "sha256:f192176e700ade385d2d4670cc5a94d5910def512cb727fee4ae99e1f41f8eb2"
+        "desktop": "sha256:516ca17e3df715ffbd961066f2e101a06e9ec6f3f49932ba28d033d7deafad7e",
+        "mobile": "sha256:02e2f754140b83a6ebe73e5c13d7e77d6e94deed2f2b5d9515c1b256c866a10b"
       },
       "raw_private_screenshot_included": false
     },
@@ -214,8 +214,8 @@
         "mobile": "visual-baseline-file:mobile:setup"
       },
       "baseline_hashes": {
-        "desktop": "sha256:c4130a499fc89682693160877b1681bd7771707a8b3016584a4c87cadeca2fa3",
-        "mobile": "sha256:c3fca7bdb85d3f43df92f3d0c5edabd3ac654c008318387fe97872b1a44a9475"
+        "desktop": "sha256:ea2556816b03aeee6886b815e3be4b8535318d48f4fd2018111dbc0389c89139",
+        "mobile": "sha256:e09e03b56943dbd24c81b6f561f3e3344b22ca0012bf40c0d279f7d9e94c26b7"
       },
       "raw_private_screenshot_included": false
     }
@@ -236,8 +236,8 @@
         "mobile": "visual-baseline-file:mobile:state-loading"
       },
       "baseline_hashes": {
-        "desktop": "sha256:142ea862bc91cd460a6336daccafd497c60bdce6d9eeeca6aba10cf12ef15a4c",
-        "mobile": "sha256:175fa1a74dc3c3feb05c9396a7501744d257a40d73a8bd19f91e449eb864bb2e"
+        "desktop": "sha256:49d377281a06594c60989a70a138f442bc221b004120e3c5af07b67d41327b66",
+        "mobile": "sha256:be1f9e5b6d283a8ab6a2f9d9139776b314a10c40c62b3574e0102be10e58c7bd"
       },
       "raw_private_screenshot_included": false
     },
@@ -250,8 +250,8 @@
         "mobile": "visual-baseline-file:mobile:state-empty"
       },
       "baseline_hashes": {
-        "desktop": "sha256:da544c06ae3938a9cc506e4cf90dc0137521c74a0327c0670965fa91076e6ce4",
-        "mobile": "sha256:db4a6f247428379273c2e50fd9ff0d5b669eb1a06f7f3ec39ca73339665c02de"
+        "desktop": "sha256:8eda487673c46da16ec19daf242ef8202d8bb704e93473a6d1d6e37651fc637f",
+        "mobile": "sha256:f8869d911ece6bd1a24d3656138d152f8b142957e0d58a90e5ebde3d44cc6082"
       },
       "raw_private_screenshot_included": false
     },
@@ -264,8 +264,8 @@
         "mobile": "visual-baseline-file:mobile:state-error"
       },
       "baseline_hashes": {
-        "desktop": "sha256:e7de4be91d7774fd2608bee55285ae8b0f54869253ffb3374faefa8f684a596b",
-        "mobile": "sha256:03ed8b5450740d4425177c796b8209085d2a8dfa046d52c009fa57ab32cc4b88"
+        "desktop": "sha256:079e56620e6306f4af7de5fdb234048da7cfc99f138e884b4b65e4ac66cdc3fd",
+        "mobile": "sha256:51eb700da4e185340caf105c87813e3ed754c87196361fbb1eac4ba88c0eb4bb"
       },
       "raw_private_screenshot_included": false
     },
@@ -278,8 +278,8 @@
         "mobile": "visual-baseline-file:mobile:state-blocked"
       },
       "baseline_hashes": {
-        "desktop": "sha256:3af75477d7bc5bf16b930941efe0cba6a11208c9ee38ffc64219488085f4853d",
-        "mobile": "sha256:b5b24c4f54b44af712490c9c161706bf47d554d454c51b059fc2ad57260a1afd"
+        "desktop": "sha256:cf6adfe72606592bc7bcb0d3e1b2d36d06e93244c64ff03e8ca16a855c4dae3f",
+        "mobile": "sha256:dc1f74714fdae94a3851b866d47d6a5abbcc55845b1fedec3639c85d76b76177"
       },
       "raw_private_screenshot_included": false
     },
@@ -292,8 +292,8 @@
         "mobile": "visual-baseline-file:mobile:state-partial"
       },
       "baseline_hashes": {
-        "desktop": "sha256:12d4e4d9f6882fc0d4f89b3ea5adda465029a17e6ab59f622750940a34635bb2",
-        "mobile": "sha256:80893921663be654a341d59f838c029829cb41ae8ef01f434794076544c9637f"
+        "desktop": "sha256:deeaa6666377a2d3877fc7e3f6429ac6b473d1cffb712283af8d1e2ae107e254",
+        "mobile": "sha256:d8bfaa70a277931890cee53871f4bd250d76f68c1cd138fa40203c94a82b9375"
       },
       "raw_private_screenshot_included": false
     },
@@ -306,8 +306,8 @@
         "mobile": "visual-baseline-file:mobile:state-success"
       },
       "baseline_hashes": {
-        "desktop": "sha256:4555886a6540dd4690e72da8ef227d1340ba57ed33a43e659ac7fc3bdfdaf069",
-        "mobile": "sha256:fd78fe79dcf5283743de2720d1dd37bd9b817ee3833a2c381a216497867ed380"
+        "desktop": "sha256:ac9e4f6ca0843a26f9538259948692e9abb2e1b593f85538dc52284414e58e0a",
+        "mobile": "sha256:a7fe403aaa0e1f74a2d9181e21f80f340a2245383b7cb2a4f00fb7a387c63af2"
       },
       "raw_private_screenshot_included": false
     }

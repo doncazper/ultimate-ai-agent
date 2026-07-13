@@ -55,6 +55,11 @@ from ultimate_ai_agent.core.execution.mission_worker_inspection import (
 from ultimate_ai_agent.core.execution.mission_completion import (
     MissionCompletionCorruptionError,
     MissionCompletionStore,
+    PortableEvidenceManagedSigningInspection,
+)
+from ultimate_ai_agent.core.evidence_signing import (
+    PortableEvidenceKeyLifecycleError,
+    PortableEvidenceKeyLifecycleLedger,
 )
 from ultimate_ai_agent.core.execution.portable_mission_evidence import (
     build_portable_mission_evidence_inspection,
@@ -1327,12 +1332,33 @@ def get_api_runtime_authority_domain_readiness() -> ResultEnvelope:
 def get_api_runtime_authority_missions_completions() -> ResultEnvelope:
     try:
         state_dir = authority_state_dir()
+        signing = PortableEvidenceKeyLifecycleLedger(
+            state_dir / "portable_evidence_signing"
+        ).inspect()
         read_model = MissionCompletionStore(state_dir).build_read_model(
             portable_evidence_summary=build_portable_mission_evidence_inspection(
                 state_dir
-            )
+            ),
+            managed_signing=PortableEvidenceManagedSigningInspection(
+                status=signing.status,
+                active_key_ref=signing.active_key_ref,
+                active_key_version_ref=signing.active_key_version_ref,
+                active_public_key_fingerprint_ref=(
+                    signing.active_public_key_fingerprint_ref
+                ),
+                lifecycle_terminal_entry_hash_ref=(
+                    signing.lifecycle_terminal_entry_hash_ref
+                ),
+                reason_refs=signing.reason_refs,
+            ),
         )
-    except (MissionCompletionCorruptionError, OSError, UnicodeError, ValueError):
+    except (
+        MissionCompletionCorruptionError,
+        PortableEvidenceKeyLifecycleError,
+        OSError,
+        UnicodeError,
+        ValueError,
+    ):
         return ResultEnvelope(
             success=False,
             operation="api_runtime_authority_missions_completions",

@@ -1,0 +1,43 @@
+{
+  "schema_version": "uaa-verifier-value-measurements.v1",
+  "measurement_posture": "same-machine-local-advisory",
+  "source_ref": "docs/verification/FAST_LOCAL_VERIFICATION.md",
+  "measurements": [
+    {
+      "measurement_ref": "measurement-ref:docs-fast",
+      "seconds": 0.31,
+      "status": "green"
+    },
+    {
+      "measurement_ref": "measurement-ref:api-affected",
+      "seconds": 18.07,
+      "status": "green"
+    },
+    {
+      "measurement_ref": "measurement-ref:product-truth-warm",
+      "seconds": 3.48,
+      "status": "green"
+    },
+    {
+      "measurement_ref": "measurement-ref:frontend-after",
+      "seconds": 50.13,
+      "status": "green"
+    },
+    {
+      "measurement_ref": "measurement-ref:pytest-baseline-warm",
+      "seconds": 111.48,
+      "status": "green"
+    },
+    {
+      "measurement_ref": "measurement-ref:pytest-seed-only-after",
+      "seconds": 100.48,
+      "status": "green"
+    },
+    {
+      "measurement_ref": "measurement-ref:full-local-after",
+      "seconds": 159.34,
+      "status": "green"
+    }
+  ],
+  "fingerprint": "verifier-measurement-fingerprint:sha256:98ea7c6087e5a77dd71dc339cd25e61959bdadf361d42a54728f5bc1c0cc4066"
+}

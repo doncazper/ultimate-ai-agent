@@ -82,6 +82,7 @@ class AuthorityDomain(str, Enum):
     provider_model_calls = "provider_model_calls"
     memory = "memory"
     cloud_production = "cloud_production"
+    evidence_signing = "evidence_signing"
 
 
 class AuthorityCapability(str, Enum):
@@ -2254,6 +2255,10 @@ def _local_implemented_authority_capabilities() -> dict[
         AuthorityDomain.browser: {
             AuthorityCapability.read,
         },
+        AuthorityDomain.evidence_signing: {
+            AuthorityCapability.execute,
+            AuthorityCapability.mutate,
+        },
     }
 
 
@@ -2311,6 +2316,10 @@ def _allowed_domain_capabilities(
             AuthorityDomain.provider_model_calls: {
                 AuthorityCapability.observe,
                 AuthorityCapability.read,
+            },
+            AuthorityDomain.evidence_signing: {
+                AuthorityCapability.execute,
+                AuthorityCapability.mutate,
             },
         }
     if mode == TrustMode.approved_safe_local_work_session:
@@ -3592,6 +3601,7 @@ REQUIRED_AUTHORITY_LANE_IDS = (
     "local.verify.repo_verifier",
     "local.verify.frontend_check",
     "code.patch_proposal",
+    "calculation.sealed_arithmetic",
     "code.apply_exact_patch",
     "web.evidence.fetch_readonly",
     "memory.review.decision",
@@ -3605,6 +3615,7 @@ def build_authority_lane_catalog_read_model(
     active_leases: list[AuthorityLease] | None = None,
     kill_switch_engaged: bool = False,
 ) -> AuthorityLaneCatalogReadModel:
+    from ultimate_ai_agent.core.sandbox_calculation.authority_surfaces import build_sealed_arithmetic_lane_catalog_entry
     leases = active_leases or build_default_authority_leases()
     entries = [
         _authority_lane_entry(
@@ -3750,6 +3761,7 @@ def build_authority_lane_catalog_read_model(
             active_leases=leases,
             kill_switch_engaged=kill_switch_engaged,
         ),
+        build_sealed_arithmetic_lane_catalog_entry(active_leases=leases, kill_switch_engaged=kill_switch_engaged),
         _authority_lane_entry(
             lane_id="code.apply_exact_patch",
             label="Code exact patch apply",

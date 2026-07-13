@@ -80,6 +80,18 @@ validation and rollback/safe-disable refs. Catalog and activation metadata
 explicitly grant no invocation authority. Client-supplied approval-grant
 payloads are rejected by the disabled-install mutation surface.
 
+## Sealed Deterministic Calculation
+
+The exact `calculation.sandbox.arithmetic.exact_lease` lane is implemented as bounded
+arithmetic, not general CodeAct or Python. Its declaration appears in the shared
+availability and Action/Tool/Code catalogs, while current platform,
+configuration, image, health, safe-disable, budget, and lease truth remains
+request-scoped. Execution requires the canonical mission orchestrator, runner,
+dispatcher, exact `workspace/execute` mission lease, policy and budget checks,
+and atomic container start/input-commit evidence. Raw expressions are transient;
+durable state stores hashes and safe refs only. See
+`docs/runtime/UAA_SEALED_CALCULATION_ADAPTER.md`.
+
 ## Intent Reasoning And Plan Revision Truth
 
 `ultimate_ai_agent.core.intent.reasoning_truth` provides the deterministic,
@@ -297,10 +309,19 @@ exact referenced terminal dispatch records. Each
 entry binds plan/run/step, full lease-scope fingerprint, exact approval-scope
 fingerprint, policy, budget settlement, capability, adapter, truthful provider
 posture, target/resource binding, request fingerprint, terminal outcome,
-predecessor hash, redaction posture, and verifier version. The bundle provides
-local SHA-256 hash-chain integrity only. It is not cryptographically signed or
-externally anchored, source-ledger verification remains explicitly false until
-lease/budget storage hardening is complete, and evidence never grants authority.
+predecessor hash, redaction posture, and verifier version. The unchanged v1
+bundle provides local SHA-256 hash-chain integrity only. A separate signed
+artifact wrapper may now bind that verified bundle to an exact Ed25519 key
+through the request-scoped `evidence_signing` dispatcher lanes. Signing requires
+a pinned macOS Keychain helper, exact approval and resource-scoped
+AuthorityLease, budget, kill-switch, safe-disable, readiness, and replay checks.
+Structural dispatcher preflight performs no helper execution or Keychain probe;
+those occur only after request-scoped authority succeeds and are rechecked at
+the adapter start boundary.
+Offline verification requires independently pinned public trust metadata. It
+does not establish signer identity, non-repudiation, external anchoring, current
+revocation truth, or source-ledger availability; evidence never grants
+authority. See `docs/runtime/UAA_PORTABLE_MISSION_EVIDENCE_SIGNING.md`.
 
 Runtime Capability Foundation Phase 04 projects this proven lane into the
 canonical capability-availability snapshot and Action/Tool/Code catalog. The
@@ -309,13 +330,22 @@ and approval-required request authority. Current root, resource, health, and
 safe-disable truth is evaluated only for the exact request; implementation
 availability never means globally callable or authorized.
 
-Preparation inputs are durably recoverable as bounded safe refs and hashes,
-but no public mutating API, mutating CLI, or Control Center execution control is
-exposed in this phase. The existing read-only API, CLI, and macOS panel inspect
-completion-chain and portable-evidence verification truth only. Operator
-initiation remains a Python-core integration
-surface until the later parity phase binds one protected contract without
-allowing the shell to mint approval or lease authority.
+Preparation inputs are durably recoverable as bounded safe refs and hashes.
+The protected Founder Loop exact-action API and repo-local CLI expose this one
+predeclared metadata target as status → receipt-backed source-ref review →
+source-bound prepare → exact approval → dispatcher execution → receipt → Today
+refresh. Inspect, prepare, and approval recording each require the same current
+exact mission lease; every adapter start still performs fresh request-scoped
+authority, approval, budget, readiness, and kill-switch evaluation. Terminal
+status is derived from the hash-chain-valid completion and exact terminal
+dispatch ledgers, not from the mutable Today projection. The workflow preserves
+the source-review receipt but does not create a business-memory candidate
+from a metadata stat. No generic
+filesystem target, path, content read, shell, provider, connector, automatic
+memory write, or production authority was added. The macOS UI control remains
+pending the separate control-registry wiring pass; it must not appear enabled
+until it invokes these backend contracts, and the shell cannot mint approval or
+lease authority.
 
 Pre-Phase02 unfinished durable plans that bind more than one mission lease fail
 closed at the new whole-plan single-lease preflight. They are not silently

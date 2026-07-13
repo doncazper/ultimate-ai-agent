@@ -2,7 +2,17 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `258`.
+<!-- uaa-api-contract-counts:start -->
+Current generated contract snapshot: `263` OpenAPI paths and `264` manifest route operations.
+<!-- uaa-api-contract-counts:end -->
+
+Refresh and check this canonical static declaration snapshot with
+`PYTHONPATH=src .venv/bin/python scripts/verification/api_contract_snapshot.py
+--refresh` and `--check`. The snapshot is generated from FastAPI OpenAPI plus
+`/api/manifest` declaration metadata; it contains no runtime health or authority.
+The current generated inventory schema is `uaa-api-route-inventory.v5`. Refresh
+cannot redefine the separate hand-reviewed public-route, mutating-route,
+approval/idempotency, auth, or targeted-rate-limit policy floor.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -20,7 +30,10 @@ mission-completion evidence surface. It returns content-free plan, mission,
 run, lease, exact approval-validation, settled-budget, terminal receipt,
 hash-chain, and review-only memory-candidate refs. It cannot start or resume a
 mission, mint an approval or lease, accept memory as truth, or grant future
-authority.
+authority. It also reports safe managed-signing lifecycle posture only; the GET
+route cannot unlock Keychain, sign, create, rotate, revoke, or mark a key lost.
+It also cannot run interrupted key-material cleanup; that remains a separate
+exact dispatcher operation.
 
 Contract rules:
 

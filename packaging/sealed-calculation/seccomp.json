@@ -1,0 +1,31 @@
+{
+  "defaultAction": "SCMP_ACT_ERRNO",
+  "defaultErrnoRet": 1,
+  "architectures": [
+    "SCMP_ARCH_X86_64",
+    "SCMP_ARCH_X86",
+    "SCMP_ARCH_X32",
+    "SCMP_ARCH_AARCH64",
+    "SCMP_ARCH_ARM"
+  ],
+  "syscalls": [
+    {
+      "names": [
+        "access", "arch_prctl", "brk", "close", "dup", "dup2", "dup3",
+        "epoll_create1", "epoll_ctl", "epoll_pwait", "epoll_wait", "execve",
+        "exit", "exit_group", "faccessat", "faccessat2", "fcntl", "fstat",
+        "fstat64", "fstatfs", "fstatfs64", "futex", "getcwd", "getdents64", "geteuid", "geteuid32",
+        "getegid", "getegid32", "getgid", "getgid32", "getpid", "getppid",
+        "getrandom", "gettid", "getuid", "getuid32", "ioctl", "lseek",
+        "lstat", "lstat64", "madvise", "mmap", "mmap2", "mprotect", "mremap",
+        "munmap", "newfstatat", "open", "openat", "openat2", "pipe", "pipe2", "poll",
+        "ppoll", "prlimit64", "read", "readlink", "readlinkat", "readv",
+        "restart_syscall", "rseq", "rt_sigaction", "rt_sigprocmask",
+        "rt_sigreturn", "sched_getaffinity", "sched_yield", "select", "set_robust_list",
+        "set_tid_address", "setrlimit", "sigaltstack", "stat", "stat64", "statx",
+        "sysinfo", "uname", "write", "writev"
+      ],
+      "action": "SCMP_ACT_ALLOW"
+    }
+  ]
+}
