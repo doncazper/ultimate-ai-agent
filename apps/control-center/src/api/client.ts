@@ -157,7 +157,7 @@ const API_BASE_POLICY = resolveApiBaseUrl(
   import.meta.env.VITE_UAA_API_BASE_URL,
 );
 export const CONTROL_CENTER_READ_TIMEOUT_MS = 8000;
-export const CONTROL_CENTER_MAX_CONCURRENT_READS = 8;
+export const CONTROL_CENTER_MAX_CONCURRENT_READS = 32;
 const DEFAULT_LOCAL_MODEL_ID = "uaa-llama-cpp-local";
 const CHAT_OPERATOR_CONTRACT_REF =
   "contract-ref:chat-local-operator-surface:v1";
@@ -205,7 +205,6 @@ const REQUIRED_PROVIDER_COST_BLOCKERS = [
   "FUTURE_RECEIPT_REFS_REQUIRED",
   "PROVIDER_USAGE_CLAIM_REQUIRES_RECEIPT_REFS",
 ] as const;
-
 let sessionLocalApiBearer: string | null = null;
 
 interface ControlCenterReadLimiter {
@@ -352,7 +351,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
 
   const loadReadLimiter = createControlCenterReadLimiter();
   const read = <T>(endpoint: string): Promise<T> =>
-    readEnvelope<T>(endpoint, loadReadLimiter);
+    endpoint.startsWith("/api/runtime/")
+      ? Promise.resolve().then(() =>
+          readEnvelope<T>(endpoint, loadReadLimiter),
+        )
+      : readEnvelope<T>(endpoint, loadReadLimiter);
 
   const workBoardSettledPromise = Promise.allSettled([
     read<WorkBoardReadModel>(API_ENDPOINTS.controlCenterWorkBoard),
@@ -761,7 +764,12 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   );
   const providerCatalog = fulfilledValue(results[8]);
   const modelProviderControlPlane = fulfilledValue(results[9]);
-  const controlCenterSettingsStatus = fulfilledValue(results[10]);
+  const controlCenterSettingsStatusSource = fulfilledValue(results[10]);
+  const controlCenterSettingsStatus = isSafeControlCenterSettingsStatus(
+    controlCenterSettingsStatusSource,
+  )
+    ? controlCenterSettingsStatusSource
+    : undefined;
   const controlCenterLocalModelsStatus = fulfilledValue(results[11]);
   const founderToday = fulfilledValue(results[12]);
   const founderEvidenceTimeline = fulfilledValue(results[13]);
@@ -8362,6 +8370,46 @@ function buildRouteReadState(
         ? "Inspect proof, receipts, and blocked authority refs before relying on the route."
         : "Keep the route partial and use CLI/verifier evidence before promotion.",
   };
+}
+
+function isSafeControlCenterSettingsStatus(
+  value: unknown,
+): value is ControlCenterSettingsStatus {
+  if (!isPlainRecord(value) || !isPlainRecord(value.authority_lease_state)) {
+    return false;
+  }
+  const authority = value.authority_lease_state;
+  const authorityModes = new Set([
+    "read_only",
+    "ask_before_changes",
+    "approved_safe_local_work_session",
+    "full_local_workspace_session",
+    "full_machine_access_session",
+    "delegated_mission_autonomous_window",
+  ]);
+  return (
+    value.schema_version === "uaa-control-center-settings-status.v1" &&
+    value.module_id === "settings" &&
+    value.status === "read_only_status" &&
+    value.route_ref === "GET /control-center/settings/status" &&
+    value.proposal_review_only === true &&
+    value.settings_mutation_enabled === false &&
+    value.settings_toggle_grants_authority === false &&
+    value.production_authority_enabled === false &&
+    Array.isArray(value.blocked_authorities) &&
+    Array.isArray(value.redactions_applied) &&
+    authority.schema_version === "uaa-authority-state.v1" &&
+    authority.backend_owned === true &&
+    typeof authority.active_mode === "string" &&
+    authorityModes.has(authority.active_mode) &&
+    authority.unknown_authority_default === "deny" &&
+    typeof authority.kill_switch_visible === "boolean" &&
+    typeof authority.kill_switch_engaged === "boolean" &&
+    authority.receipts_required === true &&
+    authority.audit_required === true &&
+    authority.redaction_required === true &&
+    authority.unsupported_adapters_claimed_execution === false
+  );
 }
 
 function withConnection(

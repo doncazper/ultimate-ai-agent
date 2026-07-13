@@ -1,5 +1,9 @@
 import type { ReactNode } from "react";
-import type { BackendConnectionSummary } from "../api/types";
+import type {
+  AuthorityTrustMode,
+  BackendConnectionSummary,
+  ControlCenterRouteReadState,
+} from "../api/types";
 import {
   primaryNavItems,
   supportingNavItems,
@@ -15,17 +19,23 @@ import {
 interface AppShellProps {
   children: ReactNode;
   activePath: string;
+  authorityMode?: AuthorityTrustMode;
+  authorityModeAuthoritative?: boolean;
   connection?: BackendConnectionSummary;
+  killSwitchEngaged?: boolean;
+  killSwitchVisible?: boolean;
+  routeState?: ControlCenterRouteReadState;
 }
 
 const visibleSupportingLabels = new Set([
-  "Briefing",
   "CRM",
   "Trial Packet",
   "Source Inbox",
   "Operator Loop",
   "Setup",
   "Chat",
+  "Coding",
+  "Briefing",
   "Action Preview",
   "Runtime",
   "Foundation Gate",
@@ -35,7 +45,32 @@ const visibleSupportingLabels = new Set([
   "Differentiators",
 ]);
 
-export function AppShell({ children, activePath, connection }: AppShellProps) {
+export function AppShell({
+  activePath,
+  authorityMode,
+  authorityModeAuthoritative = false,
+  children,
+  connection,
+  killSwitchEngaged = false,
+  killSwitchVisible = false,
+  routeState,
+}: AppShellProps) {
+  const visiblePrimaryLabels = new Set([
+    "Start Here",
+    "Today",
+    "Source Inbox",
+    "Plans",
+    "Work Board",
+    "Action Inbox",
+    "Proof",
+    "Trust",
+    "Memory",
+    "Evidence",
+    "Settings",
+  ]);
+  const primaryItems = primaryNavItems.filter((item) =>
+    visiblePrimaryLabels.has(item.label),
+  );
   const supportingItems = supportingNavItems.filter((item) =>
     visibleSupportingLabels.has(item.label),
   );
@@ -55,11 +90,14 @@ export function AppShell({ children, activePath, connection }: AppShellProps) {
           : activeRouteLabel;
   const backendAuthoritative =
     connection?.state === "online" && connection.usingMockData === false;
+  const routeAuthoritative = routeState?.state === "backend_owned";
   const backendUnavailable =
     connection?.state === "mock_fallback" || connection?.usingMockData === true;
   const backendDegraded = connection?.state === "degraded";
   const loopStatusLabel = backendAuthoritative
     ? "Repo-safe local loop active"
+    : routeAuthoritative
+      ? "Current route is backend-owned"
     : backendDegraded
       ? "Backend degraded; verify refs"
       : backendUnavailable
@@ -76,20 +114,31 @@ export function AppShell({ children, activePath, connection }: AppShellProps) {
   const evidenceLabel = backendAuthoritative
     ? "Evidence refs available"
     : "Evidence refs unverified";
-  const runtimeLabel = "Runtime status-only";
-  const sourcesLabel = "Sources blocked/status-only";
-  const killSwitchPosture = backendAuthoritative
-    ? "Backend status visible"
-    : "Unverified in fallback";
-  const actionAuthorityLabel = backendAuthoritative
-    ? "No generic execution; no authority to run actions outside local task"
-    : "No generic execution; no authority to run actions without backend approval";
-  const localTaskAuthorityLabel = backendAuthoritative
-    ? "Local task authority gated by backend approval"
-    : "Local task authority requires backend approval";
+  const routeTruthLabel = routeAuthoritative
+    ? "Backend-owned route read model"
+    : backendAuthoritative
+      ? "Backend-connected operator view"
+      : backendDegraded
+        ? "Backend degraded · verify exact refs"
+        : backendUnavailable
+          ? "Mock fallback · non-authoritative"
+          : "Backend ownership unverified";
+  const authorityModeLabel =
+    authorityModeAuthoritative && authorityMode
+      ? `Mode: ${humanize(authorityMode)}`
+      : "Authority mode unknown";
+  const killSwitchStatus = authorityModeAuthoritative
+    ? killSwitchEngaged
+      ? "engaged"
+      : killSwitchVisible
+        ? "available"
+        : "not visible"
+    : "unverified in fallback";
+
+  const surfaceClass = `surface-${activePath.replace(/^\//, "").replaceAll("/", "-") || "overview"}`;
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${surfaceClass}`}>
       <aside className="sidebar" aria-label="Control Center navigation">
         <div className="window-controls" aria-hidden="true">
           <span className="window-dot red" />
@@ -97,16 +146,16 @@ export function AppShell({ children, activePath, connection }: AppShellProps) {
           <span className="window-dot green" />
         </div>
         <div className="brand">
-          <span className="brand-mark">CC</span>
+          <span className="brand-mark">U</span>
           <span>
-            <strong>Control Center</strong>
-            <small><span className="live-dot" /> {loopStatusLabel}</small>
+            <strong>AI Agent Control Center</strong>
+            <small>Founder Loop</small>
           </span>
         </div>
         <nav className="nav-stack">
           <div className="nav-section" aria-label="Primary Founder Loop">
             <div className="primary-nav-list">
-              {primaryNavItems.map((item) => (
+              {primaryItems.map((item) => (
                 <NavLink activePath={activePath} item={item} key={item.path} />
               ))}
             </div>
@@ -125,85 +174,57 @@ export function AppShell({ children, activePath, connection }: AppShellProps) {
             </div>
           </div>
         </nav>
-        <div className="sidebar-posture" aria-label="Local safety posture">
-          <PostureRow label="Privacy posture" value="Private by default" tone="green" />
-          <PostureRow
-            label="Kill-switch posture"
-            value={killSwitchPosture}
-            tone="orange"
-          />
-          <PostureRow label="Local-first" value="Status + exact backend lanes" tone="blue" />
+        <div className="sidebar-runtime" aria-label="Local runtime posture">
+          <span className={`runtime-orb ${backendAuthoritative ? "online" : "check"}`} />
+          <span>
+            <strong>{routeAuthoritative ? "Local route ready" : backendAuthoritative ? "Local runtime" : "Runtime check"}</strong>
+            <small>{loopStatusLabel}</small>
+          </span>
         </div>
       </aside>
       <div className="workspace">
         <header className="topbar">
-          <div className="topbar-title-block">
-            <div className="topbar-title-row">
-              <h1>Control Center</h1>
-              <span>Founder Loop</span>
-              <span>Operator Shell</span>
-              <span>Backend Truth</span>
-              <span>Safety First</span>
-            </div>
-            <p>
-              Operate with local facts. Review backend refs where available;
-              blocked, partial, and mock states stay visible.
-            </p>
-            <div className="topbar-route" aria-label="Current surface">
-              <NorthStarIcon className="chrome-arrow" name="chevron-left" />
-              <NorthStarIcon className="chrome-arrow" name="chevron-right" />
-              <strong>{activeRoute}</strong>
+          <div className="topbar-route" aria-label="Current surface">
+            <strong>{activeRoute}</strong>
+            <small>{routeTruthLabel}</small>
+            <div className="topbar-safety-floor" aria-label="Visible safety floor">
+              <span>No generic execution · no authority to run actions</span>
+              <span>Local task authority requires backend approval</span>
+              <span>Sources blocked/status-only</span>
+              {!authorityModeAuthoritative ? (
+                <span>Unverified in fallback</span>
+              ) : null}
+              <span>
+                <span>Kill-switch posture</span>: {killSwitchStatus}
+              </span>
             </div>
           </div>
-          <div
-            className="topbar-actions"
-            aria-label="Control Center safety status"
-          >
-            <div className="authority-legend" aria-label="Operator state legend">
-              <LegendItem
-                detail="Requires your action"
-                label="Blocked"
-                tone="red"
-              />
-              <LegendItem
-                detail="No receipt yet"
-                label="Proposal Only"
-                tone="orange"
-              />
-              <LegendItem
-                detail="Verified by source"
-                label="Receipt-Backed"
-                tone="green"
-              />
-              <LegendItem detail="Read-only" label="Info Only" tone="gray" />
-            </div>
-            <div className="topbar-control-row">
-              <CommandPalette activePath={activePath} />
-              <StatusChip
-                tone={apiBoundaryTone}
-                label={apiBoundaryLabel}
-                detail={connection?.apiBaseLabel}
-              />
-            </div>
-            <div className="topbar-status-strip" aria-label="Backend boundary summary">
-              <StatusChip tone="blue" label={runtimeLabel} />
-              <StatusChip tone="red" label={sourcesLabel} />
-              <StatusChip
-                tone={backendAuthoritative ? "green" : "blue"}
-                label={evidenceLabel}
-              />
-              <StatusChip tone="orange" label={actionAuthorityLabel} />
-              <StatusChip
-                tone={backendAuthoritative ? "green" : "orange"}
-                label={localTaskAuthorityLabel}
-              />
-            </div>
+          <div className="topbar-postures" aria-label="Control Center safety status">
+            <StatusChip
+              tone={routeAuthoritative || backendAuthoritative ? "green" : "orange"}
+              label={routeAuthoritative ? "Route backed" : backendAuthoritative ? "Local runtime" : "Runtime check"}
+              detail={connection?.safeMessage}
+            />
+            <StatusChip
+              tone={authorityModeAuthoritative ? "blue" : "orange"}
+              label={authorityModeLabel}
+            />
+            <StatusChip
+              tone={backendAuthoritative ? "green" : "blue"}
+              label={evidenceLabel}
+            />
+            <StatusChip tone={apiBoundaryTone} label={apiBoundaryLabel} />
+            <CommandPalette activePath={activePath} />
           </div>
         </header>
-        <main>{children}</main>
+        <main className="app-main">{children}</main>
       </div>
     </div>
   );
+}
+
+function humanize(value: string): string {
+  return value.replaceAll("_", " ");
 }
 
 function NavLink({
@@ -311,58 +332,5 @@ function StatusChip({
       <NorthStarIcon className="chip-icon" name={icon} />
       <span className="top-status-chip-label">{label}</span>
     </span>
-  );
-}
-
-function LegendItem({
-  detail,
-  label,
-  tone,
-}: {
-  detail: string;
-  label: string;
-  tone: "green" | "gray" | "orange" | "red";
-}) {
-  return (
-    <span className="legend-item">
-      <span className={`legend-swatch ${tone}`} aria-hidden="true" />
-      <span>
-        <strong>{label}</strong>
-        <small>{detail}</small>
-      </span>
-    </span>
-  );
-}
-
-function PostureRow({
-  label,
-  tone,
-  value,
-}: {
-  label: string;
-  tone: "green" | "blue" | "orange";
-  value: string;
-}) {
-  return (
-    <div className="posture-row">
-      <NorthStarIcon
-        className={`posture-icon ${tone}`}
-        name={
-          label.includes("Privacy")
-            ? "lock"
-            : label.includes("Kill")
-              ? "shield"
-              : "database"
-        }
-      />
-      <span>
-        <strong>{label}</strong>
-        <small>{value}</small>
-      </span>
-      <NorthStarIcon
-        className="posture-chevron"
-        name="chevron-right"
-      />
-    </div>
   );
 }

@@ -103,9 +103,22 @@ serialized report-only Foundation Gate summary with `--no-write-latest`.
 `VERIFY_DEV_FAST_JOBS` bounds top-level phases and `PYTEST_SHARD_WORKERS`
 separately bounds pytest subprocesses. It is useful local evidence, but it does
 not create populated release evidence packets or claim release readiness.
-Hosted CI proves pytest equivalence with eight isolated timing-balanced shards
-and a stable aggregate `pytest` check; `make verify` runs the same complete
-pytest posture plus the release-grade local gate sequence.
+CI proves pytest equivalence with eight logical timing-balanced shards in one
+installed self-hosted suite job and a stable aggregate `pytest` check; `make
+verify` runs the same complete pytest posture plus the release-grade local gate
+sequence.
+
+The current private-repository workflow schedules those named jobs only on the
+repo-scoped self-hosted Apple Silicon runner pool described in
+`docs/developer/SELF_HOSTED_MACOS_CI.md`. This preserves the named lane and
+eight-shard evidence contract without consuming GitHub-hosted runner minutes.
+Fork pull requests cannot schedule local jobs, the workflow token is read-only,
+checkout credentials are not persisted, and GitHub Actions caches and uploaded
+artifacts are intentionally absent. Self-hosting changes only CI compute; it
+does not grant runtime authority or imply release readiness.
+Python 3.12 and Node 22 are provisioned as shared read-only Homebrew toolchains;
+the workflow intentionally avoids setup actions whose macOS installation path
+would require host-level privileges unavailable to the non-admin runner.
 
 `verify-dev-sharded` and `verify-local` expose the readable local/dev runner. It uses
 `scripts/verification/run_dev_fast_gate.py` to run `ruff`, sharded pytest,
@@ -118,9 +131,10 @@ concise phase summaries on success while preserving detailed log tails on
 failure. The tracked advisory seed is overlaid by a newer local profile; new or
 missing files receive a conservative p90 estimate. Normal runs do not rewrite
 timing data; `make test-sharded-profile` is the explicit green refresh lane.
-This adds no pytest-xdist dependency. The hosted required pytest lane uses
-eight isolated timing-balanced shards, rejects partial coverage through a stable
-aggregate check, and keeps optional live/model-heavy execution disabled.
+This adds no pytest-xdist dependency. The required self-hosted pytest lane uses
+eight bounded logical shards with four workers in one installed environment,
+rejects partial coverage through a stable aggregate check, and keeps optional
+live/model-heavy execution disabled.
 
 The sharded lane is not a live/model-heavy lane. Shard subprocesses strip known
 opt-in environment variables for live GGUF search/acquisition, local model root
