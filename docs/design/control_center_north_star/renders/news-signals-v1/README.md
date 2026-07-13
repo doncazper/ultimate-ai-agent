@@ -1,60 +1,62 @@
-# News & Signals V1 North-Star Render
+# News & Signals V1 Desktop Implementation Evidence
 
-Status: accepted visual direction; planning-only target
-Accepted: 2026-07-13
+Status: implemented fixture-only desktop preview; not live source evidence
+Captured: 2026-07-13
 Repository baseline: v0.104.0 / 0.104.0
 Route: `/news`
 Global navigation label: **News & Signals**
 
-`01-news-signals-home.png` is the accepted desktop front-page direction for
-UAA News & Signals. It is a generated design target, not a screenshot of the
-implemented Control Center and not evidence of live source ingestion.
+This set records the implemented `/news` fixture preview at normal, compact,
+narrow-desktop, and filtered states. The screenshots are implementation
+evidence, not evidence of source ingestion, provider readiness, ranking,
+background polling, or production authority. The broader future composition in
+`CONTROL_CENTER_UI_UX_SPEC.md` remains a design target rather than implemented
+runtime truth.
 
 Artifact metadata:
 
-- dimensions: `1576 x 998`;
-- SHA-256:
-  `961bc6ff66055796ec9495d85e8fc66da44a3054951d0615a11e30f19052d85a`;
-- built-in image-generation workflow;
-- visual references: accepted UAA Today, Work Board, CRM, Communications, and
-  Social north-star surfaces;
+- render `NEWS-01`, `01-news-signals-home.png`: default fixture preview,
+  `1576 x 998`, SHA-256
+  `d522b722da09de2a6beaf83cf670ce8fb30f5438f7f8f4607256962a88a231df`;
+- render `NEWS-02`, `02-news-signals-compact.png`: compact desktop fixture
+  preview, `1280 x 820`, SHA-256
+  `e86b13478913420c684fb83a97ef1016641c06216b527ffa2aeab74f1446e36f`;
+- render `NEWS-03`, `03-news-signals-narrow-desktop.png`: narrow desktop
+  fixture preview, `1024 x 768`, SHA-256
+  `eff955a3fdd62997ea19f328bf639ae6bcf614e934a2bbfda6d0d70bfa420d59`;
+- render `NEWS-04`, `04-news-signals-community-filter.png`: Community filter
+  selected, `1576 x 998`, SHA-256
+  `3c631cb500208bd6749e0098955869a4a3f8fce39e778a1020fa1eb592ba653d`;
+- capture posture: local Vite fixture route, 100% zoom, animations unchanged,
+  sanitized static records, backend ownership unverified, no credentials;
+- approval state: reviewed implementation evidence, not an accepted live-data
+  or production-readiness claim;
 - the earlier `renders/target-v2/15-news-v1.png` remains preserved as a
   superseded exploration.
 
-## Locked Front-Page Hierarchy
+## Implemented Preview Hierarchy
 
-The accepted hierarchy answers four operator questions in order:
+The current preview answers four operator questions in order:
 
-1. **What kind of news is this?** Familiar category navigation groups Top, AI,
-   Technology, Business, Politics, World, Sports, Science, and Culture.
-2. **What matters now?** `Top stories for you` provides a personalized lead
-   story plus category-labeled secondary headlines with source and freshness.
-3. **What will UAA carry forward?** `Morning Brief queue` shows a bounded
-   selection, pagination across the review pool, and a visible path to the full
-   Morning Briefing.
-4. **What did my chosen sources find?** Separate Reddit Scanner, X Watchlist,
-   and Newsletter Bulletin cards preserve source-specific context instead of
-   hiding it inside an abstract cluster.
+1. **What is this surface?** The heading and permanent notice label it an
+   illustrative sample-only preview.
+2. **What is available?** Bounded fixture counts summarize the visible sample
+   pool without claiming backend ownership.
+3. **What should I inspect?** A ranked review list exposes safe summaries,
+   source labels, freshness-shaped fixture values, and review posture.
+4. **Why is an item present?** The selected-signal inspector shows rationale,
+   coverage labels, and a safe preview ref while mutation controls stay absent.
 
-The `Also monitoring` strip makes Discord, RSS, official blogs, YouTube,
-podcasts, and later exact adapters visible as source families without turning
-the home page into a configuration screen.
+## Implemented Interaction Intent
 
-## Locked Interaction Intent
-
-- `For You` is the default front page.
-- `Categories` opens category-first browsing.
-- `Source Feeds` opens source-specific scanner and subscription views.
-- `Saved` and `Sources` remain distinct: saved items are operator review state;
-  sources are readiness, permissions, retention, and coverage posture.
-- Category controls filter or navigate; they do not mutate durable work.
-- Story rows open bounded sourced detail.
-- Morning Brief pagination browses the candidate pool; `Open full Morning
-  Briefing` opens the canonical briefing surface.
-- Scanner and subscription cards keep source identity, source-local label,
-  freshness, and a `View all` path.
-- The persistent UAA composer may compare coverage, explain a signal, or open a
-  safe source ref. It may not treat fetched content as instructions.
+- `For you` is the default fixture view.
+- `Brief candidates`, `Official sources`, and `Community` filter local
+  presentation state only.
+- Story rows select one bounded fixture record for inspection.
+- `Open Morning Briefing` navigates to the existing briefing surface; it does
+  not persist, rank, or promote any story.
+- Save, dismiss, mute, action-proposal, source-management, and live retrieval
+  controls remain absent until backend-owned contracts exist.
 
 ## Authority And Truth Boundary
 
@@ -77,13 +79,14 @@ connector, provider, browser, or execution authority.
 ## Implementation Notes
 
 - Preserve the accepted UAA shell and spacing grammar.
-- Keep categories and source feeds as separate organizing dimensions.
+- In a later backend-owned composition, keep categories and source feeds as
+  separate organizing dimensions.
 - Do not reintroduce an abstract signal radar or duplicate topic-analysis
   panels on the front page.
 - Avoid a generic endless feed. Internal panes may paginate or scroll while the
   reference desktop composition remains contained.
-- Morning Briefing consumes a bounded ranked projection rather than duplicating
-  the full News & Signals pool.
+- Morning Briefing may consume a bounded backend-owned projection only after
+  that projection is separately implemented and accepted.
 - Social continues to own owned-channel performance, audience, campaign, and
-  publishing-rhythm interpretation. News & Signals owns outside context and
-  watched public-source intake.
+  publishing-rhythm interpretation. A later News & Signals read model may own
+  outside context and watched public-source intake after exact adapters exist.

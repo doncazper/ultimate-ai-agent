@@ -20,7 +20,7 @@
     {
       "id": "news-signals-v1",
       "label": "News & Signals",
-      "description": "Accepted personalized news front-page direction with categories, Morning Brief candidates, and source-specific scanner/subscription previews."
+      "description": "Implemented fixture-only desktop preview with visible safety posture, bounded sample records, local filters, and selected-item rationale."
     }
   ],
   "renders": [
@@ -224,12 +224,15 @@
       "surface": "News & Signals",
       "category": "Primary workspace",
       "route": "target",
-      "purpose": "Personalized outside-context front page with familiar categories, Top Stories, a bounded Morning Brief queue, and source-specific scanner/subscription previews.",
-      "truth": "Accepted design target; all visible content is illustrative and no source adapter, account access, scraping, polling, connector read/write, or unrestricted web fetching is implied.",
+      "purpose": "Fixture-only desktop implementation proof for a bounded signal list, selected-item rationale, safe preview refs, and local presentation filters.",
+      "truth": "Implemented local fixture preview only; no source adapter, account access, scraping, polling, connector read/write, ranking service, or unrestricted web fetching is implied.",
       "image": "../renders/news-signals-v1/01-news-signals-home.png",
       "versions": [
         {"id": "v1", "label": "Preserved v1 · curated brief exploration", "image": "../renders/target-v2/15-news-v1.png"},
-        {"id": "v2", "label": "Accepted v2 · personalized front page", "image": "../renders/news-signals-v1/01-news-signals-home.png"}
+        {"id": "v2", "label": "Implemented v2 · fixture-only desktop preview", "image": "../renders/news-signals-v1/01-news-signals-home.png"},
+        {"id": "v2-compact", "label": "Implemented v2 · compact desktop", "image": "../renders/news-signals-v1/02-news-signals-compact.png"},
+        {"id": "v2-narrow", "label": "Implemented v2 · narrow desktop", "image": "../renders/news-signals-v1/03-news-signals-narrow-desktop.png"},
+        {"id": "v2-community", "label": "Implemented v2 · Community filter", "image": "../renders/news-signals-v1/04-news-signals-community-filter.png"}
       ]
     },
     {

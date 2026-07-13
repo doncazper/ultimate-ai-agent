@@ -88,13 +88,16 @@ in `CRM_V3_REFERENCE_SYNTHESIS.md`.
 
 ## News & Signals V1
 
-The News & Signals V1 set records the accepted personalized news front-page
-direction. It replaces the earlier analytical News exploration as the current
-surface target without deleting or rewriting that historical artifact.
+The News & Signals V1 set records the implemented fixture-only desktop preview.
+It preserves the earlier analytical News exploration and does not promote the
+broader future front-page composition to implemented runtime truth.
 
 | File | Surface/version | Required relationship | Must not imply |
 |---|---|---|---|
-| `renders/news-signals-v1/01-news-signals-home.png` | News & Signals home v1 | familiar category grouping; personalized Top Stories; bounded paginated Morning Brief candidate pool; separate Reddit, X, newsletter, and later source-family views; persistent read-only posture | implemented adapters, authenticated accounts, live scraping, background polling, connector reads/writes, unrestricted web fetching, provider/model calls, or production authority |
+| `renders/news-signals-v1/01-news-signals-home.png` | News & Signals default fixture preview | sample-only disclosure; bounded fixture list; selected-item rationale; safe preview ref; deferred mutation controls | implemented adapters, authenticated accounts, live scraping, background polling, connector reads/writes, unrestricted web fetching, provider/model calls, or production authority |
+| `renders/news-signals-v1/02-news-signals-compact.png` | Compact desktop fixture preview | same safe truth at 1280 x 820; no horizontal overflow | responsive mobile implementation or live source readiness |
+| `renders/news-signals-v1/03-news-signals-narrow-desktop.png` | Narrow desktop fixture preview | same safe truth at 1024 x 768; safety floor remains visible | mobile implementation or hidden safety posture |
+| `renders/news-signals-v1/04-news-signals-community-filter.png` | Community filter fixture preview | local presentation filtering and selected-item update only | durable ranking, retrieval, memory, or action authority |
 
 See `renders/news-signals-v1/README.md` for the locked hierarchy and adapter
 truth boundary.

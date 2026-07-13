@@ -429,11 +429,12 @@ Morning Briefing` remains visible independently from pagination. News & Signals
 does not own tasks, approvals, messages, or owned-channel social performance.
 Social retains owned-channel performance and audience interpretation.
 
-The accepted desktop reference is
-`control_center_north_star/renders/news-signals-v1/01-news-signals-home.png`,
-with the truth contract in the adjacent `README.md`. The current `/news`
-implementation may remain partial or sample-only until separately implemented,
-tested, and promoted.
+The current fixture-only desktop implementation evidence is recorded in
+`control_center_north_star/renders/news-signals-v1/`, with the truth contract in
+the adjacent `README.md`. The broader composition above remains a design target;
+the current `/news` implementation stays partial and sample-only until each
+backend read model and exact source adapter is separately implemented, tested,
+and promoted.
 
 ### B. Queue, detail, inspector
 

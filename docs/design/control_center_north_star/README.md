@@ -101,16 +101,20 @@ retaining both earlier CRM drafts:
 |---|---|
 | `renders/target-v3/04-crm-v3.png` | CRM v3 premier general relationship workspace |
 
-News & Signals V1 replaces the earlier analytical News exploration with the
-accepted personalized front-page direction while preserving the old image:
+News & Signals V1 records the current safe fixture-backed desktop implementation
+while preserving the earlier analytical News exploration:
 
 | Render | Revision |
 |---|---|
-| `renders/news-signals-v1/01-news-signals-home.png` | News & Signals personalized front page with categories, Top Stories, Morning Brief queue, source-specific scanners/subscriptions, and governed source posture |
+| `renders/news-signals-v1/01-news-signals-home.png` | Default fixture-only News & Signals preview with visible sample, safety, and deferred-control posture |
+| `renders/news-signals-v1/02-news-signals-compact.png` | Compact desktop fixture preview at 1280 x 820 |
+| `renders/news-signals-v1/03-news-signals-narrow-desktop.png` | Narrow desktop fixture preview at 1024 x 768 |
+| `renders/news-signals-v1/04-news-signals-community-filter.png` | Community filter presentation-state proof |
 
-See `renders/news-signals-v1/README.md` for the locked hierarchy, interaction
-intent, and authority boundary. The render is a planning/design artifact, not
-evidence that Reddit, X, email, Discord, RSS, or any other source is connected.
+See `renders/news-signals-v1/README.md` for capture metadata, implemented
+interactions, and the authority boundary. These screenshots are implementation
+evidence for local fixtures only, not evidence that any external source is
+connected.
 
 The independent Messenger client set covers the Element-familiar Matrix north
 star through the UAA lens while Communications keeps its accepted unified hub.

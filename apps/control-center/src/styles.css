@@ -7078,8 +7078,32 @@ th {
   .news-signals-workspace { grid-template-columns: minmax(0, 1.2fr) minmax(292px, .8fr); }
 }
 
+@media (min-width: 921px) and (max-width: 1320px) {
+  .surface-news .topbar {
+    min-height: 78px;
+  }
+
+  .surface-news .topbar-route {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .surface-news .topbar-postures {
+    flex: 0 1 360px;
+  }
+
+  .surface-news .top-status-chip {
+    display: none;
+  }
+
+  .surface-news .topbar-safety-floor {
+    line-height: 1.25;
+  }
+}
+
 @media (max-height: 820px) {
   .app-shell { --loop-topbar-height: 62px; }
+  .surface-news.app-shell { --loop-topbar-height: 78px; }
   .app-shell .sidebar { padding-top: 10px; }
   .app-shell .window-controls { margin-bottom: 10px; }
   .app-shell .nav-stack a { min-height: 29px; padding-block: 4px; }
