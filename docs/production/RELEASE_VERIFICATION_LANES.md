@@ -8,12 +8,15 @@ automation.
 
 UAA-P1-013 defines named verification lanes for release-candidate review.
 UAA-P1-053 binds those lane command refs to named GitHub CI jobs with
-safe-summary-only step summaries. The lane manifest is repo-owned and
-inspection-only:
+safe-summary-only step summaries. The release-lane catalog remains
+inspection-only, while one separate canonical command manifest owns the exact
+GitHub/private execution definitions:
 
 ```bash
 .venv/bin/python scripts/verify_release_lanes.py
 .venv/bin/python scripts/verify_release_lanes.py --json
+.venv/bin/python scripts/verification/ci_command_manifest.py
+.venv/bin/python scripts/verification/ci_command_manifest.py --json
 ```
 
 The manifest names commands and evidence refs; it does not execute those
@@ -22,7 +25,10 @@ remains `not_executed`. `scripts/verify_all.py` validates that the lane
 definitions remain present, safe, and complete. `scripts/run_foundation_gate.py
 --command-mode report-only` includes a compact `release_verification_lanes`
 summary in the Foundation Gate report without claiming lane-command execution.
-In CI, `scripts/run_foundation_gate.py --command-mode ci-parallel` records that
+GitHub and the bounded private fallback invoke
+`scripts/verification/run_ci_lane.py` against those same definitions; neither
+keeps a second command list. In CI, `scripts/run_foundation_gate.py
+--command-mode ci-parallel` records that
 lane execution evidence is represented by required CI job dependencies, not by
 Foundation Gate re-running or storing raw lane output.
 
@@ -61,6 +67,7 @@ reason, impact, and safe evidence refs.
 | openapi | `command:openapi.contract`, `command:api.manifest.tests`, `command:route-module.ownership` | Not skippable for a release candidate; blocked by route-count drift, missing operation ids, unsafe route metadata, or missing route-module ownership coverage. |
 | api-safety | `command:api.safe-errors`, `command:control-center.api-routes` | Not skippable for a release candidate; blocked by unsafe error output or side-effect classification drift. |
 | security-redaction | `command:secret-broker.redaction`, `command:file-secret.blocking`, `command:foundation-gate.secret-hygiene`, `command:security.artifact-redaction` | Not skippable for a release candidate; blocked by raw prompt, raw response, raw provider payload, raw path, raw log, username, hostname, serial, environment dump, credential-like output, or unsafe release claim. |
+| product-truth-regression | `command:product-truth.regression-verifier`, `command:product-truth.regression-tests` | Not skippable for a release candidate; blocked by unsupported, contradictory, or authority-expanding product claims. |
 | local-model-e2e | `command:local-model.release-gate`, `command:local-model.hardening`, `command:openwebui.local-gateway` | Live hardware or model prerequisites may be skipped only when the harness reports skipped with reason code; blocked by missing reviewed safe refs, approved model refs, or local-only auth prerequisites. |
 | durability | `command:durable.state-machine`, `command:event-ledger.append-only`, `command:file.atomic-writes`, `command:backup-restore.verify` | Not skippable for local durable-state release candidates; blocked by corruption, duplicate mutation, missing idempotency, unreceipted mutation, missing minimum backup set, or failed offline restore verification. |
 | frontend | `command:frontend.check`, `command:frontend.safety`, `command:frontend.browser-smoke` | Can be skipped only in split CI when an equivalent required frontend job is referenced; blocked by hidden authority, raw JSON primary UI, inaccessible failure state, or failed frontend checks. |
@@ -119,6 +126,15 @@ does not grant runtime authority or imply release readiness.
 Python 3.12 and Node 22 are provisioned as shared read-only Homebrew toolchains;
 the workflow intentionally avoids setup actions whose macOS installation path
 would require host-level privileges unavailable to the non-admin runner.
+
+The bounded fallback described in
+`docs/developer/SELF_HOSTED_MACOS_CI.md` may diagnose and verify an exact pushed
+SHA in a standalone credential-free clone when GitHub infrastructure is
+explicitly blocked.
+Its content-free receipt is local evidence only. A final green GitHub run on the
+same exact SHA and canonical manifest version, created after the private
+terminal receipt, remains mandatory for merge. Missing or partial GitHub job
+evidence fails closed and cannot classify a code failure as infrastructure.
 
 `verify-dev-sharded` and `verify-local` expose the readable local/dev runner. It uses
 `scripts/verification/run_dev_fast_gate.py` to run `ruff`, sharded pytest,

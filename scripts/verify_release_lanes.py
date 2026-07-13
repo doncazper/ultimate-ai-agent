@@ -23,6 +23,7 @@ REQUIRED_LANE_IDS = {
     "openapi",
     "api-safety",
     "security-redaction",
+    "product-truth-regression",
     "local-model-e2e",
     "durability",
     "frontend",
@@ -203,6 +204,34 @@ def release_lanes() -> tuple[ReleaseLane, ...]:
                 "SECURITY.md",
                 "docs/security/SECURITY_TRIAGE_RUNBOOK.md",
                 "scripts/verify_security_redaction_artifacts.py",
+            ),
+        ),
+        ReleaseLane(
+            lane_id="product-truth-regression",
+            name="Product Truth Regression",
+            owner="release-review",
+            purpose="Prove release-facing capability and readiness claims remain evidence-backed and fail closed.",
+            commands=(
+                LaneCommand(
+                    command_ref="command:product-truth.regression-verifier",
+                    argv=(py, "scripts/verify_product_truth.py"),
+                    purpose="Scan release-facing artifacts for unsupported product claims.",
+                    report_ref="report:product-truth:console-summary",
+                ),
+                LaneCommand(
+                    command_ref="command:product-truth.regression-tests",
+                    argv=(py, "-m", "pytest", "tests/test_product_truth_verifier.py"),
+                    env={"PYTHONPATH": "src"},
+                    purpose="Exercise adversarial product-truth regression fixtures.",
+                ),
+            ),
+            required_for_release_candidate=True,
+            skipped_policy="Not skippable for a release candidate.",
+            blocked_policy="Blocked by unsupported, contradictory, or authority-expanding product claims.",
+            accepted_failure_policy="No accepted failures for product-truth regression.",
+            evidence_refs=(
+                "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md",
+                "scripts/verify_product_truth.py",
             ),
         ),
         ReleaseLane(

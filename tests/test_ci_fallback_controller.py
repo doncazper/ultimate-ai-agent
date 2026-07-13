@@ -1,0 +1,531 @@
+from __future__ import annotations
+
+import json
+import os
+import signal
+import sys
+from dataclasses import replace
+from datetime import UTC, datetime
+from pathlib import Path
+
+import pytest
+
+from scripts.verification.ci_fallback_controller import (
+    CAPACITY_COOLDOWN_SECONDS,
+    AttemptLedger,
+    FallbackController,
+    FallbackState,
+    FullSuiteLock,
+    GitHubObservation,
+    PrivateVerificationResult,
+    _safe_subprocess,
+    classify_github,
+    status_payload,
+)
+from scripts.verification.ci_command_manifest import (
+    SCHEMA_VERSION,
+    definition_fingerprint,
+)
+
+
+SHA_A = "a" * 40
+SHA_B = "b" * 40
+SHA_C = "c" * 40
+
+
+class FakeExecutor:
+    def __init__(
+        self,
+        statuses: list[str] | None = None,
+        *,
+        wrong_sha: bool = False,
+        wrong_plan: bool = False,
+        timings: list[int] | None = None,
+    ) -> None:
+        self.statuses = list(statuses or ["pass"])
+        self.calls: list[str] = []
+        self.wrong_sha = wrong_sha
+        self.wrong_plan = wrong_plan
+        self.timings = list(timings or [100] * len(self.statuses))
+
+    def plan_fingerprint(self, repository_sha: str) -> str:
+        del repository_sha
+        return "d" * 64
+
+    def verify(self, repository_sha: str, *, series_ref: str) -> PrivateVerificationResult:
+        del series_ref
+        self.calls.append(repository_sha)
+        status = self.statuses.pop(0)
+        duration_ms = self.timings.pop(0)
+        result_sha = SHA_B if self.wrong_sha else repository_sha
+        return PrivateVerificationResult(
+            repository_sha=result_sha,
+            plan_fingerprint=("e" if self.wrong_plan else "d") * 64,
+            status=status,
+            receipt_ref="receipt-ref:private-ci:test",
+            command_result_refs=("result-ref:ci:test",),
+            timings_ms=(("lane-ref:test", duration_ms),),
+            started_at="2026-01-01T00:00:00Z",
+            completed_at="2026-01-01T00:00:01Z",
+        )
+
+
+def observation(
+    *,
+    sha: str = SHA_A,
+    status: str = "completed",
+    conclusion: str = "success",
+    started: bool = True,
+    reason: str = "reason-ref:github:exact-sha-green",
+    superseded: int = 0,
+    queue_ms: int = 0,
+) -> GitHubObservation:
+    return GitHubObservation(
+        repository_sha=sha,
+        run_ref="run-ref:github:test",
+        status=status,
+        conclusion=conclusion,
+        repository_command_started=started,
+        reason_ref=reason,
+        superseded_run_count=superseded,
+        queue_duration_ms=queue_ms,
+        manifest_version=SCHEMA_VERSION,
+        manifest_fingerprint=definition_fingerprint(),
+        manifest_attested=True,
+        observation_source="live_github",
+    )
+
+
+def controller(
+    tmp_path: Path,
+    executor: FakeExecutor,
+    *,
+    sleeper=lambda _seconds: None,
+) -> FallbackController:
+    return FallbackController(
+        AttemptLedger(tmp_path / "ledger"),
+        executor,
+        sleeper=sleeper,
+        clock=lambda: datetime(2026, 1, 1, tzinfo=UTC),
+    )
+
+
+def test_github_green_never_invokes_private_fallback(tmp_path: Path) -> None:
+    executor = FakeExecutor()
+    status = controller(tmp_path, executor).evaluate(
+        observation(), series_ref="series-ref:ci:test"
+    )
+    assert status.state == FallbackState.GITHUB_GREEN
+    assert status.merge_gate_satisfied is True
+    assert executor.calls == []
+
+
+def test_prestart_infrastructure_failure_invokes_private_but_cannot_merge(
+    tmp_path: Path,
+) -> None:
+    executor = FakeExecutor()
+    status = controller(tmp_path, executor).evaluate(
+        observation(
+            conclusion="failure",
+            started=False,
+            reason="reason-ref:github:prestart-failure",
+        ),
+        series_ref="series-ref:ci:test",
+    )
+    assert status.state == FallbackState.PRIVATE_GREEN_PENDING_GITHUB
+    assert status.github_gate_satisfied is False
+    assert status.merge_gate_satisfied is False
+    assert executor.calls == [SHA_A]
+
+
+@pytest.mark.parametrize(
+    ("conclusion", "reason"),
+    (
+        ("failure", "reason-ref:github:repository-command-failed"),
+        ("timed_out", "reason-ref:github:repository-command-failed"),
+        ("action_required", "reason-ref:github:repository-command-failed"),
+    ),
+)
+def test_code_failure_cannot_be_relabeled_as_infrastructure(
+    tmp_path: Path,
+    conclusion: str,
+    reason: str,
+) -> None:
+    executor = FakeExecutor()
+    result = controller(tmp_path, executor).evaluate(
+        observation(conclusion=conclusion, reason=reason),
+        series_ref="series-ref:ci:test",
+    )
+    assert result.state == FallbackState.GITHUB_CODE_FAILURE
+    assert executor.calls == []
+
+
+def test_code_failure_repair_requires_new_sha_and_final_github_green(
+    tmp_path: Path,
+) -> None:
+    executor = FakeExecutor()
+    sut = controller(tmp_path, executor)
+    failed = observation(
+        conclusion="failure",
+        reason="reason-ref:github:repository-command-failed",
+    )
+    assert sut.evaluate(failed, series_ref="series-ref:ci:drill-c").state == (
+        FallbackState.GITHUB_CODE_FAILURE
+    )
+    repaired_green = replace(observation(), repository_sha=SHA_B)
+    result = sut.evaluate(repaired_green, series_ref="series-ref:ci:drill-c")
+    assert result.state == FallbackState.GITHUB_GREEN
+    assert result.merge_gate_satisfied is True
+    assert executor.calls == []
+
+
+def test_exact_final_github_green_is_required_after_private_pass(tmp_path: Path) -> None:
+    executor = FakeExecutor()
+    sut = controller(tmp_path, executor)
+    blocked = observation(
+        conclusion="failure",
+        started=False,
+        reason="reason-ref:github:prestart-failure",
+    )
+    assert sut.evaluate(blocked, series_ref="series-ref:ci:test").state == (
+        FallbackState.PRIVATE_GREEN_PENDING_GITHUB
+    )
+    final = sut.evaluate(observation(), series_ref="series-ref:ci:test")
+    assert final.state == FallbackState.GITHUB_GREEN
+    assert final.merge_gate_satisfied is True
+    assert executor.calls == [SHA_A]
+
+
+def test_final_github_green_must_start_after_private_terminal(tmp_path: Path) -> None:
+    executor = FakeExecutor()
+    sut = controller(tmp_path, executor)
+    blocked = observation(
+        conclusion="failure",
+        started=False,
+        reason="reason-ref:github:prestart-failure",
+    )
+    assert sut.evaluate(blocked, series_ref="series-ref:ci:chronology").state == (
+        FallbackState.PRIVATE_GREEN_PENDING_GITHUB
+    )
+    stale_green = replace(
+        observation(),
+        run_created_at="2025-12-31T23:59:59Z",
+    )
+
+    status = sut.evaluate(stale_green, series_ref="series-ref:ci:chronology")
+
+    assert status.state == FallbackState.GITHUB_CODE_FAILURE
+    assert status.merge_gate_satisfied is False
+    assert "reason-ref:github:final-run-predates-private-ci" in status.reason_refs
+
+
+def test_green_with_stale_manifest_cannot_satisfy_merge_gate(tmp_path: Path) -> None:
+    executor = FakeExecutor()
+    stale = replace(observation(), manifest_fingerprint="0" * 64)
+    result = controller(tmp_path, executor).evaluate(
+        stale, series_ref="series-ref:ci:test"
+    )
+    assert result.state == FallbackState.GITHUB_CODE_FAILURE
+    assert result.merge_gate_satisfied is False
+    assert executor.calls == []
+
+
+def test_changed_sha_invalidates_private_evidence(tmp_path: Path) -> None:
+    executor = FakeExecutor(["pass", "pass"])
+    sut = controller(tmp_path, executor)
+    infra_a = observation(
+        conclusion="failure",
+        started=False,
+        reason="reason-ref:github:prestart-failure",
+    )
+    infra_b = replace(infra_a, repository_sha=SHA_B)
+    assert sut.evaluate(infra_a, series_ref="series-ref:ci:test").state == (
+        FallbackState.PRIVATE_GREEN_PENDING_GITHUB
+    )
+    assert sut.evaluate(infra_b, series_ref="series-ref:ci:test").state == (
+        FallbackState.PRIVATE_GREEN_PENDING_GITHUB
+    )
+    assert executor.calls == [SHA_A, SHA_B]
+
+
+def test_private_result_for_foreign_sha_is_rejected(tmp_path: Path) -> None:
+    executor = FakeExecutor(wrong_sha=True)
+    with pytest.raises(ValueError, match="does not match"):
+        controller(tmp_path, executor).evaluate(
+            observation(
+                conclusion="failure",
+                started=False,
+                reason="reason-ref:github:prestart-failure",
+            ),
+            series_ref="series-ref:ci:test",
+        )
+
+
+def test_private_result_for_foreign_plan_is_rejected(tmp_path: Path) -> None:
+    executor = FakeExecutor(wrong_plan=True)
+    with pytest.raises(ValueError, match="prepared plan"):
+        controller(tmp_path, executor).evaluate(
+            observation(
+                conclusion="failure",
+                started=False,
+                reason="reason-ref:github:prestart-failure",
+            ),
+            series_ref="series-ref:ci:test",
+        )
+
+
+def test_capacity_cooldown_occurs_once_and_is_bounded(tmp_path: Path) -> None:
+    sleeps: list[float] = []
+    executor = FakeExecutor()
+    sut = controller(tmp_path, executor, sleeper=sleeps.append)
+    capacity = observation(
+        status="queued",
+        conclusion="",
+        started=False,
+        reason="reason-ref:github:runner-capacity",
+        queue_ms=11 * 60 * 1000,
+    )
+    sut.evaluate(capacity, series_ref="series-ref:ci:test")
+    sut.evaluate(capacity, series_ref="series-ref:ci:test")
+    assert sleeps == [CAPACITY_COOLDOWN_SECONDS]
+    assert executor.calls == [SHA_A]
+
+
+def test_private_failure_is_not_rerun_for_same_sha(tmp_path: Path) -> None:
+    executor = FakeExecutor(["fail", "pass"])
+    sut = controller(tmp_path, executor)
+    infra = observation(
+        conclusion="failure",
+        started=False,
+        reason="reason-ref:github:prestart-failure",
+    )
+    assert sut.evaluate(infra, series_ref="series-ref:ci:test").state == (
+        FallbackState.PRIVATE_FAILURE
+    )
+    assert sut.evaluate(infra, series_ref="series-ref:ci:test").state == (
+        FallbackState.PRIVATE_FAILURE
+    )
+    assert executor.calls == [SHA_A]
+
+
+def test_two_private_repair_passes_cap_the_series(tmp_path: Path) -> None:
+    executor = FakeExecutor(["fail", "fail", "pass"])
+    sut = controller(tmp_path, executor)
+    base = observation(
+        conclusion="failure",
+        started=False,
+        reason="reason-ref:github:prestart-failure",
+    )
+    assert sut.evaluate(base, series_ref="series-ref:ci:test").state == FallbackState.PRIVATE_FAILURE
+    assert sut.evaluate(replace(base, repository_sha=SHA_B), series_ref="series-ref:ci:test").state == FallbackState.PRIVATE_FAILURE
+    capped = sut.evaluate(
+        replace(base, repository_sha=SHA_C), series_ref="series-ref:ci:test"
+    )
+    assert capped.state == FallbackState.EXTERNALLY_BLOCKED
+    assert executor.calls == [SHA_A, SHA_B]
+
+
+def test_private_timing_warns_above_same_machine_median_regression(
+    tmp_path: Path,
+) -> None:
+    executor = FakeExecutor(["pass", "pass"], timings=[100, 116])
+    sut = controller(tmp_path, executor)
+    base = observation(
+        conclusion="failure",
+        started=False,
+        reason="reason-ref:github:prestart-failure",
+    )
+    sut.evaluate(base, series_ref="series-ref:ci:timing")
+    second = sut.evaluate(
+        replace(base, repository_sha=SHA_B),
+        series_ref="series-ref:ci:timing",
+    )
+    assert second.state == FallbackState.PRIVATE_GREEN_PENDING_GITHUB
+    assert len(second.timing_warning_refs) == 1
+
+
+def test_crash_after_private_start_requires_recovery_not_replay(tmp_path: Path) -> None:
+    ledger = AttemptLedger(tmp_path / "ledger")
+    ledger.append(
+        {
+            "event": "private_start",
+            "repository_sha": SHA_A,
+            "series_ref": "series-ref:ci:test",
+            "status": "private_verifying",
+            "reason_ref": "reason-ref:github:prestart-failure",
+        }
+    )
+    executor = FakeExecutor()
+    result = FallbackController(ledger, executor, sleeper=lambda _seconds: None).evaluate(
+        observation(
+            conclusion="failure",
+            started=False,
+            reason="reason-ref:github:prestart-failure",
+        ),
+        series_ref="series-ref:ci:test",
+    )
+    assert result.state == FallbackState.EXTERNALLY_BLOCKED
+    assert "reason-ref:private-ci:recovery-required" in result.reason_refs
+    assert executor.calls == []
+
+
+def test_final_github_retry_is_bounded_then_external_blocked(tmp_path: Path) -> None:
+    executor = FakeExecutor()
+    sut = controller(tmp_path, executor)
+    infra = observation(
+        conclusion="failure",
+        started=False,
+        reason="reason-ref:github:prestart-failure",
+    )
+    sut.evaluate(infra, series_ref="series-ref:ci:test")
+    assert sut.evaluate(infra, series_ref="series-ref:ci:test").state == FallbackState.GITHUB_FINAL_RETRY
+    assert sut.evaluate(infra, series_ref="series-ref:ci:test").state == FallbackState.EXTERNALLY_BLOCKED
+
+
+def test_superseded_churn_classifies_as_infrastructure_only_at_cap() -> None:
+    below = observation(
+        conclusion="cancelled",
+        started=False,
+        reason="reason-ref:github:superseded-churn",
+        superseded=1,
+    )
+    capped = replace(below, superseded_run_count=2)
+    assert classify_github(below) == FallbackState.GITHUB_CODE_FAILURE
+    assert classify_github(capped) == FallbackState.GITHUB_INFRASTRUCTURE_BLOCKED
+
+
+def test_ledger_rejects_symlink_fifo_corruption_and_tamper(tmp_path: Path) -> None:
+    target = tmp_path / "target"
+    target.write_text("[]", encoding="utf-8")
+    symlink_dir = tmp_path / "symlink-ledger"
+    symlink_dir.mkdir(mode=0o700)
+    (symlink_dir / "attempts.v1.json").symlink_to(target)
+    with pytest.raises(OSError):
+        AttemptLedger(symlink_dir).read()
+
+    fifo_dir = tmp_path / "fifo-ledger"
+    fifo_dir.mkdir(mode=0o700)
+    os.mkfifo(fifo_dir / "attempts.v1.json")
+    with pytest.raises(ValueError, match="unsafe"):
+        AttemptLedger(fifo_dir).read()
+
+    corrupt = AttemptLedger(tmp_path / "corrupt-ledger")
+    corrupt._prepare_directory()
+    corrupt.path.write_text("{", encoding="utf-8")
+    corrupt.path.chmod(0o600)
+    with pytest.raises(ValueError, match="corrupt"):
+        corrupt.read()
+
+    valid = AttemptLedger(tmp_path / "valid-ledger")
+    valid.append({"event": "probe", "repository_sha": SHA_A})
+    records = json.loads(valid.path.read_text(encoding="utf-8"))
+    records[0]["repository_sha"] = SHA_B
+    valid.path.write_text(json.dumps(records), encoding="utf-8")
+    with pytest.raises(ValueError, match="hash chain"):
+        valid.read()
+
+
+def test_ledger_rejects_raw_or_unknown_event_fields(tmp_path: Path) -> None:
+    ledger = AttemptLedger(tmp_path / "ledger")
+    with pytest.raises(ValueError, match="forbidden fields"):
+        ledger.append(
+            {
+                "event": "probe",
+                "repository_sha": SHA_A,
+                "raw_log": "must-never-persist",
+            }
+        )
+    with pytest.raises(ValueError, match="canonical UTC"):
+        ledger.append(
+            {
+                "event": "probe",
+                "repository_sha": SHA_A,
+                "observed_at": "secret-material",
+            }
+        )
+
+
+def test_observations_and_private_results_reject_unsafe_timestamps() -> None:
+    with pytest.raises(ValueError, match="canonical UTC"):
+        replace(observation(), observed_at="secret-material").validate()
+    result = FakeExecutor().verify(SHA_A, series_ref="series-ref:ci:test")
+    with pytest.raises(ValueError, match="canonical UTC"):
+        replace(result, completed_at="raw-log-content").validate()
+
+
+def test_concurrent_private_full_suites_are_denied_and_stale_lock_recovers(
+    tmp_path: Path,
+) -> None:
+    lock_path = tmp_path / "full-suite.lock"
+    with FullSuiteLock(lock_path):
+        with pytest.raises(RuntimeError, match="already active"):
+            FullSuiteLock(lock_path).__enter__()
+    with FullSuiteLock(lock_path):
+        pass
+
+
+def test_full_suite_attempts_are_bounded_per_sha_and_execution_plane(
+    tmp_path: Path,
+) -> None:
+    lock_path = tmp_path / "full-suite.lock"
+    attempts = tmp_path / "attempts.json"
+    with FullSuiteLock(
+        lock_path,
+        repository_sha=SHA_A,
+        attempt_scope="private",
+        attempt_path=attempts,
+    ) as lock:
+        lock.record_start()
+    with pytest.raises(RuntimeError, match="already attempted"):
+        lock = FullSuiteLock(
+            lock_path,
+            repository_sha=SHA_A,
+            attempt_scope="private",
+            attempt_path=attempts,
+        )
+        with lock:
+            lock.ensure_start_available()
+    with FullSuiteLock(
+        lock_path,
+        repository_sha=SHA_A,
+        attempt_scope="github",
+        attempt_path=attempts,
+    ) as lock:
+        lock.record_start()
+
+
+def test_private_process_timeout_reaps_child_process_group(tmp_path: Path) -> None:
+    child_pid_file = tmp_path / "child.pid"
+    script = (
+        "import pathlib,subprocess,sys,time; "
+        "p=subprocess.Popen([sys.executable,'-c','import time; time.sleep(60)']); "
+        f"pathlib.Path({str(child_pid_file)!r}).write_text(str(p.pid)); time.sleep(60)"
+    )
+    returncode, _duration_ms, _result_ref = _safe_subprocess(
+        (sys.executable, "-c", script),
+        cwd=tmp_path,
+        timeout=1,
+    )
+    assert returncode == 124
+    child_pid = int(child_pid_file.read_text(encoding="utf-8"))
+    with pytest.raises(ProcessLookupError):
+        os.kill(child_pid, signal.SIGTERM)
+
+
+def test_status_and_receipts_contain_no_raw_logs_paths_env_or_credentials(
+    tmp_path: Path,
+) -> None:
+    executor = FakeExecutor()
+    status = controller(tmp_path, executor).evaluate(
+        observation(), series_ref="series-ref:ci:test"
+    )
+    serialized = json.dumps(status_payload(status), sort_keys=True)
+    for forbidden in (
+        str(tmp_path),
+        "raw_log",
+        "environment",
+        "credential",
+        "username",
+        "hostname",
+    ):
+        assert forbidden not in serialized

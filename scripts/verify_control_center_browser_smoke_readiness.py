@@ -6,6 +6,13 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from scripts.verification.ci_command_manifest import (  # noqa: E402
+    command_registry,
+    lane_registry,
+)
 
 SMOKE_DOC = "docs/control_center/LOCAL_BROWSER_SMOKE.md"
 SMOKE_REPORTING_DOC = "docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md"
@@ -58,6 +65,11 @@ REQUIRED_FRONTEND_SCRIPTS = ["dev", "preview", "typecheck", "lint", "test", "bui
 REQUIRED_CI_FRAGMENTS = [
     "apps/control-center",
     "npm ci",
+    "scripts/verification/run_ci_lane.py",
+    "--lane ci-control-center-frontend",
+]
+REQUIRED_FRONTEND_MAKE_FRAGMENTS = [
+    "frontend-check:",
     "npm run typecheck --if-present",
     "npm run lint --if-present",
     "npm run test --if-present -- --run",
@@ -221,11 +233,36 @@ def _ci_failures(root: Path) -> list[str]:
         return [f"missing CI workflow: {CI_WORKFLOW}"]
     text = path.read_text(encoding="utf-8").lower()
     failures = [f"CI missing frontend check fragment: {fragment}" for fragment in REQUIRED_CI_FRAGMENTS if fragment not in text]
+    failures.extend(_canonical_frontend_command_failures(root))
     forbidden_scan_text = _ci_text_without_allowed_proof_lane_browser_setup(text)
     failures.extend(
         f"forbidden CI browser automation fragment: {fragment}"
         for fragment in FORBIDDEN_CI_FRAGMENTS
         if fragment in forbidden_scan_text
+    )
+    return failures
+
+
+def _canonical_frontend_command_failures(root: Path) -> list[str]:
+    failures: list[str] = []
+    lanes = lane_registry()
+    commands = command_registry()
+    lane = lanes.get("ci-control-center-frontend")
+    if lane is None or lane.command_refs != ("command:frontend.check",):
+        failures.append("canonical CI manifest frontend lane is missing or drifted")
+    command = commands.get("command:frontend.check")
+    if command is None or command.argv != ("make", "frontend-check"):
+        failures.append("canonical CI manifest frontend command is missing or drifted")
+
+    makefile = root / "Makefile"
+    if not makefile.exists():
+        failures.append("canonical frontend Make target is missing: Makefile")
+        return failures
+    make_text = makefile.read_text(encoding="utf-8").lower()
+    failures.extend(
+        f"canonical frontend Make target missing check fragment: {fragment}"
+        for fragment in REQUIRED_FRONTEND_MAKE_FRAGMENTS
+        if fragment not in make_text
     )
     return failures
 

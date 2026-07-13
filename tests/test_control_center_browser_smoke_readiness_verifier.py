@@ -16,6 +16,13 @@ def load_verifier() -> Any:
     return module
 
 
+def write_frontend_make_contract(root: Path, verifier: Any) -> None:
+    (root / "Makefile").write_text(
+        "\n".join(verifier.REQUIRED_FRONTEND_MAKE_FRAGMENTS),
+        encoding="utf-8",
+    )
+
+
 def test_control_center_browser_smoke_readiness_verifier_passes_current_repo() -> None:
     verifier = load_verifier()
 
@@ -68,6 +75,7 @@ def test_control_center_browser_smoke_readiness_allows_exact_browser_install(
         ),
         encoding="utf-8",
     )
+    write_frontend_make_contract(tmp_path, verifier)
 
     assert verifier._ci_failures(tmp_path) == []
 
@@ -88,7 +96,22 @@ def test_control_center_browser_smoke_readiness_rejects_chained_browser_install(
         ),
         encoding="utf-8",
     )
+    write_frontend_make_contract(tmp_path, verifier)
 
     failures = verifier._ci_failures(tmp_path)
 
     assert any("forbidden CI browser automation fragment: playwright" in failure for failure in failures)
+
+
+def test_control_center_browser_smoke_readiness_rejects_frontend_make_drift(
+    tmp_path: Path,
+) -> None:
+    verifier = load_verifier()
+    workflow = tmp_path / ".github/workflows/ci.yml"
+    workflow.parent.mkdir(parents=True)
+    workflow.write_text("\n".join(verifier.REQUIRED_CI_FRAGMENTS), encoding="utf-8")
+    (tmp_path / "Makefile").write_text("frontend-check:\n\ttrue\n", encoding="utf-8")
+
+    failures = verifier._ci_failures(tmp_path)
+
+    assert any("canonical frontend Make target missing" in failure for failure in failures)

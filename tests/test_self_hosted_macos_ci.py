@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import scripts.verify_self_hosted_macos_ci as verifier
+from scripts.verification.ci_command_manifest import command_registry, lane_registry
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -94,34 +95,26 @@ def test_runner_bootstrap_keeps_tokens_out_of_argv_and_rejects_stale_state() -> 
 
 def test_pytest_shards_use_runner_scoped_temp_directory() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    argv = command_registry()["command:pytest.sharded-suite"].argv
 
-    assert '--basetemp "${RUNNER_TEMP}/uaa_pytest_shards"' in workflow
-    assert (
-        '--performance-report "${RUNNER_TEMP}/uaa_pytest_performance_report.json"'
-        in workflow
-    )
-    assert "--basetemp /tmp/uaa_pytest_shards" not in workflow
-    assert "--stretch-goal-seconds 900" in workflow
-    assert "--target-seconds 1200" in workflow
-    assert "--hard-timeout-seconds 1800" in workflow
+    assert "{temp_root}/uaa_pytest_shards" in argv
+    assert "{temp_root}/uaa_pytest_performance_report.json" in argv
+    assert argv[argv.index("--stretch-goal-seconds") + 1] == "900"
+    assert argv[argv.index("--target-seconds") + 1] == "1200"
+    assert argv[argv.index("--hard-timeout-seconds") + 1] == "1800"
+    assert '--temp-root "$RUNNER_TEMP"' in workflow
 
 
 def test_static_verification_uses_runner_scoped_timing_output() -> None:
-    workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
-
-    assert (
-        '--timings-json "${RUNNER_TEMP}/uaa_static_verification_timings.json"'
-        in workflow
-    )
-    assert "--timings-json /tmp/uaa_static_verification_timings.json" not in workflow
+    argv = command_registry()["command:static.verify-all"].argv
+    assert "{temp_root}/uaa_static_verification_timings.json" in argv
 
 
 def test_release_lanes_capture_failures_and_isolate_performance_measurement() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
 
-    assert workflow.count("          set +e\n          set -u") == workflow.count(
-        "          run_lane_command() {"
-    )
+    assert "run_lane_command()" not in workflow
+    assert "scripts/verification/run_ci_lane.py" in workflow
     performance_job = workflow.split("  release-lane-performance:\n", 1)[1].split(
         "\n  release-lane-visual-regression:", 1
     )[0]
@@ -136,8 +129,11 @@ def test_shared_mac_ci_stages_cpu_and_io_heavy_job_classes() -> None:
 
     pytest_shards_job = verifier.job_section(workflow, "pytest-shards")
     assert "      - lint\n" in pytest_shards_job
-    assert "            --max-workers 4 \\\n" in pytest_shards_job
-    assert "/usr/sbin/taskpolicy -c utility .venv/bin/python scripts/verification/run_pytest_shards.py" in pytest_shards_job
+    assert command_registry()["command:pytest.sharded-suite"].argv[
+        command_registry()["command:pytest.sharded-suite"].argv.index("--max-workers")
+        + 1
+    ] == "4"
+    assert "/usr/sbin/taskpolicy -c utility .venv/bin/python scripts/verification/run_ci_lane.py" in pytest_shards_job
     assert "trap terminate_shard_runner EXIT INT TERM HUP" in pytest_shards_job
     assert 'kill -TERM "$shard_runner_pid"' in pytest_shards_job
     assert "for _ in {1..100}" in pytest_shards_job
@@ -196,9 +192,12 @@ def test_visual_regression_runs_only_for_affected_control_center_paths() -> None
     assert 'if [ "$RUN_VISUAL" = "true" ]; then' in visual_job
     assert "reason-ref:visual-regression:not-affected" in visual_job
     assert (
-        'run_lane_command "command:frontend.visual-regression-contract"'
+        "--lane visual-regression"
         in visual_job
     )
+    assert "command:frontend.visual-regression-contract" in lane_registry()[
+        "visual-regression"
+    ].command_refs
 
 
 def test_checkout_matches_repository_actions_allow_policy() -> None:
@@ -215,8 +214,10 @@ def test_desktop_packaging_preserves_non_admin_docker_boundary() -> None:
 
     assert "docker info >/dev/null 2>&1" in workflow
     assert "steps.docker.outputs.available == 'true'" in workflow
-    assert "reason-ref:self-hosted-runner-docker-unavailable" in workflow
-    assert 'run_lane_command "command:desktop-packaging.contract"' in workflow
+    assert '--docker-available "$docker_posture"' in workflow
+    assert "command:desktop-packaging.contract" in lane_registry()[
+        "desktop-packaging"
+    ].command_refs
 
 
 def test_verifier_rejects_hosted_runner_and_cache_regression(tmp_path: Path) -> None:
