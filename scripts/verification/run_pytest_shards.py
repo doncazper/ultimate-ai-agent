@@ -418,6 +418,7 @@ def run_shards(
                         write_timings=write_timings,
                         junit_dir=junit_dir,
                     )
+                    shard_env = shard_processes.isolated_shard_environment(env, temp_dir / f"runtime-{plan.index}")
                     if not quiet:
                         print(
                             f"Starting shard {plan.index}: files={len(plan.files)} "
@@ -431,7 +432,7 @@ def run_shards(
                         process = subprocess.Popen(
                             command,
                             cwd=root,
-                            env=env,
+                            env=shard_env,
                             stdout=log_handle,
                             stderr=subprocess.STDOUT,
                             text=True,

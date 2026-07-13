@@ -6,6 +6,7 @@ import subprocess
 import time
 from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager
+from pathlib import Path
 from types import FrameType
 
 
@@ -22,6 +23,20 @@ def cancellation_signals() -> tuple[signal.Signals, ...]:
         )
         if candidate is not None
     )
+
+
+def isolated_shard_environment(
+    base_env: dict[str, str], runtime_dir: Path
+) -> dict[str, str]:
+    home = runtime_dir / "home"
+    temp = runtime_dir / "tmp"
+    home.mkdir(parents=True, exist_ok=True)
+    temp.mkdir(parents=True, exist_ok=True)
+    env = dict(base_env)
+    env.update(
+        {"HOME": str(home), "TEMP": str(temp), "TMP": str(temp), "TMPDIR": str(temp)}
+    )
+    return env
 
 
 @contextmanager

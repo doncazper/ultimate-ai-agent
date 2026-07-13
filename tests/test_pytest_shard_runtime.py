@@ -64,6 +64,53 @@ def test_run_shards_respects_explicit_worker_cap(
     assert runner.overall_return_code(results) == 0
 
 
+def test_run_shards_isolates_home_and_temp_per_shard(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    environments: list[dict[str, str]] = []
+
+    class ImmediateProcess:
+        def __init__(self, *_args: Any, **kwargs: Any) -> None:
+            environments.append(kwargs["env"])
+
+        def poll(self) -> int:
+            return 0
+
+    monkeypatch.setattr(runner.subprocess, "Popen", ImmediateProcess)
+
+    results = runner.run_shards(
+        [
+            runner.ShardPlan(0, ("tests/test_first.py",), 1.0),
+            runner.ShardPlan(1, ("tests/test_second.py",), 1.0),
+        ],
+        root=tmp_path,
+        basetemp=tmp_path / "shards",
+        junit_dir=None,
+        write_timings=False,
+        quiet=True,
+        max_workers=2,
+    )
+
+    assert runner.overall_return_code(results) == 0
+    assert len(environments) == 2
+    for index, environment in enumerate(environments):
+        runtime_root = tmp_path / "shards"
+        home = Path(environment["HOME"])
+        temp = Path(environment["TMPDIR"])
+        assert home.is_relative_to(runtime_root)
+        assert temp.is_relative_to(runtime_root)
+        assert home.name == "home"
+        assert temp.name == "tmp"
+        assert f"runtime-{index}" in home.parts
+        assert environment["TEMP"] == str(temp)
+        assert environment["TMP"] == str(temp)
+        assert home.is_dir()
+        assert temp.is_dir()
+    assert environments[0]["HOME"] != environments[1]["HOME"]
+    assert environments[0]["TMPDIR"] != environments[1]["TMPDIR"]
+
+
 def test_run_shards_terminates_all_work_at_hard_runtime_cap(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

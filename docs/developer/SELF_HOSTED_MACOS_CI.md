@@ -52,6 +52,9 @@ provider, connector, production, or AuthorityLease capability.
   installed environment. Four isolated workers overlap subprocess-heavy shard
   waits while avoiding the lock starvation and repeated
   dependency installation caused by multiple runner jobs on one physical Mac.
+  Every logical shard receives its own bounded `HOME`, `TEMP`, `TMP`, and
+  `TMPDIR` below the run basetemp, so child processes cannot share runner-home
+  caches, state, or credential configuration.
 - Checkout remains on the repository-allowlisted `actions/checkout@v4` action;
   changing the repository Actions allow-policy is outside this provisioner's
   authority. Checkout tokens remain non-persistent.
