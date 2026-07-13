@@ -668,6 +668,24 @@ migration evidence slice; CRM-FC-000 may now finalize CRM-specific product and
 render acceptance without changing the accepted shared Event, Task, Board,
 Source, or ChangeSet ownership.
 
+ECO-003A First-Class Local Boards Product Contract And Render Acceptance
+Goal: refine the accepted reusable Boards direction into the best local UAA
+Kanban and visual-work product: familiar Trello/kan.bn fundamentals with UAA
+canonical projections, exact governed mutations, recovery, and cross-app
+integration.
+Status: proposed planning-only implementation plan ready for review; no Boards
+implementation or new authority is accepted by this card.
+Scope: `docs/implementation/UAA_FIRST_CLASS_BOARDS_IMPLEMENTATION_PLAN.md`
+defines the local parity and exclusion contract, public-reference clean-room
+boundary, current Work Board gap, rich-card/deep-link design, canonical field
+ownership, approval-aware drag state machine, ordering/concurrency, offline
+import/export, migration, accessibility/performance gates, verification matrix,
+and focused PR sequence. It adds no new route, storage, dependency, model or
+provider call, web fetch, browser automation, connector, collaboration, cloud
+service, public distribution, or production authority.
+Next: review and accept `ECO-003A`, then implement no storage until `ECO-001`
+is accepted. Canonical Task projections also remain dependent on `ECO-002`.
+
 CRM-FC-000 First-Class CRM Product Contract And Render Acceptance
 Goal: evolve the implemented CRM M2 baseline into one relationship-first local
 CRM foundation with Sales, Real Estate, Professional Network, Personal Network,
