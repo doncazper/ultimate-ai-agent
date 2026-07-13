@@ -406,6 +406,10 @@ def test_static_safety_evaluator_data_exemption_is_scoped() -> None:
         frozenset(),
     )
     assert _is_static_safety_scan_allowed_file(command_adapter_file, frozenset())
+    assert not _is_static_safety_scan_allowed_file(
+        "src/ultimate_ai_agent/core/evidence_signing/macos_keychain.py",
+        frozenset(),
+    )
     assert _is_static_safety_scan_allowed_file("src/allowed.py", {"src/allowed.py"})
     assert not _is_static_safety_scan_allowed_file(
         "src/ultimate_ai_agent/core/gate/evaluator_modules/route_contracts.py",

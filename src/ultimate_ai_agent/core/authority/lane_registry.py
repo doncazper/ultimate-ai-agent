@@ -11,9 +11,13 @@ def build_existing_lane_authority_mappings():
     from ultimate_ai_agent.core.authority.memory_lane_registry import (
         build_memory_lane_authority_mappings,
     )
+    from ultimate_ai_agent.core.authority.evidence_signing_lane_registry import (
+        build_evidence_signing_lane_authority_mappings,
+    )
     from ultimate_ai_agent.core.sandbox_calculation.authority_surfaces import build_sealed_arithmetic_authority_mapping
 
     return [
+        *build_evidence_signing_lane_authority_mappings(),
         _mapping(
             "lane-ref:authority-lease-control-plane",
             "AuthorityLease issue and revoke",

@@ -54,6 +54,13 @@ STATIC_SAFETY_EVALUATOR_DATA_PREFIXES = (
 GOVERNED_RUNTIME_COMMAND_ADAPTER_STATIC_SCAN_ALLOWED_FILES = frozenset(
     {"src/ultimate_ai_agent/core/runtime_gateway/command.py"}
 )
+PORTABLE_EVIDENCE_KEYCHAIN_HELPER_FILES = frozenset(
+    {
+        "tools/macos/portable-evidence-keychain-helper/Package.swift",
+        "tools/macos/portable-evidence-keychain-helper/README.md",
+        "tools/macos/portable-evidence-keychain-helper/Sources/UAAPortableEvidenceKeychainHelper/main.swift",
+    }
+)
 
 
 def _load_web_hybrid_policy() -> ModuleType:
@@ -85,6 +92,10 @@ def is_static_gate_scan_allowed_file(
         or rel_path.startswith(STATIC_SAFETY_EVALUATOR_DATA_PREFIXES)
         or rel_path in GOVERNED_RUNTIME_COMMAND_ADAPTER_STATIC_SCAN_ALLOWED_FILES
     )
+
+
+def is_exact_portable_evidence_keychain_helper_file(rel_path: str) -> bool:
+    return rel_path in PORTABLE_EVIDENCE_KEYCHAIN_HELPER_FILES
 
 
 def is_unapproved_static_fragment(

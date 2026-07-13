@@ -438,6 +438,15 @@ Status panels must avoid standalone readiness claims. When a backend field uses
 a readiness-shaped name, the UI must frame it as a claim status or evidence
 status and keep false/unproven values visibly unclaimed.
 
+Portable evidence may say “Ed25519 signature verified relative to the supplied
+and pinned public-key bundle.” It must not say signed identity, notarized,
+non-repudiable, externally timestamped, Secure Enclave Ed25519, or currently
+unrevoked. Managed-signing status is read-only lifecycle posture; it is not a
+button, approval, AuthorityLease, or execution grant.
+The legacy unsigned-v1 `blocked_signing_lifecycle_not_implemented` value may be
+shown only as an artifact-format compatibility field, never as the current
+managed-signing lifecycle status.
+
 ## Current Gaps
 
 The current Control Center still has blocked, mock-only, local-state-only, and

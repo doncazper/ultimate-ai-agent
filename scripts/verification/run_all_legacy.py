@@ -13,13 +13,13 @@ from contextlib import contextmanager
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
-from ultimate_ai_agent.core.sandbox_calculation.static_safety import is_exact_sealed_calculation_subprocess_site  # noqa: E402
 if __package__:
-    from .static_scan_policy import is_static_gate_scan_allowed_file, is_unapproved_static_fragment, repo_source_env
+    from .runtime_subprocess_policy import GOVERNED_RUNTIME_COMMAND_ADAPTER_REL, _is_exact_governed_runtime_command_shell_scan_line, _is_exact_governed_runtime_command_subprocess_site, is_exact_portable_evidence_helper_home_path
+    from .static_scan_policy import is_exact_portable_evidence_keychain_helper_file as _is_exact_portable_evidence_keychain_helper_file, is_static_gate_scan_allowed_file, is_unapproved_static_fragment, repo_source_env
 else:
-    from static_scan_policy import is_static_gate_scan_allowed_file, is_unapproved_static_fragment, repo_source_env
+    from runtime_subprocess_policy import GOVERNED_RUNTIME_COMMAND_ADAPTER_REL, _is_exact_governed_runtime_command_shell_scan_line, _is_exact_governed_runtime_command_subprocess_site, is_exact_portable_evidence_helper_home_path
+    from static_scan_policy import is_exact_portable_evidence_keychain_helper_file as _is_exact_portable_evidence_keychain_helper_file, is_static_gate_scan_allowed_file, is_unapproved_static_fragment, repo_source_env
 _P1_API_VERIFIER_LANE_RAN = False
-GOVERNED_RUNTIME_COMMAND_ADAPTER_REL = "src/ultimate_ai_agent/core/runtime_gateway/command.py"
 M44_ALLOWED_CCC_IOS_SKELETON_PREFIX = "apps/ccc-ios/Sources/UltimateAIAgentCCC/"
 M44_ALLOWED_CCC_IOS_SKELETON_FILES = {
     "apps/ccc-ios/README.md",
@@ -76,42 +76,6 @@ def _version_doc_marks_milestone_implemented(text: str, milestone: str) -> bool:
         or f"{milestone} is implemented/released" in text
         or re.search(rf"\b{re.escape(milestone)}\b[^.\n]*\bare implemented/released\b", text)
         is not None
-    )
-
-
-def _is_exact_governed_runtime_command_subprocess_site(
-    *, rel_path: str, source: str, fragment: str
-) -> bool:
-    if is_exact_sealed_calculation_subprocess_site(rel_path=rel_path, source=source, fragment=fragment):
-        return True
-    if rel_path != GOVERNED_RUNTIME_COMMAND_ADAPTER_REL:
-        return False
-    if fragment != "subprocess.run(":
-        return False
-    return (
-        source.count("subprocess.run(") == 1
-        and "subprocess.Popen(" not in source
-        and "shell=True" not in source
-        and "shell=False" in source
-        and "os.system(" not in source
-        and "popen(" not in source.lower().replace("subprocess.Popen(", "")
-    )
-
-
-def _is_exact_governed_runtime_command_shell_scan_line(
-    *, rel_path: str, source: str, stripped_line: str
-) -> bool:
-    if not _is_exact_governed_runtime_command_subprocess_site(
-        rel_path=rel_path,
-        source=source,
-        fragment="subprocess.run(",
-    ):
-        return False
-    return (
-        stripped_line == "import subprocess"
-        or (rel_path == "src/ultimate_ai_agent/core/sandbox_calculation/backend.py" and "subprocess." in stripped_line)
-        or "subprocess.run(" in stripped_line
-        or "subprocess.TimeoutExpired" in stripped_line
     )
 
 
@@ -963,6 +927,8 @@ def verify_m13_web_control_center_frontend_safety() -> None:
         if rel_path == ".env.example" or rel_path.endswith("/.env.example"):
             continue
         if _is_m44_allowed_ccc_ios_skeleton_file(rel_path):
+            continue
+        if _is_exact_portable_evidence_keychain_helper_file(rel_path):
             continue
         if any(fragment in rel_path for fragment in forbidden_tracked_fragments):
             print(f"FAIL: Forbidden generated/native/frontend artifact is tracked: {rel_path}")
@@ -30200,6 +30166,12 @@ def verify_no_broad_filesystem_scanning() -> None:
                 if stripped.startswith(('"', "'")):
                     continue
                 if any(fragment in stripped for fragment in forbidden_fragments):
+                    if is_exact_portable_evidence_helper_home_path(
+                        rel_path=p.relative_to(ROOT).as_posix(),
+                        source=content,
+                        fragment="Path.home(",
+                    ):
+                        continue
                     print(f"FAIL: Broad filesystem scanning/home access in {p.relative_to(ROOT)}: {line}")
                     sys.exit(1)
         except Exception:
@@ -30245,16 +30217,20 @@ def verify_no_mobile_native_or_sensor_implementation() -> None:
         "ionic.config.json",
     }
     for rel_path in git_files:
+        exact_keychain_helper_file = _is_exact_portable_evidence_keychain_helper_file(
+            rel_path
+        )
         if rel_path.startswith(forbidden_dir_prefixes):
             print(f"FAIL: Forbidden native/mobile implementation path tracked in git: {rel_path}")
             sys.exit(1)
-        if Path(rel_path).name in forbidden_file_names:
+        if Path(rel_path).name in forbidden_file_names and not exact_keychain_helper_file:
             print(f"FAIL: Forbidden native/mobile build or store file tracked in git: {rel_path}")
             sys.exit(1)
         if (
             rel_path.endswith((".swift", ".kt", ".kts", ".java"))
             and not rel_path.startswith("docs/")
             and not _is_m44_allowed_ccc_ios_skeleton_file(rel_path)
+            and not exact_keychain_helper_file
         ):
             print(f"FAIL: Forbidden native mobile source file tracked in git: {rel_path}")
             sys.exit(1)

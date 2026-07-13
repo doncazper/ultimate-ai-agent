@@ -82,6 +82,7 @@ class AuthorityDomain(str, Enum):
     provider_model_calls = "provider_model_calls"
     memory = "memory"
     cloud_production = "cloud_production"
+    evidence_signing = "evidence_signing"
 
 
 class AuthorityCapability(str, Enum):
@@ -2254,6 +2255,10 @@ def _local_implemented_authority_capabilities() -> dict[
         AuthorityDomain.browser: {
             AuthorityCapability.read,
         },
+        AuthorityDomain.evidence_signing: {
+            AuthorityCapability.execute,
+            AuthorityCapability.mutate,
+        },
     }
 
 
@@ -2311,6 +2316,10 @@ def _allowed_domain_capabilities(
             AuthorityDomain.provider_model_calls: {
                 AuthorityCapability.observe,
                 AuthorityCapability.read,
+            },
+            AuthorityDomain.evidence_signing: {
+                AuthorityCapability.execute,
+                AuthorityCapability.mutate,
             },
         }
     if mode == TrustMode.approved_safe_local_work_session:

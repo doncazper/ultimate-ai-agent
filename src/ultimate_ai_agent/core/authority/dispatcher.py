@@ -16,6 +16,12 @@ from ultimate_ai_agent.core.approvals.authority import LocalApprovalAuthority
 from ultimate_ai_agent.core.authority.authority_constants import (
     AUTHORITY_DISPATCH_RECEIPTS_FILE,
     AUTHORITY_STATE_LOCK_KEY,
+    PORTABLE_EVIDENCE_KEY_CREATE_TOOL_REF,
+    PORTABLE_EVIDENCE_KEY_CLEANUP_TOOL_REF,
+    PORTABLE_EVIDENCE_KEY_MARK_LOST_TOOL_REF,
+    PORTABLE_EVIDENCE_KEY_REVOKE_TOOL_REF,
+    PORTABLE_EVIDENCE_KEY_ROTATE_TOOL_REF,
+    PORTABLE_EVIDENCE_SIGN_TOOL_REF,
 )
 from ultimate_ai_agent.core.authority.budget_contracts import (
     AuthorityBudgetExecutionStatus,
@@ -51,11 +57,11 @@ from ultimate_ai_agent.core.authority.dispatch_contracts import (
     AuthorityDispatchResult,
     AuthorityDispatchStatus,
 )
-from ultimate_ai_agent.core.planning.validation import validate_task_ref
 from ultimate_ai_agent.core.costs.budgets import CostBudget
 from ultimate_ai_agent.core.costs.decisions import CostDecision
 from ultimate_ai_agent.core.costs.estimates import CostEstimate
 from ultimate_ai_agent.core.costs.governor import CostGovernor
+from ultimate_ai_agent.core.planning.validation import validate_task_ref
 from ultimate_ai_agent.core.time import utc_now
 from ultimate_ai_agent.core.tools.runtime.adapters import ToolRuntimeAdapter
 from ultimate_ai_agent.core.tools.runtime.contracts import ToolInvocationRequest
@@ -356,6 +362,30 @@ _TOOL_AUTHORITY_BINDINGS = {
         AuthorityDomain.files.value,
         AuthorityCapability.read.value,
     ),
+    PORTABLE_EVIDENCE_SIGN_TOOL_REF: (
+        AuthorityDomain.evidence_signing.value,
+        AuthorityCapability.execute.value,
+    ),
+    PORTABLE_EVIDENCE_KEY_CREATE_TOOL_REF: (
+        AuthorityDomain.evidence_signing.value,
+        AuthorityCapability.mutate.value,
+    ),
+    PORTABLE_EVIDENCE_KEY_ROTATE_TOOL_REF: (
+        AuthorityDomain.evidence_signing.value,
+        AuthorityCapability.mutate.value,
+    ),
+    PORTABLE_EVIDENCE_KEY_REVOKE_TOOL_REF: (
+        AuthorityDomain.evidence_signing.value,
+        AuthorityCapability.mutate.value,
+    ),
+    PORTABLE_EVIDENCE_KEY_MARK_LOST_TOOL_REF: (
+        AuthorityDomain.evidence_signing.value,
+        AuthorityCapability.mutate.value,
+    ),
+    PORTABLE_EVIDENCE_KEY_CLEANUP_TOOL_REF: (
+        AuthorityDomain.evidence_signing.value,
+        AuthorityCapability.mutate.value,
+    ),
     "tool:sealed_calculation.v1": (
         AuthorityDomain.workspace.value,
         AuthorityCapability.execute.value,
@@ -643,15 +673,35 @@ class AuthorityDispatcher:
             raise ValueError("AUTHORITY_DISPATCH_DUPLICATE_ADAPTER_REF")
 
     def dispatch(self, request: AuthorityDispatchRequest) -> AuthorityDispatchResult:
-        prepared = self.prepare(request)
-        if (
-            prepared.receipt.status == AuthorityDispatchStatus.started.value
-            and prepared.recovery_required
-        ):
-            return self.execute(request)
-        if prepared.receipt.status != AuthorityDispatchStatus.prepared.value:
-            return prepared
-        return self.execute(request)
+        adapter = self.adapters.get(request.adapter_ref)
+        result: AuthorityDispatchResult | None = None
+        try:
+            prepared = self.prepare(request)
+            if (
+                prepared.receipt.status == AuthorityDispatchStatus.started.value
+                and prepared.recovery_required
+            ):
+                result = self.execute(request)
+            elif prepared.receipt.status != AuthorityDispatchStatus.prepared.value:
+                result = prepared
+            else:
+                result = self.execute(request)
+            return result
+        finally:
+            release_request_state = getattr(adapter, "release_request_state", None)
+            request_state_active = getattr(adapter, "request_state_active", None)
+            active = False
+            if callable(request_state_active):
+                try:
+                    active = bool(request_state_active(request.dispatch_ref))
+                except Exception:
+                    active = False
+            if callable(release_request_state) and (
+                result is None
+                or result.receipt.status != AuthorityDispatchStatus.started.value
+                or not active
+            ):
+                release_request_state(request.dispatch_ref)
 
     def structural_preflight_reason_refs(
         self,
@@ -872,6 +922,11 @@ class AuthorityDispatcher:
                 )
             adapter = self.adapters.get(request.adapter_ref)
             prestart_reasons = self._prestart_reason_refs(request, latest, adapter)
+            if not prestart_reasons and adapter is not None:
+                prestart_reasons = self._adapter_runtime_prestart_reason_refs(
+                    request,
+                    adapter,
+                )
             execution_fence_ref = None
             if execution_fence is not None and self.execution_fence_validator is None:
                 prestart_reasons.append(
@@ -893,6 +948,11 @@ class AuthorityDispatcher:
                     request,
                     latest,
                     current_time=start_validated_at,
+                )
+            if not prestart_reasons and adapter is not None:
+                prestart_reasons = self._adapter_request_state_claim_reason_refs(
+                    request,
+                    adapter,
                 )
             if not prestart_reasons:
                 execution_ref = _execution_ref(request)
@@ -1583,6 +1643,45 @@ class AuthorityDispatcher:
             )
         )
         return list(dict.fromkeys(reasons))
+
+    @staticmethod
+    def _adapter_runtime_prestart_reason_refs(
+        request: AuthorityDispatchRequest,
+        adapter: AuthorityDispatchAdapter,
+    ) -> list[str]:
+        runtime_prestart = getattr(adapter, "runtime_prestart_reason_refs", None)
+        if not callable(runtime_prestart):
+            return []
+        invalid = [
+            "reason-ref:authority-dispatch:adapter-runtime-prestart-invalid"
+        ]
+        try:
+            values = runtime_prestart(request)
+            if not isinstance(values, list) or len(values) > 32:
+                return invalid
+            for value in values:
+                if not isinstance(value, str) or not value.startswith("reason-ref:"):
+                    return invalid
+                validate_task_ref(value, "authority_dispatch_runtime_prestart_reason_ref")
+        except Exception:
+            return invalid
+        return list(dict.fromkeys(values))
+
+    @staticmethod
+    def _adapter_request_state_claim_reason_refs(
+        request: AuthorityDispatchRequest,
+        adapter: AuthorityDispatchAdapter,
+    ) -> list[str]:
+        """Claim transient adapter state immediately before durable start."""
+
+        claim_request_state = getattr(adapter, "claim_request_state", None)
+        if not callable(claim_request_state):
+            return []
+        try:
+            claim_request_state(request.dispatch_ref)
+        except Exception:
+            return ["reason-ref:authority-dispatch:adapter-request-state-unavailable"]
+        return []
 
     def _time_bound_prestart_reason_refs(
         self,

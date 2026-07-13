@@ -89,6 +89,11 @@ Maintainers treat these as non-negotiable:
   approval-bound, budget-reserved before start, and settled with safe evidence.
   A durable `started` dispatch must never be replayed automatically after an
   interrupted or unknown outcome.
+- Portable mission-evidence Ed25519 seeds may exist only inside the dedicated
+  non-synchronizing, device-only macOS Keychain helper boundary. Python, API,
+  CLI, receipts, logs, fixtures, and durable state may contain public keys,
+  signatures, fingerprints, and safe refs only. UAA does not claim Secure
+  Enclave Ed25519, signer identity, non-repudiation, or external anchoring.
 - Durable evidence, reports, release docs, tests, and logs must not contain raw
   prompt content, raw response content, raw provider payload content, raw local
   path content, raw log content, usernames, hostnames, serials, environment

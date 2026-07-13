@@ -13,6 +13,10 @@ The Control Center is the technical web shell, Founder Command Center is the
 user-facing product name, and the Founder Loop is the bounded product spine.
 Python Agent Core, PolicyEngine, LocalApprovalAuthority, route classification,
 OpenAPI checks, and Foundation Gate checks remain the authority boundaries.
+Managed portable mission-evidence signing is documented in
+`docs/runtime/UAA_PORTABLE_MISSION_EVIDENCE_SIGNING.md`; it is a macOS-only,
+exact dispatcher-governed Ed25519 lane and is not signer identity, notarization,
+non-repudiation, an external timestamp, or execution authority.
 
 Status: active
 Current through: v0.104.0 plus accepted checkpoint-m169, completed
