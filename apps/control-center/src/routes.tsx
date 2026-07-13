@@ -678,7 +678,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
             today={data.founderToday}
           />
           <SettingsOperatorPanel
-            authoritative={isAuthoritativeConnection(data)}
+            authoritative={isAuthoritativeRoute(data, "/settings")}
             data={data}
           />
         </>
