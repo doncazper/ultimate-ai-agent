@@ -109,14 +109,13 @@ def test_shared_mac_ci_stages_cpu_and_io_heavy_job_classes() -> None:
     )
 
 
-def test_checkout_is_pinned_to_current_node_24_release() -> None:
+def test_checkout_matches_repository_actions_allow_policy() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
 
-    checkout_action = "uses: actions/checkout@v6.0.2"
+    checkout_action = "uses: actions/checkout@v4"
     assert workflow.count(checkout_action) == workflow.count(
         "persist-credentials: false"
     )
-    assert "actions/checkout@v4" not in workflow
 
 
 def test_desktop_packaging_preserves_non_admin_docker_boundary() -> None:
