@@ -19,6 +19,9 @@ from ultimate_ai_agent.api.cors import (
 )
 from ultimate_ai_agent.api.control_center import register_control_center_routes
 from ultimate_ai_agent.api.founder_loop import register_founder_loop_routes
+from ultimate_ai_agent.api.founder_exact_action import (
+    register_founder_exact_action_routes,
+)
 from ultimate_ai_agent.api.idempotency import (
     API_IDEMPOTENCY_AUDIT_POLICY_REF,
     idempotency_header_failure,
@@ -196,9 +199,11 @@ from ultimate_ai_agent.core.observability import (
 from ultimate_ai_agent.core.extension_catalog import (
     ExtensionInstallDisabledRecordDeleteRequest,
     ExtensionInstallDisabledRecordIssueRequest,
-    build_default_inspectable_extension_catalog,
     delete_extension_install_disabled_record,
     issue_extension_install_disabled_record,
+)
+from ultimate_ai_agent.core.extension_catalog.ecosystem import (
+    build_default_extension_ecosystem_read_model,
 )
 from ultimate_ai_agent.core.file_review import (
     FileReviewApprovalCaptureRequest,
@@ -244,6 +249,7 @@ configure_loopback_cors(app)
 register_governed_web_evidence_routes(app)
 register_mattermost_routes(app)
 register_founder_loop_routes(app)
+register_founder_exact_action_routes(app)
 register_provider_setup_routes(app)
 register_governed_runtime_routes(app)
 
@@ -870,7 +876,7 @@ def post_observability_client_error(report: ClientErrorReport) -> Any:
 
 @app.get("/extensions/catalog", response_model=ResultEnvelope)
 def get_extensions_catalog() -> Any:
-    catalog = build_default_inspectable_extension_catalog()
+    catalog = build_default_extension_ecosystem_read_model()
     return ResultEnvelope(
         success=True,
         operation="inspect_extension_catalog",

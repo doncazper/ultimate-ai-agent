@@ -98,6 +98,7 @@ def test_extension_catalog_api_and_cli_expose_progressive_skill_metadata() -> No
             sys.executable,
             "scripts/dev/uaa_extensions.py",
             "inspect-catalog",
+            "--json",
         ],
         check=True,
         capture_output=True,

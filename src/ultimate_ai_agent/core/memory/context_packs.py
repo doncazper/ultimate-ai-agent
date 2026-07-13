@@ -417,8 +417,9 @@ def build_context_pack_proposal_index(
                 "excluded-reason-ref:context-pack-unsafe-or-authority-bearing"
             )
 
+    for ref, reason_ref in source_l1.skipped_record_reasons.items():
+        skipped.setdefault(ref, reason_ref)
     for ref in [
-        *source_l1.skipped_record_refs,
         *source_l2.skipped_l1_preview_refs,
         *source_l3.skipped_l2_item_refs,
     ]:

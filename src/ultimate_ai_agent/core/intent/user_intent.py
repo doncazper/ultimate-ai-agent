@@ -117,6 +117,47 @@ _DENIED_FLAGS = [
     "production_authority_enabled",
 ]
 
+
+class UserIntentAuthorityPosture(BaseModel):
+    review_required: bool = True
+    safe_refs_only: bool = True
+    evidence_required: bool = True
+    low_confidence_asks_user: bool = True
+    conflicting_intent_asks_user: bool = True
+    hidden_authority_enabled: bool = False
+    acts_without_review: bool = False
+    action_execution_enabled: bool = False
+    approval_grant_capture_enabled: bool = False
+    memory_write_authorized: bool = False
+    automatic_memory_write_authorized: bool = False
+    context_injection_authorized: bool = False
+    tool_execution_enabled: bool = False
+    provider_model_authority_allowed: bool = False
+    connector_write_enabled: bool = False
+    shell_subprocess_execution_enabled: bool = False
+    code_apply_execution_enabled: bool = False
+    broad_autonomy_enabled: bool = False
+    public_beta_claim_enabled: bool = False
+    production_authority_enabled: bool = False
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    @model_validator(mode="after")
+    def validate_posture(self) -> "UserIntentAuthorityPosture":
+        for field_name in (
+            "review_required",
+            "safe_refs_only",
+            "evidence_required",
+            "low_confidence_asks_user",
+            "conflicting_intent_asks_user",
+        ):
+            if getattr(self, field_name) is not True:
+                raise ValueError(f"authority posture must require {field_name}")
+        for field_name in _DENIED_FLAGS:
+            if getattr(self, field_name) is not False:
+                raise ValueError(f"authority posture must deny {field_name}")
+        return self
+
 _UNSAFE_TEXT_FRAGMENTS = (
     "raw prompt",
     "raw_prompt",
@@ -240,10 +281,27 @@ class ReviewableUserIntentProposal(BaseModel):
         if self.confidence_band in {"low", "conflicting"} or self.confidence_score < 0.6:
             if self.routing_decision != "ask" or not self.ask_user_question_ref:
                 raise ValueError("low or conflicting user intent must ask the user")
+        expected_band: UserIntentConfidenceBand
+        if self.ambiguity_posture == "ambiguous_conflicting_sources":
+            expected_band = "conflicting"
+        elif self.confidence_score >= 0.8:
+            expected_band = "high"
+        elif self.confidence_score >= 0.6:
+            expected_band = "medium"
+        else:
+            expected_band = "low"
+        if self.confidence_band != expected_band:
+            raise ValueError("user intent confidence band does not match score or conflict")
         if self.ambiguity_posture == "ambiguous_conflicting_sources" and not self.conflict_refs:
             raise ValueError("conflicting user intent requires conflict refs")
+        if self.ambiguity_posture == "ambiguous_conflicting_sources" and (
+            self.routing_decision != "ask" or not self.ask_user_question_ref
+        ):
+            raise ValueError("conflicting user intent must ask the user")
         if self.routing_decision == "act" and self.confidence_score < 0.75:
             raise ValueError("act routing requires high confidence")
+        if self.routing_decision == "act" and self.confidence_band != "high":
+            raise ValueError("act routing requires the high confidence band")
         for flag in _DENIED_FLAGS:
             if getattr(self, flag) is not False:
                 raise ValueError(f"{flag} is denied by user intent understanding")
@@ -270,7 +328,7 @@ class UserIntentUnderstandingContract(BaseModel):
     )
     proposal_count: int
     surface_bindings: list[dict[str, str]]
-    authority_posture: dict[str, bool]
+    authority_posture: UserIntentAuthorityPosture
     blocked_state_refs: list[str] = Field(
         default_factory=lambda: list(USER_INTENT_UNDERSTANDING_REQUIRED_BLOCKED_REFS)
     )
@@ -338,10 +396,10 @@ class UserIntentUnderstandingContract(BaseModel):
         for flag in _DENIED_FLAGS:
             if getattr(self, flag) is not False:
                 raise ValueError(f"{flag} is denied by user intent understanding")
-            if self.authority_posture.get(flag) is not False:
+            if getattr(self.authority_posture, flag) is not False:
                 raise ValueError(f"authority posture must deny {flag}")
         for field_name in required_true:
-            if self.authority_posture.get(field_name) is not True:
+            if getattr(self.authority_posture, field_name) is not True:
                 raise ValueError(f"authority posture must require {field_name}")
         return self
 
@@ -492,7 +550,7 @@ def user_intent_understanding_authority_posture() -> dict[str, bool]:
         "conflicting_intent_asks_user": True,
     }
     posture.update({flag: False for flag in _DENIED_FLAGS})
-    return posture
+    return UserIntentAuthorityPosture(**posture).model_dump(mode="json")
 
 
 def _proposal(

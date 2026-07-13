@@ -13,6 +13,7 @@ import type {
   AuthorityMissionWorkerJob,
   AuthorityMissionWorkerReadModel,
   AuthorityMissionWorkerStepRecovery,
+  AuthorityMissionCompletionReadModel,
   BackendConnectionSummary,
   CodingCockpitSessionReadModel,
   CodingWorkspaceContextReadModel,
@@ -93,6 +94,7 @@ import type {
   FounderLoopMemoryContextPacks,
   FounderLoopMemoryCitationIntegrity,
   FounderLoopMemoryContextManifest,
+  GovernedMemoryContextManifest,
   FounderLoopMemoryMaintenanceRuns,
   FounderLoopMemoryQualityIssues,
   FounderLoopMemoryReview,
@@ -145,7 +147,11 @@ import {
   memoryReviewReceiptEndpoint,
 } from "./endpoints";
 import { normalizeMacOSSetupAssistant } from "./macosSetupAssistant";
-import { sanitizeForDisplay } from "./redaction";
+import {
+  containsSecretLike,
+  safeApiErrorMessage,
+  sanitizeForDisplay,
+} from "./redaction";
 
 const API_BASE_POLICY = resolveApiBaseUrl(
   import.meta.env.VITE_UAA_API_BASE_URL,
@@ -280,7 +286,9 @@ async function readEnvelope<T>(
     );
     const data = (await response.json()) as ResultEnvelope<T> | T;
     if (!response.ok) {
-      throw new Error(sanitizeForDisplay(data));
+      throw new Error(
+        safeApiErrorMessage(data, "Local backend read failed safely."),
+      );
     }
     if (
       typeof data === "object" &&
@@ -292,7 +300,7 @@ async function readEnvelope<T>(
       const ok = envelope.ok ?? envelope.success;
       if (!ok || result === undefined) {
         throw new Error(
-          sanitizeForDisplay(envelope.error?.message ?? "Request failed"),
+          safeApiErrorMessage(envelope, "Local backend read failed safely."),
         );
       }
       return result;
@@ -2275,9 +2283,7 @@ export async function submitActionPreview(
   const decision = data.result ?? data.data;
   if (!response.ok || !decision) {
     throw new Error(
-      sanitizeForDisplay(
-        data.error?.message ?? "Preview request was rejected safely.",
-      ),
+      safeApiErrorMessage(data, "Preview request was rejected safely."),
     );
   }
   return decision;
@@ -2304,9 +2310,7 @@ export async function submitTurnRouterPreview(
   const preview = data.result ?? data.data;
   if (!response.ok || !preview) {
     throw new Error(
-      sanitizeForDisplay(
-        data.error?.message ?? "Turn router preview failed safely.",
-      ),
+      safeApiErrorMessage(data, "Turn router preview failed safely."),
     );
   }
   if (!isSafeTurnRouterPreview(preview)) {
@@ -2862,9 +2866,9 @@ export async function submitActionDecision(
   const receipt = data.result ?? data.data;
   if (!response.ok || !receipt) {
     throw new Error(
-      sanitizeForDisplay(
-        data.error?.message ??
-          "Action decision receipt was not recorded safely.",
+      safeApiErrorMessage(
+        data,
+        "Action decision receipt was not recorded safely.",
       ),
     );
   }
@@ -2889,8 +2893,9 @@ export async function fetchActionReceipt(
     (await response.json()) as ResultEnvelope<FounderLoopActionDecisionReceipt>;
   if (!response.ok) {
     throw new Error(
-      sanitizeForDisplay(
-        data.error?.message ?? "Action decision receipt was not fetched safely.",
+      safeApiErrorMessage(
+        data,
+        "Action decision receipt was not fetched safely.",
       ),
     );
   }
@@ -3057,6 +3062,18 @@ export async function fetchAuthorityMissionWorkerState(): Promise<AuthorityMissi
   if (!isSafeAuthorityMissionWorkerReadModel(value)) {
     throw new Error(
       "Authority mission worker inspection returned unsafe or incompatible data.",
+    );
+  }
+  return value;
+}
+
+export async function fetchAuthorityMissionCompletions(): Promise<AuthorityMissionCompletionReadModel> {
+  const value = await readEnvelope<unknown>(
+    API_ENDPOINTS.runtimeAuthorityMissionCompletions,
+  );
+  if (!isSafeAuthorityMissionCompletionReadModel(value)) {
+    throw new Error(
+      "Authority mission completion inspection returned unsafe or incompatible data.",
     );
   }
   return value;
@@ -3272,9 +3289,9 @@ export async function submitTodayActionEnvelope(
   const receipt = data.result ?? data.data;
   if (!response.ok || !receipt) {
     throw new Error(
-      sanitizeForDisplay(
-        data.error?.message ??
-          "Today action envelope receipt was not recorded safely.",
+      safeApiErrorMessage(
+        data,
+        "Today action envelope receipt was not recorded safely.",
       ),
     );
   }
@@ -7788,6 +7805,87 @@ function isSafeFounderAgentLoopThread(
     typeof value.contract_ref === "string" &&
     typeof value.route_ref === "string" &&
     typeof value.cli_ref === "string" &&
+    value.reasoning_truth?.schema_version ===
+      "uaa-intent-reasoning-truth.v1" &&
+    value.reasoning_truth?.contract_ref ===
+      "contract-ref:intent-reasoning-truth:v1" &&
+    value.reasoning_truth?.backend_owned === true &&
+    value.reasoning_truth?.safe_refs_only === true &&
+    value.reasoning_truth?.raw_content_included === false &&
+    value.reasoning_truth?.authority_posture ===
+      "non_authoritative_review_truth" &&
+    value.reasoning_truth?.model_assistance_posture === "deterministic_only" &&
+    typeof value.reasoning_truth?.intent_ref === "string" &&
+    typeof value.reasoning_truth?.intent_fingerprint_ref === "string" &&
+    typeof value.reasoning_truth?.request_fingerprint_ref === "string" &&
+    [
+      "answer_directly",
+      "base_answer",
+      "answer_with_reviewed_memory",
+      "draft_or_plan",
+      "prepare_tool_or_action",
+      "approval_required",
+      "execute_approved_action",
+      "ask_clarifying_question",
+      "blocked_unsafe",
+    ].includes(value.reasoning_truth.turn_contract) &&
+    Array.isArray(value.reasoning_truth?.facts) &&
+    value.reasoning_truth.facts.length > 0 &&
+    value.reasoning_truth.facts.every(
+      (item) =>
+        item.kind === "fact" &&
+        typeof item.statement_ref === "string" &&
+        typeof item.safe_summary === "string" &&
+        isNonEmptyStringArray(item.source_refs) &&
+        isNonEmptyStringArray(item.evidence_refs),
+    ) &&
+    Array.isArray(value.reasoning_truth?.assumptions) &&
+    value.reasoning_truth.assumptions.every(
+      (item) =>
+        item.kind === "assumption" &&
+        item.review_required === true &&
+        typeof item.statement_ref === "string",
+    ) &&
+    Array.isArray(value.reasoning_truth?.unknowns) &&
+    value.reasoning_truth.unknowns.every(
+      (item) =>
+        item.kind === "unknown" &&
+        item.review_required === true &&
+        typeof item.statement_ref === "string",
+    ) &&
+    Array.isArray(value.reasoning_truth?.operator_questions) &&
+    value.reasoning_truth.operator_questions.every(
+      (item) =>
+        typeof item.question_ref === "string" &&
+        typeof item.safe_question === "string" &&
+        isNonEmptyStringArray(item.resolves_refs),
+    ) &&
+    ((value.reasoning_truth.confidence_band !== "low" &&
+      value.reasoning_truth.confidence_band !== "conflicting" &&
+      value.reasoning_truth.ambiguity_posture === "clear") ||
+      value.reasoning_truth.operator_questions.length > 0) &&
+    isNonEmptyStringArray(value.reasoning_truth?.blocked_authority_refs) &&
+    value.plan_revision?.schema_version === "uaa-plan-revision.v1" &&
+    value.plan_revision?.authority_posture ===
+      "non_authoritative_plan_truth" &&
+    value.plan_revision?.downstream_authority_bindings_invalidated === true &&
+    typeof value.plan_revision?.revision_fingerprint_ref === "string" &&
+    value.plan_revision?.decomposition?.schema_version ===
+      "uaa-immutable-decomposition.v1" &&
+    value.plan_revision.decomposition.intent_fingerprint_ref ===
+      value.reasoning_truth.intent_fingerprint_ref &&
+    typeof value.plan_revision.decomposition.decomposition_fingerprint_ref ===
+      "string" &&
+    Array.isArray(value.plan_revision.decomposition.ordered_steps) &&
+    value.plan_revision.decomposition.ordered_steps.length > 0 &&
+    value.plan_revision.decomposition.ordered_steps.every(
+      (step) =>
+        typeof step.step_ref === "string" &&
+        typeof step.definition_fingerprint_ref === "string" &&
+        isNonEmptyStringArray(step.target_refs) &&
+        isNonEmptyStringArray(step.source_refs) &&
+        Array.isArray(step.dependency_step_refs),
+    ) &&
     Array.isArray(value.plan?.steps) &&
     Array.isArray(value.proposed_actions) &&
     Array.isArray(value.evidence?.evidence_refs) &&
@@ -7818,6 +7916,9 @@ function isSafeFounderAgentLoopThread(
         Array.isArray(row.test_refs) &&
         row.test_refs.length > 0,
     ) &&
+    isSafeExternalInformationHandling(
+      value.high_maturity_spine_readiness.external_information_handling,
+    ) &&
     value.operator_decision_matrix?.backend_owned === true &&
     value.operator_decision_matrix?.control_center_presentation_only === true &&
     value.operator_decision_matrix?.safe_refs_only === true &&
@@ -7842,6 +7943,7 @@ function isSafeFounderAgentLoopThread(
     value.authority_posture?.runtime_model_calls_enabled === false &&
     value.authority_posture?.provider_sdk_calls_enabled === false &&
     value.authority_posture?.live_web_fetching_enabled === false &&
+    value.authority_posture?.unrestricted_live_web_fetching_enabled === false &&
     value.authority_posture?.browser_automation_enabled === false &&
     value.authority_posture?.connector_writes_enabled === false &&
     value.authority_posture?.unrestricted_shell_enabled === false &&
@@ -7857,6 +7959,210 @@ function isNonEmptyStringArray(value: unknown): value is string[] {
     Array.isArray(value) &&
     value.length > 0 &&
     value.every((item) => typeof item === "string" && item.length > 0)
+  );
+}
+
+const WEB_HYBRID_SAFE_REF_RE = /^[a-z][a-z0-9_-]*(?::[a-z0-9][a-z0-9_.-]*)+$/;
+const WEB_HYBRID_CODE_RE = /^[A-Z][A-Z0-9_]*$/;
+const WEB_HYBRID_UNSAFE_TEXT_RE =
+  /(?:(?:^|\s)\/(?:Users|home|private|var)\/|[a-z]:\\|\b(?:file|https?):\/\/|<(?:html|body|script)\b|raw[_ -]?(?:prompt|response|page|payload|log)|provider[_ -]?payload|api[_-]?key|token\x3d)/i;
+const WEB_HYBRID_LANE_CONTRACTS: Record<
+  string,
+  {
+    capability_ref: string;
+    provider_ref: string;
+    adapter_ref: string;
+    runtime_availability: string;
+    approval_posture: string;
+    cost_posture: string;
+  }
+> = {
+  "authority-lane-ref:web-access:searxng-search:v1": {
+    capability_ref: "capability-ref:web-access:searxng-search",
+    provider_ref: "provider-ref:searxng:self-hosted",
+    adapter_ref: "adapter-ref:web-access:searxng-search:v1",
+    runtime_availability: "requires_current_loopback_observation",
+    approval_posture: "exact_local_approval_and_lease_required",
+    cost_posture: "not_metered",
+  },
+  "authority-lane-ref:web-access:firecrawl-markdown-extract:v1": {
+    capability_ref: "capability-ref:web-access:firecrawl-markdown-extract",
+    provider_ref: "provider-ref:firecrawl:self-hosted",
+    adapter_ref: "adapter-ref:web-access:firecrawl-markdown-extract:v1",
+    runtime_availability: "requires_current_loopback_observation",
+    approval_posture: "exact_local_approval_and_lease_required",
+    cost_posture: "not_metered",
+  },
+  "web-lane-ref:firecrawl-cloud-markdown:v1": {
+    capability_ref: "capability-ref:web-access:firecrawl-cloud-markdown:v1",
+    provider_ref: "web-provider-ref:firecrawl-cloud",
+    adapter_ref: "web-adapter-ref:firecrawl-cloud-markdown:v1",
+    runtime_availability: "requires_credential_and_current_credit_snapshot",
+    approval_posture: "exact_approval_lease_budget_and_reservation_required",
+    cost_posture: "metered_free_plan_only",
+  },
+};
+
+function isSafeWebHybridText(value: unknown, maxLength: number): value is string {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= maxLength &&
+    !containsSecretLike(value) &&
+    !WEB_HYBRID_UNSAFE_TEXT_RE.test(value)
+  );
+}
+
+const EXTERNAL_INFORMATION_LANE_COUNTS: Record<string, number> = {
+  trusted_local_evidence: 0,
+  operator_supplied_external_metadata: 0,
+  allowlisted_gateway_preview: 1,
+  untrusted_content_quarantine: 0,
+  browser_observe: 0,
+  browser_action: 0,
+  provider_search_scrape: 3,
+  external_content_authority_isolation: 0,
+};
+
+function isSafeExternalInformationStringArray(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.every((item) => isSafeWebHybridText(item, 700))
+  );
+}
+
+function isSafeNonEmptyExternalInformationStringArray(
+  value: unknown,
+): value is string[] {
+  return (
+    isSafeExternalInformationStringArray(value) && value.length > 0
+  );
+}
+
+function isSafeExternalInformationHandling(value: unknown): boolean {
+  if (!isPlainRecord(value) || !Array.isArray(value.rows)) {
+    return false;
+  }
+  const expectedCategoryIds = Object.keys(EXTERNAL_INFORMATION_LANE_COUNTS);
+  if (
+    value.schema_version !== "external_information_handling_posture.v1" ||
+    value.contract_ref !==
+      "contract-ref:external-information-handling-posture:v1" ||
+    value.status !== "implemented_read_only_posture_map_existing_lanes_only" ||
+    value.source !== "python_core_agent_loop_thread_read_model" ||
+    value.route_ref !== "GET /control-center/agent-loop/thread" ||
+    value.cli_ref !==
+      "scripts/dev/uaa_founder_loop.py inspect-high-maturity-spine" ||
+    value.backend_owned !== true ||
+    value.local_read_model_only !== true ||
+    value.safe_refs_only !== true ||
+    value.raw_content_included !== false ||
+    value.category_count !== expectedCategoryIds.length ||
+    value.implemented_or_blocked_count !== expectedCategoryIds.length ||
+    value.existing_exact_network_lane_count !== 4 ||
+    value.rows.length !== expectedCategoryIds.length ||
+    value.new_live_web_fetching_added !== false ||
+    value.browser_observe_enabled !== false ||
+    value.browser_action_execution_enabled !== false ||
+    value.provider_search_enabled !== false ||
+    value.exact_bounded_provider_lanes_implemented !== true ||
+    value.provider_sdk_calls_added !== false ||
+    value.connector_writes_added !== false ||
+    value.memory_writes_added !== false ||
+    value.context_injection_added !== false ||
+    value.production_authority_added !== false ||
+    !isSafeWebHybridText(value.safe_summary, 700) ||
+    !isSafeNonEmptyExternalInformationStringArray(value.blocked_authority_refs) ||
+    !isSafeNonEmptyExternalInformationStringArray(value.redactions_applied)
+  ) {
+    return false;
+  }
+  if (
+    !hasExactStringSet(
+      value.rows.map((row) =>
+        isPlainRecord(row) ? row.category_id : undefined,
+      ),
+      expectedCategoryIds,
+    )
+  ) {
+    return false;
+  }
+  return value.rows.every((row) => {
+    if (!isPlainRecord(row) || typeof row.category_id !== "string") {
+      return false;
+    }
+    const expectedLaneCount = EXTERNAL_INFORMATION_LANE_COUNTS[row.category_id];
+    return (
+      expectedLaneCount !== undefined &&
+      row.exact_network_lane_count === expectedLaneCount &&
+      row.existing_exact_network_lane === (expectedLaneCount > 0) &&
+      isSafeWebHybridText(row.label, 160) &&
+      isSafeWebHybridText(row.status, 160) &&
+      isSafeWebHybridText(row.network_posture, 160) &&
+      isSafeWebHybridText(row.authority_posture, 160) &&
+      isSafeWebHybridText(row.safe_summary, 700) &&
+      isSafeExternalInformationStringArray(row.route_refs) &&
+      isSafeExternalInformationStringArray(row.cli_refs) &&
+      isSafeNonEmptyExternalInformationStringArray(row.evidence_refs) &&
+      isSafeNonEmptyExternalInformationStringArray(row.test_refs) &&
+      isSafeNonEmptyExternalInformationStringArray(row.blocked_authority_refs) &&
+      typeof row.authority_required === "boolean" &&
+      row.policy_decision_required === true &&
+      typeof row.receipt_required === "boolean" &&
+      row.safe_refs_only === true &&
+      row.raw_content_included === false &&
+      row.untrusted_content_can_instruct_agent === false &&
+      row.external_content_can_grant_authority === false &&
+      row.new_live_web_fetching_added === false &&
+      row.browser_observe_enabled === false &&
+      row.browser_action_execution_enabled === false &&
+      row.provider_search_enabled === false &&
+      row.provider_sdk_calls_added === false &&
+      row.connector_writes_added === false &&
+      row.memory_writes_added === false &&
+      row.context_injection_added === false &&
+      row.production_authority_added === false
+    );
+  });
+}
+
+function isSafeWebHybridRef(value: unknown): value is string {
+  return typeof value === "string" && WEB_HYBRID_SAFE_REF_RE.test(value);
+}
+
+function isSafeWebHybridRefArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.length > 0 && value.every(isSafeWebHybridRef);
+}
+
+function isSafeWebHybridCodeArray(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every(
+      (item) => typeof item === "string" && WEB_HYBRID_CODE_RE.test(item),
+    )
+  );
+}
+
+function isSafeWebHybridLane(value: unknown): boolean {
+  if (!isPlainRecord(value) || !isSafeWebHybridRef(value.lane_ref)) {
+    return false;
+  }
+  const expected = WEB_HYBRID_LANE_CONTRACTS[value.lane_ref];
+  return Boolean(
+    expected &&
+      value.capability_ref === expected.capability_ref &&
+      value.provider_ref === expected.provider_ref &&
+      value.adapter_ref === expected.adapter_ref &&
+      value.runtime_availability === expected.runtime_availability &&
+      value.approval_posture === expected.approval_posture &&
+      value.cost_posture === expected.cost_posture &&
+      value.implementation_status === "implemented_exact_lane" &&
+      value.side_effect_class === "read_only_external" &&
+      value.authority_posture === "request_scoped_evaluation_required" &&
+      isSafeWebHybridText(value.display_label, 120) &&
+      isSafeWebHybridCodeArray(value.reason_codes) &&
+      isSafeWebHybridCodeArray(value.blocker_codes),
   );
 }
 
@@ -7900,6 +8206,9 @@ function isSafeControlCenterCapabilitySurface(
     value.web_hybrid.schema_version === "uaa-web-hybrid-availability.v1" &&
     value.web_hybrid.truth_owner === "python_core" &&
     value.web_hybrid.status === "implemented_runtime_observation_required" &&
+    isSafeWebHybridRef(value.web_hybrid.read_model_ref) &&
+    isSafeWebHybridRef(value.web_hybrid.cli_ref) &&
+    value.web_hybrid.cli_path === "scripts/inspect_web_hybrid_status.py" &&
     value.web_hybrid.routing_policy ===
       "self_host_first_cloud_escalation" &&
     value.web_hybrid.routing_attempt_ceiling === 2 &&
@@ -7910,15 +8219,76 @@ function isSafeControlCenterCapabilitySurface(
     value.web_hybrid.current_credit_snapshot_status ===
       "not_observed_by_read_only_route" &&
     value.web_hybrid.current_remaining_credits === null &&
+    value.web_hybrid.reviewed_free_plan_credits === 1000 &&
+    value.web_hybrid.reviewed_free_plan_concurrency === 2 &&
+    value.web_hybrid.uaa_effective_cloud_concurrency === 1 &&
+    value.web_hybrid.reviewed_standard_scrape_credits === 1 &&
+    isSafeWebHybridRef(value.web_hybrid.cost_policy_ref) &&
+    isSafeWebHybridRef(value.web_hybrid.credential_ref) &&
+    value.web_hybrid.circuit_state === "unknown_until_runtime_inspection" &&
+    isSafeWebHybridRef(value.web_hybrid.circuit_ref) &&
     value.web_hybrid.request_scoped_evaluation_required === true &&
+    value.web_hybrid.final_start_revalidation_required === true &&
+    value.web_hybrid.mission_scoped_lease_required === true &&
+    value.web_hybrid.complete_request_fingerprint_required === true &&
+    value.web_hybrid.start_deadline_required === true &&
+    value.web_hybrid.local_approval_required === true &&
+    value.web_hybrid.exact_authority_lease_required === true &&
+    value.web_hybrid.budget_reservation_required_for_cloud === true &&
     value.web_hybrid.external_content_untrusted === true &&
     value.web_hybrid.instruction_authority_granted === false &&
     value.web_hybrid.memory_write_allowed === false &&
     value.web_hybrid.context_injection_allowed === false &&
     value.web_hybrid.browser_actions_allowed === false &&
+    value.web_hybrid.raw_page_persisted === false &&
+    value.web_hybrid.raw_provider_payload_persisted === false &&
+    value.web_hybrid.credential_material_returned === false &&
     value.web_hybrid.provider_network_call_performed === false &&
+    isSafeWebHybridRefArray(value.web_hybrid.proof_refs) &&
+    isSafeWebHybridCodeArray(value.web_hybrid.blocker_codes) &&
+    isSafeWebHybridText(value.web_hybrid.safe_summary, 700) &&
+    isPlainRecord(value.web_hybrid.research_aggregation) &&
+    value.web_hybrid.research_aggregation.schema_version ===
+      "uaa-web-research-aggregation-posture.v1" &&
+    value.web_hybrid.research_aggregation.status ===
+      "implemented_injected_observations_required" &&
+    value.web_hybrid.research_aggregation.current_observation_status ===
+      "not_injected_by_read_only_route" &&
+    value.web_hybrid.research_aggregation.current_citation_count === 0 &&
+    value.web_hybrid.research_aggregation.citation_limit === 10 &&
+    value.web_hybrid.research_aggregation.summary_character_limit === 4000 &&
+    value.web_hybrid.research_aggregation.deterministic_injected_observations_only ===
+      true &&
+    value.web_hybrid.research_aggregation.provider_readiness_included === true &&
+    value.web_hybrid.research_aggregation.provider_latency_posture_included === true &&
+    value.web_hybrid.research_aggregation.provider_cost_posture_included === true &&
+    value.web_hybrid.research_aggregation.provider_context_posture_included === true &&
+    value.web_hybrid.research_aggregation.provider_routing_posture_included === true &&
+    value.web_hybrid.research_aggregation.excluded_source_reasons_included === true &&
+    value.web_hybrid.research_aggregation.content_untrusted === true &&
+    value.web_hybrid.research_aggregation.not_instruction_authority === true &&
+    value.web_hybrid.research_aggregation.context_injection_authorized === false &&
+    value.web_hybrid.research_aggregation.memory_write_authorized === false &&
+    value.web_hybrid.research_aggregation.action_execution_authorized === false &&
+    value.web_hybrid.research_aggregation.raw_query_persisted === false &&
+    value.web_hybrid.research_aggregation.raw_page_content_persisted === false &&
+    value.web_hybrid.research_aggregation.raw_provider_payload_persisted === false &&
+    isSafeWebHybridRef(value.web_hybrid.research_aggregation.contract_ref) &&
+    isSafeWebHybridText(
+      value.web_hybrid.research_aggregation.safe_summary,
+      700,
+    ) &&
+    isSafeWebHybridRefArray(value.web_hybrid.research_aggregation.proof_refs) &&
+    isSafeWebHybridCodeArray(value.web_hybrid.research_aggregation.blocker_codes) &&
     Array.isArray(value.web_hybrid.lanes) &&
     value.web_hybrid.lanes.length === 3 &&
+    value.web_hybrid.lanes.every(isSafeWebHybridLane) &&
+    hasExactStringSet(
+      value.web_hybrid.lanes.map((lane) =>
+        isPlainRecord(lane) ? lane.lane_ref : undefined,
+      ),
+      Object.keys(WEB_HYBRID_LANE_CONTRACTS),
+    ) &&
     isNonEmptyStringArray(value.blocked_authority_refs) &&
     isNonEmptyStringArray(value.redactions_applied)
   );
@@ -8029,7 +8399,7 @@ function isSafeControlCenterSettingsStatus(
     Array.isArray(value.blocked_authorities) &&
     Array.isArray(value.redactions_applied) &&
     authority.schema_version === "uaa-authority-state.v1" &&
-    typeof authority.backend_owned === "boolean" &&
+    authority.backend_owned === true &&
     typeof authority.active_mode === "string" &&
     authorityModes.has(authority.active_mode) &&
     authority.unknown_authority_default === "deny" &&
@@ -8249,6 +8619,9 @@ function normalizeFounderMemoryContextManifest(
   const blockedStateRefs = Array.isArray(value.blocked_state_refs)
     ? value.blocked_state_refs
     : [];
+  const governedContext = isSafeGovernedMemoryContext(value.governed_context)
+    ? value.governed_context
+    : undefined;
   return {
     value: {
       ...merged.value,
@@ -8262,9 +8635,292 @@ function normalizeFounderMemoryContextManifest(
           ? value.context_pack_preview_count
           : manifests.length,
       blocked_state_refs: blockedStateRefs,
+      governed_context: governedContext,
+      governed_context_manifest_ref: governedContext?.context_manifest_ref,
+      governed_context_receipt_ref: governedContext?.context_receipt_ref,
+      governed_context_fingerprint_ref: governedContext?.manifest_fingerprint_ref,
     },
-    usedFallback: merged.usedFallback,
+    usedFallback:
+      merged.usedFallback ||
+      (value.governed_context !== undefined && governedContext === undefined),
   };
+}
+
+function isSafeGovernedMemoryContext(
+  value: unknown,
+): value is GovernedMemoryContextManifest {
+  if (!isPlainRecord(value)) return false;
+  const selections = Array.isArray(value.selections) ? value.selections : null;
+  const exclusions = Array.isArray(value.exclusions) ? value.exclusions : null;
+  const budget = isPlainRecord(value.budget) ? value.budget : null;
+  if (!selections || !exclusions || !budget) return false;
+  const selectionCount = Number(value.selection_count);
+  const exclusionCount = Number(value.exclusion_count);
+  const candidateCount = Number(value.candidate_count);
+  const maxItems = Number(budget.max_items);
+  const selectedItems = Number(budget.selected_items);
+  const maxTokens = Number(budget.max_tokens);
+  const usedTokens = Number(budget.used_tokens);
+  const capacityExcludedItems = Number(budget.capacity_excluded_items);
+  const hasSafeRefList = (candidate: unknown): candidate is string[] =>
+    Array.isArray(candidate) &&
+    candidate.length > 0 &&
+    candidate.every((ref) => typeof ref === "string" && ref.length > 0);
+  const safeSelections = selections.every(
+    (item) =>
+      isPlainRecord(item) &&
+      typeof item.memory_ref === "string" &&
+      item.memory_ref.length > 0 &&
+      hasSafeRefList(item.source_refs) &&
+      hasSafeRefList(item.evidence_refs) &&
+      hasSafeRefList(item.receipt_refs) &&
+      hasSafeRefList(item.inclusion_reason_refs) &&
+      typeof item.confidence_posture_ref === "string" &&
+      typeof item.freshness_posture_ref === "string" &&
+      typeof item.conflict_posture_ref === "string" &&
+      typeof item.sensitivity_posture_ref === "string" &&
+      Number.isInteger(Number(item.token_estimate)) &&
+      Number(item.token_estimate) > 0,
+  );
+  const safeExclusions = exclusions.every(
+    (item) =>
+      isPlainRecord(item) &&
+      typeof item.memory_ref === "string" &&
+      item.memory_ref.length > 0 &&
+      hasSafeRefList(item.reason_refs),
+  );
+  const selectedRefs = new Set(
+    selections
+      .filter(isPlainRecord)
+      .map((item) => String(item.memory_ref ?? "")),
+  );
+  const excludedRefs = new Set(
+    exclusions
+      .filter(isPlainRecord)
+      .map((item) => String(item.memory_ref ?? "")),
+  );
+  const tokenSum = selections.reduce(
+    (total, item) =>
+      total + (isPlainRecord(item) ? Number(item.token_estimate) : 0),
+    0,
+  );
+  const expectedBudgetStatus =
+    selectedItems === 0
+      ? "exhausted"
+      : capacityExcludedItems > 0 ||
+          selectedItems === maxItems ||
+          usedTokens === maxTokens
+        ? "constrained"
+        : "available";
+  const requiredBlockedStateRefs = [
+    "blocked-state:memory-context-no-hidden-injection",
+    "blocked-state:memory-context-no-automatic-memory-truth",
+    "blocked-state:memory-context-no-action-authority",
+    "blocked-state:memory-context-no-approval-authority",
+    "blocked-state:memory-context-no-connector-write",
+    "blocked-state:memory-context-no-model-provider-call",
+    "blocked-state:memory-context-no-production-authority",
+  ];
+  const blockedStateRefs = Array.isArray(value.blocked_state_refs)
+    ? value.blocked_state_refs
+    : [];
+  if (
+    !Number.isInteger(selectionCount) ||
+    !Number.isInteger(exclusionCount) ||
+    !Number.isInteger(candidateCount) ||
+    !Number.isInteger(maxItems) ||
+    maxItems < 1 ||
+    !Number.isInteger(maxTokens) ||
+    maxTokens < 1 ||
+    !Number.isInteger(selectedItems) ||
+    selectedItems < 0 ||
+    !Number.isInteger(usedTokens) ||
+    usedTokens < 0 ||
+    selectionCount !== selections.length ||
+    exclusionCount !== exclusions.length ||
+    candidateCount !== selectionCount + exclusionCount ||
+    selectedItems !== selectionCount ||
+    selectedItems > maxItems ||
+    usedTokens > maxTokens ||
+    tokenSum !== usedTokens ||
+    !Number.isInteger(capacityExcludedItems) ||
+    capacityExcludedItems < 0 ||
+    budget.status !== expectedBudgetStatus ||
+    value.schema_version !== "governed_memory_context_manifest.v1" ||
+    value.contract_ref !== "contract-ref:governed-memory-context-manifest:v1" ||
+    value.route_ref !== "GET /control-center/memory/context-manifest" ||
+    value.redaction_status !== "safe_refs_only" ||
+    !requiredBlockedStateRefs.every((ref) => blockedStateRefs.includes(ref)) ||
+    selectedRefs.size !== selections.length ||
+    excludedRefs.size !== exclusions.length ||
+    (value.status === "ready_for_operator_preview" && selectionCount === 0) ||
+    (value.status === "blocked_no_eligible_context" && selectionCount !== 0) ||
+    ![
+      "ready_for_operator_preview",
+      "blocked_no_eligible_context",
+    ].includes(String(value.status)) ||
+    value.context_receipt_status !== "derived_preview_not_persisted" ||
+    typeof value.context_manifest_ref !== "string" ||
+    typeof value.manifest_fingerprint_ref !== "string" ||
+    typeof value.context_receipt_ref !== "string" ||
+    typeof value.query_ref !== "string" ||
+    typeof value.checked_at !== "string" ||
+    typeof value.source_index_generated_at !== "string" ||
+    value.checked_at !== value.source_index_generated_at ||
+    typeof value.expires_at !== "string" ||
+    Number.isNaN(Date.parse(value.checked_at)) ||
+    Number.isNaN(Date.parse(value.expires_at)) ||
+    Date.parse(value.expires_at) <= Date.parse(value.checked_at) ||
+    !safeSelections ||
+    !safeExclusions ||
+    [...selectedRefs].some((ref) => excludedRefs.has(ref)) ||
+    typeof value.source_scan_truncated !== "boolean" ||
+    typeof value.candidate_count_complete !== "boolean" ||
+    value.candidate_count_complete === value.source_scan_truncated
+  ) {
+    return false;
+  }
+  if (
+    value.preview_only !== true ||
+    value.context_injection_authorized !== false ||
+    value.automatic_memory_inclusion_authorized !== false ||
+    value.memory_truth_authority !== false ||
+    value.action_execution_authorized !== false ||
+    value.approval_authority_granted !== false ||
+    value.connector_write_authorized !== false ||
+    value.model_provider_authority_allowed !== false ||
+    value.raw_content_persisted !== false ||
+    value.production_authority_enabled !== false
+  ) {
+    return false;
+  }
+  return true;
+}
+
+const EXTENSION_SAFE_REF_RE = /^[a-z][a-z0-9_-]*:[a-z0-9][a-z0-9_.:-]*$/;
+const EXTENSION_REASON_CODE_RE = /^[A-Z][A-Z0-9_]*$/;
+
+function hasExactStringSet(left: unknown[], right: string[]): boolean {
+  const normalizedLeft = left.filter(
+    (item): item is string => typeof item === "string",
+  );
+  return (
+    normalizedLeft.length === left.length &&
+    new Set(normalizedLeft).size === normalizedLeft.length &&
+    new Set(right).size === right.length &&
+    normalizedLeft.length === right.length &&
+    normalizedLeft.every((item) => right.includes(item)) &&
+    right.every((item) => normalizedLeft.includes(item))
+  );
+}
+
+function isSafePluginGovernanceSummary(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  const entries = value.extension_entries;
+  if (
+    !Array.isArray(entries) ||
+    !Array.isArray(value.blocker_codes) ||
+    !Array.isArray(value.safe_disable_refs) ||
+    !Array.isArray(value.rollback_refs) ||
+    !Array.isArray(value.skill_bundle_proposal_refs) ||
+    value.status !== "inspectable_non_callable" ||
+    value.plugin_enablement_allowed !== false ||
+    value.native_build_tools_enabled !== false ||
+    value.skill_bundle_proposal_status !== "proposal_only" ||
+    value.skill_bundle_activation_enabled !== false ||
+    value.skill_bundle_tool_execution_enabled !== false ||
+    !Number.isInteger(value.skill_bundle_proposal_count) ||
+    Number(value.skill_bundle_proposal_count) !== value.skill_bundle_proposal_refs.length ||
+    !Number.isInteger(value.catalog_entry_count) ||
+    Number(value.catalog_entry_count) < 0 ||
+    !Number.isInteger(value.developer_validation_count) ||
+    Number(value.developer_validation_count) < 0 ||
+    !Number.isInteger(value.availability_snapshot_count) ||
+    Number(value.availability_snapshot_count) < 0 ||
+    !Number.isInteger(value.blocked_validation_count) ||
+    Number(value.blocked_validation_count) < 0 ||
+    Number(value.blocked_validation_count) > Number(value.developer_validation_count) ||
+    Number(value.catalog_entry_count) !== entries.length ||
+    Number(value.developer_validation_count) !== entries.length ||
+    value.catalog_visibility_grants_authority !== false ||
+    value.request_scoped_invocation_decision_required !== true ||
+    !EXTENSION_SAFE_REF_RE.test(String(value.plugin_metadata_boundary_ref)) ||
+    !EXTENSION_SAFE_REF_RE.test(String(value.skill_marketplace_boundary_ref)) ||
+    !EXTENSION_SAFE_REF_RE.test(String(value.mcp_catalog_boundary_ref))
+  ) {
+    return false;
+  }
+  const safeEntries = entries.every((entry) => {
+    if (!isPlainRecord(entry)) {
+      return false;
+    }
+    return (
+      EXTENSION_SAFE_REF_RE.test(String(entry.package_ref)) &&
+      EXTENSION_SAFE_REF_RE.test(String(entry.manifest_ref)) &&
+      EXTENSION_SAFE_REF_RE.test(String(entry.version_ref)) &&
+      EXTENSION_SAFE_REF_RE.test(String(entry.safe_disable_ref)) &&
+      EXTENSION_SAFE_REF_RE.test(String(entry.rollback_ref)) &&
+      Number.isInteger(entry.availability_snapshot_count) &&
+      Number(entry.availability_snapshot_count) >= 0 &&
+      ["validated_metadata_only", "blocked"].includes(String(entry.validation_status)) &&
+      ["supported", "unknown"].includes(String(entry.compatibility_status)) &&
+      entry.configuration_status === "not_configured" &&
+      entry.health_status === "unknown" &&
+      entry.authority_posture === "blocked" &&
+      entry.resource_status === "unknown" &&
+      entry.safe_disable_status === "unknown" &&
+      ["reviewed", "blocked", "unknown"].includes(String(entry.provenance_status)) &&
+      typeof entry.hashes_verified_against_pinned_values === "boolean" &&
+      ["not_present", "unknown"].includes(String(entry.signature_status)) &&
+      entry.signature_verified === false &&
+      Array.isArray(entry.blocker_codes) &&
+      entry.blocker_codes.every(
+        (code) => typeof code === "string" && EXTENSION_REASON_CODE_RE.test(code),
+      )
+    );
+  });
+  if (!safeEntries) {
+    return false;
+  }
+  const typedEntries = entries as Array<Record<string, unknown>>;
+  const blockedCount = typedEntries.filter(
+    (entry) => entry.validation_status === "blocked",
+  ).length;
+  const availabilityCount = typedEntries.reduce(
+    (count, entry) => count + Number(entry.availability_snapshot_count),
+    0,
+  );
+  const safeDisableRefs = typedEntries.map((entry) => String(entry.safe_disable_ref));
+  const rollbackRefs = typedEntries.map((entry) => String(entry.rollback_ref));
+  const entryBlockerCodes = Array.from(
+    new Set(
+      typedEntries.flatMap((entry) =>
+        (entry.blocker_codes as unknown[]).map((code) => String(code)),
+      ),
+    ),
+  ).sort();
+  return (
+    Number(value.blocked_validation_count) === blockedCount &&
+    Number(value.availability_snapshot_count) === availabilityCount &&
+    value.blocker_codes.every(
+      (code) => typeof code === "string" && EXTENSION_REASON_CODE_RE.test(code),
+    ) &&
+    value.skill_bundle_proposal_refs.every(
+      (ref) => typeof ref === "string" && EXTENSION_SAFE_REF_RE.test(ref),
+    ) &&
+    value.safe_disable_refs.every(
+      (ref) => typeof ref === "string" && EXTENSION_SAFE_REF_RE.test(ref),
+    ) &&
+    value.rollback_refs.every(
+      (ref) => typeof ref === "string" && EXTENSION_SAFE_REF_RE.test(ref),
+    ) &&
+    hasExactStringSet(value.safe_disable_refs, safeDisableRefs) &&
+    hasExactStringSet(value.rollback_refs, rollbackRefs) &&
+    JSON.stringify([...value.blocker_codes].sort()) ===
+      JSON.stringify(entryBlockerCodes)
+  );
 }
 
 function normalizeControlCenterDashboard(
@@ -8274,12 +8930,19 @@ function normalizeControlCenterDashboard(
     return { value: mockControlCenterData.dashboard, usedFallback: true };
   }
   const normalized = { ...value } as Record<string, unknown>;
+  const pluginGovernanceSafe = isSafePluginGovernanceSummary(
+    normalized.plugin_governance_summary,
+  );
+  if (!pluginGovernanceSafe) {
+    normalized.plugin_governance_summary =
+      mockControlCenterData.dashboard.plugin_governance_summary;
+  }
   if (
     isSafeProviderCredentialReadiness(normalized.provider_credential_readiness)
   ) {
     return {
       value: normalized as unknown as ControlCenterDashboardSnapshot,
-      usedFallback: false,
+      usedFallback: !pluginGovernanceSafe,
     };
   }
   normalized.provider_credential_readiness =
@@ -13397,6 +14060,12 @@ function isSafeActionToolCodeLaneEntry(value: unknown): boolean {
     typeof value.proposal_only === "boolean" &&
     typeof value.exact_local_mutation_available === "boolean" &&
     typeof value.exact_runtime_lane_available === "boolean" &&
+    (value.availability_snapshot_ref == null ||
+      isSafeActionWorkQueueRef(value.availability_snapshot_ref)) &&
+    (value.canonical_execution_path_ref == null ||
+      isSafeActionWorkQueueRef(value.canonical_execution_path_ref)) &&
+    (value.canonical_mission_dispatch == null ||
+      typeof value.canonical_mission_dispatch === "boolean") &&
     (value.receipt_refs as string[]).every(isSafeActionWorkQueueRef) &&
     (value.evidence_refs as string[]).every(isSafeActionWorkQueueRef) &&
     (value.proof_refs as string[]).every(isSafeActionWorkQueueRef) &&
@@ -13966,6 +14635,314 @@ function isSafeAuthorityMissionWorkerReadModel(
   );
 }
 
+function isSafeAuthorityMissionCompletionReadModel(
+  value: unknown,
+): value is AuthorityMissionCompletionReadModel {
+  if (!isPlainRecord(value) || !Array.isArray(value.latest_manifests)) {
+    return false;
+  }
+  const integrity = value.integrity_summary;
+  const portable = value.portable_evidence_summary;
+  if (
+    !isPlainRecord(integrity) ||
+    integrity.schema_version !==
+      "uaa-mission-completion-integrity-summary.v1" ||
+    !isSafeAuthorityMissionRef(integrity.verifier_version_ref) ||
+    !Number.isInteger(integrity.manifest_count) ||
+    Number(integrity.manifest_count) !== Number(value.completion_count) ||
+    !isSafeAuthorityMissionRef(integrity.chain_ref) ||
+    (integrity.genesis_entry_hash_ref !== null &&
+      !isSafeAuthorityMissionRef(integrity.genesis_entry_hash_ref)) ||
+    (integrity.terminal_entry_hash_ref !== null &&
+      !isSafeAuthorityMissionRef(integrity.terminal_entry_hash_ref)) ||
+    integrity.hash_chain_verified !== true ||
+    integrity.source_ledgers_verified !== false ||
+    integrity.signature_present !== false ||
+    integrity.signing_status !==
+      "blocked_signing_lifecycle_not_implemented" ||
+    integrity.cryptographic_authenticity_verified !== false ||
+    integrity.external_anchor_verified !== false ||
+    integrity.execution_evidence_grants_authority !== false
+  ) {
+    return false;
+  }
+  if (
+    !isPlainRecord(portable) ||
+    portable.schema_version !==
+      "uaa-portable-mission-evidence-inspection.v1" ||
+    ![
+      "verified_local_hash_chain",
+      "not_recorded",
+      "not_evaluated",
+      "unavailable",
+    ].includes(String(portable.status)) ||
+    (portable.bundle_ref !== null &&
+      !isSafeAuthorityMissionRef(portable.bundle_ref)) ||
+    !Number.isInteger(portable.completion_count) ||
+    Number(portable.completion_count) < 0 ||
+    Number(portable.completion_count) !== Number(value.completion_count) ||
+    !Number.isInteger(portable.envelope_count) ||
+    Number(portable.envelope_count) < 0 ||
+    (portable.terminal_entry_hash_ref !== null &&
+      !isSafeAuthorityMissionRef(portable.terminal_entry_hash_ref)) ||
+    typeof portable.local_hash_chain_verified !== "boolean" ||
+    typeof portable.source_receipts_bound !== "boolean" ||
+    portable.source_ledgers_verified !== false ||
+    portable.caller_expected_binding_matched !== false ||
+    portable.signature_verified !== false ||
+    portable.signing_status !==
+      "blocked_signing_lifecycle_not_implemented" ||
+    portable.cryptographic_authenticity_verified !== false ||
+    portable.external_anchor_verified !== false ||
+    portable.execution_evidence_grants_authority !== false ||
+    !isAuthorityMissionStringArray(portable.reason_refs)
+  ) {
+    return false;
+  }
+  const portableVerified = portable.status === "verified_local_hash_chain";
+  if (
+    portableVerified !== portable.local_hash_chain_verified ||
+    portableVerified !== portable.source_receipts_bound ||
+    (portableVerified &&
+      (!isSafeAuthorityMissionRef(portable.bundle_ref) ||
+        !isSafeAuthorityMissionRef(portable.terminal_entry_hash_ref) ||
+        Number(portable.completion_count) < 1 ||
+        Number(portable.envelope_count) < 1)) ||
+    (!portableVerified &&
+      (portable.bundle_ref !== null ||
+        portable.terminal_entry_hash_ref !== null ||
+        Number(portable.envelope_count) !== 0))
+  ) {
+    return false;
+  }
+  if (
+    (Number(integrity.manifest_count) === 0 &&
+      (integrity.genesis_entry_hash_ref !== null ||
+        integrity.terminal_entry_hash_ref !== null)) ||
+    (Number(integrity.manifest_count) > 0 &&
+      (!isSafeAuthorityMissionRef(integrity.genesis_entry_hash_ref) ||
+        !isSafeAuthorityMissionRef(integrity.terminal_entry_hash_ref)))
+  ) {
+    return false;
+  }
+  return (
+    value.schema_version === "uaa-mission-completion-read-model.v1" &&
+    isSafeAuthorityMissionRef(value.ledger_ref) &&
+    Number.isInteger(value.completion_count) &&
+    Number(value.completion_count) >= 0 &&
+    value.latest_manifests.length <= 12 &&
+    value.latest_manifests.every((manifest) => {
+      if (
+        !isPlainRecord(manifest) ||
+        !Array.isArray(manifest.step_bindings) ||
+        !Array.isArray(manifest.dispatch_bindings) ||
+        !Array.isArray(manifest.budget_bindings) ||
+        !Array.isArray(manifest.approval_refs) ||
+        !Array.isArray(manifest.approval_validation_refs) ||
+        !Array.isArray(manifest.control_receipt_refs) ||
+        !Array.isArray(manifest.cancellation_receipt_refs) ||
+        !Array.isArray(manifest.dead_letter_receipt_refs) ||
+        !Array.isArray(manifest.redactions_applied) ||
+        !Array.isArray(manifest.evidence_refs)
+      ) {
+        return false;
+      }
+      const stepBindings = manifest.step_bindings;
+      const dispatchBindings = manifest.dispatch_bindings;
+      const budgetBindings = manifest.budget_bindings;
+      const boundApprovalRefs = dispatchBindings.flatMap((dispatch) =>
+        isPlainRecord(dispatch) && typeof dispatch.approval_ref === "string"
+          ? [dispatch.approval_ref]
+          : [],
+      );
+      const boundApprovalValidationRefs = dispatchBindings.flatMap((dispatch) =>
+        isPlainRecord(dispatch) &&
+        typeof dispatch.approval_validation_ref === "string"
+          ? [dispatch.approval_validation_ref]
+          : [],
+      );
+      return (
+        manifest.schema_version === "uaa-mission-completion.v1" &&
+        [
+          manifest.completion_ref,
+          manifest.plan_ref,
+          manifest.plan_fingerprint_ref,
+          manifest.plan_receipt_ref,
+          manifest.plan_entry_hash_ref,
+          manifest.mission_ref,
+          manifest.run_ref,
+          manifest.lease_ref,
+          manifest.lease_mission_ref,
+          manifest.control_snapshot_ref,
+          manifest.memory_candidate_ref,
+          manifest.entry_hash_ref,
+        ].every(isSafeAuthorityMissionRef) &&
+        (manifest.lease_scope_fingerprint_ref === null ||
+          isSafeAuthorityMissionRef(manifest.lease_scope_fingerprint_ref)) &&
+        (manifest.previous_entry_hash_ref === null ||
+          isSafeAuthorityMissionRef(manifest.previous_entry_hash_ref)) &&
+        typeof manifest.lease_issued_at === "string" &&
+        typeof manifest.lease_expires_at === "string" &&
+        typeof manifest.mission_deadline === "string" &&
+        typeof manifest.created_at === "string" &&
+        manifest.lease_scope === "mission" &&
+        manifest.lease_mission_ref === manifest.mission_ref &&
+        manifest.status === "succeeded" &&
+        manifest.concurrency_limit === 1 &&
+        manifest.parallel_execution_performed === false &&
+        stepBindings.length >= 1 &&
+        stepBindings.length <= 16 &&
+        dispatchBindings.length === stepBindings.length &&
+        budgetBindings.length === stepBindings.length &&
+        stepBindings.every(
+          (step) =>
+            isPlainRecord(step) &&
+            [
+              step.step_ref,
+              step.definition_fingerprint_ref,
+              step.dispatch_ref,
+              step.dispatch_request_fingerprint_ref,
+              step.step_receipt_ref,
+              step.step_entry_hash_ref,
+              step.dispatch_receipt_ref,
+              step.dispatch_entry_hash_ref,
+            ].every(isSafeAuthorityMissionRef) &&
+            isAuthorityMissionStringArray(step.evidence_refs),
+        ) &&
+        dispatchBindings.every(
+          (dispatch, index) => {
+            if (!isPlainRecord(dispatch)) {
+              return false;
+            }
+            const step = stepBindings[index];
+            return (
+              [
+                dispatch.dispatch_ref,
+                dispatch.receipt_ref,
+                dispatch.entry_hash_ref,
+                dispatch.request_fingerprint_ref,
+                dispatch.lease_ref,
+                dispatch.action_ref,
+                dispatch.adapter_ref,
+                dispatch.capability_ref,
+                dispatch.authority_decision_ref,
+                dispatch.authority_policy_receipt_ref,
+                dispatch.budget_reservation_ref,
+                dispatch.budget_reservation_receipt_ref,
+                dispatch.budget_start_receipt_ref,
+                dispatch.budget_settlement_receipt_ref,
+                dispatch.execution_ref,
+                dispatch.actual_cost_ref,
+              ].every(isSafeAuthorityMissionRef) &&
+              typeof dispatch.approval_required === "boolean" &&
+              (!dispatch.approval_required ||
+                (isSafeAuthorityMissionRef(dispatch.approval_ref) &&
+                  isSafeAuthorityMissionRef(
+                    dispatch.approval_validation_ref,
+                  ))) &&
+              (dispatch.approval_ref === null ||
+                isSafeAuthorityMissionRef(dispatch.approval_ref)) &&
+              (dispatch.approval_validation_ref === null ||
+                isSafeAuthorityMissionRef(dispatch.approval_validation_ref)) &&
+              Number.isInteger(dispatch.actual_operation_count) &&
+              Number(dispatch.actual_operation_count) >= 1 &&
+              Number.isInteger(dispatch.actual_cost_microusd) &&
+              Number(dispatch.actual_cost_microusd) >= 0 &&
+              isAuthorityMissionStringArray(dispatch.evidence_refs) &&
+              isPlainRecord(step) &&
+              step.dispatch_ref === dispatch.dispatch_ref &&
+              step.dispatch_receipt_ref === dispatch.receipt_ref &&
+              step.dispatch_entry_hash_ref === dispatch.entry_hash_ref &&
+              step.dispatch_request_fingerprint_ref ===
+                dispatch.request_fingerprint_ref
+            );
+          },
+        ) &&
+        budgetBindings.every(
+          (budget, index) => {
+            const dispatch = dispatchBindings[index];
+            return (
+            isPlainRecord(budget) &&
+            [
+              budget.reservation_ref,
+              budget.reserve_receipt_ref,
+              budget.reserve_entry_hash_ref,
+              budget.start_receipt_ref,
+              budget.start_entry_hash_ref,
+              budget.settlement_receipt_ref,
+              budget.settlement_entry_hash_ref,
+              budget.lease_ref,
+              budget.action_ref,
+              budget.execution_ref,
+              budget.actual_cost_ref,
+            ].every(isSafeAuthorityMissionRef) &&
+            budget.settlement_status === "settled" &&
+            budget.unresolved_cost === false &&
+            Number.isInteger(budget.reserved_operation_count) &&
+            Number(budget.reserved_operation_count) >= 1 &&
+            Number.isInteger(budget.reserved_cost_microusd) &&
+            Number(budget.reserved_cost_microusd) >= 0 &&
+            Number.isInteger(budget.actual_operation_count) &&
+            Number(budget.actual_operation_count) >= 1 &&
+            Number.isInteger(budget.actual_cost_microusd) &&
+            Number(budget.actual_cost_microusd) >= 0 &&
+            isPlainRecord(dispatch) &&
+            dispatch.budget_reservation_ref === budget.reservation_ref &&
+            dispatch.budget_reservation_receipt_ref ===
+              budget.reserve_receipt_ref &&
+            dispatch.budget_start_receipt_ref === budget.start_receipt_ref &&
+            dispatch.budget_settlement_receipt_ref ===
+              budget.settlement_receipt_ref &&
+            dispatch.lease_ref === budget.lease_ref &&
+            dispatch.action_ref === budget.action_ref &&
+            dispatch.execution_ref === budget.execution_ref &&
+            dispatch.actual_operation_count === budget.actual_operation_count &&
+            dispatch.actual_cost_microusd === budget.actual_cost_microusd &&
+            dispatch.actual_cost_ref === budget.actual_cost_ref &&
+            dispatch.lease_ref === manifest.lease_ref &&
+            budget.lease_ref === manifest.lease_ref
+            );
+          },
+        ) &&
+        isAuthorityMissionStringArray(manifest.approval_refs) &&
+        isAuthorityMissionStringArray(manifest.approval_validation_refs) &&
+        manifest.approval_refs.length === boundApprovalRefs.length &&
+        manifest.approval_refs.every(
+          (ref, index) => ref === boundApprovalRefs[index],
+        ) &&
+        manifest.approval_validation_refs.length ===
+          boundApprovalValidationRefs.length &&
+        manifest.approval_validation_refs.every(
+          (ref, index) => ref === boundApprovalValidationRefs[index],
+        ) &&
+        isAuthorityMissionStringArray(manifest.control_receipt_refs) &&
+        isAuthorityMissionStringArray(manifest.cancellation_receipt_refs) &&
+        isAuthorityMissionStringArray(manifest.dead_letter_receipt_refs) &&
+        isAuthorityMissionStringArray(manifest.redactions_applied) &&
+        isAuthorityMissionStringArray(manifest.evidence_refs) &&
+        manifest.memory_candidate_posture === "review_required_recall_only" &&
+        manifest.memory_truth_authority === false &&
+        manifest.context_injection_authorized === false &&
+        manifest.execution_evidence_grants_authority === false &&
+        manifest.signature_present === false &&
+        manifest.integrity_posture === "content_free_hash_chain" &&
+        manifest.raw_paths_included === false &&
+        manifest.raw_prompt_included === false &&
+        manifest.raw_response_included === false &&
+        manifest.raw_provider_payload_included === false
+      );
+    }) &&
+    value.latest_manifests.length <= Number(value.completion_count) &&
+    isSafeAuthorityMissionText(value.operator_summary) &&
+    value.request_scoped_authority_still_required === true &&
+    value.execution_available_from_read_model === false &&
+    value.approval_or_lease_minted === false &&
+    value.raw_content_included === false &&
+    value.raw_paths_included === false &&
+    value.source_ledgers_verified === false
+  );
+}
+
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -14041,30 +15018,5 @@ function unwrapEnvelope(data: unknown): unknown {
 }
 
 function extractErrorMessage(data: unknown, fallback: string): string {
-  if (typeof data !== "object" || data === null) {
-    return fallback;
-  }
-  const record = data as Record<string, unknown>;
-  const detail = record.detail;
-  if (typeof detail === "string") {
-    return detail;
-  }
-  if (typeof detail === "object" && detail !== null) {
-    const safeMessage = (detail as Record<string, unknown>).safe_message;
-    if (typeof safeMessage === "string") {
-      return safeMessage;
-    }
-    const message = (detail as Record<string, unknown>).message;
-    if (typeof message === "string") {
-      return message;
-    }
-  }
-  const error = record.error;
-  if (typeof error === "object" && error !== null) {
-    const message = (error as Record<string, unknown>).message;
-    if (typeof message === "string") {
-      return message;
-    }
-  }
-  return fallback;
+  return safeApiErrorMessage(data, fallback);
 }

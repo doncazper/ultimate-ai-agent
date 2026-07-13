@@ -101,7 +101,7 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
         "proposal_only_no_execution_path",
     ]
     action_groups = {group["group_id"]: group for group in inbox["action_groups"]}
-    assert action_groups["ready_for_decision"]["count"] == 1
+    assert action_groups["ready_for_decision"]["count"] == 2
     assert action_groups["blocked_by_authority"]["count"] == 1
     assert action_groups["proposal_only_no_execution_path"]["count"] == 9
     assert "GET /control-center/actions/{action_id}/receipt" in inbox[
@@ -374,8 +374,7 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
         "correct",
         "reject",
         "defer",
-        "merge",
-        "supersede",
+        "merge", "supersede", "expire",
         "forget_request",
     ]
     assert today["memory_review_decision_authority_posture"]["review_only"] is True
@@ -701,8 +700,7 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
         "correct",
         "reject",
         "defer",
-        "merge",
-        "supersede",
+        "merge", "supersede", "expire",
         "forget_request",
     ]
     assert (

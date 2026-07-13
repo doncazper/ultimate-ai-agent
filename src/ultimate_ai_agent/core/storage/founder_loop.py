@@ -130,6 +130,7 @@ from ultimate_ai_agent.core.control_center.local_tasks import (
     local_task_commit_receipt_ref,
     local_task_ref_for_action,
 )
+from ultimate_ai_agent.core.storage import founder_loop_exact_action
 from ultimate_ai_agent.core.control_center.today_loop import (
     TODAY_LOOP_TIGHTENING_CONTRACT_REF,
     build_today_loop_read_model,
@@ -286,14 +287,6 @@ from ultimate_ai_agent.core.memory.business_memory import (
     business_memory_surface_bindings,
     crm_lite_relationship_authority_posture,
 )
-from ultimate_ai_agent.core.memory.enums import (
-    MemoryDataClassification,
-    MemoryLayer,
-    MemoryProviderKind,
-    MemoryRecordKind,
-    MemoryRetentionState,
-    MemoryStatus,
-)
 from ultimate_ai_agent.core.memory.local_store import LocalMemoryStore
 from ultimate_ai_agent.core.memory.l1_index import (
     L1_HOT_MEMORY_INDEX_BLOCKED_STATE_REFS,
@@ -337,23 +330,21 @@ from ultimate_ai_agent.core.memory.feature_mine import (
     MEMORY_CONTRADICTION_PREVIEW_CONTRACT_REF,
     MEMORY_CONTRADICTION_PREVIEW_ROUTE_REF,
     MEMORY_FEEDBACK_CONTRACT_REF,
+    MEMORY_FEEDBACK_EXACT_SCOPE_REF,
     MEMORY_OBSERVATION_BLOCKED_STATE_REFS,
     MEMORY_OBSERVATION_CANDIDATE_CONTRACT_REF,
     MEMORY_OBSERVATION_CANDIDATE_ROUTE_REF,
     MEMORY_PROBE_BLOCKED_STATE_REFS,
     MEMORY_PROBE_CONTRACT_REF,
     MEMORY_PROBE_ROUTE_REF,
-    MemoryFeedbackReceipt,
     MemoryFeedbackRequest,
     bounded_observation_summary,
-    epistemic_role_for_candidate_kind,
     memory_feature_flags,
     memory_feedback_payload_fingerprint_ref,
     memory_feedback_payload_for_fingerprint,
     memory_feedback_receipt_ref,
     memory_hrr_readiness,
     refs_intersect,
-    trust_delta_for_feedback,
     validate_query_mode,
 )
 from ultimate_ai_agent.core.memory.execution_hooks import (
@@ -381,7 +372,9 @@ from ultimate_ai_agent.core.memory.execution_hooks import (
     memory_context_pack_action_receipt_ref,
     memory_context_pack_action_scope_ref,
 )
-from ultimate_ai_agent.core.memory.provider import MemoryProviderWriteRequest
+from ultimate_ai_agent.core.memory.governed_context import (
+    build_governed_memory_context_manifest,
+)
 from ultimate_ai_agent.core.memory.review_decisions import (
     FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS,
     FCC_MEMORY_REVIEW_DECISION_CONTRACT_REF,
@@ -392,6 +385,9 @@ from ultimate_ai_agent.core.memory.review_decisions import (
     MEMORY_REVIEW_AUTHORITY_REQUIRED_BLOCKED_REF,
     MEMORY_REVIEW_AUTHORITY_REQUIRED_MODE_REF,
     MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF,
+    MEMORY_REVIEW_LIFECYCLE_AUTHORITY_ACTION_REF,
+    MEMORY_REVIEW_LIFECYCLE_AUTHORITY_LANE_REF,
+    MEMORY_REVIEW_LIFECYCLE_SCOPE_REF,
     MEMORY_REVIEW_RECEIPT_SCOPE_REF,
     MEMORY_REVIEW_DECISION_CONTRACT_REF,
     MEMORY_REVIEW_DECISION_KINDS,
@@ -415,12 +411,35 @@ from ultimate_ai_agent.core.memory.review_decisions import (
     memory_review_decision_receipt_ref,
     memory_review_decision_ref,
     memory_review_decision_state_rows,
+    memory_review_expire_ref,
     memory_review_payload_fingerprint_ref,
     memory_review_forget_request_ref,
     memory_review_merge_ref,
     memory_review_rejection_ref,
     memory_review_reviewed_recall_ref,
     memory_review_supersede_ref,
+)
+from ultimate_ai_agent.core.memory.review_runtime import (
+    MemoryReviewRuntimeError,
+    activate_memory_review_recall_record,
+    build_memory_feedback_receipt,
+    ensure_memory_runtime_operation_tables,
+    evaluate_memory_feedback_write_authority,
+    evaluate_memory_review_write_authority,
+    load_memory_review_suppression_operation,
+    memory_feedback_pre_start_is_valid,
+    memory_feedback_update_operation,
+    memory_workbench_loop_refs,
+    memory_review_recall_record_refs_for_candidate,
+    memory_review_recall_search_index_status,
+    persist_memory_feedback_receipt,
+    prepare_memory_feedback_update_operation,
+    prepare_memory_review_suppression_operation,
+    settle_memory_review_suppression_operation,
+    suppress_memory_review_recall_records_after_terminal_decision,
+    update_memory_review_projection_after_decision,
+    validate_prepared_suppression_authority_binding,
+    write_memory_review_recall_record,
 )
 from ultimate_ai_agent.core.memory.workbench import (
     MEMORY_MANUAL_INTAKE_BLOCKED_STATE_REFS,
@@ -438,6 +457,7 @@ from ultimate_ai_agent.core.memory.workbench import (
     manual_memory_candidate_payload_for_fingerprint,
     manual_memory_candidate_ref,
 )
+from ultimate_ai_agent.core.single_writer_lock import FileSingleWriterLockManager
 from ultimate_ai_agent.core.planning.action_envelopes import (
     PLANS_ACTION_ENVELOPE_CONTRACT_REF,
     PLANS_ACTION_ENVELOPE_REQUIRED_BLOCKED_REFS,
@@ -486,9 +506,7 @@ EVIDENCE_TIMELINE_NARRATIVE_READ_MODEL_SOURCE = (
 EVIDENCE_AUDIT_RECEIPT_SPINE_CONTRACT_REF = (
     "contract-ref:runtime-evidence-audit-spine:v1"
 )
-EVIDENCE_AUDIT_RECEIPT_SPINE_SOURCE = (
-    "python_core_runtime_evidence_audit_spine"
-)
+EVIDENCE_AUDIT_RECEIPT_SPINE_SOURCE = "python_core_runtime_evidence_audit_spine"
 EVIDENCE_TIMELINE_PRODUCTIZATION_ROUTE_REFS = ("GET /control-center/evidence/timeline",)
 EVIDENCE_TIMELINE_PRODUCTIZED_EVENT_TYPES = (
     "action_envelope_created",
@@ -2930,6 +2948,11 @@ def _memory_review_decision_safe_summary(decision: str) -> str:
             "Memory candidate supersede posture was recorded with safe superseded refs "
             "only; no silent deletion, delete execution, or production authority was "
             "granted."
+        )
+    if decision == "expire":
+        return (
+            "Memory candidate expiry was recorded with exact governed suppression "
+            "refs; context injection, deletion, and production authority remain blocked."
         )
     if decision == "forget_request":
         return (
@@ -9548,7 +9571,7 @@ class FounderLoopRepository:
                         ),
                         happened=_history_answer(
                             "happened",
-                            "Memory Review accept, correct, reject, defer, merge, supersede, and forget-request decisions are stored as durable safe receipt refs when recorded.",
+                            "Memory Review accept, correct, reject, defer, merge, supersede, expire, and forget-request decisions are stored as durable safe receipt refs when recorded.",
                             refs=decision_receipt_refs
                             or ["status-ref:founder-loop-memory-review"],
                             status=(
@@ -12356,12 +12379,16 @@ class FounderLoopRepository:
             AuthorityDecisionOutcome.allow.value,
             AuthorityDecisionOutcome.ask.value,
         }
-        request = self._request_with_backend_owned_action_approval_if_needed(
-            action=action,
-            decision=decision,
-            request=request,
-            idempotency_key_ref=idempotency_key_ref,
-        ) if authority_allowed else request
+        request = (
+            self._request_with_backend_owned_action_approval_if_needed(
+                action=action,
+                decision=decision,
+                request=request,
+                idempotency_key_ref=idempotency_key_ref,
+            )
+            if authority_allowed
+            else request
+        )
         fingerprint_payload = decision_payload_for_fingerprint(
             item_ref=item_ref,
             decision=decision,
@@ -13163,8 +13190,7 @@ class FounderLoopRepository:
                 requested_mode=TrustMode.read_only,
                 draft_fallback_available=False,
                 rollback_ref=(
-                    "rollback-ref:today-action-envelope:"
-                    f"{_short_ref_suffix(item_ref)}"
+                    f"rollback-ref:today-action-envelope:{_short_ref_suffix(item_ref)}"
                 ),
                 safe_disable_ref=(
                     "safe-disable-ref:today-action-envelope:"
@@ -13314,40 +13340,23 @@ class FounderLoopRepository:
         decision: MemoryReviewDecisionKind,
         idempotency_key_ref: str,
         payload_fingerprint_ref: str,
+        lifecycle_suppression: bool = False,
+        suppression_record_refs: Sequence[str] = (),
     ):
         leases = (
             self._active_authority_leases
             if self._active_authority_leases is not None
             else active_founder_loop_authority_leases()
         )
-        authority_decision = evaluate_authority_request(
-            AuthorityActionRequest(
-                action_ref=MEMORY_REVIEW_AUTHORITY_ACTION_REF,
-                domain=AuthorityDomain.memory,
-                capability=AuthorityCapability.write,
-                safe_summary=(
-                    "Evaluate Memory write authority for exact Memory Review "
-                    "accept/correct reviewed recall write."
-                ),
-                resource_refs=[
-                    candidate_ref,
-                    review_ref,
-                    FCC_MEMORY_REVIEW_DECISION_CONTRACT_REF,
-                    MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF,
-                    idempotency_key_ref,
-                    payload_fingerprint_ref,
-                ],
-                route_ref=(
-                    "POST /control-center/memory/review/{candidate_ref}/"
-                    f"{str(decision).replace('_', '-')}"
-                ),
-                lane_ref=MEMORY_REVIEW_AUTHORITY_LANE_REF,
-                requested_mode=TrustMode.ask_before_changes,
-                draft_fallback_available=True,
-                rollback_ref=MEMORY_REVIEW_WRITE_ROLLBACK_REF,
-                safe_disable_ref=MEMORY_REVIEW_WRITE_SAFE_DISABLE_REF,
-            ),
-            leases,
+        authority_decision = evaluate_memory_review_write_authority(
+            active_authority_leases=leases,
+            candidate_ref=candidate_ref,
+            review_ref=review_ref,
+            decision=decision,
+            idempotency_key_ref=idempotency_key_ref,
+            payload_fingerprint_ref=payload_fingerprint_ref,
+            lifecycle_suppression=lifecycle_suppression,
+            suppression_record_refs=suppression_record_refs,
         )
         if authority_decision.outcome not in {
             AuthorityDecisionOutcome.allow.value,
@@ -13369,6 +13378,76 @@ class FounderLoopRepository:
                 },
             )
         return authority_decision
+
+    def _revalidate_memory_review_write_before_mutation(
+        self,
+        *,
+        candidate_ref: str,
+        review_ref: str,
+        decision: MemoryReviewDecisionKind,
+        approval_ref: str,
+        idempotency_key_ref: str,
+        payload_fingerprint_ref: str,
+        lifecycle_suppression: bool,
+        suppression_record_refs: Sequence[str] = (),
+    ):
+        safe_disable = self.memory_review_write_safe_disable_posture()
+        if not bool(safe_disable.get("memory_review_writes_enabled")):
+            raise FounderLoopStorageError("FOUNDER_LOOP_MEMORY_WRITE_SAFE_DISABLED")
+        requested_action = (
+            "record-memory-review-lifecycle-suppression-write"
+            if lifecycle_suppression
+            else "record-memory-review-reviewed-recall-write"
+        )
+        exact_scope_ref = (
+            MEMORY_REVIEW_LIFECYCLE_SCOPE_REF
+            if lifecycle_suppression
+            else MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF
+        )
+        approval_kind = (
+            "approval-kind:memory-review-lifecycle-suppression-write"
+            if lifecycle_suppression
+            else "approval-kind:memory-review-reviewed-recall-write"
+        )
+        persisted_approval = self._internal_approval_grant_for_ref(
+            approval_ref=approval_ref,
+            approval_kind=approval_kind,
+            subject_ref=candidate_ref,
+            requested_action=requested_action,
+            exact_scope_ref=exact_scope_ref,
+            idempotency_key_ref=idempotency_key_ref,
+        )
+        required_resources = {
+            candidate_ref,
+            review_ref,
+            exact_scope_ref,
+            idempotency_key_ref,
+            payload_fingerprint_ref,
+            *suppression_record_refs,
+        }
+        now = datetime.now().astimezone()
+        if (
+            persisted_approval is None
+            or persisted_approval.revoked_at is not None
+            or (
+                persisted_approval.expires_at is not None
+                and persisted_approval.expires_at <= now
+            )
+            or not required_resources.issubset(
+                set(persisted_approval.approved_resource_refs)
+            )
+            or requested_action not in persisted_approval.approved_actions
+        ):
+            raise FounderLoopStorageError("FOUNDER_LOOP_MEMORY_APPROVAL_SCOPE_DENIED")
+        return self._memory_review_write_authority_decision(
+            candidate_ref=candidate_ref,
+            review_ref=review_ref,
+            decision=decision,
+            idempotency_key_ref=idempotency_key_ref,
+            payload_fingerprint_ref=payload_fingerprint_ref,
+            lifecycle_suppression=lifecycle_suppression,
+            suppression_record_refs=suppression_record_refs,
+        )
 
     def _memory_context_pack_action_authority_decision(
         self,
@@ -13687,7 +13766,9 @@ class FounderLoopRepository:
                     [
                         *FOUNDER_LOOP_ACTION_DECISION_BLOCKED_REFS,
                         *(
-                            [FOUNDER_LOOP_ACTION_DECISION_AUTHORITY_REQUIRED_BLOCKED_REF]
+                            [
+                                FOUNDER_LOOP_ACTION_DECISION_AUTHORITY_REQUIRED_BLOCKED_REF
+                            ]
                             if not authority_allowed
                             else []
                         ),
@@ -14308,7 +14389,7 @@ class FounderLoopRepository:
             query_ref=query_ref,
             limit=bounded_limit,
         )
-        return build_memory_context_manifest(
+        manifest = build_memory_context_manifest(
             context_packs=self.memory_context_pack_proposals(
                 query_ref=query_ref,
                 limit=bounded_limit,
@@ -14324,6 +14405,24 @@ class FounderLoopRepository:
             quality_queue=quality_queue,
             limit=bounded_limit,
         )
+        governed_context = build_governed_memory_context_manifest(
+            l1_index=self.memory_l1_hot_index(
+                query_ref=query_ref,
+                limit=bounded_limit,
+            ),
+            query_ref=query_ref,
+            max_items=min(bounded_limit, 8),
+            max_tokens=512,
+        )
+        manifest["governed_context"] = governed_context.model_dump(mode="json")
+        manifest["governed_context_manifest_ref"] = (
+            governed_context.context_manifest_ref
+        )
+        manifest["governed_context_receipt_ref"] = governed_context.context_receipt_ref
+        manifest["governed_context_fingerprint_ref"] = (
+            governed_context.manifest_fingerprint_ref
+        )
+        return manifest
 
     def memory_context_pack_preview(
         self,
@@ -14842,6 +14941,23 @@ class FounderLoopRepository:
         request: MemoryReviewDecisionRequest,
         idempotency_key_ref: str,
     ) -> dict[str, Any]:
+        lock_manager = FileSingleWriterLockManager(self.state_dir / ".locks")
+        with lock_manager.acquire("memory-review-decisions"):
+            return self._record_memory_review_decision_locked(
+                candidate_ref=candidate_ref,
+                decision=decision,
+                request=request,
+                idempotency_key_ref=idempotency_key_ref,
+            )
+
+    def _record_memory_review_decision_locked(
+        self,
+        *,
+        candidate_ref: str,
+        decision: MemoryReviewDecisionKind,
+        request: MemoryReviewDecisionRequest,
+        idempotency_key_ref: str,
+    ) -> dict[str, Any]:
         if decision not in MEMORY_REVIEW_DECISION_KINDS:
             raise FounderLoopStorageError("FOUNDER_LOOP_MEMORY_DECISION_UNSUPPORTED")
         _validate_safe_ref(candidate_ref, "candidate_ref")
@@ -14879,6 +14995,37 @@ class FounderLoopRepository:
             raise FounderLoopStorageError(
                 "FOUNDER_LOOP_MEMORY_FORGET_REQUEST_REF_NOT_ALLOWED"
             )
+        related_refs = (
+            request.merge_refs if decision == "merge" else request.supersedes_refs
+        )
+        if related_refs:
+            candidate_aliases = {
+                candidate_ref,
+                str(candidate.get("review_ref") or ""),
+                str(candidate.get("business_memory_candidate_ref") or ""),
+            }
+            if len(set(related_refs)) != len(related_refs):
+                raise FounderLoopStorageError(
+                    "FOUNDER_LOOP_MEMORY_RELATED_REFS_DUPLICATE"
+                )
+            if candidate_aliases.intersection(related_refs):
+                raise FounderLoopStorageError(
+                    "FOUNDER_LOOP_MEMORY_RELATED_REF_SELF_DENIED"
+                )
+            resolved_related = self._memory_review_payloads_for_refs(related_refs)
+            resolved_aliases = {
+                alias
+                for related in resolved_related
+                for alias in {
+                    str(related.get("review_ref") or ""),
+                    str(related.get("business_memory_candidate_ref") or ""),
+                }
+                if alias
+            }
+            if any(ref not in resolved_aliases for ref in related_refs):
+                raise FounderLoopStorageError(
+                    "FOUNDER_LOOP_MEMORY_RELATED_REF_NOT_FOUND"
+                )
 
         mutable_decision_evidence_prefixes = (
             "evidence-ref:memory-review:accept:",
@@ -14887,6 +15034,7 @@ class FounderLoopRepository:
             "evidence-ref:memory-review:defer:",
             "evidence-ref:memory-review:merge:",
             "evidence-ref:memory-review:supersede:",
+            "evidence-ref:memory-review:expire:",
             "evidence-ref:memory-review:forget-request:",
         )
         candidate_evidence_refs = [
@@ -14950,97 +15098,69 @@ class FounderLoopRepository:
                 raise FounderLoopStorageDuplicateError(
                     "FOUNDER_LOOP_MEMORY_DECISION_IDEMPOTENCY_CONFLICT"
                 )
-            return self._memory_review_decision_receipt_by_ref(
+            replay_payload = self._memory_review_decision_receipt_by_ref(
                 str(replay["receipt_ref"])
             )
-        safe_disable_posture = self.memory_review_write_safe_disable_posture()
-        if decision in {"accept", "correct"} and not bool(
-            safe_disable_posture.get("memory_review_writes_enabled")
-        ):
-            raise FounderLoopStorageError("FOUNDER_LOOP_MEMORY_WRITE_SAFE_DISABLED")
-        approval = self._record_memory_review_local_approval(
-            subject_ref=candidate_ref,
-            reviewer_ref=enriched_request.reviewer_ref,
-            requested_action=(
-                "record-memory-review-reviewed-recall-write"
-                if decision in {"accept", "correct"}
-                else f"record-memory-review-{decision.replace('_', '-')}-receipt"
-            ),
-            resource_refs=[
-                review_ref,
-                FCC_MEMORY_REVIEW_DECISION_CONTRACT_REF,
-                (
-                    MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF
-                    if decision in {"accept", "correct"}
-                    else MEMORY_REVIEW_RECEIPT_SCOPE_REF
-                ),
-                idempotency_key_ref,
-                payload_fingerprint_ref,
-                *enriched_request.source_refs,
-                *enriched_request.evidence_refs,
-                *enriched_request.metadata_refs,
-                *enriched_request.merge_refs,
-                *enriched_request.supersedes_refs,
-                *(
-                    [enriched_request.corrected_summary_ref]
-                    if enriched_request.corrected_summary_ref
-                    else []
-                ),
-            ],
+            replay_receipt = MemoryReviewDecisionReceipt(**replay_payload)
+            if replay_receipt.suppressed_recall_record_refs:
+                self._revalidate_memory_review_write_before_mutation(
+                    candidate_ref=candidate_ref,
+                    review_ref=str(replay["review_ref"]),
+                    decision=decision,
+                    approval_ref=replay_receipt.approval_ref,
+                    idempotency_key_ref=idempotency_key_ref,
+                    payload_fingerprint_ref=payload_fingerprint_ref,
+                    lifecycle_suppression=True,
+                    suppression_record_refs=(
+                        replay_receipt.suppressed_recall_record_refs
+                    ),
+                )
+                self._suppress_memory_review_recall_records_after_terminal_decision(
+                    receipt=replay_receipt
+                )
+            if replay_receipt.reviewed_recall_record_ref:
+                self._revalidate_memory_review_write_before_mutation(
+                    candidate_ref=candidate_ref,
+                    review_ref=str(replay["review_ref"]),
+                    decision=decision,
+                    approval_ref=replay_receipt.approval_ref,
+                    idempotency_key_ref=idempotency_key_ref,
+                    payload_fingerprint_ref=payload_fingerprint_ref,
+                    lifecycle_suppression=False,
+                )
+                activate_memory_review_recall_record(
+                    storage_path=self.memory_review_recall_db_path,
+                    record_ref=replay_receipt.reviewed_recall_record_ref,
+                    receipt_ref=replay_receipt.receipt_ref,
+                )
+            return replay_payload
+        prepared_suppression = load_memory_review_suppression_operation(
+            fetch_all=self._fetch_all,
             idempotency_key_ref=idempotency_key_ref,
-            approval_kind="approval-kind:memory-review-reviewed-recall-write"
-            if decision in {"accept", "correct"}
-            else "approval-kind:memory-review-decision-receipt",
-            exact_scope_ref=MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF
-            if decision in {"accept", "correct"}
-            else MEMORY_REVIEW_RECEIPT_SCOPE_REF,
         )
-
-        receipt_ref = memory_review_decision_receipt_ref(
-            candidate_ref,
-            decision,
-            idempotency_key_ref,
-        )
-        decision_ref = memory_review_decision_ref(
-            candidate_ref,
-            decision,
-            idempotency_key_ref,
-        )
-        audit_ref = memory_review_decision_audit_ref(
-            candidate_ref,
-            decision,
-            idempotency_key_ref,
-        )
-        evidence_ref = memory_review_decision_evidence_ref(candidate_ref, decision)
-        reviewed_recall_ref = (
-            memory_review_reviewed_recall_ref(candidate_ref)
-            if decision in {"accept", "correct"}
-            else None
-        )
-        correction_ref = (
-            memory_review_correction_ref(candidate_ref)
-            if decision == "correct"
-            else None
-        )
-        rejection_ref = (
-            memory_review_rejection_ref(candidate_ref) if decision == "reject" else None
-        )
-        defer_ref = (
-            memory_review_defer_ref(candidate_ref) if decision == "defer" else None
-        )
-        merge_ref = (
-            memory_review_merge_ref(candidate_ref) if decision == "merge" else None
-        )
-        supersede_ref = (
-            memory_review_supersede_ref(candidate_ref)
-            if decision == "supersede"
-            else None
-        )
-        forget_request_receipt_ref = (
-            enriched_request.forget_request_ref
-            if decision == "forget_request"
-            else None
-        )
+        if (
+            prepared_suppression is not None
+            and prepared_suppression["payload_fingerprint_ref"]
+            != payload_fingerprint_ref
+        ):
+            raise FounderLoopStorageDuplicateError(
+                "FOUNDER_LOOP_MEMORY_SUPPRESSION_IDEMPOTENCY_CONFLICT"
+            )
+        current_review_state = str(candidate.get("review_state") or "review_needed")
+        if current_review_state in {"forget_requested", "expired"}:
+            raise FounderLoopStorageError("FOUNDER_LOOP_MEMORY_DECISION_TERMINAL_STATE")
+        if current_review_state in {
+            "rejected",
+            "merged",
+            "superseded",
+        } and decision not in {"forget_request", "expire"}:
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_MEMORY_DECISION_INVALID_TRANSITION"
+            )
+        if decision == "accept" and current_review_state in {"accepted", "corrected"}:
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_MEMORY_DECISION_INVALID_TRANSITION"
+            )
         related_candidate_refs = (
             enriched_request.merge_refs
             if decision == "merge"
@@ -15051,31 +15171,14 @@ class FounderLoopRepository:
         related_projection_candidates = self._memory_review_payloads_for_refs(
             related_candidate_refs
         )
-        authority_decision = (
-            self._memory_review_write_authority_decision(
-                candidate_ref=candidate_ref,
-                review_ref=review_ref,
-                decision=decision,
-                idempotency_key_ref=idempotency_key_ref,
-                payload_fingerprint_ref=payload_fingerprint_ref,
-            )
-            if decision in {"accept", "correct"}
-            else None
-        )
-        reviewed_recall_record_ref = (
-            self._write_memory_review_recall_record(
-                candidate=candidate,
-                decision=decision,
-                request=enriched_request,
-                receipt_ref=receipt_ref,
-                evidence_ref=evidence_ref,
-                reviewed_recall_ref=reviewed_recall_ref,
-            )
-            if decision in {"accept", "correct"} and reviewed_recall_ref is not None
-            else None
-        )
-        suppressed_recall_record_refs = []
-        if decision in {"reject", "merge", "supersede", "forget_request"}:
+        suppressed_recall_record_refs: list[str] = []
+        if decision in {
+            "reject",
+            "merge",
+            "supersede",
+            "expire",
+            "forget_request",
+        }:
             suppression_candidates = [(candidate_ref, candidate)]
             if decision in {"merge", "supersede"}:
                 suppression_candidates.extend(
@@ -15101,12 +15204,149 @@ class FounderLoopRepository:
             suppressed_recall_record_refs = list(
                 dict.fromkeys(suppressed_recall_record_refs)
             )
+        if prepared_suppression is not None:
+            suppressed_recall_record_refs = list(
+                prepared_suppression["suppressed_recall_record_refs"]
+            )
+        requires_memory_write_authority = decision in {"accept", "correct"} or bool(
+            suppressed_recall_record_refs
+        )
+        lifecycle_suppression = decision not in {"accept", "correct"} and bool(
+            suppressed_recall_record_refs
+        )
+        authority_scope_ref = (
+            MEMORY_REVIEW_LIFECYCLE_SCOPE_REF
+            if lifecycle_suppression
+            else MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF
+        )
+        safe_disable_posture = self.memory_review_write_safe_disable_posture()
+        if requires_memory_write_authority and not bool(
+            safe_disable_posture.get("memory_review_writes_enabled")
+        ):
+            raise FounderLoopStorageError("FOUNDER_LOOP_MEMORY_WRITE_SAFE_DISABLED")
+        approval = self._record_memory_review_local_approval(
+            subject_ref=candidate_ref,
+            reviewer_ref=enriched_request.reviewer_ref,
+            requested_action=(
+                "record-memory-review-lifecycle-suppression-write"
+                if lifecycle_suppression
+                else "record-memory-review-reviewed-recall-write"
+                if requires_memory_write_authority
+                else f"record-memory-review-{decision.replace('_', '-')}-receipt"
+            ),
+            resource_refs=[
+                review_ref,
+                FCC_MEMORY_REVIEW_DECISION_CONTRACT_REF,
+                (
+                    authority_scope_ref
+                    if requires_memory_write_authority
+                    else MEMORY_REVIEW_RECEIPT_SCOPE_REF
+                ),
+                idempotency_key_ref,
+                payload_fingerprint_ref,
+                *enriched_request.source_refs,
+                *enriched_request.evidence_refs,
+                *enriched_request.metadata_refs,
+                *enriched_request.merge_refs,
+                *enriched_request.supersedes_refs,
+                *suppressed_recall_record_refs,
+                *(
+                    [enriched_request.corrected_summary_ref]
+                    if enriched_request.corrected_summary_ref
+                    else []
+                ),
+            ],
+            idempotency_key_ref=idempotency_key_ref,
+            approval_kind=(
+                "approval-kind:memory-review-lifecycle-suppression-write"
+                if lifecycle_suppression
+                else "approval-kind:memory-review-reviewed-recall-write"
+                if requires_memory_write_authority
+                else "approval-kind:memory-review-decision-receipt"
+            ),
+            exact_scope_ref=authority_scope_ref
+            if requires_memory_write_authority
+            else MEMORY_REVIEW_RECEIPT_SCOPE_REF,
+        )
+
+        receipt_ref = memory_review_decision_receipt_ref(
+            candidate_ref,
+            decision,
+            idempotency_key_ref,
+        )
+        decision_ref = memory_review_decision_ref(
+            candidate_ref,
+            decision,
+            idempotency_key_ref,
+        )
+        audit_ref = memory_review_decision_audit_ref(
+            candidate_ref,
+            decision,
+            idempotency_key_ref,
+        )
+        evidence_ref = memory_review_decision_evidence_ref(candidate_ref, decision)
+        reviewed_recall_ref = (
+            memory_review_reviewed_recall_ref(review_ref)
+            if decision in {"accept", "correct"}
+            else None
+        )
+        correction_ref = (
+            memory_review_correction_ref(candidate_ref)
+            if decision == "correct"
+            else None
+        )
+        rejection_ref = (
+            memory_review_rejection_ref(candidate_ref) if decision == "reject" else None
+        )
+        defer_ref = (
+            memory_review_defer_ref(candidate_ref) if decision == "defer" else None
+        )
+        merge_ref = (
+            memory_review_merge_ref(candidate_ref) if decision == "merge" else None
+        )
+        supersede_ref = (
+            memory_review_supersede_ref(candidate_ref)
+            if decision == "supersede"
+            else None
+        )
+        expire_ref = (
+            memory_review_expire_ref(candidate_ref) if decision == "expire" else None
+        )
+        forget_request_receipt_ref = (
+            enriched_request.forget_request_ref
+            if decision == "forget_request"
+            else None
+        )
+        authority_decision = (
+            self._memory_review_write_authority_decision(
+                candidate_ref=candidate_ref,
+                review_ref=review_ref,
+                decision=decision,
+                idempotency_key_ref=idempotency_key_ref,
+                payload_fingerprint_ref=payload_fingerprint_ref,
+                lifecycle_suppression=lifecycle_suppression,
+                suppression_record_refs=suppressed_recall_record_refs,
+            )
+            if requires_memory_write_authority
+            else None
+        )
+        reviewed_recall_record_ref = (
+            self._write_memory_review_recall_record(
+                candidate=candidate,
+                decision=decision,
+                request=enriched_request,
+                receipt_ref=receipt_ref,
+                evidence_ref=evidence_ref,
+                reviewed_recall_ref=reviewed_recall_ref,
+            )
+            if decision in {"accept", "correct"} and reviewed_recall_ref is not None
+            else None
+        )
         receipt = MemoryReviewDecision(
             candidate_ref=candidate_ref,
             review_ref=review_ref,
             decision=decision,
             corrected_summary_ref=enriched_request.corrected_summary_ref,
-            corrected_safe_summary=enriched_request.corrected_safe_summary,
             approval_ref=approval["approval_ref"],
             approval_scope_ref=approval["approval_scope_ref"],
             approval_status=approval["approval_status"],
@@ -15120,6 +15360,21 @@ class FounderLoopRepository:
             authority_lease_ref=(
                 authority_decision.lease_ref if authority_decision else None
             ),
+            authority_action_ref=(
+                MEMORY_REVIEW_LIFECYCLE_AUTHORITY_ACTION_REF
+                if lifecycle_suppression
+                else MEMORY_REVIEW_AUTHORITY_ACTION_REF
+                if authority_decision
+                else None
+            ),
+            authority_lane_ref=(
+                MEMORY_REVIEW_LIFECYCLE_AUTHORITY_LANE_REF
+                if lifecycle_suppression
+                else MEMORY_REVIEW_AUTHORITY_LANE_REF
+                if authority_decision
+                else None
+            ),
+            authority_scope_ref=authority_scope_ref if authority_decision else None,
             safe_disable_ref=str(safe_disable_posture["safe_disable_ref"]),
             rollback_ref=str(safe_disable_posture["rollback_ref"]),
             safe_disable_posture_ref=str(
@@ -15155,12 +15410,58 @@ class FounderLoopRepository:
             defer_ref=defer_ref,
             merge_ref=merge_ref,
             supersede_ref=supersede_ref,
+            expire_ref=expire_ref,
             forget_request_ref=forget_request_receipt_ref,
             merge_refs=enriched_request.merge_refs,
             supersedes_refs=enriched_request.supersedes_refs,
             suppressed_recall_record_refs=suppressed_recall_record_refs,
             blocked_state_refs=enriched_request.blocked_state_refs,
         )
+        if prepared_suppression is not None:
+            validate_prepared_suppression_authority_binding(
+                prepared=prepared_suppression,
+                receipt=receipt,
+            )
+        if receipt.suppressed_recall_record_refs:
+            with self._connect() as conn:
+                prepare_memory_review_suppression_operation(
+                    conn=conn,
+                    idempotency_key_ref=idempotency_key_ref,
+                    candidate_ref=candidate_ref,
+                    review_ref=review_ref,
+                    decision=decision,
+                    payload_fingerprint_ref=payload_fingerprint_ref,
+                    receipt_ref=receipt.receipt_ref,
+                    approval_ref=receipt.approval_ref,
+                    approval_scope_ref=receipt.approval_scope_ref,
+                    authority_decision_ref=str(receipt.authority_decision_ref),
+                    authority_decision_outcome=str(receipt.authority_decision_outcome),
+                    authority_lease_ref=str(receipt.authority_lease_ref),
+                    authority_action_ref=str(receipt.authority_action_ref),
+                    authority_lane_ref=str(receipt.authority_lane_ref),
+                    authority_scope_ref=str(receipt.authority_scope_ref),
+                    safe_disable_ref=receipt.safe_disable_ref,
+                    safe_disable_posture_ref=receipt.safe_disable_posture_ref,
+                    safe_disable_enabled=receipt.safe_disable_enabled,
+                    rollback_ref=receipt.rollback_ref,
+                    suppressed_recall_record_refs=(
+                        receipt.suppressed_recall_record_refs
+                    ),
+                    created_at=receipt.created_at,
+                )
+            self._revalidate_memory_review_write_before_mutation(
+                candidate_ref=candidate_ref,
+                review_ref=review_ref,
+                decision=decision,
+                approval_ref=receipt.approval_ref,
+                idempotency_key_ref=idempotency_key_ref,
+                payload_fingerprint_ref=payload_fingerprint_ref,
+                lifecycle_suppression=True,
+                suppression_record_refs=receipt.suppressed_recall_record_refs,
+            )
+            self._suppress_memory_review_recall_records_after_terminal_decision(
+                receipt=receipt,
+            )
         receipt_payload = receipt.model_dump(mode="json")
         with self._connect() as conn:
             conn.execute(
@@ -15200,15 +15501,34 @@ class FounderLoopRepository:
                     receipt.created_at,
                 ),
             )
-            self._update_memory_review_projection_after_decision(
+            update_memory_review_projection_after_decision(
                 conn=conn,
                 candidate=candidate,
                 receipt=receipt,
                 related_candidates=related_projection_candidates,
             )
-        self._suppress_memory_review_recall_records_after_terminal_decision(
-            receipt=receipt,
-        )
+            if receipt.suppressed_recall_record_refs:
+                settle_memory_review_suppression_operation(
+                    conn=conn,
+                    idempotency_key_ref=idempotency_key_ref,
+                    receipt_ref=receipt.receipt_ref,
+                    settled_at=receipt.created_at,
+                )
+        if receipt.reviewed_recall_record_ref:
+            self._revalidate_memory_review_write_before_mutation(
+                candidate_ref=candidate_ref,
+                review_ref=review_ref,
+                decision=decision,
+                approval_ref=receipt.approval_ref,
+                idempotency_key_ref=idempotency_key_ref,
+                payload_fingerprint_ref=payload_fingerprint_ref,
+                lifecycle_suppression=False,
+            )
+            activate_memory_review_recall_record(
+                storage_path=self.memory_review_recall_db_path,
+                record_ref=receipt.reviewed_recall_record_ref,
+                receipt_ref=receipt.receipt_ref,
+            )
         self.append_log(
             JsonlLogKind.receipt,
             {
@@ -15266,10 +15586,17 @@ class FounderLoopRepository:
             return None
         return dict(json.loads(str(rows[0]["receipt_json"])))
 
-    def list_memory_review_recall_records(self) -> list[dict[str, Any]]:
+    def list_memory_review_recall_records(
+        self,
+        *,
+        limit: int | None = None,
+    ) -> list[dict[str, Any]]:
         store = self._memory_review_recall_store()
         try:
-            return [record.model_dump(mode="json") for record in store.list_records()]
+            return [
+                record.model_dump(mode="json")
+                for record in store.list_records(limit=limit)
+            ]
         finally:
             store.close()
 
@@ -15286,7 +15613,7 @@ class FounderLoopRepository:
         )
         search_index_status = self._memory_review_recall_search_index_status()
         index = build_l1_hot_memory_index(
-            self.list_memory_review_recall_records(),
+            self.list_memory_review_recall_records(limit=201),
             query_ref=query_ref,
             safe_query=safe_query,
             search_index_status=search_index_status,
@@ -15307,7 +15634,7 @@ class FounderLoopRepository:
         )
         search_index_status = self._memory_review_recall_search_index_status()
         l1_index = build_l1_hot_memory_index(
-            self.list_memory_review_recall_records(),
+            self.list_memory_review_recall_records(limit=201),
             query_ref=query_ref,
             safe_query=safe_query,
             search_index_status=search_index_status,
@@ -15334,7 +15661,7 @@ class FounderLoopRepository:
         )
         search_index_status = self._memory_review_recall_search_index_status()
         l1_index = build_l1_hot_memory_index(
-            self.list_memory_review_recall_records(),
+            self.list_memory_review_recall_records(limit=201),
             query_ref=query_ref,
             safe_query=safe_query,
             search_index_status=search_index_status,
@@ -15367,7 +15694,7 @@ class FounderLoopRepository:
         )
         search_index_status = self._memory_review_recall_search_index_status()
         l1_index = build_l1_hot_memory_index(
-            self.list_memory_review_recall_records(),
+            self.list_memory_review_recall_records(limit=201),
             query_ref=query_ref,
             safe_query=safe_query,
             search_index_status=search_index_status,
@@ -15429,6 +15756,19 @@ class FounderLoopRepository:
         request: MemoryFeedbackRequest,
         idempotency_key_ref: str,
     ) -> dict[str, Any]:
+        lock_manager = FileSingleWriterLockManager(self.state_dir / ".locks")
+        with lock_manager.acquire("memory-feedback"):
+            return self._record_memory_feedback_locked(
+                request=request,
+                idempotency_key_ref=idempotency_key_ref,
+            )
+
+    def _record_memory_feedback_locked(
+        self,
+        *,
+        request: MemoryFeedbackRequest,
+        idempotency_key_ref: str,
+    ) -> dict[str, Any]:
         if getattr(request, "memory_record_ref", None) is None:
             return self._record_memory_quality_feedback(
                 request=request,
@@ -15454,25 +15794,88 @@ class FounderLoopRepository:
             receipt = self._memory_feedback_receipt_by_ref(str(replay["receipt_ref"]))
             receipt["replayed"] = True
             return receipt
-
         approval = self._record_memory_review_local_approval(
             subject_ref=memory_record_ref,
             reviewer_ref=request.reviewer_ref,
-            requested_action="record_memory_feedback_receipt",
+            requested_action="record-memory-feedback-metadata-update",
             resource_refs=[
                 MEMORY_FEEDBACK_CONTRACT_REF,
                 "route-ref:control-center-memory-feedback",
                 idempotency_key_ref,
+                payload_fingerprint_ref,
                 *request.source_refs,
                 *request.evidence_refs,
                 *request.blocked_state_refs,
             ],
             idempotency_key_ref=idempotency_key_ref,
+            approval_kind="approval-kind:memory-feedback-metadata-update",
+            exact_scope_ref=MEMORY_FEEDBACK_EXACT_SCOPE_REF,
         )
         receipt_ref = memory_feedback_receipt_ref(
             memory_record_ref,
             idempotency_key_ref,
         )
+        leases = (
+            self._active_authority_leases
+            if self._active_authority_leases is not None
+            else active_founder_loop_authority_leases()
+        )
+        authority_decision = evaluate_memory_feedback_write_authority(
+            active_authority_leases=leases,
+            memory_record_ref=memory_record_ref,
+            idempotency_key_ref=idempotency_key_ref,
+            payload_fingerprint_ref=payload_fingerprint_ref,
+        )
+        if authority_decision.outcome not in {
+            AuthorityDecisionOutcome.allow.value,
+            AuthorityDecisionOutcome.ask.value,
+        }:
+            raise FounderLoopAuthorityError(
+                [
+                    *authority_decision.reason_refs,
+                    MEMORY_REVIEW_AUTHORITY_REQUIRED_BLOCKED_REF,
+                ],
+                code="FOUNDER_LOOP_MEMORY_FEEDBACK_AUTHORITY_DENIED",
+            )
+        safe_disable = self.memory_review_write_safe_disable_posture()
+        operation = memory_feedback_update_operation(
+            idempotency_key_ref=idempotency_key_ref,
+            memory_record_ref=memory_record_ref,
+            feedback_kind=request.feedback_kind,
+            payload_fingerprint_ref=payload_fingerprint_ref,
+            receipt_ref=receipt_ref,
+            approval=approval,
+            authority_decision=authority_decision,
+            safe_disable_enabled=bool(safe_disable["memory_review_writes_enabled"]),
+            created_at=_utc_iso(),
+        )
+        with self._connect() as conn:
+            prepare_memory_feedback_update_operation(conn=conn, operation=operation)
+        persisted_approval = self._internal_approval_grant_for_ref(
+            approval_ref=approval["approval_ref"],
+            approval_kind="approval-kind:memory-feedback-metadata-update",
+            subject_ref=memory_record_ref,
+            requested_action="record-memory-feedback-metadata-update",
+            exact_scope_ref=MEMORY_FEEDBACK_EXACT_SCOPE_REF,
+            idempotency_key_ref=idempotency_key_ref,
+        )
+        fresh_authority = evaluate_memory_feedback_write_authority(
+            active_authority_leases=leases,
+            memory_record_ref=memory_record_ref,
+            idempotency_key_ref=idempotency_key_ref,
+            payload_fingerprint_ref=payload_fingerprint_ref,
+        )
+        if not memory_feedback_pre_start_is_valid(
+            approval_grant=persisted_approval,
+            memory_record_ref=memory_record_ref,
+            idempotency_key_ref=idempotency_key_ref,
+            payload_fingerprint_ref=payload_fingerprint_ref,
+            authority_decision=authority_decision,
+            fresh_authority_decision=fresh_authority,
+            safe_disable_enabled=bool(safe_disable["memory_review_writes_enabled"]),
+            checked_at=datetime.now().astimezone(),
+        ):
+            raise FounderLoopStorageError("FOUNDER_LOOP_MEMORY_FEEDBACK_SCOPE_DENIED")
         store = self._memory_review_recall_store()
         try:
             updated = store.record_feedback(
@@ -15487,73 +15890,18 @@ class FounderLoopRepository:
         finally:
             store.close()
 
-        receipt = MemoryFeedbackReceipt(
+        receipt = build_memory_feedback_receipt(
+            request=request,
             receipt_ref=receipt_ref,
-            memory_record_ref=memory_record_ref,
-            feedback_kind=request.feedback_kind,
-            reviewer_ref=request.reviewer_ref,
             idempotency_key_ref=idempotency_key_ref,
             payload_fingerprint_ref=payload_fingerprint_ref,
-            approval_ref=approval["approval_ref"],
-            approval_status=approval["approval_status"],
-            approval_reason_refs=approval["approval_reason_refs"],
-            source_refs=request.source_refs,
-            evidence_refs=request.evidence_refs,
-            note_ref=request.note_ref,
-            trust_delta=trust_delta_for_feedback(request.feedback_kind),
-            trust_score_after=updated.trust_score,
-            stale_state_after=_enum_value(updated.stale_state),
-            conflict_state_after=_enum_value(updated.conflict_state),
-            blocked_state_refs=list(request.blocked_state_refs),
-        ).model_dump(mode="json")
+            approval=approval,
+            authority_decision=authority_decision,
+            safe_disable_enabled=bool(safe_disable["memory_review_writes_enabled"]),
+            updated_record=updated,
+        )
         with self._connect() as conn:
-            try:
-                conn.execute(
-                    """
-                    INSERT INTO memory_feedback_receipts (
-                        receipt_ref, memory_record_ref, feedback_kind,
-                        payload_fingerprint_ref, receipt_json, created_at
-                    )
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        receipt["receipt_ref"],
-                        receipt["memory_record_ref"],
-                        receipt["feedback_kind"],
-                        payload_fingerprint_ref,
-                        _json_dumps(receipt),
-                        receipt["created_at"],
-                    ),
-                )
-                conn.execute(
-                    """
-                    INSERT INTO memory_feedback_replays (
-                        key_ref, memory_record_ref, payload_fingerprint_ref,
-                        receipt_ref, receipt_json, created_at
-                    )
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        idempotency_key_ref,
-                        receipt["memory_record_ref"],
-                        payload_fingerprint_ref,
-                        receipt["receipt_ref"],
-                        _json_dumps(receipt),
-                        receipt["created_at"],
-                    ),
-                )
-            except sqlite3.IntegrityError as exc:
-                replay = self._memory_feedback_replay(idempotency_key_ref)
-                if (
-                    replay
-                    and replay["payload_fingerprint_ref"] == payload_fingerprint_ref
-                ):
-                    return self._memory_feedback_receipt_by_ref(
-                        str(replay["receipt_ref"])
-                    )
-                raise FounderLoopStorageDuplicateError(
-                    "FOUNDER_LOOP_MEMORY_FEEDBACK_IDEMPOTENCY_CONFLICT"
-                ) from exc
+            persist_memory_feedback_receipt(conn=conn, receipt=receipt)
         self.append_log(
             JsonlLogKind.receipt,
             {
@@ -16000,87 +16348,26 @@ class FounderLoopRepository:
         evidence_ref: str,
         reviewed_recall_ref: str,
     ) -> str:
-        safe_summary = str(candidate.get("safe_summary") or "").strip()
-        if decision == "correct":
-            safe_summary = (
-                "Reviewed memory correction recorded from bounded corrected safe "
-                f"summary: {request.corrected_safe_summary}"
-            )
-        memory_request = MemoryProviderWriteRequest(
-            request_id=f"memory-review-recall-write:{receipt_ref}",
-            provider_ref="provider-ref:local-memory-store:memory-review",
-            memory_kind=(
-                MemoryRecordKind.correction
-                if decision == "correct"
-                else MemoryRecordKind.structured_fact
-            ),
-            memory_layer=MemoryLayer.record,
-            epistemic_role=epistemic_role_for_candidate_kind(
-                str(candidate.get("candidate_kind") or "unknown")
-            ),
-            provider_kind=MemoryProviderKind.local_sqlite,
-            safe_summary=safe_summary,
-            source_refs=request.source_refs,
-            evidence_refs=list(dict.fromkeys([*request.evidence_refs, evidence_ref])),
-            event_refs=[evidence_ref],
-            receipt_refs=[receipt_ref],
-            user_reviewed=True,
-            automatic_write=False,
-            data_classification=MemoryDataClassification.internal,
-            confidence_score=0.7,
-            trust_score=0.7,
-            dedup_key=reviewed_recall_ref,
-            context_pack_eligible=False,
-            injection_priority=0,
-            tags=[
-                "memory-review-decision",
-                f"memory-review-decision:{decision}",
-            ],
-            metadata_refs=list(
-                dict.fromkeys(
-                    ref
-                    for ref in [
-                        reviewed_recall_ref,
-                        str(candidate.get("review_ref") or ""),
-                        str(candidate.get("business_memory_candidate_ref") or ""),
-                        *request.metadata_refs,
-                    ]
-                    if ref
-                )
-            ),
-            metadata={
-                "authority_boundary_ref": (
-                    "memory-review-recall-record-is-not-truth-or-context-injection"
-                ),
-                "decision": decision,
-                "reviewed_recall_ref": reviewed_recall_ref,
-                "context_injection_authorized": False,
-                "source_truth_authority": False,
-                "connector_write_authorized": False,
-                "automatic_action_execution_authorized": False,
-            },
-        )
-        store = self._memory_review_recall_store()
         try:
-            decision_result = store.put_record(memory_request)
-        finally:
-            store.close()
-        if (
-            not getattr(decision_result, "allowed", False)
-            or not decision_result.memory_id
-        ):
-            raise FounderLoopStorageError("FOUNDER_LOOP_MEMORY_RECALL_RECORD_DENIED")
-        return f"memory-record-ref:{decision_result.memory_id}"
+            return write_memory_review_recall_record(
+                storage_path=self.memory_review_recall_db_path,
+                candidate=candidate,
+                decision=decision,
+                request=request,
+                receipt_ref=receipt_ref,
+                evidence_ref=evidence_ref,
+                reviewed_recall_ref=reviewed_recall_ref,
+            )
+        except MemoryReviewRuntimeError as exc:
+            raise FounderLoopStorageError(str(exc)) from exc
 
     def _memory_review_recall_store(self) -> LocalMemoryStore:
         return LocalMemoryStore(storage_path=self.memory_review_recall_db_path)
 
     def _memory_review_recall_search_index_status(self) -> dict[str, Any]:
-        store = self._memory_review_recall_store()
-        try:
-            return store.search_index_status()
-        finally:
-            store.close()
+        return memory_review_recall_search_index_status(
+            storage_path=self.memory_review_recall_db_path
+        )
 
     def _memory_review_payload_for_ref(
         self,
@@ -16117,124 +16404,33 @@ class FounderLoopRepository:
         candidate: dict[str, Any],
         candidate_ref: str,
     ) -> list[str]:
-        match_refs = {
-            candidate_ref,
-            str(candidate.get("review_ref") or ""),
-            str(candidate.get("business_memory_candidate_ref") or ""),
-            memory_review_reviewed_recall_ref(candidate_ref),
-        }
-        match_refs = {ref for ref in match_refs if ref}
-        store = self._memory_review_recall_store()
         try:
-            matched: list[str] = []
-            for record in store.list_records():
-                record_refs = [
-                    *record.metadata_refs,
-                    *record.receipt_refs,
-                    *[str(value) for value in record.metadata.values() if value],
-                ]
-                if match_refs.intersection(record_refs):
-                    matched.append(f"memory-record-ref:{record.memory_id}")
-            return list(dict.fromkeys(matched))
-        finally:
-            store.close()
+            return memory_review_recall_record_refs_for_candidate(
+                storage_path=self.memory_review_recall_db_path,
+                candidate=candidate,
+                candidate_ref=candidate_ref,
+            )
+        except MemoryReviewRuntimeError as exc:
+            raise FounderLoopStorageError(str(exc)) from exc
 
     def _suppress_memory_review_recall_records_after_terminal_decision(
         self,
         *,
         receipt: MemoryReviewDecisionReceipt,
     ) -> None:
-        if receipt.decision not in {"reject", "merge", "supersede", "forget_request"}:
-            return
-        if not receipt.suppressed_recall_record_refs:
-            return
-        store = self._memory_review_recall_store()
-        try:
-            for record_ref in receipt.suppressed_recall_record_refs:
-                memory_id = str(record_ref).removeprefix("memory-record-ref:")
-                status = (
-                    MemoryStatus.superseded
-                    if receipt.decision in {"merge", "supersede"}
-                    else MemoryStatus.revoked
-                )
-                retention_state = (
-                    MemoryRetentionState.deletion_requested
-                    if receipt.decision == "forget_request"
-                    else MemoryRetentionState.blocked
-                )
-                store.suppress_record(
-                    memory_id=memory_id,
-                    receipt_ref=receipt.receipt_ref,
-                    reason=f"memory-review-terminal-decision:{receipt.decision}",
-                    status=status,
-                    retention_state=retention_state,
-                )
-        finally:
-            store.close()
+        suppress_memory_review_recall_records_after_terminal_decision(
+            storage_path=self.memory_review_recall_db_path,
+            receipt=receipt,
+        )
 
     def _memory_workbench_loop_refs(self, *, limit: int = 20) -> list[str]:
-        refs: list[str] = []
-        for action in self.list_action_inbox(limit=limit):
-            refs.extend(
-                str(ref)
-                for ref in [
-                    action.get("item_ref"),
-                    action.get("approval_envelope_ref"),
-                    action.get("action_envelope_ref"),
-                    *(action.get("evidence_refs") or []),
-                    *(action.get("receipt_refs") or []),
-                ]
-                if ref
-            )
-        for plan in self.list_plan_summaries(limit=limit):
-            refs.extend(
-                str(ref)
-                for ref in [
-                    plan.get("plan_ref"),
-                    *(plan.get("evidence_refs") or []),
-                ]
-                if ref
-            )
-        for briefing in self.list_briefing_items(limit=limit):
-            refs.extend(
-                str(ref)
-                for ref in [
-                    briefing.get("briefing_ref"),
-                    *(briefing.get("source_refs") or []),
-                    *(briefing.get("evidence_refs") or []),
-                ]
-                if ref
-            )
-        for receipt in self.list_chat_turn_receipts(limit=limit):
-            refs.extend(
-                str(ref)
-                for ref in [
-                    receipt.get("turn_ref"),
-                    receipt.get("receipt_ref"),
-                    receipt.get("evidence_ref"),
-                    *(receipt.get("evidence_refs") or []),
-                ]
-                if ref
-            )
-        for receipt in self.list_chat_handoff_receipts(limit=limit):
-            refs.extend(
-                str(ref)
-                for ref in [
-                    receipt.get("handoff_ref"),
-                    receipt.get("created_ref"),
-                    receipt.get("receipt_ref"),
-                    *(receipt.get("evidence_refs") or []),
-                ]
-                if ref
-            )
-        safe_refs: list[str] = []
-        for ref in refs:
-            try:
-                _validate_safe_ref(ref, "memory_workbench_loop_ref")
-            except ValueError:
-                continue
-            safe_refs.append(ref)
-        return list(dict.fromkeys(safe_refs))
+        return memory_workbench_loop_refs(
+            actions=self.list_action_inbox(limit=limit),
+            plans=self.list_plan_summaries(limit=limit),
+            briefings=self.list_briefing_items(limit=limit),
+            turn_receipts=self.list_chat_turn_receipts(limit=limit),
+            handoff_receipts=self.list_chat_handoff_receipts(limit=limit),
+        )
 
     def _manual_memory_candidate_replay(
         self,
@@ -16289,205 +16485,6 @@ class FounderLoopRepository:
                 "FOUNDER_LOOP_MEMORY_DECISION_RECEIPT_NOT_FOUND"
             )
         return dict(json.loads(str(rows[0]["receipt_json"])))
-
-    def _update_memory_review_projection_after_decision(
-        self,
-        *,
-        conn: sqlite3.Connection,
-        candidate: dict[str, Any],
-        receipt: MemoryReviewDecisionReceipt,
-        related_candidates: Sequence[dict[str, Any]] | None = None,
-    ) -> None:
-        review_state = {
-            "accept": "accepted",
-            "correct": "corrected",
-            "reject": "rejected",
-            "defer": "deferred",
-            "merge": "merged",
-            "supersede": "superseded",
-            "forget_request": "forget_requested",
-        }[receipt.decision]
-        confidence_posture = {
-            "accept": "reviewed_recall_safe_ref_only",
-            "correct": "corrected_summary_ref_reviewed",
-            "reject": "rejected_candidate_preserved",
-            "defer": "deferred_pending_operator_review",
-            "merge": "merge_receipt_recorded_no_silent_deletion",
-            "supersede": "supersede_receipt_recorded_old_refs_preserved",
-            "forget_request": "forget_request_receipt_recorded_delete_execution_blocked",
-        }[receipt.decision]
-        next_safe_action = {
-            "accept": (
-                "Use reviewed recall refs only after scoped retrieval/context policy; "
-                "context injection remains blocked."
-            ),
-            "correct": (
-                "Review the corrected safe summary ref; memory writes and context "
-                "injection remain blocked."
-            ),
-            "reject": (
-                "Keep the rejected candidate preserved as blocked review state so "
-                "stale refs do not silently return."
-            ),
-            "defer": (
-                "Revisit the memory candidate later; no recall record or memory write "
-                "was created."
-            ),
-            "merge": (
-                "Inspect merge receipt refs and preserve source candidates until a "
-                "scoped memory write policy exists."
-            ),
-            "supersede": (
-                "Inspect supersede receipt refs; old candidates remain preserved and "
-                "delete execution stays blocked."
-            ),
-            "forget_request": (
-                "Review the forget-request receipt; delete and export execution remain "
-                "blocked until a scoped retention milestone exists."
-            ),
-        }[receipt.decision]
-        evidence_refs = list(
-            dict.fromkeys(
-                [
-                    *list(candidate.get("evidence_refs") or []),
-                    *receipt.evidence_refs,
-                    receipt.receipt_ref,
-                ]
-            )
-        )
-        blocked_states = list(
-            dict.fromkeys(
-                [
-                    *list(candidate.get("blocked_states") or []),
-                    *[
-                        ref.removeprefix("blocked-state:")
-                        for ref in receipt.blocked_state_refs
-                    ],
-                ]
-            )
-        )
-        conn.execute(
-            """
-            UPDATE memory_review_queue
-            SET status = ?,
-                review_state = ?,
-                correction_posture = ?,
-                rejection_posture = ?,
-                confidence_posture = ?,
-                stale_state = ?,
-                blocked_states_json = ?,
-                next_safe_action = ?,
-                evidence_refs_json = ?
-            WHERE review_ref = ?
-            """,
-            (
-                review_state,
-                review_state,
-                (
-                    "corrected_summary_ref_recorded_no_raw_content"
-                    if receipt.decision == "correct"
-                    else "merge_receipt_refs_recorded_no_raw_content"
-                    if receipt.decision == "merge"
-                    else "supersede_receipt_refs_recorded_no_raw_content"
-                    if receipt.decision == "supersede"
-                    else str(candidate.get("correction_posture"))
-                ),
-                (
-                    "rejected_candidate_preserved_with_receipt"
-                    if receipt.decision == "reject"
-                    else "forget_request_recorded_delete_execution_blocked"
-                    if receipt.decision == "forget_request"
-                    else str(candidate.get("rejection_posture"))
-                ),
-                confidence_posture,
-                "recheck_memory_decision_receipt_before_recall",
-                _json_dumps(blocked_states),
-                next_safe_action,
-                _json_dumps(evidence_refs),
-                receipt.review_ref,
-            ),
-        )
-        if receipt.decision in {"merge", "supersede"}:
-            self._update_related_memory_review_projection_after_decision(
-                conn=conn,
-                receipt=receipt,
-                related_candidates=related_candidates or [],
-            )
-
-    def _update_related_memory_review_projection_after_decision(
-        self,
-        *,
-        conn: sqlite3.Connection,
-        receipt: MemoryReviewDecisionReceipt,
-        related_candidates: Sequence[dict[str, Any]],
-    ) -> None:
-        review_state = "merged" if receipt.decision == "merge" else "superseded"
-        confidence_posture = (
-            "merged_by_receipt_ref_no_silent_deletion"
-            if receipt.decision == "merge"
-            else "superseded_by_receipt_ref_no_silent_deletion"
-        )
-        correction_posture = (
-            "merge_peer_receipt_ref_recorded_no_raw_content"
-            if receipt.decision == "merge"
-            else "superseded_by_receipt_ref_recorded_no_raw_content"
-        )
-        next_safe_action = (
-            "Inspect the merge receipt before using either candidate; both "
-            "records remain preserved and delete/export execution is blocked."
-            if receipt.decision == "merge"
-            else "Inspect the supersede receipt before using the older candidate; "
-            "the old record remains preserved and delete/export execution is blocked."
-        )
-        for related_candidate in related_candidates:
-            related_review_ref = str(related_candidate.get("review_ref") or "")
-            if not related_review_ref or related_review_ref == receipt.review_ref:
-                continue
-            evidence_refs = list(
-                dict.fromkeys(
-                    [
-                        *list(related_candidate.get("evidence_refs") or []),
-                        *receipt.evidence_refs,
-                        receipt.receipt_ref,
-                    ]
-                )
-            )
-            blocked_states = list(
-                dict.fromkeys(
-                    [
-                        *list(related_candidate.get("blocked_states") or []),
-                        *[
-                            ref.removeprefix("blocked-state:")
-                            for ref in receipt.blocked_state_refs
-                        ],
-                    ]
-                )
-            )
-            conn.execute(
-                """
-                UPDATE memory_review_queue
-                SET status = ?,
-                    review_state = ?,
-                    correction_posture = ?,
-                    confidence_posture = ?,
-                    stale_state = ?,
-                    blocked_states_json = ?,
-                    next_safe_action = ?,
-                    evidence_refs_json = ?
-                WHERE review_ref = ?
-                """,
-                (
-                    review_state,
-                    review_state,
-                    correction_posture,
-                    confidence_posture,
-                    "recheck_memory_decision_receipt_before_recall",
-                    _json_dumps(blocked_states),
-                    next_safe_action,
-                    _json_dumps(evidence_refs),
-                    related_review_ref,
-                ),
-            )
 
     def list_briefing_items(self, *, limit: int = 20) -> list[dict[str, Any]]:
         rows = self._fetch_all(
@@ -17208,6 +17205,7 @@ class FounderLoopRepository:
                 );
                 """
             )
+            ensure_memory_runtime_operation_tables(conn)
             conn.execute(
                 """
                 INSERT INTO storage_metadata (key, value, updated_at)
@@ -17223,6 +17221,7 @@ class FounderLoopRepository:
             self._ensure_memory_review_write_lane_posture(conn)
         if self.seed_defaults:
             self._seed_defaults_if_empty()
+            founder_loop_exact_action.ensure_exact_attention_action(self, FounderLoopActionRecord)
             self._backfill_seed_action_contract_metadata()
             self._backfill_seed_memory_review_contract_metadata()
             self._backfill_seed_briefing_contract_metadata()
@@ -17693,9 +17692,7 @@ class FounderLoopRepository:
             },
         )
 
-    def _update_action_contract_metadata(
-        self, item_ref: str, metadata: dict[str, Any]
-    ) -> None:
+    def _update_action_contract_metadata(self, item_ref: str, metadata: dict[str, Any]) -> None:
         _validate_safe_ref(item_ref, "item_ref")
         _validate_safe_payload(metadata, "action_contract_metadata")
         self._execute(
@@ -18012,3 +18009,6 @@ class FounderLoopRepository:
     @staticmethod
     def _bounded_limit(limit: int) -> int:
         return max(1, min(int(limit), 100))
+
+    (persist_memory_feedback_receipt,)
+    (prepare_memory_feedback_update_operation,)

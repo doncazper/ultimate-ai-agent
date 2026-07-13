@@ -757,6 +757,33 @@ class FoundationGateLegacyChecksPart003Mixin:
                 and route.rate_limit_group == "today_to_action_envelope"
                 and route.blocked_from_production
             )
+            is_founder_loop_exact_attention_state = (
+                path in FOUNDER_LOOP_EXACT_ATTENTION_ROUTES
+                and route.side_effect_class == "local_dev_workspace_only"
+                and route.protected_route
+                and route.blocked_from_production
+                and (
+                    (
+                        route.method == "GET"
+                        and route.route_classification == "local_sensitive"
+                        and route.approval_posture
+                        == "not_required_for_route_classification"
+                        and not route.idempotency_required
+                        and not route.rate_limit_targeted
+                        and route.rate_limit_group is None
+                    )
+                    or (
+                        route.method == "POST"
+                        and route.route_classification
+                        == "mutating_requires_authority"
+                        and route.approval_posture
+                        == "required_before_mutation_authority"
+                        and route.idempotency_required
+                        and route.rate_limit_targeted
+                        and route.rate_limit_group == "founder_loop_exact_action"
+                    )
+                )
+            )
             is_founder_loop_chat_durable_receipt_state = (
                 path in FOUNDER_LOOP_CHAT_DURABLE_RECEIPT_ROUTES
                 and route.method == "POST"
@@ -923,6 +950,7 @@ class FoundationGateLegacyChecksPart003Mixin:
                 and not is_founder_loop_local_sensitive_read_model
                 and not is_founder_loop_decision_state
                 and not is_founder_loop_action_envelope_state
+                and not is_founder_loop_exact_attention_state
                 and not is_founder_loop_chat_durable_receipt_state
                 and not is_founder_loop_memory_review_decision_state
                 and not is_founder_loop_local_task_commit_state
@@ -1078,6 +1106,7 @@ class FoundationGateLegacyChecksPart003Mixin:
         allowed_deps = {
             "react",
             "react-dom",
+            "lucide-react",
             "@playwright/test",
             "@vitejs/plugin-react",
             "vite",

@@ -5,8 +5,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
+from scripts.dev import uaa_founder_loop
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.control_center.founder_loop import (
     FounderLoopControlCenterService,
@@ -398,6 +400,7 @@ def test_proof_index_covers_action_inbox_next_item_after_initial_bound(
 
 def test_proof_cli_default_covers_action_inbox_next_item_after_default_bound(
     tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     state_dir = tmp_path / "founder_loop"
     repo = FounderLoopRepository(state_dir, seed_defaults=False)
@@ -416,26 +419,22 @@ def test_proof_cli_default_covers_action_inbox_next_item_after_default_bound(
         capture_output=True,
         text=True,
     )
-    proof_result = subprocess.run(
+    assert uaa_founder_loop.main(
         [
-            sys.executable,
-            "scripts/dev/uaa_founder_loop.py",
             "--state-dir",
             str(state_dir),
             "inspect-proof",
-        ],
-        cwd=ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
+        ]
+    ) == 0
     action_payload = json.loads(action_result.stdout)
-    proof_payload = json.loads(proof_result.stdout)
+    proof_payload = json.loads(capsys.readouterr().out)
     next_item = action_payload["action_inbox_work_queue_read_model"]["next_item"]
     work_items = action_payload["action_inbox_work_queue_read_model"]["work_items"]
     proof_refs = set(proof_payload["proof_index"]["proof_refs"])
 
-    assert next_item["item_ref"] == "founder-action:late-approved-local-task"
+    assert next_item["item_ref"] == (
+        "founder-action:canonical-readme-metadata-inspection"
+    )
     assert next_item["proof_ref"] in proof_refs
     assert {item["proof_ref"] for item in work_items} <= proof_refs
     _assert_no_runtime_authority(action_payload)
@@ -499,7 +498,9 @@ def test_proof_detail_missing_ref_fails_closed() -> None:
     _assert_no_runtime_authority(payload)
 
 
-def test_proof_cli_inspects_index_and_detail() -> None:
+def test_proof_cli_inspects_index_and_detail(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     index_result = subprocess.run(
         [
             sys.executable,
@@ -516,21 +517,15 @@ def test_proof_cli_inspects_index_and_detail() -> None:
     index_payload = json.loads(index_result.stdout)
     proof_ref = index_payload["proof_index"]["proof_refs"][0]
 
-    detail_result = subprocess.run(
+    assert uaa_founder_loop.main(
         [
-            sys.executable,
-            "scripts/dev/uaa_founder_loop.py",
             "inspect-proof",
             proof_ref,
             "--limit",
             "4",
-        ],
-        cwd=ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    detail_payload = json.loads(detail_result.stdout)
+        ]
+    ) == 0
+    detail_payload = json.loads(capsys.readouterr().out)
 
     assert index_payload["command_ref"] == (
         "repo-local-command:founder-loop-inspect-proof-index"

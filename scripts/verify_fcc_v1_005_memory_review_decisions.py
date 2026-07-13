@@ -38,6 +38,7 @@ from ultimate_ai_agent.core.authority.approval_validation import (  # noqa: E402
 from ultimate_ai_agent.core.memory import (  # noqa: E402
     FCC_MEMORY_REVIEW_DECISION_CONTRACT_REF,
     MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF,
+    MEMORY_REVIEW_LIFECYCLE_SCOPE_REF,
     MEMORY_REVIEW_RECEIPT_SCOPE_REF,
     MEMORY_REVIEW_WRITE_ROLLBACK_BLOCKED_REF,
     MEMORY_REVIEW_WRITE_SAFE_DISABLE_REF,
@@ -95,6 +96,13 @@ MEMORY_REVIEW_DECISION_ROUTES = {
     },
     ("POST", "/control-center/memory/review/{candidate_ref}/supersede"): {
         "operation_id": "post_control_center_memory_review_candidate_ref_supersede",
+        "route_classification": "mutating_requires_authority",
+        "side_effect_class": "local_dev_workspace_only",
+        "idempotency_required": True,
+        "rate_limit_group": "memory_review_decision",
+    },
+    ("POST", "/control-center/memory/review/{candidate_ref}/expire"): {
+        "operation_id": "post_control_center_memory_review_candidate_ref_expire",
         "route_classification": "mutating_requires_authority",
         "side_effect_class": "local_dev_workspace_only",
         "idempotency_required": True,
@@ -329,9 +337,10 @@ def _append_doc_failures(failures: list[str]) -> None:
                 "POST /control-center/memory/review/{candidate_ref}/accept",
                 "POST /control-center/memory/review/{candidate_ref}/correct",
                 "POST /control-center/memory/review/{candidate_ref}/reject",
+                "POST /control-center/memory/review/{candidate_ref}/expire",
                 "reviewed_recall_record_ref",
                 "LocalMemoryStore",
-                "Correct stores corrected_summary_ref and bounded corrected_safe_summary",
+                "Correct stores corrected_summary_ref; correction receipts remain content-free",
                 "Accept records reviewed recall only; it is not truth authority",
                 "scripts/verify_fcc_v1_005_memory_review_decisions.py",
             ],
@@ -508,8 +517,8 @@ def _exercise_correction(
     if missing_ref.status_code != 400:
         failures.append("Memory Review correction must require corrected_summary_ref")
     receipt = _exercise_decision(failures, context, candidate_ref, "correct", auth_headers)
-    if not receipt.get("corrected_safe_summary"):
-        failures.append("Memory Review correction must store bounded corrected_safe_summary")
+    if "corrected_safe_summary" in receipt:
+        failures.append("Memory Review correction receipt must remain content-free")
     if receipt.get("corrected_summary_ref") != "safe-summary-ref:fcc-v1-005-correction":
         failures.append("Memory Review correction must store corrected_summary_ref")
     if not receipt.get("reviewed_recall_record_ref"):
@@ -565,14 +574,17 @@ def _append_receipt_shape_failures(
     for field in DENIED_RECEIPT_FIELDS:
         if receipt.get(field) is not False:
             failures.append(f"{label} denied field {field} must stay false")
+    lifecycle_suppression = bool(receipt.get("suppressed_recall_record_refs"))
     expected_scope_ref = (
-        MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF
+        MEMORY_REVIEW_LIFECYCLE_SCOPE_REF
+        if lifecycle_suppression
+        else MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF
         if receipt.get("decision") in {"accept", "correct"}
         else MEMORY_REVIEW_RECEIPT_SCOPE_REF
     )
     if receipt.get("approval_scope_ref") != expected_scope_ref:
         failures.append(f"{label} approval scope ref drifted")
-    if receipt.get("decision") in {"accept", "correct"}:
+    if receipt.get("decision") in {"accept", "correct"} or lifecycle_suppression:
         for field in [
             "authority_decision_ref",
             "authority_decision_outcome",

@@ -17,8 +17,8 @@
     },
     "memory_review_decision_states": {
       "type": "array",
-      "minItems": 7,
-      "maxItems": 7,
+      "minItems": 8,
+      "maxItems": 8,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -35,6 +35,8 @@
           "blocked_state_refs_required",
           "writes_authorized",
           "write_scope_ref",
+          "conditional_lifecycle_suppression_write",
+          "lifecycle_suppression_scope_ref",
           "deletes_authorized",
           "exports_authorized",
           "context_injection_authorized",
@@ -78,6 +80,7 @@
                     "defer",
                     "merge",
                     "supersede",
+                    "expire",
                     "forget_request"
                   ]
                 }
@@ -99,6 +102,40 @@
                 }
               }
             }
+          },
+          {
+            "if": {
+              "properties": {
+                "decision_state": {
+                  "enum": ["reject", "merge", "supersede", "expire", "forget_request"]
+                }
+              },
+              "required": ["decision_state"]
+            },
+            "then": {
+              "properties": {
+                "conditional_lifecycle_suppression_write": { "const": true },
+                "lifecycle_suppression_scope_ref": {
+                  "const": "exact-scope-ref:memory-review:lifecycle-suppression-write"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "decision_state": { "enum": ["accept", "correct", "defer"] }
+              },
+              "required": ["decision_state"]
+            },
+            "then": {
+              "properties": {
+                "conditional_lifecycle_suppression_write": { "const": false },
+                "lifecycle_suppression_scope_ref": {
+                  "const": "blocked-state:no-lifecycle-suppression-write"
+                }
+              }
+            }
           }
         ],
         "properties": {
@@ -117,6 +154,13 @@
             "enum": [
               "exact-scope-ref:memory-review:accept-correct-reviewed-recall-write",
               "blocked-state:no-memory-write"
+            ]
+          },
+          "conditional_lifecycle_suppression_write": { "type": "boolean" },
+          "lifecycle_suppression_scope_ref": {
+            "enum": [
+              "exact-scope-ref:memory-review:lifecycle-suppression-write",
+              "blocked-state:no-lifecycle-suppression-write"
             ]
           },
           "deletes_authorized": { "const": false },
@@ -152,6 +196,10 @@
         "reviewed_recall_write_authorized",
         "reviewed_recall_write_scope_ref",
         "reviewed_recall_write_scope",
+        "lifecycle_suppression_write_authorized",
+        "lifecycle_suppression_write_lane_ref",
+        "lifecycle_suppression_write_posture",
+        "lifecycle_suppression_write_scope_ref",
         "automatic_memory_write_authorized",
         "memory_delete_authorized",
         "memory_export_authorized",
@@ -175,6 +223,16 @@
         },
         "reviewed_recall_write_scope": {
           "const": "accept_correct_reviewed_recall_only"
+        },
+        "lifecycle_suppression_write_authorized": { "const": true },
+        "lifecycle_suppression_write_lane_ref": {
+          "const": "lane-ref:memory-review-lifecycle-suppression"
+        },
+        "lifecycle_suppression_write_posture": {
+          "const": "conditional_exact_approval_and_lease_required_when_recall_exists"
+        },
+        "lifecycle_suppression_write_scope_ref": {
+          "const": "exact-scope-ref:memory-review:lifecycle-suppression-write"
         },
         "automatic_memory_write_authorized": { "const": false },
         "memory_delete_authorized": { "const": false },
@@ -298,6 +356,7 @@
         "defer",
         "merge",
         "supersede",
+        "expire",
         "forget_request"
       ]
     },
@@ -310,11 +369,12 @@
         { "const": "defer" },
         { "const": "merge" },
         { "const": "supersede" },
+        { "const": "expire" },
         { "const": "forget_request" }
       ],
       "items": false,
-      "minItems": 7,
-      "maxItems": 7
+      "minItems": 8,
+      "maxItems": 8
     },
     "safe_ref": {
       "type": "string",

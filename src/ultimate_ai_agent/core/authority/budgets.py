@@ -1395,6 +1395,13 @@ class AuthorityBudgetStore:
             "approval-validation-ref:authority-budget",
             {
                 "approval_ref": validation_request.approval_ref,
+                "approval_scope_fingerprint_ref": _stable_ref(
+                    "approval-scope-fingerprint-ref:authority-dispatch",
+                    validation_request.model_dump(
+                        mode="json",
+                        exclude={"current_time", "purpose"},
+                    ),
+                ),
                 "action_ref": action.action_ref,
                 "allowed": decision.allowed,
                 "matched_grant_ref": decision.matched_grant_ref,

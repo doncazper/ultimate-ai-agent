@@ -143,7 +143,10 @@ describe("submitWebEvidenceAttachment", () => {
           JSON.stringify({
             success: false,
             data: receipt,
-            error: { message: "Web evidence blocked safely." },
+            error: {
+              safe_message: "Web evidence blocked safely.",
+              details_redacted: true,
+            },
           }),
           {
             status: 200,

@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
 import sys
@@ -151,6 +151,10 @@ def main(argv: list[str] | None = None) -> int:
         request = FirecrawlMarkdownRequest(
             request_ref=args.request_ref,
             task_ref=args.task_ref,
+            mission_ref="mission-ref:web-extract:cli-inspection",
+            run_ref="run-ref:web-extract:cli-inspection",
+            idempotency_ref="idempotency-ref:web-extract:cli-inspection",
+            start_deadline=now + timedelta(minutes=1),
             approval_ref=args.approval_ref,
             target_url=args.target_url,
             target_source_ref=firecrawl_target_source_ref(args.target_url),

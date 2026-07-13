@@ -160,10 +160,15 @@ def _validate_tooling() -> list[str]:
     dev_deps = package.get("devDependencies", {})
     if "@playwright/test" not in dev_deps:
         failures.append("Control Center package must include @playwright/test as a devDependency")
-    if scripts.get("visual:check") != "playwright test --config=playwright.visual.config.ts":
-        failures.append("Control Center package must define visual:check")
-    if scripts.get("visual:capture") != "playwright test --config=playwright.visual.config.ts --update-snapshots":
-        failures.append("Control Center package must define visual:capture")
+    if scripts.get("visual:check") != (
+        "playwright test --config=playwright.visual.config.ts --project=desktop"
+    ):
+        failures.append("Control Center package must define the macOS-first desktop visual check")
+    if scripts.get("visual:capture") != (
+        "playwright test --config=playwright.visual.config.ts "
+        "--project=desktop --update-snapshots"
+    ):
+        failures.append("Control Center package must define the macOS-first desktop visual capture")
     if not PLAYWRIGHT_CONFIG_PATH.exists():
         failures.append("Playwright visual config is missing")
     if not VISUAL_SPEC_PATH.exists():

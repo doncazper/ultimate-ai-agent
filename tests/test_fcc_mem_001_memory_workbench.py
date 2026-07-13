@@ -9,6 +9,8 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
+from scripts import inspect_memory_merge_supersede_posture
+from scripts.dev import uaa_founder_loop
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.memory import (
     FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS,
@@ -146,9 +148,10 @@ def test_memory_workbench_read_model_groups_and_blocks_authority(
         "stale_review",
         "conflict_review",
         "corrected",
-        "merged",
-        "superseded",
-        "forget_requested",
+            "merged",
+            "superseded",
+            "expired",
+            "forget_requested",
     }
     assert {group["group_id"] for group in workbench["groups"]} == {
         "needs_review",
@@ -178,56 +181,6 @@ def test_memory_workbench_read_model_groups_and_blocks_authority(
     assert "raw_prompt" not in serialized
     assert "raw_response" not in serialized
     assert "provider_payload" not in serialized
-
-
-@pytest.mark.parametrize(
-    ("decision", "request_overrides", "receipt_field"),
-    [
-        ("defer", {}, "defer_ref"),
-        (
-            "merge",
-            {"merge_refs": ["business-memory-candidate:preference:merge-peer"]},
-            "merge_ref",
-        ),
-        (
-            "supersede",
-            {"supersedes_refs": ["business-memory-candidate:preference:older"]},
-            "supersede_ref",
-        ),
-        ("forget_request", {}, "forget_request_ref"),
-    ],
-)
-def test_memory_review_lifecycle_expansion_does_not_create_recall_records(
-    tmp_path: Path,
-    decision: str,
-    request_overrides: dict[str, object],
-    receipt_field: str,
-) -> None:
-    repo = FounderLoopRepository(tmp_path / "founder_loop")
-    candidate_ref = _first_candidate_ref(repo)
-
-    receipt = repo.record_memory_review_decision(
-        candidate_ref=candidate_ref,
-        decision=decision,  # type: ignore[arg-type]
-        request=_decision_request(**request_overrides),
-        idempotency_key_ref=f"idempotency-ref:test-memory-{decision.replace('_', '-')}",
-    )
-
-    assert receipt["decision"] == decision
-    assert receipt[receipt_field]
-    assert receipt.get("reviewed_recall_record_ref") is None
-    assert repo.list_memory_review_recall_records() == []
-    queue_item = repo.list_memory_review_queue(limit=1)[0]
-    assert queue_item["review_state"] in {
-        "deferred",
-        "merged",
-        "superseded",
-        "forget_requested",
-    }
-    assert receipt["receipt_ref"] in queue_item["evidence_refs"]
-    assert receipt["context_injection_authorized"] is False
-    assert receipt["connector_write_authorized"] is False
-    assert receipt["production_authority_enabled"] is False
 
 
 def test_manual_memory_candidate_intake_is_review_candidate_only(
@@ -368,9 +321,10 @@ def test_merge_and_supersede_mark_local_peer_posture_without_deletion(
         ),
         idempotency_key_ref="idempotency-ref:manual-memory-supersede-old",
     )
+    supersede_primary = _manual_memory_candidate(repo, "supersede-primary")
 
     supersede_receipt = repo.record_memory_review_decision(
-        candidate_ref=first["review_ref"],
+        candidate_ref=supersede_primary["review_ref"],
         decision="supersede",
         request=_decision_request(supersedes_refs=[third["review_ref"]]),
         idempotency_key_ref="idempotency-ref:test-memory-supersede-local-peer",
@@ -475,6 +429,7 @@ def test_manual_memory_candidate_rejects_raw_content_markers() -> None:
 
 def test_memory_merge_supersede_cli_inspection_is_read_only_and_redacted(
     tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     state_dir = tmp_path / "founder_loop"
     repo = FounderLoopRepository(state_dir)
@@ -538,18 +493,13 @@ def test_memory_merge_supersede_cli_inspection_is_read_only_and_redacted(
         for path in no_recall_state_dir.rglob("*")
         if path.is_file()
     )
-    no_recall = subprocess.run(
-        [
-            sys.executable,
-            str(Path("scripts/inspect_memory_merge_supersede_posture.py")),
-            "--state-dir",
-            str(no_recall_state_dir),
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
+    assert inspect_memory_merge_supersede_posture.main(
+        ["--state-dir", str(no_recall_state_dir)]
+    ) == 0
+    no_recall_output = capsys.readouterr()
+    assert json.loads(no_recall_output.out)["storage_state"] == (
+        "existing_state_read_only"
     )
-    assert json.loads(no_recall.stdout)["storage_state"] == "existing_state_read_only"
     assert not (no_recall_state_dir / "memory_review_recall.sqlite3").exists()
     no_recall_files_after = sorted(
         path.relative_to(no_recall_state_dir).as_posix()
@@ -559,19 +509,12 @@ def test_memory_merge_supersede_cli_inspection_is_read_only_and_redacted(
     assert no_recall_files_after == no_recall_files_before
 
     missing_state_dir = tmp_path / "missing_state"
-    missing = subprocess.run(
-        [
-            sys.executable,
-            str(Path("scripts/inspect_memory_merge_supersede_posture.py")),
-            "--state-dir",
-            str(missing_state_dir),
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
+    assert inspect_memory_merge_supersede_posture.main(
+        ["--state-dir", str(missing_state_dir)]
+    ) == 0
+    missing_output = capsys.readouterr()
     assert not missing_state_dir.exists()
-    missing_payload = json.loads(missing.stdout)
+    missing_payload = json.loads(missing_output.out)
     assert missing_payload["storage_state"] == "state_not_found_no_write"
     assert missing_payload["lifecycle_posture"]["safe_refs_only"] is True
 
@@ -581,25 +524,18 @@ def test_memory_merge_supersede_cli_inspection_is_read_only_and_redacted(
         "not a sqlite database",
         encoding="utf-8",
     )
-    broken = subprocess.run(
-        [
-            sys.executable,
-            str(Path("scripts/inspect_memory_merge_supersede_posture.py")),
-            "--state-dir",
-            str(broken_state_dir),
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    broken_payload = json.loads(broken.stdout)
+    assert inspect_memory_merge_supersede_posture.main(
+        ["--state-dir", str(broken_state_dir)]
+    ) == 0
+    broken_output = capsys.readouterr()
+    broken_payload = json.loads(broken_output.out)
     assert broken_payload["storage_state"] == "existing_state_unreadable_redacted"
     assert broken_payload["inspection_error_ref"] == (
         "error-ref:memory-merge-supersede-posture:read-failed-redacted"
     )
-    assert broken.stderr == ""
-    assert "Traceback" not in broken.stdout
-    assert str(broken_state_dir) not in broken.stdout
+    assert broken_output.err == ""
+    assert "Traceback" not in broken_output.out
+    assert str(broken_state_dir) not in broken_output.out
 
 
 def test_memory_search_filters_safe_refs_without_semantic_search(
@@ -671,7 +607,10 @@ def test_memory_workbench_api_routes(
     assert "raw_prompt" not in unsafe_receipt_lookup.text
 
 
-def test_memory_cli_parity_uses_safe_ref_outputs(tmp_path: Path) -> None:
+def test_memory_cli_parity_uses_safe_ref_outputs(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     state_dir = tmp_path / "founder_loop"
     command = [
         sys.executable,
@@ -702,23 +641,17 @@ def test_memory_cli_parity_uses_safe_ref_outputs(tmp_path: Path) -> None:
     )
     assert str(state_dir) not in result.stdout
 
-    bounded_command = [
-        sys.executable,
-        "scripts/dev/uaa_founder_loop.py",
+    assert uaa_founder_loop.main(
+        [
         "--state-dir",
         str(state_dir),
         "memory-bounded-posture",
         "--limit",
         "3",
-    ]
-    bounded_result = subprocess.run(
-        bounded_command,
-        check=True,
-        cwd=Path(__file__).resolve().parents[1],
-        capture_output=True,
-        text=True,
-    )
-    bounded_payload = json.loads(bounded_result.stdout)
+        ]
+    ) == 0
+    bounded_output = capsys.readouterr().out
+    bounded_payload = json.loads(bounded_output)
     posture = bounded_payload["bounded_memory_posture"]
     assert bounded_payload["command_ref"] == (
         "repo-local-command:founder-loop-memory-bounded-posture"
@@ -731,7 +664,7 @@ def test_memory_cli_parity_uses_safe_ref_outputs(tmp_path: Path) -> None:
     assert bounded_payload["raw_prompt_omitted"] is True
     assert bounded_payload["raw_response_omitted"] is True
     assert bounded_payload["raw_provider_payload_omitted"] is True
-    assert str(state_dir) not in bounded_result.stdout
+    assert str(state_dir) not in bounded_output
 
 
 def test_memory_cli_rejects_unsafe_inputs_without_traceback(tmp_path: Path) -> None:

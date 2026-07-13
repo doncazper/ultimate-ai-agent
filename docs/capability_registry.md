@@ -70,6 +70,63 @@ authority. The protected read-only API route
 read model. No live probe, provider call, network access, background polling,
 or runtime execution is added.
 
+The extension catalog now projects every declared extension capability through
+this same availability contract. Reviewed repository metadata uses pinned,
+bounded, no-follow SHA-256 observations; unknown versions, provenance, hash
+state, configuration, health, budget, or safe-disable posture remain unknown or
+blocked. `GET /extensions/catalog`, the human-readable `inspect-catalog` CLI,
+and the macOS-first Plugin Governance panel expose deterministic developer
+validation and rollback/safe-disable refs. Catalog and activation metadata
+explicitly grant no invocation authority. Client-supplied approval-grant
+payloads are rejected by the disabled-install mutation surface.
+
+## Sealed Deterministic Calculation
+
+The exact `calculation.sandbox.arithmetic.exact_lease` lane is implemented as bounded
+arithmetic, not general CodeAct or Python. Its declaration appears in the shared
+availability and Action/Tool/Code catalogs, while current platform,
+configuration, image, health, safe-disable, budget, and lease truth remains
+request-scoped. Execution requires the canonical mission orchestrator, runner,
+dispatcher, exact `workspace/execute` mission lease, policy and budget checks,
+and atomic container start/input-commit evidence. Raw expressions are transient;
+durable state stores hashes and safe refs only. See
+`docs/runtime/UAA_SEALED_CALCULATION_ADAPTER.md`.
+
+## Intent Reasoning And Plan Revision Truth
+
+`ultimate_ai_agent.core.intent.reasoning_truth` provides the deterministic,
+no-effect reasoning contract for one current request. Raw request text is a
+bounded transient function input only. The returned `IntentReasoningTruth`
+contains a request fingerprint, safe intent ref and fingerprint, separate
+facts, assumptions, and unknowns, confidence and ambiguity posture,
+contradiction refs, operator questions, source/evidence refs, and explicit
+instruction-shaped-content posture. All input remains untrusted data. The
+contract cannot carry approval, lease, callable, tool, memory, provider, web,
+shell, or execution authority.
+
+`ultimate_ai_agent.core.planning.revisions` adds an immutable projection over
+existing plan rows; it is not a third planner. Tuple-bound ordered membership,
+dependencies, targets, sources, step definitions, and intent binding are
+covered by SHA-256 safe refs. An unchanged revision replays only when the
+complete revision fingerprint matches. Any membership, order, dependency,
+definition, or target change requires a new, contiguous revision bound to the
+exact predecessor ref and fingerprint plus a safe reason. Every revision
+invalidates downstream approval, lease, dispatch, and budget assumptions; it
+does not mint replacements.
+
+The existing protected `GET /control-center/agent-loop/thread` route exposes
+this backend-owned truth without changing its operation ID or read-only route
+classification. `scripts/dev/uaa_founder_loop.py inspect-reasoning` renders a
+human-readable explanation by default and optional redacted JSON from the same
+object. The macOS-first Today cockpit renders the same facts, assumptions,
+unknowns, questions, and revision fingerprints. The older canned user-intent
+proposal catalog remains a compatibility surface and is not mislabeled as the
+current-request assessment. Because this read surface is stateless, its current
+plan is labeled as a content-addressed initial snapshot: any definition,
+membership, order, dependency, or target change produces new decomposition and
+revision refs. It does not claim predecessor lineage unless a prior revision is
+supplied to the core revision validator.
+
 ## Progressive Disclosure
 
 Use `registry.list_catalog(context)` or `registry.search(query, context, filters)` to expose compact `CapabilityCatalogEntry` records. Load the full manifest only after selection:
@@ -225,6 +282,92 @@ Static OpenAI/MCP-shaped schema export may expose UAA authority metadata under
 `x-uaa-authority`, including `dispatch_authorized=false`. These exports are
 metadata only; they do not import SDKs, create MCP clients, perform A2A
 delegation, call providers, fetch the web, or dispatch tools.
+
+## Exact Metadata Mission Core
+
+The exact `founder-loop-filesystem-metadata-v1` capability is the first
+end-to-end synchronous Founder Loop core lane. It accepts only a
+backend-predeclared target ref under one injected repository root, runs one
+metadata-only stat through `MissionOrchestrator -> MissionRunner ->
+AuthorityDispatcher`, and requires a fresh `PolicyEngine` approval posture,
+exact `LocalApprovalAuthority` validation, one shared mission-scoped
+`AuthorityLease`, exact path/operation/cost claims, ready safe-disable and root
+identity posture, and immutable request/target/deadline/idempotency bindings.
+
+Success records a bounded hash-chained completion manifest covering the plan,
+lease, approval validation, step and dispatch receipts, settled budgets,
+evidence refs, and a review-required recall-only memory-candidate ref. The
+manifest is execution evidence, not reusable authority. It stores no file
+content, relative or absolute path, raw operator input, provider payload, or
+model output. Broad filesystem reads, directory traversal, content reads,
+mutation, shell execution, automatic memory write, and context injection remain
+blocked.
+
+Runtime Capability Foundation Phase 06 derives a bounded portable evidence
+bundle from the complete locally readable mission-completion chain and the
+exact referenced terminal dispatch records. Each
+entry binds plan/run/step, full lease-scope fingerprint, exact approval-scope
+fingerprint, policy, budget settlement, capability, adapter, truthful provider
+posture, target/resource binding, request fingerprint, terminal outcome,
+predecessor hash, redaction posture, and verifier version. The unchanged v1
+bundle provides local SHA-256 hash-chain integrity only. A separate signed
+artifact wrapper may now bind that verified bundle to an exact Ed25519 key
+through the request-scoped `evidence_signing` dispatcher lanes. Signing requires
+a pinned macOS Keychain helper, exact approval and resource-scoped
+AuthorityLease, budget, kill-switch, safe-disable, readiness, and replay checks.
+Structural dispatcher preflight performs no helper execution or Keychain probe;
+those occur only after request-scoped authority succeeds and are rechecked at
+the adapter start boundary.
+Offline verification requires independently pinned public trust metadata. It
+does not establish signer identity, non-repudiation, external anchoring, current
+revocation truth, or source-ledger availability; evidence never grants
+authority. See `docs/runtime/UAA_PORTABLE_MISSION_EVIDENCE_SIGNING.md`.
+
+Runtime Capability Foundation Phase 04 projects this proven lane into the
+canonical capability-availability snapshot and Action/Tool/Code catalog. The
+snapshot separates supported declaration, unknown current-environment readiness,
+and approval-required request authority. Current root, resource, health, and
+safe-disable truth is evaluated only for the exact request; implementation
+availability never means globally callable or authorized.
+
+Preparation inputs are durably recoverable as bounded safe refs and hashes.
+The protected Founder Loop exact-action API and repo-local CLI expose this one
+predeclared metadata target as status → receipt-backed source-ref review →
+source-bound prepare → exact approval → dispatcher execution → receipt → Today
+refresh. Inspect, prepare, and approval recording each require the same current
+exact mission lease; every adapter start still performs fresh request-scoped
+authority, approval, budget, readiness, and kill-switch evaluation. Terminal
+status is derived from the hash-chain-valid completion and exact terminal
+dispatch ledgers, not from the mutable Today projection. The workflow preserves
+the source-review receipt but does not create a business-memory candidate
+from a metadata stat. No generic
+filesystem target, path, content read, shell, provider, connector, automatic
+memory write, or production authority was added. The macOS UI control remains
+pending the separate control-registry wiring pass; it must not appear enabled
+until it invokes these backend contracts, and the shell cannot mint approval or
+lease authority.
+
+Pre-Phase02 unfinished durable plans that bind more than one mission lease fail
+closed at the new whole-plan single-lease preflight. They are not silently
+migrated or resumed; a future persisted-state migration must classify them as
+recovery-required before cross-version replay is supported.
+
+## Governed Memory Context And Lifecycle
+
+`GET /control-center/memory/context-manifest` includes the typed
+`contract-ref:governed-memory-context-manifest:v1` preview with exact
+included/excluded refs, freshness/conflict/sensitivity posture, content-free
+receipt and fingerprint refs, and reconciled item/capacity budgets. L1 recall
+excludes stale, conflicting, expired, inactive, malformed, or unknown lifecycle
+posture before L2/L3/context proposal derivation.
+
+Accept/correct writes use `lane-ref:memory-review-accept-correct`.
+Reject/merge/supersede/expire/forget-request use
+`lane-ref:memory-review-lifecycle-suppression` only when exact existing recall
+records must be suppressed; current approval, AuthorityLease, safe-disable, and
+exact record refs are re-evaluated before mutation. Context materialization,
+automatic memory truth, action authority, connector writes, provider/model
+calls, and hidden injection remain blocked.
 
 ## MCP And A2A Extension Points
 

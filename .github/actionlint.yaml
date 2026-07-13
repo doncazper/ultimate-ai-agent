@@ -1,0 +1,7 @@
+self-hosted-runner:
+  labels:
+    - uaa-ci
+
+config-variables: null
+
+paths: {}

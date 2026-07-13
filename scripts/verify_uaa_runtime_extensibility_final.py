@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify runtime capability foundation Phase 09 extensibility hardening."""
+"""Verify capability-maturity Phase 07 extension ecosystem hardening."""
 
 from __future__ import annotations
 
@@ -20,11 +20,13 @@ from ultimate_ai_agent.core.authority import (
     TrustMode,
 )
 from ultimate_ai_agent.core.extension_catalog import (
-    build_default_inspectable_extension_catalog,
     build_extension_install_disabled_approval_request,
     build_extension_install_disabled_delete_approval_request,
     build_extension_install_disabled_record_delete_receipt,
     build_extension_install_disabled_record_receipt,
+)
+from ultimate_ai_agent.core.extension_catalog.ecosystem import (
+    build_default_extension_ecosystem_read_model,
 )
 
 
@@ -77,7 +79,7 @@ def _require(condition: bool, message: str) -> None:
 
 
 def _catalog_payload() -> dict[str, object]:
-    return build_default_inspectable_extension_catalog().model_dump(mode="json")
+    return build_default_extension_ecosystem_read_model().model_dump(mode="json")
 
 
 def _verify_catalog_contract(payload: dict[str, object]) -> None:
@@ -104,6 +106,26 @@ def _verify_catalog_contract(payload: dict[str, object]) -> None:
         "verifier:runtime-extensibility-final"
         in payload["final_hardening_refs"],
         "catalog missing Phase 09 verifier ref",
+    )
+    _require(payload["availability_snapshot_count"] == 4, "snapshot count drifted")
+    _require(payload["developer_validation_count"] == 3, "validation count drifted")
+    _require(
+        payload["catalog_visibility_grants_authority"] is False,
+        "catalog visibility claims authority",
+    )
+    _require(
+        payload["activation_metadata_grants_authority"] is False,
+        "activation metadata claims authority",
+    )
+    _require(
+        payload["request_scoped_invocation_decision_required"] is True,
+        "request-scoped invocation decision is not required",
+    )
+    validations = payload["developer_validation_results"]
+    _require(
+        [item["status"] for item in validations]
+        == ["validated_metadata_only", "validated_metadata_only", "blocked"],
+        "developer validation posture drifted",
     )
     install_posture = payload["install_disabled_posture"]
     _require(
@@ -155,6 +177,18 @@ def _verify_catalog_contract(payload: dict[str, object]) -> None:
             entry["callable_posture"] != "callable", "entry claims callable posture"
         )
         _require(entry["review_evidence_refs"], "entry missing review evidence refs")
+    for validation in validations:
+        for field in (
+            "safe_disable_ref",
+            "rollback_ref",
+            "activation_metadata_grants_authority",
+            "catalog_visibility_grants_authority",
+        ):
+            _require(field in validation, f"developer validation missing {field}")
+        _require(
+            validation["activation_metadata_grants_authority"] is False,
+            "developer validation activation metadata claims authority",
+        )
 
 
 def _verify_authorized_install_disabled_record_receipt() -> None:
@@ -284,6 +318,7 @@ def _verify_cli(payload: dict[str, object]) -> None:
             sys.executable,
             "scripts/dev/uaa_extensions.py",
             "inspect-catalog",
+            "--json",
         ],
         cwd=ROOT,
         env=env,
@@ -303,6 +338,19 @@ def _verify_cli(payload: dict[str, object]) -> None:
     _require(
         cli_payload["install_disabled_posture"]["plugin_install_enabled"] is False,
         "CLI claims plugin install authority",
+    )
+    human_result = subprocess.run(
+        [sys.executable, "scripts/dev/uaa_extensions.py", "inspect-catalog"],
+        cwd=ROOT,
+        env=env,
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+    _require(
+        "Inspectable never means callable" in human_result.stdout,
+        "human CLI omits non-callable boundary",
     )
     result = subprocess.run(
         [
@@ -367,9 +415,13 @@ def _verify_docs() -> None:
             "connector writes remain blocked",
             "production authority remains blocked",
             "safe refs",
-            "30-day plan",
         ):
             _require(phrase in lowered, f"{name} missing phrase: {phrase}")
+        terminal_phrase = "30-day plan" if name == "Phase 09 doc" else "optional next program"
+        _require(
+            terminal_phrase in lowered,
+            f"{name} missing phrase: {terminal_phrase}",
+        )
         for unsafe in (
             "plugin runtime import is enabled",
             "connector writes are enabled",

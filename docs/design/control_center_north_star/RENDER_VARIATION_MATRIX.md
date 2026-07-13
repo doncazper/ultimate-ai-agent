@@ -43,6 +43,36 @@ These boards prevent every route from inventing its own shell or common state.
 | `ASSIST-02` | UAA sidecar | answer, cross-surface context, navigation result, proposal preview, blocked request |
 | `NAV-01` | Sidebar customization | pin/unpin, reorder, collapsed groups, density, cancel, reset defaults |
 
+## Locked Target Product Render Set
+
+The route queue below remains the coverage ledger for the current 40-route
+implementation. The following target renders establish the approved
+consolidated shell before route-by-route fidelity work. Their information
+architecture is defined by
+`../CONTROL_CENTER_PRODUCT_IA_AND_CALENDAR_CONTRACT.md`.
+
+| ID | Target surface | Required content |
+|---|---|---|
+| `TARGET-NAV-01` | Today in target shell | Today-first rail; Communications, Messenger, Work Board, CRM, Calendar, News, Studio; Knowledge; Activity & Trust; six Today panels; receipt activity rail; `Review N decisions`; weather; UAA composer |
+| `COMM-01` | Communications | unified queue/detail/inspector; Email, Messages, Follow-ups, Drafts, Waiting; CRM context; `Propose event`; proposal-only and blocked-send states |
+| `COMMS-MX-01`–`15` | Messenger | immersive light shell; Home plus exactly two Spaces; rooms/DMs; threads; search; room info; create/invite; settings; sessions/recovery; UAA approval; failure recovery; full dark theme; calling preflight; setup/sign-in |
+| `BOARD-01` | Work Board | Board/List/Timeline/Plans/Completed; shared task truth; CRM/Calendar/Communications links; receipt-backed completion |
+| `CRM-01` | CRM | People/Organizations/Opportunities/Pipeline/Follow-ups/Reports tabs; six compact KPIs; smart views; dense sortable relationship table; persistent record inspector; pipeline analytics; governed availability-backed Call chooser; source-backed next action; v1/v2/v3 gallery history |
+| `CAL-01` | Calendar week | color-coded schedule; tasks and commitments; source-backed candidate; duplicate/conflict/timezone posture; shared refs; proposal-only external posture |
+| `NEWS-01` | News | curated For You/Business/Technology/Markets/Saved/Sources; visible provenance, freshness, and selection rationale |
+| `DECISIONS-01` | Decision Review | exact source, time, participants, location, CRM/work links, conflicts, confidence, authority, expiry, edit/approve/reject/defer outcomes |
+| `STUDIO-01` | Studio | immersive Codex/Claude-like workbench; Back to Control Center; tasks/projects; dominant transcript/editor; optional drawers; governed composer; Terminal |
+| `KNOWLEDGE-01` | Knowledge | memory/files/context/sources; provenance; conflicts; corrections; reviewed-context decisions |
+| `ACTIVITY-01` | Activity & Trust | receipts, evidence, proof, history, approvals, authority, safe refs, and correction/rollback paths |
+| `CUSTOMIZE-01` | Customize | order, visibility, groups, density, preview, cancel, reset; no capability language |
+| `SETTINGS-01` | Settings | search-first preferences; semantic controls; current posture; blocked/planned explanations |
+| `DEVTOOLS-01` | Developer Tools | runtime/models/storage/API/gate/plugins/diagnostics; exact lanes and truthful blocked states |
+| `TERMINAL-01` | Terminal | Developer Tools terminal tab; exact command lanes; redacted output; exit/receipt state; pop-out without authority escalation |
+| `ONBOARDING-01` | Onboarding | first-run local setup; optional read-only sources; safety defaults; skip path |
+| `UAA-SIDECAR-01` | UAA Sidecar | safe context; cross-surface answer; citations; proposal handoff; blocked direct mutation |
+| `TRUST-01` | Trust cockpit | mode/domain matrix; exact lease; policy decisions; receipts/audit; revoke/pause/kill; safe-disable |
+| `SHELL-COMPACT-01` | Compact shell | icon-only rail; tooltips; accessible names; badges; active state; fixed bottom utilities |
+
 ## Route Render Queue
 
 Every route requires a default desktop and compact render. `Mobile` means a
@@ -57,7 +87,7 @@ for each workspace template shows the expanded sidecar.
 | Group | Route | Surface | Template | Route-specific variations | Mobile |
 |---|---|---|---|---|---|
 | Founder Loop | `/start` | Start Here | Daily command deck | first run; partial setup; ready return visit | yes |
-| Founder Loop | `/today` | Today | Daily command deck | cross-surface attention queue; CRM follow-up selected; Work Board blocker selected; no decisions; high-risk blocked item; degraded sources; UAA sidecar asking about board/CRM | yes |
+| Founder Loop | `/today` | Today | Daily command deck | exactly six information-rich panels on aligned three-column tracks; full-width receipt activity rail; workload-aware `Review N decisions`; title-line weather; non-redundant synthesized briefing; cross-surface attention queue; universal selected-item inspector/drawer; Day Plan with Now/Next; truth-safe queue/complete confirmation; reported-complete review; sourced news with mixed article/email-bulletin sources; Business pulse; morning/midday/end-of-day; calm/overloaded; stale or blocked news/weather; CRM follow-up selected; Work Board blocker selected; no decisions with demoted CTA; high-risk blocked item; degraded sources; persistent privacy/authority posture; UAA sidecar asking about board/CRM | yes |
 | Founder Loop | `/inbox` | Source Inbox | Queue/detail/inspector | ready sources; missing source; connector draft-only; all sources blocked | yes |
 | Founder Loop | `/plans` | Plans | Board/planning | plan selected; no plan; proposal dirty; action-envelope handoff | yes |
 | Founder Loop | `/work-board` | Work Board | Board/planning | backend order; unsaved preview; persist confirmation; receipt saved; blocked external lane; UAA board question/task proposal | yes |

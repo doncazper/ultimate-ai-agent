@@ -43,12 +43,15 @@ answer, in this order:
 5. What happened, and what proves it?
 6. What remains blocked or needs a separate authority lane?
 
-The daily product spine is:
+The target daily product spine is:
 
-`Start Here -> Today -> Plans/Work Board -> Action Inbox -> Proof/Evidence -> Memory Review -> Weekly Review`
+`Today -> Communications -> Messenger -> Work Board -> CRM -> Calendar -> News -> Studio`
 
-Source Inbox, CRM, Chat, Coding, Files, Runtime, and Settings feed or govern
-that spine. They must not become unrelated diagnostic islands.
+Knowledge and Activity & Trust support that loop without displacing daily
+work. Action Inbox is the global decision utility surfaced as `Review N
+decisions`, not a permanent primary tab. The complete target navigation,
+current-to-target mapping, and source-to-calendar proposal loop are locked in
+`CONTROL_CENTER_PRODUCT_IA_AND_CALENDAR_CONTRACT.md`.
 
 ## Experience Principles
 
@@ -103,23 +106,29 @@ explicit long-form report.
 
 ### Canonical global rail
 
-Default Founder Loop order:
+The target default order is:
 
-1. Start Here
-2. Today
-3. Source Inbox
-4. Plans
-5. Work Board
-6. Action Inbox
-7. Proof
-8. Trust
-9. Memory
-10. Evidence
-11. Settings
+1. Today
+2. Communications
+3. Messenger
+4. Work Board
+5. CRM
+6. Calendar
+7. News
+8. Studio
+9. Knowledge
+10. Activity & Trust
+11. Customize
+12. Settings
+13. Developer Tools, collapsed and hidden by default
 
-Supporting surfaces live in stable collapsed groups or the command palette.
-Their complete membership and default order are deterministic. Route-local
-tabs never enter the global rail. One item, and only one item, has
+Today is the default landing workspace. `Start Here` is onboarding-only after
+setup. Plans becomes a Work Board view; Source Inbox becomes a Communications
+view; Chat and Coding become Studio modes; Memory and Files become Knowledge;
+and receipts, evidence, proof, trust, events, and approvals consolidate under
+Activity & Trust. This is a target render and implementation architecture, not
+a claim that current routes have already been consolidated. Route-local tabs
+never enter the global rail. One item, and only one item, has
 `aria-current="page"`.
 
 The operator may enter `Customize sidebar` to pin/unpin surfaces, reorder
@@ -151,6 +160,23 @@ Each group has an icon, a short label, and a short value. A global degraded or
 mock state uses one bounded banner immediately below the strip, not repeated
 warnings inside every route panel.
 
+### Standard route toolbar
+
+Normal workspaces use one invariant 64 px toolbar below the posture strip:
+
+- title and one-line subtitle occupy the left slot;
+- collection search occupies the same center-right slot on every applicable
+  route;
+- route-local filters and secondary commands follow search; and
+- `Review N decisions` is fixed at the far right when workload exists.
+
+Search does not move above, below, or to the opposite side between routes. At a
+compact breakpoint it collapses to an icon/`Command-K` affordance instead of
+wrapping. Studio and Messenger are the two immersive shell exceptions. Studio
+follows the workbench contract in
+`CONTROL_CENTER_RENDER_REVIEW_REVISION_02.md`; Messenger follows
+`control_center_north_star/UAA_COMMUNICATIONS_MATRIX_NORTH_STAR.md`.
+
 ### Persistent UAA composer and sidecar
 
 Almost every route includes one application-level UAA composer. It is a shared
@@ -179,6 +205,12 @@ shell component, not forty unrelated chat boxes.
 - The composer expands into a consistent right-side UAA sidecar containing the
   conversation, included context, proposed next steps, and related evidence.
 - The dedicated Chat route remains the full conversation/history workspace.
+- The composer rail keeps one compact persistent posture control visible:
+  `Local only · External actions blocked · Private`. Selecting it opens a
+  `Privacy & authority` popover with `No connector writes`, `No provider
+  authority`, `Safe refs only`, `Data stays on this Mac`, and `Proposals require
+  approval`. The popover consolidates these facts without repeating the top
+  authority strip.
 
 In Settings, the composer is search-first. It returns matching settings,
 explains current posture, navigates to the exact row, and can draft a supported
@@ -221,13 +253,140 @@ Used by Start Here, Today, Overview, Dashboard, Briefing, and Operator Loop.
 - one unified `Needs your attention` queue containing approvals, CRM follow-ups,
   Work Board blockers/movement, missing sources, memory conflicts, and stale or
   missing evidence;
-- a selected-signal inspector showing why it matters, linked plan/work item,
-  relevant safe evidence, authority scope, and next safe step;
+- a clearly labeled selected-item inspector showing the selected signal's
+  title, why it matters, linked plan/work item, relevant safe evidence,
+  authority scope, and next safe step; compact layouts convert it to a drawer;
 - a compact business pulse for CRM, Work Board, upcoming commitments, and
   evidence movement;
+- a compact News module that separates sourced situational context from work
+  requiring attention; current temperature, today's high, and conditions sit
+  beside the Today title instead of consuming another card region;
 - priorities and cross-surface decisions before low-level readiness;
 - bottom receipts/evidence/heartbeat band when useful;
 - no repeated dashboard card grid below the first viewport.
+
+Today uses a single-canonical-home rule so cross-surface awareness does not
+become repetition:
+
+- Morning Briefing synthesizes what changed and what kind of day this is; it
+  does not repeat module counts or queue rows.
+- Needs your attention owns concrete approvals, blockers, conflicts, missing
+  evidence, and overdue items.
+- Today priorities owns planned work in intended execution order.
+- News owns read-only outside context. News entries are bounded
+  summaries with an explicit source type (`Article` or `Email bulletin`),
+  source label, freshness, and a safe reference to the underlying source.
+  Weather shows only current temperature, today's high, and conditions beside
+  the route title.
+- Business pulse owns a compact set of non-actionable trend summaries and
+  links to the canonical CRM, Work Board, commitment, or Evidence surface.
+- Recent receipts appears as a compact full-width `Since your last check`
+  activity rail below the six panels with a deep link to the receipt ledger;
+  the rail does not count as a seventh panel.
+- The inspector title is `Selected item` or the selected object's name.
+  `Why it matters` is a subsection inside it, never an unexplained panel title.
+- Other regions may show a count or deep link to the canonical home, but must
+  not repeat the same full row, description, and status.
+
+#### Today default composition and interaction
+
+The default Today screen contains exactly six panels in an information-rich
+three-column command deck: Morning Briefing, Needs your attention, and a
+selected-item inspector on the first row; Day Plan, News, and Business pulse on
+the second row. A compact full-width receipt/activity rail sits below the grid
+and above the composer. Both rows use the same three column tracks so their
+vertical boundaries align; use a `30 / 36 / 34` proportion, 14-16 px gutters,
+consistent panel header heights, 12-16 px interior padding, and aligned footer
+baselines. The relationships between modules must feel intentional rather than
+like unrelated dashboard tiles. Selecting any row in the other five panels
+updates the named inspector in place, and its safe ref is attached visibly and
+removably to the persistent UAA composer. Compact layouts convert the inspector
+to a drawer.
+
+- Morning Briefing is read-only synthesis. Its rows open source/provenance
+  detail but do not expose completion controls.
+- Needs your attention rows open details and offer only type-correct actions:
+  `Review`, `Resolve`, `Defer`, `Dismiss`, or `Ask UAA`. A signal is never
+  labeled complete merely because the operator dismissed it.
+- Day Plan owns `Now`, `Next`, meetings/commitments, and planned priorities.
+  Its tasks may offer `Queue`, `Start`, `Defer`, and `Complete` only when the
+  backing Python-core/API contract supports that exact transition.
+- News rows may open the sourced detail, `Ask UAA`, save a safe reference for
+  later review, or mute a source. News is not completable work.
+- Business pulse rows open their contributing CRM, Work Board, commitment, or
+  Evidence detail in the inspector. The separate activity rail opens receipt
+  history.
+- Compact overflow menus expose secondary actions; the row itself selects and
+  opens detail. A chevron is reserved for navigation/disclosure and does not
+  submit a change.
+- Right-edge controls follow one grammar across all panels: a chevron selects
+  and exposes detail, an outward arrow opens the canonical source, one named
+  verb button offers the most likely safe action on the selected/hovered row,
+  and an ellipsis opens type-correct secondary actions. Status pills remain
+  read-only state labels.
+
+The six panels absorb Today context without adding more permanent modules:
+meetings and commitments live in Day Plan; urgent memory review and exceptional
+weather/calendar conflicts enter Needs your attention; date and ordinary
+weather remain in the header; freshness and confidence appear in News and the
+inspector; continuity appears in Morning Briefing and Business pulse activity;
+morning, midday, end-of-day, calm, overloaded, stale, and offline are content
+states of this same layout rather than additional cards.
+
+The header decision command names workload and urgency. When three decision
+envelopes are pending, label it `Review 3 decisions`; never use the vague
+`Review decisions`. When none are pending, remove the primary blue treatment
+and show a quiet `No decisions pending` status or omit the command.
+
+#### Truth-safe queue and completion contract
+
+Display convenience cannot create product truth.
+
+- `Queue` writes or proposes an exact backed plan/task transition; it is not a
+  React-only list change. Show proposal, confirmation, receipt, or blocked
+  posture according to the implemented lane.
+- `Complete` is available only for an object with a defined completion
+  transition and required evidence/receipt posture. The control opens a compact
+  confirmation naming the object, completion meaning, source of truth, and any
+  required proof before recording the change.
+- When completion cannot be verified, use `Report complete` or `Mark for
+  review`, visibly labeled as unverified, instead of `Complete`. A later source
+  conflict reopens review; it never silently preserves a false green state.
+- `Dismiss` means remove the signal from attention, not resolve its underlying
+  source object. `Defer` records when it should return. `Resolve` requires the
+  source's real resolved state or a receipt-backed local decision.
+- Completed, user-reported, dismissed, deferred, blocked, and source-conflict
+  states have distinct text and icon treatment. Green `Completed` requires the
+  backing state plus its receipt or safe evidence reference.
+- Every mutation remains exact-scoped, idempotent, auditable, redacted, and
+  reload-verifiable. Mock or unavailable backing state never exposes a control
+  that can claim completion.
+
+#### Today News and Weather contract
+
+The module is a target product contract, not a grant of live network or
+connector authority. Weather is a compact title-line status. The News module
+contains at most three ranked summaries so it does not displace operator work.
+
+- Article discovery and retrieval must use an exact, governed, read-only
+  `WebAccessGateway` lane when that lane is implemented. Fetched content is
+  untrusted evidence and cannot issue instructions or directly trigger work.
+- Email bulletins must use a separately accepted read-only email-source lane.
+  The Today module shows a bounded redacted summary and safe source reference,
+  never a raw message body, account identifier, or write control.
+- Every news row must expose source type, human-readable source label,
+  freshness, and a source/detail affordance. Unsourced summaries are blocked
+  from the assembled state.
+- The module distinguishes `loading`, `ready`, `mixed sources`, `stale`,
+  `partially blocked`, `blocked`, `empty`, and `error` states. A blocked source
+  remains visibly blocked rather than being presented as current.
+- Weather uses a configured read-only source and does not infer or persist a
+  private location from IP or hidden account data. Its visible payload is
+  limited to current temperature, today's high, and conditions; stale or
+  unavailable data carries an explicit status.
+- News is situational context, not another attention queue or business pulse.
+  If an item becomes actionable, UAA may propose a linked plan or action through
+  the existing governed proposal flow; the module itself does not mutate state.
 
 ### B. Queue, detail, inspector
 
@@ -250,6 +409,9 @@ Used by Plans, Work Board, and CRM pipeline views.
 - board columns scroll internally;
 - drag/move preview, dirty state, confirmation, persistence result, and reset
   remain visually distinct.
+- Work Board column accents identify status and a narrow card edge plus label
+  identifies priority. An explicit Group/Color selector chooses Status,
+  Priority, or Project grammar; color is never the only signal.
 
 ### D. Matrix and settings cockpit
 
@@ -261,6 +423,9 @@ Used by Trust, Settings, Models, Capabilities, and future-domain governance.
 - unsupported settings are status rows, not disabled fake toggles;
 - consequential changes show scope, confirmation, saving, receipt, and reload
   impact.
+- Activity & Trust provides a dedicated Trust cockpit with mode/domain matrix,
+  exact lease, live policy decisions, receipts/audit refs, revoke/pause/kill,
+  and safe-disable posture.
 
 ### E. Ledger and system inventory
 
@@ -411,6 +576,8 @@ is validated. Receipts describe past work and do not authorize future work.
   path when one exists.
 - `Customize sidebar` changes navigation presentation. It never uses `Enable`,
   `Disable`, or authority terminology.
+- Compact rail mode preserves order, badges, active state, accessible names,
+  tooltips, focus-visible labels, and bottom Settings/Developer Tools anchors.
 - The UAA composer distinguishes `Search`, `Go to`, `Ask`, `Filter`, `Draft`,
   and `Propose` intent before any operator-relevant mutation path is offered.
 

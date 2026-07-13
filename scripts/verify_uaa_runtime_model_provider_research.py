@@ -72,6 +72,11 @@ def _assert_posture(payload: dict[str, object]) -> None:
     _assert(
         external["fetched_content_untrusted"] is True, "fetched content not untrusted"
     )
+    _assert(
+        "authority-lane-ref:web-access:searxng-search:v1"
+        in external["allowed_current_lane_refs"],
+        "exact governed SearXNG lane missing",
+    )
     _assert_no_authority(posture)
 
 

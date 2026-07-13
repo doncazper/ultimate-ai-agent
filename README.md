@@ -74,7 +74,7 @@ curated gallery and snapshot caveats.
 
 | Area | Current status | What to inspect |
 |---|---|---|
-| API boundary | Implemented for the current **256** OpenAPI paths, **257** `/api/manifest` route operations, and route metadata. | [docs/api/README.md](docs/api/README.md) |
+| API boundary | Implemented for the generated OpenAPI and `/api/manifest` route contract snapshot. | [docs/api/README.md](docs/api/README.md) |
 | Action Inbox | Backend-owned approve/edit/reject/defer decisions, receipts, evidence refs, and one exact approved local-task AuthorityLease capability. Generic execution remains blocked. | [docs/control_center/FCC_V1_002_ACTION_INBOX_STATE_MACHINE.md](docs/control_center/FCC_V1_002_ACTION_INBOX_STATE_MACHINE.md) |
 | Chat handoff | Durable safe Chat turn receipts and reviewable Actions/Plans handoff receipts. Model output is not authority. | [docs/control_center/FCC_V1_004_CHAT_DURABLE_RECEIPT_HANDOFF.md](docs/control_center/FCC_V1_004_CHAT_DURABLE_RECEIPT_HANDOFF.md) |
 | Memory | Review receipts, reviewed recall-only records, read-only L1/L2/L3 indexes, proposal-only context packs, and internal Action proposal receipts. Memory remains recall, not truth or authority. | [docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md](docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md) |
@@ -150,7 +150,7 @@ Morning Briefing
 | Local model lane checkpoints | **checkpoint-m166**, **checkpoint-m167** |
 | Local model lane | **M160-M167**, including **M166** local readiness evidence and **M167** live evidence hardening; non-production by default |
 | Governed runtime pilot | **UAA-P1-091 / v0.105.0** scoped internal milestone; Phase 07 hardening keeps `v0.104.0` active baseline until the milestone tag is created from green release truth |
-| API boundary | FastAPI route contract with **256** OpenAPI paths and **257** manifest route operations |
+| API boundary | FastAPI route contract with generated OpenAPI and manifest route-operation inventory |
 | Founder Loop V1 | `FCC-V1-000` through `FCC-V1-007` complete for bounded proofed route surfaces |
 | Governed Cognitive Memory Spine | Phases 1-5 implemented as reviewed/read-only/proposal capabilities; Phase 6.1 is internal Action proposal receipts only |
 | Deferred lane | `UAA-P1-087.2` in-person private UI functional tuning |
@@ -226,6 +226,8 @@ Run focused checks before broad gates.
 make doctor
 make verify
 make verify-fast
+make verify-affected
+make verify-value-audit
 make verify-dev-fast
 make test-sharded
 make test-sharded-profile
@@ -236,8 +238,11 @@ make frontend-check
 `make verify` is the release-grade local gate. It runs Ruff, the complete
 timing-balanced pytest inventory, static verification, gate architecture, and a
 serialized report-only Foundation Gate. `make test-serial` remains available
-for order-sensitive diagnostics. `make verify-fast` uses the same complete
-pytest inventory but does not update the latest Foundation Gate report.
+for order-sensitive diagnostics. `make verify-fast` runs a deterministic,
+fail-closed changed-path selection for the smallest useful local feedback;
+`make verify-affected` adds the affected boundary verifiers. Both are advisory
+and unknown or verification-topology paths fall back to the full local/dev
+gate. They never replace merge or release verification.
 `make verify-dev-fast` runs the four pre-gate phases concurrently, then
 serializes Foundation Gate with `--no-write-latest`. `VERIFY_DEV_FAST_JOBS`
 bounds top-level phase fanout and `PYTEST_SHARD_WORKERS` independently bounds
@@ -248,7 +253,8 @@ check.
 
 `make test` and `make test-sharded` use the same canonical local pytest lane.
 It uses
-`scripts/verification/run_pytest_shards.py` with `PYTEST_SHARDS`, stores
+`scripts/verification/run_pytest_shards.py` with `PYTEST_SHARDS` (eight local
+shards and workers by default), stores
 inspectable shard logs and isolated pytest temp dirs under ignored `/tmp`
 paths, and writes local file timing data to `PYTEST_SHARD_TIMINGS_JSON`. The
 runner starts with the tracked, repo-relative advisory timing seed, overlays a
@@ -261,6 +267,18 @@ only: it is not cached test, authority, or release evidence.
 Normal runs do not regenerate timing data. Use `make test-sharded-profile` for
 an explicit complete green timing refresh; failed runs never replace the local
 profile.
+
+The canonical local lane has a 110-second stretch goal, a 125-second performance
+budget, and a 180-second hard wall-clock limit. The eight-worker default bounds
+parallel contention on the canonical macOS development host; local timing
+profiles should be refreshed before changing that topology. Crossing the stretch goal emits
+an optimization notice. Crossing the performance budget emits a warning and
+marks the local `PYTEST_PERFORMANCE_REPORT` as requiring refactoring. Crossing
+the hard limit terminates every active shard process group, prevents pending
+shards from starting, writes a content-free report of shard timings and ranked
+repo-relative test-file candidates, and exits with code 124. Override variables
+exist for controlled diagnostics, but raising the checked-in limits is not a
+substitute for fixing slow fixtures, repeated scans, or unbalanced tests.
 
 `make verify-dev-sharded` runs the same local/dev
 composition through `scripts/verification/run_dev_fast_gate.py`: `ruff`,
@@ -279,8 +297,11 @@ startup, provider live-network tests, or model-router sweeps. Shard
 subprocesses strip known live/model-heavy opt-in environment variables before
 pytest starts, so optional live tests remain skipped by default.
 
-No unchanged-file cache shortcut is used by the fast lanes. Any future cache
-shortcut needs deterministic invalidation and must remain local/dev-only.
+The fast and affected lanes do not cache pass results. They derive changed
+paths from Git, normalize and sort them, and use a fixed command registry.
+Unknown paths fail closed to `make verify-dev-sharded`; direct `--path` values
+are additive and cannot hide Git state.
+See [Fast local verification](docs/verification/FAST_LOCAL_VERIFICATION.md).
 
 Useful direct checks:
 

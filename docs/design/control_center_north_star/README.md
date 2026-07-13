@@ -1,9 +1,11 @@
 # Control Center North-Star Visual Renders
 
-Status: current design target, documentation only.
-Baseline ID: CC-NS-2026-07-06.
-Current as of: 2026-07-06.
+Status: current target render set, documentation only.
+Baseline ID: CC-NS-TARGET-R3-2026-07-11.
+Current as of: 2026-07-11.
 Repo baseline: v0.104.0 / 0.104.0.
+
+Machine-readable currentness: `CURRENT_RENDER_BASELINE.json`.
 
 These renders define the desired visual direction for the Control Center as a
 contained operator cockpit. They are not shipped UI evidence, runtime behavior,
@@ -12,14 +14,26 @@ route proof, authority grant, public beta claim, or production readiness claim.
 The canonical rules extracted from this directional set now live in
 `../CONTROL_CENTER_UI_UX_SPEC.md` (`CC-UIUX-2026-07-11`). That specification
 wins when the generated PNGs disagree with each other. The complete next-render
-queue, including all 40 routed surfaces and applicable state/responsive
-variations, lives in `RENDER_VARIATION_MATRIX.md`.
+queue, including all 40 current routed surfaces and applicable state/responsive
+variations, lives in `RENDER_VARIATION_MATRIX.md`. The consolidated target
+surface architecture is defined by
+`../CONTROL_CENTER_PRODUCT_IA_AND_CALENDAR_CONTRACT.md`.
 
 The package is meant to remove ambiguity before implementation. Each render is
 a bounded desktop-app target for one or more Control Center surfaces, with the
 route coverage recorded in `SURFACE_COVERAGE.md`.
 
-The static shell source of truth is `APP_SHELL_BASELINE.md`. If a generated
+## Currentness Contract
+
+`CURRENT_RENDER_BASELINE.json` is the repository-readable pointer to the
+preferred review target for the current period. A `current` render is the
+latest design target to critique; it is not automatically approved, shipped,
+connected, or implemented. Earlier versions remain immutable comparison
+artifacts. Every new preferred revision must update the baseline ID or
+`current_as_of` date, its latest asset pointer, and the gallery version history
+in the same commit.
+
+The target shell source of truth is `APP_SHELL_BASELINE.md`. If a generated
 render shows a different left-rail order, a missing global item, a route-local
 tab in the global rail, or a typography mismatch, `APP_SHELL_BASELINE.md`
 wins.
@@ -46,7 +60,65 @@ baseline and are not route or implementation evidence.
 - No render implies broad shell, browser, connector, provider, background, or
   production authority.
 
-## Render Inventory
+## Target Render Inventory
+
+Every target render is a draft until explicitly approved in the local review
+gallery.
+
+| Render | Target surface |
+|---|---|
+| `renders/target-v1/01-today.png` | Today |
+| `renders/target-v1/02-communications.png` | Communications |
+| `renders/target-v1/03-work-board.png` | Work Board |
+| `renders/target-v1/04-crm.png` | CRM |
+| `renders/target-v1/05-calendar.png` | Calendar |
+| `renders/target-v1/06-studio.png` | Studio |
+| `renders/target-v1/07-knowledge.png` | Knowledge |
+| `renders/target-v1/08-activity-trust.png` | Activity & Trust |
+| `renders/target-v1/09-customize.png` | Customize |
+| `renders/target-v1/10-settings.png` | Settings |
+| `renders/target-v1/11-developer-tools.png` | Developer Tools |
+| `renders/target-v1/12-decision-review.png` | Global Decision Review |
+| `renders/target-v1/13-onboarding.png` | Onboarding |
+| `renders/target-v1/14-uaa-sidecar.png` | Global UAA Sidecar |
+
+Revision 02 adds non-destructive versions and new surfaces:
+
+| Render | Revision |
+|---|---|
+| `renders/target-v2/03-work-board-v2.png` | Work Board v2 color grammar |
+| `renders/target-v2/04-crm-v2.png` | CRM v2 governed calling placeholder |
+| `renders/target-v2/06-studio-v2.png` | Studio v2 immersive workbench |
+| `renders/target-v2/15-news-v1.png` | News v1 curated workspace |
+| `renders/target-v2/16-trust-v1.png` | Trust v1 authority cockpit |
+| `renders/target-v2/17-terminal-v1.png` | Terminal v1 governed terminal |
+| `renders/target-v2/18-compact-shell-v1.png` | Compact icon-only shell v1 |
+
+CRM revision 03 adds one non-destructive specialty-reference synthesis while
+retaining both earlier CRM drafts:
+
+| Render | Revision |
+|---|---|
+| `renders/target-v3/04-crm-v3.png` | CRM v3 premier general relationship workspace |
+
+The independent Messenger client set covers the Element-familiar Matrix north
+star through the UAA lens while Communications keeps its accepted unified hub.
+Messenger is a separate immersive tab like Studio. Its two primary Spaces are
+Founder HQ and Personal Circle. The surface contract is in
+`UAA_COMMUNICATIONS_MATRIX_NORTH_STAR.md`; all images remain design targets.
+The staged implementation sequence is in
+`../UAA_MESSENGER_MATRIX_IMPLEMENTATION_PLAN.md`.
+
+Run the one-at-a-time critique gallery with:
+
+```bash
+.venv/bin/python scripts/dev/serve_control_center_render_review.py
+```
+
+Then open `http://127.0.0.1:4179/render-review/`. Review status and notes stay
+in browser local storage and can be exported/imported as JSON.
+
+## Legacy Composite Inventory
 
 | Render | Primary surface group |
 |---|---|
@@ -73,13 +145,15 @@ baseline and are not route or implementation evidence.
 
 ## Current Baseline
 
-- Current render set: CC-NS-2026-07-06.
-- Current as of: 2026-07-06.
+- Current target render set: CC-NS-TARGET-R3-2026-07-11.
+- Current as of: 2026-07-11.
+- Machine-readable pointer: `CURRENT_RENDER_BASELINE.json`.
 - Canonical shell: `APP_SHELL_BASELINE.md`.
 - Route coverage: `SURFACE_COVERAGE.md`.
 - Render constraints: `RENDER_MANIFEST.md`.
 - Canonical UI/UX specification: `../CONTROL_CENTER_UI_UX_SPEC.md`.
 - Complete render queue: `RENDER_VARIATION_MATRIX.md`.
+- Local critique viewer: `render-review/README.md`.
 
 Known generated-render limitation: the screenshots are directional UI renders,
 so small sidebar text/order variations inside individual PNGs are not
@@ -88,13 +162,15 @@ baseline.
 
 ## Preview Strip
 
-![Today command center](renders/01_today_command_center.png)
+![Target Today](renders/target-v1/01-today.png)
 
-![Action inbox approval envelope](renders/02_action_inbox_approval_envelope.png)
+![Target Communications](renders/target-v1/02-communications.png)
 
-![Trust AuthorityLease cockpit](renders/04_trust_authority_lease.png)
+![Target Calendar](renders/target-v1/05-calendar.png)
 
-![Runtime storage manual smoke](renders/16_runtime_storage_manual_smoke.png)
+![Target Studio v2](renders/target-v2/06-studio-v2.png)
+
+![Target Trust cockpit](renders/target-v2/16-trust-v1.png)
 
 ## Implementation Use
 

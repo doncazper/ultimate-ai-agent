@@ -20,6 +20,21 @@ Operator Runtime Excellence work. `UAA-P1-011` is the accepted readable-loop
 baseline for the next Founder Command Center tasks; broader product surfaces
 remain separately scoped.
 
+Runtime Capability Foundation Phase 03 is implemented locally pending its
+ordered merge gate: governed memory context budgets, fail-closed recall
+eligibility, deterministic correction/lifecycle ordering, exact suppression
+authority, and the redacted retrieval benchmark are complete without granting
+hidden context injection or automatic memory truth.
+
+Runtime Capability Foundation Phase 04 and its sealed-calculation follow-up
+implement two exact tool slices. Filesystem metadata retains request-scoped
+approval. Bounded deterministic arithmetic now runs through the canonical
+orchestrator/runner/dispatcher path in an attested local no-network container
+after an exact mission lease. Static compatibility, configuration, health,
+safe-disable, and resource truth remains unknown until current evaluation.
+General CodeAct/Python, patch apply, broad shell, Git mutation, browser, plugin,
+and MCP execution remain blocked.
+
 Founder Command Center state: macOS Setup Assistant hardening, first
 product-loop readability, Action Inbox approval-envelope/state-change posture,
 Morning Briefing source-readiness posture, Memory Review candidate-review
@@ -55,9 +70,9 @@ step heartbeats; generic background autonomy remains blocked. Exact registered
 approval waits, prebound typed retries for explicitly idempotent adapters,
 immutable dead letters, append-first cancellation, and shared cancellation /
 dead-letter recovery-intent API/CLI contracts are now implemented. Safe
-after-start adapter cancellation, durable approval rehydration, mission-wide
-budgets, Control Center mutation controls, settlement recovery, paid-provider actual usage and
-cost proof, time-window or
+after-start adapter cancellation, durable approval rehydration, parallel
+mission-wide time/concurrency accounting, Control Center mutation controls,
+paid-provider actual usage and cost proof, time-window or
 recipient/target constraints, renewal, reviewed unresolved-cost remediation,
 multi-host storage, and universal legacy-lane migration remain unimplemented.
 Approval decisions are durable operator intent only and never execution
@@ -65,6 +80,23 @@ authority; every resumed worker start must freshly validate the exact request
 scope. No provider/model,
 external spend, shell, browser, connector-write, public-release, production, or
 broad authority is added.
+Runtime Capability Foundation Phase 02 now implements one exact low-risk core
+workflow: a reviewed safe operator request becomes deterministic intent truth,
+an immutable plan revision, an exact approval proposal, one mission-scoped
+lease, a filesystem-metadata dispatch, settled terminal evidence, an
+source-ledger-checked, content-free hash-chain completion manifest, and a
+review-required recall-only
+memory candidate. The whole plan must use one lease, preventing operation/cost
+budget fragmentation across same-mission leases. The existing locked budget
+ledger remains the single operation/cost source; lease TTL plus exact start
+deadlines and synchronous concurrency-one posture are recorded in completion
+truth. A crash after exact budget settlement but before terminal dispatch append
+is reconciled without a second adapter invocation or charge. Read-only CLI/API
+and macOS Control Center inspection expose the same content-free completion
+truth. Broader execution routes, parallel missions, automatic memory writes,
+content reads, arbitrary paths, shell, browser, connector, provider, and
+production authority remain blocked. Public prepare/execute API, CLI, and UI
+controls are not added; only backend-owned completion inspection is exposed.
 One exact mission step is now inspectable through the existing protected
 AuthorityState route and a human-readable CLI command. The shared projection
 hashes dynamic refs, validates durable safe-ref ledgers, distinguishes expired
@@ -1998,6 +2030,33 @@ manifest/capability implications as strategy/watchlist only while keeping
 runtime authority, connector writes, plugin execution, broad tool invocation,
 network authority, backend routes, OpenAPI paths, public distribution, and
 production authority unavailable.
+
+UAA-RCF-01 Deterministic reasoning and immutable plan revision truth
+Gate met locally: `core.intent.reasoning_truth` derives safe current-request
+facts, assumptions, unknowns, contradictions, questions, confidence, and
+instruction-shaped-content posture without persisting request text or calling a
+model. `core.planning.revisions` binds immutable ordered decomposition and exact
+revision lineage; changed membership, order, dependency, definition, or target
+requires a new predecessor-bound revision. The existing protected Agent Loop
+API, readable `inspect-reasoning` CLI, and macOS-first Today panel render one
+backend-owned truth. The legacy user-intent catalog remains compatible. This
+gate grants no approval, lease, tool/action execution, memory truth/write,
+context injection, provider/model, web, shell, connector, background, public,
+or production authority. Remote merge/hosted-CI status remains separate from
+this local implementation gate.
+
+UAA-EVIDENCE-SIGN-001 Managed portable mission evidence signing
+Deterministic implementation gate met locally: preserves unsigned v1, adds a
+separate Ed25519 signed wrapper,
+bounded public-key lifecycle ledger, purpose-specific macOS Keychain helper,
+pinned helper adapter, exact AuthorityDispatcher lanes for sign/create/rotate/
+revoke/mark-lost/interrupted-deletion cleanup, offline pinned-trust verification,
+read-only API/CLI posture, and adversarial tests. The live Keychain roundtrip
+remains configuration-required whenever the login Keychain is locked; no live
+success is claimed from helper-only tests. Signer identity, Secure Enclave
+Ed25519, non-repudiation,
+external anchoring/timestamps, public lifecycle transparency, production
+compliance, and any evidence-derived authority remain blocked.
 ```
 
 ## ASAP Sequence

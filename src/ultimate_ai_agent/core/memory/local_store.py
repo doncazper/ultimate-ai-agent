@@ -1,4 +1,5 @@
 import copy
+import hashlib
 import json
 from pathlib import Path
 import sqlite3
@@ -77,14 +78,33 @@ class LocalMemoryStore(MemoryProvider):
                 self._fts_enabled = False
             self._conn.commit()
 
-    def put_record(self, request: MemoryProviderWriteRequest) -> Any:
+    def put_record(
+        self,
+        request: MemoryProviderWriteRequest,
+        *,
+        initial_status: MemoryStatus = MemoryStatus.active,
+        initial_retention_state: MemoryRetentionState = MemoryRetentionState.active,
+    ) -> Any:
         if not isinstance(request, MemoryProviderWriteRequest):
             raise TypeError("LocalMemoryStore.put_record requires the M24 provider/store MemoryWriteRequest.")
         decision = validate_memory_write_request(request)
         if not decision.allowed:
             return decision
 
-        memory_id = f"mem_{uuid.uuid4().hex[:12]}"
+        memory_id = (
+            "mem_"
+            + hashlib.sha256(
+                f"{request.provider_ref}|{request.dedup_key}".encode("utf-8")
+            ).hexdigest()[:24]
+            if request.dedup_key
+            else f"mem_{uuid.uuid4().hex[:12]}"
+        )
+        existing_record = self.get_record(memory_id)
+        if existing_record is not None and (
+            existing_record.lifecycle is None
+            or existing_record.lifecycle.dedup_key != request.dedup_key
+        ):
+            raise ValueError("deterministic memory identity collision")
         provider_kind = MemoryProviderKind.local_sqlite if self.storage_path else MemoryProviderKind.local_in_memory
         source_refs = [
             MemorySourceRef(
@@ -114,12 +134,34 @@ class LocalMemoryStore(MemoryProvider):
             authority_level=MemoryAuthorityLevel.recall_only,
             source_priority=MemorySourcePriority.user_reviewed_source,
             data_classification=request.data_classification,
+            status=initial_status,
             safe_summary=request.safe_summary,
             provenance=provenance,
             source_refs=source_refs,
-            evidence_refs=request.evidence_refs,
-            event_refs=request.event_refs,
-            receipt_refs=request.receipt_refs,
+            evidence_refs=list(
+                dict.fromkeys(
+                    [
+                        *(existing_record.evidence_refs if existing_record else []),
+                        *request.evidence_refs,
+                    ]
+                )
+            ),
+            event_refs=list(
+                dict.fromkeys(
+                    [
+                        *(existing_record.event_refs if existing_record else []),
+                        *request.event_refs,
+                    ]
+                )
+            ),
+            receipt_refs=list(
+                dict.fromkeys(
+                    [
+                        *(existing_record.receipt_refs if existing_record else []),
+                        *request.receipt_refs,
+                    ]
+                )
+            ),
             file_refs=request.file_refs,
             confidence_score=request.confidence_score,
             trust_score=request.trust_score,
@@ -130,11 +172,22 @@ class LocalMemoryStore(MemoryProvider):
                 injection_priority=request.injection_priority,
             ),
             lifecycle=MemoryLifecycleMetadata(dedup_key=request.dedup_key),
-            retention_state=MemoryRetentionState.active,
+            retention_state=initial_retention_state,
             conflict_state=MemoryConflictState.none,
             stale_state=MemoryConflictState.none,
-            tags=request.tags,
-            metadata_refs=request.metadata_refs,
+            tags=list(
+                dict.fromkeys(
+                    [*(existing_record.tags if existing_record else []), *request.tags]
+                )
+            ),
+            metadata_refs=list(
+                dict.fromkeys(
+                    [
+                        *(existing_record.metadata_refs if existing_record else []),
+                        *request.metadata_refs,
+                    ]
+                )
+            ),
             metadata=request.metadata,
             created_at=request.created_at,
         )
@@ -149,6 +202,37 @@ class LocalMemoryStore(MemoryProvider):
             memory_id=memory_id,
         )
 
+    def activate_prepared_record(
+        self,
+        *,
+        memory_id: str,
+        receipt_ref: str,
+    ) -> MemoryRecord:
+        record = self.get_record(memory_id)
+        if record is None:
+            raise KeyError(memory_id)
+        if record.status == MemoryStatus.active:
+            if record.metadata.get("activation_receipt_ref") != receipt_ref:
+                raise ValueError("active memory record has mismatched activation receipt")
+            return record
+        if (
+            record.status != MemoryStatus.pending_review
+            or record.retention_state != MemoryRetentionState.blocked
+        ):
+            raise ValueError("memory record is not in prepared activation posture")
+        record.status = MemoryStatus.active
+        record.retention_state = MemoryRetentionState.active
+        record.updated_at = utc_now()
+        if receipt_ref not in record.receipt_refs:
+            record.receipt_refs.append(receipt_ref)
+        record.metadata["activation_receipt_ref"] = receipt_ref
+        record.metadata["recall_projection_activated"] = True
+        if record.lifecycle is not None:
+            record.lifecycle.retention_state = MemoryRetentionState.active
+            record.lifecycle.metadata["activation_receipt_ref"] = receipt_ref
+        self._save(record)
+        return record
+
     def get_record(self, memory_id: str) -> Optional[MemoryRecord]:
         if self._conn is None:
             record = self._records.get(memory_id)
@@ -158,11 +242,26 @@ class LocalMemoryStore(MemoryProvider):
             return None
         return MemoryRecord(**json.loads(row[0]))
 
-    def list_records(self) -> List[MemoryRecord]:
+    def list_records(self, *, limit: int | None = None) -> List[MemoryRecord]:
+        bounded_limit = None if limit is None else max(1, min(int(limit), 500))
         if self._conn is None:
-            return [copy.deepcopy(record) for record in self._records.values()]
-        rows = self._conn.execute("SELECT payload_json FROM memory_records ORDER BY memory_id").fetchall()
+            records = sorted(self._records.values(), key=lambda record: record.memory_id)
+            if bounded_limit is not None:
+                records = records[:bounded_limit]
+            return [copy.deepcopy(record) for record in records]
+        query = "SELECT payload_json FROM memory_records ORDER BY memory_id"
+        parameters: tuple[int, ...] = ()
+        if bounded_limit is not None:
+            query += " LIMIT ?"
+            parameters = (bounded_limit,)
+        rows = self._conn.execute(query, parameters).fetchall()
         return [MemoryRecord(**json.loads(row[0])) for row in rows]
+
+    def record_count(self) -> int:
+        if self._conn is None:
+            return len(self._records)
+        row = self._conn.execute("SELECT COUNT(*) FROM memory_records").fetchone()
+        return int(row[0]) if row is not None else 0
 
     def mark_deleted(self, request: MemoryDeleteRequest) -> MemoryRecord:
         record = self.get_record(request.memory_id)
@@ -187,6 +286,8 @@ class LocalMemoryStore(MemoryProvider):
         record = self.get_record(memory_id)
         if record is None:
             raise KeyError(memory_id)
+        if receipt_ref in record.receipt_refs:
+            return record
         delta = 0.0
         if feedback_kind == "helpful":
             delta = 0.05

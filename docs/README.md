@@ -13,6 +13,10 @@ The Control Center is the technical web shell, Founder Command Center is the
 user-facing product name, and the Founder Loop is the bounded product spine.
 Python Agent Core, PolicyEngine, LocalApprovalAuthority, route classification,
 OpenAPI checks, and Foundation Gate checks remain the authority boundaries.
+Managed portable mission-evidence signing is documented in
+`docs/runtime/UAA_PORTABLE_MISSION_EVIDENCE_SIGNING.md`; it is a macOS-only,
+exact dispatcher-governed Ed25519 lane and is not signer identity, notarization,
+non-repudiation, an external timestamp, or execution authority.
 
 Status: active
 Current through: v0.104.0 plus accepted checkpoint-m169, completed
@@ -281,14 +285,14 @@ product-truth ledgers.
 | Top-level decision router contract | `docs/control_center/UAA_P1_089_TOP_LEVEL_DECISION_ROUTER_CONTRACT.md`, `src/ultimate_ai_agent/core/decision_router/contracts.py`, `scripts/verify_uaa_p1_089_top_level_decision_router_contract.py` |
 | Task decomposition proposal engine | `docs/control_center/UAA_P1_090_TASK_DECOMPOSITION_PROPOSAL_ENGINE.md`, `src/ultimate_ai_agent/core/task_decomposition/proposals.py`, `scripts/verify_uaa_p1_090_task_decomposition_proposal_engine.py` |
 | FCC fusion routing/delegation readability | `docs/control_center/FCC_FUSION_ROUTING_DELEGATION.md`, `src/ultimate_ai_agent/core/control_center/fusion_routing.py`, `scripts/verify_fcc_fusion_routing_delegation.py` |
-| Operational maturity and authority ramp | `docs/strategy/UAA_AUTHORITY_MODES_AND_MISSION_LEASES.md`, `docs/runtime/UAA_AUTHORITY_LEASE_BUDGET_LEDGER.md`, `docs/runtime/UAA_AUTHORITY_MISSION_WORKER_V1.md`, `docs/control_center/OPERATIONALIZATION_LADDER.md`, `docs/control_center/operational_maturity_manifest.json`, `docs/control_center/AUTHORITY_RAMP_CONVEYOR.md`, `docs/control_center/authority_candidate_scorecard.json` |
+| Operational maturity and authority ramp | `docs/strategy/UAA_AUTHORITY_MODES_AND_MISSION_LEASES.md`, `docs/runtime/UAA_AUTHORITY_LEASE_BUDGET_LEDGER.md`, `docs/runtime/UAA_AUTHORITY_MISSION_WORKER_V1.md`, `docs/runtime/UAA_SEALED_CALCULATION_ADAPTER.md`, `docs/control_center/OPERATIONALIZATION_LADDER.md`, `docs/control_center/operational_maturity_manifest.json`, `docs/control_center/AUTHORITY_RAMP_CONVEYOR.md`, `docs/control_center/authority_candidate_scorecard.json` |
 | Version and checkpoint currentness | `VERSION.md`, `docs/release_notes/v0_104_0.md`, `docs/release_notes/checkpoint_m169.md` |
 | Tag history and future tag convention | `docs/releases/TAG_CATALOG.md`, `docs/maintenance/RELEASE_PROCESS.md`, `docs/maintenance/SEMVER_POLICY.md` |
 | Catch-up/surpass loop | `docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md`, `docs/backlog/codex_recommendation_log.md`, `docs/backlog/MORNING_RECONCILIATION_ARTIFACT.md` |
 | Product claims and gaps | `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md` |
 | Canonical navigation | `docs/DOCUMENTATION_INDEX.md`, `docs/canonical/CANONICAL_DOC_MAP.md` |
 | API boundary | `docs/api/README.md`, `docs/api/openapi_contract.md`, `docs/api/route_inventory.md` |
-| Verification maintainability | `docs/verification/milestone_status_manifest.json`, `docs/verification/verification_maintainability_policy.json` |
+| Verification maintainability | `docs/verification/FAST_LOCAL_VERIFICATION.md`, `docs/verification/milestone_status_manifest.json`, `docs/verification/verification_maintainability_policy.json` |
 | Computer Use / CUA contract lane | `docs/cua/COMPUTER_USE_CUA_CONTRACT.md`, `docs/cua/cua_release_surface_manifest.json` |
 | Security posture | `SECURITY.md`, `docs/security/SECURITY_TRIAGE_RUNBOOK.md` |
 | Documentation policy | `docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md` |
@@ -386,7 +390,7 @@ provider payload export, or no-secret-output regression.
 | Catch-up/surpass loop | `docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md`, `docs/backlog/codex_recommendation_log.md`, `docs/backlog/MORNING_RECONCILIATION_ARTIFACT.md` |
 | Product truth packet | `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md`, `docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md` |
 | Governed runtime pilot | `VERSION.md`, `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md`, `docs/control_center/GOVERNED_PRODUCT_PILOT_AUTHORITY_PROFILE.md`, `docs/control_center/PRODUCT_LANGUAGE_RULES.md`, `docs/control_center/AUTHORITY_GRADUATION_BOARD.md`, `docs/api/openapi_contract.md`, `docs/api/route_inventory.md`, `scripts/dev/uaa_runtime.py`, `scripts/verify_governed_product_pilot_authority_profile.py`, `tests/test_governed_runtime_contracts.py`, `tests/test_governed_runtime_api_routes.py`, `tests/test_governed_product_pilot_authority_profile.py` |
-| Control Center readiness | `docs/control_center/OPERATOR_SHELL_GAP_MAP.md`, `docs/control_center/ROUTE_STATUS_MANIFEST.md`, `docs/control_center/route_status_manifest.json`, `docs/control_center/release_surface_manifest.json`, `docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md`, `docs/control_center/PRODUCT_LANGUAGE_RULES.md`, `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`, `docs/control_center/UAA_RUNTIME_CAPABILITY_SCOREBOARD.md`, `docs/control_center/UAA_RUNTIME_AGENT_LOOP_SPINE.md`, `docs/control_center/UAA_RUNTIME_DURABLE_ORCHESTRATION.md`, `docs/control_center/UAA_RUNTIME_ACTION_TOOL_CODE_LANES.md`, `docs/control_center/UAA_RUNTIME_MEMORY_LEARNING.md`, `docs/control_center/UAA_RUNTIME_COCKPIT_CLI_API.md`, `docs/control_center/UAA_RUNTIME_EXTENSIBILITY_FINAL.md`, `docs/control_center/FCC_THREAD_001_UNIFIED_WORK_THREAD.md`, `docs/control_center/FCC_V1_002_ACTION_INBOX_STATE_MACHINE.md`, `docs/control_center/FCC_INBOX_001_APPROVAL_ENVELOPE_UX.md`, `docs/control_center/FCC_BRIEFING_001_MORNING_BRIEFING_TODAY_PLAN.md`, `docs/control_center/FCC_SOURCES_001_SOURCE_READINESS_DRAFT_ONLY_INPUTS.md`, `docs/control_center/FCC_MEMORY_CRM_001_PROFESSIONAL_MEMORY_CRM_LITE_BINDING.md`, `docs/control_center/FCC_REVIEW_001_EVIDENCE_NARRATIVE_WEEKLY_REVIEW.md`, `docs/control_center/FCC_HEALTH_001_SELF_HEALING_RECOMMENDATIONS_TO_INBOX.md`, `docs/macos/FCC_DOGFOOD_001_FOURTEEN_DAY_PRIVATE_HARNESS.md`, `docs/macos/private_operator_14_day_dogfood_harness_v1.json`, `docs/control_center/FCC_ACTION_001_APPROVAL_BOUND_LOCAL_AUTHORITY_CAPABILITY.md`, `docs/control_center/FCC_POLISH_001_NATIVE_APPLE_GRADE_UX_LAYER.md`, `docs/control_center/visual_regression_manifest.json`, `docs/control_center/FCC_V1_003_FOUNDER_LOOP_VERTICAL_SLICE.md`, `docs/control_center/FCC_V1_004_CHAT_DURABLE_RECEIPT_HANDOFF.md`, `docs/control_center/FCC_V1_005_MEMORY_REVIEW_DECISIONS.md`, `docs/control_center/FCC_V1_006_EVIDENCE_TIMELINE_PRODUCTIZATION.md`, `docs/control_center/FCC_V1_007_PROMOTION_AND_PROOF_LANE.md`, `docs/control_center/FCC_LOOP_002_FOUNDER_LOOP_ERGONOMICS_PASS.md`, `docs/control_center/FCC_FUSION_ROUTING_DELEGATION.md`, `docs/control_center/UAA_P1_065_FOUNDER_COMMAND_CENTER_REVIEW_CLEANUP.md`, `docs/control_center/UAA_P1_068_TODAY_PRODUCT_SPINE_CONTRACT.md`, `docs/control_center/UAA_P1_069_EVIDENCE_HISTORY_GRAMMAR.md`, `docs/control_center/UAA_P1_070_MEMORY_SOURCE_PROVENANCE_MODEL.md`, `docs/control_center/UAA_P1_071_MEMORY_REVIEW_DECISION_CAPTURE.md`, `docs/control_center/UAA_P1_072_BUSINESS_MEMORY_QUALITY_CONTROLS.md`, `docs/control_center/UAA_P1_073_PLANS_ACTION_ENVELOPES.md`, `docs/control_center/UAA_P1_074_CHAT_LOCAL_OPERATOR_SURFACE.md`, `docs/control_center/UAA_P1_075_GOVERNED_CODE_WORKBENCH.md`, `docs/control_center/UAA_P1_076_CROSS_SURFACE_MEMORY_INTAKE.md`, `docs/control_center/UAA_P1_077_MEMORY_TO_LOOP_BINDING.md`, `docs/control_center/UAA_P1_078_PRIVATE_BETA_READINESS_GATE.md`, `docs/control_center/UAA_P1_079_USER_INTENT_UNDERSTANDING.md` |
+| Control Center readiness | `docs/control_center/OPERATOR_SHELL_GAP_MAP.md`, `docs/control_center/ROUTE_STATUS_MANIFEST.md`, `docs/control_center/route_status_manifest.json`, `docs/control_center/release_surface_manifest.json`, `docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md`, `docs/control_center/PRODUCT_LANGUAGE_RULES.md`, `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`, `docs/control_center/UAA_RUNTIME_CAPABILITY_SCOREBOARD.md`, `docs/control_center/UAA_RUNTIME_CAPABILITY_FINAL_SCORECARD.md`, `docs/control_center/UAA_RUNTIME_AGENT_LOOP_SPINE.md`, `docs/control_center/UAA_RUNTIME_DURABLE_ORCHESTRATION.md`, `docs/control_center/UAA_RUNTIME_ACTION_TOOL_CODE_LANES.md`, `docs/control_center/UAA_RUNTIME_MEMORY_LEARNING.md`, `docs/control_center/UAA_RUNTIME_COCKPIT_CLI_API.md`, `docs/control_center/UAA_RUNTIME_EXTENSIBILITY_FINAL.md`, `docs/control_center/FCC_THREAD_001_UNIFIED_WORK_THREAD.md`, `docs/control_center/FCC_V1_002_ACTION_INBOX_STATE_MACHINE.md`, `docs/control_center/FCC_INBOX_001_APPROVAL_ENVELOPE_UX.md`, `docs/control_center/FCC_BRIEFING_001_MORNING_BRIEFING_TODAY_PLAN.md`, `docs/control_center/FCC_SOURCES_001_SOURCE_READINESS_DRAFT_ONLY_INPUTS.md`, `docs/control_center/FCC_MEMORY_CRM_001_PROFESSIONAL_MEMORY_CRM_LITE_BINDING.md`, `docs/control_center/FCC_REVIEW_001_EVIDENCE_NARRATIVE_WEEKLY_REVIEW.md`, `docs/control_center/FCC_HEALTH_001_SELF_HEALING_RECOMMENDATIONS_TO_INBOX.md`, `docs/macos/FCC_DOGFOOD_001_FOURTEEN_DAY_PRIVATE_HARNESS.md`, `docs/macos/private_operator_14_day_dogfood_harness_v1.json`, `docs/control_center/FCC_ACTION_001_APPROVAL_BOUND_LOCAL_AUTHORITY_CAPABILITY.md`, `docs/control_center/FCC_POLISH_001_NATIVE_APPLE_GRADE_UX_LAYER.md`, `docs/control_center/visual_regression_manifest.json`, `docs/control_center/FCC_V1_003_FOUNDER_LOOP_VERTICAL_SLICE.md`, `docs/control_center/FCC_V1_004_CHAT_DURABLE_RECEIPT_HANDOFF.md`, `docs/control_center/FCC_V1_005_MEMORY_REVIEW_DECISIONS.md`, `docs/control_center/FCC_V1_006_EVIDENCE_TIMELINE_PRODUCTIZATION.md`, `docs/control_center/FCC_V1_007_PROMOTION_AND_PROOF_LANE.md`, `docs/control_center/FCC_LOOP_002_FOUNDER_LOOP_ERGONOMICS_PASS.md`, `docs/control_center/FCC_FUSION_ROUTING_DELEGATION.md`, `docs/control_center/UAA_P1_065_FOUNDER_COMMAND_CENTER_REVIEW_CLEANUP.md`, `docs/control_center/UAA_P1_068_TODAY_PRODUCT_SPINE_CONTRACT.md`, `docs/control_center/UAA_P1_069_EVIDENCE_HISTORY_GRAMMAR.md`, `docs/control_center/UAA_P1_070_MEMORY_SOURCE_PROVENANCE_MODEL.md`, `docs/control_center/UAA_P1_071_MEMORY_REVIEW_DECISION_CAPTURE.md`, `docs/control_center/UAA_P1_072_BUSINESS_MEMORY_QUALITY_CONTROLS.md`, `docs/control_center/UAA_P1_073_PLANS_ACTION_ENVELOPES.md`, `docs/control_center/UAA_P1_074_CHAT_LOCAL_OPERATOR_SURFACE.md`, `docs/control_center/UAA_P1_075_GOVERNED_CODE_WORKBENCH.md`, `docs/control_center/UAA_P1_076_CROSS_SURFACE_MEMORY_INTAKE.md`, `docs/control_center/UAA_P1_077_MEMORY_TO_LOOP_BINDING.md`, `docs/control_center/UAA_P1_078_PRIVATE_BETA_READINESS_GATE.md`, `docs/control_center/UAA_P1_079_USER_INTENT_UNDERSTANDING.md` |
 | Local model production-readiness lane | `docs/production/M166_PRODUCTION_AUTHORITY_GATE.md`, `docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING.md`, `docs/production/M167_LIVE_MODEL_EVIDENCE_MATRIX.md`, `docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md`, `docs/production/M167_OPENWEBUI_LOCAL_INSTALLER.md`, `docs/production/M167_GITHUB_BOOTSTRAP_LOCAL_INSTALLER.md` |
 | Local model operations | `docs/production/LLAMA_SERVER_PACKAGING_PROVENANCE_CHECKLIST.md`, `docs/production/LOCAL_MODEL_OPERATIONAL_RUNBOOK.md`, `docs/model_management/UAA_P1_062_LOCAL_MODEL_MANAGER_SCOPE.md`, `docs/model_management/UAA_P1_064_LOCAL_MODEL_INVENTORY_READ_ONLY.md`, `docs/model_management/UAA_P1_066_LOCAL_MODEL_CONTROL_CENTER_READ_ONLY_STATUS.md` |
 | Release verification and evidence | `docs/production/RELEASE_VERIFICATION_LANES.md`, `docs/production/RELEASE_EVIDENCE_PACKET.md`, `docs/production/BACKUP_RESTORE_VERIFICATION.md`, `docs/production/LOCAL_STATE_ROLLBACK_RUNBOOK.md`, `docs/production/LOCAL_RUNTIME_PACKAGING.md`, `docs/production/M167_GITHUB_BOOTSTRAP_LOCAL_INSTALLER.md` |
@@ -394,7 +398,7 @@ provider payload export, or no-secret-output regression.
 | Computer Use / CUA contract lane | `docs/cua/COMPUTER_USE_CUA_CONTRACT.md`, `docs/cua/cua_release_surface_manifest.json` |
 | Performance and API cache | `docs/production/RELEASE_LATENCY_BASELINE_HARNESS.md`, `docs/api/SAFE_STATIC_MANIFEST_CACHING.md` |
 | Redacted observability | `docs/observability/SESSION_LOGGING_M167.md` |
-| Plugin/skill ecosystem boundary | `docs/control_center/SKILL_WORKBENCH_DISCOVERY_AND_ADOPTION.md`, `docs/control_center/UAA_RUNTIME_EXTENSIBILITY_FINAL.md`, `docs/tooling/PLUGIN_SKILL_ECOSYSTEM_BOUNDARY.md`, `docs/tooling/INSPECTABLE_EXTENSION_CATALOG.md`, `docs/tooling/EXTENSION_ACTIVATION_GRANTS.md`, `docs/tooling/MCP_A2A_COMPATIBILITY_WATCHLIST.md`, `docs/schemas/plugin_skill_trust_manifest.schema.json`, `docs/schemas/inspectable_extension_catalog.schema.json`, `docs/schemas/extension_activation_grant.schema.json` |
+| Plugin/skill ecosystem boundary | `docs/control_center/SKILL_WORKBENCH_DISCOVERY_AND_ADOPTION.md`, `docs/control_center/UAA_RUNTIME_EXTENSIBILITY_FINAL.md`, `docs/tooling/PLUGIN_SKILL_ECOSYSTEM_BOUNDARY.md`, `docs/tooling/INSPECTABLE_EXTENSION_CATALOG.md`, `docs/tooling/EXTENSION_ACTIVATION_GRANTS.md`, `docs/tooling/MCP_A2A_COMPATIBILITY_WATCHLIST.md`, `docs/schemas/plugin_skill_trust_manifest.schema.json`, `docs/schemas/inspectable_extension_catalog.schema.json`, `docs/schemas/extension_ecosystem_read_model.schema.json`, `docs/schemas/extension_activation_grant.schema.json` |
 
 The Founder Command Center docs are planning and execution artifacts for the
 next product loop. They do not grant production authority, public distribution,
@@ -409,6 +413,8 @@ Use these before release-facing claims or milestone status changes:
 ```bash
 make verify
 make verify-fast
+make verify-affected
+make verify-value-audit
 make verify-dev-fast
 make test-sharded
 make test-sharded-profile
@@ -424,8 +430,10 @@ PYTHONPATH=src .venv/bin/python -m pytest tests/test_api_manifest.py
 inventory across timing-balanced, process-isolated shards, followed by the
 static verifier, gate architecture, and a serialized report-only Foundation
 Gate. `make test-serial` remains available for order-sensitive diagnostics.
-`make verify-fast` uses the same complete pytest inventory without updating the
-latest Foundation Gate report. `make verify-dev-fast` runs the four pre-gate
+`make verify-fast` selects deterministic advisory checks for changed paths;
+`make verify-affected` adds affected boundary checks. Unknown or verifier-
+topology changes fail closed to the complete local/dev gate. Neither command
+replaces merge or release gates. `make verify-dev-fast` runs the four pre-gate
 phases concurrently and then serializes Foundation Gate with
 `report-only --no-write-latest`. `VERIFY_DEV_FAST_JOBS` bounds top-level phase
 fanout, while `PYTEST_SHARD_WORKERS` separately bounds pytest subprocesses.
@@ -458,8 +466,9 @@ Web Hybrid transports and Firecrawl credential references,
 and provider live-network smoke tests. Existing optional/live tests remain
 env-gated and skipped by default.
 
-No local unchanged-file cache shortcut is currently enabled. Cache shortcuts are
-planned-only until deterministic invalidation can be reviewed.
+No local pass-result cache is enabled. The changed-path selector is deterministic,
+local-only, and fail-closed; see
+`docs/verification/FAST_LOCAL_VERIFICATION.md` for scope and timing evidence.
 
 The named release lanes are described in
 `docs/production/RELEASE_VERIFICATION_LANES.md`. Release evidence packets are

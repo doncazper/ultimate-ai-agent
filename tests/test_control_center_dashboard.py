@@ -3,6 +3,7 @@ from pydantic import ValidationError
 
 from ultimate_ai_agent.core.control_center import (
     GovernedProviderInvocationReadiness,
+    PluginGovernanceSummary,
     ProviderCostGovernorBinding,
     ProviderCredentialReadinessPosture,
     ProviderCredentialReadinessItem,
@@ -42,13 +43,28 @@ def test_control_center_dashboard_snapshot_is_safe_summary_only() -> None:
     assert snapshot.mobile_planning_summary.sensor_access_enabled is False
     assert snapshot.plugin_governance_summary.plugin_enablement_allowed is False
     assert snapshot.plugin_governance_summary.skill_bundle_proposal_count == 1
-    assert (
-        snapshot.plugin_governance_summary.skill_bundle_proposal_refs
-        == ["skill-bundle-proposal:founder-loop-review"]
-    )
+    assert snapshot.plugin_governance_summary.skill_bundle_proposal_refs == [
+        "skill-bundle-proposal:founder-loop-review"
+    ]
     assert snapshot.plugin_governance_summary.skill_bundle_activation_enabled is False
     assert (
         snapshot.plugin_governance_summary.skill_bundle_tool_execution_enabled is False
+    )
+    assert snapshot.plugin_governance_summary.status == "inspectable_non_callable"
+    assert snapshot.plugin_governance_summary.catalog_entry_count == 3
+    assert snapshot.plugin_governance_summary.availability_snapshot_count == 4
+    assert snapshot.plugin_governance_summary.developer_validation_count == 3
+    assert snapshot.plugin_governance_summary.blocked_validation_count == 1
+    assert (
+        snapshot.plugin_governance_summary.catalog_visibility_grants_authority is False
+    )
+    assert (
+        snapshot.plugin_governance_summary.request_scoped_invocation_decision_required
+        is True
+    )
+    assert len(snapshot.plugin_governance_summary.extension_entries) == 3
+    assert snapshot.plugin_governance_summary.plugin_metadata_boundary_ref == (
+        "runtime-boundary-ref:plugin-metadata-posture"
     )
     assert snapshot.provider_credential_readiness.status == "reference_readiness_only"
     assert snapshot.provider_credential_readiness.invocation_enabled is False
@@ -119,6 +135,47 @@ def test_control_center_dashboard_snapshot_is_safe_summary_only() -> None:
     assert snapshot.operator_loop_summary.frontend_authority is False
     assert snapshot.operator_loop_summary.production_ready is False
     assert snapshot.next_recommended_action == "review_status_and_previews_only"
+
+
+def test_plugin_governance_summary_rejects_authority_and_count_drift() -> None:
+    summary = build_control_center_dashboard().plugin_governance_summary
+    payload = summary.model_dump(mode="json")
+    with pytest.raises(ValidationError):
+        PluginGovernanceSummary.model_validate(
+            payload | {"catalog_visibility_grants_authority": True}
+        )
+    with pytest.raises(
+        ValidationError, match="PLUGIN_GOVERNANCE_BLOCKED_COUNT_DRIFT"
+    ):
+        PluginGovernanceSummary.model_validate(
+            payload | {"blocked_validation_count": 99}
+        )
+
+
+@pytest.mark.parametrize(
+    ("field_name", "value", "reason"),
+    [
+        (
+            "availability_snapshot_count",
+            99,
+            "PLUGIN_GOVERNANCE_AVAILABILITY_COUNT_DRIFT",
+        ),
+        ("safe_disable_refs", [], "PLUGIN_GOVERNANCE_SAFE_DISABLE_REF_DRIFT"),
+        ("rollback_refs", [], "PLUGIN_GOVERNANCE_ROLLBACK_REF_DRIFT"),
+        ("blocker_codes", ["not-a-code"], "PLUGIN_GOVERNANCE_BLOCKER_CODE_INVALID"),
+        ("blocker_codes", [], "PLUGIN_GOVERNANCE_BLOCKER_CODE_DRIFT"),
+    ],
+)
+def test_plugin_governance_summary_rejects_aggregate_and_array_drift(
+    field_name: str,
+    value: object,
+    reason: str,
+) -> None:
+    payload = build_control_center_dashboard().plugin_governance_summary.model_dump(
+        mode="json"
+    )
+    with pytest.raises(ValidationError, match=reason):
+        PluginGovernanceSummary.model_validate(payload | {field_name: value})
 
 
 def test_control_center_dashboard_contains_no_raw_or_secret_content() -> None:

@@ -1,6 +1,11 @@
+from pathlib import Path
+
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.gate import default_foundation_gate_criteria
 from ultimate_ai_agent.core.gate.evaluators import FoundationGateEvaluator, m57_openapi_route_failures
+from ultimate_ai_agent.core.sandbox_calculation.static_safety import (
+    is_exact_sealed_calculation_subprocess_site,
+)
 
 
 def test_m57_foundation_gate_criteria_are_registered() -> None:
@@ -51,3 +56,29 @@ def test_m57_route_guard_rejects_runtime_sandbox_execution_routes() -> None:
     assert any("/tools/execute" in failure for failure in failures)
     assert any("/context/inject" in failure for failure in failures)
     assert not m57_openapi_route_failures(app.openapi().get("paths", {}))
+
+
+def test_m57_exact_sealed_subprocess_exception_requires_full_denial_profile() -> None:
+    rel_path = "src/ultimate_ai_agent/core/sandbox_calculation/backend.py"
+    source = Path(rel_path).read_text(encoding="utf-8")
+
+    assert is_exact_sealed_calculation_subprocess_site(
+        rel_path=rel_path,
+        source=source,
+        fragment="subprocess.run(",
+    )
+    assert is_exact_sealed_calculation_subprocess_site(
+        rel_path=rel_path,
+        source=source,
+        fragment="subprocess.Popen(",
+    )
+    assert not is_exact_sealed_calculation_subprocess_site(
+        rel_path=rel_path,
+        source=source.replace('"--network",', '"--network-removed",'),
+        fragment="subprocess.run(",
+    )
+    assert not is_exact_sealed_calculation_subprocess_site(
+        rel_path=rel_path,
+        source=source + "\nshell=True\n",
+        fragment="subprocess.run(",
+    )

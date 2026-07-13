@@ -1208,7 +1208,7 @@ function RuntimeActionInboxBridgePanel({
           value={readModel.execution_result_refs.length}
         />
         <Metric
-          label="signed evidence"
+          label="hash-integrity evidence"
           value={readModel.signed_evidence_refs.length}
         />
       </div>
@@ -1287,7 +1287,7 @@ function RuntimeActionInboxBridgePanel({
               />
               <DetailTerm label="Receipt status" value={item.receipt_status} />
               <DetailTerm
-                label="Signed evidence"
+                label="Hash-integrity evidence"
                 value={item.signed_evidence_verification_status}
               />
               <DetailTerm
@@ -1324,7 +1324,7 @@ function RuntimeActionInboxBridgePanel({
               }
             />
             <RefListWithFallback
-              emptyLabel="Signed evidence refs: none"
+              emptyLabel="Hash-integrity evidence refs: none"
               refs={
                 item.signed_evidence_ref ? [item.signed_evidence_ref] : []
               }
@@ -1405,7 +1405,7 @@ function RuntimeActionInboxBridgePanel({
         refs={readModel.execution_result_refs}
       />
       <RefListWithFallback
-        emptyLabel="Runtime bridge signed evidence refs: none"
+        emptyLabel="Runtime bridge hash-integrity evidence refs: none"
         refs={readModel.signed_evidence_refs}
       />
       <RefListWithFallback
@@ -1602,6 +1602,18 @@ function ActionToolCodeCapabilityEntryCard({
         <DetailTerm
           label="Exact runtime capability"
           value={entry.exact_runtime_lane_available ? "available" : "blocked"}
+        />
+        <DetailTerm
+          label="Canonical mission dispatch"
+          value={entry.canonical_mission_dispatch ? "verified" : "not promoted"}
+        />
+        <DetailTerm
+          label="Availability snapshot"
+          value={entry.availability_snapshot_ref ?? "not bound"}
+        />
+        <DetailTerm
+          label="Execution path"
+          value={entry.canonical_execution_path_ref ?? "not promoted"}
         />
         <DetailTerm
           label="Broad authority"
@@ -4214,7 +4226,7 @@ function AgentLoopThreadPanel({
   const planSteps = readModel.plan.steps.slice(0, 6);
   const actions = readModel.proposed_actions.slice(0, 6);
   const bindings = readModel.surface_bindings.slice(0, 8);
-  const decisionRows = readModel.operator_decision_matrix.rows.slice(0, 8);
+  const decisionRows = readModel.operator_decision_matrix.rows.slice(0, 14);
   const highMaturityRows = readModel.high_maturity_spine_readiness.rows.slice(0, 13);
   const productCockpitRows =
     readModel.high_maturity_spine_readiness.founder_loop_product_cockpit_posture.rows.slice(
@@ -4244,6 +4256,11 @@ function AgentLoopThreadPanel({
         safe decision from Python Core read models. It does not execute actions,
         call models, write memory, browse, run shell commands, dispatch
         connectors, or grant production authority.
+      </p>
+      <p className="safe-copy">
+        macOS is the canonical operator surface. Linux and Windows remain render
+        placeholders until separate porting work is authorized. External web
+        content is untrusted evidence, never instructions or authority.
       </p>
       <article className="status-card">
         <div className="status-card-header">
@@ -4557,11 +4574,21 @@ function AgentLoopThreadPanel({
               }
             />
             <DetailTerm
-              label="Provider search"
+              label="Unrestricted provider search"
               value={
                 readModel.high_maturity_spine_readiness
                   .external_information_handling.provider_search_enabled
                   ? "enabled"
+                  : "blocked"
+              }
+            />
+            <DetailTerm
+              label="Exact bounded provider lanes"
+              value={
+                readModel.high_maturity_spine_readiness
+                  .external_information_handling
+                  .exact_bounded_provider_lanes_implemented
+                  ? "implemented; request readiness required"
                   : "blocked"
               }
             />
@@ -4732,6 +4759,73 @@ function AgentLoopThreadPanel({
             />
           </dl>
           <p>{readModel.work_request.safe_summary}</p>
+          <div className="detail-panel compact">
+            <strong>Reasoning truth</strong>
+            <dl className="detail-list compact">
+              <DetailTerm
+                label="Intent ref"
+                value={readModel.reasoning_truth.intent_ref}
+              />
+              <DetailTerm
+                label="Fingerprint"
+                value={readModel.reasoning_truth.intent_fingerprint_ref}
+              />
+              <DetailTerm
+                label="Contradictions"
+                value={readModel.reasoning_truth.contradiction_posture}
+              />
+              <DetailTerm
+                label="Input posture"
+                value={readModel.reasoning_truth.instruction_content_posture}
+              />
+              <DetailTerm
+                label="Model assistance"
+                value={readModel.reasoning_truth.model_assistance_posture}
+              />
+            </dl>
+            <p className="muted">
+              Input remains untrusted data. Reasoning truth does not grant
+              approval, lease, tools, memory, or execution authority.
+            </p>
+          </div>
+          <div className="detail-panel compact">
+            <strong>Facts</strong>
+            <ul className="ref-list">
+              {readModel.reasoning_truth.facts.map((item) => (
+                <li key={item.statement_ref}>
+                  {item.safe_summary}
+                  <RefListWithFallback
+                    emptyLabel="Fact evidence: missing"
+                    refs={[item.statement_ref, ...item.evidence_refs]}
+                  />
+                </li>
+              ))}
+            </ul>
+            <strong>Assumptions</strong>
+            <ul className="ref-list">
+              {readModel.reasoning_truth.assumptions.map((item) => (
+                <li key={item.statement_ref}>{item.safe_summary}</li>
+              ))}
+            </ul>
+            <strong>Unknowns</strong>
+            <ul className="ref-list">
+              {readModel.reasoning_truth.unknowns.map((item) => (
+                <li key={item.statement_ref}>{item.safe_summary}</li>
+              ))}
+            </ul>
+            <strong>Questions requiring operator input</strong>
+            <ul className="ref-list">
+              {readModel.reasoning_truth.operator_questions.map((item) => (
+                <li key={item.question_ref}>
+                  {item.safe_question}
+                  <RefListWithFallback
+                    emptyLabel="Question refs: missing"
+                    refs={[item.question_ref, ...item.resolves_refs]}
+                  />
+                </li>
+              ))}
+            </ul>
+          </div>
         </article>
 
         <article className="status-card">
@@ -4806,6 +4900,35 @@ function AgentLoopThreadPanel({
             <h3>Plan proposal</h3>
             <span>{readModel.plan.status}</span>
           </div>
+          <dl className="detail-list">
+            <DetailTerm
+              label="Revision ref"
+              value={readModel.plan_revision.revision_ref}
+            />
+            <DetailTerm
+              label="Revision fingerprint"
+              value={readModel.plan_revision.revision_fingerprint_ref}
+            />
+            <DetailTerm
+              label="Decomposition fingerprint"
+              value={
+                readModel.plan_revision.decomposition
+                  .decomposition_fingerprint_ref
+              }
+            />
+            <DetailTerm
+              label="Predecessor"
+              value={
+                readModel.plan_revision.predecessor_revision_ref ??
+                "initial revision"
+              }
+            />
+            <DetailTerm
+              label="Revision authority"
+              value={readModel.plan_revision.authority_posture}
+            />
+          </dl>
+          <p className="muted">{readModel.plan_revision.safe_reason}</p>
           <ul className="ref-list">
             {planSteps.map((step) => (
               <li key={step.step_ref}>
@@ -8386,7 +8509,7 @@ export function MemoryReviewSurfacePanel({
           </div>
           <p>
             Memory review can record safe accept, correction, reject, defer,
-            merge, supersede, and forget-request receipts. Delete/export
+            merge, supersede, expiry, and forget-request receipts. Delete/export
             execution, connector sync, action execution, and context injection
             remain blocked.
           </p>
@@ -9069,6 +9192,7 @@ function MemoryContextManifestPanel({
 }: {
   contextManifest: FounderLoopMemoryContextManifest;
 }) {
+  const governed = contextManifest.governed_context;
   return (
     <article className="status-card">
       <div className="status-card-header">
@@ -9109,7 +9233,61 @@ function MemoryContextManifestPanel({
           label="Memory write"
           value={contextManifest.memory_write_authorized ? "enabled" : "blocked"}
         />
+        <DetailTerm
+          label="Governed context"
+          value={governed?.status ?? "unavailable"}
+        />
+        <DetailTerm
+          label="Selection budget"
+          value={
+            governed
+              ? `${governed.budget.selected_items}/${governed.budget.max_items} refs`
+              : "unavailable"
+          }
+        />
+        <DetailTerm
+          label="Capacity budget"
+          value={
+            governed
+              ? `${governed.budget.used_tokens}/${governed.budget.max_tokens} estimated units`
+              : "unavailable"
+          }
+        />
+        <DetailTerm
+          label="Included / excluded"
+          value={
+            governed
+              ? `${governed.selection_count} / ${governed.exclusion_count}`
+              : "unavailable"
+          }
+        />
+        <DetailTerm
+          label="Derived context receipt ref"
+          value={governed?.context_receipt_ref ?? "unavailable"}
+        />
+        <DetailTerm
+          label="Source scan"
+          value={
+            governed
+              ? governed.source_scan_truncated
+                ? "truncated / preview blocked"
+                : "complete for bounded snapshot"
+              : "unavailable"
+          }
+        />
       </dl>
+      {governed ? (
+        <>
+          <RefListWithFallback
+            emptyLabel="Included memory refs: none"
+            refs={governed.selections.map((selection) => selection.memory_ref)}
+          />
+          <RefListWithFallback
+            emptyLabel="Excluded memory reasons: none"
+            refs={governed.exclusions.flatMap((exclusion) => exclusion.reason_refs)}
+          />
+        </>
+      ) : null}
       <RefListWithFallback
         emptyLabel="Context manifest blockers: none"
         refs={contextManifest.blocked_state_refs}
@@ -12923,6 +13101,7 @@ const memoryDecisionLabels: Record<MemoryReviewDecisionKind, string> = {
   defer: "Record defer receipt",
   merge: "Record merge receipt",
   supersede: "Record supersede receipt",
+  expire: "Record expiry receipt",
   forget_request: "Record forget-request receipt",
 };
 
@@ -12937,6 +13116,7 @@ const memoryDecisionOrder: MemoryReviewDecisionKind[] = [
   "defer",
   "merge",
   "supersede",
+  "expire",
   "forget_request",
 ];
 
@@ -13234,7 +13414,7 @@ function MemoryReviewCard({
         subject={memoryDecisionSubjectFromReviewItem(item)}
       />
       <InlineListWithFallback
-        emptyLabel="Decision labels only: accept, correct, reject, defer, merge, supersede, forget request"
+        emptyLabel="Decision labels only: accept, correct, reject, defer, merge, supersede, expire, forget request"
         items={item.available_decision_states ?? []}
       />
       <InlineListWithFallback
@@ -13313,7 +13493,7 @@ function MemoryReviewDecisionControls({
           decision === "correct" ? correctedSafeSummary.trim() : undefined,
         merge_refs:
           decision === "merge"
-            ? [subject.candidateRef, ...subject.duplicateRefs]
+            ? subject.duplicateRefs
             : undefined,
         supersedes_refs:
           decision === "supersede" ? subject.conflictRefs : undefined,
@@ -13427,6 +13607,10 @@ function MemoryReviewDecisionControls({
           <DetailTerm
             label="Supersede ref"
             value={state.receipt.supersede_ref ?? "not created"}
+          />
+          <DetailTerm
+            label="Expiry ref"
+            value={state.receipt.expire_ref ?? "not created"}
           />
           <DetailTerm
             label="Forget-request ref"

@@ -74,7 +74,8 @@ Exact AuthorityLease capability path:
   inspection parity from safe refs only.
 - Prompt 03 adds patch proposal artifacts without apply. Prompt 03 hardening
   now binds each backend-owned patch proposal preview to a deterministic
-  safe-ref-only signed evidence envelope with canonical JSON hash refs,
+  safe-ref-only SHA-256 hash-integrity evidence envelope with canonical JSON
+  hash refs and legacy signed identifiers,
   verifier refs, redaction posture, blocked authority refs, and CLI
   verification parity.
 - Prompt 04 adds patch apply readiness and blocker refs without apply.
@@ -139,7 +140,7 @@ Exact promotion path:
   receipt storage, redaction, Proof Detail binding, CLI parity, frontend tests,
   and verifiers are accepted.
 
-## Coding Patch Proposal Signed Evidence
+## Coding Patch Proposal Hash-Integrity Evidence
 
 Status: implemented for the proposal-only patch preview. This is not patch
 application authority.
@@ -148,8 +149,9 @@ The backend-owned `GET /control-center/coding/patch-proposal` read model now
 includes `signed_evidence` and `signed_evidence_verification_status`. The
 envelope is deterministic and stores only safe refs: proposal ref, session ref,
 context-pack ref, route ref, file refs, hunk refs, proof refs, evidence refs,
-blocked authority refs, redaction refs, canonical JSON ref, local hash-signature
-scheme ref, proposal hash ref, and signed envelope ref.
+blocked authority refs, redaction refs, canonical JSON ref, local SHA-256
+integrity-scheme ref, proposal hash ref, and legacy signed-envelope
+compatibility ref. No cryptographic signature is present or verified.
 
 CLI parity:
 

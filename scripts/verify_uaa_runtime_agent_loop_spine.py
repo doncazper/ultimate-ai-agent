@@ -290,7 +290,7 @@ def main() -> int:
                 expected_counts = {
                     "preview_only_count": 4,
                     "exact_local_mutation_count": 1,
-                    "exact_runtime_lane_count": 5,
+                    "exact_runtime_lane_count": 6,
                     "proposal_only_count": 5,
                     "blocked_count": 3,
                 }
@@ -335,7 +335,7 @@ def main() -> int:
                             if isinstance(row, dict)
                             and row.get("exact_runtime_lane_available") is True
                         )
-                        != 5
+                        != 6
                     ):
                         failures.append("action/tool exact runtime lane count drifted")
                     if (

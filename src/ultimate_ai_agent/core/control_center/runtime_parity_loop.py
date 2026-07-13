@@ -334,7 +334,8 @@ def build_runtime_parity_loop_read_model(
         operator_summary=(
             "Runtime parity loop inspection ties prepared turn, route decision, "
             "durable run approval, staged orchestration, provider evidence, "
-            "Action Inbox approval, exact receipts, signed evidence, and blocked "
+            "Action Inbox approval, exact receipts, local hash-integrity "
+            "evidence, and blocked "
             "retry posture into one backend-owned safe-ref read model."
         ),
         next_safe_action=(
@@ -443,14 +444,17 @@ def _runtime_parity_loop_stages(
         ),
         RuntimeParityLoopStage(
             stage_ref=RUNTIME_PARITY_LOOP_STAGE_REFS[7],
-            label="Signed evidence",
+            label="Local hash-integrity evidence",
             status=evidence_status,
             core_ref="evidence-ref:governed-runtime-action-signed-evidence",
             cli_ref="uaa runtime receipts evidence",
             api_route_ref="GET /api/runtime/invocations/{id}/receipt",
             control_center_ref=RUNTIME_PARITY_LOOP_CONTROL_CENTER_ROUTE_REF,
             evidence_refs=["evidence-ref:governed-runtime-action-signed-evidence"],
-            safe_summary="Signed evidence is local hash verification over safe refs only.",
+            safe_summary=(
+                "Local SHA-256 integrity is verified over safe refs only; legacy "
+                "signed identifiers are not cryptographic signatures."
+            ),
         ),
         RuntimeParityLoopStage(
             stage_ref=RUNTIME_PARITY_LOOP_STAGE_REFS[8],

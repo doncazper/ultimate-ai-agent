@@ -1072,7 +1072,10 @@ def _bind_runtime_action_inbox_approval(
 
 def test_runtime_gateway_action_inbox_approval_executes_exact_command_once(
     tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
+    from scripts.dev import uaa_launcher, uaa_runtime
+
     calls: list[dict[str, object]] = []
 
     def runner(**kwargs: object) -> RuntimeCommandRunResult:
@@ -1205,40 +1208,26 @@ def test_runtime_gateway_action_inbox_approval_executes_exact_command_once(
             ["Governed runtime receipt", "Output summary: Command output redacted"],
         ),
     ]:
-        cli_result = subprocess.run(
-            [
-                sys.executable,
-                str(ROOT / "scripts/dev/uaa_runtime.py"),
-                "--state-dir",
-                str(tmp_path),
-                *command,
-            ],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
+        assert uaa_runtime.main(["--state-dir", str(tmp_path), *command]) == 0
+        cli_output = capsys.readouterr().out
         for expected in expected_strings:
-            assert expected in cli_result.stdout
-        assert "safe pytest output" not in cli_result.stdout
-        assert str(tmp_path) not in cli_result.stdout
+            assert expected in cli_output
+        assert "safe pytest output" not in cli_output
+        assert str(tmp_path) not in cli_output
 
-    launcher_status = subprocess.run(
+    assert uaa_launcher.main(
         [
-            sys.executable,
-            str(ROOT / "scripts/dev/uaa_launcher.py"),
             "runtime",
             "--state-dir",
             str(tmp_path),
             "status",
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    assert "Governed runtime status" in launcher_status.stdout
-    assert "utility_command_receipt_recorded" in launcher_status.stdout
-    assert "safe pytest output" not in launcher_status.stdout
-    assert str(tmp_path) not in launcher_status.stdout
+        ]
+    ) == 0
+    launcher_output = capsys.readouterr().out
+    assert "Governed runtime status" in launcher_output
+    assert "utility_command_receipt_recorded" in launcher_output
+    assert "safe pytest output" not in launcher_output
+    assert str(tmp_path) not in launcher_output
 
     event_kinds = {event["event_kind"] for event in read_model["evidence_timeline"]}
     stable_event_refs = {
@@ -1255,24 +1244,20 @@ def test_runtime_gateway_action_inbox_approval_executes_exact_command_once(
         "receipt_recorded",
     }.issubset(event_kinds)
 
-    safe_disable = subprocess.run(
+    assert uaa_runtime.main(
         [
-            sys.executable,
-            str(ROOT / "scripts/dev/uaa_runtime.py"),
             "--state-dir",
             str(tmp_path),
             "safe-disable",
             "--idempotency-ref",
             "idempotency-ref:runtime-cli-safe-disable-test",
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    assert "Governed runtime safe-disable" in safe_disable.stdout
-    assert "Safe-disable ref:" in safe_disable.stdout
-    assert "safe pytest output" not in safe_disable.stdout
-    assert str(tmp_path) not in safe_disable.stdout
+        ]
+    ) == 0
+    safe_disable_output = capsys.readouterr().out
+    assert "Governed runtime safe-disable" in safe_disable_output
+    assert "Safe-disable ref:" in safe_disable_output
+    assert "safe pytest output" not in safe_disable_output
+    assert str(tmp_path) not in safe_disable_output
     disabled_read_model = build_runtime_action_inbox_bridge_read_model(
         RuntimeInvocationStore(tmp_path).list_invocations(),
         entries=RuntimeInvocationStore(tmp_path).list_entries(),

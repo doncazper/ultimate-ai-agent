@@ -2,7 +2,19 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `256`.
+<!-- uaa-api-contract-counts:start -->
+Current generated contract snapshot: `263` OpenAPI paths and `264` manifest route operations.
+<!-- uaa-api-contract-counts:end -->
+
+The checked-in inventory is the canonical generated static API contract
+snapshot. `scripts/verification/api_contract_snapshot.py --refresh` updates the
+snapshot and these active count blocks atomically per file; `--check` detects
+route, operation-ID, fingerprint, or active-documentation drift. It does not
+capture live readiness or grant runtime authority.
+The current inventory schema is `uaa-api-route-inventory.v5`. Its generated
+counts are deliberately separate from the hand-reviewed API security policy
+floor; a refresh fails when public, mutating, auth, approval/idempotency, or
+targeted rate-limit posture drifts.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -13,6 +25,15 @@ Historical release notes may preserve older route counts for audit history.
 disabled-by-default local AuthorityLease mission worker; approval, idempotency,
 and targeted rate limiting are not required because it cannot enqueue,
 execute, reconcile, or mutate.
+
+`GET /api/runtime/authority-missions/completions` is `local_sensitive` and
+read-only. It reports offline-hash-verified, content-free completion manifests
+with settled budget and terminal evidence refs. It performs no execution,
+approval, lease, memory write, context injection, or authority mutation. Safe
+managed-signing lifecycle refs are inspection-only; Keychain and signing
+operations remain exact dispatcher actions outside this route.
+Interrupted rotation/revocation cleanup is likewise an exact dispatcher action,
+not a read-route side effect.
 
 Each route declares:
 
@@ -50,8 +71,8 @@ Current route classification summary:
 |---|---:|
 | `public_metadata` | 3 |
 | `local_readonly` | 29 |
-| `local_sensitive` | 172 |
-| `mutating_requires_authority` | 53 |
+| `local_sensitive` | 174 |
+| `mutating_requires_authority` | 58 |
 
 Allowed current side-effect classes are:
 
@@ -94,6 +115,23 @@ The Today-to-Action envelope promotion route additionally requires active
 before local review-only Action envelope state is written.
 This is not durable dedupe storage, exactly-once execution, replay execution,
 mutation authority, production authority, or a public beta claim.
+
+The Founder Loop exact-action surface adds one protected status route and four
+protected mutation routes for a single predeclared repository-metadata target.
+Source review acknowledges a fixed set of safe refs without reading their
+content and records a content-free receipt only after exact
+current mission-lease evaluation. Prepare binds that receipt, the inspected
+source refs, target, mission, run, lease, deadline, and idempotency ref and
+re-evaluates the same lease. Approval is validated by
+`LocalApprovalAuthority` in one revocation-safe critical section after another
+current-lease evaluation; the approval ref remains an identifier only.
+Execution re-enters `MissionOrchestrator` → `AuthorityMissionRunner` →
+`AuthorityDispatcher`, revalidates the current mission-scoped `files/read`
+lease, and records content-free source, dispatch, and completion receipt refs.
+Status verifies the execution source ledgers and terminal dispatch rather than trusting
+the mutable Action projection. The API does not create a business-memory
+candidate from the metadata result, grant broad filesystem authority, or
+persist paths or file content.
 
 UAA-P1-085 implements targeted local fixed-window rate-limit posture for
 model/chat, task decomposition, action preview/proposal, turn-router preview,
@@ -151,8 +189,8 @@ run, and evidence refs without persisting raw prompt text or granting runtime
 authority.
 `GET /api/runtime/parity-loop` exposes a protected read-only Python Core final
 runtime parity-loop read model over prepared turn, route decision, durable run,
-staged orchestration, provider evidence, Action Inbox approval, receipt, signed
-evidence, and blocked-state refs without executing work or granting runtime
+staged orchestration, provider evidence, Action Inbox approval, receipt, local
+SHA-256 hash-integrity evidence (with legacy signed identifiers), and blocked-state refs without executing work or granting runtime
 authority.
 `GET /api/runtime/delegation-adapter` exposes a protected read-only Python Core
 Hermes Runtime Adoption Phase 01 delegation adapter readiness model. It shows
@@ -583,13 +621,16 @@ background monitoring, or process control.
 
 `GET /extensions/catalog` returns read-only inspectable extension catalog
 metadata with safe refs, visibility status, trust posture, callable posture,
-blocked reasons, review evidence refs, safe adoption posture, and
-install-disabled posture. `POST /extensions/disabled-install-records` records
-only an exact disabled extension install metadata receipt after active
-`workspace/write` AuthorityLease scope, exact `LocalApprovalAuthority`
-validation, idempotency, redacted receipt refs, and the local disabled-record
-store validate. These routes do not persist package installs, import, enable,
-activate, revoke, execute, fetch, or mutate extensions.
+blocked reasons, review evidence refs, safe adoption posture, deterministic
+developer validation, canonical availability snapshot refs, and
+install-disabled posture. The disabled-install record and rollback mutation
+routes reject caller-supplied approval-grant payloads and fail closed until a
+durable core-owned approval resolver can supply an exact current
+`LocalApprovalAuthority` decision. Python Core receipt builders still require
+an active `workspace/write` AuthorityLease, injected exact approval authority,
+idempotency, pinned metadata hashes, and safe local storage validation. These
+routes do not persist package installs, import, enable, activate, execute,
+fetch, or otherwise grant extension authority.
 
 ### Control Center capability surface
 
@@ -700,6 +741,7 @@ authority.
 - `POST /control-center/memory/review/{candidate_ref}/accept`
 - `POST /control-center/memory/review/{candidate_ref}/correct`
 - `POST /control-center/memory/review/{candidate_ref}/reject`
+- `POST /control-center/memory/review/{candidate_ref}/expire`
 - `GET /control-center/morning-briefing/summary`
 - `GET /control-center/proof/index`
 - `GET /control-center/proof/{proof_ref}`

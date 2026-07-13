@@ -86,7 +86,7 @@ def verify_api() -> None:
 
 def verify_cli() -> None:
     result = subprocess.run(
-        [sys.executable, "scripts/dev/uaa_extensions.py", "inspect-catalog"],
+        [sys.executable, "scripts/dev/uaa_extensions.py", "inspect-catalog", "--json"],
         check=True,
         capture_output=True,
         text=True,

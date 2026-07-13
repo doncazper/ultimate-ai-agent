@@ -1,0 +1,171 @@
+# Self-Hosted macOS CI
+
+Status: implemented repository workflow and provisioning contract. Runner
+registration is local operator-managed infrastructure and must remain
+repository-scoped, bounded, and independently revocable.
+
+UAA uses repository-scoped self-hosted Apple Silicon runners so normal CI can
+continue without GitHub-hosted runner minutes. GitHub still coordinates jobs,
+checks, pull requests, and logs. The local Mac supplies the compute.
+
+This is CI infrastructure only. It grants no UAA runtime, shell, browser,
+provider, connector, production, or AuthorityLease capability.
+
+## Security boundary
+
+- The repository must remain private while these runners are registered.
+- Runner processes execute as the dedicated standard account `uaa-ci`, never
+  the everyday operator account and never root.
+- The runner account must contain no SSH keys, cloud credentials, package
+  registry credentials, browser profiles, or personal Keychain material.
+- Each runner is scoped only to `doncazper/ultimate-ai-agent` and carries the
+  custom label `uaa-ci` plus GitHub's `self-hosted`, `macOS`, and `ARM64`
+  labels.
+- Fork pull requests never reach the normal CI workflow. A separate
+  base-controlled `pull_request_target` policy job checks only repository-name
+  metadata, uses no checkout, action, secret, PR ref, or head SHA, and fails the
+  pull request. No fork-controlled repository content or command reaches the
+  Mac. Keep `fork-policy` among the repository's required merge checks.
+- The workflow token has `contents: read` only, and checkout does not persist
+  its token.
+- No GitHub Actions cache or artifact upload/download action is used. Job logs
+  and safe step summaries remain subject to GitHub's normal Actions retention.
+- Four isolated runner processes are the default so the existing pytest shard
+  contract can make progress concurrently. Set `UAA_RUNNER_COUNT=1` through
+  `4` before provisioning to choose a smaller bounded count.
+- Runner LaunchDaemons use macOS `ProcessType=Standard`. Background process
+  classification is intentionally rejected because it constrains CI children
+  to background scheduling and makes the bounded test budget non-representative;
+  interactive scheduling is not granted.
+- Every workflow command uses exact `taskpolicy -c utility` scheduling so an
+  older installed runner cannot silently inherit background QoS. The pytest
+  command keeps the same exact wrapper for explicit contract verification. The
+  wrapper execs the existing command and grants no administrator access.
+- Python 3.12 and Node 22 are shared, pre-provisioned Homebrew toolchains. CI
+  does not use the setup actions because their macOS installers require
+  host-level installation privileges that the non-admin runner must not gain.
+- Runner work roots contain `.metadata_never_index` markers so Spotlight does
+  not amplify I/O while four large repository checkouts are materialized.
+- Pytest shard basetemps, performance reports, and static-verification timings
+  use each job's private `RUNNER_TEMP`. The shared-Mac CI budget keeps a
+  900-second stretch goal, reports a 1200-second target, and enforces an
+  1800-second hard timeout for the complete eight-shard suite. The wider suite
+  ceiling absorbs measured single-host variance without hiding it; only the
+  hard timeout terminates the sharded run.
+- The performance release lane waits for the rest of the CI matrix before it
+  measures latency. This keeps the four-runner pool useful for functional
+  checks without treating whole-machine contention as product latency.
+- CPU- and I/O-heavy job classes are staged: lint, pytest shards, backend and
+  release checks, Control Center verification, visual regression, performance,
+  then the aggregate Foundation Gate. Jobs within a stage still use the four
+  runners concurrently. This prevents unrelated scans from exhausting pytest
+  and Vitest per-test deadlines on one physical Mac.
+- Pull-request and main-push visual screenshots use the exact GitHub event
+  range and run only when it changes the Control Center, its visual/product-language documentation,
+  or its visual contract verifiers. The visual-contract verifier still runs on
+  every CI invocation, and missing Git history fails closed to the full browser
+  lane. This preserves the macOS image gate for affected UI changes without
+  making unrelated integration work inherit stale image drift.
+- Pytest keeps eight deterministic logical shards inside one job and one
+  installed environment. Four isolated workers overlap subprocess-heavy shard
+  waits while avoiding the lock starvation and repeated
+  dependency installation caused by multiple runner jobs on one physical Mac.
+  Every logical shard receives its own bounded `HOME`, `TEMP`, `TMP`, and
+  `TMPDIR` below the run basetemp, so child processes cannot share runner-home
+  caches, state, or credential configuration.
+- Checkout remains on the repository-allowlisted `actions/checkout@v4` action;
+  changing the repository Actions allow-policy is outside this provisioner's
+  authority. Checkout tokens remain non-persistent.
+- GitHub cancellation is forwarded by the Bash step and handled inside the
+  shard runner for `SIGINT`, `SIGTERM`, and `SIGHUP`. Active shard process groups
+  close with a bounded grace period; the wrapper escalates after a bounded wait
+  so superseded runs do not leave an indefinitely waiting job on the dedicated
+  account.
+- Release lanes disable Bash's immediate-exit behavior only inside their
+  bounded command wrappers so failures produce safe summaries and still end
+  the job unsuccessfully.
+- The dedicated account is not granted access to the everyday account's Docker
+  Desktop socket. The desktop-packaging lane reports its permitted explicit
+  `self-hosted-runner-docker-unavailable` skipped posture and still runs the
+  packaging contract verifier. Live packaging proof remains available through
+  the separate local operator verification lane.
+
+Same-repository branches can execute their checked-in workflow commands on the
+runner. Keep repository write access narrow and review workflow changes as
+machine-execution changes.
+
+## Provision once
+
+From an administrator account with authenticated `gh`, on the intended Apple
+Silicon Mac:
+
+```bash
+brew install python@3.12 node@22
+./scripts/ci/provision_self_hosted_macos_runners.sh
+```
+
+The script uses secure `sudo` and `sysadminctl` prompts to create `uaa-ci` as a
+standard user when it does not exist. It downloads the exact GitHub runner
+archive `2.335.1`, verifies the published SHA-256 checksum, requests short-lived
+repository registration tokens without printing them, and passes each token to
+the upstream runner through its masked `ACTIONS_RUNNER_INPUT_TOKEN` input rather
+than a process argument. It then registers each runner and installs root-owned
+LaunchDaemons that execute as `uaa-ci`. Each service receives a private writable
+tool-cache path, while jobs use the pre-provisioned Python and Node binaries
+without granting the runner `sudo`.
+
+An existing local `.runner` record is reused only when GitHub still reports the
+exact runner name and the local record matches the expected repository, work
+folder, and runner name. The record must be a regular non-symlink file. A local
+record without a matching remote registration fails closed. Remove that stale
+registration with an exact short-lived GitHub removal token before
+reprovisioning; the bootstrap helper never silently trusts or overwrites
+ambiguous runner state.
+
+The provisioning script never changes GitHub billing, spending limits,
+payment methods, repository visibility, workflow permissions, or paid runner
+settings.
+
+The provisioner tolerates one transient macOS `launchctl` bootstrap race after
+unloading an existing service. It waits two seconds, retries exactly once, and
+then verifies that the system-domain service is loaded. A second failure remains
+fatal and requires inspection rather than an unbounded retry loop.
+
+## Verify
+
+Run the static contract and inspect GitHub's live runner state:
+
+```bash
+.venv/bin/python scripts/verify_self_hosted_macos_ci.py
+gh api repos/doncazper/ultimate-ai-agent/actions/runners \
+  --jq '.runners[] | [.name, .status, .busy, [.labels[].name]]'
+```
+
+Expected names are `uaa-ci-mac-arm64-01` through the configured count. Each
+must be `online` and advertise `self-hosted`, `macOS`, `ARM64`, and `uaa-ci`.
+
+Open a same-repository pull request only after at least one runner is online.
+All named release lanes remain present. With fewer than four local runner
+instances they queue and serialize rather than consume GitHub-hosted minutes.
+
+## Stop and incident response
+
+The LaunchDaemon labels are `com.github.actions.runner.uaa-ci-01` through
+`-04`. Stop an instance immediately with:
+
+```bash
+sudo launchctl bootout system/com.github.actions.runner.uaa-ci-01
+```
+
+Then remove the runner registration in GitHub repository Settings → Actions →
+Runners. If a branch executes unexpected code, stop every instance, rotate any
+credential that was mistakenly placed in the runner account, remove the
+runner registration, and inspect the runner `_diag` directory locally. Do not
+upload raw runner diagnostics because they may contain paths or command output.
+
+## Cost posture
+
+Self-hosted runner compute does not consume GitHub-hosted runner minutes. This
+does not make every Actions feature unmetered: GitHub-hosted runners and excess
+Actions storage remain separate billing surfaces. UAA therefore keeps caches
+and uploaded artifacts out of this workflow and makes no paid-usage claim.

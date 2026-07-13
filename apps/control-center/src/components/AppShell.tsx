@@ -11,7 +11,10 @@ import {
   visibleReleaseStatus,
 } from "../routes";
 import { CommandPalette } from "./CommandPalette";
-import { NorthStarIcon } from "./NorthStarIcon";
+import {
+  NorthStarIcon,
+  type IconReference,
+} from "./NorthStarIcon";
 
 interface AppShellProps {
   children: ReactNode;
@@ -185,7 +188,7 @@ export function AppShell({
             <strong>{activeRoute}</strong>
             <small>{routeTruthLabel}</small>
             <div className="topbar-safety-floor" aria-label="Visible safety floor">
-              <span>No generic execution</span>
+              <span>No generic execution · no authority to run actions</span>
               <span>Local task authority requires backend approval</span>
               <span>Sources blocked/status-only</span>
               {!authorityModeAuthoritative ? (
@@ -258,23 +261,52 @@ function NavLink({
   );
 }
 
-function navIconForLabel(label: string): string {
-  const icons: Record<string, string> = {
-    Today: "sun",
+function navIconForLabel(label: string): IconReference {
+  const icons: Record<string, IconReference> = {
+    "Action Preview": "scan-eye",
+    Approvals: "badge-check",
+    "API Routes": "braces",
+    Briefing: "newspaper",
+    Capabilities: "shapes",
+    Chat: "message-square",
+    Coding: "code-2",
+    CRM: "briefcase-business",
+    Dashboard: "chart-column",
+    Differentiators: "sparkles",
+    Events: "activity",
+    Evidence: "file-check-2",
+    Files: "folder-open",
+    "File Review": "file-search",
+    "Foundation Gate": "shield-check",
+    "Icon Library": "shapes",
     Inbox: "inbox",
-    "Source Inbox": "inbox",
-    Plans: "list",
-    "Work Board": "clipboard",
-    Actions: "check-circle",
-    "Action Inbox": "check-circle",
+    "Local Runtime": "cpu",
+    "Manual Smoke": "gauge",
     Memory: "brain",
-    Evidence: "file-text",
-    Settings: "settings",
-    Briefing: "map",
-    CRM: "briefcase",
-    Chat: "chat",
-    Setup: "sliders",
+    "Mobile Planning": "phone",
+    Models: "boxes",
+    Operator: "user",
+    "Operator Loop": "workflow",
+    Overview: "house",
+    "Plugin Governance": "plug",
+    Proof: "shield-check",
+    Receipts: "receipt-text",
+    "Remote Workers": "network",
     Runtime: "terminal",
+    Setup: "sliders-horizontal",
+    Today: "sun",
+    "Source Inbox": "inbox",
+    Plans: "list-todo",
+    "Work Board": "clipboard-list",
+    Actions: "circle-check",
+    "Action Inbox": "circle-check",
+    Settings: "settings",
+    Start: "rocket",
+    "Start Here": "rocket",
+    Storage: "database",
+    Timeline: "history",
+    "Trial Packet": "badge-check",
+    Trust: "shield",
   };
   return icons[label] ?? "file";
 }
@@ -288,7 +320,7 @@ function StatusChip({
   label: string;
   tone: "green" | "blue" | "red" | "orange";
 }) {
-  const icon = label.includes("Evidence")
+  const icon: IconReference = label.includes("Evidence")
     ? "heart"
     : label.includes("Runtime")
       ? "cube"

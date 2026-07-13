@@ -7,8 +7,11 @@ PYTEST_SHARD_WORKERS ?= 8
 PYTEST_SHARD_TIMINGS_JSON ?= /tmp/uaa_pytest_file_timings.json
 PYTEST_SHARD_TIMING_SEED_JSON ?= scripts/verification/pytest_file_timing_seed.json
 PYTEST_SHARD_BASETEMP ?= /tmp/uaa_pytest_shards
-
-.PHONY: doctor test test-serial test-sharded test-sharded-profile verify verify-static verify-gate-architecture verify-fast verify-dev-fast verify-dev-sharded verify-local verify-beta-local verify-beta-local-visual frontend-check frontend-visual-check frontend-turn-router-smoke openapi ruff
+PYTEST_STRETCH_GOAL_SECONDS ?= 110
+PYTEST_TARGET_SECONDS ?= 125
+PYTEST_HARD_TIMEOUT_SECONDS ?= 180
+PYTEST_PERFORMANCE_REPORT ?= /tmp/uaa_pytest_performance_report.json
+.PHONY: doctor test test-serial test-sharded test-sharded-profile verify verify-static verify-gate-architecture verify-fast verify-affected verify-value-audit verify-dev-fast verify-dev-sharded verify-local verify-beta-local verify-beta-local-visual frontend-check frontend-visual-check frontend-turn-router-smoke openapi ruff
 
 doctor:
 	$(PYTHON) scripts/verify_dev_environment.py
@@ -20,10 +23,10 @@ test-serial:
 	PYTHONPATH=src $(PYTHON) -m pytest
 
 test-sharded:
-	PYTHONPATH=src $(PYTHON) scripts/verification/run_pytest_shards.py --shards $(PYTEST_SHARDS) --max-workers $(PYTEST_SHARD_WORKERS) --timings-json $(PYTEST_SHARD_TIMING_SEED_JSON) --timings-json $(PYTEST_SHARD_TIMINGS_JSON) --basetemp $(PYTEST_SHARD_BASETEMP)
+	PYTHONPATH=src $(PYTHON) scripts/verification/run_pytest_shards.py --shards $(PYTEST_SHARDS) --max-workers $(PYTEST_SHARD_WORKERS) --timings-json $(PYTEST_SHARD_TIMING_SEED_JSON) --timings-json $(PYTEST_SHARD_TIMINGS_JSON) --basetemp $(PYTEST_SHARD_BASETEMP) --stretch-goal-seconds $(PYTEST_STRETCH_GOAL_SECONDS) --target-seconds $(PYTEST_TARGET_SECONDS) --hard-timeout-seconds $(PYTEST_HARD_TIMEOUT_SECONDS) --performance-report $(PYTEST_PERFORMANCE_REPORT)
 
 test-sharded-profile:
-	PYTHONPATH=src $(PYTHON) scripts/verification/run_pytest_shards.py --shards $(PYTEST_SHARDS) --max-workers $(PYTEST_SHARD_WORKERS) --timings-json $(PYTEST_SHARD_TIMING_SEED_JSON) --timings-json $(PYTEST_SHARD_TIMINGS_JSON) --write-timings-json $(PYTEST_SHARD_TIMINGS_JSON) --basetemp $(PYTEST_SHARD_BASETEMP)
+	PYTHONPATH=src $(PYTHON) scripts/verification/run_pytest_shards.py --shards $(PYTEST_SHARDS) --max-workers $(PYTEST_SHARD_WORKERS) --timings-json $(PYTEST_SHARD_TIMING_SEED_JSON) --timings-json $(PYTEST_SHARD_TIMINGS_JSON) --write-timings-json $(PYTEST_SHARD_TIMINGS_JSON) --basetemp $(PYTEST_SHARD_BASETEMP) --stretch-goal-seconds $(PYTEST_STRETCH_GOAL_SECONDS) --target-seconds $(PYTEST_TARGET_SECONDS) --hard-timeout-seconds $(PYTEST_HARD_TIMEOUT_SECONDS) --performance-report $(PYTEST_PERFORMANCE_REPORT)
 
 verify:
 	$(MAKE) ruff test-sharded verify-static
@@ -36,8 +39,14 @@ verify-static:
 verify-gate-architecture:
 	PYTHONPATH=src $(PYTHON) scripts/verify_gate_architecture.py
 
-verify-fast: ruff test verify-static verify-gate-architecture
-	$(PYTHON) scripts/run_foundation_gate.py --command-mode report-only --no-write-latest
+verify-fast:
+	PYTHONPATH=src $(PYTHON) scripts/verification/changed_path_selector.py --tier fast --execute
+
+verify-affected:
+	PYTHONPATH=src $(PYTHON) scripts/verification/changed_path_selector.py --tier affected --execute
+
+verify-value-audit:
+	PYTHONPATH=src $(PYTHON) scripts/verification/verifier_value_audit.py
 
 verify-dev-fast:
 	$(MAKE) -j$(VERIFY_DEV_FAST_JOBS) ruff test verify-static verify-gate-architecture
@@ -78,3 +87,8 @@ openapi:
 
 ruff:
 	$(PYTHON) -m ruff check .
+
+portable-evidence-keychain-helper:
+	$(PYTHON) scripts/dev/install_portable_evidence_keychain_helper.py
+
+.PHONY: portable-evidence-keychain-helper

@@ -1,11 +1,13 @@
 # Control Center North-Star Render Manifest
 
-Status: current design target, documentation only.
-Baseline ID: CC-NS-2026-07-06.
-Current as of: 2026-07-06.
+Status: current target render set, documentation only.
+Baseline ID: CC-NS-TARGET-R3-2026-07-11.
+Current as of: 2026-07-11.
 Repo baseline: v0.104.0 / 0.104.0.
 
-The renders were generated as UI mockups for the Control Center north-star
+Machine-readable currentness: `CURRENT_RENDER_BASELINE.json`.
+
+The renders were generated as UI mockups for the Control Center target
 direction and then copied into this repository as design artifacts. They should
 be treated as visual targets and alignment aids, not shipped UI screenshots.
 
@@ -13,9 +15,87 @@ The separate ECO-000 planning-only extension is indexed at
 `../ecosystem_north_star/RENDER_MANIFEST.md`; those SVG drafts do not alter the
 accepted shell or count as shipped UI evidence.
 
-`APP_SHELL_BASELINE.md` is the normative shell specification for left-rail
+`APP_SHELL_BASELINE.md` is the normative target shell specification for left-rail
 order, route stability, typography, spacing, and state treatment. The PNGs are
 not normative when their generated sidebar details conflict with that file.
+
+## Target V1 Defaults
+
+These 14 drafts cover every target top-level workspace, lower utility, and
+global workflow surface. The current 40-route implementation remains covered by
+the legacy composites and route matrix below; consolidation in a render is not
+evidence that consolidation is implemented.
+
+| File | Target surface | Required integration | Must not imply |
+|---|---|---|---|
+| `renders/target-v1/01-today.png` | Today | briefing, attention, selected detail, Day Plan, news, business pulse, receipts, UAA | duplicated truth or hidden authority |
+| `renders/target-v1/02-communications.png` | Communications | email/messages/follow-ups, CRM, Work Board, event proposal | send or connector write |
+| `renders/target-v1/03-work-board.png` | Work Board | plans, CRM, Calendar, Communications, evidence | optimistic completion or broad mutation |
+| `renders/target-v1/04-crm.png` | CRM | relationships, activity, commitments, schedule proposal | raw contact data or connector sync |
+| `renders/target-v1/05-calendar.png` | Calendar | schedule, tasks, CRM, source-backed candidate, conflict checks | candidate as committed or externally synced |
+| `renders/target-v1/06-studio.png` | Studio | Chat/Code, diff, context, checks, evidence | arbitrary shell, deploy, or model authority |
+| `renders/target-v1/07-knowledge.png` | Knowledge | memory, files, context, provenance, review | memory as truth or automatic injection |
+| `renders/target-v1/08-activity-trust.png` | Activity & Trust | receipts, evidence, decisions, authority, proof | audit as execution authority |
+| `renders/target-v1/09-customize.png` | Customize | reorder, show/hide, density, preview | capability enable/disable |
+| `renders/target-v1/10-settings.png` | Settings | search, preferences, posture, governed settings | unsupported live controls |
+| `renders/target-v1/11-developer-tools.png` | Developer Tools | runtime, models, storage, API/gate, plugins, diagnostics | production or unrestricted authority |
+| `renders/target-v1/12-decision-review.png` | Decision Review | exact envelope, consequences, receipt, outcomes | approval ref as execution authority |
+| `renders/target-v1/13-onboarding.png` | Onboarding | local readiness, read-only source posture, safety defaults | connected providers or production readiness |
+| `renders/target-v1/14-uaa-sidecar.png` | UAA Sidecar | safe context, explanation, proposal handoff | DOM scraping or direct mutation |
+
+All target V1 entries begin as `Draft`. Critique, status, and version history
+are managed locally by `render-review/renders.json` and the review gallery.
+
+## Today Shell Explorations
+
+The four non-destructive Today iterations below preserve the refinement trail.
+The later six-panel `renders/target-v1/01-today.png` composition is the current
+review target for the 2026-07 period; `current` here means preferred draft for
+critique, not approved or implemented.
+
+| File | Status | Period |
+|---|---|---|
+| `renders/drafts/CC-R2-SHELL-01-today-desktop-default-v1.png` | Preserved draft | 2026-07 |
+| `renders/drafts/CC-R2-SHELL-01-today-desktop-default-v2.png` | Preserved draft | 2026-07 |
+| `renders/drafts/CC-R2-SHELL-01-today-desktop-default-v3.png` | Preserved draft | 2026-07 |
+| `renders/drafts/CC-R2-SHELL-01-today-desktop-default-v4.png` | Preserved draft | 2026-07 |
+| `renders/target-v1/01-today.png` | Current draft | 2026-07 |
+
+## Revision 02 Drafts
+
+Revision 02 preserves every V1 file and adds the accepted review corrections.
+
+| File | Surface/version | Required change | Must not imply |
+|---|---|---|---|
+| `renders/target-v2/03-work-board-v2.png` | Work Board v2 | status column bars; priority card edges; visible legend | color-only meaning or rainbow cards |
+| `renders/target-v2/04-crm-v2.png` | CRM v2 | availability-backed Call chooser; exact review; general placeholder | provider connected or call completed |
+| `renders/target-v2/06-studio-v2.png` | Studio v2 | immersive familiar workbench; back path; optional drawer; Terminal | arbitrary shell, deploy, or model authority |
+| `renders/target-v2/15-news-v1.png` | News v1 | curated sourced brief; freshness; why selected; saved/source controls | unrestricted fetch or unsourced ranking |
+| `renders/target-v2/16-trust-v1.png` | Trust v1 | authority matrix; exact lease; live decisions; revoke/pause/kill/safe-disable | matrix as authority grant |
+| `renders/target-v2/17-terminal-v1.png` | Terminal v1 | exact command lanes; redacted output; receipts; pop-out | unrestricted shell or raw environment |
+| `renders/target-v2/18-compact-shell-v1.png` | Compact shell v1 | same nav as icons; tooltip/focus labels; fixed utilities | hidden routes or changed capability |
+
+## CRM Revision 03
+
+CRM v3 preserves the v1 general workspace and v2 governed-call concept while
+replacing the provisional layout with a compact, general-purpose relationship
+operating surface. The reference synthesis and locked design rules are recorded
+in `CRM_V3_REFERENCE_SYNTHESIS.md`.
+
+| File | Surface/version | Required change | Must not imply |
+|---|---|---|---|
+| `renders/target-v3/04-crm-v3.png` | CRM v3 | fixed toolbar; route tabs; six KPIs; smart views; sortable relationship table; persistent inspector; pipeline analytics; availability-backed calling; route-aware UAA composer | specialty vertical; raw contact data; provider connection; sync; dialer launch as completed call; recording by default |
+
+## Messenger Matrix Client V1
+
+The 15-image `communications-v1` set defines the clean-room,
+Element-familiar UAA Messenger workspace. It includes the two-Space model, daily
+conversation surfaces, room management, account security, UAA intelligence,
+failure recovery, dark appearance, and later calling preflight. See
+`UAA_COMMUNICATIONS_MATRIX_NORTH_STAR.md` for the complete surface and truth
+contract. These images do not claim any current Matrix runtime.
+
+## Legacy Composite Coverage
 
 | File | Covered surfaces | Must show | Must not imply |
 |---|---|---|---|
@@ -57,7 +137,8 @@ All renders used the same design constraints:
 
 - contained 1440x900-ish desktop app window;
 - no webpage chrome, endless scrolling, landing page, or hero section;
-- fixed left navigation and persistent top status/authority strip;
+- fixed left navigation and persistent top status/authority strip on standard
+  routes; Studio uses the documented immersive workbench exception;
 - bounded split panes, inspectors, ledgers, and bottom evidence strips;
 - restrained graphite/off-white visual system with blue/teal active states,
   green receipts, amber ask/partial, red denied/blocked, gray planned;
@@ -67,16 +148,16 @@ All renders used the same design constraints:
 - no raw JSON, raw prompts, raw responses, provider payloads, logs, local
   paths, credentials, or production claims.
 
-## Static Shell Requirement
+## Target Shell Requirement
 
-All future render prompts and implementation passes should use the
-CC-NS-2026-07-06 static shell:
+All future target render prompts and implementation passes should use the
+CC-NS-TARGET-R3-2026-07-11 shell:
 
 ```text
-Start Here, Today, Source Inbox, Plans, Work Board, Action Inbox, Proof,
-Trust, Memory, Evidence, Settings.
+Today, Communications, Messenger, Work Board, CRM, Calendar, News, Studio,
+Knowledge, Activity & Trust, Customize, Settings, Developer Tools.
 ```
 
-Supporting route groups may be collapsed or exposed through a stable secondary
-section, but route-local tabs must stay inside the workspace and must not
-replace global navigation.
+Action Inbox is reached through `Review N decisions` rather than a permanent
+primary tab. Developer Tools is collapsed and hidden by default. Route-local
+tabs stay inside the workspace and never replace global navigation.

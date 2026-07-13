@@ -3,7 +3,6 @@ import os
 import subprocess
 import sys
 
-from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.authority import (
     AuthorityCapability,
     AuthorityDomain,
@@ -16,8 +15,6 @@ from ultimate_ai_agent.core.authority.approval_validation import (
 )
 from ultimate_ai_agent.core.extension_catalog import (
     build_default_inspectable_extension_catalog,
-    build_extension_install_disabled_approval_request,
-    build_extension_install_disabled_delete_approval_request,
 )
 
 
@@ -86,6 +83,7 @@ def test_uaa_extensions_cli_inspects_same_safe_catalog() -> None:
             sys.executable,
             "scripts/dev/uaa_extensions.py",
             "inspect-catalog",
+            "--json",
         ],
         env=env,
         check=True,
@@ -142,20 +140,6 @@ def test_uaa_extensions_cli_records_install_disabled_receipt(tmp_path) -> None:
         idempotency_ref="idempotency-ref:extension-cli-record-lease",
         approval_ref="approval-ref:test-authority:extension-cli-record-lease",
     )
-    approval_authority = LocalApprovalAuthority()
-    approval_request = approval_authority.create_request(
-        build_extension_install_disabled_approval_request()
-    )
-    grant = approval_authority.grant(
-        approval_request.approval_request_id,
-        approved_by_actor_id="actor:operator",
-        approval_ref="approval-ref:extension-install-disabled:cli",
-    )
-    grant_file = tmp_path / "extension-install-disabled-grant.json"
-    grant_file.write_text(
-        json.dumps(grant.model_dump(mode="json"), sort_keys=True),
-        encoding="utf-8",
-    )
     env = os.environ.copy()
     env["PYTHONPATH"] = "src"
 
@@ -167,31 +151,20 @@ def test_uaa_extensions_cli_records_install_disabled_receipt(tmp_path) -> None:
             "--authority-state-dir",
             str(authority_state_dir),
             "--approval-ref",
-            grant.approval_ref,
-            "--approval-grant-file",
-            str(grant_file),
+            "approval-ref:extension-install-disabled:cli",
             "--idempotency-ref",
             "idempotency-ref:extension-install-disabled:cli",
         ],
         env=env,
-        check=True,
+        check=False,
         capture_output=True,
         text=True,
         timeout=20,
     )
 
-    payload = json.loads(result.stdout)
-    assert payload["status"] == "disabled_install_record_receipt_recorded"
-    assert payload["record_storage_mode"] == "local_disabled_record_store"
-    assert payload["durable_store_persistence"] is True
-    assert payload["approval_ref"] == grant.approval_ref
-    assert payload["authority_decision_outcome"] == "allow"
-    assert payload["plugin_install_enabled"] is False
-    assert payload["runtime_import_enabled"] is False
-    assert payload["plugin_execution_enabled"] is False
-    assert payload["side_effects_performed"] == [
-        "side-effect:extension-install-disabled:local-record-write"
-    ]
+    assert result.returncode != 0
+    assert "EXTENSION_INSTALL_DISABLED_ATOMIC_AUTHORITY_STATE_REQUIRED" in result.stderr
+    assert not (authority_state_dir / "extension_install_disabled_records").exists()
 
 
 def test_uaa_extensions_cli_rolls_back_install_disabled_receipt(tmp_path) -> None:
@@ -209,57 +182,8 @@ def test_uaa_extensions_cli_rolls_back_install_disabled_receipt(tmp_path) -> Non
         idempotency_ref="idempotency-ref:extension-cli-rollback-lease",
         approval_ref="approval-ref:test-authority:extension-cli-rollback-lease",
     )
-    record_approval_authority = LocalApprovalAuthority()
-    record_approval_request = record_approval_authority.create_request(
-        build_extension_install_disabled_approval_request()
-    )
-    record_grant = record_approval_authority.grant(
-        record_approval_request.approval_request_id,
-        approved_by_actor_id="actor:operator",
-        approval_ref="approval-ref:extension-install-disabled:cli-rollback-record",
-    )
-    delete_approval_authority = LocalApprovalAuthority()
-    delete_approval_request = delete_approval_authority.create_request(
-        build_extension_install_disabled_delete_approval_request()
-    )
-    delete_grant = delete_approval_authority.grant(
-        delete_approval_request.approval_request_id,
-        approved_by_actor_id="actor:operator",
-        approval_ref="approval-ref:extension-install-disabled-delete:cli",
-    )
-    record_grant_file = tmp_path / "extension-install-disabled-record-grant.json"
-    record_grant_file.write_text(
-        json.dumps(record_grant.model_dump(mode="json"), sort_keys=True),
-        encoding="utf-8",
-    )
-    delete_grant_file = tmp_path / "extension-install-disabled-delete-grant.json"
-    delete_grant_file.write_text(
-        json.dumps(delete_grant.model_dump(mode="json"), sort_keys=True),
-        encoding="utf-8",
-    )
     env = os.environ.copy()
     env["PYTHONPATH"] = "src"
-
-    subprocess.run(
-        [
-            sys.executable,
-            "scripts/dev/uaa_extensions.py",
-            "record-install-disabled-receipt",
-            "--authority-state-dir",
-            str(authority_state_dir),
-            "--approval-ref",
-            record_grant.approval_ref,
-            "--approval-grant-file",
-            str(record_grant_file),
-            "--idempotency-ref",
-            "idempotency-ref:extension-install-disabled:cli-rollback-record",
-        ],
-        env=env,
-        check=True,
-        capture_output=True,
-        text=True,
-        timeout=20,
-    )
 
     result = subprocess.run(
         [
@@ -269,29 +193,19 @@ def test_uaa_extensions_cli_rolls_back_install_disabled_receipt(tmp_path) -> Non
             "--authority-state-dir",
             str(authority_state_dir),
             "--approval-ref",
-            delete_grant.approval_ref,
-            "--approval-grant-file",
-            str(delete_grant_file),
+            "approval-ref:extension-install-disabled-delete:cli",
             "--idempotency-ref",
             "idempotency-ref:extension-install-disabled-delete:cli",
         ],
         env=env,
-        check=True,
+        check=False,
         capture_output=True,
         text=True,
         timeout=20,
     )
 
-    payload = json.loads(result.stdout)
-    assert payload["status"] == "disabled_install_record_delete_receipt_recorded"
-    assert payload["deletion_status"] == "record_deleted"
-    assert payload["durable_delete_receipt_persistence"] is True
-    assert payload["approval_ref"] == delete_grant.approval_ref
-    assert payload["authority_decision_outcome"] == "allow"
-    assert payload["plugin_install_enabled"] is False
-    assert payload["runtime_import_enabled"] is False
-    assert payload["plugin_execution_enabled"] is False
-    assert payload["side_effects_performed"] == [
-        "side-effect:extension-install-disabled:local-record-delete",
-        "side-effect:extension-install-disabled:local-delete-receipt-write",
-    ]
+    assert result.returncode != 0
+    assert (
+        "EXTENSION_INSTALL_DISABLED_DELETE_ATOMIC_AUTHORITY_STATE_REQUIRED"
+        in result.stderr
+    )

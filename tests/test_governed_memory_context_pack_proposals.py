@@ -183,10 +183,10 @@ def test_context_pack_proposals_derive_from_reviewed_l1_l2_l3_layers(
 
     assert context_packs["contract_ref"] == CONTEXT_PACK_PROPOSAL_CONTRACT_REF
     assert context_packs["route_ref"] == CONTEXT_PACK_PROPOSAL_ROUTE_REF
-    assert context_packs["source_l1_preview_count"] == 2
-    assert context_packs["source_l2_projection_count"] == 6
-    assert context_packs["source_l3_representation_count"] == 2
-    assert context_packs["context_pack_count"] == 2
+    assert context_packs["source_l1_preview_count"] == 1
+    assert context_packs["source_l2_projection_count"] == 3
+    assert context_packs["source_l3_representation_count"] == 1
+    assert context_packs["context_pack_count"] == 1
     assert context_packs["safe_refs_only"] is True
     assert context_packs["proposal_only"] is True
     assert context_packs["derived_from_reviewed_memory_only"] is True

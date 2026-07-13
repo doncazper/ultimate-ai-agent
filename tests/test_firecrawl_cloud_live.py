@@ -22,7 +22,9 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def test_live_cloud_scrape_consumes_exactly_one_reserved_free_credit() -> None:
+def test_live_cloud_scrape_consumes_exactly_one_reserved_free_credit(
+    tmp_path: Path,
+) -> None:
     secret_file = Path(os.environ["UAA_FIRECRAWL_CLOUD_SECRET_FILE"])
     credential = resolve_firecrawl_cloud_credential(secret_file)
     before_result = reconcile_firecrawl_cloud_credits(credential)
@@ -58,10 +60,13 @@ def test_live_cloud_scrape_consumes_exactly_one_reserved_free_credit() -> None:
         request,
         capability_state=state,
         credit_snapshot=before,
-        ledger=InMemoryWebCreditLedger(),
+        ledger=InMemoryWebCreditLedger(state_path=tmp_path / "cloud-credit.jsonl"),
         credential=credential,
         approval_authority=_approval(request),
         authority_leases=[lease],
+        capability_state_provider=lambda: state,
+        credit_snapshot_provider=lambda: before,
+        authority_leases_provider=lambda: [lease],
         evaluated_at=now,
     )
 

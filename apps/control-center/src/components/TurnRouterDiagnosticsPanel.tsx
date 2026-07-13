@@ -14,7 +14,7 @@ type PreviewSource = "backend_owned" | "mock_fallback";
 const samples: Array<{
   id: TurnRouterPreviewSampleId;
   label: string;
-  expectedContract: string;
+  expectedContract: TurnRouterPolicySummary["turn_contract"];
   summary: string;
 }> = [
   {

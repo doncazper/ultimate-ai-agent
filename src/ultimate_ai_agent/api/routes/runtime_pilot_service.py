@@ -14,6 +14,7 @@ from ultimate_ai_agent.core.hygiene.envelopes import (
     Severity,
 )
 from ultimate_ai_agent.core.authority import (
+    AUTHORITY_LEASE_LOCAL_OPERATOR_REF,
     AuthorityActionRequest,
     AuthorityLeaseApproveAndIssueRequest,
     AuthorityLeaseConflictError,
@@ -51,6 +52,19 @@ from ultimate_ai_agent.core.execution.durable_mission_worker import (
 from ultimate_ai_agent.core.execution.mission_worker_inspection import (
     build_local_mission_worker_inspection,
 )
+from ultimate_ai_agent.core.execution.mission_completion import (
+    MissionCompletionCorruptionError,
+    MissionCompletionStore,
+    PortableEvidenceManagedSigningInspection,
+)
+from ultimate_ai_agent.core.evidence_signing import (
+    PortableEvidenceKeyLifecycleError,
+    PortableEvidenceKeyLifecycleLedger,
+)
+from ultimate_ai_agent.core.execution.portable_mission_evidence import (
+    build_portable_mission_evidence_inspection,
+)
+from ultimate_ai_agent.core.authority.contracts import authority_state_dir
 from ultimate_ai_agent.core.execution.durable_mission_controls import (
     MissionControlConflictError,
     MissionControlCorruptionError,
@@ -1314,6 +1328,77 @@ def get_api_runtime_authority_domain_readiness() -> ResultEnvelope:
     )
 
 
+@router.get("/authority-missions/completions", response_model=ResultEnvelope)
+def get_api_runtime_authority_missions_completions() -> ResultEnvelope:
+    try:
+        state_dir = authority_state_dir()
+        signing = PortableEvidenceKeyLifecycleLedger(
+            state_dir / "portable_evidence_signing"
+        ).inspect()
+        read_model = MissionCompletionStore(state_dir).build_read_model(
+            portable_evidence_summary=build_portable_mission_evidence_inspection(
+                state_dir
+            ),
+            managed_signing=PortableEvidenceManagedSigningInspection(
+                status=signing.status,
+                active_key_ref=signing.active_key_ref,
+                active_key_version_ref=signing.active_key_version_ref,
+                active_public_key_fingerprint_ref=(
+                    signing.active_public_key_fingerprint_ref
+                ),
+                lifecycle_terminal_entry_hash_ref=(
+                    signing.lifecycle_terminal_entry_hash_ref
+                ),
+                reason_refs=signing.reason_refs,
+            ),
+        )
+    except (
+        MissionCompletionCorruptionError,
+        PortableEvidenceKeyLifecycleError,
+        OSError,
+        UnicodeError,
+        ValueError,
+    ):
+        return ResultEnvelope(
+            success=False,
+            operation="api_runtime_authority_missions_completions",
+            service="GovernedRuntimeAPI",
+            trace_id="mission-completion-read-model-ref:unavailable",
+            error=ErrorEnvelope(
+                code="MISSION_COMPLETION_INSPECTION_UNAVAILABLE",
+                category=ErrorCategory.internal_error,
+                safe_message=(
+                    "Mission completion inspection is unavailable because local "
+                    "state could not be validated."
+                ),
+                severity=Severity.high,
+                retryable=False,
+                details_redacted=True,
+                source="GovernedRuntimeAPI",
+            ),
+            redactions_applied=[
+                "raw_task_inputs",
+                "raw_paths",
+                "raw_logs",
+                "raw_provider_payloads",
+            ],
+        )
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_authority_missions_completions",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.ledger_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[{"evidence_ref": read_model.ledger_ref}],
+        redactions_applied=[
+            "raw_task_inputs",
+            "raw_paths",
+            "raw_logs",
+            "raw_provider_payloads",
+        ],
+    )
+
+
 @router.post("/authority-decisions/preview", response_model=ResultEnvelope)
 def post_api_runtime_authority_decision_preview(
     request: AuthorityActionRequest,
@@ -1414,12 +1499,14 @@ def post_api_runtime_authority_lease_approve_and_issue(
     ),
 ) -> ResultEnvelope:
     idempotency_ref = _idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
-    lease_request = request.lease_issue_request
+    lease_request = request.lease_issue_request.model_copy(
+        update={"operator_ref": AUTHORITY_LEASE_LOCAL_OPERATOR_REF}
+    )
     approval_requirement, approval_grant = (
         build_authority_lease_operator_approval_grant(
             lease_request,
             idempotency_ref=idempotency_ref,
-            approved_by_actor_id=request.approved_by_actor_ref,
+            approved_by_actor_id=AUTHORITY_LEASE_LOCAL_OPERATOR_REF,
         )
     )
     if approval_grant is not None:

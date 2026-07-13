@@ -1,5 +1,9 @@
+import os
+import stat
 from hashlib import sha256
 from pathlib import Path
+from types import MappingProxyType
+from typing import NamedTuple
 
 from ultimate_ai_agent.core.extension_catalog.contracts import (
     ExtensionActivationStatus,
@@ -53,6 +57,7 @@ INSPECTABLE_EXTENSION_CATALOG_DOCS = [
 INSPECTABLE_EXTENSION_CATALOG_SCHEMAS = [
     "schema:plugin-skill-trust-manifest",
     "schema:inspectable-extension-catalog",
+    "schema:extension-ecosystem-read-model",
     "schema:extension-activation-grant",
     "schema:extension-install-disabled-posture",
 ]
@@ -81,6 +86,111 @@ EXTENSION_CATALOG_BLOCKED_CAPABILITIES = [
 ]
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
+_MAX_EXTENSION_METADATA_BYTES = 1_048_576
+
+
+class ExtensionPinnedIdentity(NamedTuple):
+    catalog_entry_ref: str
+    manifest_ref: str
+    version_ref: str
+    publisher_ref: str
+    source_ref: str
+    review_ref: str
+    license_ref: str
+    risk_class: str
+    capability_identities: tuple[tuple[str, str, str], ...]
+    requested_grant_identities: tuple[tuple[str, str, str], ...]
+    file_refs: frozenset[str]
+    safe_disable_ref: str
+    rollback_ref: str
+
+
+PINNED_EXTENSION_FILE_HASHES_BY_REF = MappingProxyType(
+    {
+        "file-ref:plugin-skill-ecosystem-boundary-doc": (
+            "sha256:ea2a17101419468ecb1067981a45dce5ae18eb1987f98daa90c79e02fbfe75b9"
+        ),
+        "file-ref:plugin-skill-trust-manifest-schema": (
+            "sha256:9c1d0fdfe45577f4510e6c1a90517f9789f58e523f90c006a2141d43db07bc46"
+        ),
+        "file-ref:inspectable-extension-catalog-schema": (
+            "sha256:68cf7653feb727eac690aa4c8e4623d6583b0e65d75372ce397fe144b800d4a9"
+        ),
+        "file-ref:skill-workbench-adoption-prompt-pack": (
+            "sha256:1e5af966b6c93802218bd2a6a28d984950089fa56dc3990c458af494ef0797da"
+        ),
+        "file-ref:inspectable-extension-catalog-doc": (
+            "sha256:cf3d885d84317a96f34dfeb57dcd88d3a48dd316fae1cb24d4ad16ad4dfacafe"
+        ),
+    }
+)
+
+PINNED_EXTENSION_IDENTITIES = MappingProxyType(
+    {
+        "extension-package:uaa-plugin-skill-boundary": ExtensionPinnedIdentity(
+            catalog_entry_ref="inspectable-catalog-entry:uaa-plugin-skill-boundary",
+            manifest_ref="plugin-skill-manifest:uaa-plugin-skill-boundary",
+            version_ref="version:uaa-p1-024",
+            publisher_ref="publisher:uaa-repo",
+            source_ref="source:uaa-repo-owned-boundary",
+            review_ref="review:uaa-p1-024",
+            license_ref="license:repo",
+            risk_class="low",
+            capability_identities=(
+                ("capability:extension-metadata-inspection", "tooling_metadata", "low"),
+            ),
+            requested_grant_identities=(
+                (
+                    "grant-request:extension-metadata-inspection",
+                    "scope:read-only-inspection",
+                    "future_scoped",
+                ),
+            ),
+            file_refs=frozenset(
+                {
+                    "file-ref:plugin-skill-ecosystem-boundary-doc",
+                    "file-ref:plugin-skill-trust-manifest-schema",
+                    "file-ref:inspectable-extension-catalog-schema",
+                }
+            ),
+            safe_disable_ref="safe-disable-ref:extension-metadata-inspection",
+            rollback_ref="rollback-ref:extension-metadata-inspection:disable",
+        ),
+        "extension-package:uaa-skill-metadata-index": ExtensionPinnedIdentity(
+            catalog_entry_ref="inspectable-catalog-entry:uaa-skill-metadata-index",
+            manifest_ref="plugin-skill-manifest:uaa-skill-metadata-index",
+            version_ref="version:hermes-runtime-adoption-phase-13",
+            publisher_ref="publisher:uaa-repo",
+            source_ref="source:uaa-repo-owned-skill-index",
+            review_ref="review:hermes-runtime-adoption-phase-13",
+            license_ref="license:repo",
+            risk_class="low",
+            capability_identities=(
+                ("capability:skill-metadata-index", "documentation_helper", "low"),
+                (
+                    "capability:progressive-skill-disclosure",
+                    "read_only_inspection",
+                    "low",
+                ),
+            ),
+            requested_grant_identities=(
+                (
+                    "grant-request:skill-metadata-inspection",
+                    "scope:read-only-inspection",
+                    "future_scoped",
+                ),
+            ),
+            file_refs=frozenset(
+                {
+                    "file-ref:skill-workbench-adoption-prompt-pack",
+                    "file-ref:inspectable-extension-catalog-doc",
+                }
+            ),
+            safe_disable_ref="safe-disable-ref:skill-metadata-index",
+            rollback_ref="rollback-ref:skill-metadata-index:disable",
+        ),
+    }
+)
 
 
 SKILL_WRITE_BLOCKED_AUTHORITY_REFS = [
@@ -111,12 +221,82 @@ SKILL_BUNDLE_BLOCKED_AUTHORITY_REFS = [
 
 def _safe_file_hash(file_ref: str, rel_path: str) -> InspectableExtensionFileHash:
     path = _REPO_ROOT / rel_path
-    if not path.exists():
+    expected_hash = PINNED_EXTENSION_FILE_HASHES_BY_REF.get(file_ref)
+    expected_digest = (
+        expected_hash.removeprefix("sha256:") if expected_hash is not None else None
+    )
+    try:
+        metadata = path.lstat()
+    except FileNotFoundError:
         return InspectableExtensionFileHash(
             file_ref=file_ref,
             hash_status=ExtensionHashStatus.missing,
         )
-    digest = sha256(path.read_bytes()).hexdigest()
+    if not stat.S_ISREG(metadata.st_mode) or stat.S_ISLNK(metadata.st_mode):
+        return InspectableExtensionFileHash(
+            file_ref=file_ref,
+            hash_status=ExtensionHashStatus.mismatch,
+        )
+    if metadata.st_size > _MAX_EXTENSION_METADATA_BYTES:
+        return InspectableExtensionFileHash(
+            file_ref=file_ref,
+            hash_status=ExtensionHashStatus.mismatch,
+        )
+    flags = (
+        os.O_RDONLY
+        | getattr(os, "O_CLOEXEC", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_NONBLOCK", 0)
+    )
+    try:
+        descriptor = os.open(path, flags)
+    except OSError:
+        return InspectableExtensionFileHash(
+            file_ref=file_ref,
+            hash_status=ExtensionHashStatus.mismatch,
+        )
+    try:
+        opened = os.fstat(descriptor)
+        current_path = os.lstat(path)
+        if (
+            not stat.S_ISREG(opened.st_mode)
+            or opened.st_nlink != 1
+            or (opened.st_dev, opened.st_ino)
+            != (current_path.st_dev, current_path.st_ino)
+            or opened.st_size > _MAX_EXTENSION_METADATA_BYTES
+        ):
+            return InspectableExtensionFileHash(
+                file_ref=file_ref,
+                hash_status=ExtensionHashStatus.mismatch,
+            )
+        chunks: list[bytes] = []
+        remaining = opened.st_size
+        while remaining:
+            chunk = os.read(descriptor, min(remaining, 65_536))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        payload = b"".join(chunks)
+    except OSError:
+        return InspectableExtensionFileHash(
+            file_ref=file_ref,
+            hash_status=ExtensionHashStatus.mismatch,
+        )
+    finally:
+        os.close(descriptor)
+    if len(payload) > _MAX_EXTENSION_METADATA_BYTES or len(payload) != opened.st_size:
+        return InspectableExtensionFileHash(
+            file_ref=file_ref,
+            hash_status=ExtensionHashStatus.mismatch,
+        )
+    digest = sha256(payload).hexdigest()
+    if expected_digest is None or digest != expected_digest:
+        return InspectableExtensionFileHash(
+            file_ref=file_ref,
+            hash_value=f"sha256:{digest}",
+            hash_status=ExtensionHashStatus.mismatch,
+        )
     return InspectableExtensionFileHash(
         file_ref=file_ref,
         hash_value=f"sha256:{digest}",

@@ -1,0 +1,1455 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/extension_ecosystem_read_model.schema.json",
+  "title": "uaa_extension_ecosystem_read_model",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "catalog_ref",
+    "catalog_status",
+    "generated_from_ref",
+    "entries",
+    "read_only",
+    "inspectable_catalog_enabled",
+    "progressive_disclosure_enabled",
+    "metadata_first_index_enabled",
+    "callable_catalog_enabled",
+    "automatic_instruction_loading_enabled",
+    "full_instruction_auto_load_enabled",
+    "hidden_skill_activation_enabled",
+    "skill_runtime_import_enabled",
+    "external_marketplace_fetch_enabled",
+    "runtime_import_enabled",
+    "execution_enabled",
+    "connector_writes_enabled",
+    "shell_execution_enabled",
+    "network_access_enabled",
+    "browser_automation_enabled",
+    "mobile_control_enabled",
+    "public_distribution_claimed",
+    "blocked_capabilities",
+    "compact_skill_index_refs",
+    "progressive_disclosure_refs",
+    "skill_write_approval_gate",
+    "skill_bundle_proposal_posture",
+    "install_disabled_posture",
+    "docs_refs",
+    "schema_refs",
+    "developer_guidance_refs",
+    "final_hardening_refs",
+    "availability_snapshot_refs",
+    "availability_snapshot_count",
+    "developer_validation_results",
+    "developer_validation_count",
+    "plugin_metadata_boundary_ref",
+    "skill_marketplace_boundary_ref",
+    "mcp_catalog_boundary_ref",
+    "catalog_visibility_grants_authority",
+    "activation_metadata_grants_authority",
+    "request_scoped_invocation_decision_required",
+    "safe_summary"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "uaa_extension_ecosystem_read_model.v1"
+    },
+    "catalog_ref": {
+      "type": "string",
+      "pattern": "^inspectable-catalog:[a-z0-9][a-z0-9_.:-]*$"
+    },
+    "catalog_status": {
+      "const": "read_only_inspection"
+    },
+    "generated_from_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]*:[a-z0-9][a-z0-9_.:-]*$"
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/catalog_entry"
+      }
+    },
+    "read_only": {
+      "const": true
+    },
+    "inspectable_catalog_enabled": {
+      "const": true
+    },
+    "progressive_disclosure_enabled": {
+      "const": true
+    },
+    "metadata_first_index_enabled": {
+      "const": true
+    },
+    "callable_catalog_enabled": {
+      "const": false
+    },
+    "automatic_instruction_loading_enabled": {
+      "const": false
+    },
+    "full_instruction_auto_load_enabled": {
+      "const": false
+    },
+    "hidden_skill_activation_enabled": {
+      "const": false
+    },
+    "skill_runtime_import_enabled": {
+      "const": false
+    },
+    "external_marketplace_fetch_enabled": {
+      "const": false
+    },
+    "runtime_import_enabled": {
+      "const": false
+    },
+    "execution_enabled": {
+      "const": false
+    },
+    "connector_writes_enabled": {
+      "const": false
+    },
+    "shell_execution_enabled": {
+      "const": false
+    },
+    "network_access_enabled": {
+      "const": false
+    },
+    "browser_automation_enabled": {
+      "const": false
+    },
+    "mobile_control_enabled": {
+      "const": false
+    },
+    "public_distribution_claimed": {
+      "const": false
+    },
+    "blocked_capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "compact_skill_index_refs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/safe_ref"
+      }
+    },
+    "progressive_disclosure_refs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/safe_ref"
+      }
+    },
+    "skill_write_approval_gate": {
+      "$ref": "#/$defs/skill_write_approval_gate"
+    },
+    "skill_bundle_proposal_posture": {
+      "$ref": "#/$defs/skill_bundle_proposal_posture"
+    },
+    "install_disabled_posture": {
+      "$ref": "#/$defs/extension_install_disabled_posture"
+    },
+    "docs_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "schema_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "developer_guidance_refs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/safe_ref"
+      }
+    },
+    "final_hardening_refs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/safe_ref"
+      }
+    },
+    "availability_snapshot_refs": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/safe_ref"}
+    },
+    "availability_snapshot_count": {"type": "integer", "minimum": 0},
+    "developer_validation_results": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/developer_validation_result"}
+    },
+    "developer_validation_count": {"type": "integer", "minimum": 0},
+    "plugin_metadata_boundary_ref": {"$ref": "#/$defs/safe_ref"},
+    "skill_marketplace_boundary_ref": {"$ref": "#/$defs/safe_ref"},
+    "mcp_catalog_boundary_ref": {"$ref": "#/$defs/safe_ref"},
+    "catalog_visibility_grants_authority": {"const": false},
+    "activation_metadata_grants_authority": {"const": false},
+    "request_scoped_invocation_decision_required": {"const": true},
+    "safe_summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    }
+  },
+  "$defs": {
+    "safe_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]*:[a-z0-9][a-z0-9_.:-]*$"
+    },
+    "developer_validation_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version", "validation_ref", "catalog_entry_ref", "package_ref",
+        "manifest_ref", "version_ref", "status", "compatibility_status",
+        "configuration_status", "health_status", "authority_posture",
+        "resource_status", "safe_disable_status", "provenance_status",
+        "reviewed_hash_count", "declared_hash_count",
+        "hashes_verified_against_pinned_values", "signature_status",
+        "signature_verified", "safe_disable_ref", "rollback_ref", "reason_codes",
+        "blocker_codes", "activation_metadata_grants_authority",
+        "catalog_visibility_grants_authority", "runtime_import_enabled",
+        "execution_enabled", "safe_summary"
+      ],
+      "properties": {
+        "schema_version": {"const": "uaa_extension_developer_validation.v1"},
+        "validation_ref": {"$ref": "#/$defs/safe_ref"},
+        "catalog_entry_ref": {"$ref": "#/$defs/safe_ref"},
+        "package_ref": {"$ref": "#/$defs/safe_ref"},
+        "manifest_ref": {"$ref": "#/$defs/safe_ref"},
+        "version_ref": {"$ref": "#/$defs/safe_ref"},
+        "status": {"enum": ["validated_metadata_only", "blocked"]},
+        "compatibility_status": {"enum": ["supported", "unknown"]},
+        "configuration_status": {"const": "not_configured"},
+        "health_status": {"const": "unknown"},
+        "authority_posture": {"const": "blocked"},
+        "resource_status": {"const": "unknown"},
+        "safe_disable_status": {"const": "unknown"},
+        "provenance_status": {"enum": ["reviewed", "blocked", "unknown"]},
+        "reviewed_hash_count": {"type": "integer", "minimum": 0},
+        "declared_hash_count": {"type": "integer", "minimum": 0},
+        "hashes_verified_against_pinned_values": {"type": "boolean"},
+        "signature_status": {"enum": ["not_present", "unknown"]},
+        "signature_verified": {"const": false},
+        "safe_disable_ref": {"$ref": "#/$defs/safe_ref"},
+        "rollback_ref": {"$ref": "#/$defs/safe_ref"},
+        "reason_codes": {"type": "array", "items": {"type": "string"}},
+        "blocker_codes": {"type": "array", "items": {"type": "string"}},
+        "activation_metadata_grants_authority": {"const": false},
+        "catalog_visibility_grants_authority": {"const": false},
+        "runtime_import_enabled": {"const": false},
+        "execution_enabled": {"const": false},
+        "safe_summary": {"type": "string", "minLength": 1, "maxLength": 500}
+      }
+    },
+    "extension_install_disabled_posture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "posture_ref",
+        "status",
+        "candidate_count",
+        "candidates",
+        "required_authority_ref",
+        "required_approval_ref",
+        "verifier_refs",
+        "docs_refs",
+        "next_safe_action_refs",
+        "blocked_authority_refs",
+        "safe_refs_only",
+        "read_only",
+        "install_disabled_posture_enabled",
+        "plugin_install_enabled",
+        "plugin_enablement_enabled",
+        "plugin_execution_enabled",
+        "runtime_import_enabled",
+        "connector_writes_enabled",
+        "shell_execution_enabled",
+        "network_access_enabled",
+        "browser_automation_enabled",
+        "provider_model_call_enabled",
+        "remote_execution_enabled",
+        "raw_manifest_content_stored",
+        "raw_package_content_stored",
+        "production_authority_granted",
+        "side_effects_performed",
+        "safe_summary"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "uaa_extension_install_disabled_posture.v1"
+        },
+        "posture_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "status": {
+          "enum": [
+            "blocked_pending_authority_and_approval",
+            "review_ready_disabled_not_persisted"
+          ]
+        },
+        "candidate_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "candidates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/extension_install_disabled_candidate"
+          }
+        },
+        "required_authority_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "required_approval_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "verifier_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "docs_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "next_safe_action_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "blocked_authority_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "safe_refs_only": {
+          "const": true
+        },
+        "read_only": {
+          "const": true
+        },
+        "install_disabled_posture_enabled": {
+          "const": true
+        },
+        "plugin_install_enabled": {
+          "const": false
+        },
+        "plugin_enablement_enabled": {
+          "const": false
+        },
+        "plugin_execution_enabled": {
+          "const": false
+        },
+        "runtime_import_enabled": {
+          "const": false
+        },
+        "connector_writes_enabled": {
+          "const": false
+        },
+        "shell_execution_enabled": {
+          "const": false
+        },
+        "network_access_enabled": {
+          "const": false
+        },
+        "browser_automation_enabled": {
+          "const": false
+        },
+        "provider_model_call_enabled": {
+          "const": false
+        },
+        "remote_execution_enabled": {
+          "const": false
+        },
+        "raw_manifest_content_stored": {
+          "const": false
+        },
+        "raw_package_content_stored": {
+          "const": false
+        },
+        "production_authority_granted": {
+          "const": false
+        },
+        "side_effects_performed": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "safe_summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 640
+        }
+      }
+    },
+    "extension_install_disabled_candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "candidate_ref",
+        "catalog_entry_ref",
+        "package_ref",
+        "manifest_ref",
+        "version_ref",
+        "source_package_ref",
+        "provenance_ref",
+        "static_review_ref",
+        "sandbox_test_plan_ref",
+        "tool_broker_mapping_ref",
+        "event_ledger_plan_ref",
+        "version_pin_ref",
+        "revocation_plan_ref",
+        "safe_disable_ref",
+        "rollback_ref",
+        "authority_lane_ref",
+        "authority_decision_ref",
+        "authority_lease_ref",
+        "authority_decision_outcome",
+        "authority_decision_reason_refs",
+        "required_mode",
+        "required_domain",
+        "required_capability",
+        "manifest_security_decision_ref",
+        "install_review_decision_ref",
+        "receipt_plan_ref",
+        "audit_refs",
+        "receipt_refs",
+        "file_hashes",
+        "blocked_capability_refs",
+        "approval_request_ref",
+        "approval_ref",
+        "exact_approval_required",
+        "local_approval_validated",
+        "approval_validation_status",
+        "approval_ref_authority",
+        "disabled_install_record_ready",
+        "disabled_install_record_persisted",
+        "plugin_install_enabled",
+        "plugin_enablement_enabled",
+        "plugin_execution_enabled",
+        "runtime_import_enabled",
+        "connector_writes_enabled",
+        "shell_execution_enabled",
+        "network_access_enabled",
+        "browser_automation_enabled",
+        "provider_model_call_enabled",
+        "remote_execution_enabled",
+        "raw_manifest_content_stored",
+        "raw_package_content_stored",
+        "production_authority_granted",
+        "side_effects_performed",
+        "safe_summary"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "uaa_extension_install_disabled_candidate.v1"
+        },
+        "candidate_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "catalog_entry_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "package_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "manifest_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "version_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "source_package_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "provenance_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "static_review_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "sandbox_test_plan_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "tool_broker_mapping_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "event_ledger_plan_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "version_pin_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "revocation_plan_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "safe_disable_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "rollback_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "authority_lane_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "authority_decision_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "authority_lease_ref": {
+          "anyOf": [
+            {"$ref": "#/$defs/safe_ref"},
+            {"type": "null"}
+          ]
+        },
+        "authority_decision_outcome": {
+          "enum": ["allow", "ask", "deny", "degrade_to_draft"]
+        },
+        "authority_decision_reason_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "required_mode": {
+          "const": "approved_safe_local_work_session"
+        },
+        "required_domain": {
+          "const": "workspace"
+        },
+        "required_capability": {
+          "const": "write"
+        },
+        "manifest_security_decision_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "install_review_decision_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "receipt_plan_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "audit_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "receipt_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "file_hashes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/extension_install_disabled_file_hash"
+          }
+        },
+        "blocked_capability_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "approval_request_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "approval_ref": {
+          "anyOf": [
+            {"$ref": "#/$defs/safe_ref"},
+            {"type": "null"}
+          ]
+        },
+        "exact_approval_required": {
+          "const": true
+        },
+        "local_approval_validated": {
+          "type": "boolean"
+        },
+        "approval_validation_status": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "approval_ref_authority": {
+          "const": false
+        },
+        "disabled_install_record_ready": {
+          "type": "boolean"
+        },
+        "disabled_install_record_persisted": {
+          "const": false
+        },
+        "plugin_install_enabled": {
+          "const": false
+        },
+        "plugin_enablement_enabled": {
+          "const": false
+        },
+        "plugin_execution_enabled": {
+          "const": false
+        },
+        "runtime_import_enabled": {
+          "const": false
+        },
+        "connector_writes_enabled": {
+          "const": false
+        },
+        "shell_execution_enabled": {
+          "const": false
+        },
+        "network_access_enabled": {
+          "const": false
+        },
+        "browser_automation_enabled": {
+          "const": false
+        },
+        "provider_model_call_enabled": {
+          "const": false
+        },
+        "remote_execution_enabled": {
+          "const": false
+        },
+        "raw_manifest_content_stored": {
+          "const": false
+        },
+        "raw_package_content_stored": {
+          "const": false
+        },
+        "production_authority_granted": {
+          "const": false
+        },
+        "side_effects_performed": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "safe_summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 520
+        }
+      }
+    },
+    "extension_install_disabled_file_hash": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file_ref",
+        "hash_algorithm",
+        "hash_value",
+        "hash_status"
+      ],
+      "properties": {
+        "file_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "hash_algorithm": {
+          "const": "sha256"
+        },
+        "hash_value": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^sha256:[a-f0-9]{64}$"
+            },
+            {"type": "null"}
+          ]
+        },
+        "hash_status": {
+          "enum": ["reviewed", "missing", "mismatch"]
+        }
+      }
+    },
+    "catalog_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "catalog_entry_ref",
+        "manifest_ref",
+        "compact_skill_index_ref",
+        "metadata_summary_ref",
+        "package_identity",
+        "provenance",
+        "file_hashes",
+        "declared_capabilities",
+        "risk_class",
+        "requested_grants",
+        "activation_status",
+        "blocked_state",
+        "blocker_refs",
+        "audit_refs",
+        "visibility_status",
+        "trust_posture",
+        "callable_posture",
+        "required_grant_refs",
+        "blocked_reason",
+        "review_evidence_refs",
+        "safe_adoption_posture",
+        "progressive_disclosure_status",
+        "full_instruction_load_posture",
+        "metadata_first",
+        "operator_selected_before_full_instruction",
+        "automatic_instruction_loading_enabled",
+        "hidden_activation_enabled",
+        "safe_summary"
+      ],
+      "properties": {
+        "catalog_entry_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "manifest_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "compact_skill_index_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "metadata_summary_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "package_identity": {
+          "$ref": "#/$defs/package_identity"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "file_hashes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/file_hash"
+          }
+        },
+        "declared_capabilities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/declared_capability"
+          }
+        },
+        "risk_class": {
+          "enum": ["low", "medium", "high", "critical"]
+        },
+        "requested_grants": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/requested_grant"
+          }
+        },
+        "activation_status": {
+          "enum": ["inactive", "blocked", "revoked", "future_scoped"]
+        },
+        "blocked_state": {
+          "enum": ["not_blocked", "blocked", "unknown", "future_scoped"]
+        },
+        "blocker_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "audit_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "visibility_status": {
+          "enum": [
+            "implemented",
+            "partial",
+            "planned",
+            "mock_only",
+            "blocked",
+            "deprecated",
+            "contradicted",
+            "unknown"
+          ]
+        },
+        "trust_posture": {
+          "enum": [
+            "reviewed_metadata",
+            "unknown_blocked",
+            "blocked_by_policy",
+            "future_review_required"
+          ]
+        },
+        "callable_posture": {
+          "enum": [
+            "inspectable_only",
+            "blocked_runtime",
+            "future_exact_lane_required"
+          ]
+        },
+        "required_grant_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "blocked_reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "review_evidence_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "safe_adoption_posture": {
+          "enum": [
+            "repo_owned_metadata_only",
+            "reviewed_adaptation_required",
+            "blocked_until_scoped_milestone"
+          ]
+        },
+        "progressive_disclosure_status": {
+          "enum": [
+            "metadata_indexed",
+            "full_instructions_blocked",
+            "future_review_required",
+            "blocked"
+          ]
+        },
+        "full_instruction_load_posture": {
+          "enum": [
+            "metadata_only",
+            "operator_selected_review_required",
+            "blocked_runtime_import"
+          ]
+        },
+        "metadata_first": {
+          "const": true
+        },
+        "operator_selected_before_full_instruction": {
+          "const": true
+        },
+        "automatic_instruction_loading_enabled": {
+          "const": false
+        },
+        "hidden_activation_enabled": {
+          "const": false
+        },
+        "safe_summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        }
+      }
+    },
+    "skill_write_approval_gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "gate_ref",
+        "status",
+        "proposal_count",
+        "proposals",
+        "review_queue_ref",
+        "required_authority_ref",
+        "blocked_authority_refs",
+        "verifier_refs",
+        "next_safe_action_refs",
+        "safe_summary",
+        "file_write_enabled",
+        "direct_skill_write_enabled",
+        "skill_enablement_enabled",
+        "runtime_import_enabled",
+        "execution_enabled",
+        "connector_writes_enabled",
+        "shell_execution_enabled",
+        "provider_model_call_enabled",
+        "browser_automation_enabled",
+        "production_authority_enabled"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "uaa_skill_write_approval_gate.v1"
+        },
+        "gate_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "status": {
+          "const": "staged_review_only"
+        },
+        "proposal_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "proposals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/skill_write_proposal"
+          }
+        },
+        "review_queue_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "required_authority_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "blocked_authority_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "verifier_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "next_safe_action_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "safe_summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "file_write_enabled": {
+          "const": false
+        },
+        "direct_skill_write_enabled": {
+          "const": false
+        },
+        "skill_enablement_enabled": {
+          "const": false
+        },
+        "runtime_import_enabled": {
+          "const": false
+        },
+        "execution_enabled": {
+          "const": false
+        },
+        "connector_writes_enabled": {
+          "const": false
+        },
+        "shell_execution_enabled": {
+          "const": false
+        },
+        "provider_model_call_enabled": {
+          "const": false
+        },
+        "browser_automation_enabled": {
+          "const": false
+        },
+        "production_authority_enabled": {
+          "const": false
+        }
+      }
+    },
+    "skill_bundle_proposal_posture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "posture_ref",
+        "status",
+        "proposal_count",
+        "proposals",
+        "bundle_review_queue_ref",
+        "required_authority_ref",
+        "blocked_authority_refs",
+        "verifier_refs",
+        "next_safe_action_refs",
+        "safe_summary",
+        "bundle_activation_enabled",
+        "skill_enablement_enabled",
+        "tool_execution_enabled",
+        "context_injection_enabled",
+        "runtime_import_enabled",
+        "provider_model_call_enabled",
+        "connector_writes_enabled",
+        "shell_execution_enabled",
+        "browser_automation_enabled",
+        "production_authority_enabled"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "uaa_skill_bundle_proposal_posture.v1"
+        },
+        "posture_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "status": {
+          "const": "proposal_only"
+        },
+        "proposal_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "proposals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/skill_bundle_proposal"
+          }
+        },
+        "bundle_review_queue_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "required_authority_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "blocked_authority_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "verifier_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "next_safe_action_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "safe_summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "bundle_activation_enabled": {
+          "const": false
+        },
+        "skill_enablement_enabled": {
+          "const": false
+        },
+        "tool_execution_enabled": {
+          "const": false
+        },
+        "context_injection_enabled": {
+          "const": false
+        },
+        "runtime_import_enabled": {
+          "const": false
+        },
+        "provider_model_call_enabled": {
+          "const": false
+        },
+        "connector_writes_enabled": {
+          "const": false
+        },
+        "shell_execution_enabled": {
+          "const": false
+        },
+        "browser_automation_enabled": {
+          "const": false
+        },
+        "production_authority_enabled": {
+          "const": false
+        }
+      }
+    },
+    "skill_bundle_proposal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "proposal_ref",
+        "bundle_ref",
+        "bundle_name",
+        "proposal_status",
+        "skill_refs",
+        "context_pack_refs",
+        "toolset_refs",
+        "authority_profile_ref",
+        "verification_refs",
+        "blocked_authority_refs",
+        "proof_refs",
+        "next_safe_action_refs",
+        "safe_summary",
+        "activation_performed",
+        "skill_enablement_performed",
+        "tool_execution_performed",
+        "context_injection_performed",
+        "runtime_import_performed",
+        "provider_model_call_performed",
+        "connector_write_performed",
+        "shell_execution_performed",
+        "browser_automation_performed",
+        "production_authority_performed"
+      ],
+      "properties": {
+        "proposal_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "bundle_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "bundle_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "proposal_status": {
+          "enum": ["proposal_only", "review_required", "blocked"]
+        },
+        "skill_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          },
+          "minItems": 1
+        },
+        "context_pack_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          },
+          "minItems": 1
+        },
+        "toolset_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          },
+          "minItems": 1
+        },
+        "authority_profile_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "verification_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          },
+          "minItems": 1
+        },
+        "blocked_authority_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          },
+          "minItems": 1
+        },
+        "proof_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "next_safe_action_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "safe_summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "activation_performed": {
+          "const": false
+        },
+        "skill_enablement_performed": {
+          "const": false
+        },
+        "tool_execution_performed": {
+          "const": false
+        },
+        "context_injection_performed": {
+          "const": false
+        },
+        "runtime_import_performed": {
+          "const": false
+        },
+        "provider_model_call_performed": {
+          "const": false
+        },
+        "connector_write_performed": {
+          "const": false
+        },
+        "shell_execution_performed": {
+          "const": false
+        },
+        "browser_automation_performed": {
+          "const": false
+        },
+        "production_authority_performed": {
+          "const": false
+        }
+      }
+    },
+    "skill_write_proposal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "proposal_ref",
+        "proposal_kind",
+        "skill_ref",
+        "target_skill_ref",
+        "staged_artifact_ref",
+        "review_decision_ref",
+        "review_status",
+        "diff_previews",
+        "blocked_execution_labels",
+        "proof_refs",
+        "receipt_refs",
+        "safe_summary",
+        "file_write_performed",
+        "skill_enablement_performed",
+        "runtime_import_performed",
+        "execution_performed",
+        "raw_instruction_body_persisted"
+      ],
+      "properties": {
+        "proposal_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "proposal_kind": {
+          "enum": ["create_skill", "update_skill"]
+        },
+        "skill_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "target_skill_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "staged_artifact_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "review_decision_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "review_status": {
+          "enum": [
+            "awaiting_operator_review",
+            "revision_requested",
+            "rejected",
+            "blocked"
+          ]
+        },
+        "diff_previews": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/skill_write_diff_preview"
+          }
+        },
+        "blocked_execution_labels": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "proof_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "receipt_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "safe_summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "file_write_performed": {
+          "const": false
+        },
+        "skill_enablement_performed": {
+          "const": false
+        },
+        "runtime_import_performed": {
+          "const": false
+        },
+        "execution_performed": {
+          "const": false
+        },
+        "raw_instruction_body_persisted": {
+          "const": false
+        }
+      }
+    },
+    "skill_write_diff_preview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "diff_preview_ref",
+        "target_ref",
+        "change_summary_ref",
+        "safe_summary",
+        "raw_diff_persisted",
+        "raw_file_content_persisted"
+      ],
+      "properties": {
+        "diff_preview_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "target_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "change_summary_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "safe_summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "raw_diff_persisted": {
+          "const": false
+        },
+        "raw_file_content_persisted": {
+          "const": false
+        }
+      }
+    },
+    "package_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "package_ref",
+        "package_name",
+        "package_kind",
+        "version_ref",
+        "publisher_ref"
+      ],
+      "properties": {
+        "package_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "package_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "package_kind": {
+          "enum": ["plugin", "skill", "connector_manifest", "tooling_bundle"]
+        },
+        "version_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "publisher_ref": {
+          "$ref": "#/$defs/safe_ref"
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_ref",
+        "review_ref",
+        "license_ref",
+        "provenance_status"
+      ],
+      "properties": {
+        "source_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "review_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "license_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "provenance_status": {
+          "enum": ["reviewed", "blocked", "unknown"]
+        }
+      }
+    },
+    "file_hash": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file_ref", "hash_algorithm", "hash_value", "hash_status"],
+      "properties": {
+        "file_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "hash_algorithm": {
+          "const": "sha256"
+        },
+        "hash_value": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^sha256:[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hash_status": {
+          "enum": ["reviewed", "mismatch", "missing", "unknown"]
+        }
+      }
+    },
+    "declared_capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["capability_ref", "capability_kind", "risk_class", "safe_purpose"],
+      "properties": {
+        "capability_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "capability_kind": {
+          "enum": [
+            "documentation_helper",
+            "read_only_inspection",
+            "local_preview",
+            "tooling_metadata",
+            "blocked_runtime"
+          ]
+        },
+        "risk_class": {
+          "enum": ["low", "medium", "high", "critical"]
+        },
+        "safe_purpose": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        }
+      }
+    },
+    "requested_grant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["grant_ref", "scope_ref", "status"],
+      "properties": {
+        "grant_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "scope_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "status": {
+          "enum": ["requested", "blocked", "future_scoped"]
+        }
+      }
+    }
+  }
+}

@@ -364,7 +364,7 @@ def test_action_inbox_groups_items_by_backend_contract_state(tmp_path: Path) -> 
         "receipt_recorded",
         "proposal_only_no_execution_path",
     ]
-    assert groups["ready_for_decision"]["count"] == 1
+    assert groups["ready_for_decision"]["count"] == 2
     assert groups["blocked_by_authority"]["count"] == 1
     health_recommendation_count = sum(
         1

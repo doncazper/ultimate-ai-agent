@@ -116,20 +116,10 @@ export function CodingCockpitPanel({
         <DetailTile label="Branch" value={session.branch_label} />
         <DetailTile label="Active agent" value={session.active_agent_label} />
         <DetailTile label="Task status" value={session.task_status} />
-        <label className="coding-authority-select">
-          <span>Authority Mode</span>
-          <select
-            aria-label="Coding authority mode"
-            disabled
-            value={currentAuthorityMode?.label ?? session.authority_mode}
-          >
-            {session.authority_modes.map((mode) => (
-              <option key={mode.mode_ref} value={mode.label}>
-                {mode.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <DetailTile
+          label="Authority mode posture"
+          value={currentAuthorityMode?.label ?? session.authority_mode}
+        />
       </div>
 
       <div className="coding-grid">
@@ -159,12 +149,10 @@ export function CodingCockpitPanel({
               authoritative={backendOwned}
               readiness={patchApplyReadiness}
             />
-            <div className="coding-action-row" aria-label="Patch actions">
-              <DisabledAction label="Accept all" />
-              <DisabledAction label="Accept file" />
-              <DisabledAction label="Accept hunk" />
-              <DisabledAction label="Apply patch" />
-            </div>
+            <p className="safe-copy">
+              Patch selection and apply controls are not exposed until an exact
+              backend-owned mutation lane is active.
+            </p>
           </PreviewPanel>
           <PreviewPanel panel={session.proof_preview} eyebrow="Proof" />
         </div>
@@ -197,17 +185,17 @@ export function CodingCockpitPanel({
       </div>
 
       <div className="coding-bottom-drawer" aria-label="Coding preview drawer">
-        <DrawerPanel panel={session.terminal_preview} actionLabel="Run command">
+        <DrawerPanel panel={session.terminal_preview}>
           <TestCommandReadinessPreview
             authoritative={backendOwned}
             readiness={testCommandReadiness}
           />
         </DrawerPanel>
-        <DrawerPanel panel={session.git_preview} actionLabel="Commit">
+        <DrawerPanel panel={session.git_preview}>
           <GitReviewPreview authoritative={backendOwned} review={gitReview} />
         </DrawerPanel>
-        <DrawerPanel panel={session.test_output_preview} actionLabel="Run tests" />
-        <DrawerPanel panel={session.live_preview} actionLabel="Preview status">
+        <DrawerPanel panel={session.test_output_preview} />
+        <DrawerPanel panel={session.live_preview}>
           <LivePreviewReadinessPreview
             authoritative={backendOwned}
             preview={livePreview}
@@ -341,10 +329,10 @@ function PatchProposalPreview({
       </p>
       <div
         className="coding-context-comparison"
-        aria-label="Coding patch proposal signed evidence"
+        aria-label="Coding patch proposal hash-integrity evidence"
       >
         <DetailTile
-          label="Signed evidence"
+          label="Integrity ref (legacy signed field; not a signature)"
           value={proposal.signed_evidence.signed_envelope_ref}
         />
         <DetailTile
@@ -352,6 +340,9 @@ function PatchProposalPreview({
           value={proposal.signed_evidence_verification_status}
         />
         <p className="safe-copy">{proposal.signed_evidence.safe_summary}</p>
+        <p className="safe-copy">
+          Local SHA-256 integrity only. Cryptographic signing is blocked.
+        </p>
       </div>
       <div className="coding-item-stack">
         {proposal.file_changes.map((item) => (
@@ -833,11 +824,9 @@ function PreviewPanel({
 }
 
 function DrawerPanel({
-  actionLabel,
   children,
   panel,
 }: {
-  actionLabel: string;
   children?: ReactNode;
   panel: CodingCockpitPreviewPanel;
 }) {
@@ -846,7 +835,6 @@ function DrawerPanel({
       <PanelHeader eyebrow="Preview only" title={panel.title} state={panel.state} />
       <PanelBody panel={panel} compact />
       {children}
-      <DisabledAction label={actionLabel} />
     </article>
   );
 }
@@ -901,14 +889,6 @@ function CodingItem({ item }: { item: CodingCockpitRefItem }) {
       </div>
       <span className="status-pill compact">{item.status}</span>
     </article>
-  );
-}
-
-function DisabledAction({ label }: { label: string }) {
-  return (
-    <button className="coding-disabled-action" disabled type="button">
-      {label}
-    </button>
   );
 }
 

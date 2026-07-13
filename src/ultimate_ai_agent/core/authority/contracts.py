@@ -54,6 +54,7 @@ AUTHORITY_STATE_DIR_ENV = "UAA_AUTHORITY_STATE_DIR"
 AUTHORITY_LEASE_KILL_SWITCH_ENV = "UAA_AUTHORITY_LEASE_KILL_SWITCH"
 AUTHORITY_LEASES_FILE = "authority_leases.json"
 AUTHORITY_LEASE_RECEIPTS_FILE = "authority_lease_receipts.jsonl"
+AUTHORITY_LEASE_LOCAL_OPERATOR_REF = "operator-ref:local-user"
 
 
 class TrustMode(str, Enum):
@@ -81,6 +82,7 @@ class AuthorityDomain(str, Enum):
     provider_model_calls = "provider_model_calls"
     memory = "memory"
     cloud_production = "cloud_production"
+    evidence_signing = "evidence_signing"
 
 
 class AuthorityCapability(str, Enum):
@@ -1000,7 +1002,7 @@ class AuthorityLeaseIssueRequest(_AuthorityModel):
     mode: TrustMode
     scope: AuthorityLeaseScope = AuthorityLeaseScope.session
     mission_ref: str | None = None
-    operator_ref: str = "operator-ref:local-user"
+    operator_ref: str = AUTHORITY_LEASE_LOCAL_OPERATOR_REF
     requested_domains: dict[AuthorityDomain, list[AuthorityCapability]] = Field(
         default_factory=dict
     )
@@ -1047,28 +1049,13 @@ class AuthorityLeaseIssueRequest(_AuthorityModel):
 
 class AuthorityLeaseApproveAndIssueRequest(_AuthorityModel):
     lease_issue_request: AuthorityLeaseIssueRequest
-    approved_by_actor_ref: str = "operator-ref:local-user"
-    approval_safe_summary: str = Field(
-        default=(
-            "Operator approved this exact AuthorityLease mode, domain, "
-            "capability, scope, and duration."
-        ),
-        min_length=1,
-        max_length=520,
-    )
 
     @model_validator(mode="after")
     def validate_approve_and_issue_request(
         self,
     ) -> "AuthorityLeaseApproveAndIssueRequest":
-        validate_task_ref(
-            self.approved_by_actor_ref,
-            "authority_lease_approved_by_actor_ref",
-        )
-        validate_safe_task_text(
-            self.approval_safe_summary,
-            "authority_lease_approval_safe_summary",
-        )
+        if self.lease_issue_request.operator_ref != AUTHORITY_LEASE_LOCAL_OPERATOR_REF:
+            raise ValueError("AUTHORITY_LEASE_LOCAL_OPERATOR_REF_REQUIRED")
         if (
             self.lease_issue_request.approval_ref is not None
             or self.lease_issue_request.approval_grants
@@ -2268,6 +2255,10 @@ def _local_implemented_authority_capabilities() -> dict[
         AuthorityDomain.browser: {
             AuthorityCapability.read,
         },
+        AuthorityDomain.evidence_signing: {
+            AuthorityCapability.execute,
+            AuthorityCapability.mutate,
+        },
     }
 
 
@@ -2325,6 +2316,10 @@ def _allowed_domain_capabilities(
             AuthorityDomain.provider_model_calls: {
                 AuthorityCapability.observe,
                 AuthorityCapability.read,
+            },
+            AuthorityDomain.evidence_signing: {
+                AuthorityCapability.execute,
+                AuthorityCapability.mutate,
             },
         }
     if mode == TrustMode.approved_safe_local_work_session:
@@ -3606,6 +3601,7 @@ REQUIRED_AUTHORITY_LANE_IDS = (
     "local.verify.repo_verifier",
     "local.verify.frontend_check",
     "code.patch_proposal",
+    "calculation.sealed_arithmetic",
     "code.apply_exact_patch",
     "web.evidence.fetch_readonly",
     "memory.review.decision",
@@ -3619,6 +3615,7 @@ def build_authority_lane_catalog_read_model(
     active_leases: list[AuthorityLease] | None = None,
     kill_switch_engaged: bool = False,
 ) -> AuthorityLaneCatalogReadModel:
+    from ultimate_ai_agent.core.sandbox_calculation.authority_surfaces import build_sealed_arithmetic_lane_catalog_entry
     leases = active_leases or build_default_authority_leases()
     entries = [
         _authority_lane_entry(
@@ -3764,6 +3761,7 @@ def build_authority_lane_catalog_read_model(
             active_leases=leases,
             kill_switch_engaged=kill_switch_engaged,
         ),
+        build_sealed_arithmetic_lane_catalog_entry(active_leases=leases, kill_switch_engaged=kill_switch_engaged),
         _authority_lane_entry(
             lane_id="code.apply_exact_patch",
             label="Code exact patch apply",
