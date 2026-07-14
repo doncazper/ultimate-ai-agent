@@ -32,6 +32,7 @@ from scripts.verification.ci_command_manifest import (  # noqa: E402
     lane_registry,
 )
 from scripts.verification.ci_fallback_storage import (  # noqa: E402
+    FullSuiteAttemptAlreadyRecordedError,
     FullSuiteLock,
     FullSuiteLockUnavailableError,
 )
@@ -55,6 +56,7 @@ PYTEST_PERFORMANCE_SCHEMA_VERSION = "uaa_pytest_performance_report.v1"
 PYTEST_PLAN_REF_RE = re.compile(r"^pytest-shard-plan-ref:sha256:[0-9a-f]{64}$")
 PYTEST_RUNTIME_UNAVAILABLE_REASON_REF = "reason-ref:ci:pytest-runtime-unavailable"
 FULL_SUITE_LOCK_UNAVAILABLE_REASON_REF = "reason-ref:ci:full-suite-capacity-unavailable"
+FULL_SUITE_ATTEMPT_RECORDED_REASON_REF = "reason-ref:ci:full-suite-attempt-recorded"
 
 
 class PytestRuntimeUnavailableError(RuntimeError):
@@ -670,6 +672,12 @@ def main(argv: list[str] | None = None) -> int:
     except FullSuiteLockUnavailableError:
         print(
             "UAA CI lane blocked: " + FULL_SUITE_LOCK_UNAVAILABLE_REASON_REF,
+            file=sys.stderr,
+        )
+        return 1
+    except FullSuiteAttemptAlreadyRecordedError:
+        print(
+            "UAA CI lane blocked: " + FULL_SUITE_ATTEMPT_RECORDED_REASON_REF,
             file=sys.stderr,
         )
         return 1

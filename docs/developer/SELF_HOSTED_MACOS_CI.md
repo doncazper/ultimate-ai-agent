@@ -232,6 +232,9 @@ A spawn failure conservatively consumes the one-attempt allowance so a hard
 termination cannot leave an unrecorded full-suite process. Empty or partial
 GitHub job evidence fails closed as a
 code/evidence failure rather than being relabeled as an infrastructure outage.
+An attempted duplicate is rejected before process spawn with the content-free
+`reason-ref:ci:full-suite-attempt-recorded`; local coordination details and
+tracebacks are not emitted to the operator surface.
 
 CLI exit code `0` means only `github_green` on the exact live, attested SHA.
 Pending/running states return `2`; code failure, private failure, and external
