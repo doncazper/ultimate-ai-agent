@@ -128,7 +128,10 @@ Element-familiar UAA Messenger workspace. It includes the two-Space model, daily
 conversation surfaces, room management, account security, UAA intelligence,
 failure recovery, dark appearance, and later calling preflight. See
 `UAA_COMMUNICATIONS_MATRIX_NORTH_STAR.md` for the complete surface and truth
-contract. These images do not claim any current Matrix runtime.
+contract. MSG-MX-001 accepts all fifteen as desktop target renders, with the
+normal/narrow desktop and command-truth constraints in
+`UAA_MESSENGER_MATRIX_RENDER_ACCEPTANCE.md`. These images do not claim any
+current Matrix runtime.
 
 ## Social Media Intelligence V1
 

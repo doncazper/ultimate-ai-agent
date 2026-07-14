@@ -620,9 +620,9 @@ tests, safe-disable posture, and rollback-readiness evidence.
 <!-- MSG-MX-CURRENT-OVERLAY:START -->
 MSG-MX-000 through MSG-MX-012 Messenger Matrix Desktop Program
 Baseline authority map: `docs/connectors/MESSENGER_MATRIX_BASELINE_AUTHORITY_MAP.md`
-Current phase: `MSG-MX-000`
-Current program status: `planning_audit_accepted_on_merge`
-Current evidence ref: `evidence-ref:msg-mx-000:baseline-authority-map`
+Current phase: `MSG-MX-001`
+Current program status: `design_gate_accepted_on_merge`
+Current evidence ref: `evidence-ref:msg-mx-001:design-gate`
 Goal: build a clean-room, macOS-first Messenger Matrix client through thirteen
 finite merge-gated milestones without treating design, UI state, generic
 messages authority, or Full Machine Access as Matrix runtime authority.
@@ -645,6 +645,14 @@ Next: execute MSG-MX-001 only after MSG-MX-000 merges and its post-merge
 verifier evidence passes. Later phases may advance only their separately
 accepted exact lane families.
 <!-- MSG-MX-CURRENT-OVERLAY:END -->
+
+Current Messenger Matrix next milestone after MSG-MX-001 merges and verifies:
+`MSG-MX-002` fixture-only desktop shell. The accepted design gate is recorded
+in `docs/design/control_center_north_star/UAA_MESSENGER_MATRIX_RENDER_ACCEPTANCE.md`,
+`docs/decisions/ADR-0062-messenger-matrix-client-and-data-boundaries.md`,
+`docs/security/UAA_MESSENGER_MATRIX_THREAT_MODEL.md`, and
+`docs/connectors/MESSENGER_MATRIX_DESIGN_AUTHORITY_MATRIX.md`. These artifacts
+grant no runtime authority.
 
 ECO-000 Coherent App Ecosystem Contract And Experience Acceptance
 Goal: lock the complete standalone-quality Calendar, Tasks, Boards, CRM, Inbox,
