@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import json
 import os
-import signal
 import sys
+import time
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -25,6 +25,9 @@ from scripts.verification.ci_fallback_controller import (
 from scripts.verification.ci_command_manifest import (
     SCHEMA_VERSION,
     definition_fingerprint,
+)
+from scripts.verification.ci_fallback_storage import (
+    FullSuiteAttemptAlreadyRecordedError,
 )
 
 
@@ -496,7 +499,9 @@ def test_full_suite_attempt_bound_is_shared_across_local_accounts(
     first_account_uid = os.getuid()
     monkeypatch.setattr(os, "getuid", lambda: first_account_uid + 1000)
 
-    with pytest.raises(RuntimeError, match="already attempted"):
+    with pytest.raises(
+        FullSuiteAttemptAlreadyRecordedError, match="already attempted"
+    ):
         with FullSuiteLock(
             lock_path,
             repository_sha=SHA_A,
@@ -523,7 +528,9 @@ def test_full_suite_attempts_are_bounded_per_sha_and_execution_plane(
         attempt_path=attempts,
     ) as lock:
         lock.record_start()
-    with pytest.raises(RuntimeError, match="already attempted"):
+    with pytest.raises(
+        FullSuiteAttemptAlreadyRecordedError, match="already attempted"
+    ):
         lock = FullSuiteLock(
             lock_path,
             repository_sha=SHA_A,
@@ -555,8 +562,15 @@ def test_private_process_timeout_reaps_child_process_group(tmp_path: Path) -> No
     )
     assert returncode == 124
     child_pid = int(child_pid_file.read_text(encoding="utf-8"))
-    with pytest.raises(ProcessLookupError):
-        os.kill(child_pid, signal.SIGTERM)
+    deadline = time.monotonic() + 2
+    while True:
+        try:
+            os.kill(child_pid, 0)
+        except ProcessLookupError:
+            break
+        if time.monotonic() >= deadline:
+            pytest.fail("timed-out process group was not reaped within the bound")
+        time.sleep(0.01)
 
 
 def test_status_and_receipts_contain_no_raw_logs_paths_env_or_credentials(

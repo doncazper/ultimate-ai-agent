@@ -12,14 +12,19 @@ ROOT = Path(__file__).resolve().parents[2]
 FULL_COMMAND_REF = "command-ref:verification:full-local-gate"
 
 
-def _selector(base_ref: str, *, execute: bool) -> subprocess.CompletedProcess[str]:
+def _selector(
+    base_ref: str,
+    *,
+    execute: bool,
+    tier: str,
+) -> subprocess.CompletedProcess[str]:
     argv = [
         sys.executable,
         "scripts/verification/changed_path_selector.py",
         "--base-ref",
         base_ref,
         "--tier",
-        "affected",
+        tier,
     ]
     argv.append("--execute" if execute else "--json")
     return subprocess.run(
@@ -33,8 +38,8 @@ def _selector(base_ref: str, *, execute: bool) -> subprocess.CompletedProcess[st
     )
 
 
-def run(base_ref: str) -> int:
-    inspected = _selector(base_ref, execute=False)
+def run(base_ref: str, *, tier: str = "affected") -> int:
+    inspected = _selector(base_ref, execute=False, tier=tier)
     if inspected.returncode != 0:
         print("Affected preflight: fail closed to canonical full merge gate")
         return 0
@@ -47,7 +52,7 @@ def run(base_ref: str) -> int:
     if not isinstance(command_refs, list) or FULL_COMMAND_REF in command_refs:
         print("Affected preflight: canonical full merge gate required")
         return 0
-    completed = _selector(base_ref, execute=True)
+    completed = _selector(base_ref, execute=True, tier=tier)
     print(
         "Affected preflight: "
         + ("pass" if completed.returncode == 0 else "deterministic failure")
@@ -60,8 +65,9 @@ def main(argv: list[str] | None = None) -> int:
         description="Run affected checks without duplicating a selected full merge gate."
     )
     parser.add_argument("--base-ref", default="origin/main")
+    parser.add_argument("--tier", choices=("fast", "affected"), default="affected")
     args = parser.parse_args(argv)
-    return run(args.base_ref)
+    return run(args.base_ref, tier=args.tier)
 
 
 if __name__ == "__main__":

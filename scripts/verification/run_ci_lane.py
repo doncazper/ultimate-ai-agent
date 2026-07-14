@@ -7,6 +7,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import re
 import stat
 import subprocess
 import sys
@@ -31,6 +32,7 @@ from scripts.verification.ci_command_manifest import (  # noqa: E402
     lane_registry,
 )
 from scripts.verification.ci_fallback_storage import (  # noqa: E402
+    FullSuiteAttemptAlreadyRecordedError,
     FullSuiteLock,
     FullSuiteLockUnavailableError,
 )
@@ -40,15 +42,21 @@ from scripts.verification.pytest_shard_processes import (  # noqa: E402
     installed_signal_handlers,
     stop_processes,
 )
+from scripts.verification.run_pytest_shards import (  # noqa: E402
+    current_shard_plan_fingerprint,
+)
 
 
 TERMINATION_GRACE_SECONDS = 10.0
 MAX_TRANSIENT_OUTPUT_BYTES = 32 * 1024 * 1024
 MAX_RECEIPT_BYTES = 1024 * 1024
+MAX_PYTEST_PERFORMANCE_REPORT_BYTES = 256 * 1024
+PYTEST_PERFORMANCE_REPORT_NAME = "uaa_pytest_performance_report.json"
+PYTEST_PERFORMANCE_SCHEMA_VERSION = "uaa_pytest_performance_report.v1"
+PYTEST_PLAN_REF_RE = re.compile(r"^pytest-shard-plan-ref:sha256:[0-9a-f]{64}$")
 PYTEST_RUNTIME_UNAVAILABLE_REASON_REF = "reason-ref:ci:pytest-runtime-unavailable"
-FULL_SUITE_LOCK_UNAVAILABLE_REASON_REF = (
-    "reason-ref:ci:full-suite-capacity-unavailable"
-)
+FULL_SUITE_LOCK_UNAVAILABLE_REASON_REF = "reason-ref:ci:full-suite-capacity-unavailable"
+FULL_SUITE_ATTEMPT_RECORDED_REASON_REF = "reason-ref:ci:full-suite-attempt-recorded"
 
 
 class PytestRuntimeUnavailableError(RuntimeError):
@@ -124,6 +132,160 @@ def _result_ref(
         (command_ref, repository_sha, str(returncode), output_digest, str(duration_ms))
     )
     return f"result-ref:ci:{hashlib.sha256(payload.encode()).hexdigest()}"
+
+
+def expected_pytest_shard_plan_ref() -> str:
+    return current_shard_plan_fingerprint(
+        ROOT, 8, ROOT / "scripts/verification/pytest_file_timing_seed.json"
+    )
+
+
+def _assert_pytest_report_absent(temp_root: Path) -> None:
+    path = temp_root / PYTEST_PERFORMANCE_REPORT_NAME
+    try:
+        path.lstat()
+    except FileNotFoundError:
+        return
+    raise ValueError("pytest performance report must not predate the current attempt")
+
+
+def _pytest_shard_evidence(
+    temp_root: Path,
+    *,
+    expected_plan_ref: str,
+    command_status: str,
+) -> dict[str, Any]:
+    path = temp_root / PYTEST_PERFORMANCE_REPORT_NAME
+    try:
+        path_info = path.lstat()
+    except FileNotFoundError:
+        return {
+            "pytest_shard_evidence_status": "unavailable",
+            "pytest_shard_evidence_reason_ref": (
+                "reason-ref:ci:pytest-performance-report-unavailable"
+            ),
+        }
+    if not stat.S_ISREG(path_info.st_mode):
+        return {
+            "pytest_shard_evidence_status": "rejected",
+            "pytest_shard_evidence_reason_ref": (
+                "reason-ref:ci:pytest-performance-report-unsafe"
+            ),
+        }
+    flags = os.O_RDONLY
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    try:
+        descriptor = os.open(path, flags)
+    except OSError:
+        return {
+            "pytest_shard_evidence_status": "rejected",
+            "pytest_shard_evidence_reason_ref": (
+                "reason-ref:ci:pytest-performance-report-unsafe"
+            ),
+        }
+    try:
+        info = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(info.st_mode)
+            or info.st_nlink != 1
+            or info.st_uid != os.getuid()
+            or info.st_mode & 0o022
+            or info.st_size <= 0
+            or info.st_size > MAX_PYTEST_PERFORMANCE_REPORT_BYTES
+        ):
+            raise ValueError("unsafe pytest performance report")
+        encoded = os.read(descriptor, MAX_PYTEST_PERFORMANCE_REPORT_BYTES + 1)
+    except (OSError, ValueError):
+        return {
+            "pytest_shard_evidence_status": "rejected",
+            "pytest_shard_evidence_reason_ref": (
+                "reason-ref:ci:pytest-performance-report-unsafe"
+            ),
+        }
+    finally:
+        os.close(descriptor)
+    try:
+        payload = json.loads(encoded)
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        payload = None
+    if not isinstance(payload, dict):
+        return {
+            "pytest_shard_evidence_status": "rejected",
+            "pytest_shard_evidence_reason_ref": (
+                "reason-ref:ci:pytest-performance-report-invalid"
+            ),
+        }
+    plan_ref = payload.get("plan_fingerprint_ref")
+    run_status = payload.get("run_status")
+    rows = payload.get("shards")
+    if (
+        payload.get("schema_version") != PYTEST_PERFORMANCE_SCHEMA_VERSION
+        or not isinstance(plan_ref, str)
+        or PYTEST_PLAN_REF_RE.fullmatch(plan_ref) is None
+        or plan_ref != expected_plan_ref
+        or run_status not in {"green", "failed", "timeout"}
+        or not isinstance(rows, list)
+        or len(rows) != 8
+    ):
+        return {
+            "pytest_shard_evidence_status": "rejected",
+            "pytest_shard_evidence_reason_ref": (
+                "reason-ref:ci:pytest-performance-report-invalid"
+            ),
+        }
+    normalized: list[tuple[int, int, bool]] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            break
+        shard_index = row.get("shard_index")
+        return_code = row.get("return_code")
+        timed_out = row.get("timed_out")
+        if (
+            not isinstance(shard_index, int)
+            or isinstance(shard_index, bool)
+            or not isinstance(return_code, int)
+            or isinstance(return_code, bool)
+            or not isinstance(timed_out, bool)
+        ):
+            break
+        normalized.append((shard_index, return_code, timed_out))
+    shard_indices = sorted(index for index, _, _ in normalized)
+    if len(normalized) != 8 or shard_indices != list(range(8)):
+        return {
+            "pytest_shard_evidence_status": "rejected",
+            "pytest_shard_evidence_reason_ref": (
+                "reason-ref:ci:pytest-performance-report-invalid"
+            ),
+        }
+    failed_refs = tuple(
+        f"pytest-shard-ref:{index}:{'timed-out' if timed_out else 'failed'}"
+        for index, return_code, timed_out in sorted(normalized)
+        if timed_out or return_code != 0
+    )
+    derived_run_status = (
+        "timeout"
+        if any(timed_out for _, _, timed_out in normalized)
+        else "failed"
+        if failed_refs
+        else "green"
+    )
+    if run_status != derived_run_status or (command_status == "pass") != (
+        derived_run_status == "green"
+    ):
+        return {
+            "pytest_shard_evidence_status": "rejected",
+            "pytest_shard_evidence_reason_ref": (
+                "reason-ref:ci:pytest-performance-report-inconsistent"
+            ),
+        }
+    return {
+        "pytest_shard_evidence_status": "available",
+        "pytest_shard_plan_fingerprint_ref": plan_ref,
+        "pytest_shard_count": 8,
+        "failed_shard_count": len(failed_refs),
+        "failed_shard_refs": failed_refs,
+    }
 
 
 def _run_command(
@@ -284,6 +446,20 @@ def _write_receipt(path: Path | None, receipt: dict[str, Any], temp_root: Path) 
         os.close(descriptor)
 
 
+def _pytest_shard_summary_lines(result: dict[str, Any]) -> list[str]:
+    status = result.get("pytest_shard_evidence_status")
+    if status is None:
+        return []
+    lines = ["Pytest shard evidence: " + str(status)]
+    for failed_ref in result.get("failed_shard_refs", ()):
+        shard_index = failed_ref.split(":", maxsplit=2)[1]
+        lines.append(
+            f"Failed shard: {failed_ref} "
+            f"(reproduce with make ci-reproduce-shard CI_SHARD_INDEX={shard_index})"
+        )
+    return lines
+
+
 def run_lane(
     lane_ref: str,
     *,
@@ -332,6 +508,10 @@ def run_lane(
         else nullcontext()
     )
     with lock as full_suite_lock:
+        expected_pytest_plan_ref: str | None = None
+        if lane_ref == "ci-pytest-shards":
+            _assert_pytest_report_absent(temp_root)
+            expected_pytest_plan_ref = expected_pytest_shard_plan_ref()
         for command_ref in lane.command_refs:
             if command_ref in lane.satisfied_command_refs:
                 results.append(
@@ -346,16 +526,25 @@ def run_lane(
                 )
                 continue
             skip_reason: str | None = None
-            if command_ref == "command:frontend.visual-regression" and visual_scope == "not_affected":
+            if (
+                command_ref == "command:frontend.visual-regression"
+                and visual_scope == "not_affected"
+            ):
                 skip_reason = "reason-ref:visual-regression:not-affected"
-            if command_ref == "command:desktop-packaging.proof" and docker_available == "unavailable":
+            if (
+                command_ref == "command:desktop-packaging.proof"
+                and docker_available == "unavailable"
+            ):
                 skip_reason = "reason-ref:self-hosted-runner-docker-unavailable"
             if skip_reason is not None:
+                skip_status = (
+                    "not_applicable" if "not-affected" in skip_reason else "skipped"
+                )
                 results.append(
                     {
                         "command_ref": command_ref,
                         "category": commands[command_ref].category,
-                        "status": "not_applicable" if "not-affected" in skip_reason else "skipped",
+                        "status": skip_status,
                         "duration_ms": 0,
                         "reason_ref": skip_reason,
                         "result_ref": f"result-ref:ci:{hashlib.sha256((repository_sha + command_ref + skip_reason).encode()).hexdigest()}",
@@ -378,6 +567,15 @@ def run_lane(
                     else None
                 ),
             )
+            if lane_ref == "ci-pytest-shards":
+                assert expected_pytest_plan_ref is not None
+                result.update(
+                    _pytest_shard_evidence(
+                        temp_root,
+                        expected_plan_ref=expected_pytest_plan_ref,
+                        command_status=str(result["status"]),
+                    )
+                )
             results.append(result)
             if result["status"] != "pass":
                 break
@@ -420,6 +618,8 @@ def run_lane(
     summary.extend(
         f"- {result['command_ref']}: {result['status']}" for result in results
     )
+    for result in results:
+        summary.extend(f"- {line}" for line in _pytest_shard_summary_lines(result))
     _append_summary(summary_file, summary)
     _write_receipt(receipt_file, receipt, temp_root)
     return receipt
@@ -475,6 +675,12 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 1
+    except FullSuiteAttemptAlreadyRecordedError:
+        print(
+            "UAA CI lane blocked: " + FULL_SUITE_ATTEMPT_RECORDED_REASON_REF,
+            file=sys.stderr,
+        )
+        return 1
     if args.json:
         print(json.dumps(receipt, indent=2, sort_keys=True))
     else:
@@ -484,6 +690,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Manifest: {receipt['plan']['definition_fingerprint']}")
         for result in receipt["command_results"]:
             print(f"- {result['command_ref']}: {result['status']}")
+            for line in _pytest_shard_summary_lines(result):
+                print(f"- {line}")
         print("GitHub merge gate satisfied: no")
     return 0 if receipt["status"] == "pass" else 1
 
