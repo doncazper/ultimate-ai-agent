@@ -90,6 +90,16 @@ describe("communications API bindings", () => {
       "failed safe validation",
     );
 
+    respond([
+      {
+        ...provider,
+        safe_summary: "api_key=abcdefghijklmnop",
+      },
+    ]);
+    await expect(loadCommunicationsProviders()).rejects.toThrow(
+      "failed safe validation",
+    );
+
     respond(Array.from({ length: 17 }, () => provider));
     await expect(loadCommunicationsProviders()).rejects.toThrow(
       "failed safe validation",
@@ -113,6 +123,25 @@ describe("communications API bindings", () => {
     const result = await loadCommunicationsSessionPosture();
     expect(result.status).toBe("not_configured");
     expect(result.network_performed).toBe(false);
+  });
+
+  it("rejects unbracketed IPv6 literals in safe refs", async () => {
+    respond({
+      provider_ref: "provider-ref:communications:matrix",
+      session_ref: "session-ref:communications:matrix:not-configured",
+      status: "not_configured",
+      freshness: "unknown",
+      account_refs: ["account-ref:communications:2001:db8::1"],
+      reason_codes: ["MATRIX_SESSION_DECLARATION_ONLY"],
+      blocker_codes: ["MATRIX_ACCOUNT_SESSION_NOT_CONFIGURED"],
+      safe_summary: "Matrix account and session runtime are not configured.",
+      network_performed: false,
+      authentication_performed: false,
+      sync_performed: false,
+    });
+    await expect(loadCommunicationsSessionPosture()).rejects.toThrow(
+      "failed safe validation",
+    );
   });
 
   it("rejects receipt execution drift", async () => {

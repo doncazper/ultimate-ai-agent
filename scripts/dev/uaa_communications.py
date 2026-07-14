@@ -4,9 +4,16 @@ from __future__ import annotations
 import argparse
 import json
 from collections.abc import Sequence
+from pathlib import Path
+import sys
 from typing import Any
 
-from ultimate_ai_agent.core.communications import (
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "src"))
+
+from ultimate_ai_agent.core.communications import (  # noqa: E402
     CommunicationsReceiptNotFound,
     CommunicationsService,
     build_default_communications_service,

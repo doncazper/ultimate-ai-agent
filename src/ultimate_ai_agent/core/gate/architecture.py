@@ -27,7 +27,10 @@ NEW_EVALUATOR_MODULE_LINE_CEILING = 1500
 ROUTE_BOUNDARY_MODULE_RELATIVE_PATH = Path(
     "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py"
 )
-ROUTE_BOUNDARY_MODULE_LINE_CEILING = 5075
+# This is a legacy characterization ceiling, not a refactor mandate. MSG-MX-003
+# adds two exact route-boundary declarations; keep the guard aligned with the
+# reviewed baseline without forcing unrelated file-size-only decomposition.
+ROUTE_BOUNDARY_MODULE_LINE_CEILING = 5077
 EVALUATION_CONTEXT_RELATIVE_PATH = Path(
     "src/ultimate_ai_agent/core/gate/evaluation_context.py"
 )

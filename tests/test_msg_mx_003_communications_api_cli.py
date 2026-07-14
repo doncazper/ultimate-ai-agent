@@ -116,7 +116,8 @@ def test_communications_manifest_and_openapi_contracts_are_exact() -> None:
 
 
 def test_communications_cli_is_human_readable_and_json_matches_core_truth() -> None:
-    env = {**os.environ, "PYTHONPATH": "src"}
+    env = dict(os.environ)
+    env.pop("PYTHONPATH", None)
     human = subprocess.run(
         [sys.executable, "scripts/dev/uaa_communications.py", "providers"],
         check=True,

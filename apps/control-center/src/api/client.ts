@@ -329,6 +329,12 @@ const COMMUNICATIONS_MAX_PROVIDERS = 16;
 const COMMUNICATIONS_MAX_REFS = 50;
 const COMMUNICATIONS_HOST_OR_IP =
   /(?:\b[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+\b)|(?:\b(?:\d{1,3}\.){3}\d{1,3}\b)|(?:\[[0-9a-f:]+\])/i;
+const COMMUNICATIONS_FULL_IPV6 =
+  /(?:^|[^0-9a-f])(?:[0-9a-f]{1,4}:){7}[0-9a-f]{1,4}(?:$|[^0-9a-f])/i;
+
+function containsCommunicationsIpv6(value: string): boolean {
+  return value.includes("::") || COMMUNICATIONS_FULL_IPV6.test(value);
+}
 
 function isCommunicationsRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -341,7 +347,8 @@ function isCommunicationsSafeRef(value: unknown): value is string {
     !value.includes("@") &&
     !value.includes(".") &&
     !value.includes("/") &&
-    !value.toLowerCase().includes("localhost")
+    !value.toLowerCase().includes("localhost") &&
+    !containsCommunicationsIpv6(value)
   );
 }
 
@@ -387,7 +394,9 @@ function isCommunicationsSafeSummary(value: unknown): value is string {
     value.length <= 240 &&
     !value.includes("@") &&
     !value.includes("://") &&
-    !COMMUNICATIONS_HOST_OR_IP.test(value)
+    !COMMUNICATIONS_HOST_OR_IP.test(value) &&
+    !containsCommunicationsIpv6(value) &&
+    !containsSecretLike(value)
   );
 }
 

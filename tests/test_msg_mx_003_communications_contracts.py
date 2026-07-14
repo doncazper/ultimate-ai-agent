@@ -22,6 +22,9 @@ from ultimate_ai_agent.core.communications import (
     build_default_communications_service,
     communications_idempotency_binding_ref,
 )
+from ultimate_ai_agent.core.capability_availability import (
+    CapabilityAvailabilitySnapshot,
+)
 
 
 CHECKED_AT = datetime(2026, 7, 14, tzinfo=timezone.utc)
@@ -102,10 +105,20 @@ def test_registry_rejects_duplicates_instead_of_overwriting() -> None:
 
 def test_registry_rejects_unbounded_provider_inventory() -> None:
     descriptor = DisabledMatrixAdapter().inspect_descriptor(checked_at=CHECKED_AT)
-    descriptors = [
-        descriptor.model_copy(update={"provider_ref": f"provider-ref:matrix:{index}"})
-        for index in range(17)
-    ]
+    descriptors = []
+    for index in range(17):
+        provider_ref = f"provider-ref:matrix:{index}"
+        availability = descriptor.availability.model_copy(
+            update={"provider_ref": provider_ref}
+        )
+        descriptors.append(
+            descriptor.model_copy(
+                update={
+                    "provider_ref": provider_ref,
+                    "availability": availability,
+                }
+            )
+        )
     with pytest.raises(ValueError, match="COMMUNICATIONS_PROVIDER_LIMIT_EXCEEDED"):
         CommunicationsProviderRegistry(descriptors)
 
@@ -175,6 +188,8 @@ def test_room_ai_policy_cannot_enable_context_or_memory() -> None:
         "provider-ref:communications:127.0.0.1",
         "provider-ref:communications:2001:db8::1",
         "provider-ref:communications:[2001:db8::1]",
+        "provider-ref:communications:::1",
+        "provider-ref:communications:2001:db8::",
     ],
 )
 def test_contract_rejects_unhashed_identity_and_host_refs(provider_ref: str) -> None:
@@ -183,6 +198,44 @@ def test_contract_rejects_unhashed_identity_and_host_refs(provider_ref: str) -> 
     ).lookup_receipt("receipt-ref:communications:contract-inspection")
     with pytest.raises(ValidationError):
         receipt.model_copy(update={"provider_ref": provider_ref})
+
+
+@pytest.mark.parametrize(
+    "safe_summary",
+    [
+        "Matrix homeserver private.example.ai is blocked.",
+        "Matrix endpoint 127.0.0.1 is blocked.",
+        "Matrix endpoint [2001:db8::1] is blocked.",
+        "Matrix endpoint ::1 is blocked.",
+        "Matrix endpoint 2001:db8:: is blocked.",
+        "Matrix endpoint :: is blocked.",
+    ],
+)
+def test_contract_rejects_host_or_ip_in_safe_summary(safe_summary: str) -> None:
+    receipt = build_default_communications_service(
+        checked_at=CHECKED_AT
+    ).lookup_receipt("receipt-ref:communications:contract-inspection")
+    with pytest.raises(ValidationError):
+        receipt.model_copy(update={"safe_summary": safe_summary})
+
+
+def test_provider_descriptor_binds_and_redacts_nested_availability_refs() -> None:
+    descriptor = DisabledMatrixAdapter().inspect_descriptor(checked_at=CHECKED_AT)
+    payload = descriptor.availability.model_dump(mode="python")
+    payload["provider_ref"] = "provider-ref:communications:other"
+    mismatched = CapabilityAvailabilitySnapshot.model_validate(payload)
+    with pytest.raises(
+        ValidationError, match="COMMUNICATIONS_AVAILABILITY_SCOPE_MISMATCH"
+    ):
+        descriptor.model_copy(update={"availability": mismatched})
+
+    payload = descriptor.availability.model_dump(mode="python")
+    payload["source_ref"] = "source-ref:communications:private.example.ai"
+    unsafe = CapabilityAvailabilitySnapshot.model_validate(payload)
+    with pytest.raises(
+        ValidationError, match="contains unhashed identity or host data"
+    ):
+        descriptor.model_copy(update={"availability": unsafe})
 
 
 def test_contract_rejects_content_smuggled_through_reason_codes() -> None:

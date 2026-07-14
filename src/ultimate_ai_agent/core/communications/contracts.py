@@ -3,6 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 from datetime import datetime
 from enum import Enum
+from ipaddress import IPv6Address
 import re
 from typing import Any, Literal
 
@@ -25,7 +26,12 @@ COMMUNICATIONS_SCHEMA_VERSION = "uaa-communications.v1"
 COMMUNICATIONS_MAX_PAGE_SIZE = 50
 COMMUNICATIONS_MAX_PROVIDERS = 16
 _SAFE_CODE_RE = re.compile(r"^[A-Z][A-Z0-9_]{2,127}$")
-_IPV6_LITERAL_RE = re.compile(r"(?i)(?:^|:)(?:[0-9a-f]{1,4}:){2,}[0-9a-f:]{0,39}$")
+_IPV6_CANDIDATE_RE = re.compile(r"(?i)(?:[0-9a-f]{0,4}:){2,}[0-9a-f]{0,4}")
+_HOSTNAME_RE = re.compile(
+    r"(?i)\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+"
+    r"[a-z]{2,63}\b"
+)
+_IPV4_RE = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
 
 
 class CommunicationsProviderStatus(str, Enum):
@@ -127,6 +133,21 @@ class _CommunicationsContract(BaseModel):
         return self
 
 
+def _contains_ipv6_literal(value: str) -> bool:
+    for match in _IPV6_CANDIDATE_RE.finditer(value):
+        candidate = match.group(0)
+        candidates = (
+            (candidate, candidate[1:]) if candidate.startswith(":") else (candidate,)
+        )
+        for item in candidates:
+            try:
+                IPv6Address(item)
+            except ValueError:
+                continue
+            return True
+    return False
+
+
 def _validated_ref(value: str, field_name: str) -> str:
     validate_execution_ref(value, field_name)
     lowered = value.lower()
@@ -138,7 +159,7 @@ def _validated_ref(value: str, field_name: str) -> str:
         or "[" in value
         or "]" in value
         or "localhost" in lowered
-        or _IPV6_LITERAL_RE.search(value)
+        or _contains_ipv6_literal(value)
     ):
         raise ValueError(f"{field_name} contains unhashed identity or host data")
     return value
@@ -159,7 +180,13 @@ def _validated_refs(values: list[str], field_name: str) -> list[str]:
 def _validated_summary(value: str, field_name: str = "safe_summary") -> str:
     validate_safe_execution_text(value, field_name)
     validate_safe_contract_text_shape(value, field_name)
-    if "@" in value or "://" in value:
+    if (
+        "@" in value
+        or "://" in value
+        or _HOSTNAME_RE.search(value)
+        or _IPV4_RE.search(value)
+        or _contains_ipv6_literal(value)
+    ):
         raise ValueError(f"{field_name} must not contain identity or network data")
     return value
 
@@ -201,6 +228,43 @@ class CommunicationsProviderDescriptor(_CommunicationsContract):
     @classmethod
     def validate_summary(cls, value: str) -> str:
         return _validated_summary(value)
+
+    @model_validator(mode="after")
+    def validate_nested_availability(self) -> "CommunicationsProviderDescriptor":
+        availability = self.availability
+        for field_name in ("snapshot_ref", "capability_ref", "source_ref"):
+            _validated_ref(
+                getattr(availability, field_name),
+                f"communications_availability_{field_name}",
+            )
+        for field_name in (
+            "provider_ref",
+            "adapter_ref",
+            "declared_or_observed_version_ref",
+        ):
+            _validated_optional_ref(
+                getattr(availability, field_name),
+                f"communications_availability_{field_name}",
+            )
+        _validated_refs(
+            availability.evidence_refs,
+            "communications_availability_evidence_ref",
+        )
+        _validated_refs(
+            availability.probe_refs,
+            "communications_availability_probe_ref",
+        )
+        _validated_summary(
+            availability.safe_summary,
+            "communications_availability_safe_summary",
+        )
+        if (
+            availability.capability_ref != self.capability_ref
+            or availability.provider_ref != self.provider_ref
+            or availability.adapter_ref != self.adapter_ref
+        ):
+            raise ValueError("COMMUNICATIONS_AVAILABILITY_SCOPE_MISMATCH")
+        return self
 
 
 class CommunicationsSessionPosture(_CommunicationsContract):
