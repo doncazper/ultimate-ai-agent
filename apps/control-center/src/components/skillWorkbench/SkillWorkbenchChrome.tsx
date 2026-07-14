@@ -1,3 +1,4 @@
+import type { RuntimeSkillMarketplacePostureReadModel } from "../../api/types";
 import { NorthStarIcon } from "../NorthStarIcon";
 
 const CREATE_ITEMS = [
@@ -9,9 +10,13 @@ const CREATE_ITEMS = [
 ] as const;
 
 export function WorkbenchHeader({
-  authoritative,
+  backendValidated,
+  catalogDisplayable,
+  posture,
 }: {
-  authoritative: boolean;
+  backendValidated: boolean;
+  catalogDisplayable: boolean;
+  posture: RuntimeSkillMarketplacePostureReadModel;
 }) {
   return (
     <header className="skill-workbench-header">
@@ -21,10 +26,21 @@ export function WorkbenchHeader({
         <span>Discover ideas. Adapt safely. Keep the result yours.</span>
       </div>
       <div className="skill-header-actions">
-        <span className="skill-local-posture">
+        <span
+          className={`skill-local-posture${catalogDisplayable ? " available" : " blocked"}`}
+          title={posture.authority_state_operator_message}
+        >
           <NorthStarIcon name="shield-check" size="lg" />
-          {authoritative ? "Backend snapshot" : "Catalog unavailable"}
-          <span aria-hidden="true">·</span> Review before adaptation
+          {backendValidated ? (
+            <>
+              Backend validated ·{" "}
+              {formatPostureToken(posture.authority_state_decision_outcome)}
+              <span aria-hidden="true">·</span>{" "}
+              {formatPostureToken(posture.catalog_freshness.display_status)}
+            </>
+          ) : (
+            "Backend unavailable · no authority claim"
+          )}
         </span>
         <button
           disabled
@@ -144,19 +160,32 @@ export function StudioComposer() {
 }
 
 export function StudioStatusBand({
-  authoritative,
+  backendValidated,
+  catalogDisplayable,
+  posture,
 }: {
-  authoritative: boolean;
+  backendValidated: boolean;
+  catalogDisplayable: boolean;
+  posture: RuntimeSkillMarketplacePostureReadModel;
 }) {
   const items = [
     ["shield-check", "Studio · Create"],
     [
       "shield",
-      authoritative ? "Sanitized metadata snapshot" : "Catalog unavailable",
+      backendValidated
+        ? `Authority · ${formatPostureToken(posture.authority_state_decision_outcome)}`
+        : "Backend posture unavailable",
     ],
-    ["activity", "Popularity is a signal"],
-    ["shield-alert", "External code blocked"],
-    ["shield-question", "Review before adaptation"],
+    [
+      "activity",
+      !backendValidated
+        ? "Catalog · unavailable"
+        : catalogDisplayable
+        ? `Catalog · ${formatPostureToken(posture.catalog_freshness.status)}`
+        : `Catalog · ${formatPostureToken(posture.catalog_freshness.display_status)}`,
+    ],
+    ["activity", "Popularity is a signal, not trust"],
+    ["shield-alert", "External code blocked · Review before adaptation"],
   ] as const;
   return (
     <footer className="studio-status-band" aria-label="Studio safety posture">
@@ -167,4 +196,11 @@ export function StudioStatusBand({
       ))}
     </footer>
   );
+}
+
+function formatPostureToken(value: string): string {
+  return value
+    .split("_")
+    .map((token) => token.charAt(0).toUpperCase() + token.slice(1))
+    .join(" ");
 }

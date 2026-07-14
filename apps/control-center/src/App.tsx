@@ -43,7 +43,8 @@ function StudioRoute() {
 
   return (
     <SkillWorkbench
-      authoritative={state.data.authoritative}
+      backendValidated={state.data.backendValidated}
+      catalogDisplayable={state.data.catalogDisplayable}
       posture={state.data.posture}
     />
   );

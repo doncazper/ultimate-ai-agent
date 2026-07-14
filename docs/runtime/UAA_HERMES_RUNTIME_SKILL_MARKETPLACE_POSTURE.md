@@ -35,6 +35,24 @@ ratings; Hermes score, rank, and download fields remain unavailable when the
 source does not supply them. All entries remain metadata-only, unimported,
 unexecuted, risk-not-assessed, and review-required.
 
+The immutable catalog snapshot is paired with a backend-owned seven-day
+freshness observation. The observation binds the exact catalog snapshot ref,
+checked and expiry timestamps, safe reason refs, and a derived display posture.
+Current metadata may be displayed only when the read-only AuthorityState
+decision is `allow`. Stale metadata stays visibly inspectable with an explicit
+`available_stale` warning because catalog visibility is not callability;
+clock-unknown, `ask`, `deny`, and `degrade_to_draft` observations withhold every
+catalog row. The Control Center never computes a fresher posture from its own clock.
+The source-age filter describes age relative to snapshot capture; it is not
+present-day health.
+
+The read model binds its complete safe payload to
+`hash-algorithm-ref:uaa-portable-canonical-json-v1:sha256`. The Control Center
+recomputes that canonical digest before labeling a backend response validated;
+a structurally safe response with a mismatched digest fails closed to the
+backend-unavailable posture. That digest is integrity evidence only and grants
+no authority.
+
 External popularity, stars, downloads, reviews, screenshots, publisher claims,
 and marketplace copy are discovery signals only, not trust. Every external or
 agent-created skill must become a reviewed UAA-owned adaptation before it can

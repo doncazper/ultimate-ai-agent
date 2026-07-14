@@ -13083,12 +13083,31 @@ export interface RuntimeSkillMarketplaceCatalogSnapshot {
   raw_marketplace_payload_persisted: false;
 }
 
+export interface RuntimeSkillMarketplaceCatalogFreshness {
+  catalog_snapshot_ref: string;
+  status: "current" | "stale" | "unknown";
+  display_status:
+    | "available"
+    | "available_stale"
+    | "unavailable_unknown"
+    | "unavailable_authority";
+  checked_at: string;
+  expires_at: string;
+  freshness_policy_ref: string;
+  reason_refs: string[];
+  stale: boolean;
+  catalog_displayable: boolean;
+  unknown_degrades_to_unavailable: true;
+}
+
 export interface RuntimeSkillMarketplacePostureReadModel {
   schema_version: "runtime_skill_marketplace_posture.v1";
   contract_ref: string;
   status: string;
   snapshot_ref: string;
   snapshot_hash_ref: string;
+  snapshot_hash_algorithm_ref:
+    "hash-algorithm-ref:uaa-portable-canonical-json-v1:sha256";
   route_ref: string;
   cli_ref: string;
   doc_ref: string;
@@ -13105,6 +13124,7 @@ export interface RuntimeSkillMarketplacePostureReadModel {
   control_center_ref: string;
   safe_summary: string;
   catalog?: RuntimeSkillMarketplaceCatalogSnapshot;
+  catalog_freshness: RuntimeSkillMarketplaceCatalogFreshness;
   stages: RuntimeSkillMarketplaceStage[];
   stage_count: number;
   review_required_count: number;

@@ -33,7 +33,7 @@ class RuntimeSkillMarketplaceSourceSnapshot(BaseModel):
     display_label: str
     captured_at: str
     source_version_ref: str
-    record_count: int = Field(ge=0)
+    record_count: int = Field(ge=0, le=100)
     rank_signal: RuntimeSkillSourceRankSignal
     score_signal: RuntimeSkillSourceScoreSignal
     live_fetch_performed: Literal[False] = False
@@ -84,14 +84,14 @@ class RuntimeSkillMarketplaceCatalogEntry(BaseModel):
     version: str = Field(min_length=1, max_length=40)
     license_label: str = Field(min_length=1, max_length=120)
     source_updated_at: str
-    source_rank: int | None = Field(default=None, ge=1)
+    source_rank: int | None = Field(default=None, ge=1, le=100_000)
     rank_label: str
-    star_count: int | None = Field(default=None, ge=0)
-    download_count: int | None = Field(default=None, ge=0)
-    install_count: int | None = Field(default=None, ge=0)
-    comment_count: int | None = Field(default=None, ge=0)
+    star_count: int | None = Field(default=None, ge=0, le=1_000_000_000)
+    download_count: int | None = Field(default=None, ge=0, le=1_000_000_000)
+    install_count: int | None = Field(default=None, ge=0, le=1_000_000_000)
+    comment_count: int | None = Field(default=None, ge=0, le=1_000_000_000)
     average_rating: float | None = Field(default=None, ge=0, le=5)
-    rating_count: int | None = Field(default=None, ge=0)
+    rating_count: int | None = Field(default=None, ge=0, le=1_000_000_000)
     source_metadata_only: Literal[True] = True
     review_required: Literal[True] = True
     risk_level: Literal["unknown"] = "unknown"
@@ -157,7 +157,7 @@ class RuntimeSkillMarketplaceCatalogSnapshot(BaseModel):
         default_factory=list,
         max_length=100,
     )
-    entry_count: int = Field(ge=0)
+    entry_count: int = Field(ge=0, le=100)
     default_page_size: Literal[25] = 25
     pagination_supported: Literal[True] = True
     metadata_only: Literal[True] = True

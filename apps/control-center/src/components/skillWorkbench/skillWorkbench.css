@@ -599,8 +599,7 @@
 .skill-list-row > span {
   min-width: 0;
   padding: 0 6px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 
 .skill-list-body {
@@ -648,12 +647,10 @@
 }
 
 .skill-list-identity strong {
-  overflow: hidden;
   color: #121d2e;
   font-size: 0.67rem;
   font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .skill-list-identity small {
@@ -681,9 +678,7 @@
   align-items: center;
   gap: 5px;
   max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .skill-source-dot {
@@ -704,7 +699,8 @@
 .skill-list-score,
 .skill-list-popularity,
 .skill-list-updated {
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .skill-list-rank,
@@ -783,12 +779,11 @@
   margin: 10px 0 8px 38px;
   color: #345a9c;
   font-size: 0.59rem;
+  flex-wrap: wrap;
 }
 
 .skill-card-signals span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .skill-card-signals span + span::before,
@@ -808,12 +803,11 @@
   border-top: 1px solid #e5eaf1;
   color: #617693;
   font-size: 0.56rem;
+  flex-wrap: wrap;
 }
 
 .skill-card-foot span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .skill-pagination {
@@ -992,6 +986,29 @@
   border-left: 2px solid #f0a13a;
   background: #fff9ef;
   color: #6c4f26 !important;
+}
+
+.skill-reference-list {
+  margin-top: 8px;
+  color: #345a78;
+  font-size: 0.61rem;
+}
+
+.skill-reference-list summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.skill-reference-list ul {
+  display: grid;
+  gap: 4px;
+  margin: 6px 0 0;
+  padding-left: 16px;
+}
+
+.skill-reference-list code {
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .skill-inspector-actions {

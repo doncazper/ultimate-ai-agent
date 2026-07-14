@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
+from datetime import datetime, timedelta, timezone
 from enum import Enum
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -55,6 +58,13 @@ RUNTIME_SKILL_MARKETPLACE_POSTURE_AUTHORITY_MAPPING_REF = (
     "lane-ref:runtime-skill-marketplace-posture-read-model"
 )
 _AUTHORITY_DECISION_OUTCOMES = {"allow", "ask", "deny", "degrade_to_draft"}
+RUNTIME_SKILL_MARKETPLACE_CATALOG_FRESHNESS_TTL = timedelta(days=7)
+RUNTIME_SKILL_MARKETPLACE_CATALOG_FRESHNESS_POLICY_REF = (
+    "freshness-policy-ref:skill-marketplace-catalog:seven-days"
+)
+RUNTIME_SKILL_MARKETPLACE_SNAPSHOT_HASH_ALGORITHM_REF = (
+    "hash-algorithm-ref:uaa-portable-canonical-json-v1:sha256"
+)
 
 RUNTIME_SKILL_MARKETPLACE_BLOCKED_AUTHORITY_REFS: tuple[str, ...] = (
     "blocked-authority:skill-marketplace-no-external-code-execution",
@@ -83,6 +93,49 @@ class RuntimeSkillMarketplaceStageStatus(str, Enum):
     signal_only = "signal_only"
     review_required = "review_required"
     blocked_until_owned_adaptation = "blocked_until_owned_adaptation"
+
+
+class RuntimeSkillMarketplaceCatalogFreshnessStatus(str, Enum):
+    current = "current"
+    stale = "stale"
+    unknown = "unknown"
+
+
+class RuntimeSkillMarketplaceCatalogDisplayStatus(str, Enum):
+    available = "available"
+    available_stale = "available_stale"
+    unavailable_unknown = "unavailable_unknown"
+    unavailable_authority = "unavailable_authority"
+
+
+class RuntimeSkillMarketplaceCatalogFreshness(BaseModel):
+    catalog_snapshot_ref: str
+    status: RuntimeSkillMarketplaceCatalogFreshnessStatus
+    display_status: RuntimeSkillMarketplaceCatalogDisplayStatus
+    checked_at: str
+    expires_at: str
+    freshness_policy_ref: str = RUNTIME_SKILL_MARKETPLACE_CATALOG_FRESHNESS_POLICY_REF
+    reason_refs: list[str] = Field(default_factory=list, min_length=1)
+    stale: bool
+    catalog_displayable: bool
+    unknown_degrades_to_unavailable: Literal[True] = True
+
+    model_config = ConfigDict(use_enum_values=True, extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_freshness(self) -> "RuntimeSkillMarketplaceCatalogFreshness":
+        validate_execution_ref(self.catalog_snapshot_ref, "catalog_snapshot_ref")
+        validate_execution_ref(self.freshness_policy_ref, "freshness_policy_ref")
+        for value in self.reason_refs:
+            validate_execution_ref(value, "reason_refs")
+        for value, field_name in (
+            (str(self.status), "status"),
+            (str(self.display_status), "display_status"),
+            (self.checked_at, "checked_at"),
+            (self.expires_at, "expires_at"),
+        ):
+            validate_safe_execution_text(value, field_name)
+        return self
 
 
 class RuntimeSkillMarketplaceStage(BaseModel):
@@ -176,6 +229,9 @@ class RuntimeSkillMarketplacePostureReadModel(BaseModel):
     status: str = "signal_review_adaptation_only"
     snapshot_ref: str = RUNTIME_SKILL_MARKETPLACE_POSTURE_SNAPSHOT_REF
     snapshot_hash_ref: str = "snapshot-hash-ref:skill-marketplace-posture:pending"
+    snapshot_hash_algorithm_ref: Literal[
+        "hash-algorithm-ref:uaa-portable-canonical-json-v1:sha256"
+    ] = RUNTIME_SKILL_MARKETPLACE_SNAPSHOT_HASH_ALGORITHM_REF
     route_ref: str = RUNTIME_SKILL_MARKETPLACE_POSTURE_ROUTE_REF
     cli_ref: str = RUNTIME_SKILL_MARKETPLACE_POSTURE_CLI_REF
     doc_ref: str = RUNTIME_SKILL_MARKETPLACE_POSTURE_DOC_REF
@@ -202,6 +258,7 @@ class RuntimeSkillMarketplacePostureReadModel(BaseModel):
     catalog: RuntimeSkillMarketplaceCatalogSnapshot = Field(
         default_factory=build_runtime_skill_marketplace_catalog_snapshot
     )
+    catalog_freshness: RuntimeSkillMarketplaceCatalogFreshness
     stages: list[RuntimeSkillMarketplaceStage] = Field(default_factory=list)
     stage_count: int = 0
     review_required_count: int = 0
@@ -240,6 +297,7 @@ class RuntimeSkillMarketplacePostureReadModel(BaseModel):
             (self.contract_ref, "contract_ref"),
             (self.snapshot_ref, "snapshot_ref"),
             (self.snapshot_hash_ref, "snapshot_hash_ref"),
+            (self.snapshot_hash_algorithm_ref, "snapshot_hash_algorithm_ref"),
             (self.authority_state_mapping_ref, "authority_state_mapping_ref"),
             (self.authority_state_catalog_ref, "authority_state_catalog_ref"),
             (self.authority_state_decision_ref, "authority_state_decision_ref"),
@@ -286,6 +344,18 @@ class RuntimeSkillMarketplacePostureReadModel(BaseModel):
             raise ValueError("RUNTIME_SKILL_MARKETPLACE_AUTHORITY_MAPPING_MISMATCH")
         if self.authority_state_decision_outcome not in _AUTHORITY_DECISION_OUTCOMES:
             raise ValueError("RUNTIME_SKILL_MARKETPLACE_AUTHORITY_DECISION_INVALID")
+        if self.catalog_freshness.catalog_snapshot_ref != self.catalog.snapshot_ref:
+            raise ValueError("RUNTIME_SKILL_MARKETPLACE_FRESHNESS_REF_MISMATCH")
+        expected_freshness = _expected_catalog_freshness(
+            catalog=self.catalog,
+            authority_outcome=self.authority_state_decision_outcome,
+            checked_at=_parse_observation_timestamp(
+                self.catalog_freshness.checked_at,
+                "catalog_freshness.checked_at",
+            ),
+        )
+        if self.catalog_freshness != expected_freshness:
+            raise ValueError("RUNTIME_SKILL_MARKETPLACE_FRESHNESS_MISMATCH")
         denied_flags = {
             "external_popularity_is_trust": self.external_popularity_is_trust,
             "external_code_execution_enabled": self.external_code_execution_enabled,
@@ -375,6 +445,8 @@ def _stage(
 
 def build_runtime_skill_marketplace_posture_read_model(
     authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None = None,
+    *,
+    checked_at: datetime | None = None,
 ) -> RuntimeSkillMarketplacePostureReadModel:
     authority_entry = _authority_entry(authority_decision_catalog)
     catalog = build_runtime_skill_marketplace_catalog_snapshot()
@@ -440,6 +512,11 @@ def build_runtime_skill_marketplace_posture_read_model(
         "authority_state_reason_refs": list(authority_entry.decision.reason_refs),
         "unsupported_adapter_refs": list(authority_entry.unsupported_adapter_refs),
         "catalog": catalog,
+        "catalog_freshness": _expected_catalog_freshness(
+            catalog=catalog,
+            authority_outcome=_authority_value(authority_entry.decision.outcome),
+            checked_at=checked_at or datetime.now(timezone.utc),
+        ),
         "stages": stages,
         "stage_count": len(stages),
         "review_required_count": len(
@@ -484,9 +561,149 @@ def _snapshot_hash_ref(read_model: RuntimeSkillMarketplacePostureReadModel) -> s
         exclude={"snapshot_hash_ref"},
     )
     digest = hashlib.sha256(
-        json.dumps(material, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        _portable_canonical_json(material).encode("utf-8")
     ).hexdigest()
     return f"snapshot-hash-ref:skill-marketplace-posture:{digest}"
+
+
+def _portable_canonical_json(value: object) -> str:
+    if value is None:
+        return "null"
+    if value is True:
+        return "true"
+    if value is False:
+        return "false"
+    if isinstance(value, str):
+        return json.dumps(value, ensure_ascii=True, separators=(",", ":"))
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        return _portable_canonical_number(value)
+    if isinstance(value, list):
+        return "[" + ",".join(_portable_canonical_json(item) for item in value) + "]"
+    if isinstance(value, dict):
+        if any(not isinstance(key, str) for key in value):
+            raise TypeError("RUNTIME_SKILL_MARKETPLACE_CANONICAL_KEY_INVALID")
+        return (
+            "{"
+            + ",".join(
+                f"{_portable_canonical_json(key)}:{_portable_canonical_json(value[key])}"
+                for key in sorted(value)
+            )
+            + "}"
+        )
+    raise TypeError("RUNTIME_SKILL_MARKETPLACE_CANONICAL_VALUE_INVALID")
+
+
+def _portable_canonical_number(value: float) -> str:
+    if not math.isfinite(value):
+        raise ValueError("RUNTIME_SKILL_MARKETPLACE_CANONICAL_NUMBER_INVALID")
+    if value == 0:
+        return "-0" if math.copysign(1.0, value) < 0 else "0"
+    text = repr(value).lower()
+    if "e" not in text:
+        return text.removesuffix(".0")
+    mantissa, exponent_text = text.split("e", 1)
+    sign = ""
+    if mantissa.startswith("-"):
+        sign, mantissa = "-", mantissa[1:]
+    integer, _, fraction = mantissa.partition(".")
+    digits = integer + fraction
+    decimal_index = len(integer) + int(exponent_text)
+    if decimal_index <= 0:
+        plain = "0." + ("0" * -decimal_index) + digits
+    elif decimal_index >= len(digits):
+        plain = digits + ("0" * (decimal_index - len(digits)))
+    else:
+        plain = digits[:decimal_index] + "." + digits[decimal_index:]
+    if "." in plain:
+        plain = plain.rstrip("0").rstrip(".")
+    return sign + plain
+
+
+def _parse_observation_timestamp(value: str, field_name: str) -> datetime:
+    try:
+        timestamp = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError(
+            f"RUNTIME_SKILL_MARKETPLACE_TIMESTAMP_INVALID:{field_name}"
+        ) from exc
+    if timestamp.tzinfo is None or timestamp.utcoffset() is None:
+        raise ValueError(
+            f"RUNTIME_SKILL_MARKETPLACE_TIMESTAMP_TIMEZONE_REQUIRED:{field_name}"
+        )
+    return timestamp.astimezone(timezone.utc).replace(microsecond=0)
+
+
+def _format_observation_timestamp(value: datetime) -> str:
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise ValueError("RUNTIME_SKILL_MARKETPLACE_CHECK_TIMEZONE_REQUIRED")
+    return (
+        value.astimezone(timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
+
+
+def _expected_catalog_freshness(
+    *,
+    catalog: RuntimeSkillMarketplaceCatalogSnapshot,
+    authority_outcome: str,
+    checked_at: datetime,
+) -> RuntimeSkillMarketplaceCatalogFreshness:
+    normalized_checked_at = _parse_observation_timestamp(
+        _format_observation_timestamp(checked_at),
+        "checked_at",
+    )
+    captured_at = _parse_observation_timestamp(
+        catalog.captured_at,
+        "catalog.captured_at",
+    )
+    expires_at = captured_at + RUNTIME_SKILL_MARKETPLACE_CATALOG_FRESHNESS_TTL
+    status = (
+        RuntimeSkillMarketplaceCatalogFreshnessStatus.unknown
+        if normalized_checked_at < captured_at
+        else RuntimeSkillMarketplaceCatalogFreshnessStatus.stale
+        if normalized_checked_at >= expires_at
+        else RuntimeSkillMarketplaceCatalogFreshnessStatus.current
+    )
+    display_status = (
+        RuntimeSkillMarketplaceCatalogDisplayStatus.unavailable_authority
+        if authority_outcome != "allow"
+        else RuntimeSkillMarketplaceCatalogDisplayStatus.available
+        if status == RuntimeSkillMarketplaceCatalogFreshnessStatus.current
+        else RuntimeSkillMarketplaceCatalogDisplayStatus.available_stale
+        if status == RuntimeSkillMarketplaceCatalogFreshnessStatus.stale
+        else RuntimeSkillMarketplaceCatalogDisplayStatus.unavailable_unknown
+    )
+    reason_ref = {
+        RuntimeSkillMarketplaceCatalogFreshnessStatus.current: (
+            "reason-ref:skill-marketplace-catalog:freshness-current"
+        ),
+        RuntimeSkillMarketplaceCatalogFreshnessStatus.stale: (
+            "reason-ref:skill-marketplace-catalog:freshness-window-expired"
+        ),
+        RuntimeSkillMarketplaceCatalogFreshnessStatus.unknown: (
+            "reason-ref:skill-marketplace-catalog:freshness-clock-unknown"
+        ),
+    }[status]
+    return RuntimeSkillMarketplaceCatalogFreshness(
+        catalog_snapshot_ref=catalog.snapshot_ref,
+        status=status,
+        display_status=display_status,
+        checked_at=_format_observation_timestamp(normalized_checked_at),
+        expires_at=_format_observation_timestamp(expires_at),
+        reason_refs=[reason_ref],
+        stale=(status == RuntimeSkillMarketplaceCatalogFreshnessStatus.stale),
+        catalog_displayable=(
+            display_status
+            in {
+                RuntimeSkillMarketplaceCatalogDisplayStatus.available,
+                RuntimeSkillMarketplaceCatalogDisplayStatus.available_stale,
+            }
+        ),
+    )
 
 
 def _authority_entry(

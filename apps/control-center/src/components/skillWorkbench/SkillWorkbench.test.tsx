@@ -51,6 +51,30 @@ function posture(): RuntimeSkillMarketplacePostureReadModel {
   ];
   return {
     ...mockControlCenterData.runtimeSkillMarketplacePosture,
+    authority_state_decision_ref:
+      "authority-policy-decision-ref:test-runtime-skill-marketplace-posture",
+    authority_state_decision_outcome: "allow",
+    authority_state_status: "implemented_authority_bound_read_model",
+    authority_state_operator_message:
+      "Allowed by exact read-only authority for test metadata inspection.",
+    authority_state_reason_refs: [
+      "reason-ref:authority:active-lease-grants-domain-capability",
+    ],
+    catalog_freshness: {
+      catalog_snapshot_ref: "skill-marketplace-catalog-snapshot-ref:test",
+      status: "current",
+      display_status: "available",
+      checked_at: "2026-07-14T00:00:00Z",
+      expires_at: "2026-07-20T00:00:00Z",
+      freshness_policy_ref:
+        "freshness-policy-ref:skill-marketplace-catalog:seven-days",
+      reason_refs: [
+        "reason-ref:skill-marketplace-catalog:freshness-current",
+      ],
+      stale: false,
+      catalog_displayable: true,
+      unknown_degrades_to_unavailable: true,
+    },
     catalog: {
       schema_version: "runtime_skill_marketplace_catalog_snapshot.v1",
       snapshot_ref: "skill-marketplace-catalog-snapshot-ref:test",
@@ -94,7 +118,13 @@ function posture(): RuntimeSkillMarketplacePostureReadModel {
 
 describe("SkillWorkbench", () => {
   it("shows source signals without a license column or guessed risk", () => {
-    render(<SkillWorkbench authoritative posture={posture()} />);
+    render(
+      <SkillWorkbench
+        backendValidated
+        catalogDisplayable
+        posture={posture()}
+      />,
+    );
 
     expect(
       screen.getByRole("heading", { name: "Skill Workbench" }),
@@ -120,7 +150,13 @@ describe("SkillWorkbench", () => {
   });
 
   it("switches views and filters source-derived records", () => {
-    render(<SkillWorkbench authoritative posture={posture()} />);
+    render(
+      <SkillWorkbench
+        backendValidated
+        catalogDisplayable
+        posture={posture()}
+      />,
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Grid view" }));
     expect(screen.getByLabelText("Skill idea grid")).toBeInTheDocument();
@@ -143,7 +179,13 @@ describe("SkillWorkbench", () => {
   });
 
   it("paginates dense results and updates the selected inspector", () => {
-    render(<SkillWorkbench authoritative posture={posture()} />);
+    render(
+      <SkillWorkbench
+        backendValidated
+        catalogDisplayable
+        posture={posture()}
+      />,
+    );
 
     fireEvent.change(screen.getByRole("combobox", { name: "Rows per page" }), {
       target: { value: "10" },
@@ -162,24 +204,115 @@ describe("SkillWorkbench", () => {
     );
   });
 
-  it("does not render catalog rows without authoritative backend validation", () => {
-    render(<SkillWorkbench authoritative={false} posture={posture()} />);
+  it("does not render catalog rows without backend validation", () => {
+    render(
+      <SkillWorkbench
+        backendValidated={false}
+        catalogDisplayable={false}
+        posture={posture()}
+      />,
+    );
 
     expect(screen.getByText("0 skill ideas")).toBeInTheDocument();
-    expect(screen.getAllByText(/Catalog unavailable/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Backend unavailable/i).length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.queryByText(/^Allow$/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/active lease grants domain capability/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/proof-ref:skill-marketplace/i),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText("Source-Ranked Skill")).not.toBeInTheDocument();
   });
 
-  it("fails closed when freshness metadata is dated after the snapshot", () => {
+  it("treats the source-age filter as relative to capture", () => {
     const data = posture();
     data.catalog!.entries[0].source_updated_at = "2026-07-14T00:00:00Z";
-    render(<SkillWorkbench authoritative posture={data} />);
+    render(
+      <SkillWorkbench
+        backendValidated
+        catalogDisplayable
+        posture={data}
+      />,
+    );
 
-    fireEvent.change(screen.getByRole("combobox", { name: "Freshness" }), {
-      target: { value: "30" },
-    });
+    fireEvent.change(
+      screen.getByRole("combobox", { name: "Source age at capture" }),
+      { target: { value: "30" } },
+    );
 
     expect(screen.queryByText("Source-Ranked Skill")).not.toBeInTheDocument();
     expect(screen.getByText("11 skill ideas")).toBeInTheDocument();
+  });
+
+  it.each(["ask", "deny", "degrade_to_draft"] as const)(
+    "renders exact %s authority truth while withholding catalog rows",
+    (outcome) => {
+      const data = posture();
+      data.authority_state_decision_outcome = outcome;
+      data.authority_state_status = `authority_${outcome}`;
+      data.authority_state_operator_message =
+        "Exact read-only authority is not currently available.";
+      data.catalog_freshness.display_status = "unavailable_authority";
+      data.catalog_freshness.catalog_displayable = false;
+
+      render(
+        <SkillWorkbench
+          backendValidated
+          catalogDisplayable={false}
+          posture={data}
+        />,
+      );
+
+      expect(screen.getAllByText(new RegExp(outcome.replaceAll("_", " "), "i")).length)
+        .toBeGreaterThan(0);
+      expect(
+        screen.getByText("Exact read-only authority is not currently available."),
+      ).toBeInTheDocument();
+      expect(screen.getByText("0 skill ideas")).toBeInTheDocument();
+      expect(screen.queryByText("Source-Ranked Skill")).not.toBeInTheDocument();
+    },
+  );
+
+  it("keeps stale metadata inspectable with an explicit warning", () => {
+    const data = posture();
+    data.catalog_freshness.status = "stale";
+    data.catalog_freshness.display_status = "available_stale";
+    data.catalog_freshness.stale = true;
+    data.catalog_freshness.catalog_displayable = true;
+
+    render(
+      <SkillWorkbench
+        backendValidated
+        catalogDisplayable
+        posture={data}
+      />,
+    );
+
+    expect(screen.getAllByText(/Available Stale/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Sanitized stale snapshot/i)).toBeInTheDocument();
+    expect(screen.getByText("12 skill ideas")).toBeInTheDocument();
+    expect(screen.getAllByText("Source-Ranked Skill").length).toBeGreaterThan(0);
+  });
+
+  it("withholds unknown metadata freshness", () => {
+      const data = posture();
+      data.catalog_freshness.status = "unknown";
+      data.catalog_freshness.display_status = "unavailable_unknown";
+      data.catalog_freshness.stale = false;
+      data.catalog_freshness.catalog_displayable = false;
+
+      render(
+        <SkillWorkbench
+          backendValidated
+          catalogDisplayable={false}
+          posture={data}
+        />,
+      );
+
+      expect(screen.getAllByText(/Unavailable Unknown/i).length).toBeGreaterThan(0);
+      expect(screen.getByText("0 skill ideas")).toBeInTheDocument();
   });
 });

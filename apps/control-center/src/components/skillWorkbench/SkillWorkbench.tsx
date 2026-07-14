@@ -22,7 +22,8 @@ import "./skillWorkbench.css";
 type SortMode = "relevance" | "trending" | "stars" | "newest";
 
 interface SkillWorkbenchProps {
-  authoritative: boolean;
+  backendValidated: boolean;
+  catalogDisplayable: boolean;
   posture: RuntimeSkillMarketplacePostureReadModel;
 }
 
@@ -37,10 +38,11 @@ const WORKBENCH_TABS = [
 const EMPTY_SKILL_ENTRIES: RuntimeSkillMarketplaceCatalogEntry[] = [];
 
 export function SkillWorkbench({
-  authoritative,
+  backendValidated,
+  catalogDisplayable,
   posture,
 }: SkillWorkbenchProps) {
-  const catalog = authoritative ? posture.catalog : undefined;
+  const catalog = catalogDisplayable ? posture.catalog : undefined;
   const entries = catalog?.entries ?? EMPTY_SKILL_ENTRIES;
   const [viewMode, setViewMode] =
     useState<SkillWorkbenchViewMode>("list");
@@ -103,7 +105,11 @@ export function SkillWorkbench({
     <div className="studio-skill-shell">
       <StudioRail />
       <section className="skill-workspace">
-        <WorkbenchHeader authoritative={authoritative} />
+        <WorkbenchHeader
+          backendValidated={backendValidated}
+          catalogDisplayable={catalogDisplayable}
+          posture={posture}
+        />
         <nav className="skill-tabs" aria-label="Skill Workbench sections">
           {WORKBENCH_TABS.map((tab) =>
             tab === "Discover" ? (
@@ -177,19 +183,19 @@ export function SkillWorkbench({
                 </select>
               </label>
               <label>
-                <span className="sr-only">Freshness</span>
+                <span className="sr-only">Source age at capture</span>
                 <select
-                  aria-label="Freshness"
+                  aria-label="Source age at capture"
                   onChange={(event) => {
                     setFreshness(event.target.value);
                     resetPage();
                   }}
                   value={freshness}
                 >
-                  <option value="any">Freshness: Any</option>
-                  <option value="30">Updated within 30 days</option>
-                  <option value="60">Updated within 60 days</option>
-                  <option value="90">Updated within 90 days</option>
+                  <option value="any">Source age: Any</option>
+                  <option value="30">Updated ≤30 days before capture</option>
+                  <option value="60">Updated ≤60 days before capture</option>
+                  <option value="90">Updated ≤90 days before capture</option>
                 </select>
               </label>
               <button
@@ -208,9 +214,11 @@ export function SkillWorkbench({
                   {visibleEntries.length === 1 ? "" : "s"}
                 </strong>
                 <small>
-                  {authoritative
-                    ? `Sanitized snapshot · ${catalog ? formatDate(catalog.captured_at) : "unavailable"}`
-                    : "Catalog unavailable · no invented fallback rows"}
+                  {catalogDisplayable
+                    ? `${posture.catalog_freshness.stale ? "Sanitized stale snapshot" : "Sanitized snapshot"} · ${catalog ? formatDate(catalog.captured_at) : "unavailable"}`
+                    : backendValidated
+                      ? `${formatPostureToken(posture.catalog_freshness.display_status)} · no catalog rows shown`
+                      : "Backend unavailable · no invented fallback rows"}
                 </small>
               </div>
               <div className="skill-toolbar-actions">
@@ -272,12 +280,27 @@ export function SkillWorkbench({
             />
             <StudioComposer />
           </main>
-          <SkillInspector entry={selectedEntry} posture={posture} />
+          <SkillInspector
+            backendValidated={backendValidated}
+            entry={selectedEntry}
+            posture={posture}
+          />
         </div>
       </section>
-      <StudioStatusBand authoritative={authoritative} />
+      <StudioStatusBand
+        backendValidated={backendValidated}
+        catalogDisplayable={catalogDisplayable}
+        posture={posture}
+      />
     </div>
   );
+}
+
+function formatPostureToken(value: string): string {
+  return value
+    .split("_")
+    .map((token) => token.charAt(0).toUpperCase() + token.slice(1))
+    .join(" ");
 }
 
 function filterAndSortEntries(

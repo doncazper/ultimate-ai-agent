@@ -1,11 +1,13 @@
 import json
 import subprocess
 import sys
+from datetime import datetime, timezone
 
 import pytest
 from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
+from ultimate_ai_agent.core.authority import build_authority_decision_catalog
 from ultimate_ai_agent.core.runtime_gateway import (
     RUNTIME_SKILL_MARKETPLACE_BLOCKED_AUTHORITY_REFS,
     RUNTIME_SKILL_MARKETPLACE_POSTURE_AUTHORITY_MAPPING_REF,
@@ -21,7 +23,9 @@ client = TestClient(app)
 
 
 def test_skill_marketplace_is_signal_review_adaptation_only() -> None:
-    read_model = build_runtime_skill_marketplace_posture_read_model()
+    read_model = build_runtime_skill_marketplace_posture_read_model(
+        checked_at=datetime(2026, 7, 14, 0, 0, tzinfo=timezone.utc)
+    )
 
     assert read_model.schema_version == "runtime_skill_marketplace_posture.v1"
     assert read_model.status == "signal_review_adaptation_only"
@@ -57,6 +61,14 @@ def test_skill_marketplace_is_signal_review_adaptation_only() -> None:
     assert read_model.raw_marketplace_payload_persisted is False
     assert read_model.control_center_mints_authority is False
     assert read_model.catalog.entry_count == 31
+    assert read_model.catalog_freshness.status == "current"
+    assert read_model.catalog_freshness.display_status == "available"
+    assert read_model.catalog_freshness.stale is False
+    assert read_model.catalog_freshness.catalog_displayable is True
+    assert read_model.catalog_freshness.unknown_degrades_to_unavailable is True
+    assert read_model.snapshot_hash_algorithm_ref == (
+        "hash-algorithm-ref:uaa-portable-canonical-json-v1:sha256"
+    )
     assert read_model.catalog.default_page_size == 25
     assert read_model.catalog.live_marketplace_fetch_performed is False
     assert read_model.catalog.raw_marketplace_payload_persisted is False
@@ -88,6 +100,11 @@ def test_skill_marketplace_route_returns_authority_bound_read_model() -> None:
     assert data["automatic_skill_write_enabled"] is False
     assert data["catalog"]["entry_count"] == 31
     assert data["catalog"]["pagination_supported"] is True
+    freshness = data["catalog_freshness"]
+    assert freshness["status"] in {"current", "stale", "unknown"}
+    assert freshness["catalog_displayable"] is (
+        freshness["status"] in {"current", "stale"}
+    )
 
 
 def test_skill_marketplace_catalog_keeps_source_signals_distinct() -> None:
@@ -120,9 +137,8 @@ def test_skill_marketplace_catalog_keeps_source_signals_distinct() -> None:
 
 
 def test_skill_marketplace_catalog_rejects_invented_hermes_signals() -> None:
-    payload = (
-        build_runtime_skill_marketplace_posture_read_model()
-        .catalog.model_dump(mode="json")
+    payload = build_runtime_skill_marketplace_posture_read_model().catalog.model_dump(
+        mode="json"
     )
     hermes_entry = next(
         entry for entry in payload["entries"] if entry["source_kind"] == "hermes"
@@ -137,9 +153,8 @@ def test_skill_marketplace_catalog_rejects_invented_hermes_signals() -> None:
 
 
 def test_skill_marketplace_catalog_rejects_mismatched_source_identity() -> None:
-    payload = (
-        build_runtime_skill_marketplace_posture_read_model()
-        .catalog.model_dump(mode="json")
+    payload = build_runtime_skill_marketplace_posture_read_model().catalog.model_dump(
+        mode="json"
     )
     hermes_entry = next(
         entry for entry in payload["entries"] if entry["source_kind"] == "hermes"
@@ -154,9 +169,8 @@ def test_skill_marketplace_catalog_rejects_mismatched_source_identity() -> None:
 
 
 def test_skill_marketplace_catalog_rejects_duplicate_source_records() -> None:
-    payload = (
-        build_runtime_skill_marketplace_posture_read_model()
-        .catalog.model_dump(mode="json")
+    payload = build_runtime_skill_marketplace_posture_read_model().catalog.model_dump(
+        mode="json"
     )
     payload["entries"][1]["source_record_ref"] = payload["entries"][0][
         "source_record_ref"
@@ -170,9 +184,8 @@ def test_skill_marketplace_catalog_rejects_duplicate_source_records() -> None:
 
 
 def test_skill_marketplace_catalog_rejects_future_dated_source_metadata() -> None:
-    payload = (
-        build_runtime_skill_marketplace_posture_read_model()
-        .catalog.model_dump(mode="json")
+    payload = build_runtime_skill_marketplace_posture_read_model().catalog.model_dump(
+        mode="json"
     )
     payload["entries"][0]["source_updated_at"] = "2026-07-14T00:00:00Z"
 
@@ -181,6 +194,78 @@ def test_skill_marketplace_catalog_rejects_future_dated_source_metadata() -> Non
         match="RUNTIME_SKILL_MARKETPLACE_ENTRY_UPDATE_IN_FUTURE",
     ):
         RuntimeSkillMarketplaceCatalogSnapshot(**payload)
+
+
+def test_skill_marketplace_catalog_keeps_stale_metadata_visible_and_unknown_closed() -> (
+    None
+):
+    stale = build_runtime_skill_marketplace_posture_read_model(
+        checked_at=datetime(2026, 7, 20, 23, 0, tzinfo=timezone.utc)
+    )
+    unknown = build_runtime_skill_marketplace_posture_read_model(
+        checked_at=datetime(2026, 7, 13, 22, 59, tzinfo=timezone.utc)
+    )
+
+    assert stale.catalog_freshness.status == "stale"
+    assert stale.catalog_freshness.display_status == "available_stale"
+    assert stale.catalog_freshness.stale is True
+    assert stale.catalog_freshness.catalog_displayable is True
+    assert unknown.catalog_freshness.status == "unknown"
+    assert unknown.catalog_freshness.display_status == "unavailable_unknown"
+    assert unknown.catalog_freshness.stale is False
+    assert unknown.catalog_freshness.catalog_displayable is False
+
+
+def test_skill_marketplace_catalog_rejects_forged_freshness_posture() -> None:
+    payload = build_runtime_skill_marketplace_posture_read_model(
+        checked_at=datetime(2026, 7, 20, 23, 0, tzinfo=timezone.utc)
+    ).model_dump(mode="json")
+    payload["catalog_freshness"]["status"] = "current"
+
+    with pytest.raises(
+        ValueError,
+        match="RUNTIME_SKILL_MARKETPLACE_FRESHNESS_MISMATCH",
+    ):
+        RuntimeSkillMarketplacePostureReadModel(**payload)
+
+
+@pytest.mark.parametrize("outcome", ["ask", "deny", "degrade_to_draft"])
+def test_skill_marketplace_non_allow_authority_withholds_catalog(
+    outcome: str,
+) -> None:
+    catalog = build_authority_decision_catalog()
+    index = next(
+        index
+        for index, entry in enumerate(catalog)
+        if entry.lane_ref == "lane-ref:runtime-skill-marketplace-posture-read-model"
+    )
+    entry = catalog[index]
+    catalog[index] = entry.model_copy(
+        update={
+            "status": f"authority_{outcome}",
+            "decision": entry.decision.model_copy(
+                update={
+                    "outcome": outcome,
+                    "operator_message": (
+                        "Exact read-only authority is not currently available."
+                    ),
+                    "reason_refs": [
+                        f"reason-ref:skill-marketplace-authority:{outcome}"
+                    ],
+                }
+            ),
+        }
+    )
+
+    read_model = build_runtime_skill_marketplace_posture_read_model(
+        authority_decision_catalog=catalog,
+        checked_at=datetime(2026, 7, 14, 0, 0, tzinfo=timezone.utc),
+    )
+
+    assert read_model.authority_state_decision_outcome == outcome
+    assert read_model.catalog_freshness.status == "current"
+    assert read_model.catalog_freshness.display_status == "unavailable_authority"
+    assert read_model.catalog_freshness.catalog_displayable is False
 
 
 def test_skill_marketplace_snapshot_hash_binds_displayed_catalog_content() -> None:
@@ -319,3 +404,8 @@ def test_skill_marketplace_cli_uses_same_read_model() -> None:
     assert read_model["blocked_execution_count"] == 1
     assert read_model["catalog"]["entry_count"] == 31
     assert read_model["catalog"]["live_marketplace_fetch_performed"] is False
+    freshness = read_model["catalog_freshness"]
+    assert freshness["status"] in {"current", "stale", "unknown"}
+    assert freshness["catalog_displayable"] is (
+        freshness["status"] in {"current", "stale"}
+    )

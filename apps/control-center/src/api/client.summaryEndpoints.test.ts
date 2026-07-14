@@ -1,10 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  computeRuntimeSkillMarketplaceSnapshotHashRef,
   loadControlCenterData,
   loadRuntimeSkillMarketplacePosture,
 } from "./client";
 import { API_ENDPOINTS } from "./endpoints";
+import type { RuntimeSkillMarketplacePostureReadModel } from "./types";
 import { mockControlCenterData } from "../mocks/controlCenterData";
+import studioSkillMarketplaceVisualFixture from "../../tests/visual/fixtures/studio-skill-marketplace-posture.json";
 
 const EMPTY_SKILL_MARKETPLACE_SOURCES = [
   {
@@ -33,35 +36,71 @@ const EMPTY_SKILL_MARKETPLACE_SOURCES = [
   },
 ];
 
+const CURRENT_SKILL_MARKETPLACE_FRESHNESS = {
+  catalog_snapshot_ref: "skill-marketplace-catalog-snapshot-ref:test",
+  status: "current" as const,
+  display_status: "available" as const,
+  checked_at: "2026-07-14T00:00:00Z",
+  expires_at: "2026-07-20T00:00:00Z",
+  freshness_policy_ref:
+    "freshness-policy-ref:skill-marketplace-catalog:seven-days",
+  reason_refs: ["reason-ref:skill-marketplace-catalog:freshness-current"],
+  stale: false,
+  catalog_displayable: true,
+  unknown_degrades_to_unavailable: true as const,
+};
+
+async function validSkillMarketplacePosture(): Promise<RuntimeSkillMarketplacePostureReadModel> {
+  const posture: RuntimeSkillMarketplacePostureReadModel = {
+    ...mockControlCenterData.runtimeSkillMarketplacePosture,
+    snapshot_hash_ref: `snapshot-hash-ref:skill-marketplace-posture:${"0".repeat(64)}`,
+    authority_state_decision_ref:
+      "authority-policy-decision-ref:test-runtime-skill-marketplace-posture",
+    authority_state_decision_outcome: "allow",
+    authority_state_status: "implemented_authority_bound_read_model",
+    authority_state_operator_message:
+      "Allowed by exact read-only authority for test metadata inspection.",
+    authority_state_reason_refs: [
+      "reason-ref:authority:active-lease-grants-domain-capability",
+    ],
+    catalog_freshness: { ...CURRENT_SKILL_MARKETPLACE_FRESHNESS },
+    catalog: {
+      schema_version: "runtime_skill_marketplace_catalog_snapshot.v1" as const,
+      snapshot_ref: "skill-marketplace-catalog-snapshot-ref:test",
+      captured_at: "2026-07-13T00:00:00Z",
+      sources: EMPTY_SKILL_MARKETPLACE_SOURCES.map((source) => ({ ...source })),
+      entries: [],
+      entry_count: 0,
+      default_page_size: 25 as const,
+      pagination_supported: true as const,
+      metadata_only: true as const,
+      live_marketplace_fetch_performed: false as const,
+      raw_marketplace_payload_persisted: false as const,
+    },
+  };
+  posture.snapshot_hash_ref =
+    await computeRuntimeSkillMarketplaceSnapshotHashRef(posture);
+  return posture;
+}
+
 describe("loadControlCenterData summary endpoint wiring", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
   it("loads Studio skill metadata through one focused backend read", async () => {
-    const posture = {
-      ...mockControlCenterData.runtimeSkillMarketplacePosture,
-      catalog: {
-        schema_version: "runtime_skill_marketplace_catalog_snapshot.v1" as const,
-        snapshot_ref: "skill-marketplace-catalog-snapshot-ref:test",
-        captured_at: "2026-07-13T00:00:00Z",
-        sources: EMPTY_SKILL_MARKETPLACE_SOURCES,
-        entries: [],
-        entry_count: 0,
-        default_page_size: 25,
-        pagination_supported: true,
-        metadata_only: true,
-        live_marketplace_fetch_performed: false,
-        raw_marketplace_payload_persisted: false,
-      },
-    };
+    const posture = await validSkillMarketplacePosture();
     stubControlCenterFetch({
       [API_ENDPOINTS.runtimeSkillMarketplacePosture]: posture,
     });
 
     const result = await loadRuntimeSkillMarketplacePosture();
 
-    expect(result).toEqual({ posture, authoritative: true });
+    expect(result).toEqual({
+      posture,
+      backendValidated: true,
+      catalogDisplayable: true,
+    });
     expect(fetch).toHaveBeenCalledTimes(1);
     expect(fetch).toHaveBeenCalledWith(
       expect.stringContaining(API_ENDPOINTS.runtimeSkillMarketplacePosture),
@@ -69,40 +108,101 @@ describe("loadControlCenterData summary endpoint wiring", () => {
     );
   });
 
+  it("accepts the backend-generated Studio visual fixture", async () => {
+    stubControlCenterFetch({
+      [API_ENDPOINTS.runtimeSkillMarketplacePosture]:
+        studioSkillMarketplaceVisualFixture.data,
+    });
+
+    const result = await loadRuntimeSkillMarketplacePosture();
+
+    expect(result.backendValidated).toBe(true);
+    expect(result.catalogDisplayable).toBe(true);
+  });
+
   it("fails closed when the focused Studio read contains duplicate source refs", async () => {
-    const posture = {
-      ...mockControlCenterData.runtimeSkillMarketplacePosture,
-      catalog: {
-        schema_version: "runtime_skill_marketplace_catalog_snapshot.v1" as const,
-        snapshot_ref: "skill-marketplace-catalog-snapshot-ref:test",
-        captured_at: "2026-07-13T00:00:00Z",
-        sources: [
-          EMPTY_SKILL_MARKETPLACE_SOURCES[0],
-          {
-            ...EMPTY_SKILL_MARKETPLACE_SOURCES[1],
-            source_ref: EMPTY_SKILL_MARKETPLACE_SOURCES[0].source_ref,
-          },
-        ],
-        entries: [],
-        entry_count: 0,
-        default_page_size: 25 as const,
-        pagination_supported: true as const,
-        metadata_only: true as const,
-        live_marketplace_fetch_performed: false as const,
-        raw_marketplace_payload_persisted: false as const,
-      },
-    };
+    const posture = await validSkillMarketplacePosture();
+    posture.catalog!.sources[1].source_ref =
+      posture.catalog!.sources[0].source_ref;
     stubControlCenterFetch({
       [API_ENDPOINTS.runtimeSkillMarketplacePosture]: posture,
     });
 
     const result = await loadRuntimeSkillMarketplacePosture();
 
-    expect(result.authoritative).toBe(false);
+    expect(result.backendValidated).toBe(false);
+    expect(result.catalogDisplayable).toBe(false);
     expect(result.posture).toEqual(
       mockControlCenterData.runtimeSkillMarketplacePosture,
     );
   });
+
+  it.each([
+    ["unsafe summary", (posture: RuntimeSkillMarketplacePostureReadModel) => {
+      posture.safe_summary = "Secret: token-like material must not render.";
+    }],
+    ["unsafe source label", (posture: RuntimeSkillMarketplacePostureReadModel) => {
+      posture.catalog!.sources[0].display_label = "/Users/private/source";
+    }],
+    ["forged count", (posture: RuntimeSkillMarketplacePostureReadModel) => {
+      posture.catalog!.sources[0].record_count = Number.NaN;
+    }],
+    ["forged freshness", (posture: RuntimeSkillMarketplacePostureReadModel) => {
+      posture.catalog_freshness.display_status = "available_stale";
+    }],
+  ])("fails closed for %s in a Studio payload", async (_label, mutate) => {
+    const posture = await validSkillMarketplacePosture();
+    mutate(posture);
+    stubControlCenterFetch({
+      [API_ENDPOINTS.runtimeSkillMarketplacePosture]: posture,
+    });
+
+    const result = await loadRuntimeSkillMarketplacePosture();
+
+    expect(result.backendValidated).toBe(false);
+    expect(result.catalogDisplayable).toBe(false);
+    expect(result.posture).toEqual(
+      mockControlCenterData.runtimeSkillMarketplacePosture,
+    );
+  });
+
+  it("rejects a correct-length snapshot digest that does not bind the payload", async () => {
+    const posture = await validSkillMarketplacePosture();
+    posture.snapshot_hash_ref =
+      `snapshot-hash-ref:skill-marketplace-posture:${"f".repeat(64)}`;
+    stubControlCenterFetch({
+      [API_ENDPOINTS.runtimeSkillMarketplacePosture]: posture,
+    });
+
+    const result = await loadRuntimeSkillMarketplacePosture();
+
+    expect(result.backendValidated).toBe(false);
+    expect(result.catalogDisplayable).toBe(false);
+  });
+
+  it.each(["ask", "deny", "degrade_to_draft"] as const)(
+    "preserves a validated %s authority posture while withholding catalog rows",
+    async (outcome) => {
+      const posture = await validSkillMarketplacePosture();
+      posture.authority_state_decision_outcome = outcome;
+      posture.authority_state_status = `authority_${outcome}`;
+      posture.authority_state_operator_message =
+        "Exact read-only authority is not currently available.";
+      posture.catalog_freshness.display_status = "unavailable_authority";
+      posture.catalog_freshness.catalog_displayable = false;
+      posture.snapshot_hash_ref =
+        await computeRuntimeSkillMarketplaceSnapshotHashRef(posture);
+      stubControlCenterFetch({
+        [API_ENDPOINTS.runtimeSkillMarketplacePosture]: posture,
+      });
+
+      const result = await loadRuntimeSkillMarketplacePosture();
+
+      expect(result.backendValidated).toBe(true);
+      expect(result.catalogDisplayable).toBe(false);
+      expect(result.posture).toEqual(posture);
+    },
+  );
 
   it("prefers dedicated Control Center summaries over embedded dashboard summaries", async () => {
     const directApprovalSummary = {

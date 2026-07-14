@@ -5,13 +5,20 @@ import json
 from pathlib import Path
 import stat
 import struct
+from datetime import datetime, timezone
+
+from ultimate_ai_agent.core.runtime_gateway import (
+    build_runtime_skill_marketplace_posture_read_model,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
-BASELINE = (
-    ROOT / "docs/design/control_center_north_star/CURRENT_RENDER_BASELINE.json"
-)
+BASELINE = ROOT / "docs/design/control_center_north_star/CURRENT_RENDER_BASELINE.json"
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+SKILL_MARKETPLACE_VISUAL_FIXTURE = (
+    ROOT / "apps/control-center/tests/visual/fixtures/"
+    "studio-skill-marketplace-posture.json"
+)
 
 
 def test_accepted_studio_render_is_hash_dimension_and_mode_bound() -> None:
@@ -58,8 +65,7 @@ def test_accepted_skill_workbench_views_are_hash_and_signal_bound() -> None:
         "source_signal",
     ]
     assert (
-        surface["primary_value_overflow"]
-        == "wrap_or_hide_whole_column_never_ellipsis"
+        surface["primary_value_overflow"] == "wrap_or_hide_whole_column_never_ellipsis"
     )
     assert surface["secondary_ellipsis_allowed"] == ["safe_summary", "safe_ref"]
     assert surface["hidden_compact_details_remain_in_inspector"] is True
@@ -81,3 +87,14 @@ def test_accepted_skill_workbench_views_are_hash_and_signal_bound() -> None:
         assert width == surface["pixel_width"] == 1586
         assert height == surface["pixel_height"] == 992
         assert hashlib.sha256(encoded).hexdigest() == surface[f"{view}_sha256"]
+
+
+def test_skill_workbench_visual_fixture_matches_backend_read_model() -> None:
+    fixture = json.loads(SKILL_MARKETPLACE_VISUAL_FIXTURE.read_text(encoding="utf-8"))
+    read_model = build_runtime_skill_marketplace_posture_read_model(
+        checked_at=datetime(2026, 7, 14, 0, 0, tzinfo=timezone.utc)
+    )
+
+    assert fixture["success"] is True
+    assert fixture["operation"] == "api_runtime_skill_marketplace_posture"
+    assert fixture["data"] == read_model.model_dump(mode="json")
