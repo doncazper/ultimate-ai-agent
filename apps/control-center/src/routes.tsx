@@ -34,6 +34,7 @@ import {
   ManualSmokeControlSurfacePanel,
 } from "./components/LocalRuntimeStatusPanel";
 import { MacOSSetupAssistantPanel } from "./components/MacOSSetupAssistantPanel";
+import { NewsSignalsPreviewPanel } from "./components/NewsSignalsPreviewPanel";
 import {
   ChatOperatorPanel,
   EvidenceOperatorPanel,
@@ -88,6 +89,7 @@ export type CommandPaletteItem = {
 export const navItems: NavItem[] = [
   { path: "/start", label: "Start Here", group: "Founder Loop", status: "backend-owned start loop", releaseStatus: "partial", role: "primary" },
   { path: "/today", label: "Today", group: "Founder Loop", status: "storage-backed", releaseStatus: "partial", role: "primary" },
+  { path: "/news", label: "News & Signals", group: "Founder Loop", status: "illustrative read-only preview", releaseStatus: "experimental", role: "primary" },
   { path: "/inbox", label: "Source Inbox", group: "Founder Loop", status: "supporting source readiness", releaseStatus: "partial", role: "primary" },
   { path: "/plans", label: "Plans", group: "Founder Loop", status: "partial", releaseStatus: "partial", role: "primary" },
   { path: "/work-board", label: "Work Board", group: "Founder Loop", status: "backend-owned kanban", releaseStatus: "partial", role: "primary" },
@@ -691,6 +693,10 @@ export function renderRoute(path: string, data: ControlCenterData) {
     default:
       return <DashboardSummary dashboard={data.dashboard} />;
   }
+}
+
+export function renderStaticPreviewRoute(path: string) {
+  return path === "/news" ? <NewsSignalsPreviewPanel /> : null;
 }
 
 function isAuthoritativeRoute(data: ControlCenterData, route: string): boolean {

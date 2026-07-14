@@ -13,6 +13,7 @@ import {
   getRouteStateDescriptor,
   getRouteSurfaceLabel,
   renderRoute,
+  renderStaticPreviewRoute,
 } from "./routes";
 import type {
   BackendConnectionSummary,
@@ -25,6 +26,15 @@ export function App() {
 
   if (activePath === "/studio" || activePath === "/studio/skills") {
     return <StudioRoute />;
+  }
+
+  const staticPreviewRoute = renderStaticPreviewRoute(activePath);
+  if (staticPreviewRoute) {
+    return (
+      <AppShell activePath={activePath}>
+        {staticPreviewRoute}
+      </AppShell>
+    );
   }
 
   return <ControlCenterRoute activePath={activePath} />;

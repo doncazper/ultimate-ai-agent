@@ -22,7 +22,7 @@ not normative when their generated sidebar details conflict with that file.
 ## Target V1 Defaults
 
 These 14 drafts cover every target top-level workspace, lower utility, and
-global workflow surface. The current 40-route implementation remains covered by
+global workflow surface. The current 42-route implementation remains covered by
 the legacy composites and route matrix below; consolidation in a render is not
 evidence that consolidation is implemented.
 
@@ -70,7 +70,7 @@ Revision 02 preserves every V1 file and adds the accepted review corrections.
 | `renders/target-v2/03-work-board-v2.png` | Work Board v2 | status column bars; priority card edges; visible legend | color-only meaning or rainbow cards |
 | `renders/target-v2/04-crm-v2.png` | CRM v2 | availability-backed Call chooser; exact review; general placeholder | provider connected or call completed |
 | `renders/target-v2/06-studio-v2.png` | Studio v2 | immersive familiar workbench; back path; optional drawer; Terminal | arbitrary shell, deploy, or model authority |
-| `renders/target-v2/15-news-v1.png` | News v1 | curated sourced brief; freshness; why selected; saved/source controls | unrestricted fetch or unsourced ranking |
+| `renders/target-v2/15-news-v1.png` | News v1, preserved | earlier curated-workspace exploration; superseded by News & Signals V1 | current accepted layout, unrestricted fetch, or unsourced ranking |
 | `renders/target-v2/16-trust-v1.png` | Trust v1 | authority matrix; exact lease; live decisions; revoke/pause/kill/safe-disable | matrix as authority grant |
 | `renders/target-v2/17-terminal-v1.png` | Terminal v1 | exact command lanes; redacted output; receipts; pop-out | unrestricted shell or raw environment |
 | `renders/target-v2/18-compact-shell-v1.png` | Compact shell v1 | same nav as icons; tooltip/focus labels; fixed utilities | hidden routes or changed capability |
@@ -86,6 +86,21 @@ in `CRM_V3_REFERENCE_SYNTHESIS.md`.
 |---|---|---|---|
 | `renders/target-v3/04-crm-v3.png` | CRM v3 | fixed toolbar; route tabs; six KPIs; smart views; sortable relationship table; persistent inspector; pipeline analytics; availability-backed calling; route-aware UAA composer | specialty vertical; raw contact data; provider connection; sync; dialer launch as completed call; recording by default |
 
+## News & Signals V1
+
+The News & Signals V1 set records the implemented fixture-only desktop preview.
+It preserves the earlier analytical News exploration and does not promote the
+broader future front-page composition to implemented runtime truth.
+
+| File | Surface/version | Required relationship | Must not imply |
+|---|---|---|---|
+| `renders/news-signals-v1/01-news-signals-home.png` | News & Signals default fixture preview | sample-only disclosure; bounded fixture list; selected-item rationale; safe preview ref; deferred mutation controls | implemented adapters, authenticated accounts, live scraping, background polling, connector reads/writes, unrestricted web fetching, provider/model calls, or production authority |
+| `renders/news-signals-v1/02-news-signals-compact.png` | Compact desktop fixture preview | same safe truth at 1280 x 820; no horizontal overflow | responsive mobile implementation or live source readiness |
+| `renders/news-signals-v1/03-news-signals-narrow-desktop.png` | Narrow desktop fixture preview | same safe truth at 1024 x 768; safety floor remains visible | mobile implementation or hidden safety posture |
+| `renders/news-signals-v1/04-news-signals-community-filter.png` | Community filter fixture preview | local presentation filtering and selected-item update only | durable ranking, retrieval, memory, or action authority |
+
+See `renders/news-signals-v1/README.md` for the locked hierarchy and adapter
+truth boundary.
 ## Studio Unified Revision 05
 
 Unified Studio v7 supersedes the separate Agent Studio / Creative Studio split.
@@ -210,7 +225,7 @@ All future target render prompts and implementation passes should use the
 CC-NS-TARGET-R3-2026-07-11 shell:
 
 ```text
-Today, Communications, Messenger, Work Board, CRM, Calendar, News, Studio,
+Today, Communications, Messenger, Work Board, CRM, Calendar, News & Signals, Studio,
 Knowledge, Activity & Trust, Customize, Settings, Developer Tools.
 ```
 

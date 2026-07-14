@@ -2,6 +2,7 @@
 
 Status: canonical design contract, documentation only  
 Specification ID: `CC-UIUX-2026-07-13`
+Revised: 2026-07-13 for the accepted News & Signals front-page target
 North-star input baseline: `CC-NS-TARGET-R6-2026-07-13`
 Repository baseline: `v0.104.0` / package `0.104.0`  
 Primary product: Founder Command Center / Control Center  
@@ -49,7 +50,7 @@ answer, in this order:
 
 The target daily product spine is:
 
-`Today -> Communications -> Messenger -> Work Board -> CRM -> Calendar -> News -> Studio`
+`Today -> Communications -> Messenger -> Work Board -> CRM -> Calendar -> News & Signals -> Studio`
 
 Knowledge and Activity & Trust support that loop without displacing daily
 work. Action Inbox is the global decision utility surfaced as `Review N
@@ -118,7 +119,7 @@ The target default order is:
 4. Work Board
 5. CRM
 6. Calendar
-7. News
+7. News & Signals
 8. Studio
 9. Knowledge
 10. Activity & Trust
@@ -339,7 +340,8 @@ become repetition:
 - Needs your attention owns concrete approvals, blockers, conflicts, missing
   evidence, and overdue items.
 - Today priorities owns planned work in intended execution order.
-- News owns read-only outside context. News entries are bounded
+- News & Signals owns read-only outside context. Today projects at most three
+  bounded News & Signals entries as
   summaries with an explicit source type (`Article` or `Email bulletin`),
   source label, freshness, and a safe reference to the underlying source.
   Weather shows only current temperature, today's high, and conditions beside
@@ -377,7 +379,7 @@ to a drawer.
 - Day Plan owns `Now`, `Next`, meetings/commitments, and planned priorities.
   Its tasks may offer `Queue`, `Start`, `Defer`, and `Complete` only when the
   backing Python-core/API contract supports that exact transition.
-- News rows may open the sourced detail, `Ask UAA`, save a safe reference for
+- Today News rows may open the sourced detail, `Ask UAA`, save a safe reference for
   later review, or mute a source. News is not completable work.
 - Business pulse rows open their contributing CRM, Work Board, commitment, or
   Evidence detail in the inspector. The separate activity rail opens receipt
@@ -453,6 +455,52 @@ contains at most three ranked summaries so it does not displace operator work.
 - News is situational context, not another attention queue or business pulse.
   If an item becomes actionable, UAA may propose a linked plan or action through
   the existing governed proposal flow; the module itself does not mutate state.
+
+#### News & Signals front-page contract
+
+The canonical `/news` workspace is a personalized news front page rather than
+an analytics dashboard, attention queue, or endless generic feed. Its default
+desktop hierarchy is:
+
+1. familiar category navigation;
+2. `Top stories for you` with visible source and freshness;
+3. a bounded, paginated `Morning Brief queue` with a stable path to the full
+   Morning Briefing;
+4. source-specific scanner and subscription previews;
+5. source readiness and coverage posture.
+
+The default categories include Top, AI, Technology, Business, Politics, World,
+Sports, Science, and Culture. Later user-configured categories may extend this
+set. Category grouping and source grouping are separate dimensions: categories
+answer what a story is about, while Source Feeds answers what an exact watched
+source found.
+
+Source-specific previews may name Reddit findings, watched public X accounts,
+email newsletter bulletins, Discord channels, RSS feeds, official blogs,
+YouTube channels, podcasts, and later exact adapters. These names define visual
+slots and product taxonomy only. The UI must show blocked, missing, stale,
+partial, fixture-only, or unsupported posture per adapter and may not imply an
+account, authenticated session, scraper, connector, browser, or background
+poller exists.
+
+Every top-story or source-feed row preserves a human-readable source label,
+category when applicable, freshness, content type, and safe detail path. The
+reason an item is personalized remains inspectable. Source-specific `View all`
+paths must not erase source identity by flattening every item into one opaque
+cluster.
+
+Morning Briefing receives only a bounded selected projection. Pagination
+browses the candidate pool; it does not add every item to the brief. `Open full
+Morning Briefing` remains visible independently from pagination. News & Signals
+does not own tasks, approvals, messages, or owned-channel social performance.
+Social retains owned-channel performance and audience interpretation.
+
+The current fixture-only desktop implementation evidence is recorded in
+`control_center_north_star/renders/news-signals-v1/`, with the truth contract in
+the adjacent `README.md`. The broader composition above remains a design target;
+the current `/news` implementation stays partial and sample-only until each
+backend read model and exact source adapter is separately implemented, tested,
+and promoted.
 
 ### B. Queue, detail, inspector
 

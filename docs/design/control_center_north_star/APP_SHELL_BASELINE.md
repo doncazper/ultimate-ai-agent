@@ -76,11 +76,11 @@ route availability, capability state, authority, or the resettable default.
 4. Work Board
 5. CRM
 6. Calendar
-7. News
+7. News & Signals
 8. Studio
 
 Today is fixed first and is the default landing workspace. Communications,
-Messenger, Work Board, CRM, Calendar, News, and Studio may be reordered or
+Messenger, Work Board, CRM, Calendar, News & Signals, and Studio may be reordered or
 hidden as presentation preferences without disabling their routes or
 capabilities.
 
@@ -255,7 +255,7 @@ Future standard-shell render prompts must explicitly include:
 Use the CC-NS-TARGET-R3-2026-07-11 app shell.
 The standard left rail is identical across normal routes.
 Primary nav order: Today, Communications, Messenger, Work Board, CRM,
-Calendar, News, Studio, Knowledge, Activity & Trust, Customize, Settings,
+Calendar, News & Signals, Studio, Knowledge, Activity & Trust, Customize, Settings,
 Developer Tools.
 Do not add route-local tabs to the global left rail.
 Place route-local tabs and queues inside the workspace.

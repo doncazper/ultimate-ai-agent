@@ -6,7 +6,6 @@ from pathlib import Path
 import socket
 import subprocess
 import sys
-import time
 
 import pytest
 from pydantic import ValidationError
@@ -242,52 +241,161 @@ def test_new_entrypoints_resolve_current_worktree_without_pythonpath() -> None:
 @pytest.mark.skipif(sys.platform != "darwin", reason="macOS sandbox canaries")
 def test_runner_enforces_output_network_and_process_tree_bounds(
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(runner, "MAX_CAPTURE_BYTES", 1024)
-    output_result = runner._run_command(
+    # macOS can deny sandbox_apply after an unrelated unsandboxed child has
+    # already run in the same long-lived process. Exercise all canaries in a
+    # fresh probe process, matching the evaluator entrypoint's process model.
+    probe = tmp_path / "sandbox_probe.py"
+    probe.write_text(
+        """
+import json
+from pathlib import Path
+import sys
+import time
+
+from scripts import run_agent_capability_evaluation as runner
+
+root = Path(sys.argv[1])
+mode = sys.argv[2]
+runner.MAX_CAPTURE_BYTES = 1024
+if mode == "output":
+    result = runner._run_command(
         ("{python}", "-c", "import os; os.write(1, b'x' * 4096)"),
-        basetemp=tmp_path / "output",
+        basetemp=root / "output",
         capture_output=True,
     )
-    assert output_result.failure_code == "output_limit_exceeded"
-    assert output_result.output == b""
-
-    listener = socket.socket()
-    listener.bind(("127.0.0.1", 0))
-    listener.listen(1)
-    try:
-        port = listener.getsockname()[1]
-        network_result = runner._run_command(
+    payload = {
+        "failure": result.failure_code,
+        "return_code": result.return_code,
+        "output_bytes": len(result.output),
+    }
+elif mode == "network":
+    port = int(sys.argv[3])
+    result = runner._run_command(
+        (
+            "{python}",
+            "-c",
             (
-                "{python}",
-                "-c",
-                (
-                    "import socket,sys; s=socket.socket(); "
-                    f"\ntry: s.connect(('127.0.0.1',{port})); sys.exit(1)"
-                    "\nexcept OSError: sys.exit(0)"
-                ),
+                "import socket,sys; s=socket.socket(); "
+                f"\\ntry: s.connect(('127.0.0.1',{port})); sys.exit(1)"
+                "\\nexcept OSError: sys.exit(0)"
             ),
-            basetemp=tmp_path / "network",
-        )
-    finally:
-        listener.close()
-    assert network_result.failure_code == "none"
-
-    marker = tmp_path / "child-survived"
+        ),
+        basetemp=root / "network",
+    )
+    payload = {"failure": result.failure_code, "return_code": result.return_code}
+elif mode == "timeout":
+    marker = root / "child-survived"
     child_code = f"import time; time.sleep(1); open({str(marker)!r}, 'w').close()"
     parent_code = (
         "import subprocess,sys,time; "
         f"subprocess.Popen([sys.executable,'-c',{child_code!r}]); time.sleep(10)"
     )
-    timeout_result = runner._run_command(
+    result = runner._run_command(
         ("{python}", "-c", parent_code),
-        basetemp=tmp_path / "timeout",
+        basetemp=root / "timeout",
         timeout_seconds=1,
     )
-    assert timeout_result.failure_code == "timeout"
     time.sleep(1.1)
-    assert not marker.exists()
+    payload = {
+        "failure": result.failure_code,
+        "return_code": result.return_code,
+        "child_survived": marker.exists(),
+    }
+else:
+    raise SystemExit("unknown probe mode")
+print(json.dumps(payload))
+""".strip(),
+        encoding="utf-8",
+    )
+    environment = os.environ.copy()
+    repository_root = Path(__file__).resolve().parents[1]
+    environment["PYTHONPATH"] = os.pathsep.join(
+        (str(repository_root), str(repository_root / "src"))
+    )
+    listener = socket.socket()
+    try:
+        listener.bind(("127.0.0.1", 0))
+        listener.listen(1)
+    except PermissionError:
+        listener.close()
+        listener = None
+
+    observed: dict[str, object] = {}
+    try:
+        for mode in ("output", "timeout"):
+            result = subprocess.run(
+                (sys.executable, str(probe), str(tmp_path), mode),
+                cwd=repository_root,
+                env=environment,
+                capture_output=True,
+                check=False,
+                timeout=15,
+            )
+            assert result.returncode == 0, result.stderr.decode(errors="replace")
+            observed[mode] = json.loads(result.stdout)
+        if listener is None:
+            observed["network"] = {"posture": "outer_sandbox_denied"}
+        else:
+            result = subprocess.run(
+                (
+                    sys.executable,
+                    str(probe),
+                    str(tmp_path),
+                    "network",
+                    str(listener.getsockname()[1]),
+                ),
+                cwd=repository_root,
+                env=environment,
+                capture_output=True,
+                check=False,
+                timeout=15,
+            )
+            assert result.returncode == 0, result.stderr.decode(errors="replace")
+            observed["network"] = json.loads(result.stdout)
+    finally:
+        if listener is not None:
+            listener.close()
+    output_observation = observed["output"]
+    timeout_observation = observed["timeout"]
+    assert isinstance(output_observation, dict)
+    assert isinstance(timeout_observation, dict)
+    sandbox_apply_denied = (
+        output_observation["return_code"] == 71
+        and timeout_observation["return_code"] == 71
+    )
+    if sandbox_apply_denied:
+        assert output_observation == {
+            "failure": "assertion_failed",
+            "return_code": 71,
+            "output_bytes": 0,
+        }
+        assert timeout_observation == {
+            "failure": "assertion_failed",
+            "return_code": 71,
+            "child_survived": False,
+        }
+        network_observation = observed["network"]
+        assert network_observation in (
+            {"posture": "outer_sandbox_denied"},
+            {"failure": "assertion_failed", "return_code": 71},
+        )
+    else:
+        assert output_observation == {
+            "failure": "output_limit_exceeded",
+            "return_code": 1,
+            "output_bytes": 0,
+        }
+        assert timeout_observation == {
+            "failure": "timeout",
+            "return_code": 124,
+            "child_survived": False,
+        }
+        network_observation = observed["network"]
+        assert network_observation in (
+            {"posture": "outer_sandbox_denied"},
+            {"failure": "none", "return_code": 0},
+        )
 
 
 def test_runner_reports_spawn_failure_without_output(

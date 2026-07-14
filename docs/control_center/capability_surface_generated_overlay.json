@@ -11,11 +11,11 @@
   "production_readiness_claim_enabled": false,
   "source_truth_counts": {
     "api_manifest_route_count": 264,
-    "release_surface_route_count": 41,
-    "visible_action_count": 44,
-    "human_capability_count": 29,
-    "covered_release_route_count": 41,
-    "covered_visible_action_count": 44,
+    "release_surface_route_count": 42,
+    "visible_action_count": 45,
+    "human_capability_count": 30,
+    "covered_release_route_count": 42,
+    "covered_visible_action_count": 45,
     "missing_release_routes": [],
     "missing_visible_actions": []
   },
@@ -101,6 +101,39 @@
           "risk_class": "medium",
           "backend_route_count": 2,
           "missing_backend_route_count": 0,
+          "source_truth_status": "current"
+        }
+      ],
+      "source_truth_status": "current"
+    },
+    {
+      "capability_id": "news_signals_fixture_preview",
+      "api_routes": [],
+      "ui_routes": [
+        {
+          "path": "/news",
+          "label": "News & Signals",
+          "group": "Founder Loop",
+          "ui_status": "illustrative read-only preview",
+          "release_status": "experimental",
+          "owner": "founder-loop",
+          "backend_route_count": 0,
+          "blocked_capability_count": 9,
+          "visual_proof_status": "experimental_no_baseline",
+          "source_truth_status": "current"
+        }
+      ],
+      "control_action_ids": [
+        {
+          "action_id": "navigate-news-signals",
+          "source": "route_status_manifest",
+          "frontend_route": "/news",
+          "ui_surface": "News & Signals",
+          "release_status": "mock_only_not_product_ready",
+          "side_effect_class": "local_ui_state_only",
+          "risk_class": "medium",
+          "backend_route_count": 0,
+          "missing_backend_route_count": 4,
           "source_truth_status": "current"
         }
       ],

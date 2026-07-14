@@ -14,7 +14,7 @@ route proof, authority grant, public beta claim, or production readiness claim.
 The canonical rules extracted from this directional set now live in
 `../CONTROL_CENTER_UI_UX_SPEC.md` (`CC-UIUX-2026-07-13`). That specification
 wins when the generated PNGs disagree with each other. The complete next-render
-queue, including all 40 current routed surfaces and applicable state/responsive
+queue, including all 42 current routed surfaces and applicable state/responsive
 variations, lives in `RENDER_VARIATION_MATRIX.md`. The consolidated target
 surface architecture is defined by
 `../CONTROL_CENTER_PRODUCT_IA_AND_CALENDAR_CONTRACT.md`. The accepted purpose,
@@ -91,7 +91,7 @@ Revision 02 adds non-destructive versions and new surfaces:
 | `renders/target-v2/03-work-board-v2.png` | Work Board v2 color grammar |
 | `renders/target-v2/04-crm-v2.png` | CRM v2 governed calling placeholder |
 | `renders/target-v2/06-studio-v2.png` | Studio v2 immersive workbench |
-| `renders/target-v2/15-news-v1.png` | News v1 curated workspace |
+| `renders/target-v2/15-news-v1.png` | Preserved News v1 curated-workspace exploration |
 | `renders/target-v2/16-trust-v1.png` | Trust v1 authority cockpit |
 | `renders/target-v2/17-terminal-v1.png` | Terminal v1 governed terminal |
 | `renders/target-v2/18-compact-shell-v1.png` | Compact icon-only shell v1 |
@@ -111,6 +111,21 @@ Studio revision 05 supersedes the split as the current accepted direction:
 | `renders/target-v3/06-studio-unified-v7.png` | Unified Studio v7 with persistent Chat, Code, and Create modes; Create active; export blocked |
 | `renders/target-v3/07-skill-workbench-grid-v1.png` | Skill Workbench Create-mode Hermes-filtered grid with honest missing source signals and review posture |
 | `renders/target-v3/08-skill-workbench-list-v1.png` | Canonical Studio dense-workbench reference with complete primary values, honest source gaps, inspector detail, and pagination |
+
+News & Signals V1 records the current safe fixture-backed desktop implementation
+while preserving the earlier analytical News exploration:
+
+| Render | Revision |
+|---|---|
+| `renders/news-signals-v1/01-news-signals-home.png` | Default fixture-only News & Signals preview with visible sample, safety, and deferred-control posture |
+| `renders/news-signals-v1/02-news-signals-compact.png` | Compact desktop fixture preview at 1280 x 820 |
+| `renders/news-signals-v1/03-news-signals-narrow-desktop.png` | Narrow desktop fixture preview at 1024 x 768 |
+| `renders/news-signals-v1/04-news-signals-community-filter.png` | Community filter presentation-state proof |
+
+See `renders/news-signals-v1/README.md` for capture metadata, implemented
+interactions, and the authority boundary. These screenshots are implementation
+evidence for local fixtures only, not evidence that any external source is
+connected.
 
 The independent Messenger client set covers the Element-familiar Matrix north
 star through the UAA lens while Communications keeps its accepted unified hub.

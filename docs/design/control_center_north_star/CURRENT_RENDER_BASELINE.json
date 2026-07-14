@@ -29,6 +29,11 @@
       "status": "current_surface_revisions"
     },
     {
+      "id": "news-signals-v1",
+      "path": "renders/news-signals-v1",
+      "status": "implemented_fixture_preview_reference"
+    },
+    {
       "id": "communications-v1",
       "path": "renders/communications-v1",
       "status": "current_messenger_review_set"
@@ -50,6 +55,19 @@
       "series_id": "CRM-01",
       "status": "current_draft",
       "latest": "renders/target-v3/04-crm-v3.png"
+    },
+    "news_signals": {
+      "series_id": "NEWS-01",
+      "status": "implemented_fixture_preview_reference",
+      "latest": "renders/news-signals-v1/01-news-signals-home.png",
+      "desktop_variants": [
+        "renders/news-signals-v1/02-news-signals-compact.png",
+        "renders/news-signals-v1/03-news-signals-narrow-desktop.png",
+        "renders/news-signals-v1/04-news-signals-community-filter.png"
+      ],
+      "preserved_explorations": [
+        "renders/target-v2/15-news-v1.png"
+      ]
     },
     "studio": {
       "series_id": "STUDIO-01",
