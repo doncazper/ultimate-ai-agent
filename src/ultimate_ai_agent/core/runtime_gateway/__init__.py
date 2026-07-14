@@ -647,11 +647,26 @@ from ultimate_ai_agent.core.runtime_gateway.skill_marketplace_posture import (
     RUNTIME_SKILL_MARKETPLACE_POSTURE_ROUTE_REF,
     RUNTIME_SKILL_MARKETPLACE_POSTURE_SNAPSHOT_REF,
     RUNTIME_SKILL_MARKETPLACE_POSTURE_VERIFIER_REF,
+    RUNTIME_SKILL_MARKETPLACE_SNAPSHOT_HASH_ALGORITHM_REF,
+    RUNTIME_SKILL_MARKETPLACE_CATALOG_FRESHNESS_POLICY_REF,
+    RUNTIME_SKILL_MARKETPLACE_CATALOG_FRESHNESS_TTL,
+    RuntimeSkillMarketplaceCatalogDisplayStatus,
+    RuntimeSkillMarketplaceCatalogFreshness,
+    RuntimeSkillMarketplaceCatalogFreshnessStatus,
     RuntimeSkillMarketplacePostureReadModel,
     RuntimeSkillMarketplaceStage,
     RuntimeSkillMarketplaceStageKind,
     RuntimeSkillMarketplaceStageStatus,
     build_runtime_skill_marketplace_posture_read_model,
+)
+from ultimate_ai_agent.core.runtime_gateway.skill_marketplace_catalog import (
+    RuntimeSkillMarketplaceCatalogEntry,
+    RuntimeSkillMarketplaceCatalogSnapshot,
+    RuntimeSkillMarketplaceSourceSnapshot,
+    RuntimeSkillSourceKind,
+    RuntimeSkillSourceRankSignal,
+    RuntimeSkillSourceScoreSignal,
+    build_runtime_skill_marketplace_catalog_snapshot,
 )
 from ultimate_ai_agent.core.runtime_gateway.context_references import (
     RUNTIME_CONTEXT_REFERENCES_AUTHORITY_MAPPING_REF,

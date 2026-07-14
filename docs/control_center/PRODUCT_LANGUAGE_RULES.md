@@ -405,12 +405,18 @@ review from local enablement. `external_metadata_only`, `candidate`,
 `adapted_uaa_owned`, `enabled_local`, and `blocked_by_policy` are allowed only
 when they match backend-owned contracts. External popularity, stars, downloads,
 reviews, publisher claims, and marketplace screenshots are discovery signals,
-not trust. Skill Workbench copy must not call the surface a Skill Store and must
-not imply external skill install, wholesale external-code copy, runtime import,
-execution, package-manager scripts, browser marketplace UX, provider/model
-calls, connector writes, local enablement, public beta, public release, or
-production authority until later accepted AuthorityLease-gated capabilities
-prove the matching domains, receipts, rollback/safe-disable posture, and tests.
+not trust. Source rank, source signal, popularity, freshness, source license,
+permissions/review posture, and UAA adaptation posture must remain distinct.
+Missing marketplace aggregates say `Not provided by source`; they are not zero,
+an inferred average, or a guessed risk label. `Risk: Not assessed` belongs in
+the selected-item inspector when no reviewed assessment exists, not in every
+result row. Skill Workbench copy must not call the surface a Skill Store and
+must not imply external skill install, wholesale external-code copy, runtime
+import, execution, package-manager scripts, browser marketplace UX,
+provider/model calls, connector writes, local enablement, public beta, public
+release, or production authority until later accepted AuthorityLease-gated
+capabilities prove the matching domains, receipts, rollback/safe-disable
+posture, and tests.
 
 Provider and tool runtime safety state words must distinguish contract-only
 run binding from callable runtime. Unknown provider/tool refs are blocked and
@@ -432,6 +438,13 @@ Buttons and menu labels must describe the real action available in the current
 UI. Preview-only controls use preview/review/view wording. Local-state-only
 controls must say review-only or local state. Disabled or missing work must stay
 blocked, partial, or not scoped.
+
+Dense discovery rows must keep primary operator values readable. At wide
+desktop, primary source, rank, signal, popularity, and freshness values must not
+disappear into ellipses. Compact layouts may remove whole secondary columns
+when the selected-item inspector preserves those details; they must not present
+half-visible words as if they were usable state. Pills remain short read-only
+state labels and must not make source metadata look actionable.
 
 Future Control Center surfaces for Today, Inbox, Plans, Actions, Memory,
 Evidence, Settings, Models, and first-party Chat must remain inspectable

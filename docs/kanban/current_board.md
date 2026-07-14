@@ -47,6 +47,11 @@ Product Loop 012 now adds the Private product loop trial script as a
 local/private, safe-ref-only manual operator review artifact with
 `scripts/inspect_product_loop_trial_script.py` CLI parity and no authority
 promotion.
+The Studio Skill Workbench now has a partial read-only implementation backed by
+a sanitized 31-record ClawHub and Hermes metadata snapshot. Discovery, filters,
+source signals, inspector-level source license detail, and pagination are
+available; live fetching, installation, adaptation, external code import, and
+guessed risk ratings remain blocked.
 AuthorityLease typed constraints, durable budget ledger V1, and the initial
 governed dispatcher V1 are implemented in Python Core for exact resource, path,
 app, host, delegation-depth,

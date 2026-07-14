@@ -30,6 +30,35 @@ split-pane lists, segmented controls, or inspectors. Studio and Messenger are
 the two explicit immersive exceptions; both replace the standard rail and
 provide a visible Back to Control Center command.
 
+### Studio immersive exception
+
+The accepted Skill Workbench list is the canonical dense Studio reference:
+
+![Canonical Studio dense workbench](renders/target-v3/08-skill-workbench-list-v1.png)
+
+At its `1586 x 992` reference viewport, Studio uses a 244 px light workbench
+rail, 96 px title/action header, 48 px route-local tabs, dominant center pane,
+318 px selected-item inspector, docked 56 px composer, and full-width 64 px
+posture band. The rail may reduce to 224 px at compact desktop, and the
+inspector may reduce toward 296 px or become a drawer at narrower breakpoints.
+
+The Studio exception preserves the application-shell purpose while changing
+its chrome:
+
+- `Back to Control Center`, UAA Studio identity, Chat/Code/Create modes,
+  mode-local navigation, project context, and Settings remain stable;
+- the light rail and white workspace use straight one-pixel separators rather
+  than the normal dark global rail or floating nested cards;
+- the selected item receives one quiet blue outline and updates the fixed
+  inspector;
+- the composer stays attached to the center pane and the posture band closes
+  the full application frame;
+- wide dense lists show complete primary values; compact layouts hide whole
+  secondary columns and retain their details in the inspector instead of
+  clipping or ellipsizing primary labels; and
+- pills are reserved for short state labels. Source, rank, popularity, date,
+  permission, and posture values use plain cells or inspector rows.
+
 ## Canonical Left Rail
 
 The target product rail below is governed by
@@ -190,6 +219,7 @@ Use the existing Control Center palette as the grounding layer:
 | Panel background | `#ffffff` |
 | Sidebar background | `#12212f` |
 | Sidebar active | `#28445c` |
+| Studio immersive rail | `#f8fafe` with `#edf4ff` active rows |
 | Primary text | `#102a43` or `#1f2933` |
 | Secondary text | `#52606d` |
 | Border | `#d9e2ec` |

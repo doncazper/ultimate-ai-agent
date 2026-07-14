@@ -12,7 +12,7 @@ contained operator cockpit. They are not shipped UI evidence, runtime behavior,
 route proof, authority grant, public beta claim, or production readiness claim.
 
 The canonical rules extracted from this directional set now live in
-`../CONTROL_CENTER_UI_UX_SPEC.md` (`CC-UIUX-2026-07-11`). That specification
+`../CONTROL_CENTER_UI_UX_SPEC.md` (`CC-UIUX-2026-07-13`). That specification
 wins when the generated PNGs disagree with each other. The complete next-render
 queue, including all 40 current routed surfaces and applicable state/responsive
 variations, lives in `RENDER_VARIATION_MATRIX.md`. The consolidated target
@@ -109,6 +109,8 @@ Studio revision 05 supersedes the split as the current accepted direction:
 | Render | Revision |
 |---|---|
 | `renders/target-v3/06-studio-unified-v7.png` | Unified Studio v7 with persistent Chat, Code, and Create modes; Create active; export blocked |
+| `renders/target-v3/07-skill-workbench-grid-v1.png` | Skill Workbench Create-mode Hermes-filtered grid with honest missing source signals and review posture |
+| `renders/target-v3/08-skill-workbench-list-v1.png` | Canonical Studio dense-workbench reference with complete primary values, honest source gaps, inspector detail, and pagination |
 
 The independent Messenger client set covers the Element-familiar Matrix north
 star through the UAA lens while Communications keeps its accepted unified hub.
@@ -178,6 +180,8 @@ baseline.
 ![Target Calendar](renders/target-v1/05-calendar.png)
 
 ![Target unified Studio v7](renders/target-v3/06-studio-unified-v7.png)
+
+![Canonical Studio Skill Workbench list](renders/target-v3/08-skill-workbench-list-v1.png)
 
 ![Target Trust cockpit](renders/target-v2/16-trust-v1.png)
 

@@ -68,6 +68,9 @@ import type {
   RuntimePluginMetadataPostureReadModel,
   RuntimeRemoteExecutionPostureReadModel,
   RuntimeResultClassificationReadModel,
+  RuntimeSkillMarketplaceCatalogEntry,
+  RuntimeSkillMarketplaceCatalogFreshness,
+  RuntimeSkillMarketplaceSourceSnapshot,
   RuntimeSkillMarketplacePostureReadModel,
   RuntimeVoiceMediaPostureReadModel,
   RuntimeSessionContinuityReadModel,
@@ -326,6 +329,132 @@ function withReadTimeout<T>(promise: Promise<T>, endpoint: string): Promise<T> {
     }),
     timeout,
   ]);
+}
+
+export interface RuntimeSkillMarketplacePostureLoadResult {
+  posture: RuntimeSkillMarketplacePostureReadModel;
+  backendValidated: boolean;
+  catalogDisplayable: boolean;
+}
+
+export async function loadRuntimeSkillMarketplacePosture(): Promise<RuntimeSkillMarketplacePostureLoadResult> {
+  if (!API_BASE_POLICY.allowed) {
+    return {
+      posture: mockControlCenterData.runtimeSkillMarketplacePosture,
+      backendValidated: false,
+      catalogDisplayable: false,
+    };
+  }
+  try {
+    const posture = await readEnvelope<unknown>(
+      API_ENDPOINTS.runtimeSkillMarketplacePosture,
+    );
+    if (
+      isSafeRuntimeSkillMarketplacePosture(posture) &&
+      (await hasMatchingSkillMarketplaceSnapshotHash(posture))
+    ) {
+      return {
+        posture,
+        backendValidated: true,
+        catalogDisplayable: posture.catalog_freshness.catalog_displayable,
+      };
+    }
+  } catch {
+    // The Studio discovery surface fails closed to an empty, non-authoritative catalog.
+  }
+  return {
+    posture: mockControlCenterData.runtimeSkillMarketplacePosture,
+    backendValidated: false,
+    catalogDisplayable: false,
+  };
+}
+
+export async function computeRuntimeSkillMarketplaceSnapshotHashRef(
+  posture: RuntimeSkillMarketplacePostureReadModel,
+): Promise<string> {
+  if (!globalThis.crypto?.subtle) {
+    throw new Error("WEB_CRYPTO_UNAVAILABLE");
+  }
+  const material: Record<string, unknown> = { ...posture };
+  delete material.snapshot_hash_ref;
+  const encoded = new TextEncoder().encode(portableCanonicalJson(material));
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", encoded);
+  const hex = Array.from(new Uint8Array(digest), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
+  return `snapshot-hash-ref:skill-marketplace-posture:${hex}`;
+}
+
+async function hasMatchingSkillMarketplaceSnapshotHash(
+  posture: RuntimeSkillMarketplacePostureReadModel,
+): Promise<boolean> {
+  return (
+    posture.snapshot_hash_ref ===
+    (await computeRuntimeSkillMarketplaceSnapshotHashRef(posture))
+  );
+}
+
+function portableCanonicalJson(value: unknown): string {
+  if (value === null) {
+    return "null";
+  }
+  if (value === true) {
+    return "true";
+  }
+  if (value === false) {
+    return "false";
+  }
+  if (typeof value === "string") {
+    return pythonCompatibleJsonString(value);
+  }
+  if (typeof value === "number") {
+    return portableCanonicalNumber(value);
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map(portableCanonicalJson).join(",")}]`;
+  }
+  if (isPlainRecord(value)) {
+    return `{${Object.keys(value)
+      .sort()
+      .map(
+        (key) =>
+          `${pythonCompatibleJsonString(key)}:${portableCanonicalJson(value[key])}`,
+      )
+      .join(",")}}`;
+  }
+  throw new Error("SKILL_MARKETPLACE_CANONICAL_VALUE_INVALID");
+}
+
+function pythonCompatibleJsonString(value: string): string {
+  return JSON.stringify(value).replace(/[\u007f-\uffff]/g, (character) =>
+    `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`,
+  );
+}
+
+function portableCanonicalNumber(value: number): string {
+  if (!Number.isFinite(value)) {
+    throw new Error("SKILL_MARKETPLACE_CANONICAL_NUMBER_INVALID");
+  }
+  if (Object.is(value, -0)) {
+    return "-0";
+  }
+  const text = value.toString().toLowerCase();
+  if (!text.includes("e")) {
+    return text;
+  }
+  const [rawMantissa, rawExponent] = text.split("e");
+  const negative = rawMantissa.startsWith("-");
+  const mantissa = negative ? rawMantissa.slice(1) : rawMantissa;
+  const [integer, fraction = ""] = mantissa.split(".");
+  const digits = integer + fraction;
+  const decimalIndex = integer.length + Number.parseInt(rawExponent, 10);
+  const plain =
+    decimalIndex <= 0
+      ? `0.${"0".repeat(-decimalIndex)}${digits}`
+      : decimalIndex >= digits.length
+        ? `${digits}${"0".repeat(decimalIndex - digits.length)}`
+        : `${digits.slice(0, decimalIndex)}.${digits.slice(decimalIndex)}`;
+  return `${negative ? "-" : ""}${plain}`;
 }
 
 export async function loadControlCenterData(): Promise<ControlCenterData> {
@@ -965,7 +1094,10 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       ? runtimePluginMetadataPosture
       : undefined;
   const safeRuntimeSkillMarketplacePosture =
-    isSafeRuntimeSkillMarketplacePosture(runtimeSkillMarketplacePosture)
+    isSafeRuntimeSkillMarketplacePosture(runtimeSkillMarketplacePosture) &&
+    (await hasMatchingSkillMarketplaceSnapshotHash(
+      runtimeSkillMarketplacePosture,
+    ).catch(() => false))
       ? runtimeSkillMarketplacePosture
       : undefined;
   const normalizedFounderToday = normalizeFounderToday(founderToday);
@@ -1650,7 +1782,6 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeMessagingGatewayPosture === undefined ||
     runtimeRemoteExecutionPosture === undefined ||
     runtimePluginMetadataPosture === undefined ||
-    runtimeSkillMarketplacePosture === undefined ||
     codingSession === undefined ||
     codingContext === undefined ||
     codingPatchProposal === undefined ||
@@ -1670,6 +1801,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const coreFulfilledCount = results.filter(
     (result) => result.status === "fulfilled",
   ).length;
+  // Studio validates and reports its catalog endpoint independently. Its
+  // fail-closed fallback must not relabel unrelated Control Center routes as
+  // globally degraded.
   const fulfilledCount =
     coreFulfilledCount +
     (workBoardResult[0].status === "fulfilled" ? 1 : 0) +
@@ -1705,9 +1839,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     (runtimeVoiceMediaPostureResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeMessagingGatewayPostureResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeRemoteExecutionPostureResult[0].status === "fulfilled" ? 1 : 0) +
-    (runtimePluginMetadataPostureResult[0].status === "fulfilled" ? 1 : 0) +
-    (runtimeSkillMarketplacePostureResult[0].status === "fulfilled" ? 1 : 0);
-  const expectedReadCount = results.length + 35;
+    (runtimePluginMetadataPostureResult[0].status === "fulfilled" ? 1 : 0);
+  const expectedReadCount = results.length + 34;
   const dashboardWithEndpointSummaries: ControlCenterDashboardSnapshot = {
     ...normalizedDashboard.value,
     approval_summary:
@@ -1965,7 +2098,6 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     !runtimeMessagingGatewayPostureFallbackUsed &&
     !runtimeRemoteExecutionPostureFallbackUsed &&
     !runtimePluginMetadataPostureFallbackUsed &&
-    !runtimeSkillMarketplacePostureFallbackUsed &&
     !modelProviderControlPlaneFallbackUsed &&
     !providerCredentialReadinessFallbackUsed &&
     !runObservabilityEndpointFallbackUsed &&
@@ -2023,7 +2155,6 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeMessagingGatewayPostureFallbackUsed ||
     runtimeRemoteExecutionPostureFallbackUsed ||
     runtimePluginMetadataPostureFallbackUsed ||
-    runtimeSkillMarketplacePostureFallbackUsed ||
     modelProviderControlPlaneFallbackUsed ||
     providerCredentialReadinessFallbackUsed ||
     approvalQueueEndpointFallbackUsed ||
@@ -2142,9 +2273,6 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   } else if (runtimePluginMetadataPostureFallbackUsed) {
     degradedSafeMessage =
       "Runtime plugin metadata posture was unavailable or unsafe; non-authoritative mock fallback kept runtime imports, hooks, installs, marketplace content, plugin code, connector writes, provider calls, command execution, and raw manifests blocked.";
-  } else if (runtimeSkillMarketplacePostureFallbackUsed) {
-    degradedSafeMessage =
-      "Runtime skill marketplace posture was unavailable or unsafe; non-authoritative mock fallback kept external code, direct installs, runtime imports, automatic skill writes, provider calls, browser automation, connector writes, and raw marketplace payloads blocked.";
   } else if (
     founderLoopFieldFallbackUsed ||
     normalizedFounderStartHere.usedFallback ||
@@ -7094,9 +7222,16 @@ function isSafeRuntimePluginMetadataPosture(
 }
 
 function isSafeRuntimeSkillMarketplacePosture(
-  value: RuntimeSkillMarketplacePostureReadModel | undefined,
+  value: unknown,
 ): value is RuntimeSkillMarketplacePostureReadModel {
-  if (value === undefined || !Array.isArray(value.stages)) {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  const candidate = value as Partial<RuntimeSkillMarketplacePostureReadModel>;
+  if (
+    !Array.isArray(candidate.stages) ||
+    !isSafeRuntimeSkillMarketplaceCatalog(candidate.catalog)
+  ) {
     return false;
   }
   const allowedStageKinds = new Set([
@@ -7128,48 +7263,83 @@ function isSafeRuntimeSkillMarketplacePosture(
     "control_center_mints_authority",
   ];
   return (
-    value.schema_version === "runtime_skill_marketplace_posture.v1" &&
-    value.status === "signal_review_adaptation_only" &&
-    value.route_ref === "GET /api/runtime/skill-marketplace-posture" &&
-    value.cli_ref === "uaa runtime inspect-skill-marketplace-posture" &&
-    value.authority_state_route_ref === "GET /api/runtime/authority-state" &&
-    value.authority_state_cli_ref ===
+    candidate.schema_version === "runtime_skill_marketplace_posture.v1" &&
+    candidate.status === "signal_review_adaptation_only" &&
+    candidate.route_ref === "GET /api/runtime/skill-marketplace-posture" &&
+    candidate.cli_ref === "uaa runtime inspect-skill-marketplace-posture" &&
+    candidate.doc_ref ===
+      "docs/runtime/UAA_HERMES_RUNTIME_SKILL_MARKETPLACE_POSTURE.md" &&
+    candidate.authority_state_route_ref ===
+      "GET /api/runtime/authority-state" &&
+    candidate.authority_state_cli_ref ===
       "repo-local-command:uaa-runtime-inspect-authority-state" &&
-    value.authority_state_mapping_ref ===
+    candidate.authority_state_mapping_ref ===
       "lane-ref:runtime-skill-marketplace-posture-read-model" &&
-    isSafeTrustAuthorityRef(value.authority_state_catalog_ref) &&
-    isSafeTrustAuthorityRef(value.authority_state_decision_ref) &&
+    isSafeSkillMarketplaceRef(candidate.contract_ref) &&
+    isSafeSkillMarketplaceRef(candidate.snapshot_ref) &&
+    isSafeSkillMarketplaceSnapshotHash(candidate.snapshot_hash_ref) &&
+    candidate.snapshot_hash_algorithm_ref ===
+      "hash-algorithm-ref:uaa-portable-canonical-json-v1:sha256" &&
+    isSafeSkillMarketplaceRef(candidate.authority_state_catalog_ref) &&
+    isSafeSkillMarketplaceRef(candidate.authority_state_decision_ref) &&
+    isSafeSkillMarketplaceRef(candidate.control_center_ref) &&
     hasExactStringValue(
-      value.authority_state_decision_outcome,
+      candidate.authority_state_decision_outcome,
       TRUST_AUTHORITY_DECISION_OUTCOMES,
     ) &&
-    typeof value.authority_state_status === "string" &&
-    typeof value.authority_state_operator_message === "string" &&
-    Array.isArray(value.authority_state_reason_refs) &&
-    value.authority_state_reason_refs.every(isSafeTrustAuthorityRef) &&
-    Array.isArray(value.unsupported_adapter_refs) &&
-    value.unsupported_adapter_refs.every(isSafeTrustAuthorityRef) &&
-    value.stage_count === 7 &&
-    value.stage_count === value.stages.length &&
-    value.blocked_execution_count === 1 &&
-    value.review_required_count ===
-      value.stages.filter((stage) => stage.status === "review_required")
+    isSafeSkillMarketplaceText(candidate.authority_state_status, 160) &&
+    isSafeSkillMarketplaceText(
+      candidate.authority_state_operator_message,
+      320,
+    ) &&
+    isSafeSkillMarketplaceText(candidate.safe_summary, 640) &&
+    isSafeSkillMarketplaceRefArray(candidate.authority_state_reason_refs) &&
+    isSafeSkillMarketplaceRefArray(candidate.unsupported_adapter_refs) &&
+    candidate.stage_count === 7 &&
+    candidate.stage_count === candidate.stages.length &&
+    candidate.blocked_execution_count === 1 &&
+    isSafeRuntimeSkillMarketplaceFreshness(
+      candidate.catalog_freshness,
+      candidate.catalog,
+      candidate.authority_state_decision_outcome,
+    ) &&
+    isSkillMarketplaceCatalogVisibilityConsistent(
+      candidate.catalog_freshness,
+      candidate.catalog,
+    ) &&
+    candidate.review_required_count ===
+      candidate.stages.filter((stage) => stage.status === "review_required")
         .length &&
-    isNonEmptyStringArray(value.blocked_authority_refs) &&
-    value.blocked_authority_refs.includes(
+    isSafeSkillMarketplaceRefArray(candidate.blocked_authority_refs) &&
+    candidate.blocked_authority_refs.includes(
       "blocked-authority:skill-marketplace-no-external-code-execution",
     ) &&
-    isNonEmptyStringArray(value.promotion_path_refs) &&
-    isNonEmptyStringArray(value.proof_refs) &&
-    isNonEmptyStringArray(value.verifier_refs) &&
-    isNonEmptyStringArray(value.next_safe_action_refs) &&
-    value.stages.every(
+    isSafeSkillMarketplaceRefArray(candidate.promotion_path_refs) &&
+    isSafeSkillMarketplaceRefArray(candidate.proof_refs) &&
+    isSafeSkillMarketplaceRefArray(candidate.verifier_refs) &&
+    isSafeSkillMarketplaceRefArray(candidate.next_safe_action_refs) &&
+    isSafeSkillMarketplaceRedactionArray(candidate.redactions_applied) &&
+    candidate.stages.every(
       (stage) =>
-        allowedStageKinds.has(stage.stage_kind) &&
-        allowedStageStatuses.has(stage.status) &&
-        isNonEmptyStringArray(stage.blocked_authority_refs) &&
-        isNonEmptyStringArray(stage.promotion_path_refs) &&
-        isNonEmptyStringArray(stage.next_safe_action_refs) &&
+        isPlainRecord(stage) &&
+        allowedStageKinds.has(stage.stage_kind as string) &&
+        allowedStageStatuses.has(stage.status as string) &&
+        isSafeSkillMarketplaceRef(stage.stage_ref) &&
+        isSafeSkillMarketplaceText(stage.display_label, 120) &&
+        isSafeSkillMarketplaceText(stage.safe_summary, 420) &&
+        [
+          "signal_policy_ref",
+          "quarantine_ref",
+          "review_ref",
+          "adaptation_ref",
+          "activation_grant_ref",
+          "safe_disable_ref",
+          "receipt_plan_ref",
+          "proof_ref",
+        ].every((field) => isSafeSkillMarketplaceRef(stage[field])) &&
+        isSafeSkillMarketplaceRefArray(stage.blocked_authority_refs) &&
+        isSafeSkillMarketplaceRefArray(stage.promotion_path_refs) &&
+        isSafeSkillMarketplaceRefArray(stage.next_safe_action_refs) &&
         stage.external_popularity_is_trust === false &&
         stage.external_code_execution_enabled === false &&
         stage.direct_marketplace_install_enabled === false &&
@@ -7181,7 +7351,318 @@ function isSafeRuntimeSkillMarketplacePosture(
         stage.raw_marketplace_payload_persisted === false &&
         stage.control_center_mints_authority === false,
     ) &&
-    deniedTopLevelFlags.every((flag) => value[flag] === false)
+    deniedTopLevelFlags.every((flag) => candidate[flag] === false)
+  );
+}
+
+function isSkillMarketplaceCatalogVisibilityConsistent(
+  freshness: unknown,
+  catalog: NonNullable<RuntimeSkillMarketplacePostureReadModel["catalog"]>,
+): boolean {
+  if (!isPlainRecord(freshness)) {
+    return false;
+  }
+  return (
+    freshness.catalog_displayable === true ||
+    (catalog.entry_count === 0 &&
+      catalog.entries.length === 0 &&
+      catalog.sources.every((source) => source.record_count === 0))
+  );
+}
+
+function isSafeRuntimeSkillMarketplaceCatalog(
+  value: unknown,
+): value is NonNullable<RuntimeSkillMarketplacePostureReadModel["catalog"]> {
+  if (
+    !isPlainRecord(value) ||
+    !Array.isArray(value.sources) ||
+    !Array.isArray(value.entries)
+  ) {
+    return false;
+  }
+  const snapshotTime = Date.parse(String(value.captured_at));
+  if (
+    value.schema_version !==
+      "runtime_skill_marketplace_catalog_snapshot.v1" ||
+    !isSafeSkillMarketplaceRef(value.snapshot_ref) ||
+    !Number.isFinite(snapshotTime) ||
+    !isBoundedInteger(value.entry_count, 0, 100) ||
+    value.entry_count !== value.entries.length ||
+    value.default_page_size !== 25 ||
+    value.pagination_supported !== true ||
+    value.metadata_only !== true ||
+    value.live_marketplace_fetch_performed !== false ||
+    value.raw_marketplace_payload_persisted !== false ||
+    value.sources.length !== 2 ||
+    !value.sources.every((source) =>
+      isSafeRuntimeSkillMarketplaceSource(source, snapshotTime),
+    )
+  ) {
+    return false;
+  }
+  const sources = value.sources as RuntimeSkillMarketplaceSourceSnapshot[];
+  const sourceRefs = new Set(sources.map((source) => source.source_ref));
+  const sourceKinds = new Set(sources.map((source) => source.source_kind));
+  const sourceKindByRef = new Map(
+    sources.map((source) => [source.source_ref, source.source_kind]),
+  );
+  if (
+    sourceRefs.size !== sources.length ||
+    sourceKinds.size !== 2 ||
+    !sourceKinds.has("clawhub") ||
+    !sourceKinds.has("hermes") ||
+    !value.entries.every((entry) =>
+      isSafeRuntimeSkillMarketplaceEntry(
+        entry,
+        snapshotTime,
+        sourceKindByRef,
+      ),
+    )
+  ) {
+    return false;
+  }
+  const entries = value.entries as RuntimeSkillMarketplaceCatalogEntry[];
+  const skillRefs = new Set(entries.map((entry) => entry.skill_ref));
+  const sourceRecordRefs = new Set(
+    entries.map((entry) => entry.source_record_ref),
+  );
+  const sourceSlugs = new Set(
+    entries.map((entry) => `${entry.source_ref}:${entry.slug}`),
+  );
+  return (
+    value.entry_count === skillRefs.size &&
+    value.entry_count === sourceRecordRefs.size &&
+    value.entry_count === sourceSlugs.size &&
+    sources.every(
+      (source) =>
+        source.record_count ===
+          entries.filter(
+            (entry) => entry.source_ref === source.source_ref,
+          ).length,
+    )
+  );
+}
+
+function isSafeRuntimeSkillMarketplaceSource(
+  value: unknown,
+  snapshotTime: number,
+): value is RuntimeSkillMarketplaceSourceSnapshot {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  const capturedAt = Date.parse(String(value.captured_at));
+  return (
+    (value.source_kind === "clawhub" || value.source_kind === "hermes") &&
+    isSafeSkillMarketplaceRef(value.source_ref) &&
+    isSafeSkillMarketplaceRef(value.source_version_ref) &&
+    isSafeSkillMarketplaceText(value.display_label, 120) &&
+    Number.isFinite(capturedAt) &&
+    capturedAt <= snapshotTime &&
+    isBoundedInteger(value.record_count, 0, 100) &&
+    (value.source_kind !== "clawhub" ||
+      (value.rank_signal === "weekly_trending" &&
+        value.score_signal === "stars")) &&
+    (value.source_kind !== "hermes" ||
+      (value.rank_signal === "not_provided" &&
+        value.score_signal === "not_provided")) &&
+    value.live_fetch_performed === false &&
+    value.raw_payload_persisted === false
+  );
+}
+
+function isSafeRuntimeSkillMarketplaceEntry(
+  value: unknown,
+  snapshotTime: number,
+  sourceKindByRef: Map<string, "clawhub" | "hermes">,
+): value is RuntimeSkillMarketplaceCatalogEntry {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  const updatedAt = Date.parse(String(value.source_updated_at));
+  const sourceKind = sourceKindByRef.get(String(value.source_ref));
+  const optionalCounts = [
+    value.star_count,
+    value.download_count,
+    value.install_count,
+    value.comment_count,
+    value.rating_count,
+  ];
+  return (
+    sourceKind !== undefined &&
+    value.source_kind === sourceKind &&
+    isSafeSkillMarketplaceRef(value.skill_ref) &&
+    isSafeSkillMarketplaceRef(value.source_ref) &&
+    isSafeSkillMarketplaceRef(value.source_record_ref) &&
+    isSafeSkillMarketplaceText(value.source_label, 120) &&
+    isSafeSkillMarketplaceText(value.slug, 100) &&
+    isSafeSkillMarketplaceText(value.display_name, 120) &&
+    isSafeSkillMarketplaceText(value.safe_summary, 320) &&
+    isSafeSkillMarketplaceText(value.category, 80) &&
+    isSafeSkillMarketplaceText(value.version, 40) &&
+    isSafeSkillMarketplaceText(value.license_label, 120) &&
+    isSafeSkillMarketplaceText(value.rank_label, 120) &&
+    Number.isFinite(updatedAt) &&
+    updatedAt <= snapshotTime &&
+    isNullableBoundedInteger(value.source_rank, 1, 100_000) &&
+    optionalCounts.every((count) =>
+      isNullableBoundedInteger(count, 0, 1_000_000_000),
+    ) &&
+    (value.average_rating === null ||
+      (typeof value.average_rating === "number" &&
+        Number.isFinite(value.average_rating) &&
+        value.average_rating >= 0 &&
+        value.average_rating <= 5)) &&
+    (value.average_rating === null) === (value.rating_count === null) &&
+    value.source_metadata_only === true &&
+    value.review_required === true &&
+    value.risk_level === "unknown" &&
+    value.external_code_imported === false &&
+    value.execution_enabled === false &&
+    (sourceKind !== "hermes" ||
+      (value.source_rank === null &&
+        optionalCounts.every((count) => count === null) &&
+        value.average_rating === null)) &&
+    (sourceKind !== "clawhub" ||
+      (value.average_rating === null && value.rating_count === null))
+  );
+}
+
+function isSafeRuntimeSkillMarketplaceFreshness(
+  value: unknown,
+  catalog: NonNullable<RuntimeSkillMarketplacePostureReadModel["catalog"]>,
+  authorityOutcome: unknown,
+): value is RuntimeSkillMarketplaceCatalogFreshness {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  const checkedAt = Date.parse(String(value.checked_at));
+  const capturedAt = Date.parse(catalog.captured_at);
+  const expiresAt = Date.parse(String(value.expires_at));
+  const expectedExpiresAt = capturedAt + 7 * 86_400_000;
+  const expectedStatus =
+    checkedAt < capturedAt
+      ? "unknown"
+      : checkedAt >= expiresAt
+        ? "stale"
+        : "current";
+  const expectedDisplayStatus =
+    authorityOutcome !== "allow"
+      ? "unavailable_authority"
+      : expectedStatus === "current"
+        ? "available"
+        : expectedStatus === "stale"
+          ? "available_stale"
+          : "unavailable_unknown";
+  return (
+    value.catalog_snapshot_ref === catalog.snapshot_ref &&
+    isSafeSkillMarketplaceRef(value.catalog_snapshot_ref) &&
+    value.freshness_policy_ref ===
+      "freshness-policy-ref:skill-marketplace-catalog:seven-days" &&
+    Number.isFinite(checkedAt) &&
+    Number.isFinite(expiresAt) &&
+    expiresAt === expectedExpiresAt &&
+    value.status === expectedStatus &&
+    value.display_status === expectedDisplayStatus &&
+    isSafeSkillMarketplaceRefArray(value.reason_refs) &&
+    value.stale === (expectedStatus === "stale") &&
+    value.catalog_displayable ===
+      (expectedDisplayStatus === "available" ||
+        expectedDisplayStatus === "available_stale") &&
+    value.unknown_degrades_to_unavailable === true
+  );
+}
+
+function isBoundedInteger(
+  value: unknown,
+  minimum: number,
+  maximum: number,
+): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isSafeInteger(value) &&
+    value >= minimum &&
+    value <= maximum
+  );
+}
+
+function isNullableBoundedInteger(
+  value: unknown,
+  minimum: number,
+  maximum: number,
+): value is number | null {
+  return value === null || isBoundedInteger(value, minimum, maximum);
+}
+
+function isSafeSkillMarketplaceSnapshotHash(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    /^snapshot-hash-ref:skill-marketplace-posture:[a-f0-9]{64}$/.test(value)
+  );
+}
+
+function isSafeSkillMarketplaceRef(value: unknown): value is string {
+  if (
+    typeof value !== "string" ||
+    value.length === 0 ||
+    value.length > 320 ||
+    !isSafeTrustAuthorityRef(value) ||
+    containsSecretLike(value)
+  ) {
+    return false;
+  }
+  const lowered = value.toLowerCase();
+  return !EVIDENCE_NARRATIVE_UNSAFE_REF_FRAGMENTS.some((fragment) =>
+    lowered.includes(fragment),
+  );
+}
+
+function isSafeSkillMarketplaceRefArray(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.length <= 100 &&
+    value.every(isSafeSkillMarketplaceRef)
+  );
+}
+
+function isSafeSkillMarketplaceText(
+  value: unknown,
+  maxLength: number,
+): value is string {
+  if (!isBoundedDisplayText(value, maxLength)) {
+    return false;
+  }
+  const safetyQualifiedValue = value
+    .toLowerCase()
+    .replaceAll("without an api key", "")
+    .replaceAll("no api key", "");
+  return (
+    !containsSecretLike(safetyQualifiedValue) &&
+    !containsUnsafeTrustText(safetyQualifiedValue)
+  );
+}
+
+function isSafeSkillMarketplaceRedactionArray(
+  value: unknown,
+): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.length <= 40 &&
+    value.every(
+      (item) =>
+        typeof item === "string" &&
+        item.length <= 120 &&
+        /^[a-z][a-z0-9_]+$/.test(item) &&
+        (item.endsWith("_only") || item.endsWith("_omitted")) &&
+        !containsSecretLike(item),
+    )
+  );
+}
+
+function isBoundedDisplayText(value: unknown, maxLength: number): value is string {
+  return (
+    typeof value === "string" && value.length > 0 && value.length <= maxLength
   );
 }
 
