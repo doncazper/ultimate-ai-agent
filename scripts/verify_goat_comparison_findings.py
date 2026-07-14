@@ -179,7 +179,9 @@ def _safe_read(path: Path, *, root: Path, maximum_bytes: int) -> bytes:
     try:
         file_stat = os.fstat(descriptor)
         if not stat.S_ISREG(file_stat.st_mode) or file_stat.st_nlink != 1:
-            raise VerificationError("comparison input must be a single-link regular file")
+            raise VerificationError(
+                "comparison input must be a single-link regular file"
+            )
         if file_stat.st_size > maximum_bytes:
             raise VerificationError("comparison input exceeds its size bound")
         resolved_candidate = candidate.resolve(strict=True)
@@ -195,7 +197,9 @@ def _safe_read(path: Path, *, root: Path, maximum_bytes: int) -> bytes:
             remaining -= len(chunk)
         payload = b"".join(chunks)
         if len(payload) != file_stat.st_size:
-            raise VerificationError("comparison input changed or exceeded its size bound")
+            raise VerificationError(
+                "comparison input changed or exceeded its size bound"
+            )
         return payload
     finally:
         os.close(descriptor)
@@ -214,7 +218,9 @@ def _score(gates: dict[str, Any]) -> int:
 
 
 def _weighted_total(findings: list[dict[str, Any]], system: str) -> float:
-    numerator = sum(_score(item[f"{system}_gates"]) * item["weight"] for item in findings)
+    numerator = sum(
+        _score(item[f"{system}_gates"]) * item["weight"] for item in findings
+    )
     return round(numerator / 124 * 10, 4)
 
 
@@ -350,9 +356,10 @@ def verify_data(
     if data.get("authority_granted") is not False:
         raise VerificationError("comparison cannot grant authority")
     findings = data.get("findings")
-    if not isinstance(findings, list) or tuple(
-        item.get("component") for item in findings
-    ) != COMPONENT_IDS:
+    if (
+        not isinstance(findings, list)
+        or tuple(item.get("component") for item in findings) != COMPONENT_IDS
+    ):
         raise VerificationError("comparison requires the exact 16-component taxonomy")
     if sum(item.get("weight", 0) for item in findings) != 124:
         raise VerificationError("comparison weights must total 124")
@@ -363,7 +370,9 @@ def verify_data(
         for system in ("uaa", "goatcitadel"):
             values = refs.get(system)
             if not isinstance(values, list) or not values:
-                raise VerificationError("every comparison component requires evidence refs")
+                raise VerificationError(
+                    "every comparison component requires evidence refs"
+                )
             for value in values:
                 _validate_evidence_ref(value, system, goat_root=goat_root)
         for required in (
@@ -402,8 +411,7 @@ def verify_data(
             for item in initial.get(system, {}).get("components", [])
         }
         expected_scores = {
-            item["component"]: _score(item[f"{system}_gates"])
-            for item in findings
+            item["component"]: _score(item[f"{system}_gates"]) for item in findings
         }
         if component_scores != expected_scores:
             raise VerificationError(f"{system} initial component score drift")
@@ -469,10 +477,15 @@ def verify_data(
         "authority_policy_violation_count": 0,
     }
     for metric, expected_value in expected_metrics.items():
-        if result.get(metric) != expected_value or result.get(f"{metric}_posture") != "measured":
+        if (
+            result.get(metric) != expected_value
+            or result.get(f"{metric}_posture") != "measured"
+        ):
             raise VerificationError(f"structured capability metric drift: {metric}")
     if result.get("cross_repo_empirical_performance") != "not_measured":
-        raise VerificationError("cross-repository empirical result must remain not measured")
+        raise VerificationError(
+            "cross-repository empirical result must remain not measured"
+        )
     if result.get("observed_product_experience") != "not_measured":
         raise VerificationError("observed product experience must remain not measured")
     if revalidate_uaa:
@@ -492,7 +505,9 @@ def verify(
     goat_root: Path | None = None,
     revalidate_uaa: bool = False,
 ) -> dict[str, Any]:
-    payload = _safe_read(path.relative_to(ROOT), root=ROOT, maximum_bytes=MAX_ARTIFACT_BYTES)
+    payload = _safe_read(
+        path.relative_to(ROOT), root=ROOT, maximum_bytes=MAX_ARTIFACT_BYTES
+    )
     return verify_data(
         json.loads(payload.decode("utf-8")),
         goat_root=goat_root,
@@ -502,7 +517,9 @@ def verify(
 
 def refresh_uaa_evaluation(path: Path = DEFAULT_ARTIFACT) -> dict[str, Any]:
     if path != DEFAULT_ARTIFACT or not path.is_file() or path.is_symlink():
-        raise VerificationError("comparison artifact refresh path is not canonical and regular")
+        raise VerificationError(
+            "comparison artifact refresh path is not canonical and regular"
+        )
     data = json.loads(
         _safe_read(path.relative_to(ROOT), root=ROOT, maximum_bytes=MAX_ARTIFACT_BYTES)
     )
@@ -589,7 +606,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.refresh_uaa_evaluation:
         if args.goat_root is not None or args.revalidate_uaa:
-            parser.error("refresh cannot be combined with external or revalidation options")
+            parser.error(
+                "refresh cannot be combined with external or revalidation options"
+            )
         refresh_uaa_evaluation()
     else:
         verify(goat_root=args.goat_root, revalidate_uaa=args.revalidate_uaa)

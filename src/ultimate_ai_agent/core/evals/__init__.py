@@ -35,6 +35,7 @@ from ultimate_ai_agent.core.evals.capability_maturity import (
     CapabilityMaturityGraduationDecision,
     CapabilityMaturityReadModel,
     build_capability_maturity_read_model,
+    capability_maturity_decision_ref,
     capability_maturity_report_digest,
 )
 
@@ -69,6 +70,7 @@ __all__ = [
     "build_agent_eval_regression_report",
     "build_agent_capability_evaluation_report",
     "build_capability_maturity_read_model",
+    "capability_maturity_decision_ref",
     "capability_maturity_report_digest",
     "validate_agent_eval_harness_policy",
     "validate_agent_eval_regression_request",

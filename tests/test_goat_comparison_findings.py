@@ -35,7 +35,10 @@ def test_comparison_findings_verify_exact_scores_and_bounded_result() -> None:
     assert data["implementation_result"]["passed_unblocked_verifier_count"] == 22
     assert data["implementation_result"]["task_completion_count"] == 23
     assert data["implementation_result"]["correctness_rate"] == 1
-    assert data["implementation_result"]["cross_repo_empirical_performance"] == "not_measured"
+    assert (
+        data["implementation_result"]["cross_repo_empirical_performance"]
+        == "not_measured"
+    )
     assert data["implementation_result"]["runtime_revalidation_required"] is True
     assert data["implementation_result"]["external_evidence_posture"] == (
         "opt_in_root_required"
@@ -49,9 +52,7 @@ def test_comparison_findings_reject_score_evidence_and_authority_drift() -> None
         verifier.verify_data(data)
 
     data = _data()
-    data["findings"][0]["evidence_refs"]["uaa"] = [
-        "repo-ref:uaa:missing.py#L1"
-    ]
+    data["findings"][0]["evidence_refs"]["uaa"] = ["repo-ref:uaa:missing.py#L1"]
     with pytest.raises(verifier.VerificationError, match="missing UAA"):
         verifier.verify_data(data)
 
@@ -160,9 +161,7 @@ def test_comparison_findings_reject_path_escape_and_line_range_drift(
     tmp_path: Path,
 ) -> None:
     data = _data()
-    data["findings"][0]["evidence_refs"]["uaa"] = [
-        "repo-ref:uaa:/etc/hosts#L1"
-    ]
+    data["findings"][0]["evidence_refs"]["uaa"] = ["repo-ref:uaa:/etc/hosts#L1"]
     with pytest.raises(verifier.VerificationError, match="path is unsafe"):
         verifier.verify_data(data)
 
@@ -181,12 +180,16 @@ def test_safe_read_rejects_symlink_and_hardlink(tmp_path: Path) -> None:
     linked = tmp_path / "linked.json"
     linked.symlink_to(real)
     with pytest.raises((OSError, verifier.VerificationError)):
-        verifier._safe_read(linked.relative_to(tmp_path), root=tmp_path, maximum_bytes=100)
+        verifier._safe_read(
+            linked.relative_to(tmp_path), root=tmp_path, maximum_bytes=100
+        )
 
     hardlink = tmp_path / "hardlink.json"
     hardlink.hardlink_to(real)
     with pytest.raises(verifier.VerificationError, match="single-link"):
-        verifier._safe_read(real.relative_to(tmp_path), root=tmp_path, maximum_bytes=100)
+        verifier._safe_read(
+            real.relative_to(tmp_path), root=tmp_path, maximum_bytes=100
+        )
 
 
 def test_safe_read_rejects_fifo_without_blocking(tmp_path: Path) -> None:
@@ -194,4 +197,6 @@ def test_safe_read_rejects_fifo_without_blocking(tmp_path: Path) -> None:
     os.mkfifo(fifo)
 
     with pytest.raises(verifier.VerificationError, match="regular file"):
-        verifier._safe_read(fifo.relative_to(tmp_path), root=tmp_path, maximum_bytes=100)
+        verifier._safe_read(
+            fifo.relative_to(tmp_path), root=tmp_path, maximum_bytes=100
+        )

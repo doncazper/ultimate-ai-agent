@@ -53,6 +53,41 @@ class CapabilityMaturityDecisionStatus(str, Enum):
     rejected = "rejected"
 
 
+def capability_maturity_decision_ref(
+    *,
+    component_id: str,
+    status: CapabilityMaturityDecisionStatus | str,
+    evaluation_report_digest_ref: str,
+    reviewer_ref: str,
+    acceptance_ref: str,
+    evidence_refs: tuple[str, ...],
+    safe_summary: str,
+) -> str:
+    payload = json.dumps(
+        {
+            "contract_ref": CAPABILITY_MATURITY_CONTRACT_REF,
+            "component_id": component_id,
+            "status": (
+                status.value
+                if isinstance(status, CapabilityMaturityDecisionStatus)
+                else status
+            ),
+            "evaluation_report_digest_ref": evaluation_report_digest_ref,
+            "reviewer_ref": reviewer_ref,
+            "acceptance_ref": acceptance_ref,
+            "evidence_refs": evidence_refs,
+            "safe_summary": safe_summary,
+            "content_free": True,
+            "authority_granted": False,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
+    return (
+        f"decision-ref:capability-maturity:sha256:{hashlib.sha256(payload).hexdigest()}"
+    )
+
+
 class _FrozenMaturityModel(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -147,7 +182,20 @@ class CapabilityMaturityGraduationDecision(_FrozenMaturityModel):
             validate_execution_ref(value, name)
         for ref in self.evidence_refs:
             validate_execution_ref(ref, "decision_evidence_ref")
+        if len(self.evidence_refs) != len(set(self.evidence_refs)):
+            raise ValueError("maturity decision evidence refs must be unique")
         validate_safe_execution_text(self.safe_summary, "safe_summary")
+        expected_ref = capability_maturity_decision_ref(
+            component_id=self.component_id,
+            status=self.status,
+            evaluation_report_digest_ref=self.evaluation_report_digest_ref,
+            reviewer_ref=self.reviewer_ref,
+            acceptance_ref=self.acceptance_ref,
+            evidence_refs=self.evidence_refs,
+            safe_summary=self.safe_summary,
+        )
+        if self.decision_ref != expected_ref:
+            raise ValueError("maturity decision fingerprint drift")
         return self
 
 
@@ -258,6 +306,109 @@ class CapabilityMaturityReadModel(_FrozenMaturityModel):
             raise ValueError(
                 "capability maturity read model must preserve taxonomy order"
             )
+        if (self.evidence_report_ref is None) != (
+            self.evidence_report_digest_ref is None
+        ):
+            raise ValueError("maturity evidence report ref and digest must be paired")
+
+        for component, definition in zip(
+            self.components, CAPABILITY_MATURITY_DEFINITIONS, strict=True
+        ):
+            if (
+                component.label != definition.label
+                or component.weight != definition.weight
+                or component.baseline_score != definition.baseline_score
+                or component.target_score != definition.target_score
+                or component.next_acceptance_ref != definition.acceptance_ref
+                or component.evidence_refs
+                != (
+                    definition.implementation_ref,
+                    definition.test_ref,
+                    definition.operator_surface_ref,
+                )
+            ):
+                raise ValueError("capability maturity component definition drift")
+
+        baseline_scores = {
+            item.component_id: item.baseline_score for item in self.components
+        }
+        target_scores = {
+            item.component_id: item.target_score for item in self.components
+        }
+        verified_scores = {
+            item.component_id: item.verified_score for item in self.components
+        }
+        if self.baseline_weighted_score != _weighted_score(baseline_scores):
+            raise ValueError("capability maturity baseline weighted score drift")
+        if self.target_weighted_score != _weighted_score(target_scores):
+            raise ValueError("capability maturity target weighted score drift")
+        if self.verified_weighted_score != _weighted_score(verified_scores):
+            raise ValueError("capability maturity verified weighted score drift")
+
+        uplift_proven = sum(
+            item.evidence_status == CapabilityMaturityEvidenceStatus.target_proven
+            for item in self.components
+        )
+        automated_ready = sum(
+            item.evidence_status
+            in {
+                CapabilityMaturityEvidenceStatus.manual_validation_required,
+                CapabilityMaturityEvidenceStatus.external_dependency_required,
+                CapabilityMaturityEvidenceStatus.target_proven,
+            }
+            for item in self.components
+        )
+        manual_required = sum(
+            item.evidence_status
+            == CapabilityMaturityEvidenceStatus.manual_validation_required
+            for item in self.components
+        )
+        external_required = sum(
+            item.evidence_status
+            == CapabilityMaturityEvidenceStatus.external_dependency_required
+            for item in self.components
+        )
+        ceiling_defended = sum(
+            item.evidence_status == CapabilityMaturityEvidenceStatus.ceiling_defended
+            for item in self.components
+        )
+        expected_counts = (
+            sum(item.baseline_score < 10 for item in self.components),
+            uplift_proven,
+            automated_ready,
+            manual_required,
+            external_required,
+            ceiling_defended,
+        )
+        observed_counts = (
+            self.uplift_target_count,
+            self.uplift_proven_count,
+            self.automated_evidence_ready_count,
+            self.manual_validation_required_count,
+            self.external_dependency_required_count,
+            self.ceiling_defended_count,
+        )
+        if observed_counts != expected_counts:
+            raise ValueError("capability maturity aggregate count drift")
+
+        all_targets_proven = uplift_proven == expected_counts[0]
+        any_failed = any(
+            item.evidence_status == CapabilityMaturityEvidenceStatus.evidence_failed
+            for item in self.components
+        )
+        expected_posture = (
+            "targets_proven"
+            if all_targets_proven
+            else "evaluation_failed"
+            if any_failed
+            else "partially_graduated"
+            if uplift_proven
+            else "automated_evidence_ready"
+            if automated_ready
+            else "evaluation_required"
+        )
+        if self.verification_posture != expected_posture:
+            raise ValueError("capability maturity verification posture drift")
         return self
 
 
@@ -801,5 +952,6 @@ __all__ = [
     "CapabilityMaturityGraduationDecision",
     "CapabilityMaturityReadModel",
     "build_capability_maturity_read_model",
+    "capability_maturity_decision_ref",
     "capability_maturity_report_digest",
 ]
