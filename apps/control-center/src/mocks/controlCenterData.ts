@@ -13722,6 +13722,13 @@ export const mockControlCenterData: ControlCenterData = {
       read_only: true,
       preview_only: true,
       production_control_center: false,
+      build_identity_schema_version: "uaa-build-identity.v1",
+      build_id: "build-ref:uaa:0.104.0:mock-unbound",
+      commit_ref: "commit-ref:git:unbound",
+      storage_schema_version: "founder_loop_storage.v1",
+      capability_profile_version:
+        "governed_product_pilot_authority_profile.v1",
+      source_revision_bound: false,
     },
     surfaces: [
       {

@@ -11,6 +11,7 @@ from ultimate_ai_agent.api.contracts import (
     ApiRouteApprovalPosture,
     ApiRouteAuthPosture,
     ApiRouteClassification,
+    ApiRouteIdempotencyEnforcement,
     ApiRouteIdempotencyPosture,
     ApiRouteInventoryItem,
     ApiRouteRateLimitPosture,
@@ -19,6 +20,7 @@ from ultimate_ai_agent.api.contracts import (
 )
 from ultimate_ai_agent.api.idempotency import (
     API_IDEMPOTENCY_AUDIT_POLICY_REF,
+    route_idempotency_enforcement,
     route_idempotency_posture,
 )
 from ultimate_ai_agent.api.rate_limits import (
@@ -1188,10 +1190,7 @@ def route_classification_for_path(
             ApiRouteClassification.mutating_requires_authority,
             "Authority mission approval decision records exact durable operator intent after exact approval-wait binding validation; the decision grants no execution authority, invokes no adapter, and every resumed start requires fresh LocalApprovalAuthority and dispatcher request-scoped validation.",
         )
-    if (
-        normalized_method == "POST"
-        and path == "/api/runtime/authority-missions/cancel"
-    ):
+    if normalized_method == "POST" and path == "/api/runtime/authority-missions/cancel":
         return (
             ApiRouteClassification.mutating_requires_authority,
             "Authority mission cancellation appends an exact plan-, mission-, run-, lease-, and idempotency-bound pre-start fence that can only reduce authority; it invokes no adapter and cannot rewrite after-start truth.",
@@ -1245,7 +1244,10 @@ def route_classification_for_path(
             ApiRouteClassification.mutating_requires_authority,
             "Today-to-Action envelope authority route; workspace/draft AuthorityLease, exact idempotency, authority decision refs, receipt, audit, and evidence posture required while execution stays blocked",
         )
-    if normalized_method == "GET" and path in CONTROL_CENTER_TODAY_EXACT_ACTION_STATUS_PATHS:
+    if (
+        normalized_method == "GET"
+        and path in CONTROL_CENTER_TODAY_EXACT_ACTION_STATUS_PATHS
+    ):
         return (
             ApiRouteClassification.local_sensitive,
             "Exact Founder Loop action status exposes only backend-owned source, target, approval, and mission-lease requirements without preparing or executing work.",
@@ -1448,6 +1450,14 @@ def iter_api_route_items(app: FastAPI) -> list[ApiRouteInventoryItem]:
                 idempotency_policy_ref,
                 idempotency_reason,
             ) = route_idempotency_posture(route_classification)
+            (
+                idempotency_enforcement,
+                durable_idempotency_owner_ref,
+            ) = route_idempotency_enforcement(
+                method=method,
+                path=route.path,
+                route_classification=route_classification,
+            )
             if (
                 method == "POST"
                 and route.path in CONTROL_CENTER_WEB_EVIDENCE_PRODUCT_SLICE_PATHS
@@ -1489,6 +1499,8 @@ def iter_api_route_items(app: FastAPI) -> list[ApiRouteInventoryItem]:
                     idempotency_posture=idempotency_posture,
                     idempotency_policy_ref=idempotency_policy_ref,
                     idempotency_reason=idempotency_reason,
+                    idempotency_enforcement=idempotency_enforcement,
+                    durable_idempotency_owner_ref=durable_idempotency_owner_ref,
                     rate_limit_targeted=rate_limit_targeted,
                     rate_limit_posture=rate_limit_posture,
                     rate_limit_policy_ref=rate_limit_policy_ref,
@@ -1590,6 +1602,7 @@ def build_api_manifest(
     app: FastAPI, foundation_gate_status: str | None = None
 ) -> ApiManifest:
     from ultimate_ai_agent.api.local_auth import local_api_auth_policy_payload
+    from ultimate_ai_agent.core.build_identity import build_identity
 
     static = _get_api_manifest_static_cache_entry(app)
     classification_summary = {
@@ -1598,18 +1611,23 @@ def build_api_manifest(
     auth_posture_summary = {posture.value: 0 for posture in ApiRouteAuthPosture}
     approval_posture_summary = {posture.value: 0 for posture in ApiRouteApprovalPosture}
     idempotency_summary = {posture.value: 0 for posture in ApiRouteIdempotencyPosture}
+    idempotency_enforcement_summary = {
+        enforcement.value: 0 for enforcement in ApiRouteIdempotencyEnforcement
+    }
     rate_limit_summary = {posture.value: 0 for posture in ApiRouteRateLimitPosture}
     for route in static.routes:
         classification_summary[str(route.route_classification)] += 1
         auth_posture_summary[str(route.auth_posture)] += 1
         approval_posture_summary[str(route.approval_posture)] += 1
         idempotency_summary[str(route.idempotency_posture)] += 1
+        idempotency_enforcement_summary[str(route.idempotency_enforcement)] += 1
         rate_limit_summary[str(route.rate_limit_posture)] += 1
     return ApiManifest(
         title=static.title,
         api_version=static.api_version,
         package_version=static.package_version,
         active_baseline=static.active_baseline,
+        build_identity=build_identity(),
         route_count=static.route_count,
         route_groups=list(static.route_groups),
         routes=[route.model_copy(deep=True) for route in static.routes],
@@ -1621,6 +1639,7 @@ def build_api_manifest(
         route_approval_posture_summary=approval_posture_summary,
         idempotency_audit_policy_ref=API_IDEMPOTENCY_AUDIT_POLICY_REF,
         route_idempotency_posture_summary=idempotency_summary,
+        route_idempotency_enforcement_summary=idempotency_enforcement_summary,
         rate_limit_policy_ref=API_TARGETED_RATE_LIMIT_POLICY_REF,
         route_rate_limit_posture_summary=rate_limit_summary,
         local_auth_policy=local_api_auth_policy_payload(),

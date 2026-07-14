@@ -19,6 +19,7 @@ import subprocess
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 import webbrowser
 from dataclasses import dataclass
@@ -44,7 +45,7 @@ PRIMARY_READY_SECONDARY_BLOCKED = "primary_ready_secondary_blocked"
 UAA_OPENWEBUI_TEST_GATEWAY_ENV = "UAA_OPENWEBUI_TEST_GATEWAY_ENABLED"
 UAA_OPENWEBUI_TEST_GATEWAY_VALUE = "uaa-local-test"
 UAA_API_LOCAL_BEARER_ENV = "UAA_API_LOCAL_BEARER"
-VITE_UAA_LOCAL_API_BEARER_ENV = "VITE_UAA_LOCAL_API_BEARER"
+CONTROL_CENTER_SESSION_FRAGMENT_KEY = "uaa-session-bearer"
 UAA_LLAMA_CPP_GATEWAY_ENV = "UAA_LLAMA_CPP_GATEWAY_ENABLED"
 UAA_LLAMA_CPP_GATEWAY_KEY_ENV = "UAA_LLAMA_CPP_GATEWAY_KEY"
 UAA_LLAMA_CPP_MODEL_ID_ENV = "UAA_LLAMA_CPP_MODEL_ID"
@@ -251,11 +252,6 @@ def safe_env(root: Path, service_name: str) -> dict[str, str]:
                 sensitive_passthrough_keys.add(key)
     if service_name == "frontend":
         env["VITE_UAA_API_BASE_URL"] = ""
-        if os.environ.get(VITE_UAA_LOCAL_API_BEARER_ENV):
-            env[VITE_UAA_LOCAL_API_BEARER_ENV] = os.environ[
-                VITE_UAA_LOCAL_API_BEARER_ENV
-            ]
-            sensitive_passthrough_keys.add(VITE_UAA_LOCAL_API_BEARER_ENV)
     if service_name == "openwebui" and llama_cpp_gateway_requested():
         openwebui_env, secret_env_keys = openwebui_container_env()
         for key in secret_env_keys:
@@ -949,12 +945,20 @@ def command_launch_ui(root: Path, target: str = DESIGNATED_UI_TARGET) -> int:
         start_code = command_start(root)
         if start_code:
             return start_code
-        webbrowser.open(FRONTEND_URL)
+        webbrowser.open(control_center_session_url())
         print(f"Opened designated UI: {FRONTEND_URL}")
         return 0
     if target == "openwebui":
         return command_launch_openwebui(root)
     raise ValueError(f"Unknown UI target: {target}")
+
+
+def control_center_session_url() -> str:
+    bearer = os.environ.get(UAA_API_LOCAL_BEARER_ENV, "").strip()
+    if not bearer:
+        return FRONTEND_URL
+    encoded = urllib.parse.quote(bearer, safe="")
+    return f"{FRONTEND_URL}#{CONTROL_CENTER_SESSION_FRAGMENT_KEY}={encoded}"
 
 
 def command_trial_boot(root: Path) -> int:

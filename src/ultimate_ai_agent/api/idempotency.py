@@ -3,13 +3,20 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from ultimate_ai_agent.api.contracts import ApiRouteClassification, ApiRouteIdempotencyPosture
+from ultimate_ai_agent.api.contracts import (
+    ApiRouteClassification,
+    ApiRouteIdempotencyEnforcement,
+    ApiRouteIdempotencyPosture,
+)
 
 
 API_IDEMPOTENCY_AUDIT_POLICY_REF = "idempotency:p1-084:mutating-routes:v1"
 IDEMPOTENCY_KEY_HEADER = "x-uaa-idempotency-key"
 IDEMPOTENCY_REF_HEADER = "x-uaa-idempotency-ref"
 IDEMPOTENCY_HEADER_NAMES = (IDEMPOTENCY_KEY_HEADER, IDEMPOTENCY_REF_HEADER)
+WEB_EVIDENCE_DURABLE_IDEMPOTENCY_OWNER_REF = (
+    "idempotency-owner:control-center-web-evidence-receipt-store:v1"
+)
 IDEMPOTENCY_REQUIRED_INPUT_KINDS: tuple[str, ...] = (
     "idempotency_key",
     "idempotency_key_ref",
@@ -52,6 +59,22 @@ def route_classification_requires_idempotency(
     return route_classification == ApiRouteClassification.mutating_requires_authority
 
 
+def route_idempotency_enforcement(
+    *,
+    method: str,
+    path: str,
+    route_classification: ApiRouteClassification,
+) -> tuple[ApiRouteIdempotencyEnforcement, str | None]:
+    if method == "POST" and path == "/control-center/web-evidence/attach":
+        return (
+            ApiRouteIdempotencyEnforcement.route_owned_durable_replay,
+            WEB_EVIDENCE_DURABLE_IDEMPOTENCY_OWNER_REF,
+        )
+    if route_classification_requires_idempotency(route_classification):
+        return ApiRouteIdempotencyEnforcement.header_shape_gate_only, None
+    return ApiRouteIdempotencyEnforcement.not_required, None
+
+
 def idempotency_value_valid(value: str | None) -> bool:
     if value is None:
         return False
@@ -92,7 +115,9 @@ def idempotency_header_failure(
     )
 
 
-def api_idempotency_audit_policy_payload(mutating_route_count: int) -> dict[str, object]:
+def api_idempotency_audit_policy_payload(
+    mutating_route_count: int,
+) -> dict[str, object]:
     return {
         "policy_ref": API_IDEMPOTENCY_AUDIT_POLICY_REF,
         "applies_to_route_classification": ApiRouteClassification.mutating_requires_authority.value,
@@ -103,6 +128,8 @@ def api_idempotency_audit_policy_payload(mutating_route_count: int) -> dict[str,
         "posture_field": "idempotency_posture",
         "runtime_middleware_added": True,
         "durable_dedupe_store_added": False,
+        "global_middleware_enforcement": "header_shape_gate_only",
+        "route_owned_durable_replay_required_for_authority": True,
         "request_header_required_by_middleware": True,
         "mutation_authority_granted": False,
         "production_authority_enabled": False,

@@ -49,7 +49,8 @@ def test_workflow_uses_non_admin_preprovisioned_toolchains() -> None:
 
     assert "actions/setup-python" not in workflow
     assert "actions/setup-node" not in workflow
-    assert "python3.12 -m venv .venv" in workflow
+    assert "python3.12 -m venv .ci-bootstrap" in workflow
+    assert "uv sync --frozen --extra dev --python python3.12" in workflow
     assert "/opt/homebrew/opt/python@3.12/libexec/bin" in workflow
     assert "/opt/homebrew/opt/node@22/bin" in workflow
     assert "shell: /usr/sbin/taskpolicy -c utility /bin/bash --noprofile --norc -e -o pipefail {0}" in workflow
@@ -218,7 +219,9 @@ def test_visual_regression_runs_only_for_affected_control_center_paths() -> None
 def test_checkout_matches_repository_actions_allow_policy() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
 
-    checkout_action = "uses: actions/checkout@v4"
+    checkout_action = (
+        "uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5"
+    )
     assert workflow.count(checkout_action) == workflow.count(
         "persist-credentials: false"
     )

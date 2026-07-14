@@ -100,6 +100,13 @@ def test_comparison_findings_reject_report_binding_drift() -> None:
     with pytest.raises(verifier.VerificationError, match="source commit"):
         verifier.verify_data(data)
 
+    data = copy.deepcopy(_data())
+    data["implementation_result"]["evaluator_source_digest"] = "sha256:" + (
+        "0" * 64
+    )
+    with pytest.raises(verifier.VerificationError, match="source digest"):
+        verifier.verify_data(data)
+
 
 def test_comparison_findings_runtime_revalidation_uses_actual_projection(
     monkeypatch: pytest.MonkeyPatch,

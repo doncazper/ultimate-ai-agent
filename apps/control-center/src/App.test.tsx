@@ -51,6 +51,7 @@ import { primaryNavItems, supportingNavItems } from "./routes";
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllEnvs();
   vi.unstubAllGlobals();
   vi.useRealTimers();
   resetControlCenterReadLimiterForTests();
