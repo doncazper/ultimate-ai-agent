@@ -110,15 +110,16 @@ longer define separate current workspaces:
 ### Skill Workbench Create surface
 
 The Skill Workbench grid and list views are accepted Create-mode sub-surfaces.
-The list is the default view, uses 25-row pagination, and spends its final
-column on source-provided license information rather than a guessed risk badge.
+The list is the default view, uses 25-row pagination, and omits both speculative
+risk and repeated license columns. Source-provided license detail remains in the
+selected-item inspector.
 Source rank, stars, downloads, comments, and future ratings remain distinct
 discovery signals. Missing ratings render as unavailable, not zero.
 
 | File | Surface/version | Required change | Must not imply |
 |---|---|---|---|
 | `renders/target-v3/07-skill-workbench-grid-v1.png` | Skill Workbench grid v1, Hermes filter | compact discovery cards; honest missing source scores; metadata-only and review posture; selected inspector | live marketplace fetch, trusted popularity, imported code, install, or execution |
-| `renders/target-v3/08-skill-workbench-list-v1.png` | Skill Workbench list v1 | dense rows; list/grid toggle; 25-row pagination; source-specific missing values; license column; inspector detail | invented average ratings, guessed risk, source signal as UAA trust, or adaptation authority |
+| `renders/target-v3/08-skill-workbench-list-v1.png` | Skill Workbench list v1 | dense rows; list/grid toggle; 25-row pagination; source-specific missing values; no license column; inspector detail | invented average ratings, guessed risk, source signal as UAA trust, or adaptation authority |
 
 ## Messenger Matrix Client V1
 

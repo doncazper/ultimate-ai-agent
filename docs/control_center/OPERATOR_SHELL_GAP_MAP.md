@@ -266,11 +266,11 @@ skill-marketplace posture plus a sanitized, source-derived metadata snapshot.
 List/grid selection, search, filters, selected item, and 25-row pagination are
 presentation state. ClawHub stars/downloads/rank remain discovery signals;
 missing Hermes ratings and popularity aggregates render as unavailable. The
-list uses source license data rather than a guessed risk badge, while the
-inspector reports risk as not assessed. Saved, adaptation, local-skill,
-blocked/rejected, and live-source lanes remain unavailable. External metadata
-is not trust, install authority, runtime import authority, execution authority,
-or local enablement. Future live metadata fetch must route through
+list omits repeated license and guessed-risk columns, while the inspector keeps
+source license detail and reports risk as not assessed. Saved, adaptation,
+local-skill, blocked/rejected, and live-source lanes remain unavailable.
+External metadata is not trust, install authority, runtime import authority,
+execution authority, or local enablement. Future live metadata fetch must route through
 WebAccessGateway; external code remains untrusted reference material until
 rewritten or adapted into reviewed UAA-owned material under later exact
 authority.

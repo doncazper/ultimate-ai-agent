@@ -41,6 +41,15 @@ def test_accepted_skill_workbench_views_are_hash_and_signal_bound() -> None:
     assert surface["default_view"] == "list"
     assert surface["page_size"] == 25
     assert surface["grid_filter"] == "hermes"
+    assert surface["list_columns"] == [
+        "skill",
+        "category",
+        "source",
+        "rank",
+        "source_signal",
+        "popularity",
+        "updated",
+    ]
     assert surface["source_signals"] == [
         "rank",
         "stars",

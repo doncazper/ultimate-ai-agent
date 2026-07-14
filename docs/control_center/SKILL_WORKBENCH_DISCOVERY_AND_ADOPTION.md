@@ -43,8 +43,8 @@ fetching, copying wholesale, or activating external code.
 - ClawHub weekly rank, stars, downloads, installs, and comments when supplied
 - explicit `Not provided by source` treatment for missing Hermes ranks,
   ratings, stars, and download aggregates
-- source-provided license information in the list instead of a guessed risk
-  badge
+- a focused list with no speculative risk or repeated license column; source
+  license detail remains available in the selected-item inspector
 - `Risk: Not assessed` in the inspector only, with review and adaptation
   posture kept separate from popularity
 

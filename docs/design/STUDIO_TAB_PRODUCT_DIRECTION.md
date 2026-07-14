@@ -135,9 +135,10 @@ and
 `control_center_north_star/renders/target-v3/08-skill-workbench-list-v1.png`.
 The implemented `/studio/skills` slice uses a backend-owned sanitized metadata
 snapshot, 25-row pagination, source-specific popularity fields, and an
-inspector that says risk is not assessed. The list uses source license data in
-place of a speculative risk badge. Live marketplace fetch, saving, adaptation,
-import, enablement, and execution remain blocked or unimplemented.
+inspector that says risk is not assessed and retains source license detail. The
+list omits both license and speculative-risk columns. Live marketplace fetch,
+saving, adaptation, import, enablement, and execution remain blocked or
+unimplemented.
 
 ## Implementation Direction
 

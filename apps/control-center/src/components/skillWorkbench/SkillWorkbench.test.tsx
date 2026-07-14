@@ -93,7 +93,7 @@ function posture(): RuntimeSkillMarketplacePostureReadModel {
 }
 
 describe("SkillWorkbench", () => {
-  it("shows source signals and uses license space instead of guessed risk", () => {
+  it("shows source signals without a license column or guessed risk", () => {
     render(<SkillWorkbench authoritative posture={posture()} />);
 
     expect(
@@ -106,7 +106,10 @@ describe("SkillWorkbench", () => {
     );
     expect(screen.getByText("★ 42 stars")).toBeInTheDocument();
     expect(screen.getAllByText("No source rating").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("License").length).toBeGreaterThan(0);
+    const list = screen.getByLabelText("Skill idea list");
+    expect(within(list).queryByText("License")).not.toBeInTheDocument();
+    const inspector = screen.getByLabelText("Skill details");
+    expect(within(inspector).getByText("License")).toBeInTheDocument();
     expect(screen.queryByText(/low risk/i)).not.toBeInTheDocument();
     expect(screen.getByText("Risk").nextSibling).toHaveTextContent(
       "Not assessed",

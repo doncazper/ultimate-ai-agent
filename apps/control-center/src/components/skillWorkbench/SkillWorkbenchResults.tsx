@@ -54,7 +54,6 @@ export function SkillWorkbenchResults({
         <span>Source signal</span>
         <span>Popularity</span>
         <span>Updated</span>
-        <span>License</span>
       </div>
       <div className="skill-list-body">
         {entries.map((entry) => (
@@ -144,7 +143,6 @@ function SkillListRow({
       <span className="skill-list-updated">
         {formatDate(entry.source_updated_at)}
       </span>
-      <span className="skill-list-license">{entry.license_label}</span>
     </button>
   );
 }
