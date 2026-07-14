@@ -21,6 +21,16 @@ from ultimate_ai_agent.core.evals.capability_metrics import (
     CapabilityScenarioObservation,
     build_agent_capability_evaluation_report,
 )
+from ultimate_ai_agent.core.evals.capability_maturity import (
+    CAPABILITY_MATURITY_CONTRACT_REF,
+    CAPABILITY_MATURITY_DEFINITIONS,
+    CAPABILITY_MATURITY_SCHEMA_VERSION,
+    CapabilityMaturityComponent,
+    CapabilityMaturityDefinition,
+    CapabilityMaturityEvidenceStatus,
+    CapabilityMaturityReadModel,
+    build_capability_maturity_read_model,
+)
 
 __all__ = [
     "AgentEvalCase",
@@ -36,10 +46,18 @@ __all__ = [
     "CAPABILITY_COMPONENT_IDS",
     "CAPABILITY_EVALUATION_CONTRACT_REF",
     "CAPABILITY_EVALUATION_SCHEMA_VERSION",
+    "CAPABILITY_MATURITY_CONTRACT_REF",
+    "CAPABILITY_MATURITY_DEFINITIONS",
+    "CAPABILITY_MATURITY_SCHEMA_VERSION",
     "CapabilityEvaluationStatus",
+    "CapabilityMaturityComponent",
+    "CapabilityMaturityDefinition",
+    "CapabilityMaturityEvidenceStatus",
+    "CapabilityMaturityReadModel",
     "CapabilityScenarioObservation",
     "build_agent_eval_regression_report",
     "build_agent_capability_evaluation_report",
+    "build_capability_maturity_read_model",
     "validate_agent_eval_harness_policy",
     "validate_agent_eval_regression_request",
 ]

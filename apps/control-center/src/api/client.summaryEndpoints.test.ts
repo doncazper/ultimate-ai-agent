@@ -868,6 +868,25 @@ describe("loadControlCenterData summary endpoint wiring", () => {
     expect(data.connection.warnings).toContain("PARTIAL_MOCK_FALLBACK");
   });
 
+  it("rejects maturity score inflation without empirical evidence", async () => {
+    const routeData = baseRouteData();
+    const capabilitySurface = JSON.parse(
+      JSON.stringify(routeData[API_ENDPOINTS.controlCenterCapabilitySurface]),
+    ) as typeof mockControlCenterData.capabilitySurface;
+    capabilitySurface.maturity.components[0].verified_score = 10;
+    capabilitySurface.maturity.components[0].evidence_status = "baseline_only";
+    routeData[API_ENDPOINTS.controlCenterCapabilitySurface] = capabilitySurface;
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.connection.warnings).toContain("PARTIAL_MOCK_FALLBACK");
+    expect(data.capabilitySurface.maturity.components[0].verified_score).toBe(
+      data.capabilitySurface.maturity.components[0].baseline_score,
+    );
+    expect(data.capabilitySurface.maturity.authority_granted).toBe(false);
+  });
+
   it("rejects unsafe WEB-HYBRID lane and rendered-ref content", async () => {
     const routeData = baseRouteData();
     const capabilitySurface = JSON.parse(

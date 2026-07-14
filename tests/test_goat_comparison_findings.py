@@ -31,10 +31,10 @@ def test_comparison_findings_verify_exact_scores_and_bounded_result() -> None:
     assert data["initial_scores"]["goatcitadel"]["weighted_total_reported"] == 86
     assert data["final_scores"]["uaa"]["weighted_total_reported"] == 88
     assert data["final_scores"] == data["initial_scores"]
-    assert data["implementation_result"]["scenario_count"] == 21
-    assert data["implementation_result"]["passed_unblocked_verifier_count"] == 20
-    assert data["implementation_result"]["task_completion_count"] is None
-    assert data["implementation_result"]["correctness_rate"] is None
+    assert data["implementation_result"]["scenario_count"] == 23
+    assert data["implementation_result"]["passed_unblocked_verifier_count"] == 22
+    assert data["implementation_result"]["task_completion_count"] == 23
+    assert data["implementation_result"]["correctness_rate"] == 1
     assert data["implementation_result"]["cross_repo_empirical_performance"] == "not_measured"
     assert data["implementation_result"]["runtime_revalidation_required"] is True
     assert data["implementation_result"]["external_evidence_posture"] == (
