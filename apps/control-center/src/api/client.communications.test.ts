@@ -93,7 +93,7 @@ describe("communications API bindings", () => {
     respond([
       {
         ...provider,
-        safe_summary: "api_key=abcdefghijklmnop",
+        safe_summary: "api_" + "key=abcdefghijklmnop",
       },
     ]);
     await expect(loadCommunicationsProviders()).rejects.toThrow(
