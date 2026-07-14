@@ -10495,9 +10495,28 @@ export interface ControlCenterCapabilitySurfaceReadModel {
 
 export type CapabilityMaturityEvidenceStatus =
   | "baseline_only"
+  | "automated_evidence_ready"
+  | "manual_validation_required"
+  | "external_dependency_required"
   | "target_proven"
   | "ceiling_defended"
   | "evidence_failed";
+
+export type CapabilityMaturityGateKind =
+  | "implementation"
+  | "automated_tests"
+  | "runtime_scenario"
+  | "operator_surface"
+  | "recovery_and_failure"
+  | "independent_acceptance";
+
+export interface CapabilityMaturityEvidenceGate {
+  gate_kind: CapabilityMaturityGateKind;
+  status: "satisfied" | "pending" | "blocked";
+  evidence_refs: string[];
+  blocker_codes: string[];
+  safe_summary: string;
+}
 
 export interface CapabilityMaturityComponent {
   component_id: string;
@@ -10509,7 +10528,9 @@ export interface CapabilityMaturityComponent {
   evidence_status: CapabilityMaturityEvidenceStatus;
   scenario_refs: string[];
   evidence_refs: string[];
+  gates: CapabilityMaturityEvidenceGate[];
   blocker_codes: string[];
+  next_acceptance_ref: string;
   safe_summary: string;
 }
 
@@ -10521,6 +10542,8 @@ export interface CapabilityMaturityReadModel {
   evidence_report_digest_ref: string | null;
   verification_posture:
     | "evaluation_required"
+    | "automated_evidence_ready"
+    | "partially_graduated"
     | "targets_proven"
     | "evaluation_failed";
   baseline_weighted_score: number;
@@ -10529,6 +10552,9 @@ export interface CapabilityMaturityReadModel {
   component_count: 16;
   uplift_target_count: number;
   uplift_proven_count: number;
+  automated_evidence_ready_count: number;
+  manual_validation_required_count: number;
+  external_dependency_required_count: number;
   ceiling_defended_count: number;
   components: CapabilityMaturityComponent[];
   backend_owned: true;
@@ -10536,6 +10562,7 @@ export interface CapabilityMaturityReadModel {
   content_free: true;
   authority_granted: false;
   score_increase_requires_runtime_evidence: true;
+  score_increase_requires_independent_acceptance: true;
   raw_content_persisted: false;
   safe_summary: string;
 }

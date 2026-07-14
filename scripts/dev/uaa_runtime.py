@@ -372,15 +372,22 @@ def _print_capability_maturity(read_model: dict[str, Any]) -> None:
     )
     print(
         "Evidence: "
-        f"uplifts={read_model['uplift_proven_count']}/{read_model['uplift_target_count']} "
-        f"ceilings={read_model['ceiling_defended_count']}"
+        f"automated-ready={read_model['automated_evidence_ready_count']} "
+        f"manual-review={read_model['manual_validation_required_count']} "
+        f"external={read_model['external_dependency_required_count']} "
+        f"graduated={read_model['uplift_proven_count']}/{read_model['uplift_target_count']}"
     )
     for item in read_model["components"]:
         print(
             f"- {item['label']}: {item['baseline_score']} -> "
             f"{item['target_score']} ({item['evidence_status']})"
         )
-    print("Scores grant no runtime authority. Run the bounded evaluator to prove targets.")
+        if item["blocker_codes"]:
+            print(f"  blockers: {', '.join(item['blocker_codes'])}")
+        print(f"  next proof: {item['next_acceptance_ref']}")
+    print(
+        "Scores grant no runtime authority. Automated evidence cannot graduate a score without independent acceptance."
+    )
 
 
 def _print_authority_profile(read_model: dict[str, Any]) -> None:

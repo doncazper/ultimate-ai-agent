@@ -106,6 +106,9 @@ const mockCapabilityMaturity: CapabilityMaturityReadModel = {
   component_count: 16,
   uplift_target_count: 12,
   uplift_proven_count: 0,
+  automated_evidence_ready_count: 0,
+  manual_validation_required_count: 0,
+  external_dependency_required_count: 0,
   ceiling_defended_count: 0,
   components: maturityRows.map(([componentId, label, baseline, weight]) => ({
     component_id: componentId,
@@ -121,18 +124,52 @@ const mockCapabilityMaturity: CapabilityMaturityReadModel = {
       `repo-ref:uaa:tests/test_agent_capability_evaluation.py#${componentId}`,
       "repo-ref:uaa:apps/control-center/src/components/CapabilitySurfacePanel.tsx",
     ],
+    gates: [
+      "implementation",
+      "automated_tests",
+      "runtime_scenario",
+      "operator_surface",
+      "recovery_and_failure",
+      "independent_acceptance",
+    ].map((gateKind) => ({
+      gate_kind: gateKind as
+        | "implementation"
+        | "automated_tests"
+        | "runtime_scenario"
+        | "operator_surface"
+        | "recovery_and_failure"
+        | "independent_acceptance",
+      status:
+        gateKind === "implementation" || gateKind === "operator_surface"
+          ? ("satisfied" as const)
+          : ("pending" as const),
+      evidence_refs:
+        gateKind === "implementation" || gateKind === "operator_surface"
+          ? [`evidence-ref:mock:${componentId}:${gateKind}`]
+          : [],
+      blocker_codes:
+        gateKind === "implementation" || gateKind === "operator_surface"
+          ? []
+          : ["CAPABILITY_MATURITY_EVALUATION_REQUIRED"],
+      safe_summary:
+        gateKind === "implementation" || gateKind === "operator_surface"
+          ? "Mock fallback identifies an existing repository surface."
+          : "Mock fallback retains this evidence gate as pending.",
+    })),
     blocker_codes: ["CAPABILITY_MATURITY_EVALUATION_REQUIRED"],
+    next_acceptance_ref: `acceptance-ref:capability-maturity:${componentId}:v1`,
     safe_summary:
-      "Mock fallback retains the baseline until bounded empirical evidence proves the target.",
+      "Mock fallback retains the baseline until automated evidence and independent acceptance both pass.",
   })),
   backend_owned: true,
   read_only: true,
   content_free: true,
   authority_granted: false,
   score_increase_requires_runtime_evidence: true,
+  score_increase_requires_independent_acceptance: true,
   raw_content_persisted: false,
   safe_summary:
-    "Mock fallback shows the evidence-gated uplift shape only and grants no runtime authority.",
+    "Mock fallback shows candidate targets and held verification paths only; it grants no score or runtime authority.",
 };
 
 type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
