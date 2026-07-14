@@ -1,7 +1,7 @@
 # Control Center Render Variation Matrix
 
 Status: render production queue, documentation only  
-Specification: `CC-UIUX-2026-07-11`  
+Specification: `CC-UIUX-2026-07-13`
 Input baseline: `CC-NS-2026-07-06`  
 Current as of: 2026-07-13
 Repository baseline: `v0.104.0` / package `0.104.0`

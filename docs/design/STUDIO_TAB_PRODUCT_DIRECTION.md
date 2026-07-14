@@ -48,15 +48,16 @@ approved local export lane exists.
 
 All three modes use the same clean immersive workbench:
 
-- fixed 220 px Studio rail;
+- 244 px light Studio rail at the wide reference and 224 px at compact desktop;
 - exactly three 44 px mode rows with visible scope copy;
 - mode-local navigation below one straight separator;
 - flexible central conversation, editor, or asset canvas;
-- fixed 350 px contextual inspector;
+- 318-350 px contextual inspector, reduced or converted to a drawer only at
+  an explicit compact breakpoint;
 - 96 px slide-thumbnail strip inside Create when presentations are active;
 - straight one-pixel shared pane separators;
-- docked two-row UAA composer attached to the center pane;
-- full-width bottom status band;
+- docked compact UAA composer attached to the center pane;
+- full-width 64 px bottom status band;
 - maximum 8 px corner radius, used sparingly;
 - rectangular commands and plain status rows instead of pill-heavy chrome;
 - no floating drawers, clipped boxes, overlapping panes, or nested card stacks;
@@ -133,12 +134,31 @@ The accepted Skill Workbench grid and default dense list are preserved as
 `control_center_north_star/renders/target-v3/07-skill-workbench-grid-v1.png`
 and
 `control_center_north_star/renders/target-v3/08-skill-workbench-list-v1.png`.
+
+![Accepted Skill Workbench dense list](control_center_north_star/renders/target-v3/08-skill-workbench-list-v1.png)
+
 The implemented `/studio/skills` slice uses a backend-owned sanitized metadata
 snapshot, 25-row pagination, source-specific popularity fields, and an
 inspector that says risk is not assessed and retains source license detail. The
 list omits both license and speculative-risk columns. Live marketplace fetch,
 saving, adaptation, import, enablement, and execution remain blocked or
 unimplemented.
+
+This screen is also the canonical Studio reference for dense discovery:
+
+- the list is the default information-rich view and the grid is an explicit
+  alternate view;
+- the wide list shows Skill, Category, Source, Rank, Source signal,
+  Popularity, and Updated with complete primary values;
+- natural wrapping is preferred for long category and unavailable-rank text;
+  ellipsis is limited to secondary summaries and safe refs;
+- compact desktop removes complete secondary columns and keeps their values in
+  the selected-item inspector instead of rendering chopped values;
+- source signals use plain table cells, not decorative or action-shaped pills;
+- the selected row uses one quiet blue outline and the inspector owns source,
+  license, permission, review, and UAA posture detail; and
+- missing source values remain explicitly unavailable, while popularity is
+  labeled as a discovery signal rather than trust or UAA risk assessment.
 
 ## Implementation Direction
 

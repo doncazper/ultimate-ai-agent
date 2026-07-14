@@ -119,7 +119,7 @@ discovery signals. Missing ratings render as unavailable, not zero.
 | File | Surface/version | Required change | Must not imply |
 |---|---|---|---|
 | `renders/target-v3/07-skill-workbench-grid-v1.png` | Skill Workbench grid v1, Hermes filter | compact discovery cards; honest missing source scores; metadata-only and review posture; selected inspector | live marketplace fetch, trusted popularity, imported code, install, or execution |
-| `renders/target-v3/08-skill-workbench-list-v1.png` | Skill Workbench list v1 | dense rows; list/grid toggle; 25-row pagination; source-specific missing values; no license column; inspector detail | invented average ratings, guessed risk, source signal as UAA trust, or adaptation authority |
+| `renders/target-v3/08-skill-workbench-list-v1.png` | canonical Studio dense-workbench reference | dense rows; complete primary values; natural category/rank wrapping; whole-column compact reduction; list/grid toggle; 25-row pagination; source-specific missing values; no license column; inspector detail | clipped primary signals, pill-shaped metadata, invented average ratings, guessed risk, source signal as UAA trust, or adaptation authority |
 
 ## Messenger Matrix Client V1
 

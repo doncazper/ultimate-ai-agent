@@ -41,6 +41,7 @@ def test_accepted_skill_workbench_views_are_hash_and_signal_bound() -> None:
     assert surface["default_view"] == "list"
     assert surface["page_size"] == 25
     assert surface["grid_filter"] == "hermes"
+    assert surface["canonical_ui_reference"] == "studio_create_dense_discovery"
     assert surface["list_columns"] == [
         "skill",
         "category",
@@ -50,6 +51,18 @@ def test_accepted_skill_workbench_views_are_hash_and_signal_bound() -> None:
         "popularity",
         "updated",
     ]
+    assert surface["compact_list_columns"] == [
+        "skill",
+        "source",
+        "rank",
+        "source_signal",
+    ]
+    assert (
+        surface["primary_value_overflow"]
+        == "wrap_or_hide_whole_column_never_ellipsis"
+    )
+    assert surface["secondary_ellipsis_allowed"] == ["safe_summary", "safe_ref"]
+    assert surface["hidden_compact_details_remain_in_inspector"] is True
     assert surface["source_signals"] == [
         "rank",
         "stars",
