@@ -45,7 +45,7 @@ These boards prevent every route from inventing its own shell or common state.
 
 ## Locked Target Product Render Set
 
-The route queue below remains the coverage ledger for the current 42-route
+The route queue below remains the coverage ledger for the current 43-route
 implementation. The following target renders establish the approved
 consolidated shell before route-by-route fidelity work. Their information
 architecture is defined by
@@ -89,6 +89,7 @@ for each workspace template shows the expanded sidecar.
 |---|---|---|---|---|---|
 | Founder Loop | `/start` | Start Here | Daily command deck | first run; partial setup; ready return visit | yes |
 | Founder Loop | `/today` | Today | Daily command deck | exactly six information-rich panels on aligned three-column tracks; full-width receipt activity rail; workload-aware `Review N decisions`; title-line weather; non-redundant synthesized briefing; cross-surface attention queue; universal selected-item inspector/drawer; Day Plan with Now/Next; truth-safe queue/complete confirmation; reported-complete review; sourced news with mixed article/email-bulletin sources; Business pulse; morning/midday/end-of-day; calm/overloaded; stale or blocked news/weather; CRM follow-up selected; Work Board blocker selected; no decisions with demoted CTA; high-risk blocked item; degraded sources; persistent privacy/authority posture; UAA sidecar asking about board/CRM | yes |
+| Founder Loop | `/messenger` | Messenger | Immersive desktop conversation | fifteen synthetic target surfaces; twenty-two deterministic fixture states; human composer separated from UAA proposal surface; inspector collapses at narrower desktop width; every runtime command Preview, Planned, or Blocked | no |
 | Founder Loop | `/news` | News & Signals | Daily command deck | For You front page; category selected; source feed selected; paginated Morning Brief candidate pool; Reddit/X/newsletter fixture previews; source partial/stale/blocked/unsupported; empty front page; inspectable selection reason | yes |
 | Founder Loop | `/inbox` | Source Inbox | Queue/detail/inspector | ready sources; missing source; connector draft-only; all sources blocked | yes |
 | Founder Loop | `/plans` | Plans | Board/planning | plan selected; no plan; proposal dirty; action-envelope handoff | yes |
@@ -129,7 +130,7 @@ for each workspace template shows the expanded sidecar.
 | System | `/api-routes` | API Routes | Ledger/inventory | all routes; filtered class; route selected; manifest mismatch | no |
 | System | `/differentiators` | Differentiators | Ledger/inventory | evidence-backed claims; missing proof; unsupported claim blocked | no |
 
-Route count: 42. Every route in `apps/control-center/src/routes.tsx` is listed.
+Route count: 43. Every route in `apps/control-center/src/routes.tsx` is listed.
 
 ## Production Order
 

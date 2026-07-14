@@ -100,11 +100,14 @@ mock-only, or local-UI-state-only.
 The JSON manifest covers the current visible Control Center routes and actions:
 
 - Setup Assistant, Overview, Dashboard, and Operator Loop navigation
-- Today, Inbox, Actions, Briefing, CRM, Chat Local Operator, Plans, Models, Runtime,
+- Today, Messenger fixture navigation, Inbox, Actions, Briefing, CRM, Chat Local Operator, Plans, Models, Runtime,
   Foundation Gate, API Routes, Approvals,
   Receipts, Events, Timeline, Evidence, Files, File Review, Context Proposals,
   Memory, Local Runtime, Manual Smoke, Remote Workers, Mobile Planning, Plugin
   Governance, Settings, and Differentiators navigation
+- Messenger `navigate-messenger` local UI state, with Matrix account, network,
+  sync, encryption, message, room, media, calling, credential, model, memory,
+  connector-write, public-release, and production authority explicitly absent
 - Action Preview submission
 - Action Inbox approval-envelope/state-change posture inspection
 - Morning Briefing source-readiness and missing-contract posture inspection

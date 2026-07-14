@@ -620,9 +620,9 @@ tests, safe-disable posture, and rollback-readiness evidence.
 <!-- MSG-MX-CURRENT-OVERLAY:START -->
 MSG-MX-000 through MSG-MX-012 Messenger Matrix Desktop Program
 Baseline authority map: `docs/connectors/MESSENGER_MATRIX_BASELINE_AUTHORITY_MAP.md`
-Current phase: `MSG-MX-001`
-Current program status: `design_gate_accepted_on_merge`
-Current evidence ref: `evidence-ref:msg-mx-001:design-gate`
+Current phase: `MSG-MX-002`
+Current program status: `fixture_desktop_shell_implemented_pending_merge_gate`
+Current evidence ref: `evidence-ref:msg-mx-002:desktop-fixture-shell`
 Goal: build a clean-room, macOS-first Messenger Matrix client through thirteen
 finite merge-gated milestones without treating design, UI state, generic
 messages authority, or Full Machine Access as Matrix runtime authority.
@@ -641,13 +641,14 @@ approval scope where required, AuthorityLease, capability, adapter, provider,
 target, mission/run, TTL/deadline, budget, readiness, kill switch,
 safe-disable, and idempotency/replay. Approval refs grant nothing; unknown or
 stale state fails closed.
-Next: execute MSG-MX-001 only after MSG-MX-000 merges and its post-merge
-verifier evidence passes. Later phases may advance only their separately
-accepted exact lane families.
+Next: merge and post-merge verify MSG-MX-002, then execute MSG-MX-003 Python
+communications contracts plus read-only API/CLI inspection. Later phases may
+advance only their separately accepted exact lane families.
 <!-- MSG-MX-CURRENT-OVERLAY:END -->
 
-Current Messenger Matrix next milestone after MSG-MX-001 merges and verifies:
-`MSG-MX-002` fixture-only desktop shell. The accepted design gate is recorded
+Current Messenger Matrix next milestone after MSG-MX-002 merges and verifies:
+`MSG-MX-003` Python communications contracts, disabled adapter shell, and
+read-only API/CLI inspection. The accepted design gate is recorded
 in `docs/design/control_center_north_star/UAA_MESSENGER_MATRIX_RENDER_ACCEPTANCE.md`,
 `docs/decisions/ADR-0062-messenger-matrix-client-and-data-boundaries.md`,
 `docs/security/UAA_MESSENGER_MATRIX_THREAT_MODEL.md`, and

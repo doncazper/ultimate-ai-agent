@@ -30,6 +30,7 @@ REQUIRED_SURFACES = {
     "Settings",
     "Setup",
     "Studio Skill Workbench",
+    "Messenger Desktop Fixture",
 }
 REQUIRED_VIEWPORTS = {"desktop", "mobile"}
 STUDIO_DESKTOP_VARIANTS = {
@@ -45,6 +46,46 @@ STUDIO_DESKTOP_VARIANTS = {
         "height": 800,
         "file_id": "studio-skills-compact",
     },
+}
+MESSENGER_SURFACE_IDS = (
+    "founder",
+    "personal",
+    "dm",
+    "group",
+    "threads",
+    "search",
+    "room-info",
+    "invite",
+    "room-settings",
+    "sessions",
+    "intelligence",
+    "recovery",
+    "dark",
+    "calling",
+    "setup",
+)
+MESSENGER_DESKTOP_VIEWPORTS = {
+    "wide": {
+        "viewport_ref": "viewport:desktop-wide-1440x900",
+        "width": 1440,
+        "height": 900,
+    },
+    "compact": {
+        "viewport_ref": "viewport:desktop-compact-1180x800",
+        "width": 1180,
+        "height": 800,
+    },
+}
+MESSENGER_DESKTOP_VARIANTS = {
+    f"{surface_id}-{viewport}": {
+        "surface_id": surface_id,
+        "viewport_ref": details["viewport_ref"],
+        "width": details["width"],
+        "height": details["height"],
+        "file_id": f"messenger-{surface_id}-{viewport}",
+    }
+    for viewport, details in MESSENGER_DESKTOP_VIEWPORTS.items()
+    for surface_id in MESSENGER_SURFACE_IDS
 }
 REQUIRED_STATE_SCENARIOS = {
     "state-loading",
@@ -215,6 +256,8 @@ def _validate_tooling() -> list[str]:
 def _validate_baselines(surface: dict) -> list[str]:
     if surface.get("surface") == "Studio Skill Workbench":
         return _validate_studio_desktop_baselines(surface)
+    if surface.get("surface") == "Messenger Desktop Fixture":
+        return _validate_messenger_desktop_baselines(surface)
     failures: list[str] = []
     surface_name = str(surface.get("surface") or surface.get("scenario") or "")
     surface_id = _surface_id(surface)
@@ -287,6 +330,48 @@ def _validate_studio_desktop_baselines(surface: dict) -> list[str]:
         if actual_hash != expected_hash:
             failures.append(
                 f"Studio Skill Workbench {name} baseline hash does not match checked-in PNG"
+            )
+    return failures
+
+
+def _validate_messenger_desktop_baselines(surface: dict) -> list[str]:
+    failures: list[str] = []
+    variants = surface.get("desktop_variants", {})
+    if set(variants) != set(MESSENGER_DESKTOP_VARIANTS):
+        failures.append(
+            "Messenger Desktop Fixture must list all 15 surfaces at wide and compact desktop widths"
+        )
+        return failures
+    if "mobile" in variants or "mobile" in surface.get("baseline_file_refs", {}):
+        failures.append("Messenger Desktop Fixture must not claim a mobile baseline")
+    for name, expected in MESSENGER_DESKTOP_VARIANTS.items():
+        variant = variants.get(name, {})
+        file_id = expected["file_id"]
+        expected_ref = f"visual-baseline-file:desktop:{file_id}"
+        for field in ("surface_id", "viewport_ref", "width", "height"):
+            if variant.get(field) != expected[field]:
+                failures.append(f"Messenger Desktop Fixture {name} {field} drifted")
+        if variant.get("baseline_file_ref") != expected_ref:
+            failures.append(f"Messenger Desktop Fixture {name} file ref is not safe")
+        expected_hash = str(variant.get("baseline_hash", ""))
+        if not expected_hash.startswith("sha256:") or len(expected_hash) != 71:
+            failures.append(f"Messenger Desktop Fixture {name} hash is invalid")
+            continue
+        baseline_path = SNAPSHOT_ROOT / "desktop" / f"{file_id}.png"
+        if not baseline_path.exists():
+            failures.append(f"Messenger Desktop Fixture {name} baseline PNG is missing")
+            continue
+        encoded = baseline_path.read_bytes()
+        if len(encoded) < 24 or encoded[:8] != b"\x89PNG\r\n\x1a\n":
+            failures.append(f"Messenger Desktop Fixture {name} baseline is not PNG")
+            continue
+        width, height = struct.unpack(">II", encoded[16:24])
+        if (width, height) != (expected["width"], expected["height"]):
+            failures.append(f"Messenger Desktop Fixture {name} PNG dimensions drifted")
+        actual_hash = "sha256:" + hashlib.sha256(encoded).hexdigest()
+        if actual_hash != expected_hash:
+            failures.append(
+                f"Messenger Desktop Fixture {name} baseline hash does not match checked-in PNG"
             )
     return failures
 

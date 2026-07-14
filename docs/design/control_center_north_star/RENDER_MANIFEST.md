@@ -22,7 +22,7 @@ not normative when their generated sidebar details conflict with that file.
 ## Target V1 Defaults
 
 These 14 drafts cover every target top-level workspace, lower utility, and
-global workflow surface. The current 42-route implementation remains covered by
+global workflow surface. The current 43-route implementation remains covered by
 the legacy composites and route matrix below; consolidation in a render is not
 evidence that consolidation is implemented.
 

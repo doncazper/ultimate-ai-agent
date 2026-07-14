@@ -123,6 +123,11 @@ rollback/safe-disable behavior, and evidence contract for every lane.
 
 ### Phase 1 — Static shell and normalized fixture model
 
+Implementation status: complete in MSG-MX-002 as a desktop-only synthetic
+fixture surface. This status is presentation evidence only and grants no Matrix
+runtime, connector, credential, network, read, write, crypto, media, or call
+authority.
+
 Deliver:
 
 - new Messenger route and primary rail entry after Communications;

@@ -4,6 +4,11 @@ Status: MSG-MX-001 target design accepted; no runtime implementation evidence.
 Baseline: `communications-v1`.
 Product platform: macOS desktop only.
 
+MSG-MX-002 implementation note: the accepted targets and required state
+variations now have a synthetic desktop fixture route at `/messenger`. That
+route is presentation evidence only; it does not change the runtime and
+authority exclusions below.
+
 ## Acceptance meaning
 
 The fifteen renders are accepted as desktop product targets for the fixture and

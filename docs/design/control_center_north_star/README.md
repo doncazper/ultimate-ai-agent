@@ -14,7 +14,7 @@ route proof, authority grant, public beta claim, or production readiness claim.
 The canonical rules extracted from this directional set now live in
 `../CONTROL_CENTER_UI_UX_SPEC.md` (`CC-UIUX-2026-07-13`). That specification
 wins when the generated PNGs disagree with each other. The complete next-render
-queue, including all 42 current routed surfaces and applicable state/responsive
+queue, including all 43 current routed surfaces and applicable state/responsive
 variations, lives in `RENDER_VARIATION_MATRIX.md`. The consolidated target
 surface architecture is defined by
 `../CONTROL_CENTER_PRODUCT_IA_AND_CALENDAR_CONTRACT.md`. The accepted purpose,
