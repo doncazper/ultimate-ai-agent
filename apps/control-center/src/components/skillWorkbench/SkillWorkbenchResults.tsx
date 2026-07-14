@@ -191,7 +191,7 @@ export function popularity(
   if (entry.download_count !== null) {
     return `${formatCompactNumber(entry.download_count)} downloads`;
   }
-  return "Official bundled";
+  return "Popularity not provided";
 }
 
 export function formatCompactNumber(value: number): string {

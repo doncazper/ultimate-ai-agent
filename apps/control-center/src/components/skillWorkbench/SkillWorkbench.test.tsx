@@ -136,6 +136,9 @@ describe("SkillWorkbench", () => {
     );
     expect(screen.getByText("★ 42 stars")).toBeInTheDocument();
     expect(screen.getAllByText("No source rating").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("Popularity not provided").length,
+    ).toBeGreaterThan(0);
     const list = screen.getByLabelText("Skill idea list");
     expect(within(list).queryByText("License")).not.toBeInTheDocument();
     const inspector = screen.getByLabelText("Skill details");

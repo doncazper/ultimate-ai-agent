@@ -356,6 +356,12 @@ class RuntimeSkillMarketplacePostureReadModel(BaseModel):
         )
         if self.catalog_freshness != expected_freshness:
             raise ValueError("RUNTIME_SKILL_MARKETPLACE_FRESHNESS_MISMATCH")
+        if not self.catalog_freshness.catalog_displayable and (
+            self.catalog.entries
+            or self.catalog.entry_count != 0
+            or any(source.record_count != 0 for source in self.catalog.sources)
+        ):
+            raise ValueError("RUNTIME_SKILL_MARKETPLACE_CATALOG_NOT_WITHHELD")
         denied_flags = {
             "external_popularity_is_trust": self.external_popularity_is_trust,
             "external_code_execution_enabled": self.external_code_execution_enabled,
@@ -450,6 +456,20 @@ def build_runtime_skill_marketplace_posture_read_model(
 ) -> RuntimeSkillMarketplacePostureReadModel:
     authority_entry = _authority_entry(authority_decision_catalog)
     catalog = build_runtime_skill_marketplace_catalog_snapshot()
+    observation_time = checked_at or datetime.now(timezone.utc)
+    authority_outcome = _authority_value(authority_entry.decision.outcome)
+    catalog_freshness = _expected_catalog_freshness(
+        catalog=catalog,
+        authority_outcome=authority_outcome,
+        checked_at=observation_time,
+    )
+    if not catalog_freshness.catalog_displayable:
+        catalog = _withheld_catalog_snapshot(catalog)
+        catalog_freshness = _expected_catalog_freshness(
+            catalog=catalog,
+            authority_outcome=authority_outcome,
+            checked_at=observation_time,
+        )
     stages = [
         _stage(
             RuntimeSkillMarketplaceStageKind.external_discovery_signal,
@@ -504,19 +524,13 @@ def build_runtime_skill_marketplace_posture_read_model(
         "authority_state_mapping_ref": authority_entry.lane_ref,
         "authority_state_catalog_ref": authority_entry.catalog_ref,
         "authority_state_decision_ref": authority_entry.decision.decision_ref,
-        "authority_state_decision_outcome": _authority_value(
-            authority_entry.decision.outcome
-        ),
+        "authority_state_decision_outcome": authority_outcome,
         "authority_state_status": authority_entry.status,
         "authority_state_operator_message": authority_entry.decision.operator_message,
         "authority_state_reason_refs": list(authority_entry.decision.reason_refs),
         "unsupported_adapter_refs": list(authority_entry.unsupported_adapter_refs),
         "catalog": catalog,
-        "catalog_freshness": _expected_catalog_freshness(
-            catalog=catalog,
-            authority_outcome=_authority_value(authority_entry.decision.outcome),
-            checked_at=checked_at or datetime.now(timezone.utc),
-        ),
+        "catalog_freshness": catalog_freshness,
         "stages": stages,
         "stage_count": len(stages),
         "review_required_count": len(
@@ -553,6 +567,18 @@ def build_runtime_skill_marketplace_posture_read_model(
     unvalidated = RuntimeSkillMarketplacePostureReadModel.model_construct(**payload)
     payload["snapshot_hash_ref"] = _snapshot_hash_ref(unvalidated)
     return RuntimeSkillMarketplacePostureReadModel(**payload)
+
+
+def _withheld_catalog_snapshot(
+    catalog: RuntimeSkillMarketplaceCatalogSnapshot,
+) -> RuntimeSkillMarketplaceCatalogSnapshot:
+    payload = catalog.model_dump(mode="json")
+    payload["entries"] = []
+    payload["entry_count"] = 0
+    payload["sources"] = [
+        {**source, "record_count": 0} for source in payload["sources"]
+    ]
+    return RuntimeSkillMarketplaceCatalogSnapshot(**payload)
 
 
 def _snapshot_hash_ref(read_model: RuntimeSkillMarketplacePostureReadModel) -> str:

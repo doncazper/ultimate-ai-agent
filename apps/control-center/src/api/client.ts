@@ -1094,7 +1094,10 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       ? runtimePluginMetadataPosture
       : undefined;
   const safeRuntimeSkillMarketplacePosture =
-    isSafeRuntimeSkillMarketplacePosture(runtimeSkillMarketplacePosture)
+    isSafeRuntimeSkillMarketplacePosture(runtimeSkillMarketplacePosture) &&
+    (await hasMatchingSkillMarketplaceSnapshotHash(
+      runtimeSkillMarketplacePosture,
+    ).catch(() => false))
       ? runtimeSkillMarketplacePosture
       : undefined;
   const normalizedFounderToday = normalizeFounderToday(founderToday);
@@ -7300,6 +7303,10 @@ function isSafeRuntimeSkillMarketplacePosture(
       candidate.catalog,
       candidate.authority_state_decision_outcome,
     ) &&
+    isSkillMarketplaceCatalogVisibilityConsistent(
+      candidate.catalog_freshness,
+      candidate.catalog,
+    ) &&
     candidate.review_required_count ===
       candidate.stages.filter((stage) => stage.status === "review_required")
         .length &&
@@ -7345,6 +7352,21 @@ function isSafeRuntimeSkillMarketplacePosture(
         stage.control_center_mints_authority === false,
     ) &&
     deniedTopLevelFlags.every((flag) => candidate[flag] === false)
+  );
+}
+
+function isSkillMarketplaceCatalogVisibilityConsistent(
+  freshness: unknown,
+  catalog: NonNullable<RuntimeSkillMarketplacePostureReadModel["catalog"]>,
+): boolean {
+  if (!isPlainRecord(freshness)) {
+    return false;
+  }
+  return (
+    freshness.catalog_displayable === true ||
+    (catalog.entry_count === 0 &&
+      catalog.entries.length === 0 &&
+      catalog.sources.every((source) => source.record_count === 0))
   );
 }
 

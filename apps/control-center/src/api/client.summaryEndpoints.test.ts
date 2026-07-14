@@ -201,8 +201,47 @@ describe("loadControlCenterData summary endpoint wiring", () => {
       expect(result.backendValidated).toBe(true);
       expect(result.catalogDisplayable).toBe(false);
       expect(result.posture).toEqual(posture);
+      expect(result.posture.catalog?.entry_count).toBe(0);
+      expect(result.posture.catalog?.entries).toEqual([]);
     },
   );
+
+  it("rejects non-displayable catalog rows even when the digest matches", async () => {
+    const posture = structuredClone(
+      studioSkillMarketplaceVisualFixture.data,
+    ) as RuntimeSkillMarketplacePostureReadModel;
+    posture.authority_state_decision_outcome = "deny";
+    posture.authority_state_status = "authority_deny";
+    posture.authority_state_operator_message =
+      "Exact read-only authority is not currently available.";
+    posture.catalog_freshness.display_status = "unavailable_authority";
+    posture.catalog_freshness.catalog_displayable = false;
+    posture.snapshot_hash_ref =
+      await computeRuntimeSkillMarketplaceSnapshotHashRef(posture);
+    stubControlCenterFetch({
+      [API_ENDPOINTS.runtimeSkillMarketplacePosture]: posture,
+    });
+
+    const result = await loadRuntimeSkillMarketplacePosture();
+
+    expect(result.backendValidated).toBe(false);
+    expect(result.catalogDisplayable).toBe(false);
+  });
+
+  it("rejects a hash-mismatched Studio payload in the aggregate loader", async () => {
+    const posture = await validSkillMarketplacePosture();
+    posture.safe_summary = "Tampered but structurally safe summary.";
+    stubControlCenterFetch({
+      ...baseRouteData(),
+      [API_ENDPOINTS.runtimeSkillMarketplacePosture]: posture,
+    });
+
+    const data = await loadControlCenterData();
+
+    expect(data.runtimeSkillMarketplacePosture).toEqual(
+      mockControlCenterData.runtimeSkillMarketplacePosture,
+    );
+  });
 
   it("prefers dedicated Control Center summaries over embedded dashboard summaries", async () => {
     const directApprovalSummary = {

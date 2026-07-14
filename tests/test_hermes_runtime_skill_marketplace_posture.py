@@ -214,6 +214,9 @@ def test_skill_marketplace_catalog_keeps_stale_metadata_visible_and_unknown_clos
     assert unknown.catalog_freshness.display_status == "unavailable_unknown"
     assert unknown.catalog_freshness.stale is False
     assert unknown.catalog_freshness.catalog_displayable is False
+    assert unknown.catalog.entry_count == 0
+    assert unknown.catalog.entries == []
+    assert all(source.record_count == 0 for source in unknown.catalog.sources)
 
 
 def test_skill_marketplace_catalog_rejects_forged_freshness_posture() -> None:
@@ -266,6 +269,25 @@ def test_skill_marketplace_non_allow_authority_withholds_catalog(
     assert read_model.catalog_freshness.status == "current"
     assert read_model.catalog_freshness.display_status == "unavailable_authority"
     assert read_model.catalog_freshness.catalog_displayable is False
+    assert read_model.catalog.entry_count == 0
+    assert read_model.catalog.entries == []
+    assert all(source.record_count == 0 for source in read_model.catalog.sources)
+
+
+def test_skill_marketplace_non_displayable_catalog_rejects_rows() -> None:
+    payload = build_runtime_skill_marketplace_posture_read_model(
+        checked_at=datetime(2026, 7, 13, 22, 59, tzinfo=timezone.utc)
+    ).model_dump(mode="json")
+    allowed = build_runtime_skill_marketplace_posture_read_model(
+        checked_at=datetime(2026, 7, 14, 0, 0, tzinfo=timezone.utc)
+    )
+    payload["catalog"] = allowed.catalog.model_dump(mode="json")
+
+    with pytest.raises(
+        ValueError,
+        match="RUNTIME_SKILL_MARKETPLACE_CATALOG_NOT_WITHHELD",
+    ):
+        RuntimeSkillMarketplacePostureReadModel(**payload)
 
 
 def test_skill_marketplace_snapshot_hash_binds_displayed_catalog_content() -> None:
