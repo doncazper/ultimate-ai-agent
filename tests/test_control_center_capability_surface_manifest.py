@@ -87,8 +87,8 @@ def test_capability_surface_generated_overlay_is_current() -> None:
     assert overlay["production_readiness_claim_enabled"] is False
     assert overlay["source_truth_counts"]["missing_release_routes"] == []
     assert overlay["source_truth_counts"]["missing_visible_actions"] == []
-    assert overlay["source_truth_counts"]["covered_release_route_count"] == 40
-    assert overlay["source_truth_counts"]["covered_visible_action_count"] == 43
+    assert overlay["source_truth_counts"]["covered_release_route_count"] == 41
+    assert overlay["source_truth_counts"]["covered_visible_action_count"] == 44
     today = next(
         item
         for item in overlay["capabilities"]
@@ -122,7 +122,7 @@ def test_capability_surface_read_model_is_safe_bounded_and_source_backed() -> No
     assert payload["runtime_authority_added"] is False
     assert payload["public_beta_claim_enabled"] is False
     assert payload["production_readiness_claim_enabled"] is False
-    assert payload["summary"]["capability_count"] == 28
+    assert payload["summary"]["capability_count"] == 29
     assert payload["summary"]["missing_release_routes"] == []
     assert payload["summary"]["missing_visible_actions"] == []
     capability_surface = next(
@@ -160,7 +160,7 @@ def test_capability_surface_api_route_and_cli_expose_same_safe_model() -> None:
         "raw_logs_prompts_paths_and_provider_payloads_omitted",
     ]
     assert body["data"]["route_ref"] == "GET /control-center/capabilities/surface"
-    assert body["data"]["summary"]["covered_release_route_count"] == 40
+    assert body["data"]["summary"]["covered_release_route_count"] == 41
 
     cli = subprocess.run(
         [
@@ -175,7 +175,7 @@ def test_capability_surface_api_route_and_cli_expose_same_safe_model() -> None:
     )
     cli_payload = json.loads(cli.stdout)
     assert cli_payload["read_model_ref"] == body["data"]["read_model_ref"]
-    assert cli_payload["summary"]["covered_visible_action_count"] == 43
+    assert cli_payload["summary"]["covered_visible_action_count"] == 44
     assert cli_payload["runtime_authority_added"] is False
 
 
@@ -212,7 +212,7 @@ def test_capability_surface_manifest_covers_current_visible_routes_and_actions()
         for action in route_status["visible_actions"]
     }
 
-    assert len(visible_routes) == 40
+    assert len(visible_routes) == 41
     assert visible_routes == covered_routes
     assert visible_actions <= covered_actions
     assert {

@@ -139,6 +139,17 @@ def _validate_visual_baseline(root: Path, failures: list[str]) -> None:
     for surface in surfaces:
         if surface.get("raw_private_screenshot_included") is not False:
             failures.append("visual baseline must not include raw private screenshots")
+        desktop_variants = surface.get("desktop_variants")
+        if isinstance(desktop_variants, dict):
+            for variant in ("wide", "compact"):
+                variant_payload = desktop_variants.get(variant, {})
+                if not str(variant_payload.get("baseline_hash", "")).startswith(
+                    "sha256:"
+                ):
+                    failures.append(
+                        f"visual baseline desktop {variant} hash missing for {surface}"
+                    )
+            continue
         hashes = surface.get("baseline_hashes", {})
         if not str(hashes.get("desktop", "")).startswith("sha256:"):
             failures.append(f"visual baseline desktop hash missing for {surface}")
