@@ -235,6 +235,12 @@ code/evidence failure rather than being relabeled as an infrastructure outage.
 An attempted duplicate is rejected before process spawn with the content-free
 `reason-ref:ci:full-suite-attempt-recorded`; local coordination details and
 tracebacks are not emitted to the operator surface.
+The canonical shard command loads a tiny repo-owned pytest plugin that writes
+only an exclusive-created, bounded list of content-free test refs under a fresh
+private run directory. Failed shards expose at most eight refs derived from
+parameter-free module and test-function metadata; parameter values, failure
+bodies, captured output, logs, and local paths never enter the file, safe
+summary, or durable receipts.
 
 CLI exit code `0` means only `github_green` on the exact live, attested SHA.
 Pending/running states return `2`; code failure, private failure, and external

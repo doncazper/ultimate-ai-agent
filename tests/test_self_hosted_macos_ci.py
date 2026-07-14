@@ -99,6 +99,7 @@ def test_pytest_shards_use_runner_scoped_temp_directory() -> None:
 
     assert "{temp_root}/uaa_pytest_shards" in argv
     assert "{temp_root}/uaa_pytest_performance_report.json" in argv
+    assert "{temp_root}/uaa_pytest_failure_refs" in argv
     assert argv[argv.index("--stretch-goal-seconds") + 1] == "900"
     assert argv[argv.index("--target-seconds") + 1] == "1200"
     assert argv[argv.index("--hard-timeout-seconds") + 1] == "1800"
