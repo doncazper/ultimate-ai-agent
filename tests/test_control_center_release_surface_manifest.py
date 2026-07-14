@@ -60,9 +60,19 @@ def test_control_center_release_surface_manifest_covers_visible_routes() -> None
         "blocked",
         "experimental",
     ]
-    assert len(manifest["routes"]) == len(visible_routes) == 42
+    assert len(manifest["routes"]) == len(visible_routes) == 43
     by_path = {route["path"]: route for route in manifest["routes"]}
     assert by_path["/start"]["status"] == "partial"
+    assert by_path["/messenger"]["status"] == "experimental"
+    assert by_path["/messenger"]["backend_routes"] == []
+    assert by_path["/messenger"]["side_effect_class"] == "local_ui_state_only"
+    assert "missing_backend:matrix-message-send" in by_path["/messenger"][
+        "blocked_capabilities"
+    ]
+    assert any(
+        "synthetic desktop fixtures only" in caveat
+        for caveat in by_path["/messenger"]["product_language_caveats"]
+    )
     assert by_path["/start"]["backend_routes"][0]["path"] == (
         "/control-center/start-here/summary"
     )

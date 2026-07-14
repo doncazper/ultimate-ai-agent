@@ -220,6 +220,255 @@
       "raw_private_screenshot_included": false
     },
     {
+      "surface": "Messenger Desktop Fixture",
+      "route": "/messenger",
+      "baseline_ref": "visual-baseline:control-center:messenger-desktop",
+      "baseline_status": "checked-in redacted PNG baseline",
+      "desktop_variants": {
+        "founder-wide": {
+          "surface_id": "founder",
+          "viewport_ref": "viewport:desktop-wide-1440x900",
+          "width": 1440,
+          "height": 900,
+          "baseline_file_ref": "visual-baseline-file:desktop:messenger-founder-wide",
+          "baseline_hash": "sha256:f7288f61f20cf17768c5f6d87f56d9d85029c9f6e4b7e1f48111e28f21a6785f"
+        },
+        "personal-wide": {
+          "surface_id": "personal",
+          "viewport_ref": "viewport:desktop-wide-1440x900",
+          "width": 1440,
+          "height": 900,
+          "baseline_file_ref": "visual-baseline-file:desktop:messenger-personal-wide",
+          "baseline_hash": "sha256:e669a465f397aa94dc85fa776e36f436b83d3c6e2399c68eea61874fb031cfe6"
+        },
+        "dm-wide": {
+          "surface_id": "dm",
+          "viewport_ref": "viewport:desktop-wide-1440x900",
+          "width": 1440,
+          "height": 900,
+          "baseline_file_ref": "visual-baseline-file:desktop:messenger-dm-wide",
+          "baseline_hash": "sha256:c9353545d6ca800a65f302e18fe4f94a26d2d7fe596f76dd97a1ea41f9b1ea08"
+        },
+        "group-wide": {
+          "surface_id": "group",
+          "viewport_ref": "viewport:desktop-wide-1440x900",
+          "width": 1440,
+          "height": 900,
+          "baseline_file_ref": "visual-baseline-file:desktop:messenger-group-wide",
+          "baseline_hash": "sha256:9ee08be89cde5c31b2bb4f234a39847a087992934381bc1dfc61b7df7e20d5a9"
+        },
+        "threads-wide": {
+          "surface_id": "threads",
+          "viewport_ref": "viewport:desktop-wide-1440x900",
+          "width": 1440,
+          "height": 900,
+          "baseline_file_ref": "visual-baseline-file:desktop:messenger-threads-wide",
+          "baseline_hash": "sha256:7956a07a9ab260569f8a151385b2a32e58953c308fdf0e340eca910a7c787da4"
+        },
+        "search-wide": {
+          "surface_id": "search",
+          "viewport_ref": "viewport:desktop-wide-1440x900",
+          "width": 1440,
+          "height": 900,
+          "baseline_file_ref": "visual-baseline-file:desktop:messenger-search-wide",
+          "baseline_hash": "sha256:3131554bd0f7c8a0e1dec7a5967b1681ff65ff5a5582a7b9216a52bbdca08cb6"
+        },
+        "room-info-wide": {
+          "surface_id": "room-info",
+          "viewport_ref": "viewport:desktop-wide-1440x900",
+          "width": 1440,
+          "height": 900,
+          "baseline_file_ref": "visual-baseline-file:desktop:messenger-room-info-wide",
+          "baseline_hash": "sha256:41f071a2777f5820b6498a94639e1dcc40f4b49cc9ed97258df4fcfb9424a885"
+        },
+        "invite-wide": {
+          "surface_id": "invite",
+          "viewport_ref": "viewport:desktop-wide-1440x900",
+          "width": 1440,
+          "height": 900,
+          "baseline_file_ref": "visual-baseline-file:desktop:messenger-invite-wide",
+          "baseline_hash": "sha256:0a4b6a9d4f42349ee90202fe46c1cf54f9c39fb9b20005287b3aecc2fbbf8039"
+        },
+        "room-settings-wide": {
+          "surface_id": "room-settings",
+          "viewport_ref": "viewport:desktop-wide-1440x900",
+          "width": 1440,
+          "height": 900,
+          "baseline_file_ref": "visual-baseline-file:desktop:messenger-room-settings-wide",
+          "baseline_hash": "sha256:cff2e28f460e21e608936bbc1d025388eded127fc519f8b695bd25e5a908e166"
+        },
+        "sessions-wide": {
+          "surface_id": "sessions",
+          "viewport_ref": "viewport:desktop-wide-1440x900",
+          "width": 1440,
+          "height": 900,
+          "baseline_file_ref": "visual-baseline-file:desktop:messenger-sessions-wide",
+          "baseline_hash": "sha256:d2284426c34b33c4f3062f0994f4da62f1acad7eef66a3a187ad1e5757592b08"
+        },
+        "intelligence-wide": {
+          "surface_id": "intelligence",
+          "viewport_ref": "viewport:desktop-wide-1440x900",
+          "width": 1440,
+          "height": 900,
+          "baseline_file_ref": "visual-baseline-file:desktop:messenger-intelligence-wide",
+          "baseline_hash": "sha256:ea8d5939b5f8f610abcbd001e7b93b8c4e1da2ee7055f40e1b5dc48d113c2247"
+        },
+        "recovery-wide": {
+          "surface_id": "recovery",
+          "viewport_ref": "viewport:desktop-wide-1440x900",
+          "width": 1440,
+          "height": 900,
+          "baseline_file_ref": "visual-baseline-file:desktop:messenger-recovery-wide",
+          "baseline_hash": "sha256:adeab09c0e4e19c7903832906e59ea917e1d8f359f48239256bfe257781531f5"
+        },
+        "dark-wide": {
+          "surface_id": "dark",
+          "viewport_ref": "viewport:desktop-wide-1440x900",
+          "width": 1440,
+          "height": 900,
+          "baseline_file_ref": "visual-baseline-file:desktop:messenger-dark-wide",
+          "baseline_hash": "sha256:381d241f1acbe90991357b03eae68997b4b13ba6df057e3987eed24a37133497"
+        },
+        "calling-wide": {
+          "surface_id": "calling",
+          "viewport_ref": "viewport:desktop-wide-1440x900",
+          "width": 1440,
+          "height": 900,
+          "baseline_file_ref": "visual-baseline-file:desktop:messenger-calling-wide",
+          "baseline_hash": "sha256:7c417a6266ee44afb2b9713c40028612d8d3c376f7d92f2ad7a7ae27e4f8b397"
+        },
+        "setup-wide": {
+          "surface_id": "setup",
+          "viewport_ref": "viewport:desktop-wide-1440x900",
+          "width": 1440,
+          "height": 900,
+          "baseline_file_ref": "visual-baseline-file:desktop:messenger-setup-wide",
+          "baseline_hash": "sha256:be5b2eeaa6cfb629a247cce1a80c307eca2899386eded975453b99bd4810e179"
+        },
+        "founder-compact": {
+          "surface_id": "founder",
+          "viewport_ref": "viewport:desktop-compact-1180x800",
+          "width": 1180,
+          "height": 800,
+          "baseline_file_ref": "visual-baseline-file:desktop:messenger-founder-compact",
+          "baseline_hash": "sha256:cda4c3fe937d58c924a64d6598a69105555958649bdefea378539cd26eda5dfe"
+        },
+        "personal-compact": {
+          "surface_id": "personal",
+          "viewport_ref": "viewport:desktop-compact-1180x800",
+          "width": 1180,
+          "height": 800,
+          "baseline_file_ref": "visual-baseline-file:desktop:messenger-personal-compact",
+          "baseline_hash": "sha256:64bf48f3b593cb6074fd1c7d4b2d3f856b2425b34216ff5e1d91f74fed4e6936"
+        },
+        "dm-compact": {
+          "surface_id": "dm",
+          "viewport_ref": "viewport:desktop-compact-1180x800",
+          "width": 1180,
+          "height": 800,
+          "baseline_file_ref": "visual-baseline-file:desktop:messenger-dm-compact",
+          "baseline_hash": "sha256:29f34c828571da7d8a2e988b291cc7d705d91687ac61d93796cec1ef7867a54a"
+        },
+        "group-compact": {
+          "surface_id": "group",
+          "viewport_ref": "viewport:desktop-compact-1180x800",
+          "width": 1180,
+          "height": 800,
+          "baseline_file_ref": "visual-baseline-file:desktop:messenger-group-compact",
+          "baseline_hash": "sha256:bff56aaa30daf4e4a78a22e7ff49fc9589230e208adf8794293c5e270774663f"
+        },
+        "threads-compact": {
+          "surface_id": "threads",
+          "viewport_ref": "viewport:desktop-compact-1180x800",
+          "width": 1180,
+          "height": 800,
+          "baseline_file_ref": "visual-baseline-file:desktop:messenger-threads-compact",
+          "baseline_hash": "sha256:9c4ec35735e412a6264aede3e5365783f986f24d0c08ea9ee184ba8c7a1bb206"
+        },
+        "search-compact": {
+          "surface_id": "search",
+          "viewport_ref": "viewport:desktop-compact-1180x800",
+          "width": 1180,
+          "height": 800,
+          "baseline_file_ref": "visual-baseline-file:desktop:messenger-search-compact",
+          "baseline_hash": "sha256:2f242f22c6a1da0b0c77777a565516f9c336a4ef704817124be1913a7bc0891f"
+        },
+        "room-info-compact": {
+          "surface_id": "room-info",
+          "viewport_ref": "viewport:desktop-compact-1180x800",
+          "width": 1180,
+          "height": 800,
+          "baseline_file_ref": "visual-baseline-file:desktop:messenger-room-info-compact",
+          "baseline_hash": "sha256:743d06628064cebdfce77a55719aa405f2fa44b38ce27bf8e19711dc7727c98e"
+        },
+        "invite-compact": {
+          "surface_id": "invite",
+          "viewport_ref": "viewport:desktop-compact-1180x800",
+          "width": 1180,
+          "height": 800,
+          "baseline_file_ref": "visual-baseline-file:desktop:messenger-invite-compact",
+          "baseline_hash": "sha256:8072a197dc95d8df5901505cbda7db586dc1a3b87c9983b226b1e9e98b45e2f9"
+        },
+        "room-settings-compact": {
+          "surface_id": "room-settings",
+          "viewport_ref": "viewport:desktop-compact-1180x800",
+          "width": 1180,
+          "height": 800,
+          "baseline_file_ref": "visual-baseline-file:desktop:messenger-room-settings-compact",
+          "baseline_hash": "sha256:fa107269e7623ba63e804fb99c386c265aee924a66f1f33b5d0d626932ca16fb"
+        },
+        "sessions-compact": {
+          "surface_id": "sessions",
+          "viewport_ref": "viewport:desktop-compact-1180x800",
+          "width": 1180,
+          "height": 800,
+          "baseline_file_ref": "visual-baseline-file:desktop:messenger-sessions-compact",
+          "baseline_hash": "sha256:db682d480d985cc6af21770d4be3359dc55ec995615081e7f182b9834c39cf86"
+        },
+        "intelligence-compact": {
+          "surface_id": "intelligence",
+          "viewport_ref": "viewport:desktop-compact-1180x800",
+          "width": 1180,
+          "height": 800,
+          "baseline_file_ref": "visual-baseline-file:desktop:messenger-intelligence-compact",
+          "baseline_hash": "sha256:f5edb3249dc973e9a805d578738bfbe3650204cd2d4466de52575e564c1bfeff"
+        },
+        "recovery-compact": {
+          "surface_id": "recovery",
+          "viewport_ref": "viewport:desktop-compact-1180x800",
+          "width": 1180,
+          "height": 800,
+          "baseline_file_ref": "visual-baseline-file:desktop:messenger-recovery-compact",
+          "baseline_hash": "sha256:ebc56c72a65bd95c17ba92f0a93ad1b5136af6a07add870fc6536cb53a4b5088"
+        },
+        "dark-compact": {
+          "surface_id": "dark",
+          "viewport_ref": "viewport:desktop-compact-1180x800",
+          "width": 1180,
+          "height": 800,
+          "baseline_file_ref": "visual-baseline-file:desktop:messenger-dark-compact",
+          "baseline_hash": "sha256:b8f17facb06613357efc289061bda8e404a204fb9596a6dac4957e41b38c525b"
+        },
+        "calling-compact": {
+          "surface_id": "calling",
+          "viewport_ref": "viewport:desktop-compact-1180x800",
+          "width": 1180,
+          "height": 800,
+          "baseline_file_ref": "visual-baseline-file:desktop:messenger-calling-compact",
+          "baseline_hash": "sha256:38cd33ac345e8d82f781ae0b8f244310ad2e34bd9e11448876569503dac4f993"
+        },
+        "setup-compact": {
+          "surface_id": "setup",
+          "viewport_ref": "viewport:desktop-compact-1180x800",
+          "width": 1180,
+          "height": 800,
+          "baseline_file_ref": "visual-baseline-file:desktop:messenger-setup-compact",
+          "baseline_hash": "sha256:b19e91db3aade7af22d73c7ca959f6e28c3115cdbb6ec7d22381c4701645224a"
+        }
+      },
+      "raw_private_screenshot_included": false
+    },
+    {
       "surface": "Studio Skill Workbench",
       "route": "/studio/skills",
       "baseline_ref": "visual-baseline:control-center:studio-skills",

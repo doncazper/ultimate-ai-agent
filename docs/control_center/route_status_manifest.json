@@ -1633,6 +1633,33 @@
       "missing_backend_routes": []
     },
     {
+      "action_id": "navigate-messenger",
+      "label": "Navigate Messenger",
+      "ui_surface": "Messenger",
+      "frontend_route": "/messenger",
+      "owner": "communications",
+      "auth_posture": "frontend_fixture_preview_only_no_backend_truth",
+      "side_effect_class": "local_ui_state_only",
+      "risk_class": "medium",
+      "release_status": "mock_only_not_product_ready",
+      "approval_requirement": "No approval for selecting synthetic desktop fixture surfaces. Any Matrix network, account, sync, encryption, message read/send, room mutation, media, call, credential, model, memory, or connector behavior requires a separately accepted exact backend lane.",
+      "evidence_audit_output": "Synthetic safe fixture refs, explicit Preview/Planned/Blocked command posture, and desktop rendering evidence only; no raw private messages, credentials, provider payloads, account state, runtime execution, public release, or production authority.",
+      "backend_routes": [],
+      "missing_backend_routes": [
+        "communications-contracts",
+        "communications-api-cli-inspection",
+        "matrix-adapter",
+        "matrix-account-session",
+        "matrix-sync",
+        "matrix-encryption",
+        "matrix-message-read",
+        "matrix-message-send",
+        "matrix-room-mutation",
+        "matrix-media",
+        "matrix-calling"
+      ]
+    },
+    {
       "action_id": "navigate-news-signals",
       "label": "Navigate News & Signals",
       "ui_surface": "News & Signals",

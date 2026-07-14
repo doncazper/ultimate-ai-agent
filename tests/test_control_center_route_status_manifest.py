@@ -82,11 +82,22 @@ def test_control_center_route_status_manifest_covers_visible_actions() -> None:
 
     for action_id in [
         "navigate-setup-assistant",
+        "navigate-messenger",
         "submit-action-preview",
         "select-local-detail-card",
         "toggle-review-only-file-decision",
     ]:
         assert action_id in action_ids
+
+    messenger_action = next(
+        action
+        for action in visible_actions
+        if action["action_id"] == "navigate-messenger"
+    )
+    assert messenger_action["backend_routes"] == []
+    assert messenger_action["side_effect_class"] == "local_ui_state_only"
+    assert messenger_action["release_status"] == "mock_only_not_product_ready"
+    assert "matrix-message-send" in messenger_action["missing_backend_routes"]
 
     evidence_action = next(
         action

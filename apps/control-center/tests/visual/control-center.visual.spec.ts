@@ -1,5 +1,12 @@
 import { readFileSync } from "node:fs";
 import { expect, test, type Route } from "@playwright/test";
+import {
+  MESSENGER_SURFACE_IDS,
+  MESSENGER_VARIANT_IDS,
+  type MessengerSurfaceId,
+  type MessengerVariantId,
+} from "../../src/messenger/contracts";
+import { MESSENGER_VARIANTS } from "../../src/messenger/fixtures";
 
 const studioSkillMarketplaceFixture: unknown = JSON.parse(
   readFileSync(
@@ -34,6 +41,24 @@ const routeStateScenarios = [
   { name: "state-success", kind: "success", label: "Success" },
 ] as const;
 
+const messengerSurfaces = MESSENGER_SURFACE_IDS;
+const messengerStates = MESSENGER_VARIANT_IDS;
+
+const messengerStateSurface: Partial<Record<MessengerVariantId, MessengerSurfaceId>> = {
+  "no-search-results": "search",
+  "invite-pending": "invite",
+  "join-failed": "invite",
+  "verification-requested": "sessions",
+  "verification-failed": "sessions",
+  "backup-unavailable": "sessions",
+  "permission-denied": "calling",
+};
+
+const messengerDesktopViewports = [
+  { name: "wide", width: 1440, height: 900 },
+  { name: "compact", width: 1180, height: 800 },
+] as const;
+
 test.beforeEach(async ({ page }) => {
   await page.addInitScript((fixedIsoNow) => {
     const fixedTime = new Date(fixedIsoNow).getTime();
@@ -55,6 +80,11 @@ test.beforeEach(async ({ page }) => {
   }, FIXED_ISO_NOW);
 
   const fulfillMissingBackend = async (route: Route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (!path.startsWith("/control-center/") && !path.startsWith("/runtime/")) {
+      await route.continue();
+      return;
+    }
     await route.fulfill({
       status: 404,
       contentType: "application/json",
@@ -110,6 +140,48 @@ for (const scenario of routeStateScenarios) {
     await expect(main).toHaveScreenshot(`${scenario.name}.png`, {
       animations: "disabled",
     });
+  });
+}
+
+for (const viewport of messengerDesktopViewports) {
+  for (const surface of messengerSurfaces) {
+    test(`messenger ${surface} ${viewport.name} desktop baseline`, async ({ page }, testInfo) => {
+      test.skip(testInfo.project.name !== "desktop", "Messenger is macOS desktop only");
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await page.goto(`/messenger?view=${surface}`);
+
+      await expect(page.locator(".messenger-brand")).toHaveText("UAA Messenger");
+      await expect(page.locator('[data-messenger-runtime="blocked"]')).toBeVisible();
+      await expectMessengerHasNoHorizontalOverflow(page);
+      await expect(page).toHaveScreenshot(`messenger-${surface}-${viewport.name}.png`, {
+        animations: "disabled",
+      });
+    });
+  }
+
+  test(`messenger accepted states ${viewport.name} desktop behavior`, async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop", "Messenger is macOS desktop only");
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    const backendRequests: string[] = [];
+    page.on("request", (request) => {
+      const path = new URL(request.url()).pathname;
+      if (path.startsWith("/api/") || path.startsWith("/control-center/") || path.startsWith("/runtime/")) {
+        backendRequests.push(path);
+      }
+    });
+
+    for (const state of messengerStates) {
+      const surface = messengerStateSurface[state] ?? "founder";
+      await page.goto(`/messenger?view=${surface}&state=${state}`);
+      await expect(page.locator('[data-messenger-variant]')).toHaveAttribute("data-messenger-variant", state);
+      await expect(page.locator('[data-messenger-runtime="blocked"]')).toBeVisible();
+      const banner = page.locator(".messenger-variant-banner");
+      await expect(banner).toContainText(MESSENGER_VARIANTS[state].label);
+      await expect(banner).toContainText(MESSENGER_VARIANTS[state].fixture_ref);
+      await expectMessengerStateSemantics(page, state);
+      await expectMessengerHasNoHorizontalOverflow(page);
+    }
+    expect(backendRequests).toEqual([]);
   });
 }
 
@@ -223,5 +295,48 @@ async function expectPrimaryStudioValuesNotEllipsized(
         );
       }),
     ).toBe(true);
+  }
+}
+
+async function expectMessengerHasNoHorizontalOverflow(
+  page: import("@playwright/test").Page,
+) {
+  for (const selector of ["html", ".messenger-shell"]) {
+    const element = page.locator(selector);
+    await expect(element).toBeVisible();
+    expect(
+      await element.evaluate((node) => node.scrollWidth <= node.clientWidth),
+    ).toBe(true);
+  }
+}
+
+async function expectMessengerStateSemantics(
+  page: import("@playwright/test").Page,
+  state: MessengerVariantId,
+) {
+  if (state === "inspector-collapsed") {
+    await expect(page.locator(".messenger-inspector")).toBeHidden();
+  }
+  if (state === "room-archived-left") {
+    await expect(page.locator(".messenger-human-composer button")).toBeDisabled();
+    await expect(page.getByPlaceholder("Room is read-only")).toBeVisible();
+  }
+  if (state === "offline") {
+    await expect(page.getByText("No server connection or automatic retry exists.")).toBeVisible();
+  }
+  if (state === "failed-send") {
+    await expect(page.getByText("Failed · no retry ran")).toBeVisible();
+  }
+  if (state === "undecryptable") {
+    await expect(page.getByText("Unable to decrypt · fixture event body unavailable")).toBeVisible();
+  }
+  if (state === "permission-denied") {
+    await expect(page.getByText("Permission denied", { exact: true })).toBeVisible();
+  }
+  if (state === "no-search-results") {
+    await expect(page.getByRole("heading", { name: "No search results" })).toBeVisible();
+  }
+  if (state === "invite-pending") {
+    await expect(page.getByText("Pending · not sent")).toBeVisible();
   }
 }

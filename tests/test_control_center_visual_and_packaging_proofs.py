@@ -68,6 +68,39 @@ def test_control_center_visual_regression_rejects_studio_mobile_variant() -> Non
     assert any("Studio Skill Workbench" in failure for failure in failures)
 
 
+def test_control_center_visual_regression_requires_all_messenger_desktop_variants() -> (
+    None
+):
+    manifest = visual.load_manifest()
+    messenger = next(
+        surface
+        for surface in manifest["surfaces"]
+        if surface["surface"] == "Messenger Desktop Fixture"
+    )
+    messenger["desktop_variants"].pop("founder-compact")
+
+    failures = visual.validate_manifest(manifest)
+
+    assert (
+        "Messenger Desktop Fixture must list all 15 surfaces at wide and compact desktop widths"
+        in failures
+    )
+
+
+def test_control_center_visual_regression_rejects_messenger_mobile_variant() -> None:
+    manifest = visual.load_manifest()
+    messenger = next(
+        surface
+        for surface in manifest["surfaces"]
+        if surface["surface"] == "Messenger Desktop Fixture"
+    )
+    messenger["desktop_variants"]["mobile"] = {}
+
+    failures = visual.validate_manifest(manifest)
+
+    assert any("Messenger Desktop Fixture" in failure for failure in failures)
+
+
 def test_local_runtime_packaging_proof_manifest_is_safe() -> None:
     failures = packaging.validate_manifest(packaging.load_manifest())
 

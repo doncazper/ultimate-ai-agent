@@ -441,14 +441,38 @@ def verify() -> list[str]:
     if documents["authority matrix"]:
         _verify_matrix(documents["authority matrix"], failures)
 
+    failures.extend(
+        f"baseline authority gate: {failure}" for failure in baseline.verify()
+    )
+    phase_match = re.search(
+        r"^Current phase: `MSG-MX-(\d{3})`$",
+        documents["board"],
+        flags=re.MULTILINE,
+    )
+    if phase_match is None or int(phase_match.group(1)) < 1:
+        failures.append("board must remain at or beyond the accepted MSG-MX-001 phase")
+    evidence_match = re.search(
+        r"^Current evidence ref: `(evidence-ref:msg-mx-\d{3}:[a-z0-9:-]+)`$",
+        documents["board"],
+        flags=re.MULTILINE,
+    )
+    if (
+        phase_match is not None
+        and (
+            evidence_match is None
+            or not evidence_match.group(1).startswith(
+                f"evidence-ref:msg-mx-{phase_match.group(1)}:"
+            )
+        )
+    ):
+        failures.append("current board evidence ref is not bound to its current phase")
     _require(
         "board",
         documents["board"],
         (
-            "Current phase: `MSG-MX-001`",
-            "Current program status: `design_gate_accepted_on_merge`",
-            "Current evidence ref: `evidence-ref:msg-mx-001:design-gate`",
-            "`MSG-MX-002` fixture-only desktop shell",
+            "The accepted design gate is recorded",
+            "docs/decisions/ADR-0062-messenger-matrix-client-and-data-boundaries.md",
+            "docs/security/UAA_MESSENGER_MATRIX_THREAT_MODEL.md",
         ),
         failures,
     )

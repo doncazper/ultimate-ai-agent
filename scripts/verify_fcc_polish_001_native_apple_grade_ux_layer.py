@@ -141,6 +141,38 @@ def _validate_visual_baseline(root: Path, failures: list[str]) -> None:
             failures.append("visual baseline must not include raw private screenshots")
         desktop_variants = surface.get("desktop_variants")
         if isinstance(desktop_variants, dict):
+            if surface.get("surface") == "Messenger Desktop Fixture":
+                expected = {
+                    f"{surface_id}-{width}"
+                    for surface_id in (
+                        "founder",
+                        "personal",
+                        "dm",
+                        "group",
+                        "threads",
+                        "search",
+                        "room-info",
+                        "invite",
+                        "room-settings",
+                        "sessions",
+                        "intelligence",
+                        "recovery",
+                        "dark",
+                        "calling",
+                        "setup",
+                    )
+                    for width in ("wide", "compact")
+                }
+                if set(desktop_variants) != expected:
+                    failures.append(
+                        "Messenger visual baseline must contain all 30 desktop variants"
+                    )
+                for variant_payload in desktop_variants.values():
+                    if not str(variant_payload.get("baseline_hash", "")).startswith(
+                        "sha256:"
+                    ):
+                        failures.append("Messenger visual baseline hash is missing")
+                continue
             for variant in ("wide", "compact"):
                 variant_payload = desktop_variants.get(variant, {})
                 if not str(variant_payload.get("baseline_hash", "")).startswith(

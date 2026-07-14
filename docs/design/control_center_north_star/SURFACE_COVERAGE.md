@@ -10,15 +10,16 @@ mapped visual target below. A single render may cover more than one route when
 the surfaces are intentionally part of the same operator workflow.
 
 Normal routes share the static shell defined in `APP_SHELL_BASELINE.md`. Studio
-and the planned Messenger workspace are the two documented immersive
-exceptions. The coverage map below assigns route workspaces; it does not claim
-that planned Messenger routes are implemented.
+and the Messenger desktop fixture are the two documented immersive exceptions.
+The coverage map below assigns route workspaces. `/messenger` is implemented as
+synthetic presentation only; every Matrix runtime and authority lane remains
+blocked until its later exact milestone is separately accepted.
 
-## Planned Messenger Routes
+## Messenger Fixture Route
 
 | Route family | Label | Render target | Design intent | Boundary to preserve |
 |---|---|---|---|---|
-| `/messenger` | Messenger | `renders/communications-v1/01-founder-hq.png` through `15-setup-sign-in.png` | Clean-room Element-familiar Matrix client with Home, exactly two Spaces, rooms, DMs, threads, search, settings, security, recovery, UAA intelligence, and calling preflight. | Planned design only; no Matrix account, network, sync, encryption, send, room mutation, media, or call authority. Communications remains a separate unified hub. |
+| `/messenger` | Messenger | `renders/communications-v1/01-founder-hq.png` through `15-setup-sign-in.png` | Implemented synthetic desktop fixture shell with Home, exactly two Spaces, rooms, DMs, threads, search, settings, security, recovery, UAA intelligence, calling preflight, and the required deterministic state variants. | Fixture presentation only; no Matrix dependency, account, network, sync, encryption session, message read/send, room mutation, media, call, credential, model, memory, or connector authority. Communications remains a separate unified hub. |
 
 ## Primary Founder Loop Routes
 

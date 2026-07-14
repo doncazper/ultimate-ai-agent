@@ -6,6 +6,7 @@ import {
   RouteStatePanel,
 } from "./components/DataState";
 import { SafeAlert } from "./components/SafeAlert";
+import { MessengerShell } from "./components/messenger/MessengerShell";
 import { SkillWorkbench } from "./components/skillWorkbench/SkillWorkbench";
 import { useControlCenterData } from "./hooks/useControlCenterData";
 import { useSkillMarketplacePosture } from "./hooks/useSkillMarketplacePosture";
@@ -26,6 +27,10 @@ export function App() {
 
   if (activePath === "/studio" || activePath === "/studio/skills") {
     return <StudioRoute />;
+  }
+
+  if (activePath === "/messenger") {
+    return <MessengerShell />;
   }
 
   const staticPreviewRoute = renderStaticPreviewRoute(activePath);

@@ -11,6 +11,7 @@ Implemented frontend pages:
 - `/`
 - `/start`
 - `/today`
+- `/messenger`
 - `/inbox`
 - `/plans`
 - `/work-board`
@@ -61,6 +62,12 @@ connector draft proposal refs from `GET /control-center/sources/readiness`,
 but no standalone or mutating draft proposal route, backend email/calendar
 connector route, account auth, send/write/archive/delete authority, or
 connector runtime.
+`/messenger` is a desktop-only synthetic fixture route for the accepted
+Messenger Matrix renders and deterministic failure states. It bypasses backend
+data hooks and has no Matrix dependency, account, network, sync, encryption,
+cache, message read/send, room mutation, media, calling, credential, model,
+memory, public release, or production authority. Fixture navigation is local
+presentation state and Python Agent Core remains product truth.
 `/actions` renders backend-classified Action Inbox queue states from
 `GET /control-center/actions/inbox` so ready, approved local-task,
 authority-blocked, expired/stale, receipt-recorded, and proposal-only items are

@@ -3293,6 +3293,7 @@ describe("Web Control Center shell", () => {
     expect(primaryNavItems.map((item) => item.label)).toEqual([
       "Start Here",
       "Today",
+      "Messenger",
       "News & Signals",
       "Source Inbox",
       "Plans",
@@ -3327,9 +3328,10 @@ describe("Web Control Center shell", () => {
     const labels = within(navigation)
       .getAllByRole("link")
       .map((link) => link.getAttribute("aria-label"));
-    expect(labels.slice(0, 12)).toEqual([
+    expect(labels.slice(0, 13)).toEqual([
       "Start Here",
       "Today",
+      "Messenger",
       "News & Signals",
       "Source Inbox",
       "Plans",
@@ -3782,6 +3784,46 @@ describe("Web Control Center shell", () => {
         ).not.toBeInTheDocument();
       }
       expect(fetchMock).not.toHaveBeenCalled();
+    } finally {
+      view.unmount();
+      cleanup();
+      window.history.pushState({}, "", "/");
+    }
+  });
+
+  it("renders the Messenger desktop fixture without backend reads or retries", async () => {
+    const fetchMock = mockFetchWithFallback();
+    window.history.pushState({}, "", "/messenger?view=founder");
+    const view = render(<App />);
+
+    try {
+      expect(
+        screen.getByRole("heading", { name: "UAA Development" }),
+      ).toBeInTheDocument();
+      expect(screen.getByText("Fixture-only preview")).toBeInTheDocument();
+      expect(
+        screen.getByText(/No Matrix account connected/i),
+      ).toBeInTheDocument();
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {
+      view.unmount();
+      cleanup();
+      window.history.pushState({}, "", "/");
+    }
+  });
+
+  it("does not alias undeclared Messenger subroutes to the fixture", async () => {
+    const fetchMock = mockFetchWithFallback();
+    window.history.pushState({}, "", "/messenger/unknown");
+    const view = render(<App />);
+
+    try {
+      expect(await screen.findByText("Mock fallback active")).toBeInTheDocument();
+      expect(screen.queryByText("UAA Messenger")).not.toBeInTheDocument();
+      expect(fetchMock).toHaveBeenCalled();
     } finally {
       view.unmount();
       cleanup();

@@ -89,6 +89,7 @@ export type CommandPaletteItem = {
 export const navItems: NavItem[] = [
   { path: "/start", label: "Start Here", group: "Founder Loop", status: "backend-owned start loop", releaseStatus: "partial", role: "primary" },
   { path: "/today", label: "Today", group: "Founder Loop", status: "storage-backed", releaseStatus: "partial", role: "primary" },
+  { path: "/messenger", label: "Messenger", group: "Founder Loop", status: "fixture-only desktop preview", releaseStatus: "experimental", role: "primary" },
   { path: "/news", label: "News & Signals", group: "Founder Loop", status: "illustrative read-only preview", releaseStatus: "experimental", role: "primary" },
   { path: "/inbox", label: "Source Inbox", group: "Founder Loop", status: "supporting source readiness", releaseStatus: "partial", role: "primary" },
   { path: "/plans", label: "Plans", group: "Founder Loop", status: "partial", releaseStatus: "partial", role: "primary" },
