@@ -369,7 +369,7 @@ def test_build_pytest_command_is_isolated_and_duration_aware(tmp_path: Path) -> 
         plan,
         tmp_path / "basetemp",
         write_timings=True,
-        junit_dir=tmp_path / "junit",
+        failure_ref_dir=tmp_path / "failure-refs",
     )
 
     assert command[:6] == [
@@ -383,7 +383,9 @@ def test_build_pytest_command_is_isolated_and_duration_aware(tmp_path: Path) -> 
     assert "--basetemp" in command
     assert "--durations=0" in command
     assert "--durations-min=0" in command
-    assert f"--junitxml={tmp_path / 'junit' / 'pytest-shard-3.xml'}" in command
+    assert "scripts.verification.pytest_safe_failure_plugin" in command
+    assert "--uaa-safe-failure-report" in command
+    assert str(tmp_path / "failure-refs" / "pytest-shard-3.json") in command
     assert command[-1] == "tests/test_a.py"
 
 
@@ -506,7 +508,7 @@ def test_sharded_command_does_not_select_live_or_model_heavy_markers(
         plan,
         tmp_path / "basetemp",
         write_timings=False,
-        junit_dir=None,
+        failure_ref_dir=None,
     )
 
     assert command[1:3] == ["-m", "pytest"]
@@ -566,7 +568,7 @@ def test_shard_subprocess_preserves_default_skips_for_live_model_tests(
         [runner.ShardPlan(0, ("tests/test_live_model_guard.py",), 0.0)],
         root=root,
         basetemp=tmp_path / "shards",
-        junit_dir=None,
+        failure_ref_dir=None,
         write_timings=False,
         quiet=True,
     )
