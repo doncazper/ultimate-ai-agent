@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import stat
 import subprocess
 import sys
 import time
@@ -12,28 +13,38 @@ from typing import Any
 
 try:
     from scripts.verification.pytest_shard_artifacts import (
+        FAILED_TEST_REFS_SCHEMA_VERSION,  # noqa: F401 - compatibility re-export
+        MAX_FAILED_TEST_REFS_PER_SHARD,  # noqa: F401 - compatibility re-export
+        MAX_SAFE_FAILURE_REPORT_BYTES,  # noqa: F401 - compatibility re-export
         TIMING_SCHEMA_VERSION,  # noqa: F401 - compatibility re-export
         collect_file_timings,
+        collect_failed_test_refs,
         load_complete_timings,  # noqa: F401 - compatibility re-export
         load_timing_profiles,
         overall_return_code,
         parse_pytest_durations,  # noqa: F401 - compatibility re-export
         print_summary,
         resolve_path,
+        safe_test_ref,  # noqa: F401 - compatibility re-export
         write_performance_report,
         write_timings_json,
     )
     from scripts.verification import pytest_shard_processes as shard_processes
 except ModuleNotFoundError:  # Direct script execution from the repository root.
     from pytest_shard_artifacts import (  # type: ignore[no-redef]
+        FAILED_TEST_REFS_SCHEMA_VERSION,  # noqa: F401 - compatibility re-export
+        MAX_FAILED_TEST_REFS_PER_SHARD,  # noqa: F401 - compatibility re-export
+        MAX_SAFE_FAILURE_REPORT_BYTES,  # noqa: F401 - compatibility re-export
         TIMING_SCHEMA_VERSION,  # noqa: F401 - compatibility re-export
         collect_file_timings,
+        collect_failed_test_refs,
         load_complete_timings,  # noqa: F401 - compatibility re-export
         load_timing_profiles,
         overall_return_code,
         parse_pytest_durations,  # noqa: F401 - compatibility re-export
         print_summary,
         resolve_path,
+        safe_test_ref,  # noqa: F401 - compatibility re-export
         write_performance_report,
         write_timings_json,
     )
@@ -79,6 +90,7 @@ class ShardResult:
     elapsed_seconds: float
     log_path: Path
     timed_out: bool = False
+    failure_ref_path: Path | None = None
 
 
 class ShardRunInterrupted(RuntimeError):
@@ -131,6 +143,17 @@ def _assignment_items(
         groups.append(normalized)
     groups.extend((file_path,) for file_path in sorted(known_files - grouped_files))
     return groups
+
+
+def current_shard_plan_fingerprint(
+    root: Path, shard_count: int, timings_path: Path
+) -> str:
+    files = discover_test_files(root)
+    timings, _source = load_timing_profiles([timings_path], files)
+    affinity_groups = discover_affinity_groups(files, root)
+    plans, _method = assign_shards(files, shard_count, timings, affinity_groups)
+    validate_shard_plans(files, plans, shard_count, affinity_groups)
+    return shard_plan_fingerprint(plans)
 
 
 def deterministic_file_count_shards(
@@ -227,7 +250,7 @@ def build_pytest_command(
     shard_basetemp: Path,
     *,
     write_timings: bool,
-    junit_dir: Path | None,
+    failure_ref_dir: Path | None,
 ) -> list[str]:
     command = [
         sys.executable,
@@ -241,10 +264,32 @@ def build_pytest_command(
     ]
     if write_timings:
         command.extend(["--durations=0", "--durations-min=0"])
-    if junit_dir is not None:
-        command.append(f"--junitxml={junit_dir / f'pytest-shard-{plan.index}.xml'}")
+    if failure_ref_dir is not None:
+        command.extend(
+            [
+                "-p",
+                "scripts.verification.pytest_safe_failure_plugin",
+                "--uaa-safe-failure-report",
+                str(failure_ref_dir / f"pytest-shard-{plan.index}.json"),
+            ]
+        )
     command.extend(plan.files)
     return command
+
+
+def _prepare_failure_ref_run_dir(base: Path | None, run_id: str) -> Path | None:
+    if base is None:
+        return None
+    base.mkdir(parents=True, exist_ok=True, mode=0o700)
+    metadata = base.lstat()
+    if not base.is_dir() or base.is_symlink() or not stat.S_ISDIR(metadata.st_mode):
+        raise ValueError("pytest failure-ref root must be a regular directory")
+    base.chmod(0o700)
+    run_dir = base / run_id
+    run_dir.mkdir(mode=0o700, exist_ok=False)
+    if run_dir.is_symlink() or not stat.S_ISDIR(run_dir.lstat().st_mode):
+        raise ValueError("pytest failure-ref run directory must be a regular directory")
+    return run_dir
 
 
 def run_shards(
@@ -252,7 +297,7 @@ def run_shards(
     *,
     root: Path,
     basetemp: Path,
-    junit_dir: Path | None,
+    failure_ref_dir: Path | None,
     write_timings: bool,
     quiet: bool,
     max_workers: int | None = None,
@@ -272,14 +317,13 @@ def run_shards(
         termination_grace_seconds=termination_grace_seconds,
     )
     run_started = time.perf_counter() if overall_started is None else overall_started
-    run_id = f"{time.strftime('%Y%m%d-%H%M%S')}-{os.getpid()}"
+    run_id = f"{time.strftime('%Y%m%d-%H%M%S')}-{os.getpid()}-{time.monotonic_ns()}"
     run_root = basetemp / run_id
     log_dir = run_root / "logs"
     temp_dir = run_root / "tmp"
     log_dir.mkdir(parents=True, exist_ok=True)
     temp_dir.mkdir(parents=True, exist_ok=True)
-    if junit_dir is not None:
-        junit_dir.mkdir(parents=True, exist_ok=True)
+    run_failure_ref_dir = _prepare_failure_ref_run_dir(failure_ref_dir, run_id)
 
     env = build_shard_env(root)
 
@@ -343,6 +387,11 @@ def run_shards(
                             returncode=TIMEOUT_RETURN_CODE,
                             elapsed_seconds=0.0,
                             log_path=log_path,
+                            failure_ref_path=(
+                                run_failure_ref_dir / f"pytest-shard-{plan.index}.json"
+                                if run_failure_ref_dir is not None
+                                else None
+                            ),
                             timed_out=True,
                         )
                     pending.clear()
@@ -366,9 +415,11 @@ def run_shards(
                         plan,
                         temp_dir / f"shard-{plan.index}",
                         write_timings=write_timings,
-                        junit_dir=junit_dir,
+                        failure_ref_dir=run_failure_ref_dir,
                     )
-                    shard_env = shard_processes.isolated_shard_environment(env, temp_dir / f"runtime-{plan.index}")
+                    shard_env = shard_processes.isolated_shard_environment(
+                        env, temp_dir / f"runtime-{plan.index}"
+                    )
                     if not quiet:
                         print(
                             f"Starting shard {plan.index}: files={len(plan.files)} "
@@ -416,6 +467,11 @@ def run_shards(
                         returncode=returncode,
                         elapsed_seconds=elapsed,
                         log_path=log_path,
+                        failure_ref_path=(
+                            run_failure_ref_dir / f"pytest-shard-{plan.index}.json"
+                            if run_failure_ref_dir is not None
+                            else None
+                        ),
                     )
                     del active[index]
                 if active:
@@ -479,7 +535,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--timings-json", action="append", default=[])
     parser.add_argument("--write-timings-json")
     parser.add_argument("--basetemp", default=DEFAULT_BASETEMP)
-    parser.add_argument("--junit-dir")
+    parser.add_argument("--failure-ref-dir")
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--safe-summary", action="store_true")
     parser.add_argument(
@@ -497,7 +553,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=DEFAULT_TERMINATION_GRACE_SECONDS,
     )
     parser.add_argument("--performance-report", default=DEFAULT_PERFORMANCE_REPORT)
-    return parser.parse_args(argv)
+    raw_args = sys.argv[1:] if argv is None else argv
+    if any(
+        argument == "--junit-dir" or argument.startswith("--junit-dir=")
+        for argument in raw_args
+    ):
+        parser.error(
+            "--junit-dir was removed because raw JUnit artifacts are not retained; "
+            "use --failure-ref-dir for bounded content-free failure refs"
+        )
+    return parser.parse_args(raw_args)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -538,7 +603,7 @@ def main(argv: list[str] | None = None) -> int:
     ]
     write_timings_path = resolve_path(args.write_timings_json, ROOT)
     basetemp = resolve_path(args.basetemp, ROOT)
-    junit_dir = resolve_path(args.junit_dir, ROOT)
+    failure_ref_dir = resolve_path(args.failure_ref_dir, ROOT)
     performance_report_path = resolve_path(args.performance_report, ROOT)
     assert basetemp is not None
 
@@ -566,7 +631,7 @@ def main(argv: list[str] | None = None) -> int:
             plans,
             root=ROOT,
             basetemp=basetemp,
-            junit_dir=junit_dir,
+            failure_ref_dir=failure_ref_dir,
             write_timings=write_timings_path is not None,
             quiet=args.quiet,
             max_workers=min(args.max_workers, len(plans)),
@@ -584,6 +649,7 @@ def main(argv: list[str] | None = None) -> int:
         return 128 + exc.signum
     return_code = overall_return_code(results, TIMEOUT_RETURN_CODE)
     total_elapsed_seconds = time.perf_counter() - overall_started
+    failed_test_refs = collect_failed_test_refs(results)
 
     if write_timings_path is not None and return_code == 0:
         timing_entries = collect_file_timings(plans, results, set(files))
@@ -602,6 +668,7 @@ def main(argv: list[str] | None = None) -> int:
             total_elapsed_seconds=total_elapsed_seconds,
             estimated_timings=timings,
             plan_fingerprint_ref=plan_fingerprint_ref,
+            failed_test_refs=failed_test_refs,
         )
 
     print_summary(
@@ -616,6 +683,7 @@ def main(argv: list[str] | None = None) -> int:
         total_elapsed_seconds=total_elapsed_seconds,
         safe_summary=args.safe_summary,
         plan_fingerprint_ref=plan_fingerprint_ref,
+        failed_test_refs=failed_test_refs,
     )
     return return_code
 

@@ -264,14 +264,14 @@ def test_board_overlay_future_success_requires_phase_acceptance_evidence(
 ) -> None:
     def advance(text: str) -> str:
         return (
-            text.replace("Current phase: `MSG-MX-000`", "Current phase: `MSG-MX-001`", 1)
+            text
             .replace(
-                "Current program status: `planning_audit_accepted_on_merge`",
+                "Current program status: `design_gate_accepted_on_merge`",
                 "Current program status: `design_accepted`",
                 1,
             )
             .replace(
-                "Current evidence ref: `evidence-ref:msg-mx-000:baseline-authority-map`",
+                "Current evidence ref: `evidence-ref:msg-mx-001:design-gate`",
                 "Current evidence ref: `evidence-ref:msg-mx-001:design-accepted`",
                 1,
             )
@@ -310,14 +310,14 @@ def test_board_overlay_generic_ready_status_fails_closed(
 ) -> None:
     def promote(text: str) -> str:
         return (
-            text.replace("Current phase: `MSG-MX-000`", "Current phase: `MSG-MX-004`", 1)
+            text.replace("Current phase: `MSG-MX-001`", "Current phase: `MSG-MX-004`", 1)
             .replace(
-                "Current program status: `planning_audit_accepted_on_merge`",
+                "Current program status: `design_gate_accepted_on_merge`",
                 "Current program status: `ready`",
                 1,
             )
             .replace(
-                "Current evidence ref: `evidence-ref:msg-mx-000:baseline-authority-map`",
+                "Current evidence ref: `evidence-ref:msg-mx-001:design-gate`",
                 "Current evidence ref: `evidence-ref:msg-mx-004:ready`",
                 1,
             )
@@ -333,9 +333,9 @@ def test_board_overlay_cross_phase_evidence_fails_closed(
 ) -> None:
     def advance(text: str) -> str:
         return (
-            text.replace("Current phase: `MSG-MX-000`", "Current phase: `MSG-MX-001`", 1)
+            text.replace("Current phase: `MSG-MX-001`", "Current phase: `MSG-MX-002`", 1)
             .replace(
-                "Current program status: `planning_audit_accepted_on_merge`",
+                "Current program status: `design_gate_accepted_on_merge`",
                 "Current program status: `design_accepted`",
                 1,
             )
@@ -537,14 +537,14 @@ def test_future_completion_with_fabricated_evidence_fails_closed(
 ) -> None:
     def fabricate(text: str) -> str:
         return (
-            text.replace("Current phase: `MSG-MX-000`", "Current phase: `MSG-MX-012`", 1)
+            text.replace("Current phase: `MSG-MX-001`", "Current phase: `MSG-MX-012`", 1)
             .replace(
-                "Current program status: `planning_audit_accepted_on_merge`",
+                "Current program status: `design_gate_accepted_on_merge`",
                 "Current program status: `messenger_acceptance_complete`",
                 1,
             )
             .replace(
-                "Current evidence ref: `evidence-ref:msg-mx-000:baseline-authority-map`",
+                "Current evidence ref: `evidence-ref:msg-mx-001:design-gate`",
                 "Current evidence ref: `evidence-ref:msg-mx-012:does-not-exist`",
                 1,
             )

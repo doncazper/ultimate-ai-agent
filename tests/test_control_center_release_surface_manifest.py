@@ -60,7 +60,7 @@ def test_control_center_release_surface_manifest_covers_visible_routes() -> None
         "blocked",
         "experimental",
     ]
-    assert len(manifest["routes"]) == len(visible_routes) == 41
+    assert len(manifest["routes"]) == len(visible_routes) == 42
     by_path = {route["path"]: route for route in manifest["routes"]}
     assert by_path["/start"]["status"] == "partial"
     assert by_path["/start"]["backend_routes"][0]["path"] == (
@@ -83,9 +83,7 @@ def test_control_center_release_surface_manifest_covers_visible_routes() -> None
         "visual-baseline:control-center:trust"
     )
     assert by_path["/coding"]["status"] == "partial"
-    assert {
-        route["path"] for route in by_path["/coding"]["backend_routes"]
-    } == {
+    assert {route["path"] for route in by_path["/coding"]["backend_routes"]} == {
         "/control-center/coding/context",
         "/control-center/coding/patch-apply-readiness",
         "/control-center/coding/patch-proposal",
@@ -97,8 +95,9 @@ def test_control_center_release_surface_manifest_covers_visible_routes() -> None
     }
     assert by_path["/coding"]["approval_required"] is False
     assert by_path["/coding"]["visual_proof_status"] == "blocked_no_baseline"
-    assert "missing_backend:coding-approved-patch-apply-execution-route" in (
-        by_path["/coding"]["blocked_capabilities"]
+    assert (
+        "missing_backend:coding-approved-patch-apply-execution-route"
+        in (by_path["/coding"]["blocked_capabilities"])
     )
     assert any(
         "read-only" in caveat.lower()
@@ -116,15 +115,18 @@ def test_control_center_release_surface_manifest_covers_visible_routes() -> None
     assert by_path["/work-board"]["visual_baseline_ref"] == (
         "visual-baseline:control-center:work-board:not-captured"
     )
-    assert "missing_backend:work-board-durable-mutation-route" not in (
-        by_path["/work-board"]["blocked_capabilities"]
+    assert (
+        "missing_backend:work-board-durable-mutation-route"
+        not in (by_path["/work-board"]["blocked_capabilities"])
     )
     assert any(
         "exact approved persisted reorder" in caveat.lower()
         for caveat in by_path["/work-board"]["product_language_caveats"]
     )
     assert by_path["/today"]["status"] == "partial"
-    assert by_path["/today"]["backend_contract_rationale"] == "backend-route-refs-present"
+    assert (
+        by_path["/today"]["backend_contract_rationale"] == "backend-route-refs-present"
+    )
     assert by_path["/today"]["visual_proof_status"] == "checked_in_baseline"
     assert by_path["/today"]["visual_baseline_ref"] == (
         "visual-baseline:control-center:today"
@@ -170,8 +172,9 @@ def test_control_center_release_surface_manifest_covers_visible_routes() -> None
     assert by_path["/models"]["backend_routes"][1]["path"] == (
         "/control-center/local-models/status"
     )
-    assert "release_blocker:unsafe_local_model_v1_posture" in (
-        by_path["/models"]["blocked_capabilities"]
+    assert (
+        "release_blocker:unsafe_local_model_v1_posture"
+        in (by_path["/models"]["blocked_capabilities"])
     )
     assert any(
         "local /v1 runtime posture" in caveat.lower()
@@ -185,13 +188,12 @@ def test_control_center_release_surface_manifest_covers_visible_routes() -> None
     assert by_path["/settings"]["backend_routes"][0]["path"] == (
         "/control-center/settings/status"
     )
-    assert "release_blocker:dev_auth_bypass" in (
-        by_path["/settings"]["blocked_capabilities"]
+    assert (
+        "release_blocker:dev_auth_bypass"
+        in (by_path["/settings"]["blocked_capabilities"])
     )
     assert by_path["/crm"]["status"] == "partial"
-    assert {
-        route["path"] for route in by_path["/crm"]["backend_routes"]
-    } == {
+    assert {route["path"] for route in by_path["/crm"]["backend_routes"]} == {
         "/control-center/crm/summary",
         "/control-center/crm/relationships",
         "/control-center/crm/timeline",
@@ -201,8 +203,8 @@ def test_control_center_release_surface_manifest_covers_visible_routes() -> None
         "/control-center/crm/local-mutations",
     }
     assert by_path["/crm"]["approval_required"] is True
-    assert "crm_connector_read_lane_authority" in (
-        by_path["/crm"]["blocked_capabilities"]
+    assert (
+        "crm_connector_read_lane_authority" in (by_path["/crm"]["blocked_capabilities"])
     )
     assert by_path["/chat"]["approval_required"] is True
     assert by_path["/files/review"]["approval_required"] is True
@@ -226,10 +228,15 @@ def test_control_center_release_surface_verifier_flags_missing_route() -> None:
         check_files=False,
     )
 
-    assert any("missing visible routes" in failure and "/today" in failure for failure in failures)
+    assert any(
+        "missing visible routes" in failure and "/today" in failure
+        for failure in failures
+    )
 
 
-def test_control_center_release_surface_verifier_flags_fake_ship_without_proof() -> None:
+def test_control_center_release_surface_verifier_flags_fake_ship_without_proof() -> (
+    None
+):
     verifier = load_verifier()
     manifest = load_manifest()
     route_status_manifest = load_route_status_manifest()
@@ -246,9 +253,13 @@ def test_control_center_release_surface_verifier_flags_fake_ship_without_proof()
         check_files=False,
     )
 
-    assert any("cannot be ship without backend route refs" in failure for failure in failures)
+    assert any(
+        "cannot be ship without backend route refs" in failure for failure in failures
+    )
     assert any("cannot be ship without proof lanes" in failure for failure in failures)
-    assert any("cannot be ship with blocked capabilities" in failure for failure in failures)
+    assert any(
+        "cannot be ship with blocked capabilities" in failure for failure in failures
+    )
 
 
 def test_control_center_release_surface_verifier_flags_status_drift() -> None:
@@ -256,7 +267,9 @@ def test_control_center_release_surface_verifier_flags_status_drift() -> None:
     manifest = load_manifest()
     route_status_manifest = load_route_status_manifest()
     drifted_manifest = copy.deepcopy(manifest)
-    route = next(route for route in drifted_manifest["routes"] if route["path"] == "/today")
+    route = next(
+        route for route in drifted_manifest["routes"] if route["path"] == "/today"
+    )
     route["status"] = "experimental"
 
     failures = verifier.verify(
@@ -267,7 +280,9 @@ def test_control_center_release_surface_verifier_flags_status_drift() -> None:
     )
 
     assert any("status drifted from routes.tsx" in failure for failure in failures)
-    assert any("status drifted from route status manifest" in failure for failure in failures)
+    assert any(
+        "status drifted from route status manifest" in failure for failure in failures
+    )
 
 
 def test_control_center_release_surface_verifier_flags_missing_proof_chain() -> None:
@@ -285,16 +300,30 @@ def test_control_center_release_surface_verifier_flags_missing_proof_chain() -> 
         check_files=False,
     )
 
-    assert any("/today promotion_criteria must be a non-empty list" in failure for failure in failures)
-    assert any("/today product_language_caveats must block release/authority claims" in failure for failure in failures)
-    assert any("/today product_language_caveats must name Python Agent Core as truth" in failure for failure in failures)
+    assert any(
+        "/today promotion_criteria must be a non-empty list" in failure
+        for failure in failures
+    )
+    assert any(
+        "/today product_language_caveats must block release/authority claims" in failure
+        for failure in failures
+    )
+    assert any(
+        "/today product_language_caveats must name Python Agent Core as truth"
+        in failure
+        for failure in failures
+    )
 
 
-def test_control_center_release_surface_verifier_flags_no_backend_rationale_drift() -> None:
+def test_control_center_release_surface_verifier_flags_no_backend_rationale_drift() -> (
+    None
+):
     verifier = load_verifier()
     manifest = load_manifest()
     route_status_manifest = load_route_status_manifest()
-    route = next(route for route in manifest["routes"] if route["path"] == "/private-trial")
+    route = next(
+        route for route in manifest["routes"] if route["path"] == "/private-trial"
+    )
     route["backend_contract_rationale"] = "backend-route-refs-present"
     route["blocked_capabilities"] = ["public_distribution_claim"]
 
@@ -305,9 +334,13 @@ def test_control_center_release_surface_verifier_flags_no_backend_rationale_drif
         check_files=False,
     )
 
-    assert any("/private-trial missing no-backend route rationale" in failure for failure in failures)
     assert any(
-        "/private-trial no-backend routes must list a missing_backend blocked capability" in failure
+        "/private-trial missing no-backend route rationale" in failure
+        for failure in failures
+    )
+    assert any(
+        "/private-trial no-backend routes must list a missing_backend blocked capability"
+        in failure
         for failure in failures
     )
 
@@ -328,10 +361,16 @@ def test_control_center_release_surface_verifier_flags_visual_baseline_drift() -
     )
 
     assert any("/today visual baseline ref drifted" in failure for failure in failures)
-    assert any("/today visual proof rationale must cite checked-in redacted baseline" in failure for failure in failures)
+    assert any(
+        "/today visual proof rationale must cite checked-in redacted baseline"
+        in failure
+        for failure in failures
+    )
 
 
-def test_control_center_release_surface_verifier_flags_primary_route_without_baseline() -> None:
+def test_control_center_release_surface_verifier_flags_primary_route_without_baseline() -> (
+    None
+):
     verifier = load_verifier()
     manifest = load_manifest()
     route_status_manifest = load_route_status_manifest()
@@ -341,7 +380,9 @@ def test_control_center_release_surface_verifier_flags_primary_route_without_bas
     route["visual_baseline_ref"] = "visual-baseline:control-center:proof:not-captured"
     route["visual_proof_rationale"] = "No checked-in visual baseline is recorded."
     visual_manifest["surfaces"] = [
-        surface for surface in visual_manifest["surfaces"] if surface["route"] != "/proof"
+        surface
+        for surface in visual_manifest["surfaces"]
+        if surface["route"] != "/proof"
     ]
 
     failures = verifier.verify(
@@ -353,7 +394,8 @@ def test_control_center_release_surface_verifier_flags_primary_route_without_bas
     )
 
     assert any(
-        "/proof primary route must have checked-in desktop/mobile visual baseline" in failure
+        "/proof primary route must have checked-in desktop/mobile visual baseline"
+        in failure
         for failure in failures
     )
     assert any(
@@ -362,7 +404,9 @@ def test_control_center_release_surface_verifier_flags_primary_route_without_bas
     )
 
 
-def test_control_center_release_surface_verifier_flags_missing_visual_baseline_truth() -> None:
+def test_control_center_release_surface_verifier_flags_missing_visual_baseline_truth() -> (
+    None
+):
     verifier = load_verifier()
     manifest = load_manifest()
     route_status_manifest = load_route_status_manifest()
@@ -378,11 +422,19 @@ def test_control_center_release_surface_verifier_flags_missing_visual_baseline_t
         check_files=False,
     )
 
-    assert any("/chat visual proof status must be blocked_no_baseline" in failure for failure in failures)
-    assert any("/chat missing visual baseline ref must end with :not-captured" in failure for failure in failures)
+    assert any(
+        "/chat visual proof status must be blocked_no_baseline" in failure
+        for failure in failures
+    )
+    assert any(
+        "/chat missing visual baseline ref must end with :not-captured" in failure
+        for failure in failures
+    )
 
 
-def test_control_center_release_surface_verifier_flags_missing_release_blockers() -> None:
+def test_control_center_release_surface_verifier_flags_missing_release_blockers() -> (
+    None
+):
     verifier = load_verifier()
     manifest = load_manifest()
     route_status_manifest = load_route_status_manifest()
@@ -435,14 +487,21 @@ def test_control_center_release_surface_verifier_flags_raw_evidence_fragment() -
         check_files=False,
     )
 
-    assert any("/today release surface route contains raw evidence fragment" in failure for failure in failures)
+    assert any(
+        "/today release surface route contains raw evidence fragment" in failure
+        for failure in failures
+    )
 
 
-def test_control_center_release_surface_verifier_flags_missing_duplicate_backend_ref() -> None:
+def test_control_center_release_surface_verifier_flags_missing_duplicate_backend_ref() -> (
+    None
+):
     verifier = load_verifier()
     manifest = load_manifest()
     route_status_manifest = load_route_status_manifest()
-    route = next(route for route in manifest["routes"] if route["path"] == "/files/review")
+    route = next(
+        route for route in manifest["routes"] if route["path"] == "/files/review"
+    )
     route["backend_routes"] = []
     route["approval_required"] = False
 
@@ -458,7 +517,10 @@ def test_control_center_release_surface_verifier_flags_missing_duplicate_backend
         and "POST /files/review/approvals/capture" in failure
         for failure in failures
     )
-    assert any("mutating backend refs require approval_required=true" in failure for failure in failures)
+    assert any(
+        "mutating backend refs require approval_required=true" in failure
+        for failure in failures
+    )
 
 
 def test_control_center_release_surface_nav_parser_allows_reordered_fields() -> None:

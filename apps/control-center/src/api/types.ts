@@ -10033,6 +10033,142 @@ export interface ModelSlotPostureReadModel {
   safe_summary: string;
 }
 
+export interface ProviderRoutingAvailabilitySnapshot {
+  schema_version: "uaa-capability-availability.v1";
+  snapshot_ref: string;
+  capability_ref: "capability-ref:provider-model-invocation";
+  provider_ref: string | null;
+  adapter_ref: string | null;
+  catalog_status: "supported" | "unsupported" | "unknown";
+  compatibility_status: "supported" | "unsupported" | "unknown";
+  configuration_status: "configured" | "not_configured" | "invalid" | "unknown";
+  health_status: "healthy" | "degraded" | "unhealthy" | "stale" | "unknown";
+  authority_posture:
+    | "eligible_for_policy_evaluation"
+    | "approval_required"
+    | "lease_required"
+    | "blocked";
+  resource_status: "available" | "constrained" | "exhausted" | "unknown";
+  cost_posture: "not_metered" | "metered" | "unknown";
+  safe_disable_status: "active" | "inactive" | "unknown";
+  runtime_readiness_status: "ready" | "unavailable" | "blocked" | "unknown";
+  declared_or_observed_version_ref: string | null;
+  checked_at: string;
+  expires_at: string | null;
+  freshness_status: string;
+  reason_codes: string[];
+  blocker_codes: string[];
+  evidence_refs: string[];
+  probe_refs: string[];
+  source_ref: string;
+  safe_summary: string;
+}
+
+export interface ProviderRoutingNeed {
+  request_ref: string;
+  task_ref: string;
+  strategy:
+    | "best_value"
+    | "lowest_cost"
+    | "lowest_latency"
+    | "best_quality"
+    | "local_first";
+  required_capability_refs: string[];
+  minimum_context_tokens: number;
+  maximum_presented_candidates: number;
+}
+
+export interface ProviderRoutingObservation {
+  observation_ref: string;
+  provider_ref: string;
+  provider_label: string;
+  provider_manifest_ref: string;
+  model_ref: string;
+  adapter_ref: string;
+  runtime_class: "local" | "hosted" | "unknown";
+  availability_snapshot: ProviderRoutingAvailabilitySnapshot;
+  metered: boolean;
+  estimated_cost_usd: number | null;
+  estimated_latency_ms: number | null;
+  quality_score: number | null;
+  context_tokens: number | null;
+  capability_refs: string[];
+  evidence_refs: string[];
+  source_ref: string;
+}
+
+export interface ProviderRoutingCandidate {
+  candidate_ref: string;
+  observation_ref: string;
+  observation_fingerprint_ref: string;
+  rank: number | null;
+  provider_ref: string;
+  provider_label: string;
+  provider_manifest_ref: string;
+  model_ref: string;
+  adapter_ref: string;
+  runtime_class: "local" | "hosted" | "unknown";
+  status: "eligible_for_request_scoped_evaluation" | "blocked";
+  availability_snapshot: ProviderRoutingAvailabilitySnapshot;
+  estimated_cost_usd: number | null;
+  estimated_latency_ms: number | null;
+  quality_score: number | null;
+  reason_codes: string[];
+  blocker_codes: string[];
+  evidence_refs: string[];
+  safe_summary: string;
+  proposal_only: true;
+  invocation_authorized: false;
+  provider_call_performed: false;
+}
+
+export interface ProviderRoutingProposal {
+  schema_version: "provider_routing_intelligence.v1";
+  contract_ref: "contract-ref:provider-routing-intelligence:v1";
+  proposal_ref: string;
+  request: ProviderRoutingNeed;
+  request_ref: string;
+  request_fingerprint_ref: string;
+  observation_fingerprint_refs: string[];
+  observation_set_fingerprint_ref: string;
+  strategy:
+    | "best_value"
+    | "lowest_cost"
+    | "lowest_latency"
+    | "best_quality"
+    | "local_first";
+  status: "proposal_only";
+  observations: ProviderRoutingObservation[];
+  candidates: ProviderRoutingCandidate[];
+  evaluated_candidates: ProviderRoutingCandidate[];
+  observed_candidate_count: number;
+  presented_candidate_count: number;
+  omitted_candidate_count: number;
+  recommended_candidate_ref: string | null;
+  approval_queue_route_ref: string;
+  run_detail_group_ref: string;
+  bounded_fanout_presentation_ref: string;
+  source_ref: string;
+  reason_codes: string[];
+  blocker_codes: string[];
+  safe_summary: string;
+  maximum_presented_candidates: number;
+  proposal_only: true;
+  deterministic: true;
+  safe_refs_only: true;
+  approval_refs_are_identifiers_only: true;
+  request_scoped_invocation_decision_required: true;
+  fresh_local_approval_validation_required: true;
+  fresh_authority_lease_evaluation_required: true;
+  invocation_authorized: false;
+  provider_call_performed: false;
+  fallback_execution_performed: false;
+  background_fanout_performed: false;
+  raw_prompt_persisted: false;
+  raw_response_persisted: false;
+  raw_provider_payload_persisted: false;
+}
+
 export interface ModelProviderControlPlaneReadModel {
   schema_version: "model_provider_control_plane.v1";
   contract_ref: string;
@@ -10052,6 +10188,7 @@ export interface ModelProviderControlPlaneReadModel {
   router_traces: ModelRouterTracePosture[];
   delegated_runtime_model_catalog: DelegatedRuntimeModelCatalogPosture;
   model_slot_posture: ModelSlotPostureReadModel;
+  provider_routing_intelligence: ProviderRoutingProposal;
   model_provider_research_posture: ModelProviderResearchPosture;
   credential_readiness_ref: string;
   provider_catalog_ref: string;
@@ -13022,12 +13159,92 @@ export interface RuntimeSkillMarketplaceStage {
   control_center_mints_authority: boolean;
 }
 
+export type RuntimeSkillSourceKind = "clawhub" | "hermes";
+export type RuntimeSkillSourceRankSignal =
+  | "weekly_trending"
+  | "not_provided";
+export type RuntimeSkillSourceScoreSignal = "stars" | "not_provided";
+
+export interface RuntimeSkillMarketplaceSourceSnapshot {
+  source_ref: string;
+  source_kind: RuntimeSkillSourceKind;
+  display_label: string;
+  captured_at: string;
+  source_version_ref: string;
+  record_count: number;
+  rank_signal: RuntimeSkillSourceRankSignal;
+  score_signal: RuntimeSkillSourceScoreSignal;
+  live_fetch_performed: false;
+  raw_payload_persisted: false;
+}
+
+export interface RuntimeSkillMarketplaceCatalogEntry {
+  skill_ref: string;
+  source_ref: string;
+  source_record_ref: string;
+  source_kind: RuntimeSkillSourceKind;
+  source_label: string;
+  slug: string;
+  display_name: string;
+  safe_summary: string;
+  category: string;
+  version: string;
+  license_label: string;
+  source_updated_at: string;
+  source_rank: number | null;
+  rank_label: string;
+  star_count: number | null;
+  download_count: number | null;
+  install_count: number | null;
+  comment_count: number | null;
+  average_rating: number | null;
+  rating_count: number | null;
+  source_metadata_only: true;
+  review_required: true;
+  risk_level: "unknown";
+  external_code_imported: false;
+  execution_enabled: false;
+}
+
+export interface RuntimeSkillMarketplaceCatalogSnapshot {
+  schema_version: "runtime_skill_marketplace_catalog_snapshot.v1";
+  snapshot_ref: string;
+  captured_at: string;
+  sources: RuntimeSkillMarketplaceSourceSnapshot[];
+  entries: RuntimeSkillMarketplaceCatalogEntry[];
+  entry_count: number;
+  default_page_size: 25;
+  pagination_supported: true;
+  metadata_only: true;
+  live_marketplace_fetch_performed: false;
+  raw_marketplace_payload_persisted: false;
+}
+
+export interface RuntimeSkillMarketplaceCatalogFreshness {
+  catalog_snapshot_ref: string;
+  status: "current" | "stale" | "unknown";
+  display_status:
+    | "available"
+    | "available_stale"
+    | "unavailable_unknown"
+    | "unavailable_authority";
+  checked_at: string;
+  expires_at: string;
+  freshness_policy_ref: string;
+  reason_refs: string[];
+  stale: boolean;
+  catalog_displayable: boolean;
+  unknown_degrades_to_unavailable: true;
+}
+
 export interface RuntimeSkillMarketplacePostureReadModel {
   schema_version: "runtime_skill_marketplace_posture.v1";
   contract_ref: string;
   status: string;
   snapshot_ref: string;
   snapshot_hash_ref: string;
+  snapshot_hash_algorithm_ref:
+    "hash-algorithm-ref:uaa-portable-canonical-json-v1:sha256";
   route_ref: string;
   cli_ref: string;
   doc_ref: string;
@@ -13043,6 +13260,8 @@ export interface RuntimeSkillMarketplacePostureReadModel {
   unsupported_adapter_refs: string[];
   control_center_ref: string;
   safe_summary: string;
+  catalog?: RuntimeSkillMarketplaceCatalogSnapshot;
+  catalog_freshness: RuntimeSkillMarketplaceCatalogFreshness;
   stages: RuntimeSkillMarketplaceStage[];
   stage_count: number;
   review_required_count: number;

@@ -33,6 +33,24 @@ The read model unifies existing UAA contracts:
 - local model inventory and M164 llama.cpp gateway posture;
 - M163 llama.cpp lifecycle contract posture;
 - deterministic ModelRouter trace metadata.
+- deterministic, bounded provider-routing intelligence adapted from the public
+  MIT-licensed ModelRouter project. The UAA-native projection binds each
+  injected observation to the canonical `CapabilityAvailabilitySnapshot`,
+  including compatibility, configuration, health, budget, freshness,
+  safe-disable, cost, latency, quality, and context posture. Unknown, stale,
+  degraded, constrained, or otherwise incomplete evidence fails closed. At
+  most 32 observations are accepted and four candidates are rendered; both
+  the complete request and the complete evaluated candidate set are retained as
+  bounded safe-ref evidence and fingerprint-bound. The contract recomputes the
+  strategy order and top-four selection from that complete evaluation set.
+  Each presented candidate identity additionally binds its normalized readiness,
+  provider/model/adapter refs, metrics, blockers, reasons, evidence, and canonical
+  availability snapshot; the proposal identity binds its request projection,
+  ordered presented set, recommendation, counts, reasons, blockers, and limit.
+  The result remains a non-authorizing proposal. The macOS-first Control Center
+  renders the same backend proposal as an operator-readable card and fails closed
+  if invocation, provider-call, approval-revalidation, or AuthorityLease truth
+  drifts.
 - UAA Runtime Parity Phase 06 role-based provider/model evidence
   for answerer, planner, reviewer, synthesizer, coder, extractor, and safety
   reviewer roles.
@@ -54,8 +72,49 @@ CLI parity:
 
 ```bash
 .venv/bin/python scripts/inspect_model_provider_control_plane.py
+.venv/bin/python scripts/inspect_model_provider_control_plane.py --json
 .venv/bin/python scripts/dev/uaa_runtime.py inspect-role-provider-evidence --json
 ```
+
+Human-readable output is primary. JSON exposes the same redacted Python-owned
+truth for automation. Candidate presentation is bounded to four rows and never
+performs provider fanout. Provider readiness adapters preserve unknown
+compatibility, health, budget, freshness, safe-disable, and runtime-class truth;
+they do not synthesize catalog support or readiness from credential or manifest
+reference presence. Proposal and observation identifiers bind the explicit
+observation timestamp, so callers inject one fixed `observed_at` when comparing
+API/CLI test projections; normal operator reads receive a fresh per-read identity.
+
+## Reciprocal Learning Kept UAA-Native
+
+The evidence-backed GoatCitadel comparison identified four Goat-to-UAA
+patterns worth adapting. Their current UAA-native boundaries are:
+
+- **Run Detail and readable approvals:** the existing backend-owned,
+  run-attached approval queue and Proof Run Detail remain the source of truth;
+  React renders them and cannot mint approval or lease authority.
+- **Provider explanations:** `ProviderRoutingProposal` explains bounded
+  candidates, blockers, cost, latency, quality, and readiness. A recommendation
+  must still pass fresh request-scoped policy, LocalApprovalAuthority,
+  AuthorityLease, budget, target, adapter, kill-switch, safe-disable, deadline,
+  and idempotency evaluation before invocation.
+- **Approval evidence:** a routed model decision reports `APPROVAL_VALIDATED`
+  only when exact LocalApprovalAuthority validation actually occurred and a
+  content-free validation-request and decision fingerprint is bound. Runtime-
+  request construction reproduces the deterministic route and revalidates that
+  same exact run, subject, action, resource, and risk scope; test-shaped approval
+  refs are always denied.
+- **Code workbench review:** transient patch content can be reduced to an exact
+  hash, target fingerprint, immutable full Git revision, approval-scope fingerprint,
+  validation plan, rollback plan, and idempotency ref. The patch body is not
+  persisted and apply remains a separately governed lane.
+- **Extension developer tooling:** `uaa_extensions.py validate-entry` provides
+  focused metadata, provenance, version, and pinned-hash feedback for known
+  catalog entries. Validation never imports or executes an extension.
+
+UAA intentionally does not borrow wildcard grants, approval bypasses,
+content-bearing durable traces, trusted-host execution presented as sealed
+isolation, or arbitrary extension imports.
 
 Verifier:
 

@@ -47,6 +47,19 @@ describe("getRouteStateDescriptor", () => {
     );
   });
 
+  it("lists Studio as the single supporting entry for Skill Workbench", () => {
+    expect(supportingNavItems).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: "/studio/skills",
+          label: "Studio",
+          group: "Review",
+          releaseStatus: "partial",
+        }),
+      ]),
+    );
+  });
+
   it("maps an exact-proof route with backend-owned data to success", () => {
     const descriptor = getRouteStateDescriptor(
       "/actions",

@@ -218,6 +218,29 @@
         "mobile": "sha256:e09e03b56943dbd24c81b6f561f3e3344b22ca0012bf40c0d279f7d9e94c26b7"
       },
       "raw_private_screenshot_included": false
+    },
+    {
+      "surface": "Studio Skill Workbench",
+      "route": "/studio/skills",
+      "baseline_ref": "visual-baseline:control-center:studio-skills",
+      "baseline_status": "checked-in redacted PNG baseline",
+      "desktop_variants": {
+        "wide": {
+          "viewport_ref": "viewport:desktop-wide-1586x992",
+          "width": 1586,
+          "height": 992,
+          "baseline_file_ref": "visual-baseline-file:desktop:studio-skills-wide",
+          "baseline_hash": "sha256:adb1cf31cc5351d5a0e3ace82a6b973141f9074cdc319a1afdfaf2637a83e14b"
+        },
+        "compact": {
+          "viewport_ref": "viewport:desktop-compact-1280x800",
+          "width": 1280,
+          "height": 800,
+          "baseline_file_ref": "visual-baseline-file:desktop:studio-skills-compact",
+          "baseline_hash": "sha256:ba4f1f119bf48467a99789d1a7e335a31db598590d6cf1feedfa672419985767"
+        }
+      },
+      "raw_private_screenshot_included": false
     }
   ],
   "non_goals": [

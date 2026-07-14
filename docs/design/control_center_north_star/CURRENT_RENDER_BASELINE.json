@@ -1,6 +1,6 @@
 {
   "schema": "uaa.control_center.render_baseline.v1",
-  "baseline_id": "CC-NS-TARGET-R3-2026-07-11",
+  "baseline_id": "CC-NS-TARGET-R6-2026-07-13",
   "current_as_of": "2026-07-13",
   "period": "2026-07",
   "status": "current_review_target",
@@ -26,7 +26,7 @@
     {
       "id": "target-v3",
       "path": "renders/target-v3",
-      "status": "current_crm_revision"
+      "status": "current_surface_revisions"
     },
     {
       "id": "news-signals-v1",
@@ -68,6 +68,42 @@
       "preserved_explorations": [
         "renders/target-v2/15-news-v1.png"
       ]
+    },
+    "studio": {
+      "series_id": "STUDIO-01",
+      "status": "accepted_design_target",
+      "latest": "renders/target-v3/06-studio-unified-v7.png",
+      "platform": "macos_desktop",
+      "pixel_width": 1586,
+      "pixel_height": 992,
+      "sha256": "c5735f72a974cef69bbb02b81a4a3b58562666f693e2b90d5574c55007ac12f9",
+      "modes": ["chat", "code", "create"],
+      "preserved_explorations": [
+        "renders/target-v3/06-agent-studio-v5.png",
+        "renders/target-v3/06-creative-studio-v2.png"
+      ]
+    },
+    "skill_workbench": {
+      "series_id": "STUDIO-SKILLS-01",
+      "status": "accepted_design_target",
+      "platform": "macos_desktop",
+      "pixel_width": 1586,
+      "pixel_height": 992,
+      "grid": "renders/target-v3/07-skill-workbench-grid-v1.png",
+      "grid_sha256": "cf6268b2412843767825b48214500039e420e4d8440bb849f3e56f927585557c",
+      "grid_filter": "hermes",
+      "list": "renders/target-v3/08-skill-workbench-list-v1.png",
+      "list_sha256": "11895f37eb67d7c6e95ff54bcc9499e907ee44ce202cc404b84d6bf9abc967b6",
+      "canonical_ui_reference": "studio_create_dense_discovery",
+      "default_view": "list",
+      "page_size": 25,
+      "list_columns": ["skill", "category", "source", "rank", "source_signal", "popularity", "updated"],
+      "compact_list_columns": ["skill", "source", "rank", "source_signal"],
+      "primary_value_overflow": "wrap_or_hide_whole_column_never_ellipsis",
+      "secondary_ellipsis_allowed": ["safe_summary", "safe_ref"],
+      "hidden_compact_details_remain_in_inspector": true,
+      "source_signals": ["rank", "stars", "downloads", "ratings_when_provided"],
+      "risk_label": "not_assessed_in_inspector_only"
     },
     "messenger": {
       "series_id": "COMMS-MX",

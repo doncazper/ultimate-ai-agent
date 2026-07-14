@@ -1043,6 +1043,36 @@
       ]
     },
     {
+      "capability_id": "studio_skill_marketplace_inspection",
+      "label": "Studio Skill Workbench metadata inspection",
+      "python_core_owner": "src/ultimate_ai_agent/core/runtime_gateway/skill_marketplace_posture.py",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/api/runtime/skill-marketplace-posture",
+          "operation_id": "get_api_runtime_skill_marketplace_posture"
+        }
+      ],
+      "cli_paths": [
+        "scripts/dev/uaa_runtime.py"
+      ],
+      "ui_routes": [
+        "/studio/skills"
+      ],
+      "control_action_ids": [
+        "navigate-studio-skill-workbench"
+      ],
+      "authority_posture": "read-only backend-validated metadata inspection; visibility never grants install, import, execution, provider, browser, connector, shell, or production authority",
+      "status": "ui_api_cli_wired",
+      "missing_reason": "none",
+      "tests_evidence_refs": [
+        "tests/test_hermes_runtime_skill_marketplace_posture.py",
+        "tests/test_control_center_studio_render_evidence.py",
+        "tests/test_control_center_visual_and_packaging_proofs.py",
+        "scripts/verify_hermes_runtime_adoption_phase_45.py"
+      ]
+    },
+    {
       "capability_id": "future_domain_governance_surfaces",
       "label": "Remote worker, mobile, and plugin governance planning",
       "python_core_owner": "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md",

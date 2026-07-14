@@ -53,6 +53,16 @@ def test_polish_visual_manifest_covers_required_surfaces() -> None:
     assert manifest["baseline_policy"]["secret_material_allowed"] is False
     for surface in manifest["surfaces"]:
         assert surface["raw_private_screenshot_included"] is False
+        if "desktop_variants" in surface:
+            assert set(surface["desktop_variants"]) == {"wide", "compact"}
+            assert surface["desktop_variants"]["wide"]["baseline_hash"].startswith(
+                "sha256:"
+            )
+            assert surface["desktop_variants"]["compact"][
+                "baseline_hash"
+            ].startswith("sha256:")
+            assert "mobile" not in surface["desktop_variants"]
+            continue
         assert surface["baseline_hashes"]["desktop"].startswith("sha256:")
         assert surface["baseline_hashes"]["mobile"].startswith("sha256:")
 

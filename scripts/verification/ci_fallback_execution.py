@@ -8,6 +8,7 @@ import stat
 import subprocess
 import tempfile
 import time
+from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -20,19 +21,21 @@ from scripts.verification.ci_command_manifest import (
     build_plan,
     command_registry,
     lane_registry,
-    verification_plan_fingerprint,
     visual_scope_for_paths,
 )
 from scripts.verification.ci_fallback_contracts import (
     SAFE_REF_PATTERN,
     SHA_PATTERN,
     PrivateVerificationResult,
+    has_valid_command_result_evidence,
+    has_valid_timing_window,
 )
 from scripts.verification.pytest_shard_processes import (
     cancellation_signals,
     installed_signal_handlers,
     stop_processes,
 )
+from scripts.verification.run_ci_lane import expected_pytest_shard_plan_ref
 
 
 def _safe_subprocess(
@@ -70,9 +73,12 @@ def _safe_subprocess(
         stop_processes((process,), 10.0)
         returncode = 130
     duration_ms = max(0, int((time.perf_counter() - started) * 1000))
-    result_ref = "result-ref:ci:" + hashlib.sha256(
-        ("|".join(argv) + f"|{returncode}|{duration_ms}").encode()
-    ).hexdigest()
+    result_ref = (
+        "result-ref:ci:"
+        + hashlib.sha256(
+            ("|".join(argv) + f"|{returncode}|{duration_ms}").encode()
+        ).hexdigest()
+    )
     return returncode, duration_ms, result_ref
 
 
@@ -99,12 +105,9 @@ def _read_lane_receipt(
     path: Path,
     *,
     lane_ref: str,
-    repository_sha: str,
-    definition_ref: str,
-    lock_fingerprints: tuple[tuple[str, str], ...],
-    shard_plan_fingerprint: str,
-    visual_scope: str,
+    expected_plan: VerificationPlan,
 ) -> str:
+    repository_sha = expected_plan.repository_sha
     descriptor = -1
     try:
         flags = os.O_RDONLY
@@ -146,45 +149,27 @@ def _read_lane_receipt(
         "receipt_ref",
     }
     lane = lane_registry()[lane_ref]
-    selected_command_refs = tuple(
-        command_ref
-        for command_ref in lane.command_refs
-        if command_ref not in lane.satisfied_command_refs
-    )
     plan = payload.get("plan") if isinstance(payload, dict) else None
     if not isinstance(plan, dict):
         raise ValueError("private CI lane receipt does not contain a plan")
-    plan_without_fingerprint = {
-        key: value for key, value in plan.items() if key != "plan_fingerprint"
-    }
-    try:
-        recomputed_plan_ref = verification_plan_fingerprint(plan_without_fingerprint)
-    except ValueError as exc:
-        raise ValueError("private CI lane receipt plan is invalid") from exc
     command_results = payload.get("command_results")
     if not isinstance(command_results, list) or [
         result.get("command_ref") if isinstance(result, dict) else None
         for result in command_results
     ] != list(lane.command_refs):
         raise ValueError("private CI lane receipt command membership is invalid")
-    allowed_result_fields = {
-        "command_ref",
-        "category",
-        "status",
-        "started_at",
-        "completed_at",
-        "duration_ms",
-        "output_byte_count",
-        "output_digest",
-        "result_ref",
-        "reason_ref",
-        "redaction_status",
-    }
+    expected_pytest_plan_ref = expected_pytest_shard_plan_ref()
     if any(
-        set(result) - allowed_result_fields
-        or result.get("redaction_status") != "content_free_output_metadata_only"
-        or not isinstance(result.get("result_ref"), str)
-        or not SAFE_REF_PATTERN.fullmatch(result["result_ref"])
+        not has_valid_command_result_evidence(
+            result,
+            lane_ref=lane_ref,
+            repository_sha=repository_sha,
+            expected_category=command_registry()[result["command_ref"]].category,
+            expected_pytest_plan_ref=expected_pytest_plan_ref,
+            satisfied_by_dependency=(
+                result["command_ref"] in lane.satisfied_command_refs
+            ),
+        )
         for result in command_results
     ):
         raise ValueError("private CI lane receipt command evidence is unsafe")
@@ -200,27 +185,25 @@ def _read_lane_receipt(
         or payload.get("merge_gate_satisfied") is not False
         or payload.get("redaction_status")
         != "content_free_refs_hashes_counts_and_durations_only"
-        or plan.get("definition_fingerprint") != definition_ref
-        or tuple(
-            tuple(value)
-            for value in plan.get("dependency_lock_fingerprints", [])
+        or not has_valid_timing_window(
+            payload.get("started_at"),
+            payload.get("completed_at"),
+            payload.get("duration_ms"),
         )
-        != lock_fingerprints
-        or tuple(plan.get("selected_lane_refs", [])) != (lane_ref,)
-        or tuple(plan.get("selected_command_refs", [])) != selected_command_refs
-        or plan.get("pytest_shard_plan_fingerprint") != shard_plan_fingerprint
-        or plan.get("frontend_visual_scope") != visual_scope
-        or plan.get("plan_fingerprint") != recomputed_plan_ref
+        or plan != json.loads(json.dumps(asdict(expected_plan)))
     ):
         raise ValueError("private CI lane receipt does not match its exact plan")
     receipt_ref = payload.get("receipt_ref")
-    expected_receipt_ref = "receipt-ref:ci-lane:" + hashlib.sha256(
-        json.dumps(
-            {key: value for key, value in payload.items() if key != "receipt_ref"},
-            sort_keys=True,
-            separators=(",", ":"),
-        ).encode()
-    ).hexdigest()
+    expected_receipt_ref = (
+        "receipt-ref:ci-lane:"
+        + hashlib.sha256(
+            json.dumps(
+                {key: value for key, value in payload.items() if key != "receipt_ref"},
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode()
+        ).hexdigest()
+    )
     if (
         not isinstance(receipt_ref, str)
         or not SAFE_REF_PATTERN.fullmatch(receipt_ref)
@@ -230,10 +213,8 @@ def _read_lane_receipt(
     return receipt_ref
 
 
-PRIVATE_LANE_REFS = (
-    "ci-affected-preflight",
-    *(job.lane_ref for job in CI_JOB_GRAPH if job.lane_ref is not None),
-)
+_JOB_LANES = (job.lane_ref for job in CI_JOB_GRAPH if job.lane_ref)
+PRIVATE_LANE_REFS = tuple(dict.fromkeys(("ci-affected-preflight", *_JOB_LANES)))
 ALLOWED_ORIGIN_URLS = frozenset(
     {
         "git@github.com:doncazper/ultimate-ai-agent.git",
@@ -277,7 +258,9 @@ class IsolatedPrivateExecutor:
         if self._git("remote", "get-url", "origin") not in ALLOWED_ORIGIN_URLS:
             raise ValueError("private CI origin is not the canonical UAA repository")
         remote_contains = self._git("branch", "-r", "--contains", repository_sha)
-        if not any(line.strip().startswith("origin/") for line in remote_contains.splitlines()):
+        if not any(
+            line.strip().startswith("origin/") for line in remote_contains.splitlines()
+        ):
             raise ValueError("private CI exact SHA must already be pushed to origin")
         origin_main_sha = self._git("rev-parse", "refs/remotes/origin/main")
         if not SHA_PATTERN.fullmatch(origin_main_sha):
@@ -285,7 +268,9 @@ class IsolatedPrivateExecutor:
         private_verification_plan(self.repo, repository_sha)
         return origin_main_sha
 
-    def verify(self, repository_sha: str, *, series_ref: str) -> PrivateVerificationResult:
+    def verify(
+        self, repository_sha: str, *, series_ref: str
+    ) -> PrivateVerificationResult:
         del series_ref
         origin_main_sha = self._preflight(repository_sha)
         started_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
@@ -305,9 +290,7 @@ class IsolatedPrivateExecutor:
                 result_refs,
             )
         finally:
-            status_value = self._remove_owned_worktree(
-                worktree, root, status_value
-            )
+            status_value = self._remove_owned_worktree(worktree, root, status_value)
 
         if isolated_plan is None:
             raise RuntimeError("private CI did not prepare an isolated plan")
@@ -320,9 +303,14 @@ class IsolatedPrivateExecutor:
             "started_at": started_at,
             "completed_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         }
-        receipt_ref = "receipt-ref:private-ci:" + hashlib.sha256(
-            json.dumps(receipt_payload, sort_keys=True, separators=(",", ":")).encode()
-        ).hexdigest()
+        receipt_ref = (
+            "receipt-ref:private-ci:"
+            + hashlib.sha256(
+                json.dumps(
+                    receipt_payload, sort_keys=True, separators=(",", ":")
+                ).encode()
+            ).hexdigest()
+        )
         result = PrivateVerificationResult(**receipt_payload, receipt_ref=receipt_ref)
         result.validate()
         return result
@@ -477,9 +465,6 @@ class IsolatedPrivateExecutor:
         lane_ref: str,
         *,
         repository_sha: str,
-        definition_ref: str,
-        lock_fingerprints: tuple[tuple[str, str], ...],
-        shard_plan_fingerprint: str,
         root: Path,
         worktree: Path,
         env: dict[str, str],
@@ -489,6 +474,12 @@ class IsolatedPrivateExecutor:
         result_refs: list[str],
         full_suite_lock_mode: str | None = None,
     ) -> bool:
+        expected_plan = build_plan(
+            worktree,
+            repository_sha,
+            lane_refs=(lane_ref,),
+            frontend_visual_scope=visual_scope,
+        )
         receipt_path = root / "lane-receipts" / f"{lane_ref}.json"
         lane_command = (
             ".venv/bin/python",
@@ -521,11 +512,7 @@ class IsolatedPrivateExecutor:
             _read_lane_receipt(
                 receipt_path,
                 lane_ref=lane_ref,
-                repository_sha=repository_sha,
-                definition_ref=definition_ref,
-                lock_fingerprints=lock_fingerprints,
-                shard_plan_fingerprint=shard_plan_fingerprint,
-                visual_scope=visual_scope,
+                expected_plan=expected_plan,
             )
         )
         return True
@@ -540,9 +527,6 @@ class IsolatedPrivateExecutor:
         result_refs: list[str],
         isolated_plan: VerificationPlan,
     ) -> str:
-        definition_ref = isolated_plan.definition_fingerprint
-        lock_fingerprints = isolated_plan.dependency_lock_fingerprints
-        shard_plan_fingerprint = isolated_plan.pytest_shard_plan_fingerprint
         npm_ready = False
         if IsolatedPrivateExecutor._affected_preflight_requires_frontend(worktree):
             returncode, duration_ms, result_ref = _safe_subprocess(
@@ -559,9 +543,6 @@ class IsolatedPrivateExecutor:
         if not IsolatedPrivateExecutor._run_lane(
             "ci-affected-preflight",
             repository_sha=repository_sha,
-            definition_ref=definition_ref,
-            lock_fingerprints=lock_fingerprints,
-            shard_plan_fingerprint=shard_plan_fingerprint,
             root=root,
             worktree=worktree,
             env=env,
@@ -583,15 +564,14 @@ class IsolatedPrivateExecutor:
                 docker_available = "available"
         playwright_ready = False
         for job in CI_JOB_GRAPH:
-            if job.lane_ref is None:
+            if job.lane_ref is None or job.lane_ref == "ci-affected-preflight":
                 continue
             needs_frontend = job.lane_ref in {
                 "ci-control-center-frontend",
                 "frontend",
                 "visual-regression",
             } or (
-                job.lane_ref == "desktop-packaging"
-                and docker_available == "available"
+                job.lane_ref == "desktop-packaging" and docker_available == "available"
             )
             if needs_frontend and not npm_ready:
                 returncode, duration_ms, result_ref = _safe_subprocess(
@@ -635,9 +615,6 @@ class IsolatedPrivateExecutor:
             if not IsolatedPrivateExecutor._run_lane(
                 job.lane_ref,
                 repository_sha=repository_sha,
-                definition_ref=definition_ref,
-                lock_fingerprints=lock_fingerprints,
-                shard_plan_fingerprint=shard_plan_fingerprint,
                 root=root,
                 worktree=worktree,
                 env=env,

@@ -21,6 +21,58 @@ SHA = subprocess.run(
 ).stdout.strip()
 
 
+class _FakeFullSuiteLock:
+    def __init__(self, **_kwargs: object) -> None:
+        pass
+
+    def __enter__(self) -> _FakeFullSuiteLock:
+        return self
+
+    def __exit__(self, *_args: object) -> None:
+        return None
+
+    def ensure_start_available(self) -> None:
+        pass
+
+    def record_start(self) -> None:
+        pass
+
+
+def _write_pytest_performance_report(
+    path: Path,
+    *,
+    failed_index: int | None = None,
+    timed_out: bool = False,
+    plan_ref: str = "pytest-shard-plan-ref:sha256:" + "a" * 64,
+    run_status: str | None = None,
+) -> None:
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": "uaa_pytest_performance_report.v1",
+                "plan_fingerprint_ref": plan_ref,
+                "run_status": run_status
+                or (
+                    "timeout"
+                    if timed_out
+                    else "failed"
+                    if failed_index is not None
+                    else "green"
+                ),
+                "shards": [
+                    {
+                        "shard_index": index,
+                        "return_code": 1 if index == failed_index else 0,
+                        "timed_out": timed_out and index == failed_index,
+                    }
+                    for index in range(8)
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
 def _patch_lane(
     monkeypatch: pytest.MonkeyPatch,
     commands: tuple[CommandSpec, ...],
@@ -76,8 +128,9 @@ def test_lane_runner_emits_content_free_hash_bound_receipt(
     assert str(tmp_path) not in serialized
     assert receipt["command_results"][0]["output_byte_count"] > 0
     assert len(receipt["command_results"][0]["output_digest"]) == 64
-    assert json.loads(receipt_file.read_text(encoding="utf-8"))["receipt_ref"] == (
-        receipt["receipt_ref"]
+    assert (
+        json.loads(receipt_file.read_text(encoding="utf-8"))["receipt_ref"]
+        == (receipt["receipt_ref"])
     )
 
 
@@ -113,6 +166,229 @@ def test_lane_runner_stops_after_deterministic_failure(
     assert [item["command_ref"] for item in receipt["command_results"]] == [
         "command:test.fail"
     ]
+
+
+def test_pytest_shard_evidence_retains_only_reproducible_failed_refs(
+    tmp_path: Path,
+) -> None:
+    report = tmp_path / runner.PYTEST_PERFORMANCE_REPORT_NAME
+    _write_pytest_performance_report(report, failed_index=3)
+
+    evidence = runner._pytest_shard_evidence(
+        tmp_path,
+        expected_plan_ref="pytest-shard-plan-ref:sha256:" + "a" * 64,
+        command_status="fail",
+    )
+
+    assert evidence == {
+        "pytest_shard_evidence_status": "available",
+        "pytest_shard_plan_fingerprint_ref": (
+            "pytest-shard-plan-ref:sha256:" + "a" * 64
+        ),
+        "pytest_shard_count": 8,
+        "failed_shard_count": 1,
+        "failed_shard_refs": ("pytest-shard-ref:3:failed",),
+    }
+    serialized = json.dumps(evidence, sort_keys=True)
+    assert str(tmp_path) not in serialized
+    assert "raw" not in serialized
+
+
+def test_pytest_shard_evidence_marks_timeout_without_raw_output(
+    tmp_path: Path,
+) -> None:
+    report = tmp_path / runner.PYTEST_PERFORMANCE_REPORT_NAME
+    _write_pytest_performance_report(report, failed_index=6, timed_out=True)
+
+    evidence = runner._pytest_shard_evidence(
+        tmp_path,
+        expected_plan_ref="pytest-shard-plan-ref:sha256:" + "a" * 64,
+        command_status="fail",
+    )
+
+    assert evidence["failed_shard_refs"] == ("pytest-shard-ref:6:timed-out",)
+
+
+def test_pytest_shard_evidence_rejects_symlink_and_malformed_report(
+    tmp_path: Path,
+) -> None:
+    outside = tmp_path / "outside.json"
+    _write_pytest_performance_report(outside, failed_index=1)
+    report = tmp_path / runner.PYTEST_PERFORMANCE_REPORT_NAME
+    report.symlink_to(outside)
+
+    symlink_evidence = runner._pytest_shard_evidence(
+        tmp_path,
+        expected_plan_ref="pytest-shard-plan-ref:sha256:" + "a" * 64,
+        command_status="fail",
+    )
+    assert symlink_evidence["pytest_shard_evidence_status"] == "rejected"
+    assert "unsafe" in symlink_evidence["pytest_shard_evidence_reason_ref"]
+
+    report.unlink()
+    report.write_text('{"schema_version":"wrong"}', encoding="utf-8")
+    malformed_evidence = runner._pytest_shard_evidence(
+        tmp_path,
+        expected_plan_ref="pytest-shard-plan-ref:sha256:" + "a" * 64,
+        command_status="fail",
+    )
+    assert malformed_evidence["pytest_shard_evidence_status"] == "rejected"
+    assert "invalid" in malformed_evidence["pytest_shard_evidence_reason_ref"]
+
+
+def test_pytest_lane_receipt_and_summary_retain_safe_failed_shard_ref(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    command = CommandSpec(
+        "command:test.pytest-shards",
+        (sys.executable, "-c", "raise SystemExit(0)"),
+        (),
+        "test",
+        10,
+    )
+    _patch_lane(monkeypatch, (command,), lane_ref="ci-pytest-shards")
+
+    def fake_run_command(
+        _command: CommandSpec,
+        *,
+        temp_root: Path,
+        **_kwargs: object,
+    ) -> dict[str, object]:
+        _write_pytest_performance_report(
+            temp_root / runner.PYTEST_PERFORMANCE_REPORT_NAME,
+            failed_index=2,
+        )
+        return {
+            "command_ref": "command:test.pytest-shards",
+            "category": "test",
+            "status": "fail",
+            "duration_ms": 1,
+            "result_ref": "result-ref:ci:test",
+            "redaction_status": "content_free_output_metadata_only",
+        }
+
+    monkeypatch.setattr(runner, "FullSuiteLock", _FakeFullSuiteLock)
+    monkeypatch.setattr(runner.importlib.util, "find_spec", lambda _name: object())
+    monkeypatch.setattr(
+        runner,
+        "expected_pytest_shard_plan_ref",
+        lambda: "pytest-shard-plan-ref:sha256:" + "a" * 64,
+    )
+    monkeypatch.setattr(runner, "_run_command", fake_run_command)
+    summary_file = tmp_path / "summary.md"
+
+    receipt = runner.run_lane(
+        "ci-pytest-shards",
+        repository_sha=SHA,
+        temp_root=tmp_path / "temp",
+        summary_file=summary_file,
+    )
+
+    result = receipt["command_results"][0]
+    assert result["failed_shard_refs"] == ("pytest-shard-ref:2:failed",)
+    summary = summary_file.read_text(encoding="utf-8")
+    assert "pytest-shard-ref:2:failed" in summary
+    assert "make ci-reproduce-shard CI_SHARD_INDEX=2" in summary
+    assert str(tmp_path) not in json.dumps(receipt, sort_keys=True)
+
+
+def test_main_prints_safe_failed_shard_reproduction_ref(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    receipt = {
+        "lane_ref": "ci-pytest-shards",
+        "status": "fail",
+        "repository_sha": SHA,
+        "plan": {"definition_fingerprint": "manifest-ref:safe"},
+        "command_results": [
+            {
+                "command_ref": "command:pytest.sharded-suite",
+                "status": "fail",
+                "pytest_shard_evidence_status": "available",
+                "failed_shard_refs": ("pytest-shard-ref:4:failed",),
+            }
+        ],
+    }
+    monkeypatch.setattr(runner, "run_lane", lambda *_args, **_kwargs: receipt)
+
+    exit_code = runner.main(
+        [
+            "--lane",
+            "ci-pytest-shards",
+            "--sha",
+            SHA,
+            "--temp-root",
+            str(tmp_path / "temp"),
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "pytest-shard-ref:4:failed" in captured.out
+    assert "make ci-reproduce-shard CI_SHARD_INDEX=4" in captured.out
+    assert str(tmp_path) not in captured.out
+
+
+def test_pytest_shard_evidence_rejects_stale_or_contradictory_report(
+    tmp_path: Path,
+) -> None:
+    report = tmp_path / runner.PYTEST_PERFORMANCE_REPORT_NAME
+    _write_pytest_performance_report(
+        report,
+        plan_ref="pytest-shard-plan-ref:sha256:" + "b" * 64,
+    )
+    stale = runner._pytest_shard_evidence(
+        tmp_path,
+        expected_plan_ref="pytest-shard-plan-ref:sha256:" + "a" * 64,
+        command_status="pass",
+    )
+    assert stale["pytest_shard_evidence_status"] == "rejected"
+
+    report.unlink()
+    _write_pytest_performance_report(report, failed_index=2)
+    contradictory = runner._pytest_shard_evidence(
+        tmp_path,
+        expected_plan_ref="pytest-shard-plan-ref:sha256:" + "a" * 64,
+        command_status="pass",
+    )
+    assert contradictory["pytest_shard_evidence_status"] == "rejected"
+    assert "inconsistent" in contradictory["pytest_shard_evidence_reason_ref"]
+
+
+def test_pytest_lane_rejects_preexisting_performance_report(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    command = CommandSpec(
+        "command:test.pytest-shards",
+        (sys.executable, "-c", "raise SystemExit(0)"),
+        (),
+        "test",
+        10,
+    )
+    _patch_lane(monkeypatch, (command,), lane_ref="ci-pytest-shards")
+    temp_root = tmp_path / "temp"
+    temp_root.mkdir()
+    _write_pytest_performance_report(temp_root / runner.PYTEST_PERFORMANCE_REPORT_NAME)
+    monkeypatch.setattr(runner, "FullSuiteLock", _FakeFullSuiteLock)
+    monkeypatch.setattr(runner.importlib.util, "find_spec", lambda _name: object())
+    started: list[bool] = []
+    monkeypatch.setattr(
+        runner,
+        "_run_command",
+        lambda *_args, **_kwargs: started.append(True),
+    )
+
+    with pytest.raises(ValueError, match="must not predate"):
+        runner.run_lane(
+            "ci-pytest-shards",
+            repository_sha=SHA,
+            temp_root=temp_root,
+        )
+    assert started == []
 
 
 def test_full_suite_attempt_is_fenced_before_process_spawn(
@@ -235,6 +511,40 @@ def test_cli_redacts_full_suite_lock_failure(
     assert captured.out == ""
     assert captured.err.strip() == (
         "UAA CI lane blocked: reason-ref:ci:full-suite-capacity-unavailable"
+    )
+    assert "Traceback" not in captured.err
+    assert unsafe_detail not in captured.err
+    assert str(tmp_path) not in captured.err
+
+
+def test_cli_redacts_duplicate_full_suite_attempt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    unsafe_detail = f"duplicate attempt recorded at {tmp_path}"
+
+    def _raise_duplicate(*_args: object, **_kwargs: object) -> dict[str, object]:
+        raise runner.FullSuiteAttemptAlreadyRecordedError(unsafe_detail)
+
+    monkeypatch.setattr(runner, "run_lane", _raise_duplicate)
+
+    exit_code = runner.main(
+        [
+            "--lane",
+            "ci-pytest-shards",
+            "--sha",
+            SHA,
+            "--temp-root",
+            str(tmp_path / "temp"),
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert captured.out == ""
+    assert captured.err.strip() == (
+        "UAA CI lane blocked: reason-ref:ci:full-suite-attempt-recorded"
     )
     assert "Traceback" not in captured.err
     assert unsafe_detail not in captured.err

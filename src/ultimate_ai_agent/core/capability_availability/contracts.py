@@ -29,12 +29,8 @@ CAPABILITY_AVAILABILITY_SCHEMA_VERSION = "uaa-capability-availability.v1"
 CAPABILITY_AVAILABILITY_READ_MODEL_SCHEMA_VERSION = (
     "uaa-capability-availability-read-model.v1"
 )
-CAPABILITY_INVOCATION_DECISION_SCHEMA_VERSION = (
-    "uaa-capability-invocation-decision.v1"
-)
-CAPABILITY_AVAILABILITY_ROUTE_REF = (
-    "GET /control-center/capabilities/availability"
-)
+CAPABILITY_INVOCATION_DECISION_SCHEMA_VERSION = "uaa-capability-invocation-decision.v1"
+CAPABILITY_AVAILABILITY_ROUTE_REF = "GET /control-center/capabilities/availability"
 CAPABILITY_AVAILABILITY_CLI_REF = (
     "repo-local-command:uaa-runtime-capability-availability"
 )
@@ -46,6 +42,9 @@ EXECUTION_RECEIPT_CONTRACT_REF = "contract-ref:lane-specific-execution-receipt"
 
 _SAFE_CODE_RE = re.compile(r"^[A-Z][A-Z0-9_]{2,127}$")
 _RAW_ENV_ASSIGNMENT_RE = re.compile(r"\b[A-Z][A-Z0-9_]{2,}\s*=")
+_RAW_LOCAL_PATH_RE = re.compile(
+    r"(^|[\s:=])(?:/Users/|/home/|/var/|/etc/|/private/|/tmp/|[A-Za-z]:\\)"
+)
 _RAW_USERNAME_RE = re.compile(r"(?<![A-Za-z0-9])@[A-Za-z0-9_.-]{2,}")
 _HOSTNAME_RE = re.compile(
     r"(?i)\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+"
@@ -615,7 +614,10 @@ def evaluate_capability_invocation(
     if policy_decision.status == PolicyDecisionStatus.approval_required:
         requested_outcome = InvocationDecisionOutcome.approval_required
         reasons.append("POLICY_REQUIRES_APPROVAL")
-    elif policy_decision.status != PolicyDecisionStatus.allowed or not policy_decision.allowed:
+    elif (
+        policy_decision.status != PolicyDecisionStatus.allowed
+        or not policy_decision.allowed
+    ):
         blockers.append("POLICY_ENGINE_DENIED")
 
     approval_required = (
@@ -677,20 +679,14 @@ def evaluate_capability_invocation(
     reasons = _dedupe(reasons)
     if blockers:
         outcome = InvocationDecisionOutcome.blocked
-        safe_summary = (
-            "Exact request evaluation blocked execution; availability did not grant authority."
-        )
+        safe_summary = "Exact request evaluation blocked execution; availability did not grant authority."
     elif requested_outcome is not None:
         outcome = requested_outcome
-        safe_summary = (
-            "Exact request evaluation requires an additional scoped authority decision before execution."
-        )
+        safe_summary = "Exact request evaluation requires an additional scoped authority decision before execution."
     else:
         outcome = InvocationDecisionOutcome.allow
         reasons.append("REQUEST_SCOPED_INVOCATION_ALLOWED")
-        safe_summary = (
-            "Exact request gates passed for one immediate execution attempt; a separate execution receipt is required."
-        )
+        safe_summary = "Exact request gates passed for one immediate execution attempt; a separate execution receipt is required."
 
     decision_ref = _stable_decision_ref(
         request=request,
@@ -923,9 +919,7 @@ class CapabilityAvailabilityReadModel(_CapabilityAvailabilityModel):
         CAPABILITY_AVAILABILITY_ROUTE_REF
     )
     cli_ref: str = CAPABILITY_AVAILABILITY_CLI_REF
-    invocation_decision_contract_ref: str = (
-        CAPABILITY_INVOCATION_DECISION_CONTRACT_REF
-    )
+    invocation_decision_contract_ref: str = CAPABILITY_INVOCATION_DECISION_CONTRACT_REF
     execution_receipt_contract_ref: str = EXECUTION_RECEIPT_CONTRACT_REF
     authority_boundary: Literal["request_scoped_evaluation_required"] = (
         "request_scoped_evaluation_required"
@@ -933,9 +927,7 @@ class CapabilityAvailabilityReadModel(_CapabilityAvailabilityModel):
     redaction_posture: Literal["safe_refs_and_bounded_summaries_only"] = (
         "safe_refs_and_bounded_summaries_only"
     )
-    probe_posture: Literal["injected_observations_only"] = (
-        "injected_observations_only"
-    )
+    probe_posture: Literal["injected_observations_only"] = "injected_observations_only"
     execution_evidence_posture: Literal["separate_receipt_contract"] = (
         "separate_receipt_contract"
     )
@@ -991,7 +983,9 @@ class CapabilityAvailabilityReadModel(_CapabilityAvailabilityModel):
             for status in DerivedRuntimeReadinessStatus
         }
         expected_authority = {
-            status.value: sum(item.authority_posture == status for item in self.snapshots)
+            status.value: sum(
+                item.authority_posture == status for item in self.snapshots
+            )
             for status in AuthorityPosture
         }
         if self.readiness_counts != expected_readiness:
@@ -1030,14 +1024,26 @@ def _aware_datetime(value: datetime, field_name: str) -> datetime:
     return value
 
 
-def _validate_safe_summary(value: str) -> None:
-    validate_safe_execution_text(value, "capability_availability_safe_summary")
+def validate_capability_availability_safe_text(
+    value: str,
+    field_name: str = "capability_availability_safe_summary",
+) -> str:
+    """Validate operator-visible text against the canonical availability boundary."""
+
+    validate_safe_execution_text(value, field_name)
     if _RAW_ENV_ASSIGNMENT_RE.search(value):
         raise ValueError("CAPABILITY_AVAILABILITY_RAW_ENV_VALUE_REJECTED")
+    if _RAW_LOCAL_PATH_RE.search(value):
+        raise ValueError("CAPABILITY_AVAILABILITY_RAW_LOCAL_PATH_REJECTED")
     if _RAW_USERNAME_RE.search(value):
         raise ValueError("CAPABILITY_AVAILABILITY_USERNAME_REJECTED")
     if _HOSTNAME_RE.search(value):
         raise ValueError("CAPABILITY_AVAILABILITY_HOSTNAME_REJECTED")
+    return value
+
+
+def _validate_safe_summary(value: str) -> None:
+    validate_capability_availability_safe_text(value)
 
 
 def _exact_local_approval_valid(

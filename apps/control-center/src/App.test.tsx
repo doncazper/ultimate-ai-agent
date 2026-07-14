@@ -58,12 +58,11 @@ afterEach(() => {
 });
 
 function mockFetchWithFallback() {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async () => {
-      throw new Error("backend unavailable");
-    }),
-  );
+  const fetchMock = vi.fn(async () => {
+    throw new Error("backend unavailable");
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
 }
 
 function safeCostSuffix(value: string) {
@@ -681,6 +680,115 @@ function stubReadEndpointOverrides(overrides: Record<string, unknown>) {
   });
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
+}
+
+function modelProviderControlPlaneWithEligibleRoutingCandidate() {
+  const controlPlane = JSON.parse(
+    JSON.stringify(mockControlCenterData.modelProviderControlPlane),
+  ) as Record<string, unknown>;
+  const routing = controlPlane.provider_routing_intelligence as Record<
+    string,
+    unknown
+  >;
+  const snapshot = {
+    schema_version: "uaa-capability-availability.v1",
+    snapshot_ref: "snapshot-ref:provider-routing:eligible-test",
+    capability_ref: "capability-ref:provider-model-invocation",
+    provider_ref: "provider-ref:eligible-test",
+    adapter_ref: "adapter-ref:eligible-test",
+    catalog_status: "supported",
+    compatibility_status: "supported",
+    configuration_status: "configured",
+    health_status: "healthy",
+    authority_posture: "approval_required",
+    resource_status: "available",
+    cost_posture: "metered",
+    safe_disable_status: "inactive",
+    runtime_readiness_status: "ready",
+    declared_or_observed_version_ref: "version-ref:eligible-test",
+    checked_at: "2026-07-14T00:00:00Z",
+    expires_at: "2026-07-14T01:00:00Z",
+    freshness_status: "current",
+    reason_codes: ["ENVIRONMENT_READY_FOR_REQUEST_SCOPED_EVALUATION"],
+    blocker_codes: [],
+    evidence_refs: ["evidence-ref:provider-routing:eligible-test"],
+    probe_refs: [],
+    source_ref: "source-ref:provider-routing:eligible-test",
+    safe_summary: "Provider environment is ready for exact request evaluation.",
+  };
+  const observationFingerprintRef = `observation-fingerprint-ref:${"b".repeat(64)}`;
+  const observation = {
+    observation_ref: "observation-ref:provider-routing:eligible-test",
+    provider_ref: "provider-ref:eligible-test",
+    provider_label: "Eligible test provider",
+    provider_manifest_ref: "provider-manifest-ref:eligible-test",
+    model_ref: "model-ref:eligible-test",
+    adapter_ref: "adapter-ref:eligible-test",
+    runtime_class: "hosted",
+    availability_snapshot: snapshot,
+    metered: true,
+    estimated_cost_usd: 0.01,
+    estimated_latency_ms: 10,
+    quality_score: 90,
+    context_tokens: 4096,
+    capability_refs: ["capability-ref:provider-model-invocation"],
+    evidence_refs: ["evidence-ref:provider-routing:eligible-test"],
+    source_ref: "source-ref:provider-routing:eligible-test",
+  };
+  const evaluatedCandidate = {
+    candidate_ref: `provider-routing-candidate-ref:${"a".repeat(64)}`,
+    observation_ref: observation.observation_ref,
+    observation_fingerprint_ref: observationFingerprintRef,
+    rank: null,
+    provider_ref: observation.provider_ref,
+    provider_label: observation.provider_label,
+    provider_manifest_ref: observation.provider_manifest_ref,
+    model_ref: observation.model_ref,
+    adapter_ref: observation.adapter_ref,
+    runtime_class: observation.runtime_class,
+    status: "eligible_for_request_scoped_evaluation",
+    availability_snapshot: snapshot,
+    estimated_cost_usd: observation.estimated_cost_usd,
+    estimated_latency_ms: observation.estimated_latency_ms,
+    quality_score: observation.quality_score,
+    reason_codes: [
+      "PROVIDER_OBSERVATION_EVALUATED",
+      "ENVIRONMENT_READY_FOR_REQUEST_SCOPED_EVALUATION",
+      "PROVIDER_APPROVAL_REQUIRED_BEFORE_INVOCATION",
+      "PROVIDER_REQUEST_SCOPED_APPROVAL_REVALIDATION_REQUIRED",
+      "PROVIDER_REQUEST_SCOPED_AUTHORITY_LEASE_REVALIDATION_REQUIRED",
+      "ELIGIBLE_FOR_REQUEST_SCOPED_EVALUATION",
+    ],
+    blocker_codes: [],
+    evidence_refs: observation.evidence_refs,
+    safe_summary:
+      "Provider candidate may proceed to exact request-scoped authority evaluation; this proposal grants no invocation authority.",
+    proposal_only: true,
+    invocation_authorized: false,
+    provider_call_performed: false,
+  };
+  const presentedCandidate = { ...evaluatedCandidate, rank: 1 };
+  routing.observation_fingerprint_refs = [observationFingerprintRef];
+  routing.observations = [observation];
+  routing.candidates = [presentedCandidate];
+  routing.evaluated_candidates = [evaluatedCandidate];
+  routing.observed_candidate_count = 1;
+  routing.presented_candidate_count = 1;
+  routing.omitted_candidate_count = 0;
+  routing.recommended_candidate_ref = presentedCandidate.candidate_ref;
+  routing.reason_codes = [
+    "PROVIDER_ROUTING_PROPOSAL_ONLY",
+    "PROVIDER_ROUTING_CANDIDATE_AVAILABLE",
+  ];
+  routing.blocker_codes = [];
+  return {
+    controlPlane,
+    routing,
+    snapshot,
+    observation,
+    evaluatedCandidate,
+    presentedCandidate,
+  };
 }
 
 function stubTurnRouterPreviewBackend() {
@@ -3628,7 +3736,7 @@ describe("Web Control Center shell", () => {
   });
 
   it("renders the News & Signals concept with honest preview state", async () => {
-    mockFetchWithFallback();
+    const fetchMock = mockFetchWithFallback();
     window.history.pushState({}, "", "/news");
     const view = render(<App />);
 
@@ -3673,6 +3781,7 @@ describe("Web Control Center shell", () => {
           screen.queryByRole("button", { name: unavailableCommand }),
         ).not.toBeInTheDocument();
       }
+      expect(fetchMock).not.toHaveBeenCalled();
     } finally {
       view.unmount();
       cleanup();
@@ -12631,6 +12740,15 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText("model-slot-ref:uaa:main-thinking")).toBeInTheDocument();
     expect(screen.getByText(/Approval scoring/i)).toBeInTheDocument();
     expect(screen.getByText(/Vision/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Provider routing proposal/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/proposal_only · 0 observed/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("PROVIDER_ROUTING_NO_ELIGIBLE_CANDIDATE"),
+    ).toBeInTheDocument();
     expect(screen.getByText(/Local llama\.cpp lifecycle/i)).toBeInTheDocument();
     expect(screen.getByText(/ModelRouter traces/i)).toBeInTheDocument();
     expect(
@@ -12763,6 +12881,13 @@ describe("Web Control Center shell", () => {
     )[0];
     unsafeModelSlot.live_auxiliary_call_enabled = true;
     unsafeModelSlot.raw_prompt_persisted = true;
+    const unsafeRouting = unsafeControlPlane.provider_routing_intelligence as Record<
+      string,
+      unknown
+    >;
+    unsafeRouting.invocation_authorized = true;
+    unsafeRouting.provider_call_performed = true;
+    unsafeRouting.safe_summary = "unsafe provider routing authority enabled";
 
     stubReadEndpointOverrides({
       [API_ENDPOINTS.modelProviderControlPlane]: unsafeControlPlane,
@@ -12786,6 +12911,9 @@ describe("Web Control Center shell", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.queryByText(/unsafe model slot routing enabled/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/unsafe provider routing authority enabled/i),
     ).not.toBeInTheDocument();
     expect(
       screen.getByText("blocked-state:model-provider:broad-provider-runtime"),
@@ -12812,6 +12940,342 @@ describe("Web Control Center shell", () => {
     ).not.toBeInTheDocument();
 
     vi.unstubAllGlobals();
+  });
+
+  it("fails closed when a recommended provider contradicts backend availability truth", async () => {
+    const unsafeControlPlane = JSON.parse(
+      JSON.stringify(mockControlCenterData.modelProviderControlPlane),
+    ) as Record<string, unknown>;
+    const routing = unsafeControlPlane.provider_routing_intelligence as Record<
+      string,
+      unknown
+    >;
+    const snapshot = {
+      schema_version: "uaa-capability-availability.v1",
+      snapshot_ref: "snapshot-ref:provider-routing:contradictory",
+      capability_ref: "capability-ref:provider-model-invocation",
+      provider_ref: "provider-ref:contradictory",
+      adapter_ref: "adapter-ref:contradictory",
+      catalog_status: "supported",
+      compatibility_status: "supported",
+      configuration_status: "configured",
+      health_status: "healthy",
+      authority_posture: "blocked",
+      resource_status: "available",
+      cost_posture: "not_metered",
+      safe_disable_status: "active",
+      runtime_readiness_status: "blocked",
+      declared_or_observed_version_ref: "version-ref:contradictory",
+      checked_at: "2026-07-14T00:00:00Z",
+      expires_at: null,
+      freshness_status: "current",
+      reason_codes: ["SAFE_DISABLE_OVERRIDE_APPLIED"],
+      blocker_codes: ["SAFE_DISABLE_ACTIVE"],
+      evidence_refs: ["evidence-ref:provider-routing:contradictory"],
+      probe_refs: [],
+      source_ref: "source-ref:provider-routing:contradictory",
+      safe_summary: "Contradictory provider availability is blocked.",
+    };
+    const observationFingerprintRef = `observation-fingerprint-ref:${"b".repeat(64)}`;
+    const baseCandidate = {
+      candidate_ref: `provider-routing-candidate-ref:${"a".repeat(64)}`,
+      observation_ref: "observation-ref:provider-routing:contradictory",
+      observation_fingerprint_ref: observationFingerprintRef,
+      rank: 1,
+      provider_ref: "provider-ref:contradictory",
+      provider_label: "Contradictory provider",
+      provider_manifest_ref: "provider-manifest-ref:contradictory",
+      model_ref: "model-ref:contradictory",
+      adapter_ref: "adapter-ref:contradictory",
+      runtime_class: "local",
+      status: "eligible_for_request_scoped_evaluation",
+      availability_snapshot: snapshot,
+      estimated_cost_usd: 0,
+      estimated_latency_ms: 1,
+      quality_score: 100,
+      reason_codes: [
+        "SAFE_DISABLE_OVERRIDE_APPLIED",
+        "PROVIDER_REQUEST_SCOPED_APPROVAL_REVALIDATION_REQUIRED",
+        "PROVIDER_REQUEST_SCOPED_AUTHORITY_LEASE_REVALIDATION_REQUIRED",
+      ],
+      blocker_codes: [],
+      evidence_refs: ["evidence-ref:provider-routing:contradictory"],
+      safe_summary: "Contradictory provider should never render as recommended.",
+      proposal_only: true,
+      invocation_authorized: false,
+      provider_call_performed: false,
+    };
+    routing.observation_fingerprint_refs = [observationFingerprintRef];
+    routing.observations = [
+      {
+        observation_ref: "observation-ref:provider-routing:contradictory",
+        provider_ref: "provider-ref:contradictory",
+        provider_label: "Contradictory provider",
+        provider_manifest_ref: "provider-manifest-ref:contradictory",
+        model_ref: "model-ref:contradictory",
+        adapter_ref: "adapter-ref:contradictory",
+        runtime_class: "local",
+        availability_snapshot: snapshot,
+        metered: false,
+        estimated_cost_usd: 0,
+        estimated_latency_ms: 1,
+        quality_score: 100,
+        context_tokens: 4096,
+        capability_refs: ["capability-ref:provider-model-invocation"],
+        evidence_refs: ["evidence-ref:provider-routing:contradictory"],
+        source_ref: "source-ref:provider-routing:contradictory",
+      },
+    ];
+    routing.candidates = [baseCandidate];
+    routing.evaluated_candidates = [{ ...baseCandidate, rank: null }];
+    routing.observed_candidate_count = 1;
+    routing.presented_candidate_count = 1;
+    routing.omitted_candidate_count = 0;
+    routing.recommended_candidate_ref = baseCandidate.candidate_ref;
+    routing.reason_codes = [
+      "PROVIDER_ROUTING_PROPOSAL_ONLY",
+      "PROVIDER_ROUTING_CANDIDATE_AVAILABLE",
+    ];
+
+    stubReadEndpointOverrides({
+      [API_ENDPOINTS.modelProviderControlPlane]: unsafeControlPlane,
+    });
+    window.history.pushState({}, "", "/models");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", {
+        name: /Model\/provider control plane/i,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Contradictory provider should never render/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText("PROVIDER_ROUTING_NO_ELIGIBLE_CANDIDATE"),
+    ).toBeInTheDocument();
+
+    vi.unstubAllGlobals();
+  });
+
+  it("fails closed for substituted, uncosted, expired, or unsafe provider evidence", async () => {
+    type RoutingFixture = ReturnType<
+      typeof modelProviderControlPlaneWithEligibleRoutingCandidate
+    >;
+    const cases: Array<[string, (fixture: RoutingFixture) => void]> = [
+      [
+        "cross-bound observation",
+        (fixture) => {
+          fixture.presentedCandidate.observation_ref =
+            "observation-ref:provider-routing:substituted";
+        },
+      ],
+      [
+        "unknown metered cost",
+        (fixture) => {
+          (fixture.observation as Record<string, unknown>).estimated_cost_usd =
+            null;
+          (
+            fixture.evaluatedCandidate as Record<string, unknown>
+          ).estimated_cost_usd = null;
+          (
+            fixture.presentedCandidate as Record<string, unknown>
+          ).estimated_cost_usd = null;
+        },
+      ],
+      [
+        "missing evidence refs",
+        (fixture) => {
+          (fixture.snapshot as Record<string, unknown>).evidence_refs = [];
+          (fixture.observation as Record<string, unknown>).evidence_refs = [];
+          (
+            fixture.evaluatedCandidate as Record<string, unknown>
+          ).evidence_refs = [];
+          (
+            fixture.presentedCandidate as Record<string, unknown>
+          ).evidence_refs = [];
+        },
+      ],
+      [
+        "strategy ranking substitution",
+        (fixture) => {
+          const secondObservation = JSON.parse(
+            JSON.stringify(fixture.observation),
+          ) as Record<string, unknown>;
+          const secondSnapshot = secondObservation.availability_snapshot as Record<
+            string,
+            unknown
+          >;
+          secondObservation.observation_ref =
+            "observation-ref:provider-routing:higher-cost";
+          secondObservation.provider_ref = "provider-ref:higher-cost";
+          secondObservation.provider_label = "Higher cost provider";
+          secondObservation.provider_manifest_ref =
+            "provider-manifest-ref:higher-cost";
+          secondObservation.model_ref = "model-ref:higher-cost";
+          secondObservation.adapter_ref = "adapter-ref:higher-cost";
+          secondObservation.estimated_cost_usd = 0.02;
+          secondObservation.evidence_refs = [
+            "evidence-ref:provider-routing:higher-cost",
+          ];
+          secondObservation.source_ref =
+            "source-ref:provider-routing:higher-cost";
+          secondSnapshot.snapshot_ref =
+            "snapshot-ref:provider-routing:higher-cost";
+          secondSnapshot.provider_ref = secondObservation.provider_ref;
+          secondSnapshot.adapter_ref = secondObservation.adapter_ref;
+          secondSnapshot.evidence_refs = secondObservation.evidence_refs;
+          secondSnapshot.source_ref = secondObservation.source_ref;
+
+          const secondEvaluated = JSON.parse(
+            JSON.stringify(fixture.evaluatedCandidate),
+          ) as Record<string, unknown>;
+          secondEvaluated.candidate_ref = `provider-routing-candidate-ref:${"d".repeat(64)}`;
+          secondEvaluated.observation_ref = secondObservation.observation_ref;
+          secondEvaluated.observation_fingerprint_ref =
+            `observation-fingerprint-ref:${"c".repeat(64)}`;
+          secondEvaluated.provider_ref = secondObservation.provider_ref;
+          secondEvaluated.provider_label = secondObservation.provider_label;
+          secondEvaluated.provider_manifest_ref =
+            secondObservation.provider_manifest_ref;
+          secondEvaluated.model_ref = secondObservation.model_ref;
+          secondEvaluated.adapter_ref = secondObservation.adapter_ref;
+          secondEvaluated.availability_snapshot = secondSnapshot;
+          secondEvaluated.estimated_cost_usd =
+            secondObservation.estimated_cost_usd;
+          secondEvaluated.evidence_refs = secondObservation.evidence_refs;
+          const secondPresented = { ...secondEvaluated, rank: 1 };
+          fixture.presentedCandidate.rank = 2;
+          fixture.routing.strategy = "lowest_cost";
+          (fixture.routing.request as Record<string, unknown>).strategy =
+            "lowest_cost";
+          fixture.routing.observation_fingerprint_refs = [
+            fixture.evaluatedCandidate.observation_fingerprint_ref,
+            secondEvaluated.observation_fingerprint_ref,
+          ];
+          fixture.routing.observations = [
+            fixture.observation,
+            secondObservation,
+          ];
+          fixture.routing.evaluated_candidates = [
+            fixture.evaluatedCandidate,
+            secondEvaluated,
+          ];
+          fixture.routing.candidates = [
+            secondPresented,
+            fixture.presentedCandidate,
+          ];
+          fixture.routing.observed_candidate_count = 2;
+          fixture.routing.presented_candidate_count = 2;
+          fixture.routing.recommended_candidate_ref =
+            (secondPresented as Record<string, unknown>).candidate_ref;
+        },
+      ],
+      [
+        "expired readiness",
+        (fixture) => {
+          fixture.snapshot.expires_at = fixture.snapshot.checked_at;
+        },
+      ],
+      [
+        "unsafe provider ref",
+        (fixture) => {
+          const unsafeRef = "provider-ref:@private-user";
+          fixture.snapshot.provider_ref = unsafeRef;
+          fixture.observation.provider_ref = unsafeRef;
+          fixture.evaluatedCandidate.provider_ref = unsafeRef;
+          fixture.presentedCandidate.provider_ref = unsafeRef;
+        },
+      ],
+      [
+        "unsafe operator text",
+        (fixture) => {
+          const unsafeLabel = "@operator host.internal /etc/config api_key=unsafe";
+          fixture.observation.provider_label = unsafeLabel;
+          fixture.evaluatedCandidate.provider_label = unsafeLabel;
+          fixture.presentedCandidate.provider_label = unsafeLabel;
+        },
+      ],
+    ];
+
+    for (const [, mutate] of cases) {
+      const fixture = modelProviderControlPlaneWithEligibleRoutingCandidate();
+      mutate(fixture);
+      stubReadEndpointOverrides({
+        [API_ENDPOINTS.modelProviderControlPlane]: fixture.controlPlane,
+      });
+      window.history.pushState({}, "", "/models");
+      render(<App />);
+
+      expect(
+        await screen.findByRole("heading", {
+          name: /Model\/provider control plane/i,
+        }),
+      ).toBeInTheDocument();
+      expect(screen.queryByText("Eligible test provider")).not.toBeInTheDocument();
+      expect(screen.getAllByText(/none eligible/i).length).toBeGreaterThan(0);
+
+      cleanup();
+      vi.unstubAllGlobals();
+      resetControlCenterReadLimiterForTests();
+    }
+  });
+
+  it("preserves canonical stale provider blocker truth instead of replacing it with fallback", async () => {
+    const fixture = modelProviderControlPlaneWithEligibleRoutingCandidate();
+    fixture.snapshot.health_status = "stale";
+    fixture.snapshot.runtime_readiness_status = "unavailable";
+    fixture.snapshot.freshness_status = "stale";
+    fixture.snapshot.expires_at = fixture.snapshot.checked_at;
+    fixture.snapshot.reason_codes = ["OBSERVATION_EXPIRED_OR_STALE"];
+    (fixture.snapshot as Record<string, unknown>).blocker_codes = [
+      "OBSERVATION_STALE",
+    ];
+    for (const candidate of [
+      fixture.evaluatedCandidate,
+      fixture.presentedCandidate,
+    ]) {
+      candidate.rank = null;
+      candidate.status = "blocked";
+      candidate.reason_codes = [
+        "PROVIDER_OBSERVATION_EVALUATED",
+        "OBSERVATION_EXPIRED_OR_STALE",
+        "PROVIDER_APPROVAL_REQUIRED_BEFORE_INVOCATION",
+        "PROVIDER_REQUEST_SCOPED_APPROVAL_REVALIDATION_REQUIRED",
+        "PROVIDER_REQUEST_SCOPED_AUTHORITY_LEASE_REVALIDATION_REQUIRED",
+      ];
+      (candidate as Record<string, unknown>).blocker_codes = [
+        "OBSERVATION_STALE",
+        "PROVIDER_RUNTIME_NOT_READY",
+      ];
+      candidate.safe_summary =
+        "Provider candidate is blocked by fail-closed runtime evidence.";
+    }
+    fixture.routing.recommended_candidate_ref = null;
+    fixture.routing.reason_codes = [
+      "PROVIDER_ROUTING_PROPOSAL_ONLY",
+      "PROVIDER_ROUTING_NO_ELIGIBLE_CANDIDATE",
+    ];
+    fixture.routing.blocker_codes = [
+      "OBSERVATION_STALE",
+      "PROVIDER_RUNTIME_NOT_READY",
+    ];
+
+    stubReadEndpointOverrides({
+      [API_ENDPOINTS.modelProviderControlPlane]: fixture.controlPlane,
+    });
+    window.history.pushState({}, "", "/models");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", {
+        name: /Model\/provider control plane/i,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Eligible test provider: blocked · unavailable/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText("OBSERVATION_STALE")).toBeInTheDocument();
   });
 
   it("fails closed for stale Settings authority posture payloads", async () => {

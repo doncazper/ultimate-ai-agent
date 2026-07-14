@@ -10,16 +10,23 @@ from ultimate_ai_agent.core.model_runtime import (
 )
 
 
-def simulated_manifest(enabled: bool = True, max_input_tokens: int = 4096) -> ModelRuntimeAdapterManifest:
+def simulated_manifest(
+    enabled: bool = True,
+    max_input_tokens: int = 4096,
+    *,
+    supported_provider_kinds: list[str] | None = None,
+    accepts_model_profile_ids: list[str] | None = None,
+    supported_capabilities: list[str] | None = None,
+) -> ModelRuntimeAdapterManifest:
     return ModelRuntimeAdapterManifest(
         adapter_id="sim_adapter",
         runtime_kind=ModelRuntimeKind.simulated,
         display_name="Simulated Runtime Adapter",
         description="Deterministic simulated adapter for M8 tests.",
-        supported_provider_kinds=["local_runtime"],
-        supported_capabilities=["chat", "coding"],
+        supported_provider_kinds=supported_provider_kinds or ["local_runtime"],
+        supported_capabilities=supported_capabilities or ["chat", "coding"],
         safety_mode=ModelRuntimeSafetyMode.simulated,
-        accepts_model_profile_ids=["local_coder"],
+        accepts_model_profile_ids=accepts_model_profile_ids or ["local_coder"],
         requires_credential_ref=False,
         allowed_credential_refs=[],
         supports_streaming=False,
@@ -65,6 +72,9 @@ def runtime_request(**overrides: Any) -> ModelRuntimeRequest:
 
 def selected_route_pair() -> tuple[Any, ...]:
     profile = local_profile()
-    request = route_request(profiles=[profile], routing_policy=policy(prefer_local=True, allow_cloud=False, allow_paid=False))
+    request = route_request(
+        profiles=[profile],
+        routing_policy=policy(prefer_local=True, allow_cloud=False, allow_paid=False),
+    )
     decision = ModelRouter().route(request)
     return request, decision

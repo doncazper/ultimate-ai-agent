@@ -8212,6 +8212,62 @@ const modelProviderControlPlane: ModelProviderControlPlaneReadModel = {
     safe_summary:
       "Main and auxiliary model slots are visible as backend-owned intent metadata only. Slot routing does not call providers, mutate runtime selection, or hide model routing.",
   },
+  provider_routing_intelligence: {
+    schema_version: "provider_routing_intelligence.v1",
+    contract_ref: "contract-ref:provider-routing-intelligence:v1",
+    proposal_ref:
+      "provider-routing-proposal-ref:4e39de83f6ed3185586ebd36e424243cf0a5eec20d6d69ec516a396fe54969b5",
+    request: {
+      request_ref: "provider-routing-request-ref:control-plane:mock-fallback",
+      task_ref: "task-ref:provider-routing:operator-inspection",
+      strategy: "best_value",
+      required_capability_refs: [],
+      minimum_context_tokens: 0,
+      maximum_presented_candidates: 4,
+    },
+    request_ref: "provider-routing-request-ref:control-plane:mock-fallback",
+    request_fingerprint_ref:
+      "request-fingerprint-ref:caa008ff197978397a088f9276f722fcd70d4a10863bd60af67a9b3a86708a84",
+    observation_fingerprint_refs: [],
+    observation_set_fingerprint_ref:
+      "observation-set-fingerprint-ref:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    strategy: "best_value",
+    status: "proposal_only",
+    observations: [],
+    candidates: [],
+    evaluated_candidates: [],
+    observed_candidate_count: 0,
+    presented_candidate_count: 0,
+    omitted_candidate_count: 0,
+    recommended_candidate_ref: null,
+    approval_queue_route_ref: "route-ref:control-center-approval-queue",
+    run_detail_group_ref: "run-detail-group-ref:provider-routing-decision",
+    bounded_fanout_presentation_ref:
+      "presentation-ref:provider-routing:bounded-candidates",
+    source_ref: "source-ref:model-router:deterministic-routing-patterns:v0.8.9",
+    reason_codes: [
+      "PROVIDER_ROUTING_PROPOSAL_ONLY",
+      "PROVIDER_ROUTING_NO_ELIGIBLE_CANDIDATE",
+    ],
+    blocker_codes: [],
+    safe_summary:
+      "Provider routing proposal ranks bounded candidates using injected readiness, cost, latency, quality, and context observations. It does not authorize or perform provider invocation.",
+    maximum_presented_candidates: 4,
+    proposal_only: true,
+    deterministic: true,
+    safe_refs_only: true,
+    approval_refs_are_identifiers_only: true,
+    request_scoped_invocation_decision_required: true,
+    fresh_local_approval_validation_required: true,
+    fresh_authority_lease_evaluation_required: true,
+    invocation_authorized: false,
+    provider_call_performed: false,
+    fallback_execution_performed: false,
+    background_fanout_performed: false,
+    raw_prompt_persisted: false,
+    raw_response_persisted: false,
+    raw_provider_payload_persisted: false,
+  },
   model_provider_research_posture: {
     schema_version: "model_provider_research_posture.v1",
     contract_ref:
@@ -18563,6 +18619,8 @@ export const mockControlCenterData: ControlCenterData = {
     status: "signal_review_adaptation_only",
     snapshot_ref: "skill-marketplace-posture-snapshot-ref:runtime:phase-45",
     snapshot_hash_ref: "snapshot-hash-ref:skill-marketplace-posture:mock",
+    snapshot_hash_algorithm_ref:
+      "hash-algorithm-ref:uaa-portable-canonical-json-v1:sha256",
     route_ref: "GET /api/runtime/skill-marketplace-posture",
     cli_ref: "uaa runtime inspect-skill-marketplace-posture",
     doc_ref: "docs/runtime/UAA_HERMES_RUNTIME_SKILL_MARKETPLACE_POSTURE.md",
@@ -18574,13 +18632,13 @@ export const mockControlCenterData: ControlCenterData = {
     authority_state_catalog_ref:
       "authority-decision-catalog-ref:runtime-skill-marketplace-posture-read-model",
     authority_state_decision_ref:
-      "authority-policy-decision-ref:mock-runtime-skill-marketplace-posture",
-    authority_state_decision_outcome: "allow",
-    authority_state_status: "implemented_authority_bound_read_model",
+      "authority-policy-decision-ref:backend-unavailable-skill-marketplace-posture",
+    authority_state_decision_outcome: "deny",
+    authority_state_status: "backend_unavailable_authority_unknown",
     authority_state_operator_message:
-      "Allowed by active authority lease for safe skill marketplace posture inspection only.",
+      "Backend posture is unavailable; no authority or catalog availability is claimed.",
     authority_state_reason_refs: [
-      "reason-ref:authority:active-lease-grants-domain-capability",
+      "reason-ref:skill-marketplace-authority:backend-unavailable",
     ],
     unsupported_adapter_refs: [
       "adapter-ref:skill-marketplace-external-code:not-implemented",
@@ -18595,6 +18653,22 @@ export const mockControlCenterData: ControlCenterData = {
     control_center_ref: "control-center-route:runtime",
     safe_summary:
       "Runtime skill marketplace mock fallback shows discovery, quarantine, review, adaptation, activation, and execution-block posture only; external code, installs, imports, automatic skill writes, provider calls, browser automation, connector writes, and raw marketplace payloads stay blocked.",
+    catalog_freshness: {
+      catalog_snapshot_ref:
+        "skill-marketplace-catalog-snapshot-ref:mock-unavailable",
+      status: "unknown",
+      display_status: "unavailable_authority",
+      checked_at: "2026-07-13T00:00:00Z",
+      expires_at: "2026-07-13T00:00:00Z",
+      freshness_policy_ref:
+        "freshness-policy-ref:skill-marketplace-catalog:seven-days",
+      reason_refs: [
+        "reason-ref:skill-marketplace-catalog:mock-backend-unavailable",
+      ],
+      stale: false,
+      catalog_displayable: false,
+      unknown_degrades_to_unavailable: true,
+    },
     stages: runtimeSkillMarketplaceStages,
     stage_count: runtimeSkillMarketplaceStages.length,
     review_required_count: runtimeSkillMarketplaceStages.filter(

@@ -122,9 +122,30 @@ def verify(root: Path = ROOT) -> list[str]:
                     )
         if f"    timeout-minutes: {job.timeout_minutes}\n" not in section:
             failures.append(f"{job.job_ref} must have its canonical bounded timeout")
-    if "    needs:\n      - lint\n" not in job_section(workflow, "pytest-shards"):
-        failures.append("pytest shards must start only after lint passes")
+    affected_preflight_job = job_section(workflow, "affected-preflight")
+    if not all(
+        fragment in affected_preflight_job
+        for fragment in (
+            "      - manifest-attestation\n",
+            "          fetch-depth: 0\n",
+            "git update-ref refs/uaa-ci/base-main",
+            "--lane ci-affected-preflight",
+        )
+    ):
+        failures.append(
+            "fast affected preflight must bind an exact base after manifest attestation"
+        )
+    if command_registry()["command:affected.preflight"].argv[-2:] != (
+        "--tier",
+        "fast",
+    ):
+        failures.append("GitHub affected preflight must use the canonical fast tier")
     pytest_shards_job = job_section(workflow, "pytest-shards")
+    if not all(
+        f"      - {dependency}\n" in pytest_shards_job
+        for dependency in ("lint", "affected-preflight")
+    ):
+        failures.append("pytest shards must wait for lint and fast affected preflight")
     if "/usr/sbin/taskpolicy -c utility .venv/bin/python scripts/verification/run_ci_lane.py" not in pytest_shards_job:
         failures.append("pytest shards must escape inherited macOS background QoS throttling")
     if "trap terminate_shard_runner EXIT INT TERM HUP" not in pytest_shards_job:
@@ -201,7 +222,7 @@ def verify(root: Path = ROOT) -> list[str]:
     ):
         failures.append("performance verification must run after the shared-Mac matrix")
     shard_argv = command_registry()["command:pytest.sharded-suite"].argv
-    for fragment in ("--stretch-goal-seconds", "900", "--target-seconds", "1200", "--hard-timeout-seconds", "1800"):
+    for fragment in ("--stretch-goal-seconds", "900", "--target-seconds", "1200", "--hard-timeout-seconds", "1800", "--failure-ref-dir", "{temp_root}/uaa_pytest_failure_refs"):
         if fragment not in shard_argv:
             failures.append("pytest shards must declare the self-hosted runtime budget")
     desktop_lane = job_section(workflow, "release-lane-desktop-packaging")

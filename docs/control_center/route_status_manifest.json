@@ -3165,6 +3165,29 @@
       ]
     },
     {
+      "action_id": "navigate-studio-skill-workbench",
+      "label": "Navigate Skill Workbench",
+      "ui_surface": "Studio",
+      "frontend_route": "/studio/skills",
+      "owner": "studio-create",
+      "auth_posture": "protected_local_skill_marketplace_metadata_read_only",
+      "side_effect_class": "local_dev_workspace_only",
+      "risk_class": "low",
+      "release_status": "partial_backend_not_product_ready",
+      "approval_requirement": "None for the backend-owned sanitized metadata snapshot. Live marketplace fetch, external code import, installation, adaptation, enablement, execution, provider/model calls, connector writes, browser automation, public release, and production authority require later exact-scoped AuthorityLease capabilities.",
+      "evidence_audit_output": "Backend-owned Skill Workbench snapshot refs, source labels, source-derived rank, stars, downloads, comments, ratings when provided, source license, freshness, review posture, blocked authority refs, route ref, CLI ref, proof refs, and verifier refs only; popularity is a discovery signal, risk remains not assessed, and no raw marketplace payload, live fetch, external code, import, install, execution, local enablement, provider/model call, connector write, browser automation, public release, or production authority is added.",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/api/runtime/skill-marketplace-posture",
+          "operation_id": "get_api_runtime_skill_marketplace_posture",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        }
+      ],
+      "missing_backend_routes": []
+    },
+    {
       "action_id": "navigate-capability-surface",
       "label": "Navigate Capabilities",
       "ui_surface": "Capabilities",

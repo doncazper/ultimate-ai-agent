@@ -28,6 +28,7 @@ def test_canonical_ci_definition_is_valid_deterministic_and_complete() -> None:
     assert {job.job_ref for job in manifest.CI_JOB_GRAPH} >= {
         "manifest-attestation",
         "lint",
+        "affected-preflight",
         "pytest-shards",
         "pytest",
         "static-verification",
@@ -37,6 +38,14 @@ def test_canonical_ci_definition_is_valid_deterministic_and_complete() -> None:
         "foundation-gate-report",
     }
     assert manifest.CI_JOB_GRAPH[1].needs == ("manifest-attestation",)
+    affected = next(
+        job for job in manifest.CI_JOB_GRAPH if job.job_ref == "affected-preflight"
+    )
+    pytest_job = next(
+        job for job in manifest.CI_JOB_GRAPH if job.job_ref == "pytest-shards"
+    )
+    assert affected.needs == ("manifest-attestation",)
+    assert pytest_job.needs == ("lint", "affected-preflight")
 
 
 def test_canonical_ci_commands_are_fixed_argv_and_safe_environment() -> None:
@@ -49,6 +58,10 @@ def test_canonical_ci_commands_are_fixed_argv_and_safe_environment() -> None:
         "4",
     )
     assert "--hard-timeout-seconds" in commands["command:pytest.sharded-suite"].argv
+    assert "{temp_root}/uaa_pytest_failure_refs" in commands[
+        "command:pytest.sharded-suite"
+    ].argv
+    assert commands["command:affected.preflight"].argv[-2:] == ("--tier", "fast")
     assert dict(commands["command:performance.latency-gate"].env) == {
         "FOUNDATION_GATE_MAX_BEST_MS": "45000",
         "FOUNDATION_GATE_MAX_MEAN_MS": "45000",
@@ -58,6 +71,9 @@ def test_canonical_ci_commands_are_fixed_argv_and_safe_environment() -> None:
         command_ref = f"command:pytest.shard-{shard_index}-reproduce"
         assert manifest.lane_registry()[lane_ref].command_refs == (command_ref,)
         assert "--shard-index" in commands[command_ref].argv
+        assert f"{{temp_root}}/uaa_pytest_shard_{shard_index}_failure_refs" in commands[
+            command_ref
+        ].argv
     for command in commands.values():
         assert command.argv
         assert command.argv[0] in {".venv/bin/python", "make"}

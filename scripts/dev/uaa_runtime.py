@@ -516,6 +516,7 @@ def _print_capability_discovery(read_model: dict[str, Any]) -> None:
     print(f"Runtime: {read_model['runtime_label']}")
     print(f"Snapshot: {read_model['snapshot_ref']}")
     print(f"Snapshot hash: {read_model['snapshot_hash_ref']}")
+    print(f"Snapshot hash algorithm: {read_model['snapshot_hash_algorithm_ref']}")
     print(f"Route: {read_model['route_ref']}")
     print(f"CLI: {read_model['cli_ref']}")
     print(f"Authority state: {read_model['authority_state_route_ref']}")
@@ -1533,6 +1534,20 @@ def _print_skill_marketplace_posture(read_model: dict[str, Any]) -> None:
         f"{read_model['authority_state_decision_outcome']} "
         f"({read_model['authority_state_decision_ref']})"
     )
+    freshness = read_model["catalog_freshness"]
+    print(
+        "Catalog freshness: "
+        f"status={freshness['status']} "
+        f"display={freshness['display_status']} "
+        f"displayable={freshness['catalog_displayable']}"
+    )
+    print(
+        "Catalog observation: "
+        f"checked={freshness['checked_at']} expires={freshness['expires_at']}"
+    )
+    print("Catalog freshness reasons:")
+    for ref in freshness["reason_refs"]:
+        print(f"- {ref}")
     print(
         "Stages: "
         f"total={read_model['stage_count']} "
@@ -4132,8 +4147,7 @@ def _verify_evidence_envelope(args: argparse.Namespace) -> int:
         print(f"Envelope: {verification['envelope_ref']}")
         print(f"Hash valid: {verification['envelope_hash_valid']}")
         print(
-            "Legacy integrity ref valid: "
-            f"{verification['signed_envelope_ref_valid']}"
+            f"Legacy integrity ref valid: {verification['signed_envelope_ref_valid']}"
         )
         print("Cryptographic signature verified: false")
         print(f"Redaction valid: {verification['redaction_status_valid']}")

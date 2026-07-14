@@ -29,6 +29,10 @@ ACCEPTED_CURRENT_SUCCESS = {
         "planning_audit_accepted_on_merge",
         "evidence-ref:msg-mx-000:baseline-authority-map",
     ),
+    "MSG-MX-001": (
+        "design_gate_accepted_on_merge",
+        "evidence-ref:msg-mx-001:design-gate",
+    ),
 }
 SAFE_BLOCKED_CURRENT_STATUS = {
     "blocked_authority_not_accepted",

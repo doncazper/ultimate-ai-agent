@@ -1,7 +1,7 @@
 # Control Center North-Star Render Manifest
 
 Status: current target render set, documentation only.
-Baseline ID: CC-NS-TARGET-R3-2026-07-11.
+Baseline ID: CC-NS-TARGET-R6-2026-07-13.
 Current as of: 2026-07-13.
 Repo baseline: v0.104.0 / 0.104.0.
 
@@ -22,7 +22,7 @@ not normative when their generated sidebar details conflict with that file.
 ## Target V1 Defaults
 
 These 14 drafts cover every target top-level workspace, lower utility, and
-global workflow surface. The current 40-route implementation remains covered by
+global workflow surface. The current 42-route implementation remains covered by
 the legacy composites and route matrix below; consolidation in a render is not
 evidence that consolidation is implemented.
 
@@ -101,6 +101,40 @@ broader future front-page composition to implemented runtime truth.
 
 See `renders/news-signals-v1/README.md` for the locked hierarchy and adapter
 truth boundary.
+## Studio Unified Revision 05
+
+Unified Studio v7 supersedes the separate Agent Studio / Creative Studio split.
+One `UAA Studio` identity now exposes exactly three persistent modes: Chat,
+Code, and Create. The refined geometry narrows the Studio rail to 220 px and the
+Create presentation strip to 96 px so the center work surface remains dominant.
+The normative purpose and ownership contract is
+`../STUDIO_TAB_PRODUCT_DIRECTION.md`.
+
+| File | Surface/version | Required change | Must not imply |
+|---|---|---|---|
+| `renders/target-v3/06-studio-unified-v7.png` | Unified Studio v7 | one Studio identity; persistent Chat/Code/Create mode rail; 220 px rail; flexible center; fixed 350 px inspector; 96 px Create thumbnail strip; mode ownership; proposal composer; blocked export; visible no-runtime-authority posture; full-width status bar | modes as authority; implemented model/runtime/export/publish/deploy/delivery; approval bypass; or implementation evidence |
+
+The following sanitized screens remain preserved comparison artifacts and no
+longer define separate current workspaces:
+
+| File | Preserved exploration | Status |
+|---|---|---|
+| `renders/target-v3/06-agent-studio-v5.png` | coding-only fixed-pane Studio | superseded by unified v7 |
+| `renders/target-v3/06-creative-studio-v2.png` | creative-only presentation Studio | superseded by unified v7 |
+
+### Skill Workbench Create surface
+
+The Skill Workbench grid and list views are accepted Create-mode sub-surfaces.
+The list is the default view, uses 25-row pagination, and omits both speculative
+risk and repeated license columns. Source-provided license detail remains in the
+selected-item inspector.
+Source rank, stars, downloads, comments, and future ratings remain distinct
+discovery signals. Missing ratings render as unavailable, not zero.
+
+| File | Surface/version | Required change | Must not imply |
+|---|---|---|---|
+| `renders/target-v3/07-skill-workbench-grid-v1.png` | Skill Workbench grid v1, Hermes filter | compact discovery cards; honest missing source scores; metadata-only and review posture; selected inspector | live marketplace fetch, trusted popularity, imported code, install, or execution |
+| `renders/target-v3/08-skill-workbench-list-v1.png` | canonical Studio dense-workbench reference | dense rows; complete primary values; natural category/rank wrapping; whole-column compact reduction; list/grid toggle; 25-row pagination; source-specific missing values; no license column; inspector detail | clipped primary signals, pill-shaped metadata, invented average ratings, guessed risk, source signal as UAA trust, or adaptation authority |
 
 ## Messenger Matrix Client V1
 
@@ -109,7 +143,10 @@ Element-familiar UAA Messenger workspace. It includes the two-Space model, daily
 conversation surfaces, room management, account security, UAA intelligence,
 failure recovery, dark appearance, and later calling preflight. See
 `UAA_COMMUNICATIONS_MATRIX_NORTH_STAR.md` for the complete surface and truth
-contract. These images do not claim any current Matrix runtime.
+contract. MSG-MX-001 accepts all fifteen as desktop target renders, with the
+normal/narrow desktop and command-truth constraints in
+`UAA_MESSENGER_MATRIX_RENDER_ACCEPTANCE.md`. These images do not claim any
+current Matrix runtime.
 
 ## Social Media Intelligence V1
 

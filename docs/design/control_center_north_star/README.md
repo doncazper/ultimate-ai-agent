@@ -1,7 +1,7 @@
 # Control Center North-Star Visual Renders
 
 Status: current target render set, documentation only.
-Baseline ID: CC-NS-TARGET-R3-2026-07-11.
+Baseline ID: CC-NS-TARGET-R6-2026-07-13.
 Current as of: 2026-07-13.
 Repo baseline: v0.104.0 / 0.104.0.
 
@@ -12,12 +12,14 @@ contained operator cockpit. They are not shipped UI evidence, runtime behavior,
 route proof, authority grant, public beta claim, or production readiness claim.
 
 The canonical rules extracted from this directional set now live in
-`../CONTROL_CENTER_UI_UX_SPEC.md` (`CC-UIUX-2026-07-11`). That specification
+`../CONTROL_CENTER_UI_UX_SPEC.md` (`CC-UIUX-2026-07-13`). That specification
 wins when the generated PNGs disagree with each other. The complete next-render
-queue, including all 40 current routed surfaces and applicable state/responsive
+queue, including all 42 current routed surfaces and applicable state/responsive
 variations, lives in `RENDER_VARIATION_MATRIX.md`. The consolidated target
 surface architecture is defined by
-`../CONTROL_CENTER_PRODUCT_IA_AND_CALENDAR_CONTRACT.md`.
+`../CONTROL_CENTER_PRODUCT_IA_AND_CALENDAR_CONTRACT.md`. The accepted purpose,
+ownership, and geometry of the unified Chat / Code / Create Studio are defined
+by `../STUDIO_TAB_PRODUCT_DIRECTION.md`.
 
 The package is meant to remove ambiguity before implementation. Each render is
 a bounded desktop-app target for one or more Control Center surfaces, with the
@@ -94,12 +96,21 @@ Revision 02 adds non-destructive versions and new surfaces:
 | `renders/target-v2/17-terminal-v1.png` | Terminal v1 governed terminal |
 | `renders/target-v2/18-compact-shell-v1.png` | Compact icon-only shell v1 |
 
-CRM revision 03 adds one non-destructive specialty-reference synthesis while
-retaining both earlier CRM drafts:
+Revision 03 records the CRM refinement and preserved Studio-split explorations:
 
 | Render | Revision |
 |---|---|
 | `renders/target-v3/04-crm-v3.png` | CRM v3 premier general relationship workspace |
+| `renders/target-v3/06-agent-studio-v5.png` | Preserved coding-only Studio exploration with blocked terminal truth |
+| `renders/target-v3/06-creative-studio-v2.png` | Preserved creative-only Studio exploration with blocked export truth |
+
+Studio revision 05 supersedes the split as the current accepted direction:
+
+| Render | Revision |
+|---|---|
+| `renders/target-v3/06-studio-unified-v7.png` | Unified Studio v7 with persistent Chat, Code, and Create modes; Create active; export blocked |
+| `renders/target-v3/07-skill-workbench-grid-v1.png` | Skill Workbench Create-mode Hermes-filtered grid with honest missing source signals and review posture |
+| `renders/target-v3/08-skill-workbench-list-v1.png` | Canonical Studio dense-workbench reference with complete primary values, honest source gaps, inspector detail, and pagination |
 
 News & Signals V1 records the current safe fixture-backed desktop implementation
 while preserving the earlier analytical News exploration:
@@ -160,8 +171,8 @@ in browser local storage and can be exported/imported as JSON.
 
 ## Current Baseline
 
-- Current target render set: CC-NS-TARGET-R3-2026-07-11.
-- Current as of: 2026-07-11.
+- Current target render set: CC-NS-TARGET-R6-2026-07-13.
+- Current as of: 2026-07-13.
 - Machine-readable pointer: `CURRENT_RENDER_BASELINE.json`.
 - Canonical shell: `APP_SHELL_BASELINE.md`.
 - Route coverage: `SURFACE_COVERAGE.md`.
@@ -183,7 +194,9 @@ baseline.
 
 ![Target Calendar](renders/target-v1/05-calendar.png)
 
-![Target Studio v2](renders/target-v2/06-studio-v2.png)
+![Target unified Studio v7](renders/target-v3/06-studio-unified-v7.png)
+
+![Canonical Studio Skill Workbench list](renders/target-v3/08-skill-workbench-list-v1.png)
 
 ![Target Trust cockpit](renders/target-v2/16-trust-v1.png)
 

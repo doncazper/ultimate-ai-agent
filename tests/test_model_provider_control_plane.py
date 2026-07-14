@@ -36,14 +36,25 @@ def test_model_provider_control_plane_unifies_governed_runtime_posture() -> None
     assert read_model.authority.provider_sdk_call_enabled is False
     assert read_model.authority.live_provider_network_call_enabled_by_default is False
     assert len(read_model.provider_adapters) >= 2
-    assert all(adapter.receipt_store_required_before_network for adapter in read_model.provider_adapters)
+    assert all(
+        adapter.receipt_store_required_before_network
+        for adapter in read_model.provider_adapters
+    )
     assert read_model.network_allowlists.default_network_denied is True
     assert read_model.network_allowlists.endpoint_refs
     assert read_model.model_metadata_discovery.provider_model_refs
-    assert read_model.model_metadata_discovery.live_provider_model_discovery_enabled is False
+    assert (
+        read_model.model_metadata_discovery.live_provider_model_discovery_enabled
+        is False
+    )
     assert read_model.cost_hooks.unknown_paid_cost_blocks is True
-    assert read_model.local_llama_cpp_lifecycle.process_start_performed_by_read_model is False
-    assert read_model.local_llama_cpp_lifecycle.model_call_performed_by_read_model is False
+    assert (
+        read_model.local_llama_cpp_lifecycle.process_start_performed_by_read_model
+        is False
+    )
+    assert (
+        read_model.local_llama_cpp_lifecycle.model_call_performed_by_read_model is False
+    )
     assert read_model.router_traces[0].status == "trace_only_no_execution"
     assert read_model.router_traces[0].model_execution_performed is False
     assert read_model.router_traces[0].provider_execution_performed is False
@@ -115,6 +126,13 @@ def test_model_provider_control_plane_unifies_governed_runtime_posture() -> None
     )
     assert read_model.role_provider_evidence.role_count == 7
     assert read_model.role_provider_evidence.model_invocation_performed is False
+    routing = read_model.provider_routing_intelligence
+    assert routing.schema_version == "provider_routing_intelligence.v1"
+    assert routing.proposal_only is True
+    assert routing.request_scoped_invocation_decision_required is True
+    assert routing.approval_refs_are_identifiers_only is True
+    assert routing.invocation_authorized is False
+    assert routing.provider_call_performed is False
     posture = read_model.model_provider_research_posture
     assert posture.schema_version == "model_provider_research_posture.v1"
     assert posture.provider_count == len(posture.provider_postures)
@@ -126,7 +144,9 @@ def test_model_provider_control_plane_unifies_governed_runtime_posture() -> None
     assert posture.model_output_truth.status == "proposal_and_evidence_not_authority"
     assert posture.model_output_truth.generated_text_is_verified_fact is False
     assert posture.model_output_truth.memory_write_from_model_output_enabled is False
-    assert posture.model_output_truth.action_authority_from_model_output_enabled is False
+    assert (
+        posture.model_output_truth.action_authority_from_model_output_enabled is False
+    )
     assert posture.external_information.status == "web_access_gateway_deny_by_default"
     assert posture.external_information.web_access_gateway_required is True
     assert posture.external_information.fetched_content_untrusted is True
@@ -158,7 +178,10 @@ def test_model_provider_control_plane_route_is_protected_read_only_and_safe(
     assert data["authority"]["live_provider_network_call_enabled_by_default"] is False
     assert data["secret_status"]["secret_material_visible"] is False
     assert data["network_allowlists"]["endpoint_refs"]
-    assert data["local_llama_cpp_lifecycle"]["process_start_performed_by_read_model"] is False
+    assert (
+        data["local_llama_cpp_lifecycle"]["process_start_performed_by_read_model"]
+        is False
+    )
     assert data["router_traces"][0]["model_execution_performed"] is False
     assert data["delegated_runtime_model_catalog"]["schema_version"] == (
         "delegated_runtime_model_catalog.v1"
@@ -183,6 +206,8 @@ def test_model_provider_control_plane_route_is_protected_read_only_and_safe(
         == "role_based_model_provider_evidence.v1"
     )
     assert data["role_provider_evidence"]["provider_sdk_call_enabled"] is False
+    assert data["provider_routing_intelligence"]["proposal_only"] is True
+    assert data["provider_routing_intelligence"]["invocation_authorized"] is False
     assert data["model_provider_research_posture"]["provider_sdk_call_enabled"] is False
     assert data["model_provider_research_posture"]["live_web_fetch_enabled"] is False
     assert (
@@ -215,7 +240,9 @@ def test_model_provider_control_plane_route_manifest_posture() -> None:
 
 
 def test_delegated_runtime_model_catalog_rejects_invocation_authority() -> None:
-    catalog = build_model_provider_control_plane_read_model().delegated_runtime_model_catalog
+    catalog = (
+        build_model_provider_control_plane_read_model().delegated_runtime_model_catalog
+    )
     payload = catalog.model_dump(mode="python")
     payload["uaa_may_invoke_any_listed_model"] = True
 
@@ -272,7 +299,7 @@ def test_model_slot_posture_rejects_hidden_routing_and_raw_prompt_persistence() 
 
 def test_model_provider_control_plane_cli_uses_same_safe_schema() -> None:
     result = subprocess.run(
-        [sys.executable, "scripts/inspect_model_provider_control_plane.py"],
+        [sys.executable, "scripts/inspect_model_provider_control_plane.py", "--json"],
         check=True,
         text=True,
         capture_output=True,
@@ -288,15 +315,16 @@ def test_model_provider_control_plane_cli_uses_same_safe_schema() -> None:
     assert payload["router_traces"][0]["status"] == "trace_only_no_execution"
     assert payload["delegated_runtime_model_catalog"]["model_count"] >= 1
     assert (
-        payload["delegated_runtime_model_catalog"][
-            "uaa_may_invoke_any_listed_model"
-        ]
+        payload["delegated_runtime_model_catalog"]["uaa_may_invoke_any_listed_model"]
         is False
     )
     assert payload["model_slot_posture"]["slot_count"] == 8
     assert payload["model_slot_posture"]["warning_count"] >= 3
     assert payload["model_slot_posture"]["hidden_model_routing_enabled"] is False
-    assert payload["model_slot_posture"]["records"][0]["live_auxiliary_call_enabled"] is False
+    assert (
+        payload["model_slot_posture"]["records"][0]["live_auxiliary_call_enabled"]
+        is False
+    )
     assert payload["role_provider_evidence"]["role_count"] == 7
     assert payload["role_provider_evidence"]["model_invocation_performed"] is False
     assert payload["model_provider_research_posture"]["provider_count"] >= 1

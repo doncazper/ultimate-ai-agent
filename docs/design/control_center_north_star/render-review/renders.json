@@ -168,7 +168,7 @@
       "order": 2,
       "surface": "Communications",
       "category": "Primary workspace",
-      "route": "/news",
+      "route": "target",
       "purpose": "Unified email, messages, follow-ups, drafts, and waiting-on-others workspace.",
       "truth": "Target design; connector reads/writes remain governed or blocked.",
       "image": "../renders/target-v1/02-communications.png",
@@ -223,7 +223,7 @@
       "order": 6,
       "surface": "News & Signals",
       "category": "Primary workspace",
-      "route": "target",
+      "route": "/news",
       "purpose": "Fixture-only desktop implementation proof for a bounded signal list, selected-item rationale, safe preview refs, and local presentation filters.",
       "truth": "Implemented local fixture preview only; no source adapter, account access, scraping, polling, connector read/write, ranking service, or unrestricted web fetching is implied.",
       "image": "../renders/news-signals-v1/01-news-signals-home.png",
@@ -242,12 +242,15 @@
       "surface": "Studio",
       "category": "Primary workspace",
       "route": "target",
-      "purpose": "Immersive familiar coding-agent workbench with projects, tasks, changes, checks, and terminal access.",
-      "truth": "Target design; no model, arbitrary shell, deploy, or write authority implied.",
-      "image": "../renders/target-v2/06-studio-v2.png",
+      "purpose": "One immersive UAA Studio shell with exactly Chat, Code, and Create modes for conversation handoffs, repo-local verification, and versioned asset review.",
+      "truth": "Accepted target design; changing modes grants no authority, and model calls, arbitrary shell, deploy, export, publishing, delivery, and connector writes remain separately governed or blocked.",
+      "image": "../renders/target-v3/06-studio-unified-v7.png",
       "versions": [
         {"id": "v1", "label": "Draft v1 · Control Center shell", "image": "../renders/target-v1/06-studio.png"},
-        {"id": "v2", "label": "Draft v2 · immersive workbench", "image": "../renders/target-v2/06-studio-v2.png"}
+        {"id": "v2", "label": "Draft v2 · immersive workbench", "image": "../renders/target-v2/06-studio-v2.png"},
+        {"id": "split-code-v5", "label": "Preserved split exploration · coding-only", "image": "../renders/target-v3/06-agent-studio-v5.png"},
+        {"id": "split-create-v2", "label": "Preserved split exploration · creative-only", "image": "../renders/target-v3/06-creative-studio-v2.png"},
+        {"id": "v7", "label": "Accepted v7 · unified modes with blocked export", "image": "../renders/target-v3/06-studio-unified-v7.png"}
       ]
     },
     {

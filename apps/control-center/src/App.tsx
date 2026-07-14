@@ -6,7 +6,9 @@ import {
   RouteStatePanel,
 } from "./components/DataState";
 import { SafeAlert } from "./components/SafeAlert";
+import { SkillWorkbench } from "./components/skillWorkbench/SkillWorkbench";
 import { useControlCenterData } from "./hooks/useControlCenterData";
+import { useSkillMarketplacePosture } from "./hooks/useSkillMarketplacePosture";
 import {
   getRouteStateDescriptor,
   getRouteSurfaceLabel,
@@ -20,12 +22,11 @@ import type {
 } from "./api/types";
 
 export function App() {
-  const state = useControlCenterData();
   const activePath = useActivePath();
-  const activeSurfaceLabel = useMemo(
-    () => getRouteSurfaceLabel(activePath),
-    [activePath],
-  );
+
+  if (activePath === "/studio" || activePath === "/studio/skills") {
+    return <StudioRoute />;
+  }
 
   const staticPreviewRoute = renderStaticPreviewRoute(activePath);
   if (staticPreviewRoute) {
@@ -35,6 +36,36 @@ export function App() {
       </AppShell>
     );
   }
+
+  return <ControlCenterRoute activePath={activePath} />;
+}
+
+function StudioRoute() {
+  const state = useSkillMarketplacePosture();
+
+  if (state.status === "loading") {
+    return (
+      <AppShell activePath="/studio/skills">
+        <LoadingState surfaceLabel="Studio" />
+      </AppShell>
+    );
+  }
+
+  return (
+    <SkillWorkbench
+      backendValidated={state.data.backendValidated}
+      catalogDisplayable={state.data.catalogDisplayable}
+      posture={state.data.posture}
+    />
+  );
+}
+
+function ControlCenterRoute({ activePath }: { activePath: string }) {
+  const state = useControlCenterData();
+  const activeSurfaceLabel = useMemo(
+    () => getRouteSurfaceLabel(activePath),
+    [activePath],
+  );
 
   if (state.status === "loading") {
     return (
