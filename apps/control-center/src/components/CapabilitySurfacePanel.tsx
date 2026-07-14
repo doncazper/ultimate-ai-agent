@@ -15,7 +15,9 @@ export function CapabilitySurfacePanel({
   surface: ControlCenterCapabilitySurfaceReadModel;
 }) {
   const rows = surface.rows;
+  const mockFallback = surface.read_model_ref.includes(":mock");
   const sourceTruthReady =
+    !mockFallback &&
     surface.summary.missing_release_routes.length === 0 &&
     surface.summary.missing_visible_actions.length === 0;
 
@@ -27,7 +29,11 @@ export function CapabilitySurfacePanel({
           <h2 id="capability-surface-heading">Capabilities</h2>
         </div>
         <span className="status-pill compact">
-          {sourceTruthReady ? "source truth current" : "source truth gap"}
+          {mockFallback
+            ? "fallback shape only"
+            : sourceTruthReady
+              ? "source truth current"
+              : "source truth gap"}
         </span>
       </div>
       <p className="section-copy">{surface.safe_summary}</p>
@@ -51,7 +57,7 @@ export function CapabilitySurfacePanel({
         />
       </div>
 
-      {!sourceTruthReady ? (
+      {!sourceTruthReady && !mockFallback ? (
         <div className="callout blocked">
           <strong>Coverage gap</strong>
           <p>
@@ -80,16 +86,19 @@ export function CapabilitySurfacePanel({
             value={surface.maturity.verified_weighted_score}
           />
           <MetricCard
-            label="Evidence-gated target"
+            label="Unaccepted target"
             value={surface.maturity.target_weighted_score}
           />
           <MetricCard
-            label="Uplifts proven"
-            value={surface.maturity.uplift_proven_count}
+            label="Automated evidence ready"
+            value={surface.maturity.automated_evidence_ready_count}
           />
           <MetricCard
-            label="Ceilings defended"
-            value={surface.maturity.ceiling_defended_count}
+            label="Independent reviews due"
+            value={
+              surface.maturity.manual_validation_required_count +
+              surface.maturity.external_dependency_required_count
+            }
           />
         </div>
         <div className="table-wrap">
@@ -99,6 +108,7 @@ export function CapabilitySurfacePanel({
                 <th>Component</th>
                 <th>Baseline</th>
                 <th>Target</th>
+                <th>Verified</th>
                 <th>Evidence</th>
               </tr>
             </thead>
@@ -111,11 +121,17 @@ export function CapabilitySurfacePanel({
                   </td>
                   <td>{component.baseline_score}</td>
                   <td>{component.target_score}</td>
+                  <td>{component.verified_score}</td>
                   <td>
                     {operatorLabel(component.evidence_status)}
                     {component.blocker_codes.length > 0 ? (
                       <small>{component.blocker_codes.join(", ")}</small>
                     ) : null}
+                    <small>
+                      Gates: {component.gates.filter((gate) => gate.status === "satisfied").length}/
+                      {component.gates.length}
+                    </small>
+                    <small>Next proof: {component.next_acceptance_ref}</small>
                   </td>
                 </tr>
               ))}
@@ -125,9 +141,9 @@ export function CapabilitySurfacePanel({
         <div className="callout blocked">
           <strong>Scores never mint authority</strong>
           <p>
-            A target remains unverified until the bounded evaluator passes real
-            runtime scenarios, evidence completeness, replay or recovery checks,
-            policy checks, and operator-surface evidence.
+            Passing automated checks advances evidence readiness, not the score.
+            A target remains at baseline until runtime, failure/recovery,
+            operator-surface, and independent digest-bound acceptance all pass.
           </p>
         </div>
       </section>

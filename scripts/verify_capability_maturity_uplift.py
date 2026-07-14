@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify the bounded 16-component capability maturity uplift evidence."""
+"""Verify honest capability-maturity evidence without auto-graduating scores."""
 
 from __future__ import annotations
 
@@ -26,18 +26,34 @@ class CapabilityMaturityVerificationError(RuntimeError):
 
 def verify_report(report: AgentCapabilityEvaluationReport) -> None:
     read_model = build_capability_maturity_read_model(report)
-    if read_model.verification_posture != "targets_proven":
+    if read_model.verification_posture != "automated_evidence_ready":
         raise CapabilityMaturityVerificationError(
-            "one or more capability maturity targets lack complete evidence"
+            "one or more components lack complete bounded automated evidence"
         )
-    if read_model.uplift_proven_count != read_model.uplift_target_count:
-        raise CapabilityMaturityVerificationError("bounded uplift count drift")
-    if read_model.uplift_proven_count != 12 or read_model.ceiling_defended_count != 4:
-        raise CapabilityMaturityVerificationError("capability score ceiling count drift")
-    if read_model.verified_weighted_score != read_model.target_weighted_score:
-        raise CapabilityMaturityVerificationError("verified score did not reach target")
+    if read_model.uplift_proven_count != 0:
+        raise CapabilityMaturityVerificationError(
+            "automated evidence must not graduate a score"
+        )
+    if read_model.automated_evidence_ready_count != 12:
+        raise CapabilityMaturityVerificationError("automated evidence count drift")
+    if read_model.manual_validation_required_count != 11:
+        raise CapabilityMaturityVerificationError("manual validation count drift")
+    if read_model.external_dependency_required_count != 1:
+        raise CapabilityMaturityVerificationError("external dependency count drift")
+    if read_model.ceiling_defended_count != 4:
+        raise CapabilityMaturityVerificationError(
+            "capability score ceiling count drift"
+        )
+    if read_model.verified_weighted_score != read_model.baseline_weighted_score:
+        raise CapabilityMaturityVerificationError(
+            "unaccepted scores must remain at the evidence-backed baseline"
+        )
+    if not all(item.next_acceptance_ref for item in read_model.components):
+        raise CapabilityMaturityVerificationError("acceptance path is incomplete")
     if not read_model.content_free or read_model.raw_content_persisted:
-        raise CapabilityMaturityVerificationError("maturity evidence is not content-free")
+        raise CapabilityMaturityVerificationError(
+            "maturity evidence is not content-free"
+        )
     if read_model.authority_granted:
         raise CapabilityMaturityVerificationError("maturity evidence granted authority")
 
@@ -46,7 +62,7 @@ def main() -> int:
     report = run_agent_capability_evaluation()
     verify_report(report)
     read_model = build_capability_maturity_read_model(report)
-    print("Capability maturity uplift verification passed")
+    print("Capability maturity evidence-readiness verification passed")
     print(f"Components: {read_model.component_count}")
     print(
         "Scores: "
@@ -55,8 +71,10 @@ def main() -> int:
     )
     print(
         "Evidence: "
-        f"uplifts={read_model.uplift_proven_count} "
-        f"ceilings={read_model.ceiling_defended_count}"
+        f"automated_ready={read_model.automated_evidence_ready_count} "
+        f"manual_required={read_model.manual_validation_required_count} "
+        f"external_required={read_model.external_dependency_required_count} "
+        f"graduated={read_model.uplift_proven_count}"
     )
     print("Authority granted: no")
     return 0

@@ -8178,12 +8178,16 @@ function isSafeCapabilityMaturity(value: unknown): boolean {
     value.content_free === true &&
     value.authority_granted === false &&
     value.score_increase_requires_runtime_evidence === true &&
+    value.score_increase_requires_independent_acceptance === true &&
     value.raw_content_persisted === false &&
     value.component_count === 16 &&
     value.components.length === 16 &&
     typeof value.baseline_weighted_score === "number" &&
     typeof value.target_weighted_score === "number" &&
     typeof value.verified_weighted_score === "number" &&
+    typeof value.automated_evidence_ready_count === "number" &&
+    typeof value.manual_validation_required_count === "number" &&
+    typeof value.external_dependency_required_count === "number" &&
     value.components.every(
       (component) =>
         isPlainRecord(component) &&
@@ -8195,7 +8199,15 @@ function isSafeCapabilityMaturity(value: unknown): boolean {
         component.target_score === Math.min(10, component.baseline_score + 1) &&
         (component.verified_score === component.baseline_score ||
           component.verified_score === component.target_score) &&
-        ["baseline_only", "target_proven", "ceiling_defended", "evidence_failed"].includes(
+        [
+          "baseline_only",
+          "automated_evidence_ready",
+          "manual_validation_required",
+          "external_dependency_required",
+          "target_proven",
+          "ceiling_defended",
+          "evidence_failed",
+        ].includes(
           String(component.evidence_status),
         ) &&
         (["target_proven", "ceiling_defended"].includes(
@@ -8206,7 +8218,18 @@ function isSafeCapabilityMaturity(value: unknown): boolean {
         Array.isArray(component.scenario_refs) &&
         Array.isArray(component.evidence_refs) &&
         component.evidence_refs.length >= 3 &&
+        Array.isArray(component.gates) &&
+        component.gates.length === 6 &&
+        component.gates.every(
+          (gate) =>
+            isPlainRecord(gate) &&
+            ["satisfied", "pending", "blocked"].includes(String(gate.status)) &&
+            Array.isArray(gate.evidence_refs) &&
+            Array.isArray(gate.blocker_codes) &&
+            typeof gate.safe_summary === "string",
+        ) &&
         Array.isArray(component.blocker_codes) &&
+        typeof component.next_acceptance_ref === "string" &&
         typeof component.safe_summary === "string",
     )
   );

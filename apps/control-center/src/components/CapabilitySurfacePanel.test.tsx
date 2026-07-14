@@ -68,12 +68,18 @@ describe("CapabilitySurfacePanel web hybrid posture", () => {
     const maturityPanel = screen.getByRole("region", {
       name: "Capability score evidence",
     });
+    expect(
+      within(screen.getByRole("region", { name: "Capabilities" })).getByText(
+        "fallback shape only",
+      ),
+    ).toBeInTheDocument();
     expect(within(maturityPanel).getByText("Extensibility and ecosystem")).toBeInTheDocument();
     expect(within(maturityPanel).getByText("Scores never mint authority")).toBeInTheDocument();
     expect(within(maturityPanel).getAllByText("baseline only").length).toBeGreaterThan(0);
     expect(
-      within(maturityPanel).getByText(/target remains unverified until the bounded evaluator passes/i),
+      within(maturityPanel).getByText(/passing automated checks advances evidence readiness/i),
     ).toBeInTheDocument();
+    expect(within(maturityPanel).getAllByText(/next proof:/i).length).toBe(16);
     expect(within(maturityPanel).queryByText(/globally authorized/i)).not.toBeInTheDocument();
   });
 });
