@@ -133,6 +133,17 @@ def _assignment_items(
     return groups
 
 
+def current_shard_plan_fingerprint(
+    root: Path, shard_count: int, timings_path: Path
+) -> str:
+    files = discover_test_files(root)
+    timings, _source = load_timing_profiles([timings_path], files)
+    affinity_groups = discover_affinity_groups(files, root)
+    plans, _method = assign_shards(files, shard_count, timings, affinity_groups)
+    validate_shard_plans(files, plans, shard_count, affinity_groups)
+    return shard_plan_fingerprint(plans)
+
+
 def deterministic_file_count_shards(
     files: list[str],
     shard_count: int,
@@ -368,7 +379,9 @@ def run_shards(
                         write_timings=write_timings,
                         junit_dir=junit_dir,
                     )
-                    shard_env = shard_processes.isolated_shard_environment(env, temp_dir / f"runtime-{plan.index}")
+                    shard_env = shard_processes.isolated_shard_environment(
+                        env, temp_dir / f"runtime-{plan.index}"
+                    )
                     if not quiet:
                         print(
                             f"Starting shard {plan.index}: files={len(plan.files)} "
