@@ -9520,6 +9520,9 @@ function isSafeModelProviderControlPlane(
   if (!isSafeModelSlotPosture(value.model_slot_posture)) {
     return false;
   }
+  if (!isSafeProviderRoutingProposal(value.provider_routing_intelligence)) {
+    return false;
+  }
   if (!isSafeModelProviderResearchPosture(value.model_provider_research_posture)) {
     return false;
   }
@@ -9533,6 +9536,688 @@ function isSafeModelProviderControlPlane(
       "POST /control-center/providers/exact-approved-lanes/tiny",
     )
   );
+}
+
+function isSafeProviderRoutingProposal(value: unknown): boolean {
+  if (
+    !isPlainRecord(value) ||
+    !isPlainRecord(value.request) ||
+    !Array.isArray(value.observations) ||
+    !Array.isArray(value.candidates) ||
+    !Array.isArray(value.evaluated_candidates)
+  ) {
+    return false;
+  }
+  const candidates = value.candidates;
+  const evaluatedCandidates = value.evaluated_candidates;
+  const observations = value.observations;
+  const request = value.request;
+  const observationRecords = observations.filter(isPlainRecord);
+  const evaluatedCandidateRecords = evaluatedCandidates.filter(isPlainRecord);
+  const candidateRecords = candidates.filter(isPlainRecord);
+  const observationsByRef = new Map(
+    observationRecords.map((observation) => [
+      String(observation.observation_ref),
+      observation,
+    ]),
+  );
+  const evaluatedByCandidateRef = new Map(
+    evaluatedCandidateRecords.map((candidate) => [
+      String(candidate.candidate_ref),
+      candidate,
+    ]),
+  );
+  const recommendedCandidate =
+    typeof value.recommended_candidate_ref === "string"
+      ? candidates.find(
+          (candidate) =>
+            isPlainRecord(candidate) &&
+            candidate.candidate_ref === value.recommended_candidate_ref,
+        )
+      : undefined;
+  const eligibleCandidates = candidates.filter(
+    (candidate) =>
+      isPlainRecord(candidate) &&
+      candidate.status === "eligible_for_request_scoped_evaluation",
+  );
+  const strategies = [
+    "best_value",
+    "lowest_cost",
+    "lowest_latency",
+    "best_quality",
+    "local_first",
+  ];
+  const observationFingerprintRefs = value.observation_fingerprint_refs;
+  return (
+    value.schema_version === "provider_routing_intelligence.v1" &&
+    value.contract_ref === "contract-ref:provider-routing-intelligence:v1" &&
+    value.status === "proposal_only" &&
+    value.proposal_only === true &&
+    value.deterministic === true &&
+    value.safe_refs_only === true &&
+    value.approval_refs_are_identifiers_only === true &&
+    value.request_scoped_invocation_decision_required === true &&
+    value.fresh_local_approval_validation_required === true &&
+    value.fresh_authority_lease_evaluation_required === true &&
+    value.invocation_authorized === false &&
+    value.provider_call_performed === false &&
+    value.fallback_execution_performed === false &&
+    value.background_fanout_performed === false &&
+    value.raw_prompt_persisted === false &&
+    value.raw_response_persisted === false &&
+    value.raw_provider_payload_persisted === false &&
+    isProviderRoutingFingerprintRef(value.proposal_ref, "proposal") &&
+    isProviderRoutingSafeRef(value.request_ref) &&
+    isProviderRoutingFingerprintRef(value.request_fingerprint_ref, "request") &&
+    isProviderRoutingFingerprintRef(
+      value.observation_set_fingerprint_ref,
+      "observation-set",
+    ) &&
+    Array.isArray(observationFingerprintRefs) &&
+    observationFingerprintRefs.every((item) =>
+      isProviderRoutingFingerprintRef(item, "observation"),
+    ) &&
+    new Set(observationFingerprintRefs).size ===
+      observationFingerprintRefs.length &&
+    observationFingerprintRefs.length <= 32 &&
+    isProviderRoutingSafeText(value.safe_summary, 500) &&
+    strategies.includes(String(value.strategy)) &&
+    isProviderRoutingNeed(request) &&
+    request.request_ref === value.request_ref &&
+    request.strategy === value.strategy &&
+    request.maximum_presented_candidates ===
+      value.maximum_presented_candidates &&
+    observations.every(isSafeProviderRoutingObservation) &&
+    observationRecords.length === observations.length &&
+    providerRoutingUniqueField(observationRecords, "observation_ref") &&
+    providerRoutingUniqueField(observationRecords, "provider_ref") &&
+    evaluatedCandidates.every(isSafeProviderRoutingCandidate) &&
+    evaluatedCandidateRecords.length === evaluatedCandidates.length &&
+    providerRoutingUniqueField(evaluatedCandidateRecords, "candidate_ref") &&
+    providerRoutingUniqueField(evaluatedCandidateRecords, "observation_ref") &&
+    providerRoutingUniqueField(evaluatedCandidateRecords, "provider_ref") &&
+    evaluatedCandidates.every(
+      (candidate) => isPlainRecord(candidate) && candidate.rank === null,
+    ) &&
+    evaluatedCandidateRecords.every((candidate) => {
+      const observation = observationsByRef.get(String(candidate.observation_ref));
+      return (
+        observation !== undefined &&
+        isProviderRoutingCandidateProjectionOfObservation(candidate, observation)
+      );
+    }) &&
+    providerRoutingSortedArraysEqual(
+      evaluatedCandidateRecords.map((candidate) =>
+        String(candidate.observation_fingerprint_ref),
+      ),
+      observationFingerprintRefs,
+    ) &&
+    Number.isInteger(value.observed_candidate_count) &&
+    Number(value.observed_candidate_count) >= 0 &&
+    Number(value.observed_candidate_count) <= 32 &&
+    Number.isInteger(value.presented_candidate_count) &&
+    Number.isInteger(value.omitted_candidate_count) &&
+    Number.isInteger(value.maximum_presented_candidates) &&
+    value.presented_candidate_count === candidates.length &&
+    value.observed_candidate_count === observations.length &&
+    value.observed_candidate_count === evaluatedCandidates.length &&
+    value.observed_candidate_count === observationFingerprintRefs.length &&
+    Number(value.observed_candidate_count) ===
+      Number(value.presented_candidate_count) +
+        Number(value.omitted_candidate_count) &&
+    Number(value.presented_candidate_count) ===
+      Math.min(
+        Number(value.observed_candidate_count),
+        Number(value.maximum_presented_candidates),
+      ) &&
+    Number(value.maximum_presented_candidates) >= candidates.length &&
+    Number(value.maximum_presented_candidates) >= 1 &&
+    Number(value.maximum_presented_candidates) <= 4 &&
+    isProviderRoutingCodeArray(value.reason_codes) &&
+    isProviderRoutingCodeArray(value.blocker_codes) &&
+    isProviderRoutingSafeRef(value.approval_queue_route_ref) &&
+    isProviderRoutingSafeRef(value.run_detail_group_ref) &&
+    isProviderRoutingSafeRef(value.bounded_fanout_presentation_ref) &&
+    isProviderRoutingSafeRef(value.source_ref) &&
+    candidates.every(isSafeProviderRoutingCandidate) &&
+    candidateRecords.length === candidates.length &&
+    providerRoutingUniqueField(candidateRecords, "candidate_ref") &&
+    providerRoutingUniqueField(candidateRecords, "observation_ref") &&
+    providerRoutingUniqueField(candidateRecords, "provider_ref") &&
+    candidateRecords.every((candidate) => {
+      const evaluated = evaluatedByCandidateRef.get(String(candidate.candidate_ref));
+      const observation = observationsByRef.get(String(candidate.observation_ref));
+      return (
+        evaluated !== undefined &&
+        observation !== undefined &&
+        isProviderRoutingRankedCopy(candidate, evaluated) &&
+        isProviderRoutingEligibleForRequest(candidate, observation, request)
+      );
+    }) &&
+    providerRoutingArraysEqual(
+      candidateRecords.map((candidate) => candidate.candidate_ref),
+      providerRoutingExpectedPresentedCandidateRefs(
+        evaluatedCandidateRecords,
+        String(value.strategy),
+        Number(value.maximum_presented_candidates),
+      ),
+    ) &&
+    candidateRecords.every((candidate, index) =>
+      index < eligibleCandidates.length
+        ? candidate.status === "eligible_for_request_scoped_evaluation"
+        : candidate.status === "blocked",
+    ) &&
+    providerRoutingArraysEqual(
+      value.blocker_codes,
+      providerRoutingSortedUniqueCodes(evaluatedCandidateRecords, "blocker_codes"),
+    ) &&
+    providerRoutingArraysEqual(value.reason_codes, [
+      "PROVIDER_ROUTING_PROPOSAL_ONLY",
+      eligibleCandidates.length > 0
+        ? "PROVIDER_ROUTING_CANDIDATE_AVAILABLE"
+        : "PROVIDER_ROUTING_NO_ELIGIBLE_CANDIDATE",
+    ]) &&
+    eligibleCandidates.every(
+      (candidate, index) =>
+        isPlainRecord(candidate) && candidate.rank === index + 1,
+    ) &&
+    (value.recommended_candidate_ref === null
+      ? eligibleCandidates.length === 0
+      :
+      (isPlainRecord(recommendedCandidate) &&
+        recommendedCandidate.rank === 1 &&
+        recommendedCandidate.status ===
+          "eligible_for_request_scoped_evaluation"))
+  );
+}
+
+function isProviderRoutingNeed(value: Record<string, unknown>): boolean {
+  return (
+    isProviderRoutingSafeRef(value.request_ref) &&
+    isProviderRoutingSafeRef(value.task_ref) &&
+    [
+      "best_value",
+      "lowest_cost",
+      "lowest_latency",
+      "best_quality",
+      "local_first",
+    ].includes(String(value.strategy)) &&
+    isProviderRoutingSafeRefArray(value.required_capability_refs, 0, 12) &&
+    Number.isInteger(value.minimum_context_tokens) &&
+    Number(value.minimum_context_tokens) >= 0 &&
+    Number(value.minimum_context_tokens) <= 2_000_000 &&
+    Number.isInteger(value.maximum_presented_candidates) &&
+    Number(value.maximum_presented_candidates) >= 1 &&
+    Number(value.maximum_presented_candidates) <= 4
+  );
+}
+
+function isSafeProviderRoutingObservation(value: unknown): boolean {
+  if (!isPlainRecord(value) || !isPlainRecord(value.availability_snapshot)) {
+    return false;
+  }
+  const snapshot = value.availability_snapshot;
+  return (
+    isProviderRoutingSafeRef(value.observation_ref) &&
+    isProviderRoutingSafeRef(value.provider_ref) &&
+    isProviderRoutingSafeText(value.provider_label, 120) &&
+    isProviderRoutingSafeRef(value.provider_manifest_ref) &&
+    isProviderRoutingSafeRef(value.model_ref) &&
+    isProviderRoutingSafeRef(value.adapter_ref) &&
+    ["local", "hosted", "unknown"].includes(String(value.runtime_class)) &&
+    typeof value.metered === "boolean" &&
+    isProviderRoutingOptionalNumber(value.estimated_cost_usd, 0, 1_000_000) &&
+    isProviderRoutingOptionalNumber(
+      value.estimated_latency_ms,
+      0,
+      3_600_000,
+    ) &&
+    isProviderRoutingOptionalNumber(value.quality_score, 0, 100) &&
+    isProviderRoutingOptionalInteger(value.context_tokens, 1, 2_000_000) &&
+    isProviderRoutingSafeRefArray(value.capability_refs, 0, 24) &&
+    isProviderRoutingSafeRefArray(value.evidence_refs, 1, 24) &&
+    isProviderRoutingSafeRef(value.source_ref) &&
+    isSafeProviderRoutingAvailabilitySnapshot(snapshot) &&
+    snapshot.provider_ref === value.provider_ref &&
+    snapshot.adapter_ref === value.adapter_ref &&
+    snapshot.source_ref === value.source_ref &&
+    (value.metered
+      ? snapshot.cost_posture === "metered"
+      : snapshot.cost_posture === "not_metered") &&
+    providerRoutingArraysEqual(snapshot.evidence_refs, value.evidence_refs)
+  );
+}
+
+function isSafeProviderRoutingCandidate(value: unknown): boolean {
+  if (!isPlainRecord(value) || !isPlainRecord(value.availability_snapshot)) {
+    return false;
+  }
+  const snapshot = value.availability_snapshot;
+  const eligible = value.status === "eligible_for_request_scoped_evaluation";
+  const blocked = value.status === "blocked";
+  return (
+    (eligible || blocked) &&
+    value.proposal_only === true &&
+    value.invocation_authorized === false &&
+    value.provider_call_performed === false &&
+    isProviderRoutingFingerprintRef(value.candidate_ref, "candidate") &&
+    isProviderRoutingSafeRef(value.observation_ref) &&
+    isProviderRoutingFingerprintRef(
+      value.observation_fingerprint_ref,
+      "observation",
+    ) &&
+    isProviderRoutingSafeRef(value.provider_ref) &&
+    isProviderRoutingSafeText(value.provider_label, 120) &&
+    isProviderRoutingSafeRef(value.provider_manifest_ref) &&
+    isProviderRoutingSafeRef(value.model_ref) &&
+    isProviderRoutingSafeRef(value.adapter_ref) &&
+    ["local", "hosted", "unknown"].includes(String(value.runtime_class)) &&
+    isProviderRoutingOptionalNumber(value.estimated_cost_usd, 0, 1_000_000) &&
+    isProviderRoutingOptionalNumber(
+      value.estimated_latency_ms,
+      0,
+      3_600_000,
+    ) &&
+    isProviderRoutingOptionalNumber(value.quality_score, 0, 100) &&
+    isProviderRoutingCodeArray(value.reason_codes) &&
+    isProviderRoutingCodeArray(value.blocker_codes) &&
+    isProviderRoutingSafeRefArray(value.evidence_refs, 1, 24) &&
+    isProviderRoutingSafeText(value.safe_summary, 500) &&
+    isSafeProviderRoutingAvailabilitySnapshot(snapshot) &&
+    snapshot.provider_ref === value.provider_ref &&
+    snapshot.adapter_ref === value.adapter_ref &&
+    providerRoutingArraysEqual(snapshot.evidence_refs, value.evidence_refs) &&
+    providerRoutingArrayContainsAll(value.reason_codes, snapshot.reason_codes) &&
+    providerRoutingArrayContainsAll(value.blocker_codes, snapshot.blocker_codes) &&
+    (eligible
+      ? value.blocker_codes.length === 0 &&
+        Number.isInteger(value.rank) &&
+        Number(value.rank) >= 1 &&
+        Number(value.rank) <= 4 &&
+        snapshot.runtime_readiness_status === "ready" &&
+        snapshot.authority_posture !== "blocked" &&
+        snapshot.safe_disable_status === "inactive" &&
+        (snapshot.cost_posture !== "metered" ||
+          typeof value.estimated_cost_usd === "number") &&
+        Array.isArray(snapshot.blocker_codes) &&
+        snapshot.blocker_codes.length === 0 &&
+        value.reason_codes.includes(
+          "PROVIDER_REQUEST_SCOPED_APPROVAL_REVALIDATION_REQUIRED",
+        ) &&
+        value.reason_codes.includes(
+          "PROVIDER_REQUEST_SCOPED_AUTHORITY_LEASE_REVALIDATION_REQUIRED",
+        )
+      : value.rank === null && value.blocker_codes.length > 0)
+  );
+}
+
+function isSafeProviderRoutingAvailabilitySnapshot(
+  value: Record<string, unknown>,
+): boolean {
+  const ready = value.runtime_readiness_status === "ready";
+  return (
+    value.schema_version === "uaa-capability-availability.v1" &&
+    isProviderRoutingSafeRef(value.snapshot_ref) &&
+    value.capability_ref === "capability-ref:provider-model-invocation" &&
+    (value.provider_ref === null || isProviderRoutingSafeRef(value.provider_ref)) &&
+    (value.adapter_ref === null || isProviderRoutingSafeRef(value.adapter_ref)) &&
+    ["supported", "unsupported", "unknown"].includes(String(value.catalog_status)) &&
+    ["supported", "unsupported", "unknown"].includes(
+      String(value.compatibility_status),
+    ) &&
+    ["configured", "not_configured", "invalid", "unknown"].includes(
+      String(value.configuration_status),
+    ) &&
+    ["healthy", "degraded", "unhealthy", "stale", "unknown"].includes(
+      String(value.health_status),
+    ) &&
+    [
+      "eligible_for_policy_evaluation",
+      "approval_required",
+      "lease_required",
+      "blocked",
+    ].includes(String(value.authority_posture)) &&
+    ["available", "constrained", "exhausted", "unknown"].includes(
+      String(value.resource_status),
+    ) &&
+    ["not_metered", "metered", "unknown"].includes(String(value.cost_posture)) &&
+    ["active", "inactive", "unknown"].includes(String(value.safe_disable_status)) &&
+    ["ready", "unavailable", "blocked", "unknown"].includes(
+      String(value.runtime_readiness_status),
+    ) &&
+    (value.declared_or_observed_version_ref === null ||
+      isProviderRoutingSafeRef(value.declared_or_observed_version_ref)) &&
+    isProviderRoutingTimestamp(value.checked_at) &&
+    (value.expires_at === null || isProviderRoutingTimestamp(value.expires_at)) &&
+    ["current", "stale", "unknown"].includes(String(value.freshness_status)) &&
+    isProviderRoutingCodeArray(value.reason_codes) &&
+    isProviderRoutingCodeArray(value.blocker_codes) &&
+    isProviderRoutingSafeRefArray(value.evidence_refs) &&
+    isProviderRoutingSafeRefArray(value.probe_refs) &&
+    isProviderRoutingSafeRef(value.source_ref) &&
+    isProviderRoutingSafeText(value.safe_summary, 500) &&
+    (!ready ||
+      (value.catalog_status === "supported" &&
+        value.compatibility_status === "supported" &&
+        value.configuration_status === "configured" &&
+        value.health_status === "healthy" &&
+        value.resource_status === "available" &&
+        value.cost_posture !== "unknown" &&
+        value.safe_disable_status === "inactive" &&
+        value.freshness_status === "current" &&
+        (value.expires_at === null ||
+          Date.parse(value.expires_at) > Date.parse(String(value.checked_at))) &&
+        value.blocker_codes.length === 0))
+  );
+}
+
+function isProviderRoutingCodeArray(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    new Set(value).size === value.length &&
+    value.every(
+      (item) =>
+        typeof item === "string" && /^[A-Z][A-Z0-9_]{0,119}$/.test(item),
+    )
+  );
+}
+
+function isProviderRoutingSafeRefArray(
+  value: unknown,
+  minimumLength = 0,
+  maximumLength = 64,
+): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.length >= minimumLength &&
+    value.length <= maximumLength &&
+    new Set(value).size === value.length &&
+    value.every(isProviderRoutingSafeRef)
+  );
+}
+
+function isProviderRoutingSafeRef(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    /^[A-Za-z][A-Za-z0-9_.:@-]{2,220}$/.test(value) &&
+    isProviderRoutingSafeText(value, 220) &&
+    !/(?:^|[^A-Za-z0-9])localhost(?:$|[^A-Za-z0-9])|::1/i.test(value) &&
+    !/(?:^|[^A-Za-z0-9])(?:\d{1,3}\.){3}\d{1,3}(?:$|[^A-Za-z0-9])/.test(
+      value,
+    )
+  );
+}
+
+function isProviderRoutingFingerprintRef(
+  value: unknown,
+  kind: "proposal" | "candidate" | "request" | "observation" | "observation-set",
+): value is string {
+  if (typeof value !== "string") {
+    return false;
+  }
+  const prefixes = {
+    proposal: "provider-routing-proposal-ref",
+    candidate: "provider-routing-candidate-ref",
+    request: "request-fingerprint-ref",
+    observation: "observation-fingerprint-ref",
+    "observation-set": "observation-set-fingerprint-ref",
+  } as const;
+  return new RegExp(`^${prefixes[kind]}:[a-f0-9]{64}$`).test(value);
+}
+
+function isProviderRoutingSafeText(value: unknown, maxLength: number): value is string {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= maxLength &&
+    !/(?:\/Users\/|\/home\/|\/var\/|\/etc\/|\/private\/|\/tmp\/|[A-Za-z]:\\|\\Users\\|localhost|::1)/i.test(
+      value,
+    ) &&
+    !/(?:^|[^A-Za-z0-9])(?:\d{1,3}\.){3}\d{1,3}(?:$|[^A-Za-z0-9])/.test(
+      value,
+    ) &&
+    !/\b[A-Z][A-Z0-9_]{2,}\s*=/.test(value) &&
+    !/(?<![A-Za-z0-9])@[A-Za-z0-9_.-]{2,}/.test(value) &&
+    !/\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:com|net|org|io|dev|app|local|internal)\b/i.test(
+      value,
+    ) &&
+    !/(?:api[_-]?key|authorization|bearer\s+|cookie|password|private\s+key|secret|token|client[_-]?secret|-----BEGIN)/i.test(
+      value,
+    )
+  );
+}
+
+function isProviderRoutingOptionalNumber(
+  value: unknown,
+  minimum: number,
+  maximum: number,
+): boolean {
+  return (
+    value === null ||
+    (typeof value === "number" &&
+      Number.isFinite(value) &&
+      value >= minimum &&
+      value <= maximum)
+  );
+}
+
+function isProviderRoutingOptionalInteger(
+  value: unknown,
+  minimum: number,
+  maximum: number,
+): boolean {
+  return (
+    value === null ||
+    (Number.isInteger(value) &&
+      Number(value) >= minimum &&
+      Number(value) <= maximum)
+  );
+}
+
+function isProviderRoutingTimestamp(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length <= 64 &&
+    /(?:Z|[+-]\d{2}:\d{2})$/.test(value) &&
+    Number.isFinite(Date.parse(value))
+  );
+}
+
+function providerRoutingArraysEqual(left: unknown, right: unknown): boolean {
+  return (
+    Array.isArray(left) &&
+    Array.isArray(right) &&
+    left.length === right.length &&
+    left.every((value, index) => value === right[index])
+  );
+}
+
+function providerRoutingArrayContainsAll(
+  outer: unknown,
+  inner: unknown,
+): boolean {
+  return (
+    Array.isArray(outer) &&
+    Array.isArray(inner) &&
+    inner.every((value) => outer.includes(value))
+  );
+}
+
+function providerRoutingUniqueField(
+  records: Array<Record<string, unknown>>,
+  fieldName: string,
+): boolean {
+  const values = records.map((record) => record[fieldName]);
+  return values.every((value) => typeof value === "string") &&
+    new Set(values).size === values.length;
+}
+
+function providerRoutingSortedArraysEqual(
+  left: string[],
+  right: unknown[],
+): boolean {
+  return providerRoutingArraysEqual([...left].sort(), [...right].sort());
+}
+
+function providerRoutingSortedUniqueCodes(
+  records: Array<Record<string, unknown>>,
+  fieldName: string,
+): string[] {
+  return [
+    ...new Set(
+      records.flatMap((record) =>
+        Array.isArray(record[fieldName])
+          ? (record[fieldName] as unknown[]).filter(
+              (value): value is string => typeof value === "string",
+            )
+          : [],
+      ),
+    ),
+  ].sort();
+}
+
+function isProviderRoutingCandidateProjectionOfObservation(
+  candidate: Record<string, unknown>,
+  observation: Record<string, unknown>,
+): boolean {
+  return (
+    candidate.observation_ref === observation.observation_ref &&
+    candidate.provider_ref === observation.provider_ref &&
+    candidate.provider_label === observation.provider_label &&
+    candidate.provider_manifest_ref === observation.provider_manifest_ref &&
+    candidate.model_ref === observation.model_ref &&
+    candidate.adapter_ref === observation.adapter_ref &&
+    candidate.runtime_class === observation.runtime_class &&
+    candidate.estimated_cost_usd === observation.estimated_cost_usd &&
+    candidate.estimated_latency_ms === observation.estimated_latency_ms &&
+    candidate.quality_score === observation.quality_score &&
+    providerRoutingArraysEqual(candidate.evidence_refs, observation.evidence_refs) &&
+    providerRoutingJsonEqual(
+      candidate.availability_snapshot,
+      observation.availability_snapshot,
+    )
+  );
+}
+
+function isProviderRoutingRankedCopy(
+  candidate: Record<string, unknown>,
+  evaluated: Record<string, unknown>,
+): boolean {
+  const { rank: _candidateRank, ...candidateWithoutRank } = candidate;
+  const { rank: _evaluatedRank, ...evaluatedWithoutRank } = evaluated;
+  return providerRoutingJsonEqual(candidateWithoutRank, evaluatedWithoutRank);
+}
+
+function isProviderRoutingEligibleForRequest(
+  candidate: Record<string, unknown>,
+  observation: Record<string, unknown>,
+  request: Record<string, unknown>,
+): boolean {
+  if (candidate.status !== "eligible_for_request_scoped_evaluation") {
+    return true;
+  }
+  const requiredCapabilityRefs = Array.isArray(request.required_capability_refs)
+    ? request.required_capability_refs
+    : [];
+  const capabilityRefs = Array.isArray(observation.capability_refs)
+    ? observation.capability_refs
+    : [];
+  const minimumContextTokens = Number(request.minimum_context_tokens);
+  return (
+    (!observation.metered ||
+      typeof observation.estimated_cost_usd === "number") &&
+    requiredCapabilityRefs.every((ref) => capabilityRefs.includes(ref)) &&
+    (minimumContextTokens === 0 ||
+      (typeof observation.context_tokens === "number" &&
+        observation.context_tokens >= minimumContextTokens))
+  );
+}
+
+function providerRoutingJsonEqual(left: unknown, right: unknown): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function providerRoutingExpectedPresentedCandidateRefs(
+  evaluated: Array<Record<string, unknown>>,
+  strategy: string,
+  maximumPresentedCandidates: number,
+): unknown[] {
+  const eligible = evaluated
+    .filter(
+      (candidate) =>
+        candidate.status === "eligible_for_request_scoped_evaluation",
+    )
+    .sort((left, right) =>
+      providerRoutingCompareCandidates(strategy, left, right),
+    );
+  const blocked = evaluated
+    .filter((candidate) => candidate.status === "blocked")
+    .sort((left, right) =>
+      providerRoutingCompareRefs(left.provider_ref, right.provider_ref),
+    );
+  const selectedEligible = eligible.slice(0, maximumPresentedCandidates);
+  const selectedBlocked = blocked.slice(
+    0,
+    maximumPresentedCandidates - selectedEligible.length,
+  );
+  return [...selectedEligible, ...selectedBlocked].map(
+    (candidate) => candidate.candidate_ref,
+  );
+}
+
+function providerRoutingCompareCandidates(
+  strategy: string,
+  left: Record<string, unknown>,
+  right: Record<string, unknown>,
+): number {
+  const tupleFor = (candidate: Record<string, unknown>): number[] => {
+    const cost =
+      typeof candidate.estimated_cost_usd === "number"
+        ? candidate.estimated_cost_usd
+        : Number.POSITIVE_INFINITY;
+    const latency =
+      typeof candidate.estimated_latency_ms === "number"
+        ? candidate.estimated_latency_ms
+        : Number.POSITIVE_INFINITY;
+    const quality =
+      typeof candidate.quality_score === "number" ? candidate.quality_score : 0;
+    if (strategy === "lowest_cost") {
+      return [cost, latency, -quality];
+    }
+    if (strategy === "lowest_latency") {
+      return [latency, cost, -quality];
+    }
+    if (strategy === "best_quality") {
+      return [-quality, cost, latency];
+    }
+    if (strategy === "local_first") {
+      const localRank =
+        candidate.runtime_class === "local"
+          ? 0
+          : candidate.runtime_class === "hosted"
+            ? 1
+            : 2;
+      return [localRank, cost, latency];
+    }
+    return [-(quality / (1 + cost)), latency, cost];
+  };
+  const leftTuple = tupleFor(left);
+  const rightTuple = tupleFor(right);
+  for (let index = 0; index < leftTuple.length; index += 1) {
+    if (leftTuple[index] < rightTuple[index]) {
+      return -1;
+    }
+    if (leftTuple[index] > rightTuple[index]) {
+      return 1;
+    }
+  }
+  return providerRoutingCompareRefs(left.provider_ref, right.provider_ref);
+}
+
+function providerRoutingCompareRefs(left: unknown, right: unknown): number {
+  const leftRef = String(left);
+  const rightRef = String(right);
+  return leftRef < rightRef ? -1 : leftRef > rightRef ? 1 : 0;
 }
 
 function isSafeDelegatedRuntimeModelCatalogPosture(value: unknown): boolean {

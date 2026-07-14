@@ -997,6 +997,11 @@ function ModelProviderControlPlanePanel({
   const researchPosture = controlPlane.model_provider_research_posture;
   const externalPosture = researchPosture.external_information;
   const firstProviderPosture = researchPosture.provider_postures[0];
+  const routingProposal = controlPlane.provider_routing_intelligence;
+  const recommendedRoutingCandidate = routingProposal.candidates.find(
+    (candidate) =>
+      candidate.candidate_ref === routingProposal.recommended_candidate_ref,
+  );
   return (
     <article className="panel model-provider-control-plane-panel">
       <div className="panel-heading">
@@ -1305,6 +1310,46 @@ function ModelProviderControlPlanePanel({
             ...controlPlane.model_slot_posture.records.map(
               (record) =>
                 `${record.display_label}: ${record.uaa_execution_posture}`,
+            ),
+          ]}
+        />
+        <ReadinessGateCard
+          title="Provider routing proposal"
+          status={`${routingProposal.status} · ${routingProposal.observed_candidate_count} observed`}
+          summary={routingProposal.safe_summary}
+          details={[
+            ["Strategy", routingProposal.strategy],
+            [
+              "Recommended candidate",
+              recommendedRoutingCandidate?.provider_label ?? "none eligible",
+            ],
+            [
+              "Invocation authority",
+              routingProposal.invocation_authorized ? "granted" : "not granted",
+            ],
+            [
+              "Fresh local approval",
+              routingProposal.fresh_local_approval_validation_required
+                ? "required"
+                : "missing",
+            ],
+            [
+              "Fresh AuthorityLease",
+              routingProposal.fresh_authority_lease_evaluation_required
+                ? "required"
+                : "missing",
+            ],
+            [
+              "Provider calls",
+              routingProposal.provider_call_performed ? "performed" : "not performed",
+            ],
+          ]}
+          blockerCodes={[
+            ...routingProposal.reason_codes,
+            ...routingProposal.blocker_codes,
+            ...routingProposal.candidates.map(
+              (candidate) =>
+                `${candidate.provider_label}: ${candidate.status} · ${candidate.availability_snapshot.runtime_readiness_status}`,
             ),
           ]}
         />

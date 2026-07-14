@@ -87,6 +87,35 @@ def render_catalog_summary(payload: dict[str, object]) -> str:
     return "\n".join(lines)
 
 
+def validate_catalog_entry(entry_ref: str) -> dict[str, object]:
+    ecosystem = build_default_extension_ecosystem_read_model()
+    for result in ecosystem.developer_validation_results:
+        if result.catalog_entry_ref == entry_ref or result.package_ref == entry_ref:
+            return result.model_dump(mode="json")
+    raise ValueError("EXTENSION_DEVELOPER_ENTRY_NOT_FOUND")
+
+
+def render_validation_summary(payload: dict[str, object]) -> str:
+    blockers = payload.get("blocker_codes", [])
+    blocker_text = ", ".join(str(value) for value in blockers) or "none"
+    return "\n".join(
+        [
+            "UAA extension developer validation",
+            f"Package: {payload['package_ref']}",
+            f"Manifest: {payload['manifest_ref']}",
+            f"Version: {payload['version_ref']}",
+            f"Status: {payload['status']}",
+            (
+                "Pinned hashes: "
+                f"{payload['reviewed_hash_count']}/{payload['declared_hash_count']}"
+            ),
+            f"Blockers: {blocker_text}",
+            "Runtime import: blocked",
+            "Catalog validation never grants activation or execution authority.",
+        ]
+    )
+
+
 def _safe_extension_denial_code(exc: ValueError) -> str:
     match = re.search(r"EXTENSION_INSTALL_DISABLED_[A-Z0-9_]+", str(exc))
     return match.group(0) if match else "EXTENSION_INSTALL_DISABLED_REQUEST_DENIED"
@@ -149,6 +178,15 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Print the same backend-owned truth as redacted safe-ref JSON.",
     )
+    validate_parser = subparsers.add_parser(
+        "validate-entry",
+        help=(
+            "Validate one known pinned extension entry for metadata-only developer "
+            "feedback without importing or executing it."
+        ),
+    )
+    validate_parser.add_argument("entry_ref")
+    validate_parser.add_argument("--json", action="store_true")
     subparsers.add_parser(
         "inspect-skill-write-gate",
         help="Print staged skill-write approval gate metadata as safe-ref JSON.",
@@ -198,6 +236,17 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(payload, indent=2, sort_keys=True))
         else:
             print(render_catalog_summary(payload))
+        return 0
+    if args.command == "validate-entry":
+        try:
+            payload = validate_catalog_entry(args.entry_ref)
+        except ValueError as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
+        if args.json:
+            print(json.dumps(payload, indent=2, sort_keys=True))
+        else:
+            print(render_validation_summary(payload))
         return 0
     if args.command == "inspect-skill-write-gate":
         print(json.dumps(inspect_skill_write_gate(), indent=2, sort_keys=True))

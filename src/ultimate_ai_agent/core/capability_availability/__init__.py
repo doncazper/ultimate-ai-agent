@@ -32,6 +32,7 @@ from .contracts import (
     build_capability_availability_snapshot,
     derive_runtime_readiness,
     evaluate_capability_invocation,
+    validate_capability_availability_safe_text,
 )
 
 _LAZY_EXPORT_MODULES = {
@@ -53,6 +54,7 @@ def __getattr__(name: str):
     value = getattr(import_module(module_name, __name__), name)
     globals()[name] = value
     return value
+
 
 __all__ = [
     "CAPABILITY_AVAILABILITY_CLI_REF",
@@ -88,6 +90,7 @@ __all__ = [
     "build_web_hybrid_availability_read_model",
     "derive_runtime_readiness",
     "evaluate_capability_invocation",
+    "validate_capability_availability_safe_text",
     "snapshot_from_capability_catalog_entry",
     "snapshot_from_capability_manifest",
     "snapshot_from_extension_catalog_entry",

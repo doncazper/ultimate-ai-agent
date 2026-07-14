@@ -344,8 +344,6 @@ class OrchestrationEfficiencyPlanner:
             cost_decision.reason_codes if cost_decision.status == BudgetStatus.warning else []
         )
         reason_codes = ["SELECTED_PROFILE", *warning_reason_codes]
-        if profile.is_cloud and request.approval_ref and self.router.approval_authority is not None:
-            reason_codes.append("APPROVAL_VALIDATED")
         return (
             ModelRouteDecision(
                 request_id=request.request_id,

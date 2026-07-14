@@ -215,9 +215,7 @@ def test_ecosystem_rejects_same_count_substitution_and_duplicate_refs() -> None:
         ExtensionEcosystemReadModel.model_validate(
             payload
             | {
-                "availability_snapshot_refs": [
-                    payload["availability_snapshot_refs"][0]
-                ]
+                "availability_snapshot_refs": [payload["availability_snapshot_refs"][0]]
                 * payload["availability_snapshot_count"]
             }
         )
@@ -239,7 +237,9 @@ def test_ecosystem_rejects_same_count_substitution_and_duplicate_refs() -> None:
 
 
 def test_developer_validation_result_rejects_contradictory_truth() -> None:
-    result = build_default_extension_ecosystem_read_model().developer_validation_results[0]
+    result = (
+        build_default_extension_ecosystem_read_model().developer_validation_results[0]
+    )
     payload = result.model_dump(mode="json")
     with pytest.raises(
         ValueError,
@@ -339,6 +339,48 @@ def test_api_and_json_cli_expose_same_backend_owned_truth() -> None:
     assert json.loads(completed.stdout) == expected
 
 
+def test_extension_developer_cli_validates_one_entry_without_runtime_import() -> None:
+    ecosystem = build_default_extension_ecosystem_read_model()
+    expected = ecosystem.developer_validation_results[0]
+    env = dict(os.environ)
+    env["PYTHONPATH"] = "src"
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "scripts/dev/uaa_extensions.py",
+            "validate-entry",
+            expected.catalog_entry_ref,
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+    assert "UAA extension developer validation" in completed.stdout
+    assert expected.package_ref in completed.stdout
+    assert "Runtime import: blocked" in completed.stdout
+
+    json_completed = subprocess.run(
+        [
+            sys.executable,
+            "scripts/dev/uaa_extensions.py",
+            "validate-entry",
+            expected.catalog_entry_ref,
+            "--json",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    payload = json.loads(json_completed.stdout)
+    assert payload == expected.model_dump(mode="json")
+    assert payload["runtime_import_enabled"] is False
+    assert payload["execution_enabled"] is False
+
+
 def test_checked_in_schema_accepts_live_ecosystem_payload() -> None:
     schema = json.loads(
         Path("docs/schemas/extension_ecosystem_read_model.schema.json").read_text(
@@ -423,8 +465,7 @@ def test_blocked_mutation_cli_emits_safe_denial_without_traceback(tmp_path) -> N
     assert completed.returncode == 1
     assert completed.stdout == ""
     assert (
-        "EXTENSION_INSTALL_DISABLED_ATOMIC_AUTHORITY_STATE_REQUIRED"
-        in completed.stderr
+        "EXTENSION_INSTALL_DISABLED_ATOMIC_AUTHORITY_STATE_REQUIRED" in completed.stderr
     )
     assert "Traceback" not in completed.stderr
     assert str(tmp_path) not in completed.stderr
