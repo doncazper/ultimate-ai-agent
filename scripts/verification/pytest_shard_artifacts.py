@@ -1,15 +1,24 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import os
 import re
+import stat
 from pathlib import Path
 from typing import Any, Protocol
 
 
 TIMING_SCHEMA_VERSION = "uaa_pytest_file_timings.v1"
+FAILED_TEST_REFS_SCHEMA_VERSION = "uaa_pytest_failed_test_refs.v1"
 DURATION_RE = re.compile(r"^\s*(?P<seconds>\d+(?:\.\d+)?)s\s+\w+\s+(?P<nodeid>.+)$")
+MAX_SAFE_FAILURE_REPORT_BYTES = 16_384
+MAX_FAILED_TEST_REFS_PER_SHARD = 8
+_SAFE_TEST_COMPONENT_RE = re.compile(r"[^A-Za-z0-9_.-]+")
+_SAFE_TEST_REF_RE = re.compile(
+    r"^pytest-test-ref:[a-z0-9_.-]{1,72}:[a-z0-9_.-]{1,72}:[a-f0-9]{12}$"
+)
 
 
 class ShardPlanLike(Protocol):
@@ -25,6 +34,95 @@ class ShardResultLike(Protocol):
     elapsed_seconds: float
     log_path: Path
     timed_out: bool
+    failure_ref_path: Path | None
+
+
+def _read_bounded_regular_file(path: Path) -> bytes | None:
+    flags = (
+        os.O_RDONLY
+        | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_NONBLOCK", 0)
+    )
+    try:
+        descriptor = os.open(path, flags)
+    except OSError:
+        return None
+    try:
+        metadata = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(metadata.st_mode)
+            or metadata.st_nlink != 1
+            or metadata.st_size > MAX_SAFE_FAILURE_REPORT_BYTES
+        ):
+            return None
+        chunks: list[bytes] = []
+        remaining = MAX_SAFE_FAILURE_REPORT_BYTES + 1
+        while remaining > 0:
+            chunk = os.read(descriptor, min(65_536, remaining))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        payload = b"".join(chunks)
+        return payload if len(payload) <= MAX_SAFE_FAILURE_REPORT_BYTES else None
+    finally:
+        os.close(descriptor)
+
+
+def _safe_test_component(value: str, fallback: str) -> str:
+    without_parameters = value.split("[", 1)[0]
+    normalized = _SAFE_TEST_COMPONENT_RE.sub("-", without_parameters).strip(".-")
+    return (normalized[:72] or fallback).lower()
+
+
+def safe_test_ref(nodeid: str) -> str:
+    # Parameter IDs are operator-provided data and may themselves contain the
+    # structural ``::`` separator.  Remove the complete parameter suffix before
+    # splitting the stable collection metadata so no portion can become a ref.
+    parameter_free_nodeid = nodeid.split("[", 1)[0]
+    parts = parameter_free_nodeid.replace("\\", "/").split("::")
+    module = _safe_test_component(parts[0].rsplit("/", 1)[-1], "test-module")
+    test_name = _safe_test_component(parts[-1], "test-case")
+    digest = hashlib.sha256(f"{module}::{test_name}".encode("utf-8")).hexdigest()[:12]
+    return f"pytest-test-ref:{module}:{test_name}:{digest}"
+
+
+def collect_failed_test_refs(
+    results: list[ShardResultLike],
+) -> dict[int, tuple[str, ...]]:
+    """Return bounded code-metadata refs without retaining failure payloads."""
+
+    refs_by_shard: dict[int, tuple[str, ...]] = {}
+    for result in results:
+        if result.returncode == 0 or result.failure_ref_path is None:
+            continue
+        payload = _read_bounded_regular_file(result.failure_ref_path)
+        if payload is None:
+            continue
+        try:
+            decoded = json.loads(payload)
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            continue
+        if not isinstance(decoded, dict) or set(decoded) != {
+            "schema_version",
+            "failed_test_refs",
+        }:
+            continue
+        raw_refs = decoded.get("failed_test_refs")
+        if (
+            decoded.get("schema_version") != FAILED_TEST_REFS_SCHEMA_VERSION
+            or not isinstance(raw_refs, list)
+            or len(raw_refs) > MAX_FAILED_TEST_REFS_PER_SHARD
+            or any(
+                not isinstance(ref, str) or _SAFE_TEST_REF_RE.fullmatch(ref) is None
+                for ref in raw_refs
+            )
+        ):
+            continue
+        refs = tuple(dict.fromkeys(raw_refs))
+        if refs:
+            refs_by_shard[result.index] = refs
+    return refs_by_shard
 
 
 def _read_timing_profile(timings_json: Path) -> tuple[dict[str, float], str]:
@@ -210,6 +308,7 @@ def write_performance_report(
     total_elapsed_seconds: float,
     estimated_timings: dict[str, float] | None,
     plan_fingerprint_ref: str = "pytest-shard-plan-ref:not-recorded",
+    failed_test_refs: dict[int, tuple[str, ...]] | None = None,
 ) -> None:
     result_by_index = {result.index: result for result in results}
     status = "within_stretch_goal"
@@ -255,6 +354,7 @@ def write_performance_report(
                 ),
                 "return_code": result.returncode if result else 1,
                 "timed_out": result.timed_out if result else True,
+                "failed_test_refs": list((failed_test_refs or {}).get(plan.index, ())),
             }
         )
     payload = {
@@ -294,6 +394,7 @@ def print_summary(
     total_elapsed_seconds: float,
     safe_summary: bool,
     plan_fingerprint_ref: str = "pytest-shard-plan-ref:not-recorded",
+    failed_test_refs: dict[int, tuple[str, ...]] | None = None,
 ) -> None:
     print("\n=== Pytest Shard Summary ===")
     print(f"Assignment: {assignment_method}")
@@ -316,6 +417,12 @@ def print_summary(
             f"return_code={result.returncode} "
             f"elapsed_seconds={result.elapsed_seconds:.2f} log_ref={log_ref}"
         )
+        if safe_summary and result.returncode != 0:
+            refs = (failed_test_refs or {}).get(result.index, ())
+            print(
+                f"shard {result.index} failed_test_refs="
+                f"{','.join(refs) if refs else 'unavailable'}"
+            )
     if timing_output is not None:
         output_ref = (
             "pytest-timing-output:local" if safe_summary else str(timing_output)

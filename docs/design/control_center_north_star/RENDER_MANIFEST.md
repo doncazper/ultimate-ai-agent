@@ -1,8 +1,8 @@
 # Control Center North-Star Render Manifest
 
 Status: current target render set, documentation only.
-Baseline ID: CC-NS-TARGET-R3-2026-07-11.
-Current as of: 2026-07-11.
+Baseline ID: CC-NS-TARGET-R6-2026-07-13.
+Current as of: 2026-07-13.
 Repo baseline: v0.104.0 / 0.104.0.
 
 Machine-readable currentness: `CURRENT_RENDER_BASELINE.json`.
@@ -85,6 +85,27 @@ in `CRM_V3_REFERENCE_SYNTHESIS.md`.
 | File | Surface/version | Required change | Must not imply |
 |---|---|---|---|
 | `renders/target-v3/04-crm-v3.png` | CRM v3 | fixed toolbar; route tabs; six KPIs; smart views; sortable relationship table; persistent inspector; pipeline analytics; availability-backed calling; route-aware UAA composer | specialty vertical; raw contact data; provider connection; sync; dialer launch as completed call; recording by default |
+
+## Studio Unified Revision 05
+
+Unified Studio v7 supersedes the separate Agent Studio / Creative Studio split.
+One `UAA Studio` identity now exposes exactly three persistent modes: Chat,
+Code, and Create. The refined geometry narrows the Studio rail to 220 px and the
+Create presentation strip to 96 px so the center work surface remains dominant.
+The normative purpose and ownership contract is
+`../STUDIO_TAB_PRODUCT_DIRECTION.md`.
+
+| File | Surface/version | Required change | Must not imply |
+|---|---|---|---|
+| `renders/target-v3/06-studio-unified-v7.png` | Unified Studio v7 | one Studio identity; persistent Chat/Code/Create mode rail; 220 px rail; flexible center; fixed 350 px inspector; 96 px Create thumbnail strip; mode ownership; proposal composer; blocked export; visible no-runtime-authority posture; full-width status bar | modes as authority; implemented model/runtime/export/publish/deploy/delivery; approval bypass; or implementation evidence |
+
+The following sanitized screens remain preserved comparison artifacts and no
+longer define separate current workspaces:
+
+| File | Preserved exploration | Status |
+|---|---|---|
+| `renders/target-v3/06-agent-studio-v5.png` | coding-only fixed-pane Studio | superseded by unified v7 |
+| `renders/target-v3/06-creative-studio-v2.png` | creative-only presentation Studio | superseded by unified v7 |
 
 ## Messenger Matrix Client V1
 

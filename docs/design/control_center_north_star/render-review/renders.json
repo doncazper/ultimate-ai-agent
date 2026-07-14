@@ -1,6 +1,6 @@
 {
   "schema": "uaa.control_center.render_review.v1",
-  "updated": "2026-07-11",
+  "updated": "2026-07-13",
   "sets": [
     {
       "id": "target-v1",
@@ -231,12 +231,15 @@
       "surface": "Studio",
       "category": "Primary workspace",
       "route": "target",
-      "purpose": "Immersive familiar coding-agent workbench with projects, tasks, changes, checks, and terminal access.",
-      "truth": "Target design; no model, arbitrary shell, deploy, or write authority implied.",
-      "image": "../renders/target-v2/06-studio-v2.png",
+      "purpose": "One immersive UAA Studio shell with exactly Chat, Code, and Create modes for conversation handoffs, repo-local verification, and versioned asset review.",
+      "truth": "Accepted target design; changing modes grants no authority, and model calls, arbitrary shell, deploy, export, publishing, delivery, and connector writes remain separately governed or blocked.",
+      "image": "../renders/target-v3/06-studio-unified-v7.png",
       "versions": [
         {"id": "v1", "label": "Draft v1 · Control Center shell", "image": "../renders/target-v1/06-studio.png"},
-        {"id": "v2", "label": "Draft v2 · immersive workbench", "image": "../renders/target-v2/06-studio-v2.png"}
+        {"id": "v2", "label": "Draft v2 · immersive workbench", "image": "../renders/target-v2/06-studio-v2.png"},
+        {"id": "split-code-v5", "label": "Preserved split exploration · coding-only", "image": "../renders/target-v3/06-agent-studio-v5.png"},
+        {"id": "split-create-v2", "label": "Preserved split exploration · creative-only", "image": "../renders/target-v3/06-creative-studio-v2.png"},
+        {"id": "v7", "label": "Accepted v7 · unified modes with blocked export", "image": "../renders/target-v3/06-studio-unified-v7.png"}
       ]
     },
     {

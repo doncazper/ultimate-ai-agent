@@ -3,6 +3,8 @@
   "line_budgets": {
     "compatibility_wrappers": {
       "max_lines": 120,
+      "enforcement": "hard",
+      "enforcement_reason": "Compatibility wrappers are contractually thin facades and must not absorb implementation behavior.",
       "paths": [
         "scripts/verify_all.py",
         "scripts/verify_documentation_integrity.py"
@@ -10,6 +12,8 @@
     },
     "verifier_modules": {
       "max_lines": 700,
+      "enforcement": "advisory",
+      "enforcement_reason": "Physical line count is a review signal. Crossing it must not trigger line-only compression; extract a cohesive responsibility when structure or ownership warrants it.",
       "paths": [
         "scripts/verify_cua_contract_lane.py",
         "scripts/verify_founder_loop_v1.py",
@@ -36,6 +40,8 @@
     },
     "test_files": {
       "max_lines": 700,
+      "enforcement": "advisory",
+      "enforcement_reason": "Test files should be sharded by behavior and fixture ownership, not rewritten solely to satisfy a physical line count.",
       "globs": [
         "tests/test_*.py"
       ],
@@ -128,6 +134,8 @@
     },
     "source_hotspots": {
       "max_lines": 1200,
+      "enforcement": "hard",
+      "enforcement_reason": "Named source hotspots are accepted debt with explicit no-growth extraction boundaries.",
       "paths": [
         "src/ultimate_ai_agent/core/gate/criteria.py",
         "src/ultimate_ai_agent/core/storage/founder_loop.py",
