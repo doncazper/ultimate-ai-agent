@@ -153,6 +153,50 @@ def test_skill_marketplace_catalog_rejects_mismatched_source_identity() -> None:
         RuntimeSkillMarketplaceCatalogSnapshot(**payload)
 
 
+def test_skill_marketplace_catalog_rejects_duplicate_source_records() -> None:
+    payload = (
+        build_runtime_skill_marketplace_posture_read_model()
+        .catalog.model_dump(mode="json")
+    )
+    payload["entries"][1]["source_record_ref"] = payload["entries"][0][
+        "source_record_ref"
+    ]
+
+    with pytest.raises(
+        ValueError,
+        match="RUNTIME_SKILL_MARKETPLACE_SOURCE_RECORD_REFS_NOT_UNIQUE",
+    ):
+        RuntimeSkillMarketplaceCatalogSnapshot(**payload)
+
+
+def test_skill_marketplace_catalog_rejects_future_dated_source_metadata() -> None:
+    payload = (
+        build_runtime_skill_marketplace_posture_read_model()
+        .catalog.model_dump(mode="json")
+    )
+    payload["entries"][0]["source_updated_at"] = "2026-07-14T00:00:00Z"
+
+    with pytest.raises(
+        ValueError,
+        match="RUNTIME_SKILL_MARKETPLACE_ENTRY_UPDATE_IN_FUTURE",
+    ):
+        RuntimeSkillMarketplaceCatalogSnapshot(**payload)
+
+
+def test_skill_marketplace_snapshot_hash_binds_displayed_catalog_content() -> None:
+    read_model = build_runtime_skill_marketplace_posture_read_model()
+    payload = read_model.model_dump(mode="json")
+    payload["catalog"]["entries"][0]["safe_summary"] = (
+        "A different bounded summary that must invalidate the stored digest."
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="RUNTIME_SKILL_MARKETPLACE_SNAPSHOT_HASH_MISMATCH",
+    ):
+        RuntimeSkillMarketplacePostureReadModel(**payload)
+
+
 def test_skill_marketplace_stages_keep_external_signals_untrusted() -> None:
     read_model = build_runtime_skill_marketplace_posture_read_model()
     stage_kinds = {stage.stage_kind for stage in read_model.stages}

@@ -34,13 +34,14 @@ const WORKBENCH_TABS = [
   "Adaptations",
   "Local Skills",
 ] as const;
+const EMPTY_SKILL_ENTRIES: RuntimeSkillMarketplaceCatalogEntry[] = [];
 
 export function SkillWorkbench({
   authoritative,
   posture,
 }: SkillWorkbenchProps) {
-  const catalog = posture.catalog;
-  const entries = catalog?.entries ?? [];
+  const catalog = authoritative ? posture.catalog : undefined;
+  const entries = catalog?.entries ?? EMPTY_SKILL_ENTRIES;
   const [viewMode, setViewMode] =
     useState<SkillWorkbenchViewMode>("list");
   const [query, setQuery] = useState("");
@@ -202,7 +203,10 @@ export function SkillWorkbench({
             </div>
             <div className="skill-results-toolbar">
               <div>
-                <strong>{visibleEntries.length} skill ideas</strong>
+                <strong>
+                  {visibleEntries.length} skill idea
+                  {visibleEntries.length === 1 ? "" : "s"}
+                </strong>
                 <small>
                   {authoritative
                     ? `Sanitized snapshot · ${catalog ? formatDate(catalog.captured_at) : "unavailable"}`
@@ -304,11 +308,13 @@ function filterAndSortEntries(
     const matchesCategory =
       options.category === "all" || entry.category === options.category;
     const updatedTime = new Date(entry.source_updated_at).getTime();
+    const ageMs = snapshotTime - updatedTime;
     const matchesFreshness =
       options.freshness === "any" ||
       (!Number.isNaN(snapshotTime) &&
         !Number.isNaN(updatedTime) &&
-        snapshotTime - updatedTime <= freshnessDays * 86_400_000);
+        ageMs >= 0 &&
+        ageMs <= freshnessDays * 86_400_000);
     return matchesQuery && matchesSource && matchesCategory && matchesFreshness;
   });
   return [...filtered].sort((left, right) => {

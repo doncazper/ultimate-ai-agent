@@ -222,12 +222,14 @@ class RuntimeSkillMarketplacePostureReadModel(BaseModel):
     verifier_refs: list[str] = Field(default_factory=list)
     next_safe_action_refs: list[str] = Field(default_factory=list)
     redactions_applied: list[str] = Field(
-        default_factory=lambda: list(GOVERNED_RUNTIME_REDACTIONS)
-        + [
-            "raw_marketplace_payloads_omitted",
-            "external_code_omitted",
-            "publisher_material_omitted",
-        ]
+        default_factory=lambda: (
+            list(GOVERNED_RUNTIME_REDACTIONS)
+            + [
+                "raw_marketplace_payloads_omitted",
+                "external_code_omitted",
+                "publisher_material_omitted",
+            ]
+        )
     )
 
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
@@ -281,13 +283,9 @@ class RuntimeSkillMarketplacePostureReadModel(BaseModel):
             self.authority_state_mapping_ref
             != RUNTIME_SKILL_MARKETPLACE_POSTURE_AUTHORITY_MAPPING_REF
         ):
-            raise ValueError(
-                "RUNTIME_SKILL_MARKETPLACE_AUTHORITY_MAPPING_MISMATCH"
-            )
+            raise ValueError("RUNTIME_SKILL_MARKETPLACE_AUTHORITY_MAPPING_MISMATCH")
         if self.authority_state_decision_outcome not in _AUTHORITY_DECISION_OUTCOMES:
-            raise ValueError(
-                "RUNTIME_SKILL_MARKETPLACE_AUTHORITY_DECISION_INVALID"
-            )
+            raise ValueError("RUNTIME_SKILL_MARKETPLACE_AUTHORITY_DECISION_INVALID")
         denied_flags = {
             "external_popularity_is_trust": self.external_popularity_is_trust,
             "external_code_execution_enabled": self.external_code_execution_enabled,
@@ -332,6 +330,8 @@ class RuntimeSkillMarketplacePostureReadModel(BaseModel):
             ]
         ):
             raise ValueError("RUNTIME_SKILL_MARKETPLACE_BLOCKED_COUNT_MISMATCH")
+        if self.snapshot_hash_ref != _snapshot_hash_ref(self):
+            raise ValueError("RUNTIME_SKILL_MARKETPLACE_SNAPSHOT_HASH_MISMATCH")
         return self
 
 
@@ -375,9 +375,7 @@ def _stage(
 
 def build_runtime_skill_marketplace_posture_read_model(
     authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None = None,
-) -> (
-    RuntimeSkillMarketplacePostureReadModel
-):
+) -> RuntimeSkillMarketplacePostureReadModel:
     authority_entry = _authority_entry(authority_decision_catalog)
     catalog = build_runtime_skill_marketplace_catalog_snapshot()
     stages = [
@@ -458,7 +456,9 @@ def build_runtime_skill_marketplace_posture_read_model(
                 if stage.stage_kind == RuntimeSkillMarketplaceStageKind.execution_block
             ]
         ),
-        "blocked_authority_refs": list(RUNTIME_SKILL_MARKETPLACE_BLOCKED_AUTHORITY_REFS),
+        "blocked_authority_refs": list(
+            RUNTIME_SKILL_MARKETPLACE_BLOCKED_AUTHORITY_REFS
+        ),
         "promotion_path_refs": [
             "promotion-path-ref:skill-marketplace:reviewed-uaa-owned-adaptation",
             "promotion-path-ref:skill-marketplace:local-registry-entry",
@@ -473,27 +473,20 @@ def build_runtime_skill_marketplace_posture_read_model(
             "next-safe-action-ref:skill-marketplace:local-registry-contract",
         ],
     }
-    snapshot_material = {
-        "contract_ref": RUNTIME_SKILL_MARKETPLACE_POSTURE_CONTRACT_REF,
-        "route_ref": RUNTIME_SKILL_MARKETPLACE_POSTURE_ROUTE_REF,
-        "cli_ref": RUNTIME_SKILL_MARKETPLACE_POSTURE_CLI_REF,
-        "authority_state_mapping_ref": payload["authority_state_mapping_ref"],
-        "authority_state_decision_ref": payload["authority_state_decision_ref"],
-        "authority_state_decision_outcome": payload[
-            "authority_state_decision_outcome"
-        ],
-        "catalog_snapshot_ref": catalog.snapshot_ref,
-        "catalog_entry_refs": [entry.skill_ref for entry in catalog.entries],
-        "stage_refs": [stage.stage_ref for stage in stages],
-        "blocked_authority_refs": payload["blocked_authority_refs"],
-    }
-    payload["snapshot_hash_ref"] = (
-        "snapshot-hash-ref:skill-marketplace-posture:"
-        + hashlib.sha256(
-            json.dumps(snapshot_material, sort_keys=True).encode("utf-8")
-        ).hexdigest()[:16]
-    )
+    unvalidated = RuntimeSkillMarketplacePostureReadModel.model_construct(**payload)
+    payload["snapshot_hash_ref"] = _snapshot_hash_ref(unvalidated)
     return RuntimeSkillMarketplacePostureReadModel(**payload)
+
+
+def _snapshot_hash_ref(read_model: RuntimeSkillMarketplacePostureReadModel) -> str:
+    material = read_model.model_dump(
+        mode="json",
+        exclude={"snapshot_hash_ref"},
+    )
+    digest = hashlib.sha256(
+        json.dumps(material, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    return f"snapshot-hash-ref:skill-marketplace-posture:{digest}"
 
 
 def _authority_entry(

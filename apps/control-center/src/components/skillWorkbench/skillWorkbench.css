@@ -174,7 +174,8 @@
   content: "";
 }
 
-.studio-mode-nav span span {
+.studio-mode-nav > a > span,
+.studio-mode-nav > span > span {
   display: grid;
   gap: 1px;
 }
@@ -1131,5 +1132,11 @@
 
   .studio-composer {
     grid-template-columns: 34px minmax(0, 1fr) 36px 42px;
+  }
+}
+
+@media (max-height: 780px) {
+  .studio-projects {
+    display: none;
   }
 }

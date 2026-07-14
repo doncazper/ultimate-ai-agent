@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from enum import Enum
 from typing import Literal
 
@@ -65,9 +66,7 @@ class RuntimeSkillMarketplaceSourceSnapshot(BaseModel):
                 RuntimeSkillSourceScoreSignal.not_provided,
             ),
         }
-        if (self.rank_signal, self.score_signal) != expected_signals[
-            self.source_kind
-        ]:
+        if (self.rank_signal, self.score_signal) != expected_signals[self.source_kind]:
             raise ValueError("RUNTIME_SKILL_MARKETPLACE_SOURCE_SIGNAL_MISMATCH")
         return self
 
@@ -135,15 +134,11 @@ class RuntimeSkillMarketplaceCatalogEntry(BaseModel):
                 self.rating_count,
             )
             if any(value is not None for value in unavailable_signals):
-                raise ValueError(
-                    "RUNTIME_SKILL_MARKETPLACE_HERMES_SIGNAL_NOT_PROVIDED"
-                )
+                raise ValueError("RUNTIME_SKILL_MARKETPLACE_HERMES_SIGNAL_NOT_PROVIDED")
         if self.source_kind == RuntimeSkillSourceKind.clawhub and (
             self.average_rating is not None or self.rating_count is not None
         ):
-            raise ValueError(
-                "RUNTIME_SKILL_MARKETPLACE_CLAWHUB_RATING_NOT_DOCUMENTED"
-            )
+            raise ValueError("RUNTIME_SKILL_MARKETPLACE_CLAWHUB_RATING_NOT_DOCUMENTED")
         return self
 
 
@@ -154,10 +149,13 @@ class RuntimeSkillMarketplaceCatalogSnapshot(BaseModel):
     snapshot_ref: str
     captured_at: str
     sources: list[RuntimeSkillMarketplaceSourceSnapshot] = Field(
-        default_factory=list
+        default_factory=list,
+        min_length=2,
+        max_length=2,
     )
     entries: list[RuntimeSkillMarketplaceCatalogEntry] = Field(
-        default_factory=list
+        default_factory=list,
+        max_length=100,
     )
     entry_count: int = Field(ge=0)
     default_page_size: Literal[25] = 25
@@ -172,6 +170,7 @@ class RuntimeSkillMarketplaceCatalogSnapshot(BaseModel):
     def validate_snapshot(self) -> "RuntimeSkillMarketplaceCatalogSnapshot":
         validate_execution_ref(self.snapshot_ref, "snapshot_ref")
         validate_safe_execution_text(self.captured_at, "captured_at")
+        snapshot_time = _parse_timestamp(self.captured_at, "captured_at")
         if self.entry_count != len(self.entries):
             raise ValueError("RUNTIME_SKILL_MARKETPLACE_CATALOG_COUNT_MISMATCH")
         source_refs = {source.source_ref for source in self.sources}
@@ -196,19 +195,49 @@ class RuntimeSkillMarketplaceCatalogSnapshot(BaseModel):
         skill_refs = {entry.skill_ref for entry in self.entries}
         if len(skill_refs) != len(self.entries):
             raise ValueError("RUNTIME_SKILL_MARKETPLACE_SKILL_REFS_NOT_UNIQUE")
+        source_record_refs = {entry.source_record_ref for entry in self.entries}
+        if len(source_record_refs) != len(self.entries):
+            raise ValueError("RUNTIME_SKILL_MARKETPLACE_SOURCE_RECORD_REFS_NOT_UNIQUE")
+        source_slugs = {(entry.source_ref, entry.slug) for entry in self.entries}
+        if len(source_slugs) != len(self.entries):
+            raise ValueError("RUNTIME_SKILL_MARKETPLACE_SOURCE_SLUGS_NOT_UNIQUE")
+        if any(
+            _parse_timestamp(source.captured_at, "source.captured_at") > snapshot_time
+            for source in self.sources
+        ):
+            raise ValueError("RUNTIME_SKILL_MARKETPLACE_SOURCE_CAPTURE_IN_FUTURE")
+        if any(
+            _parse_timestamp(entry.source_updated_at, "entry.source_updated_at")
+            > snapshot_time
+            for entry in self.entries
+        ):
+            raise ValueError("RUNTIME_SKILL_MARKETPLACE_ENTRY_UPDATE_IN_FUTURE")
         for source in self.sources:
             actual_count = sum(
                 entry.source_ref == source.source_ref for entry in self.entries
             )
             if source.record_count != actual_count:
-                raise ValueError(
-                    "RUNTIME_SKILL_MARKETPLACE_SOURCE_COUNT_MISMATCH"
-                )
+                raise ValueError("RUNTIME_SKILL_MARKETPLACE_SOURCE_COUNT_MISMATCH")
         return self
 
 
-def build_runtime_skill_marketplace_catalog_snapshot(
-) -> RuntimeSkillMarketplaceCatalogSnapshot:
+def _parse_timestamp(value: str, field_name: str) -> datetime:
+    try:
+        timestamp = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError(
+            f"RUNTIME_SKILL_MARKETPLACE_TIMESTAMP_INVALID:{field_name}"
+        ) from exc
+    if timestamp.tzinfo is None or timestamp.utcoffset() is None:
+        raise ValueError(
+            f"RUNTIME_SKILL_MARKETPLACE_TIMESTAMP_TIMEZONE_REQUIRED:{field_name}"
+        )
+    return timestamp
+
+
+def build_runtime_skill_marketplace_catalog_snapshot() -> (
+    RuntimeSkillMarketplaceCatalogSnapshot
+):
     from ultimate_ai_agent.core.runtime_gateway.skill_marketplace_catalog_snapshot import (
         RUNTIME_SKILL_MARKETPLACE_CATALOG_SNAPSHOT,
     )

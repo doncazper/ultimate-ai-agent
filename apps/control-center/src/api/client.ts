@@ -7233,17 +7233,30 @@ function isSafeRuntimeSkillMarketplaceCatalog(
     value.sources.map((source) => [source.source_ref, source.source_kind]),
   );
   const skillRefs = new Set(value.entries.map((entry) => entry.skill_ref));
+  const sourceRecordRefs = new Set(
+    value.entries.map((entry) => entry.source_record_ref),
+  );
+  const sourceSlugs = new Set(
+    value.entries.map((entry) => `${entry.source_ref}:${entry.slug}`),
+  );
+  const snapshotTime = Date.parse(value.captured_at);
   return (
     value.schema_version ===
       "runtime_skill_marketplace_catalog_snapshot.v1" &&
     value.entry_count === value.entries.length &&
     value.entry_count === skillRefs.size &&
+    value.entry_count === sourceRecordRefs.size &&
+    value.entry_count === sourceSlugs.size &&
+    value.entry_count <= 100 &&
+    isSafeTrustAuthorityRef(value.snapshot_ref) &&
+    Number.isFinite(snapshotTime) &&
     value.default_page_size === 25 &&
     value.pagination_supported === true &&
     value.metadata_only === true &&
     value.live_marketplace_fetch_performed === false &&
     value.raw_marketplace_payload_persisted === false &&
     value.sources.length === 2 &&
+    sourceRefs.size === value.sources.length &&
     sourceKinds.size === 2 &&
     sourceKinds.has("clawhub") &&
     sourceKinds.has("hermes") &&
@@ -7253,6 +7266,9 @@ function isSafeRuntimeSkillMarketplaceCatalog(
           source.source_kind === "hermes") &&
         isSafeTrustAuthorityRef(source.source_ref) &&
         isSafeTrustAuthorityRef(source.source_version_ref) &&
+        isBoundedDisplayText(source.display_label, 120) &&
+        Number.isFinite(Date.parse(source.captured_at)) &&
+        Date.parse(source.captured_at) <= snapshotTime &&
         source.record_count ===
           value.entries.filter(
             (entry) => entry.source_ref === source.source_ref,
@@ -7272,6 +7288,14 @@ function isSafeRuntimeSkillMarketplaceCatalog(
         sourceKindByRef.get(entry.source_ref) === entry.source_kind &&
         isSafeTrustAuthorityRef(entry.skill_ref) &&
         isSafeTrustAuthorityRef(entry.source_record_ref) &&
+        isBoundedDisplayText(entry.slug, 100) &&
+        isBoundedDisplayText(entry.display_name, 120) &&
+        isBoundedDisplayText(entry.safe_summary, 320) &&
+        isBoundedDisplayText(entry.category, 80) &&
+        isBoundedDisplayText(entry.version, 40) &&
+        isBoundedDisplayText(entry.license_label, 120) &&
+        Number.isFinite(Date.parse(entry.source_updated_at)) &&
+        Date.parse(entry.source_updated_at) <= snapshotTime &&
         entry.source_metadata_only === true &&
         entry.review_required === true &&
         entry.risk_level === "unknown" &&
@@ -7289,6 +7313,12 @@ function isSafeRuntimeSkillMarketplaceCatalog(
         (entry.source_kind !== "clawhub" ||
           (entry.average_rating === null && entry.rating_count === null)),
     )
+  );
+}
+
+function isBoundedDisplayText(value: unknown, maxLength: number): value is string {
+  return (
+    typeof value === "string" && value.length > 0 && value.length <= maxLength
   );
 }
 

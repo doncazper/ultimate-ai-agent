@@ -130,7 +130,7 @@ describe("SkillWorkbench", () => {
     fireEvent.change(screen.getByRole("combobox", { name: "Source" }), {
       target: { value: "clawhub" },
     });
-    expect(screen.getByText("1 skill ideas")).toBeInTheDocument();
+    expect(screen.getByText("1 skill idea")).toBeInTheDocument();
     expect(screen.getAllByText("Source-Ranked Skill").length).toBeGreaterThan(0);
     expect(screen.queryByText("Hermes Skill 2")).not.toBeInTheDocument();
 
@@ -160,5 +160,26 @@ describe("SkillWorkbench", () => {
     expect(within(inspector).getAllByText("Not provided").length).toBeGreaterThan(
       1,
     );
+  });
+
+  it("does not render catalog rows without authoritative backend validation", () => {
+    render(<SkillWorkbench authoritative={false} posture={posture()} />);
+
+    expect(screen.getByText("0 skill ideas")).toBeInTheDocument();
+    expect(screen.getAllByText(/Catalog unavailable/i).length).toBeGreaterThan(0);
+    expect(screen.queryByText("Source-Ranked Skill")).not.toBeInTheDocument();
+  });
+
+  it("fails closed when freshness metadata is dated after the snapshot", () => {
+    const data = posture();
+    data.catalog!.entries[0].source_updated_at = "2026-07-14T00:00:00Z";
+    render(<SkillWorkbench authoritative posture={data} />);
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Freshness" }), {
+      target: { value: "30" },
+    });
+
+    expect(screen.queryByText("Source-Ranked Skill")).not.toBeInTheDocument();
+    expect(screen.getByText("11 skill ideas")).toBeInTheDocument();
   });
 });
