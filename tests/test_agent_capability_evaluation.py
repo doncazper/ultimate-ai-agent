@@ -24,6 +24,7 @@ from ultimate_ai_agent.core.evals import (
     CapabilityScenarioObservation,
     build_agent_capability_evaluation_report,
     build_capability_maturity_read_model,
+    capability_maturity_decision_ref,
     capability_maturity_report_digest,
 )
 
@@ -640,18 +641,21 @@ def test_score_graduation_requires_independent_digest_bound_acceptance() -> None
     )
     assert component.verified_score == component.baseline_score
 
-    decision = CapabilityMaturityGraduationDecision(
-        decision_ref="decision-ref:capability-maturity:reasoning:test",
-        component_id=component.component_id,
-        status=CapabilityMaturityDecisionStatus.accepted,
-        evaluation_report_digest_ref=capability_maturity_report_digest(report),
-        reviewer_ref="reviewer-ref:operator:local",
-        acceptance_ref=component.next_acceptance_ref,
-        evidence_refs=(
+    decision_fields = {
+        "component_id": component.component_id,
+        "status": CapabilityMaturityDecisionStatus.accepted,
+        "evaluation_report_digest_ref": capability_maturity_report_digest(report),
+        "reviewer_ref": "reviewer-ref:operator:local",
+        "acceptance_ref": component.next_acceptance_ref,
+        "evidence_refs": (
             "browser-evidence-ref:reasoning:ambiguity-trial",
             "receipt-ref:reasoning:operator-acceptance",
         ),
-        safe_summary="The operator accepted the content-free ambiguity trial evidence.",
+        "safe_summary": "The operator accepted the content-free ambiguity trial evidence.",
+    }
+    decision = CapabilityMaturityGraduationDecision(
+        decision_ref=capability_maturity_decision_ref(**decision_fields),
+        **decision_fields,
     )
     graduated = build_capability_maturity_read_model(
         report, graduation_decisions=(decision,)
@@ -666,6 +670,72 @@ def test_score_graduation_requires_independent_digest_bound_acceptance() -> None
     assert graduated_component.verified_score == graduated_component.target_score
 
 
+def test_maturity_decision_ref_binds_status_and_evidence() -> None:
+    report = build_agent_capability_evaluation_report(
+        report_ref="evaluation-report:test:decision-binding",
+        benchmark_ref="benchmark-ref:test:decision-binding",
+        registry_fingerprint_ref="fingerprint-ref:test:registry",
+        observations=_observations(structured_metrics=True),
+    )
+    component = build_capability_maturity_read_model(report).components[0]
+    fields = {
+        "component_id": component.component_id,
+        "status": CapabilityMaturityDecisionStatus.accepted,
+        "evaluation_report_digest_ref": capability_maturity_report_digest(report),
+        "reviewer_ref": "reviewer-ref:operator:local",
+        "acceptance_ref": component.next_acceptance_ref,
+        "evidence_refs": ("evidence-ref:test:one", "evidence-ref:test:two"),
+        "safe_summary": "The independent review accepted the bounded evidence.",
+    }
+    decision_ref = capability_maturity_decision_ref(**fields)
+    decision = CapabilityMaturityGraduationDecision(
+        decision_ref=decision_ref,
+        **fields,
+    )
+
+    payload = decision.model_dump(mode="python")
+    payload["status"] = CapabilityMaturityDecisionStatus.held
+    with pytest.raises(ValidationError, match="decision fingerprint drift"):
+        CapabilityMaturityGraduationDecision.model_validate(payload)
+
+    duplicate_fields = {**fields, "evidence_refs": ("evidence-ref:test:one",) * 2}
+    with pytest.raises(ValidationError, match="evidence refs must be unique"):
+        CapabilityMaturityGraduationDecision(
+            decision_ref=capability_maturity_decision_ref(**duplicate_fields),
+            **duplicate_fields,
+        )
+
+
+@pytest.mark.parametrize(
+    ("field_name", "value", "error"),
+    [
+        ("verified_weighted_score", 0.0, "verified weighted score drift"),
+        ("uplift_proven_count", 16, "aggregate count drift"),
+        ("verification_posture", "targets_proven", "verification posture drift"),
+    ],
+)
+def test_maturity_read_model_rejects_aggregate_drift(
+    field_name: str,
+    value: object,
+    error: str,
+) -> None:
+    read_model = build_capability_maturity_read_model()
+    payload = read_model.model_dump(mode="python")
+    payload[field_name] = value
+
+    with pytest.raises(ValidationError, match=error):
+        type(read_model).model_validate(payload)
+
+
+def test_maturity_read_model_rejects_component_definition_drift() -> None:
+    read_model = build_capability_maturity_read_model()
+    payload = read_model.model_dump(mode="python")
+    payload["components"][0]["weight"] = 1
+
+    with pytest.raises(ValidationError, match="component definition drift"):
+        type(read_model).model_validate(payload)
+
+
 def test_score_graduation_rejects_stale_or_wrong_acceptance_binding() -> None:
     report = build_agent_capability_evaluation_report(
         report_ref="evaluation-report:test:binding",
@@ -674,15 +744,18 @@ def test_score_graduation_rejects_stale_or_wrong_acceptance_binding() -> None:
         observations=_observations(structured_metrics=True),
     )
     component = build_capability_maturity_read_model(report).components[0]
+    decision_fields = {
+        "component_id": component.component_id,
+        "status": CapabilityMaturityDecisionStatus.accepted,
+        "evaluation_report_digest_ref": "digest-ref:capability-maturity:sha256:stale",
+        "reviewer_ref": "reviewer-ref:operator:local",
+        "acceptance_ref": component.next_acceptance_ref,
+        "evidence_refs": ("evidence-ref:test:one", "evidence-ref:test:two"),
+        "safe_summary": "This decision is intentionally bound to stale evidence.",
+    }
     decision = CapabilityMaturityGraduationDecision(
-        decision_ref="decision-ref:capability-maturity:reasoning:stale",
-        component_id=component.component_id,
-        status=CapabilityMaturityDecisionStatus.accepted,
-        evaluation_report_digest_ref="digest-ref:capability-maturity:sha256:stale",
-        reviewer_ref="reviewer-ref:operator:local",
-        acceptance_ref=component.next_acceptance_ref,
-        evidence_refs=("evidence-ref:test:one", "evidence-ref:test:two"),
-        safe_summary="This decision is intentionally bound to stale evidence.",
+        decision_ref=capability_maturity_decision_ref(**decision_fields),
+        **decision_fields,
     )
     with pytest.raises(ValueError, match="evaluation binding drift"):
         build_capability_maturity_read_model(report, graduation_decisions=(decision,))
@@ -698,15 +771,18 @@ def test_independent_acceptance_cannot_override_failed_automated_evidence() -> N
         observations=tuple(observations),
     )
     component = build_capability_maturity_read_model(report).components[0]
+    decision_fields = {
+        "component_id": component.component_id,
+        "status": CapabilityMaturityDecisionStatus.accepted,
+        "evaluation_report_digest_ref": capability_maturity_report_digest(report),
+        "reviewer_ref": "reviewer-ref:operator:local",
+        "acceptance_ref": component.next_acceptance_ref,
+        "evidence_refs": ("evidence-ref:test:one", "evidence-ref:test:two"),
+        "safe_summary": "The decision cannot override failed automated evidence.",
+    }
     decision = CapabilityMaturityGraduationDecision(
-        decision_ref="decision-ref:capability-maturity:reasoning:failed-evidence",
-        component_id=component.component_id,
-        status=CapabilityMaturityDecisionStatus.accepted,
-        evaluation_report_digest_ref=capability_maturity_report_digest(report),
-        reviewer_ref="reviewer-ref:operator:local",
-        acceptance_ref=component.next_acceptance_ref,
-        evidence_refs=("evidence-ref:test:one", "evidence-ref:test:two"),
-        safe_summary="The decision cannot override failed automated evidence.",
+        decision_ref=capability_maturity_decision_ref(**decision_fields),
+        **decision_fields,
     )
 
     read_model = build_capability_maturity_read_model(
