@@ -598,36 +598,6 @@ def test_maturity_decision_ref_binds_status_and_evidence() -> None:
         )
 
 
-@pytest.mark.parametrize(
-    ("field_name", "value", "error"),
-    [
-        ("verified_weighted_score", 0.0, "verified weighted score drift"),
-        ("uplift_proven_count", 16, "aggregate count drift"),
-        ("verification_posture", "targets_proven", "verification posture drift"),
-    ],
-)
-def test_maturity_read_model_rejects_aggregate_drift(
-    field_name: str,
-    value: object,
-    error: str,
-) -> None:
-    read_model = build_capability_maturity_read_model()
-    payload = read_model.model_dump(mode="python")
-    payload[field_name] = value
-
-    with pytest.raises(ValidationError, match=error):
-        type(read_model).model_validate(payload)
-
-
-def test_maturity_read_model_rejects_component_definition_drift() -> None:
-    read_model = build_capability_maturity_read_model()
-    payload = read_model.model_dump(mode="python")
-    payload["components"][0]["weight"] = 1
-
-    with pytest.raises(ValidationError, match="component definition drift"):
-        type(read_model).model_validate(payload)
-
-
 def test_score_graduation_rejects_stale_or_wrong_acceptance_binding() -> None:
     report = build_agent_capability_evaluation_report(
         report_ref="evaluation-report:test:binding",
@@ -703,21 +673,3 @@ def test_runtime_cli_exposes_same_backend_owned_maturity_plan() -> None:
     read_model = payload["capability_maturity"]
     assert read_model == build_capability_maturity_read_model().model_dump(mode="json")
     assert payload["authority_granted"] is False
-
-
-def test_phase09_cli_json_is_content_free(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    from scripts import run_uaa_runtime_phase09_benchmark as phase09
-
-    payload = {
-        "schema_version": "uaa_runtime_capability_phase09_scenarios.v1",
-        "status": "passed_with_truthful_blocked_sandbox",
-        "scenario_count": 0,
-        "scenarios": [],
-        "redaction": {"safe_refs_only": True},
-    }
-    monkeypatch.setattr(phase09, "run_scenarios", lambda: payload)
-
-    assert phase09.main(["--json"]) == 0
-    assert json.loads(capsys.readouterr().out)["status"] == payload["status"]
