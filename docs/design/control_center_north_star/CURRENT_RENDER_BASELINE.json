@@ -75,7 +75,7 @@
       "grid_sha256": "cf6268b2412843767825b48214500039e420e4d8440bb849f3e56f927585557c",
       "grid_filter": "hermes",
       "list": "renders/target-v3/08-skill-workbench-list-v1.png",
-      "list_sha256": "48c23d2f6add4ffdecb6a96e12c5ab9a84e3970ee86cfb47eee8493964224c4d",
+      "list_sha256": "11895f37eb67d7c6e95ff54bcc9499e907ee44ce202cc404b84d6bf9abc967b6",
       "default_view": "list",
       "page_size": 25,
       "list_columns": ["skill", "category", "source", "rank", "source_signal", "popularity", "updated"],
