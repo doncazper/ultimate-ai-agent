@@ -69,6 +69,8 @@ def test_pytest_ci_uses_one_installed_job_with_bounded_workers_and_stable_aggreg
     argv = command_registry()["command:pytest.sharded-suite"].argv
 
     assert "matrix:" not in shards
+    assert "- lint" in shards
+    assert "- affected-preflight" in shards
     assert argv[argv.index("--shards") + 1] == "8"
     assert argv[argv.index("--max-workers") + 1] == "4"
     assert "--safe-summary" in argv
@@ -83,6 +85,18 @@ def test_pytest_ci_uses_one_installed_job_with_bounded_workers_and_stable_aggreg
     assert "if: always()" in aggregate
     assert "needs.pytest-shards.result" in aggregate
     assert '!= "success"' in aggregate
+
+
+def test_fast_affected_preflight_runs_parallel_with_lint_before_full_pytest() -> None:
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    preflight = _extract_job_block(workflow, "affected-preflight")
+    lint = _extract_job_block(workflow, "lint")
+
+    assert "- manifest-attestation" in preflight
+    assert "- manifest-attestation" in lint
+    assert "--lane ci-affected-preflight" in preflight
+    assert "fetch-depth: 0" in preflight
+    assert "refs/uaa-ci/base-main" in preflight
 
 
 def test_release_lanes_are_visible_jobs_using_shared_command_definitions() -> None:

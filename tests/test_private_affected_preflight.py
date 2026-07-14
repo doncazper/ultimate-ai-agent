@@ -19,38 +19,38 @@ def completed(payload: object, *, returncode: int = 0) -> subprocess.CompletedPr
 
 
 def test_affected_preflight_executes_narrow_selection(monkeypatch) -> None:
-    calls: list[bool] = []
+    calls: list[tuple[bool, str]] = []
 
-    def fake_selector(_base_ref: str, *, execute: bool):
-        calls.append(execute)
+    def fake_selector(_base_ref: str, *, execute: bool, tier: str):
+        calls.append((execute, tier))
         return completed(
             {"selected_command_refs": ["command-ref:documentation-integrity"]}
         )
 
     monkeypatch.setattr(preflight, "_selector", fake_selector)
-    assert preflight.run("origin/main") == 0
-    assert calls == [False, True]
+    assert preflight.run("origin/main", tier="fast") == 0
+    assert calls == [(False, "fast"), (True, "fast")]
 
 
 def test_affected_preflight_does_not_duplicate_selected_full_gate(monkeypatch) -> None:
     assert preflight.FULL_COMMAND_REF == SELECTOR_FULL_COMMAND_REF
-    calls: list[bool] = []
+    calls: list[tuple[bool, str]] = []
 
-    def fake_selector(_base_ref: str, *, execute: bool):
-        calls.append(execute)
+    def fake_selector(_base_ref: str, *, execute: bool, tier: str):
+        calls.append((execute, tier))
         return completed(
             {"selected_command_refs": [preflight.FULL_COMMAND_REF]}
         )
 
     monkeypatch.setattr(preflight, "_selector", fake_selector)
     assert preflight.run("origin/main") == 0
-    assert calls == [False]
+    assert calls == [(False, "affected")]
 
 
 def test_affected_preflight_fails_closed_to_following_full_gate(monkeypatch) -> None:
     monkeypatch.setattr(
         preflight,
         "_selector",
-        lambda _base_ref, *, execute: completed({}, returncode=2),
+        lambda _base_ref, *, execute, tier: completed({}, returncode=2),
     )
     assert preflight.run("origin/main") == 0
