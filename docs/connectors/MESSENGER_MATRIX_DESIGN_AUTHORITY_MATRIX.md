@@ -1,0 +1,135 @@
+# Messenger Matrix Design Authority Matrix
+
+Status: MSG-MX-001 design accepted; declaration metadata only; every runtime
+row remains blocked.
+
+This matrix refines the immutable MSG-MX-000 planned-lane inventory without
+replacing the capability registry, capability-availability model, PolicyEngine,
+LocalApprovalAuthority, AuthorityLease, or execution receipts. It splits future
+operations whose targets, side effects, replay, or rollback truth differ. It
+does not declare an adapter implemented or make a capability callable.
+
+## Common exact gate
+
+Immediately before every future operation starts, Python Core must validate the
+exact capability, adapter, provider, account, device, room, event, media,
+mission, run, and target refs; current PolicyEngine decision; exact
+LocalApprovalAuthority result when required; active exact AuthorityLease;
+TTL/deadline; operation, time, byte, cost, and concurrency budgets;
+compatibility, configuration, health, freshness, and readiness; kill switch;
+safe-disable; request fingerprint; idempotency/replay; and prior-start evidence.
+
+Approval refs identify records only. Every mutation row requires fresh exact
+LocalApprovalAuthority validation bound to the complete request fingerprint and
+target set immediately before start; a human gesture records intent but cannot
+replace that validation. Unknown, stale, degraded without an exact permit,
+expired, revoked, mismatched, unresolved-cost, or unknown-execution
+state fails closed. A session lease is not a standing connection switch; sync,
+reconnect, retry, cleanup, and background work re-enter the same gate.
+
+Every receipt is content-free and binds the lane, request fingerprint, safe
+account/target refs, adapter, policy/approval/lease evidence refs, start and
+terminal timestamps, outcome, blocker/reason refs, redaction status, and an
+opaque keyed safe transaction/event ref translated at the source boundary when
+returned. It contains no message, attachment, raw provider identifier,
+credential, recovery material, provider payload, log, or local path.
+
+## Exact operation matrix
+
+`S` means an exact active session-scoped lease. `M` means an exact
+mission-scoped lease only when a separately accepted durable mission originates
+the operation. No row inherits another row's approval or lease.
+
+| Exact design capability ref | Owner and side effect | Exact target | Approval and lease | Idempotency, rollback, safe-disable, and receipt truth | Current posture |
+|---|---|---|---|---|---|
+| `matrix.discovery.read` | adapter; governed unauthenticated network read | homeserver safe ref, endpoint class, redirect fingerprint | policy permit; exact `S` | request fingerprint and freshness TTL; discard observation; disable discovery; capability/version evidence only | `MSG-MX-005`; unsupported, not configured, unknown readiness, blocked |
+| `matrix.auth.methods.read` | adapter; governed network read | homeserver and advertised authentication metadata endpoint refs | policy permit; exact `S` | endpoint/version fingerprint; no rollback; disable session adapter; supported-method refs only | `MSG-MX-005`; blocked |
+| `matrix.session.password.create` | native secure-entry helper + adapter + credential boundary; authenticated connector and Keychain mutation | homeserver, account, stable device, one-use secret-handoff, credential-item refs | fresh exact LocalApprovalAuthority connection validation; exact `S` | one-use handoff/auth-attempt/request/singleton generation; revoke partial session, delete new item, and discard transient password; disable session lane; session/device refs only | `MSG-MX-005`; blocked; raw-token import denied |
+| `matrix.session.sso.launch` | adapter; system-browser launch | advertised auth URL, system-browser app, callback refs | exact approval; exact `S` | state/nonce/PKCE/redirect fingerprint; cancel and expire; disable SSO; launch-attempt refs | `MSG-MX-005`; blocked |
+| `matrix.session.sso.callback.consume` | adapter + credential boundary; callback and credential mutation | exact one-use callback, account, device, credential refs | fresh exact approval validation; exact `S` | one-use state/nonce; revoke partial session and delete item; disable listener; callback/session refs | `MSG-MX-005`; blocked |
+| `matrix.session.refresh` | adapter + credential boundary; authenticated and Keychain mutation | session generation and credential version | refresh-scoped approval; exact `S` | compare-and-swap credential version; retain prior until commit or revoke partial new session; force soft logout on safe-disable; generation refs | `MSG-MX-005`; blocked |
+| `matrix.session.logout` | adapter; authenticated connector mutation | exact current device/session generation | exact approval; exact `S` | generation/request fingerprint; token invalidation may be irreversible; disable session; logout outcome ref | `MSG-MX-005`; blocked |
+| `matrix.session.revoke_all` | adapter; destructive account/session mutation | account and enumerated device-set fingerprint | separate destructive confirmation; short exact `S` | device-set fingerprint and stale-set rejection; irreversible; disable all starts; revoked-count/device refs | `MSG-MX-005`; blocked; distinct from logout |
+| `matrix.credential.store_rotate` | macOS credential boundary; Keychain mutation | exact backend/item/prior-version refs | exact approval; exact `S` | keyed fingerprint and compare-and-swap; restore prior or delete new; lock adapter; item/version refs only | `MSG-MX-005`; blocked |
+| `matrix.credential.delete` | macOS credential boundary; destructive Keychain mutation | exact item and owning account/session refs | separate destructive confirmation; exact `S` | item/version fingerprint; revoke session first; irreversible; lock adapter; deletion ref | `MSG-MX-005`; blocked |
+| `matrix.sync.read` | adapter; authenticated network read | account, room allowlist, event classes, sync/pagination window | read policy; bounded exact `S`, or separately accepted `M` worker | since-token hash and event fingerprints; no rollback for read; stop sync/reconnect; counts/source/next-token refs | `MSG-MX-006`; blocked |
+| `matrix.receipt.project.read` | adapter; read-only event projection | exact room/event receipt window | read policy; exact `S` | sync fingerprint; no rollback; stop sync; projection refs only | `MSG-MX-006`; blocked; grants no write |
+| `matrix.typing.project.read` | adapter; read-only ephemeral projection | room typing window and expiry | read policy; exact `S` | sync fingerprint; no rollback; stop sync; count/expiry refs | `MSG-MX-006`; blocked; grants no write |
+| `matrix.cache.write` | protected cache boundary; encrypted sensitive-state mutation | cache, account, room, retention, event-set refs | cache-policy approval; exact `S` or accepted `M` | event-set/sync/cache-generation fingerprint; transactional rollback; disable writes; count/generation refs | `MSG-MX-006`; blocked |
+| `matrix.cache.migrate` | protected cache boundary; exclusive encrypted schema mutation | cache, prior/target schema, account, fenced owner generation | migration approval; exact `S` | prior/target schema and owner-generation fingerprint; retain prior store until verified or lock; disable migrations; schema/outcome refs | `MSG-MX-006`; blocked |
+| `matrix.cache.purge` | protected cache boundary; destructive local deletion | account/room/date/cache-generation scope | exact deletion confirmation; exact `S` | deletion-scope fingerprint; irreversible with backup-expiry truth; lock cache; deleted counts only | `MSG-MX-006`; blocked |
+| `matrix.cache.key.rotate` | Keychain + protected cache; key/rekey mutation | cache key item and database generation | exact approval; exact `S` | prior/new key-generation fingerprint; atomic rekey or retain old key; lock on failure; key-version refs only | `MSG-MX-006`; blocked |
+| `matrix.receipt.write` | adapter; external ephemeral/state mutation | account, room, event, receipt type | fresh exact LocalApprovalAuthority validation bound to target/request; exact `S` | monotonic marker fingerprint; disclosed read state cannot be retracted; disable outgoing receipts; event/receipt safe refs | `MSG-MX-008`; blocked |
+| `matrix.typing.write` | adapter; external ephemeral mutation | account, room, session, desired boolean | fresh exact LocalApprovalAuthority validation bound to target/request; exact `S` | coalesce same generation/state; compensating false requires its own pre-disable gate, otherwise rely on expiry; safe-disable mints no write; expiry ref | `MSG-MX-008`; blocked |
+| `matrix.draft_outbox.persist` | protected outbox boundary; encrypted local mutation | draft/outbox record, account, room, TTL, key refs | fresh exact LocalApprovalAuthority validation bound to retention/target/request; exact `S` or accepted `M` | record/keyed-content fingerprint/generation; delete exact record; lock outbox; record/state refs | `MSG-MX-008`; blocked |
+| `matrix.message.send` | adapter; external message mutation | account, room, keyed content fingerprint, relation and transaction refs | human gesture captures intent plus fresh exact LocalApprovalAuthority validation bound to target/request; exact `S`, or separately approved proposal under exact `M` | stable transaction ID; changed scope denied; no unsend claim; new approved redaction is compensation; stop new sends; delivery/uncertainty refs | `MSG-MX-008`; blocked |
+| `matrix.message.reconcile` | adapter; read-only remote-echo/transaction reconciliation | prior transaction, account, room, event window, complete request fingerprint | read policy plus exact `S`; no send approval inherited | prior transaction/request fingerprint; no retry while truth is unknown; stop reconciliation; outcome/evidence refs | `MSG-MX-008`; blocked |
+| `matrix.message.retry` | adapter; external message mutation | exact prior transaction and original complete request fingerprint | fresh exact LocalApprovalAuthority validation and lease; original scope only | reuse same transaction only after reconciliation proves safe replay; unknown truth blocks retry; stop retries; attempt refs | `MSG-MX-008`; blocked |
+| `matrix.message.edit` | adapter; external message mutation | original event/version and replacement keyed fingerprint | exact approval; exact `S` | original/new transaction binding; no rollback, only a later approved edit; disable edits; original/new event refs | `MSG-MX-008`; blocked |
+| `matrix.message.redact` | adapter; destructive external mutation | exact room/event and bounded reason fingerprint | separate destructive confirmation; short exact `S` | redaction transaction; irreversible; disable redactions; redaction-event/outcome refs | `MSG-MX-008`; blocked |
+| `matrix.reaction.add` | adapter; external message mutation | room, target event, reaction-key fingerprint | exact approval; exact `S` | target/key/transaction; separate redaction compensation; disable reactions; reaction-event ref | `MSG-MX-008`; blocked |
+| `matrix.reaction.remove` | adapter; destructive reaction-event redaction | exact reaction event | destructive approval; exact `S` | reaction/redaction transaction; irreversible; disable reactions; redaction ref | `MSG-MX-008`; blocked; cannot reuse add profile |
+| `matrix.notification.desktop` | macOS notification adapter; local disclosure effect | local notification target and safe projection refs | fresh exact LocalApprovalAuthority validation bound to notification policy, account/room exclusions, disclosure class, target, and request; exact `S` | source-event/class/policy fingerprint; body and participant hidden on lock screen by default; withdraw while pending or no rollback after display; disable notifications; content-free outcome ref | `MSG-MX-008`; blocked |
+| `matrix.media.upload` | adapter + files boundary; local read and external transfer/message mutation | approved source ref, room, digest, size/type, transaction | exact cross-domain approval; exact `S` or accepted `M` | content/room/transaction fingerprint; no server-delete claim; stop upload; media/event refs | `MSG-MX-009`; blocked |
+| `matrix.media.download_quarantine` | adapter + files boundary; authenticated transfer and quarantined local write | media ref, app-owned quarantine ref, byte/type/time limits | exact cross-domain approval; exact `S` or accepted `M` | validator/digest fingerprint; delete incomplete bytes; disable and quarantine download; media/quarantine refs | `MSG-MX-009`; blocked |
+| `matrix.media.materialize` | files boundary; constrained local write | quarantined digest and opaque destination ref | separate exact approval; exact `S` or accepted `M` | digest/destination fingerprint and exclusive descriptor-safe creation; exact local deletion rollback; disable export; destination/digest refs | `MSG-MX-009`; blocked |
+| `matrix.media.preview` | isolated parser; bounded local compute/read | quarantined digest and parser/version refs | exact preview approval; exact `S` | digest/parser/version fingerprint; delete transient output; kill parser and disable; result refs | `MSG-MX-009`; blocked |
+| `matrix.media.cleanup` | files boundary; destructive local deletion | quarantine/materialization generation | exact cleanup approval; exact `S` or accepted `M` | cleanup-scope fingerprint; irreversible; disable materialization until clean; deleted-count/residue refs | `MSG-MX-009`; blocked |
+| `matrix.room_state.read` | adapter; authenticated room-state network read | account, exact room set, state classes, sync window | read policy; exact `S` | request/sync/allowlist fingerprint; no rollback for read; stop network read; state/source refs | `MSG-MX-006`; blocked |
+| `matrix.search.local.read` | encrypted local index; sensitive local read | exact account/room allowlist, query hash, index generation | read policy; exact `S` | query/index/allowlist fingerprint; no rollback for read; lock search index; result/source/count refs | `MSG-MX-009`; blocked |
+| `matrix.dm.create` | adapter; external room mutation | account and participant-set fingerprint | exact approval; exact `S` or accepted `M` | durable at-most-once request fence; leave-only compensation; disable create; room/participant refs | `MSG-MX-009`; blocked |
+| `matrix.room.create` | adapter; external room mutation | account and complete room-proposal fingerprint | exact approval; exact `S` or accepted `M` | durable prepared/start fence where no transaction ID exists; leave/close only; disable create; room/request refs | `MSG-MX-009`; blocked |
+| `matrix.room.join` | adapter; membership mutation | account, room, expected membership generation | exact approval; exact `S` or accepted `M` | membership generation; separate approved leave; disable joins; event ref | `MSG-MX-009`; blocked |
+| `matrix.room.leave` | adapter; destructive membership mutation | account, room, membership generation | separate confirmation; exact `S` | generation binding; rejoin may be impossible; disable leave; terminal event ref | `MSG-MX-009`; blocked |
+| `matrix.invite.send` | adapter; external invitation mutation | room, member identity safe ref, role fingerprint | exact approval; exact `S` or accepted `M` | membership generation; separate withdraw/kick compensation; disable invites; invite-event ref | `MSG-MX-009`; blocked |
+| `matrix.invite.accept` | adapter; membership mutation | exact invite event and expected membership generation | fresh exact LocalApprovalAuthority validation; exact `S` | invite/membership generation; separate approved leave may compensate; disable accept; event ref | `MSG-MX-009`; blocked |
+| `matrix.invite.reject` | adapter; destructive invite rejection | exact invite event and expected membership generation | separate destructive LocalApprovalAuthority confirmation; exact `S` | invite/membership generation; rejection may be irreversible; disable reject; event ref | `MSG-MX-009`; blocked |
+| `matrix.invite.withdraw` | adapter; external membership admin | exact outstanding invite event | exact approval; exact `S` or accepted `M` | membership generation; no rollback, may reinvite separately; disable invite admin; event ref | `MSG-MX-009`; blocked |
+| `matrix.room.power_role.write` | adapter; high-risk room admin mutation | room, member, current state hash, desired level | high-risk exact approval; short `S` or accepted `M` | compare-and-set prior/desired state hash; restore prior only through a separately approved event; disable admin; prior/new state refs | `MSG-MX-009`; blocked |
+| `matrix.space.mapping.write` | adapter; room/Space relationship mutation | exact Space, child room, relationship type | exact approval; exact `S` or accepted `M` | compare-and-set prior/desired relation hash; restore prior only through a separately approved event; disable Space writes; event refs | `MSG-MX-009`; blocked |
+| `matrix.settings.notification.write` | adapter; account/room settings mutation | exact notification rule and prior hash | exact approval; exact `S` | compare-and-set; restore prior through new operation; disable settings; prior/new refs | `MSG-MX-009`; blocked |
+| `matrix.settings.history_visibility.write` | adapter; high-risk room state mutation | room, prior state event, desired policy | high-risk exact approval; exact `S` or accepted `M` | compare-and-set prior/desired state hash; restore prior only through a separate approved event; disable admin; state refs | `MSG-MX-009`; blocked |
+| `matrix.settings.pin.write` | adapter; room state mutation | room, current pin-set hash, desired event set | exact approval; exact `S` | compare-and-set; separate restore; disable pins; prior/new refs | `MSG-MX-009`; blocked |
+| `matrix.settings.account_room_preference.write` | adapter; account-data mutation | account/room and one preference field | exact approval; exact `S` | compare-and-set prior/desired hash; separate restore; disable preference writes; refs | `MSG-MX-009`; blocked |
+| `matrix.verification.request` | crypto adapter; verification transaction creation | account, own device, peer device, method refs | fresh exact LocalApprovalAuthority validation; short exact `S` | transaction/device/method fingerprint; separately gated cancel; disable requests; state refs | `MSG-MX-007`; blocked |
+| `matrix.verification.cancel` | crypto adapter; verification transaction cancellation | exact pending verification transaction and device refs | fresh exact LocalApprovalAuthority validation; short exact `S` | transaction/device/generation fingerprint; terminal cancel; disable cancellation starts; state refs | `MSG-MX-007`; blocked |
+| `matrix.verification.confirm` | crypto adapter; device trust mutation | transcript hash and both device refs | separate exact human confirmation; short `S` | stale/mismatched transaction rejected; unverify/revoke is separate; disable confirm; trust refs | `MSG-MX-007`; blocked |
+| `matrix.device.revoke` | crypto/session adapter; destructive device/session mutation | account, device, session generation | destructive confirmation; exact `S` | generation binding; irreversible invalidation; disable device admin; revocation ref | `MSG-MX-007`; blocked |
+| `matrix.backup.configure` | crypto/Keychain boundary; server-side secure-backup configuration mutation | account, advertised backup version, crypto store, dedicated key-item refs | exact approval; exact `S` | account/version/configuration fingerprint; delete incomplete configuration or retain prior; disable secure-backup writes; version/configuration refs | `MSG-MX-007`; blocked |
+| `matrix.backup.rotate` | crypto/Keychain boundary; server-side secure-backup key/version mutation | account, prior/new backup versions, crypto store, prior/new key-item refs | exact rotation approval; exact `S` | prior/new version and keyed fingerprint; retain prior until new proof; disable rotation; version/outcome refs | `MSG-MX-007`; blocked |
+| `matrix.recovery.restore` | crypto boundary; protected recovery and store mutation | account, backup version, staged store generation | protected exact approval; short `S` | backup/store/attempt fingerprint; stage, verify, promote or discard; lock store; progress/outcome refs | `MSG-MX-007`; blocked |
+| `matrix.identity.reset` | crypto boundary; destructive identity mutation | account and identity/cross-signing generation | consequence review plus destructive confirmation; short `S` | generation/confirmation fingerprint; irreversible; disable crypto/session; outcome ref | `MSG-MX-007`; blocked |
+| `matrix.local_backup.create` | protected local backup boundary; encrypted local write | exact source store/schema/key generation, backup generation, retention scope | fresh exact LocalApprovalAuthority validation bound to source/retention/target/request; exact `S` | source/backup/key-generation fingerprint; delete incomplete backup; disable backup creation; backup/integrity refs | `MSG-MX-007`; blocked |
+| `matrix.local_backup.restore` | protected local backup boundary; staged local store mutation | exact backup/integrity/key refs and destination store generation | fresh exact LocalApprovalAuthority restore validation; exact `S` | backup/destination/attempt fingerprint; verify in staging then promote or discard; lock destination; restore/outcome refs | `MSG-MX-007`; blocked |
+| `matrix.local_backup.delete` | protected local backup boundary; destructive encrypted-backup deletion | exact backup generations, retention policy, deletion scope | separate destructive LocalApprovalAuthority confirmation; short exact `S` | deletion-scope/generation fingerprint; irreversible; disable backup reads; deleted-count/tombstone refs | `MSG-MX-007`; blocked |
+| `matrix.local_backup.expiry_reconcile` | Python Core + protected backup boundary; retention-ledger mutation | exact deletion tombstone, eligible backup generations, retention deadline | fresh exact LocalApprovalAuthority retention validation; exact `S` or accepted `M` | tombstone/backup-set/deadline fingerprint; no rollback after expiry deletion; stop reconciliation; pending/final receipt refs | `MSG-MX-007`; blocked |
+| `matrix.context.materialize` | Python Core + protected source plane; sensitive content read/disclosure | account, room/event range, purpose, model destination, expiry | fresh exact LocalApprovalAuthority validation bound to account, room/event range, purpose, model destination, expiry, and complete request fingerprint; exact content grant and model-lane lease | full context fingerprint; transient only; revoke/expire and discard; safe-disable blocks materialization; content-free context receipt | `MSG-MX-010`; blocked; no hidden context or Memory write |
+| `matrix.call.preflight.read` | adapter + local permission inspector; read-only posture | account, room, device, media-kind refs | read policy; exact `S` | freshness-bound snapshot fingerprint; no rollback; safe-disable blocks backend inspector and all entry points; availability/permission refs | deferred separate lane; blocked pending MatrixRTC/TURN decision |
+| `matrix.call.start` | future RTC adapter; create outbound RTC session | room, new call, participants, audio/video constraints, device refs | separate call confirmation plus OS permission and exact LocalApprovalAuthority validation; short `S` | room/request/session generation; duplicate start denied; exact leave only; media kill switch; call/session refs | unsupported later lane; blocked; no implementation or authority |
+| `matrix.call.join` | future RTC adapter; join existing RTC session | exact room/call/session generation and media constraints | separate join confirmation plus OS permission and exact LocalApprovalAuthority validation; short `S` | call/session generation; duplicate join denied; exact leave only; media kill switch; session refs | unsupported later lane; blocked |
+| `matrix.call.leave` | future RTC adapter; local participant call-state mutation | exact active call and local participant session generation | exact operator hang-up plus LocalApprovalAuthority validation; exact `S` | active generation; terminal local leave; force-stop local media and disable calls; terminal ref | unsupported later lane; blocked |
+| `matrix.call.terminate_all` | future RTC adapter; destructive room-wide call termination | exact active call, room, participant-set, call-state generation | separate destructive confirmation plus LocalApprovalAuthority validation; short `S` | compare-and-set active generation; may be irreversible; force-stop local media and disable termination; terminal ref | unsupported later lane; blocked |
+
+## Availability truth for every row
+
+Until a later phase implements and adversarially proves one exact row, its
+canonical availability posture is: catalog `unsupported`, compatibility
+`unknown`, configuration `not_configured`, health `unknown`, authority
+`blocked`, resource and cost `unknown`, safe-disable `unknown`, freshness
+`unknown`, and derived readiness `unknown`. Render acceptance cannot change
+these values. Inspectable never means callable.
+
+Each row's compact current-posture cell inherits that complete tuple. The only
+allowed abbreviated cells are a phase ref followed by the exact `blocked` word,
+or an explicit deferred/unsupported later-lane `blocked` posture. Positive or
+substring states such as `unblocked`, `callable`, `ready`, or `configured` are
+not valid abbreviations.
+
+## Program deny floor
+
+Calls, agent room participants, autonomous sends, hidden context injection,
+automatic Memory truth/writes, public hosting/federation, broad connector
+authority, mobile implementation, public release, and production authority
+remain denied. Later exact implementation of one row grants no other row.
+Any Matrix operation absent from this table is unsupported and blocked by
+unknown-capability denial; omission never grants authority.
