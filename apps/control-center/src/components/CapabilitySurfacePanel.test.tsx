@@ -59,4 +59,21 @@ describe("CapabilitySurfacePanel web hybrid posture", () => {
     expect(screen.getByText(/Paid usage, Keyless/)).toBeInTheDocument();
     expect(screen.queryByText(/\{.*\}/)).not.toBeInTheDocument();
   });
+
+  it("renders the evidence-gated maturity plan without inflating scores", () => {
+    render(
+      <CapabilitySurfacePanel surface={mockControlCenterData.capabilitySurface} />,
+    );
+
+    const maturityPanel = screen.getByRole("region", {
+      name: "Capability score evidence",
+    });
+    expect(within(maturityPanel).getByText("Extensibility and ecosystem")).toBeInTheDocument();
+    expect(within(maturityPanel).getByText("Scores never mint authority")).toBeInTheDocument();
+    expect(within(maturityPanel).getAllByText("baseline only").length).toBeGreaterThan(0);
+    expect(
+      within(maturityPanel).getByText(/target remains unverified until the bounded evaluator passes/i),
+    ).toBeInTheDocument();
+    expect(within(maturityPanel).queryByText(/globally authorized/i)).not.toBeInTheDocument();
+  });
 });

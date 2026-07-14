@@ -46,6 +46,17 @@ def build_parser(runtime_symbols: Mapping[str, Any]) -> argparse.ArgumentParser:
     )
     capability_availability.set_defaults(func=_capability_availability)
 
+    capability_maturity = subparsers.add_parser(
+        "capability-maturity",
+        help="Inspect the evidence-gated 16-component maturity uplift plan.",
+    )
+    capability_maturity.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the safe backend-owned maturity plan as JSON.",
+    )
+    capability_maturity.set_defaults(func=_capability_maturity)
+
     command = subparsers.add_parser(
         "command",
         help="Run governed RuntimeGateway command capabilities.",

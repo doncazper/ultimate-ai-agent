@@ -63,6 +63,75 @@ export function CapabilitySurfacePanel({
         </div>
       ) : null}
 
+      <section className="panel" aria-labelledby="capability-maturity-heading">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Empirical maturity</p>
+            <h3 id="capability-maturity-heading">Capability score evidence</h3>
+          </div>
+          <span className="status-pill compact">
+            {operatorLabel(surface.maturity.verification_posture)}
+          </span>
+        </div>
+        <p>{surface.maturity.safe_summary}</p>
+        <div className="panel-grid">
+          <MetricCard
+            label="Verified weighted score"
+            value={surface.maturity.verified_weighted_score}
+          />
+          <MetricCard
+            label="Evidence-gated target"
+            value={surface.maturity.target_weighted_score}
+          />
+          <MetricCard
+            label="Uplifts proven"
+            value={surface.maturity.uplift_proven_count}
+          />
+          <MetricCard
+            label="Ceilings defended"
+            value={surface.maturity.ceiling_defended_count}
+          />
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Component</th>
+                <th>Baseline</th>
+                <th>Target</th>
+                <th>Evidence</th>
+              </tr>
+            </thead>
+            <tbody>
+              {surface.maturity.components.map((component) => (
+                <tr key={component.component_id}>
+                  <td>
+                    <strong>{component.label}</strong>
+                    <small>{component.component_id}</small>
+                  </td>
+                  <td>{component.baseline_score}</td>
+                  <td>{component.target_score}</td>
+                  <td>
+                    {operatorLabel(component.evidence_status)}
+                    {component.blocker_codes.length > 0 ? (
+                      <small>{component.blocker_codes.join(", ")}</small>
+                    ) : null}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="callout blocked">
+          <strong>Scores never mint authority</strong>
+          <p>
+            A target remains unverified until the bounded evaluator passes real
+            runtime scenarios, evidence completeness, replay or recovery checks,
+            policy checks, and operator-surface evidence.
+          </p>
+        </div>
+      </section>
+
       <section className="panel" aria-labelledby="web-hybrid-heading">
         <div className="panel-heading">
           <div>

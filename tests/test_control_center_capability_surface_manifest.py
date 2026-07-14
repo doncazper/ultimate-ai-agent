@@ -125,6 +125,15 @@ def test_capability_surface_read_model_is_safe_bounded_and_source_backed() -> No
     assert payload["summary"]["capability_count"] == 28
     assert payload["summary"]["missing_release_routes"] == []
     assert payload["summary"]["missing_visible_actions"] == []
+    assert payload["maturity"]["verification_posture"] == "evaluation_required"
+    assert payload["maturity"]["component_count"] == 16
+    assert payload["maturity"]["uplift_target_count"] == 12
+    assert payload["maturity"]["uplift_proven_count"] == 0
+    assert payload["maturity"]["authority_granted"] is False
+    assert all(
+        item["verified_score"] == item["baseline_score"]
+        for item in payload["maturity"]["components"]
+    )
     capability_surface = next(
         row
         for row in payload["rows"]
@@ -176,6 +185,7 @@ def test_capability_surface_api_route_and_cli_expose_same_safe_model() -> None:
     cli_payload = json.loads(cli.stdout)
     assert cli_payload["read_model_ref"] == body["data"]["read_model_ref"]
     assert cli_payload["summary"]["covered_visible_action_count"] == 43
+    assert cli_payload["maturity"] == body["data"]["maturity"]
     assert cli_payload["runtime_authority_added"] is False
 
 

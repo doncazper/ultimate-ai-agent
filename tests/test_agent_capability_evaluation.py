@@ -12,11 +12,17 @@ import pytest
 from pydantic import ValidationError
 
 from scripts import run_agent_capability_evaluation as runner
+from scripts.verify_capability_maturity_uplift import (
+    CapabilityMaturityVerificationError,
+    verify_report,
+)
 from ultimate_ai_agent.core.evals import (
     CAPABILITY_COMPONENT_IDS,
     CapabilityEvaluationStatus,
+    CapabilityMaturityEvidenceStatus,
     CapabilityScenarioObservation,
     build_agent_capability_evaluation_report,
+    build_capability_maturity_read_model,
 )
 
 
@@ -200,10 +206,15 @@ def test_runner_registry_closes_coverage_and_preserves_web_hybrid() -> None:
     covered.update(item.component_id for item in runner.ADDITIONAL_SCENARIOS)
 
     assert covered == set(CAPABILITY_COMPONENT_IDS)
-    assert len(runner.ADDITIONAL_SCENARIOS) == 9
+    assert len(runner.ADDITIONAL_SCENARIOS) == 11
     assert {
         "scenario:web-hybrid-preservation-tests",
         "scenario:web-hybrid-contract-verifier",
+    }.issubset({item.scenario_ref for item in runner.ADDITIONAL_SCENARIOS})
+    assert {
+        "scenario:code-exact-patch-receipt",
+        "scenario:provider-routing-explanation",
+        "scenario:extension-exact-dispatch-replay",
     }.issubset({item.scenario_ref for item in runner.ADDITIONAL_SCENARIOS})
     assert all("live" not in part.lower() for item in runner.ADDITIONAL_SCENARIOS for part in item.command)
 
@@ -361,8 +372,42 @@ def test_runner_aggregates_safe_injected_transport_results(
             verifier_refs=spec.test_verifier_refs,
             execution_fingerprint_ref=runner.scenario_execution_fingerprint(spec),
             duration_ms=1,
-            recovery_expected=False,
-            replay_expected=False,
+            evidence_complete=True,
+            task_completed=True,
+            completion_claimed=True,
+            operator_interventions=0,
+            unsupported_claim_count=0,
+            policy_violation_refs=(),
+            recovery_expected=spec.scenario_id in {
+                "scenario:dag-replay-crash",
+                "scenario:cancellation-race",
+                "scenario:budget-exhaustion-settlement",
+            },
+            recovery_succeeded=(
+                True
+                if spec.scenario_id in {
+                    "scenario:dag-replay-crash",
+                    "scenario:cancellation-race",
+                    "scenario:budget-exhaustion-settlement",
+                }
+                else None
+            ),
+            replay_expected=spec.scenario_id in {
+                "scenario:dag-replay-crash",
+                "scenario:budget-exhaustion-settlement",
+                "scenario:exact-tool-idempotency",
+                "scenario:receipt-tamper-surface-parity",
+            },
+            replay_succeeded=(
+                True
+                if spec.scenario_id in {
+                    "scenario:dag-replay-crash",
+                    "scenario:budget-exhaustion-settlement",
+                    "scenario:exact-tool-idempotency",
+                    "scenario:receipt-tamper-surface-parity",
+                }
+                else None
+            ),
         )
         for spec in runner.PHASE09_SCENARIOS
     ]
@@ -378,12 +423,81 @@ def test_runner_aggregates_safe_injected_transport_results(
 
     assert report.status == CapabilityEvaluationStatus.passed
     assert report.component_count == 16
-    assert report.scenario_count == 21
-    assert report.passed_unblocked_verifier_count == 20
-    assert report.task_completion_count is None
+    assert report.scenario_count == 23
+    assert report.passed_unblocked_verifier_count == 22
+    assert report.task_completion_count == 23
     assert report.blocked_safe_outcome_count == 1
-    assert report.correctness_rate is None
+    assert report.correctness_rate == 1.0
+    assert report.evidence_completeness_rate == 1.0
     assert report.authority_granted is False
+
+    maturity = build_capability_maturity_read_model(report)
+    assert maturity.verification_posture == "targets_proven"
+    assert maturity.uplift_proven_count == 12
+    assert maturity.ceiling_defended_count == 4
+    assert maturity.verified_weighted_score == maturity.target_weighted_score
+    assert all(
+        item.evidence_status
+        in {
+            CapabilityMaturityEvidenceStatus.target_proven,
+            CapabilityMaturityEvidenceStatus.ceiling_defended,
+        }
+        for item in maturity.components
+    )
+    verify_report(report)
+
+
+def test_maturity_plan_retains_baselines_until_empirical_evidence_passes() -> None:
+    read_model = build_capability_maturity_read_model()
+
+    assert read_model.verification_posture == "evaluation_required"
+    assert read_model.uplift_target_count == 12
+    assert read_model.uplift_proven_count == 0
+    assert read_model.ceiling_defended_count == 0
+    assert read_model.verified_weighted_score == read_model.baseline_weighted_score
+    assert read_model.target_weighted_score > read_model.baseline_weighted_score
+    assert all(
+        item.verified_score == item.baseline_score for item in read_model.components
+    )
+    assert all(item.target_score == min(10, item.baseline_score + 1) for item in read_model.components)
+    assert read_model.authority_granted is False
+
+
+def test_maturity_gate_refuses_partial_component_evidence() -> None:
+    observations = list(_observations(structured_metrics=True))
+    observations[0] = observations[0].model_copy(update={"evidence_complete": False})
+    report = build_agent_capability_evaluation_report(
+        report_ref="evaluation-report:test:maturity-failure",
+        benchmark_ref="benchmark-ref:test:maturity-failure",
+        registry_fingerprint_ref="fingerprint-ref:test:registry",
+        observations=tuple(observations),
+    )
+
+    read_model = build_capability_maturity_read_model(report)
+    first = read_model.components[0]
+    assert read_model.verification_posture == "evaluation_failed"
+    assert first.verified_score == first.baseline_score
+    assert first.evidence_status == CapabilityMaturityEvidenceStatus.evidence_failed
+    assert "CAPABILITY_MATURITY_EVIDENCE_FAILED" in first.blocker_codes
+    with pytest.raises(CapabilityMaturityVerificationError, match="lack complete evidence"):
+        verify_report(report)
+
+
+def test_runtime_cli_exposes_same_backend_owned_maturity_plan() -> None:
+    result = subprocess.run(
+        [sys.executable, "scripts/dev/uaa_runtime.py", "capability-maturity", "--json"],
+        cwd=Path(__file__).resolve().parents[1],
+        capture_output=True,
+        check=False,
+        text=True,
+        timeout=20,
+    )
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    read_model = payload["capability_maturity"]
+    assert read_model == build_capability_maturity_read_model().model_dump(mode="json")
+    assert payload["authority_granted"] is False
 
 
 def test_phase09_cli_json_is_content_free(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:

@@ -25,6 +25,7 @@ from ultimate_ai_agent.core.control_center.runtime_action_bridge import (  # noq
 from ultimate_ai_agent.core.capability_availability import (  # noqa: E402
     build_capability_availability_read_model,
 )
+from ultimate_ai_agent.core.evals import build_capability_maturity_read_model  # noqa: E402
 from ultimate_ai_agent.core.authority import (  # noqa: E402
     AuthorityActionRequest,
     AuthorityDomain,
@@ -358,6 +359,28 @@ def _print_capability_availability(read_model: dict[str, Any]) -> None:
     print(
         "Availability never grants execution; evaluate one exact request immediately before any future execution."
     )
+
+
+def _print_capability_maturity(read_model: dict[str, Any]) -> None:
+    print("Capability maturity evidence gate")
+    print(f"Verification: {read_model['verification_posture']}")
+    print(
+        "Weighted score: "
+        f"baseline={read_model['baseline_weighted_score']} "
+        f"target={read_model['target_weighted_score']} "
+        f"verified={read_model['verified_weighted_score']}"
+    )
+    print(
+        "Evidence: "
+        f"uplifts={read_model['uplift_proven_count']}/{read_model['uplift_target_count']} "
+        f"ceilings={read_model['ceiling_defended_count']}"
+    )
+    for item in read_model["components"]:
+        print(
+            f"- {item['label']}: {item['baseline_score']} -> "
+            f"{item['target_score']} ({item['evidence_status']})"
+        )
+    print("Scores grant no runtime authority. Run the bounded evaluator to prove targets.")
 
 
 def _print_authority_profile(read_model: dict[str, Any]) -> None:
@@ -1980,6 +2003,23 @@ def _capability_availability(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_capability_availability(read_model)
+    return 0
+
+
+def _capability_maturity(args: argparse.Namespace) -> int:
+    read_model = build_capability_maturity_read_model().model_dump(mode="json")
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-capability-maturity",
+        "capability_maturity": read_model,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "authority_granted": False,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_capability_maturity(read_model)
     return 0
 
 

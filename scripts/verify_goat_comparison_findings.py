@@ -11,6 +11,7 @@ from pathlib import Path
 import re
 import stat
 import sys
+import tempfile
 from typing import Any
 
 
@@ -38,6 +39,7 @@ from scripts.run_agent_capability_evaluation import (  # noqa: E402
     evaluation_registry_fingerprint,
     evaluation_source_digest,
     evaluation_source_paths,
+    repository_commit,
     run_agent_capability_evaluation,
 )
 from scripts.run_uaa_runtime_phase09_benchmark import (  # noqa: E402
@@ -409,24 +411,31 @@ def verify_data(
         raise VerificationError("final scores changed without new bound evidence gates")
 
     result = data.get("implementation_result", {})
-    if result.get("scenario_count") != 21 or result.get("component_count") != 16:
+    expected_scenario_count = len(PHASE09_SCENARIOS) + len(ADDITIONAL_SCENARIOS)
+    expected_passed_count = expected_scenario_count - 1
+    if (
+        result.get("scenario_count") != expected_scenario_count
+        or result.get("component_count") != 16
+    ):
         raise VerificationError("capability evaluation coverage drift")
     if result.get("safe_outcome_adherence_rate") != 1:
         raise VerificationError("safe-outcome adherence drift")
     if result.get("verification_pass_rate") != 1:
         raise VerificationError("scenario verifier pass-rate drift")
-    if result.get("passed_unblocked_verifier_count") != 20:
+    if result.get("passed_unblocked_verifier_count") != expected_passed_count:
         raise VerificationError("passed unblocked verifier count drift")
     if result.get("blocked_safe_outcome_count") != 1:
         raise VerificationError("blocked safe-outcome count drift")
-    if result.get("passed_unblocked_verifier_rate") != round(20 / 21, 4):
+    if result.get("passed_unblocked_verifier_rate") != round(
+        expected_passed_count / expected_scenario_count, 4
+    ):
         raise VerificationError("passed unblocked verifier rate drift")
     if (
-        result.get("task_completion_rate") is not None
-        or result.get("task_completion_count") is not None
-        or result.get("task_completion_posture") != "not_measured"
+        result.get("task_completion_rate") != 1
+        or result.get("task_completion_count") != expected_scenario_count
+        or result.get("task_completion_posture") != "measured"
     ):
-        raise VerificationError("task completion must remain not measured")
+        raise VerificationError("task completion evidence drift")
     projection = result.get("report_projection")
     if not isinstance(projection, dict):
         raise VerificationError("capability evaluation report projection is required")
@@ -449,18 +458,19 @@ def verify_data(
         raise VerificationError("runtime revalidation posture drift")
     if result.get("external_evidence_posture") != "opt_in_root_required":
         raise VerificationError("external evidence revalidation posture drift")
-    for metric in (
-        "correctness_rate",
-        "recovery_success_rate",
-        "evidence_completeness_rate",
-        "replay_correctness_rate",
-        "operator_intervention_count",
-        "false_completion_count",
-        "unsupported_claim_count",
-        "authority_policy_violation_count",
-    ):
-        if result.get(metric) is not None or result.get(f"{metric}_posture") != "not_measured":
-            raise VerificationError(f"unbound metric must remain not measured: {metric}")
+    expected_metrics = {
+        "correctness_rate": 1,
+        "recovery_success_rate": 1,
+        "evidence_completeness_rate": 1,
+        "replay_correctness_rate": 1,
+        "operator_intervention_count": 0,
+        "false_completion_count": 0,
+        "unsupported_claim_count": 0,
+        "authority_policy_violation_count": 0,
+    }
+    for metric, expected_value in expected_metrics.items():
+        if result.get(metric) != expected_value or result.get(f"{metric}_posture") != "measured":
+            raise VerificationError(f"structured capability metric drift: {metric}")
     if result.get("cross_repo_empirical_performance") != "not_measured":
         raise VerificationError("cross-repository empirical result must remain not measured")
     if result.get("observed_product_experience") != "not_measured":
@@ -490,6 +500,75 @@ def verify(
     )
 
 
+def refresh_uaa_evaluation(path: Path = DEFAULT_ARTIFACT) -> dict[str, Any]:
+    if path != DEFAULT_ARTIFACT or not path.is_file() or path.is_symlink():
+        raise VerificationError("comparison artifact refresh path is not canonical and regular")
+    data = json.loads(
+        _safe_read(path.relative_to(ROOT), root=ROOT, maximum_bytes=MAX_ARTIFACT_BYTES)
+    )
+    report = run_agent_capability_evaluation()
+    projection = evaluation_report_projection(report)
+    result = data.get("implementation_result")
+    if not isinstance(result, dict):
+        raise VerificationError("comparison implementation result is required")
+    result.update(
+        {
+            "status": "implemented",
+            "scenario_count": report.scenario_count,
+            "component_count": report.component_count,
+            "safe_outcome_adherence_rate": report.safe_outcome_adherence_rate,
+            "verification_pass_rate": report.verification_pass_rate,
+            "passed_unblocked_verifier_rate": report.passed_unblocked_verifier_rate,
+            "passed_unblocked_verifier_count": report.passed_unblocked_verifier_count,
+            "task_completion_rate": report.task_completion_rate,
+            "task_completion_count": report.task_completion_count,
+            "task_completion_posture": report.task_completion_posture,
+            "blocked_safe_outcome_count": report.blocked_safe_outcome_count,
+            "correctness_rate": report.correctness_rate,
+            "correctness_rate_posture": report.correctness_posture,
+            "recovery_success_rate": report.recovery_success_rate,
+            "recovery_success_rate_posture": report.recovery_posture,
+            "evidence_completeness_rate": report.evidence_completeness_rate,
+            "evidence_completeness_rate_posture": report.evidence_completeness_posture,
+            "replay_correctness_rate": report.replay_correctness_rate,
+            "replay_correctness_rate_posture": report.replay_correctness_posture,
+            "operator_intervention_count": report.operator_intervention_count,
+            "operator_intervention_count_posture": report.operator_intervention_posture,
+            "false_completion_count": report.false_completion_count,
+            "false_completion_count_posture": report.false_completion_posture,
+            "unsupported_claim_count": report.unsupported_claim_count,
+            "unsupported_claim_count_posture": report.unsupported_claim_posture,
+            "authority_policy_violation_count": report.authority_policy_violation_count,
+            "authority_policy_violation_count_posture": report.authority_policy_violation_posture,
+            "content_free": report.content_free,
+            "uaa_source_commit": repository_commit(),
+            "evaluator_source_digest": evaluation_source_digest(),
+            "evaluator_source_file_count": len(evaluation_source_paths()),
+            "registry_fingerprint_ref": evaluation_registry_fingerprint(),
+            "report_projection_digest": _projection_digest(projection),
+            "report_projection": projection,
+        }
+    )
+    verify_data(data)
+    encoded = (json.dumps(data, indent=2, sort_keys=False) + "\n").encode("utf-8")
+    with tempfile.NamedTemporaryFile(
+        mode="wb",
+        dir=path.parent,
+        prefix=".goat-comparison-refresh-",
+        delete=False,
+    ) as handle:
+        temp_path = Path(handle.name)
+        handle.write(encoded)
+        handle.flush()
+        os.fsync(handle.fileno())
+    try:
+        os.chmod(temp_path, 0o644)
+        os.replace(temp_path, path)
+    finally:
+        temp_path.unlink(missing_ok=True)
+    return data
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -502,8 +581,18 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Run the bounded UAA evaluator and compare it with the stored projection.",
     )
+    parser.add_argument(
+        "--refresh-uaa-evaluation",
+        action="store_true",
+        help="Refresh only the content-free UAA evaluation projection in the canonical artifact.",
+    )
     args = parser.parse_args(argv)
-    verify(goat_root=args.goat_root, revalidate_uaa=args.revalidate_uaa)
+    if args.refresh_uaa_evaluation:
+        if args.goat_root is not None or args.revalidate_uaa:
+            parser.error("refresh cannot be combined with external or revalidation options")
+        refresh_uaa_evaluation()
+    else:
+        verify(goat_root=args.goat_root, revalidate_uaa=args.revalidate_uaa)
     print("OK: UAA-GoatCitadel comparison findings are bounded and evidence-gated")
     return 0
 

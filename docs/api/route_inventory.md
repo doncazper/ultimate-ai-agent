@@ -649,7 +649,10 @@ The capability-surface route returns a bounded read-only capability coverage
 read model derived from the human capability manifest, generated source-truth
 overlay, and live API manifest metadata. It exposes safe capability rows,
 source-truth posture, route refs, CLI refs, missing reasons, and blocked
-authority refs only. It does not
+authority refs only. It also exposes the 16-component maturity baseline,
+one-point targets capped at ten, and an evidence status that remains
+`evaluation_required` until the explicit bounded evaluator passes. Static
+visibility cannot increase a score or grant authority. It does not
 return raw manifest dumps or grant action execution, approval authority,
 provider/model calls, connector writes, browser automation, shell/subprocess
 execution, memory writes, context injection, public release, or production

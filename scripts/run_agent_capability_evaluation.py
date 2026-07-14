@@ -34,6 +34,7 @@ from ultimate_ai_agent.core.evals import (  # noqa: E402
     CapabilityEvaluationStatus,
     CapabilityScenarioObservation,
     build_agent_capability_evaluation_report,
+    build_capability_maturity_read_model,
 )
 
 
@@ -119,15 +120,39 @@ ADDITIONAL_SCENARIOS = (
         verifier_refs=("verifier-ref:runtime-cockpit-cli-api",),
     ),
     AdditionalScenario(
-        scenario_ref="scenario:extension-inspectable-not-callable",
+        scenario_ref="scenario:extension-exact-dispatch-replay",
         component_id="extensibility_ecosystem",
-        command_ref="command-ref:pytest:extension-non-callable",
+        command_ref="command-ref:pytest:extension-exact-dispatch-replay",
         command=(
             "{python}", "-m", "pytest", "-q", "-p", "no:cacheprovider",
-            "tests/test_inspectable_extension_catalog.py::test_default_inspectable_extension_catalog_is_read_only_and_non_callable",
+            "tests/test_exact_extension_adapter.py::test_exact_extension_executes_through_dispatcher_and_replays_once",
         ),
-        evidence_refs=("evidence-ref:agent-eval:extension-non-callable",),
-        verifier_refs=("verifier-ref:pytest:inspectable-extension-catalog",),
+        evidence_refs=("evidence-ref:agent-eval:extension-exact-dispatch-replay",),
+        verifier_refs=("verifier-ref:pytest:exact-extension-adapter",),
+        replay_expected=True,
+    ),
+    AdditionalScenario(
+        scenario_ref="scenario:code-exact-patch-receipt",
+        component_id="code_implementation_assistance",
+        command_ref="command-ref:pytest:code-exact-patch-receipt",
+        command=(
+            "{python}", "-m", "pytest", "-q", "-p", "no:cacheprovider",
+            "tests/test_file_atomic_writes.py::test_patch_apply_emits_redacted_receipt_with_preimage_and_postimage_refs",
+        ),
+        evidence_refs=("evidence-ref:agent-eval:code-exact-patch-receipt",),
+        verifier_refs=("verifier-ref:pytest:file-atomic-writes",),
+    ),
+    AdditionalScenario(
+        scenario_ref="scenario:provider-routing-explanation",
+        component_id="model_provider_management",
+        command_ref="command-ref:pytest:provider-routing-explanation",
+        command=(
+            "{python}", "-m", "pytest", "-q", "-p", "no:cacheprovider",
+            "tests/test_provider_router_dry_run.py::test_provider_router_dry_run_classifies_eligible_blocked_and_cost_risky_refs",
+            "tests/test_provider_router_dry_run.py::test_provider_router_dry_run_cli_inspection_outputs_safe_schema",
+        ),
+        evidence_refs=("evidence-ref:agent-eval:provider-routing-explanation",),
+        verifier_refs=("verifier-ref:pytest:provider-router-dry-run",),
     ),
     AdditionalScenario(
         scenario_ref="scenario:product-loop-terminal-receipt",
@@ -225,8 +250,10 @@ def evaluation_source_paths() -> tuple[str, ...]:
         "pyproject.toml",
         "scripts/run_agent_capability_evaluation.py",
         "scripts/run_uaa_runtime_phase09_benchmark.py",
+        "scripts/verify_capability_maturity_uplift.py",
         "scripts/verify_goat_comparison_findings.py",
         "src/ultimate_ai_agent/core/evals/capability_metrics.py",
+        "src/ultimate_ai_agent/core/evals/capability_maturity.py",
         "tests/test_agent_capability_evaluation.py",
         "tests/test_goat_comparison_findings.py",
         "tests/test_uaa_runtime_phase09_benchmark.py",
@@ -541,6 +568,12 @@ def _phase09_observations(payload: dict[str, object]) -> list[CapabilityScenario
                 execution_fingerprint_ref=scenario_execution_fingerprint(spec),
                 duration_ms=max(1, round(float(result["duration_seconds"]) * 1000)),
                 failure_code=("none" if observed_status != CapabilityEvaluationStatus.failed else "assertion_failed"),
+                evidence_complete=observed_status == expected_status,
+                task_completed=observed_status == expected_status,
+                completion_claimed=observed_status == expected_status,
+                operator_interventions=0,
+                unsupported_claim_count=0,
+                policy_violation_refs=(),
                 recovery_expected=spec.scenario_id in {
                     "scenario:dag-replay-crash",
                     "scenario:cancellation-race",
@@ -552,6 +585,25 @@ def _phase09_observations(payload: dict[str, object]) -> list[CapabilityScenario
                     "scenario:exact-tool-idempotency",
                     "scenario:receipt-tamper-surface-parity",
                 },
+                recovery_succeeded=(
+                    observed_status == expected_status
+                    if spec.scenario_id in {
+                        "scenario:dag-replay-crash",
+                        "scenario:cancellation-race",
+                        "scenario:budget-exhaustion-settlement",
+                    }
+                    else None
+                ),
+                replay_succeeded=(
+                    observed_status == expected_status
+                    if spec.scenario_id in {
+                        "scenario:dag-replay-crash",
+                        "scenario:budget-exhaustion-settlement",
+                        "scenario:exact-tool-idempotency",
+                        "scenario:receipt-tamper-surface-parity",
+                    }
+                    else None
+                ),
             )
         )
     return observations
@@ -590,8 +642,24 @@ def run_agent_capability_evaluation() -> AgentCapabilityEvaluationReport:
                     execution_fingerprint_ref=_scenario_fingerprint(scenario),
                     duration_ms=command_result.duration_ms,
                     failure_code=command_result.failure_code,
+                    evidence_complete=observed_status == CapabilityEvaluationStatus.passed,
+                    task_completed=observed_status == CapabilityEvaluationStatus.passed,
+                    completion_claimed=observed_status == CapabilityEvaluationStatus.passed,
+                    operator_interventions=0,
+                    unsupported_claim_count=0,
+                    policy_violation_refs=(),
                     recovery_expected=scenario.recovery_expected,
+                    recovery_succeeded=(
+                        observed_status == CapabilityEvaluationStatus.passed
+                        if scenario.recovery_expected
+                        else None
+                    ),
                     replay_expected=scenario.replay_expected,
+                    replay_succeeded=(
+                        observed_status == CapabilityEvaluationStatus.passed
+                        if scenario.replay_expected
+                        else None
+                    ),
                 )
             )
     return build_agent_capability_evaluation_report(
@@ -636,6 +704,14 @@ def evaluation_report_projection(report: AgentCapabilityEvaluationReport) -> dic
                 "observed_status": item.observed_status.value,
                 "execution_fingerprint_ref": item.execution_fingerprint_ref,
                 "failure_code": item.failure_code,
+                "evidence_complete": item.evidence_complete,
+                "task_completed": item.task_completed,
+                "completion_claimed": item.completion_claimed,
+                "operator_interventions": item.operator_interventions,
+                "unsupported_claim_count": item.unsupported_claim_count,
+                "policy_violation_refs": list(item.policy_violation_refs or ()),
+                "recovery_succeeded": item.recovery_succeeded,
+                "replay_succeeded": item.replay_succeeded,
             }
             for item in report.observations
         ],
@@ -669,7 +745,7 @@ def _human_report(report: AgentCapabilityEvaluationReport) -> str:
             f"  Safe-outcome adherence: {report.safe_outcome_adherence_rate:.0%}",
             f"  Verifier pass rate: {report.verification_pass_rate:.0%}",
             f"  Passed unblocked verifiers: {report.passed_unblocked_verifier_count}/{report.scenario_count} ({report.passed_unblocked_verifier_rate:.0%})",
-            "  Task completion: not measured",
+            f"  Task completion: {_metric(report.task_completion_rate, percentage=True)}",
             f"  Truthfully blocked safe outcomes: {report.blocked_safe_outcome_count}",
             f"  Correctness: {_metric(report.correctness_rate, percentage=True)}",
             f"  Recovery success: {_metric(report.recovery_success_rate, percentage=True)}",
@@ -696,9 +772,22 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Emit the deterministic content-free report projection and digest.",
     )
+    output.add_argument(
+        "--maturity-json",
+        action="store_true",
+        help="Emit the evidence-gated 16-component maturity read model.",
+    )
     args = parser.parse_args(argv)
     report = run_agent_capability_evaluation()
-    if args.projection_json:
+    if args.maturity_json:
+        print(
+            json.dumps(
+                build_capability_maturity_read_model(report).model_dump(mode="json"),
+                indent=2,
+                sort_keys=True,
+            )
+        )
+    elif args.projection_json:
         print(
             json.dumps(
                 {
