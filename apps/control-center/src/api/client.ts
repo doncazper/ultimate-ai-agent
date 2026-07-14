@@ -328,6 +328,37 @@ function withReadTimeout<T>(promise: Promise<T>, endpoint: string): Promise<T> {
   ]);
 }
 
+export interface RuntimeSkillMarketplacePostureLoadResult {
+  posture: RuntimeSkillMarketplacePostureReadModel;
+  authoritative: boolean;
+}
+
+export async function loadRuntimeSkillMarketplacePosture(): Promise<RuntimeSkillMarketplacePostureLoadResult> {
+  if (!API_BASE_POLICY.allowed) {
+    return {
+      posture: mockControlCenterData.runtimeSkillMarketplacePosture,
+      authoritative: false,
+    };
+  }
+  try {
+    const posture = await readEnvelope<RuntimeSkillMarketplacePostureReadModel>(
+      API_ENDPOINTS.runtimeSkillMarketplacePosture,
+    );
+    if (isSafeRuntimeSkillMarketplacePosture(posture)) {
+      return {
+        posture,
+        authoritative: posture.catalog !== undefined,
+      };
+    }
+  } catch {
+    // The Studio discovery surface fails closed to an empty, non-authoritative catalog.
+  }
+  return {
+    posture: mockControlCenterData.runtimeSkillMarketplacePosture,
+    authoritative: false,
+  };
+}
+
 export async function loadControlCenterData(): Promise<ControlCenterData> {
   if (!API_BASE_POLICY.allowed) {
     return withConnection(
@@ -7152,6 +7183,8 @@ function isSafeRuntimeSkillMarketplacePosture(
     value.stage_count === 7 &&
     value.stage_count === value.stages.length &&
     value.blocked_execution_count === 1 &&
+    (value.catalog === undefined ||
+      isSafeRuntimeSkillMarketplaceCatalog(value.catalog)) &&
     value.review_required_count ===
       value.stages.filter((stage) => stage.status === "review_required")
         .length &&
@@ -7182,6 +7215,80 @@ function isSafeRuntimeSkillMarketplacePosture(
         stage.control_center_mints_authority === false,
     ) &&
     deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeSkillMarketplaceCatalog(
+  value: RuntimeSkillMarketplacePostureReadModel["catalog"],
+): boolean {
+  if (value === undefined) {
+    return false;
+  }
+  if (!Array.isArray(value.sources) || !Array.isArray(value.entries)) {
+    return false;
+  }
+  const sourceRefs = new Set(value.sources.map((source) => source.source_ref));
+  const sourceKinds = new Set(value.sources.map((source) => source.source_kind));
+  const sourceKindByRef = new Map(
+    value.sources.map((source) => [source.source_ref, source.source_kind]),
+  );
+  const skillRefs = new Set(value.entries.map((entry) => entry.skill_ref));
+  return (
+    value.schema_version ===
+      "runtime_skill_marketplace_catalog_snapshot.v1" &&
+    value.entry_count === value.entries.length &&
+    value.entry_count === skillRefs.size &&
+    value.default_page_size === 25 &&
+    value.pagination_supported === true &&
+    value.metadata_only === true &&
+    value.live_marketplace_fetch_performed === false &&
+    value.raw_marketplace_payload_persisted === false &&
+    value.sources.length === 2 &&
+    sourceKinds.size === 2 &&
+    sourceKinds.has("clawhub") &&
+    sourceKinds.has("hermes") &&
+    value.sources.every(
+      (source) =>
+        (source.source_kind === "clawhub" ||
+          source.source_kind === "hermes") &&
+        isSafeTrustAuthorityRef(source.source_ref) &&
+        isSafeTrustAuthorityRef(source.source_version_ref) &&
+        source.record_count ===
+          value.entries.filter(
+            (entry) => entry.source_ref === source.source_ref,
+          ).length &&
+        (source.source_kind !== "clawhub" ||
+          (source.rank_signal === "weekly_trending" &&
+            source.score_signal === "stars")) &&
+        (source.source_kind !== "hermes" ||
+          (source.rank_signal === "not_provided" &&
+            source.score_signal === "not_provided")) &&
+        source.live_fetch_performed === false &&
+        source.raw_payload_persisted === false,
+    ) &&
+    value.entries.every(
+      (entry) =>
+        sourceRefs.has(entry.source_ref) &&
+        sourceKindByRef.get(entry.source_ref) === entry.source_kind &&
+        isSafeTrustAuthorityRef(entry.skill_ref) &&
+        isSafeTrustAuthorityRef(entry.source_record_ref) &&
+        entry.source_metadata_only === true &&
+        entry.review_required === true &&
+        entry.risk_level === "unknown" &&
+        entry.external_code_imported === false &&
+        entry.execution_enabled === false &&
+        (entry.average_rating === null) === (entry.rating_count === null) &&
+        (entry.source_kind !== "hermes" ||
+          (entry.source_rank === null &&
+            entry.star_count === null &&
+            entry.download_count === null &&
+            entry.install_count === null &&
+            entry.comment_count === null &&
+            entry.average_rating === null &&
+            entry.rating_count === null)) &&
+        (entry.source_kind !== "clawhub" ||
+          (entry.average_rating === null && entry.rating_count === null)),
+    )
   );
 }
 

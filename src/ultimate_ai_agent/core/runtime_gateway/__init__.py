@@ -653,6 +653,15 @@ from ultimate_ai_agent.core.runtime_gateway.skill_marketplace_posture import (
     RuntimeSkillMarketplaceStageStatus,
     build_runtime_skill_marketplace_posture_read_model,
 )
+from ultimate_ai_agent.core.runtime_gateway.skill_marketplace_catalog import (
+    RuntimeSkillMarketplaceCatalogEntry,
+    RuntimeSkillMarketplaceCatalogSnapshot,
+    RuntimeSkillMarketplaceSourceSnapshot,
+    RuntimeSkillSourceKind,
+    RuntimeSkillSourceRankSignal,
+    RuntimeSkillSourceScoreSignal,
+    build_runtime_skill_marketplace_catalog_snapshot,
+)
 from ultimate_ai_agent.core.runtime_gateway.context_references import (
     RUNTIME_CONTEXT_REFERENCES_AUTHORITY_MAPPING_REF,
     RUNTIME_CONTEXT_REFERENCES_AUTHORITY_STATE_CLI_REF,

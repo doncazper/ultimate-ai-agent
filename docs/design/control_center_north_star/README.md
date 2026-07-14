@@ -109,6 +109,8 @@ Studio revision 05 supersedes the split as the current accepted direction:
 | Render | Revision |
 |---|---|
 | `renders/target-v3/06-studio-unified-v7.png` | Unified Studio v7 with persistent Chat, Code, and Create modes; Create active; export blocked |
+| `renders/target-v3/07-skill-workbench-grid-v1.png` | Skill Workbench Create-mode Hermes-filtered grid with honest missing source signals and review posture |
+| `renders/target-v3/08-skill-workbench-list-v1.png` | Skill Workbench dense default list with honest source gaps and pagination |
 
 The independent Messenger client set covers the Element-familiar Matrix north
 star through the UAA lens while Communications keeps its accepted unified hub.

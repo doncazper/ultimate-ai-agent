@@ -10,6 +10,7 @@ from ultimate_ai_agent.core.runtime_gateway import (
     RUNTIME_SKILL_MARKETPLACE_BLOCKED_AUTHORITY_REFS,
     RUNTIME_SKILL_MARKETPLACE_POSTURE_AUTHORITY_MAPPING_REF,
     RUNTIME_SKILL_MARKETPLACE_POSTURE_ROUTE_REF,
+    RuntimeSkillMarketplaceCatalogSnapshot,
     RuntimeSkillMarketplacePostureReadModel,
     RuntimeSkillMarketplaceStage,
     build_runtime_skill_marketplace_posture_read_model,
@@ -55,6 +56,10 @@ def test_skill_marketplace_is_signal_review_adaptation_only() -> None:
     assert read_model.connector_write_enabled is False
     assert read_model.raw_marketplace_payload_persisted is False
     assert read_model.control_center_mints_authority is False
+    assert read_model.catalog.entry_count == 31
+    assert read_model.catalog.default_page_size == 25
+    assert read_model.catalog.live_marketplace_fetch_performed is False
+    assert read_model.catalog.raw_marketplace_payload_persisted is False
     assert set(RUNTIME_SKILL_MARKETPLACE_BLOCKED_AUTHORITY_REFS).issubset(
         set(read_model.blocked_authority_refs)
     )
@@ -81,6 +86,71 @@ def test_skill_marketplace_route_returns_authority_bound_read_model() -> None:
     assert data["direct_marketplace_install_enabled"] is False
     assert data["runtime_import_enabled"] is False
     assert data["automatic_skill_write_enabled"] is False
+    assert data["catalog"]["entry_count"] == 31
+    assert data["catalog"]["pagination_supported"] is True
+
+
+def test_skill_marketplace_catalog_keeps_source_signals_distinct() -> None:
+    catalog = build_runtime_skill_marketplace_posture_read_model().catalog
+
+    assert catalog.entry_count == 31
+    assert {source.source_kind for source in catalog.sources} == {
+        "clawhub",
+        "hermes",
+    }
+    assert sum(entry.source_kind == "clawhub" for entry in catalog.entries) == 12
+    assert sum(entry.source_kind == "hermes" for entry in catalog.entries) == 19
+    clawhub = next(entry for entry in catalog.entries if entry.slug == "github")
+    assert clawhub.rank_label == "#3 this week"
+    assert clawhub.star_count == 651
+    assert clawhub.download_count == 192948
+    assert clawhub.average_rating is None
+    assert clawhub.rating_count is None
+    hermes = next(
+        entry for entry in catalog.entries if entry.slug == "systematic-debugging"
+    )
+    assert hermes.rank_label == "Not provided by source"
+    assert hermes.star_count is None
+    assert hermes.download_count is None
+    assert hermes.average_rating is None
+    assert hermes.rating_count is None
+    assert all(entry.risk_level == "unknown" for entry in catalog.entries)
+    assert all(entry.review_required for entry in catalog.entries)
+    assert all(not entry.external_code_imported for entry in catalog.entries)
+
+
+def test_skill_marketplace_catalog_rejects_invented_hermes_signals() -> None:
+    payload = (
+        build_runtime_skill_marketplace_posture_read_model()
+        .catalog.model_dump(mode="json")
+    )
+    hermes_entry = next(
+        entry for entry in payload["entries"] if entry["source_kind"] == "hermes"
+    )
+    hermes_entry["star_count"] = 1
+
+    with pytest.raises(
+        ValueError,
+        match="RUNTIME_SKILL_MARKETPLACE_HERMES_SIGNAL_NOT_PROVIDED",
+    ):
+        RuntimeSkillMarketplaceCatalogSnapshot(**payload)
+
+
+def test_skill_marketplace_catalog_rejects_mismatched_source_identity() -> None:
+    payload = (
+        build_runtime_skill_marketplace_posture_read_model()
+        .catalog.model_dump(mode="json")
+    )
+    hermes_entry = next(
+        entry for entry in payload["entries"] if entry["source_kind"] == "hermes"
+    )
+    hermes_entry["source_kind"] = "clawhub"
+
+    with pytest.raises(
+        ValueError,
+        match="RUNTIME_SKILL_MARKETPLACE_ENTRY_SOURCE_MISMATCH",
+    ):
+        RuntimeSkillMarketplaceCatalogSnapshot(**payload)
 
 
 def test_skill_marketplace_stages_keep_external_signals_untrusted() -> None:
@@ -203,3 +273,5 @@ def test_skill_marketplace_cli_uses_same_read_model() -> None:
     assert read_model["authority_state_decision_outcome"] == "allow"
     assert read_model["stage_count"] == 7
     assert read_model["blocked_execution_count"] == 1
+    assert read_model["catalog"]["entry_count"] == 31
+    assert read_model["catalog"]["live_marketplace_fetch_performed"] is False

@@ -18,6 +18,10 @@ from ultimate_ai_agent.core.runtime_gateway.contracts import GOVERNED_RUNTIME_RE
 from ultimate_ai_agent.core.runtime_gateway.delegation import (
     RUNTIME_DELEGATION_CONTROL_CENTER_REF,
 )
+from ultimate_ai_agent.core.runtime_gateway.skill_marketplace_catalog import (
+    RuntimeSkillMarketplaceCatalogSnapshot,
+    build_runtime_skill_marketplace_catalog_snapshot,
+)
 
 
 RUNTIME_SKILL_MARKETPLACE_POSTURE_CONTRACT_REF = (
@@ -194,6 +198,9 @@ class RuntimeSkillMarketplacePostureReadModel(BaseModel):
         "External and agent-created skills are discovery signals only until "
         "quarantined, reviewed, converted into UAA-owned adaptations, and "
         "separately granted activation authority."
+    )
+    catalog: RuntimeSkillMarketplaceCatalogSnapshot = Field(
+        default_factory=build_runtime_skill_marketplace_catalog_snapshot
     )
     stages: list[RuntimeSkillMarketplaceStage] = Field(default_factory=list)
     stage_count: int = 0
@@ -372,6 +379,7 @@ def build_runtime_skill_marketplace_posture_read_model(
     RuntimeSkillMarketplacePostureReadModel
 ):
     authority_entry = _authority_entry(authority_decision_catalog)
+    catalog = build_runtime_skill_marketplace_catalog_snapshot()
     stages = [
         _stage(
             RuntimeSkillMarketplaceStageKind.external_discovery_signal,
@@ -433,6 +441,7 @@ def build_runtime_skill_marketplace_posture_read_model(
         "authority_state_operator_message": authority_entry.decision.operator_message,
         "authority_state_reason_refs": list(authority_entry.decision.reason_refs),
         "unsupported_adapter_refs": list(authority_entry.unsupported_adapter_refs),
+        "catalog": catalog,
         "stages": stages,
         "stage_count": len(stages),
         "review_required_count": len(
@@ -473,6 +482,8 @@ def build_runtime_skill_marketplace_posture_read_model(
         "authority_state_decision_outcome": payload[
             "authority_state_decision_outcome"
         ],
+        "catalog_snapshot_ref": catalog.snapshot_ref,
+        "catalog_entry_refs": [entry.skill_ref for entry in catalog.entries],
         "stage_refs": [stage.stage_ref for stage in stages],
         "blocked_authority_refs": payload["blocked_authority_refs"],
     }

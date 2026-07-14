@@ -1,11 +1,70 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { loadControlCenterData } from "./client";
+import {
+  loadControlCenterData,
+  loadRuntimeSkillMarketplacePosture,
+} from "./client";
 import { API_ENDPOINTS } from "./endpoints";
 import { mockControlCenterData } from "../mocks/controlCenterData";
 
 describe("loadControlCenterData summary endpoint wiring", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it("loads Studio skill metadata through one focused backend read", async () => {
+    const posture = {
+      ...mockControlCenterData.runtimeSkillMarketplacePosture,
+      catalog: {
+        schema_version: "runtime_skill_marketplace_catalog_snapshot.v1" as const,
+        snapshot_ref: "skill-marketplace-catalog-snapshot-ref:test",
+        captured_at: "2026-07-13T00:00:00Z",
+        sources: [
+          {
+            source_ref: "source-ref:skill-marketplace:clawhub",
+            source_kind: "clawhub" as const,
+            display_label: "ClawHub",
+            captured_at: "2026-07-13T00:00:00Z",
+            source_version_ref: "source-version-ref:clawhub:test",
+            record_count: 0,
+            rank_signal: "weekly_trending" as const,
+            score_signal: "stars" as const,
+            live_fetch_performed: false,
+            raw_payload_persisted: false,
+          },
+          {
+            source_ref: "source-ref:skill-marketplace:hermes",
+            source_kind: "hermes" as const,
+            display_label: "Hermes",
+            captured_at: "2026-07-13T00:00:00Z",
+            source_version_ref: "source-version-ref:hermes:test",
+            record_count: 0,
+            rank_signal: "not_provided" as const,
+            score_signal: "not_provided" as const,
+            live_fetch_performed: false,
+            raw_payload_persisted: false,
+          },
+        ],
+        entries: [],
+        entry_count: 0,
+        default_page_size: 25,
+        pagination_supported: true,
+        metadata_only: true,
+        live_marketplace_fetch_performed: false,
+        raw_marketplace_payload_persisted: false,
+      },
+    };
+    stubControlCenterFetch({
+      [API_ENDPOINTS.runtimeSkillMarketplacePosture]: posture,
+    });
+
+    const result = await loadRuntimeSkillMarketplacePosture();
+
+    expect(result).toEqual({ posture, authoritative: true });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining(API_ENDPOINTS.runtimeSkillMarketplacePosture),
+      expect.any(Object),
+    );
   });
 
   it("prefers dedicated Control Center summaries over embedded dashboard summaries", async () => {

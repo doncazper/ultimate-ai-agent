@@ -27,6 +27,14 @@ Control Center display:
 - activation grant posture
 - execution block posture
 
+The read model also carries a sanitized 2026-07-13 metadata snapshot for the
+Studio Skill Workbench: 12 ClawHub trending records and 19 Hermes bundled-skill
+records. This is bounded source metadata, not a live runtime fetch or raw
+marketplace payload. ClawHub stars stay star counts rather than average review
+ratings; Hermes score, rank, and download fields remain unavailable when the
+source does not supply them. All entries remain metadata-only, unimported,
+unexecuted, risk-not-assessed, and review-required.
+
 External popularity, stars, downloads, reviews, screenshots, publisher claims,
 and marketplace copy are discovery signals only, not trust. Every external or
 agent-created skill must become a reviewed UAA-owned adaptation before it can

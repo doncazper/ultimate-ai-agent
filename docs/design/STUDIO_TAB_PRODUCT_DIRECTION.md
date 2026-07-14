@@ -127,6 +127,18 @@ Generated pixels remain directional. This contract and the canonical shell/UI
 specifications win if a label, spacing detail, or illustrative state conflicts
 with repository truth.
 
+### Accepted Create sub-surface — Skill Workbench
+
+The accepted Skill Workbench grid and default dense list are preserved as
+`control_center_north_star/renders/target-v3/07-skill-workbench-grid-v1.png`
+and
+`control_center_north_star/renders/target-v3/08-skill-workbench-list-v1.png`.
+The implemented `/studio/skills` slice uses a backend-owned sanitized metadata
+snapshot, 25-row pagination, source-specific popularity fields, and an
+inspector that says risk is not assessed. The list uses source license data in
+place of a speculative risk badge. Live marketplace fetch, saving, adaptation,
+import, enablement, and execution remain blocked or unimplemented.
+
 ## Implementation Direction
 
 Later implementation should proceed as separately scoped work:

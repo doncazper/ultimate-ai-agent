@@ -13022,6 +13022,67 @@ export interface RuntimeSkillMarketplaceStage {
   control_center_mints_authority: boolean;
 }
 
+export type RuntimeSkillSourceKind = "clawhub" | "hermes";
+export type RuntimeSkillSourceRankSignal =
+  | "weekly_trending"
+  | "not_provided";
+export type RuntimeSkillSourceScoreSignal = "stars" | "not_provided";
+
+export interface RuntimeSkillMarketplaceSourceSnapshot {
+  source_ref: string;
+  source_kind: RuntimeSkillSourceKind;
+  display_label: string;
+  captured_at: string;
+  source_version_ref: string;
+  record_count: number;
+  rank_signal: RuntimeSkillSourceRankSignal;
+  score_signal: RuntimeSkillSourceScoreSignal;
+  live_fetch_performed: false;
+  raw_payload_persisted: false;
+}
+
+export interface RuntimeSkillMarketplaceCatalogEntry {
+  skill_ref: string;
+  source_ref: string;
+  source_record_ref: string;
+  source_kind: RuntimeSkillSourceKind;
+  source_label: string;
+  slug: string;
+  display_name: string;
+  safe_summary: string;
+  category: string;
+  version: string;
+  license_label: string;
+  source_updated_at: string;
+  source_rank: number | null;
+  rank_label: string;
+  star_count: number | null;
+  download_count: number | null;
+  install_count: number | null;
+  comment_count: number | null;
+  average_rating: number | null;
+  rating_count: number | null;
+  source_metadata_only: true;
+  review_required: true;
+  risk_level: "unknown";
+  external_code_imported: false;
+  execution_enabled: false;
+}
+
+export interface RuntimeSkillMarketplaceCatalogSnapshot {
+  schema_version: "runtime_skill_marketplace_catalog_snapshot.v1";
+  snapshot_ref: string;
+  captured_at: string;
+  sources: RuntimeSkillMarketplaceSourceSnapshot[];
+  entries: RuntimeSkillMarketplaceCatalogEntry[];
+  entry_count: number;
+  default_page_size: 25;
+  pagination_supported: true;
+  metadata_only: true;
+  live_marketplace_fetch_performed: false;
+  raw_marketplace_payload_persisted: false;
+}
+
 export interface RuntimeSkillMarketplacePostureReadModel {
   schema_version: "runtime_skill_marketplace_posture.v1";
   contract_ref: string;
@@ -13043,6 +13104,7 @@ export interface RuntimeSkillMarketplacePostureReadModel {
   unsupported_adapter_refs: string[];
   control_center_ref: string;
   safe_summary: string;
+  catalog?: RuntimeSkillMarketplaceCatalogSnapshot;
   stages: RuntimeSkillMarketplaceStage[];
   stage_count: number;
   review_required_count: number;

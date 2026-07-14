@@ -102,6 +102,7 @@ export const navItems: NavItem[] = [
   { path: "/private-trial", label: "Trial Packet", group: "Founder Loop", status: "087.2a-2c packet", releaseStatus: "experimental", role: "supporting" },
   { path: "/operator-loop", label: "Operator Loop", group: "Review", status: "readable proof", releaseStatus: "partial", role: "supporting" },
   { path: "/setup", label: "Setup", group: "Review", status: "dry-run", releaseStatus: "partial", role: "supporting" },
+  { path: "/studio/skills", label: "Studio", group: "Review", status: "metadata-only Skill Workbench", releaseStatus: "partial", role: "supporting" },
   { path: "/coding", label: "Coding", group: "Review", status: "read-only cockpit", releaseStatus: "partial", role: "supporting" },
   { path: "/chat", label: "Chat", group: "Review", status: "local gated", releaseStatus: "ship", role: "supporting" },
   { path: "/models", label: "Models", group: "Review", status: "partial", releaseStatus: "partial", role: "supporting" },
