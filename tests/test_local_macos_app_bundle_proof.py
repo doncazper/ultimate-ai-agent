@@ -2,6 +2,7 @@ import json
 import plistlib
 import subprocess
 import sys
+import stat
 
 from scripts.build_local_macos_app_bundle_proof import (
     APP_NAME,
@@ -75,3 +76,30 @@ def test_local_macos_app_bundle_cli_outputs_safe_refs_only(tmp_path) -> None:
     assert "password" not in output.lower()
     assert "cookie" not in output.lower()
     assert "private_key" not in output.lower()
+
+
+def test_packaged_launcher_completes_an_isolated_golden_journey(tmp_path) -> None:
+    fake_launcher = tmp_path / "scripts" / "dev" / "uaa"
+    fake_launcher.parent.mkdir(parents=True)
+    fake_launcher.write_text(
+        '#!/bin/sh\nset -eu\n[ "${1:-}" = "trial-boot" ]\nprintf \'packaged-golden-journey:passed\\n\'\n',
+        encoding="utf-8",
+    )
+    fake_launcher.chmod(fake_launcher.stat().st_mode | stat.S_IXUSR)
+    output_root = tmp_path / ".uaa" / "packaged-golden-journey"
+    build_local_macos_app_bundle_proof(output_root)
+    executable = (
+        output_root / f"{APP_NAME}.app" / "Contents" / "MacOS" / EXECUTABLE_NAME
+    )
+
+    result = subprocess.run(
+        [str(executable)],
+        cwd=tmp_path,
+        text=True,
+        capture_output=True,
+        check=True,
+        timeout=10,
+    )
+
+    assert result.stdout.strip() == "packaged-golden-journey:passed"
+    assert result.stderr == ""

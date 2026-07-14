@@ -7,6 +7,16 @@ Source plan: `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`.
 Founder Command Center product-loop planning board:
 `docs/kanban/founder_command_center_board.md`.
 
+Product hardening implementation is ready for review: strict no-mock
+production Control Center mode, memory-only launcher bearer handoff, real
+Founder Loop SQLite/JSONL recovery, unknown-schema protection, build identity,
+frozen dependency installation, portable audit/SBOM/CodeQL CI, and independent
+property/mutation/fault/packaged-app evidence are implemented. The API now
+distinguishes header-shape idempotency from an exact route-owned durable replay
+owner. External security/product review, native IPC or Keychain-backed session
+bootstrap, a dedicated support export, and hotspot partitioning remain open
+distribution blockers; this board does not promote production authority.
+
 This board does not grant production authority. Every item that adds runtime
 authority, persistence, model calls, shell/subprocess behavior, browser actions,
 network behavior, connector writes, plugin execution, mobile control, or release

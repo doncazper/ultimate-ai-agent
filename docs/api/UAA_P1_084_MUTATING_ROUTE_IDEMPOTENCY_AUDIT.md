@@ -52,6 +52,11 @@ idempotency ref before handler execution. It does not prove duplicate replay
 semantics for every route owner; those remain route-owner responsibilities and
 later enforcement-test coverage.
 
+The current manifest therefore reports the global middleware as
+`header_shape_gate_only` and requires `route_owned_durable_replay` before any
+route can claim durable replay. Only exact routes with a named durable receipt
+owner may report that stronger posture.
+
 ## Evidence
 
 - `src/ultimate_ai_agent/api/idempotency.py`

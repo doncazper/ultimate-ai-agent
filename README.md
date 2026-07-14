@@ -235,10 +235,39 @@ Do not use local bypass settings as production authority.
 This starts or reuses the local backend and Control Center, then opens the
 local UI.
 
+Production Control Center builds use strict backend mode and fail visibly when
+the backend is unavailable; they do not substitute mock panel data. The local
+launcher transfers its bearer through a one-use URL fragment that is consumed
+into memory and removed from browser history. `VITE_UAA_LOCAL_API_BEARER` is no
+longer supported because Vite values are build-visible.
+
 ### Inspect The Founder Loop
 
 ```bash
 .venv/bin/python scripts/dev/uaa_founder_loop.py inspect
+```
+
+### Back Up And Restore Founder Loop State
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/dev/uaa_founder_loop_recovery.py backup \
+  --state-dir STATE_DIR --backup-dir BACKUP_DIR --confirm-offline
+PYTHONPATH=src .venv/bin/python scripts/dev/uaa_founder_loop_recovery.py verify \
+  --backup-dir BACKUP_DIR
+PYTHONPATH=src .venv/bin/python scripts/dev/uaa_founder_loop_recovery.py restore \
+  --backup-dir BACKUP_DIR --target-state-dir RESTORE_DIR \
+  --confirm-offline-restore
+```
+
+The recovery lane uses real SQLite and JSONL state, verifies integrity before
+restore, checks available space, and publishes through an atomic staging path.
+See `docs/verification/PRODUCT_HARDENING_EVIDENCE_GATE.md` for limitations and
+the independent review gate.
+
+### Inspect Build Identity
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/inspect_build_identity.py
 ```
 
 ### Inspect The API Contract

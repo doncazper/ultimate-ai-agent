@@ -677,8 +677,11 @@ API boundary hardening:
 - UAA-P1-084 adds a runtime boundary check for routes classified as
   `mutating_requires_authority`: requests must carry
   `X-UAA-Idempotency-Key` or `X-UAA-Idempotency-Ref` before the mutating
-  handler can run. It does not add durable idempotency storage, replay
-  execution, mutation authority, or production authority.
+  handler can run. `/api/manifest` distinguishes this global
+  `header_shape_gate_only` posture from `route_owned_durable_replay`; the exact
+  Web Evidence attachment lane names its durable receipt-store owner. A header
+  gate by itself does not add durable idempotency storage, replay execution,
+  mutation authority, or production authority.
 - UAA-P1-085 adds targeted local fixed-window rate limits for model/chat, task
   decomposition, action preview/proposal, Action Inbox decisions and the
   Action Inbox local task commit lane,
@@ -694,8 +697,8 @@ API boundary hardening:
 - FCC-V1-001 adds manifest-visible `auth_posture` and `approval_posture`
   fields plus summary counts for every route, updates the frozen route
   inventory fixture to `uaa-api-route-inventory.v4`, and adds a Founder Loop
-  mutation perimeter verifier. Duplicate replay is a future route-owner
-  receipt-storage requirement, not current runtime replay.
+  mutation perimeter verifier. Durable replay is exact-lane and route-owned;
+  it is not inferred from the global header gate.
 
 Forbidden by the current API boundary:
 

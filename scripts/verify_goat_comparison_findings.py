@@ -36,7 +36,7 @@ from scripts.run_agent_capability_evaluation import (  # noqa: E402
     _scenario_fingerprint,
     evaluation_report_projection,
     evaluation_registry_fingerprint,
-    evaluation_source_digest,
+    evaluation_source_digest_at_commit,
     evaluation_source_paths,
     run_agent_capability_evaluation,
 )
@@ -441,7 +441,9 @@ def verify_data(
         r"[0-9a-f]{40}", source_commit
     ):
         raise VerificationError("exact UAA evaluation source commit is required")
-    if result.get("evaluator_source_digest") != evaluation_source_digest():
+    if result.get("evaluator_source_digest") != evaluation_source_digest_at_commit(
+        source_commit
+    ):
         raise VerificationError("capability evaluator source digest drift")
     if result.get("evaluator_source_file_count") != len(evaluation_source_paths()):
         raise VerificationError("capability evaluator source coverage drift")

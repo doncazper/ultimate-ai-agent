@@ -1,0 +1,175 @@
+name: Supply Chain
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "23 9 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: uaa-supply-chain-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dependency-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out exact revision
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          clean: true
+          fetch-depth: 1
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Install from frozen dependency locks
+        run: |
+          python3 -m venv .ci-bootstrap
+          .ci-bootstrap/bin/python -m pip install --disable-pip-version-check "uv==0.11.21"
+          .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3
+          npm --prefix apps/control-center ci --ignore-scripts
+
+      - name: Reject known high-risk dependencies
+        run: |
+          .ci-bootstrap/bin/uv export --quiet --frozen --extra dev --no-emit-project --output-file "$RUNNER_TEMP/locked-requirements.txt"
+          .venv/bin/pip-audit --strict -r "$RUNNER_TEMP/locked-requirements.txt"
+          npm --prefix apps/control-center audit --audit-level=high
+
+  audit-and-sbom:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out exact revision
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          clean: true
+          fetch-depth: 1
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Install from the frozen Python lock
+        run: |
+          python3 -m venv .ci-bootstrap
+          .ci-bootstrap/bin/python -m pip install --disable-pip-version-check "uv==0.11.21"
+          .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3
+
+      - name: Audit locked Python environment
+        run: |
+          .ci-bootstrap/bin/uv export --quiet --frozen --extra dev --no-emit-project --output-file "$RUNNER_TEMP/locked-requirements.txt"
+          .venv/bin/pip-audit --strict -r "$RUNNER_TEMP/locked-requirements.txt"
+
+      - name: Audit locked Control Center dependencies
+        working-directory: apps/control-center
+        run: |
+          npm ci --ignore-scripts
+          npm audit --audit-level=high
+
+      - name: Generate and validate CycloneDX SBOMs
+        run: |
+          .venv/bin/cyclonedx-py environment .venv --output-reproducible --of JSON -o "$RUNNER_TEMP/python-sbom.json"
+          npm --prefix apps/control-center sbom --sbom-format cyclonedx > "$RUNNER_TEMP/control-center-sbom.json"
+          .venv/bin/python scripts/verification/verify_sbom_artifacts.py \
+            --python-sbom "$RUNNER_TEMP/python-sbom.json" \
+            --control-center-sbom "$RUNNER_TEMP/control-center-sbom.json" \
+            --summary-file "$GITHUB_STEP_SUMMARY"
+
+  dependency-compatibility:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        resolution: [lowest-direct, highest]
+    steps:
+      - name: Check out exact revision
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          clean: true
+          fetch-depth: 1
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Install bounded compatibility environment
+        run: |
+          python3 -m venv .ci-bootstrap
+          .ci-bootstrap/bin/python -m pip install --disable-pip-version-check "uv==0.11.21"
+          .ci-bootstrap/bin/uv python install 3.12
+          .ci-bootstrap/bin/uv venv ".venv-${{ matrix.resolution }}" --python 3.12
+          .ci-bootstrap/bin/uv pip install --python ".venv-${{ matrix.resolution }}/bin/python" --resolution "${{ matrix.resolution }}" -e ".[dev]"
+
+      - name: Run compatibility boundary tests
+        run: |
+          ".venv-${{ matrix.resolution }}/bin/python" -m pytest \
+            tests/test_api_manifest.py \
+            tests/test_build_identity.py \
+            tests/test_founder_loop_recovery.py \
+            tests/test_hardening_properties.py \
+            -q
+
+  codeql:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [python, javascript-typescript]
+    steps:
+      - name: Check out exact revision
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          clean: true
+          fetch-depth: 1
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@02c5e83432fe5497fd85b873b6c9f16a8578e1d9 # v3
+        with:
+          languages: ${{ matrix.language }}
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@02c5e83432fe5497fd85b873b6c9f16a8578e1d9 # v3
+        with:
+          output: ${{ runner.temp }}/codeql-results
+          upload: never
+
+      - name: Enforce high-severity SARIF gate
+        run: python3 scripts/verification/verify_codeql_sarif.py "${{ runner.temp }}/codeql-results"
+
+  mutation:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out exact revision
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          clean: true
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Install from the frozen Python lock
+        run: |
+          python3 -m venv .ci-bootstrap
+          .ci-bootstrap/bin/python -m pip install --disable-pip-version-check "uv==0.11.21"
+          .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3
+
+      - name: Run bounded security mutation gate
+        run: |
+          .venv/bin/mutmut run --max-children 4
+          .venv/bin/mutmut export-cicd-stats
+          .venv/bin/python scripts/verification/verify_mutation_score.py \
+            mutants/mutmut-cicd-stats.json \
+            --minimum-score 60 \
+            --minimum-total 200

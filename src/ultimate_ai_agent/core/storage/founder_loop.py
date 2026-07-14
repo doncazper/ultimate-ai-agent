@@ -486,9 +486,16 @@ from ultimate_ai_agent.core.readiness import (
     private_beta_readiness_surface_bindings,
 )
 from ultimate_ai_agent.core.time import utc_now
+from ultimate_ai_agent.core.founder_loop_schema import (
+    FOUNDER_LOOP_SCHEMA_VERSION,
+    append_durable_jsonl,
+    backup_contract_manifest,
+    connect_founder_loop_sqlite,
+    require_compatible_schema,
+    record_bootstrap_migration,
+)
 
 
-FOUNDER_LOOP_SCHEMA_VERSION = "founder_loop_storage.v1"
 FOUNDER_LOOP_STATE_DIR_ENV = "UAA_FOUNDER_LOOP_STATE_DIR"
 DEFAULT_FOUNDER_LOOP_STATE_DIR = Path(".uaa") / "founder_loop"
 SAFE_STATUS_REF_CHARS = re.compile(r"[^a-z0-9_.@-]+")
@@ -1016,6 +1023,10 @@ class FounderLoopStorageError(Exception):
 
 class FounderLoopStorageDuplicateError(FounderLoopStorageError):
     """Raised when a duplicate idempotency key is denied."""
+
+
+class FounderLoopStorageMigrationRequiredError(FounderLoopStorageError):
+    """Raised before a newer or unknown on-disk schema can be overwritten."""
 
 
 class FounderLoopAuthorityError(FounderLoopStorageError):
@@ -16801,39 +16812,28 @@ class FounderLoopRepository:
             "created_at": _utc_iso(),
         }
         _validate_safe_payload(record, f"{kind.value}_log_record")
-        with path.open("a", encoding="utf-8") as handle:
-            handle.write(_json_dumps(record) + "\n")
+        append_durable_jsonl(path, _json_dumps(record))
         return {
             "log_ref": f"founder-loop-log:{kind.value}",
             "event_ref": str(record["event_ref"]),
         }
 
     def backup_manifest(self) -> dict[str, Any]:
-        return {
-            "schema_version": FOUNDER_LOOP_SCHEMA_VERSION,
-            "manifest_ref": "backup-manifest:founder-loop-minimum-set",
-            "required_artifact_refs": [
-                "founder-loop-sqlite:local-state",
-                "founder-loop-log:audit",
-                "founder-loop-log:transcript",
-                "founder-loop-log:realtime",
-                "founder-loop-log:receipt",
-            ],
-            "raw_paths_included": False,
-            "raw_logs_included": False,
-            "safe_refs_only": True,
-        }
+        return backup_contract_manifest()
 
     def _ensure_storage(self) -> None:
         self.state_dir.mkdir(parents=True, exist_ok=True)
         self.logs_dir.mkdir(parents=True, exist_ok=True)
         with self._connect() as conn:
+            require_compatible_schema(
+                conn, migration_error=FounderLoopStorageMigrationRequiredError
+            )
             conn.executescript(
                 """
-                CREATE TABLE IF NOT EXISTS storage_metadata (
-                    key TEXT PRIMARY KEY,
-                    value TEXT NOT NULL,
-                    updated_at TEXT NOT NULL
+                CREATE TABLE IF NOT EXISTS storage_migrations (
+                    migration_ref TEXT PRIMARY KEY,
+                    schema_version TEXT NOT NULL,
+                    applied_at TEXT NOT NULL
                 );
                 CREATE TABLE IF NOT EXISTS action_inbox (
                     item_ref TEXT PRIMARY KEY,
@@ -17214,6 +17214,7 @@ class FounderLoopRepository:
                 """,
                 (FOUNDER_LOOP_SCHEMA_VERSION, _utc_iso()),
             )
+            record_bootstrap_migration(conn, applied_at=_utc_iso())
             self._ensure_action_inbox_contract_columns(conn)
             self._ensure_memory_review_contract_columns(conn)
             self._ensure_briefing_contract_columns(conn)
@@ -17991,12 +17992,7 @@ class FounderLoopRepository:
         return int(rows[0]["count"])
 
     def _connect(self) -> sqlite3.Connection:
-        if self.read_only:
-            conn = sqlite3.connect(f"file:{self.db_path}?mode=ro", uri=True)
-        else:
-            conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        return conn
+        return connect_founder_loop_sqlite(self.db_path, read_only=self.read_only)
 
     def _execute(self, sql: str, params: tuple[Any, ...]) -> None:
         with self._connect() as conn:

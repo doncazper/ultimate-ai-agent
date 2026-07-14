@@ -1599,6 +1599,7 @@ export function SettingsOperatorPanel({
     setSettingsSnapshot(data.settingsStatus);
   }, [data.settingsStatus]);
   const settingsStatus = settingsSnapshot;
+  const buildIdentity = data.manifest.metadata;
   const authorityLeaseState = settingsStatus.authority_lease_state;
   const authorityMutationsAllowed =
     authoritative && authorityLeaseState.backend_owned === true;
@@ -1795,6 +1796,50 @@ export function SettingsOperatorPanel({
             : "Settings are showing non-authoritative fallback posture. Inspection remains available, but AuthorityLease mutations are disabled until backend-owned truth is restored."
         }
       />
+
+      <article className="panel" aria-label="Build identity">
+        <div className="panel-heading">
+          <h3>Build identity</h3>
+          <span>
+            {buildIdentity.source_revision_bound === true
+              ? "Revision bound"
+              : "Source revision unavailable"}
+          </span>
+        </div>
+        <p>
+          Product version, source revision, storage schema, and capability profile
+          are reported separately so support and recovery decisions do not infer
+          implementation identity from the marketing baseline.
+        </p>
+        <dl className="metadata-list">
+          <div>
+            <dt>Build</dt>
+            <dd>{String(buildIdentity.build_id ?? "build-ref:unavailable")}</dd>
+          </div>
+          <div>
+            <dt>Commit</dt>
+            <dd>{String(buildIdentity.commit_ref ?? "commit-ref:git:unavailable")}</dd>
+          </div>
+          <div>
+            <dt>Storage schema</dt>
+            <dd>
+              {String(
+                buildIdentity.storage_schema_version ??
+                  "founder-loop-storage:unknown",
+              )}
+            </dd>
+          </div>
+          <div>
+            <dt>Capability profile</dt>
+            <dd>
+              {String(
+                buildIdentity.capability_profile_version ??
+                  "capability-profile:unknown",
+              )}
+            </dd>
+          </div>
+        </dl>
+      </article>
 
       <ProviderCatalogPanel catalog={data.providerCatalog} mode="settings" />
 

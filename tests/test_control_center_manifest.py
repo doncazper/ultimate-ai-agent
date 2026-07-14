@@ -55,3 +55,7 @@ def test_control_center_manifest_blocks_execution_capabilities() -> None:
     assert "api_key='abcdefghijklmnop'" not in dump
     assert manifest.metadata["frontend_implemented"] is False
     assert manifest.metadata["production_control_center"] is False
+    assert str(manifest.metadata["build_id"]).startswith("build-ref:uaa:")
+    assert str(manifest.metadata["commit_ref"]).startswith("commit-ref:git:")
+    assert manifest.metadata["storage_schema_version"] == "founder_loop_storage.v1"
+    assert manifest.metadata["capability_profile_version"]

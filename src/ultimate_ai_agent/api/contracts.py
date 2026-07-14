@@ -3,6 +3,8 @@ from typing import List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from ultimate_ai_agent.core.build_identity import BuildIdentity
+
 
 class ApiRouteSideEffectClass(str, Enum):
     none = "none"
@@ -33,6 +35,12 @@ class ApiRouteIdempotencyPosture(str, Enum):
     required_before_mutation_authority = "required_before_mutation_authority"
 
 
+class ApiRouteIdempotencyEnforcement(str, Enum):
+    not_required = "not_required"
+    header_shape_gate_only = "header_shape_gate_only"
+    route_owned_durable_replay = "route_owned_durable_replay"
+
+
 class ApiRouteRateLimitPosture(str, Enum):
     not_targeted_for_route = "not_targeted_for_route"
     targeted_local_fixed_window = "targeted_local_fixed_window"
@@ -55,6 +63,8 @@ class ApiRouteInventoryItem(BaseModel):
     idempotency_posture: ApiRouteIdempotencyPosture
     idempotency_policy_ref: Optional[str] = None
     idempotency_reason: str = Field(..., min_length=1)
+    idempotency_enforcement: ApiRouteIdempotencyEnforcement
+    durable_idempotency_owner_ref: Optional[str] = None
     rate_limit_targeted: bool
     rate_limit_posture: ApiRouteRateLimitPosture
     rate_limit_policy_ref: Optional[str] = None
@@ -89,15 +99,19 @@ class ApiManifest(BaseModel):
     api_version: str = Field(..., min_length=1)
     package_version: str = Field(..., min_length=1)
     active_baseline: str = Field(..., min_length=1)
+    build_identity: BuildIdentity
     route_count: int = Field(..., ge=0)
     route_groups: List[str] = Field(default_factory=list)
     routes: List[ApiRouteInventoryItem] = Field(default_factory=list)
-    route_classification_vocabulary: List[ApiRouteClassification] = Field(default_factory=list)
+    route_classification_vocabulary: List[ApiRouteClassification] = Field(
+        default_factory=list
+    )
     route_classification_summary: dict[str, int] = Field(default_factory=dict)
     route_auth_posture_summary: dict[str, int] = Field(default_factory=dict)
     route_approval_posture_summary: dict[str, int] = Field(default_factory=dict)
     idempotency_audit_policy_ref: Optional[str] = None
     route_idempotency_posture_summary: dict[str, int] = Field(default_factory=dict)
+    route_idempotency_enforcement_summary: dict[str, int] = Field(default_factory=dict)
     rate_limit_policy_ref: Optional[str] = None
     route_rate_limit_posture_summary: dict[str, int] = Field(default_factory=dict)
     local_auth_policy: dict[str, object] = Field(default_factory=dict)

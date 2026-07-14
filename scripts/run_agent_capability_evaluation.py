@@ -259,6 +259,33 @@ def evaluation_source_digest() -> str:
     return f"sha256:{digest.hexdigest()}"
 
 
+def evaluation_source_digest_at_commit(commit: str) -> str:
+    if len(commit) != 40 or any(character not in "0123456789abcdef" for character in commit):
+        raise ValueError("exact evaluation source commit is required")
+    executable = _trusted_executable("git")
+    digest = hashlib.sha256()
+    for relative in evaluation_source_paths():
+        result = subprocess.run(
+            (executable, "cat-file", "blob", f"{commit}:{relative}"),
+            cwd=ROOT,
+            env={
+                "PATH": "/usr/bin:/bin",
+                "GIT_CONFIG_NOSYSTEM": "1",
+                "GIT_CONFIG_GLOBAL": "/dev/null",
+            },
+            capture_output=True,
+            check=False,
+            timeout=5,
+        )
+        if result.returncode != 0:
+            raise ValueError(f"evaluation source is unavailable at commit: {relative}")
+        digest.update(b"\n--UAA-AGENT-EVAL-SOURCE--\n")
+        digest.update(relative.encode("utf-8"))
+        digest.update(b"\n")
+        digest.update(result.stdout)
+    return f"sha256:{digest.hexdigest()}"
+
+
 def repository_commit() -> str:
     executable = _trusted_executable("git")
     result = subprocess.run(
@@ -729,6 +756,7 @@ __all__ = [
     "evaluation_report_projection",
     "evaluation_report_projection_digest",
     "evaluation_source_digest",
+    "evaluation_source_digest_at_commit",
     "evaluation_source_paths",
     "repository_commit",
     "run_agent_capability_evaluation",
