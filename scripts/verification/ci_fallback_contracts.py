@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import re
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -34,6 +35,204 @@ GITHUB_ACTIVE_STATUSES = frozenset({*GITHUB_QUEUE_STATUSES, "in_progress"})
 UTC_TIMESTAMP_PATTERN = re.compile(
     r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$"
 )
+PYTEST_SHARD_EVIDENCE_FIELDS = frozenset(
+    {
+        "pytest_shard_evidence_status",
+        "pytest_shard_plan_fingerprint_ref",
+        "pytest_shard_count",
+        "failed_shard_count",
+        "failed_shard_refs",
+    }
+)
+CI_COMMAND_RESULT_FIELDS = frozenset(
+    {
+        "command_ref",
+        "category",
+        "status",
+        "started_at",
+        "completed_at",
+        "duration_ms",
+        "output_byte_count",
+        "output_digest",
+        "result_ref",
+        "reason_ref",
+        "redaction_status",
+        *PYTEST_SHARD_EVIDENCE_FIELDS,
+    }
+)
+PASS_COMMAND_RESULT_FIELDS = frozenset(
+    {
+        "command_ref",
+        "category",
+        "status",
+        "started_at",
+        "completed_at",
+        "duration_ms",
+        "output_byte_count",
+        "output_digest",
+        "result_ref",
+        "redaction_status",
+    }
+)
+POSTURE_COMMAND_RESULT_FIELDS = frozenset(
+    {
+        "command_ref",
+        "category",
+        "status",
+        "duration_ms",
+        "reason_ref",
+        "result_ref",
+        "redaction_status",
+    }
+)
+
+
+def has_valid_pytest_shard_evidence(
+    result: dict[str, object],
+    *,
+    lane_ref: str,
+    expected_plan_ref: str,
+) -> bool:
+    present_fields = set(result) & PYTEST_SHARD_EVIDENCE_FIELDS
+    is_shard_command = (
+        lane_ref == "ci-pytest-shards"
+        and result.get("command_ref") == "command:pytest.sharded-suite"
+    )
+    if not is_shard_command:
+        return not present_fields
+    return (
+        present_fields == PYTEST_SHARD_EVIDENCE_FIELDS
+        and result.get("pytest_shard_evidence_status") == "available"
+        and result.get("pytest_shard_plan_fingerprint_ref") == expected_plan_ref
+        and result.get("pytest_shard_count") == 8
+        and result.get("failed_shard_count") == 0
+        and result.get("failed_shard_refs") == []
+    )
+
+
+def has_valid_command_result_evidence(
+    result: dict[str, object],
+    *,
+    lane_ref: str,
+    repository_sha: str,
+    expected_category: str,
+    expected_pytest_plan_ref: str,
+    satisfied_by_dependency: bool,
+) -> bool:
+    command_ref = result.get("command_ref")
+    result_ref = result.get("result_ref")
+    if (
+        not isinstance(command_ref, str)
+        or result.get("category") != expected_category
+        or result.get("redaction_status") != "content_free_output_metadata_only"
+        or not isinstance(result_ref, str)
+        or SAFE_REF_PATTERN.fullmatch(result_ref) is None
+        or set(result) - CI_COMMAND_RESULT_FIELDS
+    ):
+        return False
+    if satisfied_by_dependency:
+        expected_ref = (
+            "result-ref:ci:"
+            + hashlib.sha256(
+                (repository_sha + command_ref + lane_ref).encode()
+            ).hexdigest()
+        )
+        return (
+            set(result) == POSTURE_COMMAND_RESULT_FIELDS - {"reason_ref"}
+            and result.get("status") == "satisfied_by_required_dependency"
+            and result.get("duration_ms") == 0
+            and result_ref == expected_ref
+            and has_valid_pytest_shard_evidence(
+                result,
+                lane_ref=lane_ref,
+                expected_plan_ref=expected_pytest_plan_ref,
+            )
+        )
+    status = result.get("status")
+    if status in {"skipped", "not_applicable"}:
+        reason_ref = result.get("reason_ref")
+        expected_posture = {
+            "command:frontend.visual-regression": (
+                "not_applicable",
+                "reason-ref:visual-regression:not-affected",
+            ),
+            "command:desktop-packaging.proof": (
+                "skipped",
+                "reason-ref:self-hosted-runner-docker-unavailable",
+            ),
+        }.get(command_ref)
+        expected_ref = (
+            "result-ref:ci:"
+            + hashlib.sha256(
+                (repository_sha + command_ref + str(reason_ref)).encode()
+            ).hexdigest()
+        )
+        return (
+            set(result) == POSTURE_COMMAND_RESULT_FIELDS
+            and (status, reason_ref) == expected_posture
+            and result.get("duration_ms") == 0
+            and result_ref == expected_ref
+            and has_valid_pytest_shard_evidence(
+                result,
+                lane_ref=lane_ref,
+                expected_plan_ref=expected_pytest_plan_ref,
+            )
+        )
+    expected_fields = PASS_COMMAND_RESULT_FIELDS | (
+        PYTEST_SHARD_EVIDENCE_FIELDS
+        if command_ref == "command:pytest.sharded-suite"
+        else frozenset()
+    )
+    duration_ms = result.get("duration_ms")
+    output_bytes = result.get("output_byte_count")
+    output_digest = result.get("output_digest")
+    if (
+        set(result) != expected_fields
+        or status != "pass"
+        or not has_valid_timing_window(
+            result.get("started_at"), result.get("completed_at"), duration_ms
+        )
+        or not isinstance(output_bytes, int)
+        or isinstance(output_bytes, bool)
+        or not 0 <= output_bytes <= 32 * 1024 * 1024
+        or not isinstance(output_digest, str)
+        or re.fullmatch(r"[0-9a-f]{64}", output_digest) is None
+    ):
+        return False
+    expected_ref = (
+        "result-ref:ci:"
+        + hashlib.sha256(
+            "|".join(
+                (command_ref, repository_sha, "0", output_digest, str(duration_ms))
+            ).encode()
+        ).hexdigest()
+    )
+    return result_ref == expected_ref and has_valid_pytest_shard_evidence(
+        result,
+        lane_ref=lane_ref,
+        expected_plan_ref=expected_pytest_plan_ref,
+    )
+
+
+def has_valid_timing_window(
+    started_at: object, completed_at: object, duration_ms: object
+) -> bool:
+    if (
+        not isinstance(started_at, str)
+        or not isinstance(completed_at, str)
+        or not isinstance(duration_ms, int)
+        or isinstance(duration_ms, bool)
+        or not 0 <= duration_ms <= MAX_DURATION_MS
+    ):
+        return False
+    try:
+        validate_utc_timestamp(started_at)
+        validate_utc_timestamp(completed_at)
+    except ValueError:
+        return False
+    return datetime.fromisoformat(completed_at.replace("Z", "+00:00")) >= (
+        datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+    )
 
 
 def validate_utc_timestamp(value: str) -> None:
@@ -99,7 +298,9 @@ class GitHubObservation:
         if self.manifest_fingerprint and not re.fullmatch(
             r"[0-9a-f]{64}", self.manifest_fingerprint
         ):
-            raise ValueError("GitHub observation contains an unsafe manifest fingerprint")
+            raise ValueError(
+                "GitHub observation contains an unsafe manifest fingerprint"
+            )
         if self.observation_source not in {"live_github", "injected_simulation"}:
             raise ValueError("GitHub observation source is invalid")
         if not isinstance(self.manifest_attested, bool) or not isinstance(
@@ -157,7 +358,10 @@ class PrivateVerificationResult:
             raise ValueError("unsupported private result status")
         if not re.fullmatch(r"[0-9a-f]{64}", self.plan_fingerprint):
             raise ValueError("private result contains an unsafe plan fingerprint")
-        if self.redaction_status != "content_free_refs_hashes_counts_and_durations_only":
+        if (
+            self.redaction_status
+            != "content_free_refs_hashes_counts_and_durations_only"
+        ):
             raise ValueError("private result redaction status is unsafe")
         if len(self.command_result_refs) > MAX_LEDGER_RECORDS:
             raise ValueError("private result exceeds its command-result bound")
@@ -198,11 +402,11 @@ class ControllerStatus:
 
 
 class PrivateExecutor(Protocol):
-    def plan_fingerprint(self, repository_sha: str) -> str:
-        ...
+    def plan_fingerprint(self, repository_sha: str) -> str: ...
 
-    def verify(self, repository_sha: str, *, series_ref: str) -> PrivateVerificationResult:
-        ...
+    def verify(
+        self, repository_sha: str, *, series_ref: str
+    ) -> PrivateVerificationResult: ...
 
 
 def classify_github(observation: GitHubObservation) -> FallbackState:

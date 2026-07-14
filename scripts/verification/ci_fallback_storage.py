@@ -32,6 +32,10 @@ class FullSuiteLockUnavailableError(RuntimeError):
     """Raised when the host-wide full-suite lock cannot be acquired safely."""
 
 
+class FullSuiteAttemptAlreadyRecordedError(RuntimeError):
+    """Raised when an execution plane already consumed its exact-SHA attempt."""
+
+
 def _prepare_shared_full_suite_directory(path: Path) -> None:
     try:
         path.mkdir(mode=SHARED_FULL_SUITE_DIRECTORY_MODE, parents=True, exist_ok=True)
@@ -450,7 +454,9 @@ class FullSuiteLock:
             (record.get("repository_sha"), record.get("attempt_scope")) == key
             for record in records
         ):
-            raise RuntimeError("full suite was already attempted for this exact SHA")
+            raise FullSuiteAttemptAlreadyRecordedError(
+                "full suite was already attempted for this exact SHA"
+            )
 
     def ensure_start_available(self) -> None:
         self._validate_attempt_identity()

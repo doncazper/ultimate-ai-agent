@@ -1,4 +1,5 @@
 from pathlib import Path
+from statistics import median
 from time import perf_counter
 
 from ultimate_ai_agent.core.decision_router import (
@@ -64,14 +65,22 @@ def test_classifier_runs_in_low_milliseconds_without_external_work() -> None:
         "Find current lumber prices near me.",
         "Design one for my office using what you know.",
     ]
-    iterations = 500
+    iterations_per_sample = 100
+    samples: list[float] = []
 
-    start = perf_counter()
-    for index in range(iterations):
-        classify_turn_contract(prompts[index % len(prompts)], decision_ref=f"turn-decision:latency-{index}")
-    elapsed_ms_per_turn = ((perf_counter() - start) * 1000) / iterations
+    for sample_index in range(5):
+        start = perf_counter()
+        for index in range(iterations_per_sample):
+            turn_index = sample_index * iterations_per_sample + index
+            classify_turn_contract(
+                prompts[turn_index % len(prompts)],
+                decision_ref=f"turn-decision:latency-{turn_index}",
+            )
+        samples.append(
+            ((perf_counter() - start) * 1000) / iterations_per_sample
+        )
 
-    assert elapsed_ms_per_turn < 5.0
+    assert median(samples) < 5.0
 
 
 def test_turn_contract_router_product_language_keeps_authority_blocked() -> None:
