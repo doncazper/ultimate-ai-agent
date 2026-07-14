@@ -242,10 +242,10 @@ def test_board_evidence_must_be_phase_bound(
         gate.BOARD_PATH,
         tmp_path / "board.md",
         lambda text: text.replace(
+            "evidence-ref:msg-mx-002:desktop-fixture-shell",
             "evidence-ref:msg-mx-001:design-gate",
-            "evidence-ref:msg-mx-000:baseline-authority-map",
             1,
         ),
     )
     monkeypatch.setattr(gate, "BOARD_PATH", path)
-    assert any("Current evidence ref" in item for item in gate.verify())
+    assert any("current board evidence ref" in item for item in gate.verify())

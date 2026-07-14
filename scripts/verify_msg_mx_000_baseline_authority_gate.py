@@ -19,7 +19,7 @@ AUTHORITY_MAP_SHA256 = "1ab43406065a7c0d35904d89e0c6ca11b69b1ebc02fdf2183c4358e3
 LANE_LEDGER_SHA256 = "609aa80cfb86c5f05551aefa8e171fe0d0c582609e732699c7c7f3ce764c708a"
 TRUTH_ROW_SHA256 = "eb4bc4f91f6093c079b48379c37860de3529a4add5362449b6659c36dcc4ce77"
 INDEX_ROW_SHA256 = "053009f39a2fd2958d446eff9312d3da5a4031107dbd226def3b14ac7d6622f4"
-BOARD_STATIC_SHA256 = "a590a69aec4090f8aa9363582ebdb08495e9a9d946b343fb359ef3808faf4cca"
+BOARD_STATIC_SHA256 = "dd64259af2d5ee3a88b0607ffc443d12033e9a7c2f9b7558dace2c1df67300e5"
 MAP_REF = "docs/connectors/MESSENGER_MATRIX_BASELINE_AUTHORITY_MAP.md"
 VERIFIER_REF = "scripts/verify_msg_mx_000_baseline_authority_gate.py"
 TEST_REF = "tests/test_msg_mx_000_baseline_authority_gate.py"
@@ -32,6 +32,10 @@ ACCEPTED_CURRENT_SUCCESS = {
     "MSG-MX-001": (
         "design_gate_accepted_on_merge",
         "evidence-ref:msg-mx-001:design-gate",
+    ),
+    "MSG-MX-002": (
+        "fixture_desktop_shell_implemented_pending_merge_gate",
+        "evidence-ref:msg-mx-002:desktop-fixture-shell",
     ),
 }
 SAFE_BLOCKED_CURRENT_STATUS = {

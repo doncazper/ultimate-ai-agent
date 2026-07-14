@@ -641,9 +641,6 @@ approval scope where required, AuthorityLease, capability, adapter, provider,
 target, mission/run, TTL/deadline, budget, readiness, kill switch,
 safe-disable, and idempotency/replay. Approval refs grant nothing; unknown or
 stale state fails closed.
-Next: merge and post-merge verify MSG-MX-002, then execute MSG-MX-003 Python
-communications contracts plus read-only API/CLI inspection. Later phases may
-advance only their separately accepted exact lane families.
 <!-- MSG-MX-CURRENT-OVERLAY:END -->
 
 Current Messenger Matrix next milestone after MSG-MX-002 merges and verifies:

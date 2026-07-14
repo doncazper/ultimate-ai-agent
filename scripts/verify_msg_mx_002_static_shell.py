@@ -64,7 +64,7 @@ FORBIDDEN_RUNTIME_TOKENS = (
     "EventSource(",
     "XMLHttpRequest(",
     "navigator" + ".mediaDevices",
-    "getUserMedia(",
+    "getUser" + "Media(",
     "localStorage",
     "sessionStorage",
 )
