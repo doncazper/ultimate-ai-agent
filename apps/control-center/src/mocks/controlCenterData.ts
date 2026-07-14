@@ -18563,6 +18563,8 @@ export const mockControlCenterData: ControlCenterData = {
     status: "signal_review_adaptation_only",
     snapshot_ref: "skill-marketplace-posture-snapshot-ref:runtime:phase-45",
     snapshot_hash_ref: "snapshot-hash-ref:skill-marketplace-posture:mock",
+    snapshot_hash_algorithm_ref:
+      "hash-algorithm-ref:uaa-portable-canonical-json-v1:sha256",
     route_ref: "GET /api/runtime/skill-marketplace-posture",
     cli_ref: "uaa runtime inspect-skill-marketplace-posture",
     doc_ref: "docs/runtime/UAA_HERMES_RUNTIME_SKILL_MARKETPLACE_POSTURE.md",
@@ -18574,13 +18576,13 @@ export const mockControlCenterData: ControlCenterData = {
     authority_state_catalog_ref:
       "authority-decision-catalog-ref:runtime-skill-marketplace-posture-read-model",
     authority_state_decision_ref:
-      "authority-policy-decision-ref:mock-runtime-skill-marketplace-posture",
-    authority_state_decision_outcome: "allow",
-    authority_state_status: "implemented_authority_bound_read_model",
+      "authority-policy-decision-ref:backend-unavailable-skill-marketplace-posture",
+    authority_state_decision_outcome: "deny",
+    authority_state_status: "backend_unavailable_authority_unknown",
     authority_state_operator_message:
-      "Allowed by active authority lease for safe skill marketplace posture inspection only.",
+      "Backend posture is unavailable; no authority or catalog availability is claimed.",
     authority_state_reason_refs: [
-      "reason-ref:authority:active-lease-grants-domain-capability",
+      "reason-ref:skill-marketplace-authority:backend-unavailable",
     ],
     unsupported_adapter_refs: [
       "adapter-ref:skill-marketplace-external-code:not-implemented",
@@ -18595,6 +18597,22 @@ export const mockControlCenterData: ControlCenterData = {
     control_center_ref: "control-center-route:runtime",
     safe_summary:
       "Runtime skill marketplace mock fallback shows discovery, quarantine, review, adaptation, activation, and execution-block posture only; external code, installs, imports, automatic skill writes, provider calls, browser automation, connector writes, and raw marketplace payloads stay blocked.",
+    catalog_freshness: {
+      catalog_snapshot_ref:
+        "skill-marketplace-catalog-snapshot-ref:mock-unavailable",
+      status: "unknown",
+      display_status: "unavailable_authority",
+      checked_at: "2026-07-13T00:00:00Z",
+      expires_at: "2026-07-13T00:00:00Z",
+      freshness_policy_ref:
+        "freshness-policy-ref:skill-marketplace-catalog:seven-days",
+      reason_refs: [
+        "reason-ref:skill-marketplace-catalog:mock-backend-unavailable",
+      ],
+      stale: false,
+      catalog_displayable: false,
+      unknown_degrades_to_unavailable: true,
+    },
     stages: runtimeSkillMarketplaceStages,
     stage_count: runtimeSkillMarketplaceStages.length,
     review_required_count: runtimeSkillMarketplaceStages.filter(

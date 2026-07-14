@@ -222,7 +222,7 @@ def verify(root: Path = ROOT) -> list[str]:
     ):
         failures.append("performance verification must run after the shared-Mac matrix")
     shard_argv = command_registry()["command:pytest.sharded-suite"].argv
-    for fragment in ("--stretch-goal-seconds", "900", "--target-seconds", "1200", "--hard-timeout-seconds", "1800"):
+    for fragment in ("--stretch-goal-seconds", "900", "--target-seconds", "1200", "--hard-timeout-seconds", "1800", "--failure-ref-dir", "{temp_root}/uaa_pytest_failure_refs"):
         if fragment not in shard_argv:
             failures.append("pytest shards must declare the self-hosted runtime budget")
     desktop_lane = job_section(workflow, "release-lane-desktop-packaging")

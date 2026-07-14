@@ -1,8 +1,8 @@
 # Control Center UI/UX Specification
 
 Status: canonical design contract, documentation only  
-Specification ID: `CC-UIUX-2026-07-11`  
-North-star input baseline: `CC-NS-2026-07-06`  
+Specification ID: `CC-UIUX-2026-07-13`
+North-star input baseline: `CC-NS-TARGET-R6-2026-07-13`
 Repository baseline: `v0.104.0` / package `0.104.0`  
 Primary product: Founder Command Center / Control Center  
 Primary operator: one local founder/operator
@@ -20,16 +20,20 @@ When sources disagree, use this order:
 1. Python Agent Core, API contracts, policy, approval, redaction, route
    side-effect classification, and current product truth.
 2. This specification.
-3. `control_center_north_star/APP_SHELL_BASELINE.md`.
-4. The route mapping and render requirements in
+3. `control_center_north_star/CURRENT_RENDER_BASELINE.json`.
+4. `control_center_north_star/APP_SHELL_BASELINE.md`.
+5. The route mapping and render requirements in
    `control_center_north_star/SURFACE_COVERAGE.md` and
    `control_center_north_star/RENDER_VARIATION_MATRIX.md`.
-5. Individual north-star PNGs.
-6. Current implementation styling.
+6. Individual north-star PNGs.
+7. Current implementation styling.
 
 The PNGs establish art direction and composition. They do not override current
 authority or invent product capability. Generated labels, example data, route
 order, and unsafe/raw values in a PNG are illustrative only.
+An accepted route-specific render may refine that route's composition only
+when this specification and `CURRENT_RENDER_BASELINE.json` name it as a
+canonical reference.
 
 ## Product Experience Contract
 
@@ -124,11 +128,15 @@ The target default order is:
 
 Today is the default landing workspace. `Start Here` is onboarding-only after
 setup. Plans becomes a Work Board view; Source Inbox becomes a Communications
-view; Chat and Coding become Studio modes; Memory and Files become Knowledge;
-and receipts, evidence, proof, trust, events, and approvals consolidate under
-Activity & Trust. This is a target render and implementation architecture, not
-a claim that current routes have already been consolidated. Route-local tabs
-never enter the global rail. One item, and only one item, has
+view; conversation and handoffs become Studio Chat, repo-local change and
+verification become Studio Code, and presentations, documents, spreadsheets,
+media, and brand assets become Studio Create; Memory and Files become
+Knowledge; and receipts, evidence, proof, trust, events, and approvals
+consolidate under Activity & Trust. Chat, Code, and Create remain internal modes
+beneath one global Studio entry. This is a target render and
+implementation architecture, not a claim that current routes have already been
+consolidated. Route-local tabs never enter the global rail. One item, and only
+one item, has
 `aria-current="page"`.
 
 The operator may enter `Customize sidebar` to pin/unpin surfaces, reorder
@@ -173,7 +181,7 @@ Normal workspaces use one invariant 64 px toolbar below the posture strip:
 Search does not move above, below, or to the opposite side between routes. At a
 compact breakpoint it collapses to an icon/`Command-K` affordance instead of
 wrapping. Studio and Messenger are the two immersive shell exceptions. Studio
-follows the workbench contract in
+follows `STUDIO_TAB_PRODUCT_DIRECTION.md` and the earlier workbench review in
 `CONTROL_CENTER_RENDER_REVIEW_REVISION_02.md`; Messenger follows
 `control_center_north_star/UAA_COMMUNICATIONS_MATRIX_NORTH_STAR.md`.
 
@@ -224,6 +232,61 @@ product context needs to be explicit. Do not alternate among `AI Agent Control
 Center`, `Agent Control Center`, `AuthorityLease Control Center`, and other
 generated names.
 
+### Canonical Studio dense-workbench reference
+
+The accepted Skill Workbench list is the canonical reference for dense Studio
+Create discovery and review surfaces:
+
+![Canonical Studio Skill Workbench list](control_center_north_star/renders/target-v3/08-skill-workbench-list-v1.png)
+
+The image is bound by the `skill_workbench` entry in
+`control_center_north_star/CURRENT_RENDER_BASELINE.json`. It is an implemented
+local snapshot surface and an accepted visual target; it is not evidence of
+live marketplace fetching, external-code trust, import, installation,
+adaptation, enablement, execution, public release, or production authority.
+
+This reference establishes the following Studio rules:
+
+- **Immersive frame.** Studio uses a light 244 px workbench rail at the wide
+  `1586 x 992` reference, a 96 px title/action header, a 48 px mode-local tab
+  row, a dominant center pane, a 318 px inspector, a docked 56 px composer,
+  and a full-width 64 px posture band. The normal dark Control Center rail and
+  global status strip do not appear inside this immersive exception.
+- **Stable orientation.** `Back to Control Center`, the UAA Studio identity,
+  Chat/Code/Create mode switcher, mode-local navigation, project context, and
+  Settings remain visible. Route title, breadcrumb, local status, and the one
+  primary command stay in the header; Discover/Saved/Adaptations-style
+  sections remain route-local tabs.
+- **Dense list first.** Data-rich discovery defaults to a 25-row paginated
+  list with an optional grid toggle. Rows use quiet separators and one blue
+  selected outline, not nested cards or pill-heavy decoration.
+- **Complete primary values.** At wide desktop, source, rank, source signal,
+  popularity, and updated values remain fully readable. Category and rank may
+  wrap at natural word boundaries. Ellipsis is reserved for secondary
+  summaries and safe refs whose complete value remains available elsewhere.
+- **Responsive reduction, not damaged text.** Compact desktop removes whole
+  lower-priority columns and keeps their values in the inspector. It preserves
+  complete Skill, Source, Rank, and Source signal columns without horizontal
+  overflow. A half-visible or ellipsized primary marketplace value is a visual
+  defect, not an acceptable compact state.
+- **Inspector owns qualification.** The selected-item inspector explains why
+  the item may fit, source signals, permissions/review posture, source license,
+  and UAA adaptation posture. License and unassessed risk do not consume dense
+  list columns.
+- **Signals are not trust.** Rank, stars, ratings, downloads, comments, and
+  freshness remain separate source-derived values. Missing values say `Not
+  provided`; they are never rendered as zero, inferred ratings, or a guessed
+  risk label.
+- **Safety remains visible but quiet.** `Backend snapshot`, `Review before
+  adaptation`, `Sanitized metadata snapshot`, `Popularity is a signal`, and
+  `External code blocked` appear as concise header, inspector, or bottom-band
+  posture. They do not become repetitive warning pills on every row.
+- **Controls keep their meaning.** Search is a search field, filters are
+  selects, sort is a select, list/grid is a pressed-state view toggle, rows
+  select inspector context, pagination changes the visible page, and primary
+  commands use exact verbs. Popularity and posture labels are not clickable
+  pills.
+
 ## Responsive Layouts
 
 The product is macOS-first desktop software. Responsive support preserves the
@@ -239,6 +302,9 @@ same information architecture rather than shrinking the desktop canvas.
 Mobile is an inspection and bounded-decision surface, not a compressed
 three-column desktop. Dangerous, approval, rejection, safe-disable, and
 rollback controls may not appear or disappear solely because of a breakpoint.
+Dense data surfaces hide complete secondary columns before compressing primary
+values into unreadable fragments. Hidden values remain available in the
+selected-item inspector or an accessible details surface.
 
 ## Workspace Templates
 
@@ -525,6 +591,8 @@ titles, or browser-default control type.
 - panel radius: 8 px maximum;
 - control/nav radius: 6 px maximum;
 - chips: 4-6 px radius; use capsule pills only for short state labels;
+- source signals, ranks, counts, dates, permissions, and posture explanations
+  use plain cells or inspector rows rather than decorative pills;
 - shadows: none for ordinary panels; subtle single shadow for menus, drawers,
   command palette, dialogs, and floating inspectors;
 - borders and whitespace establish hierarchy before shadows.

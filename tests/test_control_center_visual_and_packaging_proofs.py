@@ -14,11 +14,17 @@ def test_control_center_visual_regression_manifest_requires_state_scenarios() ->
 
     failures = visual.validate_manifest(manifest)
 
-    assert any("missing state scenario: state-loading" in failure for failure in failures)
-    assert any("missing state scenario: state-success" in failure for failure in failures)
+    assert any(
+        "missing state scenario: state-loading" in failure for failure in failures
+    )
+    assert any(
+        "missing state scenario: state-success" in failure for failure in failures
+    )
 
 
-def test_control_center_visual_regression_manifest_keeps_non_macos_ports_as_placeholders() -> None:
+def test_control_center_visual_regression_manifest_keeps_non_macos_ports_as_placeholders() -> (
+    None
+):
     manifest = visual.load_manifest()
     manifest["platform_posture"]["linux"]["status"] = "implemented"
 
@@ -28,6 +34,38 @@ def test_control_center_visual_regression_manifest_keeps_non_macos_ports_as_plac
         "visual platform posture must implement macOS and keep Linux/Windows as deferred render placeholders"
         in failures
     )
+
+
+def test_control_center_visual_regression_requires_both_studio_desktop_variants() -> (
+    None
+):
+    manifest = visual.load_manifest()
+    studio = next(
+        surface
+        for surface in manifest["surfaces"]
+        if surface["surface"] == "Studio Skill Workbench"
+    )
+    studio["desktop_variants"].pop("compact")
+
+    failures = visual.validate_manifest(manifest)
+
+    assert (
+        "Studio Skill Workbench must list wide and compact desktop variants" in failures
+    )
+
+
+def test_control_center_visual_regression_rejects_studio_mobile_variant() -> None:
+    manifest = visual.load_manifest()
+    studio = next(
+        surface
+        for surface in manifest["surfaces"]
+        if surface["surface"] == "Studio Skill Workbench"
+    )
+    studio["desktop_variants"]["mobile"] = {}
+
+    failures = visual.validate_manifest(manifest)
+
+    assert any("Studio Skill Workbench" in failure for failure in failures)
 
 
 def test_local_runtime_packaging_proof_manifest_is_safe() -> None:

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import hashlib
+import struct
 from pathlib import Path
 
 
@@ -11,7 +12,9 @@ MANIFEST_PATH = ROOT / "docs" / "control_center" / "visual_regression_manifest.j
 CONTROL_CENTER_ROOT = ROOT / "apps" / "control-center"
 PACKAGE_JSON_PATH = CONTROL_CENTER_ROOT / "package.json"
 PLAYWRIGHT_CONFIG_PATH = CONTROL_CENTER_ROOT / "playwright.visual.config.ts"
-VISUAL_SPEC_PATH = CONTROL_CENTER_ROOT / "tests" / "visual" / "control-center.visual.spec.ts"
+VISUAL_SPEC_PATH = (
+    CONTROL_CENTER_ROOT / "tests" / "visual" / "control-center.visual.spec.ts"
+)
 SNAPSHOT_ROOT = CONTROL_CENTER_ROOT / "tests" / "visual" / "__snapshots__"
 REQUIRED_SURFACES = {
     "Overview",
@@ -26,8 +29,23 @@ REQUIRED_SURFACES = {
     "Evidence",
     "Settings",
     "Setup",
+    "Studio Skill Workbench",
 }
 REQUIRED_VIEWPORTS = {"desktop", "mobile"}
+STUDIO_DESKTOP_VARIANTS = {
+    "wide": {
+        "viewport_ref": "viewport:desktop-wide-1586x992",
+        "width": 1586,
+        "height": 992,
+        "file_id": "studio-skills-wide",
+    },
+    "compact": {
+        "viewport_ref": "viewport:desktop-compact-1280x800",
+        "width": 1280,
+        "height": 800,
+        "file_id": "studio-skills-compact",
+    },
+}
 REQUIRED_STATE_SCENARIOS = {
     "state-loading",
     "state-empty",
@@ -81,9 +99,13 @@ def validate_manifest(manifest: dict) -> list[str]:
     if manifest.get("schema_version") != "uaa-control-center-visual-regression.v1":
         failures.append("visual regression manifest schema version is not current")
     if manifest.get("status") != "active checked-in macOS visual baseline":
-        failures.append("visual regression manifest status must identify the active macOS baseline")
+        failures.append(
+            "visual regression manifest status must identify the active macOS baseline"
+        )
     if manifest.get("playwright_dependency_status") != "control-center devDependency":
-        failures.append("visual regression manifest must record Playwright as a Control Center devDependency")
+        failures.append(
+            "visual regression manifest must record Playwright as a Control Center devDependency"
+        )
     policy = manifest.get("baseline_policy", {})
     if policy.get("checked_in_redacted_baselines_required") is not True:
         failures.append("visual baselines must require checked-in redacted baselines")
@@ -104,13 +126,17 @@ def validate_manifest(manifest: dict) -> list[str]:
             "visual platform posture must implement macOS and keep Linux/Windows as deferred render placeholders"
         )
     surfaces = manifest.get("surfaces", [])
-    surface_names = {str(surface.get("surface")) for surface in surfaces if isinstance(surface, dict)}
+    surface_names = {
+        str(surface.get("surface")) for surface in surfaces if isinstance(surface, dict)
+    }
     for surface in sorted(REQUIRED_SURFACES - surface_names):
         failures.append(f"visual regression manifest missing surface: {surface}")
     serialized = " ".join(_string_values(manifest))
     for fragment in FORBIDDEN_FRAGMENTS:
         if fragment.lower() in serialized.lower():
-            failures.append(f"visual regression manifest contains forbidden fragment: {fragment}")
+            failures.append(
+                f"visual regression manifest contains forbidden fragment: {fragment}"
+            )
     for surface in surfaces:
         if not isinstance(surface, dict):
             failures.append("visual regression surface entry must be an object")
@@ -137,14 +163,18 @@ def validate_manifest(manifest: dict) -> list[str]:
         if isinstance(scenario, dict)
     }
     for scenario in sorted(REQUIRED_STATE_SCENARIOS - scenario_names):
-        failures.append(f"visual regression manifest missing state scenario: {scenario}")
+        failures.append(
+            f"visual regression manifest missing state scenario: {scenario}"
+        )
     for scenario in state_scenarios:
         if not isinstance(scenario, dict):
             failures.append("visual regression state scenario entry must be an object")
             continue
         scenario_name = str(scenario.get("scenario", "unknown"))
         if scenario_name not in REQUIRED_STATE_SCENARIOS:
-            failures.append(f"visual regression manifest has unknown state scenario: {scenario_name}")
+            failures.append(
+                f"visual regression manifest has unknown state scenario: {scenario_name}"
+            )
         if scenario.get("raw_private_screenshot_included") is not False:
             failures.append(f"{scenario_name} must not include raw private screenshot")
         if scenario.get("baseline_status") != "checked-in redacted PNG baseline":
@@ -159,16 +189,22 @@ def _validate_tooling() -> list[str]:
     scripts = package.get("scripts", {})
     dev_deps = package.get("devDependencies", {})
     if "@playwright/test" not in dev_deps:
-        failures.append("Control Center package must include @playwright/test as a devDependency")
+        failures.append(
+            "Control Center package must include @playwright/test as a devDependency"
+        )
     if scripts.get("visual:check") != (
         "playwright test --config=playwright.visual.config.ts --project=desktop"
     ):
-        failures.append("Control Center package must define the macOS-first desktop visual check")
+        failures.append(
+            "Control Center package must define the macOS-first desktop visual check"
+        )
     if scripts.get("visual:capture") != (
         "playwright test --config=playwright.visual.config.ts "
         "--project=desktop --update-snapshots"
     ):
-        failures.append("Control Center package must define the macOS-first desktop visual capture")
+        failures.append(
+            "Control Center package must define the macOS-first desktop visual capture"
+        )
     if not PLAYWRIGHT_CONFIG_PATH.exists():
         failures.append("Playwright visual config is missing")
     if not VISUAL_SPEC_PATH.exists():
@@ -177,13 +213,17 @@ def _validate_tooling() -> list[str]:
 
 
 def _validate_baselines(surface: dict) -> list[str]:
+    if surface.get("surface") == "Studio Skill Workbench":
+        return _validate_studio_desktop_baselines(surface)
     failures: list[str] = []
     surface_name = str(surface.get("surface") or surface.get("scenario") or "")
     surface_id = _surface_id(surface)
     file_refs = surface.get("baseline_file_refs", {})
     hashes = surface.get("baseline_hashes", {})
     if set(file_refs) != REQUIRED_VIEWPORTS:
-        failures.append(f"{surface_name} must list desktop and mobile baseline file refs")
+        failures.append(
+            f"{surface_name} must list desktop and mobile baseline file refs"
+        )
     if set(hashes) != REQUIRED_VIEWPORTS:
         failures.append(f"{surface_name} must list desktop and mobile baseline hashes")
     for viewport in sorted(REQUIRED_VIEWPORTS):
@@ -200,7 +240,54 @@ def _validate_baselines(surface: dict) -> list[str]:
             continue
         actual_hash = "sha256:" + hashlib.sha256(baseline_path.read_bytes()).hexdigest()
         if actual_hash != expected_hash:
-            failures.append(f"{surface_name} {viewport} baseline hash does not match checked-in PNG")
+            failures.append(
+                f"{surface_name} {viewport} baseline hash does not match checked-in PNG"
+            )
+    return failures
+
+
+def _validate_studio_desktop_baselines(surface: dict) -> list[str]:
+    failures: list[str] = []
+    variants = surface.get("desktop_variants", {})
+    if set(variants) != set(STUDIO_DESKTOP_VARIANTS):
+        failures.append(
+            "Studio Skill Workbench must list wide and compact desktop variants"
+        )
+        return failures
+    if "mobile" in variants or "mobile" in surface.get("baseline_file_refs", {}):
+        failures.append("Studio Skill Workbench must not claim a mobile baseline")
+    for name, expected in STUDIO_DESKTOP_VARIANTS.items():
+        variant = variants.get(name, {})
+        file_id = expected["file_id"]
+        expected_ref = f"visual-baseline-file:desktop:{file_id}"
+        if variant.get("viewport_ref") != expected["viewport_ref"]:
+            failures.append(f"Studio Skill Workbench {name} viewport ref drifted")
+        if variant.get("width") != expected["width"]:
+            failures.append(f"Studio Skill Workbench {name} width drifted")
+        if variant.get("height") != expected["height"]:
+            failures.append(f"Studio Skill Workbench {name} height drifted")
+        if variant.get("baseline_file_ref") != expected_ref:
+            failures.append(f"Studio Skill Workbench {name} file ref is not safe")
+        expected_hash = str(variant.get("baseline_hash", ""))
+        if not expected_hash.startswith("sha256:") or len(expected_hash) != 71:
+            failures.append(f"Studio Skill Workbench {name} hash is invalid")
+            continue
+        baseline_path = SNAPSHOT_ROOT / "desktop" / f"{file_id}.png"
+        if not baseline_path.exists():
+            failures.append(f"Studio Skill Workbench {name} baseline PNG is missing")
+            continue
+        encoded = baseline_path.read_bytes()
+        if len(encoded) < 24 or encoded[:8] != b"\x89PNG\r\n\x1a\n":
+            failures.append(f"Studio Skill Workbench {name} baseline is not PNG")
+            continue
+        width, height = struct.unpack(">II", encoded[16:24])
+        if (width, height) != (expected["width"], expected["height"]):
+            failures.append(f"Studio Skill Workbench {name} PNG dimensions drifted")
+        actual_hash = "sha256:" + hashlib.sha256(encoded).hexdigest()
+        if actual_hash != expected_hash:
+            failures.append(
+                f"Studio Skill Workbench {name} baseline hash does not match checked-in PNG"
+            )
     return failures
 
 

@@ -22,7 +22,10 @@ CLI = ROOT / "scripts/dev/uaa_runtime.py"
 TEST = ROOT / "tests/test_hermes_runtime_skill_marketplace_posture.py"
 PRODUCT_TRUTH = ROOT / "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md"
 DOC_INDEX = ROOT / "docs/DOCUMENTATION_INDEX.md"
-REPORT = ROOT / "reports/hermes_runtime_adoption/2026-07-06_hermes_runtime_adoption_report.md"
+REPORT = (
+    ROOT
+    / "reports/hermes_runtime_adoption/2026-07-06_hermes_runtime_adoption_report.md"
+)
 
 
 def main() -> int:
@@ -52,6 +55,15 @@ def main() -> int:
         failures.append("skill marketplace stage count drifted")
     if read_model.blocked_execution_count != 1:
         failures.append("skill marketplace blocked execution count drifted")
+    if read_model.catalog_freshness.status not in {"current", "stale"}:
+        failures.append("skill marketplace catalog freshness is unknown")
+    if read_model.catalog_freshness.display_status not in {
+        "available",
+        "available_stale",
+    }:
+        failures.append("skill marketplace catalog is not displayable")
+    if not read_model.catalog_freshness.catalog_displayable:
+        failures.append("skill marketplace catalog display flag is false")
 
     denied_flags = {
         "external popularity trust": read_model.external_popularity_is_trust,
@@ -116,6 +128,8 @@ def main() -> int:
         "runtime_skill_marketplace_posture",
         "authority_state_mapping_ref",
         "authority_state_decision_outcome",
+        "catalog_freshness",
+        "snapshot_hash_algorithm_ref",
         "external_popularity_trusted",
         "direct_marketplace_install_performed",
         "automatic_skill_write_performed",
@@ -185,6 +199,15 @@ def main() -> int:
             failures.append("CLI returned stale AuthorityState mapping")
         if read_model_payload["authority_state_decision_outcome"] != "allow":
             failures.append("CLI returned stale AuthorityState decision")
+        freshness = read_model_payload["catalog_freshness"]
+        if freshness["status"] not in {"current", "stale"}:
+            failures.append("CLI returned unknown catalog freshness")
+        expected_displayable = (
+            freshness["status"] in {"current", "stale"}
+            and read_model_payload["authority_state_decision_outcome"] == "allow"
+        )
+        if freshness["catalog_displayable"] is not expected_displayable:
+            failures.append("CLI returned incoherent catalog display posture")
 
     if failures:
         for failure in failures:

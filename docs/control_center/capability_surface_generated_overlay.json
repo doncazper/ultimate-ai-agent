@@ -11,11 +11,11 @@
   "production_readiness_claim_enabled": false,
   "source_truth_counts": {
     "api_manifest_route_count": 264,
-    "release_surface_route_count": 40,
-    "visible_action_count": 43,
-    "human_capability_count": 28,
-    "covered_release_route_count": 40,
-    "covered_visible_action_count": 43,
+    "release_surface_route_count": 41,
+    "visible_action_count": 44,
+    "human_capability_count": 29,
+    "covered_release_route_count": 41,
+    "covered_visible_action_count": 44,
     "missing_release_routes": [],
     "missing_visible_actions": []
   },
@@ -2003,6 +2003,49 @@
           "ui_surface": "Capabilities",
           "release_status": "partial_backend_not_product_ready",
           "side_effect_class": "validation_only",
+          "risk_class": "low",
+          "backend_route_count": 1,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "current"
+        }
+      ],
+      "source_truth_status": "current"
+    },
+    {
+      "capability_id": "studio_skill_marketplace_inspection",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/api/runtime/skill-marketplace-posture",
+          "operation_id": "get_api_runtime_skill_marketplace_posture",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        }
+      ],
+      "ui_routes": [
+        {
+          "path": "/studio/skills",
+          "label": "Studio",
+          "group": "Review",
+          "ui_status": "metadata-only Skill Workbench",
+          "release_status": "partial",
+          "owner": "studio-create",
+          "backend_route_count": 1,
+          "blocked_capability_count": 10,
+          "visual_proof_status": "checked_in_baseline",
+          "source_truth_status": "current"
+        }
+      ],
+      "control_action_ids": [
+        {
+          "action_id": "navigate-studio-skill-workbench",
+          "source": "route_status_manifest",
+          "frontend_route": "/studio/skills",
+          "ui_surface": "Studio",
+          "release_status": "partial_backend_not_product_ready",
+          "side_effect_class": "local_dev_workspace_only",
           "risk_class": "low",
           "backend_route_count": 1,
           "missing_backend_route_count": 0,

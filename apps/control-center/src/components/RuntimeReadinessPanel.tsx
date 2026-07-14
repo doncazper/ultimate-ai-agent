@@ -574,6 +574,22 @@ export function RuntimeReadinessPanel({
             <dd>{skillMarketplacePosture.authority_state_decision_ref}</dd>
           </div>
           <div>
+            <dt>Catalog freshness</dt>
+            <dd>{skillMarketplacePosture.catalog_freshness.status}</dd>
+          </div>
+          <div>
+            <dt>Catalog display</dt>
+            <dd>{skillMarketplacePosture.catalog_freshness.display_status}</dd>
+          </div>
+          <div>
+            <dt>Freshness checked</dt>
+            <dd>{skillMarketplacePosture.catalog_freshness.checked_at}</dd>
+          </div>
+          <div>
+            <dt>Freshness expires</dt>
+            <dd>{skillMarketplacePosture.catalog_freshness.expires_at}</dd>
+          </div>
+          <div>
             <dt>Stages</dt>
             <dd>{skillMarketplacePosture.stage_count}</dd>
           </div>
@@ -673,6 +689,12 @@ export function RuntimeReadinessPanel({
         <h4>Authority reason</h4>
         <ul className="compact-list">
           {skillMarketplacePosture.authority_state_reason_refs.map((ref) => (
+            <li key={ref}>{ref}</li>
+          ))}
+        </ul>
+        <h4>Catalog freshness reason</h4>
+        <ul className="compact-list">
+          {skillMarketplacePosture.catalog_freshness.reason_refs.map((ref) => (
             <li key={ref}>{ref}</li>
           ))}
         </ul>
