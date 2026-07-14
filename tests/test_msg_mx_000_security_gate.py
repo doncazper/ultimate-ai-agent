@@ -266,13 +266,13 @@ def test_board_overlay_future_success_requires_phase_acceptance_evidence(
         return (
             text
             .replace(
-                "Current program status: `fixture_desktop_shell_implemented_pending_merge_gate`",
+                "Current program status: `backend_contracts_api_cli_implemented_pending_merge_gate`",
                 "Current program status: `fixture_shell_ready`",
                 1,
             )
             .replace(
-                "Current evidence ref: `evidence-ref:msg-mx-002:desktop-fixture-shell`",
-                "Current evidence ref: `evidence-ref:msg-mx-002:unaccepted`",
+                "Current evidence ref: `evidence-ref:msg-mx-003:communications-contracts`",
+                "Current evidence ref: `evidence-ref:msg-mx-003:unaccepted`",
                 1,
             )
         )
@@ -287,14 +287,14 @@ def test_board_overlay_can_record_a_phase_bound_external_blocker(
 ) -> None:
     def block(text: str) -> str:
         return (
-            text.replace("Current phase: `MSG-MX-002`", "Current phase: `MSG-MX-005`", 1)
+            text.replace("Current phase: `MSG-MX-003`", "Current phase: `MSG-MX-005`", 1)
             .replace(
-                "Current program status: `fixture_desktop_shell_implemented_pending_merge_gate`",
+                "Current program status: `backend_contracts_api_cli_implemented_pending_merge_gate`",
                 "Current program status: `blocked_external_facility_required`",
                 1,
             )
             .replace(
-                "Current evidence ref: `evidence-ref:msg-mx-002:desktop-fixture-shell`",
+                "Current evidence ref: `evidence-ref:msg-mx-003:communications-contracts`",
                 "Current evidence ref: `evidence-ref:msg-mx-005:external-blocker`",
                 1,
             )
@@ -310,14 +310,14 @@ def test_board_overlay_generic_ready_status_fails_closed(
 ) -> None:
     def promote(text: str) -> str:
         return (
-            text.replace("Current phase: `MSG-MX-002`", "Current phase: `MSG-MX-004`", 1)
+            text.replace("Current phase: `MSG-MX-003`", "Current phase: `MSG-MX-004`", 1)
             .replace(
-                "Current program status: `fixture_desktop_shell_implemented_pending_merge_gate`",
+                "Current program status: `backend_contracts_api_cli_implemented_pending_merge_gate`",
                 "Current program status: `ready`",
                 1,
             )
             .replace(
-                "Current evidence ref: `evidence-ref:msg-mx-002:desktop-fixture-shell`",
+                "Current evidence ref: `evidence-ref:msg-mx-003:communications-contracts`",
                 "Current evidence ref: `evidence-ref:msg-mx-004:ready`",
                 1,
             )
@@ -332,8 +332,10 @@ def test_board_overlay_cross_phase_evidence_fails_closed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def advance(text: str) -> str:
-        return (
-            text.replace("Current phase: `MSG-MX-002`", "Current phase: `MSG-MX-003`", 1)
+        return text.replace(
+            "Current phase: `MSG-MX-003`",
+            "Current phase: `MSG-MX-004`",
+            1,
         )
 
     _patch_path(monkeypatch, tmp_path, "BOARD_PATH", advance)
@@ -532,14 +534,14 @@ def test_future_completion_with_fabricated_evidence_fails_closed(
 ) -> None:
     def fabricate(text: str) -> str:
         return (
-            text.replace("Current phase: `MSG-MX-002`", "Current phase: `MSG-MX-012`", 1)
+            text.replace("Current phase: `MSG-MX-003`", "Current phase: `MSG-MX-012`", 1)
             .replace(
-                "Current program status: `fixture_desktop_shell_implemented_pending_merge_gate`",
+                "Current program status: `backend_contracts_api_cli_implemented_pending_merge_gate`",
                 "Current program status: `messenger_acceptance_complete`",
                 1,
             )
             .replace(
-                "Current evidence ref: `evidence-ref:msg-mx-002:desktop-fixture-shell`",
+                "Current evidence ref: `evidence-ref:msg-mx-003:communications-contracts`",
                 "Current evidence ref: `evidence-ref:msg-mx-012:does-not-exist`",
                 1,
             )

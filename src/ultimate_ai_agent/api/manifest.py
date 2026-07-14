@@ -222,9 +222,22 @@ CAPABILITIES_DECLARED = [
     "mattermost_redacted_message_ingress",
     "mattermost_role_bound_speak_only_replies",
     "mattermost_approval_required_tool_actions",
+    "communications_backend_owned_normalized_contracts",
+    "communications_read_only_provider_session_room_security_receipt_inspection",
+    "communications_human_readable_cli_inspection",
+    "communications_typescript_api_bindings",
+    "communications_matrix_disabled_adapter_shell",
 ]
 
 CAPABILITIES_BLOCKED = [
+    "communications_matrix_server_discovery",
+    "communications_matrix_account_authentication",
+    "communications_matrix_session_runtime",
+    "communications_matrix_message_sync_or_read",
+    "communications_matrix_message_send_or_mutation",
+    "communications_matrix_crypto_or_media_runtime",
+    "communications_raw_message_or_provider_payload_persistence",
+    "communications_ui_or_approval_ref_as_runtime_authority",
     "runtime_remote_or_unrestricted_model_calls",
     "unscoped_provider_api_calls",
     "unrestricted_web_fetching",
@@ -835,6 +848,14 @@ CONTROL_CENTER_VALIDATION_ONLY_PATHS = {
     "/control-center/actions/preview",
     "/control-center/turn-router/preview",
 }
+CONTROL_CENTER_COMMUNICATIONS_READONLY_PATHS = {
+    "/control-center/communications/providers",
+    "/control-center/communications/session-posture",
+    "/control-center/communications/rooms",
+    "/control-center/communications/failed-sends",
+    "/control-center/communications/security-posture",
+    "/control-center/communications/receipts/{receipt_ref}",
+}
 LOCAL_READONLY_PATHS = {
     "/control-center/dashboard",
     "/control-center/capabilities/availability",
@@ -998,11 +1019,15 @@ def route_summary(method: str, path: str) -> str:
 
 
 def route_side_effect_class(path: str) -> ApiRouteSideEffectClass:
-    if path == "/api/manifest" or path in {
+    if (
+        path == "/api/manifest"
+        or path in CONTROL_CENTER_COMMUNICATIONS_READONLY_PATHS
+        or path in {
         "/health",
         "/version",
         "/web-evidence/status",
-    }:
+        }
+    ):
         return ApiRouteSideEffectClass.none
     if path in {
         "/api/runtime/authority-decisions/preview",
@@ -1049,11 +1074,20 @@ def route_classification_for_path(
         or any(hint in path for hint in NON_MUTATING_LOCAL_POSTURE_HINTS)
         or path in LOCAL_READONLY_PATHS
         or path in CONTROL_CENTER_VALIDATION_ONLY_PATHS
+        or path in CONTROL_CENTER_COMMUNICATIONS_READONLY_PATHS
     )
     if normalized_method == "GET" and path in PUBLIC_METADATA_PATHS:
         return (
             ApiRouteClassification.public_metadata,
             "harmless API metadata or status route with no local user state",
+        )
+    if (
+        normalized_method == "GET"
+        and path in CONTROL_CENTER_COMMUNICATIONS_READONLY_PATHS
+    ):
+        return (
+            ApiRouteClassification.local_sensitive,
+            "protected connector-adjacent communications inspection exposes safe refs and blocked runtime posture without message content, network access, or mutation",
         )
     if normalized_method == "GET" and path == "/api/runtime/capabilities":
         return (

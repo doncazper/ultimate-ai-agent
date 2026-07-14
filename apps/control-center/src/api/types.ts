@@ -12870,6 +12870,150 @@ export interface RuntimeVoiceMediaPostureReadModel {
   redactions_applied: string[];
 }
 
+export type CommunicationsProviderStatus =
+  | "unsupported"
+  | "disabled"
+  | "unknown";
+
+export interface CommunicationsAvailabilitySnapshot {
+  schema_version: "uaa-capability-availability.v1";
+  snapshot_ref: string;
+  capability_ref: string;
+  provider_ref: string | null;
+  adapter_ref: string | null;
+  catalog_status: "supported" | "unsupported" | "unknown";
+  compatibility_status: "supported" | "unsupported" | "unknown";
+  configuration_status:
+    | "configured"
+    | "not_configured"
+    | "invalid"
+    | "unknown";
+  health_status: "healthy" | "degraded" | "unhealthy" | "stale" | "unknown";
+  authority_posture:
+    | "eligible_for_policy_evaluation"
+    | "approval_required"
+    | "lease_required"
+    | "blocked";
+  resource_status: "available" | "constrained" | "exhausted" | "unknown";
+  cost_posture: "not_metered" | "metered" | "unknown";
+  safe_disable_status: "active" | "inactive" | "unknown";
+  runtime_readiness_status: "ready" | "unavailable" | "blocked" | "unknown";
+  declared_or_observed_version_ref: string | null;
+  checked_at: string;
+  expires_at: string | null;
+  freshness_status: "current" | "stale" | "unknown";
+  reason_codes: string[];
+  blocker_codes: string[];
+  evidence_refs: string[];
+  probe_refs: string[];
+  source_ref: string;
+  safe_summary: string;
+}
+
+export interface CommunicationsProviderDescriptor {
+  schema_version: "uaa-communications.v1";
+  provider_ref: string;
+  adapter_ref: string;
+  capability_ref: string;
+  provider_status: CommunicationsProviderStatus;
+  availability: CommunicationsAvailabilitySnapshot;
+  reason_codes: string[];
+  blocker_codes: string[];
+  evidence_refs: string[];
+  safe_summary: string;
+}
+
+export interface CommunicationsSessionPosture {
+  provider_ref: string;
+  session_ref: string;
+  status: "not_configured" | "blocked" | "unknown";
+  freshness: "current" | "stale" | "unknown";
+  account_refs: string[];
+  reason_codes: string[];
+  blocker_codes: string[];
+  safe_summary: string;
+  network_performed: false;
+  authentication_performed: false;
+  sync_performed: false;
+}
+
+export interface CommunicationsPagination {
+  page_size: number;
+  returned_count: number;
+  next_cursor_ref: string | null;
+  bounded: true;
+}
+
+export interface CommunicationConversation {
+  conversation_ref: string;
+  account_ref: string;
+  provider_ref: string;
+  kind: "direct" | "room" | "space" | "unknown";
+  member_refs: string[];
+  unread_count: number;
+  freshness: "current" | "stale" | "unknown";
+  redaction_status: "safe_refs_only" | "content_omitted" | "unknown";
+  evidence_refs: string[];
+}
+
+export interface CommunicationsRoomPage {
+  items: CommunicationConversation[];
+  pagination: CommunicationsPagination;
+  freshness: "current" | "stale" | "unknown";
+  reason_codes: string[];
+  blocker_codes: string[];
+  safe_summary: string;
+  message_read_performed: false;
+  raw_content_omitted: true;
+}
+
+export interface CommunicationsFailedSendPage {
+  receipt_refs: string[];
+  pagination: CommunicationsPagination;
+  reason_codes: string[];
+  blocker_codes: string[];
+  safe_summary: string;
+  send_performed: false;
+  raw_content_omitted: true;
+}
+
+export interface CommunicationsSecurityPosture {
+  posture_ref: string;
+  provider_ref: string;
+  encryption_posture_ref: string;
+  key_lifecycle_posture_ref: string;
+  cache_posture_ref: string;
+  reason_codes: string[];
+  blocker_codes: string[];
+  safe_summary: string;
+  credentials_loaded: false;
+  crypto_initialized: false;
+  local_cache_opened: false;
+}
+
+export interface CommunicationsReceipt {
+  receipt_ref: string;
+  operation_ref: string;
+  request_ref: string;
+  provider_ref: string;
+  account_ref: string | null;
+  conversation_ref: string | null;
+  outcome: "inspected" | "not_executed" | "blocked";
+  occurred_at: string;
+  reason_codes: string[];
+  blocker_codes: string[];
+  evidence_refs: string[];
+  redaction_status: "safe_refs_only" | "content_omitted" | "unknown";
+  safe_summary: string;
+  network_performed: false;
+  authentication_performed: false;
+  message_read_performed: false;
+  message_sent: false;
+  raw_content_stored: false;
+  provider_payload_persisted: false;
+  approval_or_lease_minted: false;
+}
+
 export type RuntimeMessagingPlatformKind =
   | "email"
   | "slack"

@@ -37,6 +37,10 @@ ACCEPTED_CURRENT_SUCCESS = {
         "fixture_desktop_shell_implemented_pending_merge_gate",
         "evidence-ref:msg-mx-002:desktop-fixture-shell",
     ),
+    "MSG-MX-003": (
+        "backend_contracts_api_cli_implemented_pending_merge_gate",
+        "evidence-ref:msg-mx-003:communications-contracts",
+    ),
 }
 SAFE_BLOCKED_CURRENT_STATUS = {
     "blocked_authority_not_accepted",

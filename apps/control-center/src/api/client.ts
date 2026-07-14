@@ -15,6 +15,13 @@ import type {
   AuthorityMissionWorkerStepRecovery,
   AuthorityMissionCompletionReadModel,
   BackendConnectionSummary,
+  CommunicationConversation,
+  CommunicationsFailedSendPage,
+  CommunicationsProviderDescriptor,
+  CommunicationsReceipt,
+  CommunicationsRoomPage,
+  CommunicationsSecurityPosture,
+  CommunicationsSessionPosture,
   CodingCockpitSessionReadModel,
   CodingWorkspaceContextReadModel,
   ControlCenterDashboardSnapshot,
@@ -145,6 +152,7 @@ import {
   actionReceiptEndpoint,
   chatTurnHandoffEndpoint,
   chatTurnReceiptEndpoint,
+  communicationsReceiptEndpoint,
   memoryContextPackActionProposalEndpoint,
   memoryReviewDecisionEndpoint,
   memoryReviewReceiptEndpoint,
@@ -312,6 +320,438 @@ async function readEnvelope<T>(
   } finally {
     readLimiter.release();
   }
+}
+
+const COMMUNICATIONS_SAFE_REF =
+  /^[a-z][a-z0-9-]*-ref:[a-z0-9][a-z0-9:-]*$/;
+const COMMUNICATIONS_SAFE_CODE = /^[A-Z][A-Z0-9_]{2,127}$/;
+const COMMUNICATIONS_MAX_PROVIDERS = 16;
+const COMMUNICATIONS_MAX_REFS = 50;
+const COMMUNICATIONS_HOST_OR_IP =
+  /(?:\b[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+\b)|(?:\b(?:\d{1,3}\.){3}\d{1,3}\b)|(?:\[[0-9a-f:]+\])/i;
+
+function isCommunicationsRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isCommunicationsSafeRef(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    COMMUNICATIONS_SAFE_REF.test(value) &&
+    !value.includes("@") &&
+    !value.includes(".") &&
+    !value.includes("/") &&
+    !value.toLowerCase().includes("localhost")
+  );
+}
+
+function hasExactCommunicationsKeys(
+  value: Record<string, unknown>,
+  keys: readonly string[],
+): boolean {
+  const actual = Object.keys(value).sort();
+  const expected = [...keys].sort();
+  return (
+    actual.length === expected.length &&
+    actual.every((key, index) => key === expected[index])
+  );
+}
+
+function isCommunicationsSafeCodeArray(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.length <= 32 &&
+    value.every(
+      (item) =>
+        typeof item === "string" && COMMUNICATIONS_SAFE_CODE.test(item),
+    )
+  );
+}
+
+function isCommunicationsSafeRefArray(
+  value: unknown,
+  maximum = COMMUNICATIONS_MAX_REFS,
+): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.length <= maximum &&
+    value.every(isCommunicationsSafeRef) &&
+    new Set(value).size === value.length
+  );
+}
+
+function isCommunicationsSafeSummary(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length >= 1 &&
+    value.length <= 240 &&
+    !value.includes("@") &&
+    !value.includes("://") &&
+    !COMMUNICATIONS_HOST_OR_IP.test(value)
+  );
+}
+
+function isCommunicationsTimestamp(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(
+      value,
+    ) &&
+    !Number.isNaN(Date.parse(value))
+  );
+}
+
+function isOptionalCommunicationsSafeRef(value: unknown): boolean {
+  return value === null || isCommunicationsSafeRef(value);
+}
+
+function isSafeCommunicationsAvailability(value: unknown): boolean {
+  if (!isCommunicationsRecord(value)) {
+    return false;
+  }
+  return (
+    hasExactCommunicationsKeys(value, [
+      "schema_version",
+      "snapshot_ref",
+      "capability_ref",
+      "provider_ref",
+      "adapter_ref",
+      "catalog_status",
+      "compatibility_status",
+      "configuration_status",
+      "health_status",
+      "authority_posture",
+      "resource_status",
+      "cost_posture",
+      "safe_disable_status",
+      "declared_or_observed_version_ref",
+      "checked_at",
+      "expires_at",
+      "freshness_status",
+      "runtime_readiness_status",
+      "reason_codes",
+      "blocker_codes",
+      "evidence_refs",
+      "probe_refs",
+      "source_ref",
+      "safe_summary",
+    ]) &&
+    value.schema_version === "uaa-capability-availability.v1" &&
+    isCommunicationsSafeRef(value.snapshot_ref) &&
+    isCommunicationsSafeRef(value.capability_ref) &&
+    isOptionalCommunicationsSafeRef(value.provider_ref) &&
+    isOptionalCommunicationsSafeRef(value.adapter_ref) &&
+    value.catalog_status === "unsupported" &&
+    value.compatibility_status === "unknown" &&
+    value.configuration_status === "not_configured" &&
+    value.health_status === "unknown" &&
+    value.authority_posture === "blocked" &&
+    value.resource_status === "unknown" &&
+    value.cost_posture === "unknown" &&
+    value.safe_disable_status === "unknown" &&
+    isOptionalCommunicationsSafeRef(value.declared_or_observed_version_ref) &&
+    isCommunicationsTimestamp(value.checked_at) &&
+    (value.expires_at === null || isCommunicationsTimestamp(value.expires_at)) &&
+    value.freshness_status === "unknown" &&
+    value.runtime_readiness_status === "unknown" &&
+    isCommunicationsSafeCodeArray(value.reason_codes) &&
+    isCommunicationsSafeCodeArray(value.blocker_codes) &&
+    isCommunicationsSafeRefArray(value.evidence_refs, 32) &&
+    isCommunicationsSafeRefArray(value.probe_refs, 32) &&
+    isCommunicationsSafeRef(value.source_ref) &&
+    isCommunicationsSafeSummary(value.safe_summary)
+  );
+}
+
+function isSafeCommunicationsProvider(
+  value: unknown,
+): value is CommunicationsProviderDescriptor {
+  if (!isCommunicationsRecord(value) || !isCommunicationsRecord(value.availability)) {
+    return false;
+  }
+  return (
+    hasExactCommunicationsKeys(value, [
+      "schema_version",
+      "provider_ref",
+      "adapter_ref",
+      "capability_ref",
+      "provider_status",
+      "availability",
+      "reason_codes",
+      "blocker_codes",
+      "evidence_refs",
+      "safe_summary",
+    ]) &&
+    value.schema_version === "uaa-communications.v1" &&
+    isCommunicationsSafeRef(value.provider_ref) &&
+    isCommunicationsSafeRef(value.adapter_ref) &&
+    isCommunicationsSafeRef(value.capability_ref) &&
+    value.provider_status === "unsupported" &&
+    isSafeCommunicationsAvailability(value.availability) &&
+    isCommunicationsSafeCodeArray(value.reason_codes) &&
+    isCommunicationsSafeCodeArray(value.blocker_codes) &&
+    isCommunicationsSafeRefArray(value.evidence_refs, 32) &&
+    isCommunicationsSafeSummary(value.safe_summary)
+  );
+}
+
+function isSafeCommunicationsPagination(value: unknown): boolean {
+  return (
+    isCommunicationsRecord(value) &&
+    typeof value.page_size === "number" &&
+    value.page_size >= 1 &&
+    value.page_size <= 50 &&
+    typeof value.returned_count === "number" &&
+    Number.isInteger(value.page_size) &&
+    Number.isInteger(value.returned_count) &&
+    value.returned_count >= 0 &&
+    value.returned_count <= value.page_size &&
+    value.bounded === true &&
+    (value.next_cursor_ref === null ||
+      isCommunicationsSafeRef(value.next_cursor_ref))
+  );
+}
+
+export async function loadCommunicationsProviders(): Promise<CommunicationsProviderDescriptor[]> {
+  const value = await readEnvelope<unknown>(API_ENDPOINTS.communicationsProviders);
+  if (
+    !Array.isArray(value) ||
+    value.length > COMMUNICATIONS_MAX_PROVIDERS ||
+    !value.every(isSafeCommunicationsProvider)
+  ) {
+    throw new Error("Communications provider response failed safe validation.");
+  }
+  return value;
+}
+
+export async function loadCommunicationsSessionPosture(): Promise<CommunicationsSessionPosture> {
+  const value = await readEnvelope<unknown>(
+    API_ENDPOINTS.communicationsSessionPosture,
+  );
+  if (
+    !isCommunicationsRecord(value) ||
+    !hasExactCommunicationsKeys(value, [
+      "provider_ref",
+      "session_ref",
+      "status",
+      "freshness",
+      "account_refs",
+      "reason_codes",
+      "blocker_codes",
+      "safe_summary",
+      "network_performed",
+      "authentication_performed",
+      "sync_performed",
+    ]) ||
+    !isCommunicationsSafeRef(value.provider_ref) ||
+    !isCommunicationsSafeRef(value.session_ref) ||
+    value.status !== "not_configured" ||
+    value.freshness !== "unknown" ||
+    value.network_performed !== false ||
+    value.authentication_performed !== false ||
+    value.sync_performed !== false ||
+    !isCommunicationsSafeRefArray(value.account_refs) ||
+    !isCommunicationsSafeCodeArray(value.reason_codes) ||
+    !isCommunicationsSafeCodeArray(value.blocker_codes) ||
+    !isCommunicationsSafeSummary(value.safe_summary)
+  ) {
+    throw new Error("Communications session response failed safe validation.");
+  }
+  return value as unknown as CommunicationsSessionPosture;
+}
+
+function isSafeCommunicationConversation(
+  value: unknown,
+): value is CommunicationConversation {
+  if (!isCommunicationsRecord(value)) {
+    return false;
+  }
+  return (
+    hasExactCommunicationsKeys(value, [
+      "conversation_ref",
+      "account_ref",
+      "provider_ref",
+      "kind",
+      "member_refs",
+      "unread_count",
+      "freshness",
+      "redaction_status",
+      "evidence_refs",
+    ]) &&
+    isCommunicationsSafeRef(value.conversation_ref) &&
+    isCommunicationsSafeRef(value.account_ref) &&
+    isCommunicationsSafeRef(value.provider_ref) &&
+    ["direct", "room", "space", "unknown"].includes(String(value.kind)) &&
+    isCommunicationsSafeRefArray(value.member_refs) &&
+    typeof value.unread_count === "number" &&
+    Number.isInteger(value.unread_count) &&
+    value.unread_count >= 0 &&
+    value.unread_count <= 100_000 &&
+    ["current", "stale", "unknown"].includes(String(value.freshness)) &&
+    ["safe_refs_only", "content_omitted", "unknown"].includes(
+      String(value.redaction_status),
+    ) &&
+    isCommunicationsSafeRefArray(value.evidence_refs, 32)
+  );
+}
+
+export async function loadCommunicationsRooms(): Promise<CommunicationsRoomPage> {
+  const value = await readEnvelope<unknown>(API_ENDPOINTS.communicationsRooms);
+  if (
+    !isCommunicationsRecord(value) ||
+    !hasExactCommunicationsKeys(value, [
+      "items",
+      "pagination",
+      "freshness",
+      "reason_codes",
+      "blocker_codes",
+      "safe_summary",
+      "message_read_performed",
+      "raw_content_omitted",
+    ]) ||
+    !Array.isArray(value.items) ||
+    !value.items.every(isSafeCommunicationConversation) ||
+    !isSafeCommunicationsPagination(value.pagination) ||
+    value.message_read_performed !== false ||
+    value.raw_content_omitted !== true ||
+    !["current", "stale", "unknown"].includes(String(value.freshness)) ||
+    !isCommunicationsSafeCodeArray(value.reason_codes) ||
+    !isCommunicationsSafeCodeArray(value.blocker_codes) ||
+    !isCommunicationsSafeSummary(value.safe_summary) ||
+    !isCommunicationsRecord(value.pagination) ||
+    value.pagination.returned_count !== value.items.length
+  ) {
+    throw new Error("Communications room response failed safe validation.");
+  }
+  return value as unknown as CommunicationsRoomPage;
+}
+
+export async function loadCommunicationsFailedSends(): Promise<CommunicationsFailedSendPage> {
+  const value = await readEnvelope<unknown>(
+    API_ENDPOINTS.communicationsFailedSends,
+  );
+  if (
+    !isCommunicationsRecord(value) ||
+    !hasExactCommunicationsKeys(value, [
+      "receipt_refs",
+      "pagination",
+      "reason_codes",
+      "blocker_codes",
+      "safe_summary",
+      "send_performed",
+      "raw_content_omitted",
+    ]) ||
+    !Array.isArray(value.receipt_refs) ||
+    !isCommunicationsSafeRefArray(value.receipt_refs) ||
+    !isSafeCommunicationsPagination(value.pagination) ||
+    value.send_performed !== false ||
+    value.raw_content_omitted !== true ||
+    !isCommunicationsSafeCodeArray(value.reason_codes) ||
+    !isCommunicationsSafeCodeArray(value.blocker_codes) ||
+    !isCommunicationsSafeSummary(value.safe_summary) ||
+    !isCommunicationsRecord(value.pagination) ||
+    value.pagination.returned_count !== value.receipt_refs.length
+  ) {
+    throw new Error("Communications failed-send response failed safe validation.");
+  }
+  return value as unknown as CommunicationsFailedSendPage;
+}
+
+export async function loadCommunicationsSecurityPosture(): Promise<CommunicationsSecurityPosture> {
+  const value = await readEnvelope<unknown>(
+    API_ENDPOINTS.communicationsSecurityPosture,
+  );
+  if (
+    !isCommunicationsRecord(value) ||
+    !hasExactCommunicationsKeys(value, [
+      "posture_ref",
+      "provider_ref",
+      "encryption_posture_ref",
+      "key_lifecycle_posture_ref",
+      "cache_posture_ref",
+      "reason_codes",
+      "blocker_codes",
+      "safe_summary",
+      "credentials_loaded",
+      "crypto_initialized",
+      "local_cache_opened",
+    ]) ||
+    !isCommunicationsSafeRef(value.posture_ref) ||
+    !isCommunicationsSafeRef(value.provider_ref) ||
+    !isCommunicationsSafeRef(value.encryption_posture_ref) ||
+    !isCommunicationsSafeRef(value.key_lifecycle_posture_ref) ||
+    !isCommunicationsSafeRef(value.cache_posture_ref) ||
+    value.credentials_loaded !== false ||
+    value.crypto_initialized !== false ||
+    value.local_cache_opened !== false ||
+    !isCommunicationsSafeCodeArray(value.reason_codes) ||
+    !isCommunicationsSafeCodeArray(value.blocker_codes) ||
+    !isCommunicationsSafeSummary(value.safe_summary)
+  ) {
+    throw new Error("Communications security response failed safe validation.");
+  }
+  return value as unknown as CommunicationsSecurityPosture;
+}
+
+export async function loadCommunicationsReceipt(
+  receiptRef: string,
+): Promise<CommunicationsReceipt> {
+  if (!isCommunicationsSafeRef(receiptRef)) {
+    throw new Error("Communications receipt reference is invalid.");
+  }
+  const value = await readEnvelope<unknown>(
+    communicationsReceiptEndpoint(receiptRef),
+  );
+  if (
+    !isCommunicationsRecord(value) ||
+    !hasExactCommunicationsKeys(value, [
+      "receipt_ref",
+      "operation_ref",
+      "request_ref",
+      "provider_ref",
+      "account_ref",
+      "conversation_ref",
+      "outcome",
+      "occurred_at",
+      "reason_codes",
+      "blocker_codes",
+      "evidence_refs",
+      "redaction_status",
+      "safe_summary",
+      "network_performed",
+      "authentication_performed",
+      "message_read_performed",
+      "message_sent",
+      "raw_content_stored",
+      "provider_payload_persisted",
+      "approval_or_lease_minted",
+    ]) ||
+    value.receipt_ref !== receiptRef ||
+    !isCommunicationsSafeRef(value.operation_ref) ||
+    !isCommunicationsSafeRef(value.request_ref) ||
+    !isCommunicationsSafeRef(value.provider_ref) ||
+    !isOptionalCommunicationsSafeRef(value.account_ref) ||
+    !isOptionalCommunicationsSafeRef(value.conversation_ref) ||
+    !["inspected", "not_executed", "blocked"].includes(String(value.outcome)) ||
+    !isCommunicationsTimestamp(value.occurred_at) ||
+    !isCommunicationsSafeCodeArray(value.reason_codes) ||
+    !isCommunicationsSafeCodeArray(value.blocker_codes) ||
+    !isCommunicationsSafeRefArray(value.evidence_refs, 32) ||
+    !["safe_refs_only", "content_omitted"].includes(
+      String(value.redaction_status),
+    ) ||
+    !isCommunicationsSafeSummary(value.safe_summary) ||
+    value.network_performed !== false ||
+    value.authentication_performed !== false ||
+    value.message_read_performed !== false ||
+    value.message_sent !== false ||
+    value.raw_content_stored !== false ||
+    value.provider_payload_persisted !== false ||
+    value.approval_or_lease_minted !== false
+  ) {
+    throw new Error("Communications receipt response failed safe validation.");
+  }
+  return value as unknown as CommunicationsReceipt;
 }
 
 function withReadTimeout<T>(promise: Promise<T>, endpoint: string): Promise<T> {

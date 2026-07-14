@@ -80,6 +80,30 @@ validation and rollback/safe-disable refs. Catalog and activation metadata
 explicitly grant no invocation authority. Client-supplied approval-grant
 payloads are rejected by the disabled-install mutation surface.
 
+## Communications Contracts And Disabled Matrix Adapter
+
+`ultimate_ai_agent.core.communications` is the normalized communications
+contract boundary for MSG-MX-003. It reuses `CapabilityAvailabilitySnapshot`
+for environment truth and adds an immutable provider-adapter declaration
+registry, deterministic injected `CommunicationsService`, safe-ref projections,
+bounded pagination, room AI policy, proposal-only action envelopes, and
+content-free receipts. It is not a competing capability registry.
+
+The Matrix declaration is explicitly unsupported, not configured, unknown for
+compatibility, health, budget, safe-disable, and freshness, authority-blocked,
+and derived readiness unknown. Its adapter exposes inspection metadata and
+raises a typed disabled error for account, synchronization, message, crypto,
+and media calls. Catalog visibility therefore never implies callable runtime
+authority.
+
+Six protected `Cache-Control: no-store` GET routes under
+`/control-center/communications`, the human-readable
+`scripts/dev/uaa_communications.py` CLI, and fail-closed TypeScript bindings
+project the same backend-owned truth. These routes are connector-adjacent
+`local_sensitive` reads with no side effects. The fixture-only `/messenger` UI
+remains disconnected. No Matrix SDK, network operation, authentication,
+message read/send, raw-content persistence, or new authority is present.
+
 ## Sealed Deterministic Calculation
 
 The exact `calculation.sandbox.arithmetic.exact_lease` lane is implemented as bounded
