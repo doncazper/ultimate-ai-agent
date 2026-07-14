@@ -1,103 +1,8 @@
+from __future__ import annotations
+
+from importlib import import_module
 from typing import Any
-from ultimate_ai_agent.core.capabilities.catalog import render_compact_catalog
-from ultimate_ai_agent.core.capabilities.context import NotesStore, SimpleNotesStore
-from ultimate_ai_agent.core.capabilities.coordinator import Coordinator, PolicyDeniedError
-from ultimate_ai_agent.core.capabilities.approval import CapabilityApprovalGrant, LocalApprovalAuthority
-from ultimate_ai_agent.core.capabilities.decorators import as_registration, capability, get_capability_spec, tool_capability
-from ultimate_ai_agent.core.capabilities.defaults import (
-    BLOCKED_FOUNDATION_CAPABILITY_NAMES,
-    capability_is_foundation_blocked,
-    default_foundation_capability_registry,
-    foundation_blocked_capability_specs,
-)
-from ultimate_ai_agent.core.capabilities.a2a_gateway import (
-    A2A_DEFAULT_BLOCKED_AUTHORITY_REFS,
-    A2A_REVIEW_AUTH_SCOPE,
-    A2AActivationPosture,
-    A2AAgentMetadata,
-    A2AApprovalBindingDecision,
-    A2AAuthPosture,
-    A2ABlockedReceipt,
-    A2AExactDelegationApprovalContext,
-    A2AExactDelegationApprovalBinding,
-    A2AHandoffProposalEnvelope,
-    A2AReplayAuditRecord,
-    A2ATrustPosture,
-    a2a_agent_card_to_metadata,
-    a2a_agent_metadata_to_capability_candidate,
-    build_a2a_blocked_receipt,
-    build_a2a_handoff_proposal,
-    build_a2a_replay_audit_record,
-    evaluate_a2a_exact_approval_binding,
-    a2a_v1_agent_card_to_metadata,
-)
-from ultimate_ai_agent.core.capabilities.enums import (
-    CapabilityAuthorityLevel,
-    CapabilityCostClass,
-    CapabilityHealthStatus,
-    CapabilityKind,
-    CapabilityLatencyClass,
-    CapabilityPrivacyLevel,
-    CoordinationMode,
-    PolicyDecisionStatus,
-    RiskLevel as CoordinationRiskLevel,
-    SideEffectLevel,
-    TaskNodeStatus,
-)
-from ultimate_ai_agent.core.capabilities.models import (
-    Artifact,
-    CapabilityCatalogEntry,
-    CapabilityHealthReport,
-    CapabilityManifest,
-    CapabilityPack,
-    CapabilityPolicy,
-    CapabilityRegistration,
-    CapabilityResult,
-    CapabilityRunContext,
-    CapabilitySearchFilters,
-    CapabilitySelection,
-    CapabilitySpec,
-    ContextPolicy,
-    PolicyDecision,
-    QualitySignals,
-    RiskLevel,
-    RuntimePolicy,
-    SafetyPolicy,
-    TaskEnvelope,
-    TaskNode,
-    TaskPlan,
-    TelemetryEvent,
-)
-from ultimate_ai_agent.core.capabilities.mcp_gateway import (
-    MCP_DEFAULT_BLOCKED_AUTHORITY_REFS,
-    MCP_REVIEW_AUTH_SCOPE,
-    McpActivationPosture,
-    McpApprovalBindingDecision,
-    McpAuthPosture,
-    McpBlockedReceipt,
-    McpDiscoveryToolMetadata,
-    McpExactApprovalContext,
-    McpExactApprovalBinding,
-    McpPreviewContract,
-    McpReplayAuditRecord,
-    McpTransportPosture,
-    build_mcp_blocked_receipt,
-    build_mcp_preview_contract,
-    build_mcp_replay_audit_record,
-    evaluate_mcp_exact_approval_binding,
-    mcp_tool_metadata_to_capability_candidate,
-)
-from ultimate_ai_agent.core.capabilities.observability import (
-    CapabilityEvent,
-    CapabilityEventSink,
-    LoggerCapabilityEventSink,
-    NoopCapabilityEventSink,
-)
-from ultimate_ai_agent.core.capabilities.policy import PolicyEngine
-from ultimate_ai_agent.core.capabilities.registry import CapabilityRegistry
-from ultimate_ai_agent.core.capabilities.selection import DeterministicSelector, LLMSelector, select_capabilities
-from ultimate_ai_agent.core.capabilities.state import FileCoordinatorStateStore, InMemoryCoordinatorStateStore
-from ultimate_ai_agent.core.capabilities.telemetry import InMemoryTelemetrySink, NoOpTelemetrySink, TelemetrySink
+
 
 __all__ = [
     "AgentAdapter",
@@ -210,24 +115,157 @@ __all__ = [
     "wrap_tool",
 ]
 
-_ADAPTER_EXPORTS = {
-    "AgentAdapter",
-    "CallableCapabilityAdapter",
-    "CapabilityAdapter",
-    "HandoffAdapter",
-    "HumanGateAdapter",
-    "ReviewerAdapter",
-    "ToolAdapter",
-    "WorkflowAdapter",
-    "wrap_agent",
-    "wrap_tool",
+
+_EXPORT_GROUPS = {
+    "ultimate_ai_agent.core.capabilities.adapters": {
+        "AgentAdapter",
+        "CallableCapabilityAdapter",
+        "CapabilityAdapter",
+        "HandoffAdapter",
+        "HumanGateAdapter",
+        "ReviewerAdapter",
+        "ToolAdapter",
+        "WorkflowAdapter",
+        "wrap_agent",
+        "wrap_tool",
+    },
+    "ultimate_ai_agent.core.capabilities.catalog": {"render_compact_catalog"},
+    "ultimate_ai_agent.core.capabilities.context": {"NotesStore", "SimpleNotesStore"},
+    "ultimate_ai_agent.core.capabilities.coordinator": {
+        "Coordinator",
+        "PolicyDeniedError",
+    },
+    "ultimate_ai_agent.core.capabilities.approval": {
+        "CapabilityApprovalGrant",
+        "LocalApprovalAuthority",
+    },
+    "ultimate_ai_agent.core.capabilities.decorators": {
+        "as_registration",
+        "capability",
+        "get_capability_spec",
+        "tool_capability",
+    },
+    "ultimate_ai_agent.core.capabilities.defaults": {
+        "BLOCKED_FOUNDATION_CAPABILITY_NAMES",
+        "capability_is_foundation_blocked",
+        "default_foundation_capability_registry",
+        "foundation_blocked_capability_specs",
+    },
+    "ultimate_ai_agent.core.capabilities.a2a_gateway": {
+        "A2A_DEFAULT_BLOCKED_AUTHORITY_REFS",
+        "A2A_REVIEW_AUTH_SCOPE",
+        "A2AActivationPosture",
+        "A2AAgentMetadata",
+        "A2AApprovalBindingDecision",
+        "A2AAuthPosture",
+        "A2ABlockedReceipt",
+        "A2AExactDelegationApprovalContext",
+        "A2AExactDelegationApprovalBinding",
+        "A2AHandoffProposalEnvelope",
+        "A2AReplayAuditRecord",
+        "A2ATrustPosture",
+        "a2a_agent_card_to_metadata",
+        "a2a_v1_agent_card_to_metadata",
+        "a2a_agent_metadata_to_capability_candidate",
+        "build_a2a_blocked_receipt",
+        "build_a2a_handoff_proposal",
+        "build_a2a_replay_audit_record",
+        "evaluate_a2a_exact_approval_binding",
+    },
+    "ultimate_ai_agent.core.capabilities.enums": {
+        "CapabilityAuthorityLevel",
+        "CapabilityCostClass",
+        "CapabilityHealthStatus",
+        "CapabilityKind",
+        "CapabilityLatencyClass",
+        "CapabilityPrivacyLevel",
+        "CoordinationMode",
+        "PolicyDecisionStatus",
+        "SideEffectLevel",
+        "TaskNodeStatus",
+        "CoordinationRiskLevel",
+    },
+    "ultimate_ai_agent.core.capabilities.models": {
+        "Artifact",
+        "CapabilityCatalogEntry",
+        "CapabilityHealthReport",
+        "CapabilityManifest",
+        "CapabilityPack",
+        "CapabilityPolicy",
+        "CapabilityRegistration",
+        "CapabilityResult",
+        "CapabilityRunContext",
+        "CapabilitySearchFilters",
+        "CapabilitySelection",
+        "CapabilitySpec",
+        "ContextPolicy",
+        "PolicyDecision",
+        "QualitySignals",
+        "RiskLevel",
+        "RuntimePolicy",
+        "SafetyPolicy",
+        "TaskEnvelope",
+        "TaskNode",
+        "TaskPlan",
+        "TelemetryEvent",
+    },
+    "ultimate_ai_agent.core.capabilities.mcp_gateway": {
+        "MCP_DEFAULT_BLOCKED_AUTHORITY_REFS",
+        "MCP_REVIEW_AUTH_SCOPE",
+        "McpActivationPosture",
+        "McpApprovalBindingDecision",
+        "McpAuthPosture",
+        "McpBlockedReceipt",
+        "McpDiscoveryToolMetadata",
+        "McpExactApprovalContext",
+        "McpExactApprovalBinding",
+        "McpPreviewContract",
+        "McpReplayAuditRecord",
+        "McpTransportPosture",
+        "build_mcp_blocked_receipt",
+        "build_mcp_preview_contract",
+        "build_mcp_replay_audit_record",
+        "evaluate_mcp_exact_approval_binding",
+        "mcp_tool_metadata_to_capability_candidate",
+    },
+    "ultimate_ai_agent.core.capabilities.observability": {
+        "CapabilityEvent",
+        "CapabilityEventSink",
+        "LoggerCapabilityEventSink",
+        "NoopCapabilityEventSink",
+    },
+    "ultimate_ai_agent.core.capabilities.policy": {"PolicyEngine"},
+    "ultimate_ai_agent.core.capabilities.registry": {"CapabilityRegistry"},
+    "ultimate_ai_agent.core.capabilities.selection": {
+        "DeterministicSelector",
+        "LLMSelector",
+        "select_capabilities",
+    },
+    "ultimate_ai_agent.core.capabilities.state": {
+        "FileCoordinatorStateStore",
+        "InMemoryCoordinatorStateStore",
+    },
+    "ultimate_ai_agent.core.capabilities.telemetry": {
+        "InMemoryTelemetrySink",
+        "NoOpTelemetrySink",
+        "TelemetrySink",
+    },
 }
 
-def __getattr__(name: str) -> Any:
-    if name in _ADAPTER_EXPORTS:
-        from ultimate_ai_agent.core.capabilities import adapters
+_LAZY_EXPORTS = {
+    name: module_name for module_name, names in _EXPORT_GROUPS.items() for name in names
+}
 
-        value = getattr(adapters, name)
-        globals()[name] = value
-        return value
-    raise AttributeError(name)
+
+def __getattr__(name: str) -> Any:
+    module_name = _LAZY_EXPORTS.get(name)
+    if module_name is None:
+        raise AttributeError(name)
+    attribute_name = "RiskLevel" if name == "CoordinationRiskLevel" else name
+    value = getattr(import_module(module_name), attribute_name)
+    globals()[name] = value
+    return value
+
+
+def __dir__() -> list[str]:
+    return sorted(set(globals()) | set(__all__))

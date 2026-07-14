@@ -34,10 +34,18 @@ The read model unifies existing UAA contracts:
 - M163 llama.cpp lifecycle contract posture;
 - deterministic ModelRouter trace metadata.
 - deterministic, bounded provider-routing intelligence adapted from the public
-  MIT-licensed ModelRouter project. The UAA-native projection uses injected
-  compatibility, configuration, health, budget, cost, latency, quality,
-  context, and safe-disable observations; unknown or stale evidence fails
-  closed and the result remains a non-authorizing proposal.
+  MIT-licensed ModelRouter project. The UAA-native projection binds each
+  injected observation to the canonical `CapabilityAvailabilitySnapshot`,
+  including compatibility, configuration, health, budget, freshness,
+  safe-disable, cost, latency, quality, and context posture. Unknown, stale,
+  degraded, constrained, or otherwise incomplete evidence fails closed. At
+  most 32 observations are accepted and four candidates are rendered; both
+  the complete request and the complete observation set are fingerprint-bound.
+  Each presented candidate identity additionally binds its normalized readiness,
+  provider/model/adapter refs, metrics, blockers, reasons, evidence, and canonical
+  availability snapshot; the proposal identity binds its request projection,
+  ordered presented set, recommendation, counts, reasons, blockers, and limit.
+  The result remains a non-authorizing proposal.
 - UAA Runtime Parity Phase 06 role-based provider/model evidence
   for answerer, planner, reviewer, synthesizer, coder, extractor, and safety
   reviewer roles.
@@ -65,7 +73,12 @@ CLI parity:
 
 Human-readable output is primary. JSON exposes the same redacted Python-owned
 truth for automation. Candidate presentation is bounded to four rows and never
-performs provider fanout.
+performs provider fanout. Provider readiness adapters preserve unknown
+compatibility, health, budget, freshness, safe-disable, and runtime-class truth;
+they do not synthesize catalog support or readiness from credential or manifest
+reference presence. Proposal and observation identifiers bind the explicit
+observation timestamp, so callers inject one fixed `observed_at` when comparing
+API/CLI test projections; normal operator reads receive a fresh per-read identity.
 
 ## Reciprocal Learning Kept UAA-Native
 

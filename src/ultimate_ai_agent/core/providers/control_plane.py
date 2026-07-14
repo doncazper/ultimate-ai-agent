@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -78,6 +79,7 @@ from ultimate_ai_agent.core.runtime_gateway.profile_isolation import (
     RUNTIME_PROFILE_ISOLATION_ROUTE_REF,
     build_runtime_profile_isolation_read_model,
 )
+from ultimate_ai_agent.core.time import utc_now
 from ultimate_ai_agent.core.web_access.runtime_authority import (
     build_web_runtime_authority_contract,
 )
@@ -1143,7 +1145,9 @@ def build_model_provider_control_plane_read_model(
     env: Mapping[str, str] | None = None,
     credential_readiness: ProviderCredentialReadinessSummary | None = None,
     provider_catalog: ProviderCatalog | None = None,
+    observed_at: datetime | None = None,
 ) -> ModelProviderControlPlaneReadModel:
+    observed_at = observed_at or utc_now()
     readiness = credential_readiness or build_provider_credential_readiness_summary()
     catalog = provider_catalog or build_provider_setup_guide_catalog()
     inventory = inspect_local_model_inventory()
@@ -1230,7 +1234,10 @@ def build_model_provider_control_plane_read_model(
         ),
         provider_routing_intelligence=build_provider_routing_proposal(
             ProviderRoutingNeed(),
-            observations_from_provider_readiness(readiness.providers),
+            observations_from_provider_readiness(
+                readiness.providers,
+                checked_at=observed_at,
+            ),
         ),
         model_provider_research_posture=_build_model_provider_research_posture(
             readiness=readiness,

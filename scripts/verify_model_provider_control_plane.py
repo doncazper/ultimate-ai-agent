@@ -15,6 +15,11 @@ from ultimate_ai_agent.core.providers.control_plane import (
     MODEL_PROVIDER_CONTROL_PLANE_ROUTE_REF,
     build_model_provider_control_plane_read_model,
 )
+from ultimate_ai_agent.core.providers.routing_intelligence import (
+    PROVIDER_ROUTING_MAX_OBSERVATIONS,
+    PROVIDER_ROUTING_MAX_PRESENTED_CANDIDATES,
+    ProviderRoutingProposal,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -70,6 +75,40 @@ def _assert_no_authority(payload: dict[str, object]) -> None:
         _assert(fragment not in serialized, f"forbidden enabled authority: {fragment}")
 
 
+def _assert_provider_routing_truth(routing: ProviderRoutingProposal) -> None:
+    _assert(routing.proposal_only, "provider routing must remain proposal-only")
+    _assert(not routing.invocation_authorized, "provider routing minted authority")
+    _assert(
+        not routing.provider_call_performed,
+        "provider routing performed a provider call",
+    )
+    _assert(
+        routing.observed_candidate_count <= PROVIDER_ROUTING_MAX_OBSERVATIONS,
+        "provider routing observation cap drifted",
+    )
+    _assert(
+        routing.presented_candidate_count <= PROVIDER_ROUTING_MAX_PRESENTED_CANDIDATES,
+        "provider routing presentation cap drifted",
+    )
+    _assert(
+        len(routing.request_fingerprint_ref.rsplit(":", 1)[-1]) == 64,
+        "provider routing request fingerprint is incomplete",
+    )
+    _assert(
+        len(routing.observation_set_fingerprint_ref.rsplit(":", 1)[-1]) == 64,
+        "provider routing observation-set fingerprint is incomplete",
+    )
+    for candidate in routing.candidates:
+        _assert(
+            candidate.availability_snapshot.authority_posture.value == "blocked",
+            "provider readiness observation minted invocation authority",
+        )
+        _assert(
+            candidate.availability_snapshot.runtime_readiness_status.value != "ready",
+            "default provider readiness invented runtime readiness",
+        )
+
+
 def main() -> int:
     read_model = build_model_provider_control_plane_read_model()
     payload = read_model.model_dump(mode="json")
@@ -88,6 +127,7 @@ def main() -> int:
         "llama.cpp lifecycle must be loopback-only",
     )
     _assert(read_model.router_traces, "router traces missing")
+    _assert_provider_routing_truth(read_model.provider_routing_intelligence)
     _assert(
         read_model.role_provider_evidence.role_count == 7,
         "role provider evidence missing roles",

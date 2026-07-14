@@ -132,6 +132,7 @@ from ultimate_ai_agent.core.providers.role_evidence import (
 from ultimate_ai_agent.core.providers.routing_intelligence import (
     PROVIDER_ROUTING_INTELLIGENCE_CONTRACT_REF,
     PROVIDER_ROUTING_INTELLIGENCE_SOURCE_REF,
+    PROVIDER_ROUTING_MAX_OBSERVATIONS,
     PROVIDER_ROUTING_MAX_PRESENTED_CANDIDATES,
     ProviderRoutingBudgetStatus,
     ProviderRoutingCandidate,
@@ -300,6 +301,7 @@ __all__ = [
     "build_role_based_model_provider_evidence",
     "PROVIDER_ROUTING_INTELLIGENCE_CONTRACT_REF",
     "PROVIDER_ROUTING_INTELLIGENCE_SOURCE_REF",
+    "PROVIDER_ROUTING_MAX_OBSERVATIONS",
     "PROVIDER_ROUTING_MAX_PRESENTED_CANDIDATES",
     "ProviderRoutingBudgetStatus",
     "ProviderRoutingCandidate",
