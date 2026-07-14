@@ -35,6 +35,7 @@ PROVIDER_ROUTING_INTELLIGENCE_CONTRACT_REF = (
 PROVIDER_ROUTING_INTELLIGENCE_SOURCE_REF = (
     "source-ref:model-router:deterministic-routing-patterns:v0.8.9"
 )
+PROVIDER_ROUTING_INVOCATION_CAPABILITY_REF = "capability-ref:provider-model-invocation"
 PROVIDER_ROUTING_MAX_PRESENTED_CANDIDATES = 4
 PROVIDER_ROUTING_MAX_OBSERVATIONS = 32
 
@@ -45,6 +46,8 @@ _FINGERPRINT_REF_RE = re.compile(
 )
 _PROPOSAL_REF_RE = re.compile(r"^provider-routing-proposal-ref:[a-f0-9]{64}$")
 _CANDIDATE_REF_RE = re.compile(r"^provider-routing-candidate-ref:[a-f0-9]{64}$")
+_IPV4_LITERAL_RE = re.compile(r"(?<![A-Za-z0-9])(?:\d{1,3}\.){3}\d{1,3}(?![A-Za-z0-9])")
+_LOCALHOST_RE = re.compile(r"(?i)(?<![A-Za-z0-9])localhost(?![A-Za-z0-9])|::1")
 
 
 class ProviderRoutingStrategy(str, Enum):
@@ -78,21 +81,81 @@ class ProviderRoutingCandidateStatus(str, Enum):
 class _ProviderRoutingModel(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
+        frozen=True,
         hide_input_in_errors=True,
         use_enum_values=True,
         allow_inf_nan=False,
     )
 
     def model_copy(self, *, update: Any | None = None, deep: bool = False) -> Any:
-        copied = super().model_copy(update=update, deep=deep)
-        return self.__class__.model_validate(copied.model_dump(mode="python"))
+        payload = self.model_dump(mode="python")
+        if update:
+            payload.update(update)
+        return self.__class__.model_validate(payload)
+
+
+class ProviderRoutingAvailabilitySnapshot(_ProviderRoutingModel):
+    schema_version: Literal["uaa-capability-availability.v1"] = (
+        "uaa-capability-availability.v1"
+    )
+    snapshot_ref: str
+    capability_ref: str
+    provider_ref: str | None = None
+    adapter_ref: str | None = None
+    catalog_status: CatalogStatus
+    compatibility_status: CompatibilityStatus
+    configuration_status: ConfigurationStatus
+    health_status: HealthStatus
+    authority_posture: AuthorityPosture
+    resource_status: ResourceBudgetStatus
+    cost_posture: CostPosture
+    safe_disable_status: SafeDisableStatus
+    runtime_readiness_status: DerivedRuntimeReadinessStatus
+    declared_or_observed_version_ref: str | None = None
+    checked_at: datetime
+    expires_at: datetime | None = None
+    freshness_status: FreshnessStatus
+    reason_codes: tuple[str, ...] = Field(default_factory=tuple)
+    blocker_codes: tuple[str, ...] = Field(default_factory=tuple)
+    evidence_refs: tuple[str, ...] = Field(default_factory=tuple)
+    probe_refs: tuple[str, ...] = Field(default_factory=tuple)
+    source_ref: str
+    safe_summary: str = Field(..., min_length=1, max_length=500)
+
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+        hide_input_in_errors=True,
+        use_enum_values=False,
+        allow_inf_nan=False,
+    )
+
+    @model_validator(mode="after")
+    def preserve_canonical_availability_truth(
+        self,
+    ) -> "ProviderRoutingAvailabilitySnapshot":
+        canonical = CapabilityAvailabilitySnapshot.model_validate(
+            self.model_dump(mode="python")
+        )
+        if canonical.model_dump(mode="json") != self.model_dump(mode="json"):
+            raise ValueError("PROVIDER_ROUTING_AVAILABILITY_PROJECTION_DRIFT")
+        return self
+
+
+def _project_availability_snapshot(value: object) -> object:
+    if isinstance(value, BaseModel):
+        return value.model_dump(mode="python")
+    return value
 
 
 class ProviderRoutingNeed(_ProviderRoutingModel):
     request_ref: str = "provider-routing-request-ref:control-plane:default"
     task_ref: str = "task-ref:provider-routing:operator-inspection"
     strategy: ProviderRoutingStrategy = ProviderRoutingStrategy.best_value
-    required_capability_refs: list[str] = Field(default_factory=list, max_length=12)
+    required_capability_refs: tuple[str, ...] = Field(
+        default_factory=tuple,
+        max_length=12,
+    )
     minimum_context_tokens: int = Field(0, ge=0, le=2_000_000)
     maximum_presented_candidates: int = Field(
         PROVIDER_ROUTING_MAX_PRESENTED_CANDIDATES,
@@ -106,6 +169,10 @@ class ProviderRoutingNeed(_ProviderRoutingModel):
             [self.request_ref, self.task_ref, *self.required_capability_refs],
             "PROVIDER_ROUTING_NEED_REF_INVALID",
         )
+        if self.required_capability_refs != tuple(
+            sorted(set(self.required_capability_refs))
+        ):
+            raise ValueError("PROVIDER_ROUTING_REQUIRED_CAPABILITY_SET_INVALID")
         _reject_unsafe(self.model_dump(mode="json"), "PROVIDER_ROUTING_NEED_UNSAFE")
         return self
 
@@ -118,14 +185,18 @@ class ProviderRoutingObservation(_ProviderRoutingModel):
     model_ref: str
     adapter_ref: str
     runtime_class: ProviderRoutingRuntimeClass
-    availability_snapshot: CapabilityAvailabilitySnapshot
+    availability_snapshot: ProviderRoutingAvailabilitySnapshot
     metered: bool
     estimated_cost_usd: float | None = Field(None, ge=0, le=1_000_000)
     estimated_latency_ms: float | None = Field(None, ge=0, le=3_600_000)
     quality_score: float | None = Field(None, ge=0, le=100)
     context_tokens: int | None = Field(None, ge=1, le=2_000_000)
-    capability_refs: list[str] = Field(default_factory=list, max_length=24)
-    evidence_refs: list[str] = Field(default_factory=list, min_length=1, max_length=24)
+    capability_refs: tuple[str, ...] = Field(default_factory=tuple, max_length=24)
+    evidence_refs: tuple[str, ...] = Field(
+        default_factory=tuple,
+        min_length=1,
+        max_length=24,
+    )
     source_ref: str
 
     @field_validator("provider_label")
@@ -135,6 +206,11 @@ class ProviderRoutingObservation(_ProviderRoutingModel):
             value,
             "provider_routing_provider_label",
         )
+
+    @field_validator("availability_snapshot", mode="before")
+    @classmethod
+    def project_availability_snapshot(cls, value: object) -> object:
+        return _project_availability_snapshot(value)
 
     @model_validator(mode="after")
     def validate_observation(self) -> "ProviderRoutingObservation":
@@ -158,12 +234,18 @@ class ProviderRoutingObservation(_ProviderRoutingModel):
             raise ValueError("PROVIDER_ROUTING_SNAPSHOT_ADAPTER_REF_MISMATCH")
         if snapshot.source_ref != self.source_ref:
             raise ValueError("PROVIDER_ROUTING_SNAPSHOT_SOURCE_REF_MISMATCH")
+        if snapshot.capability_ref != PROVIDER_ROUTING_INVOCATION_CAPABILITY_REF:
+            raise ValueError("PROVIDER_ROUTING_SNAPSHOT_CAPABILITY_REF_MISMATCH")
         expected_cost_posture = (
             CostPosture.metered if self.metered else CostPosture.not_metered
         )
         if snapshot.cost_posture != expected_cost_posture:
             raise ValueError("PROVIDER_ROUTING_SNAPSHOT_COST_POSTURE_MISMATCH")
-        if not set(self.evidence_refs).issubset(set(snapshot.evidence_refs)):
+        if self.capability_refs != tuple(sorted(set(self.capability_refs))):
+            raise ValueError("PROVIDER_ROUTING_CAPABILITY_SET_INVALID")
+        if len(self.evidence_refs) != len(set(self.evidence_refs)):
+            raise ValueError("PROVIDER_ROUTING_EVIDENCE_SET_INVALID")
+        if self.evidence_refs != tuple(snapshot.evidence_refs):
             raise ValueError("PROVIDER_ROUTING_SNAPSHOT_EVIDENCE_INCOMPLETE")
         _reject_unsafe(
             self.model_dump(mode="json"),
@@ -184,13 +266,21 @@ class ProviderRoutingCandidate(_ProviderRoutingModel):
     adapter_ref: str
     runtime_class: ProviderRoutingRuntimeClass
     status: ProviderRoutingCandidateStatus
-    availability_snapshot: CapabilityAvailabilitySnapshot
+    availability_snapshot: ProviderRoutingAvailabilitySnapshot
     estimated_cost_usd: float | None = Field(None, ge=0, le=1_000_000)
     estimated_latency_ms: float | None = Field(None, ge=0, le=3_600_000)
     quality_score: float | None = Field(None, ge=0, le=100)
-    reason_codes: list[str] = Field(default_factory=list, min_length=1, max_length=64)
-    blocker_codes: list[str] = Field(default_factory=list, max_length=64)
-    evidence_refs: list[str] = Field(default_factory=list, min_length=1, max_length=24)
+    reason_codes: tuple[str, ...] = Field(
+        default_factory=tuple,
+        min_length=1,
+        max_length=64,
+    )
+    blocker_codes: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
+    evidence_refs: tuple[str, ...] = Field(
+        default_factory=tuple,
+        min_length=1,
+        max_length=24,
+    )
     safe_summary: str = Field(..., min_length=1, max_length=500)
     proposal_only: Literal[True] = True
     invocation_authorized: Literal[False] = False
@@ -203,6 +293,11 @@ class ProviderRoutingCandidate(_ProviderRoutingModel):
             value,
             "provider_routing_candidate_text",
         )
+
+    @field_validator("availability_snapshot", mode="before")
+    @classmethod
+    def project_availability_snapshot(cls, value: object) -> object:
+        return _project_availability_snapshot(value)
 
     @model_validator(mode="after")
     def validate_candidate(self) -> "ProviderRoutingCandidate":
@@ -230,8 +325,39 @@ class ProviderRoutingCandidate(_ProviderRoutingModel):
             raise ValueError("PROVIDER_ROUTING_CANDIDATE_PROVIDER_REF_MISMATCH")
         if snapshot.adapter_ref != self.adapter_ref:
             raise ValueError("PROVIDER_ROUTING_CANDIDATE_ADAPTER_REF_MISMATCH")
-        if not set(self.evidence_refs).issubset(set(snapshot.evidence_refs)):
+        if snapshot.capability_ref != PROVIDER_ROUTING_INVOCATION_CAPABILITY_REF:
+            raise ValueError("PROVIDER_ROUTING_CANDIDATE_CAPABILITY_REF_MISMATCH")
+        if len(self.evidence_refs) != len(set(self.evidence_refs)):
+            raise ValueError("PROVIDER_ROUTING_CANDIDATE_EVIDENCE_SET_INVALID")
+        if self.evidence_refs != tuple(snapshot.evidence_refs):
             raise ValueError("PROVIDER_ROUTING_CANDIDATE_EVIDENCE_INCOMPLETE")
+        if not set(snapshot.reason_codes).issubset(self.reason_codes):
+            raise ValueError("PROVIDER_ROUTING_CANDIDATE_REASON_INCOMPLETE")
+        if not set(snapshot.blocker_codes).issubset(self.blocker_codes):
+            raise ValueError("PROVIDER_ROUTING_CANDIDATE_BLOCKER_INCOMPLETE")
+        if snapshot.authority_posture == AuthorityPosture.blocked:
+            if (
+                self.status != ProviderRoutingCandidateStatus.blocked.value
+                or "PROVIDER_INVOCATION_AUTHORITY_BLOCKED" not in self.blocker_codes
+            ):
+                raise ValueError("PROVIDER_ROUTING_BLOCKED_AUTHORITY_CANDIDATE_INVALID")
+        elif snapshot.authority_posture == AuthorityPosture.approval_required:
+            if "PROVIDER_APPROVAL_REQUIRED_BEFORE_INVOCATION" not in self.reason_codes:
+                raise ValueError("PROVIDER_ROUTING_APPROVAL_POSTURE_REASON_REQUIRED")
+        elif snapshot.authority_posture == AuthorityPosture.lease_required:
+            if "PROVIDER_LEASE_REQUIRED_BEFORE_INVOCATION" not in self.reason_codes:
+                raise ValueError("PROVIDER_ROUTING_LEASE_POSTURE_REASON_REQUIRED")
+        elif "PROVIDER_ELIGIBLE_FOR_POLICY_EVALUATION" not in self.reason_codes:
+            raise ValueError("PROVIDER_ROUTING_POLICY_EVALUATION_REASON_REQUIRED")
+        if self.status == (
+            ProviderRoutingCandidateStatus.eligible_for_request_scoped_evaluation.value
+        ):
+            required_revalidation_reasons = {
+                "PROVIDER_REQUEST_SCOPED_APPROVAL_REVALIDATION_REQUIRED",
+                "PROVIDER_REQUEST_SCOPED_AUTHORITY_LEASE_REVALIDATION_REQUIRED",
+            }
+            if not required_revalidation_reasons.issubset(self.reason_codes):
+                raise ValueError("PROVIDER_ROUTING_AUTHORITY_REVALIDATION_REQUIRED")
         expected_candidate_ref = _candidate_decision_ref(self)
         if self.candidate_ref != expected_candidate_ref:
             raise ValueError("PROVIDER_ROUTING_CANDIDATE_FINGERPRINT_DRIFT")
@@ -258,20 +384,31 @@ class ProviderRoutingProposal(_ProviderRoutingModel):
     schema_version: Literal["provider_routing_intelligence.v1"] = (
         "provider_routing_intelligence.v1"
     )
-    contract_ref: str = PROVIDER_ROUTING_INTELLIGENCE_CONTRACT_REF
+    contract_ref: Literal["contract-ref:provider-routing-intelligence:v1"] = (
+        PROVIDER_ROUTING_INTELLIGENCE_CONTRACT_REF
+    )
     proposal_ref: str
+    request: ProviderRoutingNeed
     request_ref: str
     request_fingerprint_ref: str
-    observation_fingerprint_refs: list[str] = Field(
-        default_factory=list,
+    observation_fingerprint_refs: tuple[str, ...] = Field(
+        default_factory=tuple,
         max_length=PROVIDER_ROUTING_MAX_OBSERVATIONS,
     )
     observation_set_fingerprint_ref: str
     strategy: ProviderRoutingStrategy
     status: Literal["proposal_only"] = "proposal_only"
-    candidates: list[ProviderRoutingCandidate] = Field(
-        default_factory=list,
+    observations: tuple[ProviderRoutingObservation, ...] = Field(
+        default_factory=tuple,
+        max_length=PROVIDER_ROUTING_MAX_OBSERVATIONS,
+    )
+    candidates: tuple[ProviderRoutingCandidate, ...] = Field(
+        default_factory=tuple,
         max_length=PROVIDER_ROUTING_MAX_PRESENTED_CANDIDATES,
+    )
+    evaluated_candidates: tuple[ProviderRoutingCandidate, ...] = Field(
+        default_factory=tuple,
+        max_length=PROVIDER_ROUTING_MAX_OBSERVATIONS,
     )
     observed_candidate_count: int = Field(..., ge=0)
     presented_candidate_count: int = Field(..., ge=0)
@@ -283,17 +420,36 @@ class ProviderRoutingProposal(_ProviderRoutingModel):
         "presentation-ref:provider-routing:bounded-candidates"
     )
     source_ref: str = PROVIDER_ROUTING_INTELLIGENCE_SOURCE_REF
-    reason_codes: list[str] = Field(default_factory=list, min_length=1, max_length=64)
-    blocker_codes: list[str] = Field(default_factory=list, max_length=64)
+    reason_codes: tuple[str, ...] = Field(
+        default_factory=tuple,
+        min_length=1,
+        max_length=64,
+    )
+    blocker_codes: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
     safe_summary: str = Field(..., min_length=1, max_length=500)
-    maximum_presented_candidates: int = PROVIDER_ROUTING_MAX_PRESENTED_CANDIDATES
+    maximum_presented_candidates: int = Field(
+        PROVIDER_ROUTING_MAX_PRESENTED_CANDIDATES,
+        ge=1,
+        le=PROVIDER_ROUTING_MAX_PRESENTED_CANDIDATES,
+    )
     proposal_only: Literal[True] = True
     deterministic: Literal[True] = True
     safe_refs_only: Literal[True] = True
     approval_refs_are_identifiers_only: Literal[True] = True
     request_scoped_invocation_decision_required: Literal[True] = True
+    fresh_local_approval_validation_required: Literal[True] = True
+    fresh_authority_lease_evaluation_required: Literal[True] = True
     invocation_authorized: Literal[False] = False
     provider_call_performed: Literal[False] = False
+
+    @field_validator("safe_summary")
+    @classmethod
+    def validate_safe_summary(cls, value: str) -> str:
+        return validate_capability_availability_safe_text(
+            value,
+            "provider_routing_proposal_summary",
+        )
+
     fallback_execution_performed: Literal[False] = False
     background_fanout_performed: Literal[False] = False
     raw_prompt_persisted: Literal[False] = False
@@ -319,6 +475,17 @@ class ProviderRoutingProposal(_ProviderRoutingModel):
         _validate_safe_refs(refs, "PROVIDER_ROUTING_PROPOSAL_REF_INVALID")
         _validate_codes(self.reason_codes, "PROVIDER_ROUTING_REASON_CODE_INVALID")
         _validate_codes(self.blocker_codes, "PROVIDER_ROUTING_BLOCKER_CODE_INVALID")
+        if self.request_ref != self.request.request_ref:
+            raise ValueError("PROVIDER_ROUTING_REQUEST_REF_MISMATCH")
+        if self.strategy != self.request.strategy:
+            raise ValueError("PROVIDER_ROUTING_REQUEST_STRATEGY_MISMATCH")
+        if (
+            self.maximum_presented_candidates
+            != self.request.maximum_presented_candidates
+        ):
+            raise ValueError("PROVIDER_ROUTING_REQUEST_PRESENTATION_LIMIT_MISMATCH")
+        if self.request_fingerprint_ref != _request_fingerprint(self.request):
+            raise ValueError("PROVIDER_ROUTING_REQUEST_FINGERPRINT_DRIFT")
         if _PROPOSAL_REF_RE.fullmatch(self.proposal_ref) is None:
             raise ValueError("PROVIDER_ROUTING_PROPOSAL_FINGERPRINT_INVALID")
         fingerprint_refs = [
@@ -332,6 +499,15 @@ class ProviderRoutingProposal(_ProviderRoutingModel):
             raise ValueError("PROVIDER_ROUTING_FINGERPRINT_REF_INVALID")
         if self.presented_candidate_count != len(self.candidates):
             raise ValueError("PROVIDER_ROUTING_PRESENTED_COUNT_DRIFT")
+        if self.observed_candidate_count != len(self.evaluated_candidates):
+            raise ValueError("PROVIDER_ROUTING_EVALUATED_COUNT_DRIFT")
+        if self.observed_candidate_count != len(self.observations):
+            raise ValueError("PROVIDER_ROUTING_OBSERVATION_COUNT_DRIFT")
+        if self.presented_candidate_count != min(
+            self.observed_candidate_count,
+            self.maximum_presented_candidates,
+        ):
+            raise ValueError("PROVIDER_ROUTING_PRESENTATION_UNDERFILLED")
         if self.omitted_candidate_count != (
             self.observed_candidate_count - self.presented_candidate_count
         ):
@@ -340,10 +516,76 @@ class ProviderRoutingProposal(_ProviderRoutingModel):
             raise ValueError("PROVIDER_ROUTING_PRESENTATION_LIMIT_EXCEEDED")
         if self.observed_candidate_count != len(self.observation_fingerprint_refs):
             raise ValueError("PROVIDER_ROUTING_OBSERVATION_FINGERPRINT_COUNT_DRIFT")
-        if self.observation_fingerprint_refs != sorted(
-            set(self.observation_fingerprint_refs)
+        if self.observation_fingerprint_refs != tuple(
+            sorted(set(self.observation_fingerprint_refs))
         ):
             raise ValueError("PROVIDER_ROUTING_OBSERVATION_FINGERPRINT_SET_INVALID")
+        if tuple(
+            observation.provider_ref for observation in self.observations
+        ) != tuple(
+            sorted(observation.provider_ref for observation in self.observations)
+        ):
+            raise ValueError("PROVIDER_ROUTING_OBSERVATION_ORDER_DRIFT")
+        expected_observation_fingerprints = tuple(
+            sorted(_observation_fingerprint(row) for row in self.observations)
+        )
+        if expected_observation_fingerprints != self.observation_fingerprint_refs:
+            raise ValueError("PROVIDER_ROUTING_OBSERVATION_PROJECTION_DRIFT")
+        evaluated_fingerprints = tuple(
+            sorted(
+                candidate.observation_fingerprint_ref
+                for candidate in self.evaluated_candidates
+            )
+        )
+        if evaluated_fingerprints != self.observation_fingerprint_refs:
+            raise ValueError("PROVIDER_ROUTING_EVALUATED_FINGERPRINT_SET_DRIFT")
+        if any(candidate.rank is not None for candidate in self.evaluated_candidates):
+            raise ValueError("PROVIDER_ROUTING_EVALUATED_CANDIDATE_RANK_INVALID")
+        if tuple(
+            candidate.provider_ref for candidate in self.evaluated_candidates
+        ) != tuple(
+            sorted(candidate.provider_ref for candidate in self.evaluated_candidates)
+        ):
+            raise ValueError("PROVIDER_ROUTING_EVALUATED_ORDER_DRIFT")
+        expected_evaluated_candidates = tuple(
+            sorted(
+                (
+                    _evaluate_candidate(self.request, observation)
+                    for observation in self.observations
+                ),
+                key=lambda candidate: candidate.provider_ref,
+            )
+        )
+        if self.evaluated_candidates != expected_evaluated_candidates:
+            raise ValueError("PROVIDER_ROUTING_EVALUATION_PROJECTION_DRIFT")
+        for values, error_code in (
+            (
+                [candidate.candidate_ref for candidate in self.evaluated_candidates],
+                "PROVIDER_ROUTING_EVALUATED_CANDIDATE_DUPLICATE",
+            ),
+            (
+                [candidate.observation_ref for candidate in self.evaluated_candidates],
+                "PROVIDER_ROUTING_EVALUATED_OBSERVATION_DUPLICATE",
+            ),
+            (
+                [candidate.provider_ref for candidate in self.evaluated_candidates],
+                "PROVIDER_ROUTING_EVALUATED_PROVIDER_DUPLICATE",
+            ),
+            (
+                [candidate.candidate_ref for candidate in self.candidates],
+                "PROVIDER_ROUTING_PRESENTED_CANDIDATE_DUPLICATE",
+            ),
+            (
+                [candidate.observation_ref for candidate in self.candidates],
+                "PROVIDER_ROUTING_PRESENTED_OBSERVATION_DUPLICATE",
+            ),
+            (
+                [candidate.provider_ref for candidate in self.candidates],
+                "PROVIDER_ROUTING_PRESENTED_PROVIDER_DUPLICATE",
+            ),
+        ):
+            if len(values) != len(set(values)):
+                raise ValueError(error_code)
         candidate_fingerprints = [
             candidate.observation_fingerprint_ref for candidate in self.candidates
         ]
@@ -353,6 +595,35 @@ class ProviderRoutingProposal(_ProviderRoutingModel):
             self.observation_fingerprint_refs
         ):
             raise ValueError("PROVIDER_ROUTING_OBSERVATION_SET_FINGERPRINT_DRIFT")
+        expected_blockers = tuple(
+            sorted(
+                {
+                    code
+                    for candidate in self.evaluated_candidates
+                    for code in candidate.blocker_codes
+                }
+            )
+        )
+        if self.blocker_codes != expected_blockers:
+            raise ValueError("PROVIDER_ROUTING_PROPOSAL_BLOCKER_SET_DRIFT")
+        expected_reason_codes = (
+            "PROVIDER_ROUTING_PROPOSAL_ONLY",
+            (
+                "PROVIDER_ROUTING_CANDIDATE_AVAILABLE"
+                if any(
+                    not candidate.blocker_codes
+                    for candidate in self.evaluated_candidates
+                )
+                else "PROVIDER_ROUTING_NO_ELIGIBLE_CANDIDATE"
+            ),
+        )
+        if self.reason_codes != expected_reason_codes:
+            raise ValueError("PROVIDER_ROUTING_PROPOSAL_REASON_SET_DRIFT")
+        presented_blockers = {
+            code for candidate in self.candidates for code in candidate.blocker_codes
+        }
+        if not presented_blockers.issubset(self.blocker_codes):
+            raise ValueError("PROVIDER_ROUTING_PROPOSAL_CANDIDATE_BLOCKER_INCOMPLETE")
         if self.proposal_ref != _proposal_ref(
             request_ref=self.request_ref,
             request_fingerprint_ref=self.request_fingerprint_ref,
@@ -361,20 +632,60 @@ class ProviderRoutingProposal(_ProviderRoutingModel):
             presented_candidate_refs=[
                 candidate.candidate_ref for candidate in self.candidates
             ],
+            evaluated_candidate_refs=[
+                candidate.candidate_ref for candidate in self.evaluated_candidates
+            ],
             observed_candidate_count=self.observed_candidate_count,
             omitted_candidate_count=self.omitted_candidate_count,
             recommended_candidate_ref=self.recommended_candidate_ref,
             reason_codes=self.reason_codes,
             blocker_codes=self.blocker_codes,
             maximum_presented_candidates=self.maximum_presented_candidates,
+            approval_queue_route_ref=self.approval_queue_route_ref,
+            run_detail_group_ref=self.run_detail_group_ref,
+            bounded_fanout_presentation_ref=self.bounded_fanout_presentation_ref,
+            source_ref=self.source_ref,
+            safe_summary=self.safe_summary,
         ):
             raise ValueError("PROVIDER_ROUTING_PROPOSAL_FINGERPRINT_DRIFT")
-        ranked = [
-            candidate for candidate in self.candidates if candidate.rank is not None
+        eligible = sorted(
+            [
+                candidate
+                for candidate in self.evaluated_candidates
+                if not candidate.blocker_codes
+            ],
+            key=lambda candidate: _candidate_sort_key(self.strategy, candidate),
+        )
+        blocked = sorted(
+            [
+                candidate
+                for candidate in self.evaluated_candidates
+                if candidate.blocker_codes
+            ],
+            key=lambda candidate: candidate.provider_ref,
+        )
+        eligible_for_presentation = eligible[: self.maximum_presented_candidates]
+        expected_presented = (
+            eligible_for_presentation
+            + blocked[
+                : self.maximum_presented_candidates - len(eligible_for_presentation)
+            ]
+        )
+        if [candidate.candidate_ref for candidate in self.candidates] != [
+            candidate.candidate_ref for candidate in expected_presented
+        ]:
+            raise ValueError("PROVIDER_ROUTING_PRESENTATION_SELECTION_DRIFT")
+        expected_ranks = [
+            index if index <= len(eligible_for_presentation) else None
+            for index in range(1, len(expected_presented) + 1)
         ]
-        if [candidate.rank for candidate in ranked] != list(range(1, len(ranked) + 1)):
+        if [candidate.rank for candidate in self.candidates] != expected_ranks:
             raise ValueError("PROVIDER_ROUTING_RANK_ORDER_INVALID")
-        expected_recommendation = ranked[0].candidate_ref if ranked else None
+        expected_recommendation = (
+            eligible_for_presentation[0].candidate_ref
+            if eligible_for_presentation
+            else None
+        )
         if self.recommended_candidate_ref != expected_recommendation:
             raise ValueError("PROVIDER_ROUTING_RECOMMENDATION_BINDING_INVALID")
         _reject_unsafe(
@@ -388,9 +699,14 @@ def build_provider_routing_proposal(
     need: ProviderRoutingNeed,
     observations: Iterable[ProviderRoutingObservation],
 ) -> ProviderRoutingProposal:
-    rows = list(islice(iter(observations), PROVIDER_ROUTING_MAX_OBSERVATIONS + 1))
+    need = ProviderRoutingNeed.model_validate(need.model_dump(mode="python"))
+    rows = [
+        ProviderRoutingObservation.model_validate(row.model_dump(mode="python"))
+        for row in islice(iter(observations), PROVIDER_ROUTING_MAX_OBSERVATIONS + 1)
+    ]
     if len(rows) > PROVIDER_ROUTING_MAX_OBSERVATIONS:
         raise ValueError("PROVIDER_ROUTING_OBSERVATION_LIMIT_EXCEEDED")
+    rows.sort(key=lambda observation: observation.provider_ref)
     observation_refs = [row.observation_ref for row in rows]
     if len(observation_refs) != len(set(observation_refs)):
         raise ValueError("PROVIDER_ROUTING_DUPLICATE_OBSERVATION_REF")
@@ -398,7 +714,10 @@ def build_provider_routing_proposal(
     if len(provider_refs) != len(set(provider_refs)):
         raise ValueError("PROVIDER_ROUTING_DUPLICATE_PROVIDER_REF")
 
-    evaluated = [_evaluate_candidate(need, observation) for observation in rows]
+    evaluated = sorted(
+        [_evaluate_candidate(need, observation) for observation in rows],
+        key=lambda candidate: candidate.provider_ref,
+    )
     ranked = [candidate for candidate in evaluated if not candidate.blocker_codes]
     blocked = [candidate for candidate in evaluated if candidate.blocker_codes]
     ranked.sort(key=lambda candidate: _candidate_sort_key(need.strategy, candidate))
@@ -435,28 +754,38 @@ def build_provider_routing_proposal(
         "readiness, cost, latency, quality, and context observations. It does "
         "not authorize or perform provider invocation."
     )
-    return ProviderRoutingProposal(
-        proposal_ref=_proposal_ref(
-            request_ref=need.request_ref,
-            request_fingerprint_ref=request_fingerprint,
-            observation_set_fingerprint_ref=observation_set_fingerprint_ref,
-            strategy=need.strategy,
-            presented_candidate_refs=[
-                candidate.candidate_ref for candidate in presented
-            ],
-            observed_candidate_count=observed_candidate_count,
-            omitted_candidate_count=omitted_candidate_count,
-            recommended_candidate_ref=recommended,
-            reason_codes=reason_codes,
-            blocker_codes=blocker_codes,
-            maximum_presented_candidates=need.maximum_presented_candidates,
+    proposal_ref = _proposal_ref(
+        request_ref=need.request_ref,
+        request_fingerprint_ref=request_fingerprint,
+        observation_set_fingerprint_ref=observation_set_fingerprint_ref,
+        strategy=need.strategy,
+        presented_candidate_refs=[candidate.candidate_ref for candidate in presented],
+        evaluated_candidate_refs=[candidate.candidate_ref for candidate in evaluated],
+        observed_candidate_count=observed_candidate_count,
+        omitted_candidate_count=omitted_candidate_count,
+        recommended_candidate_ref=recommended,
+        reason_codes=reason_codes,
+        blocker_codes=blocker_codes,
+        maximum_presented_candidates=need.maximum_presented_candidates,
+        approval_queue_route_ref="route-ref:control-center-approval-queue",
+        run_detail_group_ref="run-detail-group-ref:provider-routing-decision",
+        bounded_fanout_presentation_ref=(
+            "presentation-ref:provider-routing:bounded-candidates"
         ),
+        source_ref=PROVIDER_ROUTING_INTELLIGENCE_SOURCE_REF,
+        safe_summary=safe_summary,
+    )
+    return ProviderRoutingProposal(
+        proposal_ref=proposal_ref,
+        request=need,
         request_ref=need.request_ref,
         request_fingerprint_ref=request_fingerprint,
         observation_fingerprint_refs=observation_fingerprint_refs,
         observation_set_fingerprint_ref=observation_set_fingerprint_ref,
         strategy=need.strategy,
+        observations=rows,
         candidates=presented,
+        evaluated_candidates=evaluated,
         observed_candidate_count=observed_candidate_count,
         presented_candidate_count=len(presented),
         omitted_candidate_count=omitted_candidate_count,
@@ -528,7 +857,7 @@ def _observation_from_readiness(
         snapshot_blockers.append("PROVIDER_MODEL_REFS_REQUIRED")
     snapshot = build_capability_availability_snapshot(
         snapshot_ref=f"capability-availability-ref:provider-routing:{slug}",
-        capability_ref="capability-ref:provider-model-invocation",
+        capability_ref=PROVIDER_ROUTING_INVOCATION_CAPABILITY_REF,
         provider_ref=provider_ref,
         adapter_ref=adapter_ref,
         catalog_status=CatalogStatus.unknown,
@@ -572,6 +901,20 @@ def _evaluate_candidate(
     snapshot = observation.availability_snapshot
     blockers = list(snapshot.blocker_codes)
     reasons = ["PROVIDER_OBSERVATION_EVALUATED", *snapshot.reason_codes]
+    if snapshot.authority_posture == AuthorityPosture.blocked:
+        blockers.append("PROVIDER_INVOCATION_AUTHORITY_BLOCKED")
+    elif snapshot.authority_posture == AuthorityPosture.approval_required:
+        reasons.append("PROVIDER_APPROVAL_REQUIRED_BEFORE_INVOCATION")
+    elif snapshot.authority_posture == AuthorityPosture.lease_required:
+        reasons.append("PROVIDER_LEASE_REQUIRED_BEFORE_INVOCATION")
+    else:
+        reasons.append("PROVIDER_ELIGIBLE_FOR_POLICY_EVALUATION")
+    reasons.extend(
+        [
+            "PROVIDER_REQUEST_SCOPED_APPROVAL_REVALIDATION_REQUIRED",
+            "PROVIDER_REQUEST_SCOPED_AUTHORITY_LEASE_REVALIDATION_REQUIRED",
+        ]
+    )
     if snapshot.runtime_readiness_status != DerivedRuntimeReadinessStatus.ready:
         blockers.append("PROVIDER_RUNTIME_NOT_READY")
     if observation.metered and observation.estimated_cost_usd is None:
@@ -612,9 +955,9 @@ def _evaluate_candidate(
         "estimated_cost_usd": observation.estimated_cost_usd,
         "estimated_latency_ms": observation.estimated_latency_ms,
         "quality_score": observation.quality_score,
-        "reason_codes": reasons,
-        "blocker_codes": blockers,
-        "evidence_refs": observation.evidence_refs,
+        "reason_codes": tuple(reasons),
+        "blocker_codes": tuple(blockers),
+        "evidence_refs": tuple(observation.evidence_refs),
         "safe_summary": summary,
     }
     draft = ProviderRoutingCandidate.model_construct(
@@ -707,12 +1050,18 @@ def _proposal_ref(
     observation_set_fingerprint_ref: str,
     strategy: ProviderRoutingStrategy | str,
     presented_candidate_refs: list[str],
+    evaluated_candidate_refs: list[str],
     observed_candidate_count: int,
     omitted_candidate_count: int,
     recommended_candidate_ref: str | None,
     reason_codes: list[str],
     blocker_codes: list[str],
     maximum_presented_candidates: int,
+    approval_queue_route_ref: str,
+    run_detail_group_ref: str,
+    bounded_fanout_presentation_ref: str,
+    source_ref: str,
+    safe_summary: str,
 ) -> str:
     payload = json.dumps(
         {
@@ -722,12 +1071,18 @@ def _proposal_ref(
             "observation_set_fingerprint_ref": observation_set_fingerprint_ref,
             "strategy": _enum_text(strategy),
             "presented_candidate_refs": presented_candidate_refs,
+            "evaluated_candidate_refs": evaluated_candidate_refs,
             "observed_candidate_count": observed_candidate_count,
             "omitted_candidate_count": omitted_candidate_count,
             "recommended_candidate_ref": recommended_candidate_ref,
             "reason_codes": reason_codes,
             "blocker_codes": blocker_codes,
             "maximum_presented_candidates": maximum_presented_candidates,
+            "approval_queue_route_ref": approval_queue_route_ref,
+            "run_detail_group_ref": run_detail_group_ref,
+            "bounded_fanout_presentation_ref": bounded_fanout_presentation_ref,
+            "source_ref": source_ref,
+            "safe_summary": safe_summary,
         },
         sort_keys=True,
         separators=(",", ":"),
@@ -738,8 +1093,18 @@ def _proposal_ref(
 
 
 def _validate_safe_refs(values: Iterable[str], error_code: str) -> None:
-    if any(_SAFE_REF_RE.fullmatch(value) is None for value in values):
-        raise ValueError(error_code)
+    for value in values:
+        if _SAFE_REF_RE.fullmatch(value) is None:
+            raise ValueError(error_code)
+        if _IPV4_LITERAL_RE.search(value) or _LOCALHOST_RE.search(value):
+            raise ValueError(error_code)
+        try:
+            validate_capability_availability_safe_text(
+                value,
+                "provider_routing_ref",
+            )
+        except ValueError as exc:
+            raise ValueError(error_code) from exc
 
 
 def _validate_codes(values: Iterable[str], error_code: str) -> None:
@@ -750,6 +1115,9 @@ def _validate_codes(values: Iterable[str], error_code: str) -> None:
 
 
 def _reject_unsafe(payload: object, error_code: str) -> None:
+    serialized = json.dumps(payload, sort_keys=True, default=str)
+    if _IPV4_LITERAL_RE.search(serialized) or _LOCALHOST_RE.search(serialized):
+        raise ValueError(error_code)
     if contains_secret_like(payload) or contains_obvious_secret(payload):
         raise ValueError(error_code)
 

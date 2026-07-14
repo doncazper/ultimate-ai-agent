@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.capability_availability import (
+    validate_capability_availability_safe_text,
+)
 from ultimate_ai_agent.core.control_center.fusion_routing import (
     CacheContextEconomics,
     DelegationProposalEnvelope,
@@ -26,6 +30,7 @@ from ultimate_ai_agent.core.secrets.redaction import contains_obvious_secret
 
 GOVERNED_CODE_WORKBENCH_CONTRACT_REF = "contract-ref:governed-code-workbench:v1"
 GOVERNED_CODE_PATCH_REVIEW_CONTRACT_REF = "contract-ref:governed-code-patch-review:v1"
+GOVERNED_CODE_PATCH_REVIEW_SCHEMA_VERSION = "governed_code_patch_review.v1"
 GOVERNED_CODE_WORKBENCH_REQUIRED_REF_FIELDS = [
     "proposal_ref",
     "repo_scope_ref",
@@ -65,6 +70,51 @@ UNSAFE_CODE_WORKBENCH_TEXT_FRAGMENTS = (
     "credential",
     "password",
 )
+GOVERNED_CODE_PATCH_MAX_UTF8_BYTES = 512_000
+GOVERNED_CODE_PATCH_MAX_LINES = 20_000
+GOVERNED_CODE_PATCH_MAX_LINE_BYTES = 16_384
+GOVERNED_CODE_PATCH_MAX_TARGET_REFS = 64
+_SHA256_HEX_RE = re.compile(r"^[a-f0-9]{64}$")
+_IMMUTABLE_GIT_REVISION_REF_RE = re.compile(r"^git-commit-ref:sha1:[a-f0-9]{40}$")
+
+
+class _FrozenWorkClassification(WorkClassification):
+    reason_refs: tuple[str, ...] = Field(default_factory=tuple, min_length=1)
+    blocked_authority_refs: tuple[str, ...] = Field(default_factory=tuple)
+    source_refs: tuple[str, ...] = Field(default_factory=tuple, min_length=1)
+    evidence_refs: tuple[str, ...] = Field(default_factory=tuple, min_length=1)
+
+    model_config = ConfigDict(use_enum_values=True, extra="forbid", frozen=True)
+
+
+class _FrozenCacheContextEconomics(CacheContextEconomics):
+    cache_or_context_blocker_refs: tuple[str, ...] = Field(default_factory=tuple)
+    evidence_refs: tuple[str, ...] = Field(default_factory=tuple)
+
+    model_config = ConfigDict(use_enum_values=True, extra="forbid", frozen=True)
+
+
+class _FrozenDelegationProposalEnvelope(DelegationProposalEnvelope):
+    main_owner_responsibility_refs: tuple[str, ...] = Field(
+        default_factory=tuple,
+        min_length=1,
+    )
+    delegated_work_refs: tuple[str, ...] = Field(default_factory=tuple)
+    blocked_execution_refs: tuple[str, ...] = Field(
+        default_factory=tuple,
+        min_length=1,
+    )
+    expected_receipt_refs: tuple[str, ...] = Field(
+        default_factory=tuple,
+        min_length=1,
+    )
+    rollback_safe_disable_posture_refs: tuple[str, ...] = Field(
+        default_factory=tuple,
+        min_length=1,
+    )
+    work_classification: _FrozenWorkClassification
+
+    model_config = ConfigDict(use_enum_values=True, extra="forbid", frozen=True)
 
 
 class GovernedCodeWorkbenchProposal(BaseModel):
@@ -73,16 +123,19 @@ class GovernedCodeWorkbenchProposal(BaseModel):
     repo_scope_ref: str = Field(..., min_length=1)
     safe_diff_summary_ref: str = Field(..., min_length=1)
     validation_plan_ref: str = Field(..., min_length=1)
-    validation_result_refs: list[str] = Field(default_factory=list, min_length=1)
+    validation_result_refs: tuple[str, ...] = Field(
+        default_factory=tuple,
+        min_length=1,
+    )
     approval_requirement_ref: str = Field(..., min_length=1)
     expected_apply_receipt_ref: str = Field(..., min_length=1)
     expected_rollback_receipt_ref: str = Field(..., min_length=1)
-    evidence_refs: list[str] = Field(default_factory=list, min_length=1)
+    evidence_refs: tuple[str, ...] = Field(default_factory=tuple, min_length=1)
     idempotency_key_ref: str = Field(..., min_length=1)
-    blocked_state_refs: list[str] = Field(default_factory=list, min_length=1)
-    work_classification: WorkClassification
-    delegation_proposal: DelegationProposalEnvelope
-    cache_context_economics: CacheContextEconomics
+    blocked_state_refs: tuple[str, ...] = Field(default_factory=tuple, min_length=1)
+    work_classification: _FrozenWorkClassification
+    delegation_proposal: _FrozenDelegationProposalEnvelope
+    cache_context_economics: _FrozenCacheContextEconomics
     safe_summary: str = Field(..., min_length=1, max_length=500)
     validation_plan_summary: str = Field(..., min_length=1, max_length=500)
     side_effect_class: str = "local_dev_workspace_only"
@@ -108,7 +161,7 @@ class GovernedCodeWorkbenchProposal(BaseModel):
     diff_body_storage_enabled: bool = False
     production_authority_enabled: bool = False
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     @model_validator(mode="after")
     def validate_proposal(self) -> "GovernedCodeWorkbenchProposal":
@@ -125,14 +178,14 @@ class GovernedCodeWorkbenchProposal(BaseModel):
             "expected_rollback_receipt_ref",
             "idempotency_key_ref",
         ]:
-            validate_task_ref(getattr(self, field_name), field_name)
+            _validate_safe_durable_ref(getattr(self, field_name), field_name)
         for field_name in [
             "validation_result_refs",
             "evidence_refs",
             "blocked_state_refs",
         ]:
             for ref_value in getattr(self, field_name):
-                validate_task_ref(ref_value, field_name)
+                _validate_safe_durable_ref(ref_value, field_name)
         for field_name in [
             "safe_summary",
             "validation_plan_summary",
@@ -192,14 +245,16 @@ class GovernedCodeWorkbenchProposal(BaseModel):
 
 
 class GovernedCodePatchReview(BaseModel):
-    schema_version: str = "governed_code_patch_review.v1"
+    schema_version: Literal["governed_code_patch_review.v1"] = (
+        GOVERNED_CODE_PATCH_REVIEW_SCHEMA_VERSION
+    )
     contract_ref: str = GOVERNED_CODE_PATCH_REVIEW_CONTRACT_REF
     review_ref: str = Field(..., min_length=1)
     proposal_ref: str = Field(..., min_length=1)
     patch_hash_ref: str = Field(..., min_length=1)
     target_fingerprint_ref: str = Field(..., min_length=1)
     base_revision_ref: str = Field(..., min_length=1)
-    target_refs: list[str] = Field(..., min_length=1, max_length=64)
+    target_refs: tuple[str, ...] = Field(..., min_length=1, max_length=64)
     approval_scope_fingerprint_ref: str = Field(..., min_length=1)
     validation_plan_ref: str = Field(..., min_length=1)
     rollback_plan_ref: str = Field(..., min_length=1)
@@ -220,10 +275,16 @@ class GovernedCodePatchReview(BaseModel):
     approval_ref_grants_authority: bool = False
     model_output_grants_authority: bool = False
 
-    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+        hide_input_in_errors=True,
+    )
 
     @model_validator(mode="after")
     def validate_review(self) -> "GovernedCodePatchReview":
+        if self.contract_ref != GOVERNED_CODE_PATCH_REVIEW_CONTRACT_REF:
+            raise ValueError("governed Code patch review contract ref drift")
         for field_name in [
             "contract_ref",
             "review_ref",
@@ -236,9 +297,57 @@ class GovernedCodePatchReview(BaseModel):
             "rollback_plan_ref",
             "idempotency_key_ref",
         ]:
-            validate_task_ref(getattr(self, field_name), field_name)
+            _validate_safe_durable_ref(getattr(self, field_name), field_name)
         for target_ref in self.target_refs:
-            validate_task_ref(target_ref, "target_ref")
+            _validate_safe_durable_ref(target_ref, "target_ref")
+        if self.target_refs != tuple(sorted(set(self.target_refs))):
+            raise ValueError("governed Code patch review targets must be canonical")
+        if _IMMUTABLE_GIT_REVISION_REF_RE.fullmatch(self.base_revision_ref) is None:
+            raise ValueError(
+                "governed Code patch review requires immutable base revision"
+            )
+        patch_digest = _require_sha256_ref(
+            self.patch_hash_ref,
+            "patch-hash-ref:sha256:",
+            "patch hash",
+        )
+        target_digest = _target_fingerprint(self.target_refs)
+        expected_target_ref = f"target-fingerprint-ref:sha256:{target_digest}"
+        if self.target_fingerprint_ref != expected_target_ref:
+            raise ValueError("governed Code patch target fingerprint drift")
+        scope_digest = _approval_scope_fingerprint(
+            proposal_ref=self.proposal_ref,
+            patch_digest=patch_digest,
+            target_digest=target_digest,
+            base_revision_ref=self.base_revision_ref,
+        )
+        expected_scope_ref = f"approval-scope-fingerprint-ref:sha256:{scope_digest}"
+        if self.approval_scope_fingerprint_ref != expected_scope_ref:
+            raise ValueError("governed Code patch approval scope fingerprint drift")
+        review_digest = _patch_review_fingerprint(
+            proposal_ref=self.proposal_ref,
+            patch_digest=patch_digest,
+            target_digest=target_digest,
+            base_revision_ref=self.base_revision_ref,
+            scope_digest=scope_digest,
+            line_addition_count=self.line_addition_count,
+            line_deletion_count=self.line_deletion_count,
+            safe_summary=self.safe_summary,
+        )
+        expected_refs = {
+            "review_ref": f"code-patch-review-ref:sha256:{review_digest}",
+            "validation_plan_ref": (
+                f"validation-plan-ref:governed-code:sha256:{review_digest}"
+            ),
+            "rollback_plan_ref": (
+                f"rollback-plan-ref:governed-code:sha256:{review_digest}"
+            ),
+            "idempotency_key_ref": (
+                f"idempotency-ref:governed-code:sha256:{scope_digest}"
+            ),
+        }
+        if any(getattr(self, name) != value for name, value in expected_refs.items()):
+            raise ValueError("governed Code patch review fingerprint drift")
         required = [
             self.exact_patch_hash_bound,
             self.exact_target_fingerprint_bound,
@@ -269,12 +378,26 @@ def build_governed_code_patch_review(
     patch_body: str,
     target_refs: list[str],
     proposal_ref: str = "code-proposal:governed-workbench",
-    base_revision_ref: str = "git-revision-ref:governed-code:current-base",
+    base_revision_ref: str | None = None,
 ) -> GovernedCodePatchReview:
+    if len(patch_body) > GOVERNED_CODE_PATCH_MAX_UTF8_BYTES:
+        raise ValueError("governed Code patch review exceeds byte limit")
+    patch_bytes = patch_body.encode("utf-8")
+    if len(patch_bytes) > GOVERNED_CODE_PATCH_MAX_UTF8_BYTES:
+        raise ValueError("governed Code patch review exceeds byte limit")
+    patch_lines = patch_bytes.splitlines()
+    if len(patch_lines) > GOVERNED_CODE_PATCH_MAX_LINES:
+        raise ValueError("governed Code patch review exceeds line limit")
+    if any(len(line) > GOVERNED_CODE_PATCH_MAX_LINE_BYTES for line in patch_lines):
+        raise ValueError("governed Code patch review exceeds per-line byte limit")
+    if len(target_refs) > GOVERNED_CODE_PATCH_MAX_TARGET_REFS:
+        raise ValueError("governed Code patch review exceeds target limit")
     if not patch_body.strip():
         raise ValueError("governed Code patch review requires patch content")
     if not target_refs:
         raise ValueError("governed Code patch review requires target refs")
+    if len(target_refs) != len(set(target_refs)):
+        raise ValueError("governed Code patch review requires unique target refs")
     if any(
         fragment in patch_body.lower()
         for fragment in UNSAFE_CODE_WORKBENCH_TEXT_FRAGMENTS
@@ -282,46 +405,137 @@ def build_governed_code_patch_review(
         raise ValueError("governed Code patch review contains denied content")
     if contains_secret_like(patch_body) or contains_obvious_secret(patch_body):
         raise ValueError("governed Code patch review rejected secret-like content")
+    if base_revision_ref is None:
+        raise ValueError("governed Code patch review requires immutable base revision")
+    if _IMMUTABLE_GIT_REVISION_REF_RE.fullmatch(base_revision_ref) is None:
+        raise ValueError("governed Code patch review requires immutable base revision")
     for target_ref in target_refs:
-        validate_task_ref(target_ref, "target_ref")
-    validate_task_ref(proposal_ref, "proposal_ref")
-    validate_task_ref(base_revision_ref, "base_revision_ref")
-    patch_digest = hashlib.sha256(patch_body.encode()).hexdigest()
-    target_payload = "|".join(sorted(target_refs))
-    target_digest = hashlib.sha256(target_payload.encode()).hexdigest()
-    scope_digest = hashlib.sha256(
-        f"{proposal_ref}|{patch_digest}|{target_digest}|{base_revision_ref}".encode()
-    ).hexdigest()
+        _validate_safe_durable_ref(target_ref, "target_ref")
+    _validate_safe_durable_ref(proposal_ref, "proposal_ref")
+    _validate_safe_durable_ref(base_revision_ref, "base_revision_ref")
+    canonical_targets = sorted(target_refs)
+    patch_digest = hashlib.sha256(patch_bytes).hexdigest()
+    target_digest = _target_fingerprint(canonical_targets)
+    scope_digest = _approval_scope_fingerprint(
+        proposal_ref=proposal_ref,
+        patch_digest=patch_digest,
+        target_digest=target_digest,
+        base_revision_ref=base_revision_ref,
+    )
     additions = sum(
         1
-        for line in patch_body.splitlines()
-        if line.startswith("+") and not line.startswith("+++")
+        for line in patch_lines
+        if line.startswith(b"+") and not line.startswith(b"+++")
     )
     deletions = sum(
         1
-        for line in patch_body.splitlines()
-        if line.startswith("-") and not line.startswith("---")
+        for line in patch_lines
+        if line.startswith(b"-") and not line.startswith(b"---")
     )
-    suffix = patch_digest[:16]
+    safe_summary = (
+        "Exact patch hash, targets, base revision, approval scope, validation, "
+        "rollback, and receipt requirements are bound for operator review. "
+        "No patch was applied and no patch body was persisted."
+    )
+    review_digest = _patch_review_fingerprint(
+        proposal_ref=proposal_ref,
+        patch_digest=patch_digest,
+        target_digest=target_digest,
+        base_revision_ref=base_revision_ref,
+        scope_digest=scope_digest,
+        line_addition_count=additions,
+        line_deletion_count=deletions,
+        safe_summary=safe_summary,
+    )
     return GovernedCodePatchReview(
-        review_ref=f"code-patch-review-ref:{suffix}",
+        review_ref=f"code-patch-review-ref:sha256:{review_digest}",
         proposal_ref=proposal_ref,
         patch_hash_ref=f"patch-hash-ref:sha256:{patch_digest}",
         target_fingerprint_ref=f"target-fingerprint-ref:sha256:{target_digest}",
         base_revision_ref=base_revision_ref,
-        target_refs=sorted(target_refs),
+        target_refs=tuple(canonical_targets),
         approval_scope_fingerprint_ref=f"approval-scope-fingerprint-ref:sha256:{scope_digest}",
-        validation_plan_ref=f"validation-plan-ref:governed-code:{suffix}",
-        rollback_plan_ref=f"rollback-plan-ref:governed-code:{suffix}",
-        idempotency_key_ref=f"idempotency-ref:governed-code:{scope_digest[:16]}",
+        validation_plan_ref=(
+            f"validation-plan-ref:governed-code:sha256:{review_digest}"
+        ),
+        rollback_plan_ref=(f"rollback-plan-ref:governed-code:sha256:{review_digest}"),
+        idempotency_key_ref=(f"idempotency-ref:governed-code:sha256:{scope_digest}"),
         line_addition_count=additions,
         line_deletion_count=deletions,
-        safe_summary=(
-            "Exact patch hash, targets, base revision, approval scope, validation, "
-            "rollback, and receipt requirements are bound for operator review. "
-            "No patch was applied and no patch body was persisted."
-        ),
+        safe_summary=safe_summary,
     )
+
+
+def _target_fingerprint(target_refs: list[str]) -> str:
+    payload = json.dumps(target_refs, separators=(",", ":"), ensure_ascii=True)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _validate_safe_durable_ref(value: str, field_name: str) -> str:
+    validate_task_ref(value, field_name)
+    try:
+        return validate_capability_availability_safe_text(value, field_name)
+    except ValueError as exc:
+        raise ValueError(f"governed Code patch {field_name} ref is unsafe") from exc
+
+
+def _approval_scope_fingerprint(
+    *,
+    proposal_ref: str,
+    patch_digest: str,
+    target_digest: str,
+    base_revision_ref: str,
+) -> str:
+    payload = json.dumps(
+        {
+            "base_revision_ref": base_revision_ref,
+            "patch_digest": patch_digest,
+            "proposal_ref": proposal_ref,
+            "target_digest": target_digest,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _patch_review_fingerprint(
+    *,
+    proposal_ref: str,
+    patch_digest: str,
+    target_digest: str,
+    base_revision_ref: str,
+    scope_digest: str,
+    line_addition_count: int,
+    line_deletion_count: int,
+    safe_summary: str,
+) -> str:
+    payload = json.dumps(
+        {
+            "base_revision_ref": base_revision_ref,
+            "contract_ref": GOVERNED_CODE_PATCH_REVIEW_CONTRACT_REF,
+            "line_addition_count": line_addition_count,
+            "line_deletion_count": line_deletion_count,
+            "patch_digest": patch_digest,
+            "proposal_ref": proposal_ref,
+            "scope_digest": scope_digest,
+            "schema_version": GOVERNED_CODE_PATCH_REVIEW_SCHEMA_VERSION,
+            "safe_summary": safe_summary,
+            "target_digest": target_digest,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _require_sha256_ref(value: str, prefix: str, field_name: str) -> str:
+    if not value.startswith(prefix):
+        raise ValueError(f"governed Code patch {field_name} ref format invalid")
+    digest = value[len(prefix) :]
+    if _SHA256_HEX_RE.fullmatch(digest) is None:
+        raise ValueError(f"governed Code patch {field_name} digest invalid")
+    return digest
 
 
 def build_governed_code_workbench_proposal(
@@ -346,6 +560,20 @@ def build_governed_code_workbench_proposal(
         evidence_ref=(evidence_refs or ["evidence-ref:governed-code:today"])[0],
         reason_ref=f"classification-reason-ref:governed-code:{suffix}",
     )
+    frozen_work_classification = _FrozenWorkClassification.model_validate(
+        work_classification.model_dump(mode="python")
+    )
+    delegation_proposal = build_delegation_proposal(
+        work_classification=work_classification,
+        suffix_ref=proposal_ref,
+    )
+    frozen_delegation_proposal = _FrozenDelegationProposalEnvelope.model_validate(
+        delegation_proposal.model_dump(mode="python")
+    )
+    cache_context_economics = build_cache_context_economics(
+        suffix_ref=proposal_ref,
+        blocker_refs=["blocked-state:governed-code-no-runtime-model-switch"],
+    )
     return GovernedCodeWorkbenchProposal(
         proposal_ref=proposal_ref,
         repo_scope_ref=f"repo-scope:governed-code:{suffix}",
@@ -359,14 +587,10 @@ def build_governed_code_workbench_proposal(
         evidence_refs=evidence_refs or ["evidence-ref:governed-code:today"],
         idempotency_key_ref=f"idempotency-ref:governed-code:{suffix}",
         blocked_state_refs=list(GOVERNED_CODE_WORKBENCH_REQUIRED_BLOCKED_REFS),
-        work_classification=work_classification,
-        delegation_proposal=build_delegation_proposal(
-            work_classification=work_classification,
-            suffix_ref=proposal_ref,
-        ),
-        cache_context_economics=build_cache_context_economics(
-            suffix_ref=proposal_ref,
-            blocker_refs=["blocked-state:governed-code-no-runtime-model-switch"],
+        work_classification=frozen_work_classification,
+        delegation_proposal=frozen_delegation_proposal,
+        cache_context_economics=_FrozenCacheContextEconomics.model_validate(
+            cache_context_economics.model_dump(mode="python")
         ),
         safe_summary=safe_summary,
         validation_plan_summary=validation_plan_summary,

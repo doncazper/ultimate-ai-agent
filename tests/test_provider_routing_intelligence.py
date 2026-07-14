@@ -67,6 +67,9 @@ def _observation(
     adapter_ref: str | None = None,
     provider_label: str | None = None,
     snapshot_reason_codes: list[str] | None = None,
+    authority_posture: AuthorityPosture = (
+        AuthorityPosture.eligible_for_policy_evaluation
+    ),
 ) -> ProviderRoutingObservation:
     provider_ref = f"provider-ref:{slug}:test"
     adapter_ref = adapter_ref or f"provider-adapter-ref:{slug}:test"
@@ -81,7 +84,7 @@ def _observation(
         compatibility_status=compatibility,
         configuration_status=configuration,
         health_status=health,
-        authority_posture=AuthorityPosture.blocked,
+        authority_posture=authority_posture,
         resource_status=budget,
         cost_posture=(CostPosture.metered if metered else CostPosture.not_metered),
         safe_disable_status=safe_disable,
@@ -345,8 +348,8 @@ def test_proposal_identity_binds_all_observations_including_omitted_candidates()
     )
     assert first.proposal_ref != second.proposal_ref
     assert len(first.observation_fingerprint_refs) == 5
-    assert first.observation_fingerprint_refs == sorted(
-        first.observation_fingerprint_refs
+    assert first.observation_fingerprint_refs == tuple(
+        sorted(first.observation_fingerprint_refs)
     )
 
 
@@ -429,11 +432,19 @@ def test_proposal_rejects_unbound_or_malformed_fingerprint_refs() -> None:
         {"request_ref": "provider-routing-request-ref:other:test"},
         {"strategy": ProviderRoutingStrategy.lowest_latency},
         {"recommended_candidate_ref": None},
-        {"reason_codes": ["PROVIDER_ROUTING_PROPOSAL_ONLY"]},
-        {"blocker_codes": ["SYNTHETIC_BLOCKER_NOT_OBSERVED"]},
+        {"reason_codes": ("PROVIDER_ROUTING_PROPOSAL_ONLY",)},
+        {"blocker_codes": ("SYNTHETIC_BLOCKER_NOT_OBSERVED",)},
     ):
-        with pytest.raises(ValidationError, match="PROPOSAL_FINGERPRINT_DRIFT"):
+        with pytest.raises(
+            ValidationError,
+            match=(
+                "(?:PROPOSAL_FINGERPRINT_DRIFT|REQUEST_REF_MISMATCH|"
+                "REQUEST_STRATEGY_MISMATCH|PROPOSAL_BLOCKER_SET_DRIFT|"
+                "PROPOSAL_REASON_SET_DRIFT)"
+            ),
+        ):
             proposal.model_copy(update=update)
+
     with pytest.raises(ValidationError, match="CANDIDATE_FINGERPRINT_NOT_BOUND"):
         unbound_payload = dict(proposal.candidates[0].__dict__)
         unbound_payload["observation_fingerprint_ref"] = (
@@ -448,9 +459,7 @@ def test_proposal_rejects_unbound_or_malformed_fingerprint_refs() -> None:
         tampered_candidate = routing.ProviderRoutingCandidate.model_validate(
             unbound_payload
         )
-        proposal.model_copy(
-            update={"candidates": [tampered_candidate]},
-        )
+        proposal.model_copy(update={"candidates": (tampered_candidate,)})
 
     candidate_payload = dict(proposal.candidates[0].__dict__)
     candidate_payload["quality_score"] = 1
@@ -460,7 +469,21 @@ def test_proposal_rejects_unbound_or_malformed_fingerprint_refs() -> None:
         candidate_payload
     )
     with pytest.raises(ValidationError, match="PROPOSAL_FINGERPRINT_DRIFT"):
-        proposal.model_copy(update={"candidates": [self_consistent_candidate]})
+        proposal.model_copy(update={"candidates": (self_consistent_candidate,)})
+
+    for update in (
+        {"approval_queue_route_ref": "route-ref:alternate-approval-queue"},
+        {"run_detail_group_ref": "run-detail-group-ref:alternate-evidence"},
+        {
+            "bounded_fanout_presentation_ref": (
+                "presentation-ref:provider-routing:alternate-candidates"
+            )
+        },
+        {"source_ref": "source-ref:provider-routing:alternate"},
+        {"safe_summary": "Alternate safe provider routing proposal summary."},
+    ):
+        with pytest.raises(ValidationError, match="PROPOSAL_FINGERPRINT_DRIFT"):
+            proposal.model_copy(update=update)
 
 
 def test_readiness_adapter_preserves_unknown_and_blocked_truth() -> None:

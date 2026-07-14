@@ -72,7 +72,7 @@ def test_test_shaped_approval_ref_cannot_authorize_sensitive_cloud_route() -> No
 
     assert decision.status == ModelRouteStatus.approval_required
     assert decision.selected_profile_id is None
-    assert "APPROVAL_REF_UNVALIDATED" in decision.reason_codes
+    assert "APPROVAL_TEST_REF_DENIED" in decision.reason_codes
 
 
 def test_local_route_does_not_require_cloud_approval() -> None:

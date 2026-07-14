@@ -10033,6 +10033,142 @@ export interface ModelSlotPostureReadModel {
   safe_summary: string;
 }
 
+export interface ProviderRoutingAvailabilitySnapshot {
+  schema_version: "uaa-capability-availability.v1";
+  snapshot_ref: string;
+  capability_ref: "capability-ref:provider-model-invocation";
+  provider_ref: string | null;
+  adapter_ref: string | null;
+  catalog_status: "supported" | "unsupported" | "unknown";
+  compatibility_status: "supported" | "unsupported" | "unknown";
+  configuration_status: "configured" | "not_configured" | "invalid" | "unknown";
+  health_status: "healthy" | "degraded" | "unhealthy" | "stale" | "unknown";
+  authority_posture:
+    | "eligible_for_policy_evaluation"
+    | "approval_required"
+    | "lease_required"
+    | "blocked";
+  resource_status: "available" | "constrained" | "exhausted" | "unknown";
+  cost_posture: "not_metered" | "metered" | "unknown";
+  safe_disable_status: "active" | "inactive" | "unknown";
+  runtime_readiness_status: "ready" | "unavailable" | "blocked" | "unknown";
+  declared_or_observed_version_ref: string | null;
+  checked_at: string;
+  expires_at: string | null;
+  freshness_status: string;
+  reason_codes: string[];
+  blocker_codes: string[];
+  evidence_refs: string[];
+  probe_refs: string[];
+  source_ref: string;
+  safe_summary: string;
+}
+
+export interface ProviderRoutingNeed {
+  request_ref: string;
+  task_ref: string;
+  strategy:
+    | "best_value"
+    | "lowest_cost"
+    | "lowest_latency"
+    | "best_quality"
+    | "local_first";
+  required_capability_refs: string[];
+  minimum_context_tokens: number;
+  maximum_presented_candidates: number;
+}
+
+export interface ProviderRoutingObservation {
+  observation_ref: string;
+  provider_ref: string;
+  provider_label: string;
+  provider_manifest_ref: string;
+  model_ref: string;
+  adapter_ref: string;
+  runtime_class: "local" | "hosted" | "unknown";
+  availability_snapshot: ProviderRoutingAvailabilitySnapshot;
+  metered: boolean;
+  estimated_cost_usd: number | null;
+  estimated_latency_ms: number | null;
+  quality_score: number | null;
+  context_tokens: number | null;
+  capability_refs: string[];
+  evidence_refs: string[];
+  source_ref: string;
+}
+
+export interface ProviderRoutingCandidate {
+  candidate_ref: string;
+  observation_ref: string;
+  observation_fingerprint_ref: string;
+  rank: number | null;
+  provider_ref: string;
+  provider_label: string;
+  provider_manifest_ref: string;
+  model_ref: string;
+  adapter_ref: string;
+  runtime_class: "local" | "hosted" | "unknown";
+  status: "eligible_for_request_scoped_evaluation" | "blocked";
+  availability_snapshot: ProviderRoutingAvailabilitySnapshot;
+  estimated_cost_usd: number | null;
+  estimated_latency_ms: number | null;
+  quality_score: number | null;
+  reason_codes: string[];
+  blocker_codes: string[];
+  evidence_refs: string[];
+  safe_summary: string;
+  proposal_only: true;
+  invocation_authorized: false;
+  provider_call_performed: false;
+}
+
+export interface ProviderRoutingProposal {
+  schema_version: "provider_routing_intelligence.v1";
+  contract_ref: "contract-ref:provider-routing-intelligence:v1";
+  proposal_ref: string;
+  request: ProviderRoutingNeed;
+  request_ref: string;
+  request_fingerprint_ref: string;
+  observation_fingerprint_refs: string[];
+  observation_set_fingerprint_ref: string;
+  strategy:
+    | "best_value"
+    | "lowest_cost"
+    | "lowest_latency"
+    | "best_quality"
+    | "local_first";
+  status: "proposal_only";
+  observations: ProviderRoutingObservation[];
+  candidates: ProviderRoutingCandidate[];
+  evaluated_candidates: ProviderRoutingCandidate[];
+  observed_candidate_count: number;
+  presented_candidate_count: number;
+  omitted_candidate_count: number;
+  recommended_candidate_ref: string | null;
+  approval_queue_route_ref: string;
+  run_detail_group_ref: string;
+  bounded_fanout_presentation_ref: string;
+  source_ref: string;
+  reason_codes: string[];
+  blocker_codes: string[];
+  safe_summary: string;
+  maximum_presented_candidates: number;
+  proposal_only: true;
+  deterministic: true;
+  safe_refs_only: true;
+  approval_refs_are_identifiers_only: true;
+  request_scoped_invocation_decision_required: true;
+  fresh_local_approval_validation_required: true;
+  fresh_authority_lease_evaluation_required: true;
+  invocation_authorized: false;
+  provider_call_performed: false;
+  fallback_execution_performed: false;
+  background_fanout_performed: false;
+  raw_prompt_persisted: false;
+  raw_response_persisted: false;
+  raw_provider_payload_persisted: false;
+}
+
 export interface ModelProviderControlPlaneReadModel {
   schema_version: "model_provider_control_plane.v1";
   contract_ref: string;
@@ -10052,6 +10188,7 @@ export interface ModelProviderControlPlaneReadModel {
   router_traces: ModelRouterTracePosture[];
   delegated_runtime_model_catalog: DelegatedRuntimeModelCatalogPosture;
   model_slot_posture: ModelSlotPostureReadModel;
+  provider_routing_intelligence: ProviderRoutingProposal;
   model_provider_research_posture: ModelProviderResearchPosture;
   credential_readiness_ref: string;
   provider_catalog_ref: string;

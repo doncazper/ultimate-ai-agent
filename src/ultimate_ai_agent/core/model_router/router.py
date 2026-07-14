@@ -2,8 +2,11 @@ from dataclasses import dataclass
 from typing import List
 
 from ultimate_ai_agent.core.approvals import (
+    ApprovalDecisionStatus,
     ApprovalRiskLevel,
     ApprovalSubjectType,
+    ApprovalValidationDecision,
+    ApprovalValidationRequest,
     LocalApprovalAuthority,
 )
 from ultimate_ai_agent.core.costs import (
@@ -12,7 +15,10 @@ from ultimate_ai_agent.core.costs import (
     CostBudget,
     CostGovernor,
 )
-from ultimate_ai_agent.core.model_router.decisions import ModelRouteDecision
+from ultimate_ai_agent.core.model_router.decisions import (
+    ModelRouteDecision,
+    build_approval_validation_decision_ref,
+)
 from ultimate_ai_agent.core.model_router.enums import (
     ModelPrivacyClass,
     ModelRouteStatus,
@@ -27,6 +33,7 @@ class _Candidate:
     estimated_cost: float
     estimated_latency_ms: float
     warning_reason_codes: list[str]
+    approval_validation_decision_ref: str | None = None
 
 
 @dataclass(frozen=True)
@@ -81,6 +88,28 @@ class ModelRouter:
                     approval_required = True
                 continue
 
+            approval_validation_decision_ref = None
+            if self._approval_required_for_profile(request, profile, prepared):
+                validation_request, decision = self._approval_validation(
+                    request,
+                    profile,
+                )
+                if not self._approval_decision_is_exact(decision, request):
+                    rejected.append(profile.model_profile_id)
+                    reasons.extend(
+                        decision.reason_codes
+                        if decision is not None
+                        else ["APPROVAL_REF_UNVALIDATED"]
+                    )
+                    approval_required = True
+                    continue
+                approval_validation_decision_ref = (
+                    build_approval_validation_decision_ref(
+                        validation_request,
+                        decision,
+                    )
+                )
+
             estimate = self.cost_governor.estimate_route_cost(request, profile)
             budgets = []
             if request.routing_policy.max_estimated_cost_usd is not None:
@@ -111,6 +140,7 @@ class ModelRouter:
                     warning_reason_codes=cost_decision.reason_codes
                     if cost_decision.status == BudgetStatus.warning
                     else [],
+                    approval_validation_decision_ref=(approval_validation_decision_ref),
                 )
             )
 
@@ -129,11 +159,7 @@ class ModelRouter:
             eligible, key=lambda candidate: self._sort_key(request, candidate)
         )
         reason_codes = ["SELECTED_PROFILE", *selected.warning_reason_codes]
-        if (
-            selected.profile.is_cloud
-            and request.approval_ref
-            and self.approval_authority is not None
-        ):
+        if selected.approval_validation_decision_ref is not None:
             reason_codes.append("APPROVAL_VALIDATED")
         safe_message = (
             "Model route selected with policy warnings. No model execution was performed."
@@ -161,6 +187,9 @@ class ModelRouter:
             correlation_id=request.run_id,
             privacy_notes=self._privacy_notes(request, selected.profile, prepared),
             required_approval=False,
+            approval_validation_decision_ref=(
+                selected.approval_validation_decision_ref
+            ),
             consent_refs=request.consent_refs,
             event_ref=request.event_ref,
         )
@@ -283,8 +312,43 @@ class ModelRouter:
     ) -> list[str]:
         if not request.approval_ref:
             return ["CLOUD_APPROVAL_REQUIRED"]
+        if request.approval_ref.startswith("approval_test_"):
+            return ["APPROVAL_TEST_REF_DENIED"]
         if self.approval_authority is None:
             return ["APPROVAL_REF_UNVALIDATED"]
+        _, decision = self._approval_validation(request, profile)
+        if self._approval_decision_is_exact(decision, request):
+            return []
+        return (
+            decision.reason_codes
+            if decision is not None and decision.reason_codes
+            else ["APPROVAL_REF_UNVALIDATED"]
+        )
+
+    def _approval_required_for_profile(
+        self,
+        request: ModelRouteRequest,
+        profile: ModelCapabilityProfile,
+        prepared: _PreparedRoutePolicy,
+    ) -> bool:
+        return bool(
+            profile.is_cloud
+            and request.routing_policy.require_human_approval_for_cloud
+            and prepared.classification
+            in {"sensitive_personal", "regulated", "tcb_protected"}
+        )
+
+    def _approval_validation(
+        self,
+        request: ModelRouteRequest,
+        profile: ModelCapabilityProfile,
+    ) -> tuple[ApprovalValidationRequest | None, ApprovalValidationDecision | None]:
+        if (
+            not request.approval_ref
+            or request.approval_ref.startswith("approval_test_")
+            or self.approval_authority is None
+        ):
+            return None, None
         approval_request = LocalApprovalAuthority.request_for_model_route(
             request,
             subject_type=ApprovalSubjectType.model_route,
@@ -293,12 +357,24 @@ class ModelRouter:
             resource_refs=[profile.model_profile_id],
             risk_level=ApprovalRiskLevel.high,
         )
-        decision = self.approval_authority.validate_for_request(
-            approval_request, request.approval_ref
+        validation_request = approval_request.to_validation_request(
+            request.approval_ref
         )
-        if decision.allowed:
-            return []
-        return decision.reason_codes or ["APPROVAL_REF_UNVALIDATED"]
+        return validation_request, self.approval_authority.validate(validation_request)
+
+    @staticmethod
+    def _approval_decision_is_exact(
+        decision: ApprovalValidationDecision | None,
+        request: ModelRouteRequest,
+    ) -> bool:
+        return bool(
+            decision is not None
+            and decision.allowed
+            and decision.status == ApprovalDecisionStatus.approved.value
+            and decision.approval_ref == request.approval_ref
+            and decision.matched_grant_ref == request.approval_ref
+            and "APPROVAL_VALIDATED" in decision.reason_codes
+        )
 
     def _sort_key(
         self, request: ModelRouteRequest, candidate: _Candidate

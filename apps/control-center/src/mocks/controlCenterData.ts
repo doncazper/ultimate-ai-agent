@@ -8212,6 +8212,62 @@ const modelProviderControlPlane: ModelProviderControlPlaneReadModel = {
     safe_summary:
       "Main and auxiliary model slots are visible as backend-owned intent metadata only. Slot routing does not call providers, mutate runtime selection, or hide model routing.",
   },
+  provider_routing_intelligence: {
+    schema_version: "provider_routing_intelligence.v1",
+    contract_ref: "contract-ref:provider-routing-intelligence:v1",
+    proposal_ref:
+      "provider-routing-proposal-ref:4e39de83f6ed3185586ebd36e424243cf0a5eec20d6d69ec516a396fe54969b5",
+    request: {
+      request_ref: "provider-routing-request-ref:control-plane:mock-fallback",
+      task_ref: "task-ref:provider-routing:operator-inspection",
+      strategy: "best_value",
+      required_capability_refs: [],
+      minimum_context_tokens: 0,
+      maximum_presented_candidates: 4,
+    },
+    request_ref: "provider-routing-request-ref:control-plane:mock-fallback",
+    request_fingerprint_ref:
+      "request-fingerprint-ref:caa008ff197978397a088f9276f722fcd70d4a10863bd60af67a9b3a86708a84",
+    observation_fingerprint_refs: [],
+    observation_set_fingerprint_ref:
+      "observation-set-fingerprint-ref:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    strategy: "best_value",
+    status: "proposal_only",
+    observations: [],
+    candidates: [],
+    evaluated_candidates: [],
+    observed_candidate_count: 0,
+    presented_candidate_count: 0,
+    omitted_candidate_count: 0,
+    recommended_candidate_ref: null,
+    approval_queue_route_ref: "route-ref:control-center-approval-queue",
+    run_detail_group_ref: "run-detail-group-ref:provider-routing-decision",
+    bounded_fanout_presentation_ref:
+      "presentation-ref:provider-routing:bounded-candidates",
+    source_ref: "source-ref:model-router:deterministic-routing-patterns:v0.8.9",
+    reason_codes: [
+      "PROVIDER_ROUTING_PROPOSAL_ONLY",
+      "PROVIDER_ROUTING_NO_ELIGIBLE_CANDIDATE",
+    ],
+    blocker_codes: [],
+    safe_summary:
+      "Provider routing proposal ranks bounded candidates using injected readiness, cost, latency, quality, and context observations. It does not authorize or perform provider invocation.",
+    maximum_presented_candidates: 4,
+    proposal_only: true,
+    deterministic: true,
+    safe_refs_only: true,
+    approval_refs_are_identifiers_only: true,
+    request_scoped_invocation_decision_required: true,
+    fresh_local_approval_validation_required: true,
+    fresh_authority_lease_evaluation_required: true,
+    invocation_authorized: false,
+    provider_call_performed: false,
+    fallback_execution_performed: false,
+    background_fanout_performed: false,
+    raw_prompt_persisted: false,
+    raw_response_persisted: false,
+    raw_provider_payload_persisted: false,
+  },
   model_provider_research_posture: {
     schema_version: "model_provider_research_posture.v1",
     contract_ref:

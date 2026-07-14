@@ -40,12 +40,17 @@ The read model unifies existing UAA contracts:
   safe-disable, cost, latency, quality, and context posture. Unknown, stale,
   degraded, constrained, or otherwise incomplete evidence fails closed. At
   most 32 observations are accepted and four candidates are rendered; both
-  the complete request and the complete observation set are fingerprint-bound.
+  the complete request and the complete evaluated candidate set are retained as
+  bounded safe-ref evidence and fingerprint-bound. The contract recomputes the
+  strategy order and top-four selection from that complete evaluation set.
   Each presented candidate identity additionally binds its normalized readiness,
   provider/model/adapter refs, metrics, blockers, reasons, evidence, and canonical
   availability snapshot; the proposal identity binds its request projection,
   ordered presented set, recommendation, counts, reasons, blockers, and limit.
-  The result remains a non-authorizing proposal.
+  The result remains a non-authorizing proposal. The macOS-first Control Center
+  renders the same backend proposal as an operator-readable card and fails closed
+  if invocation, provider-call, approval-revalidation, or AuthorityLease truth
+  drifts.
 - UAA Runtime Parity Phase 06 role-based provider/model evidence
   for answerer, planner, reviewer, synthesizer, coder, extractor, and safety
   reviewer roles.
@@ -93,8 +98,14 @@ patterns worth adapting. Their current UAA-native boundaries are:
   must still pass fresh request-scoped policy, LocalApprovalAuthority,
   AuthorityLease, budget, target, adapter, kill-switch, safe-disable, deadline,
   and idempotency evaluation before invocation.
+- **Approval evidence:** a routed model decision reports `APPROVAL_VALIDATED`
+  only when exact LocalApprovalAuthority validation actually occurred and a
+  content-free validation-request and decision fingerprint is bound. Runtime-
+  request construction reproduces the deterministic route and revalidates that
+  same exact run, subject, action, resource, and risk scope; test-shaped approval
+  refs are always denied.
 - **Code workbench review:** transient patch content can be reduced to an exact
-  hash, target fingerprint, base revision, approval-scope fingerprint,
+  hash, target fingerprint, immutable full Git revision, approval-scope fingerprint,
   validation plan, rollback plan, and idempotency ref. The patch body is not
   persisted and apply remains a separately governed lane.
 - **Extension developer tooling:** `uaa_extensions.py validate-entry` provides
