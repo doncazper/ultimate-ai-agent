@@ -81,7 +81,25 @@ def test_runner_contract_is_finite_and_sandbox_is_truthfully_blocked() -> None:
     sandbox = runner.SCENARIOS[7]
     assert sandbox.expected_status == "blocked"
     assert sandbox.blocker_code == "SANDBOX_FACILITY_NOT_PROVEN"
-    assert all(spec.expected_status in {"passed", "blocked"} for spec in runner.SCENARIOS)
+    assert all(
+        spec.expected_status in {"passed", "blocked"} for spec in runner.SCENARIOS
+    )
+
+
+def test_phase09_cli_json_is_content_free(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    payload = {
+        "schema_version": "uaa_runtime_capability_phase09_scenarios.v1",
+        "status": "passed_with_truthful_blocked_sandbox",
+        "scenario_count": 0,
+        "scenarios": [],
+        "redaction": {"safe_refs_only": True},
+    }
+    monkeypatch.setattr(runner, "run_scenarios", lambda: payload)
+
+    assert runner.main(["--json"]) == 0
+    assert json.loads(capsys.readouterr().out)["status"] == payload["status"]
 
 
 def test_failed_result_cannot_replace_canonical_evidence() -> None:
