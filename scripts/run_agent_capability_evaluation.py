@@ -479,25 +479,29 @@ def _child_environment(temp_root: Path) -> dict[str, str]:
 
 
 def _terminate(process: subprocess.Popen[bytes]) -> None:
+    posix_process_group = os.name == "posix"
     try:
-        if os.name == "posix":
+        if posix_process_group:
             os.killpg(process.pid, signal.SIGTERM)
         else:
             process.terminate()
     except ProcessLookupError:
-        return
-    try:
-        process.wait(timeout=2)
-        return
-    except subprocess.TimeoutExpired:
         pass
     try:
-        if os.name == "posix":
+        process.wait(timeout=2)
+    except subprocess.TimeoutExpired:
+        pass
+
+    # Reaping the group leader does not prove that descendants in the isolated
+    # process group have exited. Always follow the bounded grace period with a
+    # group-wide kill so a timed-out evaluator cannot leave a child behind.
+    try:
+        if posix_process_group:
             os.killpg(process.pid, signal.SIGKILL)
         else:
             process.kill()
     except ProcessLookupError:
-        return
+        pass
     try:
         process.wait(timeout=5)
     except subprocess.TimeoutExpired as exc:

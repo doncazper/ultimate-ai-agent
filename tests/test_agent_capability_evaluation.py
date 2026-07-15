@@ -329,17 +329,28 @@ elif mode == "network":
     payload = {"failure": result.failure_code, "return_code": result.return_code}
 elif mode == "timeout":
     marker = root / "child-survived"
-    child_code = f"import time; time.sleep(1); open({str(marker)!r}, 'w').close()"
+    ready = root / "child-ready"
+    child_code = (
+        "import signal,time; "
+        "signal.signal(signal.SIGTERM, signal.SIG_IGN); "
+        f"open({str(ready)!r}, 'w').close(); "
+        f"time.sleep(5); open({str(marker)!r}, 'w').close()"
+    )
     parent_code = (
-        "import subprocess,sys,time; "
-        f"subprocess.Popen([sys.executable,'-c',{child_code!r}]); time.sleep(10)"
+        "import pathlib,subprocess,sys,time; "
+        f"subprocess.Popen([sys.executable,'-c',{child_code!r}]); "
+        f"ready=pathlib.Path({str(ready)!r}); "
+        "deadline=time.monotonic()+2; "
+        "\\nwhile not ready.exists() and time.monotonic() < deadline: time.sleep(0.01)"
+        "\\nif not ready.exists(): raise SystemExit(2)"
+        "\\ntime.sleep(10)"
     )
     result = runner._run_command(
         ("{python}", "-c", parent_code),
         basetemp=root / "timeout",
-        timeout_seconds=1,
+        timeout_seconds=3,
     )
-    time.sleep(1.1)
+    time.sleep(2.2)
     payload = {
         "failure": result.failure_code,
         "return_code": result.return_code,
