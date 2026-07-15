@@ -3554,6 +3554,13 @@ export async function persistWorkBoardOrder(
   return receipt;
 }
 
+export async function fetchWorkBoard(): Promise<WorkBoardReadModel> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  return readEnvelope<WorkBoardReadModel>(API_ENDPOINTS.controlCenterWorkBoard);
+}
+
 export async function createWorkBoardCard(
   request: WorkBoardCardCreateRequest,
   idempotencyRef: string,

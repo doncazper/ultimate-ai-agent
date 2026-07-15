@@ -14,6 +14,13 @@ Companion capability-first coverage lives in
 operator-facing capabilities and records their Python/API, CLI/script, UI
 route, visible control/action, authority, gap, and evidence refs.
 
+The isolated north-star `/workspace/*` implementation has a separate
+control-level ledger at
+`docs/design/control_center_north_star/UI_WIRING_MATRIX.md`. That ledger records
+the exact workspace source file, backend route, wired control, receipt/refresh
+behavior, intentional skip, and missing contract without changing the
+canonical route ownership documented here.
+
 ## Summary
 
 What was wired in this pass:

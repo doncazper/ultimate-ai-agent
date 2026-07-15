@@ -652,6 +652,16 @@ Use the repo's `NorthStarIcon` family or a reviewed extension of it. Icons are
 markers. Use a consistent 1.75-2 px stroke, rounded joins, and `currentColor`.
 Do not use emoji, text glyph arrows, or mixed filled/outline families.
 
+The compile-time icon source is `apps/control-center/src/icons/iconRegistry.ts`;
+the browsable design resource is `/icon-library.html`. New icons are registered
+there with a typed name, human label, categories, aliases, search keywords, and
+directionality metadata before use in product surfaces. Prefer the library's
+semantic product-graphic presets for authority, kill switch, pause mission,
+safe-disable, receipt, and runtime treatments so color, container shape, and
+scale carry the same meaning across the app. Filled graphics are reserved for
+high-salience state or consequential actions; ordinary navigation and controls
+remain outline icons.
+
 ## Status And Authority Grammar
 
 Every state includes visible text. Color and icons reinforce meaning.
@@ -696,6 +706,117 @@ is validated. Receipts describe past work and do not authorize future work.
   tooltips, focus-visible labels, and bottom Settings/Developer Tools anchors.
 - The UAA composer distinguishes `Search`, `Go to`, `Ask`, `Filter`, `Draft`,
   and `Propose` intent before any operator-relevant mutation path is offered.
+
+### Deterministic interaction contract
+
+UI interactions must be deterministic, local, and intention-preserving. A
+control performs only the action it communicates. It does not trigger a parent
+action, unrelated state change, layout movement, or navigation.
+
+- **One action, one expected result.** Selecting a dropdown value changes that
+  value. It does not also navigate, open another menu, submit, or activate a
+  containing row or card.
+- **Controls stay in their interaction domain.** Local controls change local
+  presentation state. Navigation uses links, tabs, rail items, breadcrumbs, or
+  an explicitly labeled navigation command. Durable operator state changes
+  only through the owning Python-core/API contract.
+- **Preserve context.** Menus, filters, disclosure, and temporary options keep
+  the current route, scroll position, selection, focus context, drafts, and
+  surrounding state unless resetting one of them is the named action.
+- **No surprise transitions.** A command never opens an unrelated page, panel,
+  dialog, or menu as an incidental effect. Any intended context change is
+  visible in the control label, icon, or adjacent explanation before use.
+- **Stable spatial behavior.** Menus and overlays anchor to their trigger or a
+  documented inspector region without shifting the underlying layout.
+  Controls do not jump, resize, or move while they are being operated.
+- **Explicit open and close.** A menu closes on selection, outside-click,
+  Escape, reactivation of its trigger, or an explicit close command. It does
+  not close because of unrelated rendering, background refresh, or pointer
+  movement.
+- **Contain events correctly.** Buttons, selects, checkboxes, links, and menus
+  inside selectable rows or cards own their events. They do not bubble into the
+  parent selection or navigation handler. The parent remains independently
+  keyboard-operable.
+- **Same appearance means same behavior.** Buttons, links, selectors, toggles,
+  menu items, status chips, and chevrons use one product-wide behavior grammar.
+  A different behavior requires a visibly different control.
+- **Maintain state continuity.** Re-rendering and read-model refresh do not
+  reset open menus, focus, form values, selected items, expanded rows, active
+  tabs, filters, sort order, or page position. State changes only after an
+  intentional user action or a named invalidation rule.
+- **Immediate, proportional feedback.** Every action visibly acknowledges
+  input. Async commands show busy state, prevent duplicate submission, report
+  sanitized success/failure, and recover without discarding unrelated state.
+- **Cancel means restore; Back means return.** `Cancel` restores the last
+  committed state and discards only the current uncommitted edit. `Back`
+  returns to the previous product context and preserves its state; it does not
+  jump to an arbitrary default route.
+- **Keyboard and pointer parity.** Enter, Space, Escape, arrows, Tab, click, and
+  tap produce equivalent accessible outcomes for the same control.
+
+### Lists, scrolling, and pagination
+
+Lists must have a deliberate overflow strategy. A bounded list scrolls inside
+its owning surface; a large addressable result set paginates. Pagination and
+scrolling remain local, preserve surrounding state, and never cause unrelated
+navigation or layout movement.
+
+- A list in a panel, dialog, drawer, card, inspector, or dropdown receives a
+  clear height boundary and scrolls inside that surface rather than growing the
+  page indefinitely.
+- Prefer one obvious vertical scroll area. Nested scrolling is allowed only
+  when the inner list is visibly bounded and clearly independent.
+- Use scrolling for continuous scanning of a manageable result set.
+- Use pagination when results are expensive, the operator needs a stable or
+  shareable range, or returning to an exact position matters.
+- Use `Load more` only for lightweight continuation where retaining previously
+  viewed rows matters and an infinite stream would damage position memory.
+- Pagination updates only its owning list or table. It does not reload the
+  route, close its panel, reset filters, clear selection, or move the page.
+- Preserve filters, sorting, selections, expanded rows, and page/scroll
+  position across temporary overlays and ordinary navigation where practical.
+  Return to page one only when a changed filter or source invalidates the
+  previous result range.
+- Show the current page or result range, total count when available, and visibly
+  disabled Previous/Next controls at boundaries.
+- Headers, filters, and important actions may remain fixed while list contents
+  scroll. A tall dialog scrolls internally and prevents the page behind it from
+  scrolling.
+
+### Popups, dialogs, and overlays
+
+Overlays are encouraged when they preserve context, but they must be
+intentional, clearly triggered, appropriately sized, and predictably
+dismissible.
+
+- A select opens its dropdown; an overflow button opens an action menu; an info
+  control opens a tooltip or popover; an established `Edit` action may open an
+  edit dialog; a consequential action may open a confirmation dialog; and a
+  date field may open a date picker.
+- Every popup is anchored to, or clearly caused by, its invoking control and
+  contains the task or information promised by that control.
+- Opening one overlay does not automatically navigate, open another overlay,
+  submit, or mutate state.
+- Escape, `Cancel`, outside-click, reactivating the trigger, and an explicit
+  close command behave consistently for the overlay type.
+- Focus moves into a modal or interactive popover and returns to the invoking
+  control when it closes. Noninteractive tooltips do not steal focus.
+- A modal traps focus and blocks pointer and scroll interaction behind it.
+- Outside-click may dismiss transient, non-dirty UI. It must not discard
+  destructive, consequential, or unsaved work without an explicit warning or
+  confirmation.
+- Closing restores the previous route, scroll, selection, focus, filters, and
+  draft context rather than resetting the surrounding surface.
+
+### Interaction verification contract
+
+Tests cover behavior, not only rendering. For every interactive control, assert
+what opens, what changes, what stays unchanged, where focus moves, how the
+interaction closes or cancels, and that no unintended navigation, parent
+activation, submission, layout shift, state reset, or duplicate request occurs.
+At minimum, test pointer and keyboard activation, Escape/Cancel, outside-click
+where supported, re-render continuity, local pagination/scroll retention, busy
+and error recovery, and restoration of focus and committed state.
 
 ## Required Interaction States
 

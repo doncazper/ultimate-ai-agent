@@ -14420,6 +14420,32 @@ describe("Web Control Center shell", () => {
     }
   });
 
+  it("renders workspace preview immediately while backend reads are pending", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise(() => undefined)),
+    );
+    window.history.pushState({}, "", "/workspace/crm");
+    const view = render(<App />);
+
+    try {
+      expect(
+        await screen.findByRole("heading", { name: "CRM v3" }),
+      ).toBeInTheDocument();
+      expect(screen.getByText("Preview data")).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /^Call$/i }),
+      ).toBeDisabled();
+      expect(
+        screen.queryByText(/CRM is loading local route state/i),
+      ).not.toBeInTheDocument();
+    } finally {
+      view.unmount();
+      cleanup();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("renders M15 approval queue as read-only preview-only summaries", async () => {
     mockFetchWithFallback();
     window.history.pushState({}, "", "/approvals");

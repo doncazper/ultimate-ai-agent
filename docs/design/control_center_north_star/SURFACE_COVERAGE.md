@@ -1,8 +1,8 @@
 # Control Center North-Star Surface Coverage
 
-Status: current design target, documentation only.
+Status: current design target with isolated code-native review implementation.
 Baseline ID: CC-NS-TARGET-R6-2026-07-13.
-Current as of: 2026-07-13.
+Current as of: 2026-07-14.
 Repo baseline: v0.104.0 / 0.104.0.
 
 Every active Control Center route in `apps/control-center/src/routes.tsx` has a
@@ -14,6 +14,145 @@ and the Messenger desktop fixture are the two documented immersive exceptions.
 The coverage map below assigns route workspaces. `/messenger` is implemented as
 synthetic presentation only; every Matrix runtime and authority lane remains
 blocked until its later exact milestone is separately accepted.
+
+## Isolated Review Implementation
+
+The current render set now has a code-native review implementation under the
+isolated `/workspace/*` route family in `apps/control-center/src/northstar/`.
+This lane supplies real React surfaces for Today, Communications, Messenger,
+Work Board, CRM, Calendar, News, Studio, Knowledge, Activity & Trust,
+Customize, Settings, Developer Tools, Terminal, Decision Review, and
+Onboarding. It deliberately does not replace the canonical backend-owned
+routes yet, so concurrent core/API implementation can continue without a
+route cutover or competing state owner.
+
+The accepted legacy `01`–`19` PNG pack also has a separate code-native review
+implementation under `/workspace/reference/*`. These surfaces preserve the
+accepted desktop information architecture while using explicit preview
+fixtures. Their content controls are disabled with an adjacent global reason;
+only the reference-pack navigation remains active. This makes `Built` truthful
+without implying that any workflow is backend-wired.
+
+Where an existing compatible read model is authoritative, the review shell
+may show that route posture. Otherwise the surface is visibly marked
+preview-only and keeps actions disabled, proposal-only, or review-bound. The
+Messenger implementation includes the full 15-screen reference-state set but
+does not connect a Matrix account or grant network, send, room-mutation,
+encryption, media, or call authority. Skill Workbench is a sanitized discovery
+representation; external skills remain signals only and cannot be installed,
+imported, activated, or executed from this lane.
+
+The control-level source of truth for this route-by-route wiring pass is
+`UI_WIRING_MATRIX.md`. It lists every connected control, exact API route,
+receipt/refresh behavior, intentional skip, and missing contract.
+
+## Surface Implementation Matrix
+
+Matrix date: 2026-07-14. Status language in this matrix is intentionally strict:
+
+- **Planned** means the module has been discussed and is expected to need a
+  product surface.
+- **Rendered** means a static PNG/JPG reference image of the intended surface
+  exists. SVG-only planning concepts are called out separately.
+- **Built** means the surface is coded in the app and has been visually checked
+  against its render.
+- **UI implemented** means the built surface is wired to its real backend/core
+  contract. Reading only connection or route posture counts as partial, not
+  implemented.
+
+Canonical routes remain the compatibility source until an explicit
+route-by-route cutover is accepted. `Yes`, `Partial`, `No`, and `N/A` are used
+instead of broader readiness language.
+
+### Current Product Surface Set
+
+| Surface | Planned | Rendered | Built | UI implemented | Missing / next implementation gap |
+|---|---|---|---|---|---|
+| Today | Yes | Yes — `target-v1/01-today.png` | Yes — `/workspace/today` | Partial — briefing, action, plan, memory-review, and evidence rows/counts use the Today backend model | Wire CRM, calendar, news, business pulse, Day Plan mutation, and assistant handoff contracts; then decide canonical cutover |
+| Communications | Yes | Yes — `target-v1/02-communications.png` | Yes — `/workspace/communications` | Partial — backend source readiness is wired; message rows are labeled preview data and search/selection are local | Define a unified message read contract; draft, CRM, follow-up, calendar, send, and assistant actions remain disabled |
+| Messenger | Yes | Yes — all 15 images in `communications-v1/` | Yes — all 15 states at `/workspace/messenger?view=<state>` | No | Matrix account/auth, encrypted local store, sync/read contracts, and separately governed send/invite/room/call lanes |
+| Work Board | Yes | Yes — `target-v2/03-work-board-v2.png` | Yes — `/workspace/work-board` | Partial — backend columns/cards, exact card-create receipts, local-task receipts, and post-receipt refresh are wired | Add equivalent drag/keyboard reorder UX if this surface should own reorder; task execution, Day Plan mutation, and completion remain separate missing lanes |
+| CRM | Yes | Yes — `target-v3/04-crm-v3.png` | Yes — `/workspace/crm` | Partial — relationship, person, organization, follow-up, opportunity, pipeline, smart-list, report, and authority reads use the CRM backend model | Add exact governed local mutations only where canonical contracts and confirmation/receipt UX are eligible; all sends and external writes remain disabled |
+| Calendar | Yes | Yes — `target-v1/05-calendar.png` | Yes — `/workspace/calendar` | Partial — backend calendar-source readiness is visible; the event grid is a disabled preview | Build a read-only calendar event model, then exact local proposal/approval lanes; external writes remain blocked |
+| News | Yes | Yes — `target-v2/15-news-v1.png` | Yes — `/workspace/news` | Partial — backend source posture is visible; articles are labeled preview data and search/topic selection are local | Add governed source feed, provenance, freshness, and safe refs through `WebAccessGateway`; open/save/mute remain disabled |
+| Studio shell and Create | Yes | Yes — `target-v3/06-studio-unified-v7.png` | Yes — Create plus backend-read Chat and Code workspaces are built | Partial — Chat reads Agent Loop truth and Code reads coding-cockpit posture; Create assets remain preview-only | Add durable local asset/version/reference ownership; file writes, shell, git mutation, export, and model execution remain unavailable here |
+| Skill Workbench | Yes | Yes — user PNG supplied 2026-07-14 | Yes — default `/workspace/studio` Create view | No | Wire a typed sanitized metadata contract and quarantine/review/adaptation records; install/import/activation/execution remain blocked |
+| Knowledge | Yes | Yes — `target-v1/07-knowledge.png` | Yes — `/workspace/knowledge` | Partial — backend review queue, provenance, decisions, manual review-candidate intake, receipts, and refresh are wired | Add lifecycle-specific merge/supersede/expire/forget-request UI and retained Files/Context views without granting context injection |
+| Activity & Trust | Yes | Yes — `target-v2/16-trust-v1.png` | Yes — `/workspace/activity-trust` | Partial — matrix, lease, policy-decision reads and exact active-lease revocation are wired | Pause, kill-switch, and safe-disable mutations remain unavailable; add only after exact backend contracts and confirmation/receipt UX exist |
+| Customize | Yes | Yes — `target-v1/09-customize.png` | Yes — `/workspace/customize` | No — visibility/density plus cancel/restore/undo are local draft behavior only | Add a durable preference contract before enabling Save; reordering remains unimplemented and is no longer implied |
+| Settings | Yes | Yes — `target-v1/10-settings.png` | Yes — `/workspace/settings` | Partial — backend settings/authority/lease/kill-switch/provider posture is wired read-only; density is presentation-only | The backend explicitly disables settings mutation, so writable preferences, review, receipts, and rollback remain missing rather than simulated |
+| Developer Tools | Yes | Yes — `target-v1/11-developer-tools.png` | Yes — `/workspace/developer-tools` | Partial — runtime, coding apply/session, source readiness, Foundation Gate, and canonical navigation are wired read-only | Embedded refresh, clipboard, terminal execution, and patch application remain unavailable; canonical routes retain mutation ownership |
+| Terminal | Yes | Yes — `target-v2/17-terminal-v1.png` | Yes — `/workspace/developer-tools/terminal` | No | Wire typed allowed-command envelopes, approval, timeout, redacted output, receipts, cancellation, and CLI/core/API parity |
+| Decision Review | Yes | Yes — `target-v1/12-decision-review.png` | Yes — `/workspace/decisions` | Yes — backend queue/envelopes and eligible approve/edit/reject/defer receipts are wired with cost gating and read-model reconciliation | Add typed source navigation and local filter/sort only if they preserve backend order and state; blocked/read-only items remain without controls |
+| Onboarding | Yes | Yes — `target-v1/13-onboarding.png` | Yes — `/workspace/onboarding` | Partial — backend setup/source readiness is wired and source selection plus Back/Continue is an unsaved local draft | Durable saved choices, authentication, resume, finish receipts, and installer execution remain unavailable |
+| UAA sidecar | Yes | Yes — `target-v1/14-uaa-sidecar.png` | Yes — standard workspace routes with `?sidecar=open` | Partial — Agent Loop work request, next decision, proposed action, evidence, and proof refs are wired read-only | Prompt editing/sending/dismiss and governed proposal handoff remain disabled; model output must not become authority |
+| Compact shell | Yes | Yes — `target-v2/18-compact-shell-v1.png` | Yes — responsive shell, browser-tested at 1100px | N/A — this is presentation behavior with no backend contract | Add accepted narrow/mobile image baselines if compact behavior expands beyond desktop review |
+
+Current totals: **19 planned**, **19 rendered**, and **19 built**. For UI
+implementation, **1 is backend-wired for its owning workflow** (Decision
+Review), **13 are partial**, **4 are not wired**, and **1 is not
+applicable** because the compact shell is presentation-only. The detailed
+partial/skip/missing truth is recorded in `UI_WIRING_MATRIX.md`.
+
+### Accepted Legacy 01–19 Render Pack
+
+This is a separate reference pack, not an addition to the current-product
+totals above. Every row has been coded and checked at the render's native
+`1586 × 992` desktop viewport. Shared additions—the truthful preview banner,
+reference navigation, and disabled unwired controls—are intentional safety
+differences from the PNGs.
+
+| Surface | Planned | Rendered | Built | UI implemented | Missing / next implementation gap |
+|---|---|---|---|---|---|
+| 01 Today Command Center | Yes | Yes — `renders/01_today_command_center.png` | Yes — `/workspace/reference/01-today` | No | Wire briefing, priorities, approvals, memory, evidence, and blocker read models |
+| 02 Action Inbox & Approval Envelope | Yes | Yes — `renders/02_action_inbox_approval_envelope.png` | Yes — `/workspace/reference/02-action-inbox` | No | Wire queue reads and exact approve/edit/reject/defer envelopes with receipts |
+| 03 Plans & Work Board | Yes | Yes — `renders/03_plans_work_board.png` | Yes — `/workspace/reference/03-plans-work-board` | No | Wire plan and board ownership without duplicating backend state |
+| 04 Trust & AuthorityLease | Yes | Yes — `renders/04_trust_authority_lease.png` | Yes — `/workspace/reference/04-trust` | No | Wire lease, domain, policy-decision, revoke, and kill-switch contracts |
+| 05 Evidence, Proof & Receipts | Yes | Yes — `renders/05_evidence_proof_receipts.png` | Yes — `/workspace/reference/05-evidence-proof` | No | Wire proof detail, evidence timeline, receipts, rollback, and safe-disable refs |
+| 06 Memory Review & Context Manifest | Yes | Yes — `renders/06_memory_review_context_manifest.png` | Yes — `/workspace/reference/06-memory` | No | Wire review, provenance, correction, why-shown, and context proposal contracts |
+| 07 Setup & Runtime Readiness | Yes | Yes — `renders/07_setup_runtime_readiness.png` | Yes — `/workspace/reference/07-setup` | No | Wire setup state, local readiness, blockers, manual smoke, and resume state |
+| 08 Governed Coding Cockpit | Yes | Yes — `renders/08_coding_cockpit.png` | Yes — `/workspace/reference/08-coding` | No | Wire repo-safe work threads, proposals, exact command lanes, tests, and receipts |
+| 09 Source Inbox, CRM & Briefing | Yes | Yes — `renders/09_source_inbox_crm_briefing_prep.png` | Yes — `/workspace/reference/09-sources-crm-briefing` | No | Wire governed read-only sources, CRM-lite, briefing assembly, and provenance |
+| 10 Chat & Handoff | Yes | Yes — `renders/10_chat_handoff.png` | Yes — `/workspace/reference/10-chat-handoff` | No | Wire local chat plus typed proposal handoffs to Plans, Actions, Evidence, and Memory |
+| 11 Start, Overview & Dashboard | Yes | Yes — `renders/11_start_overview_dashboard.png` | Yes — `/workspace/reference/11-start-overview` | No | Wire readiness, route proof, next-step, and resume state |
+| 12 Settings & Authority Profiles | Yes | Yes — `renders/12_settings_authority_profiles.png` | Yes — `/workspace/reference/12-settings-authority` | No | Wire persisted preferences and exact governed profile changes with undo/receipts |
+| 13 Model Readiness | Yes | Yes — `renders/13_models_readiness.png` | Yes — `/workspace/reference/13-models` | No | Wire local model/runtime readiness and provider posture without granting calls |
+| 14 Files & Context Proposals | Yes | Yes — `renders/14_files_context_proposals.png` | Yes — `/workspace/reference/14-files-context` | No | Wire safe-ref review, redacted previews, include/exclude proposals, and corrections |
+| 15 Action Preview & Preflight | Yes | Yes — `renders/15_action_preview_preflight.png` | Yes — `/workspace/reference/15-action-preview` | No | Wire dry-run scope, side effects, idempotency, expiry, approval, and receipt plan |
+| 16 Runtime, Storage & Manual Smoke | Yes | Yes — `renders/16_runtime_storage_manual_smoke.png` | Yes — `/workspace/reference/16-runtime-storage` | No | Wire health, exact command lanes, storage ledger, snapshots, and smoke evidence |
+| 17 Future Domain Governance | Yes | Yes — `renders/17_future_domain_governance.png` | Yes — `/workspace/reference/17-future-governance` | No | Keep planning-only until exact remote, mobile, and plugin lanes are promoted |
+| 18 Private Trial Packet | Yes | Yes — `renders/18_private_trial_packet.png` | Yes — `/workspace/reference/18-private-trial` | No | Wire private acceptance records and safe evidence refs without release claims |
+| 19 Operator Loop | Yes | Yes — `renders/19_operator_loop.png` | Yes — `/workspace/reference/19-operator-loop` | No | Wire the observe-plan-act-prove-remember summary to owning read models |
+
+Reference-pack totals: **19 planned**, **19 rendered**, **19 built**, and **0 UI
+implemented**. Backend wiring remains a route-by-route follow-up and must reuse
+the Python core/API contracts rather than creating durable React-only state.
+
+### Canonical Compatibility Surfaces
+
+These routes already exist in the current Control Center and remain the source
+of route truth. The matrix groups them by product ownership so the migration
+queue is visible without pretending each needs a duplicate destination.
+
+| Surface group / routes | Planned | Rendered | Built | UI implemented | Missing relative to the new surface set |
+|---|---|---|---|---|---|
+| Start and system overview — `/start`, `/`, `/dashboard` | Yes | Yes — legacy composite images | Yes — canonical surfaces | Partial | Decide whether their content folds into Today/Onboarding or receives refreshed renders |
+| Source Inbox and Briefing — `/inbox`, `/briefing` | Yes | Yes — legacy source/briefing image | Yes — canonical surfaces | Partial | Define ownership between Communications and Today, then connect shared read models |
+| Plans — `/plans` | Yes | Yes — legacy Plans/Work Board image | Yes — canonical surface | Partial | Decide whether Plans remains distinct or becomes a Work Board saved view/inspector |
+| Actions — `/actions`, `/approvals`, `/action-preview` | Yes | Yes — legacy action/approval/preflight images | Yes — canonical surfaces | Mixed — Action Inbox paths are implemented; approval/preflight coverage is partial or experimental | Connect `/workspace/decisions` without creating a second action queue |
+| Proof and evidence — `/proof`, `/evidence`, `/receipts`, `/events`, `/events/timeline` | Yes | Yes — legacy proof/evidence/event images | Yes — canonical surfaces | Mixed — backend-owned, partial, and experimental | Choose final navigation placement and migrate the new visual treatment |
+| Memory and context — `/memory`, `/files`, `/files/review`, `/context/proposals` | Yes | Yes — legacy memory/files/context images | Yes — canonical surfaces | Mixed — Memory is implemented; file/context paths are partial or experimental | Connect Knowledge and decide whether Files/Context stay separate utilities |
+| Studio compatibility — `/coding`, `/chat`, `/setup` | Yes | Yes — legacy images plus current Studio/Onboarding renders | Yes — canonical surfaces | Mixed — Chat is implemented; Coding and Setup are partial | Connect immersive Studio/Onboarding and define route cutover |
+| Runtime operations — `/runtime`, `/models`, `/storage`, `/runtime/local`, `/runtime/manual-smoke` | Yes | Yes — legacy runtime/storage/model images | Yes — canonical surfaces | Partial | Connect Developer Tools/Terminal to exact read and command contracts |
+| System evidence and governance — `/operator-loop`, `/foundation-gate`, `/capabilities`, `/api-routes`, `/differentiators`, `/private-trial` | Yes | Yes — legacy system/governance images | Yes — canonical surfaces | Partial or experimental | Decide retained product placement and refresh renders where needed |
+| Future governance — `/remote-workers`, `/mobile-planning`, `/plugin-governance` | Yes | Yes — legacy future-governance image | Yes — planning/dry-run pages | No — no promoted runtime workflows | Exact AuthorityLease domains, adapters, approvals, receipts, rollback/safe-disable, and tests |
+
+### Deferred Render Packs
+
+| Pack | Planned | Rendered | Built | UI implemented | Missing / gate |
+|---|---|---|---|---|---|
+| Social Media Intelligence | Yes | Yes — four JPG reference images in `renders/social-media-v1/` | No | No | Dependency-gated behind accepted Work Board, CRM, and Communications foundations; then requires governed connector reads and separately approved publishing/reply lanes |
+| Coherent App Ecosystem (`ECO-000`) | Yes | No under this definition — twelve SVG planning concepts exist, but no PNG/JPG render set | No | No | Requires accepted implementation scope for Calendar, Tasks, Boards, Inbox, Organizer, global search, ChangeSet review/compensation, storage, route migration, and authority contracts |
 
 ## Messenger Fixture Route
 
