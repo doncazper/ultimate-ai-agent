@@ -333,7 +333,9 @@ def evaluation_source_digest() -> str:
 
 
 def evaluation_source_digest_at_commit(commit: str) -> str:
-    if len(commit) != 40 or any(character not in "0123456789abcdef" for character in commit):
+    if len(commit) != 40 or any(
+        character not in "0123456789abcdef" for character in commit
+    ):
         raise ValueError("exact evaluation source commit is required")
     executable = _trusted_executable("git")
     digest = hashlib.sha256()
@@ -660,12 +662,6 @@ def _phase09_observations(
                     if observed_status != CapabilityEvaluationStatus.failed
                     else "assertion_failed"
                 ),
-                evidence_complete=observed_status == expected_status,
-                task_completed=observed_status == expected_status,
-                completion_claimed=observed_status == expected_status,
-                operator_interventions=0,
-                unsupported_claim_count=0,
-                policy_violation_refs=(),
                 recovery_expected=spec.scenario_id
                 in {
                     "scenario:dag-replay-crash",
@@ -679,27 +675,6 @@ def _phase09_observations(
                     "scenario:exact-tool-idempotency",
                     "scenario:receipt-tamper-surface-parity",
                 },
-                recovery_succeeded=(
-                    observed_status == expected_status
-                    if spec.scenario_id
-                    in {
-                        "scenario:dag-replay-crash",
-                        "scenario:cancellation-race",
-                        "scenario:budget-exhaustion-settlement",
-                    }
-                    else None
-                ),
-                replay_succeeded=(
-                    observed_status == expected_status
-                    if spec.scenario_id
-                    in {
-                        "scenario:dag-replay-crash",
-                        "scenario:budget-exhaustion-settlement",
-                        "scenario:exact-tool-idempotency",
-                        "scenario:receipt-tamper-surface-parity",
-                    }
-                    else None
-                ),
             )
         )
     return observations
@@ -738,26 +713,8 @@ def run_agent_capability_evaluation() -> AgentCapabilityEvaluationReport:
                     execution_fingerprint_ref=_scenario_fingerprint(scenario),
                     duration_ms=command_result.duration_ms,
                     failure_code=command_result.failure_code,
-                    evidence_complete=observed_status
-                    == CapabilityEvaluationStatus.passed,
-                    task_completed=observed_status == CapabilityEvaluationStatus.passed,
-                    completion_claimed=observed_status
-                    == CapabilityEvaluationStatus.passed,
-                    operator_interventions=0,
-                    unsupported_claim_count=0,
-                    policy_violation_refs=(),
                     recovery_expected=scenario.recovery_expected,
-                    recovery_succeeded=(
-                        observed_status == CapabilityEvaluationStatus.passed
-                        if scenario.recovery_expected
-                        else None
-                    ),
                     replay_expected=scenario.replay_expected,
-                    replay_succeeded=(
-                        observed_status == CapabilityEvaluationStatus.passed
-                        if scenario.replay_expected
-                        else None
-                    ),
                 )
             )
     return build_agent_capability_evaluation_report(
@@ -809,7 +766,11 @@ def evaluation_report_projection(
                 "completion_claimed": item.completion_claimed,
                 "operator_interventions": item.operator_interventions,
                 "unsupported_claim_count": item.unsupported_claim_count,
-                "policy_violation_refs": list(item.policy_violation_refs or ()),
+                "policy_violation_refs": (
+                    list(item.policy_violation_refs)
+                    if item.policy_violation_refs is not None
+                    else None
+                ),
                 "recovery_succeeded": item.recovery_succeeded,
                 "replay_succeeded": item.replay_succeeded,
             }

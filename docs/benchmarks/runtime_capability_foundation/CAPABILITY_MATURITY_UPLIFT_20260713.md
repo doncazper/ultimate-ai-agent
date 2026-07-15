@@ -5,10 +5,12 @@ accepted by this slice alone.
 
 This slice turns the 16-component comparison into an executable acceptance
 contract without allowing a passing test suite to grade itself. The bounded
-evaluator can satisfy implementation, automated-test, runtime-scenario, and
-failure/recovery gates. A score still stays at its baseline until a separate,
-content-free, digest-bound independent acceptance decision verifies the
-operator or external evidence named for that component.
+evaluator can satisfy the automated-test gate only from command outcomes.
+Runtime-task truth, recovery, operator acceptance, and evidence completeness
+remain separately typed and unmeasured unless they are actually observed. A
+score stays at its baseline because no trusted acceptance resolver or
+attestation lifecycle exists in this slice; a caller-created digest-bound
+decision proves its own consistency, not independent acceptance.
 
 The 23-scenario evaluator is useful evidence, but it is not the whole maturity
 rubric. A scenario matching its expected status cannot by itself prove product
@@ -30,8 +32,13 @@ usability, provider integration, ecosystem maturity, or an exceptional 10/10.
 | Safety, security, and failure handling | 10 | 10 | release-candidate corruption, redaction, cancellation, and recovery drills defend the ceiling only |
 | UX as an AI cockpit | 8 | 9 | desktop browser and operator usability acceptance across Today, Actions, Evidence, and Capabilities |
 | CLI and API parity | 9 | 10 | exact-SHA parity drill over success, blocked, stale, and failure states |
-| Extensibility and ecosystem | 9 | 10 | merged exact lane, second isolated adapter, compatibility, rollback, replay, and developer-tooling acceptance |
+| Extensibility and ecosystem | 7 | 8 | second isolated adapter, compatibility, rollback, replay, and developer-tooling acceptance |
 | Productized agent loop | 8 | 9 | desktop Today-to-approval-to-lease-to-execution-to-receipt-to-refreshed-Today trial |
+
+The canonical baselines are bound to
+`goat_comparison_20260712.json#initial_scores.uaa.components` by a content-free
+fingerprint. The weighted accepted baseline is 87.5 and the unaccepted candidate
+target is 94.8.
 
 The evaluator runs offline on macOS with network denied, a scrubbed
 environment, bounded output and time, isolated pytest base directories, and
@@ -47,13 +54,13 @@ Operator surfaces:
 - `python scripts/dev/uaa_runtime.py capability-maturity` renders the same safe
   paths in human-readable form.
 - `python scripts/run_agent_capability_evaluation.py --maturity-json` runs the
-  bounded evaluator and can advance automated evidence readiness only.
+  bounded evaluator and records automated-test evidence plus explicit unknowns.
 - `python scripts/verify_capability_maturity_uplift.py` verifies that complete
   automated evidence does not silently advance any score.
 
 The default API, CLI, and Control Center view intentionally shows
 `evaluation_required`. After the evaluator passes, the posture becomes
-`automated_evidence_ready`, while the verified weighted score remains the
-baseline. Only an explicit decision bound to the exact evaluation digest and
-the component-specific acceptance contract can change a score. Neither a score
-nor an acceptance decision grants runtime authority.
+`automated_evidence_ready`, while the accepted weighted score remains the
+baseline. Supplied acceptance records remain held until a separately implemented
+trusted resolver validates them. Neither a score nor an acceptance record grants
+runtime authority.

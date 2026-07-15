@@ -89,7 +89,7 @@ const maturityRows = [
   ["safety_security_failure", "Safety, security, and failure handling", 10, 10],
   ["ux_ai_cockpit", "UX as an AI cockpit", 8, 7],
   ["cli_api_parity", "CLI and API parity", 9, 6],
-  ["extensibility_ecosystem", "Extensibility and ecosystem", 9, 6],
+  ["extensibility_ecosystem", "Extensibility and ecosystem", 7, 6],
   ["productized_agent_loop", "Productized agent loop", 8, 10],
 ] as const;
 
@@ -97,12 +97,16 @@ const mockCapabilityMaturity: CapabilityMaturityReadModel = {
   schema_version: "uaa-capability-maturity.v1",
   contract_ref: "contract-ref:capability-maturity:v1",
   read_model_ref: "read-model-ref:capability-maturity:mock",
+  baseline_source_ref:
+    "repo-ref:uaa:docs/benchmarks/runtime_capability_foundation/goat_comparison_20260712.json:initial_scores.uaa.components",
+  baseline_source_fingerprint_ref:
+    "fingerprint-ref:capability-maturity-baseline:sha256:4ab2d2160e97df5a823e092445e6725aa8714e14066a34c2baabc46be17366cd",
   evidence_report_ref: null,
   evidence_report_digest_ref: null,
   verification_posture: "evaluation_required",
-  baseline_weighted_score: 88.5,
-  target_weighted_score: 95.8,
-  verified_weighted_score: 88.5,
+  baseline_weighted_score: 87.5,
+  target_weighted_score: 94.8,
+  verified_weighted_score: 87.5,
   component_count: 16,
   uplift_target_count: 12,
   uplift_proven_count: 0,
@@ -139,20 +143,17 @@ const mockCapabilityMaturity: CapabilityMaturityReadModel = {
         | "operator_surface"
         | "recovery_and_failure"
         | "independent_acceptance",
-      status:
-        gateKind === "implementation" || gateKind === "operator_surface"
-          ? ("satisfied" as const)
-          : ("pending" as const),
+      status: gateKind === "implementation" ? ("satisfied" as const) : ("pending" as const),
       evidence_refs:
-        gateKind === "implementation" || gateKind === "operator_surface"
+        gateKind === "implementation"
           ? [`evidence-ref:mock:${componentId}:${gateKind}`]
           : [],
       blocker_codes:
-        gateKind === "implementation" || gateKind === "operator_surface"
+        gateKind === "implementation"
           ? []
           : ["CAPABILITY_MATURITY_EVALUATION_REQUIRED"],
       safe_summary:
-        gateKind === "implementation" || gateKind === "operator_surface"
+        gateKind === "implementation"
           ? "Mock fallback identifies an existing repository surface."
           : "Mock fallback retains this evidence gate as pending.",
     })),
@@ -167,6 +168,7 @@ const mockCapabilityMaturity: CapabilityMaturityReadModel = {
   authority_granted: false,
   score_increase_requires_runtime_evidence: true,
   score_increase_requires_independent_acceptance: true,
+  trusted_acceptance_verification_implemented: false,
   raw_content_persisted: false,
   safe_summary:
     "Mock fallback shows candidate targets and held verification paths only; it grants no score or runtime authority.",

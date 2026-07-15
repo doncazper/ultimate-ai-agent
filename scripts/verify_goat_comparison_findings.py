@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import re
 import stat
+import subprocess
 import sys
 import tempfile
 from typing import Any
@@ -37,6 +38,7 @@ from scripts.run_agent_capability_evaluation import (  # noqa: E402
     _scenario_fingerprint,
     evaluation_report_projection,
     evaluation_registry_fingerprint,
+    evaluation_source_digest,
     evaluation_source_digest_at_commit,
     evaluation_source_paths,
     repository_commit,
@@ -304,6 +306,20 @@ def _validate_report_projection(
             raise VerificationError("capability evaluation observed status drift")
         if (observed_status == "failed") != (failure_code != "none"):
             raise VerificationError("capability evaluation failure posture drift")
+        for metric in (
+            "evidence_complete",
+            "task_completed",
+            "completion_claimed",
+            "operator_interventions",
+            "unsupported_claim_count",
+            "policy_violation_refs",
+            "recovery_succeeded",
+            "replay_succeeded",
+        ):
+            if observation.get(metric) is not None:
+                raise VerificationError(
+                    "verifier exit status cannot synthesize semantic observation truth"
+                )
     adherence_count = sum(
         item["observed_status"] == item["expected_status"] for item in observations
     )
@@ -420,7 +436,12 @@ def verify_data(
 
     result = data.get("implementation_result", {})
     expected_scenario_count = len(PHASE09_SCENARIOS) + len(ADDITIONAL_SCENARIOS)
-    expected_passed_count = expected_scenario_count - 1
+    expected_passed_count = sum(
+        spec.expected_status == "passed" for spec in PHASE09_SCENARIOS
+    ) + len(ADDITIONAL_SCENARIOS)
+    expected_blocked_count = sum(
+        spec.expected_status == "blocked" for spec in PHASE09_SCENARIOS
+    )
     if (
         result.get("scenario_count") != expected_scenario_count
         or result.get("component_count") != 16
@@ -432,18 +453,20 @@ def verify_data(
         raise VerificationError("scenario verifier pass-rate drift")
     if result.get("passed_unblocked_verifier_count") != expected_passed_count:
         raise VerificationError("passed unblocked verifier count drift")
-    if result.get("blocked_safe_outcome_count") != 1:
+    if result.get("blocked_safe_outcome_count") != expected_blocked_count:
         raise VerificationError("blocked safe-outcome count drift")
     if result.get("passed_unblocked_verifier_rate") != round(
         expected_passed_count / expected_scenario_count, 4
     ):
         raise VerificationError("passed unblocked verifier rate drift")
     if (
-        result.get("task_completion_rate") != 1
-        or result.get("task_completion_count") != expected_scenario_count
-        or result.get("task_completion_posture") != "measured"
+        any(
+            result.get(key) is not None
+            for key in ("task_completion_rate", "task_completion_count")
+        )
+        or result.get("task_completion_posture") != "not_measured"
     ):
-        raise VerificationError("task completion evidence drift")
+        raise VerificationError("task completion must remain not measured")
     projection = result.get("report_projection")
     if not isinstance(projection, dict):
         raise VerificationError("capability evaluation report projection is required")
@@ -468,22 +491,24 @@ def verify_data(
         raise VerificationError("runtime revalidation posture drift")
     if result.get("external_evidence_posture") != "opt_in_root_required":
         raise VerificationError("external evidence revalidation posture drift")
-    expected_metrics = {
-        "correctness_rate": 1,
-        "recovery_success_rate": 1,
-        "evidence_completeness_rate": 1,
-        "replay_correctness_rate": 1,
-        "operator_intervention_count": 0,
-        "false_completion_count": 0,
-        "unsupported_claim_count": 0,
-        "authority_policy_violation_count": 0,
-    }
-    for metric, expected_value in expected_metrics.items():
+    unmeasured_metrics = (
+        "correctness_rate",
+        "recovery_success_rate",
+        "evidence_completeness_rate",
+        "replay_correctness_rate",
+        "operator_intervention_count",
+        "false_completion_count",
+        "unsupported_claim_count",
+        "authority_policy_violation_count",
+    )
+    for metric in unmeasured_metrics:
         if (
-            result.get(metric) != expected_value
-            or result.get(f"{metric}_posture") != "measured"
+            result.get(metric) is not None
+            or result.get(f"{metric}_posture") != "not_measured"
         ):
-            raise VerificationError(f"structured capability metric drift: {metric}")
+            raise VerificationError(
+                f"capability metric must remain not measured: {metric}"
+            )
     if result.get("cross_repo_empirical_performance") != "not_measured":
         raise VerificationError(
             "cross-repository empirical result must remain not measured"
@@ -521,6 +546,22 @@ def refresh_uaa_evaluation(path: Path = DEFAULT_ARTIFACT) -> dict[str, Any]:
     if path != DEFAULT_ARTIFACT or not path.is_file() or path.is_symlink():
         raise VerificationError(
             "comparison artifact refresh path is not canonical and regular"
+        )
+    status = subprocess.run(
+        ("/usr/bin/git", "status", "--porcelain=v1", "--untracked-files=all"),
+        cwd=ROOT,
+        env={
+            "PATH": "/usr/bin:/bin",
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_CONFIG_GLOBAL": "/dev/null",
+        },
+        capture_output=True,
+        check=False,
+        timeout=10,
+    )
+    if status.returncode != 0 or status.stdout:
+        raise VerificationError(
+            "comparison artifact refresh requires an exact clean committed worktree"
         )
     data = json.loads(
         _safe_read(path.relative_to(ROOT), root=ROOT, maximum_bytes=MAX_ARTIFACT_BYTES)

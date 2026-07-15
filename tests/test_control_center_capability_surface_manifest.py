@@ -15,6 +15,10 @@ from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.core.control_center.capability_surface import (
     build_control_center_capability_surface_read_model,
 )
+from ultimate_ai_agent.core.evals import (
+    CAPABILITY_MATURITY_BASELINE_FINGERPRINT_REF,
+    CAPABILITY_MATURITY_BASELINE_SOURCE_REF,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -134,11 +138,31 @@ def test_capability_surface_read_model_is_safe_bounded_and_source_backed() -> No
     assert payload["maturity"]["uplift_target_count"] == 12
     assert payload["maturity"]["uplift_proven_count"] == 0
     assert payload["maturity"]["automated_evidence_ready_count"] == 0
+    assert payload["maturity"]["baseline_weighted_score"] == 87.5
+    assert payload["maturity"]["target_weighted_score"] == 94.8
+    assert (
+        payload["maturity"]["baseline_source_ref"]
+        == CAPABILITY_MATURITY_BASELINE_SOURCE_REF
+    )
+    assert (
+        payload["maturity"]["baseline_source_fingerprint_ref"]
+        == CAPABILITY_MATURITY_BASELINE_FINGERPRINT_REF
+    )
     assert payload["maturity"]["score_increase_requires_independent_acceptance"] is True
+    assert payload["maturity"]["trusted_acceptance_verification_implemented"] is False
     assert payload["maturity"]["authority_granted"] is False
     assert all(
         item["verified_score"] == item["baseline_score"]
         for item in payload["maturity"]["components"]
+    )
+    extensibility = next(
+        item
+        for item in payload["maturity"]["components"]
+        if item["component_id"] == "extensibility_ecosystem"
+    )
+    assert (extensibility["baseline_score"], extensibility["target_score"]) == (
+        7,
+        8,
     )
     capability_surface = next(
         row

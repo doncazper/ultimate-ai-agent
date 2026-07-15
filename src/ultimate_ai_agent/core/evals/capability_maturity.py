@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from enum import Enum
 import hashlib
 import json
@@ -10,7 +11,6 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from ultimate_ai_agent.core.evals.capability_metrics import (
     CAPABILITY_COMPONENT_IDS,
     AgentCapabilityEvaluationReport,
-    CapabilityEvaluationStatus,
 )
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
@@ -20,6 +20,41 @@ from ultimate_ai_agent.core.execution.validation import (
 
 CAPABILITY_MATURITY_SCHEMA_VERSION = "uaa-capability-maturity.v1"
 CAPABILITY_MATURITY_CONTRACT_REF = "contract-ref:capability-maturity:v1"
+CAPABILITY_MATURITY_BASELINE_SOURCE_REF = (
+    "repo-ref:uaa:docs/benchmarks/runtime_capability_foundation/"
+    "goat_comparison_20260712.json:initial_scores.uaa.components"
+)
+CAPABILITY_MATURITY_BASELINE_SCORES = {
+    "reasoning_task_understanding": 8,
+    "planning_orchestration": 10,
+    "learning_adaptation": 8,
+    "memory_context_management": 9,
+    "communication_interaction": 8,
+    "action_tool_calling": 9,
+    "autonomy_authority": 10,
+    "code_implementation_assistance": 8,
+    "research_web_external": 10,
+    "model_provider_management": 8,
+    "evidence_audit_observability": 9,
+    "safety_security_failure": 10,
+    "ux_ai_cockpit": 8,
+    "cli_api_parity": 9,
+    "extensibility_ecosystem": 7,
+    "productized_agent_loop": 8,
+}
+
+
+def _baseline_fingerprint(scores: dict[str, int]) -> str:
+    encoded = json.dumps(scores, sort_keys=True, separators=(",", ":")).encode()
+    return (
+        "fingerprint-ref:capability-maturity-baseline:sha256:"
+        f"{hashlib.sha256(encoded).hexdigest()}"
+    )
+
+
+CAPABILITY_MATURITY_BASELINE_FINGERPRINT_REF = _baseline_fingerprint(
+    CAPABILITY_MATURITY_BASELINE_SCORES
+)
 
 
 class CapabilityMaturityEvidenceStatus(str, Enum):
@@ -260,6 +295,8 @@ class CapabilityMaturityReadModel(_FrozenMaturityModel):
         CAPABILITY_MATURITY_CONTRACT_REF
     )
     read_model_ref: str
+    baseline_source_ref: str = CAPABILITY_MATURITY_BASELINE_SOURCE_REF
+    baseline_source_fingerprint_ref: str = CAPABILITY_MATURITY_BASELINE_FINGERPRINT_REF
     evidence_report_ref: str | None = None
     evidence_report_digest_ref: str | None = None
     verification_posture: Literal[
@@ -286,6 +323,7 @@ class CapabilityMaturityReadModel(_FrozenMaturityModel):
     authority_granted: Literal[False] = False
     score_increase_requires_runtime_evidence: Literal[True] = True
     score_increase_requires_independent_acceptance: Literal[True] = True
+    trusted_acceptance_verification_implemented: Literal[False] = False
     raw_content_persisted: Literal[False] = False
     safe_summary: str = Field(..., min_length=1, max_length=400)
 
@@ -293,6 +331,18 @@ class CapabilityMaturityReadModel(_FrozenMaturityModel):
     def validate_read_model(self) -> "CapabilityMaturityReadModel":
         validate_execution_ref(self.contract_ref, "contract_ref")
         validate_execution_ref(self.read_model_ref, "read_model_ref")
+        validate_execution_ref(self.baseline_source_ref, "baseline_source_ref")
+        validate_execution_ref(
+            self.baseline_source_fingerprint_ref,
+            "baseline_source_fingerprint_ref",
+        )
+        if self.baseline_source_ref != CAPABILITY_MATURITY_BASELINE_SOURCE_REF:
+            raise ValueError("capability maturity baseline source drift")
+        if (
+            self.baseline_source_fingerprint_ref
+            != CAPABILITY_MATURITY_BASELINE_FINGERPRINT_REF
+        ):
+            raise ValueError("capability maturity baseline fingerprint drift")
         if self.evidence_report_ref is not None:
             validate_execution_ref(self.evidence_report_ref, "evidence_report_ref")
         if self.evidence_report_digest_ref is not None:
@@ -340,10 +390,24 @@ class CapabilityMaturityReadModel(_FrozenMaturityModel):
         }
         if self.baseline_weighted_score != _weighted_score(baseline_scores):
             raise ValueError("capability maturity baseline weighted score drift")
+        if baseline_scores != CAPABILITY_MATURITY_BASELINE_SCORES:
+            raise ValueError("capability maturity canonical baseline drift")
         if self.target_weighted_score != _weighted_score(target_scores):
             raise ValueError("capability maturity target weighted score drift")
         if self.verified_weighted_score != _weighted_score(verified_scores):
             raise ValueError("capability maturity verified weighted score drift")
+        if any(
+            item.verified_score != item.baseline_score
+            or item.evidence_status
+            in {
+                CapabilityMaturityEvidenceStatus.target_proven,
+                CapabilityMaturityEvidenceStatus.ceiling_defended,
+            }
+            for item in self.components
+        ):
+            raise ValueError(
+                "trusted acceptance verification is not implemented; scores must remain held"
+            )
 
         uplift_proven = sum(
             item.evidence_status == CapabilityMaturityEvidenceStatus.target_proven
@@ -352,6 +416,7 @@ class CapabilityMaturityReadModel(_FrozenMaturityModel):
         automated_ready = sum(
             item.evidence_status
             in {
+                CapabilityMaturityEvidenceStatus.automated_evidence_ready,
                 CapabilityMaturityEvidenceStatus.manual_validation_required,
                 CapabilityMaturityEvidenceStatus.external_dependency_required,
                 CapabilityMaturityEvidenceStatus.target_proven,
@@ -543,7 +608,7 @@ _DEFINITION_ROWS = (
         "extensibility_ecosystem",
         "Extensibility and ecosystem",
         6,
-        9,
+        7,
         "extension_catalog/exact_adapter.py",
         "test_exact_extension_adapter.py",
         "Merge the exact extension lane, prove a second isolated adapter, then complete compatibility, safe-disable, rollback, replay, and developer-tooling acceptance.",
@@ -558,6 +623,13 @@ _DEFINITION_ROWS = (
         "Complete the desktop Today-to-proposal-to-approval-to-lease-to-execution-to-receipt-to-refreshed-Today operator trial.",
     ),
 )
+
+if tuple(CAPABILITY_MATURITY_BASELINE_SCORES) != tuple(CAPABILITY_COMPONENT_IDS):
+    raise RuntimeError("capability maturity baseline taxonomy drift")
+if {
+    component_id: baseline for component_id, _, _, baseline, _, _, _ in _DEFINITION_ROWS
+} != CAPABILITY_MATURITY_BASELINE_SCORES:
+    raise RuntimeError("capability maturity definitions drift from canonical baseline")
 
 
 CAPABILITY_MATURITY_DEFINITIONS = tuple(
@@ -613,37 +685,43 @@ def capability_maturity_report_digest(report: AgentCapabilityEvaluationReport) -
     )
 
 
-def _component_automated_evidence(
+@dataclass(frozen=True)
+class _ComponentEvidencePosture:
+    automated_tests: bool
+    runtime_scenario: bool
+    recovery_and_failure: bool
+    scenario_refs: tuple[str, ...]
+
+
+def _component_evidence_posture(
     report: AgentCapabilityEvaluationReport,
     component_id: str,
-) -> tuple[bool, tuple[str, ...]]:
+) -> _ComponentEvidencePosture:
     observations = tuple(
         item for item in report.observations if item.component_id == component_id
     )
     if not observations:
-        return False, ()
-    metrics_complete = all(
+        return _ComponentEvidencePosture(False, False, False, ())
+    automated_tests = all(item.safe_outcome_adhered for item in observations)
+    runtime_scenario = all(
         item.task_completed is True
         and item.completion_claimed is True
         and item.evidence_complete is True
-        and item.operator_interventions is not None
-        and item.unsupported_claim_count == 0
-        and item.policy_violation_refs == ()
-        and (not item.recovery_expected or item.recovery_succeeded is True)
+        for item in observations
+    ) and any(item.passed_unblocked_verifier for item in observations)
+    recovery_items = tuple(
+        item for item in observations if item.recovery_expected or item.replay_expected
+    )
+    recovery_and_failure = bool(recovery_items) and all(
+        (not item.recovery_expected or item.recovery_succeeded is True)
         and (not item.replay_expected or item.replay_succeeded is True)
-        for item in observations
+        for item in recovery_items
     )
-    has_implemented_success = any(
-        item.expected_status == CapabilityEvaluationStatus.passed
-        and item.observed_status == CapabilityEvaluationStatus.passed
-        for item in observations
-    )
-    return (
-        report.status == CapabilityEvaluationStatus.passed
-        and all(item.safe_outcome_adhered for item in observations)
-        and metrics_complete
-        and has_implemented_success,
-        tuple(item.scenario_ref for item in observations),
+    return _ComponentEvidencePosture(
+        automated_tests=automated_tests,
+        runtime_scenario=runtime_scenario,
+        recovery_and_failure=recovery_and_failure,
+        scenario_refs=tuple(item.scenario_ref for item in observations),
     )
 
 
@@ -674,15 +752,15 @@ def _evidence_gates(
     definition: CapabilityMaturityDefinition,
     *,
     report_ref: str | None,
-    automated_evidence: bool,
+    evidence: _ComponentEvidencePosture,
     decision: CapabilityMaturityGraduationDecision | None,
 ) -> tuple[CapabilityMaturityEvidenceGate, ...]:
     automated_ref = report_ref or "evidence-ref:capability-maturity:evaluation-required"
-    accepted = (
-        decision is not None
-        and decision.status == CapabilityMaturityDecisionStatus.accepted
-    )
-    external_blocked = definition.external_dependency_code is not None and not accepted
+    # A caller-created, self-consistent decision proves only its own fingerprint.
+    # No trusted resolver or attestation lifecycle exists in this slice, so a
+    # supplied acceptance assertion cannot advance a score.
+    accepted = False
+    external_blocked = definition.external_dependency_code is not None
     return (
         CapabilityMaturityEvidenceGate(
             gate_kind=CapabilityMaturityGateKind.implementation,
@@ -694,18 +772,18 @@ def _evidence_gates(
             gate_kind=CapabilityMaturityGateKind.automated_tests,
             status=(
                 CapabilityMaturityGateStatus.satisfied
-                if automated_evidence
+                if evidence.automated_tests
                 else CapabilityMaturityGateStatus.pending
             ),
             evidence_refs=(
-                (definition.test_ref, automated_ref) if automated_evidence else ()
+                (definition.test_ref, automated_ref) if evidence.automated_tests else ()
             ),
             blocker_codes=(
-                () if automated_evidence else ("AUTOMATED_EVALUATION_REQUIRED",)
+                () if evidence.automated_tests else ("AUTOMATED_EVALUATION_REQUIRED",)
             ),
             safe_summary=(
                 "Focused tests and the bounded evaluator passed."
-                if automated_evidence
+                if evidence.automated_tests
                 else "The bounded evaluator has not supplied complete automated evidence."
             ),
         ),
@@ -713,41 +791,48 @@ def _evidence_gates(
             gate_kind=CapabilityMaturityGateKind.runtime_scenario,
             status=(
                 CapabilityMaturityGateStatus.satisfied
-                if automated_evidence
+                if evidence.runtime_scenario
                 else CapabilityMaturityGateStatus.pending
             ),
-            evidence_refs=((automated_ref,) if automated_evidence else ()),
+            evidence_refs=((automated_ref,) if evidence.runtime_scenario else ()),
             blocker_codes=(
-                () if automated_evidence else ("RUNTIME_SCENARIO_REQUIRED",)
+                () if evidence.runtime_scenario else ("RUNTIME_SCENARIO_REQUIRED",)
             ),
             safe_summary=(
                 "Bounded runtime scenarios produced the expected safe outcome."
-                if automated_evidence
+                if evidence.runtime_scenario
                 else "A bounded runtime scenario must still produce the expected safe outcome."
             ),
         ),
         CapabilityMaturityEvidenceGate(
             gate_kind=CapabilityMaturityGateKind.operator_surface,
-            status=CapabilityMaturityGateStatus.satisfied,
-            evidence_refs=(definition.operator_surface_ref,),
-            safe_summary="The backend-owned posture is exposed on an operator-readable surface.",
+            status=CapabilityMaturityGateStatus.pending,
+            blocker_codes=("OPERATOR_SURFACE_ACCEPTANCE_REQUIRED",),
+            safe_summary=(
+                "An operator surface is declared, but observed usability and parity "
+                "acceptance remain unmeasured."
+            ),
         ),
         CapabilityMaturityEvidenceGate(
             gate_kind=CapabilityMaturityGateKind.recovery_and_failure,
             status=(
                 CapabilityMaturityGateStatus.satisfied
-                if automated_evidence
+                if evidence.recovery_and_failure
                 else CapabilityMaturityGateStatus.pending
             ),
             evidence_refs=(
-                (definition.test_ref, automated_ref) if automated_evidence else ()
+                (definition.test_ref, automated_ref)
+                if evidence.recovery_and_failure
+                else ()
             ),
             blocker_codes=(
-                () if automated_evidence else ("FAILURE_AND_RECOVERY_PROOF_REQUIRED",)
+                ()
+                if evidence.recovery_and_failure
+                else ("FAILURE_AND_RECOVERY_PROOF_REQUIRED",)
             ),
             safe_summary=(
                 "The bounded evidence includes safe failure, replay, or recovery posture where applicable."
-                if automated_evidence
+                if evidence.recovery_and_failure
                 else "Failure, replay, and recovery posture still require bounded evidence."
             ),
         ),
@@ -769,13 +854,18 @@ def _evidence_gates(
                 else (
                     (definition.external_dependency_code,)
                     if external_blocked
-                    else ("INDEPENDENT_ACCEPTANCE_REQUIRED",)
+                    else (
+                        "TRUSTED_ACCEPTANCE_VERIFICATION_REQUIRED"
+                        if decision is not None
+                        and decision.status == CapabilityMaturityDecisionStatus.accepted
+                        else "INDEPENDENT_ACCEPTANCE_REQUIRED",
+                    )
                 )
             ),
             safe_summary=(
-                "An independent, digest-bound acceptance decision approved the score change."
-                if accepted
-                else definition.acceptance_summary
+                definition.acceptance_summary
+                if decision is None
+                else "A supplied decision is content-bound but cannot be trusted without a separately implemented acceptance verifier."
             ),
         ),
     )
@@ -791,10 +881,10 @@ def build_capability_maturity_read_model(
     )
     components: list[CapabilityMaturityComponent] = []
     for definition in CAPABILITY_MATURITY_DEFINITIONS:
-        automated_evidence, scenario_refs = (
-            _component_automated_evidence(report, definition.component_id)
+        evidence = (
+            _component_evidence_posture(report, definition.component_id)
             if report is not None
-            else (False, ())
+            else _ComponentEvidencePosture(False, False, False, ())
         )
         decision = _decision_for_component(
             graduation_decisions, definition, report_digest_ref
@@ -802,39 +892,32 @@ def build_capability_maturity_read_model(
         gates = _evidence_gates(
             definition,
             report_ref=report.report_ref if report is not None else None,
-            automated_evidence=automated_evidence,
+            evidence=evidence,
             decision=decision,
         )
-        accepted = (
-            automated_evidence
-            and decision is not None
-            and decision.status == CapabilityMaturityDecisionStatus.accepted
+        unsatisfied_blockers = tuple(
+            code
+            for gate in gates
+            if gate.status != CapabilityMaturityGateStatus.satisfied
+            for code in gate.blocker_codes
         )
-        if definition.baseline_score == 10 and automated_evidence:
-            status = CapabilityMaturityEvidenceStatus.ceiling_defended
-            verified_score = definition.target_score
-            blockers: tuple[str, ...] = ()
-            summary = "The existing ceiling is defended by bounded automated evidence; no score increase was created."
-        elif accepted:
-            status = CapabilityMaturityEvidenceStatus.target_proven
-            verified_score = definition.target_score
-            blockers = ()
-            summary = "Runtime evidence plus independent digest-bound acceptance prove this one-point score change."
-        elif report is not None and not automated_evidence:
+        if report is not None and not evidence.automated_tests:
             status = CapabilityMaturityEvidenceStatus.evidence_failed
             verified_score = definition.baseline_score
             blockers = ("CAPABILITY_MATURITY_AUTOMATED_EVIDENCE_FAILED",)
             summary = "The baseline is retained because bounded automated evidence is incomplete or failed."
-        elif automated_evidence and definition.external_dependency_code is not None:
+        elif (
+            evidence.automated_tests and definition.external_dependency_code is not None
+        ):
             status = CapabilityMaturityEvidenceStatus.external_dependency_required
             verified_score = definition.baseline_score
-            blockers = (definition.external_dependency_code,)
-            summary = "Automated evidence passed, but an external integration and independent acceptance remain required."
-        elif automated_evidence:
-            status = CapabilityMaturityEvidenceStatus.manual_validation_required
+            blockers = unsatisfied_blockers
+            summary = "Automated checks passed, but external integration and the remaining evidence gates are unresolved."
+        elif evidence.automated_tests:
+            status = CapabilityMaturityEvidenceStatus.automated_evidence_ready
             verified_score = definition.baseline_score
-            blockers = ("INDEPENDENT_ACCEPTANCE_REQUIRED",)
-            summary = "Automated evidence is ready, but the score remains at baseline until independent acceptance is recorded."
+            blockers = unsatisfied_blockers
+            summary = "Automated checks passed; runtime, recovery, operator, and trusted acceptance truth remain independently gated."
         else:
             status = CapabilityMaturityEvidenceStatus.baseline_only
             verified_score = definition.baseline_score
@@ -849,7 +932,7 @@ def build_capability_maturity_read_model(
                 target_score=definition.target_score,
                 verified_score=verified_score,
                 evidence_status=status,
-                scenario_refs=scenario_refs,
+                scenario_refs=evidence.scenario_refs,
                 evidence_refs=(
                     definition.implementation_ref,
                     definition.test_ref,
@@ -880,6 +963,7 @@ def build_capability_maturity_read_model(
     automated_ready = sum(
         item.evidence_status
         in {
+            CapabilityMaturityEvidenceStatus.automated_evidence_ready,
             CapabilityMaturityEvidenceStatus.manual_validation_required,
             CapabilityMaturityEvidenceStatus.external_dependency_required,
             CapabilityMaturityEvidenceStatus.target_proven,
@@ -931,15 +1015,18 @@ def build_capability_maturity_read_model(
         ceiling_defended_count=ceiling_defended,
         components=tuple(components),
         safe_summary=(
-            "All one-point targets have runtime evidence and independent acceptance; score visibility grants no authority."
+            "All one-point targets have runtime evidence and trusted independent acceptance; score visibility grants no authority."
             if all_targets_proven
-            else "Passing tests advance evidence readiness only. Every score stays at baseline until an independent, digest-bound acceptance decision proves the remaining operator or external validation."
+            else "Passing tests advance only their own evidence gate. Every score stays at baseline until runtime, recovery, operator, external, and trusted acceptance evidence is independently verified."
         ),
     )
 
 
 __all__ = [
     "CAPABILITY_MATURITY_CONTRACT_REF",
+    "CAPABILITY_MATURITY_BASELINE_FINGERPRINT_REF",
+    "CAPABILITY_MATURITY_BASELINE_SCORES",
+    "CAPABILITY_MATURITY_BASELINE_SOURCE_REF",
     "CAPABILITY_MATURITY_DEFINITIONS",
     "CAPABILITY_MATURITY_SCHEMA_VERSION",
     "CapabilityMaturityComponent",

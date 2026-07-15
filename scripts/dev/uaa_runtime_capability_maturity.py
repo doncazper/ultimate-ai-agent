@@ -8,7 +8,7 @@ from ultimate_ai_agent.core.evals import build_capability_maturity_read_model
 
 
 def _print_read_model(read_model: dict[str, Any]) -> None:
-    print("Capability maturity evidence gate")
+    print("Capability maturity evidence-gated plan")
     print(f"Verification: {read_model['verification_posture']}")
     print(
         "Weighted score: "
@@ -32,7 +32,7 @@ def _print_read_model(read_model: dict[str, Any]) -> None:
             print(f"  blockers: {', '.join(item['blocker_codes'])}")
         print(f"  next proof: {item['next_acceptance_ref']}")
     print(
-        "Scores grant no runtime authority. Automated evidence cannot graduate a score without independent acceptance."
+        "Scores grant no runtime authority. Automated checks cannot satisfy runtime, recovery, operator, or trusted-acceptance gates."
     )
 
 

@@ -72,7 +72,7 @@ export function CapabilitySurfacePanel({
       <section className="panel" aria-labelledby="capability-maturity-heading">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Empirical maturity</p>
+            <p className="eyebrow">Evidence-gated maturity</p>
             <h3 id="capability-maturity-heading">Capability score evidence</h3>
           </div>
           <span className="status-pill compact">
@@ -82,7 +82,7 @@ export function CapabilitySurfacePanel({
         <p>{surface.maturity.safe_summary}</p>
         <div className="panel-grid">
           <MetricCard
-            label="Verified weighted score"
+            label="Accepted baseline"
             value={surface.maturity.verified_weighted_score}
           />
           <MetricCard
@@ -94,11 +94,8 @@ export function CapabilitySurfacePanel({
             value={surface.maturity.automated_evidence_ready_count}
           />
           <MetricCard
-            label="Independent reviews due"
-            value={
-              surface.maturity.manual_validation_required_count +
-              surface.maturity.external_dependency_required_count
-            }
+            label="Targets still held"
+            value={surface.maturity.uplift_target_count - surface.maturity.uplift_proven_count}
           />
         </div>
         <div className="table-wrap">
@@ -143,7 +140,8 @@ export function CapabilitySurfacePanel({
           <p>
             Passing automated checks advances evidence readiness, not the score.
             A target remains at baseline until runtime, failure/recovery,
-            operator-surface, and independent digest-bound acceptance all pass.
+            operator-surface, and trusted independent acceptance all pass. A
+            self-hashed acceptance ref cannot advance a score.
           </p>
         </div>
       </section>

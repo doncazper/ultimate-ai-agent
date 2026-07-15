@@ -215,6 +215,17 @@ def test_observation_requires_task_truth_for_claims_and_rejects_raw_fields_and_a
     with pytest.raises(ValidationError, match="cannot grant authority"):
         CapabilityScenarioObservation.model_validate(payload)
 
+    blocked_payload = _observation(
+        CAPABILITY_COMPONENT_IDS[0],
+        0,
+        status=CapabilityEvaluationStatus.blocked,
+    ).model_dump(mode="json")
+    blocked_payload["task_completed"] = True
+    with pytest.raises(
+        ValidationError, match="blocked scenario cannot be task-complete"
+    ):
+        CapabilityScenarioObservation.model_validate(blocked_payload)
+
 
 def test_runner_registry_closes_coverage_and_preserves_web_hybrid() -> None:
     runner._validate_registry()
@@ -501,28 +512,12 @@ def test_runner_aggregates_safe_injected_transport_results(
             verifier_refs=spec.test_verifier_refs,
             execution_fingerprint_ref=runner.scenario_execution_fingerprint(spec),
             duration_ms=1,
-            evidence_complete=True,
-            task_completed=True,
-            completion_claimed=True,
-            operator_interventions=0,
-            unsupported_claim_count=0,
-            policy_violation_refs=(),
             recovery_expected=spec.scenario_id
             in {
                 "scenario:dag-replay-crash",
                 "scenario:cancellation-race",
                 "scenario:budget-exhaustion-settlement",
             },
-            recovery_succeeded=(
-                True
-                if spec.scenario_id
-                in {
-                    "scenario:dag-replay-crash",
-                    "scenario:cancellation-race",
-                    "scenario:budget-exhaustion-settlement",
-                }
-                else None
-            ),
             replay_expected=spec.scenario_id
             in {
                 "scenario:dag-replay-crash",
@@ -530,17 +525,6 @@ def test_runner_aggregates_safe_injected_transport_results(
                 "scenario:exact-tool-idempotency",
                 "scenario:receipt-tamper-surface-parity",
             },
-            replay_succeeded=(
-                True
-                if spec.scenario_id
-                in {
-                    "scenario:dag-replay-crash",
-                    "scenario:budget-exhaustion-settlement",
-                    "scenario:exact-tool-idempotency",
-                    "scenario:receipt-tamper-surface-parity",
-                }
-                else None
-            ),
         )
         for spec in runner.PHASE09_SCENARIOS
     ]
@@ -560,29 +544,46 @@ def test_runner_aggregates_safe_injected_transport_results(
     assert report.component_count == 16
     assert report.scenario_count == 23
     assert report.passed_unblocked_verifier_count == 22
-    assert report.task_completion_count == 23
+    assert report.task_completion_count is None
+    assert report.task_completion_posture == "not_measured"
     assert report.blocked_safe_outcome_count == 1
-    assert report.correctness_rate == 1.0
-    assert report.evidence_completeness_rate == 1.0
+    assert report.correctness_rate is None
+    assert report.evidence_completeness_rate is None
+    assert report.recovery_success_rate is None
+    assert report.replay_correctness_rate is None
+    assert all(item.task_completed is None for item in report.observations)
+    assert all(item.evidence_complete is None for item in report.observations)
+    assert all(item.policy_violation_refs is None for item in report.observations)
     assert report.authority_granted is False
 
     maturity = build_capability_maturity_read_model(report)
     assert maturity.verification_posture == "automated_evidence_ready"
     assert maturity.uplift_proven_count == 0
-    assert maturity.automated_evidence_ready_count == 12
-    assert maturity.manual_validation_required_count == 11
+    assert maturity.automated_evidence_ready_count == 16
+    assert maturity.manual_validation_required_count == 0
     assert maturity.external_dependency_required_count == 1
-    assert maturity.ceiling_defended_count == 4
+    assert maturity.ceiling_defended_count == 0
     assert maturity.verified_weighted_score == maturity.baseline_weighted_score
     assert {item.evidence_status for item in maturity.components} == {
-        CapabilityMaturityEvidenceStatus.manual_validation_required,
+        CapabilityMaturityEvidenceStatus.automated_evidence_ready,
         CapabilityMaturityEvidenceStatus.external_dependency_required,
-        CapabilityMaturityEvidenceStatus.ceiling_defended,
     }
+    assert all(
+        gate.status.value != "satisfied"
+        for item in maturity.components
+        for gate in item.gates
+        if gate.gate_kind.value
+        in {
+            "runtime_scenario",
+            "operator_surface",
+            "recovery_and_failure",
+            "independent_acceptance",
+        }
+    )
     verify_report(report)
 
 
-def test_maturity_plan_retains_baselines_until_empirical_evidence_passes() -> None:
+def test_maturity_plan_retains_canonical_baselines_until_evidence_passes() -> None:
     read_model = build_capability_maturity_read_model()
 
     assert read_model.verification_posture == "evaluation_required"
@@ -592,6 +593,14 @@ def test_maturity_plan_retains_baselines_until_empirical_evidence_passes() -> No
     assert read_model.manual_validation_required_count == 0
     assert read_model.external_dependency_required_count == 0
     assert read_model.ceiling_defended_count == 0
+    assert read_model.baseline_weighted_score == 87.5
+    assert read_model.target_weighted_score == 94.8
+    extensibility = next(
+        item
+        for item in read_model.components
+        if item.component_id == "extensibility_ecosystem"
+    )
+    assert (extensibility.baseline_score, extensibility.target_score) == (7, 8)
     assert read_model.verified_weighted_score == read_model.baseline_weighted_score
     assert read_model.target_weighted_score > read_model.baseline_weighted_score
     assert all(
@@ -606,7 +615,12 @@ def test_maturity_plan_retains_baselines_until_empirical_evidence_passes() -> No
 
 def test_maturity_gate_refuses_partial_component_evidence() -> None:
     observations = list(_observations(structured_metrics=True))
-    observations[0] = observations[0].model_copy(update={"evidence_complete": False})
+    observations[0] = observations[0].model_copy(
+        update={
+            "observed_status": CapabilityEvaluationStatus.failed,
+            "failure_code": "assertion_failed",
+        }
+    )
     report = build_agent_capability_evaluation_report(
         report_ref="evaluation-report:test:maturity-failure",
         benchmark_ref="benchmark-ref:test:maturity-failure",
@@ -621,12 +635,12 @@ def test_maturity_gate_refuses_partial_component_evidence() -> None:
     assert first.evidence_status == CapabilityMaturityEvidenceStatus.evidence_failed
     assert "CAPABILITY_MATURITY_AUTOMATED_EVIDENCE_FAILED" in first.blocker_codes
     with pytest.raises(
-        CapabilityMaturityVerificationError, match="lack complete bounded"
+        CapabilityMaturityVerificationError, match="lack bounded automated-test"
     ):
         verify_report(report)
 
 
-def test_score_graduation_requires_independent_digest_bound_acceptance() -> None:
+def test_self_hashed_acceptance_cannot_graduate_a_score() -> None:
     report = build_agent_capability_evaluation_report(
         report_ref="evaluation-report:test:graduation",
         benchmark_ref="benchmark-ref:test:graduation",
@@ -637,7 +651,7 @@ def test_score_graduation_requires_independent_digest_bound_acceptance() -> None
     component = baseline.components[0]
     assert (
         component.evidence_status
-        == CapabilityMaturityEvidenceStatus.manual_validation_required
+        == CapabilityMaturityEvidenceStatus.automated_evidence_ready
     )
     assert component.verified_score == component.baseline_score
 
@@ -657,17 +671,18 @@ def test_score_graduation_requires_independent_digest_bound_acceptance() -> None
         decision_ref=capability_maturity_decision_ref(**decision_fields),
         **decision_fields,
     )
-    graduated = build_capability_maturity_read_model(
+    held = build_capability_maturity_read_model(
         report, graduation_decisions=(decision,)
     )
-    graduated_component = graduated.components[0]
-    assert graduated.verification_posture == "partially_graduated"
-    assert graduated.uplift_proven_count == 1
+    held_component = held.components[0]
+    assert held.verification_posture == "automated_evidence_ready"
+    assert held.uplift_proven_count == 0
     assert (
-        graduated_component.evidence_status
-        == CapabilityMaturityEvidenceStatus.target_proven
+        held_component.evidence_status
+        == CapabilityMaturityEvidenceStatus.automated_evidence_ready
     )
-    assert graduated_component.verified_score == graduated_component.target_score
+    assert held_component.verified_score == held_component.baseline_score
+    assert "TRUSTED_ACCEPTANCE_VERIFICATION_REQUIRED" in held_component.blocker_codes
 
 
 def test_maturity_decision_ref_binds_status_and_evidence() -> None:
@@ -731,9 +746,14 @@ def test_score_graduation_rejects_stale_or_wrong_acceptance_binding() -> None:
         build_capability_maturity_read_model(report, graduation_decisions=(decision,))
 
 
-def test_independent_acceptance_cannot_override_failed_automated_evidence() -> None:
+def test_independent_acceptance_cannot_override_failed_automated_test() -> None:
     observations = list(_observations(structured_metrics=True))
-    observations[0] = observations[0].model_copy(update={"evidence_complete": False})
+    observations[0] = observations[0].model_copy(
+        update={
+            "observed_status": CapabilityEvaluationStatus.failed,
+            "failure_code": "assertion_failed",
+        }
+    )
     report = build_agent_capability_evaluation_report(
         report_ref="evaluation-report:test:failed-acceptance",
         benchmark_ref="benchmark-ref:test:failed-acceptance",

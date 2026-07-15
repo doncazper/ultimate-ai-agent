@@ -68,17 +68,27 @@ describe("CapabilitySurfacePanel web hybrid posture", () => {
     const maturityPanel = screen.getByRole("region", {
       name: "Capability score evidence",
     });
+    expect(within(maturityPanel).getByText("Evidence-gated maturity")).toBeInTheDocument();
     expect(
       within(screen.getByRole("region", { name: "Capabilities" })).getByText(
         "fallback shape only",
       ),
     ).toBeInTheDocument();
     expect(within(maturityPanel).getByText("Extensibility and ecosystem")).toBeInTheDocument();
+    expect(within(maturityPanel).getByText("87.5")).toBeInTheDocument();
+    expect(within(maturityPanel).getByText("94.8")).toBeInTheDocument();
+    const extensibilityRow = within(maturityPanel)
+      .getByText("Extensibility and ecosystem")
+      .closest("tr");
+    expect(extensibilityRow).not.toBeNull();
+    expect(within(extensibilityRow!).getAllByText("7")).toHaveLength(2);
+    expect(within(extensibilityRow!).getByText("8")).toBeInTheDocument();
     expect(within(maturityPanel).getByText("Scores never mint authority")).toBeInTheDocument();
     expect(within(maturityPanel).getAllByText("baseline only").length).toBeGreaterThan(0);
     expect(
       within(maturityPanel).getByText(/passing automated checks advances evidence readiness/i),
     ).toBeInTheDocument();
+    expect(within(maturityPanel).getByText(/self-hashed acceptance ref cannot advance/i)).toBeInTheDocument();
     expect(within(maturityPanel).getAllByText(/next proof:/i).length).toBe(16);
     expect(within(maturityPanel).queryByText(/globally authorized/i)).not.toBeInTheDocument();
   });

@@ -4,6 +4,7 @@ import copy
 import json
 import os
 from pathlib import Path
+import subprocess
 
 import pytest
 
@@ -33,8 +34,10 @@ def test_comparison_findings_verify_exact_scores_and_bounded_result() -> None:
     assert data["final_scores"] == data["initial_scores"]
     assert data["implementation_result"]["scenario_count"] == 23
     assert data["implementation_result"]["passed_unblocked_verifier_count"] == 22
-    assert data["implementation_result"]["task_completion_count"] == 23
-    assert data["implementation_result"]["correctness_rate"] == 1
+    assert data["implementation_result"]["task_completion_count"] is None
+    assert data["implementation_result"]["task_completion_posture"] == "not_measured"
+    assert data["implementation_result"]["correctness_rate"] is None
+    assert data["implementation_result"]["correctness_rate_posture"] == "not_measured"
     assert (
         data["implementation_result"]["cross_repo_empirical_performance"]
         == "not_measured"
@@ -102,10 +105,21 @@ def test_comparison_findings_reject_report_binding_drift() -> None:
         verifier.verify_data(data)
 
     data = copy.deepcopy(_data())
-    data["implementation_result"]["evaluator_source_digest"] = "sha256:" + (
-        "0" * 64
-    )
+    data["implementation_result"]["evaluator_source_digest"] = "sha256:" + ("0" * 64)
     with pytest.raises(verifier.VerificationError, match="source digest"):
+        verifier.verify_data(data)
+
+    data = copy.deepcopy(_data())
+    data["implementation_result"]["task_completion_count"] = 23
+    data["implementation_result"]["task_completion_posture"] = "measured"
+    with pytest.raises(verifier.VerificationError, match="must remain not measured"):
+        verifier.verify_data(data)
+
+    data = copy.deepcopy(_data())
+    data["implementation_result"]["report_projection"]["observations"][0][
+        "task_completed"
+    ] = True
+    with pytest.raises(verifier.VerificationError, match="cannot synthesize"):
         verifier.verify_data(data)
 
 
@@ -207,3 +221,21 @@ def test_safe_read_rejects_fifo_without_blocking(tmp_path: Path) -> None:
         verifier._safe_read(
             fifo.relative_to(tmp_path), root=tmp_path, maximum_bytes=100
         )
+
+
+def test_refresh_requires_an_exact_clean_worktree(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        verifier.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+            stdout=b" M tracked-file\n",
+            stderr=b"",
+        ),
+    )
+
+    with pytest.raises(verifier.VerificationError, match="exact clean committed"):
+        verifier.refresh_uaa_evaluation()

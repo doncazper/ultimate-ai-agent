@@ -2,11 +2,12 @@
 
 The capability surface also renders the backend-owned capability maturity
 evidence gate. Each of the 16 comparison components shows its baseline, exact
-one-point target capped at ten, and empirical verification posture. The normal
+one-point target capped at ten, and evidence-gated verification posture. The normal
 read-only route never runs tests. The bounded repo-local evaluator can advance
-automated evidence readiness, but the score remains at baseline until a
-separate digest-bound acceptance decision verifies the component-specific
-operator or external evidence. Score visibility never grants authority.
+the automated-test gate, but runtime, recovery, operator, and independent
+acceptance remain separate. No trusted acceptance resolver exists in this
+slice, so even a self-consistent digest-bound decision cannot advance a score.
+Score visibility never grants authority.
 
 Status: active capability-first coverage seed, no new runtime authority.
 

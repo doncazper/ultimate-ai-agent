@@ -10538,6 +10538,8 @@ export interface CapabilityMaturityReadModel {
   schema_version: "uaa-capability-maturity.v1";
   contract_ref: "contract-ref:capability-maturity:v1";
   read_model_ref: string;
+  baseline_source_ref: string;
+  baseline_source_fingerprint_ref: string;
   evidence_report_ref: string | null;
   evidence_report_digest_ref: string | null;
   verification_posture:
@@ -10563,6 +10565,7 @@ export interface CapabilityMaturityReadModel {
   authority_granted: false;
   score_increase_requires_runtime_evidence: true;
   score_increase_requires_independent_acceptance: true;
+  trusted_acceptance_verification_implemented: false;
   raw_content_persisted: false;
   safe_summary: string;
 }
