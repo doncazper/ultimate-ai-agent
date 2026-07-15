@@ -120,8 +120,11 @@ class MatrixPrivateSyncBatch(BaseModel):
                 or self.next_batch_ref != "pagination-cursor-ref:matrix:terminal"
             ):
                 raise ValueError("MATRIX_SYNC_TERMINAL_CURSOR_INVALID")
-        elif self.next_batch_token is None:
-            raise ValueError("MATRIX_SYNC_CURSOR_REQUIRED")
+        else:
+            if self.next_batch_token is None:
+                raise ValueError("MATRIX_SYNC_CURSOR_REQUIRED")
+            if self.next_batch_ref == "pagination-cursor-ref:matrix:terminal":
+                raise ValueError("MATRIX_SYNC_TERMINAL_CURSOR_INVALID")
         return self
 
 

@@ -246,6 +246,40 @@ def test_timeline_terminal_page_without_end_is_preserved() -> None:
     assert batch.next_batch_ref == "pagination-cursor-ref:matrix:terminal"
 
 
+@pytest.mark.parametrize(
+    "updates",
+    [
+        {
+            "pagination_complete": False,
+            "next_batch_token": "cursor-live",
+            "next_batch_ref": "pagination-cursor-ref:matrix:terminal",
+        },
+        {
+            "pagination_complete": True,
+            "next_batch_token": "cursor-live",
+            "next_batch_ref": "pagination-cursor-ref:matrix:terminal",
+        },
+        {
+            "pagination_complete": True,
+            "next_batch_token": None,
+            "next_batch_ref": "pagination-cursor-ref:matrix:live",
+        },
+    ],
+)
+def test_terminal_cursor_evidence_cannot_be_contradictory(
+    updates: dict[str, object],
+) -> None:
+    batch = normalize_matrix_sync_response(
+        account_ref=ACCOUNT_REF,
+        payload=_sync_payload(),
+        pseudonymization_salt=SALT,
+    )
+    payload = batch.model_dump(mode="python")
+    payload.update(updates)
+    with pytest.raises(ValueError, match="MATRIX_SYNC_TERMINAL_CURSOR_INVALID"):
+        type(batch).model_validate(payload)
+
+
 def test_v11_redaction_purges_cached_target_and_prevents_rehydration() -> None:
     initial = normalize_matrix_sync_response(
         account_ref=ACCOUNT_REF,

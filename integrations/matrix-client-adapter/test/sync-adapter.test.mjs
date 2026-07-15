@@ -178,6 +178,23 @@ test("sync input denies raw credential fields and scope drift", () => {
     () => validateSyncAdapterInput(input("sync_read", { room_ids: [`!${"r".repeat(254)}:x`] })),
     /MATRIX_SYNC_ADAPTER_ROOM_SCOPE_INVALID/,
   );
+  const roomSuffix = ":example.invalid";
+  const roomAtLimit = `!${"r".repeat(255 - 1 - Buffer.byteLength(roomSuffix))}${roomSuffix}`;
+  assert.equal(
+    validateSyncAdapterInput(input("timeline_paginate_read", {
+      room_id: roomAtLimit,
+      pagination_token: "private-page-token",
+    })).room_id,
+    roomAtLimit,
+  );
+  const roomOverLimit = `!${"r".repeat(256 - 1 - Buffer.byteLength(roomSuffix))}${roomSuffix}`;
+  assert.throws(
+    () => validateSyncAdapterInput(input("timeline_paginate_read", {
+      room_id: roomOverLimit,
+      pagination_token: "private-page-token",
+    })),
+    /MATRIX_SYNC_ADAPTER_TRANSIENT_SCOPE_INVALID/,
+  );
 });
 
 test("maximum declared room scope remains inside the sync query envelope", async () => {

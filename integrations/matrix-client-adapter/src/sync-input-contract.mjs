@@ -69,8 +69,10 @@ export function validateSyncAdapterInput(value) {
     throw new Error("MATRIX_SYNC_ADAPTER_TARGET_INVALID");
   }
   for (const key of ["since_token", "pagination_token", "room_id"]) {
+    const maximumBytes = key === "room_id" ? MAX_ROOM_ID_BYTES : 4096;
     if (value[key] !== undefined &&
-        (typeof value[key] !== "string" || !value[key] || Buffer.byteLength(value[key], "utf8") > 4096)) {
+        (typeof value[key] !== "string" || !value[key] ||
+         Buffer.byteLength(value[key], "utf8") > maximumBytes)) {
       throw new Error("MATRIX_SYNC_ADAPTER_TRANSIENT_SCOPE_INVALID");
     }
   }
