@@ -423,7 +423,7 @@
           "width": 1180,
           "height": 800,
           "baseline_file_ref": "visual-baseline-file:desktop:messenger-sessions-compact",
-          "baseline_hash": "sha256:db682d480d985cc6af21770d4be3359dc55ec995615081e7f182b9834c39cf86"
+          "baseline_hash": "sha256:ef0ddfce8080c1edfe3cd414af9e7820b08222febf27923839b3d0442f3f3eb9"
         },
         "intelligence-compact": {
           "surface_id": "intelligence",
@@ -455,7 +455,7 @@
           "width": 1180,
           "height": 800,
           "baseline_file_ref": "visual-baseline-file:desktop:messenger-calling-compact",
-          "baseline_hash": "sha256:38cd33ac345e8d82f781ae0b8f244310ad2e34bd9e11448876569503dac4f993"
+          "baseline_hash": "sha256:a807febb1a1a939db5ca23b99a3bee38beef913f507e20f75e3672a960ab5209"
         },
         "setup-compact": {
           "surface_id": "setup",
