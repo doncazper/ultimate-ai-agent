@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import os
+import platform
 import re
 import stat
 import subprocess
@@ -17,9 +18,28 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scripts.verify_release_lanes import LaneCommand, release_lanes  # noqa: E402
+from scripts.verification.verification_contracts import (  # noqa: E402
+    VerificationPlan,
+    VerificationRiskTier,
+    VerificationUnit,
+    VerificationUnitKind,
+    dependency_closed_unit_refs,
+    validate_verification_dag,
+)
+from scripts.verification.verification_risk import (  # noqa: E402
+    ChangeKind,
+    ChangeRecord,
+    RISK_MANIFEST_VERSION,
+    audit_posture_for_tier,
+    change_fingerprint,
+    classify_changes,
+    risk_definition_payload,
+    risk_manifest_fingerprint,
+    unit_refs_for_selection,
+)
 
 
-SCHEMA_VERSION = "uaa_ci_command_manifest.v1"
+SCHEMA_VERSION = "uaa_ci_command_manifest.v2"
 PROFILE_REF = "ci-profile:merge-macos-v1"
 MACHINE_PROFILE_REF = "machine-profile:macos-arm64-private"
 PRIVATE_BASE_REF = "refs/uaa-ci/base-main"
@@ -70,29 +90,7 @@ class LaneSpec:
     satisfied_command_refs: tuple[str, ...] = ()
 
 
-@dataclass(frozen=True)
-class JobSpec:
-    job_ref: str
-    display_name: str
-    lane_ref: str | None
-    needs: tuple[str, ...]
-    timeout_minutes: int = 45
-
-
-@dataclass(frozen=True)
-class VerificationPlan:
-    schema_version: str
-    profile_ref: str
-    repository_sha: str
-    definition_fingerprint: str
-    dependency_lock_fingerprints: tuple[tuple[str, str], ...]
-    affected_path_classification: str
-    selected_lane_refs: tuple[str, ...]
-    selected_command_refs: tuple[str, ...]
-    pytest_shard_plan_fingerprint: str
-    frontend_visual_scope: str
-    redaction_status: str
-    plan_fingerprint: str
+JobSpec = VerificationUnit
 
 
 def _command_from_release(command: LaneCommand) -> CommandSpec:
@@ -140,6 +138,71 @@ def command_registry() -> dict[str, CommandSpec]:
                 (),
                 "lint",
                 120,
+            ),
+            "command:git.diff-check": CommandSpec(
+                "command:git.diff-check",
+                ("git", "diff", "--check", "{base_sha}", "{repository_sha}"),
+                (),
+                "diff_integrity",
+                60,
+            ),
+            "command:pytest.focused": CommandSpec(
+                "command:pytest.focused",
+                (
+                    ".venv/bin/python",
+                    "-m",
+                    "pytest",
+                    "-q",
+                    "{selected_test_refs}",
+                ),
+                (("PYTHONPATH", "src"),),
+                "test_focused",
+                900,
+            ),
+            "command:frontend.typecheck": CommandSpec(
+                "command:frontend.typecheck",
+                (
+                    "npm",
+                    "--prefix",
+                    "apps/control-center",
+                    "run",
+                    "typecheck",
+                    "--if-present",
+                ),
+                (),
+                "frontend_typecheck",
+                300,
+            ),
+            "command:frontend.unit-tests": CommandSpec(
+                "command:frontend.unit-tests",
+                (
+                    "npm",
+                    "--prefix",
+                    "apps/control-center",
+                    "run",
+                    "test",
+                    "--if-present",
+                    "--",
+                    "--run",
+                ),
+                (),
+                "frontend_test",
+                600,
+            ),
+            "command:frontend.vite-build": CommandSpec(
+                "command:frontend.vite-build",
+                (
+                    "npm",
+                    "--prefix",
+                    "apps/control-center",
+                    "exec",
+                    "--",
+                    "vite",
+                    "build",
+                ),
+                (),
+                "frontend_build",
+                300,
             ),
             "command:ci.manifest-attestation": CommandSpec(
                 "command:ci.manifest-attestation",
@@ -334,6 +397,150 @@ def lane_registry() -> dict[str, LaneSpec]:
     return lanes
 
 
+FOCUSED_VERIFICATION_UNITS = (
+    VerificationUnit(
+        "risk-diff-check",
+        "Changed Diff Integrity",
+        None,
+        (),
+        command_refs=("command:git.diff-check",),
+        execution_surfaces=("github", "local", "private", "shadow"),
+        proof_equivalence_ref="proof-equivalence-ref:diff-integrity",
+    ),
+    VerificationUnit(
+        "risk-documentation",
+        "Documentation Integrity",
+        None,
+        ("risk-diff-check",),
+        command_refs=("command:docs.integrity",),
+        execution_surfaces=("github", "local", "private", "shadow"),
+        proof_equivalence_ref="proof-equivalence-ref:documentation",
+    ),
+    VerificationUnit(
+        "risk-product-truth",
+        "Product Truth",
+        None,
+        ("risk-diff-check",),
+        command_refs=("command:product-truth.regression-verifier",),
+        execution_surfaces=("github", "local", "private", "shadow"),
+        proof_equivalence_ref="proof-equivalence-ref:product-truth",
+    ),
+    VerificationUnit(
+        "risk-redaction",
+        "Security Artifact Redaction",
+        None,
+        ("risk-diff-check",),
+        command_refs=("command:security.artifact-redaction",),
+        execution_surfaces=("github", "local", "private", "shadow"),
+        proof_equivalence_ref="proof-equivalence-ref:redaction",
+    ),
+    VerificationUnit(
+        "risk-ruff",
+        "Python Lint",
+        None,
+        ("risk-diff-check",),
+        command_refs=("command:ci.ruff",),
+        minimum_risk_tier=VerificationRiskTier.TIER_1,
+        execution_surfaces=("github", "local", "private", "shadow"),
+        proof_equivalence_ref="proof-equivalence-ref:python-lint",
+    ),
+    VerificationUnit(
+        "risk-focused-pytest",
+        "Affected Pytest",
+        None,
+        ("risk-diff-check",),
+        command_refs=("command:pytest.focused",),
+        minimum_risk_tier=VerificationRiskTier.TIER_1,
+        execution_surfaces=("github", "local", "private", "shadow"),
+        exclusive_resource_refs=("resource-ref:pytest-process-tree",),
+        proof_equivalence_ref="proof-equivalence-ref:focused-pytest",
+    ),
+    VerificationUnit(
+        "risk-frontend-typecheck",
+        "Control Center Typecheck",
+        None,
+        ("risk-diff-check",),
+        command_refs=("command:frontend.typecheck",),
+        minimum_risk_tier=VerificationRiskTier.TIER_1,
+        execution_surfaces=("github", "local", "private", "shadow"),
+        exclusive_resource_refs=("resource-ref:typescript-typecheck",),
+        proof_equivalence_ref="proof-equivalence-ref:typescript-typecheck",
+    ),
+    VerificationUnit(
+        "risk-frontend-tests",
+        "Control Center Unit Tests",
+        None,
+        ("risk-diff-check",),
+        command_refs=("command:frontend.unit-tests",),
+        minimum_risk_tier=VerificationRiskTier.TIER_1,
+        execution_surfaces=("github", "local", "private", "shadow"),
+        proof_equivalence_ref="proof-equivalence-ref:frontend-unit-tests",
+    ),
+    VerificationUnit(
+        "risk-frontend-build",
+        "Control Center Vite Build",
+        None,
+        ("risk-frontend-typecheck",),
+        command_refs=("command:frontend.vite-build",),
+        minimum_risk_tier=VerificationRiskTier.TIER_1,
+        execution_surfaces=("github", "local", "private", "shadow"),
+        proof_equivalence_ref="proof-equivalence-ref:frontend-build",
+    ),
+    VerificationUnit(
+        "risk-frontend-safety",
+        "Control Center Frontend Safety",
+        None,
+        ("risk-diff-check",),
+        command_refs=("command:frontend.safety",),
+        minimum_risk_tier=VerificationRiskTier.TIER_1,
+        execution_surfaces=("github", "local", "private", "shadow"),
+        proof_equivalence_ref="proof-equivalence-ref:frontend-safety",
+    ),
+    VerificationUnit(
+        "risk-openapi",
+        "OpenAPI Contract",
+        None,
+        ("risk-diff-check",),
+        command_refs=("command:openapi.contract",),
+        minimum_risk_tier=VerificationRiskTier.TIER_2,
+        execution_surfaces=("github", "local", "private", "shadow"),
+        proof_equivalence_ref="proof-equivalence-ref:openapi",
+    ),
+    VerificationUnit(
+        "risk-api-safety",
+        "API Safety",
+        None,
+        ("risk-openapi",),
+        command_refs=("command:api.safe-errors", "command:control-center.api-routes"),
+        minimum_risk_tier=VerificationRiskTier.TIER_2,
+        execution_surfaces=("github", "local", "private", "shadow"),
+        proof_equivalence_ref="proof-equivalence-ref:api-safety",
+    ),
+    VerificationUnit(
+        "risk-final-diff-audit",
+        "Final Scoped Diff Audit",
+        None,
+        ("risk-diff-check",),
+        unit_kind=VerificationUnitKind.AUDIT,
+        minimum_risk_tier=VerificationRiskTier.TIER_1,
+        execution_surfaces=("audit", "shadow"),
+        parallel_safe=False,
+        proof_equivalence_ref="proof-equivalence-ref:human-final-diff-audit",
+    ),
+    VerificationUnit(
+        "risk-security-audit",
+        "Security Or Authority Audit",
+        None,
+        ("risk-diff-check",),
+        unit_kind=VerificationUnitKind.AUDIT,
+        minimum_risk_tier=VerificationRiskTier.TIER_3,
+        execution_surfaces=("audit", "shadow"),
+        parallel_safe=False,
+        proof_equivalence_ref="proof-equivalence-ref:human-security-audit",
+    ),
+)
+
+
 CI_JOB_GRAPH = (
     JobSpec(
         "manifest-attestation",
@@ -354,17 +561,68 @@ CI_JOB_GRAPH = (
         "ci-pytest-shards",
         ("lint", "affected-preflight"),
         timeout_minutes=60,
+        minimum_risk_tier=VerificationRiskTier.TIER_3,
+        exclusive_resource_refs=("resource-ref:complete-pytest",),
+        proof_equivalence_ref="proof-equivalence-ref:complete-pytest",
     ),
-    JobSpec("pytest", "pytest", None, ("pytest-shards",)),
+    JobSpec(
+        "pytest",
+        "pytest",
+        None,
+        ("pytest-shards",),
+        unit_kind=VerificationUnitKind.AGGREGATE,
+        minimum_risk_tier=VerificationRiskTier.TIER_3,
+        proof_equivalence_ref="proof-equivalence-ref:complete-pytest-aggregate",
+    ),
     JobSpec("static-verification", "static-verification", "ci-static", ("pytest",)),
-    JobSpec("release-lane-docs", "Release Lane / Documentation Integrity", "docs", ("pytest",)),
-    JobSpec("release-lane-openapi", "Release Lane / OpenAPI Contract", "openapi", ("pytest",)),
-    JobSpec("release-lane-api-safety", "Release Lane / API Safety", "api-safety", ("pytest",)),
-    JobSpec("release-lane-security-redaction", "Release Lane / Security and Redaction", "security-redaction", ("pytest",)),
-    JobSpec("release-lane-product-truth", "Release Lane / Product Truth Regression", "product-truth-regression", ("pytest",)),
-    JobSpec("release-lane-local-model-e2e", "Release Lane / Local Model E2E", "local-model-e2e", ("pytest",)),
-    JobSpec("release-lane-durability", "Release Lane / Durability", "durability", ("pytest",)),
-    JobSpec("release-lane-desktop-packaging", "Release Lane / Desktop and Local Packaging Proof", "desktop-packaging", ("pytest",)),
+    JobSpec(
+        "release-lane-docs",
+        "Release Lane / Documentation Integrity",
+        "docs",
+        ("pytest",),
+    ),
+    JobSpec(
+        "release-lane-openapi",
+        "Release Lane / OpenAPI Contract",
+        "openapi",
+        ("pytest",),
+    ),
+    JobSpec(
+        "release-lane-api-safety",
+        "Release Lane / API Safety",
+        "api-safety",
+        ("pytest",),
+    ),
+    JobSpec(
+        "release-lane-security-redaction",
+        "Release Lane / Security and Redaction",
+        "security-redaction",
+        ("pytest",),
+    ),
+    JobSpec(
+        "release-lane-product-truth",
+        "Release Lane / Product Truth Regression",
+        "product-truth-regression",
+        ("pytest",),
+    ),
+    JobSpec(
+        "release-lane-local-model-e2e",
+        "Release Lane / Local Model E2E",
+        "local-model-e2e",
+        ("pytest",),
+    ),
+    JobSpec(
+        "release-lane-durability",
+        "Release Lane / Durability",
+        "durability",
+        ("pytest",),
+    ),
+    JobSpec(
+        "release-lane-desktop-packaging",
+        "Release Lane / Desktop and Local Packaging Proof",
+        "desktop-packaging",
+        ("pytest",),
+    ),
     JobSpec(
         "control-center-frontend",
         "control-center-frontend",
@@ -380,9 +638,22 @@ CI_JOB_GRAPH = (
             "release-lane-durability",
             "release-lane-desktop-packaging",
         ),
+        minimum_risk_tier=VerificationRiskTier.TIER_3,
+        exclusive_resource_refs=("resource-ref:typescript-typecheck",),
+        proof_equivalence_ref="proof-equivalence-ref:frontend-complete",
     ),
-    JobSpec("release-lane-frontend", "Release Lane / Control Center Frontend", "frontend", ("control-center-frontend",)),
-    JobSpec("release-lane-visual-regression", "Release Lane / Control Center Visual Regression", "visual-regression", ("control-center-frontend",)),
+    JobSpec(
+        "release-lane-frontend",
+        "Release Lane / Control Center Frontend",
+        "frontend",
+        ("control-center-frontend",),
+    ),
+    JobSpec(
+        "release-lane-visual-regression",
+        "Release Lane / Control Center Visual Regression",
+        "visual-regression",
+        ("control-center-frontend",),
+    ),
     JobSpec(
         "release-lane-performance",
         "Release Lane / Performance",
@@ -428,6 +699,25 @@ CI_JOB_GRAPH = (
 )
 
 
+VERIFICATION_DAG = FOCUSED_VERIFICATION_UNITS + CI_JOB_GRAPH
+
+VERIFIER_DEFINITION_REFS = (
+    ".github/workflows/ci.yml",
+    "Makefile",
+    "apps/control-center/package.json",
+    "pyproject.toml",
+    "scripts/run_foundation_gate.py",
+    "scripts/verify_release_lanes.py",
+    "scripts/verification/changed_path_selector.py",
+    "scripts/verification/ci_command_manifest.py",
+    "scripts/verification/plan_affected_verification.py",
+    "scripts/verification/run_ci_lane.py",
+    "scripts/verification/run_pytest_shards.py",
+    "scripts/verification/verification_contracts.py",
+    "scripts/verification/verification_risk.py",
+)
+
+
 def _canonical_digest(payload: Any) -> str:
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(encoded).hexdigest()
@@ -445,13 +735,47 @@ def definition_payload() -> dict[str, Any]:
         "playwright_browser_directory_name": PLAYWRIGHT_BROWSER_DIRNAME,
         "commands": [asdict(commands[key]) for key in sorted(commands)],
         "lanes": [asdict(lanes[key]) for key in sorted(lanes)],
-        "job_graph": [asdict(job) for job in CI_JOB_GRAPH],
+        "risk_manifest": risk_definition_payload(),
+        "verification_dag": [asdict(unit) for unit in VERIFICATION_DAG],
+        "job_graph": [
+            {
+                "job_ref": job.job_ref,
+                "display_name": job.display_name,
+                "lane_ref": job.lane_ref,
+                "needs": list(job.needs),
+                "timeout_minutes": job.timeout_minutes,
+            }
+            for job in CI_JOB_GRAPH
+        ],
         "redaction_status": "content_free_refs_and_hashes_only",
     }
 
 
 def definition_fingerprint() -> str:
     return _canonical_digest(definition_payload())
+
+
+def command_manifest_fingerprint() -> str:
+    commands = command_registry()
+    return _canonical_digest(
+        [asdict(commands[command_ref]) for command_ref in sorted(commands)]
+    )
+
+
+def platform_fingerprint() -> str:
+    """Bind plans without persisting hostnames, usernames, paths, or environment."""
+
+    return _canonical_digest(
+        {
+            "system": platform.system().lower(),
+            "machine": platform.machine().lower(),
+            "os_release": platform.mac_ver()[0]
+            if platform.system() == "Darwin"
+            else platform.release(),
+            "python_implementation": platform.python_implementation().lower(),
+            "python_version": platform.python_version(),
+        }
+    )
 
 
 def verification_plan_fingerprint(payload: dict[str, Any]) -> str:
@@ -478,19 +802,35 @@ def validate_definition() -> list[str]:
             failures.append(f"invalid command ref: {command_ref}")
         if not command.argv or command.timeout_seconds <= 0:
             failures.append(f"invalid command definition: {command_ref}")
-        if any(token.startswith("/") or ".." in Path(token).parts for token in command.argv):
+        if any(
+            token.startswith("/") or ".." in Path(token).parts for token in command.argv
+        ):
             failures.append(f"unsafe command argv: {command_ref}")
-        if any(key not in {"PYTHONPATH", "FOUNDATION_GATE_MAX_BEST_MS", "FOUNDATION_GATE_MAX_MEAN_MS"} for key, _ in command.env):
+        if any(
+            key
+            not in {
+                "PYTHONPATH",
+                "FOUNDATION_GATE_MAX_BEST_MS",
+                "FOUNDATION_GATE_MAX_MEAN_MS",
+            }
+            for key, _ in command.env
+        ):
             failures.append(f"unsafe command environment: {command_ref}")
     for lane_ref, lane in lanes.items():
         if lane_ref != lane.lane_ref:
             failures.append(f"lane ref mismatch: {lane_ref}")
-        for command_ref in (*lane.command_refs, *lane.optional_command_refs, *lane.satisfied_command_refs):
+        for command_ref in (
+            *lane.command_refs,
+            *lane.optional_command_refs,
+            *lane.satisfied_command_refs,
+        ):
             if command_ref not in commands:
                 failures.append(f"unknown command ref in {lane_ref}: {command_ref}")
+    try:
+        validate_verification_dag(VERIFICATION_DAG)
+    except ValueError as exc:
+        failures.append(f"invalid verification DAG: {exc}")
     job_refs = {job.job_ref for job in CI_JOB_GRAPH}
-    if len(job_refs) != len(CI_JOB_GRAPH):
-        failures.append("job refs must be unique")
     for job in CI_JOB_GRAPH:
         if job.timeout_minutes <= 0 or job.timeout_minutes > 60:
             failures.append(f"invalid job timeout: {job.job_ref}")
@@ -499,6 +839,19 @@ def validate_definition() -> list[str]:
         for dependency in job.needs:
             if dependency not in job_refs:
                 failures.append(f"unknown job dependency: {job.job_ref}:{dependency}")
+    unit_refs = {unit.unit_ref for unit in VERIFICATION_DAG}
+    for tier_refs in risk_definition_payload()["tier_base_unit_refs"].values():
+        for unit_ref in tier_refs:
+            if unit_ref not in unit_refs:
+                failures.append(f"unknown risk-tier verification unit: {unit_ref}")
+    for unit in VERIFICATION_DAG:
+        if unit.lane_ref is not None and unit.lane_ref not in lanes:
+            failures.append(f"unknown verification unit lane: {unit.unit_ref}")
+        for command_ref in unit.command_refs:
+            if command_ref not in commands:
+                failures.append(
+                    f"unknown verification unit command: {unit.unit_ref}:{command_ref}"
+                )
     pytest_job = next(job for job in CI_JOB_GRAPH if job.job_ref == "pytest-shards")
     pytest_command = commands["command:pytest.sharded-suite"]
     if (
@@ -535,6 +888,85 @@ def _fingerprint_lockfiles(repo: Path) -> tuple[tuple[str, str], ...]:
     return tuple(values)
 
 
+def _fingerprint_repository_files(
+    repo: Path, refs: Iterable[str]
+) -> tuple[tuple[str, str], ...]:
+    values: list[tuple[str, str]] = []
+    for ref in sorted(set(refs)):
+        path = repo / ref
+        flags = os.O_RDONLY
+        if hasattr(os, "O_NOFOLLOW"):
+            flags |= os.O_NOFOLLOW
+        try:
+            descriptor = os.open(path, flags)
+        except OSError as exc:
+            raise ValueError(
+                f"missing or unsafe verifier definition ref: {ref}"
+            ) from exc
+        try:
+            info = os.fstat(descriptor)
+            if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+                raise ValueError(f"missing or unsafe verifier definition ref: {ref}")
+            digest = hashlib.sha256()
+            while chunk := os.read(descriptor, 1024 * 1024):
+                digest.update(chunk)
+            values.append((ref, digest.hexdigest()))
+        finally:
+            os.close(descriptor)
+    return tuple(values)
+
+
+def verifier_definition_fingerprint(repo: Path) -> str:
+    refs = set(VERIFIER_DEFINITION_REFS)
+    for pattern in (
+        ".github/workflows/*.yml",
+        "scripts/verify_*.py",
+        "scripts/verification/*.py",
+    ):
+        refs.update(
+            path.relative_to(repo).as_posix()
+            for path in repo.glob(pattern)
+            if path.is_file()
+        )
+    return _canonical_digest(_fingerprint_repository_files(repo, refs))
+
+
+def test_inventory_fingerprint(repo: Path) -> str:
+    refs = tuple(
+        sorted(
+            {
+                path.relative_to(repo).as_posix()
+                for pattern in (
+                    "tests/**/test_*.py",
+                    "apps/control-center/src/**/*.test.ts",
+                    "apps/control-center/src/**/*.test.tsx",
+                    "apps/control-center/tests/**/*.ts",
+                )
+                for path in repo.glob(pattern)
+                if path.is_file()
+            }
+        )
+    )
+    refs = tuple(sorted({*refs, "pyproject.toml", "tests/conftest.py"}))
+    if not refs:
+        raise ValueError("verification test inventory is empty")
+    return _canonical_digest(_fingerprint_repository_files(repo, refs))
+
+
+def pytest_shard_plan_fingerprint(repo: Path) -> str:
+    from scripts.verification.run_pytest_shards import current_shard_plan_fingerprint
+
+    plan_ref = current_shard_plan_fingerprint(
+        repo,
+        8,
+        repo / "scripts/verification/pytest_file_timing_seed.json",
+    )
+    digest = plan_ref.rsplit(":", maxsplit=1)[-1]
+    if re.fullmatch(r"[0-9a-f]{64}", digest) is None:
+        raise ValueError("pytest shard plan fingerprint is invalid")
+    return digest
+
+
 def visual_scope_for_paths(paths: Iterable[str] | None) -> str:
     if paths is None:
         return "unknown_fail_closed"
@@ -556,11 +988,20 @@ def build_plan(
     *,
     lane_refs: Iterable[str] | None = None,
     affected_paths: Iterable[str] | None = None,
+    change_records: Iterable[ChangeRecord] | None = None,
+    selected_unit_refs: Iterable[str] | None = None,
+    base_sha: str | None = None,
+    force_full: bool = False,
+    shadow_mode: bool = False,
+    unsafe_path_refs: Iterable[str] = (),
     frontend_visual_scope: str | None = None,
     verify_repository_state: bool = True,
 ) -> VerificationPlan:
     if not SHA_PATTERN.fullmatch(sha):
         raise ValueError("repository SHA must be an exact lowercase 40-character ref")
+    resolved_base_sha = sha if base_sha is None else base_sha
+    if not SHA_PATTERN.fullmatch(resolved_base_sha):
+        raise ValueError("base SHA must be an exact lowercase 40-character ref")
     if verify_repository_state:
         completed = subprocess.run(
             ("git", "rev-parse", "HEAD"),
@@ -586,18 +1027,84 @@ def build_plan(
     if failures:
         raise ValueError("invalid canonical CI definition")
     lanes = lane_registry()
-    selected = tuple(lane_refs or tuple(job.lane_ref for job in CI_JOB_GRAPH if job.lane_ref))
-    if len(selected) != len(set(selected)) or any(lane not in lanes for lane in selected):
+    records = (
+        tuple(change_records)
+        if change_records is not None
+        else tuple(
+            ChangeRecord(ChangeKind.MODIFIED, (path,))
+            for path in sorted(set(affected_paths or ()))
+        )
+    )
+    implicit_full = change_records is None and affected_paths is None
+    risk_selection = classify_changes(
+        records,
+        force_full=force_full or implicit_full,
+        unsafe_path_refs=tuple(unsafe_path_refs),
+    )
+    units_by_ref = {unit.unit_ref: unit for unit in VERIFICATION_DAG}
+    if selected_unit_refs is not None:
+        selected_units = tuple(selected_unit_refs)
+    elif lane_refs is not None and not shadow_mode:
+        requested_lanes = tuple(lane_refs)
+        selected_units = tuple(
+            unit.unit_ref for unit in CI_JOB_GRAPH if unit.lane_ref in requested_lanes
+        )
+    elif change_records is not None or affected_paths is not None or shadow_mode:
+        selected_units = unit_refs_for_selection(
+            risk_selection,
+            full_unit_refs=tuple(unit.unit_ref for unit in CI_JOB_GRAPH),
+        )
+    else:
+        selected_units = tuple(unit.unit_ref for unit in CI_JOB_GRAPH)
+    if len(selected_units) != len(set(selected_units)) or any(
+        unit_ref not in units_by_ref for unit_ref in selected_units
+    ):
+        raise ValueError("selected verification units must be unique canonical refs")
+    selected_units = dependency_closed_unit_refs(VERIFICATION_DAG, selected_units)
+    if shadow_mode and any(
+        units_by_ref[unit_ref].minimum_risk_tier.rank > risk_selection.tier.rank
+        for unit_ref in selected_units
+    ):
+        raise ValueError("selected verification unit exceeds the plan risk tier")
+
+    if lane_refs is None:
+        selected = tuple(
+            dict.fromkeys(
+                units_by_ref[unit_ref].lane_ref
+                for unit_ref in selected_units
+                if units_by_ref[unit_ref].lane_ref is not None
+            )
+        )
+    else:
+        selected = tuple(lane_refs)
+    if len(selected) != len(set(selected)) or any(
+        lane not in lanes for lane in selected
+    ):
         raise ValueError("selected CI lanes must be unique canonical refs")
     command_refs = tuple(
-        command_ref
-        for lane_ref in selected
-        for command_ref in lanes[lane_ref].command_refs
-        if command_ref not in lanes[lane_ref].satisfied_command_refs
+        dict.fromkeys(
+            (
+                command_ref
+                for unit_ref in selected_units
+                for command_ref in units_by_ref[unit_ref].command_refs
+            )
+        )
+    )
+    command_refs = tuple(
+        dict.fromkeys(
+            (
+                *command_refs,
+                *(
+                    command_ref
+                    for lane_ref in selected
+                    for command_ref in lanes[lane_ref].command_refs
+                    if command_ref not in lanes[lane_ref].satisfied_command_refs
+                ),
+            )
+        )
     )
     locks = _fingerprint_lockfiles(repo)
-    shard_command = command_registry()["command:pytest.sharded-suite"]
-    shard_fingerprint = _canonical_digest(asdict(shard_command))
+    shard_fingerprint = pytest_shard_plan_fingerprint(repo)
     visual_scope = (
         frontend_visual_scope
         if frontend_visual_scope is not None
@@ -606,26 +1113,70 @@ def build_plan(
     if visual_scope not in {"affected", "not_affected", "unknown_fail_closed"}:
         raise ValueError("invalid frontend visual scope")
     definition_ref = definition_fingerprint()
+    changed_tests = tuple(
+        path
+        for path in risk_selection.changed_path_refs
+        if path.startswith("tests/test_") and path.endswith(".py")
+    )
+    platform_ref = platform_fingerprint()
+    command_ref = command_manifest_fingerprint()
+    verifier_ref = verifier_definition_fingerprint(repo)
+    collection_ref = test_inventory_fingerprint(repo)
+    selected_resources = {
+        resource_ref
+        for unit_ref in selected_units
+        for resource_ref in units_by_ref[unit_ref].exclusive_resource_refs
+    }
     base = {
         "schema_version": SCHEMA_VERSION,
         "profile_ref": PROFILE_REF,
         "repository_sha": sha,
         "definition_fingerprint": definition_ref,
         "dependency_lock_fingerprints": locks,
-        "affected_path_classification": (
-            "full_merge_gate" if affected_paths is None else "affected_paths_supplied"
-        ),
+        "affected_path_classification": f"risk:{risk_selection.tier.value}",
         "selected_lane_refs": selected,
         "selected_command_refs": command_refs,
         "pytest_shard_plan_fingerprint": shard_fingerprint,
         "frontend_visual_scope": visual_scope,
-        "redaction_status": "content_free_refs_and_hashes_only",
+        "redaction_status": "content_free_refs_hashes_and_repo_paths_only",
+        "base_sha": resolved_base_sha,
+        "risk_manifest_version": RISK_MANIFEST_VERSION,
+        "risk_manifest_fingerprint": risk_manifest_fingerprint(),
+        "risk_tier": risk_selection.tier,
+        "changed_path_refs": risk_selection.changed_path_refs,
+        "change_fingerprint": change_fingerprint(records),
+        "escalation_reason_refs": risk_selection.reason_refs,
+        "selected_unit_refs": selected_units,
+        "selected_test_refs": changed_tests,
+        "audit_posture": audit_posture_for_tier(risk_selection.tier),
+        "full_pytest_required": (
+            risk_selection.tier is VerificationRiskTier.TIER_3
+            or "resource-ref:complete-pytest" in selected_resources
+        ),
+        "typescript_typecheck_required": (
+            "resource-ref:typescript-typecheck" in selected_resources
+        ),
+        "release_gate_required": risk_selection.tier is VerificationRiskTier.TIER_3,
+        "platform_fingerprint": platform_ref,
+        "command_manifest_fingerprint": command_ref,
+        "verifier_definition_fingerprint": verifier_ref,
+        "test_collection_fingerprint": collection_ref,
+        "test_collection_posture": "inventory_bound",
+        "force_full": force_full or implicit_full,
+        "shadow_mode": shadow_mode,
     }
-    return VerificationPlan(**base, plan_fingerprint=verification_plan_fingerprint(base))
+    plan = VerificationPlan(
+        **base,
+        plan_fingerprint=verification_plan_fingerprint(base),
+    )
+    plan.validate()
+    return plan
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Inspect the canonical UAA CI command manifest.")
+    parser = argparse.ArgumentParser(
+        description="Inspect the canonical UAA CI command manifest."
+    )
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--verify-plan", action="store_true")
     parser.add_argument("--sha")

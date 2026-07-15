@@ -58,9 +58,10 @@ def test_canonical_ci_commands_are_fixed_argv_and_safe_environment() -> None:
         "4",
     )
     assert "--hard-timeout-seconds" in commands["command:pytest.sharded-suite"].argv
-    assert "{temp_root}/uaa_pytest_failure_refs" in commands[
-        "command:pytest.sharded-suite"
-    ].argv
+    assert (
+        "{temp_root}/uaa_pytest_failure_refs"
+        in commands["command:pytest.sharded-suite"].argv
+    )
     assert commands["command:affected.preflight"].argv[-2:] == ("--tier", "fast")
     assert dict(commands["command:performance.latency-gate"].env) == {
         "FOUNDATION_GATE_MAX_BEST_MS": "45000",
@@ -71,12 +72,13 @@ def test_canonical_ci_commands_are_fixed_argv_and_safe_environment() -> None:
         command_ref = f"command:pytest.shard-{shard_index}-reproduce"
         assert manifest.lane_registry()[lane_ref].command_refs == (command_ref,)
         assert "--shard-index" in commands[command_ref].argv
-        assert f"{{temp_root}}/uaa_pytest_shard_{shard_index}_failure_refs" in commands[
-            command_ref
-        ].argv
+        assert (
+            f"{{temp_root}}/uaa_pytest_shard_{shard_index}_failure_refs"
+            in commands[command_ref].argv
+        )
     for command in commands.values():
         assert command.argv
-        assert command.argv[0] in {".venv/bin/python", "make"}
+        assert command.argv[0] in {".venv/bin/python", "git", "make", "npm"}
         assert all(";" not in token and "$(`" not in token for token in command.argv)
 
 
@@ -110,6 +112,11 @@ def test_plan_binds_sha_locks_commands_shards_and_visual_scope() -> None:
     )
     assert plan.frontend_visual_scope == "affected"
     assert len(plan.pytest_shard_plan_fingerprint) == 64
+    assert len(plan.platform_fingerprint) == 64
+    assert len(plan.command_manifest_fingerprint) == 64
+    assert len(plan.verifier_definition_fingerprint) == 64
+    assert len(plan.test_collection_fingerprint) == 64
+    assert plan.test_collection_posture == "inventory_bound"
     assert len(plan.plan_fingerprint) == 64
     plan_payload = asdict(plan)
     plan_payload.pop("plan_fingerprint")
@@ -135,7 +142,9 @@ def test_plan_fails_closed_for_unknown_sha_lane_or_unsafe_lockfile(
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text("safe", encoding="utf-8")
     (tmp_path / manifest.LOCKFILE_REFS[0]).unlink()
-    (tmp_path / manifest.LOCKFILE_REFS[0]).symlink_to(tmp_path / manifest.LOCKFILE_REFS[1])
+    (tmp_path / manifest.LOCKFILE_REFS[0]).symlink_to(
+        tmp_path / manifest.LOCKFILE_REFS[1]
+    )
     monkeypatch.setattr(
         manifest.subprocess,
         "run",
@@ -163,10 +172,19 @@ def test_manifest_payload_is_content_free_and_redacted() -> None:
         "C:\\Users\\",
     ):
         assert forbidden not in payload
-    assert asdict(manifest.CI_JOB_GRAPH[-1])["job_ref"] == "foundation-gate-report"
+    assert asdict(manifest.CI_JOB_GRAPH[-1])["unit_ref"] == "foundation-gate-report"
+    assert manifest.definition_payload()["job_graph"][-1]["job_ref"] == (
+        "foundation-gate-report"
+    )
 
 
 def test_visual_scope_is_fail_closed_and_path_bound() -> None:
     assert manifest.visual_scope_for_paths(None) == "unknown_fail_closed"
-    assert manifest.visual_scope_for_paths(("src/ultimate_ai_agent/api/app.py",)) == "not_affected"
-    assert manifest.visual_scope_for_paths(("apps/control-center/src/App.tsx",)) == "affected"
+    assert (
+        manifest.visual_scope_for_paths(("src/ultimate_ai_agent/api/app.py",))
+        == "not_affected"
+    )
+    assert (
+        manifest.visual_scope_for_paths(("apps/control-center/src/App.tsx",))
+        == "affected"
+    )
