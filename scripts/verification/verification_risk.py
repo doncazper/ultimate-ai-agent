@@ -201,9 +201,9 @@ RISK_RULES = (
         "reason-ref:risk:bounded-core",
         ("surface-ref:python", "surface-ref:core"),
         exact_paths=(
-            "src/ultimate_ai_agent/core/time.py",
-            "src/ultimate_ai_agent/core/founder_loop_schema.py",
-            "src/ultimate_ai_agent/core/safe_contract_text.py",
+            "src/ultimate_ai_agent/core/evals/capability_metrics.py",
+            "src/ultimate_ai_agent/core/evals/capability_maturity.py",
+            "src/ultimate_ai_agent/core/evals/regression.py",
         ),
     ),
     RiskRule(

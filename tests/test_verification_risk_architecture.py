@@ -65,7 +65,7 @@ def _plan() -> VerificationPlan:
         risk_manifest_version="uaa_verification_risk_manifest.v1",
         risk_manifest_fingerprint=DIGEST,
         risk_tier=VerificationRiskTier.TIER_2,
-        changed_path_refs=("src/ultimate_ai_agent/core/time.py",),
+        changed_path_refs=("src/ultimate_ai_agent/core/evals/capability_metrics.py",),
         change_fingerprint=DIGEST,
         escalation_reason_refs=("reason-ref:risk:bounded-core",),
         selected_unit_refs=("risk-focused-pytest",),
@@ -133,7 +133,9 @@ def test_frontend_behavior_is_not_misclassified_as_presentation_only() -> None:
 
 
 def test_tier_two_bounded_non_authority_core() -> None:
-    selection = classify_changes((_change("src/ultimate_ai_agent/core/time.py"),))
+    selection = classify_changes(
+        (_change("src/ultimate_ai_agent/core/evals/capability_metrics.py"),)
+    )
 
     assert selection.tier is VerificationRiskTier.TIER_2
     assert selection.fail_closed is False
@@ -166,14 +168,14 @@ def test_mixed_changes_select_the_maximum_risk_tier() -> None:
     selection = classify_changes(
         (
             _change("docs/architecture/verification_notes.md"),
-            _change("src/ultimate_ai_agent/core/time.py"),
+            _change("src/ultimate_ai_agent/core/evals/capability_metrics.py"),
         )
     )
 
     assert selection.tier is VerificationRiskTier.TIER_2
     assert selection.changed_path_refs == (
         "docs/architecture/verification_notes.md",
-        "src/ultimate_ai_agent/core/time.py",
+        "src/ultimate_ai_agent/core/evals/capability_metrics.py",
     )
 
 
