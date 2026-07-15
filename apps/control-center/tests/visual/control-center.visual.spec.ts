@@ -229,7 +229,10 @@ for (const viewport of messengerDesktopViewports) {
     }
     expect(backendRequests.length).toBeGreaterThan(0);
     expect(new Set(backendRequests)).toEqual(
-      new Set(["/control-center/communications/matrix-sync/posture"]),
+      new Set([
+        "/control-center/communications/matrix-crypto/posture",
+        "/control-center/communications/matrix-sync/posture",
+      ]),
     );
   });
 }
