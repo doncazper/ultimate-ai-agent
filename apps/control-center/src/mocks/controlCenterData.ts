@@ -1,4 +1,5 @@
 import type {
+  CapabilityMaturityReadModel,
   CodingCockpitPreviewPanel,
   CodingCockpitRefItem,
   CodingCockpitSessionReadModel,
@@ -72,6 +73,106 @@ import type {
   TrustAuthorityMatrix,
   WorkBoardReadModel,
 } from "../api/types";
+
+const maturityRows = [
+  ["reasoning_task_understanding", "Reasoning and task understanding", 8, 8],
+  ["planning_orchestration", "Planning and orchestration", 10, 8],
+  ["learning_adaptation", "Learning and adaptation", 8, 8],
+  ["memory_context_management", "Memory and context management", 9, 9],
+  ["communication_interaction", "Communication and interaction quality", 8, 7],
+  ["action_tool_calling", "Action and tool calling", 9, 9],
+  ["autonomy_authority", "Autonomy and authority management", 10, 10],
+  ["code_implementation_assistance", "Code and implementation assistance", 8, 6],
+  ["research_web_external", "Research, web, and external information", 10, 5],
+  ["model_provider_management", "Model and provider management", 8, 6],
+  ["evidence_audit_observability", "Evidence, audit, and observability", 9, 9],
+  ["safety_security_failure", "Safety, security, and failure handling", 10, 10],
+  ["ux_ai_cockpit", "UX as an AI cockpit", 8, 7],
+  ["cli_api_parity", "CLI and API parity", 9, 6],
+  ["extensibility_ecosystem", "Extensibility and ecosystem", 7, 6],
+  ["productized_agent_loop", "Productized agent loop", 8, 10],
+] as const;
+
+const mockCapabilityMaturity: CapabilityMaturityReadModel = {
+  schema_version: "uaa-capability-maturity.v1",
+  contract_ref: "contract-ref:capability-maturity:v1",
+  read_model_ref: "read-model-ref:capability-maturity:mock",
+  baseline_source_ref:
+    "repo-ref:uaa:docs/benchmarks/runtime_capability_foundation/goat_comparison_20260712.json:initial_scores.uaa.components",
+  baseline_source_fingerprint_ref:
+    "fingerprint-ref:capability-maturity-baseline:sha256:4ab2d2160e97df5a823e092445e6725aa8714e14066a34c2baabc46be17366cd",
+  evidence_report_ref: null,
+  evidence_report_digest_ref: null,
+  verification_posture: "evaluation_required",
+  baseline_weighted_score: 87.5,
+  target_weighted_score: 94.8,
+  verified_weighted_score: 87.5,
+  component_count: 16,
+  uplift_target_count: 12,
+  uplift_proven_count: 0,
+  automated_evidence_ready_count: 0,
+  manual_validation_required_count: 0,
+  external_dependency_required_count: 0,
+  ceiling_defended_count: 0,
+  components: maturityRows.map(([componentId, label, baseline, weight]) => ({
+    component_id: componentId,
+    label,
+    weight,
+    baseline_score: baseline,
+    target_score: Math.min(10, baseline + 1),
+    verified_score: baseline,
+    evidence_status: "baseline_only",
+    scenario_refs: [],
+    evidence_refs: [
+      `repo-ref:uaa:src/ultimate_ai_agent/core/evals/capability_maturity.py#${componentId}`,
+      `repo-ref:uaa:tests/test_agent_capability_evaluation.py#${componentId}`,
+      "repo-ref:uaa:apps/control-center/src/components/CapabilitySurfacePanel.tsx",
+    ],
+    gates: [
+      "implementation",
+      "automated_tests",
+      "runtime_scenario",
+      "operator_surface",
+      "recovery_and_failure",
+      "independent_acceptance",
+    ].map((gateKind) => ({
+      gate_kind: gateKind as
+        | "implementation"
+        | "automated_tests"
+        | "runtime_scenario"
+        | "operator_surface"
+        | "recovery_and_failure"
+        | "independent_acceptance",
+      status: gateKind === "implementation" ? ("satisfied" as const) : ("pending" as const),
+      evidence_refs:
+        gateKind === "implementation"
+          ? [`evidence-ref:mock:${componentId}:${gateKind}`]
+          : [],
+      blocker_codes:
+        gateKind === "implementation"
+          ? []
+          : ["CAPABILITY_MATURITY_EVALUATION_REQUIRED"],
+      safe_summary:
+        gateKind === "implementation"
+          ? "Mock fallback identifies an existing repository surface."
+          : "Mock fallback retains this evidence gate as pending.",
+    })),
+    blocker_codes: ["CAPABILITY_MATURITY_EVALUATION_REQUIRED"],
+    next_acceptance_ref: `acceptance-ref:capability-maturity:${componentId}:v1`,
+    safe_summary:
+      "Mock fallback retains the baseline until automated evidence and independent acceptance both pass.",
+  })),
+  backend_owned: true,
+  read_only: true,
+  content_free: true,
+  authority_granted: false,
+  score_increase_requires_runtime_evidence: true,
+  score_increase_requires_independent_acceptance: true,
+  trusted_acceptance_verification_implemented: false,
+  raw_content_persisted: false,
+  safe_summary:
+    "Mock fallback shows candidate targets and held verification paths only; it grants no score or runtime authority.",
+};
 
 type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
 
@@ -14971,6 +15072,7 @@ export const mockControlCenterData: ControlCenterData = {
         ],
       },
     ],
+    maturity: mockCapabilityMaturity,
     web_hybrid: {
       schema_version: "uaa-web-hybrid-availability.v1",
       read_model_ref: "web-hybrid-read-model-ref:operator:v1",

@@ -4,6 +4,7 @@ import copy
 import json
 import os
 from pathlib import Path
+import subprocess
 
 import pytest
 
@@ -31,11 +32,16 @@ def test_comparison_findings_verify_exact_scores_and_bounded_result() -> None:
     assert data["initial_scores"]["goatcitadel"]["weighted_total_reported"] == 86
     assert data["final_scores"]["uaa"]["weighted_total_reported"] == 88
     assert data["final_scores"] == data["initial_scores"]
-    assert data["implementation_result"]["scenario_count"] == 21
-    assert data["implementation_result"]["passed_unblocked_verifier_count"] == 20
+    assert data["implementation_result"]["scenario_count"] == 23
+    assert data["implementation_result"]["passed_unblocked_verifier_count"] == 22
     assert data["implementation_result"]["task_completion_count"] is None
+    assert data["implementation_result"]["task_completion_posture"] == "not_measured"
     assert data["implementation_result"]["correctness_rate"] is None
-    assert data["implementation_result"]["cross_repo_empirical_performance"] == "not_measured"
+    assert data["implementation_result"]["correctness_rate_posture"] == "not_measured"
+    assert (
+        data["implementation_result"]["cross_repo_empirical_performance"]
+        == "not_measured"
+    )
     assert data["implementation_result"]["runtime_revalidation_required"] is True
     assert data["implementation_result"]["external_evidence_posture"] == (
         "opt_in_root_required"
@@ -49,9 +55,7 @@ def test_comparison_findings_reject_score_evidence_and_authority_drift() -> None
         verifier.verify_data(data)
 
     data = _data()
-    data["findings"][0]["evidence_refs"]["uaa"] = [
-        "repo-ref:uaa:missing.py#L1"
-    ]
+    data["findings"][0]["evidence_refs"]["uaa"] = ["repo-ref:uaa:missing.py#L1"]
     with pytest.raises(verifier.VerificationError, match="missing UAA"):
         verifier.verify_data(data)
 
@@ -82,7 +86,9 @@ def test_comparison_findings_reject_sensitive_key_families(key: str) -> None:
         verifier.verify_data(data)
 
 
-def test_comparison_findings_reject_report_binding_drift() -> None:
+def test_comparison_findings_reject_report_binding_drift(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     data = copy.deepcopy(_data())
     data["implementation_result"]["report_projection"]["observations"][0][
         "execution_fingerprint_ref"
@@ -101,11 +107,30 @@ def test_comparison_findings_reject_report_binding_drift() -> None:
         verifier.verify_data(data)
 
     data = copy.deepcopy(_data())
-    data["implementation_result"]["evaluator_source_digest"] = "sha256:" + (
-        "0" * 64
-    )
+    data["implementation_result"]["evaluator_source_digest"] = "sha256:" + ("0" * 64)
     with pytest.raises(verifier.VerificationError, match="source digest"):
         verifier.verify_data(data)
+
+    data = copy.deepcopy(_data())
+    data["implementation_result"]["task_completion_count"] = 23
+    data["implementation_result"]["task_completion_posture"] = "measured"
+    with pytest.raises(verifier.VerificationError, match="must remain not measured"):
+        verifier.verify_data(data)
+
+    data = copy.deepcopy(_data())
+    data["implementation_result"]["report_projection"]["observations"][0][
+        "task_completed"
+    ] = True
+    with pytest.raises(verifier.VerificationError, match="cannot synthesize"):
+        verifier.verify_data(data)
+
+    monkeypatch.setattr(
+        verifier,
+        "evaluation_source_digest",
+        lambda: "sha256:" + ("1" * 64),
+    )
+    with pytest.raises(verifier.VerificationError, match="stale.*current evaluator"):
+        verifier.verify_data(_data())
 
 
 def test_comparison_findings_runtime_revalidation_uses_actual_projection(
@@ -167,9 +192,7 @@ def test_comparison_findings_reject_path_escape_and_line_range_drift(
     tmp_path: Path,
 ) -> None:
     data = _data()
-    data["findings"][0]["evidence_refs"]["uaa"] = [
-        "repo-ref:uaa:/etc/hosts#L1"
-    ]
+    data["findings"][0]["evidence_refs"]["uaa"] = ["repo-ref:uaa:/etc/hosts#L1"]
     with pytest.raises(verifier.VerificationError, match="path is unsafe"):
         verifier.verify_data(data)
 
@@ -188,12 +211,16 @@ def test_safe_read_rejects_symlink_and_hardlink(tmp_path: Path) -> None:
     linked = tmp_path / "linked.json"
     linked.symlink_to(real)
     with pytest.raises((OSError, verifier.VerificationError)):
-        verifier._safe_read(linked.relative_to(tmp_path), root=tmp_path, maximum_bytes=100)
+        verifier._safe_read(
+            linked.relative_to(tmp_path), root=tmp_path, maximum_bytes=100
+        )
 
     hardlink = tmp_path / "hardlink.json"
     hardlink.hardlink_to(real)
     with pytest.raises(verifier.VerificationError, match="single-link"):
-        verifier._safe_read(real.relative_to(tmp_path), root=tmp_path, maximum_bytes=100)
+        verifier._safe_read(
+            real.relative_to(tmp_path), root=tmp_path, maximum_bytes=100
+        )
 
 
 def test_safe_read_rejects_fifo_without_blocking(tmp_path: Path) -> None:
@@ -201,4 +228,24 @@ def test_safe_read_rejects_fifo_without_blocking(tmp_path: Path) -> None:
     os.mkfifo(fifo)
 
     with pytest.raises(verifier.VerificationError, match="regular file"):
-        verifier._safe_read(fifo.relative_to(tmp_path), root=tmp_path, maximum_bytes=100)
+        verifier._safe_read(
+            fifo.relative_to(tmp_path), root=tmp_path, maximum_bytes=100
+        )
+
+
+def test_refresh_requires_an_exact_clean_worktree(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        verifier.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+            stdout=b" M tracked-file\n",
+            stderr=b"",
+        ),
+    )
+
+    with pytest.raises(verifier.VerificationError, match="exact clean committed"):
+        verifier.refresh_uaa_evaluation()

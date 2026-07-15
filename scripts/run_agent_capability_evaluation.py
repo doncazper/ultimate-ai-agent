@@ -34,6 +34,7 @@ from ultimate_ai_agent.core.evals import (  # noqa: E402
     CapabilityEvaluationStatus,
     CapabilityScenarioObservation,
     build_agent_capability_evaluation_report,
+    build_capability_maturity_read_model,
 )
 
 
@@ -68,7 +69,12 @@ ADDITIONAL_SCENARIOS = (
         component_id="learning_adaptation",
         command_ref="command-ref:pytest:memory-feedback-replay",
         command=(
-            "{python}", "-m", "pytest", "-q", "-p", "no:cacheprovider",
+            "{python}",
+            "-m",
+            "pytest",
+            "-q",
+            "-p",
+            "no:cacheprovider",
             "tests/test_governed_memory_context_phase03.py::test_concurrent_feedback_applies_once",
         ),
         evidence_refs=("evidence-ref:agent-eval:learning-feedback-replay",),
@@ -80,7 +86,12 @@ ADDITIONAL_SCENARIOS = (
         component_id="communication_interaction",
         command_ref="command-ref:pytest:chat-loop-handoff",
         command=(
-            "{python}", "-m", "pytest", "-q", "-p", "no:cacheprovider",
+            "{python}",
+            "-m",
+            "pytest",
+            "-q",
+            "-p",
+            "no:cacheprovider",
             "tests/test_chat_to_loop_handoff_v1.py::test_chat_to_loop_handoff_read_model_classifies_reviewable_outcomes",
         ),
         evidence_refs=("evidence-ref:agent-eval:communication-handoff",),
@@ -91,7 +102,12 @@ ADDITIONAL_SCENARIOS = (
         component_id="safety_security_failure",
         command_ref="command-ref:pytest:mission-control-tamper",
         command=(
-            "{python}", "-m", "pytest", "-q", "-p", "no:cacheprovider",
+            "{python}",
+            "-m",
+            "pytest",
+            "-q",
+            "-p",
+            "no:cacheprovider",
             "tests/test_authority_mission_controls.py::test_hash_chain_tampering_fails_closed",
         ),
         evidence_refs=("evidence-ref:agent-eval:safety-tamper-denial",),
@@ -102,8 +118,14 @@ ADDITIONAL_SCENARIOS = (
         component_id="ux_ai_cockpit",
         command_ref="command-ref:vitest:cockpit-coherent-loop",
         command=(
-            "npm", "--prefix", "apps/control-center", "test", "--", "--run",
-            "src/App.test.tsx", "-t",
+            "npm",
+            "--prefix",
+            "apps/control-center",
+            "test",
+            "--",
+            "--run",
+            "src/App.test.tsx",
+            "-t",
             "renders one coherent backend-owned dogfood loop across shared surfaces",
             "--reporter=dot",
         ),
@@ -119,22 +141,66 @@ ADDITIONAL_SCENARIOS = (
         verifier_refs=("verifier-ref:runtime-cockpit-cli-api",),
     ),
     AdditionalScenario(
-        scenario_ref="scenario:extension-inspectable-not-callable",
+        scenario_ref="scenario:extension-exact-dispatch-replay",
         component_id="extensibility_ecosystem",
-        command_ref="command-ref:pytest:extension-non-callable",
+        command_ref="command-ref:pytest:extension-exact-dispatch-replay",
         command=(
-            "{python}", "-m", "pytest", "-q", "-p", "no:cacheprovider",
-            "tests/test_inspectable_extension_catalog.py::test_default_inspectable_extension_catalog_is_read_only_and_non_callable",
+            "{python}",
+            "-m",
+            "pytest",
+            "-q",
+            "-p",
+            "no:cacheprovider",
+            "tests/test_exact_extension_adapter.py::test_exact_extension_executes_through_dispatcher_and_replays_once",
         ),
-        evidence_refs=("evidence-ref:agent-eval:extension-non-callable",),
-        verifier_refs=("verifier-ref:pytest:inspectable-extension-catalog",),
+        evidence_refs=("evidence-ref:agent-eval:extension-exact-dispatch-replay",),
+        verifier_refs=("verifier-ref:pytest:exact-extension-adapter",),
+        replay_expected=True,
+    ),
+    AdditionalScenario(
+        scenario_ref="scenario:code-exact-patch-receipt",
+        component_id="code_implementation_assistance",
+        command_ref="command-ref:pytest:code-exact-patch-receipt",
+        command=(
+            "{python}",
+            "-m",
+            "pytest",
+            "-q",
+            "-p",
+            "no:cacheprovider",
+            "tests/test_file_atomic_writes.py::test_patch_apply_emits_redacted_receipt_with_preimage_and_postimage_refs",
+        ),
+        evidence_refs=("evidence-ref:agent-eval:code-exact-patch-receipt",),
+        verifier_refs=("verifier-ref:pytest:file-atomic-writes",),
+    ),
+    AdditionalScenario(
+        scenario_ref="scenario:provider-routing-explanation",
+        component_id="model_provider_management",
+        command_ref="command-ref:pytest:provider-routing-explanation",
+        command=(
+            "{python}",
+            "-m",
+            "pytest",
+            "-q",
+            "-p",
+            "no:cacheprovider",
+            "tests/test_provider_router_dry_run.py::test_provider_router_dry_run_classifies_eligible_blocked_and_cost_risky_refs",
+            "tests/test_provider_router_dry_run.py::test_provider_router_dry_run_cli_inspection_outputs_safe_schema",
+        ),
+        evidence_refs=("evidence-ref:agent-eval:provider-routing-explanation",),
+        verifier_refs=("verifier-ref:pytest:provider-router-dry-run",),
     ),
     AdditionalScenario(
         scenario_ref="scenario:product-loop-terminal-receipt",
         component_id="productized_agent_loop",
         command_ref="command-ref:pytest:founder-loop-terminal-receipt",
         command=(
-            "{python}", "-m", "pytest", "-q", "-p", "no:cacheprovider",
+            "{python}",
+            "-m",
+            "pytest",
+            "-q",
+            "-p",
+            "no:cacheprovider",
             "tests/test_founder_loop_filesystem_mission.py::test_founder_loop_metadata_mission_completes_end_to_end_with_review_candidate",
         ),
         evidence_refs=("evidence-ref:agent-eval:product-loop-terminal-receipt",),
@@ -146,7 +212,12 @@ ADDITIONAL_SCENARIOS = (
         component_id="research_web_external",
         command_ref="command-ref:pytest:web-hybrid-preservation",
         command=(
-            "{python}", "-m", "pytest", "-q", "-p", "no:cacheprovider",
+            "{python}",
+            "-m",
+            "pytest",
+            "-q",
+            "-p",
+            "no:cacheprovider",
             "tests/test_web_hybrid_contracts.py",
             "tests/test_web_hybrid_execution.py",
             "tests/test_web_hybrid_ledger_router.py",
@@ -225,8 +296,10 @@ def evaluation_source_paths() -> tuple[str, ...]:
         "pyproject.toml",
         "scripts/run_agent_capability_evaluation.py",
         "scripts/run_uaa_runtime_phase09_benchmark.py",
+        "scripts/verify_capability_maturity_uplift.py",
         "scripts/verify_goat_comparison_findings.py",
         "src/ultimate_ai_agent/core/evals/capability_metrics.py",
+        "src/ultimate_ai_agent/core/evals/capability_maturity.py",
         "tests/test_agent_capability_evaluation.py",
         "tests/test_goat_comparison_findings.py",
         "tests/test_uaa_runtime_phase09_benchmark.py",
@@ -260,7 +333,9 @@ def evaluation_source_digest() -> str:
 
 
 def evaluation_source_digest_at_commit(commit: str) -> str:
-    if len(commit) != 40 or any(character not in "0123456789abcdef" for character in commit):
+    if len(commit) != 40 or any(
+        character not in "0123456789abcdef" for character in commit
+    ):
         raise ValueError("exact evaluation source commit is required")
     executable = _trusted_executable("git")
     digest = hashlib.sha256()
@@ -301,8 +376,10 @@ def repository_commit() -> str:
         timeout=5,
     )
     commit = result.stdout.decode("ascii", errors="strict").strip()
-    if result.returncode != 0 or len(commit) != 40 or any(
-        character not in "0123456789abcdef" for character in commit
+    if (
+        result.returncode != 0
+        or len(commit) != 40
+        or any(character not in "0123456789abcdef" for character in commit)
     ):
         raise OSError("exact UAA source commit is unavailable")
     return commit
@@ -320,13 +397,17 @@ def _validate_registry() -> None:
         if scenario.component_id not in CAPABILITY_COMPONENT_IDS:
             raise ValueError("additional capability scenario has unknown component")
         if scenario.command[0] not in {"{python}", "npm"}:
-            raise ValueError("additional capability scenario executable is not allowlisted")
+            raise ValueError(
+                "additional capability scenario executable is not allowlisted"
+            )
         for part in scenario.command:
             if part.startswith(("tests/", "scripts/")):
                 relative = part.split("::", 1)[0]
                 path = ROOT / relative
                 if not path.is_file() or path.is_symlink():
-                    raise ValueError("additional capability scenario target is missing or unsafe")
+                    raise ValueError(
+                        "additional capability scenario target is missing or unsafe"
+                    )
         if any("live" in part.lower() for part in scenario.command):
             raise ValueError("live-provider tests are denied in capability evaluation")
 
@@ -362,7 +443,9 @@ def _child_environment(temp_root: Path) -> dict[str, str]:
     site_packages = tuple(
         path
         for path in sys.path
-        if path and Path(path).is_dir() and Path(path).name in {"site-packages", "dist-packages"}
+        if path
+        and Path(path).is_dir()
+        and Path(path).name in {"site-packages", "dist-packages"}
     )
     return {
         "PATH": os.pathsep.join(
@@ -418,7 +501,9 @@ def _terminate(process: subprocess.Popen[bytes]) -> None:
     try:
         process.wait(timeout=5)
     except subprocess.TimeoutExpired as exc:
-        raise RuntimeError("capability evaluation process tree did not terminate") from exc
+        raise RuntimeError(
+            "capability evaluation process tree did not terminate"
+        ) from exc
 
 
 def _run_command(
@@ -430,7 +515,10 @@ def _run_command(
 ) -> ScenarioCommandResult:
     try:
         executable = _trusted_executable(command[0])
-        resolved = [executable, *(part.format(python=sys.executable) for part in command[1:])]
+        resolved = [
+            executable,
+            *(part.format(python=sys.executable) for part in command[1:]),
+        ]
         if "pytest" in resolved:
             resolved.extend(("--basetemp", str(basetemp)))
         argv = [*_sandbox_prefix(), *resolved]
@@ -537,7 +625,9 @@ def _phase09_payload(*, temp_root: Path, timeout_seconds: int) -> dict[str, obje
     return payload
 
 
-def _phase09_observations(payload: dict[str, object]) -> list[CapabilityScenarioObservation]:
+def _phase09_observations(
+    payload: dict[str, object],
+) -> list[CapabilityScenarioObservation]:
     results = payload.get("scenarios")
     if not isinstance(results, list) or len(results) != len(PHASE09_SCENARIOS):
         raise ValueError("Phase 09 scenario results drift")
@@ -567,13 +657,19 @@ def _phase09_observations(payload: dict[str, object]) -> list[CapabilityScenario
                 verifier_refs=spec.test_verifier_refs,
                 execution_fingerprint_ref=scenario_execution_fingerprint(spec),
                 duration_ms=max(1, round(float(result["duration_seconds"]) * 1000)),
-                failure_code=("none" if observed_status != CapabilityEvaluationStatus.failed else "assertion_failed"),
-                recovery_expected=spec.scenario_id in {
+                failure_code=(
+                    "none"
+                    if observed_status != CapabilityEvaluationStatus.failed
+                    else "assertion_failed"
+                ),
+                recovery_expected=spec.scenario_id
+                in {
                     "scenario:dag-replay-crash",
                     "scenario:cancellation-race",
                     "scenario:budget-exhaustion-settlement",
                 },
-                replay_expected=spec.scenario_id in {
+                replay_expected=spec.scenario_id
+                in {
                     "scenario:dag-replay-crash",
                     "scenario:budget-exhaustion-settlement",
                     "scenario:exact-tool-idempotency",
@@ -629,7 +725,9 @@ def run_agent_capability_evaluation() -> AgentCapabilityEvaluationReport:
     )
 
 
-def evaluation_report_projection(report: AgentCapabilityEvaluationReport) -> dict[str, object]:
+def evaluation_report_projection(
+    report: AgentCapabilityEvaluationReport,
+) -> dict[str, object]:
     return {
         "schema_version": report.schema_version,
         "contract_ref": report.contract_ref,
@@ -663,6 +761,18 @@ def evaluation_report_projection(report: AgentCapabilityEvaluationReport) -> dic
                 "observed_status": item.observed_status.value,
                 "execution_fingerprint_ref": item.execution_fingerprint_ref,
                 "failure_code": item.failure_code,
+                "evidence_complete": item.evidence_complete,
+                "task_completed": item.task_completed,
+                "completion_claimed": item.completion_claimed,
+                "operator_interventions": item.operator_interventions,
+                "unsupported_claim_count": item.unsupported_claim_count,
+                "policy_violation_refs": (
+                    list(item.policy_violation_refs)
+                    if item.policy_violation_refs is not None
+                    else None
+                ),
+                "recovery_succeeded": item.recovery_succeeded,
+                "replay_succeeded": item.replay_succeeded,
             }
             for item in report.observations
         ],
@@ -696,7 +806,7 @@ def _human_report(report: AgentCapabilityEvaluationReport) -> str:
             f"  Safe-outcome adherence: {report.safe_outcome_adherence_rate:.0%}",
             f"  Verifier pass rate: {report.verification_pass_rate:.0%}",
             f"  Passed unblocked verifiers: {report.passed_unblocked_verifier_count}/{report.scenario_count} ({report.passed_unblocked_verifier_rate:.0%})",
-            "  Task completion: not measured",
+            f"  Task completion: {_metric(report.task_completion_rate, percentage=True)}",
             f"  Truthfully blocked safe outcomes: {report.blocked_safe_outcome_count}",
             f"  Correctness: {_metric(report.correctness_rate, percentage=True)}",
             f"  Recovery success: {_metric(report.recovery_success_rate, percentage=True)}",
@@ -723,14 +833,29 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Emit the deterministic content-free report projection and digest.",
     )
+    output.add_argument(
+        "--maturity-json",
+        action="store_true",
+        help="Emit the evidence-gated 16-component maturity read model.",
+    )
     args = parser.parse_args(argv)
     report = run_agent_capability_evaluation()
-    if args.projection_json:
+    if args.maturity_json:
+        print(
+            json.dumps(
+                build_capability_maturity_read_model(report).model_dump(mode="json"),
+                indent=2,
+                sort_keys=True,
+            )
+        )
+    elif args.projection_json:
         print(
             json.dumps(
                 {
                     "report_projection": evaluation_report_projection(report),
-                    "report_projection_digest": evaluation_report_projection_digest(report),
+                    "report_projection_digest": evaluation_report_projection_digest(
+                        report
+                    ),
                     "uaa_source_commit": repository_commit(),
                     "evaluator_source_digest": evaluation_source_digest(),
                     "evaluator_source_file_count": len(evaluation_source_paths()),

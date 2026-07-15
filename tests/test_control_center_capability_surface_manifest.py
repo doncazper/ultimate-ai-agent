@@ -15,6 +15,10 @@ from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.core.control_center.capability_surface import (
     build_control_center_capability_surface_read_model,
 )
+from ultimate_ai_agent.core.evals import (
+    CAPABILITY_MATURITY_BASELINE_FINGERPRINT_REF,
+    CAPABILITY_MATURITY_BASELINE_SOURCE_REF,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -25,7 +29,9 @@ GENERATED_OVERLAY_PATH = (
     ROOT / "docs/control_center/capability_surface_generated_overlay.json"
 )
 ROUTE_STATUS_MANIFEST_PATH = ROOT / "docs/control_center/route_status_manifest.json"
-RELEASE_SURFACE_MANIFEST_PATH = ROOT / "docs/control_center/release_surface_manifest.json"
+RELEASE_SURFACE_MANIFEST_PATH = (
+    ROOT / "docs/control_center/release_surface_manifest.json"
+)
 
 
 def load_verifier() -> Any:
@@ -114,7 +120,9 @@ def test_capability_surface_read_model_is_safe_bounded_and_source_backed() -> No
     )
     payload = read_model.model_dump(mode="json")
 
-    assert payload["schema_version"] == "control-center-capability-surface-read-model.v1"
+    assert (
+        payload["schema_version"] == "control-center-capability-surface-read-model.v1"
+    )
     assert payload["backend_owned"] is True
     assert payload["read_only"] is True
     assert payload["safe_refs_only"] is True
@@ -125,6 +133,37 @@ def test_capability_surface_read_model_is_safe_bounded_and_source_backed() -> No
     assert payload["summary"]["capability_count"] == 31
     assert payload["summary"]["missing_release_routes"] == []
     assert payload["summary"]["missing_visible_actions"] == []
+    assert payload["maturity"]["verification_posture"] == "evaluation_required"
+    assert payload["maturity"]["component_count"] == 16
+    assert payload["maturity"]["uplift_target_count"] == 12
+    assert payload["maturity"]["uplift_proven_count"] == 0
+    assert payload["maturity"]["automated_evidence_ready_count"] == 0
+    assert payload["maturity"]["baseline_weighted_score"] == 87.5
+    assert payload["maturity"]["target_weighted_score"] == 94.8
+    assert (
+        payload["maturity"]["baseline_source_ref"]
+        == CAPABILITY_MATURITY_BASELINE_SOURCE_REF
+    )
+    assert (
+        payload["maturity"]["baseline_source_fingerprint_ref"]
+        == CAPABILITY_MATURITY_BASELINE_FINGERPRINT_REF
+    )
+    assert payload["maturity"]["score_increase_requires_independent_acceptance"] is True
+    assert payload["maturity"]["trusted_acceptance_verification_implemented"] is False
+    assert payload["maturity"]["authority_granted"] is False
+    assert all(
+        item["verified_score"] == item["baseline_score"]
+        for item in payload["maturity"]["components"]
+    )
+    extensibility = next(
+        item
+        for item in payload["maturity"]["components"]
+        if item["component_id"] == "extensibility_ecosystem"
+    )
+    assert (extensibility["baseline_score"], extensibility["target_score"]) == (
+        7,
+        8,
+    )
     capability_surface = next(
         row
         for row in payload["rows"]
@@ -176,10 +215,13 @@ def test_capability_surface_api_route_and_cli_expose_same_safe_model() -> None:
     cli_payload = json.loads(cli.stdout)
     assert cli_payload["read_model_ref"] == body["data"]["read_model_ref"]
     assert cli_payload["summary"]["covered_visible_action_count"] == 46
+    assert cli_payload["maturity"] == body["data"]["maturity"]
     assert cli_payload["runtime_authority_added"] is False
 
 
-def test_capability_surface_manifest_covers_current_visible_routes_and_actions() -> None:
+def test_capability_surface_manifest_covers_current_visible_routes_and_actions() -> (
+    None
+):
     verifier = load_verifier()
     manifest = load_manifest()
     route_status = load_route_status_manifest()
@@ -203,13 +245,9 @@ def test_capability_surface_manifest_covers_current_visible_routes_and_actions()
         for action_id in capability["control_action_ids"]
         if not action_id.startswith("ui-control:")
     }
-    visible_routes = {
-        route["path"]
-        for route in release_surface["routes"]
-    }
+    visible_routes = {route["path"] for route in release_surface["routes"]}
     visible_actions = {
-        action["action_id"]
-        for action in route_status["visible_actions"]
+        action["action_id"] for action in route_status["visible_actions"]
     }
 
     assert len(visible_routes) == 43
@@ -241,7 +279,9 @@ def test_capability_surface_verifier_flags_missing_visible_route() -> None:
     release_surface = load_release_surface_manifest()
     manifest = copy.deepcopy(manifest)
     capability = next(
-        item for item in manifest["capabilities"] if item["capability_id"] == "start_here_read_model"
+        item
+        for item in manifest["capabilities"]
+        if item["capability_id"] == "start_here_read_model"
     )
     capability["ui_routes"] = []
 
@@ -253,7 +293,10 @@ def test_capability_surface_verifier_flags_missing_visible_route() -> None:
         check_files=False,
     )
 
-    assert any("missing UI route coverage" in failure and "/start" in failure for failure in failures)
+    assert any(
+        "missing UI route coverage" in failure and "/start" in failure
+        for failure in failures
+    )
 
 
 def test_capability_surface_verifier_flags_missing_visible_action() -> None:
@@ -263,7 +306,9 @@ def test_capability_surface_verifier_flags_missing_visible_action() -> None:
     release_surface = load_release_surface_manifest()
     manifest = copy.deepcopy(manifest)
     capability = next(
-        item for item in manifest["capabilities"] if item["capability_id"] == "action_preview_preflight"
+        item
+        for item in manifest["capabilities"]
+        if item["capability_id"] == "action_preview_preflight"
     )
     capability["control_action_ids"] = ["ui-control:action-preview.local-only"]
 
@@ -276,7 +321,8 @@ def test_capability_surface_verifier_flags_missing_visible_action() -> None:
     )
 
     assert any(
-        "missing visible action coverage" in failure and "submit-action-preview" in failure
+        "missing visible action coverage" in failure
+        and "submit-action-preview" in failure
         for failure in failures
     )
 
@@ -288,7 +334,9 @@ def test_capability_surface_verifier_flags_stale_operation_id() -> None:
     release_surface = load_release_surface_manifest()
     manifest = copy.deepcopy(manifest)
     capability = next(
-        item for item in manifest["capabilities"] if item["capability_id"] == "api_route_inventory"
+        item
+        for item in manifest["capabilities"]
+        if item["capability_id"] == "api_route_inventory"
     )
     capability["api_routes"][0]["operation_id"] = "stale_operation_id"
 
@@ -300,7 +348,10 @@ def test_capability_surface_verifier_flags_stale_operation_id() -> None:
         check_files=False,
     )
 
-    assert any("operation_id drift" in failure and "/api/manifest" in failure for failure in failures)
+    assert any(
+        "operation_id drift" in failure and "/api/manifest" in failure
+        for failure in failures
+    )
 
 
 def test_capability_surface_verifier_flags_fake_fully_wired_capability() -> None:
@@ -310,7 +361,9 @@ def test_capability_surface_verifier_flags_fake_fully_wired_capability() -> None
     release_surface = load_release_surface_manifest()
     manifest = copy.deepcopy(manifest)
     capability = next(
-        item for item in manifest["capabilities"] if item["capability_id"] == "approval_queue_summary"
+        item
+        for item in manifest["capabilities"]
+        if item["capability_id"] == "approval_queue_summary"
     )
     capability["status"] = "ui_api_cli_wired"
     capability["missing_reason"] = "none"

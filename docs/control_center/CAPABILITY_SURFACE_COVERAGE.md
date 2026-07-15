@@ -1,5 +1,14 @@
 # Control Center Capability Surface Coverage
 
+The capability surface also renders the backend-owned capability maturity
+evidence gate. Each of the 16 comparison components shows its baseline, exact
+one-point target capped at ten, and evidence-gated verification posture. The normal
+read-only route never runs tests. The bounded repo-local evaluator can advance
+the automated-test gate, but runtime, recovery, operator, and independent
+acceptance remain separate. No trusted acceptance resolver exists in this
+slice, so even a self-consistent digest-bound decision cannot advance a score.
+Score visibility never grants authority.
+
 Status: active capability-first coverage seed, no new runtime authority.
 
 This document introduces a capability-first companion to the existing Control

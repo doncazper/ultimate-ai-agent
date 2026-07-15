@@ -59,4 +59,54 @@ describe("CapabilitySurfacePanel web hybrid posture", () => {
     expect(screen.getByText(/Paid usage, Keyless/)).toBeInTheDocument();
     expect(screen.queryByText(/\{.*\}/)).not.toBeInTheDocument();
   });
+
+  it("hides maturity claims when only the fallback shape is available", () => {
+    render(
+      <CapabilitySurfacePanel surface={mockControlCenterData.capabilitySurface} />,
+    );
+
+    const maturityPanel = screen.getByRole("region", {
+      name: "Capability score evidence",
+    });
+    expect(within(maturityPanel).getByText("Evidence-gated maturity")).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("region", { name: "Capabilities" })).getByText(
+        "fallback shape only",
+      ),
+    ).toBeInTheDocument();
+    expect(within(maturityPanel).getByText("fallback unavailable")).toBeInTheDocument();
+    expect(within(maturityPanel).getByText("Maturity evidence unavailable")).toBeInTheDocument();
+    expect(within(maturityPanel).queryByText("Accepted baseline")).not.toBeInTheDocument();
+    expect(within(maturityPanel).queryByText("Extensibility and ecosystem")).not.toBeInTheDocument();
+  });
+
+  it("renders backend-owned maturity evidence without inflating scores", () => {
+    const surface = JSON.parse(
+      JSON.stringify(mockControlCenterData.capabilitySurface),
+    ) as typeof mockControlCenterData.capabilitySurface;
+    surface.read_model_ref = "read-model-ref:control-center-capability-surface:v1";
+    render(<CapabilitySurfacePanel surface={surface} />);
+
+    const maturityPanel = screen.getByRole("region", {
+      name: "Capability score evidence",
+    });
+    expect(within(maturityPanel).getByText("Evidence-gated maturity")).toBeInTheDocument();
+    expect(within(maturityPanel).getByText("Extensibility and ecosystem")).toBeInTheDocument();
+    expect(within(maturityPanel).getByText("87.5")).toBeInTheDocument();
+    expect(within(maturityPanel).getByText("94.8")).toBeInTheDocument();
+    const extensibilityRow = within(maturityPanel)
+      .getByText("Extensibility and ecosystem")
+      .closest("tr");
+    expect(extensibilityRow).not.toBeNull();
+    expect(within(extensibilityRow!).getAllByText("7")).toHaveLength(2);
+    expect(within(extensibilityRow!).getByText("8")).toBeInTheDocument();
+    expect(within(maturityPanel).getByText("Scores never mint authority")).toBeInTheDocument();
+    expect(within(maturityPanel).getAllByText("baseline only").length).toBeGreaterThan(0);
+    expect(
+      within(maturityPanel).getByText(/passing automated checks advances evidence readiness/i),
+    ).toBeInTheDocument();
+    expect(within(maturityPanel).getByText(/self-hashed acceptance ref cannot advance/i)).toBeInTheDocument();
+    expect(within(maturityPanel).getAllByText(/next proof:/i).length).toBe(16);
+    expect(within(maturityPanel).queryByText(/globally authorized/i)).not.toBeInTheDocument();
+  });
 });

@@ -4,6 +4,10 @@ import argparse
 from collections.abc import Mapping
 from typing import Any
 
+from scripts.dev.uaa_runtime_capability_maturity import (
+    register_capability_truth_parsers,
+)
+
 
 def build_parser(runtime_symbols: Mapping[str, Any]) -> argparse.ArgumentParser:
     parser_globals = globals()
@@ -35,16 +39,7 @@ def build_parser(runtime_symbols: Mapping[str, Any]) -> argparse.ArgumentParser:
     capabilities.add_argument("--json", action="store_true", help="Emit safe JSON.")
     capabilities.set_defaults(func=_capabilities)
 
-    capability_availability = subparsers.add_parser(
-        "capability-availability",
-        help="Inspect backend-owned capability availability without granting authority.",
-    )
-    capability_availability.add_argument(
-        "--json",
-        action="store_true",
-        help="Emit the safe capability availability read model as JSON.",
-    )
-    capability_availability.set_defaults(func=_capability_availability)
+    register_capability_truth_parsers(subparsers, _capability_availability)
 
     command = subparsers.add_parser(
         "command",

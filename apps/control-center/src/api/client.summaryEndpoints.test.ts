@@ -868,6 +868,66 @@ describe("loadControlCenterData summary endpoint wiring", () => {
     expect(data.connection.warnings).toContain("PARTIAL_MOCK_FALLBACK");
   });
 
+  it("rejects maturity score inflation without evidence-gated acceptance", async () => {
+    const routeData = baseRouteData();
+    const capabilitySurface = JSON.parse(
+      JSON.stringify(routeData[API_ENDPOINTS.controlCenterCapabilitySurface]),
+    ) as typeof mockControlCenterData.capabilitySurface;
+    capabilitySurface.maturity.components[0].verified_score = 10;
+    capabilitySurface.maturity.components[0].evidence_status = "baseline_only";
+    routeData[API_ENDPOINTS.controlCenterCapabilitySurface] = capabilitySurface;
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.connection.warnings).toContain("PARTIAL_MOCK_FALLBACK");
+    expect(data.capabilitySurface.maturity.components[0].verified_score).toBe(
+      data.capabilitySurface.maturity.components[0].baseline_score,
+    );
+    expect(data.capabilitySurface.maturity.authority_granted).toBe(false);
+  });
+
+  it("rejects maturity aggregate and taxonomy drift", async () => {
+    for (const mutate of [
+      (maturity: typeof mockControlCenterData.capabilitySurface.maturity) => {
+        maturity.baseline_weighted_score = 99;
+      },
+      (maturity: typeof mockControlCenterData.capabilitySurface.maturity) => {
+        maturity.components[1].component_id = maturity.components[0].component_id;
+      },
+      (maturity: typeof mockControlCenterData.capabilitySurface.maturity) => {
+        const extensibility = maturity.components.find(
+          (component) => component.component_id === "extensibility_ecosystem",
+        );
+        if (extensibility) {
+          extensibility.baseline_score = 9;
+        }
+      },
+      (maturity: typeof mockControlCenterData.capabilitySurface.maturity) => {
+        maturity.components[0].gates[0].evidence_refs = [];
+      },
+      (maturity: typeof mockControlCenterData.capabilitySurface.maturity) => {
+        maturity.components[0].gates[1].blocker_codes = [];
+      },
+      (maturity: typeof mockControlCenterData.capabilitySurface.maturity) => {
+        maturity.safe_summary = { unsafe: true } as unknown as string;
+      },
+    ]) {
+      const routeData = baseRouteData();
+      const capabilitySurface = JSON.parse(
+        JSON.stringify(routeData[API_ENDPOINTS.controlCenterCapabilitySurface]),
+      ) as typeof mockControlCenterData.capabilitySurface;
+      mutate(capabilitySurface.maturity);
+      routeData[API_ENDPOINTS.controlCenterCapabilitySurface] = capabilitySurface;
+      stubControlCenterFetch(routeData);
+
+      const data = await loadControlCenterData();
+
+      expect(data.connection.warnings).toContain("PARTIAL_MOCK_FALLBACK");
+      expect(data.capabilitySurface.maturity.baseline_weighted_score).toBe(87.5);
+    }
+  });
+
   it("rejects unsafe WEB-HYBRID lane and rendered-ref content", async () => {
     const routeData = baseRouteData();
     const capabilitySurface = JSON.parse(

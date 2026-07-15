@@ -10487,9 +10487,87 @@ export interface ControlCenterCapabilitySurfaceReadModel {
   safe_summary: string;
   summary: CapabilitySurfaceSummary;
   rows: CapabilitySurfaceRow[];
+  maturity: CapabilityMaturityReadModel;
   web_hybrid: WebHybridAvailabilityReadModel;
   blocked_authority_refs: string[];
   redactions_applied: string[];
+}
+
+export type CapabilityMaturityEvidenceStatus =
+  | "baseline_only"
+  | "automated_evidence_ready"
+  | "manual_validation_required"
+  | "external_dependency_required"
+  | "target_proven"
+  | "ceiling_defended"
+  | "evidence_failed";
+
+export type CapabilityMaturityGateKind =
+  | "implementation"
+  | "automated_tests"
+  | "runtime_scenario"
+  | "operator_surface"
+  | "recovery_and_failure"
+  | "independent_acceptance";
+
+export interface CapabilityMaturityEvidenceGate {
+  gate_kind: CapabilityMaturityGateKind;
+  status: "satisfied" | "pending" | "blocked";
+  evidence_refs: string[];
+  blocker_codes: string[];
+  safe_summary: string;
+}
+
+export interface CapabilityMaturityComponent {
+  component_id: string;
+  label: string;
+  weight: number;
+  baseline_score: number;
+  target_score: number;
+  verified_score: number;
+  evidence_status: CapabilityMaturityEvidenceStatus;
+  scenario_refs: string[];
+  evidence_refs: string[];
+  gates: CapabilityMaturityEvidenceGate[];
+  blocker_codes: string[];
+  next_acceptance_ref: string;
+  safe_summary: string;
+}
+
+export interface CapabilityMaturityReadModel {
+  schema_version: "uaa-capability-maturity.v1";
+  contract_ref: "contract-ref:capability-maturity:v1";
+  read_model_ref: string;
+  baseline_source_ref: string;
+  baseline_source_fingerprint_ref: string;
+  evidence_report_ref: string | null;
+  evidence_report_digest_ref: string | null;
+  verification_posture:
+    | "evaluation_required"
+    | "automated_evidence_ready"
+    | "partially_graduated"
+    | "targets_proven"
+    | "evaluation_failed";
+  baseline_weighted_score: number;
+  target_weighted_score: number;
+  verified_weighted_score: number;
+  component_count: 16;
+  uplift_target_count: number;
+  uplift_proven_count: number;
+  automated_evidence_ready_count: number;
+  manual_validation_required_count: number;
+  external_dependency_required_count: number;
+  ceiling_defended_count: number;
+  components: CapabilityMaturityComponent[];
+  backend_owned: true;
+  read_only: true;
+  content_free: true;
+  authority_granted: false;
+  score_increase_requires_runtime_evidence: true;
+  score_increase_requires_independent_acceptance: true;
+  trusted_acceptance_verification_implemented: false;
+  raw_content_persisted: false;
+  safe_summary: string;
 }
 
 export interface RuntimeReadinessReport {

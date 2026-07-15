@@ -10,7 +10,9 @@ import os
 from pathlib import Path
 import re
 import stat
+import subprocess
 import sys
+import tempfile
 from typing import Any
 
 
@@ -36,8 +38,10 @@ from scripts.run_agent_capability_evaluation import (  # noqa: E402
     _scenario_fingerprint,
     evaluation_report_projection,
     evaluation_registry_fingerprint,
+    evaluation_source_digest,
     evaluation_source_digest_at_commit,
     evaluation_source_paths,
+    repository_commit,
     run_agent_capability_evaluation,
 )
 from scripts.run_uaa_runtime_phase09_benchmark import (  # noqa: E402
@@ -177,7 +181,9 @@ def _safe_read(path: Path, *, root: Path, maximum_bytes: int) -> bytes:
     try:
         file_stat = os.fstat(descriptor)
         if not stat.S_ISREG(file_stat.st_mode) or file_stat.st_nlink != 1:
-            raise VerificationError("comparison input must be a single-link regular file")
+            raise VerificationError(
+                "comparison input must be a single-link regular file"
+            )
         if file_stat.st_size > maximum_bytes:
             raise VerificationError("comparison input exceeds its size bound")
         resolved_candidate = candidate.resolve(strict=True)
@@ -193,7 +199,9 @@ def _safe_read(path: Path, *, root: Path, maximum_bytes: int) -> bytes:
             remaining -= len(chunk)
         payload = b"".join(chunks)
         if len(payload) != file_stat.st_size:
-            raise VerificationError("comparison input changed or exceeded its size bound")
+            raise VerificationError(
+                "comparison input changed or exceeded its size bound"
+            )
         return payload
     finally:
         os.close(descriptor)
@@ -212,7 +220,9 @@ def _score(gates: dict[str, Any]) -> int:
 
 
 def _weighted_total(findings: list[dict[str, Any]], system: str) -> float:
-    numerator = sum(_score(item[f"{system}_gates"]) * item["weight"] for item in findings)
+    numerator = sum(
+        _score(item[f"{system}_gates"]) * item["weight"] for item in findings
+    )
     return round(numerator / 124 * 10, 4)
 
 
@@ -296,6 +306,20 @@ def _validate_report_projection(
             raise VerificationError("capability evaluation observed status drift")
         if (observed_status == "failed") != (failure_code != "none"):
             raise VerificationError("capability evaluation failure posture drift")
+        for metric in (
+            "evidence_complete",
+            "task_completed",
+            "completion_claimed",
+            "operator_interventions",
+            "unsupported_claim_count",
+            "policy_violation_refs",
+            "recovery_succeeded",
+            "replay_succeeded",
+        ):
+            if observation.get(metric) is not None:
+                raise VerificationError(
+                    "verifier exit status cannot synthesize semantic observation truth"
+                )
     adherence_count = sum(
         item["observed_status"] == item["expected_status"] for item in observations
     )
@@ -348,9 +372,10 @@ def verify_data(
     if data.get("authority_granted") is not False:
         raise VerificationError("comparison cannot grant authority")
     findings = data.get("findings")
-    if not isinstance(findings, list) or tuple(
-        item.get("component") for item in findings
-    ) != COMPONENT_IDS:
+    if (
+        not isinstance(findings, list)
+        or tuple(item.get("component") for item in findings) != COMPONENT_IDS
+    ):
         raise VerificationError("comparison requires the exact 16-component taxonomy")
     if sum(item.get("weight", 0) for item in findings) != 124:
         raise VerificationError("comparison weights must total 124")
@@ -361,7 +386,9 @@ def verify_data(
         for system in ("uaa", "goatcitadel"):
             values = refs.get(system)
             if not isinstance(values, list) or not values:
-                raise VerificationError("every comparison component requires evidence refs")
+                raise VerificationError(
+                    "every comparison component requires evidence refs"
+                )
             for value in values:
                 _validate_evidence_ref(value, system, goat_root=goat_root)
         for required in (
@@ -400,8 +427,7 @@ def verify_data(
             for item in initial.get(system, {}).get("components", [])
         }
         expected_scores = {
-            item["component"]: _score(item[f"{system}_gates"])
-            for item in findings
+            item["component"]: _score(item[f"{system}_gates"]) for item in findings
         }
         if component_scores != expected_scores:
             raise VerificationError(f"{system} initial component score drift")
@@ -409,21 +435,35 @@ def verify_data(
         raise VerificationError("final scores changed without new bound evidence gates")
 
     result = data.get("implementation_result", {})
-    if result.get("scenario_count") != 21 or result.get("component_count") != 16:
+    expected_scenario_count = len(PHASE09_SCENARIOS) + len(ADDITIONAL_SCENARIOS)
+    expected_passed_count = sum(
+        spec.expected_status == "passed" for spec in PHASE09_SCENARIOS
+    ) + len(ADDITIONAL_SCENARIOS)
+    expected_blocked_count = sum(
+        spec.expected_status == "blocked" for spec in PHASE09_SCENARIOS
+    )
+    if (
+        result.get("scenario_count") != expected_scenario_count
+        or result.get("component_count") != 16
+    ):
         raise VerificationError("capability evaluation coverage drift")
     if result.get("safe_outcome_adherence_rate") != 1:
         raise VerificationError("safe-outcome adherence drift")
     if result.get("verification_pass_rate") != 1:
         raise VerificationError("scenario verifier pass-rate drift")
-    if result.get("passed_unblocked_verifier_count") != 20:
+    if result.get("passed_unblocked_verifier_count") != expected_passed_count:
         raise VerificationError("passed unblocked verifier count drift")
-    if result.get("blocked_safe_outcome_count") != 1:
+    if result.get("blocked_safe_outcome_count") != expected_blocked_count:
         raise VerificationError("blocked safe-outcome count drift")
-    if result.get("passed_unblocked_verifier_rate") != round(20 / 21, 4):
+    if result.get("passed_unblocked_verifier_rate") != round(
+        expected_passed_count / expected_scenario_count, 4
+    ):
         raise VerificationError("passed unblocked verifier rate drift")
     if (
-        result.get("task_completion_rate") is not None
-        or result.get("task_completion_count") is not None
+        any(
+            result.get(key) is not None
+            for key in ("task_completion_rate", "task_completion_count")
+        )
         or result.get("task_completion_posture") != "not_measured"
     ):
         raise VerificationError("task completion must remain not measured")
@@ -445,13 +485,17 @@ def verify_data(
         source_commit
     ):
         raise VerificationError("capability evaluator source digest drift")
+    if result.get("evaluator_source_digest") != evaluation_source_digest():
+        raise VerificationError(
+            "stored capability evidence is stale for the current evaluator source"
+        )
     if result.get("evaluator_source_file_count") != len(evaluation_source_paths()):
         raise VerificationError("capability evaluator source coverage drift")
     if result.get("runtime_revalidation_required") is not True:
         raise VerificationError("runtime revalidation posture drift")
     if result.get("external_evidence_posture") != "opt_in_root_required":
         raise VerificationError("external evidence revalidation posture drift")
-    for metric in (
+    unmeasured_metrics = (
         "correctness_rate",
         "recovery_success_rate",
         "evidence_completeness_rate",
@@ -460,11 +504,19 @@ def verify_data(
         "false_completion_count",
         "unsupported_claim_count",
         "authority_policy_violation_count",
-    ):
-        if result.get(metric) is not None or result.get(f"{metric}_posture") != "not_measured":
-            raise VerificationError(f"unbound metric must remain not measured: {metric}")
+    )
+    for metric in unmeasured_metrics:
+        if (
+            result.get(metric) is not None
+            or result.get(f"{metric}_posture") != "not_measured"
+        ):
+            raise VerificationError(
+                f"capability metric must remain not measured: {metric}"
+            )
     if result.get("cross_repo_empirical_performance") != "not_measured":
-        raise VerificationError("cross-repository empirical result must remain not measured")
+        raise VerificationError(
+            "cross-repository empirical result must remain not measured"
+        )
     if result.get("observed_product_experience") != "not_measured":
         raise VerificationError("observed product experience must remain not measured")
     if revalidate_uaa:
@@ -484,12 +536,101 @@ def verify(
     goat_root: Path | None = None,
     revalidate_uaa: bool = False,
 ) -> dict[str, Any]:
-    payload = _safe_read(path.relative_to(ROOT), root=ROOT, maximum_bytes=MAX_ARTIFACT_BYTES)
+    payload = _safe_read(
+        path.relative_to(ROOT), root=ROOT, maximum_bytes=MAX_ARTIFACT_BYTES
+    )
     return verify_data(
         json.loads(payload.decode("utf-8")),
         goat_root=goat_root,
         revalidate_uaa=revalidate_uaa,
     )
+
+
+def refresh_uaa_evaluation(path: Path = DEFAULT_ARTIFACT) -> dict[str, Any]:
+    if path != DEFAULT_ARTIFACT or not path.is_file() or path.is_symlink():
+        raise VerificationError(
+            "comparison artifact refresh path is not canonical and regular"
+        )
+    status = subprocess.run(
+        ("/usr/bin/git", "status", "--porcelain=v1", "--untracked-files=all"),
+        cwd=ROOT,
+        env={
+            "PATH": "/usr/bin:/bin",
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_CONFIG_GLOBAL": "/dev/null",
+        },
+        capture_output=True,
+        check=False,
+        timeout=10,
+    )
+    if status.returncode != 0 or status.stdout:
+        raise VerificationError(
+            "comparison artifact refresh requires an exact clean committed worktree"
+        )
+    data = json.loads(
+        _safe_read(path.relative_to(ROOT), root=ROOT, maximum_bytes=MAX_ARTIFACT_BYTES)
+    )
+    report = run_agent_capability_evaluation()
+    projection = evaluation_report_projection(report)
+    result = data.get("implementation_result")
+    if not isinstance(result, dict):
+        raise VerificationError("comparison implementation result is required")
+    result.update(
+        {
+            "status": "implemented",
+            "scenario_count": report.scenario_count,
+            "component_count": report.component_count,
+            "safe_outcome_adherence_rate": report.safe_outcome_adherence_rate,
+            "verification_pass_rate": report.verification_pass_rate,
+            "passed_unblocked_verifier_rate": report.passed_unblocked_verifier_rate,
+            "passed_unblocked_verifier_count": report.passed_unblocked_verifier_count,
+            "task_completion_rate": report.task_completion_rate,
+            "task_completion_count": report.task_completion_count,
+            "task_completion_posture": report.task_completion_posture,
+            "blocked_safe_outcome_count": report.blocked_safe_outcome_count,
+            "correctness_rate": report.correctness_rate,
+            "correctness_rate_posture": report.correctness_posture,
+            "recovery_success_rate": report.recovery_success_rate,
+            "recovery_success_rate_posture": report.recovery_posture,
+            "evidence_completeness_rate": report.evidence_completeness_rate,
+            "evidence_completeness_rate_posture": report.evidence_completeness_posture,
+            "replay_correctness_rate": report.replay_correctness_rate,
+            "replay_correctness_rate_posture": report.replay_correctness_posture,
+            "operator_intervention_count": report.operator_intervention_count,
+            "operator_intervention_count_posture": report.operator_intervention_posture,
+            "false_completion_count": report.false_completion_count,
+            "false_completion_count_posture": report.false_completion_posture,
+            "unsupported_claim_count": report.unsupported_claim_count,
+            "unsupported_claim_count_posture": report.unsupported_claim_posture,
+            "authority_policy_violation_count": report.authority_policy_violation_count,
+            "authority_policy_violation_count_posture": report.authority_policy_violation_posture,
+            "content_free": report.content_free,
+            "uaa_source_commit": repository_commit(),
+            "evaluator_source_digest": evaluation_source_digest(),
+            "evaluator_source_file_count": len(evaluation_source_paths()),
+            "registry_fingerprint_ref": evaluation_registry_fingerprint(),
+            "report_projection_digest": _projection_digest(projection),
+            "report_projection": projection,
+        }
+    )
+    verify_data(data)
+    encoded = (json.dumps(data, indent=2, sort_keys=False) + "\n").encode("utf-8")
+    with tempfile.NamedTemporaryFile(
+        mode="wb",
+        dir=path.parent,
+        prefix=".goat-comparison-refresh-",
+        delete=False,
+    ) as handle:
+        temp_path = Path(handle.name)
+        handle.write(encoded)
+        handle.flush()
+        os.fsync(handle.fileno())
+    try:
+        os.chmod(temp_path, 0o644)
+        os.replace(temp_path, path)
+    finally:
+        temp_path.unlink(missing_ok=True)
+    return data
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -504,8 +645,20 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Run the bounded UAA evaluator and compare it with the stored projection.",
     )
+    parser.add_argument(
+        "--refresh-uaa-evaluation",
+        action="store_true",
+        help="Refresh only the content-free UAA evaluation projection in the canonical artifact.",
+    )
     args = parser.parse_args(argv)
-    verify(goat_root=args.goat_root, revalidate_uaa=args.revalidate_uaa)
+    if args.refresh_uaa_evaluation:
+        if args.goat_root is not None or args.revalidate_uaa:
+            parser.error(
+                "refresh cannot be combined with external or revalidation options"
+            )
+        refresh_uaa_evaluation()
+    else:
+        verify(goat_root=args.goat_root, revalidate_uaa=args.revalidate_uaa)
     print("OK: UAA-GoatCitadel comparison findings are bounded and evidence-gated")
     return 0
 

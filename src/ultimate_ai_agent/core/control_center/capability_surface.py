@@ -10,6 +10,10 @@ from ultimate_ai_agent.core.capability_availability import (
     WebHybridAvailabilityReadModel,
     build_web_hybrid_availability_read_model,
 )
+from ultimate_ai_agent.core.evals import (
+    CapabilityMaturityReadModel,
+    build_capability_maturity_read_model,
+)
 
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -148,6 +152,7 @@ class ControlCenterCapabilitySurfaceReadModel(BaseModel):
     safe_summary: str
     summary: CapabilitySurfaceSummary
     rows: list[CapabilitySurfaceRow]
+    maturity: CapabilityMaturityReadModel
     web_hybrid: WebHybridAvailabilityReadModel
     blocked_authority_refs: list[str] = Field(
         default_factory=lambda: list(CAPABILITY_SURFACE_BLOCKED_AUTHORITY_REFS)
@@ -204,6 +209,7 @@ def build_control_center_capability_surface_read_model(
         ),
         summary=summary,
         rows=rows,
+        maturity=build_capability_maturity_read_model(),
         web_hybrid=build_web_hybrid_availability_read_model(),
     )
 

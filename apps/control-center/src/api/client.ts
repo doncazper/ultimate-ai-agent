@@ -9122,6 +9122,166 @@ function isSafeWebHybridLane(value: unknown): boolean {
   );
 }
 
+const CAPABILITY_MATURITY_BASELINE_SOURCE_REF =
+  "repo-ref:uaa:docs/benchmarks/runtime_capability_foundation/goat_comparison_20260712.json:initial_scores.uaa.components";
+const CAPABILITY_MATURITY_BASELINE_FINGERPRINT_REF =
+  "fingerprint-ref:capability-maturity-baseline:sha256:4ab2d2160e97df5a823e092445e6725aa8714e14066a34c2baabc46be17366cd";
+const CAPABILITY_MATURITY_COMPONENTS = [
+  ["reasoning_task_understanding", 8, 8],
+  ["planning_orchestration", 10, 8],
+  ["learning_adaptation", 8, 8],
+  ["memory_context_management", 9, 9],
+  ["communication_interaction", 8, 7],
+  ["action_tool_calling", 9, 9],
+  ["autonomy_authority", 10, 10],
+  ["code_implementation_assistance", 8, 6],
+  ["research_web_external", 10, 5],
+  ["model_provider_management", 8, 6],
+  ["evidence_audit_observability", 9, 9],
+  ["safety_security_failure", 10, 10],
+  ["ux_ai_cockpit", 8, 7],
+  ["cli_api_parity", 9, 6],
+  ["extensibility_ecosystem", 7, 6],
+  ["productized_agent_loop", 8, 10],
+] as const;
+const CAPABILITY_MATURITY_GATE_KINDS = [
+  "implementation",
+  "automated_tests",
+  "runtime_scenario",
+  "operator_surface",
+  "recovery_and_failure",
+  "independent_acceptance",
+] as const;
+
+function maturityWeightedScore(
+  components: Record<string, unknown>[],
+  scoreKey: "baseline_score" | "target_score" | "verified_score",
+): number {
+  const weighted = components.reduce(
+    (total, component, index) =>
+      total + Number(component[scoreKey]) * CAPABILITY_MATURITY_COMPONENTS[index][2],
+    0,
+  );
+  return Math.round((weighted / 1240) * 1000) / 10;
+}
+
+function isSafeCapabilityMaturity(value: unknown): boolean {
+  if (!isPlainRecord(value) || !Array.isArray(value.components)) {
+    return false;
+  }
+  const components = value.components;
+  const shapeIsSafe = (
+    value.schema_version === "uaa-capability-maturity.v1" &&
+    value.contract_ref === "contract-ref:capability-maturity:v1" &&
+    value.baseline_source_ref === CAPABILITY_MATURITY_BASELINE_SOURCE_REF &&
+    value.baseline_source_fingerprint_ref ===
+      CAPABILITY_MATURITY_BASELINE_FINGERPRINT_REF &&
+    value.backend_owned === true &&
+    value.read_only === true &&
+    value.content_free === true &&
+    value.authority_granted === false &&
+    value.score_increase_requires_runtime_evidence === true &&
+    value.score_increase_requires_independent_acceptance === true &&
+    value.trusted_acceptance_verification_implemented === false &&
+    value.raw_content_persisted === false &&
+    isSafeEvidenceNarrativeText(value.safe_summary) &&
+    value.component_count === 16 &&
+    components.length === CAPABILITY_MATURITY_COMPONENTS.length &&
+    components.every(
+      (component, index) =>
+        isPlainRecord(component) &&
+        component.component_id === CAPABILITY_MATURITY_COMPONENTS[index][0] &&
+        typeof component.label === "string" &&
+        component.weight === CAPABILITY_MATURITY_COMPONENTS[index][2] &&
+        component.baseline_score === CAPABILITY_MATURITY_COMPONENTS[index][1] &&
+        typeof component.target_score === "number" &&
+        typeof component.verified_score === "number" &&
+        component.target_score ===
+          Math.min(10, Number(component.baseline_score) + 1) &&
+        component.verified_score === component.baseline_score &&
+        [
+          "baseline_only",
+          "automated_evidence_ready",
+          "manual_validation_required",
+          "external_dependency_required",
+          "target_proven",
+          "ceiling_defended",
+          "evidence_failed",
+        ].includes(
+          String(component.evidence_status),
+        ) &&
+        !["target_proven", "ceiling_defended"].includes(
+          String(component.evidence_status),
+        ) &&
+        Array.isArray(component.scenario_refs) &&
+        Array.isArray(component.evidence_refs) &&
+        component.evidence_refs.length >= 3 &&
+        Array.isArray(component.gates) &&
+        component.gates.length === CAPABILITY_MATURITY_GATE_KINDS.length &&
+        component.gates.every(
+          (gate, gateIndex) =>
+            isPlainRecord(gate) &&
+            gate.gate_kind === CAPABILITY_MATURITY_GATE_KINDS[gateIndex] &&
+            ["satisfied", "pending", "blocked"].includes(String(gate.status)) &&
+            Array.isArray(gate.evidence_refs) &&
+            Array.isArray(gate.blocker_codes) &&
+            (gate.status === "satisfied"
+              ? gate.evidence_refs.length > 0
+              : gate.blocker_codes.length > 0) &&
+            isSafeEvidenceNarrativeText(gate.safe_summary),
+        ) &&
+        Array.isArray(component.blocker_codes) &&
+        typeof component.next_acceptance_ref === "string" &&
+        isSafeEvidenceNarrativeText(component.safe_summary),
+    )
+  );
+  if (!shapeIsSafe) {
+    return false;
+  }
+
+  const typedComponents = components as Record<string, unknown>[];
+  const statusCount = (status: string) =>
+    typedComponents.filter((component) => component.evidence_status === status).length;
+  const upliftProven = statusCount("target_proven");
+  const ceilingDefended = statusCount("ceiling_defended");
+  const automatedReady = typedComponents.filter((component) =>
+    [
+      "automated_evidence_ready",
+      "manual_validation_required",
+      "external_dependency_required",
+      "target_proven",
+    ].includes(String(component.evidence_status)),
+  ).length;
+  const anyFailed = statusCount("evidence_failed") > 0;
+  const expectedPosture = upliftProven === 12
+    ? "targets_proven"
+    : anyFailed
+      ? "evaluation_failed"
+      : upliftProven
+        ? "partially_graduated"
+      : automatedReady
+        ? "automated_evidence_ready"
+        : "evaluation_required";
+
+  return (
+    value.baseline_weighted_score ===
+      maturityWeightedScore(typedComponents, "baseline_score") &&
+    value.target_weighted_score ===
+      maturityWeightedScore(typedComponents, "target_score") &&
+    value.verified_weighted_score ===
+      maturityWeightedScore(typedComponents, "verified_score") &&
+    value.uplift_target_count === 12 &&
+    value.uplift_proven_count === upliftProven &&
+    value.automated_evidence_ready_count === automatedReady &&
+    value.manual_validation_required_count ===
+      statusCount("manual_validation_required") &&
+    value.external_dependency_required_count ===
+      statusCount("external_dependency_required") &&
+    value.ceiling_defended_count === ceilingDefended &&
+    value.verification_posture === expectedPosture
+  );
+}
+
 function isSafeControlCenterCapabilitySurface(
   value: unknown,
 ): value is ControlCenterCapabilitySurfaceReadModel {
@@ -9158,6 +9318,7 @@ function isSafeControlCenterCapabilitySurface(
         Array.isArray(row.cli_paths) &&
         Array.isArray(row.tests_evidence_refs),
     ) &&
+    isSafeCapabilityMaturity(value.maturity) &&
     isPlainRecord(value.web_hybrid) &&
     value.web_hybrid.schema_version === "uaa-web-hybrid-availability.v1" &&
     value.web_hybrid.truth_owner === "python_core" &&
