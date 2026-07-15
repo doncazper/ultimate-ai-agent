@@ -903,6 +903,12 @@ describe("loadControlCenterData summary endpoint wiring", () => {
           extensibility.baseline_score = 9;
         }
       },
+      (maturity: typeof mockControlCenterData.capabilitySurface.maturity) => {
+        maturity.components[0].gates[0].evidence_refs = [];
+      },
+      (maturity: typeof mockControlCenterData.capabilitySurface.maturity) => {
+        maturity.components[0].gates[1].blocker_codes = [];
+      },
     ]) {
       const routeData = baseRouteData();
       const capabilitySurface = JSON.parse(

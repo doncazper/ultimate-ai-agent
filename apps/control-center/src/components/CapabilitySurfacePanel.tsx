@@ -76,74 +76,97 @@ export function CapabilitySurfacePanel({
             <h3 id="capability-maturity-heading">Capability score evidence</h3>
           </div>
           <span className="status-pill compact">
-            {operatorLabel(surface.maturity.verification_posture)}
+            {mockFallback
+              ? "fallback unavailable"
+              : operatorLabel(surface.maturity.verification_posture)}
           </span>
         </div>
-        <p>{surface.maturity.safe_summary}</p>
-        <div className="panel-grid">
-          <MetricCard
-            label="Accepted baseline"
-            value={surface.maturity.verified_weighted_score}
-          />
-          <MetricCard
-            label="Unaccepted target"
-            value={surface.maturity.target_weighted_score}
-          />
-          <MetricCard
-            label="Automated evidence ready"
-            value={surface.maturity.automated_evidence_ready_count}
-          />
-          <MetricCard
-            label="Targets still held"
-            value={surface.maturity.uplift_target_count - surface.maturity.uplift_proven_count}
-          />
-        </div>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Component</th>
-                <th>Baseline</th>
-                <th>Target</th>
-                <th>Verified</th>
-                <th>Evidence</th>
-              </tr>
-            </thead>
-            <tbody>
-              {surface.maturity.components.map((component) => (
-                <tr key={component.component_id}>
-                  <td>
-                    <strong>{component.label}</strong>
-                    <small>{component.component_id}</small>
-                  </td>
-                  <td>{component.baseline_score}</td>
-                  <td>{component.target_score}</td>
-                  <td>{component.verified_score}</td>
-                  <td>
-                    {operatorLabel(component.evidence_status)}
-                    {component.blocker_codes.length > 0 ? (
-                      <small>{component.blocker_codes.join(", ")}</small>
-                    ) : null}
-                    <small>
-                      Gates: {component.gates.filter((gate) => gate.status === "satisfied").length}/
-                      {component.gates.length}
-                    </small>
-                    <small>Next proof: {component.next_acceptance_ref}</small>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="callout blocked">
-          <strong>Scores never mint authority</strong>
-          <p>
-            Passing automated checks advances evidence readiness, not the score.
-            A target remains at baseline until runtime, failure/recovery,
-            operator-surface, and trusted independent acceptance all pass. A
-            self-hashed acceptance ref cannot advance a score.
-          </p>
-        </div>
+        {mockFallback ? (
+          <div className="callout blocked">
+            <strong>Maturity evidence unavailable</strong>
+            <p>
+              The fallback contains a validation shape only. No backend-owned
+              score, gate result, or acceptance posture is displayed.
+            </p>
+          </div>
+        ) : (
+          <>
+            <p>{surface.maturity.safe_summary}</p>
+            <div className="panel-grid">
+              <MetricCard
+                label="Accepted baseline"
+                value={surface.maturity.verified_weighted_score}
+              />
+              <MetricCard
+                label="Unaccepted target"
+                value={surface.maturity.target_weighted_score}
+              />
+              <MetricCard
+                label="Automated evidence ready"
+                value={surface.maturity.automated_evidence_ready_count}
+              />
+              <MetricCard
+                label="Targets still held"
+                value={
+                  surface.maturity.uplift_target_count -
+                  surface.maturity.uplift_proven_count
+                }
+              />
+            </div>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Component</th>
+                    <th>Baseline</th>
+                    <th>Target</th>
+                    <th>Verified</th>
+                    <th>Evidence</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {surface.maturity.components.map((component) => (
+                    <tr key={component.component_id}>
+                      <td>
+                        <strong>{component.label}</strong>
+                        <small>{component.component_id}</small>
+                      </td>
+                      <td>{component.baseline_score}</td>
+                      <td>{component.target_score}</td>
+                      <td>{component.verified_score}</td>
+                      <td>
+                        {operatorLabel(component.evidence_status)}
+                        {component.blocker_codes.length > 0 ? (
+                          <small>{component.blocker_codes.join(", ")}</small>
+                        ) : null}
+                        <small>
+                          Gates:{" "}
+                          {
+                            component.gates.filter(
+                              (gate) => gate.status === "satisfied",
+                            ).length
+                          }
+                          /{component.gates.length}
+                        </small>
+                        <small>Next proof: {component.next_acceptance_ref}</small>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="callout blocked">
+              <strong>Scores never mint authority</strong>
+              <p>
+                Passing automated checks advances evidence readiness, not the
+                score. A target remains at baseline until runtime,
+                failure/recovery, operator-surface, and trusted independent
+                acceptance all pass. A self-hashed acceptance ref cannot
+                advance a score.
+              </p>
+            </div>
+          </>
+        )}
       </section>
 
       <section className="panel" aria-labelledby="web-hybrid-heading">

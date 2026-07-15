@@ -9224,6 +9224,9 @@ function isSafeCapabilityMaturity(value: unknown): boolean {
             ["satisfied", "pending", "blocked"].includes(String(gate.status)) &&
             Array.isArray(gate.evidence_refs) &&
             Array.isArray(gate.blocker_codes) &&
+            (gate.status === "satisfied"
+              ? gate.evidence_refs.length > 0
+              : gate.blocker_codes.length > 0) &&
             typeof gate.safe_summary === "string",
         ) &&
         Array.isArray(component.blocker_codes) &&

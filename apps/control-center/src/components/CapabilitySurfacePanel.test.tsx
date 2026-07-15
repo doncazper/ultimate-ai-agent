@@ -60,7 +60,7 @@ describe("CapabilitySurfacePanel web hybrid posture", () => {
     expect(screen.queryByText(/\{.*\}/)).not.toBeInTheDocument();
   });
 
-  it("renders the evidence-gated maturity plan without inflating scores", () => {
+  it("hides maturity claims when only the fallback shape is available", () => {
     render(
       <CapabilitySurfacePanel surface={mockControlCenterData.capabilitySurface} />,
     );
@@ -74,6 +74,23 @@ describe("CapabilitySurfacePanel web hybrid posture", () => {
         "fallback shape only",
       ),
     ).toBeInTheDocument();
+    expect(within(maturityPanel).getByText("fallback unavailable")).toBeInTheDocument();
+    expect(within(maturityPanel).getByText("Maturity evidence unavailable")).toBeInTheDocument();
+    expect(within(maturityPanel).queryByText("Accepted baseline")).not.toBeInTheDocument();
+    expect(within(maturityPanel).queryByText("Extensibility and ecosystem")).not.toBeInTheDocument();
+  });
+
+  it("renders backend-owned maturity evidence without inflating scores", () => {
+    const surface = JSON.parse(
+      JSON.stringify(mockControlCenterData.capabilitySurface),
+    ) as typeof mockControlCenterData.capabilitySurface;
+    surface.read_model_ref = "read-model-ref:control-center-capability-surface:v1";
+    render(<CapabilitySurfacePanel surface={surface} />);
+
+    const maturityPanel = screen.getByRole("region", {
+      name: "Capability score evidence",
+    });
+    expect(within(maturityPanel).getByText("Evidence-gated maturity")).toBeInTheDocument();
     expect(within(maturityPanel).getByText("Extensibility and ecosystem")).toBeInTheDocument();
     expect(within(maturityPanel).getByText("87.5")).toBeInTheDocument();
     expect(within(maturityPanel).getByText("94.8")).toBeInTheDocument();

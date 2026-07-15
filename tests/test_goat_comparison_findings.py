@@ -86,7 +86,9 @@ def test_comparison_findings_reject_sensitive_key_families(key: str) -> None:
         verifier.verify_data(data)
 
 
-def test_comparison_findings_reject_report_binding_drift() -> None:
+def test_comparison_findings_reject_report_binding_drift(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     data = copy.deepcopy(_data())
     data["implementation_result"]["report_projection"]["observations"][0][
         "execution_fingerprint_ref"
@@ -121,6 +123,14 @@ def test_comparison_findings_reject_report_binding_drift() -> None:
     ] = True
     with pytest.raises(verifier.VerificationError, match="cannot synthesize"):
         verifier.verify_data(data)
+
+    monkeypatch.setattr(
+        verifier,
+        "evaluation_source_digest",
+        lambda: "sha256:" + ("1" * 64),
+    )
+    with pytest.raises(verifier.VerificationError, match="stale.*current evaluator"):
+        verifier.verify_data(_data())
 
 
 def test_comparison_findings_runtime_revalidation_uses_actual_projection(

@@ -485,6 +485,10 @@ def verify_data(
         source_commit
     ):
         raise VerificationError("capability evaluator source digest drift")
+    if result.get("evaluator_source_digest") != evaluation_source_digest():
+        raise VerificationError(
+            "stored capability evidence is stale for the current evaluator source"
+        )
     if result.get("evaluator_source_file_count") != len(evaluation_source_paths()):
         raise VerificationError("capability evaluator source coverage drift")
     if result.get("runtime_revalidation_required") is not True:
