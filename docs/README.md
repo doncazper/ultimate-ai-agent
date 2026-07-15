@@ -287,6 +287,7 @@ product-truth ledgers.
 | Active roadmap and board | `docs/canonical/09_roadmap.md`, `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`, `docs/kanban/current_board.md` |
 | Founder Command Center planning | `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`, `docs/strategy/MACOS_OF_AGENTS_PRODUCT_PRINCIPLES.md`, `docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md`, `docs/kanban/founder_command_center_board.md` |
 | Studio tab accepted design direction | `docs/design/STUDIO_TAB_PRODUCT_DIRECTION.md`, `docs/design/control_center_north_star/renders/target-v3/06-studio-unified-v7.png` |
+| Workspace UI wiring truth matrix | `docs/design/control_center_north_star/UI_WIRING_MATRIX.md`, `docs/design/control_center_north_star/SURFACE_COVERAGE.md`, `docs/control_center/UI_WIRING_REPORT.md` |
 | Social Media Intelligence planning | `docs/product/UAA_SOCIAL_MEDIA_INTELLIGENCE_PRODUCT_CONTRACT.md`, `docs/design/control_center_north_star/renders/social-media-v1/README.md`, `docs/prompts/implement_social_media_intelligence_after_foundation_gates.prompt.md`, `docs/implementation/UAA_COHERENT_APP_ECOSYSTEM_IMPLEMENTATION_PLAN.md` |
 | CRM + Communications Spine M0 | `docs/strategy/CRM_COMMUNICATIONS_SPINE_M0.md`, `src/ultimate_ai_agent/core/crm/contracts.py`, `scripts/verify_crm_communications_spine_m0.py` |
 | CRM M1 Fixture-Only Vertical Shell | `docs/control_center/CRM_M1_FIXTURE_ONLY_VERTICAL_SHELL.md`, `src/ultimate_ai_agent/core/crm/fixtures.py`, `scripts/verify_crm_m1_fixture_only_vertical_shell.py`, `tests/test_crm_m1_fixture_only_vertical_shell.py` |

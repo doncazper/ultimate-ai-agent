@@ -42,4 +42,11 @@ describe("IconLibraryPanel", () => {
       "dark",
     );
   });
+
+  it("shows reusable semantic product graphics", () => {
+    render(<IconLibraryPanel />);
+    expect(screen.getByText("Semantic presets from accepted renders")).toBeVisible();
+    expect(screen.getByText("Kill switch")).toBeVisible();
+    expect(screen.getByText("Receipt recorded")).toBeVisible();
+  });
 });

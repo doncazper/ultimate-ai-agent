@@ -9,10 +9,13 @@ type LoadState =
 
 const MOCK_FALLBACK_RETRY_DELAYS_MS = [250, 750, 1500, 3000, 5000];
 
-export function useControlCenterData(): LoadState {
+export function useControlCenterData(enabled = true): LoadState {
   const [state, setState] = useState<LoadState>({ status: "loading", data: null, error: null });
 
   useEffect(() => {
+    if (!enabled) {
+      return;
+    }
     let active = true;
     let retryTimeout: ReturnType<typeof setTimeout> | undefined;
     const load = () => loadControlCenterData();
@@ -64,7 +67,7 @@ export function useControlCenterData(): LoadState {
         clearTimeout(retryTimeout);
       }
     };
-  }, []);
+  }, [enabled]);
 
   return state;
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { AppShell } from "./components/AppShell";
 import {
   ErrorState,
@@ -16,21 +16,35 @@ import {
   renderRoute,
   renderStaticPreviewRoute,
 } from "./routes";
+import { mockControlCenterData } from "./mocks/controlCenterData";
 import type {
   BackendConnectionSummary,
   ControlCenterData,
   RuntimeInterfaceModeReadModel,
 } from "./api/types";
+import { isNorthStarPath } from "./northstar/model";
+
+const loadNorthStarControlCenter = () =>
+  import("./northstar/NorthStarControlCenter");
+
+const NorthStarControlCenter = lazy(async () => {
+  const module = await loadNorthStarControlCenter();
+  return { default: module.NorthStarControlCenter };
+});
 
 export function App() {
   const activePath = useActivePath();
 
-  if (activePath === "/studio" || activePath === "/studio/skills") {
-    return <StudioRoute />;
+  if (activePath === "/messenger" || activePath === "/workspace/messenger") {
+    return <MessengerShell />;
   }
 
-  if (activePath === "/messenger") {
-    return <MessengerShell />;
+  if (isNorthStarPath(activePath)) {
+    return <NorthStarRoute activePath={activePath} />;
+  }
+
+  if (activePath === "/studio" || activePath === "/studio/skills") {
+    return <StudioRoute />;
   }
 
   const staticPreviewRoute = renderStaticPreviewRoute(activePath);
@@ -43,6 +57,112 @@ export function App() {
   }
 
   return <ControlCenterRoute activePath={activePath} />;
+}
+
+export function NorthStarRoute({
+  activePath,
+  loadModule = loadNorthStarControlCenter,
+}: {
+  activePath: string;
+  loadModule?: typeof loadNorthStarControlCenter;
+}) {
+  const [moduleStatus, setModuleStatus] = useState<"loading" | "ready" | "failed">("loading");
+
+  useEffect(() => {
+    let active = true;
+    loadModule()
+      .then(() => {
+        if (active) setModuleStatus("ready");
+      })
+      .catch(() => {
+        if (active) setModuleStatus("failed");
+      });
+    return () => {
+      active = false;
+    };
+  }, [loadModule]);
+
+  const state = useControlCenterData(moduleStatus === "ready");
+  const activeSurfaceLabel = getRouteSurfaceLabel(activePath);
+
+  if (moduleStatus === "loading") {
+    return (
+      <div aria-live="polite" className="app-loading" role="status">
+        Loading workspace representation…
+      </div>
+    );
+  }
+
+  if (moduleStatus === "failed") {
+    return (
+      <AppShell activePath={activePath}>
+        <RouteStatePanel
+          state={{
+            kind: "error",
+            statusLabel: "error",
+            surfaceLabel: activeSurfaceLabel,
+            title: `${activeSurfaceLabel} representation unavailable`,
+            message: "The local workspace representation could not load and failed closed.",
+            nextSafeAction: "Use the existing backend-owned Control Center routes until the representation is available.",
+            sourceLabel: "Route truth: local representation unavailable.",
+          }}
+        />
+      </AppShell>
+    );
+  }
+
+  if (state.status === "loading") {
+    return (
+      <Suspense
+        fallback={
+          <div aria-live="polite" className="app-loading" role="status">
+            Loading workspace representation…
+          </div>
+        }
+      >
+        <NorthStarControlCenter
+          activePath={activePath}
+          data={mockControlCenterData}
+        />
+      </Suspense>
+    );
+  }
+
+  if (state.status === "error" || !state.data) {
+    return (
+      <AppShell activePath={activePath}>
+        <RouteStatePanel
+          state={{
+            kind: "error",
+            statusLabel: "error",
+            surfaceLabel: activeSurfaceLabel,
+            title: `${activeSurfaceLabel} route state unavailable`,
+            message:
+              "This route is not rendering authoritative product state because the local data load failed closed.",
+            nextSafeAction:
+              "Check the local backend and use only redacted CLI/verifier evidence until route data returns.",
+            sourceLabel: "Route truth: unavailable local backend read.",
+          }}
+        />
+        <ErrorState
+          message={state.error ?? "Unable to load Control Center data."}
+          surfaceLabel={activeSurfaceLabel}
+        />
+      </AppShell>
+    );
+  }
+
+  return (
+    <Suspense
+      fallback={
+        <div aria-live="polite" className="app-loading" role="status">
+          Loading workspace representation…
+        </div>
+      }
+    >
+      <NorthStarControlCenter activePath={activePath} data={state.data} />
+    </Suspense>
+  );
 }
 
 function StudioRoute() {

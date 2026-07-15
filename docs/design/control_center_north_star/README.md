@@ -23,7 +23,9 @@ by `../STUDIO_TAB_PRODUCT_DIRECTION.md`.
 
 The package is meant to remove ambiguity before implementation. Each render is
 a bounded desktop-app target for one or more Control Center surfaces, with the
-route coverage recorded in `SURFACE_COVERAGE.md`.
+route coverage recorded in `SURFACE_COVERAGE.md`. The current code location,
+backend wiring, receipts, intentional skips, and missing contracts are tracked
+separately in `UI_WIRING_MATRIX.md`.
 
 ## Currentness Contract
 
@@ -176,6 +178,7 @@ in browser local storage and can be exported/imported as JSON.
 - Machine-readable pointer: `CURRENT_RENDER_BASELINE.json`.
 - Canonical shell: `APP_SHELL_BASELINE.md`.
 - Route coverage: `SURFACE_COVERAGE.md`.
+- Workspace wiring truth: `UI_WIRING_MATRIX.md`.
 - Render constraints: `RENDER_MANIFEST.md`.
 - Canonical UI/UX specification: `../CONTROL_CENTER_UI_UX_SPEC.md`.
 - Complete render queue: `RENDER_VARIATION_MATRIX.md`.
