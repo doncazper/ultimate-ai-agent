@@ -8,29 +8,28 @@ from scripts.verification.verify_sbom_artifacts import _validate
 
 
 ROOT = Path(__file__).resolve().parents[1]
-CHECKOUT_PIN = "actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5"
-CODEQL_PIN = "github/codeql-action/init@02c5e83432fe5497fd85b873b6c9f16a8578e1d9"
+CHECKOUT_REF = "actions/checkout@v4"
 
 
-def test_supply_chain_workflow_is_portable_locked_and_commit_pinned() -> None:
+def test_supply_chain_workflow_is_self_hosted_locked_and_policy_compliant() -> None:
     workflow = (ROOT / ".github/workflows/supply-chain.yml").read_text(encoding="utf-8")
 
-    assert "runs-on: ubuntu-24.04" in workflow
+    assert "runs-on: [self-hosted, macOS, ARM64, uaa-ci]" in workflow
+    assert "runs-on: ubuntu" not in workflow
     assert "uv sync --frozen --extra dev" in workflow
     assert "uv export --quiet --frozen --extra dev --no-emit-project" in workflow
     assert '.venv/bin/pip-audit --strict -r "$RUNNER_TEMP/locked-requirements.txt"' in workflow
     assert "npm audit --audit-level=high" in workflow
     assert "cyclonedx-py environment" in workflow
-    assert CHECKOUT_PIN in workflow
-    assert CODEQL_PIN in workflow
+    assert CHECKOUT_REF in workflow
+    assert "github/codeql-action" not in workflow
     assert "dependency-review:" in workflow
     assert "Reject known high-risk dependencies" in workflow
     assert "dependency-compatibility:" in workflow
     assert "resolution: [lowest-direct, highest]" in workflow
     assert 'uv venv ".venv-${{ matrix.resolution }}" --python 3.12' in workflow
-    assert "@v" not in workflow
     assert "persist-credentials: false" in workflow
-    assert "upload: never" in workflow
+    assert "github.event.pull_request.head.repo.full_name == github.repository" in workflow
     assert ".venv/bin/mutmut run --max-children 4" in workflow
     assert "scripts/verification/verify_mutation_score.py" in workflow
 

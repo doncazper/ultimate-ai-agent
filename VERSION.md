@@ -6,10 +6,11 @@ Current hardening candidate keeps that marketing/package baseline unchanged
 while adding a separate immutable build/commit identity, Founder Loop storage
 schema and upgrade range, strict no-mock production Control Center mode, real
 SQLite/JSONL backup and restore proof, independent property/mutation/fault and
-packaged-app evidence, frozen dependency installation, SBOM/audit/CodeQL CI,
+packaged-app evidence, frozen dependency installation, self-hosted SBOM/audit CI,
 and explicit header-only versus route-owned durable idempotency truth. External
-security/product review and native IPC or Keychain-backed session bootstrap
-remain required before any distribution or production-readiness claim.
+CodeQL analysis, security/product review, and native IPC or Keychain-backed
+session bootstrap remain required before any distribution or
+production-readiness claim.
 
 v0.104.0 is the Founder Command Center functioning-units and truth-binding
 hardening release. It keeps the repository contract-first, review-gated,

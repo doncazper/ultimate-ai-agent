@@ -125,7 +125,7 @@ report `route_owned_durable_replay` only when it names its durable receipt-store
 owner. All routes remain blocked from production by the current API contract.
 
 Independent property, mutation, recovery fault-injection, packaged-app, SBOM,
-vulnerability-scan, CodeQL, and external-review expectations are documented in
+vulnerability-scan, blocked CodeQL, and external-review expectations are documented in
 `docs/verification/PRODUCT_HARDENING_EVIDENCE_GATE.md`.
 
 Maintainer triage steps live in

@@ -27,8 +27,9 @@ of substituting mock data; the launcher no longer compiles a bearer through
 Vite; real Founder Loop SQLite/JSONL backup, verification, and offline restore
 are implemented with integrity, low-disk, interruption, and unknown-schema
 checks; the API and Control Center expose a separate build/commit/storage/
-capability identity; CI installs the frozen lock and adds audit, SBOM, CodeQL,
-property, mutation, and packaged-app evidence. The global idempotency boundary
+capability identity; repository-scoped self-hosted CI installs the frozen lock
+and adds audit, SBOM, property, mutation, and packaged-app evidence. CodeQL
+analysis remains blocked by the current action allow-policy. The global idempotency boundary
 is explicitly header-shape-only unless an exact route names a durable receipt
 owner. The independent external review record, distribution-grade native
 credential bootstrap, dedicated support-export bundle, and full hotspot

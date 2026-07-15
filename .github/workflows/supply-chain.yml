@@ -16,19 +16,27 @@ concurrency:
   group: uaa-supply-chain-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+env:
+  PATH: /opt/homebrew/opt/python@3.12/libexec/bin:/opt/homebrew/opt/node@22/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+  UAA_CI_EXACT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+defaults:
+  run:
+    shell: /usr/sbin/taskpolicy -c utility /bin/bash --noprofile --norc -e -o pipefail {0}
+
 jobs:
   dependency-review:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-24.04
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, macOS, ARM64, uaa-ci]
     timeout-minutes: 15
     steps:
       - name: Check out exact revision
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@v4
         with:
           clean: true
           fetch-depth: 1
           persist-credentials: false
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ env.UAA_CI_EXACT_SHA }}
 
       - name: Install from frozen dependency locks
         run: |
@@ -44,16 +52,17 @@ jobs:
           npm --prefix apps/control-center audit --audit-level=high
 
   audit-and-sbom:
-    runs-on: ubuntu-24.04
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, macOS, ARM64, uaa-ci]
     timeout-minutes: 30
     steps:
       - name: Check out exact revision
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@v4
         with:
           clean: true
           fetch-depth: 1
           persist-credentials: false
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ env.UAA_CI_EXACT_SHA }}
 
       - name: Install from the frozen Python lock
         run: |
@@ -82,7 +91,8 @@ jobs:
             --summary-file "$GITHUB_STEP_SUMMARY"
 
   dependency-compatibility:
-    runs-on: ubuntu-24.04
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, macOS, ARM64, uaa-ci]
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -90,12 +100,12 @@ jobs:
         resolution: [lowest-direct, highest]
     steps:
       - name: Check out exact revision
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@v4
         with:
           clean: true
           fetch-depth: 1
           persist-credentials: false
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ env.UAA_CI_EXACT_SHA }}
 
       - name: Install bounded compatibility environment
         run: |
@@ -114,50 +124,18 @@ jobs:
             tests/test_hardening_properties.py \
             -q
 
-  codeql:
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
-    permissions:
-      contents: read
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        language: [python, javascript-typescript]
-    steps:
-      - name: Check out exact revision
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-        with:
-          clean: true
-          fetch-depth: 1
-          persist-credentials: false
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@02c5e83432fe5497fd85b873b6c9f16a8578e1d9 # v3
-        with:
-          languages: ${{ matrix.language }}
-
-      - name: Analyze
-        uses: github/codeql-action/analyze@02c5e83432fe5497fd85b873b6c9f16a8578e1d9 # v3
-        with:
-          output: ${{ runner.temp }}/codeql-results
-          upload: never
-
-      - name: Enforce high-severity SARIF gate
-        run: python3 scripts/verification/verify_codeql_sarif.py "${{ runner.temp }}/codeql-results"
-
   mutation:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, macOS, ARM64, uaa-ci]
     timeout-minutes: 45
     steps:
       - name: Check out exact revision
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@v4
         with:
           clean: true
           fetch-depth: 1
           persist-credentials: false
+          ref: ${{ env.UAA_CI_EXACT_SHA }}
 
       - name: Install from the frozen Python lock
         run: |

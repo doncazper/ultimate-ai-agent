@@ -220,7 +220,7 @@ def test_checkout_matches_repository_actions_allow_policy() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
 
     checkout_action = (
-        "uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5"
+        "uses: actions/checkout@v4"
     )
     assert workflow.count(checkout_action) == workflow.count(
         "persist-credentials: false"

@@ -238,7 +238,7 @@ def verify(root: Path = ROOT) -> list[str]:
             "desktop packaging must share the canonical Playwright browser cache"
         )
     checkout_action = (
-        "uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5"
+        "uses: actions/checkout@v4"
     )
     checkout_count = workflow.count(checkout_action)
     if checkout_count == 0 or workflow.count("persist-credentials: false") != checkout_count:
