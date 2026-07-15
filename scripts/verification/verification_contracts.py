@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 import unicodedata
 from dataclasses import dataclass
@@ -301,6 +303,27 @@ class VerificationPlan:
             )
         ):
             raise ValueError("verification plan boolean posture is invalid")
+        if self.plan_fingerprint != verification_plan_contract_fingerprint(self):
+            raise ValueError("verification plan fingerprint does not match its payload")
+        if self.force_full and self.risk_tier is not VerificationRiskTier.TIER_3:
+            raise ValueError("force-full verification plans must be Tier 3")
+        if self.risk_tier is VerificationRiskTier.TIER_3 and (
+            not self.full_pytest_required or not self.release_gate_required
+        ):
+            raise ValueError("Tier 3 verification plans require full release proof")
+        if self.release_gate_required and self.risk_tier is not VerificationRiskTier.TIER_3:
+            raise ValueError("release verification requires Tier 3 risk")
+
+
+def verification_plan_contract_fingerprint(plan: VerificationPlan) -> str:
+    payload = {
+        field_name: getattr(plan, field_name)
+        for field_name in VerificationPlan.__dataclass_fields__
+        if field_name != "plan_fingerprint"
+    }
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -433,6 +456,8 @@ class VerificationGateDecision:
 
     def validate(self) -> None:
         _validate_ref(self.schema_version, label="verification gate schema version")
+        if self.schema_version != "uaa_verification_gate_decision.v1":
+            raise ValueError("unsupported verification gate schema version")
         _validate_ref(self.decision_ref, label="verification gate decision ref")
         _validate_ref(self.github_run_ref, label="GitHub run ref")
         if not SHA_PATTERN.fullmatch(self.repository_sha):
@@ -462,6 +487,10 @@ class VerificationGateDecision:
             or len(self.validated_receipt_refs) != len(self.required_unit_refs)
         ):
             raise ValueError("passed verification gate requires exact receipt coverage")
+        if (
+            self.status is VerificationGateStatus.PASSED or self.merge_gate_satisfied
+        ):
+            raise ValueError("v1 verification gates cannot replace typed GitHub proof")
         if self.merge_gate_satisfied and (
             self.status is not VerificationGateStatus.PASSED
             or not self.github_gate_satisfied
@@ -578,9 +607,6 @@ def dependency_closed_unit_refs(
 
 
 def dependency_state_fingerprint(plan: VerificationPlan) -> str:
-    import hashlib
-    import json
-
     payload: dict[str, Any] = {
         "locks": plan.dependency_lock_fingerprints,
         "platform": plan.platform_fingerprint,
@@ -601,9 +627,6 @@ def evaluate_verification_gate(
     github_run_ref: str,
     github_gate_satisfied: bool,
 ) -> VerificationGateDecision:
-    import hashlib
-    import json
-
     plan.validate()
     if not isinstance(github_gate_satisfied, bool):
         raise ValueError("GitHub gate posture must be boolean")
@@ -670,15 +693,14 @@ def evaluate_verification_gate(
     if missing_units:
         reason_refs.append("reason-ref:verification:required-receipt-missing")
         status = VerificationGateStatus.DENIED
-    elif not github_gate_satisfied:
-        reason_refs.append("reason-ref:verification:github-gate-pending")
-        status = VerificationGateStatus.BLOCKED
     else:
-        reason_refs.append("reason-ref:verification:all-required-receipts-valid")
-        status = VerificationGateStatus.PASSED
-    merge_gate_satisfied = (
-        status is VerificationGateStatus.PASSED and github_gate_satisfied
-    )
+        reason_refs.append(
+            "reason-ref:verification:shadow-plan-non-authoritative"
+            if plan.shadow_mode
+            else "reason-ref:verification:typed-github-proof-unavailable"
+        )
+        status = VerificationGateStatus.BLOCKED
+    merge_gate_satisfied = False
     unsigned = {
         "repository_sha": plan.repository_sha,
         "plan_fingerprint": plan.plan_fingerprint,
@@ -688,7 +710,7 @@ def evaluate_verification_gate(
         "missing_unit_refs": tuple(sorted(missing_units)),
         "reason_refs": tuple(reason_refs),
         "github_run_ref": github_run_ref,
-        "github_gate_satisfied": github_gate_satisfied,
+        "github_gate_satisfied": False,
         "merge_gate_satisfied": merge_gate_satisfied,
     }
     decision = VerificationGateDecision(
