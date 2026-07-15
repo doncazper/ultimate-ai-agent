@@ -143,6 +143,11 @@ RISK_RULES = (
             "tools/macos/",
             "docs/api/",
             "docs/schemas/",
+            "docs/network/",
+        ),
+        exact_paths=(
+            "docs/capability_registry.md",
+            "docs/strategy/UAA_AUTHORITY_MODES_AND_MISSION_LEASES.md",
         ),
     ),
     RiskRule(
@@ -265,7 +270,6 @@ TIER_BASE_UNIT_REFS: dict[VerificationRiskTier, tuple[str, ...]] = {
     VerificationRiskTier.TIER_2: (
         "risk-diff-check",
         "risk-ruff",
-        "risk-focused-pytest",
         "risk-product-truth",
         "risk-redaction",
         "risk-final-diff-audit",
@@ -431,6 +435,11 @@ def unit_refs_for_selection(
         and selection.tier is VerificationRiskTier.TIER_1
     ):
         refs.update({"risk-ruff", "risk-focused-pytest"})
+    if (
+        surfaces.intersection({"surface-ref:python", "surface-ref:core"})
+        and selection.tier is VerificationRiskTier.TIER_2
+    ):
+        refs.add("risk-focused-pytest")
     if (
         "surface-ref:api" in surfaces
         and selection.tier is not VerificationRiskTier.TIER_3

@@ -130,6 +130,9 @@ def test_frontend_behavior_is_not_misclassified_as_presentation_only() -> None:
 
     assert selection.tier is VerificationRiskTier.TIER_2
     assert selection.fail_closed is False
+    selected = unit_refs_for_selection(selection, full_unit_refs=("full-suite",))
+    assert "risk-frontend-tests" in selected
+    assert "risk-focused-pytest" not in selected
 
 
 def test_tier_two_bounded_non_authority_core() -> None:
@@ -156,6 +159,9 @@ def test_tier_two_bounded_non_authority_core() -> None:
         "src/ultimate_ai_agent/core/plugin_execution_sandbox/__init__.py",
         "src/ultimate_ai_agent/core/secrets/contracts.py",
         "tests/test_authority_leases.py",
+        "docs/network/WEB_ACCESS_PROVIDER_AUTHORITY_SEQUENCE.md",
+        "docs/capability_registry.md",
+        "docs/strategy/UAA_AUTHORITY_MODES_AND_MISSION_LEASES.md",
     ],
 )
 def test_tier_three_authority_ci_dependency_and_release(path: str) -> None:
@@ -515,6 +521,46 @@ def test_gate_evaluator_requires_exact_bindings_collection_and_github_proof() ->
     assert "reason-ref:verification:test-collection-unverified" in (
         collection_denied.reason_refs
     )
+
+    frontend_inventory_only = replace(
+        plan,
+        selected_command_refs=("command:frontend.unit-tests",),
+    )
+    frontend_denied = evaluate_verification_gate(
+        frontend_inventory_only,
+        (
+            replace(
+                receipt,
+                plan_fingerprint=frontend_inventory_only.plan_fingerprint,
+                dependency_state_fingerprint=dependency_state_fingerprint(
+                    frontend_inventory_only
+                ),
+            ),
+        ),
+        github_run_ref="github-run:12345",
+        github_gate_satisfied=True,
+    )
+    assert frontend_denied.status is VerificationGateStatus.DENIED
+    assert "reason-ref:verification:test-collection-unverified" in (
+        frontend_denied.reason_refs
+    )
+
+
+def test_gate_evaluator_denies_malformed_receipt_refs_without_propagating_them() -> None:
+    plan = _plan()
+    malformed = replace(_receipt(), unit_ref="unsafe/path")
+
+    decision = evaluate_verification_gate(
+        plan,
+        (malformed,),
+        github_run_ref="github-run:12345",
+        github_gate_satisfied=True,
+    )
+
+    assert decision.status is VerificationGateStatus.DENIED
+    assert decision.missing_unit_refs == plan.selected_unit_refs
+    assert "unsafe/path" not in decision.missing_unit_refs
+    assert "reason-ref:verification:invalid-receipt-binding" in decision.reason_refs
 
 
 def test_passed_receipt_requires_content_free_result_evidence() -> None:

@@ -19,6 +19,15 @@ MAX_COMMAND_REFS = 512
 MAX_TEST_REFS = 2048
 MAX_LOCK_REFS = 64
 MAX_DURATION_MS = 24 * 60 * 60 * 1000
+TEST_EXECUTION_COMMAND_REFS = frozenset(
+    {
+        "command:frontend.check",
+        "command:frontend.unit-tests",
+        "command:frontend.browser-smoke",
+        "command:frontend.visual-regression",
+        "command:frontend.visual-regression-contract",
+    }
+)
 UTC_TIMESTAMP_PATTERN = re.compile(
     r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$"
 )
@@ -602,16 +611,19 @@ def evaluate_verification_gate(
     required = plan.selected_unit_refs
     by_unit: dict[str, VerificationReceipt] = {}
     invalid_units: set[str] = set()
+    invalid_evidence_present = False
     for receipt in receipts:
         try:
             receipt.validate()
         except ValueError:
-            invalid_units.add(receipt.unit_ref)
+            invalid_evidence_present = True
+            if receipt.unit_ref in required:
+                invalid_units.add(receipt.unit_ref)
             continue
         if receipt.unit_ref in by_unit:
+            invalid_evidence_present = True
             invalid_units.add(receipt.unit_ref)
             continue
-        by_unit[receipt.unit_ref] = receipt
         if (
             receipt.unit_ref not in required
             or receipt.plan_fingerprint != plan.plan_fingerprint
@@ -624,13 +636,18 @@ def evaluate_verification_gate(
             or receipt.test_collection_fingerprint != plan.test_collection_fingerprint
             or receipt.status is not VerificationTerminalStatus.PASSED
         ):
-            invalid_units.add(receipt.unit_ref)
+            invalid_evidence_present = True
+            if receipt.unit_ref in required:
+                invalid_units.add(receipt.unit_ref)
+            continue
+        by_unit[receipt.unit_ref] = receipt
 
     missing_units = {
         unit_ref for unit_ref in required if unit_ref not in by_unit
     } | invalid_units
     test_execution_required = plan.full_pytest_required or any(
         command_ref.startswith("command:pytest.")
+        or command_ref in TEST_EXECUTION_COMMAND_REFS
         for command_ref in plan.selected_command_refs
     )
     collection_unverified = (
@@ -638,13 +655,15 @@ def evaluate_verification_gate(
     )
     if collection_unverified:
         missing_units.update(required)
+    if invalid_evidence_present:
+        missing_units.update(required)
     validated = tuple(
         by_unit[unit_ref].receipt_ref
         for unit_ref in required
         if unit_ref in by_unit and unit_ref not in missing_units
     )
     reason_refs: list[str] = []
-    if invalid_units:
+    if invalid_evidence_present:
         reason_refs.append("reason-ref:verification:invalid-receipt-binding")
     if collection_unverified:
         reason_refs.append("reason-ref:verification:test-collection-unverified")

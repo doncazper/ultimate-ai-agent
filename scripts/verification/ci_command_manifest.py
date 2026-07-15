@@ -69,6 +69,17 @@ VISUAL_SCOPE_PATHS = (
     "tests/test_control_center_visual_and_packaging_proofs.py",
     "tests/test_fcc_polish_001_native_apple_grade_ux_layer.py",
 )
+FOCUSED_PYTEST_REFS_BY_SOURCE = {
+    "src/ultimate_ai_agent/core/evals/capability_metrics.py": (
+        "tests/test_agent_capability_evaluation.py",
+    ),
+    "src/ultimate_ai_agent/core/evals/capability_maturity.py": (
+        "tests/test_capability_maturity_integrity.py",
+    ),
+    "src/ultimate_ai_agent/core/evals/regression.py": (
+        "tests/test_m56_agent_eval_regression_harness.py",
+    ),
+}
 
 
 @dataclass(frozen=True)
@@ -852,6 +863,17 @@ def validate_definition() -> list[str]:
                 failures.append(
                     f"unknown verification unit command: {unit.unit_ref}:{command_ref}"
                 )
+    for source_ref, test_refs in FOCUSED_PYTEST_REFS_BY_SOURCE.items():
+        if not test_refs or len(test_refs) != len(set(test_refs)):
+            failures.append(f"invalid focused test ownership: {source_ref}")
+        for ref in (source_ref, *test_refs):
+            try:
+                metadata = (ROOT / ref).lstat()
+            except OSError:
+                failures.append(f"missing focused test ownership ref: {ref}")
+                continue
+            if not stat.S_ISREG(metadata.st_mode) or stat.S_ISLNK(metadata.st_mode):
+                failures.append(f"unsafe focused test ownership ref: {ref}")
     pytest_job = next(job for job in CI_JOB_GRAPH if job.job_ref == "pytest-shards")
     pytest_command = commands["command:pytest.sharded-suite"]
     if (
@@ -1114,10 +1136,27 @@ def build_plan(
         raise ValueError("invalid frontend visual scope")
     definition_ref = definition_fingerprint()
     changed_tests = tuple(
-        path
-        for path in risk_selection.changed_path_refs
-        if path.startswith("tests/test_") and path.endswith(".py")
+        dict.fromkeys(
+            (
+                *(
+                    path
+                    for path in risk_selection.changed_path_refs
+                    if path.startswith("tests/test_") and path.endswith(".py")
+                ),
+                *(
+                    test_ref
+                    for path in risk_selection.changed_path_refs
+                    for test_ref in FOCUSED_PYTEST_REFS_BY_SOURCE.get(path, ())
+                ),
+            )
+        )
     )
+    if (
+        "risk-focused-pytest" in selected_units
+        and risk_selection.tier is not VerificationRiskTier.TIER_3
+        and not changed_tests
+    ):
+        raise ValueError("focused pytest selection requires exact test ownership")
     platform_ref = platform_fingerprint()
     command_ref = command_manifest_fingerprint()
     verifier_ref = verifier_definition_fingerprint(repo)

@@ -123,6 +123,26 @@ def test_plan_binds_sha_locks_commands_shards_and_visual_scope() -> None:
     assert manifest.verification_plan_fingerprint(plan_payload) == plan.plan_fingerprint
 
 
+def test_focused_python_plan_selects_an_exact_owned_test() -> None:
+    source_ref = "src/ultimate_ai_agent/core/evals/capability_metrics.py"
+
+    plan = manifest.build_plan(
+        ROOT,
+        SHA,
+        change_records=(
+            manifest.ChangeRecord(manifest.ChangeKind.MODIFIED, (source_ref,)),
+        ),
+        base_sha=SHA,
+        shadow_mode=True,
+        verify_repository_state=False,
+    )
+
+    assert "risk-focused-pytest" in plan.selected_unit_refs
+    assert plan.selected_test_refs == (
+        "tests/test_agent_capability_evaluation.py",
+    )
+
+
 def test_plan_fails_closed_for_unknown_sha_lane_or_unsafe_lockfile(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
