@@ -227,9 +227,14 @@ CAPABILITIES_DECLARED = [
     "communications_human_readable_cli_inspection",
     "communications_typescript_api_bindings",
     "communications_matrix_disabled_adapter_shell",
+    "communications_matrix_disposable_loopback_synapse_harness",
+    "communications_matrix_harness_exact_authority_lanes",
 ]
 
 CAPABILITIES_BLOCKED = [
+    "communications_matrix_harness_automatic_image_pull",
+    "communications_matrix_harness_standing_or_global_authority",
+    "communications_matrix_harness_public_federated_hosted_or_production_use",
     "communications_matrix_server_discovery",
     "communications_matrix_account_authentication",
     "communications_matrix_session_runtime",
@@ -856,6 +861,16 @@ CONTROL_CENTER_COMMUNICATIONS_READONLY_PATHS = {
     "/control-center/communications/security-posture",
     "/control-center/communications/receipts/{receipt_ref}",
 }
+CONTROL_CENTER_MATRIX_HARNESS_READ_PATHS = {
+    "/control-center/communications/harness/inspect",
+    "/control-center/communications/harness/smoke",
+}
+CONTROL_CENTER_MATRIX_HARNESS_MUTATION_PATHS = {
+    "/control-center/communications/harness/start",
+    "/control-center/communications/harness/fixture-seed",
+    "/control-center/communications/harness/stop",
+    "/control-center/communications/harness/reset",
+}
 LOCAL_READONLY_PATHS = {
     "/control-center/dashboard",
     "/control-center/capabilities/availability",
@@ -1035,6 +1050,12 @@ def route_side_effect_class(path: str) -> ApiRouteSideEffectClass:
         "/api/runtime/capabilities",
     }:
         return ApiRouteSideEffectClass.validation_only
+    if path == "/control-center/communications/harness/inspect":
+        return ApiRouteSideEffectClass.validation_only
+    if path == "/control-center/communications/harness/smoke":
+        return ApiRouteSideEffectClass.governed_network_read_only
+    if path in CONTROL_CENTER_MATRIX_HARNESS_MUTATION_PATHS:
+        return ApiRouteSideEffectClass.local_dev_workspace_only
     if path.startswith("/api/runtime/"):
         return ApiRouteSideEffectClass.local_dev_workspace_only
     if path.startswith("/web-evidence/"):
@@ -1076,6 +1097,22 @@ def route_classification_for_path(
         or path in CONTROL_CENTER_VALIDATION_ONLY_PATHS
         or path in CONTROL_CENTER_COMMUNICATIONS_READONLY_PATHS
     )
+    if (
+        normalized_method == "POST"
+        and path in CONTROL_CENTER_MATRIX_HARNESS_READ_PATHS
+    ):
+        return (
+            ApiRouteClassification.local_sensitive,
+            "Exact loopback Matrix harness read command still requires a current mission-scoped lease and dispatcher pre-start evaluation; it grants no connector or production authority.",
+        )
+    if (
+        normalized_method == "POST"
+        and path in CONTROL_CENTER_MATRIX_HARNESS_MUTATION_PATHS
+    ):
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "Disposable Matrix harness mutation requires exact authority validation through an idempotency key, LocalApprovalAuthority, current mission-scoped AuthorityLease, budget, lifecycle generation, ownership, kill-switch, safe-disable, and content-free receipt checks.",
+        )
     if normalized_method == "GET" and path in PUBLIC_METADATA_PATHS:
         return (
             ApiRouteClassification.public_metadata,

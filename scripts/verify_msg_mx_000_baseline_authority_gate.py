@@ -41,6 +41,10 @@ ACCEPTED_CURRENT_SUCCESS = {
         "backend_contracts_api_cli_implemented_pending_merge_gate",
         "evidence-ref:msg-mx-003:communications-contracts",
     ),
+    "MSG-MX-004": (
+        "exact_local_harness_lanes_live_verified_pending_merge_evidence",
+        "evidence-ref:msg-mx-004:local-synapse-harness",
+    ),
 }
 SAFE_BLOCKED_CURRENT_STATUS = {
     "blocked_authority_not_accepted",

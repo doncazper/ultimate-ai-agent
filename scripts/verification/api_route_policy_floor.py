@@ -35,6 +35,10 @@ MUTATING_ROUTES = frozenset(
         ("POST", "/control-center/chat/turns"),
         ("POST", "/control-center/chat/turns/{turn_ref}/handoff"),
         ("POST", "/control-center/crm/local-mutations"),
+        ("POST", "/control-center/communications/harness/fixture-seed"),
+        ("POST", "/control-center/communications/harness/reset"),
+        ("POST", "/control-center/communications/harness/start"),
+        ("POST", "/control-center/communications/harness/stop"),
         (
             "POST",
             "/control-center/memory/context-packs/{context_pack_ref}/action-proposal",
@@ -82,6 +86,7 @@ TARGETED_RATE_LIMIT_GROUPS = frozenset(
         "action_decision",
         "action_preview_proposal",
         "chat_durable_receipt",
+        "communications_matrix_harness",
         "extension_install_disabled_record",
         "founder_loop_exact_action",
         "governed_runtime_pilot",
@@ -98,9 +103,9 @@ TARGETED_RATE_LIMIT_GROUPS = frozenset(
         "web_evidence_product_slice",
     }
 )
-TARGETED_RATE_LIMIT_ROUTE_COUNT = 78
+TARGETED_RATE_LIMIT_ROUTE_COUNT = 84
 TARGETED_RATE_LIMIT_ROUTE_FINGERPRINT = (
-    "cfcfb9d7ea33b9e5e44180a300a107a873d85dae15f44f4abdbe6e331f0d45df"
+    "e88afe1a4fb13605f7247a5b95f6fe43ebbe34445e5798bb4c7d752b70399ac5"
 )
 
 

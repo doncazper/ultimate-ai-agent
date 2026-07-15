@@ -955,7 +955,7 @@ class FoundationGateLegacyChecksPart013Mixin:
                 text = self._context.read_text(path, encoding="utf-8")
                 for fragment in forbidden_source_fragments:
                     if fragment in text:
-                        if sealed_fragment_allowed(rel, text, fragment) or portable_evidence_helper_fragment_allowed(rel, text, fragment):
+                        if runtime_subprocess_fragment_allowed(rel, text, fragment):
                             continue
                         failures.append(
                             f"M57 forbidden runtime sandbox fragment in {rel}: {fragment}"
@@ -1294,7 +1294,7 @@ class FoundationGateLegacyChecksPart013Mixin:
                 text = self._context.read_text(path, encoding="utf-8")
                 for fragment in forbidden_source_fragments:
                     if fragment in text:
-                        if sealed_fragment_allowed(rel, text, fragment) or portable_evidence_helper_fragment_allowed(rel, text, fragment):
+                        if runtime_subprocess_fragment_allowed(rel, text, fragment):
                             continue
                         failures.append(
                             f"M58 forbidden dry-run execution fragment in {rel}: {fragment}"

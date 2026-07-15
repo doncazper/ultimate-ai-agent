@@ -1,7 +1,7 @@
 # UAA Messenger Matrix Threat Model
 
-Status: MSG-MX-001 design threat model accepted; runtime remains unimplemented
-and blocked.
+Status: MSG-MX-001 connector threat model accepted; connector runtime remains
+blocked. MSG-MX-004 implements only the exact disposable local harness boundary.
 
 ## Security objective
 
@@ -54,8 +54,9 @@ content-free.
    exact operation.
 5. macOS Keychain is the device-only credential/key boundary. Protected crypto
    and cache stores are separate encrypted filesystem boundaries.
-6. The future loopback Synapse harness is test-only, disposable, bounded, and
-   never a production or authority bypass.
+6. The implemented exact loopback Synapse harness is test-only, disposable,
+   digest-pinned, preprovision-only, bounded, and never a connector, production,
+   or authority bypass.
 7. Any future approved model is an external disclosure boundary. Message
    content is untrusted quoted data, not instruction authority.
 
@@ -90,7 +91,7 @@ from a render, room name, or generic account posture.
 | `threat-ref:matrix:log-evidence-leak` | exception, telemetry, receipt, notification, lock-screen projection, screenshot, fixture, or diagnostic captures sensitive material | structured allowlisted fields; safe refs/keyed fingerprints; bounded summaries; response-body/log tracing disabled; lock-screen notifications omit body and participant identity by default; exact account/room exclusions; redaction verifier | secret/path/content/notification corpus and screenshot/fixture scans |
 | `threat-ref:matrix:safe-disable-gap` | reconnect, sync, retry, queue, or new command starts after kill/safe-disable | re-check inside atomic pre-start boundary; stop new claims/reconnects; close transient session and lock stores; no silent delete/revoke | kill/safe-disable race and queued-operation tests |
 | `threat-ref:matrix:resource-exhaustion` | sync flood, large room, media storm, relation fan-out, rate limit | bounded pages/events/relations/media/output; backpressure; operation/time/byte/concurrency budgets; explicit degraded/blocked state | large-room/flood/rate-limit/timing tests |
-| `threat-ref:matrix:harness-escape` | local Synapse test lane exposes network, persists data, or becomes production | loopback-only, no federation, disposable credentials/data, bounded lifetime, pinned dependency, complete cleanup, explicit test-only gate | hostile lifecycle, port, residue, and cleanup tests |
+| `threat-ref:matrix:harness-escape` | local Synapse test lane exposes network, persists data, or becomes production | dedicated bridge with masquerading disabled and host publication bound to loopback; no federation; exact digest with no pull; no-follow scoped state; owner labels; generation plus physical lock; fixed argv; bounded resources/output/process groups; residual-resource proof; cleanup uncertainty retained as recovery-required; explicit test-only gate | hostile lifecycle, port, binding, ownership, signal, residue, and cleanup tests |
 
 ## Mutation and rollback truth
 
@@ -108,7 +109,9 @@ non-idempotent work without exact replay proof.
 
 ## Deny floor
 
-MSG-MX-001 grants no runtime lane. Calls, agent room participants, autonomous
+MSG-MX-001 grants no runtime lane. MSG-MX-004 grants only the six exact local
+harness lanes and no connector lane.
+Calls, agent room participants, autonomous
 sends, hidden context injection, automatic Memory writes/truth, public
 federation or hosting, broad connector authority, public release, production
 authority, mobile implementation, and arbitrary browser/shell/provider work

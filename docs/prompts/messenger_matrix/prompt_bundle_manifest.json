@@ -18,7 +18,7 @@
     "docs/prompts/messenger_matrix/11_messenger_hardening.prompt.md",
     "docs/prompts/messenger_matrix/12_review_fix_harden_acceptance.prompt.md"
   ],
-  "bundle_hash": "sha256:b3c8110bae4839e9cb0bec6649ddccd1acb5e5aedb47d273ff78392f5b2d759c",
+  "bundle_hash": "sha256:acc2a1e978e157088c592246c41cb0a42f1448ccf8d67f4c0ca1f9da554f0657",
   "stable_within_run": true,
   "created_at": "2026-07-13"
 }

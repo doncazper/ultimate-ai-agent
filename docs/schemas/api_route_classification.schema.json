@@ -359,6 +359,7 @@
               "action_preview_proposal",
               "action_decision",
               "chat_durable_receipt",
+              "communications_matrix_harness",
               "local_model_validation",
               "memory_feedback",
               "memory_context_pack_action_proposal",

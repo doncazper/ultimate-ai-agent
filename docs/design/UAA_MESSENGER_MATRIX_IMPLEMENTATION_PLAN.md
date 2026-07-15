@@ -1,7 +1,9 @@
 # UAA Messenger Matrix End-to-End Implementation Plan
 
-Status: proposed implementation sequence; no runtime authority granted.
-Current as of: 2026-07-11.
+Status: MSG-MX-000 through MSG-MX-003 accepted; MSG-MX-004 exact disposable
+local harness implemented and locally lifecycle-verified pending merge
+evidence; connector runtime stays blocked.
+Current as of: 2026-07-14.
 Product surface: Messenger, separate from Communications.
 Design contract: `control_center_north_star/UAA_COMMUNICATIONS_MATRIX_NORTH_STAR.md`.
 
@@ -18,11 +20,12 @@ immersive shell exception like Studio.
 
 ## Current Repository Truth
 
-The current repository has no Matrix SDK dependency, homeserver discovery,
+The repository still has no Matrix SDK dependency, homeserver discovery,
 Matrix account/session flow, sync loop, crypto store, Matrix room model, or
-Matrix-backed UI. The Messages Connector contracts and disabled Mattermost
-bridge do not provide Matrix support. The first implementation milestone starts
-from contracts and fixture UI, not from a partially working integration.
+Matrix-backed UI. MSG-MX-004 adds only an exact AuthorityLease-governed,
+loopback, disposable Synapse development harness; it is not a Matrix connector
+or product backend. The Messages Connector contracts and disabled Mattermost
+bridge do not provide Matrix support.
 
 ## Product Decisions
 
@@ -167,6 +170,15 @@ Exit gate: contract tests prove UI/API/CLI parity and Foundation Gate rejects
 unclassified Matrix routes or raw-content evidence.
 
 ### Phase 3 — Local Matrix development harness
+
+Implementation status: the six exact `matrix.harness.inspect`,
+`matrix.harness.smoke`, `matrix.harness.start`,
+`matrix.harness.fixture_seed`, `matrix.harness.stop`, and
+`matrix.harness.reset` lanes are implemented through Python Core, dispatcher,
+protected API, human-readable CLI, and digest-pinned local packaging. Live
+lifecycle proof is recorded only when the exact image is pre-provisioned and
+the bounded drill actually runs. This remains development infrastructure and
+does not make Messenger usable or connected.
 
 Deliver:
 

@@ -6,6 +6,10 @@ from ultimate_ai_agent.core.evidence_signing.static_safety import (
     is_exact_portable_evidence_helper_home_path,
     is_exact_portable_evidence_helper_subprocess_site,
 )
+from ultimate_ai_agent.core.communications.matrix_harness.static_safety import (
+    is_exact_matrix_harness_shell_scan_line,
+    is_exact_matrix_harness_subprocess_site,
+)
 from ultimate_ai_agent.core.sandbox_calculation.static_safety import (
     is_exact_sealed_calculation_subprocess_site,
 )
@@ -35,6 +39,12 @@ def _is_exact_governed_runtime_command_subprocess_site(
         fragment=fragment,
     ):
         return True
+    if is_exact_matrix_harness_subprocess_site(
+        rel_path=rel_path,
+        source=source,
+        fragment=fragment,
+    ):
+        return True
     if rel_path != GOVERNED_RUNTIME_COMMAND_ADAPTER_REL:
         return False
     if fragment != "subprocess.run(":
@@ -52,6 +62,12 @@ def _is_exact_governed_runtime_command_subprocess_site(
 def _is_exact_governed_runtime_command_shell_scan_line(
     *, rel_path: str, source: str, stripped_line: str
 ) -> bool:
+    if is_exact_matrix_harness_shell_scan_line(
+        rel_path=rel_path,
+        source=source,
+        stripped_line=stripped_line,
+    ):
+        return True
     if not _is_exact_governed_runtime_command_subprocess_site(
         rel_path=rel_path,
         source=source,

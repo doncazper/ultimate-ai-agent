@@ -43,6 +43,28 @@ def test_shell_guard_accepts_only_the_exact_sealed_backend_subprocess_profile() 
     )
 
 
+def test_shell_guard_accepts_only_exact_matrix_harness_subprocess_profile() -> None:
+    rel = "src/ultimate_ai_agent/core/communications/matrix_harness/backend.py"
+    source = (run_all_legacy.ROOT / rel).read_text(encoding="utf-8")
+
+    assert run_all_legacy._is_exact_governed_runtime_command_shell_scan_line(
+        rel_path=rel,
+        source=source,
+        stripped_line="process = subprocess.Popen(",
+    )
+    for drift in (
+        "\nos.system('unsafe')\n",
+        "\nsubprocess.call(['unsafe'])\n",
+        "\nimport requests\n",
+        "\nimport httpx\n",
+    ):
+        assert not run_all_legacy._is_exact_governed_runtime_command_shell_scan_line(
+            rel_path=rel,
+            source=source + drift,
+            stripped_line="subprocess.Popen(",
+        )
+
+
 def test_shell_guard_accepts_only_exact_portable_evidence_helper_profile() -> None:
     rel = "src/ultimate_ai_agent/core/evidence_signing/macos_keychain.py"
     source = (run_all_legacy.ROOT / rel).read_text(encoding="utf-8")

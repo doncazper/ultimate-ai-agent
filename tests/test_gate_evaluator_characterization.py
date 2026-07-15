@@ -268,6 +268,7 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "/control-center/approvals/queue",
     }
     assert set(POST_MILESTONE_SAFE_ROUTE_FAMILIES) == {
+        "control_center_matrix_harness",
         "control_center_communications_readonly",
         "control_center_operational_status",
         "control_center_proof_start_trust",

@@ -1,0 +1,73 @@
+from .adapter import (
+    MatrixHarnessAuthorityDispatchAdapter,
+    build_matrix_harness_capability_manifest,
+)
+from .backend import (
+    DockerMatrixHarnessBackend,
+    MatrixHarnessBackendConfig,
+    default_matrix_harness_backend_config,
+)
+from .constants import (
+    MATRIX_HARNESS_IMAGE_REF,
+    MATRIX_HARNESS_LANES,
+    MATRIX_HARNESS_PROVIDER_REF,
+    MatrixHarnessOperation,
+    matrix_harness_lane,
+)
+from .contracts import (
+    MatrixHarnessBackendResult,
+    MatrixHarnessCommand,
+    MatrixHarnessDispatchMetadata,
+    MatrixHarnessLifecycleRecord,
+    MatrixHarnessOperationOutcome,
+    MatrixHarnessPosture,
+    MatrixHarnessRuntimeStatus,
+    matrix_harness_exact_resource_refs,
+    matrix_harness_generation_ref,
+    matrix_harness_request_fingerprint_ref,
+    matrix_harness_state_ref,
+    stable_matrix_harness_ref,
+)
+from .service import (
+    attach_exact_matrix_harness_approval,
+    build_matrix_harness_approval_request,
+    build_exact_matrix_harness_lease,
+    build_matrix_harness_dispatch_request,
+    build_matrix_harness_lease_issue_request,
+    issue_exact_matrix_harness_lease,
+    capture_exact_matrix_harness_approval,
+    execute_matrix_harness_command,
+)
+
+__all__ = [
+    "DockerMatrixHarnessBackend",
+    "MATRIX_HARNESS_IMAGE_REF",
+    "MATRIX_HARNESS_LANES",
+    "MATRIX_HARNESS_PROVIDER_REF",
+    "MatrixHarnessAuthorityDispatchAdapter",
+    "MatrixHarnessBackendConfig",
+    "MatrixHarnessBackendResult",
+    "MatrixHarnessCommand",
+    "MatrixHarnessDispatchMetadata",
+    "MatrixHarnessLifecycleRecord",
+    "MatrixHarnessOperation",
+    "MatrixHarnessOperationOutcome",
+    "MatrixHarnessPosture",
+    "MatrixHarnessRuntimeStatus",
+    "attach_exact_matrix_harness_approval",
+    "build_exact_matrix_harness_lease",
+    "build_matrix_harness_capability_manifest",
+    "build_matrix_harness_dispatch_request",
+    "build_matrix_harness_lease_issue_request",
+    "issue_exact_matrix_harness_lease",
+    "build_matrix_harness_approval_request",
+    "capture_exact_matrix_harness_approval",
+    "default_matrix_harness_backend_config",
+    "execute_matrix_harness_command",
+    "matrix_harness_exact_resource_refs",
+    "matrix_harness_generation_ref",
+    "matrix_harness_lane",
+    "matrix_harness_request_fingerprint_ref",
+    "matrix_harness_state_ref",
+    "stable_matrix_harness_ref",
+]

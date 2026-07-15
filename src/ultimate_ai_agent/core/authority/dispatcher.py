@@ -16,6 +16,12 @@ from ultimate_ai_agent.core.approvals.authority import LocalApprovalAuthority
 from ultimate_ai_agent.core.authority.authority_constants import (
     AUTHORITY_DISPATCH_RECEIPTS_FILE,
     AUTHORITY_STATE_LOCK_KEY,
+    MATRIX_HARNESS_FIXTURE_SEED_TOOL_REF,
+    MATRIX_HARNESS_INSPECT_TOOL_REF,
+    MATRIX_HARNESS_RESET_TOOL_REF,
+    MATRIX_HARNESS_SMOKE_TOOL_REF,
+    MATRIX_HARNESS_START_TOOL_REF,
+    MATRIX_HARNESS_STOP_TOOL_REF,
     PORTABLE_EVIDENCE_KEY_CREATE_TOOL_REF,
     PORTABLE_EVIDENCE_KEY_CLEANUP_TOOL_REF,
     PORTABLE_EVIDENCE_KEY_MARK_LOST_TOOL_REF,
@@ -389,6 +395,30 @@ _TOOL_AUTHORITY_BINDINGS = {
     "tool:sealed_calculation.v1": (
         AuthorityDomain.workspace.value,
         AuthorityCapability.execute.value,
+    ),
+    MATRIX_HARNESS_INSPECT_TOOL_REF: (
+        AuthorityDomain.messages.value,
+        AuthorityCapability.read.value,
+    ),
+    MATRIX_HARNESS_SMOKE_TOOL_REF: (
+        AuthorityDomain.messages.value,
+        AuthorityCapability.read.value,
+    ),
+    MATRIX_HARNESS_START_TOOL_REF: (
+        AuthorityDomain.messages.value,
+        AuthorityCapability.execute.value,
+    ),
+    MATRIX_HARNESS_FIXTURE_SEED_TOOL_REF: (
+        AuthorityDomain.messages.value,
+        AuthorityCapability.mutate.value,
+    ),
+    MATRIX_HARNESS_STOP_TOOL_REF: (
+        AuthorityDomain.messages.value,
+        AuthorityCapability.execute.value,
+    ),
+    MATRIX_HARNESS_RESET_TOOL_REF: (
+        AuthorityDomain.messages.value,
+        AuthorityCapability.mutate.value,
     ),
 }
 

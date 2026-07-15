@@ -22,3 +22,58 @@ PORTABLE_EVIDENCE_KEY_MARK_LOST_TOOL_REF = (
 PORTABLE_EVIDENCE_KEY_CLEANUP_TOOL_REF = (
     "tool-ref:portable-evidence-key-material-cleanup:v1"
 )
+
+MATRIX_HARNESS_INSPECT_TOOL_REF = "tool-ref:matrix-harness-inspect:v1"
+MATRIX_HARNESS_SMOKE_TOOL_REF = "tool-ref:matrix-harness-smoke:v1"
+MATRIX_HARNESS_START_TOOL_REF = "tool-ref:matrix-harness-start:v1"
+MATRIX_HARNESS_FIXTURE_SEED_TOOL_REF = "tool-ref:matrix-harness-fixture-seed:v1"
+MATRIX_HARNESS_STOP_TOOL_REF = "tool-ref:matrix-harness-stop:v1"
+MATRIX_HARNESS_RESET_TOOL_REF = "tool-ref:matrix-harness-reset:v1"
+
+# Exact lane bindings accepted by the generic AuthorityLease store. Keeping
+# these bindings in the authority package prevents the coarse ``messages``
+# domain from becoming a standing grant for future connector or send lanes.
+MATRIX_HARNESS_EXACT_AUTHORITY_BINDINGS = (
+    (
+        "read",
+        "authority-lane-ref:matrix-harness-inspect",
+        "authority-capability-ref:matrix-harness-inspect-v1",
+        "authority-adapter-ref:matrix-harness-inspect-v1",
+        MATRIX_HARNESS_INSPECT_TOOL_REF,
+    ),
+    (
+        "read",
+        "authority-lane-ref:matrix-harness-smoke",
+        "authority-capability-ref:matrix-harness-smoke-v1",
+        "authority-adapter-ref:matrix-harness-smoke-v1",
+        MATRIX_HARNESS_SMOKE_TOOL_REF,
+    ),
+    (
+        "execute",
+        "authority-lane-ref:matrix-harness-start",
+        "authority-capability-ref:matrix-harness-start-v1",
+        "authority-adapter-ref:matrix-harness-start-v1",
+        MATRIX_HARNESS_START_TOOL_REF,
+    ),
+    (
+        "mutate",
+        "authority-lane-ref:matrix-harness-fixture-seed",
+        "authority-capability-ref:matrix-harness-fixture-seed-v1",
+        "authority-adapter-ref:matrix-harness-fixture-seed-v1",
+        MATRIX_HARNESS_FIXTURE_SEED_TOOL_REF,
+    ),
+    (
+        "execute",
+        "authority-lane-ref:matrix-harness-stop",
+        "authority-capability-ref:matrix-harness-stop-v1",
+        "authority-adapter-ref:matrix-harness-stop-v1",
+        MATRIX_HARNESS_STOP_TOOL_REF,
+    ),
+    (
+        "mutate",
+        "authority-lane-ref:matrix-harness-reset",
+        "authority-capability-ref:matrix-harness-reset-v1",
+        "authority-adapter-ref:matrix-harness-reset-v1",
+        MATRIX_HARNESS_RESET_TOOL_REF,
+    ),
+)

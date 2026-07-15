@@ -35,6 +35,10 @@ from ultimate_ai_agent.core.gate.evaluator_modules.route_side_effects import (
 from ultimate_ai_agent.core.gate.shadow_replay import run_m5_shadow_replay
 from ultimate_ai_agent.core.sandbox_calculation.static_safety import sealed_backend_fragment_allowed as sealed_fragment_allowed
 from ultimate_ai_agent.core.evidence_signing.static_safety import portable_evidence_helper_fragment_allowed
+from ultimate_ai_agent.core.communications.matrix_harness.static_safety import (
+    is_exact_matrix_harness_shell_scan_line,
+    matrix_harness_fragment_allowed,
+)
 from ultimate_ai_agent.core.context_budget import ContextBudget
 from ultimate_ai_agent.core.hygiene.actor_context import (
     ActorContext,
@@ -116,7 +120,7 @@ def _version_doc_marks_milestone_implemented(text: str, milestone: str) -> bool:
 # Route-boundary evaluators are imported here to preserve the historical public facade.
 from ultimate_ai_agent.core.gate.evaluator_modules.route_boundaries import *  # noqa: F401,F403
 
-EXPECTED_M13_CONTROL_CENTER_ROUTE_COUNT = 104
+EXPECTED_M13_CONTROL_CENTER_ROUTE_COUNT = 110
 
 STATIC_SAFETY_EVALUATOR_DATA_FILES = frozenset(
     {
@@ -152,6 +156,16 @@ STATIC_SAFETY_EVALUATOR_DATA_PREFIXES = ("src/ultimate_ai_agent/core/gate/checkp
 GOVERNED_RUNTIME_COMMAND_ADAPTER_STATIC_SCAN_ALLOWED_FILES = frozenset(
     {"src/ultimate_ai_agent/core/runtime_gateway/command.py"}
 )
+
+
+def runtime_subprocess_fragment_allowed(
+    rel: str, text: str, fragment: str
+) -> bool:
+    return (
+        sealed_fragment_allowed(rel, text, fragment)
+        or portable_evidence_helper_fragment_allowed(rel, text, fragment)
+        or matrix_harness_fragment_allowed(rel, text, fragment)
+    )
 def _is_static_safety_scan_allowed_file(rel: str, allowed_files: Iterable[str]) -> bool:
     return (
         rel in allowed_files
@@ -326,12 +340,8 @@ def m152_local_model_management_forbidden_fragment_failures(root: Path, context:
                 continue
             text = _context_read_text(context, path)
             for fragment in M152_FORBIDDEN_SOURCE_FRAGMENTS:
-                if (
-                    fragment in text
-                    and not sealed_fragment_allowed(rel, text, fragment)
-                    and not portable_evidence_helper_fragment_allowed(
-                        rel, text, fragment
-                    )
+                if fragment in text and not runtime_subprocess_fragment_allowed(
+                    rel, text, fragment
                 ):
                     failures.append(
                         f"M152 forbidden local model management fragment in {rel}: {fragment}"

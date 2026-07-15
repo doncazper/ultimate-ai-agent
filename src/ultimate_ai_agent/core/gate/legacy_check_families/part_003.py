@@ -928,6 +928,37 @@ class FoundationGateLegacyChecksPart003Mixin:
                 and route.rate_limit_group is None
                 and route.blocked_from_production
             )
+            is_matrix_harness_read_command = (
+                path in CONTROL_CENTER_MATRIX_HARNESS_READ_PATHS
+                and route.method == "POST"
+                and route.side_effect_class
+                == (
+                    "validation_only"
+                    if path.endswith("/inspect")
+                    else "governed_network_read_only"
+                )
+                and route.route_classification == "local_sensitive"
+                and route.protected_route
+                and route.approval_posture
+                == "not_required_for_route_classification"
+                and not route.idempotency_required
+                and route.rate_limit_targeted
+                and route.rate_limit_group == "communications_matrix_harness"
+                and route.blocked_from_production
+            )
+            is_matrix_harness_mutation_command = (
+                path in CONTROL_CENTER_MATRIX_HARNESS_MUTATION_PATHS
+                and route.method == "POST"
+                and route.side_effect_class == "local_dev_workspace_only"
+                and route.route_classification == "mutating_requires_authority"
+                and route.protected_route
+                and route.approval_posture
+                == "required_before_mutation_authority"
+                and route.idempotency_required
+                and route.rate_limit_targeted
+                and route.rate_limit_group == "communications_matrix_harness"
+                and route.blocked_from_production
+            )
             is_crm_read_model = (
                 path in CONTROL_CENTER_CRM_COMMAND_CENTER_ROUTES
                 and route.method == "GET"
@@ -975,6 +1006,8 @@ class FoundationGateLegacyChecksPart003Mixin:
                 and not is_work_board_read_model
                 and not is_control_center_runtime_cockpit_read_model
                 and not is_communications_read_model
+                and not is_matrix_harness_read_command
+                and not is_matrix_harness_mutation_command
                 and not is_crm_read_model
                 and not is_crm_or_work_board_command_state
             ):

@@ -44,6 +44,7 @@ class ToolInvocationKind(str, Enum):
     validation_only = "validation_only"
     portable_evidence_signing = "portable_evidence_signing"
     sealed_arithmetic = "sealed_arithmetic"
+    matrix_harness = "matrix_harness"
     blocked_unknown = "blocked_unknown"
     blocked_effectful = "blocked_effectful"
     blocked_shell = "blocked_shell"
