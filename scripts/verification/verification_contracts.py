@@ -578,6 +578,7 @@ def dependency_state_fingerprint(plan: VerificationPlan) -> str:
         "commands": plan.command_manifest_fingerprint,
         "verifiers": plan.verifier_definition_fingerprint,
         "collection": plan.test_collection_fingerprint,
+        "pytest_shard_plan": plan.pytest_shard_plan_fingerprint,
     }
     return hashlib.sha256(
         json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()

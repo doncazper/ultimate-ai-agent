@@ -387,6 +387,14 @@ def test_typed_contracts_validate_with_content_free_refs_and_hashes() -> None:
     assert all("raw_output" not in payload for payload in payloads)
 
 
+def test_dependency_state_binds_the_exact_pytest_shard_plan() -> None:
+    plan = _plan()
+
+    changed = replace(plan, pytest_shard_plan_fingerprint="c" * 64)
+
+    assert dependency_state_fingerprint(changed) != dependency_state_fingerprint(plan)
+
+
 def test_typed_contracts_reject_unsafe_refs_and_redaction_postures() -> None:
     with pytest.raises(ValueError, match="redaction posture"):
         replace(_plan(), redaction_status="raw_payload_allowed").validate()
