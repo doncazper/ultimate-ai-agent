@@ -278,7 +278,8 @@ def _matrix_session_command(args: argparse.Namespace) -> MatrixSessionCommand:
     lane = MATRIX_SESSION_LANES[operation]
     if args.confirm and not lane.approval_required:
         raise ValueError("MATRIX_SESSION_READ_CONFIRMATION_FORBIDDEN")
-    start_deadline = utc_now() + timedelta(seconds=args.deadline_seconds)
+    request_created_at = utc_now()
+    start_deadline = request_created_at + timedelta(seconds=args.deadline_seconds)
     endpoint = args.discovery_origin or args.homeserver_url
     if endpoint is None:
         raise ValueError("MATRIX_SESSION_TRANSIENT_TARGET_REQUIRED")
@@ -328,6 +329,7 @@ def _matrix_session_command(args: argparse.Namespace) -> MatrixSessionCommand:
         "callback_attempt_ref": args.callback_attempt_ref,
         "target_refs": tuple(args.target_ref),
         "readiness_ref": args.readiness_ref,
+        "request_created_at": request_created_at,
         "start_deadline": start_deadline,
     }
     if args.callback_url:

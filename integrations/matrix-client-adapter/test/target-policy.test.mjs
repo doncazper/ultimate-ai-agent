@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   createBoundedFetch,
   isForbiddenAddress,
+  validateMatrixDelegatedOrigin,
   validateMatrixTarget,
 } from "../src/target-policy.mjs";
 
@@ -14,6 +15,23 @@ test("target policy permits public HTTPS and the one exact harness origin", asyn
   assert.equal(publicTarget.origin, "https://matrix.example.org");
   const harness = await validateMatrixTarget("http://127.0.0.1:18008/_matrix/client/versions", { allowHarness: true });
   assert.equal(harness.origin, "http://127.0.0.1:18008");
+});
+
+test("target origins require canonical ASCII authority and compressed bracketed IPv6", () => {
+  assert.equal(validateMatrixDelegatedOrigin("https://xn--mnich-kva.example").origin, "https://xn--mnich-kva.example");
+  assert.equal(
+    validateMatrixDelegatedOrigin("https://[2606:4700:4700:0:0:0:0:1111]").origin,
+    "https://[2606:4700:4700::1111]",
+  );
+  for (const raw of [
+    "https://münich.example",
+    "https://faß.de",
+    "https://οσ.example",
+    "https://a‍b.example",
+    "https://%65xample.com",
+  ]) {
+    assert.throws(() => validateMatrixDelegatedOrigin(raw), /MATRIX_TARGET_HOSTNAME_NONCANONICAL/);
+  }
 });
 
 test("target policy rejects private, metadata, credentialed, and substituted loopback targets", async () => {

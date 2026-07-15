@@ -86,20 +86,27 @@ def _normalized_origin(raw_url: str) -> str:
         or parsed.path not in {"", "/"}
     ):
         raise ValueError("MATRIX_TARGET_AUTHORITY_COMPONENT_DENIED")
-    host = parsed.hostname.lower()
+    raw_host = parsed.hostname.lower()
+    if not raw_host.isascii() or "%" in raw_host or "\\" in raw_host:
+        raise ValueError("MATRIX_TARGET_HOSTNAME_NONCANONICAL")
     if parsed.scheme == "http":
-        origin = f"http://{host}:{port or 80}"
-        if origin != MATRIX_LOCAL_HARNESS_ORIGIN:
-            raise ValueError("MATRIX_TARGET_HTTPS_REQUIRED")
-        return origin
+        if raw_host == "127.0.0.1" and (port or 80) == 18008:
+            return MATRIX_LOCAL_HARNESS_ORIGIN
+        raise ValueError("MATRIX_TARGET_HTTPS_REQUIRED")
     if parsed.scheme != "https" or port not in {None, 443}:
         raise ValueError("MATRIX_TARGET_HTTPS_REQUIRED")
     try:
-        address = ipaddress.ip_address(host)
+        address = ipaddress.ip_address(raw_host)
     except ValueError:
+        host = raw_host
         if host == "localhost" or "." not in host:
             raise ValueError("MATRIX_TARGET_HOSTNAME_DENIED")
     else:
         if not address.is_global:
             raise ValueError("MATRIX_TARGET_PRIVATE_ADDRESS_DENIED")
+        host = (
+            f"[{address.compressed}]"
+            if isinstance(address, ipaddress.IPv6Address)
+            else address.compressed
+        )
     return f"https://{host}"

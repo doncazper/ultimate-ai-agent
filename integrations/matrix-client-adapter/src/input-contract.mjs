@@ -21,7 +21,7 @@ const ALLOWED_KEYS = new Set([
   "session_generation_ref", "redirect_target_ref", "credential_backend_ref",
   "credential_item_ref", "credential_version_ref", "crypto_store_ref",
   "callback_attempt_ref", "budget_ref", "kill_switch_ref", "safe_disable_ref",
-  "readiness_ref", "target_refs", "start_deadline", "request_fingerprint_ref",
+  "readiness_ref", "target_refs", "request_created_at", "start_deadline", "request_fingerprint_ref",
   "base_url", "discovery_origin", "next_credential_version_ref",
 ]);
 

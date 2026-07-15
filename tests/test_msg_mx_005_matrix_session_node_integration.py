@@ -90,6 +90,7 @@ class _MatrixFixtureHandler(BaseHTTPRequestHandler):
 def _command(operation: MatrixSessionOperation) -> MatrixSessionCommand:
     suffix = operation.value.replace("_", "-")
     observation_ref = matrix_homeserver_observation_ref(HARNESS_URL)
+    request_created_at = utc_now()
     values: dict[str, object] = {
         "operation": operation,
         "request_ref": f"request-ref:matrix-node-integration:{suffix}",
@@ -112,7 +113,8 @@ def _command(operation: MatrixSessionOperation) -> MatrixSessionCommand:
             else matrix_discovery_freshness_ref(observation_ref)
         ),
         "readiness_ref": "readiness-ref:matrix-session:node-integration",
-        "start_deadline": utc_now() + timedelta(minutes=2),
+        "request_created_at": request_created_at,
+        "start_deadline": request_created_at + timedelta(minutes=2),
     }
     values["request_fingerprint_ref"] = matrix_session_request_fingerprint_ref(**values)
     return MatrixSessionCommand(**values)

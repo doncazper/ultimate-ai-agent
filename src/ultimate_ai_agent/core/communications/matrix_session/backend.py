@@ -4,12 +4,14 @@ import fcntl
 import hashlib
 import json
 import os
+import selectors
 import shutil
 import signal
 import stat
 import subprocess
 import sys
 import threading
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
@@ -246,9 +248,11 @@ class MatrixSessionExecutionHandle:
             raise MatrixSessionBackendError("MATRIX_SESSION_HANDLE_ALREADY_COLLECTED")
         self._collected = True
         try:
-            stdout, _ = self._process.communicate(
-                input=self._input_payload,
-                timeout=MATRIX_SESSION_ADAPTER_TIMEOUT_SECONDS
+            stdout = _communicate_bounded(
+                self._process,
+                self._input_payload,
+                timeout_seconds=MATRIX_SESSION_ADAPTER_TIMEOUT_SECONDS,
+                maximum_output_bytes=MATRIX_SESSION_ADAPTER_RESPONSE_MAX_BYTES,
             )
         except subprocess.TimeoutExpired as exc:
             self._backend._terminate_process_group(self._process)
@@ -260,13 +264,11 @@ class MatrixSessionExecutionHandle:
             raise
         finally:
             self._backend._release_lifecycle()
-        if len(stdout) > MATRIX_SESSION_ADAPTER_RESPONSE_MAX_BYTES:
-            raise MatrixSessionBackendError("MATRIX_SESSION_ADAPTER_OUTPUT_TOO_LARGE")
         try:
-            response = _AdapterResponse.model_validate_json(
-                stdout
-            )
+            response = _AdapterResponse.model_validate_json(stdout)
             response.validate_for_operation(self._expected_operation)
+            if response.ok != (self._process.returncode == 0):
+                raise ValueError("MATRIX_SESSION_ADAPTER_EXIT_STATUS_MISMATCH")
         except ValueError as exc:
             raise MatrixSessionBackendError(
                 "MATRIX_SESSION_ADAPTER_RESPONSE_INVALID"
@@ -287,7 +289,7 @@ class MatrixSessionExecutionHandle:
         )
         return MatrixSessionBackendResult(
             execution_ref=self._execution_ref,
-            succeeded=response.ok and self._process.returncode == 0,
+            succeeded=response.ok,
             runtime_status=response.runtime_status,
             evidence_refs=evidence_refs or (response.result_ref,),
             safe_output=response.model_dump(mode="json", exclude_none=True),
@@ -322,9 +324,7 @@ class MatrixSessionBackend:
                 "runner_sha256": config.expected_runner_sha256,
                 "helper_sha256": config.expected_helper_sha256 or "not-installed",
                 "wasm_sha256": _file_sha256(config.wasm_asset_path),
-                "runtime_integrity_sha256": _file_sha256(
-                    config.runtime_integrity_path
-                ),
+                "runtime_integrity_sha256": _file_sha256(config.runtime_integrity_path),
             },
         )
 
@@ -334,13 +334,17 @@ class MatrixSessionBackend:
         validate_execution_ref(dispatch_ref, "matrix_session_dispatch_ref")
         with self._state_lock:
             if dispatch_ref in self._transient:
-                raise MatrixSessionBackendError("MATRIX_SESSION_TRANSIENT_ALREADY_BOUND")
+                raise MatrixSessionBackendError(
+                    "MATRIX_SESSION_TRANSIENT_ALREADY_BOUND"
+                )
             self._transient[dispatch_ref] = transient
 
     def claim_request_state(self, dispatch_ref: str) -> None:
         with self._state_lock:
             if dispatch_ref in self._request_states:
-                raise MatrixSessionBackendError("MATRIX_SESSION_REQUEST_ALREADY_CLAIMED")
+                raise MatrixSessionBackendError(
+                    "MATRIX_SESSION_REQUEST_ALREADY_CLAIMED"
+                )
             self._request_states.add(dispatch_ref)
 
     def release_request_state(self, dispatch_ref: str) -> None:
@@ -357,7 +361,10 @@ class MatrixSessionBackend:
         if sys.platform != "darwin":
             reasons.append("reason-ref:matrix-session:macos-required")
         if os.getenv(MATRIX_SESSION_SAFE_DISABLE_ENV, "").strip().lower() in {
-            "1", "true", "yes", "on"
+            "1",
+            "true",
+            "yes",
+            "on",
         }:
             reasons.append("reason-ref:matrix-session:safe-disabled")
         if self._kill_switch_engaged():
@@ -382,15 +389,19 @@ class MatrixSessionBackend:
             reasons.append(
                 "reason-ref:matrix-session:authenticated-one-use-handoff-required"
             )
-        if operation in {
-            MatrixSessionOperation.credential_auth_create,
-            MatrixSessionOperation.sso_callback_consume,
-            MatrixSessionOperation.refresh,
-            MatrixSessionOperation.logout,
-            MatrixSessionOperation.revoke_all,
-            MatrixSessionOperation.credential_store_rotate,
-            MatrixSessionOperation.credential_delete,
-        } and self.config.helper_path is None:
+        if (
+            operation
+            in {
+                MatrixSessionOperation.credential_auth_create,
+                MatrixSessionOperation.sso_callback_consume,
+                MatrixSessionOperation.refresh,
+                MatrixSessionOperation.logout,
+                MatrixSessionOperation.revoke_all,
+                MatrixSessionOperation.credential_store_rotate,
+                MatrixSessionOperation.credential_delete,
+            }
+            and self.config.helper_path is None
+        ):
             reasons.append("reason-ref:matrix-session:keychain-helper-not-installed")
         return list(dict.fromkeys(reasons))
 
@@ -452,7 +463,9 @@ class MatrixSessionBackend:
             with self._state_lock:
                 transient = self._transient.get(dispatch_ref)
             if transient is None:
-                raise MatrixSessionBackendError("MATRIX_SESSION_TRANSIENT_TARGET_REQUIRED")
+                raise MatrixSessionBackendError(
+                    "MATRIX_SESSION_TRANSIENT_TARGET_REQUIRED"
+                )
             self._acquire_cross_process_lifecycle(safe_request)
             commit_reasons, commit_validated_at = validate_commit_fence()
             if commit_reasons:
@@ -597,18 +610,14 @@ class MatrixSessionBackend:
                 ) from exc
 
 
-def default_matrix_session_backend_config(repo_root: Path) -> MatrixSessionBackendConfig:
+def default_matrix_session_backend_config(
+    repo_root: Path,
+) -> MatrixSessionBackendConfig:
     node = shutil.which("node")
     if not node:
         raise MatrixSessionBackendError("MATRIX_SESSION_NODE_REQUIRED")
     node_path = Path(node).resolve()
-    runner = (
-        repo_root
-        / "integrations"
-        / "matrix-client-adapter"
-        / "src"
-        / "runner.mjs"
-    )
+    runner = repo_root / "integrations" / "matrix-client-adapter" / "src" / "runner.mjs"
     adapter_root = runner.parent.parent
     wasm = (
         repo_root
@@ -669,6 +678,83 @@ def _spawn_bounded(
     )
 
 
+def _communicate_bounded(
+    process: subprocess.Popen[bytes],
+    input_payload: bytes,
+    *,
+    timeout_seconds: float,
+    maximum_output_bytes: int,
+) -> bytes:
+    """Exchange one bounded payload without buffering unbounded adapter output."""
+
+    if process.stdin is None or process.stdout is None:
+        raise MatrixSessionBackendError("MATRIX_SESSION_ADAPTER_PIPE_REQUIRED")
+    selector = selectors.DefaultSelector()
+    stdin = process.stdin
+    stdout = process.stdout
+    stdin_open = True
+    stdout_open = True
+    input_offset = 0
+    output = bytearray()
+    deadline = time.monotonic() + timeout_seconds
+    try:
+        os.set_blocking(stdin.fileno(), False)
+        os.set_blocking(stdout.fileno(), False)
+        selector.register(stdin, selectors.EVENT_WRITE, "stdin")
+        selector.register(stdout, selectors.EVENT_READ, "stdout")
+        while stdout_open or process.poll() is None:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise subprocess.TimeoutExpired(process.args, timeout_seconds)
+            for key, _event in selector.select(min(remaining, 0.1)):
+                if key.data == "stdin":
+                    try:
+                        written = os.write(
+                            stdin.fileno(),
+                            input_payload[input_offset : input_offset + 65536],
+                        )
+                    except BlockingIOError:
+                        continue
+                    except BrokenPipeError:
+                        written = 0
+                        input_offset = len(input_payload)
+                    else:
+                        input_offset += written
+                    if input_offset >= len(input_payload):
+                        selector.unregister(stdin)
+                        stdin.close()
+                        stdin_open = False
+                else:
+                    read_size = min(65536, maximum_output_bytes + 1 - len(output))
+                    try:
+                        chunk = os.read(stdout.fileno(), max(1, read_size))
+                    except BlockingIOError:
+                        continue
+                    if chunk:
+                        output.extend(chunk)
+                        if len(output) > maximum_output_bytes:
+                            raise MatrixSessionBackendError(
+                                "MATRIX_SESSION_ADAPTER_OUTPUT_TOO_LARGE"
+                            )
+                    else:
+                        selector.unregister(stdout)
+                        stdout.close()
+                        stdout_open = False
+            if process.poll() is not None and not stdout_open:
+                break
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise subprocess.TimeoutExpired(process.args, timeout_seconds)
+        process.wait(timeout=remaining)
+        return bytes(output)
+    finally:
+        selector.close()
+        if stdin_open:
+            stdin.close()
+        if stdout_open:
+            stdout.close()
+
+
 def _require_safe_regular_file(path: Path) -> None:
     descriptor = _open_safe_regular_file(path)
     os.close(descriptor)
@@ -678,9 +764,7 @@ def _read_safe_private_metadata_file(path: Path) -> bytes:
     try:
         descriptor = os.open(
             path,
-            os.O_RDONLY
-            | getattr(os, "O_CLOEXEC", 0)
-            | getattr(os, "O_NOFOLLOW", 0),
+            os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0),
         )
     except OSError as exc:
         raise ValueError("MATRIX_SESSION_HELPER_METADATA_UNSAFE") from exc
@@ -738,9 +822,7 @@ def _open_safe_regular_file(
     try:
         descriptor = os.open(
             path,
-            os.O_RDONLY
-            | getattr(os, "O_CLOEXEC", 0)
-            | getattr(os, "O_NOFOLLOW", 0),
+            os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0),
         )
     except OSError as exc:
         raise ValueError("MATRIX_SESSION_RUNTIME_FILE_UNSAFE") from exc
@@ -805,8 +887,7 @@ def _validate_runtime_integrity(
         raise ValueError("MATRIX_SESSION_RUNTIME_INTEGRITY_INVALID") from exc
     if (
         not isinstance(manifest, dict)
-        or manifest.get("schema_version")
-        != "uaa-matrix-client-adapter-integrity.v1"
+        or manifest.get("schema_version") != "uaa-matrix-client-adapter-integrity.v1"
         or manifest.get("package_lock_sha256") != _file_sha256(package_lock_path)
         or manifest.get("raw_paths_included") is not False
         or manifest.get("credential_material_included") is not False

@@ -66,6 +66,38 @@ from .backend import (
 )
 from .constants import MatrixSessionOperation
 from .observations import MatrixDiscoveryObservationStore
+from .target_policy import matrix_discovery_freshness_ref
+
+
+def _record_discovery_receipt_observation(
+    *,
+    result: AuthorityDispatchResult,
+    command: MatrixSessionCommand,
+    observations: MatrixDiscoveryObservationStore,
+) -> None:
+    observation_refs = tuple(
+        ref
+        for ref in result.receipt.evidence_refs
+        if ref.startswith("observation-ref:matrix-homeserver:")
+    )
+    freshness_refs = tuple(
+        ref
+        for ref in result.receipt.evidence_refs
+        if ref.startswith("freshness-ref:matrix-discovery:")
+    )
+    if len(observation_refs) != 1 or len(freshness_refs) != 1:
+        raise RuntimeError("MATRIX_DISCOVERY_EVIDENCE_INCOMPLETE")
+    observation_ref = observation_refs[0]
+    freshness_ref = freshness_refs[0]
+    if freshness_ref != matrix_discovery_freshness_ref(observation_ref):
+        raise RuntimeError("MATRIX_DISCOVERY_EVIDENCE_BINDING_INVALID")
+    observations.record_success(
+        observation_ref=observation_ref,
+        freshness_ref=freshness_ref,
+        source_discovery_origin_ref=command.homeserver_ref,
+        dispatch_receipt_ref=result.receipt.receipt_ref,
+        checked_at=result.receipt.created_at,
+    )
 
 
 def build_matrix_session_lease_issue_request(
@@ -334,6 +366,7 @@ def build_matrix_session_dispatch_request(
         estimated_token_cost_usd=0,
         estimated_runtime_seconds=30,
         estimated_memory_gb=0.25,
+        created_at=command.request_created_at,
     )
     budgets = [
         CostBudget(
@@ -346,6 +379,7 @@ def build_matrix_session_dispatch_request(
             max_cost_usd=0,
             max_runtime_seconds=30,
             max_local_memory_gb=0.25,
+            created_at=command.request_created_at,
         )
     ]
     pending = AuthorityDispatchRequest(
@@ -468,18 +502,10 @@ def execute_matrix_session_command(
     if (
         command.operation == MatrixSessionOperation.discovery_read
         and result.receipt.status == "succeeded"
-        and result.adapter_result is not None
     ):
-        safe_output = result.adapter_result.safe_output
-        observation_ref = safe_output.get("homeserver_observation_ref")
-        freshness_ref = safe_output.get("discovery_freshness_ref")
-        if not isinstance(observation_ref, str) or not isinstance(freshness_ref, str):
-            raise RuntimeError("MATRIX_DISCOVERY_EVIDENCE_INCOMPLETE")
-        observations.record_success(
-            observation_ref=observation_ref,
-            freshness_ref=freshness_ref,
-            source_discovery_origin_ref=command.homeserver_ref,
-            dispatch_receipt_ref=result.receipt.receipt_ref,
-            checked_at=result.receipt.created_at,
+        _record_discovery_receipt_observation(
+            result=result,
+            command=command,
+            observations=observations,
         )
     return result

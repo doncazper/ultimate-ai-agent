@@ -67,6 +67,7 @@ def _command(operation: MatrixSessionOperation) -> MatrixSessionCommand:
         "safe_disable_ref": "safe-disable-ref:communications:matrix-session",
         "readiness_ref": "readiness-ref:matrix-session:current",
         "target_refs": (),
+        "request_created_at": deadline - timedelta(minutes=2),
         "start_deadline": deadline,
     }
     if operation in {

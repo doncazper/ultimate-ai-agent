@@ -72,6 +72,7 @@ class MatrixSessionCommand(_MatrixSessionModel):
     safe_disable_ref: str = MATRIX_SESSION_SAFE_DISABLE_REF
     readiness_ref: str = Field(..., max_length=240)
     target_refs: tuple[str, ...] = Field(default_factory=tuple, max_length=16)
+    request_created_at: datetime
     start_deadline: datetime
     request_fingerprint_ref: str = Field(..., max_length=240)
 
@@ -122,11 +123,19 @@ class MatrixSessionCommand(_MatrixSessionModel):
         }
         for name, expected_ref in required_governance_refs.items():
             if getattr(self, name) != expected_ref:
-                raise ValueError(
-                    f"MATRIX_SESSION_{name.upper()}_SUBSTITUTION_DENIED"
-                )
-        if self.start_deadline.tzinfo is None or self.start_deadline.utcoffset() is None:
+                raise ValueError(f"MATRIX_SESSION_{name.upper()}_SUBSTITUTION_DENIED")
+        if (
+            self.request_created_at.tzinfo is None
+            or self.request_created_at.utcoffset() is None
+        ):
+            raise ValueError("MATRIX_SESSION_REQUEST_CREATED_AT_TIMEZONE_REQUIRED")
+        if (
+            self.start_deadline.tzinfo is None
+            or self.start_deadline.utcoffset() is None
+        ):
             raise ValueError("MATRIX_SESSION_START_DEADLINE_TIMEZONE_REQUIRED")
+        if self.request_created_at >= self.start_deadline:
+            raise ValueError("MATRIX_SESSION_REQUEST_DEADLINE_ORDER_INVALID")
         self._validate_operation_scope()
         expected = matrix_session_request_fingerprint_ref(
             operation=self.operation,
@@ -158,6 +167,7 @@ class MatrixSessionCommand(_MatrixSessionModel):
             safe_disable_ref=self.safe_disable_ref,
             readiness_ref=self.readiness_ref,
             target_refs=self.target_refs,
+            request_created_at=self.request_created_at,
             start_deadline=self.start_deadline,
         )
         if self.request_fingerprint_ref != expected:
@@ -166,10 +176,8 @@ class MatrixSessionCommand(_MatrixSessionModel):
 
     def _validate_operation_scope(self) -> None:
         if self.operation == MatrixSessionOperation.discovery_read and (
-            self.discovery_observation_ref
-            != MATRIX_DISCOVERY_PENDING_OBSERVATION_REF
-            or self.discovery_freshness_ref
-            != MATRIX_DISCOVERY_PENDING_FRESHNESS_REF
+            self.discovery_observation_ref != MATRIX_DISCOVERY_PENDING_OBSERVATION_REF
+            or self.discovery_freshness_ref != MATRIX_DISCOVERY_PENDING_FRESHNESS_REF
         ):
             raise ValueError("MATRIX_DISCOVERY_PENDING_BINDING_REQUIRED")
         session_operations = {
@@ -191,7 +199,12 @@ class MatrixSessionCommand(_MatrixSessionModel):
             MatrixSessionOperation.credential_delete,
         }
         if self.operation in session_operations and not all(
-            (self.account_ref, self.device_ref, self.session_ref, self.session_generation_ref)
+            (
+                self.account_ref,
+                self.device_ref,
+                self.session_ref,
+                self.session_generation_ref,
+            )
         ):
             raise ValueError("MATRIX_SESSION_EXACT_SESSION_SCOPE_REQUIRED")
         if self.operation in credential_operations and not all(
@@ -203,25 +216,37 @@ class MatrixSessionCommand(_MatrixSessionModel):
             and not self.crypto_store_ref
         ):
             raise ValueError("MATRIX_SESSION_EXACT_CRYPTO_STORE_SCOPE_REQUIRED")
-        if self.operation in {
-            MatrixSessionOperation.refresh,
-            MatrixSessionOperation.credential_store_rotate,
-        } and not self.next_credential_version_ref:
+        if (
+            self.operation
+            in {
+                MatrixSessionOperation.refresh,
+                MatrixSessionOperation.credential_store_rotate,
+            }
+            and not self.next_credential_version_ref
+        ):
             raise ValueError("MATRIX_SESSION_NEXT_CREDENTIAL_SCOPE_REQUIRED")
         if (
             self.next_credential_version_ref is not None
             and self.next_credential_version_ref == self.credential_version_ref
         ):
             raise ValueError("MATRIX_SESSION_CREDENTIAL_VERSION_REUSE_DENIED")
-        if self.operation in {
-            MatrixSessionOperation.sso_launch,
-            MatrixSessionOperation.sso_callback_consume,
-        } and not self.redirect_target_ref:
+        if (
+            self.operation
+            in {
+                MatrixSessionOperation.sso_launch,
+                MatrixSessionOperation.sso_callback_consume,
+            }
+            and not self.redirect_target_ref
+        ):
             raise ValueError("MATRIX_SESSION_EXACT_REDIRECT_SCOPE_REQUIRED")
-        if self.operation in {
-            MatrixSessionOperation.sso_launch,
-            MatrixSessionOperation.sso_callback_consume,
-        } and not self.callback_attempt_ref:
+        if (
+            self.operation
+            in {
+                MatrixSessionOperation.sso_launch,
+                MatrixSessionOperation.sso_callback_consume,
+            }
+            and not self.callback_attempt_ref
+        ):
             raise ValueError("MATRIX_SESSION_CALLBACK_ATTEMPT_SCOPE_REQUIRED")
         if self.operation == MatrixSessionOperation.revoke_all and not self.target_refs:
             raise ValueError("MATRIX_SESSION_DEVICE_SET_SCOPE_REQUIRED")
@@ -285,11 +310,13 @@ def matrix_session_request_fingerprint_ref(**values: object) -> str:
         ),
         "readiness_ref": values.get("readiness_ref"),
         "target_refs": tuple(values.get("target_refs") or ()),
+        "request_created_at": values.get("request_created_at"),
         "start_deadline": values.get("start_deadline"),
     }
-    deadline = payload.get("start_deadline")
-    if isinstance(deadline, datetime):
-        payload["start_deadline"] = deadline.isoformat()
+    for name in ("request_created_at", "start_deadline"):
+        timestamp = payload.get(name)
+        if isinstance(timestamp, datetime):
+            payload[name] = timestamp.isoformat()
     payload["operation"] = operation.value
     return stable_matrix_session_ref(
         "request-fingerprint-ref:matrix-session",

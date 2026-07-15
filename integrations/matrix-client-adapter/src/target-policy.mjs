@@ -53,6 +53,16 @@ function normalizedHostname(hostname) {
   return hostname.replace(/^\[|\]$/g, "");
 }
 
+function assertCanonicalAuthorityInput(rawUrl) {
+  if (typeof rawUrl !== "string") {
+    throw new MatrixTargetPolicyError("MATRIX_TARGET_URL_INVALID");
+  }
+  const authority = rawUrl.match(/^[A-Za-z][A-Za-z0-9+.-]*:\/\/([^/?#]*)/)?.[1];
+  if (!authority || /[^\x00-\x7F]/u.test(authority) || authority.includes("%") || authority.includes("\\")) {
+    throw new MatrixTargetPolicyError("MATRIX_TARGET_HOSTNAME_NONCANONICAL");
+  }
+}
+
 function embeddedV4(words) {
   const compatible = words.slice(0, 6).every((word) => word === 0);
   const mapped = words.slice(0, 5).every((word) => word === 0) && words[5] === 0xffff;
@@ -95,6 +105,7 @@ export function isForbiddenAddress(address) {
 }
 
 export function validateMatrixDelegatedOrigin(rawUrl, { allowHarness = false } = {}) {
+  assertCanonicalAuthorityInput(rawUrl);
   let parsed;
   try {
     parsed = new URL(rawUrl);
@@ -123,6 +134,7 @@ export function validateMatrixDelegatedOrigin(rawUrl, { allowHarness = false } =
 }
 
 export async function validateMatrixTarget(rawUrl, { lookup = dns.lookup, allowHarness = false } = {}) {
+  assertCanonicalAuthorityInput(rawUrl);
   let parsed;
   try {
     parsed = new URL(rawUrl);

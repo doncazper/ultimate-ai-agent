@@ -47,6 +47,7 @@ class _ApiResult:
 
 def _command(operation: MatrixSessionOperation) -> MatrixSessionCommand:
     suffix = operation.value.replace("_", "-")
+    request_created_at = utc_now()
     values: dict[str, object] = {
         "operation": operation,
         "request_ref": f"request-ref:matrix-session:api:{suffix}",
@@ -70,7 +71,8 @@ def _command(operation: MatrixSessionOperation) -> MatrixSessionCommand:
         ),
         "readiness_ref": "readiness-ref:matrix-session:api-current",
         "target_refs": (),
-        "start_deadline": utc_now() + timedelta(minutes=2),
+        "request_created_at": request_created_at,
+        "start_deadline": request_created_at + timedelta(minutes=2),
     }
     if operation not in {
         MatrixSessionOperation.discovery_read,

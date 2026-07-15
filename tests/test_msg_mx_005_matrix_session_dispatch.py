@@ -29,6 +29,9 @@ from ultimate_ai_agent.core.communications.matrix_session.target_policy import (
     matrix_homeserver_observation_ref,
     matrix_homeserver_ref,
 )
+from ultimate_ai_agent.core.communications.matrix_session.observations import (
+    MatrixDiscoveryObservationStore,
+)
 from ultimate_ai_agent.core.time import utc_now
 
 
@@ -69,6 +72,7 @@ def _command(operation: MatrixSessionOperation) -> MatrixSessionCommand:
         "safe_disable_ref": "safe-disable-ref:communications:matrix-session",
         "readiness_ref": "readiness-ref:matrix-session:current",
         "target_refs": (),
+        "request_created_at": deadline - timedelta(minutes=2),
         "start_deadline": deadline,
     }
     if operation not in {
@@ -107,6 +111,8 @@ def _backend(
     *,
     response_ok: bool = True,
     response_updates: dict[str, object] | None = None,
+    exit_code: int | None = None,
+    runner_body: str | None = None,
     kill_switch_engaged: Callable[[], bool] | None = None,
     lifecycle_lock_dir: Path | None = None,
 ) -> MatrixSessionBackend:
@@ -157,10 +163,15 @@ def _backend(
             sdk_version_ref="version-ref:matrix-js-sdk:41-9-0",
         )
     response.update(updates)
+    resolved_exit_code = (0 if response_ok else 2) if exit_code is None else exit_code
     runner.write_text(
-        "import json,sys\n"
-        "json.load(sys.stdin)\n"
-        f"sys.stdout.write({json.dumps(json.dumps(response))})\n",
+        runner_body
+        or (
+            "import json,sys\n"
+            "json.load(sys.stdin)\n"
+            f"sys.stdout.write({json.dumps(json.dumps(response))})\n"
+            f"raise SystemExit({resolved_exit_code})\n"
+        ),
         encoding="utf-8",
     )
     helper.write_text("placeholder\n", encoding="utf-8")
@@ -279,6 +290,61 @@ def test_auth_methods_requires_matching_current_discovery_receipt(
         lease_store=store,
     )
     assert auth_result.receipt.status == "succeeded"
+
+
+def test_terminal_discovery_replay_reconciles_missing_observation_append(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    authority_state = tmp_path / "authority"
+    store = AuthorityLeaseStore(authority_state)
+    command = _command(MatrixSessionOperation.discovery_read)
+    issue_exact_matrix_session_lease(command, store=store, confirmed=False)
+    original = MatrixDiscoveryObservationStore.record_success
+    attempts = 0
+
+    def fail_first_append(
+        observation_store: MatrixDiscoveryObservationStore, **values: object
+    ) -> object:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise OSError("simulated observation append failure")
+        return original(observation_store, **values)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(
+        MatrixDiscoveryObservationStore, "record_success", fail_first_append
+    )
+    with pytest.raises(OSError, match="simulated observation append failure"):
+        execute_matrix_session_command(
+            command,
+            repo_root=tmp_path / "first" / "repo",
+            authority_state_dir=authority_state,
+            transient_input=MatrixSessionTransientInput(
+                discovery_origin="http://127.0.0.1:18008"
+            ),
+            backend=_backend(tmp_path / "first"),
+            lease_store=store,
+        )
+
+    replay = execute_matrix_session_command(
+        command,
+        repo_root=tmp_path / "replay" / "repo",
+        authority_state_dir=authority_state,
+        transient_input=MatrixSessionTransientInput(
+            discovery_origin="http://127.0.0.1:18008"
+        ),
+        backend=_backend(tmp_path / "replay"),
+        lease_store=store,
+    )
+    assert replay.replayed is True
+    assert replay.adapter_result is None
+    observation_ref = matrix_homeserver_observation_ref("http://127.0.0.1:18008")
+    assert (
+        MatrixDiscoveryObservationStore(
+            authority_state / "matrix_session_observations"
+        )._latest(observation_ref)
+        is not None
+    )
 
 
 def test_auth_methods_without_prior_discovery_never_starts_adapter(
@@ -503,6 +569,85 @@ def test_process_group_cleanup_reaps_term_resistant_adapter(tmp_path: Path) -> N
     )
     backend._terminate_process_group(process)
     assert process.poll() is not None
+
+
+def test_adapter_output_is_terminated_at_the_streaming_byte_limit(
+    tmp_path: Path,
+) -> None:
+    command = _command(MatrixSessionOperation.discovery_read)
+    store = AuthorityLeaseStore(tmp_path / "authority")
+    issue_exact_matrix_session_lease(command, store=store, confirmed=False)
+    result = execute_matrix_session_command(
+        command,
+        repo_root=tmp_path / "repo",
+        authority_state_dir=tmp_path / "authority",
+        transient_input=MatrixSessionTransientInput(
+            discovery_origin="http://127.0.0.1:18008"
+        ),
+        backend=_backend(
+            tmp_path,
+            runner_body=(
+                "import json,sys,time\n"
+                "json.load(sys.stdin)\n"
+                f"sys.stdout.write('x' * {128 * 1024 + 1})\n"
+                "sys.stdout.flush()\n"
+                "time.sleep(30)\n"
+            ),
+        ),
+        lease_store=store,
+    )
+    assert result.receipt.status == "failed"
+    assert result.adapter_result is not None
+    assert result.adapter_result.succeeded is False
+    assert result.receipt.raw_response_included is False
+
+
+@pytest.mark.parametrize(
+    ("response_ok", "exit_code"),
+    [(True, 2), (False, 0)],
+)
+def test_adapter_response_and_process_exit_must_agree(
+    tmp_path: Path, response_ok: bool, exit_code: int
+) -> None:
+    command = _command(MatrixSessionOperation.discovery_read)
+    store = AuthorityLeaseStore(tmp_path / "authority")
+    issue_exact_matrix_session_lease(command, store=store, confirmed=False)
+    result = execute_matrix_session_command(
+        command,
+        repo_root=tmp_path / "repo",
+        authority_state_dir=tmp_path / "authority",
+        transient_input=MatrixSessionTransientInput(
+            discovery_origin="http://127.0.0.1:18008"
+        ),
+        backend=_backend(
+            tmp_path,
+            response_ok=response_ok,
+            exit_code=exit_code,
+        ),
+        lease_store=store,
+    )
+    assert result.receipt.status == "failed"
+    assert result.adapter_result is not None
+    assert result.adapter_result.succeeded is False
+    assert result.adapter_result.safe_output == {}
+
+
+def test_python_target_refs_require_canonical_ascii_and_match_ipv6_origins() -> None:
+    assert matrix_homeserver_ref("https://xn--mnich-kva.example").startswith(
+        "homeserver-ref:matrix:sha256:"
+    )
+    assert matrix_homeserver_observation_ref(
+        "https://[2606:4700:4700:0:0:0:0:1111]"
+    ) == matrix_homeserver_observation_ref("https://[2606:4700:4700::1111]")
+    for raw in (
+        "https://m\u00fcnich.example",
+        "https://fa\u00df.de",
+        "https://\u03bf\u03c3.example",
+        "https://a\u200db.example",
+        "https://%65xample.com",
+    ):
+        with pytest.raises(ValueError, match="MATRIX_TARGET_HOSTNAME_NONCANONICAL"):
+            matrix_homeserver_ref(raw)
 
 
 @pytest.mark.parametrize(
