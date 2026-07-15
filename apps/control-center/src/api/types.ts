@@ -13055,6 +13055,38 @@ export interface MatrixSyncPosture {
   desktop_only: true;
 }
 
+export interface MatrixCryptoPosture {
+  schema_version: "uaa-matrix-crypto-posture.v1";
+  posture_ref: string;
+  runtime_status:
+    | "adapter_required"
+    | "configuration_required"
+    | "blocked"
+    | "ready"
+    | "unknown";
+  freshness: "current" | "stale" | "unknown";
+  authority_lane_refs: string[];
+  accepted_authority_operation_refs: string[];
+  live_executor_operation_refs: string[];
+  blocked_operation_refs: string[];
+  provider_ref: string;
+  runtime_ref: string;
+  store_backend_ref: string;
+  key_backend_ref: string;
+  backup_backend_ref: string;
+  reason_refs: string[];
+  blocker_refs: string[];
+  evidence_refs: string[];
+  single_owner_required: true;
+  request_scoped_evaluation_required: true;
+  recovery_material_included: false;
+  raw_crypto_payload_included: false;
+  element_interoperability_status: "external_facility_required";
+  desktop_only: true;
+  safe_summary: string;
+  redaction_status: "safe_refs_only";
+}
+
 export interface CommunicationsPagination {
   page_size: number;
   returned_count: number;
@@ -13101,12 +13133,29 @@ export interface CommunicationsSecurityPosture {
   encryption_posture_ref: string;
   key_lifecycle_posture_ref: string;
   cache_posture_ref: string;
+  crypto_runtime_status:
+    | "adapter_required"
+    | "configuration_required"
+    | "blocked"
+    | "ready"
+    | "unknown";
+  crypto_availability: CommunicationsAvailabilitySnapshot;
+  crypto_authority_lane_refs: string[];
+  crypto_live_executor_refs: string[];
+  crypto_blocked_operation_refs: string[];
+  recovery_posture_ref: string;
+  backup_posture_ref: string;
+  single_owner_posture_ref: string;
   reason_codes: string[];
   blocker_codes: string[];
   safe_summary: string;
   credentials_loaded: false;
   crypto_initialized: false;
   local_cache_opened: false;
+  recovery_material_included: false;
+  raw_crypto_payload_included: false;
+  request_scoped_evaluation_required: true;
+  desktop_only: true;
 }
 
 export interface CommunicationsReceipt {

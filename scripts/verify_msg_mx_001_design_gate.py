@@ -134,10 +134,15 @@ EXPECTED_CAPABILITY_REFS = (
     "matrix.settings.history_visibility.write",
     "matrix.settings.pin.write",
     "matrix.settings.account_room_preference.write",
+    "matrix.crypto_store.initialize",
+    "matrix.crypto_store.key_rotate",
+    "matrix.crypto_store.key_delete",
     "matrix.verification.request",
     "matrix.verification.cancel",
     "matrix.verification.confirm",
     "matrix.device.revoke",
+    "matrix.cross_signing.bootstrap",
+    "matrix.backup.status.read",
     "matrix.backup.configure",
     "matrix.backup.rotate",
     "matrix.recovery.restore",
@@ -165,6 +170,7 @@ READ_ONLY_CAPABILITY_REFS = {
     "matrix.message.reconcile",
     "matrix.room_state.read",
     "matrix.search.local.read",
+    "matrix.backup.status.read",
     "matrix.call.preflight.read",
 }
 
@@ -334,6 +340,7 @@ def _verify_matrix(text: str, failures: list[str]) -> None:
         "authority declared; canonical executor uncomposed and blocked",
         "primitive tested; canonical dispatcher executor uncomposed and blocked",
         "authority declared; canonical GET executor uncomposed and blocked",
+        "exact authority accepted; persistent adapter required; blocked",
     }
     allowed_later_postures = {
         "deferred separate lane; blocked pending MatrixRTC/TURN decision",
@@ -406,6 +413,7 @@ def _verify_matrix(text: str, failures: list[str]) -> None:
                 "expire",
                 "unknown truth",
                 "no retry",
+                "reset",
             ),
             "safe-disable": ("disable", "lock", "stop", "kill", "force", "safe-disable"),
             "receipt/evidence": (" ref", "refs", "evidence", "counts", "outcome", "receipt", "progress"),

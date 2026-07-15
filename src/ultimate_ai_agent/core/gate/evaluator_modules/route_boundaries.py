@@ -2638,10 +2638,16 @@ CONTROL_CENTER_MATRIX_SESSION_ROUTES = frozenset(
         "/control-center/communications/matrix/sso-launch",
     }
 )
+CONTROL_CENTER_MATRIX_CRYPTO_VALIDATION_ROUTES = frozenset(
+    {
+        "/control-center/communications/matrix-crypto/proposal",
+    }
+)
 
 POST_MILESTONE_SAFE_ROUTE_FAMILIES = {
     "control_center_matrix_harness": CONTROL_CENTER_MATRIX_HARNESS_ROUTES,
     "control_center_matrix_session": CONTROL_CENTER_MATRIX_SESSION_ROUTES,
+    "control_center_matrix_crypto_validation": CONTROL_CENTER_MATRIX_CRYPTO_VALIDATION_ROUTES,
     "control_center_communications_readonly": CONTROL_CENTER_COMMUNICATIONS_READONLY_PATHS,
     "founder_loop": FOUNDER_LOOP_CONTROL_CENTER_ROUTES,
     "control_center_setup_assistant": CONTROL_CENTER_SETUP_ASSISTANT_ROUTES,

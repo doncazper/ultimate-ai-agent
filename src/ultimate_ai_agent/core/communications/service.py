@@ -8,6 +8,7 @@ from ultimate_ai_agent.core.communications.contracts import (
     COMMUNICATIONS_MAX_PAGE_SIZE,
     CommunicationConversation,
     CommunicationsFailedSendPage,
+    CommunicationsCryptoRuntimeStatus,
     CommunicationsFreshnessStatus,
     CommunicationsPagination,
     CommunicationsProviderDescriptor,
@@ -24,6 +25,10 @@ from ultimate_ai_agent.core.communications.matrix_disabled import (
 )
 from ultimate_ai_agent.core.communications.matrix_session.availability import (
     build_matrix_session_provider_descriptor,
+)
+from ultimate_ai_agent.core.communications.matrix_crypto import (
+    build_default_matrix_crypto_posture,
+    build_matrix_crypto_availability,
 )
 from ultimate_ai_agent.core.communications.registry import (
     CommunicationsProviderRegistry,
@@ -138,6 +143,7 @@ def build_default_communications_service(
         repo_root=repo_root,
         checked_at=observed_at,
     )
+    crypto_posture = build_default_matrix_crypto_posture()
     receipt = CommunicationsReceipt(
         receipt_ref="receipt-ref:communications:contract-inspection",
         operation_ref="operation-ref:communications:contract-inspection",
@@ -165,18 +171,35 @@ def build_default_communications_service(
             safe_summary="Matrix account and session runtime are not configured.",
         ),
         security=CommunicationsSecurityPosture(
-            posture_ref="security-posture-ref:communications:matrix:blocked",
+            posture_ref="security-posture-ref:communications:matrix:crypto-adapter-required",
             provider_ref=MATRIX_PROVIDER_REF,
-            encryption_posture_ref="encryption-posture-ref:communications:not-initialized",
-            key_lifecycle_posture_ref="key-lifecycle-posture-ref:communications:not-configured",
+            encryption_posture_ref="encryption-posture-ref:communications:exact-authority-accepted",
+            key_lifecycle_posture_ref="key-lifecycle-posture-ref:communications:exact-authority-accepted",
             cache_posture_ref="cache-posture-ref:communications:not-opened",
-            reason_codes=["COMMUNICATIONS_SECURITY_CONTRACT_DECLARED"],
-            blocker_codes=[
-                "MATRIX_CRYPTO_RUNTIME_NOT_IMPLEMENTED",
-                "MATRIX_SSO_BROKER_NOT_IMPLEMENTED",
-                "MATRIX_CACHE_RUNTIME_NOT_IMPLEMENTED",
+            crypto_runtime_status=CommunicationsCryptoRuntimeStatus.adapter_required,
+            crypto_availability=build_matrix_crypto_availability(
+                checked_at=observed_at
+            ),
+            crypto_authority_lane_refs=list(crypto_posture.authority_lane_refs),
+            crypto_live_executor_refs=list(crypto_posture.live_executor_operation_refs),
+            crypto_blocked_operation_refs=list(crypto_posture.blocked_operation_refs),
+            recovery_posture_ref="recovery-posture-ref:matrix:external-facility-required",
+            backup_posture_ref="backup-posture-ref:matrix:persistent-broker-required",
+            single_owner_posture_ref="owner-posture-ref:matrix-crypto:fenced-owner-required",
+            reason_codes=[
+                "COMMUNICATIONS_SECURITY_CONTRACT_DECLARED",
+                "MATRIX_CRYPTO_EXACT_AUTHORITY_CONTRACTS_ACCEPTED",
             ],
-            safe_summary="Credential, encryption, and cache runtimes remain unavailable.",
+            blocker_codes=[
+                "MATRIX_CRYPTO_PERSISTENT_RUST_BACKEND_REQUIRED",
+                "MATRIX_CRYPTO_LIVE_EXECUTOR_UNCOMPOSED",
+                "MATRIX_CRYPTO_ELEMENT_INTEROPERABILITY_EXTERNAL",
+                "MATRIX_SSO_BROKER_NOT_IMPLEMENTED",
+            ],
+            safe_summary=(
+                "Exact Matrix crypto authority is declared, while live persistent "
+                "Rust crypto and recovery remain adapter-required."
+            ),
         ),
         receipts=[receipt],
     )

@@ -49,6 +49,11 @@ from ultimate_ai_agent.core.communications.matrix_session import (
 from ultimate_ai_agent.core.communications.matrix_sync import (
     build_default_matrix_sync_posture,
 )
+from ultimate_ai_agent.core.communications.matrix_crypto import (
+    MatrixCryptoCommand,
+    build_default_matrix_crypto_posture,
+    build_matrix_crypto_proposal,
+)
 
 
 router = APIRouter(prefix="/control-center/communications", tags=["control-center"])
@@ -123,6 +128,12 @@ class MatrixSessionOperationRequest(BaseModel):
 
 
 MatrixSessionOperationHandler = Callable[[MatrixSessionOperationRequest], object]
+
+
+class MatrixCryptoProposalRequest(BaseModel):
+    command: MatrixCryptoCommand
+
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
 
 def _execute_matrix_harness_operation(
@@ -415,6 +426,41 @@ def get_control_center_communications_matrix_sync_posture(
         operation="control_center_communications_matrix_sync_posture",
         trace_id="communications-trace:matrix-sync-posture",
         data=posture.model_dump(mode="json"),
+    )
+
+
+@router.get(
+    "/matrix-crypto/posture",
+    response_model=ResultEnvelope,
+    operation_id="get_control_center_communications_matrix_crypto_posture",
+)
+def get_control_center_communications_matrix_crypto_posture(
+    response: Response,
+) -> ResultEnvelope:
+    _no_store(response)
+    posture = build_default_matrix_crypto_posture()
+    return _envelope(
+        operation="control_center_communications_matrix_crypto_posture",
+        trace_id=posture.posture_ref,
+        data=posture.model_dump(mode="json"),
+    )
+
+
+@router.post(
+    "/matrix-crypto/proposal",
+    response_model=ResultEnvelope,
+    operation_id="post_control_center_communications_matrix_crypto_proposal",
+)
+def post_control_center_communications_matrix_crypto_proposal(
+    payload: MatrixCryptoProposalRequest,
+    response: Response,
+) -> ResultEnvelope:
+    _no_store(response)
+    proposal = build_matrix_crypto_proposal(payload.command)
+    return _envelope(
+        operation="control_center_communications_matrix_crypto_proposal",
+        trace_id=proposal.proposal_ref,
+        data=proposal.model_dump(mode="json"),
     )
 
 

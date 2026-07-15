@@ -73,6 +73,7 @@ DEFAULT_TERMINATION_GRACE_SECONDS = 2.0
 DEFAULT_PERFORMANCE_REPORT = "/tmp/uaa_pytest_performance_report.json"
 TIMEOUT_RETURN_CODE = 124
 FOUNDATION_GATE_AFFINITY_TOKENS = ("foundation_gate_report", "foundation_gate_results")
+MATRIX_LOOPBACK_PORT_AFFINITY_TOKEN = 'ThreadingHTTPServer(("127.0.0.1", 18008)'
 
 
 @dataclass(frozen=True)
@@ -111,6 +112,7 @@ def discover_affinity_groups(
     files: list[str], root: Path = ROOT
 ) -> list[tuple[str, ...]]:
     foundation_consumers: list[str] = []
+    matrix_loopback_port_consumers: list[str] = []
     for file_path in files:
         try:
             source = (root / file_path).read_text(encoding="utf-8")
@@ -118,9 +120,13 @@ def discover_affinity_groups(
             continue
         if any(token in source for token in FOUNDATION_GATE_AFFINITY_TOKENS):
             foundation_consumers.append(file_path)
-    return (
-        [tuple(sorted(foundation_consumers))] if len(foundation_consumers) > 1 else []
-    )
+        if MATRIX_LOOPBACK_PORT_AFFINITY_TOKEN in source:
+            matrix_loopback_port_consumers.append(file_path)
+    groups: list[tuple[str, ...]] = []
+    for consumers in (foundation_consumers, matrix_loopback_port_consumers):
+        if len(consumers) > 1:
+            groups.append(tuple(sorted(consumers)))
+    return groups
 
 
 def _assignment_items(

@@ -364,6 +364,7 @@
               "action_preview_proposal",
               "action_decision",
               "chat_durable_receipt",
+              "communications_matrix_crypto",
               "communications_matrix_harness",
               "communications_matrix_session",
               "local_model_validation",

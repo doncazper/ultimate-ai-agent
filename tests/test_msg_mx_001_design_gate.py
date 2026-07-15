@@ -258,7 +258,7 @@ def test_board_evidence_must_be_phase_bound(
         gate.BOARD_PATH,
         tmp_path / "board.md",
         lambda text: text.replace(
-            "evidence-ref:msg-mx-006:readonly-sync-cache",
+            "evidence-ref:msg-mx-007:crypto-authority-contracts",
             "evidence-ref:msg-mx-001:design-gate",
             1,
         ),

@@ -73,13 +73,56 @@ const matrixSyncPosture = {
   desktop_only: true,
 };
 
+const matrixCryptoPosture = {
+  schema_version: "uaa-matrix-crypto-posture.v1",
+  posture_ref: "posture-ref:matrix-crypto:adapter-required-v1",
+  runtime_status: "adapter_required",
+  freshness: "unknown",
+  authority_lane_refs: Array.from(
+    { length: 17 },
+    (_, index) => `authority-lane-ref:matrix-crypto:lane-${index}`,
+  ),
+  accepted_authority_operation_refs: Array.from(
+    { length: 17 },
+    (_, index) => `operation-ref:matrix-crypto:accepted-${index}`,
+  ),
+  live_executor_operation_refs: [],
+  blocked_operation_refs: Array.from(
+    { length: 17 },
+    (_, index) => `operation-ref:matrix-crypto:blocked-${index}`,
+  ),
+  provider_ref: "provider-ref:communications:matrix",
+  runtime_ref: "runtime-ref:matrix-rust-crypto:adapter-required-v1",
+  store_backend_ref:
+    "crypto-store-backend-ref:matrix:persistent-rust-store-required-v1",
+  key_backend_ref:
+    "credential-backend-ref:matrix:device-only-keychain-crypto-v1",
+  backup_backend_ref:
+    "backup-backend-ref:matrix:dedicated-wrapping-key-required-v1",
+  reason_refs: ["reason-ref:matrix-crypto:exact-authority-contracts-accepted"],
+  blocker_refs: ["blocker-ref:matrix-crypto:persistent-rust-backend-required"],
+  evidence_refs: ["evidence-ref:matrix-crypto:authority-contract-tests"],
+  single_owner_required: true,
+  request_scoped_evaluation_required: true,
+  recovery_material_included: false,
+  raw_crypto_payload_included: false,
+  element_interoperability_status: "external_facility_required",
+  desktop_only: true,
+  safe_summary:
+    "Exact crypto authorities are accepted, while persistent execution remains blocked.",
+  redaction_status: "safe_refs_only",
+};
+
 beforeEach(() => {
-  vi.spyOn(globalThis, "fetch").mockResolvedValue(
-    new Response(
-      JSON.stringify({ success: true, data: matrixSyncPosture }),
-      { status: 200, headers: { "Content-Type": "application/json" } },
-    ),
-  );
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+    const data = String(input).includes("matrix-crypto")
+      ? matrixCryptoPosture
+      : matrixSyncPosture;
+    return new Response(JSON.stringify({ success: true, data }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  });
 });
 
 afterEach(() => {
@@ -130,7 +173,7 @@ describe("MessengerShell", () => {
     );
     expect(screen.getByText(/Read-only sync · configuration required/i)).toBeInTheDocument();
     expect(screen.getByText(/External actions blocked/i)).toBeInTheDocument();
-    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
     expect(screen.getByText(/External content is untrusted/i)).toBeInTheDocument();
 
     for (const control of view.container.querySelectorAll<HTMLButtonElement>(
@@ -139,6 +182,27 @@ describe("MessengerShell", () => {
       expect(control).toBeDisabled();
       expect(control.textContent).toMatch(/Preview|Planned|Blocked/);
     }
+  });
+
+  it("shows exact crypto authority without claiming a live executor", async () => {
+    window.history.replaceState({}, "", "/messenger?view=sessions");
+    render(<MessengerShell />);
+
+    await waitFor(() =>
+      expect(screen.getByRole("main")).toHaveAttribute(
+        "data-messenger-crypto-runtime",
+        "adapter_required",
+      ),
+    );
+    expect(
+      screen.getByText(/17 accepted · fresh evaluation required/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/persistent broker required/i)).toBeInTheDocument();
+    expect(screen.getByText(/recovery material/i)).toBeInTheDocument();
+    expect(screen.queryByText(/recovery key:/i)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /review verification proposal/i }),
+    ).toBeDisabled();
   });
 
   it.each(MESSENGER_VARIANT_IDS)("renders the %s fixture state without claiming success", (variantId) => {

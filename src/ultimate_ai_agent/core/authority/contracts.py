@@ -18,6 +18,7 @@ from ultimate_ai_agent.core.authority.authority_constants import (
     AUTHORITY_STATE_LOCK_KEY,
     AUTHORITY_STATE_REDACTIONS,
     MATRIX_HARNESS_EXACT_AUTHORITY_BINDINGS,
+    MATRIX_CRYPTO_EXACT_AUTHORITY_BINDINGS,
     MATRIX_SESSION_EXACT_AUTHORITY_BINDINGS,
     MATRIX_SYNC_EXACT_AUTHORITY_BINDINGS,
 )
@@ -1136,7 +1137,11 @@ def _exact_authority_binding_catalog() -> dict[
         capability,
         adapter,
         tool,
-    ) in (*MATRIX_SESSION_EXACT_AUTHORITY_BINDINGS, *MATRIX_SYNC_EXACT_AUTHORITY_BINDINGS):
+    ) in (
+        *MATRIX_SESSION_EXACT_AUTHORITY_BINDINGS,
+        *MATRIX_SYNC_EXACT_AUTHORITY_BINDINGS,
+        *MATRIX_CRYPTO_EXACT_AUTHORITY_BINDINGS,
+    ):
         catalog[(lane, capability, adapter, tool)] = (
             AuthorityDomain(domain),
             AuthorityCapability(authority_capability),
@@ -1201,6 +1206,20 @@ def _exact_authority_issue_binding(
             ) in MATRIX_SYNC_EXACT_AUTHORITY_BINDINGS
         }
         is_matrix_sync_binding = exact_binding in sync_exact_bindings
+        crypto_exact_bindings = {
+            (lane, capability, adapter, tool)
+            for (
+                _domain,
+                _authority_capability,
+                _scope,
+                _mode,
+                lane,
+                capability,
+                adapter,
+                tool,
+            ) in MATRIX_CRYPTO_EXACT_AUTHORITY_BINDINGS
+        }
+        is_matrix_crypto_binding = exact_binding in crypto_exact_bindings
         session_binding_refs = {
             request.constraints.get("exact_start_deadline_ref"),
             request.constraints.get("exact_readiness_ref"),
@@ -1220,35 +1239,60 @@ def _exact_authority_issue_binding(
             isinstance(ref, str) for ref in sync_resource_refs
         ):
             return None
-        required_resource_refs.update(
-            {
-                "target-ref:communications:matrix-exact-homeserver",
-                (
-                    "credential-backend-ref:matrix:one-use-broker-v1"
-                    if is_matrix_sync_binding
-                    else "credential-backend-ref:matrix:macos-keychain-v1"
-                ),
-                (
-                    "budget-ref:communications:matrix-sync-zero-cost"
-                    if is_matrix_sync_binding
-                    else "budget-ref:communications:matrix-session-zero-cost"
-                ),
-                "kill-switch-ref:authority-lease-local",
-                (
-                    "safe-disable-ref:communications:matrix-sync"
-                    if is_matrix_sync_binding
-                    else "safe-disable-ref:communications:matrix-session"
-                ),
-                *session_binding_refs,
-                *(sync_resource_refs if is_matrix_sync_binding else set()),
+        if is_matrix_crypto_binding:
+            crypto_resource_refs = {
+                request.constraints.get("exact_store_backend_ref"),
+                request.constraints.get("exact_key_backend_ref"),
+                request.constraints.get("exact_backup_backend_ref"),
+                request.constraints.get("exact_kill_switch_ref"),
             }
-        )
-        allowed_target_refs = {"target-ref:communications:matrix-exact-homeserver"}
-        allowed_homeserver_refs = {
-            ref
-            for ref in (resource_constraint.allowed_refs if resource_constraint else [])
-            if ref.startswith("homeserver-ref:matrix:")
-        }
+            if not all(isinstance(ref, str) for ref in crypto_resource_refs):
+                return None
+            required_resource_refs.update(
+                {
+                    "target-ref:communications:matrix-crypto-exact-scope",
+                    "budget-ref:communications:matrix-crypto-zero-cost",
+                    "safe-disable-ref:communications:matrix-crypto",
+                    *session_binding_refs,
+                    *crypto_resource_refs,
+                }
+            )
+            allowed_target_refs = {
+                "target-ref:communications:matrix-crypto-exact-scope"
+            }
+            allowed_homeserver_refs: set[str] = set()
+        else:
+            required_resource_refs.update(
+                {
+                    "target-ref:communications:matrix-exact-homeserver",
+                    (
+                        "credential-backend-ref:matrix:one-use-broker-v1"
+                        if is_matrix_sync_binding
+                        else "credential-backend-ref:matrix:macos-keychain-v1"
+                    ),
+                    (
+                        "budget-ref:communications:matrix-sync-zero-cost"
+                        if is_matrix_sync_binding
+                        else "budget-ref:communications:matrix-session-zero-cost"
+                    ),
+                    "kill-switch-ref:authority-lease-local",
+                    (
+                        "safe-disable-ref:communications:matrix-sync"
+                        if is_matrix_sync_binding
+                        else "safe-disable-ref:communications:matrix-session"
+                    ),
+                    *session_binding_refs,
+                    *(sync_resource_refs if is_matrix_sync_binding else set()),
+                }
+            )
+            allowed_target_refs = {"target-ref:communications:matrix-exact-homeserver"}
+            allowed_homeserver_refs = {
+                ref
+                for ref in (
+                    resource_constraint.allowed_refs if resource_constraint else []
+                )
+                if ref.startswith("homeserver-ref:matrix:")
+            }
     else:
         required_resource_refs.update(
             {
@@ -1281,6 +1325,7 @@ def _exact_authority_issue_binding(
         and requested_target_refs == allowed_target_refs
         and (
             expected_scope != AuthorityLeaseScope.session
+            or is_matrix_crypto_binding
             or len(allowed_homeserver_refs) == 1
         )
         and operation_constraint is not None
@@ -4064,6 +4109,23 @@ REQUIRED_AUTHORITY_LANE_IDS = (
     "matrix.session.revoke_all",
     "matrix.session.credential_store_rotate",
     "matrix.session.credential_delete",
+    "matrix.crypto.crypto_store_initialize",
+    "matrix.crypto.crypto_store_key_rotate",
+    "matrix.crypto.crypto_store_key_delete",
+    "matrix.crypto.verification_request",
+    "matrix.crypto.verification_cancel",
+    "matrix.crypto.verification_confirm",
+    "matrix.crypto.device_revoke",
+    "matrix.crypto.cross_signing_bootstrap",
+    "matrix.crypto.backup_status_read",
+    "matrix.crypto.backup_configure",
+    "matrix.crypto.backup_rotate",
+    "matrix.crypto.recovery_restore",
+    "matrix.crypto.identity_reset",
+    "matrix.crypto.local_backup_create",
+    "matrix.crypto.local_backup_restore",
+    "matrix.crypto.local_backup_delete",
+    "matrix.crypto.local_backup_expiry_reconcile",
 )
 
 
@@ -4080,6 +4142,9 @@ def build_authority_lane_catalog_read_model(
     )
     from ultimate_ai_agent.core.communications.matrix_session.authority_surfaces import (
         build_matrix_session_lane_catalog_entries,
+    )
+    from ultimate_ai_agent.core.communications.matrix_crypto.authority_surfaces import (
+        build_matrix_crypto_lane_catalog_entries,
     )
 
     leases = active_leases or build_default_authority_leases()
@@ -4471,6 +4536,10 @@ def build_authority_lane_catalog_read_model(
             kill_switch_engaged=kill_switch_engaged,
         ),
         *build_matrix_session_lane_catalog_entries(
+            active_leases=leases,
+            kill_switch_engaged=kill_switch_engaged,
+        ),
+        *build_matrix_crypto_lane_catalog_entries(
             active_leases=leases,
             kill_switch_engaged=kill_switch_engaged,
         ),

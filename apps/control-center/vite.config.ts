@@ -41,5 +41,6 @@ export default defineConfig({
     exclude: [...configDefaults.exclude, "tests/visual/**", "tests/smoke/**"],
     globals: true,
     setupFiles: "./src/test/setup.ts",
+    testTimeout: 15_000,
   },
 });

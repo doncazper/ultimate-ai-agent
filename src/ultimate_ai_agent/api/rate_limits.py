@@ -36,6 +36,7 @@ TARGETED_RATE_LIMIT_GROUP_DEFAULTS: dict[str, dict[str, int]] = {
     "governed_runtime_pilot": {"max_requests": 30, "window_seconds": 60},
     "communications_matrix_harness": {"max_requests": 12, "window_seconds": 60},
     "communications_matrix_session": {"max_requests": 12, "window_seconds": 60},
+    "communications_matrix_crypto": {"max_requests": 12, "window_seconds": 60},
 }
 
 ACTION_PREVIEW_PROPOSAL_PATHS = {
@@ -164,6 +165,9 @@ COMMUNICATIONS_MATRIX_SESSION_PATHS = {
     "/control-center/communications/matrix/credential-store-rotate",
     "/control-center/communications/matrix/credential-delete",
 }
+COMMUNICATIONS_MATRIX_CRYPTO_PATHS = {
+    "/control-center/communications/matrix-crypto/proposal",
+}
 
 
 @dataclass(frozen=True)
@@ -279,6 +283,8 @@ def route_rate_limit_group(method: str, path: str) -> str | None:
         return "communications_matrix_harness"
     if normalized_method == "POST" and path in COMMUNICATIONS_MATRIX_SESSION_PATHS:
         return "communications_matrix_session"
+    if normalized_method == "POST" and path in COMMUNICATIONS_MATRIX_CRYPTO_PATHS:
+        return "communications_matrix_crypto"
     if normalized_method == "POST" and (
         path in GOVERNED_RUNTIME_MUTATING_PATHS
         or (

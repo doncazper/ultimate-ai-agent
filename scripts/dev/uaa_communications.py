@@ -56,6 +56,14 @@ from ultimate_ai_agent.core.communications.matrix_session import (  # noqa: E402
 from ultimate_ai_agent.core.communications.matrix_sync import (  # noqa: E402
     build_default_matrix_sync_posture,
 )
+from ultimate_ai_agent.core.communications.matrix_crypto import (  # noqa: E402
+    MatrixCryptoCommand,
+    MatrixCryptoOperation,
+    build_default_matrix_crypto_posture,
+    build_matrix_crypto_proposal,
+    matrix_crypto_rollback_ref,
+    matrix_crypto_request_fingerprint_ref,
+)
 from ultimate_ai_agent.core.time import utc_now  # noqa: E402
 
 
@@ -134,8 +142,14 @@ def _render_security(service: CommunicationsService, as_json: bool) -> int:
     print(f"- Encryption: {posture.encryption_posture_ref}")
     print(f"- Key lifecycle: {posture.key_lifecycle_posture_ref}")
     print(f"- Cache: {posture.cache_posture_ref}")
+    print(f"- Crypto runtime: {posture.crypto_runtime_status.value}")
+    print(f"- Exact authority lanes: {len(posture.crypto_authority_lane_refs)}")
+    print(f"- Live crypto executors: {len(posture.crypto_live_executor_refs)}")
+    print(f"- Recovery: {posture.recovery_posture_ref}")
     print(f"- Blockers: {', '.join(posture.blocker_codes)}")
-    print("No credentials, crypto runtime, or local cache were opened.")
+    print(
+        "No credentials, recovery material, crypto runtime, or local cache were opened."
+    )
     return 0
 
 
@@ -149,8 +163,7 @@ def _render_matrix_sync_posture(as_json: bool) -> int:
     print(f"- Freshness: {posture.freshness.value}")
     print(f"- Declared authority lanes: {len(posture.authority_lane_refs)}")
     print(
-        "- Concrete GET transports: "
-        f"{len(posture.concrete_transport_operation_refs)}"
+        f"- Concrete GET transports: {len(posture.concrete_transport_operation_refs)}"
     )
     print(
         "- Uncomposed exact executors: "
@@ -159,8 +172,93 @@ def _render_matrix_sync_posture(as_json: bool) -> int:
     print(f"- Blockers: {', '.join(posture.blocker_refs)}")
     print("- External writes: denied")
     print("- Message sends: denied")
-    print("- Encrypted events: placeholder only until MSG-MX-007")
+    print("- Encrypted events: placeholder only; persistent crypto is adapter-required")
     print("No credential, message content, provider payload, or local path is shown.")
+    return 0
+
+
+def _render_matrix_crypto_posture(as_json: bool) -> int:
+    posture = build_default_matrix_crypto_posture()
+    if as_json:
+        _json(posture)
+        return 0
+    print("Matrix encryption and recovery")
+    print(f"- Runtime: {posture.runtime_status.value}")
+    print(f"- Freshness: {posture.freshness.value}")
+    print(f"- Accepted exact authority lanes: {len(posture.authority_lane_refs)}")
+    print(f"- Live executors: {len(posture.live_executor_operation_refs)}")
+    print(f"- Blocked operations: {len(posture.blocked_operation_refs)}")
+    print(f"- Element interoperability: {posture.element_interoperability_status}")
+    print(f"- Blockers: {', '.join(posture.blocker_refs)}")
+    print("Recovery material and raw crypto payloads are never displayed.")
+    return 0
+
+
+def _matrix_crypto_command(args: argparse.Namespace) -> MatrixCryptoCommand:
+    operation = MatrixCryptoOperation(args.crypto_operation.replace("-", "_"))
+    request_created_at = utc_now()
+    start_deadline = request_created_at + timedelta(seconds=args.deadline_seconds)
+    values: dict[str, object] = {
+        "operation": operation,
+        "request_ref": args.request_ref,
+        "task_ref": args.task_ref,
+        "mission_ref": args.mission_ref,
+        "run_ref": args.run_ref,
+        "dispatch_ref": args.dispatch_ref,
+        "idempotency_ref": args.idempotency_ref,
+        "lease_ref": args.lease_ref,
+        "account_ref": args.account_ref,
+        "device_ref": args.device_ref,
+        "peer_device_ref": args.peer_device_ref,
+        "crypto_store_ref": args.crypto_store_ref,
+        "store_schema_ref": args.store_schema_ref,
+        "store_generation_ref": args.store_generation_ref,
+        "crypto_key_item_ref": args.crypto_key_item_ref,
+        "crypto_key_version_ref": args.crypto_key_version_ref,
+        "next_crypto_key_version_ref": args.next_crypto_key_version_ref,
+        "verification_transaction_ref": args.verification_transaction_ref,
+        "verification_method_ref": args.verification_method_ref,
+        "verification_generation_ref": args.verification_generation_ref,
+        "transcript_hash_ref": args.transcript_hash_ref,
+        "cross_signing_generation_ref": args.cross_signing_generation_ref,
+        "backup_ref": args.backup_ref,
+        "backup_version_ref": args.backup_version_ref,
+        "next_backup_version_ref": args.next_backup_version_ref,
+        "backup_integrity_ref": args.backup_integrity_ref,
+        "backup_key_item_ref": args.backup_key_item_ref,
+        "backup_key_version_ref": args.backup_key_version_ref,
+        "staging_store_ref": args.staging_store_ref,
+        "recovery_target_ref": args.recovery_target_ref,
+        "recovery_attempt_ref": args.recovery_attempt_ref,
+        "consequence_review_ref": args.consequence_review_ref,
+        "readiness_ref": args.readiness_ref,
+        "rollback_ref": matrix_crypto_rollback_ref(operation),
+        "request_created_at": request_created_at,
+        "start_deadline": start_deadline,
+    }
+    values["request_fingerprint_ref"] = matrix_crypto_request_fingerprint_ref(**values)
+    return MatrixCryptoCommand(**values)
+
+
+def _render_matrix_crypto_proposal(args: argparse.Namespace) -> int:
+    try:
+        proposal = build_matrix_crypto_proposal(_matrix_crypto_command(args))
+    except ValueError:
+        print("Matrix crypto proposal blocked (reference-only diagnostic).")
+        return 2
+    if args.json:
+        _json(proposal)
+        return 0
+    print("Matrix crypto proposal")
+    print(f"- Operation: {proposal.operation.value}")
+    print(f"- Proposal: {proposal.proposal_ref}")
+    print(f"- Required mode: {proposal.required_mode}")
+    print(f"- Approval required: {str(proposal.approval_required).lower()}")
+    print(f"- Execution permitted: {str(proposal.execution_permitted).lower()}")
+    print(f"- Blockers: {', '.join(proposal.blocker_refs)}")
+    print(
+        "No key, recovery material, store mutation, device trust change, or backup action occurred."
+    )
     return 0
 
 
@@ -436,6 +534,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Inspect backend-owned Matrix read-only sync and cache posture.",
     )
     sync_posture.add_argument("--json", action="store_true", help="Emit safe JSON.")
+    crypto_posture = subparsers.add_parser(
+        "matrix-crypto-status",
+        help="Inspect backend-owned Matrix encryption and recovery posture.",
+    )
+    crypto_posture.add_argument("--json", action="store_true", help="Emit safe JSON.")
     for name in ("rooms", "failed-sends"):
         command = subparsers.add_parser(name)
         command.add_argument("--limit", type=int, default=25)
@@ -525,6 +628,57 @@ def build_parser() -> argparse.ArgumentParser:
         command.add_argument("--deadline-seconds", type=int, default=120)
         command.add_argument("--confirm", action="store_true")
         command.add_argument("--json", action="store_true", help="Emit safe JSON.")
+    crypto = subparsers.add_parser(
+        "matrix-crypto",
+        help="Review one exact Matrix crypto proposal; live execution is blocked.",
+    )
+    crypto_actions = crypto.add_subparsers(dest="crypto_action", required=True)
+    propose = crypto_actions.add_parser("propose")
+    proposal_operations = propose.add_subparsers(dest="crypto_operation", required=True)
+    common_required = (
+        "request-ref",
+        "task-ref",
+        "mission-ref",
+        "run-ref",
+        "dispatch-ref",
+        "idempotency-ref",
+        "lease-ref",
+        "account-ref",
+        "device-ref",
+        "crypto-store-ref",
+        "store-schema-ref",
+        "store-generation-ref",
+        "crypto-key-item-ref",
+        "crypto-key-version-ref",
+        "cross-signing-generation-ref",
+        "backup-ref",
+        "backup-version-ref",
+        "backup-integrity-ref",
+        "backup-key-item-ref",
+        "backup-key-version-ref",
+        "recovery-target-ref",
+        "recovery-attempt-ref",
+        "readiness-ref",
+    )
+    operation_specific = (
+        "peer-device-ref",
+        "next-crypto-key-version-ref",
+        "verification-transaction-ref",
+        "verification-method-ref",
+        "verification-generation-ref",
+        "transcript-hash-ref",
+        "next-backup-version-ref",
+        "staging-store-ref",
+        "consequence-review-ref",
+    )
+    for operation in MatrixCryptoOperation:
+        command = proposal_operations.add_parser(operation.value.replace("_", "-"))
+        for name in common_required:
+            command.add_argument(f"--{name}", required=True)
+        for name in operation_specific:
+            command.add_argument(f"--{name}")
+        command.add_argument("--deadline-seconds", type=int, default=120)
+        command.add_argument("--json", action="store_true", help="Emit safe JSON.")
     return parser
 
 
@@ -539,6 +693,8 @@ def main(
         return _run_matrix_harness(args)
     if args.command == "matrix-session":
         return _run_matrix_session(args)
+    if args.command == "matrix-crypto":
+        return _render_matrix_crypto_proposal(args)
     if args.command == "providers":
         return _render_providers(active_service, args.json)
     if args.command == "session":
@@ -551,6 +707,8 @@ def main(
         return _render_security(active_service, args.json)
     if args.command == "matrix-sync-status":
         return _render_matrix_sync_posture(args.json)
+    if args.command == "matrix-crypto-status":
+        return _render_matrix_crypto_posture(args.json)
     return _render_receipt(active_service, args.json, args.receipt_ref)
 
 

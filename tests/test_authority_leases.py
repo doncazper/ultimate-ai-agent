@@ -39,6 +39,7 @@ from ultimate_ai_agent.core.authority.approval_validation import (
     build_authority_lease_test_grant,
     validate_authority_lease_approval,
 )
+from ultimate_ai_agent.core.communications.matrix_crypto import MATRIX_CRYPTO_LANES
 from ultimate_ai_agent.core.runtime_gateway import (
     RuntimeAuthority,
     RuntimeInvocationRequest,
@@ -1311,7 +1312,7 @@ def test_authority_lane_catalog_v1_normalizes_required_lanes_without_execution()
         catalog["cli_ref"]
         == "repo-local-command:uaa-runtime-inspect-authority-lane-catalog"
     )
-    assert catalog["entry_count"] == 27
+    assert catalog["entry_count"] == 44
     assert catalog["missing_required_lane_ids"] == []
     assert set(catalog["required_lane_ids"]) == {
         "local.verify.focused_pytest",
@@ -1340,10 +1341,12 @@ def test_authority_lane_catalog_v1_normalizes_required_lanes_without_execution()
         "matrix.session.revoke_all",
         "matrix.session.credential_store_rotate",
         "matrix.session.credential_delete",
+    } | {
+        f"matrix.crypto.{operation.value}" for operation in MATRIX_CRYPTO_LANES
     }
     assert catalog["status_counts"] == {
         "approval_required": 10,
-        "blocked": 9,
+        "blocked": 26,
         "implemented": 7,
         "proposal_only": 1,
     }
@@ -1475,7 +1478,7 @@ def test_authority_state_embeds_authority_lane_catalog_v1() -> None:
     catalog = read_model.model_dump(mode="json")["authority_lane_catalog"]
 
     assert catalog["contract_ref"] == AUTHORITY_LANE_CATALOG_CONTRACT_REF
-    assert catalog["entry_count"] == 27
+    assert catalog["entry_count"] == 44
     assert _authority_lane_by_id(catalog, "code.apply_exact_patch")["status"] == (
         "blocked"
     )
@@ -2509,7 +2512,7 @@ def test_authority_state_api_cli_and_settings_surface(
     )
     authority_lane_catalog = runtime_body["data"]["authority_lane_catalog"]
     assert authority_lane_catalog["contract_ref"] == AUTHORITY_LANE_CATALOG_CONTRACT_REF
-    assert authority_lane_catalog["entry_count"] == 27
+    assert authority_lane_catalog["entry_count"] == 44
     assert (
         _authority_lane_by_id(authority_lane_catalog, "code.apply_exact_patch")[
             "status"
@@ -2611,7 +2614,7 @@ def test_authority_state_api_cli_and_settings_surface(
     assert authority_state["decision_summary"]["total_capabilities"] == len(
         authority_state["decision_catalog"]
     )
-    assert authority_state["authority_lane_catalog"]["entry_count"] == 27
+    assert authority_state["authority_lane_catalog"]["entry_count"] == 44
     assert len(authority_state["domain_readiness"]) == len(
         authority_state["target_domains"]
     )
@@ -2658,7 +2661,7 @@ def test_authority_state_api_cli_and_settings_surface(
     )
     lane_catalog = lane_catalog_payload["authority_lane_catalog_read_model"]
     assert lane_catalog["contract_ref"] == AUTHORITY_LANE_CATALOG_CONTRACT_REF
-    assert lane_catalog["entry_count"] == 27
+    assert lane_catalog["entry_count"] == 44
     assert lane_catalog_payload["safe_refs_only"] is True
     assert lane_catalog_payload["execution_performed"] is False
 
