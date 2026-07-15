@@ -465,6 +465,19 @@ The legacy unsigned-v1 `blocked_signing_lifecycle_not_implemented` value may be
 shown only as an artifact-format compatibility field, never as the current
 managed-signing lifecycle status.
 
+## Messenger Sync Language
+
+Messenger may say “twelve exact authority lanes declared; two GET transports
+and protected-cache/key primitives loopback-tested” and show backend-owned
+readiness, freshness, blocker, and evidence refs. It must state that the other
+ten canonical dispatch executors remain uncomposed and fail closed. It must
+also say that live account sync is configuration-required until enrollment and
+the protected-cache helper are proven. The room and timeline UI remains
+synthetic fixture content; it must not imply that displayed messages came from
+an account. External message content is untrusted and never authority.
+Encrypted content materialization, sends, room writes, media, public release,
+and production authority remain blocked.
+
 ## Current Gaps
 
 The current Control Center still has blocked, mock-only, local-state-only, and

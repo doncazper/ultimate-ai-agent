@@ -64,13 +64,21 @@ def test_control_center_release_surface_manifest_covers_visible_routes() -> None
     by_path = {route["path"]: route for route in manifest["routes"]}
     assert by_path["/start"]["status"] == "partial"
     assert by_path["/messenger"]["status"] == "experimental"
-    assert by_path["/messenger"]["backend_routes"] == []
-    assert by_path["/messenger"]["side_effect_class"] == "local_ui_state_only"
+    assert by_path["/messenger"]["backend_routes"] == [
+        {
+            "method": "GET",
+            "path": "/control-center/communications/matrix-sync/posture",
+            "operation_id": "get_control_center_communications_matrix_sync_posture",
+            "side_effect_class": "none",
+            "route_classification": "local_sensitive",
+        }
+    ]
+    assert by_path["/messenger"]["side_effect_class"] == "none"
     assert "missing_backend:matrix-message-send" in by_path["/messenger"][
         "blocked_capabilities"
     ]
     assert any(
-        "synthetic desktop fixtures only" in caveat
+        "synthetic preview data" in caveat
         for caveat in by_path["/messenger"]["product_language_caveats"]
     )
     assert by_path["/start"]["backend_routes"][0]["path"] == (

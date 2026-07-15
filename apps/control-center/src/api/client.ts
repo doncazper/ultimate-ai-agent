@@ -22,6 +22,7 @@ import type {
   CommunicationsRoomPage,
   CommunicationsSecurityPosture,
   CommunicationsSessionPosture,
+  MatrixSyncPosture,
   CodingCockpitSessionReadModel,
   CodingWorkspaceContextReadModel,
   ControlCenterDashboardSnapshot,
@@ -638,6 +639,85 @@ export async function loadCommunicationsSessionPosture(): Promise<Communications
     throw new Error("Communications session response failed safe validation.");
   }
   return value as unknown as CommunicationsSessionPosture;
+}
+
+export async function loadMatrixSyncPosture(): Promise<MatrixSyncPosture> {
+  const value = await readEnvelope<unknown>(
+    API_ENDPOINTS.communicationsMatrixSyncPosture,
+  );
+  if (
+    !isCommunicationsRecord(value) ||
+    !hasExactCommunicationsKeys(value, [
+      "schema_version",
+      "provider_ref",
+      "adapter_ref",
+      "runtime_status",
+      "freshness",
+      "credential_posture_ref",
+      "cache_posture_ref",
+      "authority_lane_refs",
+      "concrete_transport_operation_refs",
+      "uncomposed_executor_operation_refs",
+      "blocker_refs",
+      "evidence_refs",
+      "safe_summary",
+      "sync_enabled",
+      "connector_writes_enabled",
+      "message_sends_enabled",
+      "browser_automation_enabled",
+      "encrypted_content_materialization_enabled",
+      "content_untrusted",
+      "not_instruction_authority",
+      "raw_content_included",
+      "desktop_only",
+    ]) ||
+    value.schema_version !== "uaa-matrix-sync-posture.v1" ||
+    value.provider_ref !== "provider-ref:communications:matrix" ||
+    !isCommunicationsSafeRef(value.adapter_ref) ||
+    ![
+      "ready",
+      "configuration_required",
+      "blocked",
+      "unavailable",
+      "unknown",
+    ].includes(String(value.runtime_status)) ||
+    !["current", "stale", "unknown", "locked", "unavailable"].includes(
+      String(value.freshness),
+    ) ||
+    !isCommunicationsSafeRef(value.credential_posture_ref) ||
+    !isCommunicationsSafeRef(value.cache_posture_ref) ||
+    !isCommunicationsSafeRefArray(value.authority_lane_refs, 32) ||
+    !isCommunicationsSafeRefArray(value.concrete_transport_operation_refs, 2) ||
+    !isCommunicationsSafeRefArray(value.uncomposed_executor_operation_refs, 10) ||
+    !isCommunicationsSafeRefArray(value.blocker_refs, 32) ||
+    !isCommunicationsSafeRefArray(value.evidence_refs, 32) ||
+    value.authority_lane_refs.length !== 12 ||
+    value.concrete_transport_operation_refs.length !== 2 ||
+    value.uncomposed_executor_operation_refs.length !== 10 ||
+    new Set(value.authority_lane_refs).size !== 12 ||
+    new Set(value.concrete_transport_operation_refs).size !== 2 ||
+    new Set(value.uncomposed_executor_operation_refs).size !== 10 ||
+    new Set(value.blocker_refs).size !== value.blocker_refs.length ||
+    new Set(value.evidence_refs).size !== value.evidence_refs.length ||
+    !isCommunicationsSafeSummary(value.safe_summary) ||
+    typeof value.sync_enabled !== "boolean" ||
+    value.sync_enabled !== (value.runtime_status === "ready") ||
+    (value.runtime_status === "ready" &&
+      (value.freshness !== "current" || value.blocker_refs.length !== 0)) ||
+    (value.runtime_status === "configuration_required" &&
+      value.blocker_refs.length === 0) ||
+    value.connector_writes_enabled !== false ||
+    value.message_sends_enabled !== false ||
+    value.browser_automation_enabled !== false ||
+    value.encrypted_content_materialization_enabled !== false ||
+    value.content_untrusted !== true ||
+    value.not_instruction_authority !== true ||
+    value.raw_content_included !== false ||
+    value.desktop_only !== true
+  ) {
+    throw new Error("Matrix sync posture response failed safe validation.");
+  }
+  return value as unknown as MatrixSyncPosture;
 }
 
 function isSafeCommunicationConversation(

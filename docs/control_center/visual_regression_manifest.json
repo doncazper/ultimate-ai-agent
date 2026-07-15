@@ -231,7 +231,7 @@
           "width": 1440,
           "height": 900,
           "baseline_file_ref": "visual-baseline-file:desktop:messenger-founder-wide",
-          "baseline_hash": "sha256:f7288f61f20cf17768c5f6d87f56d9d85029c9f6e4b7e1f48111e28f21a6785f"
+          "baseline_hash": "sha256:005786cec998ca5c937dc02c7c0744f3fe47207313f7b1925271826583327b6d"
         },
         "personal-wide": {
           "surface_id": "personal",
@@ -239,7 +239,7 @@
           "width": 1440,
           "height": 900,
           "baseline_file_ref": "visual-baseline-file:desktop:messenger-personal-wide",
-          "baseline_hash": "sha256:e669a465f397aa94dc85fa776e36f436b83d3c6e2399c68eea61874fb031cfe6"
+          "baseline_hash": "sha256:6b0026f6723fabaf93b7aa9f0fcd45c6d5cc92f47ce8d3ba21937db95383b866"
         },
         "dm-wide": {
           "surface_id": "dm",
@@ -247,7 +247,7 @@
           "width": 1440,
           "height": 900,
           "baseline_file_ref": "visual-baseline-file:desktop:messenger-dm-wide",
-          "baseline_hash": "sha256:c9353545d6ca800a65f302e18fe4f94a26d2d7fe596f76dd97a1ea41f9b1ea08"
+          "baseline_hash": "sha256:fd932447559d5c94a7c4b99da30da01d5787ec5923d3583e2f1c203284a01cae"
         },
         "group-wide": {
           "surface_id": "group",
@@ -255,7 +255,7 @@
           "width": 1440,
           "height": 900,
           "baseline_file_ref": "visual-baseline-file:desktop:messenger-group-wide",
-          "baseline_hash": "sha256:9ee08be89cde5c31b2bb4f234a39847a087992934381bc1dfc61b7df7e20d5a9"
+          "baseline_hash": "sha256:727e916332e1c26f2d1bc615f167fd3c978752e96a2aa28f58fc1f57990cfb61"
         },
         "threads-wide": {
           "surface_id": "threads",
@@ -263,7 +263,7 @@
           "width": 1440,
           "height": 900,
           "baseline_file_ref": "visual-baseline-file:desktop:messenger-threads-wide",
-          "baseline_hash": "sha256:7956a07a9ab260569f8a151385b2a32e58953c308fdf0e340eca910a7c787da4"
+          "baseline_hash": "sha256:2435913a5c49fe68f520efe33380bf222cb562b659f7da48be981dbc4640738c"
         },
         "search-wide": {
           "surface_id": "search",
@@ -271,7 +271,7 @@
           "width": 1440,
           "height": 900,
           "baseline_file_ref": "visual-baseline-file:desktop:messenger-search-wide",
-          "baseline_hash": "sha256:3131554bd0f7c8a0e1dec7a5967b1681ff65ff5a5582a7b9216a52bbdca08cb6"
+          "baseline_hash": "sha256:16f6ff28027ffceccf657e188730d24243fb6748f9828f9d6c8a356e4ec61c20"
         },
         "room-info-wide": {
           "surface_id": "room-info",
@@ -279,7 +279,7 @@
           "width": 1440,
           "height": 900,
           "baseline_file_ref": "visual-baseline-file:desktop:messenger-room-info-wide",
-          "baseline_hash": "sha256:41f071a2777f5820b6498a94639e1dcc40f4b49cc9ed97258df4fcfb9424a885"
+          "baseline_hash": "sha256:39b771a4ed21b656852e278cd435719fc7612c1a80343d1aa2e3b564fbf6daf4"
         },
         "invite-wide": {
           "surface_id": "invite",
@@ -287,7 +287,7 @@
           "width": 1440,
           "height": 900,
           "baseline_file_ref": "visual-baseline-file:desktop:messenger-invite-wide",
-          "baseline_hash": "sha256:0a4b6a9d4f42349ee90202fe46c1cf54f9c39fb9b20005287b3aecc2fbbf8039"
+          "baseline_hash": "sha256:0dbefd9d2abaa87b3d8937e31d1eaed9cad128419e44cfeafcd7a4193e6ddff0"
         },
         "room-settings-wide": {
           "surface_id": "room-settings",
@@ -295,7 +295,7 @@
           "width": 1440,
           "height": 900,
           "baseline_file_ref": "visual-baseline-file:desktop:messenger-room-settings-wide",
-          "baseline_hash": "sha256:cff2e28f460e21e608936bbc1d025388eded127fc519f8b695bd25e5a908e166"
+          "baseline_hash": "sha256:228638805eb30f42d2d6f1b023504366d461bc091bb18a55a14350d9d5a57ecb"
         },
         "sessions-wide": {
           "surface_id": "sessions",
@@ -311,7 +311,7 @@
           "width": 1440,
           "height": 900,
           "baseline_file_ref": "visual-baseline-file:desktop:messenger-intelligence-wide",
-          "baseline_hash": "sha256:ea8d5939b5f8f610abcbd001e7b93b8c4e1da2ee7055f40e1b5dc48d113c2247"
+          "baseline_hash": "sha256:c79d26186b0ef0eb4e19cdecc46585978caff0ed51cf21d60aca6b090bc28fd6"
         },
         "recovery-wide": {
           "surface_id": "recovery",
@@ -319,7 +319,7 @@
           "width": 1440,
           "height": 900,
           "baseline_file_ref": "visual-baseline-file:desktop:messenger-recovery-wide",
-          "baseline_hash": "sha256:adeab09c0e4e19c7903832906e59ea917e1d8f359f48239256bfe257781531f5"
+          "baseline_hash": "sha256:5e38480a2a06aabcb19d749968fe94b6fecb3efafa5a537d539bd558f0fe3c7a"
         },
         "dark-wide": {
           "surface_id": "dark",
@@ -327,7 +327,7 @@
           "width": 1440,
           "height": 900,
           "baseline_file_ref": "visual-baseline-file:desktop:messenger-dark-wide",
-          "baseline_hash": "sha256:381d241f1acbe90991357b03eae68997b4b13ba6df057e3987eed24a37133497"
+          "baseline_hash": "sha256:47f9cfc6c95b6e2363accea114e16a066652d5f5b58fe74277bb9874caa21e20"
         },
         "calling-wide": {
           "surface_id": "calling",
@@ -343,7 +343,7 @@
           "width": 1440,
           "height": 900,
           "baseline_file_ref": "visual-baseline-file:desktop:messenger-setup-wide",
-          "baseline_hash": "sha256:be5b2eeaa6cfb629a247cce1a80c307eca2899386eded975453b99bd4810e179"
+          "baseline_hash": "sha256:a15b484aff638e3aac0153dddefffab39d8bbd37620f5370f2596904b661579d"
         },
         "founder-compact": {
           "surface_id": "founder",
@@ -351,7 +351,7 @@
           "width": 1180,
           "height": 800,
           "baseline_file_ref": "visual-baseline-file:desktop:messenger-founder-compact",
-          "baseline_hash": "sha256:cda4c3fe937d58c924a64d6598a69105555958649bdefea378539cd26eda5dfe"
+          "baseline_hash": "sha256:ffea36bc36b024c4951e528ae2b82fad5de7cf69d2626106ad926a9c1886d5b3"
         },
         "personal-compact": {
           "surface_id": "personal",
@@ -359,7 +359,7 @@
           "width": 1180,
           "height": 800,
           "baseline_file_ref": "visual-baseline-file:desktop:messenger-personal-compact",
-          "baseline_hash": "sha256:64bf48f3b593cb6074fd1c7d4b2d3f856b2425b34216ff5e1d91f74fed4e6936"
+          "baseline_hash": "sha256:5b960266b4501fa659bdac23d3ad1d57d94c860c808312356e10fbffad6ef2cc"
         },
         "dm-compact": {
           "surface_id": "dm",
@@ -367,7 +367,7 @@
           "width": 1180,
           "height": 800,
           "baseline_file_ref": "visual-baseline-file:desktop:messenger-dm-compact",
-          "baseline_hash": "sha256:29f34c828571da7d8a2e988b291cc7d705d91687ac61d93796cec1ef7867a54a"
+          "baseline_hash": "sha256:54f27f43677123f8bf4fa22202233c38c6c5a7528c57104b7d77669c9ce58945"
         },
         "group-compact": {
           "surface_id": "group",
@@ -375,7 +375,7 @@
           "width": 1180,
           "height": 800,
           "baseline_file_ref": "visual-baseline-file:desktop:messenger-group-compact",
-          "baseline_hash": "sha256:bff56aaa30daf4e4a78a22e7ff49fc9589230e208adf8794293c5e270774663f"
+          "baseline_hash": "sha256:21106767488a61b62ef5e8bfdd847e9c43a5fea19dca6fefececf8b2cdc026d2"
         },
         "threads-compact": {
           "surface_id": "threads",
@@ -383,7 +383,7 @@
           "width": 1180,
           "height": 800,
           "baseline_file_ref": "visual-baseline-file:desktop:messenger-threads-compact",
-          "baseline_hash": "sha256:9c4ec35735e412a6264aede3e5365783f986f24d0c08ea9ee184ba8c7a1bb206"
+          "baseline_hash": "sha256:b0f692056a2f9a4a6922b29d2f6d27f87476bdb4b5266a0201aab6d0dd45a0ca"
         },
         "search-compact": {
           "surface_id": "search",
@@ -391,7 +391,7 @@
           "width": 1180,
           "height": 800,
           "baseline_file_ref": "visual-baseline-file:desktop:messenger-search-compact",
-          "baseline_hash": "sha256:2f242f22c6a1da0b0c77777a565516f9c336a4ef704817124be1913a7bc0891f"
+          "baseline_hash": "sha256:5ca4b68c5944c1d77a8a7447f1f09eacd7003df3dcdfb5f103cc93e536f5d662"
         },
         "room-info-compact": {
           "surface_id": "room-info",
@@ -399,7 +399,7 @@
           "width": 1180,
           "height": 800,
           "baseline_file_ref": "visual-baseline-file:desktop:messenger-room-info-compact",
-          "baseline_hash": "sha256:743d06628064cebdfce77a55719aa405f2fa44b38ce27bf8e19711dc7727c98e"
+          "baseline_hash": "sha256:a9bed793b1cd8fb3c5d9222dabb53bc9eb65cdc6fa9e627915df35d7039aaa4d"
         },
         "invite-compact": {
           "surface_id": "invite",
@@ -407,7 +407,7 @@
           "width": 1180,
           "height": 800,
           "baseline_file_ref": "visual-baseline-file:desktop:messenger-invite-compact",
-          "baseline_hash": "sha256:8072a197dc95d8df5901505cbda7db586dc1a3b87c9983b226b1e9e98b45e2f9"
+          "baseline_hash": "sha256:f159974601291b229a6e89ec5a4bce6125e814bb76c6e14739fef88ad4b79de4"
         },
         "room-settings-compact": {
           "surface_id": "room-settings",
@@ -415,7 +415,7 @@
           "width": 1180,
           "height": 800,
           "baseline_file_ref": "visual-baseline-file:desktop:messenger-room-settings-compact",
-          "baseline_hash": "sha256:fa107269e7623ba63e804fb99c386c265aee924a66f1f33b5d0d626932ca16fb"
+          "baseline_hash": "sha256:9c86407055f4d95f8a67bccf2356fd8fcf8e18302f0fa4717419bb453af95d67"
         },
         "sessions-compact": {
           "surface_id": "sessions",
@@ -431,7 +431,7 @@
           "width": 1180,
           "height": 800,
           "baseline_file_ref": "visual-baseline-file:desktop:messenger-intelligence-compact",
-          "baseline_hash": "sha256:f5edb3249dc973e9a805d578738bfbe3650204cd2d4466de52575e564c1bfeff"
+          "baseline_hash": "sha256:cde0122501e409b9a66d4aa03dc8d8895d1c59e0c76238f5918f442b6f6fd482"
         },
         "recovery-compact": {
           "surface_id": "recovery",
@@ -439,7 +439,7 @@
           "width": 1180,
           "height": 800,
           "baseline_file_ref": "visual-baseline-file:desktop:messenger-recovery-compact",
-          "baseline_hash": "sha256:ebc56c72a65bd95c17ba92f0a93ad1b5136af6a07add870fc6536cb53a4b5088"
+          "baseline_hash": "sha256:f86d8981ab09cdf11bb8e67b80db8bef7e10e604ac703d39eedba04581ce51b6"
         },
         "dark-compact": {
           "surface_id": "dark",
@@ -447,7 +447,7 @@
           "width": 1180,
           "height": 800,
           "baseline_file_ref": "visual-baseline-file:desktop:messenger-dark-compact",
-          "baseline_hash": "sha256:b8f17facb06613357efc289061bda8e404a204fb9596a6dac4957e41b38c525b"
+          "baseline_hash": "sha256:69c17519f016da673a16f6e5bd26f2204eb6b0892840921c7554837ef1047bbd"
         },
         "calling-compact": {
           "surface_id": "calling",
@@ -463,7 +463,7 @@
           "width": 1180,
           "height": 800,
           "baseline_file_ref": "visual-baseline-file:desktop:messenger-setup-compact",
-          "baseline_hash": "sha256:b19e91db3aade7af22d73c7ca959f6e28c3115cdbb6ec7d22381c4701645224a"
+          "baseline_hash": "sha256:b1430c93768387278777d75452537ec5844e17581a0e02442ff01b7e1284e80d"
         }
       },
       "raw_private_screenshot_included": false

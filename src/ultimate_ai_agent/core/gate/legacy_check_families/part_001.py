@@ -12,6 +12,10 @@ from ultimate_ai_agent.core.communications.matrix_session.static_safety import (
     is_exact_matrix_session_bounded_filesystem_site,
     is_exact_matrix_session_shell_scan_line,
 )
+from ultimate_ai_agent.core.communications.matrix_sync.static_safety import (
+    is_exact_matrix_cache_crypto_shell_scan_line,
+    is_exact_matrix_sync_transport_shell_scan_line,
+)
 
 
 class FoundationGateLegacyChecksPart001Mixin:
@@ -401,6 +405,18 @@ class FoundationGateLegacyChecksPart001Mixin:
             ):
                 continue
             if is_exact_matrix_session_shell_scan_line(
+                rel_path=path,
+                source=source,
+                stripped_line=stripped,
+            ):
+                continue
+            if is_exact_matrix_cache_crypto_shell_scan_line(
+                rel_path=path,
+                source=source,
+                stripped_line=stripped,
+            ):
+                continue
+            if is_exact_matrix_sync_transport_shell_scan_line(
                 rel_path=path,
                 source=source,
                 stripped_line=stripped,

@@ -174,6 +174,42 @@ export async function validateMatrixTarget(rawUrl, { lookup = dns.lookup, allowH
   return parsed;
 }
 
+export async function validateMatrixOperationTarget(
+  rawUrl,
+  {
+    lookup = dns.lookup,
+    allowHarness = false,
+    allowedQueryKeys = [],
+    maximumQueryValueBytes = 4096,
+  } = {},
+) {
+  assertCanonicalAuthorityInput(rawUrl);
+  let parsed;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    throw new MatrixTargetPolicyError("MATRIX_TARGET_URL_INVALID");
+  }
+  if (parsed.username || parsed.password || parsed.hash) {
+    throw new MatrixTargetPolicyError("MATRIX_TARGET_AUTHORITY_COMPONENT_DENIED");
+  }
+  const allowed = new Set(allowedQueryKeys);
+  const seen = new Set();
+  for (const [key, value] of parsed.searchParams.entries()) {
+    if (!allowed.has(key) || seen.has(key)) {
+      throw new MatrixTargetPolicyError("MATRIX_HTTP_QUERY_SCOPE_DENIED");
+    }
+    if (Buffer.byteLength(value, "utf8") > maximumQueryValueBytes) {
+      throw new MatrixTargetPolicyError("MATRIX_HTTP_QUERY_VALUE_TOO_LARGE");
+    }
+    seen.add(key);
+  }
+  const originOnly = new URL(parsed.href);
+  originOnly.search = "";
+  await validateMatrixTarget(originOnly.href, { lookup, allowHarness });
+  return parsed;
+}
+
 async function resolvePinnedAddress(target, lookup) {
   if (target.origin === HARNESS_ORIGIN) {
     return { address: "127.0.0.1", family: 4 };
@@ -207,7 +243,7 @@ async function requestBody(request) {
   return bytes;
 }
 
-async function pinnedNodeFetch(target, init, lookup) {
+async function pinnedNodeFetch(target, init, lookup, maximumResponseBytes) {
   const request = new Request(target, init);
   const body = await requestBody(request);
   const pinned = await resolvePinnedAddress(target, lookup);
@@ -236,7 +272,7 @@ async function pinnedNodeFetch(target, init, lookup) {
           return;
         }
         const declared = Number(incoming.headers["content-length"] || 0);
-        if (declared > MAX_RESPONSE_BYTES) {
+        if (declared > maximumResponseBytes) {
           incoming.destroy();
           reject(new MatrixTargetPolicyError("MATRIX_HTTP_RESPONSE_TOO_LARGE"));
           return;
@@ -245,7 +281,7 @@ async function pinnedNodeFetch(target, init, lookup) {
         let size = 0;
         incoming.on("data", (chunk) => {
           size += chunk.byteLength;
-          if (size > MAX_RESPONSE_BYTES) {
+          if (size > maximumResponseBytes) {
             incoming.destroy(new MatrixTargetPolicyError("MATRIX_HTTP_RESPONSE_TOO_LARGE"));
             return;
           }
@@ -271,17 +307,48 @@ export function createBoundedFetch({
   lookup = dns.lookup,
   allowHarness = false,
   allowedRequests = [],
+  allowedQueryKeysByPath = {},
+  allowedPathPatterns = [],
+  maximumResponseBytes = MAX_RESPONSE_BYTES,
+  maximumQueryValueBytes = 4096,
 } = {}) {
+  if (!Number.isInteger(maximumResponseBytes) ||
+      maximumResponseBytes < 1 || maximumResponseBytes > MAX_RESPONSE_BYTES) {
+    throw new MatrixTargetPolicyError("MATRIX_HTTP_RESPONSE_LIMIT_INVALID");
+  }
+  if (!Number.isInteger(maximumQueryValueBytes) ||
+      maximumQueryValueBytes < 1 || maximumQueryValueBytes > 64 * 1024) {
+    throw new MatrixTargetPolicyError("MATRIX_HTTP_QUERY_LIMIT_INVALID");
+  }
   const requestPolicy = new Set(allowedRequests);
   return async (input, init = {}) => {
     const sourceRequest = input instanceof Request ? input : null;
     const inputUrl = typeof input === "string" || input instanceof URL ? String(input) : input.url;
-    const target = await validateMatrixTarget(inputUrl, { lookup, allowHarness });
+    let rawTarget;
+    try {
+      rawTarget = new URL(inputUrl);
+    } catch {
+      throw new MatrixTargetPolicyError("MATRIX_TARGET_URL_INVALID");
+    }
+    const queryKeys = allowedQueryKeysByPath[rawTarget.pathname];
+    const target = rawTarget.search
+      ? await validateMatrixOperationTarget(inputUrl, {
+        lookup,
+        allowHarness,
+        allowedQueryKeys: queryKeys || [],
+        maximumQueryValueBytes,
+      })
+      : await validateMatrixTarget(inputUrl, { lookup, allowHarness });
     const method = String(init.method || sourceRequest?.method || "GET").toUpperCase();
     if (method !== "GET") {
       throw new MatrixTargetPolicyError("MATRIX_HTTP_METHOD_DENIED");
     }
-    if (!requestPolicy.has(`${method} ${target.pathname}`)) {
+    const exactAllowed = requestPolicy.has(`${method} ${target.pathname}`);
+    const patternAllowed = allowedPathPatterns.some(
+      ({ method: allowedMethod, pattern }) =>
+        method === allowedMethod && pattern instanceof RegExp && pattern.test(target.pathname),
+    );
+    if (!exactAllowed && !patternAllowed) {
       throw new MatrixTargetPolicyError("MATRIX_HTTP_OPERATION_SCOPE_DENIED");
     }
     let response;
@@ -306,22 +373,31 @@ export function createBoundedFetch({
         clearTimeout(timeout);
       }
     } else {
-      response = await pinnedNodeFetch(target, effectiveInit, lookup);
+      response = await pinnedNodeFetch(
+        target,
+        effectiveInit,
+        lookup,
+        maximumResponseBytes,
+      );
     }
     if (response.status >= 300 && response.status < 400) {
       throw new MatrixTargetPolicyError("MATRIX_HTTP_REDIRECT_DENIED");
     }
     const declared = Number(response.headers.get("content-length") || 0);
-    if (declared > MAX_RESPONSE_BYTES) {
+    if (declared > maximumResponseBytes) {
       throw new MatrixTargetPolicyError("MATRIX_HTTP_RESPONSE_TOO_LARGE");
     }
     return response;
   };
 }
 
-export async function boundedJson(response) {
+export async function boundedJson(response, maximumResponseBytes = MAX_RESPONSE_BYTES) {
+  if (!Number.isInteger(maximumResponseBytes) ||
+      maximumResponseBytes < 1 || maximumResponseBytes > MAX_RESPONSE_BYTES) {
+    throw new MatrixTargetPolicyError("MATRIX_HTTP_RESPONSE_LIMIT_INVALID");
+  }
   const bytes = new Uint8Array(await response.arrayBuffer());
-  if (bytes.byteLength > MAX_RESPONSE_BYTES) {
+  if (bytes.byteLength > maximumResponseBytes) {
     throw new MatrixTargetPolicyError("MATRIX_HTTP_RESPONSE_TOO_LARGE");
   }
   if (!response.ok) {

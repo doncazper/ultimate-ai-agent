@@ -265,11 +265,19 @@ def test_capability_surface_manifest_covers_current_visible_routes_and_actions()
         for capability in manifest["capabilities"]
         if capability["capability_id"] == "messenger_fixture_preview"
     )
-    assert messenger["api_routes"] == []
-    assert messenger["cli_paths"] == []
+    assert messenger["api_routes"] == [
+        {
+            "method": "GET",
+            "path": "/control-center/communications/matrix-sync/posture",
+            "operation_id": "get_control_center_communications_matrix_sync_posture",
+        }
+    ]
+    assert messenger["cli_paths"] == [
+        "scripts/dev/uaa_communications.py"
+    ]
     assert messenger["ui_routes"] == ["/messenger"]
     assert messenger["control_action_ids"] == ["navigate-messenger"]
-    assert messenger["status"] == "mock_or_static_only"
+    assert messenger["status"] == "partial_surface_coverage"
 
 
 def test_capability_surface_verifier_flags_missing_visible_route() -> None:

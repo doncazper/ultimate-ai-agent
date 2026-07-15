@@ -20,6 +20,8 @@ export const API_ENDPOINTS = {
   communicationsProviders: "/control-center/communications/providers",
   communicationsSessionPosture:
     "/control-center/communications/session-posture",
+  communicationsMatrixSyncPosture:
+    "/control-center/communications/matrix-sync/posture",
   communicationsRooms: "/control-center/communications/rooms",
   communicationsFailedSends: "/control-center/communications/failed-sends",
   communicationsSecurityPosture:

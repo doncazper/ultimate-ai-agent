@@ -19,6 +19,7 @@ from ultimate_ai_agent.core.authority.authority_constants import (
     AUTHORITY_STATE_REDACTIONS,
     MATRIX_HARNESS_EXACT_AUTHORITY_BINDINGS,
     MATRIX_SESSION_EXACT_AUTHORITY_BINDINGS,
+    MATRIX_SYNC_EXACT_AUTHORITY_BINDINGS,
 )
 from ultimate_ai_agent.core.authority.budget_contracts import AuthorityBudgetReadModel
 from ultimate_ai_agent.core.single_writer_lock import FileSingleWriterLockManager
@@ -1135,7 +1136,7 @@ def _exact_authority_binding_catalog() -> dict[
         capability,
         adapter,
         tool,
-    ) in MATRIX_SESSION_EXACT_AUTHORITY_BINDINGS:
+    ) in (*MATRIX_SESSION_EXACT_AUTHORITY_BINDINGS, *MATRIX_SYNC_EXACT_AUTHORITY_BINDINGS):
         catalog[(lane, capability, adapter, tool)] = (
             AuthorityDomain(domain),
             AuthorityCapability(authority_capability),
@@ -1186,6 +1187,20 @@ def _exact_authority_issue_binding(
         request.requested_lease_ref,
     }
     if expected_scope == AuthorityLeaseScope.session:
+        sync_exact_bindings = {
+            (lane, capability, adapter, tool)
+            for (
+                _domain,
+                _authority_capability,
+                _scope,
+                _mode,
+                lane,
+                capability,
+                adapter,
+                tool,
+            ) in MATRIX_SYNC_EXACT_AUTHORITY_BINDINGS
+        }
+        is_matrix_sync_binding = exact_binding in sync_exact_bindings
         session_binding_refs = {
             request.constraints.get("exact_start_deadline_ref"),
             request.constraints.get("exact_readiness_ref"),
@@ -1195,14 +1210,37 @@ def _exact_authority_issue_binding(
         }
         if not all(isinstance(ref, str) for ref in session_binding_refs):
             return None
+        sync_resource_refs = {
+            request.constraints.get("exact_cache_backend_ref"),
+            request.constraints.get("exact_cache_schema_ref"),
+            request.constraints.get("exact_retention_ref"),
+            request.constraints.get("exact_backup_posture_ref"),
+        }
+        if is_matrix_sync_binding and not all(
+            isinstance(ref, str) for ref in sync_resource_refs
+        ):
+            return None
         required_resource_refs.update(
             {
                 "target-ref:communications:matrix-exact-homeserver",
-                "credential-backend-ref:matrix:macos-keychain-v1",
-                "budget-ref:communications:matrix-session-zero-cost",
+                (
+                    "credential-backend-ref:matrix:one-use-broker-v1"
+                    if is_matrix_sync_binding
+                    else "credential-backend-ref:matrix:macos-keychain-v1"
+                ),
+                (
+                    "budget-ref:communications:matrix-sync-zero-cost"
+                    if is_matrix_sync_binding
+                    else "budget-ref:communications:matrix-session-zero-cost"
+                ),
                 "kill-switch-ref:authority-lease-local",
-                "safe-disable-ref:communications:matrix-session",
+                (
+                    "safe-disable-ref:communications:matrix-sync"
+                    if is_matrix_sync_binding
+                    else "safe-disable-ref:communications:matrix-session"
+                ),
                 *session_binding_refs,
+                *(sync_resource_refs if is_matrix_sync_binding else set()),
             }
         )
         allowed_target_refs = {"target-ref:communications:matrix-exact-homeserver"}

@@ -35,6 +35,7 @@ Ultimate AI Agent.command
 # Node / TypeScript future UI
 node_modules/
 tools/macos/matrix-session-keychain-helper/.build/
+tools/macos/matrix-protected-cache-helper/.build/
 dist/
 build/
 .next/

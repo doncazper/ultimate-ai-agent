@@ -46,6 +46,9 @@ from ultimate_ai_agent.core.communications.matrix_session import (
     capture_exact_matrix_session_approval,
     execute_matrix_session_command,
 )
+from ultimate_ai_agent.core.communications.matrix_sync import (
+    build_default_matrix_sync_posture,
+)
 
 
 router = APIRouter(prefix="/control-center/communications", tags=["control-center"])
@@ -394,6 +397,23 @@ def get_control_center_communications_session_posture(
     return _envelope(
         operation="control_center_communications_session_posture",
         trace_id=posture.session_ref,
+        data=posture.model_dump(mode="json"),
+    )
+
+
+@router.get(
+    "/matrix-sync/posture",
+    response_model=ResultEnvelope,
+    operation_id="get_control_center_communications_matrix_sync_posture",
+)
+def get_control_center_communications_matrix_sync_posture(
+    response: Response,
+) -> ResultEnvelope:
+    _no_store(response)
+    posture = build_default_matrix_sync_posture()
+    return _envelope(
+        operation="control_center_communications_matrix_sync_posture",
+        trace_id="communications-trace:matrix-sync-posture",
         data=posture.model_dump(mode="json"),
     )
 

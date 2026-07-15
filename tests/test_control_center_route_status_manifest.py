@@ -94,7 +94,15 @@ def test_control_center_route_status_manifest_covers_visible_actions() -> None:
         for action in visible_actions
         if action["action_id"] == "navigate-messenger"
     )
-    assert messenger_action["backend_routes"] == []
+    assert messenger_action["backend_routes"] == [
+        {
+            "method": "GET",
+            "path": "/control-center/communications/matrix-sync/posture",
+            "operation_id": "get_control_center_communications_matrix_sync_posture",
+            "side_effect_class": "none",
+            "route_classification": "local_sensitive",
+        }
+    ]
     assert messenger_action["side_effect_class"] == "local_ui_state_only"
     assert messenger_action["release_status"] == "mock_only_not_product_ready"
     assert "matrix-message-send" in messenger_action["missing_backend_routes"]

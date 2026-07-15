@@ -1,9 +1,9 @@
 {
-  "control_center_route_count": 120,
-  "fingerprint": "api-contract-fingerprint:sha256:7500f0ef24d2f0080b29361e4762d40614aa62e811d1ab7f7c389ac3a9e7cb7d",
+  "control_center_route_count": 121,
+  "fingerprint": "api-contract-fingerprint:sha256:827299d8ea9776b9e3c8bd1a62aaa060f93e383430598ddee3de1a9a42b6071e",
   "idempotency_audit_policy_ref": "idempotency:p1-084:mutating-routes:v1",
   "mutating_route_count": 70,
-  "openapi_path_count": 285,
+  "openapi_path_count": 286,
   "projection_fields": [
     "path",
     "method",
@@ -24,16 +24,16 @@
   ],
   "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
   "route_approval_posture_summary": {
-    "not_required_for_route_classification": 216,
+    "not_required_for_route_classification": 217,
     "required_before_mutation_authority": 70
   },
   "route_auth_posture_summary": {
-    "protected_local_bearer_required": 283,
+    "protected_local_bearer_required": 284,
     "public_metadata_no_auth": 3
   },
   "route_classification_summary": {
     "local_readonly": 29,
-    "local_sensitive": 184,
+    "local_sensitive": 185,
     "mutating_requires_authority": 70,
     "public_metadata": 3
   },
@@ -43,14 +43,14 @@
     "local_sensitive",
     "mutating_requires_authority"
   ],
-  "route_count": 286,
+  "route_count": 287,
   "route_idempotency_posture_summary": {
-    "not_required_for_route_classification": 216,
+    "not_required_for_route_classification": 217,
     "required_before_mutation_authority": 70
   },
-  "route_operation_count": 286,
+  "route_operation_count": 287,
   "route_rate_limit_posture_summary": {
-    "not_targeted_for_route": 192,
+    "not_targeted_for_route": 193,
     "targeted_local_fixed_window": 94
   },
   "routes": [
@@ -2150,6 +2150,26 @@
       "route_classification": "mutating_requires_authority",
       "side_effect_class": "local_dev_workspace_only",
       "summary": "Post control center communications harness stop",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "not_required_for_route_classification",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": null,
+      "idempotency_posture": "not_required_for_route_classification",
+      "idempotency_required": false,
+      "method": "GET",
+      "operation_id": "get_control_center_communications_matrix_sync_posture",
+      "path": "/control-center/communications/matrix-sync/posture",
+      "rate_limit_group": null,
+      "rate_limit_policy_ref": null,
+      "rate_limit_posture": "not_targeted_for_route",
+      "rate_limit_targeted": false,
+      "route_classification": "local_sensitive",
+      "side_effect_class": "none",
+      "summary": "Get control center communications matrix sync posture",
       "tags": [
         "control-center"
       ]

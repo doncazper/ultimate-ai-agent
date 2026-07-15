@@ -3792,7 +3792,7 @@ describe("Web Control Center shell", () => {
     }
   });
 
-  it("renders the Messenger desktop fixture without backend reads or retries", async () => {
+  it("renders the Messenger desktop fixture with backend-owned sync posture only", async () => {
     const fetchMock = mockFetchWithFallback();
     window.history.pushState({}, "", "/messenger?view=founder");
     const view = render(<App />);
@@ -3802,13 +3802,14 @@ describe("Web Control Center shell", () => {
         screen.getByRole("heading", { name: "UAA Development" }),
       ).toBeInTheDocument();
       expect(screen.getByText("Fixture-only preview")).toBeInTheDocument();
-      expect(
-        screen.getByText(/No Matrix account connected/i),
-      ).toBeInTheDocument();
+      expect(screen.getByText(/Loading Matrix sync posture/i)).toBeInTheDocument();
       await act(async () => {
         await Promise.resolve();
       });
-      expect(fetchMock).not.toHaveBeenCalled();
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/control-center/communications/matrix-sync/posture",
+        expect.any(Object),
+      );
     } finally {
       view.unmount();
       cleanup();
@@ -3824,7 +3825,10 @@ describe("Web Control Center shell", () => {
     expect(screen.getByRole("heading", { name: "UAA Development" })).toBeInTheDocument();
     expect(screen.getByText("Fixture-only preview")).toBeInTheDocument();
     await act(async () => Promise.resolve());
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/control-center/communications/matrix-sync/posture",
+      expect.any(Object),
+    );
   });
 
   it("does not alias undeclared Messenger subroutes to the fixture", async () => {

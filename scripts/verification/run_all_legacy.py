@@ -15,10 +15,10 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 if __package__:
     from .runtime_subprocess_policy import GOVERNED_RUNTIME_COMMAND_ADAPTER_REL, _is_exact_governed_runtime_command_shell_scan_line, _is_exact_governed_runtime_command_subprocess_site, is_exact_matrix_session_bounded_filesystem_site, is_exact_portable_evidence_helper_home_path
-    from .static_scan_policy import is_exact_matrix_session_keychain_helper_file as _is_exact_matrix_session_keychain_helper_file, is_exact_portable_evidence_keychain_helper_file as _is_exact_portable_evidence_keychain_helper_file, is_static_gate_scan_allowed_file, is_unapproved_static_fragment, repo_source_env
+    from .static_scan_policy import is_exact_matrix_protected_cache_helper_file as _is_exact_matrix_protected_cache_helper_file, is_exact_matrix_session_keychain_helper_file as _is_exact_matrix_session_keychain_helper_file, is_exact_portable_evidence_keychain_helper_file as _is_exact_portable_evidence_keychain_helper_file, is_static_gate_scan_allowed_file, is_unapproved_static_fragment, repo_source_env
 else:
     from runtime_subprocess_policy import GOVERNED_RUNTIME_COMMAND_ADAPTER_REL, _is_exact_governed_runtime_command_shell_scan_line, _is_exact_governed_runtime_command_subprocess_site, is_exact_matrix_session_bounded_filesystem_site, is_exact_portable_evidence_helper_home_path
-    from static_scan_policy import is_exact_matrix_session_keychain_helper_file as _is_exact_matrix_session_keychain_helper_file, is_exact_portable_evidence_keychain_helper_file as _is_exact_portable_evidence_keychain_helper_file, is_static_gate_scan_allowed_file, is_unapproved_static_fragment, repo_source_env
+    from static_scan_policy import is_exact_matrix_protected_cache_helper_file as _is_exact_matrix_protected_cache_helper_file, is_exact_matrix_session_keychain_helper_file as _is_exact_matrix_session_keychain_helper_file, is_exact_portable_evidence_keychain_helper_file as _is_exact_portable_evidence_keychain_helper_file, is_static_gate_scan_allowed_file, is_unapproved_static_fragment, repo_source_env
 _P1_API_VERIFIER_LANE_RAN = False
 M44_ALLOWED_CCC_IOS_SKELETON_PREFIX = "apps/ccc-ios/Sources/UltimateAIAgentCCC/"
 M44_ALLOWED_CCC_IOS_SKELETON_FILES = {
@@ -931,6 +931,8 @@ def verify_m13_web_control_center_frontend_safety() -> None:
         if _is_exact_portable_evidence_keychain_helper_file(rel_path):
             continue
         if _is_exact_matrix_session_keychain_helper_file(rel_path):
+            continue
+        if _is_exact_matrix_protected_cache_helper_file(rel_path):
             continue
         if any(fragment in rel_path for fragment in forbidden_tracked_fragments):
             print(f"FAIL: Forbidden generated/native/frontend artifact is tracked: {rel_path}")
@@ -30232,7 +30234,7 @@ def verify_no_mobile_native_or_sensor_implementation() -> None:
     for rel_path in git_files:
         exact_keychain_helper_file = _is_exact_portable_evidence_keychain_helper_file(
             rel_path
-        ) or _is_exact_matrix_session_keychain_helper_file(rel_path)
+        ) or _is_exact_matrix_session_keychain_helper_file(rel_path) or _is_exact_matrix_protected_cache_helper_file(rel_path)
         if rel_path.startswith(forbidden_dir_prefixes):
             print(f"FAIL: Forbidden native/mobile implementation path tracked in git: {rel_path}")
             sys.exit(1)

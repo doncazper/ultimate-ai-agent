@@ -92,19 +92,24 @@ content-free receipts. It is not a competing capability registry.
 MSG-MX-003 retains its disabled provider declaration for account, room,
 message, crypto, and media capabilities. MSG-MX-005 adds a separate, exact
 Matrix-session catalog with two implemented read lanes and eight blocked
-mutation lanes. Catalog visibility and accepted lease schemas never imply
-callability; current request-scoped policy, target, lease, budget, readiness,
-kill switch, safe-disable, and replay evaluation remain mandatory.
+mutation lanes. MSG-MX-006 adds twelve exact read, protected-cache, and
+cache-key lifecycle lanes. They are implemented and loopback-tested, but live
+account sync remains configuration-required. Catalog visibility and accepted
+lease schemas never imply callability; current request-scoped policy, target,
+lease, budget, readiness, kill switch, safe-disable, and replay evaluation
+remain mandatory.
 
-Six protected `Cache-Control: no-store` GET routes under
+Seven protected `Cache-Control: no-store` GET routes under
 `/control-center/communications`, the human-readable
 `scripts/dev/uaa_communications.py` CLI, and fail-closed TypeScript bindings
 project the same backend-owned truth. These routes are connector-adjacent
-`local_sensitive` reads with no side effects. The fixture-only `/messenger` UI
-remains disconnected. The approved adapter may perform only exact discovery and
-authentication-method network reads. No authenticated account/session, message
-read/send, sync, crypto, media, raw-content persistence, or UI authority is
-present.
+`local_sensitive` reads with no side effects. The `/messenger` UI loads only
+content-free Matrix sync posture; its room and message content remains
+synthetic. The approved adapter may perform exact discovery, authentication-
+method, sync, and timeline-pagination reads only after exact request-scoped
+authority and configuration checks. No enrolled account, protected message
+response, decrypted event materialization, send, room write, media, raw durable
+evidence content, or UI authority is present.
 
 ## Exact Repo-Owned Extension Metadata Adapter
 
@@ -443,6 +448,25 @@ socket-owning SSO broker before runtime implementation can be accepted. The
 native macOS helper is version-only. No session, sync, room, message, crypto,
 media, issuer discovery, React authority, or standing Matrix enable switch is
 created. Canonical truth: `docs/connectors/MESSENGER_MATRIX_SESSION.md`.
+
+## Matrix Read-Only Sync And Protected Cache Lanes
+
+MSG-MX-006 registers twelve exact Matrix sync, pagination, room-state, local
+projection, encrypted-cache, and cache-key lifecycle authority declarations.
+Two exact GET transports and the protected-cache/key primitives are implemented
+and loopback-tested; ten canonical dispatch executors remain uncomposed and
+fail closed. Network reads
+are GET-only and credentials cross a one-use file descriptor; raw provider
+responses remain transient. Cache and key changes require exact approval plus a
+current lease. The whole-file AES-GCM container has no WAL, journal, temp query
+store, or backup, and the macOS Keychain helper never returns key material.
+
+Live account sync is `configuration_required` until an account credential broker
+is enrolled and the hash-bound helper is installed and unlocked. The Messenger
+desktop shell exposes backend posture only. Encrypted event materialization,
+protected UI message reads, sends, typing/receipt writes, room mutations, media,
+Memory writes, public release, and production authority remain blocked.
+Canonical truth: `docs/connectors/MESSENGER_MATRIX_READ_ONLY_SYNC.md`.
 
 ## Local Smoke Harness
 

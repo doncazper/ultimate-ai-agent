@@ -631,9 +631,9 @@ tests, safe-disable posture, and rollback-readiness evidence.
 <!-- MSG-MX-CURRENT-OVERLAY:START -->
 MSG-MX-000 through MSG-MX-012 Messenger Matrix Desktop Program
 Baseline authority map: `docs/connectors/MESSENGER_MATRIX_BASELINE_AUTHORITY_MAP.md`
-Current phase: `MSG-MX-005`
-Current program status: `partial_discovery_auth_read_lanes_implemented_pending_merge_gate`
-Current evidence ref: `evidence-ref:msg-mx-005:partial-discovery-session`
+Current phase: `MSG-MX-006`
+Current program status: `readonly_sync_two_get_transports_cache_primitives_ten_executors_uncomposed`
+Current evidence ref: `evidence-ref:msg-mx-006:readonly-sync-cache`
 Goal: build a clean-room, macOS-first Messenger Matrix client through thirteen
 finite merge-gated milestones without treating design, UI state, generic
 messages authority, or Full Machine Access as Matrix runtime authority.
@@ -663,6 +663,15 @@ rotation, and credential deletion remain blocked pending an authenticated
 one-use handoff or socket-owning SSO broker. Matrix account/session, sync,
 message, crypto, media, and Messenger UI runtime remain unavailable. No
 fixture UI is connected to the session routes.
+MSG-MX-006 declares twelve exact read, protected-cache, and cache-key authority
+lanes. Two GET transports and the protected-cache/key primitives have bounded
+loopback proofs; ten canonical dispatch executors remain uncomposed and fail
+closed. Live account sync
+remains configuration-required pending account enrollment, the one-use
+credential broker, and an unlocked installed macOS cache helper. Messenger
+displays backend readiness only; its room and message data remains synthetic.
+Encrypted-event materialization, sends, room writes, media, public release, and
+production authority remain blocked.
 The accepted design gate is recorded in
 `docs/design/control_center_north_star/UAA_MESSENGER_MATRIX_RENDER_ACCEPTANCE.md`,
 `docs/decisions/ADR-0062-messenger-matrix-client-and-data-boundaries.md`,
