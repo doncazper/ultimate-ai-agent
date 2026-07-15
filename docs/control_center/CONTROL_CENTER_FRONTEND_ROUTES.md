@@ -275,7 +275,7 @@ raw path/log persistence, public release, or production authority.
 Verification: `scripts/verify_beta_11_operator_workspace_spine.py`.
 
 OpenAPI remains a backend contract. The current backend path count is `275`
-with `270` manifest route operations; earlier milestone counts in the
+with `276` manifest route operations; earlier milestone counts in the
 historical sections below are audit context, not current route inventory.
 
 ## v0.18.0 M14 Connection Stabilization

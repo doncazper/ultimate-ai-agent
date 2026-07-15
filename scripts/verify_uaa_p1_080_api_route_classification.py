@@ -35,10 +35,10 @@ ALLOWED_CLASSIFICATIONS = {
     "mutating_requires_authority",
 }
 EXPECTED_SIDE_EFFECT_MIX = {
-    "validation_only": 78,
+    "validation_only": 79,
     "none": 10,
-    "local_dev_workspace_only": 179,
-    "governed_network_read_only": 3,
+    "local_dev_workspace_only": 183,
+    "governed_network_read_only": 4,
 }
 EXPECTED_PUBLIC_METADATA_PATHS = {
     ("GET", "/api/manifest"),
@@ -102,7 +102,7 @@ REQUIRED_DOC_SNIPPETS = {
     "docs/api/UAA_P1_080_API_ROUTE_CLASSIFICATION_INVENTORY.md": [
         "Status: Implemented",
         str(EXPECTED_ROUTE_COUNT),
-        "| `mutating_requires_authority` | 58 |",
+        "| `mutating_requires_authority` | 62 |",
         f"The current OpenAPI path count is `{EXPECTED_OPENAPI_PATH_COUNT}`",
         f"`{EXPECTED_ROUTE_COUNT}` route operations",
         "public_metadata",

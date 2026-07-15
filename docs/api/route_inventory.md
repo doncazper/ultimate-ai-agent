@@ -71,8 +71,8 @@ Current route classification summary:
 |---|---:|
 | `public_metadata` | 3 |
 | `local_readonly` | 29 |
-| `local_sensitive` | 174 |
-| `mutating_requires_authority` | 58 |
+| `local_sensitive` | 182 |
+| `mutating_requires_authority` | 62 |
 
 Allowed current side-effect classes are:
 

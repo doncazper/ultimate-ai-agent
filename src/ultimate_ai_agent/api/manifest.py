@@ -1111,7 +1111,7 @@ def route_classification_for_path(
     ):
         return (
             ApiRouteClassification.mutating_requires_authority,
-            "Disposable Matrix harness mutation requires an idempotency key, exact LocalApprovalAuthority validation, current mission-scoped AuthorityLease, budget, lifecycle generation, ownership, kill-switch, safe-disable, and content-free receipt checks.",
+            "Disposable Matrix harness mutation requires exact authority validation through an idempotency key, LocalApprovalAuthority, current mission-scoped AuthorityLease, budget, lifecycle generation, ownership, kill-switch, safe-disable, and content-free receipt checks.",
         )
     if normalized_method == "GET" and path in PUBLIC_METADATA_PATHS:
         return (

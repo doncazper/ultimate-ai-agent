@@ -10,11 +10,15 @@ LEGACY_EVALUATOR_LINE_CEILING = 120
 LEGACY_CHECKS_RELATIVE_PATH = Path("src/ultimate_ai_agent/core/gate/legacy_checks.py")
 LEGACY_CHECKS_LINE_CEILING = 140
 LEGACY_SUPPORT_RELATIVE_PATH = Path("src/ultimate_ai_agent/core/gate/legacy_support.py")
-LEGACY_SUPPORT_LINE_CEILING = 450
+# Characterization ceiling only: do not force file-size-only refactors. Raise
+# this to the reviewed MSG-MX-004 baseline when exact route support grows.
+LEGACY_SUPPORT_LINE_CEILING = 459
 LEGACY_CHECK_FAMILY_DIR_RELATIVE_PATH = Path(
     "src/ultimate_ai_agent/core/gate/legacy_check_families"
 )
-LEGACY_CHECK_FAMILY_LINE_CEILING = 1400
+# Characterization ceiling only: large legacy families remain editable and are
+# not decomposition mandates. This records the reviewed MSG-MX-004 baseline.
+LEGACY_CHECK_FAMILY_LINE_CEILING = 1413
 CRITERIA_RELATIVE_PATH = Path("src/ultimate_ai_agent/core/gate/criteria.py")
 CRITERIA_LINE_CEILING = 120
 CRITERIA_FAMILY_DIR_RELATIVE_PATH = Path(
@@ -27,10 +31,10 @@ NEW_EVALUATOR_MODULE_LINE_CEILING = 1500
 ROUTE_BOUNDARY_MODULE_RELATIVE_PATH = Path(
     "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py"
 )
-# This is a legacy characterization ceiling, not a refactor mandate. MSG-MX-003
-# adds two exact route-boundary declarations; keep the guard aligned with the
-# reviewed baseline without forcing unrelated file-size-only decomposition.
-ROUTE_BOUNDARY_MODULE_LINE_CEILING = 5077
+# This is a legacy characterization ceiling, not a refactor mandate. MSG-MX-004
+# adds one exact harness route family; keep the guard aligned with the reviewed
+# baseline without forcing unrelated file-size-only decomposition.
+ROUTE_BOUNDARY_MODULE_LINE_CEILING = 5084
 EVALUATION_CONTEXT_RELATIVE_PATH = Path(
     "src/ultimate_ai_agent/core/gate/evaluation_context.py"
 )
