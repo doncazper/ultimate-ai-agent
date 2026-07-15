@@ -39,6 +39,17 @@ MUTATING_ROUTES = frozenset(
         ("POST", "/control-center/communications/harness/reset"),
         ("POST", "/control-center/communications/harness/start"),
         ("POST", "/control-center/communications/harness/stop"),
+        ("POST", "/control-center/communications/matrix/credential-auth-create"),
+        ("POST", "/control-center/communications/matrix/credential-delete"),
+        (
+            "POST",
+            "/control-center/communications/matrix/credential-store-rotate",
+        ),
+        ("POST", "/control-center/communications/matrix/logout"),
+        ("POST", "/control-center/communications/matrix/refresh"),
+        ("POST", "/control-center/communications/matrix/revoke-all"),
+        ("POST", "/control-center/communications/matrix/sso-callback-consume"),
+        ("POST", "/control-center/communications/matrix/sso-launch"),
         (
             "POST",
             "/control-center/memory/context-packs/{context_pack_ref}/action-proposal",
@@ -87,6 +98,7 @@ TARGETED_RATE_LIMIT_GROUPS = frozenset(
         "action_preview_proposal",
         "chat_durable_receipt",
         "communications_matrix_harness",
+        "communications_matrix_session",
         "extension_install_disabled_record",
         "founder_loop_exact_action",
         "governed_runtime_pilot",
@@ -103,9 +115,9 @@ TARGETED_RATE_LIMIT_GROUPS = frozenset(
         "web_evidence_product_slice",
     }
 )
-TARGETED_RATE_LIMIT_ROUTE_COUNT = 84
+TARGETED_RATE_LIMIT_ROUTE_COUNT = 94
 TARGETED_RATE_LIMIT_ROUTE_FINGERPRINT = (
-    "e88afe1a4fb13605f7247a5b95f6fe43ebbe34445e5798bb4c7d752b70399ac5"
+    "11669334edb8e59f468c2d6a0e0e75ccd11bdb63cb20c095dbd09537dc1ecf09"
 )
 
 

@@ -11,6 +11,11 @@ class ApiRouteSideEffectClass(str, Enum):
     validation_only = "validation_only"
     local_dev_workspace_only = "local_dev_workspace_only"
     governed_network_read_only = "governed_network_read_only"
+    authenticated_connector_mutation = "authenticated_connector_mutation"
+    system_browser_exact_launch = "system_browser_exact_launch"
+    destructive_external = "destructive_external"
+    local_sensitive = "local_sensitive"
+    destructive_local_sensitive = "destructive_local_sensitive"
 
 
 class ApiRouteClassification(str, Enum):

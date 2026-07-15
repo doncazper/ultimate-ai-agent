@@ -9,6 +9,9 @@ def test_mobile_sensor_guard_does_not_flag_verifier_literals() -> None:
     assert run_all_legacy._is_exact_portable_evidence_keychain_helper_file(
         "tools/macos/portable-evidence-keychain-helper/Package.swift"
     )
+    assert run_all_legacy._is_exact_matrix_session_keychain_helper_file(
+        "tools/macos/matrix-session-keychain-helper/Package.swift"
+    )
     assert not run_all_legacy._is_exact_portable_evidence_keychain_helper_file(
         "apps/mobile/Package.swift"
     )
@@ -104,6 +107,23 @@ def test_filesystem_guard_accepts_only_fixed_portable_evidence_helper_root() -> 
     )
 
 
+def test_filesystem_guard_accepts_only_bounded_matrix_session_runtime_roots() -> None:
+    rel = "src/ultimate_ai_agent/core/communications/matrix_session/backend.py"
+    source = (run_all_legacy.ROOT / rel).read_text(encoding="utf-8")
+
+    for fragment in ("Path.home(", '.rglob("*")'):
+        assert run_all_legacy.is_exact_matrix_session_bounded_filesystem_site(
+            rel_path=rel,
+            source=source,
+            fragment=fragment,
+        )
+        assert not run_all_legacy.is_exact_matrix_session_bounded_filesystem_site(
+            rel_path=rel,
+            source=source + '\nPath.home().rglob("*")\n',
+            fragment=fragment,
+        )
+
+
 def test_static_scan_allowlist_is_dependency_free_and_does_not_hide_web_adapters(
     monkeypatch,
 ) -> None:
@@ -111,7 +131,9 @@ def test_static_scan_allowlist_is_dependency_free_and_does_not_hide_web_adapters
 
     def reject_package_import(name, *args, **kwargs):
         if name.startswith("ultimate_ai_agent"):
-            raise AssertionError("static allowlist must not import application dependencies")
+            raise AssertionError(
+                "static allowlist must not import application dependencies"
+            )
         return original_import(name, *args, **kwargs)
 
     monkeypatch.setattr("builtins.__import__", reject_package_import)

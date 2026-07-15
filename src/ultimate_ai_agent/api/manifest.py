@@ -231,15 +231,20 @@ CAPABILITIES_DECLARED = [
     "communications_matrix_disabled_adapter_shell",
     "communications_matrix_disposable_loopback_synapse_harness",
     "communications_matrix_harness_exact_authority_lanes",
+    "communications_matrix_server_discovery_exact_lane",
+    "communications_matrix_auth_methods_exact_lane",
+    "communications_matrix_session_exact_authority_contracts",
+    "communications_matrix_sdk_read_adapter_boundary",
 ]
 
 CAPABILITIES_BLOCKED = [
     "communications_matrix_harness_automatic_image_pull",
     "communications_matrix_harness_standing_or_global_authority",
     "communications_matrix_harness_public_federated_hosted_or_production_use",
-    "communications_matrix_server_discovery",
-    "communications_matrix_account_authentication",
-    "communications_matrix_session_runtime",
+    "communications_matrix_account_authentication_pending_authenticated_one_use_handoff",
+    "communications_matrix_macos_keychain_helper_version_only_pending_authenticated_broker",
+    "communications_matrix_session_mutations_pending_authenticated_one_use_handoff",
+    "communications_matrix_sso_pending_loopback_callback_broker",
     "communications_matrix_message_sync_or_read",
     "communications_matrix_message_send_or_mutation",
     "communications_matrix_crypto_or_media_runtime",
@@ -873,6 +878,46 @@ CONTROL_CENTER_MATRIX_HARNESS_MUTATION_PATHS = {
     "/control-center/communications/harness/stop",
     "/control-center/communications/harness/reset",
 }
+CONTROL_CENTER_MATRIX_SESSION_READ_PATHS = {
+    "/control-center/communications/matrix/discovery-read",
+    "/control-center/communications/matrix/auth-methods-read",
+}
+CONTROL_CENTER_MATRIX_SESSION_MUTATION_PATHS = {
+    "/control-center/communications/matrix/credential-auth-create",
+    "/control-center/communications/matrix/sso-launch",
+    "/control-center/communications/matrix/sso-callback-consume",
+    "/control-center/communications/matrix/refresh",
+    "/control-center/communications/matrix/logout",
+    "/control-center/communications/matrix/revoke-all",
+    "/control-center/communications/matrix/credential-store-rotate",
+    "/control-center/communications/matrix/credential-delete",
+}
+CONTROL_CENTER_MATRIX_SESSION_SIDE_EFFECTS = {
+    "/control-center/communications/matrix/credential-auth-create": (
+        ApiRouteSideEffectClass.authenticated_connector_mutation
+    ),
+    "/control-center/communications/matrix/sso-launch": (
+        ApiRouteSideEffectClass.system_browser_exact_launch
+    ),
+    "/control-center/communications/matrix/sso-callback-consume": (
+        ApiRouteSideEffectClass.authenticated_connector_mutation
+    ),
+    "/control-center/communications/matrix/refresh": (
+        ApiRouteSideEffectClass.authenticated_connector_mutation
+    ),
+    "/control-center/communications/matrix/logout": (
+        ApiRouteSideEffectClass.authenticated_connector_mutation
+    ),
+    "/control-center/communications/matrix/revoke-all": (
+        ApiRouteSideEffectClass.destructive_external
+    ),
+    "/control-center/communications/matrix/credential-store-rotate": (
+        ApiRouteSideEffectClass.local_sensitive
+    ),
+    "/control-center/communications/matrix/credential-delete": (
+        ApiRouteSideEffectClass.destructive_local_sensitive
+    ),
+}
 LOCAL_READONLY_PATHS = {
     "/control-center/dashboard",
     "/control-center/capabilities/availability",
@@ -1039,10 +1084,11 @@ def route_side_effect_class(path: str) -> ApiRouteSideEffectClass:
     if (
         path == "/api/manifest"
         or path in CONTROL_CENTER_COMMUNICATIONS_READONLY_PATHS
-        or path in {
-        "/health",
-        "/version",
-        "/web-evidence/status",
+        or path
+        in {
+            "/health",
+            "/version",
+            "/web-evidence/status",
         }
     ):
         return ApiRouteSideEffectClass.none
@@ -1058,6 +1104,10 @@ def route_side_effect_class(path: str) -> ApiRouteSideEffectClass:
         return ApiRouteSideEffectClass.governed_network_read_only
     if path in CONTROL_CENTER_MATRIX_HARNESS_MUTATION_PATHS:
         return ApiRouteSideEffectClass.local_dev_workspace_only
+    if path in CONTROL_CENTER_MATRIX_SESSION_READ_PATHS:
+        return ApiRouteSideEffectClass.governed_network_read_only
+    if path in CONTROL_CENTER_MATRIX_SESSION_MUTATION_PATHS:
+        return CONTROL_CENTER_MATRIX_SESSION_SIDE_EFFECTS[path]
     if path.startswith("/api/runtime/"):
         return ApiRouteSideEffectClass.local_dev_workspace_only
     if path.startswith("/web-evidence/"):
@@ -1099,10 +1149,7 @@ def route_classification_for_path(
         or path in CONTROL_CENTER_VALIDATION_ONLY_PATHS
         or path in CONTROL_CENTER_COMMUNICATIONS_READONLY_PATHS
     )
-    if (
-        normalized_method == "POST"
-        and path in CONTROL_CENTER_MATRIX_HARNESS_READ_PATHS
-    ):
+    if normalized_method == "POST" and path in CONTROL_CENTER_MATRIX_HARNESS_READ_PATHS:
         return (
             ApiRouteClassification.local_sensitive,
             "Exact loopback Matrix harness read command still requires a current mission-scoped lease and dispatcher pre-start evaluation; it grants no connector or production authority.",
@@ -1114,6 +1161,19 @@ def route_classification_for_path(
         return (
             ApiRouteClassification.mutating_requires_authority,
             "Disposable Matrix harness mutation requires exact authority validation through an idempotency key, LocalApprovalAuthority, current mission-scoped AuthorityLease, budget, lifecycle generation, ownership, kill-switch, safe-disable, and content-free receipt checks.",
+        )
+    if normalized_method == "POST" and path in CONTROL_CENTER_MATRIX_SESSION_READ_PATHS:
+        return (
+            ApiRouteClassification.local_sensitive,
+            "Exact Matrix discovery reads require a current session-scoped lease, bounded pinned transport, target validation, and content-free receipts.",
+        )
+    if (
+        normalized_method == "POST"
+        and path in CONTROL_CENTER_MATRIX_SESSION_MUTATION_PATHS
+    ):
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "Exact Matrix session mutation requires request-scoped authority through idempotency, fresh LocalApprovalAuthority validation, a current exact AuthorityLease, budget, target, readiness, kill-switch, safe-disable, rollback, and content-free receipt checks.",
         )
     if normalized_method == "GET" and path in PUBLIC_METADATA_PATHS:
         return (
@@ -1582,7 +1642,7 @@ def _build_api_manifest_static_cache_entry(
         capabilities_declared=tuple(CAPABILITIES_DECLARED),
         capabilities_blocked=tuple(CAPABILITIES_BLOCKED),
         web_access_posture=ApiWebAccessPosture(**WEB_ACCESS_POSTURE),
-        no_runtime_integrations=True,
+        no_runtime_integrations=False,
     )
 
 

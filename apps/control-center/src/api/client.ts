@@ -434,6 +434,59 @@ function isOptionalCommunicationsSafeRef(value: unknown): boolean {
   return value === null || isCommunicationsSafeRef(value);
 }
 
+function isDisabledCommunicationsAvailabilityTuple(
+  value: Record<string, unknown>,
+): boolean {
+  return (
+    value.snapshot_ref === "snapshot-ref:communications:matrix-disabled" &&
+    value.capability_ref === "capability-ref:communications:matrix-inspection" &&
+    value.provider_ref === "provider-ref:communications:matrix" &&
+    value.adapter_ref === "adapter-ref:communications:matrix-disabled" &&
+    value.catalog_status === "unsupported" &&
+    value.compatibility_status === "unknown" &&
+    value.configuration_status === "not_configured" &&
+    value.health_status === "unknown" &&
+    value.authority_posture === "blocked" &&
+    value.resource_status === "unknown" &&
+    value.cost_posture === "unknown" &&
+    value.safe_disable_status === "unknown" &&
+    value.declared_or_observed_version_ref === null &&
+    value.expires_at === null &&
+    value.freshness_status === "unknown" &&
+    value.runtime_readiness_status === "unknown"
+  );
+}
+
+function isPartialMatrixSessionAvailabilityTuple(
+  value: Record<string, unknown>,
+): boolean {
+  const safeDisableTuple =
+    (value.safe_disable_status === "inactive" &&
+      value.runtime_readiness_status === "unknown") ||
+    (value.safe_disable_status === "active" &&
+      value.runtime_readiness_status === "blocked");
+  return (
+    value.snapshot_ref === "snapshot-ref:communications:matrix-session-v1" &&
+    value.capability_ref === "capability-ref:communications:matrix-session-v1" &&
+    value.provider_ref === "provider-ref:communications:matrix" &&
+    value.adapter_ref === "adapter-ref:communications:matrix-session-v1" &&
+    value.catalog_status === "supported" &&
+    value.compatibility_status === "supported" &&
+    new Set(["configured", "not_configured"]).has(
+      String(value.configuration_status),
+    ) &&
+    value.health_status === "unknown" &&
+    value.authority_posture === "lease_required" &&
+    value.resource_status === "available" &&
+    value.cost_posture === "not_metered" &&
+    value.declared_or_observed_version_ref ===
+      "version-ref:matrix-js-sdk:41-9-0" &&
+    value.expires_at === null &&
+    value.freshness_status === "unknown" &&
+    safeDisableTuple
+  );
+}
+
 function isSafeCommunicationsAvailability(value: unknown): boolean {
   if (!isCommunicationsRecord(value)) {
     return false;
@@ -470,25 +523,17 @@ function isSafeCommunicationsAvailability(value: unknown): boolean {
     isCommunicationsSafeRef(value.capability_ref) &&
     isOptionalCommunicationsSafeRef(value.provider_ref) &&
     isOptionalCommunicationsSafeRef(value.adapter_ref) &&
-    value.catalog_status === "unsupported" &&
-    value.compatibility_status === "unknown" &&
-    value.configuration_status === "not_configured" &&
-    value.health_status === "unknown" &&
-    value.authority_posture === "blocked" &&
-    value.resource_status === "unknown" &&
-    value.cost_posture === "unknown" &&
-    value.safe_disable_status === "unknown" &&
     isOptionalCommunicationsSafeRef(value.declared_or_observed_version_ref) &&
     isCommunicationsTimestamp(value.checked_at) &&
     (value.expires_at === null || isCommunicationsTimestamp(value.expires_at)) &&
-    value.freshness_status === "unknown" &&
-    value.runtime_readiness_status === "unknown" &&
     isCommunicationsSafeCodeArray(value.reason_codes) &&
     isCommunicationsSafeCodeArray(value.blocker_codes) &&
     isCommunicationsSafeRefArray(value.evidence_refs, 32) &&
     isCommunicationsSafeRefArray(value.probe_refs, 32) &&
     isCommunicationsSafeRef(value.source_ref) &&
-    isCommunicationsSafeSummary(value.safe_summary)
+    isCommunicationsSafeSummary(value.safe_summary) &&
+    (isDisabledCommunicationsAvailabilityTuple(value) ||
+      isPartialMatrixSessionAvailabilityTuple(value))
   );
 }
 
@@ -515,12 +560,18 @@ function isSafeCommunicationsProvider(
     isCommunicationsSafeRef(value.provider_ref) &&
     isCommunicationsSafeRef(value.adapter_ref) &&
     isCommunicationsSafeRef(value.capability_ref) &&
-    value.provider_status === "unsupported" &&
     isSafeCommunicationsAvailability(value.availability) &&
     isCommunicationsSafeCodeArray(value.reason_codes) &&
     isCommunicationsSafeCodeArray(value.blocker_codes) &&
     isCommunicationsSafeRefArray(value.evidence_refs, 32) &&
-    isCommunicationsSafeSummary(value.safe_summary)
+    isCommunicationsSafeSummary(value.safe_summary) &&
+    ((value.provider_status === "unsupported" &&
+      value.adapter_ref === "adapter-ref:communications:matrix-disabled" &&
+      value.capability_ref === "capability-ref:communications:matrix-inspection") ||
+      (value.provider_status === "partial" &&
+        value.adapter_ref === "adapter-ref:communications:matrix-session-v1" &&
+        value.capability_ref ===
+          "capability-ref:communications:matrix-session-v1"))
   );
 }
 

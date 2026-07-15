@@ -1,8 +1,9 @@
 # UAA Messenger Matrix End-to-End Implementation Plan
 
-Status: MSG-MX-000 through MSG-MX-003 accepted; MSG-MX-004 exact disposable
-local harness implemented and locally lifecycle-verified pending merge
-evidence; connector runtime stays blocked.
+Status: MSG-MX-000 through MSG-MX-004 accepted; MSG-MX-005 implements exact
+discovery and authentication-method read lanes while all credential, browser,
+account, and session mutations remain blocked pending their authenticated
+handoff or broker boundary.
 Current as of: 2026-07-14.
 Product surface: Messenger, separate from Communications.
 Design contract: `control_center_north_star/UAA_COMMUNICATIONS_MATRIX_NORTH_STAR.md`.
@@ -20,11 +21,14 @@ immersive shell exception like Studio.
 
 ## Current Repository Truth
 
-The repository still has no Matrix SDK dependency, homeserver discovery,
-Matrix account/session flow, sync loop, crypto store, Matrix room model, or
-Matrix-backed UI. MSG-MX-004 adds only an exact AuthorityLease-governed,
-loopback, disposable Synapse development harness; it is not a Matrix connector
-or product backend. The Messages Connector contracts and disabled Mattermost
+The repository pins `matrix-js-sdk` inside one approved adapter and implements
+two exact AuthorityLease-governed read lanes: homeserver discovery and
+authentication-method inspection. A successful discovery creates bounded,
+content-free freshness evidence before the separately leased homeserver target
+can be inspected. The repository still has no authenticated Matrix account or
+session, sync loop, crypto store, Matrix room model, or Matrix-backed UI. The
+MSG-MX-004 loopback Synapse harness remains development infrastructure, not a
+product connector. The Messages Connector contracts and disabled Mattermost
 bridge do not provide Matrix support.
 
 ## Product Decisions
@@ -195,6 +199,13 @@ message content, containers, or volumes after the documented cleanup command.
 
 ### Phase 4 — Server discovery and account session
 
+Implementation status: partial in MSG-MX-005. Exact discovery and
+authentication-method reads are implemented through Python Core and the pinned
+adapter. Credential authentication, browser SSO/callback, refresh, logout,
+revoke-all, credential rotation, and credential deletion remain blocked. The
+missing authenticated one-use handoff and socket-owning SSO broker prevent an
+account/session readiness claim.
+
 Deliver exact lanes for:
 
 - `/.well-known/matrix/client` and supported-version discovery;
@@ -208,9 +219,11 @@ Deliver exact lanes for:
 Raw token import remains blocked. Access tokens use the Authorization header,
 never query strings or logs.
 
-Exit gate: UAA can connect to the local test server, refresh and revoke a
-session, restart without creating a duplicate device, and fail safely on bad
-discovery, unsupported auth, rate limit, and soft logout.
+Current evidence gate: Python dispatcher-to-real-Node integration proves the
+two read lanes and content-free receipts against the bounded loopback fixture.
+The full phase exit remains unmet until UAA can authenticate to the local test
+server, refresh and revoke a session, restart without a duplicate device, and
+fail safely on bad discovery, unsupported auth, rate limit, and soft logout.
 
 ### Phase 5 — Read-only sync and daily reading loop
 

@@ -340,9 +340,12 @@ class AuthorityBudgetStore:
                 reason_refs.extend(approval_reasons[0])
                 approval_validation_ref = approval_reasons[1]
                 approval_allowed = not approval_reasons[0]
-            policy_allowed = decision.outcome == AuthorityDecisionOutcome.allow.value or (
-                decision.outcome == AuthorityDecisionOutcome.ask.value
-                and approval_allowed
+            policy_allowed = (
+                decision.outcome == AuthorityDecisionOutcome.allow.value
+                or (
+                    decision.outcome == AuthorityDecisionOutcome.ask.value
+                    and approval_allowed
+                )
             )
             if not policy_allowed:
                 reason_refs.append("reason-ref:authority-budget:policy-not-allow")
@@ -523,7 +526,11 @@ class AuthorityBudgetStore:
             self._append(receipt)
             return receipt
         lease = self.lease_store._lease_by_ref(state["lease_ref"])
-        if lease is None or not lease.is_active() or authority_lease_kill_switch_engaged():
+        if (
+            lease is None
+            or not lease.is_active()
+            or authority_lease_kill_switch_engaged()
+        ):
             receipt = self._denied_followup_receipt(
                 receipts,
                 operation=AuthorityBudgetOperation.start,
@@ -630,9 +637,7 @@ class AuthorityBudgetStore:
                 fingerprint,
                 compatible_fingerprint_refs={
                     compatible
-                    for compatible in [
-                        _legacy_settlement_request_fingerprint(request)
-                    ]
+                    for compatible in [_legacy_settlement_request_fingerprint(request)]
                     if compatible is not None
                 },
             )

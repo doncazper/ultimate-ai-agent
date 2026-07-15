@@ -14,7 +14,9 @@ def _tamper(
     destination: Path,
     transform: Callable[[str], str],
 ) -> Path:
-    destination.write_text(transform(source.read_text(encoding="utf-8")), encoding="utf-8")
+    destination.write_text(
+        transform(source.read_text(encoding="utf-8")), encoding="utf-8"
+    )
     return destination
 
 
@@ -94,8 +96,7 @@ def test_authority_drift_claims_fail_closed(
     assert any("forbidden authority claim" in failure for failure in gate.verify())
 
 
-def test_truthful_not_production_ready_does_not_false_positive(
-) -> None:
+def test_truthful_not_production_ready_does_not_false_positive() -> None:
     failures: list[str] = []
     gate._scan_security("probe", "Matrix is not production ready.", failures)
     assert failures == []
@@ -129,8 +130,10 @@ def test_additional_product_truth_matrix_claim_fails_closed(
         monkeypatch,
         tmp_path,
         "TRUTH_PATH",
-        lambda text: text
-        + "\n| A later Messenger Matrix row claims Matrix is authorized. | `safe-ref` |\n",
+        lambda text: (
+            text
+            + "\n| A later Messenger Matrix row claims Matrix is authorized. | `safe-ref` |\n"
+        ),
     )
     assert any(
         "product truth Matrix row" in failure and "forbidden" in failure
@@ -169,7 +172,10 @@ def test_board_authority_claim_fails_closed(
             1,
         ),
     )
-    assert any("current board overlay contains forbidden" in failure for failure in gate.verify())
+    assert any(
+        "current board overlay contains forbidden" in failure
+        for failure in gate.verify()
+    )
 
 
 @pytest.mark.parametrize(
@@ -343,10 +349,12 @@ def test_board_overlay_cross_phase_evidence_fails_closed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def advance(text: str) -> str:
-        return _replace_board_projection(text, phase="MSG-MX-005")
+        return _replace_board_projection(text, phase="MSG-MX-006")
 
     _patch_path(monkeypatch, tmp_path, "BOARD_PATH", advance)
-    assert "current board evidence ref is not bound to its current phase" in gate.verify()
+    assert (
+        "current board evidence ref is not bound to its current phase" in gate.verify()
+    )
 
 
 @pytest.mark.parametrize(
@@ -383,9 +391,11 @@ def test_reordered_markers_fail_closed_without_crashing(
         monkeypatch,
         tmp_path,
         "MAP_PATH",
-        lambda text: text.replace(start, "TEMP", 1)
-        .replace(end, start, 1)
-        .replace("TEMP", end, 1),
+        lambda text: (
+            text.replace(start, "TEMP", 1)
+            .replace(end, start, 1)
+            .replace("TEMP", end, 1)
+        ),
     )
     assert "milestone sections marker ordering is invalid" in gate.verify()
 
@@ -405,7 +415,10 @@ def test_lane_ledger_wrapped_in_fence_fails_closed(
             1,
         ),
     )
-    assert any("planned lane ledger marker is not rendered" in failure for failure in gate.verify())
+    assert any(
+        "planned lane ledger marker is not rendered" in failure
+        for failure in gate.verify()
+    )
 
 
 @pytest.mark.parametrize(
@@ -483,7 +496,9 @@ def test_harness_script_bypass_wording_is_required(
             1,
         ),
     )
-    assert any("shared future runtime gate missing" in failure for failure in gate.verify())
+    assert any(
+        "shared future runtime gate missing" in failure for failure in gate.verify()
+    )
 
 
 @pytest.mark.parametrize(
@@ -515,7 +530,9 @@ def test_complete_authority_map_obligations_are_immutable(
         "MAP_PATH",
         lambda text: text.replace(original, replacement, 1),
     )
-    assert "authority map differs from the immutable historical baseline" in gate.verify()
+    assert (
+        "authority map differs from the immutable historical baseline" in gate.verify()
+    )
 
 
 def test_board_immutable_historical_text_cannot_claim_runtime(
@@ -566,7 +583,10 @@ def test_board_overlay_fence_state_cannot_be_changed(
             1,
         ),
     )
-    assert any("current board overlay marker is not rendered" in failure for failure in gate.verify())
+    assert any(
+        "current board overlay marker is not rendered" in failure
+        for failure in gate.verify()
+    )
 
 
 def test_lane_ledger_tilde_fence_fails_closed(
@@ -584,7 +604,10 @@ def test_lane_ledger_tilde_fence_fails_closed(
             1,
         ),
     )
-    assert any("planned lane ledger marker is not rendered" in failure for failure in gate.verify())
+    assert any(
+        "planned lane ledger marker is not rendered" in failure
+        for failure in gate.verify()
+    )
 
 
 @pytest.mark.parametrize("wrapper", (("~~~text", "~~~"), ("<pre>", "</pre>")))
@@ -604,7 +627,10 @@ def test_product_truth_non_backtick_code_wrapper_fails_closed(
         raise AssertionError("target row not found")
 
     _patch_path(monkeypatch, tmp_path, "TRUTH_PATH", wrap)
-    assert any("product truth must contain one rendered" in failure for failure in gate.verify())
+    assert any(
+        "product truth must contain one rendered" in failure
+        for failure in gate.verify()
+    )
 
 
 def test_board_binding_hidden_in_comment_fails_closed(

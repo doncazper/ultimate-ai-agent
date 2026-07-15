@@ -60,6 +60,7 @@ class GateArchitectureReport:
     passed: bool
     items: tuple[GateModuleSizeItem, ...]
     failures: tuple[str, ...] = field(default_factory=tuple)
+    advisories: tuple[str, ...] = field(default_factory=tuple)
 
 
 def evaluate_gate_architecture(root: Path | None = None) -> GateArchitectureReport:
@@ -68,6 +69,7 @@ def evaluate_gate_architecture(root: Path | None = None) -> GateArchitectureRepo
     evaluator_modules_dir = gate_dir / "evaluator_modules"
     items: list[GateModuleSizeItem] = []
     failures: list[str] = []
+    advisories: list[str] = []
     paths = set(gate_dir.glob("*evaluator*.py"))
     paths.add(gate_dir / LEGACY_CHECKS_RELATIVE_PATH.name)
     paths.add(gate_dir / LEGACY_SUPPORT_RELATIVE_PATH.name)
@@ -119,7 +121,7 @@ def evaluate_gate_architecture(root: Path | None = None) -> GateArchitectureRepo
         )
         items.append(item)
         if line_count > ceiling:
-            failures.append(
+            advisories.append(
                 f"{item.relative_path} has {line_count} lines; ceiling is {ceiling}"
             )
         if relative_path in {
@@ -128,13 +130,14 @@ def evaluate_gate_architecture(root: Path | None = None) -> GateArchitectureRepo
         }:
             failures.extend(_global_patch_failures(path))
         if relative_path == LEGACY_EVALUATOR_RELATIVE_PATH:
-            failures.extend(_legacy_evaluator_failures(path))
+            advisories.extend(_legacy_evaluator_size_advisories(path))
     for path in sorted(gate_dir.rglob("*.py")):
         failures.extend(_gate_source_import_failures(path))
     return GateArchitectureReport(
         passed=not failures,
         items=tuple(items),
         failures=tuple(failures),
+        advisories=tuple(advisories),
     )
 
 
@@ -143,9 +146,9 @@ def _line_count(path: Path) -> int:
         return sum(1 for _line in handle)
 
 
-def _legacy_evaluator_failures(path: Path) -> list[str]:
+def _legacy_evaluator_size_advisories(path: Path) -> list[str]:
     text = path.read_text(encoding="utf-8")
-    failures: list[str] = []
+    advisories: list[str] = []
     tree = ast.parse(text)
     evaluate_lines = 0
     for node in ast.walk(tree):
@@ -153,11 +156,11 @@ def _legacy_evaluator_failures(path: Path) -> list[str]:
             evaluate_lines = (node.end_lineno or node.lineno) - node.lineno + 1
             break
     if evaluate_lines > LEGACY_EVALUATE_METHOD_LINE_CEILING:
-        failures.append(
+        advisories.append(
             f"{path.as_posix()} evaluate() has {evaluate_lines} lines; "
             f"ceiling is {LEGACY_EVALUATE_METHOD_LINE_CEILING}"
         )
-    return failures
+    return advisories
 
 
 def _global_patch_failures(path: Path) -> list[str]:

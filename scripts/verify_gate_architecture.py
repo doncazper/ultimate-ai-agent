@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
+
 def main() -> int:
     from ultimate_ai_agent.core.gate.architecture import evaluate_gate_architecture
     from ultimate_ai_agent.core.gate.evaluator_registry import evaluator_registry
@@ -23,6 +24,8 @@ def main() -> int:
             print(f"FAIL: {failure}")
         return 1
     print("OK: Foundation Gate evaluator architecture guard passed")
+    for advisory in report.advisories:
+        print(f"WARN: advisory file-size review: {advisory}")
     for item in report.items:
         print(
             f"OK: {item.relative_path} lines={item.line_count} ceiling={item.line_ceiling} status={item.status}"

@@ -10,6 +10,11 @@ from ultimate_ai_agent.core.communications.matrix_harness.static_safety import (
     is_exact_matrix_harness_shell_scan_line,
     is_exact_matrix_harness_subprocess_site,
 )
+from ultimate_ai_agent.core.communications.matrix_session.static_safety import (
+    is_exact_matrix_session_bounded_filesystem_site,
+    is_exact_matrix_session_shell_scan_line,
+    is_exact_matrix_session_subprocess_site,
+)
 from ultimate_ai_agent.core.sandbox_calculation.static_safety import (
     is_exact_sealed_calculation_subprocess_site,
 )
@@ -21,7 +26,10 @@ GOVERNED_RUNTIME_COMMAND_ADAPTER_REL = (
 PORTABLE_EVIDENCE_KEYCHAIN_ADAPTER_REL = (
     "src/ultimate_ai_agent/core/evidence_signing/macos_keychain.py"
 )
-__all__ = ("is_exact_portable_evidence_helper_home_path",)
+__all__ = (
+    "is_exact_matrix_session_bounded_filesystem_site",
+    "is_exact_portable_evidence_helper_home_path",
+)
 
 
 def _is_exact_governed_runtime_command_subprocess_site(
@@ -45,6 +53,12 @@ def _is_exact_governed_runtime_command_subprocess_site(
         fragment=fragment,
     ):
         return True
+    if is_exact_matrix_session_subprocess_site(
+        rel_path=rel_path,
+        source=source,
+        fragment=fragment,
+    ):
+        return True
     if rel_path != GOVERNED_RUNTIME_COMMAND_ADAPTER_REL:
         return False
     if fragment != "subprocess.run(":
@@ -63,6 +77,12 @@ def _is_exact_governed_runtime_command_shell_scan_line(
     *, rel_path: str, source: str, stripped_line: str
 ) -> bool:
     if is_exact_matrix_harness_shell_scan_line(
+        rel_path=rel_path,
+        source=source,
+        stripped_line=stripped_line,
+    ):
+        return True
+    if is_exact_matrix_session_shell_scan_line(
         rel_path=rel_path,
         source=source,
         stripped_line=stripped_line,

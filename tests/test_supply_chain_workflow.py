@@ -18,9 +18,23 @@ def test_supply_chain_workflow_is_self_hosted_locked_and_policy_compliant() -> N
     assert "runs-on: ubuntu" not in workflow
     assert "uv sync --frozen --extra dev" in workflow
     assert "uv export --quiet --frozen --extra dev --no-emit-project" in workflow
-    assert '.venv/bin/pip-audit --strict -r "$RUNNER_TEMP/locked-requirements.txt"' in workflow
+    assert (
+        '.venv/bin/pip-audit --strict -r "$RUNNER_TEMP/locked-requirements.txt"'
+        in workflow
+    )
     assert "npm audit --audit-level=high" in workflow
+    assert (
+        "npm --prefix integrations/matrix-client-adapter ci --ignore-scripts"
+        in workflow
+    )
+    assert (
+        "npm --prefix integrations/matrix-client-adapter audit --audit-level=high"
+        in workflow
+    )
+    assert "working-directory: integrations/matrix-client-adapter" in workflow
     assert "cyclonedx-py environment" in workflow
+    assert "matrix-adapter-sbom.json" in workflow
+    assert '--matrix-adapter-sbom "$RUNNER_TEMP/matrix-adapter-sbom.json"' in workflow
     assert CHECKOUT_REF in workflow
     assert "github/codeql-action" not in workflow
     assert "dependency-review:" in workflow
@@ -29,7 +43,9 @@ def test_supply_chain_workflow_is_self_hosted_locked_and_policy_compliant() -> N
     assert "resolution: [lowest-direct, highest]" in workflow
     assert 'uv venv ".venv-${{ matrix.resolution }}" --python 3.12' in workflow
     assert "persist-credentials: false" in workflow
-    assert "github.event.pull_request.head.repo.full_name == github.repository" in workflow
+    assert (
+        "github.event.pull_request.head.repo.full_name == github.repository" in workflow
+    )
     assert ".venv/bin/mutmut run --max-children 4" in workflow
     assert "scripts/verification/verify_mutation_score.py" in workflow
 
@@ -105,6 +121,4 @@ def test_codeql_sarif_gate_fails_closed_for_unscored_errors(tmp_path: Path) -> N
         encoding="utf-8",
     )
 
-    assert high_severity_findings(tmp_path) == [
-        "CODEQL_HIGH_SEVERITY:py/unscored:10"
-    ]
+    assert high_severity_findings(tmp_path) == ["CODEQL_HIGH_SEVERITY:py/unscored:10"]

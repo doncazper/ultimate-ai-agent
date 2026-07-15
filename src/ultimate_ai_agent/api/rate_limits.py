@@ -12,7 +12,9 @@ from ultimate_ai_agent.api.contracts import ApiRouteRateLimitPosture
 API_TARGETED_RATE_LIMIT_POLICY_REF = "rate-limit:p1-085:targeted-local:v1"
 API_TARGETED_RATE_LIMIT_ENABLED_ENV = "UAA_API_TARGETED_RATE_LIMITS_ENABLED"
 API_TARGETED_RATE_LIMIT_MAX_REQUESTS_ENV = "UAA_API_TARGETED_RATE_LIMIT_MAX_REQUESTS"
-API_TARGETED_RATE_LIMIT_WINDOW_SECONDS_ENV = "UAA_API_TARGETED_RATE_LIMIT_WINDOW_SECONDS"
+API_TARGETED_RATE_LIMIT_WINDOW_SECONDS_ENV = (
+    "UAA_API_TARGETED_RATE_LIMIT_WINDOW_SECONDS"
+)
 
 TARGETED_RATE_LIMIT_GROUP_DEFAULTS: dict[str, dict[str, int]] = {
     "model_chat": {"max_requests": 30, "window_seconds": 60},
@@ -33,6 +35,7 @@ TARGETED_RATE_LIMIT_GROUP_DEFAULTS: dict[str, dict[str, int]] = {
     "extension_install_disabled_record": {"max_requests": 12, "window_seconds": 60},
     "governed_runtime_pilot": {"max_requests": 30, "window_seconds": 60},
     "communications_matrix_harness": {"max_requests": 12, "window_seconds": 60},
+    "communications_matrix_session": {"max_requests": 12, "window_seconds": 60},
 }
 
 ACTION_PREVIEW_PROPOSAL_PATHS = {
@@ -149,6 +152,18 @@ COMMUNICATIONS_MATRIX_HARNESS_PATHS = {
     "/control-center/communications/harness/stop",
     "/control-center/communications/harness/reset",
 }
+COMMUNICATIONS_MATRIX_SESSION_PATHS = {
+    "/control-center/communications/matrix/discovery-read",
+    "/control-center/communications/matrix/auth-methods-read",
+    "/control-center/communications/matrix/credential-auth-create",
+    "/control-center/communications/matrix/sso-launch",
+    "/control-center/communications/matrix/sso-callback-consume",
+    "/control-center/communications/matrix/refresh",
+    "/control-center/communications/matrix/logout",
+    "/control-center/communications/matrix/revoke-all",
+    "/control-center/communications/matrix/credential-store-rotate",
+    "/control-center/communications/matrix/credential-delete",
+}
 
 
 @dataclass(frozen=True)
@@ -199,8 +214,7 @@ def route_rate_limit_group(method: str, path: str) -> str | None:
     if normalized_method in {"GET", "POST"} and (
         path in TASK_DECOMPOSITION_PATHS
         or (
-            path.startswith("/task-decomposition/runs/")
-            and path.endswith("/lifecycle")
+            path.startswith("/task-decomposition/runs/") and path.endswith("/lifecycle")
         )
     ):
         return "task_decomposition"
@@ -213,8 +227,7 @@ def route_rate_limit_group(method: str, path: str) -> str | None:
     if normalized_method == "POST" and (
         path in CHAT_DURABLE_RECEIPT_PATHS
         or (
-            path.startswith("/control-center/chat/turns/")
-            and path.endswith("/handoff")
+            path.startswith("/control-center/chat/turns/") and path.endswith("/handoff")
         )
     ):
         return "chat_durable_receipt"
@@ -232,25 +245,19 @@ def route_rate_limit_group(method: str, path: str) -> str | None:
         )
     ):
         return "action_decision"
-    if (
-        normalized_method == "POST"
-        and (
-            path in MEMORY_MANUAL_CANDIDATE_PATHS
-            or (
-                path.startswith("/control-center/memory/review/")
-                and path.endswith(MEMORY_REVIEW_DECISION_SUFFIXES)
-            )
+    if normalized_method == "POST" and (
+        path in MEMORY_MANUAL_CANDIDATE_PATHS
+        or (
+            path.startswith("/control-center/memory/review/")
+            and path.endswith(MEMORY_REVIEW_DECISION_SUFFIXES)
         )
     ):
         return "memory_review_decision"
-    if (
-        normalized_method == "POST"
-        and (
-            path in MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_PATHS
-            or (
-                path.startswith("/control-center/memory/context-packs/")
-                and path.endswith("/action-proposal")
-            )
+    if normalized_method == "POST" and (
+        path in MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_PATHS
+        or (
+            path.startswith("/control-center/memory/context-packs/")
+            and path.endswith("/action-proposal")
         )
     ):
         return "memory_context_pack_action_proposal"
@@ -270,6 +277,8 @@ def route_rate_limit_group(method: str, path: str) -> str | None:
         return "extension_install_disabled_record"
     if normalized_method == "POST" and path in COMMUNICATIONS_MATRIX_HARNESS_PATHS:
         return "communications_matrix_harness"
+    if normalized_method == "POST" and path in COMMUNICATIONS_MATRIX_SESSION_PATHS:
+        return "communications_matrix_session"
     if normalized_method == "POST" and (
         path in GOVERNED_RUNTIME_MUTATING_PATHS
         or (
@@ -357,7 +366,9 @@ def rate_limit_failure(
     with _RATE_LIMIT_LOCK:
         bucket = _RATE_LIMIT_BUCKETS.get(key)
         if bucket is None or clock >= bucket.reset_at:
-            _RATE_LIMIT_BUCKETS[key] = _RateLimitBucket(count=1, reset_at=clock + window_seconds)
+            _RATE_LIMIT_BUCKETS[key] = _RateLimitBucket(
+                count=1, reset_at=clock + window_seconds
+            )
             return None
         if bucket.count >= max_requests:
             retry_after = max(1, math.ceil(bucket.reset_at - clock))

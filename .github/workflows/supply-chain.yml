@@ -44,12 +44,14 @@ jobs:
           .ci-bootstrap/bin/python -m pip install --disable-pip-version-check "uv==0.11.21"
           .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3
           npm --prefix apps/control-center ci --ignore-scripts
+          npm --prefix integrations/matrix-client-adapter ci --ignore-scripts
 
       - name: Reject known high-risk dependencies
         run: |
           .ci-bootstrap/bin/uv export --quiet --frozen --extra dev --no-emit-project --output-file "$RUNNER_TEMP/locked-requirements.txt"
           .venv/bin/pip-audit --strict -r "$RUNNER_TEMP/locked-requirements.txt"
           npm --prefix apps/control-center audit --audit-level=high
+          npm --prefix integrations/matrix-client-adapter audit --audit-level=high
 
   audit-and-sbom:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
@@ -81,13 +83,21 @@ jobs:
           npm ci --ignore-scripts
           npm audit --audit-level=high
 
+      - name: Audit locked Matrix adapter dependencies
+        working-directory: integrations/matrix-client-adapter
+        run: |
+          npm ci --ignore-scripts
+          npm audit --audit-level=high
+
       - name: Generate and validate CycloneDX SBOMs
         run: |
           .venv/bin/cyclonedx-py environment .venv --output-reproducible --of JSON -o "$RUNNER_TEMP/python-sbom.json"
           npm --prefix apps/control-center sbom --sbom-format cyclonedx > "$RUNNER_TEMP/control-center-sbom.json"
+          npm --prefix integrations/matrix-client-adapter sbom --sbom-format cyclonedx > "$RUNNER_TEMP/matrix-adapter-sbom.json"
           .venv/bin/python scripts/verification/verify_sbom_artifacts.py \
             --python-sbom "$RUNNER_TEMP/python-sbom.json" \
             --control-center-sbom "$RUNNER_TEMP/control-center-sbom.json" \
+            --matrix-adapter-sbom "$RUNNER_TEMP/matrix-adapter-sbom.json" \
             --summary-file "$GITHUB_STEP_SUMMARY"
 
   dependency-compatibility:

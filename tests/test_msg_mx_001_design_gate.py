@@ -18,7 +18,9 @@ def _tamper(
     destination: Path,
     transform: Callable[[str], str],
 ) -> Path:
-    destination.write_text(transform(source.read_text(encoding="utf-8")), encoding="utf-8")
+    destination.write_text(
+        transform(source.read_text(encoding="utf-8")), encoding="utf-8"
+    )
     return destination
 
 
@@ -37,7 +39,9 @@ def test_verifier_cli_passes() -> None:
     assert "verification passed" in result.stdout
 
 
-def test_render_membership_is_exact(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_render_membership_is_exact(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     path = _tamper(
         gate.RENDER_PATH,
         tmp_path / "render.md",
@@ -54,7 +58,9 @@ def test_narrow_desktop_contract_is_required(
     path = _tamper(
         gate.RENDER_PATH,
         tmp_path / "render.md",
-        lambda text: text.replace("Narrow desktop review viewport: 1180 x 800", "Narrow contract omitted", 1),
+        lambda text: text.replace(
+            "Narrow desktop review viewport: 1180 x 800", "Narrow contract omitted", 1
+        ),
     )
     monkeypatch.setattr(gate, "RENDER_PATH", path)
     assert any("Narrow desktop review viewport" in item for item in gate.verify())
@@ -67,7 +73,9 @@ def test_threat_register_change_fails_closed(
     path = _tamper(
         gate.THREAT_PATH,
         tmp_path / "threat.md",
-        lambda text: text.replace("threat-ref:matrix:unknown-delivery", "threat-ref:matrix:removed", 1),
+        lambda text: text.replace(
+            "threat-ref:matrix:unknown-delivery", "threat-ref:matrix:removed", 1
+        ),
     )
     monkeypatch.setattr(gate, "THREAT_PATH", path)
     assert "threat register membership or order drifted" in gate.verify()
@@ -100,7 +108,9 @@ def test_capability_authority_promotion_fails_closed(
         ),
     )
     monkeypatch.setattr(gate, "MATRIX_PATH", path)
-    assert any("does not use an exact fail-closed posture" in item for item in gate.verify())
+    assert any(
+        "does not use an exact fail-closed posture" in item for item in gate.verify()
+    )
 
 
 def test_mutation_approval_downgrade_fails_closed(
@@ -117,7 +127,10 @@ def test_mutation_approval_downgrade_fails_closed(
         ),
     )
     monkeypatch.setattr(gate, "MATRIX_PATH", path)
-    assert any("matrix.message.send lacks an exact approval/confirmation contract" in item for item in gate.verify())
+    assert any(
+        "matrix.message.send lacks an exact approval/confirmation contract" in item
+        for item in gate.verify()
+    )
 
 
 def test_negated_mutation_approval_fails_closed(
@@ -134,7 +147,10 @@ def test_negated_mutation_approval_fails_closed(
         ),
     )
     monkeypatch.setattr(gate, "MATRIX_PATH", path)
-    assert any("matrix.message.send lacks an exact approval/confirmation contract" in item for item in gate.verify())
+    assert any(
+        "matrix.message.send lacks an exact approval/confirmation contract" in item
+        for item in gate.verify()
+    )
 
 
 def test_unblocked_substring_cannot_pass_fail_closed_gate(
@@ -242,7 +258,7 @@ def test_board_evidence_must_be_phase_bound(
         gate.BOARD_PATH,
         tmp_path / "board.md",
         lambda text: text.replace(
-            "evidence-ref:msg-mx-004:local-synapse-harness",
+            "evidence-ref:msg-mx-005:partial-discovery-session",
             "evidence-ref:msg-mx-001:design-gate",
             1,
         ),

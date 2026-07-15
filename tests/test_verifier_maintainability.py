@@ -13,9 +13,7 @@ def _oversized_module(tmp_path: Path) -> Path:
     return path
 
 
-def _patch_single_policy_path(
-    monkeypatch: pytest.MonkeyPatch, path: Path
-) -> None:
+def _patch_single_policy_path(monkeypatch: pytest.MonkeyPatch, path: Path) -> None:
     monkeypatch.setattr(verifier, "_iter_policy_paths", lambda _globs: [path])
     monkeypatch.setattr(
         verifier,
@@ -75,6 +73,14 @@ def test_hard_line_budget_still_fails(
     assert warnings == []
 
 
+def test_repository_line_budget_policy_is_advisory_only() -> None:
+    policy = verifier.load_json(verifier.POLICY_PATH)
+
+    assert {section["enforcement"] for section in policy["line_budgets"].values()} == {
+        "advisory"
+    }
+
+
 @pytest.mark.parametrize("enforcement", ["ignored", ["advisory"]])
 def test_unknown_line_budget_enforcement_fails_closed(enforcement: object) -> None:
     failures: list[str] = []
@@ -88,7 +94,6 @@ def test_unknown_line_budget_enforcement_fails_closed(enforcement: object) -> No
     )
 
     assert failures == [
-        "verifier_modules has unsupported line budget enforcement "
-        f"{enforcement!r}"
+        f"verifier_modules has unsupported line budget enforcement {enforcement!r}"
     ]
     assert warnings == []

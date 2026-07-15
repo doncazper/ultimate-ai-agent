@@ -44,6 +44,36 @@ const provider = {
   safe_summary: "Matrix runtime is unavailable.",
 };
 
+const partialProvider = {
+  ...provider,
+  adapter_ref: "adapter-ref:communications:matrix-session-v1",
+  capability_ref: "capability-ref:communications:matrix-session-v1",
+  provider_status: "partial",
+  availability: {
+    ...provider.availability,
+    snapshot_ref: "snapshot-ref:communications:matrix-session-v1",
+    capability_ref: "capability-ref:communications:matrix-session-v1",
+    adapter_ref: "adapter-ref:communications:matrix-session-v1",
+    catalog_status: "supported",
+    compatibility_status: "supported",
+    configuration_status: "configured",
+    authority_posture: "lease_required",
+    resource_status: "available",
+    cost_posture: "not_metered",
+    safe_disable_status: "inactive",
+    declared_or_observed_version_ref: "version-ref:matrix-js-sdk:41-9-0",
+    reason_codes: ["MATRIX_DISCOVERY_EXACT_LANE_IMPLEMENTED"],
+    blocker_codes: ["MATRIX_ACCOUNT_SESSION_NOT_CONFIGURED"],
+    evidence_refs: ["evidence-ref:communications:matrix-session-sdk-pin"],
+    source_ref: "source-ref:communications:matrix-session-runtime",
+    safe_summary: "Matrix discovery and authentication-method inspection are partial.",
+  },
+  reason_codes: ["MATRIX_DISCOVERY_EXACT_LANE_IMPLEMENTED"],
+  blocker_codes: ["MATRIX_ACCOUNT_SESSION_NOT_CONFIGURED"],
+  evidence_refs: ["evidence-ref:communications:matrix-session-sdk-pin"],
+  safe_summary: "Matrix discovery and authentication-method inspection are partial.",
+};
+
 function respond(data: unknown): void {
   vi.stubGlobal(
     "fetch",
@@ -64,6 +94,25 @@ describe("communications API bindings", () => {
     const result = await loadCommunicationsProviders();
     expect(result[0]?.availability.authority_posture).toBe("blocked");
     expect(result[0]?.availability.runtime_readiness_status).toBe("unknown");
+  });
+
+  it("accepts only the exact partial Matrix session tuple", async () => {
+    respond([partialProvider]);
+    const result = await loadCommunicationsProviders();
+    expect(result[0]?.provider_status).toBe("partial");
+
+    respond([
+      {
+        ...partialProvider,
+        availability: {
+          ...partialProvider.availability,
+          compatibility_status: "unsupported",
+        },
+      },
+    ]);
+    await expect(loadCommunicationsProviders()).rejects.toThrow(
+      "failed safe validation",
+    );
   });
 
   it("rejects provider authority drift and content-bearing fields", async () => {

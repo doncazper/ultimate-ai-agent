@@ -33,11 +33,18 @@ from ultimate_ai_agent.core.gate.evaluator_modules.route_side_effects import (
     operation_id_failures,
 )
 from ultimate_ai_agent.core.gate.shadow_replay import run_m5_shadow_replay
-from ultimate_ai_agent.core.sandbox_calculation.static_safety import sealed_backend_fragment_allowed as sealed_fragment_allowed
-from ultimate_ai_agent.core.evidence_signing.static_safety import portable_evidence_helper_fragment_allowed
+from ultimate_ai_agent.core.sandbox_calculation.static_safety import (
+    sealed_backend_fragment_allowed as sealed_fragment_allowed,
+)
+from ultimate_ai_agent.core.evidence_signing.static_safety import (
+    portable_evidence_helper_fragment_allowed,
+)
 from ultimate_ai_agent.core.communications.matrix_harness.static_safety import (
     is_exact_matrix_harness_shell_scan_line,
     matrix_harness_fragment_allowed,
+)
+from ultimate_ai_agent.core.communications.matrix_session.static_safety import (
+    matrix_session_fragment_allowed,
 )
 from ultimate_ai_agent.core.context_budget import ContextBudget
 from ultimate_ai_agent.core.hygiene.actor_context import (
@@ -120,7 +127,7 @@ def _version_doc_marks_milestone_implemented(text: str, milestone: str) -> bool:
 # Route-boundary evaluators are imported here to preserve the historical public facade.
 from ultimate_ai_agent.core.gate.evaluator_modules.route_boundaries import *  # noqa: F401,F403
 
-EXPECTED_M13_CONTROL_CENTER_ROUTE_COUNT = 110
+EXPECTED_M13_CONTROL_CENTER_ROUTE_COUNT = 120
 
 STATIC_SAFETY_EVALUATOR_DATA_FILES = frozenset(
     {
@@ -137,8 +144,7 @@ STATIC_SAFETY_EVALUATOR_DATA_FILES = frozenset(
         for part_number in range(1, 45)
     }
     | {
-        "src/ultimate_ai_agent/core/gate/criteria_families/"
-        f"{family_name}.py"
+        f"src/ultimate_ai_agent/core/gate/criteria_families/{family_name}.py"
         for family_name in (
             "foundation_core",
             "runtime_authority_bootstrap",
@@ -152,20 +158,23 @@ STATIC_SAFETY_EVALUATOR_DATA_FILES = frozenset(
         )
     }
 )
-STATIC_SAFETY_EVALUATOR_DATA_PREFIXES = ("src/ultimate_ai_agent/core/gate/checkpoint_builders/",)
+STATIC_SAFETY_EVALUATOR_DATA_PREFIXES = (
+    "src/ultimate_ai_agent/core/gate/checkpoint_builders/",
+)
 GOVERNED_RUNTIME_COMMAND_ADAPTER_STATIC_SCAN_ALLOWED_FILES = frozenset(
     {"src/ultimate_ai_agent/core/runtime_gateway/command.py"}
 )
 
 
-def runtime_subprocess_fragment_allowed(
-    rel: str, text: str, fragment: str
-) -> bool:
+def runtime_subprocess_fragment_allowed(rel: str, text: str, fragment: str) -> bool:
     return (
         sealed_fragment_allowed(rel, text, fragment)
         or portable_evidence_helper_fragment_allowed(rel, text, fragment)
         or matrix_harness_fragment_allowed(rel, text, fragment)
+        or matrix_session_fragment_allowed(rel, text, fragment)
     )
+
+
 def _is_static_safety_scan_allowed_file(rel: str, allowed_files: Iterable[str]) -> bool:
     return (
         rel in allowed_files
@@ -175,12 +184,18 @@ def _is_static_safety_scan_allowed_file(rel: str, allowed_files: Iterable[str]) 
     )
 
 
-def _context_rglob(context: GateEvaluationContext | None, root: Path, pattern: str) -> Iterable[Path]:
+def _context_rglob(
+    context: GateEvaluationContext | None, root: Path, pattern: str
+) -> Iterable[Path]:
     return context.rglob(root, pattern) if context else root.rglob(pattern)
 
 
 def _context_read_text(context: GateEvaluationContext | None, path: Path) -> str:
-    return context.read_text(path, encoding="utf-8") if context else path.read_text(encoding="utf-8")
+    return (
+        context.read_text(path, encoding="utf-8")
+        if context
+        else path.read_text(encoding="utf-8")
+    )
 
 
 M36_SAFE_REF_PREFIXES = {
@@ -293,7 +308,9 @@ def m34_active_currentness_failures(active_docs: Dict[str, str]) -> List[str]:
     return failures
 
 
-def m22_local_runtime_forbidden_fragment_failures(root: Path, context: GateEvaluationContext | None = None) -> List[str]:
+def m22_local_runtime_forbidden_fragment_failures(
+    root: Path, context: GateEvaluationContext | None = None
+) -> List[str]:
     failures: List[str] = []
     runtime_root = root / "src" / "ultimate_ai_agent" / "core" / "model_runtime"
     if not runtime_root.exists():
@@ -313,7 +330,9 @@ def m22_local_runtime_forbidden_fragment_failures(root: Path, context: GateEvalu
     return failures
 
 
-def m152_local_model_management_forbidden_fragment_failures(root: Path, context: GateEvaluationContext | None = None) -> List[str]:
+def m152_local_model_management_forbidden_fragment_failures(
+    root: Path, context: GateEvaluationContext | None = None
+) -> List[str]:
     failures: List[str] = []
     for rel_root in M152_STATIC_SCAN_ROOTS:
         scan_root = root / rel_root
@@ -393,7 +412,9 @@ def m21_forbidden_openwebui_config_path_matches(root: Path) -> List[str]:
     return sorted(matches)
 
 
-def m21_forbidden_openwebui_runtime_fragment_failures(root: Path, context: GateEvaluationContext | None = None) -> List[str]:
+def m21_forbidden_openwebui_runtime_fragment_failures(
+    root: Path, context: GateEvaluationContext | None = None
+) -> List[str]:
     failures: List[str] = []
     implementation_roots = [root / "src", root / "apps", root / "scripts"]
     for implementation_root in implementation_roots:
@@ -404,7 +425,9 @@ def m21_forbidden_openwebui_runtime_fragment_failures(root: Path, context: GateE
             candidate_files.extend(_context_rglob(context, implementation_root, "*.py"))
         else:
             for pattern in ("*.ts", "*.tsx", "*.js", "*.jsx", "*.json"):
-                candidate_files.extend(_context_rglob(context, implementation_root, pattern))
+                candidate_files.extend(
+                    _context_rglob(context, implementation_root, pattern)
+                )
         for path in candidate_files:
             rel = path.relative_to(root).as_posix()
             if not path.is_file() or any(
@@ -454,6 +477,7 @@ def _control_center_frontend_verifier_failures(evaluator: Any) -> List[str]:
             run_verifier,
         )
     )
+
 
 # Export single-underscore historical helpers for compatibility modules.
 __all__ = [name for name in globals() if not name.startswith("__")]

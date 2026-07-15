@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Callable
 
 from fastapi import APIRouter, FastAPI, Header, HTTPException, Query, Response
-from pydantic import BaseModel, ConfigDict, StrictBool, model_validator
+from pydantic import BaseModel, ConfigDict, SecretStr, StrictBool, model_validator
 
 from ultimate_ai_agent.api.route_registration import register_router_once
 from ultimate_ai_agent.core.communications import (
@@ -38,12 +38,21 @@ from ultimate_ai_agent.core.communications.matrix_harness import (
     default_matrix_harness_backend_config,
     execute_matrix_harness_command,
 )
+from ultimate_ai_agent.core.communications.matrix_session import (
+    MATRIX_SESSION_LANES,
+    MatrixSessionCommand,
+    MatrixSessionOperation,
+    MatrixSessionTransientInput,
+    capture_exact_matrix_session_approval,
+    execute_matrix_session_command,
+)
 
 
 router = APIRouter(prefix="/control-center/communications", tags=["control-center"])
 _REGISTERED_ATTR = "_uaa_communications_routes_registered"
 _SERVICE = build_default_communications_service()
 _HARNESS_APPROVAL_AUTHORITY = LocalApprovalAuthority()
+_SESSION_APPROVAL_AUTHORITY = LocalApprovalAuthority()
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _REDACTIONS = [
     "communications_safe_refs_only",
@@ -71,6 +80,46 @@ MatrixHarnessOperationHandler = Callable[
     [MatrixHarnessOperationRequest],
     object,
 ]
+
+
+class MatrixSessionOperationRequest(BaseModel):
+    command: MatrixSessionCommand
+    endpoint_url: SecretStr | None = None
+    discovery_origin: SecretStr | None = None
+    callback_url: SecretStr | None = None
+    confirmed: StrictBool = False
+
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+    @model_validator(mode="after")
+    def validate_request(self) -> "MatrixSessionOperationRequest":
+        lane = MATRIX_SESSION_LANES[self.command.operation]
+        if self.confirmed and not lane.approval_required:
+            raise ValueError("MATRIX_SESSION_READ_CONFIRMATION_FORBIDDEN")
+        sso_operations = {
+            MatrixSessionOperation.sso_launch,
+            MatrixSessionOperation.sso_callback_consume,
+        }
+        if self.command.operation == MatrixSessionOperation.discovery_read:
+            if (
+                self.discovery_origin is None
+                or self.endpoint_url is not None
+                or self.callback_url is not None
+            ):
+                raise ValueError("MATRIX_SESSION_DISCOVERY_TRANSIENT_SCOPE_INVALID")
+        elif (
+            self.endpoint_url is None
+            or self.discovery_origin is not None
+            or (
+                (self.command.operation in sso_operations)
+                != (self.callback_url is not None)
+            )
+        ):
+            raise ValueError("MATRIX_SESSION_ENDPOINT_TRANSIENT_SCOPE_INVALID")
+        return self
+
+
+MatrixSessionOperationHandler = Callable[[MatrixSessionOperationRequest], object]
 
 
 def _execute_matrix_harness_operation(
@@ -110,6 +159,50 @@ def _execute_matrix_harness_operation(
 
 _HARNESS_OPERATION_HANDLER: MatrixHarnessOperationHandler = (
     _execute_matrix_harness_operation
+)
+
+
+def _execute_matrix_session_operation(
+    payload: MatrixSessionOperationRequest,
+) -> object:
+    store = AuthorityLeaseStore()
+    lane = MATRIX_SESSION_LANES[payload.command.operation]
+    approval_ref: str | None = None
+    if lane.approval_required and payload.confirmed:
+        approval_ref = capture_exact_matrix_session_approval(
+            payload.command,
+            approval_authority=_SESSION_APPROVAL_AUTHORITY,
+            confirmed=True,
+        )
+    return execute_matrix_session_command(
+        payload.command,
+        repo_root=_REPO_ROOT,
+        authority_state_dir=store.state_dir,
+        transient_input=MatrixSessionTransientInput(
+            endpoint_url=(
+                payload.endpoint_url.get_secret_value()
+                if payload.endpoint_url is not None
+                else None
+            ),
+            discovery_origin=(
+                payload.discovery_origin.get_secret_value()
+                if payload.discovery_origin is not None
+                else None
+            ),
+            callback_url=(
+                payload.callback_url.get_secret_value()
+                if payload.callback_url is not None
+                else None
+            ),
+        ),
+        approval_ref=approval_ref,
+        lease_store=store,
+        approval_authority=_SESSION_APPROVAL_AUTHORITY,
+    )
+
+
+_SESSION_OPERATION_HANDLER: MatrixSessionOperationHandler = (
+    _execute_matrix_session_operation
 )
 
 
@@ -201,6 +294,76 @@ def _require_harness_idempotency_binding(
             detail="MATRIX_HARNESS_IDEMPOTENCY_MISMATCH",
             headers={"Cache-Control": "no-store"},
         )
+
+
+def _require_session_idempotency_binding(
+    payload: MatrixSessionOperationRequest,
+    idempotency_key: str | None,
+    idempotency_ref: str | None,
+) -> None:
+    supplied = {
+        value.strip()
+        for value in (idempotency_key, idempotency_ref)
+        if value is not None and value.strip()
+    }
+    if supplied != {payload.command.idempotency_ref}:
+        raise HTTPException(
+            status_code=409,
+            detail="MATRIX_SESSION_IDEMPOTENCY_MISMATCH",
+            headers={"Cache-Control": "no-store"},
+        )
+
+
+def _run_session_operation(
+    operation: MatrixSessionOperation,
+    payload: MatrixSessionOperationRequest,
+    response: Response,
+) -> ResultEnvelope:
+    _no_store(response)
+    if payload.command.operation != operation:
+        raise HTTPException(
+            status_code=422,
+            detail="MATRIX_SESSION_OPERATION_MISMATCH",
+            headers={"Cache-Control": "no-store"},
+        )
+    try:
+        result = _SESSION_OPERATION_HANDLER(payload)
+    except (OSError, ValueError, RuntimeError) as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="MATRIX_SESSION_OPERATION_BLOCKED",
+            headers={"Cache-Control": "no-store"},
+        ) from exc
+    data = result.model_dump(mode="json") if hasattr(result, "model_dump") else result
+    operation_name = f"control_center_communications_matrix_{operation.value}"
+    status = getattr(getattr(result, "receipt", None), "status", None)
+    if status == "succeeded":
+        return _envelope(
+            operation=operation_name,
+            trace_id=payload.command.dispatch_ref,
+            data=data,
+        )
+    return ResultEnvelope(
+        success=False,
+        operation=operation_name,
+        service="CommunicationsService",
+        trace_id=payload.command.dispatch_ref,
+        data=data,
+        error=ErrorEnvelope(
+            code="MATRIX_SESSION_OPERATION_NOT_SUCCEEDED",
+            category=(
+                ErrorCategory.authorization_error
+                if status in {"denied", "cancelled_before_start"}
+                else ErrorCategory.tool_error
+            ),
+            safe_message="The exact Matrix session operation did not succeed.",
+            severity=Severity.high,
+            retryable=False,
+            details_redacted=True,
+            source="CommunicationsService",
+        ),
+        redactions_applied=list(_REDACTIONS),
+    )
 
 
 @router.get(
@@ -423,6 +586,237 @@ def post_control_center_communications_harness_reset(
         payload, x_uaa_idempotency_key, x_uaa_idempotency_ref
     )
     return _run_harness_operation(MatrixHarnessOperation.reset, payload, response)
+
+
+@router.post(
+    "/matrix/discovery-read",
+    response_model=ResultEnvelope,
+    operation_id="post_control_center_communications_matrix_discovery_read",
+)
+def post_control_center_communications_matrix_discovery_read(
+    payload: MatrixSessionOperationRequest,
+    response: Response,
+) -> ResultEnvelope:
+    return _run_session_operation(
+        MatrixSessionOperation.discovery_read, payload, response
+    )
+
+
+@router.post(
+    "/matrix/auth-methods-read",
+    response_model=ResultEnvelope,
+    operation_id="post_control_center_communications_matrix_auth_methods_read",
+)
+def post_control_center_communications_matrix_auth_methods_read(
+    payload: MatrixSessionOperationRequest,
+    response: Response,
+) -> ResultEnvelope:
+    return _run_session_operation(
+        MatrixSessionOperation.auth_methods_read, payload, response
+    )
+
+
+def _run_mutating_session_route(
+    operation: MatrixSessionOperation,
+    payload: MatrixSessionOperationRequest,
+    response: Response,
+    idempotency_key: str | None,
+    idempotency_ref: str | None,
+) -> ResultEnvelope:
+    _require_session_idempotency_binding(payload, idempotency_key, idempotency_ref)
+    return _run_session_operation(operation, payload, response)
+
+
+@router.post(
+    "/matrix/credential-auth-create",
+    response_model=ResultEnvelope,
+    operation_id="post_control_center_communications_matrix_credential_auth_create",
+)
+def post_control_center_communications_matrix_credential_auth_create(
+    payload: MatrixSessionOperationRequest,
+    response: Response,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias=IDEMPOTENCY_KEY_HEADER
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias=IDEMPOTENCY_REF_HEADER
+    ),
+) -> ResultEnvelope:
+    return _run_mutating_session_route(
+        MatrixSessionOperation.credential_auth_create,
+        payload,
+        response,
+        x_uaa_idempotency_key,
+        x_uaa_idempotency_ref,
+    )
+
+
+@router.post(
+    "/matrix/sso-launch",
+    response_model=ResultEnvelope,
+    operation_id="post_control_center_communications_matrix_sso_launch",
+)
+def post_control_center_communications_matrix_sso_launch(
+    payload: MatrixSessionOperationRequest,
+    response: Response,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias=IDEMPOTENCY_KEY_HEADER
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias=IDEMPOTENCY_REF_HEADER
+    ),
+) -> ResultEnvelope:
+    return _run_mutating_session_route(
+        MatrixSessionOperation.sso_launch,
+        payload,
+        response,
+        x_uaa_idempotency_key,
+        x_uaa_idempotency_ref,
+    )
+
+
+@router.post(
+    "/matrix/sso-callback-consume",
+    response_model=ResultEnvelope,
+    operation_id="post_control_center_communications_matrix_sso_callback_consume",
+)
+def post_control_center_communications_matrix_sso_callback_consume(
+    payload: MatrixSessionOperationRequest,
+    response: Response,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias=IDEMPOTENCY_KEY_HEADER
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias=IDEMPOTENCY_REF_HEADER
+    ),
+) -> ResultEnvelope:
+    return _run_mutating_session_route(
+        MatrixSessionOperation.sso_callback_consume,
+        payload,
+        response,
+        x_uaa_idempotency_key,
+        x_uaa_idempotency_ref,
+    )
+
+
+@router.post(
+    "/matrix/refresh",
+    response_model=ResultEnvelope,
+    operation_id="post_control_center_communications_matrix_refresh",
+)
+def post_control_center_communications_matrix_refresh(
+    payload: MatrixSessionOperationRequest,
+    response: Response,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias=IDEMPOTENCY_KEY_HEADER
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias=IDEMPOTENCY_REF_HEADER
+    ),
+) -> ResultEnvelope:
+    return _run_mutating_session_route(
+        MatrixSessionOperation.refresh,
+        payload,
+        response,
+        x_uaa_idempotency_key,
+        x_uaa_idempotency_ref,
+    )
+
+
+@router.post(
+    "/matrix/logout",
+    response_model=ResultEnvelope,
+    operation_id="post_control_center_communications_matrix_logout",
+)
+def post_control_center_communications_matrix_logout(
+    payload: MatrixSessionOperationRequest,
+    response: Response,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias=IDEMPOTENCY_KEY_HEADER
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias=IDEMPOTENCY_REF_HEADER
+    ),
+) -> ResultEnvelope:
+    return _run_mutating_session_route(
+        MatrixSessionOperation.logout,
+        payload,
+        response,
+        x_uaa_idempotency_key,
+        x_uaa_idempotency_ref,
+    )
+
+
+@router.post(
+    "/matrix/revoke-all",
+    response_model=ResultEnvelope,
+    operation_id="post_control_center_communications_matrix_revoke_all",
+)
+def post_control_center_communications_matrix_revoke_all(
+    payload: MatrixSessionOperationRequest,
+    response: Response,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias=IDEMPOTENCY_KEY_HEADER
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias=IDEMPOTENCY_REF_HEADER
+    ),
+) -> ResultEnvelope:
+    return _run_mutating_session_route(
+        MatrixSessionOperation.revoke_all,
+        payload,
+        response,
+        x_uaa_idempotency_key,
+        x_uaa_idempotency_ref,
+    )
+
+
+@router.post(
+    "/matrix/credential-store-rotate",
+    response_model=ResultEnvelope,
+    operation_id="post_control_center_communications_matrix_credential_store_rotate",
+)
+def post_control_center_communications_matrix_credential_store_rotate(
+    payload: MatrixSessionOperationRequest,
+    response: Response,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias=IDEMPOTENCY_KEY_HEADER
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias=IDEMPOTENCY_REF_HEADER
+    ),
+) -> ResultEnvelope:
+    return _run_mutating_session_route(
+        MatrixSessionOperation.credential_store_rotate,
+        payload,
+        response,
+        x_uaa_idempotency_key,
+        x_uaa_idempotency_ref,
+    )
+
+
+@router.post(
+    "/matrix/credential-delete",
+    response_model=ResultEnvelope,
+    operation_id="post_control_center_communications_matrix_credential_delete",
+)
+def post_control_center_communications_matrix_credential_delete(
+    payload: MatrixSessionOperationRequest,
+    response: Response,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias=IDEMPOTENCY_KEY_HEADER
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias=IDEMPOTENCY_REF_HEADER
+    ),
+) -> ResultEnvelope:
+    return _run_mutating_session_route(
+        MatrixSessionOperation.credential_delete,
+        payload,
+        response,
+        x_uaa_idempotency_key,
+        x_uaa_idempotency_ref,
+    )
 
 
 def register_communications_routes(app: FastAPI) -> None:

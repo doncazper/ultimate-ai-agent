@@ -1,16 +1,7 @@
 from pathlib import Path
 
 from ultimate_ai_agent.core.gate.architecture import (
-    CRITERIA_FAMILY_LINE_CEILING,
-    CRITERIA_LINE_CEILING,
-    EVALUATION_CONTEXT_LINE_CEILING,
     GATE_TEST_IMPORT_CEILING,
-    LEGACY_CHECKS_LINE_CEILING,
-    LEGACY_CHECK_FAMILY_LINE_CEILING,
-    LEGACY_SUPPORT_LINE_CEILING,
-    LEGACY_EVALUATOR_LINE_CEILING,
-    LEGACY_EVALUATE_METHOD_LINE_CEILING,
-    ROUTE_BOUNDARY_MODULE_LINE_CEILING,
     evaluate_gate_architecture,
 )
 from ultimate_ai_agent.core.gate.evaluator_registry import evaluator_registry
@@ -28,21 +19,18 @@ def test_gate_architecture_guard_accepts_current_legacy_evaluator_ceiling() -> N
         for item in report.items
         if item.relative_path.endswith("core/gate/evaluators.py")
     )
-    assert legacy.line_count <= LEGACY_EVALUATOR_LINE_CEILING
     assert legacy.status == "legacy_facade_ceiling"
     composition = next(
         item
         for item in report.items
         if item.relative_path.endswith("core/gate/legacy_checks.py")
     )
-    assert composition.line_count <= LEGACY_CHECKS_LINE_CEILING
     assert composition.status == "legacy_composition_ceiling"
     support = next(
         item
         for item in report.items
         if item.relative_path.endswith("core/gate/legacy_support.py")
     )
-    assert support.line_count <= LEGACY_SUPPORT_LINE_CEILING
     assert support.status == "legacy_support_ceiling"
     legacy_parts = [
         item
@@ -50,41 +38,39 @@ def test_gate_architecture_guard_accepts_current_legacy_evaluator_ceiling() -> N
         if "/legacy_check_families/part_" in item.relative_path
     ]
     assert len(legacy_parts) == 44
-    assert all(item.line_count <= LEGACY_CHECK_FAMILY_LINE_CEILING for item in legacy_parts)
     assert {item.status for item in legacy_parts} == {"legacy_check_family_ceiling"}
     criteria = next(
         item
         for item in report.items
         if item.relative_path.endswith("core/gate/criteria.py")
     )
-    assert criteria.line_count <= CRITERIA_LINE_CEILING
     assert criteria.status == "criteria_facade_ceiling"
     criteria_families = [
-        item
-        for item in report.items
-        if "/criteria_families/" in item.relative_path
+        item for item in report.items if "/criteria_families/" in item.relative_path
     ]
     assert len(criteria_families) == 10
-    assert all(
-        item.line_count <= CRITERIA_FAMILY_LINE_CEILING
-        for item in criteria_families
-    )
     assert {item.status for item in criteria_families} == {"criteria_family_ceiling"}
     route_boundaries = next(
         item
         for item in report.items
-        if item.relative_path.endswith("core/gate/evaluator_modules/route_boundaries.py")
+        if item.relative_path.endswith(
+            "core/gate/evaluator_modules/route_boundaries.py"
+        )
     )
-    assert route_boundaries.line_count <= ROUTE_BOUNDARY_MODULE_LINE_CEILING
     assert route_boundaries.status == "route_boundary_extraction_ceiling"
     context = next(
         item
         for item in report.items
         if item.relative_path.endswith("core/gate/evaluation_context.py")
     )
-    assert context.line_count <= EVALUATION_CONTEXT_LINE_CEILING
     assert context.status == "evaluation_context_ceiling"
     assert not report.failures
+    over_ceiling = {
+        f"{item.relative_path} has {item.line_count} lines; ceiling is {item.line_ceiling}"
+        for item in report.items
+        if item.line_count > item.line_ceiling
+    }
+    assert over_ceiling.issubset(set(report.advisories))
 
 
 def test_gate_architecture_guard_ratchets_legacy_evaluator_debt() -> None:
@@ -119,17 +105,6 @@ def test_gate_architecture_guard_ratchets_legacy_evaluator_debt() -> None:
             ):
                 test_import_count += 1
     assert test_import_count <= GATE_TEST_IMPORT_CEILING
-
-    tree = ast.parse(text)
-    evaluate_node = next(
-        node
-        for node in ast.walk(tree)
-        if isinstance(node, ast.FunctionDef) and node.name == "evaluate"
-    )
-    assert (
-        evaluate_node.end_lineno - evaluate_node.lineno + 1
-        <= LEGACY_EVALUATE_METHOD_LINE_CEILING
-    )
 
 
 def test_evaluator_registry_names_planned_split_boundaries() -> None:

@@ -38,7 +38,12 @@ EXPECTED_SIDE_EFFECT_MIX = {
     "validation_only": 79,
     "none": 10,
     "local_dev_workspace_only": 183,
-    "governed_network_read_only": 4,
+    "governed_network_read_only": 6,
+    "authenticated_connector_mutation": 4,
+    "destructive_local_sensitive": 1,
+    "local_sensitive": 1,
+    "destructive_external": 1,
+    "system_browser_exact_launch": 1,
 }
 EXPECTED_PUBLIC_METADATA_PATHS = {
     ("GET", "/api/manifest"),
@@ -102,7 +107,7 @@ REQUIRED_DOC_SNIPPETS = {
     "docs/api/UAA_P1_080_API_ROUTE_CLASSIFICATION_INVENTORY.md": [
         "Status: Implemented",
         str(EXPECTED_ROUTE_COUNT),
-        "| `mutating_requires_authority` | 62 |",
+        "| `mutating_requires_authority` | 70 |",
         f"The current OpenAPI path count is `{EXPECTED_OPENAPI_PATH_COUNT}`",
         f"`{EXPECTED_ROUTE_COUNT}` route operations",
         "public_metadata",

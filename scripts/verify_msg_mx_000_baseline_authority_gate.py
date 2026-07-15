@@ -15,7 +15,9 @@ TRUTH_PATH = ROOT / "docs" / "roadmap" / "PRODUCT_RELEASE_TRUTH_PACKET.md"
 INDEX_PATH = ROOT / "docs" / "DOCUMENTATION_INDEX.md"
 
 BASELINE_SHA = "d1066c0cdc90a3d882114eab145e235cb8d1ae38"
-AUTHORITY_MAP_SHA256 = "1ab43406065a7c0d35904d89e0c6ca11b69b1ebc02fdf2183c4358e3470d083f"
+AUTHORITY_MAP_SHA256 = (
+    "1ab43406065a7c0d35904d89e0c6ca11b69b1ebc02fdf2183c4358e3470d083f"
+)
 LANE_LEDGER_SHA256 = "609aa80cfb86c5f05551aefa8e171fe0d0c582609e732699c7c7f3ce764c708a"
 TRUTH_ROW_SHA256 = "eb4bc4f91f6093c079b48379c37860de3529a4add5362449b6659c36dcc4ce77"
 INDEX_ROW_SHA256 = "053009f39a2fd2958d446eff9312d3da5a4031107dbd226def3b14ac7d6622f4"
@@ -44,6 +46,10 @@ ACCEPTED_CURRENT_SUCCESS = {
     "MSG-MX-004": (
         "exact_local_harness_lanes_live_verified_pending_merge_evidence",
         "evidence-ref:msg-mx-004:local-synapse-harness",
+    ),
+    "MSG-MX-005": (
+        "partial_discovery_auth_read_lanes_implemented_pending_merge_gate",
+        "evidence-ref:msg-mx-005:partial-discovery-session",
     ),
 }
 SAFE_BLOCKED_CURRENT_STATUS = {
@@ -118,13 +124,28 @@ EXPECTED_MILESTONE_ROWS = (
             evidence,
         )
         for index, evidence in (
-            (4, "accepted loopback/container/harness lanes and hostile lifecycle proof"),
-            (5, "accepted discovery/session/auth/credential/SSO/callback lanes and revocation proof"),
+            (
+                4,
+                "accepted loopback/container/harness lanes and hostile lifecycle proof",
+            ),
+            (
+                5,
+                "accepted discovery/session/auth/credential/SSO/callback lanes and revocation proof",
+            ),
             (6, "accepted read/sync/cache/key lanes and cross-scope isolation proof"),
-            (7, "accepted crypto/device/backup/recovery/reset lanes and loss/recovery proof"),
-            (8, "accepted exact human-commanded messaging/outbox/notification lanes and delivery proof"),
+            (
+                7,
+                "accepted crypto/device/backup/recovery/reset lanes and loss/recovery proof",
+            ),
+            (
+                8,
+                "accepted exact human-commanded messaging/outbox/notification lanes and delivery proof",
+            ),
             (9, "accepted room/admin/media/search lanes and quarantine/cleanup proof"),
-            (10, "accepted context/provider/proposal/attachment lane families and isolation proof"),
+            (
+                10,
+                "accepted context/provider/proposal/attachment lane families and isolation proof",
+            ),
         )
     ),
     (
@@ -486,11 +507,7 @@ def _extract_marked(
             text,
             position,
         )
-        if (
-            inside_fence != required_fenced
-            or inside_html_code
-            or inside_outer_comment
-        ):
+        if inside_fence != required_fenced or inside_html_code or inside_outer_comment:
             failures.append(f"{label} marker is not rendered: {marker}")
             return ""
     return text[start_index + len(start) : end_index]
@@ -501,7 +518,9 @@ def _table_rows(body: str, prefix: str) -> list[tuple[str, ...]]:
     for line in body.splitlines():
         if not line.startswith(prefix):
             continue
-        rows.append(tuple(cell.strip().strip("`") for cell in line.strip("|").split("|")))
+        rows.append(
+            tuple(cell.strip().strip("`") for cell in line.strip("|").split("|"))
+        )
     return rows
 
 
@@ -528,7 +547,9 @@ def _extract_sections(
     if not body:
         return []
     if _contains_code_wrapper(body) or "<!--" in body:
-        local_failures.append("milestone sections must be rendered text, not fences or comments")
+        local_failures.append(
+            "milestone sections must be rendered text, not fences or comments"
+        )
     matches = list(re.finditer(r"^### (MSG-MX-\d{3})\s*$", body, re.MULTILINE))
     sections: list[tuple[str, str]] = []
     for index, match in enumerate(matches):
@@ -565,7 +586,9 @@ def _status_values(
 def _scan_security(label: str, text: str, failures: list[str]) -> None:
     for pattern in FORBIDDEN_AUTHORITY_PATTERNS:
         if pattern.search(text):
-            failures.append(f"{label} contains forbidden authority claim: {pattern.pattern}")
+            failures.append(
+                f"{label} contains forbidden authority claim: {pattern.pattern}"
+            )
     if SECRET_ASSIGNMENT_PATTERN.search(text):
         failures.append(f"{label} contains secret or credential material")
     if BEARER_MATERIAL_PATTERN.search(text):
@@ -584,9 +607,14 @@ def _verify_evidence_paths(text: str, failures: list[str]) -> None:
         text,
         re.MULTILINE,
     )
-    parsed = tuple((evidence_ref, tuple(re.findall(r"`([^`]+)`", cell))) for evidence_ref, cell in rows)
+    parsed = tuple(
+        (evidence_ref, tuple(re.findall(r"`([^`]+)`", cell)))
+        for evidence_ref, cell in rows
+    )
     if parsed != EXPECTED_EVIDENCE_PATHS:
-        failures.append("baseline evidence table must contain exactly six rendered rows")
+        failures.append(
+            "baseline evidence table must contain exactly six rendered rows"
+        )
         return
     root = ROOT.resolve()
     for _, refs in parsed:
@@ -623,7 +651,9 @@ def _verify_map(text: str, failures: list[str]) -> None:
         ),
         failures,
     )
-    _require_fragments("shared future runtime gate", text, SHARED_GATE_FRAGMENTS, failures)
+    _require_fragments(
+        "shared future runtime gate", text, SHARED_GATE_FRAGMENTS, failures
+    )
 
     rows = _extract_ledger(text, failures)
     actual_rows = tuple(tuple(row) for row in rows)
@@ -637,7 +667,9 @@ def _verify_map(text: str, failures: list[str]) -> None:
     lane_body = _extract_marked(text, LANE_MARKERS, "planned lane ledger", failures)
     lane_digest = hashlib.sha256(lane_body.encode("utf-8")).hexdigest()
     if lane_digest != LANE_LEDGER_SHA256:
-        failures.append("planned lane ledger full bindings differ from immutable baseline")
+        failures.append(
+            "planned lane ledger full bindings differ from immutable baseline"
+        )
     expected_lanes = [
         (f"planned-lane-ref:matrix:{suffix}", milestone)
         for milestone, suffixes in EXPECTED_LANE_REFS.items()
@@ -675,7 +707,9 @@ def _verify_map(text: str, failures: list[str]) -> None:
     section_ids = [milestone for milestone, _ in sections]
     all_section_ids = re.findall(r"^### (MSG-MX-\d{3})\s*$", text, re.MULTILINE)
     if section_ids != list(EXPECTED_MILESTONES) or all_section_ids != section_ids:
-        failures.append(f"milestone sections must be rendered, ordered, and unique: {section_ids}")
+        failures.append(
+            f"milestone sections must be rendered, ordered, and unique: {section_ids}"
+        )
     ledger_by_id = {row[0]: row for row in rows if len(row) == 7}
     for milestone, body in sections:
         values = _status_values(milestone, body, failures)
@@ -769,9 +803,16 @@ def _verify_bindings(
         required_fenced=True,
     )
     rendered_map_line = f"Baseline authority map: `{MAP_REF}`"
-    if overlay.count(MAP_REF) != 1 or overlay.splitlines().count(rendered_map_line) != 1:
-        failures.append("current board overlay must render the baseline map exactly once")
-    phase_matches = re.findall(r"^Current phase: `(MSG-MX-\d{3})`$", overlay, re.MULTILINE)
+    if (
+        overlay.count(MAP_REF) != 1
+        or overlay.splitlines().count(rendered_map_line) != 1
+    ):
+        failures.append(
+            "current board overlay must render the baseline map exactly once"
+        )
+    phase_matches = re.findall(
+        r"^Current phase: `(MSG-MX-\d{3})`$", overlay, re.MULTILINE
+    )
     if len(phase_matches) != 1 or phase_matches[0] not in EXPECTED_MILESTONES:
         failures.append("current board overlay must expose one valid current phase")
     status_matches = re.findall(
@@ -787,7 +828,9 @@ def _verify_bindings(
         re.MULTILINE,
     )
     if len(evidence_matches) != 1:
-        failures.append("current board overlay must expose one safe current evidence ref")
+        failures.append(
+            "current board overlay must expose one safe current evidence ref"
+        )
     mutable_prefixes = (
         "Current phase:",
         "Current program status:",
@@ -796,22 +839,18 @@ def _verify_bindings(
     overlay_lines = overlay.splitlines()
     for prefix in mutable_prefixes:
         if sum(line.startswith(prefix) for line in overlay_lines) != 1:
-            failures.append(f"current board overlay must contain one canonical {prefix} line")
+            failures.append(
+                f"current board overlay must contain one canonical {prefix} line"
+            )
     validated_projection_lines: set[str] = set()
     if len(phase_matches) == 1:
         validated_projection_lines.add(f"Current phase: `{phase_matches[0]}`")
     if len(status_matches) == 1:
-        validated_projection_lines.add(
-            f"Current program status: `{status_matches[0]}`"
-        )
+        validated_projection_lines.add(f"Current program status: `{status_matches[0]}`")
     if len(evidence_matches) == 1:
-        validated_projection_lines.add(
-            f"Current evidence ref: `{evidence_matches[0]}`"
-        )
+        validated_projection_lines.add(f"Current evidence ref: `{evidence_matches[0]}`")
     static_overlay = "\n".join(
-        line
-        for line in overlay_lines
-        if line not in validated_projection_lines
+        line for line in overlay_lines if line not in validated_projection_lines
     )
     static_digest = hashlib.sha256(static_overlay.encode("utf-8")).hexdigest()
     if static_digest != BOARD_STATIC_SHA256:
@@ -826,7 +865,9 @@ def _verify_bindings(
             failures.append("current board success lacks accepted phase evidence")
         expected_evidence_prefix = f"evidence-ref:{phase.lower()}:"
         if not evidence_ref.startswith(expected_evidence_prefix):
-            failures.append("current board evidence ref is not bound to its current phase")
+            failures.append(
+                "current board evidence ref is not bound to its current phase"
+            )
     _require_fragments(
         "current board historical baseline",
         overlay,
@@ -845,7 +886,9 @@ def _verify_bindings(
         "MSG-MX-000 accepts a planning-only Messenger Matrix baseline",
     )
     if len(truth_rows) != 1 or truth_rows[0].count(MAP_REF) != 1:
-        failures.append("product truth must contain one rendered historical MSG-MX-000 row")
+        failures.append(
+            "product truth must contain one rendered historical MSG-MX-000 row"
+        )
         truth_row = ""
     else:
         truth_row = truth_rows[0]
@@ -868,7 +911,9 @@ def _verify_bindings(
     _scan_security("current board overlay", overlay, failures)
     matrix_truth_rows = _rendered_table_row(truth, "matrix")
     if truth_row and truth_row not in matrix_truth_rows:
-        failures.append("product truth baseline row is not included in Matrix claim scan")
+        failures.append(
+            "product truth baseline row is not included in Matrix claim scan"
+        )
     for row_number, row in enumerate(matrix_truth_rows, start=1):
         _scan_security(f"product truth Matrix row {row_number}", row, failures)
     _scan_security("documentation index row", index_row, failures)
