@@ -916,6 +916,18 @@ class FoundationGateLegacyChecksPart003Mixin:
                 and route.rate_limit_group is None
                 and route.blocked_from_production
             )
+            is_communications_read_model = (
+                path in CONTROL_CENTER_COMMUNICATIONS_READONLY_PATHS
+                and route.method == "GET"
+                and route.side_effect_class == "none"
+                and route.route_classification == "local_sensitive"
+                and route.protected_route
+                and route.approval_posture == "not_required_for_route_classification"
+                and not route.idempotency_required
+                and not route.rate_limit_targeted
+                and route.rate_limit_group is None
+                and route.blocked_from_production
+            )
             is_crm_read_model = (
                 path in CONTROL_CENTER_CRM_COMMAND_CENTER_ROUTES
                 and route.method == "GET"
@@ -962,6 +974,7 @@ class FoundationGateLegacyChecksPart003Mixin:
                 and not is_coding_cockpit_read_model
                 and not is_work_board_read_model
                 and not is_control_center_runtime_cockpit_read_model
+                and not is_communications_read_model
                 and not is_crm_read_model
                 and not is_crm_or_work_board_command_state
             ):

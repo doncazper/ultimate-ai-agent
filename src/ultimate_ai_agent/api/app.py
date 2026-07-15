@@ -17,6 +17,7 @@ from ultimate_ai_agent.api.cors import (
     apply_loopback_cors_response_headers,
     configure_loopback_cors,
 )
+from ultimate_ai_agent.api.communications import register_communications_routes
 from ultimate_ai_agent.api.control_center import register_control_center_routes
 from ultimate_ai_agent.api.founder_loop import register_founder_loop_routes
 from ultimate_ai_agent.api.founder_exact_action import (
@@ -252,6 +253,7 @@ register_founder_loop_routes(app)
 register_founder_exact_action_routes(app)
 register_provider_setup_routes(app)
 register_governed_runtime_routes(app)
+register_communications_routes(app)
 
 _file_review_approval_store = FileReviewApprovalStore()
 _task_decomposition_service = TaskDecompositionService.from_env()

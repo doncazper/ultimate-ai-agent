@@ -17,6 +17,13 @@ export const API_ENDPOINTS = {
   modelProviderControlPlane: "/control-center/providers/runtime-control-plane",
   controlCenterSettingsStatus: "/control-center/settings/status",
   controlCenterLocalModelsStatus: "/control-center/local-models/status",
+  communicationsProviders: "/control-center/communications/providers",
+  communicationsSessionPosture:
+    "/control-center/communications/session-posture",
+  communicationsRooms: "/control-center/communications/rooms",
+  communicationsFailedSends: "/control-center/communications/failed-sends",
+  communicationsSecurityPosture:
+    "/control-center/communications/security-posture",
   founderTodaySummary: "/control-center/today/summary",
   founderAgentLoopThread: "/control-center/agent-loop/thread",
   founderStartHereSummary: "/control-center/start-here/summary",
@@ -181,6 +188,10 @@ export function memoryContextPackActionProposalEndpoint(
   return `/control-center/memory/context-packs/${encodeURIComponent(contextPackRef)}/action-proposal`;
 }
 
+export function communicationsReceiptEndpoint(receiptRef: string): string {
+  return `/control-center/communications/receipts/${encodeURIComponent(receiptRef)}`;
+}
+
 export function isActionDecisionEndpoint(endpoint: string): boolean {
   return /^\/control-center\/actions\/[^/]+\/(approve|edit|reject|defer)$/.test(
     endpoint,
@@ -213,6 +224,11 @@ export const READ_ENDPOINTS = [
   API_ENDPOINTS.controlCenterSettingsStatus,
   API_ENDPOINTS.runtimeAuthorityMissionWorkerState,
   API_ENDPOINTS.controlCenterLocalModelsStatus,
+  API_ENDPOINTS.communicationsProviders,
+  API_ENDPOINTS.communicationsSessionPosture,
+  API_ENDPOINTS.communicationsRooms,
+  API_ENDPOINTS.communicationsFailedSends,
+  API_ENDPOINTS.communicationsSecurityPosture,
   API_ENDPOINTS.founderTodaySummary,
   API_ENDPOINTS.founderAgentLoopThread,
   API_ENDPOINTS.founderStartHereSummary,

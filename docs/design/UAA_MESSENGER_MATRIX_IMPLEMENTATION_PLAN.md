@@ -143,6 +143,16 @@ desktop widths; every visible command is labeled Preview, Planned, or Blocked.
 
 ### Phase 2 — Python contracts, API, CLI, and adapter skeleton
 
+Implementation status: complete in MSG-MX-003 as backend-owned normalized
+contracts and protected read-only inspection only. The Matrix adapter is an
+inspection-only disabled shell with catalog unsupported, compatibility and
+health unknown, configuration not configured, authority blocked, budget and
+safe-disable unknown, and derived readiness unknown. The six communications
+GET routes and repo-local CLI expose the same safe-ref truth; TypeScript
+bindings validate it but the fixture Messenger UI remains intentionally
+disconnected. No SDK, network, account, authentication, sync/read, send/write,
+crypto, media, raw-content persistence, or runtime authority is added.
+
 Deliver:
 
 - Python `CommunicationsService`, provider registry, normalized models, safe-ref

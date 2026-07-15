@@ -2,14 +2,14 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `263`.
+Current OpenAPI path count: `269`.
 
 This inventory is generated from the FastAPI application and `/api/manifest`. It is the route ownership and side-effect classification map for the current local-first API boundary.
 
 ## Current Route Boundary
 
-- Manifest route operations: `264`
-- OpenAPI paths: `263`
+- Manifest route operations: `270`
+- OpenAPI paths: `269`
 - Production runtime authority: blocked
 - Public release authority: blocked
 
@@ -23,7 +23,7 @@ This inventory is generated from the FastAPI application and `/api/manifest`. It
 | `consent` | 2 | `consent` | `approval_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `context-budget` | 1 | `context` | `contracts_service` | future auth required | `validation_only`:1 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `contracts` | 2 | `contracts` | `contracts_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
-| `control-center` | 98 | `control-center` | `control_center_service` | local status or future auth per route | `governed_network_read_only`:2, `local_dev_workspace_only`:77, `validation_only`:19 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
+| `control-center` | 104 | `control-center` | `control_center_service` | local status or future auth per route | `governed_network_read_only`:2, `local_dev_workspace_only`:77, `none`:6, `validation_only`:19 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `cost-governor` | 3 | `cost-governor` | `cost_service` | future auth required | `validation_only`:3 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `extension-catalog` | 3 | `extension-catalog` | `extension_catalog_service` | future auth required | `local_dev_workspace_only`:2, `validation_only`:1 | medium | stable/generated from path; unique | status_available_not_completion |
 | `files` | 6 | `workspace-files` | `workspace_files_service` | future auth required and local safe refs | `local_dev_workspace_only`:6 | high | stable/generated from path; unique | partial_backend_not_product_ready |
@@ -157,6 +157,12 @@ validate the exact request-scoped authority boundary.
 | GET | `/control-center/coding/patch-proposal` | `get_control_center_coding_patch_proposal` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/coding/session` | `get_control_center_coding_session` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/coding/test-command-readiness` | `get_control_center_coding_test_command_readiness` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/control-center/communications/failed-sends` | `get_control_center_communications_failed_sends` | `none` | yes | future | yes |
+| GET | `/control-center/communications/providers` | `get_control_center_communications_providers` | `none` | yes | future | yes |
+| GET | `/control-center/communications/receipts/{receipt_ref}` | `get_control_center_communications_receipt` | `none` | yes | future | yes |
+| GET | `/control-center/communications/rooms` | `get_control_center_communications_rooms` | `none` | yes | future | yes |
+| GET | `/control-center/communications/security-posture` | `get_control_center_communications_security_posture` | `none` | yes | future | yes |
+| GET | `/control-center/communications/session-posture` | `get_control_center_communications_session_posture` | `none` | yes | future | yes |
 | GET | `/control-center/crm/follow-ups` | `get_control_center_crm_follow_ups` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/control-center/crm/local-mutations` | `post_control_center_crm_local_mutations` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/crm/pipelines` | `get_control_center_crm_pipelines` | `local_dev_workspace_only` | no | future | yes |
