@@ -20,6 +20,9 @@ from ultimate_ai_agent.core.authority import (
     TrustMode,
 )
 from ultimate_ai_agent.core.extension_catalog import (
+    EXACT_EXTENSION_ADAPTER_REF,
+    EXACT_EXTENSION_REGISTRATION_REF,
+    build_exact_extension_adapter_read_model,
     build_extension_install_disabled_approval_request,
     build_extension_install_disabled_delete_approval_request,
     build_extension_install_disabled_record_delete_receipt,
@@ -189,6 +192,33 @@ def _verify_catalog_contract(payload: dict[str, object]) -> None:
             validation["activation_metadata_grants_authority"] is False,
             "developer validation activation metadata claims authority",
         )
+
+
+def _verify_exact_adapter_contract() -> None:
+    read_model = build_exact_extension_adapter_read_model()
+    _require(
+        read_model.manifest.registration_ref == EXACT_EXTENSION_REGISTRATION_REF,
+        "exact extension registration drifted",
+    )
+    _require(
+        read_model.manifest.adapter_ref == EXACT_EXTENSION_ADAPTER_REF,
+        "exact extension adapter drifted",
+    )
+    _require(
+        not read_model.ready_for_request_scoped_evaluation,
+        "exact extension adapter invents readiness without observations",
+    )
+    _require(bool(read_model.blocker_codes), "exact adapter omits readiness blockers")
+    _require(not read_model.invocation_authorized, "exact adapter claims authority")
+    _require(not read_model.execution_performed, "exact adapter claims execution")
+    _require(
+        not read_model.global_extension_runtime_enabled,
+        "exact adapter enables a global extension runtime",
+    )
+    _require(
+        not read_model.arbitrary_runtime_import_enabled,
+        "exact adapter enables arbitrary runtime import",
+    )
 
 
 def _verify_authorized_install_disabled_record_receipt() -> None:
@@ -395,6 +425,27 @@ def _verify_cli(payload: dict[str, object]) -> None:
         "rollback-install-disabled-receipt" in help_result.stdout,
         "CLI disabled-install rollback command missing",
     )
+    exact_result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/dev/uaa_extensions.py",
+            "inspect-exact-adapter",
+        ],
+        cwd=ROOT,
+        env=env,
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+    _require(
+        "General extension runtime: disabled" in exact_result.stdout,
+        "exact adapter CLI omits the global-runtime boundary",
+    )
+    _require(
+        "Callability still requires fresh" in exact_result.stdout,
+        "exact adapter CLI omits request-scoped authority",
+    )
 
 
 def _verify_docs() -> None:
@@ -435,6 +486,7 @@ def main() -> int:
     try:
         payload = _catalog_payload()
         _verify_catalog_contract(payload)
+        _verify_exact_adapter_contract()
         _verify_api_route(payload)
         _verify_cli(payload)
         _verify_docs()

@@ -1,0 +1,248 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "adapter_ref": {
+      "const": "authority-adapter-ref:exact-extension-metadata-inspection-v1",
+      "default": "authority-adapter-ref:exact-extension-metadata-inspection-v1",
+      "title": "Adapter Ref",
+      "type": "string"
+    },
+    "approval_posture": {
+      "const": "current_policy_and_exact_lease",
+      "default": "current_policy_and_exact_lease",
+      "title": "Approval Posture",
+      "type": "string"
+    },
+    "arbitrary_extension_code_enabled": {
+      "const": false,
+      "default": false,
+      "title": "Arbitrary Extension Code Enabled",
+      "type": "boolean"
+    },
+    "authority_capability": {
+      "const": "read",
+      "default": "read",
+      "title": "Authority Capability",
+      "type": "string"
+    },
+    "authority_domain": {
+      "const": "files",
+      "default": "files",
+      "title": "Authority Domain",
+      "type": "string"
+    },
+    "budget_reservation_required": {
+      "const": true,
+      "default": true,
+      "title": "Budget Reservation Required",
+      "type": "boolean"
+    },
+    "capability_ref": {
+      "const": "capability:extension-metadata-inspection",
+      "default": "capability:extension-metadata-inspection",
+      "title": "Capability Ref",
+      "type": "string"
+    },
+    "catalog_entry_ref": {
+      "const": "inspectable-catalog-entry:uaa-plugin-skill-boundary",
+      "default": "inspectable-catalog-entry:uaa-plugin-skill-boundary",
+      "title": "Catalog Entry Ref",
+      "type": "string"
+    },
+    "connector_writes_enabled": {
+      "const": false,
+      "default": false,
+      "title": "Connector Writes Enabled",
+      "type": "boolean"
+    },
+    "contract_ref": {
+      "const": "contract-ref:exact-extension-adapter:v1",
+      "default": "contract-ref:exact-extension-adapter:v1",
+      "title": "Contract Ref",
+      "type": "string"
+    },
+    "environment_access_enabled": {
+      "const": false,
+      "default": false,
+      "title": "Environment Access Enabled",
+      "type": "boolean"
+    },
+    "exact_authority_lease_required": {
+      "const": true,
+      "default": true,
+      "title": "Exact Authority Lease Required",
+      "type": "boolean"
+    },
+    "exact_target_binding_required": {
+      "const": true,
+      "default": true,
+      "title": "Exact Target Binding Required",
+      "type": "boolean"
+    },
+    "home_directory_access_enabled": {
+      "const": false,
+      "default": false,
+      "title": "Home Directory Access Enabled",
+      "type": "boolean"
+    },
+    "idempotency_required": {
+      "const": true,
+      "default": true,
+      "title": "Idempotency Required",
+      "type": "boolean"
+    },
+    "implementation_ref": {
+      "const": "adapter-implementation-ref:exact-extension-metadata-inspection-v1",
+      "default": "adapter-implementation-ref:exact-extension-metadata-inspection-v1",
+      "title": "Implementation Ref",
+      "type": "string"
+    },
+    "kill_switch_check_required": {
+      "const": true,
+      "default": true,
+      "title": "Kill Switch Check Required",
+      "type": "boolean"
+    },
+    "lane_ref": {
+      "const": "lane-ref:extension-metadata-inspection-exact-v1",
+      "default": "lane-ref:extension-metadata-inspection-exact-v1",
+      "title": "Lane Ref",
+      "type": "string"
+    },
+    "manifest_ref": {
+      "const": "plugin-skill-manifest:uaa-plugin-skill-boundary",
+      "default": "plugin-skill-manifest:uaa-plugin-skill-boundary",
+      "title": "Manifest Ref",
+      "type": "string"
+    },
+    "network_access_enabled": {
+      "const": false,
+      "default": false,
+      "title": "Network Access Enabled",
+      "type": "boolean"
+    },
+    "package_ref": {
+      "const": "extension-package:uaa-plugin-skill-boundary",
+      "default": "extension-package:uaa-plugin-skill-boundary",
+      "title": "Package Ref",
+      "type": "string"
+    },
+    "production_authority_enabled": {
+      "const": false,
+      "default": false,
+      "title": "Production Authority Enabled",
+      "type": "boolean"
+    },
+    "provenance_ref": {
+      "const": "review:uaa-p1-024",
+      "default": "review:uaa-p1-024",
+      "title": "Provenance Ref",
+      "type": "string"
+    },
+    "receipt_contract_ref": {
+      "const": "receipt-contract-ref:authority-dispatch:exact-extension-v1",
+      "default": "receipt-contract-ref:authority-dispatch:exact-extension-v1",
+      "title": "Receipt Contract Ref",
+      "type": "string"
+    },
+    "receipt_required": {
+      "const": true,
+      "default": true,
+      "title": "Receipt Required",
+      "type": "boolean"
+    },
+    "registration_ref": {
+      "const": "extension-adapter-registration:metadata-inspection-v1",
+      "default": "extension-adapter-registration:metadata-inspection-v1",
+      "title": "Registration Ref",
+      "type": "string"
+    },
+    "request_scoped_policy_required": {
+      "const": true,
+      "default": true,
+      "title": "Request Scoped Policy Required",
+      "type": "boolean"
+    },
+    "rollback_ref": {
+      "const": "rollback-ref:extension-metadata-inspection:disable",
+      "default": "rollback-ref:extension-metadata-inspection:disable",
+      "title": "Rollback Ref",
+      "type": "string"
+    },
+    "rollback_required": {
+      "const": true,
+      "default": true,
+      "title": "Rollback Required",
+      "type": "boolean"
+    },
+    "runtime_import_enabled": {
+      "const": false,
+      "default": false,
+      "title": "Runtime Import Enabled",
+      "type": "boolean"
+    },
+    "safe_disable_check_required": {
+      "const": true,
+      "default": true,
+      "title": "Safe Disable Check Required",
+      "type": "boolean"
+    },
+    "safe_disable_ref": {
+      "const": "safe-disable-ref:extension-metadata-inspection",
+      "default": "safe-disable-ref:extension-metadata-inspection",
+      "title": "Safe Disable Ref",
+      "type": "string"
+    },
+    "safe_summary": {
+      "default": "One repo-owned extension registration delegates exact safe-root metadata inspection to UAA's bounded core tool through the current AuthorityDispatcher; extension package code is never imported.",
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Safe Summary",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "uaa-exact-extension-adapter.v1",
+      "default": "uaa-exact-extension-adapter.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "shell_execution_enabled": {
+      "const": false,
+      "default": false,
+      "title": "Shell Execution Enabled",
+      "type": "boolean"
+    },
+    "side_effect_class": {
+      "const": "read_only_local",
+      "default": "read_only_local",
+      "title": "Side Effect Class",
+      "type": "string"
+    },
+    "target_scope": {
+      "const": "injected_safe_root_exact_path",
+      "default": "injected_safe_root_exact_path",
+      "title": "Target Scope",
+      "type": "string"
+    },
+    "tool_ref": {
+      "const": "tool:filesystem_metadata.v1",
+      "default": "tool:filesystem_metadata.v1",
+      "title": "Tool Ref",
+      "type": "string"
+    },
+    "validation_ref": {
+      "const": "extension-developer-validation:uaa-plugin-skill-boundary",
+      "default": "extension-developer-validation:uaa-plugin-skill-boundary",
+      "title": "Validation Ref",
+      "type": "string"
+    },
+    "version_ref": {
+      "const": "version:uaa-p1-024",
+      "default": "version:uaa-p1-024",
+      "title": "Version Ref",
+      "type": "string"
+    }
+  },
+  "title": "ExactExtensionAdapterManifest",
+  "type": "object"
+}

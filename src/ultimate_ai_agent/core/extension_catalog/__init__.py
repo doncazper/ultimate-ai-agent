@@ -1,3 +1,5 @@
+from importlib import import_module
+
 from ultimate_ai_agent.core.extension_catalog.contracts import (
     ACTIVATION_GRANT_DENIED_TRUE_FLAGS,
     CATALOG_DENIED_TRUE_FLAGS,
@@ -79,6 +81,45 @@ from ultimate_ai_agent.core.extension_catalog.runtime import (
     build_default_skill_write_approval_gate,
 )
 
+_LAZY_EXPORT_MODULES = {
+    "EXACT_EXTENSION_ADAPTER_CONTRACT_REF": ".exact_adapter",
+    "EXACT_EXTENSION_ADAPTER_REF": ".exact_adapter",
+    "EXACT_EXTENSION_CAPABILITY_REF": ".exact_adapter",
+    "EXACT_EXTENSION_LANE_REF": ".exact_adapter",
+    "EXACT_EXTENSION_MANIFEST_REF": ".exact_adapter",
+    "EXACT_EXTENSION_PACKAGE_REF": ".exact_adapter",
+    "EXACT_EXTENSION_REGISTRATION_REF": ".exact_adapter",
+    "EXACT_EXTENSION_ROLLBACK_REF": ".exact_adapter",
+    "EXACT_EXTENSION_SAFE_DISABLE_REF": ".exact_adapter",
+    "ExactExtensionAdapterManifest": ".exact_adapter",
+    "ExactExtensionAdapterReadModel": ".exact_adapter",
+    "ExactExtensionBudgetStatus": ".exact_adapter",
+    "ExactExtensionCompatibilityStatus": ".exact_adapter",
+    "ExactExtensionConfigurationStatus": ".exact_adapter",
+    "ExactExtensionHealthStatus": ".exact_adapter",
+    "ExactExtensionKillSwitchStatus": ".exact_adapter",
+    "ExactExtensionMetadataAuthorityAdapter": ".exact_adapter",
+    "ExactExtensionRuntimePosture": ".exact_adapter",
+    "ExactExtensionSafeDisableStatus": ".exact_adapter",
+    "build_default_exact_extension_adapter_manifest": ".exact_adapter",
+    "build_exact_extension_adapter_read_model": ".exact_adapter",
+    "build_exact_extension_metadata_dispatch_request": ".exact_adapter",
+    "exact_extension_runtime_blocker_codes": ".exact_adapter",
+    "load_exact_extension_adapter_manifest": ".exact_adapter",
+}
+
+
+def __getattr__(name: str):
+    """Load authority-bound exact adapters only when explicitly requested."""
+
+    module_name = _LAZY_EXPORT_MODULES.get(name)
+    if module_name is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    value = getattr(import_module(module_name, __name__), name)
+    globals()[name] = value
+    return value
+
+
 __all__ = [
     "ACTIVATION_GRANT_DENIED_TRUE_FLAGS",
     "CATALOG_DENIED_TRUE_FLAGS",
@@ -87,6 +128,15 @@ __all__ = [
     "EXTENSION_INSTALL_DISABLED_DELETE_ACTION_REF",
     "EXTENSION_INSTALL_DISABLED_DELETE_REQUEST_REF",
     "EXTENSION_INSTALL_DISABLED_REQUEST_REF",
+    "EXACT_EXTENSION_ADAPTER_CONTRACT_REF",
+    "EXACT_EXTENSION_ADAPTER_REF",
+    "EXACT_EXTENSION_CAPABILITY_REF",
+    "EXACT_EXTENSION_LANE_REF",
+    "EXACT_EXTENSION_MANIFEST_REF",
+    "EXACT_EXTENSION_PACKAGE_REF",
+    "EXACT_EXTENSION_REGISTRATION_REF",
+    "EXACT_EXTENSION_ROLLBACK_REF",
+    "EXACT_EXTENSION_SAFE_DISABLE_REF",
     "INSPECTABLE_EXTENSION_CATALOG_DOCS",
     "INSPECTABLE_EXTENSION_CATALOG_SCHEMAS",
     "ExtensionActivationGrantRecord",
@@ -116,6 +166,16 @@ __all__ = [
     "ExtensionRiskClass",
     "ExtensionSafeAdoptionPosture",
     "ExtensionTrustPosture",
+    "ExactExtensionAdapterManifest",
+    "ExactExtensionAdapterReadModel",
+    "ExactExtensionBudgetStatus",
+    "ExactExtensionCompatibilityStatus",
+    "ExactExtensionConfigurationStatus",
+    "ExactExtensionHealthStatus",
+    "ExactExtensionKillSwitchStatus",
+    "ExactExtensionMetadataAuthorityAdapter",
+    "ExactExtensionRuntimePosture",
+    "ExactExtensionSafeDisableStatus",
     "InspectableExtensionCapability",
     "InspectableExtensionCatalog",
     "InspectableExtensionCatalogEntry",
@@ -136,14 +196,19 @@ __all__ = [
     "assert_extension_activation_metadata_current",
     "build_default_skill_write_approval_gate",
     "build_default_extension_install_disabled_posture",
+    "build_default_exact_extension_adapter_manifest",
     "build_default_inspectable_extension_catalog",
     "build_default_skill_bundle_proposal_posture",
     "build_extension_install_disabled_approval_request",
     "build_extension_install_disabled_delete_approval_request",
     "build_extension_install_disabled_record_delete_receipt",
     "build_extension_install_disabled_record_receipt",
+    "build_exact_extension_adapter_read_model",
+    "build_exact_extension_metadata_dispatch_request",
     "delete_extension_install_disabled_record",
     "issue_extension_install_disabled_record",
+    "exact_extension_runtime_blocker_codes",
+    "load_exact_extension_adapter_manifest",
     "revoke_extension_activation_grant",
     "validate_skill_bundle_proposal_posture",
     "validate_extension_activation_grant_batch",

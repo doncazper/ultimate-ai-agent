@@ -1,0 +1,59 @@
+{
+  "schema_version": "uaa_exact_extension_lane_evidence.v1",
+  "evidence_ref": "evidence-ref:uaa-extensibility:exact-adapter-v1",
+  "scope": "one_core_owned_metadata_adapter_lane",
+  "not_component_score": true,
+  "aggregate_component_score": null,
+  "passed_gate_count": 7,
+  "total_gate_count": 7,
+  "confidence": "high",
+  "status": "implemented_exact_lane_general_runtime_blocked",
+  "implementation_ref": "adapter-implementation-ref:exact-extension-metadata-inspection-v1",
+  "gate_results": [
+    {
+      "gate_ref": "evidence-gate:extension:declaration-and-schema",
+      "status": "passed"
+    },
+    {
+      "gate_ref": "evidence-gate:extension:runtime-truth-dimensions",
+      "status": "passed"
+    },
+    {
+      "gate_ref": "evidence-gate:extension:exact-core-owned-adapter",
+      "status": "passed"
+    },
+    {
+      "gate_ref": "evidence-gate:extension:request-scoped-authority",
+      "status": "passed"
+    },
+    {
+      "gate_ref": "evidence-gate:extension:replay-receipts-redaction",
+      "status": "passed"
+    },
+    {
+      "gate_ref": "evidence-gate:extension:api-cli-visibility",
+      "status": "passed"
+    },
+    {
+      "gate_ref": "evidence-gate:extension:adversarial-failure-proof",
+      "status": "passed"
+    }
+  ],
+  "evidence_refs": [
+    "repo-ref:uaa:src/ultimate_ai_agent/core/extension_catalog/exact_adapter.py",
+    "repo-ref:uaa:src/ultimate_ai_agent/core/capability_availability/read_model.py",
+    "repo-ref:uaa:docs/tooling/exact_extension_adapter_manifest.json",
+    "repo-ref:uaa:docs/schemas/exact_extension_adapter.schema.json",
+    "repo-ref:uaa:scripts/dev/uaa_extensions.py",
+    "repo-ref:uaa:scripts/verify_exact_extension_adapter.py",
+    "repo-ref:uaa:tests/test_exact_extension_adapter.py"
+  ],
+  "remaining_gap": {
+    "classification": "intentionally_bounded",
+    "safe_summary": "One exact repo-owned adapter lane is implemented; it remains unavailable without fresh observations and exact request-scoped authority evaluation. Arbitrary package import, marketplace execution, wildcard capabilities, and unsigned third-party runtime code remain blocked."
+  },
+  "authority_granted_by_score": false,
+  "raw_content_persisted": false,
+  "local_paths_persisted": false,
+  "credentials_persisted": false
+}

@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+import stat
 import sys
 from pathlib import Path
 
@@ -18,15 +20,21 @@ from ultimate_ai_agent.core.authority import AuthorityLeaseStore
 from ultimate_ai_agent.core.extension_catalog import (
     ExtensionInstallDisabledRecordDeleteRequest,
     ExtensionInstallDisabledRecordIssueRequest,
+    build_default_exact_extension_adapter_manifest,
+    build_exact_extension_adapter_read_model,
     build_default_extension_install_disabled_posture,
     build_default_skill_bundle_proposal_posture,
     build_default_skill_write_approval_gate,
     delete_extension_install_disabled_record,
     issue_extension_install_disabled_record,
+    load_exact_extension_adapter_manifest,
 )
 from ultimate_ai_agent.core.extension_catalog.ecosystem import (
     build_default_extension_ecosystem_read_model,
 )
+
+
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def inspect_catalog() -> dict[str, object]:
@@ -116,6 +124,75 @@ def render_validation_summary(payload: dict[str, object]) -> str:
     )
 
 
+def inspect_exact_adapter() -> dict[str, object]:
+    return build_exact_extension_adapter_read_model().model_dump(mode="json")
+
+
+def _repo_manifest_path(path: Path, *, repository_root: Path = ROOT) -> Path:
+    candidate = Path(os.path.abspath(path if path.is_absolute() else Path.cwd() / path))
+    try:
+        resolved = candidate.resolve(strict=True)
+        resolved_root = repository_root.resolve(strict=True)
+    except (OSError, RuntimeError) as exc:
+        raise ValueError("EXACT_EXTENSION_MANIFEST_NOT_FOUND") from exc
+    if not resolved.is_relative_to(resolved_root):
+        raise ValueError("EXACT_EXTENSION_MANIFEST_OUTSIDE_REPOSITORY")
+    relative = candidate.relative_to(resolved_root)
+    current = resolved_root
+    for component in relative.parts:
+        current = current / component
+        try:
+            metadata = current.lstat()
+        except OSError as exc:
+            raise ValueError("EXACT_EXTENSION_MANIFEST_NOT_FOUND") from exc
+        if stat.S_ISLNK(metadata.st_mode):
+            raise ValueError("EXACT_EXTENSION_MANIFEST_SPECIAL_FILE_DENIED")
+    return candidate
+
+
+def _safe_exact_extension_denial_code(exc: ValueError) -> str:
+    match = re.fullmatch(r"EXACT_EXTENSION_[A-Z0-9_]+", str(exc))
+    return match.group(0) if match else "EXACT_EXTENSION_MANIFEST_VALIDATION_DENIED"
+
+
+def render_exact_adapter_summary(payload: dict[str, object]) -> str:
+    manifest = payload.get("manifest")
+    posture = payload.get("runtime_posture")
+    if not isinstance(manifest, dict) or not isinstance(posture, dict):
+        raise ValueError("EXACT_EXTENSION_READ_MODEL_INVALID")
+    blockers = payload.get("blocker_codes", [])
+    blocker_text = ", ".join(str(item) for item in blockers) or "none"
+    return "\n".join(
+        [
+            "UAA exact extension adapter",
+            f"Registration: {manifest['registration_ref']}",
+            f"Package: {manifest['package_ref']}",
+            f"Capability: {manifest['capability_ref']}",
+            f"Adapter: {manifest['adapter_ref']}",
+            (
+                "Runtime posture: "
+                f"compatibility={posture['compatibility_status']} "
+                f"configuration={posture['configuration_status']} "
+                f"health={posture['health_status']} "
+                f"budget={posture['budget_status']} "
+                f"safe-disable={posture['safe_disable_status']} "
+                f"kill-switch={posture['kill_switch_status']}"
+            ),
+            (
+                "Ready for request-scoped evaluation: "
+                f"{'yes' if payload['ready_for_request_scoped_evaluation'] else 'no'}"
+            ),
+            f"Blockers: {blocker_text}",
+            "General extension runtime: disabled",
+            "Runtime package import: disabled",
+            (
+                "Callability still requires fresh PolicyEngine, AuthorityLease, "
+                "target, budget, kill-switch, safe-disable, and idempotency checks."
+            ),
+        ]
+    )
+
+
 def _safe_extension_denial_code(exc: ValueError) -> str:
     match = re.search(r"EXTENSION_INSTALL_DISABLED_[A-Z0-9_]+", str(exc))
     return match.group(0) if match else "EXTENSION_INSTALL_DISABLED_REQUEST_DENIED"
@@ -187,6 +264,25 @@ def main(argv: list[str] | None = None) -> int:
     )
     validate_parser.add_argument("entry_ref")
     validate_parser.add_argument("--json", action="store_true")
+    exact_parser = subparsers.add_parser(
+        "inspect-exact-adapter",
+        help="Inspect the one repo-owned AuthorityDispatcher extension binding.",
+    )
+    exact_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the same backend-owned truth as redacted safe-ref JSON.",
+    )
+    validate_exact_parser = subparsers.add_parser(
+        "validate-exact-adapter-manifest",
+        help="Validate a bounded file against the one reviewed adapter binding.",
+    )
+    validate_exact_parser.add_argument("manifest_path", type=Path)
+    validate_exact_parser.add_argument("--json", action="store_true")
+    subparsers.add_parser(
+        "exact-adapter-manifest-template",
+        help="Print the reviewed exact-adapter manifest without writing a file.",
+    )
     subparsers.add_parser(
         "inspect-skill-write-gate",
         help="Print staged skill-write approval gate metadata as safe-ref JSON.",
@@ -247,6 +343,55 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(payload, indent=2, sort_keys=True))
         else:
             print(render_validation_summary(payload))
+        return 0
+    if args.command == "inspect-exact-adapter":
+        payload = inspect_exact_adapter()
+        print(
+            json.dumps(payload, indent=2, sort_keys=True)
+            if args.json
+            else render_exact_adapter_summary(payload)
+        )
+        return 0
+    if args.command == "validate-exact-adapter-manifest":
+        try:
+            manifest = load_exact_extension_adapter_manifest(
+                _repo_manifest_path(args.manifest_path)
+            )
+        except ValueError as exc:
+            print(_safe_exact_extension_denial_code(exc), file=sys.stderr)
+            return 1
+        payload = {
+            "status": "validated_exact_repo_owned_binding",
+            "manifest": manifest.model_dump(mode="json"),
+            "runtime_import_performed": False,
+            "execution_performed": False,
+            "invocation_authorized": False,
+        }
+        print(
+            json.dumps(payload, indent=2, sort_keys=True)
+            if args.json
+            else "\n".join(
+                [
+                    "UAA exact extension manifest validation",
+                    f"Status: {payload['status']}",
+                    f"Registration: {manifest.registration_ref}",
+                    "Runtime import: not performed",
+                    "Execution: not performed",
+                    "Authority: not granted",
+                ]
+            )
+        )
+        return 0
+    if args.command == "exact-adapter-manifest-template":
+        print(
+            json.dumps(
+                build_default_exact_extension_adapter_manifest().model_dump(
+                    mode="json"
+                ),
+                indent=2,
+                sort_keys=True,
+            )
+        )
         return 0
     if args.command == "inspect-skill-write-gate":
         print(json.dumps(inspect_skill_write_gate(), indent=2, sort_keys=True))
