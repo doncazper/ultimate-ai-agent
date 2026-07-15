@@ -235,6 +235,11 @@ CAPABILITIES_DECLARED = [
     "communications_matrix_auth_methods_exact_lane",
     "communications_matrix_session_exact_authority_contracts",
     "communications_matrix_sdk_read_adapter_boundary",
+    "communications_matrix_readonly_sync_exact_authority_contracts",
+    "communications_matrix_readonly_sync_loopback_transport",
+    "communications_matrix_protected_cache_and_key_lifecycle_contracts",
+    "communications_matrix_macos_protected_cache_crypto_helper",
+    "communications_matrix_sync_posture_api_cli_desktop_binding",
 ]
 
 CAPABILITIES_BLOCKED = [
@@ -245,7 +250,10 @@ CAPABILITIES_BLOCKED = [
     "communications_matrix_macos_keychain_helper_version_only_pending_authenticated_broker",
     "communications_matrix_session_mutations_pending_authenticated_one_use_handoff",
     "communications_matrix_sso_pending_loopback_callback_broker",
-    "communications_matrix_message_sync_or_read",
+    "communications_matrix_live_account_sync_configuration_required",
+    "communications_matrix_ten_canonical_sync_cache_key_executors_uncomposed",
+    "communications_matrix_protected_content_read_pending_account_enrollment",
+    "communications_matrix_encrypted_event_materialization_pending_msg_mx_007",
     "communications_matrix_message_send_or_mutation",
     "communications_matrix_crypto_or_media_runtime",
     "communications_raw_message_or_provider_payload_persistence",
@@ -863,6 +871,7 @@ CONTROL_CENTER_VALIDATION_ONLY_PATHS = {
 CONTROL_CENTER_COMMUNICATIONS_READONLY_PATHS = {
     "/control-center/communications/providers",
     "/control-center/communications/session-posture",
+    "/control-center/communications/matrix-sync/posture",
     "/control-center/communications/rooms",
     "/control-center/communications/failed-sends",
     "/control-center/communications/security-posture",

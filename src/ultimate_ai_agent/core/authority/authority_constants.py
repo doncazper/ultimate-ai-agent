@@ -41,6 +41,19 @@ MATRIX_SESSION_REVOKE_ALL_TOOL_REF = "tool-ref:matrix-session-revoke-all:v1"
 MATRIX_CREDENTIAL_STORE_ROTATE_TOOL_REF = "tool-ref:matrix-credential-store-rotate:v1"
 MATRIX_CREDENTIAL_DELETE_TOOL_REF = "tool-ref:matrix-credential-delete:v1"
 
+MATRIX_SYNC_READ_TOOL_REF = "tool-ref:matrix-sync-read:v1"
+MATRIX_TIMELINE_PAGINATE_READ_TOOL_REF = "tool-ref:matrix-timeline-paginate-read:v1"
+MATRIX_ROOM_STATE_READ_TOOL_REF = "tool-ref:matrix-room-state-read:v1"
+MATRIX_RECEIPT_PROJECT_READ_TOOL_REF = "tool-ref:matrix-receipt-project-read:v1"
+MATRIX_TYPING_PROJECT_READ_TOOL_REF = "tool-ref:matrix-typing-project-read:v1"
+MATRIX_CACHE_READ_TOOL_REF = "tool-ref:matrix-cache-read:v1"
+MATRIX_CACHE_WRITE_TOOL_REF = "tool-ref:matrix-cache-write:v1"
+MATRIX_CACHE_MIGRATE_TOOL_REF = "tool-ref:matrix-cache-migrate:v1"
+MATRIX_CACHE_PURGE_TOOL_REF = "tool-ref:matrix-cache-purge:v1"
+MATRIX_CACHE_KEY_CREATE_TOOL_REF = "tool-ref:matrix-cache-key-create:v1"
+MATRIX_CACHE_KEY_ROTATE_TOOL_REF = "tool-ref:matrix-cache-key-rotate:v1"
+MATRIX_CACHE_KEY_DELETE_TOOL_REF = "tool-ref:matrix-cache-key-delete:v1"
+
 # Exact lane bindings accepted by the generic AuthorityLease store. Keeping
 # these bindings in the authority package prevents the coarse ``messages``
 # domain from becoming a standing grant for future connector or send lanes.
@@ -193,5 +206,95 @@ MATRIX_SESSION_EXACT_AUTHORITY_BINDINGS = (
         "authority-capability-ref:matrix-credential-delete-v1",
         "authority-adapter-ref:matrix-credential-delete-v1",
         MATRIX_CREDENTIAL_DELETE_TOOL_REF,
+    ),
+)
+
+# Exact MSG-MX-006 read-only sync and protected-cache bindings. These entries
+# make each lane eligible for request-scoped lease evaluation; they are not a
+# connector-wide read switch and do not include any external write capability.
+MATRIX_SYNC_EXACT_AUTHORITY_BINDINGS = (
+    (
+        "messages", "read", "session", "read_only",
+        "authority-lane-ref:matrix-sync-read",
+        "authority-capability-ref:matrix-sync-read-v1",
+        "authority-adapter-ref:matrix-sync-read-v1",
+        MATRIX_SYNC_READ_TOOL_REF,
+    ),
+    (
+        "messages", "read", "session", "read_only",
+        "authority-lane-ref:matrix-timeline-paginate-read",
+        "authority-capability-ref:matrix-timeline-paginate-read-v1",
+        "authority-adapter-ref:matrix-timeline-paginate-read-v1",
+        MATRIX_TIMELINE_PAGINATE_READ_TOOL_REF,
+    ),
+    (
+        "messages", "read", "session", "read_only",
+        "authority-lane-ref:matrix-room-state-read",
+        "authority-capability-ref:matrix-room-state-read-v1",
+        "authority-adapter-ref:matrix-room-state-read-v1",
+        MATRIX_ROOM_STATE_READ_TOOL_REF,
+    ),
+    (
+        "messages", "read", "session", "read_only",
+        "authority-lane-ref:matrix-receipt-project-read",
+        "authority-capability-ref:matrix-receipt-project-read-v1",
+        "authority-adapter-ref:matrix-receipt-project-read-v1",
+        MATRIX_RECEIPT_PROJECT_READ_TOOL_REF,
+    ),
+    (
+        "messages", "read", "session", "read_only",
+        "authority-lane-ref:matrix-typing-project-read",
+        "authority-capability-ref:matrix-typing-project-read-v1",
+        "authority-adapter-ref:matrix-typing-project-read-v1",
+        MATRIX_TYPING_PROJECT_READ_TOOL_REF,
+    ),
+    (
+        "messages", "read", "session", "read_only",
+        "authority-lane-ref:matrix-cache-read",
+        "authority-capability-ref:matrix-cache-read-v1",
+        "authority-adapter-ref:matrix-cache-read-v1",
+        MATRIX_CACHE_READ_TOOL_REF,
+    ),
+    (
+        "messages", "mutate", "session", "ask_before_changes",
+        "authority-lane-ref:matrix-cache-write",
+        "authority-capability-ref:matrix-cache-write-v1",
+        "authority-adapter-ref:matrix-cache-write-v1",
+        MATRIX_CACHE_WRITE_TOOL_REF,
+    ),
+    (
+        "messages", "mutate", "session", "ask_before_changes",
+        "authority-lane-ref:matrix-cache-migrate",
+        "authority-capability-ref:matrix-cache-migrate-v1",
+        "authority-adapter-ref:matrix-cache-migrate-v1",
+        MATRIX_CACHE_MIGRATE_TOOL_REF,
+    ),
+    (
+        "messages", "destructive", "session", "full_machine_access_session",
+        "authority-lane-ref:matrix-cache-purge",
+        "authority-capability-ref:matrix-cache-purge-v1",
+        "authority-adapter-ref:matrix-cache-purge-v1",
+        MATRIX_CACHE_PURGE_TOOL_REF,
+    ),
+    (
+        "system_settings", "write", "session", "ask_before_changes",
+        "authority-lane-ref:matrix-cache-key-create",
+        "authority-capability-ref:matrix-cache-key-create-v1",
+        "authority-adapter-ref:matrix-cache-key-create-v1",
+        MATRIX_CACHE_KEY_CREATE_TOOL_REF,
+    ),
+    (
+        "system_settings", "write", "session", "ask_before_changes",
+        "authority-lane-ref:matrix-cache-key-rotate",
+        "authority-capability-ref:matrix-cache-key-rotate-v1",
+        "authority-adapter-ref:matrix-cache-key-rotate-v1",
+        MATRIX_CACHE_KEY_ROTATE_TOOL_REF,
+    ),
+    (
+        "system_settings", "destructive", "session", "full_machine_access_session",
+        "authority-lane-ref:matrix-cache-key-delete",
+        "authority-capability-ref:matrix-cache-key-delete-v1",
+        "authority-adapter-ref:matrix-cache-key-delete-v1",
+        MATRIX_CACHE_KEY_DELETE_TOOL_REF,
     ),
 )

@@ -51,6 +51,10 @@ ACCEPTED_CURRENT_SUCCESS = {
         "partial_discovery_auth_read_lanes_implemented_pending_merge_gate",
         "evidence-ref:msg-mx-005:partial-discovery-session",
     ),
+    "MSG-MX-006": (
+        "readonly_sync_two_get_transports_cache_primitives_ten_executors_uncomposed",
+        "evidence-ref:msg-mx-006:readonly-sync-cache",
+    ),
 }
 SAFE_BLOCKED_CURRENT_STATUS = {
     "blocked_authority_not_accepted",

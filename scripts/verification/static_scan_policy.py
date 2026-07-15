@@ -62,6 +62,13 @@ MATRIX_SESSION_KEYCHAIN_HELPER_FILES = frozenset(
         "tools/macos/matrix-session-keychain-helper/Sources/UAAMatrixSessionKeychainHelper/main.swift",
     }
 )
+MATRIX_PROTECTED_CACHE_HELPER_FILES = frozenset(
+    {
+        "tools/macos/matrix-protected-cache-helper/Package.swift",
+        "tools/macos/matrix-protected-cache-helper/README.md",
+        "tools/macos/matrix-protected-cache-helper/Sources/UAAMatrixProtectedCacheHelper/main.swift",
+    }
+)
 
 
 def _load_web_hybrid_policy() -> ModuleType:
@@ -101,6 +108,10 @@ def is_exact_portable_evidence_keychain_helper_file(rel_path: str) -> bool:
 
 def is_exact_matrix_session_keychain_helper_file(rel_path: str) -> bool:
     return rel_path in MATRIX_SESSION_KEYCHAIN_HELPER_FILES
+
+
+def is_exact_matrix_protected_cache_helper_file(rel_path: str) -> bool:
+    return rel_path in MATRIX_PROTECTED_CACHE_HELPER_FILES
 
 
 def is_unapproved_static_fragment(

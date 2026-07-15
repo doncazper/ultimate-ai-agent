@@ -13025,6 +13025,36 @@ export interface CommunicationsSessionPosture {
   sync_performed: false;
 }
 
+export interface MatrixSyncPosture {
+  schema_version: "uaa-matrix-sync-posture.v1";
+  provider_ref: "provider-ref:communications:matrix";
+  adapter_ref: string;
+  runtime_status:
+    | "ready"
+    | "configuration_required"
+    | "blocked"
+    | "unavailable"
+    | "unknown";
+  freshness: "current" | "stale" | "unknown" | "locked" | "unavailable";
+  credential_posture_ref: string;
+  cache_posture_ref: string;
+  authority_lane_refs: string[];
+  concrete_transport_operation_refs: string[];
+  uncomposed_executor_operation_refs: string[];
+  blocker_refs: string[];
+  evidence_refs: string[];
+  safe_summary: string;
+  sync_enabled: boolean;
+  connector_writes_enabled: false;
+  message_sends_enabled: false;
+  browser_automation_enabled: false;
+  encrypted_content_materialization_enabled: false;
+  content_untrusted: true;
+  not_instruction_authority: true;
+  raw_content_included: false;
+  desktop_only: true;
+}
+
 export interface CommunicationsPagination {
   page_size: number;
   returned_count: number;

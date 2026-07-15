@@ -349,7 +349,7 @@ def test_board_overlay_cross_phase_evidence_fails_closed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def advance(text: str) -> str:
-        return _replace_board_projection(text, phase="MSG-MX-006")
+        return _replace_board_projection(text, phase="MSG-MX-005")
 
     _patch_path(monkeypatch, tmp_path, "BOARD_PATH", advance)
     assert (

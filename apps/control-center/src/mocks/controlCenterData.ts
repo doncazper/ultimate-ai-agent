@@ -177,7 +177,7 @@ const mockCapabilityMaturity: CapabilityMaturityReadModel = {
 type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
 
 export const MOCK_OPENAPI_ROUTE_COUNT = 286;
-export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 120;
+export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 121;
 
 function runtimeToolRegistryEntry(
   slug: string,

@@ -10,7 +10,7 @@
   "public_beta_claim_enabled": false,
   "production_readiness_claim_enabled": false,
   "source_truth_counts": {
-    "api_manifest_route_count": 286,
+    "api_manifest_route_count": 287,
     "release_surface_route_count": 43,
     "visible_action_count": 46,
     "human_capability_count": 31,
@@ -108,17 +108,27 @@
     },
     {
       "capability_id": "messenger_fixture_preview",
-      "api_routes": [],
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/communications/matrix-sync/posture",
+          "operation_id": "get_control_center_communications_matrix_sync_posture",
+          "side_effect_class": "none",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        }
+      ],
       "ui_routes": [
         {
           "path": "/messenger",
           "label": "Messenger",
           "group": "Founder Loop",
-          "ui_status": "fixture-only desktop preview",
+          "ui_status": "fixture-only desktop content with backend-owned read-only sync posture",
           "release_status": "experimental",
           "owner": "communications",
-          "backend_route_count": 0,
-          "blocked_capability_count": 14,
+          "backend_route_count": 1,
+          "blocked_capability_count": 15,
           "visual_proof_status": "checked_in_baseline",
           "source_truth_status": "current"
         }
@@ -132,7 +142,7 @@
           "release_status": "mock_only_not_product_ready",
           "side_effect_class": "local_ui_state_only",
           "risk_class": "medium",
-          "backend_route_count": 0,
+          "backend_route_count": 1,
           "missing_backend_route_count": 9,
           "source_truth_status": "current"
         }

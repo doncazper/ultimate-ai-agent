@@ -53,6 +53,9 @@ from ultimate_ai_agent.core.communications.matrix_session import (  # noqa: E402
     matrix_session_request_fingerprint_ref,
     stable_matrix_session_ref,
 )
+from ultimate_ai_agent.core.communications.matrix_sync import (  # noqa: E402
+    build_default_matrix_sync_posture,
+)
 from ultimate_ai_agent.core.time import utc_now  # noqa: E402
 
 
@@ -133,6 +136,31 @@ def _render_security(service: CommunicationsService, as_json: bool) -> int:
     print(f"- Cache: {posture.cache_posture_ref}")
     print(f"- Blockers: {', '.join(posture.blocker_codes)}")
     print("No credentials, crypto runtime, or local cache were opened.")
+    return 0
+
+
+def _render_matrix_sync_posture(as_json: bool) -> int:
+    posture = build_default_matrix_sync_posture()
+    if as_json:
+        _json(posture)
+        return 0
+    print("Matrix read-only sync")
+    print(f"- Runtime: {posture.runtime_status.value}")
+    print(f"- Freshness: {posture.freshness.value}")
+    print(f"- Declared authority lanes: {len(posture.authority_lane_refs)}")
+    print(
+        "- Concrete GET transports: "
+        f"{len(posture.concrete_transport_operation_refs)}"
+    )
+    print(
+        "- Uncomposed exact executors: "
+        f"{len(posture.uncomposed_executor_operation_refs)}"
+    )
+    print(f"- Blockers: {', '.join(posture.blocker_refs)}")
+    print("- External writes: denied")
+    print("- Message sends: denied")
+    print("- Encrypted events: placeholder only until MSG-MX-007")
+    print("No credential, message content, provider payload, or local path is shown.")
     return 0
 
 
@@ -403,6 +431,11 @@ def build_parser() -> argparse.ArgumentParser:
     for name in ("providers", "session", "security"):
         command = subparsers.add_parser(name)
         command.add_argument("--json", action="store_true", help="Emit safe JSON.")
+    sync_posture = subparsers.add_parser(
+        "matrix-sync-status",
+        help="Inspect backend-owned Matrix read-only sync and cache posture.",
+    )
+    sync_posture.add_argument("--json", action="store_true", help="Emit safe JSON.")
     for name in ("rooms", "failed-sends"):
         command = subparsers.add_parser(name)
         command.add_argument("--limit", type=int, default=25)
@@ -516,6 +549,8 @@ def main(
         return _render_failed_sends(active_service, args.json, args.limit)
     if args.command == "security":
         return _render_security(active_service, args.json)
+    if args.command == "matrix-sync-status":
+        return _render_matrix_sync_posture(args.json)
     return _render_receipt(active_service, args.json, args.receipt_ref)
 
 

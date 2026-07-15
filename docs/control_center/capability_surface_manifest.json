@@ -76,21 +76,31 @@
     },
     {
       "capability_id": "messenger_fixture_preview",
-      "label": "Messenger Matrix desktop fixture preview",
-      "python_core_owner": "docs/design/UAA_MESSENGER_MATRIX_IMPLEMENTATION_PLAN.md",
-      "api_routes": [],
-      "cli_paths": [],
+      "label": "Messenger Matrix desktop fixture plus read-only sync posture",
+      "python_core_owner": "src/ultimate_ai_agent/core/communications/matrix_sync",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/communications/matrix-sync/posture",
+          "operation_id": "get_control_center_communications_matrix_sync_posture"
+        }
+      ],
+      "cli_paths": [
+        "scripts/dev/uaa_communications.py"
+      ],
       "ui_routes": [
         "/messenger"
       ],
       "control_action_ids": [
         "navigate-messenger"
       ],
-      "authority_posture": "fixture-only desktop presentation with no Matrix account, network, sync, encryption session, message read/send, room mutation, media, call, credential, model, memory, or connector authority",
-      "status": "mock_or_static_only",
-      "missing_reason": "Python communications contracts, CLI/API inspection, accepted connector/network authority, Matrix adapter, account session, encryption, persistence, and all mutation lanes are intentionally absent until later MSG-MX phases",
+      "authority_posture": "backend-owned content-free posture for twelve declared Matrix authority lanes; two GET transports and protected-cache/key primitives are tested, ten canonical executors are uncomposed and fail closed, live account sync remains configuration-required, and fixture message content remains synthetic",
+      "status": "partial_surface_coverage",
+      "missing_reason": "Live account enrollment, one-use credential broker configuration, installed protected-cache helper, encrypted-event materialization, message sends, room writes, media, and calls remain blocked or later-phase work",
       "tests_evidence_refs": [
         "tests/test_msg_mx_002_static_shell.py",
+        "tests/test_msg_mx_006_matrix_sync_authority.py",
+        "tests/test_msg_mx_006_matrix_sync_api_cli.py",
         "tests/test_control_center_release_surface_manifest.py",
         "tests/test_control_center_capability_surface_manifest.py",
         "docs/design/control_center_north_star/UAA_MESSENGER_MATRIX_RENDER_ACCEPTANCE.md"

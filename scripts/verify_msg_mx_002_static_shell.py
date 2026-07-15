@@ -135,8 +135,8 @@ def verify(root: Path = ROOT) -> list[str]:
         failures.append("Messenger must bypass ControlCenterRoute and backend data hooks")
 
     for required_text in (
-        'data-messenger-runtime="blocked"',
-        "No Matrix account connected",
+        "data-messenger-runtime={",
+        "Read-only sync ·",
         "External actions blocked",
         "Human message composer",
         "UAA proposal composer",
@@ -149,15 +149,33 @@ def verify(root: Path = ROOT) -> list[str]:
         failures.append("Messenger fixture contract must not contain authorized/callable booleans")
 
     routes = _read(root, "apps/control-center/src/routes.tsx")
-    if 'path: "/messenger"' not in routes or 'status: "fixture-only desktop preview"' not in routes:
-        failures.append("Messenger route must remain an explicit fixture-only desktop preview")
+    if (
+        'path: "/messenger"' not in routes
+        or 'status: "fixture-only desktop content with backend-owned read-only sync posture"'
+        not in routes
+    ):
+        failures.append(
+            "Messenger route must remain an explicit fixture-only content surface with backend-owned read-only sync posture"
+        )
 
     release = json.loads(_read(root, "docs/control_center/release_surface_manifest.json"))
     route = next((row for row in release["routes"] if row["path"] == "/messenger"), None)
     if route is None:
         failures.append("release surface manifest is missing /messenger")
-    elif route["backend_routes"] or route["status"] != "experimental":
-        failures.append("/messenger release truth must be experimental with no backend routes")
+    elif route["status"] != "experimental":
+        failures.append("/messenger release truth must remain experimental")
+    elif route["backend_routes"] != [
+        {
+            "method": "GET",
+            "path": "/control-center/communications/matrix-sync/posture",
+            "operation_id": "get_control_center_communications_matrix_sync_posture",
+            "side_effect_class": "none",
+            "route_classification": "local_sensitive",
+        }
+    ]:
+        failures.append(
+            "/messenger may expose only the exact content-free Matrix sync posture route"
+        )
 
     return failures
 

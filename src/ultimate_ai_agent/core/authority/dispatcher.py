@@ -32,6 +32,18 @@ from ultimate_ai_agent.core.authority.authority_constants import (
     MATRIX_SESSION_REVOKE_ALL_TOOL_REF,
     MATRIX_SESSION_SSO_CALLBACK_TOOL_REF,
     MATRIX_SESSION_SSO_LAUNCH_TOOL_REF,
+    MATRIX_SYNC_READ_TOOL_REF,
+    MATRIX_TIMELINE_PAGINATE_READ_TOOL_REF,
+    MATRIX_ROOM_STATE_READ_TOOL_REF,
+    MATRIX_RECEIPT_PROJECT_READ_TOOL_REF,
+    MATRIX_TYPING_PROJECT_READ_TOOL_REF,
+    MATRIX_CACHE_READ_TOOL_REF,
+    MATRIX_CACHE_WRITE_TOOL_REF,
+    MATRIX_CACHE_MIGRATE_TOOL_REF,
+    MATRIX_CACHE_PURGE_TOOL_REF,
+    MATRIX_CACHE_KEY_CREATE_TOOL_REF,
+    MATRIX_CACHE_KEY_ROTATE_TOOL_REF,
+    MATRIX_CACHE_KEY_DELETE_TOOL_REF,
     PORTABLE_EVIDENCE_KEY_CREATE_TOOL_REF,
     PORTABLE_EVIDENCE_KEY_CLEANUP_TOOL_REF,
     PORTABLE_EVIDENCE_KEY_MARK_LOST_TOOL_REF,
@@ -467,6 +479,54 @@ _TOOL_AUTHORITY_BINDINGS = {
         AuthorityCapability.write.value,
     ),
     MATRIX_CREDENTIAL_DELETE_TOOL_REF: (
+        AuthorityDomain.system_settings.value,
+        AuthorityCapability.destructive.value,
+    ),
+    MATRIX_SYNC_READ_TOOL_REF: (
+        AuthorityDomain.messages.value,
+        AuthorityCapability.read.value,
+    ),
+    MATRIX_TIMELINE_PAGINATE_READ_TOOL_REF: (
+        AuthorityDomain.messages.value,
+        AuthorityCapability.read.value,
+    ),
+    MATRIX_ROOM_STATE_READ_TOOL_REF: (
+        AuthorityDomain.messages.value,
+        AuthorityCapability.read.value,
+    ),
+    MATRIX_RECEIPT_PROJECT_READ_TOOL_REF: (
+        AuthorityDomain.messages.value,
+        AuthorityCapability.read.value,
+    ),
+    MATRIX_TYPING_PROJECT_READ_TOOL_REF: (
+        AuthorityDomain.messages.value,
+        AuthorityCapability.read.value,
+    ),
+    MATRIX_CACHE_READ_TOOL_REF: (
+        AuthorityDomain.messages.value,
+        AuthorityCapability.read.value,
+    ),
+    MATRIX_CACHE_WRITE_TOOL_REF: (
+        AuthorityDomain.messages.value,
+        AuthorityCapability.mutate.value,
+    ),
+    MATRIX_CACHE_MIGRATE_TOOL_REF: (
+        AuthorityDomain.messages.value,
+        AuthorityCapability.mutate.value,
+    ),
+    MATRIX_CACHE_PURGE_TOOL_REF: (
+        AuthorityDomain.messages.value,
+        AuthorityCapability.destructive.value,
+    ),
+    MATRIX_CACHE_KEY_CREATE_TOOL_REF: (
+        AuthorityDomain.system_settings.value,
+        AuthorityCapability.write.value,
+    ),
+    MATRIX_CACHE_KEY_ROTATE_TOOL_REF: (
+        AuthorityDomain.system_settings.value,
+        AuthorityCapability.write.value,
+    ),
+    MATRIX_CACHE_KEY_DELETE_TOOL_REF: (
         AuthorityDomain.system_settings.value,
         AuthorityCapability.destructive.value,
     ),

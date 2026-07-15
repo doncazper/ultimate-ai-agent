@@ -81,6 +81,52 @@ test.beforeEach(async ({ page }) => {
 
   const fulfillMissingBackend = async (route: Route) => {
     const path = new URL(route.request().url()).pathname;
+    if (path === "/control-center/communications/matrix-sync/posture") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          success: true,
+          data: {
+            schema_version: "uaa-matrix-sync-posture.v1",
+            provider_ref: "provider-ref:communications:matrix",
+            adapter_ref: "adapter-ref:communications:matrix-sync-v1",
+            runtime_status: "configuration_required",
+            freshness: "unavailable",
+            credential_posture_ref: "credential-posture-ref:matrix:one-use-broker-not-enrolled",
+            cache_posture_ref: "cache-posture-ref:matrix:protected-cache-helper-not-installed",
+            authority_lane_refs: [
+              "sync-read", "timeline-paginate-read", "room-state-read",
+              "receipt-project-read", "typing-project-read", "cache-read",
+              "cache-write", "cache-migrate", "cache-purge", "cache-key-create",
+              "cache-key-rotate", "cache-key-delete",
+            ].map((name) => `authority-lane-ref:matrix-${name}`),
+            concrete_transport_operation_refs: [
+              "operation-ref:matrix-sync:sync-read",
+              "operation-ref:matrix-sync:timeline-paginate-read",
+            ],
+            uncomposed_executor_operation_refs: [
+              "room-state-read", "receipt-project-read", "typing-project-read",
+              "cache-read", "cache-write", "cache-migrate", "cache-purge",
+              "cache-key-create", "cache-key-rotate", "cache-key-delete",
+            ].map((name) => `operation-ref:matrix-sync:${name}`),
+            blocker_refs: ["blocker-ref:matrix-sync:credential-broker-enrollment-required"],
+            evidence_refs: ["evidence-ref:matrix-sync:loopback-tests"],
+            safe_summary: "Matrix sync requires local configuration.",
+            sync_enabled: false,
+            connector_writes_enabled: false,
+            message_sends_enabled: false,
+            browser_automation_enabled: false,
+            encrypted_content_materialization_enabled: false,
+            content_untrusted: true,
+            not_instruction_authority: true,
+            raw_content_included: false,
+            desktop_only: true,
+          },
+        }),
+      });
+      return;
+    }
     if (!path.startsWith("/control-center/") && !path.startsWith("/runtime/")) {
       await route.continue();
       return;
@@ -151,7 +197,7 @@ for (const viewport of messengerDesktopViewports) {
       await page.goto(`/messenger?view=${surface}`);
 
       await expect(page.locator(".messenger-brand")).toHaveText("UAA Messenger");
-      await expect(page.locator('[data-messenger-runtime="blocked"]')).toBeVisible();
+      await expect(page.locator('[data-messenger-runtime="configuration_required"]')).toBeVisible();
       await expectMessengerHasNoHorizontalOverflow(page);
       await expect(page).toHaveScreenshot(`messenger-${surface}-${viewport.name}.png`, {
         animations: "disabled",
@@ -174,14 +220,17 @@ for (const viewport of messengerDesktopViewports) {
       const surface = messengerStateSurface[state] ?? "founder";
       await page.goto(`/messenger?view=${surface}&state=${state}`);
       await expect(page.locator('[data-messenger-variant]')).toHaveAttribute("data-messenger-variant", state);
-      await expect(page.locator('[data-messenger-runtime="blocked"]')).toBeVisible();
+      await expect(page.locator('[data-messenger-runtime="configuration_required"]')).toBeVisible();
       const banner = page.locator(".messenger-variant-banner");
       await expect(banner).toContainText(MESSENGER_VARIANTS[state].label);
       await expect(banner).toContainText(MESSENGER_VARIANTS[state].fixture_ref);
       await expectMessengerStateSemantics(page, state);
       await expectMessengerHasNoHorizontalOverflow(page);
     }
-    expect(backendRequests).toEqual([]);
+    expect(backendRequests.length).toBeGreaterThan(0);
+    expect(new Set(backendRequests)).toEqual(
+      new Set(["/control-center/communications/matrix-sync/posture"]),
+    );
   });
 }
 

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { NorthStarIcon, type IconReference } from "../NorthStarIcon";
 import {
   MESSENGER_SURFACES,
@@ -11,6 +11,8 @@ import type {
   MessengerSurfaceId,
   MessengerVariantId,
 } from "../../messenger/contracts";
+import { loadMatrixSyncPosture } from "../../api/client";
+import type { MatrixSyncPosture } from "../../api/types";
 import "./messengerShell.css";
 
 const surfaceMenu: ReadonlyArray<[MessengerSurfaceId, string]> = [
@@ -51,10 +53,26 @@ export function MessengerShell() {
   const [specialReviewOpen, setSpecialReviewOpen] = useState(
     window.innerWidth > 1240,
   );
+  const [runtimePosture, setRuntimePosture] = useState<MatrixSyncPosture | null>(null);
+  const [runtimePostureUnavailable, setRuntimePostureUnavailable] = useState(false);
   const projection = MESSENGER_SURFACES[surfaceId];
   const variant = variantId ? MESSENGER_VARIANTS[variantId] : null;
   const dark = surfaceId === "dark";
   const offline = surfaceId === "recovery" || variantId === "offline";
+
+  useEffect(() => {
+    let active = true;
+    loadMatrixSyncPosture()
+      .then((posture) => {
+        if (active) setRuntimePosture(posture);
+      })
+      .catch(() => {
+        if (active) setRuntimePostureUnavailable(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const selectSurface = (next: MessengerSurfaceId) => {
     setSurfaceId(next);
@@ -66,7 +84,11 @@ export function MessengerShell() {
   return (
     <main
       className={`messenger-shell${dark ? " messenger-shell--dark" : ""}${offline ? " messenger-shell--offline" : ""}${!inspectorOpen ? " messenger-shell--inspector-closed" : ""}`}
-      data-messenger-runtime="blocked"
+      data-messenger-runtime={
+        runtimePostureUnavailable
+          ? "unavailable"
+          : runtimePosture?.runtime_status ?? "unknown"
+      }
       data-messenger-surface={projection.render_ref}
       data-messenger-variant={variantId ?? "default"}
     >
@@ -77,6 +99,10 @@ export function MessengerShell() {
           <span>No server connection or automatic retry exists.</span>
         </div>
       ) : null}
+      <MatrixSyncPostureBanner
+        posture={runtimePosture}
+        unavailable={runtimePostureUnavailable}
+      />
       <GlobalRail current={surfaceId} onSelect={selectSurface} />
       <TopBar current={surfaceId} onSelect={selectSurface} />
       {isSpecialSurface(surfaceId) ? (
@@ -99,12 +125,65 @@ export function MessengerShell() {
       {variant ? <VariantBanner variantId={variantId!} /> : null}
       <footer className="messenger-statusbar" aria-label="Messenger runtime posture">
         <span><NorthStarIcon name="users" size="sm" /> {projection.space_label} · fixture</span>
-        <span>No Matrix account connected</span>
+        <span>
+          {runtimePostureUnavailable
+            ? "Matrix sync posture unavailable"
+            : runtimePosture
+              ? `Matrix sync · ${runtimePosture.runtime_status.replaceAll("_", " ")}`
+              : "Matrix sync posture loading"}
+        </span>
         <span>No message sent</span>
         <span><NorthStarIcon name="lock" size="sm" /> Local fixture only</span>
         <span><NorthStarIcon name="ban" size="sm" /> External actions blocked</span>
       </footer>
     </main>
+  );
+}
+
+function MatrixSyncPostureBanner({
+  posture,
+  unavailable,
+}: {
+  posture: MatrixSyncPosture | null;
+  unavailable: boolean;
+}) {
+  if (unavailable) {
+    return (
+      <div className="messenger-runtime-banner messenger-runtime-banner--blocked" role="status">
+        <NorthStarIcon name="circle-alert" size="sm" tone="warning" />
+        <strong>Matrix sync posture unavailable</strong>
+        <span>Backend truth could not be loaded. Reads and cache access remain blocked.</span>
+      </div>
+    );
+  }
+  if (!posture) {
+    return (
+      <div className="messenger-runtime-banner" role="status">
+        <NorthStarIcon name="clock" size="sm" />
+        <strong>Loading Matrix sync posture</strong>
+        <span>No account read is attempted while posture is unknown.</span>
+      </div>
+    );
+  }
+  const ready = posture.runtime_status === "ready";
+  return (
+    <div
+      className={`messenger-runtime-banner${ready ? " messenger-runtime-banner--ready" : " messenger-runtime-banner--blocked"}`}
+      role="status"
+      title={posture.blocker_refs.join(", ")}
+    >
+      <NorthStarIcon name="shield" size="sm" tone={ready ? "success" : "warning"} />
+      <strong>Read-only sync · {posture.runtime_status.replaceAll("_", " ")}</strong>
+      <span>
+        {posture.freshness} · {posture.authority_lane_refs.length} declared lanes · {posture.concrete_transport_operation_refs.length} GET transports · {posture.uncomposed_executor_operation_refs.length} uncomposed · {posture.blocker_refs.length} blockers
+      </span>
+      <span>
+        {posture.content_untrusted && posture.not_instruction_authority
+          ? "External content is untrusted, never authority"
+          : "Content trust posture unknown"}
+        {" · sends and room changes denied"}
+      </span>
+    </div>
   );
 }
 

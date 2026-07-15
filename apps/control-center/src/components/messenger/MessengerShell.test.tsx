@@ -1,5 +1,12 @@
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MessengerShell } from "./MessengerShell";
 import {
   MESSENGER_SURFACE_IDS,
@@ -9,6 +16,71 @@ import {
   MESSENGER_SURFACES,
   MESSENGER_VARIANTS,
 } from "../../messenger/fixtures";
+
+const matrixSyncPosture = {
+  schema_version: "uaa-matrix-sync-posture.v1",
+  provider_ref: "provider-ref:communications:matrix",
+  adapter_ref: "adapter-ref:communications:matrix-sync-v1",
+  runtime_status: "configuration_required",
+  freshness: "unavailable",
+  credential_posture_ref:
+    "credential-posture-ref:matrix:one-use-broker-not-enrolled",
+  cache_posture_ref:
+    "cache-posture-ref:matrix:protected-cache-helper-not-installed",
+  authority_lane_refs: [
+    "sync-read",
+    "timeline-paginate-read",
+    "room-state-read",
+    "receipt-project-read",
+    "typing-project-read",
+    "cache-read",
+    "cache-write",
+    "cache-migrate",
+    "cache-purge",
+    "cache-key-create",
+    "cache-key-rotate",
+    "cache-key-delete",
+  ].map((name) => `authority-lane-ref:matrix-${name}`),
+  concrete_transport_operation_refs: [
+    "operation-ref:matrix-sync:sync-read",
+    "operation-ref:matrix-sync:timeline-paginate-read",
+  ],
+  uncomposed_executor_operation_refs: [
+    "room_state_read",
+    "receipt_project_read",
+    "typing_project_read",
+    "cache_read",
+    "cache_write",
+    "cache_migrate",
+    "cache_purge",
+    "cache_key_create",
+    "cache_key_rotate",
+    "cache_key_delete",
+  ].map((name) => `operation-ref:matrix-sync:${name.replaceAll("_", "-")}`),
+  blocker_refs: [
+    "blocker-ref:matrix-sync:credential-broker-enrollment-required",
+  ],
+  evidence_refs: ["evidence-ref:matrix-sync:loopback-tests"],
+  safe_summary: "Matrix sync requires local configuration.",
+  sync_enabled: false,
+  connector_writes_enabled: false,
+  message_sends_enabled: false,
+  browser_automation_enabled: false,
+  encrypted_content_materialization_enabled: false,
+  content_untrusted: true,
+  not_instruction_authority: true,
+  raw_content_included: false,
+  desktop_only: true,
+};
+
+beforeEach(() => {
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    new Response(
+      JSON.stringify({ success: true, data: matrixSyncPosture }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    ),
+  );
+});
 
 afterEach(() => {
   cleanup();
@@ -41,8 +113,7 @@ describe("MessengerShell", () => {
     }
   });
 
-  it.each(MESSENGER_SURFACE_IDS)("renders the %s desktop target without backend reads", (surfaceId) => {
-    const fetchMock = vi.spyOn(globalThis, "fetch");
+  it.each(MESSENGER_SURFACE_IDS)("renders the %s desktop target with backend-owned posture only", async (surfaceId) => {
     window.history.replaceState({}, "", `/messenger?view=${surfaceId}`);
     const view = render(<MessengerShell />);
 
@@ -51,10 +122,16 @@ describe("MessengerShell", () => {
       "data-messenger-surface",
       MESSENGER_SURFACES[surfaceId].render_ref,
     );
-    expect(shell).toHaveAttribute("data-messenger-runtime", "blocked");
-    expect(screen.getByText(/No Matrix account connected/i)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(shell).toHaveAttribute(
+        "data-messenger-runtime",
+        "configuration_required",
+      ),
+    );
+    expect(screen.getByText(/Read-only sync · configuration required/i)).toBeInTheDocument();
     expect(screen.getByText(/External actions blocked/i)).toBeInTheDocument();
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(/External content is untrusted/i)).toBeInTheDocument();
 
     for (const control of view.container.querySelectorAll<HTMLButtonElement>(
       ".messenger-posture-button",
