@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from datetime import timedelta
 from types import SimpleNamespace
@@ -119,6 +120,43 @@ def test_expired_observation_fails_closed(tmp_path) -> None:
             _dispatch_receipt(observation_ref, freshness_ref, checked_at)
         ],
     ) == ["reason-ref:matrix-session:discovery-stale"]
+
+
+def test_observation_ledger_rejects_expiry_extension_tamper(tmp_path) -> None:
+    state_dir = tmp_path / "observations"
+    store = MatrixDiscoveryObservationStore(state_dir)
+    observation_ref, freshness_ref, checked_at = _record(store)
+    path = state_dir / "matrix_discovery_observations.jsonl"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["expires_at"] = (checked_at + timedelta(days=1)).isoformat()
+    path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="MATRIX_DISCOVERY_LEDGER_CORRUPT"):
+        store.validate_current(
+            observation_ref=observation_ref,
+            freshness_ref=freshness_ref,
+            endpoint_url=HARNESS_URL,
+            dispatch_receipts=[
+                _dispatch_receipt(observation_ref, freshness_ref, checked_at)
+            ],
+        )
+
+
+def test_observation_ledger_rejects_permissive_file_or_directory_mode(
+    tmp_path,
+) -> None:
+    state_dir = tmp_path / "observations"
+    store = MatrixDiscoveryObservationStore(state_dir)
+    _record(store)
+    path = state_dir / "matrix_discovery_observations.jsonl"
+    path.chmod(0o644)
+    with pytest.raises(ValueError, match="MATRIX_DISCOVERY_LEDGER_UNSAFE"):
+        store.prepare_for_discovery()
+
+    path.chmod(0o600)
+    state_dir.chmod(0o755)
+    with pytest.raises(ValueError, match="MATRIX_DISCOVERY_LEDGER_OPEN_FAILED"):
+        store.prepare_for_discovery()
 
 
 def test_delegated_target_is_bound_separately_from_discovery_origin(tmp_path) -> None:

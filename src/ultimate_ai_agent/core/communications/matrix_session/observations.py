@@ -53,19 +53,15 @@ class MatrixDiscoveryObservation(BaseModel):
             "source_discovery_origin_ref",
             "dispatch_receipt_ref",
         ):
-            validate_execution_ref(
-                str(getattr(self, name)), f"matrix_discovery_{name}"
-            )
-        if self.freshness_ref != matrix_discovery_freshness_ref(
-            self.observation_ref
-        ):
+            validate_execution_ref(str(getattr(self, name)), f"matrix_discovery_{name}")
+        if self.freshness_ref != matrix_discovery_freshness_ref(self.observation_ref):
             raise ValueError("MATRIX_DISCOVERY_FRESHNESS_BINDING_MISMATCH")
         if self.checked_at.tzinfo is None or self.checked_at.utcoffset() is None:
             raise ValueError("MATRIX_DISCOVERY_CHECKED_AT_TIMEZONE_REQUIRED")
         if self.expires_at.tzinfo is None or self.expires_at.utcoffset() is None:
             raise ValueError("MATRIX_DISCOVERY_EXPIRY_TIMEZONE_REQUIRED")
-        if self.expires_at <= self.checked_at:
-            raise ValueError("MATRIX_DISCOVERY_EXPIRY_INVALID")
+        if self.expires_at != self.checked_at + MATRIX_DISCOVERY_OBSERVATION_TTL:
+            raise ValueError("MATRIX_DISCOVERY_EXPIRY_BINDING_MISMATCH")
         return self
 
 
@@ -143,9 +139,7 @@ class MatrixDiscoveryObservationStore:
                 os.close(descriptor)
         return item
 
-    def prepare_for_discovery(
-        self, *, now: datetime | None = None
-    ) -> list[str]:
+    def prepare_for_discovery(self, *, now: datetime | None = None) -> list[str]:
         descriptor = self._open_for_append()
         locked = False
         try:
@@ -247,8 +241,12 @@ class MatrixDiscoveryObservationStore:
     def _open_for_append(self) -> int:
         try:
             self._state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
-            if self._state_dir.is_symlink() or not stat.S_ISDIR(
-                self._state_dir.lstat().st_mode
+            state_metadata = self._state_dir.lstat()
+            if (
+                self._state_dir.is_symlink()
+                or not stat.S_ISDIR(state_metadata.st_mode)
+                or state_metadata.st_uid != os.geteuid()
+                or stat.S_IMODE(state_metadata.st_mode) & 0o077
             ):
                 raise OSError("unsafe state directory")
             return os.open(
@@ -267,6 +265,8 @@ class MatrixDiscoveryObservationStore:
         if (
             not stat.S_ISREG(metadata.st_mode)
             or metadata.st_nlink != 1
+            or metadata.st_uid != os.geteuid()
+            or stat.S_IMODE(metadata.st_mode) & 0o077
             or metadata.st_size > MATRIX_DISCOVERY_LEDGER_MAX_BYTES
         ):
             raise ValueError("MATRIX_DISCOVERY_LEDGER_UNSAFE")
@@ -312,6 +312,4 @@ class MatrixDiscoveryObservationStore:
         for item in records:
             if item.expires_at > now:
                 latest_by_observation[item.observation_ref] = item
-        return sorted(
-            latest_by_observation.values(), key=lambda item: item.checked_at
-        )
+        return sorted(latest_by_observation.values(), key=lambda item: item.checked_at)
