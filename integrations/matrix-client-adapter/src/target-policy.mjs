@@ -310,10 +310,15 @@ export function createBoundedFetch({
   allowedQueryKeysByPath = {},
   allowedPathPatterns = [],
   maximumResponseBytes = MAX_RESPONSE_BYTES,
+  maximumQueryValueBytes = 4096,
 } = {}) {
   if (!Number.isInteger(maximumResponseBytes) ||
       maximumResponseBytes < 1 || maximumResponseBytes > MAX_RESPONSE_BYTES) {
     throw new MatrixTargetPolicyError("MATRIX_HTTP_RESPONSE_LIMIT_INVALID");
+  }
+  if (!Number.isInteger(maximumQueryValueBytes) ||
+      maximumQueryValueBytes < 1 || maximumQueryValueBytes > 64 * 1024) {
+    throw new MatrixTargetPolicyError("MATRIX_HTTP_QUERY_LIMIT_INVALID");
   }
   const requestPolicy = new Set(allowedRequests);
   return async (input, init = {}) => {
@@ -331,6 +336,7 @@ export function createBoundedFetch({
         lookup,
         allowHarness,
         allowedQueryKeys: queryKeys || [],
+        maximumQueryValueBytes,
       })
       : await validateMatrixTarget(inputUrl, { lookup, allowHarness });
     const method = String(init.method || sourceRequest?.method || "GET").toUpperCase();

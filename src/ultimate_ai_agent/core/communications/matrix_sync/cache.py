@@ -15,7 +15,12 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .constants import MATRIX_SYNC_CACHE_SCHEMA_REF, MATRIX_SYNC_MAX_CACHE_BYTES
 from .contracts import MatrixSyncFreshness, stable_matrix_sync_ref
-from .normalization import MatrixPrivateEvent, MatrixPrivateRoom, MatrixPrivateSyncBatch
+from .normalization import (
+    MatrixNormalizedEventKind,
+    MatrixPrivateEvent,
+    MatrixPrivateRoom,
+    MatrixPrivateSyncBatch,
+)
 
 
 _CONTAINER_MAGIC = b"UAA-MATRIX-CACHE-V1\x00"
@@ -186,11 +191,60 @@ class MatrixProtectedCacheState(BaseModel):
         if batch.account_ref != self.account_ref:
             raise MatrixProtectedCacheError("MATRIX_CACHE_ACCOUNT_MISMATCH")
         events = {event.event_ref: event for event in self.events}
+        incoming_events = {event.event_ref: event for event in batch.events}
+        tombstone_rooms: dict[str, str] = {}
+        for event in (*self.events, *batch.events):
+            if (
+                event.event_kind == MatrixNormalizedEventKind.redaction
+                and event.relation_event_ref is not None
+            ):
+                existing_room = tombstone_rooms.get(event.relation_event_ref)
+                if existing_room is not None and existing_room != event.room_ref:
+                    raise MatrixProtectedCacheError(
+                        "MATRIX_CACHE_REDACTION_SCOPE_CONFLICT"
+                    )
+                tombstone_rooms[event.relation_event_ref] = event.room_ref
+        for target_ref, redaction_room_ref in tombstone_rooms.items():
+            target = incoming_events.get(target_ref) or events.get(target_ref)
+            if target is not None and target.room_ref != redaction_room_ref:
+                raise MatrixProtectedCacheError(
+                    "MATRIX_CACHE_CROSS_ROOM_REDACTION_DENIED"
+                )
         for event in batch.events:
             existing = events.get(event.event_ref)
             if existing is not None and existing != event:
-                raise MatrixProtectedCacheError("MATRIX_CACHE_EVENT_REPLAY_CONFLICT")
-            events[event.event_ref] = event
+                if event.event_ref not in tombstone_rooms:
+                    raise MatrixProtectedCacheError(
+                        "MATRIX_CACHE_EVENT_REPLAY_CONFLICT"
+                    )
+                existing_identity = (
+                    existing.event_ref,
+                    existing.room_ref,
+                    existing.sender_ref,
+                    existing.origin_server_ts,
+                )
+                incoming_identity = (
+                    event.event_ref,
+                    event.room_ref,
+                    event.sender_ref,
+                    event.origin_server_ts,
+                )
+                if existing_identity != incoming_identity:
+                    raise MatrixProtectedCacheError(
+                        "MATRIX_CACHE_REDACTED_EVENT_IDENTITY_CONFLICT"
+                    )
+                continue
+            events[event.event_ref] = (
+                event.model_copy(update={"body": None, "redacted": True})
+                if event.event_ref in tombstone_rooms
+                else event
+            )
+        for target_ref in tombstone_rooms:
+            target = events.get(target_ref)
+            if target is not None:
+                events[target_ref] = target.model_copy(
+                    update={"body": None, "redacted": True}
+                )
         rooms = {room.room_ref: room for room in self.rooms}
         for room in batch.rooms:
             previous = rooms.get(room.room_ref)

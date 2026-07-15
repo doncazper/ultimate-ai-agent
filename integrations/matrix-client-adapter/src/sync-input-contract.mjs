@@ -11,15 +11,41 @@ const EVENT_TYPES = new Set([
   "m.room.encrypted", "m.room.message", "m.room.name", "m.room.redaction",
   "m.room.topic", "m.space.parent", "m.typing", "org.matrix.msc3381.poll.start",
 ]);
+const MAX_CREDENTIAL_FD = 2_147_483_647;
+const MAX_QUERY_VALUE_BYTES = 64 * 1024;
+const MAX_ROOM_ID_BYTES = 255;
 
-function validateBoundedStrings(value, key, maximum, allowedValues = null) {
+function validateBoundedStrings(
+  value,
+  key,
+  maximum,
+  allowedValues = null,
+  maximumItemBytes = 4096,
+) {
   if (!Array.isArray(value) || value.length > maximum ||
       !value.every((item) => typeof item === "string" && item &&
-        Buffer.byteLength(item, "utf8") <= 4096 &&
+        Buffer.byteLength(item, "utf8") <= maximumItemBytes &&
         (!allowedValues || allowedValues.has(item))) ||
       new Set(value).size !== value.length) {
     throw new Error(`MATRIX_SYNC_ADAPTER_${key.toUpperCase()}_INVALID`);
   }
+}
+
+export function buildSyncFilter(value) {
+  return {
+    presence: { types: [] },
+    account_data: { types: ["m.direct"] },
+    room: {
+      ...(value.room_ids.length ? { rooms: value.room_ids } : {}),
+      timeline: {
+        types: value.event_types,
+        limit: Math.min(value.max_events, 50),
+      },
+      state: { types: value.event_types },
+      ephemeral: { types: value.event_types },
+      account_data: { types: [] },
+    },
+  };
 }
 
 export function validateSyncAdapterInput(value) {
@@ -48,7 +74,7 @@ export function validateSyncAdapterInput(value) {
       throw new Error("MATRIX_SYNC_ADAPTER_TRANSIENT_SCOPE_INVALID");
     }
   }
-  validateBoundedStrings(value.room_ids, "room_scope", 128);
+  validateBoundedStrings(value.room_ids, "room_scope", 128, null, MAX_ROOM_ID_BYTES);
   validateBoundedStrings(value.event_types, "event_scope", 32, EVENT_TYPES);
   if (!value.event_types.length || typeof value.allow_harness !== "boolean") {
     throw new Error("MATRIX_SYNC_ADAPTER_TRANSIENT_SCOPE_INVALID");
@@ -65,8 +91,13 @@ export function validateSyncAdapterInput(value) {
       !Number.isInteger(value.max_duration_ms) || value.max_duration_ms < 100 || value.max_duration_ms > 30_000) {
     throw new Error("MATRIX_SYNC_ADAPTER_BUDGET_INVALID");
   }
-  if (!Number.isInteger(value.credential_fd) || value.credential_fd < 3 || value.credential_fd > 1024) {
+  if (!Number.isInteger(value.credential_fd) ||
+      value.credential_fd < 3 || value.credential_fd > MAX_CREDENTIAL_FD) {
     throw new Error("MATRIX_SYNC_ADAPTER_CREDENTIAL_FD_INVALID");
+  }
+  if (value.operation === "sync_read" &&
+      Buffer.byteLength(JSON.stringify(buildSyncFilter(value)), "utf8") > MAX_QUERY_VALUE_BYTES) {
+    throw new Error("MATRIX_SYNC_ADAPTER_ROOM_SCOPE_INVALID");
   }
   return value;
 }

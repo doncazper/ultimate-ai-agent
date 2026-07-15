@@ -3,6 +3,9 @@ import {
   createBoundedFetch,
   validateMatrixTarget,
 } from "./target-policy.mjs";
+import { buildSyncFilter } from "./sync-input-contract.mjs";
+
+const MAX_QUERY_VALUE_BYTES = 64 * 1024;
 
 function targetDependencies(input, dependencies) {
   return {
@@ -29,24 +32,12 @@ async function syncRead(input, accessToken, dependencies) {
       "/_matrix/client/v3/sync": ["filter", "timeout", "set_presence", "since"],
     },
     maximumResponseBytes: input.max_bytes,
+    maximumQueryValueBytes: MAX_QUERY_VALUE_BYTES,
   });
   const target = new URL("/_matrix/client/v3/sync", base.origin);
   target.searchParams.set("timeout", "0");
   target.searchParams.set("set_presence", "offline");
-  target.searchParams.set("filter", JSON.stringify({
-    presence: { types: [] },
-    account_data: { types: ["m.direct"] },
-    room: {
-      ...(input.room_ids.length ? { rooms: input.room_ids } : {}),
-      timeline: {
-        types: input.event_types,
-        limit: Math.min(input.max_events, 50),
-      },
-      state: { types: input.event_types },
-      ephemeral: { types: input.event_types },
-      account_data: { types: [] },
-    },
-  }));
+  target.searchParams.set("filter", JSON.stringify(buildSyncFilter(input)));
   if (input.since_token) target.searchParams.set("since", input.since_token);
   return boundedJson(
     await fetchFn(target, { headers: authorization(accessToken) }),

@@ -166,6 +166,34 @@ test("sync input denies raw credential fields and scope drift", () => {
     () => validateSyncAdapterInput(input("sync_read", { room_ids: ["!room:x", "!room:x"] })),
     /MATRIX_SYNC_ADAPTER_ROOM_SCOPE_INVALID/,
   );
+  assert.equal(
+    validateSyncAdapterInput(input("sync_read", { credential_fd: 1025 })).credential_fd,
+    1025,
+  );
+  assert.throws(
+    () => validateSyncAdapterInput(input("sync_read", { credential_fd: 2_147_483_648 })),
+    /MATRIX_SYNC_ADAPTER_CREDENTIAL_FD_INVALID/,
+  );
+  assert.throws(
+    () => validateSyncAdapterInput(input("sync_read", { room_ids: [`!${"r".repeat(254)}:x`] })),
+    /MATRIX_SYNC_ADAPTER_ROOM_SCOPE_INVALID/,
+  );
+});
+
+test("maximum declared room scope remains inside the sync query envelope", async () => {
+  let calls = 0;
+  const roomIds = Array.from(
+    { length: 128 },
+    (_, index) => `!${String(index).padStart(3, "0")}${"r".repeat(220)}:example.invalid`,
+  );
+  const value = validateSyncAdapterInput(input("sync_read", { room_ids: roomIds }));
+  await executeMatrixSyncAdapter(value, "private-access-token", {
+    fetchImpl: async () => {
+      calls += 1;
+      return jsonResponse({ next_batch: "private-next-token", rooms: {} });
+    },
+  });
+  assert.equal(calls, 1);
 });
 
 test("query and method drift are denied before transport", async () => {

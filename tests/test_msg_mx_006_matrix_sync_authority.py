@@ -17,6 +17,7 @@ from ultimate_ai_agent.core.communications.matrix_sync import (
     MatrixSyncReceipt,
     MatrixSyncRuntimeStatus,
     build_default_matrix_sync_posture,
+    build_matrix_sync_capability_manifest,
     build_matrix_sync_approval_request,
     build_matrix_sync_authority_action,
     build_matrix_sync_lease_issue_request,
@@ -76,9 +77,7 @@ def _command(
 def test_all_exact_lanes_are_declared_without_connector_write_scope() -> None:
     assert set(MATRIX_SYNC_LANES) == set(MatrixSyncOperation)
     network_lanes = {
-        operation
-        for operation, lane in MATRIX_SYNC_LANES.items()
-        if lane.network_read
+        operation for operation, lane in MATRIX_SYNC_LANES.items() if lane.network_read
     }
     assert network_lanes == {
         MatrixSyncOperation.sync_read,
@@ -89,7 +88,21 @@ def test_all_exact_lanes_are_declared_without_connector_write_scope() -> None:
         lane.authority_capability.value not in {"execute", "commit"}
         for lane in MATRIX_SYNC_LANES.values()
     )
-    assert all("connector" not in lane.side_effect_class for lane in MATRIX_SYNC_LANES.values())
+    assert all(
+        "connector" not in lane.side_effect_class for lane in MATRIX_SYNC_LANES.values()
+    )
+
+
+def test_cache_mutations_do_not_claim_rollback_support() -> None:
+    for operation in MatrixSyncOperation:
+        manifest = build_matrix_sync_capability_manifest(operation)
+        assert manifest.rollback_supported is (
+            operation
+            in {
+                MatrixSyncOperation.sync_read,
+                MatrixSyncOperation.timeline_paginate_read,
+            }
+        )
 
 
 @pytest.mark.parametrize("operation", list(MatrixSyncOperation))
@@ -101,8 +114,13 @@ def test_each_lane_issues_only_an_exact_session_lease(
     request = build_matrix_sync_lease_issue_request(command)
     lane = MATRIX_SYNC_LANES[operation]
     assert request.scope == "session"
-    assert request.requested_domains == {lane.authority_domain: [lane.authority_capability]}
-    assert request.constraints["exact_request_fingerprint_ref"] == command.request_fingerprint_ref
+    assert request.requested_domains == {
+        lane.authority_domain: [lane.authority_capability]
+    }
+    assert (
+        request.constraints["exact_request_fingerprint_ref"]
+        == command.request_fingerprint_ref
+    )
     lease, receipt = issue_exact_matrix_sync_lease(
         command,
         store=AuthorityLeaseStore(tmp_path),
@@ -124,12 +142,16 @@ def test_cross_account_or_room_substitution_changes_the_fingerprint() -> None:
         payload = command.model_dump(mode="python")
         payload.update(update)
         payload["request_fingerprint_ref"] = command.request_fingerprint_ref
-        with pytest.raises(ValidationError, match="MATRIX_SYNC_REQUEST_FINGERPRINT_MISMATCH"):
+        with pytest.raises(
+            ValidationError, match="MATRIX_SYNC_REQUEST_FINGERPRINT_MISMATCH"
+        ):
             MatrixSyncCommand(**payload)
 
 
 def test_pagination_is_bound_to_one_room_and_one_cursor() -> None:
-    with pytest.raises(ValidationError, match="MATRIX_SYNC_EXACT_PAGINATION_SCOPE_REQUIRED"):
+    with pytest.raises(
+        ValidationError, match="MATRIX_SYNC_EXACT_PAGINATION_SCOPE_REQUIRED"
+    ):
         _command(
             MatrixSyncOperation.timeline_paginate_read,
             room_refs=("room-ref:matrix:test:one", "room-ref:matrix:test:two"),
@@ -167,7 +189,9 @@ def test_cache_mutation_approval_binds_exact_action_and_resources() -> None:
     action = build_matrix_sync_authority_action(command)
     request = build_matrix_sync_approval_request(command)
     assert action.resource_refs == list(
-        build_matrix_sync_lease_issue_request(command).authority_constraints[0].allowed_refs
+        build_matrix_sync_lease_issue_request(command)
+        .authority_constraints[0]
+        .allowed_refs
     )
     assert request.subject_id == action.action_ref
     assert request.resource_refs[0] == command.lease_ref
@@ -178,11 +202,17 @@ def test_cache_mutation_approval_binds_exact_action_and_resources() -> None:
 def test_unknown_readiness_and_stale_deadline_remain_exactly_bound() -> None:
     command = _command(readiness_ref="readiness-ref:matrix-sync:unknown")
     issue = build_matrix_sync_lease_issue_request(command)
-    assert issue.constraints["exact_readiness_ref"] == "readiness-ref:matrix-sync:unknown"
+    assert (
+        issue.constraints["exact_readiness_ref"] == "readiness-ref:matrix-sync:unknown"
+    )
     payload = command.model_dump(mode="python")
     payload["start_deadline"] = payload["request_created_at"] - timedelta(seconds=1)
     payload["request_fingerprint_ref"] = matrix_sync_request_fingerprint_ref(
-        **{key: value for key, value in payload.items() if key != "request_fingerprint_ref"}
+        **{
+            key: value
+            for key, value in payload.items()
+            if key != "request_fingerprint_ref"
+        }
     )
     with pytest.raises(ValidationError, match="MATRIX_SYNC_DEADLINE_ORDER_INVALID"):
         MatrixSyncCommand(**payload)

@@ -79,11 +79,16 @@ _MINIMAL_SUBPROCESS_ENV = {
     "TMPDIR": "/tmp",
 }
 _PROCESS_GROUP_GRACE_SECONDS = 2.0
+_MATRIX_ROOM_ID_MAX_BYTES = 255
 
 
 def _validate_file(path: Path, expected_sha256: str, *, executable: bool) -> None:
     info = os.lstat(path)
-    if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_nlink != 1:
+    if (
+        not stat.S_ISREG(info.st_mode)
+        or stat.S_ISLNK(info.st_mode)
+        or info.st_nlink != 1
+    ):
         raise ValueError("MATRIX_SYNC_RUNTIME_FILE_UNSAFE")
     if executable and not os.access(path, os.X_OK):
         raise ValueError("MATRIX_SYNC_RUNTIME_EXECUTABLE_REQUIRED")
@@ -173,13 +178,18 @@ def _validate_transient_scope(
         )
         if command.sync_cursor_ref != expected_sync_cursor_ref:
             raise MatrixSyncTransportError("MATRIX_SYNC_CURSOR_BINDING_MISMATCH")
+        if any(
+            not room_id or len(room_id.encode("utf-8")) > _MATRIX_ROOM_ID_MAX_BYTES
+            for room_id in target.room_ids
+        ):
+            raise MatrixSyncTransportError("MATRIX_SYNC_ROOM_SCOPE_INVALID")
         room_refs = {
-            matrix_sync_private_ref(
-                "room-ref:matrix", pseudonymization_salt, room_id
-            )
+            matrix_sync_private_ref("room-ref:matrix", pseudonymization_salt, room_id)
             for room_id in target.room_ids
         }
-        if len(room_refs) != len(target.room_ids) or room_refs != set(command.room_refs):
+        if len(room_refs) != len(target.room_ids) or room_refs != set(
+            command.room_refs
+        ):
             raise MatrixSyncTransportError("MATRIX_SYNC_ROOM_BINDING_MISMATCH")
     else:
         if (
@@ -189,6 +199,8 @@ def _validate_transient_scope(
             or target.pagination_token is None
         ):
             raise MatrixSyncTransportError("MATRIX_SYNC_TRANSIENT_SCOPE_INVALID")
+        if len(target.room_id.encode("utf-8")) > _MATRIX_ROOM_ID_MAX_BYTES:
+            raise MatrixSyncTransportError("MATRIX_SYNC_ROOM_SCOPE_INVALID")
         room_ref = matrix_sync_private_ref(
             "room-ref:matrix", pseudonymization_salt, target.room_id
         )

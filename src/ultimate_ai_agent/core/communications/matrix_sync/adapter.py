@@ -90,8 +90,12 @@ def build_matrix_sync_capability_manifest(
             if composed
             else "Declare one exact Matrix operation whose canonical executor is unavailable."
         ),
-        examples=["Read one exact Matrix scope or update one encrypted cache generation."],
-        anti_examples=["Send events, mutate rooms, emit typing, or send read receipts."],
+        examples=[
+            "Read one exact Matrix scope or update one encrypted cache generation."
+        ],
+        anti_examples=[
+            "Send events, mutate rooms, emit typing, or send read receipts."
+        ],
         input_schema={"type": "object", "required": ["request_fingerprint_ref"]},
         output_schema={"type": "object", "required": ["result_ref"]},
         input_modes=["safe_refs_plus_transient_private_material"],
@@ -113,7 +117,7 @@ def build_matrix_sync_capability_manifest(
         ),
         approval_required=lane.approval_required,
         deterministic=False,
-        rollback_supported=operation not in {MatrixSyncOperation.cache_key_delete},
+        rollback_supported=operation in MATRIX_SYNC_COMPOSED_DISPATCH_OPERATIONS,
         receipt_required=True,
         privacy_level=CapabilityPrivacyLevel.local_private,
         estimated_latency_class=CapabilityLatencyClass.interactive,
@@ -263,7 +267,9 @@ class MatrixSyncAuthorityDispatchAdapter:
             },
         )
 
-    def _metadata(self, request: AuthorityDispatchRequest) -> MatrixSyncDispatchMetadata:
+    def _metadata(
+        self, request: AuthorityDispatchRequest
+    ) -> MatrixSyncDispatchMetadata:
         tool_request = ToolInvocationRequest.model_validate(
             request.tool_invocation_request
         )
@@ -300,7 +306,10 @@ class MatrixSyncAuthorityDispatchAdapter:
         except ValueError:
             reasons.append("reason-ref:matrix-sync:policy-denied")
         else:
-            if request.action_request.constraints.get("policy_decision_ref") != policy_ref:
+            if (
+                request.action_request.constraints.get("policy_decision_ref")
+                != policy_ref
+            ):
                 reasons.append("reason-ref:matrix-sync:policy-binding-mismatch")
         return list(dict.fromkeys(reasons))
 
@@ -347,12 +356,19 @@ class MatrixSyncAuthorityDispatchAdapter:
             objective="Return content-free evidence for one exact account and cache scope.",
             scope=[self.lane.capability_ref],
             out_of_scope=[
-                "message sends", "room mutations", "typing writes", "receipt writes",
-                "media transfer", "browser automation", "memory writes",
+                "message sends",
+                "room mutations",
+                "typing writes",
+                "receipt writes",
+                "media transfer",
+                "browser automation",
+                "memory writes",
             ],
             selected_capability_ids=[self._manifest.id],
             allowed_tool_ids=[self.lane.tool_ref],
-            acceptance_criteria=["Return only safe refs, counts, status, and reason codes."],
+            acceptance_criteria=[
+                "Return only safe refs, counts, status, and reason codes."
+            ],
             budget={"operation_count": 1, "cost_microusd": 0},
             context={
                 "target_ref": command.target_ref,
@@ -415,7 +431,9 @@ class MatrixSyncAuthorityDispatchAdapter:
             result=result,
         )
 
-    def invoke(self, request: AuthorityDispatchRequest) -> AuthorityDispatchAdapterResult:
+    def invoke(
+        self, request: AuthorityDispatchRequest
+    ) -> AuthorityDispatchAdapterResult:
         del request
         raise RuntimeError("MATRIX_SYNC_ATOMIC_START_REQUIRED")
 
