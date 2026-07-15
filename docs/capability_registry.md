@@ -397,6 +397,23 @@ calls, and hidden injection remain blocked.
 
 Use `manifest_from_mcp_tool_spec()` and `manifest_from_a2a_agent_card()` to convert external metadata into local manifests. These helpers do not create live remote dispatch, network access, provider calls, or plugin execution. MCP and A2A imports fail closed by default: unknown MCP tools and unknown A2A agents become blocked, review-required UAA capability candidates, not read-only or delegation-ready capabilities. A future adapter can be registered only after its manifest, policy, exact approval, receipt, replay, revocation, and authority boundary are reviewed.
 
+## Disposable Matrix Harness
+
+MSG-MX-004 registers six exact local-development capabilities for inspect,
+smoke, start, fixture seed, stop, and reset. Declaration or implemented-adapter
+status does not mean global callability: every call flows through Python Core's
+dispatcher with an exact current mission lease, request fingerprint, lifecycle
+generation, target, budget, readiness, kill-switch, safe-disable, and replay
+evaluation. Start, seed, stop, and reset additionally require fresh exact
+LocalApprovalAuthority validation. Image availability, configuration, and
+health remain current environment/request truth.
+
+The backend is preprovision-only and cannot pull images. It produces
+content-free receipts and retains `recovery_required` when cleanup cannot be
+proved. No Matrix connector, account/session, sync/read, send/write, crypto,
+media, React authority, standing harness switch, or production authority is
+created. Canonical truth: `docs/connectors/MESSENGER_MATRIX_LOCAL_HARNESS.md`.
+
 ## Local Smoke Harness
 
 Run the dev-only smoke harness to prove registry resolution and schema export without adding live authority:

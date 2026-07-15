@@ -1,7 +1,9 @@
 # Messenger Matrix Design Authority Matrix
 
-Status: MSG-MX-001 design accepted; declaration metadata only; every runtime
-row remains blocked.
+Status: MSG-MX-001 connector design accepted; every connector/account row below
+remains blocked. MSG-MX-004 separately implements six exact disposable local
+harness lanes documented in `MESSENGER_MATRIX_LOCAL_HARNESS.md`; those lanes do
+not promote any row in this matrix.
 
 This matrix refines the immutable MSG-MX-000 planned-lane inventory without
 replacing the capability registry, capability-availability model, PolicyEngine,

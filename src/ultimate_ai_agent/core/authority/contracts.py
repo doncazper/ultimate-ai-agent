@@ -17,6 +17,7 @@ from ultimate_ai_agent.core.authority.authority_constants import (
     AUTHORITY_BUDGET_RECEIPTS_FILE,
     AUTHORITY_STATE_LOCK_KEY,
     AUTHORITY_STATE_REDACTIONS,
+    MATRIX_HARNESS_EXACT_AUTHORITY_BINDINGS,
 )
 from ultimate_ai_agent.core.authority.budget_contracts import AuthorityBudgetReadModel
 from ultimate_ai_agent.core.single_writer_lock import FileSingleWriterLockManager
@@ -1003,6 +1004,7 @@ class AuthorityLeaseIssueRequest(_AuthorityModel):
     scope: AuthorityLeaseScope = AuthorityLeaseScope.session
     mission_ref: str | None = None
     operator_ref: str = AUTHORITY_LEASE_LOCAL_OPERATOR_REF
+    requested_lease_ref: str | None = None
     requested_domains: dict[AuthorityDomain, list[AuthorityCapability]] = Field(
         default_factory=dict
     )
@@ -1019,12 +1021,18 @@ class AuthorityLeaseIssueRequest(_AuthorityModel):
         for value, field_name in [
             (self.mission_ref, "authority_lease_mission_ref"),
             (self.operator_ref, "authority_lease_operator_ref"),
+            (self.requested_lease_ref, "authority_lease_requested_lease_ref"),
             (self.decision_reason_ref, "authority_lease_decision_reason_ref"),
             (self.approval_ref, "authority_lease_approval_ref"),
         ]:
             if value is not None:
                 validate_task_ref(value, field_name)
         validate_safe_task_text(self.safe_summary, "authority_lease_issue_summary")
+        if (
+            self.requested_lease_ref is not None
+            and _exact_messages_issue_capability(self) is None
+        ):
+            raise ValueError("AUTHORITY_LEASE_REQUESTED_REF_EXACT_BINDING_REQUIRED")
         validate_safe_task_payload(self.constraints, "authority_lease_issue_constraints")
         validate_safe_task_payload(self.approval_grants, "authority_lease_approval_grants")
         constraint_kinds = [constraint.kind for constraint in self.authority_constraints]
@@ -1045,6 +1053,41 @@ class AuthorityLeaseIssueRequest(_AuthorityModel):
                     "authority_issue_capability",
                 )
         return self
+
+
+def _exact_messages_issue_capability(
+    request: AuthorityLeaseIssueRequest,
+) -> AuthorityCapability | None:
+    exact_binding = (
+        request.constraints.get("exact_lane_ref"),
+        request.constraints.get("exact_capability_ref"),
+        request.constraints.get("exact_adapter_ref"),
+        request.constraints.get("exact_tool_ref"),
+    )
+    if not all(isinstance(value, str) for value in exact_binding):
+        return None
+    accepted = {
+        (lane, capability, adapter, tool): AuthorityCapability(authority_capability)
+        for authority_capability, lane, capability, adapter, tool in (
+            MATRIX_HARNESS_EXACT_AUTHORITY_BINDINGS
+        )
+    }
+    expected_capability = accepted.get(exact_binding)
+    requested_messages = request.requested_domains.get(AuthorityDomain.messages, [])
+    if not (
+        request.scope == AuthorityLeaseScope.mission
+        and request.mission_ref is not None
+        and request.requested_lease_ref is not None
+        and set(request.requested_domains) == {AuthorityDomain.messages}
+        and expected_capability is not None
+        and requested_messages == [expected_capability]
+        and isinstance(
+            request.constraints.get("exact_request_fingerprint_ref"), str
+        )
+        and len(request.authority_constraints) > 0
+    ):
+        return None
+    return expected_capability
 
 
 class AuthorityLeaseApproveAndIssueRequest(_AuthorityModel):
@@ -1675,6 +1718,50 @@ def _lease_scope_matches_action(
     )
 
 
+def _exact_messages_binding(lease: AuthorityLease) -> tuple[str, str, str, str] | None:
+    values = tuple(
+        lease.constraints.get(key)
+        for key in (
+            "exact_lane_ref",
+            "exact_capability_ref",
+            "exact_adapter_ref",
+            "exact_tool_ref",
+        )
+    )
+    if not all(isinstance(value, str) for value in values):
+        return None
+    return values  # type: ignore[return-value]
+
+
+def _lease_exact_messages_binding_matches(
+    lease: AuthorityLease,
+    request: AuthorityActionRequest,
+) -> bool:
+    if request.domain != AuthorityDomain.messages:
+        return True
+    binding = _exact_messages_binding(lease)
+    if binding is None:
+        return False
+    lane_ref, capability_ref, adapter_ref, tool_ref = binding
+    allowed = {
+        (lane, capability, adapter, tool): AuthorityCapability(authority_capability)
+        for authority_capability, lane, capability, adapter, tool in (
+            MATRIX_HARNESS_EXACT_AUTHORITY_BINDINGS
+        )
+    }
+    expected_authority_capability = allowed.get(binding)
+    granted_messages_capabilities = lease.domains.get(AuthorityDomain.messages, [])
+    return (
+        expected_authority_capability is not None
+        and granted_messages_capabilities == [expected_authority_capability]
+        and AuthorityCapability(request.capability) == expected_authority_capability
+        and request.lane_ref == lane_ref
+        and request.capability_ref == capability_ref
+        and request.adapter_ref == adapter_ref
+        and request.constraints.get("tool_ref") == tool_ref
+        and request.constraints.get("request_fingerprint_ref")
+        == lease.constraints.get("exact_request_fingerprint_ref")
+    )
 def evaluate_authority_request(
     request: AuthorityActionRequest,
     leases: list[AuthorityLease],
@@ -1691,6 +1778,7 @@ def evaluate_authority_request(
         lease
         for lease in matching_domain_capability
         if _lease_scope_matches_action(lease, request)
+        and _lease_exact_messages_binding_matches(lease, request)
     ]
     reason_refs: list[str] = []
     if request.kill_switch_engaged or authority_lease_kill_switch_engaged():
@@ -2259,6 +2347,15 @@ def _local_implemented_authority_capabilities() -> dict[
             AuthorityCapability.execute,
             AuthorityCapability.mutate,
         },
+        # This admits only the coarse domain/capability projection needed by
+        # the six exact disposable Matrix harness lanes. Their adapters still
+        # require exact capability, lane, tool, mission, and resource-set
+        # equality, so this cannot authorize message sync or send.
+        AuthorityDomain.messages: {
+            AuthorityCapability.read,
+            AuthorityCapability.execute,
+            AuthorityCapability.mutate,
+        },
     }
 
 
@@ -2298,6 +2395,9 @@ def _allowed_domain_capabilities(
                 AuthorityCapability.observe,
                 AuthorityCapability.read,
             },
+            AuthorityDomain.messages: {
+                AuthorityCapability.read,
+            },
         }
     if mode == TrustMode.ask_before_changes:
         return {
@@ -2321,6 +2421,11 @@ def _allowed_domain_capabilities(
                 AuthorityCapability.execute,
                 AuthorityCapability.mutate,
             },
+            AuthorityDomain.messages: {
+                AuthorityCapability.read,
+                AuthorityCapability.execute,
+                AuthorityCapability.mutate,
+            },
         }
     if mode == TrustMode.approved_safe_local_work_session:
         return {
@@ -2328,6 +2433,11 @@ def _allowed_domain_capabilities(
                 AuthorityCapability.read,
                 AuthorityCapability.write,
                 AuthorityCapability.execute,
+            },
+            AuthorityDomain.messages: {
+                AuthorityCapability.read,
+                AuthorityCapability.execute,
+                AuthorityCapability.mutate,
             },
         }
     if mode == TrustMode.full_local_workspace_session:
@@ -2395,6 +2505,12 @@ def _filter_requested_domains(
             for capability in capabilities
             if AuthorityCapability(capability) in allowed_capabilities
         ]
+        if domain_value == AuthorityDomain.messages:
+            expected_capability = _exact_messages_issue_capability(request)
+            if expected_capability is None or granted_capabilities != [
+                expected_capability
+            ]:
+                granted_capabilities = []
         if granted_capabilities:
             granted[domain_value] = granted_capabilities
         denied = [
@@ -3068,13 +3184,18 @@ class AuthorityLeaseStore:
                 raise AuthorityLeaseConflictError("AUTHORITY_LEASE_IDEMPOTENCY_CONFLICT")
             lease = self._lease_by_ref(existing.lease_ref)
             return lease, existing.model_copy(update={"status": "replayed"})
+        if (
+            request.requested_lease_ref is not None
+            and self._lease_by_ref(request.requested_lease_ref) is not None
+        ):
+            raise AuthorityLeaseConflictError("AUTHORITY_LEASE_REF_CONFLICT")
         granted, denied_refs, unsupported_refs = _filter_requested_domains(request)
         approval_requirement = build_authority_lease_approval_requirement(
             request,
             granted,
             idempotency_ref=idempotency_ref,
         )
-        lease_ref = _stable_ref(
+        computed_lease_ref = _stable_ref(
             "authority-lease-ref",
             {
                 "idempotency_ref": idempotency_ref,
@@ -3091,6 +3212,7 @@ class AuthorityLeaseStore:
                 ],
             },
         )
+        lease_ref = request.requested_lease_ref or computed_lease_ref
         approval_decision = (
             approval_validator(request, approval_requirement)
             if approval_requirement.approval_required and approval_validator is not None
@@ -3607,6 +3729,12 @@ REQUIRED_AUTHORITY_LANE_IDS = (
     "memory.review.decision",
     "model.provider.readiness",
     "extension.catalog.review",
+    "matrix.harness.inspect",
+    "matrix.harness.smoke",
+    "matrix.harness.start",
+    "matrix.harness.fixture_seed",
+    "matrix.harness.stop",
+    "matrix.harness.reset",
 )
 
 
@@ -3616,6 +3744,7 @@ def build_authority_lane_catalog_read_model(
     kill_switch_engaged: bool = False,
 ) -> AuthorityLaneCatalogReadModel:
     from ultimate_ai_agent.core.sandbox_calculation.authority_surfaces import build_sealed_arithmetic_lane_catalog_entry
+    from ultimate_ai_agent.core.communications.matrix_harness.authority_surfaces import build_matrix_harness_lane_catalog_entries
     leases = active_leases or build_default_authority_leases()
     entries = [
         _authority_lane_entry(
@@ -3995,6 +4124,10 @@ def build_authority_lane_catalog_read_model(
                 "reason-ref:extension-install-disabled:local-approval-required",
                 "reason-ref:extension-install-disabled:authority-lease-required",
             ],
+            active_leases=leases,
+            kill_switch_engaged=kill_switch_engaged,
+        ),
+        *build_matrix_harness_lane_catalog_entries(
             active_leases=leases,
             kill_switch_engaged=kill_switch_engaged,
         ),

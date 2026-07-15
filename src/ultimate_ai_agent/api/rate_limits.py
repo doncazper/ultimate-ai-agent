@@ -32,6 +32,7 @@ TARGETED_RATE_LIMIT_GROUP_DEFAULTS: dict[str, dict[str, int]] = {
     "web_evidence_product_slice": {"max_requests": 12, "window_seconds": 60},
     "extension_install_disabled_record": {"max_requests": 12, "window_seconds": 60},
     "governed_runtime_pilot": {"max_requests": 30, "window_seconds": 60},
+    "communications_matrix_harness": {"max_requests": 12, "window_seconds": 60},
 }
 
 ACTION_PREVIEW_PROPOSAL_PATHS = {
@@ -139,6 +140,14 @@ GOVERNED_RUNTIME_MUTATING_PATHS = {
     "/api/runtime/invocations/{id}/approve",
     "/api/runtime/invocations/{id}/execute",
     "/api/runtime/safe-disable",
+}
+COMMUNICATIONS_MATRIX_HARNESS_PATHS = {
+    "/control-center/communications/harness/inspect",
+    "/control-center/communications/harness/smoke",
+    "/control-center/communications/harness/start",
+    "/control-center/communications/harness/fixture-seed",
+    "/control-center/communications/harness/stop",
+    "/control-center/communications/harness/reset",
 }
 
 
@@ -259,6 +268,8 @@ def route_rate_limit_group(method: str, path: str) -> str | None:
         return "web_evidence_product_slice"
     if normalized_method == "POST" and path in EXTENSION_INSTALL_DISABLED_RECORD_PATHS:
         return "extension_install_disabled_record"
+    if normalized_method == "POST" and path in COMMUNICATIONS_MATRIX_HARNESS_PATHS:
+        return "communications_matrix_harness"
     if normalized_method == "POST" and (
         path in GOVERNED_RUNTIME_MUTATING_PATHS
         or (

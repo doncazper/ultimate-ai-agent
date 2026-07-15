@@ -1,0 +1,61 @@
+name: uaa-matrix-harness
+
+services:
+  synapse:
+    image: ${UAA_MATRIX_HARNESS_IMAGE:?pinned Synapse image required}
+    user: "${UAA_MATRIX_HARNESS_UID:?non-root uid required}:${UAA_MATRIX_HARNESS_GID:?non-root gid required}"
+    pull_policy: never
+    entrypoint:
+      - /usr/bin/timeout
+      - --signal=TERM
+      - --kill-after=10s
+      - "1800"
+      - /start.py
+    environment:
+      SYNAPSE_CONFIG_PATH: /data/homeserver.yaml
+    volumes:
+      - ${UAA_MATRIX_HARNESS_STATE_DIR:?disposable state required}:/data
+    ports:
+      - "127.0.0.1:18008:8008"
+    networks:
+      - matrix-harness-internal
+    labels:
+      com.ultimate-ai-agent.owner: matrix-harness-v1
+      com.ultimate-ai-agent.disposable: "true"
+      com.ultimate-ai-agent.production: "false"
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - -fsS
+        - --max-time
+        - "5"
+        - http://127.0.0.1:8008/_matrix/client/versions
+      interval: 5s
+      timeout: 5s
+      retries: 18
+      start_period: 15s
+    restart: "no"
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 1g
+    cpus: 1.0
+    stop_grace_period: 10s
+    logging:
+      driver: none
+
+networks:
+  matrix-harness-internal:
+    driver_opts:
+      com.docker.network.bridge.gateway_mode_ipv4: nat
+      com.docker.network.bridge.enable_ip_masquerade: "false"
+      com.docker.network.bridge.host_binding_ipv4: 127.0.0.1
+    labels:
+      com.ultimate-ai-agent.owner: matrix-harness-v1
+      com.ultimate-ai-agent.disposable: "true"

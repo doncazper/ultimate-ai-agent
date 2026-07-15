@@ -2,14 +2,14 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `269`.
+Current OpenAPI path count: `275`.
 
 This inventory is generated from the FastAPI application and `/api/manifest`. It is the route ownership and side-effect classification map for the current local-first API boundary.
 
 ## Current Route Boundary
 
-- Manifest route operations: `270`
-- OpenAPI paths: `269`
+- Manifest route operations: `276`
+- OpenAPI paths: `275`
 - Production runtime authority: blocked
 - Public release authority: blocked
 
@@ -23,7 +23,7 @@ This inventory is generated from the FastAPI application and `/api/manifest`. It
 | `consent` | 2 | `consent` | `approval_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `context-budget` | 1 | `context` | `contracts_service` | future auth required | `validation_only`:1 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `contracts` | 2 | `contracts` | `contracts_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
-| `control-center` | 104 | `control-center` | `control_center_service` | local status or future auth per route | `governed_network_read_only`:2, `local_dev_workspace_only`:77, `none`:6, `validation_only`:19 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
+| `control-center` | 110 | `control-center` | `control_center_service` | local status or future auth per route | `governed_network_read_only`:3, `local_dev_workspace_only`:81, `none`:6, `validation_only`:20 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `cost-governor` | 3 | `cost-governor` | `cost_service` | future auth required | `validation_only`:3 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `extension-catalog` | 3 | `extension-catalog` | `extension_catalog_service` | future auth required | `local_dev_workspace_only`:2, `validation_only`:1 | medium | stable/generated from path; unique | status_available_not_completion |
 | `files` | 6 | `workspace-files` | `workspace_files_service` | future auth required and local safe refs | `local_dev_workspace_only`:6 | high | stable/generated from path; unique | partial_backend_not_product_ready |
@@ -158,6 +158,12 @@ validate the exact request-scoped authority boundary.
 | GET | `/control-center/coding/session` | `get_control_center_coding_session` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/coding/test-command-readiness` | `get_control_center_coding_test_command_readiness` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/communications/failed-sends` | `get_control_center_communications_failed_sends` | `none` | yes | future | yes |
+| POST | `/control-center/communications/harness/fixture-seed` | `post_control_center_communications_harness_fixture_seed` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/control-center/communications/harness/inspect` | `post_control_center_communications_harness_inspect` | `validation_only` | yes | future | yes |
+| POST | `/control-center/communications/harness/reset` | `post_control_center_communications_harness_reset` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/control-center/communications/harness/smoke` | `post_control_center_communications_harness_smoke` | `governed_network_read_only` | no | future | yes |
+| POST | `/control-center/communications/harness/start` | `post_control_center_communications_harness_start` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/control-center/communications/harness/stop` | `post_control_center_communications_harness_stop` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/communications/providers` | `get_control_center_communications_providers` | `none` | yes | future | yes |
 | GET | `/control-center/communications/receipts/{receipt_ref}` | `get_control_center_communications_receipt` | `none` | yes | future | yes |
 | GET | `/control-center/communications/rooms` | `get_control_center_communications_rooms` | `none` | yes | future | yes |

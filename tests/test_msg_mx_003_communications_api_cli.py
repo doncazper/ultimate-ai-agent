@@ -72,7 +72,7 @@ def test_communications_manifest_and_openapi_contracts_are_exact() -> None:
         for route in manifest.routes
         if route.path.startswith("/control-center/communications/")
     }
-    assert set(routes) == {
+    original_read_paths = {
         "/control-center/communications/providers",
         "/control-center/communications/session-posture",
         "/control-center/communications/rooms",
@@ -80,19 +80,22 @@ def test_communications_manifest_and_openapi_contracts_are_exact() -> None:
         "/control-center/communications/security-posture",
         "/control-center/communications/receipts/{receipt_ref}",
     }
-    assert all(route.method == "GET" for route in routes.values())
-    assert all(route.side_effect_class == "none" for route in routes.values())
+    assert original_read_paths <= set(routes)
+    original_routes = {path: routes[path] for path in original_read_paths}
+    assert all(route.method == "GET" for route in original_routes.values())
+    assert all(route.side_effect_class == "none" for route in original_routes.values())
     assert all(
-        route.route_classification == "local_sensitive" for route in routes.values()
+        route.route_classification == "local_sensitive"
+        for route in original_routes.values()
     )
-    assert all(route.protected_route for route in routes.values())
-    assert all(route.blocked_from_production for route in routes.values())
-    assert all(not route.idempotency_required for route in routes.values())
-    assert all(not route.rate_limit_targeted for route in routes.values())
-    assert all(route.rate_limit_group is None for route in routes.values())
+    assert all(route.protected_route for route in original_routes.values())
+    assert all(route.blocked_from_production for route in original_routes.values())
+    assert all(not route.idempotency_required for route in original_routes.values())
+    assert all(not route.rate_limit_targeted for route in original_routes.values())
+    assert all(route.rate_limit_group is None for route in original_routes.values())
     assert all(
         route.approval_posture == "not_required_for_route_classification"
-        for route in routes.values()
+        for route in original_routes.values()
     )
     assert (
         "communications_backend_owned_normalized_contracts"
@@ -104,7 +107,9 @@ def test_communications_manifest_and_openapi_contracts_are_exact() -> None:
     )
 
     schema = app.openapi()
-    operation_ids = {schema["paths"][path]["get"]["operationId"] for path in routes}
+    operation_ids = {
+        schema["paths"][path]["get"]["operationId"] for path in original_read_paths
+    }
     assert operation_ids == {
         "get_control_center_communications_providers",
         "get_control_center_communications_session_posture",

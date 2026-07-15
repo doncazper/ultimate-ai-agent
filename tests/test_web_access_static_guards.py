@@ -43,6 +43,18 @@ APPROVED_ADAPTER_FILES = {
 APPROVED_ADAPTER_PUBLIC_WEB_IMPORTS: set[str] = set()
 
 TEMPORARY_BASELINE_EXCEPTIONS = {
+    "src/ultimate_ai_agent/core/communications/matrix_harness/backend.py": (
+        "lane=matrix_harness_host_loopback_smoke; "
+        "scope=bounded GET against fixed 127.0.0.1:18008 client versions only; "
+        "authority=exact_matrix_harness_smoke_only; "
+        "migration=retain inside the disposable local harness adapter boundary"
+    ),
+    "packaging/messenger-matrix-harness/seed_runtime_fixtures.py": (
+        "lane=matrix_harness_fixture_seed_loopback; "
+        "scope=synthetic ephemeral Matrix fixtures against 127.0.0.1 only; "
+        "authority=exact_matrix_harness_fixture_seed_only; "
+        "migration=retain inside the disposable local harness boundary"
+    ),
     "scripts/dev/uaa_launcher.py": (
         "lane=developer_loopback_launcher; "
         "scope=localhost readiness probes for local dev services only; "
@@ -236,7 +248,68 @@ def _iter_python_files(repo_root: Path):  # type: ignore[no-untyped-def]
 
 
 def _is_approved(rel: str) -> bool:
+    if rel == "packaging/messenger-matrix-harness/seed_runtime_fixtures.py":
+        return _is_exact_matrix_harness_loopback_helper(rel)
     return rel in APPROVED_ADAPTER_FILES or rel in TEMPORARY_BASELINE_EXCEPTIONS
+
+
+def _is_exact_matrix_harness_loopback_helper(rel: str) -> bool:
+    repo_root = Path(__file__).resolve().parents[1]
+    source = (repo_root / rel).read_text(encoding="utf-8")
+    required = (
+        'HOST = "127.0.0.1"',
+        "PORT = 8008",
+        "http.client.HTTPConnection(HOST, PORT, timeout=10)",
+        "raw = response.read(65537)",
+        'CONFIG_PATH = Path("/data/homeserver.yaml")',
+    )
+    forbidden = (
+        "HTTPSConnection",
+        "socket.socket(",
+        "import subprocess",
+        "subprocess.",
+        "os.environ",
+        "urllib.request",
+        "requests.",
+        "import requests",
+        "httpx.",
+    )
+    return all(marker in source for marker in required) and not any(
+        marker in source for marker in forbidden
+    )
+
+
+def test_matrix_harness_loopback_exception_is_exact() -> None:
+    rel = "packaging/messenger-matrix-harness/seed_runtime_fixtures.py"
+    assert _is_exact_matrix_harness_loopback_helper(rel)
+    source = (Path(__file__).resolve().parents[1] / rel).read_text(encoding="utf-8")
+    for drift in (
+        source.replace('HOST = "127.0.0.1"', 'HOST = "example.invalid"'),
+        source + "\nimport requests\n",
+        source + "\nimport subprocess\nsubprocess.call(['unsafe'])\n",
+    ):
+        required = (
+            'HOST = "127.0.0.1"',
+            "PORT = 8008",
+            "http.client.HTTPConnection(HOST, PORT, timeout=10)",
+            "raw = response.read(65537)",
+            'CONFIG_PATH = Path("/data/homeserver.yaml")',
+        )
+        forbidden = (
+            "HTTPSConnection",
+            "socket.socket(",
+            "import subprocess",
+            "subprocess.",
+            "os.environ",
+            "urllib.request",
+            "requests.",
+            "import requests",
+            "httpx.",
+        )
+        assert not (
+            all(marker in drift for marker in required)
+            and not any(marker in drift for marker in forbidden)
+        )
 
 
 def _is_banned(module: str) -> bool:

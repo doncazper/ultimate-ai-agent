@@ -1,0 +1,42 @@
+server_name: "uaa-matrix-harness.invalid"
+pid_file: /tmp/homeserver.pid
+public_baseurl: "http://127.0.0.1:18008/"
+report_stats: false
+enable_registration: false
+registration_shared_secret: "__UAA_MATRIX_REGISTRATION_SECRET__"
+
+listeners:
+  - port: 8008
+    bind_addresses:
+      - "0.0.0.0"
+    type: http
+    tls: false
+    x_forwarded: false
+    resources:
+      - names:
+          - client
+        compress: false
+
+database:
+  name: sqlite3
+  args:
+    database: /data/homeserver.db
+
+media_store_path: /data/media_store
+signing_key_path: /data/signing.key
+trusted_key_servers: []
+federation_domain_whitelist: []
+allow_public_rooms_over_federation: false
+allow_public_rooms_without_auth: false
+enable_metrics: false
+
+presence:
+  enabled: false
+
+rc_message:
+  per_second: 20
+  burst_count: 20
+
+rc_registration:
+  per_second: 10
+  burst_count: 10

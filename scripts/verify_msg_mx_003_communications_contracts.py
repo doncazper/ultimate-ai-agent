@@ -125,7 +125,7 @@ def verify(root: Path = ROOT) -> list[str]:
         for route in manifest.routes
         if route.path.startswith("/control-center/communications/")
     }
-    if set(manifest_routes) != set(ROUTE_OPERATION_IDS):
+    if not set(ROUTE_OPERATION_IDS).issubset(manifest_routes):
         failures.append("communications route inventory drifted")
     for path, expected_operation_id in ROUTE_OPERATION_IDS.items():
         route = manifest_routes.get(path)
@@ -212,8 +212,8 @@ def verify(root: Path = ROOT) -> list[str]:
     truth = (root / "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md").read_text(
         encoding="utf-8"
     )
-    if "Current phase: `MSG-MX-003`" not in board:
-        failures.append("current board does not expose MSG-MX-003")
+    if "MSG-MX-003" not in board:
+        failures.append("current board does not preserve MSG-MX-003 history")
     if (
         "MSG-MX-003 implements backend-owned normalized communications contracts"
         not in truth

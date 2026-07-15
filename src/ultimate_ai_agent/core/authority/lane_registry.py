@@ -15,8 +15,10 @@ def build_existing_lane_authority_mappings():
         build_evidence_signing_lane_authority_mappings,
     )
     from ultimate_ai_agent.core.sandbox_calculation.authority_surfaces import build_sealed_arithmetic_authority_mapping
+    from ultimate_ai_agent.core.communications.matrix_harness.authority_surfaces import build_matrix_harness_authority_mappings
 
     return [
+        *build_matrix_harness_authority_mappings(),
         *build_evidence_signing_lane_authority_mappings(),
         _mapping(
             "lane-ref:authority-lease-control-plane",

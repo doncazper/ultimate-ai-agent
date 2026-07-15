@@ -242,7 +242,7 @@ def test_board_evidence_must_be_phase_bound(
         gate.BOARD_PATH,
         tmp_path / "board.md",
         lambda text: text.replace(
-            "evidence-ref:msg-mx-003:communications-contracts",
+            "evidence-ref:msg-mx-004:local-synapse-harness",
             "evidence-ref:msg-mx-001:design-gate",
             1,
         ),

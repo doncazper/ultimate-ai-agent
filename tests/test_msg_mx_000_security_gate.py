@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from pathlib import Path
 
@@ -26,6 +27,39 @@ def _patch_path(
     source = getattr(gate, path_attr)
     path = _tamper(source, tmp_path / f"{path_attr.lower()}.md", transform)
     monkeypatch.setattr(gate, path_attr, path)
+
+
+def _replace_board_projection(
+    text: str,
+    *,
+    phase: str | None = None,
+    status: str | None = None,
+    evidence_ref: str | None = None,
+) -> str:
+    replacements = (
+        (r"^Current phase: `MSG-MX-\d{3}`$", phase, "Current phase"),
+        (
+            r"^Current program status: `[a-z0-9_]+`$",
+            status,
+            "Current program status",
+        ),
+        (
+            r"^Current evidence ref: `evidence-ref:msg-mx-[a-z0-9:-]+`$",
+            evidence_ref,
+            "Current evidence ref",
+        ),
+    )
+    for pattern, value, label in replacements:
+        if value is not None:
+            text, count = re.subn(
+                pattern,
+                f"{label}: `{value}`",
+                text,
+                count=1,
+                flags=re.MULTILINE,
+            )
+            assert count == 1, f"missing {label} projection"
+    return text
 
 
 @pytest.mark.parametrize(
@@ -263,18 +297,10 @@ def test_board_overlay_future_success_requires_phase_acceptance_evidence(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def advance(text: str) -> str:
-        return (
-            text
-            .replace(
-                "Current program status: `backend_contracts_api_cli_implemented_pending_merge_gate`",
-                "Current program status: `fixture_shell_ready`",
-                1,
-            )
-            .replace(
-                "Current evidence ref: `evidence-ref:msg-mx-003:communications-contracts`",
-                "Current evidence ref: `evidence-ref:msg-mx-003:unaccepted`",
-                1,
-            )
+        return _replace_board_projection(
+            text,
+            status="fixture_shell_ready",
+            evidence_ref="evidence-ref:msg-mx-004:unaccepted",
         )
 
     _patch_path(monkeypatch, tmp_path, "BOARD_PATH", advance)
@@ -286,18 +312,11 @@ def test_board_overlay_can_record_a_phase_bound_external_blocker(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def block(text: str) -> str:
-        return (
-            text.replace("Current phase: `MSG-MX-003`", "Current phase: `MSG-MX-005`", 1)
-            .replace(
-                "Current program status: `backend_contracts_api_cli_implemented_pending_merge_gate`",
-                "Current program status: `blocked_external_facility_required`",
-                1,
-            )
-            .replace(
-                "Current evidence ref: `evidence-ref:msg-mx-003:communications-contracts`",
-                "Current evidence ref: `evidence-ref:msg-mx-005:external-blocker`",
-                1,
-            )
+        return _replace_board_projection(
+            text,
+            phase="MSG-MX-005",
+            status="blocked_external_facility_required",
+            evidence_ref="evidence-ref:msg-mx-005:external-blocker",
         )
 
     _patch_path(monkeypatch, tmp_path, "BOARD_PATH", block)
@@ -309,18 +328,10 @@ def test_board_overlay_generic_ready_status_fails_closed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def promote(text: str) -> str:
-        return (
-            text.replace("Current phase: `MSG-MX-003`", "Current phase: `MSG-MX-004`", 1)
-            .replace(
-                "Current program status: `backend_contracts_api_cli_implemented_pending_merge_gate`",
-                "Current program status: `ready`",
-                1,
-            )
-            .replace(
-                "Current evidence ref: `evidence-ref:msg-mx-003:communications-contracts`",
-                "Current evidence ref: `evidence-ref:msg-mx-004:ready`",
-                1,
-            )
+        return _replace_board_projection(
+            text,
+            status="ready",
+            evidence_ref="evidence-ref:msg-mx-004:ready",
         )
 
     _patch_path(monkeypatch, tmp_path, "BOARD_PATH", promote)
@@ -332,11 +343,7 @@ def test_board_overlay_cross_phase_evidence_fails_closed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def advance(text: str) -> str:
-        return text.replace(
-            "Current phase: `MSG-MX-003`",
-            "Current phase: `MSG-MX-004`",
-            1,
-        )
+        return _replace_board_projection(text, phase="MSG-MX-005")
 
     _patch_path(monkeypatch, tmp_path, "BOARD_PATH", advance)
     assert "current board evidence ref is not bound to its current phase" in gate.verify()
@@ -533,18 +540,11 @@ def test_future_completion_with_fabricated_evidence_fails_closed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def fabricate(text: str) -> str:
-        return (
-            text.replace("Current phase: `MSG-MX-003`", "Current phase: `MSG-MX-012`", 1)
-            .replace(
-                "Current program status: `backend_contracts_api_cli_implemented_pending_merge_gate`",
-                "Current program status: `messenger_acceptance_complete`",
-                1,
-            )
-            .replace(
-                "Current evidence ref: `evidence-ref:msg-mx-003:communications-contracts`",
-                "Current evidence ref: `evidence-ref:msg-mx-012:does-not-exist`",
-                1,
-            )
+        return _replace_board_projection(
+            text,
+            phase="MSG-MX-012",
+            status="messenger_acceptance_complete",
+            evidence_ref="evidence-ref:msg-mx-012:does-not-exist",
         )
 
     _patch_path(monkeypatch, tmp_path, "BOARD_PATH", fabricate)

@@ -1,0 +1,26 @@
+{
+  "schema_version": "uaa-matrix-harness-provider-lock.v1",
+  "reviewed_at": "2026-07-14T00:00:00Z",
+  "provider_ref": "provider-ref:communications:matrix-local-synapse",
+  "source_ref": "synapse:v1.156.0",
+  "license": "AGPL-3.0-or-later",
+  "image_tag": "matrixdotorg/synapse:v1.156.0",
+  "image": "matrixdotorg/synapse@sha256:d2215c4a0e0bbd304489af228345b31d6857c1a228175471358d3fda187c0d91",
+  "digest_source": "registry-ref:docker-hub:matrixdotorg-synapse:v1.156.0",
+  "capability_limits": [
+    "loopback-only-client-api",
+    "disposable-sqlite-test-state",
+    "synthetic-runtime-fixtures",
+    "bounded-lifetime"
+  ],
+  "explicitly_disabled": [
+    "automatic-image-pull",
+    "federation",
+    "open-registration",
+    "hosted-infrastructure",
+    "production-use",
+    "persistent-credentials",
+    "encrypted-message-fixture-claim",
+    "mobile-runtime"
+  ]
+}

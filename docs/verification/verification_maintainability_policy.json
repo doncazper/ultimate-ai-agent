@@ -103,8 +103,8 @@
           "reason": "Frozen governed runtime core contract test for local model, command, Action Inbox execution bridge, replay, and safe-disable hardening; future runtime core cases should be sharded into focused tests."
         },
         "tests/test_authority_leases.py": {
-          "max_lines": 3766,
-          "reason": "Frozen authority lease contract matrix covering exact lanes, receipts, and denial posture. Future authority-lane cases should be sharded into focused tests."
+          "max_lines": 3777,
+          "reason": "Frozen authority lease contract matrix covering exact lanes, receipts, and denial posture, including the exact MSG-MX-004 harness lane assertions. Future behavior-specific cases should use focused tests; physical size alone must not trigger a rewrite."
         },
         "tests/test_control_center_work_board.py": {
           "max_lines": 918,
@@ -154,8 +154,8 @@
           "reason": "Frozen Founder Loop storage/read-model hotspot after duplicate helper cleanup. Future Today summary and evidence timeline work must move into focused read-model modules instead of growing this file."
         },
         "src/ultimate_ai_agent/core/authority/contracts.py": {
-          "max_lines": 4481,
-          "reason": "Exact reconciled authority contract facade after capability-availability and durable-budget hardening. Future authority policy/store changes must move into focused modules."
+          "max_lines": 4612,
+          "reason": "Exact reconciled authority contract facade after capability-availability, durable-budget, and MSG-MX-004 exact lane-bound lease issuance, collision, and capability-binding hardening. Future behavior should use focused modules when ownership requires it; physical size alone must not trigger a rewrite."
         },
         "src/ultimate_ai_agent/core/authority/lane_registry.py": {
           "max_lines": 1694,

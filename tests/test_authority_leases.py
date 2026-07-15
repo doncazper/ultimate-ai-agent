@@ -1317,7 +1317,7 @@ def test_authority_lane_catalog_v1_normalizes_required_lanes_without_execution()
         catalog["cli_ref"]
         == "repo-local-command:uaa-runtime-inspect-authority-lane-catalog"
     )
-    assert catalog["entry_count"] == 11
+    assert catalog["entry_count"] == 17
     assert catalog["missing_required_lane_ids"] == []
     assert set(catalog["required_lane_ids"]) == {
         "local.verify.focused_pytest",
@@ -1330,11 +1330,17 @@ def test_authority_lane_catalog_v1_normalizes_required_lanes_without_execution()
         "memory.review.decision",
         "model.provider.readiness",
         "extension.catalog.review",
+        "matrix.harness.inspect",
+        "matrix.harness.smoke",
+        "matrix.harness.start",
+        "matrix.harness.fixture_seed",
+        "matrix.harness.stop",
+        "matrix.harness.reset",
     }
     assert catalog["status_counts"] == {
-        "approval_required": 6,
+        "approval_required": 10,
         "blocked": 1,
-        "implemented": 3,
+        "implemented": 5,
         "proposal_only": 1,
     }
     assert catalog["safe_refs_only"] is True
@@ -1353,6 +1359,17 @@ def test_authority_lane_catalog_v1_normalizes_required_lanes_without_execution()
     assert focused_pytest["authority_capability"] == "execute"
     assert focused_pytest["required_mode"] == "approved_safe_local_work_session"
     assert focused_pytest["idempotency_required"] is True
+    for lane_id in (
+        "matrix.harness.inspect",
+        "matrix.harness.smoke",
+        "matrix.harness.start",
+        "matrix.harness.fixture_seed",
+        "matrix.harness.stop",
+        "matrix.harness.reset",
+    ):
+        harness_lane = _authority_lane_by_id(catalog, lane_id)
+        assert harness_lane["authority_domain"] == "messages"
+        assert harness_lane["idempotency_required"] is True
     assert focused_pytest["allowed_inputs_schema"]["shell_expansion"] is False
     assert "shell expansion" in focused_pytest["denied_capabilities"]
     assert focused_pytest["receipt_kind"] == "runtime_command_receipt"
@@ -1453,7 +1470,7 @@ def test_authority_state_embeds_authority_lane_catalog_v1() -> None:
     catalog = read_model.model_dump(mode="json")["authority_lane_catalog"]
 
     assert catalog["contract_ref"] == AUTHORITY_LANE_CATALOG_CONTRACT_REF
-    assert catalog["entry_count"] == 11
+    assert catalog["entry_count"] == 17
     assert _authority_lane_by_id(catalog, "code.apply_exact_patch")["status"] == (
         "blocked"
     )
@@ -2483,7 +2500,7 @@ def test_authority_state_api_cli_and_settings_surface(
     )
     authority_lane_catalog = runtime_body["data"]["authority_lane_catalog"]
     assert authority_lane_catalog["contract_ref"] == AUTHORITY_LANE_CATALOG_CONTRACT_REF
-    assert authority_lane_catalog["entry_count"] == 11
+    assert authority_lane_catalog["entry_count"] == 17
     assert _authority_lane_by_id(authority_lane_catalog, "code.apply_exact_patch")[
         "status"
     ] == "blocked"
@@ -2579,7 +2596,7 @@ def test_authority_state_api_cli_and_settings_surface(
     assert authority_state["decision_summary"]["total_capabilities"] == len(
         authority_state["decision_catalog"]
     )
-    assert authority_state["authority_lane_catalog"]["entry_count"] == 11
+    assert authority_state["authority_lane_catalog"]["entry_count"] == 17
     assert len(authority_state["domain_readiness"]) == len(
         authority_state["target_domains"]
     )
@@ -2626,7 +2643,7 @@ def test_authority_state_api_cli_and_settings_surface(
     )
     lane_catalog = lane_catalog_payload["authority_lane_catalog_read_model"]
     assert lane_catalog["contract_ref"] == AUTHORITY_LANE_CATALOG_CONTRACT_REF
-    assert lane_catalog["entry_count"] == 11
+    assert lane_catalog["entry_count"] == 17
     assert lane_catalog_payload["safe_refs_only"] is True
     assert lane_catalog_payload["execution_performed"] is False
 
