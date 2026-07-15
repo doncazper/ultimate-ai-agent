@@ -61,7 +61,8 @@ fail closed.
 All content is `content_untrusted=true` and
 `not_instruction_authority=true`. It cannot grant authority, trigger tools,
 write Memory, or become hidden model context. Encrypted event materialization
-remains disabled until MSG-MX-007.
+remains disabled: MSG-MX-007 accepts exact request-scoped crypto authority
+eligibility, but its persistent crypto broker is still adapter-required.
 
 ## Operator Truth
 

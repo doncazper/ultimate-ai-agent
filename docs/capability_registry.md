@@ -93,16 +93,20 @@ MSG-MX-003 retains its disabled provider declaration for account, room,
 message, crypto, and media capabilities. MSG-MX-005 adds a separate, exact
 Matrix-session catalog with two implemented read lanes and eight blocked
 mutation lanes. MSG-MX-006 adds twelve exact read, protected-cache, and
-cache-key lifecycle lanes. They are implemented and loopback-tested, but live
-account sync remains configuration-required. Catalog visibility and accepted
+cache-key lifecycle lanes. MSG-MX-007 adds seventeen exact crypto-store,
+verification, cross-signing, backup, recovery, and reset lanes whose live
+executors remain adapter-required. The MSG-MX-006 primitives are implemented
+and loopback-tested, but live account sync remains configuration-required.
+Catalog visibility and accepted
 lease schemas never imply callability; current request-scoped policy, target,
 lease, budget, readiness, kill switch, safe-disable, and replay evaluation
 remain mandatory.
 
-Seven protected `Cache-Control: no-store` GET routes under
+Eight protected `Cache-Control: no-store` GET routes under
 `/control-center/communications`, the human-readable
 `scripts/dev/uaa_communications.py` CLI, and fail-closed TypeScript bindings
-project the same backend-owned truth. These routes are connector-adjacent
+project the same backend-owned truth. A validation-only crypto proposal route
+checks one exact fingerprinted request but cannot execute it. These routes are connector-adjacent
 `local_sensitive` reads with no side effects. The `/messenger` UI loads only
 content-free Matrix sync posture; its room and message content remains
 synthetic. The approved adapter may perform exact discovery, authentication-
@@ -467,6 +471,25 @@ desktop shell exposes backend posture only. Encrypted event materialization,
 protected UI message reads, sends, typing/receipt writes, room mutations, media,
 Memory writes, public release, and production authority remain blocked.
 Canonical truth: `docs/connectors/MESSENGER_MATRIX_READ_ONLY_SYNC.md`.
+
+## Matrix Crypto, Verification, Backup, And Recovery Lanes
+
+MSG-MX-007 registers seventeen exact Matrix crypto authority bindings. Each
+binds complete account, device, store, key, verification, cross-signing,
+backup, recovery, generation, deadline, zero-cost budget, kill-switch,
+safe-disable, rollback, lease, idempotency, and request-fingerprint scope.
+Mutation and destructive proposals require fresh exact approval; the backup
+status read still requires an exact current session lease. Approval refs grant
+nothing.
+
+The current one-shot Node adapter cannot provide persistent Rust crypto because
+the pinned SDK requires IndexedDB durability and the approved Node boundary has
+none. Every authority action is therefore marked unsupported-adapter, all
+seventeen live operations are blocked, and no ephemeral shim is treated as a
+persistent store. Protected posture/proposal API, human-readable CLI, and the
+macOS Sessions & Recovery surface expose the same backend truth without key or
+recovery material. Canonical truth:
+`docs/connectors/MESSENGER_MATRIX_CRYPTO_RECOVERY.md`.
 
 ## Local Smoke Harness
 

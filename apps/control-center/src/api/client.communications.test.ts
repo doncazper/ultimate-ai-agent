@@ -4,6 +4,7 @@ import {
   loadCommunicationsReceipt,
   loadCommunicationsRooms,
   loadCommunicationsSessionPosture,
+  loadMatrixCryptoPosture,
   loadMatrixSyncPosture,
 } from "./client";
 
@@ -73,6 +74,46 @@ const partialProvider = {
   blocker_codes: ["MATRIX_ACCOUNT_SESSION_NOT_CONFIGURED"],
   evidence_refs: ["evidence-ref:communications:matrix-session-sdk-pin"],
   safe_summary: "Matrix discovery and authentication-method inspection are partial.",
+};
+
+const matrixCryptoPosture = {
+  schema_version: "uaa-matrix-crypto-posture.v1",
+  posture_ref: "posture-ref:matrix-crypto:adapter-required-v1",
+  runtime_status: "adapter_required",
+  freshness: "unknown",
+  authority_lane_refs: Array.from(
+    { length: 17 },
+    (_, index) => `authority-lane-ref:matrix-crypto:lane-${index}`,
+  ),
+  accepted_authority_operation_refs: Array.from(
+    { length: 17 },
+    (_, index) => `operation-ref:matrix-crypto:accepted-${index}`,
+  ),
+  live_executor_operation_refs: [],
+  blocked_operation_refs: Array.from(
+    { length: 17 },
+    (_, index) => `operation-ref:matrix-crypto:blocked-${index}`,
+  ),
+  provider_ref: "provider-ref:communications:matrix",
+  runtime_ref: "runtime-ref:matrix-rust-crypto:adapter-required-v1",
+  store_backend_ref:
+    "crypto-store-backend-ref:matrix:persistent-rust-store-required-v1",
+  key_backend_ref:
+    "credential-backend-ref:matrix:device-only-keychain-crypto-v1",
+  backup_backend_ref:
+    "backup-backend-ref:matrix:dedicated-wrapping-key-required-v1",
+  reason_refs: ["reason-ref:matrix-crypto:exact-authority-contracts-accepted"],
+  blocker_refs: ["blocker-ref:matrix-crypto:persistent-rust-backend-required"],
+  evidence_refs: ["evidence-ref:matrix-crypto:authority-contract-tests"],
+  single_owner_required: true,
+  request_scoped_evaluation_required: true,
+  recovery_material_included: false,
+  raw_crypto_payload_included: false,
+  element_interoperability_status: "external_facility_required",
+  desktop_only: true,
+  safe_summary:
+    "Exact crypto authority exists, while the live executor remains blocked.",
+  redaction_status: "safe_refs_only",
 };
 
 function respond(data: unknown): void {
@@ -296,6 +337,29 @@ describe("communications API bindings", () => {
     });
 
     await expect(loadMatrixSyncPosture()).rejects.toThrow(
+      "failed safe validation",
+    );
+  });
+
+  it("accepts only a blocked content-free Matrix crypto posture", async () => {
+    respond(matrixCryptoPosture);
+    const result = await loadMatrixCryptoPosture();
+    expect(result.runtime_status).toBe("adapter_required");
+    expect(result.authority_lane_refs).toHaveLength(17);
+    expect(result.live_executor_operation_refs).toEqual([]);
+    expect(result.recovery_material_included).toBe(false);
+  });
+
+  it("rejects Matrix crypto readiness drift and recovery material", async () => {
+    respond({
+      ...matrixCryptoPosture,
+      runtime_status: "ready",
+      live_executor_operation_refs: [
+        "operation-ref:matrix-crypto:verification-confirm",
+      ],
+      recovery_material_included: true,
+    });
+    await expect(loadMatrixCryptoPosture()).rejects.toThrow(
       "failed safe validation",
     );
   });

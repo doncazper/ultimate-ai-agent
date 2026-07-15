@@ -35,8 +35,8 @@ ALLOWED_CLASSIFICATIONS = {
     "mutating_requires_authority",
 }
 EXPECTED_SIDE_EFFECT_MIX = {
-    "validation_only": 79,
-    "none": 11,
+    "validation_only": 80,
+    "none": 12,
     "local_dev_workspace_only": 183,
     "governed_network_read_only": 6,
     "authenticated_connector_mutation": 4,
@@ -84,6 +84,10 @@ HIGH_RISK_EXPECTATIONS = {
     ("POST", "/extensions/disabled-install-records"): "mutating_requires_authority",
     ("POST", "/extensions/disabled-install-records/rollback"): "mutating_requires_authority",
     ("POST", "/web-evidence/request"): "local_sensitive",
+    (
+        "POST",
+        "/control-center/communications/matrix-crypto/proposal",
+    ): "local_sensitive",
 }
 REQUIRED_DOC_SNIPPETS = {
     "docs/api/openapi_contract.md": [

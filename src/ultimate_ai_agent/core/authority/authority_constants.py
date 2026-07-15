@@ -108,20 +108,14 @@ MATRIX_HARNESS_EXACT_AUTHORITY_BINDINGS = (
 # allowlist, not a broad Matrix or messages authority switch.
 MATRIX_SESSION_EXACT_AUTHORITY_BINDINGS = (
     (
-        "messages",
-        "read",
-        "session",
-        "read_only",
+        "messages", "read", "session", "read_only",
         "authority-lane-ref:matrix-discovery-read",
         "authority-capability-ref:matrix-discovery-read-v1",
         "authority-adapter-ref:matrix-discovery-read-v1",
         MATRIX_DISCOVERY_READ_TOOL_REF,
     ),
     (
-        "messages",
-        "read",
-        "session",
-        "read_only",
+        "messages", "read", "session", "read_only",
         "authority-lane-ref:matrix-auth-methods-read",
         "authority-capability-ref:matrix-auth-methods-read-v1",
         "authority-adapter-ref:matrix-auth-methods-read-v1",
@@ -242,14 +236,20 @@ MATRIX_SYNC_EXACT_AUTHORITY_BINDINGS = (
         MATRIX_RECEIPT_PROJECT_READ_TOOL_REF,
     ),
     (
-        "messages", "read", "session", "read_only",
+        "messages",
+        "read",
+        "session",
+        "read_only",
         "authority-lane-ref:matrix-typing-project-read",
         "authority-capability-ref:matrix-typing-project-read-v1",
         "authority-adapter-ref:matrix-typing-project-read-v1",
         MATRIX_TYPING_PROJECT_READ_TOOL_REF,
     ),
     (
-        "messages", "read", "session", "read_only",
+        "messages",
+        "read",
+        "session",
+        "read_only",
         "authority-lane-ref:matrix-cache-read",
         "authority-capability-ref:matrix-cache-read-v1",
         "authority-adapter-ref:matrix-cache-read-v1",
@@ -297,4 +297,55 @@ MATRIX_SYNC_EXACT_AUTHORITY_BINDINGS = (
         "authority-adapter-ref:matrix-cache-key-delete-v1",
         MATRIX_CACHE_KEY_DELETE_TOOL_REF,
     ),
+)
+
+# Exact MSG-MX-007 crypto/device/backup/recovery authority bindings. This is an
+# allowlist for request-scoped evaluation only. Every corresponding action is
+# still marked unsupported until a persistent, fenced Rust-crypto broker exists.
+_MATRIX_CRYPTO_BINDING_SPECS = (
+    ("crypto_store_initialize", "system_settings", "mutate", "ask_before_changes"),
+    ("crypto_store_key_rotate", "system_settings", "mutate", "ask_before_changes"),
+    (
+        "crypto_store_key_delete",
+        "system_settings",
+        "destructive",
+        "full_machine_access_session",
+    ),
+    ("verification_request", "messages", "mutate", "ask_before_changes"),
+    ("verification_cancel", "messages", "mutate", "ask_before_changes"),
+    ("verification_confirm", "messages", "mutate", "ask_before_changes"),
+    ("device_revoke", "system_settings", "destructive", "full_machine_access_session"),
+    ("cross_signing_bootstrap", "messages", "mutate", "ask_before_changes"),
+    ("backup_status_read", "messages", "read", "read_only"),
+    ("backup_configure", "messages", "mutate", "ask_before_changes"),
+    ("backup_rotate", "messages", "mutate", "ask_before_changes"),
+    ("recovery_restore", "system_settings", "mutate", "ask_before_changes"),
+    ("identity_reset", "system_settings", "destructive", "full_machine_access_session"),
+    ("local_backup_create", "system_settings", "mutate", "ask_before_changes"),
+    ("local_backup_restore", "system_settings", "mutate", "ask_before_changes"),
+    (
+        "local_backup_delete",
+        "system_settings",
+        "destructive",
+        "full_machine_access_session",
+    ),
+    (
+        "local_backup_expiry_reconcile",
+        "system_settings",
+        "destructive",
+        "full_machine_access_session",
+    ),
+)
+MATRIX_CRYPTO_EXACT_AUTHORITY_BINDINGS = tuple(
+    (
+        domain,
+        capability,
+        "session",
+        mode,
+        f"authority-lane-ref:matrix-crypto-{operation.replace('_', '-')}",
+        f"authority-capability-ref:matrix-crypto-{operation.replace('_', '-')}-v1",
+        f"authority-adapter-ref:matrix-crypto-{operation.replace('_', '-')}-v1",
+        f"tool-ref:matrix-crypto-{operation.replace('_', '-')}-v1",
+    )
+    for operation, domain, capability, mode in _MATRIX_CRYPTO_BINDING_SPECS
 )

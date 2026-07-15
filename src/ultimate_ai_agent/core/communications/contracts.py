@@ -21,6 +21,8 @@ from ultimate_ai_agent.core.safe_contract_text import validate_safe_contract_tex
 from ultimate_ai_agent.core.safe_refs import hash_text
 from ultimate_ai_agent.core.secrets.redaction import contains_obvious_secret
 
+from .matrix_crypto.constants import MATRIX_CRYPTO_LANES, MatrixCryptoOperation
+
 
 COMMUNICATIONS_SCHEMA_VERSION = "uaa-communications.v1"
 COMMUNICATIONS_MAX_PAGE_SIZE = 50
@@ -56,6 +58,14 @@ class CommunicationsSessionStatus(str, Enum):
 class CommunicationsFreshnessStatus(str, Enum):
     current = "current"
     stale = "stale"
+    unknown = "unknown"
+
+
+class CommunicationsCryptoRuntimeStatus(str, Enum):
+    adapter_required = "adapter_required"
+    configuration_required = "configuration_required"
+    blocked = "blocked"
+    ready = "ready"
     unknown = "unknown"
 
 
@@ -480,12 +490,26 @@ class CommunicationsSecurityPosture(_CommunicationsContract):
     encryption_posture_ref: str
     key_lifecycle_posture_ref: str
     cache_posture_ref: str
+    crypto_runtime_status: CommunicationsCryptoRuntimeStatus
+    crypto_availability: CapabilityAvailabilitySnapshot
+    crypto_authority_lane_refs: list[str] = Field(default_factory=list, max_length=32)
+    crypto_live_executor_refs: list[str] = Field(default_factory=list, max_length=32)
+    crypto_blocked_operation_refs: list[str] = Field(
+        default_factory=list, max_length=32
+    )
+    recovery_posture_ref: str
+    backup_posture_ref: str
+    single_owner_posture_ref: str
     reason_codes: list[str] = Field(default_factory=list, max_length=32)
     blocker_codes: list[str] = Field(default_factory=list, max_length=32)
     safe_summary: str = Field(..., min_length=1, max_length=240)
     credentials_loaded: Literal[False] = False
     crypto_initialized: Literal[False] = False
     local_cache_opened: Literal[False] = False
+    recovery_material_included: Literal[False] = False
+    raw_crypto_payload_included: Literal[False] = False
+    request_scoped_evaluation_required: Literal[True] = True
+    desktop_only: Literal[True] = True
 
     @field_validator(
         "posture_ref",
@@ -493,10 +517,39 @@ class CommunicationsSecurityPosture(_CommunicationsContract):
         "encryption_posture_ref",
         "key_lifecycle_posture_ref",
         "cache_posture_ref",
+        "recovery_posture_ref",
+        "backup_posture_ref",
+        "single_owner_posture_ref",
     )
     @classmethod
     def validate_refs(cls, value: str) -> str:
         return _validated_ref(value, "communications_security_ref")
+
+    @field_validator(
+        "crypto_authority_lane_refs",
+        "crypto_live_executor_refs",
+        "crypto_blocked_operation_refs",
+    )
+    @classmethod
+    def validate_crypto_refs(cls, value: list[str]) -> list[str]:
+        return _validated_refs(value, "communications_crypto_ref")
+
+    @model_validator(mode="after")
+    def validate_crypto_truth(self) -> "CommunicationsSecurityPosture":
+        if self.crypto_live_executor_refs or self.crypto_initialized:
+            raise ValueError("COMMUNICATIONS_CRYPTO_LIVE_RUNTIME_NOT_PROVEN")
+        if self.crypto_runtime_status != CommunicationsCryptoRuntimeStatus.adapter_required:
+            raise ValueError("COMMUNICATIONS_CRYPTO_RUNTIME_STATUS_NOT_PROVEN")
+        expected_lanes = [lane.lane_ref for lane in MATRIX_CRYPTO_LANES.values()]
+        expected_operations = [
+            f"operation-ref:matrix-crypto:{operation.value.replace('_', '-')}"
+            for operation in MatrixCryptoOperation
+        ]
+        if self.crypto_authority_lane_refs != expected_lanes:
+            raise ValueError("COMMUNICATIONS_CRYPTO_AUTHORITY_LANE_SET_MISMATCH")
+        if self.crypto_blocked_operation_refs != expected_operations:
+            raise ValueError("COMMUNICATIONS_CRYPTO_BLOCKED_OPERATION_SET_MISMATCH")
+        return self
 
     @field_validator("safe_summary")
     @classmethod

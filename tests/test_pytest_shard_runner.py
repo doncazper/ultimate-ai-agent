@@ -279,6 +279,39 @@ def test_fixture_affinity_co_locates_consumers_without_omitting_files(
     assert len(assigned) == len(set(assigned))
 
 
+def test_fixture_affinity_serializes_exact_matrix_loopback_port_owners(
+    tmp_path: Path,
+) -> None:
+    runner = load_runner()
+    root = tmp_path / "repo"
+    (root / "tests").mkdir(parents=True)
+    files = ["tests/test_matrix_a.py", "tests/test_matrix_b.py", "tests/test_other.py"]
+    fixed_port_source = (
+        'server = ThreadingHTTPServer(("127.0.0.1", ' + "18008), Handler)\n"
+    )
+    for file_path in files[:2]:
+        (root / file_path).write_text(
+            fixed_port_source,
+            encoding="utf-8",
+        )
+    (root / files[2]).write_text("def test_plain(): pass\n", encoding="utf-8")
+
+    groups = runner.discover_affinity_groups(files, root)
+    plans, _method = runner.assign_shards(
+        files,
+        2,
+        {file_path: 1.0 for file_path in files},
+        groups,
+    )
+    loopback_shards = {
+        plan.index
+        for plan in plans
+        if any(file_path in plan.files for file_path in files[:2])
+    }
+
+    assert loopback_shards == {0}
+
+
 def test_complete_timings_can_load_list_or_mapping_schema(tmp_path: Path) -> None:
     runner = load_runner()
     files = ["tests/test_a.py", "tests/test_b.py"]

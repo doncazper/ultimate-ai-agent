@@ -10,7 +10,7 @@
   "public_beta_claim_enabled": false,
   "production_readiness_claim_enabled": false,
   "source_truth_counts": {
-    "api_manifest_route_count": 287,
+    "api_manifest_route_count": 289,
     "release_surface_route_count": 43,
     "visible_action_count": 46,
     "human_capability_count": 31,
@@ -124,10 +124,10 @@
           "path": "/messenger",
           "label": "Messenger",
           "group": "Founder Loop",
-          "ui_status": "fixture-only desktop content with backend-owned read-only sync posture",
+          "ui_status": "fixture-only desktop content with backend-owned read-only sync and crypto posture",
           "release_status": "experimental",
           "owner": "communications",
-          "backend_route_count": 1,
+          "backend_route_count": 2,
           "blocked_capability_count": 15,
           "visual_proof_status": "checked_in_baseline",
           "source_truth_status": "current"
@@ -142,7 +142,7 @@
           "release_status": "mock_only_not_product_ready",
           "side_effect_class": "local_ui_state_only",
           "risk_class": "medium",
-          "backend_route_count": 1,
+          "backend_route_count": 2,
           "missing_backend_route_count": 9,
           "source_truth_status": "current"
         }

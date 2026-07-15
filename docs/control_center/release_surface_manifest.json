@@ -287,13 +287,20 @@
       "path": "/messenger",
       "label": "Messenger",
       "group": "Founder Loop",
-      "ui_status": "fixture-only desktop content with backend-owned read-only sync posture",
+      "ui_status": "fixture-only desktop content with backend-owned read-only sync and crypto posture",
       "status": "experimental",
       "backend_routes": [
         {
           "method": "GET",
           "path": "/control-center/communications/matrix-sync/posture",
           "operation_id": "get_control_center_communications_matrix_sync_posture",
+          "side_effect_class": "none",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/communications/matrix-crypto/posture",
+          "operation_id": "get_control_center_communications_matrix_crypto_posture",
           "side_effect_class": "none",
           "route_classification": "local_sensitive"
         }
@@ -314,7 +321,7 @@
         "missing_backend:matrix-account-session",
         "configuration_required:matrix-live-account-sync",
         "missing_backend:matrix-protected-content-read",
-        "missing_backend:matrix-encryption",
+        "adapter_required:matrix-persistent-crypto",
         "missing_backend:matrix-message-read",
         "missing_backend:matrix-message-send",
         "missing_backend:matrix-room-mutation",
@@ -346,7 +353,7 @@
         "Keep public release, production readiness, production authority, arbitrary connector writes, and autonomous sends blocked."
       ],
       "product_language_caveats": [
-        "Messenger currently renders synthetic room and message fixtures plus backend-owned Matrix sync readiness. Twelve exact authority lanes are declared; two GET transports and protected-cache/key primitives are loopback-tested, while ten canonical dispatch executors remain uncomposed and fail closed. Live account sync remains configuration-required and the UI has no protected message-content response boundary, encrypted-event materialization, send, room mutation, media, or call runtime.",
+        "Messenger currently renders synthetic room and message fixtures plus backend-owned Matrix sync and crypto readiness. Seventeen exact MSG-MX-007 crypto operations are eligible only for fresh request-scoped authority evaluation; all remain blocked before execution because a persistent crypto broker is adapter-required. Live account sync remains configuration-required and the UI has no protected message-content response boundary, encrypted-event materialization, send, room mutation, media, or call runtime.",
         "All visible success-like counts, people, rooms, messages, devices, refs, and timestamps are clearly synthetic preview data.",
         "Filtering, selection, theme, and inspector visibility are presentation state only; no backend truth, approval, memory, or authority is created.",
         "Python Agent Core remains product truth and Control Center cannot mint authority.",

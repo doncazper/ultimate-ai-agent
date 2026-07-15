@@ -253,9 +253,10 @@ CAPABILITIES_BLOCKED = [
     "communications_matrix_live_account_sync_configuration_required",
     "communications_matrix_ten_canonical_sync_cache_key_executors_uncomposed",
     "communications_matrix_protected_content_read_pending_account_enrollment",
-    "communications_matrix_encrypted_event_materialization_pending_msg_mx_007",
+    "communications_matrix_encrypted_event_materialization_pending_persistent_crypto_adapter",
     "communications_matrix_message_send_or_mutation",
-    "communications_matrix_crypto_or_media_runtime",
+    "communications_matrix_crypto_persistent_runtime",
+    "communications_matrix_media_runtime",
     "communications_raw_message_or_provider_payload_persistence",
     "communications_ui_or_approval_ref_as_runtime_authority",
     "runtime_remote_or_unrestricted_model_calls",
@@ -867,11 +868,13 @@ GOVERNED_RUNTIME_MUTATING_PATHS = {
 CONTROL_CENTER_VALIDATION_ONLY_PATHS = {
     "/control-center/actions/preview",
     "/control-center/turn-router/preview",
+    "/control-center/communications/matrix-crypto/proposal",
 }
 CONTROL_CENTER_COMMUNICATIONS_READONLY_PATHS = {
     "/control-center/communications/providers",
     "/control-center/communications/session-posture",
     "/control-center/communications/matrix-sync/posture",
+    "/control-center/communications/matrix-crypto/posture",
     "/control-center/communications/rooms",
     "/control-center/communications/failed-sends",
     "/control-center/communications/security-posture",

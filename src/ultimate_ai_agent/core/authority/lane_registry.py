@@ -23,8 +23,12 @@ def build_existing_lane_authority_mappings():
     from ultimate_ai_agent.core.communications.matrix_session.authority_surfaces import (
         build_matrix_session_authority_mappings,
     )
+    from ultimate_ai_agent.core.communications.matrix_crypto.authority_surfaces import (
+        build_matrix_crypto_authority_mappings,
+    )
 
     return [
+        *build_matrix_crypto_authority_mappings(),
         *build_matrix_session_authority_mappings(),
         *build_matrix_harness_authority_mappings(),
         *build_evidence_signing_lane_authority_mappings(),

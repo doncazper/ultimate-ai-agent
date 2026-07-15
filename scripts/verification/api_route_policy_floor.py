@@ -97,6 +97,7 @@ TARGETED_RATE_LIMIT_GROUPS = frozenset(
         "action_decision",
         "action_preview_proposal",
         "chat_durable_receipt",
+        "communications_matrix_crypto",
         "communications_matrix_harness",
         "communications_matrix_session",
         "extension_install_disabled_record",
@@ -115,9 +116,9 @@ TARGETED_RATE_LIMIT_GROUPS = frozenset(
         "web_evidence_product_slice",
     }
 )
-TARGETED_RATE_LIMIT_ROUTE_COUNT = 94
+TARGETED_RATE_LIMIT_ROUTE_COUNT = 95
 TARGETED_RATE_LIMIT_ROUTE_FINGERPRINT = (
-    "11669334edb8e59f468c2d6a0e0e75ccd11bdb63cb20c095dbd09537dc1ecf09"
+    "3bea15b209033b734e569844395891f129844205c05ec5335028c903ed93fc60"
 )
 
 

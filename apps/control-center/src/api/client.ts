@@ -22,6 +22,7 @@ import type {
   CommunicationsRoomPage,
   CommunicationsSecurityPosture,
   CommunicationsSessionPosture,
+  MatrixCryptoPosture,
   MatrixSyncPosture,
   CodingCockpitSessionReadModel,
   CodingWorkspaceContextReadModel,
@@ -488,6 +489,31 @@ function isPartialMatrixSessionAvailabilityTuple(
   );
 }
 
+function isBlockedMatrixCryptoAvailabilityTuple(
+  value: Record<string, unknown>,
+): boolean {
+  return (
+    value.snapshot_ref === "snapshot-ref:communications:matrix-crypto-v1" &&
+    value.capability_ref === "capability-ref:communications:matrix-crypto-v1" &&
+    value.provider_ref === "provider-ref:communications:matrix" &&
+    value.adapter_ref ===
+      "adapter-ref:communications:matrix-crypto-required-v1" &&
+    value.catalog_status === "supported" &&
+    value.compatibility_status === "unknown" &&
+    value.configuration_status === "not_configured" &&
+    value.health_status === "unknown" &&
+    value.authority_posture === "lease_required" &&
+    value.resource_status === "available" &&
+    value.cost_posture === "not_metered" &&
+    value.safe_disable_status === "unknown" &&
+    value.declared_or_observed_version_ref ===
+      "version-ref:matrix-js-sdk:41-9-0" &&
+    value.expires_at === null &&
+    value.freshness_status === "unknown" &&
+    value.runtime_readiness_status === "unknown"
+  );
+}
+
 function isSafeCommunicationsAvailability(value: unknown): boolean {
   if (!isCommunicationsRecord(value)) {
     return false;
@@ -534,7 +560,8 @@ function isSafeCommunicationsAvailability(value: unknown): boolean {
     isCommunicationsSafeRef(value.source_ref) &&
     isCommunicationsSafeSummary(value.safe_summary) &&
     (isDisabledCommunicationsAvailabilityTuple(value) ||
-      isPartialMatrixSessionAvailabilityTuple(value))
+      isPartialMatrixSessionAvailabilityTuple(value) ||
+      isBlockedMatrixCryptoAvailabilityTuple(value))
   );
 }
 
@@ -720,6 +747,78 @@ export async function loadMatrixSyncPosture(): Promise<MatrixSyncPosture> {
   return value as unknown as MatrixSyncPosture;
 }
 
+export async function loadMatrixCryptoPosture(): Promise<MatrixCryptoPosture> {
+  const value = await readEnvelope<unknown>(
+    API_ENDPOINTS.communicationsMatrixCryptoPosture,
+  );
+  if (
+    !isCommunicationsRecord(value) ||
+    !hasExactCommunicationsKeys(value, [
+      "schema_version",
+      "posture_ref",
+      "runtime_status",
+      "freshness",
+      "authority_lane_refs",
+      "accepted_authority_operation_refs",
+      "live_executor_operation_refs",
+      "blocked_operation_refs",
+      "provider_ref",
+      "runtime_ref",
+      "store_backend_ref",
+      "key_backend_ref",
+      "backup_backend_ref",
+      "reason_refs",
+      "blocker_refs",
+      "evidence_refs",
+      "single_owner_required",
+      "request_scoped_evaluation_required",
+      "recovery_material_included",
+      "raw_crypto_payload_included",
+      "element_interoperability_status",
+      "desktop_only",
+      "safe_summary",
+      "redaction_status",
+    ]) ||
+    value.schema_version !== "uaa-matrix-crypto-posture.v1" ||
+    !isCommunicationsSafeRef(value.posture_ref) ||
+    value.runtime_status !== "adapter_required" ||
+    value.freshness !== "unknown" ||
+    !isCommunicationsSafeRefArray(value.authority_lane_refs, 17) ||
+    !isCommunicationsSafeRefArray(
+      value.accepted_authority_operation_refs,
+      17,
+    ) ||
+    !isCommunicationsSafeRefArray(value.live_executor_operation_refs, 17) ||
+    !isCommunicationsSafeRefArray(value.blocked_operation_refs, 17) ||
+    value.authority_lane_refs.length !== 17 ||
+    value.accepted_authority_operation_refs.length !== 17 ||
+    value.live_executor_operation_refs.length !== 0 ||
+    value.blocked_operation_refs.length !== 17 ||
+    new Set(value.authority_lane_refs).size !== 17 ||
+    new Set(value.accepted_authority_operation_refs).size !== 17 ||
+    new Set(value.blocked_operation_refs).size !== 17 ||
+    !isCommunicationsSafeRef(value.provider_ref) ||
+    !isCommunicationsSafeRef(value.runtime_ref) ||
+    !isCommunicationsSafeRef(value.store_backend_ref) ||
+    !isCommunicationsSafeRef(value.key_backend_ref) ||
+    !isCommunicationsSafeRef(value.backup_backend_ref) ||
+    !isCommunicationsSafeRefArray(value.reason_refs, 32) ||
+    !isCommunicationsSafeRefArray(value.blocker_refs, 32) ||
+    !isCommunicationsSafeRefArray(value.evidence_refs, 32) ||
+    value.single_owner_required !== true ||
+    value.request_scoped_evaluation_required !== true ||
+    value.recovery_material_included !== false ||
+    value.raw_crypto_payload_included !== false ||
+    value.element_interoperability_status !== "external_facility_required" ||
+    value.desktop_only !== true ||
+    !isCommunicationsSafeSummary(value.safe_summary) ||
+    value.redaction_status !== "safe_refs_only"
+  ) {
+    throw new Error("Matrix crypto posture response failed safe validation.");
+  }
+  return value as unknown as MatrixCryptoPosture;
+}
+
 function isSafeCommunicationConversation(
   value: unknown,
 ): value is CommunicationConversation {
@@ -829,21 +928,48 @@ export async function loadCommunicationsSecurityPosture(): Promise<Communication
       "encryption_posture_ref",
       "key_lifecycle_posture_ref",
       "cache_posture_ref",
+      "crypto_runtime_status",
+      "crypto_availability",
+      "crypto_authority_lane_refs",
+      "crypto_live_executor_refs",
+      "crypto_blocked_operation_refs",
+      "recovery_posture_ref",
+      "backup_posture_ref",
+      "single_owner_posture_ref",
       "reason_codes",
       "blocker_codes",
       "safe_summary",
       "credentials_loaded",
       "crypto_initialized",
       "local_cache_opened",
+      "recovery_material_included",
+      "raw_crypto_payload_included",
+      "request_scoped_evaluation_required",
+      "desktop_only",
     ]) ||
     !isCommunicationsSafeRef(value.posture_ref) ||
     !isCommunicationsSafeRef(value.provider_ref) ||
     !isCommunicationsSafeRef(value.encryption_posture_ref) ||
     !isCommunicationsSafeRef(value.key_lifecycle_posture_ref) ||
     !isCommunicationsSafeRef(value.cache_posture_ref) ||
+    value.crypto_runtime_status !== "adapter_required" ||
+    !isSafeCommunicationsAvailability(value.crypto_availability) ||
+    !isCommunicationsSafeRefArray(value.crypto_authority_lane_refs, 17) ||
+    !isCommunicationsSafeRefArray(value.crypto_live_executor_refs, 17) ||
+    !isCommunicationsSafeRefArray(value.crypto_blocked_operation_refs, 17) ||
+    value.crypto_authority_lane_refs.length !== 17 ||
+    value.crypto_live_executor_refs.length !== 0 ||
+    value.crypto_blocked_operation_refs.length !== 17 ||
+    !isCommunicationsSafeRef(value.recovery_posture_ref) ||
+    !isCommunicationsSafeRef(value.backup_posture_ref) ||
+    !isCommunicationsSafeRef(value.single_owner_posture_ref) ||
     value.credentials_loaded !== false ||
     value.crypto_initialized !== false ||
     value.local_cache_opened !== false ||
+    value.recovery_material_included !== false ||
+    value.raw_crypto_payload_included !== false ||
+    value.request_scoped_evaluation_required !== true ||
+    value.desktop_only !== true ||
     !isCommunicationsSafeCodeArray(value.reason_codes) ||
     !isCommunicationsSafeCodeArray(value.blocker_codes) ||
     !isCommunicationsSafeSummary(value.safe_summary)

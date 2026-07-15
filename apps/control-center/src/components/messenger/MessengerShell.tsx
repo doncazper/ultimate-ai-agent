@@ -11,8 +11,11 @@ import type {
   MessengerSurfaceId,
   MessengerVariantId,
 } from "../../messenger/contracts";
-import { loadMatrixSyncPosture } from "../../api/client";
-import type { MatrixSyncPosture } from "../../api/types";
+import {
+  loadMatrixCryptoPosture,
+  loadMatrixSyncPosture,
+} from "../../api/client";
+import type { MatrixCryptoPosture, MatrixSyncPosture } from "../../api/types";
 import "./messengerShell.css";
 
 const surfaceMenu: ReadonlyArray<[MessengerSurfaceId, string]> = [
@@ -55,6 +58,8 @@ export function MessengerShell() {
   );
   const [runtimePosture, setRuntimePosture] = useState<MatrixSyncPosture | null>(null);
   const [runtimePostureUnavailable, setRuntimePostureUnavailable] = useState(false);
+  const [cryptoPosture, setCryptoPosture] = useState<MatrixCryptoPosture | null>(null);
+  const [cryptoPostureUnavailable, setCryptoPostureUnavailable] = useState(false);
   const projection = MESSENGER_SURFACES[surfaceId];
   const variant = variantId ? MESSENGER_VARIANTS[variantId] : null;
   const dark = surfaceId === "dark";
@@ -68,6 +73,13 @@ export function MessengerShell() {
       })
       .catch(() => {
         if (active) setRuntimePostureUnavailable(true);
+      });
+    loadMatrixCryptoPosture()
+      .then((posture) => {
+        if (active) setCryptoPosture(posture);
+      })
+      .catch(() => {
+        if (active) setCryptoPostureUnavailable(true);
       });
     return () => {
       active = false;
@@ -89,6 +101,11 @@ export function MessengerShell() {
           ? "unavailable"
           : runtimePosture?.runtime_status ?? "unknown"
       }
+      data-messenger-crypto-runtime={
+        cryptoPostureUnavailable
+          ? "unavailable"
+          : cryptoPosture?.runtime_status ?? "unknown"
+      }
       data-messenger-surface={projection.render_ref}
       data-messenger-variant={variantId ?? "default"}
     >
@@ -107,6 +124,8 @@ export function MessengerShell() {
       <TopBar current={surfaceId} onSelect={selectSurface} />
       {isSpecialSurface(surfaceId) ? (
         <SpecialSurface
+          cryptoPosture={cryptoPosture}
+          cryptoPostureUnavailable={cryptoPostureUnavailable}
           reviewOpen={specialReviewOpen}
           surfaceId={surfaceId}
           variantId={variantId}
@@ -133,6 +152,13 @@ export function MessengerShell() {
               : "Matrix sync posture loading"}
         </span>
         <span>No message sent</span>
+        <span>
+          {cryptoPostureUnavailable
+            ? "Crypto posture unavailable"
+            : cryptoPosture
+              ? `Crypto · ${cryptoPosture.runtime_status.replaceAll("_", " ")}`
+              : "Crypto posture loading"}
+        </span>
         <span><NorthStarIcon name="lock" size="sm" /> Local fixture only</span>
         <span><NorthStarIcon name="ban" size="sm" /> External actions blocked</span>
       </footer>
@@ -419,12 +445,16 @@ function UaaComposer() {
 }
 
 function SpecialSurface({
+  cryptoPosture,
+  cryptoPostureUnavailable,
   onSelect,
   onReviewChange,
   reviewOpen,
   surfaceId,
   variantId,
 }: {
+  cryptoPosture: MatrixCryptoPosture | null;
+  cryptoPostureUnavailable: boolean;
   onSelect: (surface: MessengerSurfaceId) => void;
   onReviewChange: (open: boolean) => void;
   reviewOpen: boolean;
@@ -435,7 +465,14 @@ function SpecialSurface({
     case "search": return <SearchSurface variantId={variantId} />;
     case "invite": return <InviteSurface variantId={variantId} />;
     case "room-settings": return <RoomSettingsSurface onReviewChange={onReviewChange} reviewOpen={reviewOpen} />;
-    case "sessions": return <SessionsSurface variantId={variantId} />;
+    case "sessions":
+      return (
+        <SessionsSurface
+          cryptoPosture={cryptoPosture}
+          postureUnavailable={cryptoPostureUnavailable}
+          variantId={variantId}
+        />
+      );
     case "calling": return <CallingSurface variantId={variantId} />;
     case "setup": return <SetupSurface onReviewChange={onReviewChange} reviewOpen={reviewOpen} />;
     default: return <button type="button" onClick={() => onSelect("founder")}>Return to Messenger fixture</button>;
@@ -455,9 +492,88 @@ function RoomSettingsSurface({ onReviewChange, reviewOpen }: { onReviewChange: (
   return <section className="messenger-special messenger-settings-surface"><aside><h1>Room settings</h1>{["General", "Security & Privacy", "Permissions", "Notifications", "History", "UAA access", "Advanced"].map((label, index) => <div className={index === 0 ? "active" : ""} key={label}>{label}<small>{index === 0 ? "Selected" : "Preview"}</small></div>)}</aside><div><div className="messenger-special-heading"><h1>General</h1><button className="messenger-special-review-toggle" type="button" onClick={() => onReviewChange(!reviewOpen)}>{reviewOpen ? "Hide review" : "Show review"}</button></div><label className="messenger-special-field">Room name<input readOnly value="Founder Ops" /></label><label className="messenger-special-field">Topic<textarea readOnly value="Operations and execution fixture." /></label><label className="messenger-special-field">Room alias · safe reference only<input readOnly value="founder-ops" /></label><PostureButton label="Preview room change" posture="Preview" /></div><aside className={`messenger-special-review${reviewOpen ? " is-open" : ""}`} hidden={!reviewOpen}><InspectorCard title="Change inspector"><KeyValue label="Before" value="safe-ref:founder-ops-old" /><KeyValue label="After" value="safe-ref:founder-ops" /><KeyValue label="Authority" value="Approval + lease required" /><PostureButton label="Apply room change" posture="Blocked" /></InspectorCard></aside></section>;
 }
 
-function SessionsSurface({ variantId }: { variantId: MessengerVariantId | null }) {
-  const posture = variantId === "verification-failed" ? "Verification failed" : variantId === "verification-requested" ? "Verification requested" : "Not registered";
-  return <section className="messenger-special messenger-sessions-surface"><div><h1>Account security</h1><p>Desktop fixture · no device registration or key operation.</p><InspectorCard title="Security recommendations"><KeyValue label="Secure backup" value={variantId === "backup-unavailable" ? "Unavailable" : "Not configured"} /><KeyValue label="Current session" value={posture} /></InspectorCard><InspectorCard title="Synthetic device rows"><KeyValue label="Desktop · macOS" value="Verification target" /><KeyValue label="Phone device row" value="Unverified target" /><KeyValue label="Browser row" value="Inactive target" /></InspectorCard></div><aside><InspectorCard title="Recovery posture"><KeyValue label="Cross-signing" value="Planned" /><KeyValue label="Secure backup" value="Not configured" /><KeyValue label="Recovery key" value="Not present" /><KeyValue label="Key storage" value="Backend undecided" /></InspectorCard><PostureButton label="Review verification setup" posture="Planned" /><PostureButton label="Reset identity" posture="Blocked" /></aside></section>;
+function SessionsSurface({
+  cryptoPosture,
+  postureUnavailable,
+  variantId,
+}: {
+  cryptoPosture: MatrixCryptoPosture | null;
+  postureUnavailable: boolean;
+  variantId: MessengerVariantId | null;
+}) {
+  const posture =
+    variantId === "verification-failed"
+      ? "Verification failed"
+      : variantId === "verification-requested"
+        ? "Verification requested"
+        : "Not registered";
+  const runtime = postureUnavailable
+    ? "Unavailable · fail closed"
+    : (cryptoPosture?.runtime_status.replaceAll("_", " ") ?? "Loading");
+  const acceptedLanes = cryptoPosture?.authority_lane_refs.length ?? 0;
+  const blockedOperations = cryptoPosture?.blocked_operation_refs.length ?? 0;
+  return (
+    <section className="messenger-special messenger-sessions-surface">
+      <div>
+        <h1>Account security</h1>
+        <p>
+          Desktop security fixture · backend-owned posture · no device
+          registration or key operation.
+        </p>
+        <InspectorCard title="Security runtime">
+          <KeyValue label="Persistent Rust crypto" value={runtime} />
+          <KeyValue
+            label="Exact authority lanes"
+            value={`${acceptedLanes} accepted · fresh evaluation required`}
+          />
+          <KeyValue label="Live executors" value="0" />
+          <KeyValue label="Blocked operations" value={`${blockedOperations}`} />
+        </InspectorCard>
+        <InspectorCard title="Security recommendations">
+          <KeyValue
+            label="Secure backup"
+            value={
+              variantId === "backup-unavailable"
+                ? "Unavailable"
+                : "Adapter required"
+            }
+          />
+          <KeyValue label="Current session" value={posture} />
+        </InspectorCard>
+        <InspectorCard title="Synthetic device rows">
+          <KeyValue label="Desktop · macOS" value="Verification target" />
+          <KeyValue label="Phone device row" value="Unverified target" />
+          <KeyValue label="Browser row" value="Inactive target" />
+        </InspectorCard>
+      </div>
+      <aside>
+        <InspectorCard title="Recovery posture">
+          <KeyValue
+            label="Cross-signing"
+            value="Exact lane · blocked runtime"
+          />
+          <KeyValue label="Secure backup" value="Persistent broker required" />
+          <KeyValue label="Recovery material" value="Never displayed" />
+          <KeyValue
+            label="Element interoperability"
+            value={
+              cryptoPosture?.element_interoperability_status.replaceAll(
+                "_",
+                " ",
+              ) ?? "Unknown"
+            }
+          />
+          <KeyValue label="Single owner" value="Required" />
+        </InspectorCard>
+        <p>
+          {cryptoPosture?.safe_summary ??
+            "Crypto posture is unavailable; all operations remain blocked."}
+        </p>
+        <PostureButton label="Review verification proposal" posture="Blocked" />
+        <PostureButton label="Reset identity" posture="Blocked" />
+      </aside>
+    </section>
+  );
 }
 
 function CallingSurface({ variantId }: { variantId: MessengerVariantId | null }) {

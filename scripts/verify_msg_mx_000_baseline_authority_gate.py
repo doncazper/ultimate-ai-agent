@@ -55,6 +55,10 @@ ACCEPTED_CURRENT_SUCCESS = {
         "readonly_sync_two_get_transports_cache_primitives_ten_executors_uncomposed",
         "evidence-ref:msg-mx-006:readonly-sync-cache",
     ),
+    "MSG-MX-007": (
+        "crypto_exact_authority_accepted_persistent_adapter_required",
+        "evidence-ref:msg-mx-007:crypto-authority-contracts",
+    ),
 }
 SAFE_BLOCKED_CURRENT_STATUS = {
     "blocked_authority_not_accepted",
