@@ -8,7 +8,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { App } from "./App";
+import { App, NorthStarRoute } from "./App";
 import {
   API_ENDPOINTS,
   actionDecisionEndpoint,
@@ -3814,6 +3814,17 @@ describe("Web Control Center shell", () => {
       cleanup();
       window.history.pushState({}, "", "/");
     }
+  });
+
+  it("routes the workspace Messenger alias to the canonical desktop shell", async () => {
+    const fetchMock = mockFetchWithFallback();
+    window.history.pushState({}, "", "/workspace/messenger?view=founder");
+    render(<App />);
+
+    expect(screen.getByRole("heading", { name: "UAA Development" })).toBeInTheDocument();
+    expect(screen.getByText("Fixture-only preview")).toBeInTheDocument();
+    await act(async () => Promise.resolve());
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("does not alias undeclared Messenger subroutes to the fixture", async () => {
@@ -14419,6 +14430,48 @@ describe("Web Control Center shell", () => {
       vi.unstubAllGlobals();
       vi.useRealTimers();
     }
+  });
+
+  it("renders workspace preview immediately while backend reads are pending", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise(() => undefined)),
+    );
+    window.history.pushState({}, "", "/workspace/crm");
+    const view = render(<App />);
+
+    try {
+      expect(
+        await screen.findByRole("heading", { name: "CRM v3" }),
+      ).toBeInTheDocument();
+      expect(screen.getByText("Preview data")).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /^Call$/i }),
+      ).toBeDisabled();
+      expect(
+        screen.queryByText(/CRM is loading local route state/i),
+      ).not.toBeInTheDocument();
+    } finally {
+      view.unmount();
+      cleanup();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("fails closed without backend reads when the workspace module cannot load", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <NorthStarRoute
+        activePath="/workspace/today"
+        loadModule={() => Promise.reject(new Error("chunk unavailable"))}
+      />,
+    );
+
+    expect(
+      await screen.findByText(/local workspace representation could not load and failed closed/i),
+    ).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("renders M15 approval queue as read-only preview-only summaries", async () => {

@@ -83,10 +83,21 @@ local/dev conversational shell and compatibility surface for governed `/v1`
 smoke, llama.cpp shell testing, and developer chat. OpenWebUI must not become
 the source of product state or the destination for wiring every UAA workflow.
 The current visual north star for the Founder Command Center is recorded in
-`docs/portfolio/PRODUCT_NORTH_STAR.md`. Those screenshots are product direction
-only, and the current UI is not yet close to them. They do not promote any
-route, UI surface, workflow, or authority class beyond the current
-route/API/test evidence in this map.
+`docs/portfolio/PRODUCT_NORTH_STAR.md`. An isolated code-native review lane now
+implements the current surface geometry under `/workspace/*`, including the
+immersive Studio representation. Messenger navigation resolves to the existing
+canonical fixture-only `/messenger` shell rather than a competing workspace
+client. The canonical routes
+remain unchanged until compatible backend contracts and route truth are ready
+for an explicit cutover. These representations do not promote any route,
+workflow, connector, model/provider call, messaging send, skill activation, or
+authority class beyond the current route/API/test evidence in this map.
+The accepted legacy `01`–`19` PNG pack is also built as an isolated,
+fixture-backed `/workspace/reference/*` review lane. Its content controls are
+disabled and visibly marked `Not backend-wired`; only reference navigation is
+active. The pack is a visual implementation target, not a second state owner,
+route cutover, capability promotion, or claim that its workflows are UI
+implemented.
 `/private-trial` is the UAA-P1-087.2a/087.2b/087.2c read-only packet,
 acceptance ledger, and unanswered manual-review scaffold surface only; it
 records safe manual smoke checklist refs, manual smoke step refs, pending

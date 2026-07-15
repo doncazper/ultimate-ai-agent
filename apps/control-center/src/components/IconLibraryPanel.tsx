@@ -21,6 +21,15 @@ const galleryTones = ICON_TONES.filter(
   (tone): tone is GalleryTone => tone !== "current",
 );
 
+const productGraphicPresets = [
+  { copy: "Modes, domains, and explicit authority boundaries", icon: "shield-check", label: "Authority", tone: "accent", variant: "soft" },
+  { copy: "Immediate stop for every active execution lane", icon: "octagon-alert", label: "Kill switch", tone: "danger", variant: "solid" },
+  { copy: "Pause execution while preserving recoverable state", icon: "circle-pause", label: "Pause mission", tone: "warning", variant: "soft" },
+  { copy: "Read-only degradation with no mutation authority", icon: "shield", label: "Safe-disable", tone: "info", variant: "outline" },
+  { copy: "Tamper-evident proof that records completed work", icon: "receipt-text", label: "Receipt recorded", tone: "success", variant: "soft" },
+  { copy: "Local runtime, health, and execution posture", icon: "cpu", label: "Local runtime", tone: "teal", variant: "soft" },
+] as const;
+
 export function IconLibraryPanel() {
   const [category, setCategory] = useState<IconCategory | "all">("all");
   const [query, setQuery] = useState("");
@@ -107,6 +116,33 @@ export function IconLibraryPanel() {
           </div>
         </fieldset>
       </div>
+
+      <section className="icon-product-graphics" aria-labelledby="icon-product-graphics-title">
+        <header>
+          <div>
+            <p className="eyebrow">Product graphics</p>
+            <h3 id="icon-product-graphics-title">Semantic presets from accepted renders</h3>
+          </div>
+          <span>Use these treatments consistently across surfaces</span>
+        </header>
+        <div>
+          {productGraphicPresets.map((preset) => (
+            <article key={preset.label}>
+              <NorthStarIconBadge
+                icon={preset.icon}
+                shape="circle"
+                size="2xl"
+                tone={preset.tone}
+                variant={preset.variant}
+              />
+              <span>
+                <strong>{preset.label}</strong>
+                <small>{preset.copy}</small>
+              </span>
+            </article>
+          ))}
+        </div>
+      </section>
 
       <div className="icon-category-bar" aria-label="Icon categories">
         <button
