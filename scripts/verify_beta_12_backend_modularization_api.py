@@ -61,7 +61,12 @@ EXPECTED_SIDE_EFFECT_MIX = {
     "none": 10,
     "validation_only": 79,
     "local_dev_workspace_only": 183,
-    "governed_network_read_only": 4,
+    "governed_network_read_only": 6,
+    "authenticated_connector_mutation": 4,
+    "destructive_local_sensitive": 1,
+    "local_sensitive": 1,
+    "destructive_external": 1,
+    "system_browser_exact_launch": 1,
 }
 
 
@@ -200,7 +205,10 @@ def _append_static_failures(failures: list[str]) -> None:
         "/control-center/dashboard",
         "/control-center/actions/preview",
     ):
-        if f'@app.get("{route_path}"' in app_text or f'@app.post("{route_path}"' in app_text:
+        if (
+            f'@app.get("{route_path}"' in app_text
+            or f'@app.post("{route_path}"' in app_text
+        ):
             failures.append(f"{route_path} still declared directly in api.app")
 
 

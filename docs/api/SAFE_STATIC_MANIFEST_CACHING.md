@@ -24,6 +24,11 @@ The cache may store only:
 - `web_access_posture`
 - `no_runtime_integrations`
 
+`no_runtime_integrations` is a legacy compatibility field. It is `false` once
+MSG-MX-005 adds the exact Matrix discovery/auth-method read adapter; the field
+does not imply broad connector, account, session, sync, message, crypto, media,
+browser, or production authority.
+
 These fields are generated from FastAPI route metadata, package version,
 baseline label, static capability declarations, and static boundary-only
 WebAccessGateway posture wording.

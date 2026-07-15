@@ -5,11 +5,18 @@ from ultimate_ai_agent.core.evidence_signing.static_safety import (
     is_exact_portable_evidence_helper_home_path,
     is_exact_portable_evidence_helper_subprocess_site,
 )
-from ultimate_ai_agent.core.sandbox_calculation.static_safety import is_exact_sealed_calculation_subprocess_site
+from ultimate_ai_agent.core.sandbox_calculation.static_safety import (
+    is_exact_sealed_calculation_subprocess_site,
+)
+from ultimate_ai_agent.core.communications.matrix_session.static_safety import (
+    is_exact_matrix_session_bounded_filesystem_site,
+    is_exact_matrix_session_shell_scan_line,
+)
 
 
 class FoundationGateLegacyChecksPart001Mixin:
     """Legacy checks from versioning_consistent through m85_expired_revoked_approval_denies."""
+
     def check_versioning_consistent(
         self, criterion: FoundationGateCriterion
     ) -> FoundationGateResult:
@@ -232,6 +239,14 @@ class FoundationGateLegacyChecksPart001Mixin:
                 'SEARXNG_SEARCH_DEFAULT_ENDPOINT = "http://127.0.0.1:8888"'
             ),
         }
+        allowed_matrix_session_target_policy_file = (
+            "src/ultimate_ai_agent/core/communications/matrix_session/target_policy.py"
+        )
+        allowed_matrix_session_target_policy_lines = {
+            'MATRIX_LOCAL_HARNESS_ORIGIN = "http://127.0.0.1:18008"',
+            'origin = f"http://{host}:{port or 80}"',
+            'return f"https://{host}"',
+        }
         for path, line_no, stripped in self._runtime_lines():
             if self._is_static_scanner_text(stripped):
                 continue
@@ -302,15 +317,17 @@ class FoundationGateLegacyChecksPart001Mixin:
                 and provider_credential_validation_endpoint_marker in stripped
             ):
                 continue
-            if (
-                path == allowed_tiny_provider_invocation_file
-                and any(
-                    marker in stripped
-                    for marker in tiny_provider_invocation_endpoint_markers
-                )
+            if path == allowed_tiny_provider_invocation_file and any(
+                marker in stripped
+                for marker in tiny_provider_invocation_endpoint_markers
             ):
                 continue
             if stripped == allowed_web_hybrid_endpoint_lines.get(path):
+                continue
+            if (
+                path == allowed_matrix_session_target_policy_file
+                and stripped in allowed_matrix_session_target_policy_lines
+            ):
                 continue
             if any(pattern in stripped for pattern in forbidden_contains):
                 failures.append(f"{path}:{line_no} forbidden integration reference")
@@ -362,19 +379,36 @@ class FoundationGateLegacyChecksPart001Mixin:
             if self._is_static_scanner_text(stripped):
                 continue
             source = self._read(self.root / path)
-            exact_allowed_path = path in {
-                allowed_m163_supervisor_file,
-                allowed_phase04_command_adapter_file,
-            } or (
-                path == allowed_phase06_signing_adapter_file and signing_adapter_exact
-            ) or (path == allowed_sealed_arithmetic_adapter_file and sealed_adapter_exact)
+            exact_allowed_path = (
+                path
+                in {
+                    allowed_m163_supervisor_file,
+                    allowed_phase04_command_adapter_file,
+                }
+                or (
+                    path == allowed_phase06_signing_adapter_file
+                    and signing_adapter_exact
+                )
+                or (
+                    path == allowed_sealed_arithmetic_adapter_file
+                    and sealed_adapter_exact
+                )
+            )
             if is_exact_matrix_harness_shell_scan_line(
                 rel_path=path,
                 source=source,
                 stripped_line=stripped,
             ):
                 continue
-            if exact_allowed_path and any(fragment in stripped for fragment in forbidden):
+            if is_exact_matrix_session_shell_scan_line(
+                rel_path=path,
+                source=source,
+                stripped_line=stripped,
+            ):
+                continue
+            if exact_allowed_path and any(
+                fragment in stripped for fragment in forbidden
+            ):
                 continue
             if any(fragment in stripped for fragment in forbidden):
                 failures.append(f"{path}:{line_no} shell execution")
@@ -398,6 +432,15 @@ class FoundationGateLegacyChecksPart001Mixin:
                 rel_path=path,
                 source=self._read(self.root / path),
                 fragment="Path." + "home(",
+            )
+            and not is_exact_matrix_session_bounded_filesystem_site(
+                rel_path=path,
+                source=self._read(self.root / path),
+                fragment=(
+                    "Path." + "home("
+                    if "Path." + "home(" in stripped
+                    else ".rglob(" + '"*"' + ")"
+                ),
             )
         ]
         return self._result(criterion, failures, ["src/ultimate_ai_agent"])
@@ -947,8 +990,8 @@ class FoundationGateLegacyChecksPart001Mixin:
         active_package_version = self._package_version(self._active_version() or "")
         if manifest.api_version != active_package_version:
             failures.append("manifest api_version does not match active baseline")
-        if not manifest.no_runtime_integrations:
-            failures.append("manifest does not declare no_runtime_integrations")
+        if manifest.no_runtime_integrations:
+            failures.append("manifest hides the exact Matrix read integration")
         return self._result(
             criterion,
             failures,

@@ -2390,7 +2390,9 @@ EXTENSION_DISABLED_INSTALL_RECORD_ROUTES = frozenset(
         "/extensions/disabled-install-records/rollback",
     }
 )
-TURN_CONTRACT_ROUTER_DIAGNOSTIC_ROUTES = frozenset({"/control-center/turn-router/preview"})
+TURN_CONTRACT_ROUTER_DIAGNOSTIC_ROUTES = frozenset(
+    {"/control-center/turn-router/preview"}
+)
 PACKAGING_PROOF_ROUTE_BOUNDARY_ROUTES = frozenset()
 VISUAL_PROOF_ROUTE_BOUNDARY_ROUTES = frozenset()
 EXPECTED_M152_OPENAPI_PATH_COUNT = EXPECTED_M150_OPENAPI_PATH_COUNT
@@ -2603,11 +2605,7 @@ UAA_RUNTIME_CONTROL_PLANE_ROUTES = frozenset(
     | UAA_RUNTIME_EXTENSION_ROUTES
 )
 CONTROL_CENTER_CRM_COMMAND_CENTER_ROUTES = frozenset(
-    {
-        path
-        for path in LOCAL_READONLY_PATHS
-        if path.startswith("/control-center/crm/")
-    }
+    {path for path in LOCAL_READONLY_PATHS if path.startswith("/control-center/crm/")}
     | CONTROL_CENTER_CRM_LOCAL_MUTATION_PATHS
 )
 CONTROL_CENTER_WORK_BOARD_COMMAND_ROUTES = frozenset(
@@ -2626,9 +2624,24 @@ CONTROL_CENTER_MATRIX_HARNESS_ROUTES = frozenset(
     CONTROL_CENTER_MATRIX_HARNESS_READ_PATHS
     | CONTROL_CENTER_MATRIX_HARNESS_MUTATION_PATHS
 )
+CONTROL_CENTER_MATRIX_SESSION_ROUTES = frozenset(
+    {
+        "/control-center/communications/matrix/auth-methods-read",
+        "/control-center/communications/matrix/credential-auth-create",
+        "/control-center/communications/matrix/credential-delete",
+        "/control-center/communications/matrix/credential-store-rotate",
+        "/control-center/communications/matrix/discovery-read",
+        "/control-center/communications/matrix/logout",
+        "/control-center/communications/matrix/refresh",
+        "/control-center/communications/matrix/revoke-all",
+        "/control-center/communications/matrix/sso-callback-consume",
+        "/control-center/communications/matrix/sso-launch",
+    }
+)
 
 POST_MILESTONE_SAFE_ROUTE_FAMILIES = {
     "control_center_matrix_harness": CONTROL_CENTER_MATRIX_HARNESS_ROUTES,
+    "control_center_matrix_session": CONTROL_CENTER_MATRIX_SESSION_ROUTES,
     "control_center_communications_readonly": CONTROL_CENTER_COMMUNICATIONS_READONLY_PATHS,
     "founder_loop": FOUNDER_LOOP_CONTROL_CENTER_ROUTES,
     "control_center_setup_assistant": CONTROL_CENTER_SETUP_ASSISTANT_ROUTES,
@@ -2657,6 +2670,7 @@ POST_MILESTONE_SAFE_ROUTE_FAMILIES = {
     "extension_disabled_install_record": EXTENSION_DISABLED_INSTALL_RECORD_ROUTES,
     "v1_local_model_gateway": M151_LOCAL_OPENWEBUI_TEST_ROUTES,
 }
+
 
 def post_milestone_safe_route_paths() -> set[str]:
     paths: set[str] = set()
@@ -5081,4 +5095,8 @@ def m167_openapi_route_failures(
     return failures
 
 
-__all__ = [name for name in globals() if not name.startswith("__") and name not in {"re", "Iterable", "List"}]
+__all__ = [
+    name
+    for name in globals()
+    if not name.startswith("__") and name not in {"re", "Iterable", "List"}
+]

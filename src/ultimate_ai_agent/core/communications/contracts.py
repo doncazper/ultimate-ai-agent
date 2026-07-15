@@ -35,6 +35,7 @@ _IPV4_RE = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
 
 
 class CommunicationsProviderStatus(str, Enum):
+    partial = "partial"
     unsupported = "unsupported"
     disabled = "disabled"
     unknown = "unknown"
@@ -42,6 +43,12 @@ class CommunicationsProviderStatus(str, Enum):
 
 class CommunicationsSessionStatus(str, Enum):
     not_configured = "not_configured"
+    ready_for_authentication = "ready_for_authentication"
+    active = "active"
+    refresh_required = "refresh_required"
+    soft_logged_out = "soft_logged_out"
+    revoked = "revoked"
+    recovery_required = "recovery_required"
     blocked = "blocked"
     unknown = "unknown"
 

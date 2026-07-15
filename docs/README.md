@@ -9,6 +9,12 @@ front-door product story lives in `README.md`; the strategic narrative lives in
 truth and blocked states live in
 `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md`.
 
+Current Messenger Matrix runtime truth is recorded in
+`docs/connectors/MESSENGER_MATRIX_SESSION.md`: MSG-MX-005 implements only exact
+homeserver-discovery and authentication-method reads. Credential, browser,
+account, session, sync, message, crypto, media, and Messenger UI runtime remain
+blocked or absent as documented there.
+
 The Control Center is the technical web shell, Founder Command Center is the
 user-facing product name, and the Founder Loop is the bounded product spine.
 Python Agent Core, PolicyEngine, LocalApprovalAuthority, route classification,

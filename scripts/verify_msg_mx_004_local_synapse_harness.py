@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import re
 import stat
 
 from ultimate_ai_agent.api.app import app
@@ -19,13 +20,10 @@ from ultimate_ai_agent.core.communications.matrix_harness import (
 ROOT = Path(__file__).resolve().parents[1]
 HARNESS_DOC = ROOT / "docs/connectors/MESSENGER_MATRIX_LOCAL_HARNESS.md"
 BACKEND_PATH = (
-    ROOT
-    / "src/ultimate_ai_agent/core/communications/matrix_harness/backend.py"
+    ROOT / "src/ultimate_ai_agent/core/communications/matrix_harness/backend.py"
 )
 COMPOSE_PATH = ROOT / "packaging/messenger-matrix-harness/compose.yaml"
-PROVIDER_LOCK_PATH = (
-    ROOT / "packaging/messenger-matrix-harness/provider_lock.json"
-)
+PROVIDER_LOCK_PATH = ROOT / "packaging/messenger-matrix-harness/provider_lock.json"
 CLI_PATH = ROOT / "scripts/dev/uaa_communications.py"
 BOARD_PATH = ROOT / "docs/kanban/current_board.md"
 TRUTH_PATH = ROOT / "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md"
@@ -50,15 +48,25 @@ def verify() -> list[str]:
     if len(operations) != 6 or set(MATRIX_HARNESS_LANES) != set(operations):
         failures.append("six exact Matrix harness lanes are not closed")
     for operation, lane in MATRIX_HARNESS_LANES.items():
-        if operation in {
-            MatrixHarnessOperation.inspect,
-            MatrixHarnessOperation.smoke,
-        } and lane.approval_required:
-            failures.append(f"read lane unexpectedly requires approval: {operation.value}")
-        if operation not in {
-            MatrixHarnessOperation.inspect,
-            MatrixHarnessOperation.smoke,
-        } and not lane.approval_required:
+        if (
+            operation
+            in {
+                MatrixHarnessOperation.inspect,
+                MatrixHarnessOperation.smoke,
+            }
+            and lane.approval_required
+        ):
+            failures.append(
+                f"read lane unexpectedly requires approval: {operation.value}"
+            )
+        if (
+            operation
+            not in {
+                MatrixHarnessOperation.inspect,
+                MatrixHarnessOperation.smoke,
+            }
+            and not lane.approval_required
+        ):
             failures.append(f"mutation lane lacks exact approval: {operation.value}")
 
     backend = _read(BACKEND_PATH, failures)
@@ -91,7 +99,7 @@ def verify() -> list[str]:
             failures.append(f"backend contains forbidden behavior: {forbidden}")
     for marker in (
         "pull_policy: never",
-        '127.0.0.1:18008:8008',
+        "127.0.0.1:18008:8008",
         "com.docker.network.bridge.gateway_mode_ipv4: nat",
         'com.docker.network.bridge.enable_ip_masquerade: "false"',
         "com.docker.network.bridge.host_binding_ipv4: 127.0.0.1",
@@ -136,9 +144,8 @@ def verify() -> list[str]:
         failures.append("API manifest does not expose exactly six harness routes")
     schema = app.openapi()
     for operation in operations:
-        path = (
-            "/control-center/communications/harness/"
-            + operation.value.replace("_", "-")
+        path = "/control-center/communications/harness/" + operation.value.replace(
+            "_", "-"
         )
         route = routes.get(path)
         expected_id = f"post_control_center_communications_harness_{operation.value}"
@@ -153,7 +160,10 @@ def verify() -> list[str]:
         }
         if route.idempotency_required is not is_mutation:
             failures.append(f"idempotency posture drifted: {path}")
-        if not route.protected_route or route.rate_limit_group != "communications_matrix_harness":
+        if (
+            not route.protected_route
+            or route.rate_limit_group != "communications_matrix_harness"
+        ):
             failures.append(f"protection or rate-limit posture drifted: {path}")
 
     required_doc_markers = (
@@ -170,8 +180,9 @@ def verify() -> list[str]:
     for marker in required_doc_markers:
         if marker.lower() not in combined_docs:
             failures.append(f"current documentation missing truth marker: {marker}")
-    if "Current phase: `MSG-MX-004`" not in board:
-        failures.append("current board is not bound to MSG-MX-004")
+    phase_match = re.search(r"Current phase: `MSG-MX-(\d{3})`", board)
+    if phase_match is None or int(phase_match.group(1)) < 4:
+        failures.append("current board predates MSG-MX-004")
     if "evidence-ref:msg-mx-004:local-synapse-harness" not in board:
         failures.append("current board lacks Phase004 evidence ref")
 
@@ -184,9 +195,7 @@ def verify() -> list[str]:
         route["path"]
         for surface in route_status.get("surfaces", [])
         for route in surface.get("current_backend_routes", [])
-        if route.get("path", "").startswith(
-            "/control-center/communications/harness/"
-        )
+        if route.get("path", "").startswith("/control-center/communications/harness/")
     }
     if status_paths != set(routes):
         failures.append("route-status manifest does not match harness API truth")

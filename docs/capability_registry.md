@@ -80,7 +80,7 @@ validation and rollback/safe-disable refs. Catalog and activation metadata
 explicitly grant no invocation authority. Client-supplied approval-grant
 payloads are rejected by the disabled-install mutation surface.
 
-## Communications Contracts And Disabled Matrix Adapter
+## Communications Contracts And Matrix Runtime Truth
 
 `ultimate_ai_agent.core.communications` is the normalized communications
 contract boundary for MSG-MX-003. It reuses `CapabilityAvailabilitySnapshot`
@@ -89,20 +89,22 @@ registry, deterministic injected `CommunicationsService`, safe-ref projections,
 bounded pagination, room AI policy, proposal-only action envelopes, and
 content-free receipts. It is not a competing capability registry.
 
-The Matrix declaration is explicitly unsupported, not configured, unknown for
-compatibility, health, budget, safe-disable, and freshness, authority-blocked,
-and derived readiness unknown. Its adapter exposes inspection metadata and
-raises a typed disabled error for account, synchronization, message, crypto,
-and media calls. Catalog visibility therefore never implies callable runtime
-authority.
+MSG-MX-003 retains its disabled provider declaration for account, room,
+message, crypto, and media capabilities. MSG-MX-005 adds a separate, exact
+Matrix-session catalog with two implemented read lanes and eight blocked
+mutation lanes. Catalog visibility and accepted lease schemas never imply
+callability; current request-scoped policy, target, lease, budget, readiness,
+kill switch, safe-disable, and replay evaluation remain mandatory.
 
 Six protected `Cache-Control: no-store` GET routes under
 `/control-center/communications`, the human-readable
 `scripts/dev/uaa_communications.py` CLI, and fail-closed TypeScript bindings
 project the same backend-owned truth. These routes are connector-adjacent
 `local_sensitive` reads with no side effects. The fixture-only `/messenger` UI
-remains disconnected. No Matrix SDK, network operation, authentication,
-message read/send, raw-content persistence, or new authority is present.
+remains disconnected. The approved adapter may perform only exact discovery and
+authentication-method network reads. No authenticated account/session, message
+read/send, sync, crypto, media, raw-content persistence, or UI authority is
+present.
 
 ## Exact Repo-Owned Extension Metadata Adapter
 
@@ -425,6 +427,22 @@ content-free receipts and retains `recovery_required` when cleanup cannot be
 proved. No Matrix connector, account/session, sync/read, send/write, crypto,
 media, React authority, standing harness switch, or production authority is
 created. Canonical truth: `docs/connectors/MESSENGER_MATRIX_LOCAL_HARNESS.md`.
+
+## Matrix Discovery And Session Read Lanes
+
+MSG-MX-005 registers ten exact Matrix session capabilities. Homeserver
+discovery and authentication-method inspection are implemented through
+`AuthorityDispatcher`, the pinned `matrix-js-sdk` adapter, exact GET-path
+allowlists, and bounded content-free observations. The second read requires a
+current successful discovery observation bound to the same target.
+
+Credential authentication, browser SSO/callback, refresh, logout, revoke-all,
+credential rotation, and credential deletion are blocked in both Python and
+the Node adapter. They require an authenticated one-use credential handoff or a
+socket-owning SSO broker before runtime implementation can be accepted. The
+native macOS helper is version-only. No session, sync, room, message, crypto,
+media, issuer discovery, React authority, or standing Matrix enable switch is
+created. Canonical truth: `docs/connectors/MESSENGER_MATRIX_SESSION.md`.
 
 ## Local Smoke Harness
 

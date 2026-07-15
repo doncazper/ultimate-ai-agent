@@ -16,9 +16,7 @@ PORTABLE_EVIDENCE_SIGN_TOOL_REF = "tool-ref:portable-evidence-sign:v1"
 PORTABLE_EVIDENCE_KEY_CREATE_TOOL_REF = "tool-ref:portable-evidence-key-create:v1"
 PORTABLE_EVIDENCE_KEY_ROTATE_TOOL_REF = "tool-ref:portable-evidence-key-rotate:v1"
 PORTABLE_EVIDENCE_KEY_REVOKE_TOOL_REF = "tool-ref:portable-evidence-key-revoke:v1"
-PORTABLE_EVIDENCE_KEY_MARK_LOST_TOOL_REF = (
-    "tool-ref:portable-evidence-key-mark-lost:v1"
-)
+PORTABLE_EVIDENCE_KEY_MARK_LOST_TOOL_REF = "tool-ref:portable-evidence-key-mark-lost:v1"
 PORTABLE_EVIDENCE_KEY_CLEANUP_TOOL_REF = (
     "tool-ref:portable-evidence-key-material-cleanup:v1"
 )
@@ -29,6 +27,19 @@ MATRIX_HARNESS_START_TOOL_REF = "tool-ref:matrix-harness-start:v1"
 MATRIX_HARNESS_FIXTURE_SEED_TOOL_REF = "tool-ref:matrix-harness-fixture-seed:v1"
 MATRIX_HARNESS_STOP_TOOL_REF = "tool-ref:matrix-harness-stop:v1"
 MATRIX_HARNESS_RESET_TOOL_REF = "tool-ref:matrix-harness-reset:v1"
+
+MATRIX_DISCOVERY_READ_TOOL_REF = "tool-ref:matrix-discovery-read:v1"
+MATRIX_AUTH_METHODS_READ_TOOL_REF = "tool-ref:matrix-auth-methods-read:v1"
+MATRIX_SESSION_CREDENTIAL_AUTH_CREATE_TOOL_REF = (
+    "tool-ref:matrix-session-credential-auth-create:v1"
+)
+MATRIX_SESSION_SSO_LAUNCH_TOOL_REF = "tool-ref:matrix-session-sso-launch:v1"
+MATRIX_SESSION_SSO_CALLBACK_TOOL_REF = "tool-ref:matrix-session-sso-callback-consume:v1"
+MATRIX_SESSION_REFRESH_TOOL_REF = "tool-ref:matrix-session-refresh:v1"
+MATRIX_SESSION_LOGOUT_TOOL_REF = "tool-ref:matrix-session-logout:v1"
+MATRIX_SESSION_REVOKE_ALL_TOOL_REF = "tool-ref:matrix-session-revoke-all:v1"
+MATRIX_CREDENTIAL_STORE_ROTATE_TOOL_REF = "tool-ref:matrix-credential-store-rotate:v1"
+MATRIX_CREDENTIAL_DELETE_TOOL_REF = "tool-ref:matrix-credential-delete:v1"
 
 # Exact lane bindings accepted by the generic AuthorityLease store. Keeping
 # these bindings in the authority package prevents the coarse ``messages``
@@ -75,5 +86,112 @@ MATRIX_HARNESS_EXACT_AUTHORITY_BINDINGS = (
         "authority-capability-ref:matrix-harness-reset-v1",
         "authority-adapter-ref:matrix-harness-reset-v1",
         MATRIX_HARNESS_RESET_TOOL_REF,
+    ),
+)
+
+# Exact session-scoped connector bindings accepted by MSG-MX-005. Tuple fields
+# are: authority domain, authority capability, lease scope, required trust mode,
+# lane ref, capability ref, adapter ref, and tool ref. These records are an
+# allowlist, not a broad Matrix or messages authority switch.
+MATRIX_SESSION_EXACT_AUTHORITY_BINDINGS = (
+    (
+        "messages",
+        "read",
+        "session",
+        "read_only",
+        "authority-lane-ref:matrix-discovery-read",
+        "authority-capability-ref:matrix-discovery-read-v1",
+        "authority-adapter-ref:matrix-discovery-read-v1",
+        MATRIX_DISCOVERY_READ_TOOL_REF,
+    ),
+    (
+        "messages",
+        "read",
+        "session",
+        "read_only",
+        "authority-lane-ref:matrix-auth-methods-read",
+        "authority-capability-ref:matrix-auth-methods-read-v1",
+        "authority-adapter-ref:matrix-auth-methods-read-v1",
+        MATRIX_AUTH_METHODS_READ_TOOL_REF,
+    ),
+    (
+        "messages",
+        "mutate",
+        "session",
+        "ask_before_changes",
+        "authority-lane-ref:matrix-session-credential-auth-create",
+        "authority-capability-ref:matrix-session-credential-auth-create-v1",
+        "authority-adapter-ref:matrix-session-credential-auth-create-v1",
+        MATRIX_SESSION_CREDENTIAL_AUTH_CREATE_TOOL_REF,
+    ),
+    (
+        "browser",
+        "execute",
+        "session",
+        "ask_before_changes",
+        "authority-lane-ref:matrix-session-sso-launch",
+        "authority-capability-ref:matrix-session-sso-launch-v1",
+        "authority-adapter-ref:matrix-session-sso-launch-v1",
+        MATRIX_SESSION_SSO_LAUNCH_TOOL_REF,
+    ),
+    (
+        "messages",
+        "mutate",
+        "session",
+        "ask_before_changes",
+        "authority-lane-ref:matrix-session-sso-callback-consume",
+        "authority-capability-ref:matrix-session-sso-callback-consume-v1",
+        "authority-adapter-ref:matrix-session-sso-callback-consume-v1",
+        MATRIX_SESSION_SSO_CALLBACK_TOOL_REF,
+    ),
+    (
+        "messages",
+        "mutate",
+        "session",
+        "ask_before_changes",
+        "authority-lane-ref:matrix-session-refresh",
+        "authority-capability-ref:matrix-session-refresh-v1",
+        "authority-adapter-ref:matrix-session-refresh-v1",
+        MATRIX_SESSION_REFRESH_TOOL_REF,
+    ),
+    (
+        "messages",
+        "mutate",
+        "session",
+        "ask_before_changes",
+        "authority-lane-ref:matrix-session-logout",
+        "authority-capability-ref:matrix-session-logout-v1",
+        "authority-adapter-ref:matrix-session-logout-v1",
+        MATRIX_SESSION_LOGOUT_TOOL_REF,
+    ),
+    (
+        "messages",
+        "destructive",
+        "session",
+        "full_machine_access_session",
+        "authority-lane-ref:matrix-session-revoke-all",
+        "authority-capability-ref:matrix-session-revoke-all-v1",
+        "authority-adapter-ref:matrix-session-revoke-all-v1",
+        MATRIX_SESSION_REVOKE_ALL_TOOL_REF,
+    ),
+    (
+        "system_settings",
+        "write",
+        "session",
+        "ask_before_changes",
+        "authority-lane-ref:matrix-credential-store-rotate",
+        "authority-capability-ref:matrix-credential-store-rotate-v1",
+        "authority-adapter-ref:matrix-credential-store-rotate-v1",
+        MATRIX_CREDENTIAL_STORE_ROTATE_TOOL_REF,
+    ),
+    (
+        "system_settings",
+        "destructive",
+        "session",
+        "full_machine_access_session",
+        "authority-lane-ref:matrix-credential-delete",
+        "authority-capability-ref:matrix-credential-delete-v1",
+        "authority-adapter-ref:matrix-credential-delete-v1",
+        MATRIX_CREDENTIAL_DELETE_TOOL_REF,
     ),
 )

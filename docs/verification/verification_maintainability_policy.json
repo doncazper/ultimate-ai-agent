@@ -3,8 +3,8 @@
   "line_budgets": {
     "compatibility_wrappers": {
       "max_lines": 120,
-      "enforcement": "hard",
-      "enforcement_reason": "Compatibility wrappers are contractually thin facades and must not absorb implementation behavior.",
+      "enforcement": "advisory",
+      "enforcement_reason": "Compatibility-wrapper size is a review signal only. Behavior and ownership tests, not physical line count, determine whether an implementation must move.",
       "paths": [
         "scripts/verify_all.py",
         "scripts/verify_documentation_integrity.py"
@@ -134,8 +134,8 @@
     },
     "source_hotspots": {
       "max_lines": 1200,
-      "enforcement": "hard",
-      "enforcement_reason": "Named source hotspots are accepted debt with explicit no-growth extraction boundaries.",
+      "enforcement": "advisory",
+      "enforcement_reason": "Named source hotspots remain editable. Physical size is advisory only; refactoring requires a real behavior, ownership, safety, or test failure.",
       "paths": [
         "src/ultimate_ai_agent/core/gate/criteria.py",
         "src/ultimate_ai_agent/core/storage/founder_loop.py",

@@ -18,6 +18,7 @@ from ultimate_ai_agent.core.authority.authority_constants import (
     AUTHORITY_STATE_LOCK_KEY,
     AUTHORITY_STATE_REDACTIONS,
     MATRIX_HARNESS_EXACT_AUTHORITY_BINDINGS,
+    MATRIX_SESSION_EXACT_AUTHORITY_BINDINGS,
 )
 from ultimate_ai_agent.core.authority.budget_contracts import AuthorityBudgetReadModel
 from ultimate_ai_agent.core.single_writer_lock import FileSingleWriterLockManager
@@ -37,14 +38,18 @@ AUTHORITY_MISSION_PLAN_SCHEMA_VERSION = "uaa-authority-mission-plan.v1"
 AUTHORITY_CONSTRAINT_SCHEMA_VERSION = "uaa-authority-constraint.v1"
 AUTHORITY_STATE_CONTRACT_REF = "contract-ref:authority-modes-mission-leases:v1"
 AUTHORITY_LANE_CATALOG_CONTRACT_REF = "contract-ref:authority-lane-catalog:v1"
-AUTHORITY_DOMAIN_READINESS_CONTRACT_REF = (
-    "contract-ref:authority-domain-readiness:v1"
-)
+AUTHORITY_DOMAIN_READINESS_CONTRACT_REF = "contract-ref:authority-domain-readiness:v1"
 AUTHORITY_STATE_API_REF = "GET /api/runtime/authority-state"
-AUTHORITY_STATE_SETTINGS_ROUTE_REF = "GET /control-center/settings/status#authority_lease_state"
+AUTHORITY_STATE_SETTINGS_ROUTE_REF = (
+    "GET /control-center/settings/status#authority_lease_state"
+)
 AUTHORITY_STATE_CLI_REF = "repo-local-command:uaa-runtime-inspect-authority-state"
-AUTHORITY_LANE_CATALOG_API_REF = "GET /api/runtime/authority-state#authority_lane_catalog"
-AUTHORITY_LANE_CATALOG_CLI_REF = "repo-local-command:uaa-runtime-inspect-authority-lane-catalog"
+AUTHORITY_LANE_CATALOG_API_REF = (
+    "GET /api/runtime/authority-state#authority_lane_catalog"
+)
+AUTHORITY_LANE_CATALOG_CLI_REF = (
+    "repo-local-command:uaa-runtime-inspect-authority-lane-catalog"
+)
 AUTHORITY_DOMAIN_READINESS_API_REF = "GET /api/runtime/authority-domain-readiness"
 AUTHORITY_DOMAIN_READINESS_CLI_REF = (
     "repo-local-command:uaa-runtime-inspect-authority-domain-readiness"
@@ -183,6 +188,7 @@ class AuthorityConstraint(_AuthorityModel):
     allowed_refs: list[str] = Field(default_factory=list)
     maximum: StrictInt | None = Field(default=None, ge=0)
     safe_summary: str = Field(..., min_length=1, max_length=260)
+
     @model_validator(mode="after")
     def validate_constraint(self) -> "AuthorityConstraint":
         validate_task_ref(self.constraint_ref, "authority_constraint_ref")
@@ -204,9 +210,12 @@ class AuthorityConstraintClaim(_AuthorityModel):
     kind: AuthorityConstraintKind
     refs: list[str] = Field(default_factory=list)
     value: StrictInt | None = Field(default=None, ge=0)
+
     @model_validator(mode="after")
     def validate_claim(self) -> "AuthorityConstraintClaim":
-        validate_safe_task_text(_enum_value(self.kind), "authority_constraint_claim_kind")
+        validate_safe_task_text(
+            _enum_value(self.kind), "authority_constraint_claim_kind"
+        )
         _validate_ref_list(self.refs, "authority_constraint_claim_ref")
         kind = AuthorityConstraintKind(self.kind)
         if kind in _AUTHORITY_REF_CONSTRAINT_KINDS:
@@ -271,7 +280,9 @@ class AuthorityLease(_AuthorityModel):
             validate_safe_task_text(_enum_value(text), "authority_lease_text")
         _validate_ref_list(self.unsupported_adapter_refs, "unsupported_adapter_ref")
         validate_safe_task_payload(self.constraints, "authority_lease_constraints")
-        constraint_kinds = [constraint.kind for constraint in self.authority_constraints]
+        constraint_kinds = [
+            constraint.kind for constraint in self.authority_constraints
+        ]
         if len(constraint_kinds) != len(set(constraint_kinds)):
             raise ValueError("AUTHORITY_LEASE_DUPLICATE_CONSTRAINT_KIND")
         if not self.domains:
@@ -302,12 +313,17 @@ class AuthorityLease(_AuthorityModel):
         }
         disabled = [name for name, enabled in required.items() if not enabled]
         if disabled:
-            raise ValueError(f"AUTHORITY_LEASE_REQUIRED_GOVERNANCE_DISABLED:{disabled[0]}")
+            raise ValueError(
+                f"AUTHORITY_LEASE_REQUIRED_GOVERNANCE_DISABLED:{disabled[0]}"
+            )
         return self
 
     def is_active(self, *, now: datetime | None = None) -> bool:
         current = now or utc_now()
-        return self.status == AuthorityLeaseStatus.active.value and self.expires_at > current
+        return (
+            self.status == AuthorityLeaseStatus.active.value
+            and self.expires_at > current
+        )
 
     def grants(self, domain: AuthorityDomain, capability: AuthorityCapability) -> bool:
         values = self.domains.get(domain, [])
@@ -466,7 +482,11 @@ class AuthorityActionRequest(_AuthorityModel):
         claim_kinds = [claim.kind for claim in self.constraint_claims]
         if len(claim_kinds) != len(set(claim_kinds)):
             raise ValueError("AUTHORITY_ACTION_DUPLICATE_CONSTRAINT_CLAIM_KIND")
-        if not self.receipts_required or not self.audit_required or not self.redaction_required:
+        if (
+            not self.receipts_required
+            or not self.audit_required
+            or not self.redaction_required
+        ):
             raise ValueError("AUTHORITY_ACTION_GOVERNANCE_REQUIRED")
         return self
 
@@ -531,9 +551,16 @@ class AuthorityPolicyDecision(_AuthorityModel):
             self.known_authority and self.lease_ref
         ):
             raise ValueError("AUTHORITY_ALLOW_REQUIRES_ACTIVE_LEASE")
-        if self.outcome == AuthorityDecisionOutcome.allow.value and self.unsupported_adapter:
+        if (
+            self.outcome == AuthorityDecisionOutcome.allow.value
+            and self.unsupported_adapter
+        ):
             raise ValueError("AUTHORITY_UNSUPPORTED_ADAPTER_CANNOT_ALLOW")
-        if not self.receipts_required or not self.audit_required or not self.redaction_required:
+        if (
+            not self.receipts_required
+            or not self.audit_required
+            or not self.redaction_required
+        ):
             raise ValueError("AUTHORITY_DECISION_GOVERNANCE_REQUIRED")
         return self
 
@@ -572,8 +599,12 @@ class AuthorityDecisionPreview(_AuthorityModel):
             (self.audit_record_ref, "authority_decision_preview_audit_ref"),
         ]:
             validate_task_ref(value, field_name)
-        _validate_ref_list(self.active_lease_refs, "authority_decision_preview_lease_ref")
-        validate_safe_task_text(self.operator_summary, "authority_decision_preview_summary")
+        _validate_ref_list(
+            self.active_lease_refs, "authority_decision_preview_lease_ref"
+        )
+        validate_safe_task_text(
+            self.operator_summary, "authority_decision_preview_summary"
+        )
         for redaction in self.redactions_applied:
             validate_safe_task_text(redaction, "authority_decision_preview_redaction")
         if (
@@ -669,8 +700,12 @@ class AuthorityMissionPlanRequest(_AuthorityModel):
             (self.operator_ref, "authority_mission_operator_ref"),
         ]:
             validate_task_ref(value, field_name)
-        validate_safe_task_text(self.safe_goal_summary, "authority_mission_goal_summary")
-        validate_safe_task_text(_enum_value(self.requested_mode), "authority_mission_mode")
+        validate_safe_task_text(
+            self.safe_goal_summary, "authority_mission_goal_summary"
+        )
+        validate_safe_task_text(
+            _enum_value(self.requested_mode), "authority_mission_mode"
+        )
         validate_safe_task_payload(self.constraints, "authority_mission_constraints")
         # Empty mission domain requests intentionally mean: preview this mode's
         # current implemented default mission scope. The planner still performs
@@ -744,7 +779,10 @@ class AuthorityMissionPlan(_AuthorityModel):
             (self.unsupported_adapter_refs, "authority_mission_unsupported_ref"),
             (self.active_lease_refs, "authority_mission_active_lease_ref"),
             (self.required_domain_refs, "authority_mission_required_domain_ref"),
-            (self.required_capability_refs, "authority_mission_required_capability_ref"),
+            (
+                self.required_capability_refs,
+                "authority_mission_required_capability_ref",
+            ),
             (self.blocked_reason_refs, "authority_mission_blocked_reason_ref"),
         ]:
             _validate_ref_list(refs, field_name)
@@ -907,7 +945,10 @@ class AuthorityLaneCatalogEntry(_AuthorityModel):
             self.allowed_inputs_schema,
             "authority_lane_catalog_allowed_inputs_schema",
         )
-        if self.status in {"approval_required", "blocked"} and not self.idempotency_required:
+        if (
+            self.status in {"approval_required", "blocked"}
+            and not self.idempotency_required
+        ):
             raise ValueError("AUTHORITY_LANE_IDEMPOTENCY_REQUIRED_FOR_GOVERNED_LANE")
         if self.status == "blocked" and not (
             self.blocked_reason_refs or self.unsupported_adapter_refs
@@ -921,7 +962,9 @@ class AuthorityLaneCatalogEntry(_AuthorityModel):
             or self.control_center_grants_authority
             or self.raw_content_included
         ):
-            raise ValueError("AUTHORITY_LANE_CATALOG_MUST_NOT_EXECUTE_OR_MINT_AUTHORITY")
+            raise ValueError(
+                "AUTHORITY_LANE_CATALOG_MUST_NOT_EXECUTE_OR_MINT_AUTHORITY"
+            )
         return self
 
 
@@ -1030,12 +1073,18 @@ class AuthorityLeaseIssueRequest(_AuthorityModel):
         validate_safe_task_text(self.safe_summary, "authority_lease_issue_summary")
         if (
             self.requested_lease_ref is not None
-            and _exact_messages_issue_capability(self) is None
+            and _exact_authority_issue_binding(self) is None
         ):
             raise ValueError("AUTHORITY_LEASE_REQUESTED_REF_EXACT_BINDING_REQUIRED")
-        validate_safe_task_payload(self.constraints, "authority_lease_issue_constraints")
-        validate_safe_task_payload(self.approval_grants, "authority_lease_approval_grants")
-        constraint_kinds = [constraint.kind for constraint in self.authority_constraints]
+        validate_safe_task_payload(
+            self.constraints, "authority_lease_issue_constraints"
+        )
+        validate_safe_task_payload(
+            self.approval_grants, "authority_lease_approval_grants"
+        )
+        constraint_kinds = [
+            constraint.kind for constraint in self.authority_constraints
+        ]
         if len(constraint_kinds) != len(set(constraint_kinds)):
             raise ValueError("AUTHORITY_LEASE_DUPLICATE_CONSTRAINT_KIND")
         if self.scope == AuthorityLeaseScope.mission.value and not self.mission_ref:
@@ -1055,9 +1104,50 @@ class AuthorityLeaseIssueRequest(_AuthorityModel):
         return self
 
 
-def _exact_messages_issue_capability(
+def _exact_authority_binding_catalog() -> dict[
+    tuple[str, str, str, str],
+    tuple[AuthorityDomain, AuthorityCapability, AuthorityLeaseScope, TrustMode],
+]:
+    catalog = {
+        (lane, capability, adapter, tool): (
+            AuthorityDomain.messages,
+            AuthorityCapability(authority_capability),
+            AuthorityLeaseScope.mission,
+            TrustMode.approved_safe_local_work_session
+            if AuthorityCapability(authority_capability)
+            in {
+                AuthorityCapability.execute,
+                AuthorityCapability.mutate,
+                AuthorityCapability.destructive,
+            }
+            else TrustMode.read_only,
+        )
+        for authority_capability, lane, capability, adapter, tool in (
+            MATRIX_HARNESS_EXACT_AUTHORITY_BINDINGS
+        )
+    }
+    for (
+        domain,
+        authority_capability,
+        scope,
+        mode,
+        lane,
+        capability,
+        adapter,
+        tool,
+    ) in MATRIX_SESSION_EXACT_AUTHORITY_BINDINGS:
+        catalog[(lane, capability, adapter, tool)] = (
+            AuthorityDomain(domain),
+            AuthorityCapability(authority_capability),
+            AuthorityLeaseScope(scope),
+            TrustMode(mode),
+        )
+    return catalog
+
+
+def _exact_authority_issue_binding(
     request: AuthorityLeaseIssueRequest,
-) -> AuthorityCapability | None:
+) -> tuple[AuthorityDomain, AuthorityCapability, AuthorityLeaseScope, TrustMode] | None:
     exact_binding = (
         request.constraints.get("exact_lane_ref"),
         request.constraints.get("exact_capability_ref"),
@@ -1066,28 +1156,102 @@ def _exact_messages_issue_capability(
     )
     if not all(isinstance(value, str) for value in exact_binding):
         return None
-    accepted = {
-        (lane, capability, adapter, tool): AuthorityCapability(authority_capability)
-        for authority_capability, lane, capability, adapter, tool in (
-            MATRIX_HARNESS_EXACT_AUTHORITY_BINDINGS
-        )
+    expected = _exact_authority_binding_catalog().get(exact_binding)
+    if expected is None:
+        return None
+    expected_domain, expected_capability, expected_scope, expected_mode = expected
+    requested_capabilities = request.requested_domains.get(expected_domain, [])
+    constraints_by_kind = {
+        AuthorityConstraintKind(constraint.kind): constraint
+        for constraint in request.authority_constraints
     }
-    expected_capability = accepted.get(exact_binding)
-    requested_messages = request.requested_domains.get(AuthorityDomain.messages, [])
-    if not (
-        request.scope == AuthorityLeaseScope.mission
-        and request.mission_ref is not None
-        and request.requested_lease_ref is not None
-        and set(request.requested_domains) == {AuthorityDomain.messages}
-        and expected_capability is not None
-        and requested_messages == [expected_capability]
-        and isinstance(
-            request.constraints.get("exact_request_fingerprint_ref"), str
+    expected_constraint_kinds = {
+        AuthorityConstraintKind.resource_refs,
+        AuthorityConstraintKind.operation_budget,
+        AuthorityConstraintKind.cost_budget_microusd,
+    }
+    resource_constraint = constraints_by_kind.get(AuthorityConstraintKind.resource_refs)
+    operation_constraint = constraints_by_kind.get(
+        AuthorityConstraintKind.operation_budget
+    )
+    cost_constraint = constraints_by_kind.get(
+        AuthorityConstraintKind.cost_budget_microusd
+    )
+    fingerprint_ref = request.constraints.get("exact_request_fingerprint_ref")
+    if not isinstance(fingerprint_ref, str):
+        return None
+    required_resource_refs = {
+        *exact_binding,
+        fingerprint_ref,
+        request.requested_lease_ref,
+    }
+    if expected_scope == AuthorityLeaseScope.session:
+        session_binding_refs = {
+            request.constraints.get("exact_start_deadline_ref"),
+            request.constraints.get("exact_readiness_ref"),
+            request.constraints.get("exact_budget_ref"),
+            request.constraints.get("exact_safe_disable_ref"),
+            request.constraints.get("exact_rollback_ref"),
+        }
+        if not all(isinstance(ref, str) for ref in session_binding_refs):
+            return None
+        required_resource_refs.update(
+            {
+                "target-ref:communications:matrix-exact-homeserver",
+                "credential-backend-ref:matrix:macos-keychain-v1",
+                "budget-ref:communications:matrix-session-zero-cost",
+                "kill-switch-ref:authority-lease-local",
+                "safe-disable-ref:communications:matrix-session",
+                *session_binding_refs,
+            }
         )
-        and len(request.authority_constraints) > 0
+        allowed_target_refs = {"target-ref:communications:matrix-exact-homeserver"}
+        allowed_homeserver_refs = {
+            ref
+            for ref in (resource_constraint.allowed_refs if resource_constraint else [])
+            if ref.startswith("homeserver-ref:matrix:")
+        }
+    else:
+        required_resource_refs.update(
+            {
+                "target-ref:communications:matrix-harness-loopback",
+                request.mission_ref,
+            }
+        )
+        allowed_target_refs = {"target-ref:communications:matrix-harness-loopback"}
+    # A zero-cost operation still needs a positive, explicit ceiling because an
+    # exhausted zero ceiling must fail closed in the shared budget store.
+    expected_cost_maximum = 1
+    allowed_resource_refs = (
+        set(resource_constraint.allowed_refs) if resource_constraint else set()
+    )
+    requested_target_refs = {
+        ref for ref in allowed_resource_refs if ref.startswith("target-ref:")
+    }
+    if not (
+        request.scope == expected_scope
+        and (
+            expected_scope != AuthorityLeaseScope.mission
+            or request.mission_ref is not None
+        )
+        and request.requested_lease_ref is not None
+        and request.mode == expected_mode
+        and set(request.requested_domains) == {expected_domain}
+        and requested_capabilities == [expected_capability]
+        and set(constraints_by_kind) == expected_constraint_kinds
+        and required_resource_refs <= allowed_resource_refs
+        and requested_target_refs == allowed_target_refs
+        and (
+            expected_scope != AuthorityLeaseScope.session
+            or len(allowed_homeserver_refs) == 1
+        )
+        and operation_constraint is not None
+        and operation_constraint.maximum == 1
+        and cost_constraint is not None
+        and cost_constraint.maximum == expected_cost_maximum
     ):
         return None
-    return expected_capability
+    return expected
 
 
 class AuthorityLeaseApproveAndIssueRequest(_AuthorityModel):
@@ -1237,10 +1401,7 @@ class AuthorityDomainReadinessEntry(_AuthorityModel):
         )
         if self.mapped_capability_count != len(self.mapped_capability_refs):
             raise ValueError("AUTHORITY_DOMAIN_READINESS_CAPABILITY_COUNT_DRIFT")
-        if (
-            self.status == "unmapped_target_domain"
-            and self.mapped_capability_refs
-        ):
+        if self.status == "unmapped_target_domain" and self.mapped_capability_refs:
             raise ValueError("AUTHORITY_DOMAIN_READINESS_UNMAPPED_HAS_CAPABILITIES")
         if self.status != "unmapped_target_domain" and not self.mapped_capability_refs:
             raise ValueError("AUTHORITY_DOMAIN_READINESS_STATUS_WITHOUT_MAPPING")
@@ -1264,7 +1425,9 @@ class AuthorityDomainReadinessReadModel(_AuthorityModel):
     settings_route_ref: str = AUTHORITY_STATE_SETTINGS_ROUTE_REF
     cli_ref: str = AUTHORITY_DOMAIN_READINESS_CLI_REF
     operator_summary: str = Field(..., min_length=1, max_length=720)
-    target_domains: list[AuthorityDomain] = Field(default_factory=lambda: list(AuthorityDomain))
+    target_domains: list[AuthorityDomain] = Field(
+        default_factory=lambda: list(AuthorityDomain)
+    )
     policy_outcomes: list[AuthorityDecisionOutcome] = Field(
         default_factory=lambda: list(AuthorityDecisionOutcome)
     )
@@ -1329,7 +1492,9 @@ class AuthorityDomainReadinessReadModel(_AuthorityModel):
         entry_domains = [_enum_value(entry.domain) for entry in self.entries]
         if len(entry_domains) != len(set(entry_domains)):
             raise ValueError("AUTHORITY_DOMAIN_READINESS_MODEL_DUPLICATE_DOMAIN")
-        if set(entry_domains) != {_enum_value(domain) for domain in self.target_domains}:
+        if set(entry_domains) != {
+            _enum_value(domain) for domain in self.target_domains
+        }:
             raise ValueError("AUTHORITY_DOMAIN_READINESS_MODEL_TARGET_DOMAIN_DRIFT")
         actual_status_counts = Counter(entry.status for entry in self.entries)
         if self.status_counts != dict(sorted(actual_status_counts.items())):
@@ -1396,7 +1561,9 @@ class AuthorityModeCatalogEntry(_AuthorityModel):
                         "authority_mode_catalog_capability",
                     )
         for domain, capabilities in self.granted_default_domains.items():
-            validate_safe_task_text(_enum_value(domain), "authority_mode_granted_domain")
+            validate_safe_task_text(
+                _enum_value(domain), "authority_mode_granted_domain"
+            )
             if not capabilities:
                 raise ValueError("AUTHORITY_MODE_CATALOG_CAPABILITIES_REQUIRED")
             for capability in capabilities:
@@ -1411,7 +1578,11 @@ class AuthorityModeCatalogEntry(_AuthorityModel):
         ]:
             _validate_ref_list(refs, field_name)
         validate_safe_task_text(self.operator_summary, "authority_mode_catalog_summary")
-        if not self.safe_refs_only or self.execution_performed or self.mutation_performed:
+        if (
+            not self.safe_refs_only
+            or self.execution_performed
+            or self.mutation_performed
+        ):
             raise ValueError("AUTHORITY_MODE_CATALOG_MUST_NOT_EXECUTE")
         return self
 
@@ -1581,7 +1752,9 @@ class AuthorityStateReadModel(_AuthorityModel):
     settings_route_ref: str = AUTHORITY_STATE_SETTINGS_ROUTE_REF
     cli_ref: str = AUTHORITY_STATE_CLI_REF
     target_modes: list[TrustMode] = Field(default_factory=lambda: list(TrustMode))
-    target_domains: list[AuthorityDomain] = Field(default_factory=lambda: list(AuthorityDomain))
+    target_domains: list[AuthorityDomain] = Field(
+        default_factory=lambda: list(AuthorityDomain)
+    )
     policy_outcomes: list[AuthorityDecisionOutcome] = Field(
         default_factory=lambda: list(AuthorityDecisionOutcome)
     )
@@ -1627,7 +1800,9 @@ class AuthorityStateReadModel(_AuthorityModel):
             raise ValueError("AUTHORITY_STATE_GOVERNANCE_REQUIRED")
         if self.unknown_authority_default != AuthorityDecisionOutcome.deny.value:
             raise ValueError("AUTHORITY_UNKNOWN_MUST_DENY")
-        readiness_domains = [_enum_value(entry.domain) for entry in self.domain_readiness]
+        readiness_domains = [
+            _enum_value(entry.domain) for entry in self.domain_readiness
+        ]
         if len(readiness_domains) != len(set(readiness_domains)):
             raise ValueError("AUTHORITY_DOMAIN_READINESS_DUPLICATE_DOMAIN")
         if set(readiness_domains) != {
@@ -1654,7 +1829,8 @@ def _lease_constraint_match(
     request: AuthorityActionRequest,
 ) -> tuple[list[str], list[str]]:
     claims = {
-        AuthorityConstraintKind(claim.kind): claim for claim in request.constraint_claims
+        AuthorityConstraintKind(claim.kind): claim
+        for claim in request.constraint_claims
     }
     reason_refs: list[str] = []
     applied_refs: list[str] = []
@@ -1709,16 +1885,14 @@ def _lease_scope_matches_action(
         return False
     constraint_mission_ref = request.constraints.get(
         "mission_ref"
-    ) or request.constraints.get(
-        "authority_mission_ref"
-    )
+    ) or request.constraints.get("authority_mission_ref")
     return lease.mission_ref in set(request.resource_refs) or (
         isinstance(constraint_mission_ref, str)
         and constraint_mission_ref == lease.mission_ref
     )
 
 
-def _exact_messages_binding(lease: AuthorityLease) -> tuple[str, str, str, str] | None:
+def _exact_authority_binding(lease: AuthorityLease) -> tuple[str, str, str, str] | None:
     values = tuple(
         lease.constraints.get(key)
         for key in (
@@ -1733,35 +1907,69 @@ def _exact_messages_binding(lease: AuthorityLease) -> tuple[str, str, str, str] 
     return values  # type: ignore[return-value]
 
 
-def _lease_exact_messages_binding_matches(
+def _lease_exact_authority_binding_matches(
     lease: AuthorityLease,
     request: AuthorityActionRequest,
 ) -> bool:
-    if request.domain != AuthorityDomain.messages:
-        return True
-    binding = _exact_messages_binding(lease)
-    if binding is None:
+    request_binding = (
+        request.lane_ref,
+        request.capability_ref,
+        request.adapter_ref,
+        request.constraints.get("tool_ref"),
+    )
+    expected = _exact_authority_binding_catalog().get(request_binding)
+    lease_binding = _exact_authority_binding(lease)
+    if expected is None:
+        # Preserve the existing coarse messages deny floor and ensure an exact
+        # lane lease can never spill into a non-exact action in another domain.
+        return request.domain != AuthorityDomain.messages and lease_binding is None
+    if lease_binding != request_binding:
         return False
-    lane_ref, capability_ref, adapter_ref, tool_ref = binding
-    allowed = {
-        (lane, capability, adapter, tool): AuthorityCapability(authority_capability)
-        for authority_capability, lane, capability, adapter, tool in (
-            MATRIX_HARNESS_EXACT_AUTHORITY_BINDINGS
-        )
-    }
-    expected_authority_capability = allowed.get(binding)
-    granted_messages_capabilities = lease.domains.get(AuthorityDomain.messages, [])
+    exact_resource_constraints = [
+        constraint
+        for constraint in lease.authority_constraints
+        if AuthorityConstraintKind(constraint.kind)
+        == AuthorityConstraintKind.resource_refs
+    ]
+    if len(exact_resource_constraints) != 1:
+        return False
+    allowed_resource_refs = exact_resource_constraints[0].allowed_refs
+    if not (
+        len(request.resource_refs) == len(allowed_resource_refs)
+        and set(request.resource_refs) == set(allowed_resource_refs)
+    ):
+        return False
+    expected_domain, expected_capability, expected_scope, expected_mode = expected
+    granted_capabilities = lease.domains.get(expected_domain, [])
     return (
-        expected_authority_capability is not None
-        and granted_messages_capabilities == [expected_authority_capability]
-        and AuthorityCapability(request.capability) == expected_authority_capability
-        and request.lane_ref == lane_ref
-        and request.capability_ref == capability_ref
-        and request.adapter_ref == adapter_ref
-        and request.constraints.get("tool_ref") == tool_ref
+        lease.scope == expected_scope.value
+        and lease.mode == expected_mode.value
+        and set(lease.domains) == {expected_domain}
+        and granted_capabilities == [expected_capability]
+        and AuthorityDomain(request.domain) == expected_domain
+        and AuthorityCapability(request.capability) == expected_capability
         and request.constraints.get("request_fingerprint_ref")
         == lease.constraints.get("exact_request_fingerprint_ref")
+        and (
+            expected_scope != AuthorityLeaseScope.session
+            or (
+                request.safe_disable_ref
+                == lease.constraints.get("exact_safe_disable_ref")
+                == lease.safe_disable_ref
+                and request.rollback_ref
+                == lease.constraints.get("exact_rollback_ref")
+                == lease.rollback_ref
+                and request.constraints.get("readiness_ref")
+                == lease.constraints.get("exact_readiness_ref")
+                and request.constraints.get("budget_ref")
+                == lease.constraints.get("exact_budget_ref")
+                and request.constraints.get("start_deadline_ref")
+                == lease.constraints.get("exact_start_deadline_ref")
+            )
+        )
     )
+
+
 def evaluate_authority_request(
     request: AuthorityActionRequest,
     leases: list[AuthorityLease],
@@ -1772,13 +1980,15 @@ def evaluate_authority_request(
     matching_domain_capability = [
         lease
         for lease in active_leases
-        if lease.grants(AuthorityDomain(request.domain), AuthorityCapability(request.capability))
+        if lease.grants(
+            AuthorityDomain(request.domain), AuthorityCapability(request.capability)
+        )
     ]
     matching_scope = [
         lease
         for lease in matching_domain_capability
         if _lease_scope_matches_action(lease, request)
-        and _lease_exact_messages_binding_matches(lease, request)
+        and _lease_exact_authority_binding_matches(lease, request)
     ]
     reason_refs: list[str] = []
     if request.kill_switch_engaged or authority_lease_kill_switch_engaged():
@@ -1864,7 +2074,10 @@ def evaluate_authority_request(
     lease, _, applied_constraint_refs = matching[0]
     mode = TrustMode(lease.mode)
     capability = AuthorityCapability(request.capability)
-    if mode == TrustMode.ask_before_changes and capability not in READ_PREPARE_CAPABILITIES:
+    if (
+        mode == TrustMode.ask_before_changes
+        and capability not in READ_PREPARE_CAPABILITIES
+    ):
         reason_refs.append("reason-ref:authority:ask-before-changes-mode")
         return _decision(
             request,
@@ -1924,7 +2137,11 @@ def _decision(
     receipt_ref = (
         _stable_ref(
             "receipt-ref:authority-policy",
-            {"action_ref": request.action_ref, "lease_ref": lease_ref, "outcome": outcome},
+            {
+                "action_ref": request.action_ref,
+                "lease_ref": lease_ref,
+                "outcome": outcome,
+            },
         )
         if outcome in {AuthorityDecisionOutcome.allow, AuthorityDecisionOutcome.ask}
         else None
@@ -2383,7 +2600,10 @@ def _allowed_domain_capabilities(
                 AuthorityCapability.read,
                 AuthorityCapability.draft,
             },
-            AuthorityDomain.email: {AuthorityCapability.observe, AuthorityCapability.draft},
+            AuthorityDomain.email: {
+                AuthorityCapability.observe,
+                AuthorityCapability.draft,
+            },
             AuthorityDomain.calendar: {
                 AuthorityCapability.observe,
                 AuthorityCapability.draft,
@@ -2405,7 +2625,10 @@ def _allowed_domain_capabilities(
             AuthorityDomain.files: local_change,
             AuthorityDomain.memory: local_change,
             AuthorityDomain.contacts: local_change,
-            AuthorityDomain.email: {AuthorityCapability.observe, AuthorityCapability.draft},
+            AuthorityDomain.email: {
+                AuthorityCapability.observe,
+                AuthorityCapability.draft,
+            },
             AuthorityDomain.calendar: {
                 AuthorityCapability.observe,
                 AuthorityCapability.draft,
@@ -2497,6 +2720,7 @@ def _filter_requested_domains(
     granted: dict[AuthorityDomain, list[AuthorityCapability]] = {}
     denied_refs: list[str] = []
     unsupported_refs: list[str] = []
+    exact_binding = _exact_authority_issue_binding(request)
     for domain, capabilities in requested.items():
         domain_value = AuthorityDomain(domain)
         allowed_capabilities = allowed.get(domain_value, set())
@@ -2505,20 +2729,33 @@ def _filter_requested_domains(
             for capability in capabilities
             if AuthorityCapability(capability) in allowed_capabilities
         ]
-        if domain_value == AuthorityDomain.messages:
-            expected_capability = _exact_messages_issue_capability(request)
-            if expected_capability is None or granted_capabilities != [
-                expected_capability
-            ]:
+        exact_binding_matches_domain = False
+        if request.requested_lease_ref is not None:
+            if exact_binding is None:
                 granted_capabilities = []
+            else:
+                expected_domain, expected_capability, _, _ = exact_binding
+                exact_binding_matches_domain = (
+                    domain_value == expected_domain
+                    and capabilities == [expected_capability]
+                )
+                granted_capabilities = (
+                    [expected_capability] if exact_binding_matches_domain else []
+                )
+        elif domain_value == AuthorityDomain.messages:
+            granted_capabilities = []
         if granted_capabilities:
             granted[domain_value] = granted_capabilities
-        denied = [
-            AuthorityCapability(capability)
-            for capability in capabilities
-            if AuthorityCapability(capability) not in allowed_capabilities
-        ]
-        if denied or domain_value not in allowed:
+        denied = (
+            []
+            if exact_binding_matches_domain
+            else [
+                AuthorityCapability(capability)
+                for capability in capabilities
+                if AuthorityCapability(capability) not in allowed_capabilities
+            ]
+        )
+        if denied or (domain_value not in allowed and not exact_binding_matches_domain):
             denied_refs.append(f"authority-domain-ref:{domain_value.value}")
         for capability in denied:
             suffix = (
@@ -2527,22 +2764,32 @@ def _filter_requested_domains(
                 else "not-implemented-for-authority-lease-v1"
             )
             unsupported_refs.append(
-                "adapter-ref:"
-                f"{domain_value.value}:{capability.value}"
-                f"-{suffix}"
+                f"adapter-ref:{domain_value.value}:{capability.value}-{suffix}"
             )
-        if domain_value not in allowed and domain_value not in known_local:
+        if (
+            domain_value not in allowed
+            and domain_value not in known_local
+            and not exact_binding_matches_domain
+        ):
             unsupported_refs.append(
                 f"adapter-ref:{domain_value.value}:not-implemented-for-authority-lease-v1"
             )
-    return granted, list(dict.fromkeys(denied_refs)), list(dict.fromkeys(unsupported_refs))
+    return (
+        granted,
+        list(dict.fromkeys(denied_refs)),
+        list(dict.fromkeys(unsupported_refs)),
+    )
 
 
 def _sorted_domain_capabilities(
-    domains: dict[AuthorityDomain, list[AuthorityCapability] | set[AuthorityCapability]],
+    domains: dict[
+        AuthorityDomain, list[AuthorityCapability] | set[AuthorityCapability]
+    ],
 ) -> dict[AuthorityDomain, list[AuthorityCapability]]:
     sorted_domains: dict[AuthorityDomain, list[AuthorityCapability]] = {}
-    for domain, capabilities in sorted(domains.items(), key=lambda item: _enum_value(item[0])):
+    for domain, capabilities in sorted(
+        domains.items(), key=lambda item: _enum_value(item[0])
+    ):
         sorted_domains[AuthorityDomain(domain)] = sorted(
             [AuthorityCapability(capability) for capability in capabilities],
             key=_enum_value,
@@ -2580,9 +2827,7 @@ def _authority_mode_catalog_summary(
     mode_label = mode.value.replace("_", " ")
     granted_count = sum(len(capabilities) for capabilities in granted_domains.values())
     if status == "blocked_kill_switch_engaged":
-        return (
-            f"{mode_label} cannot issue while the AuthorityLease kill switch is engaged."
-        )
+        return f"{mode_label} cannot issue while the AuthorityLease kill switch is engaged."
     if status.startswith("issue_ready"):
         return (
             f"{mode_label} default scope is issue-ready for {granted_count} "
@@ -2628,7 +2873,12 @@ def build_authority_mode_catalog(
         )
         granted, denied_refs, unsupported_refs = _filter_requested_domains(request)
         approval_required = _authority_lease_requires_approval(request, granted)
-        issue_ready = bool(granted) and not denied_refs and not unsupported_refs and not kill_switch_engaged
+        issue_ready = (
+            bool(granted)
+            and not denied_refs
+            and not unsupported_refs
+            and not kill_switch_engaged
+        )
         blocked_reason_refs: list[str] = []
         if kill_switch_engaged:
             blocked_reason_refs.append("reason-ref:authority:kill-switch-engaged")
@@ -2655,7 +2905,9 @@ def build_authority_mode_catalog(
                 grantable_domains=_sorted_domain_capabilities(
                     {
                         domain: capabilities
-                        for domain, capabilities in _allowed_domain_capabilities(mode).items()
+                        for domain, capabilities in _allowed_domain_capabilities(
+                            mode
+                        ).items()
                     }
                 ),
                 granted_default_domains=_sorted_domain_capabilities(granted),
@@ -2755,7 +3007,9 @@ def build_authority_lease_approval_requirement(
             for constraint in request.authority_constraints
         ],
     }
-    approval_scope_ref = _stable_ref("approval-scope-ref:authority-lease", scope_payload)
+    approval_scope_ref = _stable_ref(
+        "approval-scope-ref:authority-lease", scope_payload
+    )
     approval_request_ref = _stable_ref(
         "approval-request-ref:authority-lease",
         {"approval_scope_ref": approval_scope_ref, "operation": "issue"},
@@ -3053,9 +3307,7 @@ class AuthorityLeaseStore:
         self.state_dir = state_dir or authority_state_dir()
         self.leases_path = self.state_dir / AUTHORITY_LEASES_FILE
         self.receipts_path = self.state_dir / AUTHORITY_LEASE_RECEIPTS_FILE
-        self.lock_manager = authority_state_lock_manager(
-            str(self.state_dir.resolve())
-        )
+        self.lock_manager = authority_state_lock_manager(str(self.state_dir.resolve()))
 
     def list_leases(self, *, active_only: bool = False) -> list[AuthorityLease]:
         if not self.leases_path.exists():
@@ -3181,7 +3433,9 @@ class AuthorityLeaseStore:
                 existing.operation != "issue"
                 or existing.request_fingerprint_ref != request_fingerprint_ref
             ):
-                raise AuthorityLeaseConflictError("AUTHORITY_LEASE_IDEMPOTENCY_CONFLICT")
+                raise AuthorityLeaseConflictError(
+                    "AUTHORITY_LEASE_IDEMPOTENCY_CONFLICT"
+                )
             lease = self._lease_by_ref(existing.lease_ref)
             return lease, existing.model_copy(update={"status": "replayed"})
         if (
@@ -3203,7 +3457,9 @@ class AuthorityLeaseStore:
                 "scope": request.scope,
                 "mission_ref": request.mission_ref,
                 "granted": {
-                    _enum_value(domain): [_enum_value(capability) for capability in caps]
+                    _enum_value(domain): [
+                        _enum_value(capability) for capability in caps
+                    ]
                     for domain, caps in granted.items()
                 },
                 "authority_constraints": [
@@ -3288,6 +3544,8 @@ class AuthorityLeaseStore:
             self._append_receipt(receipt)
             return None, receipt
         now = utc_now()
+        exact_safe_disable_ref = request.constraints.get("exact_safe_disable_ref")
+        exact_rollback_ref = request.constraints.get("exact_rollback_ref")
         lease = AuthorityLease(
             lease_ref=lease_ref,
             mode=request.mode,
@@ -3309,8 +3567,16 @@ class AuthorityLeaseStore:
                 "unsupported_adapters_execute": False,
             },
             unsupported_adapter_refs=unsupported_refs,
-            safe_disable_ref=f"safe-disable-ref:{lease_ref.split(':')[-1]}",
-            rollback_ref=f"rollback-ref:{lease_ref.split(':')[-1]}",
+            safe_disable_ref=(
+                exact_safe_disable_ref
+                if isinstance(exact_safe_disable_ref, str)
+                else f"safe-disable-ref:{lease_ref.split(':')[-1]}"
+            ),
+            rollback_ref=(
+                exact_rollback_ref
+                if isinstance(exact_rollback_ref, str)
+                else f"rollback-ref:{lease_ref.split(':')[-1]}"
+            ),
             kill_switch_ref="kill-switch-ref:authority-lease-local",
             audit_ref=f"audit-ref:{lease_ref.split(':')[-1]}",
             receipt_sink_ref="receipt-sink-ref:authority-lease-action-receipts",
@@ -3318,7 +3584,9 @@ class AuthorityLeaseStore:
             expires_at=now + timedelta(minutes=request.duration_minutes),
             safe_summary=request.safe_summary,
         )
-        leases = [item for item in self._read_leases() if item.lease_ref != lease.lease_ref]
+        leases = [
+            item for item in self._read_leases() if item.lease_ref != lease.lease_ref
+        ]
         leases.append(lease)
         self._write_leases(leases)
         receipt = self._receipt(
@@ -3367,12 +3635,16 @@ class AuthorityLeaseStore:
                 existing.operation != "revoke"
                 or existing.request_fingerprint_ref != request_fingerprint_ref
             ):
-                raise AuthorityLeaseConflictError("AUTHORITY_LEASE_IDEMPOTENCY_CONFLICT")
+                raise AuthorityLeaseConflictError(
+                    "AUTHORITY_LEASE_IDEMPOTENCY_CONFLICT"
+                )
             return self._lease_by_ref(existing.lease_ref), existing.model_copy(
                 update={"status": "replayed"}
             )
         leases = self._read_leases()
-        lease = next((item for item in leases if item.lease_ref == request.lease_ref), None)
+        lease = next(
+            (item for item in leases if item.lease_ref == request.lease_ref), None
+        )
         if lease is None:
             receipt = AuthorityLeaseReceipt(
                 operation="revoke",
@@ -3561,7 +3833,9 @@ class AuthorityLeaseStore:
     def _append_receipt(self, receipt: AuthorityLeaseReceipt) -> None:
         self.state_dir.mkdir(parents=True, exist_ok=True)
         with self.receipts_path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(receipt.model_dump(mode="json"), sort_keys=True) + "\n")
+            handle.write(
+                json.dumps(receipt.model_dump(mode="json"), sort_keys=True) + "\n"
+            )
             handle.flush()
             os.fsync(handle.fileno())
 
@@ -3591,7 +3865,10 @@ class AuthorityLeaseStore:
         return matched
 
     def _lease_by_ref(self, lease_ref: str) -> AuthorityLease | None:
-        return next((lease for lease in self._read_leases() if lease.lease_ref == lease_ref), None)
+        return next(
+            (lease for lease in self._read_leases() if lease.lease_ref == lease_ref),
+            None,
+        )
 
     def get_lease(self, lease_ref: str) -> AuthorityLease | None:
         validate_task_ref(lease_ref, "authority_lease_ref")
@@ -3609,11 +3886,15 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
 
 
 @lru_cache(maxsize=1)
-def _cached_existing_lane_authority_mappings() -> tuple[AuthorityCapabilityMapping, ...]:
+def _cached_existing_lane_authority_mappings() -> tuple[
+    AuthorityCapabilityMapping, ...
+]:
     return tuple(_build_existing_lane_authority_mappings_uncached())
 
 
-def _build_existing_lane_authority_mappings_uncached() -> list[AuthorityCapabilityMapping]:
+def _build_existing_lane_authority_mappings_uncached() -> list[
+    AuthorityCapabilityMapping
+]:
     from ultimate_ai_agent.core.authority.lane_registry import (
         build_existing_lane_authority_mappings as build_registry,
     )
@@ -3735,6 +4016,16 @@ REQUIRED_AUTHORITY_LANE_IDS = (
     "matrix.harness.fixture_seed",
     "matrix.harness.stop",
     "matrix.harness.reset",
+    "matrix.session.discovery_read",
+    "matrix.session.auth_methods_read",
+    "matrix.session.credential_auth_create",
+    "matrix.session.sso_launch",
+    "matrix.session.sso_callback_consume",
+    "matrix.session.refresh",
+    "matrix.session.logout",
+    "matrix.session.revoke_all",
+    "matrix.session.credential_store_rotate",
+    "matrix.session.credential_delete",
 )
 
 
@@ -3743,8 +4034,16 @@ def build_authority_lane_catalog_read_model(
     active_leases: list[AuthorityLease] | None = None,
     kill_switch_engaged: bool = False,
 ) -> AuthorityLaneCatalogReadModel:
-    from ultimate_ai_agent.core.sandbox_calculation.authority_surfaces import build_sealed_arithmetic_lane_catalog_entry
-    from ultimate_ai_agent.core.communications.matrix_harness.authority_surfaces import build_matrix_harness_lane_catalog_entries
+    from ultimate_ai_agent.core.sandbox_calculation.authority_surfaces import (
+        build_sealed_arithmetic_lane_catalog_entry,
+    )
+    from ultimate_ai_agent.core.communications.matrix_harness.authority_surfaces import (
+        build_matrix_harness_lane_catalog_entries,
+    )
+    from ultimate_ai_agent.core.communications.matrix_session.authority_surfaces import (
+        build_matrix_session_lane_catalog_entries,
+    )
+
     leases = active_leases or build_default_authority_leases()
     entries = [
         _authority_lane_entry(
@@ -3890,7 +4189,9 @@ def build_authority_lane_catalog_read_model(
             active_leases=leases,
             kill_switch_engaged=kill_switch_engaged,
         ),
-        build_sealed_arithmetic_lane_catalog_entry(active_leases=leases, kill_switch_engaged=kill_switch_engaged),
+        build_sealed_arithmetic_lane_catalog_entry(
+            active_leases=leases, kill_switch_engaged=kill_switch_engaged
+        ),
         _authority_lane_entry(
             lane_id="code.apply_exact_patch",
             label="Code exact patch apply",
@@ -4131,10 +4432,18 @@ def build_authority_lane_catalog_read_model(
             active_leases=leases,
             kill_switch_engaged=kill_switch_engaged,
         ),
+        *build_matrix_session_lane_catalog_entries(
+            active_leases=leases,
+            kill_switch_engaged=kill_switch_engaged,
+        ),
     ]
     lane_ids = [entry.lane_id for entry in entries]
-    missing = [lane_id for lane_id in REQUIRED_AUTHORITY_LANE_IDS if lane_id not in lane_ids]
-    blocked_refs = sorted({ref for entry in entries for ref in entry.blocked_reason_refs})
+    missing = [
+        lane_id for lane_id in REQUIRED_AUTHORITY_LANE_IDS if lane_id not in lane_ids
+    ]
+    blocked_refs = sorted(
+        {ref for entry in entries for ref in entry.blocked_reason_refs}
+    )
     unsupported_refs = sorted(
         {ref for entry in entries for ref in entry.unsupported_adapter_refs}
     )
@@ -4194,7 +4503,8 @@ def _authority_lane_entry(
             capability_ref=f"authority-capability-ref:{lane_id.replace('.', '-')}",
             lane_ref=lane_ref,
             requested_mode=required_mode,
-            draft_fallback_available=status in {"implemented", "partial", "proposal_only"},
+            draft_fallback_available=status
+            in {"implemented", "partial", "proposal_only"},
             unsupported_adapter=bool(source_unsupported_refs),
             kill_switch_engaged=kill_switch_engaged,
             rollback_ref=f"rollback-ref:authority-lane-catalog:{lane_id.replace('.', '-')}",
@@ -4255,7 +4565,9 @@ def build_authority_decision_summary(
     outcome_counts = Counter(
         _enum_value(entry.decision.outcome) for entry in decision_catalog
     )
-    domain_counts = Counter(_enum_value(entry.decision.domain) for entry in decision_catalog)
+    domain_counts = Counter(
+        _enum_value(entry.decision.domain) for entry in decision_catalog
+    )
     status_counts = Counter(entry.status for entry in decision_catalog)
     capability_refs_by_outcome: dict[str, list[str]] = {
         outcome.value: [] for outcome in AuthorityDecisionOutcome
@@ -4335,11 +4647,7 @@ def build_authority_domain_readiness(
         status_counter = Counter(entry.status for entry in domain_entries)
         mapped_refs = [entry.authority_capability_ref for entry in domain_entries]
         unsupported_refs = sorted(
-            {
-                ref
-                for entry in domain_entries
-                for ref in entry.unsupported_adapter_refs
-            }
+            {ref for entry in domain_entries for ref in entry.unsupported_adapter_refs}
         )
         blocked_refs = sorted(
             {

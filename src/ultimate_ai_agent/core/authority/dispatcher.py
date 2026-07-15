@@ -16,12 +16,22 @@ from ultimate_ai_agent.core.approvals.authority import LocalApprovalAuthority
 from ultimate_ai_agent.core.authority.authority_constants import (
     AUTHORITY_DISPATCH_RECEIPTS_FILE,
     AUTHORITY_STATE_LOCK_KEY,
+    MATRIX_AUTH_METHODS_READ_TOOL_REF,
+    MATRIX_CREDENTIAL_DELETE_TOOL_REF,
+    MATRIX_CREDENTIAL_STORE_ROTATE_TOOL_REF,
+    MATRIX_DISCOVERY_READ_TOOL_REF,
     MATRIX_HARNESS_FIXTURE_SEED_TOOL_REF,
     MATRIX_HARNESS_INSPECT_TOOL_REF,
     MATRIX_HARNESS_RESET_TOOL_REF,
     MATRIX_HARNESS_SMOKE_TOOL_REF,
     MATRIX_HARNESS_START_TOOL_REF,
     MATRIX_HARNESS_STOP_TOOL_REF,
+    MATRIX_SESSION_CREDENTIAL_AUTH_CREATE_TOOL_REF,
+    MATRIX_SESSION_LOGOUT_TOOL_REF,
+    MATRIX_SESSION_REFRESH_TOOL_REF,
+    MATRIX_SESSION_REVOKE_ALL_TOOL_REF,
+    MATRIX_SESSION_SSO_CALLBACK_TOOL_REF,
+    MATRIX_SESSION_SSO_LAUNCH_TOOL_REF,
     PORTABLE_EVIDENCE_KEY_CREATE_TOOL_REF,
     PORTABLE_EVIDENCE_KEY_CLEANUP_TOOL_REF,
     PORTABLE_EVIDENCE_KEY_MARK_LOST_TOOL_REF,
@@ -419,6 +429,46 @@ _TOOL_AUTHORITY_BINDINGS = {
     MATRIX_HARNESS_RESET_TOOL_REF: (
         AuthorityDomain.messages.value,
         AuthorityCapability.mutate.value,
+    ),
+    MATRIX_DISCOVERY_READ_TOOL_REF: (
+        AuthorityDomain.messages.value,
+        AuthorityCapability.read.value,
+    ),
+    MATRIX_AUTH_METHODS_READ_TOOL_REF: (
+        AuthorityDomain.messages.value,
+        AuthorityCapability.read.value,
+    ),
+    MATRIX_SESSION_CREDENTIAL_AUTH_CREATE_TOOL_REF: (
+        AuthorityDomain.messages.value,
+        AuthorityCapability.mutate.value,
+    ),
+    MATRIX_SESSION_SSO_LAUNCH_TOOL_REF: (
+        AuthorityDomain.browser.value,
+        AuthorityCapability.execute.value,
+    ),
+    MATRIX_SESSION_SSO_CALLBACK_TOOL_REF: (
+        AuthorityDomain.messages.value,
+        AuthorityCapability.mutate.value,
+    ),
+    MATRIX_SESSION_REFRESH_TOOL_REF: (
+        AuthorityDomain.messages.value,
+        AuthorityCapability.mutate.value,
+    ),
+    MATRIX_SESSION_LOGOUT_TOOL_REF: (
+        AuthorityDomain.messages.value,
+        AuthorityCapability.mutate.value,
+    ),
+    MATRIX_SESSION_REVOKE_ALL_TOOL_REF: (
+        AuthorityDomain.messages.value,
+        AuthorityCapability.destructive.value,
+    ),
+    MATRIX_CREDENTIAL_STORE_ROTATE_TOOL_REF: (
+        AuthorityDomain.system_settings.value,
+        AuthorityCapability.write.value,
+    ),
+    MATRIX_CREDENTIAL_DELETE_TOOL_REF: (
+        AuthorityDomain.system_settings.value,
+        AuthorityCapability.destructive.value,
     ),
 }
 
@@ -1682,9 +1732,7 @@ class AuthorityDispatcher:
         runtime_prestart = getattr(adapter, "runtime_prestart_reason_refs", None)
         if not callable(runtime_prestart):
             return []
-        invalid = [
-            "reason-ref:authority-dispatch:adapter-runtime-prestart-invalid"
-        ]
+        invalid = ["reason-ref:authority-dispatch:adapter-runtime-prestart-invalid"]
         try:
             values = runtime_prestart(request)
             if not isinstance(values, list) or len(values) > 32:
@@ -1692,7 +1740,9 @@ class AuthorityDispatcher:
             for value in values:
                 if not isinstance(value, str) or not value.startswith("reason-ref:"):
                     return invalid
-                validate_task_ref(value, "authority_dispatch_runtime_prestart_reason_ref")
+                validate_task_ref(
+                    value, "authority_dispatch_runtime_prestart_reason_ref"
+                )
         except Exception:
             return invalid
         return list(dict.fromkeys(values))

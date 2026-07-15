@@ -12949,6 +12949,7 @@ export interface RuntimeVoiceMediaPostureReadModel {
 }
 
 export type CommunicationsProviderStatus =
+  | "partial"
   | "unsupported"
   | "disabled"
   | "unknown";
@@ -13004,7 +13005,16 @@ export interface CommunicationsProviderDescriptor {
 export interface CommunicationsSessionPosture {
   provider_ref: string;
   session_ref: string;
-  status: "not_configured" | "blocked" | "unknown";
+  status:
+    | "not_configured"
+    | "ready_for_authentication"
+    | "active"
+    | "refresh_required"
+    | "soft_logged_out"
+    | "revoked"
+    | "recovery_required"
+    | "blocked"
+    | "unknown";
   freshness: "current" | "stale" | "unknown";
   account_refs: string[];
   reason_codes: string[];

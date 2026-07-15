@@ -117,12 +117,12 @@
       }
     },
     "current_mutating_route_count": {
-      "const": 62
+      "const": 70
     },
     "current_mutating_routes": {
       "type": "array",
-      "minItems": 62,
-      "maxItems": 62,
+      "minItems": 70,
+      "maxItems": 70,
       "items": {
         "$ref": "#/$defs/mutating_route"
       }
@@ -220,7 +220,12 @@
           "enum": [
             "local_dev_workspace_only",
             "governed_network_read_only",
-            "validation_only"
+            "validation_only",
+            "authenticated_connector_mutation",
+            "system_browser_exact_launch",
+            "local_sensitive",
+            "destructive_local_sensitive",
+            "destructive_external"
           ]
         },
         "route_classification": {
@@ -283,9 +288,19 @@
               }
             },
             "else": {
-              "properties": {
-                "side_effect_class": {
-                  "const": "local_dev_workspace_only"
+              "if": {
+                "properties": {
+                  "path": {
+                    "pattern": "^/control-center/communications/matrix/"
+                  }
+                }
+              },
+              "then": true,
+              "else": {
+                "properties": {
+                  "side_effect_class": {
+                    "const": "local_dev_workspace_only"
+                  }
                 }
               }
             }

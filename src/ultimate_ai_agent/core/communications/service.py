@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from datetime import datetime
+from pathlib import Path
 
 from ultimate_ai_agent.core.communications.contracts import (
     COMMUNICATIONS_MAX_PAGE_SIZE,
@@ -19,8 +20,10 @@ from ultimate_ai_agent.core.communications.contracts import (
     CommunicationsSessionStatus,
 )
 from ultimate_ai_agent.core.communications.matrix_disabled import (
-    DisabledMatrixAdapter,
     MATRIX_PROVIDER_REF,
+)
+from ultimate_ai_agent.core.communications.matrix_session.availability import (
+    build_matrix_session_provider_descriptor,
 )
 from ultimate_ai_agent.core.communications.registry import (
     CommunicationsProviderRegistry,
@@ -130,7 +133,11 @@ def build_default_communications_service(
     *, checked_at: datetime | None = None
 ) -> CommunicationsService:
     observed_at = checked_at or utc_now()
-    descriptor = DisabledMatrixAdapter().inspect_descriptor(checked_at=observed_at)
+    repo_root = Path(__file__).resolve().parents[4]
+    descriptor = build_matrix_session_provider_descriptor(
+        repo_root=repo_root,
+        checked_at=observed_at,
+    )
     receipt = CommunicationsReceipt(
         receipt_ref="receipt-ref:communications:contract-inspection",
         operation_ref="operation-ref:communications:contract-inspection",
@@ -139,10 +146,10 @@ def build_default_communications_service(
         outcome=CommunicationsReceiptOutcome.not_executed,
         occurred_at=observed_at,
         reason_codes=["COMMUNICATIONS_CONTRACT_INSPECTED"],
-        blocker_codes=["MATRIX_RUNTIME_DISABLED"],
+        blocker_codes=["MATRIX_ACCOUNT_SESSION_NOT_CONFIGURED"],
         evidence_refs=["evidence-ref:communications:contract-inspection"],
         redaction_status=CommunicationsRedactionStatus.safe_refs_only,
-        safe_summary="Communications contracts were inspected without provider execution.",
+        safe_summary="Matrix discovery/session-read posture was inspected without execution.",
     )
     return CommunicationsService(
         registry=CommunicationsProviderRegistry([descriptor]),
@@ -151,9 +158,8 @@ def build_default_communications_service(
             session_ref="session-ref:communications:matrix:not-configured",
             status=CommunicationsSessionStatus.not_configured,
             freshness=CommunicationsFreshnessStatus.unknown,
-            reason_codes=["MATRIX_SESSION_DECLARATION_ONLY"],
+            reason_codes=["MATRIX_SESSION_READ_LANES_AVAILABLE_FOR_EXACT_EVALUATION"],
             blocker_codes=[
-                "MATRIX_NETWORK_AUTHORITY_NOT_ACCEPTED",
                 "MATRIX_ACCOUNT_SESSION_NOT_CONFIGURED",
             ],
             safe_summary="Matrix account and session runtime are not configured.",
@@ -167,7 +173,7 @@ def build_default_communications_service(
             reason_codes=["COMMUNICATIONS_SECURITY_CONTRACT_DECLARED"],
             blocker_codes=[
                 "MATRIX_CRYPTO_RUNTIME_NOT_IMPLEMENTED",
-                "MATRIX_CREDENTIAL_AUTHORITY_NOT_ACCEPTED",
+                "MATRIX_SSO_BROKER_NOT_IMPLEMENTED",
                 "MATRIX_CACHE_RUNTIME_NOT_IMPLEMENTED",
             ],
             safe_summary="Credential, encryption, and cache runtimes remain unavailable.",

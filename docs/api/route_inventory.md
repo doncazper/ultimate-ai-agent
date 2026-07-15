@@ -3,7 +3,7 @@
 Current active baseline: **v0.104.0**
 
 <!-- uaa-api-contract-counts:start -->
-Current generated contract snapshot: `275` OpenAPI paths and `276` manifest route operations.
+Current generated contract snapshot: `285` OpenAPI paths and `286` manifest route operations.
 <!-- uaa-api-contract-counts:end -->
 
 The checked-in inventory is the canonical generated static API contract
@@ -71,8 +71,8 @@ Current route classification summary:
 |---|---:|
 | `public_metadata` | 3 |
 | `local_readonly` | 29 |
-| `local_sensitive` | 182 |
-| `mutating_requires_authority` | 62 |
+| `local_sensitive` | 184 |
+| `mutating_requires_authority` | 70 |
 
 Allowed current side-effect classes are:
 
@@ -80,6 +80,11 @@ Allowed current side-effect classes are:
 - `validation_only`
 - `local_dev_workspace_only`
 - `governed_network_read_only`
+- `authenticated_connector_mutation`
+- `system_browser_exact_launch`
+- `destructive_external`
+- `local_sensitive`
+- `destructive_local_sensitive`
 
 Production runtime side effects remain blocked unless an exact scoped milestone
 grants reviewed authority and updates OpenAPI, route side-effect

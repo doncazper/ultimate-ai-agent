@@ -5,6 +5,7 @@ from ultimate_ai_agent.core.gate.legacy_support import *  # noqa: F401,F403
 
 class FoundationGateLegacyChecksPart003Mixin:
     """Legacy checks from documentation_integrity_current through m13_backend_api_contract_unchanged."""
+
     def check_documentation_integrity_current(
         self, criterion: FoundationGateCriterion
     ) -> FoundationGateResult:
@@ -686,7 +687,12 @@ class FoundationGateLegacyChecksPart003Mixin:
         self, criterion: FoundationGateCriterion
     ) -> FoundationGateResult:
         from ultimate_ai_agent.api.app import app
-        from ultimate_ai_agent.api.manifest import iter_api_route_items
+        from ultimate_ai_agent.api.manifest import (
+            CONTROL_CENTER_MATRIX_SESSION_MUTATION_PATHS,
+            CONTROL_CENTER_MATRIX_SESSION_READ_PATHS,
+            CONTROL_CENTER_MATRIX_SESSION_SIDE_EFFECTS,
+            iter_api_route_items,
+        )
         from ultimate_ai_agent.api.openapi import (
             FORBIDDEN_ROUTE_FRAGMENT_EXEMPTIONS,
             FORBIDDEN_ROUTE_FRAGMENTS,
@@ -774,8 +780,7 @@ class FoundationGateLegacyChecksPart003Mixin:
                     )
                     or (
                         route.method == "POST"
-                        and route.route_classification
-                        == "mutating_requires_authority"
+                        and route.route_classification == "mutating_requires_authority"
                         and route.approval_posture
                         == "required_before_mutation_authority"
                         and route.idempotency_required
@@ -939,8 +944,7 @@ class FoundationGateLegacyChecksPart003Mixin:
                 )
                 and route.route_classification == "local_sensitive"
                 and route.protected_route
-                and route.approval_posture
-                == "not_required_for_route_classification"
+                and route.approval_posture == "not_required_for_route_classification"
                 and not route.idempotency_required
                 and route.rate_limit_targeted
                 and route.rate_limit_group == "communications_matrix_harness"
@@ -952,11 +956,35 @@ class FoundationGateLegacyChecksPart003Mixin:
                 and route.side_effect_class == "local_dev_workspace_only"
                 and route.route_classification == "mutating_requires_authority"
                 and route.protected_route
-                and route.approval_posture
-                == "required_before_mutation_authority"
+                and route.approval_posture == "required_before_mutation_authority"
                 and route.idempotency_required
                 and route.rate_limit_targeted
                 and route.rate_limit_group == "communications_matrix_harness"
+                and route.blocked_from_production
+            )
+            is_matrix_session_read_command = (
+                path in CONTROL_CENTER_MATRIX_SESSION_READ_PATHS
+                and route.method == "POST"
+                and route.side_effect_class == "governed_network_read_only"
+                and route.route_classification == "local_sensitive"
+                and route.protected_route
+                and route.approval_posture == "not_required_for_route_classification"
+                and not route.idempotency_required
+                and route.rate_limit_targeted
+                and route.rate_limit_group == "communications_matrix_session"
+                and route.blocked_from_production
+            )
+            is_matrix_session_mutation_command = (
+                path in CONTROL_CENTER_MATRIX_SESSION_MUTATION_PATHS
+                and route.method == "POST"
+                and route.side_effect_class
+                == CONTROL_CENTER_MATRIX_SESSION_SIDE_EFFECTS[path].value
+                and route.route_classification == "mutating_requires_authority"
+                and route.protected_route
+                and route.approval_posture == "required_before_mutation_authority"
+                and route.idempotency_required
+                and route.rate_limit_targeted
+                and route.rate_limit_group == "communications_matrix_session"
                 and route.blocked_from_production
             )
             is_crm_read_model = (
@@ -1008,6 +1036,8 @@ class FoundationGateLegacyChecksPart003Mixin:
                 and not is_communications_read_model
                 and not is_matrix_harness_read_command
                 and not is_matrix_harness_mutation_command
+                and not is_matrix_session_read_command
+                and not is_matrix_session_mutation_command
                 and not is_crm_read_model
                 and not is_crm_or_work_board_command_state
             ):

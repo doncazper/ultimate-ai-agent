@@ -156,6 +156,7 @@ jobs:
           python3.12 -m venv .ci-bootstrap
           .ci-bootstrap/bin/python -m pip install --disable-pip-version-check "uv==0.11.21"
           .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3.12
+          npm --prefix integrations/matrix-client-adapter ci --ignore-scripts
 
       - name: Run pytest shard
         run: |
@@ -233,6 +234,7 @@ jobs:
           python3.12 -m venv .ci-bootstrap
           .ci-bootstrap/bin/python -m pip install --disable-pip-version-check "uv==0.11.21"
           .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3.12
+          npm --prefix integrations/matrix-client-adapter ci --ignore-scripts
 
       - name: Run canonical static verification lane
         run: |

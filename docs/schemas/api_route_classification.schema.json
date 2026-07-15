@@ -297,7 +297,12 @@
               "none",
               "validation_only",
               "local_dev_workspace_only",
-              "governed_network_read_only"
+              "governed_network_read_only",
+              "authenticated_connector_mutation",
+              "system_browser_exact_launch",
+              "local_sensitive",
+              "destructive_local_sensitive",
+              "destructive_external"
             ]
           },
           "route_classification": {
@@ -360,6 +365,7 @@
               "action_decision",
               "chat_durable_receipt",
               "communications_matrix_harness",
+              "communications_matrix_session",
               "local_model_validation",
               "memory_feedback",
               "memory_context_pack_action_proposal",

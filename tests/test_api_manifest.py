@@ -35,7 +35,11 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned() -> None:
     assert manifest["api_version"] == __version__
     assert manifest["package_version"] == __version__
     assert manifest["active_baseline"] == active_baseline_label()
-    assert manifest["no_runtime_integrations"] is True
+    assert manifest["no_runtime_integrations"] is False
+    assert (
+        "communications_matrix_sdk_read_adapter_boundary"
+        in manifest["capabilities_declared"]
+    )
     assert (
         "governed_runtime_loopback_local_model_call_pilot"
         in manifest["capabilities_declared"]

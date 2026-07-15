@@ -631,9 +631,9 @@ tests, safe-disable posture, and rollback-readiness evidence.
 <!-- MSG-MX-CURRENT-OVERLAY:START -->
 MSG-MX-000 through MSG-MX-012 Messenger Matrix Desktop Program
 Baseline authority map: `docs/connectors/MESSENGER_MATRIX_BASELINE_AUTHORITY_MAP.md`
-Current phase: `MSG-MX-004`
-Current program status: `exact_local_harness_lanes_live_verified_pending_merge_evidence`
-Current evidence ref: `evidence-ref:msg-mx-004:local-synapse-harness`
+Current phase: `MSG-MX-005`
+Current program status: `partial_discovery_auth_read_lanes_implemented_pending_merge_gate`
+Current evidence ref: `evidence-ref:msg-mx-005:partial-discovery-session`
 Goal: build a clean-room, macOS-first Messenger Matrix client through thirteen
 finite merge-gated milestones without treating design, UI state, generic
 messages authority, or Full Machine Access as Matrix runtime authority.
@@ -654,12 +654,15 @@ safe-disable, and idempotency/replay. Approval refs grant nothing; unknown or
 stale state fails closed.
 <!-- MSG-MX-CURRENT-OVERLAY:END -->
 
-Current Messenger Matrix next milestone after MSG-MX-004 merges and verifies:
-`MSG-MX-005` server discovery and account session. It remains blocked until its
-exact connector/network/credential authority is separately accepted.
-MSG-MX-004 adds only six exact disposable loopback harness lanes; Matrix
-account, sync, message, crypto, media, and Messenger UI runtime remain
-unavailable. No fixture UI is connected to the harness routes.
+Historical MSG-MX-004 merge evidence remains
+`evidence-ref:msg-mx-004:local-synapse-harness`.
+MSG-MX-005 implements exact homeserver discovery and authentication-method
+inspection through Python Core and the pinned Matrix adapter. Credential
+authentication, SSO launch/callback, refresh, logout, revoke-all, credential
+rotation, and credential deletion remain blocked pending an authenticated
+one-use handoff or socket-owning SSO broker. Matrix account/session, sync,
+message, crypto, media, and Messenger UI runtime remain unavailable. No
+fixture UI is connected to the session routes.
 The accepted design gate is recorded in
 `docs/design/control_center_north_star/UAA_MESSENGER_MATRIX_RENDER_ACCEPTANCE.md`,
 `docs/decisions/ADR-0062-messenger-matrix-client-and-data-boundaries.md`,

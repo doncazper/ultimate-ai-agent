@@ -302,9 +302,7 @@
         "apps/control-center/src/App.test.tsx"
       ],
       "blocked_capabilities": [
-        "missing_backend:communications-contracts",
-        "missing_backend:communications-api-cli-inspection",
-        "missing_backend:matrix-adapter",
+        "partial_backend:matrix-discovery-auth-method-reads-not-ui-bound",
         "missing_backend:matrix-account-session",
         "missing_backend:matrix-sync",
         "missing_backend:matrix-encryption",
@@ -333,13 +331,13 @@
       "visual_baseline_ref": "visual-baseline:control-center:messenger-desktop",
       "visual_proof_rationale": "Checked-in redacted synthetic desktop-only baselines cover all fifteen accepted Messenger targets at the two accepted desktop widths; they prove presentation only, not Matrix runtime behavior.",
       "promotion_criteria": [
-        "Complete MSG-MX-003 Python communications contracts and matching CLI/API read-only inspection before adding backend truth.",
+        "Bind the MSG-MX-005 backend read truth to Messenger only in a separately verified UI milestone; current Messenger data remains synthetic.",
         "Accept each exact connector, network, credential, sync, encryption, read, send, room, media, or call lane separately before runtime use.",
         "Preserve safe refs, redaction, idempotency, receipts, rollback-readiness, safe-disable, and request-scoped AuthorityLease evaluation for every later mutation.",
         "Keep public release, production readiness, production authority, arbitrary connector writes, and autonomous sends blocked."
       ],
       "product_language_caveats": [
-        "Messenger currently renders synthetic desktop fixtures only; it has no Matrix dependency, account, network, sync, encryption session, local cache, message read/send, room mutation, media, call, or credential runtime.",
+        "Messenger currently renders synthetic desktop fixtures only. The repository has exact backend Matrix discovery/auth-method reads, but this UI has no connected account, authenticated session, sync, encryption session, local cache, message read/send, room mutation, media, call, or credential runtime.",
         "All visible success-like counts, people, rooms, messages, devices, refs, and timestamps are clearly synthetic preview data.",
         "Filtering, selection, theme, and inspector visibility are presentation state only; no backend truth, approval, memory, or authority is created.",
         "Python Agent Core remains product truth and Control Center cannot mint authority.",

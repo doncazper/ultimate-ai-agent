@@ -14,10 +14,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 if __package__:
-    from .runtime_subprocess_policy import GOVERNED_RUNTIME_COMMAND_ADAPTER_REL, _is_exact_governed_runtime_command_shell_scan_line, _is_exact_governed_runtime_command_subprocess_site, is_exact_portable_evidence_helper_home_path
+    from .runtime_subprocess_policy import GOVERNED_RUNTIME_COMMAND_ADAPTER_REL, _is_exact_governed_runtime_command_shell_scan_line, _is_exact_governed_runtime_command_subprocess_site, is_exact_matrix_session_bounded_filesystem_site, is_exact_portable_evidence_helper_home_path
     from .static_scan_policy import is_exact_portable_evidence_keychain_helper_file as _is_exact_portable_evidence_keychain_helper_file, is_static_gate_scan_allowed_file, is_unapproved_static_fragment, repo_source_env
 else:
-    from runtime_subprocess_policy import GOVERNED_RUNTIME_COMMAND_ADAPTER_REL, _is_exact_governed_runtime_command_shell_scan_line, _is_exact_governed_runtime_command_subprocess_site, is_exact_portable_evidence_helper_home_path
+    from runtime_subprocess_policy import GOVERNED_RUNTIME_COMMAND_ADAPTER_REL, _is_exact_governed_runtime_command_shell_scan_line, _is_exact_governed_runtime_command_subprocess_site, is_exact_matrix_session_bounded_filesystem_site, is_exact_portable_evidence_helper_home_path
     from static_scan_policy import is_exact_portable_evidence_keychain_helper_file as _is_exact_portable_evidence_keychain_helper_file, is_static_gate_scan_allowed_file, is_unapproved_static_fragment, repo_source_env
 _P1_API_VERIFIER_LANE_RAN = False
 M44_ALLOWED_CCC_IOS_SKELETON_PREFIX = "apps/ccc-ios/Sources/UltimateAIAgentCCC/"
@@ -30170,6 +30170,17 @@ def verify_no_broad_filesystem_scanning() -> None:
                         rel_path=p.relative_to(ROOT).as_posix(),
                         source=content,
                         fragment="Path.home(",
+                    ):
+                        continue
+                    matched_fragment = next(
+                        fragment
+                        for fragment in forbidden_fragments
+                        if fragment in stripped
+                    )
+                    if is_exact_matrix_session_bounded_filesystem_site(
+                        rel_path=p.relative_to(ROOT).as_posix(),
+                        source=content,
+                        fragment=matched_fragment,
                     ):
                         continue
                     print(f"FAIL: Broad filesystem scanning/home access in {p.relative_to(ROOT)}: {line}")

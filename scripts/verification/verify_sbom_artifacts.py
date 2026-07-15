@@ -21,14 +21,17 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--python-sbom", type=Path, required=True)
     parser.add_argument("--control-center-sbom", type=Path, required=True)
+    parser.add_argument("--matrix-adapter-sbom", type=Path, required=True)
     parser.add_argument("--summary-file", type=Path, required=True)
     args = parser.parse_args()
     python_hash = _validate(args.python_sbom, "Python")
     control_center_hash = _validate(args.control_center_sbom, "Control Center")
+    matrix_adapter_hash = _validate(args.matrix_adapter_sbom, "Matrix adapter")
     with args.summary_file.open("a", encoding="utf-8") as handle:
         handle.write("## Supply-chain evidence\n\n")
         handle.write(f"- Python SBOM: `{python_hash}`\n")
         handle.write(f"- Control Center SBOM: `{control_center_hash}`\n")
+        handle.write(f"- Matrix adapter SBOM: `{matrix_adapter_hash}`\n")
         handle.write(
             "- Raw dependency payloads were not copied into repository evidence.\n"
         )

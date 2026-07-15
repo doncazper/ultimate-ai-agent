@@ -2,14 +2,14 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `275`.
+Current OpenAPI path count: `285`.
 
 This inventory is generated from the FastAPI application and `/api/manifest`. It is the route ownership and side-effect classification map for the current local-first API boundary.
 
 ## Current Route Boundary
 
-- Manifest route operations: `276`
-- OpenAPI paths: `275`
+- Manifest route operations: `286`
+- OpenAPI paths: `285`
 - Production runtime authority: blocked
 - Public release authority: blocked
 
@@ -23,7 +23,7 @@ This inventory is generated from the FastAPI application and `/api/manifest`. It
 | `consent` | 2 | `consent` | `approval_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `context-budget` | 1 | `context` | `contracts_service` | future auth required | `validation_only`:1 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `contracts` | 2 | `contracts` | `contracts_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
-| `control-center` | 110 | `control-center` | `control_center_service` | local status or future auth per route | `governed_network_read_only`:3, `local_dev_workspace_only`:81, `none`:6, `validation_only`:20 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
+| `control-center` | 120 | `control-center` | `control_center_service` | local status or future auth per route | `authenticated_connector_mutation`:4, `destructive_external`:1, `destructive_local_sensitive`:1, `governed_network_read_only`:5, `local_dev_workspace_only`:81, `local_sensitive`:1, `none`:6, `system_browser_exact_launch`:1, `validation_only`:20 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `cost-governor` | 3 | `cost-governor` | `cost_service` | future auth required | `validation_only`:3 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `extension-catalog` | 3 | `extension-catalog` | `extension_catalog_service` | future auth required | `local_dev_workspace_only`:2, `validation_only`:1 | medium | stable/generated from path; unique | status_available_not_completion |
 | `files` | 6 | `workspace-files` | `workspace_files_service` | future auth required and local safe refs | `local_dev_workspace_only`:6 | high | stable/generated from path; unique | partial_backend_not_product_ready |
@@ -164,6 +164,16 @@ validate the exact request-scoped authority boundary.
 | POST | `/control-center/communications/harness/smoke` | `post_control_center_communications_harness_smoke` | `governed_network_read_only` | no | future | yes |
 | POST | `/control-center/communications/harness/start` | `post_control_center_communications_harness_start` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/control-center/communications/harness/stop` | `post_control_center_communications_harness_stop` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/control-center/communications/matrix/auth-methods-read` | `post_control_center_communications_matrix_auth_methods_read` | `governed_network_read_only` | no | future | yes |
+| POST | `/control-center/communications/matrix/credential-auth-create` | `post_control_center_communications_matrix_credential_auth_create` | `authenticated_connector_mutation` | no | future | yes |
+| POST | `/control-center/communications/matrix/credential-delete` | `post_control_center_communications_matrix_credential_delete` | `destructive_local_sensitive` | no | future | yes |
+| POST | `/control-center/communications/matrix/credential-store-rotate` | `post_control_center_communications_matrix_credential_store_rotate` | `local_sensitive` | no | future | yes |
+| POST | `/control-center/communications/matrix/discovery-read` | `post_control_center_communications_matrix_discovery_read` | `governed_network_read_only` | no | future | yes |
+| POST | `/control-center/communications/matrix/logout` | `post_control_center_communications_matrix_logout` | `authenticated_connector_mutation` | no | future | yes |
+| POST | `/control-center/communications/matrix/refresh` | `post_control_center_communications_matrix_refresh` | `authenticated_connector_mutation` | no | future | yes |
+| POST | `/control-center/communications/matrix/revoke-all` | `post_control_center_communications_matrix_revoke_all` | `destructive_external` | no | future | yes |
+| POST | `/control-center/communications/matrix/sso-callback-consume` | `post_control_center_communications_matrix_sso_callback_consume` | `authenticated_connector_mutation` | no | future | yes |
+| POST | `/control-center/communications/matrix/sso-launch` | `post_control_center_communications_matrix_sso_launch` | `system_browser_exact_launch` | no | future | yes |
 | GET | `/control-center/communications/providers` | `get_control_center_communications_providers` | `none` | yes | future | yes |
 | GET | `/control-center/communications/receipts/{receipt_ref}` | `get_control_center_communications_receipt` | `none` | yes | future | yes |
 | GET | `/control-center/communications/rooms` | `get_control_center_communications_rooms` | `none` | yes | future | yes |

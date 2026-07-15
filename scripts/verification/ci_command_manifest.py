@@ -32,6 +32,8 @@ LOCKFILE_REFS = (
     "uv.lock",
     "apps/control-center/package.json",
     "apps/control-center/package-lock.json",
+    "integrations/matrix-client-adapter/package.json",
+    "integrations/matrix-client-adapter/package-lock.json",
 )
 VISUAL_SCOPE_PATHS = (
     "apps/control-center",

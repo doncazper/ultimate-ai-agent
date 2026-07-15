@@ -38,6 +38,21 @@ from ultimate_ai_agent.core.communications.matrix_harness import (  # noqa: E402
     matrix_harness_request_fingerprint_ref,
     stable_matrix_harness_ref,
 )
+from ultimate_ai_agent.core.communications.matrix_session import (  # noqa: E402
+    MATRIX_DISCOVERY_PENDING_FRESHNESS_REF,
+    MATRIX_DISCOVERY_PENDING_OBSERVATION_REF,
+    MATRIX_SESSION_LANES,
+    MatrixSessionCommand,
+    MatrixSessionOperation,
+    MatrixSessionTransientInput,
+    capture_exact_matrix_session_approval,
+    execute_matrix_session_command,
+    issue_exact_matrix_session_lease,
+    matrix_homeserver_ref,
+    matrix_redirect_target_ref,
+    matrix_session_request_fingerprint_ref,
+    stable_matrix_session_ref,
+)
 from ultimate_ai_agent.core.time import utc_now  # noqa: E402
 
 
@@ -186,9 +201,7 @@ def _matrix_harness_command(
         ),
         "start_deadline": start_deadline,
     }
-    values["request_fingerprint_ref"] = matrix_harness_request_fingerprint_ref(
-        **values
-    )
+    values["request_fingerprint_ref"] = matrix_harness_request_fingerprint_ref(**values)
     return MatrixHarnessCommand(**values)
 
 
@@ -213,9 +226,7 @@ def _run_matrix_harness(args: argparse.Namespace) -> int:
             adapter = MatrixHarnessAuthorityDispatchAdapter(
                 operation=command.operation,
                 backend=backend,
-                authority_leases_provider=lambda: store.list_leases(
-                    active_only=False
-                ),
+                authority_leases_provider=lambda: store.list_leases(active_only=False),
             )
             approval_ref = capture_exact_matrix_harness_approval(
                 build_matrix_harness_dispatch_request(command, adapter=adapter),
@@ -257,6 +268,125 @@ def _run_matrix_harness(args: argparse.Namespace) -> int:
             print(f"- Next generation: {safe_output['lifecycle_generation_ref']}")
             print(f"- Next state: {safe_output['lifecycle_state_ref']}")
         print("No raw output, credentials, message content, or local paths are shown.")
+    return 0 if result.receipt.status == "succeeded" else 2
+
+
+def _matrix_session_command(args: argparse.Namespace) -> MatrixSessionCommand:
+    operation = MatrixSessionOperation(args.session_operation.replace("-", "_"))
+    if args.deadline_seconds < 10 or args.deadline_seconds > 300:
+        raise ValueError("MATRIX_SESSION_DEADLINE_OUT_OF_RANGE")
+    lane = MATRIX_SESSION_LANES[operation]
+    if args.confirm and not lane.approval_required:
+        raise ValueError("MATRIX_SESSION_READ_CONFIRMATION_FORBIDDEN")
+    start_deadline = utc_now() + timedelta(seconds=args.deadline_seconds)
+    endpoint = args.discovery_origin or args.homeserver_url
+    if endpoint is None:
+        raise ValueError("MATRIX_SESSION_TRANSIENT_TARGET_REQUIRED")
+    endpoint_class_ref = (
+        "endpoint-class-ref:matrix:local-harness"
+        if endpoint == "http://127.0.0.1:18008"
+        else "endpoint-class-ref:matrix:public-https"
+    )
+    lease_ref = args.lease_ref or stable_matrix_session_ref(
+        "authority-lease-ref:matrix-session:requested",
+        {
+            "operation": operation.value,
+            "mission_ref": args.mission_ref,
+            "run_ref": args.run_ref,
+            "idempotency_ref": args.idempotency_ref,
+        },
+    )
+    values: dict[str, object] = {
+        "operation": operation,
+        "request_ref": args.request_ref,
+        "task_ref": args.task_ref,
+        "mission_ref": args.mission_ref,
+        "run_ref": args.run_ref,
+        "dispatch_ref": args.dispatch_ref,
+        "idempotency_ref": args.idempotency_ref,
+        "lease_ref": lease_ref,
+        "homeserver_ref": matrix_homeserver_ref(endpoint),
+        "endpoint_class_ref": endpoint_class_ref,
+        "discovery_observation_ref": (
+            MATRIX_DISCOVERY_PENDING_OBSERVATION_REF
+            if operation == MatrixSessionOperation.discovery_read
+            else args.discovery_observation_ref
+        ),
+        "discovery_freshness_ref": (
+            MATRIX_DISCOVERY_PENDING_FRESHNESS_REF
+            if operation == MatrixSessionOperation.discovery_read
+            else args.discovery_freshness_ref
+        ),
+        "account_ref": args.account_ref,
+        "device_ref": args.device_ref,
+        "session_ref": args.session_ref,
+        "session_generation_ref": args.session_generation_ref,
+        "credential_item_ref": args.credential_item_ref,
+        "credential_version_ref": args.credential_version_ref,
+        "next_credential_version_ref": args.next_credential_version_ref,
+        "crypto_store_ref": args.crypto_store_ref,
+        "callback_attempt_ref": args.callback_attempt_ref,
+        "target_refs": tuple(args.target_ref),
+        "readiness_ref": args.readiness_ref,
+        "start_deadline": start_deadline,
+    }
+    if args.callback_url:
+        values["redirect_target_ref"] = matrix_redirect_target_ref(args.callback_url)
+    values["request_fingerprint_ref"] = matrix_session_request_fingerprint_ref(**values)
+    return MatrixSessionCommand(**values)
+
+
+def _run_matrix_session(args: argparse.Namespace) -> int:
+    try:
+        command = _matrix_session_command(args)
+        store = AuthorityLeaseStore()
+        approvals = LocalApprovalAuthority()
+        if args.issue_exact_lease:
+            issue_exact_matrix_session_lease(
+                command,
+                store=store,
+                confirmed=args.confirm,
+            )
+        approval_ref = None
+        if MATRIX_SESSION_LANES[command.operation].approval_required and args.confirm:
+            approval_ref = capture_exact_matrix_session_approval(
+                command,
+                approval_authority=approvals,
+                confirmed=True,
+            )
+        result = execute_matrix_session_command(
+            command,
+            repo_root=ROOT,
+            authority_state_dir=store.state_dir,
+            transient_input=MatrixSessionTransientInput(
+                endpoint_url=args.homeserver_url,
+                discovery_origin=args.discovery_origin,
+                callback_url=args.callback_url,
+            ),
+            approval_ref=approval_ref,
+            lease_store=store,
+            approval_authority=approvals,
+        )
+    except (OSError, RuntimeError, ValueError):
+        print("Matrix session operation blocked (reference-only diagnostic).")
+        return 2
+    if args.json:
+        _json(result)
+    else:
+        print("Governed Matrix session")
+        print(f"- Operation: {command.operation.value}")
+        print(f"- Dispatch status: {result.receipt.status}")
+        print(f"- Receipt: {result.receipt.receipt_ref}")
+        print(f"- Reasons: {', '.join(result.receipt.reason_refs) or 'none'}")
+        evidence = (
+            result.adapter_result.evidence_refs
+            if result.adapter_result is not None
+            else result.receipt.evidence_refs
+        )
+        print(f"- Evidence: {', '.join(evidence) or 'none'}")
+        print(
+            "No credentials, provider payloads, raw logs, message content, or local paths are shown."
+        )
     return 0 if result.receipt.status == "succeeded" else 2
 
 
@@ -312,6 +442,54 @@ def build_parser() -> argparse.ArgumentParser:
             help="Capture exact local approval for mutation lanes only.",
         )
         command.add_argument("--json", action="store_true", help="Emit safe JSON.")
+    session = subparsers.add_parser(
+        "matrix-session",
+        help="Run one exact Matrix discovery/read lane or inspect a blocked mutation.",
+    )
+    session_subparsers = session.add_subparsers(
+        dest="session_operation",
+        required=True,
+    )
+    for operation in MatrixSessionOperation:
+        command = session_subparsers.add_parser(operation.value.replace("_", "-"))
+        for name in (
+            "request-ref",
+            "task-ref",
+            "mission-ref",
+            "run-ref",
+            "dispatch-ref",
+            "idempotency-ref",
+            "readiness-ref",
+        ):
+            command.add_argument(f"--{name}", required=True)
+        command.add_argument(
+            "--discovery-observation-ref",
+            required=operation != MatrixSessionOperation.discovery_read,
+            default=MATRIX_DISCOVERY_PENDING_OBSERVATION_REF,
+        )
+        command.add_argument(
+            "--discovery-freshness-ref",
+            required=operation != MatrixSessionOperation.discovery_read,
+            default=MATRIX_DISCOVERY_PENDING_FRESHNESS_REF,
+        )
+        command.add_argument("--lease-ref")
+        command.add_argument("--homeserver-url")
+        command.add_argument("--discovery-origin")
+        command.add_argument("--callback-url")
+        command.add_argument("--account-ref")
+        command.add_argument("--device-ref")
+        command.add_argument("--session-ref")
+        command.add_argument("--session-generation-ref")
+        command.add_argument("--credential-item-ref")
+        command.add_argument("--credential-version-ref")
+        command.add_argument("--next-credential-version-ref")
+        command.add_argument("--crypto-store-ref")
+        command.add_argument("--callback-attempt-ref")
+        command.add_argument("--target-ref", action="append", default=[])
+        command.add_argument("--issue-exact-lease", action="store_true")
+        command.add_argument("--deadline-seconds", type=int, default=120)
+        command.add_argument("--confirm", action="store_true")
+        command.add_argument("--json", action="store_true", help="Emit safe JSON.")
     return parser
 
 
@@ -324,6 +502,8 @@ def main(
     active_service = service or build_default_communications_service()
     if args.command == "harness":
         return _run_matrix_harness(args)
+    if args.command == "matrix-session":
+        return _run_matrix_session(args)
     if args.command == "providers":
         return _render_providers(active_service, args.json)
     if args.command == "session":

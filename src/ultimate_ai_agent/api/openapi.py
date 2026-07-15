@@ -5,7 +5,12 @@ from fastapi.routing import APIRoute
 
 from ultimate_ai_agent import __version__
 from ultimate_ai_agent.api.contracts import ApiContractStatus, ApiRouteSideEffectClass
-from ultimate_ai_agent.api.manifest import iter_api_route_items, route_group_for_path, route_summary, stable_operation_id
+from ultimate_ai_agent.api.manifest import (
+    iter_api_route_items,
+    route_group_for_path,
+    route_summary,
+    stable_operation_id,
+)
 
 
 FORBIDDEN_ROUTE_FRAGMENTS = [
@@ -136,11 +141,15 @@ def configure_openapi_contract(app: FastAPI) -> None:
     for route in app.routes:
         if not isinstance(route, APIRoute):
             continue
-        methods = sorted(method for method in route.methods if method not in {"HEAD", "OPTIONS"})
+        methods = sorted(
+            method for method in route.methods if method not in {"HEAD", "OPTIONS"}
+        )
         if not methods:
             continue
         method = methods[0]
-        route.operation_id = route.operation_id or stable_operation_id(method, route.path)
+        route.operation_id = route.operation_id or stable_operation_id(
+            method, route.path
+        )
         route.tags = list(route.tags or [route_group_for_path(route.path)])
         route.summary = route.summary or route_summary(method, route.path)
     app.openapi_schema = None
@@ -170,25 +179,58 @@ def verify_openapi_contract(app: FastAPI) -> ApiContractStatus:
     operation_ids = [route.operation_id for route in routes]
     operation_id_counts = Counter(operation_ids)
     duplicate_ids = sorted(
-        operation_id
-        for operation_id, count in operation_id_counts.items()
-        if count > 1
+        operation_id for operation_id, count in operation_id_counts.items() if count > 1
     )
     if duplicate_ids:
         errors.append(f"Duplicate operation IDs: {', '.join(duplicate_ids)}")
 
+    legacy_safe_side_effects = {
+        ApiRouteSideEffectClass.none.value,
+        ApiRouteSideEffectClass.validation_only.value,
+        ApiRouteSideEffectClass.local_dev_workspace_only.value,
+        ApiRouteSideEffectClass.governed_network_read_only.value,
+    }
+    matrix_mutation_side_effects = {
+        "/control-center/communications/matrix/credential-auth-create": (
+            ApiRouteSideEffectClass.authenticated_connector_mutation.value
+        ),
+        "/control-center/communications/matrix/sso-launch": (
+            ApiRouteSideEffectClass.system_browser_exact_launch.value
+        ),
+        "/control-center/communications/matrix/sso-callback-consume": (
+            ApiRouteSideEffectClass.authenticated_connector_mutation.value
+        ),
+        "/control-center/communications/matrix/refresh": (
+            ApiRouteSideEffectClass.authenticated_connector_mutation.value
+        ),
+        "/control-center/communications/matrix/logout": (
+            ApiRouteSideEffectClass.authenticated_connector_mutation.value
+        ),
+        "/control-center/communications/matrix/revoke-all": (
+            ApiRouteSideEffectClass.destructive_external.value
+        ),
+        "/control-center/communications/matrix/credential-store-rotate": (
+            ApiRouteSideEffectClass.local_sensitive.value
+        ),
+        "/control-center/communications/matrix/credential-delete": (
+            ApiRouteSideEffectClass.destructive_local_sensitive.value
+        ),
+    }
     for route in routes:
-        if route.side_effect_class not in {
-            ApiRouteSideEffectClass.none.value,
-            ApiRouteSideEffectClass.validation_only.value,
-            ApiRouteSideEffectClass.local_dev_workspace_only.value,
-            ApiRouteSideEffectClass.governed_network_read_only.value,
-        }:
+        exact_matrix_side_effect = matrix_mutation_side_effects.get(route.path)
+        if route.side_effect_class not in legacy_safe_side_effects and (
+            route.method != "POST"
+            or exact_matrix_side_effect != route.side_effect_class
+        ):
             errors.append(f"Unsafe side-effect class on {route.method} {route.path}")
         if not route.requires_auth_future:
-            warnings.append(f"Future auth marker missing on {route.method} {route.path}")
+            warnings.append(
+                f"Future auth marker missing on {route.method} {route.path}"
+            )
         if not route.blocked_from_production:
-            errors.append(f"Production block marker missing on {route.method} {route.path}")
+            errors.append(
+                f"Production block marker missing on {route.method} {route.path}"
+            )
 
     unsafe_routes = [
         route.path
@@ -197,18 +239,25 @@ def verify_openapi_contract(app: FastAPI) -> ApiContractStatus:
         and any(fragment in route.path for fragment in FORBIDDEN_ROUTE_FRAGMENTS)
     ]
     if unsafe_routes:
-        errors.append(f"Forbidden runtime routes present: {', '.join(sorted(set(unsafe_routes)))}")
+        errors.append(
+            f"Forbidden runtime routes present: {', '.join(sorted(set(unsafe_routes)))}"
+        )
 
     raw_secret_fields = forbidden_raw_secret_schema_fields(schema) if schema else []
     if raw_secret_fields:
-        errors.append(f"Forbidden raw-secret schema fields present: {', '.join(raw_secret_fields)}")
+        errors.append(
+            f"Forbidden raw-secret schema fields present: {', '.join(raw_secret_fields)}"
+        )
 
     raw_provider_fields = forbidden_raw_provider_schema_fields(schema) if schema else []
     if raw_provider_fields:
-        errors.append(f"Forbidden raw-provider schema fields present: {', '.join(raw_provider_fields)}")
+        errors.append(
+            f"Forbidden raw-provider schema fields present: {', '.join(raw_provider_fields)}"
+        )
 
     return ApiContractStatus(
-        version_consistent=not schema or schema.get("info", {}).get("version") == __version__,
+        version_consistent=not schema
+        or schema.get("info", {}).get("version") == __version__,
         openapi_generated=bool(schema),
         route_inventory_valid=bool(routes),
         operation_ids_unique=not duplicate_ids,

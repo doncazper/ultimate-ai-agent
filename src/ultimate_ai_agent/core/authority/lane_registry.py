@@ -14,10 +14,18 @@ def build_existing_lane_authority_mappings():
     from ultimate_ai_agent.core.authority.evidence_signing_lane_registry import (
         build_evidence_signing_lane_authority_mappings,
     )
-    from ultimate_ai_agent.core.sandbox_calculation.authority_surfaces import build_sealed_arithmetic_authority_mapping
-    from ultimate_ai_agent.core.communications.matrix_harness.authority_surfaces import build_matrix_harness_authority_mappings
+    from ultimate_ai_agent.core.sandbox_calculation.authority_surfaces import (
+        build_sealed_arithmetic_authority_mapping,
+    )
+    from ultimate_ai_agent.core.communications.matrix_harness.authority_surfaces import (
+        build_matrix_harness_authority_mappings,
+    )
+    from ultimate_ai_agent.core.communications.matrix_session.authority_surfaces import (
+        build_matrix_session_authority_mappings,
+    )
 
     return [
+        *build_matrix_session_authority_mappings(),
         *build_matrix_harness_authority_mappings(),
         *build_evidence_signing_lane_authority_mappings(),
         _mapping(
@@ -126,10 +134,7 @@ def build_existing_lane_authority_mappings():
             TrustMode.read_only,
             "implemented_control_center_read_model",
             ["GET /control-center/memory/review"],
-            [
-                "python scripts/dev/uaa_founder_loop.py "
-                "inspect-evidence-memory-binding"
-            ],
+            ["python scripts/dev/uaa_founder_loop.py inspect-evidence-memory-binding"],
             (
                 "Memory Review inspection reads recall candidates and why-shown "
                 "safe refs only; memory remains recall, not truth or authority."
@@ -399,8 +404,7 @@ def build_existing_lane_authority_mappings():
             ),
             unsupported_adapter_refs=[
                 "adapter-ref:runtime-streaming-progress-live-sse:not-implemented",
-                "adapter-ref:runtime-streaming-progress-"
-                "websocket:not-implemented",
+                "adapter-ref:runtime-streaming-progress-websocket:not-implemented",
                 "adapter-ref:runtime-streaming-progress-reconnect:not-implemented",
                 "adapter-ref:runtime-streaming-progress-event-ingest:not-implemented",
                 "adapter-ref:runtime-streaming-progress-raw-payload:not-implemented",

@@ -1,0 +1,85 @@
+{
+  "credential_material_included": false,
+  "execution_authority_granted": false,
+  "package_lock_sha256": "8e15a1d1fc44c7988150dc32ee3f5672cb3677f230059afe6b7bd607daf217be",
+  "raw_paths_included": false,
+  "schema_version": "uaa-matrix-client-adapter-integrity.v1",
+  "trees": [
+    {
+      "root": "src",
+      "sha256": "dbdd0946bf5a5c2197ce6e83ddf5c8802d4a682861f9b57fc1ccc31be8ee7a99"
+    },
+    {
+      "root": "node_modules/@babel/runtime",
+      "sha256": "8de188cac7d50239c5af07b3e1b7466585f41f87e71683cb028443585b0ad096"
+    },
+    {
+      "root": "node_modules/@matrix-org/matrix-sdk-crypto-wasm",
+      "sha256": "18faf5a2bf4f58f41acb727aa41292469686e6ca543c2ca4c17cd77be2eb9e6f"
+    },
+    {
+      "root": "node_modules/@types/events",
+      "sha256": "d0efc4f9ebf27aad098fa1a80fbc1341318280cb0ddafb513e14c49b7131225c"
+    },
+    {
+      "root": "node_modules/another-json",
+      "sha256": "8056d028a91402ad583b188e8a7bc15d6fd5d8660095b5f3f9ea32730bb6393a"
+    },
+    {
+      "root": "node_modules/base-x",
+      "sha256": "a48250070aad20bb6da3a01bb3d459b27c86cb4402615d94c0c429a2355bec82"
+    },
+    {
+      "root": "node_modules/bs58",
+      "sha256": "fed419a43b027d051dbe4aa8e2e25aa41387e271deee3174cdd53f352a1795dd"
+    },
+    {
+      "root": "node_modules/content-type",
+      "sha256": "cee42a33164c9c3d678c2d592eb3f15f03081b723b3b90d2161e430a56aae11a"
+    },
+    {
+      "root": "node_modules/events",
+      "sha256": "478e6914c405e5cd67b7f71971e2c10fc126e4fbc02343aea299012b5f212c27"
+    },
+    {
+      "root": "node_modules/is-network-error",
+      "sha256": "e9d8501f296ec66452bc093585bec9987956ffb93a24d106fab417ae86839030"
+    },
+    {
+      "root": "node_modules/jwt-decode",
+      "sha256": "107dc2ae4f0095042d973f989688c8d91d62654c89e746842d2a41d2a0c2ee8f"
+    },
+    {
+      "root": "node_modules/loglevel",
+      "sha256": "92eacfbb89190d8356c321aa77d3591c61376ee398a3d3f33b73249f08e035ac"
+    },
+    {
+      "root": "node_modules/matrix-events-sdk",
+      "sha256": "919c48a526166a9e516547235d55b0a9870dd05f41adf797928967c335a72c50"
+    },
+    {
+      "root": "node_modules/matrix-js-sdk",
+      "sha256": "0ddee82867d4bda81821dcd4d166492c74f06667b5252649c6ca6dfab0962d69"
+    },
+    {
+      "root": "node_modules/matrix-widget-api",
+      "sha256": "2c992b42c8bf555bbc69869009b77d61de58570370bc09436b13950fd479a844"
+    },
+    {
+      "root": "node_modules/oidc-client-ts",
+      "sha256": "ddcc0b2b7196f61615cc9930d9ba19b1058d40149b54a8dcb0391f16d0b96171"
+    },
+    {
+      "root": "node_modules/p-retry",
+      "sha256": "e9d2dd1d1a1b22a4abd8295dacb6cdc28c17efcdce96e9e60a718701e3e2b597"
+    },
+    {
+      "root": "node_modules/sdp-transform",
+      "sha256": "591614eb6fb6607fafb7e05be4842b5613bd009d4d414dccfa5f6e0769ccd9d1"
+    },
+    {
+      "root": "node_modules/unhomoglyph",
+      "sha256": "3420f88c937ede818e55ce1f3cd38cb7cb3f4a0994d36c3f69227cddcd1a6e1b"
+    }
+  ]
+}
