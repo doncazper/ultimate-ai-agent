@@ -1,11 +1,9 @@
 from __future__ import annotations
 
+import errno
 import json
-import fcntl
-import os
 import threading
 import time
-from contextlib import contextmanager
 from datetime import timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -29,33 +27,22 @@ from ultimate_ai_agent.core.time import utc_now
 
 ROOT = Path(__file__).resolve().parents[1]
 HARNESS_URL = "http://127.0.0.1:18008"
-_HARNESS_LOCK_PATH = "/tmp/uaa-msg-mx-005-port-18008.lock"
+_HARNESS_PORT_WAIT_SECONDS = 60
 
 
-@contextmanager
-def _serialized_harness_port():
-    descriptor = os.open(
-        _HARNESS_LOCK_PATH,
-        os.O_CREAT
-        | os.O_RDWR
-        | getattr(os, "O_CLOEXEC", 0)
-        | getattr(os, "O_NOFOLLOW", 0),
-        0o600,
-    )
-    deadline = time.monotonic() + 30
-    try:
-        while True:
-            try:
-                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                break
-            except BlockingIOError:
-                if time.monotonic() >= deadline:
-                    raise TimeoutError("MATRIX_TEST_HARNESS_PORT_BUSY")
-                time.sleep(0.05)
-        yield
-    finally:
-        fcntl.flock(descriptor, fcntl.LOCK_UN)
-        os.close(descriptor)
+def _bind_harness_server() -> ThreadingHTTPServer:
+    """Own the exact harness port without a cross-account lock artifact."""
+
+    deadline = time.monotonic() + _HARNESS_PORT_WAIT_SECONDS
+    while True:
+        try:
+            return ThreadingHTTPServer(("127.0.0.1", 18008), _MatrixFixtureHandler)
+        except OSError as exc:
+            if exc.errno != errno.EADDRINUSE:
+                raise
+            if time.monotonic() >= deadline:
+                raise TimeoutError("MATRIX_TEST_HARNESS_PORT_BUSY") from exc
+            time.sleep(0.05)
 
 
 class _MatrixFixtureHandler(BaseHTTPRequestHandler):
@@ -123,50 +110,47 @@ def _command(operation: MatrixSessionOperation) -> MatrixSessionCommand:
 def test_dispatcher_executes_real_node_discovery_and_auth_method_reads(
     tmp_path: Path,
 ) -> None:
-    with _serialized_harness_port():
-        server = ThreadingHTTPServer(("127.0.0.1", 18008), _MatrixFixtureHandler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
-        try:
-            state = tmp_path / "authority"
-            store = AuthorityLeaseStore(state)
-            discovery = _command(MatrixSessionOperation.discovery_read)
-            issue_exact_matrix_session_lease(discovery, store=store, confirmed=False)
-            discovery_result = execute_matrix_session_command(
-                discovery,
-                repo_root=ROOT,
-                authority_state_dir=state,
-                transient_input=MatrixSessionTransientInput(
-                    discovery_origin=HARNESS_URL
-                ),
-                lease_store=store,
-            )
-            assert discovery_result.receipt.status == "succeeded"
-            assert discovery_result.adapter_result is not None
-            assert discovery_result.adapter_result.safe_output[
-                "homeserver_observation_ref"
-            ] == matrix_homeserver_observation_ref(HARNESS_URL)
+    server = _bind_harness_server()
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        state = tmp_path / "authority"
+        store = AuthorityLeaseStore(state)
+        discovery = _command(MatrixSessionOperation.discovery_read)
+        issue_exact_matrix_session_lease(discovery, store=store, confirmed=False)
+        discovery_result = execute_matrix_session_command(
+            discovery,
+            repo_root=ROOT,
+            authority_state_dir=state,
+            transient_input=MatrixSessionTransientInput(discovery_origin=HARNESS_URL),
+            lease_store=store,
+        )
+        assert discovery_result.receipt.status == "succeeded"
+        assert discovery_result.adapter_result is not None
+        assert discovery_result.adapter_result.safe_output[
+            "homeserver_observation_ref"
+        ] == matrix_homeserver_observation_ref(HARNESS_URL)
 
-            auth_methods = _command(MatrixSessionOperation.auth_methods_read)
-            issue_exact_matrix_session_lease(auth_methods, store=store, confirmed=False)
-            auth_result = execute_matrix_session_command(
-                auth_methods,
-                repo_root=ROOT,
-                authority_state_dir=state,
-                transient_input=MatrixSessionTransientInput(endpoint_url=HARNESS_URL),
-                lease_store=store,
-            )
-            assert auth_result.receipt.status == "succeeded", (
-                auth_result.receipt.model_dump()
-            )
-            assert auth_result.adapter_result is not None
-            assert auth_result.adapter_result.safe_output["capabilities"] == {
-                "credential_auth": True,
-                "browser_sso": True,
-                "oauth": False,
-            }
-            assert auth_result.receipt.raw_provider_payload_included is False
-        finally:
-            server.shutdown()
-            server.server_close()
-            thread.join(timeout=2)
+        auth_methods = _command(MatrixSessionOperation.auth_methods_read)
+        issue_exact_matrix_session_lease(auth_methods, store=store, confirmed=False)
+        auth_result = execute_matrix_session_command(
+            auth_methods,
+            repo_root=ROOT,
+            authority_state_dir=state,
+            transient_input=MatrixSessionTransientInput(endpoint_url=HARNESS_URL),
+            lease_store=store,
+        )
+        assert auth_result.receipt.status == "succeeded", (
+            auth_result.receipt.model_dump()
+        )
+        assert auth_result.adapter_result is not None
+        assert auth_result.adapter_result.safe_output["capabilities"] == {
+            "credential_auth": True,
+            "browser_sso": True,
+            "oauth": False,
+        }
+        assert auth_result.receipt.raw_provider_payload_included is False
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
