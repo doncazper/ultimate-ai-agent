@@ -1,0 +1,153 @@
+name: Supply Chain
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "23 9 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: uaa-supply-chain-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  PATH: /opt/homebrew/opt/python@3.12/libexec/bin:/opt/homebrew/opt/node@22/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+  UAA_CI_EXACT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+defaults:
+  run:
+    shell: /usr/sbin/taskpolicy -c utility /bin/bash --noprofile --norc -e -o pipefail {0}
+
+jobs:
+  dependency-review:
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, macOS, ARM64, uaa-ci]
+    timeout-minutes: 15
+    steps:
+      - name: Check out exact revision
+        uses: actions/checkout@v4
+        with:
+          clean: true
+          fetch-depth: 1
+          persist-credentials: false
+          ref: ${{ env.UAA_CI_EXACT_SHA }}
+
+      - name: Install from frozen dependency locks
+        run: |
+          python3 -m venv .ci-bootstrap
+          .ci-bootstrap/bin/python -m pip install --disable-pip-version-check "uv==0.11.21"
+          .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3
+          npm --prefix apps/control-center ci --ignore-scripts
+
+      - name: Reject known high-risk dependencies
+        run: |
+          .ci-bootstrap/bin/uv export --quiet --frozen --extra dev --no-emit-project --output-file "$RUNNER_TEMP/locked-requirements.txt"
+          .venv/bin/pip-audit --strict -r "$RUNNER_TEMP/locked-requirements.txt"
+          npm --prefix apps/control-center audit --audit-level=high
+
+  audit-and-sbom:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, macOS, ARM64, uaa-ci]
+    timeout-minutes: 30
+    steps:
+      - name: Check out exact revision
+        uses: actions/checkout@v4
+        with:
+          clean: true
+          fetch-depth: 1
+          persist-credentials: false
+          ref: ${{ env.UAA_CI_EXACT_SHA }}
+
+      - name: Install from the frozen Python lock
+        run: |
+          python3 -m venv .ci-bootstrap
+          .ci-bootstrap/bin/python -m pip install --disable-pip-version-check "uv==0.11.21"
+          .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3
+
+      - name: Audit locked Python environment
+        run: |
+          .ci-bootstrap/bin/uv export --quiet --frozen --extra dev --no-emit-project --output-file "$RUNNER_TEMP/locked-requirements.txt"
+          .venv/bin/pip-audit --strict -r "$RUNNER_TEMP/locked-requirements.txt"
+
+      - name: Audit locked Control Center dependencies
+        working-directory: apps/control-center
+        run: |
+          npm ci --ignore-scripts
+          npm audit --audit-level=high
+
+      - name: Generate and validate CycloneDX SBOMs
+        run: |
+          .venv/bin/cyclonedx-py environment .venv --output-reproducible --of JSON -o "$RUNNER_TEMP/python-sbom.json"
+          npm --prefix apps/control-center sbom --sbom-format cyclonedx > "$RUNNER_TEMP/control-center-sbom.json"
+          .venv/bin/python scripts/verification/verify_sbom_artifacts.py \
+            --python-sbom "$RUNNER_TEMP/python-sbom.json" \
+            --control-center-sbom "$RUNNER_TEMP/control-center-sbom.json" \
+            --summary-file "$GITHUB_STEP_SUMMARY"
+
+  dependency-compatibility:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, macOS, ARM64, uaa-ci]
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        resolution: [lowest-direct, highest]
+    steps:
+      - name: Check out exact revision
+        uses: actions/checkout@v4
+        with:
+          clean: true
+          fetch-depth: 1
+          persist-credentials: false
+          ref: ${{ env.UAA_CI_EXACT_SHA }}
+
+      - name: Install bounded compatibility environment
+        run: |
+          python3 -m venv .ci-bootstrap
+          .ci-bootstrap/bin/python -m pip install --disable-pip-version-check "uv==0.11.21"
+          .ci-bootstrap/bin/uv python install 3.12
+          .ci-bootstrap/bin/uv venv ".venv-${{ matrix.resolution }}" --python 3.12
+          .ci-bootstrap/bin/uv pip install --python ".venv-${{ matrix.resolution }}/bin/python" --resolution "${{ matrix.resolution }}" -e ".[dev]"
+
+      - name: Run compatibility boundary tests
+        run: |
+          ".venv-${{ matrix.resolution }}/bin/python" -m pytest \
+            tests/test_api_manifest.py \
+            tests/test_build_identity.py \
+            tests/test_founder_loop_recovery.py \
+            tests/test_hardening_properties.py \
+            -q
+
+  mutation:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: [self-hosted, macOS, ARM64, uaa-ci]
+    timeout-minutes: 45
+    steps:
+      - name: Check out exact revision
+        uses: actions/checkout@v4
+        with:
+          clean: true
+          fetch-depth: 1
+          persist-credentials: false
+          ref: ${{ env.UAA_CI_EXACT_SHA }}
+
+      - name: Install from the frozen Python lock
+        run: |
+          python3 -m venv .ci-bootstrap
+          .ci-bootstrap/bin/python -m pip install --disable-pip-version-check "uv==0.11.21"
+          .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3
+
+      - name: Run bounded security mutation gate
+        run: |
+          .venv/bin/mutmut run --max-children 4
+          .venv/bin/mutmut export-cicd-stats
+          .venv/bin/python scripts/verification/verify_mutation_score.py \
+            mutants/mutmut-cicd-stats.json \
+            --minimum-score 60 \
+            --minimum-total 200

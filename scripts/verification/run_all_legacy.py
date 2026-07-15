@@ -1032,7 +1032,7 @@ def verify_m13_web_control_center_frontend_safety() -> None:
                 sys.exit(1)
         for fragment in forbidden_source_fragments:
             if fragment in lowered:
-                if fragment == "authorization:" and rel_path.as_posix() == "apps/control-center/src/api/client.ts" and "withlocalapiauthheaders" in lowered and "vite_uaa_local_api_bearer" in lowered and "setlocalapibearerforsession" in lowered:
+                if fragment == "authorization:" and rel_path.as_posix() == "apps/control-center/src/api/client.ts" and "withlocalapiauthheaders" in lowered and "setlocalapibearerforsession" in lowered and "consumelocalapibearerfromlocation" in lowered and "vite_uaa_local_api_bearer" not in lowered:
                     continue
                 print(f"FAIL: Forbidden frontend source fragment in {rel_path}: {fragment}")
                 sys.exit(1)

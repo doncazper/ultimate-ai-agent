@@ -5,8 +5,10 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
+mutants/
 .ruff_cache/
 .mypy_cache/
+.ci-bootstrap/
 .venv/
 venv/
 

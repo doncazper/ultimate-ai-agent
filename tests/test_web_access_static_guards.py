@@ -149,6 +149,7 @@ PROVIDER_EXECUTION_CALLS = {
 }
 
 IGNORED_DIR_NAMES = {
+    ".ci-bootstrap",
     ".git",
     ".hg",
     ".mypy_cache",

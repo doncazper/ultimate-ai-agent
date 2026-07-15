@@ -100,5 +100,33 @@ Maintainers treat these as non-negotiable:
   dumps, credentials, or secret-like values.
 - User-facing claims must match implementation evidence.
 
+## Local Control Center Browser Threat Model
+
+The local API bearer is development protection, not a distribution-grade user
+identity. It is no longer compiled through a `VITE_` environment value. The
+launcher places it in the URL fragment, the Control Center consumes it into
+process memory before rendering, and the fragment is removed from browser
+history. URL fragments are not sent in the HTTP request. Production builds use
+strict backend mode so an unavailable backend fails visibly instead of showing
+mock data.
+
+The boundary also depends on exact loopback CORS origins, no wildcard CORS, a
+protected-route bearer check, CSP/security headers, and explicit route
+classification. These controls reduce exposure to an unrelated local webpage,
+but they do not protect against a compromised browser extension, same-user
+process inspection, debugging access, or a compromised local account. Native
+IPC or a short-lived origin-bound session bootstrapped from an appropriate
+Keychain boundary remains required before public distribution.
+
+The global idempotency middleware validates only header presence and shape.
+`/api/manifest` now reports that as `header_shape_gate_only`; it must never be
+treated as durable deduplication or exactly-once execution. An exact route may
+report `route_owned_durable_replay` only when it names its durable receipt-store
+owner. All routes remain blocked from production by the current API contract.
+
+Independent property, mutation, recovery fault-injection, packaged-app, SBOM,
+vulnerability-scan, blocked CodeQL, and external-review expectations are documented in
+`docs/verification/PRODUCT_HARDENING_EVIDENCE_GATE.md`.
+
 Maintainer triage steps live in
 `docs/security/SECURITY_TRIAGE_RUNBOOK.md`.

@@ -163,6 +163,11 @@ import {
   safeApiErrorMessage,
   sanitizeForDisplay,
 } from "./redaction";
+import {
+  StrictBackendDataError,
+  strictBackendDataFailureRequired,
+  strictBackendModeEnabled,
+} from "./runtimePolicy";
 
 const API_BASE_POLICY = resolveApiBaseUrl(
   import.meta.env.VITE_UAA_API_BASE_URL,
@@ -253,10 +258,28 @@ function createControlCenterReadLimiter(): ControlCenterReadLimiter {
 }
 
 const defaultControlCenterReadLimiter = createControlCenterReadLimiter();
+const LOCAL_API_SESSION_FRAGMENT_KEY = "uaa-session-bearer";
 
 export function setLocalApiBearerForSession(value: string | null): void {
   const trimmed = value?.trim() ?? "";
   sessionLocalApiBearer = trimmed.length > 0 ? trimmed : null;
+}
+
+export function consumeLocalApiBearerFromLocation(): boolean {
+  const fragment = new URLSearchParams(window.location.hash.slice(1));
+  const bearer = fragment.get(LOCAL_API_SESSION_FRAGMENT_KEY)?.trim() ?? "";
+  if (!bearer) {
+    return false;
+  }
+  setLocalApiBearerForSession(bearer);
+  fragment.delete(LOCAL_API_SESSION_FRAGMENT_KEY);
+  const remainingFragment = fragment.toString();
+  window.history.replaceState(
+    window.history.state,
+    "",
+    `${window.location.pathname}${window.location.search}${remainingFragment ? `#${remainingFragment}` : ""}`,
+  );
+  return true;
 }
 
 export function resetControlCenterReadLimiterForTests(): void {
@@ -264,10 +287,7 @@ export function resetControlCenterReadLimiterForTests(): void {
 }
 
 function localApiBearerForRequest(): string | null {
-  const configured = String(
-    import.meta.env.VITE_UAA_LOCAL_API_BEARER ?? "",
-  ).trim();
-  return sessionLocalApiBearer ?? (configured.length > 0 ? configured : null);
+  return sessionLocalApiBearer;
 }
 
 function withLocalApiAuthHeaders(
@@ -908,6 +928,9 @@ function portableCanonicalNumber(value: number): string {
 
 export async function loadControlCenterData(): Promise<ControlCenterData> {
   if (!API_BASE_POLICY.allowed) {
+    if (strictBackendModeEnabled()) {
+      throw new StrictBackendDataError();
+    }
     return withConnection(
       {
         ...mockControlCenterData,
@@ -2609,6 +2632,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     approvalQueueEndpointFallbackUsed ||
     runObservabilityEndpointFallbackUsed ||
     crmEndpointFallbackUsed;
+  if (strictBackendDataFailureRequired(mockFallbackUsed)) {
+    throw new StrictBackendDataError();
+  }
   let degradedSafeMessage =
     "Some local backend summaries were unavailable; non-authoritative mock fallback filled missing panels.";
   if (providerCredentialReadinessFallbackUsed) {

@@ -43,13 +43,21 @@ def test_pr_and_push_jobs_checkout_the_same_explicit_sha_they_attest() -> None:
         "UAA_CI_EXACT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}"
         in workflow
     )
-    checkout_count = workflow.count("uses: actions/checkout@v4")
+    checkout_count = workflow.count(
+        "uses: actions/checkout@v4"
+    )
     assert checkout_count > 0
     assert workflow.count("ref: ${{ env.UAA_CI_EXACT_SHA }}") == checkout_count
     assert "$GITHUB_SHA" not in workflow
     attestation = _extract_job_block(workflow, "manifest-attestation")
     assert "--lane ci-manifest-attestation" in attestation
     assert "Run canonical manifest attestation" in attestation
+
+
+def test_ci_bootstrap_environment_cannot_dirty_exact_plan_attestation() -> None:
+    gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
+
+    assert ".ci-bootstrap/" in gitignore
 
 
 def test_foundation_gate_ci_report_depends_on_required_verification_jobs() -> None:

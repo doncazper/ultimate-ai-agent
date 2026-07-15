@@ -219,7 +219,8 @@ class FoundationGateLegacyChecksPart004Mixin:
         local_auth_fragments = [
             "withLocalApiAuthHeaders",
             "localApiBearerForRequest",
-            "VITE_UAA_LOCAL_API_BEARER",
+            "LOCAL_API_SESSION_FRAGMENT_KEY",
+            "consumeLocalApiBearerFromLocation",
             "Authorization: `Bearer ${bearer}`",
         ]
         for fragment in local_auth_fragments:
@@ -227,6 +228,10 @@ class FoundationGateLegacyChecksPart004Mixin:
                 failures.append(
                     f"frontend client missing local auth posture fragment: {fragment}"
                 )
+        if "VITE_UAA_LOCAL_API_BEARER" in client:
+            failures.append(
+                "frontend client must not compile the local API bearer into the Vite bundle"
+            )
         forbidden_client_fragments = [
             "api_key",
             "document.cookie",

@@ -121,5 +121,7 @@ def test_idempotency_audit_policy_payload_matches_schema() -> None:
     assert payload["runtime_middleware_added"] is True
     assert payload["durable_dedupe_store_added"] is False
     assert payload["request_header_required_by_middleware"] is True
+    assert payload["global_middleware_enforcement"] == "header_shape_gate_only"
+    assert payload["route_owned_durable_replay_required_for_authority"] is True
     assert payload["mutation_authority_granted"] is False
     assert payload["production_authority_enabled"] is False

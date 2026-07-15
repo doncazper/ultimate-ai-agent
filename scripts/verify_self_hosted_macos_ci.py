@@ -92,8 +92,10 @@ def verify(root: Path = ROOT) -> list[str]:
         failures.append("CI workflow must cancel superseded local runs")
     if validate_definition():
         failures.append("canonical CI command manifest must validate")
-    if "python3.12 -m venv .venv" not in workflow:
-        failures.append("CI workflow must use the pre-provisioned Python 3.12 toolchain")
+    if "python3.12 -m venv .ci-bootstrap" not in workflow:
+        failures.append("CI workflow must bootstrap locked sync with pre-provisioned Python 3.12")
+    if workflow.count("uv sync --frozen --extra dev --python python3.12") != len(jobs) - 1:
+        failures.append("every installed CI job must use the frozen uv lock")
     if "/opt/homebrew/opt/node@22/bin" not in workflow:
         failures.append("CI workflow must use the pre-provisioned Node 22 toolchain")
     utility_shell = "/usr/sbin/taskpolicy -c utility /bin/bash --noprofile --norc -e -o pipefail {0}"
@@ -235,7 +237,9 @@ def verify(root: Path = ROOT) -> list[str]:
         failures.append(
             "desktop packaging must share the canonical Playwright browser cache"
         )
-    checkout_action = "uses: actions/checkout@v4"
+    checkout_action = (
+        "uses: actions/checkout@v4"
+    )
     checkout_count = workflow.count(checkout_action)
     if checkout_count == 0 or workflow.count("persist-credentials: false") != checkout_count:
         failures.append("every checkout must avoid persisting GitHub credentials")

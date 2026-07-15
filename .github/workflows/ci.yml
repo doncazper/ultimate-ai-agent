@@ -44,9 +44,9 @@ jobs:
 
       - name: Install package
         run: |
-          python3.12 -m venv .venv
-          .venv/bin/python -m pip install --upgrade pip
-          .venv/bin/python -m pip install -e ".[dev]"
+          python3.12 -m venv .ci-bootstrap
+          .ci-bootstrap/bin/python -m pip install --disable-pip-version-check "uv==0.11.21"
+          .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3.12
 
       - name: Run canonical manifest attestation
         run: |
@@ -74,9 +74,9 @@ jobs:
 
       - name: Install package
         run: |
-          python3.12 -m venv .venv
-          .venv/bin/python -m pip install --upgrade pip
-          .venv/bin/python -m pip install -e ".[dev]"
+          python3.12 -m venv .ci-bootstrap
+          .ci-bootstrap/bin/python -m pip install --disable-pip-version-check "uv==0.11.21"
+          .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3.12
 
       - name: Run canonical lint lane
         run: |
@@ -122,9 +122,9 @@ jobs:
 
       - name: Install package
         run: |
-          python3.12 -m venv .venv
-          .venv/bin/python -m pip install --upgrade pip
-          .venv/bin/python -m pip install -e ".[dev]"
+          python3.12 -m venv .ci-bootstrap
+          .ci-bootstrap/bin/python -m pip install --disable-pip-version-check "uv==0.11.21"
+          .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3.12
 
       - name: Run canonical fast affected preflight
         run: |
@@ -147,15 +147,15 @@ jobs:
         uses: actions/checkout@v4
         with:
           clean: true
-          fetch-depth: 1
+          fetch-depth: 0
           persist-credentials: false
           ref: ${{ env.UAA_CI_EXACT_SHA }}
 
       - name: Install package
         run: |
-          python3.12 -m venv .venv
-          .venv/bin/python -m pip install --upgrade pip
-          .venv/bin/python -m pip install -e ".[dev]"
+          python3.12 -m venv .ci-bootstrap
+          .ci-bootstrap/bin/python -m pip install --disable-pip-version-check "uv==0.11.21"
+          .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3.12
 
       - name: Run pytest shard
         run: |
@@ -230,9 +230,9 @@ jobs:
 
       - name: Install package
         run: |
-          python3.12 -m venv .venv
-          .venv/bin/python -m pip install --upgrade pip
-          .venv/bin/python -m pip install -e ".[dev]"
+          python3.12 -m venv .ci-bootstrap
+          .ci-bootstrap/bin/python -m pip install --disable-pip-version-check "uv==0.11.21"
+          .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3.12
 
       - name: Run canonical static verification lane
         run: |
@@ -261,9 +261,9 @@ jobs:
 
       - name: Install package
         run: |
-          python3.12 -m venv .venv
-          .venv/bin/python -m pip install --upgrade pip
-          .venv/bin/python -m pip install -e ".[dev]"
+          python3.12 -m venv .ci-bootstrap
+          .ci-bootstrap/bin/python -m pip install --disable-pip-version-check "uv==0.11.21"
+          .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3.12
 
       - name: Run docs release lane
         run: |
@@ -292,9 +292,9 @@ jobs:
 
       - name: Install package
         run: |
-          python3.12 -m venv .venv
-          .venv/bin/python -m pip install --upgrade pip
-          .venv/bin/python -m pip install -e ".[dev]"
+          python3.12 -m venv .ci-bootstrap
+          .ci-bootstrap/bin/python -m pip install --disable-pip-version-check "uv==0.11.21"
+          .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3.12
 
       - name: Run OpenAPI release lane
         run: |
@@ -323,9 +323,9 @@ jobs:
 
       - name: Install package
         run: |
-          python3.12 -m venv .venv
-          .venv/bin/python -m pip install --upgrade pip
-          .venv/bin/python -m pip install -e ".[dev]"
+          python3.12 -m venv .ci-bootstrap
+          .ci-bootstrap/bin/python -m pip install --disable-pip-version-check "uv==0.11.21"
+          .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3.12
 
       - name: Run API safety release lane
         run: |
@@ -354,9 +354,9 @@ jobs:
 
       - name: Install package
         run: |
-          python3.12 -m venv .venv
-          .venv/bin/python -m pip install --upgrade pip
-          .venv/bin/python -m pip install -e ".[dev]"
+          python3.12 -m venv .ci-bootstrap
+          .ci-bootstrap/bin/python -m pip install --disable-pip-version-check "uv==0.11.21"
+          .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3.12
 
       - name: Run security and redaction release lane
         run: |
@@ -385,9 +385,9 @@ jobs:
 
       - name: Install package
         run: |
-          python3.12 -m venv .venv
-          .venv/bin/python -m pip install --upgrade pip
-          .venv/bin/python -m pip install -e ".[dev]"
+          python3.12 -m venv .ci-bootstrap
+          .ci-bootstrap/bin/python -m pip install --disable-pip-version-check "uv==0.11.21"
+          .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3.12
 
       - name: Run product truth regression lane
         run: |
@@ -416,9 +416,9 @@ jobs:
 
       - name: Install package
         run: |
-          python3.12 -m venv .venv
-          .venv/bin/python -m pip install --upgrade pip
-          .venv/bin/python -m pip install -e ".[dev]"
+          python3.12 -m venv .ci-bootstrap
+          .ci-bootstrap/bin/python -m pip install --disable-pip-version-check "uv==0.11.21"
+          .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3.12
 
       - name: Run local model E2E release lane
         run: |
@@ -447,9 +447,9 @@ jobs:
 
       - name: Install package
         run: |
-          python3.12 -m venv .venv
-          .venv/bin/python -m pip install --upgrade pip
-          .venv/bin/python -m pip install -e ".[dev]"
+          python3.12 -m venv .ci-bootstrap
+          .ci-bootstrap/bin/python -m pip install --disable-pip-version-check "uv==0.11.21"
+          .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3.12
 
       - name: Run durability release lane
         run: |
@@ -478,9 +478,9 @@ jobs:
 
       - name: Install package
         run: |
-          python3.12 -m venv .venv
-          .venv/bin/python -m pip install --upgrade pip
-          .venv/bin/python -m pip install -e ".[dev]"
+          python3.12 -m venv .ci-bootstrap
+          .ci-bootstrap/bin/python -m pip install --disable-pip-version-check "uv==0.11.21"
+          .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3.12
 
       - name: Run frontend release lane
         run: |
@@ -522,9 +522,9 @@ jobs:
 
       - name: Install package
         run: |
-          python3.12 -m venv .venv
-          .venv/bin/python -m pip install --upgrade pip
-          .venv/bin/python -m pip install -e ".[dev]"
+          python3.12 -m venv .ci-bootstrap
+          .ci-bootstrap/bin/python -m pip install --disable-pip-version-check "uv==0.11.21"
+          .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3.12
 
       - name: Run performance release lane
         run: |
@@ -553,9 +553,9 @@ jobs:
 
       - name: Install package
         run: |
-          python3.12 -m venv .venv
-          .venv/bin/python -m pip install --upgrade pip
-          .venv/bin/python -m pip install -e ".[dev]"
+          python3.12 -m venv .ci-bootstrap
+          .ci-bootstrap/bin/python -m pip install --disable-pip-version-check "uv==0.11.21"
+          .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3.12
 
       - name: Determine visual regression scope
         id: visual-scope
@@ -640,9 +640,9 @@ jobs:
 
       - name: Install package
         run: |
-          python3.12 -m venv .venv
-          .venv/bin/python -m pip install --upgrade pip
-          .venv/bin/python -m pip install -e ".[dev]"
+          python3.12 -m venv .ci-bootstrap
+          .ci-bootstrap/bin/python -m pip install --disable-pip-version-check "uv==0.11.21"
+          .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3.12
 
       - name: Check local Docker prerequisite
         id: docker
@@ -712,9 +712,9 @@ jobs:
 
       - name: Install package
         run: |
-          python3.12 -m venv .venv
-          .venv/bin/python -m pip install --upgrade pip
-          .venv/bin/python -m pip install -e ".[dev]"
+          python3.12 -m venv .ci-bootstrap
+          .ci-bootstrap/bin/python -m pip install --disable-pip-version-check "uv==0.11.21"
+          .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3.12
 
       - name: Run Foundation Gate report
         run: |
@@ -754,9 +754,9 @@ jobs:
 
       - name: Install package
         run: |
-          python3.12 -m venv .venv
-          .venv/bin/python -m pip install --upgrade pip
-          .venv/bin/python -m pip install -e ".[dev]"
+          python3.12 -m venv .ci-bootstrap
+          .ci-bootstrap/bin/python -m pip install --disable-pip-version-check "uv==0.11.21"
+          .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3.12
 
       - name: Run canonical Control Center frontend lane
         run: |

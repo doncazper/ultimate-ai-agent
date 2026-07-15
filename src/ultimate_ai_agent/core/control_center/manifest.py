@@ -3,6 +3,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ultimate_ai_agent import __version__
+from ultimate_ai_agent.core.build_identity import build_identity
 from ultimate_ai_agent.core.control_center.enums import ControlCenterCapabilityStatus, ControlCenterSurface
 from ultimate_ai_agent.core.model_runtime.redaction import contains_secret_like
 from ultimate_ai_agent.core.time import utc_now
@@ -82,6 +83,7 @@ class ControlCenterManifest(BaseModel):
 
 
 def build_control_center_manifest(baseline_version: str | None = None) -> ControlCenterManifest:
+    identity = build_identity()
     surfaces = sorted(
         [
             _surface(
@@ -201,6 +203,11 @@ def build_control_center_manifest(baseline_version: str | None = None) -> Contro
             "execution_routes_allowed": False,
             "plugin_enablement_allowed": False,
             "mobile_sensor_access_allowed": False,
+            "build_id": identity.build_id,
+            "commit_ref": identity.commit_ref,
+            "source_revision_bound": identity.source_revision_bound,
+            "storage_schema_version": identity.storage_schema_version,
+            "capability_profile_version": identity.capability_profile_version,
         },
     )
 

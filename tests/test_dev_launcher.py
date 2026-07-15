@@ -511,10 +511,6 @@ def test_launcher_env_passes_configured_local_control_center_bearers(
 ) -> None:
     launcher = load_launcher()
     monkeypatch.setenv("UAA_API_LOCAL_BEARER", "local-control-center-bearer")
-    monkeypatch.setenv(
-        "VITE_UAA_LOCAL_API_BEARER",
-        "local-control-center-bearer",
-    )
     monkeypatch.setenv("UNRELATED_TOKEN", "should-not-pass-through")
 
     backend_env = launcher.safe_env(ROOT, "backend")
@@ -522,7 +518,7 @@ def test_launcher_env_passes_configured_local_control_center_bearers(
 
     assert backend_env["UAA_API_LOCAL_BEARER"] == "local-control-center-bearer"
     assert "VITE_UAA_LOCAL_API_BEARER" not in backend_env
-    assert frontend_env["VITE_UAA_LOCAL_API_BEARER"] == "local-control-center-bearer"
+    assert "VITE_UAA_LOCAL_API_BEARER" not in frontend_env
     assert "UAA_API_LOCAL_BEARER" not in frontend_env
     assert "UNRELATED_TOKEN" not in backend_env
     assert "UNRELATED_TOKEN" not in frontend_env
