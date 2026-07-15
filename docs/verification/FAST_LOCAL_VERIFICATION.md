@@ -2,6 +2,14 @@
 
 Status: implemented local-development feedback; not merge or release evidence.
 
+The canonical target architecture and Phase 00 shadow boundary are documented
+in
+[`RISK_BASED_VERIFICATION_ARCHITECTURE.md`](RISK_BASED_VERIFICATION_ARCHITECTURE.md).
+Phase 00 does not change the commands or evidence posture described here:
+existing selectors, release lanes, GitHub CI, and Foundation Gate remain
+authoritative while the typed DAG and Tier 0-3 risk model are compared in
+shadow mode. No check is removed or deduplicated during this phase.
+
 UAA has two stable changed-path commands:
 
 ```bash
