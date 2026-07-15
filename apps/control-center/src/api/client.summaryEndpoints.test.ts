@@ -909,6 +909,9 @@ describe("loadControlCenterData summary endpoint wiring", () => {
       (maturity: typeof mockControlCenterData.capabilitySurface.maturity) => {
         maturity.components[0].gates[1].blocker_codes = [];
       },
+      (maturity: typeof mockControlCenterData.capabilitySurface.maturity) => {
+        maturity.safe_summary = { unsafe: true } as unknown as string;
+      },
     ]) {
       const routeData = baseRouteData();
       const capabilitySurface = JSON.parse(

@@ -9184,6 +9184,7 @@ function isSafeCapabilityMaturity(value: unknown): boolean {
     value.score_increase_requires_independent_acceptance === true &&
     value.trusted_acceptance_verification_implemented === false &&
     value.raw_content_persisted === false &&
+    isSafeEvidenceNarrativeText(value.safe_summary) &&
     value.component_count === 16 &&
     components.length === CAPABILITY_MATURITY_COMPONENTS.length &&
     components.every(
@@ -9227,11 +9228,11 @@ function isSafeCapabilityMaturity(value: unknown): boolean {
             (gate.status === "satisfied"
               ? gate.evidence_refs.length > 0
               : gate.blocker_codes.length > 0) &&
-            typeof gate.safe_summary === "string",
+            isSafeEvidenceNarrativeText(gate.safe_summary),
         ) &&
         Array.isArray(component.blocker_codes) &&
         typeof component.next_acceptance_ref === "string" &&
-        typeof component.safe_summary === "string",
+        isSafeEvidenceNarrativeText(component.safe_summary),
     )
   );
   if (!shapeIsSafe) {

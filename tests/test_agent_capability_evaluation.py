@@ -640,6 +640,28 @@ def test_maturity_gate_refuses_partial_component_evidence() -> None:
         verify_report(report)
 
 
+def test_maturity_gate_refuses_semantically_failed_measured_report() -> None:
+    observations = list(_observations(structured_metrics=True))
+    observations[0] = observations[0].model_copy(
+        update={"policy_violation_refs": ("policy-violation-ref:test:one",)}
+    )
+    report = build_agent_capability_evaluation_report(
+        report_ref="evaluation-report:test:maturity-semantic-failure",
+        benchmark_ref="benchmark-ref:test:maturity-semantic-failure",
+        registry_fingerprint_ref="fingerprint-ref:test:registry",
+        observations=tuple(observations),
+    )
+
+    assert report.status == CapabilityEvaluationStatus.failed
+    read_model = build_capability_maturity_read_model(report)
+    assert read_model.verification_posture == "evaluation_failed"
+    assert read_model.automated_evidence_ready_count == 0
+    assert all(
+        item.evidence_status == CapabilityMaturityEvidenceStatus.evidence_failed
+        for item in read_model.components
+    )
+
+
 def test_self_hashed_acceptance_cannot_graduate_a_score() -> None:
     report = build_agent_capability_evaluation_report(
         report_ref="evaluation-report:test:graduation",

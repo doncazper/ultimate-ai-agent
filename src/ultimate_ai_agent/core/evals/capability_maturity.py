@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from ultimate_ai_agent.core.evals.capability_metrics import (
     CAPABILITY_COMPONENT_IDS,
     AgentCapabilityEvaluationReport,
+    CapabilityEvaluationStatus,
 )
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
@@ -702,7 +703,10 @@ def _component_evidence_posture(
     )
     if not observations:
         return _ComponentEvidencePosture(False, False, False, ())
-    automated_tests = all(item.safe_outcome_adhered for item in observations)
+    automated_tests = (
+        report.status == CapabilityEvaluationStatus.passed
+        and all(item.safe_outcome_adhered for item in observations)
+    )
     runtime_scenario = all(
         item.task_completed is True
         and item.completion_claimed is True
