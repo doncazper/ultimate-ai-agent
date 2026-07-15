@@ -22,9 +22,11 @@ The registration fixes all executable identity fields:
 
 Before every start the dispatcher re-evaluates current policy, the exact active
 `AuthorityLease`, operation and cost budgets, target bindings, kill switch, and
-deadline. The adapter separately re-evaluates compatibility, configuration,
+bounded start deadline. The adapter separately re-evaluates compatibility, configuration,
 health, budget, safe-disable, kill-switch, manifest, catalog, and registration
-bindings. A late dynamic-posture change fails before metadata access.
+bindings. Positive runtime observations require bounded checked-at and expiry
+timestamps; missing, stale, future-dated, or overlong observations fail closed.
+A late dynamic-posture change fails before metadata access.
 
 Availability or registration never authorizes invocation. Approval references
 are identifiers only. This read-only lane does not require a separate approval
@@ -54,8 +56,10 @@ PYTHONPATH=src .venv/bin/python scripts/dev/uaa_extensions.py \
   docs/tooling/exact_extension_adapter_manifest.json
 ```
 
-The loader rejects symlinks, FIFOs, non-regular files, oversized files,
-identity changes, invalid JSON, extra fields, and every non-allowlisted binding.
+The CLI confines validation to the repository and rejects symlinked path
+components. The loader rejects symlinks, FIFOs, non-regular files, oversized
+files, identity changes, invalid JSON, extra fields, and every non-allowlisted
+binding.
 
 ## Deliberately still blocked
 

@@ -4,7 +4,7 @@ import hashlib
 import json
 import os
 import stat
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from pathlib import Path
 from typing import Callable, Literal, Sequence
@@ -79,6 +79,9 @@ EXACT_EXTENSION_ADMISSION_REF = (
     "admission-validator-ref:exact-extension-metadata-inspection-v1"
 )
 EXACT_EXTENSION_MANIFEST_MAX_BYTES = 64 * 1024
+EXACT_EXTENSION_MAX_OBSERVATION_TTL = timedelta(minutes=5)
+EXACT_EXTENSION_MAX_FUTURE_CLOCK_SKEW = timedelta(seconds=30)
+EXACT_EXTENSION_MAX_START_TTL = timedelta(minutes=15)
 
 
 class ExactExtensionCompatibilityStatus(str, Enum):
@@ -261,33 +264,35 @@ class ExactExtensionAdapterManifest(_ExactExtensionModel):
 
 
 class ExactExtensionRuntimePosture(_ExactExtensionModel):
-    posture_ref: str = "extension-runtime-posture:metadata-inspection:configured"
+    posture_ref: str = "extension-runtime-posture:metadata-inspection:unknown"
     compatibility_status: ExactExtensionCompatibilityStatus = (
-        ExactExtensionCompatibilityStatus.supported
+        ExactExtensionCompatibilityStatus.unknown
     )
     configuration_status: ExactExtensionConfigurationStatus = (
-        ExactExtensionConfigurationStatus.configured
+        ExactExtensionConfigurationStatus.unknown
     )
-    health_status: ExactExtensionHealthStatus = ExactExtensionHealthStatus.healthy
-    budget_status: ExactExtensionBudgetStatus = ExactExtensionBudgetStatus.available
+    health_status: ExactExtensionHealthStatus = ExactExtensionHealthStatus.unknown
+    budget_status: ExactExtensionBudgetStatus = ExactExtensionBudgetStatus.unknown
     safe_disable_status: ExactExtensionSafeDisableStatus = (
-        ExactExtensionSafeDisableStatus.inactive
+        ExactExtensionSafeDisableStatus.unknown
     )
     kill_switch_status: ExactExtensionKillSwitchStatus = (
-        ExactExtensionKillSwitchStatus.inactive
+        ExactExtensionKillSwitchStatus.unknown
     )
+    checked_at: datetime | None = None
+    expires_at: datetime | None = None
     evidence_refs: list[str] = Field(
         default_factory=lambda: [
-            "evidence-ref:exact-extension:manifest-pinned",
-            "evidence-ref:exact-extension:core-tool-binding",
+            "evidence-ref:exact-extension:runtime-observation-missing",
         ],
         min_length=1,
         max_length=16,
     )
     safe_summary: str = Field(
         default=(
-            "Injected exact-extension observations are ready for one fresh "
-            "request-scoped dispatcher evaluation; they grant no authority."
+            "Current exact-extension compatibility, configuration, health, "
+            "budget, safe-disable, and kill-switch observations are missing; "
+            "runtime readiness fails closed."
         ),
         min_length=1,
         max_length=500,
@@ -299,6 +304,18 @@ class ExactExtensionRuntimePosture(_ExactExtensionModel):
         for ref in self.evidence_refs:
             validate_task_ref(ref, "evidence_ref")
         validate_safe_task_text(self.safe_summary, "safe_summary")
+        if (self.checked_at is None) != (self.expires_at is None):
+            raise ValueError("EXACT_EXTENSION_OBSERVATION_WINDOW_INCOMPLETE")
+        if self.checked_at is not None and self.expires_at is not None:
+            if self.checked_at.tzinfo is None or self.expires_at.tzinfo is None:
+                raise ValueError("EXACT_EXTENSION_OBSERVATION_TIMEZONE_REQUIRED")
+            if self.expires_at <= self.checked_at:
+                raise ValueError("EXACT_EXTENSION_OBSERVATION_WINDOW_INVALID")
+            now = datetime.now(UTC)
+            if self.checked_at > now + EXACT_EXTENSION_MAX_FUTURE_CLOCK_SKEW:
+                raise ValueError("EXACT_EXTENSION_OBSERVATION_FUTURE_DATED")
+            if self.expires_at - self.checked_at > EXACT_EXTENSION_MAX_OBSERVATION_TTL:
+                raise ValueError("EXACT_EXTENSION_OBSERVATION_TTL_EXCEEDED")
         return self
 
 
@@ -333,6 +350,8 @@ def build_default_exact_extension_adapter_manifest() -> ExactExtensionAdapterMan
 
 def exact_extension_runtime_blocker_codes(
     posture: ExactExtensionRuntimePosture,
+    *,
+    current_time: datetime | None = None,
 ) -> list[str]:
     blockers: list[str] = []
     if (
@@ -353,6 +372,11 @@ def exact_extension_runtime_blocker_codes(
         blockers.append("EXTENSION_SAFE_DISABLE_NOT_INACTIVE")
     if posture.kill_switch_status != ExactExtensionKillSwitchStatus.inactive.value:
         blockers.append("EXTENSION_KILL_SWITCH_NOT_INACTIVE")
+    now = current_time or datetime.now(UTC)
+    if posture.checked_at is None or posture.expires_at is None:
+        blockers.append("EXTENSION_FRESHNESS_UNKNOWN")
+    elif posture.expires_at <= now:
+        blockers.append("EXTENSION_OBSERVATION_STALE")
     return blockers
 
 
@@ -374,16 +398,28 @@ def build_exact_extension_adapter_read_model(
         raise ValueError("EXACT_EXTENSION_CATALOG_VALIDATION_REQUIRED")
     observed = posture or ExactExtensionRuntimePosture()
     blockers = exact_extension_runtime_blocker_codes(observed)
+    reason_codes = [
+        "EXACT_REPO_OWNED_ADAPTER_REGISTERED",
+        "EXTENSION_PACKAGE_RUNTIME_IMPORT_NOT_USED",
+        "REQUEST_SCOPED_AUTHORITY_REEVALUATION_REQUIRED",
+    ]
+    observation_missing_or_stale = bool(
+        {
+            "EXTENSION_FRESHNESS_UNKNOWN",
+            "EXTENSION_OBSERVATION_STALE",
+        }.intersection(blockers)
+    )
+    reason_codes.append(
+        "CURRENT_RUNTIME_OBSERVATION_REQUIRED"
+        if observation_missing_or_stale
+        else "CURRENT_RUNTIME_OBSERVATION_EVALUATED"
+    )
     return ExactExtensionAdapterReadModel(
         manifest=manifest,
         runtime_posture=observed,
         ready_for_request_scoped_evaluation=not blockers,
         blocker_codes=blockers,
-        reason_codes=[
-            "EXACT_REPO_OWNED_ADAPTER_REGISTERED",
-            "EXTENSION_PACKAGE_RUNTIME_IMPORT_NOT_USED",
-            "REQUEST_SCOPED_AUTHORITY_REEVALUATION_REQUIRED",
-        ],
+        reason_codes=reason_codes,
         safe_summary=(
             "One exact repo-owned extension adapter is registered and ready only "
             "for fresh request-scoped policy, lease, target, budget, kill-switch, "
@@ -515,7 +551,8 @@ class ExactExtensionMetadataAuthorityAdapter:
                 actual_cost_microusd=0,
                 actual_cost_ref=(f"actual-cost-ref:exact-extension:sha256:{digest}"),
                 evidence_refs=[
-                    f"evidence-ref:exact-extension-late-denial:sha256:{digest}"
+                    f"evidence-ref:exact-extension-late-denial:sha256:{digest}",
+                    *late_reasons,
                 ],
                 safe_output={
                     "status": "blocked",
@@ -639,7 +676,7 @@ def build_exact_extension_metadata_dispatch_request(
     idempotency_ref: str,
     root_ref: str,
     relative_path: str,
-    start_deadline: datetime | None = None,
+    start_deadline: datetime,
 ) -> AuthorityDispatchRequest:
     for value, field_name in (
         (lease_ref, "lease_ref"),
@@ -652,6 +689,10 @@ def build_exact_extension_metadata_dispatch_request(
     normalized_path, path_reasons = normalize_relative_metadata_path(relative_path)
     if path_reasons or normalized_path is None:
         raise ValueError("EXACT_EXTENSION_TARGET_PATH_INVALID")
+    if start_deadline.tzinfo is None:
+        raise ValueError("EXACT_EXTENSION_START_DEADLINE_TIMEZONE_REQUIRED")
+    if start_deadline > datetime.now(UTC) + EXACT_EXTENSION_MAX_START_TTL:
+        raise ValueError("EXACT_EXTENSION_START_DEADLINE_TOO_DISTANT")
     manifest = ExactExtensionAdapterManifest.model_validate(
         build_default_exact_extension_adapter_manifest().model_dump(mode="python")
     )

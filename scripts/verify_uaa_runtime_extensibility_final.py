@@ -205,9 +205,10 @@ def _verify_exact_adapter_contract() -> None:
         "exact extension adapter drifted",
     )
     _require(
-        read_model.ready_for_request_scoped_evaluation,
-        "exact extension adapter is not ready for request-scoped evaluation",
+        not read_model.ready_for_request_scoped_evaluation,
+        "exact extension adapter invents readiness without observations",
     )
+    _require(bool(read_model.blocker_codes), "exact adapter omits readiness blockers")
     _require(not read_model.invocation_authorized, "exact adapter claims authority")
     _require(not read_model.execution_performed, "exact adapter claims execution")
     _require(

@@ -176,11 +176,11 @@ claims, production authority, or broad autonomy through an ecosystem surface.
 The hardening keeps the full-strength ecosystem goal visible while shipping one
 useful exact repo-owned adapter plus the repo-safe general posture: inspectable
 metadata, trust labels, blocked reasons, safe adoption posture, CLI/API/Core
-parity, docs, tests, and verifier coverage. This supports a conservative 9/10
-extensibility assessment for UAA's exact-adapter architecture: the first real
-adapter is implemented, replay-safe, authority-governed, operator-visible, and
-adversarially tested, while arbitrary third-party runtime import remains an
-intentional deny boundary rather than a missing safety control.
+parity, docs, tests, and verifier coverage. Seven scoped evidence gates pass for
+this one exact adapter lane. That evidence is not a 0-10 aggregate extensibility
+score: the broader third-party runtime ecosystem remains intentionally blocked.
+The exact adapter is replay-safe, authority-governed, operator-visible, and
+adversarially tested without turning catalog visibility into callability.
 
 Still blocked:
 

@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+import stat
 import sys
 from pathlib import Path
 
@@ -30,6 +32,9 @@ from ultimate_ai_agent.core.extension_catalog import (
 from ultimate_ai_agent.core.extension_catalog.ecosystem import (
     build_default_extension_ecosystem_read_model,
 )
+
+
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def inspect_catalog() -> dict[str, object]:
@@ -121,6 +126,33 @@ def render_validation_summary(payload: dict[str, object]) -> str:
 
 def inspect_exact_adapter() -> dict[str, object]:
     return build_exact_extension_adapter_read_model().model_dump(mode="json")
+
+
+def _repo_manifest_path(path: Path, *, repository_root: Path = ROOT) -> Path:
+    candidate = Path(os.path.abspath(path if path.is_absolute() else Path.cwd() / path))
+    try:
+        resolved = candidate.resolve(strict=True)
+        resolved_root = repository_root.resolve(strict=True)
+    except (OSError, RuntimeError) as exc:
+        raise ValueError("EXACT_EXTENSION_MANIFEST_NOT_FOUND") from exc
+    if not resolved.is_relative_to(resolved_root):
+        raise ValueError("EXACT_EXTENSION_MANIFEST_OUTSIDE_REPOSITORY")
+    relative = candidate.relative_to(resolved_root)
+    current = resolved_root
+    for component in relative.parts:
+        current = current / component
+        try:
+            metadata = current.lstat()
+        except OSError as exc:
+            raise ValueError("EXACT_EXTENSION_MANIFEST_NOT_FOUND") from exc
+        if stat.S_ISLNK(metadata.st_mode):
+            raise ValueError("EXACT_EXTENSION_MANIFEST_SPECIAL_FILE_DENIED")
+    return candidate
+
+
+def _safe_exact_extension_denial_code(exc: ValueError) -> str:
+    match = re.fullmatch(r"EXACT_EXTENSION_[A-Z0-9_]+", str(exc))
+    return match.group(0) if match else "EXACT_EXTENSION_MANIFEST_VALIDATION_DENIED"
 
 
 def render_exact_adapter_summary(payload: dict[str, object]) -> str:
@@ -322,9 +354,11 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "validate-exact-adapter-manifest":
         try:
-            manifest = load_exact_extension_adapter_manifest(args.manifest_path)
+            manifest = load_exact_extension_adapter_manifest(
+                _repo_manifest_path(args.manifest_path)
+            )
         except ValueError as exc:
-            print(str(exc), file=sys.stderr)
+            print(_safe_exact_extension_denial_code(exc), file=sys.stderr)
             return 1
         payload = {
             "status": "validated_exact_repo_owned_binding",

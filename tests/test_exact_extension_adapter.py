@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 import sys
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -48,6 +49,28 @@ from ultimate_ai_agent.core.tools.runtime import FilesystemSafeRoot
 
 
 ROOT_REF = "safe-root:exact-extension-test"
+
+
+def _ready_posture(**overrides: object) -> ExactExtensionRuntimePosture:
+    checked_at = datetime.now(UTC)
+    values: dict[str, object] = {
+        "posture_ref": "extension-runtime-posture:metadata-inspection:test-ready",
+        "compatibility_status": ExactExtensionCompatibilityStatus.supported,
+        "configuration_status": ExactExtensionConfigurationStatus.configured,
+        "health_status": ExactExtensionHealthStatus.healthy,
+        "budget_status": ExactExtensionBudgetStatus.available,
+        "safe_disable_status": ExactExtensionSafeDisableStatus.inactive,
+        "kill_switch_status": ExactExtensionKillSwitchStatus.inactive,
+        "checked_at": checked_at,
+        "expires_at": checked_at + timedelta(minutes=4),
+        "evidence_refs": ["evidence-ref:exact-extension:test-observation"],
+        "safe_summary": (
+            "Deterministic test observations permit one fresh request-scoped "
+            "dispatcher evaluation and grant no authority."
+        ),
+    }
+    values.update(overrides)
+    return ExactExtensionRuntimePosture.model_validate(values)
 
 
 def _safe_root(root: Path) -> FilesystemSafeRoot:
@@ -100,6 +123,7 @@ def _request(lease_ref: str, *, suffix: str = "success", path: str = "notes/repo
         idempotency_ref=f"idempotency-ref:exact-extension:{suffix}",
         root_ref=ROOT_REF,
         relative_path=path,
+        start_deadline=datetime.now(UTC) + timedelta(minutes=5),
     )
 
 
@@ -129,7 +153,7 @@ def test_exact_extension_executes_through_dispatcher_and_replays_once(
     (root / "notes" / "report.md").write_text("transient content", encoding="utf-8")
     state_dir = tmp_path / "authority"
     store, lease_ref = _lease_store(state_dir)
-    dispatcher = _dispatcher(state_dir, root, store, ExactExtensionRuntimePosture)
+    dispatcher = _dispatcher(state_dir, root, store, _ready_posture)
     request = _request(lease_ref)
 
     first = dispatcher.dispatch(request)
@@ -159,7 +183,7 @@ def test_exact_extension_rechecks_safe_disable_between_prepare_and_start(
     (root / "notes" / "report.md").write_text("transient", encoding="utf-8")
     state_dir = tmp_path / "authority"
     store, lease_ref = _lease_store(state_dir)
-    posture = ExactExtensionRuntimePosture()
+    posture = _ready_posture()
     dispatcher = _dispatcher(state_dir, root, store, lambda: posture)
     request = _request(lease_ref, suffix="safe-disable")
 
@@ -167,7 +191,7 @@ def test_exact_extension_rechecks_safe_disable_between_prepare_and_start(
     assert prepared.receipt.status == AuthorityDispatchStatus.prepared, (
         prepared.receipt.reason_refs
     )
-    posture = ExactExtensionRuntimePosture(
+    posture = _ready_posture(
         safe_disable_status=ExactExtensionSafeDisableStatus.active
     )
     result = dispatcher.execute(request)
@@ -177,59 +201,154 @@ def test_exact_extension_rechecks_safe_disable_between_prepare_and_start(
     assert any("safe-disable" in ref for ref in result.receipt.reason_refs)
 
 
+def test_exact_extension_rechecks_observation_expiry_before_start(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "repo"
+    (root / "notes").mkdir(parents=True)
+    (root / "notes" / "report.md").write_text("transient", encoding="utf-8")
+    state_dir = tmp_path / "authority"
+    store, lease_ref = _lease_store(state_dir)
+    posture = _ready_posture()
+    dispatcher = _dispatcher(state_dir, root, store, lambda: posture)
+    request = _request(lease_ref, suffix="observation-expired")
+
+    prepared = dispatcher.prepare(request)
+    assert prepared.receipt.status == AuthorityDispatchStatus.prepared
+    checked_at = datetime.now(UTC) - timedelta(minutes=2)
+    posture = _ready_posture(
+        checked_at=checked_at,
+        expires_at=checked_at + timedelta(minutes=1),
+    )
+    result = dispatcher.execute(request)
+
+    assert result.receipt.status == AuthorityDispatchStatus.cancelled_before_start
+    assert result.receipt.execution_started is False
+    assert result.receipt.adapter_invocation_performed is False
+    assert any("observation-stale" in ref for ref in result.receipt.reason_refs)
+
+
+def test_exact_extension_observation_window_is_bounded() -> None:
+    now = datetime.now(UTC)
+    with pytest.raises(ValueError, match="EXACT_EXTENSION_OBSERVATION_FUTURE_DATED"):
+        _ready_posture(
+            checked_at=now + timedelta(minutes=1),
+            expires_at=now + timedelta(minutes=2),
+        )
+    with pytest.raises(ValueError, match="EXACT_EXTENSION_OBSERVATION_TTL_EXCEEDED"):
+        _ready_posture(
+            checked_at=now,
+            expires_at=now + timedelta(minutes=6),
+        )
+    with pytest.raises(ValueError, match="EXACT_EXTENSION_OBSERVATION_WINDOW_INCOMPLETE"):
+        _ready_posture(checked_at=now, expires_at=None)
+    with pytest.raises(ValueError, match="EXACT_EXTENSION_OBSERVATION_TIMEZONE_REQUIRED"):
+        _ready_posture(
+            checked_at=now.replace(tzinfo=None),
+            expires_at=(now + timedelta(minutes=1)).replace(tzinfo=None),
+        )
+    with pytest.raises(ValueError, match="EXACT_EXTENSION_OBSERVATION_WINDOW_INVALID"):
+        _ready_posture(checked_at=now, expires_at=now)
+
+
+def test_exact_extension_start_deadline_requires_timezone() -> None:
+    with pytest.raises(
+        ValueError, match="EXACT_EXTENSION_START_DEADLINE_TIMEZONE_REQUIRED"
+    ):
+        build_exact_extension_metadata_dispatch_request(
+            lease_ref="authority-lease-ref:exact-extension:deadline-test",
+            run_ref="run-ref:exact-extension:deadline-test",
+            request_ref="request-ref:exact-extension:deadline-test",
+            idempotency_ref="idempotency-ref:exact-extension:deadline-test",
+            root_ref=ROOT_REF,
+            relative_path="notes/report.md",
+            start_deadline=datetime.now().replace(tzinfo=None),
+        )
+    with pytest.raises(ValueError, match="EXACT_EXTENSION_START_DEADLINE_TOO_DISTANT"):
+        build_exact_extension_metadata_dispatch_request(
+            lease_ref="authority-lease-ref:exact-extension:deadline-test",
+            run_ref="run-ref:exact-extension:deadline-test",
+            request_ref="request-ref:exact-extension:deadline-test",
+            idempotency_ref="idempotency-ref:exact-extension:deadline-test",
+            root_ref=ROOT_REF,
+            relative_path="notes/report.md",
+            start_deadline=datetime.now(UTC) + timedelta(days=1),
+        )
+
+
+def test_exact_extension_expired_start_deadline_denies_before_start(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "repo"
+    (root / "notes").mkdir(parents=True)
+    (root / "notes" / "report.md").write_text("transient", encoding="utf-8")
+    state_dir = tmp_path / "authority"
+    store, lease_ref = _lease_store(state_dir)
+    dispatcher = _dispatcher(state_dir, root, store, _ready_posture)
+    request = _request(lease_ref, suffix="expired-deadline").model_copy(
+        update={"start_deadline": datetime.now(UTC) - timedelta(seconds=1)}
+    )
+
+    result = dispatcher.dispatch(request)
+
+    assert result.receipt.execution_started is False
+    assert result.receipt.adapter_invocation_performed is False
+    assert any("deadline-expired" in ref for ref in result.receipt.reason_refs)
+
+
 @pytest.mark.parametrize(
     ("posture", "expected_fragment"),
     [
         (
-            ExactExtensionRuntimePosture(
+            _ready_posture(
                 compatibility_status=ExactExtensionCompatibilityStatus.unknown
             ),
             "compatibility",
         ),
         (
-            ExactExtensionRuntimePosture(
+            _ready_posture(
                 compatibility_status=ExactExtensionCompatibilityStatus.unsupported
             ),
             "compatibility",
         ),
         (
-            ExactExtensionRuntimePosture(
+            _ready_posture(
                 configuration_status=ExactExtensionConfigurationStatus.invalid
             ),
             "configuration",
         ),
         (
-            ExactExtensionRuntimePosture(
+            _ready_posture(
                 health_status=ExactExtensionHealthStatus.stale
             ),
             "health",
         ),
         (
-            ExactExtensionRuntimePosture(
+            _ready_posture(
                 health_status=ExactExtensionHealthStatus.degraded
             ),
             "health",
         ),
         (
-            ExactExtensionRuntimePosture(
+            _ready_posture(
                 budget_status=ExactExtensionBudgetStatus.unknown
             ),
             "budget",
         ),
         (
-            ExactExtensionRuntimePosture(
+            _ready_posture(
                 budget_status=ExactExtensionBudgetStatus.exhausted
             ),
             "budget",
         ),
         (
-            ExactExtensionRuntimePosture(
+            _ready_posture(
                 safe_disable_status=ExactExtensionSafeDisableStatus.unknown
             ),
             "safe-disable",
         ),
         (
-            ExactExtensionRuntimePosture(
+            _ready_posture(
                 kill_switch_status=ExactExtensionKillSwitchStatus.active
             ),
             "kill-switch",
@@ -263,7 +382,7 @@ def test_exact_extension_requires_current_lease_and_exact_bindings(
     (root / "notes" / "report.md").write_text("transient", encoding="utf-8")
     state_dir = tmp_path / "authority"
     store = AuthorityLeaseStore(state_dir)
-    dispatcher = _dispatcher(state_dir, root, store, ExactExtensionRuntimePosture)
+    dispatcher = _dispatcher(state_dir, root, store, _ready_posture)
     missing_lease = _request(
         "authority-lease-ref:exact-extension:missing",
         suffix="missing-lease",
@@ -311,6 +430,7 @@ def test_exact_extension_request_rejects_unbounded_targets(
             idempotency_ref="idempotency-ref:exact-extension:path-test",
             root_ref=ROOT_REF,
             relative_path=unsafe_path,
+            start_deadline=datetime.now(UTC) + timedelta(minutes=5),
         )
 
 
@@ -323,7 +443,7 @@ def test_exact_extension_changed_request_cannot_reuse_dispatch_identity(
     (root / "notes" / "other.md").write_text("two", encoding="utf-8")
     state_dir = tmp_path / "authority"
     store, lease_ref = _lease_store(state_dir)
-    dispatcher = _dispatcher(state_dir, root, store, ExactExtensionRuntimePosture)
+    dispatcher = _dispatcher(state_dir, root, store, _ready_posture)
     first = _request(lease_ref, suffix="conflict")
     dispatcher.dispatch(first)
     other = _request(lease_ref, suffix="other", path="notes/other.md")
@@ -406,7 +526,7 @@ def test_exact_extension_revoked_lease_cancels_before_start(tmp_path: Path) -> N
     (root / "notes" / "report.md").write_text("transient", encoding="utf-8")
     state_dir = tmp_path / "authority"
     store, lease_ref = _lease_store(state_dir)
-    dispatcher = _dispatcher(state_dir, root, store, ExactExtensionRuntimePosture)
+    dispatcher = _dispatcher(state_dir, root, store, _ready_posture)
     request = _request(lease_ref, suffix="revoked")
     dispatcher.prepare(request)
     store.revoke_lease(
@@ -442,10 +562,10 @@ def test_exact_extension_late_safe_disable_blocks_before_metadata_access(
         nonlocal posture_checks
         posture_checks += 1
         if posture_checks >= 3:
-            return ExactExtensionRuntimePosture(
+            return _ready_posture(
                 safe_disable_status=ExactExtensionSafeDisableStatus.active
             )
-        return ExactExtensionRuntimePosture()
+        return _ready_posture()
 
     adapter = ExactExtensionMetadataAuthorityAdapter(
         safe_roots=[_safe_root(root)],
@@ -470,6 +590,57 @@ def test_exact_extension_late_safe_disable_blocks_before_metadata_access(
     assert result.receipt.execution_started is True
     assert result.receipt.adapter_invocation_performed is True
     assert any("late-denial" in ref for ref in result.receipt.evidence_refs)
+    assert any(
+        "safe-disable-not-inactive" in ref for ref in result.receipt.evidence_refs
+    )
+    ledger = dispatcher.receipts_path.read_text(encoding="utf-8")
+    assert "content-must-not-be-read" not in ledger
+    assert str(root) not in ledger
+
+
+def test_exact_extension_late_kill_switch_blocks_before_metadata_access(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "repo"
+    (root / "notes").mkdir(parents=True)
+    (root / "notes" / "report.md").write_text(
+        "content-must-not-be-read",
+        encoding="utf-8",
+    )
+    state_dir = tmp_path / "authority"
+    store, lease_ref = _lease_store(state_dir)
+    posture_checks = 0
+
+    def posture_provider() -> ExactExtensionRuntimePosture:
+        nonlocal posture_checks
+        posture_checks += 1
+        return (
+            _ready_posture(kill_switch_status=ExactExtensionKillSwitchStatus.active)
+            if posture_checks >= 3
+            else _ready_posture()
+        )
+
+    adapter = ExactExtensionMetadataAuthorityAdapter(
+        safe_roots=[_safe_root(root)],
+        posture_provider=posture_provider,
+    )
+
+    def metadata_access_must_not_run(_request):
+        raise AssertionError("bounded metadata tool ran after late kill switch")
+
+    adapter._inner.invoke = metadata_access_must_not_run  # type: ignore[method-assign]
+    dispatcher = AuthorityDispatcher(
+        state_dir,
+        adapters=[adapter],
+        lease_store=store,
+        budget_store=AuthorityBudgetStore(state_dir, lease_store=store),
+    )
+
+    result = dispatcher.dispatch(_request(lease_ref, suffix="late-kill-switch"))
+
+    assert result.receipt.status == AuthorityDispatchStatus.failed
+    assert result.receipt.execution_started is True
+    assert any("kill-switch-not-inactive" in ref for ref in result.receipt.evidence_refs)
     ledger = dispatcher.receipts_path.read_text(encoding="utf-8")
     assert "content-must-not-be-read" not in ledger
     assert str(root) not in ledger
@@ -500,7 +671,9 @@ def test_exact_extension_posture_provider_failure_denies_before_start(
 
 def test_exact_extension_read_model_and_cli_are_non_authorizing() -> None:
     read_model = build_exact_extension_adapter_read_model()
-    assert read_model.ready_for_request_scoped_evaluation is True
+    assert read_model.ready_for_request_scoped_evaluation is False
+    assert read_model.blocker_codes
+    assert "CURRENT_RUNTIME_OBSERVATION_REQUIRED" in read_model.reason_codes
     assert read_model.invocation_authorized is False
     assert read_model.execution_performed is False
     assert read_model.global_extension_runtime_enabled is False
@@ -517,7 +690,199 @@ def test_exact_extension_read_model_and_cli_are_non_authorizing() -> None:
         timeout=20,
     )
     assert "General extension runtime: disabled" in result.stdout
-    assert "Ready for request-scoped evaluation: yes" in result.stdout
+    assert "Ready for request-scoped evaluation: no" in result.stdout
+    assert "Blockers: none" not in result.stdout
+
+
+def test_exact_extension_default_posture_is_unknown_and_fails_closed() -> None:
+    posture = ExactExtensionRuntimePosture()
+    assert posture.compatibility_status == "unknown"
+    assert posture.configuration_status == "unknown"
+    assert posture.health_status == "unknown"
+    assert posture.budget_status == "unknown"
+    assert posture.safe_disable_status == "unknown"
+    assert posture.kill_switch_status == "unknown"
+    assert posture.checked_at is None
+    assert posture.expires_at is None
+
+    read_model = build_exact_extension_adapter_read_model()
+    assert read_model.ready_for_request_scoped_evaluation is False
+    assert {
+        "EXTENSION_COMPATIBILITY_NOT_SUPPORTED",
+        "EXTENSION_CONFIGURATION_NOT_READY",
+        "EXTENSION_HEALTH_NOT_READY",
+        "EXTENSION_BUDGET_NOT_AVAILABLE",
+        "EXTENSION_SAFE_DISABLE_NOT_INACTIVE",
+        "EXTENSION_KILL_SWITCH_NOT_INACTIVE",
+        "EXTENSION_FRESHNESS_UNKNOWN",
+    }.issubset(read_model.blocker_codes)
+    assert read_model.invocation_authorized is False
+    assert read_model.execution_performed is False
+    assert read_model.global_extension_runtime_enabled is False
+    assert read_model.arbitrary_runtime_import_enabled is False
+
+
+def test_exact_extension_observed_ready_posture_never_grants_authority() -> None:
+    read_model = build_exact_extension_adapter_read_model(posture=_ready_posture())
+    assert read_model.ready_for_request_scoped_evaluation is True
+    assert read_model.blocker_codes == []
+    assert "CURRENT_RUNTIME_OBSERVATION_EVALUATED" in read_model.reason_codes
+    assert read_model.invocation_authorized is False
+    assert read_model.execution_performed is False
+
+
+def test_exact_extension_fresh_blocked_observation_is_evaluated() -> None:
+    read_model = build_exact_extension_adapter_read_model(
+        posture=_ready_posture(
+            compatibility_status=ExactExtensionCompatibilityStatus.unsupported
+        )
+    )
+    assert read_model.ready_for_request_scoped_evaluation is False
+    assert "EXTENSION_COMPATIBILITY_NOT_SUPPORTED" in read_model.blocker_codes
+    assert "CURRENT_RUNTIME_OBSERVATION_EVALUATED" in read_model.reason_codes
+    assert "CURRENT_RUNTIME_OBSERVATION_REQUIRED" not in read_model.reason_codes
+
+
+def test_exact_extension_default_posture_denies_before_start(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    (root / "notes").mkdir(parents=True)
+    (root / "notes" / "report.md").write_text("transient", encoding="utf-8")
+    state_dir = tmp_path / "authority"
+    store, lease_ref = _lease_store(state_dir)
+    dispatcher = _dispatcher(state_dir, root, store, ExactExtensionRuntimePosture)
+
+    result = dispatcher.dispatch(_request(lease_ref, suffix="unknown-posture"))
+
+    assert result.receipt.status == AuthorityDispatchStatus.denied
+    assert result.receipt.execution_started is False
+    assert result.receipt.adapter_invocation_performed is False
+    for expected in (
+        "compatibility-not-supported",
+        "configuration-not-ready",
+        "health-not-ready",
+        "budget-not-available",
+        "safe-disable-not-inactive",
+        "kill-switch-not-inactive",
+        "freshness-unknown",
+    ):
+        assert any(expected in ref for ref in result.receipt.reason_refs)
+
+
+def test_exact_extension_cli_rejects_manifest_outside_repository(
+    tmp_path: Path,
+) -> None:
+    manifest_path = tmp_path / "exact-extension.json"
+    manifest_path.write_text(
+        json.dumps(build_default_exact_extension_adapter_manifest().model_dump(mode="json")),
+        encoding="utf-8",
+    )
+    env = os.environ.copy()
+    env["PYTHONPATH"] = "src"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/dev/uaa_extensions.py",
+            "validate-exact-adapter-manifest",
+            str(manifest_path),
+        ],
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert result.stderr.strip() == "EXACT_EXTENSION_MANIFEST_OUTSIDE_REPOSITORY"
+    assert str(manifest_path) not in result.stderr
+
+
+def test_exact_extension_cli_denial_code_does_not_echo_embedded_values() -> None:
+    from scripts.dev.uaa_extensions import _safe_exact_extension_denial_code
+
+    unsafe = ValueError(
+        "validation failed for supplied value EXACT_EXTENSION_SECRETLIKE_VALUE"
+    )
+    assert (
+        _safe_exact_extension_denial_code(unsafe)
+        == "EXACT_EXTENSION_MANIFEST_VALIDATION_DENIED"
+    )
+
+
+def test_exact_extension_cli_validates_canonical_manifest_without_authority() -> None:
+    env = os.environ.copy()
+    env["PYTHONPATH"] = "src"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/dev/uaa_extensions.py",
+            "validate-exact-adapter-manifest",
+            "docs/tooling/exact_extension_adapter_manifest.json",
+        ],
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+
+    assert result.returncode == 0
+    assert "Status: validated_exact_repo_owned_binding" in result.stdout
+    assert f"Registration: {EXACT_EXTENSION_REGISTRATION_REF}" in result.stdout
+    assert "Runtime import: not performed" in result.stdout
+    assert "Execution: not performed" in result.stdout
+    assert "Authority: not granted" in result.stdout
+
+
+def test_exact_extension_cli_path_confinement_preserves_symlink_denial(
+    tmp_path: Path,
+) -> None:
+    from scripts.dev.uaa_extensions import _repo_manifest_path
+
+    root = tmp_path / "repo"
+    root.mkdir()
+    manifest = root / "manifest.json"
+    manifest.write_text("{}", encoding="utf-8")
+    link = root / "manifest-link.json"
+    link.symlink_to(manifest)
+
+    with pytest.raises(ValueError, match="EXACT_EXTENSION_MANIFEST_SPECIAL_FILE_DENIED"):
+        _repo_manifest_path(link, repository_root=root)
+
+
+def test_exact_extension_cli_path_confinement_rejects_symlinked_parent(
+    tmp_path: Path,
+) -> None:
+    from scripts.dev.uaa_extensions import _repo_manifest_path
+
+    root = tmp_path / "repo"
+    outside = tmp_path / "outside"
+    root.mkdir()
+    outside.mkdir()
+    (outside / "manifest.json").write_text("{}", encoding="utf-8")
+    (root / "linked").symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises(
+        ValueError, match="EXACT_EXTENSION_MANIFEST_OUTSIDE_REPOSITORY"
+    ):
+        _repo_manifest_path(root / "linked" / "manifest.json", repository_root=root)
+
+
+def test_exact_extension_cli_path_confinement_rejects_in_repo_symlinked_parent(
+    tmp_path: Path,
+) -> None:
+    from scripts.dev.uaa_extensions import _repo_manifest_path
+
+    root = tmp_path / "repo"
+    target = root / "target"
+    target.mkdir(parents=True)
+    (target / "manifest.json").write_text("{}", encoding="utf-8")
+    (root / "linked").symlink_to(target, target_is_directory=True)
+
+    with pytest.raises(ValueError, match="EXACT_EXTENSION_MANIFEST_SPECIAL_FILE_DENIED"):
+        _repo_manifest_path(root / "linked" / "manifest.json", repository_root=root)
 
 
 def test_exact_extension_availability_is_visible_but_not_globally_callable() -> None:

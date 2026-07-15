@@ -28,6 +28,15 @@ MANIFEST_PATH = ROOT / "docs/tooling/exact_extension_adapter_manifest.json"
 SCHEMA_PATH = ROOT / "docs/schemas/exact_extension_adapter.schema.json"
 SOURCE_PATH = ROOT / "src/ultimate_ai_agent/core/extension_catalog/exact_adapter.py"
 SCORE_PATH = ROOT / "docs/benchmarks/extensibility/exact_extension_adapter_score.json"
+EXPECTED_EVIDENCE_GATES = {
+    "evidence-gate:extension:declaration-and-schema",
+    "evidence-gate:extension:runtime-truth-dimensions",
+    "evidence-gate:extension:exact-core-owned-adapter",
+    "evidence-gate:extension:request-scoped-authority",
+    "evidence-gate:extension:replay-receipts-redaction",
+    "evidence-gate:extension:api-cli-visibility",
+    "evidence-gate:extension:adversarial-failure-proof",
+}
 
 
 class VerificationError(RuntimeError):
@@ -52,30 +61,50 @@ def verify() -> None:
         ExactExtensionAdapterManifest.model_json_schema() == schema,
         "exact extension schema drifted from Python contract",
     )
-    score = json.loads(SCORE_PATH.read_text(encoding="utf-8"))
-    _require(score["score"] == 9.0, "exact extension evidence score drifted")
-    _require(score["confidence"] == "high", "evidence confidence drifted")
+    evidence = json.loads(SCORE_PATH.read_text(encoding="utf-8"))
     _require(
-        sum(item["points"] for item in score["score_basis"]) == score["score"],
-        "evidence score basis does not reconcile",
+        evidence["schema_version"] == "uaa_exact_extension_lane_evidence.v1",
+        "exact extension lane evidence schema drifted",
+    )
+    _require(evidence["not_component_score"] is True, "lane evidence claims a score")
+    _require("score" not in evidence, "lane evidence retains a numeric score")
+    _require("score_basis" not in evidence, "lane evidence retains score weights")
+    _require(
+        evidence["aggregate_component_score"] is None,
+        "lane evidence invents an aggregate component score",
+    )
+    _require(evidence["confidence"] == "high", "evidence confidence drifted")
+    _require(evidence["scope"] == "one_core_owned_metadata_adapter_lane", "lane scope drifted")
+    _require(
+        len(evidence["gate_results"])
+        == evidence["passed_gate_count"]
+        == evidence["total_gate_count"],
+        "lane evidence gate counts do not reconcile",
     )
     _require(
-        all(item["status"] == "passed" for item in score["score_basis"]),
-        "an extensibility score gate is not passed",
+        all(item["status"] == "passed" for item in evidence["gate_results"]),
+        "an exact extension lane evidence gate is not passed",
     )
+    gate_refs = [item["gate_ref"] for item in evidence["gate_results"]]
+    _require(len(gate_refs) == len(set(gate_refs)), "lane evidence gates are duplicated")
+    _require(set(gate_refs) == EXPECTED_EVIDENCE_GATES, "lane evidence gates drifted")
     for forbidden_flag in (
         "authority_granted_by_score",
         "raw_content_persisted",
         "local_paths_persisted",
         "credentials_persisted",
     ):
-        _require(score[forbidden_flag] is False, f"unsafe score flag: {forbidden_flag}")
+        _require(
+            evidence[forbidden_flag] is False,
+            f"unsafe lane evidence flag: {forbidden_flag}",
+        )
 
     read_model = build_exact_extension_adapter_read_model()
     _require(
-        read_model.ready_for_request_scoped_evaluation,
-        "exact extension reference adapter is not ready for policy evaluation",
+        not read_model.ready_for_request_scoped_evaluation,
+        "missing observations incorrectly claim runtime readiness",
     )
+    _require(bool(read_model.blocker_codes), "fail-closed read model lacks blockers")
     _require(not read_model.invocation_authorized, "readiness claims authority")
     _require(not read_model.execution_performed, "read model claims execution")
     _require(
@@ -140,6 +169,10 @@ def verify() -> None:
     _require(
         "Callability still requires fresh" in cli.stdout,
         "human CLI omits request-scoped authority",
+    )
+    _require(
+        "Ready for request-scoped evaluation: no" in cli.stdout,
+        "human CLI invents current runtime readiness",
     )
 
 

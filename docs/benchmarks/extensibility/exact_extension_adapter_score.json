@@ -1,45 +1,41 @@
 {
-  "schema_version": "uaa_extensibility_evidence_score.v1",
-  "score_ref": "score-ref:uaa-extensibility:exact-adapter-v1",
-  "component": "extensibility_ecosystem",
-  "score": 9.0,
+  "schema_version": "uaa_exact_extension_lane_evidence.v1",
+  "evidence_ref": "evidence-ref:uaa-extensibility:exact-adapter-v1",
+  "scope": "one_core_owned_metadata_adapter_lane",
+  "not_component_score": true,
+  "aggregate_component_score": null,
+  "passed_gate_count": 7,
+  "total_gate_count": 7,
   "confidence": "high",
   "status": "implemented_exact_lane_general_runtime_blocked",
   "implementation_ref": "adapter-implementation-ref:exact-extension-metadata-inspection-v1",
-  "score_basis": [
+  "gate_results": [
     {
-      "gate_ref": "score-gate:extension:declaration-and-schema",
-      "points": 1,
+      "gate_ref": "evidence-gate:extension:declaration-and-schema",
       "status": "passed"
     },
     {
-      "gate_ref": "score-gate:extension:runtime-truth-dimensions",
-      "points": 1,
+      "gate_ref": "evidence-gate:extension:runtime-truth-dimensions",
       "status": "passed"
     },
     {
-      "gate_ref": "score-gate:extension:exact-core-owned-adapter",
-      "points": 2,
+      "gate_ref": "evidence-gate:extension:exact-core-owned-adapter",
       "status": "passed"
     },
     {
-      "gate_ref": "score-gate:extension:request-scoped-authority",
-      "points": 2,
+      "gate_ref": "evidence-gate:extension:request-scoped-authority",
       "status": "passed"
     },
     {
-      "gate_ref": "score-gate:extension:replay-receipts-redaction",
-      "points": 1,
+      "gate_ref": "evidence-gate:extension:replay-receipts-redaction",
       "status": "passed"
     },
     {
-      "gate_ref": "score-gate:extension:api-cli-visibility",
-      "points": 1,
+      "gate_ref": "evidence-gate:extension:api-cli-visibility",
       "status": "passed"
     },
     {
-      "gate_ref": "score-gate:extension:adversarial-failure-proof",
-      "points": 1,
+      "gate_ref": "evidence-gate:extension:adversarial-failure-proof",
       "status": "passed"
     }
   ],
@@ -54,7 +50,7 @@
   ],
   "remaining_gap": {
     "classification": "intentionally_bounded",
-    "safe_summary": "Only one exact repo-owned adapter is callable; arbitrary package import, marketplace execution, wildcard capabilities, and unsigned third-party runtime code remain blocked."
+    "safe_summary": "One exact repo-owned adapter lane is implemented; it remains unavailable without fresh observations and exact request-scoped authority evaluation. Arbitrary package import, marketplace execution, wildcard capabilities, and unsigned third-party runtime code remain blocked."
   },
   "authority_granted_by_score": false,
   "raw_content_persisted": false,
