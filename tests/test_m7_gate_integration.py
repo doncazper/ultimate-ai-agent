@@ -16,6 +16,10 @@ from ultimate_ai_agent.core.communications.matrix_session.static_safety import (
     is_exact_matrix_session_bounded_filesystem_site,
     is_exact_matrix_session_subprocess_site,
 )
+from ultimate_ai_agent.core.communications.matrix_sync.static_safety import (
+    is_exact_matrix_cache_crypto_subprocess_site,
+    is_exact_matrix_sync_transport_subprocess_site,
+)
 
 
 def _assert_exact_governed_runtime_command_subprocess_site(source: str) -> None:
@@ -134,6 +138,22 @@ def test_m7_does_not_add_runtime_execution_integrations() -> None:
         / "matrix_session"
         / "backend.py"
     )
+    matrix_cache_crypto_subprocess_path = (
+        Path("src")
+        / "ultimate_ai_agent"
+        / "core"
+        / "communications"
+        / "matrix_sync"
+        / "macos_cache_crypto.py"
+    )
+    matrix_sync_transport_subprocess_path = (
+        Path("src")
+        / "ultimate_ai_agent"
+        / "core"
+        / "communications"
+        / "matrix_sync"
+        / "transport.py"
+    )
     sources = {
         path: path.read_text(encoding="utf-8")
         for path in (Path("src") / "ultimate_ai_agent" / "core").rglob("*.py")
@@ -142,6 +162,8 @@ def test_m7_does_not_add_runtime_execution_integrations() -> None:
     sealed_source = sources[sealed_subprocess_path]
     matrix_harness_source = sources.pop(matrix_harness_subprocess_path)
     matrix_session_source = sources.pop(matrix_session_subprocess_path)
+    matrix_cache_crypto_source = sources.pop(matrix_cache_crypto_subprocess_path)
+    matrix_sync_transport_source = sources.pop(matrix_sync_transport_subprocess_path)
     _assert_exact_governed_runtime_command_subprocess_site(command_source)
     signing_source = sources.pop(allowed_signing_helper_path)
     _assert_exact_portable_evidence_helper_subprocess_site(signing_source)
@@ -169,6 +191,16 @@ def test_m7_does_not_add_runtime_execution_integrations() -> None:
         rel_path=matrix_session_subprocess_path.as_posix(),
         source=matrix_session_source,
         fragment='.rglob("*")',
+    )
+    assert is_exact_matrix_cache_crypto_subprocess_site(
+        rel_path=matrix_cache_crypto_subprocess_path.as_posix(),
+        source=matrix_cache_crypto_source,
+        fragment="subprocess.run(",
+    )
+    assert is_exact_matrix_sync_transport_subprocess_site(
+        rel_path=matrix_sync_transport_subprocess_path.as_posix(),
+        source=matrix_sync_transport_source,
+        fragment="subprocess.Popen(",
     )
     assert is_exact_sealed_calculation_subprocess_site(
         rel_path=sealed_subprocess_path.as_posix(),
