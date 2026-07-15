@@ -8,6 +8,7 @@ __pycache__/
 mutants/
 .ruff_cache/
 .mypy_cache/
+.ci-bootstrap/
 .venv/
 venv/
 

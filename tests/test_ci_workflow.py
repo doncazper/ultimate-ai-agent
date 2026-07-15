@@ -54,6 +54,12 @@ def test_pr_and_push_jobs_checkout_the_same_explicit_sha_they_attest() -> None:
     assert "Run canonical manifest attestation" in attestation
 
 
+def test_ci_bootstrap_environment_cannot_dirty_exact_plan_attestation() -> None:
+    gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
+
+    assert ".ci-bootstrap/" in gitignore
+
+
 def test_foundation_gate_ci_report_depends_on_required_verification_jobs() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
     section = _extract_job_block(workflow, "foundation-gate-report")
