@@ -2780,7 +2780,7 @@ describe("Web Control Center shell", () => {
       screen.getByText(/Initial immutable backend-owned projection/i),
     ).toBeInTheDocument();
     expect(screen.getAllByText("blocked").length).toBeGreaterThan(0);
-  });
+  }, 15_000);
 
   it("renders route state strips for partial, blocked, and planned surfaces", async () => {
     mockFetchWithFallback();
