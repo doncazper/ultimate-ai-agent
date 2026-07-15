@@ -563,6 +563,21 @@ def test_gate_evaluator_denies_malformed_receipt_refs_without_propagating_them()
     assert "reason-ref:verification:invalid-receipt-binding" in decision.reason_refs
 
 
+def test_gate_evaluator_denies_non_string_receipt_refs_without_crashing() -> None:
+    plan = _plan()
+    malformed = replace(_receipt(), unit_ref=None)  # type: ignore[arg-type]
+
+    decision = evaluate_verification_gate(
+        plan,
+        (malformed,),
+        github_run_ref="github-run:12345",
+        github_gate_satisfied=True,
+    )
+
+    assert decision.status is VerificationGateStatus.DENIED
+    assert decision.missing_unit_refs == plan.selected_unit_refs
+
+
 def test_passed_receipt_requires_content_free_result_evidence() -> None:
     with pytest.raises(ValueError, match="requires result evidence"):
         replace(_receipt(), result_refs=()).validate()

@@ -67,12 +67,12 @@ class VerificationGateStatus(StrEnum):
 
 
 def _validate_ref(value: str, *, label: str) -> None:
-    if SAFE_REF_PATTERN.fullmatch(value) is None:
+    if not isinstance(value, str) or SAFE_REF_PATTERN.fullmatch(value) is None:
         raise ValueError(f"{label} must be a bounded safe ref")
 
 
 def _validate_digest(value: str, *, label: str) -> None:
-    if DIGEST_PATTERN.fullmatch(value) is None:
+    if not isinstance(value, str) or DIGEST_PATTERN.fullmatch(value) is None:
         raise ValueError(f"{label} must be a lowercase SHA-256 digest")
 
 
@@ -615,7 +615,7 @@ def evaluate_verification_gate(
     for receipt in receipts:
         try:
             receipt.validate()
-        except ValueError:
+        except (TypeError, ValueError):
             invalid_evidence_present = True
             if receipt.unit_ref in required:
                 invalid_units.add(receipt.unit_ref)
