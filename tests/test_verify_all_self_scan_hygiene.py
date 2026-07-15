@@ -9,6 +9,9 @@ def test_mobile_sensor_guard_does_not_flag_verifier_literals() -> None:
     assert run_all_legacy._is_exact_portable_evidence_keychain_helper_file(
         "tools/macos/portable-evidence-keychain-helper/Package.swift"
     )
+    assert run_all_legacy._is_exact_matrix_session_keychain_helper_file(
+        "tools/macos/matrix-session-keychain-helper/Package.swift"
+    )
     assert not run_all_legacy._is_exact_portable_evidence_keychain_helper_file(
         "apps/mobile/Package.swift"
     )

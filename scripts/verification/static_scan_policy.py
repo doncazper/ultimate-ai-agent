@@ -11,12 +11,7 @@ from typing import Iterable, Mapping
 
 ROOT = Path(__file__).resolve().parents[2]
 WEB_HYBRID_POLICY_PATH = (
-    ROOT
-    / "src"
-    / "ultimate_ai_agent"
-    / "core"
-    / "gate"
-    / "web_hybrid_static_policy.py"
+    ROOT / "src" / "ultimate_ai_agent" / "core" / "gate" / "web_hybrid_static_policy.py"
 )
 STATIC_SAFETY_EVALUATOR_DATA_FILES = frozenset(
     {
@@ -33,8 +28,7 @@ STATIC_SAFETY_EVALUATOR_DATA_FILES = frozenset(
         for part_number in range(1, 45)
     }
     | {
-        "src/ultimate_ai_agent/core/gate/criteria_families/"
-        f"{family_name}.py"
+        f"src/ultimate_ai_agent/core/gate/criteria_families/{family_name}.py"
         for family_name in (
             "foundation_core",
             "runtime_authority_bootstrap",
@@ -59,6 +53,13 @@ PORTABLE_EVIDENCE_KEYCHAIN_HELPER_FILES = frozenset(
         "tools/macos/portable-evidence-keychain-helper/Package.swift",
         "tools/macos/portable-evidence-keychain-helper/README.md",
         "tools/macos/portable-evidence-keychain-helper/Sources/UAAPortableEvidenceKeychainHelper/main.swift",
+    }
+)
+MATRIX_SESSION_KEYCHAIN_HELPER_FILES = frozenset(
+    {
+        "tools/macos/matrix-session-keychain-helper/Package.swift",
+        "tools/macos/matrix-session-keychain-helper/README.md",
+        "tools/macos/matrix-session-keychain-helper/Sources/UAAMatrixSessionKeychainHelper/main.swift",
     }
 )
 
@@ -96,6 +97,10 @@ def is_static_gate_scan_allowed_file(
 
 def is_exact_portable_evidence_keychain_helper_file(rel_path: str) -> bool:
     return rel_path in PORTABLE_EVIDENCE_KEYCHAIN_HELPER_FILES
+
+
+def is_exact_matrix_session_keychain_helper_file(rel_path: str) -> bool:
+    return rel_path in MATRIX_SESSION_KEYCHAIN_HELPER_FILES
 
 
 def is_unapproved_static_fragment(
