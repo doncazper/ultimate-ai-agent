@@ -1,8 +1,8 @@
 # Risk-Based Verification Architecture
 
-Status: Phase 00 contract and shadow-model foundation. Existing verification
-commands, CI jobs, release lanes, and Foundation Gate behavior remain the
-authoritative execution and merge evidence until a later measured cutover.
+Status: Phase 01 exact-proof foundation. Existing verification commands, CI
+jobs, release lanes, and Foundation Gate behavior remain authoritative until
+the bounded receipt-store and consumer cutover is separately verified.
 
 This document defines UAA's canonical repository-verification architecture. It
 does not grant runtime authority, relax a merge gate, or treat a local result as
@@ -112,14 +112,27 @@ required receipt fails closed. Foundation Gate may consume an equivalent prior
 receipt only after validating every exact binding; a generic assertion that CI
 ran is not equivalent proof.
 
-Phase 00 records a deterministic test inventory and labels it
-`inventory_bound`; it does not mislabel that digest as an executed pytest
-collection. Gate evaluation rejects receipt reuse for every test-executing unit
-until a later phase records the exact `collected` fingerprint.
+The plan records a deterministic test inventory and labels it
+`inventory_bound`; it does not mislabel that digest as execution. Complete
+pytest runs now derive a separate `collected` fingerprint and count from the
+actual shard processes without a second collection pass. Raw node IDs exist
+only transiently and are hashed before bounded owner-only sidecars are
+published. Missing, duplicate, unsafe, malformed, or collection-error evidence
+fails closed.
 
-The eventual execution policy permits at most one complete pytest execution
+The Control Center TypeScript declaration is bound to the exact TypeScript 7
+version, package and lock state, project-reference graph, configured commands,
+and macOS arm64 platform package. A runtime binding is accepted only after the
+installed launcher, compiler intermediaries, native platform binary, package
+metadata, safe Node identity, and bounded `--version` probe agree before and
+after the verified command. This proof does not execute an additional
+typecheck. The existing
+combined frontend lane remains non-authoritative in the typed model until its
+Vitest execution can carry an equally exact observed-test proof.
+
+The cutover execution policy permits at most one complete pytest execution
 and one matching TypeScript typecheck for an exact commit and dependency state.
-That limit is not activated in Phase 00. Cross-surface proof reuse must preserve
+That limit is not yet activated. Cross-surface proof reuse must preserve
 GitHub's authoritative final gate and may never label private execution as a
 GitHub-run check.
 
@@ -186,3 +199,25 @@ retain only its count and digest. Repository-relative paths may be used where
 the plan requires affected-path binding, but absolute paths and machine
 identity are excluded. Verification evidence cannot mint runtime authority,
 approve an action, or satisfy an AuthorityLease.
+
+## Phase 01 proof and scheduling boundary
+
+Phase 01 adds content-bound v2 unit receipts, partial run manifests, and a typed
+GitHub-gate proof shape. The legacy boolean GitHub posture remains permanently
+non-authoritative. Structural hashes prove internal consistency, not GitHub
+provenance, so the Phase 01 evaluator remains blocked even when every receipt
+and run binding agrees. A later trusted GitHub API attestation loader must
+recompute the canonical repository state and validate the exact workflow run
+before the typed decision may satisfy a merge gate.
+
+The pure scheduler partitions only dependency-ready units into deterministic
+resource-disjoint waves. Nonparallel units remain singletons, complete pytest
+and TypeScript resources cannot overlap, failed or unknown dependencies block
+all descendants, and independent work remains distinguishable. Scheduling is
+execution mechanics only: it cannot generate a receipt or authorize a merge.
+
+CI lanes can emit typed receipt and run-fragment sidecars in addition to the
+unchanged legacy receipt. A fragment is explicitly blocked until the later
+aggregator validates complete DAG membership; it cannot be presented as a
+complete run. GitHub, private CI, release verification, and Foundation Gate do
+not consume these new sidecars until the next measured cutover phase.

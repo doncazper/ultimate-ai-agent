@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 try:
+    from scripts.verification import pytest_collection_evidence
     from scripts.verification.pytest_shard_artifacts import (
         FAILED_TEST_REFS_SCHEMA_VERSION,  # noqa: F401 - compatibility re-export
         MAX_FAILED_TEST_REFS_PER_SHARD,  # noqa: F401 - compatibility re-export
@@ -31,6 +32,7 @@ try:
     )
     from scripts.verification import pytest_shard_processes as shard_processes
 except ModuleNotFoundError:  # Direct script execution from the repository root.
+    import pytest_collection_evidence  # type: ignore[no-redef]
     from pytest_shard_artifacts import (  # type: ignore[no-redef]
         FAILED_TEST_REFS_SCHEMA_VERSION,  # noqa: F401 - compatibility re-export
         MAX_FAILED_TEST_REFS_PER_SHARD,  # noqa: F401 - compatibility re-export
@@ -92,6 +94,7 @@ class ShardResult:
     log_path: Path
     timed_out: bool = False
     failure_ref_path: Path | None = None
+    collection_evidence_path: Path | None = None
 
 
 class ShardRunInterrupted(RuntimeError):
@@ -257,6 +260,9 @@ def build_pytest_command(
     *,
     write_timings: bool,
     failure_ref_dir: Path | None,
+    collection_evidence_dir: Path | None = None,
+    collection_shard_count: int | None = None,
+    collection_plan_fingerprint_ref: str | None = None,
 ) -> list[str]:
     command = [
         sys.executable,
@@ -277,6 +283,23 @@ def build_pytest_command(
                 "scripts.verification.pytest_safe_failure_plugin",
                 "--uaa-safe-failure-report",
                 str(failure_ref_dir / f"pytest-shard-{plan.index}.json"),
+            ]
+        )
+    if collection_evidence_dir is not None:
+        if collection_shard_count is None or collection_plan_fingerprint_ref is None:
+            raise ValueError("pytest collection evidence requires exact plan bindings")
+        command.extend(
+            [
+                "-p",
+                "scripts.verification.pytest_collection_evidence",
+                "--uaa-collection-evidence-sidecar",
+                str(collection_evidence_dir / f"pytest-shard-{plan.index}.json"),
+                "--uaa-collection-shard-index",
+                str(plan.index),
+                "--uaa-collection-shard-count",
+                str(collection_shard_count),
+                "--uaa-collection-plan-fingerprint",
+                collection_plan_fingerprint_ref,
             ]
         )
     command.extend(plan.files)
@@ -306,6 +329,8 @@ def run_shards(
     failure_ref_dir: Path | None,
     write_timings: bool,
     quiet: bool,
+    collection_evidence_output: Path | None = None,
+    collection_plan_fingerprint_ref: str | None = None,
     max_workers: int | None = None,
     stretch_goal_seconds: float = DEFAULT_STRETCH_GOAL_SECONDS,
     target_seconds: float = DEFAULT_TARGET_SECONDS,
@@ -330,6 +355,36 @@ def run_shards(
     log_dir.mkdir(parents=True, exist_ok=True)
     temp_dir.mkdir(parents=True, exist_ok=True)
     run_failure_ref_dir = _prepare_failure_ref_run_dir(failure_ref_dir, run_id)
+    collection_evidence_dir: Path | None = None
+    if collection_evidence_output is not None:
+        if collection_plan_fingerprint_ref is None:
+            raise pytest_collection_evidence.CollectionEvidenceError(
+                "collection evidence requires the shard-plan fingerprint"
+            )
+        if [plan.index for plan in plans] != list(range(len(plans))):
+            raise pytest_collection_evidence.CollectionEvidenceError(
+                "collection evidence requires the complete contiguous shard set"
+            )
+        assigned_files = [file_path for plan in plans for file_path in plan.files]
+        if len(assigned_files) != len(set(assigned_files)):
+            raise pytest_collection_evidence.CollectionEvidenceError(
+                "collection evidence requires unique shard file ownership"
+            )
+        if len(plans) > pytest_collection_evidence.MAX_SHARDS:
+            raise pytest_collection_evidence.CollectionEvidenceError(
+                "collection evidence shard count exceeds the bound"
+            )
+        if any(not plan.files for plan in plans):
+            raise pytest_collection_evidence.CollectionEvidenceError(
+                "collection evidence does not permit empty shard invocations"
+            )
+        pytest_collection_evidence.validate_new_evidence_target(
+            collection_evidence_output
+        )
+        collection_evidence_dir = run_root / "collection-evidence"
+        pytest_collection_evidence.prepare_private_directory(
+            collection_evidence_dir
+        )
 
     env = build_shard_env(root)
 
@@ -422,6 +477,11 @@ def run_shards(
                         temp_dir / f"shard-{plan.index}",
                         write_timings=write_timings,
                         failure_ref_dir=run_failure_ref_dir,
+                        collection_evidence_dir=collection_evidence_dir,
+                        collection_shard_count=len(plans),
+                        collection_plan_fingerprint_ref=(
+                            collection_plan_fingerprint_ref
+                        ),
                     )
                     shard_env = shard_processes.isolated_shard_environment(
                         env, temp_dir / f"runtime-{plan.index}"
@@ -478,6 +538,12 @@ def run_shards(
                             if run_failure_ref_dir is not None
                             else None
                         ),
+                        collection_evidence_path=(
+                            collection_evidence_dir
+                            / f"pytest-shard-{plan.index}.json"
+                            if collection_evidence_dir is not None
+                            else None
+                        ),
                     )
                     del active[index]
                 if active:
@@ -495,7 +561,20 @@ def run_shards(
             active.clear()
             raise
 
-    return [results[index] for index in sorted(results)]
+    ordered_results = [results[index] for index in sorted(results)]
+    if collection_evidence_output is not None:
+        assert collection_evidence_dir is not None
+        assert collection_plan_fingerprint_ref is not None
+        pytest_collection_evidence.publish_aggregate_evidence(
+            (
+                collection_evidence_dir / f"pytest-shard-{plan.index}.json"
+                for plan in plans
+            ),
+            output_path=collection_evidence_output,
+            expected_shard_count=len(plans),
+            expected_plan_fingerprint_ref=collection_plan_fingerprint_ref,
+        )
+    return ordered_results
 
 
 def _terminate_active_shards(
@@ -542,6 +621,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--write-timings-json")
     parser.add_argument("--basetemp", default=DEFAULT_BASETEMP)
     parser.add_argument("--failure-ref-dir")
+    parser.add_argument(
+        "--collection-evidence",
+        help=(
+            "Write one content-free collection proof from the tests observed by "
+            "the complete real shard run."
+        ),
+    )
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--safe-summary", action="store_true")
     parser.add_argument(
@@ -596,6 +682,12 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 2
+    if args.shard_index is not None and args.collection_evidence is not None:
+        print(
+            "FAIL: --collection-evidence requires the complete shard set",
+            file=sys.stderr,
+        )
+        return 2
 
     files = discover_test_files(ROOT)
     if not files:
@@ -610,6 +702,7 @@ def main(argv: list[str] | None = None) -> int:
     write_timings_path = resolve_path(args.write_timings_json, ROOT)
     basetemp = resolve_path(args.basetemp, ROOT)
     failure_ref_dir = resolve_path(args.failure_ref_dir, ROOT)
+    collection_evidence_output = resolve_path(args.collection_evidence, ROOT)
     performance_report_path = resolve_path(args.performance_report, ROOT)
     assert basetemp is not None
 
@@ -640,6 +733,8 @@ def main(argv: list[str] | None = None) -> int:
             failure_ref_dir=failure_ref_dir,
             write_timings=write_timings_path is not None,
             quiet=args.quiet,
+            collection_evidence_output=collection_evidence_output,
+            collection_plan_fingerprint_ref=plan_fingerprint_ref,
             max_workers=min(args.max_workers, len(plans)),
             stretch_goal_seconds=args.stretch_goal_seconds,
             target_seconds=args.target_seconds,
@@ -653,6 +748,9 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 128 + exc.signum
+    except pytest_collection_evidence.CollectionEvidenceError as exc:
+        print(f"FAIL: {exc}", file=sys.stderr)
+        return 2
     return_code = overall_return_code(results, TIMEOUT_RETURN_CODE)
     total_elapsed_seconds = time.perf_counter() - overall_started
     failed_test_refs = collect_failed_test_refs(results)

@@ -46,6 +46,12 @@ def test_canonical_ci_definition_is_valid_deterministic_and_complete() -> None:
     )
     assert affected.needs == ("manifest-attestation",)
     assert pytest_job.needs == ("lint", "affected-preflight")
+    assert pytest_job.command_refs == ("command:pytest.sharded-suite",)
+    assert all(
+        job.command_refs == manifest.lane_registry()[job.lane_ref].command_refs
+        for job in manifest.CI_JOB_GRAPH
+        if job.lane_ref is not None
+    )
 
 
 def test_canonical_ci_commands_are_fixed_argv_and_safe_environment() -> None:
@@ -60,6 +66,10 @@ def test_canonical_ci_commands_are_fixed_argv_and_safe_environment() -> None:
     assert "--hard-timeout-seconds" in commands["command:pytest.sharded-suite"].argv
     assert (
         "{temp_root}/uaa_pytest_failure_refs"
+        in commands["command:pytest.sharded-suite"].argv
+    )
+    assert (
+        "{temp_root}/uaa_pytest_collection_evidence.json"
         in commands["command:pytest.sharded-suite"].argv
     )
     assert commands["command:affected.preflight"].argv[-2:] == ("--tier", "fast")
@@ -107,6 +117,10 @@ def test_plan_binds_sha_locks_commands_shards_and_visual_scope() -> None:
     assert plan.repository_sha == SHA
     assert len(plan.dependency_lock_fingerprints) == len(manifest.LOCKFILE_REFS)
     assert plan.selected_command_refs == (
+        "command:ci.manifest-attestation",
+        "command:ci.ruff",
+        "command:ci.self-hosted-contract",
+        "command:affected.preflight",
         "command:pytest.sharded-suite",
         "command:docs.integrity",
     )
@@ -117,6 +131,8 @@ def test_plan_binds_sha_locks_commands_shards_and_visual_scope() -> None:
     assert len(plan.verifier_definition_fingerprint) == 64
     assert len(plan.test_collection_fingerprint) == 64
     assert plan.test_collection_posture == "inventory_bound"
+    assert len(plan.typescript_project_fingerprint) == 64
+    assert plan.typescript_project_posture == "project_bound"
     assert len(plan.plan_fingerprint) == 64
     plan_payload = asdict(plan)
     plan_payload.pop("plan_fingerprint")
