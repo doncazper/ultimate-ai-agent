@@ -36,6 +36,10 @@ from scripts.verification.pytest_collection_evidence import (  # noqa: E402
     CollectionEvidenceError,
     load_aggregate_evidence,
 )
+from scripts.verification.pytest_shard_artifacts import (  # noqa: E402
+    MAX_FAILED_TEST_REFS_PER_SHARD,
+    is_safe_test_ref,
+)
 from scripts.verification.ci_fallback_storage import (  # noqa: E402
     FullSuiteAttemptAlreadyRecordedError,
     FullSuiteLock,
@@ -72,6 +76,8 @@ PYTEST_PERFORMANCE_REPORT_NAME = "uaa_pytest_performance_report.json"
 PYTEST_COLLECTION_EVIDENCE_NAME = "uaa_pytest_collection_evidence.json"
 PYTEST_PERFORMANCE_SCHEMA_VERSION = "uaa_pytest_performance_report.v1"
 PYTEST_PLAN_REF_RE = re.compile(r"^pytest-shard-plan-ref:sha256:[0-9a-f]{64}$")
+PYTEST_REPRODUCTION_LANE_RE = re.compile(r"^ci-pytest-shard-[0-7]-reproduce$")
+PYTEST_DIAGNOSTIC_LOCK_PATH = Path("/tmp/uaa-ci-pytest-diagnostic.lock")
 PYTEST_RUNTIME_UNAVAILABLE_REASON_REF = "reason-ref:ci:pytest-runtime-unavailable"
 FULL_SUITE_LOCK_UNAVAILABLE_REASON_REF = "reason-ref:ci:full-suite-capacity-unavailable"
 FULL_SUITE_ATTEMPT_RECORDED_REASON_REF = "reason-ref:ci:full-suite-attempt-recorded"
@@ -255,23 +261,33 @@ def _pytest_shard_evidence(
                 "reason-ref:ci:pytest-performance-report-invalid"
             ),
         }
-    normalized: list[tuple[int, int, bool]] = []
+    normalized: list[tuple[int, int, bool, tuple[str, ...]]] = []
     for row in rows:
         if not isinstance(row, dict):
             break
         shard_index = row.get("shard_index")
         return_code = row.get("return_code")
         timed_out = row.get("timed_out")
+        raw_failed_test_refs = row.get("failed_test_refs", [])
         if (
             not isinstance(shard_index, int)
             or isinstance(shard_index, bool)
             or not isinstance(return_code, int)
             or isinstance(return_code, bool)
+            or not -255 <= return_code <= 255
             or not isinstance(timed_out, bool)
+            or not isinstance(raw_failed_test_refs, list)
+            or len(raw_failed_test_refs) > MAX_FAILED_TEST_REFS_PER_SHARD
+            or any(not is_safe_test_ref(ref) for ref in raw_failed_test_refs)
+            or len(raw_failed_test_refs) != len(set(raw_failed_test_refs))
+            or (return_code == 0 and raw_failed_test_refs)
+            or (timed_out and return_code == 0)
         ):
             break
-        normalized.append((shard_index, return_code, timed_out))
-    shard_indices = sorted(index for index, _, _ in normalized)
+        normalized.append(
+            (shard_index, return_code, timed_out, tuple(raw_failed_test_refs))
+        )
+    shard_indices = sorted(index for index, _, _, _ in normalized)
     if len(normalized) != 8 or shard_indices != list(range(8)):
         return {
             "pytest_shard_evidence_status": "rejected",
@@ -281,12 +297,27 @@ def _pytest_shard_evidence(
         }
     failed_refs = tuple(
         f"pytest-shard-ref:{index}:{'timed-out' if timed_out else 'failed'}"
-        for index, return_code, timed_out in sorted(normalized)
+        for index, return_code, timed_out, _failed_test_refs in sorted(normalized)
         if timed_out or return_code != 0
     )
+    failed_test_refs = tuple(
+        failed_test_ref
+        for _index, return_code, _timed_out, shard_failed_test_refs in sorted(
+            normalized
+        )
+        if return_code != 0
+        for failed_test_ref in shard_failed_test_refs
+    )
+    if len(failed_test_refs) != len(set(failed_test_refs)):
+        return {
+            "pytest_shard_evidence_status": "rejected",
+            "pytest_shard_evidence_reason_ref": (
+                "reason-ref:ci:pytest-performance-report-invalid"
+            ),
+        }
     derived_run_status = (
         "timeout"
-        if any(timed_out for _, _, timed_out in normalized)
+        if any(timed_out for _, _, timed_out, _ in normalized)
         else "failed"
         if failed_refs
         else "green"
@@ -300,13 +331,23 @@ def _pytest_shard_evidence(
                 "reason-ref:ci:pytest-performance-report-inconsistent"
             ),
         }
-    return {
+    evidence: dict[str, Any] = {
         "pytest_shard_evidence_status": "available",
         "pytest_shard_plan_fingerprint_ref": plan_ref,
         "pytest_shard_count": 8,
         "failed_shard_count": len(failed_refs),
         "failed_shard_refs": failed_refs,
     }
+    if failed_test_refs:
+        evidence.update(
+            {
+                "failed_test_refs": failed_test_refs,
+                "failed_test_ref_posture": (
+                    "diagnostic_untrusted_code_metadata_only"
+                ),
+            }
+        )
+    return evidence
 
 
 def _run_command(
@@ -683,6 +724,8 @@ def _pytest_shard_summary_lines(result: dict[str, Any]) -> list[str]:
             f"Failed shard: {failed_ref} "
             f"(reproduce with make ci-reproduce-shard CI_SHARD_INDEX={shard_index})"
         )
+    for failed_test_ref in result.get("failed_test_refs", ()):
+        lines.append(f"Diagnostic test ref: {failed_test_ref}")
     collection_status = result.get("pytest_collection_evidence_status")
     if collection_status is not None:
         lines.append("Pytest collection evidence: " + str(collection_status))
@@ -703,6 +746,7 @@ def run_lane(
     verification_receipt_file: Path | None = None,
     verification_run_manifest_file: Path | None = None,
     full_suite_lock_mode: str = "github",
+    execution_surface: str | None = None,
 ) -> dict[str, Any]:
     if _git_head(ROOT) != repository_sha:
         raise ValueError("CI lane SHA does not match the checked-out repository")
@@ -710,6 +754,28 @@ def run_lane(
     if lane_ref not in lanes:
         raise ValueError("unknown canonical CI lane ref")
     lane = lanes[lane_ref]
+    diagnostic_reproduction = PYTEST_REPRODUCTION_LANE_RE.fullmatch(lane_ref) is not None
+    resolved_execution_surface = execution_surface or (
+        "local" if diagnostic_reproduction else full_suite_lock_mode
+    )
+    if resolved_execution_surface not in {"github", "local", "private"}:
+        raise ValueError("unknown verification execution surface")
+    if not diagnostic_reproduction and execution_surface is not None:
+        raise ValueError(
+            "execution surface override is limited to diagnostic reproduction"
+        )
+    if diagnostic_reproduction and resolved_execution_surface not in {
+        "local",
+        "private",
+    }:
+        raise ValueError("diagnostic shard reproduction is local/private only")
+    if diagnostic_reproduction and (
+        verification_receipt_file is not None
+        or verification_run_manifest_file is not None
+    ):
+        raise ValueError(
+            "diagnostic shard reproduction cannot emit typed gating evidence"
+        )
     temp_root = _safe_temp_root(temp_root)
     plan = build_plan(
         ROOT,
@@ -755,6 +821,12 @@ def run_lane(
             attempt_scope=full_suite_lock_mode,
         )
         if lane_ref == "ci-pytest-shards"
+        else FullSuiteLock(
+            path=PYTEST_DIAGNOSTIC_LOCK_PATH,
+            wait_seconds=0,
+            shared_across_accounts=False,
+        )
+        if diagnostic_reproduction
         else nullcontext()
     )
     with lock as full_suite_lock:
@@ -883,6 +955,8 @@ def run_lane(
         "merge_gate_satisfied": False,
         "redaction_status": "content_free_refs_hashes_counts_and_durations_only",
     }
+    if diagnostic_reproduction:
+        receipt["execution_surface_ref"] = f"surface-ref:{resolved_execution_surface}"
     receipt["receipt_ref"] = (
         "receipt-ref:ci-lane:"
         + hashlib.sha256(
@@ -896,7 +970,7 @@ def run_lane(
             legacy_receipt=receipt,
             full_plan=full_plan,
             results=results,
-            execution_surface_ref=f"surface-ref:{full_suite_lock_mode}",
+            execution_surface_ref=f"surface-ref:{resolved_execution_surface}",
             pytest_collection=pytest_collection_payload,
             pre_typescript_runtime=pre_typescript_runtime,
         )
@@ -954,6 +1028,10 @@ def main(argv: list[str] | None = None) -> int:
         choices=("github", "private"),
         default="github",
     )
+    parser.add_argument(
+        "--execution-surface",
+        choices=("github", "local", "private"),
+    )
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
     if args.profile != PROFILE_REF:
@@ -978,6 +1056,7 @@ def main(argv: list[str] | None = None) -> int:
                 else None
             ),
             full_suite_lock_mode=args.full_suite_lock_mode,
+            execution_surface=args.execution_surface,
         )
     except PytestRuntimeUnavailableError:
         print(

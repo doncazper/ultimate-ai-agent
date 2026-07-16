@@ -87,6 +87,15 @@ def safe_test_ref(nodeid: str) -> str:
     return f"pytest-test-ref:{module}:{test_name}:{digest}"
 
 
+def is_safe_test_ref(value: object) -> bool:
+    """Return true only for a canonical content-free pytest code-metadata ref."""
+
+    if not isinstance(value, str) or _SAFE_TEST_REF_RE.fullmatch(value) is None:
+        return False
+    _prefix, module, test_name, _digest = value.split(":", maxsplit=3)
+    return safe_test_ref(f"{module}::{test_name}") == value
+
+
 def collect_failed_test_refs(
     results: list[ShardResultLike],
 ) -> dict[int, tuple[str, ...]]:
@@ -113,10 +122,7 @@ def collect_failed_test_refs(
             decoded.get("schema_version") != FAILED_TEST_REFS_SCHEMA_VERSION
             or not isinstance(raw_refs, list)
             or len(raw_refs) > MAX_FAILED_TEST_REFS_PER_SHARD
-            or any(
-                not isinstance(ref, str) or _SAFE_TEST_REF_RE.fullmatch(ref) is None
-                for ref in raw_refs
-            )
+            or any(not is_safe_test_ref(ref) for ref in raw_refs)
         ):
             continue
         refs = tuple(dict.fromkeys(raw_refs))

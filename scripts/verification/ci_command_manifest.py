@@ -557,6 +557,25 @@ FOCUSED_VERIFICATION_UNITS = (
 )
 
 
+PYTEST_REPRODUCTION_UNITS = tuple(
+    VerificationUnit(
+        unit_ref=f"diagnostic-pytest-shard-{shard_index}",
+        display_name=f"Exact Pytest Shard {shard_index} Reproduction",
+        lane_ref=f"ci-pytest-shard-{shard_index}-reproduce",
+        needs=(),
+        command_refs=(f"command:pytest.shard-{shard_index}-reproduce",),
+        minimum_risk_tier=VerificationRiskTier.TIER_3,
+        execution_surfaces=("local", "private"),
+        parallel_safe=False,
+        exclusive_resource_refs=("resource-ref:pytest-diagnostic",),
+        proof_equivalence_ref=(
+            f"proof-equivalence-ref:pytest-shard-{shard_index}-diagnostic-non-gating"
+        ),
+    )
+    for shard_index in range(8)
+)
+
+
 _CI_JOB_GRAPH_BASE = (
     JobSpec(
         "manifest-attestation",
@@ -727,7 +746,9 @@ CI_JOB_GRAPH = tuple(
 )
 
 
-VERIFICATION_DAG = FOCUSED_VERIFICATION_UNITS + CI_JOB_GRAPH
+VERIFICATION_DAG = (
+    FOCUSED_VERIFICATION_UNITS + PYTEST_REPRODUCTION_UNITS + CI_JOB_GRAPH
+)
 
 VERIFIER_DEFINITION_REFS = (
     ".github/workflows/ci.yml",
@@ -883,6 +904,16 @@ def validate_definition() -> list[str]:
                 failures.append(
                     f"unknown verification unit command: {unit.unit_ref}:{command_ref}"
                 )
+    lane_unit_counts = {
+        lane_ref: sum(unit.lane_ref == lane_ref for unit in VERIFICATION_DAG)
+        for lane_ref in lanes
+    }
+    for lane_ref, unit_count in lane_unit_counts.items():
+        if unit_count != 1:
+            failures.append(
+                f"CI lane must map to exactly one verification unit: "
+                f"{lane_ref}:{unit_count}"
+            )
     for source_ref, test_refs in FOCUSED_PYTEST_REFS_BY_SOURCE.items():
         if not test_refs or len(test_refs) != len(set(test_refs)):
             failures.append(f"invalid focused test ownership: {source_ref}")
@@ -1089,7 +1120,7 @@ def build_plan(
     elif lane_refs is not None and not shadow_mode:
         requested_lanes = tuple(lane_refs)
         selected_units = tuple(
-            unit.unit_ref for unit in CI_JOB_GRAPH if unit.lane_ref in requested_lanes
+            unit.unit_ref for unit in VERIFICATION_DAG if unit.lane_ref in requested_lanes
         )
     elif change_records is not None or affected_paths is not None or shadow_mode:
         selected_units = unit_refs_for_selection(

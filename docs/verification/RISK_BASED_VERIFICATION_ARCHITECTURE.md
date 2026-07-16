@@ -120,6 +120,15 @@ only transiently and are hashed before bounded owner-only sidecars are
 published. Missing, duplicate, unsafe, malformed, or collection-error evidence
 fails closed.
 
+Each exact pytest shard-reproduction command is also represented by one
+canonical diagnostic DAG unit. These units are local/private only, serialized,
+excluded from the default and GitHub merge graphs, and explicitly non-gating.
+When a complete suite fails, its bounded summary may expose untrusted,
+diagnostic, code-metadata-only `pytest-test-ref` hints alongside the failed
+shard ref; raw test output and failure payloads remain transient. These hints
+are not collection-bound proof. A diagnostic reproduction can locate a
+failure, but it cannot satisfy a complete-pytest receipt or a merge gate.
+
 The Control Center TypeScript declaration is bound to the exact TypeScript 7
 version, package and lock state, project-reference graph, configured commands,
 and macOS arm64 platform package. A runtime binding is accepted only after the

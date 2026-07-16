@@ -81,6 +81,14 @@ def test_canonical_ci_commands_are_fixed_argv_and_safe_environment() -> None:
         lane_ref = f"ci-pytest-shard-{shard_index}-reproduce"
         command_ref = f"command:pytest.shard-{shard_index}-reproduce"
         assert manifest.lane_registry()[lane_ref].command_refs == (command_ref,)
+        diagnostic_unit = next(
+            unit for unit in manifest.VERIFICATION_DAG if unit.lane_ref == lane_ref
+        )
+        assert diagnostic_unit not in manifest.CI_JOB_GRAPH
+        assert diagnostic_unit.command_refs == (command_ref,)
+        assert diagnostic_unit.execution_surfaces == ("local", "private")
+        assert diagnostic_unit.parallel_safe is False
+        assert diagnostic_unit.proof_equivalence_ref.endswith("-non-gating")
         assert "--shard-index" in commands[command_ref].argv
         assert (
             f"{{temp_root}}/uaa_pytest_shard_{shard_index}_failure_refs"
@@ -103,6 +111,47 @@ def test_pytest_lock_setup_and_command_bounds_fit_the_job_timeout() -> None:
 
     assert bounded_total <= job.timeout_minutes * 60
     assert job.timeout_minutes == 60
+
+
+def test_exact_shard_reproduction_plan_is_canonical_but_never_in_full_graph() -> None:
+    lane_ref = "ci-pytest-shard-1-reproduce"
+    command_ref = "command:pytest.shard-1-reproduce"
+
+    plan = manifest.build_plan(
+        ROOT,
+        SHA,
+        lane_refs=(lane_ref,),
+        verify_repository_state=False,
+    )
+    full_plan = manifest.build_plan(ROOT, SHA, verify_repository_state=False)
+
+    assert plan.selected_lane_refs == (lane_ref,)
+    assert plan.selected_unit_refs == ("diagnostic-pytest-shard-1",)
+    assert plan.selected_command_refs == (command_ref,)
+    assert plan.risk_tier is manifest.VerificationRiskTier.TIER_3
+    assert plan.full_pytest_required is True
+    assert plan.release_gate_required is True
+    assert "diagnostic-pytest-shard-1" not in full_plan.selected_unit_refs
+    assert command_ref not in full_plan.selected_command_refs
+
+
+def test_definition_rejects_a_lane_without_one_canonical_unit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lanes = manifest.lane_registry()
+    lanes["ci-orphan-diagnostic"] = manifest.LaneSpec(
+        "ci-orphan-diagnostic",
+        "Orphan Diagnostic",
+        ("command:git.diff-check",),
+    )
+    monkeypatch.setattr(manifest, "lane_registry", lambda: lanes)
+
+    failures = manifest.validate_definition()
+
+    assert (
+        "CI lane must map to exactly one verification unit: "
+        "ci-orphan-diagnostic:0"
+    ) in failures
 
 
 def test_plan_binds_sha_locks_commands_shards_and_visual_scope() -> None:

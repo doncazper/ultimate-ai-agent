@@ -20,6 +20,7 @@ try:
         TIMING_SCHEMA_VERSION,  # noqa: F401 - compatibility re-export
         collect_file_timings,
         collect_failed_test_refs,
+        is_safe_test_ref,  # noqa: F401 - compatibility re-export
         load_complete_timings,  # noqa: F401 - compatibility re-export
         load_timing_profiles,
         overall_return_code,
@@ -40,6 +41,7 @@ except ModuleNotFoundError:  # Direct script execution from the repository root.
         TIMING_SCHEMA_VERSION,  # noqa: F401 - compatibility re-export
         collect_file_timings,
         collect_failed_test_refs,
+        is_safe_test_ref,  # noqa: F401 - compatibility re-export
         load_complete_timings,  # noqa: F401 - compatibility re-export
         load_timing_profiles,
         overall_return_code,
