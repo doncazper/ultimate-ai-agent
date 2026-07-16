@@ -214,6 +214,108 @@ def test_vitest_result_is_content_free_counted_and_consumed(tmp_path: Path) -> N
     assert "raw" not in rendered
 
 
+def test_safe_frontend_aggregate_is_content_bound_and_consumed(
+    tmp_path: Path,
+) -> None:
+    directory = _private_directory(tmp_path)
+    target = directory / "aggregate.json"
+    observation = evidence.consume_vitest_json_result(
+        _write_raw(directory, _vitest_payload(), name="vitest.json"),
+        repository_root=ROOT,
+    )
+
+    published = evidence.publish_frontend_collection_evidence(
+        target,
+        (observation,),
+    )
+    consumed = evidence.consume_frontend_collection_evidence(target)
+
+    assert consumed == published
+    assert consumed["schema_version"] == evidence.AGGREGATE_SCHEMA_VERSION
+    assert consumed["collected_test_count"] == 1
+    assert consumed["result_status"] == "passed"
+    assert consumed["collection_digest_ref"].startswith("sha256:")
+    assert not target.exists()
+    rendered = json.dumps(consumed)
+    assert str(ROOT) not in rendered
+    assert "safe suite" not in rendered
+
+
+def test_safe_frontend_aggregate_rejects_duplicate_runner_and_tampering(
+    tmp_path: Path,
+) -> None:
+    directory = _private_directory(tmp_path)
+    observation = evidence.consume_vitest_json_result(
+        _write_raw(directory, _vitest_payload(), name="vitest.json"),
+        repository_root=ROOT,
+    )
+
+    with pytest.raises(
+        evidence.FrontendCollectionEvidenceError,
+        match="aggregate-observation-duplicate",
+    ):
+        evidence.publish_frontend_collection_evidence(
+            directory / "duplicate.json",
+            (observation, observation),
+        )
+
+    target = directory / "aggregate.json"
+    payload = evidence.publish_frontend_collection_evidence(target, (observation,))
+    payload["collected_test_count"] = 2
+    target.unlink()
+    target.write_text(json.dumps(payload), encoding="utf-8")
+    target.chmod(0o600)
+    with pytest.raises(
+        evidence.FrontendCollectionEvidenceError,
+        match="aggregate-binding",
+    ):
+        evidence.consume_frontend_collection_evidence(target)
+    assert not target.exists()
+
+
+def test_safe_frontend_aggregate_rejects_unsafe_output_target(
+    tmp_path: Path,
+) -> None:
+    private = _private_directory(tmp_path / "private")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    observation = evidence.consume_vitest_json_result(
+        _write_raw(private, _vitest_payload(), name="vitest.json"),
+        repository_root=ROOT,
+    )
+    linked = private / "linked"
+    linked.symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises(evidence.FrontendCollectionEvidenceError):
+        evidence.publish_frontend_collection_evidence(
+            linked / "aggregate.json",
+            (observation,),
+        )
+
+
+def test_safe_frontend_aggregate_rejects_symlinked_ancestor(
+    tmp_path: Path,
+) -> None:
+    private = _private_directory(tmp_path / "private")
+    observation = evidence.consume_vitest_json_result(
+        _write_raw(private, _vitest_payload(), name="vitest.json"),
+        repository_root=ROOT,
+    )
+    real_root = tmp_path / "real-root"
+    real_root.mkdir(mode=0o700)
+    child = real_root / "child"
+    child.mkdir(mode=0o700)
+    linked_root = tmp_path / "linked-root"
+    linked_root.symlink_to(real_root, target_is_directory=True)
+
+    with pytest.raises(evidence.FrontendCollectionEvidenceError, match="unsafe"):
+        evidence.publish_frontend_collection_evidence(
+            linked_root / "child" / "aggregate.json",
+            (observation,),
+        )
+    assert not (child / "aggregate.json").exists()
+
+
 def test_vitest_failed_run_remains_valid_collection_evidence(tmp_path: Path) -> None:
     directory = _private_directory(tmp_path)
     raw = _write_raw(

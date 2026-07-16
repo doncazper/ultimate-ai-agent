@@ -204,6 +204,22 @@ def test_shared_mac_ci_stages_cpu_and_io_heavy_job_classes() -> None:
     control_center_job = verifier.job_section(workflow, "control-center-frontend")
     assert "      - static-verification\n" in control_center_job
     assert "      - release-lane-desktop-packaging\n" in control_center_job
+    assert "verification-envelope:" in control_center_job
+    assert (
+        "--verification-execution-fence-root "
+        "/private/tmp/uaa-verification-execution-fence-v1"
+        in control_center_job
+    )
+    assert '--github-output-file "$GITHUB_OUTPUT"' in control_center_job
+    frontend_release_job = verifier.job_section(workflow, "release-lane-frontend")
+    assert (
+        "needs.control-center-frontend.outputs.verification-envelope"
+        in frontend_release_job
+    )
+    assert (
+        '--dependency-envelope "$CONTROL_CENTER_FRONTEND_ENVELOPE"'
+        in frontend_release_job
+    )
     assert "      - control-center-frontend\n" in verifier.job_section(
         workflow, "release-lane-visual-regression"
     )
@@ -238,6 +254,12 @@ def test_visual_regression_runs_only_for_affected_control_center_paths() -> None
         "if: steps.visual-scope.outputs.run_visual == 'true'"
     ) == 2
     assert 'if [ "$RUN_VISUAL" = "true" ]; then' in visual_job
+    assert "github_output_args=()" in visual_job
+    assert (
+        'github_output_args=(--github-output-file "$GITHUB_OUTPUT")'
+        in visual_job
+    )
+    assert '"${github_output_args[@]}"' in visual_job
     assert "reason-ref:visual-regression:not-affected" in visual_job
     assert (
         "PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/playwright-browsers"

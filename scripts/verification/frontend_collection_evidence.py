@@ -10,6 +10,7 @@ from typing import Any, Callable
 
 
 SCHEMA_VERSION = "uaa_frontend_collection_evidence.v1"
+AGGREGATE_SCHEMA_VERSION = "uaa_frontend_collection_aggregate.v1"
 MAX_RESULT_BYTES = 16 * 1024 * 1024
 MAX_JSON_DEPTH = 32
 MAX_JSON_NODES = 500_000
@@ -64,6 +65,30 @@ _PLAYWRIGHT_RESULT_STATUSES = {
     "passed",
     "skipped",
     "timedOut",
+}
+_SAFE_OBSERVATION_FIELDS = {
+    "collected_test_count",
+    "collection_digest_ref",
+    "collection_error_count",
+    "failed_test_count",
+    "flaky_test_count",
+    "passed_test_count",
+    "redaction_status",
+    "result_status",
+    "retry_attempt_count",
+    "runner_ref",
+    "schema_version",
+    "skipped_test_count",
+    "todo_test_count",
+}
+_AGGREGATE_FIELDS = {
+    "schema_version",
+    "collection_digest_ref",
+    "collected_test_count",
+    "failed_test_count",
+    "observations",
+    "redaction_status",
+    "result_status",
 }
 
 
@@ -182,18 +207,39 @@ def _validate_json_bounds(payload: object) -> None:
 
 
 def _open_private_parent(path: Path) -> int:
+    absolute = Path(os.path.abspath(path))
+    components = absolute.parts[1:]
+    if (
+        not components
+        or len(components) > 128
+        or any(
+            component in {"", ".", ".."}
+            or "\x00" in component
+            or len(os.fsencode(component)) > 255
+            for component in components
+        )
+    ):
+        _fail("unsafe-parent")
     flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
     flags |= (
         getattr(os, "O_CLOEXEC", 0)
         | getattr(os, "O_NOFOLLOW", 0)
         | getattr(os, "O_NONBLOCK", 0)
     )
+    descriptor: int | None = None
     try:
-        descriptor = os.open(path, flags)
+        descriptor = os.open(absolute.anchor, flags)
+        for component in components:
+            child = os.open(component, flags, dir_fd=descriptor)
+            os.close(descriptor)
+            descriptor = child
     except OSError:
+        if descriptor is not None:
+            os.close(descriptor)
         raise FrontendCollectionEvidenceError(
             "frontend collection evidence parent is unsafe"
         ) from None
+    assert descriptor is not None
     metadata = os.fstat(descriptor)
     if (
         not stat.S_ISDIR(metadata.st_mode)
@@ -859,3 +905,191 @@ def consume_playwright_json_result(
         flaky=observed["flaky"],
         retries=retries,
     )
+
+
+def _validated_safe_observation(payload: object) -> dict[str, Any]:
+    observation = _require_dict(payload, "safe-observation")
+    if set(observation) != _SAFE_OBSERVATION_FIELDS:
+        _fail("safe-observation-schema")
+    if observation["schema_version"] != SCHEMA_VERSION:
+        _fail("safe-observation-schema-version")
+    runner_ref = _require_string(observation["runner_ref"], "safe-observation-runner")
+    if runner_ref not in {_VITEST_RUNNER_REF, _PLAYWRIGHT_RUNNER_REF}:
+        _fail("safe-observation-runner")
+    digest_ref = _require_string(
+        observation["collection_digest_ref"],
+        "safe-observation-digest",
+    )
+    if (
+        not digest_ref.startswith("sha256:")
+        or len(digest_ref) != len("sha256:") + 64
+        or any(character not in "0123456789abcdef" for character in digest_ref[7:])
+    ):
+        _fail("safe-observation-digest")
+    if observation["redaction_status"] != "content_free":
+        _fail("safe-observation-redaction")
+    if observation["result_status"] not in {"passed", "failed"}:
+        _fail("safe-observation-status")
+    counts = {
+        field: _require_int(observation[field], f"safe-observation-{field}")
+        for field in (
+            "collected_test_count",
+            "collection_error_count",
+            "failed_test_count",
+            "flaky_test_count",
+            "passed_test_count",
+            "retry_attempt_count",
+            "skipped_test_count",
+            "todo_test_count",
+        )
+    }
+    if counts["collection_error_count"] != 0:
+        _fail("safe-observation-collection-error")
+    if counts["collected_test_count"] != sum(
+        counts[field]
+        for field in (
+            "failed_test_count",
+            "flaky_test_count",
+            "passed_test_count",
+            "skipped_test_count",
+            "todo_test_count",
+        )
+    ):
+        _fail("safe-observation-count")
+    if (counts["failed_test_count"] == 0) != (
+        observation["result_status"] == "passed"
+    ):
+        _fail("safe-observation-status")
+    return dict(observation)
+
+
+def _aggregate_payload(observations: tuple[dict[str, Any], ...]) -> dict[str, Any]:
+    if not observations or len(observations) > 2:
+        _fail("aggregate-observation-count")
+    normalized = tuple(
+        sorted(
+            (_validated_safe_observation(observation) for observation in observations),
+            key=lambda observation: str(observation["runner_ref"]),
+        )
+    )
+    runner_refs = tuple(str(observation["runner_ref"]) for observation in normalized)
+    if len(runner_refs) != len(set(runner_refs)):
+        _fail("aggregate-observation-duplicate")
+    digest_material = json.dumps(
+        normalized,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("ascii")
+    aggregate_digest = hashlib.sha256(
+        b"uaa-frontend-aggregate-v1\0" + digest_material
+    ).hexdigest()
+    failed = sum(int(observation["failed_test_count"]) for observation in normalized)
+    payload = {
+        "schema_version": AGGREGATE_SCHEMA_VERSION,
+        "collection_digest_ref": f"sha256:{aggregate_digest}",
+        "collected_test_count": sum(
+            int(observation["collected_test_count"]) for observation in normalized
+        ),
+        "failed_test_count": failed,
+        "observations": list(normalized),
+        "redaction_status": "content_free",
+        "result_status": "failed" if failed else "passed",
+    }
+    return payload
+
+
+def _write_private_json(path: Path, payload: dict[str, Any]) -> None:
+    path = Path(path)
+    if path.name in {"", ".", ".."} or path.parent == path:
+        _fail("aggregate-output-name")
+    parent_descriptor = _open_private_parent(path.parent)
+    descriptor: int | None = None
+    try:
+        encoded = json.dumps(
+            payload,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("ascii")
+        if not 0 < len(encoded) <= MAX_RESULT_BYTES:
+            _fail("aggregate-output-size")
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+        flags |= (
+            getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_NONBLOCK", 0)
+        )
+        try:
+            descriptor = os.open(
+                path.name,
+                flags,
+                0o600,
+                dir_fd=parent_descriptor,
+            )
+        except OSError:
+            _fail("aggregate-output-unsafe")
+        metadata = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(metadata.st_mode)
+            or metadata.st_uid != os.getuid()
+            or metadata.st_nlink != 1
+            or stat.S_IMODE(metadata.st_mode) != 0o600
+        ):
+            _fail("aggregate-output-unsafe")
+        view = memoryview(encoded)
+        while view:
+            written = os.write(descriptor, view)
+            if written <= 0:
+                _fail("aggregate-output-write")
+            view = view[written:]
+        os.fsync(descriptor)
+        os.fsync(parent_descriptor)
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+        os.close(parent_descriptor)
+
+
+def validate_frontend_collection_target(path: Path) -> None:
+    """Fail before execution unless one new owner-only evidence target is safe."""
+
+    path = Path(path)
+    if path.name in {"", ".", ".."} or path.parent == path:
+        _fail("aggregate-output-name")
+    parent_descriptor = _open_private_parent(path.parent)
+    try:
+        try:
+            os.stat(path.name, dir_fd=parent_descriptor, follow_symlinks=False)
+        except FileNotFoundError:
+            return
+        except OSError:
+            _fail("aggregate-output-unsafe")
+        _fail("aggregate-output-exists")
+    finally:
+        os.close(parent_descriptor)
+
+
+def publish_frontend_collection_evidence(
+    path: Path,
+    observations: tuple[dict[str, Any], ...],
+) -> dict[str, Any]:
+    """Publish one bounded content-free frontend collection aggregate."""
+
+    validate_frontend_collection_target(path)
+    payload = _aggregate_payload(observations)
+    _write_private_json(path, payload)
+    return payload
+
+
+def consume_frontend_collection_evidence(path: Path) -> dict[str, Any]:
+    """Consume and delete one bounded content-free frontend collection aggregate."""
+
+    payload = _consume_json(path)
+    if set(payload) != _AGGREGATE_FIELDS:
+        _fail("aggregate-schema")
+    observations = _require_list(payload["observations"], "aggregate-observations")
+    expected = _aggregate_payload(
+        tuple(_validated_safe_observation(observation) for observation in observations)
+    )
+    if payload != expected:
+        _fail("aggregate-binding")
+    return payload

@@ -153,6 +153,32 @@ def test_exact_github_receipt_outputs_are_non_artifact_job_dependencies() -> Non
     assert foundation.count('--base-sha "$UAA_CI_COMPARISON_BASE_SHA"') == 2
 
 
+def test_frontend_exact_receipt_is_fenced_and_reused_by_release_lane() -> None:
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    control = _extract_job_block(workflow, "control-center-frontend")
+    release = _extract_job_block(workflow, "release-lane-frontend")
+    visual = _extract_job_block(workflow, "release-lane-visual-regression")
+
+    assert "verification-envelope:" in control
+    assert "steps.canonical.outputs.verification_envelope" in control
+    assert 'id: canonical' in control
+    assert "--verification-execution-fence-root" in control
+    assert '--github-output-file "$GITHUB_OUTPUT"' in control
+    assert '--base-sha "$UAA_CI_COMPARISON_BASE_SHA"' in control
+
+    assert "verification-envelope:" in release
+    assert "needs.control-center-frontend.outputs.verification-envelope" in release
+    assert '--dependency-envelope "$CONTROL_CENTER_FRONTEND_ENVELOPE"' in release
+    assert '--github-output-file "$GITHUB_OUTPUT"' in release
+    assert '--base-sha "$UAA_CI_COMPARISON_BASE_SHA"' in release
+
+    assert "verification-envelope:" in visual
+    assert "github_output_args=()" in visual
+    assert 'github_output_args=(--github-output-file "$GITHUB_OUTPUT")' in visual
+    assert '"${github_output_args[@]}"' in visual
+    assert '--base-sha "$UAA_CI_COMPARISON_BASE_SHA"' in visual
+
+
 def test_fast_affected_preflight_runs_parallel_with_lint_before_full_pytest() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
     preflight = _extract_job_block(workflow, "affected-preflight")

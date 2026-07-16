@@ -71,10 +71,11 @@ REQUIRED_CI_FRAGMENTS = [
 ]
 REQUIRED_FRONTEND_MAKE_FRAGMENTS = [
     "frontend-check:",
-    "npm run typecheck --if-present",
-    "npm run lint --if-present",
-    "npm run test --if-present -- --run",
-    "npm run build --if-present",
+    "$(python) scripts/verification/run_frontend_check.py",
+    "frontend-visual-check:",
+    "$(python) scripts/verification/run_frontend_playwright.py --suite visual",
+    "frontend-turn-router-smoke:",
+    "$(python) scripts/verification/run_frontend_playwright.py --suite smoke",
 ]
 
 FORBIDDEN_CI_FRAGMENTS = [

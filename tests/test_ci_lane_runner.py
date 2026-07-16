@@ -24,14 +24,19 @@ from scripts.verification.ci_command_manifest import (
 )
 from scripts.verification.pytest_shard_artifacts import safe_test_ref
 from scripts.verification.pytest_shard_plan import CANONICAL_PYTEST_SHARD_COUNT
-from scripts.verification.verification_contracts import VerificationTerminalStatus
+from scripts.verification.verification_contracts import (
+    VerificationTerminalStatus,
+    verification_receipt_fingerprint,
+)
 from scripts.verification.verification_execution_identity import (
     VerificationExecutionFence,
     VerificationExecutionFenceDisposition,
     build_verification_execution_identity,
 )
 from scripts.verification.verification_github_transport import (
+    build_github_job_output_envelope,
     decode_github_job_output,
+    encode_github_job_output,
 )
 from scripts.verification.verification_receipt_store import VerificationReceiptStore
 
@@ -393,6 +398,11 @@ def test_typescript_terminal_status_cannot_change_prestart_identity(
             ),
             execution_surface_ref="surface-ref:github",
             pytest_collection=None,
+            frontend_collection={
+                "collection_digest_ref": "sha256:" + "d" * 64,
+                "collected_test_count": 3,
+                "result_status": "passed",
+            },
             pre_typescript_runtime=runtime,
             pre_execution_identity_ref=pre_identity_ref,
         )[0]
@@ -412,6 +422,264 @@ def test_typescript_terminal_status_cannot_change_prestart_identity(
             typescript_runtime_fingerprint=None,
             typescript_version_ref=None,
         ).validate()
+
+
+def test_frontend_release_receipt_reuses_exact_dependency_proof(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = build_plan(ROOT, SHA, verify_repository_state=False)
+    control_unit = next(
+        unit for unit in CI_JOB_GRAPH if unit.lane_ref == "ci-control-center-frontend"
+    )
+    release_unit = next(
+        unit for unit in CI_JOB_GRAPH if unit.lane_ref == "frontend"
+    )
+    declared = SimpleNamespace(
+        declared_project_fingerprint=plan.typescript_project_fingerprint
+    )
+    runtime = SimpleNamespace(
+        resolved_runtime_fingerprint="e" * 64,
+        typescript_version="7.0.2",
+    )
+    monkeypatch.setattr(
+        runner, "build_declared_typescript_binding", lambda _root: declared
+    )
+    monkeypatch.setattr(
+        runner,
+        "resolve_typescript_runtime_binding",
+        lambda _root, _declared: runtime,
+    )
+    control_identity = runner.build_verification_execution_identity(
+        plan,
+        control_unit,
+        execution_surface_ref="surface-ref:github",
+        typescript_runtime_fingerprint=runtime.resolved_runtime_fingerprint,
+        typescript_version_ref="typescript-version:7.0.2",
+    ).identity_ref
+    control_result_ref = "result-ref:ci:" + hashlib.sha256(b"frontend").hexdigest()
+    control_receipt = runner._build_typed_lane_evidence(
+        lane_ref="ci-control-center-frontend",
+        legacy_receipt={
+            "receipt_ref": f"receipt-ref:ci-lane:{'a' * 64}",
+            "status": "pass",
+            "started_at": "2026-07-15T00:00:00Z",
+            "completed_at": "2026-07-15T00:00:01Z",
+            "duration_ms": 1_000,
+        },
+        full_plan=plan,
+        results=[
+            {
+                "command_ref": "command:frontend.check",
+                "status": "pass",
+                "duration_ms": 1_000,
+                "output_byte_count": 0,
+                "output_digest": "a" * 64,
+                "result_ref": control_result_ref,
+            }
+        ],
+        execution_surface_ref="surface-ref:github",
+        pytest_collection=None,
+        frontend_collection={
+            "collection_digest_ref": "sha256:" + "d" * 64,
+            "collected_test_count": 3,
+            "result_status": "passed",
+        },
+        pre_typescript_runtime=runtime,
+        pre_execution_identity_ref=control_identity,
+    )[0]
+    release_identity = runner.build_verification_execution_identity(
+        plan,
+        release_unit,
+        execution_surface_ref="surface-ref:github",
+        typescript_runtime_fingerprint=runtime.resolved_runtime_fingerprint,
+        typescript_version_ref="typescript-version:7.0.2",
+    ).identity_ref
+    executed_results = [
+        {
+            "command_ref": command_ref,
+            "status": "pass",
+            "duration_ms": 500,
+            "output_byte_count": 0,
+            "output_digest": hashlib.sha256(command_ref.encode()).hexdigest(),
+            "result_ref": (
+                "result-ref:ci:" + hashlib.sha256(command_ref.encode()).hexdigest()
+            ),
+        }
+        for command_ref in (
+            "command:frontend.safety",
+            "command:frontend.browser-smoke",
+        )
+    ]
+    release_receipt = runner._build_typed_lane_evidence(
+        lane_ref="frontend",
+        legacy_receipt={
+            "receipt_ref": f"receipt-ref:ci-lane:{'b' * 64}",
+            "status": "pass",
+            "started_at": "2026-07-15T00:00:02Z",
+            "completed_at": "2026-07-15T00:00:03Z",
+            "duration_ms": 1_000,
+        },
+        full_plan=plan,
+        results=[
+            {
+                "command_ref": "command:frontend.check",
+                "status": "reused_exact_receipt",
+                "duration_ms": 0,
+                "result_ref": control_receipt.receipt_ref,
+            },
+            *executed_results,
+        ],
+        execution_surface_ref="surface-ref:github",
+        pytest_collection=None,
+        reused_receipts_by_command={
+            "command:frontend.check": control_receipt,
+        },
+        pre_execution_identity_ref=release_identity,
+    )[0]
+
+    assert release_receipt.status is VerificationTerminalStatus.PASSED
+    assert release_receipt.reused_command_receipt_bindings == (
+        ("command:frontend.check", control_receipt.receipt_ref),
+    )
+    assert release_receipt.observed_test_collection_fingerprint == "d" * 64
+    assert release_receipt.typescript_runtime_fingerprint == "e" * 64
+
+
+def test_frontend_release_lane_consumes_the_exact_dependency_envelope(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = build_plan(ROOT, SHA, verify_repository_state=False)
+    control_unit = next(
+        unit for unit in CI_JOB_GRAPH if unit.lane_ref == "ci-control-center-frontend"
+    )
+    runtime = SimpleNamespace(
+        resolved_runtime_fingerprint="e" * 64,
+        typescript_version="7.0.2",
+    )
+    monkeypatch.setattr(
+        runner,
+        "build_declared_typescript_binding",
+        lambda _root: SimpleNamespace(
+            declared_project_fingerprint=plan.typescript_project_fingerprint
+        ),
+    )
+    monkeypatch.setattr(
+        runner,
+        "resolve_typescript_runtime_binding",
+        lambda _root, _declared: runtime,
+    )
+    control_identity = runner.build_verification_execution_identity(
+        plan,
+        control_unit,
+        execution_surface_ref="surface-ref:github",
+        typescript_runtime_fingerprint=runtime.resolved_runtime_fingerprint,
+        typescript_version_ref="typescript-version:7.0.2",
+    ).identity_ref
+    control_receipt = runner._build_typed_lane_evidence(
+        lane_ref="ci-control-center-frontend",
+        legacy_receipt={
+            "receipt_ref": f"receipt-ref:ci-lane:{'a' * 64}",
+            "status": "pass",
+            "started_at": "2026-07-15T00:00:00Z",
+            "completed_at": "2026-07-15T00:00:01Z",
+            "duration_ms": 1_000,
+        },
+        full_plan=plan,
+        results=[
+            {
+                "command_ref": "command:frontend.check",
+                "status": "pass",
+                "duration_ms": 1_000,
+                "output_byte_count": 0,
+                "output_digest": "a" * 64,
+                "result_ref": (
+                    "result-ref:ci:" + hashlib.sha256(b"frontend").hexdigest()
+                ),
+            }
+        ],
+        execution_surface_ref="surface-ref:github",
+        pytest_collection=None,
+        frontend_collection={
+            "collection_digest_ref": "sha256:" + "d" * 64,
+            "collected_test_count": 3,
+            "result_status": "passed",
+        },
+        pre_typescript_runtime=runtime,
+        pre_execution_identity_ref=control_identity,
+    )[0]
+    encoded = encode_github_job_output(
+        build_github_job_output_envelope(plan, control_receipt)
+    )
+    monkeypatch.setattr(runner, "build_plan", lambda *_args, **_kwargs: plan)
+    monkeypatch.setattr(
+        runner,
+        "resolve_typescript_runtime_binding",
+        lambda *_args, **_kwargs: pytest.fail(
+            "exact dependency reuse must not probe the TypeScript runtime"
+        ),
+    )
+
+    def fake_run_command(
+        command: CommandSpec,
+        **_kwargs: object,
+    ) -> dict[str, object]:
+        return {
+            "command_ref": command.command_ref,
+            "category": command.category,
+            "status": "pass",
+            "started_at": "2026-07-15T00:00:02Z",
+            "completed_at": "2026-07-15T00:00:03Z",
+            "duration_ms": 1,
+            "output_byte_count": 0,
+            "output_digest": hashlib.sha256(command.command_ref.encode()).hexdigest(),
+            "result_ref": (
+                "result-ref:ci:"
+                + hashlib.sha256(command.command_ref.encode()).hexdigest()
+            ),
+            "redaction_status": "content_free_output_metadata_only",
+        }
+
+    monkeypatch.setattr(runner, "_run_command", fake_run_command)
+    receipt = runner.run_lane(
+        "frontend",
+        repository_sha=SHA,
+        temp_root=tmp_path / "temp",
+        dependency_envelopes=(encoded,),
+    )
+
+    assert receipt["status"] == "pass"
+    assert receipt["command_results"][0] == {
+        "command_ref": "command:frontend.check",
+        "category": "frontend",
+        "status": "reused_exact_receipt",
+        "duration_ms": 0,
+        "result_ref": control_receipt.receipt_ref,
+        "redaction_status": "content_free_output_metadata_only",
+    }
+
+    tampered = replace(
+        control_receipt,
+        proof_equivalence_ref="proof-equivalence-ref:wrong-source-unit",
+        receipt_ref=f"receipt:verification:{'0' * 64}",
+        receipt_fingerprint="0" * 64,
+    )
+    tampered_fingerprint = verification_receipt_fingerprint(tampered)
+    tampered = replace(
+        tampered,
+        receipt_ref=f"receipt:verification:{tampered_fingerprint}",
+        receipt_fingerprint=tampered_fingerprint,
+    )
+    tampered_envelope = encode_github_job_output(
+        build_github_job_output_envelope(plan, tampered)
+    )
+    with pytest.raises(ValueError, match="exact plan"):
+        runner.run_lane(
+            "frontend",
+            repository_sha=SHA,
+            temp_root=tmp_path / "tampered-temp",
+            dependency_envelopes=(tampered_envelope,),
+        )
 
 
 def test_failed_multicommand_lane_emits_exact_executed_prefix() -> None:
@@ -515,7 +783,7 @@ def test_not_affected_visual_scope_is_bound_and_never_claimed_executed(
     assert typed.executed_command_result_bindings == ()
 
 
-def test_typed_frontend_release_reuse_remains_v2_blocked(
+def test_typed_frontend_release_rejects_synthetic_dependency_reuse(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -529,42 +797,18 @@ def test_typed_frontend_release_reuse_remains_v2_blocked(
         ),
     )
 
-    def fake_run_command(
-        command: CommandSpec,
-        **_kwargs: object,
-    ) -> dict[str, object]:
-        return {
-            "command_ref": command.command_ref,
-            "category": command.category,
-            "status": "pass",
-            "started_at": "2026-07-15T00:00:00Z",
-            "completed_at": "2026-07-15T00:00:01Z",
-            "duration_ms": 1,
-            "output_byte_count": 0,
-            "output_digest": "a" * 64,
-            "result_ref": (
-                "result-ref:ci:"
-                + hashlib.sha256(command.command_ref.encode()).hexdigest()
-            ),
-            "redaction_status": "content_free_output_metadata_only",
-        }
-
-    monkeypatch.setattr(runner, "_run_command", fake_run_command)
     store_root = tmp_path / "proof-store"
-    runner.run_lane(
-        "frontend",
-        repository_sha=SHA,
-        temp_root=tmp_path / "temp",
-        verification_store_root=store_root,
-    )
-
-    store = VerificationReceiptStore(store_root)
-    receipt_digest = next((store_root / "receipts").glob("*.json")).stem
-    typed = store.get_receipt(receipt_digest)
-    assert typed.schema_version == "uaa_verification_receipt.v2"
-    assert typed.status is VerificationTerminalStatus.BLOCKED
-    assert typed.typescript_binding_posture == "not_applicable"
-    assert typed.execution_identity_ref is None
+    with pytest.raises(
+        ValueError,
+        match="synthetic dependency satisfaction is forbidden",
+    ):
+        runner.run_lane(
+            "frontend",
+            repository_sha=SHA,
+            temp_root=tmp_path / "temp",
+            verification_store_root=store_root,
+        )
+    assert not store_root.exists()
 
 
 def test_typed_plan_mutation_before_popen_blocks_suite_attempt(

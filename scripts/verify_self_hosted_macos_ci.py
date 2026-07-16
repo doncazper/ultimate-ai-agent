@@ -231,6 +231,34 @@ def verify(root: Path = ROOT) -> list[str]:
         )
     ):
         failures.append("Control Center verification must wait for backend release checks")
+    if not all(
+        fragment in control_center_job
+        for fragment in (
+            "verification-envelope:",
+            "steps.canonical.outputs.verification_envelope",
+            "        id: canonical\n",
+            "--verification-execution-fence-root "
+            "/private/tmp/uaa-verification-execution-fence-v1",
+            '--github-output-file "$GITHUB_OUTPUT"',
+            '--base-sha "$UAA_CI_COMPARISON_BASE_SHA"',
+        )
+    ):
+        failures.append(
+            "Control Center verification must emit one exact fenced frontend receipt"
+        )
+    frontend_release_job = job_section(workflow, "release-lane-frontend")
+    if not all(
+        fragment in frontend_release_job
+        for fragment in (
+            "verification-envelope:",
+            "needs.control-center-frontend.outputs.verification-envelope",
+            '--dependency-envelope "$CONTROL_CENTER_FRONTEND_ENVELOPE"',
+            '--github-output-file "$GITHUB_OUTPUT"',
+        )
+    ):
+        failures.append(
+            "frontend release verification must reuse the exact Control Center receipt"
+        )
     visual_regression_job = job_section(workflow, "release-lane-visual-regression")
     if "      - control-center-frontend\n" not in visual_regression_job:
         failures.append("visual regression must wait for Control Center verification")
@@ -249,7 +277,10 @@ def verify(root: Path = ROOT) -> list[str]:
         "          run_visual=false\n",
         '          echo "run_visual=${run_visual}" >> "$GITHUB_OUTPUT"\n',
         "        if: steps.visual-scope.outputs.run_visual == 'true'\n",
+        "          github_output_args=()\n",
         '          if [ "$RUN_VISUAL" = "true" ]; then\n',
+        '            github_output_args=(--github-output-file "$GITHUB_OUTPUT")\n',
+        '            "${github_output_args[@]}" \\\n',
         "reason-ref:visual-regression:not-affected",
         "      PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/playwright-browsers\n",
         "            --lane visual-regression \\\n",

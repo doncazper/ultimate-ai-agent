@@ -520,6 +520,8 @@ jobs:
     runs-on: [self-hosted, macOS, ARM64, uaa-ci]
     needs:
       - control-center-frontend
+    outputs:
+      verification-envelope: ${{ steps.canonical.outputs.verification_envelope }}
 
     steps:
       - name: Check out repository
@@ -537,11 +539,17 @@ jobs:
           .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3.12
 
       - name: Run frontend release lane
+        id: canonical
+        env:
+          CONTROL_CENTER_FRONTEND_ENVELOPE: ${{ needs.control-center-frontend.outputs.verification-envelope }}
         run: |
           .venv/bin/python scripts/verification/run_ci_lane.py \
             --lane frontend \
             --sha "$UAA_CI_EXACT_SHA" \
+            --base-sha "$UAA_CI_COMPARISON_BASE_SHA" \
             --temp-root "$RUNNER_TEMP" \
+            --dependency-envelope "$CONTROL_CENTER_FRONTEND_ENVELOPE" \
+            --github-output-file "$GITHUB_OUTPUT" \
             --summary-file "$GITHUB_STEP_SUMMARY"
 
   release-lane-performance:
@@ -595,6 +603,8 @@ jobs:
     runs-on: [self-hosted, macOS, ARM64, uaa-ci]
     needs:
       - control-center-frontend
+    outputs:
+      verification-envelope: ${{ steps.canonical.outputs.verification_envelope }}
 
     steps:
       - name: Check out repository
@@ -660,19 +670,24 @@ jobs:
         run: npx playwright install chromium
 
       - name: Run visual regression release lane
+        id: canonical
         env:
           PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/playwright-browsers
           RUN_VISUAL: ${{ steps.visual-scope.outputs.run_visual }}
         run: |
           visual_scope="not_affected"
+          github_output_args=()
           if [ "$RUN_VISUAL" = "true" ]; then
             visual_scope="affected"
+            github_output_args=(--github-output-file "$GITHUB_OUTPUT")
           fi
           .venv/bin/python scripts/verification/run_ci_lane.py \
             --lane visual-regression \
             --sha "$UAA_CI_EXACT_SHA" \
+            --base-sha "$UAA_CI_COMPARISON_BASE_SHA" \
             --temp-root "$RUNNER_TEMP" \
             --visual-scope "$visual_scope" \
+            "${github_output_args[@]}" \
             --summary-file "$GITHUB_STEP_SUMMARY"
 
   release-lane-desktop-packaging:
@@ -820,6 +835,8 @@ jobs:
       - release-lane-local-model-e2e
       - release-lane-durability
       - release-lane-desktop-packaging
+    outputs:
+      verification-envelope: ${{ steps.canonical.outputs.verification_envelope }}
 
     steps:
       - name: Check out repository
@@ -841,9 +858,13 @@ jobs:
           .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3.12
 
       - name: Run canonical Control Center frontend lane
+        id: canonical
         run: |
           .venv/bin/python scripts/verification/run_ci_lane.py \
             --lane ci-control-center-frontend \
             --sha "$UAA_CI_EXACT_SHA" \
+            --base-sha "$UAA_CI_COMPARISON_BASE_SHA" \
             --temp-root "$RUNNER_TEMP" \
+            --verification-execution-fence-root /private/tmp/uaa-verification-execution-fence-v1 \
+            --github-output-file "$GITHUB_OUTPUT" \
             --summary-file "$GITHUB_STEP_SUMMARY"

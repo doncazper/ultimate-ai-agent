@@ -70,7 +70,7 @@ reason, impact, and safe evidence refs.
 | product-truth-regression | `command:product-truth.regression-verifier`, `command:product-truth.regression-tests` | Not skippable for a release candidate; blocked by unsupported, contradictory, or authority-expanding product claims. |
 | local-model-e2e | `command:local-model.release-gate`, `command:local-model.hardening`, `command:openwebui.local-gateway` | Live hardware or model prerequisites may be skipped only when the harness reports skipped with reason code; blocked by missing reviewed safe refs, approved model refs, or local-only auth prerequisites. |
 | durability | `command:durable.state-machine`, `command:event-ledger.append-only`, `command:file.atomic-writes`, `command:backup-restore.verify` | Not skippable for local durable-state release candidates; blocked by corruption, duplicate mutation, missing idempotency, unreceipted mutation, missing minimum backup set, or failed offline restore verification. |
-| frontend | `command:frontend.check`, `command:frontend.safety`, `command:frontend.browser-smoke` | Can be skipped only in split CI when an equivalent required frontend job is referenced; blocked by hidden authority, raw JSON primary UI, inaccessible failure state, or failed frontend checks. |
+| frontend | `command:frontend.check`, `command:frontend.safety`, `command:frontend.browser-smoke` | In split CI, `command:frontend.check` is reused only from the exact passing required frontend receipt. Synthetic satisfaction is rejected. The installed job runs one TypeScript project build, one observed Vitest collection, and one direct Vite build. The lane remains blocked by missing exact proof, hidden authority, raw JSON primary UI, inaccessible failure state, or failed frontend checks. |
 | visual-regression | `command:frontend.visual-regression` (`make frontend-visual-check`), `command:frontend.visual-regression-contract` | Visual compare is skippable only when Playwright browser prerequisites are unavailable and no release claim depends on screenshot evidence; blocked by screenshot drift, missing required surfaces, unsafe screenshot refs, raw/private screenshots, missing redacted baseline policy, or hash mismatch. |
 | desktop-packaging | `command:desktop-packaging.proof`, `command:desktop-packaging.contract` | Launch smoke is skippable only when local Docker or Playwright prerequisites are unavailable and the proof remains non-distribution evidence; blocked by launch smoke failure, API health failure, Control Center load failure, manifest mismatch, screenshot failure, shutdown failure, raw logs, raw paths, unsafe evidence refs, or distribution claims. |
 | performance | `command:performance.benchmark`, `command:performance.latency-gate`, `command:foundation-gate.report-only` | Optional frontend timing prerequisites may be skipped only when visible with reason code; blocked by required latency failures, missing reports, or authority bypass/caching. |
@@ -175,6 +175,15 @@ For lane-focused review, use the command refs from
 equivalent required job only when the release evidence packet records the job
 ref and the lane status is `pass`, `skipped`, `blocked`, or `accepted_failure`
 according to the semantics above.
+
+For the frontend lane, equivalence is executable proof rather than a job-name
+reference. The downstream release job consumes the compact
+`control-center-frontend` envelope and validates its exact SHA, comparison
+base, dependency locks and state, command/verifier definitions, TypeScript
+runtime binding, observed Vitest collection, direct dependency edge, and
+passing v3 receipt. It then records `reused_exact_receipt` without executing
+TypeScript, Vitest, or Vite a second time. Visual regression remains a separate
+plan-bound Playwright proof with its own observed collection evidence.
 
 ## Security And Artifact Redaction Lane
 

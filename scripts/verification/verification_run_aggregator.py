@@ -42,7 +42,7 @@ def _timestamp(value: str) -> datetime:
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
-def _validate_receipt_for_plan(
+def validate_receipt_for_plan_unit(
     receipt: VerificationReceipt,
     *,
     plan: VerificationPlan,
@@ -281,7 +281,7 @@ def aggregate_verification_run(
             raise ValueError("aggregate verification receipts must be derived")
         if receipt.unit_ref in receipts_by_unit or receipt.receipt_ref in receipt_refs:
             raise ValueError("verification aggregate contains duplicate evidence")
-        _validate_receipt_for_plan(
+        validate_receipt_for_plan_unit(
             receipt,
             plan=plan,
             unit=unit,
