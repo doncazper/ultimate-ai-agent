@@ -151,6 +151,69 @@ def test_fast_and_affected_are_compatibility_views_of_one_canonical_selection() 
     assert fast.selection_fingerprint == affected.selection_fingerprint
 
 
+def test_clean_exact_selection_defers_merge_gate_typescript_resource() -> None:
+    selection = selector.select_paths(["apps/control-center/src/App.tsx"])
+
+    dirty_commands = selector._command_refs_for_execution(
+        selection,
+        exact_repository_state=False,
+    )
+    exact_commands = selector._command_refs_for_execution(
+        selection,
+        exact_repository_state=True,
+    )
+
+    assert "command:frontend.typecheck" in dirty_commands
+    assert "command:frontend.typecheck" not in exact_commands
+    assert "command:frontend.unit-tests" in exact_commands
+    assert "command:frontend.vite-build" not in exact_commands
+    assert "command:frontend.safety" in exact_commands
+
+
+def test_merge_gate_exclusive_commands_are_derived_from_canonical_dag() -> None:
+    exclusive = selector._merge_gate_exclusive_command_refs()
+
+    assert "command:frontend.typecheck" in exclusive
+    assert "command:frontend.check" in exclusive
+    assert "command:pytest.sharded-suite" in exclusive
+    assert "command:frontend.unit-tests" not in exclusive
+
+
+def test_clean_exact_selection_defers_dependents_of_exclusive_resources() -> None:
+    selection = selector.select_paths(["apps/control-center/src/App.tsx"])
+    deferred = selector._merge_gate_deferred_command_refs(selection)
+
+    assert "command:frontend.typecheck" in deferred
+    assert "command:frontend.vite-build" in deferred
+    assert "command:frontend.unit-tests" not in deferred
+    assert "command:frontend.safety" not in deferred
+
+
+def test_execution_fails_closed_when_repository_state_is_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    selection = selector.select_paths(["README.md"])
+    monkeypatch.setattr(
+        selector,
+        "_repository_matches_exact_head",
+        lambda: None,
+    )
+    monkeypatch.setattr(
+        selector.subprocess,
+        "run",
+        lambda *_args, **_kwargs: pytest.fail(
+            "commands must not start without repository-state proof"
+        ),
+    )
+
+    assert selector.execute_selection(selection) == 2
+    assert (
+        "reason-ref:verification:repository-state-unavailable"
+        in capsys.readouterr().out
+    )
+
+
 def test_every_selected_command_reference_exists_in_canonical_registry() -> None:
     commands = selector.command_registry()
     examples = [

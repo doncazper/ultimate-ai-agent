@@ -903,6 +903,17 @@ def test_full_suite_attempts_are_bounded_across_execution_planes(
             attempt_path=attempts,
         ) as lock:
             lock.ensure_start_available()
+    with pytest.raises(
+        FullSuiteAttemptAlreadyRecordedError, match="already attempted"
+    ):
+        with FullSuiteLock(
+            lock_path,
+            repository_sha=SHA_A,
+            attempt_scope="local",
+            resource_attempt_fingerprint=RESOURCE_ATTEMPT_A,
+            attempt_path=attempts,
+        ) as lock:
+            lock.ensure_start_available()
 
     with FullSuiteLock(
         lock_path,

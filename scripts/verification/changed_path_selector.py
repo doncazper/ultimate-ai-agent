@@ -34,6 +34,12 @@ from scripts.verification.verification_selection import (  # noqa: E402
 
 SCHEMA_VERSION = "uaa-changed-verification-selection.v2"
 FULL_COMMAND_REF = "command-ref:verification:full-local-gate"
+MERGE_GATE_EXCLUSIVE_RESOURCE_REFS = frozenset(
+    {
+        "resource-ref:complete-pytest",
+        "resource-ref:typescript-typecheck",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -248,6 +254,79 @@ def _resolved_argv(
     return argv
 
 
+def _merge_gate_exclusive_command_refs() -> frozenset[str]:
+    return frozenset(
+        command_ref
+        for unit in VERIFICATION_DAG
+        if MERGE_GATE_EXCLUSIVE_RESOURCE_REFS.intersection(
+            unit.exclusive_resource_refs
+        )
+        for command_ref in unit.command_refs
+    )
+
+
+def _merge_gate_deferred_command_refs(selection: Selection) -> frozenset[str]:
+    selected_unit_refs = set(selection.selected_unit_refs)
+    units_by_ref = {unit.unit_ref: unit for unit in VERIFICATION_DAG}
+    deferred_unit_refs = {
+        unit_ref
+        for unit_ref in selected_unit_refs
+        if MERGE_GATE_EXCLUSIVE_RESOURCE_REFS.intersection(
+            units_by_ref[unit_ref].exclusive_resource_refs
+        )
+    }
+    changed = True
+    while changed:
+        changed = False
+        for unit_ref in selected_unit_refs - deferred_unit_refs:
+            if set(units_by_ref[unit_ref].needs).intersection(deferred_unit_refs):
+                deferred_unit_refs.add(unit_ref)
+                changed = True
+    return frozenset(
+        command_ref
+        for unit_ref in deferred_unit_refs
+        for command_ref in units_by_ref[unit_ref].command_refs
+    )
+
+
+def _command_refs_for_execution(
+    selection: Selection,
+    *,
+    exact_repository_state: bool,
+) -> tuple[str, ...]:
+    if not exact_repository_state:
+        return selection.selected_command_refs
+    deferred = _merge_gate_deferred_command_refs(selection)
+    return tuple(
+        command_ref
+        for command_ref in selection.selected_command_refs
+        if command_ref not in deferred
+    )
+
+
+def _repository_matches_exact_head() -> bool | None:
+    try:
+        result = subprocess.run(
+            (
+                "git",
+                "status",
+                "--porcelain=v1",
+                "-z",
+                "--untracked-files=all",
+            ),
+            cwd=ROOT,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            check=False,
+            timeout=20,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:
+        return None
+    return not result.stdout
+
+
 def execute_selection(selection: Selection, *, base_ref: str = "main") -> int:
     env = {**os.environ, "PYTHONPATH": "src", "PYTHONHASHSEED": "0"}
     if selection.selected_command_refs == (FULL_COMMAND_REF,):
@@ -257,9 +336,23 @@ def execute_selection(selection: Selection, *, base_ref: str = "main") -> int:
             env=env,
             check=False,
         ).returncode
+    exact_repository_state = _repository_matches_exact_head()
+    if exact_repository_state is None:
+        print(
+            "Affected verification blocked "
+            "(reason-ref:verification:repository-state-unavailable)"
+        )
+        return 2
+    command_refs = _command_refs_for_execution(
+        selection,
+        exact_repository_state=exact_repository_state,
+    )
+    for command_ref in selection.selected_command_refs:
+        if command_ref not in command_refs:
+            print(f"Deferred exact merge-gate command: {command_ref}")
     with tempfile.TemporaryDirectory(prefix="uaa-affected-verification-") as temp:
         temp_root = Path(temp)
-        for command_ref in selection.selected_command_refs:
+        for command_ref in command_refs:
             result = subprocess.run(
                 _resolved_argv(
                     command_ref,

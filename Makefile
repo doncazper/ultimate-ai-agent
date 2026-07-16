@@ -3,7 +3,7 @@ FRONTEND_DIR := apps/control-center
 VERIFY_TIMINGS_JSON ?= /tmp/uaa_verify_all_timings.json
 VERIFY_DEV_FAST_JOBS ?= 4
 PYTEST_SHARDS ?= 9
-PYTEST_SHARD_WORKERS ?= 8
+PYTEST_SHARD_WORKERS ?= 4
 PYTEST_SHARD_TIMINGS_JSON ?= /tmp/uaa_pytest_file_timings.json
 PYTEST_SHARD_TIMING_SEED_JSON ?= scripts/verification/pytest_file_timing_seed.json
 PYTEST_SHARD_BASETEMP ?= /tmp/uaa_pytest_shards
@@ -15,6 +15,7 @@ CI_SHA ?= $(shell git rev-parse HEAD)
 CI_LANE ?= ci-lint
 CI_TEMP_ROOT ?= /tmp/uaa-ci-lane
 CI_SHARD_INDEX ?= 0
+VERIFICATION_EXECUTION_FENCE_ROOT ?= /private/tmp/uaa-verification-execution-fence-v2
 .PHONY: doctor test test-serial test-sharded test-sharded-profile verify verify-static verify-gate-architecture verify-fast verify-affected verify-value-audit verify-dev-fast verify-dev-sharded verify-local verify-beta-local verify-beta-local-visual ci-manifest ci-lane ci-reproduce-shard ci-fallback ci-fallback-status frontend-check frontend-visual-check frontend-turn-router-smoke openapi ruff
 
 doctor:
@@ -27,10 +28,10 @@ test-serial:
 	PYTHONPATH=src $(PYTHON) -m pytest
 
 test-sharded:
-	PYTHONPATH=src $(PYTHON) scripts/verification/run_pytest_shards.py --shards $(PYTEST_SHARDS) --max-workers $(PYTEST_SHARD_WORKERS) --timings-json $(PYTEST_SHARD_TIMING_SEED_JSON) --timings-json $(PYTEST_SHARD_TIMINGS_JSON) --basetemp $(PYTEST_SHARD_BASETEMP) --stretch-goal-seconds $(PYTEST_STRETCH_GOAL_SECONDS) --target-seconds $(PYTEST_TARGET_SECONDS) --hard-timeout-seconds $(PYTEST_HARD_TIMEOUT_SECONDS) --performance-report $(PYTEST_PERFORMANCE_REPORT)
+	PYTHONPATH=src $(PYTHON) scripts/verification/run_local_verification_lane.py --lane ci-pytest-shards --fence-root $(VERIFICATION_EXECUTION_FENCE_ROOT)
 
 test-sharded-profile:
-	PYTHONPATH=src $(PYTHON) scripts/verification/run_pytest_shards.py --shards $(PYTEST_SHARDS) --max-workers $(PYTEST_SHARD_WORKERS) --timings-json $(PYTEST_SHARD_TIMING_SEED_JSON) --timings-json $(PYTEST_SHARD_TIMINGS_JSON) --write-timings-json $(PYTEST_SHARD_TIMINGS_JSON) --basetemp $(PYTEST_SHARD_BASETEMP) --stretch-goal-seconds $(PYTEST_STRETCH_GOAL_SECONDS) --target-seconds $(PYTEST_TARGET_SECONDS) --hard-timeout-seconds $(PYTEST_HARD_TIMEOUT_SECONDS) --performance-report $(PYTEST_PERFORMANCE_REPORT)
+	PYTHONPATH=src $(PYTHON) scripts/verification/run_local_verification_lane.py --lane ci-pytest-shards --fence-root $(VERIFICATION_EXECUTION_FENCE_ROOT) --profile-output $(PYTEST_SHARD_TIMINGS_JSON)
 
 verify:
 	$(MAKE) ruff test-sharded verify-static
@@ -61,9 +62,6 @@ verify-dev-sharded:
 		--jobs $(VERIFY_DEV_FAST_JOBS) \
 		--pytest-shards $(PYTEST_SHARDS) \
 		--pytest-workers $(PYTEST_SHARD_WORKERS) \
-		--pytest-timing-seed-json $(PYTEST_SHARD_TIMING_SEED_JSON) \
-		--pytest-timings-json $(PYTEST_SHARD_TIMINGS_JSON) \
-		--pytest-basetemp $(PYTEST_SHARD_BASETEMP) \
 		--static-timings-json $(VERIFY_TIMINGS_JSON)
 
 verify-local: verify-dev-sharded
@@ -90,7 +88,7 @@ verify-beta-local-visual:
 	$(PYTHON) scripts/verify_beta_local.py --include-live-visual
 
 frontend-check:
-	$(PYTHON) scripts/verification/run_frontend_check.py
+	PYTHONPATH=src $(PYTHON) scripts/verification/run_local_verification_lane.py --lane ci-control-center-frontend --fence-root $(VERIFICATION_EXECUTION_FENCE_ROOT)
 
 frontend-visual-check:
 	$(PYTHON) scripts/verification/run_frontend_playwright.py --suite visual

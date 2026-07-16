@@ -5,10 +5,12 @@ import argparse
 import hashlib
 import json
 import stat
+import subprocess
 import sys
 from statistics import median
 from dataclasses import dataclass
 from pathlib import Path
+from pathlib import PurePosixPath
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -18,6 +20,7 @@ from scripts.verification.ci_command_manifest import (  # noqa: E402
     FOCUSED_VERIFICATION_UNITS,
 )
 from scripts.verification.verifier_value_measurement import (  # noqa: E402
+    bindings_from_repository,
     validate_measurement_run,
 )
 from scripts.verify_release_lanes import release_lanes  # noqa: E402
@@ -25,6 +28,13 @@ from scripts.verify_release_lanes import release_lanes  # noqa: E402
 
 SCHEMA_VERSION = "uaa-verifier-unique-value-audit.v2"
 MEASUREMENT_PATH = ROOT / "docs/verification/verifier_value_measurements.json"
+MEASUREMENT_BINDING_FIELDS = (
+    "dependency_state_fingerprint",
+    "platform_fingerprint",
+    "command_manifest_fingerprint",
+    "verifier_definition_fingerprint",
+    "test_collection_fingerprint",
+)
 
 
 @dataclass(frozen=True)
@@ -188,7 +198,119 @@ def _measurement_fingerprint(payload: dict[str, object]) -> str:
     )
 
 
-def load_measurements(path: Path = MEASUREMENT_PATH) -> dict[str, object]:
+@dataclass(frozen=True)
+class RepositoryMeasurementState:
+    current_sha: str
+    changed_path_refs: tuple[str, ...]
+
+
+def _run_git(
+    repo: Path,
+    arguments: tuple[str, ...],
+    *,
+    check: bool = True,
+) -> subprocess.CompletedProcess[str]:
+    try:
+        return subprocess.run(
+            ("git", *arguments),
+            cwd=repo,
+            check=check,
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise ValueError("VERIFIER_MEASUREMENT_REPOSITORY_STATE_UNAVAILABLE") from exc
+
+
+def _repository_measurement_state(
+    repo: Path,
+    source_sha: str,
+) -> RepositoryMeasurementState:
+    current_sha = _run_git(repo, ("rev-parse", "HEAD")).stdout.strip()
+    source = _run_git(
+        repo,
+        ("cat-file", "-e", f"{source_sha}^{{commit}}"),
+        check=False,
+    )
+    if source.returncode != 0:
+        raise ValueError("VERIFIER_MEASUREMENT_SOURCE_COMMIT_MISSING")
+    ancestor = _run_git(
+        repo,
+        ("merge-base", "--is-ancestor", source_sha, current_sha),
+        check=False,
+    )
+    if ancestor.returncode == 1:
+        raise ValueError("VERIFIER_MEASUREMENT_SOURCE_NOT_ANCESTOR")
+    if ancestor.returncode != 0:
+        raise ValueError("VERIFIER_MEASUREMENT_REPOSITORY_STATE_UNAVAILABLE")
+    if source_sha == current_sha:
+        return RepositoryMeasurementState(current_sha, ())
+    changed = _run_git(
+        repo,
+        (
+            "diff",
+            "--name-only",
+            "--no-renames",
+            "-z",
+            f"{source_sha}..{current_sha}",
+            "--",
+        ),
+    ).stdout
+    return RepositoryMeasurementState(
+        current_sha,
+        tuple(path for path in changed.split("\0") if path),
+    )
+
+
+def _is_measurement_neutral_path(path_ref: str) -> bool:
+    path = PurePosixPath(path_ref)
+    return (
+        bool(path.parts)
+        and not path.is_absolute()
+        and ".." not in path.parts
+        and path.parts[0] == "docs"
+    )
+
+
+def _current_measurement_bindings(repo: Path) -> dict[str, str]:
+    try:
+        return bindings_from_repository(repo).payload()
+    except (RuntimeError, ValueError) as exc:
+        raise ValueError("VERIFIER_MEASUREMENT_CURRENT_BINDING_UNAVAILABLE") from exc
+
+
+def _validate_measurement_freshness(
+    measurement_run: dict[str, object],
+    source_sha: str,
+    *,
+    repo: Path,
+) -> None:
+    state = _repository_measurement_state(repo, source_sha)
+    if state.current_sha != source_sha and (
+        not state.changed_path_refs
+        or any(
+            not _is_measurement_neutral_path(path_ref)
+            for path_ref in state.changed_path_refs
+        )
+    ):
+        raise ValueError("VERIFIER_MEASUREMENT_SOURCE_SCOPE_INVALID")
+    run_bindings = measurement_run.get("bindings")
+    if not isinstance(run_bindings, dict):
+        raise ValueError("VERIFIER_MEASUREMENT_RUN_INVALID")
+    current_bindings = _current_measurement_bindings(repo)
+    if any(
+        current_bindings.get(field) != run_bindings.get(field)
+        for field in MEASUREMENT_BINDING_FIELDS
+    ):
+        raise ValueError("VERIFIER_MEASUREMENT_INPUT_BINDING_DRIFT")
+
+
+def load_measurements(
+    path: Path = MEASUREMENT_PATH,
+    *,
+    repo: Path = ROOT,
+) -> dict[str, object]:
     metadata = path.lstat()
     if path.is_symlink() or not stat.S_ISREG(metadata.st_mode):
         raise ValueError("VERIFIER_MEASUREMENT_ARTIFACT_INVALID")
@@ -218,6 +340,11 @@ def load_measurements(path: Path = MEASUREMENT_PATH) -> dict[str, object]:
             or run_bindings.get("repository_sha") != source_sha
         ):
             raise ValueError("VERIFIER_MEASUREMENT_SOURCE_BINDING_INVALID")
+        _validate_measurement_freshness(
+            measurement_run,
+            source_sha,
+            repo=repo,
+        )
         _validate_timing_comparisons(result.get("timing_comparisons"))
     return result
 
@@ -259,7 +386,7 @@ def _validate_timing_comparisons(value: object) -> None:
             or any(
                 not isinstance(duration, int)
                 or isinstance(duration, bool)
-                or not 0 <= duration <= 7_200_000
+                or not 1 <= duration <= 7_200_000
                 for duration in (*before, *after)
             )
         ):

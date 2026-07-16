@@ -260,6 +260,8 @@ def command_registry() -> dict[str, CommandSpec]:
                     "{temp_root}/uaa_pytest_shards",
                     "--performance-report",
                     "{temp_root}/uaa_pytest_performance_report.json",
+                    "--write-timings-json",
+                    "{temp_root}/uaa_pytest_file_timings.json",
                     "--failure-ref-dir",
                     "{temp_root}/uaa_pytest_failure_refs",
                     "--collection-evidence",

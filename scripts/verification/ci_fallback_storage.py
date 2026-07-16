@@ -486,7 +486,7 @@ class FullSuiteLock:
             return
         if not SHA_PATTERN.fullmatch(self.repository_sha):
             raise ValueError("full-suite attempt requires an exact SHA")
-        if self.attempt_scope not in {"github", "private"}:
+        if self.attempt_scope not in {"github", "local", "private"}:
             raise ValueError("full-suite attempt scope is invalid")
         if (
             not isinstance(self.resource_attempt_fingerprint, str)
@@ -546,7 +546,7 @@ class FullSuiteLock:
                 ).hexdigest()
                 if (
                     not SHA_PATTERN.fullmatch(str(base["repository_sha"]))
-                    or base["attempt_scope"] not in {"github", "private"}
+                    or base["attempt_scope"] not in {"github", "local", "private"}
                     or re.fullmatch(
                         r"[0-9a-f]{64}",
                         str(base["resource_attempt_fingerprint"]),

@@ -1531,13 +1531,14 @@ def test_makefile_makes_sharded_pytest_canonical_and_preserves_serial_diagnostic
     assert "\ntest-sharded-profile:\n" in makefile
     assert "\ntest-serial:\n" in makefile
     assert "\nverify-dev-sharded:\n" in makefile
-    assert "scripts/verification/run_pytest_shards.py" in makefile
+    assert "scripts/verification/run_local_verification_lane.py" in makefile
+    assert "--lane ci-pytest-shards" in makefile
     assert "PYTEST_STRETCH_GOAL_SECONDS ?= 110" in makefile
     assert "PYTEST_TARGET_SECONDS ?= 125" in makefile
     assert "PYTEST_HARD_TIMEOUT_SECONDS ?= 180" in makefile
     assert "PYTEST_PERFORMANCE_REPORT ?=" in makefile
     assert f"PYTEST_SHARDS ?= {runner.CANONICAL_PYTEST_SHARD_COUNT}" in makefile
-    assert "PYTEST_SHARD_WORKERS ?= 8" in makefile
+    assert "PYTEST_SHARD_WORKERS ?= 4" in makefile
     test_block = makefile.split("\ntest:\n", 1)[1].split("\ntest-serial:", 1)[0]
     assert "test-sharded" in test_block
     verify_block = makefile.split("\nverify:\n", 1)[1].split("\nverify-static:", 1)[0]

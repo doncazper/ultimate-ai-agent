@@ -71,7 +71,7 @@ REQUIRED_CI_FRAGMENTS = [
 ]
 REQUIRED_FRONTEND_MAKE_FRAGMENTS = [
     "frontend-check:",
-    "$(python) scripts/verification/run_frontend_check.py",
+    "scripts/verification/run_local_verification_lane.py --lane ci-control-center-frontend",
     "frontend-visual-check:",
     "$(python) scripts/verification/run_frontend_playwright.py --suite visual",
     "frontend-turn-router-smoke:",
@@ -253,7 +253,10 @@ def _canonical_frontend_command_failures(root: Path) -> list[str]:
     if lane is None or lane.command_refs != ("command:frontend.check",):
         failures.append("canonical CI manifest frontend lane is missing or drifted")
     command = commands.get("command:frontend.check")
-    if command is None or command.argv != ("make", "frontend-check"):
+    if command is None or command.argv != (
+        ".venv/bin/python",
+        "scripts/verification/run_frontend_check.py",
+    ):
         failures.append("canonical CI manifest frontend command is missing or drifted")
 
     makefile = root / "Makefile"

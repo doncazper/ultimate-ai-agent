@@ -46,9 +46,6 @@ def test_make_verify_keeps_full_proof_with_sharded_pytest_and_summary_runner() -
     assert "scripts/verification/run_dev_fast_gate.py" in " ".join(dev_sharded_body)
     assert "--pytest-shards $(PYTEST_SHARDS)" in " ".join(dev_sharded_body)
     assert "--pytest-workers $(PYTEST_SHARD_WORKERS)" in " ".join(dev_sharded_body)
-    assert "--pytest-timing-seed-json $(PYTEST_SHARD_TIMING_SEED_JSON)" in " ".join(
-        dev_sharded_body
-    )
     assert "--static-timings-json $(VERIFY_TIMINGS_JSON)" in " ".join(dev_sharded_body)
     assert "--no-write-latest" not in make_target_body(text, "verify")[2]
 
@@ -99,12 +96,10 @@ def test_fast_gate_parallel_phases_keep_required_contract_checks(
         in phase_by_name["gate-architecture"].command
     )
     assert (
-        "scripts/verification/run_pytest_shards.py"
+        "scripts/verification/run_local_verification_lane.py"
         in phase_by_name["pytest-sharded"].command
     )
-    assert str(tmp_path / "seed.json") in phase_by_name["pytest-sharded"].command
-    assert "--max-workers" in phase_by_name["pytest-sharded"].command
-    assert "1" in phase_by_name["pytest-sharded"].command
+    assert "ci-pytest-shards" in phase_by_name["pytest-sharded"].command
     assert "UAA_M160_LIVE_HF_GGUF_SEARCH" not in (
         phase_by_name["pytest-sharded"].env or {}
     )

@@ -26,7 +26,7 @@ DEFAULT_PYTEST_TIMING_SEED_JSON = "scripts/verification/pytest_file_timing_seed.
 DEFAULT_PYTEST_BASETEMP = "/tmp/uaa_pytest_shards"
 DEFAULT_JOBS = 4
 DEFAULT_PYTEST_SHARDS = CANONICAL_PYTEST_SHARD_COUNT
-DEFAULT_PYTEST_WORKERS = 8
+DEFAULT_PYTEST_WORKERS = 4
 LOG_TAIL_LINES = 80
 
 
@@ -70,9 +70,6 @@ def build_env(*, pythonpath_src: bool = False) -> dict[str, str]:
 
 def build_parallel_phases(args: argparse.Namespace) -> list[Phase]:
     static_timings = resolve_path(args.static_timings_json)
-    pytest_timings = resolve_path(args.pytest_timings_json)
-    pytest_timing_seed = resolve_path(args.pytest_timing_seed_json)
-    pytest_basetemp = resolve_path(args.pytest_basetemp)
     python = sys.executable
     return [
         Phase(
@@ -85,17 +82,9 @@ def build_parallel_phases(args: argparse.Namespace) -> list[Phase]:
             command_ref="command:pytest-sharded",
             command=(
                 python,
-                "scripts/verification/run_pytest_shards.py",
-                "--shards",
-                str(args.pytest_shards),
-                "--max-workers",
-                str(args.pytest_workers),
-                "--timings-json",
-                str(pytest_timing_seed),
-                "--timings-json",
-                str(pytest_timings),
-                "--basetemp",
-                str(pytest_basetemp),
+                "scripts/verification/run_local_verification_lane.py",
+                "--lane",
+                "ci-pytest-shards",
             ),
             env=build_env(pythonpath_src=True),
         ),
@@ -392,6 +381,15 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     if args.pytest_workers <= 0:
         print("FAIL: --pytest-workers must be greater than zero", file=sys.stderr)
+        return 2
+    if (
+        args.pytest_shards != CANONICAL_PYTEST_SHARD_COUNT
+        or args.pytest_workers != DEFAULT_PYTEST_WORKERS
+    ):
+        print(
+            "FAIL: complete pytest uses the canonical exact-resource shard plan",
+            file=sys.stderr,
+        )
         return 2
 
     run_id = f"{time.strftime('%Y%m%d-%H%M%S')}-{os.getpid()}"

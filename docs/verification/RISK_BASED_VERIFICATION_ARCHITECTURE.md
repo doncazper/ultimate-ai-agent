@@ -415,11 +415,34 @@ Exact resource-attempt identity is now global across execution surfaces for the
 two exclusive resources: complete pytest and the matching TypeScript
 declaration. The key binds the repository SHA, dependency state, canonical
 resource ref, and TypeScript runtime/version where applicable. A second plan or
-surface cannot start the same resource attempt. A changed dependency state
+surface cannot start the same resource attempt; execution scope is audit
+metadata rather than part of the availability key. The host-wide attempt ledger
+enforces that cross-surface rule, while the separate owner-only execution fence
+binds exact pre-start and terminal settlement. A changed dependency state
 creates a distinct attempt; an unsettled exact attempt remains recovery
-required. The owner-only fence store uses the versioned
+required. The execution fence store uses the versioned
 `/private/tmp/uaa-verification-execution-fence-v2` boundary. Private diagnosis
 still cannot execute either exclusive merge-gate resource.
+
+The stable `make test-sharded`, `make test-sharded-profile`, and
+`make frontend-check` entry points now invoke the same canonical lane runner
+with the `local` execution surface. They validate a clean exact SHA and consume
+that SHA and dependency state's one durable resource attempt before process
+spawn. A local complete run therefore cannot be repeated by GitHub for the same
+state. Normal pull-request work uses `verify-fast`, `verify-affected`, and
+focused tests locally, then reserves the complete pytest and TypeScript
+attempts for the authoritative repository-scoped GitHub run. The profile target
+may publish only the bounded content-free pytest timing artifact after the
+canonical run succeeds.
+
+Canonical affected execution also distinguishes an exact committed tree from a
+changing worktree. On a clean exact SHA it defers the matching TypeScript
+resource and its dependent Vite build to the installed frontend lane while
+still running selected frontend unit tests and safety checks. On a dirty
+worktree the direct typecheck and dependent build are advisory feedback for
+uncommitted content and are not accepted as exact-SHA evidence. Affected
+preflight therefore cannot consume or duplicate the later merge-gate
+TypeScript attempt or violate the canonical dependency edge.
 
 Verifier value is recorded by four fixed synthetic mutations in an owner-only
 temporary boundary. Product-truth, redaction, API-contract, and frontend

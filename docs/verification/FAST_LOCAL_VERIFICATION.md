@@ -30,8 +30,29 @@ gate architecture, and shared test setup fail closed to Tier 3 and `make
 verify-dev-sharded`. Neither selector caches a prior result, grants authority,
 or counts as release evidence. GitHub affected preflight reports a Tier 3 full
 gate without starting a duplicate complete suite; the repository-scoped GitHub
-jobs own that exact-SHA resource. Direct local use retains `make verify` as the
-release-grade local gate.
+jobs normally own that exact-SHA resource.
+
+`make test-sharded`, `make test-sharded-profile`, and `make frontend-check`
+remain available for intentional local complete verification. They execute the
+canonical pytest or frontend lane on a clean exact SHA through the host-wide
+attempt ledger and owner-only exact-execution fence; they are not separate
+command definitions. Starting one consumes the single complete-pytest or
+TypeScript resource attempt for that SHA and dependency state, so GitHub must
+receive a new commit before it can perform the authoritative attempt. `make
+verify`, `make verify-dev-fast`, `make verify-dev-sharded`, and `make
+verify-local` also include the canonical complete-pytest lane and consume that
+attempt. `test-sharded-profile` is an alternative first and only complete run
+for the state, not a second refresh after `test-sharded`.
+
+Prefer focused tests plus `verify-fast` or `verify-affected` while stabilizing a
+branch, and reserve complete resources for the final self-hosted GitHub merge
+gate. For a dirty worktree, a selected frontend typecheck is advisory feedback
+for content that is not yet an exact SHA. On a clean committed tree the affected
+executor defers that exclusive command to the canonical installed frontend
+lane together with its dependent Vite build, while retaining selected unit
+tests and safety checks. `make verify` remains the release-grade local
+composition when a deliberate local-only full gate is required, but it does
+not satisfy branch protection.
 
 ## Canonical API snapshot
 
