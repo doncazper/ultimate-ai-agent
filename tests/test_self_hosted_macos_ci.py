@@ -11,6 +11,36 @@ def test_current_self_hosted_macos_ci_contract_passes() -> None:
     assert verifier.verify(ROOT) == []
 
 
+def test_workflow_rejects_symlinked_macos_tmp_for_execution_fence(
+    tmp_path: Path,
+) -> None:
+    workflow = (
+        ROOT / ".github/workflows/ci.yml"
+    ).read_text(encoding="utf-8").replace(
+        "/private/tmp/uaa-verification-execution-fence-v1",
+        "/tmp/uaa-verification-execution-fence-v1",
+    )
+    target = tmp_path / ".github/workflows/ci.yml"
+    target.parent.mkdir(parents=True)
+    target.write_text(workflow, encoding="utf-8")
+    for source in (
+        "scripts/ci/provision_self_hosted_macos_runners.sh",
+        "scripts/ci/bootstrap_self_hosted_macos_runner.sh",
+        ".github/actionlint.yaml",
+        ".github/workflows/fork-pr-policy.yml",
+    ):
+        destination = tmp_path / source
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes((ROOT / source).read_bytes())
+
+    failures = verifier.verify(tmp_path)
+
+    assert (
+        "pytest execution fence must use the real owner-only macOS temp root"
+        in failures
+    )
+
+
 def test_provisioner_keeps_root_owned_helper_directory_traversable() -> None:
     provisioner = (
         ROOT / "scripts/ci/provision_self_hosted_macos_runners.sh"
@@ -152,6 +182,12 @@ def test_shared_mac_ci_stages_cpu_and_io_heavy_job_classes() -> None:
     assert 'kill -KILL "$shard_runner_pid"' in pytest_shards_job
     assert "--shard-index" not in pytest_shards_job
     assert "matrix:" not in pytest_shards_job
+    assert (
+        "--verification-execution-fence-root "
+        "/private/tmp/uaa-verification-execution-fence-v1"
+        in pytest_shards_job
+    )
+    assert "--verification-execution-fence-root /tmp/" not in pytest_shards_job
     for job_name in (
         "static-verification",
         "release-lane-docs",

@@ -49,7 +49,7 @@ provider, connector, production, or AuthorityLease capability.
 - Pytest shard basetemps, performance reports, and static-verification timings
   use each job's private `RUNNER_TEMP`. The shared-Mac CI budget keeps a
   900-second stretch goal, reports a 1200-second target, and enforces an
-  1800-second hard timeout for the complete eight-shard suite. The wider suite
+  1800-second hard timeout for the complete nine-shard suite. The wider suite
   ceiling absorbs measured single-host variance without hiding it; only the
   hard timeout terminates the sharded run.
 - The performance release lane waits for the rest of the CI matrix before it
@@ -71,13 +71,25 @@ provider, connector, production, or AuthorityLease capability.
   every CI invocation, and missing Git history fails closed to the full browser
   lane. This preserves the macOS image gate for affected UI changes without
   making unrelated integration work inherit stale image drift.
-- Pytest keeps eight deterministic logical shards inside one job and one
-  installed environment. Four isolated workers overlap subprocess-heavy shard
-  waits while avoiding the lock starvation and repeated
+- Pytest keeps nine deterministic logical shards inside one job and one
+  installed environment: one serialized Matrix resource preflight followed by
+  eight timing-balanced shards. Four isolated workers overlap subprocess-heavy
+  shard waits while avoiding the lock starvation and repeated
   dependency installation caused by multiple runner jobs on one physical Mac.
   Every logical shard receives its own bounded `HOME`, `TEMP`, `TMP`, and
   `TMPDIR` below the run basetemp, so child processes cannot share runner-home
   caches, state, or credential configuration.
+- Fixed-port Matrix fixture owners remain in one shard affinity group. Before
+  the complete suite records its atomic start, the canonical lane verifies,
+  while holding the host-wide full-suite lock, that the exact loopback fixture
+  endpoint is free. Existing ownership fails as
+  `reason-ref:ci:pytest-loopback-resource-unavailable`, not as a deterministic
+  test failure; bounded bind waiting tolerates only a short release race.
+  The explicitly marked resource-owning shard then finishes before the
+  parallel shard wave starts, preventing another repository test from taking
+  the endpoint during those integration checks.
+  Contention that begins after this probe and durable start remains an ordinary
+  test failure and is never relabeled as infrastructure.
 - The complete pytest lane reads only the bounded, content-free shard rows from
   its transient performance report. GitHub's safe step summary retains failed
   shard refs and the fixed `make ci-reproduce-shard CI_SHARD_INDEX=<index>`
@@ -94,12 +106,13 @@ provider, connector, production, or AuthorityLease capability.
   close with a bounded grace period; the wrapper escalates after a bounded wait
   so superseded runs do not leave an indefinitely waiting job on the dedicated
   account.
-- GitHub jobs and the private fallback execute the same fixed command and lane
-  definitions from `scripts/verification/ci_command_manifest.py`. The lane
-  runner captures raw output only in a bounded transient file, persists only
-  hashes, counts, durations, refs, and statuses, forwards cancellation to the
-  entire child process group, and still ends the job unsuccessfully on a
-  command failure.
+- GitHub jobs and the private fallback select from the same fixed command and
+  lane definitions in `scripts/verification/ci_command_manifest.py`. GitHub
+  executes the gating lanes; private fallback is limited to affected/focused
+  checks and exact failed-shard diagnosis. The lane runner captures raw output
+  only in a bounded transient file, persists only hashes, counts, durations,
+  refs, and statuses, forwards cancellation to the entire child process group,
+  and still ends the job unsuccessfully on a command failure.
 - The dedicated account is not granted access to the everyday account's Docker
   Desktop socket. The desktop-packaging lane reports its permitted explicit
   `self-hosted-runner-docker-unavailable` skipped posture and still runs the
@@ -174,9 +187,10 @@ pushed head SHA instead of GitHub's synthetic merge ref. The required
 `manifest-attestation` job validates the exact repository-owned plan before
 parallel lint and fast affected preflight can start. Complete pytest waits for
 both. The workflow concurrency key cancels superseded
-SHAs, and the shared host guard permits only one GitHub full sharded pytest
-attempt for that SHA. Private verification has a separate one-attempt scope so
-the required final GitHub run can still verify the exact privately checked SHA.
+SHAs, and the shared host guard plus exact execution-identity fence permit only
+one GitHub full sharded pytest attempt for that SHA and dependency state.
+Private verification cannot execute the complete suite or matching TypeScript
+resource, so the required GitHub run remains the sole full-gate execution.
 
 When the GitHub control plane is unavailable, a run fails before any repository
 command starts, runner capacity exceeds the bounded queue budget, runner contact
@@ -202,20 +216,37 @@ started is `github_code_failure` and never enters private fallback.
 
 An operator can reproduce one exact deterministic failed shard without rerunning
 the complete suite by using `make ci-reproduce-shard CI_SHARD_INDEX=0` (indices
-0 through 7). These fixed reproduction lanes come from the same canonical
+0 through 8). These fixed reproduction lanes come from the same canonical
 manifest and do not satisfy the GitHub merge gate.
 
 Eligible private fallback creates a standalone credential-free local clone at
-the exact pushed SHA, pins the source checkout's exact validated `origin/main`
-object ID to an isolated immutable
-base ref, removes its remote, and never shares refs, config, or hooks with the
-developer repository. It verifies the canonical origin, lock
-fingerprints, and regular repository
-paths, installs frontend dependencies before an affected frontend preflight,
-then runs affected checks first unless they select the full gate. Playwright
-installation and lane execution share one temp-root-bound browser cache. It
-takes the single content-free, group-protected cross-account host lock, and installs
-through the existing lockfile policy before executing the canonical job graph.
+the exact pushed SHA only after a live, bounded remote-head query proves that
+SHA is the exact head of the current local branch. The branch name is transient;
+durable scope records retain only its content-bound ref. The live `main` head is
+bound separately as the comparison base. A deleted, superseded, detached,
+unadvertised, malformed, or locally unverifiable branch fails closed. The
+isolated clone pins that validated base object to an immutable local ref,
+removes its remote, and never shares refs, config, or hooks with the developer
+repository. It verifies lock fingerprints and regular repository paths and
+installs only through the existing lockfile policy. After dependency setup it
+captures a bounded content fingerprint of every ignored setup artifact under
+the exact `.ci-bootstrap`, `.venv`, Control Center `node_modules`, and pinned
+Matrix client adapter `node_modules` roots, including file type and permissions.
+Every selected command revalidates tracked files plus that exact setup
+fingerprint immediately before and after execution. Any other untracked file,
+module-shadowing path, dependency mutation, FIFO, or special file fails closed.
+Python bytecode, pytest cache, and Ruff cache output are redirected outside the
+checkout. The one canonical Vitest command disables its results cache, and the
+one canonical Vite build command writes to the run's bounded temporary root,
+so frontend verification cannot create import-visible or generated checkout
+state.
+It derives an exact
+affected/focused command scope from the canonical changed-path selector and
+excludes full pytest, the matching TypeScript resource, aggregate units, and
+audit units. If selection requires a full gate, private fallback reports that
+posture instead of claiming a focused pass; an explicitly named deterministic
+failed shard may still run through one exact diagnostic lane. Private fallback
+never invokes a non-diagnostic canonical CI lane.
 A new versioned coordination directory avoids dependence on legacy lock-file
 ownership and holds one bounded exact-SHA attempt ledger shared by all four
 runners and private CI. The bounded controller ledger records only safe refs,
@@ -235,6 +266,9 @@ code/evidence failure rather than being relabeled as an infrastructure outage.
 An attempted duplicate is rejected before process spawn with the content-free
 `reason-ref:ci:full-suite-attempt-recorded`; local coordination details and
 tracebacks are not emitted to the operator surface.
+The execution fence uses the real owner-only `/private/tmp` macOS directory;
+the `/tmp` alias is intentionally rejected because the fence refuses symlinked
+path components.
 The canonical shard command loads a tiny repo-owned pytest plugin that writes
 only an exclusive-created, bounded list of content-free test refs under a fresh
 private run directory. Failed shards expose at most eight refs derived from
@@ -247,11 +281,12 @@ Pending/running states return `2`; code failure, private failure, and external
 blocking return `1`. Injected observation files are simulation-only and can
 never satisfy the merge gate.
 
-Private `pass` is reported as `private_green_pending_github`. It never satisfies
-branch protection or authorizes merge. The exact privately verified SHA must be
-pushed and receive one final green GitHub merge-gate run, created after the
-private terminal receipt, using the same manifest fingerprint. Capacity gets
-one three-minute cooldown, a repair series gets at
+Private `pass` is reported as `private_green_pending_github`; it means only that
+bounded diagnosis is stable enough to return to GitHub. It never satisfies
+branch protection, complete-suite proof, Foundation prerequisites, or merge.
+The exact privately checked SHA must be pushed and receive one final green
+GitHub merge-gate run using the same manifest fingerprint. Capacity gets one
+three-minute cooldown, a repair series gets at
 most two private SHA attempts, and private green gets at most one final GitHub
 retry. Exhaustion ends as `externally_blocked`.
 

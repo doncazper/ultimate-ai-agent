@@ -110,15 +110,16 @@ serialized report-only Foundation Gate summary with `--no-write-latest`.
 `VERIFY_DEV_FAST_JOBS` bounds top-level phases and `PYTEST_SHARD_WORKERS`
 separately bounds pytest subprocesses. It is useful local evidence, but it does
 not create populated release evidence packets or claim release readiness.
-CI proves pytest equivalence with eight logical timing-balanced shards in one
-installed self-hosted suite job and a stable aggregate `pytest` check; `make
+CI proves pytest equivalence with nine logical shards—one serialized Matrix
+resource preflight plus eight timing-balanced shards—in one installed
+self-hosted suite job and a stable aggregate `pytest` check; `make
 verify` runs the same complete pytest posture plus the release-grade local gate
 sequence.
 
 The current private-repository workflow schedules those named jobs only on the
 repo-scoped self-hosted Apple Silicon runner pool described in
 `docs/developer/SELF_HOSTED_MACOS_CI.md`. This preserves the named lane and
-eight-shard evidence contract without consuming GitHub-hosted runner minutes.
+nine-shard evidence contract without consuming GitHub-hosted runner minutes.
 Fork pull requests cannot schedule local jobs, the workflow token is read-only,
 checkout credentials are not persisted, and GitHub Actions caches and uploaded
 artifacts are intentionally absent. Self-hosting changes only CI compute; it
@@ -128,13 +129,14 @@ the workflow intentionally avoids setup actions whose macOS installation path
 would require host-level privileges unavailable to the non-admin runner.
 
 The bounded fallback described in
-`docs/developer/SELF_HOSTED_MACOS_CI.md` may diagnose and verify an exact pushed
-SHA in a standalone credential-free clone when GitHub infrastructure is
-explicitly blocked.
-Its content-free receipt is local evidence only. A final green GitHub run on the
-same exact SHA and canonical manifest version, created after the private
-terminal receipt, remains mandatory for merge. Missing or partial GitHub job
-evidence fails closed and cannot classify a code failure as infrastructure.
+`docs/developer/SELF_HOSTED_MACOS_CI.md` may diagnose an exact pushed SHA in a
+standalone credential-free clone when GitHub infrastructure is explicitly
+blocked. It runs affected/focused checks and exact failed-shard reproduction,
+not the complete pytest or matching TypeScript gate. Its content-free receipt
+is local diagnostic evidence only. A final green GitHub run on the same exact
+SHA and canonical manifest version remains mandatory for merge. Missing or
+partial GitHub job evidence fails closed and cannot classify a code failure as
+infrastructure.
 
 `verify-dev-sharded` and `verify-local` expose the readable local/dev runner. It uses
 `scripts/verification/run_dev_fast_gate.py` to run `ruff`, sharded pytest,
@@ -148,7 +150,8 @@ failure. The tracked advisory seed is overlaid by a newer local profile; new or
 missing files receive a conservative p90 estimate. Normal runs do not rewrite
 timing data; `make test-sharded-profile` is the explicit green refresh lane.
 This adds no pytest-xdist dependency. The required self-hosted pytest lane uses
-eight bounded logical shards with four workers in one installed environment,
+one serialized resource preflight and eight timing-balanced shards with four
+workers in one installed environment,
 rejects partial coverage through a stable aggregate check, and keeps optional
 live/model-heavy execution disabled.
 

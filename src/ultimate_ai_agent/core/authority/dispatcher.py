@@ -4,9 +4,12 @@ import hashlib
 import json
 import math
 import os
+import signal
 import stat
+import threading
 from collections import defaultdict
-from contextlib import nullcontext
+from contextlib import contextmanager, nullcontext
+from contextvars import ContextVar, Token
 from decimal import Decimal, InvalidOperation
 from datetime import datetime
 from pathlib import Path
@@ -138,7 +141,18 @@ class AuthorityDispatchAdapter(Protocol):
 class AuthorityDispatchAtomicStartHandle(Protocol):
     commit_validated_at: datetime
 
+    @property
+    def settled(self) -> bool: ...
+
+    def abort(self) -> None: ...
+
     def collect(self) -> AuthorityDispatchAdapterResult: ...
+
+    def finalize(self) -> None: ...
+
+    def commit(self) -> None: ...
+
+    def settle(self) -> None: ...
 
 
 class AuthorityDispatchExecutionFenceValidator(Protocol):
@@ -149,6 +163,269 @@ class AuthorityDispatchExecutionFenceValidator(Protocol):
         *,
         current_time: Callable[[], datetime],
     ) -> tuple[list[str], str | None, datetime]: ...
+
+
+class _AuthorityDispatchAtomicStartOwnership:
+    def __init__(self) -> None:
+        self._handle: AuthorityDispatchAtomicStartHandle | None = None
+        self._returned_mismatch: AuthorityDispatchAtomicStartHandle | None = None
+        self._terminal_persisted = False
+
+    @property
+    def claimed(self) -> bool:
+        return self._handle is not None
+
+    def claim(
+        self,
+        handle: AuthorityDispatchAtomicStartHandle,
+    ) -> AuthorityDispatchAtomicStartHandle:
+        if self._handle is not None:
+            raise AuthorityDispatchCorruptionError(
+                "AUTHORITY_DISPATCH_ATOMIC_HANDLE_ALREADY_CLAIMED"
+            )
+        self._handle = handle
+        return handle
+
+    def confirm_claim(
+        self,
+        handle: AuthorityDispatchAtomicStartHandle,
+    ) -> None:
+        if self._handle is not handle:
+            self._returned_mismatch = handle
+            raise AuthorityDispatchCorruptionError(
+                "AUTHORITY_DISPATCH_ATOMIC_HANDLE_CLAIM_MISMATCH"
+            )
+
+    def abort_unsettled(self) -> None:
+        if self._terminal_persisted:
+            return
+        first_error: BaseException | None = None
+        handles: list[AuthorityDispatchAtomicStartHandle] = []
+        for handle in (self._handle, self._returned_mismatch):
+            if handle is not None and all(
+                existing is not handle for existing in handles
+            ):
+                handles.append(handle)
+        for handle in handles:
+            try:
+                settled = handle.settled
+            except BaseException as exc:
+                first_error = first_error or exc
+                settled = False
+            if settled:
+                continue
+            try:
+                handle.abort()
+            except BaseException as exc:
+                first_error = first_error or exc
+                continue
+            try:
+                settled = handle.settled
+            except BaseException as exc:
+                first_error = first_error or exc
+                continue
+            if not settled:
+                first_error = first_error or RuntimeError(
+                    "AUTHORITY_DISPATCH_ATOMIC_ABORT_SETTLEMENT_UNCONFIRMED"
+                )
+        if first_error is not None:
+            if isinstance(
+                first_error,
+                AuthorityDispatchAtomicStartRecoveryRequired,
+            ):
+                raise first_error
+            raise AuthorityDispatchAtomicStartRecoveryRequired(
+                "AUTHORITY_DISPATCH_ATOMIC_HANDLE_SETTLEMENT_UNKNOWN"
+            ) from first_error
+
+    def finalize(self) -> None:
+        if self._handle is None:
+            return
+        self._handle.finalize()
+        if self._handle.settled:
+            raise AuthorityDispatchAtomicStartRecoveryRequired(
+                "AUTHORITY_DISPATCH_ATOMIC_FINALIZATION_SETTLED_EARLY"
+            )
+
+    def commit(self) -> None:
+        if self._handle is None:
+            return
+        self._handle.commit()
+        if self._handle.settled:
+            raise AuthorityDispatchAtomicStartRecoveryRequired(
+                "AUTHORITY_DISPATCH_ATOMIC_COMMIT_SETTLED_EARLY"
+            )
+
+    def mark_terminal_persisted(self) -> None:
+        self._terminal_persisted = True
+
+    def settle(self) -> None:
+        if self._handle is None:
+            return
+        self._handle.settle()
+        if not self._handle.settled:
+            raise AuthorityDispatchAtomicStartRecoveryRequired(
+                "AUTHORITY_DISPATCH_ATOMIC_SETTLEMENT_UNCONFIRMED"
+            )
+
+
+_ATOMIC_START_SIGNAL_GUARD_DEPTH: ContextVar[int] = ContextVar(
+    "uaa_atomic_start_signal_guard_depth",
+    default=0,
+)
+
+
+def atomic_start_signal_guard_active() -> bool:
+    """Return whether this execution context already owns atomic signals."""
+
+    return _ATOMIC_START_SIGNAL_GUARD_DEPTH.get() > 0
+
+
+class _AtomicStartTerminationGuard:
+    """Keep local termination signals recoverable until atomic work settles."""
+
+    _watched = (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)
+
+    def __init__(self) -> None:
+        self._active = False
+        self._cleanup_started = False
+        self._pending_signal: int | None = None
+        self._previous_handlers: dict[signal.Signals, object] = {}
+        self._context_token: Token[int] | None = None
+
+    def __enter__(self) -> "_AtomicStartTerminationGuard":
+        self._context_token = _ATOMIC_START_SIGNAL_GUARD_DEPTH.set(
+            _ATOMIC_START_SIGNAL_GUARD_DEPTH.get() + 1
+        )
+        try:
+            pthread_sigmask = getattr(signal, "pthread_sigmask", None)
+            if not callable(pthread_sigmask):
+                return self
+            if threading.current_thread() is not threading.main_thread():
+                # CPython only dispatches process signals on the main thread.
+                # Do not claim graceful signal containment from a worker: a
+                # process-directed termination is handled as a crash boundary
+                # by durable started receipts and each adapter's parent-death
+                # cleanup/reconciliation contract.
+                return self
+
+            previous_mask = pthread_sigmask(signal.SIG_BLOCK, self._watched)
+            installed: list[signal.Signals] = []
+            try:
+                for watched_signal in self._watched:
+                    self._previous_handlers[watched_signal] = signal.getsignal(
+                        watched_signal
+                    )
+                    signal.signal(watched_signal, self._handle)
+                    installed.append(watched_signal)
+                pthread_sigmask(signal.SIG_SETMASK, previous_mask)
+            except BaseException as setup_error:
+                rollback_error: BaseException | None = None
+                for watched_signal in reversed(installed):
+                    try:
+                        signal.signal(
+                            watched_signal,
+                            self._previous_handlers[watched_signal],  # type: ignore[arg-type]
+                        )
+                    except BaseException as exc:
+                        rollback_error = rollback_error or exc
+                try:
+                    pthread_sigmask(signal.SIG_SETMASK, previous_mask)
+                except BaseException as exc:
+                    rollback_error = rollback_error or exc
+                if rollback_error is not None:
+                    raise AuthorityDispatchAtomicStartRecoveryRequired(
+                        "AUTHORITY_DISPATCH_ATOMIC_SIGNAL_GUARD_SETUP_UNCERTAIN"
+                    ) from setup_error
+                raise
+            self._active = True
+            return self
+        except BaseException:
+            if self._context_token is not None:
+                _ATOMIC_START_SIGNAL_GUARD_DEPTH.reset(self._context_token)
+                self._context_token = None
+            raise
+
+    def _handle(self, received: int, _frame: object) -> None:
+        first_signal = self._pending_signal is None
+        if first_signal:
+            self._pending_signal = received
+        if first_signal and not self._cleanup_started:
+            self._cleanup_started = True
+            raise AuthorityDispatchAtomicStartRecoveryRequired(
+                "AUTHORITY_DISPATCH_ATOMIC_SIGNAL_INTERRUPTED_"
+                f"{signal.Signals(received).name}"
+            )
+
+    def begin_cleanup(self) -> None:
+        self._cleanup_started = True
+
+    def _restore(self) -> None:
+        pthread_sigmask = getattr(signal, "pthread_sigmask", None)
+        if not self._active:
+            return
+        assert callable(pthread_sigmask)
+        self._cleanup_started = True
+        previous_mask = pthread_sigmask(signal.SIG_BLOCK, self._watched)
+        try:
+            for watched_signal in reversed(self._watched):
+                signal.signal(
+                    watched_signal,
+                    self._previous_handlers[watched_signal],  # type: ignore[arg-type]
+                )
+        finally:
+            self._active = False
+            # Restore the caller's mask only after every original disposition
+            # is back in place. This removes the partial-restore window where a
+            # pending signal could reach SIG_DFL before sibling handlers were
+            # restored.
+            pthread_sigmask(signal.SIG_SETMASK, previous_mask)
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        _exc: BaseException | None,
+        _traceback: object,
+    ) -> bool:
+        self.begin_cleanup()
+        try:
+            self._restore()
+        except BaseException as restore_error:
+            raise AuthorityDispatchAtomicStartRecoveryRequired(
+                "AUTHORITY_DISPATCH_ATOMIC_SIGNAL_GUARD_RESTORE_UNCERTAIN"
+            ) from restore_error
+        finally:
+            if self._context_token is not None:
+                _ATOMIC_START_SIGNAL_GUARD_DEPTH.reset(self._context_token)
+                self._context_token = None
+        if self._pending_signal is not None and exc_type is None:
+            raise AuthorityDispatchAtomicStartRecoveryRequired(
+                "AUTHORITY_DISPATCH_ATOMIC_SIGNAL_INTERRUPTED_"
+                f"{signal.Signals(self._pending_signal).name}"
+            )
+        return False
+
+
+@contextmanager
+def atomic_start_handoff_signals_blocked() -> Any:
+    """Compatibility wrapper for bounded atomic handoff code."""
+
+    with _AtomicStartTerminationGuard():
+        yield
+
+
+@contextmanager
+def _atomic_terminal_commit_signals_blocked() -> Any:
+    pthread_sigmask = getattr(signal, "pthread_sigmask", None)
+    if not callable(pthread_sigmask):
+        yield
+        return
+    watched = (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)
+    previous_mask = pthread_sigmask(signal.SIG_BLOCK, watched)
+    try:
+        yield
+    finally:
+        pthread_sigmask(signal.SIG_SETMASK, previous_mask)
 
 
 def _canonical_json(value: Any) -> str:
@@ -1014,6 +1291,32 @@ class AuthorityDispatcher:
         *,
         execution_fence: AuthorityDispatchExecutionFence | None = None,
     ) -> AuthorityDispatchResult:
+        ownership = _AuthorityDispatchAtomicStartOwnership()
+        adapter = self.adapters.get(request.adapter_ref)
+        guard = (
+            _AtomicStartTerminationGuard()
+            if adapter is not None and adapter.descriptor.atomic_start_required
+            else nullcontext()
+        )
+        with guard as signal_guard:
+            try:
+                return self._execute_owned(
+                    request,
+                    execution_fence=execution_fence,
+                    ownership=ownership,
+                )
+            finally:
+                if isinstance(signal_guard, _AtomicStartTerminationGuard):
+                    signal_guard.begin_cleanup()
+                ownership.abort_unsettled()
+
+    def _execute_owned(
+        self,
+        request: AuthorityDispatchRequest,
+        *,
+        execution_fence: AuthorityDispatchExecutionFence | None,
+        ownership: _AuthorityDispatchAtomicStartOwnership,
+    ) -> AuthorityDispatchResult:
         fingerprint = _request_fingerprint(request)
         pending_cancellation: AuthorityDispatchReceipt | None = None
         pending_reason_ref: str | None = None
@@ -1144,8 +1447,12 @@ class AuthorityDispatcher:
                         atomic_start_handle = adapter.start(  # type: ignore[attr-defined]
                             request,
                             validate_commit_fence=validate_commit_fence,
+                            claim_handle=ownership.claim,
                         )
+                        ownership.confirm_claim(atomic_start_handle)
                     except AuthorityDispatchAtomicStartRecoveryRequired:
+                        if ownership.claimed:
+                            raise
                         atomic_start_recovery_required = True
                         recovery_started = self._build_receipt_from_existing(
                             started,
@@ -1163,6 +1470,8 @@ class AuthorityDispatcher:
                         self._append(recovery_started)
                         started = recovery_started
                     except Exception:
+                        if ownership.claimed:
+                            raise
                         atomic_start_failed = True
                     else:
                         confirmed = self._build_receipt_from_existing(
@@ -1250,33 +1559,10 @@ class AuthorityDispatcher:
                     recovery_required=True,
                 )
             except Exception:
-                failure_cost = adapter.descriptor.failure_cost_microusd
-                adapter_result = AuthorityDispatchAdapterResult(
-                    execution_ref=_execution_ref(request),
-                    succeeded=False,
-                    actual_operation_count=adapter.descriptor.operation_count,
-                    actual_cost_microusd=failure_cost,
-                    actual_cost_ref=(
-                        _stable_ref(
-                            "actual-cost-ref:authority-dispatch",
-                            {
-                                "dispatch_ref": request.dispatch_ref,
-                                "cost_microusd": failure_cost,
-                                "atomic_collection_failure": True,
-                            },
-                        )
-                        if failure_cost is not None
-                        else None
-                    ),
-                    evidence_refs=[
-                        _stable_ref(
-                            "evidence-ref:authority-dispatch-atomic-collection-failure",
-                            {"dispatch_ref": request.dispatch_ref},
-                        )
-                    ],
-                    safe_summary=(
-                        "Atomic adapter result collection failed safely without raw output."
-                    ),
+                return AuthorityDispatchResult(
+                    receipt=started,
+                    replayed=False,
+                    recovery_required=True,
                 )
         else:
             try:
@@ -1339,6 +1625,9 @@ class AuthorityDispatcher:
                 ),
             )
 
+        if atomic_start_handle is not None:
+            ownership.finalize()
+
         settlement = self.budget_store._settle_dispatch(
             AuthorityBudgetSettlementRequest(
                 reservation_ref=started.budget_reservation_ref or "",
@@ -1399,7 +1688,14 @@ class AuthorityDispatcher:
                 ),
                 safe_summary=adapter_result.safe_summary,
             )
-            self._append(terminal)
+            if atomic_start_handle is None:
+                self._append(terminal)
+            else:
+                with _atomic_terminal_commit_signals_blocked():
+                    ownership.commit()
+                    self._append(terminal)
+                    ownership.mark_terminal_persisted()
+                    ownership.settle()
             return AuthorityDispatchResult(
                 receipt=terminal,
                 adapter_result=adapter_result,
@@ -1420,6 +1716,11 @@ class AuthorityDispatcher:
             or latest.budget_reservation_ref is None
             or latest.execution_ref is None
         ):
+            return None
+        if latest.atomic_start_required:
+            # Atomic adapters may own transient output or rollback state that a
+            # budget settlement cannot prove survived a crash. Only their exact
+            # terminal dispatch receipt can settle execution truth.
             return None
         settlements = [
             receipt

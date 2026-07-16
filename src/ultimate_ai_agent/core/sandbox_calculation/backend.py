@@ -15,7 +15,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Callable
+from typing import Callable, TypeVar
 
 from ultimate_ai_agent.core.safe_refs import hash_bytes, hash_text
 
@@ -64,6 +64,7 @@ class SealedCalculationExecutionTruthUnknownError(SealedCalculationBackendError)
 
 
 CommitFenceValidator = Callable[[], tuple[list[str], datetime]]
+_ClaimedHandleT = TypeVar("_ClaimedHandleT")
 
 
 @dataclass(frozen=True)
@@ -170,6 +171,64 @@ class SealedCalculationExecutionHandle:
         self._request = _CommittedCalculationRequest.from_request(request)
         self.commit_validated_at = commit_validated_at
         self._collected = False
+        self._runtime_settled = False
+        self._finalized = False
+        self._committed = False
+        self._settled = False
+
+    @property
+    def settled(self) -> bool:
+        return self._settled
+
+    @property
+    def execution_ref(self) -> str:
+        return self._execution_ref
+
+    def _close_process_streams(self) -> None:
+        first_error: BaseException | None = None
+        for stream in (
+            self._process.stdin,
+            self._process.stdout,
+            self._process.stderr,
+        ):
+            if stream is not None and not stream.closed:
+                try:
+                    stream.close()
+                except BaseException as exc:
+                    first_error = first_error or exc
+        if first_error is not None:
+            raise SealedCalculationCleanupUnconfirmedError(
+                "SEALED_CALCULATION_PROCESS_STREAM_CLEANUP_UNCONFIRMED"
+            ) from first_error
+
+    def abort(self) -> None:
+        if self._settled:
+            return
+        self._collected = True
+        if self._runtime_settled:
+            self._settled = True
+            return
+        cleanup_error: BaseException | None = None
+        try:
+            self._backend._terminate(
+                self._process,
+                self._container_name,
+                self._execution_ref,
+            )
+            if self._process.poll() is None:
+                raise SealedCalculationCleanupUnconfirmedError(
+                    "SEALED_CALCULATION_PROCESS_REAP_UNCONFIRMED"
+                )
+        except BaseException as exc:
+            cleanup_error = exc
+        try:
+            self._close_process_streams()
+        except BaseException as exc:
+            cleanup_error = cleanup_error or exc
+        if cleanup_error is not None:
+            raise cleanup_error
+        self._runtime_settled = True
+        self._settled = True
 
     def collect(self) -> SealedCalculationResult:
         if self._collected:
@@ -177,6 +236,47 @@ class SealedCalculationExecutionHandle:
                 "SEALED_CALCULATION_HANDLE_ALREADY_COLLECTED"
             )
         self._collected = True
+        try:
+            result = self._collect_result()
+        except BaseException as original:
+            try:
+                self._backend._terminate(
+                    self._process,
+                    self._container_name,
+                    self._execution_ref,
+                )
+            except BaseException as cleanup_error:
+                raise cleanup_error from original
+            raise
+        self._close_process_streams()
+        self._runtime_settled = True
+        return result
+
+    def finalize(self) -> None:
+        if (
+            self._settled
+            or self._finalized
+            or not self._runtime_settled
+            or not self._collected
+        ):
+            raise SealedCalculationBackendError(
+                "SEALED_CALCULATION_FINALIZATION_INVALID"
+            )
+        self._finalized = True
+
+    def commit(self) -> None:
+        if self._settled or self._committed or not self._finalized:
+            raise SealedCalculationBackendError("SEALED_CALCULATION_COMMIT_INVALID")
+        self._committed = True
+
+    def settle(self) -> None:
+        if self._settled or not self._committed:
+            raise SealedCalculationBackendError(
+                "SEALED_CALCULATION_SETTLEMENT_INVALID"
+            )
+        self._settled = True
+
+    def _collect_result(self) -> SealedCalculationResult:
         if self._backend.kill_switch_engaged():
             try:
                 self._backend._terminate(
@@ -478,7 +578,9 @@ class DockerSealedCalculationBackend:
         execution_ref: str,
         request: SealedCalculationRequest,
         validate_commit_fence: CommitFenceValidator,
-    ) -> SealedCalculationExecutionHandle:
+        claim_handle: Callable[[SealedCalculationExecutionHandle], _ClaimedHandleT]
+        | None = None,
+    ) -> SealedCalculationExecutionHandle | _ClaimedHandleT:
         reasons = self.readiness_reason_codes()
         if reasons:
             raise SealedCalculationBackendError(reasons[0])
@@ -501,6 +603,7 @@ class DockerSealedCalculationBackend:
             self.config.docker_host,
             "create",
             "--interactive",
+            "--rm",
             "--pull",
             "never",
             "--name",
@@ -623,7 +726,16 @@ class DockerSealedCalculationBackend:
                 raise SealedCalculationBackendError(
                     "SEALED_CALCULATION_INPUT_ACCEPTANCE_INVALID"
                 )
-        except Exception as original_error:
+            handle = SealedCalculationExecutionHandle(
+                backend=self,
+                process=process,
+                container_name=container_name,
+                execution_ref=execution_ref,
+                request=request,
+                commit_validated_at=commit_validated_at,
+            )
+            return claim_handle(handle) if claim_handle is not None else handle
+        except BaseException as original_error:
             active_process = locals().get("process")
             if isinstance(active_process, subprocess.Popen):
                 self._terminate(active_process, container_name, execution_ref)
@@ -640,14 +752,6 @@ class DockerSealedCalculationBackend:
                     "SEALED_CALCULATION_EXECUTION_TRUTH_UNKNOWN"
                 ) from original_error
             raise
-        return SealedCalculationExecutionHandle(
-            backend=self,
-            process=process,
-            container_name=container_name,
-            execution_ref=execution_ref,
-            request=request,
-            commit_validated_at=commit_validated_at,
-        )
 
     def list_orphan_refs(self) -> list[str]:
         try:
@@ -1221,26 +1325,49 @@ class DockerSealedCalculationBackend:
         container_name: str,
         execution_ref: str,
     ) -> None:
-        if process.poll() is None:
-            try:
-                os.killpg(process.pid, signal.SIGTERM)
-            except ProcessLookupError:
-                pass
-        cleanup_error: SealedCalculationCleanupUnconfirmedError | None = None
+        cleanup_error: BaseException | None = None
+        cleanup_cause: BaseException | None = None
         try:
-            self._remove_owned_container(container_name, execution_ref)
-        except SealedCalculationCleanupUnconfirmedError as exc:
-            cleanup_error = exc
-        if process.poll() is None:
+            if process.poll() is None:
+                try:
+                    os.killpg(process.pid, signal.SIGTERM)
+                except ProcessLookupError:
+                    pass
             try:
-                os.killpg(process.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-        try:
-            process.wait(timeout=1.0)
-        except subprocess.TimeoutExpired:
-            pass
+                self._remove_owned_container(container_name, execution_ref)
+            except SealedCalculationCleanupUnconfirmedError as exc:
+                cleanup_error = exc
+            if process.poll() is None:
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+            try:
+                process.wait(timeout=1.0)
+            except subprocess.TimeoutExpired as exc:
+                if cleanup_error is None:
+                    cleanup_error = SealedCalculationCleanupUnconfirmedError(
+                        "SEALED_CALCULATION_PROCESS_REAP_UNCONFIRMED"
+                    )
+                    cleanup_cause = exc
+        except BaseException as exc:
+            cleanup_error = cleanup_error or exc
+        stream_error: BaseException | None = None
+        for stream in (process.stdin, process.stdout, process.stderr):
+            if stream is not None and not stream.closed:
+                try:
+                    stream.close()
+                except BaseException as exc:
+                    stream_error = stream_error or exc
+        if stream_error is not None:
+            if cleanup_error is None:
+                cleanup_error = SealedCalculationCleanupUnconfirmedError(
+                    "SEALED_CALCULATION_PROCESS_STREAM_CLEANUP_UNCONFIRMED"
+                )
+                cleanup_cause = stream_error
         if cleanup_error is not None:
+            if cleanup_cause is not None:
+                raise cleanup_error from cleanup_cause
             raise cleanup_error
 
     def _remove_owned_container(

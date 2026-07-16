@@ -5,6 +5,7 @@ import hashlib
 import json
 import resource
 import re
+import signal
 import sys
 from decimal import (
     Context,
@@ -197,6 +198,7 @@ def _process(raw: bytes) -> tuple[dict[str, object], int]:
 
 
 def main() -> int:
+    signal.alarm(3)
     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
     resource.setrlimit(resource.RLIMIT_CPU, (1, 1))
     resource.setrlimit(resource.RLIMIT_AS, (64 * 1024 * 1024, 64 * 1024 * 1024))

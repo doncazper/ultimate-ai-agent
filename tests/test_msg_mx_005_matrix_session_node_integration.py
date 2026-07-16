@@ -24,10 +24,13 @@ from ultimate_ai_agent.core.communications.matrix_session import (
 )
 from ultimate_ai_agent.core.time import utc_now
 
+from tests.matrix_loopback_resource import matrix_loopback_test_resource
+
 
 ROOT = Path(__file__).resolve().parents[1]
 HARNESS_URL = "http://127.0.0.1:18008"
 _HARNESS_PORT_WAIT_SECONDS = 60
+PYTEST_EXCLUSIVE_RESOURCE_MATRIX_LOOPBACK = True
 
 
 def _bind_harness_server() -> ThreadingHTTPServer:
@@ -110,47 +113,54 @@ def _command(operation: MatrixSessionOperation) -> MatrixSessionCommand:
 def test_dispatcher_executes_real_node_discovery_and_auth_method_reads(
     tmp_path: Path,
 ) -> None:
-    server = _bind_harness_server()
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    try:
-        state = tmp_path / "authority"
-        store = AuthorityLeaseStore(state)
-        discovery = _command(MatrixSessionOperation.discovery_read)
-        issue_exact_matrix_session_lease(discovery, store=store, confirmed=False)
-        discovery_result = execute_matrix_session_command(
-            discovery,
-            repo_root=ROOT,
-            authority_state_dir=state,
-            transient_input=MatrixSessionTransientInput(discovery_origin=HARNESS_URL),
-            lease_store=store,
-        )
-        assert discovery_result.receipt.status == "succeeded"
-        assert discovery_result.adapter_result is not None
-        assert discovery_result.adapter_result.safe_output[
-            "homeserver_observation_ref"
-        ] == matrix_homeserver_observation_ref(HARNESS_URL)
+    with matrix_loopback_test_resource():
+        server = _bind_harness_server()
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            state = tmp_path / "authority"
+            store = AuthorityLeaseStore(state)
+            discovery = _command(MatrixSessionOperation.discovery_read)
+            issue_exact_matrix_session_lease(discovery, store=store, confirmed=False)
+            discovery_result = execute_matrix_session_command(
+                discovery,
+                repo_root=ROOT,
+                authority_state_dir=state,
+                transient_input=MatrixSessionTransientInput(
+                    discovery_origin=HARNESS_URL
+                ),
+                lease_store=store,
+            )
+            assert discovery_result.receipt.status == "succeeded"
+            assert discovery_result.adapter_result is not None
+            assert discovery_result.adapter_result.safe_output[
+                "homeserver_observation_ref"
+            ] == matrix_homeserver_observation_ref(HARNESS_URL)
 
-        auth_methods = _command(MatrixSessionOperation.auth_methods_read)
-        issue_exact_matrix_session_lease(auth_methods, store=store, confirmed=False)
-        auth_result = execute_matrix_session_command(
-            auth_methods,
-            repo_root=ROOT,
-            authority_state_dir=state,
-            transient_input=MatrixSessionTransientInput(endpoint_url=HARNESS_URL),
-            lease_store=store,
-        )
-        assert auth_result.receipt.status == "succeeded", (
-            auth_result.receipt.model_dump()
-        )
-        assert auth_result.adapter_result is not None
-        assert auth_result.adapter_result.safe_output["capabilities"] == {
-            "credential_auth": True,
-            "browser_sso": True,
-            "oauth": False,
-        }
-        assert auth_result.receipt.raw_provider_payload_included is False
-    finally:
-        server.shutdown()
-        server.server_close()
-        thread.join(timeout=2)
+            auth_methods = _command(MatrixSessionOperation.auth_methods_read)
+            issue_exact_matrix_session_lease(
+                auth_methods,
+                store=store,
+                confirmed=False,
+            )
+            auth_result = execute_matrix_session_command(
+                auth_methods,
+                repo_root=ROOT,
+                authority_state_dir=state,
+                transient_input=MatrixSessionTransientInput(endpoint_url=HARNESS_URL),
+                lease_store=store,
+            )
+            assert auth_result.receipt.status == "succeeded", (
+                auth_result.receipt.model_dump()
+            )
+            assert auth_result.adapter_result is not None
+            assert auth_result.adapter_result.safe_output["capabilities"] == {
+                "credential_auth": True,
+                "browser_sso": True,
+                "oauth": False,
+            }
+            assert auth_result.receipt.raw_provider_payload_included is False
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)

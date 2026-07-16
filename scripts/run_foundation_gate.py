@@ -26,6 +26,10 @@ from ultimate_ai_agent.core.gate import (  # noqa: E402
     FoundationGateReleaseLaneSummary,
     FoundationGateStatus,
 )
+from scripts.verification.verification_github_prerequisites import (  # noqa: E402
+    FoundationPrerequisiteManifest,
+    load_foundation_prerequisite_manifest,
+)
 
 
 GATE_TESTS = [
@@ -141,16 +145,28 @@ def external_verify_all_receipt(command_mode: str) -> FoundationGateCommandRecei
     )
 
 
-def parallel_ci_receipt(command_mode: str) -> FoundationGateCommandReceipt:
+def parallel_ci_receipt(
+    command_mode: str,
+    *,
+    prerequisite_path: Path,
+    repository_sha: str,
+) -> FoundationGateCommandReceipt:
+    prerequisite: FoundationPrerequisiteManifest = (
+        load_foundation_prerequisite_manifest(
+            prerequisite_path,
+            ROOT,
+            repository_sha,
+        )
+    )
     return FoundationGateCommandReceipt(
         command_ref="command:ci.parallel_verification",
         command_mode=command_mode,
-        status="satisfied_external",
-        satisfied_by="ci-parallel-required-jobs",
+        status="satisfied_by_exact_receipts",
+        satisfied_by=prerequisite.content_ref,
         safe_summary=(
-            "Lint, pytest, and static verification are satisfied by required "
-            "parallel CI jobs in this workflow; Foundation Gate generated the "
-            "typed report only."
+            "Lint, complete pytest, and static verification were revalidated "
+            "from exact-SHA, exact-plan GitHub job receipts; Foundation Gate "
+            "generated the typed report without repeating those commands."
         ),
     )
 
@@ -403,15 +419,33 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--skip-commands", action="store_true", help="Legacy alias for --command-mode report-only.")
     parser.add_argument("--no-write-latest", action="store_true", help="Do not update reports/foundation_gate/latest_* files.")
     parser.add_argument("--output", help="Optional path for an additional JSON report copy.")
+    parser.add_argument("--ci-prerequisite-manifest")
+    parser.add_argument("--ci-prerequisite-sha")
     args = parser.parse_args(argv)
 
     command_mode = "report-only" if args.skip_commands else args.command_mode
+    prerequisite_values = (
+        args.ci_prerequisite_manifest,
+        args.ci_prerequisite_sha,
+    )
+    if command_mode == "ci-parallel" and not all(prerequisite_values):
+        parser.error(
+            "ci-parallel requires an exact prerequisite manifest and repository SHA"
+        )
+    if command_mode != "ci-parallel" and any(prerequisite_values):
+        parser.error("CI prerequisite evidence is limited to ci-parallel mode")
     command_failures = []
     command_receipts: list[FoundationGateCommandReceipt] = []
     if command_mode == "ci-after-verify-all":
         command_receipts.append(external_verify_all_receipt(command_mode))
     elif command_mode == "ci-parallel":
-        command_receipts.append(parallel_ci_receipt(command_mode))
+        command_receipts.append(
+            parallel_ci_receipt(
+                command_mode,
+                prerequisite_path=Path(args.ci_prerequisite_manifest),
+                repository_sha=args.ci_prerequisite_sha,
+            )
+        )
     elif command_mode == "report-only":
         command_receipts.append(report_only_receipt(command_mode))
     for command_ref, command, safe_summary in commands_for_mode(command_mode):

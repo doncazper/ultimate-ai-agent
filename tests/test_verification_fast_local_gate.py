@@ -110,6 +110,19 @@ def test_fast_gate_parallel_phases_keep_required_contract_checks(
     )
 
 
+def test_fast_gate_defaults_to_canonical_pytest_shard_count(
+    monkeypatch: Any,
+) -> None:
+    gate = load_gate()
+    monkeypatch.delenv("PYTEST_SHARDS", raising=False)
+
+    assert (
+        gate.parse_args([]).pytest_shards
+        == gate.CANONICAL_PYTEST_SHARD_COUNT
+        == 9
+    )
+
+
 def test_foundation_gate_is_serial_report_only_no_write() -> None:
     gate = load_gate()
 

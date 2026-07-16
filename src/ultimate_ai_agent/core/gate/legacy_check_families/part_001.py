@@ -8,13 +8,20 @@ from ultimate_ai_agent.core.evidence_signing.static_safety import (
 from ultimate_ai_agent.core.sandbox_calculation.static_safety import (
     is_exact_sealed_calculation_subprocess_site,
 )
+from ultimate_ai_agent.core.communications.matrix_harness.static_safety import (
+    MATRIX_HARNESS_BACKEND_REL,
+    is_exact_matrix_harness_subprocess_site,
+)
 from ultimate_ai_agent.core.communications.matrix_session.static_safety import (
+    MATRIX_SESSION_BACKEND_REL,
     is_exact_matrix_session_bounded_filesystem_site,
-    is_exact_matrix_session_shell_scan_line,
+    is_exact_matrix_session_subprocess_site,
 )
 from ultimate_ai_agent.core.communications.matrix_sync.static_safety import (
-    is_exact_matrix_cache_crypto_shell_scan_line,
-    is_exact_matrix_sync_transport_shell_scan_line,
+    MATRIX_CACHE_CRYPTO_REL,
+    MATRIX_SYNC_TRANSPORT_REL,
+    is_exact_matrix_cache_crypto_subprocess_site,
+    is_exact_matrix_sync_transport_subprocess_site,
 )
 
 
@@ -378,11 +385,40 @@ class FoundationGateLegacyChecksPart001Mixin:
             source=signing_source,
             fragment="subprocess" + ".run(",
         )
+        matrix_exact_shell_paths = {
+            rel_path
+            for rel_path, fragment, exact_validator in (
+                (
+                    MATRIX_HARNESS_BACKEND_REL,
+                    "subprocess" + ".Popen(",
+                    is_exact_matrix_harness_subprocess_site,
+                ),
+                (
+                    MATRIX_SESSION_BACKEND_REL,
+                    "subprocess" + ".Popen(",
+                    is_exact_matrix_session_subprocess_site,
+                ),
+                (
+                    MATRIX_CACHE_CRYPTO_REL,
+                    "subprocess" + ".run(",
+                    is_exact_matrix_cache_crypto_subprocess_site,
+                ),
+                (
+                    MATRIX_SYNC_TRANSPORT_REL,
+                    "subprocess" + ".Popen(",
+                    is_exact_matrix_sync_transport_subprocess_site,
+                ),
+            )
+            if exact_validator(
+                rel_path=rel_path,
+                source=self._read(self.root / rel_path),
+                fragment=fragment,
+            )
+        }
         failures = []
         for path, line_no, stripped in self._runtime_lines():
             if self._is_static_scanner_text(stripped):
                 continue
-            source = self._read(self.root / path)
             exact_allowed_path = (
                 path
                 in {
@@ -398,28 +434,9 @@ class FoundationGateLegacyChecksPart001Mixin:
                     and sealed_adapter_exact
                 )
             )
-            if is_exact_matrix_harness_shell_scan_line(
-                rel_path=path,
-                source=source,
-                stripped_line=stripped,
-            ):
-                continue
-            if is_exact_matrix_session_shell_scan_line(
-                rel_path=path,
-                source=source,
-                stripped_line=stripped,
-            ):
-                continue
-            if is_exact_matrix_cache_crypto_shell_scan_line(
-                rel_path=path,
-                source=source,
-                stripped_line=stripped,
-            ):
-                continue
-            if is_exact_matrix_sync_transport_shell_scan_line(
-                rel_path=path,
-                source=source,
-                stripped_line=stripped,
+            if path in matrix_exact_shell_paths and (
+                stripped == "import " + "subprocess"
+                or "subprocess" + "." in stripped
             ):
                 continue
             if exact_allowed_path and any(

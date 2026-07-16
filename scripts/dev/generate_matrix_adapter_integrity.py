@@ -19,7 +19,19 @@ def _sha256(path: Path) -> str:
 
 def _tree_sha256(root: Path) -> str:
     digest = hashlib.sha256()
-    files = sorted(path for path in root.rglob("*") if path.is_file())
+    entries = sorted(root.rglob("*"))
+    files: list[Path] = []
+    for path in entries:
+        metadata = os.lstat(path)
+        if (
+            stat.S_ISLNK(metadata.st_mode)
+            or not (stat.S_ISDIR(metadata.st_mode) or stat.S_ISREG(metadata.st_mode))
+            or metadata.st_uid != os.getuid()
+            or metadata.st_mode & 0o022
+        ):
+            raise RuntimeError("MATRIX_ADAPTER_INTEGRITY_TREE_UNSAFE")
+        if stat.S_ISREG(metadata.st_mode):
+            files.append(path)
     if not files:
         raise RuntimeError("MATRIX_ADAPTER_INTEGRITY_TREE_EMPTY")
     for path in files:
@@ -42,7 +54,7 @@ def build_manifest() -> dict[str, object]:
         for key in lock.get("packages", {})
         if key.startswith("node_modules/") and "/node_modules/" not in key
     )
-    roots = ["src", *package_roots]
+    roots = ["src", "runtime-trust", *package_roots]
     return {
         "schema_version": "uaa-matrix-client-adapter-integrity.v1",
         "package_lock_sha256": _sha256(LOCK_PATH),

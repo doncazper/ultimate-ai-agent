@@ -2,6 +2,7 @@ from typing import Any
 from pathlib import Path
 import json
 from concurrent.futures import ThreadPoolExecutor
+from types import SimpleNamespace
 
 import pytest
 
@@ -194,19 +195,49 @@ def test_run_foundation_gate_ci_mode_records_external_verify_receipt(tmp_path: P
 def test_run_foundation_gate_parallel_ci_mode_records_external_verify_receipt(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _use_fast_gate_report(monkeypatch)
     output_path = tmp_path / "gate_report.json"
+    prerequisite_path = tmp_path / "prerequisite.json"
+    prerequisite_ref = "foundation-prerequisite:" + "b" * 64
+    monkeypatch.setattr(
+        run_foundation_gate,
+        "load_foundation_prerequisite_manifest",
+        lambda path, repo, sha: SimpleNamespace(
+            content_ref=prerequisite_ref,
+            path_seen=path,
+            repo_seen=repo,
+            sha_seen=sha,
+        ),
+    )
 
     exit_code = run_foundation_gate.main(
-        ["--command-mode", "ci-parallel", "--no-write-latest", "--output", str(output_path)]
+        [
+            "--command-mode",
+            "ci-parallel",
+            "--ci-prerequisite-manifest",
+            str(prerequisite_path),
+            "--ci-prerequisite-sha",
+            "a" * 40,
+            "--no-write-latest",
+            "--output",
+            str(output_path),
+        ]
     )
 
     assert exit_code == 0
     payload = json.loads(output_path.read_text(encoding="utf-8"))
     assert payload["command_mode"] == "ci-parallel"
     assert payload["command_receipts"][0]["command_ref"] == "command:ci.parallel_verification"
-    assert payload["command_receipts"][0]["status"] == "satisfied_external"
-    assert payload["command_receipts"][0]["satisfied_by"] == "ci-parallel-required-jobs"
+    assert payload["command_receipts"][0]["status"] == "satisfied_by_exact_receipts"
+    assert payload["command_receipts"][0]["satisfied_by"] == prerequisite_ref
+    assert "exact-SHA, exact-plan" in payload["command_receipts"][0]["safe_summary"]
     assert payload["latency_gate"]["foundation_gate_report_json"] is None
     assert payload["latency_gate"]["report_refs"] == {}
+
+
+def test_parallel_ci_mode_rejects_missing_exact_receipt_evidence() -> None:
+    with pytest.raises(SystemExit) as error:
+        run_foundation_gate.main(["--command-mode", "ci-parallel", "--no-write-latest"])
+
+    assert error.value.code == 2
 
 
 def test_atomic_report_write_leaves_latest_json_valid_after_repeated_writes(tmp_path: Path) -> None:

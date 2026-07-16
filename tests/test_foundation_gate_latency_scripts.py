@@ -177,6 +177,32 @@ def _hot_path_rows() -> list[dict[str, object]]:
 def test_foundation_gate_benchmark_emits_parseable_metrics(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(benchmark_foundation_gate, "_evaluate_once", lambda: _FakeReport())
 
+    def deterministic_path_measurement(
+        path_id: str,
+        _label: str,
+        _budget_ms: float,
+        repeat: int,
+        _warmup: int,
+        _call: Any,
+    ) -> dict[str, object]:
+        result = _release_latency_result(path_id)
+        result["samples"] = repeat
+        return result
+
+    monkeypatch.setattr(
+        benchmark_foundation_gate,
+        "_prime_release_latency_prerequisites",
+        _release_latency_measurement_prerequisites,
+    )
+    monkeypatch.setattr(
+        benchmark_foundation_gate, "_measure_path", deterministic_path_measurement
+    )
+    monkeypatch.setattr(
+        benchmark_foundation_gate,
+        "_measure_hot_paths",
+        lambda *, repeat, warmup: _hot_path_rows(),
+    )
+
     metrics = benchmark_foundation_gate._benchmark(
         repeat=2,
         warmup=1,

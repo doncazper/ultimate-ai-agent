@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Protocol
+
+from scripts.verification.pytest_shard_plan import CANONICAL_PYTEST_SHARD_COUNT
 
 
 SAFE_REF_PATTERN = re.compile(r"^[a-z0-9][a-z0-9:._-]{0,159}$")
@@ -104,7 +107,7 @@ def has_valid_pytest_shard_evidence(
         present_fields == PYTEST_SHARD_EVIDENCE_FIELDS
         and result.get("pytest_shard_evidence_status") == "available"
         and result.get("pytest_shard_plan_fingerprint_ref") == expected_plan_ref
-        and result.get("pytest_shard_count") == 8
+        and result.get("pytest_shard_count") == CANONICAL_PYTEST_SHARD_COUNT
         and result.get("failed_shard_count") == 0
         and result.get("failed_shard_refs") == []
     )
@@ -340,24 +343,168 @@ class GitHubObservation:
 
 
 @dataclass(frozen=True)
+class PrivateVerificationScope:
+    """Exact, non-authoritative work admitted to private CI diagnosis."""
+
+    schema_version: str
+    repository_sha: str
+    base_sha: str
+    source_branch_binding_ref: str
+    authoritative_plan_fingerprint: str
+    plan_fingerprint: str
+    dependency_state_fingerprint: str
+    risk_tier: str
+    selected_unit_refs: tuple[str, ...]
+    selected_command_refs: tuple[str, ...]
+    diagnostic_unit_refs: tuple[str, ...]
+    deferred_unit_refs: tuple[str, ...]
+    reason_refs: tuple[str, ...]
+    redaction_status: str = "content_free_refs_hashes_and_statuses_only"
+
+    def validate(self) -> None:
+        if self.schema_version != "uaa_ci_private_scope.v1":
+            raise ValueError("unsupported private verification scope schema")
+        if not SHA_PATTERN.fullmatch(self.repository_sha) or not SHA_PATTERN.fullmatch(
+            self.base_sha
+        ):
+            raise ValueError("private verification scope requires exact SHAs")
+        if re.fullmatch(
+            r"branch-binding-ref:private-ci:[0-9a-f]{64}",
+            self.source_branch_binding_ref,
+        ) is None:
+            raise ValueError("private verification scope branch binding is unsafe")
+        for value in (
+            self.authoritative_plan_fingerprint,
+            self.plan_fingerprint,
+            self.dependency_state_fingerprint,
+        ):
+            if re.fullmatch(r"[0-9a-f]{64}", value) is None:
+                raise ValueError("private verification scope contains an unsafe fingerprint")
+        if self.risk_tier not in {"tier_0", "tier_1", "tier_2", "tier_3"}:
+            raise ValueError("private verification scope risk tier is invalid")
+        bounded_refs = (
+            ("selected units", self.selected_unit_refs, 128),
+            ("selected commands", self.selected_command_refs, 256),
+            (
+                "diagnostic units",
+                self.diagnostic_unit_refs,
+                CANONICAL_PYTEST_SHARD_COUNT,
+            ),
+            ("deferred units", self.deferred_unit_refs, 128),
+            ("reasons", self.reason_refs, 128),
+        )
+        for label, values, limit in bounded_refs:
+            if (
+                not isinstance(values, tuple)
+                or len(values) > limit
+                or len(values) != len(set(values))
+                or any(SAFE_REF_PATTERN.fullmatch(value) is None for value in values)
+            ):
+                raise ValueError(f"private verification scope {label} are unsafe")
+        if not self.selected_unit_refs or not self.selected_command_refs:
+            raise ValueError("private verification scope must select bounded work")
+        if set(self.selected_unit_refs).intersection(self.deferred_unit_refs):
+            raise ValueError("private verification selected and deferred units overlap")
+        allowed_diagnostics = {
+            f"diagnostic-pytest-shard-{index}"
+            for index in range(CANONICAL_PYTEST_SHARD_COUNT)
+        }
+        if not set(self.diagnostic_unit_refs).issubset(
+            set(self.selected_unit_refs).intersection(allowed_diagnostics)
+        ):
+            raise ValueError("private verification diagnostics are not exact shard refs")
+        if set(self.selected_unit_refs).intersection(
+            {"pytest-shards", "pytest", "control-center-frontend"}
+        ) or set(self.selected_command_refs).intersection(
+            {
+                "command:pytest.sharded-suite",
+                "command:frontend.typecheck",
+                "command:frontend.check",
+            }
+        ):
+            raise ValueError("private verification scope contains a complete singleton")
+        from scripts.verification.ci_command_manifest import VERIFICATION_DAG
+
+        units_by_ref = {unit.unit_ref: unit for unit in VERIFICATION_DAG}
+        try:
+            units = tuple(units_by_ref[unit_ref] for unit_ref in self.selected_unit_refs)
+        except KeyError as exc:
+            raise ValueError("private verification scope contains an unknown unit") from exc
+        expected_commands = tuple(
+            dict.fromkeys(
+                command_ref for unit in units for command_ref in unit.command_refs
+            )
+        )
+        if expected_commands != self.selected_command_refs or any(
+            unit.unit_kind.value in {"aggregate", "audit"}
+            or "private" not in unit.execution_surfaces
+            or "resource-ref:complete-pytest" in unit.exclusive_resource_refs
+            or "resource-ref:typescript-typecheck" in unit.exclusive_resource_refs
+            for unit in units
+        ):
+            raise ValueError("private verification scope is not canonical focused work")
+        if self.redaction_status != "content_free_refs_hashes_and_statuses_only":
+            raise ValueError("private verification scope redaction status is unsafe")
+
+
+@dataclass(frozen=True)
 class PrivateVerificationResult:
     repository_sha: str
+    base_sha: str
+    source_branch_binding_ref: str
+    authoritative_plan_fingerprint: str
     plan_fingerprint: str
+    dependency_state_fingerprint: str
+    selected_unit_refs: tuple[str, ...]
+    diagnostic_unit_refs: tuple[str, ...]
+    deferred_unit_refs: tuple[str, ...]
     status: str
     receipt_ref: str
     command_result_refs: tuple[str, ...]
     timings_ms: tuple[tuple[str, int], ...]
     started_at: str
     completed_at: str
+    github_gate_satisfied: bool = False
+    merge_gate_satisfied: bool = False
     redaction_status: str = "content_free_refs_hashes_counts_and_durations_only"
 
     def validate(self) -> None:
-        if not SHA_PATTERN.fullmatch(self.repository_sha):
-            raise ValueError("private result requires an exact SHA")
+        if not SHA_PATTERN.fullmatch(self.repository_sha) or not SHA_PATTERN.fullmatch(
+            self.base_sha
+        ):
+            raise ValueError("private result requires exact SHAs")
+        if re.fullmatch(
+            r"branch-binding-ref:private-ci:[0-9a-f]{64}",
+            self.source_branch_binding_ref,
+        ) is None:
+            raise ValueError("private result branch binding is unsafe")
         if self.status not in {"pass", "fail", "cancelled", "recovery_required"}:
             raise ValueError("unsupported private result status")
-        if not re.fullmatch(r"[0-9a-f]{64}", self.plan_fingerprint):
-            raise ValueError("private result contains an unsafe plan fingerprint")
+        for fingerprint in (
+            self.authoritative_plan_fingerprint,
+            self.plan_fingerprint,
+            self.dependency_state_fingerprint,
+        ):
+            if not re.fullmatch(r"[0-9a-f]{64}", fingerprint):
+                raise ValueError("private result contains an unsafe fingerprint")
+        for label, refs, limit in (
+            ("selected units", self.selected_unit_refs, 128),
+            ("diagnostic units", self.diagnostic_unit_refs, 8),
+            ("deferred units", self.deferred_unit_refs, 128),
+        ):
+            if (
+                not isinstance(refs, tuple)
+                or len(refs) > limit
+                or len(refs) != len(set(refs))
+                or any(SAFE_REF_PATTERN.fullmatch(ref) is None for ref in refs)
+            ):
+                raise ValueError(f"private result {label} are unsafe")
+        if not set(self.diagnostic_unit_refs).issubset(self.selected_unit_refs):
+            raise ValueError("private result diagnostics are outside its exact scope")
+        if set(self.selected_unit_refs).intersection(self.deferred_unit_refs):
+            raise ValueError("private result selected and deferred units overlap")
+        if self.github_gate_satisfied is not False or self.merge_gate_satisfied is not False:
+            raise ValueError("private result cannot satisfy an authoritative gate")
         if (
             self.redaction_status
             != "content_free_refs_hashes_counts_and_durations_only"
@@ -367,9 +514,24 @@ class PrivateVerificationResult:
             raise ValueError("private result exceeds its command-result bound")
         if len(self.timings_ms) > MAX_LEDGER_RECORDS:
             raise ValueError("private result exceeds its timing bound")
-        for value in (self.receipt_ref, *self.command_result_refs):
-            if not SAFE_REF_PATTERN.fullmatch(value):
-                raise ValueError("private result contains an unsafe ref")
+        if (
+            not self.receipt_ref.startswith("receipt-ref:private-ci:")
+            or re.fullmatch(
+                r"[0-9a-f]{64}",
+                self.receipt_ref.removeprefix("receipt-ref:private-ci:"),
+            )
+            is None
+        ):
+            raise ValueError("private result receipt is not content-bound")
+        for value in self.command_result_refs:
+            if (
+                not value.startswith("result-ref:ci:")
+                or re.fullmatch(
+                    r"[0-9a-f]{64}", value.removeprefix("result-ref:ci:")
+                )
+                is None
+            ):
+                raise ValueError("private result contains a non-content-bound result ref")
         for command_ref, duration_ms in self.timings_ms:
             if (
                 not SAFE_REF_PATTERN.fullmatch(command_ref)
@@ -379,6 +541,22 @@ class PrivateVerificationResult:
                 raise ValueError("private result contains unsafe timing data")
         validate_utc_timestamp(self.started_at)
         validate_utc_timestamp(self.completed_at)
+        expected_receipt_ref = (
+            "receipt-ref:private-ci:"
+            + hashlib.sha256(
+                json.dumps(
+                    {
+                        key: value
+                        for key, value in asdict(self).items()
+                        if key != "receipt_ref"
+                    },
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ).encode()
+            ).hexdigest()
+        )
+        if self.receipt_ref != expected_receipt_ref:
+            raise ValueError("private result receipt does not bind its exact result")
 
 
 @dataclass(frozen=True)
@@ -402,10 +580,19 @@ class ControllerStatus:
 
 
 class PrivateExecutor(Protocol):
-    def plan_fingerprint(self, repository_sha: str) -> str: ...
+    def prepare_scope(
+        self,
+        repository_sha: str,
+        *,
+        diagnostic_unit_refs: tuple[str, ...] = (),
+    ) -> PrivateVerificationScope: ...
 
     def verify(
-        self, repository_sha: str, *, series_ref: str
+        self,
+        repository_sha: str,
+        *,
+        series_ref: str,
+        scope: PrivateVerificationScope,
     ) -> PrivateVerificationResult: ...
 
 

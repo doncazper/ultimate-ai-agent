@@ -110,7 +110,16 @@ class AttemptLedger:
             "test_duration_ms",
             "release_lane_duration_ms",
             "duration_ms",
+            "base_sha",
+            "source_branch_binding_ref",
+            "authoritative_plan_fingerprint",
             "plan_fingerprint",
+            "dependency_state_fingerprint",
+            "selected_unit_refs",
+            "diagnostic_unit_refs",
+            "deferred_unit_refs",
+            "github_gate_satisfied",
+            "merge_gate_satisfied",
             "receipt_ref",
             "timings_ms",
         }
@@ -156,12 +165,26 @@ class AttemptLedger:
         return f"ledger-ref:ci:{digest}"
 
     @classmethod
-    def _validate_event(cls, event: dict[str, Any]) -> None:
+    def _validate_event(
+        cls,
+        event: dict[str, Any],
+        *,
+        allow_legacy_unbound_private: bool = False,
+    ) -> None:
         if set(event) - cls._ALLOWED_EVENT_FIELDS:
             raise ValueError("CI attempt ledger event contains forbidden fields")
         sha = event.get("repository_sha")
         if sha is not None and not SHA_PATTERN.fullmatch(str(sha)):
             raise ValueError("CI attempt ledger event contains an unsafe SHA")
+        base_sha = event.get("base_sha")
+        if base_sha is not None and not SHA_PATTERN.fullmatch(str(base_sha)):
+            raise ValueError("CI attempt ledger event contains an unsafe base SHA")
+        source_branch_binding_ref = event.get("source_branch_binding_ref")
+        if source_branch_binding_ref is not None and re.fullmatch(
+            r"branch-binding-ref:private-ci:[0-9a-f]{64}",
+            str(source_branch_binding_ref),
+        ) is None:
+            raise ValueError("CI attempt ledger branch binding is unsafe")
         for key in (
             "event",
             "series_ref",
@@ -179,10 +202,32 @@ class AttemptLedger:
         manifest_attested = event.get("manifest_attested")
         if manifest_attested is not None and not isinstance(manifest_attested, bool):
             raise ValueError("CI attempt ledger attestation posture is unsafe")
-        for key in ("manifest_fingerprint", "plan_fingerprint"):
+        for key in (
+            "manifest_fingerprint",
+            "authoritative_plan_fingerprint",
+            "plan_fingerprint",
+            "dependency_state_fingerprint",
+        ):
             value = event.get(key)
             if value is not None and not re.fullmatch(r"[0-9a-f]{64}", str(value)):
                 raise ValueError("CI attempt ledger event contains an unsafe fingerprint")
+        for key, limit in (
+            ("selected_unit_refs", 128),
+            ("diagnostic_unit_refs", 8),
+            ("deferred_unit_refs", 128),
+        ):
+            refs = event.get(key, [])
+            if (
+                not isinstance(refs, list)
+                or len(refs) > limit
+                or len(refs) != len(set(refs))
+                or any(SAFE_REF_PATTERN.fullmatch(str(ref)) is None for ref in refs)
+            ):
+                raise ValueError("CI attempt ledger scope refs are unsafe")
+        for key in ("github_gate_satisfied", "merge_gate_satisfied"):
+            posture = event.get(key)
+            if posture is not None and posture is not False:
+                raise ValueError("private CI attempt cannot satisfy an authoritative gate")
         for key in (
             "queue_duration_ms",
             "install_duration_ms",
@@ -214,6 +259,51 @@ class AttemptLedger:
         run_created_at = event.get("run_created_at")
         if run_created_at is not None:
             validate_utc_timestamp(str(run_created_at))
+        if event.get("event") in {"private_start", "private_terminal"} and (
+            source_branch_binding_ref is None
+        ) and not allow_legacy_unbound_private:
+            raise ValueError("private CI ledger event requires a branch binding")
+
+    @classmethod
+    def _migrate_legacy_unbound_private_records(
+        cls,
+        records: list[dict[str, Any]],
+    ) -> tuple[list[dict[str, Any]], bool]:
+        migrated = False
+        normalized: list[dict[str, Any]] = []
+        previous_ref = "ledger-ref:ci:genesis"
+        for sequence, record in enumerate(records, start=1):
+            event = {
+                key: value
+                for key, value in record.items()
+                if key not in {"sequence", "previous_record_ref", "record_ref"}
+            }
+            is_legacy_unbound = (
+                event.get("event") in {"private_start", "private_terminal"}
+                and event.get("source_branch_binding_ref") is None
+            )
+            cls._validate_event(
+                event,
+                allow_legacy_unbound_private=is_legacy_unbound,
+            )
+            if is_legacy_unbound:
+                migrated = True
+                event = {
+                    **event,
+                    "event": f"legacy_{event['event']}",
+                    "status": "legacy_non_authoritative",
+                    "reason_ref": "reason-ref:private-ci:legacy-unbound-history",
+                }
+                cls._validate_event(event)
+            normalized_record = {
+                **event,
+                "sequence": sequence,
+                "previous_record_ref": previous_ref,
+            }
+            normalized_record["record_ref"] = cls._record_ref(normalized_record)
+            previous_ref = normalized_record["record_ref"]
+            normalized.append(normalized_record)
+        return normalized, migrated
 
     def _read_locked(self) -> list[dict[str, Any]]:
         try:
@@ -255,14 +345,10 @@ class AttemptLedger:
                 or record.get("record_ref") != self._record_ref(record)
             ):
                 raise ValueError("CI attempt ledger hash chain is invalid")
-            self._validate_event(
-                {
-                    key: value
-                    for key, value in record.items()
-                    if key not in {"sequence", "previous_record_ref", "record_ref"}
-                }
-            )
             previous_ref = record["record_ref"]
+        records, migrated = self._migrate_legacy_unbound_private_records(records)
+        if migrated:
+            self._atomic_write(records)
         return records
 
     def _atomic_write(self, records: list[dict[str, Any]]) -> None:

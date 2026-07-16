@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from scripts.verification.ci_command_manifest import (
+    CANONICAL_PYTEST_SHARD_COUNT,
     CI_JOB_GRAPH,
     command_registry,
     lane_registry,
@@ -43,6 +44,9 @@ def test_pr_and_push_jobs_checkout_the_same_explicit_sha_they_attest() -> None:
         "UAA_CI_EXACT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}"
         in workflow
     )
+    assert "UAA_CI_COMPARISON_BASE_SHA:" in workflow
+    assert "github.event.pull_request.base.sha" in workflow
+    assert "github.event.before" in workflow
     checkout_count = workflow.count(
         "uses: actions/checkout@v4"
     )
@@ -68,6 +72,20 @@ def test_foundation_gate_ci_report_depends_on_required_verification_jobs() -> No
         assert f"- {dependency}" in section
     assert "--lane ci-foundation-report" in section
     assert "$GITHUB_STEP_SUMMARY" in section
+    for dependency in (
+        "manifest-attestation",
+        "lint",
+        "affected-preflight",
+        "pytest-shards",
+        "static-verification",
+    ):
+        assert f"- {dependency}" in section
+        assert f"needs.{dependency}.outputs.verification-envelope" in section
+    assert "verification_github_prerequisites.py" in section
+    assert "foundation-manifest" in section
+    assert section.count('--envelope "$') == 5
+    assert "uaa_foundation_prerequisite_manifest.json" in section
+    assert '--github-output-file "$GITHUB_OUTPUT"' in section
 
 
 def test_pytest_ci_uses_one_installed_job_with_bounded_workers_and_stable_aggregate() -> None:
@@ -79,7 +97,9 @@ def test_pytest_ci_uses_one_installed_job_with_bounded_workers_and_stable_aggreg
     assert "matrix:" not in shards
     assert "- lint" in shards
     assert "- affected-preflight" in shards
-    assert argv[argv.index("--shards") + 1] == "8"
+    assert argv[argv.index("--shards") + 1] == str(
+        CANONICAL_PYTEST_SHARD_COUNT
+    )
     assert argv[argv.index("--max-workers") + 1] == "4"
     assert "--safe-summary" in argv
     assert "--write-timings-json" not in argv
@@ -93,6 +113,44 @@ def test_pytest_ci_uses_one_installed_job_with_bounded_workers_and_stable_aggreg
     assert "if: always()" in aggregate
     assert "needs.pytest-shards.result" in aggregate
     assert '!= "success"' in aggregate
+    assert "verification_github_prerequisites.py" in aggregate
+    assert "aggregate" in aggregate
+    assert aggregate.count('--envelope "$') == 4
+    assert "STATIC_ENVELOPE" not in aggregate
+    assert '--github-output-file "$GITHUB_OUTPUT"' in aggregate
+
+
+def test_exact_github_receipt_outputs_are_non_artifact_job_dependencies() -> None:
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    for job_ref in (
+        "manifest-attestation",
+        "lint",
+        "affected-preflight",
+        "pytest-shards",
+        "static-verification",
+    ):
+        section = _extract_job_block(workflow, job_ref)
+        assert "verification-envelope:" in section
+        assert "steps.canonical.outputs.verification_envelope" in section
+        assert 'id: canonical' in section
+        assert '--github-output-file "$GITHUB_OUTPUT"' in section
+        assert '--base-sha "$UAA_CI_COMPARISON_BASE_SHA"' in section
+    pytest_section = _extract_job_block(workflow, "pytest")
+    for job_ref in (
+        "manifest-attestation",
+        "lint",
+        "affected-preflight",
+        "pytest-shards",
+    ):
+        assert f"- {job_ref}" in pytest_section
+        assert f"needs.{job_ref}.outputs.verification-envelope" in pytest_section
+    assert "actions/upload-artifact" not in workflow
+    assert "actions/download-artifact" not in workflow
+
+    aggregate = _extract_job_block(workflow, "pytest")
+    foundation = _extract_job_block(workflow, "foundation-gate-report")
+    assert '--base-sha "$UAA_CI_COMPARISON_BASE_SHA"' in aggregate
+    assert foundation.count('--base-sha "$UAA_CI_COMPARISON_BASE_SHA"') == 2
 
 
 def test_fast_affected_preflight_runs_parallel_with_lint_before_full_pytest() -> None:
@@ -105,6 +163,7 @@ def test_fast_affected_preflight_runs_parallel_with_lint_before_full_pytest() ->
     assert "--lane ci-affected-preflight" in preflight
     assert "fetch-depth: 0" in preflight
     assert "refs/uaa-ci/base-main" in preflight
+    assert 'git cat-file -e "${UAA_CI_COMPARISON_BASE_SHA}^{commit}"' in preflight
 
 
 def test_release_lanes_are_visible_jobs_using_shared_command_definitions() -> None:

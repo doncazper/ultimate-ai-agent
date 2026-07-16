@@ -1,16 +1,24 @@
 from __future__ import annotations
 
-import hashlib
+import errno
 import json
 import os
 import signal
-import stat
 import subprocess
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from ultimate_ai_agent.core.communications.matrix_session.backend import (
+    create_matrix_runtime_snapshot,
+    remove_matrix_runtime_snapshot,
+    _file_sha256 as matrix_runtime_file_sha256,
+    _validate_hash_bound_file as validate_matrix_runtime_file,
     _validate_runtime_integrity as validate_matrix_adapter_runtime_integrity,
+)
+from ultimate_ai_agent.core.communications.matrix_session.node_runtime import (
+    matrix_node_runtime_environment,
+    resolve_approved_matrix_node_runtime_binding,
 )
 from ultimate_ai_agent.core.communications.matrix_session.target_policy import (
     MATRIX_LOCAL_HARNESS_ORIGIN,
@@ -20,13 +28,18 @@ from ultimate_ai_agent.core.communications.matrix_session.target_policy import (
 
 from .constants import MATRIX_SYNC_MAX_BYTES, MatrixSyncOperation
 from .contracts import MatrixSyncCommand, stable_matrix_sync_ref
+from .implementation import matrix_sync_implementation_ref
 from .normalization import (
     MatrixPrivateSyncBatch,
     matrix_sync_private_ref,
     normalize_matrix_sync_response,
     normalize_matrix_timeline_response,
 )
-from .transient import MatrixCredentialWriter, MatrixTransientBatchRegistry
+from .transient import (
+    InMemoryMatrixCredentialWriter,
+    MatrixCredentialWriter,
+    MatrixTransientBatchRegistry,
+)
 
 
 class MatrixSyncTransportError(RuntimeError):
@@ -52,6 +65,10 @@ class MatrixSyncTransportResult:
     byte_count: int
     batch_fingerprint_ref: str
     next_batch_ref: str
+    _discard_callback: Callable[[], None] = field(repr=False, compare=False)
+
+    def discard(self) -> None:
+        self._discard_callback()
 
 
 _MATRIX_EVENT_TYPES_BY_CLASS_REF: dict[str, tuple[str, ...]] = {
@@ -72,29 +89,14 @@ _MATRIX_EVENT_TYPES_BY_CLASS_REF: dict[str, tuple[str, ...]] = {
     "event-class-ref:matrix:typing": ("m.typing",),
     "event-class-ref:matrix:receipt": ("m.receipt",),
 }
-_MINIMAL_SUBPROCESS_ENV = {
-    "HOME": "/var/empty",
-    "LANG": "C",
-    "PATH": "/usr/bin:/bin",
-    "TMPDIR": "/tmp",
-}
 _PROCESS_GROUP_GRACE_SECONDS = 2.0
 _MATRIX_ROOM_ID_MAX_BYTES = 255
 
 
 def _validate_file(path: Path, expected_sha256: str, *, executable: bool) -> None:
-    info = os.lstat(path)
-    if (
-        not stat.S_ISREG(info.st_mode)
-        or stat.S_ISLNK(info.st_mode)
-        or info.st_nlink != 1
-    ):
-        raise ValueError("MATRIX_SYNC_RUNTIME_FILE_UNSAFE")
+    validate_matrix_runtime_file(path, expected_sha256)
     if executable and not os.access(path, os.X_OK):
         raise ValueError("MATRIX_SYNC_RUNTIME_EXECUTABLE_REQUIRED")
-    digest = hashlib.sha256(path.read_bytes()).hexdigest()
-    if digest != expected_sha256:
-        raise ValueError("MATRIX_SYNC_RUNTIME_HASH_MISMATCH")
 
 
 def _terminate_process_group(
@@ -102,7 +104,7 @@ def _terminate_process_group(
     *,
     grace_seconds: float = _PROCESS_GROUP_GRACE_SECONDS,
 ) -> None:
-    """Terminate and reap one isolated adapter process group within a bound."""
+    """Terminate and reap the permission-confined adapter within a bound."""
     if process.poll() is not None:
         process.wait(timeout=grace_seconds)
         return
@@ -217,6 +219,22 @@ def _validate_transient_scope(
 
 
 class MatrixSyncTransport:
+    __slots__ = (
+        "_adapter_root",
+        "_allow_loopback_harness",
+        "_credential_writer",
+        "_credential_writer_binding_ref",
+        "_expected_node_sha256",
+        "_expected_runner_sha256",
+        "_initial_binding_ref",
+        "_node_binary",
+        "_node_runtime_binding",
+        "_registry",
+        "_registry_binding_ref",
+        "_runner_path",
+        "_sealed",
+    )
+
     def __init__(
         self,
         *,
@@ -228,6 +246,15 @@ class MatrixSyncTransport:
         registry: MatrixTransientBatchRegistry,
         allow_loopback_harness: bool = False,
     ) -> None:
+        writer_type = type(credential_writer)
+        if writer_type is MatrixCredentialWriter:
+            pass
+        elif writer_type is InMemoryMatrixCredentialWriter and allow_loopback_harness:
+            pass
+        else:
+            raise TypeError("MATRIX_SYNC_CREDENTIAL_WRITER_OWNER_REQUIRED")
+        if type(registry) is not MatrixTransientBatchRegistry:
+            raise TypeError("MATRIX_SYNC_TRANSIENT_REGISTRY_OWNER_REQUIRED")
         _validate_file(node_binary, expected_node_sha256, executable=True)
         _validate_file(runner_path, expected_runner_sha256, executable=False)
         adapter_root = runner_path.parent.parent
@@ -236,12 +263,80 @@ class MatrixSyncTransport:
             package_lock_path=adapter_root / "package-lock.json",
             manifest_path=adapter_root / "runtime-integrity.json",
         )
-        self._node_binary = node_binary
-        self._runner_path = runner_path
-        self._adapter_root = adapter_root
-        self._credential_writer = credential_writer
-        self._registry = registry
-        self._allow_loopback_harness = allow_loopback_harness
+        object.__setattr__(self, "_node_binary", node_binary)
+        object.__setattr__(self, "_runner_path", runner_path)
+        object.__setattr__(self, "_adapter_root", adapter_root)
+        object.__setattr__(self, "_expected_node_sha256", expected_node_sha256)
+        object.__setattr__(self, "_expected_runner_sha256", expected_runner_sha256)
+        object.__setattr__(
+            self,
+            "_node_runtime_binding",
+            resolve_approved_matrix_node_runtime_binding(
+                node_binary,
+                trust_manifest_path=(
+                    adapter_root / "runtime-trust" / "node-runtime.json"
+                ),
+            ),
+        )
+        if (
+            self._node_runtime_binding.executable.expected_sha256
+            != expected_node_sha256
+        ):
+            raise ValueError("MATRIX_SESSION_RUNTIME_HASH_MISMATCH")
+        object.__setattr__(self, "_credential_writer", credential_writer)
+        object.__setattr__(self, "_registry", registry)
+        object.__setattr__(
+            self,
+            "_credential_writer_binding_ref",
+            credential_writer.binding_ref,
+        )
+        object.__setattr__(self, "_registry_binding_ref", registry.binding_ref)
+        object.__setattr__(self, "_allow_loopback_harness", allow_loopback_harness)
+        object.__setattr__(self, "_initial_binding_ref", self._current_binding_ref())
+        object.__setattr__(self, "_sealed", True)
+
+    def __setattr__(self, name: str, value: object) -> None:
+        if getattr(self, "_sealed", False):
+            raise AttributeError("MATRIX_SYNC_TRANSPORT_IMMUTABLE")
+        object.__setattr__(self, name, value)
+
+    def _current_binding_ref(self) -> str:
+        binding_payload = {
+            "allow_loopback_harness": self._allow_loopback_harness,
+            "node_runtime_binding_ref": self._node_runtime_binding.binding_ref,
+            "node_runtime_profile_ref": (self._node_runtime_binding.trust_profile_ref),
+            "node_sha256": self._expected_node_sha256,
+            "runner_sha256": self._expected_runner_sha256,
+            "package_lock_sha256": matrix_runtime_file_sha256(
+                self._adapter_root / "package-lock.json"
+            ),
+            "runtime_integrity_sha256": matrix_runtime_file_sha256(
+                self._adapter_root / "runtime-integrity.json"
+            ),
+            "credential_writer_binding_ref": (self._credential_writer.binding_ref),
+            "registry_binding_ref": self._registry.binding_ref,
+            "transport_implementation_ref": (
+                matrix_sync_implementation_ref(MatrixSyncTransport.execute)
+            ),
+        }
+        return stable_matrix_sync_ref(
+            "transport-binding-ref:matrix-sync",
+            binding_payload,
+        )
+
+    @property
+    def binding_ref(self) -> str:
+        return self._current_binding_ref()
+
+    def _validate_owner_bindings(self) -> None:
+        if (
+            self._credential_writer.binding_ref != self._credential_writer_binding_ref
+            or self._registry.binding_ref != self._registry_binding_ref
+            or self.binding_ref != self._initial_binding_ref
+        ):
+            raise MatrixSyncTransportError(
+                "MATRIX_SYNC_TRANSPORT_OWNER_BINDING_CHANGED"
+            )
 
     def execute(
         self,
@@ -250,6 +345,7 @@ class MatrixSyncTransport:
         target: MatrixSyncTransientTarget,
         pseudonymization_salt: bytes,
     ) -> MatrixSyncTransportResult:
+        self._validate_owner_bindings()
         if command.operation not in {
             MatrixSyncOperation.sync_read,
             MatrixSyncOperation.timeline_paginate_read,
@@ -261,7 +357,34 @@ class MatrixSyncTransport:
             pseudonymization_salt=pseudonymization_salt,
             allow_loopback_harness=self._allow_loopback_harness,
         )
-        read_fd, write_fd = os.pipe()
+        _validate_file(
+            self._node_binary,
+            self._expected_node_sha256,
+            executable=True,
+        )
+        _validate_file(
+            self._runner_path,
+            self._expected_runner_sha256,
+            executable=False,
+        )
+        validate_matrix_adapter_runtime_integrity(
+            adapter_root=self._adapter_root,
+            package_lock_path=self._adapter_root / "package-lock.json",
+            manifest_path=self._adapter_root / "runtime-integrity.json",
+        )
+        runtime_snapshot = create_matrix_runtime_snapshot(
+            adapter_root=self._adapter_root,
+            node_binary=self._node_binary,
+            runner_path=self._runner_path,
+            expected_node_sha256=self._expected_node_sha256,
+            expected_runner_sha256=self._expected_runner_sha256,
+            node_runtime_binding=self._node_runtime_binding,
+        )
+        try:
+            read_fd, write_fd = os.pipe()
+        except BaseException:
+            remove_matrix_runtime_snapshot(runtime_snapshot)
+            raise
         request = {
             "schema_version": "uaa-matrix-sync-adapter-request.v1",
             "operation": command.operation.value,
@@ -281,33 +404,58 @@ class MatrixSyncTransport:
             "credential_fd": read_fd,
         }
         request = {key: value for key, value in request.items() if value is not None}
+        read_fd_open = True
+        write_fd_open = True
         try:
             process = subprocess.Popen(
-                [str(self._node_binary), str(self._runner_path)],
+                [
+                    str(runtime_snapshot.node_binary),
+                    "--permission",
+                    f"--allow-fs-read={runtime_snapshot.adapter_root}",
+                    str(runtime_snapshot.runner_path),
+                ],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 shell=False,
-                cwd=self._adapter_root,
-                env=_MINIMAL_SUBPROCESS_ENV,
+                cwd=runtime_snapshot.adapter_root,
+                env=matrix_node_runtime_environment(
+                    runtime_snapshot.node_binary.parent.parent
+                ),
                 start_new_session=True,
                 pass_fds=(read_fd,),
             )
         except BaseException:
-            os.close(read_fd)
-            os.close(write_fd)
+            for descriptor in (read_fd, write_fd):
+                try:
+                    os.close(descriptor)
+                except OSError:
+                    pass
+            remove_matrix_runtime_snapshot(runtime_snapshot)
             raise
-        os.close(read_fd)
         try:
+            os.close(read_fd)
+            read_fd_open = False
             try:
-                self._credential_writer.write_once(
-                    write_fd,
-                    credential_item_ref=command.credential_item_ref,
-                    credential_version_ref=command.credential_version_ref,
-                    request_fingerprint_ref=command.request_fingerprint_ref,
-                )
+                if type(self._credential_writer) is MatrixCredentialWriter:
+                    MatrixCredentialWriter.write_once(
+                        self._credential_writer,
+                        write_fd,
+                        credential_item_ref=command.credential_item_ref,
+                        credential_version_ref=command.credential_version_ref,
+                        request_fingerprint_ref=(command.request_fingerprint_ref),
+                    )
+                else:
+                    InMemoryMatrixCredentialWriter.write_once(
+                        self._credential_writer,
+                        write_fd,
+                        credential_item_ref=command.credential_item_ref,
+                        credential_version_ref=(command.credential_version_ref),
+                        request_fingerprint_ref=(command.request_fingerprint_ref),
+                    )
             finally:
                 os.close(write_fd)
+                write_fd_open = False
             try:
                 stdout, stderr = process.communicate(
                     json.dumps(request, separators=(",", ":")).encode("utf-8"),
@@ -320,6 +468,38 @@ class MatrixSyncTransport:
             if process.poll() is None:
                 _terminate_process_group(process)
             raise
+        finally:
+            cleanup_error: BaseException | None = None
+            if read_fd_open:
+                try:
+                    os.close(read_fd)
+                except OSError as exc:
+                    if exc.errno != errno.EBADF:
+                        cleanup_error = cleanup_error or exc
+            if write_fd_open:
+                try:
+                    os.close(write_fd)
+                except OSError as exc:
+                    if exc.errno != errno.EBADF:
+                        cleanup_error = cleanup_error or exc
+            for stream in (
+                getattr(process, "stdin", None),
+                getattr(process, "stdout", None),
+                getattr(process, "stderr", None),
+            ):
+                if stream is not None and not stream.closed:
+                    try:
+                        stream.close()
+                    except BaseException as exc:
+                        cleanup_error = cleanup_error or exc
+            try:
+                remove_matrix_runtime_snapshot(runtime_snapshot)
+            except BaseException as exc:
+                cleanup_error = cleanup_error or exc
+            if cleanup_error is not None:
+                raise MatrixSyncTransportError(
+                    "MATRIX_SYNC_TRANSPORT_CLEANUP_UNCONFIRMED"
+                ) from cleanup_error
         if process.returncode != 0:
             code = stderr.decode("ascii", errors="ignore").strip()
             if not code.startswith("MATRIX_"):
@@ -352,27 +532,53 @@ class MatrixSyncTransport:
             raise MatrixSyncTransportError("MATRIX_SYNC_EVENT_LIMIT_EXCEEDED")
         if batch.byte_count > command.max_bytes:
             raise MatrixSyncTransportError("MATRIX_SYNC_RESPONSE_TOO_LARGE")
-        batch_ref = self._registry.register(
-            batch, request_fingerprint_ref=command.request_fingerprint_ref
+        batch_ref = MatrixTransientBatchRegistry.register(
+            self._registry,
+            batch,
+            request_fingerprint_ref=command.request_fingerprint_ref,
         )
-        return MatrixSyncTransportResult(
-            batch_ref=batch_ref,
-            event_count=batch.event_count,
-            byte_count=batch.byte_count,
-            batch_fingerprint_ref=stable_matrix_sync_ref(
-                "batch-fingerprint-ref:matrix-sync",
-                {
-                    "account_ref": batch.account_ref,
-                    "next_batch_ref": batch.next_batch_ref,
-                    "event_refs": [event.event_ref for event in batch.events],
-                },
-            ),
-            next_batch_ref=batch.next_batch_ref,
-        )
+        try:
+            return MatrixSyncTransportResult(
+                batch_ref=batch_ref,
+                event_count=batch.event_count,
+                byte_count=batch.byte_count,
+                batch_fingerprint_ref=stable_matrix_sync_ref(
+                    "batch-fingerprint-ref:matrix-sync",
+                    {
+                        "account_ref": batch.account_ref,
+                        "next_batch_ref": batch.next_batch_ref,
+                        "event_refs": [event.event_ref for event in batch.events],
+                    },
+                ),
+                next_batch_ref=batch.next_batch_ref,
+                _discard_callback=lambda: self.discard_batch(
+                    batch_ref,
+                    request_fingerprint_ref=command.request_fingerprint_ref,
+                ),
+            )
+        except BaseException:
+            MatrixTransientBatchRegistry.discard(
+                self._registry,
+                batch_ref,
+                request_fingerprint_ref=command.request_fingerprint_ref,
+            )
+            raise
 
     def consume_batch(
         self, batch_ref: str, *, request_fingerprint_ref: str
     ) -> MatrixPrivateSyncBatch:
-        return self._registry.consume(
-            batch_ref, request_fingerprint_ref=request_fingerprint_ref
+        return MatrixTransientBatchRegistry.consume(
+            self._registry, batch_ref, request_fingerprint_ref=request_fingerprint_ref
+        )
+
+    def discard_batch(
+        self,
+        batch_ref: str,
+        *,
+        request_fingerprint_ref: str,
+    ) -> None:
+        MatrixTransientBatchRegistry.discard(
+            self._registry,
+            batch_ref,
+            request_fingerprint_ref=request_fingerprint_ref,
         )

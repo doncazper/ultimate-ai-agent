@@ -6,6 +6,14 @@ import { validateAdapterInput } from "./input-contract.mjs";
 
 const MAX_INPUT_BYTES = 128 * 1024;
 
+function monitorParentLiveness() {
+  const expectedParentPid = process.ppid;
+  const timer = setInterval(() => {
+    if (process.ppid <= 1 || process.ppid !== expectedParentPid) process.exit(70);
+  }, 100);
+  timer.unref();
+}
+
 function safeFailure(operation, code) {
   const safeCode = /^[A-Z][A-Z0-9_]{2,127}$/.test(code) ? code : "MATRIX_ADAPTER_FAILURE";
   return {
@@ -20,6 +28,7 @@ function safeFailure(operation, code) {
 }
 
 async function main() {
+  monitorParentLiveness();
   const raw = fs.readFileSync(0);
   if (raw.byteLength > MAX_INPUT_BYTES) throw new Error("MATRIX_ADAPTER_INPUT_TOO_LARGE");
   const request = validateAdapterInput(JSON.parse(raw.toString("utf8")));

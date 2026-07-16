@@ -18,6 +18,13 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scripts.verify_release_lanes import LaneCommand, release_lanes  # noqa: E402
+from scripts.verification.changed_path_selector import (  # noqa: E402
+    FOCUSED_PYTEST_REFS_BY_SOURCE,
+    select_paths as select_changed_paths,
+)
+from scripts.verification.pytest_shard_plan import (  # noqa: E402
+    CANONICAL_PYTEST_SHARD_COUNT,
+)
 from scripts.verification.typescript_binding import (  # noqa: E402
     build_declared_typescript_binding,
 )
@@ -74,19 +81,6 @@ VISUAL_SCOPE_PATHS = (
     "tests/test_control_center_visual_and_packaging_proofs.py",
     "tests/test_fcc_polish_001_native_apple_grade_ux_layer.py",
 )
-FOCUSED_PYTEST_REFS_BY_SOURCE = {
-    "src/ultimate_ai_agent/core/evals/capability_metrics.py": (
-        "tests/test_agent_capability_evaluation.py",
-    ),
-    "src/ultimate_ai_agent/core/evals/capability_maturity.py": (
-        "tests/test_capability_maturity_integrity.py",
-    ),
-    "src/ultimate_ai_agent/core/evals/regression.py": (
-        "tests/test_m56_agent_eval_regression_harness.py",
-    ),
-}
-
-
 @dataclass(frozen=True)
 class CommandSpec:
     command_ref: str
@@ -200,6 +194,7 @@ def command_registry() -> dict[str, CommandSpec]:
                     "--if-present",
                     "--",
                     "--run",
+                    "--no-cache",
                 ),
                 (),
                 "frontend_test",
@@ -215,6 +210,10 @@ def command_registry() -> dict[str, CommandSpec]:
                     "--",
                     "vite",
                     "build",
+                    "apps/control-center",
+                    "--outDir",
+                    "{temp_root}/uaa_control_center_vite_dist",
+                    "--emptyOutDir",
                 ),
                 (),
                 "frontend_build",
@@ -253,7 +252,7 @@ def command_registry() -> dict[str, CommandSpec]:
                     ".venv/bin/python",
                     "scripts/verification/run_pytest_shards.py",
                     "--shards",
-                    "8",
+                    str(CANONICAL_PYTEST_SHARD_COUNT),
                     "--max-workers",
                     "4",
                     "--timings-json",
@@ -300,6 +299,10 @@ def command_registry() -> dict[str, CommandSpec]:
                     "scripts/run_foundation_gate.py",
                     "--command-mode",
                     "ci-parallel",
+                    "--ci-prerequisite-manifest",
+                    "{temp_root}/uaa_foundation_prerequisite_manifest.json",
+                    "--ci-prerequisite-sha",
+                    "{repository_sha}",
                     "--no-write-latest",
                 ),
                 (),
@@ -308,7 +311,7 @@ def command_registry() -> dict[str, CommandSpec]:
             ),
         }
     )
-    for shard_index in range(8):
+    for shard_index in range(CANONICAL_PYTEST_SHARD_COUNT):
         command_ref = f"command:pytest.shard-{shard_index}-reproduce"
         commands[command_ref] = CommandSpec(
             command_ref,
@@ -316,7 +319,7 @@ def command_registry() -> dict[str, CommandSpec]:
                 ".venv/bin/python",
                 "scripts/verification/run_pytest_shards.py",
                 "--shards",
-                "8",
+                str(CANONICAL_PYTEST_SHARD_COUNT),
                 "--shard-index",
                 str(shard_index),
                 "--max-workers",
@@ -404,7 +407,7 @@ def lane_registry() -> dict[str, LaneSpec]:
             ),
         }
     )
-    for shard_index in range(8):
+    for shard_index in range(CANONICAL_PYTEST_SHARD_COUNT):
         command_ref = f"command:pytest.shard-{shard_index}-reproduce"
         lane_ref = f"ci-pytest-shard-{shard_index}-reproduce"
         lanes[lane_ref] = LaneSpec(
@@ -480,7 +483,7 @@ FOCUSED_VERIFICATION_UNITS = (
         ("risk-diff-check",),
         command_refs=("command:frontend.typecheck",),
         minimum_risk_tier=VerificationRiskTier.TIER_1,
-        execution_surfaces=("github", "local", "private", "shadow"),
+        execution_surfaces=("github", "local", "shadow"),
         exclusive_resource_refs=("resource-ref:typescript-typecheck",),
         proof_equivalence_ref="proof-equivalence-ref:typescript-typecheck",
     ),
@@ -574,7 +577,7 @@ PYTEST_REPRODUCTION_UNITS = tuple(
             f"proof-equivalence-ref:pytest-shard-{shard_index}-diagnostic-non-gating"
         ),
     )
-    for shard_index in range(8)
+    for shard_index in range(CANONICAL_PYTEST_SHARD_COUNT)
 )
 
 
@@ -599,6 +602,7 @@ _CI_JOB_GRAPH_BASE = (
         ("lint", "affected-preflight"),
         timeout_minutes=60,
         minimum_risk_tier=VerificationRiskTier.TIER_3,
+        execution_surfaces=("github", "local"),
         exclusive_resource_refs=("resource-ref:complete-pytest",),
         proof_equivalence_ref="proof-equivalence-ref:complete-pytest",
     ),
@@ -609,6 +613,7 @@ _CI_JOB_GRAPH_BASE = (
         ("pytest-shards",),
         unit_kind=VerificationUnitKind.AGGREGATE,
         minimum_risk_tier=VerificationRiskTier.TIER_3,
+        execution_surfaces=("github", "local"),
         proof_equivalence_ref="proof-equivalence-ref:complete-pytest-aggregate",
     ),
     JobSpec("static-verification", "static-verification", "ci-static", ("pytest",)),
@@ -676,6 +681,7 @@ _CI_JOB_GRAPH_BASE = (
             "release-lane-desktop-packaging",
         ),
         minimum_risk_tier=VerificationRiskTier.TIER_3,
+        execution_surfaces=("github", "local"),
         exclusive_resource_refs=("resource-ref:typescript-typecheck",),
         proof_equivalence_ref="proof-equivalence-ref:frontend-complete",
     ),
@@ -758,15 +764,25 @@ VERIFIER_DEFINITION_REFS = (
     "apps/control-center/package.json",
     "pyproject.toml",
     "scripts/run_foundation_gate.py",
+    "scripts/ci/verify_with_fallback.py",
+    "scripts/verify_self_hosted_macos_ci.py",
     "scripts/verify_release_lanes.py",
     "scripts/verification/changed_path_selector.py",
     "scripts/verification/ci_command_manifest.py",
+    "scripts/verification/ci_fallback_contracts.py",
+    "scripts/verification/ci_fallback_controller.py",
+    "scripts/verification/ci_fallback_execution.py",
+    "scripts/verification/ci_fallback_private_scope.py",
+    "scripts/verification/ci_fallback_storage.py",
+    "scripts/verification/frontend_collection_evidence.py",
     "scripts/verification/plan_affected_verification.py",
     "scripts/verification/pytest_collection_evidence.py",
     "scripts/verification/run_ci_lane.py",
     "scripts/verification/run_pytest_shards.py",
     "scripts/verification/verification_contracts.py",
     "scripts/verification/verification_execution_identity.py",
+    "scripts/verification/verification_github_prerequisites.py",
+    "scripts/verification/verification_github_transport.py",
     "scripts/verification/verification_receipt_store.py",
     "scripts/verification/verification_risk.py",
     "scripts/verification/verification_run_aggregator.py",
@@ -909,6 +925,22 @@ def validate_definition() -> list[str]:
                 failures.append(
                     f"unknown verification unit command: {unit.unit_ref}:{command_ref}"
                 )
+        private_ineligible = (
+            unit.unit_kind
+            in {VerificationUnitKind.AGGREGATE, VerificationUnitKind.AUDIT}
+            or bool(
+                set(unit.exclusive_resource_refs).intersection(
+                    {
+                        "resource-ref:complete-pytest",
+                        "resource-ref:typescript-typecheck",
+                    }
+                )
+            )
+        )
+        if private_ineligible and "private" in unit.execution_surfaces:
+            failures.append(
+                f"private execution forbidden for canonical unit: {unit.unit_ref}"
+            )
     lane_unit_counts = {
         lane_ref: sum(unit.lane_ref == lane_ref for unit in VERIFICATION_DAG)
         for lane_ref in lanes
@@ -1036,7 +1068,7 @@ def pytest_shard_plan_fingerprint(repo: Path) -> str:
 
     plan_ref = current_shard_plan_fingerprint(
         repo,
-        8,
+        CANONICAL_PYTEST_SHARD_COUNT,
         repo / "scripts/verification/pytest_file_timing_seed.json",
     )
     digest = plan_ref.rsplit(":", maxsplit=1)[-1]
@@ -1073,6 +1105,7 @@ def build_plan(
     shadow_mode: bool = False,
     unsafe_path_refs: Iterable[str] = (),
     frontend_visual_scope: str | None = None,
+    selected_test_refs: Iterable[str] | None = None,
     verify_repository_state: bool = True,
 ) -> VerificationPlan:
     if not SHA_PATTERN.fullmatch(sha):
@@ -1193,22 +1226,23 @@ def build_plan(
     if visual_scope not in {"affected", "not_affected", "unknown_fail_closed"}:
         raise ValueError("invalid frontend visual scope")
     definition_ref = definition_fingerprint()
-    changed_tests = tuple(
-        dict.fromkeys(
-            (
-                *(
-                    path
-                    for path in risk_selection.changed_path_refs
-                    if path.startswith("tests/test_") and path.endswith(".py")
-                ),
-                *(
-                    test_ref
-                    for path in risk_selection.changed_path_refs
-                    for test_ref in FOCUSED_PYTEST_REFS_BY_SOURCE.get(path, ())
-                ),
-            )
-        )
+    canonical_test_selection = select_changed_paths(
+        list(risk_selection.changed_path_refs),
+        tier="affected",
+        repo=repo,
     )
+    canonical_test_refs = canonical_test_selection.selected_test_refs
+    if selected_test_refs is None:
+        changed_tests = canonical_test_refs
+    else:
+        changed_tests = tuple(selected_test_refs)
+        if (
+            len(changed_tests) != len(set(changed_tests))
+            or changed_tests != canonical_test_refs
+        ):
+            raise ValueError(
+                "selected test refs must exactly match canonical changed-path ownership"
+            )
     if (
         "risk-focused-pytest" in selected_units
         and risk_selection.tier is not VerificationRiskTier.TIER_3

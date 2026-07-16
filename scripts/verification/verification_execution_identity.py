@@ -1443,5 +1443,53 @@ class VerificationExecutionFence:
             )
             return terminal_proof
 
+    def abort_prestart(
+        self,
+        identity: VerificationExecutionIdentity,
+        *,
+        owner_token: str,
+    ) -> None:
+        """Remove a durable fence only when command spawn was never attempted."""
+
+        identity.validate()
+        if (
+            not isinstance(owner_token, str)
+            or _OWNER_TOKEN_PATTERN.fullmatch(owner_token) is None
+        ):
+            raise VerificationExecutionFenceStateError(
+                "verification fence owner token is invalid"
+            )
+        state_name = self._state_name(identity)
+        with self._locked_root() as root_descriptor:
+            payload = self._read_state(root_descriptor, state_name)
+            if payload is None:
+                raise VerificationExecutionFenceStateError(
+                    "verification execution has no durable pre-start"
+                )
+            self._validate_state_identity(payload, identity)
+            expected_owner_digest = payload.get("owner_token_fingerprint")
+            if not isinstance(expected_owner_digest, str) or not hmac.compare_digest(
+                expected_owner_digest,
+                hashlib.sha256(owner_token.encode("ascii")).hexdigest(),
+            ):
+                raise VerificationExecutionFenceStateError(
+                    "verification fence owner does not match durable pre-start"
+                )
+            if payload.get("posture") != "started":
+                raise VerificationExecutionFenceStateError(
+                    "terminal verification execution cannot be aborted"
+                )
+            try:
+                os.unlink(state_name, dir_fd=root_descriptor)
+                os.fsync(root_descriptor)
+            except OSError:
+                raise VerificationExecutionFenceStateError(
+                    "verification fence pre-start could not be aborted"
+                ) from None
+            if self._read_state(root_descriptor, state_name) is not None:
+                raise VerificationExecutionFenceStateError(
+                    "verification fence pre-start abort could not be verified"
+                )
+
 
 VerificationExecutionFenceStore = VerificationExecutionFence

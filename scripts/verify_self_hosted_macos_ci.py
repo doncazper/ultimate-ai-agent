@@ -10,6 +10,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scripts.verification.ci_command_manifest import (  # noqa: E402
+    CANONICAL_PYTEST_SHARD_COUNT,
     CI_JOB_GRAPH,
     command_registry,
     validate_definition,
@@ -158,6 +159,50 @@ def verify(root: Path = ROOT) -> list[str]:
         failures.append("pytest job cancellation must escalate after the bounded wait")
     if "--shard-index" in pytest_shards_job or "matrix:" in pytest_shards_job:
         failures.append("pytest shards must share one installed single-host environment")
+    if (
+        "--verification-execution-fence-root "
+        "/private/tmp/uaa-verification-execution-fence-v1"
+        not in pytest_shards_job
+        or "--verification-execution-fence-root /tmp/" in pytest_shards_job
+    ):
+        failures.append(
+            "pytest execution fence must use the real owner-only macOS temp root"
+        )
+    receipt_source_jobs = (
+        "manifest-attestation",
+        "lint",
+        "affected-preflight",
+        "pytest-shards",
+        "static-verification",
+    )
+    for job_name in receipt_source_jobs:
+        section = job_section(workflow, job_name)
+        if not all(
+            fragment in section
+            for fragment in (
+                "verification-envelope:",
+                "steps.canonical.outputs.verification_envelope",
+                "        id: canonical\n",
+                '--github-output-file "$GITHUB_OUTPUT"',
+            )
+        ):
+            failures.append(
+                f"{job_name} must emit one exact non-authoritative receipt envelope"
+            )
+    pytest_aggregate = job_section(workflow, "pytest")
+    if not all(
+        fragment in pytest_aggregate
+        for fragment in (
+            "verification_github_prerequisites.py",
+            "            aggregate \\\n",
+            "needs.manifest-attestation.outputs.verification-envelope",
+            "needs.lint.outputs.verification-envelope",
+            "needs.affected-preflight.outputs.verification-envelope",
+            "needs.pytest-shards.outputs.verification-envelope",
+            '--github-output-file "$GITHUB_OUTPUT"',
+        )
+    ) or pytest_aggregate.count('--envelope "$') != 4:
+        failures.append("pytest aggregate must derive one exact receipt from four sources")
     pytest_gated_jobs = (
         "static-verification",
         "release-lane-docs",
@@ -223,7 +268,38 @@ def verify(root: Path = ROOT) -> list[str]:
         )
     ):
         failures.append("performance verification must run after the shared-Mac matrix")
+    foundation_job = job_section(workflow, "foundation-gate-report")
+    if not all(
+        fragment in foundation_job
+        for fragment in (
+            "foundation-manifest",
+            "needs.manifest-attestation.outputs.verification-envelope",
+            "needs.lint.outputs.verification-envelope",
+            "needs.affected-preflight.outputs.verification-envelope",
+            "needs.pytest-shards.outputs.verification-envelope",
+            "needs.static-verification.outputs.verification-envelope",
+            "uaa_foundation_prerequisite_manifest.json",
+        )
+    ) or foundation_job.count('--envelope "$') != 5:
+        failures.append(
+            "Foundation Gate must revalidate five exact source receipt envelopes"
+        )
+    foundation_argv = command_registry()["command:foundation-gate.ci-parallel"].argv
+    if not all(
+        fragment in foundation_argv
+        for fragment in (
+            "--ci-prerequisite-manifest",
+            "{temp_root}/uaa_foundation_prerequisite_manifest.json",
+            "--ci-prerequisite-sha",
+            "{repository_sha}",
+        )
+    ):
+        failures.append("Foundation command must consume exact prerequisite evidence")
     shard_argv = command_registry()["command:pytest.sharded-suite"].argv
+    if shard_argv[shard_argv.index("--shards") + 1] != str(
+        CANONICAL_PYTEST_SHARD_COUNT
+    ):
+        failures.append("pytest shards must use the canonical logical shard count")
     for fragment in ("--stretch-goal-seconds", "900", "--target-seconds", "1200", "--hard-timeout-seconds", "1800", "--failure-ref-dir", "{temp_root}/uaa_pytest_failure_refs"):
         if fragment not in shard_argv:
             failures.append("pytest shards must declare the self-hosted runtime budget")

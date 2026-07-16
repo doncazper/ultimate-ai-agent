@@ -3,8 +3,9 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from ultimate_ai_agent.core.authority import (
     AuthorityConstraintKind,
@@ -17,7 +18,10 @@ from ultimate_ai_agent.core.authority.dispatch_contracts import (
     AuthorityDispatchFailureCategory,
     AuthorityDispatchRequest,
 )
-from ultimate_ai_agent.core.authority.dispatcher import authority_dispatch_execution_ref
+from ultimate_ai_agent.core.authority.dispatcher import (
+    AuthorityDispatchAtomicStartRecoveryRequired,
+    authority_dispatch_execution_ref,
+)
 from ultimate_ai_agent.core.capabilities.enums import (
     CapabilityAuthorityLevel,
     CapabilityCostClass,
@@ -57,6 +61,9 @@ from .contracts import (
     stable_matrix_sync_ref,
 )
 
+if TYPE_CHECKING:
+    from .service import MatrixSyncTransportBoundExecutor
+
 
 def _canonical_ref(prefix: str, payload: object) -> str:
     encoded = json.dumps(
@@ -71,6 +78,11 @@ class MatrixSyncOperationResult:
     safe_output: dict[str, object]
     evidence_refs: tuple[str, ...]
     safe_summary: str
+    abort_callback: Callable[[], None] | None = field(
+        default=None,
+        repr=False,
+        compare=False,
+    )
 
 
 def build_matrix_sync_capability_manifest(
@@ -189,18 +201,70 @@ class _ImmediateMatrixSyncHandle:
         command: MatrixSyncCommand,
         execution_ref: str,
         commit_validated_at: datetime,
-        result: MatrixSyncOperationResult,
     ) -> None:
         self._command = command
         self._execution_ref = execution_ref
         self.commit_validated_at = commit_validated_at
-        self._result = result
+        self._result: MatrixSyncOperationResult | None = None
         self._collected = False
+        self._finalized = False
+        self._committed = False
+        self._settled = False
+
+    @property
+    def settled(self) -> bool:
+        return self._settled
+
+    def bind_result(self, result: MatrixSyncOperationResult) -> None:
+        if self._result is not None or self._settled:
+            raise RuntimeError("MATRIX_SYNC_HANDLE_RESULT_ALREADY_BOUND")
+        if (
+            result.succeeded
+            and "batch_ref" in result.safe_output
+            and result.abort_callback is None
+        ):
+            raise AuthorityDispatchAtomicStartRecoveryRequired(
+                "MATRIX_SYNC_TRANSIENT_BATCH_ABORT_CALLBACK_REQUIRED"
+            )
+        self._result = result
+
+    def abort(self) -> None:
+        if self._settled:
+            return
+        self._collected = True
+        try:
+            if self._result is not None and self._result.abort_callback is not None:
+                self._result.abort_callback()
+        except BaseException as exc:
+            raise AuthorityDispatchAtomicStartRecoveryRequired(
+                "MATRIX_SYNC_CONFIRMATION_ABORT_CLEANUP_UNCERTAIN"
+            ) from exc
+        finally:
+            self._settled = True
+
+    def finalize(self) -> None:
+        if self._settled or self._finalized or not self._collected:
+            raise RuntimeError("MATRIX_SYNC_HANDLE_FINALIZATION_INVALID")
+        self._finalized = True
+
+    def commit(self) -> None:
+        if self._settled or self._committed or not self._finalized:
+            raise RuntimeError("MATRIX_SYNC_HANDLE_COMMIT_INVALID")
+        self._committed = True
+
+    def settle(self) -> None:
+        if self._settled or not self._committed:
+            raise RuntimeError("MATRIX_SYNC_HANDLE_SETTLEMENT_INVALID")
+        self._settled = True
 
     def collect(self) -> AuthorityDispatchAdapterResult:
         if self._collected:
             raise RuntimeError("MATRIX_SYNC_HANDLE_ALREADY_COLLECTED")
         self._collected = True
+        if self._result is None:
+            raise AuthorityDispatchAtomicStartRecoveryRequired(
+                "MATRIX_SYNC_HANDLE_RESULT_REQUIRED"
+            )
         return AuthorityDispatchAdapterResult(
             execution_ref=self._execution_ref,
             succeeded=self._result.succeeded,
@@ -226,7 +290,7 @@ class MatrixSyncAuthorityDispatchAdapter:
         self,
         *,
         operation: MatrixSyncOperation,
-        executor: Callable[[MatrixSyncCommand], MatrixSyncOperationResult],
+        executor: MatrixSyncTransportBoundExecutor,
         authority_leases_provider: Callable[[], Sequence[AuthorityLease]],
         readiness_provider: (
             Callable[[MatrixSyncCommand], MatrixSyncReadinessObservation] | None
@@ -234,7 +298,18 @@ class MatrixSyncAuthorityDispatchAdapter:
     ) -> None:
         self.operation = MatrixSyncOperation(operation)
         self.lane: MatrixSyncLane = matrix_sync_lane(operation)
+        from .service import (
+            MatrixSyncTransportBoundExecutor,
+            is_sealed_matrix_sync_transport_executor,
+        )
+
+        if (
+            type(executor) is not MatrixSyncTransportBoundExecutor
+            or not is_sealed_matrix_sync_transport_executor(executor)
+        ):
+            raise TypeError("MATRIX_SYNC_BOUND_EXECUTOR_REQUIRED")
         self._executor = executor
+        self._executor_binding_ref = executor.binding_ref
         self._authority_leases_provider = authority_leases_provider
         self._readiness_provider = readiness_provider
         self._manifest = build_matrix_sync_capability_manifest(operation)
@@ -263,6 +338,7 @@ class MatrixSyncAuthorityDispatchAdapter:
             "adapter-binding-ref:matrix-sync",
             {
                 "descriptor": self.descriptor.model_dump(mode="json"),
+                "executor_binding_ref": self._executor_binding_ref,
                 "manifest": self._manifest.model_dump(mode="json"),
             },
         )
@@ -418,18 +494,23 @@ class MatrixSyncAuthorityDispatchAdapter:
         request: AuthorityDispatchRequest,
         *,
         validate_commit_fence: Callable[[], tuple[list[str], datetime]],
+        claim_handle: Callable[
+            [_ImmediateMatrixSyncHandle], _ImmediateMatrixSyncHandle
+        ],
     ) -> _ImmediateMatrixSyncHandle:
         reasons, validated_at = validate_commit_fence()
         if reasons:
             raise RuntimeError("MATRIX_SYNC_COMMIT_FENCE_DENIED")
         command = self._metadata(request).command
-        result = self._executor(command)
-        return _ImmediateMatrixSyncHandle(
+        handle = _ImmediateMatrixSyncHandle(
             command=command,
             execution_ref=authority_dispatch_execution_ref(request),
             commit_validated_at=validated_at,
-            result=result,
         )
+        claimed_handle = claim_handle(handle)
+        result = self._executor(command)
+        claimed_handle.bind_result(result)
+        return claimed_handle
 
     def invoke(
         self, request: AuthorityDispatchRequest

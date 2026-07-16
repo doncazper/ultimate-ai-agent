@@ -36,6 +36,9 @@ from scripts.verification.pytest_collection_evidence import (  # noqa: E402
     CollectionEvidenceError,
     load_aggregate_evidence,
 )
+from scripts.verification.pytest_shard_plan import (  # noqa: E402
+    CANONICAL_PYTEST_SHARD_COUNT,
+)
 from scripts.verification.pytest_shard_artifacts import (  # noqa: E402
     MAX_FAILED_TEST_REFS_PER_SHARD,
     is_safe_test_ref,
@@ -49,9 +52,13 @@ from scripts.verification.pytest_shard_processes import (  # noqa: E402
     build_shard_env,
     cancellation_signals,
     installed_signal_handlers,
+    process_group_leader_is_terminal_without_reaping,
+    spawn_owned_process_group,
     stop_processes,
 )
 from scripts.verification.run_pytest_shards import (  # noqa: E402
+    MatrixLoopbackTestResourceUnavailableError,
+    assert_matrix_loopback_test_resource_available,
     current_shard_plan_fingerprint,
 )
 from scripts.verification.typescript_binding import (  # noqa: E402
@@ -71,7 +78,18 @@ from scripts.verification.verification_contracts import (  # noqa: E402
     verification_run_manifest_payload,
 )
 from scripts.verification.verification_execution_identity import (  # noqa: E402
+    VerificationExecutionFence,
+    VerificationExecutionFenceDisposition,
+    VerificationExecutionFenceError,
     build_verification_execution_identity,
+    build_verification_execution_terminal_proof,
+)
+from scripts.verification.verification_github_transport import (  # noqa: E402
+    build_github_job_output_envelope,
+    encode_github_job_output,
+)
+from scripts.verification.verification_github_prerequisites import (  # noqa: E402
+    append_github_output,
 )
 from scripts.verification.verification_receipt_store import (  # noqa: E402
     VerificationReceiptStore,
@@ -86,18 +104,33 @@ PYTEST_PERFORMANCE_REPORT_NAME = "uaa_pytest_performance_report.json"
 PYTEST_COLLECTION_EVIDENCE_NAME = "uaa_pytest_collection_evidence.json"
 PYTEST_PERFORMANCE_SCHEMA_VERSION = "uaa_pytest_performance_report.v1"
 PYTEST_PLAN_REF_RE = re.compile(r"^pytest-shard-plan-ref:sha256:[0-9a-f]{64}$")
-PYTEST_REPRODUCTION_LANE_RE = re.compile(r"^ci-pytest-shard-[0-7]-reproduce$")
+PYTEST_REPRODUCTION_LANE_RE = re.compile(
+    rf"^ci-pytest-shard-[0-{CANONICAL_PYTEST_SHARD_COUNT - 1}]-reproduce$"
+)
 PYTEST_DIAGNOSTIC_LOCK_PATH = Path("/tmp/uaa-ci-pytest-diagnostic.lock")
 PYTEST_RUNTIME_UNAVAILABLE_REASON_REF = "reason-ref:ci:pytest-runtime-unavailable"
+PYTEST_LOOPBACK_RESOURCE_UNAVAILABLE_REASON_REF = (
+    "reason-ref:ci:pytest-loopback-resource-unavailable"
+)
 FULL_SUITE_LOCK_UNAVAILABLE_REASON_REF = "reason-ref:ci:full-suite-capacity-unavailable"
 FULL_SUITE_ATTEMPT_RECORDED_REASON_REF = "reason-ref:ci:full-suite-attempt-recorded"
-TYPED_EVIDENCE_REDACTION_STATUS = (
-    "content_free_refs_hashes_counts_and_durations_only"
+VERIFICATION_EXECUTION_FENCE_REASON_REF = (
+    "reason-ref:ci:verification-execution-fence-blocked"
 )
+PRIVATE_NON_DIAGNOSTIC_REASON_REF = (
+    "reason-ref:ci:private-nondiagnostic-execution-denied"
+)
+CI_LANE_EXECUTION_ERROR_REASON_REF = "reason-ref:ci:lane-execution-failed"
+GITHUB_OUTPUT_KEY = "verification_envelope"
+TYPED_EVIDENCE_REDACTION_STATUS = "content_free_refs_hashes_counts_and_durations_only"
 
 
 class PytestRuntimeUnavailableError(RuntimeError):
     """Raised before a full-suite attempt when pytest cannot be imported."""
+
+
+class PrivateNonDiagnosticExecutionError(RuntimeError):
+    """Raised when private CI tries to execute a non-diagnostic canonical lane."""
 
 
 def _utc_now() -> str:
@@ -127,16 +160,21 @@ def _resolved_argv(
     command: CommandSpec,
     temp_root: Path,
     repository_sha: str,
+    base_sha: str,
 ) -> tuple[str, ...]:
     return tuple(
-        token.replace("{temp_root}", str(temp_root)).replace(
-            "{repository_sha}", repository_sha
-        )
+        token.replace("{temp_root}", str(temp_root))
+        .replace("{repository_sha}", repository_sha)
+        .replace("{base_sha}", base_sha)
         for token in command.argv
     )
 
 
-def _safe_env(command: CommandSpec, temp_root: Path) -> dict[str, str]:
+def _safe_env(
+    command: CommandSpec,
+    temp_root: Path,
+    base_sha: str | None = None,
+) -> dict[str, str]:
     env = build_shard_env(ROOT)
     isolated_home = temp_root / "runtime-home"
     isolated_tmp = temp_root / "runtime-tmp"
@@ -154,6 +192,8 @@ def _safe_env(command: CommandSpec, temp_root: Path) -> dict[str, str]:
             "PLAYWRIGHT_BROWSERS_PATH": str(playwright_browsers),
         }
     )
+    if base_sha is not None:
+        env["UAA_VERIFICATION_BASE_SHA"] = base_sha
     env.update(dict(command.env))
     return env
 
@@ -173,7 +213,9 @@ def _result_ref(
 
 def expected_pytest_shard_plan_ref() -> str:
     return current_shard_plan_fingerprint(
-        ROOT, 8, ROOT / "scripts/verification/pytest_file_timing_seed.json"
+        ROOT,
+        CANONICAL_PYTEST_SHARD_COUNT,
+        ROOT / "scripts/verification/pytest_file_timing_seed.json",
     )
 
 
@@ -263,7 +305,7 @@ def _pytest_shard_evidence(
         or plan_ref != expected_plan_ref
         or run_status not in {"green", "failed", "timeout"}
         or not isinstance(rows, list)
-        or len(rows) != 8
+        or len(rows) != CANONICAL_PYTEST_SHARD_COUNT
     ):
         return {
             "pytest_shard_evidence_status": "rejected",
@@ -298,7 +340,10 @@ def _pytest_shard_evidence(
             (shard_index, return_code, timed_out, tuple(raw_failed_test_refs))
         )
     shard_indices = sorted(index for index, _, _, _ in normalized)
-    if len(normalized) != 8 or shard_indices != list(range(8)):
+    if (
+        len(normalized) != CANONICAL_PYTEST_SHARD_COUNT
+        or shard_indices != list(range(CANONICAL_PYTEST_SHARD_COUNT))
+    ):
         return {
             "pytest_shard_evidence_status": "rejected",
             "pytest_shard_evidence_reason_ref": (
@@ -344,7 +389,7 @@ def _pytest_shard_evidence(
     evidence: dict[str, Any] = {
         "pytest_shard_evidence_status": "available",
         "pytest_shard_plan_fingerprint_ref": plan_ref,
-        "pytest_shard_count": 8,
+        "pytest_shard_count": CANONICAL_PYTEST_SHARD_COUNT,
         "failed_shard_count": len(failed_refs),
         "failed_shard_refs": failed_refs,
     }
@@ -352,9 +397,7 @@ def _pytest_shard_evidence(
         evidence.update(
             {
                 "failed_test_refs": failed_test_refs,
-                "failed_test_ref_posture": (
-                    "diagnostic_untrusted_code_metadata_only"
-                ),
+                "failed_test_ref_posture": ("diagnostic_untrusted_code_metadata_only"),
             }
         )
     return evidence
@@ -364,22 +407,42 @@ def _run_command(
     command: CommandSpec,
     *,
     repository_sha: str,
+    base_sha: str | None = None,
     temp_root: Path,
     validate_start: Callable[[], None] | None = None,
     before_start: Callable[[], None] | None = None,
 ) -> dict[str, Any]:
+    resolved_base_sha = base_sha or repository_sha
     started_at = _utc_now()
     started = time.perf_counter()
     output_path: Path | None = None
     process: subprocess.Popen[bytes] | None = None
     timed_out = False
     interrupted = False
+    registration_active = False
+    pending_signal: int | None = None
+    cleanup_attempted = False
+    returncode: int | None = None
+    signal_handling = False
+
+    def settle_process() -> None:
+        nonlocal cleanup_attempted
+        if process is None or cleanup_attempted:
+            return
+        cleanup_attempted = True
+        stop_processes((process,), TERMINATION_GRACE_SECONDS)
 
     def handle_signal(signum: int, _frame: object) -> None:
-        nonlocal interrupted
+        nonlocal interrupted, pending_signal, signal_handling
         interrupted = True
-        if process is not None:
-            stop_processes((process,), TERMINATION_GRACE_SECONDS)
+        if signal_handling:
+            return
+        signal_handling = True
+        if registration_active:
+            pending_signal = signum
+            return
+        if cleanup_attempted:
+            return
         raise KeyboardInterrupt(f"CI lane interrupted by signal {signum}")
 
     try:
@@ -391,33 +454,59 @@ def _run_command(
         ) as output:
             output_path = Path(output.name)
             with installed_signal_handlers(cancellation_signals(), handle_signal):
-                if validate_start is not None:
-                    validate_start()
-                if before_start is not None:
-                    before_start()
-                process = subprocess.Popen(
-                    _resolved_argv(command, temp_root, repository_sha),
-                    cwd=ROOT,
-                    env=_safe_env(command, temp_root),
-                    stdout=output,
-                    stderr=subprocess.STDOUT,
-                    start_new_session=os.name == "posix",
-                )
-                deadline = time.monotonic() + command.timeout_seconds
-                returncode: int | None = None
-                while returncode is None:
-                    returncode = process.poll()
-                    output.flush()
-                    if output.tell() > MAX_TRANSIENT_OUTPUT_BYTES:
-                        stop_processes((process,), TERMINATION_GRACE_SECONDS)
-                        returncode = 125
-                        break
-                    if time.monotonic() >= deadline:
-                        timed_out = True
-                        stop_processes((process,), TERMINATION_GRACE_SECONDS)
-                        returncode = 124
-                        break
-                    time.sleep(0.05)
+                try:
+                    if validate_start is not None:
+                        validate_start()
+                    if before_start is not None:
+                        before_start()
+                    registration_active = True
+                    try:
+                        process = spawn_owned_process_group(
+                            _resolved_argv(
+                                command,
+                                temp_root,
+                                repository_sha,
+                                resolved_base_sha,
+                            ),
+                            cwd=ROOT,
+                            env=_safe_env(command, temp_root, resolved_base_sha),
+                            stdout=output,
+                            stderr=subprocess.STDOUT,
+                        )
+                    except BaseException:
+                        registration_active = False
+                        raise
+                    else:
+                        registration_active = False
+                        if pending_signal is not None:
+                            interrupted_by = pending_signal
+                            pending_signal = None
+                            raise KeyboardInterrupt(
+                                f"CI lane interrupted by signal {interrupted_by}"
+                            )
+                    deadline = time.monotonic() + command.timeout_seconds
+                    while returncode is None:
+                        if process_group_leader_is_terminal_without_reaping(process):
+                            settle_process()
+                            if not isinstance(process.returncode, int):
+                                raise RuntimeError(
+                                    "CI lane terminal status is unavailable"
+                                )
+                            returncode = process.returncode
+                            break
+                        output.flush()
+                        if output.tell() > MAX_TRANSIENT_OUTPUT_BYTES:
+                            settle_process()
+                            returncode = 125
+                            break
+                        if time.monotonic() >= deadline:
+                            timed_out = True
+                            settle_process()
+                            returncode = 124
+                            break
+                        time.sleep(0.05)
+                finally:
+                    settle_process()
             output.flush()
             output.seek(0, os.SEEK_END)
             output_bytes = output.tell()
@@ -433,8 +522,6 @@ def _run_command(
         output_bytes = 0
         output_digest = hashlib.sha256(b"").hexdigest()
     finally:
-        if process is not None and process.poll() is None:
-            stop_processes((process,), TERMINATION_GRACE_SECONDS)
         if output_path is not None:
             output_path.unlink(missing_ok=True)
 
@@ -613,6 +700,14 @@ def _typed_output_digest(results: list[dict[str, Any]]) -> str:
     ).hexdigest()
 
 
+def _execution_failure_reason_ref(results: list[dict[str, Any]]) -> str:
+    """Keep explicitly observed infrastructure outcomes non-deterministic."""
+
+    if any(result.get("status") == "timed_out" for result in results):
+        return "reason-ref:verification:infrastructure-failure"
+    return "reason-ref:verification:deterministic-code-failure"
+
+
 def _build_typed_lane_evidence(
     *,
     lane_ref: str,
@@ -635,7 +730,9 @@ def _build_typed_lane_evidence(
     ):
         raise ValueError("typed CI evidence command membership is not canonical")
     terminal_status = (
-        VerificationTerminalStatus.PASSED
+        VerificationTerminalStatus.CANCELLED
+        if any(result["status"] == "cancelled" for result in results)
+        else VerificationTerminalStatus.PASSED
         if legacy_receipt["status"] == "pass"
         else VerificationTerminalStatus.FAILED
     )
@@ -649,7 +746,9 @@ def _build_typed_lane_evidence(
         terminal_status is VerificationTerminalStatus.PASSED
         and result_command_refs != unit.command_refs
     ):
-        raise ValueError("passed typed CI evidence requires complete command membership")
+        raise ValueError(
+            "passed typed CI evidence requires complete command membership"
+        )
 
     test_collection_posture = "not_applicable"
     observed_collection_fingerprint: str | None = None
@@ -686,7 +785,9 @@ def _build_typed_lane_evidence(
                 declared_typescript.declared_project_fingerprint
                 != full_plan.typescript_project_fingerprint
             ):
-                raise ValueError("TypeScript declaration changed after plan construction")
+                raise ValueError(
+                    "TypeScript declaration changed after plan construction"
+                )
             runtime_typescript = resolve_typescript_runtime_binding(
                 ROOT / "apps/control-center", declared_typescript
             )
@@ -714,11 +815,15 @@ def _build_typed_lane_evidence(
     command_result_bindings = tuple(
         (str(result["command_ref"]), str(result["result_ref"])) for result in results
     )
-    if terminal_status is VerificationTerminalStatus.PASSED and any(
-        command_ref.startswith("command:pytest.")
-        or command_ref in TEST_EXECUTION_COMMAND_REFS
-        for command_ref in result_command_refs
-    ) and test_collection_posture != "collected":
+    if (
+        terminal_status is VerificationTerminalStatus.PASSED
+        and any(
+            command_ref.startswith("command:pytest.")
+            or command_ref in TEST_EXECUTION_COMMAND_REFS
+            for command_ref in result_command_refs
+        )
+        and test_collection_posture != "collected"
+    ):
         terminal_status = VerificationTerminalStatus.BLOCKED
     execution_identity_ref = None
     if receipt_schema_version == "uaa_verification_receipt.v3":
@@ -758,7 +863,9 @@ def _build_typed_lane_evidence(
         completed_at=str(legacy_receipt["completed_at"]),
         duration_ms=int(legacy_receipt["duration_ms"]),
         result_refs=tuple(str(result["result_ref"]) for result in results),
-        output_byte_count=sum(int(result.get("output_byte_count", 0)) for result in results),
+        output_byte_count=sum(
+            int(result.get("output_byte_count", 0)) for result in results
+        ),
         output_digest=_typed_output_digest(results),
         equivalent_receipt_ref=str(legacy_receipt["receipt_ref"]),
         command_refs=result_command_refs,
@@ -934,6 +1041,7 @@ def run_lane(
     lane_ref: str,
     *,
     repository_sha: str,
+    base_sha: str | None = None,
     temp_root: Path,
     visual_scope: str = "unknown_fail_closed",
     docker_available: str = "unknown_fail_closed",
@@ -942,16 +1050,23 @@ def run_lane(
     verification_receipt_file: Path | None = None,
     verification_run_manifest_file: Path | None = None,
     verification_store_root: Path | None = None,
+    github_output_file: Path | None = None,
+    verification_execution_fence_root: Path | None = None,
     full_suite_lock_mode: str = "github",
     execution_surface: str | None = None,
 ) -> dict[str, Any]:
     if _git_head(ROOT) != repository_sha:
         raise ValueError("CI lane SHA does not match the checked-out repository")
+    resolved_base_sha = base_sha or repository_sha
+    if re.fullmatch(r"[0-9a-f]{40}", resolved_base_sha) is None:
+        raise ValueError("CI lane base SHA must be an exact lowercase ref")
     lanes = lane_registry()
     if lane_ref not in lanes:
         raise ValueError("unknown canonical CI lane ref")
     lane = lanes[lane_ref]
-    diagnostic_reproduction = PYTEST_REPRODUCTION_LANE_RE.fullmatch(lane_ref) is not None
+    diagnostic_reproduction = (
+        PYTEST_REPRODUCTION_LANE_RE.fullmatch(lane_ref) is not None
+    )
     resolved_execution_surface = execution_surface or (
         "local" if diagnostic_reproduction else full_suite_lock_mode
     )
@@ -966,10 +1081,16 @@ def run_lane(
         "private",
     }:
         raise ValueError("diagnostic shard reproduction is local/private only")
+    if not diagnostic_reproduction and resolved_execution_surface == "private":
+        raise PrivateNonDiagnosticExecutionError(
+            "private execution is limited to exact diagnostic shard reproduction"
+        )
     if diagnostic_reproduction and (
         verification_receipt_file is not None
         or verification_run_manifest_file is not None
         or verification_store_root is not None
+        or github_output_file is not None
+        or verification_execution_fence_root is not None
     ):
         raise ValueError(
             "diagnostic shard reproduction cannot emit typed gating evidence"
@@ -978,6 +1099,7 @@ def run_lane(
     plan = build_plan(
         ROOT,
         repository_sha,
+        base_sha=resolved_base_sha,
         lane_refs=(lane_ref,),
         frontend_visual_scope=visual_scope,
     )
@@ -992,12 +1114,14 @@ def run_lane(
             verification_receipt_file,
             verification_run_manifest_file,
             verification_store_root,
+            github_output_file,
         )
     )
     full_plan_before = (
         build_plan(
             ROOT,
             repository_sha,
+            base_sha=resolved_base_sha,
             frontend_visual_scope=visual_scope,
         )
         if typed_evidence_requested
@@ -1019,6 +1143,7 @@ def run_lane(
         pre_typescript_runtime = resolve_typescript_runtime_binding(
             ROOT / "apps/control-center", declared_typescript
         )
+    pre_execution_identity = None
     pre_execution_identity_ref: str | None = None
     typed_unit = None
     if full_plan_before is not None:
@@ -1029,7 +1154,7 @@ def run_lane(
             raise ValueError("typed CI evidence requires one exact canonical unit")
         typed_unit = matching_units[0]
         if not lane.satisfied_command_refs:
-            pre_execution_identity_ref = build_verification_execution_identity(
+            pre_execution_identity = build_verification_execution_identity(
                 full_plan_before,
                 typed_unit,
                 execution_surface_ref=f"surface-ref:{resolved_execution_surface}",
@@ -1043,7 +1168,37 @@ def run_lane(
                     if pre_typescript_runtime is not None
                     else None
                 ),
-            ).identity_ref
+            )
+            pre_execution_identity_ref = pre_execution_identity.identity_ref
+
+    requires_durable_execution_fence = bool(
+        typed_evidence_requested
+        and typed_unit is not None
+        and {
+            "resource-ref:complete-pytest",
+            "resource-ref:typescript-typecheck",
+        }
+        & set(typed_unit.exclusive_resource_refs)
+    )
+    if requires_durable_execution_fence and verification_execution_fence_root is None:
+        raise ValueError(
+            "exclusive typed verification requires a durable execution fence"
+        )
+    if requires_durable_execution_fence and len(typed_unit.command_refs) != 1:
+        raise ValueError(
+            "exclusive typed verification requires one atomic command boundary"
+        )
+    if verification_execution_fence_root is not None and not (
+        requires_durable_execution_fence
+    ):
+        raise ValueError("execution fence is limited to exclusive typed verification")
+    execution_fence = (
+        VerificationExecutionFence(verification_execution_fence_root)
+        if requires_durable_execution_fence
+        and verification_execution_fence_root is not None
+        else None
+    )
+    execution_fence_owner_token: str | None = None
 
     def validate_typed_prestart() -> None:
         if full_plan_before is None:
@@ -1052,6 +1207,7 @@ def run_lane(
         observed_plan = build_plan(
             ROOT,
             repository_sha,
+            base_sha=resolved_base_sha,
             frontend_visual_scope=visual_scope,
         )
         if observed_plan != full_plan_before:
@@ -1091,6 +1247,7 @@ def run_lane(
         ).identity_ref
         if observed_identity_ref != pre_execution_identity_ref:
             raise ValueError("verification execution identity changed before start")
+
     started_at = _utc_now()
     started = time.perf_counter()
     results: list[dict[str, Any]] = []
@@ -1167,10 +1324,49 @@ def run_lane(
                 if lane_ref == "ci-pytest-shards":
                     full_suite_lock.ensure_start_available()
                 validate_typed_prestart()
+                if lane_ref == "ci-pytest-shards":
+                    assert_matrix_loopback_test_resource_available()
+
+            def record_durable_command_start() -> None:
+                nonlocal execution_fence_owner_token
+                if execution_fence is not None:
+                    assert pre_execution_identity is not None
+                    decision = execution_fence.begin(pre_execution_identity)
+                    if (
+                        decision.disposition
+                        is not VerificationExecutionFenceDisposition.START_GRANTED
+                        or decision.owner_token is None
+                    ):
+                        raise VerificationExecutionFenceError(
+                            "exact verification execution is not startable"
+                        )
+                    execution_fence_owner_token = decision.owner_token
+                try:
+                    if lane_ref == "ci-pytest-shards":
+                        full_suite_lock.record_start()
+                except BaseException:
+                    if (
+                        execution_fence is not None
+                        and pre_execution_identity is not None
+                        and execution_fence_owner_token is not None
+                    ):
+                        owner_token = execution_fence_owner_token
+                        try:
+                            execution_fence.abort_prestart(
+                                pre_execution_identity,
+                                owner_token=owner_token,
+                            )
+                        except BaseException as cleanup_error:
+                            raise VerificationExecutionFenceError(
+                                "verification pre-start recovery is required"
+                            ) from cleanup_error
+                        execution_fence_owner_token = None
+                    raise
 
             result = _run_command(
                 commands[command_ref],
                 repository_sha=repository_sha,
+                base_sha=resolved_base_sha,
                 temp_root=temp_root,
                 validate_start=(
                     validate_command_start
@@ -1178,8 +1374,8 @@ def run_lane(
                     else None
                 ),
                 before_start=(
-                    full_suite_lock.record_start
-                    if lane_ref == "ci-pytest-shards"
+                    record_durable_command_start
+                    if lane_ref == "ci-pytest-shards" or execution_fence is not None
                     else None
                 ),
             )
@@ -1199,7 +1395,7 @@ def run_lane(
                 try:
                     pytest_collection_payload = load_aggregate_evidence(
                         temp_root / PYTEST_COLLECTION_EVIDENCE_NAME,
-                        expected_shard_count=8,
+                        expected_shard_count=CANONICAL_PYTEST_SHARD_COUNT,
                         expected_plan_fingerprint_ref=expected_pytest_plan_ref,
                     )
                 except CollectionEvidenceError:
@@ -1209,9 +1405,10 @@ def run_lane(
                             "pytest_collection_evidence_reason_ref": (
                                 "reason-ref:ci:pytest-collection-evidence-rejected"
                             ),
-                            "status": "fail",
                         }
                     )
+                    if result["status"] == "pass":
+                        result["status"] = "fail"
                 else:
                     result.update(
                         {
@@ -1257,11 +1454,14 @@ def run_lane(
         ).hexdigest()
     )
     typed_artifact_refs: tuple[str, ...] = ()
+    typed_receipt: VerificationReceipt | None = None
+    run_manifest: VerificationRunManifest | None = None
     if typed_evidence_requested:
         assert full_plan_before is not None
         full_plan = build_plan(
             ROOT,
             repository_sha,
+            base_sha=resolved_base_sha,
             frontend_visual_scope=visual_scope,
         )
         if full_plan != full_plan_before:
@@ -1294,6 +1494,47 @@ def run_lane(
                 stored_receipt.artifact_ref,
                 stored_run.artifact_ref,
             )
+        if execution_fence is not None:
+            assert pre_execution_identity is not None
+            assert execution_fence_owner_token is not None
+            failure_reason_ref = "reason-ref:verification:not-applicable"
+            failure_evidence_ref = None
+            if typed_receipt.status is VerificationTerminalStatus.FAILED:
+                failure_reason_ref = _execution_failure_reason_ref(results)
+                failure_evidence_ref = typed_receipt.result_refs[0]
+            elif typed_receipt.status is VerificationTerminalStatus.BLOCKED:
+                failure_reason_ref = "reason-ref:verification:execution-blocked"
+                failure_evidence_ref = typed_receipt.result_refs[0]
+            elif typed_receipt.status is VerificationTerminalStatus.CANCELLED:
+                failure_reason_ref = "reason-ref:verification:execution-cancelled"
+                failure_evidence_ref = typed_receipt.result_refs[0]
+            terminal_proof = build_verification_execution_terminal_proof(
+                pre_execution_identity,
+                status=typed_receipt.status,
+                receipt_ref=typed_receipt.receipt_ref,
+                result_refs=typed_receipt.result_refs,
+                output_digest=typed_receipt.output_digest,
+                completed_at=typed_receipt.completed_at,
+                failure_reason_ref=failure_reason_ref,
+                failure_evidence_ref=failure_evidence_ref,
+            )
+            execution_fence.complete(
+                pre_execution_identity,
+                owner_token=execution_fence_owner_token,
+                terminal_proof=terminal_proof,
+            )
+        if github_output_file is not None:
+            if resolved_execution_surface != "github":
+                raise ValueError("GitHub output requires the GitHub execution surface")
+            envelope = build_github_job_output_envelope(
+                full_plan,
+                typed_receipt,
+            )
+            append_github_output(
+                github_output_file,
+                GITHUB_OUTPUT_KEY,
+                encode_github_job_output(envelope),
+            )
     summary = [
         f"## {lane.name}",
         "",
@@ -1318,6 +1559,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run one canonical UAA CI lane.")
     parser.add_argument("--lane", required=True)
     parser.add_argument("--sha", required=True)
+    parser.add_argument("--base-sha")
     parser.add_argument("--profile", default=PROFILE_REF)
     parser.add_argument("--temp-root", required=True)
     parser.add_argument(
@@ -1335,6 +1577,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--verification-receipt-file")
     parser.add_argument("--verification-run-manifest-file")
     parser.add_argument("--verification-store-root")
+    parser.add_argument("--github-output-file")
+    parser.add_argument("--verification-execution-fence-root")
     parser.add_argument(
         "--full-suite-lock-mode",
         choices=("github", "private"),
@@ -1352,6 +1596,7 @@ def main(argv: list[str] | None = None) -> int:
         receipt = run_lane(
             args.lane,
             repository_sha=args.sha,
+            base_sha=args.base_sha,
             temp_root=Path(args.temp_root),
             visual_scope=args.visual_scope,
             docker_available=args.docker_available,
@@ -1372,12 +1617,27 @@ def main(argv: list[str] | None = None) -> int:
                 if args.verification_store_root
                 else None
             ),
+            github_output_file=(
+                Path(args.github_output_file) if args.github_output_file else None
+            ),
+            verification_execution_fence_root=(
+                Path(args.verification_execution_fence_root)
+                if args.verification_execution_fence_root
+                else None
+            ),
             full_suite_lock_mode=args.full_suite_lock_mode,
             execution_surface=args.execution_surface,
         )
     except PytestRuntimeUnavailableError:
         print(
             "UAA CI lane blocked: " + PYTEST_RUNTIME_UNAVAILABLE_REASON_REF,
+            file=sys.stderr,
+        )
+        return 1
+    except MatrixLoopbackTestResourceUnavailableError:
+        print(
+            "UAA CI lane blocked: "
+            + PYTEST_LOOPBACK_RESOURCE_UNAVAILABLE_REASON_REF,
             file=sys.stderr,
         )
         return 1
@@ -1390,6 +1650,24 @@ def main(argv: list[str] | None = None) -> int:
     except FullSuiteAttemptAlreadyRecordedError:
         print(
             "UAA CI lane blocked: " + FULL_SUITE_ATTEMPT_RECORDED_REASON_REF,
+            file=sys.stderr,
+        )
+        return 1
+    except VerificationExecutionFenceError:
+        print(
+            "UAA CI lane blocked: " + VERIFICATION_EXECUTION_FENCE_REASON_REF,
+            file=sys.stderr,
+        )
+        return 1
+    except PrivateNonDiagnosticExecutionError:
+        print(
+            "UAA CI lane blocked: " + PRIVATE_NON_DIAGNOSTIC_REASON_REF,
+            file=sys.stderr,
+        )
+        return 1
+    except (Exception, KeyboardInterrupt):
+        print(
+            "UAA CI lane blocked: " + CI_LANE_EXECUTION_ERROR_REASON_REF,
             file=sys.stderr,
         )
         return 1

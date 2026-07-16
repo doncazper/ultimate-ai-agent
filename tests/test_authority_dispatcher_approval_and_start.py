@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import signal
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -22,10 +23,13 @@ from ultimate_ai_agent.core.authority import (
     TrustMode,
 )
 from ultimate_ai_agent.core.authority.dispatcher import (
+    AuthorityDispatchAtomicStartRecoveryRequired,
     AuthorityDispatchConflictError,
     AuthorityDispatcher,
     ToolRuntimeAuthorityDispatchAdapter,
+    _AtomicStartTerminationGuard,
     _phase_idempotency_ref,
+    atomic_start_signal_guard_active,
 )
 from ultimate_ai_agent.core.time import utc_now
 from ultimate_ai_agent.core.tools.runtime import (
@@ -39,6 +43,49 @@ from tests.test_authority_dispatcher import (
     _lease,
     _request,
 )
+
+
+def test_atomic_signal_guard_setup_failure_resets_context_ownership(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail_mask(_how: int, _signals: object) -> set[signal.Signals]:
+        raise OSError("injected sigmask failure")
+
+    monkeypatch.setattr(signal, "pthread_sigmask", fail_mask)
+    with pytest.raises(OSError, match="injected sigmask failure"):
+        with _AtomicStartTerminationGuard():
+            pytest.fail("guard entered after sigmask failure")
+    assert atomic_start_signal_guard_active() is False
+
+
+def test_atomic_signal_guard_rollback_failure_still_resets_context(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original_signal = signal.signal
+    calls = 0
+
+    def fail_install_and_rollback(
+        watched_signal: signal.Signals,
+        handler: object,
+    ) -> object:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise OSError("injected handler install failure")
+        result = original_signal(watched_signal, handler)  # type: ignore[arg-type]
+        if calls == 3:
+            raise OSError("injected handler rollback failure")
+        return result
+
+    monkeypatch.setattr(signal, "signal", fail_install_and_rollback)
+    with pytest.raises(
+        AuthorityDispatchAtomicStartRecoveryRequired,
+        match="AUTHORITY_DISPATCH_ATOMIC_SIGNAL_GUARD_SETUP_UNCERTAIN",
+    ):
+        with _AtomicStartTerminationGuard():
+            pytest.fail("guard entered after handler install failure")
+    assert atomic_start_signal_guard_active() is False
+
 
 def test_declared_failure_cost_cannot_exceed_reserved_estimate(tmp_path: Path) -> None:
     state_dir = tmp_path / "authority"

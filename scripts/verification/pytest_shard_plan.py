@@ -6,10 +6,14 @@ from collections import Counter
 from typing import Protocol
 
 
+CANONICAL_PYTEST_SHARD_COUNT = 9
+
+
 class ShardPlanLike(Protocol):
     index: int
     files: tuple[str, ...]
     expected_seconds: float
+    serialized_preflight: bool
 
 
 def validate_shard_plans(
@@ -17,6 +21,7 @@ def validate_shard_plans(
     plans: list[ShardPlanLike],
     shard_count: int,
     affinity_groups: list[tuple[str, ...]] | None = None,
+    exclusive_affinity_groups: list[tuple[str, ...]] | None = None,
 ) -> None:
     if len(files) != len(set(files)):
         raise ValueError("pytest shard input contains duplicate test files")
@@ -35,6 +40,19 @@ def validate_shard_plans(
     for group in affinity_groups or []:
         if len({location.get(file_path) for file_path in group}) != 1:
             raise ValueError("pytest shard affinity group was split across shards")
+    expected_exclusive = {
+        tuple(sorted(set(group))) for group in (exclusive_affinity_groups or [])
+    }
+    actual_exclusive = {
+        tuple(plan.files) for plan in plans if plan.serialized_preflight
+    }
+    if actual_exclusive != expected_exclusive:
+        raise ValueError(
+            "pytest serialized preflight plans must exactly match exclusive groups"
+        )
+    for plan in plans:
+        if plan.serialized_preflight and not plan.files:
+            raise ValueError("pytest serialized preflight plan may not be empty")
 
 
 def shard_plan_fingerprint(plans: list[ShardPlanLike]) -> str:
@@ -43,6 +61,7 @@ def shard_plan_fingerprint(plans: list[ShardPlanLike]) -> str:
             "index": plan.index,
             "files": list(plan.files),
             "expected_seconds": plan.expected_seconds,
+            "serialized_preflight": plan.serialized_preflight,
         }
         for plan in plans
     ]

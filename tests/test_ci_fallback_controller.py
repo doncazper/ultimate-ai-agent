@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+from dataclasses import asdict, replace
+import hashlib
 import json
 import os
 import sys
 import time
-from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -17,6 +18,7 @@ from scripts.verification.ci_fallback_controller import (
     FallbackState,
     FullSuiteLock,
     GitHubObservation,
+    PrivateVerificationScope,
     PrivateVerificationResult,
     _safe_subprocess,
     classify_github,
@@ -29,11 +31,44 @@ from scripts.verification.ci_command_manifest import (
 from scripts.verification.ci_fallback_storage import (
     FullSuiteAttemptAlreadyRecordedError,
 )
+from scripts.verification.ci_fallback_execution import RemoteHeadAttestationError
+from scripts.verification.ci_fallback_private_scope import (
+    PrivateScopeFullGateRequiredError,
+)
 
 
 SHA_A = "a" * 40
 SHA_B = "b" * 40
 SHA_C = "c" * 40
+BASE_SHA = "f" * 40
+SOURCE_BRANCH_BINDING_REF = "branch-binding-ref:private-ci:" + "b" * 64
+
+
+def private_scope(
+    repository_sha: str,
+    diagnostics: tuple[str, ...] = (),
+) -> PrivateVerificationScope:
+    return PrivateVerificationScope(
+        schema_version="uaa_ci_private_scope.v1",
+        repository_sha=repository_sha,
+        base_sha=BASE_SHA,
+        source_branch_binding_ref=SOURCE_BRANCH_BINDING_REF,
+        authoritative_plan_fingerprint="a" * 64,
+        plan_fingerprint="d" * 64,
+        dependency_state_fingerprint="c" * 64,
+        risk_tier="tier_3",
+        selected_unit_refs=("risk-diff-check", *diagnostics),
+        selected_command_refs=(
+            "command:git.diff-check",
+            *(
+                f"command:pytest.shard-{ref.rsplit('-', 1)[-1]}-reproduce"
+                for ref in diagnostics
+            ),
+        ),
+        diagnostic_unit_refs=diagnostics,
+        deferred_unit_refs=("pytest-shards", "control-center-frontend"),
+        reason_refs=("reason-ref:private-ci:github-final-gate-required",),
+    )
 
 
 class FakeExecutor:
@@ -50,27 +85,113 @@ class FakeExecutor:
         self.wrong_sha = wrong_sha
         self.wrong_plan = wrong_plan
         self.timings = list(timings or [100] * len(self.statuses))
+        self.prepared_diagnostics: list[tuple[str, ...]] = []
 
-    def plan_fingerprint(self, repository_sha: str) -> str:
-        del repository_sha
-        return "d" * 64
+    def prepare_scope(
+        self,
+        repository_sha: str,
+        *,
+        diagnostic_unit_refs: tuple[str, ...] = (),
+    ) -> PrivateVerificationScope:
+        self.prepared_diagnostics.append(diagnostic_unit_refs)
+        return private_scope(repository_sha, diagnostic_unit_refs)
 
-    def verify(self, repository_sha: str, *, series_ref: str) -> PrivateVerificationResult:
+    def verify(
+        self,
+        repository_sha: str,
+        *,
+        series_ref: str,
+        scope: PrivateVerificationScope,
+    ) -> PrivateVerificationResult:
         del series_ref
         self.calls.append(repository_sha)
         status = self.statuses.pop(0)
         duration_ms = self.timings.pop(0)
         result_sha = SHA_B if self.wrong_sha else repository_sha
-        return PrivateVerificationResult(
+        result = PrivateVerificationResult(
             repository_sha=result_sha,
+            base_sha=scope.base_sha,
+            source_branch_binding_ref=scope.source_branch_binding_ref,
+            authoritative_plan_fingerprint=scope.authoritative_plan_fingerprint,
             plan_fingerprint=("e" if self.wrong_plan else "d") * 64,
+            dependency_state_fingerprint=scope.dependency_state_fingerprint,
+            selected_unit_refs=scope.selected_unit_refs,
+            diagnostic_unit_refs=scope.diagnostic_unit_refs,
+            deferred_unit_refs=scope.deferred_unit_refs,
             status=status,
-            receipt_ref="receipt-ref:private-ci:test",
-            command_result_refs=("result-ref:ci:test",),
+            receipt_ref="receipt-ref:private-ci:" + "0" * 64,
+            command_result_refs=("result-ref:ci:" + "1" * 64,),
             timings_ms=(("lane-ref:test", duration_ms),),
             started_at="2026-01-01T00:00:00Z",
             completed_at="2026-01-01T00:00:01Z",
         )
+        payload = {
+            key: value for key, value in asdict(result).items() if key != "receipt_ref"
+        }
+        return replace(
+            result,
+            receipt_ref=(
+                "receipt-ref:private-ci:"
+                + hashlib.sha256(
+                    json.dumps(
+                        payload, sort_keys=True, separators=(",", ":")
+                    ).encode()
+                ).hexdigest()
+            ),
+        )
+
+
+class UnavailableRemoteExecutor(FakeExecutor):
+    def prepare_scope(
+        self,
+        repository_sha: str,
+        *,
+        diagnostic_unit_refs: tuple[str, ...] = (),
+    ) -> PrivateVerificationScope:
+        del repository_sha, diagnostic_unit_refs
+        raise RemoteHeadAttestationError(
+            "reason-ref:private-ci:remote-attestation-unavailable"
+        )
+
+
+class FullGateRequiredExecutor(FakeExecutor):
+    def prepare_scope(
+        self,
+        repository_sha: str,
+        *,
+        diagnostic_unit_refs: tuple[str, ...] = (),
+    ) -> PrivateVerificationScope:
+        del repository_sha, diagnostic_unit_refs
+        raise PrivateScopeFullGateRequiredError(
+            ("reason-ref:affected:unknown-path",)
+        )
+
+
+class RemoteLostBeforeVerifyExecutor(FakeExecutor):
+    def verify(
+        self,
+        repository_sha: str,
+        *,
+        series_ref: str,
+        scope: PrivateVerificationScope,
+    ) -> PrivateVerificationResult:
+        del repository_sha, series_ref, scope
+        raise RemoteHeadAttestationError(
+            "reason-ref:private-ci:remote-attestation-unavailable"
+        )
+
+
+class UnexpectedFailureExecutor(FakeExecutor):
+    def verify(
+        self,
+        repository_sha: str,
+        *,
+        series_ref: str,
+        scope: PrivateVerificationScope,
+    ) -> PrivateVerificationResult:
+        del repository_sha, series_ref, scope
+        self.calls.append(SHA_A)
+        raise RuntimeError("unsafe failure detail from /private/secret/path")
 
 
 def observation(
@@ -141,6 +262,113 @@ def test_prestart_infrastructure_failure_invokes_private_but_cannot_merge(
     assert executor.calls == [SHA_A]
 
 
+def test_live_remote_attestation_unavailable_is_externally_blocked(
+    tmp_path: Path,
+) -> None:
+    executor = UnavailableRemoteExecutor()
+
+    status = controller(tmp_path, executor).evaluate(
+        observation(
+            conclusion="failure",
+            started=False,
+            reason="reason-ref:github:prestart-failure",
+        ),
+        series_ref="series-ref:ci:remote-unavailable",
+    )
+
+    assert status.state == FallbackState.EXTERNALLY_BLOCKED
+    assert status.github_gate_satisfied is False
+    assert status.merge_gate_satisfied is False
+    assert (
+        "reason-ref:private-ci:remote-attestation-unavailable"
+        in status.reason_refs
+    )
+    assert executor.calls == []
+
+
+def test_private_full_gate_requirement_is_safe_and_externally_blocked(
+    tmp_path: Path,
+) -> None:
+    status = controller(tmp_path, FullGateRequiredExecutor()).evaluate(
+        observation(
+            conclusion="failure",
+            started=False,
+            reason="reason-ref:github:prestart-failure",
+        ),
+        series_ref="series-ref:ci:full-gate-required",
+    )
+
+    assert status.state == FallbackState.EXTERNALLY_BLOCKED
+    assert "reason-ref:private-ci:full-gate-required" in status.reason_refs
+    assert "reason-ref:affected:unknown-path" in status.reason_refs
+
+
+def test_remote_attestation_loss_before_private_start_is_externally_blocked(
+    tmp_path: Path,
+) -> None:
+    executor = RemoteLostBeforeVerifyExecutor()
+
+    status = controller(tmp_path, executor).evaluate(
+        observation(
+            conclusion="failure",
+            started=False,
+            reason="reason-ref:github:prestart-failure",
+        ),
+        series_ref="series-ref:ci:remote-lost",
+    )
+
+    assert status.state == FallbackState.EXTERNALLY_BLOCKED
+    assert status.github_gate_satisfied is False
+    assert status.merge_gate_satisfied is False
+    assert (
+        "reason-ref:private-ci:remote-attestation-unavailable"
+        in status.reason_refs
+    )
+    terminal = AttemptLedger(tmp_path / "ledger").read()[-1]
+    assert terminal["status"] == "recovery_required"
+    assert terminal["source_branch_binding_ref"] == SOURCE_BRANCH_BINDING_REF
+
+
+def test_unexpected_executor_failure_after_start_is_redacted_and_terminal(
+    tmp_path: Path,
+) -> None:
+    executor = UnexpectedFailureExecutor()
+    sut = controller(tmp_path, executor)
+    infrastructure = observation(
+        conclusion="failure",
+        started=False,
+        reason="reason-ref:github:prestart-failure",
+    )
+
+    status = sut.evaluate(
+        infrastructure,
+        series_ref="series-ref:ci:unexpected-executor",
+    )
+
+    assert status.state == FallbackState.EXTERNALLY_BLOCKED
+    assert "reason-ref:private-ci:executor-recovery-required" in status.reason_refs
+    assert "reason-ref:private-ci:recovery-required" in status.reason_refs
+    records = AttemptLedger(tmp_path / "ledger").read()
+    assert [record["event"] for record in records[-2:]] == [
+        "private_start",
+        "private_terminal",
+    ]
+    terminal = records[-1]
+    assert terminal["status"] == "recovery_required"
+    assert terminal["source_branch_binding_ref"] == SOURCE_BRANCH_BINDING_REF
+    serialized = json.dumps((status_payload(status), terminal), sort_keys=True)
+    assert "/private/secret/path" not in serialized
+    assert "unsafe failure detail" not in serialized
+
+    replay = sut.evaluate(
+        infrastructure,
+        series_ref="series-ref:ci:unexpected-executor",
+    )
+    assert replay.state == FallbackState.EXTERNALLY_BLOCKED
+    assert "reason-ref:private-ci:recovery-required" in replay.reason_refs
+    assert executor.calls == [SHA_A]
+
+
 @pytest.mark.parametrize(
     ("conclusion", "reason"),
     (
@@ -161,6 +389,55 @@ def test_code_failure_cannot_be_relabeled_as_infrastructure(
     )
     assert result.state == FallbackState.GITHUB_CODE_FAILURE
     assert executor.calls == []
+
+
+def test_explicit_failed_shard_diagnosis_is_bounded_and_non_authoritative(
+    tmp_path: Path,
+) -> None:
+    executor = FakeExecutor()
+    result = controller(tmp_path, executor).evaluate(
+        observation(
+            conclusion="failure",
+            reason="reason-ref:github:repository-command-failed",
+        ),
+        series_ref="series-ref:ci:diagnosis",
+        diagnostic_unit_refs=("diagnostic-pytest-shard-3",),
+    )
+
+    assert result.state == FallbackState.PRIVATE_GREEN_PENDING_GITHUB
+    assert result.github_gate_satisfied is False
+    assert result.merge_gate_satisfied is False
+    assert (
+        "reason-ref:private-ci:explicit-failed-shard-diagnosis"
+        in result.reason_refs
+    )
+    assert executor.prepared_diagnostics == [("diagnostic-pytest-shard-3",)]
+    assert executor.calls == [SHA_A]
+
+
+def test_changed_private_diagnostic_scope_invalidates_prior_private_evidence(
+    tmp_path: Path,
+) -> None:
+    executor = FakeExecutor()
+    sut = controller(tmp_path, executor)
+    infrastructure = observation(
+        conclusion="failure",
+        started=False,
+        reason="reason-ref:github:prestart-failure",
+    )
+    assert sut.evaluate(
+        infrastructure, series_ref="series-ref:ci:scope-change"
+    ).state == FallbackState.PRIVATE_GREEN_PENDING_GITHUB
+
+    changed = sut.evaluate(
+        infrastructure,
+        series_ref="series-ref:ci:scope-change",
+        diagnostic_unit_refs=("diagnostic-pytest-shard-4",),
+    )
+
+    assert changed.state == FallbackState.EXTERNALLY_BLOCKED
+    assert "reason-ref:private-ci:scope-stale" in changed.reason_refs
+    assert executor.calls == [SHA_A]
 
 
 def test_code_failure_repair_requires_new_sha_and_final_github_green(
@@ -251,30 +528,32 @@ def test_changed_sha_invalidates_private_evidence(tmp_path: Path) -> None:
     assert executor.calls == [SHA_A, SHA_B]
 
 
-def test_private_result_for_foreign_sha_is_rejected(tmp_path: Path) -> None:
+def test_private_result_for_foreign_sha_is_recovery_required(tmp_path: Path) -> None:
     executor = FakeExecutor(wrong_sha=True)
-    with pytest.raises(ValueError, match="does not match"):
-        controller(tmp_path, executor).evaluate(
-            observation(
-                conclusion="failure",
-                started=False,
-                reason="reason-ref:github:prestart-failure",
-            ),
-            series_ref="series-ref:ci:test",
-        )
+    status = controller(tmp_path, executor).evaluate(
+        observation(
+            conclusion="failure",
+            started=False,
+            reason="reason-ref:github:prestart-failure",
+        ),
+        series_ref="series-ref:ci:test",
+    )
+    assert status.state == FallbackState.EXTERNALLY_BLOCKED
+    assert "reason-ref:private-ci:executor-recovery-required" in status.reason_refs
 
 
-def test_private_result_for_foreign_plan_is_rejected(tmp_path: Path) -> None:
+def test_private_result_for_foreign_plan_is_recovery_required(tmp_path: Path) -> None:
     executor = FakeExecutor(wrong_plan=True)
-    with pytest.raises(ValueError, match="prepared plan"):
-        controller(tmp_path, executor).evaluate(
-            observation(
-                conclusion="failure",
-                started=False,
-                reason="reason-ref:github:prestart-failure",
-            ),
-            series_ref="series-ref:ci:test",
-        )
+    status = controller(tmp_path, executor).evaluate(
+        observation(
+            conclusion="failure",
+            started=False,
+            reason="reason-ref:github:prestart-failure",
+        ),
+        series_ref="series-ref:ci:test",
+    )
+    assert status.state == FallbackState.EXTERNALLY_BLOCKED
+    assert "reason-ref:private-ci:executor-recovery-required" in status.reason_refs
 
 
 def test_capacity_cooldown_occurs_once_and_is_bounded(tmp_path: Path) -> None:
@@ -366,6 +645,7 @@ def test_crash_after_private_start_requires_recovery_not_replay(tmp_path: Path) 
         {
             "event": "private_start",
             "repository_sha": SHA_A,
+            "source_branch_binding_ref": SOURCE_BRANCH_BINDING_REF,
             "series_ref": "series-ref:ci:test",
             "status": "private_verifying",
             "reason_ref": "reason-ref:github:prestart-failure",
@@ -441,6 +721,52 @@ def test_ledger_rejects_symlink_fifo_corruption_and_tamper(tmp_path: Path) -> No
         valid.read()
 
 
+def test_ledger_migrates_unbound_private_history_as_non_authoritative(
+    tmp_path: Path,
+) -> None:
+    ledger = AttemptLedger(tmp_path / "legacy-ledger")
+    ledger._prepare_directory()
+    legacy_record = {
+        "event": "private_start",
+        "repository_sha": SHA_A,
+        "series_ref": "series-ref:ci:legacy",
+        "status": "private_verifying",
+        "reason_ref": "reason-ref:github:prestart-failure",
+        "sequence": 1,
+        "previous_record_ref": "ledger-ref:ci:genesis",
+    }
+    legacy_record["record_ref"] = ledger._record_ref(legacy_record)
+    ledger.path.write_text(json.dumps([legacy_record]), encoding="utf-8")
+    ledger.path.chmod(0o600)
+
+    migrated = ledger.read()
+
+    assert migrated[0]["event"] == "legacy_private_start"
+    assert migrated[0]["status"] == "legacy_non_authoritative"
+    assert migrated[0]["reason_ref"] == (
+        "reason-ref:private-ci:legacy-unbound-history"
+    )
+    assert migrated[0]["record_ref"] == ledger._record_ref(migrated[0])
+    assert ledger.read() == migrated
+
+    executor = FakeExecutor()
+    result = FallbackController(
+        ledger,
+        executor,
+        sleeper=lambda _seconds: None,
+    ).evaluate(
+        observation(
+            conclusion="failure",
+            started=False,
+            reason="reason-ref:github:prestart-failure",
+        ),
+        series_ref="series-ref:ci:legacy",
+    )
+
+    assert result.state == FallbackState.PRIVATE_GREEN_PENDING_GITHUB
+    assert executor.calls == [SHA_A]
+
+
 def test_ledger_rejects_raw_or_unknown_event_fields(tmp_path: Path) -> None:
     ledger = AttemptLedger(tmp_path / "ledger")
     with pytest.raises(ValueError, match="forbidden fields"):
@@ -459,12 +785,33 @@ def test_ledger_rejects_raw_or_unknown_event_fields(tmp_path: Path) -> None:
                 "observed_at": "secret-material",
             }
         )
+    with pytest.raises(ValueError, match="authoritative gate"):
+        ledger.append(
+            {
+                "event": "private_start",
+                "repository_sha": SHA_A,
+                "merge_gate_satisfied": True,
+            }
+        )
+    with pytest.raises(ValueError, match="scope refs"):
+        ledger.append(
+            {
+                "event": "private_start",
+                "repository_sha": SHA_A,
+                "selected_unit_refs": ["unsafe/raw/path"],
+            }
+        )
 
 
 def test_observations_and_private_results_reject_unsafe_timestamps() -> None:
     with pytest.raises(ValueError, match="canonical UTC"):
         replace(observation(), observed_at="secret-material").validate()
-    result = FakeExecutor().verify(SHA_A, series_ref="series-ref:ci:test")
+    scope = private_scope(SHA_A)
+    result = FakeExecutor().verify(
+        SHA_A,
+        series_ref="series-ref:ci:test",
+        scope=scope,
+    )
     with pytest.raises(ValueError, match="canonical UTC"):
         replace(result, completed_at="raw-log-content").validate()
 

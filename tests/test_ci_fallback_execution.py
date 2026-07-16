@@ -3,12 +3,18 @@ from __future__ import annotations
 from dataclasses import asdict
 import hashlib
 import json
+import os
+import shutil
+import signal
+import stat
 import subprocess
+import sys
+import time
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
+from scripts.verification.pytest_shard_plan import CANONICAL_PYTEST_SHARD_COUNT
 from scripts.verification import ci_fallback_execution as execution
 from scripts.verification import ci_fallback_contracts as contracts
 from scripts.verification.ci_command_manifest import (
@@ -85,7 +91,7 @@ def test_pytest_shard_evidence_validation_is_exact_and_fail_closed() -> None:
         **_pass_command_result("command:pytest.sharded-suite", "test"),
         "pytest_shard_evidence_status": "available",
         "pytest_shard_plan_fingerprint_ref": plan_ref,
-        "pytest_shard_count": 8,
+        "pytest_shard_count": CANONICAL_PYTEST_SHARD_COUNT,
         "failed_shard_count": 0,
         "failed_shard_refs": [],
     }
@@ -138,19 +144,287 @@ def test_private_preflight_requires_clean_pushed_canonical_origin(
     executor = execution.IsolatedPrivateExecutor(tmp_path)
     values = {
         ("rev-parse", "HEAD"): SHA,
-        ("rev-parse", "refs/remotes/origin/main"): "b" * 40,
         ("status", "--porcelain"): "",
         ("remote", "get-url", "origin"): "https://invalid.example/repository.git",
-        ("branch", "-r", "--contains", SHA): "origin/feature",
+        ("branch", "--show-current"): "feature",
     }
     monkeypatch.setattr(executor, "_git", lambda *args: values[args])
-    monkeypatch.setattr(execution, "private_verification_plan", lambda *_args: object())
+    monkeypatch.setattr(
+        executor,
+        "_live_advertised_heads",
+        lambda: (("b" * 40, "refs/heads/main"), (SHA, "refs/heads/feature")),
+    )
+    materialized: list[str] = []
+    monkeypatch.setattr(
+        executor,
+        "_materialize_attested_origin_main",
+        materialized.append,
+    )
     with pytest.raises(ValueError, match="canonical UAA"):
         executor._preflight(SHA)
     values[("remote", "get-url", "origin")] = (
         "git@github.com:doncazper/ultimate-ai-agent.git"
     )
-    assert executor._preflight(SHA) == "b" * 40
+    base_sha, branch_binding_ref = executor._preflight(SHA)
+    assert base_sha == "b" * 40
+    assert branch_binding_ref.startswith(execution.BRANCH_BINDING_PREFIX)
+    assert materialized == ["b" * 40]
+
+
+@pytest.mark.parametrize(
+    "raw",
+    (
+        b"not-a-sha\trefs/heads/main\n",
+        (b"b" * 40) + b" refs/heads/main\n",
+        (b"b" * 40) + b"\trefs/heads/main\n" + (b"c" * 40) + b"\trefs/heads/main\n",
+        (b"b" * 40) + b"\trefs/heads/../unsafe\n",
+        (b"b" * 40) + b"\trefs/heads/main\x00unsafe\n",
+    ),
+)
+def test_remote_head_parser_rejects_malformed_or_unsafe_advertisements(
+    raw: bytes,
+) -> None:
+    with pytest.raises(
+        execution.RemoteHeadAttestationError,
+        match="reason-ref:private-ci:remote-advertisement-invalid",
+    ):
+        execution._parse_advertised_heads(raw)
+
+
+def test_private_preflight_ignores_stale_cached_remote_tracking_refs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    executor = execution.IsolatedPrivateExecutor(tmp_path)
+    requested_git_args: list[tuple[str, ...]] = []
+
+    def fake_git(*args: str, **_kwargs: object) -> str:
+        requested_git_args.append(args)
+        values = {
+            ("rev-parse", "HEAD"): SHA,
+            ("status", "--porcelain"): "",
+            ("remote", "get-url", "origin"): (
+                "git@github.com:doncazper/ultimate-ai-agent.git"
+            ),
+            ("branch", "--show-current"): "feature",
+        }
+        return values[args]
+
+    monkeypatch.setattr(executor, "_git", fake_git)
+    monkeypatch.setattr(
+        executor,
+        "_live_advertised_heads",
+        lambda: (
+            ("b" * 40, "refs/heads/main"),
+            ("c" * 40, "refs/heads/other"),
+        ),
+    )
+    with pytest.raises(
+        execution.RemoteHeadAttestationError,
+        match="reason-ref:private-ci:exact-branch-head-not-advertised",
+    ):
+        executor._preflight(SHA)
+
+    assert all(args[:2] != ("branch", "-r") for args in requested_git_args)
+    assert ("rev-parse", "refs/remotes/origin/main") not in requested_git_args
+
+
+def test_live_remote_attestation_requires_the_exact_current_branch_head(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    executor = execution.IsolatedPrivateExecutor(tmp_path)
+    main_sha = "b" * 40
+    monkeypatch.setattr(
+        executor,
+        "_live_advertised_heads",
+        lambda: (
+            (main_sha, "refs/heads/main"),
+            (SHA, "refs/heads/feature"),
+        ),
+    )
+
+    observed_main, branch_binding_ref = executor._attest_live_remote_heads(
+        SHA,
+        branch_ref="refs/heads/feature",
+    )
+    assert observed_main == main_sha
+    assert branch_binding_ref == execution._source_branch_binding_ref(
+        branch_ref="refs/heads/feature",
+        repository_sha=SHA,
+        origin_main_sha=main_sha,
+    )
+
+
+def test_live_remote_head_query_fails_closed_when_unavailable(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    executor = execution.IsolatedPrivateExecutor(tmp_path)
+
+    def unavailable(
+        *_args: object, **_kwargs: object
+    ) -> subprocess.CompletedProcess[bytes]:
+        raise subprocess.TimeoutExpired(("git", "ls-remote"), 20)
+
+    monkeypatch.setattr(execution.subprocess, "run", unavailable)
+
+    with pytest.raises(
+        execution.RemoteHeadAttestationError,
+        match="reason-ref:private-ci:remote-attestation-unavailable",
+    ):
+        executor._live_advertised_heads()
+
+
+def test_attested_main_fetch_fails_closed_when_materialized_sha_differs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    executor = execution.IsolatedPrivateExecutor(tmp_path)
+    monkeypatch.setattr(
+        execution.subprocess,
+        "run",
+        lambda *args, **_kwargs: subprocess.CompletedProcess(args=args, returncode=0),
+    )
+    monkeypatch.setattr(executor, "_git", lambda *_args, **_kwargs: "c" * 40)
+
+    with pytest.raises(
+        execution.RemoteHeadAttestationError,
+        match="reason-ref:private-ci:remote-main-object-mismatch",
+    ):
+        executor._materialize_attested_origin_main("b" * 40)
+
+
+def _run_git(repo: Path, *args: str) -> str:
+    completed = subprocess.run(
+        ("git", *args),
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    return completed.stdout.strip()
+
+
+def _local_remote_branch_fixture(tmp_path: Path) -> tuple[Path, Path, str, str]:
+    remote = tmp_path / "remote.git"
+    worktree = tmp_path / "source"
+    remote.mkdir()
+    _run_git(remote, "init", "--bare")
+    worktree.mkdir()
+    _run_git(worktree, "init", "-b", "main")
+    _run_git(worktree, "config", "user.name", "CI Fixture")
+    _run_git(worktree, "config", "user.email", "ci-fixture@invalid.example")
+    (worktree / "tracked.txt").write_text("main\n", encoding="utf-8")
+    _run_git(worktree, "add", "tracked.txt")
+    _run_git(worktree, "commit", "-m", "main fixture")
+    main_sha = _run_git(worktree, "rev-parse", "HEAD")
+    _run_git(worktree, "remote", "add", "origin", str(remote))
+    _run_git(worktree, "push", "-u", "origin", "main")
+    _run_git(worktree, "switch", "-c", "codex/attestation-test")
+    (worktree / "tracked.txt").write_text("feature\n", encoding="utf-8")
+    _run_git(worktree, "add", "tracked.txt")
+    _run_git(worktree, "commit", "-m", "feature fixture")
+    feature_sha = _run_git(worktree, "rev-parse", "HEAD")
+    _run_git(worktree, "push", "-u", "origin", "codex/attestation-test")
+    return remote, worktree, main_sha, feature_sha
+
+
+def test_real_git_remote_attestation_binds_exact_branch_and_main(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    remote, worktree, main_sha, feature_sha = _local_remote_branch_fixture(tmp_path)
+    monkeypatch.setattr(execution, "ALLOWED_ORIGIN_URLS", frozenset({str(remote)}))
+
+    base_sha, branch_binding_ref = execution.IsolatedPrivateExecutor(
+        worktree
+    )._preflight(feature_sha)
+
+    assert base_sha == main_sha
+    assert branch_binding_ref == execution._source_branch_binding_ref(
+        branch_ref="refs/heads/codex/attestation-test",
+        repository_sha=feature_sha,
+        origin_main_sha=main_sha,
+    )
+
+
+def test_real_git_preflight_fetches_newly_advertised_main_object(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    remote, worktree, _main_sha, feature_sha = _local_remote_branch_fixture(tmp_path)
+    updater = tmp_path / "updater"
+    subprocess.run(
+        ("git", "clone", "--branch", "main", str(remote), str(updater)),
+        check=True,
+        capture_output=True,
+        timeout=20,
+    )
+    _run_git(updater, "config", "user.name", "CI Fixture")
+    _run_git(updater, "config", "user.email", "ci-fixture@invalid.example")
+    (updater / "main-only.txt").write_text("new main\n", encoding="utf-8")
+    _run_git(updater, "add", "main-only.txt")
+    _run_git(updater, "commit", "-m", "advance remote main")
+    advertised_main_sha = _run_git(updater, "rev-parse", "HEAD")
+    _run_git(updater, "push", "origin", "main")
+    missing_before = subprocess.run(
+        ("git", "cat-file", "-e", f"{advertised_main_sha}^{{commit}}"),
+        cwd=worktree,
+        check=False,
+        capture_output=True,
+        timeout=10,
+    )
+    assert missing_before.returncode != 0
+    monkeypatch.setattr(execution, "ALLOWED_ORIGIN_URLS", frozenset({str(remote)}))
+
+    base_sha, _branch_binding_ref = execution.IsolatedPrivateExecutor(
+        worktree
+    )._preflight(feature_sha)
+
+    assert base_sha == advertised_main_sha
+    assert _run_git(worktree, "rev-parse", execution.PRIVATE_BASE_REF) == (
+        advertised_main_sha
+    )
+    _run_git(worktree, "cat-file", "-e", f"{advertised_main_sha}^{{commit}}")
+
+
+def test_real_git_remote_descendant_does_not_attest_local_ancestor(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    remote, worktree, main_sha, _feature_sha = _local_remote_branch_fixture(tmp_path)
+    monkeypatch.setattr(execution, "ALLOWED_ORIGIN_URLS", frozenset({str(remote)}))
+    _run_git(worktree, "reset", "--hard", main_sha)
+
+    with pytest.raises(
+        execution.RemoteHeadAttestationError,
+        match="reason-ref:private-ci:exact-branch-head-not-advertised",
+    ):
+        execution.IsolatedPrivateExecutor(worktree)._preflight(main_sha)
+
+
+def test_real_git_remote_unavailable_and_detached_states_fail_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    remote, worktree, _main_sha, feature_sha = _local_remote_branch_fixture(tmp_path)
+    monkeypatch.setattr(execution, "ALLOWED_ORIGIN_URLS", frozenset({str(remote)}))
+    _run_git(worktree, "checkout", "--detach", feature_sha)
+    with pytest.raises(
+        execution.RemoteHeadAttestationError,
+        match="reason-ref:private-ci:current-branch-required",
+    ):
+        execution.IsolatedPrivateExecutor(worktree)._preflight(feature_sha)
+
+    _run_git(worktree, "switch", "codex/attestation-test")
+    remote.rename(tmp_path / "remote-unavailable.git")
+    with pytest.raises(
+        execution.RemoteHeadAttestationError,
+        match="reason-ref:private-ci:remote-attestation-unavailable",
+    ):
+        execution.IsolatedPrivateExecutor(worktree)._preflight(feature_sha)
 
 
 def test_private_worktree_rejects_symlinked_selected_command_path(
@@ -185,7 +459,11 @@ def test_private_worktree_rejects_symlinked_selected_command_path(
         },
     )
     with pytest.raises(ValueError, match="command repository path"):
-        execution.IsolatedPrivateExecutor._validate_worktree(worktree, SHA)
+        execution.IsolatedPrivateExecutor._validate_worktree(
+            worktree,
+            SHA,
+            "b" * 40,
+        )
 
 
 def test_private_worktree_binds_exact_detached_sha(
@@ -214,116 +492,488 @@ def test_private_worktree_binds_exact_detached_sha(
         ),
     )
     with pytest.raises(ValueError, match="SHA changed"):
-        execution.IsolatedPrivateExecutor._validate_worktree(worktree, SHA)
+        execution.IsolatedPrivateExecutor._validate_worktree(
+            worktree,
+            SHA,
+            "b" * 40,
+        )
+
+
+def test_private_exact_sha_state_denies_untracked_module_shadowing(
+    tmp_path: Path,
+) -> None:
+    worktree = tmp_path / "worktree"
+    worktree.mkdir()
+    _run_git(worktree, "init", "-b", "main")
+    _run_git(worktree, "config", "user.name", "CI Fixture")
+    _run_git(worktree, "config", "user.email", "ci-fixture@invalid.example")
+    (worktree / ".gitignore").write_text(
+        ".venv/\n.ci-bootstrap/\nnode_modules/\n__pycache__/\n",
+        encoding="utf-8",
+    )
+    tracked = worktree / "scripts" / "verification" / "command.py"
+    tracked.parent.mkdir(parents=True)
+    tracked.write_text("VALUE = 1\n", encoding="utf-8")
+    _run_git(worktree, "add", ".gitignore", "scripts/verification/command.py")
+    _run_git(worktree, "commit", "-m", "exact sha fixture")
+    repository_sha = _run_git(worktree, "rev-parse", "HEAD")
+    dependency = worktree / ".venv" / "lib" / "python3.12" / "site-packages" / "safe.py"
+    dependency.parent.mkdir(parents=True)
+    dependency.write_text("VALUE = 1\n", encoding="utf-8")
+
+    baseline = execution.IsolatedPrivateExecutor._validate_tracked_state(
+        worktree,
+        repository_sha,
+    )
+    shadow = worktree / "scripts" / "json.py"
+    shadow.write_text("raise RuntimeError('shadowed')\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="untracked worktree contamination"):
+        execution.IsolatedPrivateExecutor._validate_tracked_state(
+            worktree,
+            repository_sha,
+            expected_untracked_state=baseline,
+        )
+
+
+def test_private_exact_sha_state_denies_dependency_mutation_after_setup(
+    tmp_path: Path,
+) -> None:
+    worktree = tmp_path / "worktree"
+    worktree.mkdir()
+    _run_git(worktree, "init", "-b", "main")
+    _run_git(worktree, "config", "user.name", "CI Fixture")
+    _run_git(worktree, "config", "user.email", "ci-fixture@invalid.example")
+    (worktree / ".gitignore").write_text(".venv/\n", encoding="utf-8")
+    (worktree / "tracked.py").write_text("VALUE = 1\n", encoding="utf-8")
+    _run_git(worktree, "add", ".gitignore", "tracked.py")
+    _run_git(worktree, "commit", "-m", "exact sha fixture")
+    repository_sha = _run_git(worktree, "rev-parse", "HEAD")
+    dependency = worktree / ".venv" / "lib" / "python3.12" / "site-packages" / "safe.py"
+    dependency.parent.mkdir(parents=True)
+    dependency.write_text("VALUE = 1\n", encoding="utf-8")
+    baseline = execution.IsolatedPrivateExecutor._validate_tracked_state(
+        worktree,
+        repository_sha,
+    )
+
+    dependency.write_text("VALUE = 2\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="untracked worktree state changed"):
+        execution.IsolatedPrivateExecutor._validate_tracked_state(
+            worktree,
+            repository_sha,
+            expected_untracked_state=baseline,
+        )
+
+
+def test_private_exact_sha_state_denies_dependency_permission_change(
+    tmp_path: Path,
+) -> None:
+    worktree = tmp_path / "worktree"
+    worktree.mkdir()
+    _run_git(worktree, "init", "-b", "main")
+    _run_git(worktree, "config", "user.name", "CI Fixture")
+    _run_git(worktree, "config", "user.email", "ci-fixture@invalid.example")
+    (worktree / ".gitignore").write_text(".venv/\n", encoding="utf-8")
+    (worktree / "tracked.py").write_text("VALUE = 1\n", encoding="utf-8")
+    _run_git(worktree, "add", ".gitignore", "tracked.py")
+    _run_git(worktree, "commit", "-m", "exact sha fixture")
+    repository_sha = _run_git(worktree, "rev-parse", "HEAD")
+    dependency = worktree / ".venv" / "bin" / "tool"
+    dependency.parent.mkdir(parents=True)
+    dependency.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    dependency.chmod(0o644)
+    baseline = execution.IsolatedPrivateExecutor._validate_tracked_state(
+        worktree,
+        repository_sha,
+    )
+
+    dependency.chmod(0o755)
+
+    with pytest.raises(ValueError, match="untracked worktree state changed"):
+        execution.IsolatedPrivateExecutor._validate_tracked_state(
+            worktree,
+            repository_sha,
+            expected_untracked_state=baseline,
+        )
+
+
+@pytest.mark.skipif(os.name != "posix", reason="symlink proof is POSIX-specific")
+@pytest.mark.parametrize("environment_ref", (".ci-bootstrap", ".venv"))
+def test_private_exact_sha_state_binds_external_python_symlink_target(
+    tmp_path: Path,
+    environment_ref: str,
+) -> None:
+    worktree = tmp_path / "worktree"
+    worktree.mkdir()
+    _run_git(worktree, "init", "-b", "main")
+    _run_git(worktree, "config", "user.name", "CI Fixture")
+    _run_git(worktree, "config", "user.email", "ci-fixture@invalid.example")
+    (worktree / ".gitignore").write_text(
+        ".ci-bootstrap/\n.venv/\n",
+        encoding="utf-8",
+    )
+    (worktree / "tracked.py").write_text("VALUE = 1\n", encoding="utf-8")
+    _run_git(worktree, "add", ".gitignore", "tracked.py")
+    _run_git(worktree, "commit", "-m", "exact sha fixture")
+    repository_sha = _run_git(worktree, "rev-parse", "HEAD")
+    external_python = tmp_path / "external-python"
+    external_python.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    external_python.chmod(0o755)
+    interpreter = worktree / environment_ref / "bin" / "python"
+    interpreter.parent.mkdir(parents=True)
+    interpreter.symlink_to(external_python)
+    baseline = execution.IsolatedPrivateExecutor._validate_tracked_state(
+        worktree,
+        repository_sha,
+    )
+
+    external_python.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="untracked worktree state changed"):
+        execution.IsolatedPrivateExecutor._validate_tracked_state(
+            worktree,
+            repository_sha,
+            expected_untracked_state=baseline,
+        )
+
+
+@pytest.mark.skipif(os.name != "posix", reason="symlink proof is POSIX-specific")
+@pytest.mark.parametrize(
+    "unsafe_ref",
+    (
+        ".ci-bootstrap/bin/pip",
+        ".ci-bootstrap/bin/python2",
+        ".ci-bootstrap/bin/python3.12m",
+        ".ci-bootstrap/python3.12",
+        ".venv/bin/tool",
+    ),
+)
+def test_private_exact_sha_state_rejects_external_non_toolchain_symlink(
+    tmp_path: Path,
+    unsafe_ref: str,
+) -> None:
+    worktree = tmp_path / "worktree"
+    worktree.mkdir()
+    _run_git(worktree, "init", "-b", "main")
+    _run_git(worktree, "config", "user.name", "CI Fixture")
+    _run_git(worktree, "config", "user.email", "ci-fixture@invalid.example")
+    (worktree / ".gitignore").write_text(
+        ".ci-bootstrap/\n.venv/\n",
+        encoding="utf-8",
+    )
+    (worktree / "tracked.py").write_text("VALUE = 1\n", encoding="utf-8")
+    _run_git(worktree, "add", ".gitignore", "tracked.py")
+    _run_git(worktree, "commit", "-m", "exact sha fixture")
+    repository_sha = _run_git(worktree, "rev-parse", "HEAD")
+    external_tool = tmp_path / "external-tool"
+    external_tool.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    tool = worktree / unsafe_ref
+    tool.parent.mkdir(parents=True)
+    tool.symlink_to(external_tool)
+
+    with pytest.raises(ValueError, match="untracked worktree state is unsafe"):
+        execution.IsolatedPrivateExecutor._validate_tracked_state(
+            worktree,
+            repository_sha,
+        )
+
+
+@pytest.mark.skipif(os.name != "posix", reason="venv proof is POSIX-specific")
+def test_private_exact_sha_state_accepts_real_bootstrap_venv_layout(
+    tmp_path: Path,
+) -> None:
+    python312 = shutil.which("python3.12")
+    if python312 is None:
+        pytest.skip("python3.12 is unavailable")
+    worktree = tmp_path / "worktree"
+    worktree.mkdir()
+    _run_git(worktree, "init", "-b", "main")
+    _run_git(worktree, "config", "user.name", "CI Fixture")
+    _run_git(worktree, "config", "user.email", "ci-fixture@invalid.example")
+    (worktree / ".gitignore").write_text(".ci-bootstrap/\n", encoding="utf-8")
+    (worktree / "tracked.py").write_text("VALUE = 1\n", encoding="utf-8")
+    _run_git(worktree, "add", ".gitignore", "tracked.py")
+    _run_git(worktree, "commit", "-m", "exact sha fixture")
+    repository_sha = _run_git(worktree, "rev-parse", "HEAD")
+
+    subprocess.run(
+        (
+            python312,
+            "-m",
+            "venv",
+            "--without-pip",
+            "--symlinks",
+            ".ci-bootstrap",
+        ),
+        cwd=worktree,
+        check=True,
+        capture_output=True,
+        timeout=30,
+    )
+
+    state = execution.IsolatedPrivateExecutor._validate_tracked_state(
+        worktree,
+        repository_sha,
+    )
+
+    symlink_refs = {ref for ref, mode, _size, _digest in state if stat.S_ISLNK(mode)}
+    version = subprocess.run(
+        (
+            python312,
+            "-c",
+            "import sys;print(f'{sys.version_info.major}.{sys.version_info.minor}')",
+        ),
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    ).stdout.strip()
+    assert {
+        ".ci-bootstrap/bin/python",
+        ".ci-bootstrap/bin/python3",
+        f".ci-bootstrap/bin/python{version}",
+    }.issubset(symlink_refs)
 
 
 def test_private_execution_uses_standalone_clone_not_shared_worktree() -> None:
     source = Path(execution.__file__).read_text(encoding="utf-8")
     assert '"clone"' in source
     assert '"--no-local"' in source
-    assert 'self._git("rev-parse", "refs/remotes/origin/main")' in source
-    assert "origin_main_sha" in source
+    assert '("git", "ls-remote", "--heads", "origin")' in source
+    assert 'self._git("rev-parse", "refs/remotes/origin/main")' not in source
+    assert 'self._git("branch", "-r", "--contains"' not in source
     assert "PRIVATE_BASE_REF" in source
+    assert 'f"+{PRIVATE_BASE_REF}:{PRIVATE_BASE_REF}"' in source
     assert '("git", "remote", "remove", "origin")' in source
     assert '"worktree", "add"' not in source
 
 
-@pytest.mark.parametrize(("returncode", "expected"), ((0, False), (1, True), (2, True)))
-def test_private_affected_preflight_frontend_dependency_is_fail_closed(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    returncode: int,
-    expected: bool,
-) -> None:
-    monkeypatch.setattr(
-        execution.subprocess,
-        "run",
-        lambda *args, **kwargs: subprocess.CompletedProcess(
-            args=args[0], returncode=returncode
-        ),
-    )
+def test_private_dependency_setup_is_frozen_and_matches_github_policy() -> None:
+    commands = execution._dependency_setup_commands()
+    serialized = "\n".join(" ".join(command) for command in commands)
 
+    assert f"uv=={execution.UV_VERSION}" in serialized
+    assert "uv sync --frozen --extra dev --python python3.12" in serialized
     assert (
-        execution.IsolatedPrivateExecutor._affected_preflight_requires_frontend(
-            tmp_path
-        )
-        is expected
+        "npm --prefix integrations/matrix-client-adapter ci --ignore-scripts"
+        in serialized
     )
+    assert (
+        "integrations/matrix-client-adapter/node_modules/"
+        in execution._PRIVATE_SETUP_ROOTS
+    )
+    assert "--upgrade pip" not in serialized
+    assert "pip install -e" not in serialized
 
 
-def test_private_frontend_dependencies_are_installed_before_affected_preflight(
+@pytest.mark.skipif(os.name != "posix", reason="process-group proof is POSIX-specific")
+def test_safe_subprocess_cleans_residual_child_after_success(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    events: list[str] = []
-
-    def fake_subprocess(argv, **_kwargs):
-        events.append(" ".join(argv))
-        return 0, 1, "result-ref:ci:test"
-
-    def fake_lane(lane_ref: str, **_kwargs):
-        events.append(f"lane:{lane_ref}")
-        return True
-
-    monkeypatch.setattr(execution, "_safe_subprocess", fake_subprocess)
-    monkeypatch.setattr(
-        execution.IsolatedPrivateExecutor,
-        "_affected_preflight_requires_frontend",
-        staticmethod(lambda _worktree: True),
-    )
-    monkeypatch.setattr(
-        execution.IsolatedPrivateExecutor, "_run_lane", staticmethod(fake_lane)
-    )
-    monkeypatch.setattr(
-        execution,
-        "CI_JOB_GRAPH",
-        (SimpleNamespace(lane_ref="ci-affected-preflight"),),
-    )
-    monkeypatch.setattr(execution.shutil, "which", lambda *_args, **_kwargs: None)
-    plan = SimpleNamespace(
-        definition_fingerprint="a" * 64,
-        dependency_lock_fingerprints=(),
-        pytest_shard_plan_fingerprint="b" * 64,
+    pid_path = tmp_path / "child.pid"
+    parent = (
+        "import pathlib,subprocess,sys;"
+        "child=subprocess.Popen([sys.executable,'-c','import time;time.sleep(60)']);"
+        "pathlib.Path(sys.argv[1]).write_text(str(child.pid),encoding='ascii')"
     )
 
-    status = execution.IsolatedPrivateExecutor._run_graph(
-        SHA,
-        tmp_path,
-        tmp_path,
-        {"PATH": "/usr/bin"},
-        [],
-        [],
-        plan,
+    original_stop_processes = execution.stop_processes
+    observed_reserved_group: list[int] = []
+
+    def assert_reserved_then_stop(
+        processes: object,
+        termination_grace_seconds: float,
+    ) -> None:
+        active = tuple(processes)  # type: ignore[arg-type]
+        assert len(active) == 1
+        assert active[0].returncode is None
+        assert execution.process_group_leader_is_terminal_without_reaping(active[0])
+        observed_reserved_group.append(active[0].pid)
+        original_stop_processes(active, termination_grace_seconds)
+
+    monkeypatch.setattr(execution, "stop_processes", assert_reserved_then_stop)
+
+    returncode, _duration_ms, _result_ref = execution._safe_subprocess(
+        (sys.executable, "-c", parent, str(pid_path)),
+        cwd=tmp_path,
+        timeout=10,
     )
 
-    assert status == "pass"
-    assert events[:2] == ["npm ci", "lane:ci-affected-preflight"]
-    assert events.count("lane:ci-affected-preflight") == 1
+    assert returncode == 0
+    assert len(observed_reserved_group) == 1
+    child_pid = int(pid_path.read_text(encoding="ascii"))
+    child_alive = True
+    deadline = time.monotonic() + 3
+    try:
+        while time.monotonic() < deadline:
+            try:
+                os.kill(child_pid, 0)
+            except ProcessLookupError:
+                child_alive = False
+                break
+            time.sleep(0.05)
+    finally:
+        if child_alive:
+            try:
+                os.kill(child_pid, signal.SIGKILL)
+            except ProcessLookupError:
+                child_alive = False
+    assert child_alive is False
 
 
-def test_private_lane_refs_include_affected_preflight_once(
+@pytest.mark.skipif(os.name != "posix", reason="process-group proof is POSIX-specific")
+def test_safe_subprocess_preserves_nonzero_terminal_status(tmp_path: Path) -> None:
+    returncode, _duration_ms, result_ref = execution._safe_subprocess(
+        (sys.executable, "-c", "raise SystemExit(7)"),
+        cwd=tmp_path,
+        timeout=10,
+    )
+
+    assert returncode == 7
+    assert result_ref.startswith("result-ref:ci:")
+    assert str(tmp_path) not in result_ref
+
+
+@pytest.mark.skipif(os.name != "posix", reason="signal proof is POSIX-specific")
+def test_safe_subprocess_preserves_spawn_cleanup_failure_over_pending_signal(
+    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    assert execution.PRIVATE_LANE_REFS.count("ci-affected-preflight") == 1
-    observed: dict[str, object] = {}
+    def fail_spawn(*_args: object, **_kwargs: object) -> None:
+        handler = signal.getsignal(signal.SIGTERM)
+        assert callable(handler)
+        handler(signal.SIGTERM, None)
+        raise execution.ProcessCleanupError("cleanup-unproven")
 
-    def fake_build_plan(
-        repo: Path,
-        repository_sha: str,
-        *,
-        lane_refs: tuple[str, ...],
-    ) -> object:
-        observed.update(
-            repo=repo,
-            repository_sha=repository_sha,
-            lane_refs=lane_refs,
+    monkeypatch.setattr(execution, "spawn_owned_process_group", fail_spawn)
+
+    with pytest.raises(execution.ProcessCleanupError, match="cleanup-unproven"):
+        execution._safe_subprocess(
+            (sys.executable, "-c", "raise SystemExit(0)"),
+            cwd=tmp_path,
+            timeout=10,
         )
-        return object()
 
-    monkeypatch.setattr(execution, "build_plan", fake_build_plan)
-    plan = execution.private_verification_plan(ROOT, SHA)
-    assert plan is not None
-    assert observed["lane_refs"] == execution.PRIVATE_LANE_REFS
+
+@pytest.mark.skipif(os.name != "posix", reason="signal proof is POSIX-specific")
+@pytest.mark.parametrize(
+    "signal_number", (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)
+)
+def test_safe_subprocess_real_signal_reaps_descendants(
+    tmp_path: Path,
+    signal_number: signal.Signals,
+) -> None:
+    descendant_pid_path = tmp_path / "descendant.pid"
+    result_path = tmp_path / "result.txt"
+    helper = (
+        "import pathlib,sys;"
+        "from scripts.verification.ci_fallback_execution import _safe_subprocess;"
+        'child=("import pathlib,subprocess,sys,time;"'
+        "+\"p=subprocess.Popen([sys.executable,'-c','import time;time.sleep(60)']);\""
+        "+\"pathlib.Path(sys.argv[1]).write_text(str(p.pid),encoding='ascii');\""
+        '+"time.sleep(60)");'
+        "rc,_,_=_safe_subprocess((sys.executable,'-c',child,sys.argv[1]),"
+        "cwd=pathlib.Path(sys.argv[3]),timeout=60);"
+        "pathlib.Path(sys.argv[2]).write_text(str(rc),encoding='ascii')"
+    )
+    process = subprocess.Popen(
+        (
+            sys.executable,
+            "-c",
+            helper,
+            str(descendant_pid_path),
+            str(result_path),
+            str(tmp_path),
+        ),
+        cwd=ROOT,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    deadline = time.monotonic() + 10
+    try:
+        while not descendant_pid_path.exists():
+            if process.poll() is not None:
+                pytest.fail("signal helper exited before starting its descendant")
+            if time.monotonic() >= deadline:
+                pytest.fail("signal helper did not start within the bound")
+            time.sleep(0.02)
+        os.kill(process.pid, signal_number)
+        assert process.wait(timeout=15) == 0
+        assert result_path.read_text(encoding="ascii") == "130"
+        descendant_pid = int(descendant_pid_path.read_text(encoding="ascii"))
+        deadline = time.monotonic() + 3
+        while True:
+            try:
+                os.kill(descendant_pid, 0)
+            except ProcessLookupError:
+                break
+            if time.monotonic() >= deadline:
+                pytest.fail("signalled process descendant was not reaped")
+            time.sleep(0.05)
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait(timeout=5)
+
+
+@pytest.mark.parametrize(
+    ("unit_ref", "command"),
+    (
+        (
+            "pytest-shards",
+            CommandSpec(
+                "command:pytest.sharded-suite",
+                (".venv/bin/python", "scripts/verification/run_pytest_shards.py"),
+                (),
+                "test",
+                10,
+            ),
+        ),
+        (
+            "risk-frontend-typecheck",
+            CommandSpec(
+                "command:frontend.typecheck",
+                ("npm", "run", "typecheck"),
+                (),
+                "frontend",
+                10,
+            ),
+        ),
+        (
+            "risk-final-diff-audit",
+            CommandSpec("command:test", ("true",), (), "audit", 10),
+        ),
+        (
+            "diagnostic-pytest-shard-0",
+            CommandSpec(
+                "command:test",
+                (".venv/bin/python", "scripts/verification/run_pytest_shards.py"),
+                (),
+                "test",
+                10,
+            ),
+        ),
+    ),
+)
+def test_private_execution_rejects_complete_and_non_command_units(
+    unit_ref: str,
+    command: CommandSpec,
+) -> None:
+    with pytest.raises(ValueError, match="authoritative GitHub"):
+        execution.IsolatedPrivateExecutor._assert_private_command_allowed(
+            unit_ref, command
+        )
+
+
+def test_private_execution_accepts_only_exact_shard_reproduction() -> None:
+    command = execution.command_registry()["command:pytest.shard-3-reproduce"]
+    execution.IsolatedPrivateExecutor._assert_private_command_allowed(
+        "diagnostic-pytest-shard-3", command
+    )
 
 
 def test_private_and_lane_environments_share_playwright_browser_directory(
@@ -339,6 +989,9 @@ def test_private_and_lane_environments_share_playwright_browser_directory(
     assert (
         private_env["PLAYWRIGHT_BROWSERS_PATH"] == lane_env["PLAYWRIGHT_BROWSERS_PATH"]
     )
+    assert private_env["PYTHONDONTWRITEBYTECODE"] == "1"
+    assert private_env["PYTEST_ADDOPTS"].startswith("-o cache_dir=")
+    assert private_env["RUFF_CACHE_DIR"].startswith(str(tmp_path))
 
 
 def test_private_lane_receipt_is_recomputed_and_exact_plan_bound(
@@ -390,6 +1043,87 @@ def test_private_lane_receipt_is_recomputed_and_exact_plan_bound(
     )
 
     assert receipt_ref == payload["receipt_ref"]
+    assert not receipt_path.exists()
+
+
+def test_private_lane_receipt_consumes_short_reads_exactly(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lane_ref = "docs"
+    plan = build_plan(ROOT, SHA, lane_refs=(lane_ref,), verify_repository_state=False)
+    lane = lane_registry()[lane_ref]
+    payload = _lane_receipt_payload(
+        lane_ref,
+        plan,
+        [
+            _pass_command_result(
+                command_ref,
+                execution.command_registry()[command_ref].category,
+            )
+            for command_ref in lane.command_refs
+        ],
+    )
+    receipt_path = tmp_path / "receipt.json"
+    _write_receipt(receipt_path, payload)
+    real_read = execution.os.read
+
+    def short_read(descriptor: int, size: int) -> bytes:
+        return real_read(descriptor, min(size, 7))
+
+    monkeypatch.setattr(execution.os, "read", short_read)
+
+    assert (
+        execution._read_lane_receipt(
+            receipt_path,
+            lane_ref=lane_ref,
+            expected_plan=plan,
+        )
+        == payload["receipt_ref"]
+    )
+    assert not receipt_path.exists()
+
+
+def test_private_lane_receipt_rejects_unread_trailing_data(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lane_ref = "docs"
+    plan = build_plan(ROOT, SHA, lane_refs=(lane_ref,), verify_repository_state=False)
+    lane = lane_registry()[lane_ref]
+    payload = _lane_receipt_payload(
+        lane_ref,
+        plan,
+        [
+            _pass_command_result(
+                command_ref,
+                execution.command_registry()[command_ref].category,
+            )
+            for command_ref in lane.command_refs
+        ],
+    )
+    receipt_path = tmp_path / "receipt.json"
+    encoded = json.dumps(payload).encode("utf-8")
+    receipt_path.write_bytes(encoded + b"\x00unsafe-trailer")
+    receipt_path.chmod(0o600)
+    real_read = execution.os.read
+    first_read = True
+
+    def prefix_then_remainder(descriptor: int, size: int) -> bytes:
+        nonlocal first_read
+        if first_read:
+            first_read = False
+            return real_read(descriptor, min(size, len(encoded)))
+        return real_read(descriptor, size)
+
+    monkeypatch.setattr(execution.os, "read", prefix_then_remainder)
+
+    with pytest.raises((json.JSONDecodeError, UnicodeDecodeError)):
+        execution._read_lane_receipt(
+            receipt_path,
+            lane_ref=lane_ref,
+            expected_plan=plan,
+        )
     assert not receipt_path.exists()
 
 
@@ -461,7 +1195,7 @@ def test_private_pytest_lane_accepts_exact_safe_shard_evidence(tmp_path: Path) -
                 **_pass_command_result(lane.command_refs[0], "test"),
                 "pytest_shard_evidence_status": "available",
                 "pytest_shard_plan_fingerprint_ref": expected_plan_ref,
-                "pytest_shard_count": 8,
+                "pytest_shard_count": CANONICAL_PYTEST_SHARD_COUNT,
                 "failed_shard_count": 0,
                 "failed_shard_refs": [],
             }

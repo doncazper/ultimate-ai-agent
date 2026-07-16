@@ -1,18 +1,25 @@
 from __future__ import annotations
 
+import errno
 import hashlib
 import json
 import os
 import signal
 import shutil
 import subprocess
+import sys
 import threading
+import time
 from datetime import timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import pytest
 
+import ultimate_ai_agent.core.communications.matrix_session.backend as matrix_session_backend
+from ultimate_ai_agent.core.communications.matrix_sync import (
+    transport as matrix_transport,
+)
 from ultimate_ai_agent.core.communications.matrix_sync import (
     InMemoryMatrixCredentialWriter,
     MatrixCredentialWriter,
@@ -23,21 +30,35 @@ from ultimate_ai_agent.core.communications.matrix_sync import (
     MatrixSyncTransportError,
     MatrixTransientBatchError,
     MatrixTransientBatchRegistry,
+    bind_matrix_sync_transport_executor,
     matrix_sync_private_ref,
     matrix_sync_request_fingerprint_ref,
+    operation_result_from_transport,
 )
 from ultimate_ai_agent.core.communications.matrix_session.target_policy import (
     matrix_homeserver_ref,
+)
+from ultimate_ai_agent.core.communications.matrix_session.backend import (
+    create_matrix_runtime_snapshot,
+    remove_matrix_runtime_snapshot,
+)
+from ultimate_ai_agent.core.communications.matrix_session.node_runtime import (
+    matrix_node_runtime_environment,
+    resolve_matrix_node_runtime_binding,
 )
 from ultimate_ai_agent.core.communications.matrix_sync.transport import (
     _terminate_process_group,
 )
 from ultimate_ai_agent.core.time import utc_now
 
+from tests.matrix_loopback_resource import matrix_loopback_test_resource
+
 
 ROOT = Path(__file__).resolve().parents[1]
 HARNESS_ORIGIN = "http://127.0.0.1:18008"
 PSEUDONYMIZATION_SALT = b"s" * 32
+_HARNESS_PORT_WAIT_SECONDS = 60
+PYTEST_EXCLUSIVE_RESOURCE_MATRIX_LOOPBACK = True
 
 
 def _sha256(path: Path) -> str:
@@ -103,9 +124,10 @@ class _Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
     def do_GET(self) -> None:  # noqa: N802
-        if self.path.startswith("/_matrix/client/v3/sync") and self.headers.get(
-            "Authorization"
-        ) == "Bearer private-test-token":
+        if (
+            self.path.startswith("/_matrix/client/v3/sync")
+            and self.headers.get("Authorization") == "Bearer private-test-token"
+        ):
             events = [
                 {
                     "event_id": "$private-event",
@@ -172,21 +194,99 @@ class _Handler(BaseHTTPRequestHandler):
 
 @pytest.fixture
 def loopback_server():  # type: ignore[no-untyped-def]
-    server = ThreadingHTTPServer(("127.0.0.1", 18008), _Handler)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    try:
-        yield server
-    finally:
-        server.shutdown()
-        server.server_close()
-        thread.join(timeout=2)
+    with matrix_loopback_test_resource():
+        server = _bind_loopback_server()
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            yield server
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
+
+def _bind_loopback_server() -> ThreadingHTTPServer:
+    deadline = time.monotonic() + _HARNESS_PORT_WAIT_SECONDS
+    while True:
+        try:
+            return ThreadingHTTPServer(("127.0.0.1", 18008), _Handler)
+        except OSError as exc:
+            if exc.errno != errno.EADDRINUSE:
+                raise
+            if time.monotonic() >= deadline:
+                raise TimeoutError("MATRIX_TEST_HARNESS_PORT_BUSY") from exc
+            time.sleep(0.05)
+
+
+def test_loopback_server_binding_retries_bounded_port_contention(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = sys.modules[__name__]
+    expected = object()
+    attempts = 0
+
+    def bind_once_available(*_args: object, **_kwargs: object) -> object:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise OSError(errno.EADDRINUSE, "busy")
+        return expected
+
+    monkeypatch.setattr(module, "ThreadingHTTPServer", bind_once_available)
+    monkeypatch.setattr(time, "sleep", lambda _seconds: None)
+
+    assert _bind_loopback_server() is expected
+    assert attempts == 2
+
+
+def test_loopback_server_binding_rejects_persistent_port_contention(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = sys.modules[__name__]
+    attempts = 0
+
+    def always_busy(*_args: object, **_kwargs: object) -> object:
+        nonlocal attempts
+        attempts += 1
+        raise OSError(errno.EADDRINUSE, "busy")
+
+    monotonic_values = iter((0.0, _HARNESS_PORT_WAIT_SECONDS + 1.0))
+    monkeypatch.setattr(module, "ThreadingHTTPServer", always_busy)
+    monkeypatch.setattr(time, "monotonic", lambda: next(monotonic_values))
+    monkeypatch.setattr(time, "sleep", lambda _seconds: None)
+
+    with pytest.raises(TimeoutError, match="MATRIX_TEST_HARNESS_PORT_BUSY"):
+        _bind_loopback_server()
+
+    assert attempts == 1
+
+
+def test_loopback_server_binding_preserves_non_contention_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = sys.modules[__name__]
+    attempts = 0
+
+    def denied(*_args: object, **_kwargs: object) -> object:
+        nonlocal attempts
+        attempts += 1
+        raise OSError(errno.EACCES, "denied")
+
+    monkeypatch.setattr(module, "ThreadingHTTPServer", denied)
+
+    with pytest.raises(OSError) as caught:
+        _bind_loopback_server()
+
+    assert caught.value.errno == errno.EACCES
+    assert attempts == 1
 
 
 def _transport(
     writer: MatrixCredentialWriter,
     *,
     allow_loopback_harness: bool = True,
+    registry: MatrixTransientBatchRegistry | None = None,
 ) -> MatrixSyncTransport:
     node = Path(shutil.which("node") or "")
     runner = ROOT / "integrations/matrix-client-adapter/src/sync-runner.mjs"
@@ -196,9 +296,211 @@ def _transport(
         expected_node_sha256=_sha256(node.resolve()),
         expected_runner_sha256=_sha256(runner.resolve()),
         credential_writer=writer,
-        registry=MatrixTransientBatchRegistry(),
+        registry=registry or MatrixTransientBatchRegistry(),
         allow_loopback_harness=allow_loopback_harness,
     )
+
+
+def test_transport_executor_binding_is_owner_and_scope_derived() -> None:
+    primary = _transport(
+        InMemoryMatrixCredentialWriter(b"private-test-token"),
+    )
+    target = MatrixSyncTransientTarget(
+        base_url=HARNESS_ORIGIN,
+        since_token="private-since-token",
+        room_ids=("!private-room:example.test",),
+    )
+    first = bind_matrix_sync_transport_executor(
+        primary,
+        target=target,
+        pseudonymization_salt=PSEUDONYMIZATION_SALT,
+    )
+    different_scope = bind_matrix_sync_transport_executor(
+        primary,
+        target=MatrixSyncTransientTarget(base_url=HARNESS_ORIGIN),
+        pseudonymization_salt=PSEUDONYMIZATION_SALT,
+    )
+
+    assert first.binding_ref != different_scope.binding_ref
+    assert "private-since-token" not in repr(first)
+    assert "private-room" not in repr(first)
+
+
+def test_transport_rejects_unreviewed_credential_writer_even_with_known_backend_ref() -> (
+    None
+):
+    class ForgedCredentialWriter(MatrixCredentialWriter):
+        backend_ref = InMemoryMatrixCredentialWriter.backend_ref
+
+        def write_once(
+            self,
+            fd: int,
+            *,
+            credential_item_ref: str,
+            credential_version_ref: str,
+            request_fingerprint_ref: str,
+        ) -> None:
+            del (
+                fd,
+                credential_item_ref,
+                credential_version_ref,
+                request_fingerprint_ref,
+            )
+
+    with pytest.raises(
+        TypeError,
+        match="MATRIX_SYNC_CREDENTIAL_WRITER_OWNER_REQUIRED",
+    ):
+        _transport(ForgedCredentialWriter())
+
+
+def test_in_memory_writer_requires_loopback_and_has_distinct_safe_owner_binding() -> (
+    None
+):
+    first = InMemoryMatrixCredentialWriter(b"private-test-token")
+    second = InMemoryMatrixCredentialWriter(b"private-test-token")
+
+    assert first.binding_ref != second.binding_ref
+    assert "private-test-token" not in first.binding_ref
+    with pytest.raises(
+        TypeError,
+        match="MATRIX_SYNC_CREDENTIAL_WRITER_OWNER_REQUIRED",
+    ):
+        _transport(first, allow_loopback_harness=False)
+
+
+def test_in_memory_writer_rejects_forced_credential_replacement() -> None:
+    writer = InMemoryMatrixCredentialWriter(b"private-test-token")
+    object.__setattr__(writer, "_credential", b"replacement-token")
+    read_fd, write_fd = os.pipe()
+    try:
+        with pytest.raises(
+            MatrixTransientBatchError,
+            match="MATRIX_SYNC_CREDENTIAL_WRITER_BINDING_CHANGED",
+        ):
+            writer.write_once(
+                write_fd,
+                credential_item_ref="credential-item-ref:matrix:test",
+                credential_version_ref="credential-version-ref:matrix:test:1",
+                request_fingerprint_ref="request-fingerprint-ref:matrix:test",
+            )
+    finally:
+        os.close(read_fd)
+        os.close(write_fd)
+
+
+def test_transport_rejects_unreviewed_registry_subclass() -> None:
+    class ForgedRegistry(MatrixTransientBatchRegistry):
+        pass
+
+    node = Path(shutil.which("node") or "").resolve()
+    runner = ROOT / "integrations/matrix-client-adapter/src/sync-runner.mjs"
+    with pytest.raises(
+        TypeError,
+        match="MATRIX_SYNC_TRANSIENT_REGISTRY_OWNER_REQUIRED",
+    ):
+        MatrixSyncTransport(
+            node_binary=node,
+            runner_path=runner,
+            expected_node_sha256=_sha256(node),
+            expected_runner_sha256=_sha256(runner),
+            credential_writer=InMemoryMatrixCredentialWriter(b"private-test-token"),
+            registry=ForgedRegistry(),
+            allow_loopback_harness=True,
+        )
+
+
+def test_transport_executor_rejects_owner_binding_drift(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    transport = _transport(
+        InMemoryMatrixCredentialWriter(b"private-test-token"),
+    )
+    executor = bind_matrix_sync_transport_executor(
+        transport,
+        target=MatrixSyncTransientTarget(base_url=HARNESS_ORIGIN),
+        pseudonymization_salt=PSEUDONYMIZATION_SALT,
+    )
+    monkeypatch.setattr(
+        InMemoryMatrixCredentialWriter,
+        "backend_ref",
+        "credential-backend-ref:matrix:changed",
+    )
+
+    with pytest.raises(RuntimeError, match="MATRIX_SYNC_TRANSPORT_BINDING_CHANGED"):
+        executor(_command())
+
+
+def test_exact_transport_owners_reject_instance_method_shadowing() -> None:
+    unavailable_writer = MatrixCredentialWriter()
+    writer = InMemoryMatrixCredentialWriter(b"private-test-token")
+    registry = MatrixTransientBatchRegistry()
+    transport = _transport(writer)
+
+    for owner, name, replacement in (
+        (
+            unavailable_writer,
+            "write_once",
+            lambda *_args, **_kwargs: None,
+        ),
+        (writer, "write_once", lambda *_args, **_kwargs: None),
+        (registry, "register", lambda *_args, **_kwargs: "forged"),
+        (transport, "execute", lambda *_args, **_kwargs: object()),
+    ):
+        with pytest.raises(AttributeError):
+            setattr(owner, name, replacement)
+
+
+def test_exact_transport_owners_reject_behavior_state_reassignment() -> None:
+    writer = InMemoryMatrixCredentialWriter(b"private-test-token")
+    registry = MatrixTransientBatchRegistry()
+    transport = _transport(writer, registry=registry)
+
+    for owner, name, replacement in (
+        (writer, "_credential", b"replacement"),
+        (registry, "_maximum_entries", 16),
+        (registry, "_ttl", timedelta(seconds=60)),
+        (transport, "_allow_loopback_harness", False),
+        (transport, "_runner_path", Path("/tmp/replacement-runner")),
+    ):
+        with pytest.raises(AttributeError):
+            setattr(owner, name, replacement)
+
+
+def test_forced_transport_state_change_invalidates_executor_binding() -> None:
+    transport = _transport(
+        InMemoryMatrixCredentialWriter(b"private-test-token"),
+    )
+    executor = bind_matrix_sync_transport_executor(
+        transport,
+        target=MatrixSyncTransientTarget(base_url=HARNESS_ORIGIN),
+        pseudonymization_salt=PSEUDONYMIZATION_SALT,
+    )
+    object.__setattr__(transport, "_allow_loopback_harness", False)
+
+    with pytest.raises(RuntimeError, match="MATRIX_SYNC_TRANSPORT_BINDING_CHANGED"):
+        executor(_command())
+
+
+def test_forced_registry_configuration_change_invalidates_transport_binding() -> None:
+    registry = MatrixTransientBatchRegistry()
+    transport = _transport(
+        InMemoryMatrixCredentialWriter(b"private-test-token"),
+        registry=registry,
+    )
+    original_binding_ref = transport.binding_ref
+    object.__setattr__(registry, "_maximum_entries", 16)
+
+    assert transport.binding_ref != original_binding_ref
+    with pytest.raises(
+        MatrixSyncTransportError,
+        match="MATRIX_SYNC_TRANSPORT_OWNER_BINDING_CHANGED",
+    ):
+        transport.execute(
+            _command(),
+            target=MatrixSyncTransientTarget(base_url=HARNESS_ORIGIN),
+            pseudonymization_salt=PSEUDONYMIZATION_SALT,
+        )
 
 
 def test_transport_hands_credential_over_fd_and_keeps_raw_batch_transient(
@@ -221,14 +523,167 @@ def test_transport_hands_credential_over_fd_and_keeps_raw_batch_transient(
     )
     assert batch.events[0].body == "private body"
     assert batch.rooms[0].is_direct is True
-    with pytest.raises(MatrixTransientBatchError, match="MATRIX_TRANSIENT_BATCH_EXPIRED"):
+    with pytest.raises(
+        MatrixTransientBatchError, match="MATRIX_TRANSIENT_BATCH_EXPIRED"
+    ):
         transport.consume_batch(
             result.batch_ref,
             request_fingerprint_ref=command.request_fingerprint_ref,
         )
 
 
-def test_unavailable_credential_writer_fails_before_network(loopback_server: None) -> None:
+def test_transient_batch_scope_mismatch_does_not_destroy_owned_batch(
+    loopback_server: None,
+) -> None:
+    command = _command()
+    transport = _transport(InMemoryMatrixCredentialWriter(b"private-test-token"))
+    result = transport.execute(
+        command,
+        target=MatrixSyncTransientTarget(base_url=HARNESS_ORIGIN),
+        pseudonymization_salt=PSEUDONYMIZATION_SALT,
+    )
+
+    with pytest.raises(
+        MatrixTransientBatchError,
+        match="MATRIX_TRANSIENT_BATCH_SCOPE_MISMATCH",
+    ):
+        transport.consume_batch(
+            result.batch_ref,
+            request_fingerprint_ref="request-fingerprint-ref:matrix-sync:other",
+        )
+
+    batch = transport.consume_batch(
+        result.batch_ref,
+        request_fingerprint_ref=command.request_fingerprint_ref,
+    )
+    assert batch.events[0].body == "private body"
+
+
+def test_transport_result_owns_abort_cleanup_without_exposing_registry(
+    loopback_server: None,
+) -> None:
+    command = _command()
+    transport = _transport(InMemoryMatrixCredentialWriter(b"private-test-token"))
+    transport_result = transport.execute(
+        command,
+        target=MatrixSyncTransientTarget(base_url=HARNESS_ORIGIN),
+        pseudonymization_salt=PSEUDONYMIZATION_SALT,
+    )
+    operation_result = operation_result_from_transport(result=transport_result)
+
+    assert operation_result.abort_callback is not None
+    assert "_discard_callback" not in repr(transport_result)
+    operation_result.abort_callback()
+
+    with pytest.raises(
+        MatrixTransientBatchError,
+        match="MATRIX_TRANSIENT_BATCH_EXPIRED",
+    ):
+        transport.consume_batch(
+            transport_result.batch_ref,
+            request_fingerprint_ref=command.request_fingerprint_ref,
+        )
+
+
+def test_pipe_creation_failure_releases_validated_runtime_snapshot(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    command = _command()
+    transport = _transport(InMemoryMatrixCredentialWriter(b"private-test-token"))
+    snapshot = object()
+    removed: list[object] = []
+    monkeypatch.setattr(
+        matrix_transport,
+        "create_matrix_runtime_snapshot",
+        lambda **_kwargs: snapshot,
+    )
+    monkeypatch.setattr(
+        matrix_transport,
+        "remove_matrix_runtime_snapshot",
+        removed.append,
+    )
+    monkeypatch.setattr(os, "pipe", lambda: (_ for _ in ()).throw(OSError("denied")))
+
+    with pytest.raises(OSError, match="denied"):
+        transport.execute(
+            command,
+            target=MatrixSyncTransientTarget(base_url=HARNESS_ORIGIN),
+            pseudonymization_salt=PSEUDONYMIZATION_SALT,
+        )
+
+    assert removed == [snapshot]
+
+
+def test_post_spawn_descriptor_failure_reaps_process_and_releases_snapshot(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    command = _command()
+    transport = _transport(InMemoryMatrixCredentialWriter(b"private-test-token"))
+    original_pipe = os.pipe
+    original_close = os.close
+    original_popen = subprocess.Popen
+    original_create_snapshot = matrix_transport.create_matrix_runtime_snapshot
+    read_descriptors: list[int] = []
+    processes: list[subprocess.Popen[bytes]] = []
+    snapshots: list[object] = []
+    injected = False
+
+    def capture_pipe() -> tuple[int, int]:
+        read_fd, write_fd = original_pipe()
+        read_descriptors.append(read_fd)
+        return read_fd, write_fd
+
+    def fail_parent_read_close_once(descriptor: int) -> None:
+        nonlocal injected
+        original_close(descriptor)
+        if read_descriptors and descriptor == read_descriptors[0] and not injected:
+            injected = True
+            raise OSError("injected post-spawn close failure")
+
+    def capture_popen(*args, **kwargs):  # type: ignore[no-untyped-def]
+        process = original_popen(*args, **kwargs)
+        processes.append(process)
+        return process
+
+    def capture_snapshot(**kwargs):  # type: ignore[no-untyped-def]
+        snapshot = original_create_snapshot(**kwargs)
+        snapshots.append(snapshot)
+        return snapshot
+
+    monkeypatch.setattr(os, "pipe", capture_pipe)
+    monkeypatch.setattr(os, "close", fail_parent_read_close_once)
+    monkeypatch.setattr(
+        matrix_session_backend,
+        "_validate_snapshot_node_runtime",
+        lambda _snapshot: None,
+    )
+    monkeypatch.setattr(matrix_transport.subprocess, "Popen", capture_popen)
+    monkeypatch.setattr(
+        matrix_transport,
+        "create_matrix_runtime_snapshot",
+        capture_snapshot,
+    )
+
+    with pytest.raises(OSError, match="injected post-spawn close failure"):
+        transport.execute(
+            command,
+            target=MatrixSyncTransientTarget(base_url=HARNESS_ORIGIN),
+            pseudonymization_salt=PSEUDONYMIZATION_SALT,
+        )
+
+    assert injected is True
+    assert len(processes) == 1
+    assert processes[0].poll() is not None
+    assert processes[0].stdin is not None and processes[0].stdin.closed
+    assert processes[0].stdout is not None and processes[0].stdout.closed
+    assert processes[0].stderr is not None and processes[0].stderr.closed
+    assert len(snapshots) == 1
+    assert not snapshots[0].root.exists()  # type: ignore[attr-defined]
+
+
+def test_unavailable_credential_writer_fails_before_network(
+    loopback_server: None,
+) -> None:
     command = _command()
     transport = _transport(MatrixCredentialWriter())
     with pytest.raises(
@@ -247,10 +702,12 @@ def test_loopback_harness_is_disabled_by_default_before_network(
 ) -> None:
     command = _command()
     transport = _transport(
-        InMemoryMatrixCredentialWriter(b"private-test-token"),
+        MatrixCredentialWriter(),
         allow_loopback_harness=False,
     )
-    monkeypatch.setattr(os, "pipe", lambda: pytest.fail("pipe created before scope check"))
+    monkeypatch.setattr(
+        os, "pipe", lambda: pytest.fail("pipe created before scope check")
+    )
     with pytest.raises(
         MatrixSyncTransportError,
         match="MATRIX_SYNC_LOOPBACK_HARNESS_DISABLED",
@@ -308,7 +765,9 @@ def test_transient_scope_drift_is_denied_before_any_pipe_or_process(
     expected: str,
 ) -> None:
     transport = _transport(InMemoryMatrixCredentialWriter(b"private-test-token"))
-    monkeypatch.setattr(os, "pipe", lambda: pytest.fail("pipe created before scope check"))
+    monkeypatch.setattr(
+        os, "pipe", lambda: pytest.fail("pipe created before scope check")
+    )
     with pytest.raises(MatrixSyncTransportError, match=expected):
         transport.execute(
             command,
@@ -322,7 +781,9 @@ def test_exact_pagination_room_and_cursor_are_bound_before_network(
 ) -> None:
     command = _command(MatrixSyncOperation.timeline_paginate_read)
     transport = _transport(InMemoryMatrixCredentialWriter(b"private-test-token"))
-    with pytest.raises(MatrixSyncTransportError, match="MATRIX_SYNC_CURSOR_BINDING_MISMATCH"):
+    with pytest.raises(
+        MatrixSyncTransportError, match="MATRIX_SYNC_CURSOR_BINDING_MISMATCH"
+    ):
         transport.execute(
             command,
             target=MatrixSyncTransientTarget(
@@ -389,6 +850,101 @@ def test_process_cleanup_escalates_term_to_kill_and_reaps(
     assert process.wait_calls == 2
 
 
+def test_node_permission_mode_denies_child_process_runtime(tmp_path: Path) -> None:
+    node = Path(shutil.which("node") or "").resolve()
+    script = tmp_path / "child-process-denied.mjs"
+    script.write_text(
+        (
+            'import { spawnSync } from "node:child_process";\n'
+            'spawnSync("/usr/bin/true");\n'
+        ),
+        encoding="utf-8",
+    )
+    completed = subprocess.run(
+        [
+            str(node),
+            "--permission",
+            f"--allow-fs-read={tmp_path}",
+            str(script),
+        ],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env={
+            "HOME": "/var/empty",
+            "LANG": "C",
+            "PATH": "/usr/bin:/bin",
+            "TMPDIR": "/tmp",
+        },
+        start_new_session=True,
+        shell=False,
+        timeout=5,
+        check=False,
+    )
+    assert completed.returncode != 0
+    assert b"ERR_ACCESS_DENIED" in completed.stderr
+    assert b"ChildProcess" in completed.stderr
+
+
+def test_runtime_snapshot_preserves_selected_node_loader_layout(
+    tmp_path: Path,
+) -> None:
+    node = Path(shutil.which("node") or "").resolve()
+    runner = ROOT / "integrations/matrix-client-adapter/src/sync-runner.mjs"
+    runtime_binding = resolve_matrix_node_runtime_binding(
+        node,
+        expected_node_sha256=_sha256(node),
+        expected=None,
+    )
+    snapshot = create_matrix_runtime_snapshot(
+        adapter_root=runner.parent.parent,
+        node_binary=node,
+        runner_path=runner,
+        expected_node_sha256=_sha256(node),
+        expected_runner_sha256=_sha256(runner),
+        snapshot_parent=tmp_path / "runtime-snapshots",
+        node_runtime_binding=runtime_binding,
+    )
+    try:
+        runtime_environment = matrix_node_runtime_environment(
+            snapshot.node_binary.parent.parent
+        )
+        runtime_environment["DYLD_PRINT_LIBRARIES"] = "1"
+        completed = subprocess.run(
+            [str(snapshot.node_binary), "--version"],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=runtime_environment,
+            start_new_session=True,
+            shell=False,
+            timeout=5,
+            check=False,
+        )
+        assert completed.returncode == 0
+        assert completed.stdout.startswith(b"v")
+        loader_trace = completed.stderr.decode("utf-8", errors="ignore")
+        snapshot_library_root = snapshot.node_binary.parent.parent / "lib"
+        assert sum(
+            os.fspath(snapshot_library_root) in line
+            for line in loader_trace.splitlines()
+        ) == len(runtime_binding.dependencies)
+        assert not any(
+            os.fspath(dependency.source_path) in loader_trace
+            for dependency in runtime_binding.dependencies
+        )
+        for dependency in runtime_binding.dependencies:
+            copied_dependency = (
+                snapshot.node_binary.parent.parent
+                / "lib"
+                / dependency.snapshot_relative_path.name
+            )
+            assert copied_dependency.is_file()
+            assert _sha256(copied_dependency) == dependency.expected_sha256
+    finally:
+        remove_matrix_runtime_snapshot(snapshot)
+
+
 def test_transport_uses_minimal_environment_and_adapter_working_directory(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -398,8 +954,14 @@ def test_transport_uses_minimal_environment_and_adapter_working_directory(
         pid = 73_002
         returncode = 0
 
-        def communicate(self, _payload: bytes, *, timeout: float) -> tuple[bytes, bytes]:
+        def __init__(self, read_fd: int) -> None:
+            self._read_fd = os.dup(read_fd)
+
+        def communicate(
+            self, _payload: bytes, *, timeout: float
+        ) -> tuple[bytes, bytes]:
             assert timeout > 0
+            os.close(self._read_fd)
             return b'{"next_batch":"private-next-token","rooms":{}}', b""
 
         def poll(self) -> int:
@@ -408,13 +970,15 @@ def test_transport_uses_minimal_environment_and_adapter_working_directory(
     def fake_popen(*args: object, **kwargs: object) -> _CompletedProcess:
         captured["args"] = args
         captured.update(kwargs)
-        return _CompletedProcess()
+        read_fd = kwargs["pass_fds"][0]  # type: ignore[index]
+        return _CompletedProcess(read_fd)
 
-    class _NoopCredentialWriter(MatrixCredentialWriter):
-        def write_once(self, fd: int, **_kwargs: str) -> None:
-            del fd
-
-    transport = _transport(_NoopCredentialWriter())
+    transport = _transport(InMemoryMatrixCredentialWriter(b"private-test-token"))
+    monkeypatch.setattr(
+        matrix_session_backend,
+        "_validate_snapshot_node_runtime",
+        lambda _snapshot: None,
+    )
     monkeypatch.setattr(subprocess, "Popen", fake_popen)
     result = transport.execute(
         _command(),
@@ -423,10 +987,11 @@ def test_transport_uses_minimal_environment_and_adapter_working_directory(
     )
     assert result.event_count == 0
     assert captured["shell"] is False
-    assert captured["cwd"] == ROOT / "integrations/matrix-client-adapter"
-    assert captured["env"] == {
-        "HOME": "/var/empty",
-        "LANG": "C",
-        "PATH": "/usr/bin:/bin",
-        "TMPDIR": "/tmp",
-    }
+    argv = captured["args"][0]  # type: ignore[index]
+    assert Path(argv[0]).name == "node-runtime"
+    assert argv[1] == "--permission"
+    assert argv[2] == f"--allow-fs-read={Path(argv[3]).parent.parent}"
+    assert Path(argv[3]).parts[-3:] == ("adapter", "src", "sync-runner.mjs")
+    assert captured["cwd"] == Path(argv[3]).parent.parent
+    runtime_root = Path(argv[0]).parent.parent
+    assert captured["env"] == matrix_node_runtime_environment(runtime_root)

@@ -3,14 +3,16 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
+from collections.abc import Callable
 from datetime import timedelta
 from pathlib import Path
-from collections.abc import Callable
 
 import pytest
 
+import ultimate_ai_agent.core.communications.matrix_session.backend as matrix_session_backend_module
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.authority import AuthorityLeaseStore
 from ultimate_ai_agent.core.communications.matrix_session import (
@@ -23,6 +25,7 @@ from ultimate_ai_agent.core.communications.matrix_session import (
     execute_matrix_session_command,
     issue_exact_matrix_session_lease,
     matrix_session_request_fingerprint_ref,
+    stable_matrix_session_ref,
 )
 from ultimate_ai_agent.core.communications.matrix_session.target_policy import (
     matrix_discovery_freshness_ref,
@@ -31,6 +34,18 @@ from ultimate_ai_agent.core.communications.matrix_session.target_policy import (
 )
 from ultimate_ai_agent.core.communications.matrix_session.observations import (
     MatrixDiscoveryObservationStore,
+)
+from ultimate_ai_agent.core.communications.matrix_session.backend import (
+    MatrixSessionExecutionHandle,
+    create_matrix_runtime_snapshot,
+    default_matrix_session_backend_config,
+    remove_matrix_runtime_snapshot,
+)
+from ultimate_ai_agent.core.communications.matrix_session.node_runtime import (
+    resolve_matrix_node_runtime_binding,
+)
+from ultimate_ai_agent.core.authority.dispatcher import (
+    AuthorityDispatchAtomicStartRecoveryRequired,
 )
 from ultimate_ai_agent.core.time import utc_now
 
@@ -118,7 +133,7 @@ def _backend(
 ) -> MatrixSessionBackend:
     repo = tmp_path / "repo"
     repo.mkdir(parents=True)
-    runner = repo / "runner.py"
+    runner = repo / "runner.mjs"
     helper = repo / "helper"
     wasm = repo / "asset.wasm"
     updates = response_updates or {}
@@ -167,10 +182,10 @@ def _backend(
     runner.write_text(
         runner_body
         or (
-            "import json,sys\n"
-            "json.load(sys.stdin)\n"
-            f"sys.stdout.write({json.dumps(json.dumps(response))})\n"
-            f"raise SystemExit({resolved_exit_code})\n"
+            "import { readFileSync } from 'node:fs';\n"
+            "JSON.parse(readFileSync(0, 'utf8'));\n"
+            f"process.stdout.write({json.dumps(json.dumps(response))});\n"
+            f"process.exit({resolved_exit_code});\n"
         ),
         encoding="utf-8",
     )
@@ -181,6 +196,37 @@ def _backend(
     (runtime_root / "module.mjs").write_text(
         "export const bound = true;\n", encoding="utf-8"
     )
+    node_value = shutil.which("node")
+    if node_value is None:
+        raise RuntimeError("MATRIX_TEST_NODE_22_REQUIRED")
+    node = Path(node_value).resolve()
+    node_runtime_binding = resolve_matrix_node_runtime_binding(
+        node,
+        expected_node_sha256=_digest(node),
+    )
+    runtime_trust_root = repo / "runtime-trust"
+    runtime_trust_root.mkdir()
+    (runtime_trust_root / "node-runtime.json").write_text(
+        json.dumps(
+            {
+                "approved_runtime_bindings": [
+                    {
+                        "binding_ref": node_runtime_binding.binding_ref,
+                        "profile_ref": ("node-runtime-profile-ref:test:22.0.0:arm64"),
+                        "root_sha256": (
+                            node_runtime_binding.executable.expected_sha256
+                        ),
+                        "version_ref": node_runtime_binding.version_ref,
+                    }
+                ],
+                "credential_material_included": False,
+                "raw_paths_included": False,
+                "schema_version": "uaa-matrix-node-runtime-trust.v1",
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
     package_lock = repo / "package-lock.json"
     package_lock.write_text("{}\n", encoding="utf-8")
     runtime_integrity = repo / "runtime-integrity.json"
@@ -189,7 +235,16 @@ def _backend(
             {
                 "schema_version": "uaa-matrix-client-adapter-integrity.v1",
                 "package_lock_sha256": _digest(package_lock),
-                "trees": [{"root": "runtime", "sha256": _tree_digest(runtime_root)}],
+                "trees": [
+                    {
+                        "root": "runtime",
+                        "sha256": _tree_digest(runtime_root),
+                    },
+                    {
+                        "root": "runtime-trust",
+                        "sha256": _tree_digest(runtime_trust_root),
+                    },
+                ],
                 "raw_paths_included": False,
                 "credential_material_included": False,
                 "execution_authority_granted": False,
@@ -201,7 +256,6 @@ def _backend(
     os.chmod(runner, 0o600)
     os.chmod(helper, 0o700)
     os.chmod(wasm, 0o600)
-    node = Path(sys.executable).resolve()
     config = MatrixSessionBackendConfig(
         repo_root=repo,
         adapter_root=repo,
@@ -232,6 +286,315 @@ def _tree_digest(root: Path) -> str:
         digest.update(b"\0")
         digest.update(bytes.fromhex(_digest(path)))
     return digest.hexdigest()
+
+
+def test_backend_binding_includes_complete_node_runtime_closure(
+    tmp_path: Path,
+) -> None:
+    backend = _backend(tmp_path)
+    config = backend.config
+    assert config.node_runtime_binding is not None
+
+    expected = stable_matrix_session_ref(
+        "backend-binding-ref:matrix-session",
+        {
+            "node_sha256": config.expected_node_sha256,
+            "node_runtime_binding_ref": config.node_runtime_binding.binding_ref,
+            "node_runtime_profile_ref": (config.node_runtime_binding.trust_profile_ref),
+            "runner_sha256": config.expected_runner_sha256,
+            "helper_sha256": config.expected_helper_sha256 or "not-installed",
+            "wasm_sha256": _digest(config.wasm_asset_path),
+            "runtime_integrity_sha256": _digest(config.runtime_integrity_path),
+        },
+    )
+
+    assert backend.binding_ref == expected
+
+
+def test_snapshot_rejects_macho_impostor_that_mimics_permission_probe(
+    tmp_path: Path,
+) -> None:
+    backend = _backend(tmp_path)
+    config = backend.config
+    source = tmp_path / "node-impostor.c"
+    impostor = tmp_path / "node-impostor"
+    source.write_text(
+        (
+            "#include <stdio.h>\n"
+            'int main(void) { puts("node22-permission-enforced"); return 0; }\n'
+        ),
+        encoding="utf-8",
+    )
+    completed = subprocess.run(
+        ["/usr/bin/clang", "-O2", "-o", os.fspath(impostor), os.fspath(source)],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        timeout=30,
+        check=False,
+    )
+    assert completed.returncode == 0
+
+    with pytest.raises(
+        ValueError,
+        match="MATRIX_SESSION_NODE_RUNTIME_BINDING_CHANGED",
+    ):
+        create_matrix_runtime_snapshot(
+            adapter_root=config.adapter_root,
+            node_binary=impostor,
+            runner_path=config.runner_path,
+            expected_node_sha256=_digest(impostor),
+            expected_runner_sha256=config.expected_runner_sha256,
+            snapshot_parent=tmp_path / "runtime-snapshots",
+            node_runtime_binding=config.node_runtime_binding,
+        )
+
+
+def test_default_backend_rejects_unapproved_macho_impostor(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = tmp_path / "node-impostor.c"
+    impostor = tmp_path / "node-impostor"
+    source.write_text(
+        (
+            "#include <stdio.h>\n"
+            'int main(void) { puts("node22-permission-enforced"); return 0; }\n'
+        ),
+        encoding="utf-8",
+    )
+    completed = subprocess.run(
+        ["/usr/bin/clang", "-O2", "-o", os.fspath(impostor), os.fspath(source)],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        timeout=30,
+        check=False,
+    )
+    assert completed.returncode == 0
+    monkeypatch.setattr(
+        matrix_session_backend_module.shutil,
+        "which",
+        lambda _name: os.fspath(impostor),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="MATRIX_SESSION_NODE_RUNTIME_NOT_APPROVED",
+    ):
+        default_matrix_session_backend_config(Path(__file__).resolve().parents[1])
+
+
+def test_default_backend_uses_repository_approved_node_profile() -> None:
+    config = default_matrix_session_backend_config(Path(__file__).resolve().parents[1])
+
+    assert config.node_runtime_binding.trust_profile_ref is not None
+    assert (
+        config.expected_node_sha256
+        == config.node_runtime_binding.executable.expected_sha256
+    )
+
+
+def test_abort_closes_streams_and_releases_lifecycle_when_termination_fails() -> None:
+    class Stream:
+        def __init__(self, *, fail_close: bool = False) -> None:
+            self.closed = False
+            self.fail_close = fail_close
+
+        def close(self) -> None:
+            self.closed = True
+            if self.fail_close:
+                raise OSError("injected stream close failure")
+
+    class Process:
+        def __init__(self) -> None:
+            self.stdin = Stream(fail_close=True)
+            self.stdout = Stream()
+            self.stderr = Stream()
+
+    class FailingBackend:
+        def __init__(self) -> None:
+            self.released = False
+
+        def _terminate_process_group(self, _process: object) -> None:
+            raise RuntimeError("MATRIX_SESSION_TEST_TERMINATION_UNCONFIRMED")
+
+        def _release_lifecycle(self) -> None:
+            self.released = True
+
+    backend = FailingBackend()
+    process = Process()
+    handle = MatrixSessionExecutionHandle(
+        backend=backend,  # type: ignore[arg-type]
+        execution_ref="execution-ref:matrix-session:abort-streams",
+        process=process,  # type: ignore[arg-type]
+        commit_validated_at=utc_now(),
+        expected_operation=MatrixSessionOperation.discovery_read,
+        runtime_snapshot=None,  # type: ignore[arg-type]
+    )
+
+    with pytest.raises(
+        AuthorityDispatchAtomicStartRecoveryRequired,
+        match="MATRIX_SESSION_CONFIRMATION_ABORT_CLEANUP_UNCERTAIN",
+    ):
+        handle.abort()
+
+    assert process.stdin.closed is True
+    assert process.stdout.closed is True
+    assert process.stderr.closed is True
+    assert backend.released is True
+
+
+@pytest.mark.parametrize("failure_stage", ("termination", "lifecycle"))
+def test_collect_attempts_all_cleanup_when_one_step_fails(
+    monkeypatch: pytest.MonkeyPatch,
+    failure_stage: str,
+) -> None:
+    class Stream:
+        def __init__(self) -> None:
+            self.closed = False
+
+        def close(self) -> None:
+            self.closed = True
+
+    class Process:
+        def __init__(self) -> None:
+            self.stdin = Stream()
+            self.stdout = Stream()
+            self.stderr = Stream()
+
+    class FailingBackend:
+        def __init__(self) -> None:
+            self.terminated = False
+            self.released = False
+
+        def _terminate_process_group(self, _process: object) -> None:
+            self.terminated = True
+            if failure_stage == "termination":
+                raise RuntimeError("MATRIX_SESSION_TEST_TERMINATION_UNCONFIRMED")
+
+        def _release_lifecycle(self) -> None:
+            self.released = True
+            if failure_stage == "lifecycle":
+                raise RuntimeError("MATRIX_SESSION_TEST_LIFECYCLE_RELEASE_UNCONFIRMED")
+
+    snapshot_released = False
+
+    def fail_collection(*_args: object, **_kwargs: object) -> bytes:
+        raise RuntimeError("MATRIX_SESSION_TEST_COLLECTION_FAILED")
+
+    def record_snapshot_release(_snapshot: object) -> None:
+        nonlocal snapshot_released
+        snapshot_released = True
+
+    monkeypatch.setattr(
+        matrix_session_backend_module,
+        "_communicate_bounded",
+        fail_collection,
+    )
+    monkeypatch.setattr(
+        matrix_session_backend_module,
+        "remove_matrix_runtime_snapshot",
+        record_snapshot_release,
+    )
+    backend = FailingBackend()
+    process = Process()
+    handle = MatrixSessionExecutionHandle(
+        backend=backend,  # type: ignore[arg-type]
+        execution_ref=f"execution-ref:matrix-session:collect-{failure_stage}",
+        process=process,  # type: ignore[arg-type]
+        commit_validated_at=utc_now(),
+        expected_operation=MatrixSessionOperation.credential_auth_create,
+        runtime_snapshot=object(),  # type: ignore[arg-type]
+    )
+
+    with pytest.raises(
+        AuthorityDispatchAtomicStartRecoveryRequired,
+        match="MATRIX_SESSION_COLLECTION_CLEANUP_UNCERTAIN",
+    ):
+        handle.collect()
+
+    assert backend.terminated is True
+    assert backend.released is True
+    assert snapshot_released is True
+    assert process.stdin.closed is True
+    assert process.stdout.closed is True
+    assert process.stderr.closed is True
+
+
+def test_runtime_snapshot_reconciliation_preserves_active_and_removes_stale(
+    tmp_path: Path,
+) -> None:
+    backend = _backend(tmp_path)
+    config = backend.config
+    snapshot_parent = tmp_path / "runtime-snapshots"
+
+    active = create_matrix_runtime_snapshot(
+        adapter_root=config.adapter_root,
+        node_binary=config.node_binary,
+        runner_path=config.runner_path,
+        expected_node_sha256=config.expected_node_sha256,
+        expected_runner_sha256=config.expected_runner_sha256,
+        snapshot_parent=snapshot_parent,
+        node_runtime_binding=config.node_runtime_binding,
+    )
+    sibling = create_matrix_runtime_snapshot(
+        adapter_root=config.adapter_root,
+        node_binary=config.node_binary,
+        runner_path=config.runner_path,
+        expected_node_sha256=config.expected_node_sha256,
+        expected_runner_sha256=config.expected_runner_sha256,
+        snapshot_parent=snapshot_parent,
+        node_runtime_binding=config.node_runtime_binding,
+    )
+    assert active.root.exists()
+    assert sibling.root.exists()
+
+    stale_root = sibling.root
+    os.close(sibling.owner_lock_fd)
+    replacement = create_matrix_runtime_snapshot(
+        adapter_root=config.adapter_root,
+        node_binary=config.node_binary,
+        runner_path=config.runner_path,
+        expected_node_sha256=config.expected_node_sha256,
+        expected_runner_sha256=config.expected_runner_sha256,
+        snapshot_parent=snapshot_parent,
+        node_runtime_binding=config.node_runtime_binding,
+    )
+    assert not stale_root.exists()
+    assert active.root.exists()
+    assert replacement.root.exists()
+
+    remove_matrix_runtime_snapshot(active)
+    remove_matrix_runtime_snapshot(replacement)
+
+
+def test_runtime_snapshot_rejects_symlinked_integrity_tree_directory(
+    tmp_path: Path,
+) -> None:
+    backend = _backend(tmp_path)
+    config = backend.config
+    external = tmp_path / "external-runtime"
+    external.mkdir()
+    (external / "unreviewed.mjs").write_text(
+        "export const unreviewed = true;\n",
+        encoding="utf-8",
+    )
+    (config.adapter_root / "runtime" / "linked").symlink_to(
+        external,
+        target_is_directory=True,
+    )
+
+    with pytest.raises(ValueError, match="MATRIX_SESSION_RUNTIME_TREE_UNSAFE"):
+        create_matrix_runtime_snapshot(
+            adapter_root=config.adapter_root,
+            node_binary=config.node_binary,
+            runner_path=config.runner_path,
+            expected_node_sha256=config.expected_node_sha256,
+            expected_runner_sha256=config.expected_runner_sha256,
+            snapshot_parent=tmp_path / "runtime-snapshots",
+            node_runtime_binding=config.node_runtime_binding,
+        )
 
 
 def test_read_dispatch_revalidates_exact_lease_and_returns_safe_evidence(
@@ -587,11 +950,10 @@ def test_adapter_output_is_terminated_at_the_streaming_byte_limit(
         backend=_backend(
             tmp_path,
             runner_body=(
-                "import json,sys,time\n"
-                "json.load(sys.stdin)\n"
-                f"sys.stdout.write('x' * {128 * 1024 + 1})\n"
-                "sys.stdout.flush()\n"
-                "time.sleep(30)\n"
+                "import { readFileSync } from 'node:fs';\n"
+                "JSON.parse(readFileSync(0, 'utf8'));\n"
+                f"process.stdout.write('x'.repeat({128 * 1024 + 1}));\n"
+                "await new Promise((resolve) => setTimeout(resolve, 30_000));\n"
             ),
         ),
         lease_store=store,

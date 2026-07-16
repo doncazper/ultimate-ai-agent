@@ -1,13 +1,17 @@
 {
   "credential_material_included": false,
   "execution_authority_granted": false,
-  "package_lock_sha256": "8e15a1d1fc44c7988150dc32ee3f5672cb3677f230059afe6b7bd607daf217be",
+  "package_lock_sha256": "60438054831b345d604e3e1b9e33578f7becad1d5ef86c2fb8b521ed67575a2c",
   "raw_paths_included": false,
   "schema_version": "uaa-matrix-client-adapter-integrity.v1",
   "trees": [
     {
       "root": "src",
-      "sha256": "4ccc919fb03bb22dfa7966df3ae2b745e46b4852041257133d406ea4294f1e5d"
+      "sha256": "4a5045c6e4909c6f5e187448c5426adc4f57c57d6a735b8a4af68bc20b9d122c"
+    },
+    {
+      "root": "runtime-trust",
+      "sha256": "5b17d80a161a2629a5ecb34ec87e78b9b4a518e4497650b48650d3d62addcfae"
     },
     {
       "root": "node_modules/@babel/runtime",

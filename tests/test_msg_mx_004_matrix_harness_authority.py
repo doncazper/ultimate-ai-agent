@@ -47,8 +47,20 @@ class _FakeHandle:
         self.operation = operation
         self.execution_ref = execution_ref
         self.commit_validated_at = utc_now()
+        self._collected = False
+        self._finalized = False
+        self._committed = False
+        self._settled = False
+
+    @property
+    def settled(self) -> bool:
+        return self._settled
+
+    def abort(self) -> None:
+        self._settled = True
 
     def collect(self) -> MatrixHarnessBackendResult:
+        self._collected = True
         return MatrixHarnessBackendResult(
             execution_ref=self.execution_ref,
             operation=self.operation,
@@ -68,6 +80,18 @@ class _FakeHandle:
             ),
             safe_summary="Synthetic Matrix harness test backend completed safely.",
         )
+
+    def finalize(self) -> None:
+        assert self._collected
+        self._finalized = True
+
+    def commit(self) -> None:
+        assert self._finalized
+        self._committed = True
+
+    def settle(self) -> None:
+        assert self._committed
+        self._settled = True
 
 
 class _FakeBackend:
@@ -100,6 +124,7 @@ class _FakeBackend:
         lifecycle_generation_ref: str,
         expected_state_ref: str,
         validate_commit_fence: Any,
+        claim_handle: Any = None,
     ) -> _FakeHandle:
         assert lifecycle_generation_ref
         assert expected_state_ref
@@ -108,7 +133,7 @@ class _FakeBackend:
         self.starts.append(operation)
         handle = _FakeHandle(operation, execution_ref)
         handle.commit_validated_at = validated_at
-        return handle
+        return claim_handle(handle) if claim_handle is not None else handle
 
 
 def _command(
