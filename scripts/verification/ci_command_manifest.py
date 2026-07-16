@@ -28,6 +28,8 @@ from scripts.verification.verification_contracts import (  # noqa: E402
     VerificationUnitKind,
     dependency_closed_unit_refs,
     validate_verification_dag,
+    verification_dag_definition_fingerprint,
+    verification_unit_definition_fingerprint,
 )
 from scripts.verification.verification_risk import (  # noqa: E402
     ChangeKind,
@@ -42,7 +44,7 @@ from scripts.verification.verification_risk import (  # noqa: E402
 )
 
 
-SCHEMA_VERSION = "uaa_ci_command_manifest.v2"
+SCHEMA_VERSION = "uaa_ci_command_manifest.v3"
 PROFILE_REF = "ci-profile:merge-macos-v1"
 MACHINE_PROFILE_REF = "machine-profile:macos-arm64-private"
 PRIVATE_BASE_REF = "refs/uaa-ci/base-main"
@@ -764,7 +766,10 @@ VERIFIER_DEFINITION_REFS = (
     "scripts/verification/run_ci_lane.py",
     "scripts/verification/run_pytest_shards.py",
     "scripts/verification/verification_contracts.py",
+    "scripts/verification/verification_execution_identity.py",
+    "scripts/verification/verification_receipt_store.py",
     "scripts/verification/verification_risk.py",
+    "scripts/verification/verification_run_aggregator.py",
     "scripts/verification/verification_scheduler.py",
     "scripts/verification/typescript_binding.py",
 )
@@ -1100,6 +1105,12 @@ def build_plan(
     if failures:
         raise ValueError("invalid canonical CI definition")
     lanes = lane_registry()
+    requested_lanes = tuple(lane_refs) if lane_refs is not None else None
+    if requested_lanes is not None and (
+        len(requested_lanes) != len(set(requested_lanes))
+        or any(lane_ref not in lanes for lane_ref in requested_lanes)
+    ):
+        raise ValueError("selected CI lanes must be unique canonical refs")
     records = (
         tuple(change_records)
         if change_records is not None
@@ -1117,8 +1128,7 @@ def build_plan(
     units_by_ref = {unit.unit_ref: unit for unit in VERIFICATION_DAG}
     if selected_unit_refs is not None:
         selected_units = tuple(selected_unit_refs)
-    elif lane_refs is not None and not shadow_mode:
-        requested_lanes = tuple(lane_refs)
+    elif requested_lanes is not None and not shadow_mode:
         selected_units = tuple(
             unit.unit_ref for unit in VERIFICATION_DAG if unit.lane_ref in requested_lanes
         )
@@ -1140,16 +1150,13 @@ def build_plan(
     ):
         raise ValueError("selected verification unit exceeds the plan risk tier")
 
-    if lane_refs is None:
-        selected = tuple(
-            dict.fromkeys(
-                units_by_ref[unit_ref].lane_ref
-                for unit_ref in selected_units
-                if units_by_ref[unit_ref].lane_ref is not None
-            )
+    selected = tuple(
+        dict.fromkeys(
+            units_by_ref[unit_ref].lane_ref
+            for unit_ref in selected_units
+            if units_by_ref[unit_ref].lane_ref is not None
         )
-    else:
-        selected = tuple(lane_refs)
+    )
     if len(selected) != len(set(selected)) or any(
         lane not in lanes for lane in selected
     ):
@@ -1240,6 +1247,16 @@ def build_plan(
         "change_fingerprint": change_fingerprint(records),
         "escalation_reason_refs": risk_selection.reason_refs,
         "selected_unit_refs": selected_units,
+        "verification_dag_fingerprint": verification_dag_definition_fingerprint(
+            VERIFICATION_DAG
+        ),
+        "selected_unit_definition_fingerprints": tuple(
+            (
+                unit_ref,
+                verification_unit_definition_fingerprint(units_by_ref[unit_ref]),
+            )
+            for unit_ref in selected_units
+        ),
         "selected_test_refs": changed_tests,
         "audit_posture": audit_posture_for_tier(risk_selection.tier),
         "full_pytest_required": (

@@ -1,17 +1,25 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import sys
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from scripts.verification import run_ci_lane as runner
-from scripts.verification.ci_command_manifest import CommandSpec, LaneSpec, build_plan
+from scripts.verification.ci_command_manifest import (
+    CI_JOB_GRAPH,
+    CommandSpec,
+    LaneSpec,
+    build_plan,
+)
 from scripts.verification.pytest_shard_artifacts import safe_test_ref
 from scripts.verification.verification_contracts import VerificationTerminalStatus
+from scripts.verification.verification_receipt_store import VerificationReceiptStore
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -151,14 +159,17 @@ def test_typed_lane_evidence_is_content_bound_and_partial_run_is_blocked() -> No
             "duration_ms": 1,
             "output_byte_count": 0,
             "output_digest": "a" * 64,
-            "result_ref": f"result-ref:ci:{index}",
+            "result_ref": (
+                "result-ref:ci:"
+                + hashlib.sha256(str(index).encode()).hexdigest()
+            ),
         }
         for index, command_ref in enumerate(
             ("command:ci.ruff", "command:ci.self-hosted-contract"), start=1
         )
     ]
     legacy_receipt = {
-        "receipt_ref": "receipt-ref:ci-lane:legacy",
+        "receipt_ref": f"receipt-ref:ci-lane:{'d' * 64}",
         "status": "pass",
         "started_at": "2026-07-15T00:00:00Z",
         "completed_at": "2026-07-15T00:00:01Z",
@@ -172,17 +183,369 @@ def test_typed_lane_evidence_is_content_bound_and_partial_run_is_blocked() -> No
         results=command_results,
         execution_surface_ref="surface-ref:github",
         pytest_collection=None,
+        pre_execution_identity_ref=runner.build_verification_execution_identity(
+            plan,
+            next(unit for unit in CI_JOB_GRAPH if unit.lane_ref == "ci-lint"),
+            execution_surface_ref="surface-ref:github",
+        ).identity_ref,
     )
 
     assert receipt.status is VerificationTerminalStatus.PASSED
+    assert receipt.schema_version == "uaa_verification_receipt.v3"
+    assert receipt.execution_identity_ref is not None
     assert receipt.receipt_ref.endswith(receipt.receipt_fingerprint or "missing")
     assert run.status is VerificationTerminalStatus.BLOCKED
+    assert run.schema_version == "uaa_verification_run.v3"
+    assert run.required_unit_refs == plan.selected_unit_refs
+    assert receipt.unit_ref not in run.missing_unit_refs
     assert run.receipt_refs == (receipt.receipt_ref,)
     serialized = json.dumps(
         {"receipt": asdict(receipt), "run": asdict(run)}, sort_keys=True
     )
     assert "/Users/" not in serialized
     assert "raw_output" not in serialized
+
+
+def test_lane_runner_publishes_typed_v3_proof_to_immutable_store(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = build_plan(ROOT, SHA, verify_repository_state=False)
+    plan_build_events: list[str] = []
+
+    def fake_build_plan(*_args: object, **_kwargs: object):
+        plan_build_events.append("plan")
+        return plan
+
+    monkeypatch.setattr(runner, "build_plan", fake_build_plan)
+
+    def fake_run_command(
+        command: CommandSpec,
+        **_kwargs: object,
+    ) -> dict[str, object]:
+        assert len(plan_build_events) == 2
+        return {
+            "command_ref": command.command_ref,
+            "category": command.category,
+            "status": "pass",
+            "started_at": "2026-07-15T00:00:00Z",
+            "completed_at": "2026-07-15T00:00:01Z",
+            "duration_ms": 1,
+            "output_byte_count": 0,
+            "output_digest": "a" * 64,
+            "result_ref": (
+                "result-ref:ci:"
+                + hashlib.sha256(command.command_ref.encode()).hexdigest()
+            ),
+            "redaction_status": "content_free_output_metadata_only",
+        }
+
+    monkeypatch.setattr(runner, "_run_command", fake_run_command)
+    store_root = tmp_path / "proof-store"
+    summary_file = tmp_path / "summary.md"
+
+    receipt = runner.run_lane(
+        "ci-lint",
+        repository_sha=SHA,
+        temp_root=tmp_path / "temp",
+        verification_store_root=store_root,
+        summary_file=summary_file,
+    )
+
+    store = VerificationReceiptStore(store_root)
+    receipt_digests = tuple(path.stem for path in (store_root / "receipts").glob("*.json"))
+    run_digests = tuple(path.stem for path in (store_root / "runs").glob("*.json"))
+    assert receipt["status"] == "pass"
+    assert len(receipt_digests) == len(run_digests) == 1
+    assert store.get_receipt(receipt_digests[0]).schema_version == (
+        "uaa_verification_receipt.v3"
+    )
+    assert store.get_run_manifest(run_digests[0]).schema_version == (
+        "uaa_verification_run.v3"
+    )
+    assert "Stored typed proof: verification-artifact:receipt:" in (
+        summary_file.read_text(encoding="utf-8")
+    )
+    assert plan_build_events == ["plan", "plan", "plan"]
+
+
+def test_typescript_terminal_status_cannot_change_prestart_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = build_plan(ROOT, SHA, verify_repository_state=False)
+    unit = next(
+        unit for unit in CI_JOB_GRAPH if unit.lane_ref == "ci-control-center-frontend"
+    )
+    declared = SimpleNamespace(
+        declared_project_fingerprint=plan.typescript_project_fingerprint
+    )
+    runtime = SimpleNamespace(
+        resolved_runtime_fingerprint="e" * 64,
+        typescript_version="7.0.2",
+    )
+    monkeypatch.setattr(runner, "build_declared_typescript_binding", lambda _root: declared)
+    monkeypatch.setattr(
+        runner,
+        "resolve_typescript_runtime_binding",
+        lambda _root, _declared: runtime,
+    )
+    pre_identity_ref = runner.build_verification_execution_identity(
+        plan,
+        unit,
+        execution_surface_ref="surface-ref:github",
+        typescript_runtime_fingerprint=runtime.resolved_runtime_fingerprint,
+        typescript_version_ref="typescript-version:7.0.2",
+    ).identity_ref
+
+    def build(status: str):
+        result_ref = "result-ref:ci:" + hashlib.sha256(status.encode()).hexdigest()
+        return runner._build_typed_lane_evidence(
+            lane_ref="ci-control-center-frontend",
+            legacy_receipt={
+                "receipt_ref": f"receipt-ref:ci-lane:{'f' * 64}",
+                "status": "pass" if status == "pass" else "fail",
+                "started_at": "2026-07-15T00:00:00Z",
+                "completed_at": "2026-07-15T00:00:01Z",
+                "duration_ms": 1_000,
+            },
+            full_plan=plan,
+            results=(
+                [
+                    {
+                        "command_ref": "command:frontend.check",
+                        "status": status,
+                        "duration_ms": 1,
+                        "output_byte_count": 0,
+                        "output_digest": "a" * 64,
+                        "result_ref": result_ref,
+                    }
+                ]
+            ),
+            execution_surface_ref="surface-ref:github",
+            pytest_collection=None,
+            pre_typescript_runtime=runtime,
+            pre_execution_identity_ref=pre_identity_ref,
+        )[0]
+
+    passed = build("pass")
+    failed = build("fail")
+
+    assert passed.execution_identity_ref == failed.execution_identity_ref
+    assert passed.typescript_binding_posture == "resolved"
+    assert failed.typescript_binding_posture == "resolved"
+    assert failed.status is VerificationTerminalStatus.FAILED
+    with pytest.raises(ValueError, match="pre-start runtime binding"):
+        replace(
+            failed,
+            typescript_binding_posture="unavailable",
+            typescript_project_fingerprint=None,
+            typescript_runtime_fingerprint=None,
+            typescript_version_ref=None,
+        ).validate()
+
+
+def test_failed_multicommand_lane_emits_exact_executed_prefix() -> None:
+    plan = build_plan(ROOT, SHA, verify_repository_state=False)
+    unit = next(unit for unit in CI_JOB_GRAPH if unit.lane_ref == "ci-lint")
+    result_ref = "result-ref:ci:" + hashlib.sha256(b"failed-ruff").hexdigest()
+    pre_identity_ref = runner.build_verification_execution_identity(
+        plan,
+        unit,
+        execution_surface_ref="surface-ref:github",
+    ).identity_ref
+
+    receipt, run = runner._build_typed_lane_evidence(
+        lane_ref="ci-lint",
+        legacy_receipt={
+            "receipt_ref": f"receipt-ref:ci-lane:{'d' * 64}",
+            "status": "fail",
+            "started_at": "2026-07-15T00:00:00Z",
+            "completed_at": "2026-07-15T00:00:01Z",
+            "duration_ms": 1_000,
+        },
+        full_plan=plan,
+        results=[
+            {
+                "command_ref": "command:ci.ruff",
+                "status": "fail",
+                "duration_ms": 1,
+                "output_byte_count": 0,
+                "output_digest": "a" * 64,
+                "result_ref": result_ref,
+            }
+        ],
+        execution_surface_ref="surface-ref:github",
+        pytest_collection=None,
+        pre_execution_identity_ref=pre_identity_ref,
+    )
+
+    assert receipt.schema_version == "uaa_verification_receipt.v3"
+    assert receipt.status is VerificationTerminalStatus.FAILED
+    assert receipt.command_refs == ("command:ci.ruff",)
+    assert receipt.executed_command_result_bindings == (
+        ("command:ci.ruff", result_ref),
+    )
+    assert run.status is VerificationTerminalStatus.FAILED
+
+
+def test_not_affected_visual_scope_is_bound_and_never_claimed_executed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = build_plan(
+        ROOT,
+        SHA,
+        frontend_visual_scope="not_affected",
+        verify_repository_state=False,
+    )
+    observed_scopes: list[str | None] = []
+
+    def fake_build_plan(*_args: object, **kwargs: object):
+        observed_scopes.append(kwargs.get("frontend_visual_scope"))
+        return plan
+
+    def fake_run_command(
+        command: CommandSpec,
+        **_kwargs: object,
+    ) -> dict[str, object]:
+        return {
+            "command_ref": command.command_ref,
+            "category": command.category,
+            "status": "pass",
+            "started_at": "2026-07-15T00:00:00Z",
+            "completed_at": "2026-07-15T00:00:01Z",
+            "duration_ms": 1,
+            "output_byte_count": 0,
+            "output_digest": "a" * 64,
+            "result_ref": (
+                "result-ref:ci:"
+                + hashlib.sha256(command.command_ref.encode()).hexdigest()
+            ),
+            "redaction_status": "content_free_output_metadata_only",
+        }
+
+    monkeypatch.setattr(runner, "build_plan", fake_build_plan)
+    monkeypatch.setattr(runner, "_run_command", fake_run_command)
+    store_root = tmp_path / "proof-store"
+
+    runner.run_lane(
+        "visual-regression",
+        repository_sha=SHA,
+        temp_root=tmp_path / "temp",
+        visual_scope="not_affected",
+        verification_store_root=store_root,
+    )
+
+    store = VerificationReceiptStore(store_root)
+    receipt_digest = next((store_root / "receipts").glob("*.json")).stem
+    typed = store.get_receipt(receipt_digest)
+    assert observed_scopes == ["not_affected", "not_affected", "not_affected"]
+    assert typed.schema_version == "uaa_verification_receipt.v2"
+    assert typed.status is VerificationTerminalStatus.BLOCKED
+    assert typed.executed_command_result_bindings == ()
+
+
+def test_typed_frontend_release_reuse_remains_v2_blocked(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = build_plan(ROOT, SHA, verify_repository_state=False)
+    monkeypatch.setattr(runner, "build_plan", lambda *_args, **_kwargs: plan)
+    monkeypatch.setattr(
+        runner,
+        "resolve_typescript_runtime_binding",
+        lambda *_args, **_kwargs: pytest.fail(
+            "synthetic TypeScript dependency reuse must not probe runtime"
+        ),
+    )
+
+    def fake_run_command(
+        command: CommandSpec,
+        **_kwargs: object,
+    ) -> dict[str, object]:
+        return {
+            "command_ref": command.command_ref,
+            "category": command.category,
+            "status": "pass",
+            "started_at": "2026-07-15T00:00:00Z",
+            "completed_at": "2026-07-15T00:00:01Z",
+            "duration_ms": 1,
+            "output_byte_count": 0,
+            "output_digest": "a" * 64,
+            "result_ref": (
+                "result-ref:ci:"
+                + hashlib.sha256(command.command_ref.encode()).hexdigest()
+            ),
+            "redaction_status": "content_free_output_metadata_only",
+        }
+
+    monkeypatch.setattr(runner, "_run_command", fake_run_command)
+    store_root = tmp_path / "proof-store"
+    runner.run_lane(
+        "frontend",
+        repository_sha=SHA,
+        temp_root=tmp_path / "temp",
+        verification_store_root=store_root,
+    )
+
+    store = VerificationReceiptStore(store_root)
+    receipt_digest = next((store_root / "receipts").glob("*.json")).stem
+    typed = store.get_receipt(receipt_digest)
+    assert typed.schema_version == "uaa_verification_receipt.v2"
+    assert typed.status is VerificationTerminalStatus.BLOCKED
+    assert typed.typescript_binding_posture == "not_applicable"
+    assert typed.execution_identity_ref is None
+
+
+def test_typed_plan_mutation_before_popen_blocks_suite_attempt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lane_plan = build_plan(
+        ROOT,
+        SHA,
+        lane_refs=("ci-pytest-shards",),
+        verify_repository_state=False,
+    )
+    full_plan = build_plan(ROOT, SHA, verify_repository_state=False)
+    changed_plan = replace(full_plan, platform_fingerprint="c" * 64)
+    plans = iter((lane_plan, full_plan, changed_plan))
+    monkeypatch.setattr(runner, "build_plan", lambda *_args, **_kwargs: next(plans))
+    events: list[str] = []
+
+    class FakeFullSuiteLock:
+        def __init__(self, **_kwargs: object) -> None:
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def ensure_start_available(self) -> None:
+            events.append("validated-lock")
+
+        def record_start(self) -> None:
+            events.append("recorded-start")
+
+    monkeypatch.setattr(runner, "FullSuiteLock", FakeFullSuiteLock)
+    monkeypatch.setattr(runner, "_git_head", lambda _repo: SHA)
+    monkeypatch.setattr(
+        runner.subprocess,
+        "Popen",
+        lambda *_args, **_kwargs: events.append("popen"),
+    )
+
+    with pytest.raises(ValueError, match="plan changed before command start"):
+        runner.run_lane(
+            "ci-pytest-shards",
+            repository_sha=SHA,
+            temp_root=tmp_path / "temp",
+            verification_store_root=tmp_path / "proof-store",
+        )
+
+    assert events == ["validated-lock"]
 
 
 def test_receipt_writer_rejects_outside_parent_before_creating_it(

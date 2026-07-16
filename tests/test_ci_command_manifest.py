@@ -163,6 +163,7 @@ def test_plan_binds_sha_locks_commands_shards_and_visual_scope() -> None:
         verify_repository_state=False,
     )
     assert plan.schema_version == manifest.SCHEMA_VERSION
+    assert plan.schema_version == "uaa_ci_command_manifest.v3"
     assert plan.repository_sha == SHA
     assert len(plan.dependency_lock_fingerprints) == len(manifest.LOCKFILE_REFS)
     assert plan.selected_command_refs == (
@@ -183,6 +184,12 @@ def test_plan_binds_sha_locks_commands_shards_and_visual_scope() -> None:
     assert len(plan.typescript_project_fingerprint) == 64
     assert plan.typescript_project_posture == "project_bound"
     assert len(plan.plan_fingerprint) == 64
+    assert plan.verification_dag_fingerprint == (
+        manifest.verification_dag_definition_fingerprint(manifest.VERIFICATION_DAG)
+    )
+    assert tuple(
+        unit_ref for unit_ref, _fingerprint in plan.selected_unit_definition_fingerprints
+    ) == plan.selected_unit_refs
     plan_payload = asdict(plan)
     plan_payload.pop("plan_fingerprint")
     assert manifest.verification_plan_fingerprint(plan_payload) == plan.plan_fingerprint
