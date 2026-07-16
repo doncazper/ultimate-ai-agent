@@ -517,6 +517,31 @@ def test_diagnostic_reproduction_lane_is_non_gating_and_rejects_typed_files(
         )
 
 
+def test_typed_non_diagnostic_lane_rejects_execution_surface_override(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    command = CommandSpec(
+        "command:test.pass",
+        (sys.executable, "-c", "raise SystemExit(0)"),
+        (),
+        "test",
+        10,
+    )
+    _patch_lane(monkeypatch, (command,))
+
+    with pytest.raises(ValueError, match="limited to diagnostic reproduction"):
+        runner.run_lane(
+            "test-lane",
+            repository_sha=SHA,
+            temp_root=tmp_path / "temp",
+            verification_receipt_file=tmp_path / "temp" / "receipt.json",
+            verification_run_manifest_file=tmp_path / "temp" / "run.json",
+            full_suite_lock_mode="private",
+            execution_surface="github",
+        )
+
+
 def test_main_prints_safe_failed_shard_reproduction_ref(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

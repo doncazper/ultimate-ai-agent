@@ -760,6 +760,10 @@ def run_lane(
     )
     if resolved_execution_surface not in {"github", "local", "private"}:
         raise ValueError("unknown verification execution surface")
+    if not diagnostic_reproduction and execution_surface is not None:
+        raise ValueError(
+            "execution surface override is limited to diagnostic reproduction"
+        )
     if diagnostic_reproduction and resolved_execution_surface not in {
         "local",
         "private",
