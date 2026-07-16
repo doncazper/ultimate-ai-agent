@@ -493,6 +493,55 @@ class IsolatedPrivateExecutor:
             ),
         )
 
+    def _materialize_attested_origin_main(self, origin_main_sha: str) -> None:
+        """Fetch and prove the exact advertised main commit under a private ref."""
+
+        if SHA_PATTERN.fullmatch(origin_main_sha) is None:
+            raise RemoteHeadAttestationError(
+                "reason-ref:private-ci:remote-advertisement-invalid"
+            )
+        try:
+            completed = subprocess.run(
+                (
+                    "git",
+                    "fetch",
+                    "--no-tags",
+                    "--force",
+                    "origin",
+                    f"+refs/heads/main:{PRIVATE_BASE_REF}",
+                ),
+                cwd=self.repo,
+                check=False,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
+                timeout=REMOTE_HEAD_QUERY_TIMEOUT_SECONDS,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            raise RemoteHeadAttestationError(
+                "reason-ref:private-ci:remote-attestation-unavailable"
+            ) from exc
+        if completed.returncode != 0:
+            raise RemoteHeadAttestationError(
+                "reason-ref:private-ci:remote-attestation-unavailable"
+            )
+        try:
+            materialized_sha = self._git(
+                "rev-parse",
+                "--verify",
+                f"{PRIVATE_BASE_REF}^{{commit}}",
+                timeout=10,
+            )
+        except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+            raise RemoteHeadAttestationError(
+                "reason-ref:private-ci:remote-main-object-mismatch"
+            ) from exc
+        if materialized_sha != origin_main_sha:
+            raise RemoteHeadAttestationError(
+                "reason-ref:private-ci:remote-main-object-mismatch"
+            )
+
     def _preflight(self, repository_sha: str) -> tuple[str, str]:
         if not SHA_PATTERN.fullmatch(repository_sha):
             raise ValueError("private CI requires an exact lowercase SHA")
@@ -508,10 +557,12 @@ class IsolatedPrivateExecutor:
                 "reason-ref:private-ci:current-branch-required"
             )
         branch_ref = f"refs/heads/{current_branch}"
-        return self._attest_live_remote_heads(
+        origin_main_sha, source_branch_binding_ref = self._attest_live_remote_heads(
             repository_sha,
             branch_ref=branch_ref,
         )
+        self._materialize_attested_origin_main(origin_main_sha)
+        return origin_main_sha, source_branch_binding_ref
 
     def prepare_scope(
         self,
@@ -631,13 +682,14 @@ class IsolatedPrivateExecutor:
         timings.append(("phase-ref:private-ci:worktree", duration_ms))
         result_refs.append(result_ref)
         for argv in (
-            ("git", "checkout", "--detach", repository_sha),
             (
                 "git",
-                "update-ref",
-                PRIVATE_BASE_REF,
-                scope.base_sha,
+                "fetch",
+                "--no-tags",
+                "origin",
+                f"+{PRIVATE_BASE_REF}:{PRIVATE_BASE_REF}",
             ),
+            ("git", "checkout", "--detach", repository_sha),
             ("git", "remote", "remove", "origin"),
         ):
             returncode, duration_ms, result_ref = _safe_subprocess(
@@ -647,7 +699,7 @@ class IsolatedPrivateExecutor:
             result_refs.append(result_ref)
             if returncode != 0:
                 raise RuntimeError("private CI standalone clone isolation failed")
-        self._validate_worktree(worktree, repository_sha)
+        self._validate_worktree(worktree, repository_sha, scope.base_sha)
         isolated_scope, isolated_plan = build_private_verification_scope(
             worktree,
             repository_sha=repository_sha,
@@ -682,7 +734,11 @@ class IsolatedPrivateExecutor:
         )
 
     @staticmethod
-    def _validate_worktree(worktree: Path, repository_sha: str) -> None:
+    def _validate_worktree(
+        worktree: Path,
+        repository_sha: str,
+        base_sha: str,
+    ) -> None:
         if worktree.is_symlink() or not worktree.is_dir():
             raise ValueError("private CI worktree is unsafe")
         for ref in (
@@ -739,8 +795,8 @@ class IsolatedPrivateExecutor:
             text=True,
             timeout=10,
         ).stdout.strip()
-        if not SHA_PATTERN.fullmatch(base):
-            raise ValueError("private CI base ref is invalid")
+        if base != base_sha or not SHA_PATTERN.fullmatch(base):
+            raise ValueError("private CI base ref differs from its attested SHA")
         ancestor = subprocess.run(
             ("git", "merge-base", "--is-ancestor", base, repository_sha),
             cwd=worktree,

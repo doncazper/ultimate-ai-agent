@@ -721,6 +721,52 @@ def test_ledger_rejects_symlink_fifo_corruption_and_tamper(tmp_path: Path) -> No
         valid.read()
 
 
+def test_ledger_migrates_unbound_private_history_as_non_authoritative(
+    tmp_path: Path,
+) -> None:
+    ledger = AttemptLedger(tmp_path / "legacy-ledger")
+    ledger._prepare_directory()
+    legacy_record = {
+        "event": "private_start",
+        "repository_sha": SHA_A,
+        "series_ref": "series-ref:ci:legacy",
+        "status": "private_verifying",
+        "reason_ref": "reason-ref:github:prestart-failure",
+        "sequence": 1,
+        "previous_record_ref": "ledger-ref:ci:genesis",
+    }
+    legacy_record["record_ref"] = ledger._record_ref(legacy_record)
+    ledger.path.write_text(json.dumps([legacy_record]), encoding="utf-8")
+    ledger.path.chmod(0o600)
+
+    migrated = ledger.read()
+
+    assert migrated[0]["event"] == "legacy_private_start"
+    assert migrated[0]["status"] == "legacy_non_authoritative"
+    assert migrated[0]["reason_ref"] == (
+        "reason-ref:private-ci:legacy-unbound-history"
+    )
+    assert migrated[0]["record_ref"] == ledger._record_ref(migrated[0])
+    assert ledger.read() == migrated
+
+    executor = FakeExecutor()
+    result = FallbackController(
+        ledger,
+        executor,
+        sleeper=lambda _seconds: None,
+    ).evaluate(
+        observation(
+            conclusion="failure",
+            started=False,
+            reason="reason-ref:github:prestart-failure",
+        ),
+        series_ref="series-ref:ci:legacy",
+    )
+
+    assert result.state == FallbackState.PRIVATE_GREEN_PENDING_GITHUB
+    assert executor.calls == [SHA_A]
+
+
 def test_ledger_rejects_raw_or_unknown_event_fields(tmp_path: Path) -> None:
     ledger = AttemptLedger(tmp_path / "ledger")
     with pytest.raises(ValueError, match="forbidden fields"):

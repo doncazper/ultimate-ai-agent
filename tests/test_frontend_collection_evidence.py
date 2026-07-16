@@ -65,16 +65,15 @@ def _vitest_payload(
         if status_counts["pending"] + status_counts["todo"] == len(items)
         else "passed"
     )
-    suite_multiplier = 2
     return {
-        "numFailedTestSuites": suite_multiplier * int(suite_status == "failed"),
+        "numFailedTestSuites": int(suite_status == "failed"),
         "numFailedTests": status_counts["failed"],
-        "numPassedTestSuites": suite_multiplier * int(suite_status == "passed"),
+        "numPassedTestSuites": int(suite_status == "passed"),
         "numPassedTests": status_counts["passed"],
-        "numPendingTestSuites": suite_multiplier * int(suite_status == "pending"),
+        "numPendingTestSuites": int(suite_status == "pending"),
         "numPendingTests": status_counts["pending"],
         "numTodoTests": status_counts["todo"],
-        "numTotalTestSuites": suite_multiplier,
+        "numTotalTestSuites": 1,
         "numTotalTests": len(items),
         "snapshot": {},
         "startTime": 1_700_000_000_000,
@@ -217,6 +216,23 @@ def test_vitest_failed_run_remains_valid_collection_evidence(tmp_path: Path) -> 
 
     assert result["result_status"] == "failed"
     assert result["failed_test_count"] == 1
+    assert not raw.exists()
+
+
+def test_vitest_file_suite_count_does_not_count_describe_ancestors(
+    tmp_path: Path,
+) -> None:
+    directory = _private_directory(tmp_path)
+    assertion = _vitest_assertion(name="uses one file-level suite")
+    assertion["ancestorTitles"] = ["outer describe", "nested describe"]
+    assertion["fullName"] = "outer describe nested describe uses one file-level suite"
+    raw = _write_raw(directory, _vitest_payload([assertion]))
+
+    result = evidence.consume_vitest_json_result(raw, repository_root=ROOT)
+
+    assert result["collected_test_count"] == 1
+    assert result["passed_test_count"] == 1
+    assert result["result_status"] == "passed"
     assert not raw.exists()
 
 

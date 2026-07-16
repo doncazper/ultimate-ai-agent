@@ -435,7 +435,6 @@ def consume_vitest_json_result(
 
     identities: list[tuple[str, str]] = []
     observed = {"passed": 0, "failed": 0, "skipped": 0, "todo": 0}
-    suite_members: dict[tuple[str, tuple[str, ...]], list[str]] = {}
     observed_file_statuses: dict[str, str] = {}
     for raw_suite in suites:
         suite = _require_dict(raw_suite, "vitest-suite")
@@ -471,10 +470,8 @@ def consume_vitest_json_result(
             )
             if len(ancestors) > MAX_JSON_DEPTH:
                 _fail("vitest-ancestor-depth")
-            validated_ancestors = tuple(
+            for ancestor in ancestors:
                 _require_string(ancestor, "vitest-ancestor-title")
-                for ancestor in ancestors
-            )
             status_value = _require_string(
                 assertion["status"], "vitest-test-status"
             )
@@ -484,12 +481,6 @@ def consume_vitest_json_result(
             observed[status] += 1
             suite_failed = suite_failed or status == "failed"
             suite_pending = suite_pending and status in {"skipped", "todo"}
-            for prefix_length in range(len(validated_ancestors) + 1):
-                suite_members.setdefault(
-                    (relative_path, validated_ancestors[:prefix_length]), []
-                ).append(status)
-                if len(suite_members) > MAX_SUITES:
-                    _fail("vitest-suite-count")
             identity = _identity_hash(relative_path, full_name)
             identities.append((identity, status))
         expected_suite_status = (
@@ -503,24 +494,17 @@ def consume_vitest_json_result(
 
     if len({identity for identity, _status in identities}) != len(identities):
         _fail("vitest-duplicate-test")
-    derived_suite_statuses = {"passed": 0, "failed": 0, "pending": 0}
-    for member_statuses in suite_members.values():
-        derived_status = (
-            "failed"
-            if "failed" in member_statuses
-            else "pending"
-            if all(status in {"skipped", "todo"} for status in member_statuses)
-            else "passed"
-        )
-        derived_suite_statuses[derived_status] += 1
-    if counts["numTotalTestSuites"] != len(suite_members) or counts[
+    file_status_counts = {"passed": 0, "failed": 0, "pending": 0}
+    for file_status in observed_file_statuses.values():
+        file_status_counts[file_status] += 1
+    if counts["numTotalTestSuites"] != len(observed_file_statuses) or counts[
         "numTotalTestSuites"
-    ] != sum(derived_suite_statuses.values()):
+    ] != sum(file_status_counts.values()):
         _fail("vitest-suite-count-mismatch")
     if (
-        counts["numPassedTestSuites"] != derived_suite_statuses["passed"]
-        or counts["numFailedTestSuites"] != derived_suite_statuses["failed"]
-        or counts["numPendingTestSuites"] != derived_suite_statuses["pending"]
+        counts["numPassedTestSuites"] != file_status_counts["passed"]
+        or counts["numFailedTestSuites"] != file_status_counts["failed"]
+        or counts["numPendingTestSuites"] != file_status_counts["pending"]
     ):
         _fail("vitest-suite-count-mismatch")
     if counts["numTotalTests"] != len(identities) or counts[

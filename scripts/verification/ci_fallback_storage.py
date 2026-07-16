@@ -165,7 +165,12 @@ class AttemptLedger:
         return f"ledger-ref:ci:{digest}"
 
     @classmethod
-    def _validate_event(cls, event: dict[str, Any]) -> None:
+    def _validate_event(
+        cls,
+        event: dict[str, Any],
+        *,
+        allow_legacy_unbound_private: bool = False,
+    ) -> None:
         if set(event) - cls._ALLOWED_EVENT_FIELDS:
             raise ValueError("CI attempt ledger event contains forbidden fields")
         sha = event.get("repository_sha")
@@ -256,8 +261,49 @@ class AttemptLedger:
             validate_utc_timestamp(str(run_created_at))
         if event.get("event") in {"private_start", "private_terminal"} and (
             source_branch_binding_ref is None
-        ):
+        ) and not allow_legacy_unbound_private:
             raise ValueError("private CI ledger event requires a branch binding")
+
+    @classmethod
+    def _migrate_legacy_unbound_private_records(
+        cls,
+        records: list[dict[str, Any]],
+    ) -> tuple[list[dict[str, Any]], bool]:
+        migrated = False
+        normalized: list[dict[str, Any]] = []
+        previous_ref = "ledger-ref:ci:genesis"
+        for sequence, record in enumerate(records, start=1):
+            event = {
+                key: value
+                for key, value in record.items()
+                if key not in {"sequence", "previous_record_ref", "record_ref"}
+            }
+            is_legacy_unbound = (
+                event.get("event") in {"private_start", "private_terminal"}
+                and event.get("source_branch_binding_ref") is None
+            )
+            cls._validate_event(
+                event,
+                allow_legacy_unbound_private=is_legacy_unbound,
+            )
+            if is_legacy_unbound:
+                migrated = True
+                event = {
+                    **event,
+                    "event": f"legacy_{event['event']}",
+                    "status": "legacy_non_authoritative",
+                    "reason_ref": "reason-ref:private-ci:legacy-unbound-history",
+                }
+                cls._validate_event(event)
+            normalized_record = {
+                **event,
+                "sequence": sequence,
+                "previous_record_ref": previous_ref,
+            }
+            normalized_record["record_ref"] = cls._record_ref(normalized_record)
+            previous_ref = normalized_record["record_ref"]
+            normalized.append(normalized_record)
+        return normalized, migrated
 
     def _read_locked(self) -> list[dict[str, Any]]:
         try:
@@ -299,14 +345,10 @@ class AttemptLedger:
                 or record.get("record_ref") != self._record_ref(record)
             ):
                 raise ValueError("CI attempt ledger hash chain is invalid")
-            self._validate_event(
-                {
-                    key: value
-                    for key, value in record.items()
-                    if key not in {"sequence", "previous_record_ref", "record_ref"}
-                }
-            )
             previous_ref = record["record_ref"]
+        records, migrated = self._migrate_legacy_unbound_private_records(records)
+        if migrated:
+            self._atomic_write(records)
         return records
 
     def _atomic_write(self, records: list[dict[str, Any]]) -> None:

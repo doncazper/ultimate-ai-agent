@@ -151,6 +151,12 @@ def test_private_preflight_requires_clean_pushed_canonical_origin(
         "_live_advertised_heads",
         lambda: (("b" * 40, "refs/heads/main"), (SHA, "refs/heads/feature")),
     )
+    materialized: list[str] = []
+    monkeypatch.setattr(
+        executor,
+        "_materialize_attested_origin_main",
+        materialized.append,
+    )
     with pytest.raises(ValueError, match="canonical UAA"):
         executor._preflight(SHA)
     values[("remote", "get-url", "origin")] = (
@@ -159,6 +165,7 @@ def test_private_preflight_requires_clean_pushed_canonical_origin(
     base_sha, branch_binding_ref = executor._preflight(SHA)
     assert base_sha == "b" * 40
     assert branch_binding_ref.startswith(execution.BRANCH_BINDING_PREFIX)
+    assert materialized == ["b" * 40]
 
 
 @pytest.mark.parametrize(
@@ -264,6 +271,25 @@ def test_live_remote_head_query_fails_closed_when_unavailable(
         executor._live_advertised_heads()
 
 
+def test_attested_main_fetch_fails_closed_when_materialized_sha_differs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    executor = execution.IsolatedPrivateExecutor(tmp_path)
+    monkeypatch.setattr(
+        execution.subprocess,
+        "run",
+        lambda *args, **_kwargs: subprocess.CompletedProcess(args=args, returncode=0),
+    )
+    monkeypatch.setattr(executor, "_git", lambda *_args, **_kwargs: "c" * 40)
+
+    with pytest.raises(
+        execution.RemoteHeadAttestationError,
+        match="reason-ref:private-ci:remote-main-object-mismatch",
+    ):
+        executor._materialize_attested_origin_main("b" * 40)
+
+
 def _run_git(repo: Path, *args: str) -> str:
     completed = subprocess.run(
         ("git", *args),
@@ -317,6 +343,46 @@ def test_real_git_remote_attestation_binds_exact_branch_and_main(
         repository_sha=feature_sha,
         origin_main_sha=main_sha,
     )
+
+
+def test_real_git_preflight_fetches_newly_advertised_main_object(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    remote, worktree, _main_sha, feature_sha = _local_remote_branch_fixture(tmp_path)
+    updater = tmp_path / "updater"
+    subprocess.run(
+        ("git", "clone", "--branch", "main", str(remote), str(updater)),
+        check=True,
+        capture_output=True,
+        timeout=20,
+    )
+    _run_git(updater, "config", "user.name", "CI Fixture")
+    _run_git(updater, "config", "user.email", "ci-fixture@invalid.example")
+    (updater / "main-only.txt").write_text("new main\n", encoding="utf-8")
+    _run_git(updater, "add", "main-only.txt")
+    _run_git(updater, "commit", "-m", "advance remote main")
+    advertised_main_sha = _run_git(updater, "rev-parse", "HEAD")
+    _run_git(updater, "push", "origin", "main")
+    missing_before = subprocess.run(
+        ("git", "cat-file", "-e", f"{advertised_main_sha}^{{commit}}"),
+        cwd=worktree,
+        check=False,
+        capture_output=True,
+        timeout=10,
+    )
+    assert missing_before.returncode != 0
+    monkeypatch.setattr(execution, "ALLOWED_ORIGIN_URLS", frozenset({str(remote)}))
+
+    base_sha, _branch_binding_ref = execution.IsolatedPrivateExecutor(
+        worktree
+    )._preflight(feature_sha)
+
+    assert base_sha == advertised_main_sha
+    assert _run_git(worktree, "rev-parse", execution.PRIVATE_BASE_REF) == (
+        advertised_main_sha
+    )
+    _run_git(worktree, "cat-file", "-e", f"{advertised_main_sha}^{{commit}}")
 
 
 def test_real_git_remote_descendant_does_not_attest_local_ancestor(
@@ -388,7 +454,11 @@ def test_private_worktree_rejects_symlinked_selected_command_path(
         },
     )
     with pytest.raises(ValueError, match="command repository path"):
-        execution.IsolatedPrivateExecutor._validate_worktree(worktree, SHA)
+        execution.IsolatedPrivateExecutor._validate_worktree(
+            worktree,
+            SHA,
+            "b" * 40,
+        )
 
 
 def test_private_worktree_binds_exact_detached_sha(
@@ -417,7 +487,11 @@ def test_private_worktree_binds_exact_detached_sha(
         ),
     )
     with pytest.raises(ValueError, match="SHA changed"):
-        execution.IsolatedPrivateExecutor._validate_worktree(worktree, SHA)
+        execution.IsolatedPrivateExecutor._validate_worktree(
+            worktree,
+            SHA,
+            "b" * 40,
+        )
 
 
 def test_private_execution_uses_standalone_clone_not_shared_worktree() -> None:
@@ -428,6 +502,7 @@ def test_private_execution_uses_standalone_clone_not_shared_worktree() -> None:
     assert 'self._git("rev-parse", "refs/remotes/origin/main")' not in source
     assert 'self._git("branch", "-r", "--contains"' not in source
     assert "PRIVATE_BASE_REF" in source
+    assert 'f"+{PRIVATE_BASE_REF}:{PRIVATE_BASE_REF}"' in source
     assert '("git", "remote", "remove", "origin")' in source
     assert '"worktree", "add"' not in source
 

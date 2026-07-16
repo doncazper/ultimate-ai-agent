@@ -650,6 +650,14 @@ def _typed_output_digest(results: list[dict[str, Any]]) -> str:
     ).hexdigest()
 
 
+def _execution_failure_reason_ref(results: list[dict[str, Any]]) -> str:
+    """Keep explicitly observed infrastructure outcomes non-deterministic."""
+
+    if any(result.get("status") == "timed_out" for result in results):
+        return "reason-ref:verification:infrastructure-failure"
+    return "reason-ref:verification:deterministic-code-failure"
+
+
 def _build_typed_lane_evidence(
     *,
     lane_ref: str,
@@ -1314,9 +1322,10 @@ def run_lane(
                             "pytest_collection_evidence_reason_ref": (
                                 "reason-ref:ci:pytest-collection-evidence-rejected"
                             ),
-                            "status": "fail",
                         }
                     )
+                    if result["status"] == "pass":
+                        result["status"] = "fail"
                 else:
                     result.update(
                         {
@@ -1408,9 +1417,7 @@ def run_lane(
             failure_reason_ref = "reason-ref:verification:not-applicable"
             failure_evidence_ref = None
             if typed_receipt.status is VerificationTerminalStatus.FAILED:
-                failure_reason_ref = (
-                    "reason-ref:verification:deterministic-code-failure"
-                )
+                failure_reason_ref = _execution_failure_reason_ref(results)
                 failure_evidence_ref = typed_receipt.result_refs[0]
             elif typed_receipt.status is VerificationTerminalStatus.BLOCKED:
                 failure_reason_ref = "reason-ref:verification:execution-blocked"

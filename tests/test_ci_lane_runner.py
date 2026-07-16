@@ -685,6 +685,86 @@ def test_exclusive_typed_lane_publishes_terminal_execution_fence(
     assert starts == ["command:pytest.sharded-suite"]
 
 
+def test_exclusive_typed_lane_timeout_is_not_persisted_as_deterministic(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lane_plan = build_plan(
+        ROOT,
+        SHA,
+        lane_refs=("ci-pytest-shards",),
+        verify_repository_state=False,
+    )
+    full_plan = build_plan(ROOT, SHA, verify_repository_state=False)
+    monkeypatch.setattr(
+        runner,
+        "build_plan",
+        lambda *_args, **kwargs: lane_plan if kwargs.get("lane_refs") else full_plan,
+    )
+    monkeypatch.setattr(runner, "_git_head", lambda _repo: SHA)
+    monkeypatch.setattr(runner, "FullSuiteLock", _FakeFullSuiteLock)
+    monkeypatch.setattr(runner.importlib.util, "find_spec", lambda _name: object())
+    monkeypatch.setattr(
+        runner,
+        "expected_pytest_shard_plan_ref",
+        lambda: "pytest-shard-plan-ref:sha256:" + "a" * 64,
+    )
+
+    def fake_run_command(
+        command: CommandSpec,
+        *,
+        validate_start=None,
+        before_start=None,
+        **_kwargs: object,
+    ) -> dict[str, object]:
+        assert validate_start is not None
+        assert before_start is not None
+        validate_start()
+        before_start()
+        return {
+            "command_ref": command.command_ref,
+            "category": command.category,
+            "status": "timed_out",
+            "started_at": "2026-07-15T00:00:00Z",
+            "completed_at": "2026-07-15T00:10:00Z",
+            "duration_ms": 600_000,
+            "output_byte_count": 0,
+            "output_digest": "c" * 64,
+            "result_ref": "result-ref:ci:"
+            + hashlib.sha256(command.command_ref.encode()).hexdigest(),
+            "redaction_status": "content_free_output_metadata_only",
+        }
+
+    monkeypatch.setattr(runner, "_run_command", fake_run_command)
+    fence_root = tmp_path / "execution-fence"
+    receipt = runner.run_lane(
+        "ci-pytest-shards",
+        repository_sha=SHA,
+        temp_root=tmp_path / "temp",
+        verification_store_root=tmp_path / "proof-store",
+        verification_execution_fence_root=fence_root,
+    )
+
+    assert receipt["status"] == "fail"
+    assert receipt["command_results"][0]["status"] == "timed_out"
+    unit = next(unit for unit in CI_JOB_GRAPH if unit.unit_ref == "pytest-shards")
+    identity = build_verification_execution_identity(
+        full_plan,
+        unit,
+        execution_surface_ref="surface-ref:github",
+    )
+    decision = VerificationExecutionFence(fence_root).begin(identity)
+    assert (
+        decision.disposition
+        is VerificationExecutionFenceDisposition.TERMINAL_PROOF_REUSED
+    )
+    assert decision.terminal_proof is not None
+    assert decision.terminal_proof.failure_reason_ref == (
+        "reason-ref:verification:infrastructure-failure"
+    )
+    assert decision.terminal_proof.deterministic_failure is False
+
+
 def test_github_output_is_exact_v3_non_authoritative_envelope(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
