@@ -18,10 +18,6 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scripts.verify_release_lanes import LaneCommand, release_lanes  # noqa: E402
-from scripts.verification.changed_path_selector import (  # noqa: E402
-    FOCUSED_PYTEST_REFS_BY_SOURCE,
-    select_paths as select_changed_paths,
-)
 from scripts.verification.pytest_shard_plan import (  # noqa: E402
     CANONICAL_PYTEST_SHARD_COUNT,
 )
@@ -42,12 +38,15 @@ from scripts.verification.verification_risk import (  # noqa: E402
     ChangeKind,
     ChangeRecord,
     RISK_MANIFEST_VERSION,
+    RiskSelection,
     audit_posture_for_tier,
     change_fingerprint,
-    classify_changes,
     risk_definition_payload,
     risk_manifest_fingerprint,
-    unit_refs_for_selection,
+)
+from scripts.verification.verification_selection import (  # noqa: E402
+    EXACT_SOURCE_TEST_OWNERSHIP,
+    select_verification,
 )
 
 
@@ -790,6 +789,10 @@ VERIFIER_DEFINITION_REFS = (
     "scripts/verification/verification_risk.py",
     "scripts/verification/verification_run_aggregator.py",
     "scripts/verification/verification_scheduler.py",
+    "scripts/verification/verification_selection.py",
+    "scripts/verification/verification_shadow_comparison.py",
+    "scripts/verification/verifier_value_audit.py",
+    "scripts/verification/verifier_value_measurement.py",
     "scripts/verification/typescript_binding.py",
 )
 
@@ -954,7 +957,7 @@ def validate_definition() -> list[str]:
                 f"CI lane must map to exactly one verification unit: "
                 f"{lane_ref}:{unit_count}"
             )
-    for source_ref, test_refs in FOCUSED_PYTEST_REFS_BY_SOURCE.items():
+    for source_ref, test_refs in EXACT_SOURCE_TEST_OWNERSHIP.items():
         if not test_refs or len(test_refs) != len(set(test_refs)):
             failures.append(f"invalid focused test ownership: {source_ref}")
         for ref in (source_ref, *test_refs):
@@ -1156,10 +1159,22 @@ def build_plan(
         )
     )
     implicit_full = change_records is None and affected_paths is None
-    risk_selection = classify_changes(
+    canonical_selection = select_verification(
         records,
+        verification_dag=VERIFICATION_DAG,
+        full_unit_refs=tuple(unit.unit_ref for unit in CI_JOB_GRAPH),
+        repo=repo,
         force_full=force_full or implicit_full,
         unsafe_path_refs=tuple(unsafe_path_refs),
+    )
+    risk_selection = RiskSelection(
+        tier=canonical_selection.risk_tier,
+        change_records=records,
+        changed_path_refs=canonical_selection.changed_path_refs,
+        matched_rule_refs=canonical_selection.matched_rule_refs,
+        reason_refs=canonical_selection.escalation_reason_refs,
+        surface_refs=canonical_selection.surface_refs,
+        fail_closed=canonical_selection.fail_closed,
     )
     units_by_ref = {unit.unit_ref: unit for unit in VERIFICATION_DAG}
     if selected_unit_refs is not None:
@@ -1169,10 +1184,7 @@ def build_plan(
             unit.unit_ref for unit in VERIFICATION_DAG if unit.lane_ref in requested_lanes
         )
     elif change_records is not None or affected_paths is not None or shadow_mode:
-        selected_units = unit_refs_for_selection(
-            risk_selection,
-            full_unit_refs=tuple(unit.unit_ref for unit in CI_JOB_GRAPH),
-        )
+        selected_units = canonical_selection.selected_unit_refs
     else:
         selected_units = tuple(unit.unit_ref for unit in CI_JOB_GRAPH)
     if len(selected_units) != len(set(selected_units)) or any(
@@ -1229,12 +1241,7 @@ def build_plan(
     if visual_scope not in {"affected", "not_affected", "unknown_fail_closed"}:
         raise ValueError("invalid frontend visual scope")
     definition_ref = definition_fingerprint()
-    canonical_test_selection = select_changed_paths(
-        list(risk_selection.changed_path_refs),
-        tier="affected",
-        repo=repo,
-    )
-    canonical_test_refs = canonical_test_selection.selected_test_refs
+    canonical_test_refs = canonical_selection.selected_test_refs
     if selected_test_refs is None:
         changed_tests = canonical_test_refs
     else:

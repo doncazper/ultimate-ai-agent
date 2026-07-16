@@ -21,7 +21,7 @@ from scripts.verification.ci_fallback_contracts import (
 )
 
 
-FULL_SUITE_SHARED_DIRECTORY = Path("/tmp/uaa-ci-full-suite.v2")
+FULL_SUITE_SHARED_DIRECTORY = Path("/tmp/uaa-ci-full-suite.v3")
 FULL_SUITE_LOCK_PATH = FULL_SUITE_SHARED_DIRECTORY / "active.lock"
 FULL_SUITE_ATTEMPT_PATH = FULL_SUITE_SHARED_DIRECTORY / "attempts.json"
 SHARED_FULL_SUITE_DIRECTORY_MODE = 0o770
@@ -425,6 +425,7 @@ class FullSuiteLock:
         wait_seconds: float = 0,
         repository_sha: str | None = None,
         attempt_scope: str = "private",
+        resource_attempt_fingerprint: str | None = None,
         attempt_path: Path = FULL_SUITE_ATTEMPT_PATH,
         shared_across_accounts: bool | None = None,
     ) -> None:
@@ -432,6 +433,7 @@ class FullSuiteLock:
         self.wait_seconds = wait_seconds
         self.repository_sha = repository_sha
         self.attempt_scope = attempt_scope
+        self.resource_attempt_fingerprint = resource_attempt_fingerprint
         self.attempt_path = attempt_path
         self.shared_across_accounts = (
             path == FULL_SUITE_LOCK_PATH
@@ -477,11 +479,26 @@ class FullSuiteLock:
         if self.descriptor is None:
             raise RuntimeError("full-suite lock must be held before start")
         if self.repository_sha is None:
+            if self.resource_attempt_fingerprint is not None:
+                raise ValueError(
+                    "full-suite resource attempt requires an exact SHA"
+                )
             return
         if not SHA_PATTERN.fullmatch(self.repository_sha):
             raise ValueError("full-suite attempt requires an exact SHA")
         if self.attempt_scope not in {"github", "private"}:
             raise ValueError("full-suite attempt scope is invalid")
+        if (
+            not isinstance(self.resource_attempt_fingerprint, str)
+            or re.fullmatch(
+                r"[0-9a-f]{64}",
+                self.resource_attempt_fingerprint,
+            )
+            is None
+        ):
+            raise ValueError(
+                "full-suite attempt requires an exact resource fingerprint"
+            )
 
     def _read_attempt_records(self) -> list[dict[str, str]]:
         if self.shared_across_accounts:
@@ -520,6 +537,9 @@ class FullSuiteLock:
                 base = {
                     "repository_sha": record.get("repository_sha"),
                     "attempt_scope": record.get("attempt_scope"),
+                    "resource_attempt_fingerprint": record.get(
+                        "resource_attempt_fingerprint"
+                    ),
                 }
                 expected = "attempt-ref:ci:" + hashlib.sha256(
                     json.dumps(base, sort_keys=True, separators=(",", ":")).encode()
@@ -527,6 +547,11 @@ class FullSuiteLock:
                 if (
                     not SHA_PATTERN.fullmatch(str(base["repository_sha"]))
                     or base["attempt_scope"] not in {"github", "private"}
+                    or re.fullmatch(
+                        r"[0-9a-f]{64}",
+                        str(base["resource_attempt_fingerprint"]),
+                    )
+                    is None
                     or record.get("attempt_ref") != expected
                 ):
                     raise ValueError("full-suite attempt ledger is corrupt")
@@ -535,13 +560,17 @@ class FullSuiteLock:
             os.close(descriptor)
 
     def _assert_attempt_available(self, records: list[dict[str, str]]) -> None:
-        key = (self.repository_sha, self.attempt_scope)
+        key = (self.repository_sha, self.resource_attempt_fingerprint)
         if any(
-            (record.get("repository_sha"), record.get("attempt_scope")) == key
+            (
+                record.get("repository_sha"),
+                record.get("resource_attempt_fingerprint"),
+            )
+            == key
             for record in records
         ):
             raise FullSuiteAttemptAlreadyRecordedError(
-                "full suite was already attempted for this exact SHA"
+                "full suite resource was already attempted for this exact state"
             )
 
     def ensure_start_available(self) -> None:
@@ -559,6 +588,7 @@ class FullSuiteLock:
         record = {
             "repository_sha": self.repository_sha,
             "attempt_scope": self.attempt_scope,
+            "resource_attempt_fingerprint": self.resource_attempt_fingerprint,
         }
         record["attempt_ref"] = "attempt-ref:ci:" + hashlib.sha256(
             json.dumps(record, sort_keys=True, separators=(",", ":")).encode()

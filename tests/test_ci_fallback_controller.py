@@ -42,6 +42,8 @@ SHA_B = "b" * 40
 SHA_C = "c" * 40
 BASE_SHA = "f" * 40
 SOURCE_BRANCH_BINDING_REF = "branch-binding-ref:private-ci:" + "b" * 64
+RESOURCE_ATTEMPT_A = "1" * 64
+RESOURCE_ATTEMPT_B = "2" * 64
 
 
 def private_scope(
@@ -831,13 +833,14 @@ def test_full_suite_attempt_bound_is_shared_across_local_accounts(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    shared_dir = tmp_path / "shared-v2"
+    shared_dir = tmp_path / "shared-v3"
     lock_path = shared_dir / "active.lock"
     attempts = shared_dir / "attempts.json"
     with FullSuiteLock(
         lock_path,
         repository_sha=SHA_A,
         attempt_scope="github",
+        resource_attempt_fingerprint=RESOURCE_ATTEMPT_A,
         attempt_path=attempts,
         shared_across_accounts=True,
     ) as lock:
@@ -853,6 +856,7 @@ def test_full_suite_attempt_bound_is_shared_across_local_accounts(
             lock_path,
             repository_sha=SHA_A,
             attempt_scope="github",
+            resource_attempt_fingerprint=RESOURCE_ATTEMPT_A,
             attempt_path=attempts,
             shared_across_accounts=True,
         ) as lock:
@@ -863,7 +867,7 @@ def test_full_suite_attempt_bound_is_shared_across_local_accounts(
     assert attempts.stat().st_mode & 0o777 == 0o660
 
 
-def test_full_suite_attempts_are_bounded_per_sha_and_execution_plane(
+def test_full_suite_attempts_are_bounded_across_execution_planes(
     tmp_path: Path,
 ) -> None:
     lock_path = tmp_path / "full-suite.lock"
@@ -872,6 +876,7 @@ def test_full_suite_attempts_are_bounded_per_sha_and_execution_plane(
         lock_path,
         repository_sha=SHA_A,
         attempt_scope="private",
+        resource_attempt_fingerprint=RESOURCE_ATTEMPT_A,
         attempt_path=attempts,
     ) as lock:
         lock.record_start()
@@ -882,14 +887,28 @@ def test_full_suite_attempts_are_bounded_per_sha_and_execution_plane(
             lock_path,
             repository_sha=SHA_A,
             attempt_scope="private",
+            resource_attempt_fingerprint=RESOURCE_ATTEMPT_A,
             attempt_path=attempts,
         )
         with lock:
             lock.ensure_start_available()
+    with pytest.raises(
+        FullSuiteAttemptAlreadyRecordedError, match="already attempted"
+    ):
+        with FullSuiteLock(
+            lock_path,
+            repository_sha=SHA_A,
+            attempt_scope="github",
+            resource_attempt_fingerprint=RESOURCE_ATTEMPT_A,
+            attempt_path=attempts,
+        ) as lock:
+            lock.ensure_start_available()
+
     with FullSuiteLock(
         lock_path,
         repository_sha=SHA_A,
         attempt_scope="github",
+        resource_attempt_fingerprint=RESOURCE_ATTEMPT_B,
         attempt_path=attempts,
     ) as lock:
         lock.record_start()

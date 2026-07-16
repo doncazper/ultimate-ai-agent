@@ -15,6 +15,7 @@ if str(ROOT) not in sys.path:
 
 from scripts.verification.ci_command_manifest import (  # noqa: E402
     CI_JOB_GRAPH,
+    VERIFICATION_DAG,
     build_plan,
 )
 from scripts.verification.verification_contracts import (  # noqa: E402
@@ -24,10 +25,9 @@ from scripts.verification.verification_contracts import (  # noqa: E402
 from scripts.verification.verification_risk import (  # noqa: E402
     ChangeKind,
     ChangeRecord,
-    classify_changes,
     normalize_repo_path,
-    unit_refs_for_selection,
 )
+from scripts.verification.verification_selection import select_verification  # noqa: E402
 
 
 MAX_CHANGED_RECORDS = 512
@@ -212,30 +212,30 @@ def plan_changed_verification(
     )
     records = changed_records(repo, base_sha=base_sha, head_sha=head_sha)
     unsafe_refs = unsafe_path_refs(repo, head_sha=head_sha, records=records)
-    selection = classify_changes(
+    selection = select_verification(
         records,
+        verification_dag=VERIFICATION_DAG,
+        full_unit_refs=tuple(unit.unit_ref for unit in CI_JOB_GRAPH),
+        repo=repo,
         force_full=force_full,
         unsafe_path_refs=unsafe_refs,
-    )
-    selected_units = unit_refs_for_selection(
-        selection,
-        full_unit_refs=tuple(unit.unit_ref for unit in CI_JOB_GRAPH),
     )
     return build_plan(
         repo,
         head_sha,
         change_records=records,
-        selected_unit_refs=selected_units,
+        selected_unit_refs=selection.selected_unit_refs,
         base_sha=base_sha,
         force_full=force_full,
-        shadow_mode=True,
+        shadow_mode=False,
         unsafe_path_refs=unsafe_refs,
+        selected_test_refs=selection.selected_test_refs,
     )
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Plan UAA's canonical risk-based verification DAG in shadow mode."
+        description="Plan UAA's active canonical risk-based verification DAG."
     )
     parser.add_argument("--repo", default=".")
     parser.add_argument("--base-sha", required=True)
@@ -260,7 +260,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.json:
         print(json.dumps(payload, indent=2, sort_keys=True))
     else:
-        print("UAA risk-based verification shadow plan")
+        print("UAA canonical risk-based verification plan")
         print(f"Risk tier: {plan.risk_tier.value}")
         print(f"Exact SHA: {plan.repository_sha}")
         print(f"Changed paths: {len(plan.changed_path_refs)}")
@@ -268,7 +268,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Audit posture: {plan.audit_posture}")
         print(f"Plan fingerprint: {plan.plan_fingerprint}")
         print(
-            "Authority: advisory shadow only; existing merge gates remain authoritative"
+            "Authority: selection only; exact receipts and GitHub gates remain authoritative"
         )
     return 0
 

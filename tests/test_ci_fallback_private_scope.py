@@ -109,22 +109,24 @@ def test_scope_builder_selects_only_focused_and_explicit_diagnostic_units(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     selection = SimpleNamespace(
-        tier=VerificationRiskTier.TIER_3,
+        risk_tier=VerificationRiskTier.TIER_3,
         surface_refs=("surface-ref:verification",),
         changed_path_refs=("tests/test_ci_fallback_controller.py",),
-        reason_refs=("reason-ref:risk:verification-topology",),
-    )
-    monkeypatch.setattr(private_scope, "changed_records", lambda *_args, **_kwargs: ())
-    monkeypatch.setattr(private_scope, "unsafe_path_refs", lambda *_args, **_kwargs: ())
-    monkeypatch.setattr(private_scope, "classify_changes", lambda *_args, **_kwargs: selection)
-    monkeypatch.setattr(
-        private_scope,
-        "unit_refs_for_selection",
-        lambda *_args, **_kwargs: (
+        escalation_reason_refs=("reason-ref:risk:verification-topology",),
+        selected_test_refs=("tests/test_ci_fallback_controller.py",),
+        selected_unit_refs=(
             "pytest-shards",
             "control-center-frontend",
             "foundation-gate-report",
         ),
+        full_gate_required=True,
+    )
+    monkeypatch.setattr(private_scope, "changed_records", lambda *_args, **_kwargs: ())
+    monkeypatch.setattr(private_scope, "unsafe_path_refs", lambda *_args, **_kwargs: ())
+    monkeypatch.setattr(
+        private_scope,
+        "select_verification",
+        lambda *_args, **_kwargs: selection,
     )
     plans: list[SimpleNamespace] = []
 
@@ -195,18 +197,20 @@ def test_scope_builder_uses_canonical_source_owned_test_from_exact_repo(
     (tmp_path / test_ref).parent.mkdir(parents=True)
     (tmp_path / test_ref).write_text("def test_value(): pass\n", encoding="utf-8")
     selection = SimpleNamespace(
-        tier=VerificationRiskTier.TIER_2,
+        risk_tier=VerificationRiskTier.TIER_2,
         surface_refs=("surface-ref:python", "surface-ref:core"),
         changed_path_refs=(source_ref,),
-        reason_refs=("reason-ref:risk:bounded-core",),
+        escalation_reason_refs=("reason-ref:risk:bounded-core",),
+        selected_test_refs=(test_ref,),
+        selected_unit_refs=("pytest-shards",),
+        full_gate_required=False,
     )
     monkeypatch.setattr(private_scope, "changed_records", lambda *_args, **_kwargs: ())
     monkeypatch.setattr(private_scope, "unsafe_path_refs", lambda *_args, **_kwargs: ())
-    monkeypatch.setattr(private_scope, "classify_changes", lambda *_args, **_kwargs: selection)
     monkeypatch.setattr(
         private_scope,
-        "unit_refs_for_selection",
-        lambda *_args, **_kwargs: ("pytest-shards",),
+        "select_verification",
+        lambda *_args, **_kwargs: selection,
     )
     calls: list[dict[str, object]] = []
     units_by_ref = {unit.unit_ref: unit for unit in private_scope.VERIFICATION_DAG}
@@ -248,10 +252,10 @@ def test_scope_builder_uses_canonical_source_owned_test_from_exact_repo(
 @pytest.mark.parametrize(
     ("path_ref", "selector_reason_ref"),
     [
-        ("unclassified/new_surface.xyz", "reason-ref:verification:unknown-path"),
+        ("unclassified/new_surface.xyz", "reason-ref:risk:unclassified-path"),
         (
             "scripts/verification/new_topology.py",
-            "reason-ref:verification:critical-topology-change",
+            "reason-ref:risk:verification-topology",
         ),
     ],
 )

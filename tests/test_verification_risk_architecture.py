@@ -30,6 +30,7 @@ from scripts.verification.verification_contracts import (
     verification_run_manifest_fingerprint,
     verification_run_manifest_payload,
     verification_dag_definition_fingerprint,
+    verification_value_record_fingerprint,
     validate_verification_dag,
 )
 from scripts.verification.verification_risk import (
@@ -511,17 +512,33 @@ def test_typed_contracts_validate_with_content_free_refs_and_hashes() -> None:
         merge_gate_satisfied=False,
     )
     value = VerificationValueRecord(
-        schema_version="uaa_verification_value.v1",
-        value_ref="value:risk-focused",
+        schema_version="uaa_verification_value.v2",
+        value_ref="value:verification:" + "0" * 64,
         unit_ref=receipt.unit_ref,
         verifier_ref="verifier:risk-focused",
         synthetic_mutation_ref="mutation:risk-focused",
         defect_ref="defect:risk-focused",
         outcome="killed",
-        receipt_ref=receipt.receipt_ref,
+        receipt_ref="receipt:verification-value:" + "0" * 64,
         overlap_ref="overlap:none",
         disposition="retain",
         duration_ms=250,
+        repository_sha=plan.repository_sha,
+        dependency_state_fingerprint=dependency_state_fingerprint(plan),
+        platform_fingerprint=plan.platform_fingerprint,
+        command_manifest_fingerprint=plan.command_manifest_fingerprint,
+        verifier_definition_fingerprint=plan.verifier_definition_fingerprint,
+        test_collection_fingerprint=plan.test_collection_fingerprint,
+        probe_definition_fingerprint=DIGEST,
+        detection_ref="detection:verification:killed",
+        value_fingerprint="0" * 64,
+    )
+    value_fingerprint = verification_value_record_fingerprint(value)
+    value = replace(
+        value,
+        value_ref=f"value:verification:{value_fingerprint}",
+        receipt_ref=f"receipt:verification-value:{value_fingerprint}",
+        value_fingerprint=value_fingerprint,
     )
 
     for contract in (_unit("unit:a"), plan, receipt, run, gate, value):

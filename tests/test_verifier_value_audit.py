@@ -19,9 +19,9 @@ def test_verifier_value_audit_is_registry_bound_and_non_authoritative() -> None:
         "verifier-measurement-fingerprint:sha256:"
     )
     covered = {ref for value in first["verifiers"] for ref in value["coverage_refs"]}
-    assert covered == audit.required_coverage_refs()
-    assert "selector:command-ref:ruff-changed" in covered
-    assert "selector:command-ref:verifier-value-audit" in covered
+    assert audit.required_coverage_refs().issubset(covered)
+    assert "selector:command:ci.ruff" in covered
+    assert "measurement-ref:synthetic-verifier-value" in covered
 
 
 def test_verifier_value_audit_rejects_duplicate_defect_claims() -> None:

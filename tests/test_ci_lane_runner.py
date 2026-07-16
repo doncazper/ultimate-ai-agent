@@ -2321,6 +2321,12 @@ def test_pytest_lane_uses_host_lock_with_exact_sha_and_execution_plane(
         temp_root=tmp_path / "temp",
     )
     assert receipt["status"] == "pass"
+    resource_attempt_fingerprint = captured[0].pop(
+        "resource_attempt_fingerprint"
+    )
+    assert isinstance(resource_attempt_fingerprint, str)
+    assert len(resource_attempt_fingerprint) == 64
+    int(resource_attempt_fingerprint, 16)
     assert captured == [
         {
             "wait_seconds": runner.GITHUB_FULL_SUITE_LOCK_WAIT_SECONDS,

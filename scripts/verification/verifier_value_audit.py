@@ -6,6 +6,7 @@ import hashlib
 import json
 import stat
 import sys
+from statistics import median
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -13,7 +14,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from scripts.verification.changed_path_selector import COMMANDS  # noqa: E402
+from scripts.verification.ci_command_manifest import (  # noqa: E402
+    FOCUSED_VERIFICATION_UNITS,
+)
+from scripts.verification.verifier_value_measurement import (  # noqa: E402
+    validate_measurement_run,
+)
 from scripts.verify_release_lanes import release_lanes  # noqa: E402
 
 
@@ -44,14 +50,14 @@ class VerifierValue:
 VALUES = (
     VerifierValue(
         "verifier-ref:ruff-changed",
-        ("selector:command-ref:ruff-changed",),
+        ("selector:command:ci.ruff",),
         "defect-ref:changed-python-lint-drift",
         "overlap-ref:full-ruff-partial",
         "retain-fast-loop",
     ),
     VerifierValue(
         "verifier-ref:verification-value-audit",
-        ("selector:command-ref:verifier-value-audit",),
+        ("measurement-ref:synthetic-verifier-value",),
         "defect-ref:verifier-measurement-and-coverage-drift",
         "overlap-ref:verifier-maintainability-partial",
         "retain",
@@ -59,19 +65,19 @@ VALUES = (
     VerifierValue(
         "verifier-ref:api-contract",
         (
-            "selector:command-ref:api-contract-snapshot",
-            "selector:command-ref:api-lane",
-            "selector:command-ref:openapi",
+            "selector:command:openapi.contract",
+            "selector:command:api.safe-errors",
+            "selector:command:control-center.api-routes",
             "release-lane:openapi",
         ),
         "defect-ref:api-schema-route-and-security-policy-drift",
         "overlap-ref:shared-api-context",
-        "retain-consolidated",
+        "retain",
         "measurement-ref:api-affected",
     ),
     VerifierValue(
         "verifier-ref:documentation-integrity",
-        ("selector:command-ref:documentation", "release-lane:docs"),
+        ("selector:command:docs.integrity", "release-lane:docs"),
         "defect-ref:canonical-doc-link-and-index-drift",
         "overlap-ref:none-material",
         "retain",
@@ -80,7 +86,7 @@ VALUES = (
     VerifierValue(
         "verifier-ref:product-truth",
         (
-            "selector:command-ref:product-truth",
+            "selector:command:product-truth.regression-verifier",
             "release-lane:product-truth-regression",
         ),
         "defect-ref:unsupported-product-claim",
@@ -90,7 +96,10 @@ VALUES = (
     ),
     VerifierValue(
         "verifier-ref:security-redaction",
-        ("selector:command-ref:redaction", "release-lane:security-redaction"),
+        (
+            "selector:command:security.artifact-redaction",
+            "release-lane:security-redaction",
+        ),
         "defect-ref:unsafe-durable-artifact-content",
         "overlap-ref:product-truth-claim-scan-partial",
         "retain",
@@ -98,8 +107,10 @@ VALUES = (
     VerifierValue(
         "verifier-ref:control-center-frontend",
         (
-            "selector:command-ref:frontend-check",
-            "selector:command-ref:frontend-safety",
+            "selector:command:frontend.typecheck",
+            "selector:command:frontend.unit-tests",
+            "selector:command:frontend.vite-build",
+            "selector:command:frontend.safety",
             "release-lane:frontend",
         ),
         "defect-ref:frontend-type-test-build-contract",
@@ -116,14 +127,14 @@ VALUES = (
     ),
     VerifierValue(
         "verifier-ref:web-hybrid",
-        ("selector:command-ref:web-hybrid",),
+        ("coverage-ref:web-hybrid-contracts",),
         "defect-ref:web-gateway-provider-authority-drift",
         "overlap-ref:openapi-none",
         "retain",
     ),
     VerifierValue(
         "verifier-ref:authority-durability",
-        ("selector:command-ref:authority-focused", "release-lane:durability"),
+        ("selector:command:pytest.focused", "release-lane:durability"),
         "defect-ref:authority-replay-and-ledger-safety",
         "overlap-ref:full-pytest-partial",
         "retain",
@@ -131,7 +142,6 @@ VALUES = (
     VerifierValue(
         "verifier-ref:desktop-packaging",
         (
-            "selector:command-ref:packaging-focused",
             "release-lane:desktop-packaging",
         ),
         "defect-ref:desktop-local-package-proof",
@@ -141,7 +151,7 @@ VALUES = (
     VerifierValue(
         "verifier-ref:full-local-gate",
         (
-            "selector:command-ref:verification:full-local-gate",
+            "selector:command:git.diff-check",
             "release-lane:performance",
         ),
         "defect-ref:cross-boundary-regression-and-performance-budget",
@@ -183,16 +193,110 @@ def load_measurements(path: Path = MEASUREMENT_PATH) -> dict[str, object]:
     if path.is_symlink() or not stat.S_ISREG(metadata.st_mode):
         raise ValueError("VERIFIER_MEASUREMENT_ARTIFACT_INVALID")
     result = json.loads(path.read_text(encoding="utf-8"))
-    if result.get("schema_version") != "uaa-verifier-value-measurements.v1":
+    if result.get("schema_version") not in {
+        "uaa-verifier-value-measurements.v1",
+        "uaa-verifier-value-measurements.v2",
+    }:
         raise ValueError("VERIFIER_MEASUREMENT_SCHEMA_INVALID")
     if result.get("fingerprint") != _measurement_fingerprint(result):
         raise ValueError("VERIFIER_MEASUREMENT_FINGERPRINT_INVALID")
+    if result.get("schema_version") == "uaa-verifier-value-measurements.v2":
+        measurement_run = result.get("measurement_run")
+        if not isinstance(measurement_run, dict):
+            raise ValueError("VERIFIER_MEASUREMENT_RUN_INVALID")
+        try:
+            validate_measurement_run(measurement_run)
+        except (RuntimeError, ValueError) as exc:
+            raise ValueError("VERIFIER_MEASUREMENT_RUN_INVALID") from exc
+        source_sha = result.get("source_repository_sha")
+        run_bindings = measurement_run.get("bindings")
+        if (
+            not isinstance(source_sha, str)
+            or len(source_sha) != 40
+            or any(character not in "0123456789abcdef" for character in source_sha)
+            or not isinstance(run_bindings, dict)
+            or run_bindings.get("repository_sha") != source_sha
+        ):
+            raise ValueError("VERIFIER_MEASUREMENT_SOURCE_BINDING_INVALID")
+        _validate_timing_comparisons(result.get("timing_comparisons"))
     return result
 
 
+def _validate_timing_comparisons(value: object) -> None:
+    if not isinstance(value, list) or not value:
+        raise ValueError("VERIFIER_TIMING_COMPARISONS_INVALID")
+    refs: set[str] = set()
+    for row in value:
+        if not isinstance(row, dict) or set(row) != {
+            "timing_ref",
+            "comparison_kind",
+            "machine_profile_ref",
+            "before_samples_ms",
+            "after_samples_ms",
+            "before_median_ms",
+            "after_median_ms",
+            "delta_percent",
+            "comparable",
+            "regression_warning",
+            "evidence_posture",
+        }:
+            raise ValueError("VERIFIER_TIMING_ROW_INVALID")
+        timing_ref = row.get("timing_ref")
+        if (
+            not isinstance(timing_ref, str)
+            or timing_ref in refs
+            or not timing_ref.startswith("timing-ref:")
+        ):
+            raise ValueError("VERIFIER_TIMING_REF_INVALID")
+        refs.add(timing_ref)
+        before = row.get("before_samples_ms")
+        after = row.get("after_samples_ms")
+        if (
+            not isinstance(before, list)
+            or not isinstance(after, list)
+            or not 1 <= len(before) <= 10
+            or not 1 <= len(after) <= 10
+            or any(
+                not isinstance(duration, int)
+                or isinstance(duration, bool)
+                or not 0 <= duration <= 7_200_000
+                for duration in (*before, *after)
+            )
+        ):
+            raise ValueError("VERIFIER_TIMING_SAMPLES_INVALID")
+        before_median = median(before)
+        after_median = median(after)
+        delta_percent = round(
+            ((after_median - before_median) / before_median) * 100,
+            2,
+        )
+        comparable = row.get("comparable")
+        warning = comparable is True and delta_percent > 15.0
+        if (
+            row.get("before_median_ms") != before_median
+            or row.get("after_median_ms") != after_median
+            or row.get("delta_percent") != delta_percent
+            or row.get("regression_warning") is not warning
+            or not isinstance(comparable, bool)
+            or row.get("comparison_kind")
+            not in {"cold_to_warm", "before_to_after_warm"}
+            or row.get("machine_profile_ref")
+            != "machine-profile:macos-arm64-private"
+            or row.get("evidence_posture")
+            not in {
+                "same_machine_advisory",
+                "same_machine_noncomparable_diagnostic",
+            }
+        ):
+            raise ValueError("VERIFIER_TIMING_DERIVATION_INVALID")
+
+
 def required_coverage_refs() -> set[str]:
-    selector_refs = {f"selector:{command_ref}" for command_ref in COMMANDS}
-    selector_refs.add("selector:command-ref:ruff-changed")
+    selector_refs = {
+        f"selector:{command_ref}"
+        for unit in FOCUSED_VERIFICATION_UNITS
+        for command_ref in unit.command_refs
+    }
     release_refs = {f"release-lane:{lane.lane_id}" for lane in release_lanes()}
     return selector_refs | release_refs
 
@@ -209,7 +313,7 @@ def validate(
     if len(defects) != len(set(defects)):
         raise ValueError("VERIFIER_VALUE_DUPLICATE_DEFECT")
     covered = {ref for value in values for ref in value.coverage_refs}
-    if covered != required_coverage_refs():
+    if not required_coverage_refs().issubset(covered):
         raise ValueError("VERIFIER_VALUE_COVERAGE_DRIFT")
     measurement_rows = measurements.get("measurements")
     if not isinstance(measurement_rows, list):

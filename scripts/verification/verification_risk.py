@@ -113,6 +113,13 @@ RISK_RULES = (
         prefixes=(".github/", "scripts/verification/", "docs/verification/"),
     ),
     RiskRule(
+        "risk-rule:api-authority-boundary",
+        VerificationRiskTier.TIER_3,
+        "reason-ref:risk:api-authority-boundary",
+        ("surface-ref:api", "surface-ref:security"),
+        prefixes=("src/ultimate_ai_agent/api/",),
+    ),
+    RiskRule(
         "risk-rule:authority-security-execution",
         VerificationRiskTier.TIER_3,
         "reason-ref:risk:authority-security-execution",
@@ -162,6 +169,22 @@ RISK_RULES = (
             "src/ultimate_ai_agent/core/memory/l2_index.py",
             "src/ultimate_ai_agent/core/memory/l3_index.py",
             "src/ultimate_ai_agent/core/single_writer_lock.py",
+        ),
+    ),
+    RiskRule(
+        "risk-rule:governed-core-contracts",
+        VerificationRiskTier.TIER_3,
+        "reason-ref:risk:governed-core-contract",
+        (
+            "surface-ref:authority",
+            "surface-ref:persistence",
+            "surface-ref:providers",
+            "surface-ref:extensions",
+        ),
+        prefixes=(
+            "src/ultimate_ai_agent/core/memory/",
+            "src/ultimate_ai_agent/core/providers/",
+            "src/ultimate_ai_agent/core/extension_catalog/",
         ),
     ),
     RiskRule(

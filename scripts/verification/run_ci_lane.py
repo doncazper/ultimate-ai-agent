@@ -87,6 +87,7 @@ from scripts.verification.verification_execution_identity import (  # noqa: E402
     VerificationExecutionFenceError,
     build_verification_execution_identity,
     build_verification_execution_terminal_proof,
+    verification_exclusive_resource_attempt_fingerprint,
 )
 from scripts.verification.verification_github_transport import (  # noqa: E402
     build_github_job_output_envelope,
@@ -1198,6 +1199,17 @@ def run_lane(
         lane_refs=(lane_ref,),
         frontend_visual_scope=visual_scope,
     )
+    pytest_resource_attempt_fingerprint = (
+        verification_exclusive_resource_attempt_fingerprint(
+            repository_sha=repository_sha,
+            dependency_state_ref=dependency_state_fingerprint(plan),
+            exclusive_resource_ref="resource-ref:complete-pytest",
+            typescript_runtime_fingerprint=None,
+            typescript_version_ref=None,
+        )
+        if lane_ref == "ci-pytest-shards"
+        else None
+    )
     commands = command_registry()
     if lane_ref == "ci-pytest-shards" and importlib.util.find_spec("pytest") is None:
         raise PytestRuntimeUnavailableError(
@@ -1329,6 +1341,14 @@ def run_lane(
                 typescript_version_ref=identity_typescript_version_ref,
             )
             pre_execution_identity_ref = pre_execution_identity.identity_ref
+            if (
+                lane_ref == "ci-pytest-shards"
+                and pre_execution_identity.exclusive_resource_attempt_fingerprint
+                != pytest_resource_attempt_fingerprint
+            ):
+                raise ValueError(
+                    "complete pytest resource attempt binding changed"
+                )
         else:
             reused_typescript_receipt = reused_receipts_by_command.get(
                 "command:frontend.check"
@@ -1445,6 +1465,7 @@ def run_lane(
             ),
             repository_sha=repository_sha,
             attempt_scope=full_suite_lock_mode,
+            resource_attempt_fingerprint=pytest_resource_attempt_fingerprint,
         )
         if lane_ref == "ci-pytest-shards"
         else FullSuiteLock(
