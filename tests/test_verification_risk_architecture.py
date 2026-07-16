@@ -8,6 +8,7 @@ from scripts.verification.ci_command_manifest import CI_JOB_GRAPH, VERIFICATION_
 from scripts.verification.verification_contracts import (
     VerificationGateDecision,
     VerificationGateStatus,
+    VerificationGithubGateProof,
     VerificationPlan,
     VerificationReceipt,
     VerificationRiskTier,
@@ -18,7 +19,11 @@ from scripts.verification.verification_contracts import (
     dependency_closed_unit_refs,
     dependency_state_fingerprint,
     evaluate_verification_gate,
+    evaluate_verification_gate_v2,
+    verification_github_gate_proof_fingerprint,
     verification_plan_contract_fingerprint,
+    verification_receipt_fingerprint,
+    verification_run_manifest_fingerprint,
     validate_verification_dag,
 )
 from scripts.verification.verification_risk import (
@@ -80,6 +85,8 @@ def _plan() -> VerificationPlan:
         verifier_definition_fingerprint=DIGEST,
         test_collection_fingerprint=DIGEST,
         test_collection_posture="inventory_bound",
+        typescript_project_fingerprint=DIGEST,
+        typescript_project_posture="not_applicable",
         force_full=False,
         shadow_mode=True,
     )
@@ -115,6 +122,109 @@ def _receipt() -> VerificationReceipt:
         result_refs=("result-ref:risk-focused:passed",),
         output_byte_count=128,
         output_digest=DIGEST,
+    )
+
+
+def _receipt_v2(plan: VerificationPlan) -> VerificationReceipt:
+    receipt = VerificationReceipt(
+        schema_version="uaa_verification_receipt.v2",
+        receipt_ref=f"receipt:verification:{'0' * 64}",
+        plan_fingerprint=plan.plan_fingerprint,
+        unit_ref="risk-focused-pytest",
+        repository_sha=plan.repository_sha,
+        dependency_state_fingerprint=dependency_state_fingerprint(plan),
+        platform_fingerprint=plan.platform_fingerprint,
+        command_manifest_fingerprint=plan.command_manifest_fingerprint,
+        verifier_definition_fingerprint=plan.verifier_definition_fingerprint,
+        test_collection_fingerprint=plan.test_collection_fingerprint,
+        status=VerificationTerminalStatus.PASSED,
+        started_at="2026-07-15T00:00:00Z",
+        completed_at="2026-07-15T00:00:01Z",
+        duration_ms=1_000,
+        result_refs=("result-ref:risk-focused:passed",),
+        output_byte_count=128,
+        output_digest=DIGEST,
+        command_refs=("command:risk-focused",),
+        command_result_bindings=(
+            ("command:risk-focused", "result-ref:risk-focused:passed"),
+        ),
+        execution_surface_ref="surface-ref:github",
+        proof_equivalence_ref="proof-equivalence-ref:risk-focused",
+        receipt_fingerprint="0" * 64,
+    )
+    fingerprint = verification_receipt_fingerprint(receipt)
+    return replace(
+        receipt,
+        receipt_ref=f"receipt:verification:{fingerprint}",
+        receipt_fingerprint=fingerprint,
+    )
+
+
+def _run_v2(
+    plan: VerificationPlan, receipt: VerificationReceipt
+) -> VerificationRunManifest:
+    run = VerificationRunManifest(
+        schema_version="uaa_verification_run.v2",
+        run_ref=f"run:verification:{'0' * 64}",
+        plan_fingerprint=plan.plan_fingerprint,
+        repository_sha=plan.repository_sha,
+        receipt_refs=(receipt.receipt_ref,),
+        started_at="2026-07-15T00:00:00Z",
+        completed_at="2026-07-15T00:00:01Z",
+        status=VerificationTerminalStatus.PASSED,
+        run_fingerprint="0" * 64,
+        dependency_state_fingerprint=dependency_state_fingerprint(plan),
+        command_manifest_fingerprint=plan.command_manifest_fingerprint,
+        execution_surface_ref="surface-ref:github",
+        unit_receipt_bindings=((receipt.unit_ref, receipt.receipt_ref),),
+    )
+    fingerprint = verification_run_manifest_fingerprint(run)
+    return replace(
+        run,
+        run_ref=f"run:verification:{fingerprint}",
+        run_fingerprint=fingerprint,
+    )
+
+
+def _github_proof(
+    plan: VerificationPlan, run: VerificationRunManifest
+) -> VerificationGithubGateProof:
+    proof = VerificationGithubGateProof(
+        schema_version="uaa_verification_github_gate_proof.v1",
+        proof_ref=f"proof:github:{'0' * 64}",
+        repository_sha=plan.repository_sha,
+        plan_fingerprint=plan.plan_fingerprint,
+        run_manifest_fingerprint=run.run_fingerprint,
+        command_manifest_fingerprint=plan.command_manifest_fingerprint,
+        workflow_ref="workflow:ci",
+        github_run_ref="github-run:12345",
+        workflow_attempt=1,
+        runner_pool_ref="runner-pool:repository-scoped-macos",
+        required_check_refs=("check-ref:risk-focused",),
+        completed_check_refs=("check-ref:risk-focused",),
+        status=VerificationTerminalStatus.PASSED,
+        started_at="2026-07-15T00:00:00Z",
+        completed_at="2026-07-15T00:00:02Z",
+        proof_fingerprint="0" * 64,
+    )
+    fingerprint = verification_github_gate_proof_fingerprint(proof)
+    return replace(
+        proof,
+        proof_ref=f"proof:github:{fingerprint}",
+        proof_fingerprint=fingerprint,
+    )
+
+
+def _canonical_gate_units() -> tuple[VerificationUnit, ...]:
+    return (
+        VerificationUnit(
+            unit_ref="risk-focused-pytest",
+            display_name="Risk focused pytest",
+            lane_ref="lane:risk-focused",
+            needs=(),
+            command_refs=("command:risk-focused",),
+            proof_equivalence_ref="proof-equivalence-ref:risk-focused",
+        ),
     )
 
 
@@ -475,7 +585,7 @@ def test_merge_gate_cannot_pass_without_exact_github_proof() -> None:
     with pytest.raises(ValueError, match="unsupported verification gate schema"):
         replace(
             decision,
-            schema_version="uaa_verification_gate_decision.v2",
+            schema_version="uaa_verification_gate_decision.v3",
             github_gate_satisfied=True,
         ).validate()
 
@@ -558,6 +668,113 @@ def test_gate_evaluator_requires_exact_bindings_collection_and_github_proof() ->
     assert denied.status is VerificationGateStatus.DENIED
     assert denied.missing_unit_refs == ("risk-focused-pytest",)
 
+
+def test_v2_gate_keeps_structural_github_proof_nonauthoritative() -> None:
+    plan = _refingerprint(replace(_plan(), shadow_mode=False))
+    receipt = _receipt_v2(plan)
+    run = _run_v2(plan, receipt)
+    proof = _github_proof(plan, run)
+
+    decision = evaluate_verification_gate_v2(
+        plan,
+        (receipt,),
+        canonical_units=_canonical_gate_units(),
+        run_manifest=run,
+        github_proof=proof,
+    )
+
+    assert decision.status is VerificationGateStatus.BLOCKED
+    assert decision.github_gate_satisfied is False
+    assert decision.merge_gate_satisfied is False
+    assert decision.github_proof_ref == proof.proof_ref
+    assert decision.run_manifest_ref == run.run_ref
+    assert decision.reason_refs == (
+        "reason-ref:verification:trusted-github-attestation-unavailable",
+    )
+    with pytest.raises(ValueError, match="decision ref is not content bound"):
+        replace(
+            decision,
+            reason_refs=("reason-ref:verification:tampered",),
+        ).validate()
+
+
+def test_v2_gate_rejects_changed_sha_and_unbound_receipt_payloads() -> None:
+    plan = _refingerprint(replace(_plan(), shadow_mode=False))
+    receipt = _receipt_v2(plan)
+    run = _run_v2(plan, receipt)
+    proof = _github_proof(plan, run)
+
+    tampered_receipt = replace(receipt, output_byte_count=129)
+    denied = evaluate_verification_gate_v2(
+        plan,
+        (tampered_receipt,),
+        canonical_units=_canonical_gate_units(),
+        run_manifest=run,
+        github_proof=proof,
+    )
+    assert denied.status is VerificationGateStatus.DENIED
+    assert denied.merge_gate_satisfied is False
+
+    wrong_command = replace(
+        receipt,
+        receipt_ref=f"receipt:verification:{'0' * 64}",
+        command_refs=("command:other",),
+        command_result_bindings=(
+            ("command:other", "result-ref:risk-focused:passed"),
+        ),
+        receipt_fingerprint="0" * 64,
+    )
+    wrong_fingerprint = verification_receipt_fingerprint(wrong_command)
+    wrong_command = replace(
+        wrong_command,
+        receipt_ref=f"receipt:verification:{wrong_fingerprint}",
+        receipt_fingerprint=wrong_fingerprint,
+    )
+    wrong_run = _run_v2(plan, wrong_command)
+    wrong_proof = _github_proof(plan, wrong_run)
+    command_denied = evaluate_verification_gate_v2(
+        plan,
+        (wrong_command,),
+        canonical_units=_canonical_gate_units(),
+        run_manifest=wrong_run,
+        github_proof=wrong_proof,
+    )
+    assert command_denied.status is VerificationGateStatus.DENIED
+
+    changed_proof = replace(proof, repository_sha="c" * 40)
+    changed_sha = evaluate_verification_gate_v2(
+        plan,
+        (receipt,),
+        canonical_units=_canonical_gate_units(),
+        run_manifest=run,
+        github_proof=changed_proof,
+    )
+    assert changed_sha.status is VerificationGateStatus.DENIED
+    assert changed_sha.merge_gate_satisfied is False
+
+
+def test_v2_test_receipt_cannot_pass_with_inventory_only_collection() -> None:
+    receipt = replace(
+        _receipt_v2(_refingerprint(replace(_plan(), shadow_mode=False))),
+        command_refs=("command:pytest.focused",),
+        command_result_bindings=(
+            ("command:pytest.focused", "result-ref:risk-focused:passed"),
+        ),
+    )
+
+    with pytest.raises(ValueError, match="observed collection proof"):
+        receipt.validate()
+    with pytest.raises(ValueError, match="command results are not exactly bound"):
+        replace(
+            _receipt_v2(_refingerprint(replace(_plan(), shadow_mode=False))),
+            command_result_bindings=(),
+        ).validate()
+
+    plan = _plan()
+    receipt = replace(
+        _receipt(),
+        dependency_state_fingerprint=dependency_state_fingerprint(plan),
+    )
     inventory_only = _refingerprint(
         replace(
             plan,

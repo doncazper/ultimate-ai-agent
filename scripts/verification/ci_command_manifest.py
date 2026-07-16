@@ -9,7 +9,7 @@ import re
 import stat
 import subprocess
 import sys
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -18,6 +18,9 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scripts.verify_release_lanes import LaneCommand, release_lanes  # noqa: E402
+from scripts.verification.typescript_binding import (  # noqa: E402
+    build_declared_typescript_binding,
+)
 from scripts.verification.verification_contracts import (  # noqa: E402
     VerificationPlan,
     VerificationRiskTier,
@@ -259,6 +262,8 @@ def command_registry() -> dict[str, CommandSpec]:
                     "{temp_root}/uaa_pytest_performance_report.json",
                     "--failure-ref-dir",
                     "{temp_root}/uaa_pytest_failure_refs",
+                    "--collection-evidence",
+                    "{temp_root}/uaa_pytest_collection_evidence.json",
                     "--stretch-goal-seconds",
                     "900",
                     "--target-seconds",
@@ -552,7 +557,7 @@ FOCUSED_VERIFICATION_UNITS = (
 )
 
 
-CI_JOB_GRAPH = (
+_CI_JOB_GRAPH_BASE = (
     JobSpec(
         "manifest-attestation",
         "manifest-attestation",
@@ -709,6 +714,18 @@ CI_JOB_GRAPH = (
     ),
 )
 
+CI_JOB_GRAPH = tuple(
+    replace(
+        unit,
+        command_refs=(
+            lane_registry()[unit.lane_ref].command_refs
+            if unit.lane_ref is not None
+            else ()
+        ),
+    )
+    for unit in _CI_JOB_GRAPH_BASE
+)
+
 
 VERIFICATION_DAG = FOCUSED_VERIFICATION_UNITS + CI_JOB_GRAPH
 
@@ -722,10 +739,13 @@ VERIFIER_DEFINITION_REFS = (
     "scripts/verification/changed_path_selector.py",
     "scripts/verification/ci_command_manifest.py",
     "scripts/verification/plan_affected_verification.py",
+    "scripts/verification/pytest_collection_evidence.py",
     "scripts/verification/run_ci_lane.py",
     "scripts/verification/run_pytest_shards.py",
     "scripts/verification/verification_contracts.py",
     "scripts/verification/verification_risk.py",
+    "scripts/verification/verification_scheduler.py",
+    "scripts/verification/typescript_binding.py",
 )
 
 
@@ -1161,6 +1181,9 @@ def build_plan(
     command_ref = command_manifest_fingerprint()
     verifier_ref = verifier_definition_fingerprint(repo)
     collection_ref = test_inventory_fingerprint(repo)
+    typescript_binding = build_declared_typescript_binding(
+        repo / "apps/control-center"
+    )
     selected_resources = {
         resource_ref
         for unit_ref in selected_units
@@ -1201,6 +1224,10 @@ def build_plan(
         "verifier_definition_fingerprint": verifier_ref,
         "test_collection_fingerprint": collection_ref,
         "test_collection_posture": "inventory_bound",
+        "typescript_project_fingerprint": (
+            typescript_binding.declared_project_fingerprint
+        ),
+        "typescript_project_posture": "project_bound",
         "force_full": force_full or implicit_full,
         "shadow_mode": shadow_mode,
     }

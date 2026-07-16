@@ -13,7 +13,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Callable
@@ -24,12 +24,17 @@ if str(ROOT) not in sys.path:
 
 from scripts.verification.ci_command_manifest import (  # noqa: E402
     GITHUB_FULL_SUITE_LOCK_WAIT_SECONDS,
+    CI_JOB_GRAPH,
     PLAYWRIGHT_BROWSER_DIRNAME,
     PROFILE_REF,
     CommandSpec,
     build_plan,
     command_registry,
     lane_registry,
+)
+from scripts.verification.pytest_collection_evidence import (  # noqa: E402
+    CollectionEvidenceError,
+    load_aggregate_evidence,
 )
 from scripts.verification.ci_fallback_storage import (  # noqa: E402
     FullSuiteAttemptAlreadyRecordedError,
@@ -45,6 +50,18 @@ from scripts.verification.pytest_shard_processes import (  # noqa: E402
 from scripts.verification.run_pytest_shards import (  # noqa: E402
     current_shard_plan_fingerprint,
 )
+from scripts.verification.typescript_binding import (  # noqa: E402
+    build_declared_typescript_binding,
+    resolve_typescript_runtime_binding,
+)
+from scripts.verification.verification_contracts import (  # noqa: E402
+    VerificationReceipt,
+    VerificationRunManifest,
+    VerificationTerminalStatus,
+    dependency_state_fingerprint,
+    verification_receipt_fingerprint,
+    verification_run_manifest_fingerprint,
+)
 
 
 TERMINATION_GRACE_SECONDS = 10.0
@@ -52,11 +69,15 @@ MAX_TRANSIENT_OUTPUT_BYTES = 32 * 1024 * 1024
 MAX_RECEIPT_BYTES = 1024 * 1024
 MAX_PYTEST_PERFORMANCE_REPORT_BYTES = 256 * 1024
 PYTEST_PERFORMANCE_REPORT_NAME = "uaa_pytest_performance_report.json"
+PYTEST_COLLECTION_EVIDENCE_NAME = "uaa_pytest_collection_evidence.json"
 PYTEST_PERFORMANCE_SCHEMA_VERSION = "uaa_pytest_performance_report.v1"
 PYTEST_PLAN_REF_RE = re.compile(r"^pytest-shard-plan-ref:sha256:[0-9a-f]{64}$")
 PYTEST_RUNTIME_UNAVAILABLE_REASON_REF = "reason-ref:ci:pytest-runtime-unavailable"
 FULL_SUITE_LOCK_UNAVAILABLE_REASON_REF = "reason-ref:ci:full-suite-capacity-unavailable"
 FULL_SUITE_ATTEMPT_RECORDED_REASON_REF = "reason-ref:ci:full-suite-attempt-recorded"
+TYPED_EVIDENCE_REDACTION_STATUS = (
+    "content_free_refs_hashes_counts_and_durations_only"
+)
 
 
 class PytestRuntimeUnavailableError(RuntimeError):
@@ -395,6 +416,8 @@ def _run_command(
 def _append_summary(path: Path | None, lines: list[str]) -> None:
     if path is None:
         return
+    if path.name in {"", ".", ".."}:
+        raise ValueError("CI receipt target name is invalid")
     if path.exists() and (path.is_symlink() or not path.is_file()):
         raise ValueError("CI summary target must be a regular non-symlink file")
     flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT
@@ -418,17 +441,37 @@ def _append_summary(path: Path | None, lines: list[str]) -> None:
 def _write_receipt(path: Path | None, receipt: dict[str, Any], temp_root: Path) -> None:
     if path is None:
         return
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if path.parent.is_symlink():
+    lexical_parent = Path(os.path.abspath(path.parent))
+    if not lexical_parent.is_relative_to(temp_root):
         raise ValueError("CI receipt target must remain inside the temp root")
-    parent = path.parent.resolve()
-    if not parent.is_dir() or not parent.is_relative_to(temp_root):
+    lexical_parent.mkdir(parents=True, exist_ok=True)
+    if lexical_parent.is_symlink():
         raise ValueError("CI receipt target must remain inside the temp root")
+    parent = lexical_parent.resolve()
+    if (
+        parent != lexical_parent
+        or not parent.is_dir()
+        or not parent.is_relative_to(temp_root)
+    ):
+        raise ValueError("CI receipt target must remain inside the temp root")
+    parent_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+    if hasattr(os, "O_NOFOLLOW"):
+        parent_flags |= os.O_NOFOLLOW
+    parent_descriptor = os.open(parent, parent_flags)
+    parent_info = os.fstat(parent_descriptor)
+    if (
+        not stat.S_ISDIR(parent_info.st_mode)
+        or parent_info.st_uid != os.getuid()
+        or parent_info.st_mode & 0o022
+    ):
+        os.close(parent_descriptor)
+        raise ValueError("CI receipt parent is unsafe")
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
     if hasattr(os, "O_NOFOLLOW"):
         flags |= os.O_NOFOLLOW
-    descriptor = os.open(path, flags, 0o600)
+    descriptor: int | None = None
     try:
+        descriptor = os.open(path.name, flags, 0o600, dir_fd=parent_descriptor)
         info = os.fstat(descriptor)
         if (
             not stat.S_ISREG(info.st_mode)
@@ -443,7 +486,190 @@ def _write_receipt(path: Path | None, receipt: dict[str, Any], temp_root: Path) 
         os.write(descriptor, encoded)
         os.fsync(descriptor)
     finally:
-        os.close(descriptor)
+        if descriptor is not None:
+            os.close(descriptor)
+        os.close(parent_descriptor)
+
+
+def _assert_pytest_collection_absent(temp_root: Path) -> None:
+    path = temp_root / PYTEST_COLLECTION_EVIDENCE_NAME
+    try:
+        path.lstat()
+    except FileNotFoundError:
+        return
+    raise ValueError("pytest collection evidence must not predate the current attempt")
+
+
+def _typed_output_digest(results: list[dict[str, Any]]) -> str:
+    safe_results = tuple(
+        {
+            "command_ref": result["command_ref"],
+            "status": result["status"],
+            "result_ref": result["result_ref"],
+            "duration_ms": result["duration_ms"],
+            "output_byte_count": result.get("output_byte_count", 0),
+            "output_digest": result.get("output_digest"),
+        }
+        for result in results
+    )
+    return hashlib.sha256(
+        json.dumps(safe_results, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+
+
+def _build_typed_lane_evidence(
+    *,
+    lane_ref: str,
+    legacy_receipt: dict[str, Any],
+    full_plan: Any,
+    results: list[dict[str, Any]],
+    execution_surface_ref: str,
+    pytest_collection: dict[str, Any] | None,
+    pre_typescript_runtime: Any | None = None,
+) -> tuple[VerificationReceipt, VerificationRunManifest]:
+    matching_units = tuple(unit for unit in CI_JOB_GRAPH if unit.lane_ref == lane_ref)
+    if len(matching_units) != 1:
+        raise ValueError("typed CI evidence requires one exact canonical unit")
+    unit = matching_units[0]
+    result_command_refs = tuple(str(result["command_ref"]) for result in results)
+    if result_command_refs != unit.command_refs:
+        raise ValueError("typed CI evidence command membership is not canonical")
+    terminal_status = (
+        VerificationTerminalStatus.PASSED
+        if legacy_receipt["status"] == "pass"
+        else VerificationTerminalStatus.FAILED
+    )
+    if terminal_status is VerificationTerminalStatus.PASSED and any(
+        result["status"] in {"skipped", "satisfied_by_required_dependency"}
+        for result in results
+    ):
+        terminal_status = VerificationTerminalStatus.BLOCKED
+
+    test_collection_posture = "not_applicable"
+    observed_collection_fingerprint: str | None = None
+    observed_test_count = 0
+    if lane_ref == "ci-pytest-shards":
+        if pytest_collection is None:
+            test_collection_posture = "unavailable"
+            terminal_status = VerificationTerminalStatus.FAILED
+        else:
+            test_collection_posture = "collected"
+            observed_collection_fingerprint = str(
+                pytest_collection["collection_digest_ref"]
+            ).removeprefix("sha256:")
+            observed_test_count = int(pytest_collection["collected_test_count"])
+
+    declared_typescript = None
+    runtime_typescript = None
+    typescript_binding_posture = "not_applicable"
+    if "command:frontend.check" in result_command_refs:
+        declared_typescript = build_declared_typescript_binding(
+            ROOT / "apps/control-center"
+        )
+        if (
+            declared_typescript.declared_project_fingerprint
+            != full_plan.typescript_project_fingerprint
+        ):
+            raise ValueError("TypeScript declaration changed after plan construction")
+        if all(
+            result["status"] == "pass"
+            for result in results
+            if result["command_ref"] == "command:frontend.check"
+        ):
+            runtime_typescript = resolve_typescript_runtime_binding(
+                ROOT / "apps/control-center", declared_typescript
+            )
+            if (
+                pre_typescript_runtime is None
+                or runtime_typescript != pre_typescript_runtime
+            ):
+                raise ValueError("TypeScript runtime changed during verification")
+            typescript_binding_posture = "resolved"
+        else:
+            typescript_binding_posture = "unavailable"
+        # The existing combined frontend command does not yet expose a bounded
+        # Vitest collection proof, so typed evidence remains non-authoritative.
+        if terminal_status is VerificationTerminalStatus.PASSED:
+            terminal_status = VerificationTerminalStatus.BLOCKED
+
+    receipt = VerificationReceipt(
+        schema_version="uaa_verification_receipt.v2",
+        receipt_ref=f"receipt:verification:{'0' * 64}",
+        plan_fingerprint=full_plan.plan_fingerprint,
+        unit_ref=unit.unit_ref,
+        repository_sha=full_plan.repository_sha,
+        dependency_state_fingerprint=dependency_state_fingerprint(full_plan),
+        platform_fingerprint=full_plan.platform_fingerprint,
+        command_manifest_fingerprint=full_plan.command_manifest_fingerprint,
+        verifier_definition_fingerprint=full_plan.verifier_definition_fingerprint,
+        test_collection_fingerprint=full_plan.test_collection_fingerprint,
+        status=terminal_status,
+        started_at=str(legacy_receipt["started_at"]),
+        completed_at=str(legacy_receipt["completed_at"]),
+        duration_ms=int(legacy_receipt["duration_ms"]),
+        result_refs=tuple(str(result["result_ref"]) for result in results),
+        output_byte_count=sum(int(result.get("output_byte_count", 0)) for result in results),
+        output_digest=_typed_output_digest(results),
+        equivalent_receipt_ref=str(legacy_receipt["receipt_ref"]),
+        command_refs=result_command_refs,
+        command_result_bindings=tuple(
+            (str(result["command_ref"]), str(result["result_ref"]))
+            for result in results
+        ),
+        execution_surface_ref=execution_surface_ref,
+        proof_equivalence_ref=unit.proof_equivalence_ref,
+        test_collection_posture=test_collection_posture,
+        observed_test_collection_fingerprint=observed_collection_fingerprint,
+        observed_test_count=observed_test_count,
+        typescript_binding_posture=typescript_binding_posture,
+        typescript_project_fingerprint=(
+            declared_typescript.declared_project_fingerprint
+            if runtime_typescript is not None and declared_typescript is not None
+            else None
+        ),
+        typescript_runtime_fingerprint=(
+            runtime_typescript.resolved_runtime_fingerprint
+            if runtime_typescript is not None
+            else None
+        ),
+        typescript_version_ref=(
+            f"typescript-version:{runtime_typescript.typescript_version}"
+            if runtime_typescript is not None
+            else None
+        ),
+        receipt_fingerprint="0" * 64,
+    )
+    receipt_fingerprint = verification_receipt_fingerprint(receipt)
+    receipt = replace(
+        receipt,
+        receipt_ref=f"receipt:verification:{receipt_fingerprint}",
+        receipt_fingerprint=receipt_fingerprint,
+    )
+    receipt.validate()
+
+    run = VerificationRunManifest(
+        schema_version="uaa_verification_run.v2",
+        run_ref=f"run:verification:{'0' * 64}",
+        plan_fingerprint=full_plan.plan_fingerprint,
+        repository_sha=full_plan.repository_sha,
+        receipt_refs=(receipt.receipt_ref,),
+        started_at=receipt.started_at,
+        completed_at=receipt.completed_at,
+        status=VerificationTerminalStatus.BLOCKED,
+        run_fingerprint="0" * 64,
+        dependency_state_fingerprint=dependency_state_fingerprint(full_plan),
+        command_manifest_fingerprint=full_plan.command_manifest_fingerprint,
+        execution_surface_ref=execution_surface_ref,
+        unit_receipt_bindings=((receipt.unit_ref, receipt.receipt_ref),),
+    )
+    run_fingerprint = verification_run_manifest_fingerprint(run)
+    run = replace(
+        run,
+        run_ref=f"run:verification:{run_fingerprint}",
+        run_fingerprint=run_fingerprint,
+    )
+    run.validate()
+    return receipt, run
 
 
 def _pytest_shard_summary_lines(result: dict[str, Any]) -> list[str]:
@@ -457,6 +683,11 @@ def _pytest_shard_summary_lines(result: dict[str, Any]) -> list[str]:
             f"Failed shard: {failed_ref} "
             f"(reproduce with make ci-reproduce-shard CI_SHARD_INDEX={shard_index})"
         )
+    collection_status = result.get("pytest_collection_evidence_status")
+    if collection_status is not None:
+        lines.append("Pytest collection evidence: " + str(collection_status))
+    if collected_count := result.get("pytest_collected_test_count"):
+        lines.append(f"Observed pytest tests: {collected_count}")
     return lines
 
 
@@ -469,6 +700,8 @@ def run_lane(
     docker_available: str = "unknown_fail_closed",
     summary_file: Path | None = None,
     receipt_file: Path | None = None,
+    verification_receipt_file: Path | None = None,
+    verification_run_manifest_file: Path | None = None,
     full_suite_lock_mode: str = "github",
 ) -> dict[str, Any]:
     if _git_head(ROOT) != repository_sha:
@@ -492,6 +725,23 @@ def run_lane(
     started_at = _utc_now()
     started = time.perf_counter()
     results: list[dict[str, Any]] = []
+    pytest_collection_payload: dict[str, Any] | None = None
+    pre_typescript_runtime = None
+    if (
+        "command:frontend.check" in lane.command_refs
+        and "command:frontend.check" not in lane.satisfied_command_refs
+    ):
+        declared_typescript = build_declared_typescript_binding(
+            ROOT / "apps/control-center"
+        )
+        if (
+            declared_typescript.declared_project_fingerprint
+            != plan.typescript_project_fingerprint
+        ):
+            raise ValueError("TypeScript declaration does not match the CI plan")
+        pre_typescript_runtime = resolve_typescript_runtime_binding(
+            ROOT / "apps/control-center", declared_typescript
+        )
     if full_suite_lock_mode not in {"github", "private"}:
         raise ValueError("unknown full-suite lock mode")
     lock = (
@@ -511,6 +761,7 @@ def run_lane(
         expected_pytest_plan_ref: str | None = None
         if lane_ref == "ci-pytest-shards":
             _assert_pytest_report_absent(temp_root)
+            _assert_pytest_collection_absent(temp_root)
             expected_pytest_plan_ref = expected_pytest_shard_plan_ref()
         for command_ref in lane.command_refs:
             if command_ref in lane.satisfied_command_refs:
@@ -576,6 +827,38 @@ def run_lane(
                         command_status=str(result["status"]),
                     )
                 )
+            if (
+                lane_ref == "ci-pytest-shards"
+                and command_ref == "command:pytest.sharded-suite"
+            ):
+                try:
+                    pytest_collection_payload = load_aggregate_evidence(
+                        temp_root / PYTEST_COLLECTION_EVIDENCE_NAME,
+                        expected_shard_count=8,
+                        expected_plan_fingerprint_ref=expected_pytest_plan_ref,
+                    )
+                except CollectionEvidenceError:
+                    result.update(
+                        {
+                            "pytest_collection_evidence_status": "rejected",
+                            "pytest_collection_evidence_reason_ref": (
+                                "reason-ref:ci:pytest-collection-evidence-rejected"
+                            ),
+                            "status": "fail",
+                        }
+                    )
+                else:
+                    result.update(
+                        {
+                            "pytest_collection_evidence_status": "collected",
+                            "pytest_collection_digest_ref": (
+                                pytest_collection_payload["collection_digest_ref"]
+                            ),
+                            "pytest_collected_test_count": (
+                                pytest_collection_payload["collected_test_count"]
+                            ),
+                        }
+                    )
             results.append(result)
             if result["status"] != "pass":
                 break
@@ -606,6 +889,27 @@ def run_lane(
             json.dumps(receipt, sort_keys=True, separators=(",", ":")).encode()
         ).hexdigest()
     )
+    if verification_receipt_file is not None or verification_run_manifest_file is not None:
+        full_plan = build_plan(ROOT, repository_sha)
+        typed_receipt, run_manifest = _build_typed_lane_evidence(
+            lane_ref=lane_ref,
+            legacy_receipt=receipt,
+            full_plan=full_plan,
+            results=results,
+            execution_surface_ref=f"surface-ref:{full_suite_lock_mode}",
+            pytest_collection=pytest_collection_payload,
+            pre_typescript_runtime=pre_typescript_runtime,
+        )
+        _write_receipt(
+            verification_receipt_file,
+            asdict(typed_receipt),
+            temp_root,
+        )
+        _write_receipt(
+            verification_run_manifest_file,
+            asdict(run_manifest),
+            temp_root,
+        )
     summary = [
         f"## {lane.name}",
         "",
@@ -643,6 +947,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--summary-file")
     parser.add_argument("--receipt-file")
+    parser.add_argument("--verification-receipt-file")
+    parser.add_argument("--verification-run-manifest-file")
     parser.add_argument(
         "--full-suite-lock-mode",
         choices=("github", "private"),
@@ -661,6 +967,16 @@ def main(argv: list[str] | None = None) -> int:
             docker_available=args.docker_available,
             summary_file=Path(args.summary_file) if args.summary_file else None,
             receipt_file=Path(args.receipt_file) if args.receipt_file else None,
+            verification_receipt_file=(
+                Path(args.verification_receipt_file)
+                if args.verification_receipt_file
+                else None
+            ),
+            verification_run_manifest_file=(
+                Path(args.verification_run_manifest_file)
+                if args.verification_run_manifest_file
+                else None
+            ),
             full_suite_lock_mode=args.full_suite_lock_mode,
         )
     except PytestRuntimeUnavailableError:

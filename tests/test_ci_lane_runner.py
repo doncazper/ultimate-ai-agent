@@ -3,12 +3,14 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from dataclasses import asdict
 from pathlib import Path
 
 import pytest
 
 from scripts.verification import run_ci_lane as runner
 from scripts.verification.ci_command_manifest import CommandSpec, LaneSpec, build_plan
+from scripts.verification.verification_contracts import VerificationTerminalStatus
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -130,8 +132,79 @@ def test_lane_runner_emits_content_free_hash_bound_receipt(
     assert len(receipt["command_results"][0]["output_digest"]) == 64
     assert (
         json.loads(receipt_file.read_text(encoding="utf-8"))["receipt_ref"]
-        == (receipt["receipt_ref"])
+        == receipt["receipt_ref"]
     )
+
+
+def test_typed_lane_evidence_is_content_bound_and_partial_run_is_blocked() -> None:
+    plan = build_plan(ROOT, SHA, verify_repository_state=False)
+    command_results = [
+        {
+            "command_ref": command_ref,
+            "status": "pass",
+            "duration_ms": 1,
+            "output_byte_count": 0,
+            "output_digest": "a" * 64,
+            "result_ref": f"result-ref:ci:{index}",
+        }
+        for index, command_ref in enumerate(
+            ("command:ci.ruff", "command:ci.self-hosted-contract"), start=1
+        )
+    ]
+    legacy_receipt = {
+        "receipt_ref": "receipt-ref:ci-lane:legacy",
+        "status": "pass",
+        "started_at": "2026-07-15T00:00:00Z",
+        "completed_at": "2026-07-15T00:00:01Z",
+        "duration_ms": 1_000,
+    }
+
+    receipt, run = runner._build_typed_lane_evidence(
+        lane_ref="ci-lint",
+        legacy_receipt=legacy_receipt,
+        full_plan=plan,
+        results=command_results,
+        execution_surface_ref="surface-ref:github",
+        pytest_collection=None,
+    )
+
+    assert receipt.status is VerificationTerminalStatus.PASSED
+    assert receipt.receipt_ref.endswith(receipt.receipt_fingerprint or "missing")
+    assert run.status is VerificationTerminalStatus.BLOCKED
+    assert run.receipt_refs == (receipt.receipt_ref,)
+    serialized = json.dumps(
+        {"receipt": asdict(receipt), "run": asdict(run)}, sort_keys=True
+    )
+    assert "/Users/" not in serialized
+    assert "raw_output" not in serialized
+
+
+def test_receipt_writer_rejects_outside_parent_before_creating_it(
+    tmp_path: Path,
+) -> None:
+    temp_root = runner._safe_temp_root(tmp_path / "temp")
+    outside = tmp_path / "outside" / "receipt.json"
+
+    with pytest.raises(ValueError, match="inside the temp root"):
+        runner._write_receipt(outside, {"safe": True}, temp_root)
+
+    assert not outside.parent.exists()
+
+
+def test_receipt_writer_rejects_symlinked_parent(tmp_path: Path) -> None:
+    temp_root = runner._safe_temp_root(tmp_path / "temp")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (temp_root / "linked").symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises(ValueError, match="inside the temp root"):
+        runner._write_receipt(
+            temp_root / "linked" / "receipt.json",
+            {"safe": True},
+            temp_root,
+        )
+
+    assert not (outside / "receipt.json").exists()
 
 
 def test_lane_runner_stops_after_deterministic_failure(

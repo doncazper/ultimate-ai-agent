@@ -4,7 +4,7 @@ import hashlib
 import json
 import re
 import unicodedata
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import PurePosixPath
@@ -30,6 +30,7 @@ TEST_EXECUTION_COMMAND_REFS = frozenset(
         "command:frontend.visual-regression-contract",
     }
 )
+TYPESCRIPT_EXECUTION_COMMAND_REFS = frozenset({"command:frontend.check"})
 UTC_TIMESTAMP_PATTERN = re.compile(
     r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$"
 )
@@ -214,6 +215,8 @@ class VerificationPlan:
     verifier_definition_fingerprint: str
     test_collection_fingerprint: str
     test_collection_posture: str
+    typescript_project_fingerprint: str
+    typescript_project_posture: str
     force_full: bool
     shadow_mode: bool
 
@@ -226,6 +229,7 @@ class VerificationPlan:
             (self.audit_posture, "verification audit posture"),
             (self.frontend_visual_scope, "frontend visual scope"),
             (self.test_collection_posture, "test collection posture"),
+            (self.typescript_project_posture, "TypeScript project posture"),
         ):
             _validate_ref(value, label=label)
         if not SHA_PATTERN.fullmatch(self.repository_sha) or not SHA_PATTERN.fullmatch(
@@ -241,6 +245,7 @@ class VerificationPlan:
             (self.command_manifest_fingerprint, "command manifest fingerprint"),
             (self.verifier_definition_fingerprint, "verifier definition fingerprint"),
             (self.test_collection_fingerprint, "test collection fingerprint"),
+            (self.typescript_project_fingerprint, "TypeScript project fingerprint"),
             (self.plan_fingerprint, "plan fingerprint"),
         ):
             _validate_digest(value, label=label)
@@ -292,6 +297,12 @@ class VerificationPlan:
             "collected",
         }:
             raise ValueError("verification test collection posture is invalid")
+        if self.typescript_project_posture not in {"not_applicable", "project_bound"}:
+            raise ValueError("verification TypeScript project posture is invalid")
+        if self.typescript_typecheck_required and (
+            self.typescript_project_posture != "project_bound"
+        ):
+            raise ValueError("TypeScript verification requires an exact project binding")
         if not all(
             isinstance(value, bool)
             for value in (
@@ -347,11 +358,28 @@ class VerificationReceipt:
     output_digest: str
     equivalent_receipt_ref: str | None = None
     redaction_status: str = "content_free_refs_hashes_counts_and_durations_only"
+    command_refs: tuple[str, ...] = ()
+    command_result_bindings: tuple[tuple[str, str], ...] = ()
+    execution_surface_ref: str = "surface-ref:unbound"
+    proof_equivalence_ref: str = "proof-equivalence-ref:none"
+    test_collection_posture: str = "not_applicable"
+    observed_test_collection_fingerprint: str | None = None
+    observed_test_count: int = 0
+    typescript_binding_posture: str = "not_applicable"
+    typescript_project_fingerprint: str | None = None
+    typescript_runtime_fingerprint: str | None = None
+    typescript_version_ref: str | None = None
+    receipt_fingerprint: str | None = None
 
     def validate(self) -> None:
         _validate_ref(self.schema_version, label="verification receipt schema version")
         _validate_ref(self.receipt_ref, label="verification receipt ref")
         _validate_ref(self.unit_ref, label="verification receipt unit ref")
+        if self.schema_version not in {
+            "uaa_verification_receipt.v1",
+            "uaa_verification_receipt.v2",
+        }:
+            raise ValueError("unsupported verification receipt schema version")
         if not SHA_PATTERN.fullmatch(self.repository_sha):
             raise ValueError("verification receipt requires an exact SHA")
         for value, label in (
@@ -365,6 +393,9 @@ class VerificationReceipt:
         ):
             _validate_digest(value, label=label)
         _validate_unique_refs(self.result_refs, label="verification result refs")
+        _validate_unique_refs(self.command_refs, label="verification receipt command refs")
+        _validate_ref(self.execution_surface_ref, label="verification execution surface")
+        _validate_ref(self.proof_equivalence_ref, label="verification proof equivalence")
         if len(self.result_refs) > MAX_RECEIPTS:
             raise ValueError("verification receipt result count is invalid")
         if not isinstance(self.status, VerificationTerminalStatus):
@@ -375,6 +406,65 @@ class VerificationReceipt:
             _validate_ref(
                 self.equivalent_receipt_ref, label="equivalent verification receipt ref"
             )
+        if self.test_collection_posture not in {
+            "not_applicable",
+            "collected",
+            "rejected",
+            "unavailable",
+        }:
+            raise ValueError("verification receipt collection posture is invalid")
+        if (
+            not isinstance(self.observed_test_count, int)
+            or isinstance(self.observed_test_count, bool)
+            or not 0 <= self.observed_test_count <= 1_000_000
+        ):
+            raise ValueError("verification receipt observed test count is invalid")
+        if self.test_collection_posture == "collected":
+            if self.observed_test_collection_fingerprint is None:
+                raise ValueError("collected verification receipt requires collection proof")
+            _validate_digest(
+                self.observed_test_collection_fingerprint,
+                label="observed test collection fingerprint",
+            )
+            if self.observed_test_count <= 0:
+                raise ValueError("collected verification receipt requires observed tests")
+        elif (
+            self.observed_test_collection_fingerprint is not None
+            or self.observed_test_count != 0
+        ):
+            raise ValueError("uncollected verification receipt cannot claim observed tests")
+        if self.typescript_binding_posture not in {
+            "not_applicable",
+            "resolved",
+            "rejected",
+            "unavailable",
+        }:
+            raise ValueError("verification receipt TypeScript posture is invalid")
+        if self.typescript_binding_posture == "resolved":
+            if (
+                self.typescript_project_fingerprint is None
+                or self.typescript_runtime_fingerprint is None
+                or self.typescript_version_ref is None
+            ):
+                raise ValueError("resolved TypeScript receipt requires exact bindings")
+            _validate_digest(
+                self.typescript_project_fingerprint,
+                label="receipt TypeScript project fingerprint",
+            )
+            _validate_digest(
+                self.typescript_runtime_fingerprint,
+                label="receipt TypeScript runtime fingerprint",
+            )
+            _validate_ref(self.typescript_version_ref, label="TypeScript version ref")
+        elif any(
+            value is not None
+            for value in (
+                self.typescript_project_fingerprint,
+                self.typescript_runtime_fingerprint,
+                self.typescript_version_ref,
+            )
+        ):
+            raise ValueError("unresolved TypeScript receipt cannot claim exact bindings")
         if (
             not isinstance(self.duration_ms, int)
             or isinstance(self.duration_ms, bool)
@@ -398,6 +488,52 @@ class VerificationReceipt:
         )
         if completed < started:
             raise ValueError("verification receipt completion precedes its start")
+        if self.schema_version == "uaa_verification_receipt.v2":
+            binding_commands: list[str] = []
+            binding_results: list[str] = []
+            for command_ref, result_ref in self.command_result_bindings:
+                _validate_ref(command_ref, label="receipt command binding ref")
+                _validate_ref(result_ref, label="receipt result binding ref")
+                binding_commands.append(command_ref)
+                binding_results.append(result_ref)
+            if (
+                tuple(binding_commands) != self.command_refs
+                or (
+                    bool(self.command_refs)
+                    and tuple(binding_results) != self.result_refs
+                )
+                or (not self.command_refs and bool(binding_results))
+                or len(binding_commands) != len(set(binding_commands))
+                or len(binding_results) != len(set(binding_results))
+            ):
+                raise ValueError("verification receipt command results are not exactly bound")
+            if self.status is VerificationTerminalStatus.PASSED and any(
+                command_ref.startswith("command:pytest.")
+                or command_ref in TEST_EXECUTION_COMMAND_REFS
+                for command_ref in self.command_refs
+            ) and self.test_collection_posture != "collected":
+                raise ValueError("passed test receipt requires observed collection proof")
+            if self.status is VerificationTerminalStatus.PASSED and any(
+                command_ref in TYPESCRIPT_EXECUTION_COMMAND_REFS
+                for command_ref in self.command_refs
+            ) and self.typescript_binding_posture != "resolved":
+                raise ValueError("passed TypeScript receipt requires runtime binding")
+            expected_fingerprint = verification_receipt_fingerprint(self)
+            if self.receipt_fingerprint != expected_fingerprint:
+                raise ValueError("verification receipt fingerprint does not match its payload")
+            if self.receipt_ref != f"receipt:verification:{expected_fingerprint}":
+                raise ValueError("verification receipt ref is not content bound")
+
+
+def verification_receipt_fingerprint(receipt: VerificationReceipt) -> str:
+    payload = {
+        field_name: getattr(receipt, field_name)
+        for field_name in VerificationReceipt.__dataclass_fields__
+        if field_name not in {"receipt_ref", "receipt_fingerprint"}
+    }
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -412,15 +548,25 @@ class VerificationRunManifest:
     status: VerificationTerminalStatus
     run_fingerprint: str
     redaction_status: str = "content_free_refs_hashes_counts_and_durations_only"
+    dependency_state_fingerprint: str | None = None
+    command_manifest_fingerprint: str | None = None
+    execution_surface_ref: str = "surface-ref:unbound"
+    unit_receipt_bindings: tuple[tuple[str, str], ...] = ()
 
     def validate(self) -> None:
         _validate_ref(self.schema_version, label="verification run schema version")
         _validate_ref(self.run_ref, label="verification run ref")
+        if self.schema_version not in {
+            "uaa_verification_run.v1",
+            "uaa_verification_run.v2",
+        }:
+            raise ValueError("unsupported verification run schema version")
         if not SHA_PATTERN.fullmatch(self.repository_sha):
             raise ValueError("verification run requires an exact SHA")
         _validate_digest(self.plan_fingerprint, label="run plan fingerprint")
         _validate_digest(self.run_fingerprint, label="run fingerprint")
         _validate_unique_refs(self.receipt_refs, label="run receipt refs")
+        _validate_ref(self.execution_surface_ref, label="run execution surface")
         if not isinstance(self.status, VerificationTerminalStatus):
             raise ValueError("verification run status is invalid")
         if not 0 < len(self.receipt_refs) <= MAX_RECEIPTS:
@@ -436,6 +582,132 @@ class VerificationRunManifest:
             != "content_free_refs_hashes_counts_and_durations_only"
         ):
             raise ValueError("verification run redaction posture is invalid")
+        unit_refs: list[str] = []
+        binding_receipt_refs: list[str] = []
+        for unit_ref, receipt_ref in self.unit_receipt_bindings:
+            _validate_ref(unit_ref, label="run unit binding ref")
+            _validate_ref(receipt_ref, label="run receipt binding ref")
+            unit_refs.append(unit_ref)
+            binding_receipt_refs.append(receipt_ref)
+        if len(unit_refs) != len(set(unit_refs)) or len(binding_receipt_refs) != len(
+            set(binding_receipt_refs)
+        ):
+            raise ValueError("run unit receipt bindings must be one-to-one")
+        if self.schema_version == "uaa_verification_run.v2":
+            if (
+                self.dependency_state_fingerprint is None
+                or self.command_manifest_fingerprint is None
+            ):
+                raise ValueError("v2 verification run requires exact dependency bindings")
+            _validate_digest(
+                self.dependency_state_fingerprint,
+                label="run dependency state fingerprint",
+            )
+            _validate_digest(
+                self.command_manifest_fingerprint,
+                label="run command manifest fingerprint",
+            )
+            if tuple(binding_receipt_refs) != self.receipt_refs:
+                raise ValueError("run receipt refs do not match unit bindings")
+            expected_fingerprint = verification_run_manifest_fingerprint(self)
+            if self.run_fingerprint != expected_fingerprint:
+                raise ValueError("verification run fingerprint does not match its payload")
+            if self.run_ref != f"run:verification:{expected_fingerprint}":
+                raise ValueError("verification run ref is not content bound")
+
+
+def verification_run_manifest_fingerprint(run: VerificationRunManifest) -> str:
+    payload = {
+        field_name: getattr(run, field_name)
+        for field_name in VerificationRunManifest.__dataclass_fields__
+        if field_name not in {"run_ref", "run_fingerprint"}
+    }
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+
+
+@dataclass(frozen=True)
+class VerificationGithubGateProof:
+    schema_version: str
+    proof_ref: str
+    repository_sha: str
+    plan_fingerprint: str
+    run_manifest_fingerprint: str
+    command_manifest_fingerprint: str
+    workflow_ref: str
+    github_run_ref: str
+    workflow_attempt: int
+    runner_pool_ref: str
+    required_check_refs: tuple[str, ...]
+    completed_check_refs: tuple[str, ...]
+    status: VerificationTerminalStatus
+    started_at: str
+    completed_at: str
+    proof_fingerprint: str
+    redaction_status: str = "content_free_refs_hashes_counts_and_durations_only"
+
+    def validate(self) -> None:
+        if self.schema_version != "uaa_verification_github_gate_proof.v1":
+            raise ValueError("unsupported GitHub gate proof schema version")
+        for value, label in (
+            (self.schema_version, "GitHub proof schema version"),
+            (self.proof_ref, "GitHub proof ref"),
+            (self.workflow_ref, "GitHub workflow ref"),
+            (self.github_run_ref, "GitHub run ref"),
+            (self.runner_pool_ref, "GitHub runner pool ref"),
+        ):
+            _validate_ref(value, label=label)
+        if not SHA_PATTERN.fullmatch(self.repository_sha):
+            raise ValueError("GitHub gate proof requires an exact SHA")
+        for value, label in (
+            (self.plan_fingerprint, "GitHub proof plan fingerprint"),
+            (self.run_manifest_fingerprint, "GitHub proof run fingerprint"),
+            (self.command_manifest_fingerprint, "GitHub proof command fingerprint"),
+            (self.proof_fingerprint, "GitHub proof fingerprint"),
+        ):
+            _validate_digest(value, label=label)
+        if (
+            not isinstance(self.workflow_attempt, int)
+            or isinstance(self.workflow_attempt, bool)
+            or not 1 <= self.workflow_attempt <= 100
+        ):
+            raise ValueError("GitHub workflow attempt is invalid")
+        _validate_unique_refs(self.required_check_refs, label="required GitHub check refs")
+        _validate_unique_refs(self.completed_check_refs, label="completed GitHub check refs")
+        if not isinstance(self.status, VerificationTerminalStatus):
+            raise ValueError("GitHub gate proof status is invalid")
+        if self.status is VerificationTerminalStatus.PASSED and (
+            not self.required_check_refs
+            or self.required_check_refs != self.completed_check_refs
+        ):
+            raise ValueError("passed GitHub proof requires exact check coverage")
+        started = _validated_timestamp(self.started_at, label="GitHub proof start timestamp")
+        completed = _validated_timestamp(
+            self.completed_at, label="GitHub proof completion timestamp"
+        )
+        if completed < started:
+            raise ValueError("GitHub proof completion precedes its start")
+        if self.redaction_status != "content_free_refs_hashes_counts_and_durations_only":
+            raise ValueError("GitHub proof redaction posture is invalid")
+        expected_fingerprint = verification_github_gate_proof_fingerprint(self)
+        if self.proof_fingerprint != expected_fingerprint:
+            raise ValueError("GitHub proof fingerprint does not match its payload")
+        if self.proof_ref != f"proof:github:{expected_fingerprint}":
+            raise ValueError("GitHub proof ref is not content bound")
+
+
+def verification_github_gate_proof_fingerprint(
+    proof: VerificationGithubGateProof,
+) -> str:
+    payload = {
+        field_name: getattr(proof, field_name)
+        for field_name in VerificationGithubGateProof.__dataclass_fields__
+        if field_name not in {"proof_ref", "proof_fingerprint"}
+    }
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -453,10 +725,15 @@ class VerificationGateDecision:
     github_gate_satisfied: bool
     merge_gate_satisfied: bool
     redaction_status: str = "content_free_refs_hashes_counts_and_durations_only"
+    github_proof_ref: str | None = None
+    run_manifest_ref: str | None = None
 
     def validate(self) -> None:
         _validate_ref(self.schema_version, label="verification gate schema version")
-        if self.schema_version != "uaa_verification_gate_decision.v1":
+        if self.schema_version not in {
+            "uaa_verification_gate_decision.v1",
+            "uaa_verification_gate_decision.v2",
+        }:
             raise ValueError("unsupported verification gate schema version")
         _validate_ref(self.decision_ref, label="verification gate decision ref")
         _validate_ref(self.github_run_ref, label="GitHub run ref")
@@ -487,10 +764,24 @@ class VerificationGateDecision:
             or len(self.validated_receipt_refs) != len(self.required_unit_refs)
         ):
             raise ValueError("passed verification gate requires exact receipt coverage")
-        if (
+        if self.github_proof_ref is not None:
+            _validate_ref(self.github_proof_ref, label="GitHub gate proof ref")
+        if self.run_manifest_ref is not None:
+            _validate_ref(self.run_manifest_ref, label="verification run manifest ref")
+        if self.schema_version == "uaa_verification_gate_decision.v1" and (
             self.status is VerificationGateStatus.PASSED or self.merge_gate_satisfied
         ):
             raise ValueError("v1 verification gates cannot replace typed GitHub proof")
+        if self.schema_version == "uaa_verification_gate_decision.v2" and (
+            self.github_proof_ref is None or self.run_manifest_ref is None
+        ):
+            raise ValueError("v2 verification gate requires typed GitHub and run proof")
+        if (
+            self.schema_version == "uaa_verification_gate_decision.v2"
+            and self.decision_ref
+            != f"decision:verification:{verification_gate_decision_fingerprint(self)}"
+        ):
+            raise ValueError("verification gate decision ref is not content bound")
         if self.merge_gate_satisfied and (
             self.status is not VerificationGateStatus.PASSED
             or not self.github_gate_satisfied
@@ -504,6 +795,19 @@ class VerificationGateDecision:
             != "content_free_refs_hashes_counts_and_durations_only"
         ):
             raise ValueError("verification gate redaction posture is invalid")
+
+
+def verification_gate_decision_fingerprint(
+    decision: VerificationGateDecision,
+) -> str:
+    payload = {
+        field_name: getattr(decision, field_name)
+        for field_name in VerificationGateDecision.__dataclass_fields__
+        if field_name != "decision_ref"
+    }
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -614,6 +918,7 @@ def dependency_state_fingerprint(plan: VerificationPlan) -> str:
         "verifiers": plan.verifier_definition_fingerprint,
         "collection": plan.test_collection_fingerprint,
         "pytest_shard_plan": plan.pytest_shard_plan_fingerprint,
+        "typescript_project": plan.typescript_project_fingerprint,
     }
     return hashlib.sha256(
         json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
@@ -723,6 +1028,155 @@ def evaluate_verification_gate(
         ),
         redaction_status="content_free_refs_hashes_counts_and_durations_only",
         **unsigned,
+    )
+    decision.validate()
+    return decision
+
+
+def evaluate_verification_gate_v2(
+    plan: VerificationPlan,
+    receipts: tuple[VerificationReceipt, ...],
+    *,
+    canonical_units: tuple[VerificationUnit, ...],
+    run_manifest: VerificationRunManifest,
+    github_proof: VerificationGithubGateProof,
+) -> VerificationGateDecision:
+    """Evaluate exact typed evidence; never infer GitHub success from a boolean."""
+
+    plan.validate()
+    validate_verification_dag(canonical_units)
+    canonical_by_ref = {unit.unit_ref: unit for unit in canonical_units}
+    if any(unit_ref not in canonical_by_ref for unit_ref in plan.selected_unit_refs):
+        raise ValueError("verification plan contains a noncanonical unit")
+    if dependency_closed_unit_refs(
+        canonical_units, plan.selected_unit_refs
+    ) != plan.selected_unit_refs:
+        raise ValueError("verification plan unit membership is not dependency closed")
+    expected_dependency_state = dependency_state_fingerprint(plan)
+    required = plan.selected_unit_refs
+    by_unit: dict[str, VerificationReceipt] = {}
+    invalid = False
+    for receipt in receipts:
+        try:
+            receipt.validate()
+        except (TypeError, ValueError):
+            invalid = True
+            continue
+        if receipt.schema_version != "uaa_verification_receipt.v2":
+            invalid = True
+            continue
+        if receipt.unit_ref in by_unit:
+            invalid = True
+            continue
+        if (
+            receipt.unit_ref not in required
+            or receipt.plan_fingerprint != plan.plan_fingerprint
+            or receipt.repository_sha != plan.repository_sha
+            or receipt.dependency_state_fingerprint != expected_dependency_state
+            or receipt.platform_fingerprint != plan.platform_fingerprint
+            or receipt.command_manifest_fingerprint != plan.command_manifest_fingerprint
+            or receipt.verifier_definition_fingerprint
+            != plan.verifier_definition_fingerprint
+            or receipt.test_collection_fingerprint != plan.test_collection_fingerprint
+            or receipt.command_refs
+            != canonical_by_ref[receipt.unit_ref].command_refs
+            or receipt.proof_equivalence_ref
+            != canonical_by_ref[receipt.unit_ref].proof_equivalence_ref
+            or receipt.status is not VerificationTerminalStatus.PASSED
+        ):
+            invalid = True
+            continue
+        if any(
+            command_ref in TYPESCRIPT_EXECUTION_COMMAND_REFS
+            for command_ref in receipt.command_refs
+        ) and receipt.typescript_project_fingerprint != plan.typescript_project_fingerprint:
+            invalid = True
+            continue
+        by_unit[receipt.unit_ref] = receipt
+
+    missing = tuple(unit_ref for unit_ref in required if unit_ref not in by_unit)
+    expected_bindings = tuple(
+        (unit_ref, by_unit[unit_ref].receipt_ref)
+        for unit_ref in required
+        if unit_ref in by_unit
+    )
+    try:
+        run_manifest.validate()
+    except (TypeError, ValueError):
+        invalid = True
+    run_valid = (
+        run_manifest.schema_version == "uaa_verification_run.v2"
+        and run_manifest.repository_sha == plan.repository_sha
+        and run_manifest.plan_fingerprint == plan.plan_fingerprint
+        and run_manifest.dependency_state_fingerprint == expected_dependency_state
+        and run_manifest.command_manifest_fingerprint
+        == plan.command_manifest_fingerprint
+        and run_manifest.unit_receipt_bindings == expected_bindings
+        and run_manifest.receipt_refs
+        == tuple(receipt_ref for _, receipt_ref in expected_bindings)
+        and run_manifest.status is VerificationTerminalStatus.PASSED
+    )
+    if not run_valid:
+        invalid = True
+
+    try:
+        github_proof.validate()
+    except (TypeError, ValueError):
+        invalid = True
+    github_valid = (
+        github_proof.repository_sha == plan.repository_sha
+        and github_proof.plan_fingerprint == plan.plan_fingerprint
+        and github_proof.run_manifest_fingerprint == run_manifest.run_fingerprint
+        and github_proof.command_manifest_fingerprint
+        == plan.command_manifest_fingerprint
+        and github_proof.status is VerificationTerminalStatus.PASSED
+    )
+    if not github_valid:
+        invalid = True
+
+    if plan.shadow_mode:
+        status = VerificationGateStatus.BLOCKED
+        reason_refs = ("reason-ref:verification:shadow-plan-non-authoritative",)
+    elif invalid or missing:
+        status = VerificationGateStatus.DENIED
+        reason_refs = ("reason-ref:verification:invalid-typed-proof",)
+    else:
+        status = VerificationGateStatus.BLOCKED
+        reason_refs = (
+            "reason-ref:verification:trusted-github-attestation-unavailable",
+        )
+    merge_gate_satisfied = False
+    validated_receipt_refs = tuple(
+        by_unit[unit_ref].receipt_ref
+        for unit_ref in required
+        if unit_ref in by_unit and unit_ref not in missing
+    )
+    unsigned = {
+        "repository_sha": plan.repository_sha,
+        "plan_fingerprint": plan.plan_fingerprint,
+        "status": status,
+        "required_unit_refs": required,
+        "validated_receipt_refs": validated_receipt_refs,
+        "missing_unit_refs": missing,
+        "reason_refs": reason_refs,
+        "github_run_ref": github_proof.github_run_ref,
+        "github_gate_satisfied": False,
+        "merge_gate_satisfied": merge_gate_satisfied,
+        "github_proof_ref": github_proof.proof_ref,
+        "run_manifest_ref": run_manifest.run_ref,
+    }
+    decision = VerificationGateDecision(
+        schema_version="uaa_verification_gate_decision.v2",
+        decision_ref=f"decision:verification:{'0' * 64}",
+        redaction_status="content_free_refs_hashes_counts_and_durations_only",
+        **unsigned,
+    )
+    decision = replace(
+        decision,
+        decision_ref=(
+            "decision:verification:"
+            + verification_gate_decision_fingerprint(decision)
+        ),
     )
     decision.validate()
     return decision
