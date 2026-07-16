@@ -7,25 +7,31 @@ import math
 import os
 import stat
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
-from scripts.verification.ci_fallback_storage import (
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from scripts.verification.ci_fallback_storage import (  # noqa: E402
     FullSuiteAttemptAlreadyRecordedError,
     FullSuiteLockUnavailableError,
 )
-from scripts.verification.pytest_shard_artifacts import TIMING_SCHEMA_VERSION
-from scripts.verification.run_ci_lane import (
+from scripts.verification.pytest_shard_artifacts import (  # noqa: E402
+    TIMING_SCHEMA_VERSION,
+)
+from scripts.verification.run_ci_lane import (  # noqa: E402
     PYTEST_FILE_TIMINGS_NAME,
     PytestRuntimeUnavailableError,
     run_lane,
 )
-from scripts.verification.verification_execution_identity import (
+from scripts.verification.verification_execution_identity import (  # noqa: E402
     VerificationExecutionFenceError,
 )
 
 
-ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_FENCE_ROOT = Path("/private/tmp/uaa-verification-execution-fence-v2")
 ALLOWED_LANES = {
     "ci-pytest-shards",

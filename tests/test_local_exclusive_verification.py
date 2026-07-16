@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
+import subprocess
+import sys
 
 import pytest
 
@@ -9,6 +12,28 @@ from scripts.verification import run_local_verification_lane as local_lane
 
 
 SHA = "a" * 40
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_local_lane_script_bootstraps_repo_imports_from_make_environment() -> None:
+    environment = os.environ.copy()
+    environment["PYTHONPATH"] = "src"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/verification/run_local_verification_lane.py",
+            "--help",
+        ],
+        cwd=ROOT,
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert "Run one clean exact-SHA local lane" in result.stdout
 
 
 def test_local_lane_uses_canonical_local_surface_and_fence(
