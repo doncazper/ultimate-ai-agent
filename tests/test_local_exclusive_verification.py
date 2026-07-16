@@ -15,6 +15,12 @@ SHA = "a" * 40
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def test_local_lane_default_fence_is_owner_scoped() -> None:
+    assert local_lane.DEFAULT_FENCE_ROOT == Path(
+        f"/private/tmp/uaa-verification-execution-fence-v2-{os.getuid()}"
+    )
+
+
 def test_local_lane_script_bootstraps_repo_imports_from_make_environment() -> None:
     environment = os.environ.copy()
     environment["PYTHONPATH"] = "src"

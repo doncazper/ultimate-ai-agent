@@ -36,7 +36,11 @@ jobs normally own that exact-SHA resource.
 remain available for intentional local complete verification. They execute the
 canonical pytest or frontend lane on a clean exact SHA through the host-wide
 attempt ledger and owner-only exact-execution fence; they are not separate
-command definitions. Starting one consumes the single complete-pytest or
+command definitions. Local entry points use an owner-scoped
+`/private/tmp/uaa-verification-execution-fence-v2-<uid>` store so the
+repository-scoped runner's owner-only fence cannot block a different local
+account; the shared attempt ledger still prevents duplicate exact-state work.
+Starting one consumes the single complete-pytest or
 TypeScript resource attempt for that SHA and dependency state, so GitHub must
 receive a new commit before it can perform the authoritative attempt. `make
 verify`, `make verify-dev-fast`, `make verify-dev-sharded`, and `make

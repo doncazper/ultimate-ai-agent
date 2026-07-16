@@ -1533,6 +1533,11 @@ def test_makefile_makes_sharded_pytest_canonical_and_preserves_serial_diagnostic
     assert "\nverify-dev-sharded:\n" in makefile
     assert "scripts/verification/run_local_verification_lane.py" in makefile
     assert "--lane ci-pytest-shards" in makefile
+    assert (
+        "VERIFICATION_EXECUTION_FENCE_ROOT ?= "
+        "/private/tmp/uaa-verification-execution-fence-v2-$(shell /usr/bin/id -u)"
+        in makefile
+    )
     assert "PYTEST_STRETCH_GOAL_SECONDS ?= 110" in makefile
     assert "PYTEST_TARGET_SECONDS ?= 125" in makefile
     assert "PYTEST_HARD_TIMEOUT_SECONDS ?= 180" in makefile

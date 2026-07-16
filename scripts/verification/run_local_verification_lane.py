@@ -32,7 +32,9 @@ from scripts.verification.verification_execution_identity import (  # noqa: E402
 )
 
 
-DEFAULT_FENCE_ROOT = Path("/private/tmp/uaa-verification-execution-fence-v2")
+DEFAULT_FENCE_ROOT = Path(
+    f"/private/tmp/uaa-verification-execution-fence-v2-{os.getuid()}"
+)
 ALLOWED_LANES = {
     "ci-pytest-shards",
     "ci-control-center-frontend",
