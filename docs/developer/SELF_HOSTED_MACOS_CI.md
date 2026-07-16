@@ -216,7 +216,19 @@ unadvertised, malformed, or locally unverifiable branch fails closed. The
 isolated clone pins that validated base object to an immutable local ref,
 removes its remote, and never shares refs, config, or hooks with the developer
 repository. It verifies lock fingerprints and regular repository paths and
-installs only through the existing lockfile policy. It derives an exact
+installs only through the existing lockfile policy. After dependency setup it
+captures a bounded content fingerprint of every ignored setup artifact under
+the exact `.ci-bootstrap`, `.venv`, Control Center `node_modules`, and pinned
+Matrix client adapter `node_modules` roots, including file type and permissions.
+Every selected command revalidates tracked files plus that exact setup
+fingerprint immediately before and after execution. Any other untracked file,
+module-shadowing path, dependency mutation, FIFO, or special file fails closed.
+Python bytecode, pytest cache, and Ruff cache output are redirected outside the
+checkout. The one canonical Vitest command disables its results cache, and the
+one canonical Vite build command writes to the run's bounded temporary root,
+so frontend verification cannot create import-visible or generated checkout
+state.
+It derives an exact
 affected/focused command scope from the canonical changed-path selector and
 excludes full pytest, the matching TypeScript resource, aggregate units, and
 audit units. If selection requires a full gate, private fallback reports that

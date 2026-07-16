@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+
 
 MATRIX_CACHE_CRYPTO_REL = (
     "src/ultimate_ai_agent/core/communications/matrix_sync/macos_cache_crypto.py"
@@ -11,12 +13,23 @@ MATRIX_SYNC_TRANSPORT_REL = (
 )
 _SUBPROCESS_RUN = "subprocess" + ".run("
 _SUBPROCESS_POPEN = "subprocess" + ".Popen("
+_REVIEWED_MATRIX_SYNC_TRANSPORT_SHA256 = (
+    "88de523ade8f34aebef1f4b23c760399bf1b4386221b70fd225b48219e3631d7"
+)
+_REVIEWED_MATRIX_CACHE_CRYPTO_SHA256 = (
+    "83462fb73886d2e2853e0556c29f4c8e25b963841eefed39c0b94be46b12c051"
+)
 
 
 def is_exact_matrix_sync_transport_subprocess_site(
     *, rel_path: str, source: str, fragment: str
 ) -> bool:
     if rel_path != MATRIX_SYNC_TRANSPORT_REL or fragment != _SUBPROCESS_POPEN:
+        return False
+    if (
+        hashlib.sha256(source.encode("utf-8")).hexdigest()
+        != _REVIEWED_MATRIX_SYNC_TRANSPORT_SHA256
+    ):
         return False
     required = (
         "start_new_session=True",
@@ -25,15 +38,22 @@ def is_exact_matrix_sync_transport_subprocess_site(
         "stdout=" + "subprocess" + ".PIPE",
         "stderr=" + "subprocess" + ".PIPE",
         "shell=False",
-        "cwd=self._adapter_root",
+        "cwd=runtime_snapshot.adapter_root",
         "env=_MINIMAL_SUBPROCESS_ENV",
         "os.killpg(process.pid, signal.SIGTERM)",
         "os.killpg(process.pid, signal.SIGKILL)",
         "process.wait(timeout=grace_seconds)",
+        '"--permission"',
+        'f"--allow-fs-read={runtime_snapshot.adapter_root}"',
         "MATRIX_SYNC_MAX_BYTES",
         "validate_matrix_adapter_runtime_integrity(",
         "_validate_file(node_binary",
         "_validate_file(runner_path",
+        'getattr(process, "stdin", None)',
+        'getattr(process, "stdout", None)',
+        'getattr(process, "stderr", None)',
+        "if stream is not None and not stream.closed:",
+        "stream.close()",
     )
     forbidden = (
         "shell" + "=True",
@@ -43,6 +63,10 @@ def is_exact_matrix_sync_transport_subprocess_site(
         "import " + "requests",
         "import " + "httpx",
         "import " + "urllib",
+        '"--allow-child-process"',
+        '"--allow-worker"',
+        '"--allow-addons"',
+        '"NODE_OPTIONS"',
     )
     return (
         source.count(_SUBPROCESS_POPEN) == 1
@@ -55,6 +79,11 @@ def is_exact_matrix_cache_crypto_subprocess_site(
     *, rel_path: str, source: str, fragment: str
 ) -> bool:
     if rel_path != MATRIX_CACHE_CRYPTO_REL or fragment != _SUBPROCESS_RUN:
+        return False
+    if (
+        hashlib.sha256(source.encode("utf-8")).hexdigest()
+        != _REVIEWED_MATRIX_CACHE_CRYPTO_SHA256
+    ):
         return False
     required = (
         "shell=False",
@@ -75,6 +104,8 @@ def is_exact_matrix_cache_crypto_subprocess_site(
         "os" + ".system(",
         "subprocess" + ".Popen(",
         "subprocess" + ".call(",
+        "subprocess" + ".getoutput(",
+        "subprocess" + ".getstatusoutput(",
         "import " + "requests",
         "import " + "httpx",
         "import " + "urllib",
@@ -94,8 +125,7 @@ def is_exact_matrix_cache_crypto_shell_scan_line(
     ):
         return False
     return (
-        stripped_line == "import " + "subprocess"
-        or "subprocess" + "." in stripped_line
+        stripped_line == "import " + "subprocess" or "subprocess" + "." in stripped_line
     )
 
 
@@ -107,8 +137,7 @@ def is_exact_matrix_sync_transport_shell_scan_line(
     ):
         return False
     return (
-        stripped_line == "import " + "subprocess"
-        or "subprocess" + "." in stripped_line
+        stripped_line == "import " + "subprocess" or "subprocess" + "." in stripped_line
     )
 
 

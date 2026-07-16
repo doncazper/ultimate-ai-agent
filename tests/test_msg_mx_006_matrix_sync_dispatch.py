@@ -2,19 +2,31 @@ from __future__ import annotations
 
 from datetime import timedelta
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.authority import AuthorityLeaseStore
+from ultimate_ai_agent.core.authority.dispatcher import AuthorityDispatcher
+from ultimate_ai_agent.core.authority.dispatcher import (
+    AuthorityDispatchAtomicStartRecoveryRequired,
+)
+from ultimate_ai_agent.core.communications.matrix_sync import (
+    adapter as matrix_sync_adapter,
+)
 from ultimate_ai_agent.core.communications.matrix_sync import (
     MatrixSyncReadinessStatus,
     MatrixSyncOperation,
     MatrixSyncOperationResult,
+    MatrixSyncTransportResult,
+    MatrixTransientBatchError,
+    MatrixTransientBatchRegistry,
     build_matrix_sync_readiness_observation,
     capture_exact_matrix_sync_approval,
     execute_matrix_sync_command,
     issue_exact_matrix_sync_lease,
+    operation_result_from_transport,
 )
 from ultimate_ai_agent.core.time import utc_now
 
@@ -32,6 +44,7 @@ def _success(_command_value):  # type: ignore[no-untyped-def]
         },
         evidence_refs=("evidence-ref:matrix-sync:test",),
         safe_summary="Exact Matrix operation succeeded with content-free evidence.",
+        abort_callback=lambda: None,
     )
 
 
@@ -42,6 +55,60 @@ def _ready(command):  # type: ignore[no-untyped-def]
         observed_at=now,
         expires_at=now + timedelta(minutes=1),
     )
+
+
+def _owned_transient_result(
+    command,  # type: ignore[no-untyped-def]
+    registry: MatrixTransientBatchRegistry,
+):  # type: ignore[no-untyped-def]
+    batch = SimpleNamespace(
+        next_batch_ref="next-batch-ref:matrix-sync:test",
+        events=(SimpleNamespace(event_ref="event-ref:matrix-sync:test"),),
+    )
+    batch_ref = registry.register(  # type: ignore[arg-type]
+        batch,
+        request_fingerprint_ref=command.request_fingerprint_ref,
+    )
+    transport_result = MatrixSyncTransportResult(
+        batch_ref=batch_ref,
+        event_count=1,
+        byte_count=1,
+        batch_fingerprint_ref="batch-fingerprint-ref:matrix-sync:test",
+        next_batch_ref=batch.next_batch_ref,
+        _discard_callback=lambda: registry.discard(
+            batch_ref,
+            request_fingerprint_ref=command.request_fingerprint_ref,
+        ),
+    )
+    return operation_result_from_transport(result=transport_result), batch_ref, batch
+
+
+def test_successful_batch_result_requires_owned_abort_callback() -> None:
+    command = _command(MatrixSyncOperation.sync_read)
+    handle = matrix_sync_adapter._ImmediateMatrixSyncHandle(
+        command=command,
+        execution_ref="execution-ref:matrix-sync:missing-abort-owner",
+        commit_validated_at=utc_now(),
+    )
+    unsafe_result = MatrixSyncOperationResult(
+        succeeded=True,
+        safe_output={
+            "batch_ref": "transient-batch-ref:matrix-sync:unowned",
+            "raw_content_included": False,
+            "external_write_performed": False,
+        },
+        evidence_refs=("evidence-ref:matrix-sync:unowned",),
+        safe_summary="Unowned transient output must fail closed.",
+    )
+
+    with pytest.raises(
+        AuthorityDispatchAtomicStartRecoveryRequired,
+        match="MATRIX_SYNC_TRANSIENT_BATCH_ABORT_CALLBACK_REQUIRED",
+    ):
+        handle.bind_result(unsafe_result)
+
+    handle.abort()
+    assert handle.settled is True
 
 
 def test_exact_sync_read_dispatches_once_and_terminal_replay_skips_executor(
@@ -78,6 +145,154 @@ def test_exact_sync_read_dispatches_once_and_terminal_replay_skips_executor(
     serialized = first.receipt.model_dump_json()
     assert "private" not in serialized
     assert "raw_content" not in serialized
+
+
+def test_terminal_append_failure_discards_owned_transient_batch_and_denies_replay(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    command = _command(MatrixSyncOperation.sync_read)
+    store = AuthorityLeaseStore(tmp_path)
+    issue_exact_matrix_sync_lease(command, store=store, confirmed=False)
+    registry = MatrixTransientBatchRegistry()
+    batch_refs: list[str] = []
+    calls = 0
+
+    def executor(command_value):  # type: ignore[no-untyped-def]
+        nonlocal calls
+        calls += 1
+        result, batch_ref, _batch = _owned_transient_result(command_value, registry)
+        batch_refs.append(batch_ref)
+        return result
+
+    original_append = AuthorityDispatcher._append
+
+    def fail_terminal_append(self, receipt):  # type: ignore[no-untyped-def]
+        if receipt.status == "succeeded":
+            raise RuntimeError("TEST_TERMINAL_APPEND_FAILURE")
+        return original_append(self, receipt)
+
+    monkeypatch.setattr(AuthorityDispatcher, "_append", fail_terminal_append)
+    with pytest.raises(RuntimeError, match="TEST_TERMINAL_APPEND_FAILURE"):
+        execute_matrix_sync_command(
+            command,
+            authority_state_dir=tmp_path,
+            executor=executor,
+            lease_store=store,
+            readiness_provider=_ready,
+        )
+    monkeypatch.setattr(AuthorityDispatcher, "_append", original_append)
+
+    with pytest.raises(MatrixTransientBatchError, match="EXPIRED"):
+        registry.consume(
+            batch_refs[0],
+            request_fingerprint_ref=command.request_fingerprint_ref,
+        )
+    replay = execute_matrix_sync_command(
+        command,
+        authority_state_dir=tmp_path,
+        executor=executor,
+        lease_store=store,
+        readiness_provider=_ready,
+    )
+    assert replay.receipt.status == "started"
+    assert replay.recovery_required is True
+    assert calls == 1
+
+
+def test_atomic_commit_failure_discards_owned_transient_batch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    command = _command(MatrixSyncOperation.sync_read)
+    store = AuthorityLeaseStore(tmp_path)
+    issue_exact_matrix_sync_lease(command, store=store, confirmed=False)
+    registry = MatrixTransientBatchRegistry()
+    batch_refs: list[str] = []
+
+    def executor(command_value):  # type: ignore[no-untyped-def]
+        result, batch_ref, _batch = _owned_transient_result(command_value, registry)
+        batch_refs.append(batch_ref)
+        return result
+
+    handle_type = matrix_sync_adapter._ImmediateMatrixSyncHandle
+    original_commit = handle_type.commit
+
+    def fail_commit(_self):  # type: ignore[no-untyped-def]
+        raise RuntimeError("TEST_ATOMIC_COMMIT_FAILURE")
+
+    monkeypatch.setattr(handle_type, "commit", fail_commit)
+    with pytest.raises(RuntimeError, match="TEST_ATOMIC_COMMIT_FAILURE"):
+        execute_matrix_sync_command(
+            command,
+            authority_state_dir=tmp_path,
+            executor=executor,
+            lease_store=store,
+            readiness_provider=_ready,
+        )
+    monkeypatch.setattr(handle_type, "commit", original_commit)
+
+    with pytest.raises(MatrixTransientBatchError, match="EXPIRED"):
+        registry.consume(
+            batch_refs[0],
+            request_fingerprint_ref=command.request_fingerprint_ref,
+        )
+
+
+def test_atomic_settle_failure_preserves_terminal_receipt_and_transient_batch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    command = _command(MatrixSyncOperation.sync_read)
+    store = AuthorityLeaseStore(tmp_path)
+    issue_exact_matrix_sync_lease(command, store=store, confirmed=False)
+    registry = MatrixTransientBatchRegistry()
+    batch_refs: list[str] = []
+    batches: list[object] = []
+    calls = 0
+
+    def executor(command_value):  # type: ignore[no-untyped-def]
+        nonlocal calls
+        calls += 1
+        result, batch_ref, batch = _owned_transient_result(command_value, registry)
+        batch_refs.append(batch_ref)
+        batches.append(batch)
+        return result
+
+    handle_type = matrix_sync_adapter._ImmediateMatrixSyncHandle
+    original_settle = handle_type.settle
+
+    def fail_settle(_self):  # type: ignore[no-untyped-def]
+        raise RuntimeError("TEST_ATOMIC_SETTLE_FAILURE")
+
+    monkeypatch.setattr(handle_type, "settle", fail_settle)
+    with pytest.raises(RuntimeError, match="TEST_ATOMIC_SETTLE_FAILURE"):
+        execute_matrix_sync_command(
+            command,
+            authority_state_dir=tmp_path,
+            executor=executor,
+            lease_store=store,
+            readiness_provider=_ready,
+        )
+    monkeypatch.setattr(handle_type, "settle", original_settle)
+
+    replay = execute_matrix_sync_command(
+        command,
+        authority_state_dir=tmp_path,
+        executor=executor,
+        lease_store=store,
+        readiness_provider=_ready,
+    )
+    assert replay.receipt.status == "succeeded"
+    assert replay.replayed is True
+    assert calls == 1
+    assert (
+        registry.consume(
+            batch_refs[0],
+            request_fingerprint_ref=command.request_fingerprint_ref,
+        )
+        is batches[0]
+    )
 
 
 def test_missing_exact_lease_denies_before_executor(tmp_path: Path) -> None:

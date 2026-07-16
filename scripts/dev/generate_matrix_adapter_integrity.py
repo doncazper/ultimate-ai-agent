@@ -19,7 +19,19 @@ def _sha256(path: Path) -> str:
 
 def _tree_sha256(root: Path) -> str:
     digest = hashlib.sha256()
-    files = sorted(path for path in root.rglob("*") if path.is_file())
+    entries = sorted(root.rglob("*"))
+    files: list[Path] = []
+    for path in entries:
+        metadata = os.lstat(path)
+        if (
+            stat.S_ISLNK(metadata.st_mode)
+            or not (stat.S_ISDIR(metadata.st_mode) or stat.S_ISREG(metadata.st_mode))
+            or metadata.st_uid != os.getuid()
+            or metadata.st_mode & 0o022
+        ):
+            raise RuntimeError("MATRIX_ADAPTER_INTEGRITY_TREE_UNSAFE")
+        if stat.S_ISREG(metadata.st_mode):
+            files.append(path)
     if not files:
         raise RuntimeError("MATRIX_ADAPTER_INTEGRITY_TREE_EMPTY")
     for path in files:

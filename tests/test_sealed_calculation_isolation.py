@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -29,9 +30,16 @@ SECCOMP_PROFILE = ROOT / "packaging" / "sealed-calculation" / "seccomp.json"
 
 
 class _InputPipe:
-    def __init__(self, *, write_result: int | None = None, fail_flush: bool = False):
+    def __init__(
+        self,
+        *,
+        write_result: int | None = None,
+        fail_flush: bool = False,
+        fail_close: bool = False,
+    ):
         self.write_result = write_result
         self.fail_flush = fail_flush
+        self.fail_close = fail_close
         self.closed = False
 
     def write(self, payload: bytes) -> int:
@@ -43,11 +51,128 @@ class _InputPipe:
 
     def close(self) -> None:
         self.closed = True
+        if self.fail_close:
+            raise OSError("injected close failure")
 
 
 class _InputProcess:
     def __init__(self, stdin: _InputPipe | None):
         self.stdin = stdin
+
+
+def test_abort_closes_process_streams_when_termination_proof_fails() -> None:
+    class FailingBackend:
+        def _terminate(self, *_args: object) -> None:
+            raise SealedCalculationCleanupUnconfirmedError(
+                "SEALED_CALCULATION_TEST_TERMINATION_UNCONFIRMED"
+            )
+
+    class Process:
+        def __init__(self) -> None:
+            self.stdin = _InputPipe(fail_close=True)
+            self.stdout = _InputPipe()
+            self.stderr = _InputPipe()
+
+    process = Process()
+    request = SealedCalculationRequest(
+        request_ref="request-ref:sealed-calculation:abort-streams",
+        input_ref="input-ref:sealed-calculation:abort-streams",
+        expression="1 + 1",
+        expression_sha256=hash_text("1 + 1"),
+    )
+    handle = SealedCalculationExecutionHandle(
+        backend=FailingBackend(),  # type: ignore[arg-type]
+        process=process,  # type: ignore[arg-type]
+        container_name="uaa-sealed-calculation-abort-streams",
+        execution_ref="execution-ref:sealed-calculation:abort-streams",
+        request=request,
+        commit_validated_at=utc_now(),
+    )
+
+    with pytest.raises(
+        SealedCalculationCleanupUnconfirmedError,
+        match="TEST_TERMINATION_UNCONFIRMED",
+    ):
+        handle.abort()
+
+    assert process.stdin.closed is True
+    assert process.stdout.closed is True
+    assert process.stderr.closed is True
+
+
+def test_start_handshake_failure_closes_unclaimed_process_streams(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    created_processes: list[object] = []
+
+    class FakePopen(subprocess.Popen[bytes]):
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
+            self.stdin = _InputPipe()
+            self.stdout = _InputPipe()
+            self.stderr = _InputPipe()
+            self.pid = 424242
+            self.returncode = 1
+            self.args = ["docker", "start"]
+            created_processes.append(self)
+
+        def poll(self) -> int:
+            return self.returncode
+
+        def wait(self, timeout: float | None = None) -> int:
+            del timeout
+            return self.returncode
+
+    backend = object.__new__(DockerSealedCalculationBackend)
+    backend.config = SimpleNamespace(
+        docker_binary=Path("/usr/bin/docker"),
+        docker_host="unix:///private/docker.sock",
+        seccomp_profile=Path("/private/seccomp.json"),
+        image_id="sha256:" + ("a" * 64),
+    )
+    backend._docker_env = {}
+    backend.readiness_reason_codes = lambda: []  # type: ignore[method-assign]
+    backend._container_name = lambda _execution_ref: "uaa-sealed-calculation-test"  # type: ignore[method-assign]
+    backend._docker = lambda *_args, **_kwargs: (_ for _ in ()).throw(  # type: ignore[method-assign]
+        SealedCalculationBackendError("SEALED_CALCULATION_NOT_FOUND")
+    )
+    backend._validate_seccomp_current = lambda: None  # type: ignore[method-assign]
+    backend._validate_container_config = lambda *_args: None  # type: ignore[method-assign]
+    backend.kill_switch_engaged = lambda: False  # type: ignore[method-assign]
+    backend.safe_disabled = lambda: False  # type: ignore[method-assign]
+    backend._read_json_frame = lambda *_args: {"frame": "invalid"}  # type: ignore[method-assign]
+    backend._remove_owned_container = lambda *_args: None  # type: ignore[method-assign]
+    monkeypatch.setattr(
+        backend_module.subprocess,
+        "run",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            returncode=0,
+            stdout="container-id",
+            stderr="",
+        ),
+    )
+    monkeypatch.setattr(backend_module.subprocess, "Popen", FakePopen)
+    request = SealedCalculationRequest(
+        request_ref="request-ref:sealed-calculation:start-streams",
+        input_ref="input-ref:sealed-calculation:start-streams",
+        expression="2 + 2",
+        expression_sha256=hash_text("2 + 2"),
+    )
+
+    with pytest.raises(
+        SealedCalculationBackendError,
+        match="SEALED_CALCULATION_START_HANDSHAKE_INVALID",
+    ):
+        backend.start(
+            execution_ref="execution-ref:sealed-calculation:start-streams",
+            request=request,
+            validate_commit_fence=lambda: ([], utc_now()),
+        )
+
+    assert len(created_processes) == 1
+    process = created_processes[0]
+    assert process.stdin.closed is True  # type: ignore[attr-defined]
+    assert process.stdout.closed is True  # type: ignore[attr-defined]
+    assert process.stderr.closed is True  # type: ignore[attr-defined]
 
 
 def test_missing_stdin_fails_before_input_commit_truth_becomes_unknown() -> None:

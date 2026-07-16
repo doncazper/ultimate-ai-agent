@@ -50,34 +50,40 @@ def _vitest_payload(
     assertions: list[dict[str, object]] | None = None,
     *,
     suite_name: str | None = None,
+    suite_counts: tuple[int, int, int] | None = None,
+    file_status: str | None = None,
+    coverage_map: object = ...,
 ) -> dict[str, object]:
-    items = assertions or [_vitest_assertion()]
+    items = assertions if assertions is not None else [_vitest_assertion()]
     status_counts = {
         "passed": sum(item["status"] == "passed" for item in items),
         "failed": sum(item["status"] == "failed" for item in items),
         "pending": sum(item["status"] in {"pending", "skipped"} for item in items),
         "todo": sum(item["status"] == "todo" for item in items),
     }
-    suite_status = (
-        "failed"
-        if status_counts["failed"]
-        else "pending"
-        if status_counts["pending"] + status_counts["todo"] == len(items)
-        else "passed"
+    if suite_counts is None:
+        suite_counts = (
+            0 if status_counts["failed"] else 2,
+            2 if status_counts["failed"] else 0,
+            0,
+        )
+    passed_suites, failed_suites, pending_suites = suite_counts
+    resolved_file_status = file_status or (
+        "failed" if failed_suites or status_counts["failed"] else "passed"
     )
-    return {
-        "numFailedTestSuites": int(suite_status == "failed"),
+    payload: dict[str, object] = {
+        "numFailedTestSuites": failed_suites,
         "numFailedTests": status_counts["failed"],
-        "numPassedTestSuites": int(suite_status == "passed"),
+        "numPassedTestSuites": passed_suites,
         "numPassedTests": status_counts["passed"],
-        "numPendingTestSuites": int(suite_status == "pending"),
+        "numPendingTestSuites": pending_suites,
         "numPendingTests": status_counts["pending"],
         "numTodoTests": status_counts["todo"],
-        "numTotalTestSuites": 1,
+        "numTotalTestSuites": sum(suite_counts),
         "numTotalTests": len(items),
         "snapshot": {},
         "startTime": 1_700_000_000_000,
-        "success": status_counts["failed"] == 0,
+        "success": failed_suites == 0 and status_counts["failed"] == 0,
         "testResults": [
             {
                 "assertionResults": items,
@@ -85,10 +91,13 @@ def _vitest_payload(
                 "message": "raw suite output must disappear",
                 "name": suite_name or str(VITEST_FILE),
                 "startTime": 1_700_000_000_000,
-                "status": suite_status,
+                "status": resolved_file_status,
             }
         ],
     }
+    if coverage_map is not ...:
+        payload["coverageMap"] = coverage_map
+    return payload
 
 
 def _playwright_attempt(status: str, retry: int) -> dict[str, object]:
@@ -219,20 +228,245 @@ def test_vitest_failed_run_remains_valid_collection_evidence(tmp_path: Path) -> 
     assert not raw.exists()
 
 
-def test_vitest_file_suite_count_does_not_count_describe_ancestors(
+def test_vitest_4_1_8_real_shape_counts_file_root_and_describe_suite(
     tmp_path: Path,
 ) -> None:
     directory = _private_directory(tmp_path)
-    assertion = _vitest_assertion(name="uses one file-level suite")
-    assertion["ancestorTitles"] = ["outer describe", "nested describe"]
-    assertion["fullName"] = "outer describe nested describe uses one file-level suite"
-    raw = _write_raw(directory, _vitest_payload([assertion]))
+    payload = _vitest_payload(
+        [
+            _vitest_assertion(name="first assertion"),
+            _vitest_assertion(name="second assertion"),
+            _vitest_assertion(name="third assertion"),
+        ]
+    )
+    assert payload["numTotalTestSuites"] == 2
+    assert len(payload["testResults"]) == 1  # type: ignore[arg-type]
+    raw = _write_raw(directory, payload)
+
+    result = evidence.consume_vitest_json_result(raw, repository_root=ROOT)
+
+    assert result["collected_test_count"] == 3
+    assert result["passed_test_count"] == 3
+    assert result["result_status"] == "passed"
+    assert not raw.exists()
+
+
+def test_vitest_nested_and_sibling_describes_have_distinct_suite_prefixes(
+    tmp_path: Path,
+) -> None:
+    directory = _private_directory(tmp_path)
+    nested_a = _vitest_assertion(name="nested a")
+    nested_a["ancestorTitles"] = ["outer", "inner a"]
+    nested_a["fullName"] = "outer inner a nested a"
+    nested_b = _vitest_assertion(name="nested b")
+    nested_b["ancestorTitles"] = ["outer", "inner b"]
+    nested_b["fullName"] = "outer inner b nested b"
+    sibling = _vitest_assertion(name="sibling")
+    sibling["ancestorTitles"] = ["sibling describe"]
+    sibling["fullName"] = "sibling describe sibling"
+    payload = _vitest_payload(
+        [nested_a, nested_b, sibling],
+        suite_counts=(5, 0, 0),
+    )
+    assert payload["numTotalTestSuites"] == 5
+    raw = _write_raw(directory, payload)
+
+    result = evidence.consume_vitest_json_result(raw, repository_root=ROOT)
+
+    assert result["collected_test_count"] == 3
+    assert result["result_status"] == "passed"
+    assert not raw.exists()
+
+
+def test_vitest_duplicate_sibling_describe_titles_use_reported_suite_counts(
+    tmp_path: Path,
+) -> None:
+    directory = _private_directory(tmp_path)
+    first = _vitest_assertion(name="first")
+    first["ancestorTitles"] = ["duplicate"]
+    first["fullName"] = "duplicate first"
+    second = _vitest_assertion(name="second")
+    second["ancestorTitles"] = ["duplicate"]
+    second["fullName"] = "duplicate second"
+    raw = _write_raw(
+        directory,
+        _vitest_payload([first, second], suite_counts=(3, 0, 0)),
+    )
+
+    result = evidence.consume_vitest_json_result(raw, repository_root=ROOT)
+
+    assert result["collected_test_count"] == 2
+    assert result["passed_test_count"] == 2
+    assert result["result_status"] == "passed"
+    assert not raw.exists()
+
+
+def test_vitest_duplicate_full_names_receive_bounded_occurrence_identities(
+    tmp_path: Path,
+) -> None:
+    single_directory = _private_directory(tmp_path / "single")
+    duplicate_directory = _private_directory(tmp_path / "duplicate")
+    assertion = _vitest_assertion(name="same")
+    single_raw = _write_raw(single_directory, _vitest_payload([assertion]))
+    duplicate_raw = _write_raw(
+        duplicate_directory,
+        _vitest_payload([assertion, dict(assertion)]),
+    )
+
+    single = evidence.consume_vitest_json_result(single_raw, repository_root=ROOT)
+    duplicate = evidence.consume_vitest_json_result(duplicate_raw, repository_root=ROOT)
+
+    assert single["collected_test_count"] == 1
+    assert duplicate["collected_test_count"] == 2
+    assert single["collection_digest_ref"] != duplicate["collection_digest_ref"]
+
+
+def test_vitest_ordinary_skipped_and_todo_suites_remain_reported_as_passed(
+    tmp_path: Path,
+) -> None:
+    directory = _private_directory(tmp_path)
+    skipped = _vitest_assertion(name="skipped child", status="skipped")
+    skipped["ancestorTitles"] = ["ordinary skipped"]
+    skipped["fullName"] = "ordinary skipped skipped child"
+    skipped.pop("duration")
+    todo = _vitest_assertion(name="todo child", status="todo")
+    todo["ancestorTitles"] = ["ordinary todo"]
+    todo["fullName"] = "ordinary todo todo child"
+    todo.pop("duration")
+    raw = _write_raw(
+        directory,
+        _vitest_payload([skipped, todo], suite_counts=(3, 0, 0)),
+    )
+
+    result = evidence.consume_vitest_json_result(raw, repository_root=ROOT)
+
+    assert result["result_status"] == "passed"
+    assert result["skipped_test_count"] == 1
+    assert result["todo_test_count"] == 1
+
+
+def test_vitest_describe_todo_uses_reported_pending_suite_count(
+    tmp_path: Path,
+) -> None:
+    pending_directory = _private_directory(tmp_path / "pending")
+    ordinary_directory = _private_directory(tmp_path / "ordinary")
+    todo = _vitest_assertion(name="child", status="todo")
+    todo["ancestorTitles"] = ["todo suite"]
+    todo["fullName"] = "todo suite child"
+    todo.pop("duration")
+    root_pass = _vitest_assertion(name="root passes")
+    root_pass["ancestorTitles"] = []
+    root_pass["fullName"] = "root passes"
+    pending_raw = _write_raw(
+        pending_directory,
+        _vitest_payload(
+            [todo, root_pass],
+            suite_counts=(1, 0, 1),
+        ),
+    )
+    ordinary_raw = _write_raw(
+        ordinary_directory,
+        _vitest_payload(
+            [todo, root_pass],
+            suite_counts=(2, 0, 0),
+        ),
+    )
+
+    result = evidence.consume_vitest_json_result(pending_raw, repository_root=ROOT)
+    ordinary_result = evidence.consume_vitest_json_result(
+        ordinary_raw, repository_root=ROOT
+    )
+
+    assert result["result_status"] == "passed"
+    assert result["passed_test_count"] == 1
+    assert result["todo_test_count"] == 1
+    assert result["collection_digest_ref"] != ordinary_result["collection_digest_ref"]
+
+
+def test_vitest_hook_failure_is_failed_even_without_failed_test(
+    tmp_path: Path,
+) -> None:
+    failed_directory = _private_directory(tmp_path / "failed")
+    skipped_directory = _private_directory(tmp_path / "skipped")
+    skipped = _vitest_assertion(name="never ran", status="skipped")
+    skipped["ancestorTitles"] = []
+    skipped["fullName"] = "never ran"
+    skipped.pop("duration")
+    failed_raw = _write_raw(
+        failed_directory,
+        _vitest_payload(
+            [skipped],
+            suite_counts=(0, 1, 0),
+            file_status="failed",
+        ),
+    )
+    skipped_raw = _write_raw(
+        skipped_directory,
+        _vitest_payload(
+            [skipped],
+            suite_counts=(1, 0, 0),
+            file_status="passed",
+        ),
+    )
+
+    result = evidence.consume_vitest_json_result(failed_raw, repository_root=ROOT)
+    skipped_result = evidence.consume_vitest_json_result(
+        skipped_raw, repository_root=ROOT
+    )
+
+    assert result["result_status"] == "failed"
+    assert result["failed_test_count"] == 0
+    assert result["skipped_test_count"] == 1
+    assert result["collection_digest_ref"] != skipped_result["collection_digest_ref"]
+
+
+def test_vitest_pending_assertion_is_rejected_as_incomplete(
+    tmp_path: Path,
+) -> None:
+    directory = _private_directory(tmp_path)
+    pending = _vitest_assertion(name="unfinished", status="pending")
+    pending.pop("duration")
+    raw = _write_raw(directory, _vitest_payload([pending]))
+
+    with pytest.raises(
+        evidence.FrontendCollectionEvidenceError,
+        match="vitest-test-incomplete",
+    ):
+        evidence.consume_vitest_json_result(raw, repository_root=ROOT)
+
+    assert not raw.exists()
+
+
+def test_vitest_optional_location_coverage_and_absent_duration_are_accepted(
+    tmp_path: Path,
+) -> None:
+    directory = _private_directory(tmp_path)
+    assertion = _vitest_assertion()
+    assertion.pop("duration")
+    assertion["location"] = {"line": 3, "column": 5}
+    raw = _write_raw(
+        directory,
+        _vitest_payload([assertion], coverage_map={}),
+    )
 
     result = evidence.consume_vitest_json_result(raw, repository_root=ROOT)
 
     assert result["collected_test_count"] == 1
-    assert result["passed_test_count"] == 1
     assert result["result_status"] == "passed"
+
+
+def test_vitest_suite_counter_algebra_is_fail_closed(tmp_path: Path) -> None:
+    directory = _private_directory(tmp_path)
+    payload = _vitest_payload()
+    payload["numTotalTestSuites"] = 3
+    raw = _write_raw(directory, payload)
+
+    with pytest.raises(
+        evidence.FrontendCollectionEvidenceError,
+        match="vitest-suite-count-mismatch",
+    ):
+        evidence.consume_vitest_json_result(raw, repository_root=ROOT)
+
     assert not raw.exists()
 
 

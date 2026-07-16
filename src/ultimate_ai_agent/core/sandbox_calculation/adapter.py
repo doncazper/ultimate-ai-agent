@@ -196,18 +196,53 @@ class _SealedCalculationDispatchHandle:
         *,
         operation_count: int,
         result_sink: Callable[[SealedCalculationResult], None],
+        result_discard: Callable[[str], None],
     ) -> None:
         self._handle = handle
         self._operation_count = operation_count
         self._result_sink = result_sink
+        self._result_discard = result_discard
+        self._pending_result: SealedCalculationResult | None = None
 
     @property
     def commit_validated_at(self) -> datetime:
         return self._handle.commit_validated_at
 
+    @property
+    def settled(self) -> bool:
+        return self._handle.settled
+
+    def abort(self) -> None:
+        try:
+            self._handle.abort()
+        except BaseException as exc:
+            raise AuthorityDispatchAtomicStartRecoveryRequired(
+                "AUTHORITY_DISPATCH_ATOMIC_CONFIRMATION_ABORT_RECOVERY_REQUIRED"
+            ) from exc
+        finally:
+            self._result_discard(self._handle.execution_ref)
+
+    def finalize(self) -> None:
+        if self._pending_result is None:
+            raise AuthorityDispatchAtomicStartRecoveryRequired(
+                "AUTHORITY_DISPATCH_ATOMIC_RESULT_FINALIZATION_REQUIRED"
+            )
+        self._result_sink(self._pending_result)
+        try:
+            self._handle.finalize()
+        except BaseException:
+            self._result_discard(self._pending_result.execution_ref)
+            raise
+
+    def commit(self) -> None:
+        self._handle.commit()
+
+    def settle(self) -> None:
+        self._handle.settle()
+
     def collect(self) -> AuthorityDispatchAdapterResult:
         result = self._handle.collect()
-        self._result_sink(result)
+        self._pending_result = result
         if result.status == SealedCalculationStatus.recovery_required:
             raise AuthorityDispatchAtomicStartRecoveryRequired(
                 "AUTHORITY_DISPATCH_ATOMIC_COLLECTION_RECOVERY_REQUIRED"
@@ -407,6 +442,10 @@ class SealedCalculationAuthorityDispatchAdapter:
         request: AuthorityDispatchRequest,
         *,
         validate_commit_fence: Callable[[], tuple[list[str], datetime]],
+        claim_handle: Callable[
+            [_SealedCalculationDispatchHandle],
+            _SealedCalculationDispatchHandle,
+        ],
     ) -> _SealedCalculationDispatchHandle:
         tool_request = ToolInvocationRequest.model_validate(
             request.tool_invocation_request
@@ -419,10 +458,18 @@ class SealedCalculationAuthorityDispatchAdapter:
             raise ValueError("SEALED_CALCULATION_TRANSIENT_INPUT_REQUIRED")
         try:
             try:
-                handle = self._backend.start(
+                return self._backend.start(
                     execution_ref=authority_dispatch_execution_ref(request),
                     request=transient,
                     validate_commit_fence=validate_commit_fence,
+                    claim_handle=lambda backend_handle: claim_handle(
+                        _SealedCalculationDispatchHandle(
+                            backend_handle,
+                            operation_count=self.descriptor.operation_count,
+                            result_sink=self._record_result,
+                            result_discard=self._discard_result,
+                        )
+                    ),
                 )
             except (
                 SealedCalculationCleanupUnconfirmedError,
@@ -433,11 +480,6 @@ class SealedCalculationAuthorityDispatchAdapter:
                 ) from exc
         finally:
             self._input_store.discard(metadata.input_ref)
-        return _SealedCalculationDispatchHandle(
-            handle,
-            operation_count=self.descriptor.operation_count,
-            result_sink=self._record_result,
-        )
 
     def invoke(
         self, request: AuthorityDispatchRequest
@@ -452,3 +494,7 @@ class SealedCalculationAuthorityDispatchAdapter:
     def _record_result(self, result: SealedCalculationResult) -> None:
         with self._results_lock:
             self._results[result.execution_ref] = result.model_copy(deep=True)
+
+    def _discard_result(self, execution_ref: str) -> None:
+        with self._results_lock:
+            self._results.pop(execution_ref, None)

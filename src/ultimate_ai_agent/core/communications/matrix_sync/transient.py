@@ -40,7 +40,9 @@ class MatrixTransientBatchRegistry:
         with self._lock:
             self._discard_expired(current)
             if len(self._entries) >= self._maximum_entries:
-                raise MatrixTransientBatchError("MATRIX_TRANSIENT_BATCH_CAPACITY_EXCEEDED")
+                raise MatrixTransientBatchError(
+                    "MATRIX_TRANSIENT_BATCH_CAPACITY_EXCEEDED"
+                )
             batch_ref = stable_matrix_sync_ref(
                 "transient-batch-ref:matrix-sync",
                 {
@@ -65,12 +67,30 @@ class MatrixTransientBatchRegistry:
     ) -> MatrixPrivateSyncBatch:
         current = now or utc_now()
         with self._lock:
-            entry = self._entries.pop(batch_ref, None)
-            if entry is None or current >= entry.expires_at:
+            entry = self._entries.get(batch_ref)
+            if entry is None:
+                raise MatrixTransientBatchError("MATRIX_TRANSIENT_BATCH_EXPIRED")
+            if current >= entry.expires_at:
+                self._entries.pop(batch_ref, None)
                 raise MatrixTransientBatchError("MATRIX_TRANSIENT_BATCH_EXPIRED")
             if entry.request_fingerprint_ref != request_fingerprint_ref:
                 raise MatrixTransientBatchError("MATRIX_TRANSIENT_BATCH_SCOPE_MISMATCH")
+            self._entries.pop(batch_ref)
             return entry.batch
+
+    def discard(
+        self,
+        batch_ref: str,
+        *,
+        request_fingerprint_ref: str,
+    ) -> None:
+        with self._lock:
+            entry = self._entries.get(batch_ref)
+            if entry is None:
+                return
+            if entry.request_fingerprint_ref != request_fingerprint_ref:
+                raise MatrixTransientBatchError("MATRIX_TRANSIENT_BATCH_SCOPE_MISMATCH")
+            self._entries.pop(batch_ref)
 
     def clear(self) -> None:
         with self._lock:

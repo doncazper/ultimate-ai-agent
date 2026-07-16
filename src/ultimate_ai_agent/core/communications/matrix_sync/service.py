@@ -33,6 +33,7 @@ from .contracts import (
     matrix_sync_start_deadline_ref,
     stable_matrix_sync_ref,
 )
+from .transport import MatrixSyncTransportResult
 
 
 def build_matrix_sync_dispatch_request(
@@ -178,7 +179,9 @@ def execute_matrix_sync_command(
     return dispatcher.dispatch(request)
 
 
-def blocked_matrix_sync_executor(command: MatrixSyncCommand) -> MatrixSyncOperationResult:
+def blocked_matrix_sync_executor(
+    command: MatrixSyncCommand,
+) -> MatrixSyncOperationResult:
     return MatrixSyncOperationResult(
         succeeded=False,
         safe_output={
@@ -188,34 +191,29 @@ def blocked_matrix_sync_executor(command: MatrixSyncCommand) -> MatrixSyncOperat
             "external_write_performed": False,
             "raw_content_included": False,
         },
-        evidence_refs=(
-            "evidence-ref:matrix-sync:credential-broker-not-enrolled",
-        ),
+        evidence_refs=("evidence-ref:matrix-sync:credential-broker-not-enrolled",),
         safe_summary="Matrix sync remains configuration-required until credential enrollment is proven.",
     )
 
 
 def operation_result_from_transport(
     *,
-    batch_ref: str,
-    batch_fingerprint_ref: str,
-    next_batch_ref: str,
-    event_count: int,
-    byte_count: int,
+    result: MatrixSyncTransportResult,
 ) -> MatrixSyncOperationResult:
     return MatrixSyncOperationResult(
         succeeded=True,
         safe_output={
-            "batch_ref": batch_ref,
-            "batch_fingerprint_ref": batch_fingerprint_ref,
-            "next_batch_ref": next_batch_ref,
-            "event_count": event_count,
-            "byte_count": byte_count,
+            "batch_ref": result.batch_ref,
+            "batch_fingerprint_ref": result.batch_fingerprint_ref,
+            "next_batch_ref": result.next_batch_ref,
+            "event_count": result.event_count,
+            "byte_count": result.byte_count,
             "content_untrusted": True,
             "not_instruction_authority": True,
             "external_write_performed": False,
             "raw_content_included": False,
         },
-        evidence_refs=(batch_fingerprint_ref, next_batch_ref),
+        evidence_refs=(result.batch_fingerprint_ref, result.next_batch_ref),
         safe_summary="Matrix read completed with a one-use private batch and content-free evidence.",
+        abort_callback=result.discard,
     )

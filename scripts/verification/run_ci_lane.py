@@ -49,6 +49,8 @@ from scripts.verification.pytest_shard_processes import (  # noqa: E402
     build_shard_env,
     cancellation_signals,
     installed_signal_handlers,
+    process_group_leader_is_terminal_without_reaping,
+    spawn_owned_process_group,
     stop_processes,
 )
 from scripts.verification.run_pytest_shards import (  # noqa: E402
@@ -110,9 +112,7 @@ PRIVATE_NON_DIAGNOSTIC_REASON_REF = (
 )
 CI_LANE_EXECUTION_ERROR_REASON_REF = "reason-ref:ci:lane-execution-failed"
 GITHUB_OUTPUT_KEY = "verification_envelope"
-TYPED_EVIDENCE_REDACTION_STATUS = (
-    "content_free_refs_hashes_counts_and_durations_only"
-)
+TYPED_EVIDENCE_REDACTION_STATUS = "content_free_refs_hashes_counts_and_durations_only"
 
 
 class PytestRuntimeUnavailableError(RuntimeError):
@@ -382,9 +382,7 @@ def _pytest_shard_evidence(
         evidence.update(
             {
                 "failed_test_refs": failed_test_refs,
-                "failed_test_ref_posture": (
-                    "diagnostic_untrusted_code_metadata_only"
-                ),
+                "failed_test_ref_posture": ("diagnostic_untrusted_code_metadata_only"),
             }
         )
     return evidence
@@ -406,12 +404,30 @@ def _run_command(
     process: subprocess.Popen[bytes] | None = None
     timed_out = False
     interrupted = False
+    registration_active = False
+    pending_signal: int | None = None
+    cleanup_attempted = False
+    returncode: int | None = None
+    signal_handling = False
+
+    def settle_process() -> None:
+        nonlocal cleanup_attempted
+        if process is None or cleanup_attempted:
+            return
+        cleanup_attempted = True
+        stop_processes((process,), TERMINATION_GRACE_SECONDS)
 
     def handle_signal(signum: int, _frame: object) -> None:
-        nonlocal interrupted
+        nonlocal interrupted, pending_signal, signal_handling
         interrupted = True
-        if process is not None:
-            stop_processes((process,), TERMINATION_GRACE_SECONDS)
+        if signal_handling:
+            return
+        signal_handling = True
+        if registration_active:
+            pending_signal = signum
+            return
+        if cleanup_attempted:
+            return
         raise KeyboardInterrupt(f"CI lane interrupted by signal {signum}")
 
     try:
@@ -423,38 +439,59 @@ def _run_command(
         ) as output:
             output_path = Path(output.name)
             with installed_signal_handlers(cancellation_signals(), handle_signal):
-                if validate_start is not None:
-                    validate_start()
-                if before_start is not None:
-                    before_start()
-                process = subprocess.Popen(
-                    _resolved_argv(
-                        command,
-                        temp_root,
-                        repository_sha,
-                        resolved_base_sha,
-                    ),
-                    cwd=ROOT,
-                    env=_safe_env(command, temp_root, resolved_base_sha),
-                    stdout=output,
-                    stderr=subprocess.STDOUT,
-                    start_new_session=os.name == "posix",
-                )
-                deadline = time.monotonic() + command.timeout_seconds
-                returncode: int | None = None
-                while returncode is None:
-                    returncode = process.poll()
-                    output.flush()
-                    if output.tell() > MAX_TRANSIENT_OUTPUT_BYTES:
-                        stop_processes((process,), TERMINATION_GRACE_SECONDS)
-                        returncode = 125
-                        break
-                    if time.monotonic() >= deadline:
-                        timed_out = True
-                        stop_processes((process,), TERMINATION_GRACE_SECONDS)
-                        returncode = 124
-                        break
-                    time.sleep(0.05)
+                try:
+                    if validate_start is not None:
+                        validate_start()
+                    if before_start is not None:
+                        before_start()
+                    registration_active = True
+                    try:
+                        process = spawn_owned_process_group(
+                            _resolved_argv(
+                                command,
+                                temp_root,
+                                repository_sha,
+                                resolved_base_sha,
+                            ),
+                            cwd=ROOT,
+                            env=_safe_env(command, temp_root, resolved_base_sha),
+                            stdout=output,
+                            stderr=subprocess.STDOUT,
+                        )
+                    except BaseException:
+                        registration_active = False
+                        raise
+                    else:
+                        registration_active = False
+                        if pending_signal is not None:
+                            interrupted_by = pending_signal
+                            pending_signal = None
+                            raise KeyboardInterrupt(
+                                f"CI lane interrupted by signal {interrupted_by}"
+                            )
+                    deadline = time.monotonic() + command.timeout_seconds
+                    while returncode is None:
+                        if process_group_leader_is_terminal_without_reaping(process):
+                            settle_process()
+                            if not isinstance(process.returncode, int):
+                                raise RuntimeError(
+                                    "CI lane terminal status is unavailable"
+                                )
+                            returncode = process.returncode
+                            break
+                        output.flush()
+                        if output.tell() > MAX_TRANSIENT_OUTPUT_BYTES:
+                            settle_process()
+                            returncode = 125
+                            break
+                        if time.monotonic() >= deadline:
+                            timed_out = True
+                            settle_process()
+                            returncode = 124
+                            break
+                        time.sleep(0.05)
+                finally:
+                    settle_process()
             output.flush()
             output.seek(0, os.SEEK_END)
             output_bytes = output.tell()
@@ -470,8 +507,6 @@ def _run_command(
         output_bytes = 0
         output_digest = hashlib.sha256(b"").hexdigest()
     finally:
-        if process is not None and process.poll() is None:
-            stop_processes((process,), TERMINATION_GRACE_SECONDS)
         if output_path is not None:
             output_path.unlink(missing_ok=True)
 
@@ -696,7 +731,9 @@ def _build_typed_lane_evidence(
         terminal_status is VerificationTerminalStatus.PASSED
         and result_command_refs != unit.command_refs
     ):
-        raise ValueError("passed typed CI evidence requires complete command membership")
+        raise ValueError(
+            "passed typed CI evidence requires complete command membership"
+        )
 
     test_collection_posture = "not_applicable"
     observed_collection_fingerprint: str | None = None
@@ -733,7 +770,9 @@ def _build_typed_lane_evidence(
                 declared_typescript.declared_project_fingerprint
                 != full_plan.typescript_project_fingerprint
             ):
-                raise ValueError("TypeScript declaration changed after plan construction")
+                raise ValueError(
+                    "TypeScript declaration changed after plan construction"
+                )
             runtime_typescript = resolve_typescript_runtime_binding(
                 ROOT / "apps/control-center", declared_typescript
             )
@@ -761,11 +800,15 @@ def _build_typed_lane_evidence(
     command_result_bindings = tuple(
         (str(result["command_ref"]), str(result["result_ref"])) for result in results
     )
-    if terminal_status is VerificationTerminalStatus.PASSED and any(
-        command_ref.startswith("command:pytest.")
-        or command_ref in TEST_EXECUTION_COMMAND_REFS
-        for command_ref in result_command_refs
-    ) and test_collection_posture != "collected":
+    if (
+        terminal_status is VerificationTerminalStatus.PASSED
+        and any(
+            command_ref.startswith("command:pytest.")
+            or command_ref in TEST_EXECUTION_COMMAND_REFS
+            for command_ref in result_command_refs
+        )
+        and test_collection_posture != "collected"
+    ):
         terminal_status = VerificationTerminalStatus.BLOCKED
     execution_identity_ref = None
     if receipt_schema_version == "uaa_verification_receipt.v3":
@@ -805,7 +848,9 @@ def _build_typed_lane_evidence(
         completed_at=str(legacy_receipt["completed_at"]),
         duration_ms=int(legacy_receipt["duration_ms"]),
         result_refs=tuple(str(result["result_ref"]) for result in results),
-        output_byte_count=sum(int(result.get("output_byte_count", 0)) for result in results),
+        output_byte_count=sum(
+            int(result.get("output_byte_count", 0)) for result in results
+        ),
         output_digest=_typed_output_digest(results),
         equivalent_receipt_ref=str(legacy_receipt["receipt_ref"]),
         command_refs=result_command_refs,
@@ -1004,7 +1049,9 @@ def run_lane(
     if lane_ref not in lanes:
         raise ValueError("unknown canonical CI lane ref")
     lane = lanes[lane_ref]
-    diagnostic_reproduction = PYTEST_REPRODUCTION_LANE_RE.fullmatch(lane_ref) is not None
+    diagnostic_reproduction = (
+        PYTEST_REPRODUCTION_LANE_RE.fullmatch(lane_ref) is not None
+    )
     resolved_execution_surface = execution_surface or (
         "local" if diagnostic_reproduction else full_suite_lock_mode
     )

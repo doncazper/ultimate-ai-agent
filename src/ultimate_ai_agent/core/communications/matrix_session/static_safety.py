@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import hashlib
+
 
 MATRIX_SESSION_BACKEND_REL = (
     "src/ultimate_ai_agent/core/communications/matrix_session/backend.py"
+)
+_REVIEWED_MATRIX_SESSION_BACKEND_SHA256 = (
+    "b9b3902bbfc88cd861948eae7cabf5b8551d71eaee72863a6a861ca99aa5948a"
 )
 _POPEN = "subprocess" + ".Popen("
 _HOME = "Path." + "home("
@@ -15,6 +20,11 @@ def is_exact_matrix_session_subprocess_site(
     *, rel_path: str, source: str, fragment: str
 ) -> bool:
     if rel_path != MATRIX_SESSION_BACKEND_REL or fragment != _POPEN:
+        return False
+    if (
+        hashlib.sha256(source.encode("utf-8")).hexdigest()
+        != _REVIEWED_MATRIX_SESSION_BACKEND_SHA256
+    ):
         return False
     required = (
         "start_new_session=True",
@@ -28,6 +38,10 @@ def is_exact_matrix_session_subprocess_site(
         "MATRIX_SESSION_ADAPTER_RESPONSE_MAX_BYTES = 128 * 1024",
         "validate_transient_target",
         "_validate_runtime_integrity",
+        'os.fspath(runtime_snapshot.node_binary)',
+        '"--permission"',
+        'f"--allow-fs-read={runtime_snapshot.adapter_root}"',
+        "os.fspath(runtime_snapshot.runner_path)",
     )
     forbidden = (
         "shell" + "=True",
@@ -84,15 +98,25 @@ def is_exact_matrix_session_bounded_filesystem_site(
         )
     if fragment == _RUNTIME_TREE_SCAN:
         required = (
-            "if not root.is_dir() or root.is_symlink()",
+            'for path in sorted(root.rglob("*"), reverse=True):',
+            "os.chmod(path, 0o500 if path.is_dir() else 0o400)",
+            'entries = tuple(root.rglob("*"))',
+            "if len(entries) > 100_000:",
+            'entries = sorted(root.rglob("*"))',
+            "_validate_runtime_integrity(",
+            "metadata = os.lstat(path)",
+            "stat.S_ISLNK(metadata.st_mode)",
+            "not (stat.S_ISDIR(metadata.st_mode) or stat.S_ISREG(metadata.st_mode))",
+            "metadata.st_uid != os.getuid()",
+            "metadata.st_mode & 0o022",
             "_require_safe_regular_file(path)",
-            "relative = path.relative_to(root)",
-            "len(trees) > 64",
-            'set(item) != {"root", "sha256"}',
-            '".." in Path(relative).parts',
-            "root.resolve().is_relative_to(adapter_root) is False",
+            "relative = path.relative_to(root).as_posix().encode()",
+            "shutil.rmtree(root)",
+            "MATRIX_SESSION_RUNTIME_SNAPSHOT_CLEANUP_LIMIT_EXCEEDED",
+            "MATRIX_SESSION_RUNTIME_SNAPSHOT_CLEANUP_UNSAFE",
+            "MATRIX_SESSION_RUNTIME_TREE_UNSAFE",
         )
-        return source.count(_RUNTIME_TREE_SCAN) == 1 and all(
+        return source.count(_RUNTIME_TREE_SCAN) == 3 and all(
             marker in source for marker in required
         )
     return False

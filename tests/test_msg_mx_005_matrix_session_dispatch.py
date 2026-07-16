@@ -5,12 +5,13 @@ import json
 import os
 import subprocess
 import sys
+from collections.abc import Callable
 from datetime import timedelta
 from pathlib import Path
-from collections.abc import Callable
 
 import pytest
 
+import ultimate_ai_agent.core.communications.matrix_session.backend as matrix_session_backend_module
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.authority import AuthorityLeaseStore
 from ultimate_ai_agent.core.communications.matrix_session import (
@@ -31,6 +32,14 @@ from ultimate_ai_agent.core.communications.matrix_session.target_policy import (
 )
 from ultimate_ai_agent.core.communications.matrix_session.observations import (
     MatrixDiscoveryObservationStore,
+)
+from ultimate_ai_agent.core.communications.matrix_session.backend import (
+    MatrixSessionExecutionHandle,
+    create_matrix_runtime_snapshot,
+    remove_matrix_runtime_snapshot,
+)
+from ultimate_ai_agent.core.authority.dispatcher import (
+    AuthorityDispatchAtomicStartRecoveryRequired,
 )
 from ultimate_ai_agent.core.time import utc_now
 
@@ -201,7 +210,18 @@ def _backend(
     os.chmod(runner, 0o600)
     os.chmod(helper, 0o700)
     os.chmod(wasm, 0o600)
-    node = Path(sys.executable).resolve()
+    node = repo / "node-test-wrapper"
+    node.write_text(
+        (
+            "#!/bin/sh\n"
+            '[ "$1" = "--permission" ] || exit 64\n'
+            "shift\n"
+            'case "$1" in --allow-fs-read=*) shift ;; *) exit 64 ;; esac\n'
+            'exec /usr/bin/python3 "$@"\n'
+        ),
+        encoding="utf-8",
+    )
+    os.chmod(node, 0o700)
     config = MatrixSessionBackendConfig(
         repo_root=repo,
         adapter_root=repo,
@@ -232,6 +252,204 @@ def _tree_digest(root: Path) -> str:
         digest.update(b"\0")
         digest.update(bytes.fromhex(_digest(path)))
     return digest.hexdigest()
+
+
+def test_abort_closes_streams_and_releases_lifecycle_when_termination_fails() -> None:
+    class Stream:
+        def __init__(self, *, fail_close: bool = False) -> None:
+            self.closed = False
+            self.fail_close = fail_close
+
+        def close(self) -> None:
+            self.closed = True
+            if self.fail_close:
+                raise OSError("injected stream close failure")
+
+    class Process:
+        def __init__(self) -> None:
+            self.stdin = Stream(fail_close=True)
+            self.stdout = Stream()
+            self.stderr = Stream()
+
+    class FailingBackend:
+        def __init__(self) -> None:
+            self.released = False
+
+        def _terminate_process_group(self, _process: object) -> None:
+            raise RuntimeError("MATRIX_SESSION_TEST_TERMINATION_UNCONFIRMED")
+
+        def _release_lifecycle(self) -> None:
+            self.released = True
+
+    backend = FailingBackend()
+    process = Process()
+    handle = MatrixSessionExecutionHandle(
+        backend=backend,  # type: ignore[arg-type]
+        execution_ref="execution-ref:matrix-session:abort-streams",
+        process=process,  # type: ignore[arg-type]
+        commit_validated_at=utc_now(),
+        expected_operation=MatrixSessionOperation.discovery_read,
+        runtime_snapshot=None,  # type: ignore[arg-type]
+    )
+
+    with pytest.raises(
+        AuthorityDispatchAtomicStartRecoveryRequired,
+        match="MATRIX_SESSION_CONFIRMATION_ABORT_CLEANUP_UNCERTAIN",
+    ):
+        handle.abort()
+
+    assert process.stdin.closed is True
+    assert process.stdout.closed is True
+    assert process.stderr.closed is True
+    assert backend.released is True
+
+
+@pytest.mark.parametrize("failure_stage", ("termination", "lifecycle"))
+def test_collect_attempts_all_cleanup_when_one_step_fails(
+    monkeypatch: pytest.MonkeyPatch,
+    failure_stage: str,
+) -> None:
+    class Stream:
+        def __init__(self) -> None:
+            self.closed = False
+
+        def close(self) -> None:
+            self.closed = True
+
+    class Process:
+        def __init__(self) -> None:
+            self.stdin = Stream()
+            self.stdout = Stream()
+            self.stderr = Stream()
+
+    class FailingBackend:
+        def __init__(self) -> None:
+            self.terminated = False
+            self.released = False
+
+        def _terminate_process_group(self, _process: object) -> None:
+            self.terminated = True
+            if failure_stage == "termination":
+                raise RuntimeError("MATRIX_SESSION_TEST_TERMINATION_UNCONFIRMED")
+
+        def _release_lifecycle(self) -> None:
+            self.released = True
+            if failure_stage == "lifecycle":
+                raise RuntimeError("MATRIX_SESSION_TEST_LIFECYCLE_RELEASE_UNCONFIRMED")
+
+    snapshot_released = False
+
+    def fail_collection(*_args: object, **_kwargs: object) -> bytes:
+        raise RuntimeError("MATRIX_SESSION_TEST_COLLECTION_FAILED")
+
+    def record_snapshot_release(_snapshot: object) -> None:
+        nonlocal snapshot_released
+        snapshot_released = True
+
+    monkeypatch.setattr(
+        matrix_session_backend_module,
+        "_communicate_bounded",
+        fail_collection,
+    )
+    monkeypatch.setattr(
+        matrix_session_backend_module,
+        "remove_matrix_runtime_snapshot",
+        record_snapshot_release,
+    )
+    backend = FailingBackend()
+    process = Process()
+    handle = MatrixSessionExecutionHandle(
+        backend=backend,  # type: ignore[arg-type]
+        execution_ref=f"execution-ref:matrix-session:collect-{failure_stage}",
+        process=process,  # type: ignore[arg-type]
+        commit_validated_at=utc_now(),
+        expected_operation=MatrixSessionOperation.credential_auth_create,
+        runtime_snapshot=object(),  # type: ignore[arg-type]
+    )
+
+    with pytest.raises(
+        AuthorityDispatchAtomicStartRecoveryRequired,
+        match="MATRIX_SESSION_COLLECTION_CLEANUP_UNCERTAIN",
+    ):
+        handle.collect()
+
+    assert backend.terminated is True
+    assert backend.released is True
+    assert snapshot_released is True
+    assert process.stdin.closed is True
+    assert process.stdout.closed is True
+    assert process.stderr.closed is True
+
+
+def test_runtime_snapshot_reconciliation_preserves_active_and_removes_stale(
+    tmp_path: Path,
+) -> None:
+    backend = _backend(tmp_path)
+    config = backend.config
+    snapshot_parent = tmp_path / "runtime-snapshots"
+
+    active = create_matrix_runtime_snapshot(
+        adapter_root=config.adapter_root,
+        node_binary=config.node_binary,
+        runner_path=config.runner_path,
+        expected_node_sha256=config.expected_node_sha256,
+        expected_runner_sha256=config.expected_runner_sha256,
+        snapshot_parent=snapshot_parent,
+    )
+    sibling = create_matrix_runtime_snapshot(
+        adapter_root=config.adapter_root,
+        node_binary=config.node_binary,
+        runner_path=config.runner_path,
+        expected_node_sha256=config.expected_node_sha256,
+        expected_runner_sha256=config.expected_runner_sha256,
+        snapshot_parent=snapshot_parent,
+    )
+    assert active.root.exists()
+    assert sibling.root.exists()
+
+    stale_root = sibling.root
+    os.close(sibling.owner_lock_fd)
+    replacement = create_matrix_runtime_snapshot(
+        adapter_root=config.adapter_root,
+        node_binary=config.node_binary,
+        runner_path=config.runner_path,
+        expected_node_sha256=config.expected_node_sha256,
+        expected_runner_sha256=config.expected_runner_sha256,
+        snapshot_parent=snapshot_parent,
+    )
+    assert not stale_root.exists()
+    assert active.root.exists()
+    assert replacement.root.exists()
+
+    remove_matrix_runtime_snapshot(active)
+    remove_matrix_runtime_snapshot(replacement)
+
+
+def test_runtime_snapshot_rejects_symlinked_integrity_tree_directory(
+    tmp_path: Path,
+) -> None:
+    backend = _backend(tmp_path)
+    config = backend.config
+    external = tmp_path / "external-runtime"
+    external.mkdir()
+    (external / "unreviewed.mjs").write_text(
+        "export const unreviewed = true;\n",
+        encoding="utf-8",
+    )
+    (config.adapter_root / "runtime" / "linked").symlink_to(
+        external,
+        target_is_directory=True,
+    )
+
+    with pytest.raises(ValueError, match="MATRIX_SESSION_RUNTIME_TREE_UNSAFE"):
+        create_matrix_runtime_snapshot(
+            adapter_root=config.adapter_root,
+            node_binary=config.node_binary,
+            runner_path=config.runner_path,
+            expected_node_sha256=config.expected_node_sha256,
+            expected_runner_sha256=config.expected_runner_sha256,
+            snapshot_parent=tmp_path / "runtime-snapshots",
+        )
 
 
 def test_read_dispatch_revalidates_exact_lease_and_returns_safe_evidence(

@@ -1,15 +1,18 @@
 from __future__ import annotations
 
-import hashlib
+import errno
 import json
 import os
 import signal
-import stat
 import subprocess
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from ultimate_ai_agent.core.communications.matrix_session.backend import (
+    create_matrix_runtime_snapshot,
+    remove_matrix_runtime_snapshot,
+    _validate_hash_bound_file as validate_matrix_runtime_file,
     _validate_runtime_integrity as validate_matrix_adapter_runtime_integrity,
 )
 from ultimate_ai_agent.core.communications.matrix_session.target_policy import (
@@ -52,6 +55,10 @@ class MatrixSyncTransportResult:
     byte_count: int
     batch_fingerprint_ref: str
     next_batch_ref: str
+    _discard_callback: Callable[[], None] = field(repr=False, compare=False)
+
+    def discard(self) -> None:
+        self._discard_callback()
 
 
 _MATRIX_EVENT_TYPES_BY_CLASS_REF: dict[str, tuple[str, ...]] = {
@@ -83,18 +90,9 @@ _MATRIX_ROOM_ID_MAX_BYTES = 255
 
 
 def _validate_file(path: Path, expected_sha256: str, *, executable: bool) -> None:
-    info = os.lstat(path)
-    if (
-        not stat.S_ISREG(info.st_mode)
-        or stat.S_ISLNK(info.st_mode)
-        or info.st_nlink != 1
-    ):
-        raise ValueError("MATRIX_SYNC_RUNTIME_FILE_UNSAFE")
+    validate_matrix_runtime_file(path, expected_sha256)
     if executable and not os.access(path, os.X_OK):
         raise ValueError("MATRIX_SYNC_RUNTIME_EXECUTABLE_REQUIRED")
-    digest = hashlib.sha256(path.read_bytes()).hexdigest()
-    if digest != expected_sha256:
-        raise ValueError("MATRIX_SYNC_RUNTIME_HASH_MISMATCH")
 
 
 def _terminate_process_group(
@@ -102,7 +100,7 @@ def _terminate_process_group(
     *,
     grace_seconds: float = _PROCESS_GROUP_GRACE_SECONDS,
 ) -> None:
-    """Terminate and reap one isolated adapter process group within a bound."""
+    """Terminate and reap the permission-confined adapter within a bound."""
     if process.poll() is not None:
         process.wait(timeout=grace_seconds)
         return
@@ -239,6 +237,8 @@ class MatrixSyncTransport:
         self._node_binary = node_binary
         self._runner_path = runner_path
         self._adapter_root = adapter_root
+        self._expected_node_sha256 = expected_node_sha256
+        self._expected_runner_sha256 = expected_runner_sha256
         self._credential_writer = credential_writer
         self._registry = registry
         self._allow_loopback_harness = allow_loopback_harness
@@ -261,7 +261,33 @@ class MatrixSyncTransport:
             pseudonymization_salt=pseudonymization_salt,
             allow_loopback_harness=self._allow_loopback_harness,
         )
-        read_fd, write_fd = os.pipe()
+        _validate_file(
+            self._node_binary,
+            self._expected_node_sha256,
+            executable=True,
+        )
+        _validate_file(
+            self._runner_path,
+            self._expected_runner_sha256,
+            executable=False,
+        )
+        validate_matrix_adapter_runtime_integrity(
+            adapter_root=self._adapter_root,
+            package_lock_path=self._adapter_root / "package-lock.json",
+            manifest_path=self._adapter_root / "runtime-integrity.json",
+        )
+        runtime_snapshot = create_matrix_runtime_snapshot(
+            adapter_root=self._adapter_root,
+            node_binary=self._node_binary,
+            runner_path=self._runner_path,
+            expected_node_sha256=self._expected_node_sha256,
+            expected_runner_sha256=self._expected_runner_sha256,
+        )
+        try:
+            read_fd, write_fd = os.pipe()
+        except BaseException:
+            remove_matrix_runtime_snapshot(runtime_snapshot)
+            raise
         request = {
             "schema_version": "uaa-matrix-sync-adapter-request.v1",
             "operation": command.operation.value,
@@ -281,24 +307,36 @@ class MatrixSyncTransport:
             "credential_fd": read_fd,
         }
         request = {key: value for key, value in request.items() if value is not None}
+        read_fd_open = True
+        write_fd_open = True
         try:
             process = subprocess.Popen(
-                [str(self._node_binary), str(self._runner_path)],
+                [
+                    str(runtime_snapshot.node_binary),
+                    "--permission",
+                    f"--allow-fs-read={runtime_snapshot.adapter_root}",
+                    str(runtime_snapshot.runner_path),
+                ],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 shell=False,
-                cwd=self._adapter_root,
+                cwd=runtime_snapshot.adapter_root,
                 env=_MINIMAL_SUBPROCESS_ENV,
                 start_new_session=True,
                 pass_fds=(read_fd,),
             )
         except BaseException:
-            os.close(read_fd)
-            os.close(write_fd)
+            for descriptor in (read_fd, write_fd):
+                try:
+                    os.close(descriptor)
+                except OSError:
+                    pass
+            remove_matrix_runtime_snapshot(runtime_snapshot)
             raise
-        os.close(read_fd)
         try:
+            os.close(read_fd)
+            read_fd_open = False
             try:
                 self._credential_writer.write_once(
                     write_fd,
@@ -308,6 +346,7 @@ class MatrixSyncTransport:
                 )
             finally:
                 os.close(write_fd)
+                write_fd_open = False
             try:
                 stdout, stderr = process.communicate(
                     json.dumps(request, separators=(",", ":")).encode("utf-8"),
@@ -320,6 +359,38 @@ class MatrixSyncTransport:
             if process.poll() is None:
                 _terminate_process_group(process)
             raise
+        finally:
+            cleanup_error: BaseException | None = None
+            if read_fd_open:
+                try:
+                    os.close(read_fd)
+                except OSError as exc:
+                    if exc.errno != errno.EBADF:
+                        cleanup_error = cleanup_error or exc
+            if write_fd_open:
+                try:
+                    os.close(write_fd)
+                except OSError as exc:
+                    if exc.errno != errno.EBADF:
+                        cleanup_error = cleanup_error or exc
+            for stream in (
+                getattr(process, "stdin", None),
+                getattr(process, "stdout", None),
+                getattr(process, "stderr", None),
+            ):
+                if stream is not None and not stream.closed:
+                    try:
+                        stream.close()
+                    except BaseException as exc:
+                        cleanup_error = cleanup_error or exc
+            try:
+                remove_matrix_runtime_snapshot(runtime_snapshot)
+            except BaseException as exc:
+                cleanup_error = cleanup_error or exc
+            if cleanup_error is not None:
+                raise MatrixSyncTransportError(
+                    "MATRIX_SYNC_TRANSPORT_CLEANUP_UNCONFIRMED"
+                ) from cleanup_error
         if process.returncode != 0:
             code = stderr.decode("ascii", errors="ignore").strip()
             if not code.startswith("MATRIX_"):
@@ -355,24 +426,46 @@ class MatrixSyncTransport:
         batch_ref = self._registry.register(
             batch, request_fingerprint_ref=command.request_fingerprint_ref
         )
-        return MatrixSyncTransportResult(
-            batch_ref=batch_ref,
-            event_count=batch.event_count,
-            byte_count=batch.byte_count,
-            batch_fingerprint_ref=stable_matrix_sync_ref(
-                "batch-fingerprint-ref:matrix-sync",
-                {
-                    "account_ref": batch.account_ref,
-                    "next_batch_ref": batch.next_batch_ref,
-                    "event_refs": [event.event_ref for event in batch.events],
-                },
-            ),
-            next_batch_ref=batch.next_batch_ref,
-        )
+        try:
+            return MatrixSyncTransportResult(
+                batch_ref=batch_ref,
+                event_count=batch.event_count,
+                byte_count=batch.byte_count,
+                batch_fingerprint_ref=stable_matrix_sync_ref(
+                    "batch-fingerprint-ref:matrix-sync",
+                    {
+                        "account_ref": batch.account_ref,
+                        "next_batch_ref": batch.next_batch_ref,
+                        "event_refs": [event.event_ref for event in batch.events],
+                    },
+                ),
+                next_batch_ref=batch.next_batch_ref,
+                _discard_callback=lambda: self.discard_batch(
+                    batch_ref,
+                    request_fingerprint_ref=command.request_fingerprint_ref,
+                ),
+            )
+        except BaseException:
+            self._registry.discard(
+                batch_ref,
+                request_fingerprint_ref=command.request_fingerprint_ref,
+            )
+            raise
 
     def consume_batch(
         self, batch_ref: str, *, request_fingerprint_ref: str
     ) -> MatrixPrivateSyncBatch:
         return self._registry.consume(
             batch_ref, request_fingerprint_ref=request_fingerprint_ref
+        )
+
+    def discard_batch(
+        self,
+        batch_ref: str,
+        *,
+        request_fingerprint_ref: str,
+    ) -> None:
+        self._registry.discard(
+            batch_ref,
+            request_fingerprint_ref=request_fingerprint_ref,
         )

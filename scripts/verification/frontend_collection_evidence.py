@@ -37,6 +37,7 @@ _VITEST_TOP_LEVEL_FIELDS = {
     "success",
     "testResults",
 }
+_VITEST_OPTIONAL_TOP_LEVEL_FIELDS = {"coverageMap"}
 _VITEST_SUITE_FIELDS = {
     "assertionResults",
     "endTime",
@@ -45,9 +46,8 @@ _VITEST_SUITE_FIELDS = {
     "startTime",
     "status",
 }
-_VITEST_ASSERTION_FIELDS = {
+_VITEST_ASSERTION_REQUIRED_FIELDS = {
     "ancestorTitles",
-    "duration",
     "failureMessages",
     "fullName",
     "meta",
@@ -55,6 +55,7 @@ _VITEST_ASSERTION_FIELDS = {
     "tags",
     "title",
 }
+_VITEST_ASSERTION_OPTIONAL_FIELDS = {"duration", "location"}
 _PLAYWRIGHT_TOP_LEVEL_FIELDS = {"config", "errors", "stats", "suites"}
 _PLAYWRIGHT_OUTCOMES = {"expected", "flaky", "skipped", "unexpected"}
 _PLAYWRIGHT_RESULT_STATUSES = {
@@ -100,6 +101,20 @@ def _require_int(
     if not minimum <= value <= maximum:
         _fail(reason)
     return value
+
+
+def _require_finite_number(
+    value: object,
+    reason: str,
+    *,
+    minimum: float = 0,
+) -> float:
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        _fail(reason)
+    parsed = float(value)
+    if not math.isfinite(parsed) or parsed < minimum:
+        _fail(reason)
+    return parsed
 
 
 def _require_string(
@@ -362,19 +377,29 @@ def _safe_payload(
     todo: int,
     flaky: int,
     retries: int,
+    result_status: str | None = None,
+    digest_bindings: dict[str, int | str | bool] | None = None,
 ) -> dict[str, Any]:
+    effective_result_status = (
+        result_status if result_status is not None else "failed" if failed else "passed"
+    )
+    if effective_result_status not in {"passed", "failed"}:
+        _fail("result-status")
     collected = len(identities)
-    canonical_projection = {
+    canonical_projection: dict[str, object] = {
         "collected_test_count": collected,
         "failed_test_count": failed,
         "flaky_test_count": flaky,
         "identities": sorted(identities),
         "passed_test_count": passed,
+        "result_status": effective_result_status,
         "retry_attempt_count": retries,
         "runner_ref": runner_ref,
         "skipped_test_count": skipped,
         "todo_test_count": todo,
     }
+    if digest_bindings is not None:
+        canonical_projection["runner_bindings"] = digest_bindings
     encoded = json.dumps(
         canonical_projection,
         sort_keys=True,
@@ -388,7 +413,7 @@ def _safe_payload(
         "flaky_test_count": flaky,
         "passed_test_count": passed,
         "redaction_status": "content_free",
-        "result_status": "passed" if failed == 0 else "failed",
+        "result_status": effective_result_status,
         "retry_attempt_count": retries,
         "runner_ref": runner_ref,
         "schema_version": SCHEMA_VERSION,
@@ -405,8 +430,15 @@ def consume_vitest_json_result(
     """Consume a pinned Vitest JSON reporter result into content-free evidence."""
 
     payload = _consume_json(path)
-    if set(payload) != _VITEST_TOP_LEVEL_FIELDS:
+    payload_fields = set(payload)
+    if (
+        not _VITEST_TOP_LEVEL_FIELDS <= payload_fields
+        or not payload_fields
+        <= _VITEST_TOP_LEVEL_FIELDS | _VITEST_OPTIONAL_TOP_LEVEL_FIELDS
+    ):
         _fail("vitest-schema")
+    if "coverageMap" in payload and payload["coverageMap"] is not None:
+        _require_dict(payload["coverageMap"], "vitest-coverage-map")
     counts = {
         key: _require_int(payload[key], f"vitest-{key}")
         for key in (
@@ -433,7 +465,7 @@ def consume_vitest_json_result(
     if not suites or len(suites) > MAX_SUITES:
         _fail("vitest-suite-count")
 
-    identities: list[tuple[str, str]] = []
+    identity_material: list[tuple[str, str, str]] = []
     observed = {"passed": 0, "failed": 0, "skipped": 0, "todo": 0}
     observed_file_statuses: dict[str, str] = {}
     for raw_suite in suites:
@@ -441,8 +473,20 @@ def consume_vitest_json_result(
         if set(suite) != _VITEST_SUITE_FIELDS:
             _fail("vitest-suite-schema")
         suite_status = _require_string(suite["status"], "vitest-suite-status")
-        if suite_status not in {"passed", "failed", "pending"}:
+        if suite_status not in {"passed", "failed"}:
             _fail("vitest-suite-status")
+        suite_start = _require_finite_number(
+            suite["startTime"], "vitest-suite-start-time"
+        )
+        suite_end = _require_finite_number(suite["endTime"], "vitest-suite-end-time")
+        if suite_end < suite_start:
+            _fail("vitest-suite-time")
+        _require_string(
+            suite["message"],
+            "vitest-suite-message",
+            allow_empty=True,
+            maximum=MAX_JSON_STRING_CHARS,
+        )
         relative_path = _validated_report_path(
             suite["name"],
             repository_root=repository_root,
@@ -453,17 +497,49 @@ def consume_vitest_json_result(
         )
         if not assertions:
             _fail("vitest-empty-suite")
-        suite_failed = False
-        suite_pending = True
+        file_has_failed_test = False
         for raw_assertion in assertions:
-            if len(identities) >= MAX_TESTS:
+            if len(identity_material) >= MAX_TESTS:
                 _fail("vitest-test-count")
             assertion = _require_dict(raw_assertion, "vitest-assertion")
-            if set(assertion) != _VITEST_ASSERTION_FIELDS:
+            assertion_fields = set(assertion)
+            if (
+                not _VITEST_ASSERTION_REQUIRED_FIELDS <= assertion_fields
+                or not assertion_fields
+                <= _VITEST_ASSERTION_REQUIRED_FIELDS | _VITEST_ASSERTION_OPTIONAL_FIELDS
+            ):
                 _fail("vitest-assertion-schema")
-            full_name = _require_string(
-                assertion["fullName"], "vitest-test-identity"
-            )
+            if "duration" in assertion and assertion["duration"] is not None:
+                _require_finite_number(assertion["duration"], "vitest-test-duration")
+            if "location" in assertion and assertion["location"] is not None:
+                location = _require_dict(assertion["location"], "vitest-test-location")
+                if set(location) != {"line", "column"}:
+                    _fail("vitest-test-location")
+                _require_int(
+                    location["line"],
+                    "vitest-test-location",
+                    minimum=1,
+                    maximum=(1 << 31) - 1,
+                )
+                _require_int(
+                    location["column"],
+                    "vitest-test-location",
+                    minimum=1,
+                    maximum=(1 << 31) - 1,
+                )
+            failures = assertion["failureMessages"]
+            if failures is not None:
+                for failure in _require_list(failures, "vitest-failure-messages"):
+                    _require_string(
+                        failure,
+                        "vitest-failure-message",
+                        allow_empty=True,
+                        maximum=MAX_JSON_STRING_CHARS,
+                    )
+            _require_dict(assertion["meta"], "vitest-test-meta")
+            for tag in _require_list(assertion["tags"], "vitest-test-tags"):
+                _require_string(tag, "vitest-test-tag")
+            full_name = _require_string(assertion["fullName"], "vitest-test-identity")
             _require_string(assertion["title"], "vitest-test-title")
             ancestors = _require_list(
                 assertion["ancestorTitles"], "vitest-ancestor-titles"
@@ -472,42 +548,41 @@ def consume_vitest_json_result(
                 _fail("vitest-ancestor-depth")
             for ancestor in ancestors:
                 _require_string(ancestor, "vitest-ancestor-title")
-            status_value = _require_string(
-                assertion["status"], "vitest-test-status"
-            )
-            status = "skipped" if status_value in {"pending", "skipped"} else status_value
+            status_value = _require_string(assertion["status"], "vitest-test-status")
+            if status_value == "pending":
+                _fail("vitest-test-incomplete")
+            status = status_value
             if status not in observed:
                 _fail("vitest-test-status")
             observed[status] += 1
-            suite_failed = suite_failed or status == "failed"
-            suite_pending = suite_pending and status in {"skipped", "todo"}
-            identity = _identity_hash(relative_path, full_name)
-            identities.append((identity, status))
-        expected_suite_status = (
-            "failed" if suite_failed else "pending" if suite_pending else "passed"
-        )
-        if suite_status != expected_suite_status:
+            file_has_failed_test = file_has_failed_test or status == "failed"
+            identity_material.append((relative_path, full_name, status))
+        if file_has_failed_test and suite_status != "failed":
             _fail("vitest-suite-status-mismatch")
         if relative_path in observed_file_statuses:
             _fail("vitest-duplicate-file-suite")
         observed_file_statuses[relative_path] = suite_status
 
-    if len({identity for identity, _status in identities}) != len(identities):
-        _fail("vitest-duplicate-test")
-    file_status_counts = {"passed": 0, "failed": 0, "pending": 0}
-    for file_status in observed_file_statuses.values():
-        file_status_counts[file_status] += 1
-    if counts["numTotalTestSuites"] != len(observed_file_statuses) or counts[
-        "numTotalTestSuites"
-    ] != sum(file_status_counts.values()):
+    suite_total = counts["numTotalTestSuites"]
+    suite_failed = counts["numFailedTestSuites"]
+    suite_passed = counts["numPassedTestSuites"]
+    suite_pending = counts["numPendingTestSuites"]
+    if suite_total != suite_passed + suite_failed + suite_pending:
         _fail("vitest-suite-count-mismatch")
+    file_count = len(observed_file_statuses)
+    failed_file_count = sum(
+        status == "failed" for status in observed_file_statuses.values()
+    )
+    passed_file_count = file_count - failed_file_count
     if (
-        counts["numPassedTestSuites"] != file_status_counts["passed"]
-        or counts["numFailedTestSuites"] != file_status_counts["failed"]
-        or counts["numPendingTestSuites"] != file_status_counts["pending"]
+        not file_count <= suite_total <= MAX_SUITES
+        or suite_failed < failed_file_count
+        or suite_passed < passed_file_count
+        or suite_pending > suite_total - file_count
+        or bool(suite_failed) != bool(failed_file_count)
     ):
         _fail("vitest-suite-count-mismatch")
-    if counts["numTotalTests"] != len(identities) or counts[
+    if counts["numTotalTests"] != len(identity_material) or counts[
         "numTotalTests"
     ] != sum(observed.values()):
         _fail("vitest-test-count-mismatch")
@@ -518,8 +593,17 @@ def consume_vitest_json_result(
         or counts["numTodoTests"] != observed["todo"]
     ):
         _fail("vitest-test-count-mismatch")
-    if payload["success"] != (observed["failed"] == 0):
+    expected_success = suite_failed == 0 and observed["failed"] == 0
+    if payload["success"] != expected_success:
         _fail("vitest-success-mismatch")
+    occurrence_by_name: dict[tuple[str, str], int] = {}
+    identities: list[tuple[str, str]] = []
+    for relative_path, full_name, status in sorted(identity_material):
+        occurrence_key = (relative_path, full_name)
+        occurrence = occurrence_by_name.get(occurrence_key, 0)
+        occurrence_by_name[occurrence_key] = occurrence + 1
+        identity = _identity_hash(relative_path, full_name, str(occurrence))
+        identities.append((identity, status))
     return _safe_payload(
         runner_ref=_VITEST_RUNNER_REF,
         identities=identities,
@@ -529,6 +613,15 @@ def consume_vitest_json_result(
         todo=observed["todo"],
         flaky=0,
         retries=0,
+        result_status="passed" if expected_success else "failed",
+        digest_bindings={
+            "failed_file_count": failed_file_count,
+            "num_failed_test_suites": suite_failed,
+            "num_passed_test_suites": suite_passed,
+            "num_pending_test_suites": suite_pending,
+            "num_total_test_suites": suite_total,
+            "success": expected_success,
+        },
     )
 
 

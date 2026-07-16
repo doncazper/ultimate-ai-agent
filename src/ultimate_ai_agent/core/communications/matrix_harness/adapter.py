@@ -87,9 +87,7 @@ def build_matrix_harness_capability_manifest(
         version="1.0.0",
         kind=CapabilityKind.deterministic,
         name=f"Disposable Matrix harness {operation.value}",
-        description=(
-            "Execute one exact bounded local-only Synapse harness operation."
-        ),
+        description=("Execute one exact bounded local-only Synapse harness operation."),
         examples=["Operate the digest-pinned disposable loopback test harness."],
         anti_examples=[
             "Operate a public, federated, hosted, production, or account Matrix service."
@@ -173,6 +171,22 @@ class _MatrixHarnessDispatchHandle:
         self._handle = handle
         self._operation_count = operation_count
         self.commit_validated_at = handle.commit_validated_at
+
+    @property
+    def settled(self) -> bool:
+        return self._handle.settled
+
+    def abort(self) -> None:
+        self._handle.abort()
+
+    def finalize(self) -> None:
+        self._handle.finalize()
+
+    def commit(self) -> None:
+        self._handle.commit()
+
+    def settle(self) -> None:
+        self._handle.settle()
 
     def collect(self) -> AuthorityDispatchAdapterResult:
         result = self._handle.collect()
@@ -278,7 +292,10 @@ class MatrixHarnessAuthorityDispatchAdapter:
         except ValueError:
             reasons.append("reason-ref:matrix-harness:policy-denied")
         else:
-            if request.action_request.constraints.get("policy_decision_ref") != policy_ref:
+            if (
+                request.action_request.constraints.get("policy_decision_ref")
+                != policy_ref
+            ):
                 reasons.append("reason-ref:matrix-harness:policy-binding-mismatch")
         return list(dict.fromkeys(reasons))
 
@@ -360,23 +377,26 @@ class MatrixHarnessAuthorityDispatchAdapter:
         request: AuthorityDispatchRequest,
         *,
         validate_commit_fence: Callable[[], tuple[list[str], datetime]],
+        claim_handle: Callable[
+            [_MatrixHarnessDispatchHandle], _MatrixHarnessDispatchHandle
+        ],
     ) -> _MatrixHarnessDispatchHandle:
         tool_request = ToolInvocationRequest.model_validate(
             request.tool_invocation_request
         )
-        metadata = MatrixHarnessDispatchMetadata.model_validate(
-            tool_request.metadata
-        )
-        handle = self._backend.start_operation(
+        metadata = MatrixHarnessDispatchMetadata.model_validate(tool_request.metadata)
+        return self._backend.start_operation(
             operation=self.operation,
             execution_ref=authority_dispatch_execution_ref(request),
             lifecycle_generation_ref=metadata.lifecycle_generation_ref,
             expected_state_ref=metadata.expected_state_ref,
             validate_commit_fence=validate_commit_fence,
-        )
-        return _MatrixHarnessDispatchHandle(
-            handle,
-            operation_count=self.descriptor.operation_count,
+            claim_handle=lambda backend_handle: claim_handle(
+                _MatrixHarnessDispatchHandle(
+                    backend_handle,
+                    operation_count=self.descriptor.operation_count,
+                )
+            ),
         )
 
     def invoke(

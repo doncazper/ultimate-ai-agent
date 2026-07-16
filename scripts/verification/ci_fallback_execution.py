@@ -5,7 +5,6 @@ import json
 import os
 import re
 import shutil
-import signal
 import stat
 import subprocess
 import tempfile
@@ -36,8 +35,11 @@ from scripts.verification.ci_fallback_private_scope import (
     build_private_verification_scope,
 )
 from scripts.verification.pytest_shard_processes import (
+    ProcessCleanupError,
     cancellation_signals,
     installed_signal_handlers,
+    process_group_leader_is_terminal_without_reaping,
+    spawn_owned_process_group,
     stop_processes,
 )
 from scripts.verification.run_ci_lane import expected_pytest_shard_plan_ref
@@ -48,6 +50,18 @@ REMOTE_HEAD_OUTPUT_LIMIT_BYTES = 256 * 1024
 REMOTE_HEAD_COUNT_LIMIT = 512
 REMOTE_HEAD_REF_PATTERN = re.compile(r"^refs/heads/[A-Za-z0-9][A-Za-z0-9._/-]{0,239}$")
 BRANCH_BINDING_PREFIX = "branch-binding-ref:private-ci:"
+MAX_PRIVATE_UNTRACKED_ENTRIES = 100_000
+MAX_PRIVATE_UNTRACKED_BYTES = 2 * 1024 * 1024 * 1024
+_PRIVATE_SETUP_ROOTS = (
+    ".ci-bootstrap/",
+    ".venv/",
+    "apps/control-center/node_modules/",
+    "integrations/matrix-client-adapter/node_modules/",
+)
+_EXTERNAL_TOOLCHAIN_SYMLINK_REF = re.compile(
+    r"^(?:\.ci-bootstrap|\.venv)/bin/python(?:3(?:\.\d+)?)?$"
+)
+_UntrackedState = tuple[tuple[str, int, int, str], ...]
 
 
 class RemoteHeadAttestationError(RuntimeError):
@@ -94,9 +108,12 @@ def _source_branch_binding_ref(
         repository_sha,
         origin_main_sha,
     )
-    return BRANCH_BINDING_PREFIX + hashlib.sha256(
-        json.dumps(payload, separators=(",", ":")).encode()
-    ).hexdigest()
+    return (
+        BRANCH_BINDING_PREFIX
+        + hashlib.sha256(
+            json.dumps(payload, separators=(",", ":")).encode()
+        ).hexdigest()
+    )
 
 
 def _parse_advertised_heads(raw: bytes) -> tuple[tuple[str, str], ...]:
@@ -137,61 +154,6 @@ def _parse_advertised_heads(raw: bytes) -> tuple[tuple[str, str], ...]:
     return tuple(sorted(heads, key=lambda item: item[1]))
 
 
-def _owned_live_process_group_members(process_group: int) -> tuple[int, ...]:
-    """Return live same-owner members, failing closed on an unsafe group."""
-
-    try:
-        completed = subprocess.run(
-            ("/bin/ps", "-axo", "pid=,pgid=,uid=,state="),
-            check=False,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            timeout=2,
-        )
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        raise RuntimeError("private CI process-group inspection failed") from exc
-    if completed.returncode != 0 or len(completed.stdout) > 1024 * 1024:
-        raise RuntimeError("private CI process-group inspection failed")
-    live_members: list[int] = []
-    for line in completed.stdout.decode("ascii", errors="strict").splitlines():
-        parts = line.split()
-        if len(parts) != 4:
-            raise RuntimeError("private CI process-group inspection failed")
-        try:
-            pid, pgid, uid = (int(value) for value in parts[:3])
-        except ValueError as exc:
-            raise RuntimeError("private CI process-group inspection failed") from exc
-        if pgid != process_group or parts[3].startswith("Z"):
-            continue
-        if uid != os.getuid() or pid <= 0:
-            raise RuntimeError("private CI process-group ownership is indeterminate")
-        live_members.append(pid)
-    return tuple(sorted(set(live_members)))
-
-
-def _settle_permission_denied_process_group(process_group: int) -> None:
-    """Handle the macOS exited-leader race without accepting live descendants."""
-
-    deadline = time.monotonic() + 1.0
-    while True:
-        live_members = _owned_live_process_group_members(process_group)
-        if not live_members:
-            return
-        for pid in live_members:
-            try:
-                os.kill(pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-            except PermissionError as exc:
-                raise RuntimeError(
-                    "private CI process-group ownership is indeterminate"
-                ) from exc
-        if time.monotonic() >= deadline:
-            raise RuntimeError("private CI process-group cleanup is incomplete")
-        time.sleep(0.05)
-
-
 def _safe_subprocess(
     argv: tuple[str, ...],
     *,
@@ -202,41 +164,70 @@ def _safe_subprocess(
     started = time.perf_counter()
     process: subprocess.Popen[bytes] | None = None
     cleanup_grace_seconds = 0.25
+    returncode: int | None = None
+    registration_active = False
+    pending_signal: int | None = None
+    cleanup_in_progress = False
+    cancellation_requested = False
+    signal_handling = False
 
     def handle_signal(signum: int, _frame: object) -> None:
+        nonlocal cancellation_requested, pending_signal, signal_handling
+        cancellation_requested = True
+        if signal_handling:
+            return
+        signal_handling = True
+        if registration_active:
+            pending_signal = signum
+            return
+        if cleanup_in_progress:
+            return
         raise KeyboardInterrupt(f"private CI process interrupted by signal {signum}")
 
-    process = subprocess.Popen(
-        argv,
-        cwd=cwd,
-        env=env,
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        start_new_session=os.name == "posix",
-    )
-    try:
-        with installed_signal_handlers(cancellation_signals(), handle_signal):
+    with installed_signal_handlers(cancellation_signals(), handle_signal):
+        try:
+            registration_active = True
             try:
-                returncode = process.wait(timeout=timeout)
-            except subprocess.TimeoutExpired:
-                cleanup_grace_seconds = 10.0
-                returncode = 124
-    except KeyboardInterrupt:
-        cleanup_grace_seconds = 10.0
-        returncode = 130
-    finally:
-        if process is not None:
-            # A successful parent may still leave descendants in its process group.
-            # Always settle that group before private verification can advance.
-            try:
+                process = spawn_owned_process_group(
+                    argv,
+                    cwd=cwd,
+                    env=env,
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            except BaseException:
+                registration_active = False
+                raise
+            else:
+                registration_active = False
+                if pending_signal is not None:
+                    interrupted_by = pending_signal
+                    pending_signal = None
+                    raise KeyboardInterrupt(
+                        f"private CI process interrupted by signal {interrupted_by}"
+                    )
+            assert process is not None
+            returncode = _wait_without_reaping(process, timeout)
+        except subprocess.TimeoutExpired:
+            cleanup_grace_seconds = 10.0
+            returncode = 124
+        except KeyboardInterrupt:
+            cleanup_grace_seconds = 10.0
+            returncode = 130
+        finally:
+            cleanup_in_progress = True
+            if process is not None:
+                # The leader remains unreaped until every owned descendant settles.
                 stop_processes((process,), cleanup_grace_seconds)
-            except PermissionError:
-                # A successful leader can exit just before the final group probe;
-                # enumerate only PID/PGID/UID/state and either kill every live
-                # same-owner member or fail closed. No process command lines are
-                # captured or persisted.
-                _settle_permission_denied_process_group(process.pid)
+            cleanup_in_progress = False
+            if cancellation_requested:
+                returncode = 130
+    if returncode is None:
+        assert process is not None
+        if not isinstance(process.returncode, int):
+            raise ProcessCleanupError("child process terminal status is unavailable")
+        returncode = process.returncode
     duration_ms = max(0, int((time.perf_counter() - started) * 1000))
     result_ref = (
         "result-ref:ci:"
@@ -245,6 +236,21 @@ def _safe_subprocess(
         ).hexdigest()
     )
     return returncode, duration_ms, result_ref
+
+
+def _wait_without_reaping(
+    process: subprocess.Popen[bytes],
+    timeout: int,
+) -> int | None:
+    if os.name != "posix":
+        return process.wait(timeout=timeout)
+    deadline = time.monotonic() + timeout
+    while True:
+        if process_group_leader_is_terminal_without_reaping(process):
+            return None
+        if time.monotonic() >= deadline:
+            raise subprocess.TimeoutExpired(cmd=(), timeout=timeout)
+        time.sleep(0.05)
 
 
 def _minimal_env(temp_root: Path) -> dict[str, str]:
@@ -263,6 +269,9 @@ def _minimal_env(temp_root: Path) -> dict[str, str]:
         "CI": "true",
         "LANG": "C.UTF-8",
         "PLAYWRIGHT_BROWSERS_PATH": str(playwright_browsers),
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTEST_ADDOPTS": f"-o cache_dir={temp_root / 'pytest-cache'}",
+        "RUFF_CACHE_DIR": str(temp_root / "ruff-cache"),
     }
 
 
@@ -279,19 +288,61 @@ def _read_lane_receipt(
         if hasattr(os, "O_NOFOLLOW"):
             flags |= os.O_NOFOLLOW
         descriptor = os.open(path, flags)
-        info = os.fstat(descriptor)
+        before = os.fstat(descriptor)
         if (
-            not stat.S_ISREG(info.st_mode)
-            or stat.S_ISLNK(info.st_mode)
-            or info.st_nlink != 1
-            or info.st_uid != os.getuid()
-            or info.st_mode & 0o077
-            or info.st_size > 1024 * 1024
+            not stat.S_ISREG(before.st_mode)
+            or stat.S_ISLNK(before.st_mode)
+            or before.st_nlink != 1
+            or before.st_uid != os.getuid()
+            or before.st_mode & 0o077
+            or not 0 < before.st_size <= 1024 * 1024
         ):
             raise ValueError("private CI lane receipt is unsafe")
-        raw = os.read(descriptor, 1024 * 1024 + 1)
-        if len(raw) > 1024 * 1024:
-            raise ValueError("private CI lane receipt exceeds its byte bound")
+        remaining = before.st_size
+        chunks: list[bytes] = []
+        while remaining:
+            chunk = os.read(descriptor, min(remaining, 65_536))
+            if not chunk:
+                raise ValueError("private CI lane receipt is truncated")
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        if os.read(descriptor, 1):
+            raise ValueError("private CI lane receipt changed while reading")
+        after = os.fstat(descriptor)
+        directory_entry = os.lstat(path)
+        identity_before = (
+            before.st_dev,
+            before.st_ino,
+            before.st_mode,
+            before.st_nlink,
+            before.st_uid,
+            before.st_size,
+            before.st_mtime_ns,
+            before.st_ctime_ns,
+        )
+        identity_after = (
+            after.st_dev,
+            after.st_ino,
+            after.st_mode,
+            after.st_nlink,
+            after.st_uid,
+            after.st_size,
+            after.st_mtime_ns,
+            after.st_ctime_ns,
+        )
+        if (
+            identity_before != identity_after
+            or directory_entry.st_dev != before.st_dev
+            or directory_entry.st_ino != before.st_ino
+            or directory_entry.st_mode != before.st_mode
+            or directory_entry.st_nlink != before.st_nlink
+            or directory_entry.st_uid != before.st_uid
+            or directory_entry.st_size != before.st_size
+            or directory_entry.st_mtime_ns != before.st_mtime_ns
+            or directory_entry.st_ctime_ns != before.st_ctime_ns
+        ):
+            raise ValueError("private CI lane receipt changed while reading")
+        raw = b"".join(chunks)
         payload = json.loads(raw.decode("utf-8"))
     finally:
         if descriptor >= 0:
@@ -418,6 +469,13 @@ def _dependency_setup_commands() -> tuple[tuple[str, ...], ...]:
             "--python",
             "python3.12",
         ),
+        (
+            "npm",
+            "--prefix",
+            "integrations/matrix-client-adapter",
+            "ci",
+            "--ignore-scripts",
+        ),
     )
 
 
@@ -471,9 +529,7 @@ class IsolatedPrivateExecutor:
                 "reason-ref:private-ci:current-branch-invalid"
             )
         heads = self._live_advertised_heads()
-        main_shas = tuple(
-            sha for sha, ref in heads if ref == "refs/heads/main"
-        )
+        main_shas = tuple(sha for sha, ref in heads if ref == "refs/heads/main")
         if len(main_shas) != 1:
             raise RemoteHeadAttestationError(
                 "reason-ref:private-ci:remote-advertisement-invalid"
@@ -533,7 +589,11 @@ class IsolatedPrivateExecutor:
                 f"{PRIVATE_BASE_REF}^{{commit}}",
                 timeout=10,
             )
-        except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+        except (
+            OSError,
+            subprocess.CalledProcessError,
+            subprocess.TimeoutExpired,
+        ) as exc:
             raise RemoteHeadAttestationError(
                 "reason-ref:private-ci:remote-main-object-mismatch"
             ) from exc
@@ -601,7 +661,9 @@ class IsolatedPrivateExecutor:
             origin_main_sha != scope.base_sha
             or source_branch_binding_ref != scope.source_branch_binding_ref
         ):
-            raise ValueError("private CI source binding changed after scope preparation")
+            raise ValueError(
+                "private CI source binding changed after scope preparation"
+            )
         started_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
         root = Path(tempfile.mkdtemp(prefix="uaa-private-ci-"))
         worktree = root / "worktree"
@@ -719,6 +781,7 @@ class IsolatedPrivateExecutor:
             result_refs.append(result_ref)
             if returncode != 0:
                 return "fail", isolated_plan
+        untracked_state = self._validate_tracked_state(worktree, repository_sha)
         return (
             self._run_scope(
                 repository_sha=repository_sha,
@@ -729,6 +792,7 @@ class IsolatedPrivateExecutor:
                 timings=timings,
                 result_refs=result_refs,
                 isolated_plan=isolated_plan,
+                untracked_state=untracked_state,
             ),
             isolated_plan,
         )
@@ -757,6 +821,10 @@ class IsolatedPrivateExecutor:
                 if "{temp_root}" in token:
                     continue
                 candidate = worktree / token
+                if token == "apps/control-center":
+                    if candidate.is_symlink() or not candidate.is_dir():
+                        raise ValueError("private CI command repository path is unsafe")
+                    continue
                 if candidate.is_symlink() or not candidate.is_file():
                     raise ValueError("private CI command repository path is unsafe")
         tracked = subprocess.run(
@@ -823,7 +891,8 @@ class IsolatedPrivateExecutor:
             or "typecheck" in lowered
             or " tsc" in f" {lowered}"
             or (
-                "run_pytest_shards.py" in lowered and "--shard-index" not in command.argv
+                "run_pytest_shards.py" in lowered
+                and "--shard-index" not in command.argv
             )
         ):
             raise ValueError("private CI command is reserved for authoritative GitHub")
@@ -840,7 +909,9 @@ class IsolatedPrivateExecutor:
         for token in command.argv:
             if token == "{selected_test_refs}":
                 if not plan.selected_test_refs:
-                    raise ValueError("private focused pytest has no exact test ownership")
+                    raise ValueError(
+                        "private focused pytest has no exact test ownership"
+                    )
                 argv.extend(plan.selected_test_refs)
                 continue
             argv.append(
@@ -861,11 +932,17 @@ class IsolatedPrivateExecutor:
         timings: list[tuple[str, int]],
         result_refs: list[str],
         isolated_plan: VerificationPlan,
+        untracked_state: _UntrackedState,
     ) -> str:
         if any(
             command_ref.startswith("command:frontend.")
             for command_ref in scope.selected_command_refs
         ):
+            IsolatedPrivateExecutor._validate_tracked_state(
+                worktree,
+                repository_sha,
+                expected_untracked_state=untracked_state,
+            )
             returncode, duration_ms, result_ref = _safe_subprocess(
                 ("npm", "ci"),
                 cwd=worktree / "apps/control-center",
@@ -876,6 +953,10 @@ class IsolatedPrivateExecutor:
             result_refs.append(result_ref)
             if returncode != 0:
                 return "fail"
+            untracked_state = IsolatedPrivateExecutor._validate_tracked_state(
+                worktree,
+                repository_sha,
+            )
 
         commands = command_registry()
         executed: set[str] = set()
@@ -891,7 +972,9 @@ class IsolatedPrivateExecutor:
                     unit.unit_ref, command
                 )
                 IsolatedPrivateExecutor._validate_tracked_state(
-                    worktree, repository_sha
+                    worktree,
+                    repository_sha,
+                    expected_untracked_state=untracked_state,
                 )
                 current_scope, current_plan = build_private_verification_scope(
                     worktree,
@@ -920,6 +1003,11 @@ class IsolatedPrivateExecutor:
                 result_refs.append(result_ref)
                 executed.add(command_ref)
                 executed_order.append(command_ref)
+                IsolatedPrivateExecutor._validate_tracked_state(
+                    worktree,
+                    repository_sha,
+                    expected_untracked_state=untracked_state,
+                )
                 if returncode != 0:
                     return "fail"
         if tuple(executed_order) != scope.selected_command_refs:
@@ -927,7 +1015,12 @@ class IsolatedPrivateExecutor:
         return "pass"
 
     @staticmethod
-    def _validate_tracked_state(worktree: Path, repository_sha: str) -> None:
+    def _validate_tracked_state(
+        worktree: Path,
+        repository_sha: str,
+        *,
+        expected_untracked_state: _UntrackedState | None = None,
+    ) -> _UntrackedState:
         head = subprocess.run(
             ("git", "rev-parse", "HEAD"),
             cwd=worktree,
@@ -938,7 +1031,10 @@ class IsolatedPrivateExecutor:
         ).stdout.strip()
         if head != repository_sha:
             raise ValueError("private CI isolated worktree SHA changed")
-        for argv in (("git", "diff", "--quiet"), ("git", "diff", "--cached", "--quiet")):
+        for argv in (
+            ("git", "diff", "--quiet"),
+            ("git", "diff", "--cached", "--quiet"),
+        ):
             completed = subprocess.run(
                 argv,
                 cwd=worktree,
@@ -949,6 +1045,233 @@ class IsolatedPrivateExecutor:
             )
             if completed.returncode != 0:
                 raise ValueError("private CI tracked worktree state changed")
+        untracked_state = IsolatedPrivateExecutor._untracked_state(worktree)
+        if (
+            expected_untracked_state is not None
+            and untracked_state != expected_untracked_state
+        ):
+            raise ValueError("private CI untracked worktree state changed")
+        return untracked_state
+
+    @staticmethod
+    def _untracked_state(worktree: Path) -> _UntrackedState:
+        refs: set[str] = set()
+        for argv in (
+            ("git", "ls-files", "--others", "--exclude-standard", "-z"),
+            (
+                "git",
+                "ls-files",
+                "--others",
+                "--ignored",
+                "--exclude-standard",
+                "-z",
+            ),
+        ):
+            completed = subprocess.run(
+                argv,
+                cwd=worktree,
+                check=True,
+                capture_output=True,
+                timeout=30,
+            )
+            if len(completed.stdout) > MAX_PRIVATE_UNTRACKED_BYTES:
+                raise ValueError("private CI untracked worktree state is unbounded")
+            for raw_ref in completed.stdout.split(b"\0"):
+                if not raw_ref:
+                    continue
+                try:
+                    ref = raw_ref.decode("utf-8")
+                except UnicodeDecodeError as exc:
+                    raise ValueError(
+                        "private CI untracked worktree state is unsafe"
+                    ) from exc
+                if (
+                    ref.startswith("/")
+                    or "\x00" in ref
+                    or any(part in {"", ".", ".."} for part in ref.split("/"))
+                    or not ref.startswith(_PRIVATE_SETUP_ROOTS)
+                ):
+                    raise ValueError(
+                        "private CI untracked worktree contamination detected"
+                    )
+                refs.add(ref)
+                if len(refs) > MAX_PRIVATE_UNTRACKED_ENTRIES:
+                    raise ValueError("private CI untracked worktree state is unbounded")
+
+        state: list[tuple[str, int, int, str]] = []
+        total_bytes = 0
+
+        def read_regular_file(candidate: Path) -> tuple[bytes, os.stat_result]:
+            nonlocal total_bytes
+            flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+            descriptor = -1
+            try:
+                descriptor = os.open(candidate, flags)
+                before = os.fstat(descriptor)
+                if not stat.S_ISREG(before.st_mode):
+                    raise ValueError("private CI untracked worktree state is unsafe")
+                digest = hashlib.sha256()
+                observed = 0
+                while True:
+                    chunk = os.read(descriptor, 1024 * 1024)
+                    if not chunk:
+                        break
+                    observed += len(chunk)
+                    total_bytes += len(chunk)
+                    if total_bytes > MAX_PRIVATE_UNTRACKED_BYTES:
+                        raise ValueError(
+                            "private CI untracked worktree state is unbounded"
+                        )
+                    digest.update(chunk)
+                after = os.fstat(descriptor)
+                path_after = candidate.lstat()
+                if (
+                    observed != before.st_size
+                    or (
+                        before.st_dev,
+                        before.st_ino,
+                        before.st_mode,
+                        before.st_size,
+                        before.st_mtime_ns,
+                        before.st_ctime_ns,
+                    )
+                    != (
+                        after.st_dev,
+                        after.st_ino,
+                        after.st_mode,
+                        after.st_size,
+                        after.st_mtime_ns,
+                        after.st_ctime_ns,
+                    )
+                    or (
+                        before.st_dev,
+                        before.st_ino,
+                        before.st_mode,
+                        before.st_size,
+                        before.st_mtime_ns,
+                        before.st_ctime_ns,
+                    )
+                    != (
+                        path_after.st_dev,
+                        path_after.st_ino,
+                        path_after.st_mode,
+                        path_after.st_size,
+                        path_after.st_mtime_ns,
+                        path_after.st_ctime_ns,
+                    )
+                ):
+                    raise ValueError(
+                        "private CI untracked worktree state changed while read"
+                    )
+                target_binding = "|".join(
+                    (
+                        str(before.st_dev),
+                        str(before.st_ino),
+                        str(stat.S_IMODE(before.st_mode)),
+                        str(before.st_size),
+                        str(before.st_mtime_ns),
+                        str(before.st_ctime_ns),
+                        digest.hexdigest(),
+                    )
+                ).encode("ascii")
+                return target_binding, before
+            except OSError as exc:
+                raise ValueError(
+                    "private CI untracked worktree state is unsafe"
+                ) from exc
+            finally:
+                if descriptor >= 0:
+                    os.close(descriptor)
+
+        resolved_worktree = worktree.resolve(strict=True)
+        for ref in sorted(refs):
+            candidate = worktree / ref
+            try:
+                metadata = candidate.lstat()
+            except OSError as exc:
+                raise ValueError(
+                    "private CI untracked worktree state is unsafe"
+                ) from exc
+            mode = metadata.st_mode
+            if stat.S_ISLNK(metadata.st_mode):
+                try:
+                    link_text = os.readlink(candidate)
+                    setup_root_ref = next(
+                        root for root in _PRIVATE_SETUP_ROOTS if ref.startswith(root)
+                    )
+                    setup_root = worktree / setup_root_ref.rstrip("/")
+                    setup_root_metadata = setup_root.lstat()
+                    if stat.S_ISLNK(setup_root_metadata.st_mode) or not stat.S_ISDIR(
+                        setup_root_metadata.st_mode
+                    ):
+                        raise ValueError(
+                            "private CI untracked worktree state is unsafe"
+                        )
+                    resolved_setup_root = setup_root.resolve(strict=True)
+                    if resolved_setup_root != (
+                        resolved_worktree / setup_root_ref.rstrip("/")
+                    ):
+                        raise ValueError(
+                            "private CI untracked worktree state is unsafe"
+                        )
+                    resolved_parent = candidate.parent.resolve(strict=True)
+                    if not resolved_parent.is_relative_to(resolved_setup_root):
+                        raise ValueError(
+                            "private CI untracked worktree state is unsafe"
+                        )
+                    resolved_target = candidate.resolve(strict=True)
+                    target_is_internal = resolved_target.is_relative_to(
+                        resolved_setup_root
+                    )
+                    if (
+                        not target_is_internal
+                        and _EXTERNAL_TOOLCHAIN_SYMLINK_REF.fullmatch(ref) is None
+                    ):
+                        raise ValueError(
+                            "private CI untracked worktree state is unsafe"
+                        )
+                    target_binding, _target_metadata = read_regular_file(
+                        resolved_target
+                    )
+                    after = candidate.lstat()
+                    if link_text != os.readlink(candidate) or (
+                        metadata.st_dev,
+                        metadata.st_ino,
+                        metadata.st_mode,
+                        metadata.st_size,
+                        metadata.st_mtime_ns,
+                        metadata.st_ctime_ns,
+                    ) != (
+                        after.st_dev,
+                        after.st_ino,
+                        after.st_mode,
+                        after.st_size,
+                        after.st_mtime_ns,
+                        after.st_ctime_ns,
+                    ):
+                        raise ValueError(
+                            "private CI untracked worktree state changed while read"
+                        )
+                    raw = hashlib.sha256(
+                        link_text.encode("utf-8") + b"\0" + target_binding
+                    ).digest()
+                except (OSError, UnicodeEncodeError, StopIteration) as exc:
+                    raise ValueError(
+                        "private CI untracked worktree state is unsafe"
+                    ) from exc
+            elif stat.S_ISREG(metadata.st_mode):
+                raw, _regular_metadata = read_regular_file(candidate)
+            else:
+                raise ValueError("private CI untracked worktree state is unsafe")
+            state.append(
+                (
+                    ref,
+                    mode,
+                    metadata.st_size,
+                    hashlib.sha256(raw).hexdigest(),
+                )
+            )
+        return tuple(state)
 
     def _remove_owned_worktree(
         self,

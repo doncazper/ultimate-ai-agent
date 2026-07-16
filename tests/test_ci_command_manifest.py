@@ -119,6 +119,16 @@ def test_canonical_ci_commands_are_fixed_argv_and_safe_environment() -> None:
         "{temp_root}/uaa_pytest_collection_evidence.json"
         in commands["command:pytest.sharded-suite"].argv
     )
+    assert commands["command:frontend.unit-tests"].argv[-2:] == (
+        "--run",
+        "--no-cache",
+    )
+    assert commands["command:frontend.vite-build"].argv[-4:] == (
+        "apps/control-center",
+        "--outDir",
+        "{temp_root}/uaa_control_center_vite_dist",
+        "--emptyOutDir",
+    )
     assert commands["command:affected.preflight"].argv[-2:] == ("--tier", "fast")
     assert dict(commands["command:performance.latency-gate"].env) == {
         "FOUNDATION_GATE_MAX_BEST_MS": "45000",
@@ -145,6 +155,26 @@ def test_canonical_ci_commands_are_fixed_argv_and_safe_environment() -> None:
         assert command.argv
         assert command.argv[0] in {".venv/bin/python", "git", "make", "npm"}
         assert all(";" not in token and "$(`" not in token for token in command.argv)
+
+
+def test_canonical_frontend_commands_keep_generated_state_outside_checkout(
+    tmp_path: Path,
+) -> None:
+    commands = manifest.command_registry()
+    vitest_argv = commands["command:frontend.unit-tests"].argv
+    vite_argv = commands["command:frontend.vite-build"].argv
+    resolved_vite_argv = tuple(
+        token.replace("{temp_root}", str(tmp_path)) for token in vite_argv
+    )
+    output_path = Path(
+        resolved_vite_argv[resolved_vite_argv.index("--outDir") + 1]
+    )
+
+    assert "--no-cache" in vitest_argv
+    assert "apps/control-center" in vite_argv
+    assert output_path.is_relative_to(tmp_path)
+    assert not output_path.is_relative_to(ROOT)
+    assert "apps/control-center/dist" not in resolved_vite_argv
 
 
 def test_pytest_lock_setup_and_command_bounds_fit_the_job_timeout() -> None:

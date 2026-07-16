@@ -2,14 +2,19 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import signal
 import subprocess
 import sys
+import threading
+import time
 from dataclasses import asdict, replace
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
+from scripts.verification import pytest_shard_processes as shard_processes
 from scripts.verification import run_ci_lane as runner
 from scripts.verification.ci_command_manifest import (
     CI_JOB_GRAPH,
@@ -210,8 +215,7 @@ def test_typed_lane_evidence_is_content_bound_and_partial_run_is_blocked() -> No
             "output_byte_count": 0,
             "output_digest": "a" * 64,
             "result_ref": (
-                "result-ref:ci:"
-                + hashlib.sha256(str(index).encode()).hexdigest()
+                "result-ref:ci:" + hashlib.sha256(str(index).encode()).hexdigest()
             ),
         }
         for index, command_ref in enumerate(
@@ -303,7 +307,9 @@ def test_lane_runner_publishes_typed_v3_proof_to_immutable_store(
     )
 
     store = VerificationReceiptStore(store_root)
-    receipt_digests = tuple(path.stem for path in (store_root / "receipts").glob("*.json"))
+    receipt_digests = tuple(
+        path.stem for path in (store_root / "receipts").glob("*.json")
+    )
     run_digests = tuple(path.stem for path in (store_root / "runs").glob("*.json"))
     assert receipt["status"] == "pass"
     assert len(receipt_digests) == len(run_digests) == 1
@@ -333,7 +339,9 @@ def test_typescript_terminal_status_cannot_change_prestart_identity(
         resolved_runtime_fingerprint="e" * 64,
         typescript_version="7.0.2",
     )
-    monkeypatch.setattr(runner, "build_declared_typescript_binding", lambda _root: declared)
+    monkeypatch.setattr(
+        runner, "build_declared_typescript_binding", lambda _root: declared
+    )
     monkeypatch.setattr(
         runner,
         "resolve_typescript_runtime_binding",
@@ -763,6 +771,247 @@ def test_exclusive_typed_lane_timeout_is_not_persisted_as_deterministic(
         "reason-ref:verification:infrastructure-failure"
     )
     assert decision.terminal_proof.deterministic_failure is False
+
+
+@pytest.mark.skipif(os.name != "posix", reason="process-group proof is POSIX-only")
+def test_run_command_timeout_reaps_leader_descendant_and_process_group(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    leader_pid_path = tmp_path / "leader.pid"
+    descendant_pid_path = tmp_path / "descendant.pid"
+    descendant_ready_path = tmp_path / "descendant.ready"
+    parent_ready_path = tmp_path / "parent.ready"
+    descendant = (
+        "import pathlib,signal,sys,time;"
+        "signal.signal(signal.SIGTERM,signal.SIG_IGN);"
+        "pathlib.Path(sys.argv[1]).write_text('ready',encoding='ascii');"
+        "time.sleep(10)"
+    )
+    parent = (
+        "import os,pathlib,subprocess,sys,time;"
+        "leader=pathlib.Path(sys.argv[1]);"
+        "descendant_pid=pathlib.Path(sys.argv[2]);"
+        "descendant_ready=pathlib.Path(sys.argv[3]);"
+        "parent_ready=pathlib.Path(sys.argv[4]);"
+        "leader.write_text(str(os.getpid()),encoding='ascii');"
+        "child=subprocess.Popen([sys.executable,'-c',sys.argv[5],sys.argv[3]]);"
+        "descendant_pid.write_text(str(child.pid),encoding='ascii');"
+        "deadline=time.monotonic()+5;"
+        "\nwhile not descendant_ready.exists():\n"
+        "    if child.poll() is not None: raise SystemExit(91)\n"
+        "    if time.monotonic() >= deadline: raise SystemExit(92)\n"
+        "    time.sleep(0.01)\n"
+        "parent_ready.write_text('ready',encoding='ascii');"
+        "time.sleep(10)"
+    )
+    command = CommandSpec(
+        "command:test.real-timeout-process-tree",
+        (
+            sys.executable,
+            "-c",
+            parent,
+            str(leader_pid_path),
+            str(descendant_pid_path),
+            str(descendant_ready_path),
+            str(parent_ready_path),
+            descendant,
+        ),
+        (),
+        "test",
+        2,
+    )
+    monkeypatch.setattr(runner, "TERMINATION_GRACE_SECONDS", 0.2)
+
+    result = runner._run_command(
+        command,
+        repository_sha=SHA,
+        temp_root=tmp_path,
+    )
+
+    assert result["status"] == "timed_out"
+    assert parent_ready_path.read_text(encoding="ascii") == "ready"
+    assert descendant_ready_path.read_text(encoding="ascii") == "ready"
+    leader_pid = int(leader_pid_path.read_text(encoding="ascii"))
+    descendant_pid = int(descendant_pid_path.read_text(encoding="ascii"))
+    deadline = time.monotonic() + 3
+    while True:
+        live_refs: list[str] = []
+        for ref, pid in (("leader", leader_pid), ("descendant", descendant_pid)):
+            try:
+                os.kill(pid, 0)
+            except ProcessLookupError:
+                continue
+            except PermissionError:
+                live_refs.append(ref)
+                continue
+            live_refs.append(ref)
+        if shard_processes._owned_live_process_group_members(leader_pid):
+            live_refs.append("process-group")
+        if not live_refs:
+            break
+        if time.monotonic() >= deadline:
+            pytest.fail(f"timed-out process tree survived: {','.join(live_refs)}")
+        time.sleep(0.02)
+    serialized = json.dumps(result, sort_keys=True)
+    assert str(tmp_path) not in serialized
+    assert "ready" not in serialized
+
+
+@pytest.mark.skipif(os.name != "posix", reason="process-group proof is POSIX-only")
+def test_run_command_success_reaps_residual_descendant_before_return(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    descendant_pid_path = tmp_path / "descendant.pid"
+    descendant_ready_path = tmp_path / "descendant.ready"
+    parent = (
+        "import pathlib,subprocess,sys,time;"
+        "pid_path=pathlib.Path(sys.argv[1]);"
+        "ready_path=pathlib.Path(sys.argv[2]);"
+        "child=subprocess.Popen([sys.executable,'-c',"
+        '"import pathlib,sys,time;pathlib.Path(sys.argv[1]).write_text('
+        "'ready',encoding='ascii');time.sleep(10)\",sys.argv[2]]);"
+        "pid_path.write_text(str(child.pid),encoding='ascii');"
+        "deadline=time.monotonic()+5;"
+        "\nwhile not ready_path.exists():\n"
+        "    if child.poll() is not None: raise SystemExit(91)\n"
+        "    if time.monotonic() >= deadline: raise SystemExit(92)\n"
+        "    time.sleep(0.01)\n"
+    )
+    command = CommandSpec(
+        "command:test.real-success-process-tree",
+        (
+            sys.executable,
+            "-c",
+            parent,
+            str(descendant_pid_path),
+            str(descendant_ready_path),
+        ),
+        (),
+        "test",
+        10,
+    )
+    monkeypatch.setattr(runner, "TERMINATION_GRACE_SECONDS", 0.2)
+    descendant_pid: int | None = None
+
+    try:
+        result = runner._run_command(
+            command,
+            repository_sha=SHA,
+            temp_root=tmp_path,
+        )
+
+        assert result["status"] == "pass"
+        descendant_pid = int(descendant_pid_path.read_text(encoding="ascii"))
+        assert descendant_ready_path.read_text(encoding="ascii") == "ready"
+        serialized = json.dumps(result, sort_keys=True)
+        assert str(tmp_path) not in serialized
+        assert "ready" not in serialized
+        deadline = time.monotonic() + 3
+        while True:
+            try:
+                os.kill(descendant_pid, 0)
+            except ProcessLookupError:
+                break
+            if time.monotonic() >= deadline:
+                pytest.fail("successful command residual descendant survived")
+            time.sleep(0.02)
+    finally:
+        if descendant_pid is not None:
+            try:
+                os.kill(descendant_pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+
+
+@pytest.mark.skipif(os.name != "posix", reason="signal proof is POSIX-only")
+def test_run_command_repeated_signal_cleans_process_group_once(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ready_path = tmp_path / "command.ready"
+    command = CommandSpec(
+        "command:test.repeated-signal-cleanup",
+        (
+            sys.executable,
+            "-c",
+            (
+                "import pathlib,sys,time;"
+                "pathlib.Path(sys.argv[1]).write_text('ready',encoding='ascii');"
+                "time.sleep(10)"
+            ),
+            str(ready_path),
+        ),
+        (),
+        "test",
+        10,
+    )
+    original_stop_processes = runner.stop_processes
+    cleanup_calls = 0
+
+    def count_cleanup(processes: object, grace_seconds: float) -> None:
+        nonlocal cleanup_calls
+        cleanup_calls += 1
+        original_stop_processes(processes, grace_seconds)  # type: ignore[arg-type]
+
+    def send_signals() -> None:
+        deadline = time.monotonic() + 5
+        while not ready_path.exists():
+            if time.monotonic() >= deadline:
+                return
+            time.sleep(0.01)
+        os.kill(os.getpid(), signal.SIGTERM)
+        os.kill(os.getpid(), signal.SIGHUP)
+
+    monkeypatch.setattr(runner, "TERMINATION_GRACE_SECONDS", 0.2)
+    monkeypatch.setattr(runner, "stop_processes", count_cleanup)
+    sender = threading.Thread(target=send_signals)
+    sender.start()
+    try:
+        result = runner._run_command(
+            command,
+            repository_sha=SHA,
+            temp_root=tmp_path,
+        )
+    finally:
+        sender.join(timeout=5)
+
+    assert sender.is_alive() is False
+    assert result["status"] == "cancelled"
+    assert cleanup_calls == 1
+
+
+@pytest.mark.skipif(os.name != "posix", reason="signal proof is POSIX-only")
+def test_run_command_preserves_spawn_cleanup_failure_over_pending_signal(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    command = CommandSpec(
+        "command:test.spawn-cleanup-priority",
+        (sys.executable, "-c", "raise SystemExit(0)"),
+        (),
+        "test",
+        10,
+    )
+
+    def fail_spawn(*_args: object, **_kwargs: object) -> None:
+        handler = signal.getsignal(signal.SIGTERM)
+        assert callable(handler)
+        handler(signal.SIGTERM, None)
+        raise shard_processes.ProcessCleanupError("cleanup-unproven")
+
+    monkeypatch.setattr(runner, "spawn_owned_process_group", fail_spawn)
+
+    with pytest.raises(
+        shard_processes.ProcessCleanupError,
+        match="cleanup-unproven",
+    ):
+        runner._run_command(
+            command,
+            repository_sha=SHA,
+            temp_root=tmp_path,
+        )
 
 
 def test_github_output_is_exact_v3_non_authoritative_envelope(

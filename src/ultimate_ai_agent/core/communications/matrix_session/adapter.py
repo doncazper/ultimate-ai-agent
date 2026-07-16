@@ -89,7 +89,9 @@ def build_matrix_session_capability_manifest(
         kind=CapabilityKind.deterministic,
         name=f"Governed Matrix session {operation.value}",
         description="Execute one exact bounded Matrix discovery or session operation.",
-        examples=["Inspect or update one exact account session through the approved adapter."],
+        examples=[
+            "Inspect or update one exact account session through the approved adapter."
+        ],
         anti_examples=[
             "Synchronize rooms, read messages, send messages, transfer media, or initialize crypto."
         ],
@@ -185,6 +187,22 @@ class _MatrixSessionDispatchHandle:
     def __init__(self, handle: MatrixSessionExecutionHandle) -> None:
         self._handle = handle
         self.commit_validated_at = handle.commit_validated_at
+
+    @property
+    def settled(self) -> bool:
+        return self._handle.settled
+
+    def abort(self) -> None:
+        self._handle.abort()
+
+    def finalize(self) -> None:
+        self._handle.finalize()
+
+    def commit(self) -> None:
+        self._handle.commit()
+
+    def settle(self) -> None:
+        self._handle.settle()
 
     def collect(self) -> AuthorityDispatchAdapterResult:
         result = self._handle.collect()
@@ -285,7 +303,10 @@ class MatrixSessionAuthorityDispatchAdapter:
         except ValueError:
             reasons.append("reason-ref:matrix-session:policy-denied")
         else:
-            if request.action_request.constraints.get("policy_decision_ref") != policy_ref:
+            if (
+                request.action_request.constraints.get("policy_decision_ref")
+                != policy_ref
+            ):
                 reasons.append("reason-ref:matrix-session:policy-binding-mismatch")
         return list(dict.fromkeys(reasons))
 
@@ -380,6 +401,9 @@ class MatrixSessionAuthorityDispatchAdapter:
         request: AuthorityDispatchRequest,
         *,
         validate_commit_fence: Callable[[], tuple[list[str], datetime]],
+        claim_handle: Callable[
+            [_MatrixSessionDispatchHandle], _MatrixSessionDispatchHandle
+        ],
     ) -> _MatrixSessionDispatchHandle:
         metadata = MatrixSessionDispatchMetadata.model_validate(
             ToolInvocationRequest.model_validate(
@@ -388,14 +412,16 @@ class MatrixSessionAuthorityDispatchAdapter:
         )
         command = metadata.command
         safe_request = command.model_dump(mode="json")
-        handle = self._backend.start_operation(
+        return self._backend.start_operation(
             operation=self.operation,
             dispatch_ref=request.dispatch_ref,
             execution_ref=authority_dispatch_execution_ref(request),
             safe_request=safe_request,
             validate_commit_fence=validate_commit_fence,
+            claim_handle=lambda backend_handle: claim_handle(
+                _MatrixSessionDispatchHandle(backend_handle)
+            ),
         )
-        return _MatrixSessionDispatchHandle(handle)
 
     def invoke(
         self, request: AuthorityDispatchRequest

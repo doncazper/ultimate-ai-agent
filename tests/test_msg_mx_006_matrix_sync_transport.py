@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 
+from ultimate_ai_agent.core.communications.matrix_sync import transport as matrix_transport
 from ultimate_ai_agent.core.communications.matrix_sync import (
     InMemoryMatrixCredentialWriter,
     MatrixCredentialWriter,
@@ -25,6 +26,7 @@ from ultimate_ai_agent.core.communications.matrix_sync import (
     MatrixTransientBatchRegistry,
     matrix_sync_private_ref,
     matrix_sync_request_fingerprint_ref,
+    operation_result_from_transport,
 )
 from ultimate_ai_agent.core.communications.matrix_session.target_policy import (
     matrix_homeserver_ref,
@@ -103,9 +105,10 @@ class _Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
     def do_GET(self) -> None:  # noqa: N802
-        if self.path.startswith("/_matrix/client/v3/sync") and self.headers.get(
-            "Authorization"
-        ) == "Bearer private-test-token":
+        if (
+            self.path.startswith("/_matrix/client/v3/sync")
+            and self.headers.get("Authorization") == "Bearer private-test-token"
+        ):
             events = [
                 {
                     "event_id": "$private-event",
@@ -221,14 +224,162 @@ def test_transport_hands_credential_over_fd_and_keeps_raw_batch_transient(
     )
     assert batch.events[0].body == "private body"
     assert batch.rooms[0].is_direct is True
-    with pytest.raises(MatrixTransientBatchError, match="MATRIX_TRANSIENT_BATCH_EXPIRED"):
+    with pytest.raises(
+        MatrixTransientBatchError, match="MATRIX_TRANSIENT_BATCH_EXPIRED"
+    ):
         transport.consume_batch(
             result.batch_ref,
             request_fingerprint_ref=command.request_fingerprint_ref,
         )
 
 
-def test_unavailable_credential_writer_fails_before_network(loopback_server: None) -> None:
+def test_transient_batch_scope_mismatch_does_not_destroy_owned_batch(
+    loopback_server: None,
+) -> None:
+    command = _command()
+    transport = _transport(InMemoryMatrixCredentialWriter(b"private-test-token"))
+    result = transport.execute(
+        command,
+        target=MatrixSyncTransientTarget(base_url=HARNESS_ORIGIN),
+        pseudonymization_salt=PSEUDONYMIZATION_SALT,
+    )
+
+    with pytest.raises(
+        MatrixTransientBatchError,
+        match="MATRIX_TRANSIENT_BATCH_SCOPE_MISMATCH",
+    ):
+        transport.consume_batch(
+            result.batch_ref,
+            request_fingerprint_ref="request-fingerprint-ref:matrix-sync:other",
+        )
+
+    batch = transport.consume_batch(
+        result.batch_ref,
+        request_fingerprint_ref=command.request_fingerprint_ref,
+    )
+    assert batch.events[0].body == "private body"
+
+
+def test_transport_result_owns_abort_cleanup_without_exposing_registry(
+    loopback_server: None,
+) -> None:
+    command = _command()
+    transport = _transport(InMemoryMatrixCredentialWriter(b"private-test-token"))
+    transport_result = transport.execute(
+        command,
+        target=MatrixSyncTransientTarget(base_url=HARNESS_ORIGIN),
+        pseudonymization_salt=PSEUDONYMIZATION_SALT,
+    )
+    operation_result = operation_result_from_transport(result=transport_result)
+
+    assert operation_result.abort_callback is not None
+    assert "_discard_callback" not in repr(transport_result)
+    operation_result.abort_callback()
+
+    with pytest.raises(
+        MatrixTransientBatchError,
+        match="MATRIX_TRANSIENT_BATCH_EXPIRED",
+    ):
+        transport.consume_batch(
+            transport_result.batch_ref,
+            request_fingerprint_ref=command.request_fingerprint_ref,
+        )
+
+
+def test_pipe_creation_failure_releases_validated_runtime_snapshot(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    command = _command()
+    transport = _transport(InMemoryMatrixCredentialWriter(b"private-test-token"))
+    snapshot = object()
+    removed: list[object] = []
+    monkeypatch.setattr(
+        matrix_transport,
+        "create_matrix_runtime_snapshot",
+        lambda **_kwargs: snapshot,
+    )
+    monkeypatch.setattr(
+        matrix_transport,
+        "remove_matrix_runtime_snapshot",
+        removed.append,
+    )
+    monkeypatch.setattr(os, "pipe", lambda: (_ for _ in ()).throw(OSError("denied")))
+
+    with pytest.raises(OSError, match="denied"):
+        transport.execute(
+            command,
+            target=MatrixSyncTransientTarget(base_url=HARNESS_ORIGIN),
+            pseudonymization_salt=PSEUDONYMIZATION_SALT,
+        )
+
+    assert removed == [snapshot]
+
+
+def test_post_spawn_descriptor_failure_reaps_process_and_releases_snapshot(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    command = _command()
+    transport = _transport(InMemoryMatrixCredentialWriter(b"private-test-token"))
+    original_pipe = os.pipe
+    original_close = os.close
+    original_popen = subprocess.Popen
+    original_create_snapshot = matrix_transport.create_matrix_runtime_snapshot
+    read_descriptors: list[int] = []
+    processes: list[subprocess.Popen[bytes]] = []
+    snapshots: list[object] = []
+    injected = False
+
+    def capture_pipe() -> tuple[int, int]:
+        read_fd, write_fd = original_pipe()
+        read_descriptors.append(read_fd)
+        return read_fd, write_fd
+
+    def fail_parent_read_close_once(descriptor: int) -> None:
+        nonlocal injected
+        original_close(descriptor)
+        if read_descriptors and descriptor == read_descriptors[0] and not injected:
+            injected = True
+            raise OSError("injected post-spawn close failure")
+
+    def capture_popen(*args, **kwargs):  # type: ignore[no-untyped-def]
+        process = original_popen(*args, **kwargs)
+        processes.append(process)
+        return process
+
+    def capture_snapshot(**kwargs):  # type: ignore[no-untyped-def]
+        snapshot = original_create_snapshot(**kwargs)
+        snapshots.append(snapshot)
+        return snapshot
+
+    monkeypatch.setattr(os, "pipe", capture_pipe)
+    monkeypatch.setattr(os, "close", fail_parent_read_close_once)
+    monkeypatch.setattr(matrix_transport.subprocess, "Popen", capture_popen)
+    monkeypatch.setattr(
+        matrix_transport,
+        "create_matrix_runtime_snapshot",
+        capture_snapshot,
+    )
+
+    with pytest.raises(OSError, match="injected post-spawn close failure"):
+        transport.execute(
+            command,
+            target=MatrixSyncTransientTarget(base_url=HARNESS_ORIGIN),
+            pseudonymization_salt=PSEUDONYMIZATION_SALT,
+        )
+
+    assert injected is True
+    assert len(processes) == 1
+    assert processes[0].poll() is not None
+    assert processes[0].stdin is not None and processes[0].stdin.closed
+    assert processes[0].stdout is not None and processes[0].stdout.closed
+    assert processes[0].stderr is not None and processes[0].stderr.closed
+    assert len(snapshots) == 1
+    assert not snapshots[0].root.exists()  # type: ignore[attr-defined]
+
+
+def test_unavailable_credential_writer_fails_before_network(
+    loopback_server: None,
+) -> None:
     command = _command()
     transport = _transport(MatrixCredentialWriter())
     with pytest.raises(
@@ -250,7 +401,9 @@ def test_loopback_harness_is_disabled_by_default_before_network(
         InMemoryMatrixCredentialWriter(b"private-test-token"),
         allow_loopback_harness=False,
     )
-    monkeypatch.setattr(os, "pipe", lambda: pytest.fail("pipe created before scope check"))
+    monkeypatch.setattr(
+        os, "pipe", lambda: pytest.fail("pipe created before scope check")
+    )
     with pytest.raises(
         MatrixSyncTransportError,
         match="MATRIX_SYNC_LOOPBACK_HARNESS_DISABLED",
@@ -308,7 +461,9 @@ def test_transient_scope_drift_is_denied_before_any_pipe_or_process(
     expected: str,
 ) -> None:
     transport = _transport(InMemoryMatrixCredentialWriter(b"private-test-token"))
-    monkeypatch.setattr(os, "pipe", lambda: pytest.fail("pipe created before scope check"))
+    monkeypatch.setattr(
+        os, "pipe", lambda: pytest.fail("pipe created before scope check")
+    )
     with pytest.raises(MatrixSyncTransportError, match=expected):
         transport.execute(
             command,
@@ -322,7 +477,9 @@ def test_exact_pagination_room_and_cursor_are_bound_before_network(
 ) -> None:
     command = _command(MatrixSyncOperation.timeline_paginate_read)
     transport = _transport(InMemoryMatrixCredentialWriter(b"private-test-token"))
-    with pytest.raises(MatrixSyncTransportError, match="MATRIX_SYNC_CURSOR_BINDING_MISMATCH"):
+    with pytest.raises(
+        MatrixSyncTransportError, match="MATRIX_SYNC_CURSOR_BINDING_MISMATCH"
+    ):
         transport.execute(
             command,
             target=MatrixSyncTransientTarget(
@@ -389,6 +546,42 @@ def test_process_cleanup_escalates_term_to_kill_and_reaps(
     assert process.wait_calls == 2
 
 
+def test_node_permission_mode_denies_child_process_runtime(tmp_path: Path) -> None:
+    node = Path(shutil.which("node") or "").resolve()
+    script = tmp_path / "child-process-denied.mjs"
+    script.write_text(
+        (
+            'import { spawnSync } from "node:child_process";\n'
+            'spawnSync("/usr/bin/true");\n'
+        ),
+        encoding="utf-8",
+    )
+    completed = subprocess.run(
+        [
+            str(node),
+            "--permission",
+            f"--allow-fs-read={tmp_path}",
+            str(script),
+        ],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env={
+            "HOME": "/var/empty",
+            "LANG": "C",
+            "PATH": "/usr/bin:/bin",
+            "TMPDIR": "/tmp",
+        },
+        start_new_session=True,
+        shell=False,
+        timeout=5,
+        check=False,
+    )
+    assert completed.returncode != 0
+    assert b"ERR_ACCESS_DENIED" in completed.stderr
+    assert b"ChildProcess" in completed.stderr
+
+
 def test_transport_uses_minimal_environment_and_adapter_working_directory(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -398,7 +591,9 @@ def test_transport_uses_minimal_environment_and_adapter_working_directory(
         pid = 73_002
         returncode = 0
 
-        def communicate(self, _payload: bytes, *, timeout: float) -> tuple[bytes, bytes]:
+        def communicate(
+            self, _payload: bytes, *, timeout: float
+        ) -> tuple[bytes, bytes]:
             assert timeout > 0
             return b'{"next_batch":"private-next-token","rooms":{}}', b""
 
@@ -423,7 +618,12 @@ def test_transport_uses_minimal_environment_and_adapter_working_directory(
     )
     assert result.event_count == 0
     assert captured["shell"] is False
-    assert captured["cwd"] == ROOT / "integrations/matrix-client-adapter"
+    argv = captured["args"][0]  # type: ignore[index]
+    assert Path(argv[0]).name == "node-runtime"
+    assert argv[1] == "--permission"
+    assert argv[2] == f"--allow-fs-read={Path(argv[3]).parent.parent}"
+    assert Path(argv[3]).parts[-3:] == ("adapter", "src", "sync-runner.mjs")
+    assert captured["cwd"] == Path(argv[3]).parent.parent
     assert captured["env"] == {
         "HOME": "/var/empty",
         "LANG": "C",

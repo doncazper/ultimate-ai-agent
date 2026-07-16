@@ -384,9 +384,7 @@ def run_shards(
             collection_evidence_output
         )
         collection_evidence_dir = run_root / "collection-evidence"
-        pytest_collection_evidence.prepare_private_directory(
-            collection_evidence_dir
-        )
+        pytest_collection_evidence.prepare_private_directory(collection_evidence_dir)
 
     env = build_shard_env(root)
 
@@ -396,20 +394,26 @@ def run_shards(
     stretch_reported = False
     target_reported = False
     handled_signals = shard_processes.cancellation_signals()
-    launch_registration_active = False
     pending_signal: int | None = None
 
     def interrupt_run(signum: int, _frame: Any) -> None:
         nonlocal pending_signal
-        if launch_registration_active:
+        if pending_signal is None:
             pending_signal = signum
+
+    def raise_pending_signal() -> None:
+        nonlocal pending_signal
+        if pending_signal is None:
             return
+        interrupted_by = pending_signal
+        pending_signal = None
         shard_processes.ignore_signals(handled_signals)
-        raise ShardRunInterrupted(signum)
+        raise ShardRunInterrupted(interrupted_by)
 
     with shard_processes.installed_signal_handlers(handled_signals, interrupt_run):
         try:
             while pending or active:
+                raise_pending_signal()
                 overall_elapsed = time.perf_counter() - run_started
                 if not stretch_reported and overall_elapsed >= stretch_goal_seconds:
                     stretch_reported = True
@@ -438,6 +442,7 @@ def run_shards(
                         hard_timeout_seconds,
                         termination_grace_seconds,
                     )
+                    raise_pending_signal()
                     for plan in pending:
                         log_path = log_dir / f"pytest-shard-{plan.index}.log"
                         log_path.write_text(
@@ -496,16 +501,15 @@ def run_shards(
                     log_handle = log_path.open("w", encoding="utf-8")
                     log_handle.write("$ " + " ".join(command) + "\n\n")
                     log_handle.flush()
-                    launch_registration_active = True
+                    process: subprocess.Popen[str] | None = None
                     try:
-                        process = subprocess.Popen(
+                        process = shard_processes.spawn_owned_process_group(
                             command,
                             cwd=root,
                             env=shard_env,
                             stdout=log_handle,
                             stderr=subprocess.STDOUT,
                             text=True,
-                            start_new_session=os.name == "posix",
                         )
                         active[plan.index] = (
                             process,
@@ -514,47 +518,77 @@ def run_shards(
                             log_path,
                             plan,
                         )
-                    finally:
-                        launch_registration_active = False
-                        if pending_signal is not None:
-                            interrupted_by = pending_signal
-                            pending_signal = None
-                            interrupt_run(interrupted_by, None)
+                    except BaseException:
+                        if process is not None:
+                            try:
+                                shard_processes.stop_processes(
+                                    (process,),
+                                    termination_grace_seconds,
+                                )
+                            finally:
+                                log_handle.close()
+                        else:
+                            log_handle.close()
+                        raise
+                    else:
+                        raise_pending_signal()
 
                 for index, (process, log_handle, started, log_path, plan) in list(
                     active.items()
                 ):
-                    returncode = process.poll()
-                    if returncode is None:
+                    if not shard_processes.process_group_leader_is_terminal_without_reaping(
+                        process
+                    ):
                         continue
-                    elapsed = time.perf_counter() - started
-                    log_handle.close()
-                    results[index] = ShardResult(
-                        index=index,
-                        file_count=len(plan.files),
-                        returncode=returncode,
-                        elapsed_seconds=elapsed,
-                        log_path=log_path,
-                        failure_ref_path=(
-                            run_failure_ref_dir / f"pytest-shard-{plan.index}.json"
-                            if run_failure_ref_dir is not None
-                            else None
-                        ),
-                        collection_evidence_path=(
-                            collection_evidence_dir
-                            / f"pytest-shard-{plan.index}.json"
-                            if collection_evidence_dir is not None
-                            else None
-                        ),
-                    )
-                    del active[index]
+                    try:
+                        shard_processes.stop_processes(
+                            (process,),
+                            termination_grace_seconds,
+                        )
+                        if not isinstance(process.returncode, int):
+                            raise RuntimeError(
+                                "pytest shard terminal status is unavailable"
+                            )
+                        returncode = process.returncode
+                        elapsed = time.perf_counter() - started
+                        log_handle.close()
+                        results[index] = ShardResult(
+                            index=index,
+                            file_count=len(plan.files),
+                            returncode=returncode,
+                            elapsed_seconds=elapsed,
+                            log_path=log_path,
+                            failure_ref_path=(
+                                run_failure_ref_dir / f"pytest-shard-{plan.index}.json"
+                                if run_failure_ref_dir is not None
+                                else None
+                            ),
+                            collection_evidence_path=(
+                                collection_evidence_dir
+                                / f"pytest-shard-{plan.index}.json"
+                                if collection_evidence_dir is not None
+                                else None
+                            ),
+                        )
+                        del active[index]
+                    except BaseException:
+                        if not log_handle.closed:
+                            log_handle.write(
+                                "\nPytest shard process-group cleanup could not be proven.\n"
+                            )
+                            log_handle.close()
+                        raise
+                    else:
+                        raise_pending_signal()
                 if active:
                     time.sleep(0.2)
+            raise_pending_signal()
         except BaseException:
             _stop_active_shards(active, termination_grace_seconds)
-            for _index, (_process, log_handle, _started, _log_path, _plan) in list(
-                active.items()
-            ):
+            for (
+                _index,
+                (_process, log_handle, _started, _log_path, _plan),
+            ) in list(active.items()):
                 if not log_handle.closed:
                     log_handle.write(
                         "\nPytest shard terminated because the runner was interrupted.\n"
@@ -585,8 +619,19 @@ def _terminate_active_shards(
     hard_timeout_seconds: float,
     termination_grace_seconds: float,
 ) -> None:
-    _stop_active_shards(active, termination_grace_seconds)
-    for index, (process, log_handle, started, log_path, plan) in list(active.items()):
+    terminating = dict(active)
+    try:
+        _stop_active_shards(terminating, termination_grace_seconds)
+    except BaseException:
+        for _process, log_handle, _started, _log_path, _plan in terminating.values():
+            if not log_handle.closed:
+                log_handle.write(
+                    "\nPytest shard process-group cleanup could not be proven.\n"
+                )
+                log_handle.close()
+        raise
+    active.clear()
+    for index, (process, log_handle, started, log_path, plan) in terminating.items():
         elapsed = min(time.perf_counter() - started, hard_timeout_seconds)
         log_handle.write(
             "\nPytest shard terminated because the overall runtime budget expired.\n"
@@ -600,7 +645,6 @@ def _terminate_active_shards(
             log_path=log_path,
             timed_out=True,
         )
-        del active[index]
 
 
 def _stop_active_shards(
