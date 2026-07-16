@@ -185,6 +185,20 @@ def test_safe_test_ref_ignores_all_parameter_values_in_identity() -> None:
         assert "secret-shaped" not in test_ref
 
 
+def test_safe_test_ref_validator_rejects_forged_or_noncanonical_refs() -> None:
+    canonical = runner.safe_test_ref("tests/test_module.py::test_case")
+
+    assert runner.is_safe_test_ref(canonical) is True
+    assert (
+        runner.is_safe_test_ref(
+            "pytest-test-ref:test-module:test-case:123456789abc"
+        )
+        is False
+    )
+    assert runner.is_safe_test_ref("tests/test_module.py::test_case") is False
+    assert runner.is_safe_test_ref(None) is False
+
+
 def test_removed_junit_option_fails_with_migration_message(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],

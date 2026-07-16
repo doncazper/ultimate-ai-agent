@@ -10,6 +10,7 @@ import pytest
 
 from scripts.verification import run_ci_lane as runner
 from scripts.verification.ci_command_manifest import CommandSpec, LaneSpec, build_plan
+from scripts.verification.pytest_shard_artifacts import safe_test_ref
 from scripts.verification.verification_contracts import VerificationTerminalStatus
 
 
@@ -47,6 +48,7 @@ def _write_pytest_performance_report(
     timed_out: bool = False,
     plan_ref: str = "pytest-shard-plan-ref:sha256:" + "a" * 64,
     run_status: str | None = None,
+    failed_test_refs: tuple[str, ...] = (),
 ) -> None:
     path.write_text(
         json.dumps(
@@ -66,6 +68,9 @@ def _write_pytest_performance_report(
                         "shard_index": index,
                         "return_code": 1 if index == failed_index else 0,
                         "timed_out": timed_out and index == failed_index,
+                        "failed_test_refs": (
+                            list(failed_test_refs) if index == failed_index else []
+                        ),
                     }
                     for index in range(8)
                 ],
@@ -123,6 +128,7 @@ def test_lane_runner_emits_content_free_hash_bound_receipt(
     )
 
     assert receipt["status"] == "pass"
+    assert "execution_surface_ref" not in receipt
     assert receipt["github_gate_satisfied"] is False
     assert receipt["merge_gate_satisfied"] is False
     serialized = json.dumps(receipt, sort_keys=True)
@@ -282,6 +288,79 @@ def test_pytest_shard_evidence_marks_timeout_without_raw_output(
     assert evidence["failed_shard_refs"] == ("pytest-shard-ref:6:timed-out",)
 
 
+def test_pytest_shard_evidence_retains_bounded_safe_test_refs(
+    tmp_path: Path,
+) -> None:
+    report = tmp_path / runner.PYTEST_PERFORMANCE_REPORT_NAME
+    safe_ref = safe_test_ref("tests/test_module.py::test_case")
+    _write_pytest_performance_report(
+        report,
+        failed_index=2,
+        failed_test_refs=(safe_ref,),
+    )
+
+    evidence = runner._pytest_shard_evidence(
+        tmp_path,
+        expected_plan_ref="pytest-shard-plan-ref:sha256:" + "a" * 64,
+        command_status="fail",
+    )
+
+    assert evidence["failed_test_refs"] == (safe_ref,)
+    assert runner._pytest_shard_summary_lines(evidence)[-1] == (
+        f"Diagnostic test ref: {safe_ref}"
+    )
+    assert evidence["failed_test_ref_posture"] == (
+        "diagnostic_untrusted_code_metadata_only"
+    )
+
+
+@pytest.mark.parametrize(
+    "failed_test_refs",
+    [
+        ("unsafe raw node id",),
+        (
+            safe_test_ref("tests/test_module.py::test_case"),
+            safe_test_ref("tests/test_module.py::test_case"),
+        ),
+        ("pytest-test-ref:test-module:test-case:123456789abc",),
+    ],
+)
+def test_pytest_shard_evidence_rejects_unsafe_or_duplicate_test_refs(
+    tmp_path: Path,
+    failed_test_refs: tuple[str, ...],
+) -> None:
+    report = tmp_path / runner.PYTEST_PERFORMANCE_REPORT_NAME
+    _write_pytest_performance_report(
+        report,
+        failed_index=2,
+        failed_test_refs=failed_test_refs,
+    )
+
+    evidence = runner._pytest_shard_evidence(
+        tmp_path,
+        expected_plan_ref="pytest-shard-plan-ref:sha256:" + "a" * 64,
+        command_status="fail",
+    )
+
+    assert evidence["pytest_shard_evidence_status"] == "rejected"
+
+
+def test_pytest_shard_evidence_rejects_successful_timeout_row(tmp_path: Path) -> None:
+    report = tmp_path / runner.PYTEST_PERFORMANCE_REPORT_NAME
+    _write_pytest_performance_report(report, failed_index=2, timed_out=True)
+    payload = json.loads(report.read_text(encoding="utf-8"))
+    payload["shards"][2]["return_code"] = 0
+    report.write_text(json.dumps(payload), encoding="utf-8")
+
+    evidence = runner._pytest_shard_evidence(
+        tmp_path,
+        expected_plan_ref="pytest-shard-plan-ref:sha256:" + "a" * 64,
+        command_status="fail",
+    )
+
+    assert evidence["pytest_shard_evidence_status"] == "rejected"
+
+
 def test_pytest_shard_evidence_rejects_symlink_and_malformed_report(
     tmp_path: Path,
 ) -> None:
@@ -364,6 +443,78 @@ def test_pytest_lane_receipt_and_summary_retain_safe_failed_shard_ref(
     assert "pytest-shard-ref:2:failed" in summary
     assert "make ci-reproduce-shard CI_SHARD_INDEX=2" in summary
     assert str(tmp_path) not in json.dumps(receipt, sort_keys=True)
+
+
+def test_diagnostic_reproduction_lane_is_non_gating_and_rejects_typed_files(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lane_ref = "ci-pytest-shard-1-reproduce"
+    command_ref = "command:pytest.shard-1-reproduce"
+    command = CommandSpec(
+        command_ref,
+        (sys.executable, "-c", "raise SystemExit(0)"),
+        (),
+        "test",
+        10,
+    )
+    plan = build_plan(
+        ROOT,
+        SHA,
+        lane_refs=(lane_ref,),
+        verify_repository_state=False,
+    )
+    monkeypatch.setattr(runner, "_git_head", lambda _repo: SHA)
+    monkeypatch.setattr(runner, "command_registry", lambda: {command_ref: command})
+    monkeypatch.setattr(
+        runner,
+        "lane_registry",
+        lambda: {lane_ref: LaneSpec(lane_ref, "Diagnostic", (command_ref,))},
+    )
+    monkeypatch.setattr(runner, "build_plan", lambda *_args, **_kwargs: plan)
+    lock_kwargs: list[dict[str, object]] = []
+
+    class _CapturingDiagnosticLock(_FakeFullSuiteLock):
+        def __init__(self, **kwargs: object) -> None:
+            lock_kwargs.append(kwargs)
+
+    monkeypatch.setattr(runner, "FullSuiteLock", _CapturingDiagnosticLock)
+
+    receipt = runner.run_lane(
+        lane_ref,
+        repository_sha=SHA,
+        temp_root=tmp_path / "temp",
+        full_suite_lock_mode="private",
+    )
+
+    assert receipt["status"] == "pass"
+    assert receipt["execution_surface_ref"] == "surface-ref:local"
+    assert receipt["github_gate_satisfied"] is False
+    assert receipt["merge_gate_satisfied"] is False
+    assert lock_kwargs == [
+        {
+            "path": runner.PYTEST_DIAGNOSTIC_LOCK_PATH,
+            "wait_seconds": 0,
+            "shared_across_accounts": False,
+        }
+    ]
+
+    with pytest.raises(ValueError, match="local/private only"):
+        runner.run_lane(
+            lane_ref,
+            repository_sha=SHA,
+            temp_root=tmp_path / "github-temp",
+            execution_surface="github",
+        )
+
+    with pytest.raises(ValueError, match="cannot emit typed gating evidence"):
+        runner.run_lane(
+            lane_ref,
+            repository_sha=SHA,
+            temp_root=tmp_path / "typed-temp",
+            verification_receipt_file=tmp_path / "typed-temp" / "receipt.json",
+            full_suite_lock_mode="private",
+        )
 
 
 def test_main_prints_safe_failed_shard_reproduction_ref(
