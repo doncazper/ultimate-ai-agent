@@ -12,6 +12,11 @@ import pytest
 import tests.matrix_loopback_resource as matrix_loopback_resource
 
 
+def test_matrix_loopback_resource_lock_is_stable_and_uid_scoped() -> None:
+    assert matrix_loopback_resource._LOCK_PATH.parent == Path("/tmp")
+    assert matrix_loopback_resource._LOCK_PATH.name.endswith(f"-{os.getuid()}.lock")
+
+
 def test_matrix_loopback_resource_serializes_distinct_process_temp_roots(
     tmp_path: Path,
 ) -> None:

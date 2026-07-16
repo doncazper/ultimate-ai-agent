@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 
-_LOCK_PATH = Path("/tmp") / "uaa-matrix-loopback-test-resource-v1.lock"
+_LOCK_PATH = Path("/tmp") / f"uaa-matrix-loopback-test-resource-v1-{os.getuid()}.lock"
 _LOCK_WAIT_SECONDS = 60.0
 
 
