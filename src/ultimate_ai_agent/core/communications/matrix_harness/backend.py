@@ -1270,18 +1270,66 @@ class DockerMatrixHarnessBackend:
 
     @staticmethod
     def _terminate_process_group(process: subprocess.Popen[bytes]) -> None:
+        if process.poll() is not None:
+            return
+        group_ready_deadline = time.monotonic() + 1.0
+        while process.poll() is None:
+            try:
+                process_group_id = os.getpgid(process.pid)
+            except (ProcessLookupError, PermissionError):
+                if process.poll() is not None:
+                    return
+                process_group_id = None
+            if process_group_id == process.pid:
+                break
+            if time.monotonic() >= group_ready_deadline:
+                try:
+                    process.terminate()
+                    process.wait(timeout=5)
+                except (ProcessLookupError, subprocess.TimeoutExpired):
+                    if process.poll() is None:
+                        try:
+                            process.kill()
+                            process.wait(timeout=5)
+                        except (ProcessLookupError, subprocess.TimeoutExpired):
+                            pass
+                raise MatrixHarnessBackendError(
+                    "MATRIX_HARNESS_PROCESS_GROUP_ISOLATION_UNCONFIRMED"
+                )
+            time.sleep(0.01)
+        if process.poll() is not None:
+            return
         try:
             os.killpg(process.pid, signal.SIGTERM)
             process.wait(timeout=5)
-        except (ProcessLookupError, subprocess.TimeoutExpired):
+            return
+        except (ProcessLookupError, PermissionError) as exc:
+            if process.poll() is not None:
+                return
+            raise MatrixHarnessBackendError(
+                "MATRIX_HARNESS_PROCESS_TERMINATION_UNCONFIRMED"
+            ) from exc
+        except subprocess.TimeoutExpired:
+            if process.poll() is not None:
+                return
             try:
                 os.killpg(process.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
+            except (ProcessLookupError, PermissionError) as exc:
+                if process.poll() is not None:
+                    return
+                raise MatrixHarnessBackendError(
+                    "MATRIX_HARNESS_PROCESS_TERMINATION_UNCONFIRMED"
+                ) from exc
             try:
                 process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                pass
+            except subprocess.TimeoutExpired as exc:
+                raise MatrixHarnessBackendError(
+                    "MATRIX_HARNESS_PROCESS_TERMINATION_UNCONFIRMED"
+                ) from exc
+            if process.poll() is None:
+                raise MatrixHarnessBackendError(
+                    "MATRIX_HARNESS_PROCESS_TERMINATION_UNCONFIRMED"
+                )
 
     @staticmethod
     def _communicate_bounded(

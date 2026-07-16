@@ -421,6 +421,109 @@ def test_combined_output_limit_terminates_without_returning_raw_output(
     assert process.poll() is not None
 
 
+def test_process_group_permission_race_is_safe_only_after_terminal_poll(
+    harness_backend: DockerMatrixHarnessBackend,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class ExitedDuringSignal:
+        pid = 12345
+
+        def __init__(self) -> None:
+            self._polls = iter((None, None, None, 0))
+
+        def poll(self) -> int | None:
+            return next(self._polls)
+
+        def wait(self, *, timeout: int) -> int:
+            pytest.fail(f"terminal permission race must not wait ({timeout=})")
+
+    signals: list[tuple[int, signal.Signals]] = []
+
+    def permission_race(pid: int, signum: signal.Signals) -> None:
+        signals.append((pid, signum))
+        raise PermissionError
+
+    monkeypatch.setattr(os, "getpgid", lambda pid: pid)
+    monkeypatch.setattr(os, "killpg", permission_race)
+    harness_backend._terminate_process_group(ExitedDuringSignal())  # type: ignore[arg-type]
+
+    assert signals == [(12345, signal.SIGTERM)]
+
+
+def test_process_group_permission_denial_fails_closed_while_child_is_live(
+    harness_backend: DockerMatrixHarnessBackend,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class StillLive:
+        pid = 12345
+
+        @staticmethod
+        def poll() -> None:
+            return None
+
+        @staticmethod
+        def wait(*, timeout: int) -> int:
+            pytest.fail(f"live permission denial must not wait ({timeout=})")
+
+    monkeypatch.setattr(
+        os,
+        "killpg",
+        lambda _pid, _signum: (_ for _ in ()).throw(PermissionError),
+    )
+    monkeypatch.setattr(os, "getpgid", lambda pid: pid)
+
+    with pytest.raises(
+        MatrixHarnessBackendError,
+        match="PROCESS_TERMINATION_UNCONFIRMED",
+    ):
+        harness_backend._terminate_process_group(StillLive())  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("initial_group_id", [9000, None])
+def test_process_group_termination_waits_for_new_session_before_group_signal(
+    harness_backend: DockerMatrixHarnessBackend,
+    monkeypatch: pytest.MonkeyPatch,
+    initial_group_id: int | None,
+) -> None:
+    class DelayedSessionProcess:
+        pid = 12345
+
+        def __init__(self) -> None:
+            self.terminal = False
+            self.wait_count = 0
+
+        def poll(self) -> int | None:
+            return 0 if self.terminal else None
+
+        def wait(self, *, timeout: int) -> int:
+            assert timeout == 5
+            self.wait_count += 1
+            self.terminal = True
+            return 0
+
+    process = DelayedSessionProcess()
+    group_ids = iter((initial_group_id, process.pid))
+    signals: list[tuple[int, signal.Signals]] = []
+
+    def delayed_group_id(_pid: int) -> int:
+        group_id = next(group_ids)
+        if group_id is None:
+            raise ProcessLookupError
+        return group_id
+
+    monkeypatch.setattr(os, "getpgid", delayed_group_id)
+    monkeypatch.setattr(
+        os,
+        "killpg",
+        lambda pid, signum: signals.append((pid, signum)),
+    )
+
+    harness_backend._terminate_process_group(process)  # type: ignore[arg-type]
+
+    assert signals == [(process.pid, signal.SIGTERM)]
+    assert process.wait_count == 1
+
+
 def test_signal_interrupt_terminates_child_releases_lock_and_recovers(
     harness_backend: DockerMatrixHarnessBackend,
 ) -> None:
