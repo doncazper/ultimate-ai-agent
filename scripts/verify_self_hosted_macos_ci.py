@@ -158,6 +158,15 @@ def verify(root: Path = ROOT) -> list[str]:
         failures.append("pytest job cancellation must escalate after the bounded wait")
     if "--shard-index" in pytest_shards_job or "matrix:" in pytest_shards_job:
         failures.append("pytest shards must share one installed single-host environment")
+    if (
+        "--verification-execution-fence-root "
+        "/private/tmp/uaa-verification-execution-fence-v1"
+        not in pytest_shards_job
+        or "--verification-execution-fence-root /tmp/" in pytest_shards_job
+    ):
+        failures.append(
+            "pytest execution fence must use the real owner-only macOS temp root"
+        )
     receipt_source_jobs = (
         "manifest-attestation",
         "lint",

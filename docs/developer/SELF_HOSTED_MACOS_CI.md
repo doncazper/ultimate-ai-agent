@@ -242,6 +242,9 @@ code/evidence failure rather than being relabeled as an infrastructure outage.
 An attempted duplicate is rejected before process spawn with the content-free
 `reason-ref:ci:full-suite-attempt-recorded`; local coordination details and
 tracebacks are not emitted to the operator surface.
+The execution fence uses the real owner-only `/private/tmp` macOS directory;
+the `/tmp` alias is intentionally rejected because the fence refuses symlinked
+path components.
 The canonical shard command loads a tiny repo-owned pytest plugin that writes
 only an exclusive-created, bounded list of content-free test refs under a fresh
 private run directory. Failed shards expose at most eight refs derived from
