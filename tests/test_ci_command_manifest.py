@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import subprocess
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 
 import pytest
@@ -51,6 +51,53 @@ def test_canonical_ci_definition_is_valid_deterministic_and_complete() -> None:
         job.command_refs == manifest.lane_registry()[job.lane_ref].command_refs
         for job in manifest.CI_JOB_GRAPH
         if job.lane_ref is not None
+    )
+    assert not [
+        unit.unit_ref
+        for unit in manifest.VERIFICATION_DAG
+        if "private" in unit.execution_surfaces
+        and (
+            unit.unit_kind
+            in {
+                manifest.VerificationUnitKind.AGGREGATE,
+                manifest.VerificationUnitKind.AUDIT,
+            }
+            or bool(
+                set(unit.exclusive_resource_refs).intersection(
+                    {
+                        "resource-ref:complete-pytest",
+                        "resource-ref:typescript-typecheck",
+                    }
+                )
+            )
+        )
+    ]
+
+
+def test_definition_rejects_private_on_a_runtime_ineligible_unit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    typecheck = next(
+        unit
+        for unit in manifest.VERIFICATION_DAG
+        if unit.unit_ref == "risk-frontend-typecheck"
+    )
+    forged = replace(
+        typecheck,
+        execution_surfaces=(*typecheck.execution_surfaces, "private"),
+    )
+    monkeypatch.setattr(
+        manifest,
+        "VERIFICATION_DAG",
+        tuple(
+            forged if unit.unit_ref == forged.unit_ref else unit
+            for unit in manifest.VERIFICATION_DAG
+        ),
+    )
+
+    assert (
+        "private execution forbidden for canonical unit: risk-frontend-typecheck"
+        in manifest.validate_definition()
     )
 
 
@@ -213,6 +260,23 @@ def test_focused_python_plan_selects_an_exact_owned_test() -> None:
     assert plan.selected_test_refs == (
         "tests/test_agent_capability_evaluation.py",
     )
+
+
+def test_plan_rejects_forged_focused_test_ownership() -> None:
+    source_ref = "src/ultimate_ai_agent/core/evals/capability_metrics.py"
+
+    with pytest.raises(ValueError, match="exactly match canonical"):
+        manifest.build_plan(
+            ROOT,
+            SHA,
+            change_records=(
+                manifest.ChangeRecord(manifest.ChangeKind.MODIFIED, (source_ref,)),
+            ),
+            selected_unit_refs=("risk-diff-check", "risk-focused-pytest"),
+            selected_test_refs=("tests/test_capability_maturity_integrity.py",),
+            base_sha=SHA,
+            verify_repository_state=False,
+        )
 
 
 def test_plan_fails_closed_for_unknown_sha_lane_or_unsafe_lockfile(

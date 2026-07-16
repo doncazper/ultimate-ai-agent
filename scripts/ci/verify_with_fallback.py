@@ -376,8 +376,23 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--mode", choices=("github-first", "status"), default="github-first")
     parser.add_argument("--observation-file")
     parser.add_argument("--no-private", action="store_true")
+    parser.add_argument(
+        "--diagnose-pytest-shard",
+        action="append",
+        type=int,
+        choices=range(8),
+        default=[],
+        metavar="0-7",
+        help="Explicitly reproduce one failed canonical pytest shard privately.",
+    )
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
+    if len(args.diagnose_pytest_shard) != len(set(args.diagnose_pytest_shard)):
+        parser.error("--diagnose-pytest-shard values must be unique")
+    if args.diagnose_pytest_shard and (
+        args.mode == "status" or args.no_private
+    ):
+        parser.error("pytest shard diagnosis requires active bounded private CI")
     repo = Path(args.repo).resolve()
     if repo.is_symlink() or not repo.is_dir():
         parser.error("repository must be a real directory")
@@ -426,10 +441,21 @@ def main(argv: list[str] | None = None) -> int:
             ledger,
             IsolatedPrivateExecutor(repo),
         )
-        status = controller.evaluate(
-            observation,
-            series_ref=_series_ref(repo),
-        )
+        try:
+            status = controller.evaluate(
+                observation,
+                series_ref=_series_ref(repo),
+                diagnostic_unit_refs=tuple(
+                    f"diagnostic-pytest-shard-{index}"
+                    for index in sorted(args.diagnose_pytest_shard)
+                ),
+            )
+        except (Exception, KeyboardInterrupt):
+            print(
+                "Private CI stopped: reason-ref:private-ci:controller-failure",
+                file=sys.stderr,
+            )
+            return 1
     if args.json:
         print(json.dumps(status_payload(status), indent=2, sort_keys=True))
     else:

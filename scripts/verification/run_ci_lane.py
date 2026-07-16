@@ -71,7 +71,18 @@ from scripts.verification.verification_contracts import (  # noqa: E402
     verification_run_manifest_payload,
 )
 from scripts.verification.verification_execution_identity import (  # noqa: E402
+    VerificationExecutionFence,
+    VerificationExecutionFenceDisposition,
+    VerificationExecutionFenceError,
     build_verification_execution_identity,
+    build_verification_execution_terminal_proof,
+)
+from scripts.verification.verification_github_transport import (  # noqa: E402
+    build_github_job_output_envelope,
+    encode_github_job_output,
+)
+from scripts.verification.verification_github_prerequisites import (  # noqa: E402
+    append_github_output,
 )
 from scripts.verification.verification_receipt_store import (  # noqa: E402
     VerificationReceiptStore,
@@ -91,6 +102,14 @@ PYTEST_DIAGNOSTIC_LOCK_PATH = Path("/tmp/uaa-ci-pytest-diagnostic.lock")
 PYTEST_RUNTIME_UNAVAILABLE_REASON_REF = "reason-ref:ci:pytest-runtime-unavailable"
 FULL_SUITE_LOCK_UNAVAILABLE_REASON_REF = "reason-ref:ci:full-suite-capacity-unavailable"
 FULL_SUITE_ATTEMPT_RECORDED_REASON_REF = "reason-ref:ci:full-suite-attempt-recorded"
+VERIFICATION_EXECUTION_FENCE_REASON_REF = (
+    "reason-ref:ci:verification-execution-fence-blocked"
+)
+PRIVATE_NON_DIAGNOSTIC_REASON_REF = (
+    "reason-ref:ci:private-nondiagnostic-execution-denied"
+)
+CI_LANE_EXECUTION_ERROR_REASON_REF = "reason-ref:ci:lane-execution-failed"
+GITHUB_OUTPUT_KEY = "verification_envelope"
 TYPED_EVIDENCE_REDACTION_STATUS = (
     "content_free_refs_hashes_counts_and_durations_only"
 )
@@ -98,6 +117,10 @@ TYPED_EVIDENCE_REDACTION_STATUS = (
 
 class PytestRuntimeUnavailableError(RuntimeError):
     """Raised before a full-suite attempt when pytest cannot be imported."""
+
+
+class PrivateNonDiagnosticExecutionError(RuntimeError):
+    """Raised when private CI tries to execute a non-diagnostic canonical lane."""
 
 
 def _utc_now() -> str:
@@ -127,16 +150,21 @@ def _resolved_argv(
     command: CommandSpec,
     temp_root: Path,
     repository_sha: str,
+    base_sha: str,
 ) -> tuple[str, ...]:
     return tuple(
-        token.replace("{temp_root}", str(temp_root)).replace(
-            "{repository_sha}", repository_sha
-        )
+        token.replace("{temp_root}", str(temp_root))
+        .replace("{repository_sha}", repository_sha)
+        .replace("{base_sha}", base_sha)
         for token in command.argv
     )
 
 
-def _safe_env(command: CommandSpec, temp_root: Path) -> dict[str, str]:
+def _safe_env(
+    command: CommandSpec,
+    temp_root: Path,
+    base_sha: str | None = None,
+) -> dict[str, str]:
     env = build_shard_env(ROOT)
     isolated_home = temp_root / "runtime-home"
     isolated_tmp = temp_root / "runtime-tmp"
@@ -154,6 +182,8 @@ def _safe_env(command: CommandSpec, temp_root: Path) -> dict[str, str]:
             "PLAYWRIGHT_BROWSERS_PATH": str(playwright_browsers),
         }
     )
+    if base_sha is not None:
+        env["UAA_VERIFICATION_BASE_SHA"] = base_sha
     env.update(dict(command.env))
     return env
 
@@ -364,10 +394,12 @@ def _run_command(
     command: CommandSpec,
     *,
     repository_sha: str,
+    base_sha: str | None = None,
     temp_root: Path,
     validate_start: Callable[[], None] | None = None,
     before_start: Callable[[], None] | None = None,
 ) -> dict[str, Any]:
+    resolved_base_sha = base_sha or repository_sha
     started_at = _utc_now()
     started = time.perf_counter()
     output_path: Path | None = None
@@ -396,9 +428,14 @@ def _run_command(
                 if before_start is not None:
                     before_start()
                 process = subprocess.Popen(
-                    _resolved_argv(command, temp_root, repository_sha),
+                    _resolved_argv(
+                        command,
+                        temp_root,
+                        repository_sha,
+                        resolved_base_sha,
+                    ),
                     cwd=ROOT,
-                    env=_safe_env(command, temp_root),
+                    env=_safe_env(command, temp_root, resolved_base_sha),
                     stdout=output,
                     stderr=subprocess.STDOUT,
                     start_new_session=os.name == "posix",
@@ -635,7 +672,9 @@ def _build_typed_lane_evidence(
     ):
         raise ValueError("typed CI evidence command membership is not canonical")
     terminal_status = (
-        VerificationTerminalStatus.PASSED
+        VerificationTerminalStatus.CANCELLED
+        if any(result["status"] == "cancelled" for result in results)
+        else VerificationTerminalStatus.PASSED
         if legacy_receipt["status"] == "pass"
         else VerificationTerminalStatus.FAILED
     )
@@ -934,6 +973,7 @@ def run_lane(
     lane_ref: str,
     *,
     repository_sha: str,
+    base_sha: str | None = None,
     temp_root: Path,
     visual_scope: str = "unknown_fail_closed",
     docker_available: str = "unknown_fail_closed",
@@ -942,11 +982,16 @@ def run_lane(
     verification_receipt_file: Path | None = None,
     verification_run_manifest_file: Path | None = None,
     verification_store_root: Path | None = None,
+    github_output_file: Path | None = None,
+    verification_execution_fence_root: Path | None = None,
     full_suite_lock_mode: str = "github",
     execution_surface: str | None = None,
 ) -> dict[str, Any]:
     if _git_head(ROOT) != repository_sha:
         raise ValueError("CI lane SHA does not match the checked-out repository")
+    resolved_base_sha = base_sha or repository_sha
+    if re.fullmatch(r"[0-9a-f]{40}", resolved_base_sha) is None:
+        raise ValueError("CI lane base SHA must be an exact lowercase ref")
     lanes = lane_registry()
     if lane_ref not in lanes:
         raise ValueError("unknown canonical CI lane ref")
@@ -966,10 +1011,16 @@ def run_lane(
         "private",
     }:
         raise ValueError("diagnostic shard reproduction is local/private only")
+    if not diagnostic_reproduction and resolved_execution_surface == "private":
+        raise PrivateNonDiagnosticExecutionError(
+            "private execution is limited to exact diagnostic shard reproduction"
+        )
     if diagnostic_reproduction and (
         verification_receipt_file is not None
         or verification_run_manifest_file is not None
         or verification_store_root is not None
+        or github_output_file is not None
+        or verification_execution_fence_root is not None
     ):
         raise ValueError(
             "diagnostic shard reproduction cannot emit typed gating evidence"
@@ -978,6 +1029,7 @@ def run_lane(
     plan = build_plan(
         ROOT,
         repository_sha,
+        base_sha=resolved_base_sha,
         lane_refs=(lane_ref,),
         frontend_visual_scope=visual_scope,
     )
@@ -992,12 +1044,14 @@ def run_lane(
             verification_receipt_file,
             verification_run_manifest_file,
             verification_store_root,
+            github_output_file,
         )
     )
     full_plan_before = (
         build_plan(
             ROOT,
             repository_sha,
+            base_sha=resolved_base_sha,
             frontend_visual_scope=visual_scope,
         )
         if typed_evidence_requested
@@ -1019,6 +1073,7 @@ def run_lane(
         pre_typescript_runtime = resolve_typescript_runtime_binding(
             ROOT / "apps/control-center", declared_typescript
         )
+    pre_execution_identity = None
     pre_execution_identity_ref: str | None = None
     typed_unit = None
     if full_plan_before is not None:
@@ -1029,7 +1084,7 @@ def run_lane(
             raise ValueError("typed CI evidence requires one exact canonical unit")
         typed_unit = matching_units[0]
         if not lane.satisfied_command_refs:
-            pre_execution_identity_ref = build_verification_execution_identity(
+            pre_execution_identity = build_verification_execution_identity(
                 full_plan_before,
                 typed_unit,
                 execution_surface_ref=f"surface-ref:{resolved_execution_surface}",
@@ -1043,7 +1098,37 @@ def run_lane(
                     if pre_typescript_runtime is not None
                     else None
                 ),
-            ).identity_ref
+            )
+            pre_execution_identity_ref = pre_execution_identity.identity_ref
+
+    requires_durable_execution_fence = bool(
+        typed_evidence_requested
+        and typed_unit is not None
+        and {
+            "resource-ref:complete-pytest",
+            "resource-ref:typescript-typecheck",
+        }
+        & set(typed_unit.exclusive_resource_refs)
+    )
+    if requires_durable_execution_fence and verification_execution_fence_root is None:
+        raise ValueError(
+            "exclusive typed verification requires a durable execution fence"
+        )
+    if requires_durable_execution_fence and len(typed_unit.command_refs) != 1:
+        raise ValueError(
+            "exclusive typed verification requires one atomic command boundary"
+        )
+    if verification_execution_fence_root is not None and not (
+        requires_durable_execution_fence
+    ):
+        raise ValueError("execution fence is limited to exclusive typed verification")
+    execution_fence = (
+        VerificationExecutionFence(verification_execution_fence_root)
+        if requires_durable_execution_fence
+        and verification_execution_fence_root is not None
+        else None
+    )
+    execution_fence_owner_token: str | None = None
 
     def validate_typed_prestart() -> None:
         if full_plan_before is None:
@@ -1052,6 +1137,7 @@ def run_lane(
         observed_plan = build_plan(
             ROOT,
             repository_sha,
+            base_sha=resolved_base_sha,
             frontend_visual_scope=visual_scope,
         )
         if observed_plan != full_plan_before:
@@ -1091,6 +1177,7 @@ def run_lane(
         ).identity_ref
         if observed_identity_ref != pre_execution_identity_ref:
             raise ValueError("verification execution identity changed before start")
+
     started_at = _utc_now()
     started = time.perf_counter()
     results: list[dict[str, Any]] = []
@@ -1168,9 +1255,27 @@ def run_lane(
                     full_suite_lock.ensure_start_available()
                 validate_typed_prestart()
 
+            def record_durable_command_start() -> None:
+                nonlocal execution_fence_owner_token
+                if execution_fence is not None:
+                    assert pre_execution_identity is not None
+                    decision = execution_fence.begin(pre_execution_identity)
+                    if (
+                        decision.disposition
+                        is not VerificationExecutionFenceDisposition.START_GRANTED
+                        or decision.owner_token is None
+                    ):
+                        raise VerificationExecutionFenceError(
+                            "exact verification execution is not startable"
+                        )
+                    execution_fence_owner_token = decision.owner_token
+                if lane_ref == "ci-pytest-shards":
+                    full_suite_lock.record_start()
+
             result = _run_command(
                 commands[command_ref],
                 repository_sha=repository_sha,
+                base_sha=resolved_base_sha,
                 temp_root=temp_root,
                 validate_start=(
                     validate_command_start
@@ -1178,8 +1283,8 @@ def run_lane(
                     else None
                 ),
                 before_start=(
-                    full_suite_lock.record_start
-                    if lane_ref == "ci-pytest-shards"
+                    record_durable_command_start
+                    if lane_ref == "ci-pytest-shards" or execution_fence is not None
                     else None
                 ),
             )
@@ -1257,11 +1362,14 @@ def run_lane(
         ).hexdigest()
     )
     typed_artifact_refs: tuple[str, ...] = ()
+    typed_receipt: VerificationReceipt | None = None
+    run_manifest: VerificationRunManifest | None = None
     if typed_evidence_requested:
         assert full_plan_before is not None
         full_plan = build_plan(
             ROOT,
             repository_sha,
+            base_sha=resolved_base_sha,
             frontend_visual_scope=visual_scope,
         )
         if full_plan != full_plan_before:
@@ -1294,6 +1402,49 @@ def run_lane(
                 stored_receipt.artifact_ref,
                 stored_run.artifact_ref,
             )
+        if execution_fence is not None:
+            assert pre_execution_identity is not None
+            assert execution_fence_owner_token is not None
+            failure_reason_ref = "reason-ref:verification:not-applicable"
+            failure_evidence_ref = None
+            if typed_receipt.status is VerificationTerminalStatus.FAILED:
+                failure_reason_ref = (
+                    "reason-ref:verification:deterministic-code-failure"
+                )
+                failure_evidence_ref = typed_receipt.result_refs[0]
+            elif typed_receipt.status is VerificationTerminalStatus.BLOCKED:
+                failure_reason_ref = "reason-ref:verification:execution-blocked"
+                failure_evidence_ref = typed_receipt.result_refs[0]
+            elif typed_receipt.status is VerificationTerminalStatus.CANCELLED:
+                failure_reason_ref = "reason-ref:verification:execution-cancelled"
+                failure_evidence_ref = typed_receipt.result_refs[0]
+            terminal_proof = build_verification_execution_terminal_proof(
+                pre_execution_identity,
+                status=typed_receipt.status,
+                receipt_ref=typed_receipt.receipt_ref,
+                result_refs=typed_receipt.result_refs,
+                output_digest=typed_receipt.output_digest,
+                completed_at=typed_receipt.completed_at,
+                failure_reason_ref=failure_reason_ref,
+                failure_evidence_ref=failure_evidence_ref,
+            )
+            execution_fence.complete(
+                pre_execution_identity,
+                owner_token=execution_fence_owner_token,
+                terminal_proof=terminal_proof,
+            )
+        if github_output_file is not None:
+            if resolved_execution_surface != "github":
+                raise ValueError("GitHub output requires the GitHub execution surface")
+            envelope = build_github_job_output_envelope(
+                full_plan,
+                typed_receipt,
+            )
+            append_github_output(
+                github_output_file,
+                GITHUB_OUTPUT_KEY,
+                encode_github_job_output(envelope),
+            )
     summary = [
         f"## {lane.name}",
         "",
@@ -1318,6 +1469,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run one canonical UAA CI lane.")
     parser.add_argument("--lane", required=True)
     parser.add_argument("--sha", required=True)
+    parser.add_argument("--base-sha")
     parser.add_argument("--profile", default=PROFILE_REF)
     parser.add_argument("--temp-root", required=True)
     parser.add_argument(
@@ -1335,6 +1487,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--verification-receipt-file")
     parser.add_argument("--verification-run-manifest-file")
     parser.add_argument("--verification-store-root")
+    parser.add_argument("--github-output-file")
+    parser.add_argument("--verification-execution-fence-root")
     parser.add_argument(
         "--full-suite-lock-mode",
         choices=("github", "private"),
@@ -1352,6 +1506,7 @@ def main(argv: list[str] | None = None) -> int:
         receipt = run_lane(
             args.lane,
             repository_sha=args.sha,
+            base_sha=args.base_sha,
             temp_root=Path(args.temp_root),
             visual_scope=args.visual_scope,
             docker_available=args.docker_available,
@@ -1372,6 +1527,14 @@ def main(argv: list[str] | None = None) -> int:
                 if args.verification_store_root
                 else None
             ),
+            github_output_file=(
+                Path(args.github_output_file) if args.github_output_file else None
+            ),
+            verification_execution_fence_root=(
+                Path(args.verification_execution_fence_root)
+                if args.verification_execution_fence_root
+                else None
+            ),
             full_suite_lock_mode=args.full_suite_lock_mode,
             execution_surface=args.execution_surface,
         )
@@ -1390,6 +1553,24 @@ def main(argv: list[str] | None = None) -> int:
     except FullSuiteAttemptAlreadyRecordedError:
         print(
             "UAA CI lane blocked: " + FULL_SUITE_ATTEMPT_RECORDED_REASON_REF,
+            file=sys.stderr,
+        )
+        return 1
+    except VerificationExecutionFenceError:
+        print(
+            "UAA CI lane blocked: " + VERIFICATION_EXECUTION_FENCE_REASON_REF,
+            file=sys.stderr,
+        )
+        return 1
+    except PrivateNonDiagnosticExecutionError:
+        print(
+            "UAA CI lane blocked: " + PRIVATE_NON_DIAGNOSTIC_REASON_REF,
+            file=sys.stderr,
+        )
+        return 1
+    except (Exception, KeyboardInterrupt):
+        print(
+            "UAA CI lane blocked: " + CI_LANE_EXECUTION_ERROR_REASON_REF,
             file=sys.stderr,
         )
         return 1

@@ -19,6 +19,14 @@ from scripts.verification.ci_command_manifest import (
 )
 from scripts.verification.pytest_shard_artifacts import safe_test_ref
 from scripts.verification.verification_contracts import VerificationTerminalStatus
+from scripts.verification.verification_execution_identity import (
+    VerificationExecutionFence,
+    VerificationExecutionFenceDisposition,
+    build_verification_execution_identity,
+)
+from scripts.verification.verification_github_transport import (
+    decode_github_job_output,
+)
 from scripts.verification.verification_receipt_store import VerificationReceiptStore
 
 
@@ -148,6 +156,48 @@ def test_lane_runner_emits_content_free_hash_bound_receipt(
         json.loads(receipt_file.read_text(encoding="utf-8"))["receipt_ref"]
         == receipt["receipt_ref"]
     )
+
+
+def test_lane_runner_binds_exact_comparison_base_to_plan_command_and_environment(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    base_sha = "b" * 40
+    command = CommandSpec(
+        "command:test.base-binding",
+        (
+            sys.executable,
+            "-c",
+            (
+                "import os,sys; "
+                "raise SystemExit(0 if os.environ.get('UAA_VERIFICATION_BASE_SHA') "
+                "== sys.argv[1] else 2)"
+            ),
+            "{base_sha}",
+        ),
+        (),
+        "test",
+        10,
+    )
+    _patch_lane(monkeypatch, (command,))
+    original_build_plan = runner.build_plan
+    observed_bases: list[str | None] = []
+
+    def capture_build_plan(*args: object, **kwargs: object):
+        observed_bases.append(kwargs.get("base_sha"))
+        return original_build_plan(*args, **kwargs)
+
+    monkeypatch.setattr(runner, "build_plan", capture_build_plan)
+
+    receipt = runner.run_lane(
+        "test-lane",
+        repository_sha=SHA,
+        base_sha=base_sha,
+        temp_root=tmp_path / "temp",
+    )
+
+    assert receipt["status"] == "pass"
+    assert observed_bases == [base_sha]
 
 
 def test_typed_lane_evidence_is_content_bound_and_partial_run_is_blocked() -> None:
@@ -543,9 +593,148 @@ def test_typed_plan_mutation_before_popen_blocks_suite_attempt(
             repository_sha=SHA,
             temp_root=tmp_path / "temp",
             verification_store_root=tmp_path / "proof-store",
+            verification_execution_fence_root=tmp_path / "execution-fence",
         )
 
     assert events == ["validated-lock"]
+
+
+def test_exclusive_typed_lane_publishes_terminal_execution_fence(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lane_plan = build_plan(
+        ROOT,
+        SHA,
+        lane_refs=("ci-pytest-shards",),
+        verify_repository_state=False,
+    )
+    full_plan = build_plan(ROOT, SHA, verify_repository_state=False)
+    monkeypatch.setattr(
+        runner,
+        "build_plan",
+        lambda *_args, **kwargs: lane_plan if kwargs.get("lane_refs") else full_plan,
+    )
+    monkeypatch.setattr(runner, "_git_head", lambda _repo: SHA)
+    monkeypatch.setattr(runner, "FullSuiteLock", _FakeFullSuiteLock)
+    monkeypatch.setattr(runner.importlib.util, "find_spec", lambda _name: object())
+    monkeypatch.setattr(
+        runner,
+        "expected_pytest_shard_plan_ref",
+        lambda: "pytest-shard-plan-ref:sha256:" + "a" * 64,
+    )
+    monkeypatch.setattr(
+        runner,
+        "load_aggregate_evidence",
+        lambda *_args, **_kwargs: {
+            "collection_digest_ref": "sha256:" + "b" * 64,
+            "collected_test_count": 17,
+        },
+    )
+    starts: list[str] = []
+
+    def fake_run_command(
+        command: CommandSpec,
+        *,
+        validate_start=None,
+        before_start=None,
+        **_kwargs: object,
+    ) -> dict[str, object]:
+        assert validate_start is not None
+        assert before_start is not None
+        validate_start()
+        before_start()
+        starts.append(command.command_ref)
+        return {
+            "command_ref": command.command_ref,
+            "category": command.category,
+            "status": "pass",
+            "started_at": "2026-07-15T00:00:00Z",
+            "completed_at": "2026-07-15T00:00:01Z",
+            "duration_ms": 1_000,
+            "output_byte_count": 0,
+            "output_digest": "c" * 64,
+            "result_ref": "result-ref:ci:"
+            + hashlib.sha256(command.command_ref.encode()).hexdigest(),
+            "redaction_status": "content_free_output_metadata_only",
+        }
+
+    monkeypatch.setattr(runner, "_run_command", fake_run_command)
+    fence_root = tmp_path / "execution-fence"
+    runner.run_lane(
+        "ci-pytest-shards",
+        repository_sha=SHA,
+        temp_root=tmp_path / "temp",
+        verification_store_root=tmp_path / "proof-store",
+        verification_execution_fence_root=fence_root,
+    )
+
+    unit = next(unit for unit in CI_JOB_GRAPH if unit.unit_ref == "pytest-shards")
+    identity = build_verification_execution_identity(
+        full_plan,
+        unit,
+        execution_surface_ref="surface-ref:github",
+    )
+    decision = VerificationExecutionFence(fence_root).begin(identity)
+    assert (
+        decision.disposition
+        is VerificationExecutionFenceDisposition.TERMINAL_PROOF_REUSED
+    )
+    assert decision.terminal_proof is not None
+    assert decision.terminal_proof.status is VerificationTerminalStatus.PASSED
+    assert starts == ["command:pytest.sharded-suite"]
+
+
+def test_github_output_is_exact_v3_non_authoritative_envelope(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lane_plan = build_plan(
+        ROOT,
+        SHA,
+        lane_refs=("ci-lint",),
+        verify_repository_state=False,
+    )
+    full_plan = build_plan(ROOT, SHA, verify_repository_state=False)
+    monkeypatch.setattr(
+        runner,
+        "build_plan",
+        lambda *_args, **kwargs: lane_plan if kwargs.get("lane_refs") else full_plan,
+    )
+    monkeypatch.setattr(runner, "_git_head", lambda _repo: SHA)
+
+    def fake_run_command(command: CommandSpec, **_kwargs: object) -> dict[str, object]:
+        digest = hashlib.sha256(command.command_ref.encode()).hexdigest()
+        return {
+            "command_ref": command.command_ref,
+            "category": command.category,
+            "status": "pass",
+            "started_at": "2026-07-15T00:00:00Z",
+            "completed_at": "2026-07-15T00:00:01Z",
+            "duration_ms": 1_000,
+            "output_byte_count": 0,
+            "output_digest": digest,
+            "result_ref": "result-ref:ci:" + digest,
+            "redaction_status": "content_free_output_metadata_only",
+        }
+
+    monkeypatch.setattr(runner, "_run_command", fake_run_command)
+    output_file = tmp_path / "github-output"
+    output_file.touch(mode=0o600)
+    runner.run_lane(
+        "ci-lint",
+        repository_sha=SHA,
+        temp_root=tmp_path / "temp",
+        github_output_file=output_file,
+    )
+
+    key, encoded = output_file.read_text(encoding="ascii").strip().split("=", 1)
+    assert key == runner.GITHUB_OUTPUT_KEY
+    envelope = decode_github_job_output(encoded)
+    assert envelope.repository_sha == SHA
+    assert envelope.receipt.unit_ref == "lint"
+    assert envelope.final_run_manifest is None
+    assert envelope.construction_posture == "repository_constructed_non_authoritative"
 
 
 def test_receipt_writer_rejects_outside_parent_before_creating_it(
@@ -905,6 +1094,68 @@ def test_typed_non_diagnostic_lane_rejects_execution_surface_override(
         )
 
 
+def test_private_non_diagnostic_lane_is_denied_before_execution(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    command = CommandSpec(
+        "command:test.pass",
+        (sys.executable, "-c", "raise SystemExit(0)"),
+        (),
+        "test",
+        10,
+    )
+    _patch_lane(monkeypatch, (command,))
+    started: list[bool] = []
+    monkeypatch.setattr(
+        runner,
+        "_run_command",
+        lambda *_args, **_kwargs: started.append(True),
+    )
+
+    with pytest.raises(
+        runner.PrivateNonDiagnosticExecutionError,
+        match="exact diagnostic shard reproduction",
+    ):
+        runner.run_lane(
+            "test-lane",
+            repository_sha=SHA,
+            temp_root=tmp_path / "temp",
+            full_suite_lock_mode="private",
+        )
+
+    assert started == []
+
+
+def test_cli_redacts_private_non_diagnostic_lane_denial(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    unsafe_detail = f"private execution attempted from {tmp_path}"
+
+    def _raise_denied(*_args: object, **_kwargs: object) -> dict[str, object]:
+        raise runner.PrivateNonDiagnosticExecutionError(unsafe_detail)
+
+    monkeypatch.setattr(runner, "run_lane", _raise_denied)
+
+    exit_code = runner.main(
+        [
+            "--lane",
+            "ci-pytest-shards",
+            "--sha",
+            SHA,
+            "--temp-root",
+            str(tmp_path / "temp"),
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert runner.PRIVATE_NON_DIAGNOSTIC_REASON_REF in captured.err
+    assert unsafe_detail not in captured.err
+
+
 def test_main_prints_safe_failed_shard_reproduction_ref(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1057,7 +1308,6 @@ def test_pytest_lane_rejects_missing_runtime_before_attempt_lock(
             "ci-pytest-shards",
             repository_sha=SHA,
             temp_root=tmp_path / "temp",
-            full_suite_lock_mode="private",
         )
 
 
@@ -1089,6 +1339,40 @@ def test_cli_redacts_missing_pytest_runtime_failure(
     assert captured.out == ""
     assert captured.err.strip() == (
         "UAA CI lane blocked: reason-ref:ci:pytest-runtime-unavailable"
+    )
+    assert "Traceback" not in captured.err
+    assert unsafe_detail not in captured.err
+    assert str(tmp_path) not in captured.err
+
+
+def test_cli_redacts_unexpected_lane_execution_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    unsafe_detail = f"executable missing from {tmp_path}"
+
+    def _raise_spawn_failure(*_args: object, **_kwargs: object) -> dict[str, object]:
+        raise FileNotFoundError(unsafe_detail)
+
+    monkeypatch.setattr(runner, "run_lane", _raise_spawn_failure)
+
+    exit_code = runner.main(
+        [
+            "--lane",
+            "ci-manifest-attestation",
+            "--sha",
+            SHA,
+            "--temp-root",
+            str(tmp_path / "temp"),
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert captured.out == ""
+    assert captured.err.strip() == (
+        "UAA CI lane blocked: reason-ref:ci:lane-execution-failed"
     )
     assert "Traceback" not in captured.err
     assert unsafe_detail not in captured.err
@@ -1287,14 +1571,13 @@ def test_pytest_lane_uses_host_lock_with_exact_sha_and_execution_plane(
         "ci-pytest-shards",
         repository_sha=SHA,
         temp_root=tmp_path / "temp",
-        full_suite_lock_mode="private",
     )
     assert receipt["status"] == "pass"
     assert captured == [
         {
-            "wait_seconds": 0,
+            "wait_seconds": runner.GITHUB_FULL_SUITE_LOCK_WAIT_SECONDS,
             "repository_sha": SHA,
-            "attempt_scope": "private",
+            "attempt_scope": "github",
             "start_available": True,
             "started": True,
         }

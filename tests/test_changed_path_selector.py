@@ -148,7 +148,7 @@ def test_missing_declared_test_ref_fails_closed(
     monkeypatch.setattr(
         selector,
         "_rule_for_path",
-        lambda _path, _tier: (
+        lambda _path, _tier, **_kwargs: (
             "rule-ref:broken",
             ("command-ref:ruff-changed",),
             ("tests/test_does_not_exist.py",),
@@ -161,6 +161,39 @@ def test_missing_declared_test_ref_fails_closed(
     assert selection.fallback_reason_refs == (
         "reason-ref:verification:missing-test-ref",
     )
+
+
+def test_python_module_ownership_uses_the_exact_supplied_repository_root(
+    tmp_path: Path,
+) -> None:
+    source_ref = "src/ultimate_ai_agent/core/example.py"
+    test_ref = "tests/test_example.py"
+    (tmp_path / source_ref).parent.mkdir(parents=True)
+    (tmp_path / source_ref).write_text("VALUE = 1\n", encoding="utf-8")
+    (tmp_path / test_ref).parent.mkdir(parents=True)
+    (tmp_path / test_ref).write_text("def test_value(): pass\n", encoding="utf-8")
+
+    selection = selector.select_paths([source_ref], repo=tmp_path)
+
+    assert selection.status == "selected"
+    assert selection.selected_test_refs == (test_ref,)
+
+
+def test_python_module_ownership_rejects_a_symlinked_test_ref(
+    tmp_path: Path,
+) -> None:
+    source_ref = "src/ultimate_ai_agent/core/example.py"
+    test_ref = "tests/test_example.py"
+    (tmp_path / source_ref).parent.mkdir(parents=True)
+    (tmp_path / source_ref).write_text("VALUE = 1\n", encoding="utf-8")
+    (tmp_path / "outside.py").write_text("def test_value(): pass\n", encoding="utf-8")
+    (tmp_path / test_ref).parent.mkdir(parents=True)
+    (tmp_path / test_ref).symlink_to(tmp_path / "outside.py")
+
+    selection = selector.select_paths([source_ref], repo=tmp_path)
+
+    assert selection.status == "full_gate_required"
+    assert selection.selected_test_refs == ()
 
 
 def test_explicit_paths_are_unioned_with_git_and_cannot_hide_unknown(

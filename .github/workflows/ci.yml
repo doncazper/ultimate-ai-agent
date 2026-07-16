@@ -18,6 +18,7 @@ concurrency:
 env:
   PATH: /opt/homebrew/opt/python@3.12/libexec/bin:/opt/homebrew/opt/node@22/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
   UAA_CI_EXACT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  UAA_CI_COMPARISON_BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || (github.event.before != '0000000000000000000000000000000000000000' && github.event.before || github.sha) }}
 
 defaults:
   run:
@@ -32,6 +33,8 @@ jobs:
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     timeout-minutes: 45
     runs-on: [self-hosted, macOS, ARM64, uaa-ci]
+    outputs:
+      verification-envelope: ${{ steps.canonical.outputs.verification_envelope }}
 
     steps:
       - name: Check out repository
@@ -49,11 +52,14 @@ jobs:
           .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3.12
 
       - name: Run canonical manifest attestation
+        id: canonical
         run: |
           .venv/bin/python scripts/verification/run_ci_lane.py \
             --lane ci-manifest-attestation \
             --sha "$UAA_CI_EXACT_SHA" \
+            --base-sha "$UAA_CI_COMPARISON_BASE_SHA" \
             --temp-root "$RUNNER_TEMP" \
+            --github-output-file "$GITHUB_OUTPUT" \
             --summary-file "$GITHUB_STEP_SUMMARY"
 
   lint:
@@ -62,6 +68,8 @@ jobs:
     runs-on: [self-hosted, macOS, ARM64, uaa-ci]
     needs:
       - manifest-attestation
+    outputs:
+      verification-envelope: ${{ steps.canonical.outputs.verification_envelope }}
 
     steps:
       - name: Check out repository
@@ -79,11 +87,14 @@ jobs:
           .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3.12
 
       - name: Run canonical lint lane
+        id: canonical
         run: |
           .venv/bin/python scripts/verification/run_ci_lane.py \
             --lane ci-lint \
             --sha "$UAA_CI_EXACT_SHA" \
+            --base-sha "$UAA_CI_COMPARISON_BASE_SHA" \
             --temp-root "$RUNNER_TEMP" \
+            --github-output-file "$GITHUB_OUTPUT" \
             --summary-file "$GITHUB_STEP_SUMMARY"
 
   affected-preflight:
@@ -93,6 +104,8 @@ jobs:
     runs-on: [self-hosted, macOS, ARM64, uaa-ci]
     needs:
       - manifest-attestation
+    outputs:
+      verification-envelope: ${{ steps.canonical.outputs.verification_envelope }}
 
     steps:
       - name: Check out repository
@@ -104,21 +117,13 @@ jobs:
           ref: ${{ env.UAA_CI_EXACT_SHA }}
 
       - name: Bind exact comparison base
-        env:
-          PULL_REQUEST_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          PUSH_BEFORE_SHA: ${{ github.event.before }}
         run: |
-          range_base="$PULL_REQUEST_BASE_SHA"
-          if [ "$GITHUB_EVENT_NAME" != "pull_request" ]; then
-            range_base="$PUSH_BEFORE_SHA"
+          if ! [[ "$UAA_CI_COMPARISON_BASE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Comparison base is not an exact SHA."
+            exit 1
           fi
-          if ! [[ "$range_base" =~ ^[0-9a-f]{40}$ ]] || [ "$range_base" = "0000000000000000000000000000000000000000" ]; then
-            range_base="$UAA_CI_EXACT_SHA"
-          fi
-          if ! git cat-file -e "${range_base}^{commit}" 2>/dev/null; then
-            range_base="$UAA_CI_EXACT_SHA"
-          fi
-          git update-ref refs/uaa-ci/base-main "$range_base"
+          git cat-file -e "${UAA_CI_COMPARISON_BASE_SHA}^{commit}"
+          git update-ref refs/uaa-ci/base-main "$UAA_CI_COMPARISON_BASE_SHA"
 
       - name: Install package
         run: |
@@ -127,11 +132,14 @@ jobs:
           .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3.12
 
       - name: Run canonical fast affected preflight
+        id: canonical
         run: |
           .venv/bin/python scripts/verification/run_ci_lane.py \
             --lane ci-affected-preflight \
             --sha "$UAA_CI_EXACT_SHA" \
+            --base-sha "$UAA_CI_COMPARISON_BASE_SHA" \
             --temp-root "$RUNNER_TEMP" \
+            --github-output-file "$GITHUB_OUTPUT" \
             --summary-file "$GITHUB_STEP_SUMMARY"
 
   pytest-shards:
@@ -142,6 +150,8 @@ jobs:
     needs:
       - lint
       - affected-preflight
+    outputs:
+      verification-envelope: ${{ steps.canonical.outputs.verification_envelope }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -159,6 +169,7 @@ jobs:
           npm --prefix integrations/matrix-client-adapter ci --ignore-scripts
 
       - name: Run pytest shard
+        id: canonical
         run: |
           shard_runner_pid=""
           # shellcheck disable=SC2329
@@ -183,7 +194,10 @@ jobs:
           /usr/sbin/taskpolicy -c utility .venv/bin/python scripts/verification/run_ci_lane.py \
             --lane ci-pytest-shards \
             --sha "$UAA_CI_EXACT_SHA" \
+            --base-sha "$UAA_CI_COMPARISON_BASE_SHA" \
             --temp-root "$RUNNER_TEMP" \
+            --verification-execution-fence-root /tmp/uaa-verification-execution-fence-v1 \
+            --github-output-file "$GITHUB_OUTPUT" \
             --summary-file "$GITHUB_STEP_SUMMARY" &
           shard_runner_pid=$!
           set +e
@@ -197,21 +211,54 @@ jobs:
   pytest:
     name: pytest
     needs:
+      - manifest-attestation
+      - lint
+      - affected-preflight
       - pytest-shards
     if: always() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
     timeout-minutes: 45
     runs-on: [self-hosted, macOS, ARM64, uaa-ci]
+    outputs:
+      verification-envelope: ${{ steps.canonical.outputs.verification_envelope }}
 
     steps:
-      - name: Confirm complete pytest sharded suite
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          clean: true
+          fetch-depth: 1
+          persist-credentials: false
+          ref: ${{ env.UAA_CI_EXACT_SHA }}
+
+      - name: Confirm and aggregate complete pytest sharded suite
+        id: canonical
         env:
+          MANIFEST_ENVELOPE: ${{ needs.manifest-attestation.outputs.verification-envelope }}
+          LINT_ENVELOPE: ${{ needs.lint.outputs.verification-envelope }}
+          AFFECTED_ENVELOPE: ${{ needs.affected-preflight.outputs.verification-envelope }}
+          PYTEST_SHARDS_ENVELOPE: ${{ needs.pytest-shards.outputs.verification-envelope }}
+          MANIFEST_RESULT: ${{ needs.manifest-attestation.result }}
+          LINT_RESULT: ${{ needs.lint.result }}
+          AFFECTED_RESULT: ${{ needs.affected-preflight.result }}
           PYTEST_SHARDS_RESULT: ${{ needs.pytest-shards.result }}
         run: |
-          if [ "$PYTEST_SHARDS_RESULT" != "success" ]; then
+          if [ "$MANIFEST_RESULT" != "success" ] || \
+            [ "$LINT_RESULT" != "success" ] || \
+            [ "$AFFECTED_RESULT" != "success" ] || \
+            [ "$PYTEST_SHARDS_RESULT" != "success" ]; then
             echo "Pytest sharded suite did not complete successfully."
             exit 1
           fi
-          echo "All eight bounded pytest shards passed in the installed suite job."
+          python3.12 scripts/verification/verification_github_prerequisites.py \
+            aggregate \
+            --repo . \
+            --sha "$UAA_CI_EXACT_SHA" \
+            --base-sha "$UAA_CI_COMPARISON_BASE_SHA" \
+            --envelope "$MANIFEST_ENVELOPE" \
+            --envelope "$LINT_ENVELOPE" \
+            --envelope "$AFFECTED_ENVELOPE" \
+            --envelope "$PYTEST_SHARDS_ENVELOPE" \
+            --github-output-file "$GITHUB_OUTPUT"
 
   static-verification:
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
@@ -219,6 +266,8 @@ jobs:
     runs-on: [self-hosted, macOS, ARM64, uaa-ci]
     needs:
       - pytest
+    outputs:
+      verification-envelope: ${{ steps.canonical.outputs.verification_envelope }}
 
     steps:
       - name: Check out repository
@@ -237,11 +286,14 @@ jobs:
           npm --prefix integrations/matrix-client-adapter ci --ignore-scripts
 
       - name: Run canonical static verification lane
+        id: canonical
         run: |
           .venv/bin/python scripts/verification/run_ci_lane.py \
             --lane ci-static \
             --sha "$UAA_CI_EXACT_SHA" \
+            --base-sha "$UAA_CI_COMPARISON_BASE_SHA" \
             --temp-root "$RUNNER_TEMP" \
+            --github-output-file "$GITHUB_OUTPUT" \
             --summary-file "$GITHUB_STEP_SUMMARY"
 
   release-lane-docs:
@@ -688,7 +740,10 @@ jobs:
     timeout-minutes: 45
     runs-on: [self-hosted, macOS, ARM64, uaa-ci]
     needs:
+      - manifest-attestation
       - lint
+      - affected-preflight
+      - pytest-shards
       - pytest
       - static-verification
       - release-lane-docs
@@ -702,6 +757,8 @@ jobs:
       - release-lane-visual-regression
       - release-lane-desktop-packaging
       - release-lane-performance
+    outputs:
+      verification-envelope: ${{ steps.canonical.outputs.verification_envelope }}
 
     steps:
       - name: Check out repository
@@ -718,12 +775,35 @@ jobs:
           .ci-bootstrap/bin/python -m pip install --disable-pip-version-check "uv==0.11.21"
           .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3.12
 
+      - name: Revalidate exact prerequisite receipts
+        env:
+          MANIFEST_ENVELOPE: ${{ needs.manifest-attestation.outputs.verification-envelope }}
+          LINT_ENVELOPE: ${{ needs.lint.outputs.verification-envelope }}
+          AFFECTED_ENVELOPE: ${{ needs.affected-preflight.outputs.verification-envelope }}
+          PYTEST_SHARDS_ENVELOPE: ${{ needs.pytest-shards.outputs.verification-envelope }}
+          STATIC_ENVELOPE: ${{ needs.static-verification.outputs.verification-envelope }}
+        run: |
+          .venv/bin/python scripts/verification/verification_github_prerequisites.py \
+            foundation-manifest \
+            --repo . \
+            --sha "$UAA_CI_EXACT_SHA" \
+            --base-sha "$UAA_CI_COMPARISON_BASE_SHA" \
+            --envelope "$MANIFEST_ENVELOPE" \
+            --envelope "$LINT_ENVELOPE" \
+            --envelope "$AFFECTED_ENVELOPE" \
+            --envelope "$PYTEST_SHARDS_ENVELOPE" \
+            --envelope "$STATIC_ENVELOPE" \
+            --output "$RUNNER_TEMP/uaa_foundation_prerequisite_manifest.json"
+
       - name: Run Foundation Gate report
+        id: canonical
         run: |
           .venv/bin/python scripts/verification/run_ci_lane.py \
             --lane ci-foundation-report \
             --sha "$UAA_CI_EXACT_SHA" \
+            --base-sha "$UAA_CI_COMPARISON_BASE_SHA" \
             --temp-root "$RUNNER_TEMP" \
+            --github-output-file "$GITHUB_OUTPUT" \
             --summary-file "$GITHUB_STEP_SUMMARY"
 
   control-center-frontend:

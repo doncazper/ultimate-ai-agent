@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import stat
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -28,6 +29,17 @@ CRITICAL_PREFIXES = (
     "src/ultimate_ai_agent/core/gate/",
     "tests/conftest.py",
 )
+FOCUSED_PYTEST_REFS_BY_SOURCE = {
+    "src/ultimate_ai_agent/core/evals/capability_metrics.py": (
+        "tests/test_agent_capability_evaluation.py",
+    ),
+    "src/ultimate_ai_agent/core/evals/capability_maturity.py": (
+        "tests/test_capability_maturity_integrity.py",
+    ),
+    "src/ultimate_ai_agent/core/evals/regression.py": (
+        "tests/test_m56_agent_eval_regression_harness.py",
+    ),
+}
 
 
 @dataclass(frozen=True)
@@ -70,8 +82,19 @@ def normalize_path(raw_path: str) -> str:
     return normalized
 
 
+def _safe_regular_repo_file(repo: Path, ref: str) -> bool:
+    try:
+        metadata = (repo / ref).lstat()
+    except OSError:
+        return False
+    return stat.S_ISREG(metadata.st_mode) and not stat.S_ISLNK(metadata.st_mode)
+
+
 def _rule_for_path(
-    path: str, tier: str
+    path: str,
+    tier: str,
+    *,
+    repo: Path,
 ) -> tuple[str, tuple[str, ...], tuple[str, ...]] | None:
     if path in CRITICAL_PATHS or path.startswith(CRITICAL_PREFIXES):
         return ("rule-ref:verification-topology-full", (FULL_COMMAND_REF,), ())
@@ -186,8 +209,15 @@ def _rule_for_path(
             (path,),
         )
     if path.startswith("src/ultimate_ai_agent/") and path.endswith(".py"):
+        owned_refs = FOCUSED_PYTEST_REFS_BY_SOURCE.get(path)
+        if owned_refs is not None:
+            return (
+                "rule-ref:python-module-focused",
+                ("command-ref:ruff-changed",),
+                owned_refs,
+            )
         candidate = f"tests/test_{PurePosixPath(path).stem}.py"
-        if (ROOT / candidate).is_file():
+        if _safe_regular_repo_file(repo, candidate):
             return (
                 "rule-ref:python-module-focused",
                 ("command-ref:ruff-changed",),
@@ -196,9 +226,20 @@ def _rule_for_path(
     return None
 
 
-def select_paths(paths: list[str], *, tier: str = "affected") -> Selection:
+def select_paths(
+    paths: list[str],
+    *,
+    tier: str = "affected",
+    repo: Path = ROOT,
+) -> Selection:
     if tier not in {"fast", "affected"}:
         raise ValueError("VERIFICATION_SELECTION_TIER_INVALID")
+    try:
+        root_metadata = repo.lstat()
+    except OSError as exc:
+        raise ValueError("VERIFICATION_REPOSITORY_ROOT_INVALID") from exc
+    if not stat.S_ISDIR(root_metadata.st_mode) or stat.S_ISLNK(root_metadata.st_mode):
+        raise ValueError("VERIFICATION_REPOSITORY_ROOT_INVALID")
     normalized = tuple(sorted({normalize_path(path) for path in paths}))
     if not normalized:
         return Selection(tier, (), (), (), (), (), (), "no_changes")
@@ -208,7 +249,7 @@ def select_paths(paths: list[str], *, tier: str = "affected") -> Selection:
     unknown: list[str] = []
     missing_refs: list[str] = []
     for path in normalized:
-        rule = _rule_for_path(path, tier)
+        rule = _rule_for_path(path, tier, repo=repo)
         if rule is None:
             unknown.append(path)
             continue
@@ -216,7 +257,7 @@ def select_paths(paths: list[str], *, tier: str = "affected") -> Selection:
         rules.add(rule_ref)
         commands.update(command_refs)
         for ref in test_refs:
-            if (ROOT / ref).is_file():
+            if _safe_regular_repo_file(repo, ref):
                 tests.add(ref)
             else:
                 missing_refs.append(ref)

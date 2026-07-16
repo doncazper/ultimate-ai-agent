@@ -272,3 +272,108 @@ def test_controller_source_has_no_github_mutation_or_billing_commands() -> None:
         "spending-limit",
     ):
         assert forbidden not in source
+
+
+@pytest.mark.parametrize(
+    "argv",
+    (
+        ("--sha", SHA, "--mode", "status", "--diagnose-pytest-shard", "2"),
+        ("--sha", SHA, "--no-private", "--diagnose-pytest-shard", "2"),
+        (
+            "--sha",
+            SHA,
+            "--diagnose-pytest-shard",
+            "2",
+            "--diagnose-pytest-shard",
+            "2",
+        ),
+    ),
+)
+def test_cli_rejects_non_active_or_duplicate_private_shard_diagnosis(
+    argv: tuple[str, ...],
+) -> None:
+    with pytest.raises(SystemExit):
+        cli.main(list(argv))
+
+
+def test_cli_forwards_explicit_private_shard_diagnosis(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+    failed = replace(
+        green_observation(),
+        conclusion="failure",
+        reason_ref="reason-ref:github:repository-command-failed",
+    )
+
+    class FakeController:
+        def evaluate(self, observation, *, series_ref, diagnostic_unit_refs):
+            captured.update(
+                observation=observation,
+                series_ref=series_ref,
+                diagnostics=diagnostic_unit_refs,
+            )
+            return cli.inspection_status(observation)
+
+    monkeypatch.setattr(
+        cli,
+        "_git_value",
+        lambda _repo, *args: SHA if args == ("rev-parse", "HEAD") else "",
+    )
+    monkeypatch.setattr(cli, "_require_clean_checkout", lambda _repo: None)
+    monkeypatch.setattr(cli, "_ledger_directory", lambda _repo: tmp_path / "ledger")
+    monkeypatch.setattr(cli, "_series_ref", lambda _repo: "series-ref:ci:test")
+    monkeypatch.setattr(cli, "AttemptLedger", lambda _path: object())
+    monkeypatch.setattr(cli, "IsolatedPrivateExecutor", lambda _repo: object())
+    monkeypatch.setattr(cli, "FallbackController", lambda *_args: FakeController())
+    monkeypatch.setattr(cli, "observe_github", lambda _repo, _sha: failed)
+
+    exit_code = cli.main(
+        [
+            "--repo",
+            str(tmp_path),
+            "--sha",
+            SHA,
+            "--diagnose-pytest-shard",
+            "5",
+            "--json",
+        ]
+    )
+
+    assert exit_code == 1
+    assert captured["diagnostics"] == ("diagnostic-pytest-shard-5",)
+
+
+def test_cli_redacts_unexpected_controller_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    class FailingController:
+        def evaluate(self, *_args, **_kwargs):
+            raise RuntimeError("executor failure at /private/secret/path")
+
+    monkeypatch.setattr(
+        cli,
+        "_git_value",
+        lambda _repo, *args: SHA if args == ("rev-parse", "HEAD") else "",
+    )
+    monkeypatch.setattr(cli, "_require_clean_checkout", lambda _repo: None)
+    monkeypatch.setattr(cli, "_ledger_directory", lambda _repo: tmp_path / "ledger")
+    monkeypatch.setattr(cli, "_series_ref", lambda _repo: "series-ref:ci:test")
+    monkeypatch.setattr(cli, "AttemptLedger", lambda _path: object())
+    monkeypatch.setattr(cli, "IsolatedPrivateExecutor", lambda _repo: object())
+    monkeypatch.setattr(cli, "FallbackController", lambda *_args: FailingController())
+    monkeypatch.setattr(cli, "observe_github", lambda _repo, _sha: green_observation())
+
+    exit_code = cli.main(["--repo", str(tmp_path), "--sha", SHA])
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert captured.out == ""
+    assert captured.err == (
+        "Private CI stopped: reason-ref:private-ci:controller-failure\n"
+    )
+    assert "/private/secret/path" not in captured.err
+    assert "Traceback" not in captured.err

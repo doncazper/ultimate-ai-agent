@@ -110,7 +110,16 @@ class AttemptLedger:
             "test_duration_ms",
             "release_lane_duration_ms",
             "duration_ms",
+            "base_sha",
+            "source_branch_binding_ref",
+            "authoritative_plan_fingerprint",
             "plan_fingerprint",
+            "dependency_state_fingerprint",
+            "selected_unit_refs",
+            "diagnostic_unit_refs",
+            "deferred_unit_refs",
+            "github_gate_satisfied",
+            "merge_gate_satisfied",
             "receipt_ref",
             "timings_ms",
         }
@@ -162,6 +171,15 @@ class AttemptLedger:
         sha = event.get("repository_sha")
         if sha is not None and not SHA_PATTERN.fullmatch(str(sha)):
             raise ValueError("CI attempt ledger event contains an unsafe SHA")
+        base_sha = event.get("base_sha")
+        if base_sha is not None and not SHA_PATTERN.fullmatch(str(base_sha)):
+            raise ValueError("CI attempt ledger event contains an unsafe base SHA")
+        source_branch_binding_ref = event.get("source_branch_binding_ref")
+        if source_branch_binding_ref is not None and re.fullmatch(
+            r"branch-binding-ref:private-ci:[0-9a-f]{64}",
+            str(source_branch_binding_ref),
+        ) is None:
+            raise ValueError("CI attempt ledger branch binding is unsafe")
         for key in (
             "event",
             "series_ref",
@@ -179,10 +197,32 @@ class AttemptLedger:
         manifest_attested = event.get("manifest_attested")
         if manifest_attested is not None and not isinstance(manifest_attested, bool):
             raise ValueError("CI attempt ledger attestation posture is unsafe")
-        for key in ("manifest_fingerprint", "plan_fingerprint"):
+        for key in (
+            "manifest_fingerprint",
+            "authoritative_plan_fingerprint",
+            "plan_fingerprint",
+            "dependency_state_fingerprint",
+        ):
             value = event.get(key)
             if value is not None and not re.fullmatch(r"[0-9a-f]{64}", str(value)):
                 raise ValueError("CI attempt ledger event contains an unsafe fingerprint")
+        for key, limit in (
+            ("selected_unit_refs", 128),
+            ("diagnostic_unit_refs", 8),
+            ("deferred_unit_refs", 128),
+        ):
+            refs = event.get(key, [])
+            if (
+                not isinstance(refs, list)
+                or len(refs) > limit
+                or len(refs) != len(set(refs))
+                or any(SAFE_REF_PATTERN.fullmatch(str(ref)) is None for ref in refs)
+            ):
+                raise ValueError("CI attempt ledger scope refs are unsafe")
+        for key in ("github_gate_satisfied", "merge_gate_satisfied"):
+            posture = event.get(key)
+            if posture is not None and posture is not False:
+                raise ValueError("private CI attempt cannot satisfy an authoritative gate")
         for key in (
             "queue_duration_ms",
             "install_duration_ms",
@@ -214,6 +254,10 @@ class AttemptLedger:
         run_created_at = event.get("run_created_at")
         if run_created_at is not None:
             validate_utc_timestamp(str(run_created_at))
+        if event.get("event") in {"private_start", "private_terminal"} and (
+            source_branch_binding_ref is None
+        ):
+            raise ValueError("private CI ledger event requires a branch binding")
 
     def _read_locked(self) -> list[dict[str, Any]]:
         try:

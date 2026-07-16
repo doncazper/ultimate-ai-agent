@@ -1,8 +1,8 @@
 # Risk-Based Verification Architecture
 
-Status: Phase 02 immutable-proof foundation. Existing verification commands,
-CI jobs, release lanes, and Foundation Gate behavior remain authoritative until
-the bounded consumer cutover is separately verified.
+Status: Phase 03 bounded consumer cutover. GitHub job transport and Foundation
+Gate prerequisite reuse are active only for the exact source chain described
+below; the final repository-scoped GitHub run remains the merge authority.
 
 This document defines UAA's canonical repository-verification architecture. It
 does not grant runtime authority, relax a merge gate, or treat a local result as
@@ -139,11 +139,14 @@ typecheck. The existing
 combined frontend lane remains non-authoritative in the typed model until its
 Vitest execution can carry an equally exact observed-test proof.
 
-The cutover execution policy permits at most one complete pytest execution
-and one matching TypeScript typecheck for an exact commit and dependency state.
-That limit is not yet activated. Cross-surface proof reuse must preserve
-GitHub's authoritative final gate and may never label private execution as a
-GitHub-run check.
+The target cutover policy permits at most one complete pytest execution and one
+matching TypeScript typecheck for an exact commit and dependency state. Phase
+03 activates that fence for complete pytest and removes private execution from
+both singleton declarations. The frontend TypeScript fence and observed test
+collection remain Phase 04 work, so Phase 03 does not yet claim one-typecheck
+enforcement across manual workflow reruns. Private CI may run affected checks
+and one exact failed-shard diagnostic, but it cannot run a non-diagnostic
+canonical lane or label private evidence as a GitHub check.
 
 ## Verifier value and consolidation
 
@@ -290,6 +293,57 @@ manifest. A lane that still represents dependency satisfaction with a synthetic
 legacy result, skip, or not-applicable command remains v2 and blocked rather
 than claiming reusable v3 proof. Visual-scope decisions are plan-bound, and a
 frontend or visual test without observed collection evidence remains blocked.
-GitHub output transport, private-CI ingestion, release/Foundation consumption,
-and trusted GitHub API attestation remain Phase 03 work, so the final GitHub run
-continues to be the sole authoritative merge gate.
+GitHub output transport, private-CI narrowing, and Foundation receipt
+consumption are Phase 03 work. Trusted GitHub API attestation remains separate,
+so the final GitHub run continues to be the sole authoritative merge gate.
+
+## Phase 03 bounded consumer cutover
+
+Five GitHub source jobs emit compact, content-free, repository-constructed
+envelopes through owner-only job outputs: manifest attestation, lint, affected
+preflight, complete pytest, and static verification. An envelope contains the
+exact v3 unit receipt and compact plan binding, including the event-derived
+comparison-base SHA used by affected preflight, but no gate, authorization, or
+merge boolean. A changed or mismatched base invalidates the chain. The codec is
+bounded and canonical; malformed, oversized,
+non-canonical, unsafe, stale, foreign-plan, or substituted output fails closed.
+No raw logs or uploaded artifacts are used for this transport.
+
+The stable `pytest` job derives its commandless aggregate only after rebuilding
+the canonical plan and validating the four exact prerequisite envelopes. The
+Foundation job independently rebuilds that same plan from the checked-out SHA,
+revalidates all five source envelopes, derives only the permitted aggregate
+chain, and writes an owner-only prerequisite manifest. Foundation Gate accepts
+that manifest only in `ci-parallel` mode and reports
+`satisfied_by_exact_receipts`; a missing file, changed SHA, changed plan,
+changed dependency state, changed verifier definition, incomplete source, or
+standalone receipt ref is rejected. This reuse avoids repeating lint, pytest,
+or static commands inside Foundation Gate. It does not make the constructed
+envelopes authoritative outside the enclosing required GitHub run.
+
+Complete pytest and the matching frontend TypeScript resource are declared
+GitHub/local only. In Phase 03, the complete pytest source records its atomic
+start in the durable exact-identity fence immediately before process spawn and
+settles the fence with its exact terminal receipt. An unsettled start remains
+recovery required; deterministic failure, cancellation, or a duplicate
+identity cannot silently start another suite. Superseded workflow cancellation
+still reaches the complete subprocess group. The frontend singleton continues
+to run once per ordinary workflow invocation until Phase 04 binds its observed
+Vitest/Playwright collection and activates the same exact-identity fence.
+Phase 03 includes the strict transient Vitest/Playwright JSON consumers needed
+for that next cutover: they derive only bounded counts and identity hashes and
+delete raw reporter output on both success and rejection. They are tested but
+are not yet a gating workflow source.
+
+The private fallback now has a deliberately narrower role. It verifies the
+exact pushed SHA against the live exact head of the current branch, binds the
+live `main` base and a hashed branch ref into its canonical plan, runs affected
+or focused commands, and may reproduce one named failed pytest shard. The
+canonical changed-path selector owns focused test selection; a full-gate or
+unclassified result blocks ordinary private verification instead of silently
+running too little. Private execution excludes complete pytest, matching
+TypeScript, commandless aggregates, and audit units. Private green therefore
+means only that bounded diagnosis is stable enough to return the exact SHA to
+GitHub; it never satisfies branch protection, Foundation prerequisites, or
+merge. Post-start faults settle as content-free recovery-required evidence and
+the operator CLI never reflects the underlying traceback or local path.

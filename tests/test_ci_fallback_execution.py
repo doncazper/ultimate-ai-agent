@@ -3,9 +3,12 @@ from __future__ import annotations
 from dataclasses import asdict
 import hashlib
 import json
+import os
+import signal
 import subprocess
+import sys
+import time
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
@@ -138,19 +141,219 @@ def test_private_preflight_requires_clean_pushed_canonical_origin(
     executor = execution.IsolatedPrivateExecutor(tmp_path)
     values = {
         ("rev-parse", "HEAD"): SHA,
-        ("rev-parse", "refs/remotes/origin/main"): "b" * 40,
         ("status", "--porcelain"): "",
         ("remote", "get-url", "origin"): "https://invalid.example/repository.git",
-        ("branch", "-r", "--contains", SHA): "origin/feature",
+        ("branch", "--show-current"): "feature",
     }
     monkeypatch.setattr(executor, "_git", lambda *args: values[args])
-    monkeypatch.setattr(execution, "private_verification_plan", lambda *_args: object())
+    monkeypatch.setattr(
+        executor,
+        "_live_advertised_heads",
+        lambda: (("b" * 40, "refs/heads/main"), (SHA, "refs/heads/feature")),
+    )
     with pytest.raises(ValueError, match="canonical UAA"):
         executor._preflight(SHA)
     values[("remote", "get-url", "origin")] = (
         "git@github.com:doncazper/ultimate-ai-agent.git"
     )
-    assert executor._preflight(SHA) == "b" * 40
+    base_sha, branch_binding_ref = executor._preflight(SHA)
+    assert base_sha == "b" * 40
+    assert branch_binding_ref.startswith(execution.BRANCH_BINDING_PREFIX)
+
+
+@pytest.mark.parametrize(
+    "raw",
+    (
+        b"not-a-sha\trefs/heads/main\n",
+        (b"b" * 40) + b" refs/heads/main\n",
+        (b"b" * 40) + b"\trefs/heads/main\n" + (b"c" * 40) + b"\trefs/heads/main\n",
+        (b"b" * 40) + b"\trefs/heads/../unsafe\n",
+        (b"b" * 40) + b"\trefs/heads/main\x00unsafe\n",
+    ),
+)
+def test_remote_head_parser_rejects_malformed_or_unsafe_advertisements(
+    raw: bytes,
+) -> None:
+    with pytest.raises(
+        execution.RemoteHeadAttestationError,
+        match="reason-ref:private-ci:remote-advertisement-invalid",
+    ):
+        execution._parse_advertised_heads(raw)
+
+
+def test_private_preflight_ignores_stale_cached_remote_tracking_refs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    executor = execution.IsolatedPrivateExecutor(tmp_path)
+    requested_git_args: list[tuple[str, ...]] = []
+
+    def fake_git(*args: str, **_kwargs: object) -> str:
+        requested_git_args.append(args)
+        values = {
+            ("rev-parse", "HEAD"): SHA,
+            ("status", "--porcelain"): "",
+            ("remote", "get-url", "origin"): (
+                "git@github.com:doncazper/ultimate-ai-agent.git"
+            ),
+            ("branch", "--show-current"): "feature",
+        }
+        return values[args]
+
+    monkeypatch.setattr(executor, "_git", fake_git)
+    monkeypatch.setattr(
+        executor,
+        "_live_advertised_heads",
+        lambda: (
+            ("b" * 40, "refs/heads/main"),
+            ("c" * 40, "refs/heads/other"),
+        ),
+    )
+    with pytest.raises(
+        execution.RemoteHeadAttestationError,
+        match="reason-ref:private-ci:exact-branch-head-not-advertised",
+    ):
+        executor._preflight(SHA)
+
+    assert all(args[:2] != ("branch", "-r") for args in requested_git_args)
+    assert ("rev-parse", "refs/remotes/origin/main") not in requested_git_args
+
+
+def test_live_remote_attestation_requires_the_exact_current_branch_head(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    executor = execution.IsolatedPrivateExecutor(tmp_path)
+    main_sha = "b" * 40
+    monkeypatch.setattr(
+        executor,
+        "_live_advertised_heads",
+        lambda: (
+            (main_sha, "refs/heads/main"),
+            (SHA, "refs/heads/feature"),
+        ),
+    )
+
+    observed_main, branch_binding_ref = executor._attest_live_remote_heads(
+        SHA,
+        branch_ref="refs/heads/feature",
+    )
+    assert observed_main == main_sha
+    assert branch_binding_ref == execution._source_branch_binding_ref(
+        branch_ref="refs/heads/feature",
+        repository_sha=SHA,
+        origin_main_sha=main_sha,
+    )
+
+
+def test_live_remote_head_query_fails_closed_when_unavailable(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    executor = execution.IsolatedPrivateExecutor(tmp_path)
+
+    def unavailable(*_args: object, **_kwargs: object) -> subprocess.CompletedProcess[bytes]:
+        raise subprocess.TimeoutExpired(("git", "ls-remote"), 20)
+
+    monkeypatch.setattr(execution.subprocess, "run", unavailable)
+
+    with pytest.raises(
+        execution.RemoteHeadAttestationError,
+        match="reason-ref:private-ci:remote-attestation-unavailable",
+    ):
+        executor._live_advertised_heads()
+
+
+def _run_git(repo: Path, *args: str) -> str:
+    completed = subprocess.run(
+        ("git", *args),
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    return completed.stdout.strip()
+
+
+def _local_remote_branch_fixture(tmp_path: Path) -> tuple[Path, Path, str, str]:
+    remote = tmp_path / "remote.git"
+    worktree = tmp_path / "source"
+    remote.mkdir()
+    _run_git(remote, "init", "--bare")
+    worktree.mkdir()
+    _run_git(worktree, "init", "-b", "main")
+    _run_git(worktree, "config", "user.name", "CI Fixture")
+    _run_git(worktree, "config", "user.email", "ci-fixture@invalid.example")
+    (worktree / "tracked.txt").write_text("main\n", encoding="utf-8")
+    _run_git(worktree, "add", "tracked.txt")
+    _run_git(worktree, "commit", "-m", "main fixture")
+    main_sha = _run_git(worktree, "rev-parse", "HEAD")
+    _run_git(worktree, "remote", "add", "origin", str(remote))
+    _run_git(worktree, "push", "-u", "origin", "main")
+    _run_git(worktree, "switch", "-c", "codex/attestation-test")
+    (worktree / "tracked.txt").write_text("feature\n", encoding="utf-8")
+    _run_git(worktree, "add", "tracked.txt")
+    _run_git(worktree, "commit", "-m", "feature fixture")
+    feature_sha = _run_git(worktree, "rev-parse", "HEAD")
+    _run_git(worktree, "push", "-u", "origin", "codex/attestation-test")
+    return remote, worktree, main_sha, feature_sha
+
+
+def test_real_git_remote_attestation_binds_exact_branch_and_main(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    remote, worktree, main_sha, feature_sha = _local_remote_branch_fixture(tmp_path)
+    monkeypatch.setattr(execution, "ALLOWED_ORIGIN_URLS", frozenset({str(remote)}))
+
+    base_sha, branch_binding_ref = execution.IsolatedPrivateExecutor(
+        worktree
+    )._preflight(feature_sha)
+
+    assert base_sha == main_sha
+    assert branch_binding_ref == execution._source_branch_binding_ref(
+        branch_ref="refs/heads/codex/attestation-test",
+        repository_sha=feature_sha,
+        origin_main_sha=main_sha,
+    )
+
+
+def test_real_git_remote_descendant_does_not_attest_local_ancestor(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    remote, worktree, main_sha, _feature_sha = _local_remote_branch_fixture(tmp_path)
+    monkeypatch.setattr(execution, "ALLOWED_ORIGIN_URLS", frozenset({str(remote)}))
+    _run_git(worktree, "reset", "--hard", main_sha)
+
+    with pytest.raises(
+        execution.RemoteHeadAttestationError,
+        match="reason-ref:private-ci:exact-branch-head-not-advertised",
+    ):
+        execution.IsolatedPrivateExecutor(worktree)._preflight(main_sha)
+
+
+def test_real_git_remote_unavailable_and_detached_states_fail_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    remote, worktree, _main_sha, feature_sha = _local_remote_branch_fixture(tmp_path)
+    monkeypatch.setattr(execution, "ALLOWED_ORIGIN_URLS", frozenset({str(remote)}))
+    _run_git(worktree, "checkout", "--detach", feature_sha)
+    with pytest.raises(
+        execution.RemoteHeadAttestationError,
+        match="reason-ref:private-ci:current-branch-required",
+    ):
+        execution.IsolatedPrivateExecutor(worktree)._preflight(feature_sha)
+
+    _run_git(worktree, "switch", "codex/attestation-test")
+    remote.rename(tmp_path / "remote-unavailable.git")
+    with pytest.raises(
+        execution.RemoteHeadAttestationError,
+        match="reason-ref:private-ci:remote-attestation-unavailable",
+    ):
+        execution.IsolatedPrivateExecutor(worktree)._preflight(feature_sha)
 
 
 def test_private_worktree_rejects_symlinked_selected_command_path(
@@ -221,109 +424,174 @@ def test_private_execution_uses_standalone_clone_not_shared_worktree() -> None:
     source = Path(execution.__file__).read_text(encoding="utf-8")
     assert '"clone"' in source
     assert '"--no-local"' in source
-    assert 'self._git("rev-parse", "refs/remotes/origin/main")' in source
-    assert "origin_main_sha" in source
+    assert '("git", "ls-remote", "--heads", "origin")' in source
+    assert 'self._git("rev-parse", "refs/remotes/origin/main")' not in source
+    assert 'self._git("branch", "-r", "--contains"' not in source
     assert "PRIVATE_BASE_REF" in source
     assert '("git", "remote", "remove", "origin")' in source
     assert '"worktree", "add"' not in source
 
 
-@pytest.mark.parametrize(("returncode", "expected"), ((0, False), (1, True), (2, True)))
-def test_private_affected_preflight_frontend_dependency_is_fail_closed(
+def test_private_dependency_setup_is_frozen_and_matches_github_policy() -> None:
+    commands = execution._dependency_setup_commands()
+    serialized = "\n".join(" ".join(command) for command in commands)
+
+    assert f"uv=={execution.UV_VERSION}" in serialized
+    assert "uv sync --frozen --extra dev --python python3.12" in serialized
+    assert "--upgrade pip" not in serialized
+    assert "pip install -e" not in serialized
+
+
+@pytest.mark.skipif(os.name != "posix", reason="process-group proof is POSIX-specific")
+def test_safe_subprocess_cleans_residual_child_after_success(tmp_path: Path) -> None:
+    pid_path = tmp_path / "child.pid"
+    parent = (
+        "import pathlib,subprocess,sys;"
+        "child=subprocess.Popen([sys.executable,'-c','import time;time.sleep(60)']);"
+        "pathlib.Path(sys.argv[1]).write_text(str(child.pid),encoding='ascii')"
+    )
+
+    returncode, _duration_ms, _result_ref = execution._safe_subprocess(
+        (sys.executable, "-c", parent, str(pid_path)),
+        cwd=tmp_path,
+        timeout=10,
+    )
+
+    assert returncode == 0
+    child_pid = int(pid_path.read_text(encoding="ascii"))
+    child_alive = True
+    deadline = time.monotonic() + 3
+    try:
+        while time.monotonic() < deadline:
+            try:
+                os.kill(child_pid, 0)
+            except ProcessLookupError:
+                child_alive = False
+                break
+            time.sleep(0.05)
+    finally:
+        if child_alive:
+            try:
+                os.kill(child_pid, signal.SIGKILL)
+            except ProcessLookupError:
+                child_alive = False
+    assert child_alive is False
+
+
+@pytest.mark.skipif(os.name != "posix", reason="signal proof is POSIX-specific")
+@pytest.mark.parametrize("signal_number", (signal.SIGINT, signal.SIGTERM, signal.SIGHUP))
+def test_safe_subprocess_real_signal_reaps_descendants(
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    returncode: int,
-    expected: bool,
+    signal_number: signal.Signals,
 ) -> None:
-    monkeypatch.setattr(
-        execution.subprocess,
-        "run",
-        lambda *args, **kwargs: subprocess.CompletedProcess(
-            args=args[0], returncode=returncode
+    descendant_pid_path = tmp_path / "descendant.pid"
+    result_path = tmp_path / "result.txt"
+    helper = (
+        "import pathlib,sys;"
+        "from scripts.verification.ci_fallback_execution import _safe_subprocess;"
+        "child=(\"import pathlib,subprocess,sys,time;\""
+        "+\"p=subprocess.Popen([sys.executable,'-c','import time;time.sleep(60)']);\""
+        "+\"pathlib.Path(sys.argv[1]).write_text(str(p.pid),encoding='ascii');\""
+        "+\"time.sleep(60)\");"
+        "rc,_,_=_safe_subprocess((sys.executable,'-c',child,sys.argv[1]),"
+        "cwd=pathlib.Path(sys.argv[3]),timeout=60);"
+        "pathlib.Path(sys.argv[2]).write_text(str(rc),encoding='ascii')"
+    )
+    process = subprocess.Popen(
+        (
+            sys.executable,
+            "-c",
+            helper,
+            str(descendant_pid_path),
+            str(result_path),
+            str(tmp_path),
         ),
+        cwd=ROOT,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
     )
+    deadline = time.monotonic() + 10
+    try:
+        while not descendant_pid_path.exists():
+            if process.poll() is not None:
+                pytest.fail("signal helper exited before starting its descendant")
+            if time.monotonic() >= deadline:
+                pytest.fail("signal helper did not start within the bound")
+            time.sleep(0.02)
+        os.kill(process.pid, signal_number)
+        assert process.wait(timeout=15) == 0
+        assert result_path.read_text(encoding="ascii") == "130"
+        descendant_pid = int(descendant_pid_path.read_text(encoding="ascii"))
+        deadline = time.monotonic() + 3
+        while True:
+            try:
+                os.kill(descendant_pid, 0)
+            except ProcessLookupError:
+                break
+            if time.monotonic() >= deadline:
+                pytest.fail("signalled process descendant was not reaped")
+            time.sleep(0.05)
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait(timeout=5)
 
-    assert (
-        execution.IsolatedPrivateExecutor._affected_preflight_requires_frontend(
-            tmp_path
-        )
-        is expected
-    )
 
-
-def test_private_frontend_dependencies_are_installed_before_affected_preflight(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
+@pytest.mark.parametrize(
+    ("unit_ref", "command"),
+    (
+        (
+            "pytest-shards",
+            CommandSpec(
+                "command:pytest.sharded-suite",
+                (".venv/bin/python", "scripts/verification/run_pytest_shards.py"),
+                (),
+                "test",
+                10,
+            ),
+        ),
+        (
+            "risk-frontend-typecheck",
+            CommandSpec(
+                "command:frontend.typecheck",
+                ("npm", "run", "typecheck"),
+                (),
+                "frontend",
+                10,
+            ),
+        ),
+        (
+            "risk-final-diff-audit",
+            CommandSpec("command:test", ("true",), (), "audit", 10),
+        ),
+        (
+            "diagnostic-pytest-shard-0",
+            CommandSpec(
+                "command:test",
+                (".venv/bin/python", "scripts/verification/run_pytest_shards.py"),
+                (),
+                "test",
+                10,
+            ),
+        ),
+    ),
+)
+def test_private_execution_rejects_complete_and_non_command_units(
+    unit_ref: str,
+    command: CommandSpec,
 ) -> None:
-    events: list[str] = []
-
-    def fake_subprocess(argv, **_kwargs):
-        events.append(" ".join(argv))
-        return 0, 1, "result-ref:ci:test"
-
-    def fake_lane(lane_ref: str, **_kwargs):
-        events.append(f"lane:{lane_ref}")
-        return True
-
-    monkeypatch.setattr(execution, "_safe_subprocess", fake_subprocess)
-    monkeypatch.setattr(
-        execution.IsolatedPrivateExecutor,
-        "_affected_preflight_requires_frontend",
-        staticmethod(lambda _worktree: True),
-    )
-    monkeypatch.setattr(
-        execution.IsolatedPrivateExecutor, "_run_lane", staticmethod(fake_lane)
-    )
-    monkeypatch.setattr(
-        execution,
-        "CI_JOB_GRAPH",
-        (SimpleNamespace(lane_ref="ci-affected-preflight"),),
-    )
-    monkeypatch.setattr(execution.shutil, "which", lambda *_args, **_kwargs: None)
-    plan = SimpleNamespace(
-        definition_fingerprint="a" * 64,
-        dependency_lock_fingerprints=(),
-        pytest_shard_plan_fingerprint="b" * 64,
-    )
-
-    status = execution.IsolatedPrivateExecutor._run_graph(
-        SHA,
-        tmp_path,
-        tmp_path,
-        {"PATH": "/usr/bin"},
-        [],
-        [],
-        plan,
-    )
-
-    assert status == "pass"
-    assert events[:2] == ["npm ci", "lane:ci-affected-preflight"]
-    assert events.count("lane:ci-affected-preflight") == 1
-
-
-def test_private_lane_refs_include_affected_preflight_once(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    assert execution.PRIVATE_LANE_REFS.count("ci-affected-preflight") == 1
-    observed: dict[str, object] = {}
-
-    def fake_build_plan(
-        repo: Path,
-        repository_sha: str,
-        *,
-        lane_refs: tuple[str, ...],
-    ) -> object:
-        observed.update(
-            repo=repo,
-            repository_sha=repository_sha,
-            lane_refs=lane_refs,
+    with pytest.raises(ValueError, match="authoritative GitHub"):
+        execution.IsolatedPrivateExecutor._assert_private_command_allowed(
+            unit_ref, command
         )
-        return object()
 
-    monkeypatch.setattr(execution, "build_plan", fake_build_plan)
-    plan = execution.private_verification_plan(ROOT, SHA)
-    assert plan is not None
-    assert observed["lane_refs"] == execution.PRIVATE_LANE_REFS
+
+def test_private_execution_accepts_only_exact_shard_reproduction() -> None:
+    command = execution.command_registry()["command:pytest.shard-3-reproduce"]
+    execution.IsolatedPrivateExecutor._assert_private_command_allowed(
+        "diagnostic-pytest-shard-3", command
+    )
 
 
 def test_private_and_lane_environments_share_playwright_browser_directory(
