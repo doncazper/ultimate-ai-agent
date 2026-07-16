@@ -1,8 +1,9 @@
 # Risk-Based Verification Architecture
 
-Status: Phase 03 bounded consumer cutover. GitHub job transport and Foundation
-Gate prerequisite reuse are active only for the exact source chain described
-below; the final repository-scoped GitHub run remains the merge authority.
+Status: Phase 04 frontend proof cutover. GitHub job transport, exact dependency
+receipt reuse, complete-pytest fencing, and frontend TypeScript/test-collection
+fencing are active only for the exact source chains described below; the final
+repository-scoped GitHub run remains the merge authority.
 
 This document defines UAA's canonical repository-verification architecture. It
 does not grant runtime authority, relax a merge gate, or treat a local result as
@@ -135,18 +136,21 @@ and macOS arm64 platform package. A runtime binding is accepted only after the
 installed launcher, compiler intermediaries, native platform binary, package
 metadata, safe Node identity, and bounded `--version` probe agree before and
 after the verified command. This proof does not execute an additional
-typecheck. The existing
-combined frontend lane remains non-authoritative in the typed model until its
-Vitest execution can carry an equally exact observed-test proof.
+typecheck. The combined frontend lane now carries an observed Vitest collection
+fingerprint and count derived from transient reporter output. Raw reporter data
+is deleted after bounded validation and never enters the receipt.
 
 The target cutover policy permits at most one complete pytest execution and one
-matching TypeScript typecheck for an exact commit and dependency state. Phase
-03 activates that fence for complete pytest and removes private execution from
-both singleton declarations. The frontend TypeScript fence and observed test
-collection remain Phase 04 work, so Phase 03 does not yet claim one-typecheck
-enforcement across manual workflow reruns. Private CI may run affected checks
-and one exact failed-shard diagnostic, but it cannot run a non-diagnostic
-canonical lane or label private evidence as a GitHub check.
+matching TypeScript typecheck for an exact commit and dependency state. The
+complete pytest and canonical installed frontend jobs both use durable
+exact-identity fences. The frontend command runs one `tsc -b`, treats the
+identical `lint` declaration as already satisfied, runs Vitest once with
+observed collection proof, and invokes Vite directly so the production build
+does not run a second `tsc -b`. The downstream frontend release lane must reuse
+the exact passing dependency receipt; synthetic dependency satisfaction is
+rejected. Private CI may run affected checks and one exact failed-shard
+diagnostic, but it cannot run a non-diagnostic canonical lane or label private
+evidence as a GitHub check.
 
 ## Verifier value and consolidation
 
@@ -359,3 +363,45 @@ means only that bounded diagnosis is stable enough to return the exact SHA to
 GitHub; it never satisfies branch protection, Foundation prerequisites, or
 merge. Post-start faults settle as content-free recovery-required evidence and
 the operator CLI never reflects the underlying traceback or local path.
+
+## Phase 04 frontend proof cutover
+
+The canonical installed Control Center job now owns the complete frontend
+proof for one exact commit and dependency state. `make frontend-check` invokes
+one repository-owned runner that validates the package-script declarations,
+runs exactly one TypeScript project build, one Vitest execution, and one direct
+Vite production build from the exact pinned installed binary. No package
+acquisition is permitted during execution. The duplicate `lint` script is
+accepted only while it is byte-for-byte identical to the declared typecheck
+command; any package script drift blocks before execution.
+
+Vitest writes transient JSON under an owner-only temporary directory. The
+consumer validates bounded structure, repository-relative test identity,
+counts, outcomes, retries, and status agreement, hashes the identities, emits
+only a content-free aggregate, and deletes the raw report. A missing, malformed,
+unsafe, stale, duplicated, substituted, or status-mismatched aggregate converts
+an otherwise passing command into failure. The exact TypeScript runtime binding
+and observed collection fingerprint are both attached to the v3 receipt.
+
+The installed frontend job uses the same durable exact-execution fence as the
+complete pytest job. Its compact GitHub output envelope is the only acceptable
+proof for the downstream `frontend` release lane. The release lane validates
+the exact plan, commit, comparison base, dependency state, definitions,
+TypeScript runtime, collection proof, direct dependency edge, and source
+receipt before recording `reused_exact_receipt`. It does not invoke TypeScript,
+Vitest, or Vite again. A missing or synthetic dependency result fails closed.
+
+Affected visual regression still executes as a separate exact lane. Its
+repository-owned Playwright wrapper consumes and deletes transient JSON and
+publishes the same content-free collection shape. Trace, screenshot, and other
+non-reporter output is confined to the same owner-only temporary boundary and
+removed after the command. A plan-bound
+`not_affected` decision remains a non-executed, blocked v2 posture rather than
+an invented passing visual receipt. Browser installation and screenshot
+comparison remain visible prerequisites.
+
+Phase 04 consolidates only the measured duplicate frontend execution already
+represented by the exact installed-job receipt. It removes no unique test,
+typecheck, build, safety, or visual coverage. The final verifier-value,
+cold/warm timing, selector cutover, and bounded old-versus-new shadow
+comparison remain Phase 05 work.

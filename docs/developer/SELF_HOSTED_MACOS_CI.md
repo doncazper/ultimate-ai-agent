@@ -191,6 +191,15 @@ SHAs, and the shared host guard plus exact execution-identity fence permit only
 one GitHub full sharded pytest attempt for that SHA and dependency state.
 Private verification cannot execute the complete suite or matching TypeScript
 resource, so the required GitHub run remains the sole full-gate execution.
+The installed `control-center-frontend` job executes one canonical
+`make frontend-check` command behind the same exact-identity fence used for
+complete pytest. That command runs one `tsc -b`, one Vitest suite with
+content-free observed collection proof, and one direct Vite build. The
+identical package `lint` declaration is satisfied by the one typecheck rather
+than executed again. The downstream frontend release job validates and reuses
+the exact passing job envelope; it cannot substitute an unbound success or
+repeat the frontend suite. Vite and Playwright resolve only the exact pinned
+installed executables; package acquisition is forbidden during verification.
 
 When the GitHub control plane is unavailable, a run fails before any repository
 command starts, runner capacity exceeds the bounded queue budget, runner contact
@@ -275,6 +284,15 @@ private run directory. Failed shards expose at most eight refs derived from
 parameter-free module and test-function metadata; parameter values, failure
 bodies, captured output, logs, and local paths never enter the file, safe
 summary, or durable receipts.
+
+Vitest and Playwright use matching content-free collection consumers. Reporter
+JSON exists only in a fresh owner-only job directory and is unlinked after
+bounded validation on success or rejection. Durable frontend receipts contain
+only safe runner refs, hashed collection identity, counts, terminal posture,
+TypeScript binding refs where applicable, and redaction status. A missing,
+unsafe, malformed, or command-status-mismatched report fails the job.
+Playwright traces, screenshots, and other non-reporter output stay in that
+temporary boundary and are removed rather than written into the checkout.
 
 CLI exit code `0` means only `github_green` on the exact live, attested SHA.
 Pending/running states return `2`; code failure, private failure, and external

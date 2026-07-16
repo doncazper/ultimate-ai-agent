@@ -48,6 +48,10 @@ from scripts.verification.ci_fallback_storage import (  # noqa: E402
     FullSuiteLock,
     FullSuiteLockUnavailableError,
 )
+from scripts.verification.frontend_collection_evidence import (  # noqa: E402
+    FrontendCollectionEvidenceError,
+    consume_frontend_collection_evidence,
+)
 from scripts.verification.pytest_shard_processes import (  # noqa: E402
     build_shard_env,
     cancellation_signals,
@@ -86,10 +90,15 @@ from scripts.verification.verification_execution_identity import (  # noqa: E402
 )
 from scripts.verification.verification_github_transport import (  # noqa: E402
     build_github_job_output_envelope,
+    decode_github_job_output,
     encode_github_job_output,
+    validate_github_job_output_against_plan,
 )
 from scripts.verification.verification_github_prerequisites import (  # noqa: E402
     append_github_output,
+)
+from scripts.verification.verification_run_aggregator import (  # noqa: E402
+    validate_receipt_for_plan_unit,
 )
 from scripts.verification.verification_receipt_store import (  # noqa: E402
     VerificationReceiptStore,
@@ -102,6 +111,8 @@ MAX_RECEIPT_BYTES = 1024 * 1024
 MAX_PYTEST_PERFORMANCE_REPORT_BYTES = 256 * 1024
 PYTEST_PERFORMANCE_REPORT_NAME = "uaa_pytest_performance_report.json"
 PYTEST_COLLECTION_EVIDENCE_NAME = "uaa_pytest_collection_evidence.json"
+FRONTEND_COLLECTION_EVIDENCE_DIRNAME = "uaa_frontend_collection_evidence"
+FRONTEND_COLLECTION_EVIDENCE_NAME = "aggregate.json"
 PYTEST_PERFORMANCE_SCHEMA_VERSION = "uaa_pytest_performance_report.v1"
 PYTEST_PLAN_REF_RE = re.compile(r"^pytest-shard-plan-ref:sha256:[0-9a-f]{64}$")
 PYTEST_REPRODUCTION_LANE_RE = re.compile(
@@ -179,9 +190,12 @@ def _safe_env(
     isolated_home = temp_root / "runtime-home"
     isolated_tmp = temp_root / "runtime-tmp"
     playwright_browsers = temp_root / PLAYWRIGHT_BROWSER_DIRNAME
+    frontend_evidence_directory = temp_root / FRONTEND_COLLECTION_EVIDENCE_DIRNAME
     isolated_home.mkdir(parents=True, exist_ok=True)
     isolated_tmp.mkdir(parents=True, exist_ok=True)
     playwright_browsers.mkdir(parents=True, exist_ok=True)
+    frontend_evidence_directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+    frontend_evidence_directory.chmod(0o700)
     env.update(
         {
             "CI": "true",
@@ -194,6 +208,13 @@ def _safe_env(
     )
     if base_sha is not None:
         env["UAA_VERIFICATION_BASE_SHA"] = base_sha
+    if command.command_ref in {
+        "command:frontend.check",
+        "command:frontend.visual-regression",
+    }:
+        env["UAA_FRONTEND_COLLECTION_EVIDENCE_PATH"] = str(
+            frontend_evidence_directory / FRONTEND_COLLECTION_EVIDENCE_NAME
+        )
     env.update(dict(command.env))
     return env
 
@@ -683,6 +704,23 @@ def _assert_pytest_collection_absent(temp_root: Path) -> None:
     raise ValueError("pytest collection evidence must not predate the current attempt")
 
 
+def _frontend_collection_evidence_path(temp_root: Path) -> Path:
+    return (
+        temp_root
+        / FRONTEND_COLLECTION_EVIDENCE_DIRNAME
+        / FRONTEND_COLLECTION_EVIDENCE_NAME
+    )
+
+
+def _assert_frontend_collection_absent(temp_root: Path) -> None:
+    path = _frontend_collection_evidence_path(temp_root)
+    try:
+        path.lstat()
+    except FileNotFoundError:
+        return
+    raise ValueError("frontend collection evidence must not predate the current attempt")
+
+
 def _typed_output_digest(results: list[dict[str, Any]]) -> str:
     safe_results = tuple(
         {
@@ -716,9 +754,12 @@ def _build_typed_lane_evidence(
     results: list[dict[str, Any]],
     execution_surface_ref: str,
     pytest_collection: dict[str, Any] | None,
+    frontend_collection: dict[str, Any] | None = None,
+    reused_receipts_by_command: dict[str, VerificationReceipt] | None = None,
     pre_typescript_runtime: Any | None = None,
     pre_execution_identity_ref: str | None = None,
 ) -> tuple[VerificationReceipt, VerificationRunManifest]:
+    reused_receipts_by_command = reused_receipts_by_command or {}
     matching_units = tuple(unit for unit in CI_JOB_GRAPH if unit.lane_ref == lane_ref)
     if len(matching_units) != 1:
         raise ValueError("typed CI evidence requires one exact canonical unit")
@@ -763,9 +804,34 @@ def _build_typed_lane_evidence(
                 pytest_collection["collection_digest_ref"]
             ).removeprefix("sha256:")
             observed_test_count = int(pytest_collection["collected_test_count"])
+    elif any(
+        command_ref in {
+            "command:frontend.check",
+            "command:frontend.visual-regression",
+        }
+        for command_ref in result_command_refs
+    ):
+        frontend_is_reused = any(
+            result["command_ref"] == "command:frontend.check"
+            and result["status"] == "reused_exact_receipt"
+            for result in results
+        )
+        if frontend_collection is None and not frontend_is_reused:
+            test_collection_posture = "unavailable"
+            if terminal_status is VerificationTerminalStatus.PASSED:
+                terminal_status = VerificationTerminalStatus.FAILED
+        elif frontend_collection is not None:
+            test_collection_posture = "collected"
+            observed_collection_fingerprint = str(
+                frontend_collection["collection_digest_ref"]
+            ).removeprefix("sha256:")
+            observed_test_count = int(frontend_collection["collected_test_count"])
 
     declared_typescript = None
     runtime_typescript = None
+    typescript_project_fingerprint: str | None = None
+    typescript_runtime_fingerprint: str | None = None
+    typescript_version_ref: str | None = None
     typescript_binding_posture = "not_applicable"
     if "command:frontend.check" in result_command_refs:
         frontend_result = next(
@@ -773,7 +839,34 @@ def _build_typed_lane_evidence(
             for result in results
             if result["command_ref"] == "command:frontend.check"
         )
-        if frontend_result["status"] not in {
+        if frontend_result["status"] == "reused_exact_receipt":
+            source_receipt = reused_receipts_by_command.get("command:frontend.check")
+            if (
+                source_receipt is None
+                or source_receipt.status is not VerificationTerminalStatus.PASSED
+                or source_receipt.test_collection_posture != "collected"
+                or source_receipt.typescript_binding_posture != "resolved"
+                or source_receipt.typescript_project_fingerprint
+                != full_plan.typescript_project_fingerprint
+                or source_receipt.typescript_runtime_fingerprint is None
+                or source_receipt.typescript_version_ref is None
+            ):
+                raise ValueError("frontend reuse lacks exact dependency proof")
+            typescript_project_fingerprint = (
+                source_receipt.typescript_project_fingerprint
+            )
+            typescript_runtime_fingerprint = (
+                source_receipt.typescript_runtime_fingerprint
+            )
+            typescript_version_ref = source_receipt.typescript_version_ref
+            typescript_binding_posture = "resolved"
+            if frontend_collection is None:
+                test_collection_posture = "collected"
+                observed_collection_fingerprint = (
+                    source_receipt.observed_test_collection_fingerprint
+                )
+                observed_test_count = source_receipt.observed_test_count
+        elif frontend_result["status"] not in {
             "skipped",
             "not_applicable",
             "satisfied_by_required_dependency",
@@ -796,12 +889,16 @@ def _build_typed_lane_evidence(
                 or runtime_typescript != pre_typescript_runtime
             ):
                 raise ValueError("TypeScript runtime changed during verification")
+            typescript_project_fingerprint = (
+                declared_typescript.declared_project_fingerprint
+            )
+            typescript_runtime_fingerprint = (
+                runtime_typescript.resolved_runtime_fingerprint
+            )
+            typescript_version_ref = (
+                f"typescript-version:{runtime_typescript.typescript_version}"
+            )
             typescript_binding_posture = "resolved"
-        # The existing combined frontend command does not yet expose a bounded
-        # Vitest collection proof, so typed evidence remains non-authoritative.
-        if terminal_status is VerificationTerminalStatus.PASSED:
-            terminal_status = VerificationTerminalStatus.BLOCKED
-
     nonexecution_unbound = any(
         result["status"]
         in {"skipped", "not_applicable", "satisfied_by_required_dependency"}
@@ -812,8 +909,15 @@ def _build_typed_lane_evidence(
         if nonexecution_unbound
         else "uaa_verification_receipt.v3"
     )
-    command_result_bindings = tuple(
-        (str(result["command_ref"]), str(result["result_ref"])) for result in results
+    executed_command_result_bindings = tuple(
+        (str(result["command_ref"]), str(result["result_ref"]))
+        for result in results
+        if result["status"] != "reused_exact_receipt"
+    )
+    reused_command_receipt_bindings = tuple(
+        (str(result["command_ref"]), str(result["result_ref"]))
+        for result in results
+        if result["status"] == "reused_exact_receipt"
     )
     if (
         terminal_status is VerificationTerminalStatus.PASSED
@@ -833,16 +937,8 @@ def _build_typed_lane_evidence(
             full_plan,
             unit,
             execution_surface_ref=execution_surface_ref,
-            typescript_runtime_fingerprint=(
-                runtime_typescript.resolved_runtime_fingerprint
-                if runtime_typescript is not None
-                else None
-            ),
-            typescript_version_ref=(
-                f"typescript-version:{runtime_typescript.typescript_version}"
-                if runtime_typescript is not None
-                else None
-            ),
+            typescript_runtime_fingerprint=typescript_runtime_fingerprint,
+            typescript_version_ref=typescript_version_ref,
         ).identity_ref
         if execution_identity_ref != pre_execution_identity_ref:
             raise ValueError("verification execution identity changed after start")
@@ -869,28 +965,16 @@ def _build_typed_lane_evidence(
         output_digest=_typed_output_digest(results),
         equivalent_receipt_ref=str(legacy_receipt["receipt_ref"]),
         command_refs=result_command_refs,
-        command_result_bindings=command_result_bindings,
+        command_result_bindings=executed_command_result_bindings,
         execution_surface_ref=execution_surface_ref,
         proof_equivalence_ref=unit.proof_equivalence_ref,
         test_collection_posture=test_collection_posture,
         observed_test_collection_fingerprint=observed_collection_fingerprint,
         observed_test_count=observed_test_count,
         typescript_binding_posture=typescript_binding_posture,
-        typescript_project_fingerprint=(
-            declared_typescript.declared_project_fingerprint
-            if runtime_typescript is not None and declared_typescript is not None
-            else None
-        ),
-        typescript_runtime_fingerprint=(
-            runtime_typescript.resolved_runtime_fingerprint
-            if runtime_typescript is not None
-            else None
-        ),
-        typescript_version_ref=(
-            f"typescript-version:{runtime_typescript.typescript_version}"
-            if runtime_typescript is not None
-            else None
-        ),
+        typescript_project_fingerprint=typescript_project_fingerprint,
+        typescript_runtime_fingerprint=typescript_runtime_fingerprint,
+        typescript_version_ref=typescript_version_ref,
         receipt_fingerprint="0" * 64,
         dependency_lock_set_fingerprint=(
             dependency_lock_set_fingerprint(full_plan)
@@ -904,7 +988,12 @@ def _build_typed_lane_evidence(
         ),
         execution_identity_ref=execution_identity_ref,
         executed_command_result_bindings=(
-            command_result_bindings
+            executed_command_result_bindings
+            if receipt_schema_version == "uaa_verification_receipt.v3"
+            else ()
+        ),
+        reused_command_receipt_bindings=(
+            reused_command_receipt_bindings
             if receipt_schema_version == "uaa_verification_receipt.v3"
             else ()
         ),
@@ -1034,6 +1123,11 @@ def _pytest_shard_summary_lines(result: dict[str, Any]) -> list[str]:
         lines.append("Pytest collection evidence: " + str(collection_status))
     if collected_count := result.get("pytest_collected_test_count"):
         lines.append(f"Observed pytest tests: {collected_count}")
+    frontend_status = result.get("frontend_collection_evidence_status")
+    if frontend_status is not None:
+        lines.append("Frontend collection evidence: " + str(frontend_status))
+    if frontend_count := result.get("frontend_collected_test_count"):
+        lines.append(f"Observed frontend tests: {frontend_count}")
     return lines
 
 
@@ -1052,6 +1146,7 @@ def run_lane(
     verification_store_root: Path | None = None,
     github_output_file: Path | None = None,
     verification_execution_fence_root: Path | None = None,
+    dependency_envelopes: tuple[str, ...] = (),
     full_suite_lock_mode: str = "github",
     execution_surface: str | None = None,
 ) -> dict[str, Any]:
@@ -1116,7 +1211,7 @@ def run_lane(
             verification_store_root,
             github_output_file,
         )
-    )
+    ) or bool(dependency_envelopes)
     full_plan_before = (
         build_plan(
             ROOT,
@@ -1145,7 +1240,10 @@ def run_lane(
         )
     pre_execution_identity = None
     pre_execution_identity_ref: str | None = None
+    identity_typescript_runtime_fingerprint: str | None = None
+    identity_typescript_version_ref: str | None = None
     typed_unit = None
+    reused_receipts_by_command: dict[str, VerificationReceipt] = {}
     if full_plan_before is not None:
         matching_units = tuple(
             unit for unit in CI_JOB_GRAPH if unit.lane_ref == lane_ref
@@ -1153,21 +1251,104 @@ def run_lane(
         if len(matching_units) != 1:
             raise ValueError("typed CI evidence requires one exact canonical unit")
         typed_unit = matching_units[0]
+        if dependency_envelopes:
+            if not lane.satisfied_command_refs:
+                raise ValueError(
+                    "verification dependency envelopes are not declared for this lane"
+                )
+            direct_dependencies = set(typed_unit.needs)
+            source_receipt_refs: set[str] = set()
+            for encoded_envelope in dependency_envelopes:
+                envelope = decode_github_job_output(encoded_envelope)
+                validate_github_job_output_against_plan(
+                    envelope,
+                    full_plan_before,
+                )
+                source_receipt = envelope.receipt
+                source_unit = next(
+                    (
+                        unit
+                        for unit in CI_JOB_GRAPH
+                        if unit.unit_ref == source_receipt.unit_ref
+                    ),
+                    None,
+                )
+                if (
+                    envelope.final_run_manifest is not None
+                    or source_receipt.unit_ref not in direct_dependencies
+                    or source_unit is None
+                    or source_receipt.status is not VerificationTerminalStatus.PASSED
+                    or source_receipt.receipt_ref in source_receipt_refs
+                ):
+                    raise ValueError("verification dependency envelope is invalid")
+                validate_receipt_for_plan_unit(
+                    source_receipt,
+                    plan=full_plan_before,
+                    unit=source_unit,
+                    execution_surface_ref="surface-ref:github",
+                )
+                source_receipt_refs.add(source_receipt.receipt_ref)
+                executed_commands = dict(
+                    source_receipt.executed_command_result_bindings
+                )
+                source_matched = False
+                for satisfied_command_ref in lane.satisfied_command_refs:
+                    if satisfied_command_ref in executed_commands:
+                        source_matched = True
+                        if satisfied_command_ref in reused_receipts_by_command:
+                            raise ValueError(
+                                "verification dependency command proof is ambiguous"
+                            )
+                        reused_receipts_by_command[satisfied_command_ref] = (
+                            source_receipt
+                        )
+                if not source_matched:
+                    raise ValueError(
+                        "verification dependency envelope proves no reused command"
+                    )
+            if set(reused_receipts_by_command) != set(lane.satisfied_command_refs):
+                raise ValueError("verification dependency command proof is incomplete")
+        elif lane.satisfied_command_refs:
+            raise ValueError("synthetic dependency satisfaction is forbidden")
         if not lane.satisfied_command_refs:
+            identity_typescript_runtime_fingerprint = (
+                pre_typescript_runtime.resolved_runtime_fingerprint
+                if pre_typescript_runtime is not None
+                else None
+            )
+            identity_typescript_version_ref = (
+                f"typescript-version:{pre_typescript_runtime.typescript_version}"
+                if pre_typescript_runtime is not None
+                else None
+            )
             pre_execution_identity = build_verification_execution_identity(
                 full_plan_before,
                 typed_unit,
                 execution_surface_ref=f"surface-ref:{resolved_execution_surface}",
-                typescript_runtime_fingerprint=(
-                    pre_typescript_runtime.resolved_runtime_fingerprint
-                    if pre_typescript_runtime is not None
-                    else None
-                ),
-                typescript_version_ref=(
-                    f"typescript-version:{pre_typescript_runtime.typescript_version}"
-                    if pre_typescript_runtime is not None
-                    else None
-                ),
+                typescript_runtime_fingerprint=identity_typescript_runtime_fingerprint,
+                typescript_version_ref=identity_typescript_version_ref,
+            )
+            pre_execution_identity_ref = pre_execution_identity.identity_ref
+        else:
+            reused_typescript_receipt = reused_receipts_by_command.get(
+                "command:frontend.check"
+            )
+            identity_typescript_runtime_fingerprint = (
+                reused_typescript_receipt.typescript_runtime_fingerprint
+                if reused_typescript_receipt is not None
+                else None
+            )
+            identity_typescript_version_ref = (
+                reused_typescript_receipt.typescript_version_ref
+                if reused_typescript_receipt is not None
+                else None
+            )
+            pre_execution_identity = build_verification_execution_identity(
+                full_plan_before,
+                typed_unit,
+                execution_surface_ref=f"surface-ref:{resolved_execution_surface}",
+                typescript_runtime_fingerprint=identity_typescript_runtime_fingerprint,
+                typescript_version_ref=identity_typescript_version_ref,
             )
             pre_execution_identity_ref = pre_execution_identity.identity_ref
 
@@ -1237,12 +1418,12 @@ def run_lane(
             typescript_runtime_fingerprint=(
                 observed_typescript_runtime.resolved_runtime_fingerprint
                 if observed_typescript_runtime is not None
-                else None
+                else identity_typescript_runtime_fingerprint
             ),
             typescript_version_ref=(
                 f"typescript-version:{observed_typescript_runtime.typescript_version}"
                 if observed_typescript_runtime is not None
-                else None
+                else identity_typescript_version_ref
             ),
         ).identity_ref
         if observed_identity_ref != pre_execution_identity_ref:
@@ -1252,6 +1433,7 @@ def run_lane(
     started = time.perf_counter()
     results: list[dict[str, Any]] = []
     pytest_collection_payload: dict[str, Any] | None = None
+    frontend_collection_payload: dict[str, Any] | None = None
     if full_suite_lock_mode not in {"github", "private"}:
         raise ValueError("unknown full-suite lock mode")
     lock = (
@@ -1279,15 +1461,27 @@ def run_lane(
             _assert_pytest_report_absent(temp_root)
             _assert_pytest_collection_absent(temp_root)
             expected_pytest_plan_ref = expected_pytest_shard_plan_ref()
+        if any(
+            command_ref in {
+                "command:frontend.check",
+                "command:frontend.visual-regression",
+            }
+            and command_ref not in lane.satisfied_command_refs
+            for command_ref in lane.command_refs
+        ):
+            _assert_frontend_collection_absent(temp_root)
         for command_ref in lane.command_refs:
             if command_ref in lane.satisfied_command_refs:
+                source_receipt = reused_receipts_by_command.get(command_ref)
+                if source_receipt is None:
+                    raise ValueError("exact dependency receipt is required")
                 results.append(
                     {
                         "command_ref": command_ref,
                         "category": commands[command_ref].category,
-                        "status": "satisfied_by_required_dependency",
+                        "status": "reused_exact_receipt",
                         "duration_ms": 0,
-                        "result_ref": f"result-ref:ci:{hashlib.sha256((repository_sha + command_ref + lane_ref).encode()).hexdigest()}",
+                        "result_ref": source_receipt.receipt_ref,
                         "redaction_status": "content_free_output_metadata_only",
                     }
                 )
@@ -1421,13 +1615,68 @@ def run_lane(
                             ),
                         }
                     )
+            if command_ref in {
+                "command:frontend.check",
+                "command:frontend.visual-regression",
+            }:
+                try:
+                    frontend_collection_payload = consume_frontend_collection_evidence(
+                        _frontend_collection_evidence_path(temp_root)
+                    )
+                except FrontendCollectionEvidenceError:
+                    result.update(
+                        {
+                            "frontend_collection_evidence_status": "rejected",
+                            "frontend_collection_evidence_reason_ref": (
+                                "reason-ref:ci:frontend-collection-evidence-rejected"
+                            ),
+                        }
+                    )
+                    if result["status"] == "pass":
+                        result["status"] = "fail"
+                else:
+                    evidence_passed = (
+                        frontend_collection_payload["result_status"] == "passed"
+                    )
+                    if (result["status"] == "pass") != evidence_passed:
+                        result["status"] = "fail"
+                        result.update(
+                            {
+                                "frontend_collection_evidence_status": "rejected",
+                                "frontend_collection_evidence_reason_ref": (
+                                    "reason-ref:ci:frontend-collection-status-mismatch"
+                                ),
+                            }
+                        )
+                    else:
+                        result.update(
+                            {
+                                "frontend_collection_evidence_status": "collected",
+                                "frontend_collection_digest_ref": (
+                                    frontend_collection_payload[
+                                        "collection_digest_ref"
+                                    ]
+                                ),
+                                "frontend_collected_test_count": (
+                                    frontend_collection_payload[
+                                        "collected_test_count"
+                                    ]
+                                ),
+                            }
+                        )
             results.append(result)
             if result["status"] != "pass":
                 break
 
     terminal_ok = all(
         result["status"]
-        in {"pass", "skipped", "not_applicable", "satisfied_by_required_dependency"}
+        in {
+            "pass",
+            "skipped",
+            "not_applicable",
+            "satisfied_by_required_dependency",
+            "reused_exact_receipt",
+        }
         for result in results
     ) and len(results) == len(lane.command_refs)
     receipt = {
@@ -1473,6 +1722,8 @@ def run_lane(
             results=results,
             execution_surface_ref=f"surface-ref:{resolved_execution_surface}",
             pytest_collection=pytest_collection_payload,
+            frontend_collection=frontend_collection_payload,
+            reused_receipts_by_command=reused_receipts_by_command,
             pre_typescript_runtime=pre_typescript_runtime,
             pre_execution_identity_ref=pre_execution_identity_ref,
         )
@@ -1579,6 +1830,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--verification-store-root")
     parser.add_argument("--github-output-file")
     parser.add_argument("--verification-execution-fence-root")
+    parser.add_argument("--dependency-envelope", action="append", default=[])
     parser.add_argument(
         "--full-suite-lock-mode",
         choices=("github", "private"),
@@ -1625,6 +1877,7 @@ def main(argv: list[str] | None = None) -> int:
                 if args.verification_execution_fence_root
                 else None
             ),
+            dependency_envelopes=tuple(args.dependency_envelope),
             full_suite_lock_mode=args.full_suite_lock_mode,
             execution_surface=args.execution_surface,
         )

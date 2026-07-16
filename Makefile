@@ -90,16 +90,13 @@ verify-beta-local-visual:
 	$(PYTHON) scripts/verify_beta_local.py --include-live-visual
 
 frontend-check:
-	cd $(FRONTEND_DIR) && npm run typecheck --if-present
-	cd $(FRONTEND_DIR) && npm run lint --if-present
-	cd $(FRONTEND_DIR) && npm run test --if-present -- --run
-	cd $(FRONTEND_DIR) && npm run build --if-present
+	$(PYTHON) scripts/verification/run_frontend_check.py
 
 frontend-visual-check:
-	cd $(FRONTEND_DIR) && npm run visual:check
+	$(PYTHON) scripts/verification/run_frontend_playwright.py --suite visual
 
 frontend-turn-router-smoke:
-	cd $(FRONTEND_DIR) && npm run smoke:turn-router
+	$(PYTHON) scripts/verification/run_frontend_playwright.py --suite smoke
 
 openapi:
 	PYTHONPATH=src $(PYTHON) scripts/export_openapi.py
