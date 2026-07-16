@@ -66,7 +66,9 @@ from .adapter import (
     build_matrix_sync_capability_manifest,
 )
 from .service import (
+    MatrixSyncTransportBoundExecutor,
     attach_exact_matrix_sync_approval,
+    bind_matrix_sync_transport_executor,
     blocked_matrix_sync_executor,
     build_matrix_sync_dispatch_request,
     execute_matrix_sync_command,
@@ -123,6 +125,8 @@ __all__ = [
     "MatrixSyncTransportResult",
     "MatrixSyncAuthorityDispatchAdapter",
     "MatrixSyncOperationResult",
+    "MatrixSyncTransportBoundExecutor",
+    "bind_matrix_sync_transport_executor",
     "build_matrix_sync_capability_manifest",
     "attach_exact_matrix_sync_approval",
     "blocked_matrix_sync_executor",

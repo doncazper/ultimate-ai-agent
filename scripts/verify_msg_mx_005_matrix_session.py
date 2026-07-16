@@ -23,6 +23,7 @@ PACKAGE_PATH = ADAPTER_ROOT / "package.json"
 LOCK_PATH = ADAPTER_ROOT / "package-lock.json"
 NOTICE_PATH = ADAPTER_ROOT / "THIRD_PARTY_NOTICES.md"
 INTEGRITY_PATH = ADAPTER_ROOT / "runtime-integrity.json"
+NODE_RUNTIME_TRUST_PATH = ADAPTER_ROOT / "runtime-trust" / "node-runtime.json"
 HELPER_SOURCE_PATH = (
     ROOT
     / "tools/macos/matrix-session-keychain-helper/Sources/UAAMatrixSessionKeychainHelper/main.swift"
@@ -144,6 +145,10 @@ def verify(root: Path = ROOT) -> list[str]:
     lock_text = _read_regular(LOCK_PATH, failures)
     notice = _read_regular(NOTICE_PATH, failures)
     integrity_text = _read_regular(INTEGRITY_PATH, failures)
+    node_runtime_trust_text = _read_regular(
+        NODE_RUNTIME_TRUST_PATH,
+        failures,
+    )
     helper_source = _read_regular(HELPER_SOURCE_PATH, failures)
     session_doc = _read_regular(SESSION_DOC_PATH, failures)
     if failures:
@@ -152,11 +157,19 @@ def verify(root: Path = ROOT) -> list[str]:
         package = json.loads(package_text)
         lock = json.loads(lock_text)
         integrity = json.loads(integrity_text)
+        node_runtime_trust = json.loads(node_runtime_trust_text)
     except json.JSONDecodeError:
         return ["MSG-MX-005 dependency metadata is invalid JSON"]
     if package.get("dependencies") != {"matrix-js-sdk": "41.9.0"}:
         failures.append("matrix-js-sdk is not the one exact stable 41.9.0 pin")
+    if package.get("engines") != {"node": ">=22 <23"}:
+        failures.append("Matrix adapter does not require the supported Node 22 major")
     packages = lock.get("packages", {})
+    lock_root = packages.get("", {}) if isinstance(packages, dict) else {}
+    if not isinstance(lock_root, dict) or lock_root.get("engines") != {
+        "node": ">=22 <23"
+    }:
+        failures.append("Matrix adapter lock does not preserve the Node 22 policy")
     sdk = packages.get("node_modules/matrix-js-sdk", {})
     wasm = packages.get("node_modules/@matrix-org/matrix-sdk-crypto-wasm", {})
     if sdk.get("version") != "41.9.0" or wasm.get("version") != "18.3.1":
@@ -175,6 +188,15 @@ def verify(root: Path = ROOT) -> list[str]:
     else:
         if integrity != expected_integrity:
             failures.append("Matrix adapter runtime integrity manifest drifted")
+    approved_runtime_bindings = node_runtime_trust.get("approved_runtime_bindings")
+    if (
+        node_runtime_trust.get("schema_version") != "uaa-matrix-node-runtime-trust.v1"
+        or node_runtime_trust.get("raw_paths_included") is not False
+        or node_runtime_trust.get("credential_material_included") is not False
+        or not isinstance(approved_runtime_bindings, list)
+        or len(approved_runtime_bindings) != 2
+    ):
+        failures.append("Matrix Node runtime trust anchor is incomplete")
 
     failures.extend(_helper_failures(helper_source))
     if "tools/macos/matrix-session-keychain-helper/.build/" not in (
@@ -237,6 +259,7 @@ def verify(root: Path = ROOT) -> list[str]:
         "implemented: discovery",
         "implemented: authentication-method",
         "authenticated one-use handoff",
+        "repository-reviewed node 22 runtime profile",
         "socket-owning SSO broker",
         "no sync, room read, message send, crypto, or media runtime",
     )
@@ -253,6 +276,7 @@ def verify(root: Path = ROOT) -> list[str]:
         "tests/test_msg_mx_005_matrix_session_api_cli.py",
         "tests/test_msg_mx_005_matrix_session_helper.py",
         "tests/test_msg_mx_005_matrix_session_node_integration.py",
+        "tests/test_matrix_node_runtime.py",
         "tests/test_msg_mx_005_adapter_runtime.py",
     ):
         if not (root / relative).is_file():

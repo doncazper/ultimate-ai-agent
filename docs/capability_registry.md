@@ -464,6 +464,14 @@ are GET-only and credentials cross a one-use file descriptor; raw provider
 responses remain transient. Cache and key changes require exact approval plus a
 current lease. The whole-file AES-GCM container has no WAL, journal, temp query
 store, or backup, and the macOS Keychain helper never returns key material.
+The Node transport is bound to one repository-reviewed Node 22 profile and its
+privately copied, hash-verified non-system Mach-O loader closure, then must pass
+a bounded functional permission probe as defense in depth. Its content-free
+runtime profile, exact credential-writer and per-instance registry owners,
+implementation, and pseudonymized target scope derive one factory-registered
+transport-owned executor/adapter binding. Callers cannot substitute an
+executor subclass, unreviewed writer, registry subclass, result mapper, or
+independently asserted ref.
 
 Live account sync is `configuration_required` until an account credential broker
 is enrolled and the hash-bound helper is installed and unlocked. The Messenger

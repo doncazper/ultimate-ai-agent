@@ -5,6 +5,7 @@ import json
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from ultimate_ai_agent.core.authority import (
     AuthorityConstraintKind,
@@ -59,6 +60,9 @@ from .contracts import (
     matrix_sync_exact_resource_refs,
     stable_matrix_sync_ref,
 )
+
+if TYPE_CHECKING:
+    from .service import MatrixSyncTransportBoundExecutor
 
 
 def _canonical_ref(prefix: str, payload: object) -> str:
@@ -286,7 +290,7 @@ class MatrixSyncAuthorityDispatchAdapter:
         self,
         *,
         operation: MatrixSyncOperation,
-        executor: Callable[[MatrixSyncCommand], MatrixSyncOperationResult],
+        executor: MatrixSyncTransportBoundExecutor,
         authority_leases_provider: Callable[[], Sequence[AuthorityLease]],
         readiness_provider: (
             Callable[[MatrixSyncCommand], MatrixSyncReadinessObservation] | None
@@ -294,7 +298,18 @@ class MatrixSyncAuthorityDispatchAdapter:
     ) -> None:
         self.operation = MatrixSyncOperation(operation)
         self.lane: MatrixSyncLane = matrix_sync_lane(operation)
+        from .service import (
+            MatrixSyncTransportBoundExecutor,
+            is_sealed_matrix_sync_transport_executor,
+        )
+
+        if (
+            type(executor) is not MatrixSyncTransportBoundExecutor
+            or not is_sealed_matrix_sync_transport_executor(executor)
+        ):
+            raise TypeError("MATRIX_SYNC_BOUND_EXECUTOR_REQUIRED")
         self._executor = executor
+        self._executor_binding_ref = executor.binding_ref
         self._authority_leases_provider = authority_leases_provider
         self._readiness_provider = readiness_provider
         self._manifest = build_matrix_sync_capability_manifest(operation)
@@ -323,6 +338,7 @@ class MatrixSyncAuthorityDispatchAdapter:
             "adapter-binding-ref:matrix-sync",
             {
                 "descriptor": self.descriptor.model_dump(mode="json"),
+                "executor_binding_ref": self._executor_binding_ref,
                 "manifest": self._manifest.model_dump(mode="json"),
             },
         )

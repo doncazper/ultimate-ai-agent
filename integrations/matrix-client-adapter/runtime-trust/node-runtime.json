@@ -1,0 +1,19 @@
+{
+  "approved_runtime_bindings": [
+    {
+      "binding_ref": "node-runtime-binding-ref:sha256:3325dc7064fcd5296cf4ab5077b67ec2aaf1ba1d83b240895a53f44d398cfd66",
+      "profile_ref": "node-runtime-profile-ref:nodejs-foundation:22.23.1:arm64",
+      "root_sha256": "2e3f1286a7eb3736346ed1803e458a0ff909e2b2d5bc746144dcb76970e9b99d",
+      "version_ref": "version-ref:node:22"
+    },
+    {
+      "binding_ref": "node-runtime-binding-ref:sha256:cd4ae923e0f0edc5675aecdb175612a9c4a2da6e43bd23bafbc656187e4d0e1e",
+      "profile_ref": "node-runtime-profile-ref:homebrew:22.23.1:arm64",
+      "root_sha256": "79bc31d84868436058ea7e020626a8046905bd5361e5d30d47917ee6e6d9120f",
+      "version_ref": "version-ref:node:22"
+    }
+  ],
+  "credential_material_included": false,
+  "raw_paths_included": false,
+  "schema_version": "uaa-matrix-node-runtime-trust.v1"
+}

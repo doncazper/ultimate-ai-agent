@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Callable
+from dataclasses import dataclass, field
 from pathlib import Path
+from weakref import WeakSet
 
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.authority import AuthorityLeaseStore
@@ -17,10 +20,17 @@ from ultimate_ai_agent.core.authority.dispatcher import (
 from ultimate_ai_agent.core.costs.budgets import CostBudget
 from ultimate_ai_agent.core.costs.enums import BudgetScope
 from ultimate_ai_agent.core.costs.estimates import CostEstimate
+from ultimate_ai_agent.core.execution.validation import validate_execution_ref
+from ultimate_ai_agent.core.communications.matrix_session.target_policy import (
+    matrix_homeserver_ref,
+)
 from ultimate_ai_agent.core.tools.runtime.contracts import ToolInvocationRequest
 from ultimate_ai_agent.core.tools.runtime.enums import ToolInvocationKind
 
-from .adapter import MatrixSyncAuthorityDispatchAdapter, MatrixSyncOperationResult
+from .adapter import (
+    MatrixSyncAuthorityDispatchAdapter,
+    MatrixSyncOperationResult,
+)
 from .authority_surfaces import (
     build_matrix_sync_approval_request,
     build_matrix_sync_authority_action,
@@ -33,7 +43,239 @@ from .contracts import (
     matrix_sync_start_deadline_ref,
     stable_matrix_sync_ref,
 )
-from .transport import MatrixSyncTransportResult
+from .normalization import matrix_sync_private_ref
+from .implementation import matrix_sync_implementation_ref
+from .transport import (
+    MatrixSyncTransientTarget,
+    MatrixSyncTransport,
+    MatrixSyncTransportResult,
+)
+
+
+def _transport_result_mapper(result: object) -> MatrixSyncOperationResult:
+    if not isinstance(result, MatrixSyncTransportResult):
+        raise TypeError("MATRIX_SYNC_TRANSPORT_RESULT_REQUIRED")
+    return operation_result_from_transport(result=result)
+
+
+@dataclass(
+    frozen=True,
+    repr=False,
+    slots=True,
+    init=False,
+    weakref_slot=True,
+    eq=False,
+)
+class MatrixSyncTransportBoundExecutor:
+    _transport: MatrixSyncTransport = field(repr=False, compare=False)
+    _target: MatrixSyncTransientTarget = field(repr=False, compare=False)
+    _pseudonymization_salt: bytes = field(repr=False, compare=False)
+    _transport_binding_ref: str = field(init=False, repr=False)
+    _binding_ref: str = field(init=False, repr=False)
+    _result_mapper_ref: str = field(init=False, repr=False)
+    target_scope_ref: str = field(init=False)
+
+    def __init__(self, *_args: object, **_kwargs: object) -> None:
+        raise TypeError("MATRIX_SYNC_EXECUTOR_FACTORY_REQUIRED")
+
+    @property
+    def binding_ref(self) -> str:
+        return self._binding_ref
+
+    def __call__(self, command: MatrixSyncCommand) -> MatrixSyncOperationResult:
+        live_target_scope_ref = _matrix_sync_transient_target_scope_ref(
+            self._target,
+            pseudonymization_salt=self._pseudonymization_salt,
+        )
+        if (
+            self._transport.binding_ref != self._transport_binding_ref
+            or matrix_sync_implementation_ref(_transport_result_mapper)
+            != self._result_mapper_ref
+            or live_target_scope_ref != self.target_scope_ref
+            or self._binding_ref
+            != _matrix_sync_executor_binding_ref(
+                transport_binding_ref=self._transport_binding_ref,
+                result_mapper_ref=self._result_mapper_ref,
+                target_scope_ref=live_target_scope_ref,
+            )
+        ):
+            raise RuntimeError("MATRIX_SYNC_TRANSPORT_BINDING_CHANGED")
+        return _transport_result_mapper(
+            MatrixSyncTransport.execute(
+                self._transport,
+                command,
+                target=self._target,
+                pseudonymization_salt=self._pseudonymization_salt,
+            )
+        )
+
+
+def _matrix_sync_transient_target_scope_ref(
+    target: MatrixSyncTransientTarget,
+    *,
+    pseudonymization_salt: bytes,
+) -> str:
+    return stable_matrix_sync_ref(
+        "transient-target-scope-ref:matrix-sync",
+        {
+            "homeserver_ref": matrix_homeserver_ref(target.base_url),
+            "pseudonymization_salt_ref": stable_matrix_sync_ref(
+                "pseudonymization-salt-ref:matrix-sync",
+                {"sha256": hashlib.sha256(pseudonymization_salt).hexdigest()},
+            ),
+            "pagination_cursor_ref": (
+                None
+                if target.pagination_token is None
+                else matrix_sync_private_ref(
+                    "pagination-cursor-ref:matrix",
+                    pseudonymization_salt,
+                    target.pagination_token,
+                )
+            ),
+            "room_ref": (
+                None
+                if target.room_id is None
+                else matrix_sync_private_ref(
+                    "room-ref:matrix",
+                    pseudonymization_salt,
+                    target.room_id,
+                )
+            ),
+            "room_refs": sorted(
+                matrix_sync_private_ref(
+                    "room-ref:matrix",
+                    pseudonymization_salt,
+                    room_id,
+                )
+                for room_id in target.room_ids
+            ),
+            "sync_cursor_ref": (
+                "sync-cursor-ref:matrix:initial"
+                if target.since_token is None
+                else matrix_sync_private_ref(
+                    "sync-cursor-ref:matrix",
+                    pseudonymization_salt,
+                    target.since_token,
+                )
+            ),
+        },
+    )
+
+
+def _matrix_sync_executor_binding_ref(
+    *,
+    transport_binding_ref: str,
+    result_mapper_ref: str,
+    target_scope_ref: str,
+) -> str:
+    return stable_matrix_sync_ref(
+        "executor-binding-ref:matrix-sync",
+        {
+            "implementation_ref": (
+                matrix_sync_implementation_ref(
+                    MatrixSyncTransportBoundExecutor.__call__
+                )
+            ),
+            "result_mapper_ref": result_mapper_ref,
+            "target_scope_ref": target_scope_ref,
+            "transport_binding_ref": transport_binding_ref,
+        },
+    )
+
+
+def _build_matrix_sync_executor_factory():  # type: ignore[no-untyped-def]
+    registered: WeakSet[MatrixSyncTransportBoundExecutor] = WeakSet()
+
+    def create(
+        transport: MatrixSyncTransport,
+        *,
+        target: MatrixSyncTransientTarget,
+        pseudonymization_salt: bytes,
+    ) -> MatrixSyncTransportBoundExecutor:
+        if type(transport) is not MatrixSyncTransport:
+            raise TypeError("MATRIX_SYNC_TRANSPORT_OWNER_REQUIRED")
+        if len(pseudonymization_salt) != 32:
+            raise ValueError("MATRIX_SYNC_PSEUDONYMIZATION_SALT_INVALID")
+        executor = object.__new__(MatrixSyncTransportBoundExecutor)
+        object.__setattr__(executor, "_transport", transport)
+        object.__setattr__(executor, "_target", target)
+        object.__setattr__(
+            executor,
+            "_pseudonymization_salt",
+            bytes(pseudonymization_salt),
+        )
+        transport_binding_ref = transport.binding_ref
+        validate_execution_ref(
+            transport_binding_ref,
+            "matrix_sync_transport_binding_ref",
+        )
+        target_scope_ref = _matrix_sync_transient_target_scope_ref(
+            target,
+            pseudonymization_salt=pseudonymization_salt,
+        )
+        result_mapper_ref = matrix_sync_implementation_ref(_transport_result_mapper)
+        object.__setattr__(
+            executor,
+            "_transport_binding_ref",
+            transport_binding_ref,
+        )
+        object.__setattr__(
+            executor,
+            "_result_mapper_ref",
+            result_mapper_ref,
+        )
+        object.__setattr__(
+            executor,
+            "target_scope_ref",
+            target_scope_ref,
+        )
+        object.__setattr__(
+            executor,
+            "_binding_ref",
+            _matrix_sync_executor_binding_ref(
+                transport_binding_ref=transport_binding_ref,
+                result_mapper_ref=result_mapper_ref,
+                target_scope_ref=target_scope_ref,
+            ),
+        )
+        registered.add(executor)
+        return executor
+
+    def contains(executor: object) -> bool:
+        return (
+            type(executor) is MatrixSyncTransportBoundExecutor
+            and executor in registered
+        )
+
+    return create, contains
+
+
+(
+    _create_matrix_sync_transport_executor,
+    _contains_matrix_sync_transport_executor,
+) = _build_matrix_sync_executor_factory()
+del _build_matrix_sync_executor_factory
+
+
+def is_sealed_matrix_sync_transport_executor(
+    executor: object,
+) -> bool:
+    return bool(_contains_matrix_sync_transport_executor(executor))
+
+
+def bind_matrix_sync_transport_executor(
+    transport: MatrixSyncTransport,
+    *,
+    target: MatrixSyncTransientTarget,
+    pseudonymization_salt: bytes,
+) -> MatrixSyncTransportBoundExecutor:
+    if type(transport) is not MatrixSyncTransport:
+        raise TypeError("MATRIX_SYNC_TRANSPORT_OWNER_REQUIRED")
+    return _create_matrix_sync_transport_executor(
+        transport=transport,
+        target=target,
+        pseudonymization_salt=pseudonymization_salt,
+    )
 
 
 def build_matrix_sync_dispatch_request(
@@ -146,7 +388,7 @@ def execute_matrix_sync_command(
     command: MatrixSyncCommand,
     *,
     authority_state_dir: Path,
-    executor: Callable[[MatrixSyncCommand], MatrixSyncOperationResult],
+    executor: MatrixSyncTransportBoundExecutor,
     approval_ref: str | None = None,
     lease_store: AuthorityLeaseStore | None = None,
     approval_authority: LocalApprovalAuthority | None = None,

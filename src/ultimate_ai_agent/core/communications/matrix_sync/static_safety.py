@@ -14,7 +14,7 @@ MATRIX_SYNC_TRANSPORT_REL = (
 _SUBPROCESS_RUN = "subprocess" + ".run("
 _SUBPROCESS_POPEN = "subprocess" + ".Popen("
 _REVIEWED_MATRIX_SYNC_TRANSPORT_SHA256 = (
-    "88de523ade8f34aebef1f4b23c760399bf1b4386221b70fd225b48219e3631d7"
+    "b0f22d2c3094ef2257663dd2a4e7f1750d26afb88e2c110653c90b9ab6172a15"
 )
 _REVIEWED_MATRIX_CACHE_CRYPTO_SHA256 = (
     "83462fb73886d2e2853e0556c29f4c8e25b963841eefed39c0b94be46b12c051"
@@ -39,7 +39,7 @@ def is_exact_matrix_sync_transport_subprocess_site(
         "stderr=" + "subprocess" + ".PIPE",
         "shell=False",
         "cwd=runtime_snapshot.adapter_root",
-        "env=_MINIMAL_SUBPROCESS_ENV",
+        "env=matrix_node_runtime_environment(",
         "os.killpg(process.pid, signal.SIGTERM)",
         "os.killpg(process.pid, signal.SIGKILL)",
         "process.wait(timeout=grace_seconds)",
@@ -49,6 +49,15 @@ def is_exact_matrix_sync_transport_subprocess_site(
         "validate_matrix_adapter_runtime_integrity(",
         "_validate_file(node_binary",
         "_validate_file(runner_path",
+        '"allow_loopback_harness": self._allow_loopback_harness',
+        '"credential_writer_binding_ref"',
+        "node_runtime_binding_ref",
+        "node_runtime_profile_ref",
+        '"registry_binding_ref": self._registry.binding_ref',
+        "resolve_approved_matrix_node_runtime_binding(",
+        "MatrixCredentialWriter.write_once(",
+        "InMemoryMatrixCredentialWriter.write_once(",
+        "MatrixTransientBatchRegistry.register(",
         'getattr(process, "stdin", None)',
         'getattr(process, "stdout", None)',
         'getattr(process, "stderr", None)',

@@ -28,7 +28,21 @@ room-timeline pagination. A one-use credential crosses an inherited anonymous
 file descriptor and is never placed in JSON, argv, or the environment. Raw
 provider responses exist only in a bounded one-use transient registry. The
 runner, imported adapter tree, package lock, and Rust/WASM dependency are bound
-to the canonical runtime-integrity manifest.
+to the canonical runtime-integrity manifest. The transport binding also covers
+the exact repository-approved Node profile and its complete non-system macOS
+loader closure; the private snapshot must pass the same bounded Node 22
+permission probe as defense in depth. The dispatcher accepts only one exact
+factory-registered executor created from the concrete owning transport. Its
+binding derives from the approved runtime, exact reviewed credential-writer
+owner, per-instance transient-registry owner, loopback posture, implementation,
+and pseudonymized transient target scope. Arbitrary executor subclasses,
+unreviewed credential writers, registry subclasses, caller-selected result
+mappers, or independently asserted binding refs are rejected.
+
+Direct transport construction is likewise an internal trusted-composition seam.
+Callable lanes use only the canonical adapter root, exact reviewed owner types,
+and the factory-registered executor; no API, CLI, or Control Center input can
+select a replacement runtime trust root.
 
 ## Protected Cache
 

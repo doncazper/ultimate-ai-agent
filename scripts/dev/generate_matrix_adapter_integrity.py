@@ -54,7 +54,7 @@ def build_manifest() -> dict[str, object]:
         for key in lock.get("packages", {})
         if key.startswith("node_modules/") and "/node_modules/" not in key
     )
-    roots = ["src", *package_roots]
+    roots = ["src", "runtime-trust", *package_roots]
     return {
         "schema_version": "uaa-matrix-client-adapter-integrity.v1",
         "package_lock_sha256": _sha256(LOCK_PATH),

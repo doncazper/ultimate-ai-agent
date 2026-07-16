@@ -9,7 +9,7 @@ MATRIX_SESSION_BACKEND_REL = (
     "src/ultimate_ai_agent/core/communications/matrix_session/backend.py"
 )
 _REVIEWED_MATRIX_SESSION_BACKEND_SHA256 = (
-    "b9b3902bbfc88cd861948eae7cabf5b8551d71eaee72863a6a861ca99aa5948a"
+    "66836f4f2fa0775e29823303ed998c15c93ce4675ddc91886cc5e407e07da85c"
 )
 _POPEN = "subprocess" + ".Popen("
 _HOME = "Path." + "home("
@@ -28,7 +28,7 @@ def is_exact_matrix_session_subprocess_site(
         return False
     required = (
         "start_new_session=True",
-        'env={"PATH": "/usr/bin:/bin", "TMPDIR": "/tmp"}',
+        "env=matrix_node_runtime_environment(runtime_root)",
         "stdin=" + "subprocess" + ".PIPE",
         "stdout=" + "subprocess" + ".PIPE",
         "stderr=" + "subprocess" + ".DEVNULL",
@@ -38,7 +38,13 @@ def is_exact_matrix_session_subprocess_site(
         "MATRIX_SESSION_ADAPTER_RESPONSE_MAX_BYTES = 128 * 1024",
         "validate_transient_target",
         "_validate_runtime_integrity",
-        'os.fspath(runtime_snapshot.node_binary)',
+        "node_runtime_binding_ref",
+        "node_runtime_profile_ref",
+        "resolve_approved_matrix_node_runtime_binding",
+        "MATRIX_SESSION_NODE_RUNTIME_PROBE_SOURCE",
+        "MATRIX_SESSION_NODE_RUNTIME_PERMISSION_PROBE_FAILED",
+        'f"--allow-fs-read={probe_path}"',
+        "os.fspath(runtime_snapshot.node_binary)",
         '"--permission"',
         'f"--allow-fs-read={runtime_snapshot.adapter_root}"',
         "os.fspath(runtime_snapshot.runner_path)",

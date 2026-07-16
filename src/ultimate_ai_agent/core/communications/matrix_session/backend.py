@@ -31,12 +31,41 @@ from ultimate_ai_agent.core.execution.validation import (
 )
 from .constants import MatrixSessionOperation
 from .contracts import MatrixSessionCommand, stable_matrix_session_ref
+from .node_runtime import (
+    MATRIX_NODE_RUNTIME_PROBE_OUTPUT,
+    MatrixNodeRuntimeBinding,
+    copy_matrix_node_runtime_binding,
+    matrix_node_runtime_environment,
+    resolve_approved_matrix_node_runtime_binding,
+    resolve_matrix_node_runtime_binding,
+    validate_matrix_node_runtime_probe,
+)
 from .target_policy import validate_matrix_transient_target
 
 
 MATRIX_SESSION_ADAPTER_RESPONSE_MAX_BYTES = 128 * 1024
 MATRIX_SESSION_ADAPTER_INPUT_MAX_BYTES = 128 * 1024
 MATRIX_SESSION_ADAPTER_TIMEOUT_SECONDS = 30
+MATRIX_SESSION_NODE_RUNTIME_PROBE_TIMEOUT_SECONDS = 15
+MATRIX_SESSION_NODE_RUNTIME_PROBE_NAME = "node-runtime-probe.mjs"
+MATRIX_SESSION_NODE_RUNTIME_PROBE_SOURCE = b"""\
+import { readFileSync } from "node:fs";
+const outsidePath = process.argv[2];
+const version = process.versions?.node ?? "";
+if (process.release?.name !== "node" || !/^22\\.[0-9]+\\.[0-9]+$/.test(version)) {
+  process.exit(64);
+}
+let denied = false;
+try {
+  readFileSync(outsidePath);
+} catch (error) {
+  denied = error?.code === "ERR_ACCESS_DENIED";
+}
+if (!denied) {
+  process.exit(65);
+}
+process.stdout.write("node22-permission-enforced\\n");
+"""
 MATRIX_SESSION_SAFE_DISABLE_ENV = "UAA_MATRIX_SESSION_SAFE_DISABLE"
 MATRIX_SESSION_HELPER_NAME = "uaa-matrix-session-keychain-helper"
 MATRIX_SESSION_HELPER_METADATA_NAME = "matrix-session-keychain-helper.json"
@@ -186,6 +215,10 @@ class MatrixSessionBackendConfig:
     wasm_asset_path: Path
     package_lock_path: Path
     runtime_integrity_path: Path
+    node_runtime_binding: MatrixNodeRuntimeBinding = field(
+        init=False,
+        repr=False,
+    )
 
     def __post_init__(self) -> None:
         for path in (
@@ -203,11 +236,25 @@ class MatrixSessionBackendConfig:
             raise ValueError("MATRIX_SESSION_REPO_ROOT_SYMLINKED")
         if (self.helper_path is None) != (self.expected_helper_sha256 is None):
             raise ValueError("MATRIX_SESSION_HELPER_BINDING_INCOMPLETE")
+        _validate_runtime_integrity(
+            adapter_root=self.adapter_root,
+            package_lock_path=self.package_lock_path,
+            manifest_path=self.runtime_integrity_path,
+        )
         for path, expected in (
             (self.node_binary, self.expected_node_sha256),
             (self.runner_path, self.expected_runner_sha256),
         ):
             _validate_hash_bound_file(path, expected)
+        runtime_binding = resolve_approved_matrix_node_runtime_binding(
+            self.node_binary,
+            trust_manifest_path=(
+                self.adapter_root / "runtime-trust" / "node-runtime.json"
+            ),
+        )
+        if runtime_binding.executable.expected_sha256 != self.expected_node_sha256:
+            raise ValueError("MATRIX_SESSION_RUNTIME_HASH_MISMATCH")
+        object.__setattr__(self, "node_runtime_binding", runtime_binding)
         if self.helper_path is not None and self.expected_helper_sha256 is not None:
             _validate_hash_bound_file(self.helper_path, self.expected_helper_sha256)
         for path in (self.node_binary,):
@@ -216,11 +263,6 @@ class MatrixSessionBackendConfig:
         if self.helper_path is not None and not os.access(self.helper_path, os.X_OK):
             raise ValueError("MATRIX_SESSION_RUNTIME_EXECUTABLE_REQUIRED")
         _require_safe_regular_file(self.wasm_asset_path)
-        _validate_runtime_integrity(
-            adapter_root=self.adapter_root,
-            package_lock_path=self.package_lock_path,
-            manifest_path=self.runtime_integrity_path,
-        )
 
 
 @dataclass(frozen=True)
@@ -450,10 +492,15 @@ class MatrixSessionBackend:
         self._lifecycle_lock = threading.Lock()
         self._lifecycle_lock_dir = lifecycle_lock_dir
         self._lifecycle_descriptor: int | None = None
+        assert config.node_runtime_binding is not None
         self.binding_ref = stable_matrix_session_ref(
             "backend-binding-ref:matrix-session",
             {
                 "node_sha256": config.expected_node_sha256,
+                "node_runtime_binding_ref": config.node_runtime_binding.binding_ref,
+                "node_runtime_profile_ref": (
+                    config.node_runtime_binding.trust_profile_ref
+                ),
                 "runner_sha256": config.expected_runner_sha256,
                 "helper_sha256": config.expected_helper_sha256 or "not-installed",
                 "wasm_sha256": _file_sha256(config.wasm_asset_path),
@@ -615,6 +662,7 @@ class MatrixSessionBackend:
                 expected_node_sha256=self.config.expected_node_sha256,
                 expected_runner_sha256=self.config.expected_runner_sha256,
                 snapshot_parent=self._lifecycle_lock_dir / "runtime-snapshots",
+                node_runtime_binding=self.config.node_runtime_binding,
             )
             payload = self._build_adapter_payload(
                 operation=operation,
@@ -713,6 +761,7 @@ class MatrixSessionBackend:
                 os.fspath(runtime_snapshot.runner_path),
             ],
             payload,
+            runtime_root=runtime_snapshot.node_binary.parent.parent,
         )
 
     def _release_lifecycle(self) -> None:
@@ -801,6 +850,11 @@ def default_matrix_session_backend_config(
     node_path = Path(node).resolve()
     runner = repo_root / "integrations" / "matrix-client-adapter" / "src" / "runner.mjs"
     adapter_root = runner.parent.parent
+    runtime_integrity_path = adapter_root / "runtime-integrity.json"
+    runtime_binding = resolve_approved_matrix_node_runtime_binding(
+        node_path,
+        trust_manifest_path=(adapter_root / "runtime-trust" / "node-runtime.json"),
+    )
     wasm = (
         repo_root
         / "integrations"
@@ -832,12 +886,12 @@ def default_matrix_session_backend_config(
         node_binary=node_path,
         runner_path=runner,
         helper_path=helper,
-        expected_node_sha256=_file_sha256(node_path),
+        expected_node_sha256=runtime_binding.executable.expected_sha256,
         expected_runner_sha256=_file_sha256(runner),
         expected_helper_sha256=expected_helper,
         wasm_asset_path=wasm,
         package_lock_path=adapter_root / "package-lock.json",
-        runtime_integrity_path=adapter_root / "runtime-integrity.json",
+        runtime_integrity_path=runtime_integrity_path,
     )
 
 
@@ -874,11 +928,17 @@ def create_matrix_runtime_snapshot(
     expected_node_sha256: str,
     expected_runner_sha256: str,
     snapshot_parent: Path | None = None,
+    node_runtime_binding: MatrixNodeRuntimeBinding,
 ) -> MatrixRuntimeSnapshot:
     """Copy reviewed runtime bytes into one private, revalidated launch root."""
 
     _validate_hash_bound_file(node_binary, expected_node_sha256)
     _validate_hash_bound_file(runner_path, expected_runner_sha256)
+    runtime_binding = resolve_matrix_node_runtime_binding(
+        node_binary,
+        expected_node_sha256=expected_node_sha256,
+        expected=node_runtime_binding,
+    )
     package_lock = adapter_root / "package-lock.json"
     manifest = adapter_root / "runtime-integrity.json"
     _validate_runtime_integrity(
@@ -924,13 +984,18 @@ def create_matrix_runtime_snapshot(
         snapshot = MatrixRuntimeSnapshot(
             root=root,
             adapter_root=root / "adapter",
-            node_binary=root / "node-runtime",
+            node_binary=root / "node-runtime" / "bin" / "node-runtime",
             runner_path=root / "adapter" / runner_path.relative_to(adapter_root),
             owner_lock_fd=owner_lock_fd,
         )
         try:
             snapshot.adapter_root.mkdir(mode=0o700)
-            _copy_runtime_file(node_binary, snapshot.node_binary)
+            copied_node = copy_matrix_node_runtime_binding(
+                runtime_binding,
+                target_root=snapshot.node_binary.parent.parent,
+            )
+            if copied_node != snapshot.node_binary:
+                raise ValueError("MATRIX_SESSION_NODE_RUNTIME_LAYOUT_INVALID")
             _copy_runtime_file(
                 package_lock,
                 snapshot.adapter_root / "package-lock.json",
@@ -951,6 +1016,7 @@ def create_matrix_runtime_snapshot(
                     exist_ok=True,
                 )
                 _copy_runtime_file(runner_path, snapshot.runner_path)
+            _write_snapshot_node_runtime_probe(snapshot)
             _validate_hash_bound_file(snapshot.node_binary, expected_node_sha256)
             _validate_hash_bound_file(snapshot.runner_path, expected_runner_sha256)
             _validate_runtime_integrity(
@@ -961,6 +1027,7 @@ def create_matrix_runtime_snapshot(
             for path in sorted(root.rglob("*"), reverse=True):
                 os.chmod(path, 0o500 if path.is_dir() else 0o400)
             os.chmod(snapshot.node_binary, 0o500)
+            _validate_snapshot_node_runtime(snapshot)
             os.chmod(root, 0o500)
             return snapshot
         except BaseException:
@@ -987,6 +1054,77 @@ def remove_matrix_runtime_snapshot(snapshot: MatrixRuntimeSnapshot) -> None:
             os.close(snapshot.owner_lock_fd)
         except OSError:
             pass
+
+
+def _validate_snapshot_node_runtime(snapshot: MatrixRuntimeSnapshot) -> None:
+    probe_path = snapshot.root / MATRIX_SESSION_NODE_RUNTIME_PROBE_NAME
+    outside_path = snapshot.adapter_root / "package-lock.json"
+    process, _payload = _spawn_bounded(
+        [
+            os.fspath(snapshot.node_binary),
+            "--permission",
+            f"--allow-fs-read={probe_path}",
+            os.fspath(probe_path),
+            os.fspath(outside_path),
+        ],
+        None,
+        runtime_root=snapshot.node_binary.parent.parent,
+    )
+    try:
+        if process.stdin is None:
+            raise MatrixSessionBackendError("MATRIX_SESSION_ADAPTER_PIPE_REQUIRED")
+        process.stdin.close()
+        output = _communicate_bounded(
+            process,
+            timeout_seconds=MATRIX_SESSION_NODE_RUNTIME_PROBE_TIMEOUT_SECONDS,
+            maximum_output_bytes=len(MATRIX_NODE_RUNTIME_PROBE_OUTPUT),
+        )
+        if process.returncode != 0:
+            raise ValueError("MATRIX_SESSION_NODE_RUNTIME_PERMISSION_PROBE_FAILED")
+        validate_matrix_node_runtime_probe(output)
+    except ValueError:
+        if process.poll() is None:
+            MatrixSessionBackend._terminate_process_group(process)
+        raise
+    except BaseException:
+        if process.poll() is None:
+            MatrixSessionBackend._terminate_process_group(process)
+        raise ValueError("MATRIX_SESSION_NODE_RUNTIME_VERSION_PROBE_FAILED") from None
+    finally:
+        if process.poll() is None:
+            MatrixSessionBackend._terminate_process_group(process)
+        _close_process_streams(process)
+
+
+def _write_snapshot_node_runtime_probe(snapshot: MatrixRuntimeSnapshot) -> None:
+    target = snapshot.root / MATRIX_SESSION_NODE_RUNTIME_PROBE_NAME
+    descriptor: int | None = None
+    try:
+        descriptor = os.open(
+            target,
+            os.O_WRONLY
+            | os.O_CREAT
+            | os.O_EXCL
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_NOFOLLOW", 0),
+            0o400,
+        )
+        view = memoryview(MATRIX_SESSION_NODE_RUNTIME_PROBE_SOURCE)
+        while view:
+            written = os.write(descriptor, view)
+            if written <= 0:
+                raise ValueError("MATRIX_SESSION_NODE_RUNTIME_PROBE_WRITE_FAILED")
+            view = view[written:]
+        os.fsync(descriptor)
+    except BaseException:
+        try:
+            target.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
 
 
 def _open_runtime_snapshot_lock(path: Path, *, create: bool) -> int:
@@ -1082,9 +1220,16 @@ def _remove_runtime_snapshot_root(root: Path) -> None:
 
 
 def _spawn_bounded(
-    argv: list[str], payload: dict[str, Any]
+    argv: list[str],
+    payload: dict[str, Any] | None,
+    *,
+    runtime_root: Path,
 ) -> tuple[subprocess.Popen[bytes], bytes]:
-    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    encoded = (
+        b""
+        if payload is None
+        else json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    )
     if len(encoded) > MATRIX_SESSION_ADAPTER_INPUT_MAX_BYTES:
         raise MatrixSessionBackendError("MATRIX_SESSION_ADAPTER_INPUT_TOO_LARGE")
     process = subprocess.Popen(
@@ -1092,7 +1237,7 @@ def _spawn_bounded(
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL,
-        env={"PATH": "/usr/bin:/bin", "TMPDIR": "/tmp"},
+        env=matrix_node_runtime_environment(runtime_root),
         start_new_session=True,
     )
     return process, encoded

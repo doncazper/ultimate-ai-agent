@@ -59,10 +59,25 @@ enter receipts or the observation ledger.
 The adapter lockfile, dependency licenses, runner modules, and required WASM
 asset are covered by the runtime-integrity manifest and SBOM checks. Missing or
 changed assets fail readiness and are revalidated inside the locked pre-start
-boundary. Rollback means safe-disabling the adapter and restoring/removing the
-exact package lock as one reviewed dependency change; the two read lanes have
-no remote rollback action, while blocked mutations expose rollback-readiness
-refs only.
+boundary. The selected macOS Node executable and its complete non-system Mach-O
+loader closure must match one exact repository-reviewed Node 22 runtime profile
+under `runtime-trust`, is privately copied with preserved loader layout, and is
+included with its profile ref in the backend binding. A self-reported version or
+probe result is not provenance. Only an approved arm64 Mach-O closure is
+accepted, and the exact private snapshot must additionally prove Node identity
+plus functional `--permission` denial against an out-of-scope file before it
+may launch an adapter. Scripts, probe-mimicking impostors, unreviewed upgrades,
+dependency drift, ambiguity, unsafe file types, or unsupported runtime evidence
+fail closed. Rollback means
+safe-disabling the adapter and restoring/removing the exact package lock as one
+reviewed dependency change; the two read lanes have no remote rollback action,
+while blocked mutations expose rollback-readiness refs only.
+
+The exported backend-config constructor is a trusted composition and test seam,
+not an operator authority surface. Repository API, CLI, and availability paths
+use `default_matrix_session_backend_config` with the internally selected adapter
+root and its reviewed trust manifest; user input cannot select another trust
+root.
 
 ## Operator Surfaces
 
