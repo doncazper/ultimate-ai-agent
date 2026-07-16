@@ -102,7 +102,11 @@ def test_pytest_ci_uses_one_installed_job_with_bounded_workers_and_stable_aggreg
     )
     assert argv[argv.index("--max-workers") + 1] == "4"
     assert "--safe-summary" in argv
-    assert "--write-timings-json" not in argv
+    assert "--write-timings-json" in argv
+    assert (
+        argv[argv.index("--write-timings-json") + 1]
+        == "{temp_root}/uaa_pytest_file_timings.json"
+    )
     assert "/usr/sbin/taskpolicy -c utility" in shards
     assert "trap terminate_shard_runner EXIT INT TERM HUP" in shards
     assert 'kill -TERM "$shard_runner_pid"' in shards
@@ -212,4 +216,7 @@ def test_openapi_and_frontend_commands_exist_only_in_canonical_registry() -> Non
     assert "command:route-module.ownership" in lanes["openapi"].command_refs
     assert commands["command:route-module.ownership"].env == (("PYTHONPATH", "src"),)
     assert lanes["frontend"].satisfied_command_refs == ("command:frontend.check",)
-    assert command_registry()["command:frontend.check"].argv == ("make", "frontend-check")
+    assert command_registry()["command:frontend.check"].argv == (
+        ".venv/bin/python",
+        "scripts/verification/run_frontend_check.py",
+    )

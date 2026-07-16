@@ -7,7 +7,6 @@ from scripts.verification.ci_command_manifest import (
     VERIFICATION_DAG,
     build_plan,
 )
-from scripts.verification.changed_path_selector import select_paths
 from scripts.verification.ci_fallback_contracts import PrivateVerificationScope
 from scripts.verification.plan_affected_verification import (
     changed_records,
@@ -19,10 +18,7 @@ from scripts.verification.verification_contracts import (
     VerificationRiskTier,
     dependency_state_fingerprint,
 )
-from scripts.verification.verification_risk import (
-    classify_changes,
-    unit_refs_for_selection,
-)
+from scripts.verification.verification_selection import select_verification
 
 
 _ALWAYS_FOCUSED_UNIT_REFS = {
@@ -115,34 +111,31 @@ def build_private_verification_scope(
         head_sha=repository_sha,
         records=records,
     )
-    selection = classify_changes(records, unsafe_path_refs=unsafe_refs)
-    affected_selection = select_paths(
-        list(selection.changed_path_refs),
-        tier="affected",
-        repo=repo,
-    )
-    if affected_selection.status == "full_gate_required" and not diagnostics:
-        raise PrivateScopeFullGateRequiredError(
-            affected_selection.fallback_reason_refs
-        )
-    authoritative_unit_refs = unit_refs_for_selection(
-        selection,
+    selection = select_verification(
+        records,
+        verification_dag=VERIFICATION_DAG,
         full_unit_refs=tuple(unit.unit_ref for unit in CI_JOB_GRAPH),
+        repo=repo,
+        unsafe_path_refs=unsafe_refs,
     )
+    if selection.full_gate_required and not diagnostics:
+        raise PrivateScopeFullGateRequiredError(
+            selection.escalation_reason_refs
+        )
     authoritative_plan = build_plan(
         repo,
         repository_sha,
         change_records=records,
-        selected_unit_refs=authoritative_unit_refs,
+        selected_unit_refs=selection.selected_unit_refs,
         base_sha=base_sha,
         unsafe_path_refs=unsafe_refs,
         verify_repository_state=verify_repository_state,
     )
     selected_unit_refs = (
         *_focused_unit_refs(
-            risk_tier=selection.tier,
+            risk_tier=selection.risk_tier,
             surface_refs=selection.surface_refs,
-            selected_test_refs=affected_selection.selected_test_refs,
+            selected_test_refs=selection.selected_test_refs,
         ),
         *diagnostics,
     )
@@ -153,7 +146,7 @@ def build_private_verification_scope(
         selected_unit_refs=selected_unit_refs,
         base_sha=base_sha,
         unsafe_path_refs=unsafe_refs,
-        selected_test_refs=affected_selection.selected_test_refs,
+        selected_test_refs=selection.selected_test_refs,
         verify_repository_state=verify_repository_state,
     )
     units_by_ref = {unit.unit_ref: unit for unit in VERIFICATION_DAG}
@@ -176,8 +169,7 @@ def build_private_verification_scope(
     reason_refs = tuple(
         dict.fromkeys(
             (
-                *selection.reason_refs,
-                *affected_selection.fallback_reason_refs,
+                *selection.escalation_reason_refs,
                 "reason-ref:private-ci:complete-pytest-github-only",
                 "reason-ref:private-ci:typescript-typecheck-github-only",
                 "reason-ref:private-ci:github-final-gate-required",
@@ -192,7 +184,7 @@ def build_private_verification_scope(
         authoritative_plan_fingerprint=authoritative_plan.plan_fingerprint,
         plan_fingerprint=private_plan.plan_fingerprint,
         dependency_state_fingerprint=dependency_state_fingerprint(private_plan),
-        risk_tier=selection.tier.value,
+        risk_tier=selection.risk_tier.value,
         selected_unit_refs=private_plan.selected_unit_refs,
         selected_command_refs=private_plan.selected_command_refs,
         diagnostic_unit_refs=diagnostics,

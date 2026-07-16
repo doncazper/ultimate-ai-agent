@@ -483,10 +483,10 @@ Dev environment verifier prints remediation using `python3 -m venv .venv` and `.
 Control Center package metadata is detected when `apps/control-center` exists.
 Missing npm is a warning unless frontend checks are explicitly required by the current repo convention.
 Makefile targets `doctor`, `test`, `test-serial`, `test-sharded`, `test-sharded-profile`, `verify`, `verify-static`, `verify-gate-architecture`, `verify-fast`, `verify-dev-fast`, `verify-dev-sharded`, `verify-local`, `frontend-check`, `openapi`, and `ruff` use `.venv/bin/python`.
-`test` and `verify` run the complete timing-balanced, process-isolated pytest inventory; `test-serial` remains an order-sensitive diagnostic lane. `verify-dev-fast` runs the four pre-gate phases concurrently, then runs Foundation Gate in `report-only --no-write-latest` mode without implying release readiness.
-`VERIFY_DEV_FAST_JOBS` bounds top-level phase fanout and `PYTEST_SHARD_WORKERS` separately bounds the pytest subprocess pool. `verify-dev-sharded` and `verify-local` expose the readable local/dev runner, capture per-phase logs under ignored `/tmp` paths, and print concise phase timing summaries.
-Hosted CI runs the same default-safe pytest inventory across eight isolated timing-balanced file shards and preserves one aggregate `pytest` check that fails unless the complete matrix passes.
-The advisory timing seed affects scheduling only. `test-sharded-profile` is the explicit complete-run timing refresh, and pytest-xdist is not an accepted dependency.
+`test` and `verify` run the complete timing-balanced, process-isolated pytest inventory through the canonical clean-SHA local lane; `test-serial` remains an order-sensitive diagnostic lane. `verify-dev-fast` runs the four pre-gate phases concurrently, then runs Foundation Gate in `report-only --no-write-latest` mode without implying release readiness.
+`VERIFY_DEV_FAST_JOBS` bounds top-level phase fanout and the canonical four-worker pytest subprocess pool remains separately bounded. `verify-dev-sharded` and `verify-local` expose the readable local/dev runner, capture per-phase logs under ignored `/tmp` paths, and print concise phase timing summaries.
+Hosted CI runs the same default-safe pytest inventory as one serialized Matrix/resource-owning shard followed by eight isolated timing-balanced file shards, with at most four workers, and preserves one aggregate `pytest` check that fails unless the complete matrix passes.
+The advisory timing seed affects scheduling only. `test-sharded-profile` is an alternative first and only complete run for an exact state through the same exact-resource fence, and pytest-xdist is not an accepted dependency.
 Repo verification commands should use `.venv/bin/python` or Makefile targets, not bare `python`.
 Shell aliases are not reliable for Codex/non-interactive shells.
 No global Python alias is required.

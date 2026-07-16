@@ -313,8 +313,11 @@ def release_lanes() -> tuple[ReleaseLane, ...]:
             commands=(
                 LaneCommand(
                     command_ref="command:frontend.check",
-                    argv=("make", "frontend-check"),
-                    purpose="Run Control Center typecheck, lint, tests, and build through the existing Make target.",
+                    argv=(
+                        py,
+                        "scripts/verification/run_frontend_check.py",
+                    ),
+                    purpose="Run the installed Control Center typecheck, tests, and build inside the canonical fenced lane.",
                 ),
                 LaneCommand(
                     command_ref="command:frontend.safety",

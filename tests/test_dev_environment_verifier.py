@@ -108,7 +108,7 @@ def test_makefile_uses_project_venv_python_for_verification_commands() -> None:
     assert "PYTHON := .venv/bin/python" in text
     assert "VERIFY_TIMINGS_JSON ?= /tmp/uaa_verify_all_timings.json" in text
     assert "VERIFY_DEV_FAST_JOBS ?= 4" in text
-    assert "PYTEST_SHARD_WORKERS ?= 8" in text
+    assert "PYTEST_SHARD_WORKERS ?= 4" in text
     assert "PYTHONPATH=src $(PYTHON) -m pytest" in text
     assert "$(PYTHON) scripts/verify_all.py" in text
     assert (

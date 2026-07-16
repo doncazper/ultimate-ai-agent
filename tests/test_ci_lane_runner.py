@@ -424,6 +424,34 @@ def test_typescript_terminal_status_cannot_change_prestart_identity(
         ).validate()
 
 
+def test_direct_frontend_lane_without_durable_fence_fails_before_plan_or_spawn(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(runner, "_git_head", lambda _repo: SHA)
+    monkeypatch.setattr(
+        runner,
+        "build_plan",
+        lambda *_args, **_kwargs: pytest.fail(
+            "unfenced frontend verification must fail before planning"
+        ),
+    )
+    monkeypatch.setattr(
+        runner,
+        "_run_command",
+        lambda *_args, **_kwargs: pytest.fail(
+            "unfenced frontend verification must not spawn"
+        ),
+    )
+
+    with pytest.raises(ValueError, match="requires a durable execution fence"):
+        runner.run_lane(
+            "ci-control-center-frontend",
+            repository_sha=SHA,
+            temp_root=tmp_path / "temp",
+        )
+
+
 def test_frontend_release_receipt_reuses_exact_dependency_proof(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1011,6 +1039,208 @@ def test_exclusive_typed_lane_publishes_terminal_execution_fence(
     assert decision.terminal_proof is not None
     assert decision.terminal_proof.status is VerificationTerminalStatus.PASSED
     assert starts == ["command:pytest.sharded-suite"]
+
+
+def test_local_exclusive_lane_uses_same_resource_fence_without_output_files(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lane_plan = build_plan(
+        ROOT,
+        SHA,
+        lane_refs=("ci-pytest-shards",),
+        verify_repository_state=False,
+    )
+    full_plan = build_plan(ROOT, SHA, verify_repository_state=False)
+    monkeypatch.setattr(
+        runner,
+        "build_plan",
+        lambda *_args, **kwargs: lane_plan if kwargs.get("lane_refs") else full_plan,
+    )
+    monkeypatch.setattr(runner, "_git_head", lambda _repo: SHA)
+    monkeypatch.setattr(runner.importlib.util, "find_spec", lambda _name: object())
+    monkeypatch.setattr(
+        runner,
+        "expected_pytest_shard_plan_ref",
+        lambda: "pytest-shard-plan-ref:sha256:" + "a" * 64,
+    )
+    monkeypatch.setattr(
+        runner,
+        "load_aggregate_evidence",
+        lambda *_args, **_kwargs: {
+            "collection_digest_ref": "sha256:" + "b" * 64,
+            "collected_test_count": 17,
+        },
+    )
+    lock_scopes: list[str] = []
+
+    class LocalFullSuiteLock(_FakeFullSuiteLock):
+        def __init__(self, **kwargs: object) -> None:
+            lock_scopes.append(str(kwargs.get("attempt_scope")))
+
+    monkeypatch.setattr(runner, "FullSuiteLock", LocalFullSuiteLock)
+
+    def fake_run_command(
+        command: CommandSpec,
+        *,
+        validate_start=None,
+        before_start=None,
+        **_kwargs: object,
+    ) -> dict[str, object]:
+        assert validate_start is not None
+        assert before_start is not None
+        validate_start()
+        before_start()
+        return {
+            "command_ref": command.command_ref,
+            "category": command.category,
+            "status": "pass",
+            "started_at": "2026-07-15T00:00:00Z",
+            "completed_at": "2026-07-15T00:00:01Z",
+            "duration_ms": 1_000,
+            "output_byte_count": 0,
+            "output_digest": "c" * 64,
+            "result_ref": "result-ref:ci:"
+            + hashlib.sha256(command.command_ref.encode()).hexdigest(),
+            "redaction_status": "content_free_output_metadata_only",
+        }
+
+    monkeypatch.setattr(runner, "_run_command", fake_run_command)
+    fence_root = tmp_path / "execution-fence"
+
+    runner.run_lane(
+        "ci-pytest-shards",
+        repository_sha=SHA,
+        temp_root=tmp_path / "temp",
+        verification_execution_fence_root=fence_root,
+        full_suite_lock_mode="local",
+    )
+
+    unit = next(unit for unit in CI_JOB_GRAPH if unit.unit_ref == "pytest-shards")
+    local_identity = build_verification_execution_identity(
+        full_plan,
+        unit,
+        execution_surface_ref="surface-ref:local",
+    )
+    decision = VerificationExecutionFence(fence_root).begin(local_identity)
+    assert lock_scopes == ["local"]
+    assert (
+        decision.disposition
+        is VerificationExecutionFenceDisposition.TERMINAL_PROOF_REUSED
+    )
+
+
+def test_local_frontend_lane_uses_typescript_resource_attempt_and_fence(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lane_plan = build_plan(
+        ROOT,
+        SHA,
+        lane_refs=("ci-control-center-frontend",),
+        verify_repository_state=False,
+    )
+    full_plan = build_plan(ROOT, SHA, verify_repository_state=False)
+    monkeypatch.setattr(
+        runner,
+        "build_plan",
+        lambda *_args, **kwargs: lane_plan if kwargs.get("lane_refs") else full_plan,
+    )
+    monkeypatch.setattr(runner, "_git_head", lambda _repo: SHA)
+    declared = SimpleNamespace(
+        declared_project_fingerprint=full_plan.typescript_project_fingerprint
+    )
+    runtime = SimpleNamespace(
+        resolved_runtime_fingerprint="e" * 64,
+        typescript_version="7.0.2",
+    )
+    monkeypatch.setattr(
+        runner,
+        "build_declared_typescript_binding",
+        lambda _root: declared,
+    )
+    monkeypatch.setattr(
+        runner,
+        "resolve_typescript_runtime_binding",
+        lambda _root, _declared: runtime,
+    )
+    monkeypatch.setattr(
+        runner,
+        "consume_frontend_collection_evidence",
+        lambda _path: {
+            "collection_digest_ref": "sha256:" + "d" * 64,
+            "collected_test_count": 3,
+            "result_status": "passed",
+        },
+    )
+    lock_attempts: list[tuple[str, object]] = []
+
+    class LocalFrontendLock(_FakeFullSuiteLock):
+        def __init__(self, **kwargs: object) -> None:
+            lock_attempts.append(
+                (
+                    str(kwargs.get("attempt_scope")),
+                    kwargs.get("resource_attempt_fingerprint"),
+                )
+            )
+
+    monkeypatch.setattr(runner, "FullSuiteLock", LocalFrontendLock)
+
+    def fake_run_command(
+        command: CommandSpec,
+        *,
+        validate_start=None,
+        before_start=None,
+        **_kwargs: object,
+    ) -> dict[str, object]:
+        assert validate_start is not None
+        assert before_start is not None
+        validate_start()
+        before_start()
+        return {
+            "command_ref": command.command_ref,
+            "category": command.category,
+            "status": "pass",
+            "started_at": "2026-07-15T00:00:00Z",
+            "completed_at": "2026-07-15T00:00:01Z",
+            "duration_ms": 1_000,
+            "output_byte_count": 0,
+            "output_digest": "c" * 64,
+            "result_ref": "result-ref:ci:"
+            + hashlib.sha256(command.command_ref.encode()).hexdigest(),
+            "redaction_status": "content_free_output_metadata_only",
+        }
+
+    monkeypatch.setattr(runner, "_run_command", fake_run_command)
+    fence_root = tmp_path / "execution-fence"
+
+    receipt = runner.run_lane(
+        "ci-control-center-frontend",
+        repository_sha=SHA,
+        temp_root=tmp_path / "temp",
+        verification_execution_fence_root=fence_root,
+        full_suite_lock_mode="local",
+    )
+
+    unit = next(
+        unit for unit in CI_JOB_GRAPH if unit.unit_ref == "control-center-frontend"
+    )
+    local_identity = build_verification_execution_identity(
+        full_plan,
+        unit,
+        execution_surface_ref="surface-ref:local",
+        typescript_runtime_fingerprint=runtime.resolved_runtime_fingerprint,
+        typescript_version_ref="typescript-version:7.0.2",
+    )
+    decision = VerificationExecutionFence(fence_root).begin(local_identity)
+    assert receipt["status"] == "pass"
+    assert lock_attempts == [
+        ("local", local_identity.exclusive_resource_attempt_fingerprint)
+    ]
+    assert (
+        decision.disposition
+        is VerificationExecutionFenceDisposition.TERMINAL_PROOF_REUSED
+    )
 
 
 def test_exclusive_typed_lane_timeout_is_not_persisted_as_deterministic(
@@ -2321,6 +2551,12 @@ def test_pytest_lane_uses_host_lock_with_exact_sha_and_execution_plane(
         temp_root=tmp_path / "temp",
     )
     assert receipt["status"] == "pass"
+    resource_attempt_fingerprint = captured[0].pop(
+        "resource_attempt_fingerprint"
+    )
+    assert isinstance(resource_attempt_fingerprint, str)
+    assert len(resource_attempt_fingerprint) == 64
+    int(resource_attempt_fingerprint, 16)
     assert captured == [
         {
             "wait_seconds": runner.GITHUB_FULL_SUITE_LOCK_WAIT_SECONDS,

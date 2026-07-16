@@ -32,6 +32,7 @@ from scripts.verification.verification_execution_identity import (
     VerificationExecutionIdentityError,
     build_verification_execution_identity,
     build_verification_execution_terminal_proof,
+    verification_execution_identity_fingerprint,
     verification_execution_terminal_proof_fingerprint,
 )
 
@@ -234,6 +235,29 @@ def test_identity_rejects_noncanonical_plan_membership_and_surface() -> None:
         )
 
 
+def test_identity_rejects_forged_exclusive_resource_attempt_fingerprint() -> None:
+    unit = _unit(exclusive_resource_refs=("resource-ref:complete-pytest",))
+    identity = _identity(_plan(bound_units=(unit,)), unit)
+    provisional = replace(
+        identity,
+        exclusive_resource_attempt_fingerprint="f" * 64,
+        identity_ref="execution-identity:" + "0" * 64,
+        identity_fingerprint="0" * 64,
+    )
+    fingerprint = verification_execution_identity_fingerprint(provisional)
+    forged = replace(
+        provisional,
+        identity_ref=f"execution-identity:{fingerprint}",
+        identity_fingerprint=fingerprint,
+    )
+
+    with pytest.raises(
+        VerificationExecutionIdentityError,
+        match="resource attempt fingerprint is not content bound",
+    ):
+        forged.validate()
+
+
 def test_canonical_typescript_unit_requires_and_binds_exact_runtime() -> None:
     unit = next(unit for unit in VERIFICATION_DAG if unit.unit_ref == "risk-frontend-typecheck")
     plan = build_plan(
@@ -411,6 +435,115 @@ def test_different_exact_identity_has_an_independent_fence(tmp_path: Path) -> No
 
     assert first.disposition is VerificationExecutionFenceDisposition.START_GRANTED
     assert changed.disposition is VerificationExecutionFenceDisposition.START_GRANTED
+
+
+def test_exclusive_resource_attempt_is_global_to_sha_and_dependency_state(
+    tmp_path: Path,
+) -> None:
+    unit = _unit(exclusive_resource_refs=("resource-ref:complete-pytest",))
+    plan = _plan(bound_units=(unit,))
+    store = _store(tmp_path)
+    local_identity = _identity(plan, unit, surface="surface-ref:local")
+    private_identity = _identity(plan, unit, surface="surface-ref:private")
+
+    local_start = store.begin(local_identity)
+    private_start = store.begin(private_identity)
+
+    assert local_start.disposition is VerificationExecutionFenceDisposition.START_GRANTED
+    assert private_start.disposition is (
+        VerificationExecutionFenceDisposition.EXCLUSIVE_RESOURCE_ATTEMPT_REJECTED
+    )
+    assert private_start.reason_ref == (
+        "reason-ref:verification:exclusive-resource-attempt-already-recorded"
+    )
+    assert store.state_path_for(local_identity) == store.state_path_for(private_identity)
+
+
+def test_changed_dependency_state_permits_a_new_exclusive_resource_attempt(
+    tmp_path: Path,
+) -> None:
+    unit = _unit(exclusive_resource_refs=("resource-ref:complete-pytest",))
+    plan = _plan(bound_units=(unit,))
+    changed_plan = _plan(
+        bound_units=(unit,),
+        dependency_lock_fingerprints=(("uv.lock", DIGESTS[12]),),
+    )
+    store = _store(tmp_path)
+
+    first = store.begin(_identity(plan, unit))
+    changed = store.begin(_identity(changed_plan, unit))
+
+    assert first.disposition is VerificationExecutionFenceDisposition.START_GRANTED
+    assert changed.disposition is VerificationExecutionFenceDisposition.START_GRANTED
+    assert store.state_path_for(_identity(plan, unit)) != store.state_path_for(
+        _identity(changed_plan, unit)
+    )
+
+
+def test_exclusive_resource_terminal_proof_is_reused_only_by_exact_identity(
+    tmp_path: Path,
+) -> None:
+    unit = _unit(exclusive_resource_refs=("resource-ref:complete-pytest",))
+    plan = _plan(bound_units=(unit,))
+    store = _store(tmp_path)
+    local_identity = _identity(plan, unit, surface="surface-ref:local")
+    private_identity = _identity(plan, unit, surface="surface-ref:private")
+    start = store.begin(local_identity)
+    assert start.owner_token is not None
+    proof = _proof(local_identity)
+    store.complete(local_identity, owner_token=start.owner_token, terminal_proof=proof)
+
+    exact_replay = store.begin(local_identity)
+    other_surface = store.begin(private_identity)
+
+    assert exact_replay.disposition is (
+        VerificationExecutionFenceDisposition.TERMINAL_PROOF_REUSED
+    )
+    assert exact_replay.terminal_proof == proof
+    assert other_surface.disposition is (
+        VerificationExecutionFenceDisposition.EXCLUSIVE_RESOURCE_ATTEMPT_REJECTED
+    )
+    assert other_surface.terminal_proof is None
+
+
+def test_cross_identity_cannot_settle_or_abort_an_exclusive_resource_fence(
+    tmp_path: Path,
+) -> None:
+    unit = _unit(exclusive_resource_refs=("resource-ref:complete-pytest",))
+    plan = _plan(bound_units=(unit,))
+    store = _store(tmp_path)
+    local_identity = _identity(plan, unit, surface="surface-ref:local")
+    private_identity = _identity(plan, unit, surface="surface-ref:private")
+    start = store.begin(local_identity)
+    assert start.owner_token is not None
+
+    with pytest.raises(
+        VerificationExecutionFenceStateError,
+        match="another exact execution identity",
+    ):
+        store.complete(
+            private_identity,
+            owner_token=start.owner_token,
+            terminal_proof=_proof(private_identity),
+        )
+    with pytest.raises(
+        VerificationExecutionFenceStateError,
+        match="another exact execution identity",
+    ):
+        store.abort_prestart(
+            private_identity,
+            owner_token=start.owner_token,
+        )
+
+    proof = _proof(local_identity)
+    assert (
+        store.complete(
+            local_identity,
+            owner_token=start.owner_token,
+            terminal_proof=proof,
+        )
+        == proof
+    )
 
 
 def test_only_the_start_owner_can_settle_and_settlement_is_idempotent(

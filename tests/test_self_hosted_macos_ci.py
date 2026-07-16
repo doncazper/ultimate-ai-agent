@@ -17,8 +17,8 @@ def test_workflow_rejects_symlinked_macos_tmp_for_execution_fence(
     workflow = (
         ROOT / ".github/workflows/ci.yml"
     ).read_text(encoding="utf-8").replace(
-        "/private/tmp/uaa-verification-execution-fence-v1",
-        "/tmp/uaa-verification-execution-fence-v1",
+        "/private/tmp/uaa-verification-execution-fence-v2",
+        "/tmp/uaa-verification-execution-fence-v2",
     )
     target = tmp_path / ".github/workflows/ci.yml"
     target.parent.mkdir(parents=True)
@@ -184,7 +184,7 @@ def test_shared_mac_ci_stages_cpu_and_io_heavy_job_classes() -> None:
     assert "matrix:" not in pytest_shards_job
     assert (
         "--verification-execution-fence-root "
-        "/private/tmp/uaa-verification-execution-fence-v1"
+        "/private/tmp/uaa-verification-execution-fence-v2"
         in pytest_shards_job
     )
     assert "--verification-execution-fence-root /tmp/" not in pytest_shards_job
@@ -207,7 +207,7 @@ def test_shared_mac_ci_stages_cpu_and_io_heavy_job_classes() -> None:
     assert "verification-envelope:" in control_center_job
     assert (
         "--verification-execution-fence-root "
-        "/private/tmp/uaa-verification-execution-fence-v1"
+        "/private/tmp/uaa-verification-execution-fence-v2"
         in control_center_job
     )
     assert '--github-output-file "$GITHUB_OUTPUT"' in control_center_job

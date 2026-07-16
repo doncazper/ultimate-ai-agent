@@ -1,7 +1,122 @@
 {
-  "schema_version": "uaa-verifier-value-measurements.v1",
-  "measurement_posture": "same-machine-local-advisory",
+  "schema_version": "uaa-verifier-value-measurements.v2",
+  "measurement_posture": "same-machine-local-advisory-and-exact-sha-synthetic-probes",
   "source_ref": "docs/verification/FAST_LOCAL_VERIFICATION.md",
+  "source_repository_sha": "510cd141f3c5b079582ec95199d8eefd5547c03b",
+  "measurement_run": {
+    "schema_version": "uaa_verifier_value_measurement_run.v2",
+    "status": "passed",
+    "unit_ref": "unit:verification-value-measurement",
+    "bindings": {
+      "repository_sha": "510cd141f3c5b079582ec95199d8eefd5547c03b",
+      "dependency_state_fingerprint": "a635464a499c47f325ccb8fe68b63cc67228e9e6a83029edf8e63a4c1a464610",
+      "platform_fingerprint": "25da0084e6627b11e7a6a821408a4c82f41a324427d71bb9848f36c6b89dc2f7",
+      "command_manifest_fingerprint": "2adbcf0212e1c94f866c49d6671dbdb87a3363939eb6fff521ab9667e945bf2e",
+      "verifier_definition_fingerprint": "f930ffc9dac0262ce2344e98da2040251fed34d3c8547eff7f54712a0b338c4a",
+      "test_collection_fingerprint": "4acf8dc0fe51f4e2c880fda3999525bd557cfa329500bb24d7bf112a2715b50e"
+    },
+    "probe_count": 4,
+    "killed_count": 4,
+    "blocked_count": 0,
+    "survived_count": 0,
+    "value_records": [
+      {
+        "schema_version": "uaa_verification_value.v2",
+        "value_ref": "value:verification:9006fd4dabc6937a298e6af9e77d002f72a4262560b4fa64e044af71eb99c30d",
+        "unit_ref": "unit:verification-value-measurement",
+        "verifier_ref": "verifier:product-truth",
+        "synthetic_mutation_ref": "mutation:product-truth-overclaim",
+        "defect_ref": "defect:unsupported-product-claim",
+        "outcome": "killed",
+        "receipt_ref": "receipt:verification-value:9006fd4dabc6937a298e6af9e77d002f72a4262560b4fa64e044af71eb99c30d",
+        "overlap_ref": "overlap:documentation-text-scan-partial",
+        "disposition": "retain",
+        "duration_ms": 1,
+        "repository_sha": "510cd141f3c5b079582ec95199d8eefd5547c03b",
+        "dependency_state_fingerprint": "a635464a499c47f325ccb8fe68b63cc67228e9e6a83029edf8e63a4c1a464610",
+        "platform_fingerprint": "25da0084e6627b11e7a6a821408a4c82f41a324427d71bb9848f36c6b89dc2f7",
+        "command_manifest_fingerprint": "2adbcf0212e1c94f866c49d6671dbdb87a3363939eb6fff521ab9667e945bf2e",
+        "verifier_definition_fingerprint": "f930ffc9dac0262ce2344e98da2040251fed34d3c8547eff7f54712a0b338c4a",
+        "test_collection_fingerprint": "4acf8dc0fe51f4e2c880fda3999525bd557cfa329500bb24d7bf112a2715b50e",
+        "probe_definition_fingerprint": "fced5ff350d5e0c27d65d68a01216d69eaa582ef736fd779ff26246cafbc9336",
+        "detection_ref": "detection:verification:killed",
+        "value_fingerprint": "9006fd4dabc6937a298e6af9e77d002f72a4262560b4fa64e044af71eb99c30d",
+        "redaction_status": "content_free_refs_hashes_counts_and_durations_only"
+      },
+      {
+        "schema_version": "uaa_verification_value.v2",
+        "value_ref": "value:verification:2c8bc9e4620bef33db5a8b9740dc032dc26131425068620922f4081e658614d0",
+        "unit_ref": "unit:verification-value-measurement",
+        "verifier_ref": "verifier:security-redaction",
+        "synthetic_mutation_ref": "mutation:durable-secret-like-content",
+        "defect_ref": "defect:unsafe-durable-artifact-content",
+        "outcome": "killed",
+        "receipt_ref": "receipt:verification-value:2c8bc9e4620bef33db5a8b9740dc032dc26131425068620922f4081e658614d0",
+        "overlap_ref": "overlap:product-truth-claim-scan-partial",
+        "disposition": "retain",
+        "duration_ms": 1,
+        "repository_sha": "510cd141f3c5b079582ec95199d8eefd5547c03b",
+        "dependency_state_fingerprint": "a635464a499c47f325ccb8fe68b63cc67228e9e6a83029edf8e63a4c1a464610",
+        "platform_fingerprint": "25da0084e6627b11e7a6a821408a4c82f41a324427d71bb9848f36c6b89dc2f7",
+        "command_manifest_fingerprint": "2adbcf0212e1c94f866c49d6671dbdb87a3363939eb6fff521ab9667e945bf2e",
+        "verifier_definition_fingerprint": "f930ffc9dac0262ce2344e98da2040251fed34d3c8547eff7f54712a0b338c4a",
+        "test_collection_fingerprint": "4acf8dc0fe51f4e2c880fda3999525bd557cfa329500bb24d7bf112a2715b50e",
+        "probe_definition_fingerprint": "dde547ee768c867ab305055f7488fbe93b493e6506c0cf7b34870e81e9ce2043",
+        "detection_ref": "detection:verification:killed",
+        "value_fingerprint": "2c8bc9e4620bef33db5a8b9740dc032dc26131425068620922f4081e658614d0",
+        "redaction_status": "content_free_refs_hashes_counts_and_durations_only"
+      },
+      {
+        "schema_version": "uaa_verification_value.v2",
+        "value_ref": "value:verification:9584635ed626cd8f026e50e607d92367073f1e1365287b1590bfd62964174875",
+        "unit_ref": "unit:verification-value-measurement",
+        "verifier_ref": "verifier:api-contract",
+        "synthetic_mutation_ref": "mutation:api-route-identity-drift",
+        "defect_ref": "defect:api-schema-route-and-security-policy-drift",
+        "outcome": "killed",
+        "receipt_ref": "receipt:verification-value:9584635ed626cd8f026e50e607d92367073f1e1365287b1590bfd62964174875",
+        "overlap_ref": "overlap:shared-api-context",
+        "disposition": "retain",
+        "duration_ms": 4,
+        "repository_sha": "510cd141f3c5b079582ec95199d8eefd5547c03b",
+        "dependency_state_fingerprint": "a635464a499c47f325ccb8fe68b63cc67228e9e6a83029edf8e63a4c1a464610",
+        "platform_fingerprint": "25da0084e6627b11e7a6a821408a4c82f41a324427d71bb9848f36c6b89dc2f7",
+        "command_manifest_fingerprint": "2adbcf0212e1c94f866c49d6671dbdb87a3363939eb6fff521ab9667e945bf2e",
+        "verifier_definition_fingerprint": "f930ffc9dac0262ce2344e98da2040251fed34d3c8547eff7f54712a0b338c4a",
+        "test_collection_fingerprint": "4acf8dc0fe51f4e2c880fda3999525bd557cfa329500bb24d7bf112a2715b50e",
+        "probe_definition_fingerprint": "d485c456de38c769943097bf33b802b2c26035000b1484792ad099fd0790f7c2",
+        "detection_ref": "detection:verification:killed",
+        "value_fingerprint": "9584635ed626cd8f026e50e607d92367073f1e1365287b1590bfd62964174875",
+        "redaction_status": "content_free_refs_hashes_counts_and_durations_only"
+      },
+      {
+        "schema_version": "uaa_verification_value.v2",
+        "value_ref": "value:verification:056d36deee3ec846619c406688c6331bd3f68e5338564e11dd8abbfa93cb74f0",
+        "unit_ref": "unit:verification-value-measurement",
+        "verifier_ref": "verifier:control-center-frontend",
+        "synthetic_mutation_ref": "mutation:frontend-package-script-drift",
+        "defect_ref": "defect:frontend-type-test-build-contract",
+        "outcome": "killed",
+        "receipt_ref": "receipt:verification-value:056d36deee3ec846619c406688c6331bd3f68e5338564e11dd8abbfa93cb74f0",
+        "overlap_ref": "overlap:frontend-safety-static-partial",
+        "disposition": "retain",
+        "duration_ms": 3,
+        "repository_sha": "510cd141f3c5b079582ec95199d8eefd5547c03b",
+        "dependency_state_fingerprint": "a635464a499c47f325ccb8fe68b63cc67228e9e6a83029edf8e63a4c1a464610",
+        "platform_fingerprint": "25da0084e6627b11e7a6a821408a4c82f41a324427d71bb9848f36c6b89dc2f7",
+        "command_manifest_fingerprint": "2adbcf0212e1c94f866c49d6671dbdb87a3363939eb6fff521ab9667e945bf2e",
+        "verifier_definition_fingerprint": "f930ffc9dac0262ce2344e98da2040251fed34d3c8547eff7f54712a0b338c4a",
+        "test_collection_fingerprint": "4acf8dc0fe51f4e2c880fda3999525bd557cfa329500bb24d7bf112a2715b50e",
+        "probe_definition_fingerprint": "ad73a88e7195f82f6d783182f9f4d4b9e11eff6bb36a7d75a709b494f0f38c09",
+        "detection_ref": "detection:verification:killed",
+        "value_fingerprint": "056d36deee3ec846619c406688c6331bd3f68e5338564e11dd8abbfa93cb74f0",
+        "redaction_status": "content_free_refs_hashes_counts_and_durations_only"
+      }
+    ],
+    "redaction_status": "content_free_refs_hashes_counts_and_durations_only",
+    "measurement_run_ref": "measurement-run:verification-value:sha256:cb39924cd376fe179838678b000fca5f5a76f55d945919195b67e7062ea59daa",
+    "fingerprint": "cb39924cd376fe179838678b000fca5f5a76f55d945919195b67e7062ea59daa"
+  },
   "measurements": [
     {
       "measurement_ref": "measurement-ref:docs-fast",
@@ -39,5 +154,128 @@
       "status": "green"
     }
   ],
-  "fingerprint": "verifier-measurement-fingerprint:sha256:98ea7c6087e5a77dd71dc339cd25e61959bdadf361d42a54728f5bc1c0cc4066"
+  "timing_comparisons": [
+    {
+      "timing_ref": "timing-ref:docs-cold-warm",
+      "comparison_kind": "cold_to_warm",
+      "machine_profile_ref": "machine-profile:macos-arm64-private",
+      "before_samples_ms": [
+        280
+      ],
+      "after_samples_ms": [
+        220
+      ],
+      "before_median_ms": 280,
+      "after_median_ms": 220,
+      "delta_percent": -21.43,
+      "comparable": true,
+      "regression_warning": false,
+      "evidence_posture": "same_machine_advisory"
+    },
+    {
+      "timing_ref": "timing-ref:product-truth-cold-warm",
+      "comparison_kind": "cold_to_warm",
+      "machine_profile_ref": "machine-profile:macos-arm64-private",
+      "before_samples_ms": [
+        3310
+      ],
+      "after_samples_ms": [
+        3480
+      ],
+      "before_median_ms": 3310,
+      "after_median_ms": 3480,
+      "delta_percent": 5.14,
+      "comparable": true,
+      "regression_warning": false,
+      "evidence_posture": "same_machine_advisory"
+    },
+    {
+      "timing_ref": "timing-ref:foundation-cold-warm",
+      "comparison_kind": "cold_to_warm",
+      "machine_profile_ref": "machine-profile:macos-arm64-private",
+      "before_samples_ms": [
+        23460
+      ],
+      "after_samples_ms": [
+        23110
+      ],
+      "before_median_ms": 23460,
+      "after_median_ms": 23110,
+      "delta_percent": -1.49,
+      "comparable": true,
+      "regression_warning": false,
+      "evidence_posture": "same_machine_advisory"
+    },
+    {
+      "timing_ref": "timing-ref:frontend-cold-warm",
+      "comparison_kind": "cold_to_warm",
+      "machine_profile_ref": "machine-profile:macos-arm64-private",
+      "before_samples_ms": [
+        58660
+      ],
+      "after_samples_ms": [
+        56730
+      ],
+      "before_median_ms": 58660,
+      "after_median_ms": 56730,
+      "delta_percent": -3.29,
+      "comparable": true,
+      "regression_warning": false,
+      "evidence_posture": "same_machine_advisory"
+    },
+    {
+      "timing_ref": "timing-ref:pytest-before-after-warm",
+      "comparison_kind": "before_to_after_warm",
+      "machine_profile_ref": "machine-profile:macos-arm64-private",
+      "before_samples_ms": [
+        111480
+      ],
+      "after_samples_ms": [
+        104770,
+        100480
+      ],
+      "before_median_ms": 111480,
+      "after_median_ms": 102625.0,
+      "delta_percent": -7.94,
+      "comparable": true,
+      "regression_warning": false,
+      "evidence_posture": "same_machine_advisory"
+    },
+    {
+      "timing_ref": "timing-ref:frontend-before-after-warm",
+      "comparison_kind": "before_to_after_warm",
+      "machine_profile_ref": "machine-profile:macos-arm64-private",
+      "before_samples_ms": [
+        56730
+      ],
+      "after_samples_ms": [
+        50130
+      ],
+      "before_median_ms": 56730,
+      "after_median_ms": 50130,
+      "delta_percent": -11.63,
+      "comparable": true,
+      "regression_warning": false,
+      "evidence_posture": "same_machine_advisory"
+    },
+    {
+      "timing_ref": "timing-ref:pytest-cold-diagnostic",
+      "comparison_kind": "before_to_after_warm",
+      "machine_profile_ref": "machine-profile:macos-arm64-private",
+      "before_samples_ms": [
+        126870
+      ],
+      "after_samples_ms": [
+        104770,
+        100480
+      ],
+      "before_median_ms": 126870,
+      "after_median_ms": 102625.0,
+      "delta_percent": -19.11,
+      "comparable": false,
+      "regression_warning": false,
+      "evidence_posture": "same_machine_noncomparable_diagnostic"
+    }
+  ],
+  "fingerprint": "verifier-measurement-fingerprint:sha256:4088c58d320ce4d8e267c04d0c8075597c81c7e584420e5d56ac7c4f00767b51"
 }

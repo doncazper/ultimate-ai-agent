@@ -30,9 +30,9 @@ from scripts.verification.verification_contracts import (
 )
 
 
-IDENTITY_SCHEMA_VERSION = "uaa_verification_execution_identity.v1"
+IDENTITY_SCHEMA_VERSION = "uaa_verification_execution_identity.v2"
 TERMINAL_PROOF_SCHEMA_VERSION = "uaa_verification_execution_terminal_proof.v1"
-FENCE_STATE_SCHEMA_VERSION = "uaa_verification_execution_fence_state.v1"
+FENCE_STATE_SCHEMA_VERSION = "uaa_verification_execution_fence_state.v2"
 REDACTION_STATUS = "content_free_refs_hashes_counts_and_timestamps_only"
 MAX_STATE_BYTES = 32 * 1024
 MAX_FENCE_ENTRIES = 1024
@@ -69,6 +69,7 @@ class VerificationExecutionFenceDisposition(StrEnum):
     TERMINAL_PROOF_REUSED = "terminal_proof_reused"
     DETERMINISTIC_FAILURE_REJECTED = "deterministic_failure_rejected"
     RECOVERY_REQUIRED = "recovery_required"
+    EXCLUSIVE_RESOURCE_ATTEMPT_REJECTED = "exclusive_resource_attempt_rejected"
 
 
 class VerificationExecutionFailureCategory(StrEnum):
@@ -240,6 +241,8 @@ class VerificationExecutionIdentity:
     typescript_project_fingerprint: str
     typescript_runtime_fingerprint: str | None
     typescript_version_ref: str | None
+    exclusive_resource_ref: str | None
+    exclusive_resource_attempt_fingerprint: str | None
     identity_fingerprint: str
     redaction_status: str = REDACTION_STATUS
 
@@ -292,6 +295,53 @@ class VerificationExecutionIdentity:
                 label="TypeScript runtime fingerprint",
             )
             _validate_ref(self.typescript_version_ref, label="TypeScript version ref")
+        if (self.exclusive_resource_ref is None) != (
+            self.exclusive_resource_attempt_fingerprint is None
+        ):
+            raise VerificationExecutionIdentityError(
+                "exclusive resource execution bindings must be paired"
+            )
+        if self.exclusive_resource_ref is not None:
+            _validate_ref(
+                self.exclusive_resource_ref,
+                label="exclusive verification resource ref",
+            )
+            if self.exclusive_resource_ref not in {
+                "resource-ref:complete-pytest",
+                "resource-ref:typescript-typecheck",
+            }:
+                raise VerificationExecutionIdentityError(
+                    "exclusive verification resource is not canonical"
+                )
+            _validate_digest(
+                self.exclusive_resource_attempt_fingerprint,
+                label="exclusive resource attempt fingerprint",
+            )
+            if (
+                self.exclusive_resource_ref == "resource-ref:typescript-typecheck"
+                and self.typescript_runtime_fingerprint is None
+            ):
+                raise VerificationExecutionIdentityError(
+                    "TypeScript resource attempt requires an exact runtime binding"
+                )
+            expected_resource_fingerprint = (
+                verification_exclusive_resource_attempt_fingerprint(
+                    repository_sha=self.repository_sha,
+                    dependency_state_ref=self.dependency_state_fingerprint,
+                    exclusive_resource_ref=self.exclusive_resource_ref,
+                    typescript_runtime_fingerprint=(
+                        self.typescript_runtime_fingerprint
+                    ),
+                    typescript_version_ref=self.typescript_version_ref,
+                )
+            )
+            if not hmac.compare_digest(
+                self.exclusive_resource_attempt_fingerprint,
+                expected_resource_fingerprint,
+            ):
+                raise VerificationExecutionIdentityError(
+                    "exclusive resource attempt fingerprint is not content bound"
+                )
         if self.redaction_status != REDACTION_STATUS:
             raise VerificationExecutionIdentityError(
                 "execution identity redaction posture is invalid"
@@ -316,6 +366,44 @@ def verification_execution_identity_fingerprint(
         if field_name not in {"identity_ref", "identity_fingerprint"}
     }
     return _canonical_digest(payload)
+
+
+def verification_exclusive_resource_attempt_fingerprint(
+    *,
+    repository_sha: str,
+    dependency_state_ref: str,
+    exclusive_resource_ref: str,
+    typescript_runtime_fingerprint: str | None,
+    typescript_version_ref: str | None,
+) -> str:
+    if SHA_PATTERN.fullmatch(repository_sha) is None:
+        raise VerificationExecutionIdentityError(
+            "exclusive resource attempt requires an exact repository SHA"
+        )
+    _validate_digest(
+        dependency_state_ref,
+        label="exclusive resource dependency state fingerprint",
+    )
+    _validate_ref(exclusive_resource_ref, label="exclusive verification resource ref")
+    if (typescript_runtime_fingerprint is None) != (typescript_version_ref is None):
+        raise VerificationExecutionIdentityError(
+            "exclusive TypeScript resource bindings must be paired"
+        )
+    if typescript_runtime_fingerprint is not None:
+        _validate_digest(
+            typescript_runtime_fingerprint,
+            label="exclusive TypeScript runtime fingerprint",
+        )
+        _validate_ref(typescript_version_ref, label="exclusive TypeScript version ref")
+    return _canonical_digest(
+        {
+            "repository_sha": repository_sha,
+            "dependency_state_fingerprint": dependency_state_ref,
+            "exclusive_resource_ref": exclusive_resource_ref,
+            "typescript_runtime_fingerprint": typescript_runtime_fingerprint,
+            "typescript_version_ref": typescript_version_ref,
+        }
+    )
 
 
 def build_verification_execution_identity(
@@ -389,6 +477,34 @@ def build_verification_execution_identity(
         raise VerificationExecutionIdentityError(
             "non-TypeScript execution identity cannot vary by TypeScript runtime"
         )
+    fenced_resource_refs = tuple(
+        resource_ref
+        for resource_ref in unit.exclusive_resource_refs
+        if resource_ref
+        in {
+            "resource-ref:complete-pytest",
+            "resource-ref:typescript-typecheck",
+        }
+    )
+    if len(fenced_resource_refs) > 1:
+        raise VerificationExecutionIdentityError(
+            "one verification unit cannot consume multiple exact execution resources"
+        )
+    exclusive_resource_ref = (
+        fenced_resource_refs[0] if fenced_resource_refs else None
+    )
+    dependency_state_ref = dependency_state_fingerprint(plan)
+    exclusive_resource_attempt_ref = (
+        verification_exclusive_resource_attempt_fingerprint(
+            repository_sha=plan.repository_sha,
+            dependency_state_ref=dependency_state_ref,
+            exclusive_resource_ref=exclusive_resource_ref,
+            typescript_runtime_fingerprint=typescript_runtime_fingerprint,
+            typescript_version_ref=typescript_version_ref,
+        )
+        if exclusive_resource_ref is not None
+        else None
+    )
     fields: dict[str, object] = {
         "schema_version": IDENTITY_SCHEMA_VERSION,
         "repository_sha": plan.repository_sha,
@@ -404,7 +520,7 @@ def build_verification_execution_identity(
                 "unit_command_refs": unit.command_refs,
             }
         ),
-        "dependency_state_fingerprint": dependency_state_fingerprint(plan),
+        "dependency_state_fingerprint": dependency_state_ref,
         "dependency_lock_fingerprint": _canonical_digest(
             plan.dependency_lock_fingerprints
         ),
@@ -422,6 +538,8 @@ def build_verification_execution_identity(
         "typescript_project_fingerprint": plan.typescript_project_fingerprint,
         "typescript_runtime_fingerprint": typescript_runtime_fingerprint,
         "typescript_version_ref": typescript_version_ref,
+        "exclusive_resource_ref": exclusive_resource_ref,
+        "exclusive_resource_attempt_fingerprint": exclusive_resource_attempt_ref,
         "redaction_status": REDACTION_STATUS,
     }
     provisional = VerificationExecutionIdentity(
@@ -837,7 +955,11 @@ class VerificationExecutionFence:
 
     @staticmethod
     def _state_name(identity: VerificationExecutionIdentity) -> str:
-        return f"execution-{identity.identity_fingerprint}.json"
+        state_fingerprint = (
+            identity.exclusive_resource_attempt_fingerprint
+            or identity.identity_fingerprint
+        )
+        return f"execution-{state_fingerprint}.json"
 
     @contextmanager
     def _locked_root(self) -> Iterator[int]:
@@ -1221,29 +1343,81 @@ class VerificationExecutionFence:
     @staticmethod
     def _validate_state_identity(
         payload: dict[str, Any], identity: VerificationExecutionIdentity
-    ) -> None:
+    ) -> bool:
         if (
             payload.get("schema_version") != FENCE_STATE_SCHEMA_VERSION
-            or payload.get("identity_ref") != identity.identity_ref
-            or payload.get("identity_fingerprint") != identity.identity_fingerprint
             or payload.get("redaction_status") != REDACTION_STATUS
         ):
             raise VerificationExecutionFenceStateError(
                 "verification fence state identity is invalid"
             )
+        try:
+            stored_identity_ref = payload.get("identity_ref")
+            stored_identity_fingerprint = payload.get("identity_fingerprint")
+            _validate_ref(stored_identity_ref, label="stored execution identity ref")
+            _validate_digest(
+                stored_identity_fingerprint,
+                label="stored execution identity fingerprint",
+            )
+            stored_resource_ref = payload.get("exclusive_resource_ref")
+            stored_resource_fingerprint = payload.get(
+                "exclusive_resource_attempt_fingerprint"
+            )
+            if (stored_resource_ref is None) != (
+                stored_resource_fingerprint is None
+            ):
+                raise VerificationExecutionIdentityError(
+                    "verification fence resource binding is invalid"
+                )
+            if stored_resource_ref is not None:
+                _validate_ref(
+                    stored_resource_ref,
+                    label="stored exclusive verification resource ref",
+                )
+                _validate_digest(
+                    stored_resource_fingerprint,
+                    label="stored exclusive resource attempt fingerprint",
+                )
+        except VerificationExecutionIdentityError as exc:
+            raise VerificationExecutionFenceStateError(
+                "verification fence state binding is invalid"
+            ) from exc
+        if stored_identity_ref != f"execution-identity:{stored_identity_fingerprint}":
+            raise VerificationExecutionFenceStateError(
+                "verification fence stored identity is not content bound"
+            )
+        if (
+            stored_resource_ref != identity.exclusive_resource_ref
+            or stored_resource_fingerprint
+            != identity.exclusive_resource_attempt_fingerprint
+        ):
+            raise VerificationExecutionFenceStateError(
+                "verification fence resource binding changed"
+            )
+        exact_identity = (
+            stored_identity_ref == identity.identity_ref
+            and stored_identity_fingerprint == identity.identity_fingerprint
+        )
+        if not exact_identity and identity.exclusive_resource_ref is None:
+            raise VerificationExecutionFenceStateError(
+                "verification fence state identity is invalid"
+            )
+        return exact_identity
 
     def _decision_for_state(
         self,
         payload: dict[str, Any],
         identity: VerificationExecutionIdentity,
     ) -> VerificationExecutionFenceDecision:
-        self._validate_state_identity(payload, identity)
+        exact_identity = self._validate_state_identity(payload, identity)
         posture = payload.get("posture")
         common_fields = {
             "schema_version",
             "posture",
             "identity_ref",
             "identity_fingerprint",
+            "exclusive_resource_ref",
+            "exclusive_resource_attempt_fingerprint",
             "owner_token_fingerprint",
             "started_at",
             "redaction_status",
@@ -1258,11 +1432,12 @@ class VerificationExecutionFence:
                 label="owner token fingerprint",
             )
             _validate_timestamp(payload.get("started_at"), label="start timestamp")
-            decision = VerificationExecutionFenceDecision(
-                disposition=VerificationExecutionFenceDisposition.RECOVERY_REQUIRED,
-                identity_ref=identity.identity_ref,
-                reason_ref="reason-ref:verification:durable-start-unsettled",
-            )
+            if exact_identity:
+                decision = VerificationExecutionFenceDecision(
+                    disposition=VerificationExecutionFenceDisposition.RECOVERY_REQUIRED,
+                    identity_ref=identity.identity_ref,
+                    reason_ref="reason-ref:verification:durable-start-unsettled",
+                )
         elif posture == "terminal":
             terminal_fields = common_fields | {"terminal_proof"}
             if set(payload) != terminal_fields:
@@ -1276,33 +1451,44 @@ class VerificationExecutionFence:
             _validate_timestamp(payload.get("started_at"), label="start timestamp")
             proof = self._proof_from_payload(payload.get("terminal_proof"))
             if (
-                proof.identity_ref != identity.identity_ref
-                or proof.identity_fingerprint != identity.identity_fingerprint
+                proof.identity_ref != payload.get("identity_ref")
+                or proof.identity_fingerprint != payload.get("identity_fingerprint")
             ):
                 raise VerificationExecutionFenceStateError(
                     "verification fence terminal proof identity is invalid"
                 )
-            deterministic_failure = (
-                proof.status is VerificationTerminalStatus.FAILED
-                and proof.deterministic_failure
-            )
-            decision = VerificationExecutionFenceDecision(
-                disposition=(
-                    VerificationExecutionFenceDisposition.DETERMINISTIC_FAILURE_REJECTED
-                    if deterministic_failure
-                    else VerificationExecutionFenceDisposition.TERMINAL_PROOF_REUSED
-                ),
-                identity_ref=identity.identity_ref,
-                reason_ref=(
-                    "reason-ref:verification:deterministic-failure-no-rerun"
-                    if deterministic_failure
-                    else "reason-ref:verification:exact-terminal-proof-reused"
-                ),
-                terminal_proof=proof,
-            )
+            if exact_identity:
+                deterministic_failure = (
+                    proof.status is VerificationTerminalStatus.FAILED
+                    and proof.deterministic_failure
+                )
+                decision = VerificationExecutionFenceDecision(
+                    disposition=(
+                        VerificationExecutionFenceDisposition.DETERMINISTIC_FAILURE_REJECTED
+                        if deterministic_failure
+                        else VerificationExecutionFenceDisposition.TERMINAL_PROOF_REUSED
+                    ),
+                    identity_ref=identity.identity_ref,
+                    reason_ref=(
+                        "reason-ref:verification:deterministic-failure-no-rerun"
+                        if deterministic_failure
+                        else "reason-ref:verification:exact-terminal-proof-reused"
+                    ),
+                    terminal_proof=proof,
+                )
         else:
             raise VerificationExecutionFenceStateError(
                 "verification fence posture is invalid"
+            )
+        if not exact_identity:
+            decision = VerificationExecutionFenceDecision(
+                disposition=(
+                    VerificationExecutionFenceDisposition.EXCLUSIVE_RESOURCE_ATTEMPT_REJECTED
+                ),
+                identity_ref=identity.identity_ref,
+                reason_ref=(
+                    "reason-ref:verification:exclusive-resource-attempt-already-recorded"
+                ),
             )
         decision.validate()
         return decision
@@ -1339,6 +1525,10 @@ class VerificationExecutionFence:
                 "posture": "started",
                 "identity_ref": identity.identity_ref,
                 "identity_fingerprint": identity.identity_fingerprint,
+                "exclusive_resource_ref": identity.exclusive_resource_ref,
+                "exclusive_resource_attempt_fingerprint": (
+                    identity.exclusive_resource_attempt_fingerprint
+                ),
                 "owner_token_fingerprint": hashlib.sha256(
                     owner_token.encode("ascii")
                 ).hexdigest(),
@@ -1391,6 +1581,13 @@ class VerificationExecutionFence:
                     "verification execution has no durable start"
                 )
             existing_decision = self._decision_for_state(payload, identity)
+            if (
+                existing_decision.disposition
+                is VerificationExecutionFenceDisposition.EXCLUSIVE_RESOURCE_ATTEMPT_REJECTED
+            ):
+                raise VerificationExecutionFenceStateError(
+                    "verification fence belongs to another exact execution identity"
+                )
             expected_owner_digest = payload.get("owner_token_fingerprint")
             if not isinstance(expected_owner_digest, str) or not hmac.compare_digest(
                 expected_owner_digest,
@@ -1466,7 +1663,10 @@ class VerificationExecutionFence:
                 raise VerificationExecutionFenceStateError(
                     "verification execution has no durable pre-start"
                 )
-            self._validate_state_identity(payload, identity)
+            if not self._validate_state_identity(payload, identity):
+                raise VerificationExecutionFenceStateError(
+                    "verification fence belongs to another exact execution identity"
+                )
             expected_owner_digest = payload.get("owner_token_fingerprint")
             if not isinstance(expected_owner_digest, str) or not hmac.compare_digest(
                 expected_owner_digest,

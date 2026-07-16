@@ -7,51 +7,55 @@ import os
 import stat
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SCHEMA_VERSION = "uaa-changed-verification-selection.v1"
-FULL_COMMAND_REF = "command-ref:verification:full-local-gate"
-CRITICAL_PATHS = {
-    "Makefile",
-    "apps/control-center/package-lock.json",
-    "apps/control-center/package.json",
-    "pyproject.toml",
-    "package-lock.json",
-    "scripts/verify_all.py",
-    "scripts/run_foundation_gate.py",
-}
-CRITICAL_PREFIXES = (
-    ".github/",
-    "scripts/verification/",
-    "src/ultimate_ai_agent/core/gate/",
-    "tests/conftest.py",
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from scripts.verification.ci_command_manifest import (  # noqa: E402
+    CI_JOB_GRAPH,
+    VERIFICATION_DAG,
+    command_registry,
 )
-FOCUSED_PYTEST_REFS_BY_SOURCE = {
-    "src/ultimate_ai_agent/core/evals/capability_metrics.py": (
-        "tests/test_agent_capability_evaluation.py",
-    ),
-    "src/ultimate_ai_agent/core/evals/capability_maturity.py": (
-        "tests/test_capability_maturity_integrity.py",
-    ),
-    "src/ultimate_ai_agent/core/evals/regression.py": (
-        "tests/test_m56_agent_eval_regression_harness.py",
-    ),
-}
+from scripts.verification.verification_risk import (  # noqa: E402
+    ChangeKind,
+    ChangeRecord,
+    normalize_repo_path,
+)
+from scripts.verification.verification_selection import (  # noqa: E402
+    VerificationSelection,
+    select_verification,
+)
+
+
+SCHEMA_VERSION = "uaa-changed-verification-selection.v2"
+FULL_COMMAND_REF = "command-ref:verification:full-local-gate"
+MERGE_GATE_EXCLUSIVE_RESOURCE_REFS = frozenset(
+    {
+        "resource-ref:complete-pytest",
+        "resource-ref:typescript-typecheck",
+    }
+)
 
 
 @dataclass(frozen=True)
 class Selection:
     tier: str
+    risk_tier: str
     changed_paths: tuple[str, ...]
     matched_rule_refs: tuple[str, ...]
+    selected_unit_refs: tuple[str, ...]
     selected_command_refs: tuple[str, ...]
     selected_test_refs: tuple[str, ...]
+    coverage_proof_obligation_refs: tuple[str, ...]
     unknown_paths: tuple[str, ...]
     fallback_reason_refs: tuple[str, ...]
     status: str
+    selection_fingerprint: str
     release_gate_equivalent: bool = False
 
     def payload(self) -> dict[str, object]:
@@ -59,171 +63,76 @@ class Selection:
             "schema_version": SCHEMA_VERSION,
             "mode": "local_dev_advisory",
             "tier": self.tier,
+            "risk_tier": self.risk_tier,
             "status": self.status,
             "changed_paths": list(self.changed_paths),
             "matched_rule_refs": list(self.matched_rule_refs),
+            "selected_unit_refs": list(self.selected_unit_refs),
             "selected_command_refs": list(self.selected_command_refs),
             "selected_test_refs": list(self.selected_test_refs),
+            "coverage_proof_obligation_refs": list(
+                self.coverage_proof_obligation_refs
+            ),
             "unknown_paths": list(self.unknown_paths),
             "fallback_reason_refs": list(self.fallback_reason_refs),
+            "selection_fingerprint": self.selection_fingerprint,
             "release_gate_equivalent": self.release_gate_equivalent,
         }
 
 
 def normalize_path(raw_path: str) -> str:
-    if not raw_path or "\x00" in raw_path or "\\" in raw_path:
-        raise ValueError("VERIFICATION_CHANGED_PATH_INVALID")
-    path = PurePosixPath(raw_path)
-    if path.is_absolute() or ".." in path.parts or raw_path.startswith("./"):
-        raise ValueError("VERIFICATION_CHANGED_PATH_INVALID")
-    normalized = path.as_posix()
-    if normalized in {"", "."}:
-        raise ValueError("VERIFICATION_CHANGED_PATH_INVALID")
-    return normalized
+    return normalize_repo_path(raw_path)
 
 
-def _safe_regular_repo_file(repo: Path, ref: str) -> bool:
+def _safe_repository_root(repo: Path) -> None:
     try:
-        metadata = (repo / ref).lstat()
-    except OSError:
-        return False
-    return stat.S_ISREG(metadata.st_mode) and not stat.S_ISLNK(metadata.st_mode)
+        metadata = repo.lstat()
+    except OSError as exc:
+        raise ValueError("VERIFICATION_REPOSITORY_ROOT_INVALID") from exc
+    if repo.is_symlink() or not stat.S_ISDIR(metadata.st_mode):
+        raise ValueError("VERIFICATION_REPOSITORY_ROOT_INVALID")
 
 
-def _rule_for_path(
-    path: str,
-    tier: str,
-    *,
-    repo: Path,
-) -> tuple[str, tuple[str, ...], tuple[str, ...]] | None:
-    if path in CRITICAL_PATHS or path.startswith(CRITICAL_PREFIXES):
-        return ("rule-ref:verification-topology-full", (FULL_COMMAND_REF,), ())
-    if path == "docs/verification/verifier_value_measurements.json":
-        return (
-            "rule-ref:verifier-value-measurement",
-            ("command-ref:verifier-value-audit",),
-            (),
+def _command_refs(selection: VerificationSelection) -> tuple[str, ...]:
+    if selection.full_gate_required:
+        return (FULL_COMMAND_REF,)
+    units_by_ref = {unit.unit_ref: unit for unit in VERIFICATION_DAG}
+    return tuple(
+        dict.fromkeys(
+            command_ref
+            for unit_ref in selection.selected_unit_refs
+            for command_ref in units_by_ref[unit_ref].command_refs
         )
-    if path.startswith(
-        (
-            "src/ultimate_ai_agent/core/authority/",
-            "src/ultimate_ai_agent/core/approvals/",
-            "src/ultimate_ai_agent/core/execution/",
-            "src/ultimate_ai_agent/core/hygiene/",
-        )
-    ):
-        return (
-            "rule-ref:authority-orchestration",
-            ("command-ref:ruff-changed", "command-ref:authority-focused"),
-            ("tests/test_authority_leases.py", "tests/test_authority_dispatcher.py"),
-        )
-    if path.startswith("src/ultimate_ai_agent/api/") or path.startswith(
-        ("docs/api/", "docs/schemas/api_", "tests/fixtures/api_route_")
-    ):
-        commands = [
-            "command-ref:ruff-changed",
-            "command-ref:api-contract-snapshot",
-            "command-ref:api-lane",
-        ]
-        if tier == "affected":
-            commands.append("command-ref:openapi")
-        return (
-            "rule-ref:api-openapi-routes",
-            tuple(commands),
-            (
-                "tests/test_api_manifest.py",
-                "tests/test_api_route_inventory_fixture.py",
-                "tests/test_openapi_contract.py",
-            ),
-        )
-    if path.startswith("apps/control-center/"):
-        return (
-            "rule-ref:control-center-frontend",
-            (
-                ("command-ref:frontend-safety",)
-                if tier == "fast"
-                else ("command-ref:frontend-check", "command-ref:frontend-safety")
-            ),
-            (),
-        )
-    if "web_access" in path or path.startswith(
-        ("docs/network/", "scripts/verify_web_hybrid", ".uaa/local-web-services/")
-    ):
-        return (
-            "rule-ref:web-hybrid",
-            ("command-ref:ruff-changed", "command-ref:web-hybrid"),
-            (
-                "tests/test_searxng_search.py",
-                "tests/test_firecrawl_markdown.py",
-                "tests/test_web_hybrid_execution.py",
-            ),
-        )
-    if "/memory" in path or path.startswith("docs/memory/"):
-        return (
-            "rule-ref:memory-context",
-            ("command-ref:ruff-changed",),
-            ("tests/test_memory_store.py", "tests/test_memory_retrieval.py"),
-        )
-    if "/providers" in path:
-        return (
-            "rule-ref:providers",
-            ("command-ref:ruff-changed",),
-            (
-                "tests/test_provider_manifests.py",
-                "tests/test_provider_result_envelope.py",
-            ),
-        )
-    if "extension_catalog" in path or path.startswith("docs/extensions/"):
-        return (
-            "rule-ref:extensions",
-            ("command-ref:ruff-changed",),
-            (
-                "tests/test_inspectable_extension_catalog.py",
-                "tests/test_extension_catalog_storage_hardening.py",
-            ),
-        )
-    if path.startswith("docs/") or path in {"README.md", "SECURITY.md", "VERSION.md"}:
-        return (
-            "rule-ref:documentation-product-truth",
-            (
-                ("command-ref:documentation",)
-                if tier == "fast"
-                else (
-                    "command-ref:documentation",
-                    "command-ref:product-truth",
-                    "command-ref:redaction",
-                )
-            ),
-            (),
-        )
-    if path.startswith(("packaging/", "scripts/package", "apps/macos/")):
-        return (
-            "rule-ref:packaging",
-            ("command-ref:packaging-focused",),
-            (),
-        )
-    if path.startswith("tests/test_") and path.endswith(".py"):
-        return (
-            "rule-ref:direct-test",
-            ("command-ref:ruff-changed",),
-            (path,),
-        )
-    if path.startswith("src/ultimate_ai_agent/") and path.endswith(".py"):
-        owned_refs = FOCUSED_PYTEST_REFS_BY_SOURCE.get(path)
-        if owned_refs is not None:
-            return (
-                "rule-ref:python-module-focused",
-                ("command-ref:ruff-changed",),
-                owned_refs,
-            )
-        candidate = f"tests/test_{PurePosixPath(path).stem}.py"
-        if _safe_regular_repo_file(repo, candidate):
-            return (
-                "rule-ref:python-module-focused",
-                ("command-ref:ruff-changed",),
-                (candidate,),
-            )
-    return None
+    )
+
+
+def _project_selection(selection: VerificationSelection, *, tier: str) -> Selection:
+    unclassified = (
+        selection.changed_path_refs
+        if "reason-ref:risk:unclassified-path" in selection.escalation_reason_refs
+        else ()
+    )
+    fallback_reasons = (
+        selection.escalation_reason_refs if selection.full_gate_required else ()
+    )
+    return Selection(
+        tier=tier,
+        risk_tier=selection.risk_tier.value,
+        changed_paths=selection.changed_path_refs,
+        matched_rule_refs=selection.matched_rule_refs,
+        selected_unit_refs=selection.selected_unit_refs,
+        selected_command_refs=_command_refs(selection),
+        selected_test_refs=selection.selected_test_refs,
+        coverage_proof_obligation_refs=selection.coverage_proof_obligation_refs,
+        unknown_paths=unclassified,
+        fallback_reason_refs=fallback_reasons,
+        status=(
+            "full_gate_required"
+            if selection.full_gate_required
+            else "selected"
+        ),
+        selection_fingerprint=selection.selection_fingerprint,
+    )
 
 
 def select_paths(
@@ -231,61 +140,38 @@ def select_paths(
     *,
     tier: str = "affected",
     repo: Path = ROOT,
+    force_full: bool = False,
 ) -> Selection:
     if tier not in {"fast", "affected"}:
         raise ValueError("VERIFICATION_SELECTION_TIER_INVALID")
-    try:
-        root_metadata = repo.lstat()
-    except OSError as exc:
-        raise ValueError("VERIFICATION_REPOSITORY_ROOT_INVALID") from exc
-    if not stat.S_ISDIR(root_metadata.st_mode) or stat.S_ISLNK(root_metadata.st_mode):
-        raise ValueError("VERIFICATION_REPOSITORY_ROOT_INVALID")
+    _safe_repository_root(repo)
     normalized = tuple(sorted({normalize_path(path) for path in paths}))
-    if not normalized:
-        return Selection(tier, (), (), (), (), (), (), "no_changes")
-    rules: set[str] = set()
-    commands: set[str] = set()
-    tests: set[str] = set()
-    unknown: list[str] = []
-    missing_refs: list[str] = []
-    for path in normalized:
-        rule = _rule_for_path(path, tier, repo=repo)
-        if rule is None:
-            unknown.append(path)
-            continue
-        rule_ref, command_refs, test_refs = rule
-        rules.add(rule_ref)
-        commands.update(command_refs)
-        for ref in test_refs:
-            if _safe_regular_repo_file(repo, ref):
-                tests.add(ref)
-            else:
-                missing_refs.append(ref)
-    fallback_reasons: tuple[str, ...] = ()
-    if missing_refs:
-        commands = {FULL_COMMAND_REF}
-        tests.clear()
-        rules.add("rule-ref:missing-test-ref-full")
-        fallback_reasons = ("reason-ref:verification:missing-test-ref",)
-    elif unknown:
-        commands = {FULL_COMMAND_REF}
-        tests.clear()
-        rules.add("rule-ref:unknown-path-full")
-        fallback_reasons = ("reason-ref:verification:unknown-path",)
-    elif FULL_COMMAND_REF in commands:
-        commands = {FULL_COMMAND_REF}
-        tests.clear()
-        fallback_reasons = ("reason-ref:verification:critical-topology-change",)
-    return Selection(
-        tier=tier,
-        changed_paths=normalized,
-        matched_rule_refs=tuple(sorted(rules)),
-        selected_command_refs=tuple(sorted(commands)),
-        selected_test_refs=tuple(sorted(tests)),
-        unknown_paths=tuple(unknown),
-        fallback_reason_refs=fallback_reasons,
-        status=("full_gate_required" if fallback_reasons else "selected"),
+    if not normalized and not force_full:
+        return Selection(
+            tier=tier,
+            risk_tier="tier_0",
+            changed_paths=(),
+            matched_rule_refs=(),
+            selected_unit_refs=(),
+            selected_command_refs=(),
+            selected_test_refs=(),
+            coverage_proof_obligation_refs=(),
+            unknown_paths=(),
+            fallback_reason_refs=(),
+            status="no_changes",
+            selection_fingerprint="0" * 64,
+        )
+    canonical = select_verification(
+        tuple(
+            ChangeRecord(ChangeKind.MODIFIED, (path,))
+            for path in normalized
+        ),
+        verification_dag=VERIFICATION_DAG,
+        full_unit_refs=tuple(unit.unit_ref for unit in CI_JOB_GRAPH),
+        repo=repo,
+        force_full=force_full,
     )
+    return _project_selection(canonical, tier=tier)
 
 
 def _parse_name_status(output: bytes) -> tuple[set[str], bool]:
@@ -300,7 +186,7 @@ def _parse_name_status(output: bytes) -> tuple[set[str], bool]:
         if index + path_count > len(fields):
             raise ValueError("VERIFICATION_GIT_STATUS_INVALID")
         paths.update(fields[index : index + path_count])
-        destructive = destructive or status.startswith(("D", "R", "C"))
+        destructive = destructive or status.startswith(("D", "R", "C", "T"))
         index += path_count
     return paths, destructive
 
@@ -341,89 +227,174 @@ def _git_paths(base_ref: str) -> tuple[list[str], bool]:
     return sorted(paths), destructive
 
 
-COMMANDS: dict[str, tuple[str, ...]] = {
-    "command-ref:api-contract-snapshot": (
-        sys.executable,
-        "scripts/verification/api_contract_snapshot.py",
-        "--check",
-    ),
-    "command-ref:api-lane": (sys.executable, "scripts/verification/api_lane.py"),
-    "command-ref:openapi": (sys.executable, "scripts/verify_openapi_contract.py"),
-    "command-ref:documentation": (
-        sys.executable,
-        "scripts/verify_documentation_integrity.py",
-    ),
-    "command-ref:product-truth": (sys.executable, "scripts/verify_product_truth.py"),
-    "command-ref:redaction": (
-        sys.executable,
-        "scripts/verify_security_redaction_artifacts.py",
-    ),
-    "command-ref:frontend-check": ("make", "frontend-check"),
-    "command-ref:frontend-safety": (
-        sys.executable,
-        "scripts/verify_control_center_frontend.py",
-    ),
-    "command-ref:web-hybrid": (
-        sys.executable,
-        "scripts/verify_web_hybrid_contracts.py",
-    ),
-    "command-ref:authority-focused": (
-        sys.executable,
-        "-m",
-        "pytest",
-        "-q",
-        "tests/test_authority_leases.py",
-        "tests/test_authority_dispatcher.py",
-    ),
-    "command-ref:packaging-focused": (
-        sys.executable,
-        "scripts/verify_local_runtime_packaging_proof.py",
-    ),
-    "command-ref:verifier-value-audit": (
-        sys.executable,
-        "scripts/verification/verifier_value_audit.py",
-    ),
-    FULL_COMMAND_REF: ("make", "verify-dev-sharded"),
-}
+def _resolved_argv(
+    command_ref: str,
+    *,
+    selection: Selection,
+    base_ref: str,
+    temp_root: Path,
+) -> tuple[str, ...]:
+    command = command_registry()[command_ref]
+    argv = tuple(
+        token.replace("{base_sha}", base_ref)
+        .replace("{repository_sha}", "HEAD")
+        .replace("{temp_root}", str(temp_root))
+        for token in command.argv
+    )
+    if argv and argv[0] == ".venv/bin/python":
+        argv = (sys.executable, *argv[1:])
+    if command_ref == "command:pytest.focused":
+        return (
+            sys.executable,
+            "-m",
+            "pytest",
+            "-q",
+            *selection.selected_test_refs,
+        )
+    return argv
 
 
-def execute_selection(selection: Selection) -> int:
+def _merge_gate_exclusive_command_refs() -> frozenset[str]:
+    return frozenset(
+        command_ref
+        for unit in VERIFICATION_DAG
+        if MERGE_GATE_EXCLUSIVE_RESOURCE_REFS.intersection(
+            unit.exclusive_resource_refs
+        )
+        for command_ref in unit.command_refs
+    )
+
+
+def _merge_gate_deferred_command_refs(selection: Selection) -> frozenset[str]:
+    selected_unit_refs = set(selection.selected_unit_refs)
+    units_by_ref = {unit.unit_ref: unit for unit in VERIFICATION_DAG}
+    deferred_unit_refs = {
+        unit_ref
+        for unit_ref in selected_unit_refs
+        if MERGE_GATE_EXCLUSIVE_RESOURCE_REFS.intersection(
+            units_by_ref[unit_ref].exclusive_resource_refs
+        )
+    }
+    changed = True
+    while changed:
+        changed = False
+        for unit_ref in selected_unit_refs - deferred_unit_refs:
+            if set(units_by_ref[unit_ref].needs).intersection(deferred_unit_refs):
+                deferred_unit_refs.add(unit_ref)
+                changed = True
+    return frozenset(
+        command_ref
+        for unit_ref in deferred_unit_refs
+        for command_ref in units_by_ref[unit_ref].command_refs
+    )
+
+
+def _command_refs_for_execution(
+    selection: Selection,
+    *,
+    exact_repository_state: bool,
+) -> tuple[str, ...]:
+    if not exact_repository_state:
+        return selection.selected_command_refs
+    deferred = _merge_gate_deferred_command_refs(selection)
+    return tuple(
+        command_ref
+        for command_ref in selection.selected_command_refs
+        if command_ref not in deferred
+    )
+
+
+def _repository_matches_exact_head() -> bool | None:
+    try:
+        result = subprocess.run(
+            (
+                "git",
+                "status",
+                "--porcelain=v1",
+                "-z",
+                "--untracked-files=all",
+            ),
+            cwd=ROOT,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            check=False,
+            timeout=20,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:
+        return None
+    return not result.stdout
+
+
+def execute_selection(selection: Selection, *, base_ref: str = "main") -> int:
     env = {**os.environ, "PYTHONPATH": "src", "PYTHONHASHSEED": "0"}
-    python_paths = [
-        path
-        for path in selection.changed_paths
-        if path.endswith(".py") and (ROOT / path).is_file()
-    ]
-    if "command-ref:ruff-changed" in selection.selected_command_refs and python_paths:
-        result = subprocess.run(
-            [sys.executable, "-m", "ruff", "check", *python_paths],
+    if selection.selected_command_refs == (FULL_COMMAND_REF,):
+        return subprocess.run(
+            ("make", "verify-dev-sharded"),
             cwd=ROOT,
             env=env,
             check=False,
+        ).returncode
+    exact_repository_state = _repository_matches_exact_head()
+    if exact_repository_state is None:
+        print(
+            "Affected verification blocked "
+            "(reason-ref:verification:repository-state-unavailable)"
         )
-        if result.returncode:
-            return result.returncode
-    if selection.selected_test_refs:
-        result = subprocess.run(
-            [sys.executable, "-m", "pytest", "-q", *selection.selected_test_refs],
-            cwd=ROOT,
-            env=env,
-            check=False,
-        )
-        if result.returncode:
-            return result.returncode
+        return 2
+    command_refs = _command_refs_for_execution(
+        selection,
+        exact_repository_state=exact_repository_state,
+    )
     for command_ref in selection.selected_command_refs:
-        if command_ref == "command-ref:ruff-changed":
-            continue
-        result = subprocess.run(COMMANDS[command_ref], cwd=ROOT, env=env, check=False)
-        if result.returncode:
-            return result.returncode
+        if command_ref not in command_refs:
+            print(f"Deferred exact merge-gate command: {command_ref}")
+    with tempfile.TemporaryDirectory(prefix="uaa-affected-verification-") as temp:
+        temp_root = Path(temp)
+        for command_ref in command_refs:
+            result = subprocess.run(
+                _resolved_argv(
+                    command_ref,
+                    selection=selection,
+                    base_ref=base_ref,
+                    temp_root=temp_root,
+                ),
+                cwd=ROOT,
+                env=env,
+                check=False,
+            )
+            if result.returncode:
+                return result.returncode
     return 0
+
+
+def _blocked_selection(tier: str) -> Selection:
+    return Selection(
+        tier=tier,
+        risk_tier="tier_3",
+        changed_paths=(),
+        matched_rule_refs=("risk-rule:selector-error-full",),
+        selected_unit_refs=tuple(unit.unit_ref for unit in CI_JOB_GRAPH),
+        selected_command_refs=(FULL_COMMAND_REF,),
+        selected_test_refs=(),
+        coverage_proof_obligation_refs=(
+            "proof-obligation-ref:complete-pytest",
+            "proof-obligation-ref:foundation-gate",
+        ),
+        unknown_paths=(),
+        fallback_reason_refs=("reason-ref:verification:selector-error",),
+        status="full_gate_required",
+        selection_fingerprint="0" * 64,
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Select deterministic fail-closed local verification from changed paths."
+        description=(
+            "Select deterministic fail-closed local verification from the "
+            "canonical risk DAG."
+        )
     )
     parser.add_argument("--path", action="append", default=[])
     parser.add_argument("--base-ref", default="main")
@@ -436,33 +407,18 @@ def main(argv: list[str] | None = None) -> int:
     try:
         git_paths, destructive = _git_paths(args.base_ref)
         paths = sorted({*git_paths, *args.path})
-        selection = select_paths(paths, tier=args.tier)
-        if destructive:
-            selection = Selection(
-                args.tier,
-                tuple(paths),
-                ("rule-ref:rename-delete-full",),
-                (FULL_COMMAND_REF,),
-                (),
-                (),
-                ("reason-ref:verification:rename-delete",),
-                "full_gate_required",
-            )
-    except (UnicodeDecodeError, ValueError):
-        selection = Selection(
-            args.tier,
-            (),
-            ("rule-ref:selector-error-full",),
-            (FULL_COMMAND_REF,),
-            (),
-            (),
-            ("reason-ref:verification:selector-error",),
-            "full_gate_required",
+        selection = select_paths(
+            paths,
+            tier=args.tier,
+            force_full=destructive,
         )
+    except (OSError, UnicodeDecodeError, ValueError):
+        selection = _blocked_selection(args.tier)
     if args.json:
         print(json.dumps(selection.payload(), sort_keys=True))
     else:
         print(f"Verification selection: {selection.status}")
+        print(f"  risk tier: {selection.risk_tier}")
         for path in selection.changed_paths:
             print(f"  changed: {path}")
         for ref in selection.selected_command_refs:
@@ -472,8 +428,12 @@ def main(argv: list[str] | None = None) -> int:
         if selection.fallback_reason_refs:
             print("  Full local verification is required before merge or release.")
         else:
-            print("  Advisory fast checks do not replace merge or release gates.")
-    return execute_selection(selection) if args.execute else 0
+            print("  Advisory checks do not replace merge or release gates.")
+    return (
+        execute_selection(selection, base_ref=args.base_ref)
+        if args.execute
+        else 0
+    )
 
 
 if __name__ == "__main__":

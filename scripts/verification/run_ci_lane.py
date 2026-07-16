@@ -87,6 +87,7 @@ from scripts.verification.verification_execution_identity import (  # noqa: E402
     VerificationExecutionFenceError,
     build_verification_execution_identity,
     build_verification_execution_terminal_proof,
+    verification_exclusive_resource_attempt_fingerprint,
 )
 from scripts.verification.verification_github_transport import (  # noqa: E402
     build_github_job_output_envelope,
@@ -110,6 +111,7 @@ MAX_TRANSIENT_OUTPUT_BYTES = 32 * 1024 * 1024
 MAX_RECEIPT_BYTES = 1024 * 1024
 MAX_PYTEST_PERFORMANCE_REPORT_BYTES = 256 * 1024
 PYTEST_PERFORMANCE_REPORT_NAME = "uaa_pytest_performance_report.json"
+PYTEST_FILE_TIMINGS_NAME = "uaa_pytest_file_timings.json"
 PYTEST_COLLECTION_EVIDENCE_NAME = "uaa_pytest_collection_evidence.json"
 FRONTEND_COLLECTION_EVIDENCE_DIRNAME = "uaa_frontend_collection_evidence"
 FRONTEND_COLLECTION_EVIDENCE_NAME = "aggregate.json"
@@ -173,12 +175,15 @@ def _resolved_argv(
     repository_sha: str,
     base_sha: str,
 ) -> tuple[str, ...]:
-    return tuple(
+    resolved = tuple(
         token.replace("{temp_root}", str(temp_root))
         .replace("{repository_sha}", repository_sha)
         .replace("{base_sha}", base_sha)
         for token in command.argv
     )
+    if resolved and resolved[0] == ".venv/bin/python":
+        return (sys.executable, *resolved[1:])
+    return resolved
 
 
 def _safe_env(
@@ -1159,6 +1164,13 @@ def run_lane(
     if lane_ref not in lanes:
         raise ValueError("unknown canonical CI lane ref")
     lane = lanes[lane_ref]
+    if (
+        lane_ref == "ci-control-center-frontend"
+        and verification_execution_fence_root is None
+    ):
+        raise ValueError(
+            "canonical frontend verification requires a durable execution fence"
+        )
     diagnostic_reproduction = (
         PYTEST_REPRODUCTION_LANE_RE.fullmatch(lane_ref) is not None
     )
@@ -1198,12 +1210,23 @@ def run_lane(
         lane_refs=(lane_ref,),
         frontend_visual_scope=visual_scope,
     )
+    pytest_resource_attempt_fingerprint = (
+        verification_exclusive_resource_attempt_fingerprint(
+            repository_sha=repository_sha,
+            dependency_state_ref=dependency_state_fingerprint(plan),
+            exclusive_resource_ref="resource-ref:complete-pytest",
+            typescript_runtime_fingerprint=None,
+            typescript_version_ref=None,
+        )
+        if lane_ref == "ci-pytest-shards"
+        else None
+    )
     commands = command_registry()
     if lane_ref == "ci-pytest-shards" and importlib.util.find_spec("pytest") is None:
         raise PytestRuntimeUnavailableError(
             "canonical pytest runtime is unavailable before suite start"
         )
-    typed_evidence_requested = any(
+    typed_evidence_requested = verification_execution_fence_root is not None or any(
         value is not None
         for value in (
             verification_receipt_file,
@@ -1329,6 +1352,14 @@ def run_lane(
                 typescript_version_ref=identity_typescript_version_ref,
             )
             pre_execution_identity_ref = pre_execution_identity.identity_ref
+            if (
+                lane_ref == "ci-pytest-shards"
+                and pre_execution_identity.exclusive_resource_attempt_fingerprint
+                != pytest_resource_attempt_fingerprint
+            ):
+                raise ValueError(
+                    "complete pytest resource attempt binding changed"
+                )
         else:
             reused_typescript_receipt = reused_receipts_by_command.get(
                 "command:frontend.check"
@@ -1380,6 +1411,11 @@ def run_lane(
         else None
     )
     execution_fence_owner_token: str | None = None
+    exclusive_resource_attempt_fingerprint = (
+        pre_execution_identity.exclusive_resource_attempt_fingerprint
+        if pre_execution_identity is not None
+        else pytest_resource_attempt_fingerprint
+    )
 
     def validate_typed_prestart() -> None:
         if full_plan_before is None:
@@ -1434,7 +1470,7 @@ def run_lane(
     results: list[dict[str, Any]] = []
     pytest_collection_payload: dict[str, Any] | None = None
     frontend_collection_payload: dict[str, Any] | None = None
-    if full_suite_lock_mode not in {"github", "private"}:
+    if full_suite_lock_mode not in {"github", "local", "private"}:
         raise ValueError("unknown full-suite lock mode")
     lock = (
         FullSuiteLock(
@@ -1445,8 +1481,9 @@ def run_lane(
             ),
             repository_sha=repository_sha,
             attempt_scope=full_suite_lock_mode,
+            resource_attempt_fingerprint=exclusive_resource_attempt_fingerprint,
         )
-        if lane_ref == "ci-pytest-shards"
+        if exclusive_resource_attempt_fingerprint is not None
         else FullSuiteLock(
             path=PYTEST_DIAGNOSTIC_LOCK_PATH,
             wait_seconds=0,
@@ -1515,7 +1552,7 @@ def run_lane(
                 continue
 
             def validate_command_start() -> None:
-                if lane_ref == "ci-pytest-shards":
+                if exclusive_resource_attempt_fingerprint is not None:
                     full_suite_lock.ensure_start_available()
                 validate_typed_prestart()
                 if lane_ref == "ci-pytest-shards":
@@ -1536,7 +1573,7 @@ def run_lane(
                         )
                     execution_fence_owner_token = decision.owner_token
                 try:
-                    if lane_ref == "ci-pytest-shards":
+                    if exclusive_resource_attempt_fingerprint is not None:
                         full_suite_lock.record_start()
                 except BaseException:
                     if (
@@ -1833,7 +1870,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dependency-envelope", action="append", default=[])
     parser.add_argument(
         "--full-suite-lock-mode",
-        choices=("github", "private"),
+        choices=("github", "local", "private"),
         default="github",
     )
     parser.add_argument(

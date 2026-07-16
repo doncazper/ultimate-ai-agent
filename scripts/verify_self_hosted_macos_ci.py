@@ -161,7 +161,7 @@ def verify(root: Path = ROOT) -> list[str]:
         failures.append("pytest shards must share one installed single-host environment")
     if (
         "--verification-execution-fence-root "
-        "/private/tmp/uaa-verification-execution-fence-v1"
+        "/private/tmp/uaa-verification-execution-fence-v2"
         not in pytest_shards_job
         or "--verification-execution-fence-root /tmp/" in pytest_shards_job
     ):
@@ -238,7 +238,7 @@ def verify(root: Path = ROOT) -> list[str]:
             "steps.canonical.outputs.verification_envelope",
             "        id: canonical\n",
             "--verification-execution-fence-root "
-            "/private/tmp/uaa-verification-execution-fence-v1",
+            "/private/tmp/uaa-verification-execution-fence-v2",
             '--github-output-file "$GITHUB_OUTPUT"',
             '--base-sha "$UAA_CI_COMPARISON_BASE_SHA"',
         )

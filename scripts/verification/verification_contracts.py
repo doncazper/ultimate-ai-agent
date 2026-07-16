@@ -1253,10 +1253,20 @@ class VerificationValueRecord:
     overlap_ref: str
     disposition: str
     duration_ms: int
+    repository_sha: str
+    dependency_state_fingerprint: str
+    platform_fingerprint: str
+    command_manifest_fingerprint: str
+    verifier_definition_fingerprint: str
+    test_collection_fingerprint: str
+    probe_definition_fingerprint: str
+    detection_ref: str
+    value_fingerprint: str
     redaction_status: str = "content_free_refs_hashes_counts_and_durations_only"
 
     def validate(self) -> None:
-        _validate_ref(self.schema_version, label="verification value schema version")
+        if self.schema_version != "uaa_verification_value.v2":
+            raise ValueError("verification value schema version is unsupported")
         for value, label in (
             (self.value_ref, "verification value ref"),
             (self.unit_ref, "verification value unit ref"),
@@ -1266,10 +1276,52 @@ class VerificationValueRecord:
             (self.receipt_ref, "value receipt ref"),
             (self.overlap_ref, "value overlap ref"),
             (self.disposition, "value disposition"),
+            (self.detection_ref, "verification value detection ref"),
         ):
             _validate_ref(value, label=label)
+        if SHA_PATTERN.fullmatch(self.repository_sha) is None:
+            raise ValueError("verification value repository SHA is invalid")
+        for value, label in (
+            (
+                self.dependency_state_fingerprint,
+                "verification value dependency state fingerprint",
+            ),
+            (self.platform_fingerprint, "verification value platform fingerprint"),
+            (
+                self.command_manifest_fingerprint,
+                "verification value command manifest fingerprint",
+            ),
+            (
+                self.verifier_definition_fingerprint,
+                "verification value verifier definition fingerprint",
+            ),
+            (
+                self.test_collection_fingerprint,
+                "verification value test collection fingerprint",
+            ),
+            (
+                self.probe_definition_fingerprint,
+                "verification value probe definition fingerprint",
+            ),
+            (self.value_fingerprint, "verification value fingerprint"),
+        ):
+            _validate_digest(value, label=label)
         if self.outcome not in {"killed", "survived", "blocked", "unknown"}:
             raise ValueError("verification value outcome is invalid")
+        allowed_dispositions = {
+            "retain",
+            "retain-fast-loop",
+            "retain-release-only",
+            "retain-outside-fast-loop",
+            "retain-unmeasured",
+            "retain-consolidated",
+        }
+        if self.disposition not in allowed_dispositions:
+            raise ValueError("verification value disposition is invalid")
+        if self.disposition == "retain-consolidated" and self.outcome != "killed":
+            raise ValueError(
+                "verification consolidation requires a killed synthetic mutation"
+            )
         if (
             not isinstance(self.duration_ms, int)
             or isinstance(self.duration_ms, bool)
@@ -1281,6 +1333,24 @@ class VerificationValueRecord:
             != "content_free_refs_hashes_counts_and_durations_only"
         ):
             raise ValueError("verification value redaction posture is invalid")
+        expected = verification_value_record_fingerprint(self)
+        if self.value_fingerprint != expected:
+            raise ValueError("verification value fingerprint is not content bound")
+        if self.value_ref != f"value:verification:{expected}":
+            raise ValueError("verification value ref is not content bound")
+        if self.receipt_ref != f"receipt:verification-value:{expected}":
+            raise ValueError("verification value receipt ref is not content bound")
+
+
+def verification_value_record_fingerprint(record: VerificationValueRecord) -> str:
+    payload = {
+        field_name: getattr(record, field_name)
+        for field_name in VerificationValueRecord.__dataclass_fields__
+        if field_name not in {"value_ref", "receipt_ref", "value_fingerprint"}
+    }
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
 
 
 def validate_verification_dag(units: tuple[VerificationUnit, ...]) -> None:
