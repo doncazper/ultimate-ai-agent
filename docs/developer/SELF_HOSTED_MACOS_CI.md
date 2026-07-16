@@ -217,9 +217,12 @@ applicable—not a workflow surface or plan ref—so the host-wide shared attemp
 ledger rejects a different GitHub or local consumer for the same state.
 Private policy forbids both resources. A changed dependency fingerprint creates
 a distinct attempt. Separate owner-only exact start/settlement state lives under
-the versioned real macOS path
-`/private/tmp/uaa-verification-execution-fence-v2`; symlinked path components,
-foreign identities, and cross-identity settlement are rejected.
+versioned real macOS paths: the repository-scoped runner uses
+`/private/tmp/uaa-verification-execution-fence-v2`, while local entry points use
+`/private/tmp/uaa-verification-execution-fence-v2-<uid>`. The shared attempt
+ledger, not either owner-only store, fences duplicate work across accounts.
+Symlinked path components, foreign identities, and cross-identity settlement
+are rejected.
 
 When the GitHub control plane is unavailable, a run fails before any repository
 command starts, runner capacity exceeds the bounded queue budget, runner contact

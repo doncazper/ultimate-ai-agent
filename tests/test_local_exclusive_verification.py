@@ -1,14 +1,46 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
+import subprocess
+import sys
 
 import pytest
 
 from scripts.verification import run_local_verification_lane as local_lane
+from scripts.verification.pytest_shard_artifacts import safe_test_ref
 
 
 SHA = "a" * 40
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_local_lane_default_fence_is_owner_scoped() -> None:
+    assert local_lane.DEFAULT_FENCE_ROOT == Path(
+        f"/private/tmp/uaa-verification-execution-fence-v2-{os.getuid()}"
+    )
+
+
+def test_local_lane_script_bootstraps_repo_imports_from_make_environment() -> None:
+    environment = os.environ.copy()
+    environment["PYTHONPATH"] = "src"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/verification/run_local_verification_lane.py",
+            "--help",
+        ],
+        cwd=ROOT,
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert "Run one clean exact-SHA local lane" in result.stdout
 
 
 def test_local_lane_uses_canonical_local_surface_and_fence(
@@ -40,6 +72,49 @@ def test_local_lane_uses_canonical_local_surface_and_fence(
     temp_root = observed["temp_root"]
     assert isinstance(temp_root, Path)
     assert not temp_root.exists()
+
+
+def test_local_lane_prints_only_safe_pytest_failure_refs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr(local_lane, "_repository_sha", lambda: SHA)
+    safe_failure_ref = safe_test_ref("tests/test_safe.py::test_failure")
+
+    def fake_run_lane(_lane_ref: str, **_kwargs: object) -> dict[str, object]:
+        return {
+            "status": "fail",
+            "command_results": [
+                {
+                    "failed_shard_refs": (
+                        "pytest-shard-ref:6:failed",
+                        "pytest-shard-ref:99:failed",
+                        "unsafe-shard-detail",
+                    ),
+                    "failed_test_refs": (
+                        safe_failure_ref,
+                        "unsafe-local-detail",
+                    ),
+                }
+            ],
+        }
+
+    monkeypatch.setattr(local_lane, "run_lane", fake_run_lane)
+
+    assert (
+        local_lane.run_local_lane(
+            "ci-pytest-shards",
+            fence_root=tmp_path / "fence",
+        )
+        == 1
+    )
+    output = capsys.readouterr().out
+    assert "pytest-shard-ref:6:failed" in output
+    assert "CI_SHARD_INDEX=6" in output
+    assert safe_failure_ref in output
+    assert "pytest-shard-ref:99:failed" not in output
+    assert "unsafe-local-detail" not in output
 
 
 def test_local_pytest_profile_is_validated_and_published_atomically(

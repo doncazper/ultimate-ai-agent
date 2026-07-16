@@ -15,7 +15,7 @@ CI_SHA ?= $(shell git rev-parse HEAD)
 CI_LANE ?= ci-lint
 CI_TEMP_ROOT ?= /tmp/uaa-ci-lane
 CI_SHARD_INDEX ?= 0
-VERIFICATION_EXECUTION_FENCE_ROOT ?= /private/tmp/uaa-verification-execution-fence-v2
+VERIFICATION_EXECUTION_FENCE_ROOT ?= /private/tmp/uaa-verification-execution-fence-v2-$(shell /usr/bin/id -u)
 .PHONY: doctor test test-serial test-sharded test-sharded-profile verify verify-static verify-gate-architecture verify-fast verify-affected verify-value-audit verify-dev-fast verify-dev-sharded verify-local verify-beta-local verify-beta-local-visual ci-manifest ci-lane ci-reproduce-shard ci-fallback ci-fallback-status frontend-check frontend-visual-check frontend-turn-router-smoke openapi ruff
 
 doctor:

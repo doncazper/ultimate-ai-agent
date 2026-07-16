@@ -421,8 +421,12 @@ enforces that cross-surface rule, while the separate owner-only execution fence
 binds exact pre-start and terminal settlement. A changed dependency state
 creates a distinct attempt; an unsettled exact attempt remains recovery
 required. The execution fence store uses the versioned
-`/private/tmp/uaa-verification-execution-fence-v2` boundary. Private diagnosis
-still cannot execute either exclusive merge-gate resource.
+`/private/tmp/uaa-verification-execution-fence-v2` boundary for the
+repository-scoped runner and an owner-scoped
+`/private/tmp/uaa-verification-execution-fence-v2-<uid>` boundary for local
+entry points. Cross-account duplicate prevention remains in the shared attempt
+ledger rather than either owner-only store. Private diagnosis still cannot
+execute either exclusive merge-gate resource.
 
 The stable `make test-sharded`, `make test-sharded-profile`, and
 `make frontend-check` entry points now invoke the same canonical lane runner

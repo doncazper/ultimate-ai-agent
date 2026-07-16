@@ -7,26 +7,38 @@ import math
 import os
 import stat
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
-from scripts.verification.ci_fallback_storage import (
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from scripts.verification.ci_fallback_storage import (  # noqa: E402
     FullSuiteAttemptAlreadyRecordedError,
     FullSuiteLockUnavailableError,
 )
-from scripts.verification.pytest_shard_artifacts import TIMING_SCHEMA_VERSION
-from scripts.verification.run_ci_lane import (
+from scripts.verification.pytest_shard_artifacts import (  # noqa: E402
+    TIMING_SCHEMA_VERSION,
+    is_safe_test_ref,
+)
+from scripts.verification.pytest_shard_plan import (  # noqa: E402
+    CANONICAL_PYTEST_SHARD_COUNT,
+)
+from scripts.verification.run_ci_lane import (  # noqa: E402
     PYTEST_FILE_TIMINGS_NAME,
     PytestRuntimeUnavailableError,
     run_lane,
 )
-from scripts.verification.verification_execution_identity import (
+from scripts.verification.verification_execution_identity import (  # noqa: E402
     VerificationExecutionFenceError,
 )
 
 
-ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_FENCE_ROOT = Path("/private/tmp/uaa-verification-execution-fence-v2")
+DEFAULT_FENCE_ROOT = Path(
+    f"/private/tmp/uaa-verification-execution-fence-v2-{os.getuid()}"
+)
 ALLOWED_LANES = {
     "ci-pytest-shards",
     "ci-control-center-frontend",
@@ -36,6 +48,49 @@ MAX_TIMING_PROFILE_BYTES = 4 * 1024 * 1024
 
 class LocalVerificationLaneError(RuntimeError):
     """A local exclusive lane could not execute or publish safe evidence."""
+
+
+def _safe_failed_shard_ref(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    parts = value.split(":")
+    if len(parts) != 3 or parts[0] != "pytest-shard-ref":
+        return None
+    try:
+        shard_index = int(parts[1])
+    except ValueError:
+        return None
+    if (
+        not 0 <= shard_index < CANONICAL_PYTEST_SHARD_COUNT
+        or parts[2] not in {"failed", "timed-out"}
+    ):
+        return None
+    return value
+
+
+def _print_safe_pytest_failure_refs(receipt: dict[str, object]) -> None:
+    results = receipt.get("command_results")
+    if not isinstance(results, list):
+        return
+    for result in results:
+        if not isinstance(result, dict):
+            continue
+        failed_shard_refs = result.get("failed_shard_refs")
+        if isinstance(failed_shard_refs, (list, tuple)):
+            for value in failed_shard_refs:
+                failed_shard_ref = _safe_failed_shard_ref(value)
+                if failed_shard_ref is not None:
+                    shard_index = failed_shard_ref.split(":")[1]
+                    print(
+                        f"Failed shard: {failed_shard_ref} "
+                        "(reproduce with make ci-reproduce-shard "
+                        f"CI_SHARD_INDEX={shard_index})"
+                    )
+        failed_test_refs = result.get("failed_test_refs")
+        if isinstance(failed_test_refs, (list, tuple)):
+            for value in failed_test_refs:
+                if isinstance(value, str) and is_safe_test_ref(value):
+                    print(f"Diagnostic test ref: {value}")
 
 
 def _repository_sha() -> str:
@@ -207,6 +262,7 @@ def run_local_lane(
             full_suite_lock_mode="local",
         )
         if receipt.get("status") != "pass":
+            _print_safe_pytest_failure_refs(receipt)
             return 1
         if profile_output is not None:
             _publish_timing_profile(

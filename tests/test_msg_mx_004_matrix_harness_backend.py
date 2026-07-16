@@ -557,17 +557,19 @@ def test_parent_liveness_pipe_kills_detached_process_group(
     process_group_id = harness_backend._owned_process_groups[process]
 
     harness_backend._close_process_liveness_pipe(process)
-    process.wait(timeout=5)
     deadline = time.monotonic() + 5
     while time.monotonic() < deadline:
-        try:
-            os.killpg(process_group_id, 0)
-        except ProcessLookupError:
+        inventory = harness_backend._process_group_inventory(
+            process,
+            process_group_id,
+        )
+        if inventory.leader_terminal and inventory.live_member_count == 0:
             break
         time.sleep(0.01)
     else:
-        pytest.fail("parent-liveness watchdog left the process group alive")
+        pytest.fail("parent-liveness watchdog left a live process-group member")
 
+    process.wait(timeout=5)
     assert process.returncode is not None
     harness_backend._mark_process_group_settled(process)
 
