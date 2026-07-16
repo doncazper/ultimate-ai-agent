@@ -2,13 +2,12 @@
 
 Status: implemented local-development feedback; not merge or release evidence.
 
-The canonical target architecture and Phase 00 shadow boundary are documented
-in
+The canonical cutover architecture is documented in
 [`RISK_BASED_VERIFICATION_ARCHITECTURE.md`](RISK_BASED_VERIFICATION_ARCHITECTURE.md).
-Phase 00 does not change the commands or evidence posture described here:
-existing selectors, release lanes, GitHub CI, and Foundation Gate remain
-authoritative while the typed DAG and Tier 0-3 risk model are compared in
-shadow mode. No check is removed or deduplicated during this phase.
+The stable local commands are compatibility entry points over the same
+backend-owned Tier 0-3 selection used by private diagnosis and CI planning.
+They do not maintain a second rule or command registry and do not produce
+merge authority.
 
 UAA has two stable changed-path commands:
 
@@ -20,16 +19,19 @@ make verify-affected
 `verify-fast` runs the smallest useful checks for normalized changed paths.
 `verify-affected` adds boundary-level checks such as the full frontend contract,
 OpenAPI, product truth, and redaction where those surfaces are affected. Both
-commands use a fixed command registry, deterministic sorted paths, the merge-base
-diff, both sides of renames, staged and unstaged changes, and untracked files.
+commands use the canonical fixed command registry, deterministic sorted paths,
+the merge-base diff, both sides of renames, staged and unstaged changes, and
+untracked files.
 Advanced direct CLI use may add repeated `--path` values, but those values are
 always unioned with Git state and can never hide it.
 
 Unknown paths, verification topology, CI configuration, dependency manifests,
-gate architecture, and shared test setup fail closed to `make
+gate architecture, and shared test setup fail closed to Tier 3 and `make
 verify-dev-sharded`. Neither selector caches a prior result, grants authority,
-or counts as release evidence. `make verify` remains the release-grade local
-gate.
+or counts as release evidence. GitHub affected preflight reports a Tier 3 full
+gate without starting a duplicate complete suite; the repository-scoped GitHub
+jobs own that exact-SHA resource. Direct local use retains `make verify` as the
+release-grade local gate.
 
 ## Canonical API snapshot
 
@@ -66,7 +68,7 @@ worktree-local virtual environment. It is not a passing baseline. The warm
 measurement is the comparable green baseline. `make verify-value-audit`
 records the unique defect class and overlap posture for the main active lanes.
 That audit is registry-bound to every selector command and release lane and
-verifies the fingerprint on
+validates the exact-SHA synthetic run and timing derivations in
 `docs/verification/verifier_value_measurements.json`; unmeasured lanes remain
 explicit instead of inheriting timing claims.
 
@@ -90,6 +92,15 @@ complete local/dev gate.
 
 The first complete green profile after residual-attribution repair completed in
 104.77s. A seed-only confirmation completed in 100.48s with all shard durations
-between 96.72s and 100.44s. Compared with the 111.48s green warm baseline, the
-seed-only confirmation is 9.9% faster. This is same-machine scheduling evidence,
+between 96.72s and 100.44s. Their median is 102.63s, 7.94% below the 111.48s
+green warm baseline. The post-cutover frontend sample was 50.13s, 11.63% below
+the 56.73s warm baseline. Product-truth warm versus cold was 5.14% slower;
+documentation, Foundation Gate, and frontend cold/warm comparisons were below
+their cold samples. No comparable same-machine result regressed by more than
+15%, so the artifact records no warning. This is advisory scheduling evidence,
 not a universal performance claim.
+
+The frozen eleven-case legacy-selector comparison passed before cutover and is
+kept as a lower-bound regression check. It does not preserve a second active
+selector. Only the measured duplicate downstream frontend execution was
+removed; unique and unmeasured verifiers remain in their original gates.

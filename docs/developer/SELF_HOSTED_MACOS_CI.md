@@ -187,8 +187,9 @@ pushed head SHA instead of GitHub's synthetic merge ref. The required
 `manifest-attestation` job validates the exact repository-owned plan before
 parallel lint and fast affected preflight can start. Complete pytest waits for
 both. The workflow concurrency key cancels superseded
-SHAs, and the shared host guard plus exact execution-identity fence permit only
-one GitHub full sharded pytest attempt for that SHA and dependency state.
+SHAs, and the shared host guard plus exact resource-attempt fence permit only
+one complete pytest attempt for that SHA and dependency state across GitHub and
+local execution surfaces.
 Private verification cannot execute the complete suite or matching TypeScript
 resource, so the required GitHub run remains the sole full-gate execution.
 The installed `control-center-frontend` job executes one canonical
@@ -200,6 +201,15 @@ than executed again. The downstream frontend release job validates and reuses
 the exact passing job envelope; it cannot substitute an unbound success or
 repeat the frontend suite. Vite and Playwright resolve only the exact pinned
 installed executables; package acquisition is forbidden during verification.
+
+The two exclusive resource identities are `resource:complete-pytest` and
+`resource:typescript-typecheck`. Their attempt keys bind the exact repository
+SHA, dependency state, resource ref, and TypeScript runtime/version where
+applicable—not a workflow surface or plan ref—so a different consumer cannot
+repeat the same resource for the same state. A changed dependency fingerprint
+creates a distinct attempt. Owner-only state lives under the versioned real
+macOS path `/private/tmp/uaa-verification-execution-fence-v2`; symlinked path
+components, foreign identities, and cross-identity settlement are rejected.
 
 When the GitHub control plane is unavailable, a run fails before any repository
 command starts, runner capacity exceeds the bounded queue budget, runner contact

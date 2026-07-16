@@ -1,15 +1,16 @@
 # Risk-Based Verification Architecture
 
-Status: Phase 04 frontend proof cutover. GitHub job transport, exact dependency
-receipt reuse, complete-pytest fencing, and frontend TypeScript/test-collection
-fencing are active only for the exact source chains described below; the final
-repository-scoped GitHub run remains the merge authority.
+Status: Phase 05 canonical cutover. Local selectors, private diagnosis, GitHub
+CI, release verification, and Foundation Gate project or consume one canonical
+typed DAG. Exact resource-attempt fencing, measured verifier value, and the
+bounded legacy-selector comparison are active; the final repository-scoped
+GitHub run remains the merge authority.
 
 This document defines UAA's canonical repository-verification architecture. It
 does not grant runtime authority, relax a merge gate, or treat a local result as
-a GitHub merge-gate result. Phase 00 adds the typed vocabulary and a
-fail-closed risk model so later phases can consolidate measured duplication
-without removing unique defect coverage.
+a GitHub merge-gate result. The phased cutover added typed vocabulary,
+fail-closed risk selection, exact receipts, and measured consolidation without
+removing unique defect coverage.
 
 ## Scope and invariants
 
@@ -170,32 +171,23 @@ Deterministic code failures are not automatically rerun. Superseded work may
 be cancelled, but cancellation cannot convert an incomplete result into a
 passing receipt.
 
-## Phase 00 shadow boundary
+## Bounded shadow comparison and cutover
 
-Phase 00 is deliberately non-disruptive:
+Before cutover, Phase 00 captured the legacy selector as a frozen lower-bound
+baseline. Phase 05 now compares that baseline with the canonical selection
+across eleven bounded representative cases. The comparison rejects missing
+legacy commands, a less conservative risk tier, changed baseline fingerprints,
+or malformed cases. The checked-in baseline is comparison evidence only; it is
+not a second command registry and cannot select or execute verification.
 
-1. Define and validate the typed contracts and risk tiers.
-2. Adapt the current command manifest and job graph into the typed DAG.
-3. Produce a deterministic shadow plan for representative changed-path sets.
-4. Compare the shadow plan with the currently authoritative selection.
-5. Fail tests when the shadow graph is malformed or less conservative.
+`make verify-fast`, `make verify-affected`, private fallback, and CI manifest
+planning now consume the same canonical selection. The compatibility commands
+remain stable operator entry points. Release lanes and Foundation Gate consume
+the same unit definitions and exact receipts without treating local evidence as
+a GitHub merge result. No branch-protection or runner-policy rule changed.
 
-Phase 00 does **not**:
-
-- replace `make verify-fast`, `make verify-affected`, `make verify`, release
-  lanes, private CI, GitHub CI, or Foundation Gate;
-- consume shadow receipts as release or merge evidence;
-- remove, skip, deduplicate, or reorder existing verification execution;
-- change branch protection, runner policy, or workflow authority; or
-- claim timing improvements before comparable measurements exist.
-
-The existing paths remain authoritative throughout the bounded shadow period.
-Later phases may cut one surface over at a time only after focused tests,
-repository-scoped self-hosted CI, and the old-versus-new comparison prove the
-new graph is equal or more conservative. No recursively generated prompt pack
-or open-ended verification program follows this architecture.
-
-Operators can inspect the shadow selection for a clean checked-out exact commit:
+Operators can inspect the active canonical selection for a clean checked-out
+exact commit:
 
 ```bash
 PYTHONPATH=src .venv/bin/python \
@@ -205,7 +197,10 @@ PYTHONPATH=src .venv/bin/python \
 ```
 
 The command refuses a dirty or mismatched worktree. `--json` emits the same
-redacted backend-owned plan; it does not execute checks or satisfy a gate.
+redacted backend-owned plan; it does not execute checks or satisfy a gate. The
+bounded old-versus-new comparison remains available through
+`scripts/verification/verification_shadow_comparison.py`; it cannot become an
+alternate selector.
 
 ## Redacted evidence posture
 
@@ -405,3 +400,45 @@ represented by the exact installed-job receipt. It removes no unique test,
 typecheck, build, safety, or visual coverage. The final verifier-value,
 cold/warm timing, selector cutover, and bounded old-versus-new shadow
 comparison remain Phase 05 work.
+
+## Phase 05 canonical cutover and measured endpoint
+
+Phase 05 makes `verification_selection.py` the one path-to-risk and
+path-to-command decision source. The legacy selector CLI is a compatibility
+projection over that source, the CI command manifest derives plan membership
+from it, and private diagnosis narrows the same selection. API contracts,
+governed memory/provider/extension contracts, and unknown or unsafe path
+postures fail closed to Tier 3. The frozen legacy baseline passed all eleven
+bounded comparison cases before cutover.
+
+Exact resource-attempt identity is now global across execution surfaces for the
+two exclusive resources: complete pytest and the matching TypeScript
+declaration. The key binds the repository SHA, dependency state, canonical
+resource ref, and TypeScript runtime/version where applicable. A second plan or
+surface cannot start the same resource attempt. A changed dependency state
+creates a distinct attempt; an unsettled exact attempt remains recovery
+required. The owner-only fence store uses the versioned
+`/private/tmp/uaa-verification-execution-fence-v2` boundary. Private diagnosis
+still cannot execute either exclusive merge-gate resource.
+
+Verifier value is recorded by four fixed synthetic mutations in an owner-only
+temporary boundary. Product-truth, redaction, API-contract, and frontend
+declaration probes all killed their expected mutation on the exact source SHA;
+zero probes survived or were blocked. The content-free v2 artifact binds the
+repository, dependency state, platform, command manifest, verifier definitions,
+test collection, probe definitions, result refs, and same-machine timing
+comparisons. A surviving, blocked, stale, or tampered record prohibits
+consolidation.
+
+The only execution removed by this program is measured duplication:
+
+- the downstream frontend release lane reuses the exact installed frontend
+  receipt instead of repeating TypeScript, Vitest, and Vite; and
+- selector rule and command declarations were consolidated into the canonical
+  source without removing any selected verifier.
+
+API, redaction, product-truth, visual, durability, web-hybrid, packaging,
+local-model, and all other unique or unmeasured coverage remain retained.
+Same-machine measurements are advisory, record warnings above 15 percent, and
+support no universal speed claim. The final required GitHub run on the exact
+eligible SHA remains the sole merge authority.
