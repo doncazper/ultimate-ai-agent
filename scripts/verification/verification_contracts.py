@@ -21,6 +21,7 @@ MAX_COMMAND_REFS = 512
 MAX_TEST_REFS = 2048
 MAX_LOCK_REFS = 64
 MAX_DURATION_MS = 24 * 60 * 60 * 1000
+MAX_DURATION_CLOCK_SKEW_MS = 5_000
 TEST_EXECUTION_COMMAND_REFS = frozenset(
     {
         "command:frontend.check",
@@ -30,7 +31,48 @@ TEST_EXECUTION_COMMAND_REFS = frozenset(
         "command:frontend.visual-regression-contract",
     }
 )
-TYPESCRIPT_EXECUTION_COMMAND_REFS = frozenset({"command:frontend.check"})
+TYPESCRIPT_EXECUTION_COMMAND_REFS = frozenset(
+    {"command:frontend.check", "command:frontend.typecheck"}
+)
+V3_PLAN_ONLY_FIELDS = frozenset(
+    {
+        "verification_dag_fingerprint",
+        "selected_unit_definition_fingerprints",
+    }
+)
+SUPPORTED_PLAN_SCHEMA_VERSIONS = frozenset(
+    {
+        "uaa_ci_command_manifest.v2",
+        "uaa_ci_command_manifest.v3",
+        "uaa_verification_plan.v1",
+        "uaa_verification_plan.v2",
+        "uaa_verification_plan.v3",
+    }
+)
+V3_RECEIPT_ONLY_FIELDS = frozenset(
+    {
+        "dependency_lock_set_fingerprint",
+        "pytest_shard_plan_fingerprint",
+        "execution_identity_ref",
+        "executed_command_result_bindings",
+        "reused_command_receipt_bindings",
+    }
+)
+V3_RUN_ONLY_FIELDS = frozenset(
+    {
+        "dependency_lock_set_fingerprint",
+        "platform_fingerprint",
+        "verifier_definition_fingerprint",
+        "test_collection_fingerprint",
+        "pytest_shard_plan_fingerprint",
+        "typescript_project_fingerprint",
+        "required_unit_refs",
+        "missing_unit_refs",
+        "failed_unit_refs",
+        "reason_refs",
+        "observed_test_collection_bindings",
+    }
+)
 UTC_TIMESTAMP_PATTERN = re.compile(
     r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$"
 )
@@ -77,6 +119,33 @@ def _validate_ref(value: str, *, label: str) -> None:
 def _validate_digest(value: str, *, label: str) -> None:
     if not isinstance(value, str) or DIGEST_PATTERN.fullmatch(value) is None:
         raise ValueError(f"{label} must be a lowercase SHA-256 digest")
+
+
+def _validate_digest_ref(value: str, *, prefix: str, label: str) -> None:
+    _validate_ref(value, label=label)
+    if not value.startswith(prefix):
+        raise ValueError(f"{label} must be a content-bound ref")
+    _validate_digest(value.removeprefix(prefix), label=label)
+
+
+def _validate_v3_result_ref(value: str, *, label: str) -> None:
+    for prefix in (
+        "result-ref:ci:",
+        "result-ref:verification:",
+        "receipt:verification:",
+    ):
+        if value.startswith(prefix):
+            _validate_digest_ref(value, prefix=prefix, label=label)
+            return
+    raise ValueError(f"{label} must be a content-bound verification result ref")
+
+
+def _validate_v3_executed_result_ref(value: str, *, label: str) -> None:
+    for prefix in ("result-ref:ci:", "result-ref:verification:"):
+        if value.startswith(prefix):
+            _validate_digest_ref(value, prefix=prefix, label=label)
+            return
+    raise ValueError(f"{label} must be a content-bound executed result ref")
 
 
 def _validate_unique_refs(values: tuple[str, ...], *, label: str) -> None:
@@ -183,6 +252,35 @@ class VerificationUnit:
             raise ValueError("audit verification units cannot embed commands")
 
 
+def verification_unit_definition_fingerprint(unit: VerificationUnit) -> str:
+    """Bind every execution-relevant field in one canonical unit definition."""
+
+    unit.validate()
+    payload = {
+        field_name: getattr(unit, field_name)
+        for field_name in VerificationUnit.__dataclass_fields__
+    }
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+
+
+def verification_dag_definition_fingerprint(
+    units: tuple[VerificationUnit, ...],
+) -> str:
+    """Bind the ordered, validated canonical verification graph."""
+
+    validate_verification_dag(units)
+    _validate_canonical_verification_dag_order(units)
+    payload = tuple(
+        (unit.unit_ref, verification_unit_definition_fingerprint(unit))
+        for unit in units
+    )
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+
+
 @dataclass(frozen=True)
 class VerificationPlan:
     schema_version: str
@@ -219,6 +317,8 @@ class VerificationPlan:
     typescript_project_posture: str
     force_full: bool
     shadow_mode: bool
+    verification_dag_fingerprint: str | None = None
+    selected_unit_definition_fingerprints: tuple[tuple[str, str], ...] = ()
 
     def validate(self) -> None:
         for value, label in (
@@ -232,6 +332,8 @@ class VerificationPlan:
             (self.typescript_project_posture, "TypeScript project posture"),
         ):
             _validate_ref(value, label=label)
+        if self.schema_version not in SUPPORTED_PLAN_SCHEMA_VERSIONS:
+            raise ValueError("unsupported verification plan schema version")
         if not SHA_PATTERN.fullmatch(self.repository_sha) or not SHA_PATTERN.fullmatch(
             self.base_sha
         ):
@@ -279,6 +381,33 @@ class VerificationPlan:
             self.escalation_reason_refs, label="verification escalation reasons"
         )
         _validate_unique_refs(self.selected_unit_refs, label="selected unit refs")
+        if self.schema_version in {
+            "uaa_ci_command_manifest.v3",
+            "uaa_verification_plan.v3",
+        }:
+            if self.verification_dag_fingerprint is None:
+                raise ValueError("v3 verification plan requires an exact DAG binding")
+            _validate_digest(
+                self.verification_dag_fingerprint,
+                label="verification DAG fingerprint",
+            )
+            definition_unit_refs: list[str] = []
+            for unit_ref, fingerprint in self.selected_unit_definition_fingerprints:
+                _validate_ref(unit_ref, label="selected unit definition ref")
+                _validate_digest(
+                    fingerprint,
+                    label="selected unit definition fingerprint",
+                )
+                definition_unit_refs.append(unit_ref)
+            if tuple(definition_unit_refs) != self.selected_unit_refs:
+                raise ValueError(
+                    "selected unit definition bindings must exactly match plan membership"
+                )
+        elif (
+            self.verification_dag_fingerprint is not None
+            or self.selected_unit_definition_fingerprints
+        ):
+            raise ValueError("legacy verification plans cannot claim v3 DAG bindings")
         _validate_unique_refs(self.selected_lane_refs, label="selected lane refs")
         _validate_unique_refs(self.selected_command_refs, label="selected command refs")
         if len(self.selected_command_refs) > MAX_COMMAND_REFS:
@@ -326,12 +455,28 @@ class VerificationPlan:
             raise ValueError("release verification requires Tier 3 risk")
 
 
-def verification_plan_contract_fingerprint(plan: VerificationPlan) -> str:
-    payload = {
+def verification_plan_payload(
+    plan: VerificationPlan,
+    *,
+    include_content_identity: bool = True,
+) -> dict[str, Any]:
+    excluded = set()
+    if plan.schema_version not in {
+        "uaa_ci_command_manifest.v3",
+        "uaa_verification_plan.v3",
+    }:
+        excluded.update(V3_PLAN_ONLY_FIELDS)
+    if not include_content_identity:
+        excluded.add("plan_fingerprint")
+    return {
         field_name: getattr(plan, field_name)
         for field_name in VerificationPlan.__dataclass_fields__
-        if field_name != "plan_fingerprint"
+        if field_name not in excluded
     }
+
+
+def verification_plan_contract_fingerprint(plan: VerificationPlan) -> str:
+    payload = verification_plan_payload(plan, include_content_identity=False)
     return hashlib.sha256(
         json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
@@ -370,6 +515,11 @@ class VerificationReceipt:
     typescript_runtime_fingerprint: str | None = None
     typescript_version_ref: str | None = None
     receipt_fingerprint: str | None = None
+    dependency_lock_set_fingerprint: str | None = None
+    pytest_shard_plan_fingerprint: str | None = None
+    execution_identity_ref: str | None = None
+    executed_command_result_bindings: tuple[tuple[str, str], ...] = ()
+    reused_command_receipt_bindings: tuple[tuple[str, str], ...] = ()
 
     def validate(self) -> None:
         _validate_ref(self.schema_version, label="verification receipt schema version")
@@ -378,6 +528,7 @@ class VerificationReceipt:
         if self.schema_version not in {
             "uaa_verification_receipt.v1",
             "uaa_verification_receipt.v2",
+            "uaa_verification_receipt.v3",
         }:
             raise ValueError("unsupported verification receipt schema version")
         if not SHA_PATTERN.fullmatch(self.repository_sha):
@@ -488,7 +639,17 @@ class VerificationReceipt:
         )
         if completed < started:
             raise ValueError("verification receipt completion precedes its start")
-        if self.schema_version == "uaa_verification_receipt.v2":
+        wall_duration_ms = int((completed - started).total_seconds() * 1_000)
+        if (
+            wall_duration_ms > MAX_DURATION_MS
+            or abs(wall_duration_ms - self.duration_ms)
+            > MAX_DURATION_CLOCK_SKEW_MS
+        ):
+            raise ValueError("verification receipt duration evidence is inconsistent")
+        if self.schema_version in {
+            "uaa_verification_receipt.v2",
+            "uaa_verification_receipt.v3",
+        }:
             binding_commands: list[str] = []
             binding_results: list[str] = []
             for command_ref, result_ref in self.command_result_bindings:
@@ -496,23 +657,126 @@ class VerificationReceipt:
                 _validate_ref(result_ref, label="receipt result binding ref")
                 binding_commands.append(command_ref)
                 binding_results.append(result_ref)
-            if (
-                tuple(binding_commands) != self.command_refs
-                or (
-                    bool(self.command_refs)
-                    and tuple(binding_results) != self.result_refs
+            if self.schema_version == "uaa_verification_receipt.v2":
+                if (
+                    tuple(binding_commands) != self.command_refs
+                    or (
+                        bool(self.command_refs)
+                        and tuple(binding_results) != self.result_refs
+                    )
+                    or (not self.command_refs and bool(binding_results))
+                    or len(binding_commands) != len(set(binding_commands))
+                    or len(binding_results) != len(set(binding_results))
+                ):
+                    raise ValueError(
+                        "verification receipt command results are not exactly bound"
+                    )
+            else:
+                if (
+                    self.dependency_lock_set_fingerprint is None
+                    or self.pytest_shard_plan_fingerprint is None
+                    or self.execution_identity_ref is None
+                ):
+                    raise ValueError("v3 verification receipt requires exact execution bindings")
+                _validate_digest(
+                    self.dependency_lock_set_fingerprint,
+                    label="receipt dependency lock set fingerprint",
                 )
-                or (not self.command_refs and bool(binding_results))
-                or len(binding_commands) != len(set(binding_commands))
-                or len(binding_results) != len(set(binding_results))
-            ):
-                raise ValueError("verification receipt command results are not exactly bound")
+                _validate_digest(
+                    self.pytest_shard_plan_fingerprint,
+                    label="receipt pytest shard plan fingerprint",
+                )
+                _validate_digest_ref(
+                    self.execution_identity_ref,
+                    prefix="execution-identity:",
+                    label="receipt execution identity ref",
+                )
+                for result_ref in self.result_refs:
+                    _validate_v3_result_ref(
+                        result_ref,
+                        label="v3 verification result ref",
+                    )
+                if self.equivalent_receipt_ref is not None:
+                    equivalent_prefix = (
+                        "receipt:verification:"
+                        if self.equivalent_receipt_ref.startswith(
+                            "receipt:verification:"
+                        )
+                        else "receipt-ref:ci-lane:"
+                    )
+                    _validate_digest_ref(
+                        self.equivalent_receipt_ref,
+                        prefix=equivalent_prefix,
+                        label="equivalent verification receipt ref",
+                    )
+                executed_commands: list[str] = []
+                executed_results: list[str] = []
+                for command_ref, result_ref in self.executed_command_result_bindings:
+                    _validate_ref(command_ref, label="executed command binding ref")
+                    _validate_v3_executed_result_ref(
+                        result_ref,
+                        label="executed command result ref",
+                    )
+                    executed_commands.append(command_ref)
+                    executed_results.append(result_ref)
+                reused_commands: list[str] = []
+                reused_receipts: list[str] = []
+                for command_ref, receipt_ref in self.reused_command_receipt_bindings:
+                    _validate_ref(command_ref, label="reused command binding ref")
+                    _validate_digest_ref(
+                        receipt_ref,
+                        prefix="receipt:verification:",
+                        label="reused command receipt ref",
+                    )
+                    reused_commands.append(command_ref)
+                    reused_receipts.append(receipt_ref)
+                command_evidence = {
+                    **dict(self.executed_command_result_bindings),
+                    **dict(self.reused_command_receipt_bindings),
+                }
+                if (
+                    len(executed_commands) != len(set(executed_commands))
+                    or len(executed_results) != len(set(executed_results))
+                    or len(reused_commands) != len(set(reused_commands))
+                    or len(reused_receipts) != len(set(reused_receipts))
+                    or set(executed_commands) & set(reused_commands)
+                    or tuple(binding_commands) != tuple(executed_commands)
+                    or tuple(binding_results) != tuple(executed_results)
+                    or set(command_evidence) != set(self.command_refs)
+                    or (
+                        bool(self.command_refs)
+                        and tuple(command_evidence[ref] for ref in self.command_refs)
+                        != self.result_refs
+                    )
+                ):
+                    raise ValueError(
+                        "v3 verification receipt command evidence is not exactly bound"
+                    )
             if self.status is VerificationTerminalStatus.PASSED and any(
                 command_ref.startswith("command:pytest.")
                 or command_ref in TEST_EXECUTION_COMMAND_REFS
                 for command_ref in self.command_refs
             ) and self.test_collection_posture != "collected":
                 raise ValueError("passed test receipt requires observed collection proof")
+            if self.schema_version == "uaa_verification_receipt.v3":
+                typescript_execution = any(
+                    command_ref in TYPESCRIPT_EXECUTION_COMMAND_REFS
+                    for command_ref in self.command_refs
+                )
+                if (
+                    typescript_execution
+                    and self.typescript_binding_posture != "resolved"
+                ):
+                    raise ValueError(
+                        "v3 TypeScript receipt requires a pre-start runtime binding"
+                    )
+                if (
+                    not typescript_execution
+                    and self.typescript_binding_posture != "not_applicable"
+                ):
+                    raise ValueError(
+                        "v3 non-TypeScript receipt cannot claim a runtime binding"
+                    )
             if self.status is VerificationTerminalStatus.PASSED and any(
                 command_ref in TYPESCRIPT_EXECUTION_COMMAND_REFS
                 for command_ref in self.command_refs
@@ -525,12 +789,28 @@ class VerificationReceipt:
                 raise ValueError("verification receipt ref is not content bound")
 
 
-def verification_receipt_fingerprint(receipt: VerificationReceipt) -> str:
-    payload = {
+def verification_receipt_payload(
+    receipt: VerificationReceipt,
+    *,
+    include_content_identity: bool = True,
+) -> dict[str, Any]:
+    excluded = set()
+    if receipt.schema_version != "uaa_verification_receipt.v3":
+        excluded.update(V3_RECEIPT_ONLY_FIELDS)
+    if not include_content_identity:
+        excluded.update({"receipt_ref", "receipt_fingerprint"})
+    return {
         field_name: getattr(receipt, field_name)
         for field_name in VerificationReceipt.__dataclass_fields__
-        if field_name not in {"receipt_ref", "receipt_fingerprint"}
+        if field_name not in excluded
     }
+
+
+def verification_receipt_fingerprint(receipt: VerificationReceipt) -> str:
+    payload = verification_receipt_payload(
+        receipt,
+        include_content_identity=False,
+    )
     return hashlib.sha256(
         json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
@@ -552,6 +832,17 @@ class VerificationRunManifest:
     command_manifest_fingerprint: str | None = None
     execution_surface_ref: str = "surface-ref:unbound"
     unit_receipt_bindings: tuple[tuple[str, str], ...] = ()
+    dependency_lock_set_fingerprint: str | None = None
+    platform_fingerprint: str | None = None
+    verifier_definition_fingerprint: str | None = None
+    test_collection_fingerprint: str | None = None
+    pytest_shard_plan_fingerprint: str | None = None
+    typescript_project_fingerprint: str | None = None
+    required_unit_refs: tuple[str, ...] = ()
+    missing_unit_refs: tuple[str, ...] = ()
+    failed_unit_refs: tuple[str, ...] = ()
+    reason_refs: tuple[str, ...] = ()
+    observed_test_collection_bindings: tuple[tuple[str, str], ...] = ()
 
     def validate(self) -> None:
         _validate_ref(self.schema_version, label="verification run schema version")
@@ -559,6 +850,7 @@ class VerificationRunManifest:
         if self.schema_version not in {
             "uaa_verification_run.v1",
             "uaa_verification_run.v2",
+            "uaa_verification_run.v3",
         }:
             raise ValueError("unsupported verification run schema version")
         if not SHA_PATTERN.fullmatch(self.repository_sha):
@@ -569,7 +861,10 @@ class VerificationRunManifest:
         _validate_ref(self.execution_surface_ref, label="run execution surface")
         if not isinstance(self.status, VerificationTerminalStatus):
             raise ValueError("verification run status is invalid")
-        if not 0 < len(self.receipt_refs) <= MAX_RECEIPTS:
+        if len(self.receipt_refs) > MAX_RECEIPTS or (
+            self.schema_version != "uaa_verification_run.v3"
+            and not self.receipt_refs
+        ):
             raise ValueError("verification run receipt count is invalid")
         started = _validated_timestamp(self.started_at, label="run start timestamp")
         completed = _validated_timestamp(
@@ -577,6 +872,8 @@ class VerificationRunManifest:
         )
         if completed < started:
             raise ValueError("verification run completion precedes its start")
+        if int((completed - started).total_seconds() * 1_000) > MAX_DURATION_MS:
+            raise ValueError("verification run exceeds its bounded duration")
         if (
             self.redaction_status
             != "content_free_refs_hashes_counts_and_durations_only"
@@ -593,7 +890,10 @@ class VerificationRunManifest:
             set(binding_receipt_refs)
         ):
             raise ValueError("run unit receipt bindings must be one-to-one")
-        if self.schema_version == "uaa_verification_run.v2":
+        if self.schema_version in {
+            "uaa_verification_run.v2",
+            "uaa_verification_run.v3",
+        }:
             if (
                 self.dependency_state_fingerprint is None
                 or self.command_manifest_fingerprint is None
@@ -609,6 +909,120 @@ class VerificationRunManifest:
             )
             if tuple(binding_receipt_refs) != self.receipt_refs:
                 raise ValueError("run receipt refs do not match unit bindings")
+            if self.schema_version == "uaa_verification_run.v3":
+                if self.status not in {
+                    VerificationTerminalStatus.PASSED,
+                    VerificationTerminalStatus.FAILED,
+                    VerificationTerminalStatus.BLOCKED,
+                }:
+                    raise ValueError("v3 verification run status is unsupported")
+                for receipt_ref in self.receipt_refs:
+                    _validate_digest_ref(
+                        receipt_ref,
+                        prefix="receipt:verification:",
+                        label="v3 run receipt ref",
+                    )
+                for receipt_ref in binding_receipt_refs:
+                    _validate_digest_ref(
+                        receipt_ref,
+                        prefix="receipt:verification:",
+                        label="v3 run receipt binding ref",
+                    )
+                exact_digest_fields = (
+                    (
+                        self.dependency_lock_set_fingerprint,
+                        "run dependency lock set fingerprint",
+                    ),
+                    (self.platform_fingerprint, "run platform fingerprint"),
+                    (
+                        self.verifier_definition_fingerprint,
+                        "run verifier definition fingerprint",
+                    ),
+                    (
+                        self.test_collection_fingerprint,
+                        "run test collection fingerprint",
+                    ),
+                    (
+                        self.pytest_shard_plan_fingerprint,
+                        "run pytest shard plan fingerprint",
+                    ),
+                    (
+                        self.typescript_project_fingerprint,
+                        "run TypeScript project fingerprint",
+                    ),
+                )
+                if any(value is None for value, _label in exact_digest_fields):
+                    raise ValueError("v3 verification run requires complete exact bindings")
+                for value, label in exact_digest_fields:
+                    assert value is not None
+                    _validate_digest(value, label=label)
+                _validate_unique_refs(
+                    self.required_unit_refs,
+                    label="run required unit refs",
+                )
+                _validate_unique_refs(
+                    self.missing_unit_refs,
+                    label="run missing unit refs",
+                )
+                _validate_unique_refs(
+                    self.failed_unit_refs,
+                    label="run failed unit refs",
+                )
+                _validate_unique_refs(self.reason_refs, label="run reason refs")
+                if not self.required_unit_refs:
+                    raise ValueError("v3 verification run requires whole-plan membership")
+                bound_units = tuple(unit_refs)
+                if (
+                    tuple(
+                        unit_ref
+                        for unit_ref in self.required_unit_refs
+                        if unit_ref not in set(self.missing_unit_refs)
+                    )
+                    != bound_units
+                    or tuple(
+                        unit_ref
+                        for unit_ref in self.required_unit_refs
+                        if unit_ref not in set(bound_units)
+                    )
+                    != self.missing_unit_refs
+                    or not set(self.failed_unit_refs).issubset(bound_units)
+                ):
+                    raise ValueError("v3 verification run membership is not exact")
+                observed_units: list[str] = []
+                for unit_ref, collection_fingerprint in (
+                    self.observed_test_collection_bindings
+                ):
+                    _validate_ref(unit_ref, label="run observed collection unit ref")
+                    _validate_digest(
+                        collection_fingerprint,
+                        label="run observed collection fingerprint",
+                    )
+                    observed_units.append(unit_ref)
+                if (
+                    len(observed_units) != len(set(observed_units))
+                    or not set(observed_units).issubset(bound_units)
+                ):
+                    raise ValueError("v3 run collection bindings are invalid")
+                if self.status is VerificationTerminalStatus.PASSED and (
+                    self.missing_unit_refs
+                    or self.failed_unit_refs
+                    or bound_units != self.required_unit_refs
+                    or self.reason_refs
+                ):
+                    raise ValueError("passed v3 verification run requires exact success")
+                if self.status is VerificationTerminalStatus.FAILED and not (
+                    self.failed_unit_refs and self.reason_refs
+                ):
+                    raise ValueError("failed v3 verification run requires failed evidence")
+                if self.status is VerificationTerminalStatus.BLOCKED and not (
+                    self.missing_unit_refs or self.reason_refs
+                ):
+                    raise ValueError("blocked v3 verification run requires blockers")
+                if (
+                    self.status is VerificationTerminalStatus.BLOCKED
+                    and self.failed_unit_refs
+                ):
+                    raise ValueError("blocked v3 verification run cannot claim failures")
             expected_fingerprint = verification_run_manifest_fingerprint(self)
             if self.run_fingerprint != expected_fingerprint:
                 raise ValueError("verification run fingerprint does not match its payload")
@@ -616,12 +1030,28 @@ class VerificationRunManifest:
                 raise ValueError("verification run ref is not content bound")
 
 
-def verification_run_manifest_fingerprint(run: VerificationRunManifest) -> str:
-    payload = {
+def verification_run_manifest_payload(
+    run: VerificationRunManifest,
+    *,
+    include_content_identity: bool = True,
+) -> dict[str, Any]:
+    excluded = set()
+    if run.schema_version != "uaa_verification_run.v3":
+        excluded.update(V3_RUN_ONLY_FIELDS)
+    if not include_content_identity:
+        excluded.update({"run_ref", "run_fingerprint"})
+    return {
         field_name: getattr(run, field_name)
         for field_name in VerificationRunManifest.__dataclass_fields__
-        if field_name not in {"run_ref", "run_fingerprint"}
+        if field_name not in excluded
     }
+
+
+def verification_run_manifest_fingerprint(run: VerificationRunManifest) -> str:
+    payload = verification_run_manifest_payload(
+        run,
+        include_content_identity=False,
+    )
     return hashlib.sha256(
         json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
@@ -888,6 +1318,18 @@ def validate_verification_dag(units: tuple[VerificationUnit, ...]) -> None:
         visit(ref)
 
 
+def _validate_canonical_verification_dag_order(
+    units: tuple[VerificationUnit, ...],
+) -> None:
+    """Require dependency-first order only for canonical graph serialization."""
+
+    seen: set[str] = set()
+    for unit in units:
+        if not set(unit.needs).issubset(seen):
+            raise ValueError("verification DAG must be topologically ordered")
+        seen.add(unit.unit_ref)
+
+
 def dependency_closed_unit_refs(
     units: tuple[VerificationUnit, ...],
     selected_unit_refs: tuple[str, ...],
@@ -908,6 +1350,16 @@ def dependency_closed_unit_refs(
                 selected.add(dependency)
                 pending.append(dependency)
     return tuple(unit.unit_ref for unit in units if unit.unit_ref in selected)
+
+
+def dependency_lock_set_fingerprint(plan: VerificationPlan) -> str:
+    return hashlib.sha256(
+        json.dumps(
+            plan.dependency_lock_fingerprints,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()
 
 
 def dependency_state_fingerprint(plan: VerificationPlan) -> str:

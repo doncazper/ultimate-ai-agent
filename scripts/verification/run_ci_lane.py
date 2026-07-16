@@ -59,12 +59,22 @@ from scripts.verification.typescript_binding import (  # noqa: E402
     resolve_typescript_runtime_binding,
 )
 from scripts.verification.verification_contracts import (  # noqa: E402
+    TEST_EXECUTION_COMMAND_REFS,
     VerificationReceipt,
     VerificationRunManifest,
     VerificationTerminalStatus,
+    dependency_lock_set_fingerprint,
     dependency_state_fingerprint,
     verification_receipt_fingerprint,
+    verification_receipt_payload,
     verification_run_manifest_fingerprint,
+    verification_run_manifest_payload,
+)
+from scripts.verification.verification_execution_identity import (  # noqa: E402
+    build_verification_execution_identity,
+)
+from scripts.verification.verification_receipt_store import (  # noqa: E402
+    VerificationReceiptStore,
 )
 
 
@@ -482,34 +492,73 @@ def _append_summary(path: Path | None, lines: list[str]) -> None:
 def _write_receipt(path: Path | None, receipt: dict[str, Any], temp_root: Path) -> None:
     if path is None:
         return
+    if path.name in {"", ".", ".."} or len(os.fsencode(path.name)) > 255:
+        raise ValueError("CI receipt target name is invalid")
     lexical_parent = Path(os.path.abspath(path.parent))
     if not lexical_parent.is_relative_to(temp_root):
         raise ValueError("CI receipt target must remain inside the temp root")
-    lexical_parent.mkdir(parents=True, exist_ok=True)
-    if lexical_parent.is_symlink():
+    relative_parts = lexical_parent.relative_to(temp_root).parts
+    if any(part in {"", ".", ".."} for part in relative_parts):
         raise ValueError("CI receipt target must remain inside the temp root")
-    parent = lexical_parent.resolve()
-    if (
-        parent != lexical_parent
-        or not parent.is_dir()
-        or not parent.is_relative_to(temp_root)
-    ):
-        raise ValueError("CI receipt target must remain inside the temp root")
-    parent_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
-    if hasattr(os, "O_NOFOLLOW"):
-        parent_flags |= os.O_NOFOLLOW
-    parent_descriptor = os.open(parent, parent_flags)
-    parent_info = os.fstat(parent_descriptor)
-    if (
-        not stat.S_ISDIR(parent_info.st_mode)
-        or parent_info.st_uid != os.getuid()
-        or parent_info.st_mode & 0o022
-    ):
+    parent_flags = (
+        os.O_RDONLY
+        | getattr(os, "O_DIRECTORY", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_CLOEXEC", 0)
+        | getattr(os, "O_NONBLOCK", 0)
+    )
+    try:
+        parent_descriptor = os.open(temp_root, parent_flags)
+    except OSError as exc:
+        raise ValueError("CI receipt temp root is unsafe") from exc
+    try:
+        root_info = os.fstat(parent_descriptor)
+        if (
+            not stat.S_ISDIR(root_info.st_mode)
+            or root_info.st_uid != os.getuid()
+            or root_info.st_mode & 0o022
+        ):
+            raise ValueError("CI receipt temp root is unsafe")
+        for component in relative_parts:
+            try:
+                child_descriptor = os.open(
+                    component,
+                    parent_flags,
+                    dir_fd=parent_descriptor,
+                )
+            except FileNotFoundError:
+                try:
+                    os.mkdir(component, 0o700, dir_fd=parent_descriptor)
+                    os.fsync(parent_descriptor)
+                except FileExistsError:
+                    pass
+                child_descriptor = os.open(
+                    component,
+                    parent_flags,
+                    dir_fd=parent_descriptor,
+                )
+            child_info = os.fstat(child_descriptor)
+            if (
+                not stat.S_ISDIR(child_info.st_mode)
+                or child_info.st_uid != os.getuid()
+                or child_info.st_mode & 0o022
+            ):
+                os.close(child_descriptor)
+                raise ValueError("CI receipt parent is unsafe")
+            os.close(parent_descriptor)
+            parent_descriptor = child_descriptor
+    except OSError as exc:
         os.close(parent_descriptor)
-        raise ValueError("CI receipt parent is unsafe")
+        raise ValueError("CI receipt target must remain inside the temp root") from exc
+    except Exception:
+        os.close(parent_descriptor)
+        raise
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
-    if hasattr(os, "O_NOFOLLOW"):
-        flags |= os.O_NOFOLLOW
+    flags |= (
+        getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_CLOEXEC", 0)
+        | getattr(os, "O_NONBLOCK", 0)
+    )
     descriptor: int | None = None
     try:
         descriptor = os.open(path.name, flags, 0o600, dir_fd=parent_descriptor)
@@ -524,8 +573,14 @@ def _write_receipt(path: Path | None, receipt: dict[str, Any], temp_root: Path) 
         encoded = json.dumps(receipt, sort_keys=True, separators=(",", ":")).encode()
         if len(encoded) > MAX_RECEIPT_BYTES:
             raise ValueError("CI receipt exceeds its byte bound")
-        os.write(descriptor, encoded)
+        view = memoryview(encoded)
+        while view:
+            written = os.write(descriptor, view)
+            if written <= 0:
+                raise ValueError("CI receipt write did not complete")
+            view = view[written:]
         os.fsync(descriptor)
+        os.fsync(parent_descriptor)
     finally:
         if descriptor is not None:
             os.close(descriptor)
@@ -567,13 +622,17 @@ def _build_typed_lane_evidence(
     execution_surface_ref: str,
     pytest_collection: dict[str, Any] | None,
     pre_typescript_runtime: Any | None = None,
+    pre_execution_identity_ref: str | None = None,
 ) -> tuple[VerificationReceipt, VerificationRunManifest]:
     matching_units = tuple(unit for unit in CI_JOB_GRAPH if unit.lane_ref == lane_ref)
     if len(matching_units) != 1:
         raise ValueError("typed CI evidence requires one exact canonical unit")
     unit = matching_units[0]
     result_command_refs = tuple(str(result["command_ref"]) for result in results)
-    if result_command_refs != unit.command_refs:
+    if (
+        not result_command_refs
+        or result_command_refs != unit.command_refs[: len(result_command_refs)]
+    ):
         raise ValueError("typed CI evidence command membership is not canonical")
     terminal_status = (
         VerificationTerminalStatus.PASSED
@@ -581,10 +640,16 @@ def _build_typed_lane_evidence(
         else VerificationTerminalStatus.FAILED
     )
     if terminal_status is VerificationTerminalStatus.PASSED and any(
-        result["status"] in {"skipped", "satisfied_by_required_dependency"}
+        result["status"]
+        in {"skipped", "not_applicable", "satisfied_by_required_dependency"}
         for result in results
     ):
         terminal_status = VerificationTerminalStatus.BLOCKED
+    if (
+        terminal_status is VerificationTerminalStatus.PASSED
+        and result_command_refs != unit.command_refs
+    ):
+        raise ValueError("passed typed CI evidence requires complete command membership")
 
     test_collection_posture = "not_applicable"
     observed_collection_fingerprint: str | None = None
@@ -604,19 +669,24 @@ def _build_typed_lane_evidence(
     runtime_typescript = None
     typescript_binding_posture = "not_applicable"
     if "command:frontend.check" in result_command_refs:
-        declared_typescript = build_declared_typescript_binding(
-            ROOT / "apps/control-center"
-        )
-        if (
-            declared_typescript.declared_project_fingerprint
-            != full_plan.typescript_project_fingerprint
-        ):
-            raise ValueError("TypeScript declaration changed after plan construction")
-        if all(
-            result["status"] == "pass"
+        frontend_result = next(
+            result
             for result in results
             if result["command_ref"] == "command:frontend.check"
-        ):
+        )
+        if frontend_result["status"] not in {
+            "skipped",
+            "not_applicable",
+            "satisfied_by_required_dependency",
+        }:
+            declared_typescript = build_declared_typescript_binding(
+                ROOT / "apps/control-center"
+            )
+            if (
+                declared_typescript.declared_project_fingerprint
+                != full_plan.typescript_project_fingerprint
+            ):
+                raise ValueError("TypeScript declaration changed after plan construction")
             runtime_typescript = resolve_typescript_runtime_binding(
                 ROOT / "apps/control-center", declared_typescript
             )
@@ -626,15 +696,54 @@ def _build_typed_lane_evidence(
             ):
                 raise ValueError("TypeScript runtime changed during verification")
             typescript_binding_posture = "resolved"
-        else:
-            typescript_binding_posture = "unavailable"
         # The existing combined frontend command does not yet expose a bounded
         # Vitest collection proof, so typed evidence remains non-authoritative.
         if terminal_status is VerificationTerminalStatus.PASSED:
             terminal_status = VerificationTerminalStatus.BLOCKED
 
+    nonexecution_unbound = any(
+        result["status"]
+        in {"skipped", "not_applicable", "satisfied_by_required_dependency"}
+        for result in results
+    )
+    receipt_schema_version = (
+        "uaa_verification_receipt.v2"
+        if nonexecution_unbound
+        else "uaa_verification_receipt.v3"
+    )
+    command_result_bindings = tuple(
+        (str(result["command_ref"]), str(result["result_ref"])) for result in results
+    )
+    if terminal_status is VerificationTerminalStatus.PASSED and any(
+        command_ref.startswith("command:pytest.")
+        or command_ref in TEST_EXECUTION_COMMAND_REFS
+        for command_ref in result_command_refs
+    ) and test_collection_posture != "collected":
+        terminal_status = VerificationTerminalStatus.BLOCKED
+    execution_identity_ref = None
+    if receipt_schema_version == "uaa_verification_receipt.v3":
+        if pre_execution_identity_ref is None:
+            raise ValueError("v3 verification evidence requires a pre-start identity")
+        execution_identity_ref = build_verification_execution_identity(
+            full_plan,
+            unit,
+            execution_surface_ref=execution_surface_ref,
+            typescript_runtime_fingerprint=(
+                runtime_typescript.resolved_runtime_fingerprint
+                if runtime_typescript is not None
+                else None
+            ),
+            typescript_version_ref=(
+                f"typescript-version:{runtime_typescript.typescript_version}"
+                if runtime_typescript is not None
+                else None
+            ),
+        ).identity_ref
+        if execution_identity_ref != pre_execution_identity_ref:
+            raise ValueError("verification execution identity changed after start")
+
     receipt = VerificationReceipt(
-        schema_version="uaa_verification_receipt.v2",
+        schema_version=receipt_schema_version,
         receipt_ref=f"receipt:verification:{'0' * 64}",
         plan_fingerprint=full_plan.plan_fingerprint,
         unit_ref=unit.unit_ref,
@@ -653,10 +762,7 @@ def _build_typed_lane_evidence(
         output_digest=_typed_output_digest(results),
         equivalent_receipt_ref=str(legacy_receipt["receipt_ref"]),
         command_refs=result_command_refs,
-        command_result_bindings=tuple(
-            (str(result["command_ref"]), str(result["result_ref"]))
-            for result in results
-        ),
+        command_result_bindings=command_result_bindings,
         execution_surface_ref=execution_surface_ref,
         proof_equivalence_ref=unit.proof_equivalence_ref,
         test_collection_posture=test_collection_posture,
@@ -679,6 +785,22 @@ def _build_typed_lane_evidence(
             else None
         ),
         receipt_fingerprint="0" * 64,
+        dependency_lock_set_fingerprint=(
+            dependency_lock_set_fingerprint(full_plan)
+            if receipt_schema_version == "uaa_verification_receipt.v3"
+            else None
+        ),
+        pytest_shard_plan_fingerprint=(
+            full_plan.pytest_shard_plan_fingerprint
+            if receipt_schema_version == "uaa_verification_receipt.v3"
+            else None
+        ),
+        execution_identity_ref=execution_identity_ref,
+        executed_command_result_bindings=(
+            command_result_bindings
+            if receipt_schema_version == "uaa_verification_receipt.v3"
+            else ()
+        ),
     )
     receipt_fingerprint = verification_receipt_fingerprint(receipt)
     receipt = replace(
@@ -688,20 +810,94 @@ def _build_typed_lane_evidence(
     )
     receipt.validate()
 
+    run_schema_version = (
+        "uaa_verification_run.v2"
+        if receipt.schema_version == "uaa_verification_receipt.v2"
+        else "uaa_verification_run.v3"
+    )
+    missing_unit_refs = tuple(
+        unit_ref
+        for unit_ref in full_plan.selected_unit_refs
+        if unit_ref != receipt.unit_ref
+    )
+    run_status = (
+        VerificationTerminalStatus.FAILED
+        if receipt.status is VerificationTerminalStatus.FAILED
+        else VerificationTerminalStatus.BLOCKED
+    )
     run = VerificationRunManifest(
-        schema_version="uaa_verification_run.v2",
+        schema_version=run_schema_version,
         run_ref=f"run:verification:{'0' * 64}",
         plan_fingerprint=full_plan.plan_fingerprint,
         repository_sha=full_plan.repository_sha,
         receipt_refs=(receipt.receipt_ref,),
         started_at=receipt.started_at,
         completed_at=receipt.completed_at,
-        status=VerificationTerminalStatus.BLOCKED,
+        status=run_status,
         run_fingerprint="0" * 64,
         dependency_state_fingerprint=dependency_state_fingerprint(full_plan),
         command_manifest_fingerprint=full_plan.command_manifest_fingerprint,
         execution_surface_ref=execution_surface_ref,
         unit_receipt_bindings=((receipt.unit_ref, receipt.receipt_ref),),
+        dependency_lock_set_fingerprint=(
+            dependency_lock_set_fingerprint(full_plan)
+            if run_schema_version == "uaa_verification_run.v3"
+            else None
+        ),
+        platform_fingerprint=(
+            full_plan.platform_fingerprint
+            if run_schema_version == "uaa_verification_run.v3"
+            else None
+        ),
+        verifier_definition_fingerprint=(
+            full_plan.verifier_definition_fingerprint
+            if run_schema_version == "uaa_verification_run.v3"
+            else None
+        ),
+        test_collection_fingerprint=(
+            full_plan.test_collection_fingerprint
+            if run_schema_version == "uaa_verification_run.v3"
+            else None
+        ),
+        pytest_shard_plan_fingerprint=(
+            full_plan.pytest_shard_plan_fingerprint
+            if run_schema_version == "uaa_verification_run.v3"
+            else None
+        ),
+        typescript_project_fingerprint=(
+            full_plan.typescript_project_fingerprint
+            if run_schema_version == "uaa_verification_run.v3"
+            else None
+        ),
+        required_unit_refs=(
+            full_plan.selected_unit_refs
+            if run_schema_version == "uaa_verification_run.v3"
+            else ()
+        ),
+        missing_unit_refs=(
+            missing_unit_refs if run_schema_version == "uaa_verification_run.v3" else ()
+        ),
+        failed_unit_refs=(
+            (receipt.unit_ref,)
+            if run_schema_version == "uaa_verification_run.v3"
+            and receipt.status is VerificationTerminalStatus.FAILED
+            else ()
+        ),
+        reason_refs=(
+            (
+                ("reason-ref:verification:unit-failed",)
+                if receipt.status is VerificationTerminalStatus.FAILED
+                else ("reason-ref:verification:whole-run-incomplete",)
+            )
+            if run_schema_version == "uaa_verification_run.v3"
+            else ()
+        ),
+        observed_test_collection_bindings=(
+            ((receipt.unit_ref, receipt.observed_test_collection_fingerprint),)
+            if run_schema_version == "uaa_verification_run.v3"
+            and receipt.observed_test_collection_fingerprint is not None
+            else ()
+        ),
     )
     run_fingerprint = verification_run_manifest_fingerprint(run)
     run = replace(
@@ -745,6 +941,7 @@ def run_lane(
     receipt_file: Path | None = None,
     verification_receipt_file: Path | None = None,
     verification_run_manifest_file: Path | None = None,
+    verification_store_root: Path | None = None,
     full_suite_lock_mode: str = "github",
     execution_surface: str | None = None,
 ) -> dict[str, Any]:
@@ -772,6 +969,7 @@ def run_lane(
     if diagnostic_reproduction and (
         verification_receipt_file is not None
         or verification_run_manifest_file is not None
+        or verification_store_root is not None
     ):
         raise ValueError(
             "diagnostic shard reproduction cannot emit typed gating evidence"
@@ -788,10 +986,23 @@ def run_lane(
         raise PytestRuntimeUnavailableError(
             "canonical pytest runtime is unavailable before suite start"
         )
-    started_at = _utc_now()
-    started = time.perf_counter()
-    results: list[dict[str, Any]] = []
-    pytest_collection_payload: dict[str, Any] | None = None
+    typed_evidence_requested = any(
+        value is not None
+        for value in (
+            verification_receipt_file,
+            verification_run_manifest_file,
+            verification_store_root,
+        )
+    )
+    full_plan_before = (
+        build_plan(
+            ROOT,
+            repository_sha,
+            frontend_visual_scope=visual_scope,
+        )
+        if typed_evidence_requested
+        else None
+    )
     pre_typescript_runtime = None
     if (
         "command:frontend.check" in lane.command_refs
@@ -808,6 +1019,82 @@ def run_lane(
         pre_typescript_runtime = resolve_typescript_runtime_binding(
             ROOT / "apps/control-center", declared_typescript
         )
+    pre_execution_identity_ref: str | None = None
+    typed_unit = None
+    if full_plan_before is not None:
+        matching_units = tuple(
+            unit for unit in CI_JOB_GRAPH if unit.lane_ref == lane_ref
+        )
+        if len(matching_units) != 1:
+            raise ValueError("typed CI evidence requires one exact canonical unit")
+        typed_unit = matching_units[0]
+        if not lane.satisfied_command_refs:
+            pre_execution_identity_ref = build_verification_execution_identity(
+                full_plan_before,
+                typed_unit,
+                execution_surface_ref=f"surface-ref:{resolved_execution_surface}",
+                typescript_runtime_fingerprint=(
+                    pre_typescript_runtime.resolved_runtime_fingerprint
+                    if pre_typescript_runtime is not None
+                    else None
+                ),
+                typescript_version_ref=(
+                    f"typescript-version:{pre_typescript_runtime.typescript_version}"
+                    if pre_typescript_runtime is not None
+                    else None
+                ),
+            ).identity_ref
+
+    def validate_typed_prestart() -> None:
+        if full_plan_before is None:
+            return
+        assert typed_unit is not None
+        observed_plan = build_plan(
+            ROOT,
+            repository_sha,
+            frontend_visual_scope=visual_scope,
+        )
+        if observed_plan != full_plan_before:
+            raise ValueError("verification plan changed before command start")
+        observed_typescript_runtime = None
+        if pre_typescript_runtime is not None:
+            observed_declaration = build_declared_typescript_binding(
+                ROOT / "apps/control-center"
+            )
+            if (
+                observed_declaration.declared_project_fingerprint
+                != observed_plan.typescript_project_fingerprint
+            ):
+                raise ValueError("TypeScript declaration changed before command start")
+            observed_typescript_runtime = resolve_typescript_runtime_binding(
+                ROOT / "apps/control-center",
+                observed_declaration,
+            )
+            if observed_typescript_runtime != pre_typescript_runtime:
+                raise ValueError("TypeScript runtime changed before command start")
+        if pre_execution_identity_ref is None:
+            return
+        observed_identity_ref = build_verification_execution_identity(
+            observed_plan,
+            typed_unit,
+            execution_surface_ref=f"surface-ref:{resolved_execution_surface}",
+            typescript_runtime_fingerprint=(
+                observed_typescript_runtime.resolved_runtime_fingerprint
+                if observed_typescript_runtime is not None
+                else None
+            ),
+            typescript_version_ref=(
+                f"typescript-version:{observed_typescript_runtime.typescript_version}"
+                if observed_typescript_runtime is not None
+                else None
+            ),
+        ).identity_ref
+        if observed_identity_ref != pre_execution_identity_ref:
+            raise ValueError("verification execution identity changed before start")
+    started_at = _utc_now()
+    started = time.perf_counter()
+    results: list[dict[str, Any]] = []
+    pytest_collection_payload: dict[str, Any] | None = None
     if full_suite_lock_mode not in {"github", "private"}:
         raise ValueError("unknown full-suite lock mode")
     lock = (
@@ -875,13 +1162,19 @@ def run_lane(
                     }
                 )
                 continue
+
+            def validate_command_start() -> None:
+                if lane_ref == "ci-pytest-shards":
+                    full_suite_lock.ensure_start_available()
+                validate_typed_prestart()
+
             result = _run_command(
                 commands[command_ref],
                 repository_sha=repository_sha,
                 temp_root=temp_root,
                 validate_start=(
-                    full_suite_lock.ensure_start_available
-                    if lane_ref == "ci-pytest-shards"
+                    validate_command_start
+                    if lane_ref == "ci-pytest-shards" or typed_evidence_requested
                     else None
                 ),
                 before_start=(
@@ -963,8 +1256,16 @@ def run_lane(
             json.dumps(receipt, sort_keys=True, separators=(",", ":")).encode()
         ).hexdigest()
     )
-    if verification_receipt_file is not None or verification_run_manifest_file is not None:
-        full_plan = build_plan(ROOT, repository_sha)
+    typed_artifact_refs: tuple[str, ...] = ()
+    if typed_evidence_requested:
+        assert full_plan_before is not None
+        full_plan = build_plan(
+            ROOT,
+            repository_sha,
+            frontend_visual_scope=visual_scope,
+        )
+        if full_plan != full_plan_before:
+            raise ValueError("verification plan changed during command execution")
         typed_receipt, run_manifest = _build_typed_lane_evidence(
             lane_ref=lane_ref,
             legacy_receipt=receipt,
@@ -973,17 +1274,26 @@ def run_lane(
             execution_surface_ref=f"surface-ref:{resolved_execution_surface}",
             pytest_collection=pytest_collection_payload,
             pre_typescript_runtime=pre_typescript_runtime,
+            pre_execution_identity_ref=pre_execution_identity_ref,
         )
         _write_receipt(
             verification_receipt_file,
-            asdict(typed_receipt),
+            verification_receipt_payload(typed_receipt),
             temp_root,
         )
         _write_receipt(
             verification_run_manifest_file,
-            asdict(run_manifest),
+            verification_run_manifest_payload(run_manifest),
             temp_root,
         )
+        if verification_store_root is not None:
+            store = VerificationReceiptStore(verification_store_root)
+            stored_receipt = store.put_receipt(typed_receipt)
+            stored_run = store.put_run_manifest(run_manifest)
+            typed_artifact_refs = (
+                stored_receipt.artifact_ref,
+                stored_run.artifact_ref,
+            )
     summary = [
         f"## {lane.name}",
         "",
@@ -998,6 +1308,7 @@ def run_lane(
     )
     for result in results:
         summary.extend(f"- {line}" for line in _pytest_shard_summary_lines(result))
+    summary.extend(f"- Stored typed proof: {ref}" for ref in typed_artifact_refs)
     _append_summary(summary_file, summary)
     _write_receipt(receipt_file, receipt, temp_root)
     return receipt
@@ -1023,6 +1334,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--receipt-file")
     parser.add_argument("--verification-receipt-file")
     parser.add_argument("--verification-run-manifest-file")
+    parser.add_argument("--verification-store-root")
     parser.add_argument(
         "--full-suite-lock-mode",
         choices=("github", "private"),
@@ -1053,6 +1365,11 @@ def main(argv: list[str] | None = None) -> int:
             verification_run_manifest_file=(
                 Path(args.verification_run_manifest_file)
                 if args.verification_run_manifest_file
+                else None
+            ),
+            verification_store_root=(
+                Path(args.verification_store_root)
+                if args.verification_store_root
                 else None
             ),
             full_suite_lock_mode=args.full_suite_lock_mode,

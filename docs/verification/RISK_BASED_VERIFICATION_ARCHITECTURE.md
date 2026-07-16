@@ -1,8 +1,8 @@
 # Risk-Based Verification Architecture
 
-Status: Phase 01 exact-proof foundation. Existing verification commands, CI
-jobs, release lanes, and Foundation Gate behavior remain authoritative until
-the bounded receipt-store and consumer cutover is separately verified.
+Status: Phase 02 immutable-proof foundation. Existing verification commands,
+CI jobs, release lanes, and Foundation Gate behavior remain authoritative until
+the bounded consumer cutover is separately verified.
 
 This document defines UAA's canonical repository-verification architecture. It
 does not grant runtime authority, relax a merge gate, or treat a local result as
@@ -230,3 +230,66 @@ unchanged legacy receipt. A fragment is explicitly blocked until the later
 aggregator validates complete DAG membership; it cannot be presented as a
 complete run. GitHub, private CI, release verification, and Foundation Gate do
 not consume these new sidecars until the next measured cutover phase.
+
+## Phase 02 immutable proof and whole-run boundary
+
+Phase 02 adds v3 unit receipts, exact execution identities, a durable start
+fence, an immutable content-addressed proof store, and deterministic whole-run
+aggregation. These contracts are evidence mechanics only; they cannot satisfy
+GitHub, merge, runtime, approval, policy, or AuthorityLease gates.
+
+The execution identity binds one unit to the exact commit, plan, dependency
+locks and state, platform/toolchain posture, command and verifier definitions,
+test inventory and observed collection posture, pytest shard plan, TypeScript
+project/runtime where applicable, execution surface, the ordered DAG
+fingerprint, and the complete selected-unit definition. Changing dependencies,
+kind, timeout, commands, surfaces, or scheduling posture invalidates proof. An
+identical durable start can occur at most once inside one fence store. An
+unsettled durable start becomes `recovery_required`; a terminal proof is reused;
+and only a canonically classified, evidence-bound deterministic code failure is
+not automatically rerun. The fence is available
+for the later consumer cutover but does not yet change existing CI execution.
+Its owner-only lock inode is pinned, total state is bounded, incomplete
+pre-publication stages are reclaimed, and an exact same-inode post-link crash is
+reconciled before another start decision is made.
+Typed command execution rebuilds and compares the full plan, TypeScript runtime
+where relevant, and execution identity immediately before each process start.
+The suite-attempt fence is recorded only after that check. A post-run comparison
+remains a second boundary, not a substitute for pre-start denial.
+
+The receipt store walks and creates every path component descriptor-relative,
+rejects links and non-regular substitutions, publishes owner-only canonical
+JSON immutably, and detects root or artifact replacement. Stored objects are
+bounded and content-addressed. Readers reject duplicate keys, non-finite
+numbers, non-canonical bytes, unknown fields, invalid contracts, and digest
+mismatches without reflecting supplied data in errors. Publication recovery is
+serialized and bounded: abandoned internal stages are removed safely, while an
+exact crash-after-link publication is settled without accepting arbitrary
+hardlinks. Historical v2 fingerprints and wire shapes remain byte-stable.
+Receipt wall-clock spans are bounded and reconciled against monotonic duration
+within a narrow clock-skew allowance; run and unsettled-start spans also fail
+when they exceed the bounded verification window.
+
+Whole-run aggregation revalidates every v3 receipt against the canonical plan,
+normalizes input to DAG order, rejects extra, duplicate, stale, cross-surface,
+or cross-binding evidence, and derives only commandless aggregate units from
+their exact dependencies. Audit units are never fabricated. A passing run must
+bind exactly one receipt to every selected unit; missing or non-passing evidence
+remains blocked or failed. Dependency command reuse is accepted only when an
+exact passed dependency receipt proves the command actually executed.
+Dependent evidence is rejected unless every prerequisite is present, passed,
+and terminal before the dependent begins. Dynamic result, reuse, receipt, and
+execution refs are digest-bound rather than merely syntactically safe.
+The canonical DAG must be topologically ordered, and selected lanes, commands,
+and gate-resource postures must derive exactly from selected unit definitions.
+A failed multi-command unit may bind only its actually executed command prefix;
+it cannot fabricate evidence for commands never started.
+
+CI lanes may opt into this immutable store and emit a v3 incomplete whole-run
+manifest. A lane that still represents dependency satisfaction with a synthetic
+legacy result, skip, or not-applicable command remains v2 and blocked rather
+than claiming reusable v3 proof. Visual-scope decisions are plan-bound, and a
+frontend or visual test without observed collection evidence remains blocked.
+GitHub output transport, private-CI ingestion, release/Foundation consumption,
+and trusted GitHub API attestation remain Phase 03 work, so the final GitHub run
+continues to be the sole authoritative merge gate.

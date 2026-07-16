@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import asdict, replace
 
 import pytest
@@ -22,8 +24,12 @@ from scripts.verification.verification_contracts import (
     evaluate_verification_gate_v2,
     verification_github_gate_proof_fingerprint,
     verification_plan_contract_fingerprint,
+    verification_plan_payload,
     verification_receipt_fingerprint,
+    verification_receipt_payload,
     verification_run_manifest_fingerprint,
+    verification_run_manifest_payload,
+    verification_dag_definition_fingerprint,
     validate_verification_dag,
 )
 from scripts.verification.verification_risk import (
@@ -465,6 +471,17 @@ def test_verification_dag_rejects_invalid_graphs(
         validate_verification_dag(units)
 
 
+def test_canonical_verification_dag_fingerprint_requires_topological_order() -> None:
+    units = (
+        _unit("unit:b", needs=("unit:a",)),
+        _unit("unit:a"),
+    )
+
+    assert validate_verification_dag(units) is None
+    with pytest.raises(ValueError, match="topologically ordered"):
+        verification_dag_definition_fingerprint(units)
+
+
 def test_typed_contracts_validate_with_content_free_refs_and_hashes() -> None:
     plan = _plan()
     receipt = _receipt()
@@ -523,7 +540,31 @@ def test_dependency_state_binds_the_exact_pytest_shard_plan() -> None:
     assert dependency_state_fingerprint(changed) != dependency_state_fingerprint(plan)
 
 
+def test_receipt_and_run_timestamp_spans_are_bounded() -> None:
+    receipt = replace(
+        _receipt(),
+        completed_at="2026-07-17T00:00:00Z",
+        duration_ms=1,
+    )
+    with pytest.raises(ValueError, match="duration evidence"):
+        receipt.validate()
+
+    plan = _refingerprint(replace(_plan(), shadow_mode=False))
+    run = replace(
+        _run_v2(plan, _receipt_v2(plan)),
+        completed_at="2026-07-17T00:00:00Z",
+    )
+    with pytest.raises(ValueError, match="bounded duration"):
+        run.validate()
+
+
 def test_plan_validation_recomputes_fingerprint_and_enforces_tier_three_proof() -> None:
+    unknown_schema = _refingerprint(
+        replace(_plan(), schema_version="uaa_verification_plan.future")
+    )
+    with pytest.raises(ValueError, match="unsupported verification plan schema"):
+        unknown_schema.validate()
+
     with pytest.raises(ValueError, match="fingerprint does not match"):
         replace(_plan(), selected_unit_refs=("unit:tampered",)).validate()
 
@@ -696,6 +737,49 @@ def test_v2_gate_keeps_structural_github_proof_nonauthoritative() -> None:
             decision,
             reason_refs=("reason-ref:verification:tampered",),
         ).validate()
+
+
+def test_legacy_v2_fingerprints_and_wire_shapes_remain_byte_stable() -> None:
+    plan = _refingerprint(replace(_plan(), shadow_mode=False))
+    receipt = _receipt_v2(plan)
+    run = _run_v2(plan, receipt)
+
+    assert plan.plan_fingerprint == (
+        "f2dcc848661cb9026d48c2e253e124f7975d84a2963ad50d439b6a1be44792db"
+    )
+    assert receipt.receipt_fingerprint == (
+        "f8e23c5ad48ddfa1c684d7311a29a794ddfd1d9938b38f812219079de0b4b330"
+    )
+    assert run.run_fingerprint == (
+        "96520d233a2242d7da86edafabe845d8c87b6a4f674e2876dd3a40e443c85768"
+    )
+    payloads_and_expected_bytes = (
+        (
+            verification_plan_payload(plan),
+            2_072,
+            "6245f6ec0693307751cf514536b6c00985688c104c30b6672ca949d2c5069df8",
+        ),
+        (
+            verification_receipt_payload(receipt),
+            1_766,
+            "6db66a34fc41ff1a9924004abc9afe3353aa7684c543c097a8427a9968b9f296",
+        ),
+        (
+            verification_run_manifest_payload(run),
+            1_017,
+            "268a065400820735737518c28921b0625067b1675ff6b65ebecd90c4f6413eda",
+        ),
+    )
+    for payload, expected_size, expected_digest in payloads_and_expected_bytes:
+        encoded = json.dumps(
+            payload,
+            allow_nan=False,
+            ensure_ascii=True,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode()
+        assert len(encoded) == expected_size
+        assert hashlib.sha256(encoded).hexdigest() == expected_digest
 
 
 def test_v2_gate_rejects_changed_sha_and_unbound_receipt_payloads() -> None:
