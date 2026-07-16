@@ -474,13 +474,23 @@ def test_missing_sidecars_fail_the_runner_instead_of_minting_evidence(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     class ImmediateProcess:
-        def __init__(self, *_args: object, **_kwargs: object) -> None:
-            pass
+        returncode = 0
 
-        def poll(self) -> int:
-            return 0
-
-    monkeypatch.setattr(runner.subprocess, "Popen", ImmediateProcess)
+    monkeypatch.setattr(
+        runner.shard_processes,
+        "spawn_owned_process_group",
+        lambda *_args, **_kwargs: ImmediateProcess(),
+    )
+    monkeypatch.setattr(
+        runner.shard_processes,
+        "process_group_leader_is_terminal_without_reaping",
+        lambda _process: True,
+    )
+    monkeypatch.setattr(
+        runner.shard_processes,
+        "stop_processes",
+        lambda _processes, _grace: None,
+    )
     output_dir = _private_directory(tmp_path / "output")
 
     with pytest.raises(evidence.CollectionEvidenceError, match="unavailable"):
