@@ -1177,7 +1177,7 @@
     },
     {
       "path": "tests/test_foundation_gate_blocked_modules.py",
-      "seconds": 154.42,
+      "seconds": 20.73,
       "source": "pytest-duration-summary"
     },
     {
@@ -3007,7 +3007,7 @@
     },
     {
       "path": "tests/test_m7_gate_integration.py",
-      "seconds": 0.29,
+      "seconds": 21.19,
       "source": "pytest-duration-summary"
     },
     {

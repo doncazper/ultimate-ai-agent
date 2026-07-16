@@ -1,10 +1,14 @@
 from typing import Any
 from pathlib import Path
 
+import pytest
+
 from ultimate_ai_agent.core.gate import (
+    FoundationGateEvaluator,
     FoundationGateStatus,
     default_foundation_gate_criteria,
 )
+from ultimate_ai_agent.core.gate.legacy_check_families import part_001
 from ultimate_ai_agent.core.sandbox_calculation.static_safety import (
     is_exact_sealed_calculation_forbidden_fragment_exception,
     is_exact_sealed_calculation_subprocess_site,
@@ -122,6 +126,36 @@ def test_foundation_gate_evaluator_passes_m7_policy_only_checks(
         foundation_gate_results["m7_cost_warnings_visible_in_route_decision"].status
         == FoundationGateStatus.passed
     )
+
+
+def test_shell_execution_gate_validates_each_matrix_profile_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: dict[str, int] = {}
+    validator_names = (
+        "is_exact_matrix_harness_subprocess_site",
+        "is_exact_matrix_session_subprocess_site",
+        "is_exact_matrix_cache_crypto_subprocess_site",
+        "is_exact_matrix_sync_transport_subprocess_site",
+    )
+    for name in validator_names:
+        original = getattr(part_001, name)
+
+        def counted(*args: Any, _name: str = name, _original: Any = original, **kwargs: Any) -> bool:
+            calls[_name] = calls.get(_name, 0) + 1
+            return bool(_original(*args, **kwargs))
+
+        monkeypatch.setattr(part_001, name, counted)
+
+    criterion = next(
+        item
+        for item in default_foundation_gate_criteria()
+        if item.criterion_id == "shell_execution_absent"
+    )
+    result = FoundationGateEvaluator().check_shell_execution_absent(criterion)
+
+    assert result.status == FoundationGateStatus.passed
+    assert calls == {name: 1 for name in validator_names}
 
 
 def test_m7_does_not_add_runtime_execution_integrations() -> None:
