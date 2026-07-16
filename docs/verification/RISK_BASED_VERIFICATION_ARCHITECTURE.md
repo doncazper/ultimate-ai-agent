@@ -330,6 +330,14 @@ identity cannot silently start another suite. Superseded workflow cancellation
 still reaches the complete subprocess group. The frontend singleton continues
 to run once per ordinary workflow invocation until Phase 04 binds its observed
 Vitest/Playwright collection and activates the same exact-identity fence.
+The complete pytest lane also checks its exact fixed Matrix loopback test
+resource inside the locked atomic pre-start boundary and immediately before
+recording a start. A busy endpoint is an explicit pre-start infrastructure
+block, while the fixed-port fixture owners remain in one shard affinity group
+and tolerate only bounded transient bind contention. Direct single-shard
+diagnosis remains available because it does not claim a complete-suite start.
+Only contention observed at this pre-start boundary receives the infrastructure
+reason; a collision after durable start remains a deterministic test failure.
 Phase 03 includes the strict transient Vitest/Playwright JSON consumers needed
 for that next cutover: they derive only bounded counts and identity hashes and
 delete raw reporter output on both success and rejection. They are tested but

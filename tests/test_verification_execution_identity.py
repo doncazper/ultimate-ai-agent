@@ -367,6 +367,26 @@ def test_durable_start_without_terminal_requires_recovery(tmp_path: Path) -> Non
     assert replay.owner_token is None
 
 
+def test_start_owner_can_abort_only_before_command_spawn(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    identity = _identity()
+    start = store.begin(identity)
+    assert start.owner_token is not None
+
+    with pytest.raises(VerificationExecutionFenceStateError, match="owner"):
+        store.abort_prestart(identity, owner_token="f" * 64)
+
+    store.abort_prestart(identity, owner_token=start.owner_token)
+    retry = store.begin(identity)
+    assert retry.disposition is VerificationExecutionFenceDisposition.START_GRANTED
+    assert retry.owner_token is not None
+
+    proof = _proof(identity)
+    store.complete(identity, owner_token=retry.owner_token, terminal_proof=proof)
+    with pytest.raises(VerificationExecutionFenceStateError, match="cannot be aborted"):
+        store.abort_prestart(identity, owner_token=retry.owner_token)
+
+
 def test_concurrent_starts_converge_on_one_durable_start(tmp_path: Path) -> None:
     store = _store(tmp_path)
     identity = _identity()

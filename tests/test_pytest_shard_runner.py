@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import errno
 import importlib.util
 import json
 import sys
@@ -52,6 +53,60 @@ def test_test_discovery_is_recursive_and_sorted(tmp_path: Path) -> None:
         "tests/nested/test_a.py",
         "tests/test_z.py",
     ]
+
+
+def test_matrix_loopback_resource_probe_fails_closed_and_releases_socket(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runner = load_runner()
+    calls: list[object] = []
+
+    class BusySocket:
+        def setsockopt(self, *_args: object) -> None:
+            calls.append("setsockopt")
+
+        def bind(self, _address: tuple[str, int]) -> None:
+            calls.append("bind")
+            raise OSError(errno.EADDRINUSE, "busy")
+
+        def close(self) -> None:
+            calls.append("close")
+
+    monkeypatch.setattr(runner.socket, "socket", lambda *_args: BusySocket())
+
+    with pytest.raises(
+        runner.MatrixLoopbackTestResourceUnavailableError,
+        match="loopback test resource is unavailable",
+    ):
+        runner.assert_matrix_loopback_test_resource_available()
+
+    assert calls == ["setsockopt", "bind", "close"]
+
+
+def test_matrix_loopback_resource_probe_preserves_non_contention_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runner = load_runner()
+    calls: list[object] = []
+
+    class DeniedSocket:
+        def setsockopt(self, *_args: object) -> None:
+            calls.append("setsockopt")
+
+        def bind(self, _address: tuple[str, int]) -> None:
+            calls.append("bind")
+            raise OSError(errno.EACCES, "denied")
+
+        def close(self) -> None:
+            calls.append("close")
+
+    monkeypatch.setattr(runner.socket, "socket", lambda *_args: DeniedSocket())
+
+    with pytest.raises(OSError) as caught:
+        runner.assert_matrix_loopback_test_resource_available()
+
+    assert caught.value.errno == errno.EACCES
+    assert calls == ["setsockopt", "bind", "close"]
 
 
 def test_shard_selection_is_exact_and_validated() -> None:

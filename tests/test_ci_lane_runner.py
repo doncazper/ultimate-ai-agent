@@ -62,6 +62,17 @@ class _FakeFullSuiteLock:
         pass
 
 
+@pytest.fixture(autouse=True)
+def _isolate_matrix_loopback_prestart_probe(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        runner,
+        "assert_matrix_loopback_test_resource_available",
+        lambda: None,
+    )
+
+
 def _write_pytest_performance_report(
     path: Path,
     *,
@@ -605,6 +616,70 @@ def test_typed_plan_mutation_before_popen_blocks_suite_attempt(
         )
 
     assert events == ["validated-lock"]
+
+
+def test_attempt_ledger_failure_aborts_unspawned_execution_fence(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lane_plan = build_plan(
+        ROOT,
+        SHA,
+        lane_refs=("ci-pytest-shards",),
+        verify_repository_state=False,
+    )
+    full_plan = build_plan(ROOT, SHA, verify_repository_state=False)
+    monkeypatch.setattr(
+        runner,
+        "build_plan",
+        lambda *_args, **kwargs: lane_plan if kwargs.get("lane_refs") else full_plan,
+    )
+    monkeypatch.setattr(runner, "_git_head", lambda _repo: SHA)
+    monkeypatch.setattr(runner.importlib.util, "find_spec", lambda _name: object())
+    events: list[str] = []
+
+    class FailingFullSuiteLock(_FakeFullSuiteLock):
+        def record_start(self) -> None:
+            events.append("attempt-record-failed")
+            raise RuntimeError("attempt record unavailable")
+
+    def fake_run_command(
+        _command: CommandSpec,
+        *,
+        validate_start=None,
+        before_start=None,
+        **_kwargs: object,
+    ) -> dict[str, object]:
+        assert validate_start is not None
+        assert before_start is not None
+        validate_start()
+        before_start()
+        events.append("spawned")
+        raise AssertionError("command spawn must not be reached")
+
+    monkeypatch.setattr(runner, "FullSuiteLock", FailingFullSuiteLock)
+    monkeypatch.setattr(runner, "_run_command", fake_run_command)
+    fence_root = tmp_path / "execution-fence"
+
+    with pytest.raises(RuntimeError, match="attempt record unavailable"):
+        runner.run_lane(
+            "ci-pytest-shards",
+            repository_sha=SHA,
+            temp_root=tmp_path / "temp",
+            verification_store_root=tmp_path / "proof-store",
+            verification_execution_fence_root=fence_root,
+        )
+
+    assert events == ["attempt-record-failed"]
+    unit = next(unit for unit in CI_JOB_GRAPH if unit.unit_ref == "pytest-shards")
+    identity = build_verification_execution_identity(
+        full_plan,
+        unit,
+        execution_surface_ref="surface-ref:github",
+    )
+    assert VerificationExecutionFence(fence_root).begin(identity).disposition is (
+        VerificationExecutionFenceDisposition.START_GRANTED
+    )
 
 
 def test_exclusive_typed_lane_publishes_terminal_execution_fence(
@@ -1672,6 +1747,105 @@ def test_cli_redacts_missing_pytest_runtime_failure(
     assert "Traceback" not in captured.err
     assert unsafe_detail not in captured.err
     assert str(tmp_path) not in captured.err
+
+
+def test_full_pytest_lane_denies_busy_matrix_loopback_before_execution(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    command = CommandSpec(
+        "command:test.pass",
+        (sys.executable, "-c", "raise SystemExit(0)"),
+        (),
+        "test",
+        10,
+    )
+    _patch_lane(monkeypatch, (command,), lane_ref="ci-pytest-shards")
+    monkeypatch.setattr(runner.importlib.util, "find_spec", lambda _name: object())
+    events: list[str] = []
+
+    class FakeFullSuiteLock:
+        def __init__(self, **_kwargs: object) -> None:
+            pass
+
+        def __enter__(self) -> FakeFullSuiteLock:
+            events.append("lock-held")
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            events.append("lock-released")
+
+        def ensure_start_available(self) -> None:
+            events.append("attempt-available")
+
+        def record_start(self) -> None:
+            events.append("attempt-recorded")
+
+    def deny_resource() -> None:
+        events.append("resource-denied")
+        raise runner.MatrixLoopbackTestResourceUnavailableError("busy")
+
+    monkeypatch.setattr(runner, "FullSuiteLock", FakeFullSuiteLock)
+    monkeypatch.setattr(
+        runner,
+        "assert_matrix_loopback_test_resource_available",
+        deny_resource,
+    )
+
+    with pytest.raises(runner.MatrixLoopbackTestResourceUnavailableError):
+        runner.run_lane(
+            "ci-pytest-shards",
+            repository_sha=SHA,
+            temp_root=tmp_path / "temp",
+        )
+
+    assert events == [
+        "lock-held",
+        "attempt-available",
+        "resource-denied",
+        "lock-released",
+    ]
+
+
+def test_cli_redacts_busy_matrix_loopback_resource(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    unsafe_detail = f"loopback resource busy near {tmp_path}"
+
+    def _raise_unavailable(*_args: object, **_kwargs: object) -> dict[str, object]:
+        raise runner.MatrixLoopbackTestResourceUnavailableError(unsafe_detail)
+
+    monkeypatch.setattr(runner, "run_lane", _raise_unavailable)
+
+    exit_code = runner.main(
+        [
+            "--lane",
+            "ci-pytest-shards",
+            "--sha",
+            SHA,
+            "--temp-root",
+            str(tmp_path / "temp"),
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert captured.out == ""
+    assert captured.err.strip() == (
+        "UAA CI lane blocked: "
+        "reason-ref:ci:pytest-loopback-resource-unavailable"
+    )
+    assert "Traceback" not in captured.err
+    assert unsafe_detail not in captured.err
+    assert str(tmp_path) not in captured.err
+
+
+def test_post_prestart_resource_collision_remains_a_code_failure() -> None:
+    assert runner._execution_failure_reason_ref([{"status": "fail"}]) == (
+        "reason-ref:verification:deterministic-code-failure"
+    )
 
 
 def test_cli_redacts_unexpected_lane_execution_failure(

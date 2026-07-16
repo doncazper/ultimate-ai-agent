@@ -78,6 +78,14 @@ provider, connector, production, or AuthorityLease capability.
   Every logical shard receives its own bounded `HOME`, `TEMP`, `TMP`, and
   `TMPDIR` below the run basetemp, so child processes cannot share runner-home
   caches, state, or credential configuration.
+- Fixed-port Matrix fixture owners remain in one shard affinity group. Before
+  the complete suite records its atomic start, the canonical lane verifies,
+  while holding the host-wide full-suite lock, that the exact loopback fixture
+  endpoint is free. Existing ownership fails as
+  `reason-ref:ci:pytest-loopback-resource-unavailable`, not as a deterministic
+  test failure; bounded bind waiting tolerates only a short release race.
+  Contention that begins after this probe and durable start remains an ordinary
+  test failure and is never relabeled as infrastructure.
 - The complete pytest lane reads only the bounded, content-free shard rows from
   its transient performance report. GitHub's safe step summary retains failed
   shard refs and the fixed `make ci-reproduce-shard CI_SHARD_INDEX=<index>`

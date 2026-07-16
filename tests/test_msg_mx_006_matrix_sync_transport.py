@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import errno
 import hashlib
 import json
 import os
 import signal
 import shutil
 import subprocess
+import sys
 import threading
+import time
 from datetime import timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -40,6 +43,7 @@ from ultimate_ai_agent.core.time import utc_now
 ROOT = Path(__file__).resolve().parents[1]
 HARNESS_ORIGIN = "http://127.0.0.1:18008"
 PSEUDONYMIZATION_SALT = b"s" * 32
+_HARNESS_PORT_WAIT_SECONDS = 60
 
 
 def _sha256(path: Path) -> str:
@@ -175,7 +179,7 @@ class _Handler(BaseHTTPRequestHandler):
 
 @pytest.fixture
 def loopback_server():  # type: ignore[no-untyped-def]
-    server = ThreadingHTTPServer(("127.0.0.1", 18008), _Handler)
+    server = _bind_loopback_server()
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
@@ -184,6 +188,82 @@ def loopback_server():  # type: ignore[no-untyped-def]
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
+
+
+def _bind_loopback_server() -> ThreadingHTTPServer:
+    deadline = time.monotonic() + _HARNESS_PORT_WAIT_SECONDS
+    while True:
+        try:
+            return ThreadingHTTPServer(("127.0.0.1", 18008), _Handler)
+        except OSError as exc:
+            if exc.errno != errno.EADDRINUSE:
+                raise
+            if time.monotonic() >= deadline:
+                raise TimeoutError("MATRIX_TEST_HARNESS_PORT_BUSY") from exc
+            time.sleep(0.05)
+
+
+def test_loopback_server_binding_retries_bounded_port_contention(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = sys.modules[__name__]
+    expected = object()
+    attempts = 0
+
+    def bind_once_available(*_args: object, **_kwargs: object) -> object:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise OSError(errno.EADDRINUSE, "busy")
+        return expected
+
+    monkeypatch.setattr(module, "ThreadingHTTPServer", bind_once_available)
+    monkeypatch.setattr(time, "sleep", lambda _seconds: None)
+
+    assert _bind_loopback_server() is expected
+    assert attempts == 2
+
+
+def test_loopback_server_binding_rejects_persistent_port_contention(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = sys.modules[__name__]
+    attempts = 0
+
+    def always_busy(*_args: object, **_kwargs: object) -> object:
+        nonlocal attempts
+        attempts += 1
+        raise OSError(errno.EADDRINUSE, "busy")
+
+    monotonic_values = iter((0.0, _HARNESS_PORT_WAIT_SECONDS + 1.0))
+    monkeypatch.setattr(module, "ThreadingHTTPServer", always_busy)
+    monkeypatch.setattr(time, "monotonic", lambda: next(monotonic_values))
+    monkeypatch.setattr(time, "sleep", lambda _seconds: None)
+
+    with pytest.raises(TimeoutError, match="MATRIX_TEST_HARNESS_PORT_BUSY"):
+        _bind_loopback_server()
+
+    assert attempts == 1
+
+
+def test_loopback_server_binding_preserves_non_contention_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = sys.modules[__name__]
+    attempts = 0
+
+    def denied(*_args: object, **_kwargs: object) -> object:
+        nonlocal attempts
+        attempts += 1
+        raise OSError(errno.EACCES, "denied")
+
+    monkeypatch.setattr(module, "ThreadingHTTPServer", denied)
+
+    with pytest.raises(OSError) as caught:
+        _bind_loopback_server()
+
+    assert caught.value.errno == errno.EACCES
+    assert attempts == 1
 
 
 def _transport(

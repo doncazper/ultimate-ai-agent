@@ -54,6 +54,8 @@ from scripts.verification.pytest_shard_processes import (  # noqa: E402
     stop_processes,
 )
 from scripts.verification.run_pytest_shards import (  # noqa: E402
+    MatrixLoopbackTestResourceUnavailableError,
+    assert_matrix_loopback_test_resource_available,
     current_shard_plan_fingerprint,
 )
 from scripts.verification.typescript_binding import (  # noqa: E402
@@ -102,6 +104,9 @@ PYTEST_PLAN_REF_RE = re.compile(r"^pytest-shard-plan-ref:sha256:[0-9a-f]{64}$")
 PYTEST_REPRODUCTION_LANE_RE = re.compile(r"^ci-pytest-shard-[0-7]-reproduce$")
 PYTEST_DIAGNOSTIC_LOCK_PATH = Path("/tmp/uaa-ci-pytest-diagnostic.lock")
 PYTEST_RUNTIME_UNAVAILABLE_REASON_REF = "reason-ref:ci:pytest-runtime-unavailable"
+PYTEST_LOOPBACK_RESOURCE_UNAVAILABLE_REASON_REF = (
+    "reason-ref:ci:pytest-loopback-resource-unavailable"
+)
 FULL_SUITE_LOCK_UNAVAILABLE_REASON_REF = "reason-ref:ci:full-suite-capacity-unavailable"
 FULL_SUITE_ATTEMPT_RECORDED_REASON_REF = "reason-ref:ci:full-suite-attempt-recorded"
 VERIFICATION_EXECUTION_FENCE_REASON_REF = (
@@ -1309,6 +1314,8 @@ def run_lane(
                 if lane_ref == "ci-pytest-shards":
                     full_suite_lock.ensure_start_available()
                 validate_typed_prestart()
+                if lane_ref == "ci-pytest-shards":
+                    assert_matrix_loopback_test_resource_available()
 
             def record_durable_command_start() -> None:
                 nonlocal execution_fence_owner_token
@@ -1324,8 +1331,27 @@ def run_lane(
                             "exact verification execution is not startable"
                         )
                     execution_fence_owner_token = decision.owner_token
-                if lane_ref == "ci-pytest-shards":
-                    full_suite_lock.record_start()
+                try:
+                    if lane_ref == "ci-pytest-shards":
+                        full_suite_lock.record_start()
+                except BaseException:
+                    if (
+                        execution_fence is not None
+                        and pre_execution_identity is not None
+                        and execution_fence_owner_token is not None
+                    ):
+                        owner_token = execution_fence_owner_token
+                        try:
+                            execution_fence.abort_prestart(
+                                pre_execution_identity,
+                                owner_token=owner_token,
+                            )
+                        except BaseException as cleanup_error:
+                            raise VerificationExecutionFenceError(
+                                "verification pre-start recovery is required"
+                            ) from cleanup_error
+                        execution_fence_owner_token = None
+                    raise
 
             result = _run_command(
                 commands[command_ref],
@@ -1595,6 +1621,13 @@ def main(argv: list[str] | None = None) -> int:
     except PytestRuntimeUnavailableError:
         print(
             "UAA CI lane blocked: " + PYTEST_RUNTIME_UNAVAILABLE_REASON_REF,
+            file=sys.stderr,
+        )
+        return 1
+    except MatrixLoopbackTestResourceUnavailableError:
+        print(
+            "UAA CI lane blocked: "
+            + PYTEST_LOOPBACK_RESOURCE_UNAVAILABLE_REASON_REF,
             file=sys.stderr,
         )
         return 1

@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import argparse
+import errno
 import os
+import socket
 import stat
 import subprocess
 import sys
@@ -78,6 +80,8 @@ DEFAULT_PERFORMANCE_REPORT = "/tmp/uaa_pytest_performance_report.json"
 TIMEOUT_RETURN_CODE = 124
 FOUNDATION_GATE_AFFINITY_TOKENS = ("foundation_gate_report", "foundation_gate_results")
 MATRIX_LOOPBACK_PORT_AFFINITY_TOKEN = 'ThreadingHTTPServer(("127.0.0.1", 18008)'
+MATRIX_LOOPBACK_TEST_HOST = "127.0.0.1"
+MATRIX_LOOPBACK_TEST_PORT = 18008
 
 
 @dataclass(frozen=True)
@@ -103,6 +107,28 @@ class ShardRunInterrupted(RuntimeError):
     def __init__(self, signum: int) -> None:
         super().__init__(f"pytest shard run interrupted by signal {signum}")
         self.signum = signum
+
+
+class MatrixLoopbackTestResourceUnavailableError(RuntimeError):
+    """Raised before pytest starts when its exact loopback fixture is occupied."""
+
+
+def assert_matrix_loopback_test_resource_available() -> None:
+    probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        # ThreadingHTTPServer enables address reuse. Mirror that exact bind
+        # posture so a recently closed fixture in TIME_WAIT is not mistaken for
+        # a live competing listener.
+        probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        probe.bind((MATRIX_LOOPBACK_TEST_HOST, MATRIX_LOOPBACK_TEST_PORT))
+    except OSError as exc:
+        if exc.errno != errno.EADDRINUSE:
+            raise
+        raise MatrixLoopbackTestResourceUnavailableError(
+            "exact Matrix loopback test resource is unavailable"
+        ) from exc
+    finally:
+        probe.close()
 
 
 def discover_test_files(root: Path = ROOT) -> list[str]:
