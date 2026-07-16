@@ -49,7 +49,7 @@ provider, connector, production, or AuthorityLease capability.
 - Pytest shard basetemps, performance reports, and static-verification timings
   use each job's private `RUNNER_TEMP`. The shared-Mac CI budget keeps a
   900-second stretch goal, reports a 1200-second target, and enforces an
-  1800-second hard timeout for the complete eight-shard suite. The wider suite
+  1800-second hard timeout for the complete nine-shard suite. The wider suite
   ceiling absorbs measured single-host variance without hiding it; only the
   hard timeout terminates the sharded run.
 - The performance release lane waits for the rest of the CI matrix before it
@@ -71,9 +71,10 @@ provider, connector, production, or AuthorityLease capability.
   every CI invocation, and missing Git history fails closed to the full browser
   lane. This preserves the macOS image gate for affected UI changes without
   making unrelated integration work inherit stale image drift.
-- Pytest keeps eight deterministic logical shards inside one job and one
-  installed environment. Four isolated workers overlap subprocess-heavy shard
-  waits while avoiding the lock starvation and repeated
+- Pytest keeps nine deterministic logical shards inside one job and one
+  installed environment: one serialized Matrix resource preflight followed by
+  eight timing-balanced shards. Four isolated workers overlap subprocess-heavy
+  shard waits while avoiding the lock starvation and repeated
   dependency installation caused by multiple runner jobs on one physical Mac.
   Every logical shard receives its own bounded `HOME`, `TEMP`, `TMP`, and
   `TMPDIR` below the run basetemp, so child processes cannot share runner-home
@@ -84,6 +85,9 @@ provider, connector, production, or AuthorityLease capability.
   endpoint is free. Existing ownership fails as
   `reason-ref:ci:pytest-loopback-resource-unavailable`, not as a deterministic
   test failure; bounded bind waiting tolerates only a short release race.
+  The explicitly marked resource-owning shard then finishes before the
+  parallel shard wave starts, preventing another repository test from taking
+  the endpoint during those integration checks.
   Contention that begins after this probe and durable start remains an ordinary
   test failure and is never relabeled as infrastructure.
 - The complete pytest lane reads only the bounded, content-free shard rows from
@@ -212,7 +216,7 @@ started is `github_code_failure` and never enters private fallback.
 
 An operator can reproduce one exact deterministic failed shard without rerunning
 the complete suite by using `make ci-reproduce-shard CI_SHARD_INDEX=0` (indices
-0 through 7). These fixed reproduction lanes come from the same canonical
+0 through 8). These fixed reproduction lanes come from the same canonical
 manifest and do not satisfy the GitHub merge gate.
 
 Eligible private fallback creates a standalone credential-free local clone at

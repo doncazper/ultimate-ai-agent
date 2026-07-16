@@ -35,6 +35,7 @@ from scripts.verification.ci_fallback_private_scope import (
     PrivateScopeFullGateRequiredError,
 )
 from scripts.verification.ci_fallback_storage import AttemptLedger, FullSuiteLock
+from scripts.verification.pytest_shard_plan import CANONICAL_PYTEST_SHARD_COUNT
 
 
 class FallbackController:
@@ -90,7 +91,8 @@ class FallbackController:
         if not SAFE_REF_PATTERN.fullmatch(series_ref):
             raise ValueError("unsafe CI fallback series ref")
         allowed_diagnostics = {
-            f"diagnostic-pytest-shard-{index}" for index in range(8)
+            f"diagnostic-pytest-shard-{index}"
+            for index in range(CANONICAL_PYTEST_SHARD_COUNT)
         }
         if (
             not isinstance(diagnostic_unit_refs, tuple)

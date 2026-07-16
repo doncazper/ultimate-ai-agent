@@ -106,7 +106,7 @@ def test_canonical_ci_commands_are_fixed_argv_and_safe_environment() -> None:
     assert len(commands) == len(set(commands))
     assert commands["command:pytest.sharded-suite"].argv[2:6] == (
         "--shards",
-        "8",
+        str(manifest.CANONICAL_PYTEST_SHARD_COUNT),
         "--max-workers",
         "4",
     )
@@ -134,7 +134,7 @@ def test_canonical_ci_commands_are_fixed_argv_and_safe_environment() -> None:
         "FOUNDATION_GATE_MAX_BEST_MS": "45000",
         "FOUNDATION_GATE_MAX_MEAN_MS": "45000",
     }
-    for shard_index in range(8):
+    for shard_index in range(manifest.CANONICAL_PYTEST_SHARD_COUNT):
         lane_ref = f"ci-pytest-shard-{shard_index}-reproduce"
         command_ref = f"command:pytest.shard-{shard_index}-reproduce"
         assert manifest.lane_registry()[lane_ref].command_refs == (command_ref,)

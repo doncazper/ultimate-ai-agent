@@ -13,6 +13,7 @@ from scripts.verification.plan_affected_verification import (
     changed_records,
     unsafe_path_refs,
 )
+from scripts.verification.pytest_shard_plan import CANONICAL_PYTEST_SHARD_COUNT
 from scripts.verification.verification_contracts import (
     VerificationPlan,
     VerificationRiskTier,
@@ -59,10 +60,13 @@ def _validate_diagnostic_unit_refs(
     if (
         not isinstance(diagnostic_unit_refs, tuple)
         or len(diagnostic_unit_refs) != len(set(diagnostic_unit_refs))
-        or len(diagnostic_unit_refs) > 8
+        or len(diagnostic_unit_refs) > CANONICAL_PYTEST_SHARD_COUNT
     ):
         raise ValueError("private CI diagnostic units must be a bounded unique tuple")
-    allowed = {f"diagnostic-pytest-shard-{index}" for index in range(8)}
+    allowed = {
+        f"diagnostic-pytest-shard-{index}"
+        for index in range(CANONICAL_PYTEST_SHARD_COUNT)
+    }
     if any(unit_ref not in allowed for unit_ref in diagnostic_unit_refs):
         raise ValueError("private CI diagnostic unit is not canonical")
     return tuple(sorted(diagnostic_unit_refs, key=lambda value: int(value.rsplit("-", 1)[1])))

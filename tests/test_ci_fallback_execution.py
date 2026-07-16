@@ -14,6 +14,7 @@ from pathlib import Path
 
 import pytest
 
+from scripts.verification.pytest_shard_plan import CANONICAL_PYTEST_SHARD_COUNT
 from scripts.verification import ci_fallback_execution as execution
 from scripts.verification import ci_fallback_contracts as contracts
 from scripts.verification.ci_command_manifest import (
@@ -90,7 +91,7 @@ def test_pytest_shard_evidence_validation_is_exact_and_fail_closed() -> None:
         **_pass_command_result("command:pytest.sharded-suite", "test"),
         "pytest_shard_evidence_status": "available",
         "pytest_shard_plan_fingerprint_ref": plan_ref,
-        "pytest_shard_count": 8,
+        "pytest_shard_count": CANONICAL_PYTEST_SHARD_COUNT,
         "failed_shard_count": 0,
         "failed_shard_refs": [],
     }
@@ -1194,7 +1195,7 @@ def test_private_pytest_lane_accepts_exact_safe_shard_evidence(tmp_path: Path) -
                 **_pass_command_result(lane.command_refs[0], "test"),
                 "pytest_shard_evidence_status": "available",
                 "pytest_shard_plan_fingerprint_ref": expected_plan_ref,
-                "pytest_shard_count": 8,
+                "pytest_shard_count": CANONICAL_PYTEST_SHARD_COUNT,
                 "failed_shard_count": 0,
                 "failed_shard_refs": [],
             }

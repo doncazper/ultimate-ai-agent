@@ -8,6 +8,8 @@ from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Protocol
 
+from scripts.verification.pytest_shard_plan import CANONICAL_PYTEST_SHARD_COUNT
+
 
 SAFE_REF_PATTERN = re.compile(r"^[a-z0-9][a-z0-9:._-]{0,159}$")
 SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
@@ -105,7 +107,7 @@ def has_valid_pytest_shard_evidence(
         present_fields == PYTEST_SHARD_EVIDENCE_FIELDS
         and result.get("pytest_shard_evidence_status") == "available"
         and result.get("pytest_shard_plan_fingerprint_ref") == expected_plan_ref
-        and result.get("pytest_shard_count") == 8
+        and result.get("pytest_shard_count") == CANONICAL_PYTEST_SHARD_COUNT
         and result.get("failed_shard_count") == 0
         and result.get("failed_shard_refs") == []
     )
@@ -383,7 +385,11 @@ class PrivateVerificationScope:
         bounded_refs = (
             ("selected units", self.selected_unit_refs, 128),
             ("selected commands", self.selected_command_refs, 256),
-            ("diagnostic units", self.diagnostic_unit_refs, 8),
+            (
+                "diagnostic units",
+                self.diagnostic_unit_refs,
+                CANONICAL_PYTEST_SHARD_COUNT,
+            ),
             ("deferred units", self.deferred_unit_refs, 128),
             ("reasons", self.reason_refs, 128),
         )
@@ -400,7 +406,8 @@ class PrivateVerificationScope:
         if set(self.selected_unit_refs).intersection(self.deferred_unit_refs):
             raise ValueError("private verification selected and deferred units overlap")
         allowed_diagnostics = {
-            f"diagnostic-pytest-shard-{index}" for index in range(8)
+            f"diagnostic-pytest-shard-{index}"
+            for index in range(CANONICAL_PYTEST_SHARD_COUNT)
         }
         if not set(self.diagnostic_unit_refs).issubset(
             set(self.selected_unit_refs).intersection(allowed_diagnostics)

@@ -334,8 +334,12 @@ The complete pytest lane also checks its exact fixed Matrix loopback test
 resource inside the locked atomic pre-start boundary and immediately before
 recording a start. A busy endpoint is an explicit pre-start infrastructure
 block, while the fixed-port fixture owners remain in one shard affinity group
-and tolerate only bounded transient bind contention. Direct single-shard
-diagnosis remains available because it does not claim a complete-suite start.
+and tolerate only bounded transient bind contention. The explicit resource
+marker also makes that owning shard a serialized preflight: it must finish
+before the eight ordinary timing-balanced shards enter their parallel worker
+wave. The serialized posture is part of the exact shard-plan fingerprint, not
+an unbound runner option. Direct single-shard diagnosis remains available
+because it does not claim a complete-suite start.
 Only contention observed at this pre-start boundary receives the infrastructure
 reason; a collision after durable start remains a deterministic test failure.
 Phase 03 includes the strict transient Vitest/Playwright JSON consumers needed

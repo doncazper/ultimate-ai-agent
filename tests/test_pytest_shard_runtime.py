@@ -536,6 +536,76 @@ def test_run_shards_respects_explicit_worker_cap(
     assert runner.overall_return_code(results) == 0
 
 
+def test_run_shards_finishes_serialized_preflight_before_parallel_wave(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    active = 0
+    max_active = 0
+    spawn_order: list[str] = []
+
+    class ImmediateProcess:
+        def __init__(self, argv: list[str], **_kwargs: Any) -> None:
+            nonlocal active, max_active
+            spawn_order.append(next(arg for arg in argv if arg.startswith("tests/")))
+            active += 1
+            max_active = max(max_active, active)
+            self._settled = False
+            self.returncode: int | None = None
+
+        def poll(self) -> int:
+            nonlocal active
+            if not self._settled:
+                active -= 1
+                self._settled = True
+                self.returncode = 0
+            return 0
+
+        def wait(self, timeout: float | None = None) -> int:
+            del timeout
+            assert self.returncode is not None
+            return self.returncode
+
+    monkeypatch.setattr(runner.subprocess, "Popen", ImmediateProcess)
+    monkeypatch.setattr(
+        runner.shard_processes,
+        "spawn_owned_process_group",
+        lambda argv, **kwargs: runner.subprocess.Popen(argv, **kwargs),
+    )
+    monkeypatch.setattr(
+        runner.shard_processes,
+        "process_group_leader_is_terminal_without_reaping",
+        lambda process: process.poll() is not None,
+    )
+    plans = [
+        runner.ShardPlan(
+            index,
+            (f"tests/test_{index}.py",),
+            1.0,
+            serialized_preflight=index == 1,
+        )
+        for index in range(3)
+    ]
+
+    results = runner.run_shards(
+        plans,
+        root=tmp_path,
+        basetemp=tmp_path / "shards",
+        failure_ref_dir=None,
+        write_timings=False,
+        quiet=True,
+        max_workers=2,
+    )
+
+    assert spawn_order == [
+        "tests/test_1.py",
+        "tests/test_0.py",
+        "tests/test_2.py",
+    ]
+    assert max_active == 2
+    assert runner.overall_return_code(results) == 0
+
+
 def test_run_shards_isolates_home_and_temp_per_shard(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1466,7 +1536,7 @@ def test_makefile_makes_sharded_pytest_canonical_and_preserves_serial_diagnostic
     assert "PYTEST_TARGET_SECONDS ?= 125" in makefile
     assert "PYTEST_HARD_TIMEOUT_SECONDS ?= 180" in makefile
     assert "PYTEST_PERFORMANCE_REPORT ?=" in makefile
-    assert "PYTEST_SHARDS ?= 8" in makefile
+    assert f"PYTEST_SHARDS ?= {runner.CANONICAL_PYTEST_SHARD_COUNT}" in makefile
     assert "PYTEST_SHARD_WORKERS ?= 8" in makefile
     test_block = makefile.split("\ntest:\n", 1)[1].split("\ntest-serial:", 1)[0]
     assert "test-sharded" in test_block

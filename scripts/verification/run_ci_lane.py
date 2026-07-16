@@ -36,6 +36,9 @@ from scripts.verification.pytest_collection_evidence import (  # noqa: E402
     CollectionEvidenceError,
     load_aggregate_evidence,
 )
+from scripts.verification.pytest_shard_plan import (  # noqa: E402
+    CANONICAL_PYTEST_SHARD_COUNT,
+)
 from scripts.verification.pytest_shard_artifacts import (  # noqa: E402
     MAX_FAILED_TEST_REFS_PER_SHARD,
     is_safe_test_ref,
@@ -101,7 +104,9 @@ PYTEST_PERFORMANCE_REPORT_NAME = "uaa_pytest_performance_report.json"
 PYTEST_COLLECTION_EVIDENCE_NAME = "uaa_pytest_collection_evidence.json"
 PYTEST_PERFORMANCE_SCHEMA_VERSION = "uaa_pytest_performance_report.v1"
 PYTEST_PLAN_REF_RE = re.compile(r"^pytest-shard-plan-ref:sha256:[0-9a-f]{64}$")
-PYTEST_REPRODUCTION_LANE_RE = re.compile(r"^ci-pytest-shard-[0-7]-reproduce$")
+PYTEST_REPRODUCTION_LANE_RE = re.compile(
+    rf"^ci-pytest-shard-[0-{CANONICAL_PYTEST_SHARD_COUNT - 1}]-reproduce$"
+)
 PYTEST_DIAGNOSTIC_LOCK_PATH = Path("/tmp/uaa-ci-pytest-diagnostic.lock")
 PYTEST_RUNTIME_UNAVAILABLE_REASON_REF = "reason-ref:ci:pytest-runtime-unavailable"
 PYTEST_LOOPBACK_RESOURCE_UNAVAILABLE_REASON_REF = (
@@ -208,7 +213,9 @@ def _result_ref(
 
 def expected_pytest_shard_plan_ref() -> str:
     return current_shard_plan_fingerprint(
-        ROOT, 8, ROOT / "scripts/verification/pytest_file_timing_seed.json"
+        ROOT,
+        CANONICAL_PYTEST_SHARD_COUNT,
+        ROOT / "scripts/verification/pytest_file_timing_seed.json",
     )
 
 
@@ -298,7 +305,7 @@ def _pytest_shard_evidence(
         or plan_ref != expected_plan_ref
         or run_status not in {"green", "failed", "timeout"}
         or not isinstance(rows, list)
-        or len(rows) != 8
+        or len(rows) != CANONICAL_PYTEST_SHARD_COUNT
     ):
         return {
             "pytest_shard_evidence_status": "rejected",
@@ -333,7 +340,10 @@ def _pytest_shard_evidence(
             (shard_index, return_code, timed_out, tuple(raw_failed_test_refs))
         )
     shard_indices = sorted(index for index, _, _, _ in normalized)
-    if len(normalized) != 8 or shard_indices != list(range(8)):
+    if (
+        len(normalized) != CANONICAL_PYTEST_SHARD_COUNT
+        or shard_indices != list(range(CANONICAL_PYTEST_SHARD_COUNT))
+    ):
         return {
             "pytest_shard_evidence_status": "rejected",
             "pytest_shard_evidence_reason_ref": (
@@ -379,7 +389,7 @@ def _pytest_shard_evidence(
     evidence: dict[str, Any] = {
         "pytest_shard_evidence_status": "available",
         "pytest_shard_plan_fingerprint_ref": plan_ref,
-        "pytest_shard_count": 8,
+        "pytest_shard_count": CANONICAL_PYTEST_SHARD_COUNT,
         "failed_shard_count": len(failed_refs),
         "failed_shard_refs": failed_refs,
     }
@@ -1385,7 +1395,7 @@ def run_lane(
                 try:
                     pytest_collection_payload = load_aggregate_evidence(
                         temp_root / PYTEST_COLLECTION_EVIDENCE_NAME,
-                        expected_shard_count=8,
+                        expected_shard_count=CANONICAL_PYTEST_SHARD_COUNT,
                         expected_plan_fingerprint_ref=expected_pytest_plan_ref,
                     )
                 except CollectionEvidenceError:

@@ -10,6 +10,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scripts.verification.ci_command_manifest import (  # noqa: E402
+    CANONICAL_PYTEST_SHARD_COUNT,
     CI_JOB_GRAPH,
     command_registry,
     validate_definition,
@@ -295,6 +296,10 @@ def verify(root: Path = ROOT) -> list[str]:
     ):
         failures.append("Foundation command must consume exact prerequisite evidence")
     shard_argv = command_registry()["command:pytest.sharded-suite"].argv
+    if shard_argv[shard_argv.index("--shards") + 1] != str(
+        CANONICAL_PYTEST_SHARD_COUNT
+    ):
+        failures.append("pytest shards must use the canonical logical shard count")
     for fragment in ("--stretch-goal-seconds", "900", "--target-seconds", "1200", "--hard-timeout-seconds", "1800", "--failure-ref-dir", "{temp_root}/uaa_pytest_failure_refs"):
         if fragment not in shard_argv:
             failures.append("pytest shards must declare the self-hosted runtime budget")

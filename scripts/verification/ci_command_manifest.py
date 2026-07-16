@@ -22,6 +22,9 @@ from scripts.verification.changed_path_selector import (  # noqa: E402
     FOCUSED_PYTEST_REFS_BY_SOURCE,
     select_paths as select_changed_paths,
 )
+from scripts.verification.pytest_shard_plan import (  # noqa: E402
+    CANONICAL_PYTEST_SHARD_COUNT,
+)
 from scripts.verification.typescript_binding import (  # noqa: E402
     build_declared_typescript_binding,
 )
@@ -249,7 +252,7 @@ def command_registry() -> dict[str, CommandSpec]:
                     ".venv/bin/python",
                     "scripts/verification/run_pytest_shards.py",
                     "--shards",
-                    "8",
+                    str(CANONICAL_PYTEST_SHARD_COUNT),
                     "--max-workers",
                     "4",
                     "--timings-json",
@@ -308,7 +311,7 @@ def command_registry() -> dict[str, CommandSpec]:
             ),
         }
     )
-    for shard_index in range(8):
+    for shard_index in range(CANONICAL_PYTEST_SHARD_COUNT):
         command_ref = f"command:pytest.shard-{shard_index}-reproduce"
         commands[command_ref] = CommandSpec(
             command_ref,
@@ -316,7 +319,7 @@ def command_registry() -> dict[str, CommandSpec]:
                 ".venv/bin/python",
                 "scripts/verification/run_pytest_shards.py",
                 "--shards",
-                "8",
+                str(CANONICAL_PYTEST_SHARD_COUNT),
                 "--shard-index",
                 str(shard_index),
                 "--max-workers",
@@ -404,7 +407,7 @@ def lane_registry() -> dict[str, LaneSpec]:
             ),
         }
     )
-    for shard_index in range(8):
+    for shard_index in range(CANONICAL_PYTEST_SHARD_COUNT):
         command_ref = f"command:pytest.shard-{shard_index}-reproduce"
         lane_ref = f"ci-pytest-shard-{shard_index}-reproduce"
         lanes[lane_ref] = LaneSpec(
@@ -574,7 +577,7 @@ PYTEST_REPRODUCTION_UNITS = tuple(
             f"proof-equivalence-ref:pytest-shard-{shard_index}-diagnostic-non-gating"
         ),
     )
-    for shard_index in range(8)
+    for shard_index in range(CANONICAL_PYTEST_SHARD_COUNT)
 )
 
 
@@ -1065,7 +1068,7 @@ def pytest_shard_plan_fingerprint(repo: Path) -> str:
 
     plan_ref = current_shard_plan_fingerprint(
         repo,
-        8,
+        CANONICAL_PYTEST_SHARD_COUNT,
         repo / "scripts/verification/pytest_file_timing_seed.json",
     )
     digest = plan_ref.rsplit(":", maxsplit=1)[-1]

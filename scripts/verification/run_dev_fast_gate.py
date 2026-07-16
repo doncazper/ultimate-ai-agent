@@ -11,6 +11,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+try:
+    from scripts.verification.pytest_shard_plan import CANONICAL_PYTEST_SHARD_COUNT
+except ModuleNotFoundError:
+    from pytest_shard_plan import CANONICAL_PYTEST_SHARD_COUNT  # type: ignore[no-redef]
+
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_LOG_ROOT = "/tmp/uaa_verify_dev_fast"
@@ -20,7 +25,7 @@ DEFAULT_PYTEST_TIMINGS_JSON = "/tmp/uaa_pytest_file_timings.json"
 DEFAULT_PYTEST_TIMING_SEED_JSON = "scripts/verification/pytest_file_timing_seed.json"
 DEFAULT_PYTEST_BASETEMP = "/tmp/uaa_pytest_shards"
 DEFAULT_JOBS = 4
-DEFAULT_PYTEST_SHARDS = 8
+DEFAULT_PYTEST_SHARDS = CANONICAL_PYTEST_SHARD_COUNT
 DEFAULT_PYTEST_WORKERS = 8
 LOG_TAIL_LINES = 80
 

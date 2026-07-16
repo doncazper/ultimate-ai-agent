@@ -35,6 +35,9 @@ from scripts.verification.ci_fallback_contracts import (  # noqa: E402
     GITHUB_QUEUE_STATUSES,
     INFRASTRUCTURE_WINDOW,
 )
+from scripts.verification.pytest_shard_plan import (  # noqa: E402
+    CANONICAL_PYTEST_SHARD_COUNT,
+)
 
 
 def _run_json(repo: Path, argv: tuple[str, ...]) -> Any:
@@ -380,9 +383,9 @@ def main(argv: list[str] | None = None) -> int:
         "--diagnose-pytest-shard",
         action="append",
         type=int,
-        choices=range(8),
+        choices=range(CANONICAL_PYTEST_SHARD_COUNT),
         default=[],
-        metavar="0-7",
+        metavar=f"0-{CANONICAL_PYTEST_SHARD_COUNT - 1}",
         help="Explicitly reproduce one failed canonical pytest shard privately.",
     )
     parser.add_argument("--json", action="store_true")

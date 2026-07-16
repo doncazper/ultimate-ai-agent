@@ -28,6 +28,7 @@ from ultimate_ai_agent.core.time import utc_now
 ROOT = Path(__file__).resolve().parents[1]
 HARNESS_URL = "http://127.0.0.1:18008"
 _HARNESS_PORT_WAIT_SECONDS = 60
+PYTEST_EXCLUSIVE_RESOURCE_MATRIX_LOOPBACK = True
 
 
 def _bind_harness_server() -> ThreadingHTTPServer:

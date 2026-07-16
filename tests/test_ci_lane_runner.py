@@ -23,6 +23,7 @@ from scripts.verification.ci_command_manifest import (
     build_plan,
 )
 from scripts.verification.pytest_shard_artifacts import safe_test_ref
+from scripts.verification.pytest_shard_plan import CANONICAL_PYTEST_SHARD_COUNT
 from scripts.verification.verification_contracts import VerificationTerminalStatus
 from scripts.verification.verification_execution_identity import (
     VerificationExecutionFence,
@@ -104,7 +105,7 @@ def _write_pytest_performance_report(
                             list(failed_test_refs) if index == failed_index else []
                         ),
                     }
-                    for index in range(8)
+                    for index in range(CANONICAL_PYTEST_SHARD_COUNT)
                 ],
             }
         ),
@@ -1220,7 +1221,7 @@ def test_pytest_shard_evidence_retains_only_reproducible_failed_refs(
         "pytest_shard_plan_fingerprint_ref": (
             "pytest-shard-plan-ref:sha256:" + "a" * 64
         ),
-        "pytest_shard_count": 8,
+        "pytest_shard_count": CANONICAL_PYTEST_SHARD_COUNT,
         "failed_shard_count": 1,
         "failed_shard_refs": ("pytest-shard-ref:3:failed",),
     }

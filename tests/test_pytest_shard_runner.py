@@ -170,6 +170,21 @@ def test_timing_plans_are_stable_across_input_order() -> None:
     )
 
 
+def test_shard_plan_fingerprint_binds_serialized_preflight_posture() -> None:
+    runner = load_runner()
+    ordinary = runner.ShardPlan(0, ("tests/test_a.py",), 1.0)
+    preflight = runner.ShardPlan(
+        0,
+        ("tests/test_a.py",),
+        1.0,
+        serialized_preflight=True,
+    )
+
+    assert runner.shard_plan_fingerprint([ordinary]) != runner.shard_plan_fingerprint(
+        [preflight]
+    )
+
+
 def test_timing_aware_shards_balance_by_prior_duration() -> None:
     runner = load_runner()
     files = [
@@ -342,7 +357,8 @@ def test_fixture_affinity_serializes_exact_matrix_loopback_port_owners(
     (root / "tests").mkdir(parents=True)
     files = ["tests/test_matrix_a.py", "tests/test_matrix_b.py", "tests/test_other.py"]
     fixed_port_source = (
-        'server = ThreadingHTTPServer(("127.0.0.1", ' + "18008), Handler)\n"
+        "PYTEST_EXCLUSIVE_RESOURCE_MATRIX_" + "LOOPBACK = True\n"
+        'server = ThreadingHTTPServer(("127.0.0.1", 18008), Handler)\n'
     )
     for file_path in files[:2]:
         (root / file_path).write_text(
@@ -352,11 +368,13 @@ def test_fixture_affinity_serializes_exact_matrix_loopback_port_owners(
     (root / files[2]).write_text("def test_plain(): pass\n", encoding="utf-8")
 
     groups = runner.discover_affinity_groups(files, root)
-    plans, _method = runner.assign_shards(
+    exclusive_groups = runner.discover_serialized_preflight_groups(files, root)
+    plans, method = runner.assign_shards(
         files,
         2,
         {file_path: 1.0 for file_path in files},
         groups,
+        exclusive_affinity_groups=exclusive_groups,
     )
     loopback_shards = {
         plan.index
@@ -365,6 +383,28 @@ def test_fixture_affinity_serializes_exact_matrix_loopback_port_owners(
     }
 
     assert loopback_shards == {0}
+    assert plans[0].files == tuple(files[:2])
+    assert plans[0].serialized_preflight is True
+    assert plans[1].serialized_preflight is False
+    assert method == "timing-aware+fixture-affinity+exclusive-resource-preflight"
+    runner.validate_shard_plans(files, plans, 2, groups, exclusive_groups)
+
+
+def test_plan_validation_rejects_unbound_serialized_preflight() -> None:
+    runner = load_runner()
+    files = ["tests/test_a.py", "tests/test_b.py"]
+    plans = [
+        runner.ShardPlan(
+            0,
+            ("tests/test_a.py",),
+            1.0,
+            serialized_preflight=True,
+        ),
+        runner.ShardPlan(1, ("tests/test_b.py",), 1.0),
+    ]
+
+    with pytest.raises(ValueError, match="exactly match exclusive groups"):
+        runner.validate_shard_plans(files, plans, 2)
 
 
 def test_complete_timings_can_load_list_or_mapping_schema(tmp_path: Path) -> None:
@@ -426,6 +466,42 @@ def test_tracked_timing_seed_is_safe_advisory_and_covers_most_current_files() ->
     assert "/Users/" not in rendered
     assert "/home/" not in rendered
     assert all(path.startswith("tests/test_") for path in timings)
+
+
+def test_canonical_plan_binds_nine_shards_and_preserves_local_timeout_margin() -> None:
+    runner = load_runner()
+    files = runner.discover_test_files(ROOT)
+    timings, _source = runner.load_timing_profiles([TIMING_SEED], files)
+    affinity_groups = runner.discover_affinity_groups(files, ROOT)
+    exclusive_groups = runner.discover_serialized_preflight_groups(files, ROOT)
+    plans, method = runner.assign_shards(
+        files,
+        runner.CANONICAL_PYTEST_SHARD_COUNT,
+        timings,
+        affinity_groups,
+        exclusive_affinity_groups=exclusive_groups,
+    )
+
+    runner.validate_shard_plans(
+        files,
+        plans,
+        runner.CANONICAL_PYTEST_SHARD_COUNT,
+        affinity_groups,
+        exclusive_groups,
+    )
+    assert len(plans) == runner.CANONICAL_PYTEST_SHARD_COUNT == 9
+    assert plans[0].serialized_preflight is True
+    assert plans[0].files == (
+        "tests/test_msg_mx_005_matrix_session_node_integration.py",
+        "tests/test_msg_mx_006_matrix_sync_transport.py",
+    )
+    assert all(not plan.serialized_preflight for plan in plans[1:])
+    assert method.endswith("+exclusive-resource-preflight")
+    assert (
+        plans[0].expected_seconds
+        + max(plan.expected_seconds for plan in plans[1:])
+        < runner.DEFAULT_HARD_TIMEOUT_SECONDS
+    )
 
 
 def test_parse_pytest_durations_aggregates_by_file() -> None:

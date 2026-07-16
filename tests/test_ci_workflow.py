@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from scripts.verification.ci_command_manifest import (
+    CANONICAL_PYTEST_SHARD_COUNT,
     CI_JOB_GRAPH,
     command_registry,
     lane_registry,
@@ -96,7 +97,9 @@ def test_pytest_ci_uses_one_installed_job_with_bounded_workers_and_stable_aggreg
     assert "matrix:" not in shards
     assert "- lint" in shards
     assert "- affected-preflight" in shards
-    assert argv[argv.index("--shards") + 1] == "8"
+    assert argv[argv.index("--shards") + 1] == str(
+        CANONICAL_PYTEST_SHARD_COUNT
+    )
     assert argv[argv.index("--max-workers") + 1] == "4"
     assert "--safe-summary" in argv
     assert "--write-timings-json" not in argv

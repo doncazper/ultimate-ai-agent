@@ -63,6 +63,7 @@ except ModuleNotFoundError:  # Direct script execution from the repository root.
 
 shard_plan_fingerprint = pytest_shard_plan.shard_plan_fingerprint
 validate_shard_plans = pytest_shard_plan.validate_shard_plans
+CANONICAL_PYTEST_SHARD_COUNT = pytest_shard_plan.CANONICAL_PYTEST_SHARD_COUNT
 build_shard_env = shard_processes.build_shard_env
 is_live_model_opt_in_env_var = shard_processes.is_live_model_opt_in_env_var
 validate_runtime_budget = shard_processes.validate_runtime_budget
@@ -70,7 +71,7 @@ validate_runtime_budget = shard_processes.validate_runtime_budget
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_BASETEMP = "/tmp/uaa_pytest_shards"
-DEFAULT_SHARDS = 8
+DEFAULT_SHARDS = CANONICAL_PYTEST_SHARD_COUNT
 DEFAULT_MAX_WORKERS = 8
 DEFAULT_STRETCH_GOAL_SECONDS = 110.0
 DEFAULT_TARGET_SECONDS = 125.0
@@ -79,7 +80,9 @@ DEFAULT_TERMINATION_GRACE_SECONDS = 2.0
 DEFAULT_PERFORMANCE_REPORT = "/tmp/uaa_pytest_performance_report.json"
 TIMEOUT_RETURN_CODE = 124
 FOUNDATION_GATE_AFFINITY_TOKENS = ("foundation_gate_report", "foundation_gate_results")
-MATRIX_LOOPBACK_PORT_AFFINITY_TOKEN = 'ThreadingHTTPServer(("127.0.0.1", 18008)'
+MATRIX_LOOPBACK_PORT_AFFINITY_TOKEN = (
+    "PYTEST_EXCLUSIVE_RESOURCE_MATRIX_LOOPBACK = True"
+)
 MATRIX_LOOPBACK_TEST_HOST = "127.0.0.1"
 MATRIX_LOOPBACK_TEST_PORT = 18008
 
@@ -89,6 +92,7 @@ class ShardPlan:
     index: int
     files: tuple[str, ...]
     expected_seconds: float
+    serialized_preflight: bool = False
 
 
 @dataclass(frozen=True)
@@ -160,6 +164,23 @@ def discover_affinity_groups(
     return groups
 
 
+def discover_serialized_preflight_groups(
+    files: list[str],
+    root: Path = ROOT,
+) -> list[tuple[str, ...]]:
+    consumers: list[str] = []
+    for file_path in files:
+        try:
+            source = (root / file_path).read_text(encoding="utf-8")
+        except (OSError, UnicodeError) as exc:
+            raise ValueError(
+                "serialized preflight resource scan could not read a test file"
+            ) from exc
+        if MATRIX_LOOPBACK_PORT_AFFINITY_TOKEN in source:
+            consumers.append(file_path)
+    return [tuple(sorted(consumers))] if consumers else []
+
+
 def _assignment_items(
     files: list[str], affinity_groups: list[tuple[str, ...]] | None
 ) -> list[tuple[str, ...]]:
@@ -188,8 +209,21 @@ def current_shard_plan_fingerprint(
     files = discover_test_files(root)
     timings, _source = load_timing_profiles([timings_path], files)
     affinity_groups = discover_affinity_groups(files, root)
-    plans, _method = assign_shards(files, shard_count, timings, affinity_groups)
-    validate_shard_plans(files, plans, shard_count, affinity_groups)
+    serialized_groups = discover_serialized_preflight_groups(files, root)
+    plans, _method = assign_shards(
+        files,
+        shard_count,
+        timings,
+        affinity_groups,
+        exclusive_affinity_groups=serialized_groups,
+    )
+    validate_shard_plans(
+        files,
+        plans,
+        shard_count,
+        affinity_groups,
+        serialized_groups,
+    )
     return shard_plan_fingerprint(plans)
 
 
@@ -260,17 +294,76 @@ def assign_shards(
     shard_count: int,
     timings: dict[str, float] | None,
     affinity_groups: list[tuple[str, ...]] | None = None,
+    *,
+    exclusive_affinity_groups: list[tuple[str, ...]] | None = None,
 ) -> tuple[list[ShardPlan], str]:
     if shard_count <= 0:
         raise ValueError("--shards must be greater than zero")
+    normalized_affinity = {
+        tuple(sorted(set(group))) for group in (affinity_groups or [])
+    }
+    exclusive_groups = [
+        tuple(sorted(set(group))) for group in (exclusive_affinity_groups or [])
+    ]
+    if any(group not in normalized_affinity for group in exclusive_groups):
+        raise ValueError("exclusive preflight group must be an affinity group")
+    if exclusive_groups and len(exclusive_groups) >= shard_count:
+        raise ValueError("exclusive preflight groups exhaust configured shards")
+    exclusive_files = {
+        file_path for group in exclusive_groups for file_path in group
+    }
+    remaining_files = [
+        file_path for file_path in files if file_path not in exclusive_files
+    ]
+    remaining_affinity = [
+        group
+        for group in (affinity_groups or [])
+        if tuple(sorted(set(group))) not in set(exclusive_groups)
+    ]
+    assign_count = shard_count - len(exclusive_groups)
     if timings:
-        plans = timing_aware_shards(files, shard_count, timings, affinity_groups)
+        assigned = timing_aware_shards(
+            remaining_files,
+            assign_count,
+            timings,
+            remaining_affinity,
+        )
         method = "timing-aware"
     else:
-        plans = deterministic_file_count_shards(files, shard_count, affinity_groups)
+        assigned = deterministic_file_count_shards(
+            remaining_files,
+            assign_count,
+            remaining_affinity,
+        )
         method = "deterministic-file-count"
+    plans = [
+        *(
+            ShardPlan(
+                index=index,
+                files=group,
+                expected_seconds=(
+                    round(sum(timings[path] for path in group), 6)
+                    if timings
+                    else 0.0
+                ),
+                serialized_preflight=True,
+            )
+            for index, group in enumerate(exclusive_groups)
+        ),
+        *(
+            ShardPlan(
+                index=plan.index + len(exclusive_groups),
+                files=plan.files,
+                expected_seconds=plan.expected_seconds,
+                serialized_preflight=False,
+            )
+            for plan in assigned
+        ),
+    ]
     if affinity_groups:
         method += "+fixture-affinity"
+    if exclusive_groups:
+        method += "+exclusive-resource-preflight"
     return plans, method
 
 
@@ -414,7 +507,15 @@ def run_shards(
 
     env = build_shard_env(root)
 
-    pending = list(plans)
+    serialized_preflight = tuple(
+        plan.index for plan in plans if plan.serialized_preflight
+    )
+    serialized_preflight_set = set(serialized_preflight)
+    pending = [
+        *(plan for index in serialized_preflight for plan in plans if plan.index == index),
+        *(plan for plan in plans if plan.index not in serialized_preflight_set),
+    ]
+    serialized_preflight_remaining = set(serialized_preflight)
     active: dict[int, tuple[subprocess.Popen[str], Any, float, Path, ShardPlan]] = {}
     results: dict[int, ShardResult] = {}
     stretch_reported = False
@@ -490,7 +591,10 @@ def run_shards(
                         )
                     pending.clear()
                     break
-                while pending and len(active) < worker_limit:
+                active_worker_limit = (
+                    1 if serialized_preflight_remaining else worker_limit
+                )
+                while pending and len(active) < active_worker_limit:
                     plan = pending.pop(0)
                     log_path = log_dir / f"pytest-shard-{plan.index}.log"
                     if not plan.files:
@@ -504,6 +608,7 @@ def run_shards(
                             elapsed_seconds=0.0,
                             log_path=log_path,
                         )
+                        serialized_preflight_remaining.discard(plan.index)
                         continue
                     command = build_pytest_command(
                         plan,
@@ -596,6 +701,7 @@ def run_shards(
                                 else None
                             ),
                         )
+                        serialized_preflight_remaining.discard(index)
                         del active[index]
                     except BaseException:
                         if not log_handle.closed:
@@ -780,14 +886,22 @@ def main(argv: list[str] | None = None) -> int:
 
     timings, timing_source = load_timing_profiles(timing_paths, files)
     affinity_groups = discover_affinity_groups(files, ROOT)
+    serialized_groups = discover_serialized_preflight_groups(files, ROOT)
     plans, assignment_method = assign_shards(
         files,
         args.shards,
         timings,
         affinity_groups,
+        exclusive_affinity_groups=serialized_groups,
     )
     try:
-        validate_shard_plans(files, plans, args.shards, affinity_groups)
+        validate_shard_plans(
+            files,
+            plans,
+            args.shards,
+            affinity_groups,
+            serialized_groups,
+        )
     except ValueError as exc:
         print(f"FAIL: {exc}", file=sys.stderr)
         return 2
