@@ -151,11 +151,11 @@ def verify(root: Path = ROOT) -> list[str]:
     routes = _read(root, "apps/control-center/src/routes.tsx")
     if (
         'path: "/messenger"' not in routes
-        or 'status: "fixture-only desktop content with backend-owned read-only sync and crypto posture"'
+        or 'status: "fixture-only desktop content with backend-owned sync, crypto, and exact manual-messaging posture; synthetic composer remains disabled"'
         not in routes
     ):
         failures.append(
-            "Messenger route must remain an explicit fixture-only content surface with backend-owned read-only sync and crypto posture"
+            "Messenger route must remain an explicit fixture-only content surface with backend-owned sync, crypto, and exact manual-messaging posture"
         )
 
     release = json.loads(_read(root, "docs/control_center/release_surface_manifest.json"))
@@ -178,10 +178,17 @@ def verify(root: Path = ROOT) -> list[str]:
             "operation_id": "get_control_center_communications_matrix_crypto_posture",
             "side_effect_class": "none",
             "route_classification": "local_sensitive",
-        }
+        },
+        {
+            "method": "GET",
+            "path": "/control-center/communications/matrix-messaging/posture",
+            "operation_id": "get_control_center_communications_matrix_messaging_posture",
+            "side_effect_class": "none",
+            "route_classification": "local_sensitive",
+        },
     ]:
         failures.append(
-            "/messenger may expose only the exact content-free Matrix sync and crypto posture routes"
+            "/messenger may expose only the exact content-free Matrix sync, crypto, and manual-messaging posture routes"
         )
 
     return failures
