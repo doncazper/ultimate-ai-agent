@@ -303,7 +303,7 @@
           "width": 1440,
           "height": 900,
           "baseline_file_ref": "visual-baseline-file:desktop:messenger-sessions-wide",
-          "baseline_hash": "sha256:d2284426c34b33c4f3062f0994f4da62f1acad7eef66a3a187ad1e5757592b08"
+      "baseline_hash": "sha256:d8e3b8b3583f00dd36f72224be0c61d65123fea03d9652960e6c82e1c337ad7e"
         },
         "intelligence-wide": {
           "surface_id": "intelligence",
