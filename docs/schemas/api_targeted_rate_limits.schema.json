@@ -30,6 +30,7 @@
           "communications_matrix_crypto",
           "communications_matrix_harness",
           "communications_matrix_messaging",
+          "communications_matrix_rooms_media",
           "communications_matrix_session",
           "local_model_validation",
           "memory_feedback",
@@ -48,12 +49,12 @@
           "web_evidence_product_slice"
         ]
       },
-      "minItems": 21,
-      "maxItems": 21,
+      "minItems": 22,
+      "maxItems": 22,
       "uniqueItems": true
     },
     "targeted_route_count": {
-      "const": 111
+      "const": 132
     },
     "posture_field": {
       "const": "rate_limit_posture"

@@ -367,6 +367,7 @@
               "communications_matrix_crypto",
               "communications_matrix_harness",
               "communications_matrix_messaging",
+              "communications_matrix_rooms_media",
               "communications_matrix_session",
               "local_model_validation",
               "memory_feedback",

@@ -6,6 +6,7 @@ import {
   loadCommunicationsSessionPosture,
   loadMatrixCryptoPosture,
   loadMatrixMessagingPosture,
+  loadMatrixRoomsMediaPosture,
   loadMatrixSyncPosture,
 } from "./client";
 
@@ -148,6 +149,38 @@ const matrixMessagingPosture = {
   raw_content_included: false,
   safe_summary:
     "Exact manual messaging executors exist, while runtime enrollment remains required.",
+};
+
+const matrixRoomsMediaPosture = {
+  schema_version: "uaa-matrix-rooms-media-posture.v1",
+  posture_ref: "posture-ref:matrix-rooms-media:configuration-required-v1",
+  runtime_status: "configuration_required",
+  authority_lane_refs: Array.from(
+    { length: 20 },
+    (_, index) => `authority-lane-ref:matrix-rooms-media:lane-${index}`,
+  ),
+  implemented_core_operation_refs: Array.from(
+    { length: 20 },
+    (_, index) => `operation-ref:matrix-rooms-media:implemented-${index}`,
+  ),
+  blocked_live_operation_refs: Array.from(
+    { length: 20 },
+    (_, index) => `operation-ref:matrix-rooms-media:blocked-${index}`,
+  ),
+  media_max_bytes: 24576,
+  media_type_policy_ref: "media-type-policy-ref:matrix:png-jpeg-gif-text-v1",
+  quarantine_policy_ref: "quarantine-policy-ref:matrix-media:before-preview-v1",
+  preview_policy_ref: "preview-policy-ref:matrix-media:metadata-allowlist-v1",
+  progress_policy_ref: "progress-policy-ref:matrix-media:content-free-v1",
+  cancel_policy_ref: "cancel-policy-ref:matrix-media:bounded-process-termination-v1",
+  retry_policy_ref: "retry-policy-ref:matrix-media:manual-idempotent-no-auto-uncertain-v1",
+  search_index_policy_ref: "search-index-policy-ref:matrix:encrypted-hmac-v1",
+  element_interoperability_status: "external_facility_required",
+  reason_refs: ["reason-ref:matrix-rooms-media:runtime-enrollment-required"],
+  request_scoped_evaluation_required: true,
+  standing_authority_granted: false,
+  multi_account_enabled: false,
+  raw_content_included: false,
 };
 
 function respond(data: unknown): void {
@@ -415,6 +448,28 @@ describe("communications API bindings", () => {
       blocked_operation_refs: matrixMessagingPosture.blocked_operation_refs,
     });
     await expect(loadMatrixMessagingPosture()).rejects.toThrow(
+      "failed safe validation",
+    );
+  });
+
+  it("accepts exact content-free Matrix rooms, search, and media posture", async () => {
+    respond(matrixRoomsMediaPosture);
+    const result = await loadMatrixRoomsMediaPosture();
+    expect(result.runtime_status).toBe("configuration_required");
+    expect(result.authority_lane_refs).toHaveLength(20);
+    expect(result.implemented_core_operation_refs).toHaveLength(20);
+    expect(result.blocked_live_operation_refs).toHaveLength(20);
+    expect(result.standing_authority_granted).toBe(false);
+  });
+
+  it("rejects rooms and media authority, size, or content drift", async () => {
+    respond({
+      ...matrixRoomsMediaPosture,
+      media_max_bytes: 24577,
+      standing_authority_granted: true,
+      raw_content_included: true,
+    });
+    await expect(loadMatrixRoomsMediaPosture()).rejects.toThrow(
       "failed safe validation",
     );
   });

@@ -38,6 +38,7 @@ TARGETED_RATE_LIMIT_GROUP_DEFAULTS: dict[str, dict[str, int]] = {
     "communications_matrix_session": {"max_requests": 12, "window_seconds": 60},
     "communications_matrix_crypto": {"max_requests": 12, "window_seconds": 60},
     "communications_matrix_messaging": {"max_requests": 12, "window_seconds": 60},
+    "communications_matrix_rooms_media": {"max_requests": 12, "window_seconds": 60},
 }
 
 ACTION_PREVIEW_PROPOSAL_PATHS = {
@@ -187,6 +188,34 @@ COMMUNICATIONS_MATRIX_MESSAGING_PATHS = {
     "/control-center/communications/matrix-messaging/outbox-discard",
     "/control-center/communications/matrix-messaging/desktop-notify",
 }
+COMMUNICATIONS_MATRIX_ROOMS_MEDIA_PATHS = {
+    "/control-center/communications/matrix-rooms-media/proposal",
+    *{
+        f"/control-center/communications/matrix-rooms-media/{operation}"
+        for operation in (
+            "dm-create",
+            "room-create",
+            "room-join",
+            "room-leave",
+            "invite-send",
+            "invite-accept",
+            "invite-reject",
+            "invite-withdraw",
+            "room-power-role-write",
+            "space-mapping-write",
+            "notification-settings-write",
+            "history-visibility-write",
+            "pin-write",
+            "account-room-preference-write",
+            "search-local-read",
+            "media-upload",
+            "media-download-quarantine",
+            "media-materialize",
+            "media-preview",
+            "media-cleanup",
+        )
+    },
+}
 
 
 @dataclass(frozen=True)
@@ -304,11 +333,10 @@ def route_rate_limit_group(method: str, path: str) -> str | None:
         return "communications_matrix_session"
     if normalized_method == "POST" and path in COMMUNICATIONS_MATRIX_CRYPTO_PATHS:
         return "communications_matrix_crypto"
-    if (
-        normalized_method == "POST"
-        and path in COMMUNICATIONS_MATRIX_MESSAGING_PATHS
-    ):
+    if normalized_method == "POST" and path in COMMUNICATIONS_MATRIX_MESSAGING_PATHS:
         return "communications_matrix_messaging"
+    if normalized_method == "POST" and path in COMMUNICATIONS_MATRIX_ROOMS_MEDIA_PATHS:
+        return "communications_matrix_rooms_media"
     if normalized_method == "POST" and (
         path in GOVERNED_RUNTIME_MUTATING_PATHS
         or (

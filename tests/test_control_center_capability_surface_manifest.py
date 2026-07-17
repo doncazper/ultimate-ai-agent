@@ -281,6 +281,11 @@ def test_capability_surface_manifest_covers_current_visible_routes_and_actions()
             "path": "/control-center/communications/matrix-messaging/posture",
             "operation_id": "get_control_center_communications_matrix_messaging_posture",
         },
+        {
+            "method": "GET",
+            "path": "/control-center/communications/matrix-rooms-media/posture",
+            "operation_id": "get_control_center_communications_matrix_rooms_media_posture",
+        },
     ]
     assert messenger["cli_paths"] == [
         "scripts/dev/uaa_communications.py"

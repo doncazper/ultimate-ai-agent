@@ -1,9 +1,9 @@
 {
-  "control_center_route_count": 140,
-  "fingerprint": "api-contract-fingerprint:sha256:256a1c1d1caa9f021924d14b8570bc5d4e40aac6ec9ed14441dd8e129abde408",
+  "control_center_route_count": 162,
+  "fingerprint": "api-contract-fingerprint:sha256:9d7528901d5fe80705d6247c25db29483d38129e82bbc63ca6974bc90e7a7f20",
   "idempotency_audit_policy_ref": "idempotency:p1-084:mutating-routes:v1",
-  "mutating_route_count": 85,
-  "openapi_path_count": 305,
+  "mutating_route_count": 105,
+  "openapi_path_count": 327,
   "projection_fields": [
     "path",
     "method",
@@ -24,17 +24,17 @@
   ],
   "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
   "route_approval_posture_summary": {
-    "not_required_for_route_classification": 221,
-    "required_before_mutation_authority": 85
+    "not_required_for_route_classification": 223,
+    "required_before_mutation_authority": 105
   },
   "route_auth_posture_summary": {
-    "protected_local_bearer_required": 303,
+    "protected_local_bearer_required": 325,
     "public_metadata_no_auth": 3
   },
   "route_classification_summary": {
     "local_readonly": 29,
-    "local_sensitive": 189,
-    "mutating_requires_authority": 85,
+    "local_sensitive": 191,
+    "mutating_requires_authority": 105,
     "public_metadata": 3
   },
   "route_classification_vocabulary": [
@@ -43,15 +43,15 @@
     "local_sensitive",
     "mutating_requires_authority"
   ],
-  "route_count": 306,
+  "route_count": 328,
   "route_idempotency_posture_summary": {
-    "not_required_for_route_classification": 221,
-    "required_before_mutation_authority": 85
+    "not_required_for_route_classification": 223,
+    "required_before_mutation_authority": 105
   },
-  "route_operation_count": 306,
+  "route_operation_count": 328,
   "route_rate_limit_posture_summary": {
-    "not_targeted_for_route": 195,
-    "targeted_local_fixed_window": 111
+    "not_targeted_for_route": 196,
+    "targeted_local_fixed_window": 132
   },
   "routes": [
     {
@@ -2530,6 +2530,446 @@
       "route_classification": "mutating_requires_authority",
       "side_effect_class": "authenticated_connector_mutation",
       "summary": "Post control center communications matrix messaging typing",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "post_control_center_communications_matrix_rooms_media_account_room_preference_write",
+      "path": "/control-center/communications/matrix-rooms-media/account-room-preference-write",
+      "rate_limit_group": "communications_matrix_rooms_media",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "authenticated_connector_mutation",
+      "summary": "Post control center communications matrix rooms media account room preference write",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "post_control_center_communications_matrix_rooms_media_dm_create",
+      "path": "/control-center/communications/matrix-rooms-media/dm-create",
+      "rate_limit_group": "communications_matrix_rooms_media",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "authenticated_connector_mutation",
+      "summary": "Post control center communications matrix rooms media dm create",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "post_control_center_communications_matrix_rooms_media_history_visibility_write",
+      "path": "/control-center/communications/matrix-rooms-media/history-visibility-write",
+      "rate_limit_group": "communications_matrix_rooms_media",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "authenticated_connector_mutation",
+      "summary": "Post control center communications matrix rooms media history visibility write",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "post_control_center_communications_matrix_rooms_media_invite_accept",
+      "path": "/control-center/communications/matrix-rooms-media/invite-accept",
+      "rate_limit_group": "communications_matrix_rooms_media",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "authenticated_connector_mutation",
+      "summary": "Post control center communications matrix rooms media invite accept",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "post_control_center_communications_matrix_rooms_media_invite_reject",
+      "path": "/control-center/communications/matrix-rooms-media/invite-reject",
+      "rate_limit_group": "communications_matrix_rooms_media",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "authenticated_connector_mutation",
+      "summary": "Post control center communications matrix rooms media invite reject",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "post_control_center_communications_matrix_rooms_media_invite_send",
+      "path": "/control-center/communications/matrix-rooms-media/invite-send",
+      "rate_limit_group": "communications_matrix_rooms_media",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "authenticated_connector_mutation",
+      "summary": "Post control center communications matrix rooms media invite send",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "post_control_center_communications_matrix_rooms_media_invite_withdraw",
+      "path": "/control-center/communications/matrix-rooms-media/invite-withdraw",
+      "rate_limit_group": "communications_matrix_rooms_media",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "authenticated_connector_mutation",
+      "summary": "Post control center communications matrix rooms media invite withdraw",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "post_control_center_communications_matrix_rooms_media_media_cleanup",
+      "path": "/control-center/communications/matrix-rooms-media/media-cleanup",
+      "rate_limit_group": "communications_matrix_rooms_media",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "destructive_local_sensitive",
+      "summary": "Post control center communications matrix rooms media media cleanup",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "post_control_center_communications_matrix_rooms_media_media_download_quarantine",
+      "path": "/control-center/communications/matrix-rooms-media/media-download-quarantine",
+      "rate_limit_group": "communications_matrix_rooms_media",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "authenticated_connector_mutation",
+      "summary": "Post control center communications matrix rooms media media download quarantine",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "post_control_center_communications_matrix_rooms_media_media_materialize",
+      "path": "/control-center/communications/matrix-rooms-media/media-materialize",
+      "rate_limit_group": "communications_matrix_rooms_media",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "local_sensitive",
+      "summary": "Post control center communications matrix rooms media media materialize",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "post_control_center_communications_matrix_rooms_media_media_preview",
+      "path": "/control-center/communications/matrix-rooms-media/media-preview",
+      "rate_limit_group": "communications_matrix_rooms_media",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "local_sensitive",
+      "summary": "Post control center communications matrix rooms media media preview",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "post_control_center_communications_matrix_rooms_media_media_upload",
+      "path": "/control-center/communications/matrix-rooms-media/media-upload",
+      "rate_limit_group": "communications_matrix_rooms_media",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "authenticated_connector_mutation",
+      "summary": "Post control center communications matrix rooms media media upload",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "post_control_center_communications_matrix_rooms_media_notification_settings_write",
+      "path": "/control-center/communications/matrix-rooms-media/notification-settings-write",
+      "rate_limit_group": "communications_matrix_rooms_media",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "authenticated_connector_mutation",
+      "summary": "Post control center communications matrix rooms media notification settings write",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "post_control_center_communications_matrix_rooms_media_pin_write",
+      "path": "/control-center/communications/matrix-rooms-media/pin-write",
+      "rate_limit_group": "communications_matrix_rooms_media",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "authenticated_connector_mutation",
+      "summary": "Post control center communications matrix rooms media pin write",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "not_required_for_route_classification",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": null,
+      "idempotency_posture": "not_required_for_route_classification",
+      "idempotency_required": false,
+      "method": "GET",
+      "operation_id": "get_control_center_communications_matrix_rooms_media_posture",
+      "path": "/control-center/communications/matrix-rooms-media/posture",
+      "rate_limit_group": null,
+      "rate_limit_policy_ref": null,
+      "rate_limit_posture": "not_targeted_for_route",
+      "rate_limit_targeted": false,
+      "route_classification": "local_sensitive",
+      "side_effect_class": "none",
+      "summary": "Get control center communications matrix rooms media posture",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "not_required_for_route_classification",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": null,
+      "idempotency_posture": "not_required_for_route_classification",
+      "idempotency_required": false,
+      "method": "POST",
+      "operation_id": "post_control_center_communications_matrix_rooms_media_proposal",
+      "path": "/control-center/communications/matrix-rooms-media/proposal",
+      "rate_limit_group": "communications_matrix_rooms_media",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "local_sensitive",
+      "side_effect_class": "validation_only",
+      "summary": "Post control center communications matrix rooms media proposal",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "post_control_center_communications_matrix_rooms_media_room_create",
+      "path": "/control-center/communications/matrix-rooms-media/room-create",
+      "rate_limit_group": "communications_matrix_rooms_media",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "authenticated_connector_mutation",
+      "summary": "Post control center communications matrix rooms media room create",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "post_control_center_communications_matrix_rooms_media_room_join",
+      "path": "/control-center/communications/matrix-rooms-media/room-join",
+      "rate_limit_group": "communications_matrix_rooms_media",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "authenticated_connector_mutation",
+      "summary": "Post control center communications matrix rooms media room join",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "post_control_center_communications_matrix_rooms_media_room_leave",
+      "path": "/control-center/communications/matrix-rooms-media/room-leave",
+      "rate_limit_group": "communications_matrix_rooms_media",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "destructive_external",
+      "summary": "Post control center communications matrix rooms media room leave",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "post_control_center_communications_matrix_rooms_media_room_power_role_write",
+      "path": "/control-center/communications/matrix-rooms-media/room-power-role-write",
+      "rate_limit_group": "communications_matrix_rooms_media",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "authenticated_connector_mutation",
+      "summary": "Post control center communications matrix rooms media room power role write",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "post_control_center_communications_matrix_rooms_media_search_local_read",
+      "path": "/control-center/communications/matrix-rooms-media/search-local-read",
+      "rate_limit_group": "communications_matrix_rooms_media",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "local_sensitive",
+      "summary": "Post control center communications matrix rooms media search local read",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "post_control_center_communications_matrix_rooms_media_space_mapping_write",
+      "path": "/control-center/communications/matrix-rooms-media/space-mapping-write",
+      "rate_limit_group": "communications_matrix_rooms_media",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "authenticated_connector_mutation",
+      "summary": "Post control center communications matrix rooms media space mapping write",
       "tags": [
         "control-center"
       ]
@@ -6180,5 +6620,5 @@
   "schema_version": "uaa-api-route-inventory.v5",
   "source_ref": "source-ref:fastapi-openapi-and-api-manifest",
   "static_declaration_only": true,
-  "targeted_rate_limit_route_count": 111
+  "targeted_rate_limit_route_count": 132
 }

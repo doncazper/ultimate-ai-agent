@@ -86,6 +86,13 @@ def test_control_center_release_surface_manifest_covers_visible_routes() -> None
             "side_effect_class": "none",
             "route_classification": "local_sensitive",
         },
+        {
+            "method": "GET",
+            "path": "/control-center/communications/matrix-rooms-media/posture",
+            "operation_id": "get_control_center_communications_matrix_rooms_media_posture",
+            "side_effect_class": "none",
+            "route_classification": "local_sensitive",
+        },
     ]
     assert by_path["/messenger"]["side_effect_class"] == "none"
     assert "blocked_backend:matrix-broader-message-send" in by_path["/messenger"][

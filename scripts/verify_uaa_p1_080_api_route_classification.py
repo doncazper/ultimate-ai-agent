@@ -9,6 +9,7 @@ sys.path.insert(0, str(ROOT))
 
 from scripts.verification.api_routes import (  # noqa: E402
     EXPECTED_OPENAPI_PATH_COUNT,
+    EXPECTED_MUTATING_ROUTE_COUNT,
     EXPECTED_ROUTE_COUNT,
     append_expected_route_count,
     append_route_fixture_mismatches,
@@ -35,14 +36,14 @@ ALLOWED_CLASSIFICATIONS = {
     "mutating_requires_authority",
 }
 EXPECTED_SIDE_EFFECT_MIX = {
-    "validation_only": 81,
-    "none": 13,
+    "validation_only": 82,
+    "none": 14,
     "local_dev_workspace_only": 183,
     "governed_network_read_only": 6,
-    "authenticated_connector_mutation": 11,
-    "destructive_local_sensitive": 2,
-    "local_sensitive": 7,
-    "destructive_external": 2,
+    "authenticated_connector_mutation": 26,
+    "destructive_local_sensitive": 3,
+    "local_sensitive": 10,
+    "destructive_external": 3,
     "system_browser_exact_launch": 1,
 }
 EXPECTED_PUBLIC_METADATA_PATHS = {
@@ -111,7 +112,7 @@ REQUIRED_DOC_SNIPPETS = {
     "docs/api/UAA_P1_080_API_ROUTE_CLASSIFICATION_INVENTORY.md": [
         "Status: Implemented",
         str(EXPECTED_ROUTE_COUNT),
-        "| `mutating_requires_authority` | 85 |",
+        f"| `mutating_requires_authority` | {EXPECTED_MUTATING_ROUTE_COUNT} |",
         f"The current OpenAPI path count is `{EXPECTED_OPENAPI_PATH_COUNT}`",
         f"`{EXPECTED_ROUTE_COUNT}` route operations",
         "public_metadata",

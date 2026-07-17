@@ -54,6 +54,31 @@ MUTATING_ROUTES = frozenset(
         ("POST", "/control-center/communications/matrix-messaging/send"),
         ("POST", "/control-center/communications/matrix-messaging/thread"),
         ("POST", "/control-center/communications/matrix-messaging/typing"),
+        *{
+            ("POST", f"/control-center/communications/matrix-rooms-media/{operation}")
+            for operation in (
+                "dm-create",
+                "room-create",
+                "room-join",
+                "room-leave",
+                "invite-send",
+                "invite-accept",
+                "invite-reject",
+                "invite-withdraw",
+                "room-power-role-write",
+                "space-mapping-write",
+                "notification-settings-write",
+                "history-visibility-write",
+                "pin-write",
+                "account-room-preference-write",
+                "search-local-read",
+                "media-upload",
+                "media-download-quarantine",
+                "media-materialize",
+                "media-preview",
+                "media-cleanup",
+            )
+        },
         ("POST", "/control-center/communications/matrix/credential-auth-create"),
         ("POST", "/control-center/communications/matrix/credential-delete"),
         (
@@ -115,6 +140,7 @@ TARGETED_RATE_LIMIT_GROUPS = frozenset(
         "communications_matrix_crypto",
         "communications_matrix_harness",
         "communications_matrix_messaging",
+        "communications_matrix_rooms_media",
         "communications_matrix_session",
         "extension_install_disabled_record",
         "founder_loop_exact_action",
@@ -132,9 +158,9 @@ TARGETED_RATE_LIMIT_GROUPS = frozenset(
         "web_evidence_product_slice",
     }
 )
-TARGETED_RATE_LIMIT_ROUTE_COUNT = 111
+TARGETED_RATE_LIMIT_ROUTE_COUNT = 132
 TARGETED_RATE_LIMIT_ROUTE_FINGERPRINT = (
-    "c94eea05e454357ecc8e2b925622f70e46a91b53e617aed3956c57c56be26a0d"
+    "7ddc56172f7d43702c64cb077a3d8b15c2b308dd5dacf5393a2a26abf4eded10"
 )
 
 

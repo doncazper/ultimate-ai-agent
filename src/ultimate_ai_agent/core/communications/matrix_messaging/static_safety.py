@@ -16,7 +16,7 @@ _RUN = "subprocess" + ".run("
 _SOCKET = "socket" + "."
 _SUBPROCESS_PREFIX = "subprocess" + "."
 _REVIEWED_BROKER_SHA256 = (
-    "94aa0c74645f686f28f359fe78da3d734644e4e2449f339ccce9e9ee53ba2c77"
+    "f7297f0cb0263e8e803333409b2c538c865fa2d217f2f8ef5b582de1d1d3a2b9"
 )
 _REVIEWED_NOTIFIER_SHA256 = (
     "c82c1bf407b83059269d12bb7e2ed0d62ae407eb1027aed4cfd9c3497dd1f4ed"
@@ -157,8 +157,7 @@ def is_exact_matrix_messaging_broker_shell_scan_line(
     ):
         return False
     return (
-        stripped_line == "import " + "subprocess"
-        or _SUBPROCESS_PREFIX in stripped_line
+        stripped_line == "import " + "subprocess" or _SUBPROCESS_PREFIX in stripped_line
     )
 
 
@@ -172,8 +171,7 @@ def is_exact_matrix_messaging_notifier_shell_scan_line(
     ):
         return False
     return (
-        stripped_line == "import " + "subprocess"
-        or _SUBPROCESS_PREFIX in stripped_line
+        stripped_line == "import " + "subprocess" or _SUBPROCESS_PREFIX in stripped_line
     )
 
 

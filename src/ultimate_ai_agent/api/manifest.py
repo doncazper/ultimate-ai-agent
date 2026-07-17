@@ -878,6 +878,7 @@ CONTROL_CENTER_VALIDATION_ONLY_PATHS = {
     "/control-center/turn-router/preview",
     "/control-center/communications/matrix-crypto/proposal",
     "/control-center/communications/matrix-messaging/proposal",
+    "/control-center/communications/matrix-rooms-media/proposal",
 }
 CONTROL_CENTER_COMMUNICATIONS_READONLY_PATHS = {
     "/control-center/communications/providers",
@@ -885,6 +886,7 @@ CONTROL_CENTER_COMMUNICATIONS_READONLY_PATHS = {
     "/control-center/communications/matrix-sync/posture",
     "/control-center/communications/matrix-crypto/posture",
     "/control-center/communications/matrix-messaging/posture",
+    "/control-center/communications/matrix-rooms-media/posture",
     "/control-center/communications/rooms",
     "/control-center/communications/failed-sends",
     "/control-center/communications/security-posture",
@@ -985,6 +987,45 @@ CONTROL_CENTER_MATRIX_MESSAGING_SIDE_EFFECTS = {
     ),
     "/control-center/communications/matrix-messaging/desktop-notify": (
         ApiRouteSideEffectClass.local_sensitive
+    ),
+}
+CONTROL_CENTER_MATRIX_ROOMS_MEDIA_SIDE_EFFECTS = {
+    **{
+        f"/control-center/communications/matrix-rooms-media/{operation}": (
+            ApiRouteSideEffectClass.authenticated_connector_mutation
+        )
+        for operation in (
+            "dm-create",
+            "room-create",
+            "room-join",
+            "invite-send",
+            "invite-accept",
+            "invite-reject",
+            "invite-withdraw",
+            "room-power-role-write",
+            "space-mapping-write",
+            "notification-settings-write",
+            "history-visibility-write",
+            "pin-write",
+            "account-room-preference-write",
+            "media-upload",
+            "media-download-quarantine",
+        )
+    },
+    "/control-center/communications/matrix-rooms-media/room-leave": (
+        ApiRouteSideEffectClass.destructive_external
+    ),
+    "/control-center/communications/matrix-rooms-media/search-local-read": (
+        ApiRouteSideEffectClass.local_sensitive
+    ),
+    "/control-center/communications/matrix-rooms-media/media-materialize": (
+        ApiRouteSideEffectClass.local_sensitive
+    ),
+    "/control-center/communications/matrix-rooms-media/media-preview": (
+        ApiRouteSideEffectClass.local_sensitive
+    ),
+    "/control-center/communications/matrix-rooms-media/media-cleanup": (
+        ApiRouteSideEffectClass.destructive_local_sensitive
     ),
 }
 LOCAL_READONLY_PATHS = {
@@ -1179,6 +1220,8 @@ def route_side_effect_class(path: str) -> ApiRouteSideEffectClass:
         return CONTROL_CENTER_MATRIX_SESSION_SIDE_EFFECTS[path]
     if path in CONTROL_CENTER_MATRIX_MESSAGING_SIDE_EFFECTS:
         return CONTROL_CENTER_MATRIX_MESSAGING_SIDE_EFFECTS[path]
+    if path in CONTROL_CENTER_MATRIX_ROOMS_MEDIA_SIDE_EFFECTS:
+        return CONTROL_CENTER_MATRIX_ROOMS_MEDIA_SIDE_EFFECTS[path]
     if path.startswith("/api/runtime/"):
         return ApiRouteSideEffectClass.local_dev_workspace_only
     if path.startswith("/web-evidence/"):
@@ -1253,6 +1296,14 @@ def route_classification_for_path(
         return (
             ApiRouteClassification.mutating_requires_authority,
             "Exact Matrix messaging, encrypted outbox, or desktop-notification operation requires idempotency, fresh request-scoped authority validation through LocalApprovalAuthority, a current exact AuthorityLease, policy, budget, target, readiness, kill-switch, safe-disable, rollback or compensation posture, and content-free receipts.",
+        )
+    if (
+        normalized_method == "POST"
+        and path in CONTROL_CENTER_MATRIX_ROOMS_MEDIA_SIDE_EFFECTS
+    ):
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "Exact Matrix room, encrypted local-search, or bounded media operation requires request-scoped authority through idempotency, fresh LocalApprovalAuthority validation, a current exact AuthorityLease including composite transfer domains, PolicyEngine evaluation, byte/type/count limits, target and filesystem-root bindings, readiness, kill-switch, safe-disable, rollback or compensation posture, quarantine, redaction, and content-free receipts.",
         )
     if normalized_method == "GET" and path in PUBLIC_METADATA_PATHS:
         return (

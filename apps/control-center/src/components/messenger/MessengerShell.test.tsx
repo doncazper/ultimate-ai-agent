@@ -146,10 +146,44 @@ const matrixMessagingPosture = {
     "Exact manual messaging executors exist, while runtime enrollment remains required.",
 };
 
+const matrixRoomsMediaPosture = {
+  schema_version: "uaa-matrix-rooms-media-posture.v1",
+  posture_ref: "posture-ref:matrix-rooms-media:configuration-required-v1",
+  runtime_status: "configuration_required",
+  authority_lane_refs: Array.from(
+    { length: 20 },
+    (_, index) => `authority-lane-ref:matrix-rooms-media:lane-${index}`,
+  ),
+  implemented_core_operation_refs: Array.from(
+    { length: 20 },
+    (_, index) => `operation-ref:matrix-rooms-media:implemented-${index}`,
+  ),
+  blocked_live_operation_refs: Array.from(
+    { length: 20 },
+    (_, index) => `operation-ref:matrix-rooms-media:blocked-${index}`,
+  ),
+  media_max_bytes: 24576,
+  media_type_policy_ref: "media-type-policy-ref:matrix:allowlist-v1",
+  quarantine_policy_ref: "quarantine-policy-ref:matrix-media:before-preview-v1",
+  preview_policy_ref: "preview-policy-ref:matrix-media:metadata-allowlist-v1",
+  progress_policy_ref: "progress-policy-ref:matrix-media:content-free-v1",
+  cancel_policy_ref: "cancel-policy-ref:matrix-media:bounded-process-termination-v1",
+  retry_policy_ref: "retry-policy-ref:matrix-media:manual-idempotent-no-auto-uncertain-v1",
+  search_index_policy_ref: "search-index-policy-ref:matrix:encrypted-hmac-v1",
+  element_interoperability_status: "external_facility_required",
+  reason_refs: ["reason-ref:matrix-rooms-media:runtime-enrollment-required"],
+  request_scoped_evaluation_required: true,
+  standing_authority_granted: false,
+  multi_account_enabled: false,
+  raw_content_included: false,
+};
+
 beforeEach(() => {
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
     const target = String(input);
-    const data = target.includes("matrix-crypto")
+    const data = target.includes("matrix-rooms-media")
+      ? matrixRoomsMediaPosture
+      : target.includes("matrix-crypto")
       ? matrixCryptoPosture
       : target.includes("matrix-messaging")
         ? matrixMessagingPosture
@@ -209,7 +243,7 @@ describe("MessengerShell", () => {
     );
     expect(screen.getByText(/Read-only sync · configuration required/i)).toBeInTheDocument();
     expect(screen.getByText(/External actions blocked/i)).toBeInTheDocument();
-    expect(globalThis.fetch).toHaveBeenCalledTimes(3);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(4);
     expect(screen.getByText(/External content is untrusted/i)).toBeInTheDocument();
 
     for (const control of view.container.querySelectorAll<HTMLButtonElement>(
@@ -218,6 +252,21 @@ describe("MessengerShell", () => {
       expect(control).toBeDisabled();
       expect(control.textContent).toMatch(/Preview|Planned|Blocked/);
     }
+  });
+
+  it("shows backend-owned rooms, search, and media posture without granting authority", async () => {
+    window.history.replaceState({}, "", "/messenger?view=search");
+    render(<MessengerShell />);
+
+    await waitFor(() =>
+      expect(screen.getByRole("main")).toHaveAttribute(
+        "data-messenger-rooms-media-runtime",
+        "configuration_required",
+      ),
+    );
+    expect(screen.getByText(/Core implemented · enrollment required/i)).toBeInTheDocument();
+    expect(screen.getByText(/Rooms, search & media · configuration required/i)).toBeInTheDocument();
+    expect(screen.queryByText(/standing authority granted/i)).not.toBeInTheDocument();
   });
 
   it("shows exact crypto authority without claiming a live executor", async () => {

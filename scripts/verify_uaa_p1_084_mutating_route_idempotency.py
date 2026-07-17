@@ -44,7 +44,7 @@ REQUIRED_DOC_SNIPPETS = {
     CONTRACT_DOC: [
         "Status: Implemented",
         "idempotency:p1-084:mutating-routes:v1",
-        "The current mutating route set is the 85 routes",
+        f"The current mutating route set is the {len(EXPECTED_MUTATING_ROUTES)} routes",
         "X-UAA-Idempotency-Key",
         "X-UAA-Idempotency-Ref",
         "mutating_requires_authority",

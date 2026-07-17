@@ -10,7 +10,7 @@
   "public_beta_claim_enabled": false,
   "production_readiness_claim_enabled": false,
   "source_truth_counts": {
-    "api_manifest_route_count": 306,
+    "api_manifest_route_count": 328,
     "release_surface_route_count": 43,
     "visible_action_count": 46,
     "human_capability_count": 31,
@@ -135,6 +135,15 @@
           "route_classification": "local_sensitive",
           "approval_posture": "not_required_for_route_classification",
           "source_truth_status": "current"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/communications/matrix-rooms-media/posture",
+          "operation_id": "get_control_center_communications_matrix_rooms_media_posture",
+          "side_effect_class": "none",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
         }
       ],
       "ui_routes": [
@@ -142,10 +151,10 @@
           "path": "/messenger",
           "label": "Messenger",
           "group": "Founder Loop",
-          "ui_status": "fixture-only desktop content with backend-owned sync, crypto, and exact manual-messaging posture; synthetic composer remains disabled",
+          "ui_status": "fixture-only desktop content with backend-owned sync, crypto, exact manual-messaging, and rooms/search/media posture; synthetic controls remain disabled",
           "release_status": "experimental",
           "owner": "communications",
-          "backend_route_count": 3,
+          "backend_route_count": 4,
           "blocked_capability_count": 15,
           "visual_proof_status": "checked_in_baseline",
           "source_truth_status": "current"
@@ -160,8 +169,8 @@
           "release_status": "mock_only_not_product_ready",
           "side_effect_class": "local_ui_state_only",
           "risk_class": "medium",
-          "backend_route_count": 3,
-          "missing_backend_route_count": 9,
+          "backend_route_count": 4,
+          "missing_backend_route_count": 8,
           "source_truth_status": "current"
         }
       ],
