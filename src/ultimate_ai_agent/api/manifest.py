@@ -263,6 +263,7 @@ CAPABILITIES_BLOCKED = [
     "communications_matrix_messaging_remote_homeservers",
     "communications_matrix_messaging_element_external_facility",
     "communications_matrix_messaging_autonomous_or_ai_send",
+    "communications_matrix_unscoped_message_send_or_mutation",
     "communications_matrix_media_runtime",
     "communications_raw_message_or_provider_payload_persistence",
     "communications_ui_or_approval_ref_as_runtime_authority",
@@ -1251,7 +1252,7 @@ def route_classification_for_path(
     ):
         return (
             ApiRouteClassification.mutating_requires_authority,
-            "Exact Matrix messaging, encrypted outbox, or desktop-notification operation requires idempotency, fresh LocalApprovalAuthority validation, a current exact AuthorityLease, policy, budget, target, readiness, kill-switch, safe-disable, rollback or compensation posture, and content-free receipts.",
+            "Exact Matrix messaging, encrypted outbox, or desktop-notification operation requires idempotency, fresh request-scoped authority validation through LocalApprovalAuthority, a current exact AuthorityLease, policy, budget, target, readiness, kill-switch, safe-disable, rollback or compensation posture, and content-free receipts.",
         )
     if normalized_method == "GET" and path in PUBLIC_METADATA_PATHS:
         return (

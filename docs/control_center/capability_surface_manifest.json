@@ -76,13 +76,23 @@
     },
     {
       "capability_id": "messenger_fixture_preview",
-      "label": "Messenger Matrix desktop fixture plus read-only sync posture",
-      "python_core_owner": "src/ultimate_ai_agent/core/communications/matrix_sync",
+      "label": "Messenger Matrix desktop fixture plus governed sync, crypto, and manual-messaging posture",
+      "python_core_owner": "src/ultimate_ai_agent/core/communications",
       "api_routes": [
         {
           "method": "GET",
           "path": "/control-center/communications/matrix-sync/posture",
           "operation_id": "get_control_center_communications_matrix_sync_posture"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/communications/matrix-crypto/posture",
+          "operation_id": "get_control_center_communications_matrix_crypto_posture"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/communications/matrix-messaging/posture",
+          "operation_id": "get_control_center_communications_matrix_messaging_posture"
         }
       ],
       "cli_paths": [
@@ -94,13 +104,16 @@
       "control_action_ids": [
         "navigate-messenger"
       ],
-      "authority_posture": "backend-owned content-free posture for twelve declared Matrix authority lanes; two GET transports and protected-cache/key primitives are tested, ten canonical executors are uncomposed and fail closed, live account sync remains configuration-required, and fixture message content remains synthetic",
+      "authority_posture": "backend-owned content-free sync, crypto, and manual-messaging posture; MSG-MX-008 permits only fifteen exact request-scoped operations through an enrolled loopback broker with exact targets, idempotency, receipts, encrypted storage, rollback or discard posture, and safe-disable while broader Matrix authority and fixture-backed UI sends remain blocked",
       "status": "partial_surface_coverage",
-      "missing_reason": "Live account enrollment, one-use credential broker configuration, installed protected-cache helper, encrypted-event materialization, message sends, room writes, media, and calls remain blocked or later-phase work",
+      "missing_reason": "Live account configuration, protected message-content reads, persistent crypto composition, UI-bound real content, broader message sends or room mutation, media, calls, and standing connector authority remain blocked or later-phase work",
       "tests_evidence_refs": [
         "tests/test_msg_mx_002_static_shell.py",
         "tests/test_msg_mx_006_matrix_sync_authority.py",
         "tests/test_msg_mx_006_matrix_sync_api_cli.py",
+        "tests/test_msg_mx_007_matrix_crypto_authority.py",
+        "tests/test_msg_mx_008_matrix_messaging_api_cli.py",
+        "tests/test_msg_mx_008_matrix_messaging_contracts.py",
         "tests/test_control_center_release_surface_manifest.py",
         "tests/test_control_center_capability_surface_manifest.py",
         "docs/design/control_center_north_star/UAA_MESSENGER_MATRIX_RENDER_ACCEPTANCE.md"

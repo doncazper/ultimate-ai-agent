@@ -14,6 +14,7 @@ MATRIX_MESSAGING_NOTIFIER_REL = (
 _POPEN = "subprocess" + ".Popen("
 _RUN = "subprocess" + ".run("
 _SOCKET = "socket" + "."
+_SUBPROCESS_PREFIX = "subprocess" + "."
 _REVIEWED_BROKER_SHA256 = (
     "94aa0c74645f686f28f359fe78da3d734644e4e2449f339ccce9e9ee53ba2c77"
 )
@@ -42,9 +43,9 @@ def is_exact_matrix_messaging_broker_subprocess_site(
         "os.fstat(descriptor)",
         "(opened.st_dev, opened.st_ino)",
         "copied.hexdigest() != digest",
-        "stdin=subprocess.DEVNULL",
-        "stdout=subprocess.PIPE",
-        "stderr=subprocess.DEVNULL",
+        "stdin=subprocess" + ".DEVNULL",
+        "stdout=subprocess" + ".PIPE",
+        "stderr=subprocess" + ".DEVNULL",
         "cwd=executable.parent",
         "shell=False",
         "close_fds=True",
@@ -97,9 +98,9 @@ def is_exact_matrix_messaging_notifier_subprocess_site(
         "MATRIX_DESKTOP_NOTIFICATION_EXECUTABLE_SUBSTITUTION_DENIED",
         "info.st_uid != 0",
         "info.st_mode & 0o022",
-        "stdin=subprocess.DEVNULL",
-        "stdout=subprocess.DEVNULL",
-        "stderr=subprocess.DEVNULL",
+        "stdin=subprocess" + ".DEVNULL",
+        "stdout=subprocess" + ".DEVNULL",
+        "stderr=subprocess" + ".DEVNULL",
         "timeout=5",
         "check=False",
         "shell=False",
@@ -146,10 +147,42 @@ def matrix_messaging_fragment_allowed(
     )
 
 
+def is_exact_matrix_messaging_broker_shell_scan_line(
+    *, rel_path: str, source: str, stripped_line: str
+) -> bool:
+    if not is_exact_matrix_messaging_broker_subprocess_site(
+        rel_path=rel_path,
+        source=source,
+        fragment=_POPEN,
+    ):
+        return False
+    return (
+        stripped_line == "import " + "subprocess"
+        or _SUBPROCESS_PREFIX in stripped_line
+    )
+
+
+def is_exact_matrix_messaging_notifier_shell_scan_line(
+    *, rel_path: str, source: str, stripped_line: str
+) -> bool:
+    if not is_exact_matrix_messaging_notifier_subprocess_site(
+        rel_path=rel_path,
+        source=source,
+        fragment=_RUN,
+    ):
+        return False
+    return (
+        stripped_line == "import " + "subprocess"
+        or _SUBPROCESS_PREFIX in stripped_line
+    )
+
+
 __all__ = (
     "MATRIX_MESSAGING_BROKER_REL",
     "MATRIX_MESSAGING_NOTIFIER_REL",
     "is_exact_matrix_messaging_broker_subprocess_site",
+    "is_exact_matrix_messaging_broker_shell_scan_line",
     "is_exact_matrix_messaging_notifier_subprocess_site",
+    "is_exact_matrix_messaging_notifier_shell_scan_line",
     "matrix_messaging_fragment_allowed",
 )

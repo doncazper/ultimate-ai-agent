@@ -117,12 +117,12 @@
       }
     },
     "current_mutating_route_count": {
-      "const": 70
+      "const": 85
     },
     "current_mutating_routes": {
       "type": "array",
-      "minItems": 70,
-      "maxItems": 70,
+      "minItems": 85,
+      "maxItems": 85,
       "items": {
         "$ref": "#/$defs/mutating_route"
       }
@@ -291,7 +291,7 @@
               "if": {
                 "properties": {
                   "path": {
-                    "pattern": "^/control-center/communications/matrix/"
+                    "pattern": "^/control-center/communications/matrix(?:/|-messaging/)"
                   }
                 }
               },

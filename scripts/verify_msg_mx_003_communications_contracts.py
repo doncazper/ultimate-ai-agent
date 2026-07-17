@@ -154,8 +154,8 @@ def verify(root: Path = ROOT) -> list[str]:
     blocked = set(manifest.capabilities_blocked)
     if "communications_backend_owned_normalized_contracts" not in declared:
         failures.append("communications declaration missing from API manifest")
-    if "communications_matrix_message_send_or_mutation" not in blocked:
-        failures.append("communications write denial missing from API manifest")
+    if "communications_matrix_unscoped_message_send_or_mutation" not in blocked:
+        failures.append("unscoped communications write denial missing from API manifest")
 
     imported: set[str] = set()
     for path in (root / "src/ultimate_ai_agent/core/communications").glob("*.py"):
