@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import errno
 import hashlib
 import json
 import os
@@ -13,7 +14,14 @@ from typing import Protocol
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from .constants import MATRIX_SYNC_CACHE_SCHEMA_REF, MATRIX_SYNC_MAX_CACHE_BYTES
+from .constants import (
+    MATRIX_SYNC_CACHE_MIN_FREE_BYTES,
+    MATRIX_SYNC_CACHE_SCHEMA_REF,
+    MATRIX_SYNC_MAX_CACHE_BYTES,
+    MATRIX_SYNC_MAX_CACHE_EVENTS,
+    MATRIX_SYNC_MAX_ROOM_EVENT_REFS,
+    MATRIX_SYNC_MAX_ROOMS,
+)
 from .contracts import MatrixSyncFreshness, stable_matrix_sync_ref
 from .normalization import (
     MatrixNormalizedEventKind,
@@ -141,8 +149,12 @@ class MatrixProtectedCacheState(BaseModel):
     next_batch_token: str | None = Field(default=None, max_length=2048, repr=False)
     next_batch_ref: str
     freshness: MatrixSyncFreshness
-    rooms: tuple[MatrixPrivateRoom, ...] = ()
-    events: tuple[MatrixPrivateEvent, ...] = ()
+    rooms: tuple[MatrixPrivateRoom, ...] = Field(
+        default_factory=tuple, max_length=MATRIX_SYNC_MAX_ROOMS
+    )
+    events: tuple[MatrixPrivateEvent, ...] = Field(
+        default_factory=tuple, max_length=MATRIX_SYNC_MAX_CACHE_EVENTS
+    )
 
     @model_validator(mode="after")
     def validate_state(self) -> "MatrixProtectedCacheState":
@@ -253,20 +265,34 @@ class MatrixProtectedCacheState(BaseModel):
                     [*(previous.event_refs if previous else ()), *room.event_refs]
                 )
             )
-            rooms[room.room_ref] = room.model_copy(update={"event_refs": combined_refs})
+            rooms[room.room_ref] = room.model_copy(
+                update={"event_refs": combined_refs[-MATRIX_SYNC_MAX_ROOM_EVENT_REFS:]}
+            )
+        if len(rooms) > MATRIX_SYNC_MAX_ROOMS:
+            raise MatrixProtectedCacheError("MATRIX_CACHE_ROOM_LIMIT_EXCEEDED")
+        retained_events = sorted(
+            events.values(),
+            key=lambda item: (item.origin_server_ts, item.event_ref),
+        )[-MATRIX_SYNC_MAX_CACHE_EVENTS:]
+        retained_event_refs = {event.event_ref for event in retained_events}
+        retained_rooms = tuple(
+            room.model_copy(
+                update={
+                    "event_refs": tuple(
+                        ref for ref in room.event_refs if ref in retained_event_refs
+                    )
+                }
+            )
+            for room in sorted(rooms.values(), key=lambda item: item.room_ref)
+        )
         return self.model_copy(
             update={
                 "generation_ref": next_generation_ref,
                 "next_batch_token": batch.next_batch_token,
                 "next_batch_ref": batch.next_batch_ref,
                 "freshness": MatrixSyncFreshness.current,
-                "rooms": tuple(sorted(rooms.values(), key=lambda item: item.room_ref)),
-                "events": tuple(
-                    sorted(
-                        events.values(),
-                        key=lambda item: (item.origin_server_ts, item.event_ref),
-                    )
-                ),
+                "rooms": retained_rooms,
+                "events": tuple(retained_events),
             }
         )
 
@@ -481,8 +507,15 @@ class MatrixProtectedCache:
                     key_version_ref=key_version_ref,
                 ),
             )
-            state = MatrixProtectedCacheState.model_validate_json(plaintext)
+            decoded = json.loads(plaintext)
+            if not isinstance(decoded, dict):
+                raise ValueError("MATRIX_CACHE_STATE_INVALID")
+            if decoded.get("schema_ref") != MATRIX_SYNC_CACHE_SCHEMA_REF:
+                raise MatrixProtectedCacheError("MATRIX_CACHE_SCHEMA_UNSUPPORTED")
+            state = MatrixProtectedCacheState.model_validate(decoded)
         except MatrixCacheKeyUnavailable:
+            raise
+        except MatrixProtectedCacheError:
             raise
         except Exception as exc:
             raise MatrixProtectedCacheError("MATRIX_CACHE_INTEGRITY_FAILED") from exc
@@ -527,6 +560,15 @@ class MatrixProtectedCache:
         )
         stage_created = False
         try:
+            try:
+                capacity = os.fstatvfs(root_fd)
+            except OSError as exc:
+                raise MatrixProtectedCacheError(
+                    "MATRIX_CACHE_CAPACITY_CHECK_FAILED"
+                ) from exc
+            free_bytes = capacity.f_bavail * capacity.f_frsize
+            if free_bytes < len(ciphertext) + MATRIX_SYNC_CACHE_MIN_FREE_BYTES:
+                raise MatrixProtectedCacheError("MATRIX_CACHE_LOW_DISK")
             fd = os.open(stage_name, flags, 0o600, dir_fd=root_fd)
             stage_created = True
             try:
@@ -552,6 +594,12 @@ class MatrixProtectedCache:
             verified_fd = self._open_cache_fd(root_fd=root_fd, cache_name=cache_name)
             os.close(verified_fd)
             self._verify_root_identity(os.lstat(self._root))
+        except MatrixProtectedCacheError:
+            raise
+        except OSError as exc:
+            if exc.errno in {errno.ENOSPC, getattr(errno, "EDQUOT", errno.ENOSPC)}:
+                raise MatrixProtectedCacheError("MATRIX_CACHE_LOW_DISK") from exc
+            raise MatrixProtectedCacheError("MATRIX_CACHE_WRITE_FAILED") from exc
         finally:
             if stage_created:
                 try:

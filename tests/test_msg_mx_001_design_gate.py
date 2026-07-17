@@ -258,7 +258,7 @@ def test_board_evidence_must_be_phase_bound(
         gate.BOARD_PATH,
         tmp_path / "board.md",
         lambda text: text.replace(
-            "evidence-ref:msg-mx-010:intelligence-proposals-focused-proof",
+            "evidence-ref:msg-mx-011:messenger-hardening-focused-proof",
             "evidence-ref:msg-mx-001:design-gate",
             1,
         ),

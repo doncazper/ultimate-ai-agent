@@ -39,6 +39,9 @@ from ultimate_ai_agent.core.communications.matrix_harness import (
     default_matrix_harness_backend_config,
     execute_matrix_harness_command,
 )
+from ultimate_ai_agent.core.communications.matrix_hardening import (
+    build_default_matrix_hardening_posture,
+)
 from ultimate_ai_agent.core.communications.matrix_session import (
     MATRIX_SESSION_LANES,
     MatrixSessionCommand,
@@ -1126,6 +1129,23 @@ def get_control_center_communications_matrix_intelligence_posture(
     posture = build_default_matrix_intelligence_posture()
     return _envelope(
         operation="control_center_communications_matrix_intelligence_posture",
+        trace_id=posture.posture_ref,
+        data=posture.model_dump(mode="json"),
+    )
+
+
+@router.get(
+    "/matrix-hardening/posture",
+    response_model=ResultEnvelope,
+    operation_id="get_control_center_communications_matrix_hardening_posture",
+)
+def get_control_center_communications_matrix_hardening_posture(
+    response: Response,
+) -> ResultEnvelope:
+    _no_store(response)
+    posture = build_default_matrix_hardening_posture()
+    return _envelope(
+        operation="control_center_communications_matrix_hardening_posture",
         trace_id=posture.posture_ref,
         data=posture.model_dump(mode="json"),
     )

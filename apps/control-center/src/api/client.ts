@@ -23,6 +23,7 @@ import type {
   CommunicationsSecurityPosture,
   CommunicationsSessionPosture,
   MatrixCryptoPosture,
+  MatrixHardeningPosture,
   MatrixMessagingPosture,
   MatrixIntelligencePosture,
   MatrixRoomsMediaPosture,
@@ -1032,6 +1033,115 @@ export async function loadMatrixIntelligencePosture(): Promise<MatrixIntelligenc
     throw new Error("Matrix intelligence posture response failed safe validation.");
   }
   return value as unknown as MatrixIntelligencePosture;
+}
+
+export async function loadMatrixHardeningPosture(): Promise<MatrixHardeningPosture> {
+  const value = await readEnvelope<unknown>(
+    API_ENDPOINTS.communicationsMatrixHardeningPosture,
+  );
+  const expectedCategories = [
+    "large_room_backpressure",
+    "cache_queue_bounds",
+    "migration_multi_device",
+    "rate_limit_malicious_events",
+    "retention_deletion_low_disk",
+    "restart_offline_recovery",
+    "accessibility_keyboard_focus",
+    "localization_readiness",
+    "telemetry_redaction",
+    "dependency_sbom",
+    "rollback_safe_disable",
+    "element_interoperability",
+  ];
+  if (
+    !isCommunicationsRecord(value) ||
+    !hasExactCommunicationsKeys(value, [
+      "schema_version",
+      "posture_ref",
+      "runtime_status",
+      "checks",
+      "budgets",
+      "blocked_later_lane_refs",
+      "request_scoped_runtime_evaluation_required",
+      "new_runtime_authority_granted",
+      "calls_enabled",
+      "agent_participants_enabled",
+      "hosted_infrastructure_enabled",
+      "public_federation_enabled",
+      "production_deployment_enabled",
+      "element_interoperability_status",
+      "raw_content_included",
+      "local_paths_included",
+      "desktop_only",
+      "safe_summary",
+    ]) ||
+    value.schema_version !== "uaa-matrix-hardening-posture.v1" ||
+    !isCommunicationsSafeRef(value.posture_ref) ||
+    value.runtime_status !== "partial_hardening_evidence" ||
+    !Array.isArray(value.checks) ||
+    value.checks.length !== 12 ||
+    !value.checks.every((item, index) =>
+      isCommunicationsRecord(item) &&
+      hasExactCommunicationsKeys(item, [
+        "check_ref",
+        "category",
+        "status",
+        "evidence_refs",
+        "blocker_refs",
+        "safe_summary",
+        "raw_content_included",
+      ]) &&
+      isCommunicationsSafeRef(item.check_ref) &&
+      item.category === expectedCategories[index] &&
+      ["passed", "partial", "blocked", "external_facility_required"].includes(
+        String(item.status),
+      ) &&
+      isCommunicationsSafeRefArray(item.evidence_refs, 16) &&
+      isCommunicationsSafeRefArray(item.blocker_refs, 16) &&
+      (item.status === "passed"
+        ? item.evidence_refs.length > 0 && item.blocker_refs.length === 0
+        : item.blocker_refs.length > 0) &&
+      isCommunicationsSafeSummary(item.safe_summary) &&
+      item.raw_content_included === false,
+    ) ||
+    !Array.isArray(value.budgets) ||
+    value.budgets.length !== 8 ||
+    !value.budgets.every((item) =>
+      isCommunicationsRecord(item) &&
+      hasExactCommunicationsKeys(item, [
+        "budget_ref",
+        "unit",
+        "limit",
+        "evidence_ref",
+      ]) &&
+      isCommunicationsSafeRef(item.budget_ref) &&
+      ["bytes", "events", "rooms", "records", "relations"].includes(
+        String(item.unit),
+      ) &&
+      typeof item.limit === "number" &&
+      Number.isInteger(item.limit) &&
+      item.limit > 0 &&
+      item.limit <= 64 * 1024 * 1024 &&
+      isCommunicationsSafeRef(item.evidence_ref),
+    ) ||
+    !isCommunicationsSafeRefArray(value.blocked_later_lane_refs, 8) ||
+    value.blocked_later_lane_refs.length !== 5 ||
+    value.request_scoped_runtime_evaluation_required !== true ||
+    value.new_runtime_authority_granted !== false ||
+    value.calls_enabled !== false ||
+    value.agent_participants_enabled !== false ||
+    value.hosted_infrastructure_enabled !== false ||
+    value.public_federation_enabled !== false ||
+    value.production_deployment_enabled !== false ||
+    value.element_interoperability_status !== "external_facility_required" ||
+    value.raw_content_included !== false ||
+    value.local_paths_included !== false ||
+    value.desktop_only !== true ||
+    !isCommunicationsSafeSummary(value.safe_summary)
+  ) {
+    throw new Error("Matrix hardening posture response failed safe validation.");
+  }
+  return value as unknown as MatrixHardeningPosture;
 }
 
 function isSafeCommunicationConversation(

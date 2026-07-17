@@ -130,6 +130,13 @@ def test_control_center_route_status_manifest_covers_visible_actions() -> None:
             "side_effect_class": "none",
             "route_classification": "local_sensitive",
         },
+        {
+            "method": "GET",
+            "path": "/control-center/communications/matrix-hardening/posture",
+            "operation_id": "get_control_center_communications_matrix_hardening_posture",
+            "side_effect_class": "none",
+            "route_classification": "local_sensitive",
+        },
     ]
     assert messenger_action["side_effect_class"] == "local_ui_state_only"
     assert messenger_action["release_status"] == "mock_only_not_product_ready"

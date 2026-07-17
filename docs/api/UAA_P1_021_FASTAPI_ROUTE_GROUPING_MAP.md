@@ -2,14 +2,14 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `335`.
+Current OpenAPI path count: `336`.
 
 This inventory is generated from the FastAPI application and `/api/manifest`. It is the route ownership and side-effect classification map for the current local-first API boundary.
 
 ## Current Route Boundary
 
-- Manifest route operations: `336`
-- OpenAPI paths: `335`
+- Manifest route operations: `337`
+- OpenAPI paths: `336`
 - Production runtime authority: blocked
 - Public release authority: blocked
 
@@ -23,7 +23,7 @@ This inventory is generated from the FastAPI application and `/api/manifest`. It
 | `consent` | 2 | `consent` | `approval_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `context-budget` | 1 | `context` | `contracts_service` | future auth required | `validation_only`:1 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `contracts` | 2 | `contracts` | `contracts_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
-| `control-center` | 170 | `control-center` | `control_center_service` | local status or future auth per route | `authenticated_connector_mutation`:25, `destructive_external`:4, `destructive_local_sensitive`:4, `governed_network_read_only`:5, `local_dev_workspace_only`:81, `local_sensitive`:15, `none`:11, `system_browser_exact_launch`:1, `validation_only`:24 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
+| `control-center` | 171 | `control-center` | `control_center_service` | local status or future auth per route | `authenticated_connector_mutation`:25, `destructive_external`:4, `destructive_local_sensitive`:4, `governed_network_read_only`:5, `local_dev_workspace_only`:81, `local_sensitive`:15, `none`:12, `system_browser_exact_launch`:1, `validation_only`:24 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `cost-governor` | 3 | `cost-governor` | `cost_service` | future auth required | `validation_only`:3 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `extension-catalog` | 3 | `extension-catalog` | `extension_catalog_service` | future auth required | `local_dev_workspace_only`:2, `validation_only`:1 | medium | stable/generated from path; unique | status_available_not_completion |
 | `files` | 6 | `workspace-files` | `workspace_files_service` | future auth required and local safe refs | `local_dev_workspace_only`:6 | high | stable/generated from path; unique | partial_backend_not_product_ready |
@@ -176,6 +176,7 @@ validate the exact request-scoped authority boundary.
 | POST | `/control-center/communications/matrix/sso-launch` | `post_control_center_communications_matrix_sso_launch` | `system_browser_exact_launch` | no | future | yes |
 | GET | `/control-center/communications/matrix-crypto/posture` | `get_control_center_communications_matrix_crypto_posture` | `none` | yes | future | yes |
 | POST | `/control-center/communications/matrix-crypto/proposal` | `post_control_center_communications_matrix_crypto_proposal` | `validation_only` | yes | future | yes |
+| GET | `/control-center/communications/matrix-hardening/posture` | `get_control_center_communications_matrix_hardening_posture` | `none` | yes | future | yes |
 | POST | `/control-center/communications/matrix-intelligence/context-materialize` | `post_control_center_communications_matrix_intelligence_context_materialize` | `local_sensitive` | no | future | yes |
 | GET | `/control-center/communications/matrix-intelligence/posture` | `get_control_center_communications_matrix_intelligence_posture` | `none` | yes | future | yes |
 | POST | `/control-center/communications/matrix-intelligence/proposal` | `post_control_center_communications_matrix_intelligence_proposal` | `validation_only` | yes | future | yes |

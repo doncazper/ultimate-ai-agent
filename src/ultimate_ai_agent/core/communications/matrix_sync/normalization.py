@@ -12,6 +12,8 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool, model_validator
 from .constants import (
     MATRIX_SYNC_MAX_BYTES,
     MATRIX_SYNC_MAX_EVENTS,
+    MATRIX_SYNC_MAX_RELATION_DEPTH,
+    MATRIX_SYNC_MAX_ROOM_EVENT_REFS,
     MATRIX_SYNC_MAX_ROOMS,
 )
 
@@ -78,15 +80,21 @@ class MatrixPrivateRoom(BaseModel):
     topic: str | None = Field(default=None, max_length=1024)
     avatar_ref: str | None = None
     is_direct: StrictBool = False
-    space_parent_refs: tuple[str, ...] = ()
+    space_parent_refs: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
     unread_count: int = Field(default=0, ge=0, le=100_000)
     mention_count: int = Field(default=0, ge=0, le=100_000)
     notification_decision: MatrixNotificationDecision = (
         MatrixNotificationDecision.silent
     )
-    typing_participant_refs: tuple[str, ...] = ()
-    receipt_event_refs: tuple[str, ...] = ()
-    event_refs: tuple[str, ...] = ()
+    typing_participant_refs: tuple[str, ...] = Field(
+        default_factory=tuple, max_length=64
+    )
+    receipt_event_refs: tuple[str, ...] = Field(
+        default_factory=tuple, max_length=128
+    )
+    event_refs: tuple[str, ...] = Field(
+        default_factory=tuple, max_length=MATRIX_SYNC_MAX_ROOM_EVENT_REFS
+    )
     content_untrusted: Literal[True] = True
 
 
@@ -99,8 +107,8 @@ class MatrixPrivateSyncBatch(BaseModel):
     )
     next_batch_ref: str
     pagination_complete: StrictBool = False
-    rooms: tuple[MatrixPrivateRoom, ...]
-    events: tuple[MatrixPrivateEvent, ...]
+    rooms: tuple[MatrixPrivateRoom, ...] = Field(max_length=MATRIX_SYNC_MAX_ROOMS)
+    events: tuple[MatrixPrivateEvent, ...] = Field(max_length=MATRIX_SYNC_MAX_EVENTS)
     event_count: int = Field(..., ge=0, le=MATRIX_SYNC_MAX_EVENTS)
     byte_count: int = Field(..., ge=0, le=MATRIX_SYNC_MAX_BYTES)
     content_untrusted: Literal[True] = True
@@ -462,7 +470,7 @@ def normalize_matrix_sync_response(
     for source in relation_edges:
         seen: set[str] = set()
         cursor = source
-        for _depth in range(16):
+        for _depth in range(MATRIX_SYNC_MAX_RELATION_DEPTH):
             if cursor in seen:
                 raise ValueError("MATRIX_SYNC_RELATION_CYCLE_DENIED")
             seen.add(cursor)

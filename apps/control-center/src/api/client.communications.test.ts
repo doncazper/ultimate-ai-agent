@@ -5,6 +5,7 @@ import {
   loadCommunicationsRooms,
   loadCommunicationsSessionPosture,
   loadMatrixCryptoPosture,
+  loadMatrixHardeningPosture,
   loadMatrixIntelligencePosture,
   loadMatrixMessagingPosture,
   loadMatrixRoomsMediaPosture,
@@ -262,6 +263,83 @@ const matrixIntelligencePosture = {
   raw_content_persisted: false,
   desktop_only: true,
   safe_summary: "Exact local intelligence lanes are partial and review only.",
+};
+
+const hardeningCategories = [
+  "large_room_backpressure",
+  "cache_queue_bounds",
+  "migration_multi_device",
+  "rate_limit_malicious_events",
+  "retention_deletion_low_disk",
+  "restart_offline_recovery",
+  "accessibility_keyboard_focus",
+  "localization_readiness",
+  "telemetry_redaction",
+  "dependency_sbom",
+  "rollback_safe_disable",
+  "element_interoperability",
+] as const;
+
+const matrixHardeningPosture = {
+  schema_version: "uaa-matrix-hardening-posture.v1",
+  posture_ref: "posture-ref:matrix-hardening:sha256:fixture",
+  runtime_status: "partial_hardening_evidence",
+  checks: hardeningCategories.map((category) => {
+    const status = category === "migration_multi_device"
+      ? "blocked"
+      : category === "localization_readiness"
+        ? "partial"
+        : category === "element_interoperability"
+          ? "external_facility_required"
+          : "passed";
+    return {
+      check_ref: `check-ref:matrix-hardening:${category.replaceAll("_", "-")}`,
+      category,
+      status,
+      evidence_refs: status === "passed"
+        ? [`evidence-ref:msg-mx-011:${category.replaceAll("_", "-")}`]
+        : [],
+      blocker_refs: status === "passed"
+        ? []
+        : [`blocker-ref:msg-mx-011:${category.replaceAll("_", "-")}`],
+      safe_summary: `Content-free hardening posture for ${category}.`,
+      raw_content_included: false,
+    };
+  }),
+  budgets: [
+    ["sync-response-bytes", "bytes", 1048576],
+    ["sync-batch-events", "events", 500],
+    ["sync-rooms", "rooms", 128],
+    ["cache-ciphertext-bytes", "bytes", 16777216],
+    ["cache-retained-events", "events", 5000],
+    ["room-event-refs", "events", 2000],
+    ["relation-depth", "relations", 16],
+    ["outbox-records", "records", 256],
+  ].map(([name, unit, limit]) => ({
+    budget_ref: `budget-ref:matrix-hardening:${name}`,
+    unit,
+    limit,
+    evidence_ref: `evidence-ref:msg-mx-011:${name}-bound`,
+  })),
+  blocked_later_lane_refs: [
+    "blocked-lane-ref:matrix:calls",
+    "blocked-lane-ref:matrix:agent-room-participants",
+    "blocked-lane-ref:matrix:hosted-infrastructure",
+    "blocked-lane-ref:matrix:public-federation",
+    "blocked-lane-ref:matrix:production-deployment",
+  ],
+  request_scoped_runtime_evaluation_required: true,
+  new_runtime_authority_granted: false,
+  calls_enabled: false,
+  agent_participants_enabled: false,
+  hosted_infrastructure_enabled: false,
+  public_federation_enabled: false,
+  production_deployment_enabled: false,
+  element_interoperability_status: "external_facility_required",
+  raw_content_included: false,
+  local_paths_included: false,
+  desktop_only: true,
+  safe_summary: "Local hardening evidence is partial and no runtime authority is granted.",
 };
 
 function respond(data: unknown): void {
@@ -583,6 +661,33 @@ describe("communications API bindings", () => {
       ],
     });
     await expect(loadMatrixIntelligencePosture()).rejects.toThrow(
+      "failed safe validation",
+    );
+  });
+
+  it("accepts content-free Matrix hardening posture with explicit gaps", async () => {
+    respond(matrixHardeningPosture);
+    const result = await loadMatrixHardeningPosture();
+    expect(result.runtime_status).toBe("partial_hardening_evidence");
+    expect(result.checks).toHaveLength(12);
+    expect(result.budgets).toHaveLength(8);
+    expect(result.checks.find((check) => check.category === "migration_multi_device")?.status).toBe("blocked");
+    expect(result.new_runtime_authority_granted).toBe(false);
+  });
+
+  it("rejects hardening authority or external-facility drift", async () => {
+    respond({
+      ...matrixHardeningPosture,
+      calls_enabled: true,
+    });
+    await expect(loadMatrixHardeningPosture()).rejects.toThrow(
+      "failed safe validation",
+    );
+    respond({
+      ...matrixHardeningPosture,
+      element_interoperability_status: "passed",
+    });
+    await expect(loadMatrixHardeningPosture()).rejects.toThrow(
       "failed safe validation",
     );
   });
