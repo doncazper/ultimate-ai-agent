@@ -311,7 +311,7 @@
           "width": 1440,
           "height": 900,
           "baseline_file_ref": "visual-baseline-file:desktop:messenger-intelligence-wide",
-          "baseline_hash": "sha256:c79d26186b0ef0eb4e19cdecc46585978caff0ed51cf21d60aca6b090bc28fd6"
+          "baseline_hash": "sha256:d6ee5939649b0468f1febd2fdfeb79c45239c261a1bfc341a52b8bb92538fa8b"
         },
         "recovery-wide": {
           "surface_id": "recovery",
