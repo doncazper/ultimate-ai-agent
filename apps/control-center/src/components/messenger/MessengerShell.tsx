@@ -14,11 +14,13 @@ import type {
 import {
   loadMatrixCryptoPosture,
   loadMatrixMessagingPosture,
+  loadMatrixRoomsMediaPosture,
   loadMatrixSyncPosture,
 } from "../../api/client";
 import type {
   MatrixCryptoPosture,
   MatrixMessagingPosture,
+  MatrixRoomsMediaPosture,
   MatrixSyncPosture,
 } from "../../api/types";
 import "./messengerShell.css";
@@ -67,6 +69,8 @@ export function MessengerShell() {
   const [cryptoPostureUnavailable, setCryptoPostureUnavailable] = useState(false);
   const [messagingPosture, setMessagingPosture] = useState<MatrixMessagingPosture | null>(null);
   const [messagingPostureUnavailable, setMessagingPostureUnavailable] = useState(false);
+  const [roomsMediaPosture, setRoomsMediaPosture] = useState<MatrixRoomsMediaPosture | null>(null);
+  const [roomsMediaPostureUnavailable, setRoomsMediaPostureUnavailable] = useState(false);
   const projection = MESSENGER_SURFACES[surfaceId];
   const variant = variantId ? MESSENGER_VARIANTS[variantId] : null;
   const dark = surfaceId === "dark";
@@ -94,6 +98,13 @@ export function MessengerShell() {
       })
       .catch(() => {
         if (active) setMessagingPostureUnavailable(true);
+      });
+    loadMatrixRoomsMediaPosture()
+      .then((posture) => {
+        if (active) setRoomsMediaPosture(posture);
+      })
+      .catch(() => {
+        if (active) setRoomsMediaPostureUnavailable(true);
       });
     return () => {
       active = false;
@@ -125,6 +136,11 @@ export function MessengerShell() {
           ? "unavailable"
           : messagingPosture?.runtime_status ?? "unknown"
       }
+      data-messenger-rooms-media-runtime={
+        roomsMediaPostureUnavailable
+          ? "unavailable"
+          : roomsMediaPosture?.runtime_status ?? "unknown"
+      }
       data-messenger-surface={projection.render_ref}
       data-messenger-variant={variantId ?? "default"}
     >
@@ -144,6 +160,8 @@ export function MessengerShell() {
         current={surfaceId}
         messagingPosture={messagingPosture}
         messagingPostureUnavailable={messagingPostureUnavailable}
+        roomsMediaPosture={roomsMediaPosture}
+        roomsMediaPostureUnavailable={roomsMediaPostureUnavailable}
         onSelect={selectSurface}
       />
       {isSpecialSurface(surfaceId) ? (
@@ -177,7 +195,13 @@ export function MessengerShell() {
               ? `Matrix sync · ${runtimePosture.runtime_status.replaceAll("_", " ")}`
               : "Matrix sync posture loading"}
         </span>
-        <span>No message sent</span>
+        <span>
+          {roomsMediaPostureUnavailable
+            ? "Rooms, search & media posture unavailable"
+            : roomsMediaPosture
+              ? `Rooms, search & media · ${roomsMediaPosture.runtime_status.replaceAll("_", " ")}`
+              : "Rooms, search & media posture loading"}
+        </span>
         <span>
           {messagingPostureUnavailable
             ? "Manual messaging posture unavailable"
@@ -279,20 +303,29 @@ function TopBar({
   current,
   messagingPosture,
   messagingPostureUnavailable,
+  roomsMediaPosture,
+  roomsMediaPostureUnavailable,
   onSelect,
 }: {
   current: MessengerSurfaceId;
   messagingPosture: MatrixMessagingPosture | null;
   messagingPostureUnavailable: boolean;
+  roomsMediaPosture: MatrixRoomsMediaPosture | null;
+  roomsMediaPostureUnavailable: boolean;
   onSelect: (surface: MessengerSurfaceId) => void;
 }) {
+  const searchPosture = roomsMediaPostureUnavailable
+    ? "Unavailable"
+    : roomsMediaPosture
+      ? "Core implemented · enrollment required"
+      : "Loading";
   return (
     <header className="messenger-topbar">
       <label className="messenger-search-field">
         <span className="sr-only">Search messages, people, and rooms</span>
         <NorthStarIcon name="search" size="sm" />
         <input aria-describedby="messenger-search-posture" readOnly placeholder="Search messages, people, and rooms" />
-        <small id="messenger-search-posture">Planned</small>
+        <small id="messenger-search-posture">{searchPosture}</small>
       </label>
       <button type="button" onClick={() => onSelect("search")}><NorthStarIcon name="mail-open" size="sm" /> Unread <b>7</b></button>
       <button type="button" onClick={() => onSelect("search")}><NorthStarIcon name="at-sign" size="sm" /> Mentions</button>

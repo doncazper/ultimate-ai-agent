@@ -24,6 +24,7 @@ import type {
   CommunicationsSessionPosture,
   MatrixCryptoPosture,
   MatrixMessagingPosture,
+  MatrixRoomsMediaPosture,
   MatrixSyncPosture,
   CodingCockpitSessionReadModel,
   CodingWorkspaceContextReadModel,
@@ -890,6 +891,67 @@ export async function loadMatrixMessagingPosture(): Promise<MatrixMessagingPostu
     throw new Error("Matrix messaging posture response failed safe validation.");
   }
   return value as unknown as MatrixMessagingPosture;
+}
+
+export async function loadMatrixRoomsMediaPosture(): Promise<MatrixRoomsMediaPosture> {
+  const value = await readEnvelope<unknown>(
+    API_ENDPOINTS.communicationsMatrixRoomsMediaPosture,
+  );
+  if (
+    !isCommunicationsRecord(value) ||
+    !hasExactCommunicationsKeys(value, [
+      "schema_version",
+      "posture_ref",
+      "runtime_status",
+      "authority_lane_refs",
+      "implemented_core_operation_refs",
+      "blocked_live_operation_refs",
+      "media_max_bytes",
+      "media_type_policy_ref",
+      "quarantine_policy_ref",
+      "preview_policy_ref",
+      "progress_policy_ref",
+      "cancel_policy_ref",
+      "retry_policy_ref",
+      "search_index_policy_ref",
+      "element_interoperability_status",
+      "reason_refs",
+      "request_scoped_evaluation_required",
+      "standing_authority_granted",
+      "multi_account_enabled",
+      "raw_content_included",
+    ]) ||
+    value.schema_version !== "uaa-matrix-rooms-media-posture.v1" ||
+    !isCommunicationsSafeRef(value.posture_ref) ||
+    value.runtime_status !== "configuration_required" ||
+    !isCommunicationsSafeRefArray(value.authority_lane_refs, 20) ||
+    !isCommunicationsSafeRefArray(value.implemented_core_operation_refs, 20) ||
+    !isCommunicationsSafeRefArray(value.blocked_live_operation_refs, 20) ||
+    value.authority_lane_refs.length !== 20 ||
+    value.implemented_core_operation_refs.length !== 20 ||
+    value.blocked_live_operation_refs.length !== 20 ||
+    new Set(value.authority_lane_refs).size !== 20 ||
+    new Set(value.implemented_core_operation_refs).size !== 20 ||
+    new Set(value.blocked_live_operation_refs).size !== 20 ||
+    value.media_max_bytes !== 24576 ||
+    !isCommunicationsSafeRef(value.media_type_policy_ref) ||
+    !isCommunicationsSafeRef(value.quarantine_policy_ref) ||
+    !isCommunicationsSafeRef(value.preview_policy_ref) ||
+    !isCommunicationsSafeRef(value.progress_policy_ref) ||
+    !isCommunicationsSafeRef(value.cancel_policy_ref) ||
+    !isCommunicationsSafeRef(value.retry_policy_ref) ||
+    !isCommunicationsSafeRef(value.search_index_policy_ref) ||
+    value.element_interoperability_status !== "external_facility_required" ||
+    !isCommunicationsSafeRefArray(value.reason_refs, 32) ||
+    new Set(value.reason_refs).size !== value.reason_refs.length ||
+    value.request_scoped_evaluation_required !== true ||
+    value.standing_authority_granted !== false ||
+    value.multi_account_enabled !== false ||
+    value.raw_content_included !== false
+  ) {
+    throw new Error("Matrix rooms and media posture response failed safe validation.");
+  }
+  return value as unknown as MatrixRoomsMediaPosture;
 }
 
 function isSafeCommunicationConversation(

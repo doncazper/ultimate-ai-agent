@@ -232,6 +232,7 @@ for (const viewport of messengerDesktopViewports) {
       new Set([
         "/control-center/communications/matrix-crypto/posture",
         "/control-center/communications/matrix-messaging/posture",
+        "/control-center/communications/matrix-rooms-media/posture",
         "/control-center/communications/matrix-sync/posture",
       ]),
     );

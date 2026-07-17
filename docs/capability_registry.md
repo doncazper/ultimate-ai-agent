@@ -97,7 +97,10 @@ cache-key lifecycle lanes. MSG-MX-007 adds seventeen exact crypto-store,
 verification, cross-signing, backup, recovery, and reset lanes whose live
 executors remain adapter-required. MSG-MX-008 adds fifteen exact manual-message,
 encrypted-outbox, and generic-notification lanes backed by a loopback-only
-one-use Rust broker and a dedicated Keychain-protected outbox store. The
+one-use Rust broker and a dedicated Keychain-protected outbox store. MSG-MX-009
+adds twenty exact DM, room, membership, administration, Space, encrypted-
+search, and bounded-media lanes; media upload and download require exact
+conjunctive `messages` plus `files` domain scopes. The
 MSG-MX-006 primitives are implemented and loopback-tested, but live account
 sync and manual messaging remain configuration-required.
 Catalog visibility and accepted
@@ -112,14 +115,17 @@ project the same backend-owned truth. A validation-only crypto proposal route
 checks one exact fingerprinted request but cannot execute it. MSG-MX-008 adds
 content-free posture, validation-only proposal, and fifteen exact authority-
 required operation routes; default API composition deliberately binds no live
-runtime. These routes are connector-adjacent
-`local_sensitive` reads with no side effects. The `/messenger` UI loads only
-content-free Matrix sync posture; its room and message content remains
+runtime. MSG-MX-009 adds another content-free posture route, validation-only
+proposal route, and twenty idempotency-gated exact operation routes with their
+real local, network, or destructive side effects. Posture routes are connector-
+adjacent `local_sensitive` reads with no side effects. The `/messenger` UI
+loads content-free Matrix sync, crypto, manual-messaging, and rooms/media
+posture; its room and message content remains
 synthetic. The approved adapter may perform exact discovery, authentication-
 method, sync, and timeline-pagination reads only after exact request-scoped
 authority and configuration checks. No enrolled account, protected message
-response, decrypted event materialization, send, room write, media, raw durable
-evidence content, or UI authority is present.
+response, decrypted event materialization, UI-bound live room/message/media
+content, raw durable evidence content, or UI authority is present.
 
 ## Exact Repo-Owned Extension Metadata Adapter
 
@@ -530,6 +536,29 @@ targets. Remote homeservers, broad connector authority, background workers,
 automatic retry, raw durable content, public release, and production authority
 remain blocked. Canonical truth:
 `docs/connectors/MESSENGER_MATRIX_MANUAL_MESSAGING.md`.
+
+## Matrix Rooms, Encrypted Search, And Bounded Media
+
+MSG-MX-009 registers twenty exact request-scoped bindings for direct-message
+and room creation, join/leave, invitation transitions, power roles, Space
+mapping, notification/history/pin/account-room settings, encrypted local
+search, and bounded upload/download-quarantine/materialize/preview/cleanup.
+Every command binds its complete safe target, transient raw-value projection,
+fresh state where applicable, deadline, budget, readiness, approval, lease,
+idempotency, safe-disable, and rollback or compensation posture. Upload and
+download validate the complete exact composite domain map rather than treating
+either domain independently.
+
+Search stores only an AES-GCM index and HMAC token hashes. Media is limited to
+24,576 bytes and four inspected types, stays under verified app-owned roots,
+enters quarantine before use, and uses a fixed metadata-only parser. Transfer
+progress is content-free; cancellation after broker send is uncertain, and
+retry is manual with the same idempotency ref. The one-use loopback Rust broker
+implements the sixteen network lanes; the four local lanes remain Python Core
+operations. API, CLI, and Messenger posture default to
+`configuration_required`, and synthetic UI content cannot authorize a target.
+Canonical truth:
+`docs/connectors/MESSENGER_MATRIX_ROOMS_SEARCH_MEDIA.md`.
 
 ## Local Smoke Harness
 

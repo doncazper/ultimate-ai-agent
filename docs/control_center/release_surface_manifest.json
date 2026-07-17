@@ -287,7 +287,7 @@
       "path": "/messenger",
       "label": "Messenger",
       "group": "Founder Loop",
-      "ui_status": "fixture-only desktop content with backend-owned sync, crypto, and exact manual-messaging posture; synthetic composer remains disabled",
+      "ui_status": "fixture-only desktop content with backend-owned sync, crypto, exact manual-messaging, and rooms/search/media posture; synthetic controls remain disabled",
       "status": "experimental",
       "backend_routes": [
         {
@@ -308,6 +308,13 @@
           "method": "GET",
           "path": "/control-center/communications/matrix-messaging/posture",
           "operation_id": "get_control_center_communications_matrix_messaging_posture",
+          "side_effect_class": "none",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/communications/matrix-rooms-media/posture",
+          "operation_id": "get_control_center_communications_matrix_rooms_media_posture",
           "side_effect_class": "none",
           "route_classification": "local_sensitive"
         }
@@ -331,8 +338,8 @@
         "adapter_required:matrix-persistent-crypto",
         "missing_backend:matrix-message-read",
         "blocked_backend:matrix-broader-message-send",
-        "missing_backend:matrix-room-mutation",
-        "missing_backend:matrix-media",
+        "configuration_required:matrix-exact-room-mutation",
+        "configuration_required:matrix-bounded-media",
         "missing_backend:matrix-calling",
         "missing_authority:connector-network",
         "public_distribution_claim",
@@ -344,6 +351,7 @@
         "apps/control-center/src/components/messenger/MessengerShell.tsx",
         "apps/control-center/src/messenger/contracts.ts",
         "apps/control-center/src/messenger/fixtures.ts",
+        "docs/connectors/MESSENGER_MATRIX_ROOMS_SEARCH_MEDIA.md",
         "docs/design/UAA_MESSENGER_MATRIX_IMPLEMENTATION_PLAN.md",
         "docs/design/control_center_north_star/UAA_MESSENGER_MATRIX_RENDER_ACCEPTANCE.md",
         "docs/control_center/route_status_manifest.json"
@@ -355,12 +363,13 @@
       "visual_proof_rationale": "Checked-in redacted synthetic desktop-only baselines cover all fifteen accepted Messenger targets at the two accepted desktop widths; they prove presentation only, not Matrix runtime behavior.",
       "promotion_criteria": [
         "Enroll the exact loopback broker and required protected-store helpers before exact manual messaging; current Messenger room and message data remains synthetic and its composer stays disabled.",
+        "Enroll the exact loopback account and app-owned media roots before exact MSG-MX-009 room, search, or media execution; fixture targets remain unauthorized.",
         "Accept each broader connector, network, credential, sync, encryption, read, send, room, media, or call lane separately before runtime use.",
         "Preserve safe refs, redaction, idempotency, receipts, rollback-readiness, safe-disable, and request-scoped AuthorityLease evaluation for every later mutation.",
         "Keep public release, production readiness, production authority, arbitrary connector writes, and autonomous sends blocked."
       ],
       "product_language_caveats": [
-        "Messenger currently renders synthetic room and message fixtures plus backend-owned Matrix sync, crypto, and manual-messaging posture. MSG-MX-008 implements fifteen exact manual operations only through fresh request-scoped authority, an enrolled loopback broker, exact non-synthetic targets, idempotency, encrypted storage, receipts, and safe-disable; the synthetic UI composer remains disabled. Live account sync and persistent crypto remain configuration or adapter dependent, while protected message reads, broader sends, room mutation, media, calls, and standing connector authority remain blocked.",
+        "Messenger currently renders synthetic room and message fixtures plus backend-owned Matrix sync, crypto, manual-messaging, and rooms/search/media posture. MSG-MX-008 implements fifteen exact manual operations and MSG-MX-009 implements twenty exact room, encrypted-search, and bounded-media operations only through fresh request-scoped authority, an enrolled loopback broker, exact non-synthetic targets, exact app-owned roots, idempotency, receipts, and safe-disable; synthetic controls remain disabled. Live account sync and persistent crypto remain configuration or adapter dependent, while protected message reads, broader sends, calls, and standing connector authority remain blocked.",
         "All visible success-like counts, people, rooms, messages, devices, refs, and timestamps are clearly synthetic preview data.",
         "Filtering, selection, theme, and inspector visibility are presentation state only; no backend truth, approval, memory, or authority is created.",
         "Python Agent Core remains product truth and Control Center cannot mint authority.",

@@ -13117,6 +13117,29 @@ export interface MatrixMessagingPosture {
   safe_summary: string;
 }
 
+export interface MatrixRoomsMediaPosture {
+  schema_version: "uaa-matrix-rooms-media-posture.v1";
+  posture_ref: string;
+  runtime_status: "configuration_required";
+  authority_lane_refs: string[];
+  implemented_core_operation_refs: string[];
+  blocked_live_operation_refs: string[];
+  media_max_bytes: 24576;
+  media_type_policy_ref: string;
+  quarantine_policy_ref: string;
+  preview_policy_ref: string;
+  progress_policy_ref: string;
+  cancel_policy_ref: string;
+  retry_policy_ref: string;
+  search_index_policy_ref: string;
+  element_interoperability_status: "external_facility_required";
+  reason_refs: string[];
+  request_scoped_evaluation_required: true;
+  standing_authority_granted: false;
+  multi_account_enabled: false;
+  raw_content_included: false;
+}
+
 export interface CommunicationsPagination {
   page_size: number;
   returned_count: number;

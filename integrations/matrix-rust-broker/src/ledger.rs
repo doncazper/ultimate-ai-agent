@@ -23,6 +23,10 @@ pub struct LedgerRecord {
     pub request_fingerprint_ref: String,
     pub idempotency_ref: String,
     pub transaction_ref: Option<String>,
+    #[serde(default)]
+    pub quarantine_ref: Option<String>,
+    #[serde(default)]
+    pub byte_count: Option<usize>,
     pub event_ref: Option<String>,
     pub receipt_ref: String,
     pub outcome: String,
@@ -219,6 +223,10 @@ mod tests {
             room_ref: None,
             event_ref: None,
             transaction_ref: None,
+            member_ref: None,
+            space_ref: None,
+            media_ref: None,
+            quarantine_ref: None,
             approval_ref: "approval-ref:matrix:test".to_owned(),
             lease_ref: "authority-lease-ref:matrix:test".to_owned(),
             idempotency_ref: "idempotency-ref:matrix:test".to_owned(),
@@ -240,6 +248,14 @@ mod tests {
             relation_event_id: None,
             reaction_key: None,
             typing_active: None,
+            member_id: None,
+            space_id: None,
+            room_name: None,
+            desired_state: None,
+            prior_state: None,
+            media_uri: None,
+            media_type: None,
+            media_b64: None,
         }
     }
 
@@ -280,6 +296,8 @@ mod tests {
             request_fingerprint_ref: request.request_fingerprint_ref.clone(),
             idempotency_ref: request.idempotency_ref.clone(),
             transaction_ref: None,
+            quarantine_ref: None,
+            byte_count: None,
             event_ref: None,
             receipt_ref: "receipt-ref:matrix-broker:test".to_owned(),
             outcome: "ready".to_owned(),

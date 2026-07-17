@@ -17,7 +17,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Callable, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -38,6 +38,10 @@ MATRIX_BROKER_MAX_EXECUTABLE_BYTES = 64 * 1024 * 1024
 
 class MatrixBrokerError(RuntimeError):
     pass
+
+
+MatrixBrokerCancelCheck = Callable[[], bool]
+MatrixBrokerProgressObserver = Callable[[str], None]
 
 
 class _BrokerModel(BaseModel):
@@ -82,6 +86,8 @@ class MatrixBrokerResponse(_BrokerModel):
     ]
     event_ref: str | None = None
     transaction_ref: str | None = None
+    quarantine_ref: str | None = None
+    byte_count: int | None = Field(default=None, ge=0, le=24_576)
     replayed: bool
     credential_material_included: Literal[False]
     content_included: Literal[False]
@@ -96,6 +102,7 @@ class MatrixBrokerResponse(_BrokerModel):
             self.receipt_ref,
             self.event_ref,
             self.transaction_ref,
+            self.quarantine_ref,
         ):
             if value is not None:
                 validate_execution_ref(value, "matrix_broker_response_ref")
@@ -129,9 +136,8 @@ class MatrixBrokerConfig:
     def __post_init__(self) -> None:
         if not self.binary_path.is_absolute() or not self.state_root.is_absolute():
             raise ValueError("MATRIX_BROKER_ABSOLUTE_PATHS_REQUIRED")
-        if (
-            len(self.expected_binary_sha256) != 64
-            or any(value not in "0123456789abcdef" for value in self.expected_binary_sha256)
+        if len(self.expected_binary_sha256) != 64 or any(
+            value not in "0123456789abcdef" for value in self.expected_binary_sha256
         ):
             raise ValueError("MATRIX_BROKER_BINARY_DIGEST_INVALID")
         if not (0.1 <= self.startup_timeout_seconds <= 30):
@@ -139,7 +145,9 @@ class MatrixBrokerConfig:
         if not (0.1 <= self.operation_timeout_seconds <= 300):
             raise ValueError("MATRIX_BROKER_OPERATION_TIMEOUT_INVALID")
         _validate_binary(self.binary_path, self.expected_binary_sha256)
-        object.__setattr__(self, "_state_root_identity", _prepare_state_root(self.state_root))
+        object.__setattr__(
+            self, "_state_root_identity", _prepare_state_root(self.state_root)
+        )
 
 
 @dataclass(frozen=True)
@@ -161,6 +169,10 @@ class MatrixBrokerInvocation:
     room_ref: str | None = None
     event_ref: str | None = None
     transaction_ref: str | None = None
+    member_ref: str | None = None
+    space_ref: str | None = None
+    media_ref: str | None = None
+    quarantine_ref: str | None = None
     secret_kind: str | None = None
     adapter_ref: str = MATRIX_BROKER_ADAPTER_REF
     safe_disable_ref: str = "safe-disable-ref:matrix-messenger:enabled"
@@ -189,6 +201,10 @@ class MatrixBrokerInvocation:
             self.room_ref,
             self.event_ref,
             self.transaction_ref,
+            self.member_ref,
+            self.space_ref,
+            self.media_ref,
+            self.quarantine_ref,
             self.adapter_ref,
             self.safe_disable_ref,
             self.kill_switch_ref,
@@ -211,6 +227,14 @@ class MatrixBrokerTransientInput:
     relation_event_id: str | None = None
     reaction_key: str | None = None
     typing_active: bool | None = None
+    member_id: str | None = None
+    space_id: str | None = None
+    room_name: str | None = None
+    desired_state: str | None = None
+    prior_state: str | None = None
+    media_uri: str | None = None
+    media_type: str | None = None
+    media_b64: str | None = None
 
     def __repr__(self) -> str:
         return "MatrixBrokerTransientInput(<redacted>)"
@@ -236,15 +260,36 @@ class MatrixBrokerClient:
             ).hexdigest()
         )
 
+    def scope_root(
+        self,
+        *,
+        account_ref: str,
+        homeserver_ref: str,
+        device_ref: str,
+    ) -> Path:
+        """Return the exact per-account broker scope without creating it."""
+        for value in (account_ref, homeserver_ref, device_ref):
+            validate_execution_ref(value, "matrix_broker_scope_ref")
+        digest = hashlib.sha256()
+        digest.update(account_ref.encode())
+        digest.update(b"\0")
+        digest.update(homeserver_ref.encode())
+        digest.update(b"\0")
+        digest.update(device_ref.encode())
+        return self._config.state_root / digest.hexdigest()[:32]
+
     def execute(
         self,
         invocation: MatrixBrokerInvocation,
         *,
         transient: MatrixBrokerTransientInput,
+        cancel_requested: MatrixBrokerCancelCheck | None = None,
+        progress_observer: MatrixBrokerProgressObserver | None = None,
     ) -> MatrixBrokerResponse:
-        _validate_binary(
-            self._config.binary_path, self._config.expected_binary_sha256
-        )
+        if _cancel_requested(cancel_requested):
+            raise MatrixBrokerError("MATRIX_BROKER_CANCELLED_BEFORE_START")
+        _emit_progress(progress_observer, "preflight")
+        _validate_binary(self._config.binary_path, self._config.expected_binary_sha256)
         _validate_state_root(
             self._config.state_root,
             expected_identity=self._config._state_root_identity,
@@ -310,6 +355,8 @@ class MatrixBrokerClient:
                         self._config.operation_timeout_seconds,
                         max(0.1, invocation.deadline.timestamp() - time.time()),
                     ),
+                    cancel_requested=cancel_requested,
+                    progress_observer=progress_observer,
                 )
                 _validate_response_binding(response, invocation)
                 try:
@@ -319,6 +366,7 @@ class MatrixBrokerClient:
                     raise MatrixBrokerError("MATRIX_BROKER_EXIT_TIMEOUT") from exc
                 if return_code != 0:
                     raise MatrixBrokerError("MATRIX_BROKER_EXIT_FAILED")
+                _emit_progress(progress_observer, "completed")
                 return response
         except BaseException:
             if process is not None and process.poll() is None:
@@ -360,6 +408,10 @@ def _request_payload(
         "room_ref": invocation.room_ref,
         "event_ref": invocation.event_ref,
         "transaction_ref": invocation.transaction_ref,
+        "member_ref": invocation.member_ref,
+        "space_ref": invocation.space_ref,
+        "media_ref": invocation.media_ref,
+        "quarantine_ref": invocation.quarantine_ref,
         "approval_ref": invocation.approval_ref,
         "lease_ref": invocation.lease_ref,
         "idempotency_ref": invocation.idempotency_ref,
@@ -385,6 +437,14 @@ def _request_payload(
         "relation_event_id": transient.relation_event_id,
         "reaction_key": transient.reaction_key,
         "typing_active": transient.typing_active,
+        "member_id": transient.member_id,
+        "space_id": transient.space_id,
+        "room_name": transient.room_name,
+        "desired_state": transient.desired_state,
+        "prior_state": transient.prior_state,
+        "media_uri": transient.media_uri,
+        "media_type": transient.media_type,
+        "media_b64": transient.media_b64,
     }
     encoded = json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode(
         "utf-8"
@@ -400,6 +460,8 @@ def _exchange(
     *,
     auth_key: bytearray,
     timeout_seconds: float,
+    cancel_requested: MatrixBrokerCancelCheck | None,
+    progress_observer: MatrixBrokerProgressObserver | None,
 ) -> MatrixBrokerResponse:
     tag = hmac.new(auth_key, payload, hashlib.sha256).hexdigest()
     envelope = json.dumps(
@@ -411,16 +473,34 @@ def _exchange(
     ).encode("ascii")
     if len(envelope) > MATRIX_BROKER_MAX_FRAME_BYTES:
         raise MatrixBrokerError("MATRIX_BROKER_ENVELOPE_OVERSIZE")
+    if _cancel_requested(cancel_requested):
+        raise MatrixBrokerError("MATRIX_BROKER_CANCELLED_BEFORE_START")
+    deadline = time.monotonic() + timeout_seconds
     try:
         with socket.create_connection(
             ("127.0.0.1", port), timeout=timeout_seconds
         ) as connection:
-            connection.settimeout(timeout_seconds)
+            connection.settimeout(min(0.1, timeout_seconds))
             connection.sendall(len(envelope).to_bytes(4, "big") + envelope)
-            response_length = int.from_bytes(_recv_exact(connection, 4), "big")
+            _emit_progress(progress_observer, "request_sent")
+            response_length = int.from_bytes(
+                _recv_exact_cancellable(
+                    connection,
+                    4,
+                    deadline=deadline,
+                    cancel_requested=cancel_requested,
+                ),
+                "big",
+            )
             if not (1 <= response_length <= MATRIX_BROKER_MAX_FRAME_BYTES):
                 raise MatrixBrokerError("MATRIX_BROKER_RESPONSE_SIZE_INVALID")
-            response_envelope_bytes = _recv_exact(connection, response_length)
+            response_envelope_bytes = _recv_exact_cancellable(
+                connection,
+                response_length,
+                deadline=deadline,
+                cancel_requested=cancel_requested,
+            )
+            _emit_progress(progress_observer, "response_received")
     except (OSError, TimeoutError) as exc:
         raise MatrixBrokerError("MATRIX_BROKER_OUTCOME_UNCERTAIN") from exc
     try:
@@ -450,18 +530,56 @@ def _validate_response_binding(
         or response.request_ref != invocation.request_ref
         or response.request_fingerprint_ref != invocation.request_fingerprint_ref
         or response.transaction_ref != invocation.transaction_ref
+        or response.quarantine_ref != invocation.quarantine_ref
     ):
         raise MatrixBrokerError("MATRIX_BROKER_RESPONSE_BINDING_MISMATCH")
 
 
-def _recv_exact(connection: socket.socket, count: int) -> bytes:
+def _recv_exact_cancellable(
+    connection: socket.socket,
+    count: int,
+    *,
+    deadline: float,
+    cancel_requested: MatrixBrokerCancelCheck | None,
+) -> bytes:
     result = bytearray()
     while len(result) < count:
-        chunk = connection.recv(count - len(result))
+        if _cancel_requested(cancel_requested):
+            raise MatrixBrokerError("MATRIX_BROKER_CANCELLED_OUTCOME_UNCERTAIN")
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError
+        connection.settimeout(min(0.1, remaining))
+        try:
+            chunk = connection.recv(count - len(result))
+        except socket.timeout:
+            continue
         if not chunk:
             raise MatrixBrokerError("MATRIX_BROKER_RESPONSE_TRUNCATED")
         result.extend(chunk)
     return bytes(result)
+
+
+def _cancel_requested(callback: MatrixBrokerCancelCheck | None) -> bool:
+    if callback is None:
+        return False
+    try:
+        return callback() is True
+    except Exception:
+        return True
+
+
+def _emit_progress(
+    observer: MatrixBrokerProgressObserver | None,
+    phase: str,
+) -> None:
+    if observer is None:
+        return
+    try:
+        observer(phase)
+    except Exception:
+        # Progress is content-free observation only and never execution authority.
+        return
 
 
 def _read_line_bounded(fd: int, *, maximum: int, timeout_seconds: float) -> bytes:
@@ -586,9 +704,7 @@ def _open_validated_binary(path: Path, expected_sha256: str) -> tuple[int, str]:
     try:
         descriptor = os.open(
             path,
-            os.O_RDONLY
-            | getattr(os, "O_CLOEXEC", 0)
-            | getattr(os, "O_NOFOLLOW", 0),
+            os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0),
         )
     except OSError as exc:
         raise ValueError("MATRIX_BROKER_BINARY_UNAVAILABLE") from exc
@@ -597,8 +713,7 @@ def _open_validated_binary(path: Path, expected_sha256: str) -> tuple[int, str]:
         if (
             not stat.S_ISREG(opened.st_mode)
             or opened.st_nlink != 1
-            or (opened.st_dev, opened.st_ino)
-            != (metadata.st_dev, metadata.st_ino)
+            or (opened.st_dev, opened.st_ino) != (metadata.st_dev, metadata.st_ino)
         ):
             raise ValueError("MATRIX_BROKER_BINARY_CHANGED")
         hasher = hashlib.sha256()
@@ -621,9 +736,7 @@ def _validate_binary(path: Path, expected_sha256: str) -> None:
 
 
 @contextmanager
-def _staged_broker_binary(
-    path: Path, expected_sha256: str
-) -> Iterator[Path]:
+def _staged_broker_binary(path: Path, expected_sha256: str) -> Iterator[Path]:
     descriptor, digest = _open_validated_binary(path, expected_sha256)
     try:
         with tempfile.TemporaryDirectory(

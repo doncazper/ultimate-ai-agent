@@ -631,9 +631,9 @@ tests, safe-disable posture, and rollback-readiness evidence.
 <!-- MSG-MX-CURRENT-OVERLAY:START -->
 MSG-MX-000 through MSG-MX-012 Messenger Matrix Desktop Program
 Baseline authority map: `docs/connectors/MESSENGER_MATRIX_BASELINE_AUTHORITY_MAP.md`
-Current phase: `MSG-MX-008`
-Current program status: `manual_messaging_exact_lanes_implemented_configuration_required`
-Current evidence ref: `evidence-ref:msg-mx-008:manual-messaging-loopback`
+Current phase: `MSG-MX-009`
+Current program status: `rooms_search_media_exact_lanes_implemented_configuration_required`
+Current evidence ref: `evidence-ref:msg-mx-009:rooms-search-media-loopback`
 Goal: build a clean-room, macOS-first Messenger Matrix client through thirteen
 finite merge-gated milestones without treating design, UI state, generic
 messages authority, or Full Machine Access as Matrix runtime authority.
@@ -694,6 +694,18 @@ runtime remains `configuration_required`; remote homeservers, autonomous or AI
 sends, uncertain automatic retry, raw durable content, and standing connector
 authority remain denied. Element Desktop was absent, so interoperability is
 `external_facility_required` rather than simulated.
+MSG-MX-009 implements twenty exact request-scoped DM, room, membership,
+administration, Space, encrypted-search, and bounded-media lanes. Python Core
+enforces complete exact bindings, including conjunctive multi-domain media
+leases, room-scoped encrypted local search, app-owned descriptor-relative file
+handling, quarantine-before-use, metadata-only preview, content-free progress,
+cancellation uncertainty, and manual same-idempotency retry. The one-use Rust
+broker implements sixteen exact Matrix network operations. A disposable local
+Synapse drill exercised all sixteen plus materialize, preview, and cleanup, then
+proved zero containers, networks, volumes, and residual resources. Default
+runtime remains `configuration_required`; the Messenger content and controls
+remain synthetic, remote homeservers and broad filesystem access are denied,
+and Element interoperability remains `external_facility_required`.
 The accepted design gate is recorded in
 `docs/design/control_center_north_star/UAA_MESSENGER_MATRIX_RENDER_ACCEPTANCE.md`,
 `docs/decisions/ADR-0062-messenger-matrix-client-and-data-boundaries.md`,

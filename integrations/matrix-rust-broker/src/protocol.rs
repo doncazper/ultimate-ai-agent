@@ -42,6 +42,10 @@ pub struct BrokerRequest {
     pub room_ref: Option<String>,
     pub event_ref: Option<String>,
     pub transaction_ref: Option<String>,
+    pub member_ref: Option<String>,
+    pub space_ref: Option<String>,
+    pub media_ref: Option<String>,
+    pub quarantine_ref: Option<String>,
     pub approval_ref: String,
     pub lease_ref: String,
     pub idempotency_ref: String,
@@ -63,6 +67,14 @@ pub struct BrokerRequest {
     pub relation_event_id: Option<SecretString>,
     pub reaction_key: Option<SecretString>,
     pub typing_active: Option<bool>,
+    pub member_id: Option<SecretString>,
+    pub space_id: Option<SecretString>,
+    pub room_name: Option<SecretString>,
+    pub desired_state: Option<SecretString>,
+    pub prior_state: Option<SecretString>,
+    pub media_uri: Option<SecretString>,
+    pub media_type: Option<SecretString>,
+    pub media_b64: Option<SecretString>,
 }
 
 pub struct SecretString(String);
@@ -115,6 +127,22 @@ pub enum BrokerOperation {
     Redaction,
     Typing,
     ReadReceipt,
+    DmCreate,
+    RoomCreate,
+    RoomJoin,
+    RoomLeave,
+    InviteSend,
+    InviteAccept,
+    InviteReject,
+    InviteWithdraw,
+    RoomPowerRoleWrite,
+    SpaceMappingWrite,
+    NotificationSettingsWrite,
+    HistoryVisibilityWrite,
+    PinWrite,
+    AccountRoomPreferenceWrite,
+    MediaUpload,
+    MediaDownloadQuarantine,
 }
 
 impl BrokerOperation {
@@ -136,6 +164,22 @@ impl BrokerOperation {
             Self::Redaction => "redaction",
             Self::Typing => "typing",
             Self::ReadReceipt => "read_receipt",
+            Self::DmCreate => "dm_create",
+            Self::RoomCreate => "room_create",
+            Self::RoomJoin => "room_join",
+            Self::RoomLeave => "room_leave",
+            Self::InviteSend => "invite_send",
+            Self::InviteAccept => "invite_accept",
+            Self::InviteReject => "invite_reject",
+            Self::InviteWithdraw => "invite_withdraw",
+            Self::RoomPowerRoleWrite => "room_power_role_write",
+            Self::SpaceMappingWrite => "space_mapping_write",
+            Self::NotificationSettingsWrite => "notification_settings_write",
+            Self::HistoryVisibilityWrite => "history_visibility_write",
+            Self::PinWrite => "pin_write",
+            Self::AccountRoomPreferenceWrite => "account_room_preference_write",
+            Self::MediaUpload => "media_upload",
+            Self::MediaDownloadQuarantine => "media_download_quarantine",
         }
     }
 
@@ -152,6 +196,22 @@ impl BrokerOperation {
                 | Self::Redaction
                 | Self::Typing
                 | Self::ReadReceipt
+                | Self::DmCreate
+                | Self::RoomCreate
+                | Self::RoomJoin
+                | Self::RoomLeave
+                | Self::InviteSend
+                | Self::InviteAccept
+                | Self::InviteReject
+                | Self::InviteWithdraw
+                | Self::RoomPowerRoleWrite
+                | Self::SpaceMappingWrite
+                | Self::NotificationSettingsWrite
+                | Self::HistoryVisibilityWrite
+                | Self::PinWrite
+                | Self::AccountRoomPreferenceWrite
+                | Self::MediaUpload
+                | Self::MediaDownloadQuarantine
         )
     }
 }
@@ -167,6 +227,8 @@ pub struct BrokerResponse {
     pub outcome: &'static str,
     pub event_ref: Option<String>,
     pub transaction_ref: Option<String>,
+    pub quarantine_ref: Option<String>,
+    pub byte_count: Option<usize>,
     pub replayed: bool,
     pub credential_material_included: bool,
     pub content_included: bool,
@@ -276,6 +338,10 @@ fn validate_request(request: &BrokerRequest) -> Result<(), &'static str> {
         request.room_ref.as_ref(),
         request.event_ref.as_ref(),
         request.transaction_ref.as_ref(),
+        request.member_ref.as_ref(),
+        request.space_ref.as_ref(),
+        request.media_ref.as_ref(),
+        request.quarantine_ref.as_ref(),
     ]
     .into_iter()
     .flatten()
@@ -297,7 +363,11 @@ fn validate_request(request: &BrokerRequest) -> Result<(), &'static str> {
 fn validate_operation_scope(request: &BrokerRequest) -> Result<(), &'static str> {
     let no_safe_target = request.room_ref.is_none()
         && request.event_ref.is_none()
-        && request.transaction_ref.is_none();
+        && request.transaction_ref.is_none()
+        && request.member_ref.is_none()
+        && request.space_ref.is_none()
+        && request.media_ref.is_none()
+        && request.quarantine_ref.is_none();
     let no_runtime_secret = request.homeserver_url.is_none()
         && request.username.is_none()
         && request.password.is_none()
@@ -310,6 +380,14 @@ fn validate_operation_scope(request: &BrokerRequest) -> Result<(), &'static str>
         && request.relation_event_id.is_none()
         && request.reaction_key.is_none()
         && request.typing_active.is_none();
+    let no_rooms_media_secret = request.member_id.is_none()
+        && request.space_id.is_none()
+        && request.room_name.is_none()
+        && request.desired_state.is_none()
+        && request.prior_state.is_none()
+        && request.media_uri.is_none()
+        && request.media_type.is_none()
+        && request.media_b64.is_none();
     let no_identity_secret = request.username.is_none() && request.password.is_none();
     let no_message_content = request.body.is_none()
         && request.formatted_body.is_none()
@@ -320,13 +398,19 @@ fn validate_operation_scope(request: &BrokerRequest) -> Result<(), &'static str>
         == request.relation_event_id.as_ref().map(SecretString::as_str);
     let valid = match request.operation {
         BrokerOperation::ProtocolProbe => {
-            no_safe_target && request.secret_kind.is_none() && no_runtime_secret
+            no_safe_target
+                && request.secret_kind.is_none()
+                && no_runtime_secret
+                && no_rooms_media_secret
         }
         BrokerOperation::KeychainCreate
         | BrokerOperation::KeychainProbe
         | BrokerOperation::KeychainRotate
         | BrokerOperation::KeychainDelete => {
-            no_safe_target && request.secret_kind.is_some() && no_runtime_secret
+            no_safe_target
+                && request.secret_kind.is_some()
+                && no_runtime_secret
+                && no_rooms_media_secret
         }
         BrokerOperation::SessionLogin => {
             no_safe_target
@@ -339,6 +423,7 @@ fn validate_operation_scope(request: &BrokerRequest) -> Result<(), &'static str>
                 && request.transaction_id.is_none()
                 && no_message_content
                 && request.typing_active.is_none()
+                && no_rooms_media_secret
         }
         BrokerOperation::SessionRestore | BrokerOperation::SessionLogout => {
             no_safe_target
@@ -350,11 +435,10 @@ fn validate_operation_scope(request: &BrokerRequest) -> Result<(), &'static str>
                 && request.transaction_id.is_none()
                 && no_message_content
                 && request.typing_active.is_none()
+                && no_rooms_media_secret
         }
         BrokerOperation::Send => {
-            request.room_ref.is_some()
-                && request.event_ref.is_none()
-                && request.transaction_ref.is_some()
+            exact_safe_scope(request, true, false, true, false, false, false, false)
                 && request.secret_kind.is_none()
                 && request.homeserver_url.is_some()
                 && no_identity_secret
@@ -365,11 +449,10 @@ fn validate_operation_scope(request: &BrokerRequest) -> Result<(), &'static str>
                 && request.relation_event_id.is_none()
                 && request.reaction_key.is_none()
                 && request.typing_active.is_none()
+                && no_rooms_media_secret
         }
         BrokerOperation::Reply | BrokerOperation::Thread | BrokerOperation::Edit => {
-            request.room_ref.is_some()
-                && request.event_ref.is_some()
-                && request.transaction_ref.is_some()
+            exact_safe_scope(request, true, true, true, false, false, false, false)
                 && request.secret_kind.is_none()
                 && request.homeserver_url.is_some()
                 && no_identity_secret
@@ -381,11 +464,10 @@ fn validate_operation_scope(request: &BrokerRequest) -> Result<(), &'static str>
                 && exact_relation
                 && request.reaction_key.is_none()
                 && request.typing_active.is_none()
+                && no_rooms_media_secret
         }
         BrokerOperation::Reaction => {
-            request.room_ref.is_some()
-                && request.event_ref.is_some()
-                && request.transaction_ref.is_some()
+            exact_safe_scope(request, true, true, true, false, false, false, false)
                 && request.secret_kind.is_none()
                 && request.homeserver_url.is_some()
                 && no_identity_secret
@@ -399,11 +481,10 @@ fn validate_operation_scope(request: &BrokerRequest) -> Result<(), &'static str>
                 && exact_relation
                 && request.reaction_key.is_some()
                 && request.typing_active.is_none()
+                && no_rooms_media_secret
         }
         BrokerOperation::Redaction => {
-            request.room_ref.is_some()
-                && request.event_ref.is_some()
-                && request.transaction_ref.is_some()
+            exact_safe_scope(request, true, true, true, false, false, false, false)
                 && request.secret_kind.is_none()
                 && request.homeserver_url.is_some()
                 && no_identity_secret
@@ -412,11 +493,10 @@ fn validate_operation_scope(request: &BrokerRequest) -> Result<(), &'static str>
                 && request.transaction_id.is_some()
                 && no_message_content
                 && request.typing_active.is_none()
+                && no_rooms_media_secret
         }
         BrokerOperation::Typing => {
-            request.room_ref.is_some()
-                && request.event_ref.is_none()
-                && request.transaction_ref.is_none()
+            exact_safe_scope(request, true, false, false, false, false, false, false)
                 && request.secret_kind.is_none()
                 && request.homeserver_url.is_some()
                 && no_identity_secret
@@ -425,11 +505,10 @@ fn validate_operation_scope(request: &BrokerRequest) -> Result<(), &'static str>
                 && request.transaction_id.is_none()
                 && no_message_content
                 && request.typing_active.is_some()
+                && no_rooms_media_secret
         }
         BrokerOperation::ReadReceipt => {
-            request.room_ref.is_some()
-                && request.event_ref.is_some()
-                && request.transaction_ref.is_none()
+            exact_safe_scope(request, true, true, false, false, false, false, false)
                 && request.secret_kind.is_none()
                 && request.homeserver_url.is_some()
                 && no_identity_secret
@@ -438,12 +517,237 @@ fn validate_operation_scope(request: &BrokerRequest) -> Result<(), &'static str>
                 && request.transaction_id.is_none()
                 && no_message_content
                 && request.typing_active.is_none()
+                && no_rooms_media_secret
+        }
+        BrokerOperation::DmCreate => {
+            exact_safe_scope(request, false, false, true, true, false, false, false)
+                && request.member_id.is_some()
+                && request.transaction_id.is_some()
+                && request.homeserver_url.is_some()
+                && request.secret_kind.is_none()
+                && no_identity_secret
+                && no_message_content
+                && request.room_id.is_none()
+                && request.event_id.is_none()
+                && request.typing_active.is_none()
+                && request.space_id.is_none()
+                && request.room_name.is_none()
+                && request.desired_state.is_none()
+                && request.prior_state.is_none()
+                && request.media_uri.is_none()
+                && request.media_type.is_none()
+                && request.media_b64.is_none()
+        }
+        BrokerOperation::RoomCreate => {
+            exact_safe_scope(request, false, false, true, false, false, false, false)
+                && request.transaction_id.is_some()
+                && request.homeserver_url.is_some()
+                && request.secret_kind.is_none()
+                && no_identity_secret
+                && no_message_content
+                && request.room_id.is_none()
+                && request.event_id.is_none()
+                && request.typing_active.is_none()
+                && request.room_name.is_some()
+                && request.member_id.is_none()
+                && request.space_id.is_none()
+                && request.desired_state.is_none()
+                && request.prior_state.is_none()
+                && request.media_uri.is_none()
+                && request.media_type.is_none()
+                && request.media_b64.is_none()
+        }
+        BrokerOperation::RoomJoin
+        | BrokerOperation::InviteAccept
+        | BrokerOperation::InviteReject => {
+            exact_room_transaction_scope(request)
+                && exact_safe_scope(request, true, false, true, false, false, false, false)
+                && request.member_id.is_none()
+                && request.member_ref.is_none()
+                && request.event_id.is_none()
+                && request.event_ref.is_none()
+                && request.space_id.is_none()
+                && request.space_ref.is_none()
+                && request.desired_state.is_none()
+                && request.prior_state.is_some()
+                && request.media_uri.is_none()
+                && request.media_type.is_none()
+                && request.media_b64.is_none()
+        }
+        BrokerOperation::RoomLeave => {
+            exact_room_transaction_scope(request)
+                && exact_safe_scope(request, true, false, true, false, false, false, false)
+                && request.member_id.is_none()
+                && request.event_id.is_none()
+                && request.space_id.is_none()
+                && request.desired_state.is_none()
+                && request.prior_state.is_some()
+                && request.media_uri.is_none()
+                && request.media_type.is_none()
+                && request.media_b64.is_none()
+        }
+        BrokerOperation::InviteSend => {
+            exact_room_transaction_scope(request)
+                && exact_safe_scope(request, true, false, true, true, false, false, false)
+                && request.member_ref.is_some()
+                && request.member_id.is_some()
+                && request.event_id.is_none()
+                && request.event_ref.is_none()
+                && request.space_id.is_none()
+                && request.space_ref.is_none()
+                && request.desired_state.is_none()
+                && request.prior_state.is_some()
+                && request.media_uri.is_none()
+                && request.media_type.is_none()
+                && request.media_b64.is_none()
+        }
+        BrokerOperation::InviteWithdraw => {
+            exact_room_transaction_scope(request)
+                && exact_safe_scope(request, true, false, true, true, false, false, false)
+                && request.member_id.is_some()
+                && request.event_id.is_none()
+                && request.space_id.is_none()
+                && request.desired_state.is_none()
+                && request.prior_state.is_some()
+                && request.media_uri.is_none()
+                && request.media_type.is_none()
+                && request.media_b64.is_none()
+        }
+        BrokerOperation::RoomPowerRoleWrite => {
+            exact_room_transaction_scope(request)
+                && exact_safe_scope(request, true, false, true, true, false, false, false)
+                && request.member_ref.is_some()
+                && request.member_id.is_some()
+                && request.event_id.is_none()
+                && request.event_ref.is_none()
+                && request.space_id.is_none()
+                && request.space_ref.is_none()
+                && request.desired_state.is_some()
+                && request.prior_state.is_some()
+                && request.media_uri.is_none()
+                && request.media_type.is_none()
+                && request.media_b64.is_none()
+        }
+        BrokerOperation::SpaceMappingWrite => {
+            exact_room_transaction_scope(request)
+                && exact_safe_scope(request, true, false, true, false, true, false, false)
+                && request.space_ref.is_some()
+                && request.space_id.is_some()
+                && request.desired_state.is_some()
+                && request.prior_state.is_some()
+                && request.member_id.is_none()
+                && request.member_ref.is_none()
+                && request.event_id.is_none()
+                && request.event_ref.is_none()
+                && request.media_uri.is_none()
+                && request.media_type.is_none()
+                && request.media_b64.is_none()
+        }
+        BrokerOperation::NotificationSettingsWrite
+        | BrokerOperation::HistoryVisibilityWrite
+        | BrokerOperation::AccountRoomPreferenceWrite => {
+            exact_room_transaction_scope(request)
+                && exact_safe_scope(request, true, false, true, false, false, false, false)
+                && request.desired_state.is_some()
+                && request.member_id.is_none()
+                && request.member_ref.is_none()
+                && request.event_id.is_none()
+                && request.event_ref.is_none()
+                && request.space_id.is_none()
+                && request.space_ref.is_none()
+                && request.prior_state.is_some()
+                && request.media_uri.is_none()
+                && request.media_type.is_none()
+                && request.media_b64.is_none()
+        }
+        BrokerOperation::PinWrite => {
+            exact_room_transaction_scope(request)
+                && exact_safe_scope(request, true, true, true, false, false, false, false)
+                && request.event_ref.is_some()
+                && request.event_id.is_some()
+                && request.desired_state.is_some()
+                && request.member_id.is_none()
+                && request.member_ref.is_none()
+                && request.space_id.is_none()
+                && request.space_ref.is_none()
+                && request.prior_state.is_some()
+                && request.media_uri.is_none()
+                && request.media_type.is_none()
+                && request.media_b64.is_none()
+        }
+        BrokerOperation::MediaUpload => {
+            exact_room_transaction_scope(request)
+                && exact_safe_scope(request, true, false, true, false, false, true, false)
+                && request.media_type.is_some()
+                && request.media_b64.is_some()
+                && request.media_uri.is_none()
+                && request.member_id.is_none()
+                && request.member_ref.is_none()
+                && request.event_id.is_none()
+                && request.event_ref.is_none()
+                && request.space_id.is_none()
+                && request.space_ref.is_none()
+                && request.desired_state.is_none()
+                && request.prior_state.is_none()
+        }
+        BrokerOperation::MediaDownloadQuarantine => {
+            exact_room_transaction_scope(request)
+                && exact_safe_scope(request, true, true, true, false, false, true, true)
+                && request.media_uri.is_some()
+                && request.media_type.is_some()
+                && request.media_b64.is_none()
+                && request.member_id.is_none()
+                && request.member_ref.is_none()
+                && request.event_id.is_some()
+                && request.event_ref.is_some()
+                && request.space_id.is_none()
+                && request.space_ref.is_none()
+                && request.desired_state.is_none()
+                && request.prior_state.is_none()
         }
     };
     if !valid {
         return Err("MATRIX_BROKER_OPERATION_SCOPE_INVALID");
     }
     Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn exact_safe_scope(
+    request: &BrokerRequest,
+    room: bool,
+    event: bool,
+    transaction: bool,
+    member: bool,
+    space: bool,
+    media: bool,
+    quarantine: bool,
+) -> bool {
+    request.room_ref.is_some() == room
+        && request.event_ref.is_some() == event
+        && request.transaction_ref.is_some() == transaction
+        && request.member_ref.is_some() == member
+        && request.space_ref.is_some() == space
+        && request.media_ref.is_some() == media
+        && request.quarantine_ref.is_some() == quarantine
+}
+
+fn exact_room_transaction_scope(request: &BrokerRequest) -> bool {
+    request.room_ref.is_some()
+        && request.transaction_ref.is_some()
+        && request.homeserver_url.is_some()
+        && request.room_id.is_some()
+        && request.transaction_id.is_some()
+        && request.secret_kind.is_none()
+        && request.username.is_none()
+        && request.password.is_none()
+        && request.body.is_none()
+        && request.formatted_body.is_none()
+        && request.mention_user_ids.is_none()
+        && request.relation_event_id.is_none()
+        && request.reaction_key.is_none()
+        && request.typing_active.is_none()
+        && request.room_name.is_none()
 }
 
 fn safe_ref(value: &str) -> bool {
@@ -484,6 +788,10 @@ mod tests {
             room_ref: None,
             event_ref: None,
             transaction_ref: None,
+            member_ref: None,
+            space_ref: None,
+            media_ref: None,
+            quarantine_ref: None,
             approval_ref: "approval-ref:matrix:test".to_owned(),
             lease_ref: "authority-lease-ref:matrix:test".to_owned(),
             idempotency_ref: "idempotency-ref:matrix:test".to_owned(),
@@ -505,6 +813,14 @@ mod tests {
             relation_event_id: None,
             reaction_key: None,
             typing_active: None,
+            member_id: None,
+            space_id: None,
+            room_name: None,
+            desired_state: None,
+            prior_state: None,
+            media_uri: None,
+            media_type: None,
+            media_b64: None,
         }
     }
 
@@ -518,6 +834,8 @@ mod tests {
     #[test]
     fn operation_classifies_network_mutations() {
         assert!(BrokerOperation::Send.is_network_mutation());
+        assert!(BrokerOperation::DmCreate.is_network_mutation());
+        assert!(BrokerOperation::MediaDownloadQuarantine.is_network_mutation());
         assert!(!BrokerOperation::KeychainProbe.is_network_mutation());
         assert!(!BrokerOperation::SessionRestore.is_network_mutation());
     }
@@ -562,6 +880,49 @@ mod tests {
         receipt.room_id = None;
         assert_eq!(
             validate_operation_scope(&receipt),
+            Err("MATRIX_BROKER_OPERATION_SCOPE_INVALID")
+        );
+    }
+
+    #[test]
+    fn room_create_scope_rejects_safe_and_transient_smuggling() {
+        let mut create = request(BrokerOperation::RoomCreate);
+        create.transaction_ref = Some("transaction-ref:matrix:test".to_owned());
+        create.homeserver_url = Some(SecretString("http://127.0.0.1:18008".to_owned()));
+        create.transaction_id = Some(SecretString("transaction-test".to_owned()));
+        create.room_name = Some(SecretString("Exact room".to_owned()));
+        assert!(validate_operation_scope(&create).is_ok());
+        create.desired_state = Some(SecretString("smuggled".to_owned()));
+        assert_eq!(
+            validate_operation_scope(&create),
+            Err("MATRIX_BROKER_OPERATION_SCOPE_INVALID")
+        );
+        create.desired_state = None;
+        create.room_ref = Some("room-ref:matrix:smuggled".to_owned());
+        assert_eq!(
+            validate_operation_scope(&create),
+            Err("MATRIX_BROKER_OPERATION_SCOPE_INVALID")
+        );
+    }
+
+    #[test]
+    fn media_download_scope_rejects_unrelated_member_binding() {
+        let mut download = request(BrokerOperation::MediaDownloadQuarantine);
+        download.room_ref = Some("room-ref:matrix:test".to_owned());
+        download.event_ref = Some("event-ref:matrix:test".to_owned());
+        download.transaction_ref = Some("transaction-ref:matrix:test".to_owned());
+        download.media_ref = Some("media-ref:matrix:test".to_owned());
+        download.quarantine_ref = Some("quarantine-ref:matrix:test".to_owned());
+        download.homeserver_url = Some(SecretString("http://127.0.0.1:18008".to_owned()));
+        download.room_id = Some(SecretString("!room:localhost".to_owned()));
+        download.event_id = Some(SecretString("$event:localhost".to_owned()));
+        download.transaction_id = Some(SecretString("transaction-test".to_owned()));
+        download.media_uri = Some(SecretString("mxc://localhost/media".to_owned()));
+        download.media_type = Some(SecretString("image/png".to_owned()));
+        assert!(validate_operation_scope(&download).is_ok());
+        download.member_ref = Some("member-ref:matrix:smuggled".to_owned());
+        assert_eq!(
+            validate_operation_scope(&download),
             Err("MATRIX_BROKER_OPERATION_SCOPE_INVALID")
         );
     }

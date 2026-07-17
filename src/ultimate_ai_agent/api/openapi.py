@@ -6,6 +6,7 @@ from fastapi.routing import APIRoute
 from ultimate_ai_agent import __version__
 from ultimate_ai_agent.api.contracts import ApiContractStatus, ApiRouteSideEffectClass
 from ultimate_ai_agent.api.manifest import (
+    CONTROL_CENTER_MATRIX_ROOMS_MEDIA_SIDE_EFFECTS,
     iter_api_route_items,
     route_group_for_path,
     route_summary,
@@ -260,6 +261,10 @@ def verify_openapi_contract(app: FastAPI) -> ApiContractStatus:
         "/control-center/communications/matrix-messaging/desktop-notify": (
             ApiRouteSideEffectClass.local_sensitive.value
         ),
+        **{
+            path: side_effect.value
+            for path, side_effect in CONTROL_CENTER_MATRIX_ROOMS_MEDIA_SIDE_EFFECTS.items()
+        },
     }
     for route in routes:
         exact_matrix_side_effect = matrix_mutation_side_effects.get(route.path)

@@ -8,14 +8,14 @@
     "source_commit": "1c44fb66214667c6d00acaf72ab592493653708b"
   },
   "rust_toolchain": "1.93.0",
-  "cargo_lock_sha256": "e9f47d8fd7c6b79e5723081acd9988f9f7595b10e41756e8980bed26c0f9e582",
-  "cargo_manifest_sha256": "ad4a8a1004df2d72c3fad8d3ebed82a4fd9f60243e4af687f4020f8c154066cd",
+  "cargo_lock_sha256": "4358bb105beb7f2a94570c1a022563f9941ccdc19a135f869b7b3b7f9d854d72",
+  "cargo_manifest_sha256": "2def6d2d22beeac179cee197e6450178ccaa3423b9f6147aea3ed7a3f0befb97",
   "source_sha256": {
-    "execution.rs": "e07529aa0f89489c089e42f8755d8da330bfb95ef58a1f8c23f11127f99aceab",
+    "execution.rs": "90530394049183de6c83c3747c02f2db189b2660225fb6f20addb8b9da6f2aa7",
     "keychain.rs": "5e7ec98f391f6e5719b5da88aba9b265eeb3ba117bfe96dbf5f9ba1646f4ed66",
-    "ledger.rs": "b3fa80564628ecb5442ca4d97760ec89b3dea0e7c12d96ff18328abd47226ef2",
-    "main.rs": "0b0eee900741cf8a45ad619f7ceca4d79b9d08c9607a923eaf802af969790386",
-    "protocol.rs": "a45ca8e5ce58c1fe088725ed127e01d821529693c0b21caef2aa6985133b49f9"
+    "ledger.rs": "29f8dd08f778433832243457171da04f98fd05c1047a7964807c48f3d91e8d78",
+    "main.rs": "e1db9180f000b092421fa899bd41c0531effdfa8f25478b6636d92e67f7211e5",
+    "protocol.rs": "f153493eb52fa1902477ce42693fee7d85e940e99bf81a616022f8da8c3a4cf5"
   },
   "binary_integrity": "required_at_runtime",
   "remote_targets_enabled": false,

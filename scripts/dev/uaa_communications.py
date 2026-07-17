@@ -77,6 +77,17 @@ from ultimate_ai_agent.core.communications.matrix_messaging import (  # noqa: E4
     execute_matrix_messaging_command,
     issue_exact_matrix_messaging_lease,
 )
+from ultimate_ai_agent.core.communications.matrix_rooms_media import (  # noqa: E402
+    MATRIX_ROOMS_MEDIA_LANES,
+    MatrixRoomsMediaCommand,
+    MatrixRoomsMediaReadiness,
+    MatrixRoomsMediaRuntime,
+    build_default_matrix_rooms_media_posture,
+    build_matrix_rooms_media_proposal,
+    capture_exact_matrix_rooms_media_approval,
+    execute_matrix_rooms_media_command,
+    issue_exact_matrix_rooms_media_lease,
+)
 from ultimate_ai_agent.core.time import utc_now  # noqa: E402
 
 
@@ -224,6 +235,27 @@ def _render_matrix_messaging_posture(as_json: bool) -> int:
     return 0
 
 
+def _render_matrix_rooms_media_posture(as_json: bool) -> int:
+    posture = build_default_matrix_rooms_media_posture()
+    if as_json:
+        _json(posture)
+        return 0
+    print("Matrix rooms, encrypted local search, and bounded media")
+    print(f"- Runtime: {posture.runtime_status}")
+    print(f"- Exact authority lanes: {len(posture.authority_lane_refs)}")
+    print(
+        f"- Implemented Python Core operations: {len(posture.implemented_core_operation_refs)}"
+    )
+    print(
+        f"- Live operations requiring enrollment: {len(posture.blocked_live_operation_refs)}"
+    )
+    print(f"- Media maximum bytes: {posture.media_max_bytes}")
+    print(f"- Element interoperability: {posture.element_interoperability_status}")
+    print("- Standing room, filesystem, or search authority: denied")
+    print("No message content, search queries, local paths, or raw media is shown.")
+    return 0
+
+
 def _load_matrix_messaging_command(path_value: str) -> MatrixMessagingCommand:
     flags = os.O_RDONLY | os.O_CLOEXEC
     if hasattr(os, "O_NOFOLLOW"):
@@ -239,6 +271,96 @@ def _load_matrix_messaging_command(path_value: str) -> MatrixMessagingCommand:
     finally:
         os.close(descriptor)
     return MatrixMessagingCommand.model_validate_json(payload)
+
+
+def _load_matrix_rooms_media_command(path_value: str) -> MatrixRoomsMediaCommand:
+    flags = os.O_RDONLY | os.O_CLOEXEC
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    descriptor = os.open(path_value, flags)
+    try:
+        info = os.fstat(descriptor)
+        if not stat.S_ISREG(info.st_mode) or not (1 <= info.st_size <= 64 * 1024):
+            raise ValueError("MATRIX_ROOMS_MEDIA_COMMAND_FILE_INVALID")
+        payload = os.read(descriptor, 64 * 1024 + 1)
+        if len(payload) != info.st_size:
+            raise ValueError("MATRIX_ROOMS_MEDIA_COMMAND_FILE_INVALID")
+    finally:
+        os.close(descriptor)
+    return MatrixRoomsMediaCommand.model_validate_json(payload)
+
+
+def _render_matrix_rooms_media_command(args: argparse.Namespace) -> int:
+    try:
+        command = _load_matrix_rooms_media_command(args.command_file)
+    except (OSError, ValueError):
+        print("Matrix room/search/media command blocked (safe command file invalid).")
+        return 2
+    if args.rooms_media_action == "propose":
+        proposal = build_matrix_rooms_media_proposal(command)
+        if args.json:
+            _json(proposal)
+        else:
+            print("Matrix room/search/media proposal")
+            print(f"- Operation: {proposal.operation.value}")
+            print(f"- Proposal: {proposal.proposal_ref}")
+            print("- Execution permitted: no")
+            print("- Approval ref grants authority: no")
+            print(
+                "No search query, local path, raw identifier, or media content is shown."
+            )
+        return 0
+    store = AuthorityLeaseStore()
+    approvals = LocalApprovalAuthority()
+    approval_ref: str | None = None
+    try:
+        if args.confirm:
+            issue_exact_matrix_rooms_media_lease(command, store=store, confirmed=True)
+            approval_ref = capture_exact_matrix_rooms_media_approval(
+                command, approval_authority=approvals, confirmed=True
+            )
+
+        def readiness(exact: MatrixRoomsMediaCommand) -> MatrixRoomsMediaReadiness:
+            observed = utc_now()
+            return MatrixRoomsMediaReadiness(
+                readiness_ref=exact.readiness_ref,
+                request_fingerprint_ref=exact.request_fingerprint_ref,
+                adapter_ref=MATRIX_ROOMS_MEDIA_LANES[exact.operation].adapter_ref,
+                status="blocked",
+                observed_at=observed,
+                expires_at=min(exact.start_deadline, observed + timedelta(seconds=30)),
+                kill_switch_engaged=False,
+                safe_disable_active=False,
+                broker_integrity_verified=False,
+                filesystem_root_verified=False,
+                encrypted_index_available=False,
+                reason_refs=(
+                    "reason-ref:matrix-rooms-media:runtime-enrollment-required",
+                ),
+            )
+
+        result = execute_matrix_rooms_media_command(
+            command,
+            authority_state_dir=store.state_dir,
+            runtime=MatrixRoomsMediaRuntime.blocked(),
+            readiness_provider=readiness,
+            approval_ref=approval_ref,
+            lease_store=store,
+            approval_authority=approvals,
+        )
+    except (OSError, RuntimeError, ValueError):
+        print("Matrix room/search/media operation blocked (reference-only diagnostic).")
+        return 2
+    if args.json:
+        _json(result)
+    else:
+        print("Governed Matrix room/search/media operation")
+        print(f"- Operation: {command.operation.value}")
+        print(f"- Dispatch status: {result.receipt.status}")
+        print(f"- Receipt: {result.receipt.receipt_ref}")
+        print(f"- Reasons: {', '.join(result.receipt.reason_refs) or 'none'}")
+        print("No search query, local path, raw identifier, or media content is shown.")
+    return 0 if result.receipt.status == "succeeded" else 2
 
 
 def _render_matrix_messaging_command(args: argparse.Namespace) -> int:
@@ -258,7 +380,9 @@ def _render_matrix_messaging_command(args: argparse.Namespace) -> int:
             print(f"- Request fingerprint: {proposal.request_fingerprint_ref}")
             print("- Execution permitted: no")
             print("- Approval ref grants authority: no")
-            print("No message content, credential, provider payload, or local path is shown.")
+            print(
+                "No message content, credential, provider payload, or local path is shown."
+            )
         return 0
 
     store = AuthorityLeaseStore()
@@ -312,7 +436,9 @@ def _render_matrix_messaging_command(args: argparse.Namespace) -> int:
         print(f"- Dispatch status: {result.receipt.status}")
         print(f"- Receipt: {result.receipt.receipt_ref}")
         print(f"- Reasons: {', '.join(result.receipt.reason_refs) or 'none'}")
-        print("No message content, credential, provider payload, or local path is shown.")
+        print(
+            "No message content, credential, provider payload, or local path is shown."
+        )
     return 0 if result.receipt.status == "succeeded" else 2
 
 
@@ -668,6 +794,13 @@ def build_parser() -> argparse.ArgumentParser:
     messaging_posture.add_argument(
         "--json", action="store_true", help="Emit safe JSON."
     )
+    rooms_media_posture = subparsers.add_parser(
+        "matrix-rooms-media-status",
+        help="Inspect exact Matrix room, encrypted search, and bounded media posture.",
+    )
+    rooms_media_posture.add_argument(
+        "--json", action="store_true", help="Emit safe JSON."
+    )
     messaging = subparsers.add_parser(
         "matrix-messaging",
         help="Review or dispatch one safe-ref-only Matrix messaging command file.",
@@ -682,6 +815,27 @@ def build_parser() -> argparse.ArgumentParser:
             "--command-file",
             required=True,
             help="Path to one validated safe-ref-only MatrixMessagingCommand JSON file.",
+        )
+        if action == "dispatch":
+            command.add_argument(
+                "--confirm",
+                action="store_true",
+                help="Capture exact approval; runtime enrollment is still required.",
+            )
+        command.add_argument("--json", action="store_true", help="Emit safe JSON.")
+    rooms_media = subparsers.add_parser(
+        "matrix-rooms-media",
+        help="Review or dispatch one safe-ref-only Matrix room/search/media command file.",
+    )
+    rooms_media_actions = rooms_media.add_subparsers(
+        dest="rooms_media_action", required=True
+    )
+    for action in ("propose", "dispatch"):
+        command = rooms_media_actions.add_parser(action)
+        command.add_argument(
+            "--command-file",
+            required=True,
+            help="Path to one validated safe-ref-only MatrixRoomsMediaCommand JSON file.",
         )
         if action == "dispatch":
             command.add_argument(
@@ -848,6 +1002,8 @@ def main(
         return _render_matrix_crypto_proposal(args)
     if args.command == "matrix-messaging":
         return _render_matrix_messaging_command(args)
+    if args.command == "matrix-rooms-media":
+        return _render_matrix_rooms_media_command(args)
     if args.command == "providers":
         return _render_providers(active_service, args.json)
     if args.command == "session":
@@ -864,6 +1020,8 @@ def main(
         return _render_matrix_crypto_posture(args.json)
     if args.command == "matrix-messaging-status":
         return _render_matrix_messaging_posture(args.json)
+    if args.command == "matrix-rooms-media-status":
+        return _render_matrix_rooms_media_posture(args.json)
     return _render_receipt(active_service, args.json, args.receipt_ref)
 
 

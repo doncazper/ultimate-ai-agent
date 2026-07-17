@@ -19,6 +19,8 @@ from ultimate_ai_agent.core.authority.authority_constants import (
     AUTHORITY_STATE_REDACTIONS,
     MATRIX_HARNESS_EXACT_AUTHORITY_BINDINGS,
     MATRIX_MESSAGING_EXACT_AUTHORITY_BINDINGS,
+    MATRIX_ROOMS_MEDIA_COMPOSITE_REQUESTED_DOMAINS,
+    MATRIX_ROOMS_MEDIA_EXACT_AUTHORITY_BINDINGS,
     MATRIX_CRYPTO_EXACT_AUTHORITY_BINDINGS,
     MATRIX_SESSION_EXACT_AUTHORITY_BINDINGS,
     MATRIX_SYNC_EXACT_AUTHORITY_BINDINGS,
@@ -1143,6 +1145,7 @@ def _exact_authority_binding_catalog() -> dict[
         *MATRIX_SYNC_EXACT_AUTHORITY_BINDINGS,
         *MATRIX_CRYPTO_EXACT_AUTHORITY_BINDINGS,
         *MATRIX_MESSAGING_EXACT_AUTHORITY_BINDINGS,
+        *MATRIX_ROOMS_MEDIA_EXACT_AUTHORITY_BINDINGS,
     ):
         catalog[(lane, capability, adapter, tool)] = (
             AuthorityDomain(domain),
@@ -1151,6 +1154,31 @@ def _exact_authority_binding_catalog() -> dict[
             TrustMode(mode),
         )
     return catalog
+
+
+def _rooms_media_expected_domains(
+    exact_binding: tuple[object, object, object, object],
+    *,
+    primary_domain: AuthorityDomain,
+    primary_capability: AuthorityCapability,
+) -> dict[AuthorityDomain, list[AuthorityCapability]]:
+    lane_ref = exact_binding[0]
+    if not isinstance(lane_ref, str) or not lane_ref.startswith(
+        "authority-lane-ref:matrix-rooms-media-"
+    ):
+        return {primary_domain: [primary_capability]}
+    operation = lane_ref.removeprefix("authority-lane-ref:matrix-rooms-media-").replace(
+        "-", "_"
+    )
+    composite = MATRIX_ROOMS_MEDIA_COMPOSITE_REQUESTED_DOMAINS.get(operation)
+    if composite is None:
+        return {primary_domain: [primary_capability]}
+    return {
+        AuthorityDomain(domain): [
+            AuthorityCapability(capability) for capability in capabilities
+        ]
+        for domain, capabilities in composite.items()
+    }
 
 
 def _exact_authority_issue_binding(
@@ -1168,7 +1196,6 @@ def _exact_authority_issue_binding(
     if expected is None:
         return None
     expected_domain, expected_capability, expected_scope, expected_mode = expected
-    requested_capabilities = request.requested_domains.get(expected_domain, [])
     constraints_by_kind = {
         AuthorityConstraintKind(constraint.kind): constraint
         for constraint in request.authority_constraints
@@ -1236,6 +1263,20 @@ def _exact_authority_issue_binding(
             ) in MATRIX_MESSAGING_EXACT_AUTHORITY_BINDINGS
         }
         is_matrix_messaging_binding = exact_binding in messaging_exact_bindings
+        rooms_media_exact_bindings = {
+            (lane, capability, adapter, tool)
+            for (
+                _domain,
+                _authority_capability,
+                _scope,
+                _mode,
+                lane,
+                capability,
+                adapter,
+                tool,
+            ) in MATRIX_ROOMS_MEDIA_EXACT_AUTHORITY_BINDINGS
+        }
+        is_matrix_rooms_media_binding = exact_binding in rooms_media_exact_bindings
         session_binding_refs = {
             request.constraints.get("exact_start_deadline_ref"),
             request.constraints.get("exact_readiness_ref"),
@@ -1255,7 +1296,36 @@ def _exact_authority_issue_binding(
             isinstance(ref, str) for ref in sync_resource_refs
         ):
             return None
-        if is_matrix_messaging_binding:
+        if is_matrix_rooms_media_binding:
+            rooms_media_resource_refs = {
+                request.constraints.get("exact_provider_ref"),
+                request.constraints.get("exact_runtime_ref"),
+                request.constraints.get("exact_kill_switch_ref"),
+                request.constraints.get("exact_retention_ref"),
+                request.constraints.get("exact_limit_policy_ref"),
+            }
+            if not all(isinstance(ref, str) for ref in rooms_media_resource_refs):
+                return None
+            required_resource_refs.update(
+                {
+                    "target-ref:communications:matrix-rooms-media-exact-scope",
+                    "budget-ref:matrix-rooms-media:zero-cost-v1",
+                    "safe-disable-ref:matrix-messenger:enabled",
+                    *session_binding_refs,
+                    *rooms_media_resource_refs,
+                }
+            )
+            allowed_target_refs = {
+                "target-ref:communications:matrix-rooms-media-exact-scope"
+            }
+            allowed_homeserver_refs = {
+                ref
+                for ref in (
+                    resource_constraint.allowed_refs if resource_constraint else []
+                )
+                if ref.startswith("homeserver-ref:matrix:")
+            }
+        elif is_matrix_messaging_binding:
             messaging_resource_refs = {
                 request.constraints.get("exact_provider_ref"),
                 request.constraints.get("exact_runtime_ref"),
@@ -1275,9 +1345,7 @@ def _exact_authority_issue_binding(
                     *messaging_resource_refs,
                 }
             )
-            allowed_target_refs = {
-                "target-ref:communications:matrix-exact-message"
-            }
+            allowed_target_refs = {"target-ref:communications:matrix-exact-message"}
             allowed_homeserver_refs = {
                 ref
                 for ref in (
@@ -1356,6 +1424,20 @@ def _exact_authority_issue_binding(
     requested_target_refs = {
         ref for ref in allowed_resource_refs if ref.startswith("target-ref:")
     }
+    expected_requested_domains = {expected_domain: [expected_capability]}
+    if expected_scope == AuthorityLeaseScope.session and is_matrix_rooms_media_binding:
+        operation = (
+            str(exact_binding[0])
+            .removeprefix("authority-lane-ref:matrix-rooms-media-")
+            .replace("-", "_")
+        )
+        composite = MATRIX_ROOMS_MEDIA_COMPOSITE_REQUESTED_DOMAINS.get(operation)
+        if composite is not None:
+            expected_requested_domains = _rooms_media_expected_domains(
+                exact_binding,
+                primary_domain=expected_domain,
+                primary_capability=expected_capability,
+            )
     if not (
         request.scope == expected_scope
         and (
@@ -1364,8 +1446,7 @@ def _exact_authority_issue_binding(
         )
         and request.requested_lease_ref is not None
         and request.mode == expected_mode
-        and set(request.requested_domains) == {expected_domain}
-        and requested_capabilities == [expected_capability]
+        and request.requested_domains == expected_requested_domains
         and set(constraints_by_kind) == expected_constraint_kinds
         and required_resource_refs <= allowed_resource_refs
         and requested_target_refs == allowed_target_refs
@@ -2070,10 +2151,15 @@ def _lease_exact_authority_binding_matches(
         return False
     expected_domain, expected_capability, expected_scope, expected_mode = expected
     granted_capabilities = lease.domains.get(expected_domain, [])
+    expected_domains = _rooms_media_expected_domains(
+        request_binding,
+        primary_domain=expected_domain,
+        primary_capability=expected_capability,
+    )
     return (
         lease.scope == expected_scope.value
         and lease.mode == expected_mode.value
-        and set(lease.domains) == {expected_domain}
+        and lease.domains == expected_domains
         and granted_capabilities == [expected_capability]
         and AuthorityDomain(request.domain) == expected_domain
         and AuthorityCapability(request.capability) == expected_capability
@@ -2850,6 +2936,18 @@ def _filter_requested_domains(
     denied_refs: list[str] = []
     unsupported_refs: list[str] = []
     exact_binding = _exact_authority_issue_binding(request)
+    expected_exact_domains: dict[AuthorityDomain, list[AuthorityCapability]] = {}
+    if exact_binding is not None:
+        expected_exact_domains = _rooms_media_expected_domains(
+            (
+                request.constraints.get("exact_lane_ref"),
+                request.constraints.get("exact_capability_ref"),
+                request.constraints.get("exact_adapter_ref"),
+                request.constraints.get("exact_tool_ref"),
+            ),
+            primary_domain=exact_binding[0],
+            primary_capability=exact_binding[1],
+        )
     for domain, capabilities in requested.items():
         domain_value = AuthorityDomain(domain)
         allowed_capabilities = allowed.get(domain_value, set())
@@ -2863,13 +2961,14 @@ def _filter_requested_domains(
             if exact_binding is None:
                 granted_capabilities = []
             else:
-                expected_domain, expected_capability, _, _ = exact_binding
                 exact_binding_matches_domain = (
-                    domain_value == expected_domain
-                    and capabilities == [expected_capability]
+                    domain_value in expected_exact_domains
+                    and capabilities == expected_exact_domains[domain_value]
                 )
                 granted_capabilities = (
-                    [expected_capability] if exact_binding_matches_domain else []
+                    expected_exact_domains[domain_value]
+                    if exact_binding_matches_domain
+                    else []
                 )
         elif domain_value == AuthorityDomain.messages:
             granted_capabilities = []

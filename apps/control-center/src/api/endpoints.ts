@@ -26,6 +26,8 @@ export const API_ENDPOINTS = {
     "/control-center/communications/matrix-crypto/posture",
   communicationsMatrixMessagingPosture:
     "/control-center/communications/matrix-messaging/posture",
+  communicationsMatrixRoomsMediaPosture:
+    "/control-center/communications/matrix-rooms-media/posture",
   communicationsRooms: "/control-center/communications/rooms",
   communicationsFailedSends: "/control-center/communications/failed-sends",
   communicationsSecurityPosture:
@@ -232,6 +234,7 @@ export const READ_ENDPOINTS = [
   API_ENDPOINTS.controlCenterLocalModelsStatus,
   API_ENDPOINTS.communicationsProviders,
   API_ENDPOINTS.communicationsSessionPosture,
+  API_ENDPOINTS.communicationsMatrixRoomsMediaPosture,
   API_ENDPOINTS.communicationsRooms,
   API_ENDPOINTS.communicationsFailedSends,
   API_ENDPOINTS.communicationsSecurityPosture,

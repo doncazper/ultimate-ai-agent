@@ -62,12 +62,15 @@ connector draft proposal refs from `GET /control-center/sources/readiness`,
 but no standalone or mutating draft proposal route, backend email/calendar
 connector route, account auth, send/write/archive/delete authority, or
 connector runtime.
-`/messenger` is a desktop-only synthetic fixture route for the accepted
-Messenger Matrix renders and deterministic failure states. It bypasses backend
-data hooks and has no Matrix dependency, account, network, sync, encryption,
-cache, message read/send, room mutation, media, calling, credential, model,
-memory, public release, or production authority. Fixture navigation is local
-presentation state and Python Agent Core remains product truth.
+`/messenger` keeps synthetic room/message content and deterministic failure
+states while reading backend-owned content-free sync, crypto, exact manual-
+messaging, and exact rooms/search/media posture. MSG-MX-009 implements twenty
+request-scoped Core lanes, but the default live runtime is
+`configuration_required`; no fixture target or Control Center state can mint
+authority. Protected content binding, live account enrollment, calls, remote
+homeservers, broad filesystem access, autonomous actions, public release, and
+production authority remain blocked. Fixture navigation is local presentation
+state and Python Agent Core remains product truth.
 `/actions` renders backend-classified Action Inbox queue states from
 `GET /control-center/actions/inbox` so ready, approved local-task,
 authority-blocked, expired/stale, receipt-recorded, and proposal-only items are
@@ -274,8 +277,8 @@ provider/model calls, connector writes, coworker dispatch, background autonomy,
 raw path/log persistence, public release, or production authority.
 Verification: `scripts/verify_beta_11_operator_workspace_spine.py`.
 
-OpenAPI remains a backend contract. The current backend path count is `305`
-with `306` manifest route operations; earlier milestone counts in the
+OpenAPI remains a backend contract. The current backend path count is `327`
+with `328` manifest route operations; earlier milestone counts in the
 historical sections below are audit context, not current route inventory.
 
 ## v0.18.0 M14 Connection Stabilization

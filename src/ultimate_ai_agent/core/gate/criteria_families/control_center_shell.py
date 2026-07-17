@@ -264,7 +264,7 @@ def criteria(build: Callable[..., Any]) -> list[Any]:
                     "M14 Backend API Contract Unchanged",
                     FoundationGateCategory.contracts,
                     "FoundationGateEvaluator.check_m14_backend_api_contract_unchanged",
-                    "Backend API path count remains 75 and no new Control Center execution, dispatch, approval, or event routes are added.",
+                    "The normalized historical API boundary stays at 79 paths while exact post-milestone Control Center routes are explicitly classified and no unsafe execution, dispatch, approval, or event route appears.",
                     "M14 changed backend API route count or exposed an out-of-scope backend route.",
                     "critical",
                 ),

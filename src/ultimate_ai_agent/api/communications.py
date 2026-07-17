@@ -77,6 +77,18 @@ from ultimate_ai_agent.core.communications.matrix_messaging.service import (
     MatrixMessagingRuntime,
     execute_matrix_messaging_command,
 )
+from ultimate_ai_agent.core.communications.matrix_rooms_media import (
+    MATRIX_ROOMS_MEDIA_LANES,
+    MatrixRoomsMediaCommand,
+    MatrixRoomsMediaOperation,
+    MatrixRoomsMediaReadiness,
+    MatrixRoomsMediaRuntime,
+    build_default_matrix_rooms_media_posture,
+    build_matrix_rooms_media_proposal,
+    capture_exact_matrix_rooms_media_approval,
+    execute_matrix_rooms_media_command,
+    issue_exact_matrix_rooms_media_lease,
+)
 from ultimate_ai_agent.core.time import utc_now
 
 
@@ -86,6 +98,7 @@ _SERVICE = build_default_communications_service()
 _HARNESS_APPROVAL_AUTHORITY = LocalApprovalAuthority()
 _SESSION_APPROVAL_AUTHORITY = LocalApprovalAuthority()
 _MESSAGING_APPROVAL_AUTHORITY = LocalApprovalAuthority()
+_ROOMS_MEDIA_APPROVAL_AUTHORITY = LocalApprovalAuthority()
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _REDACTIONS = [
     "communications_safe_refs_only",
@@ -177,14 +190,10 @@ class MatrixMessagingTransientRequest(BaseModel):
                 else None
             ),
             room_id=(
-                self.room_id.get_secret_value()
-                if self.room_id is not None
-                else None
+                self.room_id.get_secret_value() if self.room_id is not None else None
             ),
             event_id=(
-                self.event_id.get_secret_value()
-                if self.event_id is not None
-                else None
+                self.event_id.get_secret_value() if self.event_id is not None else None
             ),
             typing_active=self.typing_active,
         )
@@ -213,10 +222,7 @@ class MatrixMessagingOperationRequest(BaseModel):
         if transient_operation != (self.transient is not None):
             raise ValueError("MATRIX_MESSAGING_TRANSIENT_SCOPE_INVALID")
         if self.transient is not None:
-            if (
-                self.transient.homeserver_url is None
-                or self.transient.room_id is None
-            ):
+            if self.transient.homeserver_url is None or self.transient.room_id is None:
                 raise ValueError("MATRIX_MESSAGING_HOMESERVER_TRANSIENT_REQUIRED")
             if self.command.operation == MatrixMessagingOperation.typing:
                 if (
@@ -242,6 +248,22 @@ MatrixMessagingOperationHandler = Callable[
     [MatrixMessagingOperationRequest],
     object,
 ]
+
+
+class MatrixRoomsMediaOperationRequest(BaseModel):
+    command: MatrixRoomsMediaCommand
+    confirmed: StrictBool = False
+
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+
+class MatrixRoomsMediaProposalRequest(BaseModel):
+    command: MatrixRoomsMediaCommand
+
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+
+MatrixRoomsMediaOperationHandler = Callable[[MatrixRoomsMediaOperationRequest], object]
 
 
 def _execute_matrix_harness_operation(
@@ -344,9 +366,7 @@ def _blocked_matrix_messaging_readiness(
         broker_integrity_verified=False,
         keychain_available=False,
         crypto_store_available=False,
-        reason_refs=(
-            "reason-ref:matrix-messaging:runtime-enrollment-required",
-        ),
+        reason_refs=("reason-ref:matrix-messaging:runtime-enrollment-required",),
     )
 
 
@@ -377,6 +397,56 @@ def _execute_matrix_messaging_operation(
 
 _MATRIX_MESSAGING_OPERATION_HANDLER: MatrixMessagingOperationHandler = (
     _execute_matrix_messaging_operation
+)
+
+
+def _blocked_matrix_rooms_media_readiness(
+    command: MatrixRoomsMediaCommand,
+) -> MatrixRoomsMediaReadiness:
+    now = utc_now()
+    return MatrixRoomsMediaReadiness(
+        readiness_ref=command.readiness_ref,
+        request_fingerprint_ref=command.request_fingerprint_ref,
+        adapter_ref=MATRIX_ROOMS_MEDIA_LANES[command.operation].adapter_ref,
+        status="blocked",
+        observed_at=now,
+        expires_at=min(command.start_deadline, now + timedelta(seconds=30)),
+        kill_switch_engaged=False,
+        safe_disable_active=False,
+        broker_integrity_verified=False,
+        filesystem_root_verified=False,
+        encrypted_index_available=False,
+        reason_refs=("reason-ref:matrix-rooms-media:runtime-enrollment-required",),
+    )
+
+
+def _execute_matrix_rooms_media_operation(
+    payload: MatrixRoomsMediaOperationRequest,
+) -> object:
+    store = AuthorityLeaseStore()
+    command = payload.command
+    if payload.confirmed:
+        issue_exact_matrix_rooms_media_lease(command, store=store, confirmed=True)
+        approval_ref = capture_exact_matrix_rooms_media_approval(
+            command,
+            approval_authority=_ROOMS_MEDIA_APPROVAL_AUTHORITY,
+            confirmed=True,
+        )
+    else:
+        approval_ref = None
+    return execute_matrix_rooms_media_command(
+        command,
+        authority_state_dir=store.state_dir,
+        runtime=MatrixRoomsMediaRuntime.blocked(),
+        readiness_provider=_blocked_matrix_rooms_media_readiness,
+        approval_ref=approval_ref,
+        lease_store=store,
+        approval_authority=_ROOMS_MEDIA_APPROVAL_AUTHORITY,
+    )
+
+
+_MATRIX_ROOMS_MEDIA_OPERATION_HANDLER: MatrixRoomsMediaOperationHandler = (
+    _execute_matrix_rooms_media_operation
 )
 
 
@@ -506,6 +576,24 @@ def _require_messaging_idempotency_binding(
         )
 
 
+def _require_rooms_media_idempotency_binding(
+    payload: MatrixRoomsMediaOperationRequest,
+    idempotency_key: str | None,
+    idempotency_ref: str | None,
+) -> None:
+    supplied = {
+        value.strip()
+        for value in (idempotency_key, idempotency_ref)
+        if value is not None and value.strip()
+    }
+    if supplied != {payload.command.idempotency_ref}:
+        raise HTTPException(
+            status_code=409,
+            detail="MATRIX_ROOMS_MEDIA_IDEMPOTENCY_MISMATCH",
+            headers={"Cache-Control": "no-store"},
+        )
+
+
 def _run_matrix_messaging_operation(
     operation: MatrixMessagingOperation,
     payload: MatrixMessagingOperationRequest,
@@ -520,9 +608,7 @@ def _run_matrix_messaging_operation(
             detail="MATRIX_MESSAGING_OPERATION_MISMATCH",
             headers={"Cache-Control": "no-store"},
         )
-    _require_messaging_idempotency_binding(
-        payload, idempotency_key, idempotency_ref
-    )
+    _require_messaging_idempotency_binding(payload, idempotency_key, idempotency_ref)
     try:
         result = _MATRIX_MESSAGING_OPERATION_HANDLER(payload)
     except (OSError, ValueError, RuntimeError) as exc:
@@ -554,6 +640,57 @@ def _run_matrix_messaging_operation(
                 else ErrorCategory.tool_error
             ),
             safe_message="The exact Matrix messaging operation did not succeed.",
+            severity=Severity.high,
+            retryable=False,
+            details_redacted=True,
+            source="CommunicationsService",
+        ),
+        redactions_applied=list(_REDACTIONS),
+    )
+
+
+def _run_matrix_rooms_media_operation(
+    operation: MatrixRoomsMediaOperation,
+    payload: MatrixRoomsMediaOperationRequest,
+    response: Response,
+    idempotency_key: str | None,
+    idempotency_ref: str | None,
+) -> ResultEnvelope:
+    _no_store(response)
+    if payload.command.operation != operation:
+        raise HTTPException(
+            status_code=422,
+            detail="MATRIX_ROOMS_MEDIA_OPERATION_MISMATCH",
+            headers={"Cache-Control": "no-store"},
+        )
+    _require_rooms_media_idempotency_binding(payload, idempotency_key, idempotency_ref)
+    try:
+        result = _MATRIX_ROOMS_MEDIA_OPERATION_HANDLER(payload)
+    except (OSError, ValueError, RuntimeError) as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="MATRIX_ROOMS_MEDIA_OPERATION_BLOCKED",
+            headers={"Cache-Control": "no-store"},
+        ) from exc
+    data = result.model_dump(mode="json") if hasattr(result, "model_dump") else result
+    operation_name = (
+        f"control_center_communications_matrix_rooms_media_{operation.value}"
+    )
+    status = getattr(getattr(result, "receipt", None), "status", None)
+    if status == "succeeded":
+        return _envelope(
+            operation=operation_name, trace_id=payload.command.dispatch_ref, data=data
+        )
+    return ResultEnvelope(
+        success=False,
+        operation=operation_name,
+        service="CommunicationsService",
+        trace_id=payload.command.dispatch_ref,
+        data=data,
+        error=ErrorEnvelope(
+            code="MATRIX_ROOMS_MEDIA_OPERATION_NOT_SUCCEEDED",
+            category=ErrorCategory.authorization_error,
+            safe_message="The exact Matrix room, search, or media operation did not succeed.",
             severity=Severity.high,
             retryable=False,
             details_redacted=True,
@@ -729,6 +866,41 @@ def post_control_center_communications_matrix_messaging_proposal(
     proposal = build_matrix_messaging_proposal(payload.command)
     return _envelope(
         operation="control_center_communications_matrix_messaging_proposal",
+        trace_id=proposal.proposal_ref,
+        data=proposal.model_dump(mode="json"),
+    )
+
+
+@router.get(
+    "/matrix-rooms-media/posture",
+    response_model=ResultEnvelope,
+    operation_id="get_control_center_communications_matrix_rooms_media_posture",
+)
+def get_control_center_communications_matrix_rooms_media_posture(
+    response: Response,
+) -> ResultEnvelope:
+    _no_store(response)
+    posture = build_default_matrix_rooms_media_posture()
+    return _envelope(
+        operation="control_center_communications_matrix_rooms_media_posture",
+        trace_id=posture.posture_ref,
+        data=posture.model_dump(mode="json"),
+    )
+
+
+@router.post(
+    "/matrix-rooms-media/proposal",
+    response_model=ResultEnvelope,
+    operation_id="post_control_center_communications_matrix_rooms_media_proposal",
+)
+def post_control_center_communications_matrix_rooms_media_proposal(
+    payload: MatrixRoomsMediaProposalRequest,
+    response: Response,
+) -> ResultEnvelope:
+    _no_store(response)
+    proposal = build_matrix_rooms_media_proposal(payload.command)
+    return _envelope(
+        operation="control_center_communications_matrix_rooms_media_proposal",
         trace_id=proposal.proposal_ref,
         data=proposal.model_dump(mode="json"),
     )
@@ -1177,8 +1349,7 @@ def _matrix_messaging_api_handler(
         )
 
     handler.__name__ = (
-        "post_control_center_communications_matrix_messaging_"
-        f"{operation.value}"
+        f"post_control_center_communications_matrix_messaging_{operation.value}"
     )
     return handler
 
@@ -1194,6 +1365,40 @@ for _messaging_operation in MatrixMessagingOperation:
             "post_control_center_communications_matrix_messaging_"
             f"{_messaging_operation.value}"
         ),
+    )
+
+
+def _matrix_rooms_media_api_handler(
+    operation: MatrixRoomsMediaOperation,
+) -> Callable[..., ResultEnvelope]:
+    def handler(
+        payload: MatrixRoomsMediaOperationRequest,
+        response: Response,
+        x_uaa_idempotency_key: str | None = Header(
+            default=None, alias=IDEMPOTENCY_KEY_HEADER
+        ),
+        x_uaa_idempotency_ref: str | None = Header(
+            default=None, alias=IDEMPOTENCY_REF_HEADER
+        ),
+    ) -> ResultEnvelope:
+        return _run_matrix_rooms_media_operation(
+            operation, payload, response, x_uaa_idempotency_key, x_uaa_idempotency_ref
+        )
+
+    handler.__name__ = (
+        f"post_control_center_communications_matrix_rooms_media_{operation.value}"
+    )
+    return handler
+
+
+for _rooms_media_operation in MatrixRoomsMediaOperation:
+    _rooms_media_slug = _rooms_media_operation.value.replace("_", "-")
+    router.add_api_route(
+        f"/matrix-rooms-media/{_rooms_media_slug}",
+        _matrix_rooms_media_api_handler(_rooms_media_operation),
+        methods=["POST"],
+        response_model=ResultEnvelope,
+        operation_id=f"post_control_center_communications_matrix_rooms_media_{_rooms_media_operation.value}",
     )
 
 
