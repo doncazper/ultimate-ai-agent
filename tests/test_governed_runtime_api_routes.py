@@ -407,6 +407,7 @@ def test_governed_runtime_local_model_replay_after_safe_disable_blocks_transport
         )
 
     monkeypatch.setenv(RUNTIME_GATEWAY_STATE_DIR_ENV, str(tmp_path))
+    monkeypatch.setenv(UAA_LLAMA_CPP_BASE_URL_ENV, "http://127.0.0.1:9")
     reset_api_rate_limit_state()
     monkeypatch.setattr(runtime_pilot_service, "_runtime_store", lambda: store)
     monkeypatch.setattr(runtime_pilot_service, "RuntimeGateway", runtime_gateway)

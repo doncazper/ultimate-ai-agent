@@ -1,6 +1,7 @@
 from ultimate_ai_agent.core.authority import (
     AuthorityCapability,
     AuthorityDomain,
+    TrustMode,
     AuthorityLease,
 )
 
@@ -8,6 +9,7 @@ from ultimate_ai_agent.core.authority import (
 def _browser_lease(capability: AuthorityCapability) -> AuthorityLease:
     return AuthorityLease(
         lease_ref=f"authority-lease-ref:test-browser-{capability.value}",
+        mode=TrustMode.full_machine_access_session,
         domains={AuthorityDomain.browser: [capability]},
         safe_summary="Test one exact browser authority capability implication.",
     )
