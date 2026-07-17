@@ -315,6 +315,7 @@ product-truth ledgers.
 | Operational maturity and authority ramp | `docs/strategy/UAA_AUTHORITY_MODES_AND_MISSION_LEASES.md`, `docs/runtime/UAA_AUTHORITY_LEASE_BUDGET_LEDGER.md`, `docs/runtime/UAA_AUTHORITY_MISSION_WORKER_V1.md`, `docs/runtime/UAA_SEALED_CALCULATION_ADAPTER.md`, `docs/control_center/OPERATIONALIZATION_LADDER.md`, `docs/control_center/operational_maturity_manifest.json`, `docs/control_center/AUTHORITY_RAMP_CONVEYOR.md`, `docs/control_center/authority_candidate_scorecard.json` |
 | Version and checkpoint currentness | `VERSION.md`, `docs/release_notes/v0_104_0.md`, `docs/release_notes/checkpoint_m169.md` |
 | Tag history and future tag convention | `docs/releases/TAG_CATALOG.md`, `docs/maintenance/RELEASE_PROCESS.md`, `docs/maintenance/SEMVER_POLICY.md` |
+| Operator fallback and queued checkpoint instructions | `docs/operator/HERMES_LOCAL_LLM_UAA_FALLBACK.md`, `docs/operator/CHECKPOINT_TAG_PLAN.md` |
 | Catch-up/surpass loop | `docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md`, `docs/backlog/codex_recommendation_log.md`, `docs/backlog/MORNING_RECONCILIATION_ARTIFACT.md` |
 | Product claims and gaps | `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md` |
 | Canonical navigation | `docs/DOCUMENTATION_INDEX.md`, `docs/canonical/CANONICAL_DOC_MAP.md` |
