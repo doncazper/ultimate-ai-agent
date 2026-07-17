@@ -631,9 +631,9 @@ tests, safe-disable posture, and rollback-readiness evidence.
 <!-- MSG-MX-CURRENT-OVERLAY:START -->
 MSG-MX-000 through MSG-MX-012 Messenger Matrix Desktop Program
 Baseline authority map: `docs/connectors/MESSENGER_MATRIX_BASELINE_AUTHORITY_MAP.md`
-Current phase: `MSG-MX-011`
-Current program status: `partial_hardening_evidence`
-Current evidence ref: `evidence-ref:msg-mx-011:messenger-hardening-focused-proof`
+Current phase: `MSG-MX-012`
+Current program status: `partial_acceptance_evidence`
+Current evidence ref: `evidence-ref:msg-mx-012:integrated-acceptance-packet`
 Goal: build a clean-room, macOS-first Messenger Matrix client through thirteen
 finite merge-gated milestones without treating design, UI state, generic
 messages authority, or Full Machine Access as Matrix runtime authority.
@@ -724,6 +724,15 @@ Migration and persistent multi-device ownership remain blocked, localization
 readiness is partial, and Element interoperability remains
 `external_facility_required`. Calls, agent room participants, hosted
 infrastructure, public federation, and production deployment remain denied.
+MSG-MX-012 grants no new runtime lane. Its finite integrated acceptance packet
+reconciles all thirteen milestones, all fifteen desktop surfaces, the required
+failure/recovery scenarios, and API/CLI/macOS posture parity. The packet records
+implemented, partial, blocked, unsupported, configuration-required, and
+external-facility-required truth without promoting fixture, contract, loopback,
+or historical Synapse evidence into enrolled remote, Element, public-release,
+or production acceptance. Persistent crypto, migration/multi-device ownership,
+live backup/recovery/revocation, enrolled remote runtime, and Element
+interoperability remain blocked or externally required.
 The accepted design gate is recorded in
 `docs/design/control_center_north_star/UAA_MESSENGER_MATRIX_RENDER_ACCEPTANCE.md`,
 `docs/decisions/ADR-0062-messenger-matrix-client-and-data-boundaries.md`,
