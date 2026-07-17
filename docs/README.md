@@ -19,6 +19,14 @@ send, automatic Memory, calls, agent participants, hosted/federated runtime,
 enrolled remote account runtime, public release, and production authority
 remain blocked.
 
+The governed browser/external-actions program is now active after Messenger.
+Queue 01 items 01–03 are `implemented_inactive`: exact authority semantics,
+an injected isolated broker behind `WebAccessGateway`, and an at-most-once
+external-action transaction kernel are locally verifiable while real external
+targets remain inactive. See
+`docs/browser/GOVERNED_EXTERNAL_ACTIONS_QUEUE_01.md`; Queue 02 adversarial
+validation and Queue 01 items 04–13 remain separate required gates.
+
 The Control Center is the technical web shell, Founder Command Center is the
 user-facing product name, and the Founder Loop is the bounded product spine.
 Python Agent Core, PolicyEngine, LocalApprovalAuthority, route classification,

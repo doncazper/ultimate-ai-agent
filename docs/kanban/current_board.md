@@ -803,6 +803,11 @@ Next: accept `ECO-000`, then accept `CRM-FC-000` before implementing
 WEB-RUNTIME-AUTH-001 Web Runtime Authority Promotion Ladder
 Goal: promote the web/provider/browser authority ladder into active roadmap and
 board truth before any new web runtime authority is implemented.
+Progress: Queue 01 items 01–03 are implemented as inactive local-validation
+contracts: narrowed exact authority semantics, an injected isolated broker
+behind WebAccessGateway, and an at-most-once transaction kernel. Real external
+targets remain inactive. Queue 01 items 04–13 and Queue 02 adversarial
+validation remain ordered prerequisites before any external activation.
 Scope: P1 shaping lane only. Order future work as roadmap/currentness stitching,
 governed read-only fetch, provider shells and diagnostics, read-only provider
 adapter, browser observe, browser action dry-run, low-risk clicks,
