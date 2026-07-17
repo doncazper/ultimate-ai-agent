@@ -7,6 +7,7 @@ from ultimate_ai_agent.api.manifest import (
     CONTROL_CENTER_COMMUNICATIONS_READONLY_PATHS,
     CONTROL_CENTER_MATRIX_HARNESS_MUTATION_PATHS,
     CONTROL_CENTER_MATRIX_HARNESS_READ_PATHS,
+    CONTROL_CENTER_MATRIX_MESSAGING_SIDE_EFFECTS,
     CONTROL_CENTER_CRM_LOCAL_MUTATION_PATHS,
     CONTROL_CENTER_WORK_BOARD_CARD_CREATE_PATHS,
     CONTROL_CENTER_WORK_BOARD_REORDER_PATHS,
@@ -2643,11 +2644,16 @@ CONTROL_CENTER_MATRIX_CRYPTO_VALIDATION_ROUTES = frozenset(
         "/control-center/communications/matrix-crypto/proposal",
     }
 )
+CONTROL_CENTER_MATRIX_MESSAGING_ROUTES = frozenset(
+    set(CONTROL_CENTER_MATRIX_MESSAGING_SIDE_EFFECTS)
+    | {"/control-center/communications/matrix-messaging/proposal"}
+)
 
 POST_MILESTONE_SAFE_ROUTE_FAMILIES = {
     "control_center_matrix_harness": CONTROL_CENTER_MATRIX_HARNESS_ROUTES,
     "control_center_matrix_session": CONTROL_CENTER_MATRIX_SESSION_ROUTES,
     "control_center_matrix_crypto_validation": CONTROL_CENTER_MATRIX_CRYPTO_VALIDATION_ROUTES,
+    "control_center_matrix_messaging": CONTROL_CENTER_MATRIX_MESSAGING_ROUTES,
     "control_center_communications_readonly": CONTROL_CENTER_COMMUNICATIONS_READONLY_PATHS,
     "founder_loop": FOUNDER_LOOP_CONTROL_CENTER_ROUTES,
     "control_center_setup_assistant": CONTROL_CENTER_SETUP_ASSISTANT_ROUTES,

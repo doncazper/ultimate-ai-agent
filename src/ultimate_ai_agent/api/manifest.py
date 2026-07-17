@@ -240,6 +240,11 @@ CAPABILITIES_DECLARED = [
     "communications_matrix_protected_cache_and_key_lifecycle_contracts",
     "communications_matrix_macos_protected_cache_crypto_helper",
     "communications_matrix_sync_posture_api_cli_desktop_binding",
+    "communications_matrix_messaging_exact_human_commanded_authority_lanes",
+    "communications_matrix_messaging_pinned_rust_sdk_loopback_broker",
+    "communications_matrix_messaging_encrypted_draft_outbox_state_machine",
+    "communications_matrix_messaging_api_cli_desktop_posture_binding",
+    "communications_matrix_messaging_content_free_native_notifications",
 ]
 
 CAPABILITIES_BLOCKED = [
@@ -254,8 +259,10 @@ CAPABILITIES_BLOCKED = [
     "communications_matrix_ten_canonical_sync_cache_key_executors_uncomposed",
     "communications_matrix_protected_content_read_pending_account_enrollment",
     "communications_matrix_encrypted_event_materialization_pending_persistent_crypto_adapter",
-    "communications_matrix_message_send_or_mutation",
     "communications_matrix_crypto_persistent_runtime",
+    "communications_matrix_messaging_remote_homeservers",
+    "communications_matrix_messaging_element_external_facility",
+    "communications_matrix_messaging_autonomous_or_ai_send",
     "communications_matrix_media_runtime",
     "communications_raw_message_or_provider_payload_persistence",
     "communications_ui_or_approval_ref_as_runtime_authority",
@@ -869,12 +876,14 @@ CONTROL_CENTER_VALIDATION_ONLY_PATHS = {
     "/control-center/actions/preview",
     "/control-center/turn-router/preview",
     "/control-center/communications/matrix-crypto/proposal",
+    "/control-center/communications/matrix-messaging/proposal",
 }
 CONTROL_CENTER_COMMUNICATIONS_READONLY_PATHS = {
     "/control-center/communications/providers",
     "/control-center/communications/session-posture",
     "/control-center/communications/matrix-sync/posture",
     "/control-center/communications/matrix-crypto/posture",
+    "/control-center/communications/matrix-messaging/posture",
     "/control-center/communications/rooms",
     "/control-center/communications/failed-sends",
     "/control-center/communications/security-posture",
@@ -928,6 +937,53 @@ CONTROL_CENTER_MATRIX_SESSION_SIDE_EFFECTS = {
     ),
     "/control-center/communications/matrix/credential-delete": (
         ApiRouteSideEffectClass.destructive_local_sensitive
+    ),
+}
+CONTROL_CENTER_MATRIX_MESSAGING_SIDE_EFFECTS = {
+    "/control-center/communications/matrix-messaging/send": (
+        ApiRouteSideEffectClass.authenticated_connector_mutation
+    ),
+    "/control-center/communications/matrix-messaging/reply": (
+        ApiRouteSideEffectClass.authenticated_connector_mutation
+    ),
+    "/control-center/communications/matrix-messaging/thread": (
+        ApiRouteSideEffectClass.authenticated_connector_mutation
+    ),
+    "/control-center/communications/matrix-messaging/reaction": (
+        ApiRouteSideEffectClass.authenticated_connector_mutation
+    ),
+    "/control-center/communications/matrix-messaging/edit": (
+        ApiRouteSideEffectClass.authenticated_connector_mutation
+    ),
+    "/control-center/communications/matrix-messaging/redaction": (
+        ApiRouteSideEffectClass.destructive_external
+    ),
+    "/control-center/communications/matrix-messaging/typing": (
+        ApiRouteSideEffectClass.authenticated_connector_mutation
+    ),
+    "/control-center/communications/matrix-messaging/read-receipt": (
+        ApiRouteSideEffectClass.authenticated_connector_mutation
+    ),
+    "/control-center/communications/matrix-messaging/draft-write": (
+        ApiRouteSideEffectClass.local_sensitive
+    ),
+    "/control-center/communications/matrix-messaging/draft-read": (
+        ApiRouteSideEffectClass.local_sensitive
+    ),
+    "/control-center/communications/matrix-messaging/outbox-enqueue": (
+        ApiRouteSideEffectClass.local_sensitive
+    ),
+    "/control-center/communications/matrix-messaging/outbox-read": (
+        ApiRouteSideEffectClass.local_sensitive
+    ),
+    "/control-center/communications/matrix-messaging/outbox-transition": (
+        ApiRouteSideEffectClass.local_sensitive
+    ),
+    "/control-center/communications/matrix-messaging/outbox-discard": (
+        ApiRouteSideEffectClass.destructive_local_sensitive
+    ),
+    "/control-center/communications/matrix-messaging/desktop-notify": (
+        ApiRouteSideEffectClass.local_sensitive
     ),
 }
 LOCAL_READONLY_PATHS = {
@@ -1120,6 +1176,8 @@ def route_side_effect_class(path: str) -> ApiRouteSideEffectClass:
         return ApiRouteSideEffectClass.governed_network_read_only
     if path in CONTROL_CENTER_MATRIX_SESSION_MUTATION_PATHS:
         return CONTROL_CENTER_MATRIX_SESSION_SIDE_EFFECTS[path]
+    if path in CONTROL_CENTER_MATRIX_MESSAGING_SIDE_EFFECTS:
+        return CONTROL_CENTER_MATRIX_MESSAGING_SIDE_EFFECTS[path]
     if path.startswith("/api/runtime/"):
         return ApiRouteSideEffectClass.local_dev_workspace_only
     if path.startswith("/web-evidence/"):
@@ -1186,6 +1244,14 @@ def route_classification_for_path(
         return (
             ApiRouteClassification.mutating_requires_authority,
             "Exact Matrix session mutation requires request-scoped authority through idempotency, fresh LocalApprovalAuthority validation, a current exact AuthorityLease, budget, target, readiness, kill-switch, safe-disable, rollback, and content-free receipt checks.",
+        )
+    if (
+        normalized_method == "POST"
+        and path in CONTROL_CENTER_MATRIX_MESSAGING_SIDE_EFFECTS
+    ):
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "Exact Matrix messaging, encrypted outbox, or desktop-notification operation requires idempotency, fresh LocalApprovalAuthority validation, a current exact AuthorityLease, policy, budget, target, readiness, kill-switch, safe-disable, rollback or compensation posture, and content-free receipts.",
         )
     if normalized_method == "GET" and path in PUBLIC_METADATA_PATHS:
         return (

@@ -23,6 +23,12 @@ from ultimate_ai_agent.core.communications.matrix_sync.static_safety import (
     is_exact_matrix_cache_crypto_subprocess_site,
     is_exact_matrix_sync_transport_subprocess_site,
 )
+from ultimate_ai_agent.core.communications.matrix_messaging.static_safety import (
+    MATRIX_MESSAGING_BROKER_REL,
+    MATRIX_MESSAGING_NOTIFIER_REL,
+    is_exact_matrix_messaging_broker_subprocess_site,
+    is_exact_matrix_messaging_notifier_subprocess_site,
+)
 
 
 class FoundationGateLegacyChecksPart001Mixin:
@@ -407,6 +413,16 @@ class FoundationGateLegacyChecksPart001Mixin:
                     MATRIX_SYNC_TRANSPORT_REL,
                     "subprocess" + ".Popen(",
                     is_exact_matrix_sync_transport_subprocess_site,
+                ),
+                (
+                    MATRIX_MESSAGING_BROKER_REL,
+                    "subprocess" + ".Popen(",
+                    is_exact_matrix_messaging_broker_subprocess_site,
+                ),
+                (
+                    MATRIX_MESSAGING_NOTIFIER_REL,
+                    "subprocess" + ".run(",
+                    is_exact_matrix_messaging_notifier_subprocess_site,
                 ),
             )
             if exact_validator(

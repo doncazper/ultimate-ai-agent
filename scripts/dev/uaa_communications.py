@@ -3,10 +3,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import stat
+import sys
 from collections.abc import Sequence
 from datetime import timedelta
 from pathlib import Path
-import sys
 from typing import Any
 
 
@@ -63,6 +65,17 @@ from ultimate_ai_agent.core.communications.matrix_crypto import (  # noqa: E402
     build_matrix_crypto_proposal,
     matrix_crypto_rollback_ref,
     matrix_crypto_request_fingerprint_ref,
+)
+from ultimate_ai_agent.core.communications.matrix_messaging import (  # noqa: E402
+    MATRIX_MESSAGING_LANES,
+    MatrixMessagingCommand,
+    MatrixMessagingReadiness,
+    MatrixMessagingRuntime,
+    build_default_matrix_messaging_posture,
+    build_matrix_messaging_proposal,
+    capture_exact_matrix_messaging_approval,
+    execute_matrix_messaging_command,
+    issue_exact_matrix_messaging_lease,
 )
 from ultimate_ai_agent.core.time import utc_now  # noqa: E402
 
@@ -192,6 +205,115 @@ def _render_matrix_crypto_posture(as_json: bool) -> int:
     print(f"- Blockers: {', '.join(posture.blocker_refs)}")
     print("Recovery material and raw crypto payloads are never displayed.")
     return 0
+
+
+def _render_matrix_messaging_posture(as_json: bool) -> int:
+    posture = build_default_matrix_messaging_posture()
+    if as_json:
+        _json(posture)
+        return 0
+    print("Matrix manual messaging")
+    print(f"- Runtime: {posture.runtime_status}")
+    print(f"- Exact authority lanes: {len(posture.authority_lane_refs)}")
+    print(f"- Concrete executors: {len(posture.live_executor_operation_refs)}")
+    print(f"- Currently blocked operations: {len(posture.blocked_operation_refs)}")
+    print(f"- Element interoperability: {posture.element_interoperability_status}")
+    print(f"- Blockers: {', '.join(posture.reason_refs)}")
+    print("- Autonomous or AI send: denied")
+    print("No message content, credentials, local paths, or raw receipts are shown.")
+    return 0
+
+
+def _load_matrix_messaging_command(path_value: str) -> MatrixMessagingCommand:
+    flags = os.O_RDONLY | os.O_CLOEXEC
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    descriptor = os.open(path_value, flags)
+    try:
+        info = os.fstat(descriptor)
+        if not stat.S_ISREG(info.st_mode) or not (1 <= info.st_size <= 64 * 1024):
+            raise ValueError("MATRIX_MESSAGING_COMMAND_FILE_INVALID")
+        payload = os.read(descriptor, 64 * 1024 + 1)
+        if len(payload) != info.st_size:
+            raise ValueError("MATRIX_MESSAGING_COMMAND_FILE_INVALID")
+    finally:
+        os.close(descriptor)
+    return MatrixMessagingCommand.model_validate_json(payload)
+
+
+def _render_matrix_messaging_command(args: argparse.Namespace) -> int:
+    try:
+        command = _load_matrix_messaging_command(args.command_file)
+    except (OSError, ValueError):
+        print("Matrix messaging command blocked (safe command file invalid).")
+        return 2
+    if args.messaging_action == "propose":
+        proposal = build_matrix_messaging_proposal(command)
+        if args.json:
+            _json(proposal)
+        else:
+            print("Matrix manual messaging proposal")
+            print(f"- Operation: {proposal.operation.value}")
+            print(f"- Proposal: {proposal.proposal_ref}")
+            print(f"- Request fingerprint: {proposal.request_fingerprint_ref}")
+            print("- Execution permitted: no")
+            print("- Approval ref grants authority: no")
+            print("No message content, credential, provider payload, or local path is shown.")
+        return 0
+
+    store = AuthorityLeaseStore()
+    approvals = LocalApprovalAuthority()
+    approval_ref: str | None = None
+    try:
+        if args.confirm:
+            issue_exact_matrix_messaging_lease(command, store=store, confirmed=True)
+            approval_ref = capture_exact_matrix_messaging_approval(
+                command,
+                approval_authority=approvals,
+                confirmed=True,
+            )
+
+        def readiness(exact: MatrixMessagingCommand) -> MatrixMessagingReadiness:
+            observed = utc_now()
+            return MatrixMessagingReadiness(
+                readiness_ref=exact.readiness_ref,
+                request_fingerprint_ref=exact.request_fingerprint_ref,
+                adapter_ref=MATRIX_MESSAGING_LANES[exact.operation].adapter_ref,
+                status="blocked",
+                observed_at=observed,
+                expires_at=min(exact.start_deadline, observed + timedelta(seconds=30)),
+                kill_switch_engaged=False,
+                safe_disable_active=False,
+                broker_integrity_verified=False,
+                keychain_available=False,
+                crypto_store_available=False,
+                reason_refs=(
+                    "reason-ref:matrix-messaging:runtime-enrollment-required",
+                ),
+            )
+
+        result = execute_matrix_messaging_command(
+            command,
+            authority_state_dir=store.state_dir,
+            runtime=MatrixMessagingRuntime.blocked(),
+            readiness_provider=readiness,
+            approval_ref=approval_ref,
+            lease_store=store,
+            approval_authority=approvals,
+        )
+    except (OSError, RuntimeError, ValueError):
+        print("Matrix messaging operation blocked (reference-only diagnostic).")
+        return 2
+    if args.json:
+        _json(result)
+    else:
+        print("Governed Matrix manual messaging")
+        print(f"- Operation: {command.operation.value}")
+        print(f"- Dispatch status: {result.receipt.status}")
+        print(f"- Receipt: {result.receipt.receipt_ref}")
+        print(f"- Reasons: {', '.join(result.receipt.reason_refs) or 'none'}")
+        print("No message content, credential, provider payload, or local path is shown.")
+    return 0 if result.receipt.status == "succeeded" else 2
 
 
 def _matrix_crypto_command(args: argparse.Namespace) -> MatrixCryptoCommand:
@@ -539,6 +661,35 @@ def build_parser() -> argparse.ArgumentParser:
         help="Inspect backend-owned Matrix encryption and recovery posture.",
     )
     crypto_posture.add_argument("--json", action="store_true", help="Emit safe JSON.")
+    messaging_posture = subparsers.add_parser(
+        "matrix-messaging-status",
+        help="Inspect backend-owned human-commanded Matrix messaging posture.",
+    )
+    messaging_posture.add_argument(
+        "--json", action="store_true", help="Emit safe JSON."
+    )
+    messaging = subparsers.add_parser(
+        "matrix-messaging",
+        help="Review or dispatch one safe-ref-only Matrix messaging command file.",
+    )
+    messaging_actions = messaging.add_subparsers(
+        dest="messaging_action",
+        required=True,
+    )
+    for action in ("propose", "dispatch"):
+        command = messaging_actions.add_parser(action)
+        command.add_argument(
+            "--command-file",
+            required=True,
+            help="Path to one validated safe-ref-only MatrixMessagingCommand JSON file.",
+        )
+        if action == "dispatch":
+            command.add_argument(
+                "--confirm",
+                action="store_true",
+                help="Capture exact approval; runtime enrollment is still required.",
+            )
+        command.add_argument("--json", action="store_true", help="Emit safe JSON.")
     for name in ("rooms", "failed-sends"):
         command = subparsers.add_parser(name)
         command.add_argument("--limit", type=int, default=25)
@@ -695,6 +846,8 @@ def main(
         return _run_matrix_session(args)
     if args.command == "matrix-crypto":
         return _render_matrix_crypto_proposal(args)
+    if args.command == "matrix-messaging":
+        return _render_matrix_messaging_command(args)
     if args.command == "providers":
         return _render_providers(active_service, args.json)
     if args.command == "session":
@@ -709,6 +862,8 @@ def main(
         return _render_matrix_sync_posture(args.json)
     if args.command == "matrix-crypto-status":
         return _render_matrix_crypto_posture(args.json)
+    if args.command == "matrix-messaging-status":
+        return _render_matrix_messaging_posture(args.json)
     return _render_receipt(active_service, args.json, args.receipt_ref)
 
 

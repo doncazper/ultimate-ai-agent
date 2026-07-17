@@ -39,6 +39,21 @@ MUTATING_ROUTES = frozenset(
         ("POST", "/control-center/communications/harness/reset"),
         ("POST", "/control-center/communications/harness/start"),
         ("POST", "/control-center/communications/harness/stop"),
+        ("POST", "/control-center/communications/matrix-messaging/desktop-notify"),
+        ("POST", "/control-center/communications/matrix-messaging/draft-read"),
+        ("POST", "/control-center/communications/matrix-messaging/draft-write"),
+        ("POST", "/control-center/communications/matrix-messaging/edit"),
+        ("POST", "/control-center/communications/matrix-messaging/outbox-discard"),
+        ("POST", "/control-center/communications/matrix-messaging/outbox-enqueue"),
+        ("POST", "/control-center/communications/matrix-messaging/outbox-read"),
+        ("POST", "/control-center/communications/matrix-messaging/outbox-transition"),
+        ("POST", "/control-center/communications/matrix-messaging/reaction"),
+        ("POST", "/control-center/communications/matrix-messaging/read-receipt"),
+        ("POST", "/control-center/communications/matrix-messaging/redaction"),
+        ("POST", "/control-center/communications/matrix-messaging/reply"),
+        ("POST", "/control-center/communications/matrix-messaging/send"),
+        ("POST", "/control-center/communications/matrix-messaging/thread"),
+        ("POST", "/control-center/communications/matrix-messaging/typing"),
         ("POST", "/control-center/communications/matrix/credential-auth-create"),
         ("POST", "/control-center/communications/matrix/credential-delete"),
         (
@@ -99,6 +114,7 @@ TARGETED_RATE_LIMIT_GROUPS = frozenset(
         "chat_durable_receipt",
         "communications_matrix_crypto",
         "communications_matrix_harness",
+        "communications_matrix_messaging",
         "communications_matrix_session",
         "extension_install_disabled_record",
         "founder_loop_exact_action",
@@ -116,9 +132,9 @@ TARGETED_RATE_LIMIT_GROUPS = frozenset(
         "web_evidence_product_slice",
     }
 )
-TARGETED_RATE_LIMIT_ROUTE_COUNT = 95
+TARGETED_RATE_LIMIT_ROUTE_COUNT = 111
 TARGETED_RATE_LIMIT_ROUTE_FINGERPRINT = (
-    "3bea15b209033b734e569844395891f129844205c05ec5335028c903ed93fc60"
+    "c94eea05e454357ecc8e2b925622f70e46a91b53e617aed3956c57c56be26a0d"
 )
 
 

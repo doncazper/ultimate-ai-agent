@@ -18,6 +18,7 @@ from ultimate_ai_agent.core.authority.authority_constants import (
     AUTHORITY_STATE_LOCK_KEY,
     AUTHORITY_STATE_REDACTIONS,
     MATRIX_HARNESS_EXACT_AUTHORITY_BINDINGS,
+    MATRIX_MESSAGING_EXACT_AUTHORITY_BINDINGS,
     MATRIX_CRYPTO_EXACT_AUTHORITY_BINDINGS,
     MATRIX_SESSION_EXACT_AUTHORITY_BINDINGS,
     MATRIX_SYNC_EXACT_AUTHORITY_BINDINGS,
@@ -1141,6 +1142,7 @@ def _exact_authority_binding_catalog() -> dict[
         *MATRIX_SESSION_EXACT_AUTHORITY_BINDINGS,
         *MATRIX_SYNC_EXACT_AUTHORITY_BINDINGS,
         *MATRIX_CRYPTO_EXACT_AUTHORITY_BINDINGS,
+        *MATRIX_MESSAGING_EXACT_AUTHORITY_BINDINGS,
     ):
         catalog[(lane, capability, adapter, tool)] = (
             AuthorityDomain(domain),
@@ -1220,6 +1222,20 @@ def _exact_authority_issue_binding(
             ) in MATRIX_CRYPTO_EXACT_AUTHORITY_BINDINGS
         }
         is_matrix_crypto_binding = exact_binding in crypto_exact_bindings
+        messaging_exact_bindings = {
+            (lane, capability, adapter, tool)
+            for (
+                _domain,
+                _authority_capability,
+                _scope,
+                _mode,
+                lane,
+                capability,
+                adapter,
+                tool,
+            ) in MATRIX_MESSAGING_EXACT_AUTHORITY_BINDINGS
+        }
+        is_matrix_messaging_binding = exact_binding in messaging_exact_bindings
         session_binding_refs = {
             request.constraints.get("exact_start_deadline_ref"),
             request.constraints.get("exact_readiness_ref"),
@@ -1239,7 +1255,37 @@ def _exact_authority_issue_binding(
             isinstance(ref, str) for ref in sync_resource_refs
         ):
             return None
-        if is_matrix_crypto_binding:
+        if is_matrix_messaging_binding:
+            messaging_resource_refs = {
+                request.constraints.get("exact_provider_ref"),
+                request.constraints.get("exact_runtime_ref"),
+                request.constraints.get("exact_outbox_schema_ref"),
+                request.constraints.get("exact_outbox_key_item_ref"),
+                request.constraints.get("exact_outbox_key_version_ref"),
+                request.constraints.get("exact_kill_switch_ref"),
+            }
+            if not all(isinstance(ref, str) for ref in messaging_resource_refs):
+                return None
+            required_resource_refs.update(
+                {
+                    "target-ref:communications:matrix-exact-message",
+                    "budget-ref:matrix-messaging:zero-cost-v1",
+                    "safe-disable-ref:matrix-messenger:enabled",
+                    *session_binding_refs,
+                    *messaging_resource_refs,
+                }
+            )
+            allowed_target_refs = {
+                "target-ref:communications:matrix-exact-message"
+            }
+            allowed_homeserver_refs = {
+                ref
+                for ref in (
+                    resource_constraint.allowed_refs if resource_constraint else []
+                )
+                if ref.startswith("homeserver-ref:matrix:")
+            }
+        elif is_matrix_crypto_binding:
             crypto_resource_refs = {
                 request.constraints.get("exact_store_backend_ref"),
                 request.constraints.get("exact_key_backend_ref"),

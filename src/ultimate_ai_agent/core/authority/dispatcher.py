@@ -35,6 +35,7 @@ from ultimate_ai_agent.core.authority.authority_constants import (
     MATRIX_SESSION_REVOKE_ALL_TOOL_REF,
     MATRIX_SESSION_SSO_CALLBACK_TOOL_REF,
     MATRIX_SESSION_SSO_LAUNCH_TOOL_REF,
+    MATRIX_MESSAGING_EXACT_AUTHORITY_BINDINGS,
     MATRIX_SYNC_READ_TOOL_REF,
     MATRIX_TIMELINE_PAGINATE_READ_TOOL_REF,
     MATRIX_ROOM_STATE_READ_TOOL_REF,
@@ -808,6 +809,21 @@ _TOOL_AUTHORITY_BINDINGS = {
         AuthorityCapability.destructive.value,
     ),
 }
+_TOOL_AUTHORITY_BINDINGS.update(
+    {
+        tool_ref: (domain, capability)
+        for (
+            domain,
+            capability,
+            _scope,
+            _mode,
+            _lane_ref,
+            _capability_ref,
+            _adapter_ref,
+            tool_ref,
+        ) in MATRIX_MESSAGING_EXACT_AUTHORITY_BINDINGS
+    }
+)
 
 
 def _tool_authority_binding_reason_refs(

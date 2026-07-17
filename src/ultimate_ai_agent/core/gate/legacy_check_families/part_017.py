@@ -653,6 +653,7 @@ class FoundationGateLegacyChecksPart017Mixin:
                     if (
                         fragment in text
                         and fragment not in allowed_fragments_by_file.get(rel, set())
+                        and not matrix_messaging_fragment_allowed(rel, text, fragment)
                         and not _is_web_hybrid_promoted_static_fragment(
                             rel, fragment, text
                         )
@@ -1010,6 +1011,7 @@ class FoundationGateLegacyChecksPart017Mixin:
                     if (
                         fragment in text
                         and fragment not in allowed_fragments_by_file.get(rel, set())
+                        and not matrix_messaging_fragment_allowed(rel, text, fragment)
                         and not _is_web_hybrid_promoted_static_fragment(
                             rel, fragment, text
                         )

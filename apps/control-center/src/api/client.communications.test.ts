@@ -5,6 +5,7 @@ import {
   loadCommunicationsRooms,
   loadCommunicationsSessionPosture,
   loadMatrixCryptoPosture,
+  loadMatrixMessagingPosture,
   loadMatrixSyncPosture,
 } from "./client";
 
@@ -114,6 +115,39 @@ const matrixCryptoPosture = {
   safe_summary:
     "Exact crypto authority exists, while the live executor remains blocked.",
   redaction_status: "safe_refs_only",
+};
+
+const matrixMessagingPosture = {
+  schema_version: "uaa-matrix-messaging-posture.v1",
+  posture_ref: "posture-ref:matrix-messaging:configuration-required-v1",
+  runtime_status: "configuration_required",
+  authority_lane_refs: Array.from(
+    { length: 15 },
+    (_, index) => `authority-lane-ref:matrix-messaging:lane-${index}`,
+  ),
+  live_executor_operation_refs: Array.from(
+    { length: 15 },
+    (_, index) => `operation-ref:matrix-messaging:live-${index}`,
+  ),
+  blocked_operation_refs: Array.from(
+    { length: 15 },
+    (_, index) => `operation-ref:matrix-messaging:blocked-${index}`,
+  ),
+  broker_ref: "component-ref:matrix-rust-broker:v1",
+  provider_ref: "provider-ref:communications:matrix",
+  sdk_ref: "sdk-ref:matrix-rust-sdk:0.18.0",
+  crypto_store_ref: "crypto-store-ref:matrix:encrypted-sqlite-v1",
+  outbox_store_ref: "outbox-store-ref:matrix:encrypted-dedicated-v1",
+  reason_refs: ["reason-ref:matrix-messaging:runtime-enrollment-required"],
+  element_interoperability_status: "external_facility_required",
+  request_scoped_evaluation_required: true,
+  approval_ref_is_authority: false,
+  autonomous_send_enabled: false,
+  remote_homeservers_enabled: false,
+  desktop_only: true,
+  raw_content_included: false,
+  safe_summary:
+    "Exact manual messaging executors exist, while runtime enrollment remains required.",
 };
 
 function respond(data: unknown): void {
@@ -360,6 +394,27 @@ describe("communications API bindings", () => {
       recovery_material_included: true,
     });
     await expect(loadMatrixCryptoPosture()).rejects.toThrow(
+      "failed safe validation",
+    );
+  });
+
+  it("accepts exact content-free Matrix manual messaging posture", async () => {
+    respond(matrixMessagingPosture);
+    const result = await loadMatrixMessagingPosture();
+    expect(result.runtime_status).toBe("configuration_required");
+    expect(result.authority_lane_refs).toHaveLength(15);
+    expect(result.live_executor_operation_refs).toHaveLength(15);
+    expect(result.blocked_operation_refs).toHaveLength(15);
+    expect(result.autonomous_send_enabled).toBe(false);
+  });
+
+  it("rejects contradictory Matrix messaging readiness", async () => {
+    respond({
+      ...matrixMessagingPosture,
+      runtime_status: "ready",
+      blocked_operation_refs: matrixMessagingPosture.blocked_operation_refs,
+    });
+    await expect(loadMatrixMessagingPosture()).rejects.toThrow(
       "failed safe validation",
     );
   });

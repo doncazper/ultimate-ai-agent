@@ -13,9 +13,14 @@ import type {
 } from "../../messenger/contracts";
 import {
   loadMatrixCryptoPosture,
+  loadMatrixMessagingPosture,
   loadMatrixSyncPosture,
 } from "../../api/client";
-import type { MatrixCryptoPosture, MatrixSyncPosture } from "../../api/types";
+import type {
+  MatrixCryptoPosture,
+  MatrixMessagingPosture,
+  MatrixSyncPosture,
+} from "../../api/types";
 import "./messengerShell.css";
 
 const surfaceMenu: ReadonlyArray<[MessengerSurfaceId, string]> = [
@@ -60,6 +65,8 @@ export function MessengerShell() {
   const [runtimePostureUnavailable, setRuntimePostureUnavailable] = useState(false);
   const [cryptoPosture, setCryptoPosture] = useState<MatrixCryptoPosture | null>(null);
   const [cryptoPostureUnavailable, setCryptoPostureUnavailable] = useState(false);
+  const [messagingPosture, setMessagingPosture] = useState<MatrixMessagingPosture | null>(null);
+  const [messagingPostureUnavailable, setMessagingPostureUnavailable] = useState(false);
   const projection = MESSENGER_SURFACES[surfaceId];
   const variant = variantId ? MESSENGER_VARIANTS[variantId] : null;
   const dark = surfaceId === "dark";
@@ -80,6 +87,13 @@ export function MessengerShell() {
       })
       .catch(() => {
         if (active) setCryptoPostureUnavailable(true);
+      });
+    loadMatrixMessagingPosture()
+      .then((posture) => {
+        if (active) setMessagingPosture(posture);
+      })
+      .catch(() => {
+        if (active) setMessagingPostureUnavailable(true);
       });
     return () => {
       active = false;
@@ -106,6 +120,11 @@ export function MessengerShell() {
           ? "unavailable"
           : cryptoPosture?.runtime_status ?? "unknown"
       }
+      data-messenger-messaging-runtime={
+        messagingPostureUnavailable
+          ? "unavailable"
+          : messagingPosture?.runtime_status ?? "unknown"
+      }
       data-messenger-surface={projection.render_ref}
       data-messenger-variant={variantId ?? "default"}
     >
@@ -121,7 +140,12 @@ export function MessengerShell() {
         unavailable={runtimePostureUnavailable}
       />
       <GlobalRail current={surfaceId} onSelect={selectSurface} />
-      <TopBar current={surfaceId} onSelect={selectSurface} />
+      <TopBar
+        current={surfaceId}
+        messagingPosture={messagingPosture}
+        messagingPostureUnavailable={messagingPostureUnavailable}
+        onSelect={selectSurface}
+      />
       {isSpecialSurface(surfaceId) ? (
         <SpecialSurface
           cryptoPosture={cryptoPosture}
@@ -135,6 +159,8 @@ export function MessengerShell() {
       ) : (
         <ConversationSurface
           inspectorOpen={inspectorOpen}
+          messagingPosture={messagingPosture}
+          messagingPostureUnavailable={messagingPostureUnavailable}
           onInspectorChange={setInspectorOpen}
           onSelect={selectSurface}
           surfaceId={surfaceId}
@@ -152,6 +178,13 @@ export function MessengerShell() {
               : "Matrix sync posture loading"}
         </span>
         <span>No message sent</span>
+        <span>
+          {messagingPostureUnavailable
+            ? "Manual messaging posture unavailable"
+            : messagingPosture
+              ? `Manual messaging · ${messagingPosture.runtime_status.replaceAll("_", " ")}`
+              : "Manual messaging posture loading"}
+        </span>
         <span>
           {cryptoPostureUnavailable
             ? "Crypto posture unavailable"
@@ -244,9 +277,13 @@ function GlobalRail({
 
 function TopBar({
   current,
+  messagingPosture,
+  messagingPostureUnavailable,
   onSelect,
 }: {
   current: MessengerSurfaceId;
+  messagingPosture: MatrixMessagingPosture | null;
+  messagingPostureUnavailable: boolean;
   onSelect: (surface: MessengerSurfaceId) => void;
 }) {
   return (
@@ -260,7 +297,11 @@ function TopBar({
       <button type="button" onClick={() => onSelect("search")}><NorthStarIcon name="mail-open" size="sm" /> Unread <b>7</b></button>
       <button type="button" onClick={() => onSelect("search")}><NorthStarIcon name="at-sign" size="sm" /> Mentions</button>
       <span><NorthStarIcon name={current === "recovery" ? "wifi-off" : "circle-check"} size="sm" tone={current === "recovery" ? "warning" : "success"} /> Local fixture</span>
-      <span><NorthStarIcon name="shield" size="sm" tone="warning" /> Changes blocked · fixture</span>
+      <span>
+        <NorthStarIcon name="shield" size="sm" tone="warning" /> Manual send · {messagingPostureUnavailable
+          ? "unavailable"
+          : messagingPosture?.runtime_status.replaceAll("_", " ") ?? "loading"}
+      </span>
       <span><NorthStarIcon name="lock" size="sm" /> Private target</span>
       <PostureButton label="Review 3 decisions" posture="Preview" />
     </header>
@@ -269,12 +310,16 @@ function TopBar({
 
 function ConversationSurface({
   inspectorOpen,
+  messagingPosture,
+  messagingPostureUnavailable,
   onInspectorChange,
   onSelect,
   surfaceId,
   variantId,
 }: {
   inspectorOpen: boolean;
+  messagingPosture: MatrixMessagingPosture | null;
+  messagingPostureUnavailable: boolean;
   onInspectorChange: (open: boolean) => void;
   onSelect: (surface: MessengerSurfaceId) => void;
   surfaceId: MessengerSurfaceId;
@@ -301,7 +346,12 @@ function ConversationSurface({
           </nav>
         </header>
         <Timeline surfaceId={surfaceId} variantId={variantId} />
-        <HumanComposer roomLabel={projection.room_label} disabled={variantId === "room-archived-left"} />
+        <HumanComposer
+          disabled={variantId === "room-archived-left"}
+          messagingPosture={messagingPosture}
+          messagingPostureUnavailable={messagingPostureUnavailable}
+          roomLabel={projection.room_label}
+        />
       </section>
       <Inspector
         open={inspectorOpen}
@@ -370,14 +420,27 @@ function Timeline({ surfaceId, variantId }: { surfaceId: MessengerSurfaceId; var
   );
 }
 
-function HumanComposer({ roomLabel, disabled }: { roomLabel: string; disabled: boolean }) {
+function HumanComposer({
+  roomLabel,
+  disabled,
+  messagingPosture,
+  messagingPostureUnavailable,
+}: {
+  roomLabel: string;
+  disabled: boolean;
+  messagingPosture: MatrixMessagingPosture | null;
+  messagingPostureUnavailable: boolean;
+}) {
+  const runtime = messagingPostureUnavailable
+    ? "unavailable"
+    : messagingPosture?.runtime_status.replaceAll("_", " ") ?? "loading";
   return (
     <form className="messenger-human-composer" aria-label="Human message composer" onSubmit={(event) => event.preventDefault()}>
       <label><span className="sr-only">Human message draft</span><input readOnly placeholder={disabled ? "Room is read-only" : `Message ${roomLabel}`} /></label>
       <NorthStarIcon name="paperclip" size="md" />
       <NorthStarIcon name="circle-plus" size="md" />
-      <button disabled type="submit"><NorthStarIcon name="send" size="md" /><span>Blocked</span></button>
-      <small>No message will be sent.</small>
+      <button disabled type="submit"><NorthStarIcon name="send" size="md" /><span>{disabled ? "Read only" : "Review unavailable"}</span></button>
+      <small>Manual executor: {runtime}. This synthetic room is not an exact authorized target; no message will be sent.</small>
     </form>
   );
 }

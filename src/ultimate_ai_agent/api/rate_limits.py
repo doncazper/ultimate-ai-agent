@@ -37,6 +37,7 @@ TARGETED_RATE_LIMIT_GROUP_DEFAULTS: dict[str, dict[str, int]] = {
     "communications_matrix_harness": {"max_requests": 12, "window_seconds": 60},
     "communications_matrix_session": {"max_requests": 12, "window_seconds": 60},
     "communications_matrix_crypto": {"max_requests": 12, "window_seconds": 60},
+    "communications_matrix_messaging": {"max_requests": 12, "window_seconds": 60},
 }
 
 ACTION_PREVIEW_PROPOSAL_PATHS = {
@@ -168,6 +169,24 @@ COMMUNICATIONS_MATRIX_SESSION_PATHS = {
 COMMUNICATIONS_MATRIX_CRYPTO_PATHS = {
     "/control-center/communications/matrix-crypto/proposal",
 }
+COMMUNICATIONS_MATRIX_MESSAGING_PATHS = {
+    "/control-center/communications/matrix-messaging/proposal",
+    "/control-center/communications/matrix-messaging/send",
+    "/control-center/communications/matrix-messaging/reply",
+    "/control-center/communications/matrix-messaging/thread",
+    "/control-center/communications/matrix-messaging/reaction",
+    "/control-center/communications/matrix-messaging/edit",
+    "/control-center/communications/matrix-messaging/redaction",
+    "/control-center/communications/matrix-messaging/typing",
+    "/control-center/communications/matrix-messaging/read-receipt",
+    "/control-center/communications/matrix-messaging/draft-write",
+    "/control-center/communications/matrix-messaging/draft-read",
+    "/control-center/communications/matrix-messaging/outbox-enqueue",
+    "/control-center/communications/matrix-messaging/outbox-read",
+    "/control-center/communications/matrix-messaging/outbox-transition",
+    "/control-center/communications/matrix-messaging/outbox-discard",
+    "/control-center/communications/matrix-messaging/desktop-notify",
+}
 
 
 @dataclass(frozen=True)
@@ -285,6 +304,11 @@ def route_rate_limit_group(method: str, path: str) -> str | None:
         return "communications_matrix_session"
     if normalized_method == "POST" and path in COMMUNICATIONS_MATRIX_CRYPTO_PATHS:
         return "communications_matrix_crypto"
+    if (
+        normalized_method == "POST"
+        and path in COMMUNICATIONS_MATRIX_MESSAGING_PATHS
+    ):
+        return "communications_matrix_messaging"
     if normalized_method == "POST" and (
         path in GOVERNED_RUNTIME_MUTATING_PATHS
         or (

@@ -23,6 +23,7 @@ import type {
   CommunicationsSecurityPosture,
   CommunicationsSessionPosture,
   MatrixCryptoPosture,
+  MatrixMessagingPosture,
   MatrixSyncPosture,
   CodingCockpitSessionReadModel,
   CodingWorkspaceContextReadModel,
@@ -817,6 +818,78 @@ export async function loadMatrixCryptoPosture(): Promise<MatrixCryptoPosture> {
     throw new Error("Matrix crypto posture response failed safe validation.");
   }
   return value as unknown as MatrixCryptoPosture;
+}
+
+export async function loadMatrixMessagingPosture(): Promise<MatrixMessagingPosture> {
+  const value = await readEnvelope<unknown>(
+    API_ENDPOINTS.communicationsMatrixMessagingPosture,
+  );
+  if (
+    !isCommunicationsRecord(value) ||
+    !hasExactCommunicationsKeys(value, [
+      "schema_version",
+      "posture_ref",
+      "runtime_status",
+      "authority_lane_refs",
+      "live_executor_operation_refs",
+      "blocked_operation_refs",
+      "broker_ref",
+      "provider_ref",
+      "sdk_ref",
+      "crypto_store_ref",
+      "outbox_store_ref",
+      "reason_refs",
+      "element_interoperability_status",
+      "request_scoped_evaluation_required",
+      "approval_ref_is_authority",
+      "autonomous_send_enabled",
+      "remote_homeservers_enabled",
+      "desktop_only",
+      "raw_content_included",
+      "safe_summary",
+    ]) ||
+    value.schema_version !== "uaa-matrix-messaging-posture.v1" ||
+    !isCommunicationsSafeRef(value.posture_ref) ||
+    ![
+      "ready",
+      "configuration_required",
+      "blocked",
+      "external_facility_required",
+    ].includes(String(value.runtime_status)) ||
+    !isCommunicationsSafeRefArray(value.authority_lane_refs, 15) ||
+    !isCommunicationsSafeRefArray(value.live_executor_operation_refs, 15) ||
+    !isCommunicationsSafeRefArray(value.blocked_operation_refs, 15) ||
+    value.authority_lane_refs.length !== 15 ||
+    value.live_executor_operation_refs.length !== 15 ||
+    ![0, 15].includes(value.blocked_operation_refs.length) ||
+    new Set(value.authority_lane_refs).size !== 15 ||
+    new Set(value.live_executor_operation_refs).size !== 15 ||
+    new Set(value.blocked_operation_refs).size !==
+      value.blocked_operation_refs.length ||
+    (value.runtime_status === "ready"
+      ? value.blocked_operation_refs.length !== 0
+      : value.blocked_operation_refs.length !== 15) ||
+    !isCommunicationsSafeRef(value.broker_ref) ||
+    value.provider_ref !== "provider-ref:communications:matrix" ||
+    value.sdk_ref !== "sdk-ref:matrix-rust-sdk:0.18.0" ||
+    !isCommunicationsSafeRef(value.crypto_store_ref) ||
+    !isCommunicationsSafeRef(value.outbox_store_ref) ||
+    !isCommunicationsSafeRefArray(value.reason_refs, 32) ||
+    new Set(value.reason_refs).size !== value.reason_refs.length ||
+    !["passed", "failed", "external_facility_required"].includes(
+      String(value.element_interoperability_status),
+    ) ||
+    value.request_scoped_evaluation_required !== true ||
+    value.approval_ref_is_authority !== false ||
+    value.autonomous_send_enabled !== false ||
+    value.remote_homeservers_enabled !== false ||
+    value.desktop_only !== true ||
+    value.raw_content_included !== false ||
+    !isCommunicationsSafeSummary(value.safe_summary)
+  ) {
+    throw new Error("Matrix messaging posture response failed safe validation.");
+  }
+  return value as unknown as MatrixMessagingPosture;
 }
 
 function isSafeCommunicationConversation(

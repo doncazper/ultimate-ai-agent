@@ -59,6 +59,10 @@ ACCEPTED_CURRENT_SUCCESS = {
         "crypto_exact_authority_accepted_persistent_adapter_required",
         "evidence-ref:msg-mx-007:crypto-authority-contracts",
     ),
+    "MSG-MX-008": (
+        "manual_messaging_exact_lanes_implemented_configuration_required",
+        "evidence-ref:msg-mx-008:manual-messaging-loopback",
+    ),
 }
 SAFE_BLOCKED_CURRENT_STATUS = {
     "blocked_authority_not_accepted",
