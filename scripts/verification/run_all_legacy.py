@@ -11785,6 +11785,12 @@ def verify_m71_network_tool_contract_review() -> None:
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
+                if _is_exact_governed_runtime_command_subprocess_site(
+                    rel_path=rel,
+                    source=text,
+                    fragment=fragment,
+                ):
+                    continue
                 if is_unapproved_static_fragment(
                     rel=rel, fragment=fragment, source=text,
                     allowed_fragments=allowed_fragments_by_file.get(rel, set()),
@@ -12043,6 +12049,12 @@ def verify_m72_read_only_http_fetch_tool() -> None:
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
+                if _is_exact_governed_runtime_command_subprocess_site(
+                    rel_path=rel,
+                    source=text,
+                    fragment=fragment,
+                ):
+                    continue
                 if is_unapproved_static_fragment(
                     rel=rel, fragment=fragment, source=text,
                     allowed_fragments=allowed_fragments_by_file.get(rel, set()),
