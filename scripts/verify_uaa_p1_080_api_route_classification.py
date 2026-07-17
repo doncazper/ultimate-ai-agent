@@ -40,10 +40,10 @@ EXPECTED_SIDE_EFFECT_MIX = {
     "none": 14,
     "local_dev_workspace_only": 183,
     "governed_network_read_only": 6,
-    "authenticated_connector_mutation": 26,
+    "authenticated_connector_mutation": 25,
     "destructive_local_sensitive": 3,
     "local_sensitive": 10,
-    "destructive_external": 3,
+    "destructive_external": 4,
     "system_browser_exact_launch": 1,
 }
 EXPECTED_PUBLIC_METADATA_PATHS = {
