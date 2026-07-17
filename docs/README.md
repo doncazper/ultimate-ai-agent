@@ -10,13 +10,14 @@ truth and blocked states live in
 `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md`.
 
 Current Messenger Matrix runtime truth is recorded in the MSG-MX-005 through
-MSG-MX-011 connector documents indexed by `docs/DOCUMENTATION_INDEX.md`.
-MSG-MX-011 grants no new runtime lane; it adds cumulative cache/outbox bounds,
-typed low-disk failure, and a content-free read-only hardening posture across
-API, CLI, and desktop. Provider/model invocation, attachment analysis,
-autonomous send, automatic Memory, calls, agent participants, hosted/federated
-runtime, enrolled remote account runtime, public release, and production
-authority remain blocked.
+MSG-MX-012 connector documents indexed by `docs/DOCUMENTATION_INDEX.md`.
+MSG-MX-012 grants no new runtime lane; its finite acceptance packet separates
+implemented, partial, blocked, unsupported, configuration-required, and
+external-facility-required evidence across all thirteen milestones and fifteen
+desktop surfaces. Provider/model invocation, attachment analysis, autonomous
+send, automatic Memory, calls, agent participants, hosted/federated runtime,
+enrolled remote account runtime, public release, and production authority
+remain blocked.
 
 The Control Center is the technical web shell, Founder Command Center is the
 user-facing product name, and the Founder Loop is the bounded product spine.

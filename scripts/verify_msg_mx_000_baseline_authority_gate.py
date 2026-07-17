@@ -75,6 +75,10 @@ ACCEPTED_CURRENT_SUCCESS = {
         "partial_hardening_evidence",
         "evidence-ref:msg-mx-011:messenger-hardening-focused-proof",
     ),
+    "MSG-MX-012": (
+        "partial_acceptance_evidence",
+        "evidence-ref:msg-mx-012:integrated-acceptance-packet",
+    ),
 }
 SAFE_BLOCKED_CURRENT_STATUS = {
     "blocked_authority_not_accepted",
