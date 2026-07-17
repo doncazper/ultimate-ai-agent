@@ -9,11 +9,12 @@ front-door product story lives in `README.md`; the strategic narrative lives in
 truth and blocked states live in
 `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md`.
 
-Current Messenger Matrix runtime truth is recorded in
-`docs/connectors/MESSENGER_MATRIX_SESSION.md`: MSG-MX-005 implements only exact
-homeserver-discovery and authentication-method reads. Credential, browser,
-account, session, sync, message, crypto, media, and Messenger UI runtime remain
-blocked or absent as documented there.
+Current Messenger Matrix runtime truth is recorded in the MSG-MX-005 through
+MSG-MX-010 connector documents indexed by `docs/DOCUMENTATION_INDEX.md`.
+MSG-MX-010 adds six exact request-scoped local policy, transient-context, and
+redacted-proposal lanes. Provider/model invocation, attachment analysis,
+autonomous send, automatic Memory, enrolled remote account runtime, public
+release, and production authority remain blocked.
 
 The Control Center is the technical web shell, Founder Command Center is the
 user-facing product name, and the Founder Loop is the bounded product spine.

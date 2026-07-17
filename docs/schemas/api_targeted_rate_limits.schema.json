@@ -29,6 +29,7 @@
           "chat_durable_receipt",
           "communications_matrix_crypto",
           "communications_matrix_harness",
+          "communications_matrix_intelligence",
           "communications_matrix_messaging",
           "communications_matrix_rooms_media",
           "communications_matrix_session",
@@ -49,12 +50,12 @@
           "web_evidence_product_slice"
         ]
       },
-      "minItems": 22,
-      "maxItems": 22,
+      "minItems": 23,
+      "maxItems": 23,
       "uniqueItems": true
     },
     "targeted_route_count": {
-      "const": 132
+      "const": 139
     },
     "posture_field": {
       "const": "rate_limit_posture"

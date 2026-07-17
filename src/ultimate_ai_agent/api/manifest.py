@@ -879,6 +879,7 @@ CONTROL_CENTER_VALIDATION_ONLY_PATHS = {
     "/control-center/communications/matrix-crypto/proposal",
     "/control-center/communications/matrix-messaging/proposal",
     "/control-center/communications/matrix-rooms-media/proposal",
+    "/control-center/communications/matrix-intelligence/proposal",
 }
 CONTROL_CENTER_COMMUNICATIONS_READONLY_PATHS = {
     "/control-center/communications/providers",
@@ -887,6 +888,7 @@ CONTROL_CENTER_COMMUNICATIONS_READONLY_PATHS = {
     "/control-center/communications/matrix-crypto/posture",
     "/control-center/communications/matrix-messaging/posture",
     "/control-center/communications/matrix-rooms-media/posture",
+    "/control-center/communications/matrix-intelligence/posture",
     "/control-center/communications/rooms",
     "/control-center/communications/failed-sends",
     "/control-center/communications/security-posture",
@@ -1027,6 +1029,26 @@ CONTROL_CENTER_MATRIX_ROOMS_MEDIA_SIDE_EFFECTS = {
         ApiRouteSideEffectClass.local_sensitive
     ),
     "/control-center/communications/matrix-rooms-media/media-cleanup": (
+        ApiRouteSideEffectClass.destructive_local_sensitive
+    ),
+}
+CONTROL_CENTER_MATRIX_INTELLIGENCE_SIDE_EFFECTS = {
+    "/control-center/communications/matrix-intelligence/room-ai-policy-read": (
+        ApiRouteSideEffectClass.local_sensitive
+    ),
+    "/control-center/communications/matrix-intelligence/room-ai-policy-write": (
+        ApiRouteSideEffectClass.local_sensitive
+    ),
+    "/control-center/communications/matrix-intelligence/context-materialize": (
+        ApiRouteSideEffectClass.local_sensitive
+    ),
+    "/control-center/communications/matrix-intelligence/proposal-read": (
+        ApiRouteSideEffectClass.local_sensitive
+    ),
+    "/control-center/communications/matrix-intelligence/proposal-persist": (
+        ApiRouteSideEffectClass.local_sensitive
+    ),
+    "/control-center/communications/matrix-intelligence/proposal-delete": (
         ApiRouteSideEffectClass.destructive_local_sensitive
     ),
 }
@@ -1224,6 +1246,8 @@ def route_side_effect_class(path: str) -> ApiRouteSideEffectClass:
         return CONTROL_CENTER_MATRIX_MESSAGING_SIDE_EFFECTS[path]
     if path in CONTROL_CENTER_MATRIX_ROOMS_MEDIA_SIDE_EFFECTS:
         return CONTROL_CENTER_MATRIX_ROOMS_MEDIA_SIDE_EFFECTS[path]
+    if path in CONTROL_CENTER_MATRIX_INTELLIGENCE_SIDE_EFFECTS:
+        return CONTROL_CENTER_MATRIX_INTELLIGENCE_SIDE_EFFECTS[path]
     if path.startswith("/api/runtime/"):
         return ApiRouteSideEffectClass.local_dev_workspace_only
     if path.startswith("/web-evidence/"):
@@ -1306,6 +1330,14 @@ def route_classification_for_path(
         return (
             ApiRouteClassification.mutating_requires_authority,
             "Exact Matrix room, encrypted local-search, or bounded media operation requires request-scoped authority through idempotency, fresh LocalApprovalAuthority validation, a current exact AuthorityLease including composite transfer domains, PolicyEngine evaluation, byte/type/count limits, target and filesystem-root bindings, readiness, kill-switch, safe-disable, rollback or compensation posture, quarantine, redaction, and content-free receipts.",
+        )
+    if (
+        normalized_method == "POST"
+        and path in CONTROL_CENTER_MATRIX_INTELLIGENCE_SIDE_EFFECTS
+    ):
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "Exact Matrix room policy, transient context manifest, or redacted proposal-store operation requires idempotency, fresh PolicyEngine and LocalApprovalAuthority validation, a current exact AuthorityLease, account/room/event/proposal scope, local-only disclosure, budget, readiness, deadline, kill-switch, safe-disable, rollback or deletion posture, and content-free receipts; provider and attachment lanes remain blocked.",
         )
     if normalized_method == "GET" and path in PUBLIC_METADATA_PATHS:
         return (

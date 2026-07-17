@@ -76,7 +76,7 @@
     },
     {
       "capability_id": "messenger_fixture_preview",
-      "label": "Messenger Matrix desktop fixture plus governed sync, crypto, messaging, and rooms/search/media posture",
+      "label": "Messenger Matrix desktop fixture plus governed sync, crypto, messaging, rooms/media, and intelligence posture",
       "python_core_owner": "src/ultimate_ai_agent/core/communications",
       "api_routes": [
         {
@@ -98,6 +98,11 @@
           "method": "GET",
           "path": "/control-center/communications/matrix-rooms-media/posture",
           "operation_id": "get_control_center_communications_matrix_rooms_media_posture"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/communications/matrix-intelligence/posture",
+          "operation_id": "get_control_center_communications_matrix_intelligence_posture"
         }
       ],
       "cli_paths": [
@@ -109,9 +114,9 @@
       "control_action_ids": [
         "navigate-messenger"
       ],
-      "authority_posture": "backend-owned content-free sync, crypto, manual-messaging, and rooms/search/media posture; MSG-MX-008 permits fifteen and MSG-MX-009 permits twenty exact request-scoped operations through an enrolled loopback broker with exact targets, complete single- or multi-domain scope, app-owned media roots, idempotency, receipts, rollback or discard posture, and safe-disable while broader Matrix authority and fixture-backed UI actions remain blocked",
+      "authority_posture": "backend-owned content-free sync, crypto, messaging, rooms/media, and intelligence posture; MSG-MX-010 permits six exact request-scoped local policy/context/proposal operations while provider invocation, attachment analysis, autonomous send, action execution, context injection, automatic Memory, broader Matrix authority, and fixture-backed UI actions remain blocked",
       "status": "partial_surface_coverage",
-      "missing_reason": "Live account configuration, protected message-content reads, persistent crypto composition, UI-bound real content, broader message sends, calls, remote homeservers, broad filesystem access, and standing connector authority remain blocked or later-phase work",
+      "missing_reason": "Live account configuration, protected UI message-content reads, persistent crypto composition, provider/model invocation, attachment analysis, automatic proposal generation, proposal execution, broader message sends, calls, remote homeservers, broad filesystem access, and standing connector authority remain blocked or later-phase work",
       "tests_evidence_refs": [
         "tests/test_msg_mx_002_static_shell.py",
         "tests/test_msg_mx_006_matrix_sync_authority.py",
@@ -121,6 +126,8 @@
         "tests/test_msg_mx_008_matrix_messaging_contracts.py",
         "tests/test_msg_mx_009_rooms_search_media_api_cli.py",
         "tests/test_msg_mx_009_rooms_search_media_contracts.py",
+        "tests/test_msg_mx_010_intelligence_api_cli.py",
+        "tests/test_msg_mx_010_intelligence_contracts.py",
         "tests/test_control_center_release_surface_manifest.py",
         "tests/test_control_center_capability_surface_manifest.py",
         "docs/design/control_center_north_star/UAA_MESSENGER_MATRIX_RENDER_ACCEPTANCE.md"

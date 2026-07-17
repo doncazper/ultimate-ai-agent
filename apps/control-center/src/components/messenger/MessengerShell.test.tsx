@@ -178,10 +178,74 @@ const matrixRoomsMediaPosture = {
   raw_content_included: false,
 };
 
+const matrixIntelligencePosture = {
+  schema_version: "uaa-matrix-intelligence-posture.v1",
+  posture_ref: "posture-ref:matrix-intelligence:partial-exact-local-v1",
+  runtime_status: "partial_exact_local_lanes",
+  family_postures: [
+    ["context_materialization", "accepted_request_scoped", true, []],
+    [
+      "provider_invocation",
+      "blocked_missing_exact_authority",
+      false,
+      ["blocked-reason-ref:msg-mx:model-provider-runtime-prohibited"],
+    ],
+    ["proposal_persistence", "accepted_request_scoped", true, []],
+    [
+      "attachment_analysis",
+      "blocked_missing_exact_authority",
+      false,
+      ["blocked-reason-ref:msg-mx:attachment-scanner-adapter-missing"],
+    ],
+  ].map(([family, status, enabled, blockers], index) => ({
+    family,
+    authority_lane_refs: [`authority-lane-ref:matrix-intelligence:family-${index}`],
+    status,
+    stage_b_runtime_enabled: enabled,
+    blocker_refs: blockers,
+    safe_summary: `Exact family posture ${index}.`,
+  })),
+  policy_modes: ["off", "ask_each_time", "scoped_allow"],
+  proposal_kinds: [
+    "unread_summary",
+    "period_summary",
+    "reply_draft",
+    "open_questions",
+    "decisions",
+    "commitments",
+    "task_date_extraction",
+    "translation",
+    "message",
+    "meeting",
+    "follow_up",
+    "task",
+  ],
+  cross_surface_link_refs: [
+    "surface-ref:crm:safe-link-only",
+    "surface-ref:calendar:safe-link-only",
+    "surface-ref:work-board:safe-link-only",
+    "surface-ref:knowledge:safe-link-only",
+    "surface-ref:communications:safe-link-only",
+  ],
+  request_scoped_evaluation_required: true,
+  standing_content_authority: false,
+  provider_invocation_enabled: false,
+  attachment_analysis_enabled: false,
+  autonomous_send_enabled: false,
+  automatic_memory_write_enabled: false,
+  context_injection_enabled: false,
+  raw_content_persisted: false,
+  desktop_only: true,
+  safe_summary:
+    "Exact local context and proposal lanes are available while provider and attachment lanes remain blocked.",
+};
+
 beforeEach(() => {
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
     const target = String(input);
-    const data = target.includes("matrix-rooms-media")
+    const data = target.includes("matrix-intelligence")
+      ? matrixIntelligencePosture
+      : target.includes("matrix-rooms-media")
       ? matrixRoomsMediaPosture
       : target.includes("matrix-crypto")
       ? matrixCryptoPosture
@@ -243,7 +307,7 @@ describe("MessengerShell", () => {
     );
     expect(screen.getByText(/Read-only sync · configuration required/i)).toBeInTheDocument();
     expect(screen.getByText(/External actions blocked/i)).toBeInTheDocument();
-    expect(globalThis.fetch).toHaveBeenCalledTimes(4);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(5);
     expect(screen.getByText(/External content is untrusted/i)).toBeInTheDocument();
 
     for (const control of view.container.querySelectorAll<HTMLButtonElement>(
@@ -267,6 +331,23 @@ describe("MessengerShell", () => {
     expect(screen.getByText(/Core implemented · enrollment required/i)).toBeInTheDocument();
     expect(screen.getByText(/Rooms, search & media · configuration required/i)).toBeInTheDocument();
     expect(screen.queryByText(/standing authority granted/i)).not.toBeInTheDocument();
+  });
+
+  it("shows exact local intelligence lanes while provider and attachment generation remain blocked", async () => {
+    window.history.replaceState({}, "", "/messenger?view=intelligence");
+    render(<MessengerShell />);
+
+    await waitFor(() =>
+      expect(screen.getByRole("main")).toHaveAttribute(
+        "data-messenger-intelligence-runtime",
+        "partial_exact_local_lanes",
+      ),
+    );
+    expect(screen.getByText("Off · default")).toBeInTheDocument();
+    expect(screen.getByText(/Transient, content-free, room-scoped, and expiring/i)).toBeInTheDocument();
+    expect(screen.getByText(/No model\/provider call or attachment analysis/i)).toBeInTheDocument();
+    expect(screen.getByText(/Never automatic/i)).toBeInTheDocument();
+    expect(screen.queryByText(/generated successfully/i)).not.toBeInTheDocument();
   });
 
   it("shows exact crypto authority without claiming a live executor", async () => {

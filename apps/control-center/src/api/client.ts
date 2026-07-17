@@ -24,6 +24,7 @@ import type {
   CommunicationsSessionPosture,
   MatrixCryptoPosture,
   MatrixMessagingPosture,
+  MatrixIntelligencePosture,
   MatrixRoomsMediaPosture,
   MatrixSyncPosture,
   CodingCockpitSessionReadModel,
@@ -952,6 +953,85 @@ export async function loadMatrixRoomsMediaPosture(): Promise<MatrixRoomsMediaPos
     throw new Error("Matrix rooms and media posture response failed safe validation.");
   }
   return value as unknown as MatrixRoomsMediaPosture;
+}
+
+export async function loadMatrixIntelligencePosture(): Promise<MatrixIntelligencePosture> {
+  const value = await readEnvelope<unknown>(
+    API_ENDPOINTS.communicationsMatrixIntelligencePosture,
+  );
+  const expectedFamilies = [
+    "context_materialization",
+    "provider_invocation",
+    "proposal_persistence",
+    "attachment_analysis",
+  ];
+  if (
+    !isCommunicationsRecord(value) ||
+    !hasExactCommunicationsKeys(value, [
+      "schema_version",
+      "posture_ref",
+      "runtime_status",
+      "family_postures",
+      "policy_modes",
+      "proposal_kinds",
+      "cross_surface_link_refs",
+      "request_scoped_evaluation_required",
+      "standing_content_authority",
+      "provider_invocation_enabled",
+      "attachment_analysis_enabled",
+      "autonomous_send_enabled",
+      "automatic_memory_write_enabled",
+      "context_injection_enabled",
+      "raw_content_persisted",
+      "desktop_only",
+      "safe_summary",
+    ]) ||
+    value.schema_version !== "uaa-matrix-intelligence-posture.v1" ||
+    !isCommunicationsSafeRef(value.posture_ref) ||
+    value.runtime_status !== "partial_exact_local_lanes" ||
+    !Array.isArray(value.family_postures) ||
+    value.family_postures.length !== 4 ||
+    !value.family_postures.every((item, index) =>
+      isCommunicationsRecord(item) &&
+      hasExactCommunicationsKeys(item, [
+        "family",
+        "authority_lane_refs",
+        "status",
+        "stage_b_runtime_enabled",
+        "blocker_refs",
+        "safe_summary",
+      ]) &&
+      item.family === expectedFamilies[index] &&
+      ["accepted_request_scoped", "blocked_missing_exact_authority"].includes(
+        String(item.status),
+      ) &&
+      typeof item.stage_b_runtime_enabled === "boolean" &&
+      ((item.status === "accepted_request_scoped") === item.stage_b_runtime_enabled) &&
+      isCommunicationsSafeRefArray(item.authority_lane_refs, 8) &&
+      isCommunicationsSafeRefArray(item.blocker_refs, 8) &&
+      isCommunicationsSafeSummary(item.safe_summary),
+    ) ||
+    !Array.isArray(value.policy_modes) ||
+    value.policy_modes.join("|") !== "off|ask_each_time|scoped_allow" ||
+    !Array.isArray(value.proposal_kinds) ||
+    value.proposal_kinds.length !== 12 ||
+    !value.proposal_kinds.every((item) => typeof item === "string") ||
+    new Set(value.proposal_kinds).size !== 12 ||
+    !isCommunicationsSafeRefArray(value.cross_surface_link_refs, 8) ||
+    value.request_scoped_evaluation_required !== true ||
+    value.standing_content_authority !== false ||
+    value.provider_invocation_enabled !== false ||
+    value.attachment_analysis_enabled !== false ||
+    value.autonomous_send_enabled !== false ||
+    value.automatic_memory_write_enabled !== false ||
+    value.context_injection_enabled !== false ||
+    value.raw_content_persisted !== false ||
+    value.desktop_only !== true ||
+    !isCommunicationsSafeSummary(value.safe_summary)
+  ) {
+    throw new Error("Matrix intelligence posture response failed safe validation.");
+  }
+  return value as unknown as MatrixIntelligencePosture;
 }
 
 function isSafeCommunicationConversation(

@@ -560,6 +560,25 @@ operations. API, CLI, and Messenger posture default to
 Canonical truth:
 `docs/connectors/MESSENGER_MATRIX_ROOMS_SEARCH_MEDIA.md`.
 
+## Matrix Governed Intelligence And Review-Only Proposals
+
+MSG-MX-010 registers six exact request-scoped local bindings for room AI policy
+read/write, transient context materialization, and redacted proposal
+read/persist/delete. Every operation binds exact account, room/event scope,
+policy/grant, proposal fingerprint where applicable, task/mission/run,
+local-only disclosure, event/content/byte budget, retention, deadline,
+readiness, approval, lease, idempotency, safe-disable, and rollback or deletion
+posture immediately before start.
+
+Context bodies remain transient and produce only refs, content fingerprints,
+counts, expiry, and a content-free manifest. Proposal records contain bounded
+redacted review metadata and safe cross-surface refs only; they have no
+execution path. Provider/model invocation and the attachment
+materialize/scan/analyze/cleanup composite family have no operation, binding,
+adapter, route, or runtime. Autonomous send, action execution, context
+injection, and automatic Memory remain denied. Canonical truth:
+`docs/connectors/MESSENGER_MATRIX_INTELLIGENCE_PROPOSALS.md`.
+
 ## Local Smoke Harness
 
 Run the dev-only smoke harness to prove registry resolution and schema export without adding live authority:

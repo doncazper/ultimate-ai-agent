@@ -3,7 +3,7 @@
 Status: active UAA-P0-007 operator-shell gap map
 Baseline: v0.104.0 / 0.104.0
 Source plan: `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md` M172
-API boundary: current FastAPI manifest has 327 OpenAPI paths
+API boundary: current FastAPI manifest has 335 OpenAPI paths
 Lineage: carries forward the UAA-P1-065 `FCC-P0-002` Control Center
 organization cleanup as historical product-surface context.
 
@@ -87,7 +87,11 @@ The current visual north star for the Founder Command Center is recorded in
 implements the current surface geometry under `/workspace/*`, including the
 immersive Studio representation. Messenger navigation resolves to the existing
 canonical fixture-only `/messenger` shell rather than a competing workspace
-client. The canonical routes
+client. Its Intelligence inspector renders the backend-owned MSG-MX-010 partial
+posture: exact local policy/context/proposal lanes and explicitly blocked
+provider/attachment families. Room/message content remains synthetic, and the
+shell mints no approval, lease, provider, attachment, send, action, context, or
+Memory authority. The canonical routes
 remain unchanged until compatible backend contracts and route truth are ready
 for an explicit cutover. These representations do not promote any route,
 workflow, connector, model/provider call, messaging send, skill activation, or

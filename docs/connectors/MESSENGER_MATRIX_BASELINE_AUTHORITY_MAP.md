@@ -96,7 +96,7 @@ are design evidence only.
 | MSG-MX-007 | planned | blocked_pending_separate_exact_authority | unsupported_missing | blocked | unknown | accepted crypto/device/backup/recovery/reset lanes and loss/recovery proof |
 | MSG-MX-008 | planned | blocked_pending_separate_exact_authority | unsupported_missing | blocked | unknown | accepted exact human-commanded messaging/outbox/notification lanes and delivery proof |
 | MSG-MX-009 | planned | blocked_pending_separate_exact_authority | unsupported_missing | blocked | unknown | accepted room/admin/media/search lanes and quarantine/cleanup proof |
-| MSG-MX-010 | planned | blocked_pending_separate_exact_authority | unsupported_missing | blocked | unknown | accepted context/provider/proposal/attachment lane families and isolation proof |
+| MSG-MX-010 | partial | partial_exact_local_lanes | context_policy_and_proposal_core_implemented | lease_required | request_scoped | six accepted local context/policy/proposal lanes; provider and attachment families remain blocked |
 | MSG-MX-011 | planned | planned_no_new_lane_hardening | missing | not_applicable_audit_metadata | not_applicable_audit_metadata | hardening evidence under fresh exact authority for every exercised call |
 | MSG-MX-012 | planned | planned_no_new_lane_acceptance | missing | not_applicable_audit_metadata | not_applicable_audit_metadata | integrated acceptance evidence for exact previously accepted lanes only |
 <!-- MSG-MX-MILESTONE-LEDGER:END -->
@@ -192,13 +192,14 @@ blocks the exact lane before start.
 | `planned-lane-ref:matrix:media-quarantine` | MSG-MX-009 | files / write (partial) | disabled media adapter / exact quarantine ref | gap: local quarantine mutation | unsupported | unknown | not_configured | unknown | blocked | unknown | unknown | unknown | unknown | unknown | self-bound-profile | `evidence-ref:msg-mx-009:quarantine-proof` |
 | `planned-lane-ref:matrix:media-preview` | MSG-MX-009 | files / read (partial) | disabled preview adapter / exact quarantined-media ref | gap: isolated preview parsing | unsupported | unknown | not_configured | unknown | blocked | unknown | unknown | unknown | unknown | unknown | self-bound-profile | `evidence-ref:msg-mx-009:preview-proof` |
 | `planned-lane-ref:matrix:media-cleanup` | MSG-MX-009 | files / destructive (partial) | disabled media adapter / exact materialization scope | gap: local filesystem deletion | unsupported | unknown | not_configured | unknown | blocked | unknown | unknown | unknown | unknown | unknown | self-bound-profile | `evidence-ref:msg-mx-009:cleanup-proof` |
-| `planned-lane-ref:matrix:context-preview` | MSG-MX-010 | messages / read (partial) | disabled context adapter / exact room-event-range ref | local read-only preview after acceptance | unsupported | unknown | not_configured | unknown | blocked | unknown | unknown | unknown | unknown | unknown | self-bound-profile | `evidence-ref:msg-mx-010:context-preview-proof` |
-| `planned-lane-ref:matrix:content-materialize` | MSG-MX-010 | taxonomy_gap / read | disabled context adapter / exact disclosure target | gap: sensitive content materialization | unsupported | unknown | not_configured | unknown | blocked | unknown | unknown | unknown | unknown | unknown | self-bound-profile | `evidence-ref:msg-mx-010:content-materialization-proof` |
-| `planned-lane-ref:matrix:provider-invoke` | MSG-MX-010 | provider_model_calls / execute (partial) | disabled provider adapter / exact model destination | gap: governed provider invocation | unsupported | unknown | not_configured | unknown | blocked | unknown | unknown | unknown | unknown | unknown | self-bound-profile | `evidence-ref:msg-mx-010:provider-proof` |
-| `planned-lane-ref:matrix:proposal-persist` | MSG-MX-010 | taxonomy_gap / write | disabled proposal adapter / exact proposal ref | gap: local sensitive proposal mutation | unsupported | unknown | not_configured | unknown | blocked | unknown | unknown | unknown | unknown | unknown | self-bound-profile | `evidence-ref:msg-mx-010:proposal-proof` |
-| `planned-lane-ref:matrix:attachment-materialize` | MSG-MX-010 | files / write (partial) | disabled attachment adapter / constrained destination ref | gap: local filesystem materialization | unsupported | unknown | not_configured | unknown | blocked | unknown | unknown | unknown | unknown | unknown | self-bound-profile | `evidence-ref:msg-mx-010:attachment-materialize-proof` |
-| `planned-lane-ref:matrix:attachment-scan-analyze` | MSG-MX-010 | taxonomy_gap / execute | disabled scanner adapter / exact quarantined-attachment ref | gap: isolated attachment analysis | unsupported | unknown | not_configured | unknown | blocked | unknown | unknown | unknown | unknown | unknown | self-bound-profile | `evidence-ref:msg-mx-010:attachment-analysis-proof` |
-| `planned-lane-ref:matrix:attachment-cleanup` | MSG-MX-010 | files / destructive (partial) | disabled attachment adapter / exact materialization scope | gap: local filesystem deletion | unsupported | unknown | not_configured | unknown | blocked | unknown | unknown | unknown | unknown | unknown | self-bound-profile | `evidence-ref:msg-mx-010:attachment-cleanup-proof` |
+| `authority-lane-ref:matrix-intelligence-room-ai-policy-read` | MSG-MX-010 | messages / read (partial) | local policy store / exact account-room-policy ref | sensitive local policy inspection | supported | supported | configured | available | lease_required | available | not_metered | inactive | current | request_scoped | self-bound-profile | `evidence-ref:msg-mx-010:policy-contract-tests` |
+| `authority-lane-ref:matrix-intelligence-room-ai-policy-write` | MSG-MX-010 | messages / mutate (partial) | local policy store / exact account-room-policy-grant ref | sensitive local policy mutation | supported | supported | configured | available | lease_required | available | not_metered | inactive | current | request_scoped | self-bound-profile | `evidence-ref:msg-mx-010:policy-contract-tests` |
+| `authority-lane-ref:matrix-intelligence-context-materialize` | MSG-MX-010 | messages / read (partial) | transient local context owner / exact account-room-event-range ref | sensitive transient local content materialization | supported | supported | configured | available | lease_required | available | not_metered | inactive | current | request_scoped | self-bound-profile | `evidence-ref:msg-mx-010:context-isolation-tests` |
+| `planned-lane-ref:matrix:provider-invoke` | MSG-MX-010 | provider_model_calls / execute (partial) | absent provider adapter / exact model destination | gap: governed provider invocation | unsupported | unknown | not_configured | unknown | blocked | unknown | unknown | unknown | unknown | blocked | self-bound-profile | `blocked-reason-ref:msg-mx:model-provider-runtime-prohibited` |
+| `authority-lane-ref:matrix-intelligence-proposal-read` | MSG-MX-010 | messages / read (partial) | redacted local proposal store / exact proposal ref | sensitive local proposal inspection | supported | supported | configured | available | lease_required | available | not_metered | inactive | current | request_scoped | self-bound-profile | `evidence-ref:msg-mx-010:proposal-contract-tests` |
+| `authority-lane-ref:matrix-intelligence-proposal-persist` | MSG-MX-010 | messages / mutate (partial) | redacted local proposal store / exact proposal fingerprint | sensitive local proposal mutation | supported | supported | configured | available | lease_required | available | not_metered | inactive | current | request_scoped | self-bound-profile | `evidence-ref:msg-mx-010:proposal-contract-tests` |
+| `authority-lane-ref:matrix-intelligence-proposal-delete` | MSG-MX-010 | messages / destructive (partial) | redacted local proposal store / exact proposal ref | destructive local proposal deletion | supported | supported | configured | available | lease_required | available | not_metered | inactive | current | request_scoped | self-bound-profile | `evidence-ref:msg-mx-010:proposal-delete-tests` |
+| `planned-lane-ref:matrix:attachment-scan-analyze` | MSG-MX-010 | files plus taxonomy gap / execute | absent composite attachment owner / exact attachment-scanner-parser-cleanup refs | gap: conjunctive materialize/scan/analyze/cleanup authority | unsupported | unknown | not_configured | unknown | blocked | unknown | unknown | unknown | unknown | blocked | self-bound-profile | `blocked-reason-ref:msg-mx:attachment-composite-binding-not-proven` |
 <!-- MSG-MX-LANE-LEDGER:END -->
 
 ## Per-Milestone Contracts
@@ -497,32 +498,25 @@ blocks the exact lane before start.
 
 ### MSG-MX-010
 
-- Declaration status: `planned`.
-- Program status: `blocked_pending_separate_exact_authority`.
-- Implementation status: `unsupported_missing`.
-- Availability snapshot posture: `baseline_fail_closed_projection_not_persisted`.
-- Catalog status: `unsupported`.
-- Compatibility status: `unknown`.
-- Configuration status: `not_configured`.
-- Health status: `unknown`.
-- Authority posture: `blocked`.
-- Resource/budget status: `unknown`.
-- Cost posture: `unknown`.
-- Safe-disable status: `unknown`.
-- Freshness status: `unknown`.
-- Derived readiness: `unknown`.
-- Planned exact capability refs: context preview/materialization, approved provider invocation, proposal persistence, attachment materialize/scan/analyze/cleanup.
-- Current domain/capability mapping: `messages/read` and `provider_model_calls/execute` describe parts only; output never grants authority.
-- Taxonomy gap: content disclosure/materialization, exact model destination, proposal store, attachment scanning, and multi-domain atomicity.
-- Adapter/provider/target scope: exact account/room/event range, attachment, task, model destination, disclosure, proposal, and cleanup refs.
-- Route/side-effect posture: no route may materialize content or call a model until exact classes, auth, rate limit, and idempotency exist.
-- Policy/approval/lease gate: four independently accepted lane families; an absent family stays blocked without weakening the others.
-- Deadline/TTL posture: expiring context grants, bounded proposal retention, provider deadline, and cleanup expiry.
-- Idempotency/replay posture: request/content/model/attachment fingerprints; cross-room/account and proposal replay rejected.
-- Rollback posture: delete transient materialization/proposal by exact scope; model call itself is not reversible.
-- Receipt/evidence/redaction: context and provider receipts store refs/hashes/counts only; no raw bodies, prompts, responses, or attachments.
-- Blocker refs: `blocked-reason-ref:msg-mx:model-context-authority-not-accepted`, `blocked-reason-ref:msg-mx:composite-authority-binding-not-proven`.
-- Promotion evidence: injection, disclosure, cross-scope, stale grant, attachment substitution/scanner bypass, replay, and memory/action escalation tests.
+- Declaration status: `partial`.
+- Program status: `partial_exact_local_lanes`.
+- Implementation status: `context_policy_and_proposal_core_implemented`.
+- Availability snapshot posture: `backend_owned_request_scoped_current`.
+- Catalog/compatibility/configuration/health: accepted six local lanes are `supported` / `supported` / `configured` / `available`; provider and attachment families remain `unsupported` / `unknown` / `not_configured` / `unknown`.
+- Authority posture: `lease_required` for each accepted lane; blocked families have no binding or executor.
+- Resource/budget and cost: exact local operations are bounded and zero-cost/not-metered.
+- Safe-disable/freshness/readiness: re-evaluated immediately before every start; unknown, stale, killed, or disabled state fails closed.
+- Accepted exact capability refs: policy read/write, transient context materialize, and redacted proposal read/persist/delete.
+- Blocked capability refs: provider invocation and attachment materialize/scan/analyze/cleanup.
+- Current domain/capability mapping: six accepted local lanes use exact `messages/read|mutate|destructive`; provider and attachment taxonomy/composite authority remain absent.
+- Adapter/provider/target scope: exact account, room/event range, task/mission/run, local model-destination-blocked ref, local-only disclosure, policy/grant, proposal, budgets, deadline, readiness, lease, idempotency, and rollback refs.
+- Route/side-effect posture: eight protected no-store routes exist; six operations require authority and idempotency. No provider or attachment execution route exists.
+- Deadline/TTL posture: context grants/manifests expire within 900 seconds and proposals within 1,800 seconds.
+- Idempotency/replay posture: complete request/content/proposal fingerprints reject cross-room/account, changed-content, and same-key substitution.
+- Rollback posture: context is transient; policy compensation needs a new exact write; proposal persist has exact deletion; deletion makes no restore claim.
+- Receipt/evidence/redaction: refs, fingerprints, counts, bounded safe summaries, expiry, and content-free receipts only; no raw bodies, prompts, responses, provider payloads, attachments, or paths.
+- Blocker refs: `blocked-reason-ref:msg-mx:model-provider-runtime-prohibited`, `blocked-reason-ref:msg-mx:model-context-authority-not-accepted`, `blocked-reason-ref:msg-mx:attachment-scanner-adapter-missing`, `blocked-reason-ref:msg-mx:attachment-composite-binding-not-proven`.
+- Evidence: `docs/connectors/MESSENGER_MATRIX_INTELLIGENCE_PROPOSALS.md`, `scripts/verify_msg_mx_010_intelligence_proposals.py`, focused injection/isolation/stale-grant/disclosure/replay/Memory-denial tests.
 
 ### MSG-MX-011
 

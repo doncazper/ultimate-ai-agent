@@ -133,7 +133,7 @@ def _version_doc_marks_milestone_implemented(text: str, milestone: str) -> bool:
 # Route-boundary evaluators are imported here to preserve the historical public facade.
 from ultimate_ai_agent.core.gate.evaluator_modules.route_boundaries import *  # noqa: F401,F403
 
-EXPECTED_M13_CONTROL_CENTER_ROUTE_COUNT = 162
+EXPECTED_M13_CONTROL_CENTER_ROUTE_COUNT = 170
 
 STATIC_SAFETY_EVALUATOR_DATA_FILES = frozenset(
     {

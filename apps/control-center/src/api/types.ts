@@ -13140,6 +13140,39 @@ export interface MatrixRoomsMediaPosture {
   raw_content_included: false;
 }
 
+export interface MatrixIntelligenceFamilyPosture {
+  family:
+    | "context_materialization"
+    | "provider_invocation"
+    | "proposal_persistence"
+    | "attachment_analysis";
+  authority_lane_refs: string[];
+  status: "accepted_request_scoped" | "blocked_missing_exact_authority";
+  stage_b_runtime_enabled: boolean;
+  blocker_refs: string[];
+  safe_summary: string;
+}
+
+export interface MatrixIntelligencePosture {
+  schema_version: "uaa-matrix-intelligence-posture.v1";
+  posture_ref: string;
+  runtime_status: "partial_exact_local_lanes";
+  family_postures: MatrixIntelligenceFamilyPosture[];
+  policy_modes: ["off", "ask_each_time", "scoped_allow"];
+  proposal_kinds: string[];
+  cross_surface_link_refs: string[];
+  request_scoped_evaluation_required: true;
+  standing_content_authority: false;
+  provider_invocation_enabled: false;
+  attachment_analysis_enabled: false;
+  autonomous_send_enabled: false;
+  automatic_memory_write_enabled: false;
+  context_injection_enabled: false;
+  raw_content_persisted: false;
+  desktop_only: true;
+  safe_summary: string;
+}
+
 export interface CommunicationsPagination {
   page_size: number;
   returned_count: number;

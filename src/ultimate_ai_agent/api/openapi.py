@@ -6,6 +6,7 @@ from fastapi.routing import APIRoute
 from ultimate_ai_agent import __version__
 from ultimate_ai_agent.api.contracts import ApiContractStatus, ApiRouteSideEffectClass
 from ultimate_ai_agent.api.manifest import (
+    CONTROL_CENTER_MATRIX_INTELLIGENCE_SIDE_EFFECTS,
     CONTROL_CENTER_MATRIX_ROOMS_MEDIA_SIDE_EFFECTS,
     iter_api_route_items,
     route_group_for_path,
@@ -264,6 +265,10 @@ def verify_openapi_contract(app: FastAPI) -> ApiContractStatus:
         **{
             path: side_effect.value
             for path, side_effect in CONTROL_CENTER_MATRIX_ROOMS_MEDIA_SIDE_EFFECTS.items()
+        },
+        **{
+            path: side_effect.value
+            for path, side_effect in CONTROL_CENTER_MATRIX_INTELLIGENCE_SIDE_EFFECTS.items()
         },
     }
     for route in routes:

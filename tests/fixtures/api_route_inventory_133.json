@@ -1,9 +1,9 @@
 {
-  "control_center_route_count": 162,
-  "fingerprint": "api-contract-fingerprint:sha256:f9ef7049e69c4a5fd981e632ed1887040161e93baf58d76878d081f2233673cf",
+  "control_center_route_count": 170,
+  "fingerprint": "api-contract-fingerprint:sha256:523512e40b28bcbba1cd769375eeebe596dabef3f2ecb29eae2f5273c4d09ff6",
   "idempotency_audit_policy_ref": "idempotency:p1-084:mutating-routes:v1",
-  "mutating_route_count": 105,
-  "openapi_path_count": 327,
+  "mutating_route_count": 111,
+  "openapi_path_count": 335,
   "projection_fields": [
     "path",
     "method",
@@ -24,17 +24,17 @@
   ],
   "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
   "route_approval_posture_summary": {
-    "not_required_for_route_classification": 223,
-    "required_before_mutation_authority": 105
+    "not_required_for_route_classification": 225,
+    "required_before_mutation_authority": 111
   },
   "route_auth_posture_summary": {
-    "protected_local_bearer_required": 325,
+    "protected_local_bearer_required": 333,
     "public_metadata_no_auth": 3
   },
   "route_classification_summary": {
     "local_readonly": 29,
-    "local_sensitive": 191,
-    "mutating_requires_authority": 105,
+    "local_sensitive": 193,
+    "mutating_requires_authority": 111,
     "public_metadata": 3
   },
   "route_classification_vocabulary": [
@@ -43,15 +43,15 @@
     "local_sensitive",
     "mutating_requires_authority"
   ],
-  "route_count": 328,
+  "route_count": 336,
   "route_idempotency_posture_summary": {
-    "not_required_for_route_classification": 223,
-    "required_before_mutation_authority": 105
+    "not_required_for_route_classification": 225,
+    "required_before_mutation_authority": 111
   },
-  "route_operation_count": 328,
+  "route_operation_count": 336,
   "route_rate_limit_posture_summary": {
-    "not_targeted_for_route": 196,
-    "targeted_local_fixed_window": 132
+    "not_targeted_for_route": 197,
+    "targeted_local_fixed_window": 139
   },
   "routes": [
     {
@@ -2190,6 +2190,166 @@
       "route_classification": "local_sensitive",
       "side_effect_class": "validation_only",
       "summary": "Post control center communications matrix crypto proposal",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "post_control_center_communications_matrix_intelligence_context_materialize",
+      "path": "/control-center/communications/matrix-intelligence/context-materialize",
+      "rate_limit_group": "communications_matrix_intelligence",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "local_sensitive",
+      "summary": "Post control center communications matrix intelligence context materialize",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "not_required_for_route_classification",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": null,
+      "idempotency_posture": "not_required_for_route_classification",
+      "idempotency_required": false,
+      "method": "GET",
+      "operation_id": "get_control_center_communications_matrix_intelligence_posture",
+      "path": "/control-center/communications/matrix-intelligence/posture",
+      "rate_limit_group": null,
+      "rate_limit_policy_ref": null,
+      "rate_limit_posture": "not_targeted_for_route",
+      "rate_limit_targeted": false,
+      "route_classification": "local_sensitive",
+      "side_effect_class": "none",
+      "summary": "Get control center communications matrix intelligence posture",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "not_required_for_route_classification",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": null,
+      "idempotency_posture": "not_required_for_route_classification",
+      "idempotency_required": false,
+      "method": "POST",
+      "operation_id": "post_control_center_communications_matrix_intelligence_proposal",
+      "path": "/control-center/communications/matrix-intelligence/proposal",
+      "rate_limit_group": "communications_matrix_intelligence",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "local_sensitive",
+      "side_effect_class": "validation_only",
+      "summary": "Post control center communications matrix intelligence proposal",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "post_control_center_communications_matrix_intelligence_proposal_delete",
+      "path": "/control-center/communications/matrix-intelligence/proposal-delete",
+      "rate_limit_group": "communications_matrix_intelligence",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "destructive_local_sensitive",
+      "summary": "Post control center communications matrix intelligence proposal delete",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "post_control_center_communications_matrix_intelligence_proposal_persist",
+      "path": "/control-center/communications/matrix-intelligence/proposal-persist",
+      "rate_limit_group": "communications_matrix_intelligence",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "local_sensitive",
+      "summary": "Post control center communications matrix intelligence proposal persist",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "post_control_center_communications_matrix_intelligence_proposal_read",
+      "path": "/control-center/communications/matrix-intelligence/proposal-read",
+      "rate_limit_group": "communications_matrix_intelligence",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "local_sensitive",
+      "summary": "Post control center communications matrix intelligence proposal read",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "post_control_center_communications_matrix_intelligence_room_ai_policy_read",
+      "path": "/control-center/communications/matrix-intelligence/room-ai-policy-read",
+      "rate_limit_group": "communications_matrix_intelligence",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "local_sensitive",
+      "summary": "Post control center communications matrix intelligence room ai policy read",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "post_control_center_communications_matrix_intelligence_room_ai_policy_write",
+      "path": "/control-center/communications/matrix-intelligence/room-ai-policy-write",
+      "rate_limit_group": "communications_matrix_intelligence",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "local_sensitive",
+      "summary": "Post control center communications matrix intelligence room ai policy write",
       "tags": [
         "control-center"
       ]
@@ -6620,5 +6780,5 @@
   "schema_version": "uaa-api-route-inventory.v5",
   "source_ref": "source-ref:fastapi-openapi-and-api-manifest",
   "static_declaration_only": true,
-  "targeted_rate_limit_route_count": 132
+  "targeted_rate_limit_route_count": 139
 }
