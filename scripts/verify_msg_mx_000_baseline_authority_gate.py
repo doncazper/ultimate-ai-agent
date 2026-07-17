@@ -71,6 +71,10 @@ ACCEPTED_CURRENT_SUCCESS = {
         "intelligence_context_and_proposal_exact_local_lanes_partial",
         "evidence-ref:msg-mx-010:intelligence-proposals-focused-proof",
     ),
+    "MSG-MX-011": (
+        "partial_hardening_evidence",
+        "evidence-ref:msg-mx-011:messenger-hardening-focused-proof",
+    ),
 }
 SAFE_BLOCKED_CURRENT_STATUS = {
     "blocked_authority_not_accepted",

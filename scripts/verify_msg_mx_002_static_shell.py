@@ -151,11 +151,11 @@ def verify(root: Path = ROOT) -> list[str]:
     routes = _read(root, "apps/control-center/src/routes.tsx")
     if (
         'path: "/messenger"' not in routes
-        or 'status: "fixture-only desktop content with backend-owned sync, crypto, messaging, rooms/media, and partial intelligence posture; synthetic controls remain disabled"'
+        or 'status: "fixture-only desktop content with backend-owned sync, crypto, messaging, rooms/media, partial intelligence, and partial hardening posture; synthetic controls remain disabled"'
         not in routes
     ):
         failures.append(
-            "Messenger route must remain an explicit fixture-only content surface with backend-owned sync, crypto, messaging, rooms/media, and partial intelligence posture"
+            "Messenger route must remain an explicit fixture-only content surface with backend-owned sync, crypto, messaging, rooms/media, partial intelligence, and partial hardening posture"
         )
 
     release = json.loads(_read(root, "docs/control_center/release_surface_manifest.json"))
@@ -200,9 +200,16 @@ def verify(root: Path = ROOT) -> list[str]:
             "side_effect_class": "none",
             "route_classification": "local_sensitive",
         },
+        {
+            "method": "GET",
+            "path": "/control-center/communications/matrix-hardening/posture",
+            "operation_id": "get_control_center_communications_matrix_hardening_posture",
+            "side_effect_class": "none",
+            "route_classification": "local_sensitive",
+        },
     ]:
         failures.append(
-            "/messenger may expose only the exact content-free Matrix sync, crypto, manual-messaging, rooms/search/media, and partial intelligence posture routes"
+            "/messenger may expose only the exact content-free Matrix sync, crypto, manual-messaging, rooms/search/media, partial intelligence, and partial hardening posture routes"
         )
 
     return failures

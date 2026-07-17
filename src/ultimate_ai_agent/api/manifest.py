@@ -889,6 +889,7 @@ CONTROL_CENTER_COMMUNICATIONS_READONLY_PATHS = {
     "/control-center/communications/matrix-messaging/posture",
     "/control-center/communications/matrix-rooms-media/posture",
     "/control-center/communications/matrix-intelligence/posture",
+    "/control-center/communications/matrix-hardening/posture",
     "/control-center/communications/rooms",
     "/control-center/communications/failed-sends",
     "/control-center/communications/security-posture",

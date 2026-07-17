@@ -58,7 +58,7 @@ EXTRACTED_CONTROL_CENTER_ROUTES = {
 }
 
 EXPECTED_SIDE_EFFECT_MIX = {
-    "none": 15,
+    "none": 16,
     "validation_only": 83,
     "local_dev_workspace_only": 183,
     "governed_network_read_only": 6,

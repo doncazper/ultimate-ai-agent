@@ -631,9 +631,9 @@ tests, safe-disable posture, and rollback-readiness evidence.
 <!-- MSG-MX-CURRENT-OVERLAY:START -->
 MSG-MX-000 through MSG-MX-012 Messenger Matrix Desktop Program
 Baseline authority map: `docs/connectors/MESSENGER_MATRIX_BASELINE_AUTHORITY_MAP.md`
-Current phase: `MSG-MX-010`
-Current program status: `intelligence_context_and_proposal_exact_local_lanes_partial`
-Current evidence ref: `evidence-ref:msg-mx-010:intelligence-proposals-focused-proof`
+Current phase: `MSG-MX-011`
+Current program status: `partial_hardening_evidence`
+Current evidence ref: `evidence-ref:msg-mx-011:messenger-hardening-focused-proof`
 Goal: build a clean-room, macOS-first Messenger Matrix client through thirteen
 finite merge-gated milestones without treating design, UI state, generic
 messages authority, or Full Machine Access as Matrix runtime authority.
@@ -715,6 +715,15 @@ content-free; proposal records are review-only metadata with no execution path.
 Provider/model invocation and attachment materialize/scan/analyze/cleanup have
 no binding, adapter, route, CLI execution operation, or runtime. Autonomous
 send, action execution, context injection, and automatic Memory remain denied.
+MSG-MX-011 grants no new runtime lane. It caps cumulative protected-cache
+history at 5,000 events, per-room retained refs at 2,000, and encrypted outbox
+records at 256; adds typed content-free low-disk failures; and exposes the same
+twelve-category hardening posture through protected no-store API, CLI, and the
+desktop recovery inspector. Nine categories have bounded local evidence.
+Migration and persistent multi-device ownership remain blocked, localization
+readiness is partial, and Element interoperability remains
+`external_facility_required`. Calls, agent room participants, hosted
+infrastructure, public federation, and production deployment remain denied.
 The accepted design gate is recorded in
 `docs/design/control_center_north_star/UAA_MESSENGER_MATRIX_RENDER_ACCEPTANCE.md`,
 `docs/decisions/ADR-0062-messenger-matrix-client-and-data-boundaries.md`,

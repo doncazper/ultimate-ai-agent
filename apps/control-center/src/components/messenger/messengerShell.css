@@ -386,6 +386,10 @@
   white-space: nowrap;
 }
 
+.messenger-shell--inspector-closed .messenger-inspector-toggle {
+  display: block !important;
+}
+
 .messenger-timeline {
   min-height: 0;
   padding: 7px 14px 12px;

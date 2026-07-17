@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { NorthStarIcon, type IconReference } from "../NorthStarIcon";
 import {
   MESSENGER_SURFACES,
@@ -13,6 +13,7 @@ import type {
 } from "../../messenger/contracts";
 import {
   loadMatrixCryptoPosture,
+  loadMatrixHardeningPosture,
   loadMatrixMessagingPosture,
   loadMatrixIntelligencePosture,
   loadMatrixRoomsMediaPosture,
@@ -20,6 +21,7 @@ import {
 } from "../../api/client";
 import type {
   MatrixCryptoPosture,
+  MatrixHardeningPosture,
   MatrixMessagingPosture,
   MatrixIntelligencePosture,
   MatrixRoomsMediaPosture,
@@ -75,6 +77,8 @@ export function MessengerShell() {
   const [roomsMediaPostureUnavailable, setRoomsMediaPostureUnavailable] = useState(false);
   const [intelligencePosture, setIntelligencePosture] = useState<MatrixIntelligencePosture | null>(null);
   const [intelligencePostureUnavailable, setIntelligencePostureUnavailable] = useState(false);
+  const [hardeningPosture, setHardeningPosture] = useState<MatrixHardeningPosture | null>(null);
+  const [hardeningPostureUnavailable, setHardeningPostureUnavailable] = useState(false);
   const projection = MESSENGER_SURFACES[surfaceId];
   const variant = variantId ? MESSENGER_VARIANTS[variantId] : null;
   const dark = surfaceId === "dark";
@@ -117,6 +121,13 @@ export function MessengerShell() {
       .catch(() => {
         if (active) setIntelligencePostureUnavailable(true);
       });
+    loadMatrixHardeningPosture()
+      .then((posture) => {
+        if (active) setHardeningPosture(posture);
+      })
+      .catch(() => {
+        if (active) setHardeningPostureUnavailable(true);
+      });
     return () => {
       active = false;
     };
@@ -157,6 +168,11 @@ export function MessengerShell() {
           ? "unavailable"
           : intelligencePosture?.runtime_status ?? "unknown"
       }
+      data-messenger-hardening-runtime={
+        hardeningPostureUnavailable
+          ? "unavailable"
+          : hardeningPosture?.runtime_status ?? "unknown"
+      }
       data-messenger-surface={projection.render_ref}
       data-messenger-variant={variantId ?? "default"}
     >
@@ -193,6 +209,8 @@ export function MessengerShell() {
       ) : (
         <ConversationSurface
           inspectorOpen={inspectorOpen}
+          hardeningPosture={hardeningPosture}
+          hardeningPostureUnavailable={hardeningPostureUnavailable}
           intelligencePosture={intelligencePosture}
           intelligencePostureUnavailable={intelligencePostureUnavailable}
           messagingPosture={messagingPosture}
@@ -360,6 +378,8 @@ function TopBar({
 }
 
 function ConversationSurface({
+  hardeningPosture,
+  hardeningPostureUnavailable,
   inspectorOpen,
   intelligencePosture,
   intelligencePostureUnavailable,
@@ -370,6 +390,8 @@ function ConversationSurface({
   surfaceId,
   variantId,
 }: {
+  hardeningPosture: MatrixHardeningPosture | null;
+  hardeningPostureUnavailable: boolean;
   inspectorOpen: boolean;
   intelligencePosture: MatrixIntelligencePosture | null;
   intelligencePostureUnavailable: boolean;
@@ -381,6 +403,14 @@ function ConversationSurface({
   variantId: MessengerVariantId | null;
 }) {
   const projection = MESSENGER_SURFACES[surfaceId];
+  const inspectorToggleRef = useRef<HTMLButtonElement>(null);
+  const wasInspectorOpen = useRef(inspectorOpen);
+  useEffect(() => {
+    if (wasInspectorOpen.current && !inspectorOpen) {
+      inspectorToggleRef.current?.focus();
+    }
+    wasInspectorOpen.current = inspectorOpen;
+  }, [inspectorOpen]);
   return (
     <>
       <RoomRail current={surfaceId} onSelect={onSelect} />
@@ -395,7 +425,14 @@ function ConversationSurface({
             <IconNav label="Search fixture" icon="search" onClick={() => onSelect("search")} />
             <IconNav label="Thread fixture" icon="message-square" onClick={() => onSelect("threads")} />
             <IconNav label="Room information fixture" icon="info" onClick={() => onSelect("room-info")} />
-            <button className="messenger-inspector-toggle" type="button" onClick={() => onInspectorChange(!inspectorOpen)}>
+            <button
+              aria-controls="messenger-inspector"
+              aria-expanded={inspectorOpen}
+              className="messenger-inspector-toggle"
+              ref={inspectorToggleRef}
+              type="button"
+              onClick={() => onInspectorChange(!inspectorOpen)}
+            >
               {inspectorOpen ? "Hide inspector" : "Show inspector"}
             </button>
           </nav>
@@ -409,6 +446,8 @@ function ConversationSurface({
         />
       </section>
       <Inspector
+        hardeningPosture={hardeningPosture}
+        hardeningPostureUnavailable={hardeningPostureUnavailable}
         intelligencePosture={intelligencePosture}
         intelligencePostureUnavailable={intelligencePostureUnavailable}
         open={inspectorOpen}
@@ -503,6 +542,8 @@ function HumanComposer({
 }
 
 function Inspector({
+  hardeningPosture,
+  hardeningPostureUnavailable,
   intelligencePosture,
   intelligencePostureUnavailable,
   onClose,
@@ -510,6 +551,8 @@ function Inspector({
   open,
   surfaceId,
 }: {
+  hardeningPosture: MatrixHardeningPosture | null;
+  hardeningPostureUnavailable: boolean;
   intelligencePosture: MatrixIntelligencePosture | null;
   intelligencePostureUnavailable: boolean;
   onClose: () => void;
@@ -522,9 +565,14 @@ function Inspector({
   const info = surfaceId === "room-info";
   const recovery = surfaceId === "recovery";
   return (
-    <aside className={`messenger-inspector${open ? " is-open" : ""}`} hidden={!open} aria-label={thread ? "Thread fixture inspector" : intelligence ? "UAA intelligence fixture" : "Room fixture inspector"}>
+    <aside
+      aria-label={thread ? "Thread fixture inspector" : intelligence ? "UAA intelligence fixture" : recovery ? "Messenger recovery and hardening posture" : "Room fixture inspector"}
+      className={`messenger-inspector${open ? " is-open" : ""}`}
+      hidden={!open}
+      id="messenger-inspector"
+    >
       <header><h2>{thread ? "Threads · 4" : intelligence ? "UAA Intelligence" : info ? "Room information" : recovery ? "Recovery" : "Room · UAA"}</h2><button type="button" onClick={onClose} aria-label="Close inspector"><NorthStarIcon name="x" size="sm" /></button></header>
-      {thread ? <ThreadInspector /> : intelligence ? <IntelligenceInspector posture={intelligencePosture} unavailable={intelligencePostureUnavailable} /> : info ? <RoomInfoInspector onSelect={onSelect} /> : recovery ? <RecoveryInspector /> : <DefaultInspector />}
+      {thread ? <ThreadInspector /> : intelligence ? <IntelligenceInspector posture={intelligencePosture} unavailable={intelligencePostureUnavailable} /> : info ? <RoomInfoInspector onSelect={onSelect} /> : recovery ? <RecoveryInspector posture={hardeningPosture} unavailable={hardeningPostureUnavailable} /> : <DefaultInspector />}
     </aside>
   );
 }
@@ -558,8 +606,62 @@ function IntelligenceInspector({ posture, unavailable }: { posture: MatrixIntell
   return <section data-matrix-intelligence-posture={unavailable ? "unavailable" : posture?.runtime_status ?? "loading"}><div className="messenger-intelligence-grid"><InspectorCard title="Room AI policy"><strong>Off · default</strong><small>Ask each time or expiring scoped Allow requires exact approval and lease.</small></InspectorCard><InspectorCard title="Context manifest"><strong>{context?.status === "accepted_request_scoped" ? "Exact local lane" : "Unavailable"}</strong><small>Transient, content-free, room-scoped, and expiring.</small></InspectorCard><InspectorCard title="Proposal store"><strong>{proposals?.status === "accepted_request_scoped" ? "Review metadata lane" : "Unavailable"}</strong><small>Sources, confidence, expiry, destination, time, and receipts.</small></InspectorCard><InspectorCard title="Generation"><strong>Blocked</strong><small>No model/provider call or attachment analysis.</small></InspectorCard></div><InspectorCard title="Proposal capabilities"><p>Unread and period summaries, reply drafts, open questions, decisions, commitments, task/date extraction, translation, messages, meetings, follow-ups, and tasks are typed review records. No generated content is claimed without an accepted provider lane.</p><KeyValue label="Cross-surface links" value={posture ? `${posture.cross_surface_link_refs.length} safe-ref families` : "Loading"} /><KeyValue label="Provider" value={provider?.status.replaceAll("_", " ") ?? "Blocked"} /><KeyValue label="Attachments" value={attachments?.status.replaceAll("_", " ") ?? "Blocked"} /><KeyValue label="Send / Memory" value="Never automatic" /><PostureButton label="Review exact proposal" posture="Preview" /></InspectorCard><p>{unavailable ? "Intelligence posture is unavailable; all lanes fail closed." : posture?.safe_summary ?? "Loading backend-owned intelligence posture."}</p><UaaComposer /></section>;
 }
 
-function RecoveryInspector() {
-  return <><InspectorCard title="Connection posture"><KeyValue label="Connection" value="Offline" /><KeyValue label="Homeserver" value="Not connected" /><KeyValue label="Local cache" value="Fixture only" /><KeyValue label="Encryption keys" value="Unavailable" /></InspectorCard><InspectorCard title="Safe actions"><PostureButton label="Check connection" posture="Blocked" /><PostureButton label="Retry sync" posture="Blocked" /><PostureButton label="Review failed sends" posture="Preview" /><PostureButton label="Export diagnostics" posture="Planned" /></InspectorCard></>;
+function RecoveryInspector({
+  posture,
+  unavailable,
+}: {
+  posture: MatrixHardeningPosture | null;
+  unavailable: boolean;
+}) {
+  const passed = posture?.checks.filter((check) => check.status === "passed").length ?? 0;
+  const gaps = posture?.checks.filter((check) => check.status !== "passed").length ?? 0;
+  return (
+    <section
+      aria-live="polite"
+      data-matrix-hardening-posture={
+        unavailable ? "unavailable" : posture?.runtime_status ?? "loading"
+      }
+    >
+      <InspectorCard title="Connection posture">
+        <KeyValue label="Connection" value="Offline" />
+        <KeyValue label="Homeserver" value="Not connected" />
+        <KeyValue label="Local cache" value="Fixture only" />
+        <KeyValue label="Encryption keys" value="Unavailable" />
+      </InspectorCard>
+      <InspectorCard title="Hardening evidence">
+        <KeyValue
+          label="Passed local checks"
+          value={unavailable ? "Unavailable · fail closed" : `${passed} of 12`}
+        />
+        <KeyValue
+          label="Open or external gaps"
+          value={unavailable ? "Unknown" : String(gaps)}
+        />
+        <KeyValue
+          label="Bounded budgets"
+          value={posture ? `${posture.budgets.length} enforced` : "Loading"}
+        />
+        <KeyValue
+          label="Element Desktop"
+          value={
+            posture?.element_interoperability_status.replaceAll("_", " ") ??
+            "Loading"
+          }
+        />
+        <p>
+          {unavailable
+            ? "Backend hardening truth is unavailable; recovery commands remain blocked."
+            : posture?.safe_summary ?? "Loading backend-owned hardening evidence."}
+        </p>
+      </InspectorCard>
+      <InspectorCard title="Safe actions">
+        <PostureButton label="Check connection" posture="Blocked" />
+        <PostureButton label="Retry sync" posture="Blocked" />
+        <PostureButton label="Review failed sends" posture="Preview" />
+        <PostureButton label="Export diagnostics" posture="Planned" />
+      </InspectorCard>
+    </section>
+  );
 }
 
 function UaaComposer() {

@@ -13173,6 +13173,56 @@ export interface MatrixIntelligencePosture {
   safe_summary: string;
 }
 
+export interface MatrixHardeningCheck {
+  check_ref: string;
+  category:
+    | "large_room_backpressure"
+    | "cache_queue_bounds"
+    | "migration_multi_device"
+    | "rate_limit_malicious_events"
+    | "retention_deletion_low_disk"
+    | "restart_offline_recovery"
+    | "accessibility_keyboard_focus"
+    | "localization_readiness"
+    | "telemetry_redaction"
+    | "dependency_sbom"
+    | "rollback_safe_disable"
+    | "element_interoperability";
+  status: "passed" | "partial" | "blocked" | "external_facility_required";
+  evidence_refs: string[];
+  blocker_refs: string[];
+  safe_summary: string;
+  raw_content_included: false;
+}
+
+export interface MatrixHardeningBudget {
+  budget_ref: string;
+  unit: "bytes" | "events" | "rooms" | "records" | "relations";
+  limit: number;
+  evidence_ref: string;
+}
+
+export interface MatrixHardeningPosture {
+  schema_version: "uaa-matrix-hardening-posture.v1";
+  posture_ref: string;
+  runtime_status: "partial_hardening_evidence";
+  checks: MatrixHardeningCheck[];
+  budgets: MatrixHardeningBudget[];
+  blocked_later_lane_refs: string[];
+  request_scoped_runtime_evaluation_required: true;
+  new_runtime_authority_granted: false;
+  calls_enabled: false;
+  agent_participants_enabled: false;
+  hosted_infrastructure_enabled: false;
+  public_federation_enabled: false;
+  production_deployment_enabled: false;
+  element_interoperability_status: "external_facility_required";
+  raw_content_included: false;
+  local_paths_included: false;
+  desktop_only: true;
+  safe_summary: string;
+}
+
 export interface CommunicationsPagination {
   page_size: number;
   returned_count: number;

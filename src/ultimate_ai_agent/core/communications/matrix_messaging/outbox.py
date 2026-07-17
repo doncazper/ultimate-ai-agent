@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import errno
+import fcntl
 import hashlib
 import json
 import os
 import stat
-import fcntl
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
@@ -18,12 +19,17 @@ from ultimate_ai_agent.core.communications.matrix_sync.cache import (
     MatrixCacheKeyUnavailable,
 )
 
-from .constants import MATRIX_MESSAGING_OUTBOX_SCHEMA_REF, MatrixMessagingOperation
+from .constants import (
+    MATRIX_MESSAGING_MAX_OUTBOX_RECORDS,
+    MATRIX_MESSAGING_OUTBOX_SCHEMA_REF,
+    MatrixMessagingOperation,
+)
 from .contracts import MatrixOutboxState, stable_matrix_messaging_ref
 
 
 _OUTBOX_MAGIC = b"UAA-MATRIX-OUTBOX-V1\x00"
 _MAX_OUTBOX_BYTES = 1024 * 1024
+_MAX_OUTBOX_DIRECTORY_ENTRIES = 1_024
 _OUTBOX_LOCK_NAME = ".matrix-outbox.lock"
 
 
@@ -195,6 +201,7 @@ class MatrixEncryptedOutbox:
             raise MatrixOutboxError("MATRIX_OUTBOX_SIZE_LIMIT_EXCEEDED")
         name = self._name(record.outbox_ref)
         if not replace_existing:
+            self._enforce_queue_bound(root_fd)
             try:
                 existing = os.stat(name, dir_fd=root_fd, follow_symlinks=False)
             except FileNotFoundError:
@@ -227,6 +234,8 @@ class MatrixEncryptedOutbox:
                 os.unlink(temporary, dir_fd=root_fd)
             except OSError:
                 pass
+            if exc.errno in {errno.ENOSPC, getattr(errno, "EDQUOT", errno.ENOSPC)}:
+                raise MatrixOutboxError("MATRIX_OUTBOX_LOW_DISK") from exc
             raise MatrixOutboxError("MATRIX_OUTBOX_ATOMIC_WRITE_FAILED") from exc
         finally:
             if descriptor >= 0:
@@ -418,6 +427,33 @@ class MatrixEncryptedOutbox:
 
     def _name(self, outbox_ref: str) -> str:
         return f"{hashlib.sha256(outbox_ref.encode()).hexdigest()}.uaamxoutbox"
+
+    def _enforce_queue_bound(self, root_fd: int) -> None:
+        records = 0
+        entries = 0
+        with os.scandir(root_fd) as iterator:
+            for entry in iterator:
+                entries += 1
+                if entries > _MAX_OUTBOX_DIRECTORY_ENTRIES:
+                    raise MatrixOutboxError("MATRIX_OUTBOX_DIRECTORY_LIMIT_EXCEEDED")
+                if not entry.name.endswith(".uaamxoutbox"):
+                    continue
+                try:
+                    info = entry.stat(follow_symlinks=False)
+                except OSError as exc:
+                    raise MatrixOutboxError("MATRIX_OUTBOX_FILE_INVALID") from exc
+                if (
+                    not stat.S_ISREG(info.st_mode)
+                    or stat.S_ISLNK(info.st_mode)
+                    or info.st_uid != os.geteuid()
+                    or info.st_nlink != 1
+                    or info.st_mode & 0o077
+                    or info.st_size > _MAX_OUTBOX_BYTES
+                ):
+                    raise MatrixOutboxError("MATRIX_OUTBOX_FILE_INVALID")
+                records += 1
+                if records >= MATRIX_MESSAGING_MAX_OUTBOX_RECORDS:
+                    raise MatrixOutboxError("MATRIX_OUTBOX_QUEUE_LIMIT_EXCEEDED")
 
     def _validate_root(self) -> None:
         info = os.lstat(self._root)

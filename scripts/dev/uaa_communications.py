@@ -40,6 +40,9 @@ from ultimate_ai_agent.core.communications.matrix_harness import (  # noqa: E402
     matrix_harness_request_fingerprint_ref,
     stable_matrix_harness_ref,
 )
+from ultimate_ai_agent.core.communications.matrix_hardening import (  # noqa: E402
+    build_default_matrix_hardening_posture,
+)
 from ultimate_ai_agent.core.communications.matrix_session import (  # noqa: E402
     MATRIX_DISCOVERY_PENDING_FRESHNESS_REF,
     MATRIX_DISCOVERY_PENDING_OBSERVATION_REF,
@@ -285,6 +288,24 @@ def _render_matrix_intelligence_posture(as_json: bool) -> int:
     print("- Attachment analysis: blocked")
     print("- Autonomous send and automatic Memory: denied")
     print("No room content, model output, attachment content, or local path is shown.")
+    return 0
+
+
+def _render_matrix_hardening_posture(as_json: bool) -> int:
+    posture = build_default_matrix_hardening_posture()
+    if as_json:
+        _json(posture)
+        return 0
+    print("Matrix reliability and security hardening")
+    print(f"- Runtime: {posture.runtime_status}")
+    for check in posture.checks:
+        print(f"- {check.category.value}: {check.status.value}")
+    print(f"- Bounded budgets: {len(posture.budgets)}")
+    print(
+        f"- Element interoperability: {posture.element_interoperability_status}"
+    )
+    print("- New runtime authority: denied")
+    print("No message content, credentials, telemetry payloads, or local paths are shown.")
     return 0
 
 
@@ -995,6 +1016,13 @@ def build_parser() -> argparse.ArgumentParser:
     intelligence_posture.add_argument(
         "--json", action="store_true", help="Emit safe JSON."
     )
+    hardening_posture = subparsers.add_parser(
+        "matrix-hardening-status",
+        help="Inspect backend-owned Messenger reliability and security hardening evidence.",
+    )
+    hardening_posture.add_argument(
+        "--json", action="store_true", help="Emit safe JSON."
+    )
     messaging = subparsers.add_parser(
         "matrix-messaging",
         help="Review or dispatch one safe-ref-only Matrix messaging command file.",
@@ -1245,6 +1273,8 @@ def main(
         return _render_matrix_rooms_media_posture(args.json)
     if args.command == "matrix-intelligence-status":
         return _render_matrix_intelligence_posture(args.json)
+    if args.command == "matrix-hardening-status":
+        return _render_matrix_hardening_posture(args.json)
     return _render_receipt(active_service, args.json, args.receipt_ref)
 
 

@@ -127,6 +127,83 @@ test.beforeEach(async ({ page }) => {
       });
       return;
     }
+    if (path === "/control-center/communications/matrix-hardening/posture") {
+      const categories = [
+        "large_room_backpressure",
+        "cache_queue_bounds",
+        "migration_multi_device",
+        "rate_limit_malicious_events",
+        "retention_deletion_low_disk",
+        "restart_offline_recovery",
+        "accessibility_keyboard_focus",
+        "localization_readiness",
+        "telemetry_redaction",
+        "dependency_sbom",
+        "rollback_safe_disable",
+        "element_interoperability",
+      ];
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          success: true,
+          data: {
+            schema_version: "uaa-matrix-hardening-posture.v1",
+            posture_ref: "posture-ref:matrix-hardening:sha256:visual-fixture",
+            runtime_status: "partial_hardening_evidence",
+            checks: categories.map((category) => {
+              const status = category === "migration_multi_device"
+                ? "blocked"
+                : category === "localization_readiness"
+                  ? "partial"
+                  : category === "element_interoperability"
+                    ? "external_facility_required"
+                    : "passed";
+              return {
+                check_ref: `check-ref:matrix-hardening:${category.replaceAll("_", "-")}`,
+                category,
+                status,
+                evidence_refs: status === "passed"
+                  ? ["evidence-ref:msg-mx-011:visual-local-check"]
+                  : [],
+                blocker_refs: status === "passed"
+                  ? []
+                  : ["blocker-ref:msg-mx-011:visual-explicit-gap"],
+                safe_summary: "Content-free local hardening evidence.",
+                raw_content_included: false,
+              };
+            }),
+            budgets: Array.from({ length: 8 }, (_, index) => ({
+              budget_ref: `budget-ref:matrix-hardening:visual-${index}`,
+              unit: index % 2 ? "events" : "bytes",
+              limit: index + 1,
+              evidence_ref: `evidence-ref:msg-mx-011:visual-bound-${index}`,
+            })),
+            blocked_later_lane_refs: [
+              "blocked-lane-ref:matrix:calls",
+              "blocked-lane-ref:matrix:agent-room-participants",
+              "blocked-lane-ref:matrix:hosted-infrastructure",
+              "blocked-lane-ref:matrix:public-federation",
+              "blocked-lane-ref:matrix:production-deployment",
+            ],
+            request_scoped_runtime_evaluation_required: true,
+            new_runtime_authority_granted: false,
+            calls_enabled: false,
+            agent_participants_enabled: false,
+            hosted_infrastructure_enabled: false,
+            public_federation_enabled: false,
+            production_deployment_enabled: false,
+            element_interoperability_status: "external_facility_required",
+            raw_content_included: false,
+            local_paths_included: false,
+            desktop_only: true,
+            safe_summary:
+              "Local hardening evidence is partial and later lanes remain blocked.",
+          },
+        }),
+      });
+      return;
+    }
     if (path === "/control-center/communications/matrix-intelligence/posture") {
       await route.fulfill({
         status: 200,
@@ -321,6 +398,7 @@ for (const viewport of messengerDesktopViewports) {
     expect(new Set(backendRequests)).toEqual(
       new Set([
         "/control-center/communications/matrix-crypto/posture",
+        "/control-center/communications/matrix-hardening/posture",
         "/control-center/communications/matrix-intelligence/posture",
         "/control-center/communications/matrix-messaging/posture",
         "/control-center/communications/matrix-rooms-media/posture",

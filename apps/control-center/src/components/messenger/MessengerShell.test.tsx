@@ -240,10 +240,74 @@ const matrixIntelligencePosture = {
     "Exact local context and proposal lanes are available while provider and attachment lanes remain blocked.",
 };
 
+const matrixHardeningPosture = {
+  schema_version: "uaa-matrix-hardening-posture.v1",
+  posture_ref: "posture-ref:matrix-hardening:sha256:fixture",
+  runtime_status: "partial_hardening_evidence",
+  checks: [
+    "large_room_backpressure",
+    "cache_queue_bounds",
+    "migration_multi_device",
+    "rate_limit_malicious_events",
+    "retention_deletion_low_disk",
+    "restart_offline_recovery",
+    "accessibility_keyboard_focus",
+    "localization_readiness",
+    "telemetry_redaction",
+    "dependency_sbom",
+    "rollback_safe_disable",
+    "element_interoperability",
+  ].map((category) => {
+    const status = category === "migration_multi_device"
+      ? "blocked"
+      : category === "localization_readiness"
+        ? "partial"
+        : category === "element_interoperability"
+          ? "external_facility_required"
+          : "passed";
+    return {
+      check_ref: `check-ref:matrix-hardening:${category.replaceAll("_", "-")}`,
+      category,
+      status,
+      evidence_refs: status === "passed" ? ["evidence-ref:msg-mx-011:local-check"] : [],
+      blocker_refs: status === "passed" ? [] : ["blocker-ref:msg-mx-011:explicit-gap"],
+      safe_summary: "Content-free local hardening evidence.",
+      raw_content_included: false,
+    };
+  }),
+  budgets: Array.from({ length: 8 }, (_, index) => ({
+    budget_ref: `budget-ref:matrix-hardening:bound-${index}`,
+    unit: index % 2 ? "events" : "bytes",
+    limit: index + 1,
+    evidence_ref: `evidence-ref:msg-mx-011:bound-${index}`,
+  })),
+  blocked_later_lane_refs: [
+    "blocked-lane-ref:matrix:calls",
+    "blocked-lane-ref:matrix:agent-room-participants",
+    "blocked-lane-ref:matrix:hosted-infrastructure",
+    "blocked-lane-ref:matrix:public-federation",
+    "blocked-lane-ref:matrix:production-deployment",
+  ],
+  request_scoped_runtime_evaluation_required: true,
+  new_runtime_authority_granted: false,
+  calls_enabled: false,
+  agent_participants_enabled: false,
+  hosted_infrastructure_enabled: false,
+  public_federation_enabled: false,
+  production_deployment_enabled: false,
+  element_interoperability_status: "external_facility_required",
+  raw_content_included: false,
+  local_paths_included: false,
+  desktop_only: true,
+  safe_summary: "Local hardening evidence is partial and later lanes remain blocked.",
+};
+
 beforeEach(() => {
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
     const target = String(input);
-    const data = target.includes("matrix-intelligence")
+    const data = target.includes("matrix-hardening")
+      ? matrixHardeningPosture
+      : target.includes("matrix-intelligence")
       ? matrixIntelligencePosture
       : target.includes("matrix-rooms-media")
       ? matrixRoomsMediaPosture
@@ -307,7 +371,7 @@ describe("MessengerShell", () => {
     );
     expect(screen.getByText(/Read-only sync · configuration required/i)).toBeInTheDocument();
     expect(screen.getByText(/External actions blocked/i)).toBeInTheDocument();
-    expect(globalThis.fetch).toHaveBeenCalledTimes(5);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(6);
     expect(screen.getByText(/External content is untrusted/i)).toBeInTheDocument();
 
     for (const control of view.container.querySelectorAll<HTMLButtonElement>(
@@ -348,6 +412,24 @@ describe("MessengerShell", () => {
     expect(screen.getByText(/No model\/provider call or attachment analysis/i)).toBeInTheDocument();
     expect(screen.getByText(/Never automatic/i)).toBeInTheDocument();
     expect(screen.queryByText(/generated successfully/i)).not.toBeInTheDocument();
+  });
+
+  it("shows backend-owned hardening evidence and explicit external gaps", async () => {
+    window.history.replaceState({}, "", "/messenger?view=recovery");
+    render(<MessengerShell />);
+
+    await waitFor(() =>
+      expect(screen.getByRole("main")).toHaveAttribute(
+        "data-messenger-hardening-runtime",
+        "partial_hardening_evidence",
+      ),
+    );
+    const inspector = screen.getByLabelText("Messenger recovery and hardening posture");
+    expect(within(inspector).getByText("9 of 12")).toBeInTheDocument();
+    expect(within(inspector).getByText("3")).toBeInTheDocument();
+    expect(within(inspector).getByText(/external facility required/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hide inspector" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.queryByText(/production deployment enabled/i)).not.toBeInTheDocument();
   });
 
   it("shows exact crypto authority without claiming a live executor", async () => {
@@ -438,6 +520,11 @@ describe("MessengerShell", () => {
     expect(inspector).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Close inspector" }));
     expect(inspector).not.toBeVisible();
+    const show = screen.getByRole("button", { name: "Show inspector" });
+    expect(show).toHaveAttribute("aria-expanded", "false");
+    expect(show).toHaveFocus();
+    fireEvent.click(show);
+    expect(inspector).toBeVisible();
   });
 
   it("keeps compact settings review available as local fixture state", () => {
