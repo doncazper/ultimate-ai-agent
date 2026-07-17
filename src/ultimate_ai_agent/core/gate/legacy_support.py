@@ -49,6 +49,9 @@ from ultimate_ai_agent.core.communications.matrix_session.static_safety import (
 from ultimate_ai_agent.core.communications.matrix_sync.static_safety import (
     matrix_sync_fragment_allowed,
 )
+from ultimate_ai_agent.core.communications.matrix_messaging.static_safety import (
+    matrix_messaging_fragment_allowed,
+)
 from ultimate_ai_agent.core.context_budget import ContextBudget
 from ultimate_ai_agent.core.hygiene.actor_context import (
     ActorContext,
@@ -130,7 +133,7 @@ def _version_doc_marks_milestone_implemented(text: str, milestone: str) -> bool:
 # Route-boundary evaluators are imported here to preserve the historical public facade.
 from ultimate_ai_agent.core.gate.evaluator_modules.route_boundaries import *  # noqa: F401,F403
 
-EXPECTED_M13_CONTROL_CENTER_ROUTE_COUNT = 123
+EXPECTED_M13_CONTROL_CENTER_ROUTE_COUNT = 140
 
 STATIC_SAFETY_EVALUATOR_DATA_FILES = frozenset(
     {
@@ -176,6 +179,7 @@ def runtime_subprocess_fragment_allowed(rel: str, text: str, fragment: str) -> b
         or matrix_harness_fragment_allowed(rel, text, fragment)
         or matrix_session_fragment_allowed(rel, text, fragment)
         or matrix_sync_fragment_allowed(rel, text, fragment)
+        or matrix_messaging_fragment_allowed(rel, text, fragment)
     )
 
 

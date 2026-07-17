@@ -113,11 +113,47 @@ const matrixCryptoPosture = {
   redaction_status: "safe_refs_only",
 };
 
+const matrixMessagingPosture = {
+  schema_version: "uaa-matrix-messaging-posture.v1",
+  posture_ref: "posture-ref:matrix-messaging:configuration-required-v1",
+  runtime_status: "configuration_required",
+  authority_lane_refs: Array.from(
+    { length: 15 },
+    (_, index) => `authority-lane-ref:matrix-messaging:lane-${index}`,
+  ),
+  live_executor_operation_refs: Array.from(
+    { length: 15 },
+    (_, index) => `operation-ref:matrix-messaging:live-${index}`,
+  ),
+  blocked_operation_refs: Array.from(
+    { length: 15 },
+    (_, index) => `operation-ref:matrix-messaging:blocked-${index}`,
+  ),
+  broker_ref: "component-ref:matrix-rust-broker:v1",
+  provider_ref: "provider-ref:communications:matrix",
+  sdk_ref: "sdk-ref:matrix-rust-sdk:0.18.0",
+  crypto_store_ref: "crypto-store-ref:matrix:encrypted-sqlite-v1",
+  outbox_store_ref: "outbox-store-ref:matrix:encrypted-dedicated-v1",
+  reason_refs: ["reason-ref:matrix-messaging:runtime-enrollment-required"],
+  element_interoperability_status: "external_facility_required",
+  request_scoped_evaluation_required: true,
+  approval_ref_is_authority: false,
+  autonomous_send_enabled: false,
+  remote_homeservers_enabled: false,
+  desktop_only: true,
+  raw_content_included: false,
+  safe_summary:
+    "Exact manual messaging executors exist, while runtime enrollment remains required.",
+};
+
 beforeEach(() => {
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
-    const data = String(input).includes("matrix-crypto")
+    const target = String(input);
+    const data = target.includes("matrix-crypto")
       ? matrixCryptoPosture
-      : matrixSyncPosture;
+      : target.includes("matrix-messaging")
+        ? matrixMessagingPosture
+        : matrixSyncPosture;
     return new Response(JSON.stringify({ success: true, data }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
@@ -173,7 +209,7 @@ describe("MessengerShell", () => {
     );
     expect(screen.getByText(/Read-only sync · configuration required/i)).toBeInTheDocument();
     expect(screen.getByText(/External actions blocked/i)).toBeInTheDocument();
-    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(3);
     expect(screen.getByText(/External content is untrusted/i)).toBeInTheDocument();
 
     for (const control of view.container.querySelectorAll<HTMLButtonElement>(
@@ -222,7 +258,7 @@ describe("MessengerShell", () => {
     expect(status).not.toHaveTextContent(/successfully sent|connected account|verified session/i);
   });
 
-  it("separates the human composer from UAA proposal UI and blocks both runtimes", () => {
+  it("separates the human composer from UAA proposal UI and blocks both runtimes", async () => {
     window.history.replaceState({}, "", "/messenger?view=founder");
     render(<MessengerShell />);
 
@@ -234,6 +270,10 @@ describe("MessengerShell", () => {
     });
     expect(humanComposer).not.toBe(uaaComposer);
     expect(within(humanComposer).getByRole("button")).toBeDisabled();
+    await waitFor(() =>
+      expect(within(humanComposer).getByText(/manual executor: configuration required/i)).toBeInTheDocument(),
+    );
+    expect(within(humanComposer).getByText(/synthetic room is not an exact authorized target/i)).toBeInTheDocument();
     expect(within(uaaComposer).getByRole("button")).toBeDisabled();
     expect(
       within(uaaComposer).getByText(/untrusted data, never instruction authority/i),
@@ -284,11 +324,13 @@ describe("MessengerShell", () => {
     expect(review).toBeVisible();
   });
 
-  it("labels fixture authority truth without claiming a live mode", () => {
+  it("labels fixture authority truth without claiming a live mode", async () => {
     window.history.replaceState({}, "", "/messenger?view=founder");
     render(<MessengerShell />);
 
-    expect(screen.getByText("Changes blocked · fixture")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByText(/Manual send · configuration required/i)).toBeInTheDocument(),
+    );
     expect(screen.queryByText("Ask before changes")).not.toBeInTheDocument();
   });
 });

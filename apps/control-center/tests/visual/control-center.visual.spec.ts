@@ -231,6 +231,7 @@ for (const viewport of messengerDesktopViewports) {
     expect(new Set(backendRequests)).toEqual(
       new Set([
         "/control-center/communications/matrix-crypto/posture",
+        "/control-center/communications/matrix-messaging/posture",
         "/control-center/communications/matrix-sync/posture",
       ]),
     );

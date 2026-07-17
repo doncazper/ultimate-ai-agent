@@ -1,0 +1,23 @@
+{
+  "schema_version": "uaa-matrix-rust-broker-integrity.v1",
+  "component_ref": "component-ref:matrix-rust-broker:v1",
+  "matrix_sdk": {
+    "crate": "matrix-sdk",
+    "version": "0.18.0",
+    "source_ref": "git-ref:matrix-rust-sdk:matrix-sdk-0.18.0",
+    "source_commit": "1c44fb66214667c6d00acaf72ab592493653708b"
+  },
+  "rust_toolchain": "1.93.0",
+  "cargo_lock_sha256": "e9f47d8fd7c6b79e5723081acd9988f9f7595b10e41756e8980bed26c0f9e582",
+  "cargo_manifest_sha256": "ad4a8a1004df2d72c3fad8d3ebed82a4fd9f60243e4af687f4020f8c154066cd",
+  "source_sha256": {
+    "execution.rs": "e07529aa0f89489c089e42f8755d8da330bfb95ef58a1f8c23f11127f99aceab",
+    "keychain.rs": "5e7ec98f391f6e5719b5da88aba9b265eeb3ba117bfe96dbf5f9ba1646f4ed66",
+    "ledger.rs": "b3fa80564628ecb5442ca4d97760ec89b3dea0e7c12d96ff18328abd47226ef2",
+    "main.rs": "0b0eee900741cf8a45ad619f7ceca4d79b9d08c9607a923eaf802af969790386",
+    "protocol.rs": "a45ca8e5ce58c1fe088725ed127e01d821529693c0b21caef2aa6985133b49f9"
+  },
+  "binary_integrity": "required_at_runtime",
+  "remote_targets_enabled": false,
+  "loopback_only": true
+}

@@ -215,6 +215,51 @@ def verify_openapi_contract(app: FastAPI) -> ApiContractStatus:
         "/control-center/communications/matrix/credential-delete": (
             ApiRouteSideEffectClass.destructive_local_sensitive.value
         ),
+        "/control-center/communications/matrix-messaging/send": (
+            ApiRouteSideEffectClass.authenticated_connector_mutation.value
+        ),
+        "/control-center/communications/matrix-messaging/reply": (
+            ApiRouteSideEffectClass.authenticated_connector_mutation.value
+        ),
+        "/control-center/communications/matrix-messaging/thread": (
+            ApiRouteSideEffectClass.authenticated_connector_mutation.value
+        ),
+        "/control-center/communications/matrix-messaging/reaction": (
+            ApiRouteSideEffectClass.authenticated_connector_mutation.value
+        ),
+        "/control-center/communications/matrix-messaging/edit": (
+            ApiRouteSideEffectClass.authenticated_connector_mutation.value
+        ),
+        "/control-center/communications/matrix-messaging/redaction": (
+            ApiRouteSideEffectClass.destructive_external.value
+        ),
+        "/control-center/communications/matrix-messaging/typing": (
+            ApiRouteSideEffectClass.authenticated_connector_mutation.value
+        ),
+        "/control-center/communications/matrix-messaging/read-receipt": (
+            ApiRouteSideEffectClass.authenticated_connector_mutation.value
+        ),
+        "/control-center/communications/matrix-messaging/draft-write": (
+            ApiRouteSideEffectClass.local_sensitive.value
+        ),
+        "/control-center/communications/matrix-messaging/draft-read": (
+            ApiRouteSideEffectClass.local_sensitive.value
+        ),
+        "/control-center/communications/matrix-messaging/outbox-enqueue": (
+            ApiRouteSideEffectClass.local_sensitive.value
+        ),
+        "/control-center/communications/matrix-messaging/outbox-read": (
+            ApiRouteSideEffectClass.local_sensitive.value
+        ),
+        "/control-center/communications/matrix-messaging/outbox-transition": (
+            ApiRouteSideEffectClass.local_sensitive.value
+        ),
+        "/control-center/communications/matrix-messaging/outbox-discard": (
+            ApiRouteSideEffectClass.destructive_local_sensitive.value
+        ),
+        "/control-center/communications/matrix-messaging/desktop-notify": (
+            ApiRouteSideEffectClass.local_sensitive.value
+        ),
     }
     for route in routes:
         exact_matrix_side_effect = matrix_mutation_side_effects.get(route.path)

@@ -2,14 +2,14 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `288`.
+Current OpenAPI path count: `305`.
 
 This inventory is generated from the FastAPI application and `/api/manifest`. It is the route ownership and side-effect classification map for the current local-first API boundary.
 
 ## Current Route Boundary
 
-- Manifest route operations: `289`
-- OpenAPI paths: `288`
+- Manifest route operations: `306`
+- OpenAPI paths: `305`
 - Production runtime authority: blocked
 - Public release authority: blocked
 
@@ -23,7 +23,7 @@ This inventory is generated from the FastAPI application and `/api/manifest`. It
 | `consent` | 2 | `consent` | `approval_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `context-budget` | 1 | `context` | `contracts_service` | future auth required | `validation_only`:1 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `contracts` | 2 | `contracts` | `contracts_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
-| `control-center` | 123 | `control-center` | `control_center_service` | local status or future auth per route | `authenticated_connector_mutation`:4, `destructive_external`:1, `destructive_local_sensitive`:1, `governed_network_read_only`:5, `local_dev_workspace_only`:81, `local_sensitive`:1, `none`:8, `system_browser_exact_launch`:1, `validation_only`:21 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
+| `control-center` | 140 | `control-center` | `control_center_service` | local status or future auth per route | `authenticated_connector_mutation`:11, `destructive_external`:2, `destructive_local_sensitive`:2, `governed_network_read_only`:5, `local_dev_workspace_only`:81, `local_sensitive`:7, `none`:9, `system_browser_exact_launch`:1, `validation_only`:22 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `cost-governor` | 3 | `cost-governor` | `cost_service` | future auth required | `validation_only`:3 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `extension-catalog` | 3 | `extension-catalog` | `extension_catalog_service` | future auth required | `local_dev_workspace_only`:2, `validation_only`:1 | medium | stable/generated from path; unique | status_available_not_completion |
 | `files` | 6 | `workspace-files` | `workspace_files_service` | future auth required and local safe refs | `local_dev_workspace_only`:6 | high | stable/generated from path; unique | partial_backend_not_product_ready |
@@ -176,6 +176,23 @@ validate the exact request-scoped authority boundary.
 | POST | `/control-center/communications/matrix/sso-launch` | `post_control_center_communications_matrix_sso_launch` | `system_browser_exact_launch` | no | future | yes |
 | GET | `/control-center/communications/matrix-crypto/posture` | `get_control_center_communications_matrix_crypto_posture` | `none` | yes | future | yes |
 | POST | `/control-center/communications/matrix-crypto/proposal` | `post_control_center_communications_matrix_crypto_proposal` | `validation_only` | yes | future | yes |
+| POST | `/control-center/communications/matrix-messaging/desktop-notify` | `post_control_center_communications_matrix_messaging_desktop_notify` | `local_sensitive` | no | future | yes |
+| POST | `/control-center/communications/matrix-messaging/draft-read` | `post_control_center_communications_matrix_messaging_draft_read` | `local_sensitive` | no | future | yes |
+| POST | `/control-center/communications/matrix-messaging/draft-write` | `post_control_center_communications_matrix_messaging_draft_write` | `local_sensitive` | no | future | yes |
+| POST | `/control-center/communications/matrix-messaging/edit` | `post_control_center_communications_matrix_messaging_edit` | `authenticated_connector_mutation` | no | future | yes |
+| POST | `/control-center/communications/matrix-messaging/outbox-discard` | `post_control_center_communications_matrix_messaging_outbox_discard` | `destructive_local_sensitive` | no | future | yes |
+| POST | `/control-center/communications/matrix-messaging/outbox-enqueue` | `post_control_center_communications_matrix_messaging_outbox_enqueue` | `local_sensitive` | no | future | yes |
+| POST | `/control-center/communications/matrix-messaging/outbox-read` | `post_control_center_communications_matrix_messaging_outbox_read` | `local_sensitive` | no | future | yes |
+| POST | `/control-center/communications/matrix-messaging/outbox-transition` | `post_control_center_communications_matrix_messaging_outbox_transition` | `local_sensitive` | no | future | yes |
+| GET | `/control-center/communications/matrix-messaging/posture` | `get_control_center_communications_matrix_messaging_posture` | `none` | no | future | yes |
+| POST | `/control-center/communications/matrix-messaging/proposal` | `post_control_center_communications_matrix_messaging_proposal` | `validation_only` | yes | future | yes |
+| POST | `/control-center/communications/matrix-messaging/reaction` | `post_control_center_communications_matrix_messaging_reaction` | `authenticated_connector_mutation` | no | future | yes |
+| POST | `/control-center/communications/matrix-messaging/read-receipt` | `post_control_center_communications_matrix_messaging_read_receipt` | `authenticated_connector_mutation` | no | future | yes |
+| POST | `/control-center/communications/matrix-messaging/redaction` | `post_control_center_communications_matrix_messaging_redaction` | `destructive_external` | no | future | yes |
+| POST | `/control-center/communications/matrix-messaging/reply` | `post_control_center_communications_matrix_messaging_reply` | `authenticated_connector_mutation` | no | future | yes |
+| POST | `/control-center/communications/matrix-messaging/send` | `post_control_center_communications_matrix_messaging_send` | `authenticated_connector_mutation` | no | future | yes |
+| POST | `/control-center/communications/matrix-messaging/thread` | `post_control_center_communications_matrix_messaging_thread` | `authenticated_connector_mutation` | no | future | yes |
+| POST | `/control-center/communications/matrix-messaging/typing` | `post_control_center_communications_matrix_messaging_typing` | `authenticated_connector_mutation` | no | future | yes |
 | GET | `/control-center/communications/matrix-sync/posture` | `get_control_center_communications_matrix_sync_posture` | `none` | yes | future | yes |
 | GET | `/control-center/communications/providers` | `get_control_center_communications_providers` | `none` | yes | future | yes |
 | GET | `/control-center/communications/receipts/{receipt_ref}` | `get_control_center_communications_receipt` | `none` | yes | future | yes |

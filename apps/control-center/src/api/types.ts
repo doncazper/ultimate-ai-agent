@@ -13087,6 +13087,36 @@ export interface MatrixCryptoPosture {
   redaction_status: "safe_refs_only";
 }
 
+export interface MatrixMessagingPosture {
+  schema_version: "uaa-matrix-messaging-posture.v1";
+  posture_ref: string;
+  runtime_status:
+    | "ready"
+    | "configuration_required"
+    | "blocked"
+    | "external_facility_required";
+  authority_lane_refs: string[];
+  live_executor_operation_refs: string[];
+  blocked_operation_refs: string[];
+  broker_ref: string;
+  provider_ref: "provider-ref:communications:matrix";
+  sdk_ref: "sdk-ref:matrix-rust-sdk:0.18.0";
+  crypto_store_ref: string;
+  outbox_store_ref: string;
+  reason_refs: string[];
+  element_interoperability_status:
+    | "passed"
+    | "failed"
+    | "external_facility_required";
+  request_scoped_evaluation_required: true;
+  approval_ref_is_authority: false;
+  autonomous_send_enabled: false;
+  remote_homeservers_enabled: false;
+  desktop_only: true;
+  raw_content_included: false;
+  safe_summary: string;
+}
+
 export interface CommunicationsPagination {
   page_size: number;
   returned_count: number;

@@ -140,6 +140,24 @@ def test_shell_guard_accepts_only_exact_matrix_sync_transport_profile() -> None:
         )
 
 
+def test_m71_m72_guards_accept_only_exact_matrix_messaging_loopback_socket() -> None:
+    rel = "src/ultimate_ai_agent/core/communications/matrix_messaging/broker.py"
+    source = (run_all_legacy.ROOT / rel).read_text(encoding="utf-8")
+
+    assert run_all_legacy._is_exact_governed_runtime_command_subprocess_site(
+        rel_path=rel,
+        source=source,
+        fragment="socket.",
+    )
+    assert not run_all_legacy._is_exact_governed_runtime_command_subprocess_site(
+        rel_path=rel,
+        source=source + '\nsocket.socket().connect(("198.51.100.1", 443))\n',
+        fragment="socket.",
+    )
+    run_all_legacy.verify_m71_network_tool_contract_review()
+    run_all_legacy.verify_m72_read_only_http_fetch_tool()
+
+
 def test_filesystem_guard_accepts_only_fixed_portable_evidence_helper_root() -> None:
     rel = "src/ultimate_ai_agent/core/evidence_signing/macos_keychain.py"
     source = (run_all_legacy.ROOT / rel).read_text(encoding="utf-8")

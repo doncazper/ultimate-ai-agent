@@ -341,6 +341,14 @@ def _verify_matrix(text: str, failures: list[str]) -> None:
         "primitive tested; canonical dispatcher executor uncomposed and blocked",
         "authority declared; canonical GET executor uncomposed and blocked",
         "exact authority accepted; persistent adapter required; blocked",
+        "exact request-scoped lane and loopback-only executor implemented; default configuration required",
+        "exact draft write/read and outbox enqueue/read/transition/discard lanes implemented; default configuration required",
+        "exact human-commanded send/reply/thread lanes and loopback-only executors implemented; default configuration required",
+        "content-free transaction replay ledger and outcome-uncertain stop implemented; separate remote reconciliation executor remains blocked",
+        "exact outbox-transition plus original-send lanes implement operator retry with the stable transaction; automatic or uncertain retry blocked",
+        "exact destructive lane and loopback-only executor implemented; default configuration required",
+        "uses the separate exact redaction lane and does not reuse reaction-add authority; default configuration required",
+        "exact generic no-content notification lane implemented; default configuration required",
     }
     allowed_later_postures = {
         "deferred separate lane; blocked pending MatrixRTC/TURN decision",

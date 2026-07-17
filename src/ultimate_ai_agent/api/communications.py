@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import timedelta
 from pathlib import Path
 from typing import Callable
 
@@ -54,6 +55,29 @@ from ultimate_ai_agent.core.communications.matrix_crypto import (
     build_default_matrix_crypto_posture,
     build_matrix_crypto_proposal,
 )
+from ultimate_ai_agent.core.communications.matrix_messaging import (
+    MATRIX_MESSAGING_LANES,
+    MatrixBrokerTransientInput,
+    MatrixMessagingCommand,
+    MatrixMessagingOperation,
+    build_default_matrix_messaging_posture,
+    build_matrix_messaging_proposal,
+)
+from ultimate_ai_agent.core.communications.matrix_messaging.authority_surfaces import (
+    capture_exact_matrix_messaging_approval,
+    issue_exact_matrix_messaging_lease,
+)
+from ultimate_ai_agent.core.communications.matrix_messaging.contracts import (
+    MatrixMessagingReadiness,
+)
+from ultimate_ai_agent.core.communications.matrix_messaging.outbox import (
+    MatrixOutboxRecord,
+)
+from ultimate_ai_agent.core.communications.matrix_messaging.service import (
+    MatrixMessagingRuntime,
+    execute_matrix_messaging_command,
+)
+from ultimate_ai_agent.core.time import utc_now
 
 
 router = APIRouter(prefix="/control-center/communications", tags=["control-center"])
@@ -61,6 +85,7 @@ _REGISTERED_ATTR = "_uaa_communications_routes_registered"
 _SERVICE = build_default_communications_service()
 _HARNESS_APPROVAL_AUTHORITY = LocalApprovalAuthority()
 _SESSION_APPROVAL_AUTHORITY = LocalApprovalAuthority()
+_MESSAGING_APPROVAL_AUTHORITY = LocalApprovalAuthority()
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _REDACTIONS = [
     "communications_safe_refs_only",
@@ -134,6 +159,89 @@ class MatrixCryptoProposalRequest(BaseModel):
     command: MatrixCryptoCommand
 
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+
+class MatrixMessagingTransientRequest(BaseModel):
+    homeserver_url: SecretStr | None = None
+    room_id: SecretStr | None = None
+    event_id: SecretStr | None = None
+    typing_active: StrictBool | None = None
+
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+    def to_runtime_input(self) -> MatrixBrokerTransientInput:
+        return MatrixBrokerTransientInput(
+            homeserver_url=(
+                self.homeserver_url.get_secret_value()
+                if self.homeserver_url is not None
+                else None
+            ),
+            room_id=(
+                self.room_id.get_secret_value()
+                if self.room_id is not None
+                else None
+            ),
+            event_id=(
+                self.event_id.get_secret_value()
+                if self.event_id is not None
+                else None
+            ),
+            typing_active=self.typing_active,
+        )
+
+
+class MatrixMessagingOperationRequest(BaseModel):
+    command: MatrixMessagingCommand
+    transient: MatrixMessagingTransientRequest | None = None
+    outbox_record: MatrixOutboxRecord | None = None
+    confirmed: StrictBool = False
+
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+    @model_validator(mode="after")
+    def validate_exact_runtime_input(self) -> "MatrixMessagingOperationRequest":
+        outbox_write = self.command.operation in {
+            MatrixMessagingOperation.draft_write,
+            MatrixMessagingOperation.outbox_enqueue,
+        }
+        if outbox_write != (self.outbox_record is not None):
+            raise ValueError("MATRIX_MESSAGING_OUTBOX_RECORD_SCOPE_INVALID")
+        transient_operation = self.command.operation in {
+            MatrixMessagingOperation.typing,
+            MatrixMessagingOperation.read_receipt,
+        }
+        if transient_operation != (self.transient is not None):
+            raise ValueError("MATRIX_MESSAGING_TRANSIENT_SCOPE_INVALID")
+        if self.transient is not None:
+            if (
+                self.transient.homeserver_url is None
+                or self.transient.room_id is None
+            ):
+                raise ValueError("MATRIX_MESSAGING_HOMESERVER_TRANSIENT_REQUIRED")
+            if self.command.operation == MatrixMessagingOperation.typing:
+                if (
+                    self.transient.typing_active is None
+                    or self.transient.event_id is not None
+                ):
+                    raise ValueError("MATRIX_MESSAGING_TYPING_TRANSIENT_INVALID")
+            elif (
+                self.transient.event_id is None
+                or self.transient.typing_active is not None
+            ):
+                raise ValueError("MATRIX_MESSAGING_RECEIPT_TRANSIENT_INVALID")
+        return self
+
+
+class MatrixMessagingProposalRequest(BaseModel):
+    command: MatrixMessagingCommand
+
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+
+MatrixMessagingOperationHandler = Callable[
+    [MatrixMessagingOperationRequest],
+    object,
+]
 
 
 def _execute_matrix_harness_operation(
@@ -217,6 +325,58 @@ def _execute_matrix_session_operation(
 
 _SESSION_OPERATION_HANDLER: MatrixSessionOperationHandler = (
     _execute_matrix_session_operation
+)
+
+
+def _blocked_matrix_messaging_readiness(
+    command: MatrixMessagingCommand,
+) -> MatrixMessagingReadiness:
+    now = utc_now()
+    return MatrixMessagingReadiness(
+        readiness_ref=command.readiness_ref,
+        request_fingerprint_ref=command.request_fingerprint_ref,
+        adapter_ref=MATRIX_MESSAGING_LANES[command.operation].adapter_ref,
+        status="blocked",
+        observed_at=now,
+        expires_at=min(command.start_deadline, now + timedelta(seconds=30)),
+        kill_switch_engaged=False,
+        safe_disable_active=False,
+        broker_integrity_verified=False,
+        keychain_available=False,
+        crypto_store_available=False,
+        reason_refs=(
+            "reason-ref:matrix-messaging:runtime-enrollment-required",
+        ),
+    )
+
+
+def _execute_matrix_messaging_operation(
+    payload: MatrixMessagingOperationRequest,
+) -> object:
+    store = AuthorityLeaseStore()
+    command = payload.command
+    if payload.confirmed:
+        issue_exact_matrix_messaging_lease(command, store=store, confirmed=True)
+        approval_ref = capture_exact_matrix_messaging_approval(
+            command,
+            approval_authority=_MESSAGING_APPROVAL_AUTHORITY,
+            confirmed=True,
+        )
+    else:
+        approval_ref = None
+    return execute_matrix_messaging_command(
+        command,
+        authority_state_dir=store.state_dir,
+        runtime=MatrixMessagingRuntime.blocked(),
+        readiness_provider=_blocked_matrix_messaging_readiness,
+        approval_ref=approval_ref,
+        lease_store=store,
+        approval_authority=_MESSAGING_APPROVAL_AUTHORITY,
+    )
+
+
+_MATRIX_MESSAGING_OPERATION_HANDLER: MatrixMessagingOperationHandler = (
+    _execute_matrix_messaging_operation
 )
 
 
@@ -326,6 +486,81 @@ def _require_session_idempotency_binding(
             detail="MATRIX_SESSION_IDEMPOTENCY_MISMATCH",
             headers={"Cache-Control": "no-store"},
         )
+
+
+def _require_messaging_idempotency_binding(
+    payload: MatrixMessagingOperationRequest,
+    idempotency_key: str | None,
+    idempotency_ref: str | None,
+) -> None:
+    supplied = {
+        value.strip()
+        for value in (idempotency_key, idempotency_ref)
+        if value is not None and value.strip()
+    }
+    if supplied != {payload.command.idempotency_ref}:
+        raise HTTPException(
+            status_code=409,
+            detail="MATRIX_MESSAGING_IDEMPOTENCY_MISMATCH",
+            headers={"Cache-Control": "no-store"},
+        )
+
+
+def _run_matrix_messaging_operation(
+    operation: MatrixMessagingOperation,
+    payload: MatrixMessagingOperationRequest,
+    response: Response,
+    idempotency_key: str | None,
+    idempotency_ref: str | None,
+) -> ResultEnvelope:
+    _no_store(response)
+    if payload.command.operation != operation:
+        raise HTTPException(
+            status_code=422,
+            detail="MATRIX_MESSAGING_OPERATION_MISMATCH",
+            headers={"Cache-Control": "no-store"},
+        )
+    _require_messaging_idempotency_binding(
+        payload, idempotency_key, idempotency_ref
+    )
+    try:
+        result = _MATRIX_MESSAGING_OPERATION_HANDLER(payload)
+    except (OSError, ValueError, RuntimeError) as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="MATRIX_MESSAGING_OPERATION_BLOCKED",
+            headers={"Cache-Control": "no-store"},
+        ) from exc
+    data = result.model_dump(mode="json") if hasattr(result, "model_dump") else result
+    operation_name = f"control_center_communications_matrix_messaging_{operation.value}"
+    status = getattr(getattr(result, "receipt", None), "status", None)
+    if status is None or status == "succeeded":
+        return _envelope(
+            operation=operation_name,
+            trace_id=payload.command.dispatch_ref,
+            data=data,
+        )
+    return ResultEnvelope(
+        success=False,
+        operation=operation_name,
+        service="CommunicationsService",
+        trace_id=payload.command.dispatch_ref,
+        data=data,
+        error=ErrorEnvelope(
+            code="MATRIX_MESSAGING_OPERATION_NOT_SUCCEEDED",
+            category=(
+                ErrorCategory.authorization_error
+                if status in {"denied", "cancelled_before_start"}
+                else ErrorCategory.tool_error
+            ),
+            safe_message="The exact Matrix messaging operation did not succeed.",
+            severity=Severity.high,
+            retryable=False,
+            details_redacted=True,
+            source="CommunicationsService",
+        ),
+        redactions_applied=list(_REDACTIONS),
+    )
 
 
 def _run_session_operation(
@@ -459,6 +694,41 @@ def post_control_center_communications_matrix_crypto_proposal(
     proposal = build_matrix_crypto_proposal(payload.command)
     return _envelope(
         operation="control_center_communications_matrix_crypto_proposal",
+        trace_id=proposal.proposal_ref,
+        data=proposal.model_dump(mode="json"),
+    )
+
+
+@router.get(
+    "/matrix-messaging/posture",
+    response_model=ResultEnvelope,
+    operation_id="get_control_center_communications_matrix_messaging_posture",
+)
+def get_control_center_communications_matrix_messaging_posture(
+    response: Response,
+) -> ResultEnvelope:
+    _no_store(response)
+    posture = build_default_matrix_messaging_posture()
+    return _envelope(
+        operation="control_center_communications_matrix_messaging_posture",
+        trace_id=posture.posture_ref,
+        data=posture.model_dump(mode="json"),
+    )
+
+
+@router.post(
+    "/matrix-messaging/proposal",
+    response_model=ResultEnvelope,
+    operation_id="post_control_center_communications_matrix_messaging_proposal",
+)
+def post_control_center_communications_matrix_messaging_proposal(
+    payload: MatrixMessagingProposalRequest,
+    response: Response,
+) -> ResultEnvelope:
+    _no_store(response)
+    proposal = build_matrix_messaging_proposal(payload.command)
+    return _envelope(
+        operation="control_center_communications_matrix_messaging_proposal",
         trace_id=proposal.proposal_ref,
         data=proposal.model_dump(mode="json"),
     )
@@ -882,6 +1152,48 @@ def post_control_center_communications_matrix_credential_delete(
         response,
         x_uaa_idempotency_key,
         x_uaa_idempotency_ref,
+    )
+
+
+def _matrix_messaging_api_handler(
+    operation: MatrixMessagingOperation,
+) -> Callable[..., ResultEnvelope]:
+    def handler(
+        payload: MatrixMessagingOperationRequest,
+        response: Response,
+        x_uaa_idempotency_key: str | None = Header(
+            default=None, alias=IDEMPOTENCY_KEY_HEADER
+        ),
+        x_uaa_idempotency_ref: str | None = Header(
+            default=None, alias=IDEMPOTENCY_REF_HEADER
+        ),
+    ) -> ResultEnvelope:
+        return _run_matrix_messaging_operation(
+            operation,
+            payload,
+            response,
+            x_uaa_idempotency_key,
+            x_uaa_idempotency_ref,
+        )
+
+    handler.__name__ = (
+        "post_control_center_communications_matrix_messaging_"
+        f"{operation.value}"
+    )
+    return handler
+
+
+for _messaging_operation in MatrixMessagingOperation:
+    _messaging_slug = _messaging_operation.value.replace("_", "-")
+    router.add_api_route(
+        f"/matrix-messaging/{_messaging_slug}",
+        _matrix_messaging_api_handler(_messaging_operation),
+        methods=["POST"],
+        response_model=ResultEnvelope,
+        operation_id=(
+            "post_control_center_communications_matrix_messaging_"
+            f"{_messaging_operation.value}"
+        ),
     )
 
 

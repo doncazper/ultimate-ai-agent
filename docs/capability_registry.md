@@ -95,8 +95,11 @@ Matrix-session catalog with two implemented read lanes and eight blocked
 mutation lanes. MSG-MX-006 adds twelve exact read, protected-cache, and
 cache-key lifecycle lanes. MSG-MX-007 adds seventeen exact crypto-store,
 verification, cross-signing, backup, recovery, and reset lanes whose live
-executors remain adapter-required. The MSG-MX-006 primitives are implemented
-and loopback-tested, but live account sync remains configuration-required.
+executors remain adapter-required. MSG-MX-008 adds fifteen exact manual-message,
+encrypted-outbox, and generic-notification lanes backed by a loopback-only
+one-use Rust broker and a dedicated Keychain-protected outbox store. The
+MSG-MX-006 primitives are implemented and loopback-tested, but live account
+sync and manual messaging remain configuration-required.
 Catalog visibility and accepted
 lease schemas never imply callability; current request-scoped policy, target,
 lease, budget, readiness, kill switch, safe-disable, and replay evaluation
@@ -106,7 +109,10 @@ Eight protected `Cache-Control: no-store` GET routes under
 `/control-center/communications`, the human-readable
 `scripts/dev/uaa_communications.py` CLI, and fail-closed TypeScript bindings
 project the same backend-owned truth. A validation-only crypto proposal route
-checks one exact fingerprinted request but cannot execute it. These routes are connector-adjacent
+checks one exact fingerprinted request but cannot execute it. MSG-MX-008 adds
+content-free posture, validation-only proposal, and fifteen exact authority-
+required operation routes; default API composition deliberately binds no live
+runtime. These routes are connector-adjacent
 `local_sensitive` reads with no side effects. The `/messenger` UI loads only
 content-free Matrix sync posture; its room and message content remains
 synthetic. The approved adapter may perform exact discovery, authentication-
@@ -498,6 +504,32 @@ persistent store. Protected posture/proposal API, human-readable CLI, and the
 macOS Sessions & Recovery surface expose the same backend truth without key or
 recovery material. Canonical truth:
 `docs/connectors/MESSENGER_MATRIX_CRYPTO_RECOVERY.md`.
+
+## Matrix Human-Commanded Messaging And Encrypted Outbox
+
+MSG-MX-008 registers fifteen exact request-scoped authority bindings for send,
+reply, thread, reaction, edit, redaction, typing, read receipt, draft write/read,
+outbox enqueue/read/transition/discard, and generic desktop notification. Each
+command binds complete account, loopback homeserver, device, room/event/
+transaction, content fingerprint, outbox generation, notification policy,
+deadline, zero-cost budget, readiness, kill switch, safe-disable, approval,
+lease, idempotency, and compensation or rollback-readiness scope. An approval
+ref is still only an identifier, and autonomous or AI sending is denied.
+
+The native boundary pins `matrix-sdk` 0.18.0, uses a one-use HMAC-authenticated
+loopback broker process, stores session and crypto-store material in the macOS
+Keychain plus encrypted SQLite, and keeps drafts/outbox records in a separate
+TTL-bounded encrypted store. A stable transaction and complete request
+fingerprint drive both Core and native replay ledgers. Unknown execution truth
+enters `outcome_uncertain` and cannot retry automatically.
+
+Protected API, human-readable CLI, and the macOS Messenger shell expose the
+same content-free posture. The default composition remains
+`configuration_required`; synthetic fixture rooms never become authorized
+targets. Remote homeservers, broad connector authority, background workers,
+automatic retry, raw durable content, public release, and production authority
+remain blocked. Canonical truth:
+`docs/connectors/MESSENGER_MATRIX_MANUAL_MESSAGING.md`.
 
 ## Local Smoke Harness
 

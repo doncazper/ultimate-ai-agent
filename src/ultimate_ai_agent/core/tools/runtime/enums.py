@@ -47,6 +47,7 @@ class ToolInvocationKind(str, Enum):
     matrix_harness = "matrix_harness"
     matrix_session = "matrix_session"
     matrix_sync = "matrix_sync"
+    matrix_messaging = "matrix_messaging"
     blocked_unknown = "blocked_unknown"
     blocked_effectful = "blocked_effectful"
     blocked_shell = "blocked_shell"

@@ -102,7 +102,7 @@ def test_communications_manifest_and_openapi_contracts_are_exact() -> None:
         in manifest.capabilities_declared
     )
     assert (
-        "communications_matrix_message_send_or_mutation"
+        "communications_matrix_unscoped_message_send_or_mutation"
         in manifest.capabilities_blocked
     )
 

@@ -54,6 +54,26 @@ MATRIX_CACHE_KEY_CREATE_TOOL_REF = "tool-ref:matrix-cache-key-create:v1"
 MATRIX_CACHE_KEY_ROTATE_TOOL_REF = "tool-ref:matrix-cache-key-rotate:v1"
 MATRIX_CACHE_KEY_DELETE_TOOL_REF = "tool-ref:matrix-cache-key-delete:v1"
 
+# Exact MSG-MX-008 human-commanded messaging tools. These are lane identifiers,
+# not standing connector authority.
+MATRIX_MESSAGING_OPERATIONS = (
+    "send",
+    "reply",
+    "thread",
+    "reaction",
+    "edit",
+    "redaction",
+    "typing",
+    "read_receipt",
+    "draft_write",
+    "draft_read",
+    "outbox_enqueue",
+    "outbox_read",
+    "outbox_transition",
+    "outbox_discard",
+    "desktop_notify",
+)
+
 # Exact lane bindings accepted by the generic AuthorityLease store. Keeping
 # these bindings in the authority package prevents the coarse ``messages``
 # domain from becoming a standing grant for future connector or send lanes.
@@ -348,4 +368,49 @@ MATRIX_CRYPTO_EXACT_AUTHORITY_BINDINGS = tuple(
         f"tool-ref:matrix-crypto-{operation.replace('_', '-')}-v1",
     )
     for operation, domain, capability, mode in _MATRIX_CRYPTO_BINDING_SPECS
+)
+
+_MATRIX_MESSAGING_CAPABILITIES = {
+    "redaction": ("messages", "destructive", "full_machine_access_session"),
+    "outbox_discard": (
+        "messages",
+        "destructive",
+        "full_machine_access_session",
+    ),
+    "draft_read": ("messages", "read", "ask_before_changes"),
+    "outbox_read": ("messages", "read", "ask_before_changes"),
+    "desktop_notify": ("apps", "execute", "ask_before_changes"),
+}
+MATRIX_MESSAGING_EXACT_AUTHORITY_BINDINGS = tuple(
+    (
+        *_MATRIX_MESSAGING_CAPABILITIES.get(
+            operation,
+            (
+                "messages",
+                "send"
+                if operation
+                in {
+                    "send",
+                    "reply",
+                    "thread",
+                    "reaction",
+                    "edit",
+                    "typing",
+                    "read_receipt",
+                }
+                else "mutate",
+                "ask_before_changes",
+            ),
+        )[:2],
+        "session",
+        _MATRIX_MESSAGING_CAPABILITIES.get(
+            operation,
+            ("messages", "mutate", "ask_before_changes"),
+        )[2],
+        f"authority-lane-ref:matrix-messaging-{operation.replace('_', '-')}",
+        f"authority-capability-ref:matrix-messaging-{operation.replace('_', '-')}-v1",
+        f"authority-adapter-ref:matrix-messaging-{operation.replace('_', '-')}-v1",
+        f"tool-ref:matrix-messaging-{operation.replace('_', '-')}-v1",
+    )
+    for operation in MATRIX_MESSAGING_OPERATIONS
 )

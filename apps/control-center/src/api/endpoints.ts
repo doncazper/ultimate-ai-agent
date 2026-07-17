@@ -24,6 +24,8 @@ export const API_ENDPOINTS = {
     "/control-center/communications/matrix-sync/posture",
   communicationsMatrixCryptoPosture:
     "/control-center/communications/matrix-crypto/posture",
+  communicationsMatrixMessagingPosture:
+    "/control-center/communications/matrix-messaging/posture",
   communicationsRooms: "/control-center/communications/rooms",
   communicationsFailedSends: "/control-center/communications/failed-sends",
   communicationsSecurityPosture:

@@ -58,14 +58,14 @@ EXTRACTED_CONTROL_CENTER_ROUTES = {
 }
 
 EXPECTED_SIDE_EFFECT_MIX = {
-    "none": 12,
-    "validation_only": 80,
+    "none": 13,
+    "validation_only": 81,
     "local_dev_workspace_only": 183,
     "governed_network_read_only": 6,
-    "authenticated_connector_mutation": 4,
-    "destructive_local_sensitive": 1,
-    "local_sensitive": 1,
-    "destructive_external": 1,
+    "authenticated_connector_mutation": 11,
+    "destructive_local_sensitive": 2,
+    "local_sensitive": 7,
+    "destructive_external": 2,
     "system_browser_exact_launch": 1,
 }
 
