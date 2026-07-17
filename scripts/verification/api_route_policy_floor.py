@@ -79,6 +79,17 @@ MUTATING_ROUTES = frozenset(
                 "media-cleanup",
             )
         },
+        *{
+            ("POST", f"/control-center/communications/matrix-intelligence/{operation}")
+            for operation in (
+                "room-ai-policy-read",
+                "room-ai-policy-write",
+                "context-materialize",
+                "proposal-read",
+                "proposal-persist",
+                "proposal-delete",
+            )
+        },
         ("POST", "/control-center/communications/matrix/credential-auth-create"),
         ("POST", "/control-center/communications/matrix/credential-delete"),
         (
@@ -141,6 +152,7 @@ TARGETED_RATE_LIMIT_GROUPS = frozenset(
         "communications_matrix_harness",
         "communications_matrix_messaging",
         "communications_matrix_rooms_media",
+        "communications_matrix_intelligence",
         "communications_matrix_session",
         "extension_install_disabled_record",
         "founder_loop_exact_action",
@@ -158,9 +170,9 @@ TARGETED_RATE_LIMIT_GROUPS = frozenset(
         "web_evidence_product_slice",
     }
 )
-TARGETED_RATE_LIMIT_ROUTE_COUNT = 132
+TARGETED_RATE_LIMIT_ROUTE_COUNT = 139
 TARGETED_RATE_LIMIT_ROUTE_FINGERPRINT = (
-    "7ddc56172f7d43702c64cb077a3d8b15c2b308dd5dacf5393a2a26abf4eded10"
+    "481896cc2d9d9cbdd2da53cfb4fc2b00267b342af5d50aea85a4c8825cf455a4"
 )
 
 

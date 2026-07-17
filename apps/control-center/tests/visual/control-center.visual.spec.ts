@@ -127,6 +127,96 @@ test.beforeEach(async ({ page }) => {
       });
       return;
     }
+    if (path === "/control-center/communications/matrix-intelligence/posture") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          success: true,
+          data: {
+            schema_version: "uaa-matrix-intelligence-posture.v1",
+            posture_ref: "posture-ref:matrix-intelligence:partial-exact-local-v1",
+            runtime_status: "partial_exact_local_lanes",
+            family_postures: [
+              {
+                family: "context_materialization",
+                authority_lane_refs: [
+                  "authority-lane-ref:matrix-intelligence-context-materialize",
+                ],
+                status: "accepted_request_scoped",
+                stage_b_runtime_enabled: true,
+                blocker_refs: [],
+                safe_summary: "Exact transient context manifest lane.",
+              },
+              {
+                family: "provider_invocation",
+                authority_lane_refs: [],
+                status: "blocked_missing_exact_authority",
+                stage_b_runtime_enabled: false,
+                blocker_refs: [
+                  "blocked-reason-ref:msg-mx:model-provider-runtime-prohibited",
+                ],
+                safe_summary: "Provider invocation remains blocked.",
+              },
+              {
+                family: "proposal_persistence",
+                authority_lane_refs: [
+                  "authority-lane-ref:matrix-intelligence-proposal-persist",
+                ],
+                status: "accepted_request_scoped",
+                stage_b_runtime_enabled: true,
+                blocker_refs: [],
+                safe_summary: "Exact redacted proposal metadata lane.",
+              },
+              {
+                family: "attachment_analysis",
+                authority_lane_refs: [],
+                status: "blocked_missing_exact_authority",
+                stage_b_runtime_enabled: false,
+                blocker_refs: [
+                  "blocked-reason-ref:msg-mx:attachment-scanner-adapter-missing",
+                ],
+                safe_summary: "Attachment analysis remains blocked.",
+              },
+            ],
+            policy_modes: ["off", "ask_each_time", "scoped_allow"],
+            proposal_kinds: [
+              "unread_summary",
+              "period_summary",
+              "reply_draft",
+              "open_questions",
+              "decisions",
+              "commitments",
+              "task_date_extraction",
+              "translation",
+              "message",
+              "meeting",
+              "follow_up",
+              "task",
+            ],
+            cross_surface_link_refs: [
+              "surface-ref:crm:safe-link-only",
+              "surface-ref:calendar:safe-link-only",
+              "surface-ref:work-board:safe-link-only",
+              "surface-ref:knowledge:safe-link-only",
+              "surface-ref:communications:safe-link-only",
+            ],
+            request_scoped_evaluation_required: true,
+            standing_content_authority: false,
+            provider_invocation_enabled: false,
+            attachment_analysis_enabled: false,
+            autonomous_send_enabled: false,
+            automatic_memory_write_enabled: false,
+            context_injection_enabled: false,
+            raw_content_persisted: false,
+            desktop_only: true,
+            safe_summary:
+              "Exact local context and proposal lanes are available while provider and attachment lanes remain blocked.",
+          },
+        }),
+      });
+      return;
+    }
     if (!path.startsWith("/control-center/") && !path.startsWith("/runtime/")) {
       await route.continue();
       return;
@@ -231,6 +321,7 @@ for (const viewport of messengerDesktopViewports) {
     expect(new Set(backendRequests)).toEqual(
       new Set([
         "/control-center/communications/matrix-crypto/posture",
+        "/control-center/communications/matrix-intelligence/posture",
         "/control-center/communications/matrix-messaging/posture",
         "/control-center/communications/matrix-rooms-media/posture",
         "/control-center/communications/matrix-sync/posture",

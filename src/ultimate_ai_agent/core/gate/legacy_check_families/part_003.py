@@ -688,6 +688,7 @@ class FoundationGateLegacyChecksPart003Mixin:
     ) -> FoundationGateResult:
         from ultimate_ai_agent.api.app import app
         from ultimate_ai_agent.api.manifest import (
+            CONTROL_CENTER_MATRIX_INTELLIGENCE_SIDE_EFFECTS,
             CONTROL_CENTER_MATRIX_MESSAGING_SIDE_EFFECTS,
             CONTROL_CENTER_MATRIX_ROOMS_MEDIA_SIDE_EFFECTS,
             CONTROL_CENTER_MATRIX_SESSION_MUTATION_PATHS,
@@ -1015,6 +1016,19 @@ class FoundationGateLegacyChecksPart003Mixin:
                 and route.rate_limit_group == "communications_matrix_rooms_media"
                 and route.blocked_from_production
             )
+            is_matrix_intelligence_command = (
+                path in CONTROL_CENTER_MATRIX_INTELLIGENCE_SIDE_EFFECTS
+                and route.method == "POST"
+                and route.side_effect_class
+                == CONTROL_CENTER_MATRIX_INTELLIGENCE_SIDE_EFFECTS[path].value
+                and route.route_classification == "mutating_requires_authority"
+                and route.protected_route
+                and route.approval_posture == "required_before_mutation_authority"
+                and route.idempotency_required
+                and route.rate_limit_targeted
+                and route.rate_limit_group == "communications_matrix_intelligence"
+                and route.blocked_from_production
+            )
             is_crm_read_model = (
                 path in CONTROL_CENTER_CRM_COMMAND_CENTER_ROUTES
                 and route.method == "GET"
@@ -1068,6 +1082,7 @@ class FoundationGateLegacyChecksPart003Mixin:
                 and not is_matrix_session_mutation_command
                 and not is_matrix_messaging_command
                 and not is_matrix_rooms_media_command
+                and not is_matrix_intelligence_command
                 and not is_crm_read_model
                 and not is_crm_or_work_board_command_state
             ):

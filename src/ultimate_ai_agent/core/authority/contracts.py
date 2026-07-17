@@ -18,6 +18,7 @@ from ultimate_ai_agent.core.authority.authority_constants import (
     AUTHORITY_STATE_LOCK_KEY,
     AUTHORITY_STATE_REDACTIONS,
     MATRIX_HARNESS_EXACT_AUTHORITY_BINDINGS,
+    MATRIX_INTELLIGENCE_EXACT_AUTHORITY_BINDINGS,
     MATRIX_MESSAGING_EXACT_AUTHORITY_BINDINGS,
     MATRIX_ROOMS_MEDIA_COMPOSITE_REQUESTED_DOMAINS,
     MATRIX_ROOMS_MEDIA_EXACT_AUTHORITY_BINDINGS,
@@ -1146,6 +1147,7 @@ def _exact_authority_binding_catalog() -> dict[
         *MATRIX_CRYPTO_EXACT_AUTHORITY_BINDINGS,
         *MATRIX_MESSAGING_EXACT_AUTHORITY_BINDINGS,
         *MATRIX_ROOMS_MEDIA_EXACT_AUTHORITY_BINDINGS,
+        *MATRIX_INTELLIGENCE_EXACT_AUTHORITY_BINDINGS,
     ):
         catalog[(lane, capability, adapter, tool)] = (
             AuthorityDomain(domain),
@@ -1277,6 +1279,20 @@ def _exact_authority_issue_binding(
             ) in MATRIX_ROOMS_MEDIA_EXACT_AUTHORITY_BINDINGS
         }
         is_matrix_rooms_media_binding = exact_binding in rooms_media_exact_bindings
+        intelligence_exact_bindings = {
+            (lane, capability, adapter, tool)
+            for (
+                _domain,
+                _authority_capability,
+                _scope,
+                _mode,
+                lane,
+                capability,
+                adapter,
+                tool,
+            ) in MATRIX_INTELLIGENCE_EXACT_AUTHORITY_BINDINGS
+        }
+        is_matrix_intelligence_binding = exact_binding in intelligence_exact_bindings
         session_binding_refs = {
             request.constraints.get("exact_start_deadline_ref"),
             request.constraints.get("exact_readiness_ref"),
@@ -1296,7 +1312,32 @@ def _exact_authority_issue_binding(
             isinstance(ref, str) for ref in sync_resource_refs
         ):
             return None
-        if is_matrix_rooms_media_binding:
+        if is_matrix_intelligence_binding:
+            intelligence_resource_refs = {
+                request.constraints.get("exact_provider_ref"),
+                request.constraints.get("exact_runtime_ref"),
+                request.constraints.get("exact_model_destination_ref"),
+                request.constraints.get("exact_disclosure_ref"),
+                request.constraints.get("exact_retention_ref"),
+                request.constraints.get("exact_redaction_ref"),
+                request.constraints.get("exact_kill_switch_ref"),
+            }
+            if not all(isinstance(ref, str) for ref in intelligence_resource_refs):
+                return None
+            required_resource_refs.update(
+                {
+                    "target-ref:communications:matrix-intelligence-exact-room",
+                    "budget-ref:matrix-intelligence:bounded-local-v1",
+                    "safe-disable-ref:matrix-intelligence:enabled",
+                    *session_binding_refs,
+                    *intelligence_resource_refs,
+                }
+            )
+            allowed_target_refs = {
+                "target-ref:communications:matrix-intelligence-exact-room"
+            }
+            allowed_homeserver_refs: set[str] = set()
+        elif is_matrix_rooms_media_binding:
             rooms_media_resource_refs = {
                 request.constraints.get("exact_provider_ref"),
                 request.constraints.get("exact_runtime_ref"),
@@ -1453,6 +1494,7 @@ def _exact_authority_issue_binding(
         and (
             expected_scope != AuthorityLeaseScope.session
             or is_matrix_crypto_binding
+            or is_matrix_intelligence_binding
             or len(allowed_homeserver_refs) == 1
         )
         and operation_constraint is not None

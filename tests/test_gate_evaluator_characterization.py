@@ -271,6 +271,7 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "control_center_matrix_harness",
         "control_center_matrix_session",
         "control_center_matrix_crypto_validation",
+        "control_center_matrix_intelligence",
         "control_center_matrix_messaging",
         "control_center_matrix_rooms_media",
         "control_center_communications_readonly",

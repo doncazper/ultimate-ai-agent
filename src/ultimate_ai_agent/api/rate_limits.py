@@ -39,6 +39,7 @@ TARGETED_RATE_LIMIT_GROUP_DEFAULTS: dict[str, dict[str, int]] = {
     "communications_matrix_crypto": {"max_requests": 12, "window_seconds": 60},
     "communications_matrix_messaging": {"max_requests": 12, "window_seconds": 60},
     "communications_matrix_rooms_media": {"max_requests": 12, "window_seconds": 60},
+    "communications_matrix_intelligence": {"max_requests": 12, "window_seconds": 60},
 }
 
 ACTION_PREVIEW_PROPOSAL_PATHS = {
@@ -216,6 +217,20 @@ COMMUNICATIONS_MATRIX_ROOMS_MEDIA_PATHS = {
         )
     },
 }
+COMMUNICATIONS_MATRIX_INTELLIGENCE_PATHS = {
+    "/control-center/communications/matrix-intelligence/proposal",
+    *{
+        f"/control-center/communications/matrix-intelligence/{operation}"
+        for operation in (
+            "room-ai-policy-read",
+            "room-ai-policy-write",
+            "context-materialize",
+            "proposal-read",
+            "proposal-persist",
+            "proposal-delete",
+        )
+    },
+}
 
 
 @dataclass(frozen=True)
@@ -337,6 +352,8 @@ def route_rate_limit_group(method: str, path: str) -> str | None:
         return "communications_matrix_messaging"
     if normalized_method == "POST" and path in COMMUNICATIONS_MATRIX_ROOMS_MEDIA_PATHS:
         return "communications_matrix_rooms_media"
+    if normalized_method == "POST" and path in COMMUNICATIONS_MATRIX_INTELLIGENCE_PATHS:
+        return "communications_matrix_intelligence"
     if normalized_method == "POST" and (
         path in GOVERNED_RUNTIME_MUTATING_PATHS
         or (

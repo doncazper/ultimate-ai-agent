@@ -2,14 +2,14 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `327`.
+Current OpenAPI path count: `335`.
 
 This inventory is generated from the FastAPI application and `/api/manifest`. It is the route ownership and side-effect classification map for the current local-first API boundary.
 
 ## Current Route Boundary
 
-- Manifest route operations: `328`
-- OpenAPI paths: `327`
+- Manifest route operations: `336`
+- OpenAPI paths: `335`
 - Production runtime authority: blocked
 - Public release authority: blocked
 
@@ -23,7 +23,7 @@ This inventory is generated from the FastAPI application and `/api/manifest`. It
 | `consent` | 2 | `consent` | `approval_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `context-budget` | 1 | `context` | `contracts_service` | future auth required | `validation_only`:1 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `contracts` | 2 | `contracts` | `contracts_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
-| `control-center` | 162 | `control-center` | `control_center_service` | local status or future auth per route | `authenticated_connector_mutation`:25, `destructive_external`:4, `destructive_local_sensitive`:3, `governed_network_read_only`:5, `local_dev_workspace_only`:81, `local_sensitive`:10, `none`:10, `system_browser_exact_launch`:1, `validation_only`:23 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
+| `control-center` | 170 | `control-center` | `control_center_service` | local status or future auth per route | `authenticated_connector_mutation`:25, `destructive_external`:4, `destructive_local_sensitive`:4, `governed_network_read_only`:5, `local_dev_workspace_only`:81, `local_sensitive`:15, `none`:11, `system_browser_exact_launch`:1, `validation_only`:24 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `cost-governor` | 3 | `cost-governor` | `cost_service` | future auth required | `validation_only`:3 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `extension-catalog` | 3 | `extension-catalog` | `extension_catalog_service` | future auth required | `local_dev_workspace_only`:2, `validation_only`:1 | medium | stable/generated from path; unique | status_available_not_completion |
 | `files` | 6 | `workspace-files` | `workspace_files_service` | future auth required and local safe refs | `local_dev_workspace_only`:6 | high | stable/generated from path; unique | partial_backend_not_product_ready |
@@ -176,6 +176,14 @@ validate the exact request-scoped authority boundary.
 | POST | `/control-center/communications/matrix/sso-launch` | `post_control_center_communications_matrix_sso_launch` | `system_browser_exact_launch` | no | future | yes |
 | GET | `/control-center/communications/matrix-crypto/posture` | `get_control_center_communications_matrix_crypto_posture` | `none` | yes | future | yes |
 | POST | `/control-center/communications/matrix-crypto/proposal` | `post_control_center_communications_matrix_crypto_proposal` | `validation_only` | yes | future | yes |
+| POST | `/control-center/communications/matrix-intelligence/context-materialize` | `post_control_center_communications_matrix_intelligence_context_materialize` | `local_sensitive` | no | future | yes |
+| GET | `/control-center/communications/matrix-intelligence/posture` | `get_control_center_communications_matrix_intelligence_posture` | `none` | yes | future | yes |
+| POST | `/control-center/communications/matrix-intelligence/proposal` | `post_control_center_communications_matrix_intelligence_proposal` | `validation_only` | yes | future | yes |
+| POST | `/control-center/communications/matrix-intelligence/proposal-delete` | `post_control_center_communications_matrix_intelligence_proposal_delete` | `destructive_local_sensitive` | no | future | yes |
+| POST | `/control-center/communications/matrix-intelligence/proposal-persist` | `post_control_center_communications_matrix_intelligence_proposal_persist` | `local_sensitive` | no | future | yes |
+| POST | `/control-center/communications/matrix-intelligence/proposal-read` | `post_control_center_communications_matrix_intelligence_proposal_read` | `local_sensitive` | no | future | yes |
+| POST | `/control-center/communications/matrix-intelligence/room-ai-policy-read` | `post_control_center_communications_matrix_intelligence_room_ai_policy_read` | `local_sensitive` | no | future | yes |
+| POST | `/control-center/communications/matrix-intelligence/room-ai-policy-write` | `post_control_center_communications_matrix_intelligence_room_ai_policy_write` | `local_sensitive` | no | future | yes |
 | POST | `/control-center/communications/matrix-messaging/desktop-notify` | `post_control_center_communications_matrix_messaging_desktop_notify` | `local_sensitive` | no | future | yes |
 | POST | `/control-center/communications/matrix-messaging/draft-read` | `post_control_center_communications_matrix_messaging_draft_read` | `local_sensitive` | no | future | yes |
 | POST | `/control-center/communications/matrix-messaging/draft-write` | `post_control_center_communications_matrix_messaging_draft_write` | `local_sensitive` | no | future | yes |

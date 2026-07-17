@@ -5,6 +5,7 @@ import {
   loadCommunicationsRooms,
   loadCommunicationsSessionPosture,
   loadMatrixCryptoPosture,
+  loadMatrixIntelligencePosture,
   loadMatrixMessagingPosture,
   loadMatrixRoomsMediaPosture,
   loadMatrixSyncPosture,
@@ -181,6 +182,86 @@ const matrixRoomsMediaPosture = {
   standing_authority_granted: false,
   multi_account_enabled: false,
   raw_content_included: false,
+};
+
+const matrixIntelligencePosture = {
+  schema_version: "uaa-matrix-intelligence-posture.v1",
+  posture_ref: "posture-ref:matrix-intelligence:partial-exact-local-v1",
+  runtime_status: "partial_exact_local_lanes",
+  family_postures: [
+    {
+      family: "context_materialization",
+      authority_lane_refs: [
+        "authority-lane-ref:matrix-intelligence-room-ai-policy-read",
+        "authority-lane-ref:matrix-intelligence-room-ai-policy-write",
+        "authority-lane-ref:matrix-intelligence-context-materialize",
+      ],
+      status: "accepted_request_scoped",
+      stage_b_runtime_enabled: true,
+      blocker_refs: [],
+      safe_summary: "Exact local room context lanes are request scoped.",
+    },
+    {
+      family: "provider_invocation",
+      authority_lane_refs: [],
+      status: "blocked_missing_exact_authority",
+      stage_b_runtime_enabled: false,
+      blocker_refs: ["blocked-reason-ref:matrix-intelligence:provider-authority"],
+      safe_summary: "Provider invocation remains blocked.",
+    },
+    {
+      family: "proposal_persistence",
+      authority_lane_refs: [
+        "authority-lane-ref:matrix-intelligence-proposal-read",
+        "authority-lane-ref:matrix-intelligence-proposal-persist",
+        "authority-lane-ref:matrix-intelligence-proposal-delete",
+      ],
+      status: "accepted_request_scoped",
+      stage_b_runtime_enabled: true,
+      blocker_refs: [],
+      safe_summary: "Redacted review proposal lanes are request scoped.",
+    },
+    {
+      family: "attachment_analysis",
+      authority_lane_refs: [],
+      status: "blocked_missing_exact_authority",
+      stage_b_runtime_enabled: false,
+      blocker_refs: ["blocked-reason-ref:matrix-intelligence:attachment-authority"],
+      safe_summary: "Attachment analysis remains blocked.",
+    },
+  ],
+  policy_modes: ["off", "ask_each_time", "scoped_allow"],
+  proposal_kinds: [
+    "unread_summary",
+    "period_summary",
+    "reply_draft",
+    "open_questions",
+    "decisions",
+    "commitments",
+    "task_date_extraction",
+    "translation",
+    "message",
+    "meeting",
+    "follow_up",
+    "task",
+  ],
+  cross_surface_link_refs: [
+    "surface-ref:crm:safe-link-only",
+    "surface-ref:calendar:safe-link-only",
+    "surface-ref:work-board:safe-link-only",
+    "surface-ref:knowledge:safe-link-only",
+    "surface-ref:communications:safe-link-only",
+  ],
+  request_scoped_evaluation_required: true,
+  standing_content_authority: false,
+  provider_invocation_enabled: false,
+  attachment_analysis_enabled: false,
+  autonomous_send_enabled: false,
+  automatic_memory_write_enabled: false,
+  context_injection_enabled: false,
+  raw_content_persisted: false,
+  desktop_only: true,
+  safe_summary: "Exact local intelligence lanes are partial and review only.",
 };
 
 function respond(data: unknown): void {
@@ -470,6 +551,38 @@ describe("communications API bindings", () => {
       raw_content_included: true,
     });
     await expect(loadMatrixRoomsMediaPosture()).rejects.toThrow(
+      "failed safe validation",
+    );
+  });
+
+  it("accepts exact partial Matrix intelligence posture", async () => {
+    respond(matrixIntelligencePosture);
+    const result = await loadMatrixIntelligencePosture();
+    expect(result.runtime_status).toBe("partial_exact_local_lanes");
+    expect(result.family_postures).toHaveLength(4);
+    expect(result.family_postures[1]?.stage_b_runtime_enabled).toBe(false);
+    expect(result.provider_invocation_enabled).toBe(false);
+    expect(result.automatic_memory_write_enabled).toBe(false);
+  });
+
+  it("rejects intelligence authority or family-order drift", async () => {
+    respond({
+      ...matrixIntelligencePosture,
+      provider_invocation_enabled: true,
+    });
+    await expect(loadMatrixIntelligencePosture()).rejects.toThrow(
+      "failed safe validation",
+    );
+
+    respond({
+      ...matrixIntelligencePosture,
+      family_postures: [
+        matrixIntelligencePosture.family_postures[1],
+        matrixIntelligencePosture.family_postures[0],
+        ...matrixIntelligencePosture.family_postures.slice(2),
+      ],
+    });
+    await expect(loadMatrixIntelligencePosture()).rejects.toThrow(
       "failed safe validation",
     );
   });

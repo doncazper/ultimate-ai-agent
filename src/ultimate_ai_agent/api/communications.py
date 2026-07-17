@@ -89,6 +89,22 @@ from ultimate_ai_agent.core.communications.matrix_rooms_media import (
     execute_matrix_rooms_media_command,
     issue_exact_matrix_rooms_media_lease,
 )
+from ultimate_ai_agent.core.communications.matrix_intelligence import (
+    MATRIX_INTELLIGENCE_LANES,
+    MatrixIntelligenceCommand,
+    MatrixIntelligenceOperation,
+    MatrixIntelligenceProposalDraft,
+    MatrixIntelligenceReadiness,
+    MatrixIntelligenceRuntime,
+    MatrixIntelligenceRuntimeInput,
+    MatrixIntelligenceStore,
+    MatrixTransientRoomMessage,
+    build_default_matrix_intelligence_posture,
+    build_matrix_intelligence_command_proposal,
+    capture_exact_matrix_intelligence_approval,
+    execute_matrix_intelligence_command,
+    issue_exact_matrix_intelligence_lease,
+)
 from ultimate_ai_agent.core.time import utc_now
 
 
@@ -99,6 +115,8 @@ _HARNESS_APPROVAL_AUTHORITY = LocalApprovalAuthority()
 _SESSION_APPROVAL_AUTHORITY = LocalApprovalAuthority()
 _MESSAGING_APPROVAL_AUTHORITY = LocalApprovalAuthority()
 _ROOMS_MEDIA_APPROVAL_AUTHORITY = LocalApprovalAuthority()
+_INTELLIGENCE_APPROVAL_AUTHORITY = LocalApprovalAuthority()
+_INTELLIGENCE_STORE = MatrixIntelligenceStore()
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _REDACTIONS = [
     "communications_safe_refs_only",
@@ -264,6 +282,65 @@ class MatrixRoomsMediaProposalRequest(BaseModel):
 
 
 MatrixRoomsMediaOperationHandler = Callable[[MatrixRoomsMediaOperationRequest], object]
+
+
+class MatrixIntelligenceTransientMessageRequest(BaseModel):
+    event_ref: str
+    content: SecretStr
+
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+
+class MatrixIntelligenceOperationRequest(BaseModel):
+    command: MatrixIntelligenceCommand
+    transient_messages: tuple[MatrixIntelligenceTransientMessageRequest, ...] = ()
+    proposal_draft: MatrixIntelligenceProposalDraft | None = None
+    confirmed: StrictBool = False
+
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+    @model_validator(mode="after")
+    def validate_runtime_input(self) -> "MatrixIntelligenceOperationRequest":
+        context = (
+            self.command.operation == MatrixIntelligenceOperation.context_materialize
+        )
+        proposal = (
+            self.command.operation == MatrixIntelligenceOperation.proposal_persist
+        )
+        if context != bool(self.transient_messages):
+            raise ValueError("MATRIX_INTELLIGENCE_TRANSIENT_CONTEXT_SCOPE_INVALID")
+        if proposal != (self.proposal_draft is not None):
+            raise ValueError("MATRIX_INTELLIGENCE_PROPOSAL_DRAFT_SCOPE_INVALID")
+        if (
+            self.transient_messages
+            and tuple(item.event_ref for item in self.transient_messages)
+            != self.command.event_refs
+        ):
+            raise ValueError("MATRIX_INTELLIGENCE_TRANSIENT_EVENT_SCOPE_MISMATCH")
+        return self
+
+    def to_runtime_input(self) -> MatrixIntelligenceRuntimeInput:
+        return MatrixIntelligenceRuntimeInput(
+            messages=tuple(
+                MatrixTransientRoomMessage(
+                    event_ref=item.event_ref,
+                    content=item.content.get_secret_value(),
+                )
+                for item in self.transient_messages
+            ),
+            proposal_draft=self.proposal_draft,
+        )
+
+
+class MatrixIntelligenceProposalRequest(BaseModel):
+    command: MatrixIntelligenceCommand
+
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+
+MatrixIntelligenceOperationHandler = Callable[
+    [MatrixIntelligenceOperationRequest], object
+]
 
 
 def _execute_matrix_harness_operation(
@@ -450,6 +527,64 @@ _MATRIX_ROOMS_MEDIA_OPERATION_HANDLER: MatrixRoomsMediaOperationHandler = (
 )
 
 
+def _matrix_intelligence_readiness(
+    command: MatrixIntelligenceCommand,
+) -> MatrixIntelligenceReadiness:
+    now = utc_now()
+    return MatrixIntelligenceReadiness(
+        readiness_ref=command.readiness_ref,
+        request_fingerprint_ref=command.request_fingerprint_ref,
+        adapter_ref=MATRIX_INTELLIGENCE_LANES[command.operation].adapter_ref,
+        status=("blocked" if authority_lease_kill_switch_engaged() else "ready"),
+        observed_at=now,
+        expires_at=min(command.start_deadline, now + timedelta(seconds=30)),
+        kill_switch_engaged=authority_lease_kill_switch_engaged(),
+        safe_disable_active=False,
+        local_store_available=True,
+        transient_context_adapter_available=True,
+        reason_refs=(
+            ("reason-ref:matrix-intelligence:authority-kill-switch-engaged",)
+            if authority_lease_kill_switch_engaged()
+            else ()
+        ),
+    )
+
+
+def _execute_matrix_intelligence_operation(
+    payload: MatrixIntelligenceOperationRequest,
+) -> object:
+    lease_store = AuthorityLeaseStore()
+    command = payload.command
+    if payload.confirmed:
+        issue_exact_matrix_intelligence_lease(
+            command, store=lease_store, confirmed=True
+        )
+        approval_ref = capture_exact_matrix_intelligence_approval(
+            command,
+            approval_authority=_INTELLIGENCE_APPROVAL_AUTHORITY,
+            confirmed=True,
+        )
+    else:
+        approval_ref = None
+    return execute_matrix_intelligence_command(
+        command,
+        authority_state_dir=lease_store.state_dir,
+        runtime=MatrixIntelligenceRuntime.local(
+            store=_INTELLIGENCE_STORE,
+            runtime_input=payload.to_runtime_input(),
+        ),
+        readiness_provider=_matrix_intelligence_readiness,
+        approval_ref=approval_ref,
+        lease_store=lease_store,
+        approval_authority=_INTELLIGENCE_APPROVAL_AUTHORITY,
+    )
+
+
+_MATRIX_INTELLIGENCE_OPERATION_HANDLER: MatrixIntelligenceOperationHandler = (
+    _execute_matrix_intelligence_operation
+)
+
+
 def get_communications_service() -> CommunicationsService:
     return _SERVICE
 
@@ -594,6 +729,24 @@ def _require_rooms_media_idempotency_binding(
         )
 
 
+def _require_matrix_intelligence_idempotency_binding(
+    payload: MatrixIntelligenceOperationRequest,
+    idempotency_key: str | None,
+    idempotency_ref: str | None,
+) -> None:
+    supplied = {
+        value.strip()
+        for value in (idempotency_key, idempotency_ref)
+        if value is not None and value.strip()
+    }
+    if supplied != {payload.command.idempotency_ref}:
+        raise HTTPException(
+            status_code=409,
+            detail="MATRIX_INTELLIGENCE_IDEMPOTENCY_MISMATCH",
+            headers={"Cache-Control": "no-store"},
+        )
+
+
 def _run_matrix_messaging_operation(
     operation: MatrixMessagingOperation,
     payload: MatrixMessagingOperationRequest,
@@ -697,6 +850,61 @@ def _run_matrix_rooms_media_operation(
             source="CommunicationsService",
         ),
         redactions_applied=list(_REDACTIONS),
+    )
+
+
+def _run_matrix_intelligence_operation(
+    operation: MatrixIntelligenceOperation,
+    payload: MatrixIntelligenceOperationRequest,
+    response: Response,
+    idempotency_key: str | None,
+    idempotency_ref: str | None,
+) -> ResultEnvelope:
+    _no_store(response)
+    if payload.command.operation != operation:
+        raise HTTPException(
+            status_code=422,
+            detail="MATRIX_INTELLIGENCE_OPERATION_MISMATCH",
+            headers={"Cache-Control": "no-store"},
+        )
+    _require_matrix_intelligence_idempotency_binding(
+        payload, idempotency_key, idempotency_ref
+    )
+    try:
+        result = _MATRIX_INTELLIGENCE_OPERATION_HANDLER(payload)
+    except (OSError, ValueError, RuntimeError) as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="MATRIX_INTELLIGENCE_OPERATION_BLOCKED",
+            headers={"Cache-Control": "no-store"},
+        ) from exc
+    data = result.model_dump(mode="json") if hasattr(result, "model_dump") else result
+    operation_name = (
+        f"control_center_communications_matrix_intelligence_{operation.value}"
+    )
+    status = getattr(getattr(result, "receipt", None), "status", None)
+    if status == "succeeded":
+        return _envelope(
+            operation=operation_name,
+            trace_id=payload.command.dispatch_ref,
+            data=data,
+        )
+    return ResultEnvelope(
+        success=False,
+        operation=operation_name,
+        service="CommunicationsService",
+        trace_id=payload.command.dispatch_ref,
+        data=data,
+        error=ErrorEnvelope(
+            code="MATRIX_INTELLIGENCE_OPERATION_NOT_SUCCEEDED",
+            category=ErrorCategory.authorization_error,
+            safe_message="The exact Matrix intelligence operation did not succeed.",
+            severity=Severity.high,
+            retryable=False,
+            details_redacted=True,
+            source="CommunicationsService",
+        ),
+        redactions_applied=[*_REDACTIONS, "transient_room_content_omitted"],
     )
 
 
@@ -901,6 +1109,41 @@ def post_control_center_communications_matrix_rooms_media_proposal(
     proposal = build_matrix_rooms_media_proposal(payload.command)
     return _envelope(
         operation="control_center_communications_matrix_rooms_media_proposal",
+        trace_id=proposal.proposal_ref,
+        data=proposal.model_dump(mode="json"),
+    )
+
+
+@router.get(
+    "/matrix-intelligence/posture",
+    response_model=ResultEnvelope,
+    operation_id="get_control_center_communications_matrix_intelligence_posture",
+)
+def get_control_center_communications_matrix_intelligence_posture(
+    response: Response,
+) -> ResultEnvelope:
+    _no_store(response)
+    posture = build_default_matrix_intelligence_posture()
+    return _envelope(
+        operation="control_center_communications_matrix_intelligence_posture",
+        trace_id=posture.posture_ref,
+        data=posture.model_dump(mode="json"),
+    )
+
+
+@router.post(
+    "/matrix-intelligence/proposal",
+    response_model=ResultEnvelope,
+    operation_id="post_control_center_communications_matrix_intelligence_proposal",
+)
+def post_control_center_communications_matrix_intelligence_proposal(
+    payload: MatrixIntelligenceProposalRequest,
+    response: Response,
+) -> ResultEnvelope:
+    _no_store(response)
+    proposal = build_matrix_intelligence_command_proposal(payload.command)
+    return _envelope(
+        operation="control_center_communications_matrix_intelligence_proposal",
         trace_id=proposal.proposal_ref,
         data=proposal.model_dump(mode="json"),
     )
@@ -1399,6 +1642,47 @@ for _rooms_media_operation in MatrixRoomsMediaOperation:
         methods=["POST"],
         response_model=ResultEnvelope,
         operation_id=f"post_control_center_communications_matrix_rooms_media_{_rooms_media_operation.value}",
+    )
+
+
+def _matrix_intelligence_api_handler(
+    operation: MatrixIntelligenceOperation,
+) -> Callable[..., ResultEnvelope]:
+    def handler(
+        payload: MatrixIntelligenceOperationRequest,
+        response: Response,
+        x_uaa_idempotency_key: str | None = Header(
+            default=None, alias=IDEMPOTENCY_KEY_HEADER
+        ),
+        x_uaa_idempotency_ref: str | None = Header(
+            default=None, alias=IDEMPOTENCY_REF_HEADER
+        ),
+    ) -> ResultEnvelope:
+        return _run_matrix_intelligence_operation(
+            operation,
+            payload,
+            response,
+            x_uaa_idempotency_key,
+            x_uaa_idempotency_ref,
+        )
+
+    handler.__name__ = (
+        f"post_control_center_communications_matrix_intelligence_{operation.value}"
+    )
+    return handler
+
+
+for _intelligence_operation in MatrixIntelligenceOperation:
+    _intelligence_slug = _intelligence_operation.value.replace("_", "-")
+    router.add_api_route(
+        f"/matrix-intelligence/{_intelligence_slug}",
+        _matrix_intelligence_api_handler(_intelligence_operation),
+        methods=["POST"],
+        response_model=ResultEnvelope,
+        operation_id=(
+            "post_control_center_communications_matrix_intelligence_"
+            f"{_intelligence_operation.value}"
+        ),
     )
 
 

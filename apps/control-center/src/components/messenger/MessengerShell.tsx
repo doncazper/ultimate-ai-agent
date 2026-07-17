@@ -14,12 +14,14 @@ import type {
 import {
   loadMatrixCryptoPosture,
   loadMatrixMessagingPosture,
+  loadMatrixIntelligencePosture,
   loadMatrixRoomsMediaPosture,
   loadMatrixSyncPosture,
 } from "../../api/client";
 import type {
   MatrixCryptoPosture,
   MatrixMessagingPosture,
+  MatrixIntelligencePosture,
   MatrixRoomsMediaPosture,
   MatrixSyncPosture,
 } from "../../api/types";
@@ -71,6 +73,8 @@ export function MessengerShell() {
   const [messagingPostureUnavailable, setMessagingPostureUnavailable] = useState(false);
   const [roomsMediaPosture, setRoomsMediaPosture] = useState<MatrixRoomsMediaPosture | null>(null);
   const [roomsMediaPostureUnavailable, setRoomsMediaPostureUnavailable] = useState(false);
+  const [intelligencePosture, setIntelligencePosture] = useState<MatrixIntelligencePosture | null>(null);
+  const [intelligencePostureUnavailable, setIntelligencePostureUnavailable] = useState(false);
   const projection = MESSENGER_SURFACES[surfaceId];
   const variant = variantId ? MESSENGER_VARIANTS[variantId] : null;
   const dark = surfaceId === "dark";
@@ -106,6 +110,13 @@ export function MessengerShell() {
       .catch(() => {
         if (active) setRoomsMediaPostureUnavailable(true);
       });
+    loadMatrixIntelligencePosture()
+      .then((posture) => {
+        if (active) setIntelligencePosture(posture);
+      })
+      .catch(() => {
+        if (active) setIntelligencePostureUnavailable(true);
+      });
     return () => {
       active = false;
     };
@@ -140,6 +151,11 @@ export function MessengerShell() {
         roomsMediaPostureUnavailable
           ? "unavailable"
           : roomsMediaPosture?.runtime_status ?? "unknown"
+      }
+      data-messenger-intelligence-runtime={
+        intelligencePostureUnavailable
+          ? "unavailable"
+          : intelligencePosture?.runtime_status ?? "unknown"
       }
       data-messenger-surface={projection.render_ref}
       data-messenger-variant={variantId ?? "default"}
@@ -177,6 +193,8 @@ export function MessengerShell() {
       ) : (
         <ConversationSurface
           inspectorOpen={inspectorOpen}
+          intelligencePosture={intelligencePosture}
+          intelligencePostureUnavailable={intelligencePostureUnavailable}
           messagingPosture={messagingPosture}
           messagingPostureUnavailable={messagingPostureUnavailable}
           onInspectorChange={setInspectorOpen}
@@ -343,6 +361,8 @@ function TopBar({
 
 function ConversationSurface({
   inspectorOpen,
+  intelligencePosture,
+  intelligencePostureUnavailable,
   messagingPosture,
   messagingPostureUnavailable,
   onInspectorChange,
@@ -351,6 +371,8 @@ function ConversationSurface({
   variantId,
 }: {
   inspectorOpen: boolean;
+  intelligencePosture: MatrixIntelligencePosture | null;
+  intelligencePostureUnavailable: boolean;
   messagingPosture: MatrixMessagingPosture | null;
   messagingPostureUnavailable: boolean;
   onInspectorChange: (open: boolean) => void;
@@ -387,6 +409,8 @@ function ConversationSurface({
         />
       </section>
       <Inspector
+        intelligencePosture={intelligencePosture}
+        intelligencePostureUnavailable={intelligencePostureUnavailable}
         open={inspectorOpen}
         onClose={() => onInspectorChange(false)}
         onSelect={onSelect}
@@ -479,11 +503,15 @@ function HumanComposer({
 }
 
 function Inspector({
+  intelligencePosture,
+  intelligencePostureUnavailable,
   onClose,
   onSelect,
   open,
   surfaceId,
 }: {
+  intelligencePosture: MatrixIntelligencePosture | null;
+  intelligencePostureUnavailable: boolean;
   onClose: () => void;
   onSelect: (surface: MessengerSurfaceId) => void;
   open: boolean;
@@ -496,7 +524,7 @@ function Inspector({
   return (
     <aside className={`messenger-inspector${open ? " is-open" : ""}`} hidden={!open} aria-label={thread ? "Thread fixture inspector" : intelligence ? "UAA intelligence fixture" : "Room fixture inspector"}>
       <header><h2>{thread ? "Threads · 4" : intelligence ? "UAA Intelligence" : info ? "Room information" : recovery ? "Recovery" : "Room · UAA"}</h2><button type="button" onClick={onClose} aria-label="Close inspector"><NorthStarIcon name="x" size="sm" /></button></header>
-      {thread ? <ThreadInspector /> : intelligence ? <IntelligenceInspector /> : info ? <RoomInfoInspector onSelect={onSelect} /> : recovery ? <RecoveryInspector /> : <DefaultInspector />}
+      {thread ? <ThreadInspector /> : intelligence ? <IntelligenceInspector posture={intelligencePosture} unavailable={intelligencePostureUnavailable} /> : info ? <RoomInfoInspector onSelect={onSelect} /> : recovery ? <RecoveryInspector /> : <DefaultInspector />}
     </aside>
   );
 }
@@ -521,8 +549,13 @@ function RoomInfoInspector({ onSelect }: { onSelect: (surface: MessengerSurfaceI
   return <><div className="messenger-room-profile"><Avatar initials="PD" tone="purple" /><h3>Product Design</h3><p>Private target · 18 synthetic members</p></div><InspectorCard title="About"><KeyValue label="Space" value="Founder HQ" /><KeyValue label="Access" value="Private target" /><KeyValue label="Encryption" value="Planned" /></InspectorCard><div className="messenger-inspector-grid"><span>People · 18</span><span>Files · 12</span><span>Links · 9</span><span>Pins · 4</span></div><button type="button" onClick={() => onSelect("room-settings")}><NorthStarIcon name="settings" size="sm" /> Open settings preview</button><UaaComposer /></>;
 }
 
-function IntelligenceInspector() {
-  return <><div className="messenger-intelligence-grid"><InspectorCard title="Unread summary"><strong>4</strong><small>Source refs: 4</small></InspectorCard><InspectorCard title="Open questions"><strong>2</strong><small>Confidence: high</small></InspectorCard><InspectorCard title="Decisions"><strong>1</strong><small>Review only</small></InspectorCard><InspectorCard title="Commitments"><strong>3</strong><small>Not memory truth</small></InspectorCard></div><InspectorCard title="Proposed action"><p>Calendar event proposal</p><KeyValue label="Sources" value="3 safe refs" /><KeyValue label="Authority" value="Approval required" /><KeyValue label="Expires" value="30 minutes" /><PostureButton label="Review proposal" posture="Preview" /></InspectorCard><UaaComposer /></>;
+function IntelligenceInspector({ posture, unavailable }: { posture: MatrixIntelligencePosture | null; unavailable: boolean }) {
+  const family = (name: string) => posture?.family_postures.find((item) => item.family === name);
+  const context = family("context_materialization");
+  const proposals = family("proposal_persistence");
+  const provider = family("provider_invocation");
+  const attachments = family("attachment_analysis");
+  return <section data-matrix-intelligence-posture={unavailable ? "unavailable" : posture?.runtime_status ?? "loading"}><div className="messenger-intelligence-grid"><InspectorCard title="Room AI policy"><strong>Off · default</strong><small>Ask each time or expiring scoped Allow requires exact approval and lease.</small></InspectorCard><InspectorCard title="Context manifest"><strong>{context?.status === "accepted_request_scoped" ? "Exact local lane" : "Unavailable"}</strong><small>Transient, content-free, room-scoped, and expiring.</small></InspectorCard><InspectorCard title="Proposal store"><strong>{proposals?.status === "accepted_request_scoped" ? "Review metadata lane" : "Unavailable"}</strong><small>Sources, confidence, expiry, destination, time, and receipts.</small></InspectorCard><InspectorCard title="Generation"><strong>Blocked</strong><small>No model/provider call or attachment analysis.</small></InspectorCard></div><InspectorCard title="Proposal capabilities"><p>Unread and period summaries, reply drafts, open questions, decisions, commitments, task/date extraction, translation, messages, meetings, follow-ups, and tasks are typed review records. No generated content is claimed without an accepted provider lane.</p><KeyValue label="Cross-surface links" value={posture ? `${posture.cross_surface_link_refs.length} safe-ref families` : "Loading"} /><KeyValue label="Provider" value={provider?.status.replaceAll("_", " ") ?? "Blocked"} /><KeyValue label="Attachments" value={attachments?.status.replaceAll("_", " ") ?? "Blocked"} /><KeyValue label="Send / Memory" value="Never automatic" /><PostureButton label="Review exact proposal" posture="Preview" /></InspectorCard><p>{unavailable ? "Intelligence posture is unavailable; all lanes fail closed." : posture?.safe_summary ?? "Loading backend-owned intelligence posture."}</p><UaaComposer /></section>;
 }
 
 function RecoveryInspector() {

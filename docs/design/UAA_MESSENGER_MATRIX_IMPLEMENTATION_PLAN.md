@@ -293,6 +293,13 @@ Exit gate: all room-management and media actions have exact scope, idempotency,
 
 ### Phase 9 — UAA intelligence and cross-surface operations
 
+MSG-MX-010 implements a deliberately partial Phase 9 boundary. Room AI policy,
+transient content-free context manifests, and redacted review-only proposal
+records have six exact request-scoped local lanes. Provider/model invocation and
+the attachment materialize/scan/analyze/cleanup family remain blocked, so the
+current runtime does not generate summaries or drafts. It can store only
+already-redacted cited proposal metadata for later operator review.
+
 Deliver:
 
 - room policy Off / Ask each time / scoped Allow;
@@ -306,7 +313,8 @@ Deliver:
 Exit gate: UAA proposes a reply and meeting from an encrypted conversation, the
 operator reviews the exact content/destination/time, approved actions execute
 through their existing governed lanes, and both produce understandable redacted
-receipts.
+receipts. This full-phase exit gate remains blocked after MSG-MX-010 because no
+provider/model lane or proposal-to-action execution lane was accepted.
 
 ### Phase 10 — Hardening and later capabilities
 

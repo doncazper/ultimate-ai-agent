@@ -366,6 +366,7 @@
               "chat_durable_receipt",
               "communications_matrix_crypto",
               "communications_matrix_harness",
+              "communications_matrix_intelligence",
               "communications_matrix_messaging",
               "communications_matrix_rooms_media",
               "communications_matrix_session",

@@ -29,11 +29,11 @@ Current route classification summary:
 |---|---:|
 | `public_metadata` | 3 |
 | `local_readonly` | 29 |
-| `local_sensitive` | 191 |
-| `mutating_requires_authority` | 105 |
+| `local_sensitive` | 193 |
+| `mutating_requires_authority` | 111 |
 
-The current OpenAPI path count is `327` and `/api/manifest` currently reports
-`328` route operations after later scoped FCC-V1-003 through
+The current OpenAPI path count is `335` and `/api/manifest` currently reports
+`336` route operations after later scoped FCC-V1-003 through
 FCC-V1-006 Founder Loop route work, FCC-MEM-001 Memory Workbench/search/manual
 intake and lifecycle routes, the governed memory L1/L2/L3 index routes, Phase
 5 context-pack proposals, the Phase 6.1 internal Action proposal hook, the
@@ -79,6 +79,9 @@ metadata posture, and Phase 45 skill marketplace posture inspection routes.
 The boundary also includes the MSG-MX-008 exact manual-messaging posture,
 proposal, and fifteen mutation routes plus the MSG-MX-009 rooms/search/media
 posture, proposal, and twenty exact authority-required operation routes.
+It also includes the MSG-MX-010 content-free intelligence posture and proposal
+routes plus six exact request-scoped local policy/context/proposal operations;
+provider/model invocation and attachment analysis remain blocked and absent.
 Hermes interface-mode chat is a
 mutating governed runtime route and now
 requires active `workspace/execute` AuthorityLease scope before exact guarded

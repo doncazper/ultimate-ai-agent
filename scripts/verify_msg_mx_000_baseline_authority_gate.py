@@ -67,6 +67,10 @@ ACCEPTED_CURRENT_SUCCESS = {
         "rooms_search_media_exact_lanes_implemented_configuration_required",
         "evidence-ref:msg-mx-009:rooms-search-media-loopback",
     ),
+    "MSG-MX-010": (
+        "intelligence_context_and_proposal_exact_local_lanes_partial",
+        "evidence-ref:msg-mx-010:intelligence-proposals-focused-proof",
+    ),
 }
 SAFE_BLOCKED_CURRENT_STATUS = {
     "blocked_authority_not_accepted",

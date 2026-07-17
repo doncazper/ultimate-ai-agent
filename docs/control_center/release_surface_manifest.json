@@ -287,7 +287,7 @@
       "path": "/messenger",
       "label": "Messenger",
       "group": "Founder Loop",
-      "ui_status": "fixture-only desktop content with backend-owned sync, crypto, exact manual-messaging, and rooms/search/media posture; synthetic controls remain disabled",
+      "ui_status": "fixture-only desktop content with backend-owned sync, crypto, messaging, rooms/media, and partial intelligence posture; synthetic controls remain disabled",
       "status": "experimental",
       "backend_routes": [
         {
@@ -317,6 +317,13 @@
           "operation_id": "get_control_center_communications_matrix_rooms_media_posture",
           "side_effect_class": "none",
           "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/communications/matrix-intelligence/posture",
+          "operation_id": "get_control_center_communications_matrix_intelligence_posture",
+          "side_effect_class": "none",
+          "route_classification": "local_sensitive"
         }
       ],
       "side_effect_class": "none",
@@ -340,6 +347,9 @@
         "blocked_backend:matrix-broader-message-send",
         "configuration_required:matrix-exact-room-mutation",
         "configuration_required:matrix-bounded-media",
+        "blocked_backend:matrix-provider-invocation",
+        "blocked_backend:matrix-attachment-analysis",
+        "blocked_backend:matrix-proposal-execution",
         "missing_backend:matrix-calling",
         "missing_authority:connector-network",
         "public_distribution_claim",
@@ -352,6 +362,7 @@
         "apps/control-center/src/messenger/contracts.ts",
         "apps/control-center/src/messenger/fixtures.ts",
         "docs/connectors/MESSENGER_MATRIX_ROOMS_SEARCH_MEDIA.md",
+        "docs/connectors/MESSENGER_MATRIX_INTELLIGENCE_PROPOSALS.md",
         "docs/design/UAA_MESSENGER_MATRIX_IMPLEMENTATION_PLAN.md",
         "docs/design/control_center_north_star/UAA_MESSENGER_MATRIX_RENDER_ACCEPTANCE.md",
         "docs/control_center/route_status_manifest.json"
@@ -364,12 +375,13 @@
       "promotion_criteria": [
         "Enroll the exact loopback broker and required protected-store helpers before exact manual messaging; current Messenger room and message data remains synthetic and its composer stays disabled.",
         "Enroll the exact loopback account and app-owned media roots before exact MSG-MX-009 room, search, or media execution; fixture targets remain unauthorized.",
+        "Accept exact provider/model and attachment composite authority before adding either runtime; current MSG-MX-010 proposals remain redacted review metadata with no execution path.",
         "Accept each broader connector, network, credential, sync, encryption, read, send, room, media, or call lane separately before runtime use.",
         "Preserve safe refs, redaction, idempotency, receipts, rollback-readiness, safe-disable, and request-scoped AuthorityLease evaluation for every later mutation.",
         "Keep public release, production readiness, production authority, arbitrary connector writes, and autonomous sends blocked."
       ],
       "product_language_caveats": [
-        "Messenger currently renders synthetic room and message fixtures plus backend-owned Matrix sync, crypto, manual-messaging, and rooms/search/media posture. MSG-MX-008 implements fifteen exact manual operations and MSG-MX-009 implements twenty exact room, encrypted-search, and bounded-media operations only through fresh request-scoped authority, an enrolled loopback broker, exact non-synthetic targets, exact app-owned roots, idempotency, receipts, and safe-disable; synthetic controls remain disabled. Live account sync and persistent crypto remain configuration or adapter dependent, while protected message reads, broader sends, calls, and standing connector authority remain blocked.",
+        "Messenger currently renders synthetic room/message fixtures plus backend-owned Matrix sync, crypto, messaging, rooms/media, and MSG-MX-010 intelligence posture. Six exact local policy/context/proposal lanes are request-scoped; provider invocation, attachment analysis, proposal execution, protected UI message reads, broader sends, calls, automatic Memory, and standing connector authority remain blocked.",
         "All visible success-like counts, people, rooms, messages, devices, refs, and timestamps are clearly synthetic preview data.",
         "Filtering, selection, theme, and inspector visibility are presentation state only; no backend truth, approval, memory, or authority is created.",
         "Python Agent Core remains product truth and Control Center cannot mint authority.",

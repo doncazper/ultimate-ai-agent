@@ -100,6 +100,22 @@ MATRIX_ROOMS_MEDIA_BINDING_SPECS = (
     ("media_cleanup", "files", "destructive", "full_machine_access_session"),
 )
 
+# Exact MSG-MX-010 local intelligence lanes. Provider invocation and attachment
+# analysis intentionally have no accepted binding in this catalog.
+MATRIX_INTELLIGENCE_BINDING_SPECS = (
+    ("room_ai_policy_read", "messages", "read", "ask_before_changes"),
+    ("room_ai_policy_write", "messages", "mutate", "ask_before_changes"),
+    ("context_materialize", "messages", "read", "ask_before_changes"),
+    ("proposal_read", "messages", "read", "ask_before_changes"),
+    ("proposal_persist", "messages", "mutate", "ask_before_changes"),
+    (
+        "proposal_delete",
+        "messages",
+        "destructive",
+        "full_machine_access_session",
+    ),
+)
+
 # Exact lane bindings accepted by the generic AuthorityLease store. Keeping
 # these bindings in the authority package prevents the coarse ``messages``
 # domain from becoming a standing grant for future connector or send lanes.
@@ -489,6 +505,20 @@ MATRIX_ROOMS_MEDIA_EXACT_AUTHORITY_BINDINGS = tuple(
         f"tool-ref:matrix-rooms-media-{operation.replace('_', '-')}-v1",
     )
     for operation, domain, capability, mode in MATRIX_ROOMS_MEDIA_BINDING_SPECS
+)
+
+MATRIX_INTELLIGENCE_EXACT_AUTHORITY_BINDINGS = tuple(
+    (
+        domain,
+        capability,
+        "session",
+        mode,
+        f"authority-lane-ref:matrix-intelligence-{operation.replace('_', '-')}",
+        f"authority-capability-ref:matrix-intelligence-{operation.replace('_', '-')}-v1",
+        f"authority-adapter-ref:matrix-intelligence-{operation.replace('_', '-')}-v1",
+        f"tool-ref:matrix-intelligence-{operation.replace('_', '-')}-v1",
+    )
+    for operation, domain, capability, mode in MATRIX_INTELLIGENCE_BINDING_SPECS
 )
 
 # Composite transfers are the only MSG-MX-009 bindings permitted to request

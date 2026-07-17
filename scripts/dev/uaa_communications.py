@@ -88,6 +88,21 @@ from ultimate_ai_agent.core.communications.matrix_rooms_media import (  # noqa: 
     execute_matrix_rooms_media_command,
     issue_exact_matrix_rooms_media_lease,
 )
+from ultimate_ai_agent.core.communications.matrix_intelligence import (  # noqa: E402
+    MATRIX_INTELLIGENCE_LANES,
+    MatrixIntelligenceCommand,
+    MatrixIntelligenceProposalDraft,
+    MatrixIntelligenceReadiness,
+    MatrixIntelligenceRuntime,
+    MatrixIntelligenceRuntimeInput,
+    MatrixIntelligenceStore,
+    MatrixTransientRoomMessage,
+    build_default_matrix_intelligence_posture,
+    build_matrix_intelligence_command_proposal,
+    capture_exact_matrix_intelligence_approval,
+    execute_matrix_intelligence_command,
+    issue_exact_matrix_intelligence_lease,
+)
 from ultimate_ai_agent.core.time import utc_now  # noqa: E402
 
 
@@ -256,6 +271,23 @@ def _render_matrix_rooms_media_posture(as_json: bool) -> int:
     return 0
 
 
+def _render_matrix_intelligence_posture(as_json: bool) -> int:
+    posture = build_default_matrix_intelligence_posture()
+    if as_json:
+        _json(posture)
+        return 0
+    print("Matrix intelligence and review-only proposals")
+    print(f"- Runtime: {posture.runtime_status}")
+    for family in posture.family_postures:
+        print(f"- {family.family.value}: {family.status}")
+    print("- Room AI policy modes: Off, Ask each time, scoped Allow")
+    print("- Provider invocation: blocked")
+    print("- Attachment analysis: blocked")
+    print("- Autonomous send and automatic Memory: denied")
+    print("No room content, model output, attachment content, or local path is shown.")
+    return 0
+
+
 def _load_matrix_messaging_command(path_value: str) -> MatrixMessagingCommand:
     flags = os.O_RDONLY | os.O_CLOEXEC
     if hasattr(os, "O_NOFOLLOW"):
@@ -288,6 +320,161 @@ def _load_matrix_rooms_media_command(path_value: str) -> MatrixRoomsMediaCommand
     finally:
         os.close(descriptor)
     return MatrixRoomsMediaCommand.model_validate_json(payload)
+
+
+def _load_bounded_regular_file(path_value: str, *, maximum: int, code: str) -> bytes:
+    flags = os.O_RDONLY | os.O_CLOEXEC
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    descriptor = os.open(path_value, flags)
+    try:
+        info = os.fstat(descriptor)
+        if not stat.S_ISREG(info.st_mode) or not (1 <= info.st_size <= maximum):
+            raise ValueError(code)
+        payload = os.read(descriptor, maximum + 1)
+        if len(payload) != info.st_size:
+            raise ValueError(code)
+        return payload
+    finally:
+        os.close(descriptor)
+
+
+def _load_matrix_intelligence_command(path_value: str) -> MatrixIntelligenceCommand:
+    payload = _load_bounded_regular_file(
+        path_value,
+        maximum=64 * 1024,
+        code="MATRIX_INTELLIGENCE_COMMAND_FILE_INVALID",
+    )
+    return MatrixIntelligenceCommand.model_validate_json(payload)
+
+
+def _load_matrix_intelligence_runtime_input(
+    path_value: str | None,
+) -> MatrixIntelligenceRuntimeInput:
+    if path_value is None:
+        return MatrixIntelligenceRuntimeInput()
+    payload = _load_bounded_regular_file(
+        path_value,
+        maximum=320 * 1024,
+        code="MATRIX_INTELLIGENCE_RUNTIME_INPUT_FILE_INVALID",
+    )
+    try:
+        decoded = json.loads(payload)
+    except json.JSONDecodeError as exc:
+        raise ValueError("MATRIX_INTELLIGENCE_RUNTIME_INPUT_FILE_INVALID") from exc
+    if not isinstance(decoded, dict) or set(decoded) - {"messages", "proposal_draft"}:
+        raise ValueError("MATRIX_INTELLIGENCE_RUNTIME_INPUT_FILE_INVALID")
+    messages_payload = decoded.get("messages", [])
+    if not isinstance(messages_payload, list) or len(messages_payload) > 64:
+        raise ValueError("MATRIX_INTELLIGENCE_RUNTIME_INPUT_FILE_INVALID")
+    messages: list[MatrixTransientRoomMessage] = []
+    total_bytes = 0
+    for item in messages_payload:
+        if (
+            not isinstance(item, dict)
+            or set(item) != {"event_ref", "content"}
+            or not isinstance(item["event_ref"], str)
+            or not isinstance(item["content"], str)
+        ):
+            raise ValueError("MATRIX_INTELLIGENCE_RUNTIME_INPUT_FILE_INVALID")
+        total_bytes += len(item["content"].encode("utf-8"))
+        if total_bytes > 262_144:
+            raise ValueError("MATRIX_INTELLIGENCE_RUNTIME_INPUT_FILE_INVALID")
+        messages.append(
+            MatrixTransientRoomMessage(
+                event_ref=item["event_ref"], content=item["content"]
+            )
+        )
+    proposal_payload = decoded.get("proposal_draft")
+    proposal = (
+        None
+        if proposal_payload is None
+        else MatrixIntelligenceProposalDraft.model_validate(proposal_payload)
+    )
+    return MatrixIntelligenceRuntimeInput(
+        messages=tuple(messages), proposal_draft=proposal
+    )
+
+
+def _render_matrix_intelligence_command(args: argparse.Namespace) -> int:
+    try:
+        command = _load_matrix_intelligence_command(args.command_file)
+    except (OSError, ValueError):
+        print("Matrix intelligence command blocked (safe command file invalid).")
+        return 2
+    if args.intelligence_action == "propose":
+        proposal = build_matrix_intelligence_command_proposal(command)
+        if args.json:
+            _json(proposal)
+        else:
+            print("Matrix intelligence command proposal")
+            print(f"- Operation: {proposal.operation.value}")
+            print(f"- Family: {proposal.family.value}")
+            print(f"- Proposal: {proposal.proposal_ref}")
+            print("- Provider invocation: no")
+            print("- Attachment analysis: no")
+            print("- Autonomous send or Memory write: no")
+        return 0
+    try:
+        runtime_input = _load_matrix_intelligence_runtime_input(args.runtime_input_file)
+        lease_store = AuthorityLeaseStore()
+        approvals = LocalApprovalAuthority()
+        approval_ref: str | None = None
+        if args.confirm:
+            issue_exact_matrix_intelligence_lease(
+                command, store=lease_store, confirmed=True
+            )
+            approval_ref = capture_exact_matrix_intelligence_approval(
+                command, approval_authority=approvals, confirmed=True
+            )
+
+        def readiness(exact: MatrixIntelligenceCommand) -> MatrixIntelligenceReadiness:
+            observed = utc_now()
+            disabled = authority_lease_kill_switch_engaged()
+            return MatrixIntelligenceReadiness(
+                readiness_ref=exact.readiness_ref,
+                request_fingerprint_ref=exact.request_fingerprint_ref,
+                adapter_ref=MATRIX_INTELLIGENCE_LANES[exact.operation].adapter_ref,
+                status="blocked" if disabled else "ready",
+                observed_at=observed,
+                expires_at=min(exact.start_deadline, observed + timedelta(seconds=30)),
+                kill_switch_engaged=disabled,
+                safe_disable_active=False,
+                local_store_available=True,
+                transient_context_adapter_available=True,
+                reason_refs=(
+                    ("reason-ref:matrix-intelligence:authority-kill-switch-engaged",)
+                    if disabled
+                    else ()
+                ),
+            )
+
+        result = execute_matrix_intelligence_command(
+            command,
+            authority_state_dir=lease_store.state_dir,
+            runtime=MatrixIntelligenceRuntime.local(
+                store=MatrixIntelligenceStore(), runtime_input=runtime_input
+            ),
+            readiness_provider=readiness,
+            approval_ref=approval_ref,
+            lease_store=lease_store,
+            approval_authority=approvals,
+        )
+    except (OSError, RuntimeError, ValueError):
+        print("Matrix intelligence operation blocked (content-free diagnostic).")
+        return 2
+    if args.json:
+        _json(result)
+    else:
+        print("Governed Matrix intelligence operation")
+        print(f"- Operation: {command.operation.value}")
+        print(f"- Dispatch status: {result.receipt.status}")
+        print(f"- Receipt: {result.receipt.receipt_ref}")
+        print(f"- Reasons: {', '.join(result.receipt.reason_refs) or 'none'}")
+        print(
+            "No transient room content, model output, attachment content, or local path is shown."
+        )
+    return 0 if result.receipt.status == "succeeded" else 2
 
 
 def _render_matrix_rooms_media_command(args: argparse.Namespace) -> int:
@@ -801,6 +988,13 @@ def build_parser() -> argparse.ArgumentParser:
     rooms_media_posture.add_argument(
         "--json", action="store_true", help="Emit safe JSON."
     )
+    intelligence_posture = subparsers.add_parser(
+        "matrix-intelligence-status",
+        help="Inspect room AI, transient context, proposal, and blocked provider/attachment posture.",
+    )
+    intelligence_posture.add_argument(
+        "--json", action="store_true", help="Emit safe JSON."
+    )
     messaging = subparsers.add_parser(
         "matrix-messaging",
         help="Review or dispatch one safe-ref-only Matrix messaging command file.",
@@ -821,6 +1015,31 @@ def build_parser() -> argparse.ArgumentParser:
                 "--confirm",
                 action="store_true",
                 help="Capture exact approval; runtime enrollment is still required.",
+            )
+        command.add_argument("--json", action="store_true", help="Emit safe JSON.")
+    intelligence = subparsers.add_parser(
+        "matrix-intelligence",
+        help="Review or dispatch one exact room policy, context, or proposal command.",
+    )
+    intelligence_actions = intelligence.add_subparsers(
+        dest="intelligence_action", required=True
+    )
+    for action in ("propose", "dispatch"):
+        command = intelligence_actions.add_parser(action)
+        command.add_argument(
+            "--command-file",
+            required=True,
+            help="Path to one validated safe-ref-only MatrixIntelligenceCommand JSON file.",
+        )
+        if action == "dispatch":
+            command.add_argument(
+                "--runtime-input-file",
+                help="Optional bounded transient room-content or redacted proposal input; never echoed or persisted as a receipt.",
+            )
+            command.add_argument(
+                "--confirm",
+                action="store_true",
+                help="Issue an exact lease and capture request-scoped local approval.",
             )
         command.add_argument("--json", action="store_true", help="Emit safe JSON.")
     rooms_media = subparsers.add_parser(
@@ -1004,6 +1223,8 @@ def main(
         return _render_matrix_messaging_command(args)
     if args.command == "matrix-rooms-media":
         return _render_matrix_rooms_media_command(args)
+    if args.command == "matrix-intelligence":
+        return _render_matrix_intelligence_command(args)
     if args.command == "providers":
         return _render_providers(active_service, args.json)
     if args.command == "session":
@@ -1022,6 +1243,8 @@ def main(
         return _render_matrix_messaging_posture(args.json)
     if args.command == "matrix-rooms-media-status":
         return _render_matrix_rooms_media_posture(args.json)
+    if args.command == "matrix-intelligence-status":
+        return _render_matrix_intelligence_posture(args.json)
     return _render_receipt(active_service, args.json, args.receipt_ref)
 
 
