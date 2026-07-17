@@ -28,6 +28,7 @@ from ultimate_ai_agent.core.communications.matrix_messaging.contracts import (
     MatrixMessagingReadiness,
     MatrixOutboxState,
     build_matrix_messaging_command,
+    build_matrix_messaging_proposal,
     matrix_messaging_exact_resource_refs,
 )
 from ultimate_ai_agent.core.communications.matrix_messaging.outbox import (
@@ -40,6 +41,11 @@ from ultimate_ai_agent.core.communications.matrix_sync.cache import (
     InMemoryMatrixCacheCryptoBackend,
     MatrixCacheKeyUnavailable,
 )
+from ultimate_ai_agent.core.communications.matrix_session.target_policy import (
+    MATRIX_LOCAL_HARNESS_ORIGIN,
+    matrix_homeserver_ref,
+)
+from ultimate_ai_agent.core.communications.matrix_sync import matrix_sync_private_ref
 from ultimate_ai_agent.core.authority import (
     AuthorityLeaseRevokeRequest,
     AuthorityLeaseStore,
@@ -68,6 +74,18 @@ from ultimate_ai_agent.core.communications.matrix_messaging.static_safety import
     MATRIX_MESSAGING_NOTIFIER_REL,
     is_exact_matrix_messaging_broker_subprocess_site,
     is_exact_matrix_messaging_notifier_subprocess_site,
+)
+
+
+PSEUDONYMIZATION_SALT = b"m" * 32
+ROOM_ID = "!room:localhost"
+EVENT_ID = "$event:localhost"
+TRANSACTION_ID = "transaction-exact-v1"
+HOMESERVER_REF = matrix_homeserver_ref(MATRIX_LOCAL_HARNESS_ORIGIN)
+ROOM_REF = matrix_sync_private_ref("room-ref:matrix", PSEUDONYMIZATION_SALT, ROOM_ID)
+EVENT_REF = matrix_sync_private_ref("event-ref:matrix", PSEUDONYMIZATION_SALT, EVENT_ID)
+TRANSACTION_REF = matrix_sync_private_ref(
+    "transaction-ref:matrix", PSEUDONYMIZATION_SALT, TRANSACTION_ID
 )
 
 
@@ -136,6 +154,35 @@ def _record(*, state: MatrixOutboxState = MatrixOutboxState.queued) -> MatrixOut
     )
 
 
+def _bound_send_record(*, room_id: str = ROOM_ID) -> MatrixOutboxRecord:
+    now = datetime.now(UTC)
+    fingerprint = matrix_outbox_content_fingerprint_ref(
+        operation=MatrixMessagingOperation.send,
+        room_id=room_id,
+        event_id=None,
+        transaction_id=TRANSACTION_ID,
+        body="transient-content-marker-v1",
+        formatted_body=None,
+        mention_user_ids=(),
+        reaction_key=None,
+    )
+    return MatrixOutboxRecord(
+        outbox_ref="outbox-ref:matrix:exact-v1",
+        generation_ref="outbox-generation-ref:matrix:exact-v1",
+        account_ref="account-ref:matrix:exact-v1",
+        room_ref=ROOM_REF,
+        transaction_ref=TRANSACTION_REF,
+        operation=MatrixMessagingOperation.send,
+        content_fingerprint_ref=fingerprint,
+        state=MatrixOutboxState.queued,
+        created_at=now,
+        expires_at=now + timedelta(minutes=15),
+        room_id=room_id,
+        transaction_id=TRANSACTION_ID,
+        body="transient-content-marker-v1",
+    )
+
+
 def _outbox(tmp_path: Path) -> tuple[MatrixEncryptedOutbox, InMemoryMatrixCacheCryptoBackend]:
     backend = InMemoryMatrixCacheCryptoBackend()
     outbox = MatrixEncryptedOutbox(
@@ -151,7 +198,23 @@ def _outbox(tmp_path: Path) -> tuple[MatrixEncryptedOutbox, InMemoryMatrixCacheC
 def test_all_exact_lanes_require_fresh_approval() -> None:
     assert len(MATRIX_MESSAGING_LANES) == 15
     assert all(lane.approval_required for lane in MATRIX_MESSAGING_LANES.values())
-    assert all(lane.required_mode.value != "read_only" for lane in MATRIX_MESSAGING_LANES.values())
+    assert all(
+        lane.required_mode.value != "read_only"
+        for lane in MATRIX_MESSAGING_LANES.values()
+    )
+    redaction_lane = matrix_messaging_lane(MatrixMessagingOperation.redaction)
+    assert redaction_lane.side_effect_class == "destructive_external"
+    redaction_proposal = build_matrix_messaging_proposal(
+        _command(
+            MatrixMessagingOperation.redaction,
+            event_ref="event-ref:matrix:exact-v1",
+            content_fingerprint_ref=None,
+            rollback_ref=matrix_messaging_rollback_ref(
+                MatrixMessagingOperation.redaction
+            ),
+        )
+    )
+    assert redaction_proposal.side_effect_class == "destructive_external"
 
 
 def test_command_binds_content_room_transaction_and_outbox() -> None:
@@ -625,6 +688,208 @@ def test_live_runtime_writes_only_exact_bound_encrypted_outbox(tmp_path: Path) -
         MatrixOutboxRecord.model_validate(changed.model_dump(mode="python"))
 
 
+@pytest.mark.parametrize(
+    ("homeserver_url", "room_id", "event_id", "error_code"),
+    [
+        (
+            "http://127.0.0.1:18009",
+            ROOM_ID,
+            EVENT_ID,
+            "MATRIX_MESSAGING_TRANSIENT_BINDING_INVALID",
+        ),
+        (
+            MATRIX_LOCAL_HARNESS_ORIGIN,
+            "!substituted:localhost",
+            EVENT_ID,
+            "MATRIX_MESSAGING_TRANSIENT_BINDING_MISMATCH",
+        ),
+        (
+            MATRIX_LOCAL_HARNESS_ORIGIN,
+            ROOM_ID,
+            "$substituted:localhost",
+            "MATRIX_MESSAGING_TRANSIENT_BINDING_MISMATCH",
+        ),
+    ],
+)
+def test_direct_transient_targets_must_match_approved_safe_refs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    homeserver_url: str,
+    room_id: str,
+    event_id: str,
+    error_code: str,
+) -> None:
+    outbox, _backend = _outbox(tmp_path)
+    binary = Path("/usr/bin/true").resolve()
+    broker = MatrixBrokerClient(
+        MatrixBrokerConfig(
+            binary_path=binary,
+            expected_binary_sha256=hashlib.sha256(binary.read_bytes()).hexdigest(),
+            state_root=(tmp_path / "broker-direct-binding").resolve(),
+        )
+    )
+    calls: list[object] = []
+
+    def execute(*args: object, **kwargs: object) -> MatrixBrokerResponse:
+        calls.append((args, kwargs))
+        raise AssertionError("broker must not receive an unbound transient target")
+
+    monkeypatch.setattr(MatrixBrokerClient, "execute", execute)
+    command = _command(
+        MatrixMessagingOperation.read_receipt,
+        homeserver_ref=HOMESERVER_REF,
+        room_ref=ROOM_REF,
+        event_ref=EVENT_REF,
+        transaction_ref=None,
+        content_fingerprint_ref=None,
+        outbox_ref=None,
+        outbox_generation_ref=None,
+        expected_outbox_state=None,
+        rollback_ref=matrix_messaging_rollback_ref(
+            MatrixMessagingOperation.read_receipt
+        ),
+    )
+    runtime = MatrixMessagingRuntime.live(
+        broker_client=broker,
+        outbox=outbox,
+        runtime_input=MatrixMessagingRuntimeInput(
+            pseudonymization_salt=PSEUDONYMIZATION_SALT,
+            direct_transient=MatrixBrokerTransientInput(
+                homeserver_url=homeserver_url,
+                room_id=room_id,
+                event_id=event_id,
+            ),
+        ),
+    )
+    with pytest.raises(MatrixBrokerError, match=error_code):
+        runtime.execute(command, "approval-ref:matrix:exact-v1")
+    assert calls == []
+
+
+def test_outbox_raw_target_substitution_fails_before_state_change(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    outbox, _backend = _outbox(tmp_path)
+    record = _bound_send_record(room_id="!substituted:localhost")
+    outbox.write(record)
+    binary = Path("/usr/bin/true").resolve()
+    broker = MatrixBrokerClient(
+        MatrixBrokerConfig(
+            binary_path=binary,
+            expected_binary_sha256=hashlib.sha256(binary.read_bytes()).hexdigest(),
+            state_root=(tmp_path / "broker-outbox-binding").resolve(),
+        )
+    )
+    calls: list[object] = []
+
+    def execute(*args: object, **kwargs: object) -> MatrixBrokerResponse:
+        calls.append((args, kwargs))
+        raise AssertionError("broker must not receive an unbound outbox target")
+
+    monkeypatch.setattr(MatrixBrokerClient, "execute", execute)
+    command = _command(
+        homeserver_ref=HOMESERVER_REF,
+        room_ref=ROOM_REF,
+        transaction_ref=TRANSACTION_REF,
+        content_fingerprint_ref=record.content_fingerprint_ref,
+    )
+    runtime = MatrixMessagingRuntime.live(
+        broker_client=broker,
+        outbox=outbox,
+        runtime_input=MatrixMessagingRuntimeInput(
+            homeserver_url=MATRIX_LOCAL_HARNESS_ORIGIN,
+            pseudonymization_salt=PSEUDONYMIZATION_SALT,
+        ),
+    )
+    with pytest.raises(
+        MatrixBrokerError, match="MATRIX_MESSAGING_TRANSIENT_BINDING_MISMATCH"
+    ):
+        runtime.execute(command, "approval-ref:matrix:exact-v1")
+    restored = outbox.read(
+        outbox_ref=record.outbox_ref,
+        account_ref=record.account_ref,
+        room_ref=record.room_ref,
+    )
+    assert restored.state == MatrixOutboxState.queued
+    assert calls == []
+
+
+def test_server_ack_survives_local_outbox_reconciliation_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    outbox, _backend = _outbox(tmp_path)
+    record = _bound_send_record()
+    outbox.write(record)
+    binary = Path("/usr/bin/true").resolve()
+    broker = MatrixBrokerClient(
+        MatrixBrokerConfig(
+            binary_path=binary,
+            expected_binary_sha256=hashlib.sha256(binary.read_bytes()).hexdigest(),
+            state_root=(tmp_path / "broker-ack-reconciliation").resolve(),
+        )
+    )
+
+    def execute(
+        _self: MatrixBrokerClient,
+        invocation: MatrixBrokerInvocation,
+        *,
+        transient: object,
+    ) -> MatrixBrokerResponse:
+        assert isinstance(transient, MatrixBrokerTransientInput)
+        return MatrixBrokerResponse(
+            protocol_version="uaa-matrix-rust-broker-response.v1",
+            ok=True,
+            operation=invocation.operation,
+            request_ref=invocation.request_ref,
+            request_fingerprint_ref=invocation.request_fingerprint_ref,
+            receipt_ref="receipt-ref:matrix-broker:exact-v1",
+            outcome="server_acknowledged",
+            event_ref="event-ref:matrix:remote-v1",
+            transaction_ref=invocation.transaction_ref,
+            replayed=False,
+            credential_material_included=False,
+            content_included=False,
+            raw_identifiers_included=False,
+        )
+
+    def fail_reconciliation(*args: object, **kwargs: object) -> None:
+        raise MatrixOutboxError("MATRIX_OUTBOX_RECONCILIATION_TEST_FAILURE")
+
+    monkeypatch.setattr(MatrixBrokerClient, "execute", execute)
+    monkeypatch.setattr(
+        MatrixMessagingRuntime, "_mark_network_result", fail_reconciliation
+    )
+    command = _command(
+        homeserver_ref=HOMESERVER_REF,
+        room_ref=ROOM_REF,
+        transaction_ref=TRANSACTION_REF,
+        content_fingerprint_ref=record.content_fingerprint_ref,
+    )
+    runtime = MatrixMessagingRuntime.live(
+        broker_client=broker,
+        outbox=outbox,
+        runtime_input=MatrixMessagingRuntimeInput(
+            homeserver_url=MATRIX_LOCAL_HARNESS_ORIGIN,
+            pseudonymization_salt=PSEUDONYMIZATION_SALT,
+        ),
+    )
+    result = runtime.execute(command, "approval-ref:matrix:exact-v1")
+    assert result.succeeded is True
+    assert result.safe_output["runtime_status"] == "server_acknowledged"
+    assert result.safe_output["external_write_performed"] is True
+    assert result.safe_output["automatic_retry_permitted"] is False
+    assert result.safe_output["outbox_reconciliation_required"] is True
+    assert any("outbox-reconciliation-required" in ref for ref in result.evidence_refs)
+    restored = outbox.read(
+        outbox_ref=record.outbox_ref,
+        account_ref=record.account_ref,
+        room_ref=record.room_ref,
+    )
+    assert restored.state == MatrixOutboxState.sending
+
+
 def test_broker_response_must_match_exact_invocation() -> None:
     now = datetime.now(UTC)
     invocation = MatrixBrokerInvocation(
@@ -678,13 +943,11 @@ def test_reaction_and_redaction_transients_do_not_smuggle_message_fields(
     operation: MatrixMessagingOperation,
     reaction_key: str | None,
 ) -> None:
-    event_ref = "event-ref:matrix:exact-v1"
-    event_id = "$event:localhost"
     content_fingerprint_ref = matrix_outbox_content_fingerprint_ref(
         operation=operation,
-        room_id="!room:localhost",
-        event_id=event_id,
-        transaction_id="transaction-exact-v1",
+        room_id=ROOM_ID,
+        event_id=EVENT_ID,
+        transaction_id=TRANSACTION_ID,
         body=None,
         formatted_body=None,
         mention_user_ids=(),
@@ -695,22 +958,25 @@ def test_reaction_and_redaction_transients_do_not_smuggle_message_fields(
         outbox_ref="outbox-ref:matrix:exact-v1",
         generation_ref="outbox-generation-ref:matrix:exact-v1",
         account_ref="account-ref:matrix:exact-v1",
-        room_ref="room-ref:matrix:exact-v1",
-        event_ref=event_ref,
-        transaction_ref="transaction-ref:matrix:exact-v1",
+        room_ref=ROOM_REF,
+        event_ref=EVENT_REF,
+        transaction_ref=TRANSACTION_REF,
         operation=operation,
         content_fingerprint_ref=content_fingerprint_ref,
         state=MatrixOutboxState.queued,
         created_at=now,
         expires_at=now + timedelta(minutes=15),
-        room_id="!room:localhost",
-        event_id=event_id,
-        transaction_id="transaction-exact-v1",
+        room_id=ROOM_ID,
+        event_id=EVENT_ID,
+        transaction_id=TRANSACTION_ID,
         reaction_key=reaction_key,
     )
     command = _command(
         operation,
-        event_ref=event_ref,
+        homeserver_ref=HOMESERVER_REF,
+        room_ref=ROOM_REF,
+        event_ref=EVENT_REF,
+        transaction_ref=TRANSACTION_REF,
         content_fingerprint_ref=(
             content_fingerprint_ref
             if operation == MatrixMessagingOperation.reaction
@@ -757,7 +1023,10 @@ def test_reaction_and_redaction_transients_do_not_smuggle_message_fields(
     runtime = MatrixMessagingRuntime.live(
         broker_client=broker,
         outbox=outbox,
-        runtime_input=MatrixMessagingRuntimeInput(homeserver_url="http://localhost"),
+        runtime_input=MatrixMessagingRuntimeInput(
+            homeserver_url=MATRIX_LOCAL_HARNESS_ORIGIN,
+            pseudonymization_salt=PSEUDONYMIZATION_SALT,
+        ),
     )
     result = runtime.execute(command, "approval-ref:matrix:exact-v1")
     assert result.succeeded is True
@@ -767,9 +1036,9 @@ def test_reaction_and_redaction_transients_do_not_smuggle_message_fields(
     assert transient.body is None
     assert transient.formatted_body is None
     assert transient.mention_user_ids is None
-    assert transient.event_id == event_id
+    assert transient.event_id == EVENT_ID
     if operation == MatrixMessagingOperation.reaction:
-        assert transient.relation_event_id == event_id
+        assert transient.relation_event_id == EVENT_ID
         assert transient.reaction_key == reaction_key
     else:
         assert transient.relation_event_id is None

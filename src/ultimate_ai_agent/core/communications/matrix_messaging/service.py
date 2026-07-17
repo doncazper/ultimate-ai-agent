@@ -17,6 +17,10 @@ from ultimate_ai_agent.core.authority.dispatcher import (
     build_authority_dispatch_cost_estimate_ref,
     build_authority_dispatch_cost_governor_decision_ref,
 )
+from ultimate_ai_agent.core.communications.matrix_session.target_policy import (
+    matrix_homeserver_ref,
+)
+from ultimate_ai_agent.core.communications.matrix_sync import matrix_sync_private_ref
 from ultimate_ai_agent.core.costs.budgets import CostBudget
 from ultimate_ai_agent.core.costs.enums import BudgetScope
 from ultimate_ai_agent.core.costs.estimates import CostEstimate
@@ -283,19 +287,6 @@ class MatrixMessagingRuntime:
             MatrixMessagingOperation.redaction,
         }:
             record = self._read_exact_outbox(command)
-            sending_generation = stable_matrix_messaging_ref(
-                "outbox-generation-ref:matrix:sending",
-                {
-                    "request_fingerprint_ref": command.request_fingerprint_ref,
-                    "attempt": record.attempt_count + 1,
-                },
-            )
-            record, _ = self._outbox.transition(
-                record=record,
-                expected_state=record.state,
-                next_state=MatrixOutboxState.sending,
-                next_generation_ref=sending_generation,
-            )
             relation_event_id = (
                 record.event_id
                 if command.operation
@@ -341,6 +332,25 @@ class MatrixMessagingRuntime:
                 transient,
                 homeserver_url=self._runtime_input.homeserver_url,
             )
+        _validate_transient_binding(
+            command,
+            transient,
+            pseudonymization_salt=self._runtime_input.pseudonymization_salt,
+        )
+        if record is not None:
+            sending_generation = stable_matrix_messaging_ref(
+                "outbox-generation-ref:matrix:sending",
+                {
+                    "request_fingerprint_ref": command.request_fingerprint_ref,
+                    "attempt": record.attempt_count + 1,
+                },
+            )
+            record, _ = self._outbox.transition(
+                record=record,
+                expected_state=record.state,
+                next_state=MatrixOutboxState.sending,
+                next_generation_ref=sending_generation,
+            )
         invocation = MatrixBrokerInvocation(
             operation=command.operation.value,
             request_ref=command.request_ref,
@@ -371,6 +381,7 @@ class MatrixMessagingRuntime:
                     remote_event_ref=None,
                 )
             return _network_failure(command, "outcome_uncertain")
+        reconciliation_failure_ref: str | None = None
         if record is not None:
             state = (
                 MatrixOutboxState.server_acknowledged
@@ -379,14 +390,23 @@ class MatrixMessagingRuntime:
                 if response.outcome == "outcome_uncertain"
                 else MatrixOutboxState.failed
             )
-            self._mark_network_result(
-                command,
-                record,
-                state=state,
-                remote_event_ref=response.event_ref,
-            )
+            try:
+                self._mark_network_result(
+                    command,
+                    record,
+                    state=state,
+                    remote_event_ref=response.event_ref,
+                )
+            except Exception:
+                if not response.ok:
+                    return _network_failure(command, response.outcome)
+                reconciliation_failure_ref = stable_matrix_messaging_ref(
+                    "evidence-ref:matrix-messaging:outbox-reconciliation-required",
+                    {"request_fingerprint_ref": command.request_fingerprint_ref},
+                )
         if not response.ok:
             return _network_failure(command, response.outcome)
+        reconciliation_required = reconciliation_failure_ref is not None
         return MatrixMessagingOperationResult(
             succeeded=True,
             safe_output={
@@ -397,13 +417,24 @@ class MatrixMessagingRuntime:
                 "event_ref": response.event_ref,
                 "transaction_ref": response.transaction_ref,
                 "external_write_performed": True,
+                "automatic_retry_permitted": False,
+                "outbox_reconciliation_required": reconciliation_required,
                 "raw_content_included": False,
             },
             evidence_refs=(
                 response.receipt_ref,
                 *(tuple([response.event_ref]) if response.event_ref else ()),
+                *(
+                    tuple([reconciliation_failure_ref])
+                    if reconciliation_failure_ref
+                    else ()
+                ),
             ),
-            safe_summary="The exact human-commanded Matrix operation received bound adapter evidence.",
+            safe_summary=(
+                "The exact human-commanded Matrix operation received bound adapter evidence; local outbox reconciliation remains required."
+                if reconciliation_required
+                else "The exact human-commanded Matrix operation received bound adapter evidence."
+            ),
         )
 
     def _mark_network_result(
@@ -457,13 +488,71 @@ def _validate_record_binding(
         and command.content_fingerprint_ref != record.content_fingerprint_ref
     ):
         raise MatrixOutboxError("MATRIX_OUTBOX_CONTENT_BINDING_MISMATCH")
-    if command.operation in NETWORK_OPERATIONS and command.operation != record.operation:
+    if (
+        command.operation in NETWORK_OPERATIONS
+        and command.operation != record.operation
+    ):
         raise MatrixOutboxError("MATRIX_OUTBOX_OPERATION_BINDING_MISMATCH")
     if (
         command.outbox_message_operation is not None
         and command.outbox_message_operation != record.operation
     ):
         raise MatrixOutboxError("MATRIX_OUTBOX_OPERATION_BINDING_MISMATCH")
+
+
+def _validate_transient_binding(
+    command: MatrixMessagingCommand,
+    transient: MatrixBrokerTransientInput,
+    *,
+    pseudonymization_salt: bytes | None,
+) -> None:
+    if pseudonymization_salt is None:
+        raise MatrixBrokerError("MATRIX_MESSAGING_PSEUDONYMIZATION_SALT_REQUIRED")
+    try:
+        homeserver_ref = (
+            matrix_homeserver_ref(transient.homeserver_url)
+            if transient.homeserver_url is not None
+            else None
+        )
+        derived_refs = (
+            (
+                command.room_ref,
+                matrix_sync_private_ref(
+                    "room-ref:matrix", pseudonymization_salt, transient.room_id
+                )
+                if transient.room_id is not None
+                else None,
+            ),
+            (
+                command.event_ref,
+                matrix_sync_private_ref(
+                    "event-ref:matrix", pseudonymization_salt, transient.event_id
+                )
+                if transient.event_id is not None
+                else None,
+            ),
+            (
+                command.transaction_ref,
+                matrix_sync_private_ref(
+                    "transaction-ref:matrix",
+                    pseudonymization_salt,
+                    transient.transaction_id,
+                )
+                if transient.transaction_id is not None
+                else None,
+            ),
+        )
+    except ValueError as exc:
+        raise MatrixBrokerError("MATRIX_MESSAGING_TRANSIENT_BINDING_INVALID") from exc
+    if homeserver_ref != command.homeserver_ref or any(
+        expected_ref != derived_ref for expected_ref, derived_ref in derived_refs
+    ):
+        raise MatrixBrokerError("MATRIX_MESSAGING_TRANSIENT_BINDING_MISMATCH")
+    if (
+        transient.relation_event_id is not None
+        and transient.relation_event_id != transient.event_id
+    ):
+        raise MatrixBrokerError("MATRIX_MESSAGING_RELATION_BINDING_MISMATCH")
 
 
 def _local_success(

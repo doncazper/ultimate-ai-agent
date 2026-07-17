@@ -46,6 +46,12 @@ checked. Native failures return safe codes only. Raw credentials, session JSON,
 store keys, room/event identifiers, message bodies, and provider payloads are
 not written to receipts or logs.
 
+Immediately before an external operation, Python derives the approved
+homeserver, room, event, and transaction refs from the transient identifiers
+with the session target policy and exact 32-byte pseudonymization salt. A
+missing salt, missing identifier, or derived-ref mismatch fails before an
+outbox record can move to `sending` and before the native broker is invoked.
+
 ## Encrypted Draft And Outbox Truth
 
 Drafts and pending messages use a distinct TTL-bounded encrypted store and a
@@ -62,6 +68,12 @@ truth or the operator may discard it. The same transaction and complete
 request fingerprint drive both Python and native replay ledgers, preventing an
 automatic duplicate send after restart.
 
+Remote terminal evidence remains authoritative if the subsequent local outbox
+transition fails. The receipt still reports `server_acknowledged`, blocks
+automatic retry, and adds a content-free `outbox_reconciliation_required`
+posture and evidence ref; it does not rewrite an acknowledged external write
+as a generic failure.
+
 Message bodies, formatted bodies, mentions, reaction keys, raw room/event IDs,
 usernames, passwords, and homeserver URLs remain transient inputs. Durable
 outbox files are bounded encrypted containers. Plaintext scanning uses private
@@ -76,6 +88,8 @@ route has a stable unique OpenAPI operation ID, exact side-effect class,
 authority-required classification, idempotency-header binding, and redacted
 failure envelope. The default handler deliberately binds a blocked runtime; it
 cannot turn a caller-supplied confirmation or approval ref into execution.
+Redaction is classified as `destructive_external` in both its authority lane
+and validation-only proposal.
 
 `scripts/dev/uaa_communications.py matrix-messaging-status` exposes the same
 backend posture. `matrix-messaging propose --command-file ...` validates one

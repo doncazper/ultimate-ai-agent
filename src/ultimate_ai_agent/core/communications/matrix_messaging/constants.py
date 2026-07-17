@@ -145,7 +145,11 @@ def _lane(operation: MatrixMessagingOperation) -> MatrixMessagingLane:
             if operation == MatrixMessagingOperation.redaction
             else AuthorityCapability.send
         )
-        side_effect = "authenticated_connector_mutation"
+        side_effect = (
+            "destructive_external"
+            if operation == MatrixMessagingOperation.redaction
+            else "authenticated_connector_mutation"
+        )
     else:
         capability = AuthorityCapability.mutate
         side_effect = "local_sensitive"
