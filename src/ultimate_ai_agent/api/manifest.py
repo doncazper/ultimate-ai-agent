@@ -1337,7 +1337,7 @@ def route_classification_for_path(
     ):
         return (
             ApiRouteClassification.mutating_requires_authority,
-            "Exact Matrix room policy, transient context manifest, or redacted proposal-store operation requires idempotency, fresh PolicyEngine and LocalApprovalAuthority validation, a current exact AuthorityLease, account/room/event/proposal scope, local-only disclosure, budget, readiness, deadline, kill-switch, safe-disable, rollback or deletion posture, and content-free receipts; provider and attachment lanes remain blocked.",
+            "Exact Matrix room policy, transient context manifest, or redacted proposal-store operation requires request-scoped authority through idempotency, fresh PolicyEngine and LocalApprovalAuthority validation, a current exact AuthorityLease, account/room/event/proposal scope, local-only disclosure, budget, readiness, deadline, kill-switch, safe-disable, rollback or deletion posture, and content-free receipts; provider and attachment lanes remain blocked.",
         )
     if normalized_method == "GET" and path in PUBLIC_METADATA_PATHS:
         return (
