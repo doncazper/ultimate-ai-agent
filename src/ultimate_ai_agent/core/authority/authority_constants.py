@@ -84,7 +84,7 @@ MATRIX_ROOMS_MEDIA_BINDING_SPECS = (
     ("room_leave", "messages", "destructive", "full_machine_access_session"),
     ("invite_send", "messages", "admin", "ask_before_changes"),
     ("invite_accept", "messages", "mutate", "ask_before_changes"),
-    ("invite_reject", "messages", "mutate", "ask_before_changes"),
+    ("invite_reject", "messages", "destructive", "full_machine_access_session"),
     ("invite_withdraw", "messages", "admin", "ask_before_changes"),
     ("room_power_role_write", "messages", "admin", "ask_before_changes"),
     ("space_mapping_write", "messages", "admin", "ask_before_changes"),

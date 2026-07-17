@@ -108,6 +108,7 @@ _OPERATION_SCOPE_FIELDS: dict[MatrixRoomsMediaOperation, frozenset[str]] = {
     MatrixRoomsMediaOperation.media_download_quarantine: frozenset(
         {
             "room_ref",
+            "event_ref",
             "media_ref",
             "quarantine_ref",
             "filesystem_root_ref",

@@ -3,7 +3,7 @@ use std::{fs::File, io::Write, os::unix::fs::MetadataExt, path::Path};
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 
 use matrix_sdk::{
-    Client, RoomState,
+    Client, Room, RoomState,
     authentication::matrix::MatrixSession,
     config::SyncSettings,
     deserialized_responses::SyncOrStrippedState,
@@ -37,6 +37,8 @@ use crate::{
     keychain::{self, SecretKind as KeychainSecretKind},
     protocol::{BrokerOperation, BrokerRequest, SecretKind, SecretString},
 };
+
+const MATRIX_INVITED_MEMBERSHIP_TOKEN: &str = "invite";
 
 pub struct ExecutionResult {
     pub outcome: &'static str,
@@ -371,7 +373,7 @@ async fn mutate(
         }
         BrokerOperation::InviteWithdraw => {
             let member_id = parse_user_id(request)?;
-            require_prior_state(request, "invited")?;
+            require_prior_state(request, MATRIX_INVITED_MEMBERSHIP_TOKEN)?;
             let member = room
                 .get_member_no_sync(&member_id)
                 .await
@@ -568,7 +570,7 @@ async fn mutate(
         }
         BrokerOperation::MediaUpload => upload_media(request, &client).await,
         BrokerOperation::MediaDownloadQuarantine => {
-            download_media(request, &client, scope_root).await
+            download_media(request, &room, &client, scope_root).await
         }
         _ => Err(ExecutionError::safe("MATRIX_BROKER_OPERATION_UNSUPPORTED")),
     }
@@ -745,6 +747,7 @@ async fn upload_media(
 
 async fn download_media(
     request: &BrokerRequest,
+    room: &Room,
     client: &Client,
     scope_root: &Path,
 ) -> Result<ExecutionResult, ExecutionError> {
@@ -756,6 +759,7 @@ async fn download_media(
         .server_name()
         .map_err(|_| ExecutionError::safe("MATRIX_MEDIA_URI_INVALID"))?;
     ensure_local_matrix_server(media_server.as_str())?;
+    require_room_event_media_uri(request, room, uri.as_str()).await?;
     let parameters = MediaRequestParameters {
         source: MediaSource::Plain(uri),
         format: MediaFormat::File,
@@ -819,6 +823,44 @@ async fn download_media(
         event_ref: None,
         byte_count: Some(byte_count),
     })
+}
+
+async fn require_room_event_media_uri(
+    request: &BrokerRequest,
+    room: &Room,
+    expected_uri: &str,
+) -> Result<(), ExecutionError> {
+    let event_id = parse_event_id(request)?;
+    let event = room
+        .event(&event_id, None)
+        .await
+        .map_err(|_| ExecutionError::safe("MATRIX_MEDIA_EVENT_UNAVAILABLE"))?;
+    let event_type = event
+        .raw()
+        .get_field::<String>("type")
+        .map_err(|_| ExecutionError::safe("MATRIX_MEDIA_EVENT_INVALID"))?
+        .ok_or_else(|| ExecutionError::safe("MATRIX_MEDIA_EVENT_INVALID"))?;
+    let content = event
+        .raw()
+        .get_field::<Value>("content")
+        .map_err(|_| ExecutionError::safe("MATRIX_MEDIA_EVENT_INVALID"))?
+        .ok_or_else(|| ExecutionError::safe("MATRIX_MEDIA_EVENT_INVALID"))?;
+    require_event_media_uri(event_type.as_str(), &content, expected_uri)
+}
+
+fn require_event_media_uri(
+    event_type: &str,
+    content: &Value,
+    expected_uri: &str,
+) -> Result<(), ExecutionError> {
+    if event_type != "m.room.message"
+        || content.get("url").and_then(Value::as_str) != Some(expected_uri)
+    {
+        return Err(ExecutionError::safe(
+            "MATRIX_MEDIA_ROOM_EVENT_BINDING_MISMATCH",
+        ));
+    }
+    Ok(())
 }
 
 fn allowed_media_type(request: &BrokerRequest) -> Result<mime::Mime, ExecutionError> {
@@ -1011,6 +1053,36 @@ mod tests {
         assert!(value.starts_with("event-ref:matrix:sha256:"));
         assert!(!value.contains("opaque"));
         assert!(!value.contains("localhost"));
+    }
+
+    #[test]
+    fn invite_withdraw_uses_the_sdk_membership_token() {
+        assert_eq!(
+            MATRIX_INVITED_MEMBERSHIP_TOKEN,
+            MembershipState::Invite.as_str()
+        );
+    }
+
+    #[test]
+    fn media_uri_must_match_the_exact_room_event() {
+        let content = json!({
+            "msgtype": "m.image",
+            "body": "fixture",
+            "url": "mxc://localhost/approved",
+        });
+        assert!(
+            require_event_media_uri("m.room.message", &content, "mxc://localhost/approved").is_ok()
+        );
+        assert_eq!(
+            require_event_media_uri("m.room.message", &content, "mxc://localhost/other")
+                .expect_err("cross-event media must fail")
+                .code,
+            "MATRIX_MEDIA_ROOM_EVENT_BINDING_MISMATCH"
+        );
+        assert!(
+            require_event_media_uri("m.room.encrypted", &content, "mxc://localhost/approved")
+                .is_err()
+        );
     }
 
     #[test]

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import hashlib
 import os
 import shutil
@@ -19,7 +20,11 @@ from ultimate_ai_agent.core.communications.matrix_rooms_media.authority_surfaces
     capture_exact_matrix_rooms_media_approval,
     issue_exact_matrix_rooms_media_lease,
 )
+from ultimate_ai_agent.core.communications.matrix_rooms_media.adapter import (
+    MatrixRoomsMediaOperationResult,
+)
 from ultimate_ai_agent.core.communications.matrix_rooms_media.constants import (
+    DESTRUCTIVE_OPERATIONS,
     EXTERNAL_MUTATION_OPERATIONS,
     MATRIX_ROOMS_MEDIA_LANES,
     MatrixRoomsMediaOperation,
@@ -52,6 +57,7 @@ from ultimate_ai_agent.core.communications.matrix_messaging.broker import (
     MatrixBrokerConfig,
     MatrixBrokerError,
     MatrixBrokerInvocation,
+    MatrixBrokerResponse,
     MatrixBrokerTransientInput,
 )
 from ultimate_ai_agent.core.communications.matrix_session.target_policy import (
@@ -193,6 +199,7 @@ def _command(
         ),
         MatrixRoomsMediaOperation.media_download_quarantine: (
             "room_ref",
+            "event_ref",
             "media_ref",
             "quarantine_ref",
             "filesystem_root_ref",
@@ -245,6 +252,9 @@ def test_twenty_exact_lanes_are_request_scoped_and_composites_are_narrow() -> No
         EXTERNAL_MUTATION_OPERATIONS
     )
     assert MatrixRoomsMediaOperation.media_upload in EXTERNAL_MUTATION_OPERATIONS
+    assert MatrixRoomsMediaOperation.invite_reject in DESTRUCTIVE_OPERATIONS
+    reject = matrix_rooms_media_lane(MatrixRoomsMediaOperation.invite_reject)
+    assert reject.authority_capability == AuthorityCapability.destructive
 
 
 @pytest.mark.parametrize("operation", tuple(MatrixRoomsMediaOperation))
@@ -878,6 +888,228 @@ def test_unexpected_transient_scope_is_rejected_before_broker_execution(
     )
     with pytest.raises(ValueError, match="TRANSIENT_BINDING_MISMATCH"):
         runtime.execute(command, "approval-ref:matrix-rooms-media:test")
+
+
+def test_executor_exception_settles_failed_dispatch_and_replays_terminal_receipt(
+    tmp_path: Path,
+) -> None:
+    salt = b"m" * 32
+    member_id = "@member:localhost"
+    transaction_id = "transaction-exact-v1"
+    command = _command(
+        MatrixRoomsMediaOperation.dm_create,
+        homeserver_ref=matrix_homeserver_ref(MATRIX_LOCAL_HARNESS_ORIGIN),
+        member_ref=matrix_sync_private_ref("member-ref:matrix", salt, member_id),
+        transaction_ref=matrix_sync_private_ref(
+            "transaction-ref:matrix", salt, transaction_id
+        ),
+    )
+    runtime = _runtime_for_command(
+        tmp_path,
+        command,
+        runtime_input=MatrixRoomsMediaRuntimeInput(
+            homeserver_url=MATRIX_LOCAL_HARNESS_ORIGIN,
+            pseudonymization_salt=salt,
+            member_id=member_id,
+            transaction_id=transaction_id,
+            room_id="!smuggled-room:localhost",
+        ),
+    )
+    state_dir = (tmp_path / "authority").resolve()
+    store = AuthorityLeaseStore(state_dir)
+    approvals = LocalApprovalAuthority()
+    issue_exact_matrix_rooms_media_lease(command, store=store, confirmed=True)
+    approval_ref = capture_exact_matrix_rooms_media_approval(
+        command, approval_authority=approvals, confirmed=True
+    )
+
+    result = execute_matrix_rooms_media_command(
+        command,
+        authority_state_dir=state_dir,
+        runtime=runtime,
+        readiness_provider=_ready,
+        approval_ref=approval_ref,
+        lease_store=store,
+        approval_authority=approvals,
+    )
+    replay = execute_matrix_rooms_media_command(
+        command,
+        authority_state_dir=state_dir,
+        runtime=runtime,
+        readiness_provider=_ready,
+        approval_ref=approval_ref,
+        lease_store=store,
+        approval_authority=approvals,
+    )
+
+    assert result.receipt.status == "failed"
+    assert result.receipt.budget_settlement_receipt_ref is not None
+    assert result.recovery_required is False
+    assert result.adapter_result is not None
+    assert result.adapter_result.succeeded is False
+    assert result.adapter_result.safe_output["raw_content_included"] is False
+    assert replay.replayed is True
+    assert replay.receipt.receipt_ref == result.receipt.receipt_ref
+
+
+def test_unknown_network_executor_exception_is_terminal_and_outcome_uncertain(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    salt = b"m" * 32
+    member_id = "@member:localhost"
+    transaction_id = "transaction-uncertain-v1"
+    command = _command(
+        MatrixRoomsMediaOperation.dm_create,
+        homeserver_ref=matrix_homeserver_ref(MATRIX_LOCAL_HARNESS_ORIGIN),
+        member_ref=matrix_sync_private_ref("member-ref:matrix", salt, member_id),
+        transaction_ref=matrix_sync_private_ref(
+            "transaction-ref:matrix", salt, transaction_id
+        ),
+    )
+    runtime = _runtime_for_command(
+        tmp_path,
+        command,
+        runtime_input=MatrixRoomsMediaRuntimeInput(
+            homeserver_url=MATRIX_LOCAL_HARNESS_ORIGIN,
+            pseudonymization_salt=salt,
+            member_id=member_id,
+            transaction_id=transaction_id,
+        ),
+    )
+
+    def raise_unknown_outcome(
+        command: MatrixRoomsMediaCommand, approval_ref: str
+    ) -> MatrixRoomsMediaOperationResult:
+        del command, approval_ref
+        raise RuntimeError("raw executor exception must not escape")
+
+    monkeypatch.setattr(runtime, "execute", raise_unknown_outcome)
+    state_dir = (tmp_path / "authority").resolve()
+    store = AuthorityLeaseStore(state_dir)
+    approvals = LocalApprovalAuthority()
+    issue_exact_matrix_rooms_media_lease(command, store=store, confirmed=True)
+    approval_ref = capture_exact_matrix_rooms_media_approval(
+        command, approval_authority=approvals, confirmed=True
+    )
+
+    result = execute_matrix_rooms_media_command(
+        command,
+        authority_state_dir=state_dir,
+        runtime=runtime,
+        readiness_provider=_ready,
+        approval_ref=approval_ref,
+        lease_store=store,
+        approval_authority=approvals,
+    )
+
+    assert result.receipt.status == "failed"
+    assert result.receipt.budget_settlement_receipt_ref is not None
+    assert result.recovery_required is False
+    assert result.adapter_result is not None
+    assert result.adapter_result.safe_output["runtime_status"] == "outcome_uncertain"
+    assert result.adapter_result.safe_output["outcome_uncertain"] is True
+    assert result.adapter_result.safe_output["automatic_retry_permitted"] is False
+    assert result.adapter_result.safe_output["raw_content_included"] is False
+
+
+def test_upload_reuses_the_bytes_bound_to_the_approved_source_ref(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    salt = b"m" * 32
+    room_id = "!room:localhost"
+    transaction_id = "transaction-upload-v1"
+    media_type = "text/plain"
+    broker = _broker_client(tmp_path)
+    media_store = MatrixMediaStore(
+        root=broker.scope_root(
+            account_ref="account-ref:matrix:test",
+            homeserver_ref=matrix_homeserver_ref(MATRIX_LOCAL_HARNESS_ORIGIN),
+            device_ref="device-ref:matrix:test",
+        )
+    )
+    source = media_store.root / "media-upload-source" / "source.txt"
+    approved_bytes = b"approved upload bytes"
+    substituted_bytes = b"substituted upload bytes"
+    source.write_bytes(approved_bytes)
+    source.chmod(0o600)
+    source_value = f"{source}\0{hashlib.sha256(approved_bytes).hexdigest()}"
+    command = _command(
+        MatrixRoomsMediaOperation.media_upload,
+        homeserver_ref=matrix_homeserver_ref(MATRIX_LOCAL_HARNESS_ORIGIN),
+        room_ref=matrix_sync_private_ref("room-ref:matrix", salt, room_id),
+        transaction_ref=matrix_sync_private_ref(
+            "transaction-ref:matrix", salt, transaction_id
+        ),
+        source_file_ref=matrix_sync_private_ref(
+            "source-file-ref:matrix-media", salt, source_value
+        ),
+        filesystem_root_ref=matrix_sync_private_ref(
+            "filesystem-root-ref:matrix-media", salt, str(media_store.root)
+        ),
+        declared_media_type_ref=matrix_sync_private_ref(
+            "media-type-ref:matrix", salt, media_type
+        ),
+    )
+    original_reader = media_store.read_upload_source
+    read_count = 0
+
+    def read_and_substitute(**kwargs: object) -> tuple[bytes, object]:
+        nonlocal read_count
+        read_count += 1
+        data, inspection = original_reader(**kwargs)
+        if read_count == 1:
+            source.write_bytes(substituted_bytes)
+            source.chmod(0o600)
+        return data, inspection
+
+    captured_payload: dict[str, str] = {}
+
+    def execute_broker(
+        invocation: MatrixBrokerInvocation,
+        *,
+        transient: MatrixBrokerTransientInput,
+        cancel_requested: object = None,
+        progress_observer: object = None,
+    ) -> MatrixBrokerResponse:
+        del cancel_requested, progress_observer
+        assert transient.media_b64 is not None
+        captured_payload["media_b64"] = transient.media_b64
+        return MatrixBrokerResponse(
+            protocol_version="uaa-matrix-rust-broker-response.v1",
+            ok=True,
+            operation=invocation.operation,
+            request_ref=invocation.request_ref,
+            request_fingerprint_ref=invocation.request_fingerprint_ref,
+            receipt_ref="receipt-ref:matrix-media:upload-test",
+            outcome="server_acknowledged",
+            replayed=False,
+            credential_material_included=False,
+            content_included=False,
+            raw_identifiers_included=False,
+        )
+
+    monkeypatch.setattr(media_store, "read_upload_source", read_and_substitute)
+    monkeypatch.setattr(broker, "execute", execute_broker)
+    runtime = MatrixRoomsMediaRuntime.live(
+        broker_client=broker,
+        media_store=media_store,
+        search_index=_search_index(tmp_path),
+        runtime_input=MatrixRoomsMediaRuntimeInput(
+            homeserver_url=MATRIX_LOCAL_HARNESS_ORIGIN,
+            pseudonymization_salt=salt,
+            room_id=room_id,
+            transaction_id=transaction_id,
+            declared_media_type=media_type,
+            source_path=source,
+        ),
+    )
+
+    result = runtime.execute(command, "approval-ref:matrix-rooms-media:test")
+
+    assert result.succeeded is True
+    assert read_count == 1
+    assert base64.b64decode(captured_payload["media_b64"]) == approved_bytes
+    assert source.read_bytes() == substituted_bytes
 
 
 def test_room_create_binds_the_exact_name_and_rejects_desired_state_smuggling(

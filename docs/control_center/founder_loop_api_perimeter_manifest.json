@@ -593,7 +593,7 @@
       "method": "POST",
       "path": "/control-center/communications/matrix-rooms-media/invite-reject",
       "operation_id": "post_control_center_communications_matrix_rooms_media_invite_reject",
-      "side_effect_class": "authenticated_connector_mutation",
+      "side_effect_class": "destructive_external",
       "route_classification": "mutating_requires_authority",
       "auth_posture": "protected_local_bearer_required",
       "approval_posture": "required_before_mutation_authority",

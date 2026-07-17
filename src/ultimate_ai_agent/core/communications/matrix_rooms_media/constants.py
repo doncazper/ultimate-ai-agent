@@ -78,6 +78,7 @@ EXTERNAL_MUTATION_OPERATIONS = NETWORK_OPERATIONS - {
 }
 DESTRUCTIVE_OPERATIONS = frozenset(
     {
+        MatrixRoomsMediaOperation.invite_reject,
         MatrixRoomsMediaOperation.room_leave,
         MatrixRoomsMediaOperation.media_cleanup,
     }
@@ -132,6 +133,10 @@ _PRIMARY = {
     MatrixRoomsMediaOperation.history_visibility_write: (
         AuthorityDomain.messages,
         AuthorityCapability.admin,
+    ),
+    MatrixRoomsMediaOperation.invite_reject: (
+        AuthorityDomain.messages,
+        AuthorityCapability.destructive,
     ),
     MatrixRoomsMediaOperation.search_local_read: (
         AuthorityDomain.messages,
@@ -189,7 +194,11 @@ def _lane(operation: MatrixRoomsMediaOperation) -> MatrixRoomsMediaLane:
         ),
         side_effect_class=(
             "destructive_external"
-            if operation == MatrixRoomsMediaOperation.room_leave
+            if operation
+            in {
+                MatrixRoomsMediaOperation.room_leave,
+                MatrixRoomsMediaOperation.invite_reject,
+            }
             else "destructive_local_sensitive"
             if operation == MatrixRoomsMediaOperation.media_cleanup
             else "local_sensitive"

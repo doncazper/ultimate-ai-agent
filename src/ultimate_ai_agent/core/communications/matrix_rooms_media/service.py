@@ -164,7 +164,17 @@ class MatrixRoomsMediaRuntime:
         if self._media_store.root != expected_media_root:
             raise ValueError("MATRIX_ROOMS_MEDIA_BROKER_MEDIA_SCOPE_MISMATCH")
         transient = self._runtime_input
-        _validate_transient_binding(command, transient, media_store=self._media_store)
+        try:
+            validated_upload_data = _validate_transient_binding(
+                command, transient, media_store=self._media_store
+            )
+        except MatrixMediaError:
+            return _result(
+                command,
+                succeeded=False,
+                status="blocked",
+                evidence_ref="evidence-ref:matrix-media:upload-source-denied",
+            )
         if command.operation == MatrixRoomsMediaOperation.search_local_read:
             return self._search(command)
         if command.operation == MatrixRoomsMediaOperation.media_materialize:
@@ -174,7 +184,11 @@ class MatrixRoomsMediaRuntime:
         if command.operation == MatrixRoomsMediaOperation.media_cleanup:
             return self._cleanup(command)
         if command.operation in NETWORK_OPERATIONS:
-            return self._network(command, approval_ref)
+            return self._network(
+                command,
+                approval_ref,
+                validated_upload_data=validated_upload_data,
+            )
         raise RuntimeError("MATRIX_ROOMS_MEDIA_OPERATION_UNSUPPORTED")
 
     def _search(
@@ -323,10 +337,14 @@ class MatrixRoomsMediaRuntime:
         )
 
     def _network(
-        self, command: MatrixRoomsMediaCommand, approval_ref: str
+        self,
+        command: MatrixRoomsMediaCommand,
+        approval_ref: str,
+        *,
+        validated_upload_data: bytes | None,
     ) -> MatrixRoomsMediaOperationResult:
         transient = self._runtime_input
-        data: bytes | None = None
+        data = validated_upload_data
         transfer_operation = command.operation in {
             MatrixRoomsMediaOperation.media_upload,
             MatrixRoomsMediaOperation.media_download_quarantine,
@@ -339,20 +357,8 @@ class MatrixRoomsMediaRuntime:
             assert (
                 transient.source_path is not None
                 and transient.declared_media_type is not None
+                and data is not None
             )
-            try:
-                data, _inspection = self._media_store.read_upload_source(
-                    path=transient.source_path,
-                    declared_media_type=transient.declared_media_type,
-                    max_bytes=command.max_bytes,
-                )
-            except MatrixMediaError:
-                return _result(
-                    command,
-                    succeeded=False,
-                    status="blocked",
-                    evidence_ref="evidence-ref:matrix-media:upload-source-denied",
-                )
             _emit_transfer_progress(
                 transient,
                 "source_validated",
@@ -577,7 +583,7 @@ def _validate_transient_binding(
     transient: MatrixRoomsMediaRuntimeInput,
     *,
     media_store: MatrixMediaStore,
-) -> None:
+) -> bytes | None:
     salt = transient.pseudonymization_salt
     if salt is None:
         raise ValueError("MATRIX_ROOMS_MEDIA_PSEUDONYMIZATION_SALT_REQUIRED")
@@ -650,15 +656,19 @@ def _validate_transient_binding(
         )
         if actual_root_ref != command.filesystem_root_ref:
             raise ValueError("MATRIX_ROOMS_MEDIA_FILESYSTEM_ROOT_MISMATCH")
+    validated_upload_data: bytes | None = None
     if command.source_file_ref is not None:
         if transient.source_path is None or transient.declared_media_type is None:
             raise ValueError("MATRIX_ROOMS_MEDIA_SOURCE_BINDING_REQUIRED")
-        data, _inspection = media_store.read_upload_source(
+        validated_upload_data, _inspection = media_store.read_upload_source(
             path=transient.source_path,
             declared_media_type=transient.declared_media_type,
             max_bytes=command.max_bytes,
         )
-        source_value = f"{transient.source_path}\0{hashlib.sha256(data).hexdigest()}"
+        source_value = (
+            f"{transient.source_path}\0"
+            f"{hashlib.sha256(validated_upload_data).hexdigest()}"
+        )
         if (
             _private_ref("source-file-ref:matrix-media", salt, source_value)
             != command.source_file_ref
@@ -696,6 +706,7 @@ def _validate_transient_binding(
             raise ValueError("MATRIX_ROOMS_MEDIA_SEARCH_ROOM_SCOPE_MISMATCH")
     elif transient.allowed_room_refs:
         raise ValueError("MATRIX_ROOMS_MEDIA_ROOM_ALLOWLIST_MISMATCH")
+    return validated_upload_data
 
 
 def _result(

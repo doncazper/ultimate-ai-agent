@@ -55,6 +55,10 @@ idempotency/request-fingerprint fence prevents a terminal replay from invoking
 the SDK again. An uncertain outcome remains uncertain and cannot be retried
 automatically.
 
+Invite rejection is classified as destructive and requires the destructive
+session authority mode. Invite withdrawal compares the caller-bound prior
+membership against Matrix SDK's exact `invite` token before the kick request.
+
 ## Encrypted local search
 
 Search uses an app-owned AES-GCM cache backend and HMAC-hashed query tokens.
@@ -76,8 +80,12 @@ bounded reads/writes, and FIFO/symlink substitution are checked on every use.
 
 Media is limited to 24,576 bytes and the exact allowlist `image/png`,
 `image/jpeg`, `image/gif`, and UTF-8 `text/plain`. Upload reads only a private
-app-owned staging directory through a verified directory descriptor. Download
-writes only the exact per-account broker scope and exact quarantine ref.
+app-owned staging directory through a verified directory descriptor and sends
+the same byte buffer whose digest was approved, so a later source-path change
+cannot substitute upload content. Download requires an exact room event, fetches
+that event through the approved room, and verifies its media URI before any
+bytes are requested. It writes only the exact per-account broker scope and
+exact quarantine ref.
 Quarantined bytes are re-opened, bounded, and re-inspected before
 materialization or preview.
 
@@ -103,8 +111,8 @@ path absence, and explicitly does not claim physical-block erasure.
 The protected no-store API exposes one posture route, one validation-only
 proposal route, and twenty exact operation routes. Every operation route is
 idempotency-gated and classified by its real effect, including destructive
-external leave, destructive local cleanup, authenticated connector mutations,
-and local-sensitive search/materialization/preview.
+external leave and invite rejection, destructive local cleanup, authenticated
+connector mutations, and local-sensitive search/materialization/preview.
 
 `scripts/dev/uaa_communications.py matrix-rooms-media-status`, proposal, and
 dispatch commands use the same Core contracts. The macOS Messenger shell reads

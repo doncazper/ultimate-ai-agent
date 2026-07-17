@@ -1000,7 +1000,6 @@ CONTROL_CENTER_MATRIX_ROOMS_MEDIA_SIDE_EFFECTS = {
             "room-join",
             "invite-send",
             "invite-accept",
-            "invite-reject",
             "invite-withdraw",
             "room-power-role-write",
             "space-mapping-write",
@@ -1013,6 +1012,9 @@ CONTROL_CENTER_MATRIX_ROOMS_MEDIA_SIDE_EFFECTS = {
         )
     },
     "/control-center/communications/matrix-rooms-media/room-leave": (
+        ApiRouteSideEffectClass.destructive_external
+    ),
+    "/control-center/communications/matrix-rooms-media/invite-reject": (
         ApiRouteSideEffectClass.destructive_external
     ),
     "/control-center/communications/matrix-rooms-media/search-local-read": (

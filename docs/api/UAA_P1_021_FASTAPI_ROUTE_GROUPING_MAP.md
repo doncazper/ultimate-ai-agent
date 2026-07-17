@@ -197,7 +197,7 @@ validate the exact request-scoped authority boundary.
 | POST | `/control-center/communications/matrix-rooms-media/dm-create` | `post_control_center_communications_matrix_rooms_media_dm_create` | `authenticated_connector_mutation` | no | future | yes |
 | POST | `/control-center/communications/matrix-rooms-media/history-visibility-write` | `post_control_center_communications_matrix_rooms_media_history_visibility_write` | `authenticated_connector_mutation` | no | future | yes |
 | POST | `/control-center/communications/matrix-rooms-media/invite-accept` | `post_control_center_communications_matrix_rooms_media_invite_accept` | `authenticated_connector_mutation` | no | future | yes |
-| POST | `/control-center/communications/matrix-rooms-media/invite-reject` | `post_control_center_communications_matrix_rooms_media_invite_reject` | `authenticated_connector_mutation` | no | future | yes |
+| POST | `/control-center/communications/matrix-rooms-media/invite-reject` | `post_control_center_communications_matrix_rooms_media_invite_reject` | `destructive_external` | no | future | yes |
 | POST | `/control-center/communications/matrix-rooms-media/invite-send` | `post_control_center_communications_matrix_rooms_media_invite_send` | `authenticated_connector_mutation` | no | future | yes |
 | POST | `/control-center/communications/matrix-rooms-media/invite-withdraw` | `post_control_center_communications_matrix_rooms_media_invite_withdraw` | `authenticated_connector_mutation` | no | future | yes |
 | POST | `/control-center/communications/matrix-rooms-media/media-cleanup` | `post_control_center_communications_matrix_rooms_media_media_cleanup` | `destructive_local_sensitive` | no | future | yes |

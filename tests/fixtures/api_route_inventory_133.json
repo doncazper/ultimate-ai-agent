@@ -1,6 +1,6 @@
 {
   "control_center_route_count": 162,
-  "fingerprint": "api-contract-fingerprint:sha256:9d7528901d5fe80705d6247c25db29483d38129e82bbc63ca6974bc90e7a7f20",
+  "fingerprint": "api-contract-fingerprint:sha256:f9ef7049e69c4a5fd981e632ed1887040161e93baf58d76878d081f2233673cf",
   "idempotency_audit_policy_ref": "idempotency:p1-084:mutating-routes:v1",
   "mutating_route_count": 105,
   "openapi_path_count": 327,
@@ -2628,7 +2628,7 @@
       "rate_limit_posture": "targeted_local_fixed_window",
       "rate_limit_targeted": true,
       "route_classification": "mutating_requires_authority",
-      "side_effect_class": "authenticated_connector_mutation",
+      "side_effect_class": "destructive_external",
       "summary": "Post control center communications matrix rooms media invite reject",
       "tags": [
         "control-center"

@@ -444,9 +444,40 @@ class MatrixRoomsMediaAuthorityDispatchAdapter:
                 commit_validated_at=validated_at,
             )
         )
-        handle.bind_result(
-            self._executor(command, request.approval_validation_request.approval_ref)
-        )
+        try:
+            result = self._executor(
+                command, request.approval_validation_request.approval_ref
+            )
+        except Exception as exc:
+            outcome_uncertain = (
+                self.operation in NETWORK_OPERATIONS and not isinstance(exc, ValueError)
+            )
+            result = MatrixRoomsMediaOperationResult(
+                succeeded=False,
+                safe_output={
+                    "runtime_status": (
+                        "outcome_uncertain" if outcome_uncertain else "blocked"
+                    ),
+                    "operation": command.operation.value,
+                    "request_fingerprint_ref": command.request_fingerprint_ref,
+                    "external_write_performed": False,
+                    "raw_content_included": False,
+                    "raw_identifiers_included": False,
+                    "automatic_retry_permitted": False,
+                    "manual_retry_requires_same_idempotency_ref": True,
+                    "outcome_uncertain": outcome_uncertain,
+                },
+                evidence_refs=(
+                    "evidence-ref:matrix-rooms-media:executor-outcome-uncertain"
+                    if outcome_uncertain
+                    else "evidence-ref:matrix-rooms-media:executor-failed-safely",
+                ),
+                safe_summary=(
+                    "The exact Matrix room, local-search, or media executor "
+                    "failed without exposing exception data."
+                ),
+            )
+        handle.bind_result(result)
         return handle
 
     def invoke(

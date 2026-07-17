@@ -692,14 +692,14 @@ fn validate_operation_scope(request: &BrokerRequest) -> Result<(), &'static str>
         }
         BrokerOperation::MediaDownloadQuarantine => {
             exact_room_transaction_scope(request)
-                && exact_safe_scope(request, true, false, true, false, false, true, true)
+                && exact_safe_scope(request, true, true, true, false, false, true, true)
                 && request.media_uri.is_some()
                 && request.media_type.is_some()
                 && request.media_b64.is_none()
                 && request.member_id.is_none()
                 && request.member_ref.is_none()
-                && request.event_id.is_none()
-                && request.event_ref.is_none()
+                && request.event_id.is_some()
+                && request.event_ref.is_some()
                 && request.space_id.is_none()
                 && request.space_ref.is_none()
                 && request.desired_state.is_none()
@@ -909,11 +909,13 @@ mod tests {
     fn media_download_scope_rejects_unrelated_member_binding() {
         let mut download = request(BrokerOperation::MediaDownloadQuarantine);
         download.room_ref = Some("room-ref:matrix:test".to_owned());
+        download.event_ref = Some("event-ref:matrix:test".to_owned());
         download.transaction_ref = Some("transaction-ref:matrix:test".to_owned());
         download.media_ref = Some("media-ref:matrix:test".to_owned());
         download.quarantine_ref = Some("quarantine-ref:matrix:test".to_owned());
         download.homeserver_url = Some(SecretString("http://127.0.0.1:18008".to_owned()));
         download.room_id = Some(SecretString("!room:localhost".to_owned()));
+        download.event_id = Some(SecretString("$event:localhost".to_owned()));
         download.transaction_id = Some(SecretString("transaction-test".to_owned()));
         download.media_uri = Some(SecretString("mxc://localhost/media".to_owned()));
         download.media_type = Some(SecretString("image/png".to_owned()));
