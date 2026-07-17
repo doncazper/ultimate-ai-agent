@@ -430,8 +430,11 @@ _CAPABILITY_IMPLICATIONS: dict[AuthorityCapability, set[AuthorityCapability]] = 
         AuthorityCapability.prepare,
         AuthorityCapability.purchase_under_budget,
     },
-    AuthorityCapability.admin: set(AuthorityCapability),
-    AuthorityCapability.destructive: set(AuthorityCapability),
+    # Administrative and destructive authority are exact capability classes,
+    # not superuser wildcards. A lease for one of these classes must never
+    # imply unrelated browser, message, payment, shell, or provider authority.
+    AuthorityCapability.admin: {AuthorityCapability.admin},
+    AuthorityCapability.destructive: {AuthorityCapability.destructive},
 }
 
 
