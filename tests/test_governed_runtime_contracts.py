@@ -45,6 +45,9 @@ from ultimate_ai_agent.core.runtime_gateway.contracts import (
     runtime_payload_fingerprint_ref,
 )
 from ultimate_ai_agent.core.runtime_gateway.storage import RuntimeInvocationStorageError
+from ultimate_ai_agent.core.runtime_gateway.storage import (
+    RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON,
+)
 from ultimate_ai_agent.core.local_model_management import FakeM164GatewayTransport
 from ultimate_ai_agent.core.control_center.runtime_action_bridge import (
     build_runtime_action_inbox_bridge_read_model,
@@ -414,6 +417,28 @@ def test_runtime_store_replays_mutating_operation_idempotency(tmp_path: Path) ->
     assert "operator execute replay summary should not persist" not in persisted
 
 
+def test_runtime_store_safe_disable_state_uses_canonical_sidecar(tmp_path: Path) -> None:
+    store = RuntimeInvocationStore(tmp_path)
+    state = store.safe_disable(
+        RuntimeSafeDisableRequest(reason_ref="reason-ref:runtime-safe-disable-sidecar"),
+        idempotency_ref="idempotency-ref:runtime-safe-disable-sidecar",
+    )
+    state_path = tmp_path / RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON
+    assert state.active is True
+    assert state_path.exists()
+    saved = json.loads(state_path.read_text(encoding="utf-8"))
+    assert saved["active"] is True
+    assert saved["reason_ref"] == "reason-ref:runtime-safe-disable-sidecar"
+
+    (tmp_path / "runtime_gateway_invocations.jsonl").unlink()
+    reloaded = RuntimeInvocationStore(tmp_path)
+    assert reloaded.operator_safe_disable_active() is True
+    reloaded_state = reloaded.operator_safe_disable_state()
+    assert reloaded_state.safe_disable_ref == state.safe_disable_ref
+    assert reloaded_state.reason_ref == state.reason_ref
+    assert reloaded_state.safe_disable_posture_ref == state.safe_disable_posture_ref
+
+
 def test_runtime_gateway_local_model_call_blocks_without_provider_execute_authority(
     tmp_path: Path,
 ) -> None:
@@ -530,6 +555,63 @@ def test_runtime_gateway_local_model_call_requires_full_machine_provider_lease(
     assert "allowed prompt should not persist" not in persisted
     assert "UAA_LOCAL_RUNTIME_OK" not in persisted
     assert "provider_payload" not in persisted
+
+
+def test_runtime_gateway_local_model_replay_after_safe_disable_re_evaluates_policy(
+    tmp_path: Path,
+) -> None:
+    calls = 0
+
+    def transport_factory(request: RuntimeLocalModelCallRequest) -> FakeM164GatewayTransport:
+        nonlocal calls
+        calls += 1
+        return FakeM164GatewayTransport("LOCAL_MODEL_REPLAY_OK")
+
+    store = _runtime_store_with_provider_model_execute(tmp_path)
+    gateway = RuntimeGateway(
+        store=store,
+        local_model_adapter=LocalModelRuntimeAdapter(
+            transport_factory=transport_factory,
+        ),
+        local_model_runtime_enabled=True,
+    )
+    request = RuntimeLocalModelCallRequest(
+        base_url="http://127.0.0.1:8080",
+        model_ref="uaa-local-runtime",
+        messages=[
+            RuntimeLocalModelMessage(role="user", content="replay should observe latest posture")
+        ],
+        safe_summary="Run local model runtime as an untrusted proposal.",
+        allow_bounded_preview=True,
+        max_preview_chars=40,
+    )
+    first = gateway.invoke_local_model(
+        request,
+        idempotency_ref="idempotency-ref:runtime-local-model-replay-policy",
+    )
+    store.safe_disable(
+        RuntimeSafeDisableRequest(reason_ref="reason-ref:runtime-local-model-replay-safe-disable"),
+        idempotency_ref="idempotency-ref:runtime-local-model-replay-safe-disable",
+    )
+    replay = gateway.invoke_local_model(
+        request,
+        idempotency_ref="idempotency-ref:runtime-local-model-replay-policy",
+    )
+
+    assert calls == 1
+    assert first.record.receipt is not None
+    assert first.record.status == "receipt_recorded"
+    assert first.record.receipt.model_call_performed is True
+    assert replay.replayed is True
+    assert replay.record.status == "safe_disabled"
+    assert replay.error_category == "RUNTIME_LOCAL_MODEL_SAFE_DISABLED"
+    assert replay.record.receipt is not None
+    assert replay.record.receipt.model_call_performed is False
+    assert replay.record.receipt.safe_disable.active is True
+    assert (
+        replay.record.receipt.safe_disable.reason_ref
+        == "reason-ref:runtime-local-model-replay-safe-disable"
+    )
 
 
 def test_runtime_gateway_local_model_call_is_disabled_by_default(tmp_path: Path) -> None:

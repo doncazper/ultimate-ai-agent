@@ -54,6 +54,7 @@ from ultimate_ai_agent.core.runtime_gateway.contracts import (
     RuntimeInvocationReceipt,
     RuntimeInvocationRequest,
     RuntimeInvocationStatus,
+    RuntimeProfile,
     RuntimePolicyDecision,
     RuntimeSafeDisableRequest,
     RuntimeSafeDisableState,
@@ -68,6 +69,7 @@ from ultimate_ai_agent.core.time import utc_now
 RUNTIME_GATEWAY_STORAGE_SCHEMA_VERSION = "runtime_gateway_storage.v1"
 RUNTIME_GATEWAY_STATE_DIR_ENV = "UAA_RUNTIME_GATEWAY_STATE_DIR"
 RUNTIME_GATEWAY_JSONL = "runtime_gateway_invocations.jsonl"
+RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON = "runtime_gateway_safe_disable_state.json"
 RUNTIME_GATEWAY_LOCK = "runtime_gateway_invocations.lock"
 UNSAFE_RUNTIME_STORAGE_KEY_FRAGMENTS = (
     "raw",
@@ -228,6 +230,15 @@ def _operator_safe_disable_state(
         if _operator_safe_disable_active(record):
             return record.safe_disable
     return None
+
+
+def _runtime_default_safe_disable_state() -> RuntimeSafeDisableState:
+    return RuntimeSafeDisableState(
+        active=False,
+        profile=RuntimeProfile.sealed.value,
+        reason_ref="reason-ref:governed-runtime-local-model-active",
+        safe_summary="Runtime profile is active for this exact invocation only.",
+    )
 
 
 def _status_after_safe_disable(
@@ -694,6 +705,9 @@ class RuntimeInvocationStore:
         self.state_dir = state_dir or runtime_gateway_state_dir()
         self.path = self.state_dir / RUNTIME_GATEWAY_JSONL
         self.lock_path = self.state_dir / RUNTIME_GATEWAY_LOCK
+        self._safe_disable_state_path = (
+            self.state_dir / RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON
+        )
         self._explicit_active_authority_leases = (
             list(active_authority_leases)
             if active_authority_leases is not None
@@ -703,6 +717,7 @@ class RuntimeInvocationStore:
         self._entries: list[RuntimeGatewayStorageEntry] = []
         self._idempotency_index: dict[str, str] = {}
         self._idempotency_fingerprint_index: dict[str, str] = {}
+        self._canonical_safe_disable_state = _runtime_default_safe_disable_state()
         self._last_entry_hash_ref: str | None = None
         self._loaded = False
         self._process_lock = threading.RLock()
@@ -736,7 +751,11 @@ class RuntimeInvocationStore:
 
     def operator_safe_disable_active(self) -> bool:
         self._load()
-        return any(_operator_safe_disable_active(record) for record in self._records.values())
+        return self._canonical_safe_disable_state.active
+
+    def operator_safe_disable_state(self) -> RuntimeSafeDisableState:
+        self._load()
+        return self._canonical_safe_disable_state.model_copy()
 
     def create_invocation(
         self,
@@ -777,8 +796,8 @@ class RuntimeInvocationStore:
             self._records[existing_ref] = replayed
             return RuntimeInvocationStoreResult(record=replayed, replayed=True)
 
-        operator_safe_disable = _operator_safe_disable_state(self._records.values())
-        if operator_safe_disable is not None:
+        operator_safe_disable = self._canonical_safe_disable_state
+        if operator_safe_disable.active:
             local_model_gateway_validated = False
             command_gateway_validated = False
         invocation_ref = runtime_invocation_ref(idempotency_ref, payload_fingerprint_ref)
@@ -805,21 +824,21 @@ class RuntimeInvocationStore:
             idempotency_ref=idempotency_ref,
             safe_disable=(
                 operator_safe_disable
-                if operator_safe_disable is not None
+                if operator_safe_disable.active
                 else (
-                RuntimeSafeDisableState(
-                    active=False,
-                    profile=policy_decision.profile,
-                    reason_ref="reason-ref:governed-runtime-local-model-active",
-                    safe_summary="Runtime profile is active for this exact invocation only.",
-                )
-                if policy_decision.allowed_to_execute
-                else RuntimeSafeDisableState()
+                    RuntimeSafeDisableState(
+                        active=False,
+                        profile=policy_decision.profile,
+                        reason_ref="reason-ref:governed-runtime-local-model-active",
+                        safe_summary="Runtime profile is active for this exact invocation only.",
+                    )
+                    if policy_decision.allowed_to_execute
+                    else RuntimeSafeDisableState()
                 )
             ),
             status=(
                 RuntimeInvocationStatus.safe_disabled
-                if operator_safe_disable is not None
+                if operator_safe_disable.active
                 else RuntimeInvocationStatus.pending_approval
             ),
         )
@@ -1249,11 +1268,15 @@ class RuntimeInvocationStore:
                 payload_fingerprint_ref,
             )
             if replayed is not None and replayed.safe_disable:
+                self._canonical_safe_disable_state = replayed.safe_disable
+                self._persist_operator_safe_disable_state(replayed.safe_disable)
                 return replayed.safe_disable
             state = RuntimeSafeDisableState(
                 reason_ref=request.reason_ref,
                 safe_summary="Runtime pilot safe-disable posture recorded; operator summary omitted.",
             )
+            self._canonical_safe_disable_state = state
+            self._persist_operator_safe_disable_state(state)
             if self._records:
                 for index, record in enumerate(list(self._records.values())):
                     policy_decision = build_policy_decision(
@@ -1324,6 +1347,30 @@ class RuntimeInvocationStore:
                 )
             return state
 
+    def _persist_operator_safe_disable_state(
+        self,
+        state: RuntimeSafeDisableState,
+    ) -> None:
+        payload = state.model_dump(mode="json")
+        _validate_storage_payload(payload, "runtime_safe_disable_state")
+        self.state_dir.mkdir(parents=True, exist_ok=True)
+        self._safe_disable_state_path.write_text(
+            _canonical_json(payload),
+            encoding="utf-8",
+        )
+
+    def _load_operator_safe_disable_state(self) -> RuntimeSafeDisableState:
+        payload = json.loads(self._safe_disable_state_path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            raise RuntimeInvocationStorageError("RUNTIME_SAFE_DISABLE_STATE_INVALID")
+        _validate_storage_payload(payload, "runtime_safe_disable_state")
+        try:
+            return RuntimeSafeDisableState(**payload)
+        except ValidationError as exc:
+            raise RuntimeInvocationStorageError(
+                "RUNTIME_SAFE_DISABLE_STATE_INVALID"
+            ) from exc
+
     def _load(self) -> None:
         if self._loaded:
             return
@@ -1335,8 +1382,13 @@ class RuntimeInvocationStore:
         self._idempotency_index = {}
         self._idempotency_fingerprint_index = {}
         self._last_entry_hash_ref = None
+        self._canonical_safe_disable_state = _runtime_default_safe_disable_state()
         self._loaded = True
         if not self.path.exists():
+            if self._safe_disable_state_path.exists():
+                self._canonical_safe_disable_state = (
+                    self._load_operator_safe_disable_state()
+                )
             return
         previous_hash: str | None = None
         for line in self.path.read_text(encoding="utf-8").splitlines():
@@ -1361,6 +1413,14 @@ class RuntimeInvocationStore:
             )
             self._entries.append(entry)
             previous_hash = entry.entry_hash_ref
+        if self._safe_disable_state_path.exists():
+            self._canonical_safe_disable_state = (
+                self._load_operator_safe_disable_state()
+            )
+        else:
+            derived_state = _operator_safe_disable_state(self._records.values())
+            if derived_state is not None:
+                self._canonical_safe_disable_state = derived_state
         self._last_entry_hash_ref = previous_hash
 
     @contextmanager

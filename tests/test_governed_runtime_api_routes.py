@@ -11,9 +11,11 @@ from ultimate_ai_agent.api.routes import runtime_pilot_service
 from ultimate_ai_agent.core.authority import AUTHORITY_STATE_DIR_ENV
 from ultimate_ai_agent.core.runtime_gateway import (
     GovernedCommandRuntimeAdapter,
+    LocalModelRuntimeAdapter,
     RuntimeCommandExecutionRequest,
     RuntimeCommandRunResult,
     RuntimeGateway,
+    RuntimeInvocationStore,
     runtime_command_invocation_request,
 )
 from ultimate_ai_agent.core.runtime_gateway.interface_mode import (
@@ -24,6 +26,8 @@ from ultimate_ai_agent.core.runtime_gateway.interface_mode import (
 from ultimate_ai_agent.core.runtime_gateway.local_model import RUNTIME_LOCAL_MODEL_ENABLED_ENV
 from ultimate_ai_agent.core.runtime_gateway.storage import RUNTIME_GATEWAY_STATE_DIR_ENV
 from ultimate_ai_agent.core.local_model_management.gateway import UAA_LLAMA_CPP_BASE_URL_ENV
+from ultimate_ai_agent.core.local_model_management import FakeM164GatewayTransport
+from tests.authority_helpers import provider_model_execute_authority_lease
 
 
 client = TestClient(app)
@@ -351,6 +355,14 @@ def test_governed_runtime_safe_disable_is_idempotency_bound(tmp_path, monkeypatc
     assert response.status_code == 200
     assert response.json()["success"] is True
     assert response.json()["data"]["safe_disable"]["active"] is True
+    assert (
+        response.json()["data"]["safe_disable_ref"]
+        == response.json()["data"]["safe_disable"]["safe_disable_ref"]
+    )
+    assert (
+        response.json()["data"]["safe_disable_posture_ref"]
+        == response.json()["data"]["safe_disable"]["safe_disable_posture_ref"]
+    )
     assert response.json()["data"]["execution_performed"] is False
     replay = client.post(
         "/api/runtime/safe-disable",
@@ -367,6 +379,85 @@ def test_governed_runtime_safe_disable_is_idempotency_bound(tmp_path, monkeypatc
     )
     assert len(persisted.splitlines()) == 2
     assert "operator safe disable summary should not persist" not in persisted
+
+
+def test_governed_runtime_local_model_replay_after_safe_disable_blocks_transport(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    calls = 0
+
+    def transport_factory(request: object) -> FakeM164GatewayTransport:
+        nonlocal calls
+        calls += 1
+        return FakeM164GatewayTransport("LOCAL_MODEL_REPLAY_OK")
+
+    store = RuntimeInvocationStore(
+        tmp_path,
+        active_authority_leases=[provider_model_execute_authority_lease()],
+    )
+
+    def runtime_gateway(*, store) -> RuntimeGateway:
+        return RuntimeGateway(
+            store=store,
+            local_model_adapter=LocalModelRuntimeAdapter(
+                transport_factory=transport_factory,
+            ),
+            local_model_runtime_enabled=True,
+        )
+
+    monkeypatch.setenv(RUNTIME_GATEWAY_STATE_DIR_ENV, str(tmp_path))
+    reset_api_rate_limit_state()
+    monkeypatch.setattr(runtime_pilot_service, "_runtime_store", lambda: store)
+    monkeypatch.setattr(runtime_pilot_service, "RuntimeGateway", runtime_gateway)
+
+    idempotency_ref = "idempotency-ref:runtime-local-model-replay-posture-api"
+    response = client.post(
+        "/api/runtime/local-model/call",
+        headers={"x-uaa-idempotency-key": idempotency_ref},
+        json=_local_model_payload(
+            requested_profile="local-runtime",
+            safe_summary="API local model replay should observe latest posture.",
+            model_ref="uaa-local-runtime",
+        ),
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["data"]["execution_performed"] is True
+    assert body["data"]["model_call_performed"] is True
+
+    safe_disable = client.post(
+        "/api/runtime/safe-disable",
+        headers={
+            "x-uaa-idempotency-key": (
+                "idempotency-ref:runtime-local-model-replay-safe-disable-api"
+            )
+        },
+        json={
+            "reason_ref": "reason-ref:runtime-local-model-replay-safe-disable-api",
+            "safe_summary": "API local model safe-disable replay regression.",
+        },
+    )
+    assert safe_disable.status_code == 200
+
+    replay = client.post(
+        "/api/runtime/local-model/call",
+        headers={"x-uaa-idempotency-key": idempotency_ref},
+        json=_local_model_payload(
+            requested_profile="local-runtime",
+            safe_summary="API local model replay should observe latest posture.",
+            model_ref="uaa-local-runtime",
+        ),
+    )
+    assert replay.status_code == 200
+    replay_body = replay.json()
+    assert replay_body["data"]["replayed"] is True
+    assert replay_body["data"]["execution_performed"] is False
+    assert replay_body["data"]["error_category"] == "RUNTIME_LOCAL_MODEL_SAFE_DISABLED"
+    assert replay_body["data"]["record"]["status"] == "safe_disabled"
+    assert calls == 1
 
 
 def test_governed_runtime_routes_are_manifest_visible_with_safe_posture() -> None:

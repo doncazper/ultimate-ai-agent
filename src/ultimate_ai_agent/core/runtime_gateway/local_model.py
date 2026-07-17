@@ -324,20 +324,98 @@ class RuntimeGateway:
             blocked_error = "RUNTIME_LOCAL_MODEL_SAFE_DISABLED"
         if created.replayed:
             if record.receipt is not None:
+                replay_runtime_disabled = self.store.operator_safe_disable_active()
+                replay_runtime_enabled = self._runtime_local_model_enabled()
+                replay_endpoint_error = _validate_loopback_endpoint(request)
+                replay_blocked_error = _blocked_error_category(
+                    runtime_disabled=replay_runtime_disabled,
+                    runtime_enabled=replay_runtime_enabled,
+                    endpoint_error=replay_endpoint_error,
+                )
+                if (
+                    replay_blocked_error is None
+                    and record.status == RuntimeInvocationStatus.safe_disabled.value
+                ):
+                    replay_blocked_error = "RUNTIME_LOCAL_MODEL_SAFE_DISABLED"
+                if replay_blocked_error is None:
+                    return RuntimeLocalModelGatewayResult(
+                        record=record,
+                        request_byte_count=(
+                            record.receipt.model_receipt_metadata.request_byte_count
+                            if record.receipt.model_receipt_metadata
+                            else 0
+                        ),
+                        response_byte_count=(
+                            record.receipt.model_receipt_metadata.response_byte_count
+                            if record.receipt.model_receipt_metadata
+                            else 0
+                        ),
+                        replayed=True,
+                        local_model_runtime_enabled=replay_runtime_enabled,
+                    )
+                if (
+                    record.status == RuntimeInvocationStatus.execution_blocked.value
+                    and record.receipt.model_receipt_metadata
+                    and record.receipt.model_receipt_metadata.error_category
+                    == replay_blocked_error
+                ):
+                    return RuntimeLocalModelGatewayResult(
+                        record=record,
+                        request_byte_count=(
+                            record.receipt.model_receipt_metadata.request_byte_count
+                            if record.receipt.model_receipt_metadata
+                            else 0
+                        ),
+                        response_byte_count=(
+                            record.receipt.model_receipt_metadata.response_byte_count
+                            if record.receipt.model_receipt_metadata
+                            else 0
+                        ),
+                        replayed=True,
+                        local_model_runtime_enabled=replay_runtime_enabled,
+                    )
+                metadata = RuntimeLocalModelReceiptMetadata(
+                    model_ref=request.model_ref,
+                    endpoint_ref=_endpoint_ref(request.base_url),
+                    profile=RuntimeProfile(request.requested_profile),
+                    request_byte_count=_request_byte_count(request),
+                    response_byte_count=0,
+                    status_code=None,
+                    response_received=False,
+                    response_truncated=False,
+                    bounded_preview_returned=False,
+                    bounded_preview_persisted=False,
+                    error_category=replay_blocked_error,
+                    safe_summary="Local model runtime replay was blocked by current posture.",
+                )
+                receipt = build_local_model_receipt(
+                    record,
+                    metadata=metadata,
+                    execution_performed=False,
+                    model_call_performed=False,
+                    status=RuntimeInvocationStatus.execution_blocked,
+                )
+                updated = self.store.record_receipt(
+                    record.invocation_ref,
+                    receipt,
+                    idempotency_ref=_operation_idempotency_ref(
+                        idempotency_ref,
+                        "local-model-replay-posture-blocked",
+                    ),
+                    payload_fingerprint_ref=_operation_fingerprint_ref(
+                        record.invocation_ref,
+                        {
+                            "operation": "local_model_replay_posture_blocked",
+                            "metadata": metadata.model_dump(mode="json"),
+                        },
+                    ),
+                )
                 return RuntimeLocalModelGatewayResult(
-                    record=record,
-                    request_byte_count=(
-                        record.receipt.model_receipt_metadata.request_byte_count
-                        if record.receipt.model_receipt_metadata
-                        else 0
-                    ),
-                    response_byte_count=(
-                        record.receipt.model_receipt_metadata.response_byte_count
-                        if record.receipt.model_receipt_metadata
-                        else 0
-                    ),
+                    record=updated,
+                    request_byte_count=metadata.request_byte_count,
+                    error_category=metadata.error_category,
                     replayed=True,
-                    local_model_runtime_enabled=runtime_enabled,
+                    local_model_runtime_enabled=replay_runtime_enabled,
                 )
             metadata = RuntimeLocalModelReceiptMetadata(
                 model_ref=request.model_ref,
