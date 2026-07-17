@@ -2,14 +2,14 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `305`.
+Current OpenAPI path count: `327`.
 
 This inventory is generated from the FastAPI application and `/api/manifest`. It is the route ownership and side-effect classification map for the current local-first API boundary.
 
 ## Current Route Boundary
 
-- Manifest route operations: `306`
-- OpenAPI paths: `305`
+- Manifest route operations: `328`
+- OpenAPI paths: `327`
 - Production runtime authority: blocked
 - Public release authority: blocked
 
@@ -23,7 +23,7 @@ This inventory is generated from the FastAPI application and `/api/manifest`. It
 | `consent` | 2 | `consent` | `approval_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `context-budget` | 1 | `context` | `contracts_service` | future auth required | `validation_only`:1 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `contracts` | 2 | `contracts` | `contracts_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
-| `control-center` | 140 | `control-center` | `control_center_service` | local status or future auth per route | `authenticated_connector_mutation`:11, `destructive_external`:2, `destructive_local_sensitive`:2, `governed_network_read_only`:5, `local_dev_workspace_only`:81, `local_sensitive`:7, `none`:9, `system_browser_exact_launch`:1, `validation_only`:22 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
+| `control-center` | 162 | `control-center` | `control_center_service` | local status or future auth per route | `authenticated_connector_mutation`:26, `destructive_external`:3, `destructive_local_sensitive`:3, `governed_network_read_only`:5, `local_dev_workspace_only`:81, `local_sensitive`:10, `none`:10, `system_browser_exact_launch`:1, `validation_only`:23 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `cost-governor` | 3 | `cost-governor` | `cost_service` | future auth required | `validation_only`:3 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `extension-catalog` | 3 | `extension-catalog` | `extension_catalog_service` | future auth required | `local_dev_workspace_only`:2, `validation_only`:1 | medium | stable/generated from path; unique | status_available_not_completion |
 | `files` | 6 | `workspace-files` | `workspace_files_service` | future auth required and local safe refs | `local_dev_workspace_only`:6 | high | stable/generated from path; unique | partial_backend_not_product_ready |
@@ -193,6 +193,28 @@ validate the exact request-scoped authority boundary.
 | POST | `/control-center/communications/matrix-messaging/send` | `post_control_center_communications_matrix_messaging_send` | `authenticated_connector_mutation` | no | future | yes |
 | POST | `/control-center/communications/matrix-messaging/thread` | `post_control_center_communications_matrix_messaging_thread` | `authenticated_connector_mutation` | no | future | yes |
 | POST | `/control-center/communications/matrix-messaging/typing` | `post_control_center_communications_matrix_messaging_typing` | `authenticated_connector_mutation` | no | future | yes |
+| POST | `/control-center/communications/matrix-rooms-media/account-room-preference-write` | `post_control_center_communications_matrix_rooms_media_account_room_preference_write` | `authenticated_connector_mutation` | no | future | yes |
+| POST | `/control-center/communications/matrix-rooms-media/dm-create` | `post_control_center_communications_matrix_rooms_media_dm_create` | `authenticated_connector_mutation` | no | future | yes |
+| POST | `/control-center/communications/matrix-rooms-media/history-visibility-write` | `post_control_center_communications_matrix_rooms_media_history_visibility_write` | `authenticated_connector_mutation` | no | future | yes |
+| POST | `/control-center/communications/matrix-rooms-media/invite-accept` | `post_control_center_communications_matrix_rooms_media_invite_accept` | `authenticated_connector_mutation` | no | future | yes |
+| POST | `/control-center/communications/matrix-rooms-media/invite-reject` | `post_control_center_communications_matrix_rooms_media_invite_reject` | `authenticated_connector_mutation` | no | future | yes |
+| POST | `/control-center/communications/matrix-rooms-media/invite-send` | `post_control_center_communications_matrix_rooms_media_invite_send` | `authenticated_connector_mutation` | no | future | yes |
+| POST | `/control-center/communications/matrix-rooms-media/invite-withdraw` | `post_control_center_communications_matrix_rooms_media_invite_withdraw` | `authenticated_connector_mutation` | no | future | yes |
+| POST | `/control-center/communications/matrix-rooms-media/media-cleanup` | `post_control_center_communications_matrix_rooms_media_media_cleanup` | `destructive_local_sensitive` | no | future | yes |
+| POST | `/control-center/communications/matrix-rooms-media/media-download-quarantine` | `post_control_center_communications_matrix_rooms_media_media_download_quarantine` | `authenticated_connector_mutation` | no | future | yes |
+| POST | `/control-center/communications/matrix-rooms-media/media-materialize` | `post_control_center_communications_matrix_rooms_media_media_materialize` | `local_sensitive` | no | future | yes |
+| POST | `/control-center/communications/matrix-rooms-media/media-preview` | `post_control_center_communications_matrix_rooms_media_media_preview` | `local_sensitive` | no | future | yes |
+| POST | `/control-center/communications/matrix-rooms-media/media-upload` | `post_control_center_communications_matrix_rooms_media_media_upload` | `authenticated_connector_mutation` | no | future | yes |
+| POST | `/control-center/communications/matrix-rooms-media/notification-settings-write` | `post_control_center_communications_matrix_rooms_media_notification_settings_write` | `authenticated_connector_mutation` | no | future | yes |
+| POST | `/control-center/communications/matrix-rooms-media/pin-write` | `post_control_center_communications_matrix_rooms_media_pin_write` | `authenticated_connector_mutation` | no | future | yes |
+| GET | `/control-center/communications/matrix-rooms-media/posture` | `get_control_center_communications_matrix_rooms_media_posture` | `none` | no | future | yes |
+| POST | `/control-center/communications/matrix-rooms-media/proposal` | `post_control_center_communications_matrix_rooms_media_proposal` | `validation_only` | yes | future | yes |
+| POST | `/control-center/communications/matrix-rooms-media/room-create` | `post_control_center_communications_matrix_rooms_media_room_create` | `authenticated_connector_mutation` | no | future | yes |
+| POST | `/control-center/communications/matrix-rooms-media/room-join` | `post_control_center_communications_matrix_rooms_media_room_join` | `authenticated_connector_mutation` | no | future | yes |
+| POST | `/control-center/communications/matrix-rooms-media/room-leave` | `post_control_center_communications_matrix_rooms_media_room_leave` | `destructive_external` | no | future | yes |
+| POST | `/control-center/communications/matrix-rooms-media/room-power-role-write` | `post_control_center_communications_matrix_rooms_media_room_power_role_write` | `authenticated_connector_mutation` | no | future | yes |
+| POST | `/control-center/communications/matrix-rooms-media/search-local-read` | `post_control_center_communications_matrix_rooms_media_search_local_read` | `local_sensitive` | no | future | yes |
+| POST | `/control-center/communications/matrix-rooms-media/space-mapping-write` | `post_control_center_communications_matrix_rooms_media_space_mapping_write` | `authenticated_connector_mutation` | no | future | yes |
 | GET | `/control-center/communications/matrix-sync/posture` | `get_control_center_communications_matrix_sync_posture` | `none` | yes | future | yes |
 | GET | `/control-center/communications/providers` | `get_control_center_communications_providers` | `none` | yes | future | yes |
 | GET | `/control-center/communications/receipts/{receipt_ref}` | `get_control_center_communications_receipt` | `none` | yes | future | yes |

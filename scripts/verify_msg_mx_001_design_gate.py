@@ -349,6 +349,7 @@ def _verify_matrix(text: str, failures: list[str]) -> None:
         "exact destructive lane and loopback-only executor implemented; default configuration required",
         "uses the separate exact redaction lane and does not reuse reaction-add authority; default configuration required",
         "exact generic no-content notification lane implemented; default configuration required",
+        "core implemented, live configuration required",
     }
     allowed_later_postures = {
         "deferred separate lane; blocked pending MatrixRTC/TURN decision",

@@ -258,7 +258,7 @@ def test_board_evidence_must_be_phase_bound(
         gate.BOARD_PATH,
         tmp_path / "board.md",
         lambda text: text.replace(
-            "evidence-ref:msg-mx-008:manual-messaging-loopback",
+            "evidence-ref:msg-mx-009:rooms-search-media-loopback",
             "evidence-ref:msg-mx-001:design-gate",
             1,
         ),

@@ -101,19 +101,6 @@ are design evidence only.
 | MSG-MX-012 | planned | planned_no_new_lane_acceptance | missing | not_applicable_audit_metadata | not_applicable_audit_metadata | integrated acceptance evidence for exact previously accepted lanes only |
 <!-- MSG-MX-MILESTONE-LEDGER:END -->
 
-## Current Progression Overlay
-
-The ledger above is the immutable MSG-MX-000 historical audit projection. It
-must not be rewritten as later lanes are accepted. Current MSG-MX-009 truth is
-recorded in `docs/connectors/MESSENGER_MATRIX_ROOMS_SEARCH_MEDIA.md`: twenty
-exact request-scoped room, membership, administration, encrypted-search, and
-bounded-media operations are implemented in Python Core, with sixteen native
-network operations in the one-use loopback Rust broker. Default live runtime
-posture is `configuration_required`, every operation still requires fresh exact
-policy, LocalApprovalAuthority, AuthorityLease, readiness, deadline, budget,
-safe-disable, and replay evaluation, and no standing connector or filesystem
-authority is granted.
-
 ## Shared Future Runtime Gate
 
 Every future runtime call must re-evaluate, immediately before start:
