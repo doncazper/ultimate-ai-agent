@@ -105,4 +105,7 @@ ruff:
 portable-evidence-keychain-helper:
 	$(PYTHON) scripts/dev/install_portable_evidence_keychain_helper.py
 
-.PHONY: portable-evidence-keychain-helper
+governed-browser-keychain-helper:
+	$(PYTHON) scripts/dev/install_governed_browser_keychain_helper.py
+
+.PHONY: portable-evidence-keychain-helper governed-browser-keychain-helper

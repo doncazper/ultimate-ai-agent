@@ -5,6 +5,9 @@ from ultimate_ai_agent.core.evidence_signing.static_safety import (
     is_exact_portable_evidence_helper_home_path,
     is_exact_portable_evidence_helper_subprocess_site,
 )
+from ultimate_ai_agent.core.governed_browser.static_safety import (
+    is_exact_governed_browser_keychain_subprocess_site,
+)
 from ultimate_ai_agent.core.sandbox_calculation.static_safety import (
     is_exact_sealed_calculation_subprocess_site,
 )
@@ -373,6 +376,9 @@ class FoundationGateLegacyChecksPart001Mixin:
         allowed_phase06_signing_adapter_file = (
             "src/ultimate_ai_agent/core/evidence_signing/macos_keychain.py"
         )
+        allowed_governed_browser_keychain_adapter_file = (
+            "src/ultimate_ai_agent/core/governed_browser/browser_keychain.py"
+        )
         allowed_sealed_arithmetic_adapter_file = (
             "src/ultimate_ai_agent/core/sandbox_calculation/backend.py"
         )
@@ -390,6 +396,16 @@ class FoundationGateLegacyChecksPart001Mixin:
             rel_path=allowed_phase06_signing_adapter_file,
             source=signing_source,
             fragment="subprocess" + ".run(",
+        )
+        browser_keychain_source = self._read(
+            self.root / allowed_governed_browser_keychain_adapter_file
+        )
+        browser_keychain_adapter_exact = (
+            is_exact_governed_browser_keychain_subprocess_site(
+                rel_path=allowed_governed_browser_keychain_adapter_file,
+                source=browser_keychain_source,
+                fragment="subprocess" + ".run(",
+            )
         )
         matrix_exact_shell_paths = {
             rel_path
@@ -444,6 +460,10 @@ class FoundationGateLegacyChecksPart001Mixin:
                 or (
                     path == allowed_phase06_signing_adapter_file
                     and signing_adapter_exact
+                )
+                or (
+                    path == allowed_governed_browser_keychain_adapter_file
+                    and browser_keychain_adapter_exact
                 )
                 or (
                     path == allowed_sealed_arithmetic_adapter_file
