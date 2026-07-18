@@ -20,7 +20,7 @@ enrolled remote account runtime, public release, and production authority
 remain blocked.
 
 The governed browser/external-actions program is now active after Messenger.
-Queue 01 items 01–10 are `implemented_inactive`: exact authority semantics, an
+Queue 01 items 01–11 are `implemented_inactive`: exact authority semantics, an
 injected isolated broker behind `WebAccessGateway`, an at-most-once
 external-action transaction kernel, a readable content-free Action Inbox
 execution envelope, and registered exact Evidence Recipes are locally
@@ -48,11 +48,17 @@ bypass, browser session, authentication, network call, or external mutation.
 Item 10 adds a bounded app-owned quarantine for injected local-validation
 download bytes and a safe-ref-only exact artifact/content-fingerprint upload
 plan. It performs no browser or network download, upload, body materialization,
-external mutation, or real-target action. Queue 01 items 01–04, Queue 01 items
-01–05, Queue 01 items 01–06, Queue 01 items 01–07, Queue 01 items 01–08, and
-Queue 01 items 01–09 remain prior accepted boundaries. See
+external mutation, or real-target action. Item 11 adds registered exact
+plan-only communication, publishing, account-creation, legal-consent, and
+delete contracts. Legal consent requires an explicit instrument and decision;
+account creation cannot imply consent; delete binds one exact target. The
+contracts do not send, publish, create an account, record consent, delete,
+materialize payloads, open a browser, call a network, or mutate an external
+target. Queue 01 items 01–04, Queue 01 items 01–05, Queue 01 items 01–06,
+Queue 01 items 01–07, Queue 01 items 01–08, Queue 01 items 01–09, and Queue 01
+items 01–10 remain prior accepted boundaries. See
 `docs/browser/GOVERNED_EXTERNAL_ACTIONS_QUEUE_01.md`; Queue 02 adversarial
-validation and Queue 01 items 11–13 remain separate required gates.
+validation and Queue 01 items 12–13 remain separate required gates.
 
 The Control Center is the technical web shell, Founder Command Center is the
 user-facing product name, and the Founder Loop is the bounded product spine.

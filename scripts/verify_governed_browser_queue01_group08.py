@@ -192,14 +192,20 @@ def verify() -> list[str]:
             if marker not in values[label]:
                 failures.append(f"Queue 01 group 08 {label} marker missing: {marker}")
 
-    for marker, text, label in (
-        ("Queue 01 items 01–10", docs_readme, "documentation README"),
-        ("Queue 01 items 01–10", docs_index, "documentation index"),
-        ("Queue 01 items 01–10", board, "current board"),
-        ("Queue 01 items 01–10", truth, "release truth"),
+    completed_item10_or_later = tuple(
+        f"Queue 01 items 01–{item:02d}" for item in range(10, 14)
+    )
+    for text, label in (
+        (docs_readme, "documentation README"),
+        (docs_index, "documentation index"),
+        (board, "current board"),
+        (truth, "release truth"),
     ):
-        if marker not in text:
-            failures.append(f"Queue 01 group 08 {label} marker missing: {marker}")
+        if not any(marker in text for marker in completed_item10_or_later):
+            failures.append(
+                "Queue 01 group 08 "
+                f"{label} marker missing: Queue 01 items 01–10 or later"
+            )
 
     runtime_text = "\n".join((transfers, transaction, package)).lower()
     for fragment in (
