@@ -839,7 +839,8 @@ target. Item 11 adds registered exact plan-only communication, publishing,
 account-creation, legal-consent, and deletion contracts. Legal consent requires
 an explicit legal instrument and accept/decline decision, account creation
 cannot imply consent, and delete requires one exact target. No external effect,
-payload materialization, browser activity, or network call is enabled. Queue 01
+payload materialization, browser activity, or live network authority is
+granted. Queue 01
 items 12–13 and Queue 02 adversarial
 validation remain ordered
 prerequisites before any external activation. Queue 01 items 01–03 remain the
