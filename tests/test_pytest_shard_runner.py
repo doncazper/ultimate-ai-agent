@@ -165,9 +165,7 @@ def test_timing_plans_are_stable_across_input_order() -> None:
     )
 
     assert first == second
-    assert runner.shard_plan_fingerprint(first) == runner.shard_plan_fingerprint(
-        second
-    )
+    assert runner.shard_plan_fingerprint(first) == runner.shard_plan_fingerprint(second)
 
 
 def test_shard_plan_fingerprint_binds_serialized_preflight_posture() -> None:
@@ -349,13 +347,18 @@ def test_fixture_affinity_co_locates_consumers_without_omitting_files(
     assert len(assigned) == len(set(assigned))
 
 
-def test_fixture_affinity_serializes_exact_matrix_loopback_port_owners(
+def test_fixture_affinity_serializes_exact_matrix_resource_owners(
     tmp_path: Path,
 ) -> None:
     runner = load_runner()
     root = tmp_path / "repo"
     (root / "tests").mkdir(parents=True)
-    files = ["tests/test_matrix_a.py", "tests/test_matrix_b.py", "tests/test_other.py"]
+    files = [
+        "tests/test_matrix_a.py",
+        "tests/test_matrix_b.py",
+        "tests/test_matrix_c.py",
+        "tests/test_other.py",
+    ]
     fixed_port_source = (
         "PYTEST_EXCLUSIVE_RESOURCE_MATRIX_" + "LOOPBACK = True\n"
         'server = ThreadingHTTPServer(("127.0.0.1", 18008), Handler)\n'
@@ -365,7 +368,11 @@ def test_fixture_affinity_serializes_exact_matrix_loopback_port_owners(
             fixed_port_source,
             encoding="utf-8",
         )
-    (root / files[2]).write_text("def test_plain(): pass\n", encoding="utf-8")
+    (root / files[2]).write_text(
+        "PYTEST_EXCLUSIVE_RESOURCE_MATRIX_" + "NODE_RUNTIME = True\n",
+        encoding="utf-8",
+    )
+    (root / files[3]).write_text("def test_plain(): pass\n", encoding="utf-8")
 
     groups = runner.discover_affinity_groups(files, root)
     exclusive_groups = runner.discover_serialized_preflight_groups(files, root)
@@ -376,14 +383,14 @@ def test_fixture_affinity_serializes_exact_matrix_loopback_port_owners(
         groups,
         exclusive_affinity_groups=exclusive_groups,
     )
-    loopback_shards = {
+    matrix_resource_shards = {
         plan.index
         for plan in plans
-        if any(file_path in plan.files for file_path in files[:2])
+        if any(file_path in plan.files for file_path in files[:3])
     }
 
-    assert loopback_shards == {0}
-    assert plans[0].files == tuple(files[:2])
+    assert matrix_resource_shards == {0}
+    assert plans[0].files == tuple(files[:3])
     assert plans[0].serialized_preflight is True
     assert plans[1].serialized_preflight is False
     assert method == "timing-aware+fixture-affinity+exclusive-resource-preflight"
@@ -492,14 +499,14 @@ def test_canonical_plan_binds_nine_shards_and_preserves_local_timeout_margin() -
     assert len(plans) == runner.CANONICAL_PYTEST_SHARD_COUNT == 9
     assert plans[0].serialized_preflight is True
     assert plans[0].files == (
+        "tests/test_msg_mx_005_matrix_session_dispatch.py",
         "tests/test_msg_mx_005_matrix_session_node_integration.py",
         "tests/test_msg_mx_006_matrix_sync_transport.py",
     )
     assert all(not plan.serialized_preflight for plan in plans[1:])
     assert method.endswith("+exclusive-resource-preflight")
     assert (
-        plans[0].expected_seconds
-        + max(plan.expected_seconds for plan in plans[1:])
+        plans[0].expected_seconds + max(plan.expected_seconds for plan in plans[1:])
         < runner.DEFAULT_HARD_TIMEOUT_SECONDS
     )
 

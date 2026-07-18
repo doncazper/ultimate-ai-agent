@@ -80,8 +80,9 @@ DEFAULT_TERMINATION_GRACE_SECONDS = 2.0
 DEFAULT_PERFORMANCE_REPORT = "/tmp/uaa_pytest_performance_report.json"
 TIMEOUT_RETURN_CODE = 124
 FOUNDATION_GATE_AFFINITY_TOKENS = ("foundation_gate_report", "foundation_gate_results")
-MATRIX_LOOPBACK_PORT_AFFINITY_TOKEN = (
-    "PYTEST_EXCLUSIVE_RESOURCE_MATRIX_LOOPBACK = True"
+MATRIX_EXCLUSIVE_RESOURCE_TOKENS = (
+    "PYTEST_EXCLUSIVE_RESOURCE_MATRIX_LOOPBACK = True",
+    "PYTEST_EXCLUSIVE_RESOURCE_MATRIX_NODE_RUNTIME = True",
 )
 MATRIX_LOOPBACK_TEST_HOST = "127.0.0.1"
 MATRIX_LOOPBACK_TEST_PORT = 18008
@@ -147,7 +148,7 @@ def discover_affinity_groups(
     files: list[str], root: Path = ROOT
 ) -> list[tuple[str, ...]]:
     foundation_consumers: list[str] = []
-    matrix_loopback_port_consumers: list[str] = []
+    matrix_exclusive_resource_consumers: list[str] = []
     for file_path in files:
         try:
             source = (root / file_path).read_text(encoding="utf-8")
@@ -155,10 +156,10 @@ def discover_affinity_groups(
             continue
         if any(token in source for token in FOUNDATION_GATE_AFFINITY_TOKENS):
             foundation_consumers.append(file_path)
-        if MATRIX_LOOPBACK_PORT_AFFINITY_TOKEN in source:
-            matrix_loopback_port_consumers.append(file_path)
+        if any(token in source for token in MATRIX_EXCLUSIVE_RESOURCE_TOKENS):
+            matrix_exclusive_resource_consumers.append(file_path)
     groups: list[tuple[str, ...]] = []
-    for consumers in (foundation_consumers, matrix_loopback_port_consumers):
+    for consumers in (foundation_consumers, matrix_exclusive_resource_consumers):
         if len(consumers) > 1:
             groups.append(tuple(sorted(consumers)))
     return groups
@@ -176,7 +177,7 @@ def discover_serialized_preflight_groups(
             raise ValueError(
                 "serialized preflight resource scan could not read a test file"
             ) from exc
-        if MATRIX_LOOPBACK_PORT_AFFINITY_TOKEN in source:
+        if any(token in source for token in MATRIX_EXCLUSIVE_RESOURCE_TOKENS):
             consumers.append(file_path)
     return [tuple(sorted(consumers))] if consumers else []
 
@@ -309,9 +310,7 @@ def assign_shards(
         raise ValueError("exclusive preflight group must be an affinity group")
     if exclusive_groups and len(exclusive_groups) >= shard_count:
         raise ValueError("exclusive preflight groups exhaust configured shards")
-    exclusive_files = {
-        file_path for group in exclusive_groups for file_path in group
-    }
+    exclusive_files = {file_path for group in exclusive_groups for file_path in group}
     remaining_files = [
         file_path for file_path in files if file_path not in exclusive_files
     ]
@@ -342,9 +341,7 @@ def assign_shards(
                 index=index,
                 files=group,
                 expected_seconds=(
-                    round(sum(timings[path] for path in group), 6)
-                    if timings
-                    else 0.0
+                    round(sum(timings[path] for path in group), 6) if timings else 0.0
                 ),
                 serialized_preflight=True,
             )
@@ -512,7 +509,12 @@ def run_shards(
     )
     serialized_preflight_set = set(serialized_preflight)
     pending = [
-        *(plan for index in serialized_preflight for plan in plans if plan.index == index),
+        *(
+            plan
+            for index in serialized_preflight
+            for plan in plans
+            if plan.index == index
+        ),
         *(plan for plan in plans if plan.index not in serialized_preflight_set),
     ]
     serialized_preflight_remaining = set(serialized_preflight)

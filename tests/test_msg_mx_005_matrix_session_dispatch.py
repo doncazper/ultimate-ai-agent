@@ -50,6 +50,9 @@ from ultimate_ai_agent.core.authority.dispatcher import (
 from ultimate_ai_agent.core.time import utc_now
 
 
+PYTEST_EXCLUSIVE_RESOURCE_MATRIX_NODE_RUNTIME = True
+
+
 def _digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
