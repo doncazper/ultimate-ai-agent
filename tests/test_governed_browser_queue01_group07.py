@@ -10,11 +10,12 @@ from scripts.verify_governed_browser_queue01_group07 import verify
 from tests.test_governed_browser_queue01_group01 import (
     _authorized_kernel,
     _binding,
+    _lease,
     _readiness,
     _ref,
     _request,
 )
-from ultimate_ai_agent.core.authority import AuthorityCapability
+from ultimate_ai_agent.core.authority import AuthorityCapability, AuthorityDomain
 from ultimate_ai_agent.core.governed_browser import (
     ExactGovernedHumanChallengeHandoffRequest,
     ExactGovernedHumanChallengeHandoffService,
@@ -26,6 +27,7 @@ from ultimate_ai_agent.core.governed_browser import (
     GovernedHumanChallengeHandoffRecipe,
     GovernedHumanChallengeHandoffRecipeRegistry,
     GovernedHumanChallengeKind,
+    ExternalActionTransactionConflict,
     build_external_action_approval_request,
     build_governed_human_challenge_handoff_recipe,
     governed_human_challenge_handoff_ref,
@@ -43,9 +45,18 @@ def _challenge_context(
     target_kind: ExternalActionTargetKind = ExternalActionTargetKind.local_validation,
 ):  # type: ignore[no-untyped-def]
     base = _binding(suffix=suffix, target_kind=target_kind)
-    source_observation_ref = f"browser-observe-output:governed-browser:{suffix}"
-    visibility_proof_ref = _ref("visibility-proof", suffix)
-    handoff_surface_ref = _ref("human-handoff-surface", suffix)
+    source_observation_ref = stable_governed_browser_ref(
+        "browser-observe-output:governed-browser",
+        {"kind": "observation", "suffix": suffix},
+    )
+    visibility_proof_ref = stable_governed_browser_ref(
+        "visibility-proof-ref:governed-browser",
+        {"kind": "visibility", "suffix": suffix},
+    )
+    handoff_surface_ref = stable_governed_browser_ref(
+        "human-handoff-surface-ref:governed-browser",
+        {"kind": "surface", "suffix": suffix},
+    )
     created_at = utc_now()
     expires_at = min(
         created_at + timedelta(minutes=5),
@@ -500,9 +511,18 @@ def test_registered_recipe_cannot_outlive_binding_deadline(tmp_path: Path) -> No
     base = _binding(suffix="deadline", deadline_offset=timedelta(minutes=5))
     created_at = utc_now()
     expires_at = base.start_deadline + timedelta(seconds=1)
-    source_observation_ref = "browser-observe-output:governed-browser:deadline"
-    visibility_proof_ref = _ref("visibility-proof", "deadline")
-    handoff_surface_ref = _ref("human-handoff-surface", "deadline")
+    source_observation_ref = stable_governed_browser_ref(
+        "browser-observe-output:governed-browser",
+        {"kind": "observation", "suffix": "deadline"},
+    )
+    visibility_proof_ref = stable_governed_browser_ref(
+        "visibility-proof-ref:governed-browser",
+        {"kind": "visibility", "suffix": "deadline"},
+    )
+    handoff_surface_ref = stable_governed_browser_ref(
+        "human-handoff-surface-ref:governed-browser",
+        {"kind": "surface", "suffix": "deadline"},
+    )
     challenge_ref = governed_human_challenge_ref(
         kind=GovernedHumanChallengeKind.mfa,
         origin_ref=base.origin_ref,
@@ -641,6 +661,190 @@ def test_contracts_reject_raw_or_unbound_handoff_fields() -> None:
     forged["receipt_ref"] = "receipt-ref:governed-human-challenge-handoff:forged"
     with pytest.raises(ValueError, match="RECEIPT_REF_MISMATCH"):
         GovernedHumanChallengeHandoffReceipt.model_validate(forged)
+
+
+@pytest.mark.parametrize(
+    ("field", "material_ref"),
+    [
+        (
+            "source_observation_ref",
+            "browser-observe-output:governed-browser:123456",
+        ),
+        (
+            "source_observation_ref",
+            "browser-observe-output:governed-browser:123456:sha256:" + ("a" * 64),
+        ),
+        (
+            "visibility_proof_ref",
+            "visibility-proof-ref:governed-browser:captcha-sitekey-raw-value",
+        ),
+        (
+            "handoff_surface_ref",
+            "human-handoff-surface-ref:governed-browser:webauthn-challenge-raw",
+        ),
+        (
+            "handoff_surface_ref",
+            "human-handoff-surface-ref:governed-browser:ABC123",
+        ),
+    ],
+)
+def test_challenge_material_cannot_hide_inside_handoff_refs(
+    field: str,
+    material_ref: str,
+) -> None:
+    request, recipe, _ = _challenge_context(suffix="material-denial")
+    values = {
+        "source_observation_ref": recipe.source_observation_ref,
+        "visibility_proof_ref": recipe.visibility_proof_ref,
+        "handoff_surface_ref": recipe.handoff_surface_ref,
+    }
+    values[field] = material_ref
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_HUMAN_CHALLENGE_MATERIAL_REF_DENIED",
+    ):
+        build_governed_human_challenge_handoff_recipe(
+            request,
+            challenge_kind=GovernedHumanChallengeKind.mfa,
+            source_observation_ref=values["source_observation_ref"],
+            visibility_proof_ref=values["visibility_proof_ref"],
+            handoff_surface_ref=values["handoff_surface_ref"],
+            created_at=recipe.created_at,
+            expires_at=recipe.expires_at,
+        )
+
+
+def test_prepare_handoff_rejects_lease_with_implied_broader_capability(
+    tmp_path: Path,
+) -> None:
+    request, recipe, registry = _challenge_context(suffix="lease-capability")
+    kernel, _ = _authorized_kernel(tmp_path, request)
+    broader_lease = _lease(request).model_copy(
+        update={
+            "domains": {
+                AuthorityDomain.browser: [AuthorityCapability.execute],
+            }
+        }
+    )
+    kernel._authority_leases_provider = lambda: [broader_lease]
+    service = ExactGovernedHumanChallengeHandoffService(
+        registry=registry,
+        kernel=kernel,
+    )
+
+    result = service.prepare(
+        ExactGovernedHumanChallengeHandoffRequest(
+            execution_request=request,
+            recipe_ref=recipe.recipe_ref,
+        )
+    )
+
+    assert result.receipt.status == "transaction_blocked"
+    assert result.receipt.reason_refs == [
+        "reason-ref:governed-external-action:exact-lease-required"
+    ]
+    assert result.receipt.budget_reservation_ref is None
+    assert result.handoff is None
+
+
+def test_replay_transaction_identity_is_bound_to_registered_recipe(
+    tmp_path: Path,
+) -> None:
+    base = _binding(suffix="recipe-replay")
+    source_observation_ref = stable_governed_browser_ref(
+        "browser-observe-output:governed-browser",
+        {"kind": "observation", "suffix": "recipe-replay"},
+    )
+    visibility_proof_ref = stable_governed_browser_ref(
+        "visibility-proof-ref:governed-browser",
+        {"kind": "visibility", "suffix": "recipe-replay"},
+    )
+    surfaces = [
+        stable_governed_browser_ref(
+            "human-handoff-surface-ref:governed-browser",
+            {"kind": "surface", "suffix": suffix},
+        )
+        for suffix in ("recipe-alpha", "recipe-beta")
+    ]
+    created_at = utc_now()
+    expires_at = min(
+        created_at + timedelta(minutes=5),
+        base.start_deadline - timedelta(seconds=1),
+    )
+    challenge_ref = governed_human_challenge_ref(
+        kind=GovernedHumanChallengeKind.mfa,
+        origin_ref=base.origin_ref,
+        page_snapshot_ref=base.page_snapshot_ref,
+        source_observation_ref=source_observation_ref,
+        visibility_proof_ref=visibility_proof_ref,
+    )
+    schema_ref = governed_human_challenge_schema_ref(
+        kind=GovernedHumanChallengeKind.mfa,
+        challenge_ref=challenge_ref,
+    )
+    handoff_refs = [
+        governed_human_challenge_handoff_ref(
+            challenge_ref=challenge_ref,
+            human_presence_ref=base.human_presence_ref,
+            handoff_surface_ref=surface,
+            expires_at=expires_at,
+        )
+        for surface in surfaces
+    ]
+    binding = ExternalActionAuthorityBinding.model_validate(
+        {
+            **base.model_dump(mode="json"),
+            "authority_capability": AuthorityCapability.prepare,
+            "field_schema_ref": schema_ref,
+            "resource_refs": [
+                _ref("resource", "recipe-replay"),
+                challenge_ref,
+                source_observation_ref,
+                visibility_proof_ref,
+                *surfaces,
+                *handoff_refs,
+            ],
+        }
+    )
+    request = _request(binding)
+    recipes = [
+        build_governed_human_challenge_handoff_recipe(
+            request,
+            challenge_kind=GovernedHumanChallengeKind.mfa,
+            source_observation_ref=source_observation_ref,
+            visibility_proof_ref=visibility_proof_ref,
+            handoff_surface_ref=surface,
+            created_at=created_at,
+            expires_at=expires_at,
+        )
+        for surface in surfaces
+    ]
+    registry = GovernedHumanChallengeHandoffRecipeRegistry(recipes)
+    service, _ = _service(
+        tmp_path,
+        request=request,
+        registry=registry,
+    )
+
+    first = service.prepare(
+        ExactGovernedHumanChallengeHandoffRequest(
+            execution_request=request,
+            recipe_ref=recipes[0].recipe_ref,
+        )
+    )
+    assert first.receipt.status == "handoff_ready"
+
+    with pytest.raises(
+        ExternalActionTransactionConflict,
+        match="GOVERNED_EXTERNAL_ACTION_IDEMPOTENCY_CONFLICT",
+    ):
+        service.prepare(
+            ExactGovernedHumanChallengeHandoffRequest(
+                execution_request=request,
+                recipe_ref=recipes[1].recipe_ref,
+            )
+        )
 
 
 def test_receipts_are_content_free_and_verifier_passes(tmp_path: Path) -> None:

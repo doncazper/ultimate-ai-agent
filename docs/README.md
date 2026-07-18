@@ -40,9 +40,11 @@ session state is `prepared_inactive`; it starts no browser session, performs no
 authentication, uses no cookies, and makes no network or external mutation.
 Item 09 adds registered human-present MFA, passkey, and CAPTCHA handoff-only
 recipes behind the same exact policy, approval, lease, budget, readiness,
-deadline, safe-disable, kill-switch, and at-most-once gates. It handles no
-challenge material or response, passkey operation, CAPTCHA solving or bypass,
-browser session, authentication, network call, or external mutation. Queue 01
+deadline, safe-disable, kill-switch, and at-most-once gates. Material-like
+handoff refs and implied broader lease capabilities fail closed, while a
+recipe-bound transaction fingerprint prevents cross-recipe replay. It handles
+no challenge material or response, passkey operation, CAPTCHA solving or
+bypass, browser session, authentication, network call, or external mutation. Queue 01
 items 01–04, Queue 01 items 01–05, Queue 01 items 01–06, Queue 01 items 01–07,
 and Queue 01 items 01–08 remain prior accepted boundaries. See
 `docs/browser/GOVERNED_EXTERNAL_ACTIONS_QUEUE_01.md`; Queue 02 adversarial

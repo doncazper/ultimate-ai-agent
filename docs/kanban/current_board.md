@@ -826,7 +826,9 @@ uses no cookies, and makes no network or external mutation. Real external
 targets remain inactive. Item 09 adds registered, content-free human-present
 MFA, passkey, and CAPTCHA handoff-only recipes behind the same exact
 PolicyEngine, LocalApprovalAuthority, AuthorityLease, budget, readiness,
-deadline, safe-disable, kill-switch, and at-most-once transaction gates. UAA
+deadline, safe-disable, kill-switch, and at-most-once transaction gates.
+Material-like handoff refs and implied broader lease capabilities fail closed,
+and a recipe-bound transaction fingerprint prevents cross-recipe replay. UAA
 does not handle a challenge response, operate a passkey, solve or bypass
 CAPTCHA, start or use a browser session, authenticate, call a network, or
 mutate an external target. Queue 01 items 10–13 and Queue 02 adversarial

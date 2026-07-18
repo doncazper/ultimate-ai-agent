@@ -14,8 +14,10 @@ from pydantic import BaseModel, ConfigDict, Field
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.approvals.decisions import ApprovalValidationRequest
 from ultimate_ai_agent.core.authority import (
+    AuthorityCapability,
     AuthorityConstraintKind,
     AuthorityDecisionOutcome,
+    AuthorityDomain,
     AuthorityLease,
 )
 from ultimate_ai_agent.core.authority.budget_contracts import (
@@ -724,6 +726,7 @@ class GovernedExternalActionKernel:
         lease: AuthorityLease,
         request: ExternalActionExecutionRequest,
     ) -> bool:
+        browser_capabilities = lease.domains.get(AuthorityDomain.browser, [])
         resource_constraints = [
             constraint
             for constraint in lease.authority_constraints
@@ -741,6 +744,10 @@ class GovernedExternalActionKernel:
         ]
         return (
             lease.is_active()
+            and len(lease.domains) == 1
+            and len(browser_capabilities) == 1
+            and AuthorityCapability(browser_capabilities[0])
+            == AuthorityCapability(request.binding.authority_capability)
             and len(resource_constraints) == 1
             and set(resource_constraints[0].allowed_refs)
             == set(request.binding.exact_resource_refs())

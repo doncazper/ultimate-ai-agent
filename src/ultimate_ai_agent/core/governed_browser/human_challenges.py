@@ -8,6 +8,7 @@ target.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable, Sequence
 from datetime import datetime, timedelta
 from enum import Enum
@@ -35,6 +36,7 @@ from .transaction import GovernedExternalActionKernel
 
 
 MAX_HUMAN_CHALLENGE_HANDOFF_LIFETIME = timedelta(minutes=10)
+_HASH_PINNED_SAFE_REF_SUFFIX_RE = re.compile(r"sha256:[0-9a-f]{64}")
 
 
 class GovernedHumanChallengeKind(str, Enum):
@@ -58,6 +60,19 @@ class GovernedHumanChallengeHandoffStatus(str, Enum):
     replayed_content_free = "replayed_content_free"
 
 
+def _validate_content_free_challenge_ref(
+    value: str,
+    *,
+    label: str,
+    prefix: str,
+) -> None:
+    validate_task_ref(value, label)
+    if not value.startswith(prefix):
+        raise ValueError(f"GOVERNED_HUMAN_CHALLENGE_{label.upper()}_REQUIRED")
+    if _HASH_PINNED_SAFE_REF_SUFFIX_RE.fullmatch(value.removeprefix(prefix)) is None:
+        raise ValueError("GOVERNED_HUMAN_CHALLENGE_MATERIAL_REF_DENIED")
+
+
 def governed_human_challenge_ref(
     *,
     kind: GovernedHumanChallengeKind,
@@ -70,14 +85,18 @@ def governed_human_challenge_ref(
     for value, label in (
         (origin_ref, "origin_ref"),
         (page_snapshot_ref, "page_snapshot_ref"),
-        (source_observation_ref, "source_observation_ref"),
-        (visibility_proof_ref, "visibility_proof_ref"),
     ):
         validate_task_ref(value, label)
-    if not source_observation_ref.startswith("browser-observe-output:"):
-        raise ValueError("GOVERNED_HUMAN_CHALLENGE_OBSERVATION_REF_REQUIRED")
-    if not visibility_proof_ref.startswith("visibility-proof-ref:"):
-        raise ValueError("GOVERNED_HUMAN_CHALLENGE_VISIBILITY_PROOF_REF_REQUIRED")
+    _validate_content_free_challenge_ref(
+        source_observation_ref,
+        label="observation_ref",
+        prefix="browser-observe-output:governed-browser:",
+    )
+    _validate_content_free_challenge_ref(
+        visibility_proof_ref,
+        label="visibility_proof_ref",
+        prefix="visibility-proof-ref:governed-browser:",
+    )
     return stable_governed_browser_ref(
         "human-challenge-ref:governed-browser",
         {
@@ -113,11 +132,13 @@ def governed_human_challenge_handoff_ref(
     for value, label in (
         (challenge_ref, "challenge_ref"),
         (human_presence_ref, "human_presence_ref"),
-        (handoff_surface_ref, "handoff_surface_ref"),
     ):
         validate_task_ref(value, label)
-    if not handoff_surface_ref.startswith("human-handoff-surface-ref:"):
-        raise ValueError("GOVERNED_HUMAN_CHALLENGE_HANDOFF_SURFACE_REF_REQUIRED")
+    _validate_content_free_challenge_ref(
+        handoff_surface_ref,
+        label="handoff_surface_ref",
+        prefix="human-handoff-surface-ref:governed-browser:",
+    )
     if expires_at.tzinfo is None:
         raise ValueError("GOVERNED_HUMAN_CHALLENGE_TIMEZONE_REQUIRED")
     return stable_governed_browser_ref(
@@ -600,8 +621,20 @@ class ExactGovernedHumanChallengeHandoffService:
         scope_reason = _recipe_scope_reason(recipe, execution)
         if scope_reason is not None:
             return _preflight_blocked(request, scope_reason)
+        kernel_execution = ExternalActionExecutionRequest.model_validate(
+            {
+                **execution.model_dump(mode="json"),
+                "idempotency_ref": stable_governed_browser_ref(
+                    "idempotency-ref:governed-human-challenge-handoff",
+                    {
+                        "source_idempotency_ref": execution.idempotency_ref,
+                        "recipe_ref": recipe.recipe_ref,
+                    },
+                ),
+            }
+        )
         if self._clock() < recipe.created_at:
-            replay = self._kernel.replay_if_terminal(execution)
+            replay = self._kernel.replay_if_terminal(kernel_execution)
             if replay is not None:
                 return _result_from_external_receipt(
                     request=request,
@@ -649,7 +682,7 @@ class ExactGovernedHumanChallengeHandoffService:
                 verified=True,
             )
 
-        external_receipt = self._kernel.execute(execution, dispatch=dispatch)
+        external_receipt = self._kernel.execute(kernel_execution, dispatch=dispatch)
         handoff = captured.get("handoff")
         if (
             external_receipt.replayed
