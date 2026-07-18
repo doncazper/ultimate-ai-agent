@@ -311,6 +311,33 @@ class ExternalActionTransactionStore:
             )
             return ExternalActionState(row[1]), receipt
 
+    def replay_if_terminal(
+        self,
+        request: ExternalActionExecutionRequest,
+    ) -> ExternalActionReceipt | None:
+        """Return an exact stored terminal receipt without claiming a transaction."""
+
+        fingerprint = stable_governed_browser_ref(
+            "request-fingerprint-ref:governed-external-action",
+            request.model_dump(mode="json"),
+        )
+        with self._lock, self._connect() as connection:
+            row = connection.execute(
+                "SELECT fingerprint_ref, receipt_json "
+                "FROM governed_external_actions WHERE transaction_ref = ?",
+                (request.binding.transaction_ref,),
+            ).fetchone()
+        if row is None:
+            return None
+        if row[0] != fingerprint:
+            raise ExternalActionTransactionConflict(
+                "GOVERNED_EXTERNAL_ACTION_IDEMPOTENCY_CONFLICT"
+            )
+        if row[1] is None:
+            return None
+        receipt = ExternalActionReceipt.model_validate_json(row[1])
+        return receipt.model_copy(update={"replayed": True})
+
     def claim_start(self, transaction_ref: str) -> bool:
         with self._lock, self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
@@ -593,6 +620,14 @@ class GovernedExternalActionKernel:
             budget_settlement_ref=settlement.receipt_ref,
             evidence_refs=list(dispatch_result.evidence_refs),
         )
+
+    def replay_if_terminal(
+        self,
+        request: ExternalActionExecutionRequest,
+    ) -> ExternalActionReceipt | None:
+        """Inspect an exact terminal transaction without creating or claiming it."""
+
+        return self._store.replay_if_terminal(request)
 
     def _activation_reasons(self, request: ExternalActionExecutionRequest) -> list[str]:
         if request.binding.target_kind == ExternalActionTargetKind.external.value:

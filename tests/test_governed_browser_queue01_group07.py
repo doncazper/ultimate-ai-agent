@@ -21,6 +21,9 @@ from ultimate_ai_agent.core.governed_browser import (
     ExternalActionAuthorityBinding,
     ExternalActionExecutionRequest,
     ExternalActionTargetKind,
+    GovernedHumanChallengeAction,
+    GovernedHumanChallengeHandoffReceipt,
+    GovernedHumanChallengeHandoffRecipe,
     GovernedHumanChallengeHandoffRecipeRegistry,
     GovernedHumanChallengeKind,
     build_external_action_approval_request,
@@ -394,11 +397,12 @@ def test_expiry_and_dispatch_revalidation_never_return_handoff(
     assert expired.receipt.status == "failed"
     assert expired.handoff is None
 
+    current_time = [recipe.created_at - timedelta(seconds=1)]
     future_service, _ = _service(
         tmp_path / "future",
         request=request,
         registry=registry,
-        clock=lambda: recipe.created_at - timedelta(seconds=1),
+        clock=lambda: current_time[0],
     )
     future = future_service.prepare(
         ExactGovernedHumanChallengeHandoffRequest(
@@ -406,8 +410,18 @@ def test_expiry_and_dispatch_revalidation_never_return_handoff(
             recipe_ref=recipe.recipe_ref,
         )
     )
-    assert future.receipt.status == "failed"
+    assert future.receipt.status == "preflight_blocked"
     assert future.handoff is None
+    assert future.receipt.replayed is False
+    current_time[0] = recipe.created_at
+    valid = future_service.prepare(
+        ExactGovernedHumanChallengeHandoffRequest(
+            execution_request=request,
+            recipe_ref=recipe.recipe_ref,
+        )
+    )
+    assert valid.receipt.status == "handoff_ready"
+    assert valid.handoff is not None
 
     exact_expiry_service, _ = _service(
         tmp_path / "exact-expiry",
@@ -455,6 +469,125 @@ def test_successful_handoff_replay_preserves_durable_receipt_after_expiry(
     assert replay.handoff is None
 
 
+def test_terminal_handoff_replays_before_recipe_window_without_new_claim(
+    tmp_path: Path,
+) -> None:
+    request, recipe, registry = _challenge_context(suffix="replay-before-window")
+    current_time = [recipe.created_at]
+    service, _ = _service(
+        tmp_path,
+        request=request,
+        registry=registry,
+        clock=lambda: current_time[0],
+    )
+    exact = ExactGovernedHumanChallengeHandoffRequest(
+        execution_request=request,
+        recipe_ref=recipe.recipe_ref,
+    )
+
+    first = service.prepare(exact)
+    current_time[0] = recipe.created_at - timedelta(seconds=1)
+    replay = service.prepare(exact)
+
+    assert first.receipt.status == "handoff_ready"
+    assert replay.receipt.status == "replayed_content_free"
+    assert replay.receipt.external_action_state == "succeeded"
+    assert replay.receipt.replayed is True
+    assert replay.handoff is None
+
+
+def test_registered_recipe_cannot_outlive_binding_deadline(tmp_path: Path) -> None:
+    base = _binding(suffix="deadline", deadline_offset=timedelta(minutes=5))
+    created_at = utc_now()
+    expires_at = base.start_deadline + timedelta(seconds=1)
+    source_observation_ref = "browser-observe-output:governed-browser:deadline"
+    visibility_proof_ref = _ref("visibility-proof", "deadline")
+    handoff_surface_ref = _ref("human-handoff-surface", "deadline")
+    challenge_ref = governed_human_challenge_ref(
+        kind=GovernedHumanChallengeKind.mfa,
+        origin_ref=base.origin_ref,
+        page_snapshot_ref=base.page_snapshot_ref,
+        source_observation_ref=source_observation_ref,
+        visibility_proof_ref=visibility_proof_ref,
+    )
+    schema_ref = governed_human_challenge_schema_ref(
+        kind=GovernedHumanChallengeKind.mfa,
+        challenge_ref=challenge_ref,
+    )
+    handoff_ref = governed_human_challenge_handoff_ref(
+        challenge_ref=challenge_ref,
+        human_presence_ref=base.human_presence_ref,
+        handoff_surface_ref=handoff_surface_ref,
+        expires_at=expires_at,
+    )
+    binding = ExternalActionAuthorityBinding.model_validate(
+        {
+            **base.model_dump(mode="json"),
+            "authority_capability": AuthorityCapability.prepare,
+            "field_schema_ref": schema_ref,
+            "resource_refs": [
+                _ref("resource", "deadline"),
+                challenge_ref,
+                source_observation_ref,
+                visibility_proof_ref,
+                handoff_surface_ref,
+                handoff_ref,
+            ],
+        }
+    )
+    request = _request(binding)
+    recipe_payload = {
+        "handoff_ref": handoff_ref,
+        "challenge_ref": challenge_ref,
+        "challenge_schema_ref": schema_ref,
+        "binding_ref": binding.binding_ref,
+        "origin_ref": binding.origin_ref,
+        "page_snapshot_ref": binding.page_snapshot_ref,
+        "source_observation_ref": source_observation_ref,
+        "visibility_proof_ref": visibility_proof_ref,
+        "human_presence_ref": binding.human_presence_ref,
+        "handoff_surface_ref": handoff_surface_ref,
+        "challenge_kind": GovernedHumanChallengeKind.mfa,
+        "required_human_action": (
+            GovernedHumanChallengeAction.complete_mfa_on_external_surface
+        ),
+        "created_at": created_at,
+        "expires_at": expires_at,
+    }
+    provisional = GovernedHumanChallengeHandoffRecipe.model_construct(
+        recipe_ref="human-challenge-handoff-recipe-ref:governed-browser:pending",
+        **recipe_payload,
+    )
+    recipe_ref = stable_governed_browser_ref(
+        "human-challenge-handoff-recipe-ref:governed-browser",
+        provisional.model_dump(mode="json", exclude={"recipe_ref"}),
+    )
+    recipe = GovernedHumanChallengeHandoffRecipe(
+        recipe_ref=recipe_ref,
+        **recipe_payload,
+    )
+    registry = GovernedHumanChallengeHandoffRecipeRegistry([recipe])
+    service, _ = _service(
+        tmp_path,
+        request=request,
+        registry=registry,
+        clock=lambda: created_at,
+    )
+
+    result = service.prepare(
+        ExactGovernedHumanChallengeHandoffRequest(
+            execution_request=request,
+            recipe_ref=recipe.recipe_ref,
+        )
+    )
+
+    assert result.receipt.status == "preflight_blocked"
+    assert result.receipt.reason_refs == [
+        "reason-ref:governed-human-challenge:handoff-outlives-deadline"
+    ]
+    assert result.handoff is None
+
+
 def test_contracts_reject_raw_or_unbound_handoff_fields() -> None:
     request, recipe, _ = _challenge_context(suffix="validation")
     with pytest.raises(ValueError):
@@ -484,6 +617,30 @@ def test_contracts_reject_raw_or_unbound_handoff_fields() -> None:
             created_at=recipe.created_at,
             expires_at=recipe.expires_at,
         )
+    receipt_payload = {
+        "recipe_ref": recipe.recipe_ref,
+        "transaction_ref": request.binding.transaction_ref,
+        "intent_ref": request.intent_ref,
+        "binding_ref": request.binding.binding_ref,
+        "status": "preflight_blocked",
+        "external_action_state": "blocked",
+        "reason_refs": ["reason-ref:governed-human-challenge:test"],
+    }
+    receipt_ref = stable_governed_browser_ref(
+        "receipt-ref:governed-human-challenge-handoff",
+        GovernedHumanChallengeHandoffReceipt.model_construct(
+            receipt_ref="receipt-ref:governed-human-challenge-handoff:pending",
+            **receipt_payload,
+        ).model_dump(mode="json", exclude={"receipt_ref"}),
+    )
+    parsed = GovernedHumanChallengeHandoffReceipt(
+        receipt_ref=receipt_ref,
+        **receipt_payload,
+    )
+    forged = parsed.model_dump(mode="json")
+    forged["receipt_ref"] = "receipt-ref:governed-human-challenge-handoff:forged"
+    with pytest.raises(ValueError, match="RECEIPT_REF_MISMATCH"):
+        GovernedHumanChallengeHandoffReceipt.model_validate(forged)
 
 
 def test_receipts_are_content_free_and_verifier_passes(tmp_path: Path) -> None:

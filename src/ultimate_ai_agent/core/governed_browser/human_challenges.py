@@ -533,6 +533,12 @@ class GovernedHumanChallengeHandoffReceipt(BaseModel):
             and not self.replayed
         ):
             raise ValueError("GOVERNED_HUMAN_CHALLENGE_REPLAY_FLAG_REQUIRED")
+        expected_receipt_ref = stable_governed_browser_ref(
+            "receipt-ref:governed-human-challenge-handoff",
+            self.model_dump(mode="json", exclude={"receipt_ref"}),
+        )
+        if self.receipt_ref != expected_receipt_ref:
+            raise ValueError("GOVERNED_HUMAN_CHALLENGE_RECEIPT_REF_MISMATCH")
         validate_safe_task_payload(
             self.model_dump(mode="json"),
             "governed_human_challenge_handoff_receipt",
@@ -594,6 +600,18 @@ class ExactGovernedHumanChallengeHandoffService:
         scope_reason = _recipe_scope_reason(recipe, execution)
         if scope_reason is not None:
             return _preflight_blocked(request, scope_reason)
+        if self._clock() < recipe.created_at:
+            replay = self._kernel.replay_if_terminal(execution)
+            if replay is not None:
+                return _result_from_external_receipt(
+                    request=request,
+                    external_receipt=replay,
+                    handoff=None,
+                )
+            return _preflight_blocked(
+                request,
+                "reason-ref:governed-human-challenge:handoff-not-yet-valid",
+            )
         captured: dict[str, ExactGovernedHumanChallengeHandoff] = {}
 
         def dispatch(
@@ -690,6 +708,10 @@ def _recipe_scope_reason(
         (
             binding.target_kind == ExternalActionTargetKind.local_validation.value,
             "reason-ref:governed-human-challenge:real-targets-inactive",
+        ),
+        (
+            recipe.expires_at <= binding.start_deadline,
+            "reason-ref:governed-human-challenge:handoff-outlives-deadline",
         ),
     )
     return next((reason for allowed, reason in checks if not allowed), None)

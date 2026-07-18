@@ -24,6 +24,10 @@ def verify() -> list[str]:
         "src/ultimate_ai_agent/core/governed_browser/human_challenges.py",
         failures,
     )
+    transaction = _read(
+        "src/ultimate_ai_agent/core/governed_browser/transaction.py",
+        failures,
+    )
     package = _read(
         "src/ultimate_ai_agent/core/governed_browser/__init__.py",
         failures,
@@ -44,6 +48,7 @@ def verify() -> list[str]:
             "GovernedHumanChallengeHandoffRecipeRegistry",
             "ExactGovernedHumanChallengeHandoffService",
             "GovernedExternalActionKernel",
+            "GOVERNED_HUMAN_CHALLENGE_RECEIPT_REF_MISMATCH",
             "MAX_HUMAN_CHALLENGE_HANDOFF_LIFETIME",
             "exact_capability: Literal[AuthorityCapability.prepare]",
             "registered_recipe_required: Literal[True]",
@@ -69,6 +74,11 @@ def verify() -> list[str]:
             "captcha_bypass_performed: Literal[False]",
             "network_call_performed: Literal[False]",
         ),
+        "transaction": (
+            "def replay_if_terminal",
+            "SELECT fingerprint_ref, receipt_json",
+            "GOVERNED_EXTERNAL_ACTION_IDEMPOTENCY_CONFLICT",
+        ),
         "package": (
             "ExactGovernedHumanChallengeHandoffService",
             "GovernedHumanChallengeHandoffRecipeRegistry",
@@ -83,6 +93,8 @@ def verify() -> list[str]:
             "test_exact_scope_human_presence_and_real_targets_fail_closed",
             "test_expiry_and_dispatch_revalidation_never_return_handoff",
             "test_successful_handoff_replay_preserves_durable_receipt_after_expiry",
+            "test_terminal_handoff_replays_before_recipe_window_without_new_claim",
+            "test_registered_recipe_cannot_outlive_binding_deadline",
             "test_contracts_reject_raw_or_unbound_handoff_fields",
             "test_receipts_are_content_free_and_verifier_passes",
         ),
@@ -95,6 +107,7 @@ def verify() -> list[str]:
     }
     values = {
         "handoffs": handoffs,
+        "transaction": transaction,
         "package": package,
         "tests": tests,
         "doc": doc,
@@ -113,7 +126,7 @@ def verify() -> list[str]:
         if marker not in text:
             failures.append(f"Queue 01 group 07 {label} marker missing: {marker}")
 
-    runtime_text = "\n".join((handoffs, package)).lower()
+    runtime_text = "\n".join((handoffs, transaction, package)).lower()
     for fragment in (
         "import requests",
         "import httpx",

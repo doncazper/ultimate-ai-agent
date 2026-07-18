@@ -345,7 +345,11 @@ material or a challenge response, invoke a passkey, solve or bypass CAPTCHA,
 open a browser, start or use an authenticated session, navigate, use cookies,
 make a network call, or perform an external mutation. The transaction is
 at-most-once; a replay returns only a content-free replay receipt and no
-handoff projection. Uncertain post-start state remains non-retryable.
+handoff projection. A call before the recipe window is a non-mutating
+preflight block unless the exact transaction already has a terminal receipt.
+Handoff receipt refs are recomputed from the complete safe-ref-only payload,
+and a registered handoff window cannot outlive the bound start deadline.
+Uncertain post-start state remains non-retryable.
 
 No raw MFA value, passkey challenge, WebAuthn payload, CAPTCHA site key,
 CAPTCHA response, credential material, URL, page content, or provider payload
