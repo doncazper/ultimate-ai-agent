@@ -33,7 +33,10 @@ from .contracts import (
     ExternalActionTargetKind,
     stable_governed_browser_ref,
 )
-from .transaction import GovernedExternalActionKernel
+from .transaction import (
+    ExternalActionTransactionConflict,
+    GovernedExternalActionKernel,
+)
 
 
 MAX_GOVERNED_EXTERNAL_OPERATION_RECIPE_LIFETIME = timedelta(minutes=10)
@@ -756,7 +759,6 @@ class ExactGovernedExternalOperationContract(BaseModel):
         "uaa-governed-external-operation-contract.v1"
     )
     contract_ref: str
-    recipe_ref: str
     operation_authority_ref: str
     binding_ref: str
     operation: GovernedExternalOperation
@@ -1030,8 +1032,7 @@ class ExactGovernedExternalOperationResult(BaseModel):
         if ready != (self.contract is not None):
             raise ValueError("GOVERNED_EXTERNAL_OPERATION_CONTRACT_PROJECTION_MISMATCH")
         if self.contract is not None and (
-            self.contract.recipe_ref != self.receipt.recipe_ref
-            or self.contract.contract_ref != self.receipt.contract_ref
+            self.contract.contract_ref != self.receipt.contract_ref
             or self.contract.operation != self.receipt.operation
             or self.contract.target_ref != self.receipt.target_ref
             or self.contract.operation_authority_ref
@@ -1092,12 +1093,26 @@ class ExactGovernedExternalOperationService:
             execution,
             recipe_ref=recipe.recipe_ref,
         )
-        replay = self._kernel.replay_if_terminal(kernel_execution)
+        try:
+            replay = self._kernel.replay_if_terminal(kernel_execution)
+            prior_start = self._kernel.recover_if_prior_start(kernel_execution)
+        except ExternalActionTransactionConflict:
+            return _preflight_blocked(
+                request,
+                "reason-ref:governed-external-operation:idempotency-conflict",
+            )
         if replay is not None:
             return _result_from_external_receipt(
                 request=request,
                 recipe=recipe,
                 external_receipt=replay,
+                contract=None,
+            )
+        if prior_start is not None:
+            return _result_from_external_receipt(
+                request=request,
+                recipe=recipe,
+                external_receipt=prior_start,
                 contract=None,
             )
         current_time, clock_reason = _read_clock(self._clock)
@@ -1148,7 +1163,16 @@ class ExactGovernedExternalOperationService:
                 verified=True,
             )
 
-        external_receipt = self._kernel.execute(kernel_execution, dispatch=dispatch)
+        try:
+            external_receipt = self._kernel.execute(
+                kernel_execution,
+                dispatch=dispatch,
+            )
+        except ExternalActionTransactionConflict:
+            return _preflight_blocked(
+                request,
+                "reason-ref:governed-external-operation:idempotency-conflict",
+            )
         contract = captured.get("contract")
         if (
             external_receipt.replayed
@@ -1262,7 +1286,6 @@ def _build_exact_contract(
 ) -> ExactGovernedExternalOperationContract:
     return ExactGovernedExternalOperationContract(
         contract_ref=recipe.contract_ref,
-        recipe_ref=recipe.recipe_ref,
         operation_authority_ref=recipe.operation_authority_ref,
         binding_ref=recipe.binding_ref,
         operation=recipe.operation,

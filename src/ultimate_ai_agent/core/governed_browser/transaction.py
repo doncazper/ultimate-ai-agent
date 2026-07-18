@@ -340,6 +340,30 @@ class ExternalActionTransactionStore:
         receipt = ExternalActionReceipt.model_validate_json(row[1])
         return receipt.model_copy(update={"replayed": True})
 
+    def state_if_exact(
+        self,
+        request: ExternalActionExecutionRequest,
+    ) -> ExternalActionState | None:
+        """Read the state only when the complete request fingerprint still matches."""
+
+        fingerprint = stable_governed_browser_ref(
+            "request-fingerprint-ref:governed-external-action",
+            request.model_dump(mode="json"),
+        )
+        with self._lock, self._connect() as connection:
+            row = connection.execute(
+                "SELECT fingerprint_ref, state "
+                "FROM governed_external_actions WHERE transaction_ref = ?",
+                (request.binding.transaction_ref,),
+            ).fetchone()
+        if row is None:
+            return None
+        if row[0] != fingerprint:
+            raise ExternalActionTransactionConflict(
+                "GOVERNED_EXTERNAL_ACTION_IDEMPOTENCY_CONFLICT"
+            )
+        return ExternalActionState(row[1])
+
     def terminal_receipt_by_ref(
         self,
         *,
@@ -674,6 +698,22 @@ class GovernedExternalActionKernel:
         """Inspect an exact terminal transaction without creating or claiming it."""
 
         return self._store.replay_if_terminal(request)
+
+    def recover_if_prior_start(
+        self,
+        request: ExternalActionExecutionRequest,
+    ) -> ExternalActionReceipt | None:
+        """Finish an exact orphaned start as ambiguous before later preflight checks."""
+
+        if self._store.state_if_exact(request) != ExternalActionState.started:
+            return None
+
+        def reject_unexpected_dispatch(
+            _request: ExternalActionExecutionRequest,
+        ) -> ExternalActionDispatchResult:
+            raise RuntimeError("GOVERNED_EXTERNAL_ACTION_PRIOR_START_DISPATCH_BLOCKED")
+
+        return self.execute(request, dispatch=reject_unexpected_dispatch)
 
     def terminal_receipt_by_ref(
         self,

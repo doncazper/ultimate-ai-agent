@@ -654,6 +654,60 @@ def test_success_replay_is_content_free_and_at_most_once(tmp_path: Path) -> None
     assert replay.contract is None
 
 
+def test_idempotency_drift_returns_content_free_blocked_receipt(
+    tmp_path: Path,
+) -> None:
+    request, recipe, registry = _operation_context(
+        operation=GovernedExternalOperation.publish_artifact,
+        suffix="idempotency-drift",
+    )
+    service, _ = _service(
+        tmp_path,
+        request=request,
+        registry=registry,
+    )
+    first = service.prepare(_exact(request, recipe))
+    drifted_request = request.model_copy(
+        update={"idempotency_ref": _ref("idempotency", "drifted")}
+    )
+
+    drifted = service.prepare(_exact(drifted_request, recipe))
+
+    assert first.receipt.status == "contract_ready"
+    assert drifted.receipt.status == "preflight_blocked"
+    assert drifted.receipt.reason_refs == [
+        "reason-ref:governed-external-operation:idempotency-conflict"
+    ]
+    assert drifted.receipt.content_free is True
+    assert drifted.receipt.external_mutation_performed is False
+    assert drifted.contract is None
+
+
+def test_exported_contract_cannot_be_rebound_to_another_recipe(
+    tmp_path: Path,
+) -> None:
+    request, recipe, registry = _operation_context(
+        operation=GovernedExternalOperation.create_account,
+        suffix="contract-recipe-binding",
+    )
+    service, _ = _service(
+        tmp_path,
+        request=request,
+        registry=registry,
+    )
+    result = service.prepare(_exact(request, recipe))
+    assert result.contract is not None
+    payload = result.contract.model_dump(mode="json")
+    assert "recipe_ref" not in payload
+    payload["recipe_ref"] = _pinned(
+        "external-operation-recipe-ref:governed-browser",
+        suffix="rebound",
+    )
+
+    with pytest.raises(ValueError):
+        type(result.contract).model_validate(payload)
+
+
 def test_success_and_replay_receipts_require_complete_kernel_proof(
     tmp_path: Path,
 ) -> None:
@@ -722,6 +776,50 @@ def test_expired_recipe_is_non_mutating_preflight_denial(tmp_path: Path) -> None
     assert result.receipt.reason_refs == [
         "reason-ref:governed-external-operation:recipe-expired"
     ]
+    assert result.contract is None
+
+
+def test_prior_started_transaction_remains_outcome_ambiguous_after_recipe_expiry(
+    tmp_path: Path,
+) -> None:
+    now = utc_now()
+    request, recipe, registry = _operation_context(
+        operation=GovernedExternalOperation.delete_resource,
+        suffix="prior-start-expired",
+        created_at=now - timedelta(minutes=2),
+        expires_at=now - timedelta(minutes=1),
+    )
+    service, _ = _service(
+        tmp_path,
+        request=request,
+        registry=registry,
+        clock=lambda: now,
+    )
+    kernel_request = request.model_copy(
+        update={
+            "idempotency_ref": stable_governed_browser_ref(
+                "idempotency-ref:governed-external-operation",
+                {
+                    "source_idempotency_ref": request.idempotency_ref,
+                    "recipe_ref": recipe.recipe_ref,
+                },
+            )
+        }
+    )
+    store = ExternalActionTransactionStore(tmp_path / "transactions.sqlite3")
+    prepared_state, prepared_receipt = store.prepare(kernel_request)
+    assert prepared_state == "prepared"
+    assert prepared_receipt is None
+    assert store.claim_start(request.binding.transaction_ref) is True
+
+    result = service.prepare(_exact(request, recipe))
+
+    assert result.receipt.status == "outcome_ambiguous"
+    assert result.receipt.external_action_state == "outcome_ambiguous"
+    assert result.receipt.reason_refs == [
+        "reason-ref:governed-external-action:prior-start-unsettled"
+    ]
+    assert result.receipt.external_mutation_performed is False
     assert result.contract is None
 
 
