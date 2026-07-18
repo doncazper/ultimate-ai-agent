@@ -237,13 +237,25 @@ def test_bounded_download_is_quarantined_only_and_receipts_are_content_free(
     assert secret not in result.model_dump_json()
     assert str(quarantine_root) not in result.model_dump_json()
     assert result.quarantine is not None
-    foreign_quarantine = result.quarantine.model_copy(
-        update={
-            "recipe_ref": _pinned(
-                "artifact-transfer-recipe-ref:governed-browser",
-                suffix="foreign-projection",
-            )
-        }
+    foreign_quarantine_payload = result.quarantine.model_dump(mode="python")
+    foreign_quarantine_payload["recipe_ref"] = _pinned(
+        "artifact-transfer-recipe-ref:governed-browser",
+        suffix="foreign-projection",
+    )
+    provisional_foreign_quarantine = type(result.quarantine).model_construct(
+        **foreign_quarantine_payload
+    )
+    foreign_quarantine_payload["quarantine_projection_ref"] = (
+        stable_governed_browser_ref(
+            "artifact-quarantine-projection-ref:governed-browser",
+            provisional_foreign_quarantine.model_dump(
+                mode="json",
+                exclude={"quarantine_projection_ref"},
+            ),
+        )
+    )
+    foreign_quarantine = type(result.quarantine).model_validate(
+        foreign_quarantine_payload
     )
     with pytest.raises(ValueError, match="QUARANTINE_RESULT_SCOPE_MISMATCH"):
         ExactGovernedArtifactTransferResult(
@@ -640,6 +652,10 @@ def test_raw_upload_payload_is_denied_and_zeroized_before_transaction(
         store,
         operation=(GovernedArtifactTransferOperation.upload_quarantined_artifact_plan),
         suffix="raw-upload",
+        download_transaction_ref=_pinned(
+            "transaction-ref:governed-browser",
+            suffix="raw-upload-source",
+        ),
         content_fingerprint_ref=fingerprint,
     )
     service, _, _ = _service(

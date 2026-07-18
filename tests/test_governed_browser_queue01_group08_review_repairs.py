@@ -5,10 +5,13 @@ from pathlib import Path
 import pytest
 
 from tests.test_governed_browser_queue01_group08 import (
+    _exact,
     _pinned,
+    _service,
     _transfer_context,
 )
 from ultimate_ai_agent.core.governed_browser import (
+    ExactGovernedArtifactTransferResult,
     ExternalActionTargetKind,
     GovernedArtifactMediaType,
     GovernedArtifactQuarantineStore,
@@ -19,6 +22,15 @@ from ultimate_ai_agent.core.governed_browser import (
     governed_artifact_ref,
     stable_governed_browser_ref,
 )
+
+
+def _rehash_receipt(payload: dict[str, object]) -> dict[str, object]:
+    provisional = GovernedArtifactTransferReceipt.model_construct(**payload)
+    payload["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-artifact-transfer",
+        provisional.model_dump(mode="json", exclude={"receipt_ref"}),
+    )
+    return payload
 
 
 def test_exact_scope_real_targets_and_receipt_forgery_fail_closed(
@@ -133,3 +145,169 @@ def test_exact_scope_real_targets_and_receipt_forgery_fail_closed(
     )
     with pytest.raises(ValueError, match="OPERATION_STATUS_MISMATCH"):
         GovernedArtifactTransferReceipt.model_validate(forged)
+
+
+def test_upload_source_transaction_must_be_prior_and_distinct(tmp_path: Path) -> None:
+    store = GovernedArtifactQuarantineStore(tmp_path / "artifacts")
+    fingerprint = store.validate_payload(
+        payload=b"source transaction",
+        declared_media_type=GovernedArtifactMediaType.text_plain,
+        max_bytes=1024,
+    ).content_fingerprint_ref
+
+    with pytest.raises(ValueError, match="SOURCE_TRANSACTION_MUST_BE_DISTINCT"):
+        _transfer_context(
+            store,
+            operation=(
+                GovernedArtifactTransferOperation.upload_quarantined_artifact_plan
+            ),
+            suffix="same-source-transaction",
+            content_fingerprint_ref=fingerprint,
+        )
+
+
+@pytest.mark.parametrize(
+    "missing_ref",
+    [
+        "external_action_receipt_ref",
+        "approval_validation_ref",
+        "authority_decision_ref",
+        "budget_reservation_ref",
+        "budget_settlement_ref",
+    ],
+)
+def test_ready_receipts_require_complete_kernel_proof(
+    tmp_path: Path,
+    missing_ref: str,
+) -> None:
+    store = GovernedArtifactQuarantineStore(tmp_path / "artifacts")
+    request, recipe, registry = _transfer_context(
+        store,
+        operation=GovernedArtifactTransferOperation.download_quarantine,
+        suffix=f"receipt-proof-{missing_ref}",
+    )
+    service, _, _ = _service(
+        tmp_path / "kernel",
+        store=store,
+        request=request,
+        registry=registry,
+    )
+    result = service.execute(
+        _exact(request, recipe),
+        injected_download_payload=bytearray(b"kernel proof"),
+    )
+    forged = result.receipt.model_dump(mode="json")
+    forged[missing_ref] = None
+    _rehash_receipt(forged)
+
+    with pytest.raises(ValueError, match="READY_KERNEL_PROOF_REQUIRED"):
+        GovernedArtifactTransferReceipt.model_validate(forged)
+    if missing_ref == "external_action_receipt_ref":
+        missing_evidence = result.receipt.model_dump(mode="json")
+        missing_evidence["evidence_refs"] = []
+        _rehash_receipt(missing_evidence)
+        with pytest.raises(ValueError, match="READY_EVIDENCE_MISMATCH"):
+            GovernedArtifactTransferReceipt.model_validate(missing_evidence)
+
+
+@pytest.mark.parametrize("tampered_field", ["byte_count", "content_fingerprint_ref"])
+def test_quarantine_projection_must_match_receipt_evidence(
+    tmp_path: Path,
+    tampered_field: str,
+) -> None:
+    store = GovernedArtifactQuarantineStore(tmp_path / "artifacts")
+    request, recipe, registry = _transfer_context(
+        store,
+        operation=GovernedArtifactTransferOperation.download_quarantine,
+        suffix=f"quarantine-evidence-{tampered_field}",
+    )
+    service, _, _ = _service(
+        tmp_path / "kernel",
+        store=store,
+        request=request,
+        registry=registry,
+    )
+    result = service.execute(
+        _exact(request, recipe),
+        injected_download_payload=bytearray(b"quarantine evidence"),
+    )
+    assert result.quarantine is not None
+    forged = result.quarantine.model_dump(mode="python")
+    if tampered_field == "byte_count":
+        forged["byte_count"] += 1
+    else:
+        forged["content_fingerprint_ref"] = _pinned(
+            "content-fingerprint-ref:governed-browser",
+            suffix="tampered-quarantine",
+        )
+    provisional = type(result.quarantine).model_construct(**forged)
+    forged["quarantine_projection_ref"] = stable_governed_browser_ref(
+        "artifact-quarantine-projection-ref:governed-browser",
+        provisional.model_dump(
+            mode="json",
+            exclude={"quarantine_projection_ref"},
+        ),
+    )
+    tampered = type(result.quarantine).model_validate(forged)
+
+    with pytest.raises(ValueError, match="QUARANTINE_RESULT_EVIDENCE_MISMATCH"):
+        ExactGovernedArtifactTransferResult(
+            receipt=result.receipt,
+            quarantine=tampered,
+        )
+
+
+def test_upload_plan_must_match_receipt_fingerprint_and_plan_evidence(
+    tmp_path: Path,
+) -> None:
+    store = GovernedArtifactQuarantineStore(tmp_path / "artifacts")
+    download_request, download_recipe, download_registry = _transfer_context(
+        store,
+        operation=GovernedArtifactTransferOperation.download_quarantine,
+        suffix="plan-evidence-download",
+    )
+    download_service, _, _ = _service(
+        tmp_path / "download-kernel",
+        store=store,
+        request=download_request,
+        registry=download_registry,
+    )
+    downloaded = download_service.execute(
+        _exact(download_request, download_recipe),
+        injected_download_payload=bytearray(b"plan evidence"),
+    )
+    assert downloaded.quarantine is not None
+    upload_request, upload_recipe, upload_registry = _transfer_context(
+        store,
+        operation=GovernedArtifactTransferOperation.upload_quarantined_artifact_plan,
+        suffix="plan-evidence-upload",
+        artifact_ref=download_recipe.artifact_ref,
+        quarantine_ref=download_recipe.quarantine_ref,
+        download_transaction_ref=download_recipe.download_transaction_ref,
+        content_fingerprint_ref=downloaded.quarantine.content_fingerprint_ref,
+    )
+    upload_service, _, _ = _service(
+        tmp_path / "upload-kernel",
+        store=store,
+        request=upload_request,
+        registry=upload_registry,
+    )
+    result = upload_service.execute(_exact(upload_request, upload_recipe))
+    assert result.upload_plan is not None
+    forged = result.upload_plan.model_dump(mode="python")
+    forged["transfer_surface_ref"] = _pinned(
+        "artifact-transfer-surface-ref:governed-browser",
+        suffix="tampered-plan",
+    )
+    provisional = type(result.upload_plan).model_construct(**forged)
+    forged["plan_ref"] = stable_governed_browser_ref(
+        "artifact-upload-plan-ref:governed-browser",
+        provisional.model_dump(mode="json", exclude={"plan_ref"}),
+    )
+    tampered = type(result.upload_plan).model_validate(forged)
+
+    with pytest.raises(ValueError, match="UPLOAD_PLAN_RESULT_EVIDENCE_MISMATCH"):
+        ExactGovernedArtifactTransferResult(
+            receipt=result.receipt,
+            upload_plan=tampered,
+        )

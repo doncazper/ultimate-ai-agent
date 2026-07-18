@@ -374,7 +374,8 @@ source download transaction from which that quarantine ref must be recomputed,
 the app-owned quarantine-store ref, transfer schema and visible surface refs, a
 maximum byte count, a window of at most ten minutes, and exactly one
 `download` or `upload` browser capability. An upload recipe additionally binds
-the content fingerprint of the already-quarantined artifact. A generic,
+the content fingerprint of the already-quarantined artifact and must name a
+distinct prior download transaction rather than its own upload transaction. A generic,
 administrative, destructive, implied-broader, or identifier-only approval
 cannot substitute for the exact lease and approval.
 
@@ -389,13 +390,15 @@ prepare → PolicyEngine → LocalApprovalAuthority → exact AuthorityLease
 The implemented download effect exists only for injected local-validation
 bytes. After all shared gates, it validates a declared bounded media type and
 size, rejects empty, mismatched, oversized, or active text payloads, and writes
-once to an app-owned quarantine using an owner-only directory, a derived
-filename, `O_EXCL`, `O_NOFOLLOW` where supported, and `0600` file permissions.
-Directory or file substitution fails closed. The transient mutable input is
-zeroized after every result. The raw bytes exist only in this purpose-specific
-quarantine; no ordinary user path or raw artifact is returned or written into
-the transaction ledger, receipt, evidence, docs, or logs. Quarantined content
-is explicitly untrusted and is not opened or promoted to authority.
+the exact validated immutable snapshot once to an app-owned quarantine using
+an owner-only directory, a derived filename, `O_EXCL`, `O_NOFOLLOW` where
+supported, and `0600` file permissions. A concurrent mutation of the caller's
+buffer cannot change the bytes written after validation. Directory or file
+substitution fails closed. The transient mutable input is zeroized after every
+result. The raw bytes exist only in this purpose-specific quarantine; no
+ordinary user path or raw artifact is returned or written into the transaction
+ledger, receipt, evidence, docs, or logs. Quarantined content is explicitly
+untrusted and is not opened or promoted to authority.
 
 The upload operation is plan-only. It accepts no upload body and reads only the
 exact authority-bound quarantine entry. The stored regular file must remain
@@ -406,7 +409,12 @@ media type, expiry, and explicit false posture for body materialization,
 browser, network, upload, real target, and external mutation.
 The success result contract rejects a quarantine or upload-plan projection
 unless its recipe, artifact, quarantine, and source download transaction
-exactly match the content-free receipt.
+exactly match the content-free receipt. Ready receipts require the complete
+non-replayed shared-kernel approval, authority, reservation, settlement, and
+external-receipt proof refs. Their exact evidence list binds the artifact,
+quarantine, content fingerprint, and the hash-pinned quarantine projection or
+upload plan, so altered byte counts, fingerprints, snapshots, or transfer
+surfaces cannot be paired with an earlier receipt.
 
 The transaction fingerprint includes the registered recipe. Terminal replay
 does not read or write quarantine again and returns only a content-free

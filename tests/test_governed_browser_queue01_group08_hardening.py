@@ -61,6 +61,42 @@ def test_quarantine_store_rejects_symlinks_substitution_and_unsafe_modes(
     assert list(moved.iterdir()) == []
 
 
+def test_quarantine_writes_the_validated_immutable_payload_snapshot(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = GovernedArtifactQuarantineStore(tmp_path / "artifacts")
+    payload = bytearray(b"validated snapshot")
+    original_validate = store.validate_payload
+
+    def validate_then_mutate_source(**kwargs):  # type: ignore[no-untyped-def]
+        inspection = original_validate(**kwargs)
+        payload[:] = b"mutated after hash"
+        return inspection
+
+    monkeypatch.setattr(store, "validate_payload", validate_then_mutate_source)
+    quarantine_ref = _pinned(
+        "artifact-quarantine-ref:governed-browser",
+        suffix="immutable-snapshot",
+    )
+    inspection = store.quarantine(
+        quarantine_ref=quarantine_ref,
+        payload=payload,
+        declared_media_type=GovernedArtifactMediaType.text_plain,
+        max_bytes=1024,
+    )
+    monkeypatch.setattr(store, "validate_payload", original_validate)
+
+    observed = store.inspect(
+        quarantine_ref=quarantine_ref,
+        declared_media_type=GovernedArtifactMediaType.text_plain,
+        max_bytes=1024,
+        expected_content_fingerprint_ref=inspection.content_fingerprint_ref,
+    )
+    assert observed == inspection
+    assert payload == bytearray(b"mutated after hash")
+
+
 def test_group08_verifier_passes_and_contains_no_raw_material() -> None:
     assert verify() == []
     source = Path(
