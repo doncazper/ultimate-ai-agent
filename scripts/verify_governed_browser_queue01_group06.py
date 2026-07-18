@@ -159,6 +159,8 @@ def verify() -> list[str]:
             "test_service_rejects_immutable_credential_buffer_without_masking_result",
             "test_missing_credential_probe_is_failed_not_ambiguous_and_not_retried",
             "test_native_helper_rejects_duplicate_stores",
+            "test_non_mutating_keychain_preconditions_are_not_ambiguous",
+            "test_expired_revalidation_persists_expiry_but_reports_failure",
             "test_installer_metadata_is_content_free_exact_and_rejects_unmanaged_pair",
         ),
         "doc": (

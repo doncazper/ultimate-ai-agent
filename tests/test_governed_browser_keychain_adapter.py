@@ -195,12 +195,35 @@ def test_adapter_rejects_tamper_symlink_invalid_response_and_immutable_buffer(
         helper_path=clean,
         expected_helper_sha256=clean_digest,
     )
+    missing_adapter = MacOSGovernedBrowserKeychainAdapter(
+        helper_path=tmp_path / "missing-helper",
+        expected_helper_sha256=clean_digest,
+    )
+    missing_material = bytearray(range(16))
+    with pytest.raises(
+        GovernedBrowserKeychainError,
+        match="FILE_UNTRUSTED",
+    ):
+        missing_adapter.store(
+            registration,
+            request_ref="request-ref:governed-browser-keychain:missing",
+            credential_material=missing_material,
+        )
+    assert all(value == 0 for value in missing_material)
     with pytest.raises(TypeError, match="MUTABLE_BUFFER_REQUIRED"):
         clean_adapter.store(  # type: ignore[arg-type]
             registration,
             request_ref="request-ref:governed-browser-keychain:immutable",
             credential_material=bytes(range(16)),
         )
+    invalid_request_material = bytearray(range(16))
+    with pytest.raises(ValueError):
+        clean_adapter.store(
+            registration,
+            request_ref="",
+            credential_material=invalid_request_material,
+        )
+    assert all(value == 0 for value in invalid_request_material)
     short = bytearray(range(8))
     with pytest.raises(GovernedBrowserKeychainError, match="LENGTH_INVALID"):
         clean_adapter.store(

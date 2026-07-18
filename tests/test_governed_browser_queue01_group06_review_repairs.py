@@ -15,8 +15,10 @@ from ultimate_ai_agent.core.governed_browser import (
     ExactGovernedBrowserOriginSessionRequest,
     ExactGovernedBrowserOriginSessionService,
     ExternalActionAuthorityBinding,
+    GovernedBrowserKeychainError,
     GovernedBrowserOriginSessionOperation,
     GovernedBrowserOriginSessionRecipeRegistry,
+    GovernedBrowserOriginSessionState,
     GovernedBrowserOriginSessionStore,
     build_governed_browser_origin_session_recipe,
     governed_browser_origin_session_operation_authority_ref,
@@ -190,3 +192,131 @@ def test_native_helper_rejects_duplicate_stores() -> None:
     text = Path(source).read_text(encoding="utf-8")
     assert "HELPER_CREDENTIAL_ALREADY_EXISTS" in text
     assert text.count("throw HelperFailure.credentialAlreadyExists") == 2
+
+
+def test_non_mutating_keychain_preconditions_are_not_ambiguous(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    registration, contexts, registry = _lifecycle_context()
+    enroll_request, enroll_recipe = contexts[
+        GovernedBrowserOriginSessionOperation.enroll_credential
+    ]
+    untrusted_keychain = _FakeKeychain()
+
+    def untrusted_store(*args, **kwargs):  # type: ignore[no-untyped-def]
+        del args, kwargs
+        untrusted_keychain.calls.append(("store", "request-ref:redacted"))
+        raise GovernedBrowserKeychainError(
+            "GOVERNED_BROWSER_KEYCHAIN_HELPER_FINGERPRINT_MISMATCH"
+        )
+
+    monkeypatch.setattr(untrusted_keychain, "store", untrusted_store)
+    untrusted_kernel, _ = _authorized_kernel(
+        tmp_path / "untrusted-kernel",
+        enroll_request,
+    )
+    untrusted_service = ExactGovernedBrowserOriginSessionService(
+        registry=registry,
+        kernel=untrusted_kernel,
+        keychain=untrusted_keychain,
+        sessions=GovernedBrowserOriginSessionStore(
+            tmp_path / "untrusted-sessions.sqlite3"
+        ),
+    )
+    material = bytearray(range(32))
+    enroll_exact = ExactGovernedBrowserOriginSessionRequest(
+        recipe_ref=enroll_recipe.recipe_ref,
+        execution_request=enroll_request,
+    )
+    failed_untrusted = untrusted_service.execute(
+        enroll_exact,
+        credential_material=material,
+    )
+    replay_material = bytearray(range(32))
+    replay_untrusted = untrusted_service.execute(
+        enroll_exact,
+        credential_material=replay_material,
+    )
+    assert failed_untrusted.receipt.status == "failed"
+    assert replay_untrusted.receipt.status == "replayed"
+    assert [operation for operation, _ in untrusted_keychain.calls] == ["store"]
+    assert all(value == 0 for value in material)
+    assert all(value == 0 for value in replay_material)
+
+    prepare_request, prepare_recipe = contexts[
+        GovernedBrowserOriginSessionOperation.prepare_session
+    ]
+    locked_keychain = _FakeKeychain()
+    locked_keychain.present.add(registration.registration_ref)
+
+    def locked_probe(*args, **kwargs):  # type: ignore[no-untyped-def]
+        del args, kwargs
+        locked_keychain.calls.append(("probe", "request-ref:redacted"))
+        raise GovernedBrowserKeychainError("GOVERNED_BROWSER_KEYCHAIN_LOCKED")
+
+    monkeypatch.setattr(locked_keychain, "probe", locked_probe)
+    locked_kernel, _ = _authorized_kernel(
+        tmp_path / "locked-kernel",
+        prepare_request,
+    )
+    locked_service = ExactGovernedBrowserOriginSessionService(
+        registry=registry,
+        kernel=locked_kernel,
+        keychain=locked_keychain,
+        sessions=GovernedBrowserOriginSessionStore(
+            tmp_path / "locked-sessions.sqlite3"
+        ),
+    )
+    exact = ExactGovernedBrowserOriginSessionRequest(
+        recipe_ref=prepare_recipe.recipe_ref,
+        execution_request=prepare_request,
+    )
+    failed = locked_service.execute(exact)
+    replay = locked_service.execute(exact)
+
+    assert failed.receipt.status == "failed"
+    assert replay.receipt.status == "replayed"
+    assert [operation for operation, _ in locked_keychain.calls] == ["probe"]
+
+
+def test_expired_revalidation_persists_expiry_but_reports_failure(
+    tmp_path: Path,
+) -> None:
+    registration, contexts, registry = _lifecycle_context()
+    keychain = _FakeKeychain()
+    keychain.present.add(registration.registration_ref)
+    sessions = GovernedBrowserOriginSessionStore(tmp_path / "sessions.sqlite3")
+    prepared, _ = _execute(
+        tmp_path=tmp_path,
+        operation=GovernedBrowserOriginSessionOperation.prepare_session,
+        contexts=contexts,
+        registry=registry,
+        keychain=keychain,
+        sessions=sessions,
+    )
+    assert prepared.session is not None
+
+    request, recipe = contexts[
+        GovernedBrowserOriginSessionOperation.revalidate_session
+    ]
+    kernel, _ = _authorized_kernel(tmp_path / "revalidate-kernel", request)
+    service = ExactGovernedBrowserOriginSessionService(
+        registry=registry,
+        kernel=kernel,
+        keychain=keychain,
+        sessions=sessions,
+        clock=lambda: recipe.expires_at + timedelta(seconds=1),
+    )
+    result = service.execute(
+        ExactGovernedBrowserOriginSessionRequest(
+            recipe_ref=recipe.recipe_ref,
+            execution_request=request,
+        )
+    )
+
+    assert result.receipt.status == "failed"
+    assert result.session is None
+    persisted = sessions.inspect(recipe.session_ref)
+    assert persisted is not None
+    assert persisted.state == GovernedBrowserOriginSessionState.expired.value

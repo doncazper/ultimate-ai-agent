@@ -418,22 +418,21 @@ class MacOSGovernedBrowserKeychainAdapter:
         request_ref: str,
         credential_material: bytearray,
     ) -> GovernedBrowserKeychainOperationReceipt:
-        registration = GovernedBrowserCredentialRegistration.model_validate(
-            registration.model_dump(mode="json")
-        )
-        validate_task_ref(request_ref, "request_ref")
         if not isinstance(credential_material, bytearray):
             raise TypeError("GOVERNED_BROWSER_CREDENTIAL_MUTABLE_BUFFER_REQUIRED")
-        if not (
-            GOVERNED_BROWSER_CREDENTIAL_MIN_BYTES
-            <= len(credential_material)
-            <= GOVERNED_BROWSER_CREDENTIAL_MAX_BYTES
-        ):
-            _zeroize(credential_material)
-            raise GovernedBrowserKeychainError(
-                "GOVERNED_BROWSER_CREDENTIAL_LENGTH_INVALID"
-            )
         try:
+            registration = GovernedBrowserCredentialRegistration.model_validate(
+                registration.model_dump(mode="json")
+            )
+            validate_task_ref(request_ref, "request_ref")
+            if not (
+                GOVERNED_BROWSER_CREDENTIAL_MIN_BYTES
+                <= len(credential_material)
+                <= GOVERNED_BROWSER_CREDENTIAL_MAX_BYTES
+            ):
+                raise GovernedBrowserKeychainError(
+                    "GOVERNED_BROWSER_CREDENTIAL_LENGTH_INVALID"
+                )
             encoded_material = (
                 base64.urlsafe_b64encode(bytes(credential_material))
                 .rstrip(b"=")
@@ -557,7 +556,12 @@ class MacOSGovernedBrowserKeychainAdapter:
             raise GovernedBrowserKeychainError(
                 "GOVERNED_BROWSER_KEYCHAIN_HELPER_REQUEST_TOO_LARGE"
             )
-        descriptor, expected_digest = self._open_validated_helper()
+        try:
+            descriptor, expected_digest = self._open_validated_helper()
+        except FileNotFoundError as exc:
+            raise GovernedBrowserKeychainError(
+                "GOVERNED_BROWSER_KEYCHAIN_HELPER_FILE_UNTRUSTED"
+            ) from exc
         try:
             with tempfile.TemporaryDirectory(
                 prefix="uaa-browser-keychain-exec-",

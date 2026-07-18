@@ -20,6 +20,8 @@ from ultimate_ai_agent.core.planning.validation import (
 from ultimate_ai_agent.core.time import utc_now
 
 from .browser_keychain import (
+    GOVERNED_BROWSER_CREDENTIAL_MAX_BYTES,
+    GOVERNED_BROWSER_CREDENTIAL_MIN_BYTES,
     GOVERNED_BROWSER_KEYCHAIN_ITEM_ALREADY_EXISTS,
     GOVERNED_BROWSER_KEYCHAIN_ITEM_NOT_FOUND,
     GovernedBrowserCredentialRegistration,
@@ -39,6 +41,21 @@ from .transaction import GovernedExternalActionKernel
 
 
 MAX_GOVERNED_BROWSER_SESSION_LIFETIME = timedelta(hours=1)
+_NON_MUTATING_KEYCHAIN_ERROR_CODES = frozenset(
+    {
+        GOVERNED_BROWSER_KEYCHAIN_ITEM_ALREADY_EXISTS,
+        GOVERNED_BROWSER_KEYCHAIN_ITEM_NOT_FOUND,
+        "GOVERNED_BROWSER_CREDENTIAL_LENGTH_INVALID",
+        "GOVERNED_BROWSER_KEYCHAIN_HELPER_COPY_FINGERPRINT_MISMATCH",
+        "GOVERNED_BROWSER_KEYCHAIN_HELPER_COPY_SHORT_WRITE",
+        "GOVERNED_BROWSER_KEYCHAIN_HELPER_FILE_CHANGED",
+        "GOVERNED_BROWSER_KEYCHAIN_HELPER_FILE_UNTRUSTED",
+        "GOVERNED_BROWSER_KEYCHAIN_HELPER_FINGERPRINT_MISMATCH",
+        "GOVERNED_BROWSER_KEYCHAIN_HELPER_REQUEST_TOO_LARGE",
+        "GOVERNED_BROWSER_KEYCHAIN_LOCKED",
+        "GOVERNED_BROWSER_KEYCHAIN_UNSUPPORTED_PLATFORM",
+    }
+)
 
 
 class GovernedBrowserOriginSessionOperation(str, Enum):
@@ -880,6 +897,18 @@ class ExactGovernedBrowserOriginSessionService:
                     "credential-material-required",
                     recipe=recipe,
                 )
+            if not (
+                GOVERNED_BROWSER_CREDENTIAL_MIN_BYTES
+                <= len(credential_material)
+                <= GOVERNED_BROWSER_CREDENTIAL_MAX_BYTES
+            ):
+                _zeroize_optional(credential_material)
+                return _preflight_blocked(
+                    request,
+                    "reason-ref:governed-browser-origin-session:"
+                    "credential-length-invalid",
+                    recipe=recipe,
+                )
         elif credential_material is not None:
             _zeroize_optional(credential_material)
             return _preflight_blocked(
@@ -888,7 +917,6 @@ class ExactGovernedBrowserOriginSessionService:
                 "unexpected-credential-material",
                 recipe=recipe,
             )
-
         captured_keychain: GovernedBrowserKeychainOperationReceipt | None = None
         captured_session: GovernedBrowserOriginSessionRecord | None = None
         operation_ref = stable_governed_browser_ref(
@@ -967,10 +995,7 @@ class ExactGovernedBrowserOriginSessionService:
                         now=self._clock(),
                     )
             except GovernedBrowserKeychainError as exc:
-                if str(exc) not in {
-                    GOVERNED_BROWSER_KEYCHAIN_ITEM_ALREADY_EXISTS,
-                    GOVERNED_BROWSER_KEYCHAIN_ITEM_NOT_FOUND,
-                }:
+                if str(exc) not in _NON_MUTATING_KEYCHAIN_ERROR_CODES:
                     raise
                 return ExternalActionDispatchResult(
                     outcome=ExternalActionDispatchOutcome.failed,
@@ -1010,6 +1035,24 @@ class ExactGovernedBrowserOriginSessionService:
                         else ExternalActionDispatchOutcome.failed
                     ),
                     evidence_refs=conflict_evidence_refs,
+                    verified=False,
+                )
+            if (
+                operation
+                == GovernedBrowserOriginSessionOperation.revalidate_session
+                and captured_session is not None
+                and captured_session.state
+                == GovernedBrowserOriginSessionState.expired.value
+            ):
+                assert captured_keychain is not None
+                return ExternalActionDispatchResult(
+                    outcome=ExternalActionDispatchOutcome.failed,
+                    evidence_refs=[
+                        operation_ref,
+                        captured_keychain.helper_receipt_ref,
+                        captured_keychain.keychain_item_ref,
+                        captured_session.state_receipt_ref,
+                    ],
                     verified=False,
                 )
             evidence_refs = [operation_ref]

@@ -297,10 +297,13 @@ The durable session store contains only safe refs, timestamps, posture, and a
 derived state receipt. It never stores credential or web content. Preparation
 creates `prepared_inactive`, not a live browser session, and refuses a recipe
 whose session window has already expired. Revalidation can mark the record
-expired; close and revoke are exact terminal transitions. A deterministic
-missing-credential probe or duplicate store is recorded as failed without
-retry, while uncertain helper failures after the durable start claim become
-`outcome_ambiguous`. Replay does not call Keychain again or return a state
+expired and reports that transition as failed rather than successful; close
+and revoke are exact terminal transitions. A deterministic missing-credential
+probe, duplicate store, locked Keychain, untrusted helper, or other proven
+non-mutating local precondition is recorded as failed without retry, while
+uncertain helper failures after the durable start claim remain
+`outcome_ambiguous`. Mutable credential buffers are zeroized even when adapter
+scope validation fails. Replay does not call Keychain again or return a state
 projection.
 
 This item is a real local macOS Keychain adapter, not real browser
