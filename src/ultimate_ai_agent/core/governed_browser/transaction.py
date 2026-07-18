@@ -14,8 +14,10 @@ from pydantic import BaseModel, ConfigDict, Field
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.approvals.decisions import ApprovalValidationRequest
 from ultimate_ai_agent.core.authority import (
+    AuthorityCapability,
     AuthorityConstraintKind,
     AuthorityDecisionOutcome,
+    AuthorityDomain,
     AuthorityLease,
 )
 from ultimate_ai_agent.core.authority.budget_contracts import (
@@ -311,6 +313,33 @@ class ExternalActionTransactionStore:
             )
             return ExternalActionState(row[1]), receipt
 
+    def replay_if_terminal(
+        self,
+        request: ExternalActionExecutionRequest,
+    ) -> ExternalActionReceipt | None:
+        """Return an exact stored terminal receipt without claiming a transaction."""
+
+        fingerprint = stable_governed_browser_ref(
+            "request-fingerprint-ref:governed-external-action",
+            request.model_dump(mode="json"),
+        )
+        with self._lock, self._connect() as connection:
+            row = connection.execute(
+                "SELECT fingerprint_ref, receipt_json "
+                "FROM governed_external_actions WHERE transaction_ref = ?",
+                (request.binding.transaction_ref,),
+            ).fetchone()
+        if row is None:
+            return None
+        if row[0] != fingerprint:
+            raise ExternalActionTransactionConflict(
+                "GOVERNED_EXTERNAL_ACTION_IDEMPOTENCY_CONFLICT"
+            )
+        if row[1] is None:
+            return None
+        receipt = ExternalActionReceipt.model_validate_json(row[1])
+        return receipt.model_copy(update={"replayed": True})
+
     def claim_start(self, transaction_ref: str) -> bool:
         with self._lock, self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
@@ -594,6 +623,14 @@ class GovernedExternalActionKernel:
             evidence_refs=list(dispatch_result.evidence_refs),
         )
 
+    def replay_if_terminal(
+        self,
+        request: ExternalActionExecutionRequest,
+    ) -> ExternalActionReceipt | None:
+        """Inspect an exact terminal transaction without creating or claiming it."""
+
+        return self._store.replay_if_terminal(request)
+
     def _activation_reasons(self, request: ExternalActionExecutionRequest) -> list[str]:
         if request.binding.target_kind == ExternalActionTargetKind.external.value:
             return ["reason-ref:governed-external-action:real-targets-inactive"]
@@ -689,6 +726,7 @@ class GovernedExternalActionKernel:
         lease: AuthorityLease,
         request: ExternalActionExecutionRequest,
     ) -> bool:
+        browser_capabilities = lease.domains.get(AuthorityDomain.browser, [])
         resource_constraints = [
             constraint
             for constraint in lease.authority_constraints
@@ -706,6 +744,10 @@ class GovernedExternalActionKernel:
         ]
         return (
             lease.is_active()
+            and len(lease.domains) == 1
+            and len(browser_capabilities) == 1
+            and AuthorityCapability(browser_capabilities[0])
+            == AuthorityCapability(request.binding.authority_capability)
             and len(resource_constraints) == 1
             and set(resource_constraints[0].allowed_refs)
             == set(request.binding.exact_resource_refs())

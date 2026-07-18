@@ -1,16 +1,17 @@
 # Governed Browser And External Actions — Queue 01
 
-Status: active program; items 01–08 are `implemented_inactive`.
+Status: active program; items 01–09 are `implemented_inactive`.
 All real external targets remain inactive.
 
-This document records the first six coherent Queue 01 groups. They implement
+This document records the first seven coherent Queue 01 groups. They implement
 exact authority semantics, an isolated injected browser-broker boundary, an
 external-action transaction kernel, and a readable Action Inbox execution
 envelope, plus registered Evidence Recipes for exact injected observation,
 registered same-origin visible-click / GET-form action plans, and registered
 exact POST-form schemas, plus a real hash-pinned macOS Keychain opaque-handle
-adapter and inactive per-origin session lifecycle without activating real
-external targets.
+adapter and inactive per-origin session lifecycle, plus registered
+human-present MFA, passkey, and CAPTCHA handoff-only contracts without
+activating real external targets.
 It grants no standing browser authority, unrestricted browsing, provider SDK
 call, live network fetch, click, form submission, authenticated session,
 download, upload, purchase, publishing action, or production authority.
@@ -27,6 +28,7 @@ download, upload, purchase, publishing action, or production authority.
 | 06. Same-origin visible clicks and GET forms | `implemented_inactive` | A registered action recipe binds the exact `click` or `form_fill` lease capability, prior observation, page snapshot, source/destination safe URL refs, same origin, visible element/proof, field schema, and opaque GET-form value refs. The existing kernel and WebAccessGateway produce one injected action plan plus a separate content-free receipt. | Plan-only: no browser session, navigation, click, form fill/submission, request body, network call, authenticated profile, external mutation, or real external target; Queue 02 remains required. |
 | 07. Registered exact POST-form schemas | `implemented_inactive` | A content-derived schema registry binds the exact origin, snapshot, prior observation, source/destination safe URL refs, visible form/proof, bounded safe-ref-only field definitions, encoding, and total byte ceiling. A separate registered recipe binds the exact field-to-opaque-value refs and `form_fill` lease scope, then produces one injected POST-schema plan and content-free receipt through the existing kernel and gateway. | Schema-plan only: the gateway envelope remains internal GET, and no field value is resolved, request body is materialized, browser/session starts, form is filled/submitted, authenticated state is used, network call or external mutation occurs, or real external target is enabled; Queue 02 remains required. |
 | 08. Real macOS Keychain opaque-handle adapter and per-origin session lifecycle | `implemented_inactive` | A purpose-specific Security.framework helper stores, probes, and idempotently deletes one exact origin/opaque-handle/generation item in device-only, nonsynchronizing macOS Keychain storage. Python invokes only an owner-controlled absolute helper through a source-hash-sealed, executable-hash-pinned, bounded local subprocess. Registered lifecycle recipes bind exactly one operation-specific authority ref and compose PolicyEngine, LocalApprovalAuthority, exact AuthorityLease, shared budget, readiness/deadline/human-presence/safe-disable/kill-switch checks, at-most-once dispatch, and a safe-ref-only SQLite session record. Duplicate enrollment is rejected, expired preparation is blocked, and a missing credential is a deterministic failed precondition rather than an ambiguous effect. | Keychain enrollment and deletion are local governed operations only. Session state is `prepared_inactive`: no browser session, authentication, cookie use, navigation, live network, external mutation, real external target, route, or UI control is enabled. Queue 02 remains required. |
+| 09. Human-present MFA, passkey, and CAPTCHA handoff only | `implemented_inactive` | An immutable registry binds one visible challenge kind, content-derived challenge/schema/handoff refs, exact origin and page snapshot, prior observation, visibility proof, handoff surface, expiry, current human-presence assertion, and exact `prepare` capability. Material-like values hidden inside handoff refs are denied unless the ref is a SHA-256-pinned identifier. The existing transaction kernel rejects implied broader lease capabilities and produces a content-free human-action handoff and receipt only after PolicyEngine, LocalApprovalAuthority, exact AuthorityLease, shared budget, readiness, deadline, safe-disable, and kill-switch validation. Its recipe-bound transaction fingerprint prevents a receipt for one registered recipe from being replayed as another. | Handoff only: UAA does not handle challenge material or responses, operate a passkey, solve or bypass CAPTCHA, open a browser, start a session, authenticate, navigate, use cookies, call a network, complete the challenge, mutate an external target, expose a route/UI handler, or enable a real external target. An external facility and Queue 02 validation remain required. |
 
 ## Exact Authority Is Not A Superuser Hierarchy
 
@@ -314,6 +316,52 @@ authentication. There is no browser session, authentication, passkey/MFA
 flow, cookie jar, browser engine, navigation, network transport, external
 target, route, Control Center control, or standing authority.
 
+## Human-Present Challenge Handoff Only
+
+`GovernedHumanChallengeHandoffRecipeRegistry` accepts immutable recipes for
+exactly three challenge classes: MFA, passkey, and CAPTCHA. A recipe binds the
+exact authority binding, origin, current page snapshot, prior untrusted
+observation, visible-challenge proof, human-presence ref, handoff-surface ref,
+content-derived challenge/schema/handoff refs, a window of at most ten minutes,
+and the exact `prepare` capability. The challenge schema ref is the binding's
+field schema, and every challenge, observation, visibility, surface, and
+handoff ref must already be in the exact AuthorityLease resource scope.
+Material-like values hidden inside those refs are denied unless the identifier
+is SHA-256-pinned. The lease must contain only the exact browser `prepare`
+capability; a broader capability that merely implies `prepare` is rejected.
+Unknown recipes, absent human presence, stale handoffs, scope drift, and real
+external targets fail closed.
+
+`ExactGovernedHumanChallengeHandoffService` uses the existing transaction
+kernel:
+
+```text
+prepare → PolicyEngine → LocalApprovalAuthority → exact AuthorityLease
+→ budget reserve → readiness/deadline/human-presence/safe-disable/kill-switch
+  revalidate → prepare content-free human handoff → verify → budget settle
+```
+
+A successful result states only the safe refs, challenge kind, required human
+action, expiry, and explicit false posture. The human must complete the
+challenge on an external facility. The service does not handle challenge
+material or a challenge response, invoke a passkey, solve or bypass CAPTCHA,
+open a browser, start or use an authenticated session, navigate, use cookies,
+make a network call, or perform an external mutation. The transaction is
+at-most-once; a replay returns only a content-free replay receipt and no
+handoff projection. A call before the recipe window is a non-mutating
+preflight block unless the exact transaction already has a terminal receipt.
+The transaction fingerprint includes the selected registered recipe, so a
+receipt created for one recipe cannot be replayed as a different recipe.
+Handoff receipt refs are recomputed from the complete safe-ref-only payload,
+and a registered handoff window cannot outlive the bound start deadline.
+Uncertain post-start state remains non-retryable.
+
+No raw MFA value, passkey challenge, WebAuthn payload, CAPTCHA site key,
+CAPTCHA response, credential material, URL, page content, or provider payload
+is accepted or stored. This group adds no route, Control Center control,
+browser adapter, provider SDK, external facility integration, real target, or
+standing authority.
+
 ## Validation Boundary
 
 The only executable proof in this group is deterministic injected
@@ -351,8 +399,11 @@ PYTHONPATH=src .venv/bin/python -m pytest -q \
 /usr/bin/swift build \
   --package-path tools/macos/governed-browser-keychain-helper \
   -c release
+PYTHONPATH=src .venv/bin/python -m pytest -q \
+  tests/test_governed_browser_queue01_group07.py
+.venv/bin/python scripts/verify_governed_browser_queue01_group07.py
 ```
 
-Queue 01 items 09–13 remain pending and must be implemented in their manifest
+Queue 01 items 10–13 remain pending and must be implemented in their manifest
 order. Queue 02 remains the separate adversarial hardening gate; no status in
 this document satisfies or bypasses that gate.
