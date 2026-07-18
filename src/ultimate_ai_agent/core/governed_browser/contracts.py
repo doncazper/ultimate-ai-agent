@@ -134,6 +134,10 @@ class ExternalActionAuthorityBinding(BaseModel):
         "uaa-governed-external-action-binding.v1"
     )
     target_kind: ExternalActionTargetKind
+    authority_capability: AuthorityCapability = Field(
+        default=AuthorityCapability.execute,
+        validate_default=True,
+    )
     origin: str = Field(..., min_length=1, max_length=240)
     origin_ref: str = Field(..., min_length=1, max_length=240)
     recipient_ref: str = Field(..., min_length=1, max_length=240)
@@ -343,7 +347,7 @@ def build_external_action_authority_request(
             {"intent_ref": request.intent_ref, "binding_ref": binding.binding_ref},
         ),
         domain=AuthorityDomain.browser,
-        capability=AuthorityCapability.execute,
+        capability=AuthorityCapability(binding.authority_capability),
         safe_summary="Evaluate one exact governed external-action transaction.",
         resource_refs=binding.exact_resource_refs(),
         route_ref="core/governed-browser/external-action-transaction",

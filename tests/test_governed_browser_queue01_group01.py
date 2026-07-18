@@ -120,7 +120,11 @@ def _lease(request: ExternalActionExecutionRequest) -> AuthorityLease:
         mode=TrustMode.ask_before_changes,
         scope=AuthorityLeaseScope.session,
         status=AuthorityLeaseStatus.active,
-        domains={AuthorityDomain.browser: [AuthorityCapability.execute]},
+        domains={
+            AuthorityDomain.browser: [
+                AuthorityCapability(request.binding.authority_capability)
+            ]
+        },
         authority_constraints=[
             AuthorityConstraint(
                 constraint_ref=_ref("authority-constraint", "resources"),
