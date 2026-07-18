@@ -24,6 +24,7 @@ from ultimate_ai_agent.core.governed_browser import (
     ExternalActionTransactionStore,
     GovernedExternalActionKernel,
     GovernedTaskCompositionPlan,
+    GovernedTaskCompositionReceipt,
     GovernedTaskCompositionRecipe,
     GovernedTaskCompositionRecipeRegistry,
     GovernedTaskCompositionStep,
@@ -145,6 +146,10 @@ def _composition_context(
         {
             **base.model_dump(mode="json"),
             "authority_capability": AuthorityCapability.prepare,
+            "transaction_ref": _pinned(
+                "transaction-ref:governed-task-composer",
+                suffix,
+            ),
             "recipient_ref": plan_ref,
             "field_schema_ref": schema_ref,
             "artifact_refs": [operation.operation_ref for operation in operations],
@@ -303,10 +308,15 @@ def test_raw_or_broad_intent_cannot_enter_the_composer() -> None:
 
 
 def test_operation_registration_is_hash_bound_and_authority_unique() -> None:
+    shared_authority_ref = _pinned(
+        "source-authority-ref:governed-task-composer",
+        "shared",
+    )
     operation = _operation(
         suffix="bound",
         kind=GovernedTaskOperationKind.external_operation,
         capability=AuthorityCapability.send,
+        authority_ref=shared_authority_ref,
     )
     with pytest.raises(ValidationError, match="OPERATION_REF_MISMATCH"):
         RegisteredGovernedTaskOperation.model_validate(
@@ -322,21 +332,27 @@ def test_operation_registration_is_hash_bound_and_authority_unique() -> None:
         suffix="other",
         kind=GovernedTaskOperationKind.external_operation,
         capability=AuthorityCapability.send,
-        authority_ref=operation.operation_authority_ref,
+        authority_ref=shared_authority_ref,
     )
     with pytest.raises(ValueError, match="OPERATION_AUTHORITY_DUPLICATE"):
         GovernedTaskOperationRegistry([operation, duplicate_authority])
-    with pytest.raises(ValueError, match="SOURCE_HASH_PIN_REQUIRED"):
-        build_registered_governed_task_operation(
-            kind=GovernedTaskOperationKind.external_operation,
-            source_recipe_ref="source-recipe-ref:governed-task-composer:mutable",
-            source_contract_ref=operation.source_contract_ref,
-            source_binding_ref=operation.source_binding_ref,
-            operation_authority_ref=operation.operation_authority_ref,
-            required_capability=AuthorityCapability.send,
-            target_ref=operation.target_ref,
-            schema_ref=operation.schema_ref,
-        )
+    contentful = build_registered_governed_task_operation(
+        kind=GovernedTaskOperationKind.external_operation,
+        source_recipe_ref="source-recipe-ref:send-alice@example.com",
+        source_contract_ref="source-contract-ref:account-primary",
+        source_binding_ref="source-binding-ref:recipient-alice",
+        operation_authority_ref="source-authority-ref:send-alice",
+        required_capability=AuthorityCapability.send,
+        target_ref="source-target-ref:alice@example.com",
+        schema_ref="source-schema-ref:private-message",
+    )
+    serialized = contentful.model_dump_json()
+    assert "alice" not in serialized
+    assert "primary" not in serialized
+    assert "private-message" not in serialized
+    assert contentful.source_recipe_ref.startswith(
+        "source-recipe-ref:governed-task-composer:sha256:"
+    )
     registry = GovernedTaskOperationRegistry([operation])
     with pytest.raises(AttributeError):
         registry.registry_ref = _pinned(
@@ -489,6 +505,32 @@ def test_unknown_recipe_and_exact_request_drift_are_preflight_blocked(
     ]
     assert unknown.plan is None
     assert drifted.plan is None
+
+
+def test_composition_request_rejects_contentful_refs_and_transaction_ids() -> None:
+    request, recipe, _, _ = _composition_context(suffix="opaque-request")
+    exact = _exact(request, recipe)
+    with pytest.raises(ValidationError, match="PLAN_REF_REQUIRED"):
+        ExactGovernedTaskCompositionRequest.model_validate(
+            {
+                **exact.model_dump(mode="json"),
+                "plan_ref": "plan-ref:send-alice@example.com",
+            }
+        )
+    descriptive_binding = ExternalActionAuthorityBinding.model_validate(
+        {
+            **request.binding.model_dump(mode="json"),
+            "transaction_ref": "transaction-ref:governed-browser:send-alice@example.com",
+        }
+    )
+    with pytest.raises(ValidationError, match="TRANSACTION_REF_REQUIRED"):
+        ExactGovernedTaskCompositionRequest(
+            execution_request=_request(descriptive_binding),
+            recipe_ref=recipe.recipe_ref,
+            plan_ref=recipe.plan_ref,
+            broad_intent_ref=recipe.broad_intent_ref,
+            registry_ref=recipe.registry_ref,
+        )
 
 
 def test_approval_identifier_alone_grants_no_composition_plan(tmp_path: Path) -> None:
@@ -699,6 +741,57 @@ def test_serialized_plan_cannot_rebind_a_registered_operation_or_plan_ref(
     )
     with pytest.raises(ValidationError, match="PLAN_REF_MISMATCH"):
         GovernedTaskCompositionPlan.model_validate(plan_ref_drift)
+
+    proof_ref_drift = result.plan.model_dump(mode="json")
+    proof_ref_drift["binding_ref"] = _pinned(
+        "authority-binding-ref:governed-external-action",
+        "rebound",
+    )
+    with pytest.raises(ValidationError, match="ENVELOPE_REF_MISMATCH"):
+        GovernedTaskCompositionPlan.model_validate(proof_ref_drift)
+
+    duplicate_operation = result.plan.model_dump(mode="json")
+    duplicate_operation["steps"][1] = {
+        **duplicate_operation["steps"][0],
+        "ordinal": 2,
+        "depends_on_step_refs": [
+            duplicate_operation["steps"][0]["step_ref"],
+        ],
+    }
+    duplicate_operation["steps"][1]["step_ref"] = build_governed_task_composition_step(
+        ordinal=2,
+        operation_ref=duplicate_operation["steps"][0]["operation_ref"],
+        depends_on_step_refs=[
+            duplicate_operation["steps"][0]["step_ref"],
+        ],
+    ).step_ref
+    with pytest.raises(ValidationError, match="OPERATION_REUSE_DENIED"):
+        GovernedTaskCompositionPlan.model_validate(duplicate_operation)
+
+
+def test_recipe_registry_returns_defensive_copies_and_receipt_states_are_exact(
+    tmp_path: Path,
+) -> None:
+    request, recipe, operations, recipes = _composition_context(suffix="defensive-copy")
+    resolved = recipes.resolve(recipe.recipe_ref)
+    assert resolved is not None
+    resolved.steps[0].depends_on_step_refs.append(recipe.steps[1].step_ref)
+    fresh = recipes.resolve(recipe.recipe_ref)
+    assert fresh is not None
+    assert fresh.steps[0].depends_on_step_refs == []
+
+    composer, _ = _composer(
+        tmp_path,
+        request=request,
+        operation_registry=operations,
+        recipe_registry=recipes,
+    )
+    result = composer.compose(_exact(request, recipe))
+    assert result.receipt.status == "plan_ready"
+    mismatched = result.receipt.model_dump(mode="json")
+    mismatched["status"] = "preflight_blocked"
+    with pytest.raises(ValidationError, match="RECEIPT_STATE_MISMATCH"):
+        GovernedTaskCompositionReceipt.model_validate(mismatched)
 
 
 def test_static_item13_verifier_passes() -> None:

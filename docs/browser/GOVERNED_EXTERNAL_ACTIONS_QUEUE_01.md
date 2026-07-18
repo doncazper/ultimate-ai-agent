@@ -542,7 +542,9 @@ challenge-handoff, download-quarantine, upload-plan, external-operation, and
 financial-operation families. Each record binds a content-pinned source recipe,
 contract, binding, target, schema, exact operation-authority ref, and one
 family-appropriate later capability. Duplicate authority refs, mutable source
-refs, unknown families, and mismatched capabilities are rejected.
+refs, unknown families, and mismatched capabilities are rejected. The source
+refs are wrapped into purpose-specific opaque SHA-256 refs before registration,
+so descriptive source identifiers cannot flow into a plan or receipt.
 
 A composition recipe contains one to eight unique registered operations in
 exact order. Dependencies may point only to earlier steps, which makes cycles
@@ -552,7 +554,9 @@ authority into the existing external-action transaction kernel. Composition
 uses only `AuthorityCapability.prepare`; an approval identifier alone grants
 nothing, and exact PolicyEngine, LocalApprovalAuthority, AuthorityLease,
 budget, readiness, deadline, current human presence, safe-disable, and kill
-switch checks still apply.
+switch checks still apply. A separate composition-envelope ref binds the plan,
+recipe, composer-authority, and external-action binding refs so a serialized
+plan cannot be rebound outside the service.
 
 The plan explicitly records that every operation needs separate later exact
 authority. Composer authority is never inherited by a step, no step is

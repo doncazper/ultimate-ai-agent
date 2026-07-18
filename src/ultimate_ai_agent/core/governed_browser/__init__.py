@@ -189,6 +189,7 @@ from .task_composer import (
     build_registered_governed_task_operation,
     governed_task_broad_intent_ref,
     governed_task_composer_authority_ref,
+    governed_task_composition_envelope_ref,
     governed_task_composition_plan_ref,
     governed_task_composition_schema_ref,
 )
@@ -403,6 +404,7 @@ __all__ = [
     "governed_human_challenge_schema_ref",
     "governed_task_broad_intent_ref",
     "governed_task_composer_authority_ref",
+    "governed_task_composition_envelope_ref",
     "governed_task_composition_plan_ref",
     "governed_task_composition_schema_ref",
     "stable_governed_browser_ref",
