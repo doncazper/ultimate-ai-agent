@@ -1,0 +1,1322 @@
+"""Plan-only composition of broad intent into exact registered operations.
+
+Queue 01 item 13 adds a deterministic local-validation boundary.  A caller
+may provide only a hash-pinned broad-intent reference.  The composer can
+project that reference into an ordered plan of immutable registry records, but
+it cannot create a new capability, inherit authority into a step, execute a
+step, call a model, open a browser, call a network, or perform an external
+effect.
+"""
+
+from __future__ import annotations
+
+import re
+from collections.abc import Callable, Sequence
+from datetime import datetime, timedelta, timezone
+from enum import Enum
+from typing import Literal
+
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictBool,
+    StrictInt,
+    model_validator,
+)
+
+from ultimate_ai_agent.core.authority import AuthorityCapability
+from ultimate_ai_agent.core.planning.validation import (
+    validate_safe_task_payload,
+    validate_task_ref,
+)
+from ultimate_ai_agent.core.time import utc_now
+
+from .contracts import (
+    ExternalActionDispatchOutcome,
+    ExternalActionDispatchResult,
+    ExternalActionExecutionRequest,
+    ExternalActionReceipt,
+    ExternalActionState,
+    ExternalActionTargetKind,
+    stable_governed_browser_ref,
+)
+from .transaction import (
+    ExternalActionTransactionConflict,
+    GovernedExternalActionKernel,
+)
+
+
+MAX_GOVERNED_TASK_COMPOSITION_LIFETIME = timedelta(minutes=10)
+MAX_GOVERNED_TASK_COMPOSITION_STEPS = 8
+_HASH_PINNED_SUFFIX_RE = re.compile(r"sha256:[0-9a-f]{64}")
+_HASH_PINNED_REF_RE = re.compile(r":sha256:[0-9a-f]{64}$")
+_BROAD_GRANT_FRAGMENTS = (
+    "complete_any_task",
+    "complete-any-task",
+    "complete.any.task",
+    "wildcard",
+    "capability:*",
+    "capability:all",
+    "capability:any",
+    "authority:all",
+    "authority:any",
+)
+
+
+class GovernedTaskOperationKind(str, Enum):
+    evidence_observation = "evidence_observation"
+    visible_click = "visible_click"
+    get_form_plan = "get_form_plan"
+    post_form_plan = "post_form_plan"
+    credential_lifecycle = "credential_lifecycle"
+    challenge_handoff = "challenge_handoff"
+    download_quarantine = "download_quarantine"
+    upload_plan = "upload_plan"
+    external_operation = "external_operation"
+    financial_operation = "financial_operation"
+
+
+_ALLOWED_CAPABILITIES = {
+    GovernedTaskOperationKind.evidence_observation: {AuthorityCapability.observe},
+    GovernedTaskOperationKind.visible_click: {AuthorityCapability.click},
+    GovernedTaskOperationKind.get_form_plan: {AuthorityCapability.form_fill},
+    GovernedTaskOperationKind.post_form_plan: {AuthorityCapability.form_fill},
+    GovernedTaskOperationKind.credential_lifecycle: {
+        AuthorityCapability.prepare,
+        AuthorityCapability.mutate,
+        AuthorityCapability.destructive,
+    },
+    GovernedTaskOperationKind.challenge_handoff: {AuthorityCapability.prepare},
+    GovernedTaskOperationKind.download_quarantine: {AuthorityCapability.download},
+    GovernedTaskOperationKind.upload_plan: {AuthorityCapability.upload},
+    GovernedTaskOperationKind.external_operation: {
+        AuthorityCapability.send,
+        AuthorityCapability.write,
+        AuthorityCapability.mutate,
+        AuthorityCapability.destructive,
+    },
+    GovernedTaskOperationKind.financial_operation: {
+        AuthorityCapability.purchase,
+        AuthorityCapability.purchase_under_budget,
+    },
+}
+
+
+class GovernedTaskCompositionStatus(str, Enum):
+    plan_ready = "plan_ready"
+    preflight_blocked = "preflight_blocked"
+    transaction_blocked = "transaction_blocked"
+    failed = "failed"
+    outcome_ambiguous = "outcome_ambiguous"
+    replayed_content_free = "replayed_content_free"
+
+
+def _validate_hash_pinned_ref(
+    value: str,
+    *,
+    label: str,
+    prefix: str,
+) -> None:
+    validate_task_ref(value, label)
+    if not value.startswith(prefix):
+        raise ValueError(f"GOVERNED_TASK_COMPOSER_{label.upper()}_REQUIRED")
+    if _HASH_PINNED_SUFFIX_RE.fullmatch(value.removeprefix(prefix)) is None:
+        raise ValueError("GOVERNED_TASK_COMPOSER_HASH_PIN_REQUIRED")
+
+
+def _deny_broad_grant_language(value: str, *, label: str) -> None:
+    lowered = value.lower()
+    if "*" in value or any(fragment in lowered for fragment in _BROAD_GRANT_FRAGMENTS):
+        raise ValueError(f"GOVERNED_TASK_COMPOSER_BROAD_{label.upper()}_DENIED")
+
+
+def governed_task_broad_intent_ref(*, intent_fingerprint: str) -> str:
+    """Create a content-free broad-intent ref from an already safe fingerprint."""
+
+    _deny_broad_grant_language(intent_fingerprint, label="intent")
+    validate_task_ref(intent_fingerprint, "intent_fingerprint")
+    return stable_governed_browser_ref(
+        "broad-intent-ref:governed-task-composer",
+        {"intent_fingerprint": intent_fingerprint},
+    )
+
+
+class RegisteredGovernedTaskOperation(BaseModel):
+    """One immutable pointer to an already exact operation contract."""
+
+    schema_version: Literal["uaa-governed-task-operation.v1"] = (
+        "uaa-governed-task-operation.v1"
+    )
+    operation_ref: str
+    kind: GovernedTaskOperationKind
+    source_recipe_ref: str
+    source_contract_ref: str
+    source_binding_ref: str
+    operation_authority_ref: str
+    required_capability: AuthorityCapability
+    target_ref: str
+    schema_ref: str
+    registered_exact_operation: Literal[True] = True
+    later_exact_authority_required: Literal[True] = True
+    composer_authority_inherited: Literal[False] = False
+    operation_authorized: Literal[False] = False
+    operation_executed: Literal[False] = False
+
+    model_config = ConfigDict(
+        use_enum_values=True,
+        extra="forbid",
+        frozen=True,
+        hide_input_in_errors=True,
+    )
+
+    @model_validator(mode="after")
+    def validate_operation(self) -> "RegisteredGovernedTaskOperation":
+        for value, label in (
+            (self.operation_ref, "operation_ref"),
+            (self.source_recipe_ref, "source_recipe_ref"),
+            (self.source_contract_ref, "source_contract_ref"),
+            (self.source_binding_ref, "source_binding_ref"),
+            (self.operation_authority_ref, "operation_authority_ref"),
+            (self.target_ref, "target_ref"),
+            (self.schema_ref, "schema_ref"),
+        ):
+            validate_task_ref(value, label)
+            _deny_broad_grant_language(value, label=label)
+            if _HASH_PINNED_REF_RE.search(value) is None:
+                raise ValueError("GOVERNED_TASK_COMPOSER_SOURCE_HASH_PIN_REQUIRED")
+        kind = GovernedTaskOperationKind(self.kind)
+        capability = AuthorityCapability(self.required_capability)
+        if capability not in _ALLOWED_CAPABILITIES[kind]:
+            raise ValueError("GOVERNED_TASK_COMPOSER_OPERATION_CAPABILITY_MISMATCH")
+        expected = stable_governed_browser_ref(
+            "registered-operation-ref:governed-task-composer",
+            self.model_dump(mode="json", exclude={"operation_ref"}),
+        )
+        if self.operation_ref != expected:
+            raise ValueError("GOVERNED_TASK_COMPOSER_OPERATION_REF_MISMATCH")
+        validate_safe_task_payload(
+            self.model_dump(mode="json"),
+            "registered_governed_task_operation",
+        )
+        return self
+
+
+def build_registered_governed_task_operation(
+    *,
+    kind: GovernedTaskOperationKind,
+    source_recipe_ref: str,
+    source_contract_ref: str,
+    source_binding_ref: str,
+    operation_authority_ref: str,
+    required_capability: AuthorityCapability,
+    target_ref: str,
+    schema_ref: str,
+) -> RegisteredGovernedTaskOperation:
+    payload = {
+        "kind": GovernedTaskOperationKind(kind),
+        "source_recipe_ref": source_recipe_ref,
+        "source_contract_ref": source_contract_ref,
+        "source_binding_ref": source_binding_ref,
+        "operation_authority_ref": operation_authority_ref,
+        "required_capability": AuthorityCapability(required_capability),
+        "target_ref": target_ref,
+        "schema_ref": schema_ref,
+    }
+    provisional = RegisteredGovernedTaskOperation.model_construct(
+        operation_ref="registered-operation-ref:governed-task-composer:pending",
+        **payload,
+    )
+    operation_ref = stable_governed_browser_ref(
+        "registered-operation-ref:governed-task-composer",
+        provisional.model_dump(mode="json", exclude={"operation_ref"}),
+    )
+    return RegisteredGovernedTaskOperation(operation_ref=operation_ref, **payload)
+
+
+class GovernedTaskOperationRegistry:
+    """Immutable registry; membership is not operation authority."""
+
+    def __init__(self, operations: Sequence[RegisteredGovernedTaskOperation]) -> None:
+        validated = tuple(
+            RegisteredGovernedTaskOperation.model_validate(
+                operation.model_dump(mode="json")
+            )
+            for operation in operations
+        )
+        if not validated:
+            raise ValueError("GOVERNED_TASK_COMPOSER_OPERATION_REGISTRY_EMPTY")
+        if len(validated) > 64:
+            raise ValueError("GOVERNED_TASK_COMPOSER_OPERATION_REGISTRY_TOO_LARGE")
+        by_ref = {operation.operation_ref: operation for operation in validated}
+        if len(by_ref) != len(validated):
+            raise ValueError("GOVERNED_TASK_COMPOSER_OPERATION_REF_DUPLICATE")
+        by_authority = {
+            operation.operation_authority_ref: operation for operation in validated
+        }
+        if len(by_authority) != len(validated):
+            raise ValueError("GOVERNED_TASK_COMPOSER_OPERATION_AUTHORITY_DUPLICATE")
+        self._operations = by_ref
+        self.registry_ref = stable_governed_browser_ref(
+            "operation-registry-ref:governed-task-composer",
+            {"operation_refs": sorted(by_ref)},
+        )
+
+    def resolve(self, operation_ref: str) -> RegisteredGovernedTaskOperation | None:
+        return self._operations.get(operation_ref)
+
+
+class GovernedTaskCompositionStep(BaseModel):
+    step_ref: str
+    ordinal: StrictInt = Field(..., ge=1, le=MAX_GOVERNED_TASK_COMPOSITION_STEPS)
+    operation_ref: str
+    depends_on_step_refs: list[str] = Field(default_factory=list, max_length=4)
+
+    model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
+
+    @model_validator(mode="after")
+    def validate_step(self) -> "GovernedTaskCompositionStep":
+        for value, label in (
+            (self.step_ref, "step_ref"),
+            (self.operation_ref, "operation_ref"),
+            *[(ref, "dependency_step_ref") for ref in self.depends_on_step_refs],
+        ):
+            validate_task_ref(value, label)
+            _deny_broad_grant_language(value, label=label)
+        if len(set(self.depends_on_step_refs)) != len(self.depends_on_step_refs):
+            raise ValueError("GOVERNED_TASK_COMPOSER_DEPENDENCY_DUPLICATE")
+        expected = stable_governed_browser_ref(
+            "composition-step-ref:governed-task-composer",
+            self.model_dump(mode="json", exclude={"step_ref"}),
+        )
+        if self.step_ref != expected:
+            raise ValueError("GOVERNED_TASK_COMPOSER_STEP_REF_MISMATCH")
+        return self
+
+
+def build_governed_task_composition_step(
+    *,
+    ordinal: int,
+    operation_ref: str,
+    depends_on_step_refs: Sequence[str] = (),
+) -> GovernedTaskCompositionStep:
+    payload = {
+        "ordinal": ordinal,
+        "operation_ref": operation_ref,
+        "depends_on_step_refs": list(depends_on_step_refs),
+    }
+    provisional = GovernedTaskCompositionStep.model_construct(
+        step_ref="composition-step-ref:governed-task-composer:pending",
+        **payload,
+    )
+    step_ref = stable_governed_browser_ref(
+        "composition-step-ref:governed-task-composer",
+        provisional.model_dump(mode="json", exclude={"step_ref"}),
+    )
+    return GovernedTaskCompositionStep(step_ref=step_ref, **payload)
+
+
+def governed_task_composition_schema_ref(
+    *,
+    registry_ref: str,
+    steps: Sequence[GovernedTaskCompositionStep],
+) -> str:
+    validate_task_ref(registry_ref, "registry_ref")
+    return stable_governed_browser_ref(
+        "composition-schema-ref:governed-task-composer",
+        {
+            "registry_ref": registry_ref,
+            "steps": [step.model_dump(mode="json") for step in steps],
+        },
+    )
+
+
+def governed_task_composition_plan_ref(
+    *,
+    broad_intent_ref: str,
+    registry_ref: str,
+    steps: Sequence[GovernedTaskCompositionStep],
+    expires_at: datetime,
+) -> str:
+    _validate_hash_pinned_ref(
+        broad_intent_ref,
+        label="broad_intent_ref",
+        prefix="broad-intent-ref:governed-task-composer:",
+    )
+    validate_task_ref(registry_ref, "registry_ref")
+    if expires_at.tzinfo is None:
+        raise ValueError("GOVERNED_TASK_COMPOSER_TIMEZONE_REQUIRED")
+    return stable_governed_browser_ref(
+        "composition-plan-ref:governed-task-composer",
+        {
+            "broad_intent_ref": broad_intent_ref,
+            "registry_ref": registry_ref,
+            "steps": [step.model_dump(mode="json") for step in steps],
+            "expires_at": expires_at.isoformat(),
+        },
+    )
+
+
+def governed_task_composer_authority_ref(
+    *,
+    origin_ref: str,
+    page_snapshot_ref: str,
+    plan_ref: str,
+    registry_ref: str,
+) -> str:
+    for value, label in (
+        (origin_ref, "origin_ref"),
+        (page_snapshot_ref, "page_snapshot_ref"),
+        (plan_ref, "plan_ref"),
+        (registry_ref, "registry_ref"),
+    ):
+        validate_task_ref(value, label)
+    return stable_governed_browser_ref(
+        "composer-authority-ref:governed-task-composer",
+        {
+            "capability": AuthorityCapability.prepare.value,
+            "origin_ref": origin_ref,
+            "page_snapshot_ref": page_snapshot_ref,
+            "plan_ref": plan_ref,
+            "registry_ref": registry_ref,
+        },
+    )
+
+
+class GovernedTaskCompositionRecipe(BaseModel):
+    """One registered, bounded, acyclic, plan-only composition."""
+
+    schema_version: Literal["uaa-governed-task-composition-recipe.v1"] = (
+        "uaa-governed-task-composition-recipe.v1"
+    )
+    recipe_ref: str
+    plan_ref: str
+    composer_authority_ref: str
+    binding_ref: str
+    broad_intent_ref: str
+    registry_ref: str
+    schema_ref: str
+    origin_ref: str
+    page_snapshot_ref: str
+    steps: list[GovernedTaskCompositionStep] = Field(
+        ..., min_length=1, max_length=MAX_GOVERNED_TASK_COMPOSITION_STEPS
+    )
+    created_at: datetime
+    expires_at: datetime
+    required_capability: Literal[AuthorityCapability.prepare] = (
+        AuthorityCapability.prepare
+    )
+    registered_operations_only: Literal[True] = True
+    exact_step_authority_required: Literal[True] = True
+    composer_authority_applies_to_steps: Literal[False] = False
+    complete_any_task_granted: Literal[False] = False
+    model_call_allowed: Literal[False] = False
+    automatic_execution_allowed: Literal[False] = False
+    browser_action_allowed: Literal[False] = False
+    live_network_allowed: Literal[False] = False
+    external_mutation_allowed: Literal[False] = False
+    real_external_targets_enabled: Literal[False] = False
+    automatic_retry_allowed: Literal[False] = False
+
+    model_config = ConfigDict(
+        use_enum_values=True,
+        extra="forbid",
+        frozen=True,
+        hide_input_in_errors=True,
+    )
+
+    @model_validator(mode="after")
+    def validate_recipe(self) -> "GovernedTaskCompositionRecipe":
+        for value, label in (
+            (self.recipe_ref, "recipe_ref"),
+            (self.plan_ref, "plan_ref"),
+            (self.composer_authority_ref, "composer_authority_ref"),
+            (self.binding_ref, "binding_ref"),
+            (self.broad_intent_ref, "broad_intent_ref"),
+            (self.registry_ref, "registry_ref"),
+            (self.schema_ref, "schema_ref"),
+            (self.origin_ref, "origin_ref"),
+            (self.page_snapshot_ref, "page_snapshot_ref"),
+        ):
+            validate_task_ref(value, label)
+            _deny_broad_grant_language(value, label=label)
+        _validate_hash_pinned_ref(
+            self.broad_intent_ref,
+            label="broad_intent_ref",
+            prefix="broad-intent-ref:governed-task-composer:",
+        )
+        if self.created_at.tzinfo is None or self.expires_at.tzinfo is None:
+            raise ValueError("GOVERNED_TASK_COMPOSER_TIMEZONE_REQUIRED")
+        if (
+            self.expires_at <= self.created_at
+            or self.expires_at - self.created_at
+            > MAX_GOVERNED_TASK_COMPOSITION_LIFETIME
+        ):
+            raise ValueError("GOVERNED_TASK_COMPOSER_LIFETIME_INVALID")
+        expected_ordinals = list(range(1, len(self.steps) + 1))
+        if [step.ordinal for step in self.steps] != expected_ordinals:
+            raise ValueError("GOVERNED_TASK_COMPOSER_STEP_ORDER_INVALID")
+        operation_refs = [step.operation_ref for step in self.steps]
+        if len(set(operation_refs)) != len(operation_refs):
+            raise ValueError("GOVERNED_TASK_COMPOSER_OPERATION_REUSE_DENIED")
+        prior_step_refs: set[str] = set()
+        for step in self.steps:
+            if any(ref not in prior_step_refs for ref in step.depends_on_step_refs):
+                raise ValueError("GOVERNED_TASK_COMPOSER_DEPENDENCY_NOT_PRIOR")
+            prior_step_refs.add(step.step_ref)
+        expected_schema_ref = governed_task_composition_schema_ref(
+            registry_ref=self.registry_ref,
+            steps=self.steps,
+        )
+        if self.schema_ref != expected_schema_ref:
+            raise ValueError("GOVERNED_TASK_COMPOSER_SCHEMA_REF_MISMATCH")
+        expected_plan_ref = governed_task_composition_plan_ref(
+            broad_intent_ref=self.broad_intent_ref,
+            registry_ref=self.registry_ref,
+            steps=self.steps,
+            expires_at=self.expires_at,
+        )
+        if self.plan_ref != expected_plan_ref:
+            raise ValueError("GOVERNED_TASK_COMPOSER_PLAN_REF_MISMATCH")
+        expected_authority_ref = governed_task_composer_authority_ref(
+            origin_ref=self.origin_ref,
+            page_snapshot_ref=self.page_snapshot_ref,
+            plan_ref=self.plan_ref,
+            registry_ref=self.registry_ref,
+        )
+        if self.composer_authority_ref != expected_authority_ref:
+            raise ValueError("GOVERNED_TASK_COMPOSER_AUTHORITY_REF_MISMATCH")
+        expected_recipe_ref = stable_governed_browser_ref(
+            "composition-recipe-ref:governed-task-composer",
+            self.model_dump(mode="json", exclude={"recipe_ref"}),
+        )
+        if self.recipe_ref != expected_recipe_ref:
+            raise ValueError("GOVERNED_TASK_COMPOSER_RECIPE_REF_MISMATCH")
+        validate_safe_task_payload(
+            self.model_dump(mode="json"),
+            "governed_task_composition_recipe",
+        )
+        return self
+
+
+def build_governed_task_composition_recipe(
+    request: ExternalActionExecutionRequest,
+    *,
+    broad_intent_ref: str,
+    registry: GovernedTaskOperationRegistry,
+    steps: Sequence[GovernedTaskCompositionStep],
+    created_at: datetime,
+    expires_at: datetime,
+) -> GovernedTaskCompositionRecipe:
+    execution = ExternalActionExecutionRequest.model_validate(
+        request.model_dump(mode="json")
+    )
+    binding = execution.binding
+    exact_steps = [
+        GovernedTaskCompositionStep.model_validate(step.model_dump(mode="json"))
+        for step in steps
+    ]
+    if binding.target_kind != ExternalActionTargetKind.local_validation.value:
+        raise ValueError("GOVERNED_TASK_COMPOSER_REAL_TARGETS_INACTIVE")
+    if binding.authority_capability != AuthorityCapability.prepare.value:
+        raise ValueError("GOVERNED_TASK_COMPOSER_PREPARE_CAPABILITY_REQUIRED")
+    if not binding.human_present:
+        raise ValueError("GOVERNED_TASK_COMPOSER_HUMAN_PRESENCE_REQUIRED")
+    if created_at.tzinfo is None or expires_at.tzinfo is None:
+        raise ValueError("GOVERNED_TASK_COMPOSER_TIMEZONE_REQUIRED")
+    if created_at > binding.start_deadline or expires_at > binding.start_deadline:
+        raise ValueError("GOVERNED_TASK_COMPOSER_DEADLINE_EXCEEDED")
+    for step in exact_steps:
+        if registry.resolve(step.operation_ref) is None:
+            raise ValueError("GOVERNED_TASK_COMPOSER_OPERATION_UNREGISTERED")
+    registry_ref = registry.registry_ref
+    schema_ref = governed_task_composition_schema_ref(
+        registry_ref=registry_ref,
+        steps=exact_steps,
+    )
+    plan_ref = governed_task_composition_plan_ref(
+        broad_intent_ref=broad_intent_ref,
+        registry_ref=registry_ref,
+        steps=exact_steps,
+        expires_at=expires_at,
+    )
+    composer_authority_ref = governed_task_composer_authority_ref(
+        origin_ref=binding.origin_ref,
+        page_snapshot_ref=binding.page_snapshot_ref,
+        plan_ref=plan_ref,
+        registry_ref=registry_ref,
+    )
+    operation_refs = [step.operation_ref for step in exact_steps]
+    required_resources = {
+        broad_intent_ref,
+        registry_ref,
+        plan_ref,
+        composer_authority_ref,
+    }
+    if binding.recipient_ref != plan_ref:
+        raise ValueError("GOVERNED_TASK_COMPOSER_PLAN_NOT_AUTHORITY_BOUND")
+    if binding.field_schema_ref != schema_ref:
+        raise ValueError("GOVERNED_TASK_COMPOSER_SCHEMA_NOT_AUTHORITY_BOUND")
+    if binding.artifact_refs != operation_refs:
+        raise ValueError("GOVERNED_TASK_COMPOSER_OPERATIONS_NOT_EXACTLY_BOUND")
+    if set(binding.resource_refs) != required_resources:
+        raise ValueError("GOVERNED_TASK_COMPOSER_RESOURCE_NOT_EXACTLY_BOUND")
+    payload = {
+        "plan_ref": plan_ref,
+        "composer_authority_ref": composer_authority_ref,
+        "binding_ref": binding.binding_ref,
+        "broad_intent_ref": broad_intent_ref,
+        "registry_ref": registry_ref,
+        "schema_ref": schema_ref,
+        "origin_ref": binding.origin_ref,
+        "page_snapshot_ref": binding.page_snapshot_ref,
+        "steps": exact_steps,
+        "created_at": created_at,
+        "expires_at": expires_at,
+    }
+    provisional = GovernedTaskCompositionRecipe.model_construct(
+        recipe_ref="composition-recipe-ref:governed-task-composer:pending",
+        **payload,
+    )
+    recipe_ref = stable_governed_browser_ref(
+        "composition-recipe-ref:governed-task-composer",
+        provisional.model_dump(mode="json", exclude={"recipe_ref"}),
+    )
+    return GovernedTaskCompositionRecipe(recipe_ref=recipe_ref, **payload)
+
+
+class GovernedTaskCompositionRecipeRegistry:
+    """Immutable recipe registry with no dynamic decomposition behavior."""
+
+    def __init__(self, recipes: Sequence[GovernedTaskCompositionRecipe]) -> None:
+        validated = tuple(
+            GovernedTaskCompositionRecipe.model_validate(recipe.model_dump(mode="json"))
+            for recipe in recipes
+        )
+        if not validated:
+            raise ValueError("GOVERNED_TASK_COMPOSER_RECIPE_REGISTRY_EMPTY")
+        if len(validated) > 64:
+            raise ValueError("GOVERNED_TASK_COMPOSER_RECIPE_REGISTRY_TOO_LARGE")
+        by_ref = {recipe.recipe_ref: recipe for recipe in validated}
+        if len(by_ref) != len(validated):
+            raise ValueError("GOVERNED_TASK_COMPOSER_RECIPE_REF_DUPLICATE")
+        by_plan = {recipe.plan_ref: recipe for recipe in validated}
+        if len(by_plan) != len(validated):
+            raise ValueError("GOVERNED_TASK_COMPOSER_PLAN_REF_DUPLICATE")
+        self._recipes = by_ref
+
+    def resolve(self, recipe_ref: str) -> GovernedTaskCompositionRecipe | None:
+        return self._recipes.get(recipe_ref)
+
+
+class ExactGovernedTaskCompositionRequest(BaseModel):
+    execution_request: ExternalActionExecutionRequest
+    recipe_ref: str
+    plan_ref: str
+    broad_intent_ref: str
+    registry_ref: str
+
+    model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
+
+    @model_validator(mode="after")
+    def validate_request(self) -> "ExactGovernedTaskCompositionRequest":
+        for value, label in (
+            (self.recipe_ref, "recipe_ref"),
+            (self.plan_ref, "plan_ref"),
+            (self.broad_intent_ref, "broad_intent_ref"),
+            (self.registry_ref, "registry_ref"),
+        ):
+            validate_task_ref(value, label)
+            _deny_broad_grant_language(value, label=label)
+        _validate_hash_pinned_ref(
+            self.broad_intent_ref,
+            label="broad_intent_ref",
+            prefix="broad-intent-ref:governed-task-composer:",
+        )
+        return self
+
+
+class GovernedTaskCompositionPlanStep(BaseModel):
+    step_ref: str
+    ordinal: StrictInt = Field(..., ge=1, le=MAX_GOVERNED_TASK_COMPOSITION_STEPS)
+    operation_ref: str
+    kind: GovernedTaskOperationKind
+    source_recipe_ref: str
+    source_contract_ref: str
+    source_binding_ref: str
+    operation_authority_ref: str
+    required_capability: AuthorityCapability
+    target_ref: str
+    schema_ref: str
+    depends_on_step_refs: list[str] = Field(..., max_length=4)
+    exact_operation_authority_required: Literal[True] = True
+    composer_authority_inherited: Literal[False] = False
+    operation_authorized: Literal[False] = False
+    operation_executed: Literal[False] = False
+
+    model_config = ConfigDict(
+        use_enum_values=True,
+        extra="forbid",
+        frozen=True,
+        hide_input_in_errors=True,
+    )
+
+    @model_validator(mode="after")
+    def validate_plan_step(self) -> "GovernedTaskCompositionPlanStep":
+        for value, label in (
+            (self.step_ref, "step_ref"),
+            (self.operation_ref, "operation_ref"),
+            (self.source_recipe_ref, "source_recipe_ref"),
+            (self.source_contract_ref, "source_contract_ref"),
+            (self.source_binding_ref, "source_binding_ref"),
+            (self.operation_authority_ref, "operation_authority_ref"),
+            (self.target_ref, "target_ref"),
+            (self.schema_ref, "schema_ref"),
+            *[(ref, "dependency_step_ref") for ref in self.depends_on_step_refs],
+        ):
+            validate_task_ref(value, label)
+            _deny_broad_grant_language(value, label=label)
+        registered = RegisteredGovernedTaskOperation(
+            operation_ref=self.operation_ref,
+            kind=self.kind,
+            source_recipe_ref=self.source_recipe_ref,
+            source_contract_ref=self.source_contract_ref,
+            source_binding_ref=self.source_binding_ref,
+            operation_authority_ref=self.operation_authority_ref,
+            required_capability=self.required_capability,
+            target_ref=self.target_ref,
+            schema_ref=self.schema_ref,
+        )
+        expected_step_ref = build_governed_task_composition_step(
+            ordinal=self.ordinal,
+            operation_ref=registered.operation_ref,
+            depends_on_step_refs=self.depends_on_step_refs,
+        ).step_ref
+        if self.step_ref != expected_step_ref:
+            raise ValueError("GOVERNED_TASK_COMPOSER_PLAN_STEP_REF_MISMATCH")
+        return self
+
+
+class GovernedTaskCompositionPlan(BaseModel):
+    schema_version: Literal["uaa-governed-task-composition-plan.v1"] = (
+        "uaa-governed-task-composition-plan.v1"
+    )
+    plan_ref: str
+    recipe_ref: str
+    broad_intent_ref: str
+    registry_ref: str
+    composer_authority_ref: str
+    binding_ref: str
+    steps: list[GovernedTaskCompositionPlanStep] = Field(
+        ..., min_length=1, max_length=MAX_GOVERNED_TASK_COMPOSITION_STEPS
+    )
+    expires_at: datetime
+    plan_prepared: Literal[True] = True
+    registered_operations_only: Literal[True] = True
+    exact_step_authority_required: Literal[True] = True
+    composer_authority_applies_to_steps: Literal[False] = False
+    complete_any_task_granted: Literal[False] = False
+    raw_intent_recorded: Literal[False] = False
+    model_call_performed: Literal[False] = False
+    browser_action_performed: Literal[False] = False
+    network_call_performed: Literal[False] = False
+    external_mutation_performed: Literal[False] = False
+    automatic_execution_performed: Literal[False] = False
+
+    model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
+
+    @model_validator(mode="after")
+    def validate_plan(self) -> "GovernedTaskCompositionPlan":
+        for value, label in (
+            (self.plan_ref, "plan_ref"),
+            (self.recipe_ref, "recipe_ref"),
+            (self.broad_intent_ref, "broad_intent_ref"),
+            (self.registry_ref, "registry_ref"),
+            (self.composer_authority_ref, "composer_authority_ref"),
+            (self.binding_ref, "binding_ref"),
+        ):
+            validate_task_ref(value, label)
+            _deny_broad_grant_language(value, label=label)
+        _validate_hash_pinned_ref(
+            self.broad_intent_ref,
+            label="broad_intent_ref",
+            prefix="broad-intent-ref:governed-task-composer:",
+        )
+        if self.expires_at.tzinfo is None:
+            raise ValueError("GOVERNED_TASK_COMPOSER_TIMEZONE_REQUIRED")
+        expected_ordinals = list(range(1, len(self.steps) + 1))
+        if [step.ordinal for step in self.steps] != expected_ordinals:
+            raise ValueError("GOVERNED_TASK_COMPOSER_PLAN_ORDER_INVALID")
+        composition_steps = [
+            GovernedTaskCompositionStep(
+                step_ref=step.step_ref,
+                ordinal=step.ordinal,
+                operation_ref=step.operation_ref,
+                depends_on_step_refs=step.depends_on_step_refs,
+            )
+            for step in self.steps
+        ]
+        prior_step_refs: set[str] = set()
+        for step in composition_steps:
+            if any(ref not in prior_step_refs for ref in step.depends_on_step_refs):
+                raise ValueError("GOVERNED_TASK_COMPOSER_DEPENDENCY_NOT_PRIOR")
+            prior_step_refs.add(step.step_ref)
+        expected_plan_ref = governed_task_composition_plan_ref(
+            broad_intent_ref=self.broad_intent_ref,
+            registry_ref=self.registry_ref,
+            steps=composition_steps,
+            expires_at=self.expires_at,
+        )
+        if self.plan_ref != expected_plan_ref:
+            raise ValueError("GOVERNED_TASK_COMPOSER_PLAN_REF_MISMATCH")
+        validate_safe_task_payload(
+            self.model_dump(mode="json"),
+            "governed_task_composition_plan",
+        )
+        return self
+
+
+class GovernedTaskCompositionReceipt(BaseModel):
+    schema_version: Literal["uaa-governed-task-composition-receipt.v1"] = (
+        "uaa-governed-task-composition-receipt.v1"
+    )
+    receipt_ref: str
+    recipe_ref: str
+    plan_ref: str
+    broad_intent_ref: str
+    registry_ref: str
+    composer_authority_ref: str | None = None
+    transaction_ref: str
+    intent_ref: str
+    binding_ref: str
+    status: GovernedTaskCompositionStatus
+    external_action_state: ExternalActionState
+    external_action_receipt_ref: str | None = None
+    approval_validation_ref: str | None = None
+    authority_decision_ref: str | None = None
+    budget_reservation_ref: str | None = None
+    budget_settlement_ref: str | None = None
+    operation_refs: list[str] = Field(default_factory=list, max_length=8)
+    evidence_refs: list[str] = Field(default_factory=list, max_length=12)
+    reason_refs: list[str] = Field(default_factory=list, max_length=16)
+    replayed: StrictBool = False
+    content_free: Literal[True] = True
+    plan_only: Literal[True] = True
+    raw_intent_recorded: Literal[False] = False
+    composer_authority_applies_to_steps: Literal[False] = False
+    complete_any_task_granted: Literal[False] = False
+    model_call_performed: Literal[False] = False
+    browser_action_performed: Literal[False] = False
+    network_call_performed: Literal[False] = False
+    external_mutation_performed: Literal[False] = False
+    automatic_execution_performed: Literal[False] = False
+    automatic_retry_allowed: Literal[False] = False
+
+    model_config = ConfigDict(
+        use_enum_values=True,
+        extra="forbid",
+        frozen=True,
+        hide_input_in_errors=True,
+    )
+
+    @model_validator(mode="after")
+    def validate_receipt(self) -> "GovernedTaskCompositionReceipt":
+        for value, label in (
+            (self.receipt_ref, "receipt_ref"),
+            (self.recipe_ref, "recipe_ref"),
+            (self.plan_ref, "plan_ref"),
+            (self.broad_intent_ref, "broad_intent_ref"),
+            (self.registry_ref, "registry_ref"),
+            (self.composer_authority_ref, "composer_authority_ref"),
+            (self.transaction_ref, "transaction_ref"),
+            (self.intent_ref, "intent_ref"),
+            (self.binding_ref, "binding_ref"),
+            (self.external_action_receipt_ref, "external_action_receipt_ref"),
+            (self.approval_validation_ref, "approval_validation_ref"),
+            (self.authority_decision_ref, "authority_decision_ref"),
+            (self.budget_reservation_ref, "budget_reservation_ref"),
+            (self.budget_settlement_ref, "budget_settlement_ref"),
+            *[(ref, "operation_ref") for ref in self.operation_refs],
+            *[(ref, "evidence_ref") for ref in self.evidence_refs],
+            *[(ref, "reason_ref") for ref in self.reason_refs],
+        ):
+            if value is not None:
+                validate_task_ref(value, label)
+                _deny_broad_grant_language(value, label=label)
+        status = GovernedTaskCompositionStatus(self.status)
+        state = ExternalActionState(self.external_action_state)
+        successful_statuses = {
+            GovernedTaskCompositionStatus.plan_ready,
+            GovernedTaskCompositionStatus.replayed_content_free,
+        }
+        kernel_refs = (
+            self.external_action_receipt_ref,
+            self.approval_validation_ref,
+            self.authority_decision_ref,
+            self.budget_reservation_ref,
+            self.budget_settlement_ref,
+        )
+        if status == GovernedTaskCompositionStatus.plan_ready and (
+            state != ExternalActionState.succeeded or self.replayed
+        ):
+            raise ValueError("GOVERNED_TASK_COMPOSER_READY_STATE_MISMATCH")
+        if status in successful_statuses:
+            if self.composer_authority_ref is None or any(
+                ref is None for ref in kernel_refs
+            ):
+                raise ValueError("GOVERNED_TASK_COMPOSER_SUCCESS_PROOF_REQUIRED")
+            if not self.operation_refs or len(set(self.operation_refs)) != len(
+                self.operation_refs
+            ):
+                raise ValueError(
+                    "GOVERNED_TASK_COMPOSER_SUCCESS_OPERATION_SCOPE_INVALID"
+                )
+            for operation_ref in self.operation_refs:
+                _validate_hash_pinned_ref(
+                    operation_ref,
+                    label="operation_ref",
+                    prefix="registered-operation-ref:governed-task-composer:",
+                )
+            expected_evidence = [
+                self.recipe_ref,
+                self.plan_ref,
+                self.registry_ref,
+                self.composer_authority_ref,
+                *self.operation_refs,
+            ]
+            if self.evidence_refs != expected_evidence:
+                raise ValueError("GOVERNED_TASK_COMPOSER_SUCCESS_EVIDENCE_MISMATCH")
+        if status == GovernedTaskCompositionStatus.replayed_content_free and (
+            not self.replayed or state != ExternalActionState.succeeded
+        ):
+            raise ValueError("GOVERNED_TASK_COMPOSER_REPLAY_STATE_MISMATCH")
+        expected_receipt_ref = stable_governed_browser_ref(
+            "receipt-ref:governed-task-composition",
+            self.model_dump(mode="json", exclude={"receipt_ref"}),
+        )
+        if self.receipt_ref != expected_receipt_ref:
+            raise ValueError("GOVERNED_TASK_COMPOSER_RECEIPT_REF_MISMATCH")
+        validate_safe_task_payload(
+            self.model_dump(mode="json"),
+            "governed_task_composition_receipt",
+        )
+        return self
+
+
+class ExactGovernedTaskCompositionResult(BaseModel):
+    receipt: GovernedTaskCompositionReceipt
+    plan: GovernedTaskCompositionPlan | None = None
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    @model_validator(mode="after")
+    def validate_result(self) -> "ExactGovernedTaskCompositionResult":
+        ready = self.receipt.status == GovernedTaskCompositionStatus.plan_ready.value
+        if ready != (self.plan is not None):
+            raise ValueError("GOVERNED_TASK_COMPOSER_PLAN_PROJECTION_MISMATCH")
+        if self.plan is not None and (
+            self.plan.plan_ref != self.receipt.plan_ref
+            or self.plan.recipe_ref != self.receipt.recipe_ref
+            or self.plan.broad_intent_ref != self.receipt.broad_intent_ref
+            or self.plan.registry_ref != self.receipt.registry_ref
+            or self.plan.composer_authority_ref != self.receipt.composer_authority_ref
+            or [step.operation_ref for step in self.plan.steps]
+            != self.receipt.operation_refs
+        ):
+            raise ValueError("GOVERNED_TASK_COMPOSER_RECEIPT_SCOPE_MISMATCH")
+        return self
+
+
+class ExactGovernedTaskComposer:
+    """Prepare one registered plan through every shared authority gate."""
+
+    def __init__(
+        self,
+        *,
+        operation_registry: GovernedTaskOperationRegistry,
+        recipe_registry: GovernedTaskCompositionRecipeRegistry,
+        kernel: GovernedExternalActionKernel,
+        clock: Callable[[], datetime] = utc_now,
+    ) -> None:
+        self._operation_registry = operation_registry
+        self._recipe_registry = recipe_registry
+        self._kernel = kernel
+        self._clock = clock
+
+    def compose(
+        self,
+        composition_request: ExactGovernedTaskCompositionRequest,
+    ) -> ExactGovernedTaskCompositionResult:
+        request = ExactGovernedTaskCompositionRequest.model_validate(
+            composition_request.model_dump(mode="json")
+        )
+        execution = request.execution_request
+        recipe = self._recipe_registry.resolve(request.recipe_ref)
+        if recipe is None:
+            return _preflight_blocked(
+                request,
+                "reason-ref:governed-task-composer:recipe-unregistered",
+            )
+        if (
+            request.plan_ref,
+            request.broad_intent_ref,
+            request.registry_ref,
+        ) != (
+            recipe.plan_ref,
+            recipe.broad_intent_ref,
+            recipe.registry_ref,
+        ):
+            return _preflight_blocked(
+                request,
+                "reason-ref:governed-task-composer:request-scope-mismatch",
+            )
+        if self._operation_registry.registry_ref != recipe.registry_ref:
+            return _preflight_blocked(
+                request,
+                "reason-ref:governed-task-composer:registry-mismatch",
+            )
+        if any(
+            self._operation_registry.resolve(step.operation_ref) is None
+            for step in recipe.steps
+        ):
+            return _preflight_blocked(
+                request,
+                "reason-ref:governed-task-composer:operation-unregistered",
+            )
+        scope_reason = _recipe_scope_reason(recipe, execution)
+        if scope_reason is not None:
+            return _preflight_blocked(request, scope_reason)
+        kernel_execution = _composer_kernel_execution(
+            execution,
+            recipe_ref=recipe.recipe_ref,
+        )
+        try:
+            replay = self._kernel.replay_if_terminal(kernel_execution)
+            prior_start = self._kernel.recover_if_prior_start(kernel_execution)
+        except ExternalActionTransactionConflict:
+            return _preflight_blocked(
+                request,
+                "reason-ref:governed-task-composer:idempotency-conflict",
+            )
+        if replay is not None:
+            return _result_from_external_receipt(
+                request=request,
+                recipe=recipe,
+                external_receipt=replay,
+                plan=None,
+            )
+        if prior_start is not None:
+            return _result_from_external_receipt(
+                request=request,
+                recipe=recipe,
+                external_receipt=prior_start,
+                plan=None,
+            )
+        current_time, clock_reason = _read_clock(self._clock)
+        if clock_reason is not None:
+            return _preflight_blocked(request, clock_reason)
+        assert current_time is not None
+        if current_time < recipe.created_at:
+            return _preflight_blocked(
+                request,
+                "reason-ref:governed-task-composer:recipe-not-yet-valid",
+            )
+        if current_time >= recipe.expires_at:
+            return _preflight_blocked(
+                request,
+                "reason-ref:governed-task-composer:recipe-expired",
+            )
+        captured: dict[str, GovernedTaskCompositionPlan] = {}
+
+        def dispatch(
+            dispatched_request: ExternalActionExecutionRequest,
+        ) -> ExternalActionDispatchResult:
+            dispatch_time, dispatch_clock_reason = _read_clock(self._clock)
+            if dispatch_clock_reason is not None:
+                return _failed_dispatch(dispatched_request, "trusted-clock-invalid")
+            assert dispatch_time is not None
+            if (
+                dispatched_request.binding.binding_ref != recipe.binding_ref
+                or not recipe.created_at <= dispatch_time < recipe.expires_at
+                or self._operation_registry.registry_ref != recipe.registry_ref
+            ):
+                return _failed_dispatch(
+                    dispatched_request,
+                    "plan-revalidation-failed",
+                )
+            plan = _build_plan(recipe, self._operation_registry)
+            captured["plan"] = plan
+            return ExternalActionDispatchResult(
+                outcome=ExternalActionDispatchOutcome.succeeded,
+                evidence_refs=[
+                    recipe.recipe_ref,
+                    recipe.plan_ref,
+                    recipe.registry_ref,
+                    recipe.composer_authority_ref,
+                    *[step.operation_ref for step in recipe.steps],
+                ],
+                verified=True,
+            )
+
+        try:
+            external_receipt = self._kernel.execute(
+                kernel_execution,
+                dispatch=dispatch,
+            )
+        except ExternalActionTransactionConflict:
+            return _preflight_blocked(
+                request,
+                "reason-ref:governed-task-composer:idempotency-conflict",
+            )
+        plan = captured.get("plan")
+        if (
+            external_receipt.replayed
+            or external_receipt.state != ExternalActionState.succeeded.value
+        ):
+            plan = None
+        return _result_from_external_receipt(
+            request=request,
+            recipe=recipe,
+            external_receipt=external_receipt,
+            plan=plan,
+        )
+
+
+def _composer_kernel_execution(
+    request: ExternalActionExecutionRequest,
+    *,
+    recipe_ref: str,
+) -> ExternalActionExecutionRequest:
+    return ExternalActionExecutionRequest.model_validate(
+        {
+            **request.model_dump(mode="json"),
+            "idempotency_ref": stable_governed_browser_ref(
+                "idempotency-ref:governed-task-composer",
+                {
+                    "source_idempotency_ref": request.idempotency_ref,
+                    "recipe_ref": recipe_ref,
+                },
+            ),
+        }
+    )
+
+
+def _recipe_scope_reason(
+    recipe: GovernedTaskCompositionRecipe,
+    request: ExternalActionExecutionRequest,
+) -> str | None:
+    binding = request.binding
+    operation_refs = [step.operation_ref for step in recipe.steps]
+    required_resources = {
+        recipe.broad_intent_ref,
+        recipe.registry_ref,
+        recipe.plan_ref,
+        recipe.composer_authority_ref,
+    }
+    checks = (
+        (
+            recipe.binding_ref == binding.binding_ref,
+            "reason-ref:governed-task-composer:binding-mismatch",
+        ),
+        (
+            recipe.origin_ref == binding.origin_ref,
+            "reason-ref:governed-task-composer:origin-mismatch",
+        ),
+        (
+            recipe.page_snapshot_ref == binding.page_snapshot_ref,
+            "reason-ref:governed-task-composer:snapshot-mismatch",
+        ),
+        (
+            recipe.plan_ref == binding.recipient_ref,
+            "reason-ref:governed-task-composer:plan-mismatch",
+        ),
+        (
+            recipe.schema_ref == binding.field_schema_ref,
+            "reason-ref:governed-task-composer:schema-mismatch",
+        ),
+        (
+            operation_refs == binding.artifact_refs,
+            "reason-ref:governed-task-composer:operation-scope-mismatch",
+        ),
+        (
+            set(binding.resource_refs) == required_resources,
+            "reason-ref:governed-task-composer:resource-scope-mismatch",
+        ),
+        (
+            binding.authority_capability == AuthorityCapability.prepare.value,
+            "reason-ref:governed-task-composer:capability-mismatch",
+        ),
+        (
+            binding.human_present,
+            "reason-ref:governed-task-composer:human-presence-required",
+        ),
+        (
+            binding.target_kind == ExternalActionTargetKind.local_validation.value,
+            "reason-ref:governed-task-composer:real-targets-inactive",
+        ),
+        (
+            recipe.expires_at <= binding.start_deadline,
+            "reason-ref:governed-task-composer:recipe-outlives-deadline",
+        ),
+    )
+    return next((reason for allowed, reason in checks if not allowed), None)
+
+
+def _build_plan(
+    recipe: GovernedTaskCompositionRecipe,
+    registry: GovernedTaskOperationRegistry,
+) -> GovernedTaskCompositionPlan:
+    plan_steps: list[GovernedTaskCompositionPlanStep] = []
+    for step in recipe.steps:
+        operation = registry.resolve(step.operation_ref)
+        if operation is None:
+            raise ValueError("GOVERNED_TASK_COMPOSER_OPERATION_UNREGISTERED")
+        plan_steps.append(
+            GovernedTaskCompositionPlanStep(
+                step_ref=step.step_ref,
+                ordinal=step.ordinal,
+                operation_ref=operation.operation_ref,
+                kind=operation.kind,
+                source_recipe_ref=operation.source_recipe_ref,
+                source_contract_ref=operation.source_contract_ref,
+                source_binding_ref=operation.source_binding_ref,
+                operation_authority_ref=operation.operation_authority_ref,
+                required_capability=operation.required_capability,
+                target_ref=operation.target_ref,
+                schema_ref=operation.schema_ref,
+                depends_on_step_refs=step.depends_on_step_refs,
+            )
+        )
+    return GovernedTaskCompositionPlan(
+        plan_ref=recipe.plan_ref,
+        recipe_ref=recipe.recipe_ref,
+        broad_intent_ref=recipe.broad_intent_ref,
+        registry_ref=recipe.registry_ref,
+        composer_authority_ref=recipe.composer_authority_ref,
+        binding_ref=recipe.binding_ref,
+        steps=plan_steps,
+        expires_at=recipe.expires_at,
+    )
+
+
+def _read_clock(
+    clock: Callable[[], datetime],
+) -> tuple[datetime | None, str | None]:
+    try:
+        current_time = clock()
+    except Exception:
+        return None, "reason-ref:governed-task-composer:trusted-clock-failed"
+    if not isinstance(current_time, datetime) or current_time.tzinfo is None:
+        return None, "reason-ref:governed-task-composer:trusted-clock-invalid"
+    try:
+        return current_time.astimezone(timezone.utc), None
+    except Exception:
+        return None, "reason-ref:governed-task-composer:trusted-clock-invalid"
+
+
+def _failed_dispatch(
+    request: ExternalActionExecutionRequest,
+    suffix: str,
+) -> ExternalActionDispatchResult:
+    return ExternalActionDispatchResult(
+        outcome=ExternalActionDispatchOutcome.failed,
+        evidence_refs=[
+            stable_governed_browser_ref(
+                f"evidence-ref:governed-task-composer:{suffix}",
+                {"intent_ref": request.intent_ref},
+            )
+        ],
+        verified=False,
+    )
+
+
+def _preflight_blocked(
+    request: ExactGovernedTaskCompositionRequest,
+    reason_ref: str,
+) -> ExactGovernedTaskCompositionResult:
+    execution = request.execution_request
+    payload = {
+        "recipe_ref": request.recipe_ref,
+        "plan_ref": request.plan_ref,
+        "broad_intent_ref": request.broad_intent_ref,
+        "registry_ref": request.registry_ref,
+        "transaction_ref": execution.binding.transaction_ref,
+        "intent_ref": execution.intent_ref,
+        "binding_ref": execution.binding.binding_ref,
+        "status": GovernedTaskCompositionStatus.preflight_blocked,
+        "external_action_state": ExternalActionState.blocked,
+        "reason_refs": [reason_ref],
+    }
+    receipt_ref = stable_governed_browser_ref(
+        "receipt-ref:governed-task-composition",
+        GovernedTaskCompositionReceipt.model_construct(
+            receipt_ref="receipt-ref:governed-task-composition:pending",
+            **payload,
+        ).model_dump(mode="json", exclude={"receipt_ref"}),
+    )
+    return ExactGovernedTaskCompositionResult(
+        receipt=GovernedTaskCompositionReceipt(
+            receipt_ref=receipt_ref,
+            **payload,
+        )
+    )
+
+
+def _result_from_external_receipt(
+    *,
+    request: ExactGovernedTaskCompositionRequest,
+    recipe: GovernedTaskCompositionRecipe,
+    external_receipt: ExternalActionReceipt,
+    plan: GovernedTaskCompositionPlan | None,
+) -> ExactGovernedTaskCompositionResult:
+    state = ExternalActionState(external_receipt.state)
+    if external_receipt.replayed and state == ExternalActionState.succeeded:
+        status = GovernedTaskCompositionStatus.replayed_content_free
+    elif state == ExternalActionState.succeeded:
+        status = GovernedTaskCompositionStatus.plan_ready
+    else:
+        status = {
+            ExternalActionState.blocked: GovernedTaskCompositionStatus.transaction_blocked,
+            ExternalActionState.failed: GovernedTaskCompositionStatus.failed,
+            ExternalActionState.outcome_ambiguous: (
+                GovernedTaskCompositionStatus.outcome_ambiguous
+            ),
+            ExternalActionState.started: GovernedTaskCompositionStatus.outcome_ambiguous,
+            ExternalActionState.prepared: GovernedTaskCompositionStatus.outcome_ambiguous,
+        }[state]
+    reason_refs = list(external_receipt.reason_refs)
+    if state == ExternalActionState.failed and not reason_refs:
+        reason_refs = ["reason-ref:governed-task-composer:plan-preparation-failed"]
+    operation_refs = [step.operation_ref for step in recipe.steps]
+    payload = {
+        "recipe_ref": recipe.recipe_ref,
+        "plan_ref": recipe.plan_ref,
+        "broad_intent_ref": recipe.broad_intent_ref,
+        "registry_ref": recipe.registry_ref,
+        "composer_authority_ref": recipe.composer_authority_ref,
+        "transaction_ref": external_receipt.transaction_ref,
+        "intent_ref": external_receipt.intent_ref,
+        "binding_ref": external_receipt.binding_ref,
+        "status": status,
+        "external_action_state": state,
+        "external_action_receipt_ref": external_receipt.receipt_ref,
+        "approval_validation_ref": external_receipt.approval_validation_ref,
+        "authority_decision_ref": external_receipt.authority_decision_ref,
+        "budget_reservation_ref": external_receipt.budget_reservation_ref,
+        "budget_settlement_ref": external_receipt.budget_settlement_ref,
+        "operation_refs": operation_refs,
+        "evidence_refs": list(external_receipt.evidence_refs),
+        "reason_refs": reason_refs,
+        "replayed": external_receipt.replayed,
+    }
+    receipt_ref = stable_governed_browser_ref(
+        "receipt-ref:governed-task-composition",
+        GovernedTaskCompositionReceipt.model_construct(
+            receipt_ref="receipt-ref:governed-task-composition:pending",
+            **payload,
+        ).model_dump(mode="json", exclude={"receipt_ref"}),
+    )
+    return ExactGovernedTaskCompositionResult(
+        receipt=GovernedTaskCompositionReceipt(receipt_ref=receipt_ref, **payload),
+        plan=plan,
+    )
