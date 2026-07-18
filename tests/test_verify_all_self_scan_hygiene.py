@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from scripts.verification import run_all_legacy
 from scripts.verification import static_scan_policy
+from ultimate_ai_agent.core.gate.legacy_support import (
+    runtime_subprocess_fragment_allowed,
+)
 
 
 def test_mobile_sensor_guard_does_not_flag_verifier_literals() -> None:
@@ -14,6 +17,9 @@ def test_mobile_sensor_guard_does_not_flag_verifier_literals() -> None:
     )
     assert run_all_legacy._is_exact_matrix_protected_cache_helper_file(
         "tools/macos/matrix-protected-cache-helper/Package.swift"
+    )
+    assert run_all_legacy._is_exact_governed_browser_keychain_helper_file(
+        "tools/macos/governed-browser-keychain-helper/Package.swift"
     )
     assert not run_all_legacy._is_exact_portable_evidence_keychain_helper_file(
         "apps/mobile/Package.swift"
@@ -80,11 +86,36 @@ def test_shell_guard_accepts_only_exact_portable_evidence_helper_profile() -> No
         source=source,
         stripped_line="stdout=subprocess.PIPE,",
     )
+    assert runtime_subprocess_fragment_allowed(rel, source, "import subprocess")
+    assert runtime_subprocess_fragment_allowed(rel, source, "subprocess.run(")
     for drift in (
         "\nos.system('unsafe')\n",
         "\nsubprocess.call(['unsafe'])\n",
         "\nimport requests\n",
         "\nimport httpx\n",
+    ):
+        assert not run_all_legacy._is_exact_governed_runtime_command_shell_scan_line(
+            rel_path=rel,
+            source=source + drift,
+            stripped_line="subprocess.run(",
+        )
+
+
+def test_shell_guard_accepts_only_exact_governed_browser_keychain_profile() -> None:
+    rel = "src/ultimate_ai_agent/core/governed_browser/browser_keychain.py"
+    source = (run_all_legacy.ROOT / rel).read_text(encoding="utf-8")
+
+    assert run_all_legacy._is_exact_governed_runtime_command_shell_scan_line(
+        rel_path=rel,
+        source=source,
+        stripped_line="stdout=subprocess.PIPE,",
+    )
+    for drift in (
+        "\nos.system('unsafe')\n",
+        "\nsubprocess.call(['unsafe'])\n",
+        "\nimport requests\n",
+        "\nimport httpx\n",
+        "\nPath.home()\n",
     ):
         assert not run_all_legacy._is_exact_governed_runtime_command_shell_scan_line(
             rel_path=rel,

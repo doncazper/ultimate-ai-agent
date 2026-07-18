@@ -16,6 +16,9 @@ from ultimate_ai_agent.core.sandbox_calculation.static_safety import (
 from ultimate_ai_agent.core.evidence_signing.static_safety import (
     is_exact_portable_evidence_helper_subprocess_site,
 )
+from ultimate_ai_agent.core.governed_browser.static_safety import (
+    is_exact_governed_browser_keychain_subprocess_site,
+)
 from ultimate_ai_agent.core.communications.matrix_harness.static_safety import (
     is_exact_matrix_harness_subprocess_site,
 )
@@ -143,6 +146,7 @@ def test_shell_execution_gate_validates_each_matrix_profile_once(
         "is_exact_matrix_sync_transport_subprocess_site",
         "is_exact_matrix_messaging_broker_subprocess_site",
         "is_exact_matrix_messaging_notifier_subprocess_site",
+        "is_exact_governed_browser_keychain_subprocess_site",
     )
     for name in validator_names:
         original = getattr(part_001, name)
@@ -181,6 +185,13 @@ def test_m7_does_not_add_runtime_execution_integrations() -> None:
         / "core"
         / "evidence_signing"
         / "macos_keychain.py"
+    )
+    allowed_browser_keychain_helper_path = (
+        Path("src")
+        / "ultimate_ai_agent"
+        / "core"
+        / "governed_browser"
+        / "browser_keychain.py"
     )
     sealed_subprocess_path = (
         Path("src")
@@ -256,6 +267,12 @@ def test_m7_does_not_add_runtime_execution_integrations() -> None:
     _assert_exact_governed_runtime_command_subprocess_site(command_source)
     signing_source = sources.pop(allowed_signing_helper_path)
     _assert_exact_portable_evidence_helper_subprocess_site(signing_source)
+    browser_keychain_source = sources.pop(allowed_browser_keychain_helper_path)
+    assert is_exact_governed_browser_keychain_subprocess_site(
+        rel_path=allowed_browser_keychain_helper_path.as_posix(),
+        source=browser_keychain_source,
+        fragment="subprocess.run(",
+    )
     assert is_exact_sealed_calculation_subprocess_site(
         rel_path=sealed_subprocess_path.as_posix(),
         source=sealed_source,

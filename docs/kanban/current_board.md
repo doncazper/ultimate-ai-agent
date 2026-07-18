@@ -803,7 +803,7 @@ Next: accept `ECO-000`, then accept `CRM-FC-000` before implementing
 WEB-RUNTIME-AUTH-001 Web Runtime Authority Promotion Ladder
 Goal: promote the web/provider/browser authority ladder into active roadmap and
 board truth before any new web runtime authority is implemented.
-Progress: Queue 01 items 01–07 are implemented as inactive local-validation
+Progress: Queue 01 items 01–08 are implemented as inactive local-validation
 contracts: narrowed exact authority semantics, an injected isolated broker
 behind WebAccessGateway, an at-most-once transaction kernel, and a content-free
 Action Inbox execution envelope with readable consequences, receipt and
@@ -818,13 +818,19 @@ content-derived exact POST schema and recipe registries with bounded
 safe-ref-only field definitions and opaque values. Its internal gateway
 envelope remains GET; it resolves no values, materializes no request body,
 submits no form, starts no authenticated session, and performs no network call
-or external mutation. Real external targets remain inactive. Queue 01 items
-08–13 and Queue 02 adversarial validation remain ordered
+or external mutation. Item 08 adds a source-built, hash-pinned Security.framework
+Keychain opaque-handle adapter plus registered per-origin enrollment,
+`prepared_inactive` session, revalidation, close, and revoke transitions behind
+the same transaction kernel. It starts no browser, authenticates no target,
+uses no cookies, and makes no network or external mutation. Real external
+targets remain inactive. Queue 01 items 09–13 and Queue 02 adversarial
+validation remain ordered
 prerequisites before any external activation. Queue 01 items 01–03 remain the
 immutable first landed group; Queue 01 items 01–04 remain the prior accepted
 boundary; Queue 01 items 01–05 remain the prior accepted evidence-recipe
 boundary; Queue 01 items 01–06 remain the prior accepted fourth-group boundary;
-and item 07 is the separately verified fifth group.
+Queue 01 items 01–07 remain the prior accepted fifth-group boundary; and item
+08 is the separately verified sixth group.
 Scope: P1 shaping lane only. Order future work as roadmap/currentness stitching,
 governed read-only fetch, provider shells and diagnostics, read-only provider
 adapter, browser observe, browser action dry-run, low-risk clicks,

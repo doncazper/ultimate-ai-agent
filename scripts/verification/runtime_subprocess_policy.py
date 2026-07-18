@@ -6,6 +6,9 @@ from ultimate_ai_agent.core.evidence_signing.static_safety import (
     is_exact_portable_evidence_helper_home_path,
     is_exact_portable_evidence_helper_subprocess_site,
 )
+from ultimate_ai_agent.core.governed_browser.static_safety import (
+    is_exact_governed_browser_keychain_subprocess_site,
+)
 from ultimate_ai_agent.core.communications.matrix_harness.static_safety import (
     is_exact_matrix_harness_shell_scan_line,
     is_exact_matrix_harness_subprocess_site,
@@ -38,6 +41,9 @@ GOVERNED_RUNTIME_COMMAND_ADAPTER_REL = (
 PORTABLE_EVIDENCE_KEYCHAIN_ADAPTER_REL = (
     "src/ultimate_ai_agent/core/evidence_signing/macos_keychain.py"
 )
+GOVERNED_BROWSER_KEYCHAIN_ADAPTER_REL = (
+    "src/ultimate_ai_agent/core/governed_browser/browser_keychain.py"
+)
 __all__ = (
     "is_exact_matrix_session_bounded_filesystem_site",
     "is_exact_portable_evidence_helper_home_path",
@@ -54,6 +60,12 @@ def _is_exact_governed_runtime_command_subprocess_site(
     ):
         return True
     if is_exact_portable_evidence_helper_subprocess_site(
+        rel_path=rel_path,
+        source=source,
+        fragment=fragment,
+    ):
+        return True
+    if is_exact_governed_browser_keychain_subprocess_site(
         rel_path=rel_path,
         source=source,
         fragment=fragment,
@@ -162,6 +174,10 @@ def _is_exact_governed_runtime_command_shell_scan_line(
         )
         or (
             rel_path == PORTABLE_EVIDENCE_KEYCHAIN_ADAPTER_REL
+            and "subprocess." in stripped_line
+        )
+        or (
+            rel_path == GOVERNED_BROWSER_KEYCHAIN_ADAPTER_REL
             and "subprocess." in stripped_line
         )
         or "subprocess.run(" in stripped_line

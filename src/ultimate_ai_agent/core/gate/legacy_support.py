@@ -39,6 +39,9 @@ from ultimate_ai_agent.core.sandbox_calculation.static_safety import (
 from ultimate_ai_agent.core.evidence_signing.static_safety import (
     portable_evidence_helper_fragment_allowed,
 )
+from ultimate_ai_agent.core.governed_browser.static_safety import (
+    governed_browser_keychain_fragment_allowed,
+)
 from ultimate_ai_agent.core.communications.matrix_harness.static_safety import (
     is_exact_matrix_harness_shell_scan_line,
     matrix_harness_fragment_allowed,
@@ -176,6 +179,7 @@ def runtime_subprocess_fragment_allowed(rel: str, text: str, fragment: str) -> b
     return (
         sealed_fragment_allowed(rel, text, fragment)
         or portable_evidence_helper_fragment_allowed(rel, text, fragment)
+        or governed_browser_keychain_fragment_allowed(rel, text, fragment)
         or matrix_harness_fragment_allowed(rel, text, fragment)
         or matrix_session_fragment_allowed(rel, text, fragment)
         or matrix_sync_fragment_allowed(rel, text, fragment)

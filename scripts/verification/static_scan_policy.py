@@ -55,6 +55,13 @@ PORTABLE_EVIDENCE_KEYCHAIN_HELPER_FILES = frozenset(
         "tools/macos/portable-evidence-keychain-helper/Sources/UAAPortableEvidenceKeychainHelper/main.swift",
     }
 )
+GOVERNED_BROWSER_KEYCHAIN_HELPER_FILES = frozenset(
+    {
+        "tools/macos/governed-browser-keychain-helper/Package.swift",
+        "tools/macos/governed-browser-keychain-helper/README.md",
+        "tools/macos/governed-browser-keychain-helper/Sources/UAAGovernedBrowserKeychainHelper/main.swift",
+    }
+)
 MATRIX_SESSION_KEYCHAIN_HELPER_FILES = frozenset(
     {
         "tools/macos/matrix-session-keychain-helper/Package.swift",
@@ -104,6 +111,10 @@ def is_static_gate_scan_allowed_file(
 
 def is_exact_portable_evidence_keychain_helper_file(rel_path: str) -> bool:
     return rel_path in PORTABLE_EVIDENCE_KEYCHAIN_HELPER_FILES
+
+
+def is_exact_governed_browser_keychain_helper_file(rel_path: str) -> bool:
+    return rel_path in GOVERNED_BROWSER_KEYCHAIN_HELPER_FILES
 
 
 def is_exact_matrix_session_keychain_helper_file(rel_path: str) -> bool:
