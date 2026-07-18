@@ -257,10 +257,14 @@ class GovernedTaskOperationRegistry:
         if len(by_authority) != len(validated):
             raise ValueError("GOVERNED_TASK_COMPOSER_OPERATION_AUTHORITY_DUPLICATE")
         self._operations = by_ref
-        self.registry_ref = stable_governed_browser_ref(
+        self._registry_ref = stable_governed_browser_ref(
             "operation-registry-ref:governed-task-composer",
             {"operation_refs": sorted(by_ref)},
         )
+
+    @property
+    def registry_ref(self) -> str:
+        return self._registry_ref
 
     def resolve(self, operation_ref: str) -> RegisteredGovernedTaskOperation | None:
         return self._operations.get(operation_ref)

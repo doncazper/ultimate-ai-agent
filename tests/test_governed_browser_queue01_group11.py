@@ -337,6 +337,12 @@ def test_operation_registration_is_hash_bound_and_authority_unique() -> None:
             target_ref=operation.target_ref,
             schema_ref=operation.schema_ref,
         )
+    registry = GovernedTaskOperationRegistry([operation])
+    with pytest.raises(AttributeError):
+        registry.registry_ref = _pinned(
+            "operation-registry-ref:governed-task-composer",
+            "rebound",
+        )
 
 
 def test_recipe_rejects_unknown_operations_cycles_reuse_and_reordering() -> None:
