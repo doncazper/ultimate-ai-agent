@@ -28,6 +28,10 @@ from ultimate_ai_agent.core.gate.web_hybrid_static_policy import (
     WEB_HYBRID_EXACT_ADAPTER_FILES,
     _is_web_hybrid_promoted_static_fragment,
 )
+from ultimate_ai_agent.core.gate.macos_distribution_static_policy import (
+    MACOS_DISTRIBUTION_EXACT_ADAPTER_FILES,
+    macos_distribution_policy_failures,
+)
 from ultimate_ai_agent.core.gate.evaluator_modules.route_side_effects import (
     forbidden_route_fragment_failures,
     operation_id_failures,
@@ -145,6 +149,7 @@ STATIC_SAFETY_EVALUATOR_DATA_FILES = frozenset(
         "src/ultimate_ai_agent/core/gate/legacy_checks.py",
         "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/gate/legacy_support.py",
+        "src/ultimate_ai_agent/core/gate/macos_distribution_static_policy.py",
         "src/ultimate_ai_agent/core/gate/web_hybrid_static_policy.py",
     }
     | {
@@ -193,6 +198,7 @@ def _is_static_safety_scan_allowed_file(rel: str, allowed_files: Iterable[str]) 
         or rel in STATIC_SAFETY_EVALUATOR_DATA_FILES
         or rel.startswith(STATIC_SAFETY_EVALUATOR_DATA_PREFIXES)
         or rel in GOVERNED_RUNTIME_COMMAND_ADAPTER_STATIC_SCAN_ALLOWED_FILES
+        or rel in MACOS_DISTRIBUTION_EXACT_ADAPTER_FILES
     )
 
 

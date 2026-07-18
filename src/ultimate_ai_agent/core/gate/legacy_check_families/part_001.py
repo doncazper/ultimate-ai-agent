@@ -196,7 +196,7 @@ class FoundationGateLegacyChecksPart001Mixin:
             "http" + "://",
             "https" + "://",
         ]
-        failures = []
+        failures = macos_distribution_policy_failures(self.root)
         allowed_manual_smoke_network_files = {
             "src/ultimate_ai_agent/core/model_runtime/manual_loopback_transport.py",
             "src/ultimate_ai_agent/core/model_runtime/local_call_transport.py",

@@ -118,6 +118,39 @@ process inspection, debugging access, or a compromised local account. Native
 IPC or a short-lived origin-bound session bootstrapped from an appropriate
 Keychain boundary remains required before public distribution.
 
+## macOS Installer And Update Threat Model
+
+The first-class macOS updater is an exact product-distribution transport, not
+agent-facing web access. It may read only Ultimate AI Agent GitHub Release
+metadata and release assets for the configured repository. A release is
+installable only when its active-product-line descriptor, channel, exact tag
+commit, architecture, byte size, SHA-256, per-file manifest, and code-signing
+posture agree.
+
+Legacy static scans exempt only the three reviewed distribution adapter files.
+`macos_distribution_static_policy.py` separately fails closed if their fixed
+command, GitHub-only network, or loopback-supervisor capability shape broadens.
+
+Archive traversal, links, special files, unexpected files, checksum drift,
+signature drift, unmanaged Applications bundles, and unrelated CLI entries
+fail closed. Promotion uses a single-writer lock and staged verification; the
+prior managed version remains available for rollback. A failed Applications,
+CLI, or receipt promotion compensates the managed pointers and entry points
+back to their prior state. Install/update receipts contain safe refs only.
+Runtime inspection retains the existing managed Applications location even
+when the inspecting process has less write authority than the installer; it
+does not silently redirect an established install into a second user-local app.
+
+The private-repository token may come from an explicit updater environment
+slot or authenticated `gh`; UAA holds it in memory and excludes it from
+commands, durable state, status, receipts, and logs. This does not protect
+against compromise of the same user account or GitHub credential store.
+
+Ad-hoc signing supports local/private verification only. Public distribution
+remains blocked until Developer ID hardened-runtime signing, notarization,
+stapling, Gatekeeper assessment, release publishing, and independent
+distribution review are completed.
+
 The global idempotency middleware validates only header presence and shape.
 `/api/manifest` now reports that as `header_shape_gate_only`; it must never be
 treated as durable deduplication or exactly-once execution. An exact route may
