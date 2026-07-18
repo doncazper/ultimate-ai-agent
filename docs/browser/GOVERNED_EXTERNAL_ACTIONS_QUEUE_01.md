@@ -399,27 +399,30 @@ mismatched, oversized, or active text payloads, and writes the exact validated
 immutable snapshot once to an app-owned quarantine using an owner-only
 directory, a derived filename, `O_EXCL`, `O_NOFOLLOW` where supported, and
 `0600` file permissions. A concurrent mutation of the caller's buffer cannot
-change the bytes written after validation. Directory or file substitution
-fails closed. The transient mutable input is zeroized after every result. The
+change the bytes written after validation. Oversized input is rejected before
+an immutable snapshot is allocated. Directory or file substitution fails
+closed. The transient mutable input is zeroized in bounded chunks after every result. The
 raw bytes exist only in this purpose-specific quarantine; no ordinary user path
 or raw artifact is returned or written into the transaction ledger, receipt,
 evidence, docs, or logs. Quarantined content is explicitly untrusted and is not
 opened or promoted to authority.
 
-The upload operation is plan-only. It accepts no upload body. Before inspecting
-the file, it requires the exact bound source download receipt to remain present
-in a governed transaction ledger and the bound source recipe to remain present
-and unexpired in a registered recipe set. It also requires the exact source
-transfer request and verifies the ledger row against the recipe-bound kernel
-request fingerprint and idempotency key; a generic kernel caller using the same
-binding and evidence cannot substitute. It verifies that the recipe is exactly
+The upload operation is plan-only. It accepts no upload body. It first performs
+a bounded read-only inspection of the exact quarantine entry, then requires the
+exact bound source download receipt to remain present in a governed transaction
+ledger and the bound source recipe to remain present and unexpired in a
+registered recipe set. It also requires the exact source transfer request and
+verifies the ledger row against the recipe-bound kernel request fingerprint and
+idempotency key; a generic kernel caller using the same binding cannot
+substitute. It verifies that the recipe is exactly
 `download_quarantine`, matches the artifact, origin, quarantine, store, media,
 size, source transaction, and receipt binding, and that the receipt has a
 stable proof ref, successful terminal state, complete shared-kernel proof, and
-exact artifact, quarantine, fingerprint, and quarantine-projection evidence. A
+exact artifact, quarantine, fingerprint, and fully recomputed hash-pinned
+quarantine-projection evidence. A
 generic successful external-action receipt, pre-seeded file, or surviving
-quarantine without both source proofs produces no plan. It then reads only the
-exact authority-bound quarantine entry. The stored regular file must remain
+quarantine without both source proofs produces no plan. The inspection reads
+only the exact authority-bound quarantine entry. The stored regular file must remain
 owner-only, bounded, content-valid, and equal to the recipe's content
 fingerprint. Missing, substituted, oversized, invalid, or drifted content
 produces no plan. A successful projection contains safe refs, byte count, media
@@ -495,7 +498,8 @@ PYTHONPATH=src .venv/bin/python -m pytest -q \
 PYTHONPATH=src .venv/bin/python -m pytest -q \
   tests/test_governed_browser_queue01_group08.py \
   tests/test_governed_browser_queue01_group08_hardening.py \
-  tests/test_governed_browser_queue01_group08_review_repairs.py
+  tests/test_governed_browser_queue01_group08_review_repairs.py \
+  tests/test_governed_browser_queue01_group08_review_round05.py
 .venv/bin/python scripts/verify_governed_browser_queue01_group08.py
 ```
 

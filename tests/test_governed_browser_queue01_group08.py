@@ -406,6 +406,19 @@ def test_upload_is_an_exact_fingerprinted_plan_from_quarantine_only(
             receipt=result.receipt,
             upload_plan=foreign_plan,
         )
+    unpinned_plan_payload = result.upload_plan.model_dump(mode="python")
+    unpinned_plan_payload["content_fingerprint_ref"] = (
+        "content-fingerprint-ref:governed-browser:notsha"
+    )
+    provisional_unpinned_plan = ExactGovernedArtifactUploadPlan.model_construct(
+        **unpinned_plan_payload
+    )
+    unpinned_plan_payload["plan_ref"] = stable_governed_browser_ref(
+        "artifact-upload-plan-ref:governed-browser",
+        provisional_unpinned_plan.model_dump(mode="json", exclude={"plan_ref"}),
+    )
+    with pytest.raises(ValueError, match="HASH_PIN_REQUIRED"):
+        ExactGovernedArtifactUploadPlan.model_validate(unpinned_plan_payload)
     assert (
         b"exact upload source"
         not in (tmp_path / "upload-kernel" / "transactions.sqlite3").read_bytes()

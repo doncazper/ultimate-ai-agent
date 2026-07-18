@@ -409,6 +409,16 @@ class GovernedArtifactQuarantineStore:
             label="quarantine_ref",
             prefix="artifact-quarantine-ref:governed-browser:",
         )
+        if not 1 <= max_bytes <= MAX_GOVERNED_ARTIFACT_BYTES:
+            raise GovernedArtifactPayloadRejected(
+                "GOVERNED_ARTIFACT_SIZE_LIMIT_INVALID"
+            )
+        if not payload:
+            raise GovernedArtifactPayloadRejected("GOVERNED_ARTIFACT_EMPTY_DENIED")
+        if len(payload) > max_bytes:
+            raise GovernedArtifactPayloadRejected(
+                "GOVERNED_ARTIFACT_SIZE_LIMIT_EXCEEDED"
+            )
         payload_snapshot = bytes(payload)
         inspection = self.validate_payload(
             payload=payload_snapshot,
@@ -965,6 +975,11 @@ class ExactGovernedArtifactQuarantine(BaseModel):
         )
         if self.quarantine_ref != expected_quarantine_ref:
             raise ValueError("GOVERNED_ARTIFACT_QUARANTINE_SCOPE_MISMATCH")
+        _validate_hash_pinned_ref(
+            self.content_fingerprint_ref,
+            label="content_fingerprint_ref",
+            prefix="content-fingerprint-ref:governed-browser:",
+        )
         expected_projection_ref = stable_governed_browser_ref(
             "artifact-quarantine-projection-ref:governed-browser",
             self.model_dump(
@@ -1046,6 +1061,11 @@ class ExactGovernedArtifactUploadPlan(BaseModel):
             self.source_download_recipe_ref,
             label="source_download_recipe_ref",
             prefix="artifact-transfer-recipe-ref:governed-browser:",
+        )
+        _validate_hash_pinned_ref(
+            self.content_fingerprint_ref,
+            label="content_fingerprint_ref",
+            prefix="content-fingerprint-ref:governed-browser:",
         )
         expected_plan_ref = stable_governed_browser_ref(
             "artifact-upload-plan-ref:governed-browser",
@@ -1390,7 +1410,7 @@ class ExactGovernedArtifactTransferService:
             )
         finally:
             if injected_download_payload is not None:
-                injected_download_payload[:] = b"\x00" * len(injected_download_payload)
+                _zeroize_mutable_payload(injected_download_payload)
 
     def _execute(
         self,
@@ -1536,56 +1556,20 @@ class ExactGovernedArtifactTransferService:
                         dispatched_request,
                         "download-payload-rejected",
                     )
-                quarantine_payload = {
-                    "recipe_ref": recipe.recipe_ref,
-                    "artifact_ref": recipe.artifact_ref,
-                    "quarantine_ref": recipe.quarantine_ref,
-                    "download_transaction_ref": recipe.download_transaction_ref,
-                    "origin_ref": recipe.origin_ref,
-                    "quarantine_store_ref": recipe.quarantine_store_ref,
-                    "content_fingerprint_ref": inspection.content_fingerprint_ref,
-                    "declared_media_type": inspection.declared_media_type,
-                    "byte_count": inspection.byte_count,
-                    "expires_at": recipe.expires_at,
-                }
-                provisional_quarantine = (
-                    ExactGovernedArtifactQuarantine.model_construct(
-                        quarantine_projection_ref=(
-                            "artifact-quarantine-projection-ref:"
-                            "governed-browser:pending"
-                        ),
-                        **quarantine_payload,
-                    )
-                )
-                quarantine_projection_ref = stable_governed_browser_ref(
-                    "artifact-quarantine-projection-ref:governed-browser",
-                    provisional_quarantine.model_dump(
-                        mode="json",
-                        exclude={"quarantine_projection_ref"},
-                    ),
-                )
-                captured_quarantine = ExactGovernedArtifactQuarantine(
-                    quarantine_projection_ref=quarantine_projection_ref,
-                    **quarantine_payload,
+                captured_quarantine = _build_exact_quarantine(
+                    recipe,
+                    inspection,
                 )
                 evidence_refs = [
                     recipe.artifact_ref,
                     recipe.quarantine_ref,
                     inspection.content_fingerprint_ref,
-                    quarantine_projection_ref,
+                    captured_quarantine.quarantine_projection_ref,
                 ]
             else:
                 assert recipe.content_fingerprint_ref is not None
                 assert recipe.source_download_receipt_ref is not None
                 assert recipe.source_download_recipe_ref is not None
-                if not self._source_download_receipt_is_valid(
-                    recipe,
-                    current_time=current_time,
-                ):
-                    return _failed_dispatch(
-                        dispatched_request,
-                        "source-download-receipt-required",
-                    )
                 try:
                     inspection = self._store.inspect(
                         quarantine_ref=recipe.quarantine_ref,
@@ -1601,6 +1585,15 @@ class ExactGovernedArtifactTransferService:
                     return _failed_dispatch(
                         dispatched_request,
                         "upload-artifact-precondition-failed",
+                    )
+                if not self._source_download_receipt_is_valid(
+                    recipe,
+                    current_time=current_time,
+                    inspection=inspection,
+                ):
+                    return _failed_dispatch(
+                        dispatched_request,
+                        "source-download-receipt-required",
                     )
                 plan_payload = {
                     "recipe_ref": recipe.recipe_ref,
@@ -1665,6 +1658,7 @@ class ExactGovernedArtifactTransferService:
         recipe: GovernedArtifactTransferRecipe,
         *,
         current_time: datetime,
+        inspection: GovernedArtifactInspection,
     ) -> bool:
         receipt_ref = recipe.source_download_receipt_ref
         source_recipe_ref = recipe.source_download_recipe_ref
@@ -1720,6 +1714,7 @@ class ExactGovernedArtifactTransferService:
             )
         except Exception:
             return False
+        expected_projection = _build_exact_quarantine(source_recipe, inspection)
         if (
             exact_replay is None
             or receipt is None
@@ -1744,18 +1739,65 @@ class ExactGovernedArtifactTransferService:
             )
             or recipe.content_fingerprint_ref is None
             or len(receipt.evidence_refs) != 4
-            or receipt.evidence_refs[:3]
+            or receipt.evidence_refs
             != [
                 recipe.artifact_ref,
                 recipe.quarantine_ref,
                 recipe.content_fingerprint_ref,
+                expected_projection.quarantine_projection_ref,
             ]
-            or not receipt.evidence_refs[3].startswith(
-                "artifact-quarantine-projection-ref:governed-browser:"
-            )
         ):
             return False
         return True
+
+
+def _build_exact_quarantine(
+    recipe: GovernedArtifactTransferRecipe,
+    inspection: GovernedArtifactInspection,
+) -> ExactGovernedArtifactQuarantine:
+    payload = {
+        "recipe_ref": recipe.recipe_ref,
+        "artifact_ref": recipe.artifact_ref,
+        "quarantine_ref": recipe.quarantine_ref,
+        "download_transaction_ref": recipe.download_transaction_ref,
+        "origin_ref": recipe.origin_ref,
+        "quarantine_store_ref": recipe.quarantine_store_ref,
+        "content_fingerprint_ref": inspection.content_fingerprint_ref,
+        "declared_media_type": inspection.declared_media_type,
+        "byte_count": inspection.byte_count,
+        "expires_at": recipe.expires_at,
+    }
+    provisional = ExactGovernedArtifactQuarantine.model_construct(
+        quarantine_projection_ref=(
+            "artifact-quarantine-projection-ref:governed-browser:pending"
+        ),
+        **payload,
+    )
+    projection_ref = stable_governed_browser_ref(
+        "artifact-quarantine-projection-ref:governed-browser",
+        provisional.model_dump(
+            mode="json",
+            exclude={"quarantine_projection_ref"},
+        ),
+    )
+    return ExactGovernedArtifactQuarantine(
+        quarantine_projection_ref=projection_ref,
+        **payload,
+    )
+
+
+def _zeroize_mutable_payload(payload: bytearray) -> None:
+    zero_chunk = b"\x00" * 8192
+    view = memoryview(payload)
+    try:
+        for offset in range(0, len(view), len(zero_chunk)):
+            remaining = len(view) - offset
+            chunk = (
+                zero_chunk if remaining >= len(zero_chunk) else zero_chunk[:remaining]
+            )
+            view[offset : offset + len(chunk)] = chunk
+    finally:
+        view.release()
 
 
 def _artifact_transfer_kernel_execution(

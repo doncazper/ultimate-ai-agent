@@ -4,6 +4,8 @@ import sqlite3
 from datetime import timedelta
 from pathlib import Path
 
+import pytest
+
 from tests.test_governed_browser_queue01_group01 import _authorized_kernel, _request
 from tests.test_governed_browser_queue01_group08 import (
     _exact,
@@ -12,11 +14,14 @@ from tests.test_governed_browser_queue01_group08 import (
     _transfer_context,
 )
 from ultimate_ai_agent.core.governed_browser import (
+    MAX_GOVERNED_ARTIFACT_BYTES,
     ExactGovernedArtifactTransferService,
     ExternalActionAuthorityBinding,
     ExternalActionDispatchOutcome,
     ExternalActionDispatchResult,
+    ExternalActionExecutionRequest,
     GovernedArtifactMediaType,
+    GovernedArtifactPayloadRejected,
     GovernedArtifactQuarantineStore,
     GovernedArtifactTransferOperation,
     GovernedArtifactTransferRecipe,
@@ -115,6 +120,104 @@ def test_upload_rejects_generic_receipt_without_recipe_bound_request_fingerprint
     assert result.receipt.evidence_refs[0].startswith(
         "evidence-ref:governed-artifact:source-download-receipt-required:"
     )
+
+
+def test_upload_requires_the_exact_hash_pinned_source_quarantine_projection(
+    tmp_path: Path,
+) -> None:
+    store = GovernedArtifactQuarantineStore(tmp_path / "artifacts")
+    download_request, download_recipe, download_registry = _transfer_context(
+        store,
+        operation=GovernedArtifactTransferOperation.download_quarantine,
+        suffix="arbitrary-source-projection",
+    )
+    inspection = store.quarantine(
+        quarantine_ref=download_recipe.quarantine_ref,
+        payload=bytearray(b"preseeded recipe-bound artifact"),
+        declared_media_type=GovernedArtifactMediaType.text_plain,
+        max_bytes=download_recipe.max_bytes,
+    )
+    recipe_bound_request = ExternalActionExecutionRequest.model_validate(
+        {
+            **download_request.model_dump(mode="json"),
+            "idempotency_ref": stable_governed_browser_ref(
+                "idempotency-ref:governed-artifact-transfer",
+                {
+                    "source_idempotency_ref": download_request.idempotency_ref,
+                    "recipe_ref": download_recipe.recipe_ref,
+                },
+            ),
+        }
+    )
+    download_kernel, _ = _authorized_kernel(
+        tmp_path / "download-kernel",
+        recipe_bound_request,
+    )
+    generic_receipt = download_kernel.execute(
+        recipe_bound_request,
+        dispatch=lambda _request: ExternalActionDispatchResult(
+            outcome=ExternalActionDispatchOutcome.succeeded,
+            evidence_refs=[
+                download_recipe.artifact_ref,
+                download_recipe.quarantine_ref,
+                inspection.content_fingerprint_ref,
+                _pinned(
+                    "artifact-quarantine-projection-ref:governed-browser",
+                    suffix="arbitrary-projection",
+                ),
+            ],
+            verified=True,
+        ),
+    )
+    upload_request, upload_recipe, upload_registry = _transfer_context(
+        store,
+        operation=GovernedArtifactTransferOperation.upload_quarantined_artifact_plan,
+        suffix="arbitrary-source-projection-upload",
+        artifact_ref=download_recipe.artifact_ref,
+        quarantine_ref=download_recipe.quarantine_ref,
+        download_transaction_ref=download_recipe.download_transaction_ref,
+        content_fingerprint_ref=inspection.content_fingerprint_ref,
+        source_download_receipt_ref=generic_receipt.receipt_ref,
+        source_download_recipe_ref=download_recipe.recipe_ref,
+    )
+    upload_service, _, _ = _service(
+        tmp_path / "upload-kernel",
+        store=store,
+        request=upload_request,
+        registry=upload_registry,
+        source_download_kernel=download_kernel,
+        source_download_registry=download_registry,
+        source_download_request=_exact(download_request, download_recipe),
+    )
+
+    result = upload_service.execute(_exact(upload_request, upload_recipe))
+
+    assert result.receipt.status == "failed"
+    assert result.upload_plan is None
+
+
+def test_oversized_payload_is_rejected_before_immutable_snapshot(
+    tmp_path: Path,
+) -> None:
+    class CopyDetectingPayload(bytearray):
+        def __bytes__(self) -> bytes:
+            raise AssertionError("oversized payload must not be copied")
+
+    store = GovernedArtifactQuarantineStore(tmp_path / "artifacts")
+    payload = CopyDetectingPayload(b"x" * (MAX_GOVERNED_ARTIFACT_BYTES + 1))
+    with pytest.raises(
+        GovernedArtifactPayloadRejected,
+        match="SIZE_LIMIT_EXCEEDED",
+    ):
+        store.quarantine(
+            quarantine_ref=_pinned(
+                "artifact-quarantine-ref:governed-browser",
+                suffix="oversized-precopy",
+            ),
+            payload=payload,
+            declared_media_type=GovernedArtifactMediaType.text_plain,
+            max_bytes=MAX_GOVERNED_ARTIFACT_BYTES,
+        )
 
 
 def test_expired_recipe_is_preflight_blocked_without_poisoning_refresh(
