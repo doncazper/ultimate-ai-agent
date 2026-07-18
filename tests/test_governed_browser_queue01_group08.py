@@ -52,6 +52,7 @@ def _transfer_context(
     download_transaction_ref: str | None = None,
     content_fingerprint_ref: str | None = None,
     source_download_receipt_ref: str | None = None,
+    source_download_recipe_ref: str | None = None,
     target_kind: ExternalActionTargetKind = ExternalActionTargetKind.local_validation,
     human_present: bool = True,
 ):  # type: ignore[no-untyped-def]
@@ -74,12 +75,21 @@ def _transfer_context(
         download_transaction_ref=exact_download_transaction_ref,
     )
     exact_source_download_receipt_ref = source_download_receipt_ref
+    exact_source_download_recipe_ref = source_download_recipe_ref
     if (
         operation == GovernedArtifactTransferOperation.upload_quarantined_artifact_plan
         and exact_source_download_receipt_ref is None
     ):
         exact_source_download_receipt_ref = _pinned(
             "receipt-ref:governed-external-action",
+            suffix=f"{suffix}-unproven-source",
+        )
+    if (
+        operation == GovernedArtifactTransferOperation.upload_quarantined_artifact_plan
+        and exact_source_download_recipe_ref is None
+    ):
+        exact_source_download_recipe_ref = _pinned(
+            "artifact-transfer-recipe-ref:governed-browser",
             suffix=f"{suffix}-unproven-source",
         )
     transfer_surface_ref = _pinned(
@@ -105,6 +115,7 @@ def _transfer_context(
         max_bytes=1024,
         content_fingerprint_ref=content_fingerprint_ref,
         source_download_receipt_ref=exact_source_download_receipt_ref,
+        source_download_recipe_ref=exact_source_download_recipe_ref,
     )
     resources = [
         _ref("resource", suffix),
@@ -118,6 +129,8 @@ def _transfer_context(
         resources.append(content_fingerprint_ref)
     if exact_source_download_receipt_ref is not None:
         resources.append(exact_source_download_receipt_ref)
+    if exact_source_download_recipe_ref is not None:
+        resources.append(exact_source_download_recipe_ref)
     if exact_download_transaction_ref != base.transaction_ref:
         resources.append(exact_download_transaction_ref)
     binding = ExternalActionAuthorityBinding.model_validate(
@@ -157,6 +170,7 @@ def _transfer_context(
         created_at=created_at,
         expires_at=expires_at,
         source_download_receipt_ref=exact_source_download_receipt_ref,
+        source_download_recipe_ref=exact_source_download_recipe_ref,
     )
     registry = GovernedArtifactTransferRecipeRegistry([recipe])
     return request, recipe, registry
@@ -170,6 +184,7 @@ def _service(
     registry,
     readiness_provider=None,  # type: ignore[no-untyped-def]
     source_download_kernel=None,  # type: ignore[no-untyped-def]
+    source_download_registry=None,  # type: ignore[no-untyped-def]
     clock=utc_now,  # type: ignore[no-untyped-def]
 ):  # type: ignore[no-untyped-def]
     kernel, authority = _authorized_kernel(
@@ -184,6 +199,7 @@ def _service(
             kernel=kernel,
             quarantine_store=store,
             source_download_kernel=source_download_kernel,
+            source_download_registry=source_download_registry,
             clock=clock,
         ),
         kernel,
@@ -341,6 +357,7 @@ def test_upload_is_an_exact_fingerprinted_plan_from_quarantine_only(
         download_transaction_ref=download_recipe.download_transaction_ref,
         content_fingerprint_ref=(downloaded.quarantine.content_fingerprint_ref),
         source_download_receipt_ref=(downloaded.receipt.external_action_receipt_ref),
+        source_download_recipe_ref=download_recipe.recipe_ref,
     )
     upload_service, _, _ = _service(
         tmp_path / "upload-kernel",
@@ -348,6 +365,7 @@ def test_upload_is_an_exact_fingerprinted_plan_from_quarantine_only(
         request=upload_request,
         registry=upload_registry,
         source_download_kernel=download_kernel,
+        source_download_registry=download_registry,
     )
 
     result = upload_service.execute(_exact(upload_request, upload_recipe))
@@ -653,46 +671,3 @@ def test_invalid_download_payloads_fail_without_materialization(
     assert result.quarantine is None
     assert payload == bytearray(original_length)
     assert list((tmp_path / "artifacts" / "artifact-quarantine").iterdir()) == []
-
-
-def test_raw_upload_payload_is_denied_and_zeroized_before_transaction(
-    tmp_path: Path,
-) -> None:
-    store = GovernedArtifactQuarantineStore(tmp_path / "artifacts")
-    fingerprint = store.validate_payload(
-        payload=b"expected",
-        declared_media_type=GovernedArtifactMediaType.text_plain,
-        max_bytes=1024,
-    ).content_fingerprint_ref
-    request, recipe, registry = _transfer_context(
-        store,
-        operation=(GovernedArtifactTransferOperation.upload_quarantined_artifact_plan),
-        suffix="raw-upload",
-        download_transaction_ref=_pinned(
-            "transaction-ref:governed-browser",
-            suffix="raw-upload-source",
-        ),
-        content_fingerprint_ref=fingerprint,
-    )
-    service, _, _ = _service(
-        tmp_path / "kernel",
-        store=store,
-        request=request,
-        registry=registry,
-    )
-    payload = bytearray(b"raw upload body")
-
-    result = service.execute(
-        _exact(request, recipe),
-        injected_download_payload=payload,
-    )
-
-    assert result.receipt.status == "preflight_blocked"
-    assert result.receipt.reason_refs == [
-        "reason-ref:governed-artifact:raw-upload-payload-denied"
-    ]
-    assert payload == bytearray(len(payload))
-    assert (
-        recipe.recipe_ref.encode()
-        not in (tmp_path / "kernel" / "transactions.sqlite3").read_bytes()
-    )

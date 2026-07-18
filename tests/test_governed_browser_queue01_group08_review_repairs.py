@@ -14,6 +14,7 @@ from ultimate_ai_agent.core.governed_browser import (
     ExactGovernedArtifactTransferResult,
     ExternalActionTargetKind,
     GovernedArtifactMediaType,
+    GovernedArtifactPayloadRejected,
     GovernedArtifactQuarantineStore,
     GovernedArtifactTransferOperation,
     GovernedArtifactTransferReceipt,
@@ -286,6 +287,7 @@ def test_upload_plan_must_match_receipt_fingerprint_and_plan_evidence(
         download_transaction_ref=download_recipe.download_transaction_ref,
         content_fingerprint_ref=downloaded.quarantine.content_fingerprint_ref,
         source_download_receipt_ref=(downloaded.receipt.external_action_receipt_ref),
+        source_download_recipe_ref=download_recipe.recipe_ref,
     )
     upload_service, _, _ = _service(
         tmp_path / "upload-kernel",
@@ -293,6 +295,7 @@ def test_upload_plan_must_match_receipt_fingerprint_and_plan_evidence(
         request=upload_request,
         registry=upload_registry,
         source_download_kernel=download_kernel,
+        source_download_registry=download_registry,
     )
     result = upload_service.execute(_exact(upload_request, upload_recipe))
     assert result.upload_plan is not None
@@ -315,7 +318,7 @@ def test_upload_plan_must_match_receipt_fingerprint_and_plan_evidence(
         )
 
 
-def test_upload_plan_requires_the_bound_source_download_ledger_receipt(
+def test_upload_plan_requires_bound_source_ledger_and_registered_download_recipe(
     tmp_path: Path,
 ) -> None:
     store = GovernedArtifactQuarantineStore(tmp_path / "artifacts")
@@ -324,7 +327,7 @@ def test_upload_plan_requires_the_bound_source_download_ledger_receipt(
         operation=GovernedArtifactTransferOperation.download_quarantine,
         suffix="source-proof-download",
     )
-    download_service, _, _ = _service(
+    download_service, download_kernel, _ = _service(
         tmp_path / "download-kernel",
         store=store,
         request=download_request,
@@ -344,12 +347,15 @@ def test_upload_plan_requires_the_bound_source_download_ledger_receipt(
         download_transaction_ref=download_recipe.download_transaction_ref,
         content_fingerprint_ref=downloaded.quarantine.content_fingerprint_ref,
         source_download_receipt_ref=(downloaded.receipt.external_action_receipt_ref),
+        source_download_recipe_ref=download_recipe.recipe_ref,
     )
     upload_service, _, _ = _service(
         tmp_path / "upload-kernel",
         store=store,
         request=upload_request,
         registry=upload_registry,
+        source_download_kernel=download_kernel,
+        source_download_registry=upload_registry,
     )
 
     result = upload_service.execute(_exact(upload_request, upload_recipe))
@@ -360,3 +366,106 @@ def test_upload_plan_requires_the_bound_source_download_ledger_receipt(
         "evidence-ref:governed-artifact:source-download-receipt-required:"
     )
     assert result.upload_plan is None
+
+
+def test_full_bounded_text_payload_is_scanned_for_active_content(
+    tmp_path: Path,
+) -> None:
+    store = GovernedArtifactQuarantineStore(tmp_path / "artifacts")
+    payload = b"bounded-prefix-" + (b"a" * 1024) + b"<ScRiPt>denied</sCrIpT>"
+
+    with pytest.raises(GovernedArtifactPayloadRejected, match="CONTENT_TYPE_MISMATCH"):
+        store.validate_payload(
+            payload=payload,
+            declared_media_type=GovernedArtifactMediaType.text_plain,
+            max_bytes=2048,
+        )
+
+
+@pytest.mark.parametrize(
+    ("mode", "reason_ref"),
+    [
+        ("raises", "reason-ref:governed-artifact:trusted-clock-failed"),
+        ("naive", "reason-ref:governed-artifact:trusted-clock-invalid"),
+    ],
+)
+def test_invalid_service_clock_returns_a_content_free_blocked_receipt(
+    tmp_path: Path,
+    mode: str,
+    reason_ref: str,
+) -> None:
+    store = GovernedArtifactQuarantineStore(tmp_path / "artifacts")
+    request, recipe, registry = _transfer_context(
+        store,
+        operation=GovernedArtifactTransferOperation.download_quarantine,
+        suffix=f"invalid-clock-{mode}",
+    )
+
+    def invalid_clock():  # type: ignore[no-untyped-def]
+        if mode == "raises":
+            raise RuntimeError("clock unavailable")
+        return recipe.created_at.replace(tzinfo=None)
+
+    service, _, _ = _service(
+        tmp_path / "kernel",
+        store=store,
+        request=request,
+        registry=registry,
+        clock=invalid_clock,
+    )
+    payload = bytearray(b"clock-blocked payload")
+
+    result = service.execute(
+        _exact(request, recipe),
+        injected_download_payload=payload,
+    )
+
+    assert result.receipt.status == "preflight_blocked"
+    assert result.receipt.reason_refs == [reason_ref]
+    assert result.receipt.content_free is True
+    assert result.quarantine is None
+    assert payload == bytearray(len(payload))
+    assert list((tmp_path / "artifacts" / "artifact-quarantine").iterdir()) == []
+
+
+def test_raw_upload_payload_is_denied_and_zeroized_before_transaction(
+    tmp_path: Path,
+) -> None:
+    store = GovernedArtifactQuarantineStore(tmp_path / "artifacts")
+    fingerprint = store.validate_payload(
+        payload=b"expected",
+        declared_media_type=GovernedArtifactMediaType.text_plain,
+        max_bytes=1024,
+    ).content_fingerprint_ref
+    request, recipe, registry = _transfer_context(
+        store,
+        operation=GovernedArtifactTransferOperation.upload_quarantined_artifact_plan,
+        suffix="raw-upload",
+        download_transaction_ref=_pinned(
+            "transaction-ref:governed-browser",
+            suffix="raw-upload-source",
+        ),
+        content_fingerprint_ref=fingerprint,
+    )
+    service, _, _ = _service(
+        tmp_path / "kernel",
+        store=store,
+        request=request,
+        registry=registry,
+    )
+    payload = bytearray(b"raw upload body")
+
+    result = service.execute(
+        _exact(request, recipe),
+        injected_download_payload=payload,
+    )
+
+    assert result.receipt.status == "preflight_blocked"
+    assert result.receipt.reason_refs == [
+        "reason-ref:governed-artifact:raw-upload-payload-denied"
+    ]
+    assert payload == bytearray(len(payload))
+    assert (
+        recipe.recipe_ref.encode()
+        not in (tmp_path / "kernel" / "transactions.sqlite3").read_bytes()
+    )

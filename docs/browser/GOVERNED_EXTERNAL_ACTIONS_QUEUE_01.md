@@ -30,7 +30,7 @@ download, upload, purchase, publishing action, or production authority.
 | 07. Registered exact POST-form schemas | `implemented_inactive` | A content-derived schema registry binds the exact origin, snapshot, prior observation, source/destination safe URL refs, visible form/proof, bounded safe-ref-only field definitions, encoding, and total byte ceiling. A separate registered recipe binds the exact field-to-opaque-value refs and `form_fill` lease scope, then produces one injected POST-schema plan and content-free receipt through the existing kernel and gateway. | Schema-plan only: the gateway envelope remains internal GET, and no field value is resolved, request body is materialized, browser/session starts, form is filled/submitted, authenticated state is used, network call or external mutation occurs, or real external target is enabled; Queue 02 remains required. |
 | 08. Real macOS Keychain opaque-handle adapter and per-origin session lifecycle | `implemented_inactive` | A purpose-specific Security.framework helper stores, probes, and idempotently deletes one exact origin/opaque-handle/generation item in device-only, nonsynchronizing macOS Keychain storage. Python invokes only an owner-controlled absolute helper through a source-hash-sealed, executable-hash-pinned, bounded local subprocess. Registered lifecycle recipes bind exactly one operation-specific authority ref and compose PolicyEngine, LocalApprovalAuthority, exact AuthorityLease, shared budget, readiness/deadline/human-presence/safe-disable/kill-switch checks, at-most-once dispatch, and a safe-ref-only SQLite session record. Duplicate enrollment is rejected, expired preparation is blocked, and a missing credential is a deterministic failed precondition rather than an ambiguous effect. | Keychain enrollment and deletion are local governed operations only. Session state is `prepared_inactive`: no browser session, authentication, cookie use, navigation, live network, external mutation, real external target, route, or UI control is enabled. Queue 02 remains required. |
 | 09. Human-present MFA, passkey, and CAPTCHA handoff only | `implemented_inactive` | An immutable registry binds one visible challenge kind, content-derived challenge/schema/handoff refs, exact origin and page snapshot, prior observation, visibility proof, handoff surface, expiry, current human-presence assertion, and exact `prepare` capability. Material-like values hidden inside handoff refs are denied unless the ref is a SHA-256-pinned identifier. The existing transaction kernel rejects implied broader lease capabilities and produces a content-free human-action handoff and receipt only after PolicyEngine, LocalApprovalAuthority, exact AuthorityLease, shared budget, readiness, deadline, safe-disable, and kill-switch validation. Its recipe-bound transaction fingerprint prevents a receipt for one registered recipe from being replayed as another. | Handoff only: UAA does not handle challenge material or responses, operate a passkey, solve or bypass CAPTCHA, open a browser, start a session, authenticate, navigate, use cookies, call a network, complete the challenge, mutate an external target, expose a route/UI handler, or enable a real external target. An external facility and Queue 02 validation remain required. |
-| 10. Download quarantine and exact artifact-bound upload plans | `implemented_inactive` | A registered recipe binds one exact `download` or `upload` capability, origin, snapshot, artifact, source download transaction, derived quarantine, app-owned store, transfer surface, visibility proof, schema, byte limit, operation authority, and—for upload plans—the exact content fingerprint and source download receipt. Injected download bytes pass the shared transaction gates before a single bounded, owner-only, no-follow write. Upload planning requires the exact terminal source receipt from its governed ledger, then re-reads only that quarantine file and verifies its fingerprint before producing a safe-ref-only plan and content-free receipt bound back to the same artifact, quarantine, and source transaction. | UAA does not download from a network or browser and does not upload anything. No ordinary path, raw artifact, upload body, browser/session, navigation, authentication/cookies, live network, external mutation, real external target, route, or UI control is enabled. Queue 01 items 11–13 and Queue 02 remain required. |
+| 10. Download quarantine and exact artifact-bound upload plans | `implemented_inactive` | A registered recipe binds one exact `download` or `upload` capability, origin, snapshot, artifact, source download transaction, derived quarantine, app-owned store, transfer surface, visibility proof, schema, byte limit, operation authority, and—for upload plans—the exact content fingerprint, source download receipt, and registered source download recipe. Injected download bytes pass the shared transaction gates before a single bounded, owner-only, no-follow write. Upload planning requires the exact terminal source receipt from its governed ledger and proves it matches that download recipe before re-reading the quarantine file and verifying its fingerprint. | UAA does not download from a network or browser and does not upload anything. No ordinary path, raw artifact, upload body, browser/session, navigation, authentication/cookies, live network, external mutation, real external target, route, or UI control is enabled. Queue 01 items 11–13 and Queue 02 remain required. |
 
 ## Exact Authority Is Not A Superuser Hierarchy
 
@@ -375,11 +375,11 @@ the app-owned quarantine-store ref, transfer schema and visible surface refs, a
 maximum byte count, a window of at most ten minutes, and exactly one
 `download` or `upload` browser capability. An upload recipe additionally binds
 the content fingerprint of the already-quarantined artifact, the exact
-content-free terminal source download receipt, and a distinct prior download
-transaction rather than its own upload transaction. The source receipt is part
-of the schema and exact authority resource set. A generic, administrative,
-destructive, implied-broader, or identifier-only approval cannot substitute for
-the exact lease and approval.
+content-free terminal source download receipt, the registered source download
+recipe, and a distinct prior download transaction rather than its own upload
+transaction. Both source proof refs are part of the schema and exact authority
+resource set. A generic, administrative, destructive, implied-broader, or
+identifier-only approval cannot substitute for the exact lease and approval.
 
 `ExactGovernedArtifactTransferService` reuses the shared transaction kernel:
 
@@ -391,48 +391,56 @@ prepare → PolicyEngine → LocalApprovalAuthority → exact AuthorityLease
 
 The implemented download effect exists only for injected local-validation
 bytes. After all shared gates, it validates a declared bounded media type and
-size, rejects empty, mismatched, oversized, or active text payloads, and writes
-the exact validated immutable snapshot once to an app-owned quarantine using
-an owner-only directory, a derived filename, `O_EXCL`, `O_NOFOLLOW` where
-supported, and `0600` file permissions. A concurrent mutation of the caller's
-buffer cannot change the bytes written after validation. Directory or file
-substitution fails closed. The transient mutable input is zeroized after every
-result. The raw bytes exist only in this purpose-specific quarantine; no
-ordinary user path or raw artifact is returned or written into the transaction
-ledger, receipt, evidence, docs, or logs. Quarantined content is explicitly
-untrusted and is not opened or promoted to authority.
+size, scans the entire bounded text payload for active content, rejects empty,
+mismatched, oversized, or active text payloads, and writes the exact validated
+immutable snapshot once to an app-owned quarantine using an owner-only
+directory, a derived filename, `O_EXCL`, `O_NOFOLLOW` where supported, and
+`0600` file permissions. A concurrent mutation of the caller's buffer cannot
+change the bytes written after validation. Directory or file substitution
+fails closed. The transient mutable input is zeroized after every result. The
+raw bytes exist only in this purpose-specific quarantine; no ordinary user path
+or raw artifact is returned or written into the transaction ledger, receipt,
+evidence, docs, or logs. Quarantined content is explicitly untrusted and is not
+opened or promoted to authority.
 
 The upload operation is plan-only. It accepts no upload body. Before inspecting
 the file, it requires the exact bound source download receipt to remain present
-in a governed transaction ledger, verifies the receipt's stable proof ref,
-successful terminal state, complete shared-kernel proof, and exact artifact,
-quarantine, fingerprint, and quarantine-projection evidence. A pre-seeded or
-surviving quarantine file without that ledger proof produces no plan. It then
-reads only the exact authority-bound quarantine entry. The stored regular file
-must remain owner-only, bounded, content-valid, and equal to the recipe's
-content fingerprint. Missing, substituted, oversized, invalid, or drifted
-content produces no plan. A successful projection contains safe refs, byte
-count, media type, expiry, and explicit false posture for body materialization,
-browser, network, upload, real target, and external mutation.
+in a governed transaction ledger and the bound source recipe to remain present
+in a registered recipe set. It verifies that the recipe is exactly
+`download_quarantine`, matches the artifact, origin, quarantine, store, media,
+size, source transaction, and receipt binding, and that the receipt has a
+stable proof ref, successful terminal state, complete shared-kernel proof, and
+exact artifact, quarantine, fingerprint, and quarantine-projection evidence. A
+generic successful external-action receipt, pre-seeded file, or surviving
+quarantine without both source proofs produces no plan. It then reads only the
+exact authority-bound quarantine entry. The stored regular file must remain
+owner-only, bounded, content-valid, and equal to the recipe's content
+fingerprint. Missing, substituted, oversized, invalid, or drifted content
+produces no plan. A successful projection contains safe refs, byte count, media
+type, expiry, and explicit false posture for body materialization, browser,
+network, upload, real target, and external mutation.
 The success result contract rejects a quarantine or upload-plan projection
 unless its recipe, artifact, quarantine, and source download transaction
 exactly match the content-free receipt. Ready receipts require the complete
 non-replayed shared-kernel approval, authority, reservation, settlement, and
 external-receipt proof refs. Their exact evidence list binds the artifact,
-quarantine, content fingerprint, source download receipt for upload plans, and
-the hash-pinned quarantine projection or upload plan, so altered byte counts,
-fingerprints, snapshots, transfer surfaces, or source provenance cannot be
-paired with an earlier receipt.
+quarantine, content fingerprint, source download receipt and recipe for upload
+plans, and the hash-pinned quarantine projection or upload plan, so altered
+byte counts, fingerprints, snapshots, transfer surfaces, or source provenance
+cannot be paired with an earlier receipt.
 
 The transaction fingerprint includes the registered recipe. A content-free
 terminal replay is resolved from the ledger before any transient download
 payload requirement, so callers can retrieve the terminal receipt without
 retaining or fabricating bytes. Replay does not read or write quarantine again.
-Post-start storage uncertainty remains `outcome_ambiguous` and is not
-automatically retried. This item does not download from a browser or network
-and does not upload anything. It adds no browser engine, authenticated session,
-navigation, cookies, network transport, external target, API route, Control
-Center control, or standing authority.
+An exception, non-datetime value, or naive datetime from the injected service
+clock returns a content-free blocked receipt before dispatch; an invalid
+service clock cannot raise through the governed result boundary. Post-start
+storage uncertainty remains `outcome_ambiguous` and is not automatically
+retried. This item does not download from a browser or network and does not
+upload anything. It adds no browser engine, authenticated session, navigation,
+cookies, network transport, external target, API route, Control Center control,
+or standing authority.
 
 ## Validation Boundary
 
