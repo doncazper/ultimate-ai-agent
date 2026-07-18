@@ -455,6 +455,11 @@ def test_raw_upload_payload_is_denied_and_zeroized_before_transaction(
         request=request,
         registry=registry,
     )
+    terminal = service.execute(_exact(request, recipe))
+    assert terminal.receipt.status == "failed"
+    ledger_before_raw_replay = (
+        tmp_path / "kernel" / "transactions.sqlite3"
+    ).read_bytes()
     payload = bytearray(b"raw upload body")
 
     result = service.execute(
@@ -468,6 +473,6 @@ def test_raw_upload_payload_is_denied_and_zeroized_before_transaction(
     ]
     assert payload == bytearray(len(payload))
     assert (
-        recipe.recipe_ref.encode()
-        not in (tmp_path / "kernel" / "transactions.sqlite3").read_bytes()
+        ledger_before_raw_replay
+        == (tmp_path / "kernel" / "transactions.sqlite3").read_bytes()
     )

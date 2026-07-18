@@ -15,6 +15,7 @@ from tests.test_governed_browser_queue01_group08 import (
 )
 from ultimate_ai_agent.core.governed_browser import (
     MAX_GOVERNED_ARTIFACT_BYTES,
+    ExactGovernedArtifactQuarantine,
     ExactGovernedArtifactTransferService,
     ExternalActionAuthorityBinding,
     ExternalActionDispatchOutcome,
@@ -23,12 +24,70 @@ from ultimate_ai_agent.core.governed_browser import (
     GovernedArtifactMediaType,
     GovernedArtifactPayloadRejected,
     GovernedArtifactQuarantineStore,
+    GovernedArtifactServiceProof,
     GovernedArtifactTransferOperation,
     GovernedArtifactTransferRecipe,
     GovernedArtifactTransferRecipeRegistry,
     build_governed_artifact_transfer_recipe,
+    governed_artifact_service_proof_ref,
     stable_governed_browser_ref,
 )
+
+
+def _source_projection_and_service_proof(
+    recipe: GovernedArtifactTransferRecipe,
+    inspection,  # type: ignore[no-untyped-def]
+) -> tuple[ExactGovernedArtifactQuarantine, GovernedArtifactServiceProof]:
+    projection_payload = {
+        "recipe_ref": recipe.recipe_ref,
+        "artifact_ref": recipe.artifact_ref,
+        "quarantine_ref": recipe.quarantine_ref,
+        "download_transaction_ref": recipe.download_transaction_ref,
+        "origin_ref": recipe.origin_ref,
+        "quarantine_store_ref": recipe.quarantine_store_ref,
+        "content_fingerprint_ref": inspection.content_fingerprint_ref,
+        "declared_media_type": inspection.declared_media_type,
+        "byte_count": inspection.byte_count,
+        "expires_at": recipe.expires_at,
+    }
+    provisional_projection = ExactGovernedArtifactQuarantine.model_construct(
+        quarantine_projection_ref=(
+            "artifact-quarantine-projection-ref:governed-browser:pending"
+        ),
+        **projection_payload,
+    )
+    projection_ref = stable_governed_browser_ref(
+        "artifact-quarantine-projection-ref:governed-browser",
+        provisional_projection.model_dump(
+            mode="json",
+            exclude={"quarantine_projection_ref"},
+        ),
+    )
+    projection = ExactGovernedArtifactQuarantine(
+        quarantine_projection_ref=projection_ref,
+        **projection_payload,
+    )
+    proof_payload = {
+        "recipe_ref": recipe.recipe_ref,
+        "origin_ref": recipe.origin_ref,
+        "artifact_ref": recipe.artifact_ref,
+        "quarantine_ref": recipe.quarantine_ref,
+        "download_transaction_ref": recipe.download_transaction_ref,
+        "quarantine_projection_ref": projection_ref,
+        "content_fingerprint_ref": inspection.content_fingerprint_ref,
+        "expires_at": recipe.expires_at,
+    }
+    proof = GovernedArtifactServiceProof(
+        proof_ref=governed_artifact_service_proof_ref(
+            recipe_ref=recipe.recipe_ref,
+            origin_ref=recipe.origin_ref,
+            quarantine_ref=recipe.quarantine_ref,
+            quarantine_projection_ref=projection_ref,
+            content_fingerprint_ref=inspection.content_fingerprint_ref,
+        ),
+        **proof_payload,
+    )
+    return projection, proof
 
 
 def _rebuild_recipe(
@@ -71,10 +130,11 @@ def test_upload_rejects_generic_receipt_without_recipe_bound_request_fingerprint
         declared_media_type=GovernedArtifactMediaType.text_plain,
         max_bytes=download_recipe.max_bytes,
     )
-    projection_ref = _pinned(
-        "artifact-quarantine-projection-ref:governed-browser",
-        suffix="generic-source-receipt",
+    projection, service_proof = _source_projection_and_service_proof(
+        download_recipe,
+        inspection,
     )
+    store._record_service_proof(service_proof)
     download_kernel, _ = _authorized_kernel(
         tmp_path / "download-kernel",
         download_request,
@@ -87,7 +147,8 @@ def test_upload_rejects_generic_receipt_without_recipe_bound_request_fingerprint
                 download_recipe.artifact_ref,
                 download_recipe.quarantine_ref,
                 inspection.content_fingerprint_ref,
-                projection_ref,
+                projection.quarantine_projection_ref,
+                service_proof.proof_ref,
             ],
             verified=True,
         ),
@@ -122,7 +183,7 @@ def test_upload_rejects_generic_receipt_without_recipe_bound_request_fingerprint
     )
 
 
-def test_upload_requires_the_exact_hash_pinned_source_quarantine_projection(
+def test_upload_requires_service_owned_proof_beyond_exact_kernel_evidence(
     tmp_path: Path,
 ) -> None:
     store = GovernedArtifactQuarantineStore(tmp_path / "artifacts")
@@ -153,6 +214,10 @@ def test_upload_requires_the_exact_hash_pinned_source_quarantine_projection(
         tmp_path / "download-kernel",
         recipe_bound_request,
     )
+    projection, service_proof = _source_projection_and_service_proof(
+        download_recipe,
+        inspection,
+    )
     generic_receipt = download_kernel.execute(
         recipe_bound_request,
         dispatch=lambda _request: ExternalActionDispatchResult(
@@ -161,10 +226,8 @@ def test_upload_requires_the_exact_hash_pinned_source_quarantine_projection(
                 download_recipe.artifact_ref,
                 download_recipe.quarantine_ref,
                 inspection.content_fingerprint_ref,
-                _pinned(
-                    "artifact-quarantine-projection-ref:governed-browser",
-                    suffix="arbitrary-projection",
-                ),
+                projection.quarantine_projection_ref,
+                service_proof.proof_ref,
             ],
             verified=True,
         ),

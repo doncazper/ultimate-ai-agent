@@ -248,6 +248,107 @@ class GovernedArtifactInspection:
     content_fingerprint_ref: str
 
 
+def governed_artifact_service_proof_ref(
+    *,
+    recipe_ref: str,
+    origin_ref: str,
+    quarantine_ref: str,
+    quarantine_projection_ref: str,
+    content_fingerprint_ref: str,
+) -> str:
+    validate_task_ref(origin_ref, "origin_ref")
+    for value, label, prefix in (
+        (
+            recipe_ref,
+            "recipe_ref",
+            "artifact-transfer-recipe-ref:governed-browser:",
+        ),
+        (
+            quarantine_ref,
+            "quarantine_ref",
+            "artifact-quarantine-ref:governed-browser:",
+        ),
+        (
+            quarantine_projection_ref,
+            "quarantine_projection_ref",
+            "artifact-quarantine-projection-ref:governed-browser:",
+        ),
+        (
+            content_fingerprint_ref,
+            "content_fingerprint_ref",
+            "content-fingerprint-ref:governed-browser:",
+        ),
+    ):
+        _validate_hash_pinned_ref(value, label=label, prefix=prefix)
+    return stable_governed_browser_ref(
+        "artifact-transfer-service-proof-ref:governed-browser",
+        {
+            "recipe_ref": recipe_ref,
+            "origin_ref": origin_ref,
+            "quarantine_ref": quarantine_ref,
+            "quarantine_projection_ref": quarantine_projection_ref,
+            "content_fingerprint_ref": content_fingerprint_ref,
+        },
+    )
+
+
+class GovernedArtifactServiceProof(BaseModel):
+    """Content-free proof written only by the quarantine service path."""
+
+    schema_version: Literal["uaa-governed-artifact-service-proof.v1"] = (
+        "uaa-governed-artifact-service-proof.v1"
+    )
+    proof_ref: str
+    recipe_ref: str
+    origin_ref: str
+    artifact_ref: str
+    quarantine_ref: str
+    download_transaction_ref: str
+    quarantine_projection_ref: str
+    content_fingerprint_ref: str
+    expires_at: datetime
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    @model_validator(mode="after")
+    def validate_proof(self) -> "GovernedArtifactServiceProof":
+        for value, label in (
+            (self.proof_ref, "proof_ref"),
+            (self.recipe_ref, "recipe_ref"),
+            (self.origin_ref, "origin_ref"),
+            (self.artifact_ref, "artifact_ref"),
+            (self.quarantine_ref, "quarantine_ref"),
+            (self.download_transaction_ref, "download_transaction_ref"),
+            (self.quarantine_projection_ref, "quarantine_projection_ref"),
+            (self.content_fingerprint_ref, "content_fingerprint_ref"),
+        ):
+            validate_task_ref(value, label)
+        if self.expires_at.tzinfo is None:
+            raise ValueError("GOVERNED_ARTIFACT_TIMEZONE_REQUIRED")
+        _validate_hash_pinned_ref(
+            self.artifact_ref,
+            label="artifact_ref",
+            prefix="artifact-ref:governed-browser:",
+        )
+        expected_quarantine_ref = governed_artifact_quarantine_ref(
+            origin_ref=self.origin_ref,
+            artifact_ref=self.artifact_ref,
+            download_transaction_ref=self.download_transaction_ref,
+        )
+        if self.quarantine_ref != expected_quarantine_ref:
+            raise ValueError("GOVERNED_ARTIFACT_QUARANTINE_SCOPE_MISMATCH")
+        expected_proof_ref = governed_artifact_service_proof_ref(
+            recipe_ref=self.recipe_ref,
+            origin_ref=self.origin_ref,
+            quarantine_ref=self.quarantine_ref,
+            quarantine_projection_ref=self.quarantine_projection_ref,
+            content_fingerprint_ref=self.content_fingerprint_ref,
+        )
+        if self.proof_ref != expected_proof_ref:
+            raise ValueError("GOVERNED_ARTIFACT_SERVICE_PROOF_REF_MISMATCH")
+        return self
+
+
 class GovernedArtifactQuarantineStore:
     """Purpose-specific app-owned storage; paths never cross the boundary."""
 
@@ -292,6 +393,11 @@ class GovernedArtifactQuarantineStore:
     def _filename(quarantine_ref: str) -> str:
         validate_task_ref(quarantine_ref, "quarantine_ref")
         return f"{hashlib.sha256(quarantine_ref.encode()).hexdigest()}.quarantine"
+
+    @staticmethod
+    def _proof_filename(quarantine_ref: str) -> str:
+        validate_task_ref(quarantine_ref, "quarantine_ref")
+        return f"{hashlib.sha256(quarantine_ref.encode()).hexdigest()}.service-proof"
 
     def _verify_directories(self) -> None:
         try:
@@ -465,6 +571,108 @@ class GovernedArtifactQuarantineStore:
                 os.close(descriptor)
             os.close(directory_fd)
         return inspection
+
+    def _record_service_proof(self, proof: GovernedArtifactServiceProof) -> None:
+        exact = GovernedArtifactServiceProof.model_validate(
+            proof.model_dump(mode="json")
+        )
+        directory_fd = self._open_quarantine_directory()
+        filename = self._proof_filename(exact.quarantine_ref)
+        descriptor: int | None = None
+        created = False
+        payload = exact.model_dump_json().encode("utf-8")
+        try:
+            try:
+                descriptor = os.open(
+                    filename,
+                    os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
+                    0o600,
+                    dir_fd=directory_fd,
+                )
+                created = True
+                _write_all(descriptor, payload)
+                os.fsync(descriptor)
+                info = os.fstat(descriptor)
+                if (
+                    not stat.S_ISREG(info.st_mode)
+                    or info.st_nlink != 1
+                    or info.st_uid != os.geteuid()
+                    or info.st_mode & 0o077
+                    or info.st_size != len(payload)
+                ):
+                    raise OSError("unsafe quarantine service proof")
+                os.fsync(directory_fd)
+            except OSError as exc:
+                if created:
+                    try:
+                        os.unlink(filename, dir_fd=directory_fd)
+                        os.fsync(directory_fd)
+                    except OSError:
+                        pass
+                raise GovernedArtifactQuarantineError(
+                    "GOVERNED_ARTIFACT_SERVICE_PROOF_WRITE_FAILED"
+                ) from exc
+            finally:
+                if descriptor is not None:
+                    os.close(descriptor)
+        finally:
+            os.close(directory_fd)
+
+    def _inspect_service_proof(
+        self,
+        *,
+        quarantine_ref: str,
+    ) -> GovernedArtifactServiceProof:
+        _validate_hash_pinned_ref(
+            quarantine_ref,
+            label="quarantine_ref",
+            prefix="artifact-quarantine-ref:governed-browser:",
+        )
+        directory_fd = self._open_quarantine_directory()
+        descriptor: int | None = None
+        try:
+            try:
+                descriptor = os.open(
+                    self._proof_filename(quarantine_ref),
+                    os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0),
+                    dir_fd=directory_fd,
+                )
+                info = os.fstat(descriptor)
+                path_info = os.stat(
+                    self._proof_filename(quarantine_ref),
+                    dir_fd=directory_fd,
+                    follow_symlinks=False,
+                )
+                if (
+                    not stat.S_ISREG(info.st_mode)
+                    or info.st_nlink != 1
+                    or info.st_uid != os.geteuid()
+                    or info.st_mode & 0o077
+                    or (info.st_dev, info.st_ino)
+                    != (path_info.st_dev, path_info.st_ino)
+                ):
+                    raise OSError("unsafe quarantine service proof")
+                payload = _read_bounded(descriptor, max_bytes=8192)
+            except (OSError, GovernedArtifactQuarantinePrecondition) as exc:
+                raise GovernedArtifactQuarantinePrecondition(
+                    "GOVERNED_ARTIFACT_SERVICE_PROOF_REQUIRED"
+                ) from exc
+            finally:
+                if descriptor is not None:
+                    os.close(descriptor)
+        finally:
+            os.close(directory_fd)
+        try:
+            proof = GovernedArtifactServiceProof.model_validate_json(payload)
+        except Exception as exc:
+            raise GovernedArtifactQuarantinePrecondition(
+                "GOVERNED_ARTIFACT_SERVICE_PROOF_INVALID"
+            ) from exc
+        if proof.quarantine_ref != quarantine_ref:
+            raise GovernedArtifactQuarantinePrecondition(
+                "GOVERNED_ARTIFACT_SERVICE_PROOF_SCOPE_MISMATCH"
+            )
+        return proof
 
     def inspect(
         self,
@@ -1230,6 +1438,13 @@ class GovernedArtifactTransferReceipt(BaseModel):
                     self.quarantine_ref,
                     self.content_fingerprint_ref,
                     self.quarantine_projection_ref,
+                    governed_artifact_service_proof_ref(
+                        recipe_ref=self.recipe_ref,
+                        origin_ref=self.origin_ref,
+                        quarantine_ref=self.quarantine_ref,
+                        quarantine_projection_ref=self.quarantine_projection_ref,
+                        content_fingerprint_ref=self.content_fingerprint_ref,
+                    ),
                 ]
             else:
                 if (
@@ -1466,6 +1681,16 @@ class ExactGovernedArtifactTransferService:
                 operation=operation,
                 reason_ref=scope_reason,
             )
+        if (
+            operation
+            == GovernedArtifactTransferOperation.upload_quarantined_artifact_plan
+            and injected_download_payload is not None
+        ):
+            return _preflight_blocked(
+                request,
+                operation=operation,
+                reason_ref="reason-ref:governed-artifact:raw-upload-payload-denied",
+            )
         kernel_execution = _artifact_transfer_kernel_execution(
             execution,
             recipe_ref=recipe.recipe_ref,
@@ -1494,16 +1719,6 @@ class ExactGovernedArtifactTransferService:
                 request,
                 operation=operation,
                 reason_ref="reason-ref:governed-artifact:injected-payload-required",
-            )
-        if (
-            operation
-            == GovernedArtifactTransferOperation.upload_quarantined_artifact_plan
-            and injected_download_payload is not None
-        ):
-            return _preflight_blocked(
-                request,
-                operation=operation,
-                reason_ref="reason-ref:governed-artifact:raw-upload-payload-denied",
             )
         assert current_time is not None
         if current_time < recipe.created_at:
@@ -1560,11 +1775,24 @@ class ExactGovernedArtifactTransferService:
                     recipe,
                     inspection,
                 )
+                service_proof = _build_service_proof(
+                    recipe,
+                    captured_quarantine,
+                )
+                try:
+                    self._store._record_service_proof(service_proof)
+                except GovernedArtifactQuarantineError:
+                    captured_quarantine = None
+                    return _failed_dispatch(
+                        dispatched_request,
+                        "download-service-proof-write-failed",
+                    )
                 evidence_refs = [
                     recipe.artifact_ref,
                     recipe.quarantine_ref,
                     inspection.content_fingerprint_ref,
                     captured_quarantine.quarantine_projection_ref,
+                    service_proof.proof_ref,
                 ]
             else:
                 assert recipe.content_fingerprint_ref is not None
@@ -1586,10 +1814,20 @@ class ExactGovernedArtifactTransferService:
                         dispatched_request,
                         "upload-artifact-precondition-failed",
                     )
+                try:
+                    service_proof = self._store._inspect_service_proof(
+                        quarantine_ref=recipe.quarantine_ref,
+                    )
+                except GovernedArtifactQuarantinePrecondition:
+                    return _failed_dispatch(
+                        dispatched_request,
+                        "source-download-service-proof-required",
+                    )
                 if not self._source_download_receipt_is_valid(
                     recipe,
                     current_time=current_time,
                     inspection=inspection,
+                    service_proof=service_proof,
                 ):
                     return _failed_dispatch(
                         dispatched_request,
@@ -1659,6 +1897,7 @@ class ExactGovernedArtifactTransferService:
         *,
         current_time: datetime,
         inspection: GovernedArtifactInspection,
+        service_proof: GovernedArtifactServiceProof,
     ) -> bool:
         receipt_ref = recipe.source_download_receipt_ref
         source_recipe_ref = recipe.source_download_recipe_ref
@@ -1715,6 +1954,10 @@ class ExactGovernedArtifactTransferService:
         except Exception:
             return False
         expected_projection = _build_exact_quarantine(source_recipe, inspection)
+        expected_service_proof = _build_service_proof(
+            source_recipe,
+            expected_projection,
+        )
         if (
             exact_replay is None
             or receipt is None
@@ -1738,13 +1981,15 @@ class ExactGovernedArtifactTransferService:
                 )
             )
             or recipe.content_fingerprint_ref is None
-            or len(receipt.evidence_refs) != 4
+            or service_proof != expected_service_proof
+            or len(receipt.evidence_refs) != 5
             or receipt.evidence_refs
             != [
                 recipe.artifact_ref,
                 recipe.quarantine_ref,
                 recipe.content_fingerprint_ref,
                 expected_projection.quarantine_projection_ref,
+                expected_service_proof.proof_ref,
             ]
         ):
             return False
@@ -1782,6 +2027,33 @@ def _build_exact_quarantine(
     )
     return ExactGovernedArtifactQuarantine(
         quarantine_projection_ref=projection_ref,
+        **payload,
+    )
+
+
+def _build_service_proof(
+    recipe: GovernedArtifactTransferRecipe,
+    quarantine: ExactGovernedArtifactQuarantine,
+) -> GovernedArtifactServiceProof:
+    payload = {
+        "recipe_ref": recipe.recipe_ref,
+        "origin_ref": recipe.origin_ref,
+        "artifact_ref": recipe.artifact_ref,
+        "quarantine_ref": recipe.quarantine_ref,
+        "download_transaction_ref": recipe.download_transaction_ref,
+        "quarantine_projection_ref": quarantine.quarantine_projection_ref,
+        "content_fingerprint_ref": quarantine.content_fingerprint_ref,
+        "expires_at": recipe.expires_at,
+    }
+    proof_ref = governed_artifact_service_proof_ref(
+        recipe_ref=recipe.recipe_ref,
+        origin_ref=recipe.origin_ref,
+        quarantine_ref=recipe.quarantine_ref,
+        quarantine_projection_ref=quarantine.quarantine_projection_ref,
+        content_fingerprint_ref=quarantine.content_fingerprint_ref,
+    )
+    return GovernedArtifactServiceProof(
+        proof_ref=proof_ref,
         **payload,
     )
 
@@ -1974,7 +2246,7 @@ def _result_from_external_receipt(
 ) -> ExactGovernedArtifactTransferResult:
     state = ExternalActionState(external_receipt.state)
     operation = GovernedArtifactTransferOperation(recipe.operation)
-    if external_receipt.replayed:
+    if external_receipt.replayed and state == ExternalActionState.succeeded:
         status = GovernedArtifactTransferStatus.replayed_content_free
     elif state == ExternalActionState.succeeded:
         status = {

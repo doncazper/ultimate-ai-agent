@@ -221,7 +221,7 @@ def _exact(request, recipe) -> ExactGovernedArtifactTransferRequest:  # type: ig
 
 
 def _quarantine_file(root: Path) -> Path:
-    files = list((root / "artifact-quarantine").iterdir())
+    files = list((root / "artifact-quarantine").glob("*.quarantine"))
     assert len(files) == 1
     return files[0]
 
@@ -687,3 +687,7 @@ def test_invalid_download_payloads_fail_without_materialization(
     assert result.quarantine is None
     assert payload == bytearray(original_length)
     assert list((tmp_path / "artifacts" / "artifact-quarantine").iterdir()) == []
+    replay = service.execute(_exact(request, recipe))
+    assert replay.receipt.status == "failed"
+    assert replay.receipt.external_action_state == "failed"
+    assert replay.receipt.replayed is True
