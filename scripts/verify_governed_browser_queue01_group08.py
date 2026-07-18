@@ -63,6 +63,9 @@ def verify() -> list[str]:
             "GOVERNED_ARTIFACT_QUARANTINE_RESULT_SCOPE_MISMATCH",
             "GOVERNED_ARTIFACT_UPLOAD_PLAN_RESULT_SCOPE_MISMATCH",
             "GOVERNED_ARTIFACT_SOURCE_TRANSACTION_MUST_BE_DISTINCT",
+            "source_download_receipt_ref",
+            "terminal_receipt_by_ref",
+            "source-download-receipt-required",
             "GOVERNED_ARTIFACT_READY_KERNEL_PROOF_REQUIRED",
             "GOVERNED_ARTIFACT_READY_EVIDENCE_MISMATCH",
             "GOVERNED_ARTIFACT_QUARANTINE_RESULT_EVIDENCE_MISMATCH",
@@ -91,7 +94,9 @@ def verify() -> list[str]:
         ),
         "transaction": (
             "def replay_if_terminal",
+            "def terminal_receipt_by_ref",
             "GOVERNED_EXTERNAL_ACTION_IDEMPOTENCY_CONFLICT",
+            "GOVERNED_EXTERNAL_ACTION_TERMINAL_RECEIPT_CONFLICT",
             "len(lease.domains) == 1",
         ),
         "package": (
@@ -103,6 +108,7 @@ def verify() -> list[str]:
         "tests": (
             "test_bounded_download_is_quarantined_only_and_receipts_are_content_free",
             "test_download_replay_is_at_most_once_content_free_and_zeroizes_input",
+            "replay = service.execute(exact)",
             "test_upload_is_an_exact_fingerprinted_plan_from_quarantine_only",
             "test_upload_fails_closed_without_exact_quarantined_fingerprint",
             "test_unknown_recipe_and_operation_mismatch_are_truthfully_blocked",
@@ -119,6 +125,7 @@ def verify() -> list[str]:
             "test_ready_receipts_require_complete_kernel_proof",
             "test_quarantine_projection_must_match_receipt_evidence",
             "test_upload_plan_must_match_receipt_fingerprint_and_plan_evidence",
+            "test_upload_plan_requires_the_bound_source_download_ledger_receipt",
         ),
         "doc": (
             "10. Download quarantine and exact artifact-bound upload plans",
@@ -126,7 +133,9 @@ def verify() -> list[str]:
             "app-owned quarantine",
             "content fingerprint",
             "validated immutable snapshot",
-            "distinct prior download transaction",
+            "distinct prior download",
+            "source download receipt",
+            "content-free terminal",
             "shared-kernel approval",
             "does not download",
             "does not upload",

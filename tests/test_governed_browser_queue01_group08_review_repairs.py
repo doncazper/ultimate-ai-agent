@@ -266,7 +266,7 @@ def test_upload_plan_must_match_receipt_fingerprint_and_plan_evidence(
         operation=GovernedArtifactTransferOperation.download_quarantine,
         suffix="plan-evidence-download",
     )
-    download_service, _, _ = _service(
+    download_service, download_kernel, _ = _service(
         tmp_path / "download-kernel",
         store=store,
         request=download_request,
@@ -285,12 +285,14 @@ def test_upload_plan_must_match_receipt_fingerprint_and_plan_evidence(
         quarantine_ref=download_recipe.quarantine_ref,
         download_transaction_ref=download_recipe.download_transaction_ref,
         content_fingerprint_ref=downloaded.quarantine.content_fingerprint_ref,
+        source_download_receipt_ref=(downloaded.receipt.external_action_receipt_ref),
     )
     upload_service, _, _ = _service(
         tmp_path / "upload-kernel",
         store=store,
         request=upload_request,
         registry=upload_registry,
+        source_download_kernel=download_kernel,
     )
     result = upload_service.execute(_exact(upload_request, upload_recipe))
     assert result.upload_plan is not None
@@ -311,3 +313,50 @@ def test_upload_plan_must_match_receipt_fingerprint_and_plan_evidence(
             receipt=result.receipt,
             upload_plan=tampered,
         )
+
+
+def test_upload_plan_requires_the_bound_source_download_ledger_receipt(
+    tmp_path: Path,
+) -> None:
+    store = GovernedArtifactQuarantineStore(tmp_path / "artifacts")
+    download_request, download_recipe, download_registry = _transfer_context(
+        store,
+        operation=GovernedArtifactTransferOperation.download_quarantine,
+        suffix="source-proof-download",
+    )
+    download_service, _, _ = _service(
+        tmp_path / "download-kernel",
+        store=store,
+        request=download_request,
+        registry=download_registry,
+    )
+    downloaded = download_service.execute(
+        _exact(download_request, download_recipe),
+        injected_download_payload=bytearray(b"surviving quarantine file"),
+    )
+    assert downloaded.quarantine is not None
+    upload_request, upload_recipe, upload_registry = _transfer_context(
+        store,
+        operation=GovernedArtifactTransferOperation.upload_quarantined_artifact_plan,
+        suffix="source-proof-upload",
+        artifact_ref=download_recipe.artifact_ref,
+        quarantine_ref=download_recipe.quarantine_ref,
+        download_transaction_ref=download_recipe.download_transaction_ref,
+        content_fingerprint_ref=downloaded.quarantine.content_fingerprint_ref,
+        source_download_receipt_ref=(downloaded.receipt.external_action_receipt_ref),
+    )
+    upload_service, _, _ = _service(
+        tmp_path / "upload-kernel",
+        store=store,
+        request=upload_request,
+        registry=upload_registry,
+    )
+
+    result = upload_service.execute(_exact(upload_request, upload_recipe))
+
+    assert result.receipt.status == "failed"
+    assert result.receipt.external_action_state == "failed"
+    assert result.receipt.evidence_refs[0].startswith(
+        "evidence-ref:governed-artifact:source-download-receipt-required:"
+    )
+    assert result.upload_plan is None

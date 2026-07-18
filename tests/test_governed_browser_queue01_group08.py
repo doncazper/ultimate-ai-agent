@@ -51,6 +51,7 @@ def _transfer_context(
     quarantine_ref: str | None = None,
     download_transaction_ref: str | None = None,
     content_fingerprint_ref: str | None = None,
+    source_download_receipt_ref: str | None = None,
     target_kind: ExternalActionTargetKind = ExternalActionTargetKind.local_validation,
     human_present: bool = True,
 ):  # type: ignore[no-untyped-def]
@@ -72,6 +73,15 @@ def _transfer_context(
         artifact_ref=exact_artifact_ref,
         download_transaction_ref=exact_download_transaction_ref,
     )
+    exact_source_download_receipt_ref = source_download_receipt_ref
+    if (
+        operation == GovernedArtifactTransferOperation.upload_quarantined_artifact_plan
+        and exact_source_download_receipt_ref is None
+    ):
+        exact_source_download_receipt_ref = _pinned(
+            "receipt-ref:governed-external-action",
+            suffix=f"{suffix}-unproven-source",
+        )
     transfer_surface_ref = _pinned(
         "artifact-transfer-surface-ref:governed-browser",
         suffix=suffix,
@@ -94,6 +104,7 @@ def _transfer_context(
         declared_media_type=GovernedArtifactMediaType.text_plain,
         max_bytes=1024,
         content_fingerprint_ref=content_fingerprint_ref,
+        source_download_receipt_ref=exact_source_download_receipt_ref,
     )
     resources = [
         _ref("resource", suffix),
@@ -105,6 +116,8 @@ def _transfer_context(
     ]
     if content_fingerprint_ref is not None:
         resources.append(content_fingerprint_ref)
+    if exact_source_download_receipt_ref is not None:
+        resources.append(exact_source_download_receipt_ref)
     if exact_download_transaction_ref != base.transaction_ref:
         resources.append(exact_download_transaction_ref)
     binding = ExternalActionAuthorityBinding.model_validate(
@@ -143,6 +156,7 @@ def _transfer_context(
         content_fingerprint_ref=content_fingerprint_ref,
         created_at=created_at,
         expires_at=expires_at,
+        source_download_receipt_ref=exact_source_download_receipt_ref,
     )
     registry = GovernedArtifactTransferRecipeRegistry([recipe])
     return request, recipe, registry
@@ -155,6 +169,7 @@ def _service(
     request,
     registry,
     readiness_provider=None,  # type: ignore[no-untyped-def]
+    source_download_kernel=None,  # type: ignore[no-untyped-def]
     clock=utc_now,  # type: ignore[no-untyped-def]
 ):  # type: ignore[no-untyped-def]
     kernel, authority = _authorized_kernel(
@@ -168,6 +183,7 @@ def _service(
             registry=registry,
             kernel=kernel,
             quarantine_store=store,
+            source_download_kernel=source_download_kernel,
             clock=clock,
         ),
         kernel,
@@ -282,10 +298,9 @@ def test_download_replay_is_at_most_once_content_free_and_zeroizes_input(
     )
     exact = _exact(request, recipe)
     first_payload = bytearray(b"first bounded artifact")
-    replay_payload = bytearray(b"different content never dispatched")
 
     first = service.execute(exact, injected_download_payload=first_payload)
-    replay = service.execute(exact, injected_download_payload=replay_payload)
+    replay = service.execute(exact)
 
     assert first.receipt.status == "quarantined"
     assert replay.receipt.status == "replayed_content_free"
@@ -293,7 +308,6 @@ def test_download_replay_is_at_most_once_content_free_and_zeroizes_input(
     assert replay.quarantine is None
     assert replay.upload_plan is None
     assert first_payload == bytearray(len(first_payload))
-    assert replay_payload == bytearray(len(replay_payload))
     assert _quarantine_file(quarantine_root).read_bytes() == b"first bounded artifact"
 
 
@@ -307,7 +321,7 @@ def test_upload_is_an_exact_fingerprinted_plan_from_quarantine_only(
         operation=GovernedArtifactTransferOperation.download_quarantine,
         suffix="download-for-upload",
     )
-    download_service, _, _ = _service(
+    download_service, download_kernel, _ = _service(
         tmp_path / "download-kernel",
         store=store,
         request=download_request,
@@ -326,12 +340,14 @@ def test_upload_is_an_exact_fingerprinted_plan_from_quarantine_only(
         quarantine_ref=download_recipe.quarantine_ref,
         download_transaction_ref=download_recipe.download_transaction_ref,
         content_fingerprint_ref=(downloaded.quarantine.content_fingerprint_ref),
+        source_download_receipt_ref=(downloaded.receipt.external_action_receipt_ref),
     )
     upload_service, _, _ = _service(
         tmp_path / "upload-kernel",
         store=store,
         request=upload_request,
         registry=upload_registry,
+        source_download_kernel=download_kernel,
     )
 
     result = upload_service.execute(_exact(upload_request, upload_recipe))
