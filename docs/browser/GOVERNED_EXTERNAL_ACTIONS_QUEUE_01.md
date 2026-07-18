@@ -1,10 +1,11 @@
 # Governed Browser And External Actions — Queue 01
 
-Status: active program; items 01–03 are `implemented_inactive`.
+Status: active program; items 01–04 are `implemented_inactive`.
 
-This document records the first coherent Queue 01 group. It implements exact
-authority semantics, an isolated injected browser-broker boundary, and an
-external-action transaction kernel without activating real external targets.
+This document records the first two coherent Queue 01 groups. They implement
+exact authority semantics, an isolated injected browser-broker boundary, an
+external-action transaction kernel, and a readable Action Inbox execution
+envelope without activating real external targets.
 It grants no standing browser authority, unrestricted browsing, provider SDK
 call, live network fetch, click, form submission, authenticated session,
 download, upload, purchase, publishing action, or production authority.
@@ -16,6 +17,7 @@ download, upload, purchase, publishing action, or production authority.
 | 01. Exact authority semantics | `implemented_inactive` | Exact origin, recipient, field schema, transaction, artifact, resource, action-count, page-snapshot, start-deadline, and human-presence binding; `admin` and `destructive` no longer imply unrelated capabilities. | Real external execution and standing grants. |
 | 02. Isolated browser broker | `implemented_inactive` | Injected observation adapter behind `WebAccessGateway`, bounded concurrency, exact origin refs, ephemeral private profile directories, ordinary-profile denial, hostile-content quarantine, and external mutation disabled. | Browser engine, navigation, real network, ordinary user profiles, clicks, forms, auth/cookies, downloads/uploads, and external mutation. |
 | 03. External-action transaction kernel | `implemented_inactive` | Durable safe-ref intent precedes effects; exact policy, LocalApprovalAuthority, AuthorityLease, budget reservation, readiness, page snapshot, deadline, human-presence, safe-disable, and kill-switch checks precede one dispatch; verify and settlement produce a content-free receipt. | Real external targets and adversarial cross-lane validation required by Queue 02. |
+| 04. Action Inbox execution envelope | `implemented_inactive` | Backend-owned content-free projection exposes readable exact scope, side-effect and data-classification posture, expiry, reversibility, retry truth, approval fingerprint, expected/observed receipts, reconciliation state, and manual-only Open in browser / Human takeover controls. | No UI handler, browser launch, approval validation, dispatch, real external target, or automatic retry; Queue 02 remains required. |
 
 ## Exact Authority Is Not A Superuser Hierarchy
 
@@ -79,6 +81,40 @@ durable start claim. A snapshot change, expired deadline, missing human
 presence, stale readiness, broker-integrity failure, safe-disable, or kill
 switch releases the unused reservation and blocks dispatch.
 
+## Action Inbox Execution Envelope
+
+`ExternalActionInboxExecutionEnvelope` is a backend-owned read model for one
+exact `ExternalActionExecutionRequest` and, when present, its matching
+content-free receipt. It intentionally omits the raw origin and approval
+identifier. The operator sees a bounded readable scope plus safe refs for the
+lease, inactive adapter, exact origin, recipient, schema, transaction,
+artifacts, resources, page snapshot, and human-presence assertion.
+
+The envelope makes consequences visible before any later exact execution
+lane:
+
+- side effects distinguish injected local validation from inactive external
+  mutation;
+- data classification is `project_private`;
+- the aware deadline is rendered as active or expired;
+- reversibility remains not applicable for local validation or unknown/manual
+  review for a generic external operation;
+- the approval fingerprint binds the exact approval identifier, subject,
+  resources, risk, classification, and expiry but is never authority;
+- expected and observed receipt refs remain content-free;
+- success with evidence is reconciled as verified, while failed, started, or
+  `outcome_ambiguous` truth requires manual reconciliation and forbids retry;
+  and
+- current safe-disable, kill-switch, expiry, human-presence, and inactive-target
+  blockers remain visible as reason refs.
+
+The `Open in browser` and `Human takeover` controls are typed manual-handoff
+records only. They are visible for operator comprehension but have no handler,
+never open a browser, never automate a profile, never mutate an external
+target, and record `performed=false`. An expired request makes both handoffs
+unavailable. Adding a Control Center handler, browser launch, approval capture,
+or dispatch route is outside this group.
+
 ## Validation Boundary
 
 The only executable proof in this group is deterministic injected
@@ -96,8 +132,11 @@ PYTHONPATH=src .venv/bin/python -m pytest -q \
   tests/test_authority_budgets.py \
   tests/test_web_access_gateway.py
 .venv/bin/python scripts/verify_governed_browser_queue01_group01.py
+PYTHONPATH=src .venv/bin/python -m pytest -q \
+  tests/test_governed_browser_queue01_group02.py
+.venv/bin/python scripts/verify_governed_browser_queue01_group02.py
 ```
 
-Queue 01 items 04–13 remain pending and must be implemented in their manifest
+Queue 01 items 05–13 remain pending and must be implemented in their manifest
 order. Queue 02 remains the separate adversarial hardening gate; no status in
 this document satisfies or bypasses that gate.
