@@ -135,7 +135,13 @@ def _post_context(
 
 
 class _ExactPostFormPlanTransport:
-    def __init__(self, **overrides: Any) -> None:
+    def __init__(
+        self,
+        *,
+        omit: set[str] | None = None,
+        **overrides: Any,
+    ) -> None:
+        self.omit = omit or set()
         self.overrides = overrides
         self.calls = 0
         self.requests = []
@@ -173,6 +179,8 @@ class _ExactPostFormPlanTransport:
             "web_content_instruction_use_allowed": False,
         }
         payload.update(self.overrides)
+        for key in self.omit:
+            payload.pop(key, None)
         return payload
 
 
@@ -268,6 +276,9 @@ def test_registered_exact_post_schema_is_governed_and_inactive(
     assert metadata["form_submission_execution"] is False
     assert metadata["field_value_resolution"] is False
     assert metadata["request_body_materialization"] is False
+    assert metadata["form_submission_performed"] is False
+    assert metadata["field_values_resolved"] is False
+    assert metadata["request_body_materialized"] is False
     assert metadata["request_body"] is False
     assert metadata["network_call"] is False
 
@@ -286,6 +297,18 @@ def test_registered_exact_post_schema_is_governed_and_inactive(
         (
             "request_body_materialization",
             "browser_action_dry_run_request_body_materialization_denied",
+        ),
+        (
+            "form_submission_performed",
+            "browser_action_dry_run_form_submission_performed_denied",
+        ),
+        (
+            "field_values_resolved",
+            "browser_action_dry_run_field_values_resolved_denied",
+        ),
+        (
+            "request_body_materialized",
+            "browser_action_dry_run_request_body_materialized_denied",
         ),
     ],
 )
@@ -477,6 +500,84 @@ def test_post_schema_fields_and_values_must_be_authority_bound() -> None:
         )
 
 
+def test_post_schema_field_limit_matches_authority_resource_capacity() -> None:
+    suffix = "resource-capacity"
+    base = _binding(suffix=suffix)
+    refs = _post_refs(suffix)
+    fields = tuple(
+        GovernedPostFormFieldSchema(
+            field_ref=f"form-field-ref:governed-browser:capacity-{index}",
+            value_kind=GovernedPostFormValueKind.opaque_text_ref,
+            max_encoded_bytes=128,
+        )
+        for index in range(5)
+    )
+    schema = build_governed_post_form_schema(
+        exact_origin_ref=base.origin_ref,
+        page_snapshot_ref=base.page_snapshot_ref,
+        source_observation_ref=refs["observation"],
+        source_safe_url_ref=refs["source_url"],
+        destination_origin_ref=base.origin_ref,
+        destination_safe_url_ref=refs["destination_url"],
+        element_ref=refs["element"],
+        visibility_proof_ref=refs["visibility"],
+        fields=fields,
+        max_total_encoded_bytes=640,
+    )
+    values = tuple(
+        GovernedPostFormFieldValueBinding(
+            field_ref=field.field_ref,
+            field_value_ref=f"form-field-value-ref:governed-browser:capacity-{index}",
+        )
+        for index, field in enumerate(fields)
+    )
+    binding = ExternalActionAuthorityBinding.model_validate(
+        {
+            **base.model_dump(mode="json"),
+            "authority_capability": AuthorityCapability.form_fill,
+            "field_schema_ref": schema.schema_ref,
+            "resource_refs": [
+                refs["observation"],
+                refs["source_url"],
+                refs["destination_url"],
+                refs["element"],
+                refs["visibility"],
+                *(field.field_ref for field in fields),
+                *(value.field_value_ref for value in values),
+            ],
+        }
+    )
+
+    recipe = build_governed_post_form_recipe(
+        _request(binding),
+        schema=schema,
+        field_value_bindings=values,
+    )
+
+    assert len(binding.resource_refs) == 15
+    assert len(recipe.field_value_bindings) == 5
+    with pytest.raises(ValidationError):
+        build_governed_post_form_schema(
+            exact_origin_ref=base.origin_ref,
+            page_snapshot_ref=base.page_snapshot_ref,
+            source_observation_ref=refs["observation"],
+            source_safe_url_ref=refs["source_url"],
+            destination_origin_ref=base.origin_ref,
+            destination_safe_url_ref=refs["destination_url"],
+            element_ref=refs["element"],
+            visibility_proof_ref=refs["visibility"],
+            fields=[
+                *fields,
+                GovernedPostFormFieldSchema(
+                    field_ref="form-field-ref:governed-browser:capacity-six",
+                    value_kind=GovernedPostFormValueKind.opaque_text_ref,
+                    max_encoded_bytes=128,
+                ),
+            ],
+            max_total_encoded_bytes=640,
+        )
+
+
 def test_schema_contract_rejects_cross_origin_raw_fields_and_raw_values() -> None:
     _, schema, recipe, _ = _post_context(suffix="contract")
     schema_payload = schema.model_dump(mode="json")
@@ -640,6 +741,38 @@ def test_post_transport_drift_or_execution_fails_content_free(
     assert "raw-private-post-body" not in payload
 
 
+@pytest.mark.parametrize(
+    "proof_flag",
+    [
+        "target_visible",
+        "same_origin_verified",
+        "registered_schema_verified",
+        "field_bindings_verified",
+        "plan_generated",
+    ],
+)
+def test_post_transport_requires_explicit_proof_flags(
+    tmp_path: Path,
+    proof_flag: str,
+) -> None:
+    request, schema, recipe, _ = _post_context(suffix=f"missing-{proof_flag}")
+    kernel, _ = _authorized_kernel(tmp_path, request)
+    transport = _ExactPostFormPlanTransport(omit={proof_flag})
+    service, _ = _service(
+        request=request,
+        schema=schema,
+        recipe=recipe,
+        kernel=kernel,
+        transport=transport,
+    )
+
+    result = _plan(service, request, recipe.recipe_ref)
+
+    assert result.receipt.status == ExactBrowserActionStatus.failed.value
+    assert result.plan is None
+    assert transport.calls == 1
+
+
 def test_transport_contract_rejects_body_materialization() -> None:
     request, schema, recipe, _ = _post_context(suffix="transport-contract")
     del request
@@ -660,6 +793,11 @@ def test_transport_contract_rejects_body_materialization() -> None:
             element_ref=schema.element_ref,
             visibility_proof_ref=schema.visibility_proof_ref,
             field_value_bindings=[item],
+            target_visible=True,
+            same_origin_verified=True,
+            registered_schema_verified=True,
+            field_bindings_verified=True,
+            plan_generated=True,
             request_body_materialized=True,
         )
 

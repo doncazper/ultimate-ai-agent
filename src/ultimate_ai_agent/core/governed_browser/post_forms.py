@@ -59,7 +59,7 @@ GOVERNED_POST_FORM_SCHEMA_CONTRACT_REF = (
 GOVERNED_POST_FORM_RECIPE_CONTRACT_REF = (
     "contract-ref:governed-browser-post-form-recipe:v1"
 )
-MAX_REGISTERED_POST_FORM_FIELDS = 16
+MAX_REGISTERED_POST_FORM_FIELDS = 5
 MAX_POST_FORM_FIELD_BYTES = 4096
 MAX_POST_FORM_TOTAL_BYTES = 16384
 
@@ -529,11 +529,11 @@ class ExactPostFormDryRunTransportResult(BaseModel):
     encoding: Literal["application/x-www-form-urlencoded"] = (
         "application/x-www-form-urlencoded"
     )
-    target_visible: Literal[True] = True
-    same_origin_verified: Literal[True] = True
-    registered_schema_verified: Literal[True] = True
-    field_bindings_verified: Literal[True] = True
-    plan_generated: Literal[True] = True
+    target_visible: Literal[True]
+    same_origin_verified: Literal[True]
+    registered_schema_verified: Literal[True]
+    field_bindings_verified: Literal[True]
+    plan_generated: Literal[True]
     source_observation_content_untrusted: Literal[True] = True
     web_content_instruction_use_allowed: Literal[False] = False
     browser_session_started: Literal[False] = False
@@ -602,11 +602,11 @@ class ExactPostFormPlan(BaseModel):
         "application/x-www-form-urlencoded"
     )
     profile_ref: str
-    target_visible: Literal[True] = True
-    same_origin_verified: Literal[True] = True
-    registered_schema_verified: Literal[True] = True
-    field_bindings_verified: Literal[True] = True
-    plan_generated: Literal[True] = True
+    target_visible: Literal[True]
+    same_origin_verified: Literal[True]
+    registered_schema_verified: Literal[True]
+    field_bindings_verified: Literal[True]
+    plan_generated: Literal[True]
     injected_local_validation: Literal[True] = True
     browser_session_started: Literal[False] = False
     navigation_performed: Literal[False] = False
@@ -791,6 +791,9 @@ class ExactPostFormService:
                     "form_submission_execution": False,
                     "field_value_resolution": False,
                     "request_body_materialization": False,
+                    "form_submission_performed": False,
+                    "field_values_resolved": False,
+                    "request_body_materialized": False,
                     "request_body": False,
                     "screenshot": False,
                     "raw_dom": False,
@@ -854,6 +857,11 @@ class ExactPostFormService:
             visibility_proof_ref=schema.visibility_proof_ref,
             field_value_bindings=recipe.field_value_bindings,
             profile_ref=profile_ref,
+            target_visible=transport.target_visible,
+            same_origin_verified=transport.same_origin_verified,
+            registered_schema_verified=transport.registered_schema_verified,
+            field_bindings_verified=transport.field_bindings_verified,
+            plan_generated=transport.plan_generated,
         )
 
 
