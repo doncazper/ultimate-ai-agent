@@ -320,3 +320,46 @@ def test_expired_revalidation_persists_expiry_but_reports_failure(
     persisted = sessions.inspect(recipe.session_ref)
     assert persisted is not None
     assert persisted.state == GovernedBrowserOriginSessionState.expired.value
+
+
+def test_request_normalization_failure_zeroizes_credential_material(
+    tmp_path: Path,
+) -> None:
+    _, contexts, registry = _lifecycle_context()
+    request, _ = contexts[
+        GovernedBrowserOriginSessionOperation.enroll_credential
+    ]
+    kernel, _ = _authorized_kernel(tmp_path / "kernel", request)
+    keychain = _FakeKeychain()
+    service = ExactGovernedBrowserOriginSessionService(
+        registry=registry,
+        kernel=kernel,
+        keychain=keychain,
+        sessions=GovernedBrowserOriginSessionStore(tmp_path / "sessions.sqlite3"),
+    )
+    malformed = ExactGovernedBrowserOriginSessionRequest.model_construct(
+        recipe_ref="",
+        execution_request=request,
+    )
+    material = bytearray(range(32))
+
+    with pytest.raises(ValueError):
+        service.execute(malformed, credential_material=material)
+
+    assert all(value == 0 for value in material)
+    assert keychain.calls == []
+
+
+def test_native_helper_bounds_stdin_and_disables_authentication_ui() -> None:
+    source = (
+        "tools/macos/governed-browser-keychain-helper/"
+        "Sources/UAAGovernedBrowserKeychainHelper/main.swift"
+    )
+    text = Path(source).read_text(encoding="utf-8")
+
+    assert "readDataToEndOfFile" not in text
+    assert "readBoundedStandardInput" in text
+    assert "read(upToCount: remaining)" in text
+    assert "maximumInputBytes + 1 - input.count" in text
+    assert "context.interactionNotAllowed = true" in text
+    assert "kSecUseAuthenticationContext as String: context" in text

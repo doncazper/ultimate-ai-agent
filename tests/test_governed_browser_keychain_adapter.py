@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -195,6 +196,28 @@ def test_adapter_rejects_tamper_symlink_invalid_response_and_immutable_buffer(
         helper_path=clean,
         expected_helper_sha256=clean_digest,
     )
+    real_open = os.open
+
+    def deny_helper_open(path, flags, *args, **kwargs):  # type: ignore[no-untyped-def]
+        if Path(path) == clean:
+            raise PermissionError("denied")
+        return real_open(path, flags, *args, **kwargs)
+
+    with monkeypatch.context() as scoped:
+        scoped.setattr(
+            "ultimate_ai_agent.core.governed_browser.browser_keychain.os.open",
+            deny_helper_open,
+        )
+        with pytest.raises(
+            GovernedBrowserKeychainError,
+            match="FILE_UNTRUSTED",
+        ):
+            clean_adapter.probe(
+                registration,
+                request_ref=(
+                    "request-ref:governed-browser-keychain:open-denied"
+                ),
+            )
     missing_adapter = MacOSGovernedBrowserKeychainAdapter(
         helper_path=tmp_path / "missing-helper",
         expected_helper_sha256=clean_digest,

@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import LocalAuthentication
 import Security
 
 private let helperVersion = "1.0.0"
@@ -181,7 +182,9 @@ private func baseQuery(
     credentialHandleRef: String,
     credentialGenerationRef: String
 ) -> [String: Any] {
-    [
+    let context = LAContext()
+    context.interactionNotAllowed = true
+    return [
         kSecClass as String: kSecClassGenericPassword,
         kSecAttrService as String: keychainService,
         kSecAttrAccount as String: accountRef(
@@ -190,6 +193,7 @@ private func baseQuery(
             credentialGenerationRef: credentialGenerationRef
         ),
         kSecAttrSynchronizable as String: kCFBooleanFalse as Any,
+        kSecUseAuthenticationContext as String: context,
     ]
 }
 
@@ -441,27 +445,36 @@ private func failureResponse(operation: String, code: String) -> HelperResponse 
     )
 }
 
-let input = FileHandle.standardInput.readDataToEndOfFile()
+private func readBoundedStandardInput() throws -> Data {
+    var input = Data()
+    while input.count <= maximumInputBytes {
+        let remaining = maximumInputBytes + 1 - input.count
+        guard let chunk = try FileHandle.standardInput.read(upToCount: remaining),
+              !chunk.isEmpty else {
+            return input
+        }
+        input.append(chunk)
+        if input.count > maximumInputBytes {
+            throw HelperFailure.invalidRequest
+        }
+    }
+    throw HelperFailure.invalidRequest
+}
+
 let encoder = JSONEncoder()
 encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
 private let response: HelperResponse
-if input.count > maximumInputBytes {
+do {
+    let input = try readBoundedStandardInput()
+    let request = try decodeStrictRequest(input)
+    response = try run(request)
+} catch let failure as HelperFailure {
+    response = failureResponse(operation: "unknown", code: failure.code)
+} catch {
     response = failureResponse(
         operation: "unknown",
         code: HelperFailure.invalidRequest.code
     )
-} else {
-    do {
-        let request = try decodeStrictRequest(input)
-        response = try run(request)
-    } catch let failure as HelperFailure {
-        response = failureResponse(operation: "unknown", code: failure.code)
-    } catch {
-        response = failureResponse(
-            operation: "unknown",
-            code: HelperFailure.invalidRequest.code
-        )
-    }
 }
 if let output = try? encoder.encode(response) {
     FileHandle.standardOutput.write(output)

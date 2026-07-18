@@ -642,7 +642,14 @@ class MacOSGovernedBrowserKeychainAdapter:
         return digest
 
     def _open_validated_helper(self) -> tuple[int, str]:
-        metadata = os.lstat(self._helper_path)
+        try:
+            metadata = os.lstat(self._helper_path)
+        except FileNotFoundError:
+            raise
+        except OSError as exc:
+            raise GovernedBrowserKeychainError(
+                "GOVERNED_BROWSER_KEYCHAIN_HELPER_FILE_UNTRUSTED"
+            ) from exc
         if (
             not stat.S_ISREG(metadata.st_mode)
             or metadata.st_nlink != 1
@@ -656,12 +663,17 @@ class MacOSGovernedBrowserKeychainAdapter:
             raise GovernedBrowserKeychainError(
                 "GOVERNED_BROWSER_KEYCHAIN_HELPER_FILE_UNTRUSTED"
             )
-        descriptor = os.open(
-            self._helper_path,
-            os.O_RDONLY
-            | getattr(os, "O_CLOEXEC", 0)
-            | getattr(os, "O_NOFOLLOW", 0),
-        )
+        try:
+            descriptor = os.open(
+                self._helper_path,
+                os.O_RDONLY
+                | getattr(os, "O_CLOEXEC", 0)
+                | getattr(os, "O_NOFOLLOW", 0),
+            )
+        except OSError as exc:
+            raise GovernedBrowserKeychainError(
+                "GOVERNED_BROWSER_KEYCHAIN_HELPER_FILE_UNTRUSTED"
+            ) from exc
         try:
             opened = os.fstat(descriptor)
             if (
@@ -682,6 +694,14 @@ class MacOSGovernedBrowserKeychainAdapter:
                 if not chunk:
                     break
                 digest.update(chunk)
+        except GovernedBrowserKeychainError:
+            os.close(descriptor)
+            raise
+        except OSError as exc:
+            os.close(descriptor)
+            raise GovernedBrowserKeychainError(
+                "GOVERNED_BROWSER_KEYCHAIN_HELPER_FILE_UNTRUSTED"
+            ) from exc
         except Exception:
             os.close(descriptor)
             raise
@@ -691,7 +711,13 @@ class MacOSGovernedBrowserKeychainAdapter:
             raise GovernedBrowserKeychainError(
                 "GOVERNED_BROWSER_KEYCHAIN_HELPER_FINGERPRINT_MISMATCH"
             )
-        os.lseek(descriptor, 0, os.SEEK_SET)
+        try:
+            os.lseek(descriptor, 0, os.SEEK_SET)
+        except OSError as exc:
+            os.close(descriptor)
+            raise GovernedBrowserKeychainError(
+                "GOVERNED_BROWSER_KEYCHAIN_HELPER_FILE_UNTRUSTED"
+            ) from exc
         return descriptor, actual
 
     @staticmethod

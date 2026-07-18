@@ -119,10 +119,14 @@ def verify() -> list[str]:
             "credentialMaterialReturned = false",
             "browserSessionStarted = false",
             "authenticationPerformed = false",
+            "context.interactionNotAllowed = true",
+            "kSecUseAuthenticationContext as String: context",
             "networkCallPerformed = false",
             "externalMutationPerformed = false",
             "executionAuthorityGranted = false",
             "HELPER_CREDENTIAL_ALREADY_EXISTS",
+            "readBoundedStandardInput",
+            "read(upToCount: remaining)",
         ),
         "helper_readme": (
             "opaque",
@@ -161,6 +165,8 @@ def verify() -> list[str]:
             "test_native_helper_rejects_duplicate_stores",
             "test_non_mutating_keychain_preconditions_are_not_ambiguous",
             "test_expired_revalidation_persists_expiry_but_reports_failure",
+            "test_request_normalization_failure_zeroizes_credential_material",
+            "test_native_helper_bounds_stdin_and_disables_authentication_ui",
             "test_installer_metadata_is_content_free_exact_and_rejects_unmanaged_pair",
         ),
         "doc": (
@@ -212,6 +218,8 @@ def verify() -> list[str]:
             failures.append(
                 f"Queue 01 group 06 doc contains forbidden data: {fragment}"
             )
+    if "readDataToEndOfFile" in helper:
+        failures.append("Queue 01 group 06 helper stdin read is not bounded")
     return failures
 
 

@@ -852,9 +852,13 @@ class ExactGovernedBrowserOriginSessionService:
         *,
         credential_material: bytearray | None = None,
     ) -> ExactGovernedBrowserOriginSessionResult:
-        request = ExactGovernedBrowserOriginSessionRequest.model_validate(
-            request.model_dump(mode="json")
-        )
+        try:
+            request = ExactGovernedBrowserOriginSessionRequest.model_validate(
+                request.model_dump(mode="json")
+            )
+        except Exception:
+            _zeroize_optional(credential_material)
+            raise
         execution = request.execution_request
         resolved = self._registry.resolve(request.recipe_ref)
         if resolved is None:

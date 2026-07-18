@@ -303,8 +303,11 @@ probe, duplicate store, locked Keychain, untrusted helper, or other proven
 non-mutating local precondition is recorded as failed without retry, while
 uncertain helper failures after the durable start claim remain
 `outcome_ambiguous`. Mutable credential buffers are zeroized even when adapter
-scope validation fails. Replay does not call Keychain again or return a state
-projection.
+or lifecycle-request validation fails. Native helper input is read
+incrementally with a hard 16 KiB cap, helper file stat/open failures map to
+the existing untrusted precondition, and every Keychain query explicitly
+disables authentication UI. Replay does not call Keychain again or return a
+state projection.
 
 This item is a real local macOS Keychain adapter, not real browser
 authentication. There is no browser session, authentication, passkey/MFA
