@@ -74,7 +74,7 @@ def governed_human_challenge_ref(
         (visibility_proof_ref, "visibility_proof_ref"),
     ):
         validate_task_ref(value, label)
-    if not source_observation_ref.startswith("browser-observation-ref:"):
+    if not source_observation_ref.startswith("browser-observe-output:"):
         raise ValueError("GOVERNED_HUMAN_CHALLENGE_OBSERVATION_REF_REQUIRED")
     if not visibility_proof_ref.startswith("visibility-proof-ref:"):
         raise ValueError("GOVERNED_HUMAN_CHALLENGE_VISIBILITY_PROOF_REF_REQUIRED")
@@ -594,26 +594,15 @@ class ExactGovernedHumanChallengeHandoffService:
         scope_reason = _recipe_scope_reason(recipe, execution)
         if scope_reason is not None:
             return _preflight_blocked(request, scope_reason)
-        current_time = self._clock()
-        if current_time < recipe.created_at:
-            return _preflight_blocked(
-                request,
-                "reason-ref:governed-human-challenge:handoff-not-yet-valid",
-            )
-        if current_time > recipe.expires_at:
-            return _preflight_blocked(
-                request,
-                "reason-ref:governed-human-challenge:handoff-expired",
-            )
-
         captured: dict[str, ExactGovernedHumanChallengeHandoff] = {}
 
         def dispatch(
             dispatched_request: ExternalActionExecutionRequest,
         ) -> ExternalActionDispatchResult:
+            current_time = self._clock()
             if (
                 dispatched_request.binding.binding_ref != recipe.binding_ref
-                or not recipe.created_at <= self._clock() <= recipe.expires_at
+                or not recipe.created_at <= current_time < recipe.expires_at
             ):
                 return _failed_dispatch(
                     dispatched_request,

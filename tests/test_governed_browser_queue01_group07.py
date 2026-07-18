@@ -40,7 +40,7 @@ def _challenge_context(
     target_kind: ExternalActionTargetKind = ExternalActionTargetKind.local_validation,
 ):  # type: ignore[no-untyped-def]
     base = _binding(suffix=suffix, target_kind=target_kind)
-    source_observation_ref = _ref("browser-observation", suffix)
+    source_observation_ref = f"browser-observe-output:governed-browser:{suffix}"
     visibility_proof_ref = _ref("visibility-proof", suffix)
     handoff_surface_ref = _ref("human-handoff-surface", suffix)
     created_at = utc_now()
@@ -391,7 +391,7 @@ def test_expiry_and_dispatch_revalidation_never_return_handoff(
             recipe_ref=recipe.recipe_ref,
         )
     )
-    assert expired.receipt.status == "preflight_blocked"
+    assert expired.receipt.status == "failed"
     assert expired.handoff is None
 
     future_service, _ = _service(
@@ -406,31 +406,53 @@ def test_expiry_and_dispatch_revalidation_never_return_handoff(
             recipe_ref=recipe.recipe_ref,
         )
     )
-    assert future.receipt.status == "preflight_blocked"
+    assert future.receipt.status == "failed"
     assert future.handoff is None
 
-    moments = iter(
-        (
-            recipe.created_at,
-            recipe.expires_at + timedelta(seconds=1),
-        )
-    )
-    race_service, _ = _service(
-        tmp_path / "race",
+    exact_expiry_service, _ = _service(
+        tmp_path / "exact-expiry",
         request=request,
         registry=registry,
-        clock=lambda: next(moments),
+        clock=lambda: recipe.expires_at,
     )
-    raced = race_service.prepare(
+    exact_expiry = exact_expiry_service.prepare(
         ExactGovernedHumanChallengeHandoffRequest(
             execution_request=request,
             recipe_ref=recipe.recipe_ref,
         )
     )
-    assert raced.receipt.status == "failed"
-    assert raced.receipt.external_action_state == "failed"
-    assert raced.handoff is None
-    assert raced.receipt.replayed is False
+    assert exact_expiry.receipt.status == "failed"
+    assert exact_expiry.receipt.external_action_state == "failed"
+    assert exact_expiry.handoff is None
+    assert exact_expiry.receipt.replayed is False
+
+
+def test_successful_handoff_replay_preserves_durable_receipt_after_expiry(
+    tmp_path: Path,
+) -> None:
+    request, recipe, registry = _challenge_context(suffix="replay-expiry")
+    current_time = [recipe.created_at]
+    service, _ = _service(
+        tmp_path,
+        request=request,
+        registry=registry,
+        clock=lambda: current_time[0],
+    )
+    exact = ExactGovernedHumanChallengeHandoffRequest(
+        execution_request=request,
+        recipe_ref=recipe.recipe_ref,
+    )
+
+    first = service.prepare(exact)
+    current_time[0] = recipe.expires_at + timedelta(seconds=1)
+    replay = service.prepare(exact)
+
+    assert first.receipt.status == "handoff_ready"
+    assert first.handoff is not None
+    assert replay.receipt.status == "replayed_content_free"
+    assert replay.receipt.external_action_state == "succeeded"
+    assert replay.receipt.replayed is True
+    assert replay.handoff is None
 
 
 def test_contracts_reject_raw_or_unbound_handoff_fields() -> None:

@@ -32,6 +32,7 @@ def verify() -> list[str]:
         "tests/test_governed_browser_queue01_group07.py",
         failures,
     )
+    docs_readme = _read("docs/README.md", failures)
     doc = _read("docs/browser/GOVERNED_EXTERNAL_ACTIONS_QUEUE_01.md", failures)
     docs_index = _read("docs/DOCUMENTATION_INDEX.md", failures)
     board = _read("docs/kanban/current_board.md", failures)
@@ -81,6 +82,7 @@ def verify() -> list[str]:
             "test_shared_revalidation_gates_block_before_handoff",
             "test_exact_scope_human_presence_and_real_targets_fail_closed",
             "test_expiry_and_dispatch_revalidation_never_return_handoff",
+            "test_successful_handoff_replay_preserves_durable_receipt_after_expiry",
             "test_contracts_reject_raw_or_unbound_handoff_fields",
             "test_receipts_are_content_free_and_verifier_passes",
         ),
@@ -103,6 +105,7 @@ def verify() -> list[str]:
                 failures.append(f"Queue 01 group 07 {label} marker missing: {marker}")
 
     for marker, text, label in (
+        ("Queue 01 items 01–09", docs_readme, "documentation README"),
         ("Queue 01 items 01–09", docs_index, "documentation index"),
         ("Queue 01 items 01–09", board, "current board"),
         ("Queue 01 items 01–09", truth, "release truth"),
