@@ -309,9 +309,7 @@ def _validate_amounts(
     amount_minor_units: int,
     spend_limit_minor_units: int,
 ) -> None:
-    if isinstance(amount_minor_units, bool) or isinstance(
-        spend_limit_minor_units, bool
-    ):
+    if type(amount_minor_units) is not int or type(spend_limit_minor_units) is not int:
         raise ValueError("GOVERNED_FINANCIAL_AMOUNT_INVALID")
     if (
         amount_minor_units <= 0

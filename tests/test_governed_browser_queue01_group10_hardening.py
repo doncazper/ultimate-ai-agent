@@ -19,6 +19,31 @@ def _raising_clock() -> datetime:
 
 
 @pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("amount_minor_units", "1250"),
+        ("amount_minor_units", 1250.0),
+        ("amount_minor_units", None),
+        ("amount_minor_units", True),
+        ("spend_limit_minor_units", "1500"),
+        ("spend_limit_minor_units", 1500.0),
+        ("spend_limit_minor_units", None),
+        ("spend_limit_minor_units", False),
+    ],
+)
+def test_malformed_monetary_amounts_fail_with_governed_validation(
+    field: str,
+    value: object,
+) -> None:
+    with pytest.raises(ValueError, match="GOVERNED_FINANCIAL_AMOUNT_INVALID"):
+        _financial_context(
+            operation=GovernedFinancialOperation.purchase,
+            suffix=f"malformed-{field}",
+            **{field: value},
+        )
+
+
+@pytest.mark.parametrize(
     ("clock", "reason_ref"),
     [
         (_raising_clock, "reason-ref:governed-financial:trusted-clock-failed"),
