@@ -1,13 +1,13 @@
 # Governed Browser And External Actions — Queue 01
 
-Status: active program; items 01–06 are `implemented_inactive`.
+Status: active program; items 01–07 are `implemented_inactive`.
 
-This document records the first four coherent Queue 01 groups. They implement
+This document records the first five coherent Queue 01 groups. They implement
 exact authority semantics, an isolated injected browser-broker boundary, an
 external-action transaction kernel, and a readable Action Inbox execution
 envelope, plus registered Evidence Recipes for exact injected observation,
-and registered same-origin visible-click / GET-form action plans without
-activating real external targets.
+registered same-origin visible-click / GET-form action plans, and registered
+exact POST-form schemas without activating real external targets.
 It grants no standing browser authority, unrestricted browsing, provider SDK
 call, live network fetch, click, form submission, authenticated session,
 download, upload, purchase, publishing action, or production authority.
@@ -22,6 +22,7 @@ download, upload, purchase, publishing action, or production authority.
 | 04. Action Inbox execution envelope | `implemented_inactive` | Backend-owned content-free projection exposes readable exact scope, side-effect and data-classification posture, expiry, reversibility, retry truth, approval fingerprint, expected/observed receipts, reconciliation state, and manual-only Open in browser / Human takeover controls. | No UI handler, browser launch, approval validation, dispatch, real external target, or automatic retry; Queue 02 remains required. |
 | 05. Evidence Recipes and exact browser observation | `implemented_inactive` | A registered Evidence Recipe binds the exact authority binding, origin, page snapshot, schema, target, safe URL ref, capture fields, and size limits. The service composes the existing transaction kernel, WebAccessGateway, and isolated broker to return one bounded redacted evidence projection plus a separate content-free receipt during injected local validation. | No browser engine, live navigation/network, arbitrary recipe, raw DOM/screenshot, authenticated profile, browser action, external mutation, or real external target; Queue 02 remains required. |
 | 06. Same-origin visible clicks and GET forms | `implemented_inactive` | A registered action recipe binds the exact `click` or `form_fill` lease capability, prior observation, page snapshot, source/destination safe URL refs, same origin, visible element/proof, field schema, and opaque GET-form value refs. The existing kernel and WebAccessGateway produce one injected action plan plus a separate content-free receipt. | Plan-only: no browser session, navigation, click, form fill/submission, request body, network call, authenticated profile, external mutation, or real external target; Queue 02 remains required. |
+| 07. Registered exact POST-form schemas | `implemented_inactive` | A content-derived schema registry binds the exact origin, snapshot, prior observation, source/destination safe URL refs, visible form/proof, bounded safe-ref-only field definitions, encoding, and total byte ceiling. A separate registered recipe binds the exact field-to-opaque-value refs and `form_fill` lease scope, then produces one injected POST-schema plan and content-free receipt through the existing kernel and gateway. | Schema-plan only: the gateway envelope remains internal GET, and no field value is resolved, request body is materialized, browser/session starts, form is filled/submitted, authenticated state is used, network call or external mutation occurs, or real external target is enabled; Queue 02 remains required. |
 
 ## Exact Authority Is Not A Superuser Hierarchy
 
@@ -200,6 +201,52 @@ and cannot retry automatically. This is an injected action plan, not action
 execution: there is no browser session, browser engine, live URL, live network,
 route, UI control, or real external target.
 
+## Registered Exact POST-Form Schemas
+
+`GovernedPostFormSchema` is a content-derived, immutable registry entry. It
+contains no raw field name, default value, or form content. The schema binds
+the exact authority origin, page snapshot, prior untrusted observation,
+source/destination safe URL refs, visible form element and proof, up to sixteen
+safe `form-field-ref:` definitions, per-field encoded-byte ceilings, one total
+byte ceiling, the exact `POST` method, and the
+`application/x-www-form-urlencoded` encoding. Cross-origin destinations,
+duplicate fields, unknown encodings, multipart content, and unregistered
+schema refs fail closed.
+
+`GovernedPostFormRecipe` is registered separately and binds that schema to one
+exact external-action authority binding and an exact field-to-opaque-value map.
+Required fields must be present, optional fields may be omitted, and unknown or
+duplicate fields and values are rejected. Every schema field, opaque
+`form-field-value-ref:`, prior observation, safe URL, visible element, and
+visibility proof must already be an exact resource in the AuthorityLease-bound
+request. The binding must carry the exact schema ref, current snapshot,
+same-origin ref, local-validation target, and `form_fill` capability. Generic
+`execute`, `admin`, or `destructive` authority cannot substitute.
+
+`ExactPostFormService` uses the existing transaction kernel and injected
+`browser_action_dry_run` gateway:
+
+```text
+prepare → PolicyEngine → LocalApprovalAuthority → exact AuthorityLease
+→ budget reserve → readiness/deadline/safe-disable/kill-switch revalidate
+→ WebAccessGateway → isolated injected schema planner → verify → budget settle
+```
+
+The gateway request itself remains an internal GET dry-run envelope. `POST` is
+only the registered method in the returned safe-ref-only plan. The planner must
+prove schema registration, exact field binding, visible target, and same
+origin while declaring field resolution, body materialization, browser/session
+startup, navigation, form fill/submission, authenticated state, cookies,
+download/upload, live network, and external mutation false. Content-bearing or
+unknown transport output is blocked before it can enter evidence.
+
+The plan remains separate from the content-free receipt. Replay does not invoke
+the planner and returns no field/value mapping. Settlement uncertainty
+suppresses the plan and remains non-retryable. This is a registered exact POST
+schema and injected plan only: no request body, browser engine, route, UI
+control, network transport, authenticated session, external effect, or real
+external target is enabled.
+
 ## Validation Boundary
 
 The only executable proof in this group is deterministic injected
@@ -226,8 +273,11 @@ PYTHONPATH=src .venv/bin/python -m pytest -q \
 PYTHONPATH=src .venv/bin/python -m pytest -q \
   tests/test_governed_browser_queue01_group04.py
 .venv/bin/python scripts/verify_governed_browser_queue01_group04.py
+PYTHONPATH=src .venv/bin/python -m pytest -q \
+  tests/test_governed_browser_queue01_group05.py
+.venv/bin/python scripts/verify_governed_browser_queue01_group05.py
 ```
 
-Queue 01 items 07–13 remain pending and must be implemented in their manifest
+Queue 01 items 08–13 remain pending and must be implemented in their manifest
 order. Queue 02 remains the separate adversarial hardening gate; no status in
 this document satisfies or bypasses that gate.
