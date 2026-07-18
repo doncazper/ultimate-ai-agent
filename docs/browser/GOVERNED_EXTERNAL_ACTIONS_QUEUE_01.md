@@ -1,9 +1,9 @@
 # Governed Browser And External Actions — Queue 01
 
-Status: active program; items 01–11 are `implemented_inactive`.
+Status: active program; items 01–12 are `implemented_inactive`.
 All real external targets remain inactive.
 
-This document records the first nine coherent Queue 01 groups. They implement
+This document records the first ten coherent Queue 01 groups. They implement
 exact authority semantics, an isolated injected browser-broker boundary, an
 external-action transaction kernel, and a readable Action Inbox execution
 envelope, plus registered Evidence Recipes for exact injected observation,
@@ -13,8 +13,8 @@ adapter and inactive per-origin session lifecycle, plus registered
 human-present MFA, passkey, and CAPTCHA handoff-only contracts without
 activating real external targets, plus an app-owned bounded download
 quarantine and exact fingerprinted upload-plan boundary, plus exact plan-only
-communications, publishing, account-creation, legal-consent, and delete
-contracts.
+communications, publishing, account-creation, legal-consent, delete, purchase,
+booking, checkout/payment, and financial-transaction contracts.
 It grants no standing browser authority, unrestricted browsing, provider SDK
 call, live network fetch, click, form submission, authenticated session,
 download, upload, purchase, publishing action, or production authority.
@@ -32,8 +32,9 @@ download, upload, purchase, publishing action, or production authority.
 | 07. Registered exact POST-form schemas | `implemented_inactive` | A content-derived schema registry binds the exact origin, snapshot, prior observation, source/destination safe URL refs, visible form/proof, bounded safe-ref-only field definitions, encoding, and total byte ceiling. A separate registered recipe binds the exact field-to-opaque-value refs and `form_fill` lease scope, then produces one injected POST-schema plan and content-free receipt through the existing kernel and gateway. | Schema-plan only: the gateway envelope remains internal GET, and no field value is resolved, request body is materialized, browser/session starts, form is filled/submitted, authenticated state is used, network call or external mutation occurs, or real external target is enabled; Queue 02 remains required. |
 | 08. Real macOS Keychain opaque-handle adapter and per-origin session lifecycle | `implemented_inactive` | A purpose-specific Security.framework helper stores, probes, and idempotently deletes one exact origin/opaque-handle/generation item in device-only, nonsynchronizing macOS Keychain storage. Python invokes only an owner-controlled absolute helper through a source-hash-sealed, executable-hash-pinned, bounded local subprocess. Registered lifecycle recipes bind exactly one operation-specific authority ref and compose PolicyEngine, LocalApprovalAuthority, exact AuthorityLease, shared budget, readiness/deadline/human-presence/safe-disable/kill-switch checks, at-most-once dispatch, and a safe-ref-only SQLite session record. Duplicate enrollment is rejected, expired preparation is blocked, and a missing credential is a deterministic failed precondition rather than an ambiguous effect. | Keychain enrollment and deletion are local governed operations only. Session state is `prepared_inactive`: no browser session, authentication, cookie use, navigation, live network, external mutation, real external target, route, or UI control is enabled. Queue 02 remains required. |
 | 09. Human-present MFA, passkey, and CAPTCHA handoff only | `implemented_inactive` | An immutable registry binds one visible challenge kind, content-derived challenge/schema/handoff refs, exact origin and page snapshot, prior observation, visibility proof, handoff surface, expiry, current human-presence assertion, and exact `prepare` capability. Material-like values hidden inside handoff refs are denied unless the ref is a SHA-256-pinned identifier. The existing transaction kernel rejects implied broader lease capabilities and produces a content-free human-action handoff and receipt only after PolicyEngine, LocalApprovalAuthority, exact AuthorityLease, shared budget, readiness, deadline, safe-disable, and kill-switch validation. Its recipe-bound transaction fingerprint prevents a receipt for one registered recipe from being replayed as another. | Handoff only: UAA does not handle challenge material or responses, operate a passkey, solve or bypass CAPTCHA, open a browser, start a session, authenticate, navigate, use cookies, call a network, complete the challenge, mutate an external target, expose a route/UI handler, or enable a real external target. An external facility and Queue 02 validation remain required. |
-| 10. Download quarantine and exact artifact-bound upload plans | `implemented_inactive` | A registered, unexpired recipe binds one exact `download` or `upload` capability, origin, snapshot, artifact, source download transaction, derived quarantine, app-owned store, transfer surface, visibility proof, schema, byte limit, and single operation authority. Upload plans additionally bind the exact content fingerprint, source download receipt, registered source download recipe, and recipe-bound source execution request. Injected download bytes pass the shared transaction gates before bounded owner-only artifact and service-proof writes. Upload planning requires the exact unexpired source receipt, its stored request fingerprint, and the service-owned proof sidecar before re-reading quarantine and verifying its fingerprint. | UAA does not download from a network or browser and does not upload anything. No ordinary path, raw artifact, upload body, browser/session, navigation, authentication/cookies, live network, external mutation, real external target, route, or UI control is enabled. Queue 01 items 12–13 and Queue 02 remain required. |
+| 10. Download quarantine and exact artifact-bound upload plans | `implemented_inactive` | A registered, unexpired recipe binds one exact `download` or `upload` capability, origin, snapshot, artifact, source download transaction, derived quarantine, app-owned store, transfer surface, visibility proof, schema, byte limit, and single operation authority. Upload plans additionally bind the exact content fingerprint, source download receipt, registered source download recipe, and recipe-bound source execution request. Injected download bytes pass the shared transaction gates before bounded owner-only artifact and service-proof writes. Upload planning requires the exact unexpired source receipt, its stored request fingerprint, and the service-owned proof sidecar before re-reading quarantine and verifying its fingerprint. | UAA does not download from a network or browser and does not upload anything. No ordinary path, raw artifact, upload body, browser/session, navigation, authentication/cookies, live network, external mutation, real external target, route, or UI control is enabled. Queue 01 item 13 and Queue 02 remain required. |
 | 11. Exact communications, publishing, account creation, legal consent, and delete contracts | `implemented_inactive` | One immutable registry binds each operation to its exact capability, hash-pinned target, schema, input-artifact set, single operation-authority ref, page snapshot, expiry, reversibility, rollback, and reconciliation refs. Legal consent additionally requires one exact legal instrument and explicit accept or decline; account creation cannot imply legal consent. Delete additionally requires the exact deletion target. The shared kernel produces only a content-free plan-only contract and receipt after PolicyEngine, LocalApprovalAuthority, exact AuthorityLease, budget, readiness, deadline, human-presence, safe-disable, and kill-switch checks. | Contract preparation is not execution. UAA does not send, does not publish, does not create an account, does not record legal consent, and does not delete. Payload materialization, browser/session activity, live network, external mutation, real external targets, runtime routes, and UI controls remain disabled. A separate exact execution promotion plus Queue 02 validation is required. |
+| 12. Exact purchases/bookings, checkout/payment, and financial-transaction contracts | `implemented_inactive` | One immutable registry binds each operation to its exact `purchase` or `purchase_under_budget` capability, counterparty target, quote, currency, opaque payment-handle ref, positive amount, exact spend ceiling, input artifacts, operation-specific booking/checkout/instrument and cancellation/refund policy refs, snapshot, expiry, reversibility, rollback, and reconciliation. The shared kernel produces only a content-free plan after PolicyEngine, LocalApprovalAuthority, exact AuthorityLease, budget, readiness, deadline, human-presence, safe-disable, and kill-switch checks. | Contract preparation is not financial execution. UAA does not resolve payment data, does not purchase, does not book, does not open checkout, does not pay, and does not transfer funds. Browser/session activity, live network, external mutation, real external targets, runtime routes, and UI controls remain disabled. A separate exact monetary-budget revalidation and execution promotion plus Queue 02 validation is required. |
 
 ## Exact Authority Is Not A Superuser Hierarchy
 
@@ -497,6 +498,34 @@ account, does not record legal consent, and does not delete. It adds no runtime
 route or Control Center control. Queue 02 and a separate exact execution
 contract remain required before any external effect.
 
+## Exact Financial Contracts Remain Plan-Only
+
+`ExactGovernedFinancialService` prepares registered contracts for exactly four
+operation kinds: purchase, booking, checkout/payment, and financial
+transaction. Each scope binds one hash-pinned counterparty target, quote,
+currency, opaque payment-handle ref, positive amount, exact spend ceiling,
+artifact set, operation-specific refs and policy posture, conservative
+reversibility, rollback, reconciliation, and expiry. An amount above its exact
+spend ceiling fails before any transaction is prepared.
+
+Purchase and checkout/payment require exact `purchase` authority. Booking and
+financial transaction require exact `purchase_under_budget` authority. The
+shared kernel still requires the lease to contain that one browser capability
+and the complete exact resource set. Approval identifiers alone grant nothing.
+The payment handle is an opaque hash-pinned identifier only; raw card, bank,
+credential, account, or payment data is neither accepted nor recorded.
+
+The successful projection requires a separate financial execution and monetary
+budget revalidation. It records false for payment-handle resolution, checkout
+opening, purchase, booking, payment, financial transaction, network call,
+external mutation, and real external target. Idempotency drift returns a
+content-free blocked receipt. An orphaned prior start is preserved as
+`outcome_ambiguous`, including after recipe expiry, and ambiguous outcomes are
+never retried automatically. This lane does not purchase, does not book, does
+not open checkout, does not pay, and does not transfer funds. It adds no
+runtime route or Control Center control. Queue 02 and a separate exact
+financial execution contract remain required before any monetary effect.
+
 ## Validation Boundary
 
 The only executable proof in this group is deterministic injected
@@ -546,8 +575,12 @@ PYTHONPATH=src .venv/bin/python -m pytest -q \
 PYTHONPATH=src .venv/bin/python -m pytest -q \
   tests/test_governed_browser_queue01_group09.py
 .venv/bin/python scripts/verify_governed_browser_queue01_group09.py
+PYTHONPATH=src .venv/bin/python -m pytest -q \
+  tests/test_governed_browser_queue01_group10.py \
+  tests/test_governed_browser_queue01_group10_hardening.py
+.venv/bin/python scripts/verify_governed_browser_queue01_group10.py
 ```
 
-Queue 01 items 12–13 remain pending and must be implemented in their manifest
+Queue 01 item 13 remains pending and must be implemented in its manifest
 order. Queue 02 remains the separate adversarial hardening gate; no status in
 this document satisfies or bypasses that gate.
