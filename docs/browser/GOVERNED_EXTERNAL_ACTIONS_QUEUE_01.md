@@ -1,12 +1,13 @@
 # Governed Browser And External Actions — Queue 01
 
-Status: active program; items 01–05 are `implemented_inactive`.
+Status: active program; items 01–06 are `implemented_inactive`.
 
-This document records the first three coherent Queue 01 groups. They implement
+This document records the first four coherent Queue 01 groups. They implement
 exact authority semantics, an isolated injected browser-broker boundary, an
 external-action transaction kernel, and a readable Action Inbox execution
 envelope, plus registered Evidence Recipes for exact injected observation,
-without activating real external targets.
+and registered same-origin visible-click / GET-form action plans without
+activating real external targets.
 It grants no standing browser authority, unrestricted browsing, provider SDK
 call, live network fetch, click, form submission, authenticated session,
 download, upload, purchase, publishing action, or production authority.
@@ -20,6 +21,7 @@ download, upload, purchase, publishing action, or production authority.
 | 03. External-action transaction kernel | `implemented_inactive` | Durable safe-ref intent precedes effects; exact policy, LocalApprovalAuthority, AuthorityLease, budget reservation, readiness, page snapshot, deadline, human-presence, safe-disable, and kill-switch checks precede one dispatch; verify and settlement produce a content-free receipt. | Real external targets and adversarial cross-lane validation required by Queue 02. |
 | 04. Action Inbox execution envelope | `implemented_inactive` | Backend-owned content-free projection exposes readable exact scope, side-effect and data-classification posture, expiry, reversibility, retry truth, approval fingerprint, expected/observed receipts, reconciliation state, and manual-only Open in browser / Human takeover controls. | No UI handler, browser launch, approval validation, dispatch, real external target, or automatic retry; Queue 02 remains required. |
 | 05. Evidence Recipes and exact browser observation | `implemented_inactive` | A registered Evidence Recipe binds the exact authority binding, origin, page snapshot, schema, target, safe URL ref, capture fields, and size limits. The service composes the existing transaction kernel, WebAccessGateway, and isolated broker to return one bounded redacted evidence projection plus a separate content-free receipt during injected local validation. | No browser engine, live navigation/network, arbitrary recipe, raw DOM/screenshot, authenticated profile, browser action, external mutation, or real external target; Queue 02 remains required. |
+| 06. Same-origin visible clicks and GET forms | `implemented_inactive` | A registered action recipe binds the exact `click` or `form_fill` lease capability, prior observation, page snapshot, source/destination safe URL refs, same origin, visible element/proof, field schema, and opaque GET-form value refs. The existing kernel and WebAccessGateway produce one injected action plan plus a separate content-free receipt. | Plan-only: no browser session, navigation, click, form fill/submission, request body, network call, authenticated profile, external mutation, or real external target; Queue 02 remains required. |
 
 ## Exact Authority Is Not A Superuser Hierarchy
 
@@ -156,6 +158,48 @@ This is injected local validation, not live browser observation. No browser
 engine, live URL, provider, network transport, route, Control Center control,
 or real external target is enabled.
 
+## Same-Origin Visible Click And GET-Form Plans
+
+`GovernedBrowserActionRecipe` is a registered, immutable plan contract. It is
+accepted only from `GovernedBrowserActionRecipeRegistry` and binds one exact
+authority binding, `click` or `form_fill` lease capability, prior untrusted
+observation ref, current page snapshot, source and destination safe URL refs,
+destination origin ref, visible element ref, visibility proof ref, field
+schema, and at most sixteen opaque field-value refs. A visible click must have
+no field values. A GET form must have at least one structured
+`form-field-value-ref:` and cannot contain a raw value or request body.
+
+Same-origin is fail-closed: the destination origin ref must equal the exact
+authority-bound origin ref. The prior observation, both safe URLs, element,
+visibility proof, and every field-value ref must already be resources in the
+exact AuthorityLease-bound request. The shared external-action binding now
+carries the exact capability, so generic `execute`, `admin`, or `destructive`
+authority cannot substitute for `click` or `form_fill`.
+
+`ExactBrowserActionService` reuses the existing transaction kernel and the
+WebAccessGateway `browser_action_dry_run` lane. Its injected action plan follows
+the same sequence:
+
+```text
+prepare → PolicyEngine → LocalApprovalAuthority → exact AuthorityLease
+→ budget reserve → readiness/deadline/safe-disable/kill-switch revalidate
+→ WebAccessGateway → isolated injected planner → verify → budget settle
+```
+
+The injected planner uses a bounded ephemeral private directory, but starts no
+browser session. Its strict result must prove target visibility, same-origin,
+exact schema, and GET method while declaring browser session, navigation,
+click, form fill/submission, request body, authentication/cookies,
+download/upload, network, and external mutation all false. Unknown fields or
+posture drift fail content-free.
+
+The plan is safe-ref-only and separate from the content-free receipt. Terminal
+replay never invokes the planner again and returns no plan. An uncertain
+dispatch or failed settlement becomes `outcome_ambiguous`, suppresses the plan,
+and cannot retry automatically. This is an injected action plan, not action
+execution: there is no browser session, browser engine, live URL, live network,
+route, UI control, or real external target.
+
 ## Validation Boundary
 
 The only executable proof in this group is deterministic injected
@@ -179,8 +223,11 @@ PYTHONPATH=src .venv/bin/python -m pytest -q \
 PYTHONPATH=src .venv/bin/python -m pytest -q \
   tests/test_governed_browser_queue01_group03.py
 .venv/bin/python scripts/verify_governed_browser_queue01_group03.py
+PYTHONPATH=src .venv/bin/python -m pytest -q \
+  tests/test_governed_browser_queue01_group04.py
+.venv/bin/python scripts/verify_governed_browser_queue01_group04.py
 ```
 
-Queue 01 items 06–13 remain pending and must be implemented in their manifest
+Queue 01 items 07–13 remain pending and must be implemented in their manifest
 order. Queue 02 remains the separate adversarial hardening gate; no status in
 this document satisfies or bypasses that gate.

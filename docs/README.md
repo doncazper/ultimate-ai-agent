@@ -20,17 +20,20 @@ enrolled remote account runtime, public release, and production authority
 remain blocked.
 
 The governed browser/external-actions program is now active after Messenger.
-Queue 01 items 01–05 are `implemented_inactive`: exact authority semantics, an
+Queue 01 items 01–06 are `implemented_inactive`: exact authority semantics, an
 injected isolated broker behind `WebAccessGateway`, an at-most-once
 external-action transaction kernel, a readable content-free Action Inbox
 execution envelope, and registered exact Evidence Recipes are locally
 verifiable while real external targets remain inactive. Item 05 composes the
-existing kernel, gateway, and broker for bounded redacted injected observation;
-it adds no browser engine or live network. The envelope's Open in browser and
-Human takeover controls remain manual-handoff records with no browser or
-dispatch handler. Queue 01 items 01–04 remain the prior accepted program
-boundary. See `docs/browser/GOVERNED_EXTERNAL_ACTIONS_QUEUE_01.md`; Queue 02
-adversarial validation and Queue 01 items 06–13 remain separate required gates.
+existing kernel, gateway, and broker for bounded redacted injected observation.
+Item 06 adds registered same-origin, visible-target click and GET-form plans
+bound to exact `click` or `form_fill` lease capability, with no browser session,
+action, request body, or network call. The envelope's Open in browser and Human
+takeover controls remain manual-handoff records with no browser or dispatch
+handler. Queue 01 items 01–04 remain the prior accepted program boundary, and
+Queue 01 items 01–05 remain the prior accepted evidence-recipe boundary. See
+`docs/browser/GOVERNED_EXTERNAL_ACTIONS_QUEUE_01.md`; Queue 02 adversarial
+validation and Queue 01 items 07–13 remain separate required gates.
 
 The Control Center is the technical web shell, Founder Command Center is the
 user-facing product name, and the Founder Loop is the bounded product spine.

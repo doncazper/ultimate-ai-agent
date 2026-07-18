@@ -12,9 +12,25 @@ from .action_inbox import (
     build_external_action_inbox_envelope,
 )
 from .broker import (
+    IsolatedBrowserActionDryRunBrokerAdapter,
+    IsolatedBrowserActionDryRunTransport,
     IsolatedBrowserBrokerAdapter,
     IsolatedBrowserTransport,
+    create_isolated_browser_action_dry_run_gateway,
     create_isolated_browser_broker_gateway,
+)
+from .browser_actions import (
+    BrowserActionDryRunTransportResult,
+    ExactBrowserActionPlan,
+    ExactBrowserActionReceipt,
+    ExactBrowserActionRequest,
+    ExactBrowserActionResult,
+    ExactBrowserActionService,
+    ExactBrowserActionStatus,
+    GovernedBrowserActionKind,
+    GovernedBrowserActionRecipe,
+    GovernedBrowserActionRecipeRegistry,
+    build_governed_browser_action_recipe,
 )
 from .contracts import (
     ExternalActionAuthorityBinding,
@@ -51,6 +67,7 @@ from .transaction import (
 
 __all__ = [
     "AuthorityBudgetStoreGate",
+    "BrowserActionDryRunTransportResult",
     "DenyByDefaultBudgetGate",
     "ExternalActionAuthorityBinding",
     "ExternalActionDispatchOutcome",
@@ -70,6 +87,12 @@ __all__ = [
     "ExternalActionTargetKind",
     "ExternalActionTransactionConflict",
     "ExternalActionTransactionStore",
+    "ExactBrowserActionPlan",
+    "ExactBrowserActionReceipt",
+    "ExactBrowserActionRequest",
+    "ExactBrowserActionResult",
+    "ExactBrowserActionService",
+    "ExactBrowserActionStatus",
     "EvidenceRecipeObservationTransportResult",
     "ExactBrowserObservationEvidence",
     "ExactBrowserObservationReceipt",
@@ -79,13 +102,20 @@ __all__ = [
     "ExactBrowserObservationStatus",
     "GovernedBrowserEvidenceRecipe",
     "GovernedBrowserEvidenceRecipeRegistry",
+    "GovernedBrowserActionKind",
+    "GovernedBrowserActionRecipe",
+    "GovernedBrowserActionRecipeRegistry",
     "GovernedExternalActionKernel",
+    "IsolatedBrowserActionDryRunBrokerAdapter",
+    "IsolatedBrowserActionDryRunTransport",
     "IsolatedBrowserBrokerAdapter",
     "IsolatedBrowserTransport",
     "build_external_action_approval_request",
     "build_external_action_authority_request",
     "build_external_action_inbox_envelope",
+    "build_governed_browser_action_recipe",
     "build_governed_browser_evidence_recipe",
+    "create_isolated_browser_action_dry_run_gateway",
     "create_isolated_browser_broker_gateway",
     "stable_governed_browser_ref",
 ]
