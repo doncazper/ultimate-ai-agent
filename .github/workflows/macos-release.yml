@@ -1,0 +1,206 @@
+name: macOS first-class distribution
+
+on:
+  push:
+    tags:
+      - "v0.*"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing immutable tag to package
+        required: true
+        type: string
+      channel:
+        description: Release channel (must match tag policy)
+        required: true
+        default: auto
+        type: choice
+        options:
+          - auto
+          - stable
+          - dev
+      publish_release:
+        description: Create/upload the GitHub Release after verification
+        required: true
+        default: false
+        type: boolean
+      publish_installer_bootstrap:
+        description: Publish the one-time uaa-installer-v1 bootstrap release
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: uaa-macos-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PATH: /opt/homebrew/opt/python@3.12/libexec/bin:/opt/homebrew/opt/node@22/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+  UAA_MACOS_SIGNING_IDENTITY: ${{ secrets.UAA_MACOS_SIGNING_IDENTITY }}
+  UAA_MACOS_NOTARY_PROFILE: ${{ secrets.UAA_MACOS_NOTARY_PROFILE }}
+
+defaults:
+  run:
+    shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+
+jobs:
+  build-and-publish:
+    if: github.repository == 'doncazper/ultimate-ai-agent'
+    timeout-minutes: 90
+    runs-on: [self-hosted, macOS, ARM64, uaa-ci]
+
+    steps:
+      - name: Resolve immutable source tag
+        id: source
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PUSH_TAG: ${{ github.ref_name }}
+          REQUESTED_TAG: ${{ inputs.release_tag }}
+          REQUESTED_CHANNEL: ${{ inputs.channel }}
+        run: |
+          tag="$PUSH_TAG"
+          channel="auto"
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            tag="$REQUESTED_TAG"
+            channel="$REQUESTED_CHANNEL"
+          fi
+          if ! [[ "$tag" =~ ^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$ ]]; then
+            echo "Unsafe release tag." >&2
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "requested_channel=$channel" >> "$GITHUB_OUTPUT"
+
+      - name: Check out exact tag
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          clean: true
+          fetch-depth: 0
+          persist-credentials: false
+          ref: refs/tags/${{ steps.source.outputs.tag }}
+
+      - name: Bind channel and exact source identity
+        id: identity
+        env:
+          RELEASE_TAG: ${{ steps.source.outputs.tag }}
+          REQUESTED_CHANNEL: ${{ steps.source.outputs.requested_channel }}
+        run: |
+          tag_commit="$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")"
+          head_commit="$(git rev-parse HEAD)"
+          if [ "$tag_commit" != "$head_commit" ]; then
+            echo "Checked-out SHA does not match immutable tag." >&2
+            exit 1
+          fi
+          channel="$(PYTHONPATH=src python3.12 scripts/macos/release_policy.py \
+            --tag "$RELEASE_TAG" --channel "$REQUESTED_CHANNEL")"
+          source_timestamp="$(git log -1 --format=%cI "$head_commit")"
+          echo "commit=$head_commit" >> "$GITHUB_OUTPUT"
+          echo "source_timestamp=$source_timestamp" >> "$GITHUB_OUTPUT"
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
+
+      - name: Verify focused installer contracts
+        run: |
+          python3.12 -m venv .macos-build-venv
+          .macos-build-venv/bin/python -m pip install --disable-pip-version-check "uv==0.11.21"
+          .macos-build-venv/bin/uv sync --frozen --extra dev --python python3.12
+          PYTHONPATH=src .venv/bin/python -m pytest \
+            tests/test_macos_first_class_installer.py
+
+      - name: Build production Control Center
+        working-directory: apps/control-center
+        run: |
+          npm ci
+          npm run build
+
+      - name: Fetch pinned relocatable Python
+        id: python
+        run: |
+          runtime_path="$(scripts/macos/prepare_python_runtime.sh arm64 \
+            "$RUNNER_TEMP/uaa-python-runtime")"
+          echo "runtime_path=$runtime_path" >> "$GITHUB_OUTPUT"
+
+      - name: Build app, CLI runtime, and release assets
+        env:
+          RELEASE_TAG: ${{ steps.source.outputs.tag }}
+          RELEASE_CHANNEL: ${{ steps.identity.outputs.channel }}
+          SOURCE_COMMIT: ${{ steps.identity.outputs.commit }}
+          SOURCE_TIMESTAMP: ${{ steps.identity.outputs.source_timestamp }}
+          PYTHON_RUNTIME: ${{ steps.python.outputs.runtime_path }}
+        run: |
+          args=(
+            --python-runtime "$PYTHON_RUNTIME"
+            --output-dir "$RUNNER_TEMP/uaa-macos-release"
+            --tag "$RELEASE_TAG"
+            --channel "$RELEASE_CHANNEL"
+            --source-commit "$SOURCE_COMMIT"
+            --source-timestamp "$SOURCE_TIMESTAMP"
+            --architecture arm64
+          )
+          if [ -n "$UAA_MACOS_SIGNING_IDENTITY" ]; then
+            args+=(--signing-identity "$UAA_MACOS_SIGNING_IDENTITY")
+          fi
+          if [ -n "$UAA_MACOS_NOTARY_PROFILE" ]; then
+            args+=(--notary-profile "$UAA_MACOS_NOTARY_PROFILE")
+          fi
+          PYTHONPATH=src .venv/bin/python scripts/macos/build_release_bundle.py "${args[@]}"
+
+      - name: Verify staged installer lifecycle
+        run: |
+          PYTHONPATH=src .venv/bin/python scripts/macos/verify_installer_e2e.py \
+            --archive "$RUNNER_TEMP/uaa-macos-release/uaa-macos-arm64.tar.gz" \
+            --descriptor "$RUNNER_TEMP/uaa-macos-release/uaa-macos-arm64.release.json"
+
+      - name: Publish immutable app release
+        if: github.event_name == 'push' || inputs.publish_release == true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.source.outputs.tag }}
+          RELEASE_CHANNEL: ${{ steps.identity.outputs.channel }}
+        run: |
+          prerelease=()
+          if [ "$RELEASE_CHANNEL" = "dev" ]; then
+            prerelease=(--prerelease)
+          fi
+          if ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --verify-tag \
+              --title "Ultimate AI Agent $RELEASE_TAG" \
+              --notes "First-class macOS release. Channel: $RELEASE_CHANNEL. Release assets are checksum-bound and the updater remains governed by the active product-line descriptor." \
+              "${prerelease[@]}"
+          fi
+          gh release upload "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            "$RUNNER_TEMP/uaa-macos-release/uaa-macos-arm64.tar.gz" \
+            "$RUNNER_TEMP/uaa-macos-release/uaa-macos-arm64.tar.gz.sha256" \
+            "$RUNNER_TEMP/uaa-macos-release/uaa-macos-arm64.release.json"
+
+      - name: Build and publish long-lived installer bootstrap
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_installer_bootstrap == true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PYTHON_RUNTIME: ${{ steps.python.outputs.runtime_path }}
+        run: |
+          args=(
+            --python-runtime "$PYTHON_RUNTIME"
+            --output-dir "$RUNNER_TEMP/uaa-installer-bootstrap"
+            --architecture arm64
+          )
+          if [ -n "$UAA_MACOS_SIGNING_IDENTITY" ]; then
+            args+=(--signing-identity "$UAA_MACOS_SIGNING_IDENTITY")
+          fi
+          PYTHONPATH=src .venv/bin/python scripts/macos/build_installer_bootstrap.py "${args[@]}"
+          if ! gh release view uaa-installer-v1 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create uaa-installer-v1 \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "${{ steps.identity.outputs.commit }}" \
+              --title "Ultimate AI Agent macOS Installer v1" \
+              --notes "Long-lived private-repository installer bootstrap. It selects versioned app releases through their exact descriptors."
+          fi
+          gh release upload uaa-installer-v1 \
+            --repo "$GITHUB_REPOSITORY" \
+            "$RUNNER_TEMP/uaa-installer-bootstrap/uaa-installer-macos-arm64.tar.gz" \
+            "$RUNNER_TEMP/uaa-installer-bootstrap/uaa-installer-macos-arm64.tar.gz.sha256"

@@ -37,6 +37,22 @@ partitioning remain incomplete, so public distribution and production
 readiness remain blocked. Evidence and exit criteria live in
 `docs/verification/PRODUCT_HARDENING_EVIDENCE_GATE.md`.
 
+Current macOS installer truth: a first-class private/local arm64 distribution
+lane builds a self-contained native app, embedded Python Agent Core, production
+Control Center, and checkout-independent CLI. Exact active-product-line GitHub
+Release descriptors govern stable/dev selection; the default channel compares
+their tag commit timestamps. Install/update is checksum- and file-inventory
+verified, code-signature checked, atomic, idempotent, rollback-aware, and
+safe-ref receipted. App open checks for updates and continues the verified
+installed version when the private GitHub catalog is unavailable. Local arm64
+build/install/Finder launch/API/UI/rollback evidence passes. Developer ID
+signing, Apple notarization, Intel end-to-end proof, public distribution, and
+production readiness remain blocked. Evidence:
+`docs/production/MACOS_FIRST_CLASS_INSTALLER.md`,
+`src/ultimate_ai_agent/distribution/macos/`, `packaging/macos/`,
+`.github/workflows/macos-release.yml`, and
+`tests/test_macos_first_class_installer.py`.
+
 ## Release Truth
 
 Allowed current claims:

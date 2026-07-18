@@ -200,6 +200,29 @@ Morning Briefing
 
 ## Quick Start
 
+### First-Class macOS App
+
+The private/local macOS distribution lane produces a self-contained
+`Ultimate AI Agent.app` plus a checkout-independent `uaa` command. The app and
+CLI share launch, doctor, status, update, stop, and rollback behavior; the
+installed runtime does not require a repository checkout, `.venv`, Node, npm,
+or Vite.
+
+```bash
+packaging/macos/install.sh \
+  --local-archive BUILD_DIR/uaa-macos-arm64.tar.gz \
+  --local-descriptor BUILD_DIR/uaa-macos-arm64.release.json
+
+uaa doctor
+uaa launch
+```
+
+Remote private installation becomes active when an eligible post-installer tag
+publishes the long-lived bootstrap and app release assets. Developer ID signing
+and notarization remain blocked on Apple credentials; verified local builds are
+ad-hoc signed and are not a public-distribution claim. See
+[the macOS installer guide](docs/production/MACOS_FIRST_CLASS_INSTALLER.md).
+
 ### Prerequisites
 
 - Python 3.10 or newer.
