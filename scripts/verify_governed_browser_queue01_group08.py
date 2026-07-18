@@ -40,6 +40,10 @@ def verify() -> list[str]:
         "tests/test_governed_browser_queue01_group08_hardening.py",
         failures,
     )
+    tests += _read(
+        "tests/test_governed_browser_queue01_group08_review_repairs.py",
+        failures,
+    )
     doc = _read("docs/browser/GOVERNED_EXTERNAL_ACTIONS_QUEUE_01.md", failures)
     docs_readme = _read("docs/README.md", failures)
     docs_index = _read("docs/DOCUMENTATION_INDEX.md", failures)
@@ -54,6 +58,10 @@ def verify() -> list[str]:
             "GovernedExternalActionKernel",
             "MAX_GOVERNED_ARTIFACT_BYTES",
             "idempotency-ref:governed-artifact-transfer",
+            "download_transaction_ref",
+            "GOVERNED_ARTIFACT_QUARANTINE_SCOPE_MISMATCH",
+            "GOVERNED_ARTIFACT_QUARANTINE_RESULT_SCOPE_MISMATCH",
+            "GOVERNED_ARTIFACT_UPLOAD_PLAN_RESULT_SCOPE_MISMATCH",
             "AuthorityCapability.download",
             "AuthorityCapability.upload",
             "app_owned_quarantine_required: Literal[True]",
@@ -134,11 +142,23 @@ def verify() -> list[str]:
     runtime_text = "\n".join((transfers, transaction, package)).lower()
     for fragment in (
         "import requests",
+        "from requests import",
         "import httpx",
+        "from httpx import",
+        "import urllib.request",
+        "from urllib import request",
+        "import urllib3",
+        "from urllib3 import",
+        "import http.client",
+        "from http import client",
         "import playwright",
+        "from playwright import",
         "import selenium",
+        "from selenium import",
         "import browserbase",
+        "from browserbase import",
         "import firecrawl",
+        "from firecrawl import",
         "import subprocess",
         "path.home(",
     ):

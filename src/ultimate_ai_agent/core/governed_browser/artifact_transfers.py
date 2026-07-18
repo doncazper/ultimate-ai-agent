@@ -139,6 +139,7 @@ def governed_artifact_transfer_schema_ref(
     operation: GovernedArtifactTransferOperation,
     artifact_ref: str,
     quarantine_ref: str,
+    download_transaction_ref: str,
     declared_media_type: GovernedArtifactMediaType,
     max_bytes: int,
     content_fingerprint_ref: str | None,
@@ -155,6 +156,7 @@ def governed_artifact_transfer_schema_ref(
         label="quarantine_ref",
         prefix="artifact-quarantine-ref:governed-browser:",
     )
+    validate_task_ref(download_transaction_ref, "download_transaction_ref")
     if not 1 <= max_bytes <= MAX_GOVERNED_ARTIFACT_BYTES:
         raise ValueError("GOVERNED_ARTIFACT_SIZE_LIMIT_INVALID")
     if content_fingerprint_ref is not None:
@@ -174,6 +176,7 @@ def governed_artifact_transfer_schema_ref(
             "operation": exact_operation.value,
             "artifact_ref": artifact_ref,
             "quarantine_ref": quarantine_ref,
+            "download_transaction_ref": download_transaction_ref,
             "declared_media_type": exact_media_type.value,
             "max_bytes": max_bytes,
             "content_fingerprint_ref": content_fingerprint_ref,
@@ -539,6 +542,7 @@ class GovernedArtifactTransferRecipe(BaseModel):
     page_snapshot_ref: str = Field(..., max_length=240)
     artifact_ref: str = Field(..., max_length=240)
     quarantine_ref: str = Field(..., max_length=240)
+    download_transaction_ref: str = Field(..., max_length=240)
     quarantine_store_ref: str = Field(..., max_length=240)
     transfer_schema_ref: str = Field(..., max_length=240)
     transfer_surface_ref: str = Field(..., max_length=240)
@@ -586,6 +590,7 @@ class GovernedArtifactTransferRecipe(BaseModel):
             (self.page_snapshot_ref, "page_snapshot_ref"),
             (self.artifact_ref, "artifact_ref"),
             (self.quarantine_ref, "quarantine_ref"),
+            (self.download_transaction_ref, "download_transaction_ref"),
             (self.quarantine_store_ref, "quarantine_store_ref"),
             (self.transfer_schema_ref, "transfer_schema_ref"),
             (self.transfer_surface_ref, "transfer_surface_ref"),
@@ -605,10 +610,18 @@ class GovernedArtifactTransferRecipe(BaseModel):
             raise ValueError("GOVERNED_ARTIFACT_RECIPE_LIFETIME_INVALID")
         if self.exact_capability != _required_capability(operation).value:
             raise ValueError("GOVERNED_ARTIFACT_EXACT_CAPABILITY_MISMATCH")
+        expected_quarantine_ref = governed_artifact_quarantine_ref(
+            origin_ref=self.origin_ref,
+            artifact_ref=self.artifact_ref,
+            download_transaction_ref=self.download_transaction_ref,
+        )
+        if self.quarantine_ref != expected_quarantine_ref:
+            raise ValueError("GOVERNED_ARTIFACT_QUARANTINE_SCOPE_MISMATCH")
         expected_schema_ref = governed_artifact_transfer_schema_ref(
             operation=operation,
             artifact_ref=self.artifact_ref,
             quarantine_ref=self.quarantine_ref,
+            download_transaction_ref=self.download_transaction_ref,
             declared_media_type=media_type,
             max_bytes=self.max_bytes,
             content_fingerprint_ref=self.content_fingerprint_ref,
@@ -652,6 +665,7 @@ def build_governed_artifact_transfer_recipe(
     operation: GovernedArtifactTransferOperation,
     artifact_ref: str,
     quarantine_ref: str,
+    download_transaction_ref: str,
     quarantine_store_ref: str,
     transfer_surface_ref: str,
     visibility_proof_ref: str,
@@ -680,6 +694,18 @@ def build_governed_artifact_transfer_recipe(
         raise ValueError("GOVERNED_ARTIFACT_DEADLINE_EXCEEDED")
     if binding.artifact_refs != [artifact_ref]:
         raise ValueError("GOVERNED_ARTIFACT_EXACT_ARTIFACT_SCOPE_REQUIRED")
+    expected_quarantine_ref = governed_artifact_quarantine_ref(
+        origin_ref=binding.origin_ref,
+        artifact_ref=artifact_ref,
+        download_transaction_ref=download_transaction_ref,
+    )
+    if quarantine_ref != expected_quarantine_ref:
+        raise ValueError("GOVERNED_ARTIFACT_QUARANTINE_SCOPE_MISMATCH")
+    if (
+        exact_operation == GovernedArtifactTransferOperation.download_quarantine
+        and download_transaction_ref != binding.transaction_ref
+    ):
+        raise ValueError("GOVERNED_ARTIFACT_DOWNLOAD_TRANSACTION_MISMATCH")
     operation_authority_ref = governed_artifact_transfer_operation_authority_ref(
         operation=exact_operation,
         origin_ref=binding.origin_ref,
@@ -690,6 +716,7 @@ def build_governed_artifact_transfer_recipe(
         operation=exact_operation,
         artifact_ref=artifact_ref,
         quarantine_ref=quarantine_ref,
+        download_transaction_ref=download_transaction_ref,
         declared_media_type=exact_media_type,
         max_bytes=max_bytes,
         content_fingerprint_ref=content_fingerprint_ref,
@@ -706,13 +733,14 @@ def build_governed_artifact_transfer_recipe(
     required_resources = {
         operation_authority_ref,
         quarantine_ref,
+        download_transaction_ref,
         quarantine_store_ref,
         transfer_surface_ref,
         visibility_proof_ref,
     }
     if content_fingerprint_ref is not None:
         required_resources.add(content_fingerprint_ref)
-    if not required_resources.issubset(set(binding.resource_refs)):
+    if not required_resources.issubset(set(binding.exact_resource_refs())):
         raise ValueError("GOVERNED_ARTIFACT_RESOURCE_NOT_AUTHORITY_BOUND")
     payload = {
         "operation": exact_operation,
@@ -722,6 +750,7 @@ def build_governed_artifact_transfer_recipe(
         "page_snapshot_ref": binding.page_snapshot_ref,
         "artifact_ref": artifact_ref,
         "quarantine_ref": quarantine_ref,
+        "download_transaction_ref": download_transaction_ref,
         "quarantine_store_ref": quarantine_store_ref,
         "transfer_schema_ref": schema_ref,
         "transfer_surface_ref": transfer_surface_ref,
@@ -773,12 +802,54 @@ class ExactGovernedArtifactTransferRequest(BaseModel):
     execution_request: ExternalActionExecutionRequest
     recipe_ref: str
     operation: GovernedArtifactTransferOperation
+    artifact_ref: str
+    quarantine_ref: str
+    download_transaction_ref: str
 
     model_config = ConfigDict(use_enum_values=True, extra="forbid", frozen=True)
 
     @model_validator(mode="after")
     def validate_request(self) -> "ExactGovernedArtifactTransferRequest":
         validate_task_ref(self.recipe_ref, "recipe_ref")
+        _validate_hash_pinned_ref(
+            self.artifact_ref,
+            label="artifact_ref",
+            prefix="artifact-ref:governed-browser:",
+        )
+        _validate_hash_pinned_ref(
+            self.quarantine_ref,
+            label="quarantine_ref",
+            prefix="artifact-quarantine-ref:governed-browser:",
+        )
+        validate_task_ref(
+            self.download_transaction_ref,
+            "download_transaction_ref",
+        )
+        binding = self.execution_request.binding
+        operation = GovernedArtifactTransferOperation(self.operation)
+        if binding.authority_capability != _required_capability(operation).value:
+            raise ValueError("GOVERNED_ARTIFACT_EXACT_CAPABILITY_MISMATCH")
+        if binding.artifact_refs != [self.artifact_ref]:
+            raise ValueError("GOVERNED_ARTIFACT_EXACT_ARTIFACT_SCOPE_REQUIRED")
+        expected_quarantine_ref = governed_artifact_quarantine_ref(
+            origin_ref=binding.origin_ref,
+            artifact_ref=self.artifact_ref,
+            download_transaction_ref=self.download_transaction_ref,
+        )
+        if self.quarantine_ref != expected_quarantine_ref:
+            raise ValueError("GOVERNED_ARTIFACT_QUARANTINE_SCOPE_MISMATCH")
+        if (
+            operation == GovernedArtifactTransferOperation.download_quarantine
+            and self.download_transaction_ref != binding.transaction_ref
+        ):
+            raise ValueError("GOVERNED_ARTIFACT_DOWNLOAD_TRANSACTION_MISMATCH")
+        required_refs = {
+            self.artifact_ref,
+            self.quarantine_ref,
+            self.download_transaction_ref,
+        }
+        if not required_refs.issubset(set(binding.exact_resource_refs())):
+            raise ValueError("GOVERNED_ARTIFACT_RESOURCE_NOT_AUTHORITY_BOUND")
         return self
 
 
@@ -789,6 +860,8 @@ class ExactGovernedArtifactQuarantine(BaseModel):
     recipe_ref: str
     artifact_ref: str
     quarantine_ref: str
+    download_transaction_ref: str
+    origin_ref: str
     quarantine_store_ref: str
     content_fingerprint_ref: str
     declared_media_type: GovernedArtifactMediaType
@@ -812,12 +885,21 @@ class ExactGovernedArtifactQuarantine(BaseModel):
             (self.recipe_ref, "recipe_ref"),
             (self.artifact_ref, "artifact_ref"),
             (self.quarantine_ref, "quarantine_ref"),
+            (self.download_transaction_ref, "download_transaction_ref"),
+            (self.origin_ref, "origin_ref"),
             (self.quarantine_store_ref, "quarantine_store_ref"),
             (self.content_fingerprint_ref, "content_fingerprint_ref"),
         ):
             validate_task_ref(value, label)
         if self.expires_at.tzinfo is None:
             raise ValueError("GOVERNED_ARTIFACT_TIMEZONE_REQUIRED")
+        expected_quarantine_ref = governed_artifact_quarantine_ref(
+            origin_ref=self.origin_ref,
+            artifact_ref=self.artifact_ref,
+            download_transaction_ref=self.download_transaction_ref,
+        )
+        if self.quarantine_ref != expected_quarantine_ref:
+            raise ValueError("GOVERNED_ARTIFACT_QUARANTINE_SCOPE_MISMATCH")
         return self
 
 
@@ -829,6 +911,7 @@ class ExactGovernedArtifactUploadPlan(BaseModel):
     recipe_ref: str
     artifact_ref: str
     quarantine_ref: str
+    download_transaction_ref: str
     quarantine_store_ref: str
     content_fingerprint_ref: str
     transfer_surface_ref: str
@@ -858,6 +941,7 @@ class ExactGovernedArtifactUploadPlan(BaseModel):
             (self.recipe_ref, "recipe_ref"),
             (self.artifact_ref, "artifact_ref"),
             (self.quarantine_ref, "quarantine_ref"),
+            (self.download_transaction_ref, "download_transaction_ref"),
             (self.quarantine_store_ref, "quarantine_store_ref"),
             (self.content_fingerprint_ref, "content_fingerprint_ref"),
             (self.transfer_surface_ref, "transfer_surface_ref"),
@@ -868,6 +952,13 @@ class ExactGovernedArtifactUploadPlan(BaseModel):
             validate_task_ref(value, label)
         if self.expires_at.tzinfo is None:
             raise ValueError("GOVERNED_ARTIFACT_TIMEZONE_REQUIRED")
+        expected_quarantine_ref = governed_artifact_quarantine_ref(
+            origin_ref=self.origin_ref,
+            artifact_ref=self.artifact_ref,
+            download_transaction_ref=self.download_transaction_ref,
+        )
+        if self.quarantine_ref != expected_quarantine_ref:
+            raise ValueError("GOVERNED_ARTIFACT_QUARANTINE_SCOPE_MISMATCH")
         expected_plan_ref = stable_governed_browser_ref(
             "artifact-upload-plan-ref:governed-browser",
             self.model_dump(mode="json", exclude={"plan_ref"}),
@@ -884,6 +975,10 @@ class GovernedArtifactTransferReceipt(BaseModel):
     receipt_ref: str
     recipe_ref: str
     operation: GovernedArtifactTransferOperation
+    artifact_ref: str
+    quarantine_ref: str
+    download_transaction_ref: str
+    origin_ref: str
     transaction_ref: str
     intent_ref: str
     binding_ref: str
@@ -915,6 +1010,10 @@ class GovernedArtifactTransferReceipt(BaseModel):
         for value, label in (
             (self.receipt_ref, "receipt_ref"),
             (self.recipe_ref, "recipe_ref"),
+            (self.artifact_ref, "artifact_ref"),
+            (self.quarantine_ref, "quarantine_ref"),
+            (self.download_transaction_ref, "download_transaction_ref"),
+            (self.origin_ref, "origin_ref"),
             (self.transaction_ref, "transaction_ref"),
             (self.intent_ref, "intent_ref"),
             (self.binding_ref, "binding_ref"),
@@ -928,6 +1027,23 @@ class GovernedArtifactTransferReceipt(BaseModel):
         ):
             if value is not None:
                 validate_task_ref(value, label)
+        _validate_hash_pinned_ref(
+            self.artifact_ref,
+            label="artifact_ref",
+            prefix="artifact-ref:governed-browser:",
+        )
+        _validate_hash_pinned_ref(
+            self.quarantine_ref,
+            label="quarantine_ref",
+            prefix="artifact-quarantine-ref:governed-browser:",
+        )
+        expected_quarantine_ref = governed_artifact_quarantine_ref(
+            origin_ref=self.origin_ref,
+            artifact_ref=self.artifact_ref,
+            download_transaction_ref=self.download_transaction_ref,
+        )
+        if self.quarantine_ref != expected_quarantine_ref:
+            raise ValueError("GOVERNED_ARTIFACT_QUARANTINE_SCOPE_MISMATCH")
         ready_statuses = {
             GovernedArtifactTransferStatus.quarantined.value,
             GovernedArtifactTransferStatus.upload_plan_ready.value,
@@ -978,12 +1094,40 @@ class ExactGovernedArtifactTransferResult(BaseModel):
         if self.receipt.status == GovernedArtifactTransferStatus.quarantined.value:
             if self.quarantine is None or self.upload_plan is not None:
                 raise ValueError("GOVERNED_ARTIFACT_QUARANTINE_RESULT_MISMATCH")
+            if (
+                self.quarantine.recipe_ref,
+                self.quarantine.artifact_ref,
+                self.quarantine.quarantine_ref,
+                self.quarantine.download_transaction_ref,
+                self.quarantine.origin_ref,
+            ) != (
+                self.receipt.recipe_ref,
+                self.receipt.artifact_ref,
+                self.receipt.quarantine_ref,
+                self.receipt.download_transaction_ref,
+                self.receipt.origin_ref,
+            ):
+                raise ValueError("GOVERNED_ARTIFACT_QUARANTINE_RESULT_SCOPE_MISMATCH")
         elif (
             self.receipt.status
             == GovernedArtifactTransferStatus.upload_plan_ready.value
         ):
             if self.upload_plan is None or self.quarantine is not None:
                 raise ValueError("GOVERNED_ARTIFACT_UPLOAD_PLAN_RESULT_MISMATCH")
+            if (
+                self.upload_plan.recipe_ref,
+                self.upload_plan.artifact_ref,
+                self.upload_plan.quarantine_ref,
+                self.upload_plan.download_transaction_ref,
+                self.upload_plan.origin_ref,
+            ) != (
+                self.receipt.recipe_ref,
+                self.receipt.artifact_ref,
+                self.receipt.quarantine_ref,
+                self.receipt.download_transaction_ref,
+                self.receipt.origin_ref,
+            ):
+                raise ValueError("GOVERNED_ARTIFACT_UPLOAD_PLAN_RESULT_SCOPE_MISMATCH")
         elif self.quarantine is not None or self.upload_plan is not None:
             raise ValueError("GOVERNED_ARTIFACT_NON_SUCCESS_PROJECTION_DENIED")
         return self
@@ -1048,6 +1192,20 @@ class ExactGovernedArtifactTransferService:
                 request,
                 operation=requested_operation,
                 reason_ref="reason-ref:governed-artifact:operation-mismatch",
+            )
+        if (
+            recipe.artifact_ref,
+            recipe.quarantine_ref,
+            recipe.download_transaction_ref,
+        ) != (
+            request.artifact_ref,
+            request.quarantine_ref,
+            request.download_transaction_ref,
+        ):
+            return _preflight_blocked(
+                request,
+                operation=operation,
+                reason_ref="reason-ref:governed-artifact:request-scope-mismatch",
             )
         if recipe.quarantine_store_ref != self._store.binding_ref:
             return _preflight_blocked(
@@ -1144,6 +1302,8 @@ class ExactGovernedArtifactTransferService:
                     recipe_ref=recipe.recipe_ref,
                     artifact_ref=recipe.artifact_ref,
                     quarantine_ref=recipe.quarantine_ref,
+                    download_transaction_ref=recipe.download_transaction_ref,
+                    origin_ref=recipe.origin_ref,
                     quarantine_store_ref=recipe.quarantine_store_ref,
                     content_fingerprint_ref=inspection.content_fingerprint_ref,
                     declared_media_type=inspection.declared_media_type,
@@ -1177,6 +1337,7 @@ class ExactGovernedArtifactTransferService:
                     "recipe_ref": recipe.recipe_ref,
                     "artifact_ref": recipe.artifact_ref,
                     "quarantine_ref": recipe.quarantine_ref,
+                    "download_transaction_ref": recipe.download_transaction_ref,
                     "quarantine_store_ref": recipe.quarantine_store_ref,
                     "content_fingerprint_ref": inspection.content_fingerprint_ref,
                     "transfer_surface_ref": recipe.transfer_surface_ref,
@@ -1236,6 +1397,7 @@ def _recipe_scope_reason(
     required_resources = {
         recipe.operation_authority_ref,
         recipe.quarantine_ref,
+        recipe.download_transaction_ref,
         recipe.quarantine_store_ref,
         recipe.transfer_surface_ref,
         recipe.visibility_proof_ref,
@@ -1272,7 +1434,7 @@ def _recipe_scope_reason(
             "reason-ref:governed-artifact:human-presence-required",
         ),
         (
-            required_resources.issubset(set(binding.resource_refs)),
+            required_resources.issubset(set(binding.exact_resource_refs())),
             "reason-ref:governed-artifact:resource-not-authority-bound",
         ),
         (
@@ -1313,6 +1475,10 @@ def _preflight_blocked(
     payload = {
         "recipe_ref": request.recipe_ref,
         "operation": operation,
+        "artifact_ref": request.artifact_ref,
+        "quarantine_ref": request.quarantine_ref,
+        "download_transaction_ref": request.download_transaction_ref,
+        "origin_ref": execution.binding.origin_ref,
         "transaction_ref": execution.binding.transaction_ref,
         "intent_ref": execution.intent_ref,
         "binding_ref": execution.binding.binding_ref,
@@ -1378,6 +1544,10 @@ def _result_from_external_receipt(
     payload = {
         "recipe_ref": recipe.recipe_ref,
         "operation": operation,
+        "artifact_ref": recipe.artifact_ref,
+        "quarantine_ref": recipe.quarantine_ref,
+        "download_transaction_ref": recipe.download_transaction_ref,
+        "origin_ref": recipe.origin_ref,
         "transaction_ref": external_receipt.transaction_ref,
         "intent_ref": external_receipt.intent_ref,
         "binding_ref": external_receipt.binding_ref,

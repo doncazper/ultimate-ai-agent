@@ -19,13 +19,14 @@ from ultimate_ai_agent.core.authority import AuthorityCapability, AuthorityDomai
 from ultimate_ai_agent.core.governed_browser import (
     MAX_GOVERNED_ARTIFACT_BYTES,
     ExactGovernedArtifactTransferRequest,
+    ExactGovernedArtifactTransferResult,
     ExactGovernedArtifactTransferService,
+    ExactGovernedArtifactUploadPlan,
     ExternalActionAuthorityBinding,
     ExternalActionTargetKind,
     GovernedArtifactMediaType,
     GovernedArtifactQuarantineStore,
     GovernedArtifactTransferOperation,
-    GovernedArtifactTransferReceipt,
     GovernedArtifactTransferRecipeRegistry,
     build_governed_artifact_transfer_recipe,
     governed_artifact_quarantine_ref,
@@ -48,6 +49,7 @@ def _transfer_context(
     suffix: str,
     artifact_ref: str | None = None,
     quarantine_ref: str | None = None,
+    download_transaction_ref: str | None = None,
     content_fingerprint_ref: str | None = None,
     target_kind: ExternalActionTargetKind = ExternalActionTargetKind.local_validation,
     human_present: bool = True,
@@ -64,10 +66,11 @@ def _transfer_context(
         ),
         declared_media_type=GovernedArtifactMediaType.text_plain,
     )
+    exact_download_transaction_ref = download_transaction_ref or base.transaction_ref
     exact_quarantine_ref = quarantine_ref or governed_artifact_quarantine_ref(
         origin_ref=base.origin_ref,
         artifact_ref=exact_artifact_ref,
-        download_transaction_ref=base.transaction_ref,
+        download_transaction_ref=exact_download_transaction_ref,
     )
     transfer_surface_ref = _pinned(
         "artifact-transfer-surface-ref:governed-browser",
@@ -87,6 +90,7 @@ def _transfer_context(
         operation=operation,
         artifact_ref=exact_artifact_ref,
         quarantine_ref=exact_quarantine_ref,
+        download_transaction_ref=exact_download_transaction_ref,
         declared_media_type=GovernedArtifactMediaType.text_plain,
         max_bytes=1024,
         content_fingerprint_ref=content_fingerprint_ref,
@@ -101,6 +105,8 @@ def _transfer_context(
     ]
     if content_fingerprint_ref is not None:
         resources.append(content_fingerprint_ref)
+    if exact_download_transaction_ref != base.transaction_ref:
+        resources.append(exact_download_transaction_ref)
     binding = ExternalActionAuthorityBinding.model_validate(
         {
             **base.model_dump(mode="json"),
@@ -128,6 +134,7 @@ def _transfer_context(
         operation=operation,
         artifact_ref=exact_artifact_ref,
         quarantine_ref=exact_quarantine_ref,
+        download_transaction_ref=exact_download_transaction_ref,
         quarantine_store_ref=store.binding_ref,
         transfer_surface_ref=transfer_surface_ref,
         visibility_proof_ref=visibility_proof_ref,
@@ -173,6 +180,9 @@ def _exact(request, recipe) -> ExactGovernedArtifactTransferRequest:  # type: ig
         execution_request=request,
         recipe_ref=recipe.recipe_ref,
         operation=recipe.operation,
+        artifact_ref=recipe.artifact_ref,
+        quarantine_ref=recipe.quarantine_ref,
+        download_transaction_ref=recipe.download_transaction_ref,
     )
 
 
@@ -226,6 +236,20 @@ def test_bounded_download_is_quarantined_only_and_receipts_are_content_free(
     assert str(quarantine_root).encode() not in durable_receipt
     assert secret not in result.model_dump_json()
     assert str(quarantine_root) not in result.model_dump_json()
+    assert result.quarantine is not None
+    foreign_quarantine = result.quarantine.model_copy(
+        update={
+            "recipe_ref": _pinned(
+                "artifact-transfer-recipe-ref:governed-browser",
+                suffix="foreign-projection",
+            )
+        }
+    )
+    with pytest.raises(ValueError, match="QUARANTINE_RESULT_SCOPE_MISMATCH"):
+        ExactGovernedArtifactTransferResult(
+            receipt=result.receipt,
+            quarantine=foreign_quarantine,
+        )
 
 
 def test_download_replay_is_at_most_once_content_free_and_zeroizes_input(
@@ -288,6 +312,7 @@ def test_upload_is_an_exact_fingerprinted_plan_from_quarantine_only(
         suffix="upload-plan",
         artifact_ref=download_recipe.artifact_ref,
         quarantine_ref=download_recipe.quarantine_ref,
+        download_transaction_ref=download_recipe.download_transaction_ref,
         content_fingerprint_ref=(downloaded.quarantine.content_fingerprint_ref),
     )
     upload_service, _, _ = _service(
@@ -311,6 +336,27 @@ def test_upload_is_an_exact_fingerprinted_plan_from_quarantine_only(
     assert result.upload_plan.network_call_performed is False
     assert result.upload_plan.external_mutation_performed is False
     assert result.upload_plan.real_external_target is False
+    foreign_plan_payload = result.upload_plan.model_dump(mode="python")
+    foreign_plan_payload["recipe_ref"] = _pinned(
+        "artifact-transfer-recipe-ref:governed-browser",
+        suffix="foreign-plan",
+    )
+    provisional_foreign_plan = ExactGovernedArtifactUploadPlan.model_construct(
+        **foreign_plan_payload
+    )
+    foreign_plan_payload["plan_ref"] = stable_governed_browser_ref(
+        "artifact-upload-plan-ref:governed-browser",
+        provisional_foreign_plan.model_dump(
+            mode="json",
+            exclude={"plan_ref"},
+        ),
+    )
+    foreign_plan = ExactGovernedArtifactUploadPlan.model_validate(foreign_plan_payload)
+    with pytest.raises(ValueError, match="UPLOAD_PLAN_RESULT_SCOPE_MISMATCH"):
+        ExactGovernedArtifactTransferResult(
+            receipt=result.receipt,
+            upload_plan=foreign_plan,
+        )
     assert (
         b"exact upload source"
         not in (tmp_path / "upload-kernel" / "transactions.sqlite3").read_bytes()
@@ -355,6 +401,7 @@ def test_upload_fails_closed_without_exact_quarantined_fingerprint(
         suffix=mode,
         artifact_ref=artifact_ref,
         quarantine_ref=quarantine_ref,
+        download_transaction_ref=base.transaction_ref,
         content_fingerprint_ref=expected,
     )
     service, _, _ = _service(
@@ -381,20 +428,37 @@ def test_unknown_recipe_and_operation_mismatch_are_truthfully_blocked(
         operation=GovernedArtifactTransferOperation.download_quarantine,
         suffix="recipe-scope",
     )
+    fingerprint = store.validate_payload(
+        payload=b"scope-only",
+        declared_media_type=GovernedArtifactMediaType.text_plain,
+        max_bytes=1024,
+    ).content_fingerprint_ref
+    upload_request, _, _ = _transfer_context(
+        store,
+        operation=(GovernedArtifactTransferOperation.upload_quarantined_artifact_plan),
+        suffix="recipe-scope-upload",
+        artifact_ref=recipe.artifact_ref,
+        quarantine_ref=recipe.quarantine_ref,
+        download_transaction_ref=recipe.download_transaction_ref,
+        content_fingerprint_ref=fingerprint,
+    )
     service, _, _ = _service(
         tmp_path / "kernel",
         store=store,
-        request=request,
+        request=upload_request,
         registry=registry,
     )
     unknown_payload = bytearray(b"never written")
     unknown = service.execute(
         ExactGovernedArtifactTransferRequest(
-            execution_request=request,
+            execution_request=upload_request,
             recipe_ref="artifact-transfer-recipe-ref:governed-browser:unknown",
             operation=(
                 GovernedArtifactTransferOperation.upload_quarantined_artifact_plan
             ),
+            artifact_ref=recipe.artifact_ref,
+            quarantine_ref=recipe.quarantine_ref,
+            download_transaction_ref=recipe.download_transaction_ref,
         ),
         injected_download_payload=unknown_payload,
     )
@@ -405,11 +469,14 @@ def test_unknown_recipe_and_operation_mismatch_are_truthfully_blocked(
     mismatch_payload = bytearray(b"also never written")
     mismatch = service.execute(
         ExactGovernedArtifactTransferRequest(
-            execution_request=request,
+            execution_request=upload_request,
             recipe_ref=recipe.recipe_ref,
             operation=(
                 GovernedArtifactTransferOperation.upload_quarantined_artifact_plan
             ),
+            artifact_ref=recipe.artifact_ref,
+            quarantine_ref=recipe.quarantine_ref,
+            download_transaction_ref=recipe.download_transaction_ref,
         ),
         injected_download_payload=mismatch_payload,
     )
@@ -445,6 +512,9 @@ def test_approval_identifier_alone_and_broader_lease_grant_nothing(
             execution_request=ungranted,
             recipe_ref=recipe.recipe_ref,
             operation=recipe.operation,
+            artifact_ref=recipe.artifact_ref,
+            quarantine_ref=recipe.quarantine_ref,
+            download_transaction_ref=recipe.download_transaction_ref,
         ),
         injected_download_payload=approval_payload,
     )
@@ -594,80 +664,3 @@ def test_raw_upload_payload_is_denied_and_zeroized_before_transaction(
         recipe.recipe_ref.encode()
         not in (tmp_path / "kernel" / "transactions.sqlite3").read_bytes()
     )
-
-
-def test_exact_scope_real_targets_and_receipt_forgery_fail_closed(
-    tmp_path: Path,
-) -> None:
-    store = GovernedArtifactQuarantineStore(tmp_path / "artifacts")
-    request, recipe, _ = _transfer_context(
-        store,
-        operation=GovernedArtifactTransferOperation.download_quarantine,
-        suffix="exact-scope",
-    )
-    with pytest.raises(ValueError, match="EXACT_ARTIFACT_SCOPE_REQUIRED"):
-        build_governed_artifact_transfer_recipe(
-            request,
-            operation=GovernedArtifactTransferOperation.download_quarantine,
-            artifact_ref=_pinned(
-                "artifact-ref:governed-browser",
-                suffix="wrong",
-            ),
-            quarantine_ref=recipe.quarantine_ref,
-            quarantine_store_ref=store.binding_ref,
-            transfer_surface_ref=recipe.transfer_surface_ref,
-            visibility_proof_ref=recipe.visibility_proof_ref,
-            declared_media_type=GovernedArtifactMediaType.text_plain,
-            max_bytes=1024,
-            content_fingerprint_ref=None,
-            created_at=recipe.created_at,
-            expires_at=recipe.expires_at,
-        )
-    with pytest.raises(ValueError, match="REAL_TARGETS_INACTIVE"):
-        _transfer_context(
-            store,
-            operation=GovernedArtifactTransferOperation.download_quarantine,
-            suffix="external-target",
-            target_kind=ExternalActionTargetKind.external,
-        )
-
-    receipt_payload = {
-        "recipe_ref": recipe.recipe_ref,
-        "operation": recipe.operation,
-        "transaction_ref": request.binding.transaction_ref,
-        "intent_ref": request.intent_ref,
-        "binding_ref": request.binding.binding_ref,
-        "status": "preflight_blocked",
-        "external_action_state": "blocked",
-        "reason_refs": ["reason-ref:governed-artifact:test"],
-    }
-    provisional = GovernedArtifactTransferReceipt.model_construct(
-        receipt_ref="receipt-ref:governed-artifact-transfer:pending",
-        **receipt_payload,
-    )
-    receipt_ref = stable_governed_browser_ref(
-        "receipt-ref:governed-artifact-transfer",
-        provisional.model_dump(mode="json", exclude={"receipt_ref"}),
-    )
-    parsed = GovernedArtifactTransferReceipt(
-        receipt_ref=receipt_ref,
-        **receipt_payload,
-    )
-    forged = parsed.model_dump(mode="json")
-    forged["receipt_ref"] = "receipt-ref:governed-artifact-transfer:forged"
-    with pytest.raises(ValueError, match="RECEIPT_REF_MISMATCH"):
-        GovernedArtifactTransferReceipt.model_validate(forged)
-    forged = parsed.model_dump(mode="json")
-    forged["raw_artifact_recorded"] = True
-    with pytest.raises(ValueError):
-        GovernedArtifactTransferReceipt.model_validate(forged)
-    forged = parsed.model_dump(mode="json")
-    forged["status"] = "quarantined"
-    forged["operation"] = "upload_quarantined_artifact_plan"
-    provisional = GovernedArtifactTransferReceipt.model_construct(**forged)
-    forged["receipt_ref"] = stable_governed_browser_ref(
-        "receipt-ref:governed-artifact-transfer",
-        provisional.model_dump(mode="json", exclude={"receipt_ref"}),
-    )
-    with pytest.raises(ValueError, match="OPERATION_STATUS_MISMATCH"):
-        GovernedArtifactTransferReceipt.model_validate(forged)
