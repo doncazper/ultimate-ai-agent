@@ -26,7 +26,7 @@ download, upload, purchase, publishing action, or production authority.
 | 05. Evidence Recipes and exact browser observation | `implemented_inactive` | A registered Evidence Recipe binds the exact authority binding, origin, page snapshot, schema, target, safe URL ref, capture fields, and size limits. The service composes the existing transaction kernel, WebAccessGateway, and isolated broker to return one bounded redacted evidence projection plus a separate content-free receipt during injected local validation. | No browser engine, live navigation/network, arbitrary recipe, raw DOM/screenshot, authenticated profile, browser action, external mutation, or real external target; Queue 02 remains required. |
 | 06. Same-origin visible clicks and GET forms | `implemented_inactive` | A registered action recipe binds the exact `click` or `form_fill` lease capability, prior observation, page snapshot, source/destination safe URL refs, same origin, visible element/proof, field schema, and opaque GET-form value refs. The existing kernel and WebAccessGateway produce one injected action plan plus a separate content-free receipt. | Plan-only: no browser session, navigation, click, form fill/submission, request body, network call, authenticated profile, external mutation, or real external target; Queue 02 remains required. |
 | 07. Registered exact POST-form schemas | `implemented_inactive` | A content-derived schema registry binds the exact origin, snapshot, prior observation, source/destination safe URL refs, visible form/proof, bounded safe-ref-only field definitions, encoding, and total byte ceiling. A separate registered recipe binds the exact field-to-opaque-value refs and `form_fill` lease scope, then produces one injected POST-schema plan and content-free receipt through the existing kernel and gateway. | Schema-plan only: the gateway envelope remains internal GET, and no field value is resolved, request body is materialized, browser/session starts, form is filled/submitted, authenticated state is used, network call or external mutation occurs, or real external target is enabled; Queue 02 remains required. |
-| 08. Real macOS Keychain opaque-handle adapter and per-origin session lifecycle | `implemented_inactive` | A purpose-specific Security.framework helper stores, probes, and idempotently deletes one exact origin/opaque-handle/generation item in device-only, nonsynchronizing macOS Keychain storage. Python invokes only an owner-controlled absolute helper through a source-hash-sealed, executable-hash-pinned, bounded local subprocess. Registered lifecycle recipes compose PolicyEngine, LocalApprovalAuthority, exact AuthorityLease, shared budget, readiness/deadline/human-presence/safe-disable/kill-switch checks, at-most-once dispatch, and a safe-ref-only SQLite session record. | Keychain enrollment and deletion are local governed operations only. Session state is `prepared_inactive`: no browser session, authentication, cookie use, navigation, live network, external mutation, real external target, route, or UI control is enabled. Queue 02 remains required. |
+| 08. Real macOS Keychain opaque-handle adapter and per-origin session lifecycle | `implemented_inactive` | A purpose-specific Security.framework helper stores, probes, and idempotently deletes one exact origin/opaque-handle/generation item in device-only, nonsynchronizing macOS Keychain storage. Python invokes only an owner-controlled absolute helper through a source-hash-sealed, executable-hash-pinned, bounded local subprocess. Registered lifecycle recipes bind exactly one operation-specific authority ref and compose PolicyEngine, LocalApprovalAuthority, exact AuthorityLease, shared budget, readiness/deadline/human-presence/safe-disable/kill-switch checks, at-most-once dispatch, and a safe-ref-only SQLite session record. Duplicate enrollment is rejected, expired preparation is blocked, and a missing credential is a deterministic failed precondition rather than an ambiguous effect. | Keychain enrollment and deletion are local governed operations only. Session state is `prepared_inactive`: no browser session, authentication, cookie use, navigation, live network, external mutation, real external target, route, or UI control is enabled. Queue 02 remains required. |
 
 ## Exact Authority Is Not A Superuser Hierarchy
 
@@ -259,9 +259,11 @@ external target is enabled.
 boundary. It accepts one registered origin ref, opaque credential-handle ref,
 credential-generation ref, and their derived Keychain item ref. Enrollment
 accepts credential material only as a bounded mutable buffer, zeroes that
-buffer after the helper call, and never returns material. Probe requests only
-Keychain attributes. Delete is idempotent. Receipts contain safe refs and
-explicit false posture flags, never credential data.
+buffer after the helper call, and never returns material. Immutable buffers
+are rejected before dispatch. Probe requests only Keychain attributes.
+Duplicate store is rejected and requires a fresh credential-generation ref;
+delete is idempotent. Receipts contain safe refs and explicit false posture
+flags, never credential data.
 
 The native helper uses `Security.framework` generic-password storage with
 `kSecAttrAccessibleWhenUnlockedThisDeviceOnly` and synchronization disabled.
@@ -276,9 +278,12 @@ writes only content-free hash metadata into the fixed private helper root.
 
 `GovernedBrowserOriginSessionRecipeRegistry` accepts only exact registered
 local-validation operations for enrollment, preparation, revalidation, close,
-and revocation. Every recipe binds its action request, registration, origin,
-page snapshot, credential handle and generation, Keychain item, session and
-session generation, creation/expiry window, and exact `execute` capability.
+and revocation. Every recipe binds its action request, exactly one
+operation-specific authority ref, registration, origin, page snapshot,
+credential handle and generation, Keychain item, session and session
+generation, creation/expiry window, and exact `execute` capability. A binding
+with no operation ref, the wrong operation ref, or more than one lifecycle
+operation ref is denied before approval or Keychain access.
 The operation still travels through the existing external-action transaction
 kernel:
 
@@ -290,11 +295,13 @@ prepare → PolicyEngine → LocalApprovalAuthority → exact AuthorityLease
 
 The durable session store contains only safe refs, timestamps, posture, and a
 derived state receipt. It never stores credential or web content. Preparation
-creates `prepared_inactive`, not a live browser session. Revalidation can mark
-the record expired; close and revoke are exact terminal transitions. Replay
-does not call Keychain again or return a state projection. A helper exception
-after the durable start claim becomes `outcome_ambiguous` and cannot retry
-automatically.
+creates `prepared_inactive`, not a live browser session, and refuses a recipe
+whose session window has already expired. Revalidation can mark the record
+expired; close and revoke are exact terminal transitions. A deterministic
+missing-credential probe or duplicate store is recorded as failed without
+retry, while uncertain helper failures after the durable start claim become
+`outcome_ambiguous`. Replay does not call Keychain again or return a state
+projection.
 
 This item is a real local macOS Keychain adapter, not real browser
 authentication. There is no browser session, authentication, passkey/MFA

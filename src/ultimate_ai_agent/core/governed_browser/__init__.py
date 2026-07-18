@@ -99,6 +99,7 @@ from .origin_sessions import (
     GovernedBrowserOriginSessionStatus,
     GovernedBrowserOriginSessionStore,
     build_governed_browser_origin_session_recipe,
+    governed_browser_origin_session_operation_authority_ref,
     governed_browser_origin_session_ref,
 )
 from .transaction import (
@@ -198,6 +199,7 @@ __all__ = [
     "create_isolated_browser_action_dry_run_gateway",
     "create_isolated_browser_broker_gateway",
     "governed_browser_keychain_item_ref",
+    "governed_browser_origin_session_operation_authority_ref",
     "governed_browser_origin_session_ref",
     "stable_governed_browser_ref",
 ]

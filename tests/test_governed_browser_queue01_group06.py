@@ -32,6 +32,7 @@ from ultimate_ai_agent.core.governed_browser import (
     GovernedBrowserOriginSessionStore,
     build_governed_browser_credential_registration,
     build_governed_browser_origin_session_recipe,
+    governed_browser_origin_session_operation_authority_ref,
     governed_browser_origin_session_ref,
 )
 from ultimate_ai_agent.core.time import utc_now
@@ -85,6 +86,10 @@ class _FakeKeychain:
                 "GOVERNED_BROWSER_KEYCHAIN_HELPER_EXECUTION_FAILED"
             )
         created = registration.registration_ref not in self.present
+        if not created:
+            raise GovernedBrowserKeychainError(
+                "GOVERNED_BROWSER_KEYCHAIN_ITEM_ALREADY_EXISTS"
+            )
         self.present.add(registration.registration_ref)
         return self._receipt(
             GovernedBrowserKeychainOperation.store,
@@ -152,6 +157,13 @@ def _lifecycle_context(
         tuple[Any, Any],
     ] = {}
     for operation in GovernedBrowserOriginSessionOperation:
+        operation_authority_ref = (
+            governed_browser_origin_session_operation_authority_ref(
+                registration_ref=registration.registration_ref,
+                session_generation_ref=generation_ref,
+                operation=operation,
+            )
+        )
         current = _binding(
             suffix=f"lifecycle-{operation.value}",
             target_kind=target_kind,
@@ -163,6 +175,7 @@ def _lifecycle_context(
                 "field_schema_ref": registration.registration_ref,
                 "resource_refs": [
                     _ref("resource", f"lifecycle-{operation.value}"),
+                    operation_authority_ref,
                     registration.registration_ref,
                     registration.credential_handle_ref,
                     registration.credential_generation_ref,

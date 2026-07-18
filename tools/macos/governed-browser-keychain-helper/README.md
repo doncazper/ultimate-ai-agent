@@ -8,7 +8,9 @@ while the device is unlocked.
 The helper accepts bounded JSON over standard input and emits safe refs and
 posture flags only. Credential material is accepted only by `store`, is never
 returned, and never appears in a helper receipt. `probe` requests attributes
-only; it does not resolve credential material. `delete` is idempotent.
+only; it does not resolve credential material. A duplicate `store` is rejected
+and requires a fresh credential-generation ref; it never reports unwritten
+material as enrolled. `delete` is idempotent.
 
 This helper does not start a browser, authenticate a site, create cookies,
 perform network access, submit a form, grant external-action authority, or

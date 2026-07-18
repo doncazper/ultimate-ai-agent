@@ -12,7 +12,7 @@ _ADAPTER_REL = (
     "src/ultimate_ai_agent/core/governed_browser/browser_keychain.py"
 )
 _ADAPTER_SOURCE_SHA256 = (
-    "daf894902fe4e4d2820876a41575939417589eb6a67e65331a81806f392d84d6"
+    "a380f06e6a3907f9dc65d9db9490e6a17e64a94f0f0420cb515be8326a32fdd7"
 )
 _ALLOWED_SUBPROCESS_ATTRIBUTES = frozenset({"PIPE", "TimeoutExpired", "run"})
 _UNRELATED_FORBIDDEN_MARKERS = (

@@ -15,8 +15,14 @@ from ultimate_ai_agent.core.governed_browser import (
 )
 
 
-def _write_fake_helper(path: Path, *, extra_response_field: bool = False) -> str:
+def _write_fake_helper(
+    path: Path,
+    *,
+    extra_response_field: bool = False,
+    store_created: bool = True,
+) -> str:
     extra = ', "unexpected": true' if extra_response_field else ""
+    created = "True" if store_created else "False"
     source = f"""#!/usr/bin/python3
 import json
 import sys
@@ -49,7 +55,7 @@ if operation != "version":
     ):
         response[name] = request[name]
 if operation == "store":
-    response.update({{"created": True, "present": True}})
+    response.update({{"created": {created}, "present": True}})
 elif operation == "probe":
     response["present"] = True
 elif operation == "delete":
@@ -203,6 +209,24 @@ def test_adapter_rejects_tamper_symlink_invalid_response_and_immutable_buffer(
             credential_material=short,
         )
     assert all(value == 0 for value in short)
+
+    duplicate = tmp_path / "duplicate"
+    duplicate_digest = _write_fake_helper(duplicate, store_created=False)
+    duplicate_adapter = MacOSGovernedBrowserKeychainAdapter(
+        helper_path=duplicate,
+        expected_helper_sha256=duplicate_digest,
+    )
+    duplicate_material = bytearray(range(16))
+    with pytest.raises(
+        GovernedBrowserKeychainError,
+        match="RESPONSE_INVALID",
+    ):
+        duplicate_adapter.store(
+            registration,
+            request_ref="request-ref:governed-browser-keychain:duplicate",
+            credential_material=duplicate_material,
+        )
+    assert all(value == 0 for value in duplicate_material)
 
 
 def test_installer_metadata_is_content_free_exact_and_rejects_unmanaged_pair(

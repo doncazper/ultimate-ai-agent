@@ -97,6 +97,7 @@ private enum HelperFailure: Error {
     case invalidRef
     case invalidCredential
     case bindingMismatch
+    case credentialAlreadyExists
     case keychainLocked
     case keyNotFound
     case keychainStatus(OSStatus)
@@ -107,6 +108,7 @@ private enum HelperFailure: Error {
         case .invalidRef: return "HELPER_REF_INVALID"
         case .invalidCredential: return "HELPER_CREDENTIAL_INVALID"
         case .bindingMismatch: return "HELPER_BINDING_MISMATCH"
+        case .credentialAlreadyExists: return "HELPER_CREDENTIAL_ALREADY_EXISTS"
         case .keychainLocked: return "HELPER_KEYCHAIN_LOCKED"
         case .keyNotFound: return "HELPER_KEY_NOT_FOUND"
         case .keychainStatus(let status):
@@ -226,7 +228,7 @@ private func storeItem(
         credentialHandleRef: credentialHandleRef,
         credentialGenerationRef: credentialGenerationRef
     ) {
-        return false
+        throw HelperFailure.credentialAlreadyExists
     }
     var query = baseQuery(
         originRef: originRef,
@@ -237,7 +239,9 @@ private func storeItem(
     query[kSecAttrLabel as String] = "UAA governed browser credential handle"
     query[kSecValueData as String] = material
     let status = SecItemAdd(query as CFDictionary, nil)
-    if status == errSecDuplicateItem { return false }
+    if status == errSecDuplicateItem {
+        throw HelperFailure.credentialAlreadyExists
+    }
     guard status == errSecSuccess else { throw HelperFailure.keychainStatus(status) }
     return true
 }

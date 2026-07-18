@@ -20,7 +20,10 @@ from ultimate_ai_agent.core.planning.validation import (
 from ultimate_ai_agent.core.time import utc_now
 
 from .browser_keychain import (
+    GOVERNED_BROWSER_KEYCHAIN_ITEM_ALREADY_EXISTS,
+    GOVERNED_BROWSER_KEYCHAIN_ITEM_NOT_FOUND,
     GovernedBrowserCredentialRegistration,
+    GovernedBrowserKeychainError,
     GovernedBrowserKeychainOperationReceipt,
 )
 from .contracts import (
@@ -112,6 +115,30 @@ def governed_browser_origin_session_ref(
     )
 
 
+def governed_browser_origin_session_operation_authority_ref(
+    *,
+    registration_ref: str,
+    session_generation_ref: str,
+    operation: GovernedBrowserOriginSessionOperation,
+) -> str:
+    """Derive the one lifecycle operation that an exact binding authorizes."""
+
+    for value, label in (
+        (registration_ref, "registration_ref"),
+        (session_generation_ref, "session_generation_ref"),
+    ):
+        validate_task_ref(value, label)
+    exact_operation = GovernedBrowserOriginSessionOperation(operation)
+    return stable_governed_browser_ref(
+        "browser-origin-session-operation-authority-ref:governed-browser",
+        {
+            "registration_ref": registration_ref,
+            "session_generation_ref": session_generation_ref,
+            "operation": exact_operation.value,
+        },
+    )
+
+
 class GovernedBrowserOriginSessionRecipe(BaseModel):
     """One immutable operation bound to one exact external-action request."""
 
@@ -120,6 +147,7 @@ class GovernedBrowserOriginSessionRecipe(BaseModel):
     ] = "uaa-governed-browser-origin-session-recipe.v1"
     recipe_ref: str = Field(..., min_length=1, max_length=240)
     operation: GovernedBrowserOriginSessionOperation
+    operation_authority_ref: str = Field(..., min_length=1, max_length=240)
     binding_ref: str = Field(..., min_length=1, max_length=240)
     registration_ref: str = Field(..., min_length=1, max_length=240)
     origin_ref: str = Field(..., min_length=1, max_length=240)
@@ -159,6 +187,7 @@ class GovernedBrowserOriginSessionRecipe(BaseModel):
     def validate_recipe(self) -> "GovernedBrowserOriginSessionRecipe":
         for value, label in (
             (self.recipe_ref, "recipe_ref"),
+            (self.operation_authority_ref, "operation_authority_ref"),
             (self.binding_ref, "binding_ref"),
             (self.registration_ref, "registration_ref"),
             (self.origin_ref, "origin_ref"),
@@ -170,6 +199,17 @@ class GovernedBrowserOriginSessionRecipe(BaseModel):
             (self.session_generation_ref, "session_generation_ref"),
         ):
             validate_task_ref(value, label)
+        expected_operation_authority_ref = (
+            governed_browser_origin_session_operation_authority_ref(
+                registration_ref=self.registration_ref,
+                session_generation_ref=self.session_generation_ref,
+                operation=GovernedBrowserOriginSessionOperation(self.operation),
+            )
+        )
+        if self.operation_authority_ref != expected_operation_authority_ref:
+            raise ValueError(
+                "GOVERNED_BROWSER_ORIGIN_SESSION_OPERATION_AUTHORITY_REF_MISMATCH"
+            )
         if self.created_at.tzinfo is None or self.expires_at.tzinfo is None:
             raise ValueError("GOVERNED_BROWSER_ORIGIN_SESSION_TIMEZONE_REQUIRED")
         if (
@@ -235,7 +275,27 @@ def build_governed_browser_origin_session_recipe(
         registration_ref=registration.registration_ref,
         session_generation_ref=session_generation_ref,
     )
+    operation_authority_ref = (
+        governed_browser_origin_session_operation_authority_ref(
+            registration_ref=registration.registration_ref,
+            session_generation_ref=session_generation_ref,
+            operation=operation,
+        )
+    )
+    bound_operation_refs = tuple(
+        ref
+        for ref in binding.resource_refs
+        if ref.startswith(
+            "browser-origin-session-operation-authority-ref:"
+            "governed-browser:"
+        )
+    )
+    if bound_operation_refs != (operation_authority_ref,):
+        raise ValueError(
+            "GOVERNED_BROWSER_ORIGIN_SESSION_OPERATION_AUTHORITY_MISMATCH"
+        )
     required_resources = {
+        operation_authority_ref,
         registration.registration_ref,
         registration.credential_handle_ref,
         registration.credential_generation_ref,
@@ -249,6 +309,7 @@ def build_governed_browser_origin_session_recipe(
         )
     payload = {
         "operation": operation,
+        "operation_authority_ref": operation_authority_ref,
         "binding_ref": binding.binding_ref,
         "registration_ref": registration.registration_ref,
         "origin_ref": registration.origin_ref,
@@ -435,6 +496,10 @@ class GovernedBrowserOriginSessionStore:
         operation_ref: str,
         now: datetime,
     ) -> GovernedBrowserOriginSessionRecord:
+        if now >= recipe.expires_at:
+            raise GovernedBrowserOriginSessionStateConflict(
+                "GOVERNED_BROWSER_ORIGIN_SESSION_PREPARE_EXPIRED"
+            )
         scope_fingerprint_ref = _session_scope_fingerprint_ref(recipe)
         with self._lock, self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
@@ -787,6 +852,26 @@ class ExactGovernedBrowserOriginSessionService:
             _zeroize_optional(credential_material)
             return _preflight_blocked(request, scope_reason, recipe=recipe)
         operation = GovernedBrowserOriginSessionOperation(recipe.operation)
+        if credential_material is not None and not isinstance(
+            credential_material, bytearray
+        ):
+            return _preflight_blocked(
+                request,
+                "reason-ref:governed-browser-origin-session:"
+                "credential-mutable-buffer-required",
+                recipe=recipe,
+            )
+        if (
+            operation == GovernedBrowserOriginSessionOperation.prepare_session
+            and self._clock() >= recipe.expires_at
+        ):
+            _zeroize_optional(credential_material)
+            return _preflight_blocked(
+                request,
+                "reason-ref:governed-browser-origin-session:"
+                "prepare-session-expired",
+                recipe=recipe,
+            )
         if operation == GovernedBrowserOriginSessionOperation.enroll_credential:
             if credential_material is None:
                 return _preflight_blocked(
@@ -881,6 +966,26 @@ class ExactGovernedBrowserOriginSessionService:
                         operation_ref=operation_ref,
                         now=self._clock(),
                     )
+            except GovernedBrowserKeychainError as exc:
+                if str(exc) not in {
+                    GOVERNED_BROWSER_KEYCHAIN_ITEM_ALREADY_EXISTS,
+                    GOVERNED_BROWSER_KEYCHAIN_ITEM_NOT_FOUND,
+                }:
+                    raise
+                return ExternalActionDispatchResult(
+                    outcome=ExternalActionDispatchOutcome.failed,
+                    evidence_refs=[
+                        stable_governed_browser_ref(
+                            "evidence-ref:governed-browser-origin-session:"
+                            "keychain-precondition-failed",
+                            {
+                                "operation_ref": operation_ref,
+                                "reason_code": str(exc),
+                            },
+                        )
+                    ],
+                    verified=False,
+                )
             except GovernedBrowserOriginSessionStateConflict:
                 conflict_evidence_refs = [
                     stable_governed_browser_ref(
@@ -967,6 +1072,7 @@ def _recipe_scope_reason(
 ) -> str | None:
     binding = request.binding
     required_resources = {
+        recipe.operation_authority_ref,
         registration.registration_ref,
         registration.credential_handle_ref,
         registration.credential_generation_ref,
@@ -974,6 +1080,14 @@ def _recipe_scope_reason(
         recipe.session_ref,
         recipe.session_generation_ref,
     }
+    bound_operation_refs = tuple(
+        ref
+        for ref in binding.resource_refs
+        if ref.startswith(
+            "browser-origin-session-operation-authority-ref:"
+            "governed-browser:"
+        )
+    )
     checks = (
         (
             recipe.binding_ref == binding.binding_ref,
@@ -998,6 +1112,11 @@ def _recipe_scope_reason(
             binding.authority_capability == AuthorityCapability.execute.value,
             "reason-ref:governed-browser-origin-session:"
             "capability-mismatch",
+        ),
+        (
+            bound_operation_refs == (recipe.operation_authority_ref,),
+            "reason-ref:governed-browser-origin-session:"
+            "operation-authority-mismatch",
         ),
         (
             required_resources.issubset(set(binding.resource_refs)),
@@ -1214,8 +1333,8 @@ def _build_operation_receipt(
     )
 
 
-def _zeroize_optional(value: bytearray | None) -> None:
-    if value is None:
+def _zeroize_optional(value: object | None) -> None:
+    if not isinstance(value, bytearray):
         return
     for index in range(len(value)):
         value[index] = 0

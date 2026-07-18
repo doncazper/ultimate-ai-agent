@@ -39,6 +39,12 @@ GOVERNED_BROWSER_KEYCHAIN_HELPER_MAX_OUTPUT_BYTES = 32 * 1024
 GOVERNED_BROWSER_KEYCHAIN_HELPER_MAX_EXECUTABLE_BYTES = 32 * 1024 * 1024
 GOVERNED_BROWSER_CREDENTIAL_MIN_BYTES = 16
 GOVERNED_BROWSER_CREDENTIAL_MAX_BYTES = 4 * 1024
+GOVERNED_BROWSER_KEYCHAIN_ITEM_ALREADY_EXISTS = (
+    "GOVERNED_BROWSER_KEYCHAIN_ITEM_ALREADY_EXISTS"
+)
+GOVERNED_BROWSER_KEYCHAIN_ITEM_NOT_FOUND = (
+    "GOVERNED_BROWSER_KEYCHAIN_ITEM_NOT_FOUND"
+)
 
 
 class GovernedBrowserKeychainError(RuntimeError):
@@ -261,7 +267,7 @@ class GovernedBrowserKeychainOperationReceipt(BaseModel):
         ):
             validate_task_ref(value, label)
         if self.operation == GovernedBrowserKeychainOperation.store.value:
-            if self.created is None or self.present is not True:
+            if self.created is not True or self.present is not True:
                 raise ValueError("GOVERNED_BROWSER_KEYCHAIN_STORE_RECEIPT_INVALID")
         elif self.operation == GovernedBrowserKeychainOperation.probe.value:
             if self.created is not None or self.present is not True:
@@ -332,7 +338,7 @@ class _HelperResponse(BaseModel):
             ):
                 raise ValueError("GOVERNED_BROWSER_KEYCHAIN_HELPER_SCOPE_REQUIRED")
             if self.operation == "store" and (
-                self.created is None or self.present is not True
+                self.created is not True or self.present is not True
             ):
                 raise ValueError("GOVERNED_BROWSER_KEYCHAIN_HELPER_STORE_INVALID")
             if self.operation == "probe" and self.present is not True:
@@ -692,7 +698,11 @@ class MacOSGovernedBrowserKeychainAdapter:
             )
         if response.error_code == "HELPER_KEY_NOT_FOUND":
             raise GovernedBrowserKeychainError(
-                "GOVERNED_BROWSER_KEYCHAIN_ITEM_NOT_FOUND"
+                GOVERNED_BROWSER_KEYCHAIN_ITEM_NOT_FOUND
+            )
+        if response.error_code == "HELPER_CREDENTIAL_ALREADY_EXISTS":
+            raise GovernedBrowserKeychainError(
+                GOVERNED_BROWSER_KEYCHAIN_ITEM_ALREADY_EXISTS
             )
         raise GovernedBrowserKeychainError(
             "GOVERNED_BROWSER_KEYCHAIN_HELPER_OPERATION_FAILED"

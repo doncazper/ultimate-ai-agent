@@ -52,6 +52,10 @@ def verify() -> list[str]:
     tests = "\n".join(
         (
             _read("tests/test_governed_browser_queue01_group06.py", failures),
+            _read(
+                "tests/test_governed_browser_queue01_group06_review_repairs.py",
+                failures,
+            ),
             _read("tests/test_governed_browser_keychain_adapter.py", failures),
         )
     )
@@ -70,6 +74,7 @@ def verify() -> list[str]:
             "GOVERNED_BROWSER_KEYCHAIN_HELPER_MAX_INPUT_BYTES",
             "GOVERNED_BROWSER_KEYCHAIN_HELPER_MAX_OUTPUT_BYTES",
             "GOVERNED_BROWSER_KEYCHAIN_HELPER_COPY_FINGERPRINT_MISMATCH",
+            "GOVERNED_BROWSER_KEYCHAIN_ITEM_ALREADY_EXISTS",
             "credential_material_returned: Literal[False]",
             "browser_session_started: Literal[False]",
             "authentication_performed: Literal[False]",
@@ -91,6 +96,7 @@ def verify() -> list[str]:
             "budget_reservation_required: Literal[True]",
             "readiness_revalidation_required: Literal[True]",
             "human_presence_required: Literal[True]",
+            "operation_authority_ref",
             "per_origin_isolation_required: Literal[True]",
             "browser_session_start_allowed: Literal[False]",
             "authentication_allowed: Literal[False]",
@@ -116,6 +122,7 @@ def verify() -> list[str]:
             "networkCallPerformed = false",
             "externalMutationPerformed = false",
             "executionAuthorityGranted = false",
+            "HELPER_CREDENTIAL_ALREADY_EXISTS",
         ),
         "helper_readme": (
             "opaque",
@@ -147,6 +154,11 @@ def verify() -> list[str]:
             "test_lifecycle_revalidation_denies_before_keychain",
             "test_scope_drift_external_target_and_helper_failure_fail_closed",
             "test_revoke_state_conflict_after_keychain_delete_is_ambiguous_and_no_retry",
+            "test_lifecycle_approval_scope_binds_exactly_one_operation",
+            "test_expired_prepare_is_blocked_before_keychain_or_state_write",
+            "test_service_rejects_immutable_credential_buffer_without_masking_result",
+            "test_missing_credential_probe_is_failed_not_ambiguous_and_not_retried",
+            "test_native_helper_rejects_duplicate_stores",
             "test_installer_metadata_is_content_free_exact_and_rejects_unmanaged_pair",
         ),
         "doc": (
