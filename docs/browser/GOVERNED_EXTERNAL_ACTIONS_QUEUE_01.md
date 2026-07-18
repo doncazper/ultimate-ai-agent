@@ -206,12 +206,14 @@ route, UI control, or real external target.
 `GovernedPostFormSchema` is a content-derived, immutable registry entry. It
 contains no raw field name, default value, or form content. The schema binds
 the exact authority origin, page snapshot, prior untrusted observation,
-source/destination safe URL refs, visible form element and proof, up to sixteen
+source/destination safe URL refs, visible form element and proof, up to five
 safe `form-field-ref:` definitions, per-field encoded-byte ceilings, one total
 byte ceiling, the exact `POST` method, and the
 `application/x-www-form-urlencoded` encoding. Cross-origin destinations,
 duplicate fields, unknown encodings, multipart content, and unregistered
-schema refs fail closed.
+schema refs fail closed. Five is the maximum fully populated field count that
+fits the authority binding's sixteen-resource ceiling after the five fixed
+observation, URL, element, and visibility-proof resources are bound.
 
 `GovernedPostFormRecipe` is registered separately and binds that schema to one
 exact external-action authority binding and an exact field-to-opaque-value map.

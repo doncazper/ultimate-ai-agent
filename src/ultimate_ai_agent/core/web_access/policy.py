@@ -439,6 +439,18 @@ def _browser_action_dry_run_capability_reasons(request: WebAccessRequest) -> tup
             "request_body_materialization",
             "browser_action_dry_run_request_body_materialization_denied",
         ),
+        (
+            "form_submission_performed",
+            "browser_action_dry_run_form_submission_performed_denied",
+        ),
+        (
+            "field_values_resolved",
+            "browser_action_dry_run_field_values_resolved_denied",
+        ),
+        (
+            "request_body_materialized",
+            "browser_action_dry_run_request_body_materialized_denied",
+        ),
         ("screenshot", "browser_action_dry_run_screenshot_denied"),
         ("raw_dom", "browser_action_dry_run_raw_dom_denied"),
         ("uses_auth", "browser_action_dry_run_authenticated_profile_denied"),
