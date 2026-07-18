@@ -47,6 +47,7 @@ from ultimate_ai_agent.core.gate.evaluator_registry import evaluator_registry
 from ultimate_ai_agent.core.gate.evaluators import (
     FoundationGateEvaluator,
     GOVERNED_RUNTIME_COMMAND_ADAPTER_STATIC_SCAN_ALLOWED_FILES,
+    MACOS_DISTRIBUTION_EXACT_ADAPTER_FILES,
     STATIC_SAFETY_EVALUATOR_DATA_FILES,
     STATIC_SAFETY_EVALUATOR_DATA_PREFIXES,
     _is_static_safety_scan_allowed_file,
@@ -376,6 +377,11 @@ def test_static_safety_evaluator_data_exemption_is_scoped() -> None:
         "src/ultimate_ai_agent/core/gate/criteria_families/cross_release_docs.py",
     }
     command_adapter_file = "src/ultimate_ai_agent/core/runtime_gateway/command.py"
+    macos_distribution_adapter_files = {
+        "src/ultimate_ai_agent/distribution/macos/github_releases.py",
+        "src/ultimate_ai_agent/distribution/macos/installer.py",
+        "src/ultimate_ai_agent/distribution/macos/runtime.py",
+    }
 
     assert STATIC_SAFETY_EVALUATOR_DATA_FILES == frozenset(
         {
@@ -395,6 +401,9 @@ def test_static_safety_evaluator_data_exemption_is_scoped() -> None:
     assert GOVERNED_RUNTIME_COMMAND_ADAPTER_STATIC_SCAN_ALLOWED_FILES == frozenset(
         {command_adapter_file}
     )
+    assert MACOS_DISTRIBUTION_EXACT_ADAPTER_FILES == frozenset(
+        macos_distribution_adapter_files
+    )
     assert _is_static_safety_scan_allowed_file(criteria_file, frozenset())
     assert _is_static_safety_scan_allowed_file(evaluator_facade_file, frozenset())
     assert _is_static_safety_scan_allowed_file(legacy_checks_file, frozenset())
@@ -413,6 +422,11 @@ def test_static_safety_evaluator_data_exemption_is_scoped() -> None:
         frozenset(),
     )
     assert _is_static_safety_scan_allowed_file(command_adapter_file, frozenset())
+    for distribution_adapter_file in macos_distribution_adapter_files:
+        assert _is_static_safety_scan_allowed_file(
+            distribution_adapter_file,
+            frozenset(),
+        )
     assert not _is_static_safety_scan_allowed_file(
         "src/ultimate_ai_agent/core/evidence_signing/macos_keychain.py",
         frozenset(),

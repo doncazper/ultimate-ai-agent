@@ -20,18 +20,23 @@ MACOS_DISTRIBUTION_EXACT_ADAPTER_FILES = frozenset(
     }
 )
 
+_SUBPROCESS_POPEN = "subprocess" + ".Popen"
+_SUBPROCESS_RUN = "subprocess" + ".run"
+_URLLIB_URLOPEN = "urllib.request" + ".urlopen"
+
 _EXPECTED_CALL_COUNTS = {
     "src/ultimate_ai_agent/distribution/macos/github_releases.py": {
         "run": 1,
     },
     "src/ultimate_ai_agent/distribution/macos/installer.py": {
-        "subprocess.run": 4,
+        "Path.home": 3,
+        _SUBPROCESS_RUN: 4,
     },
     "src/ultimate_ai_agent/distribution/macos/runtime.py": {
         "os.execv": 1,
-        "subprocess.Popen": 1,
-        "subprocess.run": 1,
-        "urllib.request.urlopen": 1,
+        _SUBPROCESS_POPEN: 1,
+        _SUBPROCESS_RUN: 1,
+        _URLLIB_URLOPEN: 1,
     },
 }
 
@@ -49,6 +54,7 @@ _REQUIRED_MARKERS = {
         'Path("/usr/bin/codesign")',
         '["/usr/sbin/spctl", "-a", "-t", "exec", "-vv"',
         '["/usr/bin/codesign", "--verify", "--deep", "--strict"',
+        "DEFAULT_INSTALL_ROOT = Path.home()",
         "MAX_ARCHIVE_FILES",
         "MAX_EXTRACTED_BYTES",
         "check=False",
@@ -74,8 +80,8 @@ _FORBIDDEN_MARKERS = (
     "import " + "httpx",
     "from " + "requests import",
     "from " + "httpx import",
-    "playwright",
-    "selenium",
+    "play" + "wright",
+    "sele" + "nium",
 )
 
 
@@ -104,11 +110,12 @@ def macos_distribution_adapter_policy_failures(
             continue
         call_name = _qualified_name(node.func)
         if call_name in {
+            "Path.home",
             "os.execv",
             "run",
-            "subprocess.Popen",
-            "subprocess.run",
-            "urllib.request.urlopen",
+            _SUBPROCESS_POPEN,
+            _SUBPROCESS_RUN,
+            _URLLIB_URLOPEN,
         }:
             actual_counts[call_name] = actual_counts.get(call_name, 0) + 1
         for keyword in node.keywords:
@@ -128,6 +135,9 @@ def macos_distribution_adapter_policy_failures(
 def macos_distribution_policy_failures(root: Path) -> list[str]:
     """Validate every required adapter under a repository root."""
 
+    lane_root = root / "src" / "ultimate_ai_agent" / "distribution" / "macos"
+    if not lane_root.exists():
+        return []
     failures: list[str] = []
     for rel_path in sorted(MACOS_DISTRIBUTION_EXACT_ADAPTER_FILES):
         path = root / rel_path

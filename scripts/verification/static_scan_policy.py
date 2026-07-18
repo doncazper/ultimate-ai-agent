@@ -13,6 +13,14 @@ ROOT = Path(__file__).resolve().parents[2]
 WEB_HYBRID_POLICY_PATH = (
     ROOT / "src" / "ultimate_ai_agent" / "core" / "gate" / "web_hybrid_static_policy.py"
 )
+MACOS_DISTRIBUTION_POLICY_PATH = (
+    ROOT
+    / "src"
+    / "ultimate_ai_agent"
+    / "distribution"
+    / "macos"
+    / "static_policy.py"
+)
 STATIC_SAFETY_EVALUATOR_DATA_FILES = frozenset(
     {
         "src/ultimate_ai_agent/core/gate/criteria.py",
@@ -90,10 +98,26 @@ def _load_web_hybrid_policy() -> ModuleType:
     return module
 
 
+def _load_macos_distribution_policy() -> ModuleType:
+    spec = importlib.util.spec_from_file_location(
+        "_uaa_macos_distribution_static_policy",
+        MACOS_DISTRIBUTION_POLICY_PATH,
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError("macOS distribution static policy could not be loaded")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 _WEB_HYBRID_POLICY = _load_web_hybrid_policy()
 WEB_HYBRID_EXACT_ADAPTER_FILES = _WEB_HYBRID_POLICY.WEB_HYBRID_EXACT_ADAPTER_FILES
 _is_web_hybrid_promoted_static_fragment = (
     _WEB_HYBRID_POLICY._is_web_hybrid_promoted_static_fragment
+)
+_MACOS_DISTRIBUTION_POLICY = _load_macos_distribution_policy()
+MACOS_DISTRIBUTION_EXACT_ADAPTER_FILES = (
+    _MACOS_DISTRIBUTION_POLICY.MACOS_DISTRIBUTION_EXACT_ADAPTER_FILES
 )
 
 
@@ -106,6 +130,7 @@ def is_static_gate_scan_allowed_file(
         or rel_path in STATIC_SAFETY_EVALUATOR_DATA_FILES
         or rel_path.startswith(STATIC_SAFETY_EVALUATOR_DATA_PREFIXES)
         or rel_path in GOVERNED_RUNTIME_COMMAND_ADAPTER_STATIC_SCAN_ALLOWED_FILES
+        or rel_path in MACOS_DISTRIBUTION_EXACT_ADAPTER_FILES
     )
 
 

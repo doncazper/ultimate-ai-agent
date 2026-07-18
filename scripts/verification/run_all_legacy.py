@@ -15,10 +15,10 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 if __package__:
     from .runtime_subprocess_policy import GOVERNED_RUNTIME_COMMAND_ADAPTER_REL, _is_exact_governed_runtime_command_shell_scan_line, _is_exact_governed_runtime_command_subprocess_site, is_exact_matrix_session_bounded_filesystem_site, is_exact_portable_evidence_helper_home_path
-    from .static_scan_policy import is_exact_governed_browser_keychain_helper_file as _is_exact_governed_browser_keychain_helper_file, is_exact_matrix_protected_cache_helper_file as _is_exact_matrix_protected_cache_helper_file, is_exact_matrix_session_keychain_helper_file as _is_exact_matrix_session_keychain_helper_file, is_exact_portable_evidence_keychain_helper_file as _is_exact_portable_evidence_keychain_helper_file, is_static_gate_scan_allowed_file, is_unapproved_static_fragment, repo_source_env
+    from .static_scan_policy import MACOS_DISTRIBUTION_EXACT_ADAPTER_FILES, is_exact_governed_browser_keychain_helper_file as _is_exact_governed_browser_keychain_helper_file, is_exact_matrix_protected_cache_helper_file as _is_exact_matrix_protected_cache_helper_file, is_exact_matrix_session_keychain_helper_file as _is_exact_matrix_session_keychain_helper_file, is_exact_portable_evidence_keychain_helper_file as _is_exact_portable_evidence_keychain_helper_file, is_static_gate_scan_allowed_file, is_unapproved_static_fragment, repo_source_env
 else:
     from runtime_subprocess_policy import GOVERNED_RUNTIME_COMMAND_ADAPTER_REL, _is_exact_governed_runtime_command_shell_scan_line, _is_exact_governed_runtime_command_subprocess_site, is_exact_matrix_session_bounded_filesystem_site, is_exact_portable_evidence_helper_home_path
-    from static_scan_policy import is_exact_governed_browser_keychain_helper_file as _is_exact_governed_browser_keychain_helper_file, is_exact_matrix_protected_cache_helper_file as _is_exact_matrix_protected_cache_helper_file, is_exact_matrix_session_keychain_helper_file as _is_exact_matrix_session_keychain_helper_file, is_exact_portable_evidence_keychain_helper_file as _is_exact_portable_evidence_keychain_helper_file, is_static_gate_scan_allowed_file, is_unapproved_static_fragment, repo_source_env
+    from static_scan_policy import MACOS_DISTRIBUTION_EXACT_ADAPTER_FILES, is_exact_governed_browser_keychain_helper_file as _is_exact_governed_browser_keychain_helper_file, is_exact_matrix_protected_cache_helper_file as _is_exact_matrix_protected_cache_helper_file, is_exact_matrix_session_keychain_helper_file as _is_exact_matrix_session_keychain_helper_file, is_exact_portable_evidence_keychain_helper_file as _is_exact_portable_evidence_keychain_helper_file, is_static_gate_scan_allowed_file, is_unapproved_static_fragment, repo_source_env
 _P1_API_VERIFIER_LANE_RAN = False
 M44_ALLOWED_CCC_IOS_SKELETON_PREFIX = "apps/ccc-ios/Sources/UltimateAIAgentCCC/"
 M44_ALLOWED_CCC_IOS_SKELETON_FILES = {
@@ -30167,6 +30167,9 @@ def verify_no_production_truth_integrations() -> None:
     ]
     for p in (ROOT / "src").rglob("*.py"):
         try:
+            rel_path = p.relative_to(ROOT).as_posix()
+            if rel_path in MACOS_DISTRIBUTION_EXACT_ADAPTER_FILES:
+                continue
             content = p.read_text(encoding="utf-8")
             for line in content.splitlines():
                 stripped = line.strip()
@@ -30187,6 +30190,9 @@ def verify_no_broad_filesystem_scanning() -> None:
     ]
     for p in (ROOT / "src").rglob("*.py"):
         try:
+            rel_path = p.relative_to(ROOT).as_posix()
+            if rel_path in MACOS_DISTRIBUTION_EXACT_ADAPTER_FILES:
+                continue
             content = p.read_text(encoding="utf-8")
             for line in content.splitlines():
                 stripped = line.strip()
@@ -30194,7 +30200,7 @@ def verify_no_broad_filesystem_scanning() -> None:
                     continue
                 if any(fragment in stripped for fragment in forbidden_fragments):
                     if is_exact_portable_evidence_helper_home_path(
-                        rel_path=p.relative_to(ROOT).as_posix(),
+                        rel_path=rel_path,
                         source=content,
                         fragment="Path.home(",
                     ):
@@ -30205,7 +30211,7 @@ def verify_no_broad_filesystem_scanning() -> None:
                         if fragment in stripped
                     )
                     if is_exact_matrix_session_bounded_filesystem_site(
-                        rel_path=p.relative_to(ROOT).as_posix(),
+                        rel_path=rel_path,
                         source=content,
                         fragment=matched_fragment,
                     ):

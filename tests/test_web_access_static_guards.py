@@ -65,6 +65,11 @@ TEMPORARY_BASELINE_EXCEPTIONS = {
         "scope=approved GitHub release bootstrap plus localhost probes only; "
         "authority=not_agent_public_web; migration=keep outside agent web access"
     ),
+    "scripts/macos/verify_installer_e2e.py": (
+        "lane=macos_distribution_e2e; "
+        "scope=isolated loopback probes for the packaged app lifecycle only; "
+        "authority=not_agent_public_web; migration=keep in release verification"
+    ),
     "scripts/run_local_runtime_packaging_proof.py": (
         "lane=local_runtime_packaging_proof; "
         "scope=localhost packaging proof probes only; "
@@ -104,6 +109,16 @@ TEMPORARY_BASELINE_EXCEPTIONS = {
         "lane=tiny_exact_approved_provider_invocation; "
         "scope=one provider/model scoped live adapter after exact approval and CostGovernor; "
         "authority=not_agent_public_web; migration=provider-runtime scoped adapter"
+    ),
+    "src/ultimate_ai_agent/distribution/macos/github_releases.py": (
+        "lane=macos_distribution_catalog; "
+        "scope=private GitHub Release metadata and exact release assets only; "
+        "authority=not_agent_public_web; migration=retain in distribution boundary"
+    ),
+    "src/ultimate_ai_agent/distribution/macos/runtime.py": (
+        "lane=macos_distribution_loopback_runtime; "
+        "scope=fixed loopback health and protected API readiness probes only; "
+        "authority=not_agent_public_web; migration=retain in distribution boundary"
     ),
 }
 
